@@ -252,7 +252,7 @@ No private top-level function or class definition is declared in this file.
 - [[Reference/Modules/learnloop/figures/prefetch|learnloop.figures.prefetch]] — imports `Clock`, `SystemClock`, `utc_now_iso`; statically calls `SystemClock`, `utc_now_iso`
 - [[Reference/Modules/learnloop/figures/rich|learnloop.figures.rich]] — imports `Clock`, `utc_now_iso`; statically calls `utc_now_iso`
 - [[Reference/Modules/learnloop/figures/routes|learnloop.figures.routes]] — imports `Clock`
-- [[Reference/Modules/learnloop/figures/service|learnloop.figures.service]] — imports `Clock`, `utc_now_iso`; statically calls `utc_now_iso`
+- [[Reference/Modules/learnloop/figures/service|learnloop.figures.service]] — imports `Clock`, `SystemClock`, `utc_now_iso`; statically calls `SystemClock`, `utc_now_iso`
 - [[Reference/Modules/learnloop/goals/certification_cold_probe|learnloop.goals.certification_cold_probe]] — imports `Clock`, `SystemClock`, `parse_utc`, `utc_now_iso`; statically calls `SystemClock`, `parse_utc`, `utc_now_iso`
 - [[Reference/Modules/learnloop/goals/exam_pool|learnloop.goals.exam_pool]] — imports `Clock`, `SystemClock`, `utc_now_iso`; statically calls `SystemClock`, `utc_now_iso`
 - [[Reference/Modules/learnloop/goals/exam_seeding|learnloop.goals.exam_seeding]] — imports `FrozenClock`; statically calls `FrozenClock`
@@ -998,6 +998,10 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_manual_override_forces_followup_when_gate_silent`
   - `test_negative_surprise_followup_stops_forcing_after_followup_attempt`
   - `test_negative_surprise_inserts_followup_when_item_exists`
+- [tests/test_followups_batch6_prefetch_decided_once.py](../../../../../tests/test_followups_batch6_prefetch_decided_once.py) — direct import
+- [tests/test_followups_batch6_verify_fixes.py](../../../../../tests/test_followups_batch6_verify_fixes.py) — direct import
+  - `test_v1_only_todays_plan_holds_an_item`
+  - `test_v1_the_open_items_are_the_plan_records_own`
 - [tests/test_forecast_ledger.py](../../../../../tests/test_forecast_ledger.py) — direct import
   - `test_do_nothing_forecast_is_censored_when_scope_was_practiced`
   - `test_pace_forecast_resolves_on_first_pass_beyond_horizon`

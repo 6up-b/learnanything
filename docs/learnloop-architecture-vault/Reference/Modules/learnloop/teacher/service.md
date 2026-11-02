@@ -231,6 +231,10 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_f2_the_recap_stays_when_protection_moved_elsewhere`
 - [tests/test_followups_batch5_recap_protection.py](../../../../../../tests/test_followups_batch5_recap_protection.py) — direct import
   - `test_an_item_the_earlier_lesson_was_shown_now_reserved_for_an_exam_drops_its_recap`
+- [tests/test_followups_batch6_review_fixes.py](../../../../../../tests/test_followups_batch6_review_fixes.py) — direct import
+  - `test_f3_the_cli_labels_the_r_cold_comparison_with_observed_cold_outcomes`
+- [tests/test_followups_batch6_router_report.py](../../../../../../tests/test_followups_batch6_router_report.py) — direct import
+  - `test_router_report_prints_the_split_from_the_ledgers_read_only`
 - [tests/test_followups_nov2_figure_provenance.py](../../../../../../tests/test_followups_nov2_figure_provenance.py) — direct import
   - `test_a_lesson_figure_keeps_its_record_and_is_rechecked_by_its_learner_inputs`
 - [tests/test_reader_rw5d_p4b_teacher_visuals.py](../../../../../../tests/test_reader_rw5d_p4b_teacher_visuals.py) — direct import

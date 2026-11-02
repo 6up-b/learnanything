@@ -203,6 +203,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_facet_reword_paths.py](../../../../../../tests/test_facet_reword_paths.py) — direct import
 - [tests/test_facet_rewords.py](../../../../../../tests/test_facet_rewords.py) — direct import
 - [tests/test_figures_help.py](../../../../../../tests/test_figures_help.py) — direct import
+- [tests/test_followups_batch6_verify_fixes.py](../../../../../../tests/test_followups_batch6_verify_fixes.py) — direct import
+  - `test_v2_an_offer_from_the_learners_own_question_carries_learner_activity`
 - [tests/test_followups_nov2_help_fold.py](../../../../../../tests/test_followups_nov2_help_fold.py) — direct import
 - [tests/test_goal_scope_material.py](../../../../../../tests/test_goal_scope_material.py) — direct import
 - [tests/test_graph_editor_reads.py](../../../../../../tests/test_graph_editor_reads.py) — direct import

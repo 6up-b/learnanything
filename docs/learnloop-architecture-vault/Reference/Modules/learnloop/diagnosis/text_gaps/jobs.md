@@ -213,6 +213,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_figures_switch_off.py](../../../../../../../tests/test_figures_switch_off.py) — direct import
   - `test_an_already_queued_figure_job_with_figures_off_is_the_base_output`
   - `test_figures_off_queues_and_reads_no_figure_text`
+- [tests/test_followups_batch6_verify_fixes.py](../../../../../../../tests/test_followups_batch6_verify_fixes.py) — direct import
+  - `test_v2_deferred_gap_drains_fire_passes_that_never_retry_a_plan_wait`
 - [tests/test_followups_nov2_note_gap_unlinked.py](../../../../../../../tests/test_followups_nov2_note_gap_unlinked.py) — direct import
   - `test_a_note_changed_into_a_new_snapshot_sets_the_old_snapshots_gap_aside`
   - `test_a_note_linked_while_the_retraction_runs_keeps_its_gap`

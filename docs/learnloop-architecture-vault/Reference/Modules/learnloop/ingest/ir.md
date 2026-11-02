@@ -170,6 +170,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_exam_protection_identity.py](../../../../../../tests/test_exam_protection_identity.py) — direct import
 - [tests/test_facet_reword_confirm.py](../../../../../../tests/test_facet_reword_confirm.py) — direct import
 - [tests/test_figures_prefetch.py](../../../../../../tests/test_figures_prefetch.py) — direct import
+- [tests/test_followups_batch6_prefetch_next_section.py](../../../../../../tests/test_followups_batch6_prefetch_next_section.py) — direct import
 - [tests/test_glm_ocr.py](../../../../../../tests/test_glm_ocr.py) — direct import
   - `test_auto_falls_back_on_a_glm_failure_but_never_past_a_refusal`
   - `test_regions_map_to_blocks_in_reading_order_with_roles_text_and_point_boxes`

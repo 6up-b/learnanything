@@ -7,8 +7,8 @@ version: "1.0.0"
 source_path: "src/learnloop_sidecar/post_attempt_worker.py"
 source_paths:
   - "src/learnloop_sidecar/post_attempt_worker.py"
-source_commit: "8b967e3b7e1afd9d0eafa309cf6d9758bb647b57"
-source_commit_timestamp: "2026-11-02T05:28:19-05:00"
+source_commit: "cb5b8773979685c93c470bf76e9a5cf5840bb53c"
+source_commit_timestamp: "2026-11-02T15:58:22-05:00"
 source_worktree_state: "clean"
 generated: true
 generated_at: "2026-11-02"
@@ -50,30 +50,30 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop_sidecar/post_attempt_worker.py](../../../../../src/learnloop_sidecar/post_attempt_worker.py) |
-| Source lines | 256 |
+| Source lines | 258 |
 | Owning package | [[Reference/Modules/learnloop_sidecar/_package|learnloop_sidecar]] |
 | Architecture layer | `adapter` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `8b967e3b7e1afd9d0eafa309cf6d9758bb647b57` |
-| Commit timestamp | `2026-11-02T05:28:19-05:00` |
+| Source commit | `cb5b8773979685c93c470bf76e9a5cf5840bb53c` |
+| Commit timestamp | `2026-11-02T15:58:22-05:00` |
 
 ## Public API
 
 - `class PostAttemptWorker` ([source](../../../../../src/learnloop_sidecar/post_attempt_worker.py), line 48)
   - `__init__(self, *, autostart: bool=True) -> None` (line 49; internal)
-  - `note_wait(self, session_id: str, seconds: float) -> None` (line 71; public)
-  - `take_wait(self, session_id: str) -> float` (line 75; public)
-  - `bind(self, supplier: VaultSupplier) -> None` (line 79; public) — ``supplier`` returns the CURRENT (vault, sqlite path) or None.
-  - `notify(self) -> None` (line 87; public) — A job may be runnable: wake both slots (start them on first use).
-  - `running(self) -> bool` (line 109; public)
-  - `shutdown(self, timeout: float=2.0) -> None` (line 113; public) — Stop the slots: each wakes and returns, and a job in flight stops before its next paid request.
-  - `_repository(self, sqlite_path: Any) -> Any` (line 130; internal)
-  - `run_pending(self, kind: str='diagnose', *, max_jobs: int=100, clock: Any=None) -> list[Any]` (line 136; public) — Synchronously run runnable jobs of ``kind`` (tests and drains).
-  - `_run_gaps(self, vault: Any, repository: Any, *, max_jobs: int, clock: Any) -> list[Any]` (line 180; internal)
-  - `_with_busy_retry(self, work: Callable[[], Any]) -> Any` (line 210; internal)
-  - `_loop(self, kind: str) -> None` (line 220; internal)
-  - `wait_for(self, pending: Callable[[], list[str]], timeout: float) -> tuple[list[str], float]` (line 234; public) — Wait until ``pending()`` is empty or ``timeout`` passes.
+  - `note_wait(self, session_id: str, seconds: float) -> None` (line 73; public)
+  - `take_wait(self, session_id: str) -> float` (line 77; public)
+  - `bind(self, supplier: VaultSupplier) -> None` (line 81; public) — ``supplier`` returns the CURRENT (vault, sqlite path) or None.
+  - `notify(self) -> None` (line 89; public) — A job may be runnable: wake both slots (start them on first use).
+  - `running(self) -> bool` (line 111; public)
+  - `shutdown(self, timeout: float=2.0) -> None` (line 115; public) — Stop the slots: each wakes and returns, and a job in flight stops before its next paid request.
+  - `_repository(self, sqlite_path: Any) -> Any` (line 132; internal)
+  - `run_pending(self, kind: str='diagnose', *, max_jobs: int=100, clock: Any=None) -> list[Any]` (line 138; public) — Synchronously run runnable jobs of ``kind`` (tests and drains).
+  - `_run_gaps(self, vault: Any, repository: Any, *, max_jobs: int, clock: Any) -> list[Any]` (line 182; internal)
+  - `_with_busy_retry(self, work: Callable[[], Any]) -> Any` (line 212; internal)
+  - `_loop(self, kind: str) -> None` (line 222; internal)
+  - `wait_for(self, pending: Callable[[], list[str]], timeout: float) -> tuple[list[str], float]` (line 236; public) — Wait until ``pending()`` is empty or ``timeout`` passes.
 
 ### Module constants
 

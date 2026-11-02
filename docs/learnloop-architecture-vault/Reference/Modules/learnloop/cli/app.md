@@ -534,6 +534,11 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_the_report_cli_never_shows_verified`
 - [tests/test_figures_switch_off.py](../../../../../../tests/test_figures_switch_off.py) — direct import
   - `test_the_report_cli_follows_the_switch`
+- [tests/test_followups_batch6_review_fixes.py](../../../../../../tests/test_followups_batch6_review_fixes.py) — direct import
+  - `test_f3_the_cli_labels_the_r_cold_comparison_with_observed_cold_outcomes`
+- [tests/test_followups_batch6_router_report.py](../../../../../../tests/test_followups_batch6_router_report.py) — direct import
+  - `test_router_report_on_a_database_before_lesson_suggestions_is_refused`
+  - `test_router_report_prints_the_split_from_the_ledgers_read_only`
 - [tests/test_forecast_receipts.py](../../../../../../tests/test_forecast_receipts.py) — direct import
   - `test_the_calibration_report_on_a_seeded_vault`
 - [tests/test_grading_cli.py](../../../../../../tests/test_grading_cli.py) — direct import

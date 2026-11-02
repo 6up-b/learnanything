@@ -3,8 +3,8 @@ title: "daily_plans"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "0f6f375916eb04b32b8976b7e3562dc6db7258a7"
-source_commit_timestamp: "2026-11-02T13:36:57-05:00"
+source_commit: "856ce60f74f6074a19363758ab69d21dcfecc54d"
+source_commit_timestamp: "2026-11-02T16:19:09-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite daily_plans"
@@ -131,13 +131,13 @@ None found by exact static reference scan.
 - `tests/test_daily_plan_reading.py`
 - `tests/test_daily_plan_replay.py`
 - `tests/test_exam_protection_identity.py`
+- `tests/test_followups_batch6_prefetch_decided_once.py`
+- `tests/test_followups_batch6_verify_fixes.py`
 - `tests/test_mcp_tools.py`
 - `tests/test_mvp014_upgrade.py`
 - `tests/test_plan_determinism.py`
 - `tests/test_plan_follows_path.py`
 - `tests/test_reader_rw3b_protection.py`
-- `tests/test_reader_rw6b_p2_landing.py`
-- `tests/test_reading_step_switch.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

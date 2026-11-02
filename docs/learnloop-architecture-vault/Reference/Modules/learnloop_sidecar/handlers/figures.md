@@ -7,8 +7,8 @@ version: "1.0.0"
 source_path: "src/learnloop_sidecar/handlers/figures.py"
 source_paths:
   - "src/learnloop_sidecar/handlers/figures.py"
-source_commit: "8828590eef294c22764ab0e7d303263ff89114c9"
-source_commit_timestamp: "2026-11-02T09:59:09-05:00"
+source_commit: "a84b490fdcc38b9b21929f7c348b12f3d86cb17e"
+source_commit_timestamp: "2026-11-02T14:01:10-05:00"
 source_worktree_state: "clean"
 generated: true
 generated_at: "2026-11-02"
@@ -53,13 +53,13 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop_sidecar/handlers/figures.py](../../../../../../src/learnloop_sidecar/handlers/figures.py) |
-| Source lines | 1474 |
+| Source lines | 1482 |
 | Owning package | [[Reference/Modules/learnloop_sidecar/handlers/_package|learnloop_sidecar.handlers]] |
 | Architecture layer | `adapter` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `8828590eef294c22764ab0e7d303263ff89114c9` |
-| Commit timestamp | `2026-11-02T09:59:09-05:00` |
+| Source commit | `a84b490fdcc38b9b21929f7c348b12f3d86cb17e` |
+| Commit timestamp | `2026-11-02T14:01:10-05:00` |
 
 ## Public API
 
@@ -83,37 +83,38 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `reader_figure_job_cancel(ctx: SidecarContext, params: FigureJobInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/figures.py), line 671)
 - `class FiguresInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/figures.py), line 681)
 - `reader_figures(ctx: SidecarContext, params: FiguresInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/figures.py), line 686) — The open source's figures as the Reader shows them (no model call).
-- `class RichCancelInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/figures.py), line 741)
-- `figure_rich_cancel(ctx: SidecarContext, params: RichCancelInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/figures.py), line 746) — RW5d P2b: cancel a rich build (the fuller animation, or a rich-only figure's pending line).
-- `class RichRetryInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/figures.py), line 767)
-- `figure_rich_retry(ctx: SidecarContext, params: RichRetryInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/figures.py), line 772) — RW5d P2b (Codex review F9): try a rich build again that ended with no row (interrupted when LearnLoop stopped, or stopped with code's reason).
-- `class ManimOptInInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/figures.py), line 813)
-- `figure_manim_opt_in(ctx: SidecarContext, params: ManimOptInInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/figures.py), line 818) — RW5d P2b (spec §9b.3, Q17): the standing opt-in for Manim figures, asked once inline on a press: "allow" writes ``figures.manim_opt_in = "standing"`` with the date; "not now" writes ``"declined"`` (Manim stays off the menu and is not asked again; settings can change it, and revo…
-- `class FigurePredictInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/figures.py), line 847)
-- `reader_figure_predict(ctx: SidecarContext, params: FigurePredictInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/figures.py), line 854) — The learner's prediction: stored, the observed before/after readout returned, matched decided by code.
-- `class FigureExplainInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/figures.py), line 885)
-- `reader_figure_explain(ctx: SidecarContext, params: FigureExplainInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/figures.py), line 891) — "What changed, and why?" (optional, once).
-- `class AttemptHost` ([source](../../../../../../src/learnloop_sidecar/handlers/figures.py), line 915) — An attempt host's verified references (§7.1: each resolved on the server, never the client's word): ``practice`` (the answer box: its submission key and practice session), ``workbench`` (a problem bound to the item) or ``feedback`` (a committed attempt, or a submission that has…
-  - `counts(self) -> bool` (line 933; public) — An open attempt: a figure here is one hint-equivalent.
-  - `ref(self) -> dict[str, Any]` (line 938; public) — The verified references as the request row keeps them.
-  - `record(self) -> dict[str, Any]` (line 946; public)
-  - `cost_line(self) -> str` (line 951; public)
-- `attempt_view(view: dict[str, Any]) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/figures.py), line 967) — A figure's view as an attempt host shows it (ruling R1): never its fuller (Manim) version, which stays Reader-side.
-- `attempt_aliases(repository: Any, item_id: str, submission_id: str | None, workbench_session_id: str | None) -> tuple[frozenset[str], frozenset[str]]` ([source](../../../../../../src/learnloop_sidecar/handlers/figures.py), line 996) — Codex review F3: every identity of the one attempt in progress (Reader CA2's aliases, ``reader.workbench.attempt_identities``): the answer box's draft keys handed into Work in Steps and the workbenches they were handed into, so a figure is counted once across every host of the a…
-- `take_step_available(vault: Any, repository: Any, item_id: str) -> bool` ([source](../../../../../../src/learnloop_sidecar/handlers/figures.py), line 1032) — Whether a check on your own on ``item_id`` takes help (the ladder's take step, as the hint panel's): a "Check once" served cold with the help header, or a due cold follow-up under Reader CA2's conversion rule (``ask.cold_help_converts``, mvp-0.34).
-- `record_attempt_figure(ctx: SidecarContext, attempt: dict[str, Any], figure_id: str, *, chooser_row: str | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/figures.py), line 1251) — §11.2: a figure going out on an attempt host.
-- `class TakeStepInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/figures.py), line 1370)
-- `figure_take_step(ctx: SidecarContext, params: TakeStepInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/figures.py), line 1378) — §11.3, G-SM16: *show me* on a check on your own.
-- `class FigureOpenInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/figures.py), line 1427)
-- `figure_open(ctx: SidecarContext, params: FigureOpenInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/figures.py), line 1434) — §11.4: open a stored figure on an attempt host (the chooser's ``explore_figure`` line lands as one line that opens it).
+- `retry_plan_wait(ctx: Any, job_id: str) -> bool` ([source](../../../../../../src/learnloop_sidecar/handlers/figures.py), line 733) — Requeue one rich job waiting for the plan, at most once per ``rich.PLAN_WAIT_RETRY_SECONDS`` per job in this process (the Reader's reads and the prefetch pass share the pacing); True when requeued.
+- `class RichCancelInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/figures.py), line 749)
+- `figure_rich_cancel(ctx: SidecarContext, params: RichCancelInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/figures.py), line 754) — RW5d P2b: cancel a rich build (the fuller animation, or a rich-only figure's pending line).
+- `class RichRetryInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/figures.py), line 775)
+- `figure_rich_retry(ctx: SidecarContext, params: RichRetryInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/figures.py), line 780) — RW5d P2b (Codex review F9): try a rich build again that ended with no row (interrupted when LearnLoop stopped, or stopped with code's reason).
+- `class ManimOptInInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/figures.py), line 821)
+- `figure_manim_opt_in(ctx: SidecarContext, params: ManimOptInInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/figures.py), line 826) — RW5d P2b (spec §9b.3, Q17): the standing opt-in for Manim figures, asked once inline on a press: "allow" writes ``figures.manim_opt_in = "standing"`` with the date; "not now" writes ``"declined"`` (Manim stays off the menu and is not asked again; settings can change it, and revo…
+- `class FigurePredictInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/figures.py), line 855)
+- `reader_figure_predict(ctx: SidecarContext, params: FigurePredictInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/figures.py), line 862) — The learner's prediction: stored, the observed before/after readout returned, matched decided by code.
+- `class FigureExplainInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/figures.py), line 893)
+- `reader_figure_explain(ctx: SidecarContext, params: FigureExplainInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/figures.py), line 899) — "What changed, and why?" (optional, once).
+- `class AttemptHost` ([source](../../../../../../src/learnloop_sidecar/handlers/figures.py), line 923) — An attempt host's verified references (§7.1: each resolved on the server, never the client's word): ``practice`` (the answer box: its submission key and practice session), ``workbench`` (a problem bound to the item) or ``feedback`` (a committed attempt, or a submission that has…
+  - `counts(self) -> bool` (line 941; public) — An open attempt: a figure here is one hint-equivalent.
+  - `ref(self) -> dict[str, Any]` (line 946; public) — The verified references as the request row keeps them.
+  - `record(self) -> dict[str, Any]` (line 954; public)
+  - `cost_line(self) -> str` (line 959; public)
+- `attempt_view(view: dict[str, Any]) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/figures.py), line 975) — A figure's view as an attempt host shows it (ruling R1): never its fuller (Manim) version, which stays Reader-side.
+- `attempt_aliases(repository: Any, item_id: str, submission_id: str | None, workbench_session_id: str | None) -> tuple[frozenset[str], frozenset[str]]` ([source](../../../../../../src/learnloop_sidecar/handlers/figures.py), line 1004) — Codex review F3: every identity of the one attempt in progress (Reader CA2's aliases, ``reader.workbench.attempt_identities``): the answer box's draft keys handed into Work in Steps and the workbenches they were handed into, so a figure is counted once across every host of the a…
+- `take_step_available(vault: Any, repository: Any, item_id: str) -> bool` ([source](../../../../../../src/learnloop_sidecar/handlers/figures.py), line 1040) — Whether a check on your own on ``item_id`` takes help (the ladder's take step, as the hint panel's): a "Check once" served cold with the help header, or a due cold follow-up under Reader CA2's conversion rule (``ask.cold_help_converts``, mvp-0.34).
+- `record_attempt_figure(ctx: SidecarContext, attempt: dict[str, Any], figure_id: str, *, chooser_row: str | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/figures.py), line 1259) — §11.2: a figure going out on an attempt host.
+- `class TakeStepInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/figures.py), line 1378)
+- `figure_take_step(ctx: SidecarContext, params: TakeStepInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/figures.py), line 1386) — §11.3, G-SM16: *show me* on a check on your own.
+- `class FigureOpenInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/figures.py), line 1435)
+- `figure_open(ctx: SidecarContext, params: FigureOpenInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/figures.py), line 1442) — §11.4: open a stored figure on an attempt host (the chooser's ``explore_figure`` line lands as one line that opens it).
 
 ### Module constants
 
 - `FIGURE_RPCS` ([src/learnloop_sidecar/handlers/figures.py](../../../../../../src/learnloop_sidecar/handlers/figures.py), line 82)
 - `_LATER_HOST_REFS` ([src/learnloop_sidecar/handlers/figures.py](../../../../../../src/learnloop_sidecar/handlers/figures.py), line 373)
-- `TAKE_STEP_REQUIRED` ([src/learnloop_sidecar/handlers/figures.py](../../../../../../src/learnloop_sidecar/handlers/figures.py), line 911)
-- `HELP_OFF_MESSAGE` ([src/learnloop_sidecar/handlers/figures.py](../../../../../../src/learnloop_sidecar/handlers/figures.py), line 959)
-- `RICH_READER_ONLY` ([src/learnloop_sidecar/handlers/figures.py](../../../../../../src/learnloop_sidecar/handlers/figures.py), line 963)
+- `TAKE_STEP_REQUIRED` ([src/learnloop_sidecar/handlers/figures.py](../../../../../../src/learnloop_sidecar/handlers/figures.py), line 919)
+- `HELP_OFF_MESSAGE` ([src/learnloop_sidecar/handlers/figures.py](../../../../../../src/learnloop_sidecar/handlers/figures.py), line 967)
+- `RICH_READER_ONLY` ([src/learnloop_sidecar/handlers/figures.py](../../../../../../src/learnloop_sidecar/handlers/figures.py), line 971)
 
 ### Explicit exports
 
@@ -139,21 +140,21 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `_host_caller(vault: Any, repository: Any, *, origin: str, host_ref: dict[str, Any], offer_ref: str | None) -> Any | None` ([source](../../../../../../src/learnloop_sidecar/handlers/figures.py), line 376) — The caller a request's question-event reference determines, or None when it names none (Codex review F2).
 - `_request_figure(ctx: SidecarContext, *, origin: str, extraction_id: str | None, span_ids: list[str], region: dict[str, Any] | None, goal_text: str | None, reading_at: dict[str, Any] | None, offer_ref: str | None, host_ref: dict[str, Any], cold_active: bool, span_keys: list[str] | None=None, take_step: str | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/figures.py), line 410) — One figure request, from either RPC: validated, its caller derived and its held-out material refused here, on the request path, before any job or model call; then a build job.
 - `_retry_plan_waits(ctx: SidecarContext, lines: list[dict[str, Any]]) -> None` ([source](../../../../../../src/learnloop_sidecar/handlers/figures.py), line 726)
-- `_prediction_assist(vault: Any, repository: Any, figure_id: str) -> str | None` ([source](../../../../../../src/learnloop_sidecar/handlers/figures.py), line 871) — RW5d P3 (Codex review F7): the open attempt's figure row a prediction is made under (:func:`learnloop.figures.help.open_assist_for`), while figures in attempts are on; else None (formative only, as before).
-- `_refuse_rich(row: dict[str, Any] | None) -> None` ([source](../../../../../../src/learnloop_sidecar/handlers/figures.py), line 976) — Ruling R1: a rich figure is never opened or revised on an attempt host.
-- `_help_required(vault: Any) -> None` ([source](../../../../../../src/learnloop_sidecar/handlers/figures.py), line 983)
-- `_help_off_line(attempt: dict[str, Any]) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/figures.py), line 988) — Codex review F5: what a delivery answers when figures in attempts were switched off between the request and the delivery (nothing shown, nothing recorded).
-- `_token_row_matches(row: dict[str, Any] | None, *, item_id: str, session_id: str | None, kind: str, submissions: frozenset[str], workbenches: frozenset[str]) -> bool` ([source](../../../../../../src/learnloop_sidecar/handlers/figures.py), line 1010) — Whether a take step's row is this attempt's (Codex review F1): the same item, unattached, under one of the attempt's identities (its aliases included), and, for an answer-box row, in the same practice session as the request.
-- `_item_cold(vault: Any, repository: Any, item_id: str) -> bool` ([source](../../../../../../src/learnloop_sidecar/handlers/figures.py), line 1026)
-- `_committed_attempt(repository: Any, item_id: str, submission_id: str | None, *, session_id: str | None) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop_sidecar/handlers/figures.py), line 1057) — The attempt ``submission_id`` committed, or None (Codex re-review F1).
-- `_sole_open_session(repository: Any, session_id: str) -> None` ([source](../../../../../../src/learnloop_sidecar/handlers/figures.py), line 1082) — Codex re-review F1: the answer box's session is the one open session.
-- `_attempt_host(ctx: SidecarContext, vault: Any, repository: Any, host_ref: dict[str, Any], *, take_step: str | None=None, for_take_step: bool=False) -> AttemptHost` ([source](../../../../../../src/learnloop_sidecar/handlers/figures.py), line 1100) — Resolve an attempt host's references on the server (§7.1, §7.2).
-- `_attempt_caller(vault: Any, repository: Any, host: AttemptHost) -> Any` ([source](../../../../../../src/learnloop_sidecar/handlers/figures.py), line 1174) — The caller an attempt host determines (§7.2): an open attempt retrieves under ``assisted_practice`` for its item (a converted check too: its take step made it practice with help), feedback under the item's post-attempt policy; caller kind ``learner`` (origin ``ask``).
-- `_request_attempt_figure(ctx: SidecarContext, vault: Any, repository: Any, *, goal: str | None, host_ref: dict[str, Any], take_step: str | None) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/figures.py), line 1200) — The Ask panel's *show me* on an attempt host (§6.4): verified, the caller derived, a check on your own refused without its take step, then a build job whose delivery records the figure on the attempt.
-- `_figure_overlap(item: Any, row: dict[str, Any]) -> float` ([source](../../../../../../src/learnloop_sidecar/handlers/figures.py), line 1232)
-- `_reveal_written(connection: Any, item_id: str, basis: str) -> bool` ([source](../../../../../../src/learnloop_sidecar/handlers/figures.py), line 1240) — Whether this figure's reveal was already written for the item since its last attempt (a delivery read again writes it once).
-- `_refuse_own_blocks(vault: Any, repository: Any, item_id: str, row: dict[str, Any]) -> None` ([source](../../../../../../src/learnloop_sidecar/handlers/figures.py), line 1342) — A figure placed at or built from the item's own blocks (its exercise, solution or worked answer) is never opened or revised on its attempt.
-- `_workbench_snapshot(repository: Any, workbench_session_id: str | None) -> str | None` ([source](../../../../../../src/learnloop_sidecar/handlers/figures.py), line 1354) — The problem's live steps as a workbench help row keeps them (ids, numbers and content hashes: ``hints.report_workbench``'s work at delivery), or None.
+- `_prediction_assist(vault: Any, repository: Any, figure_id: str) -> str | None` ([source](../../../../../../src/learnloop_sidecar/handlers/figures.py), line 879) — RW5d P3 (Codex review F7): the open attempt's figure row a prediction is made under (:func:`learnloop.figures.help.open_assist_for`), while figures in attempts are on; else None (formative only, as before).
+- `_refuse_rich(row: dict[str, Any] | None) -> None` ([source](../../../../../../src/learnloop_sidecar/handlers/figures.py), line 984) — Ruling R1: a rich figure is never opened or revised on an attempt host.
+- `_help_required(vault: Any) -> None` ([source](../../../../../../src/learnloop_sidecar/handlers/figures.py), line 991)
+- `_help_off_line(attempt: dict[str, Any]) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/figures.py), line 996) — Codex review F5: what a delivery answers when figures in attempts were switched off between the request and the delivery (nothing shown, nothing recorded).
+- `_token_row_matches(row: dict[str, Any] | None, *, item_id: str, session_id: str | None, kind: str, submissions: frozenset[str], workbenches: frozenset[str]) -> bool` ([source](../../../../../../src/learnloop_sidecar/handlers/figures.py), line 1018) — Whether a take step's row is this attempt's (Codex review F1): the same item, unattached, under one of the attempt's identities (its aliases included), and, for an answer-box row, in the same practice session as the request.
+- `_item_cold(vault: Any, repository: Any, item_id: str) -> bool` ([source](../../../../../../src/learnloop_sidecar/handlers/figures.py), line 1034)
+- `_committed_attempt(repository: Any, item_id: str, submission_id: str | None, *, session_id: str | None) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop_sidecar/handlers/figures.py), line 1065) — The attempt ``submission_id`` committed, or None (Codex re-review F1).
+- `_sole_open_session(repository: Any, session_id: str) -> None` ([source](../../../../../../src/learnloop_sidecar/handlers/figures.py), line 1090) — Codex re-review F1: the answer box's session is the one open session.
+- `_attempt_host(ctx: SidecarContext, vault: Any, repository: Any, host_ref: dict[str, Any], *, take_step: str | None=None, for_take_step: bool=False) -> AttemptHost` ([source](../../../../../../src/learnloop_sidecar/handlers/figures.py), line 1108) — Resolve an attempt host's references on the server (§7.1, §7.2).
+- `_attempt_caller(vault: Any, repository: Any, host: AttemptHost) -> Any` ([source](../../../../../../src/learnloop_sidecar/handlers/figures.py), line 1182) — The caller an attempt host determines (§7.2): an open attempt retrieves under ``assisted_practice`` for its item (a converted check too: its take step made it practice with help), feedback under the item's post-attempt policy; caller kind ``learner`` (origin ``ask``).
+- `_request_attempt_figure(ctx: SidecarContext, vault: Any, repository: Any, *, goal: str | None, host_ref: dict[str, Any], take_step: str | None) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/figures.py), line 1208) — The Ask panel's *show me* on an attempt host (§6.4): verified, the caller derived, a check on your own refused without its take step, then a build job whose delivery records the figure on the attempt.
+- `_figure_overlap(item: Any, row: dict[str, Any]) -> float` ([source](../../../../../../src/learnloop_sidecar/handlers/figures.py), line 1240)
+- `_reveal_written(connection: Any, item_id: str, basis: str) -> bool` ([source](../../../../../../src/learnloop_sidecar/handlers/figures.py), line 1248) — Whether this figure's reveal was already written for the item since its last attempt (a delivery read again writes it once).
+- `_refuse_own_blocks(vault: Any, repository: Any, item_id: str, row: dict[str, Any]) -> None` ([source](../../../../../../src/learnloop_sidecar/handlers/figures.py), line 1350) — A figure placed at or built from the item's own blocks (its exercise, solution or worked answer) is never opened or revised on its attempt.
+- `_workbench_snapshot(repository: Any, workbench_session_id: str | None) -> str | None` ([source](../../../../../../src/learnloop_sidecar/handlers/figures.py), line 1362) — The problem's live steps as a workbench help row keeps them (ids, numbers and content hashes: ``hints.report_workbench``'s work at delivery), or None.
 
 ## Who imports or calls it
 
@@ -163,7 +164,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop_sidecar/handlers/__init__|learnloop_sidecar.handlers]] — imports `module`
 - [[Reference/Modules/learnloop_sidecar/handlers/hints|learnloop_sidecar.handlers.hints]] — imports `_item_cold`; statically calls `_item_cold`
 - [[Reference/Modules/learnloop_sidecar/handlers/reader|learnloop_sidecar.handlers.reader]] — imports `prompt_contract_fields`; statically calls `prompt_contract_fields`
-- [[Reference/Modules/learnloop_sidecar/prefetch_runtime|learnloop_sidecar.prefetch_runtime]] — imports `_rich_spawner`, `offered_spans`; statically calls `_rich_spawner`, `offered_spans`
+- [[Reference/Modules/learnloop_sidecar/prefetch_runtime|learnloop_sidecar.prefetch_runtime]] — imports `_rich_spawner`, `offered_spans`, `retry_plan_wait`; statically calls `_rich_spawner`, `offered_spans`, `retry_plan_wait`
 
 ## Dependencies
 

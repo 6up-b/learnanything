@@ -25,7 +25,7 @@ source_paths:
   - "src/learnloop/figures/spec.py"
   - "src/learnloop/figures/verify.py"
 source_commit: "aggregate; see module notes"
-source_commit_timestamp: "2026-11-02T12:23:06-05:00"
+source_commit_timestamp: "2026-11-02T16:19:03-05:00"
 generated: true
 generated_at: "2026-11-02"
 package: "learnloop.figures"
@@ -69,13 +69,13 @@ For system intent, use [[Architecture Overview]].
 | [[Reference/Modules/learnloop/figures/labels|learnloop.figures.labels]] | [[Reference/Modules/learnloop/figures/labels#^module-purpose|purpose]] | `ACTIVE` | 3 | 1 |
 | [[Reference/Modules/learnloop/figures/learner_state|learnloop.figures.learner_state]] | [[Reference/Modules/learnloop/figures/learner_state#^module-purpose|purpose]] | `ACTIVE` | 3 | 4 |
 | [[Reference/Modules/learnloop/figures/manim_figure|learnloop.figures.manim_figure]] | [[Reference/Modules/learnloop/figures/manim_figure#^module-purpose|purpose]] | `ACTIVE` | 2 | 4 |
-| [[Reference/Modules/learnloop/figures/power|learnloop.figures.power]] | [[Reference/Modules/learnloop/figures/power#^module-purpose|purpose]] | `ACTIVE` | 5 | 2 |
-| [[Reference/Modules/learnloop/figures/prefetch|learnloop.figures.prefetch]] | [[Reference/Modules/learnloop/figures/prefetch#^module-purpose|purpose]] | `ACTIVE` | 1 | 2 |
+| [[Reference/Modules/learnloop/figures/power|learnloop.figures.power]] | [[Reference/Modules/learnloop/figures/power#^module-purpose|purpose]] | `ACTIVE` | 5 | 7 |
+| [[Reference/Modules/learnloop/figures/prefetch|learnloop.figures.prefetch]] | [[Reference/Modules/learnloop/figures/prefetch#^module-purpose|purpose]] | `ACTIVE` | 1 | 7 |
 | [[Reference/Modules/learnloop/figures/prefetch_ledger|learnloop.figures.prefetch_ledger]] | [[Reference/Modules/learnloop/figures/prefetch_ledger#^module-purpose|purpose]] | `ACTIVE` | 3 | 2 |
-| [[Reference/Modules/learnloop/figures/prefetch_model|learnloop.figures.prefetch_model]] | [[Reference/Modules/learnloop/figures/prefetch_model#^module-purpose|purpose]] | `ACTIVE` | 2 | 2 |
-| [[Reference/Modules/learnloop/figures/rich|learnloop.figures.rich]] | [[Reference/Modules/learnloop/figures/rich#^module-purpose|purpose]] | `ACTIVE` | 5 | 11 |
+| [[Reference/Modules/learnloop/figures/prefetch_model|learnloop.figures.prefetch_model]] | [[Reference/Modules/learnloop/figures/prefetch_model#^module-purpose|purpose]] | `ACTIVE` | 2 | 3 |
+| [[Reference/Modules/learnloop/figures/rich|learnloop.figures.rich]] | [[Reference/Modules/learnloop/figures/rich#^module-purpose|purpose]] | `ACTIVE` | 5 | 14 |
 | [[Reference/Modules/learnloop/figures/routes|learnloop.figures.routes]] | [[Reference/Modules/learnloop/figures/routes#^module-purpose|purpose]] | `ACTIVE` | 3 | 12 |
-| [[Reference/Modules/learnloop/figures/service|learnloop.figures.service]] | [[Reference/Modules/learnloop/figures/service#^module-purpose|purpose]] | `ACTIVE` | 9 | 27 |
+| [[Reference/Modules/learnloop/figures/service|learnloop.figures.service]] | [[Reference/Modules/learnloop/figures/service#^module-purpose|purpose]] | `ACTIVE` | 9 | 32 |
 | [[Reference/Modules/learnloop/figures/sketch|learnloop.figures.sketch]] | [[Reference/Modules/learnloop/figures/sketch#^module-purpose|purpose]] | `ACTIVE` | 4 | 7 |
 | [[Reference/Modules/learnloop/figures/sketch_engine|learnloop.figures.sketch_engine]] | [[Reference/Modules/learnloop/figures/sketch_engine#^module-purpose|purpose]] | `ACTIVE` | 2 | 7 |
 | [[Reference/Modules/learnloop/figures/sketch_verify|learnloop.figures.sketch_verify]] | [[Reference/Modules/learnloop/figures/sketch_verify#^module-purpose|purpose]] | `ACTIVE` | 1 | 6 |
@@ -88,16 +88,16 @@ For system intent, use [[Architecture Overview]].
 
 - [[Reference/Modules/learnloop/ai/_package|learnloop.ai]] — 16 static module edges
 - [[Reference/Modules/learnloop/_package|learnloop]] — 15 static module edges
+- [[Reference/Modules/learnloop/db/stores/_package|learnloop.db.stores]] — 12 static module edges
 - [[Reference/Modules/learnloop/db/_package|learnloop.db]] — 11 static module edges
-- [[Reference/Modules/learnloop/db/stores/_package|learnloop.db.stores]] — 11 static module edges
-- [[Reference/Modules/learnloop/source_retrieval/_package|learnloop.source_retrieval]] — 9 static module edges
+- [[Reference/Modules/learnloop/source_retrieval/_package|learnloop.source_retrieval]] — 10 static module edges
 - [[Reference/Modules/learnloop/reader/_package|learnloop.reader]] — 6 static module edges
 - [[Reference/Modules/learnloop/practice_index/_package|learnloop.practice_index]] — 5 static module edges
 - [[Reference/Modules/learnloop/content/authoring/_package|learnloop.content.authoring]] — 4 static module edges
 - [[Reference/Modules/learnloop/teacher/_package|learnloop.teacher]] — 3 static module edges
+- [[Reference/Modules/learnloop/daily_plan/_package|learnloop.daily_plan]] — 2 static module edges
 - [[Reference/Modules/learnloop/ai/chatgpt_plan/_package|learnloop.ai.chatgpt_plan]] — 1 static module edge
 - [[Reference/Modules/learnloop/content/sources/_package|learnloop.content.sources]] — 1 static module edge
-- [[Reference/Modules/learnloop/daily_plan/_package|learnloop.daily_plan]] — 1 static module edge
 - [[Reference/Modules/learnloop/diagnosis/text_gaps/_package|learnloop.diagnosis.text_gaps]] — 1 static module edge
 - [[Reference/Modules/learnloop/tutor/_package|learnloop.tutor]] — 1 static module edge
 
@@ -118,8 +118,8 @@ flowchart LR
     center["learnloop.figures"]
     n_learnloop_ai["learnloop.ai"]
     n_learnloop["learnloop"]
-    n_learnloop_db["learnloop.db"]
     n_learnloop_db_stores["learnloop.db.stores"]
+    n_learnloop_db["learnloop.db"]
     n_learnloop_source_retrieval["learnloop.source_retrieval"]
     n_learnloop_sidecar_handlers["learnloop_sidecar.handlers"]
     n_learnloop_reader["learnloop.reader"]
@@ -128,9 +128,9 @@ flowchart LR
     n_learnloop_content_authoring["learnloop.content.authoring"]
     center -->|16| n_learnloop_ai
     center -->|15| n_learnloop
+    center -->|12| n_learnloop_db_stores
     center -->|11| n_learnloop_db
-    center -->|11| n_learnloop_db_stores
-    center -->|9| n_learnloop_source_retrieval
+    center -->|10| n_learnloop_source_retrieval
     n_learnloop_sidecar_handlers -->|9| center
     center -->|6| n_learnloop_reader
     center -->|5| n_learnloop_practice_index

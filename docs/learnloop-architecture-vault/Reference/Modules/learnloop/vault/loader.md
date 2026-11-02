@@ -1452,6 +1452,38 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_followups_batch5_recap_protection.py](../../../../../../tests/test_followups_batch5_recap_protection.py) — direct import
   - `test_a_lesson_with_no_recorded_protection_rechecks_its_passages`
   - `test_unreadable_protection_drops_the_recap_only`
+- [tests/test_followups_batch6_prefetch_next_section.py](../../../../../../tests/test_followups_batch6_prefetch_next_section.py) — direct import
+- [tests/test_followups_batch6_prefetch_plan_wait.py](../../../../../../tests/test_followups_batch6_prefetch_plan_wait.py) — direct import
+  - `test_the_pass_retries_only_on_mains_with_the_switch_on_and_the_plan_not_paused`
+  - `test_the_runtime_wires_the_paced_requeue`
+  - `test_with_no_requeue_seam_the_pass_retries_nothing`
+- [tests/test_followups_batch6_review_fixes.py](../../../../../../tests/test_followups_batch6_review_fixes.py) — direct import
+  - `test_f1_an_unrelated_cold_check_still_lets_the_retry_through`
+  - `test_f1_the_pass_also_protects_the_stored_plans_open_items`
+  - `test_f1_the_pass_never_requeues_a_plan_wait_whose_context_a_cold_check_now_covers`
+  - `test_f1_the_readers_read_never_requeues_it_either`
+  - `test_f1_the_worker_rechecks_before_the_store`
+  - `test_f1_the_worker_stops_a_requeued_prebuild_before_any_request`
+  - `test_f2_a_job_that_keeps_meeting_the_limit_yields_the_slot_to_the_least_recently_asked`
+  - `test_f2_a_paced_job_first_in_line_never_starves_a_due_one`
+  - `test_f2_the_scan_goes_past_paced_jobs_until_the_bound_of_requeues`
+  - `test_f3_the_cli_labels_the_r_cold_comparison_with_observed_cold_outcomes`
+  - `test_f4_a_card_with_a_released_line_moves_its_version_and_te1bs_card_keeps_its_own`
+- [tests/test_followups_batch6_router_report.py](../../../../../../tests/test_followups_batch6_router_report.py) — direct import
+  - `test_router_report_prints_the_split_from_the_ledgers_read_only`
+- [tests/test_followups_batch6_te1b_card.py](../../../../../../tests/test_followups_batch6_te1b_card.py) — direct import
+  - `test_a_declined_suggestion_keeps_its_not_now_line`
+  - `test_not_now_on_a_pending_card_is_its_own_line_after_the_start`
+- [tests/test_followups_batch6_verify_fixes.py](../../../../../../tests/test_followups_batch6_verify_fixes.py) — direct import
+  - `test_v1_a_learners_own_press_keeps_its_behaviour`
+  - `test_v1_an_answered_planned_item_lets_the_retry_through`
+  - `test_v1_an_unreadable_stored_plan_fails_closed_everywhere`
+  - `test_v1_only_todays_plan_holds_an_item`
+  - `test_v1_the_reader_and_the_pass_read_the_same_rule`
+  - `test_v1_the_readers_read_never_requeues_a_prebuild_a_later_plan_holds`
+  - `test_v1_the_worker_rechecks_the_plan_before_the_store`
+  - `test_v1_the_worker_stops_a_requeued_prebuild_a_later_plan_holds_before_any_request`
+  - `test_v2_todays_read_never_retries_a_plan_wait`
 - [tests/test_followups_nov2_figure_provenance.py](../../../../../../tests/test_followups_nov2_figure_provenance.py) — direct import
   - `test_a_fresh_figure_for_a_marked_row_is_reused_after_the_panels_are_switched`
   - `test_a_lesson_figure_keeps_its_record_and_is_rechecked_by_its_learner_inputs`

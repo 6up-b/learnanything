@@ -7,8 +7,8 @@ version: "1.0.0"
 source_path: "src/learnloop/content/authoring/practice_leakage.py"
 source_paths:
   - "src/learnloop/content/authoring/practice_leakage.py"
-source_commit: "a2d2176b105ab0dc48837944ad2d6663280cc4d2"
-source_commit_timestamp: "2026-11-01T16:13:42-05:00"
+source_commit: "ddbdb51df610516f4ebd27b64b60505c8a0190ab"
+source_commit_timestamp: "2026-10-15T02:25:24-04:00"
 source_worktree_state: "clean"
 generated: true
 generated_at: "2026-11-02"
@@ -56,8 +56,8 @@ The authoritative system-level explanation remains in [[Learning System]], [[AI 
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `a2d2176b105ab0dc48837944ad2d6663280cc4d2` |
-| Commit timestamp | `2026-11-01T16:13:42-05:00` |
+| Source commit | `ddbdb51df610516f4ebd27b64b60505c8a0190ab` |
+| Commit timestamp | `2026-10-15T02:25:24-04:00` |
 
 ## Public API
 

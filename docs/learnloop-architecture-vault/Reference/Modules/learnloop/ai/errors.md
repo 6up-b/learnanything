@@ -328,6 +328,12 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_f17_a_speculative_prebuilds_plan_wait_is_retried_by_the_reader_read`
 - [tests/test_followups_batch5_lesson.py](../../../../../../tests/test_followups_batch5_lesson.py) — direct import
   - `test_c_an_opening_whose_teacher_call_fails_after_the_save_says_it_is_saved_and_carries_its_id`
+- [tests/test_followups_batch6_prefetch_plan_wait.py](../../../../../../tests/test_followups_batch6_prefetch_plan_wait.py) — direct import
+  - `test_a_plan_wait_the_reader_stopped_retrying_is_retried_by_the_next_pass`
+  - `test_the_pass_and_the_reader_share_one_pacing`
+- [tests/test_followups_batch6_review_fixes.py](../../../../../../tests/test_followups_batch6_review_fixes.py) — direct import
+  - `test_f1_the_worker_rechecks_before_the_store`
+- [tests/test_followups_batch6_verify_fixes.py](../../../../../../tests/test_followups_batch6_verify_fixes.py) — direct import
 - [tests/test_held_grade_composition.py](../../../../../../tests/test_held_grade_composition.py) — direct import
   - `test_the_hardcase_harness_retries_a_truncated_grade_once_at_double`
 - [tests/test_held_grade_evidence.py](../../../../../../tests/test_held_grade_evidence.py) — direct import

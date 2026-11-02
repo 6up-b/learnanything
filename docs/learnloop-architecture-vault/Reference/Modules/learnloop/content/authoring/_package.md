@@ -25,7 +25,7 @@ source_paths:
   - "src/learnloop/content/authoring/rung_variants.py"
   - "src/learnloop/content/authoring/source_exercise_import.py"
 source_commit: "aggregate; see module notes"
-source_commit_timestamp: "2026-11-01T16:13:42-05:00"
+source_commit_timestamp: "2026-11-01T14:48:10-05:00"
 generated: true
 generated_at: "2026-11-02"
 package: "learnloop.content.authoring"

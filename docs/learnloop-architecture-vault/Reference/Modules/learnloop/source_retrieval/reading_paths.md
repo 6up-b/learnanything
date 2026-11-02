@@ -237,6 +237,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop/cli/reader|learnloop.cli.reader]] — imports `skipped_section_learning_objects`; statically calls `skipped_section_learning_objects`
 - [[Reference/Modules/learnloop/daily_plan/engine|learnloop.daily_plan.engine]] — imports `module`; statically calls `PlanPath`, `plan_path`
 - [[Reference/Modules/learnloop/figures/learner_state|learnloop.figures.learner_state]] — imports `lo_statuses`; statically calls `lo_statuses`
+- [[Reference/Modules/learnloop/figures/prefetch|learnloop.figures.prefetch]] — imports `module`; statically calls `enabled`, `plan_path`
 - [[Reference/Modules/learnloop/source_retrieval/deliverable_path|learnloop.source_retrieval.deliverable_path]] — imports `module`; statically calls `_done`, `exercise_label`, `goal_for_source`, `lo_statuses`
 - [[Reference/Modules/learnloop/teacher/brief|learnloop.teacher.brief]] — imports `lo_statuses`; statically calls `lo_statuses`
 - [[Reference/Modules/learnloop_sidecar/handlers/reading_paths|learnloop_sidecar.handlers.reading_paths]] — imports `module`; statically calls `admission_problem`, `enabled`, `judge`, `override`, `path_inputs`, `path_view`, `reading_of`, `set_depth`
@@ -282,7 +283,7 @@ Use this module in context through:
 - [[Initialize a Vault]]
 - [[Start a Learning Cycle]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/cli/reader|learnloop.cli.reader]], [[Reference/Modules/learnloop/daily_plan/engine|learnloop.daily_plan.engine]], [[Reference/Modules/learnloop/figures/learner_state|learnloop.figures.learner_state]], [[Reference/Modules/learnloop/source_retrieval/deliverable_path|learnloop.source_retrieval.deliverable_path]], [[Reference/Modules/learnloop/teacher/brief|learnloop.teacher.brief]] and 1 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/cli/reader|learnloop.cli.reader]], [[Reference/Modules/learnloop/daily_plan/engine|learnloop.daily_plan.engine]], [[Reference/Modules/learnloop/figures/learner_state|learnloop.figures.learner_state]], [[Reference/Modules/learnloop/figures/prefetch|learnloop.figures.prefetch]], [[Reference/Modules/learnloop/source_retrieval/deliverable_path|learnloop.source_retrieval.deliverable_path]] and 2 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
@@ -290,6 +291,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 - [tests/test_deliverable_path.py](../../../../../../tests/test_deliverable_path.py) — direct import
   - `test_already_shown_only_while_demonstrated`
+- [tests/test_followups_batch6_prefetch_next_section.py](../../../../../../tests/test_followups_batch6_prefetch_next_section.py) — direct import
 - [tests/test_plan_follows_path.py](../../../../../../tests/test_plan_follows_path.py) — direct import
   - `test_a_path_that_cannot_be_read_leaves_the_reading_to_the_order`
   - `test_a_source_without_a_depth_or_a_judged_path_keeps_the_predecessors_order`

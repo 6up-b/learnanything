@@ -126,6 +126,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 No test imports this module directly. These tests exercise a direct production consumer:
 
 - [tests/test_deliverable_path.py](../../../../../../../tests/test_deliverable_path.py) — imports consumer [[Reference/Modules/learnloop/source_retrieval/reading_paths|learnloop.source_retrieval.reading_paths]]
+- [tests/test_followups_batch6_prefetch_next_section.py](../../../../../../../tests/test_followups_batch6_prefetch_next_section.py) — imports consumer [[Reference/Modules/learnloop/source_retrieval/reading_paths|learnloop.source_retrieval.reading_paths]]
 - [tests/test_plan_follows_path.py](../../../../../../../tests/test_plan_follows_path.py) — imports consumer [[Reference/Modules/learnloop/source_retrieval/reading_paths|learnloop.source_retrieval.reading_paths]]
 - [tests/test_reader_rw6b_p2_landing.py](../../../../../../../tests/test_reader_rw6b_p2_landing.py) — imports consumer [[Reference/Modules/learnloop/source_retrieval/reading_paths|learnloop.source_retrieval.reading_paths]]
 - [tests/test_reading_paths.py](../../../../../../../tests/test_reading_paths.py) — imports consumer [[Reference/Modules/learnloop/source_retrieval/reading_paths|learnloop.source_retrieval.reading_paths]]

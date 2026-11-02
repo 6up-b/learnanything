@@ -7,8 +7,8 @@ version: "1.0.0"
 source_path: "src/learnloop_sidecar/handlers/lesson.py"
 source_paths:
   - "src/learnloop_sidecar/handlers/lesson.py"
-source_commit: "ffe9f3b0783a9f0158b90d4e3b45dd1e86e5b6b1"
-source_commit_timestamp: "2026-11-02T13:33:23-05:00"
+source_commit: "856ce60f74f6074a19363758ab69d21dcfecc54d"
+source_commit_timestamp: "2026-11-02T16:19:09-05:00"
 source_worktree_state: "clean"
 generated: true
 generated_at: "2026-11-02"
@@ -58,8 +58,8 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Architecture layer | `adapter` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `ffe9f3b0783a9f0158b90d4e3b45dd1e86e5b6b1` |
-| Commit timestamp | `2026-11-02T13:33:23-05:00` |
+| Source commit | `856ce60f74f6074a19363758ab69d21dcfecc54d` |
+| Commit timestamp | `2026-11-02T16:19:09-05:00` |
 
 ## Public API
 
@@ -132,6 +132,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_c_a_step_of_a_saved_lesson_whose_route_is_down_says_it_is_saved`
   - `test_c_an_opening_whose_route_is_down_says_nothing_was_saved`
   - `test_c_an_opening_whose_teacher_call_fails_after_the_save_says_it_is_saved_and_carries_its_id`
+- [tests/test_followups_batch6_verify_fixes.py](../../../../../../tests/test_followups_batch6_verify_fixes.py) — direct import
+  - `test_v2_a_lessons_turn_carries_learner_activity`
 - [tests/test_mobile_allowlist.py](../../../../../../tests/test_mobile_allowlist.py) — direct import
   - `test_the_pinned_teacher_rpcs_are_all_of_them`
 - [tests/test_reader_rw5d_p4b_teacher_visuals.py](../../../../../../tests/test_reader_rw5d_p4b_teacher_visuals.py) — direct import

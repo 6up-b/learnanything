@@ -119,6 +119,11 @@ No test imports this module directly. These tests exercise a direct production c
 
 - [tests/test_figures_prefetch.py](../../../../../../../tests/test_figures_prefetch.py) — imports consumer [[Reference/Modules/learnloop/figures/prefetch|learnloop.figures.prefetch]]
 - [tests/test_figures_prefetch_review_fixes.py](../../../../../../../tests/test_figures_prefetch_review_fixes.py) — imports consumer [[Reference/Modules/learnloop/figures/prefetch|learnloop.figures.prefetch]]
+- [tests/test_followups_batch6_prefetch_decided_once.py](../../../../../../../tests/test_followups_batch6_prefetch_decided_once.py) — imports consumer [[Reference/Modules/learnloop/figures/prefetch|learnloop.figures.prefetch]]
+- [tests/test_followups_batch6_prefetch_next_section.py](../../../../../../../tests/test_followups_batch6_prefetch_next_section.py) — imports consumer [[Reference/Modules/learnloop/figures/prefetch|learnloop.figures.prefetch]]
+- [tests/test_followups_batch6_prefetch_plan_wait.py](../../../../../../../tests/test_followups_batch6_prefetch_plan_wait.py) — imports consumer [[Reference/Modules/learnloop/figures/prefetch|learnloop.figures.prefetch]]
+- [tests/test_followups_batch6_review_fixes.py](../../../../../../../tests/test_followups_batch6_review_fixes.py) — imports consumer [[Reference/Modules/learnloop/figures/prefetch|learnloop.figures.prefetch]]
+- [tests/test_followups_batch6_verify_fixes.py](../../../../../../../tests/test_followups_batch6_verify_fixes.py) — imports consumer [[Reference/Modules/learnloop/figures/prefetch|learnloop.figures.prefetch]]
 
 ## Modification guidance
 

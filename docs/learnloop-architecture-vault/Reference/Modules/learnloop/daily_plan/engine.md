@@ -546,6 +546,9 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_an_unbound_attempt_on_the_chosen_item_is_never_the_forecasts_outcome`
 - [tests/test_exam_protection_landing.py](../../../../../../tests/test_exam_protection_landing.py) — direct import
   - `test_the_reading_step_never_offers_a_held_out_section_of_a_book_in_no_source_set`
+- [tests/test_followups_batch6_verify_fixes.py](../../../../../../tests/test_followups_batch6_verify_fixes.py) — direct import
+  - `test_v1_the_open_items_are_the_plan_records_own`
+  - `test_v2_todays_read_never_retries_a_plan_wait`
 - [tests/test_intent_codex_rereview.py](../../../../../../tests/test_intent_codex_rereview.py) — direct import
   - `test_f2_below_the_tag_commitments_change_nothing_with_the_switch_on`
 - [tests/test_intent_codex_review.py](../../../../../../tests/test_intent_codex_review.py) — direct import

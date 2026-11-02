@@ -154,6 +154,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
+- [tests/test_followups_batch6_review_fixes.py](../../../../../../tests/test_followups_batch6_review_fixes.py) — direct import
+  - `test_f3_the_cli_labels_the_r_cold_comparison_with_observed_cold_outcomes`
 - [tests/test_held_grade_composition.py](../../../../../../tests/test_held_grade_composition.py) — direct import
   - `test_a_released_hold_is_an_ordinary_outcome_again`
 - [tests/test_reader_rw3a_landing.py](../../../../../../tests/test_reader_rw3a_landing.py) — direct import

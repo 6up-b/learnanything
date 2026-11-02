@@ -118,6 +118,7 @@ The authoritative system-level explanation remains in [[State and Persistence]],
 - [[Reference/Modules/learnloop/daily_plan/engine|learnloop.daily_plan.engine]] — imports `module`; statically calls `abandon_open_plans_before`, `all_plans`, `append_block_event`, `block_events_for`, `daily_plan_tables_present`, `insert_plan`, `insert_plan_block`, `latest_plan`, `open_diagnosed_problem_learning_object_ids`, `plan_blocks`, `plan_by_id`, `plans_for_date`, `update_plan`
 - [[Reference/Modules/learnloop/daily_plan/router_card|learnloop.daily_plan.router_card]] — imports `open_learner_state_hypotheses`; statically calls `open_learner_state_hypotheses`
 - [[Reference/Modules/learnloop/field/outcomes|learnloop.field.outcomes]] — imports `plan_served_origins`; statically calls `plan_served_origins`
+- [[Reference/Modules/learnloop/figures/service|learnloop.figures.service]] — imports `module`; statically calls `block_events_for`, `daily_plan_tables_present`, `plan_blocks`, `plans_for_date`
 - [[Reference/Modules/learnloop/learner_context|learnloop.learner_context]] — imports `open_learner_state_hypotheses`; statically calls `open_learner_state_hypotheses`
 - [[Reference/Modules/learnloop/source_retrieval/deliverable_path|learnloop.source_retrieval.deliverable_path]] — imports `module`; statically calls `daily_plan_tables_present`, `latest_plan`
 
@@ -139,12 +140,13 @@ Use this module in context through:
 - [[Inspect Persistent State]]
 - [[Doctor Migrations and Recovery]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/daily_plan/engine|learnloop.daily_plan.engine]], [[Reference/Modules/learnloop/daily_plan/router_card|learnloop.daily_plan.router_card]], [[Reference/Modules/learnloop/field/outcomes|learnloop.field.outcomes]], [[Reference/Modules/learnloop/learner_context|learnloop.learner_context]], [[Reference/Modules/learnloop/source_retrieval/deliverable_path|learnloop.source_retrieval.deliverable_path]].
+Static participation evidence comes from [[Reference/Modules/learnloop/daily_plan/engine|learnloop.daily_plan.engine]], [[Reference/Modules/learnloop/daily_plan/router_card|learnloop.daily_plan.router_card]], [[Reference/Modules/learnloop/field/outcomes|learnloop.field.outcomes]], [[Reference/Modules/learnloop/figures/service|learnloop.figures.service]], [[Reference/Modules/learnloop/learner_context|learnloop.learner_context]] and 1 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
 ## Tests that define behavior
 
+- [tests/test_followups_batch6_verify_fixes.py](../../../../../../../tests/test_followups_batch6_verify_fixes.py) — direct import
 - [tests/test_router_card.py](../../../../../../../tests/test_router_card.py) — direct import
   - `test_a_resolved_promoted_misconception_is_not_an_open_problem`
 - [tests/test_voi_merge_composition.py](../../../../../../../tests/test_voi_merge_composition.py) — direct import

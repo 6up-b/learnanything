@@ -148,6 +148,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop/daily_plan/engine|learnloop.daily_plan.engine]] — imports `AD_INELIGIBLE`, `DELIVERABLE_PATH_MOVED`, `DELIVERABLE_PATH_OFF`, `ORIGIN_CHOOSER`, `ORIGIN_FOLLOWUP`, `ORIGIN_LEARNER_PICK`, `ORIGIN_REQUESTED`, `PlanRecord`, `PlannedBlock`, `PlannedItem`, `READING_PATH_OFF`, `RECEIPT_OPEN_LIST_PICK`, `RECEIPT_STOP`, `assemble`; statically calls `PlanRecord`, `PlannedBlock`, `PlannedItem`, `assemble`
 - [[Reference/Modules/learnloop/daily_plan/report|learnloop.daily_plan.report]] — imports `PlanRecord`
 - [[Reference/Modules/learnloop/daily_plan/view|learnloop.daily_plan.view]] — imports `PlanRecord`, `PlannedBlock`, `PlannedItem`
+- [[Reference/Modules/learnloop/figures/service|learnloop.figures.service]] — imports `assemble`; statically calls `assemble`
 
 ## Dependencies
 
@@ -167,7 +168,7 @@ Use this module in context through:
 - [[Initialize a Vault]]
 - [[Start a Learning Cycle]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/daily_plan/engine|learnloop.daily_plan.engine]], [[Reference/Modules/learnloop/daily_plan/report|learnloop.daily_plan.report]], [[Reference/Modules/learnloop/daily_plan/view|learnloop.daily_plan.view]].
+Static participation evidence comes from [[Reference/Modules/learnloop/daily_plan/engine|learnloop.daily_plan.engine]], [[Reference/Modules/learnloop/daily_plan/report|learnloop.daily_plan.report]], [[Reference/Modules/learnloop/daily_plan/view|learnloop.daily_plan.view]], [[Reference/Modules/learnloop/figures/service|learnloop.figures.service]].
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
@@ -176,6 +177,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_block_chooser_interface.py](../../../../../../tests/test_block_chooser_interface.py) — direct import
 - [tests/test_daily_plan_review_regressions.py](../../../../../../tests/test_daily_plan_review_regressions.py) — direct import
   - `test_f10_a_pick_after_the_plan_closed_is_recorded`
+- [tests/test_followups_batch6_verify_fixes.py](../../../../../../tests/test_followups_batch6_verify_fixes.py) — direct import
+  - `test_v1_the_open_items_are_the_plan_records_own`
 
 ## Modification guidance
 

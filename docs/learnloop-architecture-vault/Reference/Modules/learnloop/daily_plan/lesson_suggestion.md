@@ -155,6 +155,13 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
+- [tests/test_followups_batch6_review_fixes.py](../../../../../../tests/test_followups_batch6_review_fixes.py) — direct import
+  - `test_f4_a_card_with_a_released_line_moves_its_version_and_te1bs_card_keeps_its_own`
+- [tests/test_followups_batch6_router_report.py](../../../../../../tests/test_followups_batch6_router_report.py) — direct import
+  - `test_router_report_prints_the_split_from_the_ledgers_read_only`
+- [tests/test_followups_batch6_te1b_card.py](../../../../../../tests/test_followups_batch6_te1b_card.py) — direct import
+  - `test_a_declined_suggestion_keeps_its_not_now_line`
+  - `test_not_now_on_a_pending_card_is_its_own_line_after_the_start`
 - [tests/test_teacher_te1b_landing_r2.py](../../../../../../tests/test_teacher_te1b_landing_r2.py) — direct import
   - `test_a_reservation_is_set_aside_when_the_exam_material_cannot_be_checked`
   - `test_an_expired_reservation_cannot_then_be_released`

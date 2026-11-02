@@ -7,8 +7,8 @@ version: "1.0.0"
 source_path: "src/learnloop/figures/power.py"
 source_paths:
   - "src/learnloop/figures/power.py"
-source_commit: "ec2060b5e053639a05d205609eb9d564cee70209"
-source_commit_timestamp: "2026-11-02T07:07:21-05:00"
+source_commit: "cb9b4412358b58586ff11e73e69f105ef99b2d8a"
+source_commit_timestamp: "2026-11-02T13:54:19-05:00"
 source_worktree_state: "clean"
 generated: true
 generated_at: "2026-11-02"
@@ -50,34 +50,38 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/figures/power.py](../../../../../../src/learnloop/figures/power.py) |
-| Source lines | 248 |
+| Source lines | 317 |
 | Owning package | [[Reference/Modules/learnloop/figures/_package|learnloop.figures]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `ec2060b5e053639a05d205609eb9d564cee70209` |
-| Commit timestamp | `2026-11-02T07:07:21-05:00` |
+| Source commit | `cb9b4412358b58586ff11e73e69f105ef99b2d8a` |
+| Commit timestamp | `2026-11-02T13:54:19-05:00` |
 
 ## Public API
 
-- `class PowerState` ([source](../../../../../../src/learnloop/figures/power.py), line 47)
-- `linux_power_state(root: Path=SYSFS_ROOT, *, profile: Callable[[], str | None] | None=None) -> PowerState` ([source](../../../../../../src/learnloop/figures/power.py), line 79) — The Linux reading (module docstring); ``profile`` reads the power profile (tests inject it).
-- `mac_power_state(run: Callable[..., Any] | None=None) -> PowerState` ([source](../../../../../../src/learnloop/figures/power.py), line 120)
-- `windows_power_state() -> PowerState` ([source](../../../../../../src/learnloop/figures/power.py), line 135)
-- `set_power_reader(reader: Callable[[], PowerState] | None) -> None` ([source](../../../../../../src/learnloop/figures/power.py), line 164) — Install a fixed reader (tests); None restores the platform's.
-- `power_state() -> PowerState` ([source](../../../../../../src/learnloop/figures/power.py), line 171) — Whether this machine is on mains now (module docstring).
-- `prefetch_switch(vault: Any) -> bool` ([source](../../../../../../src/learnloop/figures/power.py), line 194) — ``figures.enabled`` and ``figures.prefetch_enabled`` as configured on ``vault``.
-- `background_hold(vault: Any, *, wait_foreground: float=0.0) -> str | None` ([source](../../../../../../src/learnloop/figures/power.py), line 210) — Why a background (prefetch) build may not make its next request now, or None: the switch, the power, then foreground work in flight (Codex review F7: a prebuild's every request yields to the learner; ``wait_foreground`` seconds it may wait for that work to end first, as the dura…
+- `class PowerState` ([source](../../../../../../src/learnloop/figures/power.py), line 63)
+- `reset_probe_cache() -> None` ([source](../../../../../../src/learnloop/figures/power.py), line 121) — Forget every cached probe answer (tests; :func:`set_power_reader`).
+- `linux_power_state(root: Path=SYSFS_ROOT, *, profile: Callable[[], str | None] | None=None) -> PowerState` ([source](../../../../../../src/learnloop/figures/power.py), line 128) — The Linux reading (module docstring); ``profile`` reads the power profile (tests inject it).
+- `mac_power_state(run: Callable[..., Any] | None=None) -> PowerState` ([source](../../../../../../src/learnloop/figures/power.py), line 179) — ``pmset -g batt``; unset ``run``, its answer comes through the probe cache (no cheap change signal).
+- `windows_power_state() -> PowerState` ([source](../../../../../../src/learnloop/figures/power.py), line 201)
+- `set_power_reader(reader: Callable[[], PowerState] | None) -> None` ([source](../../../../../../src/learnloop/figures/power.py), line 230) — Install a fixed reader (tests); None restores the platform's.
+- `power_state() -> PowerState` ([source](../../../../../../src/learnloop/figures/power.py), line 238) — Whether this machine is on mains now (module docstring).
+- `prefetch_switch(vault: Any) -> bool` ([source](../../../../../../src/learnloop/figures/power.py), line 261) — ``figures.enabled`` and ``figures.prefetch_enabled`` as configured on ``vault``.
+- `background_hold(vault: Any, *, wait_foreground: float=0.0) -> str | None` ([source](../../../../../../src/learnloop/figures/power.py), line 277) — Why a background (prefetch) build may not make its next request now, or None: the switch, the power, then foreground work in flight (Codex review F7: a prebuild's every request yields to the learner; ``wait_foreground`` seconds it may wait for that work to end first, as the dura…
 
 ### Module constants
 
-- `SYSFS_ROOT` ([src/learnloop/figures/power.py](../../../../../../src/learnloop/figures/power.py), line 38)
-- `PROBE_TIMEOUT_SECONDS` ([src/learnloop/figures/power.py](../../../../../../src/learnloop/figures/power.py), line 41)
-- `_OVERRIDE` ([src/learnloop/figures/power.py](../../../../../../src/learnloop/figures/power.py), line 159)
-- `POWER_ENV` ([src/learnloop/figures/power.py](../../../../../../src/learnloop/figures/power.py), line 161)
-- `SWITCHED_OFF` ([src/learnloop/figures/power.py](../../../../../../src/learnloop/figures/power.py), line 202)
-- `NOT_ON_MAINS` ([src/learnloop/figures/power.py](../../../../../../src/learnloop/figures/power.py), line 203)
-- `YIELDED` ([src/learnloop/figures/power.py](../../../../../../src/learnloop/figures/power.py), line 207)
+- `SYSFS_ROOT` ([src/learnloop/figures/power.py](../../../../../../src/learnloop/figures/power.py), line 49)
+- `PROBE_TIMEOUT_SECONDS` ([src/learnloop/figures/power.py](../../../../../../src/learnloop/figures/power.py), line 52)
+- `PROBE_CACHE_SECONDS` ([src/learnloop/figures/power.py](../../../../../../src/learnloop/figures/power.py), line 57)
+- `_PROBE_CACHE` ([src/learnloop/figures/power.py](../../../../../../src/learnloop/figures/power.py), line 96)
+- `_PROBE_LOCK` ([src/learnloop/figures/power.py](../../../../../../src/learnloop/figures/power.py), line 99)
+- `_OVERRIDE` ([src/learnloop/figures/power.py](../../../../../../src/learnloop/figures/power.py), line 225)
+- `POWER_ENV` ([src/learnloop/figures/power.py](../../../../../../src/learnloop/figures/power.py), line 227)
+- `SWITCHED_OFF` ([src/learnloop/figures/power.py](../../../../../../src/learnloop/figures/power.py), line 269)
+- `NOT_ON_MAINS` ([src/learnloop/figures/power.py](../../../../../../src/learnloop/figures/power.py), line 270)
+- `YIELDED` ([src/learnloop/figures/power.py](../../../../../../src/learnloop/figures/power.py), line 274)
 
 ### Explicit exports
 
@@ -88,6 +92,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `NOT_ON_MAINS`
 - `POWER_ENV`
 - `POWER_SAVER`
+- `PROBE_CACHE_SECONDS`
 - `PROBE_TIMEOUT_SECONDS`
 - `SWITCHED_OFF`
 - `SYSFS_ROOT`
@@ -99,13 +104,16 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `mac_power_state`
 - `power_state`
 - `prefetch_switch`
+- `reset_probe_cache`
 - `set_power_reader`
 - `windows_power_state`
 
 ## Internal implementation anchors
 
-- `_read(path: Path) -> str | None` ([source](../../../../../../src/learnloop/figures/power.py), line 55)
-- `_profile(run: Callable[..., Any] | None=None) -> str | None` ([source](../../../../../../src/learnloop/figures/power.py), line 62) — power-profiles-daemon's active profile, or None (no daemon, no tool, a failure).
+- `_read(path: Path) -> str | None` ([source](../../../../../../src/learnloop/figures/power.py), line 71)
+- `_profile(run: Callable[..., Any] | None=None) -> str | None` ([source](../../../../../../src/learnloop/figures/power.py), line 78) — power-profiles-daemon's active profile, or None (no daemon, no tool, a failure).
+- `_cached_probe(name: str, key: object, probe: Callable[[], Any]) -> Any` ([source](../../../../../../src/learnloop/figures/power.py), line 104) — ``probe()``'s answer, reused while ``key`` is unchanged and younger than :data:`PROBE_CACHE_SECONDS`.
+- `_mac_power_state(runner: Callable[..., Any]) -> PowerState` ([source](../../../../../../src/learnloop/figures/power.py), line 187)
 
 ## Who imports or calls it
 
@@ -126,7 +134,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 
 ### Platform and third-party dependencies
 
-- Standard library: `__future__`, `collections`, `ctypes`, `dataclasses`, `os`, `pathlib`, `shutil`, `subprocess`, `sys`, `typing`
+- Standard library: `__future__`, `collections`, `ctypes`, `dataclasses`, `os`, `pathlib`, `shutil`, `subprocess`, `sys`, `threading`, `time`, `typing`
 - Third party: none imported directly
 
 ## Larger workflow participation
@@ -159,6 +167,23 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_f9_an_ask_is_the_same_request_before_the_horizon`
   - `test_r1_a_pressed_fuller_keeps_its_pending_line_and_is_not_speculative`
   - `test_r1_an_unqueued_speculative_fuller_is_not_pending_on_battery`
+- [tests/test_followups_batch6_power_probe_cache.py](../../../../../../tests/test_followups_batch6_power_probe_cache.py) — direct import
+  - `test_a_cached_power_saver_profile_keeps_background_work_off`
+  - `test_a_failed_probe_is_cached_and_the_reading_still_fails_closed`
+  - `test_a_power_supply_change_in_sysfs_probes_again_at_once`
+  - `test_a_probe_that_raises_is_not_cached_and_reads_as_not_on_mains`
+  - `test_concurrent_reads_share_one_probe`
+  - `test_installing_a_reader_forgets_the_cached_probes`
+  - `test_no_tool_starts_nothing_and_an_injected_profile_is_never_cached`
+  - `test_pmset_is_cached_for_the_window_too`
+  - `test_the_probe_answers_only_for_its_window`
+  - `test_thirty_reads_start_the_profile_probe_once`
+- [tests/test_followups_batch6_prefetch_next_section.py](../../../../../../tests/test_followups_batch6_prefetch_next_section.py) — direct import
+- [tests/test_followups_batch6_prefetch_plan_wait.py](../../../../../../tests/test_followups_batch6_prefetch_plan_wait.py) — direct import
+  - `test_the_pass_retries_only_on_mains_with_the_switch_on_and_the_plan_not_paused`
+- [tests/test_followups_batch6_review_fixes.py](../../../../../../tests/test_followups_batch6_review_fixes.py) — direct import
+- [tests/test_followups_batch6_verify_fixes.py](../../../../../../tests/test_followups_batch6_verify_fixes.py) — direct import
+  - `test_v2_characterization_a_worker_origin_pass_still_runs_ordinary_builds`
 
 ## Modification guidance
 

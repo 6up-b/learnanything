@@ -122,8 +122,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/query_student_fakes.py](../../../../../../tests/query_student_fakes.py) — direct import
 - [tests/test_query_student.py](../../../../../../tests/test_query_student.py) — direct import
   - `test_a_client_that_gives_up_never_stops_the_query_process`
-  - `test_a_resident_gpu_student_yields_before_an_index_batch`
-  - `test_the_query_process_answers_over_its_unix_socket_and_exits_idle`
   - `test_the_query_process_never_runs_a_changed_base`
   - `test_the_query_process_refuses_outside_its_4g_scope_and_under_the_host_floor`
 

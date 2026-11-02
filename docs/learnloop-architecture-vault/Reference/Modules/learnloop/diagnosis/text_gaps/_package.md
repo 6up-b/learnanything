@@ -59,7 +59,7 @@ For system intent, use [[Learning System]].
 | [[Reference/Modules/learnloop/diagnosis/text_gaps/actions|learnloop.diagnosis.text_gaps.actions]] | [[Reference/Modules/learnloop/diagnosis/text_gaps/actions#^module-purpose|purpose]] | `ACTIVE` | 4 | 8 |
 | [[Reference/Modules/learnloop/diagnosis/text_gaps/candidates|learnloop.diagnosis.text_gaps.candidates]] | [[Reference/Modules/learnloop/diagnosis/text_gaps/candidates#^module-purpose|purpose]] | `ACTIVE` | 2 | 0 |
 | [[Reference/Modules/learnloop/diagnosis/text_gaps/contract|learnloop.diagnosis.text_gaps.contract]] | [[Reference/Modules/learnloop/diagnosis/text_gaps/contract#^module-purpose|purpose]] | `ACTIVE` | 10 | 12 |
-| [[Reference/Modules/learnloop/diagnosis/text_gaps/jobs|learnloop.diagnosis.text_gaps.jobs]] | [[Reference/Modules/learnloop/diagnosis/text_gaps/jobs#^module-purpose|purpose]] | `ACTIVE` | 13 | 24 |
+| [[Reference/Modules/learnloop/diagnosis/text_gaps/jobs|learnloop.diagnosis.text_gaps.jobs]] | [[Reference/Modules/learnloop/diagnosis/text_gaps/jobs#^module-purpose|purpose]] | `ACTIVE` | 13 | 25 |
 | [[Reference/Modules/learnloop/diagnosis/text_gaps/judges|learnloop.diagnosis.text_gaps.judges]] | [[Reference/Modules/learnloop/diagnosis/text_gaps/judges#^module-purpose|purpose]] | `ACTIVE` | 4 | 6 |
 | [[Reference/Modules/learnloop/diagnosis/text_gaps/kinds|learnloop.diagnosis.text_gaps.kinds]] | [[Reference/Modules/learnloop/diagnosis/text_gaps/kinds#^module-purpose|purpose]] | `ACTIVE` | 2 | 2 |
 | [[Reference/Modules/learnloop/diagnosis/text_gaps/pipeline|learnloop.diagnosis.text_gaps.pipeline]] | [[Reference/Modules/learnloop/diagnosis/text_gaps/pipeline#^module-purpose|purpose]] | `ACTIVE` | 2 | 17 |

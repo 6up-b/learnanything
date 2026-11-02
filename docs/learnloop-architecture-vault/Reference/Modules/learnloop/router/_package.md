@@ -14,9 +14,10 @@ source_paths:
   - "src/learnloop/router/outcomes.py"
   - "src/learnloop/router/plan_log.py"
   - "src/learnloop/router/requests.py"
+  - "src/learnloop/router/suggestion_report.py"
   - "src/learnloop/router/why.py"
 source_commit: "aggregate; see module notes"
-source_commit_timestamp: "2026-11-02T08:47:44-05:00"
+source_commit_timestamp: "2026-11-02T15:12:18-05:00"
 generated: true
 generated_at: "2026-11-02"
 package: "learnloop.router"
@@ -55,13 +56,14 @@ For system intent, use [[Architecture Overview]].
 |---|---|---:|---:|---:|
 | [[Reference/Modules/learnloop/router/__init__|learnloop.router]] | [[Reference/Modules/learnloop/router/__init__#^module-purpose|purpose]] | `ACTIVE` | 0 | 0 |
 | [[Reference/Modules/learnloop/router/agreement|learnloop.router.agreement]] | [[Reference/Modules/learnloop/router/agreement#^module-purpose|purpose]] | `ACTIVE` | 1 | 1 |
-| [[Reference/Modules/learnloop/router/card|learnloop.router.card]] | [[Reference/Modules/learnloop/router/card#^module-purpose|purpose]] | `ACTIVE` | 1 | 9 |
+| [[Reference/Modules/learnloop/router/card|learnloop.router.card]] | [[Reference/Modules/learnloop/router/card#^module-purpose|purpose]] | `ACTIVE` | 1 | 11 |
 | [[Reference/Modules/learnloop/router/decisions|learnloop.router.decisions]] | [[Reference/Modules/learnloop/router/decisions#^module-purpose|purpose]] | `ACTIVE` | 2 | 2 |
-| [[Reference/Modules/learnloop/router/lesson_suggestions|learnloop.router.lesson_suggestions]] | [[Reference/Modules/learnloop/router/lesson_suggestions#^module-purpose|purpose]] | `ACTIVE` | 1 | 4 |
+| [[Reference/Modules/learnloop/router/lesson_suggestions|learnloop.router.lesson_suggestions]] | [[Reference/Modules/learnloop/router/lesson_suggestions#^module-purpose|purpose]] | `ACTIVE` | 1 | 6 |
 | [[Reference/Modules/learnloop/router/mixture|learnloop.router.mixture]] | [[Reference/Modules/learnloop/router/mixture#^module-purpose|purpose]] | `ACTIVE` | 5 | 5 |
-| [[Reference/Modules/learnloop/router/outcomes|learnloop.router.outcomes]] | [[Reference/Modules/learnloop/router/outcomes#^module-purpose|purpose]] | `ACTIVE` | 3 | 12 |
+| [[Reference/Modules/learnloop/router/outcomes|learnloop.router.outcomes]] | [[Reference/Modules/learnloop/router/outcomes#^module-purpose|purpose]] | `ACTIVE` | 3 | 13 |
 | [[Reference/Modules/learnloop/router/plan_log|learnloop.router.plan_log]] | [[Reference/Modules/learnloop/router/plan_log#^module-purpose|purpose]] | `ACTIVE` | 2 | 1 |
 | [[Reference/Modules/learnloop/router/requests|learnloop.router.requests]] | [[Reference/Modules/learnloop/router/requests#^module-purpose|purpose]] | `ACTIVE` | 2 | 3 |
+| [[Reference/Modules/learnloop/router/suggestion_report|learnloop.router.suggestion_report]] | [[Reference/Modules/learnloop/router/suggestion_report#^module-purpose|purpose]] | `ACTIVE` | 1 | 2 |
 | [[Reference/Modules/learnloop/router/why|learnloop.router.why]] | [[Reference/Modules/learnloop/router/why#^module-purpose|purpose]] | `ACTIVE` | 4 | 4 |
 
 ## Cross-package dependencies
@@ -75,7 +77,7 @@ For system intent, use [[Architecture Overview]].
 ### Packages that import this package
 
 - [[Reference/Modules/learnloop/daily_plan/_package|learnloop.daily_plan]] — 13 static module edges
-- [[Reference/Modules/learnloop/cli/_package|learnloop.cli]] — 2 static module edges
+- [[Reference/Modules/learnloop/cli/_package|learnloop.cli]] — 3 static module edges
 - [[Reference/Modules/learnloop/scheduling/_package|learnloop.scheduling]] — 2 static module edges
 - [[Reference/Modules/learnloop_sidecar/handlers/_package|learnloop_sidecar.handlers]] — 2 static module edges
 - [[Reference/Modules/learnloop/substrate/_package|learnloop.substrate]] — 1 static module edge
@@ -90,16 +92,16 @@ flowchart LR
     n_learnloop_daily_plan["learnloop.daily_plan"]
     n_learnloop["learnloop"]
     n_learnloop_db_stores["learnloop.db.stores"]
-    n_learnloop_ai["learnloop.ai"]
     n_learnloop_cli["learnloop.cli"]
+    n_learnloop_ai["learnloop.ai"]
     n_learnloop_scheduling["learnloop.scheduling"]
     n_learnloop_sidecar_handlers["learnloop_sidecar.handlers"]
     n_learnloop_substrate["learnloop.substrate"]
     n_learnloop_daily_plan -->|13| center
     center -->|7| n_learnloop
     center -->|5| n_learnloop_db_stores
+    n_learnloop_cli -->|3| center
     center -->|2| n_learnloop_ai
-    n_learnloop_cli -->|2| center
     n_learnloop_scheduling -->|2| center
     n_learnloop_sidecar_handlers -->|2| center
     n_learnloop_substrate -->|1| center

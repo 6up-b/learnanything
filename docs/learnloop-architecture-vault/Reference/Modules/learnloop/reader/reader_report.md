@@ -7,8 +7,8 @@ version: "1.0.0"
 source_path: "src/learnloop/reader/reader_report.py"
 source_paths:
   - "src/learnloop/reader/reader_report.py"
-source_commit: "693ca5adda6e118de9be5ed7e41d7b184ee2d32e"
-source_commit_timestamp: "2026-11-01T08:43:41-05:00"
+source_commit: "144497f9effca275e8320b14486e0b34053c19d0"
+source_commit_timestamp: "2026-11-02T05:49:20-05:00"
 source_worktree_state: "clean"
 generated: true
 generated_at: "2026-11-02"
@@ -54,8 +54,8 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `693ca5adda6e118de9be5ed7e41d7b184ee2d32e` |
-| Commit timestamp | `2026-11-01T08:43:41-05:00` |
+| Source commit | `144497f9effca275e8320b14486e0b34053c19d0` |
+| Commit timestamp | `2026-11-02T05:49:20-05:00` |
 
 ## Public API
 
