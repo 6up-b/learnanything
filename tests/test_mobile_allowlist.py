@@ -507,9 +507,13 @@ def test_the_pinned_c2_rpcs_are_all_of_them():
 
 # Teacher TE1 (spec_teacher_v1 §17, §19): a lesson (lesson.turn is every
 # model-calling step, lesson.view resumes one). Desktop only: never on the phone.
+# Teacher TE1b (§15.1, §19): Today's lesson suggestion card and the learner's
+# one response to it (desktop only).
 TEACHER_TE1_RPCS = (
     "lesson.turn",
     "lesson.view",
+    "lesson.suggestion",
+    "lesson.suggestion_respond",
 )
 
 

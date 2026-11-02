@@ -52,7 +52,7 @@ from learnloop.vault.models import learning_object_facet_union
 REASON_WORDS: Mapping[str, str] = {
     "new_goal": "It's on your goal and you haven't started it yet.",
     "cold_failing": "Your last two checks on it didn't come out right.",
-    "below_band": "LearnLoop's mastery model expects it to be hard for you right now.",
+    "below_band": "LearnLoop expects it to be hard for you right now.",
 }
 WHY_LABEL = "Suggested by LearnLoop's planner"
 
