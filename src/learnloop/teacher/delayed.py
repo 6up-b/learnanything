@@ -5,8 +5,9 @@ RW1b's reconstruct already uses), served cold in Today with no source, hint or
 tutor; the answer is an ordinary attempt with full evidence and FSRS.
 
 * **Retention:** one per landed node that has an LO: a vault item of that LO
-  that was never attempted, has no reveal row (from this lesson or any other),
-  was never shown in this lesson, is not withheld (exam, held-out, reserved, a
+  that was never attempted, has no reveal row from this lesson (nor exposure
+  elsewhere reaching the auto-prime threshold: it could not be taken cold), was
+  never shown in this lesson, is not withheld (exam, held-out, reserved, a
   pending check) and is servable (no lesson item: those stay in their lesson).
 * **Transfer:** one per lesson: such an item on an LO downstream of a landed one
   (one whose concept builds on it), else another of the goal's LOs' items not
@@ -43,9 +44,19 @@ def _attempted(repository: Any) -> set[str]:
         return {str(row[0]) for row in connection.execute("SELECT DISTINCT practice_item_id FROM practice_attempts")}
 
 
-def _revealed(repository: Any) -> set[str]:
+def _revealed(repository: Any, lesson_id: str) -> set[str]:
+    """Items this lesson exposed (a reveal row with basis ``lesson:<id>``), and items whose summed
+    exposure already reaches the auto-prime threshold (an answer would be primed: never cold)."""
+
+    from learnloop.serve_eligibility import AUTO_PRIME_REVEAL_THRESHOLD
+
     with repository.connection() as connection:
-        return {str(row[0]) for row in connection.execute("SELECT DISTINCT practice_item_id FROM reveal_events")}
+        lesson = {str(row[0]) for row in connection.execute(
+            "SELECT DISTINCT practice_item_id FROM reveal_events WHERE basis = ?", (f"lesson:{lesson_id}",))}
+        primed = {str(row[0]) for row in connection.execute(
+            "SELECT practice_item_id FROM reveal_events GROUP BY practice_item_id HAVING SUM(amount) >= ?",
+            (AUTO_PRIME_REVEAL_THRESHOLD,))}
+    return lesson | primed
 
 
 def candidates(vault: Any, repository: Any, learning_object_id: str, *, exclude: Iterable[str],
@@ -114,7 +125,7 @@ def commit_checks(vault: Any, repository: Any, *, lesson_id: str, landed: Sequen
     from learnloop.learner_protection import withheld_items
 
     withheld = withheld_items(vault, repository)
-    attempted, revealed = _attempted(repository), _revealed(repository)
+    attempted, revealed = _attempted(repository), _revealed(repository, lesson_id)
     used: set[str] = set(shown_items)
     out: list[dict[str, Any]] = []
     warnings: list[str] = []
