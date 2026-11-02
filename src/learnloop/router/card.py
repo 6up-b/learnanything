@@ -273,6 +273,9 @@ def render_text(card: Mapping[str, Any]) -> str:
     reader = (card.get("evidence_sections") or {}).get("reader_activity")
     if reader:
         lines.extend(_reader_lines(reader, card))
+    preferences = (card.get("evidence_sections") or {}).get(SUGGESTION_SECTION)
+    if preferences:
+        lines.extend(_suggestion_lines(preferences))
     lines.append("# Recent graded work (newest first)")
     work = card.get("recent_work") or ()
     if not work:
@@ -286,6 +289,26 @@ def render_text(card: Mapping[str, Any]) -> str:
             "older attempts left out)"
         )
     return "\n".join(lines) + "\n"
+
+
+#: Teacher TE1b (spec_teacher_v1 §15.1; codex review F5): the learner's answers to Today's lesson
+#: suggestion card, as preference lines (``evidence_sections`` key; the gatherer is
+#: ``daily_plan.router_card``). Present only with answers in the card's 7-day window.
+SUGGESTION_SECTION = "lesson_suggestions"
+_SUGGESTION_WORDS = {"accepted": "started the suggested lesson on {topics}",
+                     "chose_alternative": "chose a lesson on {topics} over {instead}",
+                     "declined": "not now on {topics}",
+                     "ignored": "no answer on {topics}"}
+
+
+def _suggestion_lines(entries: Sequence[Mapping[str, Any]]) -> list[str]:
+    lines = ["# Lesson suggestions, last 7 days (answers to Today's suggestion card, newest first)"]
+    for entry in entries:
+        words = _SUGGESTION_WORDS.get(str(entry.get("response")), "{topics}: " + str(entry.get("response")))
+        lines.append(f"- {str(entry.get('at') or '')[:10]} " + words.format(
+            topics=", ".join(str(t) for t in entry.get("topics") or ()) or "-",
+            instead=", ".join(str(t) for t in entry.get("instead_of") or ()) or "the suggestion"))
+    return lines
 
 
 def _topics(ids: Any, card: Mapping[str, Any]) -> str:
@@ -355,10 +378,17 @@ def _reader_lines(reader: Mapping[str, Any], card: Mapping[str, Any]) -> list[st
 AD_CARD_VERSION = CARD_VERSION + "+ad23"
 
 
-def _card_version(inputs: CardInputs) -> str:
+#: The suffix the card's version takes while it carries the lesson suggestion answers (teacher TE1b:
+#: the version moves with the section, as with AD's fields; without it the card is unchanged).
+SUGGESTION_CARD_SUFFIX = "+te1b"
+
+
+def _card_version(inputs: CardInputs, evidence_sections: Mapping[str, Any] | None = None) -> str:
     base = CARD_VERSION if inputs.confidence_enabled else PREDECESSOR_CARD_VERSION
-    return base + "+ad23" if any(
+    version = base + "+ad23" if any(
         "adaptive_difficulty" in row for row in (inputs.learning_objects or {}).values()) else base
+    sections = inputs.evidence_sections if evidence_sections is None else evidence_sections
+    return version + SUGGESTION_CARD_SUFFIX if (sections or {}).get(SUGGESTION_SECTION) else version
 
 
 #: The builder's record that the budget dropped the confidence section's
@@ -366,7 +396,8 @@ def _card_version(inputs: CardInputs) -> str:
 #: (the stored payload) only: the typed card the models read never spends
 #: tokens saying a line is missing that it had no room for.
 _METADATA_TRUNCATION_KEYS = frozenset({"dropped_confidence_limit", "dropped_confidence_notice",
-                                       "dropped_reader_entries", "dropped_reader_section"})
+                                       "dropped_reader_entries", "dropped_reader_section",
+                                       "dropped_suggestion_section"})
 
 #: The card's "Reader activity" section (RW6b part 2; ``evidence_sections``
 #: key, ``daily_plan.router_reader.CARD_SECTION``; restated: this module is a
@@ -414,7 +445,7 @@ def _assemble(inputs: CardInputs, work: list[dict[str, Any]], truncation: Mappin
               confidence_dropped: int = 0, *, limit: bool = True, notice: bool = True,
               evidence_sections: Mapping[str, Any] | None = None) -> dict[str, Any]:
     card = {
-        "card_version": _card_version(inputs),
+        "card_version": _card_version(inputs, evidence_sections),
         "decision": dict(inputs.decision),
         "session": dict(inputs.session),
         "intent": {key: dict(value) for key, value in sorted(inputs.intent.items())},
@@ -499,6 +530,11 @@ def build_card(inputs: CardInputs, *, token_budget: int = DEFAULT_TOKEN_BUDGET) 
         if size() > token_budget:
             sections.pop(READER_SECTION)
             dropped["dropped_reader_section"] = 1
+    # Teacher TE1b: the lesson suggestion answers (salience the predecessor's card never had) go
+    # whole next, so the card fits whenever the predecessor's would; the version follows.
+    if size() > token_budget and SUGGESTION_SECTION in sections:
+        sections.pop(SUGGESTION_SECTION)
+        dropped["dropped_suggestion_section"] = 1
 
     # TE0 (review F3): the 7-day confidence events first, oldest first; each
     # shown attempt's line keeps its own event, and the omission is stated.
@@ -541,7 +577,7 @@ def build_card(inputs: CardInputs, *, token_budget: int = DEFAULT_TOKEN_BUDGET) 
     text = render_text(card)
     digest = hashlib.sha256(canonical_json({"json": card, "text": text}).encode("utf-8")).hexdigest()
     return LearnerStateCard(
-        card_version=_card_version(inputs),
+        card_version=_card_version(inputs, sections),
         json=card,
         text=text,
         card_hash=digest,
@@ -553,6 +589,8 @@ def build_card(inputs: CardInputs, *, token_budget: int = DEFAULT_TOKEN_BUDGET) 
 __all__ = [
     "AD_CARD_VERSION",
     "CARD_VERSION",
+    "SUGGESTION_CARD_SUFFIX",
+    "SUGGESTION_SECTION",
     "PREDECESSOR_CARD_VERSION",
     "CardInputs",
     "DEFAULT_TOKEN_BUDGET",

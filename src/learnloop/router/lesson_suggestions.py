@@ -7,15 +7,15 @@ client (the shell is ``learnloop.daily_plan.lesson_suggestion``).
 **The candidate** is ``instruct(lesson)`` on one learning object, proposed for
 one of the spec's three reasons (``new_goal``: an LO on an active goal the
 learner has not started; ``cold_failing``: its two latest cold checks were not
-right; ``below_band``: the mastery model predicts success below adaptive
-difficulty's own ``calibrate_below``). Declining costs nothing, so it is
+right; ``below_band``: adaptive difficulty's posterior predicts the learner
+below its practice band, by AD's own out-of-band rule on ``P_band``). Declining costs nothing, so it is
 reversible and drawn.
 
 **The acceptance model** ``P(accept | context, candidate) = σ(h · θ)`` is a
 logistic model with latent effects: a Gaussian over ``θ`` (the intercept, the
 time of day as a sine and cosine pair, the share of a lesson that fits in the
-minutes left, re-entry, the reason given, a suggestion shown within the last
-day, and the decline depth ``D``), one Gaussian per point of the per-learner
+minutes left, re-entry, the reason given, the days since the last suggestion
+(:func:`spacing_feature`), and the decline depth ``D``), one Gaussian per point of the per-learner
 recovery grid, the grid
 weights ``W_t(R) ∝ W_{t−1}(R) · Z_t(R)`` from their seeded prior (AD's
 ``ad_hyper`` mechanism, as ``learner.lesson_weight`` does for τ). For a goal
@@ -35,10 +35,11 @@ structural, no weight), so suggestions come as often as they are predicted to
 be taken. The card's suggestion is drawn from ``π ∝ exp(value)`` with the
 router's own floor ``router.epsilon_min`` on each of the top ``router.k``
 candidates, then shown with probability ``P(accept)`` of the drawn candidate:
-shown and not-shown days are both logged, each with its exact propensity
-(``π(c) · P(c)`` for a shown ``c``, ``Σ π(i) · (1 − P(i))`` for none), so
-the policy is evaluated intention-to-treat on ``R_cold``
-(``router.outcomes``). No per-day quota and no fixed mute length: the seeded
+shown and not-shown days are both logged, each with the exact joint
+probability of its drawn target and its arm (``π(c) · P(c)`` shown,
+``π(c) · (1 − P(c))`` not shown: the outcome is the drawn target's, so the
+propensity is too; codex review F3), so the policy is evaluated
+intention-to-treat on ``R_cold`` (``router.outcomes``). No per-day quota and no fixed mute length: the seeded
 priors reproduce revision 3's defaults (about one a day, about a 7-day mute
 after a "Not now") until the responses move them.
 
@@ -78,8 +79,9 @@ RESPONSES: tuple[str, ...] = ("accepted", "chose_alternative", "declined", "igno
 
 #: The state vector, in order (``decline`` is ``D``, entered as ``−g_R(d)``).
 #: Every context feature is 0 at the reference context (a lesson fits in the minutes left, or no plan
-#: says otherwise; not a re-entry; a goal LO not started; no suggestion within the last day; no "Not
-#: now"), so the seeded centres below are the reference context's (structural: bounded features).
+#: says otherwise; not a re-entry; a goal LO not started; the last suggestion a day ago, at the seeded
+#: cadence, or none yet; no "Not now"), so the seeded centres below are the reference context's
+#: (structural: bounded features).
 TERMS: tuple[str, ...] = (
     "intercept", "hour_sin", "hour_cos", "minutes_short", "reentry",
     "reason_cold_failing", "reason_below_band", "recent_suggestion", "decline",
@@ -92,6 +94,9 @@ LEGACY_DAILY_SHOW = 0.9
 #: Revision 3's "Not now" mute: a goal just declined starts at about one chance in a hundred (basis
 #: legacy; with the intercept, the decline depth's centre).
 LEGACY_DECLINED_SHOW = 0.01
+#: Revision 3's cadence of about one suggestion a day (basis legacy): the days-since-last-suggestion
+#: feature is 0 at this gap, so the seeded centres are the one-a-day context's (codex review F7).
+LEGACY_CADENCE_DAYS = 1.0
 #: Every effect's prior width (the LP spec's rule for legacy priors: >= 1 logit).
 PRIOR_SD = 1.0
 #: The recovery grid (days until a declined goal is back at its undeclined value): centred on
@@ -183,22 +188,29 @@ class Candidate:
     #: Days since the learner's latest "Not now" on this goal (None: none since its last acceptance).
     days_since_decline: float | None = None
     title: str = ""
+    #: ``below_band``: adaptive difficulty's prediction that put it there (``P_band``, ``p̄``, the band).
+    band: Mapping[str, Any] | None = None
 
     def as_dict(self) -> dict[str, Any]:
-        return {"ref": self.ref, "kind": CANDIDATE_KIND, "learning_object_ids": list(self.learning_object_ids),
-                "reason": self.reason, "title": self.title,
-                "predicted_success": None if self.predicted_success is None else round(float(self.predicted_success), 6),
-                "days_since_decline": (None if self.days_since_decline is None
-                                       else round(float(self.days_since_decline), 6))}
+        out = {"ref": self.ref, "kind": CANDIDATE_KIND, "learning_object_ids": list(self.learning_object_ids),
+               "reason": self.reason, "title": self.title,
+               "predicted_success": None if self.predicted_success is None else round(float(self.predicted_success), 6),
+               "days_since_decline": (None if self.days_since_decline is None
+                                      else round(float(self.days_since_decline), 6))}
+        if self.band is not None:
+            out["band"] = dict(self.band)
+        return out
 
     @classmethod
     def from_dict(cls, value: Mapping[str, Any]) -> "Candidate":
         p = value.get("predicted_success")
         d = value.get("days_since_decline")
+        band = value.get("band")
         return cls(ref=str(value["ref"]), learning_object_ids=tuple(str(x) for x in value.get("learning_object_ids") or ()),
                    reason=str(value.get("reason") or "new_goal"),
                    predicted_success=None if p is None else float(p),
-                   days_since_decline=None if d is None else float(d), title=str(value.get("title") or ""))
+                   days_since_decline=None if d is None else float(d), title=str(value.get("title") or ""),
+                   band=dict(band) if isinstance(band, Mapping) else None)
 
 
 def lesson_ref(learning_object_id: str) -> str:
@@ -211,6 +223,21 @@ def decline_shape(days: float | None, recovery_days: float) -> float:
     if days is None:
         return 0.0
     return max(0.0, 1.0 - math.log1p(max(float(days), 0.0)) / math.log1p(float(recovery_days)))
+
+
+def spacing_feature(days: float | None) -> float:
+    """The days-since-the-last-suggestion feature (codex review F7): ``1/(1 + c) − 1/(1 + d)``.
+
+    0 at the seeded cadence ``c`` (:data:`LEGACY_CADENCE_DAYS`, one day) and with no earlier
+    suggestion, −1/2 for a suggestion moments ago, rising toward +1/2 as the gap grows: every
+    gap keeps its own value (1, 7 and 30 days are 0, 0.375 and 0.468), so the learned
+    coefficient can tell daily prompts from a card after several days. Bounded (structural:
+    a logistic input whose prior variance stays within a quarter of one effect's), so the seeded
+    prior predictive stays at about one a day whatever the gap."""
+
+    if days is None:
+        return 0.0
+    return 1.0 / (1.0 + LEGACY_CADENCE_DAYS) - 1.0 / (1.0 + max(float(days), 0.0))
 
 
 def design_vector(context: Context, candidate: Candidate, recovery_days: float) -> np.ndarray:
@@ -227,8 +254,7 @@ def design_vector(context: Context, candidate: Candidate, recovery_days: float) 
     h[TERMS.index("reentry")] = 1.0 if context.reentry else 0.0
     h[TERMS.index("reason_cold_failing")] = 1.0 if candidate.reason == "cold_failing" else 0.0
     h[TERMS.index("reason_below_band")] = 1.0 if candidate.reason == "below_band" else 0.0
-    if context.days_since_last is not None:
-        h[TERMS.index("recent_suggestion")] = min(max(float(context.days_since_last), 0.0), 1.0) - 1.0
+    h[TERMS.index("recent_suggestion")] = spacing_feature(context.days_since_last)
     h[TERMS.index("decline")] = -decline_shape(candidate.days_since_decline, recovery_days)
     return h
 
@@ -370,6 +396,14 @@ class ScoredCandidate:
 
 @dataclass(frozen=True)
 class Draw:
+    """The day's draw. The target is drawn first (``π``), then the arm (the show coin at the target's
+    ``P(accept)``); ``propensity`` is the joint probability of that target and that arm, so a shown
+    and an unshown day are weighted on the same target-specific outcome (codex review F3).
+
+    ``scope`` is the predeclared outcome scope, fixed before the arm: the target and the up-to-two
+    candidates the card would offer beside it (the alternatives when shown), so an accepted
+    alternative's delayed checks join the decision in both arms (codex review F4)."""
+
     scored: tuple[ScoredCandidate, ...]
     drawn: ScoredCandidate
     shown: bool
@@ -379,6 +413,15 @@ class Draw:
     p_no_card: float
     seed: str
     ceiling_bound: bool = False
+    scope: tuple[ScoredCandidate, ...] = ()
+
+    @property
+    def arm_propensity(self) -> float:
+        """The arm's probability given the drawn target (1 when the ceiling binds)."""
+
+        if self.ceiling_bound:
+            return 1.0
+        return self.drawn.p_accept if self.shown else 1.0 - self.drawn.p_accept
 
     @property
     def chosen_ref(self) -> str:
@@ -431,19 +474,23 @@ def draw(scored: Sequence[ScoredCandidate], *, epsilon: float, seed: str, ceilin
     index = int(np.searchsorted(np.cumsum(pi), u_draw, side="right"))
     index = min(index, n - 1)
     drawn = with_pi[index]
+    # The aggregate chance of no card (any target), kept for the report; never the row's propensity.
     p_no_card = float(sum(s.pi * (1.0 - s.p_accept) for s in with_pi))
+    others = sorted((s for s in with_pi if s.candidate.ref != drawn.candidate.ref),
+                    key=lambda s: (-s.pi, s.candidate.ref))
+    scope = (drawn, *others[:MAX_ALTERNATIVES])
     if ceiling_bound:
-        return Draw(with_pi, drawn, False, (), 1.0, "deterministic", 1.0, seed, ceiling_bound=True)
+        # The ceiling decides the arm, but the target was still drawn: P(target) · 1.
+        propensity, kind = _propensity(drawn.pi)
+        return Draw(with_pi, drawn, False, (), propensity, kind, 1.0, seed, ceiling_bound=True, scope=scope)
     shown = u_show < drawn.p_accept
     if shown:
         propensity, kind = _propensity(drawn.pi * drawn.p_accept)
-        others = sorted((s for s in with_pi if s.candidate.ref != drawn.candidate.ref),
-                        key=lambda s: (-s.pi, s.candidate.ref))
         alternatives = tuple(others[:MAX_ALTERNATIVES])
     else:
-        propensity, kind = _propensity(p_no_card)
+        propensity, kind = _propensity(drawn.pi * (1.0 - drawn.p_accept))
         alternatives = ()
-    return Draw(with_pi, drawn, shown, alternatives, propensity, kind, p_no_card, seed)
+    return Draw(with_pi, drawn, shown, alternatives, propensity, kind, p_no_card, seed, scope=scope)
 
 
 def canonical_hash(value: Any) -> str:
@@ -488,4 +535,5 @@ __all__ = [
     "replay",
     "score",
     "seed_for",
+    "spacing_feature",
 ]

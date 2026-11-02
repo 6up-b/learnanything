@@ -84,7 +84,11 @@ rows), ``S = R_cold`` and ``R_next`` is not applicable. ``action_status`` is
 the learner's response to a shown card (``taken`` for a Start or an
 alternative, ``not_taken`` for "Not now" or no response, ``open`` while
 unanswered; ``not_applicable`` when no card was shown); ``detail_json`` names
-the arm. No switch is claimed from it; the effect among those who accepted is
+the arm, and records ``R_cold`` on every LO of the decision's predeclared
+scope (the target and the candidates the card offered, or would have
+offered, beside it), marking the one the learner took: an accepted
+alternative's delayed check reaches its decision without replacing the ITT
+target (codex review F4). No switch is claimed from it; the effect among those who accepted is
 confounded and never reported.
 
 Deterministic from ledgers (``router_decisions``, ``practice_attempts``,
@@ -657,11 +661,20 @@ def _coldness_candidates(
     return entries, max(len(considered) - COLDNESS_CANDIDATE_CAP, 0)
 
 
-def _suggestion_responses(connection: sqlite3.Connection) -> dict[str, str]:
+def _suggestion_responses(connection: sqlite3.Connection) -> dict[str, dict[str, Any]]:
+    """Each suggestion decision's one response: its kind, the candidate taken and its LOs."""
+
     if not _table_present(connection, "router_suggestion_responses"):
         return {}
-    return {str(row[0]): str(row[1]) for row in connection.execute(
-        "SELECT decision_id, response FROM router_suggestion_responses")}
+    out: dict[str, dict[str, Any]] = {}
+    for row in connection.execute(
+            "SELECT decision_id, response, candidate_ref, learning_object_ids_json FROM router_suggestion_responses"):
+        try:
+            los = [str(lo) for lo in json.loads(row[3] or "[]")]
+        except (TypeError, ValueError):  # pragma: no cover - the row is ours
+            los = []
+        out[str(row[0])] = {"response": str(row[1]), "candidate_ref": str(row[2] or ""), "learning_object_ids": los}
+    return out
 
 
 def _r_cold_itt(learning_object_id: str, start: str, ledger: _Ledger, pfc_states: Mapping[str, str]) -> dict[str, Any]:
@@ -690,8 +703,39 @@ def _r_cold_itt(learning_object_id: str, start: str, ledger: _Ledger, pfc_states
     return {"status": "pending", "value": None, "row": None, "gap_seconds": None, "skipped": skipped}
 
 
+def _suggestion_scope(detail: Mapping[str, Any], target: str, start: str, ledger: _Ledger,
+                      pfc_states: Mapping[str, str], taken: Mapping[str, Any] | None) -> list[dict[str, Any]]:
+    """R_cold on every LO of the decision's predeclared scope (codex review F4): the target and the
+    candidates the card offered (or would have offered) beside it, fixed at the draw in both arms, so
+    an accepted alternative's delayed check reaches its decision. A secondary record: the ITT outcome
+    stays the drawn target's, and the scope entry the learner took is marked, never substituted."""
+
+    taken_ref = str((taken or {}).get("candidate_ref") or "") if taken else ""
+    taken_kind = (taken or {}).get("response")
+    entries = list(detail.get("target_scope") or ()) or [{"ref": detail.get("drawn_ref"),
+                                                         "learning_object_ids": [target]}]
+    out: list[dict[str, Any]] = []
+    seen: set[str] = set()
+    for index, entry in enumerate(entries):
+        for lo in entry.get("learning_object_ids") or ():
+            lo = str(lo)
+            if lo in seen:
+                continue
+            seen.add(lo)
+            r_cold = _r_cold_itt(lo, start, ledger, pfc_states)
+            observed = r_cold["status"] == "observed"
+            out.append({
+                "ref": entry.get("ref"), "learning_object_id": lo, "role": "target" if index == 0 else "alternative",
+                "taken": taken_kind in ("accepted", "chose_alternative") and entry.get("ref") == taken_ref,
+                "r_cold_status": r_cold["status"], "r_cold_value": r_cold["value"],
+                "r_cold_attempt_id": r_cold["row"]["id"] if observed else None,
+                "r_cold_gap_seconds": r_cold["gap_seconds"],
+            })
+    return out
+
+
 def _suggestion_outcome(decision: Mapping[str, Any], ledger: _Ledger, pfc_states: Mapping[str, str],
-                        responses: Mapping[str, str]) -> dict[str, Any]:
+                        responses: Mapping[str, Mapping[str, Any]]) -> dict[str, Any]:
     """A lesson suggestion's intention-to-treat outcome (module docstring)."""
 
     try:
@@ -703,7 +747,8 @@ def _suggestion_outcome(decision: Mapping[str, Any], ledger: _Ledger, pfc_states
     if not los:
         return out
     shown = bool(detail.get("shown"))
-    response = responses.get(str(decision["id"]))
+    taken = responses.get(str(decision["id"]))
+    response = taken["response"] if taken else None
     if not shown:
         status = "not_applicable"
     elif response in ("accepted", "chose_alternative"):
@@ -714,6 +759,7 @@ def _suggestion_outcome(decision: Mapping[str, Any], ledger: _Ledger, pfc_states
         status = "open"
     r_cold = _r_cold_itt(los[0], str(decision["created_at"]), ledger, pfc_states)
     observed = r_cold["status"] == "observed"
+    scope = _suggestion_scope(detail, los[0], str(decision["created_at"]), ledger, pfc_states, taken)
     out.update({
         "target_learning_object_id": los[0],
         "action_status": status,
@@ -730,6 +776,11 @@ def _suggestion_outcome(decision: Mapping[str, Any], ledger: _Ledger, pfc_states
         "detail_json": json.dumps({
             "basis": OUTCOME_VERSION, "r_cold_rule": R_COLD_ITT_RULE, "arm": "shown" if shown else "not_shown",
             "response": response, "s_from": "r_cold" if observed else None,
+            # The predeclared scope's R_cold (secondary; the ITT S above is the drawn target's), with the
+            # entry the learner took marked: an acceptor analysis is self-selected and never the ITT.
+            "scope": scope,
+            "taken_learning_object_ids": list(taken["learning_object_ids"]) if taken and response in (
+                "accepted", "chose_alternative") else [],
             "r_cold_skip_reasons": dict(sorted(r_cold["skipped"].items())),
             "cold_min_gap_seconds": RETENTION_MIN_DELAY_SECONDS,
         }, sort_keys=True),

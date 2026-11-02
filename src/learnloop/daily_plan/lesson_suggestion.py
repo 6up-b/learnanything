@@ -6,14 +6,14 @@ acceptance model and the draw). Three steps, each its own call:
 * :func:`today_suggestion`: at Today's open, the day's card. The first call of
   a local day records any earlier shown card left unanswered as ``ignored``,
   builds the ``instruct(lesson)`` candidates (LOs new on an active goal, failing
-  their two latest cold checks, or predicted below adaptive difficulty's
-  ``calibrate_below``; never one with an open lesson or taught since its last
-  attempt), replays the response ledger into the acceptance model, draws, and
+  their two latest cold checks, or predicted by adaptive difficulty's posterior
+  well below its practice band; never one with an open lesson or taught since
+  its last attempt), replays the response ledger into the acceptance model, draws, and
   writes ONE ``lesson_suggestion`` router decision for the day (shown or not,
   with its exact propensity; receipt key ``lesson_suggestion:<date>``, so at most
   one a day). Later calls read that decision back: the card while it is shown
-  and unanswered, else nothing. No candidate: nothing is written (a later open
-  may draw).
+  and unanswered (or its Start's lesson while that never opened), else nothing.
+  No candidate: nothing is written (a later open may draw).
 * :func:`respond`: the learner's one response (Start = ``accepted``, an
   alternative = ``chose_alternative``, "Not now" = ``declined``), appended to
   ``router_suggestion_responses``. A Start names the lesson id the lesson will
@@ -34,6 +34,7 @@ from __future__ import annotations
 
 import json
 from collections.abc import Mapping, Sequence
+from dataclasses import replace
 from datetime import datetime
 from typing import Any
 
@@ -116,6 +117,25 @@ def _predicted(vault: Any, repository: Any, learning_object_id: str, now_iso: st
     return float(predicted_success(float(state.logit_mean), float(state.logit_variance), a=a, b=b))
 
 
+def _band_positions(vault: Any, repository: Any, learning_object_ids: Sequence[str]) -> dict[str, dict[str, Any]]:
+    """Adaptive difficulty's prediction against the practice band per LO (``below_band``; codex review
+    F6): AD's posterior, never the mastery model. Empty while AD's subject view is not live, and when
+    its prediction is unavailable (no below-band reason then: the other two reasons still stand)."""
+
+    if not learning_object_ids:
+        return {}
+    from learnloop.adaptive_difficulty.successor import subject_view_live
+
+    if not subject_view_live(vault.config):
+        return {}
+    try:
+        from learnloop.adaptive_difficulty.readiness import band_positions
+
+        return band_positions(vault, repository, list(learning_object_ids))
+    except Exception:  # noqa: BLE001 - an optional reason; the card never fails on it
+        return {}
+
+
 def build_candidates(vault: Any, repository: Any, *, now_iso: str) -> tuple[list[LS.Candidate], dict[str, list[str]]]:
     """The ``instruct(lesson)`` candidates (without decline days) and why other LOs were left out."""
 
@@ -124,9 +144,10 @@ def build_candidates(vault: Any, repository: Any, *, now_iso: str) -> tuple[list
         open_los = store.open_lesson_learning_objects(connection)
         taught = store.last_lesson_opened_by_learning_object(connection)
     goal_los = _goal_learning_objects(vault)
-    cut = float(vault.config.adaptive_difficulty.calibrate_below)
     excluded: dict[str, list[str]] = {"open_lesson": [], "taught_since_last_attempt": []}
     out: list[LS.Candidate] = []
+    attempted = sorted(lo for lo in attempts if lo in vault.learning_objects and lo not in open_los)
+    bands = _band_positions(vault, repository, attempted)
     for lo in sorted(goal_los | set(attempts)):
         learning_object = vault.learning_objects.get(lo)
         if learning_object is None:
@@ -141,21 +162,23 @@ def build_candidates(vault: Any, repository: Any, *, now_iso: str) -> tuple[list
             continue
         cold = [row for row in rows if _cold(row)]
         reason: str | None = None
-        predicted: float | None = None
         if len(cold) >= 2 and all(float(row["correctness"]) < 1.0 for row in cold[-2:]):
             reason = "cold_failing"
         elif rows:
-            predicted = _predicted(vault, repository, lo, now_iso)
-            if predicted is not None and predicted < cut:
+            # AD predicts success well below the band: AD's own out-of-band rule on P_band, below
+            # rather than above (``adaptive_difficulty.readiness.band_positions``).
+            if (bands.get(lo) or {}).get("below"):
                 reason = "below_band"
         elif lo in goal_los:
             reason = "new_goal"
         if reason is None:
             continue
-        if predicted is None:
-            predicted = _predicted(vault, repository, lo, now_iso)
+        # The room to learn in the draw's value: the lesson brief's predicted success (the mastery
+        # model, as the teacher shows it), the same quantity for every candidate.
+        predicted = _predicted(vault, repository, lo, now_iso)
         out.append(LS.Candidate(ref=LS.lesson_ref(lo), learning_object_ids=(lo,), reason=reason,
-                                predicted_success=predicted, title=str(learning_object.title)))
+                                predicted_success=predicted, title=str(learning_object.title),
+                                band=bands.get(lo) if reason == "below_band" else None))
     return out, {key: value for key, value in excluded.items() if value}
 
 
@@ -222,16 +245,29 @@ def _card_entry(entry: Mapping[str, Any]) -> dict[str, Any]:
 
 
 def card_view(connection: Any, decision: Mapping[str, Any] | None) -> dict[str, Any] | None:
-    """The card a decision shows while it is unanswered; None when it showed none or was answered."""
+    """The card a decision shows while it is unanswered; None when it showed none or was answered.
 
-    if decision is None or not _shown(decision) or store.response_for(connection, decision["id"]) is not None:
+    A Start (or an alternative) whose lesson never opened (the teacher was unavailable, or the app
+    stopped between the response and the opening) stays on the card as that one lesson to open, with
+    the lesson id its response recorded (codex review F2): ``pending_lesson``, no alternatives."""
+
+    if decision is None or not _shown(decision):
         return None
     entries = (decision["detail"].get("card") or {}).get("candidates") or []
     if not entries:
         return None
-    return {"decision_id": decision["id"], "day": decision["day"], "minutes": LS.CARD_MINUTES,
-            "suggestion": _card_entry(entries[0]), "alternatives": [_card_entry(e) for e in entries[1:]],
-            "why_label": WHY_LABEL}
+    base = {"decision_id": decision["id"], "day": decision["day"], "minutes": LS.CARD_MINUTES, "why_label": WHY_LABEL}
+    response = store.response_for(connection, decision["id"])
+    if response is None:
+        return {**base, "suggestion": _card_entry(entries[0]), "alternatives": [_card_entry(e) for e in entries[1:]],
+                "pending_lesson": None}
+    lesson_id = response.get("lesson_id")
+    if (response["response"] not in ("accepted", "chose_alternative") or not lesson_id
+            or store.lesson_exists(connection, str(lesson_id))):
+        return None
+    chosen = next((entry for entry in entries if entry["ref"] == response["candidate_ref"]), entries[0])
+    return {**base, "suggestion": _card_entry(chosen), "alternatives": [],
+            "pending_lesson": _response_view(response, chosen)["lesson"]}
 
 
 def today_suggestion(vault: Any, repository: Any, *, clock: Clock | None = None,
@@ -266,9 +302,7 @@ def today_suggestion(vault: Any, repository: Any, *, clock: Clock | None = None,
         dated = []
         for candidate in candidates:
             days = [d for lo in candidate.learning_object_ids if (d := _days(now, declined.get(lo))) is not None]
-            dated.append(LS.Candidate(ref=candidate.ref, learning_object_ids=candidate.learning_object_ids,
-                                      reason=candidate.reason, predicted_success=candidate.predicted_success,
-                                      days_since_decline=min(days) if days else None, title=candidate.title))
+            dated.append(replace(candidate, days_since_decline=min(days) if days else None))
         config = vault.config.router
         scored = LS.score(state, context, dated, k=config.k)
         ceiling = int(config.lesson_suggestions.ceiling_per_day)
@@ -286,6 +320,15 @@ def today_suggestion(vault: Any, repository: Any, *, clock: Clock | None = None,
             "version": LS.SUGGESTION_VERSION, "context": context.as_dict(), "shown": result.shown,
             "drawn_ref": result.drawn.candidate.ref, "drawn_learning_object_ids": list(result.drawn.candidate.learning_object_ids),
             "p_show_drawn": round(result.drawn.p_accept, 12), "p_no_card": round(result.p_no_card, 12),
+            # The estimand (codex review F3): the outcome is the drawn target's, so the row's propensity
+            # is P(target) · P(arm | target); both factors are here, P(target) for policy evaluation.
+            "pi_drawn": round(result.drawn.pi, 12), "arm_propensity": round(result.arm_propensity, 12),
+            "propensity_basis": "joint_target_arm",
+            # The predeclared outcome scope (codex review F4): the target, then the candidates the card
+            # offers (or would offer) beside it, fixed before the arm.
+            "target_scope": [{"ref": entry.candidate.ref,
+                              "learning_object_ids": list(entry.candidate.learning_object_ids)}
+                             for entry in result.scope],
             "card": card_payload, "model": state.summary(), "epsilon": config.epsilon_min, "k": config.k,
             "ceiling": {"per_day": ceiling, "shown_today": shown_today, "bound": result.ceiling_bound},
             "candidates_considered": len(candidates),

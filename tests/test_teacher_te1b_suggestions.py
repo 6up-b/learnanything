@@ -143,7 +143,15 @@ def test_a_day_with_no_card_is_logged_too(tmp_path, monkeypatch):
     (row,) = _decisions(repository)
     detail = json.loads(row["detail_json"])
     assert row["chosen_ref"] == LS.NO_SUGGESTION and not detail["shown"] and row["chosen_learning_object_id"] is None
-    assert row["propensity"] == pytest.approx(detail["p_no_card"]) and 0 < row["propensity"] < 1
+    # Codex review F3: the outcome is the drawn target's, so the propensity is P(target) · P(no card | target),
+    # never the aggregate chance of no card (kept in the detail for the report).
+    assert detail["propensity_basis"] == "joint_target_arm"
+    assert detail["arm_propensity"] == pytest.approx(1 - detail["p_show_drawn"])
+    assert row["propensity"] == pytest.approx(detail["pi_drawn"] * (1 - detail["p_show_drawn"]))
+    assert 0 < row["propensity"] < 1 and row["propensity"] != pytest.approx(detail["p_no_card"])
+    # The predeclared outcome scope is fixed in both arms: the target and the two it would have offered.
+    assert [entry["ref"] for entry in detail["target_scope"]][0] == detail["drawn_ref"]
+    assert len(detail["target_scope"]) == 1 + LS.MAX_ALTERNATIVES
     assert _suggestion(paths, repository, _clock(hours=2)) is None and len(_decisions(repository)) == 1
 
 
@@ -511,13 +519,18 @@ def test_the_ceiling_binds_and_is_logged(tmp_path, shown):
     (row,) = _decisions(repository)
     detail = json.loads(row["detail_json"])
     assert detail["ceiling"] == {"per_day": 0, "shown_today": 0, "bound": True}
-    assert row["chosen_ref"] == LS.NO_SUGGESTION and row["propensity_kind"] == "deterministic"
+    # The ceiling decides the arm (probability 1), the target is still drawn (codex review F3).
+    assert row["chosen_ref"] == LS.NO_SUGGESTION and detail["arm_propensity"] == 1.0
+    assert row["propensity"] == pytest.approx(detail["pi_drawn"])
 
 
 # --- parity with the teacher's own reads --------------------------------------------------------------
 
 
-def test_the_shell_reads_lessons_and_predictions_as_the_teacher_does(tmp_path):
+def test_the_shell_reads_lessons_and_room_to_learn_as_the_teacher_does(tmp_path):
+    """The draw's room to learn (``1 − p``) is the lesson brief's predicted success; the below-band reason
+    is adaptive difficulty's, not this (codex review F6: tested below)."""
+
     from learnloop.teacher.brief import lo_prediction
     from tests.ux_phase1_support import set_config
 

@@ -424,6 +424,11 @@ _reg_const("lesson_suggestions:LEGACY_DECLINED_SHOW", "prior", owner="lesson_sug
            rationale="seeded prior, basis legacy (revision 3's Not-now mute): a goal just declined starts at about "
                      "one chance in a hundred (the decline depth D's centre, logit(0.9) - logit(0.01)); "
                      "re-acceptance after a decline moves it.")
+_reg_const("lesson_suggestions:LEGACY_CADENCE_DAYS", "prior", owner="lesson_suggestions",
+           rationale="seeded prior, basis legacy (revision 3's about-one-suggestion-a-day): the gap at which the "
+                     "days-since-last-suggestion feature 1/(1+c) - 1/(1+d) is 0, so the seeded centres are the "
+                     "one-a-day context's; its learned coefficient (prior N(0, 1)) sets how acceptance moves with "
+                     "the gap (codex review F7).")
 _reg_const("lesson_suggestions:PRIOR_SD", "prior", owner="lesson_suggestions",
            rationale="seeded prior width, basis legacy: 1.0 logit on every effect (spec §18.4; the LP spec's rule "
                      "for legacy priors), centre 0 (no effect) for every context effect.")
