@@ -1256,6 +1256,9 @@ def _visual(vault: Any, repository: Any, state: LessonState, turn_obj: TeacherTu
                 break
         else:
             record["figure"] = V.summary(row)
+            # What the learner reads in it, kept with the record: the lesson's displayed text (the delayed
+            # checks never pick a vault item the lesson showed, nor the receipt's exposure miss one).
+            record["shown_text"] = text
     with repository.atomic():
         _append(repository, state, actor="code", action="visual",
                 refs=_effect_refs(turn_entry, "visual", {"figure": record.get("figure_id")}), payload=record,
@@ -1449,6 +1452,9 @@ def displayed_texts(state: LessonState, *, extra: Sequence[str] = ()) -> list[st
             turn = (entry.get("payload") or {}).get("turn")
             if turn:
                 out.extend(text for _name, text in _displayed(V.stored_turn(turn)))
+        elif entry["action"] == "visual" and (entry.get("payload") or {}).get("shown_text"):
+            # Reader RW5d P4b: a shown figure's words are displayed text too.
+            out.append(str(entry["payload"]["shown_text"]))
     out.extend(text for text in extra if text)
     return out
 

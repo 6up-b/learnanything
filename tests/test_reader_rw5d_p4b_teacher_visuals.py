@@ -191,6 +191,28 @@ def test_figure_words_that_give_the_open_checks_solution_away_are_not_shown(tmp_
     assert payload["status"] == V.WITHHELD and payload["code"] == "open_check_solution"
 
 
+def test_a_shown_figures_words_count_as_the_lessons_displayed_text(tmp_path):
+    """A vault question the figure reproduces is exposure: the receipt lists it and no delayed check
+    picks it (the delayed checks read the lesson's displayed text)."""
+
+    from tests.teacher_fakes import ITEMS
+
+    question = ITEMS["pi_eig_1"][1]
+
+    def close(context):
+        return {"message": "Done.", "requests": [{"action": "close", "close_reason": "goal_reached",
+                                                  "recap": "Retrieve later: eigenvalues solve det(A - tI) = 0."}]}
+
+    author = AuthorFake([_spec(demonstrates=question)])
+    paths, repository, fake, author, view, build = _open(tmp_path, [visual_turn, close], author=author)
+    assert [e["status"] for e in view["feed"] if e["kind"] == "figure"] == [V.SHOWN]
+    S.take_turn(load_vault(paths.root), repository, lesson_id=view["lesson_id"], action="answer_prediction",
+                payload={"answer": "it shrinks"}, clients=_clients(fake, build))
+    receipt = json.loads(_rows(repository, "SELECT receipt_json FROM lesson_receipts")[0][0])
+    assert "pi_eig_1" in receipt["exposure"]["shown_items"]
+    assert all(check.get("item_id") != "pi_eig_1" for check in receipt["delayed_checks"])
+
+
 # --- planned visuals ------------------------------------------------------------------------------
 
 
