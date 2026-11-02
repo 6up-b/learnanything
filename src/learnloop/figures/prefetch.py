@@ -288,13 +288,14 @@ def _judge_route(env: PrefetchEnv, owner_id: str) -> R.FigureRoute:
     return route
 
 
-def _ask(route: R.FigureRoute, prompt: str, result_model: type[WireModel],
+def _ask(route: R.FigureRoute, prompt: Callable[[list[str]], str], result_model: type[WireModel],
          validate: Callable[[Any], str | None]) -> Any:
+    """At most :data:`MAX_JUDGE_ATTEMPTS` calls; the second is told the first's problems (in its context)."""
+
     problems: list[str] = []
     for _attempt in range(MAX_JUDGE_ATTEMPTS):
-        text = prompt if not problems else f"{prompt}\n\nYour last answer had problems: {'; '.join(problems)}"
         try:
-            output = route.ask(text, result_model)
+            output = route.ask(prompt(problems), result_model)
         except R.FigureUnavailable as exc:
             raise JudgeUnavailable(exc.reason, exc.message) from exc
         problem = validate(output)
@@ -383,8 +384,12 @@ def judge_section(env: PrefetchEnv, extraction_id: str, section_id: str, *, call
     context = {"mode": "section", "section": label, "max_blocks": PREFETCH_SECTION_CANDIDATES,
                "blocks": [{"id": block_id, "type": block["type"], "text": block["text"]}
                           for block_id, block in zip(ids, blocks)]}
-    prompt = render_structured_prompt("Figures ahead of need", JUDGE_PROMPT_VERSION, {
-        "instructions": _SECTION_INSTRUCTIONS.format(limit=PREFETCH_SECTION_CANDIDATES), "context": context})
+
+    def prompt(problems: list[str]) -> str:
+        shown = {**context, **({"problems_with_the_last_answer": problems} if problems else {})}
+        return render_structured_prompt("Figures ahead of need", JUDGE_PROMPT_VERSION, {
+            "instructions": _SECTION_INSTRUCTIONS.format(limit=PREFETCH_SECTION_CANDIDATES), "context": shown})
+
     output = _ask(route, prompt, PrefetchSectionOutputV1, lambda out: _section_problem(out, ids))
     if result is not None:
         result.judge_calls += route.made
@@ -405,8 +410,11 @@ def judge_gap(env: PrefetchEnv, gap: Mapping[str, Any], passage: Mapping[str, An
     route = _judge_route(env, f"prefetch_gap:{content_key([gap['id'], passage['span_id']])[:24]}")
     context = {"mode": "gap", "unsure_of": str(gap["statement"])[:GAP_STATEMENT_CHARS], "topic": gap.get("topic"),
                "passage": str(passage.get("text") or "")[:PASSAGE_CHARS]}
-    prompt = render_structured_prompt("Figures ahead of need", JUDGE_PROMPT_VERSION,
-                                      {"instructions": _GAP_INSTRUCTIONS, "context": context})
+
+    def prompt(problems: list[str]) -> str:
+        shown = {**context, **({"problems_with_the_last_answer": problems} if problems else {})}
+        return render_structured_prompt("Figures ahead of need", JUDGE_PROMPT_VERSION,
+                                        {"instructions": _GAP_INSTRUCTIONS, "context": shown})
 
     def problem(output: PrefetchGapOutputV1) -> str | None:
         if not " ".join(output.goal.split()):
@@ -841,6 +849,26 @@ def decide_and_log(env: PrefetchEnv, kept: Sequence[Candidate], *, on_mains: boo
     return to_build
 
 
+def pending_builds(env: PrefetchEnv) -> list[tuple[dict[str, Any], Candidate]]:
+    """Decisions to build that no build has served yet (the queue yielded, the power or the plan
+    went away): they wait for the next pass while their horizon is open."""
+
+    with closing(connect(env.repository.sqlite_path, read_only=True)) as connection:
+        if not PL.has_tables(connection):
+            return []
+        rows = [row for row in PL.decisions(connection)
+                if row["decision"] == "build" and not row.get("request_id") and not row.get("outcome")]
+    found = []
+    for row in rows:
+        anchor = PL.anchor_of(row)
+        if not anchor or not anchor.get("extraction_id") or not anchor.get("span_ids"):
+            continue
+        found.append((row, Candidate(str(row["trigger_kind"]), str(row["trigger_ref"]), str(anchor["extraction_id"]),
+                                     [str(span) for span in anchor["span_ids"]], row.get("goal_text"),
+                                     row.get("goal_author"), row.get("p_open_content"))))
+    return found
+
+
 _BUILD_SLOTS = threading.BoundedSemaphore(PREFETCH_CONCURRENT_BUILDS)
 
 
@@ -915,7 +943,7 @@ def _horizon_passed(env: PrefetchEnv, connection: Any, row: Mapping[str, Any], o
     if kind == "section":
         extraction_id, _sep, section_id = str(row["trigger_ref"]).partition(":")
         done = connection.execute(
-            "SELECT completed FROM reader_section_progress WHERE extraction_id = ? AND section_id = ?",
+            "SELECT completed_at FROM reader_section_progress WHERE extraction_id = ? AND section_id = ?",
             (extraction_id, section_id)).fetchone()
         return bool(done and done[0])
     if kind == "lesson":
@@ -1055,6 +1083,7 @@ def run_trigger(env: PrefetchEnv, trigger: Trigger) -> PassResult:
             on_mains = P.power_state().on_mains
             plan_wait = "the ChatGPT plan is paused" if pause and pause.get("active") else _author_ready(env)
             open_keys = open_request_keys(env.repository)
+            waiting = pending_builds(env)
             try:
                 found = candidates(env, trigger, call=on_mains and plan_wait is None, result=result,
                                    open_keys=open_keys)
@@ -1063,7 +1092,8 @@ def run_trigger(env: PrefetchEnv, trigger: Trigger) -> PassResult:
                 found = []
             kept = filter_candidates(env, found, open_keys=open_keys)
             queue = decide_and_log(env, kept, on_mains=on_mains, plan_wait=plan_wait, result=result)
-        run_builds(env, queue, result)
+        if on_mains and plan_wait is None:
+            run_builds(env, [*waiting, *queue], result)
     except FiguresChanged as exc:
         result.status = "stopped"
         result.notes.append(str(exc))
@@ -1098,6 +1128,7 @@ __all__ = [
     "next_section",
     "observe_pause",
     "open_request_keys",
+    "pending_builds",
     "plan_providers",
     "run_builds",
     "run_trigger",

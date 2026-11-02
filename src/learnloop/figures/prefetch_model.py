@@ -24,8 +24,10 @@ never a threshold. For a candidate ``i``::
   mean of the measured pressed build latency of each tier (rich tiers: the
   pressed request to its stored figure; the quick tiers: the author call's
   measured duration), mixed by the tier mix measured for this trigger kind
-  (else the pressed tier mix). No measured tier: no estimate, and the
-  candidate waits (structural: no data, no prebuild).
+  (else the pressed tier mix; with no mix measured yet, the author call's
+  measured duration, the wait every press has at least). No measured
+  tier: no estimate, and the candidate waits (structural: no data, no
+  prebuild).
 * ``C_i``: what the build can take from foreground use. On the plan the money
   is zero; the cost is ``P(usage-limit pause | today's plan load + this
   build's requests) * E[foreground minutes blocked by a pause]``. The pause
@@ -290,6 +292,11 @@ class Waits:
         """The expected minutes a prebuild for this trigger kind saves, or None (no measured tier)."""
 
         mix = self.mix_by_kind.get(trigger_kind) or self.pressed_mix
+        if not mix:
+            # No tier mix measured yet: the author's call, which every build makes and every press
+            # waits for, is the wait a prebuild saves at least (the quick tiers' measured duration).
+            quick = [self.minutes[tier] for tier in QUICK_TIERS if tier in self.minutes]
+            return min(quick) if quick else None
         known = {tier: share for tier, share in mix.items() if tier in self.minutes and share > 0}
         if not known:
             return None
