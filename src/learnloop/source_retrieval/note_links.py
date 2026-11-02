@@ -238,7 +238,9 @@ class NotesGuard:
         notes = self._notes
         if notes and self._repository is not None:
             try:
-                protected = VN.protected_keys(vault, self._repository, notes)
+                # Every anchor the note ever had (final verify F1, landing ruling R2): a candidate
+                # prepared beside an older anchor carries that anchor's heading.
+                protected = VN.snapshot_protected_keys(vault, self._repository, notes)
             except Exception:  # noqa: BLE001 - undecidable protection authorizes nothing
                 return "whether your notes sit beside protected material could not be read"
             if protected:

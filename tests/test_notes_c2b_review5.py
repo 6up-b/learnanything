@@ -215,3 +215,59 @@ def test_c2b_r5_rereview_f1_a_notes_reading_refuses_a_snapshot_from_a_now_protec
     hold_out(repository, "lay_eigen")
     with pytest.raises(note_gaps.NoteWithheld):
         note_gaps.note_text(load_vault(paths.root), repository, snapshot)
+
+
+def test_c2b_final_verify_f1_the_notes_guard_judges_a_candidate_by_every_anchor_it_ever_had(tmp_path):
+    """Final verify F1 (job 20261102-014150-SGh5IK), landing ruling R2: a candidate prepared
+    while anchored beside Lay's section (its heading Lay's header), moved onto an unprotected
+    passage, then Lay's section held out before the request's admission: the composed
+    guard refuses (it reads every anchor the annotation ever had, not only the newest)."""
+
+    import pytest
+
+    from learnloop.source_retrieval import section_coverage as SC
+    from learnloop.source_retrieval import vault_notes as VN
+    from tests.test_notes_linked import _Published, _target
+
+    paths, repository, ctx, goal_id, corpus, notes = _deliverable(tmp_path)
+    key = _lay_note(repository)
+    _reanchor(repository, key, extraction_id="ext_book", span_id="s3", source_id="src_book", revision_id="rev_book")
+    vault, target = _target(paths, repository, goal_id)
+    keys = [(target.extraction_id, target.section_id)]
+
+    def guard(on):
+        return NL.NotesGuard(on, live_vault=_Published(on)).with_coverage(SC.Library(on, repository), keys,
+                                                                          notes=[key])
+
+    control = guard(vault)  # nothing protected yet: admitted
+    control.settle(control.admit(notes, purpose="note_link_judge", prompt="p", budget=None), {})
+    hold_out(repository, "lay_eigen")
+    held = load_vault(paths.root)
+    assert VN.protected_keys(held, repository, [key]) == set()  # the newest anchor alone passes
+    with pytest.raises(NL.NotesSwitchedOff):
+        guard(held).admit(notes, purpose="note_link_judge", prompt="p", budget=None)
+
+
+def test_c2b_final_verify_f1_an_embedding_batch_drops_a_note_from_a_now_protected_older_anchor(tmp_path):
+    """Final verify F1, landing ruling R2: the corpus read while the note sat beside Lay's
+    section (Lay's header its heading), the note then moved onto an unprotected passage and
+    Lay's section held out before the embedding batch: the batch drops it (nothing sent)."""
+
+    from learnloop.source_retrieval import vault_notes as VN
+    from tests.deliverable_fixtures import build_deliverable_vault
+    from tests.notes_fixtures import NoteEmbeddingFake, turn_on_embeddings
+
+    paths, repository = build_deliverable_vault(tmp_path / "vault")
+    turn_on_embeddings(paths)
+    key = _lay_note(repository)
+    vault = load_vault(paths.root)
+    corpus = VN.notes(vault, repository)
+    (prepared,) = [note for note in corpus if note.note_key == key]
+    assert LAY_HEADER in prepared.heading and LAY_SENTINEL in prepared.text  # control
+    _reanchor(repository, key, extraction_id="ext_book", span_id="s3", source_id="src_book", revision_id="rev_book")
+    hold_out(repository, "lay_eigen")
+    assert VN.protected_keys(load_vault(paths.root), repository, [key]) == set()  # newest anchor alone passes
+    embedder = NoteEmbeddingFake()
+    report = VN.ensure_vectors(vault, corpus, client_factory=lambda: embedder, repository=repository)
+    assert report["dropped"] == 1, report
+    assert all(LAY_SENTINEL not in text and LAY_HEADER not in text for text in embedder.inputs)

@@ -251,8 +251,8 @@ def test_c2b_f2_a_candidate_protected_before_the_request_refuses_it(tmp_path, mo
     paths, repository, ctx, goal_id, corpus, notes = _deliverable(tmp_path)
     vault = load_vault(paths.root)
     target = NL.path_targets(vault, repository, goal_id)[0]
-    real = VN.protected_keys
-    monkeypatch.setattr(VN, "protected_keys", lambda vault, repository, keys: (
+    real = VN.snapshot_protected_keys
+    monkeypatch.setattr(VN, "snapshot_protected_keys", lambda vault, repository, keys: (
         {key for key in keys if key == corpus["typed"]} | real(vault, repository, keys)))
     before = table_counts(repository)
     result = NL.judge_target(vault, repository, target, client=notes, live_vault=lambda: load_vault(paths.root))
@@ -294,14 +294,14 @@ def test_c2b_re_f2_embedding_batches_drop_notes_protected_meanwhile(tmp_path, mo
     corpus = VN.notes(vault, repository)
     assert corpus[0].note_key == late  # annotations first: put it in the second batch
     corpus = corpus[1:] + corpus[:1]
-    real = VN.protected_keys
+    real = VN.snapshot_protected_keys
     calls: list[int] = []
 
     def protected_after_the_first_batch(vault, repository, wanted):
         calls.append(1)
         return {key for key in wanted if key == late} | real(vault, repository, wanted)
 
-    monkeypatch.setattr(VN, "protected_keys", protected_after_the_first_batch)
+    monkeypatch.setattr(VN, "snapshot_protected_keys", protected_after_the_first_batch)
     embedder = NoteEmbeddingFake()
     report = VN.ensure_vectors(vault, corpus, client_factory=lambda: embedder, repository=repository)
     assert report["status"] == "complete" and report["dropped"] == 1 and calls

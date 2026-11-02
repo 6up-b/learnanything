@@ -598,7 +598,7 @@ def ensure_vectors(vault: Any, corpus: Sequence[VaultNote], *,
     remaining cap passed to each batch: Codex re-review C2b R3 F3), and before every batch,
     the first included, the vault is read again from its files: a switch turned off stops the
     run, and any annotation that now sits beside protected material is dropped (Codex
-    re-reviews C2b F2, R3 F1/F2)."""
+    re-reviews C2b F2, R3 F1/F2), judged by every anchor it ever had (final verify F1)."""
 
     from dataclasses import replace as replace_caps
 
@@ -620,7 +620,9 @@ def ensure_vectors(vault: Any, corpus: Sequence[VaultNote], *,
             current, why = _authorized_now(vault)
             if current is None:
                 return {**totals, "status": "disabled", "reason": why}
-            protected = protected_keys(current, repository, [note.note_key for note in batch])
+            # Every anchor the note ever had (final verify F1, landing ruling R2): the corpus may
+            # have been read while the note sat beside an older anchor, whose heading it carries.
+            protected = snapshot_protected_keys(current, repository, [note.note_key for note in batch])
             totals["dropped"] += len(protected)
             batch = [note for note in batch if note.note_key not in protected]
         wanted = records(batch)
