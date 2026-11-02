@@ -14,6 +14,7 @@ from learnloop.algorithm_versions import (
     REPLAY_LEDGER_ALGORITHM_VERSION,
     SUPERSEDED_CLAIMS_ALGORITHM_VERSION,
     TEACHER_ALGORITHM_VERSION,
+    LESSON_SUGGESTIONS_ALGORITHM_VERSION,
     WORKBENCH_FIELD_SIGNALS_ALGORITHM_VERSION,
 )
 from learnloop.cli.receipts import command_receipts
@@ -106,8 +107,8 @@ def upgrade(
                 f"{CLAIM_FIXES_ALGORITHM_VERSION}, {REPLAY_LEDGER_ALGORITHM_VERSION}, "
                 f"{ONE_ASK_ALGORITHM_VERSION}, {SUPERSEDED_CLAIMS_ALGORITHM_VERSION}, "
                 f"{ATTEMPT_CONTENT_STATE_ALGORITHM_VERSION}, {COLD_RETRY_RESCHEDULE_ALGORITHM_VERSION}, "
-                f"{READER_FOLLOWUPS_ALGORITHM_VERSION}, {DELIVERABLE_PLAN_ALGORITHM_VERSION} or "
-                f"{TEACHER_ALGORITHM_VERSION}); default: the latest."
+                f"{READER_FOLLOWUPS_ALGORITHM_VERSION}, {DELIVERABLE_PLAN_ALGORITHM_VERSION}, "
+                f"{TEACHER_ALGORITHM_VERSION} or {LESSON_SUGGESTIONS_ALGORITHM_VERSION}); default: the latest."
             ),
         ),
     ] = LATEST_ALGORITHM_VERSION,
@@ -401,6 +402,10 @@ def upgrade(
         from learnloop.teacher_upgrade import upgrade_to_teacher
 
         result = upgrade_to_teacher(_root(vault))
+    elif to == LESSON_SUGGESTIONS_ALGORITHM_VERSION:
+        from learnloop.lesson_suggestions_upgrade import upgrade_to_lesson_suggestions
+
+        result = upgrade_to_lesson_suggestions(_root(vault))
     else:
         typer.echo(
             "Unknown target version "
@@ -411,7 +416,8 @@ def upgrade(
             f"{REPLAY_LEDGER_ALGORITHM_VERSION}, {ONE_ASK_ALGORITHM_VERSION}, "
             f"{SUPERSEDED_CLAIMS_ALGORITHM_VERSION}, {ATTEMPT_CONTENT_STATE_ALGORITHM_VERSION}, "
             f"{COLD_RETRY_RESCHEDULE_ALGORITHM_VERSION}, {READER_FOLLOWUPS_ALGORITHM_VERSION}, "
-            f"{DELIVERABLE_PLAN_ALGORITHM_VERSION} or {TEACHER_ALGORITHM_VERSION}."
+            f"{DELIVERABLE_PLAN_ALGORITHM_VERSION}, {TEACHER_ALGORITHM_VERSION} or "
+            f"{LESSON_SUGGESTIONS_ALGORITHM_VERSION}."
         )
         raise typer.Exit(code=2)
     if result.upgraded:

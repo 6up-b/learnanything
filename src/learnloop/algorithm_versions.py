@@ -656,6 +656,30 @@ DELIVERABLE_PLAN_ALGORITHM_VERSION = "mvp-0.40"
 # configured 0.5); ``teacher.weight.source = "parametric"`` drops the pool.
 TEACHER_ALGORITHM_VERSION = "mvp-0.41"
 
+# mvp-0.43 (teacher TE1b, the router suggests lessons and the learner opts in;
+# docs/specs/spec_teacher_v1.md §15.1, §18.3, §20;
+# docs/reviews/teacher-te1b-router-suggestions.md), on top of mvp-0.41
+# (teacher TE1; the chain stays linear: mvp-0.43 means everything mvp-0.41
+# means PLUS this). Built on main's mvp-0.41 while follow-ups Nov 2 lands as
+# mvp-0.42; it claims the next tag after that and is renumbered at its
+# landing (ONE constant: the upgrade, the CLI and the gate all read it). Below
+# the tag, Today never suggests a lesson. From the tag on, with
+# ``router.lesson_suggestions.enabled`` on (and the router, its decision log
+# and lessons on), Today's open draws at most one ``instruct(lesson)``
+# suggestion a day among LOs new on a goal, failing their cold checks or
+# predicted below adaptive difficulty's calibrate cut, with an exact logged
+# propensity (shown or not: a ``lesson_suggestion`` router decision); a shown
+# card's Start opens a TE1 lesson whose origin is that decision, and every
+# response is logged (``router_suggestion_responses``) and moves the seeded
+# acceptance model and decline recovery. That changes what Today shows and
+# offers, so it is a router successor (spec §15.1), never evidence, FSRS, the
+# projection or replay (a suggestion writes no attempt; its decision is
+# RAW_LEDGER and its outcome joins ``router_outcomes`` intention-to-treat).
+# Kill switch: ``router.lesson_suggestions.enabled`` (off, or below the tag:
+# nothing is drawn or written, and Today and the plan are mvp-0.41's byte for
+# byte).
+LESSON_SUGGESTIONS_ALGORITHM_VERSION = "mvp-0.43"
+
 # The linear successor chain on the mvp-0.8 projection namespace, oldest
 # first. Each successor means its predecessor's semantics PLUS its own, so
 # every gate below is "this tag or any later one". A successor merge appends
@@ -696,6 +720,7 @@ SUCCESSOR_CHAIN: tuple[str, ...] = (
     READER_FOLLOWUPS_ALGORITHM_VERSION,
     DELIVERABLE_PLAN_ALGORITHM_VERSION,
     TEACHER_ALGORITHM_VERSION,
+    LESSON_SUGGESTIONS_ALGORITHM_VERSION,
 )
 
 
@@ -880,6 +905,10 @@ DELIVERABLE_PLAN_VERSIONS: frozenset[str] = successors_from(DELIVERABLE_PLAN_ALG
 # Versions at which a lesson may open (teacher TE1, behind ``teacher.enabled``).
 # Every later successor keeps it; gates must use this set, never equality.
 TEACHER_VERSIONS: frozenset[str] = successors_from(TEACHER_ALGORITHM_VERSION)
+# Versions whose Today may suggest a lesson (teacher TE1b, behind
+# ``router.lesson_suggestions.enabled``). Every later successor keeps it; gates
+# must use this set, never equality.
+LESSON_SUGGESTIONS_VERSIONS: frozenset[str] = successors_from(LESSON_SUGGESTIONS_ALGORITHM_VERSION)
 
 # The newest successor: the last tag in the chain. ``learnloop upgrade`` with
 # no ``--to`` targets it, and new vaults start at it

@@ -41,10 +41,20 @@ ROUTER_LOG_VERSION = "router_decisions_v1"
 #:   LLM over the top-k reversible candidates, each kept at ``epsilon_min`` or
 #:   above; the seed, the weights, every component's distribution and the
 #:   propensity are on the row, written in the block's transaction.
+#: * ``lesson_suggestion_draw`` (teacher TE1b, spec_teacher_v1 §15.1): the
+#:   day's lesson suggestion. ``pi`` over the top ``router.k`` instruct(lesson)
+#:   candidates by value (``log P(accept) + log room``) with the router's
+#:   ``epsilon_min`` floor each, then the card is shown with the drawn
+#:   candidate's ``P(accept)``; shown or not, the row carries the exact
+#:   propensity of what happened (``learnloop.router.lesson_suggestions``).
 ROUTER_DESIGNS: dict[str, str] = {
     "scheduler_seeded_exploration": "legacy Today queue epsilon exploration (seeded hash, logged with the offer)",
     "epsilon_tiebreak": "randomization_layer epsilon tie-break (P4 §9.3, persisted before selection)",
     "model_mixture": "randomization_layer model mixture (router R2b: staged, Decider, LLM; eps floor; exact)",
+    "lesson_suggestion_draw": (
+        "teacher TE1b's day draw over instruct(lesson) candidates: pi by value with router.epsilon_min each, "
+        "then the show coin at P(accept); exact"
+    ),
 }
 
 DECISION_COLUMNS: tuple[str, ...] = (

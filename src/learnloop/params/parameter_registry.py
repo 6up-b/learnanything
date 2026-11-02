@@ -251,6 +251,9 @@ MODULE_INVENTORY: dict[str, str] = {
     "teacher_brief": "src/learnloop/teacher/brief.py",
     "teacher_service": "src/learnloop/teacher/service.py",
     "teacher_actions": "src/learnloop/teacher/actions.py",
+    # Teacher TE1b (spec_teacher_v1 §15.1, §18.4): the acceptance model's and the decline
+    # recovery's seeded priors (basis legacy, labelled), the card's presentation bounds.
+    "lesson_suggestions": "src/learnloop/router/lesson_suggestions.py",
 }
 
 # Runtime imports are derived from the same source inventory so a module move
@@ -409,6 +412,31 @@ _reg_const("teacher_service:MAX_CONTRACT_FAILURES", "constraint", kind="structur
                      "spec §18.4).")
 _reg_const("teacher_actions:_HISTORY_TEXT_CHARS", "display", kind="structural", owner="teacher_actions",
            rationale="keep: how much of one past answer or tutor reply read_history returns (a prompt-size bound).")
+
+# Teacher TE1b module constants (spec_teacher_v1 §15.1, §18.4): seeded priors (basis legacy:
+# revision 3's defaults, 1.0 logit per effect, the recovery rate on a grid), learned from every
+# shown suggestion's response; presentation bounds kept.
+_reg_const("lesson_suggestions:LEGACY_DAILY_SHOW", "prior", owner="lesson_suggestions",
+           rationale="seeded prior, basis legacy (revision 3's about-one-suggestion-a-day): the acceptance "
+                     "intercept's centre, logit(0.9), so with no data a card shows on about nine days in ten; "
+                     "the responses move it.")
+_reg_const("lesson_suggestions:LEGACY_DECLINED_SHOW", "prior", owner="lesson_suggestions",
+           rationale="seeded prior, basis legacy (revision 3's Not-now mute): a goal just declined starts at about "
+                     "one chance in a hundred (the decline depth D's centre, logit(0.9) - logit(0.01)); "
+                     "re-acceptance after a decline moves it.")
+_reg_const("lesson_suggestions:PRIOR_SD", "prior", owner="lesson_suggestions",
+           rationale="seeded prior width, basis legacy: 1.0 logit on every effect (spec §18.4; the LP spec's rule "
+                     "for legacy priors), centre 0 (no effect) for every context effect.")
+_reg_const("lesson_suggestions:RECOVERY_DAYS_GRID", "prior", owner="lesson_suggestions",
+           rationale="the per-learner recovery rate's grid support, basis legacy: centred on revision 3's 7-day mute, "
+                     "a factor of two either side at half-octave steps; its weights start uniform and are learned "
+                     "(AD's ad_hyper mechanism).")
+_reg_const("lesson_suggestions:CARD_MINUTES", "display", kind="structural", owner="lesson_suggestions",
+           rationale="keep: the card's 'about 15 min' (spec §19 copy; presentation, not a model of the learner).")
+_reg_const("lesson_suggestions:MAX_ALTERNATIVES", "display", kind="structural", owner="lesson_suggestions",
+           rationale="keep: up to two alternatives on the suggestion card (spec §18.4: presentation).")
+_reg_const("lesson_suggestions:_SECONDS_PER_DAY", "numerical", kind="structural", owner="lesson_suggestions",
+           rationale="keep: a unit conversion (seconds in a day).")
 
 # Local contextual retrieval P2 module constants (identities, guardrails, budgets, optimizer settings;
 # no quality margin or ranking weight: those are expected-utility decisions and learned fusion weights).
@@ -1531,6 +1559,16 @@ _CONFIG_RULES: list[_ConfigRule] = [
         "default desired retention; RW6b's valuation replaces it); 3 and 7 days, basis legacy (RW6b's "
         "retention fallback and capture.test_me_later_days), used only while the LO has no FSRS state. "
         "Serving dates, never evidence."),
+    # Teacher TE1b (spec_teacher_v1 §15.1, §18.4): the successor's kill switch and
+    # the anti-nagging ceiling (keep: never learned, each bind logged). How often a
+    # suggestion comes and how long a "Not now" lasts are learned (the module's
+    # seeded priors); neither is a config value.
+    _ConfigRule(_exact("router.lesson_suggestions.enabled"), "structural", "operational",
+        "kill switch for teacher TE1b's successor: Today may draw one lesson suggestion a day with an exact "
+        "logged propensity; off (or below the tag) nothing is drawn or written and Today is mvp-0.41's."),
+    _ConfigRule(_exact("router.lesson_suggestions.ceiling_per_day"), "structural", "constraint",
+        "keep: an anti-nagging guardrail on shown suggestions a day (spec §18.4: never learned; a bind is logged "
+        "on the decision as ceiling_bound, and a ceiling that binds often means the acceptance model is wrong)."),
     # Reader workbench RW1b: the intent box's router (one Decider choice per
     # routing; verdicts go to judgment_ledger, never evidence): the typing
     # pause before a speculative routing, the routing's deadline and the

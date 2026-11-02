@@ -736,8 +736,9 @@ def _complete_interrupted_activation(vault_root: Path) -> None:
     # earlier link's to that link (rebuild equivalence's landing; Reader CA2's
     # mvp-0.35 at the batch landing; the kept replaced claims' mvp-0.36;
     # mobile PR-4's mvp-0.37; the cold-retry reschedule's mvp-0.38; Reader
-    # RW6b's mvp-0.39; curriculum C1's mvp-0.40; teacher TE1's mvp-0.41).
-    from learnloop.teacher_upgrade import complete_interrupted_activation
+    # RW6b's mvp-0.39; curriculum C1's mvp-0.40; teacher TE1's mvp-0.41;
+    # teacher TE1b's mvp-0.43).
+    from learnloop.lesson_suggestions_upgrade import complete_interrupted_activation
 
     complete_interrupted_activation(vault_root)
 
@@ -853,6 +854,16 @@ def _lessons_active(vault: LoadedVault) -> bool:
     return lessons_active(vault)
 
 
+def _teacher_dto(vault: LoadedVault) -> dict[str, Any]:
+    """TE1's ``lessons`` while lessons may open; TE1b's ``suggestions`` while Today may suggest one."""
+
+    if not _lessons_active(vault):
+        return {}
+    from learnloop.daily_plan.lesson_suggestion import suggestions_active
+
+    return {"teacher": {"lessons": True, **({"suggestions": True} if suggestions_active(vault) else {})}}
+
+
 def config_dto(vault: LoadedVault) -> dict[str, Any]:
     config = vault.config
     return versioned(
@@ -864,8 +875,9 @@ def config_dto(vault: LoadedVault) -> dict[str, Any]:
             # can) instead of "I don't know" when this is true.
             "practice": {"stuck_prompt": stuck_prompt_active(vault)},
             # Teacher TE1's kill switch (and its successor's tag): "Teach me this" shows only while
-            # lessons may open; absent otherwise, so with it off the snapshot is what it was.
-            **({"teacher": {"lessons": True}} if _lessons_active(vault) else {}),
+            # lessons may open; absent otherwise, so with it off the snapshot is what it was. TE1b's
+            # ``suggestions`` (Today's suggestion card) rides inside it, present only while on.
+            **_teacher_dto(vault),
             # UX Phase 4's kill switch (display only): "simple" practice and
             # feedback surfaces, or "classic" for the screens as they were.
             # UX Phase 2's kill switch (display only): the four-place shell,

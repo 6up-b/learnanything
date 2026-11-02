@@ -522,22 +522,56 @@ def _require_metered_settings(vault: Any, client: Any) -> None:
 # =============================================================================
 
 
+def _accepted_suggestion(repository: Any, decision_id: str | None, lesson_id: str | None) -> dict[str, Any]:
+    """The learner's Start on a router suggestion (TE1b, spec §15.1): its recorded response names the
+    lesson id and the LOs, so a lesson with origin ``router`` opens only on a response the learner gave."""
+
+    from learnloop.db.stores import router_suggestions as suggestions
+
+    if not decision_id or not lesson_id:
+        raise LessonError("validation_error", "A suggested lesson needs its suggestion and lesson ids.")
+    with repository.connection() as connection:
+        if not suggestions.tables_present(connection):
+            raise LessonError("not_found", "That suggestion isn't on record.")
+        response = suggestions.response_for(connection, decision_id)
+        if (response is None or response["response"] not in ("accepted", "chose_alternative")
+                or response["lesson_id"] != lesson_id):
+            raise LessonError("not_found", "That suggestion wasn't accepted.")
+        if suggestions.lesson_exists(connection, lesson_id):
+            # Already open (a second Start, or a retry after the plan returned): the screen resumes it.
+            raise LessonError("lesson_exists", "That lesson is already open.", details={"lesson_id": lesson_id})
+    return {**response, "learning_object_ids": json.loads(response["learning_object_ids_json"] or "[]")}
+
+
 def open_lesson(vault: Any, repository: Any, *, entry: str, learning_object_ids: Sequence[str] = (),
                 selection: Mapping[str, Any] | None = None, goal_text: str | None = None,
-                clients: Clients, driver: str = "desktop", clock: Clock | None = None) -> dict[str, Any]:
-    """Open a lesson the learner started (TE1: an LO's or a Reader selection's "Teach me this"), build
-    its brief from the ledger and run the teacher's first turn. A failure after the lesson is saved
-    carries its id (``LessonError.details``), so the screen resumes it instead of opening another."""
+                clients: Clients, driver: str = "desktop", clock: Clock | None = None,
+                origin: str = "learner_pick", origin_ref: str | None = None,
+                lesson_id: str | None = None) -> dict[str, Any]:
+    """Open a lesson the learner started (TE1: an LO's or a Reader selection's "Teach me this"; TE1b: the
+    Start of a router suggestion, ``origin = 'router'`` with the decision id and the lesson id its
+    response recorded), build its brief from the ledger and run the teacher's first turn. A failure
+    after the lesson is saved carries its id (``LessonError.details``), so the screen resumes it instead
+    of opening another."""
 
     require_active(vault)
+    if origin not in ("learner_pick", "router"):
+        raise LessonError("validation_error", f"unknown lesson origin {origin!r}")
+    if origin == "router":
+        accepted = _accepted_suggestion(repository, origin_ref, lesson_id)
+        entry, learning_object_ids, selection = "learning_object", accepted["learning_object_ids"], None
+    else:
+        origin_ref, lesson_id = None, None
     try:
         los, how, selected = resolve_goal(vault, repository, entry=entry, learning_object_ids=learning_object_ids,
                                           selection=selection)
     except LessonRefused as exc:
         raise LessonError(exc.code, str(exc)) from exc
+    if origin == "router":
+        how = {lo: "the lesson LearnLoop suggested and you started" for lo in los}
     titles = [vault.learning_objects[lo].title for lo in los]
     text = (goal_text or "").strip() or ", ".join(titles)
-    lesson_id = f"les_{new_ulid().lower()}"
+    lesson_id = lesson_id or f"les_{new_ulid().lower()}"
     constraints = {"max_lesson_cost_usd": vault.config.teacher.max_lesson_cost_usd,
                    "sources_tokens": vault.config.teacher.context.sources_tokens}
     from learnloop.teacher.brief import protection_state
@@ -561,7 +595,7 @@ def open_lesson(vault: Any, repository: Any, *, entry: str, learning_object_ids:
     with repository.atomic():
         connection = repository.connection()
         store.insert_lesson(connection, {
-            "id": lesson_id, "driver": driver, "origin": "learner_pick", "origin_ref": None, "entry": entry,
+            "id": lesson_id, "driver": driver, "origin": origin, "origin_ref": origin_ref, "entry": entry,
             "goal_text": text, "goal": brief["goal"], "learning_object_ids": los,
             "doctrine_version": DOCTRINE_VERSION, "brief_version": brief["version"],
             "route": getattr(client, "provider_name", None), "model": _model_name(client),
@@ -1419,7 +1453,9 @@ def _receipt(vault: Any, repository: Any, state: LessonState, *, reason: str, re
         "forecasts": sorted(state.forecasts),
         "weight_inputs": weight_inputs,
         "stability_inputs": stability_inputs,
-        "origin": state.lesson.get("origin"),
+        # ``learner_pick``, or the router decision id of an accepted suggestion (spec §8.3, TE1b).
+        "origin": (state.lesson.get("origin_ref") if state.lesson.get("origin") == "router"
+                   else state.lesson.get("origin")),
         # The whole lesson (every action's teacher calls; every metered request's settled cost).
         "cost": {**dict(usage), "route": state.lesson.get("route"), "metered_usd": round(_spent_usd(state), 10),
                  "cap_usd": vault.config.teacher.max_lesson_cost_usd},

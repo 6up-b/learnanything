@@ -515,6 +515,11 @@ _TABLE_ROLE_ITEMS: tuple[tuple[str, TableRole], ...] = (
     # Router R1: R_next / R_cold / S per decision, one replayer
     # (rebuild_orchestrator "router_outcomes"); pending outcomes right-censored.
     ("router_outcomes", TableRole.DERIVED),
+    # Teacher TE1b (migration 236; spec_teacher_v1 §15.1, §18.1): the
+    # learner's one response to a shown lesson suggestion (append-only). The
+    # acceptance model and the decline recovery replay it on every read; no
+    # derived table.
+    ("router_suggestion_responses", TableRole.RAW_LEDGER),
     ("rung_variant_requests", TableRole.WORKFLOW),
     ("scheduler_explanations", TableRole.RECEIPT),
     ("scheduler_offer_receipts", TableRole.RECEIPT),

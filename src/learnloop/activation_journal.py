@@ -9,7 +9,8 @@ Reader CA2's ``learnloop.one_ask_upgrade`` (mvp-0.35), the kept replaced claims'
 ``learnloop.cold_retry_reschedule_upgrade`` (mvp-0.38), Reader RW6b's
 ``learnloop.reader_followups_upgrade`` (mvp-0.39), curriculum C1's
 ``learnloop.deliverable_plan_upgrade`` (mvp-0.40) and teacher TE1's
-``learnloop.teacher_upgrade`` (mvp-0.41), at the same path (the journal names its target; the installed completion is the
+``learnloop.teacher_upgrade`` (mvp-0.41) and teacher TE1b's ``learnloop.lesson_suggestions_upgrade`` (mvp-0.43),
+at the same path (the journal names its target; the installed completion is the
 chain's latest upgrade's, which hands an earlier link's journal to that link).
 A process
 that dies after it publishes the successor's config and before it commits the

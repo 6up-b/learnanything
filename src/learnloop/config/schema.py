@@ -3944,6 +3944,32 @@ class RouterWeights(BaseModel):
         return self
 
 
+class RouterLessonSuggestionsConfig(BaseModel):
+    """Teacher TE1b: the router suggests a lesson, the learner opts in
+    (spec_teacher_v1 §15.1, §18.4; ``learnloop.daily_plan.lesson_suggestion``).
+
+    ``enabled`` is the kill switch of the successor
+    ``LESSON_SUGGESTIONS_ALGORITHM_VERSION``. On (at that tag or later, with
+    ``router.enabled``, ``router.log_decisions`` and lessons able to open),
+    Today may show one suggestion card a day ("Learn *X* now? (about 15
+    min)": Start, up to two alternatives, Not now), drawn with an exact logged
+    propensity among ``instruct(lesson)`` candidates; the acceptance model and
+    the decline recovery are seeded priors the responses move. Off, or below
+    the tag, nothing is drawn or written and Today and the plan are the
+    predecessor's byte for byte.
+
+    ``ceiling_per_day`` (``keep``, spec §18.4): an anti-nagging guardrail, never
+    learned; a draw it binds shows no card and is logged with
+    ``ceiling_bound``. The card is also drawn at most once a day (spec §19),
+    so the default 3 binds only if that rule is ever relaxed.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    enabled: bool = True
+    ceiling_per_day: int = Field(default=3, ge=0)
+
+
 class RouterConfig(BaseModel):
     """Action router (spec_action_router_v1). R1: decision logging on today's paths.
 
@@ -3991,6 +4017,7 @@ class RouterConfig(BaseModel):
     (needs ``embedding.enabled``; a logged no-op otherwise).
     ``teach_back_summary`` summarizes each graded teach-back dialogue (after
     grading, off the hot path) into the card's typed evidence.
+    ``lesson_suggestions`` is teacher TE1b's (its own docstring).
     """
 
     log_decisions: bool = True
@@ -4013,6 +4040,8 @@ class RouterConfig(BaseModel):
     similar_k: int = Field(default=6, ge=1, le=32)
     similar_include_rate: float = Field(default=0.5, ge=0.0, le=1.0)
     teach_back_summary: bool = True
+    # Teacher TE1b: the successor's kill switch and its anti-nagging ceiling.
+    lesson_suggestions: RouterLessonSuggestionsConfig = Field(default_factory=RouterLessonSuggestionsConfig)
 
     @model_validator(mode="after")
     def validate_floor(self) -> "RouterConfig":

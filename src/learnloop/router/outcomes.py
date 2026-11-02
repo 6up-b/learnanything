@@ -74,9 +74,23 @@ same covariates, the answer and the rule's verdict for every later attempt the
 rule considered (at most ``COLDNESS_CANDIDATE_CAP``), so a learned coldness is
 not limited to the rule's own pick.
 
+**A lesson suggestion** (``lesson_suggestion``, teacher TE1b, spec_teacher_v1
+§15.1) serves no item: its outcome is intention-to-treat on the drawn
+candidate's learning object, shown or not, for the router's later
+doubly-robust estimate (``R_COLD_ITT_RULE``): ``R_cold`` is the first eligible
+cold retrieval on that LO at least one day after both the decision and the
+last exposure to it (a lesson's teaching is an exposure through its reveal
+rows), ``S = R_cold`` and ``R_next`` is not applicable. ``action_status`` is
+the learner's response to a shown card (``taken`` for a Start or an
+alternative, ``not_taken`` for "Not now" or no response, ``open`` while
+unanswered; ``not_applicable`` when no card was shown); ``detail_json`` names
+the arm. No switch is claimed from it; the effect among those who accepted is
+confounded and never reported.
+
 Deterministic from ledgers (``router_decisions``, ``practice_attempts``,
 grading evidence through the caller's PF-c states, ``reveal_events``,
-``question_events``, ``source_exposure_events``, ``sessions.ended_at``) and the
+``question_events``, ``source_exposure_events``, ``sessions.ended_at``,
+``router_suggestion_responses``) and the
 caller's maps (servable items per learning object from vault content; the FSRS
 prediction per attempt): no clock, no model call. It imports no scheduler or
 substrate code.
@@ -404,6 +418,10 @@ class _Ledger:
 
 #: A follow-up's restraint decision (router R2c): ``plan_interrupt:<block>:<item>``.
 _INTERRUPT_KIND = "plan_interrupt"
+#: Teacher TE1b's day draw (``learnloop.router.lesson_suggestions.DECISION_KIND``).
+_SUGGESTION_KIND = "lesson_suggestion"
+#: Its outcome rule's name: intention-to-treat R_cold on the drawn candidate's LO.
+R_COLD_ITT_RULE = "itt_one_day_after_decision"
 
 
 def _decision_block(decision: Mapping[str, Any]) -> str | None:
@@ -639,6 +657,86 @@ def _coldness_candidates(
     return entries, max(len(considered) - COLDNESS_CANDIDATE_CAP, 0)
 
 
+def _suggestion_responses(connection: sqlite3.Connection) -> dict[str, str]:
+    if not _table_present(connection, "router_suggestion_responses"):
+        return {}
+    return {str(row[0]): str(row[1]) for row in connection.execute(
+        "SELECT decision_id, response FROM router_suggestion_responses")}
+
+
+def _r_cold_itt(learning_object_id: str, start: str, ledger: _Ledger, pfc_states: Mapping[str, str]) -> dict[str, Any]:
+    """The first eligible cold retrieval on the LO at least a day after ``start`` and after its last exposure."""
+
+    rows = ledger.by_lo.get(learning_object_id, [])
+    skipped: dict[str, int] = defaultdict(int)
+    for index, row in enumerate(rows):
+        if row["created_at"] <= start:
+            continue
+        last = ledger._last_before(ledger.lo_exposures.get(learning_object_id, []), row)
+        last_at = start if last is None or last[0] < start else last[0]
+        previous = rows[index - 1] if index else None
+        reasons = _exclusions(
+            row,
+            elapsed_seconds=_seconds(row["created_at"], last_at),
+            source_session_id=previous["session_id"] if previous is not None else None,
+            pfc_states=pfc_states,
+        )
+        if reasons:
+            for reason in reasons:
+                skipped[reason] += 1
+            continue
+        return {"status": "observed", "value": float(row["correctness"]), "row": row,
+                "gap_seconds": _seconds(row["created_at"], last_at), "skipped": skipped}
+    return {"status": "pending", "value": None, "row": None, "gap_seconds": None, "skipped": skipped}
+
+
+def _suggestion_outcome(decision: Mapping[str, Any], ledger: _Ledger, pfc_states: Mapping[str, str],
+                        responses: Mapping[str, str]) -> dict[str, Any]:
+    """A lesson suggestion's intention-to-treat outcome (module docstring)."""
+
+    try:
+        detail = json.loads(decision.get("detail_json") or "{}")
+    except (TypeError, ValueError):  # pragma: no cover - the row is ours
+        detail = {}
+    los = [str(lo) for lo in detail.get("drawn_learning_object_ids") or []]
+    out = _not_applicable(decision, "not_applicable", ledger.observed_through, pending=False)
+    if not los:
+        return out
+    shown = bool(detail.get("shown"))
+    response = responses.get(str(decision["id"]))
+    if not shown:
+        status = "not_applicable"
+    elif response in ("accepted", "chose_alternative"):
+        status = "taken"
+    elif response in ("declined", "ignored"):
+        status = "not_taken"
+    else:
+        status = "open"
+    r_cold = _r_cold_itt(los[0], str(decision["created_at"]), ledger, pfc_states)
+    observed = r_cold["status"] == "observed"
+    out.update({
+        "target_learning_object_id": los[0],
+        "action_status": status,
+        "r_next_status": "not_applicable",
+        "r_cold_status": r_cold["status"],
+        "r_cold_value": r_cold["value"],
+        "r_cold_attempt_id": r_cold["row"]["id"] if observed else None,
+        "r_cold_gap_seconds": r_cold["gap_seconds"],
+        "r_cold_skipped": sum(r_cold["skipped"].values()),
+        "s_status": "final" if observed else "pending",
+        "s_value": r_cold["value"],
+        **_covariate_columns("r_cold", ledger.covariates(r_cold["row"]) if observed else None),
+        "r_cold_reference_status": r_cold["row"].get("reference_status") if observed else None,
+        "detail_json": json.dumps({
+            "basis": OUTCOME_VERSION, "r_cold_rule": R_COLD_ITT_RULE, "arm": "shown" if shown else "not_shown",
+            "response": response, "s_from": "r_cold" if observed else None,
+            "r_cold_skip_reasons": dict(sorted(r_cold["skipped"].items())),
+            "cold_min_gap_seconds": RETENTION_MIN_DELAY_SECONDS,
+        }, sort_keys=True),
+    })
+    return out
+
+
 def _ended_sessions(connection: sqlite3.Connection, session_ids: set[str]) -> set[str]:
     if not session_ids:
         return set()
@@ -696,7 +794,8 @@ def derive_router_outcomes(
         dict(row)
         for row in connection.execute(
             "SELECT id, receipt_key, decision_kind, session_id, created_at, chosen_ref, chosen_practice_item_id, "
-            "chosen_learning_object_id, chosen_scheduler_candidate_id, parent_decision_id "
+            "chosen_learning_object_id, chosen_scheduler_candidate_id, parent_decision_id, "
+            "CASE WHEN decision_kind = 'lesson_suggestion' THEN detail_json END AS detail_json "
             "FROM router_decisions ORDER BY created_at, id"
         )
     ]
@@ -708,12 +807,17 @@ def derive_router_outcomes(
     # session supersedes an offer whose head was never taken.
     last_in_session: dict[str, int] = {}
     for index, row in enumerate(decisions):
-        if row["session_id"]:
+        # A lesson suggestion (TE1b) serves no block: it never supersedes one.
+        if row["session_id"] and row["decision_kind"] != _SUGGESTION_KIND:
             last_in_session[row["session_id"]] = index
     ended = _ended_sessions(connection, set(last_in_session))
 
+    suggestion_responses = _suggestion_responses(connection)
     outcomes: list[dict[str, Any]] = []
     for index, decision in enumerate(decisions):
+        if decision["decision_kind"] == _SUGGESTION_KIND:
+            outcomes.append(_suggestion_outcome(decision, ledger, pfc_states, suggestion_responses))
+            continue
         if not decision.get("chosen_practice_item_id"):
             # Stop for today, a vetoed run, a block with no item: no action to follow.
             outcomes.append(_not_applicable(decision, "not_applicable", ledger.observed_through, pending=False))
@@ -851,6 +955,7 @@ __all__ = [
     "COLDNESS_CANDIDATE_CAP",
     "COVARIATE_NAMES",
     "INDEPENDENT_ATTEMPT_TYPES",
+    "R_COLD_ITT_RULE",
     "R_COLD_RULE",
     "OUTCOME_VERSION",
     "S_ALPHA",
