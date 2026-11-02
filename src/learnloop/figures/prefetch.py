@@ -286,21 +286,15 @@ class ItemProtection:
 
 def item_protection(env: PrefetchEnv) -> ItemProtection:
     """What :class:`ItemProtection` covers now (read fresh on every call: before judging, on
-    the author's whole context, and again before each build): ``service.item_passages`` (the one
-    core a prebuild's rich job checks too) with the stored plan's open items."""
+    the author's whole context, and again before each build): ``service.item_passages``, the one
+    core the Reader's retries and a prebuild's rich job check too (it reads the stored plan)."""
 
     from learnloop.figures import service as FS
 
-    found = FS.item_passages(env.vault, env.repository, extra_item_ids=held_plan_item_ids(env))
+    found = FS.item_passages(env.vault, env.repository, clock=env.clock)
     if found is None:
         return ItemProtection(available=False)
     return ItemProtection(*found)
-
-
-def held_plan_item_ids(env: PrefetchEnv) -> list[str]:
-    """The ids of the stored plan's (today's latest) items not yet resolved."""
-
-    return [str(item.practice_item_id) for item in _held_plan_items(env)]
 
 
 def context_spans(env: PrefetchEnv, candidate: "Candidate") -> list[str]:
@@ -897,16 +891,6 @@ def _key_list(raw: Any) -> list[list[str]]:
     return [[str(item) for item in key] for key in value or () if isinstance(key, (list, tuple))]
 
 
-def _held_plan_items(env: PrefetchEnv) -> list[Any]:
-    """The stored plan's (today's latest) items not yet resolved."""
-
-    record = _plan_record(env, None)
-    if record is None:
-        return []
-    return [item for item in record.items()
-            if not getattr(item, "resolved", False) and getattr(item, "practice_item_id", None)]
-
-
 def filter_candidates(env: PrefetchEnv, found: Iterable[Candidate], *, open_keys: set[str]) -> list[Candidate]:
     """The code filters (spec §10b.2), before any build call; the build repeats the protection."""
 
@@ -1482,9 +1466,10 @@ def retry_plan_waits(env: PrefetchEnv, result: PassResult) -> None:
     counted: Codex review F2), least recently asked first, and paced by the same per-job interval
     the Reader's retries use (one process-wide clock, so the two never double a request). A job
     whose saved context touches an item's own passage now (a live administration or the stored
-    plan's open items: ``item_protection``'s rule) is not asked (Codex review F1); the requeued
-    job's own gate checks the switch, the power, the route, held-out material and live
-    administrations again before every request and before it stores."""
+    plan's open items: ``service.item_passages``, the rule of ``item_protection``, the Reader's
+    reads and the worker) is not asked (Codex review F1, verify V1); the requeued job's own gate
+    checks the switch, the power, the route, held-out material and those items' passages again
+    before every request and before it stores."""
 
     if env.retry_plan_wait is None or env.is_cancelled():
         return
@@ -1507,7 +1492,7 @@ def retry_plan_waits(env: PrefetchEnv, result: PassResult) -> None:
     # Codex review F1: every saved context is checked against the items' own passages now (a live
     # administration, and the stored plan's open items, as ``run_builds`` checks a new build).
     waiting = FS.prefetch_plan_waits(current.vault, env.repository, None, request_ids=open_requests,
-                                     extra_item_ids=held_plan_item_ids(current))
+                                     clock=current.clock)
     # Codex review F2: the bound counts requeues, not candidates. A job inside its retry interval
     # declines without a request, so the scan goes on to the next; the least recently asked first,
     # so a job that keeps meeting the limit never holds the slot ahead of one not asked yet.
@@ -1589,7 +1574,6 @@ __all__ = [
     "candidates",
     "context_spans",
     "horizon_at",
-    "held_plan_item_ids",
     "item_protection",
     "planned_visual",
     "protected",

@@ -167,11 +167,12 @@ def test_f1_unreadable_protection_requeues_nothing_and_the_worker_fails_closed(t
 
 def test_f1_the_pass_also_protects_the_stored_plans_open_items(tmp_path, monkeypatch):
     from learnloop.source_retrieval import corpus
+    from tests.test_followups_batch6_verify_fixes import _plan_holds
 
     paths, repository, _ctx, _rich_author, job = _waiting_rig(tmp_path, monkeypatch)
     vault = load_vault(paths.root)
     item_id = sorted(vault.practice_items)[0]
-    monkeypatch.setattr(PF, "held_plan_item_ids", lambda env: [item_id])
+    _plan_holds(repository, item_id)
     monkeypatch.setattr(corpus, "item_exclusions", lambda repository, item: corpus.Exclusions(
         spans=frozenset({(EXTRACTION, _neighbour(job))}) if item.id == item_id else frozenset()))
     _due(job["id"])

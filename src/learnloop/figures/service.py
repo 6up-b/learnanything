@@ -144,9 +144,10 @@ from typing import Any
 
 from learnloop.ai.execution import content_key, gate_model_requests
 from learnloop.ai.spend import SpendLimitExceeded
-from learnloop.clock import Clock, utc_now_iso
+from learnloop.clock import Clock, SystemClock, utc_now_iso
 from learnloop.db.connection import connect
 from learnloop.db.repositories import Repository
+from learnloop.db.stores import daily_plans as plan_store
 from learnloop.db.stores import figures as store
 from learnloop.db.stores.judgments import append_judgment
 from learnloop.figure_admission import (
@@ -3110,15 +3111,38 @@ def prefetch_pending(vault: Any, repository: Repository, extraction_id: str, *,
 LIVE_ADMINISTRATION_REASONS: tuple[str, ...] = ("WITHHELD_COLD", "WITHHELD_RESERVED", "WITHHELD_PROBE")
 
 
+def stored_plan_open_items(repository: Repository, *, clock: Clock | None = None) -> list[str]:
+    """The ids of the items today's latest stored plan holds open: planned, and not yet done,
+    skipped or displaced. The plan's own fold over its own rows (``daily_plan.records``, a pure
+    module that imports nothing above it; the engine that writes them is not imported), so there
+    is one meaning of "open". Raises when the plan can't be read: the caller fails closed."""
+
+    from learnloop.daily_plan.records import assemble
+
+    # The plan's day (``daily_plan.engine.local_date``): this machine's calendar date.
+    day = (clock or SystemClock()).now().astimezone().date().isoformat()
+    with closing(connect(repository.sqlite_path, read_only=True)) as connection:
+        plans = plan_store.plans_for_date(connection, day) if plan_store.daily_plan_tables_present(connection) else []
+        if not plans:
+            return []
+        blocks = plan_store.plan_blocks(connection, [plans[-1]["id"]])
+        events = plan_store.block_events_for(connection, [block["id"] for block in blocks])
+    (record,) = assemble(plans[-1:], blocks, events)
+    return [str(item.practice_item_id) for item in record.items() if not item.resolved]
+
+
 def item_passages(vault: Any, repository: Repository, *,
-                  extra_item_ids: Iterable[str] = ()) -> tuple[frozenset[tuple[str, str]], frozenset[str]] | None:
+                  clock: Clock | None = None) -> tuple[frozenset[tuple[str, str]], frozenset[str]] | None:
     """RW5d P5 (spec §10b.2, G-SM29): the passages no prebuild may send or show now: every passage
     (``corpus.item_exclusions``: its exercise, solution or worked answer, whatever the relation) of
-    an item under a live administration (:data:`LIVE_ADMINISTRATION_REASONS`) and of
-    ``extra_item_ids`` (the prefetch pass adds the stored plan's open items). Returns ``(spans,
-    whole extractions)``, read fresh on every call; None when the protection could not be read
-    (the caller fails closed). The one core of ``prefetch.item_protection`` and of a prebuild's
-    rich job's checks (follow-ups batch 6, Codex review F1)."""
+    an item under a live administration (:data:`LIVE_ADMINISTRATION_REASONS`) or that the stored
+    day plan holds open. Returns ``(spans, whole extractions)``, read fresh on every call; None
+    when any of it could not be read (the caller fails closed).
+
+    The one core of ``prefetch.item_protection``, of :func:`prefetch_plan_waits` (the Reader's
+    reads and the pass) and of a prebuild's rich job's checks (follow-ups batch 6, Codex review F1).
+    Codex verify V1: the stored plan is read here and is no caller's to add, so no path can leave
+    it out; a learner's own press never comes here (``rich.run_rich_job``: prebuilds only)."""
 
     from learnloop import learner_protection as LP
     from learnloop.source_retrieval import corpus
@@ -3128,7 +3152,11 @@ def item_passages(vault: Any, repository: Repository, *,
         return None
     live = {getattr(LP, name) for name in LIVE_ADMINISTRATION_REASONS}
     ids = {item_id for item_id, reason in withheld.reasons.items() if reason in live}
-    ids |= {str(item_id) for item_id in extra_item_ids}
+    try:
+        ids |= set(stored_plan_open_items(repository, clock=clock))
+    except Exception:  # noqa: BLE001 - a plan that can't be read may hold anything: fail closed
+        _LOG.warning("figures: the stored plan's open items could not be read", exc_info=True)
+        return None
     spans: set[tuple[str, str]] = set()
     whole: set[str] = set()
     for item_id in sorted(ids):
@@ -3171,11 +3199,11 @@ def rich_base_keys(base: Mapping[str, Any]) -> list[tuple[str, str]]:
 
 
 def rich_base_item_protected(vault: Any, repository: Repository, base: Mapping[str, Any], *,
-                             extra_item_ids: Iterable[str] = ()) -> str | None:
+                             clock: Clock | None = None) -> str | None:
     """:data:`ITEM_PASSAGE_PROTECTED` when a rich job's saved context touches a passage
     :func:`item_passages` protects now, or the protection can't be read (fail closed); else None."""
 
-    found = item_passages(vault, repository, extra_item_ids=extra_item_ids)
+    found = item_passages(vault, repository, clock=clock)
     if found is None:
         return ITEM_PASSAGE_PROTECTED
     spans, whole = found
@@ -3185,8 +3213,7 @@ def rich_base_item_protected(vault: Any, repository: Repository, base: Mapping[s
 
 
 def prefetch_plan_waits(vault: Any, repository: Repository, extraction_id: str | None,
-                        *, request_ids: Collection[str] | None = None,
-                        extra_item_ids: Iterable[str] = ()) -> list[str]:
+                        *, request_ids: Collection[str] | None = None, clock: Clock | None = None) -> list[str]:
     """RW5d P5 (Codex re-review F17): this source's speculative prebuild rich jobs waiting for
     the plan, newest per input, whose retry is admissible now: figures ahead of need on, this
     machine on mains, and the passage not held out. They list no line (Codex review F10), so the
@@ -3199,10 +3226,10 @@ def prefetch_plan_waits(vault: Any, repository: Repository, extraction_id: str |
     ``request_ids``, when given, keeps only the jobs of those figure requests (the pass passes
     the requests of its decisions whose horizon is still open).
 
-    Follow-ups batch 6 Codex review F1: a job whose saved context touches an item's own passage
-    now (:func:`rich_base_item_protected`: an item under a live administration, such as a cold
-    check started after the job first met the limit, and ``extra_item_ids``: the pass adds the
-    stored plan's open items) is not asked again; unreadable protection asks none."""
+    Follow-ups batch 6 Codex review F1, verify V1: a job whose saved context touches an item's own
+    passage now (:func:`item_passages`: an item under a live administration, such as a cold check
+    started after the job first met the limit, or one a later day plan selected) is not asked
+    again, by the Reader's read as by the pass; unreadable protection asks none."""
 
     from learnloop.figures.power import power_state, prefetch_switch
     from learnloop.figures.rich import _withheld
@@ -3229,7 +3256,7 @@ def prefetch_plan_waits(vault: Any, repository: Repository, extraction_id: str |
         candidates.append((str(job["id"]), base))
     if not candidates:
         return []
-    found = item_passages(vault, repository, extra_item_ids=extra_item_ids)
+    found = item_passages(vault, repository, clock=clock)
     if found is None:
         return []  # fail closed
     spans, whole = found
@@ -3648,6 +3675,7 @@ __all__ = [
     "rich_pending",
     "rich_base_item_protected",
     "rich_base_keys",
+    "stored_plan_open_items",
     "rich_row",
     "sketch_enabled",
     "sketch_off_row",
