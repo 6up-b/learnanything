@@ -27,7 +27,8 @@ pedagogy.
 from __future__ import annotations
 
 import json
-from collections.abc import Callable, Mapping, Sequence
+from collections.abc import Callable, Iterator, Mapping, Sequence
+from contextlib import contextmanager
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -56,13 +57,15 @@ from learnloop.teacher.doctrines import DOCTRINE_VERSION, doctrine_identity, doc
 #: Consecutive refused turns that close a lesson (keep: a contract guardrail, spec §18.4).
 MAX_CONTRACT_FAILURES = 3
 TEACHER_PURPOSE = "teacher_turn"
-LEARNER_ACTIONS = ("reply", "answer_prediction", "answer_check", "stop")
+LEARNER_ACTIONS = ("reply", "answer_prediction", "answer_check", "stop", "resume")
 
 
 class LessonError(ValueError):
-    def __init__(self, code: str, message: str) -> None:
+    def __init__(self, code: str, message: str, *, details: Mapping[str, Any] | None = None) -> None:
         super().__init__(message)
         self.code = code
+        #: What the screen needs to resume (``lesson_id`` once the lesson is saved).
+        self.details: dict[str, Any] = dict(details or {})
 
 
 def lessons_active(vault: Any) -> bool:
@@ -108,6 +111,16 @@ class LessonState:
     forecasts: dict[str, dict[str, Any]] = field(default_factory=dict)
     minted: dict[str, str] = field(default_factory=dict)
     landed: list[str] = field(default_factory=list)
+    #: Accepted teacher turns whose effects all ran (a ``turn_executed`` marker), and per accepted
+    #: turn the effects already recorded (``refs.effect``): recovery resumes the rest (§7, §18).
+    executed: set[str] = field(default_factory=set)
+    effects_done: dict[str, set[str]] = field(default_factory=dict)
+    #: The last accepted teacher turn, when its effects did not all run (an interrupted action).
+    unexecuted: dict[str, Any] | None = None
+    #: The lesson's spend gate while an action runs (§17).
+    gate: Any = None
+    #: Brief items withheld since the lesson opened (recomputed before every call: review F4).
+    withheld_items: set[str] = field(default_factory=set)
 
     @property
     def lesson_id(self) -> str:
@@ -147,9 +160,17 @@ def load_state(repository: Any, lesson_id: str) -> LessonState:
     state = LessonState(lesson=lesson, brief=payload.get("brief") or {}, book=SourceBook.from_dict(payload.get("book")),
                         turns=turns, checks=checks, plans=plans)
     ended = {check["check_ref"] for check in checks}
+    last_accepted: dict[str, Any] | None = None
     for entry in turns:
         data = entry.get("payload") or {}
         action = entry["action"]
+        refs = entry.get("refs") or {}
+        if refs.get("turn") and refs.get("effect"):
+            state.effects_done.setdefault(str(refs["turn"]), set()).add(str(refs["effect"]))
+        if action == "turn_executed":
+            state.executed.add(str(data.get("turn_id")))
+        if entry["actor"] == "teacher" and action == "teacher_turn" and entry["validation"] == "ok":
+            last_accepted = entry
         if action == "pose_check":
             state.minted[data["check_ref"]] = data["item_id"]
             state.open_check = None if data["check_ref"] in ended else data
@@ -174,6 +195,8 @@ def load_state(repository: Any, lesson_id: str) -> LessonState:
                 state.landed.append(str(data["node"]))
         if entry["actor"] == "teacher" and action == "teacher_turn":
             state.failures = 0 if entry["validation"] == "ok" else state.failures + 1
+    if last_accepted is not None and str(last_accepted["id"]) not in state.executed and not state.closed:
+        state.unexecuted = last_accepted
     return state
 
 
@@ -194,9 +217,19 @@ def transcript(state: LessonState) -> list[dict[str, Any]]:
     """Every step so far, in order, as the teacher reads it (its own turns, the learner's words, results)."""
 
     out: list[dict[str, Any]] = []
+    deferred: dict[str, dict[str, Any]] = {}
     for entry in state.turns:
         data = entry.get("payload") or {}
         action = entry["action"]
+        if action in READ_ACTIONS and data.get("deferred"):
+            # A deferred read's result enters the transcript where it was delivered (review F10):
+            # before that it rides in the call's ``results``.
+            deferred[str(entry["id"])] = {"by": "code", "result_of": action,
+                                          "result": _model_result(data.get("result"))}
+            continue
+        if action == "results_delivered":
+            out.extend(deferred.pop(str(turn_id)) for turn_id in data.get("turn_ids") or [] if str(turn_id) in deferred)
+            continue
         if action == "teacher_turn":
             if entry["validation"] == "ok":
                 out.append({"by": "teacher", "turn": data.get("turn")})
@@ -226,15 +259,61 @@ def transcript(state: LessonState) -> list[dict[str, Any]]:
     return out
 
 
+WITHDRAWN = "no longer available: this material is now kept for an exam or held out; don't use or cite it"
+
+
+def revalidate_material(vault: Any, repository: Any, state: LessonState) -> None:
+    """Before every model call (review F4): which delivered passages and which brief items are no
+    longer teachable as of NOW (protection the lesson's saved context predates). Their text is
+    never resent (:func:`_redact`), and a revoked alias can't be cited or read back."""
+
+    from learnloop.learner_protection import withheld_items
+    from learnloop.source_retrieval.section_coverage import Library
+    from learnloop.teacher.brief import revoke_unteachable
+
+    revoke_unteachable(Library(vault, repository), state.book)
+    withheld = withheld_items(vault, repository)
+    probes = {str(probe.get("id")) for node in state.brief.get("nodes") or [] for probe in node.get("probes") or []}
+    state.withheld_items = {item for item in probes if withheld.reason(item)}
+
+
+def _redact(value: Any, state: LessonState) -> Any:
+    """``value`` with every revoked passage's text and every now-withheld item's stem taken out."""
+
+    if isinstance(value, Mapping):
+        alias = value.get("alias")
+        if isinstance(alias, str) and alias in state.book.revoked:
+            return {"alias": alias, "withdrawn": WITHDRAWN}
+        if "stem" in value and str(value.get("id")) in state.withheld_items:
+            return {"id": value.get("id"), "withdrawn": WITHDRAWN}
+        return {key: _redact(item, state) for key, item in value.items()}
+    if isinstance(value, list):
+        return [_redact(item, state) for item in value]
+    return value
+
+
+def _redacted_transcript(state: LessonState) -> list[dict[str, Any]]:
+    out = []
+    for entry in transcript(state):
+        if entry.get("by") == "teacher" and state.book.revoked:
+            cited = set(G.CITATION.findall(json.dumps(entry.get("turn"), ensure_ascii=False)))
+            if cited & state.book.revoked:
+                out.append({"by": "code", "turn_withdrawn": "an earlier turn of yours cited material that is "
+                                                            "now kept for an exam or held out; it is left out"})
+                continue
+        out.append(_redact(entry, state))
+    return out
+
+
 def _prompt(state: LessonState, *, results: Sequence[Mapping[str, Any]], help_reply: bool) -> str:
     context = {
-        "brief": state.brief,
+        "brief": _redact(state.brief, state),
         "open_check": state.open_check and {k: state.open_check.get(k) for k in ("check_ref", "check")},
         "open_prediction": state.open_prediction,
         "plan": state.plans[-1]["outline"] if state.plans else None,
-        "results": list(results),
+        "results": _redact(list(results), state),
         "help_reply": help_reply,
-        "transcript": transcript(state),
+        "transcript": _redacted_transcript(state),
     }
     return render_structured_prompt(
         "LearnLoop lesson: you are the teacher", PROMPT_VERSION,
@@ -259,14 +338,144 @@ def _append(repository: Any, state: LessonState, *, actor: str, action: str, val
     return entry
 
 
+def _effect_refs(turn_entry: Mapping[str, Any] | None, effect: str,
+                 extra: Mapping[str, Any] | None = None) -> dict[str, Any] | None:
+    """The refs marking one effect of an accepted teacher turn (recovery skips what is marked)."""
+
+    refs = dict(extra or {})
+    if turn_entry is not None:
+        refs.update({"turn": str(turn_entry["id"]), "effect": effect})
+    return refs or None
+
+
 def _model_name(client: Any) -> str | None:
     return getattr(client, "model", None)
 
 
-def _family(client: Any) -> str:
+def _family_of(model: str | None) -> str:
     """The forecaster of §12.2's pool: the doctrine version and the teacher model."""
 
-    return f"{DOCTRINE_VERSION}:{_model_name(client) or 'unknown'}"
+    return f"{DOCTRINE_VERSION}:{model or 'unknown'}"
+
+
+def _family(client: Any) -> str:
+    return _family_of(_model_name(client))
+
+
+# =============================================================================
+# Spend: one durable envelope per lesson (§17, T1 redesign D)
+# =============================================================================
+
+
+def _subscription(config: Any, client: Any) -> bool:
+    from learnloop.ai.spend import is_subscription_transport
+
+    if is_subscription_transport(client=client):
+        return True
+    profile = config.ai.providers.get(getattr(client, "provider_name", None) or "")
+    return profile is not None and is_subscription_transport(profile=profile)
+
+
+def _spent_usd(state: LessonState) -> float:
+    """What the lesson's metered requests cost so far (each settled request's ``spend`` row)."""
+
+    return float(sum(float((entry.get("payload") or {}).get("usd") or 0.0)
+                     for entry in state.turns if entry["action"] == "spend"))
+
+
+def _lesson_tokens(state: LessonState, outcome: "_Outcome") -> dict[str, int]:
+    """The whole lesson's teacher calls and tokens (every action's ``usage`` row, and this action's)."""
+
+    totals = {"calls": 0, "input_tokens": 0, "output_tokens": 0}
+    for entry in state.turns:
+        usage = (entry.get("payload") or {}).get("usage") if entry["action"] == "usage" else None
+        for key in totals:
+            totals[key] += int((usage or {}).get(key) or 0)
+    for key in totals:
+        totals[key] += int(outcome.usage.get(key) or 0)
+    return totals
+
+
+def _spend_gate_class() -> type:
+    from learnloop.ai.spend import MeteredRequestGate
+
+    class LessonSpendGate(MeteredRequestGate):
+        """The lesson's envelope: every physical metered request of a lesson action (the teacher's,
+        the inline grader's, a retrieval call's) is reserved against what the lesson already spent
+        before it is sent, and each settled request is written to the ledger (a ``spend`` row), so
+        the next action, and the next process, starts from the durable total (review F1)."""
+
+        def __init__(self, repository: Any, state: LessonState, clock: Clock | None, **kwargs: Any) -> None:
+            super().__init__(**kwargs)
+            self._repository = repository
+            self._state = state
+            self._clock = clock
+            self._purposes: dict[int, str] = {}
+
+        def admit(self, client: Any, *, purpose: str, prompt: Any, budget: int | None) -> Any:
+            admission = super().admit(client, purpose=purpose, prompt=prompt, budget=budget)
+            if admission is not None:
+                self._purposes[admission.key] = purpose
+            return admission
+
+        def settle(self, admission: Any, usage: Mapping[str, Any]) -> None:
+            if admission is None:
+                return
+            before = self.spent_usd
+            super().settle(admission, usage)
+            _append(self._repository, self._state, actor="code", action="spend", payload={
+                "usd": round(self.spent_usd - before, 10), "estimated_usd": round(admission.estimated_usd, 10),
+                "purpose": self._purposes.pop(admission.key, None), "provider": admission.provider,
+                "input_tokens": usage.get("input_tokens"), "output_tokens": usage.get("output_tokens"),
+            }, clock=self._clock)
+
+    return LessonSpendGate
+
+
+@contextmanager
+def _lesson_spend(vault: Any, repository: Any, state: LessonState, *, clock: Clock | None) -> Iterator[Any]:
+    """Hold the lesson's spend gate over one action (every model request it makes)."""
+
+    from learnloop.ai.execution import gate_model_requests
+    from learnloop.ai.output_budget import output_budget
+
+    config = vault.config.teacher
+    price = config.metered_price_per_million
+    gate = _spend_gate_class()(
+        repository, state, clock,
+        limit_usd=None if config.max_lesson_cost_usd is None else float(config.max_lesson_cost_usd),
+        price_per_token=lambda _provider: None if price is None else float(price) / 1_000_000.0,
+        is_subscription=lambda client: _subscription(vault.config, client),
+        default_output_tokens=int(output_budget(vault.config, "teacher")),
+        spent_before_usd=_spent_usd(state))
+    state.gate = gate
+    try:
+        with gate_model_requests(gate):
+            yield gate
+    finally:
+        state.gate = None
+
+
+def _refused_by_budget(state: LessonState, exc: BaseException) -> bool:
+    from learnloop.ai.spend import SpendLimitExceeded
+
+    seen: BaseException | None = exc
+    while seen is not None:
+        if isinstance(seen, SpendLimitExceeded):
+            return True
+        seen = seen.__cause__ or seen.__context__
+    return state.gate is not None and state.gate.refusal is not None
+
+
+def _require_metered_settings(vault: Any, client: Any) -> None:
+    """A metered (OpenRouter) lesson needs its price and its per-lesson cap first (T1 redesign D; Q7)."""
+
+    if _subscription(vault.config, client) or getattr(client, "provider_type", None) == "fake":
+        return
+    config = vault.config.teacher
+    if config.metered_price_per_million is None or config.max_lesson_cost_usd is None:
+        raise LessonError("plan_unavailable", "A lesson on OpenRouter needs teacher.metered_price_per_million and "
+                                              "teacher.max_lesson_cost_usd set first.")
 
 
 # =============================================================================
@@ -278,7 +487,8 @@ def open_lesson(vault: Any, repository: Any, *, entry: str, learning_object_ids:
                 selection: Mapping[str, Any] | None = None, goal_text: str | None = None,
                 clients: Clients, driver: str = "desktop", clock: Clock | None = None) -> dict[str, Any]:
     """Open a lesson the learner started (TE1: an LO's or a Reader selection's "Teach me this"), build
-    its brief from the ledger and run the teacher's first turn."""
+    its brief from the ledger and run the teacher's first turn. A failure after the lesson is saved
+    carries its id (``LessonError.details``), so the screen resumes it instead of opening another."""
 
     require_active(vault)
     try:
@@ -310,7 +520,12 @@ def open_lesson(vault: Any, repository: Any, *, entry: str, learning_object_ids:
                           refs={"selection": selected}, payload={"brief": brief, "book": book.as_dict()},
                           created_at=now)
     state = load_state(repository, lesson_id)
-    return _teach(vault, repository, state, clients=clients, client=client, help_reply=False, clock=clock)
+    try:
+        with _lesson_spend(vault, repository, state, clock=clock):
+            return _teach(vault, repository, state, clients=clients, client=client, help_reply=False, clock=clock)
+    except LessonError as exc:
+        exc.details.setdefault("lesson_id", lesson_id)
+        raise
 
 
 # =============================================================================
@@ -318,9 +533,53 @@ def open_lesson(vault: Any, repository: Any, *, entry: str, learning_object_ids:
 # =============================================================================
 
 
+def recover(vault: Any, repository: Any, state: LessonState, *, clock: Clock | None = None) -> "_Outcome | None":
+    """Run what an interrupted action left of its last accepted teacher turn (review F9): each effect
+    the ledger does not mark done, idempotently, with its reads' results riding with the next call.
+    No model call."""
+
+    entry = state.unexecuted
+    if entry is None or state.closed:
+        return None
+    data = entry.get("payload") or {}
+    turn_obj = TeacherTurnV1.model_validate(data.get("turn") or {})
+    outcome = _Outcome()
+    _execute(vault, repository, state, turn_obj, turn_entry=entry, model=state.lesson.get("model"), deferred=True,
+             outcome=outcome, clock=clock, help_reply=bool(data.get("help_reply")),
+             done=state.effects_done.get(str(entry["id"]), set()))
+    state.unexecuted = None
+    return outcome
+
+
+def _awaits_teacher(state: LessonState) -> str | None:
+    """Whether the ledger's last step is the learner's or code's with no accepted teacher turn after
+    it (an action interrupted before the teacher answered): ``"stop"`` for a stop, else ``"turn"``."""
+
+    for entry in reversed(state.turns):
+        action = entry["action"]
+        if action == "teacher_turn":
+            return None if entry["validation"] == "ok" else "turn"
+        if action == "learner_stop":
+            return "stop"
+        if action in ("open", "learner_reply", "prediction_answer", "check_result", "check_withdrawn"):
+            return "turn"
+    return None
+
+
+def view_lesson(vault: Any, repository: Any, lesson_id: str, *, clock: Clock | None = None) -> dict[str, Any]:
+    """``lesson.view``: the lesson as the screen shows it, after recovering an interrupted action's
+    remaining effects (no model call)."""
+
+    require_active(vault)
+    state = load_state(repository, lesson_id)
+    outcome = recover(vault, repository, state, clock=clock)
+    return view(vault, repository, lesson_id, outcome=outcome)
+
+
 def take_turn(vault: Any, repository: Any, *, lesson_id: str, action: str, payload: Mapping[str, Any],
-         clients: Clients, clock: Clock | None = None) -> dict[str, Any]:
-    """One learner action on an open lesson (``reply``, ``answer_prediction``, ``answer_check``, ``stop``)."""
+              clients: Clients, clock: Clock | None = None) -> dict[str, Any]:
+    """One learner action on an open lesson (``reply``, ``answer_prediction``, ``answer_check``, ``stop``),
+    or ``resume``: run the teacher's turn an outage interrupted (nothing new from the learner)."""
 
     require_active(vault)
     if action not in LEARNER_ACTIONS:
@@ -328,6 +587,25 @@ def take_turn(vault: Any, repository: Any, *, lesson_id: str, action: str, paylo
     state = load_state(repository, lesson_id)
     if state.closed:
         return view(vault, repository, lesson_id)
+    recover(vault, repository, state, clock=clock)
+    if state.closed:
+        return view(vault, repository, lesson_id)
+    try:
+        with _lesson_spend(vault, repository, state, clock=clock):
+            return _learner_action(vault, repository, state, action, payload, clients=clients, clock=clock)
+    except LessonError as exc:
+        exc.details.setdefault("lesson_id", lesson_id)
+        raise
+
+
+def _learner_action(vault: Any, repository: Any, state: LessonState, action: str, payload: Mapping[str, Any], *,
+                    clients: Clients, clock: Clock | None) -> dict[str, Any]:
+    if action == "resume":
+        waiting = _awaits_teacher(state)
+        if waiting is None:
+            return view(vault, repository, state.lesson_id)
+        return _teach(vault, repository, state, clients=clients, client=clients.teacher(), help_reply=False,
+                      clock=clock, closing="learner_stop" if waiting == "stop" else None)
     if action == "stop":
         _append(repository, state, actor="learner", action="learner_stop", payload={}, clock=clock)
         client = clients.teacher()
@@ -406,6 +684,11 @@ def _answer_check(vault: Any, repository: Any, state: LessonState, payload: Mapp
         grade, run_id = CK.grade_answer(vault, repository, grading_client, item=item, attempt_id=attempt_id,
                                         answer=answer, clock=clock)
     except Exception as exc:  # noqa: BLE001 - the check stays open; the learner can submit again
+        if _refused_by_budget(state, exc):
+            # The lesson's envelope refused the grader's request (§17): the lesson closes with ``budget``.
+            outcome = _Outcome()
+            _close(vault, repository, state, reason="budget", recap=None, clock=clock, outcome=outcome)
+            return view(vault, repository, state.lesson_id, outcome=outcome)
         raise LessonError("grading_unavailable", f"Your answer couldn't be graded right now ({type(exc).__name__}). "
                                                  "Try submitting it again.") from exc
     max_points = max(int(getattr(vault.rubric_for_item(item), "max_points", 1) or 1), 1)
@@ -472,11 +755,28 @@ class _Outcome:
 def _teach(vault: Any, repository: Any, state: LessonState, *, clients: Clients, client: Any, help_reply: bool,
            clock: Clock | None, closing: str | None = None) -> dict[str, Any]:
     outcome = _Outcome()
+    try:
+        _teach_loop(vault, repository, state, client=client, help_reply=help_reply, clock=clock, closing=closing,
+                    outcome=outcome)
+    except Exception as exc:
+        if not _refused_by_budget(state, exc):
+            raise
+        # The lesson's envelope refused the next request (§17): the lesson closes with ``budget``.
+        _close(vault, repository, state, reason="budget", recap=None, clock=clock, outcome=outcome)
+    finally:
+        if outcome.usage["calls"]:
+            _append(repository, state, actor="code", action="usage", payload={"usage": dict(outcome.usage)},
+                    clock=clock)
+    return view(vault, repository, state.lesson_id, outcome=outcome)
+
+
+def _teach_loop(vault: Any, repository: Any, state: LessonState, *, client: Any, help_reply: bool,
+                clock: Clock | None, closing: str | None, outcome: "_Outcome") -> None:
+    # Deferred read results ride with this call; they are marked delivered only with the accepted
+    # turn that consumed them (review F10), so an outage keeps them pending.
     results = list(state.pending_results)
-    if results:
-        _append(repository, state, actor="code", action="results_delivered",
-                payload={"turn_ids": [r.get("turn_id") for r in results]}, clock=clock)
-        state.pending_results = []
+    undelivered = [str(r.get("turn_id")) for r in results if r.get("turn_id")]
+    _require_metered_settings(vault, client)
     # Accepted turns this action: the first one's read requests get one follow-up call; later ones ride with
     # the next learner action (a refused turn does not count, so its correction never defers a read).
     accepted = 0
@@ -485,12 +785,14 @@ def _teach(vault: Any, repository: Any, state: LessonState, *, clients: Clients,
     while not state.closed:
         try:
             parsed = _call_teacher(vault, repository, state, client, results=results, help_reply=help_reply,
-                                   outcome=outcome, clock=clock)
+                                   outcome=outcome, clock=clock, deliver=undelivered)
         except LessonError:
             raise
         except Exception as exc:  # noqa: BLE001 - the plan is down or the route refused: the lesson waits
             from learnloop.ai.errors import AIProviderUnavailable
 
+            if _refused_by_budget(state, exc):
+                raise
             unavailable = isinstance(exc, AIProviderUnavailable) or "unavailable" in type(exc).__name__.lower()
             if closing:
                 _close(vault, repository, state, reason=closing, recap=None, clock=clock, outcome=outcome)
@@ -504,12 +806,13 @@ def _teach(vault: Any, repository: Any, state: LessonState, *, clients: Clients,
                        outcome=outcome)
                 break
             continue
+        undelivered = []
         turn_obj, turn_entry = parsed
         requested_reads = [request for request in turn_obj.requests if request.action in READ_ACTIONS]
         deferred = accepted >= 1
         accepted += 1
-        new_results = _execute(vault, repository, state, turn_obj, client=client, deferred=deferred,
-                               outcome=outcome, clock=clock, help_reply=help_reply)
+        new_results = _execute(vault, repository, state, turn_obj, turn_entry=turn_entry, model=_model_name(client),
+                               deferred=deferred, outcome=outcome, clock=clock, help_reply=help_reply)
         if state.closed:
             break
         if closing:
@@ -520,23 +823,55 @@ def _teach(vault: Any, repository: Any, state: LessonState, *, clients: Clients,
             help_reply = False
             continue
         break
-    if outcome.usage["calls"]:
-        _append(repository, state, actor="code", action="usage", payload={"usage": dict(outcome.usage)}, clock=clock)
-    return view(vault, repository, state.lesson_id, outcome=outcome)
 
 
-def _call_teacher(vault: Any, repository: Any, state: LessonState, client: Any, *, results: Sequence[Mapping[str, Any]],
-                  help_reply: bool, outcome: _Outcome, clock: Clock | None) -> tuple[TeacherTurnV1, dict[str, Any]] | None:
-    """One teacher call: validated, guarded, recorded. None when refused (a correctable error)."""
-
-    _admit_spend(vault, client, state)
-    prompt = _prompt(state, results=results, help_reply=help_reply)
-    raw = execute_structured_operation(client, purpose=TEACHER_PURPOSE, prompt=prompt, result_model=TeacherTurnV1)
+def _record_usage(client: Any, outcome: _Outcome) -> None:
     usage = client.consume_usage() if hasattr(client, "consume_usage") else None
     outcome.usage["calls"] += 1
     if usage is not None:
         outcome.usage["input_tokens"] += int(getattr(usage, "input_tokens", 0) or 0)
         outcome.usage["output_tokens"] += int(getattr(usage, "output_tokens", 0) or 0)
+
+
+def _displayed(turn_obj: TeacherTurnV1) -> list[tuple[str, str]]:
+    """Every learner-facing text of a turn, by field (review F3): the message and its choices, a
+    prediction, a check, plan statements (the map) and a close's recap."""
+
+    out: list[tuple[str, str]] = [("message", turn_obj.message)]
+    out.extend(("choice", choice) for choice in turn_obj.choices or [])
+    if turn_obj.prediction is not None:
+        out.append(("prediction", turn_obj.prediction.prompt))
+        out.extend(("prediction", choice) for choice in turn_obj.prediction.choices)
+    if turn_obj.check is not None:
+        out.append(("check", turn_obj.check.question))
+        out.extend(("check", choice) for choice in turn_obj.check.choices)
+    for request in turn_obj.requests:
+        if request.action == "write_plan":
+            out.extend(("plan", str(node.statement or "")) for node in request.plan)
+        elif request.action == "close" and request.recap:
+            out.append(("recap", str(request.recap)))
+    return [(name, text) for name, text in out if text]
+
+
+def _call_teacher(vault: Any, repository: Any, state: LessonState, client: Any, *, results: Sequence[Mapping[str, Any]],
+                  help_reply: bool, outcome: _Outcome, clock: Clock | None,
+                  deliver: Sequence[str] = ()) -> tuple[TeacherTurnV1, dict[str, Any]] | None:
+    """One teacher call: validated, guarded, recorded. None when refused (a correctable error)."""
+
+    from learnloop.ai.errors import AIInvalidOutput
+
+    revalidate_material(vault, repository, state)
+    prompt = _prompt(state, results=results, help_reply=help_reply)
+    try:
+        raw = execute_structured_operation(client, purpose=TEACHER_PURPOSE, prompt=prompt, result_model=TeacherTurnV1)
+    except AIInvalidOutput as exc:
+        # The provider could not produce a valid TeacherTurnV1 even after its own repair (review F12):
+        # a correctable contract refusal, counted toward the consecutive-failure rule.
+        _record_usage(client, outcome)
+        _append(repository, state, actor="teacher", action="teacher_turn", validation="invalid",
+                payload={"reason": "schema", "detail": str(exc)[:2000]}, clock=clock)
+        return None
+    _record_usage(client, outcome)
     try:
         turn_obj = raw if isinstance(raw, TeacherTurnV1) else TeacherTurnV1.model_validate(raw)
     except ValidationError as exc:
@@ -550,36 +885,36 @@ def _call_teacher(vault: Any, repository: Any, state: LessonState, client: Any, 
         return None
     exempt = list(state.minted.values())
     keys, unreadable = G.lesson_keys(vault, repository, state.los, exempt)
-    texts = [turn_obj.message, *(turn_obj.choices or [])]
-    if turn_obj.prediction is not None:
-        texts.extend([turn_obj.prediction.prompt, *turn_obj.prediction.choices])
-    if turn_obj.check is not None:
-        texts.extend([turn_obj.check.question, *turn_obj.check.choices])
-    # The open check's solution guard also covers the check this turn poses: its message (never its
-    # options, which carry the right one by design) must not give the solution away.
+    displayed = _displayed(turn_obj)
+    # The open check's solution guard also covers the check this turn poses: every displayed field but
+    # the posed check's own (its options carry the right one by design) must not give the solution away.
     posing = turn_obj.check.model_dump() if turn_obj.check is not None else None
-    for index, text in enumerate(texts):
+    for name, text in displayed:
         open_check = state.open_check and state.open_check.get("check")
-        if open_check is None and posing is not None and index == 0:
+        if open_check is None and posing is not None and name != "check":
             open_check = posing
         verdict = G.check_all(text, keys=keys, unreadable=unreadable, book=state.book,
                               open_check=open_check, help_reply=help_reply)
         if not verdict.ok:
             _append(repository, state, actor="teacher", action="teacher_turn", validation="withheld",
-                    payload={"reason": verdict.reason, "detail": verdict.detail, "turn": turn_obj.model_dump()},
-                    clock=clock)
+                    payload={"reason": verdict.reason, "detail": f"{name}: {verdict.detail}",
+                             "turn": turn_obj.model_dump()}, clock=clock)
             return None
-    entry = _append(repository, state, actor="teacher", action="teacher_turn", validation="ok",
-                    payload={"turn": turn_obj.model_dump(), "turn_version": TURN_VERSION}, clock=clock)
+    # One transaction: the delivered results, the accepted turn and its exposure (reveal rows from every
+    # displayed field), so an interruption leaves all of it or none.
+    with repository.atomic():
+        if deliver:
+            _append(repository, state, actor="code", action="results_delivered", payload={"turn_ids": list(deliver)},
+                    clock=clock)
+        entry = _append(repository, state, actor="teacher", action="teacher_turn", validation="ok",
+                        payload={"turn": turn_obj.model_dump(), "turn_version": TURN_VERSION,
+                                 "help_reply": bool(help_reply)}, clock=clock)
+        _record_reveals(vault, repository, state, "\n".join(text for _name, text in displayed), clock=clock)
+    if deliver:
+        delivered = set(deliver)
+        state.pending_results = [r for r in state.pending_results if str(r.get("turn_id")) not in delivered]
     if turn_obj.message:
         outcome.shown.append({"kind": "message", "text": turn_obj.message, "choices": list(turn_obj.choices)})
-        _record_reveals(vault, repository, state, turn_obj.message, clock=clock)
-    if help_reply and state.open_check is not None:
-        overlap = G.solution_overlap(turn_obj.message, str(state.open_check["check"]["committed_solution"]))
-        from learnloop.serve_eligibility import AUTO_PRIME_REVEAL_THRESHOLD
-
-        if overlap >= AUTO_PRIME_REVEAL_THRESHOLD:
-            _withdraw(vault, repository, state, overlap=overlap, clock=clock, outcome=outcome)
     return turn_obj, entry
 
 
@@ -592,14 +927,14 @@ def _contract_problem(state: LessonState, turn_obj: TeacherTurnV1) -> str | None
         check = turn_obj.check
         if check.form == "choices" and len(check.choices) < 2:
             return "a choices check needs at least two options"
-        unknown = [alias for alias in check.anchors if alias not in state.book.passages]
+        unknown = [alias for alias in check.anchors if not state.book.available(alias)]
         if unknown:
             return f"the check's anchors were never delivered to you: {', '.join(unknown)}"
     for request in turn_obj.requests:
         if request.action == "write_plan":
             for node in request.plan:
                 unknown = [alias for alias in node.anchors
-                           if alias not in state.book.passages and alias not in state.book.sections]
+                           if not state.book.available(alias) and alias not in state.book.sections]
                 if unknown:
                     return f"plan node {node.id}: these anchors don't resolve: {', '.join(unknown)}"
         if request.action == "forecast" and (request.forecast_kind is None or request.p is None or not request.node):
@@ -611,31 +946,6 @@ def _contract_problem(state: LessonState, turn_obj: TeacherTurnV1) -> str | None
     return None
 
 
-def _admit_spend(vault: Any, client: Any, state: LessonState) -> None:
-    """A metered (OpenRouter) lesson needs its price and its per-lesson cap (T1 redesign D; Q7)."""
-
-    from learnloop.ai.spend import is_subscription_transport
-
-    if is_subscription_transport(client=client) or getattr(client, "provider_type", None) == "fake":
-        return
-    config = vault.config.teacher
-    if config.metered_price_per_million is None or config.max_lesson_cost_usd is None:
-        raise LessonError("plan_unavailable", "A lesson on OpenRouter needs teacher.metered_price_per_million and "
-                                              "teacher.max_lesson_cost_usd set first.")
-    spent = _spent_usd(state, float(config.metered_price_per_million))
-    if spent >= float(config.max_lesson_cost_usd):
-        raise LessonError("budget", "This lesson reached its spending cap.")
-
-
-def _spent_usd(state: LessonState, price_per_million: float) -> float:
-    tokens = 0
-    for entry in state.turns:
-        usage = (entry.get("payload") or {}).get("usage") if entry["action"] == "usage" else None
-        if usage:
-            tokens += int(usage.get("input_tokens", 0)) + int(usage.get("output_tokens", 0))
-    return tokens * price_per_million / 1_000_000.0
-
-
 def _record_reveals(vault: Any, repository: Any, state: LessonState, message: str, *, clock: Clock | None) -> None:
     """Teaching text and cited passages (§12): ``tutor_answer`` for each item on the lesson's LOs whose key
     the text overlaps (amount = overlap, as the tutor), ``source_review`` for what a cited passage exposes;
@@ -644,6 +954,8 @@ def _record_reveals(vault: Any, repository: Any, state: LessonState, message: st
     from learnloop.attempts.reveal_ledger import record_reveal
     from learnloop.tutor.tutor_qa import answer_leak_overlap, span_answer_overlap
 
+    if not message:
+        return
     los = set(state.los)
     minted = set(state.minted.values())
     passages = [state.book.passages[alias]["text"] for alias in G.cited_aliases(message) if alias in state.book.passages]
@@ -662,17 +974,19 @@ def _record_reveals(vault: Any, repository: Any, state: LessonState, message: st
 
 
 def _withdraw(vault: Any, repository: Any, state: LessonState, *, overlap: float, clock: Clock | None,
-              outcome: _Outcome) -> None:
+              outcome: _Outcome, turn_entry: Mapping[str, Any] | None = None) -> None:
     from learnloop.vault.loader import load_vault
 
     assert state.open_check is not None
     check = state.open_check
     loaded = vault if check["item_id"] in vault.practice_items else load_vault(vault.root)
     item = loaded.practice_items[check["item_id"]]
-    CK.withdraw_check(repository, lesson_id=state.lesson_id, node_id=str(check["check"]["node"]),
-                      check_ref=check["check_ref"], item=item, overlap=overlap, created_at=utc_now_iso(clock))
-    _append(repository, state, actor="code", action="check_withdrawn", refs={"item": item.id},
-            payload={"check_ref": check["check_ref"], "overlap": overlap}, clock=clock)
+    with repository.atomic():
+        CK.withdraw_check(repository, lesson_id=state.lesson_id, node_id=str(check["check"]["node"]),
+                          check_ref=check["check_ref"], item=item, overlap=overlap, created_at=utc_now_iso(clock))
+        _append(repository, state, actor="code", action="check_withdrawn",
+                refs=_effect_refs(turn_entry, "withdraw", {"item": item.id}),
+                payload={"check_ref": check["check_ref"], "overlap": overlap}, clock=clock)
     state.open_check = None
     outcome.notices.append("That reply gave the check's answer away, so the check was withdrawn; it doesn't count "
                            "either way.")
@@ -683,21 +997,38 @@ def _withdraw(vault: Any, repository: Any, state: LessonState, *, overlap: float
 # =============================================================================
 
 
-def _execute(vault: Any, repository: Any, state: LessonState, turn_obj: TeacherTurnV1, *, client: Any,
-             deferred: bool, outcome: _Outcome, clock: Clock | None, help_reply: bool) -> list[dict[str, Any]]:
+def _execute(vault: Any, repository: Any, state: LessonState, turn_obj: TeacherTurnV1, *,
+             turn_entry: Mapping[str, Any], model: str | None, deferred: bool, outcome: _Outcome,
+             clock: Clock | None, help_reply: bool, done: set[str] | frozenset[str] = frozenset()
+             ) -> list[dict[str, Any]]:
+    """An accepted turn's effects, in order, each marked with the turn and its name (``refs.effect``) in
+    the transaction that makes it, then a ``turn_executed`` marker: recovery runs only what is unmarked
+    (``done``), so an interrupted action resumes idempotently (review F9)."""
+
     results: list[dict[str, Any]] = []
-    if turn_obj.prediction is not None:
+    if "withdraw" not in done and help_reply and state.open_check is not None:
+        overlap = G.solution_overlap(turn_obj.message, str(state.open_check["check"]["committed_solution"]))
+        from learnloop.serve_eligibility import AUTO_PRIME_REVEAL_THRESHOLD
+
+        if overlap >= AUTO_PRIME_REVEAL_THRESHOLD:
+            _withdraw(vault, repository, state, overlap=overlap, clock=clock, outcome=outcome, turn_entry=turn_entry)
+    if turn_obj.prediction is not None and "prediction" not in done:
         data = turn_obj.prediction.model_dump()
-        _append(repository, state, actor="teacher", action="pose_prediction", payload=data, clock=clock)
+        _append(repository, state, actor="teacher", action="pose_prediction",
+                refs=_effect_refs(turn_entry, "prediction"), payload=data, clock=clock)
         state.open_prediction = data
         outcome.shown.append({"kind": "prediction", **data})
-    if turn_obj.check is not None:
-        _pose_check(vault, repository, state, turn_obj.check, outcome=outcome, clock=clock)
-    for request in turn_obj.requests:
+    if turn_obj.check is not None and "check" not in done:
+        _pose_check(vault, repository, state, turn_obj.check, outcome=outcome, clock=clock, turn_entry=turn_entry)
+    for index, request in enumerate(turn_obj.requests):
+        effect = f"request:{index}"
+        if effect in done:
+            continue
         if request.action in READ_ACTIONS:
-            result = _read_action(vault, repository, state, request, client=client)
+            result = _read_action(vault, repository, state, request, model=model)
+            extra = {"tool_call": result.get("tool_call_id")} if result.get("tool_call_id") else None
             entry = _append(repository, state, actor="code", action=request.action,
-                            refs={"tool_call": result.get("tool_call_id")} if result.get("tool_call_id") else None,
+                            refs=_effect_refs(turn_entry, effect, extra),
                             payload={"request": request.model_dump(), "result": result, "deferred": deferred},
                             clock=clock)
             if deferred:
@@ -710,27 +1041,34 @@ def _execute(vault: Any, repository: Any, state: LessonState, turn_obj: TeacherT
             with repository.atomic():
                 version = store.insert_plan(repository.connection(), lesson_id=state.lesson_id, outline=outline,
                                             created_at=utc_now_iso(clock))
+                _append(repository, state, actor="code", action="write_plan", refs=_effect_refs(turn_entry, effect),
+                        payload={"version": version}, clock=clock)
             state.plans.append({"version": version, "outline": outline})
-            _append(repository, state, actor="code", action="write_plan", payload={"version": version}, clock=clock)
         elif request.action == "forecast":
-            _forecast(vault, repository, state, request, client=client, clock=clock)
+            _forecast(vault, repository, state, request, model=model, clock=clock, turn_entry=turn_entry,
+                      effect=effect)
         elif request.action == "close":
             _close(vault, repository, state, reason=str(request.close_reason), recap=request.recap, clock=clock,
-                   outcome=outcome)
+                   outcome=outcome, turn_entry=turn_entry, effect=effect)
             break
+    _append(repository, state, actor="code", action="turn_executed", payload={"turn_id": str(turn_entry["id"])},
+            clock=clock)
+    state.executed.add(str(turn_entry["id"]))
     return results
 
 
 def _pose_check(vault: Any, repository: Any, state: LessonState, check: CheckV1, *, outcome: _Outcome,
-                clock: Clock | None) -> None:
+                clock: Clock | None, turn_entry: Mapping[str, Any] | None = None) -> None:
     lo = state.node_lo(check.node)
     if lo is None or lo not in vault.learning_objects:
         lo = (state.brief.get("goal") or {}).get("learning_object_ids", [None])[0]
     check_ref = f"c{len(state.minted) + 1}"
+    # Idempotent: the item id is the lesson's and the check ref's (a recovered pose rewrites the same file).
     item_id = CK.mint_check_item(Path(vault.root), lesson_id=state.lesson_id, check_ref=check_ref, check=check,
                                  learning_object_id=str(lo), book=state.book, clock=clock)
     data = {"check_ref": check_ref, "item_id": item_id, "learning_object_id": lo, "check": check.model_dump()}
-    _append(repository, state, actor="teacher", action="pose_check", refs={"item": item_id}, payload=data, clock=clock)
+    _append(repository, state, actor="teacher", action="pose_check",
+            refs=_effect_refs(turn_entry, "check", {"item": item_id}), payload=data, clock=clock)
     state.minted[check_ref] = item_id
     state.open_check = data
     outcome.vault_changed = True
@@ -740,17 +1078,17 @@ def _pose_check(vault: Any, repository: Any, state: LessonState, check: CheckV1,
 
 
 def _read_action(vault: Any, repository: Any, state: LessonState, request: ActionRequestV1, *,
-                 client: Any) -> dict[str, Any]:
+                 model: str | None) -> dict[str, Any]:
     from learnloop.teacher import actions as A
 
     try:
-        return A.run_read(vault, repository, state, request, model=_model_name(client))
+        return A.run_read(vault, repository, state, request, model=model)
     except A.ActionRefused as exc:
         return {"refused": exc.code, "message": str(exc)}
 
 
-def _forecast(vault: Any, repository: Any, state: LessonState, request: ActionRequestV1, *, client: Any,
-              clock: Clock | None) -> None:
+def _forecast(vault: Any, repository: Any, state: LessonState, request: ActionRequestV1, *, model: str | None,
+              clock: Clock | None, turn_entry: Mapping[str, Any] | None = None, effect: str = "forecast") -> None:
     from learnloop.scheduling.forecast_receipts import (
         LESSON_CHECK_ATTEMPT,
         LESSON_COLD_OUTCOME,
@@ -761,7 +1099,7 @@ def _forecast(vault: Any, repository: Any, state: LessonState, request: ActionRe
 
     kind = str(request.forecast_kind)
     node = str(request.node)
-    family = _family(client)
+    family = _family_of(model)
     now = utc_now_iso(clock)
     if kind == "lesson_check_correct":
         ref = state.open_check["check_ref"] if state.open_check is not None else node
@@ -785,10 +1123,12 @@ def _forecast(vault: Any, repository: Any, state: LessonState, request: ActionRe
         inputs=inputs, parameters=[{"name": "p", "value": float(request.p), "provenance": "model"}],
         versions={"doctrine": DOCTRINE_VERSION, "prompt": PROMPT_VERSION}, inputs_as_of=now, p=float(request.p),
         columns={"decision_ref": state.lesson_id, "learning_object_id": lo})
-    written = record_receipts(repository, [receipt], vault=vault, clock=clock, created_at=now)
-    data = {"key": key, "kind": kind, "node": node, "p": float(request.p), "learning_object_id": lo,
-            "written": bool(written)}
-    _append(repository, state, actor="code", action="forecast", payload=data, clock=clock)
+    data = {"key": key, "kind": kind, "node": node, "p": float(request.p), "learning_object_id": lo}
+    with repository.atomic():
+        written = record_receipts(repository, [receipt], vault=vault, clock=clock, created_at=now)
+        data["written"] = bool(written)
+        _append(repository, state, actor="code", action="forecast", refs=_effect_refs(turn_entry, effect),
+                payload=data, clock=clock)
     state.forecasts[key] = data
     if kind == "lesson_step_retained":
         state.landed.append(str(request.node))
@@ -800,8 +1140,9 @@ def _forecast(vault: Any, repository: Any, state: LessonState, request: ActionRe
 
 
 def _close(vault: Any, repository: Any, state: LessonState, *, reason: str, recap: str | None, clock: Clock | None,
-           outcome: _Outcome) -> None:
-    """Close the lesson: commit the delayed checks, write the receipt, close the row (§7 step 7)."""
+           outcome: _Outcome, turn_entry: Mapping[str, Any] | None = None, effect: str = "close") -> None:
+    """Close the lesson: commit the delayed checks, write the receipt, close the row and append the close
+    entry in one transaction (§7 step 7; review F9: never a closed row without its close entry)."""
 
     from learnloop.teacher import delayed as D
     from learnloop.vault.loader import load_vault
@@ -823,32 +1164,50 @@ def _close(vault: Any, repository: Any, state: LessonState, *, reason: str, reca
     lesson_items_by_lo: dict[str, list[str]] = {}
     for row in rows:
         lesson_items_by_lo.setdefault(row["learning_object_id"], []).append(row["minted_item_id"])
+    shown = D.shown_vault_items(loaded, displayed_texts(state, extra=[recap] if recap else []))
     delayed_checks: list[dict[str, Any]] = []
     warnings: list[str] = []
-    if reason in ("goal_reached", "learner_stop", "budget", "teacher_contract_failure", "plan_unavailable"):
-        delayed_checks, warnings = D.commit_checks(
-            loaded, repository, lesson_id=state.lesson_id, landed=landed,
-            goal_learning_object_ids=(state.brief.get("goal") or {}).get("learning_object_ids") or [],
-            lesson_items_by_lo=lesson_items_by_lo, shown_items=state.minted.values(), clock=clock)
-    receipt = _receipt(loaded, repository, state, reason=reason, recap=recap, delayed_checks=delayed_checks,
-                       warnings=warnings, landed=landed, rows=rows, usage=outcome.usage)
     now = utc_now_iso(clock)
     with repository.atomic():
+        if reason in ("goal_reached", "learner_stop", "budget", "teacher_contract_failure", "plan_unavailable"):
+            delayed_checks, warnings = D.commit_checks(
+                loaded, repository, lesson_id=state.lesson_id, landed=landed,
+                goal_learning_object_ids=(state.brief.get("goal") or {}).get("learning_object_ids") or [],
+                lesson_items_by_lo=lesson_items_by_lo, shown_items=[*state.minted.values(), *shown],
+                taught_learning_objects=[node["lo_id"] for node in landed if node.get("lo_id")], clock=clock)
+        receipt = _receipt(loaded, repository, state, reason=reason, recap=recap, delayed_checks=delayed_checks,
+                           warnings=warnings, landed=landed, rows=rows, usage=_lesson_tokens(state, outcome),
+                           shown_items=shown)
         connection = repository.connection()
         store.insert_receipt(connection, lesson_id=state.lesson_id, version=RECEIPT_VERSION, close_reason=reason,
                              receipt=receipt, created_at=now)
         store.close_lesson(connection, state.lesson_id, reason=reason, closed_at=now)
-    _append(repository, state, actor="code", action="close",
-            refs={"commitments": [c["commitment_id"] for c in delayed_checks if c.get("commitment_id")]},
-            payload={"reason": reason, "recap": recap, "delayed_checks": delayed_checks}, clock=clock)
+        _append(repository, state, actor="code", action="close",
+                refs=_effect_refs(turn_entry, effect,
+                                  {"commitments": [c["commitment_id"] for c in delayed_checks if c.get("commitment_id")]}),
+                payload={"reason": reason, "recap": recap, "delayed_checks": delayed_checks}, clock=clock)
     state.lesson["closed_at"], state.lesson["close_reason"] = now, reason
     outcome.shown.append({"kind": "close", "reason": reason, "recap": recap,
                           "delayed_checks": [c for c in delayed_checks if c.get("commitment_id")]})
 
 
+def displayed_texts(state: LessonState, *, extra: Sequence[str] = ()) -> list[str]:
+    """Everything the lesson displayed to the learner so far (accepted turns' fields), and ``extra``."""
+
+    out: list[str] = []
+    for entry in state.turns:
+        if entry["action"] == "teacher_turn" and entry["validation"] == "ok":
+            turn = (entry.get("payload") or {}).get("turn")
+            if turn:
+                out.extend(text for _name, text in _displayed(TeacherTurnV1.model_validate(turn)))
+    out.extend(text for text in extra if text)
+    return out
+
+
 def _receipt(vault: Any, repository: Any, state: LessonState, *, reason: str, recap: str | None,
              delayed_checks: Sequence[Mapping[str, Any]], warnings: Sequence[str], landed: Sequence[Mapping[str, Any]],
-             rows: Sequence[Mapping[str, Any]], usage: Mapping[str, int]) -> dict[str, Any]:
+             rows: Sequence[Mapping[str, Any]], usage: Mapping[str, int],
+             shown_items: Sequence[str] = ()) -> dict[str, Any]:
     """``LessonReceiptV1`` (§8.3)."""
 
     with repository.connection() as connection:
@@ -892,7 +1251,7 @@ def _receipt(vault: Any, repository: Any, state: LessonState, *, reason: str, re
         "nodes": nodes,
         "nodes_summary": [{"id": n["id"], "lo_id": n["lo_id"], "status": n["status"]} for n in nodes],
         "exposure": {"reveals": [{"item_id": r[0], "kind": r[1], "amount": r[2]} for r in reveal_rows],
-                     "passages": sorted(state.book.passages)},
+                     "passages": sorted(state.book.passages), "shown_items": list(shown_items)},
         "gaps": [],
         "created_los": [],
         "delayed_checks": list(delayed_checks),
@@ -900,7 +1259,9 @@ def _receipt(vault: Any, repository: Any, state: LessonState, *, reason: str, re
         "weight_inputs": weight_inputs,
         "stability_inputs": stability_inputs,
         "origin": state.lesson.get("origin"),
-        "cost": {**dict(usage), "route": state.lesson.get("route")},
+        # The whole lesson (every action's teacher calls; every metered request's settled cost).
+        "cost": {**dict(usage), "route": state.lesson.get("route"), "metered_usd": round(_spent_usd(state), 10),
+                 "cap_usd": vault.config.teacher.max_lesson_cost_usd},
         "warnings": list(warnings),
     }
 

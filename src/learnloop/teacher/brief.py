@@ -65,6 +65,13 @@ class SourceBook:
 
     passages: dict[str, dict[str, Any]] = field(default_factory=dict)
     sections: dict[str, dict[str, Any]] = field(default_factory=dict)
+    #: Aliases whose passage is no longer teachable (now exam or held-out material, or withheld):
+    #: computed before every model call (:func:`passage_teachable`), never persisted. They keep their
+    #: number (an alias is never reused) but are never resent, returned or citable (review F4).
+    revoked: set[str] = field(default_factory=set)
+
+    def available(self, alias: str) -> bool:
+        return alias in self.passages and alias not in self.revoked
 
     def alias_for(self, extraction_id: str, span_id: str, text: str, *, section_ref: str | None = None) -> str:
         for alias, passage in self.passages.items():
@@ -82,6 +89,28 @@ class SourceBook:
     def from_dict(cls, value: Mapping[str, Any] | None) -> "SourceBook":
         value = value or {}
         return cls(passages=dict(value.get("passages") or {}), sections=dict(value.get("sections") or {}))
+
+
+def passage_teachable(library: Any, extraction_id: str, span_id: str) -> bool:
+    """Whether a delivered passage may still reach the teacher NOW: its reading is in the section
+    library (not left out), its span is not protected, and its section is not withheld (the same
+    protection the brief and ``read_source`` apply when they first deliver it)."""
+
+    if extraction_id in library.left_out or library.protection.span_out(extraction_id, span_id):
+        return False
+    reading = library.reading(extraction_id)
+    if reading is None:
+        return False
+    section_id = library.section_of(extraction_id, span_id)
+    return section_id is None or section_id not in reading.withheld
+
+
+def revoke_unteachable(library: Any, book: SourceBook) -> set[str]:
+    """Recompute ``book.revoked`` against the library as it is now; returns the revoked aliases."""
+
+    book.revoked = {alias for alias, passage in book.passages.items()
+                    if not passage_teachable(library, str(passage["extraction_id"]), str(passage["span_id"]))}
+    return set(book.revoked)
 
 
 # --- the goal ------------------------------------------------------------------

@@ -44,6 +44,9 @@ ITEMS = {
     "pi_det_2": ("lo_det", "What happens to a determinant when two rows swap?", "tapir gecko: flips sign"),
 }
 RESERVED_ITEM = "pi_eig_reserved"
+#: Recorded presentations (``evidence_fingerprint.representation``): the delayed transfer check needs an
+#: item whose presentation differs from what the lesson used (spec §13; review F8).
+PRESENTATIONS = {"pi_eig_1": "computation", "pi_eig_2": "geometric", "pi_eig_3": "conceptual"}
 
 
 def _item(item_id: str, lo_id: str, prompt: str, answer: str) -> dict[str, Any]:
@@ -55,6 +58,7 @@ def _item(item_id: str, lo_id: str, prompt: str, answer: str) -> dict[str, Any]:
             {"id": "correctness", "points": 4, "description": "Answer matches the expected answer in substance."}]},
         "provenance": {"origin": "human", "source_refs": []},
         "created_at": NOW, "updated_at": NOW,
+        **({"evidence_fingerprint": {"representation": PRESENTATIONS[item_id]}} if item_id in PRESENTATIONS else {}),
     }
 
 

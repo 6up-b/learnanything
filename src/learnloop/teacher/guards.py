@@ -99,7 +99,7 @@ def open_check_guard(message: str, open_check: Mapping[str, Any] | None) -> Guar
 
 def citation_guard(message: str, book: SourceBook) -> GuardVerdict:
     cited = CITATION.findall(message or "")
-    unknown = sorted({alias for alias in cited if alias not in book.passages})
+    unknown = sorted({alias for alias in cited if not book.available(alias)})
     if unknown:
         return GuardVerdict(False, "unknown_citation",
                             f"these passages were never delivered to you: {', '.join(unknown)}; cite only the "

@@ -5,11 +5,13 @@ Desktop only (pinned in tests/test_mobile_allowlist.py).
 * ``lesson.turn``: every model-calling step of a lesson, ONE origin action (T1
   redesign D): ``open`` (an LO's or a Reader selection's "Teach me this"),
   ``reply``, ``answer_prediction``, ``answer_check`` (graded inline by the blind
-  grader, under the same grant) and ``stop``. With the ChatGPT plan down the
+  grader, under the same grant), ``stop`` and ``resume`` (run the teacher's turn an
+  outage interrupted; an error after the lesson is saved carries its ``lesson_id``). With the ChatGPT plan down the
   error carries T1's standard offer; "Use OpenRouter instead" grants
   ``lesson.turn`` for this session and vault, so it covers the whole lesson (and
   no offer is made until ``teacher.metered_price_per_million`` is set).
-* ``lesson.view``: the lesson as the screen shows it (no model call; resume).
+* ``lesson.view``: the lesson as the screen shows it (no model call; it first runs
+  what an interrupted action left of its last accepted teacher turn).
 
 Kill switch ``teacher.enabled`` (and the vault below the teacher's successor):
 both RPCs refuse, no lesson opens, nothing is written.
@@ -40,7 +42,7 @@ class LessonSelection(ParamsModel):
 
 
 class LessonTurnInput(ParamsModel):
-    action: Literal["open", "reply", "answer_prediction", "answer_check", "stop"]
+    action: Literal["open", "reply", "answer_prediction", "answer_check", "stop", "resume"]
     lesson_id: str | None = None
     # open
     entry: Literal["learning_object", "reader_selection", "new_topic"] | None = None
@@ -61,7 +63,8 @@ class LessonViewInput(ParamsModel):
 
 def _error(exc: S.LessonError) -> SidecarError:
     retryable = exc.code in ("plan_unavailable", "teacher_unavailable", "grading_unavailable")
-    return SidecarError(exc.code, str(exc), retryable=retryable)
+    # ``lesson_id`` once the lesson is saved (review F11): the screen resumes it, never opens another.
+    return SidecarError(exc.code, str(exc), retryable=retryable, details=dict(exc.details))
 
 
 def _clients(ctx: SidecarContext, vault: Any) -> S.Clients:
@@ -127,6 +130,6 @@ def lesson_view(ctx: SidecarContext, params: LessonViewInput) -> dict[str, Any]:
     vault, repository = ctx.require_vault()
     try:
         S.require_active(vault)
-        return versioned(S.view(vault, repository, params.lesson_id))
+        return versioned(S.view_lesson(vault, repository, params.lesson_id))
     except S.LessonError as exc:
         raise _error(exc) from exc

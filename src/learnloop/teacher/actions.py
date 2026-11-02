@@ -72,6 +72,7 @@ def _open_solution(state: Any) -> str | None:
 
 def read_source(vault: Any, repository: Any, state: Any, refs: list[str]) -> dict[str, Any]:
     from learnloop.source_retrieval.section_coverage import Library
+    from learnloop.teacher.brief import passage_teachable
     from learnloop.tutor.tutor_qa import span_leaks_expected
 
     library = Library(vault, repository)
@@ -81,6 +82,16 @@ def read_source(vault: Any, repository: Any, state: Any, refs: list[str]) -> dic
     for ref in refs:
         if ref in state.book.passages:
             passage = state.book.passages[ref]
+            # An alias is read back only while its passage is still teachable (review F4): the
+            # library's protection NOW, not when the passage was first delivered.
+            if ref in state.book.revoked or not passage_teachable(library, str(passage["extraction_id"]),
+                                                                  str(passage["span_id"])):
+                state.book.revoked.add(ref)
+                sections.append({"ref": ref, "refused": "no longer a readable teaching passage"})
+                continue
+            if solution and span_leaks_expected(str(passage["text"]), solution):
+                sections.append({"ref": ref, "passages": [], "withheld_for_open_check": 1})
+                continue
             sections.append({"ref": ref, "passages": [{"alias": ref, "text": passage["text"]}]})
             continue
         if "/" not in ref:
