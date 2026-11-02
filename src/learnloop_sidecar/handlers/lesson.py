@@ -82,13 +82,14 @@ def _figure_builder(ctx: SidecarContext, vault: Any, repository: Any) -> Any:
         # Every request is admitted against the vault loaded NOW (the build's FiguresGate); no rich
         # spawner: a lesson host is grammar and sketch only (FS.LESSON_TIERS).
         return FS.build_figure(vault, repository, request, author_client=getattr(ctx, "figure_author_client", None),
-                               live_vault=ctx.loaded_vault, find=getattr(ctx, "figure_find_sources", None),
+                               live_vault=getattr(ctx, "loaded_vault", None),
+                               find=getattr(ctx, "figure_find_sources", None),
                                spawn_rich=None)
 
     return build
 
 
-def _clients(ctx: SidecarContext, vault: Any, repository: Any = None) -> S.Clients:
+def _clients(ctx: SidecarContext, vault: Any) -> S.Clients:
     from learnloop.ai.routing import ready_client_for_task
 
     def teacher() -> Any:
@@ -111,8 +112,7 @@ def _clients(ctx: SidecarContext, vault: Any, repository: Any = None) -> S.Clien
         clients.grading_source = grading_source_for_provider(provider_name)
         return client
 
-    clients = S.Clients(teacher=teacher, grading=grading,
-                        figures=_figure_builder(ctx, vault, repository) if repository is not None else None)
+    clients = S.Clients(teacher=teacher, grading=grading)
     return clients
 
 
@@ -123,7 +123,10 @@ def lesson_turn(ctx: SidecarContext, params: LessonTurnInput) -> dict[str, Any]:
     vault, repository = ctx.require_vault()
     try:
         S.require_active(vault)
-        clients = _clients(ctx, vault, repository)
+        clients = _clients(ctx, vault)
+        if clients.figures is None:
+            # Reader RW5d P4b: the teacher's visuals are built here, inline.
+            clients.figures = _figure_builder(ctx, vault, repository)
         if params.action == "open":
             if params.entry is None:
                 raise SidecarError("validation_error", "A lesson needs an entry (a topic or a passage).")
