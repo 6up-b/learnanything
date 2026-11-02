@@ -1132,7 +1132,8 @@ def _log(
         # server serves, library asks, passage cues) send them to routes that are
         # not the plan: the row keeps the kind and the vault's own target, never the
         # words. The job's checkpoint keeps none either (landing step 0): a note's
-        # reading is never checkpointed, so the words persist nowhere.
+        # reading is never checkpointed. (The plan's kind verdict in judgment_ledger
+        # still records them as its rationale: an open item at the landing.)
         named = {key: None for key in named}
         detail["named_words"] = "not_kept_for_a_note"
     row = {

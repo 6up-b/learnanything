@@ -376,7 +376,9 @@ jobs never reuse a checkpointed reading or decision**.
   payload (`json_remove`).
 - This also resolves the earlier open item ("the job's checkpoint still holds the plan's reading of a note"):
   the plan's reading of a note is no longer written to the checkpoint, so the note's words do not persist
-  there. The `_log` comment that pointed at the checkpoint is updated.
+  there. The `_log` comment that pointed at the checkpoint is updated. (The plan's `learner_gap_kind` verdict
+  in `judgment_ledger` still keeps the named words as its rationale, as for every kind; that is listed as an
+  open item at the landing.)
 - Every existing gate check is kept: `NoteGate` before every physical request and before the write,
   bound to the prepared passages and payload, and checking the opt-in, the switches, tend, the link standing,
   the allowlist and protection.
