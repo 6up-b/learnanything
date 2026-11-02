@@ -37,13 +37,13 @@ Reader "show me" figures: the figure grammar and spec, inline figures, panels, p
 | Module | Status | Purpose | Imports | Imported by |
 |---|---|---|---:|---:|
 | [[Reference/Desktop/TypeScript/screens/reader/figures/AdvancedPanels|AdvancedPanels.tsx]] | `ACTIVE` | Implements the `AdvancedPanels` routed desktop screen and coordinates its learner-facing workflow state. | 3 | 1 |
-| [[Reference/Desktop/TypeScript/screens/reader/figures/FigureInline|FigureInline.tsx]] | `ACTIVE` | Implements the `FigureInline` routed desktop screen and coordinates its learner-facing workflow state. | 12 | 6 |
+| [[Reference/Desktop/TypeScript/screens/reader/figures/FigureInline|FigureInline.tsx]] | `ACTIVE` | Implements the `FigureInline` routed desktop screen and coordinates its learner-facing workflow state. | 12 | 7 |
 | [[Reference/Desktop/TypeScript/screens/reader/figures/FigurePanels|FigurePanels.tsx]] | `ACTIVE` | Implements the `FigurePanels` routed desktop screen and coordinates its learner-facing workflow state. | 3 | 3 |
 | [[Reference/Desktop/TypeScript/screens/reader/figures/RichFigure|RichFigure.tsx]] | `ACTIVE` | Implements the `RichFigure` routed desktop screen and coordinates its learner-facing workflow state. | 5 | 1 |
 | [[Reference/Desktop/TypeScript/screens/reader/figures/figureGrammar|figureGrammar.ts]] | `ACTIVE` | Provides `MAX_EXPR_CHARS`, `MAX_NODES`, `MAX_DEPTH`, `MAX_EXPANDED_NODES` and related exports within the desktop's TypeScript/screens/reader/figures ownership area. | 0 | 1 |
 | [[Reference/Desktop/TypeScript/screens/reader/figures/figureSpec|figureSpec.ts]] | `ACTIVE` | Provides `SPEC_VERSION`, `SAMPLES`, `DIRECTIONS`, `SAME_TOLERANCE` and related exports within the desktop's TypeScript/screens/reader/figures ownership area. | 1 | 3 |
 | [[Reference/Desktop/TypeScript/screens/reader/figures/showMe|showMe.ts]] | `ACTIVE` | Provides `SHOW_ME_COPY`, `ShowMeLine`, `passageChip`, `showMeSourceLine` and related exports within the desktop's TypeScript/screens/reader/figures ownership area. | 1 | 4 |
-| [[Reference/Desktop/TypeScript/screens/reader/figures/useFigures|useFigures.ts]] | `ACTIVE` | Provides `FIGURE_POLL_MS`, `RICH_POLL_MS`, `FigureRequestInput`, `FigureRequestOutcome` and related exports within the desktop's TypeScript/screens/reader/figures ownership area. | 5 | 5 |
+| [[Reference/Desktop/TypeScript/screens/reader/figures/useFigures|useFigures.ts]] | `ACTIVE` | Provides `FIGURE_POLL_MS`, `RICH_POLL_MS`, `FigureRequestInput`, `FigureRequestOutcome` and related exports within the desktop's TypeScript/screens/reader/figures ownership area. | 5 | 6 |
 
 ## Modification guidance
 

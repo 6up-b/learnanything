@@ -501,9 +501,9 @@ def test_every_defaults_snapshot_drops_to_te1s_value_without_the_suggestion_keys
     from learnloop.config.template import DEFAULTS_SNAPSHOT_BY_ALGORITHM, default_config_text, \
         defaults_fingerprint_for_version
 
-    # main's values at 1a33bb5db3 (teacher TE1's landing), frozen here.
-    mains = {"mvp-0.9": "61c6bf930352ba7c9ac3053a120bb9ccc9c197ea420502f5bb970b1a7bd12c10",
-             "mvp-0.41": "c7d611174f46dd6627abf16b75e67c0a138ec93c896af6904e1cf7c2dd9716f0"}
+    # main's values at de9a03763d (RW5d P4b's landing, after teacher TE1), frozen here.
+    mains = {"mvp-0.9": "59eb2182bd3fb5d71b0a5f944d02dbc5b06031d5d1b65a11298e7ca71123a111",
+             "mvp-0.41": "141b834b2df1b9230ad783155022900da01f7a52122f91249ca8671d68400b6c"}
     for version, fingerprint in DEFAULTS_SNAPSHOT_BY_ALGORITHM.items():
         assert fingerprint == defaults_fingerprint_for_version(version)
     for version, main in mains.items():

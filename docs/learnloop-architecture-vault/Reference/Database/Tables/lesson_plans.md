@@ -3,8 +3,8 @@ title: "lesson_plans"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "6965b781cb24500a8665e579bf84b533a9ee1532"
-source_commit_timestamp: "2026-11-02T05:25:31-05:00"
+source_commit: "6e6bd6afe66bdfe4b5aa19c8e19cb4e05d849b2d"
+source_commit_timestamp: "2026-11-02T08:47:44-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite lesson_plans"
@@ -100,6 +100,7 @@ None found by exact static reference scan.
 
 ## Tests that define behavior
 
+- `tests/test_reader_rw5d_p4b_teacher_visuals.py`
 - `tests/test_teacher_te1_lesson.py`
 - `tests/test_teacher_te1_migration.py`
 - `tests/test_teacher_te1_review_fixes.py`

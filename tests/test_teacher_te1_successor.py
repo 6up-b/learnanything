@@ -65,8 +65,9 @@ def test_every_defaults_snapshot_drops_to_mains_value_without_the_teacher_keys()
     for version, main in mains.items():
         config = LearnLoopConfig.model_validate(tomllib.loads(default_config_text(version)))
         dumped = config.model_dump(mode="json", exclude_none=False)
+        # Reader RW5d P4b's teacher.visuals moved them too (content and display, no successor).
         for key in ("enabled", "weight", "brief", "context", "delayed", "metered_price_per_million",
-                    "max_lesson_cost_usd"):
+                    "max_lesson_cost_usd", "visuals"):
             dumped["teacher"].pop(key)
         dumped["ai"]["routing"].pop("teacher")
         dumped["router"].pop("lesson_suggestions")  # teacher TE1b's keys (tests/test_teacher_te1b_successor.py)

@@ -509,6 +509,15 @@ One strict-schema object per model turn:
 - **`message`:** Markdown with LaTeX. Optional `choices`; an optional `visual` spec (the existing figure and animation routes). *(RW5d: a figure `visual` is a `FigureRequestV1` with origin `teacher`, and the figure's own predictions are off in lessons; see `spec_reader_show_me_figures_v1.md` §6.5, §7.1.)*
 - **`prediction?`:** `{node, prompt, choices?}`. It opens immediately.
 - **`check?`:** `{node, question, form (choices | free), committed_solution, rubric (criteria named by fact), anchors}`. It opens collapsed, below the message.
+
+*As built, Reader RW5d P4b (2026-11-02; `docs/reviews/reader-rw5d-p4b-teacher-visuals.md`):* with `teacher.visuals`
+on, the turn is `TeacherTurnVisualsV1` with `visual = {goal, anchors, planned_node}` (the passages it rests on are
+delivered aliases), and `write_plan` nodes may carry a planned `visual = {goal, anchors}`. The figure service builds
+it inside `lesson.turn` (grammar and sketch tiers, origin `teacher`), the figure's own predictions off, and the
+doctrine gains the versioned paragraph `teacher/doctrine/visuals/v1.md` with prompt version
+`teacher_turn.v1+visuals-v1`; its forecasts carry their own §12.2 family (`teacher_doctrine_v1+teacher_visuals_v1:<model>`),
+so the paragraph's λ posterior starts apart from TE1's. Off: this section's turn and prompt exactly. See `spec_reader_show_me_figures_v1.md`
+§10.4's as-built note.
 - **`requests`:** zero or more actions from §9.
 
 Validation errors go back to the model as correctable. After three consecutive failures, the lesson closes with `teacher_contract_failure`.
@@ -1237,7 +1246,7 @@ journalled and recovered after an interruption, and `lesson.turn` gains `resume`
 still owes in its saved mode (a help reply, a read follow-up) (Codex review and re-review fixes,
 `docs/reviews/teacher-te1-first-lesson-codex-review.md`). A learner reply while a check is open is
 help (a `help_assists` row); its reply withdraws the check at the auto-prime overlap. Not built in TE1: compaction
-(no `teacher.context.compact_at` key), the turn's `visual`, TE1b. The real lesson on a `fixtures-local` copy and the
+(no `teacher.context.compact_at` key), the turn's `visual` (built by Reader RW5d P4b, below), TE1b. The real lesson on a `fixtures-local` copy and the
 per-lesson cap (Q7) are the owner's at the landing.
 
 *As built (TE1b, `docs/reviews/teacher-te1b-router-suggestions.md`):* router successor `mvp-0.43` after TE1's

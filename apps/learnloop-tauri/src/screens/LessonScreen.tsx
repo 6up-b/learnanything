@@ -15,13 +15,23 @@
 // after the lesson was saved carries its id, so it is resumed, never opened
 // twice) or repeats an opening that saved nothing; after choosing "Use
 // OpenRouter instead" the learner presses it to continue.
+//
+// Reader RW5d P4b (spec_reader_show_me_figures_v1 §6.5): the teacher's visual
+// lands inline in its turn, drawn by the Reader's FigureInline (grammar or
+// sketch). Its own predictions are suppressed in a lesson (the teacher poses
+// the prediction or the check): the lesson's figure controller has the
+// predictions contract off, and the server sends none. No "not right?", no
+// region and no rich version in a lesson; a figure that couldn't be built or
+// isn't shown says so in one quiet line.
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { api } from "../api/client";
-import type { LessonFeedEntryDto, LessonTurnInput, LessonViewDto } from "../api/dto";
+import type { FigureViewDto, LessonFeedEntryDto, LessonFigureStatus, LessonTurnInput, LessonViewDto } from "../api/dto";
 import { getCommandError } from "../errors";
 import { COLOR, FONT_MONO, Faint } from "../components/term";
 import { MarkdownMath } from "../render/MarkdownMath";
+import { FigureInline } from "./reader/figures/FigureInline";
+import { figurePlacementKey, type FiguresContract, type FiguresCtl } from "./reader/figures/useFigures";
 
 export type LessonEntry =
   | { kind: "open"; entry: "learning_object" | "reader_selection" | "new_topic"; learningObjectIds?: string[];
@@ -294,6 +304,49 @@ export function LessonScreen({
   );
 }
 
+/** Reader RW5d P4b: what a lesson figure that isn't drawn says (code-owned words). */
+export const LESSON_FIGURE_COPY: Readonly<Record<Exclude<LessonFigureStatus, "shown">, string>> = Object.freeze({
+  failed: "couldn't build a figure for this step",
+  withheld: "the figure for this step isn't shown (it would give an answer away, or its passage is held out now)",
+  unavailable: "the figure model isn't available right now, so this step has no figure",
+});
+
+/** The lesson's figure contract: no predictions (the teacher poses them), no region, no "not right?". */
+export const LESSON_FIGURE_CONTRACT: FiguresContract = Object.freeze({ predictions: false, region: false, revisions: false });
+
+/** One lesson figure's controller: drawn and expanded in place, nothing requested, predicted or revised. */
+function useLessonFigureCtl(figure: FigureViewDto): FiguresCtl {
+  const [expandedKey, setExpandedKey] = useState<string | null>(figurePlacementKey(figure));
+  return useMemo<FiguresCtl>(() => ({
+    enabled: true,
+    contract: LESSON_FIGURE_CONTRACT,
+    figures: [figure],
+    pending: [],
+    expandedKey,
+    setExpanded: (target) => setExpandedKey(target ? figurePlacementKey(target) : null),
+    request: async () => "skipped",
+    revise: () => undefined,
+    predict: async () => null,
+    explain: async () => null,
+    under: () => ({ figures: [], pending: [], richPending: [], followed: [] }),
+    followed: [],
+    follow: async () => false,
+    richPending: [],
+    cancelRich: () => undefined,
+    retryRich: () => undefined,
+    manimOptIn: null,
+    optInSpanId: null,
+    answerManimOptIn: () => undefined,
+  }), [figure, expandedKey]);
+}
+
+function LessonFigure({ figure }: { figure: FigureViewDto }) {
+  // Suppressed in a lesson, whatever the figure carries (the server sends none; belt and braces).
+  const shown = useMemo(() => ({ ...figure, predictions: [], fuller: null }), [figure]);
+  const ctl = useLessonFigureCtl(shown);
+  return <FigureInline figure={shown} ctl={ctl} />;
+}
+
 function FeedEntry({ item, openCheckRef, checkOpen, onOpenCheck }: {
   item: LessonFeedEntryDto; openCheckRef: string | null; checkOpen: boolean; onOpenCheck: () => void;
 }) {
@@ -345,6 +398,16 @@ function FeedEntry({ item, openCheckRef, checkOpen, onOpenCheck }: {
       );
     case "notice":
       return <div role="status" style={{ color: COLOR.textDim, margin: "8px 0" }}>{item.text}</div>;
+    case "figure":
+      return (
+        <div data-testid="lesson-figure" data-status={item.status} style={{ margin: "6px 0 14px" }}>
+          {item.status === "shown" && item.figure ? (
+            <LessonFigure figure={item.figure} />
+          ) : (
+            <Faint>{LESSON_FIGURE_COPY[item.status === "shown" ? "withheld" : item.status] ?? LESSON_FIGURE_COPY.failed}</Faint>
+          )}
+        </div>
+      );
     case "close":
       return (
         <div data-testid="lesson-close" style={{ marginTop: 18, padding: 12, border: `1px solid ${COLOR.border}` }}>

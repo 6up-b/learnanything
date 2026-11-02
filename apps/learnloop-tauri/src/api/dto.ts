@@ -9750,8 +9750,9 @@ export interface FigureViewDto {
   spanIds: string[];
   anchorSpanId: string | null;
   region: { spanId: string; bbox: number[] } | null;
-  /** RW5d P1 adds "show_me" (the intent box with words, or the Ask rail). */
-  origin: "selection" | "library" | "tutor" | "show_me";
+  /** RW5d P1 adds "show_me" (the intent box with words, or the Ask rail); RW5d P3 "ask"; RW5d P4b
+   *  "teacher" (a lesson's visual, shown in the lesson only). */
+  origin: "selection" | "library" | "tutor" | "show_me" | "ask" | "teacher";
   verification: FigureVerification;
   kind: "reconstructed" | "illustrative" | null;
   /** The server's label (the Reader draws its own code-owned badge instead, FIGURE_FRAME). */
@@ -9771,7 +9772,7 @@ export interface FigureViewDto {
   propertyChecks?: string[];
   /** RW5d P1 (present only while figures.show_me_enabled is on): the goal in its author's voice. */
   goalText?: string | null;
-  goalAuthor?: "learner" | "tutor" | null;
+  goalAuthor?: "learner" | "tutor" | "teacher" | null;
   /** Where its passages came from: the learner's selection, found in their books, or none ("not from your books"). */
   grounding?: FigureGrounding;
   /** The passages found in the learner's books it was built from (grounding "retrieved"). */
@@ -9785,6 +9786,8 @@ export interface FigureViewDto {
   manim?: FigureManimDto | null;
   /** RW5d P2b: a quick figure's fuller version (one figure line, two versions); null when it has none. */
   fuller?: FigureFullerDto | null;
+  /** RW5d P4b: "lesson" when a lesson shows it (its own predictions suppressed, no fuller version). */
+  host?: "lesson";
 }
 
 /** RW5d P2b: one check code ran on a Manim figure's declared function (spec §9b.4). */
@@ -10451,6 +10454,10 @@ export interface LessonSuggestionResponseDto {
 }
 
 /** One entry of the lesson's document, in order. */
+/** Reader RW5d P4b: a lesson figure's state (shown; couldn't be built; not shown: held out or it gave an
+ *  answer away; the figure route unavailable). */
+export type LessonFigureStatus = "shown" | "failed" | "withheld" | "unavailable";
+
 export type LessonFeedEntryDto =
   | { kind: "message"; text: string; choices: string[] }
   | { kind: "prediction"; node: string; prompt: string; choices: string[] }
@@ -10460,6 +10467,8 @@ export type LessonFeedEntryDto =
   | { kind: "check_result"; checkRef: string; result: string; graderFeedback?: string | null; unanchored?: boolean;
       answerLabel?: string | null }
   | { kind: "notice"; text: string }
+  /** Reader RW5d P4b: the step's figure (the teacher's visual), inline; `figure` only while it may be shown. */
+  | { kind: "figure"; node?: string | null; goal?: string | null; status: LessonFigureStatus; figure: FigureViewDto | null }
   | { kind: "close"; reason: string; recap?: string | null;
       delayedChecks: Array<{ learningObjectId: string; title?: string | null; purpose: string; due: string }> };
 
