@@ -3075,22 +3075,25 @@ def prefetch_pending(vault: Any, repository: Repository, extraction_id: str, *,
     work no worker will do: nothing on battery (no background build runs there); a decision to
     build with no request yet only while a prefetch pass is running now (``pass_running``: the
     sidecar's drain thread, which builds the waiting decisions first; otherwise it waits for the
-    next trigger, which a read does not fire); a prebuild's rich job only while it is queued or
+    next trigger, which a read does not fire) and today's caps have room (follow-ups batch 7 (A):
+    the pass starts nothing past them); a prebuild's rich job only while it is queued or
     running (one waiting for the plan is asked again by the read, :func:`prefetch_plan_waits`,
     and is pending again once requeued)."""
 
+    from learnloop.figures import prefetch_ledger as PL
     from learnloop.figures.power import power_state, prefetch_switch
 
     if not prefetch_switch(vault) or not power_state().on_mains:
         return False
-    if pass_running:
+    if pass_running and PL.capacity_left(vault, repository.sqlite_path):
         with closing(connect(repository.sqlite_path, read_only=True)) as connection:
             if connection.execute("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = "
                                   "'figure_prefetch_decisions'").fetchone() is None:
                 return False
+            marks = ",".join("?" for _ in PL.BUILD_DECISIONS)
             for raw in connection.execute(
                     "SELECT anchor_json FROM figure_prefetch_decisions WHERE outcome IS NULL AND request_id IS NULL "
-                    "AND decision IN ('build', 'deferred_power', 'deferred_plan')"):
+                    f"AND decision IN ({marks})", PL.BUILD_DECISIONS):
                 try:
                     anchor = json.loads(raw[0] or "null")
                 except (TypeError, ValueError):

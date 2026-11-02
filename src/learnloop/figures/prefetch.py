@@ -52,7 +52,10 @@ input). Candidates that pass queue in sampled-EU order, and
 the ``keep`` caps (``figures.prefetch.max_daily_builds``,
 ``max_daily_render_minutes``) cut the queue (``capped``); off mains:
 ``deferred_power``; the plan not the route or not answering: ``deferred_plan``.
-Every candidate decided is one ``figure_prefetch_decisions`` row.
+Every candidate decided is one ``figure_prefetch_decisions`` row. All three wait, they don't end the
+decision: while its horizon is open a later pass builds it once its condition clears, under every
+background guard and both caps, with no new draw (:func:`pending_builds`; a cap since follow-ups
+batch 7 (A)).
 
 **Builds** run one at a time (:data:`PREFETCH_CONCURRENT_BUILDS`), each only
 while no foreground work is in flight (:mod:`.foreground`: a pressed figure,
@@ -1111,20 +1114,35 @@ def decide_and_log(env: PrefetchEnv, kept: Sequence[Candidate], *, on_mains: boo
 
 def pending_builds(env: PrefetchEnv) -> list[tuple[dict[str, Any], Candidate]]:
     """Decisions to build that no build has served yet, while their horizon is open: the queue
-    yielded, the cap or the power or the plan went away mid-queue, or (Codex review F5) the
-    decision itself was deferred for the power or the plan. A deferral is temporary: the row
-    keeps what was decided then (immutable), and its build, once it runs, sets its request
-    (set once), so the deferred decision is retried, never decided twice."""
+    yielded, the cap or the power or the plan went away mid-queue, or (Codex review F5; follow-ups
+    batch 7 (A)) the decision itself was deferred for the power, the plan or today's caps. A
+    deferral is temporary: the row keeps what was decided then (immutable, its propensity the
+    record), and its build, once it runs, sets its request (set once), so the deferred decision is
+    retried, never decided twice. Oldest first, a batch in its sampled-EU order (spec §10b.3)."""
 
     with closing(connect(env.repository.sqlite_path, read_only=True)) as connection:
         if not PL.has_tables(connection):
             return []
         rows = [row for row in PL.decisions(connection)
                 if row["decision"] in PL.BUILD_DECISIONS and not row.get("request_id") and not row.get("outcome")]
+    rows.sort(key=lambda row: (str(row["created_at"]),
+                               -(row["sampled_eu"] if row.get("sampled_eu") is not None else float("-inf"))))
+    planned: dict[str, dict[str, Candidate]] = {}
     found = []
     for row in rows:
         anchor = PL.anchor_of(row)
         if not anchor or not anchor.get("extraction_id") or not anchor.get("span_ids"):
+            continue
+        if row["trigger_kind"] == "lesson":
+            # Follow-ups batch 7 (A): a planned visual's request rests on grounding keys the row
+            # does not hold (its anchor names only the first book's). The step's own request again,
+            # by the row's request key; a node reached or replanned since names nothing to build.
+            lesson_id = str(row["trigger_ref"]).split(":", 1)[0]
+            if lesson_id not in planned:
+                planned[lesson_id] = {found_one.request_key: found_one for found_one in _lesson_candidates(env, lesson_id)}
+            candidate = planned[lesson_id].get(str(row["request_key"]))
+            if candidate is not None:
+                found.append((row, candidate))
             continue
         found.append((row, Candidate(str(row["trigger_kind"]), str(row["trigger_ref"]), str(anchor["extraction_id"]),
                                      [str(span) for span in anchor["span_ids"]], row.get("goal_text"),
@@ -1190,9 +1208,17 @@ def _link(env: PrefetchEnv, decision_id: str) -> None:
         store.link_request(connection, decision_id, str(found[0]), found[1])
 
 
+def _build_started(env: PrefetchEnv, decision_id: str) -> bool:
+    """A request for this decision is stored (a pass that died before it linked the request)."""
+
+    with closing(connect(env.repository.sqlite_path, read_only=True)) as connection:
+        return connection.execute("SELECT 1 FROM figure_requests WHERE prefetch_decision_id = ? LIMIT 1",
+                                  (decision_id,)).fetchone() is not None
+
+
 def run_builds(env: PrefetchEnv, queue: Sequence[tuple[dict[str, Any], Candidate]], result: PassResult) -> None:
-    """The queue, one build at a time: each waits for no foreground work, and starts only on mains
-    with the switch on (rechecked on the vault as configured now)."""
+    """The queue, one build at a time: each waits for no foreground work, and starts only on mains,
+    with the switch on and today's caps with room (rechecked on the vault as configured now)."""
 
     from learnloop.figures import service as FS
 
@@ -1220,6 +1246,15 @@ def run_builds(env: PrefetchEnv, queue: Sequence[tuple[dict[str, Any], Candidate
         if protected(now, candidate, item_protection(now)):
             result.notes.append(f"{row['id']}: an item's own passage now")
             continue
+        if already_built(env.repository, candidate) and not _build_started(env, str(row["id"])):
+            # Follow-ups batch 7 (A): the learner pressed for it while this waited. It needs no
+            # build, spends none of today's, and its horizon closes it ``asked`` (demand without
+            # the cue): reusing it would turn the press into an observation of opening a prebuild.
+            result.notes.append(f"{row['id']}: built already")
+            continue
+        if PL.render_minutes_left(current, env.repository.sqlite_path, now=env.now()) <= 0:
+            result.notes.append("today's background render minutes are used up: the rest wait")
+            return
         if not reserve_build(env, str(row["id"])):
             result.notes.append("today's prebuilds are used up: the rest wait")
             return
