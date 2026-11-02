@@ -170,6 +170,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 
 - [[Reference/Modules/learnloop/source_retrieval/note_gaps|learnloop.source_retrieval.note_gaps]] — imports `module`; statically calls `anchor_sources`, `beside_protected`
 - [[Reference/Modules/learnloop/source_retrieval/note_links|learnloop.source_retrieval.note_links]] — imports `module`; statically calls `meaning_available`, `meaning_search`, `meaning_unavailable`, `notes`, `read`, `read_many`, `snapshot_protected_keys`, `split_key`, `words_search`
+- [[Reference/Modules/learnloop/teacher/notes|learnloop.teacher.notes]] — imports `module`; statically calls `anchor_sources`, `snapshot_protected_keys`, `split_key`
 
 ## Dependencies
 
@@ -198,7 +199,7 @@ Use this module in context through:
 
 - [[Initialize a Vault]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/source_retrieval/note_gaps|learnloop.source_retrieval.note_gaps]], [[Reference/Modules/learnloop/source_retrieval/note_links|learnloop.source_retrieval.note_links]].
+Static participation evidence comes from [[Reference/Modules/learnloop/source_retrieval/note_gaps|learnloop.source_retrieval.note_gaps]], [[Reference/Modules/learnloop/source_retrieval/note_links|learnloop.source_retrieval.note_links]], [[Reference/Modules/learnloop/teacher/notes|learnloop.teacher.notes]].
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 

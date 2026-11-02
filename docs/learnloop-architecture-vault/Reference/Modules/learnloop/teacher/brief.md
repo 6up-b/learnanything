@@ -7,8 +7,8 @@ version: "1.0.0"
 source_path: "src/learnloop/teacher/brief.py"
 source_paths:
   - "src/learnloop/teacher/brief.py"
-source_commit: "41a9038d4311ee89a9d90df0270b31c03e496bba"
-source_commit_timestamp: "2026-11-02T09:44:47-05:00"
+source_commit: "a9107bae28521adcb2710f15e3fdb58a10979a45"
+source_commit_timestamp: "2026-11-02T10:41:11-05:00"
 source_worktree_state: "clean"
 generated: true
 generated_at: "2026-11-02"
@@ -50,51 +50,52 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/teacher/brief.py](../../../../../../src/learnloop/teacher/brief.py) |
-| Source lines | 763 |
+| Source lines | 831 |
 | Owning package | [[Reference/Modules/learnloop/teacher/_package|learnloop.teacher]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `41a9038d4311ee89a9d90df0270b31c03e496bba` |
-| Commit timestamp | `2026-11-02T09:44:47-05:00` |
+| Source commit | `a9107bae28521adcb2710f15e3fdb58a10979a45` |
+| Commit timestamp | `2026-11-02T10:41:11-05:00` |
 
 ## Public API
 
-- `class LessonRefused(ValueError)` ([source](../../../../../../src/learnloop/teacher/brief.py), line 56) — A lesson that may not open (protected material, an unknown topic), with one plain line.
-  - `__init__(self, code: str, message: str) -> None` (line 59; internal)
-- `class SourceBook` ([source](../../../../../../src/learnloop/teacher/brief.py), line 65) — The passages delivered to the teacher, by alias (citation validation and reveals read it).
-  - `available(self, alias: str) -> bool` (line 75; public)
-  - `alias_for(self, extraction_id: str, span_id: str, text: str, *, section_ref: str | None=None) -> str` (line 78; public)
-  - `as_dict(self) -> dict[str, Any]` (line 87; public)
-  - `from_dict(cls, value: Mapping[str, Any] | None) -> 'SourceBook'` (line 91; public)
-- `passage_teachable(library: Any, extraction_id: str, span_id: str) -> bool` ([source](../../../../../../src/learnloop/teacher/brief.py), line 96) — Whether a delivered passage may still reach the teacher NOW: its reading is in the section library (not left out), its span is not protected, and its section is not withheld (the same protection the brief and ``read_source`` apply when they first deliver it).
-- `revoke_unteachable(library: Any, book: SourceBook) -> set[str]` ([source](../../../../../../src/learnloop/teacher/brief.py), line 110) — Recompute ``book.revoked`` against the library as it is now; returns the revoked aliases.
-- `protection_state(vault: Any, repository: Any, brief: Mapping[str, Any] | None=None) -> dict[str, str] | None` ([source](../../../../../../src/learnloop/teacher/brief.py), line 142) — The vault's protection state as a lesson relies on it, or None when it cannot be read (fail closed).
-- `resolve_goal(vault: Any, repository: Any, *, entry: str, learning_object_ids: Sequence[str]=(), selection: Mapping[str, Any] | None=None) -> tuple[list[str], dict[str, str], dict[str, Any] | None]` ([source](../../../../../../src/learnloop/teacher/brief.py), line 177) — The lesson's LOs, how each was resolved, and the Reader selection's section (if any).
-- `prerequisite_nodes(vault: Any, goal: Sequence[str], depth: int) -> list[tuple[str, str, int]]` ([source](../../../../../../src/learnloop/teacher/brief.py), line 241) — ``(lo, "goal" | "prerequisite", depth)`` for the goal LOs and their closure to ``depth``.
-- `downstream_learning_objects(vault: Any, learning_object_ids: Iterable[str]) -> list[str]` ([source](../../../../../../src/learnloop/teacher/brief.py), line 266) — Active LOs whose concept has one of these LOs' concepts as a prerequisite (transfer candidates).
-- `lo_prediction(vault: Any, repository: Any, learning_object_id: str) -> dict[str, Any]` ([source](../../../../../../src/learnloop/teacher/brief.py), line 280) — The active predictor's predicted unassisted success on the LO, with its interval, in words.
-- `ad_readiness(vault: Any, repository: Any, learning_object_id: str) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/teacher/brief.py), line 307) — Adaptive difficulty's readiness line for the LO when AD serves (its own read-only entry, its own guarded operation); None when AD is off, below its tag or denied (the brief says which).
-- `recap_admissible(vault: Any, repository: Any, lesson_id: str, *, current: Any=_UNREAD) -> bool` ([source](../../../../../../src/learnloop/teacher/brief.py), line 477) — Whether an earlier lesson's recap may enter a brief or a ``read_history`` result NOW.
-- `admitted_recap(vault: Any, repository: Any, lesson_id: str, recap: Any, *, current: Any=_UNREAD) -> dict[str, Any]` ([source](../../../../../../src/learnloop/teacher/brief.py), line 507) — ``{"recap": ...}`` when :func:`recap_admissible`, else the recap left out and said so.
-- `c4_active(vault: Any) -> bool` ([source](../../../../../../src/learnloop/teacher/brief.py), line 617)
-- `deliverable_for(vault: Any, repository: Any, learning_object_ids: Sequence[str]) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/teacher/brief.py), line 621) — The nearest active deliverable whose resolution names one of the lesson's LOs, with its sentence, the resolution's phrase per LO and the path's primaries and alternates (C4, §8.2).
-- `build_brief(vault: Any, repository: Any, *, learning_object_ids: Sequence[str], how: Mapping[str, str], goal_text: str, selection: Mapping[str, Any] | None, driver: str, lesson_id: str | None, constraints: Mapping[str, Any], notes_provider: Any=None) -> tuple[dict[str, Any], SourceBook]` ([source](../../../../../../src/learnloop/teacher/brief.py), line 669) — ``(LessonBriefV1, the delivered passages)``.
+- `class LessonRefused(ValueError)` ([source](../../../../../../src/learnloop/teacher/brief.py), line 57) — A lesson that may not open (protected material, an unknown topic), with one plain line.
+  - `__init__(self, code: str, message: str) -> None` (line 60; internal)
+- `class SourceBook` ([source](../../../../../../src/learnloop/teacher/brief.py), line 66) — The passages delivered to the teacher, by alias (citation validation and reveals read it).
+  - `available(self, alias: str) -> bool` (line 76; public)
+  - `alias_for(self, extraction_id: str, span_id: str, text: str, *, section_ref: str | None=None) -> str` (line 79; public)
+  - `as_dict(self) -> dict[str, Any]` (line 88; public)
+  - `from_dict(cls, value: Mapping[str, Any] | None) -> 'SourceBook'` (line 92; public)
+- `passage_teachable(library: Any, extraction_id: str, span_id: str) -> bool` ([source](../../../../../../src/learnloop/teacher/brief.py), line 97) — Whether a delivered passage may still reach the teacher NOW: its reading is in the section library (not left out), its span is not protected, and its section is not withheld (the same protection the brief and ``read_source`` apply when they first deliver it).
+- `revoke_unteachable(library: Any, book: SourceBook) -> set[str]` ([source](../../../../../../src/learnloop/teacher/brief.py), line 111) — Recompute ``book.revoked`` against the library as it is now; returns the revoked aliases.
+- `protection_state(vault: Any, repository: Any, brief: Mapping[str, Any] | None=None) -> dict[str, str] | None` ([source](../../../../../../src/learnloop/teacher/brief.py), line 143) — The vault's protection state as a lesson relies on it, or None when it cannot be read (fail closed).
+- `resolve_goal(vault: Any, repository: Any, *, entry: str, learning_object_ids: Sequence[str]=(), selection: Mapping[str, Any] | None=None) -> tuple[list[str], dict[str, str], dict[str, Any] | None]` ([source](../../../../../../src/learnloop/teacher/brief.py), line 178) — The lesson's LOs, how each was resolved, and the Reader selection's section (if any).
+- `prerequisite_nodes(vault: Any, goal: Sequence[str], depth: int) -> list[tuple[str, str, int]]` ([source](../../../../../../src/learnloop/teacher/brief.py), line 242) — ``(lo, "goal" | "prerequisite", depth)`` for the goal LOs and their closure to ``depth``.
+- `downstream_learning_objects(vault: Any, learning_object_ids: Iterable[str]) -> list[str]` ([source](../../../../../../src/learnloop/teacher/brief.py), line 267) — Active LOs whose concept has one of these LOs' concepts as a prerequisite (transfer candidates).
+- `lo_prediction(vault: Any, repository: Any, learning_object_id: str) -> dict[str, Any]` ([source](../../../../../../src/learnloop/teacher/brief.py), line 281) — The active predictor's predicted unassisted success on the LO, with its interval, in words.
+- `ad_readiness(vault: Any, repository: Any, learning_object_id: str) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/teacher/brief.py), line 308) — Adaptive difficulty's readiness line for the LO when AD serves (its own read-only entry, its own guarded operation); None when AD is off, below its tag or denied (the brief says which).
+- `recap_admissible(vault: Any, repository: Any, lesson_id: str, *, current: Any=_UNREAD, notes_check: NotesCheck | None=None, memo: dict[str, bool] | None=None) -> bool` ([source](../../../../../../src/learnloop/teacher/brief.py), line 509) — Whether an earlier lesson's recap may enter a brief or a ``read_history`` result NOW.
+- `admitted_recap(vault: Any, repository: Any, lesson_id: str, recap: Any, *, current: Any=_UNREAD, notes_check: NotesCheck | None=None, memo: dict[str, bool] | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/teacher/brief.py), line 569) — ``{"recap": ...}`` when :func:`recap_admissible`, else the recap left out and said so.
+- `c4_active(vault: Any) -> bool` ([source](../../../../../../src/learnloop/teacher/brief.py), line 682)
+- `deliverable_for(vault: Any, repository: Any, learning_object_ids: Sequence[str]) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/teacher/brief.py), line 686) — The nearest active deliverable whose resolution names one of the lesson's LOs, with its sentence, the resolution's phrase per LO and the path's primaries and alternates (C4, §8.2).
+- `build_brief(vault: Any, repository: Any, *, learning_object_ids: Sequence[str], how: Mapping[str, str], goal_text: str, selection: Mapping[str, Any] | None, driver: str, lesson_id: str | None, constraints: Mapping[str, Any], notes_provider: Any=None, notes_check: NotesCheck | None=None) -> tuple[dict[str, Any], SourceBook]` ([source](../../../../../../src/learnloop/teacher/brief.py), line 734) — ``(LessonBriefV1, the delivered passages)``.
 
 ### Module constants
 
-- `STEM_CHARS` ([src/learnloop/teacher/brief.py](../../../../../../src/learnloop/teacher/brief.py), line 51)
-- `INTERVAL_Z` ([src/learnloop/teacher/brief.py](../../../../../../src/learnloop/teacher/brief.py), line 53)
-- `PROTECTION_VERSION` ([src/learnloop/teacher/brief.py](../../../../../../src/learnloop/teacher/brief.py), line 120)
-- `_COLD_TYPES` ([src/learnloop/teacher/brief.py](../../../../../../src/learnloop/teacher/brief.py), line 361)
-- `RECAP_OMITTED` ([src/learnloop/teacher/brief.py](../../../../../../src/learnloop/teacher/brief.py), line 436)
-- `_UNREAD` ([src/learnloop/teacher/brief.py](../../../../../../src/learnloop/teacher/brief.py), line 437)
+- `STEM_CHARS` ([src/learnloop/teacher/brief.py](../../../../../../src/learnloop/teacher/brief.py), line 52)
+- `INTERVAL_Z` ([src/learnloop/teacher/brief.py](../../../../../../src/learnloop/teacher/brief.py), line 54)
+- `PROTECTION_VERSION` ([src/learnloop/teacher/brief.py](../../../../../../src/learnloop/teacher/brief.py), line 121)
+- `_COLD_TYPES` ([src/learnloop/teacher/brief.py](../../../../../../src/learnloop/teacher/brief.py), line 362)
+- `RECAP_OMITTED` ([src/learnloop/teacher/brief.py](../../../../../../src/learnloop/teacher/brief.py), line 437)
+- `_UNREAD` ([src/learnloop/teacher/brief.py](../../../../../../src/learnloop/teacher/brief.py), line 438)
 
 ### Explicit exports
 
 `__all__` declares:
 
 - `LessonRefused`
+- `NotesCheck`
 - `RECAP_OMITTED`
 - `SourceBook`
 - `ad_readiness`
@@ -111,22 +112,24 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 
 ## Internal implementation anchors
 
-- `_brief_item_ids(repository: Any, brief: Mapping[str, Any] | None) -> list[str]` ([source](../../../../../../src/learnloop/teacher/brief.py), line 123) — The vault items a brief names: its probes, and the items of its history entries (an attempt's, a tutor question's), whose results ``read_history`` may deliver later.
-- `_concept_los(vault: Any) -> dict[str, list[str]]` ([source](../../../../../../src/learnloop/teacher/brief.py), line 220)
-- `_prerequisite_concepts(vault: Any) -> dict[str, set[str]]` ([source](../../../../../../src/learnloop/teacher/brief.py), line 229) — Concept -> its prerequisite concepts (LO declarations and ``prerequisite`` edges).
-- `_retrievability(repository: Any, vault: Any, learning_object_id: str) -> float | None` ([source](../../../../../../src/learnloop/teacher/brief.py), line 328)
-- `_misconceptions(repository: Any, learning_object_id: str) -> list[str]` ([source](../../../../../../src/learnloop/teacher/brief.py), line 340)
-- `_attempt_rows(repository: Any, learning_object_ids: Sequence[str]) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/teacher/brief.py), line 348)
-- `_cold(row: Mapping[str, Any]) -> bool` ([source](../../../../../../src/learnloop/teacher/brief.py), line 364)
-- `_result_words(row: Mapping[str, Any]) -> str` ([source](../../../../../../src/learnloop/teacher/brief.py), line 368)
-- `_history(vault: Any, repository: Any, learning_object_ids: Sequence[str], withheld: Any, hedges: Mapping[str, str]) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/teacher/brief.py), line 379)
-- `_probe_headers(vault: Any, repository: Any, learning_object_id: str, withheld: Any, attempted: set[str], prediction: Mapping[str, Any]) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/teacher/brief.py), line 418)
-- `_lesson_exposure(repository: Any, lesson_id: str) -> tuple[dict[str, Any], SourceBook, set[str]]` ([source](../../../../../../src/learnloop/teacher/brief.py), line 440) — An earlier lesson's recorded protection, the passages it delivered (its brief's and every read's additions: everything its recap may quote or cite) and the vault items it was shown while they were not withheld (its brief's probes and tutor questions, its unprotected history, ``f…
-- `_last_lessons(vault: Any, repository: Any, learning_object_ids: Sequence[str], exclude: str | None) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/teacher/brief.py), line 518)
-- `_delayed_result(connection: Any, entry: Mapping[str, Any]) -> dict[str, Any]` ([source](../../../../../../src/learnloop/teacher/brief.py), line 543)
-- `_section_refs(vault: Any, library: Any, learning_object_ids: Sequence[str], selection: Mapping[str, Any] | None) -> list[tuple[str, str]]` ([source](../../../../../../src/learnloop/teacher/brief.py), line 558)
-- `_render_sources(library: Any, book: SourceBook, primaries: Sequence[tuple[str, str]], outline_only: Sequence[tuple[str, str]], budget_tokens: int) -> dict[str, Any]` ([source](../../../../../../src/learnloop/teacher/brief.py), line 570) — Whole sections (model-safe passages) under the budget, else the outline; ``outline_only`` sections (a deliverable's alternates) are listed by title.
-- `_resolution_phrases(resolution: Any) -> dict[str, str]` ([source](../../../../../../src/learnloop/teacher/brief.py), line 656) — The resolution receipt's phrase per LO (C0b's ``learning_objects`` rows).
+- `_brief_item_ids(repository: Any, brief: Mapping[str, Any] | None) -> list[str]` ([source](../../../../../../src/learnloop/teacher/brief.py), line 124) — The vault items a brief names: its probes, and the items of its history entries (an attempt's, a tutor question's), whose results ``read_history`` may deliver later.
+- `_concept_los(vault: Any) -> dict[str, list[str]]` ([source](../../../../../../src/learnloop/teacher/brief.py), line 221)
+- `_prerequisite_concepts(vault: Any) -> dict[str, set[str]]` ([source](../../../../../../src/learnloop/teacher/brief.py), line 230) — Concept -> its prerequisite concepts (LO declarations and ``prerequisite`` edges).
+- `_retrievability(repository: Any, vault: Any, learning_object_id: str) -> float | None` ([source](../../../../../../src/learnloop/teacher/brief.py), line 329)
+- `_misconceptions(repository: Any, learning_object_id: str) -> list[str]` ([source](../../../../../../src/learnloop/teacher/brief.py), line 341)
+- `_attempt_rows(repository: Any, learning_object_ids: Sequence[str]) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/teacher/brief.py), line 349)
+- `_cold(row: Mapping[str, Any]) -> bool` ([source](../../../../../../src/learnloop/teacher/brief.py), line 365)
+- `_result_words(row: Mapping[str, Any]) -> str` ([source](../../../../../../src/learnloop/teacher/brief.py), line 369)
+- `_history(vault: Any, repository: Any, learning_object_ids: Sequence[str], withheld: Any, hedges: Mapping[str, str]) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/teacher/brief.py), line 380)
+- `_probe_headers(vault: Any, repository: Any, learning_object_id: str, withheld: Any, attempted: set[str], prediction: Mapping[str, Any]) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/teacher/brief.py), line 419)
+- `class _Exposure` ([source](../../../../../../src/learnloop/teacher/brief.py), line 442) — What an earlier lesson relied on: its recorded protection, the passages it delivered (its brief's and every read's additions), the vault items it was shown, the earlier lessons whose recaps it was given (``last_lessons``, ``read_history``) and the learner's notes it was given (`…
+- `_lesson_exposure(repository: Any, lesson_id: str) -> _Exposure | None` ([source](../../../../../../src/learnloop/teacher/brief.py), line 455) — An earlier lesson's :class:`_Exposure`, or None when its opening cannot be found (fail closed).
+- `_admissible(vault: Any, repository: Any, lesson_id: str, now: Mapping[str, Any], notes_check: NotesCheck | None, memo: dict[str, bool], reads: dict[str, Any]) -> bool` ([source](../../../../../../src/learnloop/teacher/brief.py), line 531)
+- `_last_lessons(vault: Any, repository: Any, learning_object_ids: Sequence[str], exclude: str | None, notes_check: NotesCheck | None=None) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/teacher/brief.py), line 581)
+- `_delayed_result(connection: Any, entry: Mapping[str, Any]) -> dict[str, Any]` ([source](../../../../../../src/learnloop/teacher/brief.py), line 608)
+- `_section_refs(vault: Any, library: Any, learning_object_ids: Sequence[str], selection: Mapping[str, Any] | None) -> list[tuple[str, str]]` ([source](../../../../../../src/learnloop/teacher/brief.py), line 623)
+- `_render_sources(library: Any, book: SourceBook, primaries: Sequence[tuple[str, str]], outline_only: Sequence[tuple[str, str]], budget_tokens: int) -> dict[str, Any]` ([source](../../../../../../src/learnloop/teacher/brief.py), line 635) — Whole sections (model-safe passages) under the budget, else the outline; ``outline_only`` sections (a deliverable's alternates) are listed by title.
+- `_resolution_phrases(resolution: Any) -> dict[str, str]` ([source](../../../../../../src/learnloop/teacher/brief.py), line 721) — The resolution receipt's phrase per LO (C0b's ``learning_objects`` rows).
 
 ## Who imports or calls it
 
@@ -178,6 +181,13 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
+- [tests/test_followups_batch5_recap_dependencies.py](../../../../../../tests/test_followups_batch5_recap_dependencies.py) — direct import
+  - `test_f1_a_recap_inherited_through_last_lessons_is_left_out_with_its_source`
+  - `test_f1_a_recap_inherited_through_read_history_is_left_out_with_its_source`
+  - `test_f1_an_inherited_recap_whose_lesson_cannot_be_found_fails_closed`
+  - `test_f2_a_recap_after_read_note_is_left_out_once_only_the_note_s_source_is_protected`
+  - `test_f2_the_note_dependency_outlives_a_later_link_change`
+  - `test_f2_without_the_notes_check_a_lesson_that_was_given_notes_fails_closed`
 - [tests/test_followups_batch5_recap_protection.py](../../../../../../tests/test_followups_batch5_recap_protection.py) — direct import
   - `test_a_lesson_with_no_recorded_protection_rechecks_its_passages`
   - `test_a_recap_quoting_a_passage_held_out_since_is_not_in_the_fresh_lesson_s_prompt`

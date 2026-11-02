@@ -7,8 +7,8 @@ version: "1.0.0"
 source_path: "src/learnloop/teacher/service.py"
 source_paths:
   - "src/learnloop/teacher/service.py"
-source_commit: "9f978afd0f5c73073767cf0610c62080770ae255"
-source_commit_timestamp: "2026-11-02T09:53:15-05:00"
+source_commit: "a9107bae28521adcb2710f15e3fdb58a10979a45"
+source_commit_timestamp: "2026-11-02T10:41:11-05:00"
 source_worktree_state: "clean"
 generated: true
 generated_at: "2026-11-02"
@@ -55,8 +55,8 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `9f978afd0f5c73073767cf0610c62080770ae255` |
-| Commit timestamp | `2026-11-02T09:53:15-05:00` |
+| Source commit | `a9107bae28521adcb2710f15e3fdb58a10979a45` |
+| Commit timestamp | `2026-11-02T10:41:11-05:00` |
 
 ## Public API
 
@@ -184,7 +184,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop/teacher/delayed|learnloop.teacher.delayed]] — imports `module`; calls `commit_checks`, `shown_vault_items`
 - [[Reference/Modules/learnloop/teacher/doctrines|learnloop.teacher.doctrines]] — imports `DOCTRINE_VERSION`, `doctrine_identity`, `doctrine_text`; calls `doctrine_identity`, `doctrine_text`
 - [[Reference/Modules/learnloop/teacher/guards|learnloop.teacher.guards]] — imports `module`; calls `check_all`, `cited_aliases`, `key_guard`, `lesson_keys`, `open_check_guard`, `solution_overlap`
-- [[Reference/Modules/learnloop/teacher/notes|learnloop.teacher.notes]] — imports `your_notes`
+- [[Reference/Modules/learnloop/teacher/notes|learnloop.teacher.notes]] — imports `notes_still_deliverable`, `your_notes`
 - [[Reference/Modules/learnloop/teacher/visuals|learnloop.teacher.visuals]] — imports `module`; calls `active`, `build`, `contract_problem`, `displayed`, `figure_row`, `figure_text`, `instructions`, `lesson_view`, `not_built_for_protection`, `on`, `prompt_version`, `resolve`, `stored_turn`, `summary`, `turn_model`
 - [[Reference/Modules/learnloop/tutor/tutor_qa|learnloop.tutor.tutor_qa]] — imports `answer_leak_overlap`, `span_answer_overlap`; calls `answer_leak_overlap`, `span_answer_overlap`
 - [[Reference/Modules/learnloop/vault/loader|learnloop.vault.loader]] — imports `load_vault`; calls `load_vault`
@@ -214,6 +214,12 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_d_resume_after_a_help_action_with_a_read_follow_up_makes_no_call`
   - `test_e_the_figures_daily_budget_refusing_a_visual_leaves_the_lesson_open`
   - `test_e_the_lesson_envelope_refusing_a_visual_still_closes_the_lesson_with_budget`
+- [tests/test_followups_batch5_recap_dependencies.py](../../../../../../tests/test_followups_batch5_recap_dependencies.py) — direct import
+  - `test_f1_a_recap_inherited_through_last_lessons_is_left_out_with_its_source`
+  - `test_f1_the_inherited_recap_stays_while_its_source_is_teachable`
+  - `test_f2_a_recap_after_a_your_notes_header_is_left_out_too`
+  - `test_f2_a_recap_after_read_note_is_left_out_once_only_the_note_s_source_is_protected`
+  - `test_f2_the_recap_stays_when_protection_moved_elsewhere`
 - [tests/test_followups_batch5_recap_protection.py](../../../../../../tests/test_followups_batch5_recap_protection.py) — direct import
   - `test_an_item_the_earlier_lesson_was_shown_now_reserved_for_an_exam_drops_its_recap`
 - [tests/test_followups_nov2_figure_provenance.py](../../../../../../tests/test_followups_nov2_figure_provenance.py) — direct import

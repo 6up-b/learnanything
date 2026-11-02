@@ -7,8 +7,8 @@ version: "1.0.0"
 source_path: "src/learnloop/db/stores/learner_notes.py"
 source_paths:
   - "src/learnloop/db/stores/learner_notes.py"
-source_commit: "f3d6aba0ae47c99d0d4344e00c87287e27318f1c"
-source_commit_timestamp: "2026-11-02T02:00:30-05:00"
+source_commit: "a9107bae28521adcb2710f15e3fdb58a10979a45"
+source_commit_timestamp: "2026-11-02T10:41:11-05:00"
 source_worktree_state: "clean"
 generated: true
 generated_at: "2026-11-02"
@@ -51,13 +51,13 @@ The authoritative system-level explanation remains in [[State and Persistence]],
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/db/stores/learner_notes.py](../../../../../../../src/learnloop/db/stores/learner_notes.py) |
-| Source lines | 294 |
+| Source lines | 306 |
 | Owning package | [[Reference/Modules/learnloop/db/stores/_package|learnloop.db.stores]] |
 | Architecture layer | `infrastructure` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `f3d6aba0ae47c99d0d4344e00c87287e27318f1c` |
-| Commit timestamp | `2026-11-02T02:00:30-05:00` |
+| Source commit | `a9107bae28521adcb2710f15e3fdb58a10979a45` |
+| Commit timestamp | `2026-11-02T10:41:11-05:00` |
 
 ## Public API
 
@@ -73,13 +73,14 @@ The authoritative system-level explanation remains in [[State and Persistence]],
 - `note_count(connection: sqlite3.Connection) -> int` ([source](../../../../../../../src/learnloop/db/stores/learner_notes.py), line 165)
 - `insert_link(connection: sqlite3.Connection, row: Mapping[str, Any]) -> None` ([source](../../../../../../../src/learnloop/db/stores/learner_notes.py), line 171)
 - `links(connection: sqlite3.Connection, *, extraction_id: str | None=None, learning_object_ids: Iterable[str] | None=None, note_key: str | None=None) -> list[dict[str, Any]]` ([source](../../../../../../../src/learnloop/db/stores/learner_notes.py), line 175) — Link rows, oldest first, narrowed by reading, LO or note (all of them with no filter).
-- `learner_rows_for(connection: sqlite3.Connection, note_keys: Iterable[str]) -> list[dict[str, Any]]` ([source](../../../../../../../src/learnloop/db/stores/learner_notes.py), line 197) — The learner's own rows on these notes (their links and hides), oldest first.
-- `ai_rows_for_state(connection: sqlite3.Connection, learning_object_id: str, state_key: str) -> list[dict[str, Any]]` ([source](../../../../../../../src/learnloop/db/stores/learner_notes.py), line 208)
-- `judged(connection: sqlite3.Connection, task: str, learning_object_id: str, state_key: str) -> bool` ([source](../../../../../../../src/learnloop/db/stores/learner_notes.py), line 214) — Was this topic's candidate state judged (the model's verdict rows in the ledger)?
-- `topic_key(goal_id: str, learning_object_id: str) -> str` ([source](../../../../../../../src/learnloop/db/stores/learner_notes.py), line 222) — A deliverable's topic as a shown-state marker names it.
-- `current_states(connection: sqlite3.Connection, task: str, learning_object_ids: Iterable[str]) -> dict[tuple[str, str], str]` ([source](../../../../../../../src/learnloop/db/stores/learner_notes.py), line 228) — The candidate state each deliverable's topic shows now, by (goal, LO) (Codex review F7): the newest shown-state marker per topic, appended whenever the topic's candidate state changes (a state judged now, one judged before and reused, or no candidates).
-- `takes_quoting_notes(connection: sqlite3.Connection, prefix: str) -> int` ([source](../../../../../../../src/learnloop/db/stores/learner_notes.py), line 250) — RW4d takes written from a note (*use as my take*), counted by their quote's prefix.
-- `link_counts(connection: sqlite3.Connection) -> dict[str, int]` ([source](../../../../../../../src/learnloop/db/stores/learner_notes.py), line 262) — Aggregates for the report: rows by authorship and status (never a note's text).
+- `links_by_id(connection: sqlite3.Connection, link_ids: Iterable[str]) -> dict[str, dict[str, Any]]` ([source](../../../../../../../src/learnloop/db/stores/learner_notes.py), line 197) — Link rows by id (append-only: a row read later says what it said when it was shown).
+- `learner_rows_for(connection: sqlite3.Connection, note_keys: Iterable[str]) -> list[dict[str, Any]]` ([source](../../../../../../../src/learnloop/db/stores/learner_notes.py), line 208) — The learner's own rows on these notes (their links and hides), oldest first.
+- `ai_rows_for_state(connection: sqlite3.Connection, learning_object_id: str, state_key: str) -> list[dict[str, Any]]` ([source](../../../../../../../src/learnloop/db/stores/learner_notes.py), line 219)
+- `judged(connection: sqlite3.Connection, task: str, learning_object_id: str, state_key: str) -> bool` ([source](../../../../../../../src/learnloop/db/stores/learner_notes.py), line 225) — Was this topic's candidate state judged (the model's verdict rows in the ledger)?
+- `topic_key(goal_id: str, learning_object_id: str) -> str` ([source](../../../../../../../src/learnloop/db/stores/learner_notes.py), line 233) — A deliverable's topic as a shown-state marker names it.
+- `current_states(connection: sqlite3.Connection, task: str, learning_object_ids: Iterable[str]) -> dict[tuple[str, str], str]` ([source](../../../../../../../src/learnloop/db/stores/learner_notes.py), line 239) — The candidate state each deliverable's topic shows now, by (goal, LO) (Codex review F7): the newest shown-state marker per topic, appended whenever the topic's candidate state changes (a state judged now, one judged before and reused, or no candidates).
+- `takes_quoting_notes(connection: sqlite3.Connection, prefix: str) -> int` ([source](../../../../../../../src/learnloop/db/stores/learner_notes.py), line 261) — RW4d takes written from a note (*use as my take*), counted by their quote's prefix.
+- `link_counts(connection: sqlite3.Connection) -> dict[str, int]` ([source](../../../../../../../src/learnloop/db/stores/learner_notes.py), line 273) — Aggregates for the report: rows by authorship and status (never a note's text).
 
 ### Module constants
 
@@ -106,6 +107,7 @@ The authoritative system-level explanation remains in [[State and Persistence]],
 - `learner_rows_for`
 - `link_counts`
 - `links`
+- `links_by_id`
 - `newest_read_token`
 - `note_count`
 - `notes_by_id`
@@ -126,7 +128,7 @@ The authoritative system-level explanation remains in [[State and Persistence]],
 
 - [[Reference/Modules/learnloop/source_retrieval/note_gaps|learnloop.source_retrieval.note_gaps]] — imports `module`; statically calls `links`, `tables_present`
 - [[Reference/Modules/learnloop/source_retrieval/note_links|learnloop.source_retrieval.note_links]] — imports `module`; statically calls `current_fences`, `current_notes`, `current_states`, `insert_link`, `insert_note`, `judged`, `learner_rows_for`, `link_counts`, `links`, `newest_read_token`, `notes_by_id`, `tables_present`, `takes_quoting_notes`, `topic_key`
-- [[Reference/Modules/learnloop/teacher/notes|learnloop.teacher.notes]] — imports `module`; statically calls `links`
+- [[Reference/Modules/learnloop/teacher/notes|learnloop.teacher.notes]] — imports `module`; statically calls `links`, `links_by_id`
 
 ## Dependencies
 
@@ -152,6 +154,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
+- [tests/test_followups_batch5_recap_dependencies.py](../../../../../../../tests/test_followups_batch5_recap_dependencies.py) — direct import
+  - `test_f2_the_note_dependency_outlives_a_later_link_change`
 - [tests/test_notes_as_learner_text.py](../../../../../../../tests/test_notes_as_learner_text.py) — direct import
   - `test_switched_off_the_gaps_code_reads_no_note_row_and_queues_nothing`
 - [tests/test_notes_linked.py](../../../../../../../tests/test_notes_linked.py) — direct import

@@ -7,8 +7,8 @@ version: "1.0.0"
 source_path: "src/learnloop/teacher/actions.py"
 source_paths:
   - "src/learnloop/teacher/actions.py"
-source_commit: "41a9038d4311ee89a9d90df0270b31c03e496bba"
-source_commit_timestamp: "2026-11-02T09:44:47-05:00"
+source_commit: "a9107bae28521adcb2710f15e3fdb58a10979a45"
+source_commit_timestamp: "2026-11-02T10:41:11-05:00"
 source_worktree_state: "clean"
 generated: true
 generated_at: "2026-11-02"
@@ -50,13 +50,13 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/teacher/actions.py](../../../../../../src/learnloop/teacher/actions.py) |
-| Source lines | 241 |
+| Source lines | 244 |
 | Owning package | [[Reference/Modules/learnloop/teacher/_package|learnloop.teacher]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `41a9038d4311ee89a9d90df0270b31c03e496bba` |
-| Commit timestamp | `2026-11-02T09:44:47-05:00` |
+| Source commit | `a9107bae28521adcb2710f15e3fdb58a10979a45` |
+| Commit timestamp | `2026-11-02T10:41:11-05:00` |
 
 ## Public API
 
@@ -105,7 +105,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop/source_retrieval/section_coverage|learnloop.source_retrieval.section_coverage]] — imports `Library`; calls `Library`
 - [[Reference/Modules/learnloop/teacher/brief|learnloop.teacher.brief]] — imports `admitted_recap`, `passage_teachable`, `protection_state`; calls `admitted_recap`, `passage_teachable`, `protection_state`
 - [[Reference/Modules/learnloop/teacher/contracts|learnloop.teacher.contracts]] — imports `ActionRequestV1`
-- [[Reference/Modules/learnloop/teacher/notes|learnloop.teacher.notes]] — imports `read_note`; calls `read_note`
+- [[Reference/Modules/learnloop/teacher/notes|learnloop.teacher.notes]] — imports `notes_still_deliverable`, `read_note`; calls `read_note`
 - [[Reference/Modules/learnloop/tutor/tutor_qa|learnloop.tutor.tutor_qa]] — imports `span_leaks_expected`; calls `span_leaks_expected`
 
 ### Platform and third-party dependencies

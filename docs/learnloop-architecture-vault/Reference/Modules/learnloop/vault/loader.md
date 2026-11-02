@@ -1419,6 +1419,16 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_d_resume_after_a_help_action_with_a_read_follow_up_makes_no_call`
   - `test_e_the_figures_daily_budget_refusing_a_visual_leaves_the_lesson_open`
   - `test_e_the_lesson_envelope_refusing_a_visual_still_closes_the_lesson_with_budget`
+- [tests/test_followups_batch5_recap_dependencies.py](../../../../../../tests/test_followups_batch5_recap_dependencies.py) — direct import
+  - `test_f1_a_recap_inherited_through_last_lessons_is_left_out_with_its_source`
+  - `test_f1_a_recap_inherited_through_read_history_is_left_out_with_its_source`
+  - `test_f1_an_inherited_recap_whose_lesson_cannot_be_found_fails_closed`
+  - `test_f1_the_inherited_recap_stays_while_its_source_is_teachable`
+  - `test_f2_a_recap_after_a_your_notes_header_is_left_out_too`
+  - `test_f2_a_recap_after_read_note_is_left_out_once_only_the_note_s_source_is_protected`
+  - `test_f2_the_note_dependency_outlives_a_later_link_change`
+  - `test_f2_the_recap_stays_when_protection_moved_elsewhere`
+  - `test_f2_without_the_notes_check_a_lesson_that_was_given_notes_fails_closed`
 - [tests/test_followups_batch5_recap_protection.py](../../../../../../tests/test_followups_batch5_recap_protection.py) — direct import
   - `test_a_lesson_with_no_recorded_protection_rechecks_its_passages`
   - `test_unreadable_protection_drops_the_recap_only`

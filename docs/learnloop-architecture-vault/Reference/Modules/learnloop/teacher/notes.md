@@ -7,8 +7,8 @@ version: "1.0.0"
 source_path: "src/learnloop/teacher/notes.py"
 source_paths:
   - "src/learnloop/teacher/notes.py"
-source_commit: "6975ac1949e79b05a13f0cf392d617aa1d91fc25"
-source_commit_timestamp: "2026-11-02T03:56:28-05:00"
+source_commit: "a9107bae28521adcb2710f15e3fdb58a10979a45"
+source_commit_timestamp: "2026-11-02T10:41:11-05:00"
 source_worktree_state: "clean"
 generated: true
 generated_at: "2026-11-02"
@@ -50,23 +50,25 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/teacher/notes.py](../../../../../../src/learnloop/teacher/notes.py) |
-| Source lines | 85 |
+| Source lines | 119 |
 | Owning package | [[Reference/Modules/learnloop/teacher/_package|learnloop.teacher]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `6975ac1949e79b05a13f0cf392d617aa1d91fc25` |
-| Commit timestamp | `2026-11-02T03:56:28-05:00` |
+| Source commit | `a9107bae28521adcb2710f15e3fdb58a10979a45` |
+| Commit timestamp | `2026-11-02T10:41:11-05:00` |
 
 ## Public API
 
 - `your_notes(vault: Any, repository: Any, learning_object_ids: Sequence[str]) -> dict[str, list[dict[str, Any]]]` ([source](../../../../../../src/learnloop/teacher/notes.py), line 25) — Per LO, headers of the learner's linked notes (title, heading, date, one line): their own voice (C4).
 - `read_note(vault: Any, repository: Any, state: Any, refs: list[str]) -> dict[str, Any]` ([source](../../../../../../src/learnloop/teacher/notes.py), line 52)
+- `notes_still_deliverable(vault: Any, repository: Any, note_refs: Sequence[str]) -> bool` ([source](../../../../../../src/learnloop/teacher/notes.py), line 85) — Whether every note a lesson was given (``n:<link id>``: a ``your_notes`` header or a ``read_note`` text) could still be given now, so an earlier lesson's recap may carry what it took from them (followups batch 5, Codex review F2; :func:`learnloop.teacher.brief.recap_admissible`…
 
 ### Explicit exports
 
 `__all__` declares:
 
+- `notes_still_deliverable`
 - `read_note`
 - `your_notes`
 
@@ -79,15 +81,16 @@ No private top-level function or class definition is declared in this file.
 > [!note] Static evidence boundary
 > “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
 
-- [[Reference/Modules/learnloop/teacher/actions|learnloop.teacher.actions]] — imports `read_note`; statically calls `read_note`
-- [[Reference/Modules/learnloop/teacher/service|learnloop.teacher.service]] — imports `your_notes`
+- [[Reference/Modules/learnloop/teacher/actions|learnloop.teacher.actions]] — imports `notes_still_deliverable`, `read_note`; statically calls `read_note`
+- [[Reference/Modules/learnloop/teacher/service|learnloop.teacher.service]] — imports `notes_still_deliverable`, `your_notes`
 
 ## Dependencies
 
 ### LearnLoop dependencies
 
-- [[Reference/Modules/learnloop/db/stores/learner_notes|learnloop.db.stores.learner_notes]] — imports `module`; calls `links`
+- [[Reference/Modules/learnloop/db/stores/learner_notes|learnloop.db.stores.learner_notes]] — imports `module`; calls `links`, `links_by_id`
 - [[Reference/Modules/learnloop/source_retrieval/note_links|learnloop.source_retrieval.note_links]] — imports `module`; calls `available`, `effective`, `enabled`
+- [[Reference/Modules/learnloop/source_retrieval/vault_notes|learnloop.source_retrieval.vault_notes]] — imports `module`; calls `anchor_sources`, `snapshot_protected_keys`, `split_key`
 - [[Reference/Modules/learnloop/teacher/brief|learnloop.teacher.brief]] — imports `STEM_CHARS`, `c4_active`; calls `c4_active`
 
 ### Platform and third-party dependencies
@@ -108,18 +111,10 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
-No test imports this module directly. These tests exercise a direct production consumer:
-
-- [tests/test_reader_rw5d_p4b_teacher_visuals.py](../../../../../../tests/test_reader_rw5d_p4b_teacher_visuals.py) — imports consumer [[Reference/Modules/learnloop/teacher/actions|learnloop.teacher.actions]]
-- [tests/teacher_fakes.py](../../../../../../tests/teacher_fakes.py) — imports consumer [[Reference/Modules/learnloop/teacher/service|learnloop.teacher.service]]
-- [tests/test_followups_batch5_lesson.py](../../../../../../tests/test_followups_batch5_lesson.py) — imports consumer [[Reference/Modules/learnloop/teacher/service|learnloop.teacher.service]]
-- [tests/test_followups_batch5_recap_protection.py](../../../../../../tests/test_followups_batch5_recap_protection.py) — imports consumer [[Reference/Modules/learnloop/teacher/service|learnloop.teacher.service]]
-- [tests/test_followups_nov2_figure_provenance.py](../../../../../../tests/test_followups_nov2_figure_provenance.py) — imports consumer [[Reference/Modules/learnloop/teacher/service|learnloop.teacher.service]]
-- [tests/test_teacher_te1_curriculum_c4.py](../../../../../../tests/test_teacher_te1_curriculum_c4.py) — imports consumer [[Reference/Modules/learnloop/teacher/service|learnloop.teacher.service]]
-- [tests/test_teacher_te1_lesson.py](../../../../../../tests/test_teacher_te1_lesson.py) — imports consumer [[Reference/Modules/learnloop/teacher/service|learnloop.teacher.service]]
-- [tests/test_teacher_te1_review_fixes.py](../../../../../../tests/test_teacher_te1_review_fixes.py) — imports consumer [[Reference/Modules/learnloop/teacher/service|learnloop.teacher.service]]
-- [tests/test_teacher_te1_successor.py](../../../../../../tests/test_teacher_te1_successor.py) — imports consumer [[Reference/Modules/learnloop/teacher/service|learnloop.teacher.service]]
-- [tests/test_teacher_te1_weight.py](../../../../../../tests/test_teacher_te1_weight.py) — imports consumer [[Reference/Modules/learnloop/teacher/service|learnloop.teacher.service]]
+- [tests/test_followups_batch5_recap_dependencies.py](../../../../../../tests/test_followups_batch5_recap_dependencies.py) — direct import
+  - `test_f2_a_recap_after_read_note_is_left_out_once_only_the_note_s_source_is_protected`
+  - `test_f2_the_note_dependency_outlives_a_later_link_change`
+  - `test_f2_without_the_notes_check_a_lesson_that_was_given_notes_fails_closed`
 
 ## Modification guidance
 
