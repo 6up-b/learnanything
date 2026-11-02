@@ -117,3 +117,74 @@ the table, plus the contract tests):
 * Round 4 F2's accepted residual (a retry inside one embedding batch is not re-gated) stands.
 * Parallel stages: `NL.effective` / `NL.effective_rows` now require `vault=` (F1);
   `LearnerText.bound_sources` is new (F2).
+
+## Re-review of round 5 (Codex job 20261102-012346-6YalUi)
+
+Verdict REOPENED: F1 reopened, F2 confirmed fixed, no new defects in the fix commits.
+
+| id | severity | title | verdict | commit | test / reason |
+|----|----------|-------|---------|--------|---------------|
+| F1 | High | Older snapshot anchors went unchecked (delivery checked only the newest anchor) | fixed | `f2aa9b0347` (+ references `1cb79ddb61`) | `tests/test_notes_c2b_review5.py::test_c2b_r5_rereview_f1_a_snapshot_from_an_older_anchor_is_withheld_once_that_anchor_is_protected`, `::test_c2b_r5_rereview_f1_a_notes_reading_refuses_a_snapshot_from_a_now_protected_older_anchor` (both failed before the fix) |
+| F2 | High | Complete provenance reaches downstream guards | confirmed fixed (round 5) | `b7ea2b2856` | no change |
+
+**F1 reproduced.** Steps: link a Reader note written beside Lay's eigenvector section, move it by hand
+onto ext_book s3 (unprotected; `manual_anchor` adds a newer anchor version and keeps the old one),
+then hold out `lay_eigen`. Before the fix, path lines, marks and Compare's band still delivered
+the stored snapshot, with the note's sentinel and Lay's header as its heading.
+`VN.protected_keys` returned `set()` because the newest anchor is unprotected. The gap reading's
+`note_text` also read the snapshot instead of raising `NoteWithheld`. (The downstream request guard
+already refused it, through F2's `bound_sources`.)
+
+**Fix.** A stored snapshot records no anchor of its own, and one snapshot row can be reused for
+identical content. So the code now checks every anchor version the annotation ever had, plus each
+section header, the same history that `anchor_sources` freezes for a gap reading. This is the
+conservative option the finding suggested.
+* `vault_notes.snapshot_protected_keys` (new, public) checks every anchor version.
+  `protected_keys` is unchanged: it judges the note as it reads now, so it stays right for current
+  text sent to embedding batches and to `NotesGuard`. Both share `_protected`. `_segments` and
+  `_anchors` replace the copied segment-reading loop, and `anchor_sources` uses `_segments` too.
+* `note_links.withhold_protected` uses `snapshot_protected_keys`. That covers every delivery
+  boundary through `effective_rows` (path lines, marks, Compare band and take text).
+* `note_gaps.note_text` calls `VN.beside_protected(..., every_anchor=True)`.
+  `beside_protected` gains the keyword-only `every_anchor=False`, so other callers keep their
+  current behaviour. One test's monkeypatch lambda in `test_notes_as_learner_text.py` now
+  forwards `**kw`.
+* Ledger rows are kept: delivery withholds them and nothing is deleted.
+
+Accepted effect: a note that was ever anchored beside material that is protected now is withheld
+from delivery and from gap reading, even after it moves elsewhere, because a snapshot cannot say
+which anchor it came from. The learner's own text is still listed in the Reader. No migration.
+
+Interfaces for parallel stages: `VN.snapshot_protected_keys` is new and
+`VN.beside_protected(..., every_anchor=)` gained a keyword. The `note_links` and `learner_notes`
+APIs are unchanged.
+
+### Gate (re-review)
+
+Every pytest ran inside `systemd-run --user --scope --quiet -p MemoryMax=5G -p MemorySwapMax=1G`,
+at `-n 6` at most, one run at a time, with `TMPDIR` in the stage scratch directory.
+
+* `uv sync --extra dev --extra mobile`, `uv pip install pypdfium2`: done.
+* `uv run lint-imports --no-cache`: **40 kept, 0 broken**.
+* New tests before the fix: both **failed** (sentinel and Lay header delivered; `NoteWithheld` not
+  raised). After the fix, `tests/test_notes_c2b_review5.py`: **6 passed**.
+* Targeted run 1 (15 files): `test_notes_c2b_review5.py`, `test_notes_as_learner_text.py`,
+  `test_notes_linked.py`, `test_notes_never_read.py`, `test_notes_vault_search.py`,
+  `test_curriculum_c2b_past_papers.py`, `test_missing_vocabulary_notes.py`,
+  `test_learner_text_gaps.py`, `test_curriculum_c3_exam_scoping.py`, `test_figures_switch_off.py`,
+  `test_reader_tutor_switch_off.py`, `test_reading_paths.py`, `test_annotations.py`,
+  `test_architecture.py`, `test_learner_notes_vault_origin_migration.py`: **244 passed, 0 failed**.
+* Targeted run 2 (13 files, text-gaps, provenance and contract tests):
+  `test_learner_text_gaps_composition.py`, `test_learner_text_gaps_flow.py`,
+  `test_learner_text_gaps_rereview.py`, `test_learner_text_gaps_review.py`,
+  `test_learner_text_source_widening.py`, `test_diagnosis_input_provenance.py`,
+  `test_diagnosis_input_provenance_landing.py`, `test_workbench_text_gaps.py`,
+  `test_desktop_rpc_contract.py`, `test_mobile_allowlist.py`, `test_table_roles.py`,
+  `test_tracked_fixture_databases.py`, `test_compare_sources_keep.py`: **574 passed, 0 failed,
+  2 xfailed**.
+* `db_generate_reference.py` then `db_validate_reference.py`, under `env -i` with an empty,
+  existing HOME, CODEX_HOME and LEARNLOOP_CONFIG_DIR: errors `[]`. The only content change is
+  the new test file in the source lists; the rest is commit stamps.
+* There was no migration, schema, DB/connection, config-key, frontend or `src-tauri` change, so no
+  durability tests, npm, vitest or cargo were needed.
+* No live or paid calls were made; every model is a fake. Spend: $0.
