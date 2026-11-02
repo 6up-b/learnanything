@@ -136,7 +136,7 @@ import json
 import logging
 import sqlite3
 import threading
-from collections.abc import Callable, Iterator, Mapping, Sequence
+from collections.abc import Callable, Collection, Iterator, Mapping, Sequence
 from contextlib import closing, contextmanager
 from contextvars import ContextVar
 from dataclasses import dataclass, field
@@ -3095,13 +3095,19 @@ def prefetch_pending(vault: Any, repository: Repository, extraction_id: str, *,
     return False
 
 
-def prefetch_plan_waits(vault: Any, repository: Repository, extraction_id: str) -> list[str]:
+def prefetch_plan_waits(vault: Any, repository: Repository, extraction_id: str | None,
+                        *, request_ids: Collection[str] | None = None) -> list[str]:
     """RW5d P5 (Codex re-review F17): this source's speculative prebuild rich jobs waiting for
     the plan, newest per input, whose retry is admissible now: figures ahead of need on, this
     machine on mains, and the passage not held out. They list no line (Codex review F10), so the
     Reader's read asks the plan again for them here, paced as every plan wait is
     (``rich.due_for_plan_retry``); the requeued job's own gate checks the rest before any
-    request. A newer job of the same input (a press, or a later prebuild) speaks for it."""
+    request. A newer job of the same input (a press, or a later prebuild) speaks for it.
+
+    Follow-ups batch 6 (D, P5 F17): ``extraction_id`` None reads every source (the prefetch
+    pass's own retries: its ``retry_plan_waits``), and
+    ``request_ids``, when given, keeps only the jobs of those figure requests (the pass passes
+    the requests of its decisions whose horizon is still open)."""
 
     from learnloop.figures.power import power_state, prefetch_switch
     from learnloop.figures.rich import _withheld
@@ -3113,13 +3119,15 @@ def prefetch_plan_waits(vault: Any, repository: Repository, extraction_id: str) 
     for job in RICH.rich_jobs(repository):
         payload = job.get("payload") or {}
         base = payload.get("base") or {}
-        if str(base.get("extraction_id") or "") != str(extraction_id):
+        if extraction_id is not None and str(base.get("extraction_id") or "") != str(extraction_id):
             continue
         key = str(payload.get("input_hash"))
         if key in seen:
             continue
         seen.add(key)
         if payload.get("build_mode") != "prefetch" or RICH.job_state(job)["state"] != RICH.WAITING_FOR_PLAN:
+            continue
+        if request_ids is not None and str(payload.get("request_id") or "") not in request_ids:
             continue
         if _withheld(vault, repository, base) is not None:
             continue

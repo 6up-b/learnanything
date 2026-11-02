@@ -203,6 +203,10 @@ class PrefetchEnv:
     #: ``(vault, repository, learning_object_id) -> [(extraction_id, span_id)]``: a topic's passages.
     passages: Callable[[Any, Repository, str], list[tuple[str, str]]] | None = None
     foreground_wait_seconds: float = FOREGROUND_WAIT_SECONDS
+    #: ``(rich job id) -> bool``: ask the plan again for a prebuild's rich job waiting for it,
+    #: paced by ``rich.due_for_plan_retry`` (True: requeued). The sidecar runtime's requeue;
+    #: None: the pass retries nothing (follow-ups batch 6 (D)).
+    retry_plan_wait: Callable[[str], bool] | None = None
 
     def now(self) -> datetime:
         return (self.clock or SystemClock()).now().astimezone(UTC)
@@ -246,6 +250,8 @@ class PassResult:
     closed: int = 0
     judge_calls: int = 0
     notes: list[str] = field(default_factory=list)
+    #: Prebuilds' rich jobs this pass asked the plan again for (follow-ups batch 6 (D)).
+    plan_wait_retries: list[str] = field(default_factory=list)
 
 
 def enabled(vault: Any) -> bool:
@@ -1450,6 +1456,49 @@ def _judge_admitted(env: PrefetchEnv) -> bool:
     return not rich_in_flight(env)
 
 
+def retry_plan_waits(env: PrefetchEnv, result: PassResult) -> None:
+    """Follow-ups batch 6 (D, P5 F17): ask the plan again for prebuilds' rich jobs left waiting
+    for it, from the pass itself, whether or not their source is open in the Reader.
+
+    A hidden rich-only prebuild that hit the plan's limit was retried only by the Reader's figure
+    reads of its source (``reader.figures``), and those end once the Reader stops polling: a
+    retry not yet due by then (``rich.due_for_plan_retry``'s interval) was lost. Each pass now
+    retries every such job (every source) under the background guards: called, before the pass's
+    own builds, only when the pass itself would build (on mains, the plan neither paused nor off
+    the author route), then
+    ``service.prefetch_plan_waits`` on the vault as configured now (the switch, the rich tiers,
+    mains, the passage not held out). Bounded: only jobs built for a decision whose horizon is
+    still open (a closed decision's prebuild is no longer ahead of need), at most
+    ``[figures.prefetch] max_daily_builds`` per pass, and paced by the same per-job interval the
+    Reader's retries use (one process-wide clock, so the two never double a request). The
+    requeued job's own gate checks everything again before any request."""
+
+    if env.retry_plan_wait is None or env.is_cancelled():
+        return
+    from learnloop.figures import service as FS
+
+    current = env.loaded_now()
+    if current is None or not enabled(current.vault):
+        return
+    with closing(connect(env.repository.sqlite_path, read_only=True)) as connection:
+        if not PL.has_tables(connection):
+            return
+        open_requests = {str(row["request_id"]) for row in PL.decisions(connection)
+                         if row.get("request_id") and not row.get("outcome")}
+    if not open_requests:
+        return
+    bound = max(0, int(current.vault.config.figures.prefetch.max_daily_builds))
+    waiting = FS.prefetch_plan_waits(current.vault, env.repository, None, request_ids=open_requests)
+    for job_id in waiting[:bound]:
+        if env.is_cancelled():
+            return
+        try:
+            if env.retry_plan_wait(job_id):
+                result.plan_wait_retries.append(job_id)
+        except Exception:  # noqa: BLE001 - the job keeps waiting; a later pass or read retries it
+            _LOG.warning("a prebuild's plan wait was not requeued", exc_info=True)
+
+
 def run_trigger(env: PrefetchEnv, trigger: Trigger) -> PassResult:
     """One pass for one trigger (module docstring). Never raises for a model or build failure."""
 
@@ -1486,6 +1535,9 @@ def run_trigger(env: PrefetchEnv, trigger: Trigger) -> PassResult:
             kept = filter_candidates(env, found, open_keys=open_keys)
             queue = decide_and_log(env, kept, on_mains=on_mains, plan_wait=plan_wait, result=result)
         if on_mains and plan_wait is None:
+            # Follow-ups batch 6 (D): jobs left waiting before this pass, asked first, so a build
+            # of this pass that meets the plan's limit is not asked again at once.
+            retry_plan_waits(env, result)
             run_builds(env, [*waiting, *queue], result)
     except FiguresChanged as exc:
         result.status = "stopped"
@@ -1519,6 +1571,7 @@ __all__ = [
     "planned_visual",
     "protected",
     "reserve_build",
+    "retry_plan_waits",
     "rich_in_flight",
     "started_today",
     "close_horizons",

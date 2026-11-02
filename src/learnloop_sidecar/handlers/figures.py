@@ -724,18 +724,26 @@ def reader_figures(ctx: SidecarContext, params: FiguresInput) -> dict[str, Any]:
 
 
 def _retry_plan_waits(ctx: SidecarContext, lines: list[dict[str, Any]]) -> None:
+    for line in lines:
+        job_id = line.get("rich_job_id") if line.get("state") == "waiting_for_plan" else None
+        if job_id:
+            retry_plan_wait(ctx, str(job_id))
+
+
+def retry_plan_wait(ctx: Any, job_id: str) -> bool:
+    """Requeue one rich job waiting for the plan, at most once per ``rich.PLAN_WAIT_RETRY_SECONDS``
+    per job in this process (the Reader's reads and the prefetch pass share the pacing); True when
+    requeued. Never raises: the job keeps waiting."""
+
     from learnloop.figures import rich as RICH
 
     jobs = getattr(ctx, "ingest_jobs", None)
-    if jobs is None or not hasattr(jobs, "retry_figure_rich"):
-        return
-    for line in lines:
-        job_id = line.get("rich_job_id") if line.get("state") == "waiting_for_plan" else None
-        if job_id and RICH.due_for_plan_retry(str(job_id)):
-            try:
-                jobs.retry_figure_rich(str(job_id), error_code=RICH.WAITING_FOR_PLAN)
-            except Exception:  # noqa: BLE001 - the line keeps saying it waits
-                pass
+    if jobs is None or not hasattr(jobs, "retry_figure_rich") or not RICH.due_for_plan_retry(job_id):
+        return False
+    try:
+        return bool(jobs.retry_figure_rich(job_id, error_code=RICH.WAITING_FOR_PLAN))
+    except Exception:  # noqa: BLE001 - the line keeps saying it waits
+        return False
 
 
 class RichCancelInput(ParamsModel):

@@ -86,7 +86,7 @@ def environment(ctx: Any, epoch: int | None) -> Any:
     """The pass's environment from the context as loaded now (None: no vault, or switched off)."""
 
     from learnloop.figures import prefetch as PF
-    from learnloop_sidecar.handlers.figures import _rich_spawner
+    from learnloop_sidecar.handlers.figures import _rich_spawner, retry_plan_wait
 
     vault, repository = getattr(ctx, "vault", None), getattr(ctx, "repository", None)
     if vault is None or repository is None or not PF.enabled(vault):
@@ -104,7 +104,10 @@ def environment(ctx: Any, epoch: int | None) -> Any:
         author_client=getattr(ctx, "figure_author_client", None), spawn_rich=spawn,
         find=getattr(ctx, "figure_find_sources", None), live_vault=ctx.loaded_vault,
         rng=getattr(ctx, "figure_prefetch_rng", None), pause_reader=getattr(ctx, "figure_prefetch_pause_reader", None),
-        cancelled=cancelled, passages=getattr(ctx, "figure_prefetch_passages", None))
+        cancelled=cancelled, passages=getattr(ctx, "figure_prefetch_passages", None),
+        # Follow-ups batch 6 (D, P5 F17): the pass asks the plan again for prebuilds' rich jobs
+        # left waiting for it, paced as the Reader's reads do, whether or not the Reader polls.
+        retry_plan_wait=lambda job_id: retry_plan_wait(ctx, job_id))
 
 
 def _runtime(ctx: Any) -> PrefetchRuntime:
