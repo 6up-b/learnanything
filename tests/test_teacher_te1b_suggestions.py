@@ -19,6 +19,7 @@ from learnloop.algorithm_versions import (
     LESSON_SUGGESTIONS_ALGORITHM_VERSION,
     LESSON_SUGGESTIONS_VERSIONS,
     SUCCESSOR_CHAIN,
+    HELP_FOLD_ATTACH_ALGORITHM_VERSION,
     TEACHER_ALGORITHM_VERSION,
 )
 from learnloop.attempts.attempts import AttemptDraft, SelfGradeInput, complete_self_graded_attempt
@@ -33,6 +34,8 @@ from tests.helpers import set_algorithm_version
 from tests.teacher_fakes import TeacherFake, _item, build_teacher_vault, clients, plan_turn
 
 TAG = LESSON_SUGGESTIONS_ALGORITHM_VERSION
+#: The immediate predecessor: follow-ups Nov 2's mvp-0.42 (landed first; ruling R4 at TE1b's landing).
+PREDECESSOR_TAG = HELP_FOLD_ATTACH_ALGORITHM_VERSION
 T0 = datetime(2026, 11, 2, 9, 0, tzinfo=UTC)
 
 
@@ -414,7 +417,7 @@ def _dump(repository) -> dict[str, list[tuple]]:
 def test_off_or_below_the_tag_nothing_is_drawn_or_written(tmp_path, shown, setting):
     from tests.ux_phase1_support import set_config
 
-    paths, repository = _vault(tmp_path, version=TEACHER_ALGORITHM_VERSION if setting == "below_tag" else TAG)
+    paths, repository = _vault(tmp_path, version=PREDECESSOR_TAG if setting == "below_tag" else TAG)
     if setting == "switch_off":
         set_config(paths.root, {("router", "lesson_suggestions", "enabled"): False})
     elif setting == "router_off":
@@ -438,7 +441,7 @@ def test_with_the_switch_off_the_desktop_config_is_byte_identical(tmp_path):
     on_paths, _ = _vault(tmp_path, name="on")
     off_paths, _ = _vault(tmp_path, name="off")
     set_config(off_paths.root, {("router", "lesson_suggestions", "enabled"): False})
-    below_paths, _ = _vault(tmp_path, version=TEACHER_ALGORITHM_VERSION, name="below")
+    below_paths, _ = _vault(tmp_path, version=PREDECESSOR_TAG, name="below")
     on, off, below = (config_dto(load_vault(p.root)) for p in (on_paths, off_paths, below_paths))
     assert on["teacher"] == {"lessons": True, "suggestions": True}
     assert off["teacher"] == below["teacher"] == {"lessons": True}
@@ -446,30 +449,35 @@ def test_with_the_switch_off_the_desktop_config_is_byte_identical(tmp_path):
 
 def test_todays_plan_is_byte_identical_with_a_suggestion_drawn(tmp_path, shown):
     """The card is its own RPC: drawing the day's suggestion (a router decision row) changes nothing the
-    plan shows; the plan read at TE1's tag and at TE1b's is the same but for the version label."""
+    plan shows; the plan read at the predecessor's tag and at TE1b's is the same but for the version label."""
 
     from learnloop.daily_plan.engine import PlanEnv
     from learnloop_sidecar.handlers.daily_plan import _current_view
 
-    paths, repository = _vault(tmp_path, version=TEACHER_ALGORITHM_VERSION)
+    paths, repository = _vault(tmp_path, version=PREDECESSOR_TAG)
     clock = _clock()
     before = _current_view(PlanEnv(load_vault(paths.root), repository, clock=clock))
     set_algorithm_version(paths, TAG)
     assert SG.today_suggestion(load_vault(paths.root), repository, clock=clock) is not None
     after = _current_view(PlanEnv(load_vault(paths.root), repository, clock=clock))
-    dumped = json.dumps(after, sort_keys=True).replace(TAG, TEACHER_ALGORITHM_VERSION)
+    dumped = json.dumps(after, sort_keys=True).replace(TAG, PREDECESSOR_TAG)
     assert dumped == json.dumps(before, sort_keys=True)
 
 
-def test_the_successor_is_the_latest_link_after_teacher_te1():
-    assert SUCCESSOR_CHAIN[-2:] == (TEACHER_ALGORITHM_VERSION, TAG) and LATEST_ALGORITHM_VERSION == TAG
+def test_the_successor_is_the_latest_link_after_followups_nov2():
+    assert SUCCESSOR_CHAIN[-3:] == (TEACHER_ALGORITHM_VERSION, PREDECESSOR_TAG, TAG) == ("mvp-0.41", "mvp-0.42", "mvp-0.43")
+    assert LATEST_ALGORITHM_VERSION == TAG
     assert LESSON_SUGGESTIONS_VERSIONS == frozenset({TAG})
 
 
 def test_the_upgrade_from_teacher_te1_and_its_refusals(tmp_path):
     from learnloop.lesson_suggestions_upgrade import PREDECESSOR, upgrade_to_lesson_suggestions
 
-    assert PREDECESSOR == TEACHER_ALGORITHM_VERSION
+    assert PREDECESSOR == PREDECESSOR_TAG
+    # From the immediate predecessor, and from teacher TE1's tag through it (the chain).
+    direct, _ = build_teacher_vault(tmp_path / "direct", version=PREDECESSOR_TAG, reserved=False)
+    result = upgrade_to_lesson_suggestions(direct.root)
+    assert result.upgraded and result.from_version == PREDECESSOR_TAG and result.to_version == TAG
     paths, _repository = build_teacher_vault(tmp_path / "vault", reserved=False)
     result = upgrade_to_lesson_suggestions(paths.root)
     assert result.upgraded and result.from_version == TEACHER_ALGORITHM_VERSION and result.to_version == TAG
@@ -501,9 +509,10 @@ def test_every_defaults_snapshot_drops_to_te1s_value_without_the_suggestion_keys
     from learnloop.config.template import DEFAULTS_SNAPSHOT_BY_ALGORITHM, default_config_text, \
         defaults_fingerprint_for_version
 
-    # main's values at de9a03763d (RW5d P4b's landing, after teacher TE1), frozen here.
-    mains = {"mvp-0.9": "59eb2182bd3fb5d71b0a5f944d02dbc5b06031d5d1b65a11298e7ca71123a111",
-             "mvp-0.41": "141b834b2df1b9230ad783155022900da01f7a52122f91249ca8671d68400b6c"}
+    # main's values at f9bc4254b3 (follow-ups Nov 2's landing), frozen here.
+    mains = {"mvp-0.9": "daf9970ef448c318aa457a8b08b878c51062f2c468fd23ab52e922f57d442401",
+             "mvp-0.41": "bbf65e7656841b5190a519004dc9242617b22a1eff471382c28e03fda0da6567",
+             "mvp-0.42": "f4d3a0772f4abebe1177f59b74929e625cdddcee24f39ab1ace2fb7d85ce9825"}
     for version, fingerprint in DEFAULTS_SNAPSHOT_BY_ALGORITHM.items():
         assert fingerprint == defaults_fingerprint_for_version(version)
     for version, main in mains.items():

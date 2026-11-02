@@ -3,8 +3,8 @@ title: "router_suggestion_responses"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "6e6bd6afe66bdfe4b5aa19c8e19cb4e05d849b2d"
-source_commit_timestamp: "2026-11-02T08:47:44-05:00"
+source_commit: "7d4e37644a68cd4e5e52c05eb0fd518ce5bfb42e"
+source_commit_timestamp: "2026-11-02T09:24:19-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite router_suggestion_responses"
@@ -40,7 +40,7 @@ tags:
 
 ## Why it exists
 
-Appends the learner's one response to a shown lesson suggestion (teacher TE1b, spec_teacher_v1 §15.1): accepted (Start), chose_alternative (one of the card's alternatives), declined ("Not now") or ignored (unanswered by the end of its day), the candidate and its learning objects, and the lesson id a Start opened under. The acceptance model and the decline recovery replay it on every read (no derived table). It supplies replay-stable input rather than a disposable cache. Rows bind `decision_id`, `lesson_id`, `session_id`, making the operational relationship explicit. ^table-purpose
+Appends the learner's one response to a shown lesson suggestion (teacher TE1b, spec_teacher_v1 §15.1): accepted (Start), chose_alternative (one of the card's alternatives), declined ("Not now") or ignored (unanswered by the end of its day), the candidate and its learning objects, and the lesson id a Start reserved; and at most one release of a Start whose lesson never opened (released: "Not now" on the pending card; expired: it can no longer open on the current vault; landing ruling R2), nothing deleted. The acceptance model and the decline recovery replay it on every read (no derived table). It supplies replay-stable input rather than a disposable cache. Rows bind `decision_id`, `lesson_id`, `session_id`, making the operational relationship explicit. ^table-purpose
 
 It belongs to the **scheduling** navigation family. The family context lives in [[Database Catalog#Scheduling]]. Its persistence behavior follows [[Table Roles#Raw Ledger]].
 

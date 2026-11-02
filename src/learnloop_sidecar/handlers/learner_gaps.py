@@ -68,6 +68,9 @@ def gap_view(vault: Any, gap: dict[str, Any], reversals: list[str]) -> dict[str,
         label = label.replace(" (link added from your question)", " (link undone)")
     elif "not_this_belief" in reversals:
         label = "Noted: not what you meant"
+    elif "unlinked" in reversals:
+        # Follow-ups Nov 2 (C5 ruling R2): read from a note the learner no longer links.
+        label = "Set aside: the note it came from is no longer linked"
     return {
         "gap_id": gap["id"],
         "kind": gap["kind"],

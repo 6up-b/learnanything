@@ -3,8 +3,8 @@ title: "learner_text_gap_reversals"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "6e6bd6afe66bdfe4b5aa19c8e19cb4e05d849b2d"
-source_commit_timestamp: "2026-11-02T08:47:44-05:00"
+source_commit: "7d4e37644a68cd4e5e52c05eb0fd518ce5bfb42e"
+source_commit_timestamp: "2026-11-02T09:24:19-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite learner_text_gap_reversals"
@@ -52,7 +52,7 @@ It belongs to the **learner state** navigation family. The family context lives 
 - **Role:** `raw_ledger` — Authoritative replay input or mixed authoritative state. The rebuild umbrella preserves it.
 - **Functionality status:** `active`.
 - **Introduced by:** `migrations/182_learner_text_gaps.sql`.
-- **Schema touched by:** `182_learner_text_gaps.sql`, `208_learner_text_source_kinds.sql`, `212_hint_feedback_source_kind.sql`, `231_learner_note_source_kind.sql`.
+- **Schema touched by:** `182_learner_text_gaps.sql`, `208_learner_text_source_kinds.sql`, `212_hint_feedback_source_kind.sql`, `231_learner_note_source_kind.sql`, `235_learner_gap_unlinked_reversal.sql`.
 - **Rebuild owner:** none; this table is preserved by the rebuild umbrella.
 
 For the distinction between SQLite state and human-authored vault files, see [[State and Persistence]]. For whole-vault creation and opening behavior, see [[Vault Lifecycle]]. ^table-lifecycle
@@ -112,8 +112,13 @@ None found by exact static reference scan.
 ## Tests that define behavior
 
 - `tests/mcp_world.py`
+- `tests/test_followups_nov2_note_gap_unlinked.py`
+- `tests/test_help_assist_figures_migration.py`
+- `tests/test_help_assist_work_md_migration.py`
 - `tests/test_hint_feedback_widening.py`
+- `tests/test_learner_gap_unlinked_migration.py`
 - `tests/test_learner_note_source_kind_migration.py`
+- `tests/test_learner_notes_vault_origin_migration.py`
 - `tests/test_learner_text_source_widening.py`
 - `tests/test_mvp016_upgrade.py`
 - `tests/test_router_reader_activity.py`
@@ -133,10 +138,10 @@ Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when c
 > It captures CHECK constraints and defaults that a column summary can hide. The migration files remain authoritative.
 
 ```sql
-CREATE TABLE learner_text_gap_reversals (
+CREATE TABLE "learner_text_gap_reversals" (
   id TEXT PRIMARY KEY,
   gap_id TEXT NOT NULL REFERENCES learner_text_gaps(id),
-  reversal TEXT NOT NULL CHECK (reversal IN ('undo_edge', 'undo_creation', 'not_this_belief')),
+  reversal TEXT NOT NULL CHECK (reversal IN ('undo_edge', 'undo_creation', 'not_this_belief', 'unlinked')),
   actor TEXT NOT NULL CHECK (actor IN ('learner', 'owner')),
   detail_json TEXT NOT NULL DEFAULT '{}',
   created_at TEXT NOT NULL,

@@ -114,16 +114,16 @@ def test_236_on_the_durability_lane(tmp_path):
 
 
 def test_236_keeps_every_router_decision_row(tmp_path):
-    """Every migration through 234, a recorded decision and a payload naming it, then 236: the rebuild keeps
+    """Every migration through 235, a recorded decision and a payload naming it, then 236: the rebuild keeps
     the row, its id and its reference, and the foreign keys still resolve."""
 
     from learnloop.db.migrate import discover_migrations as discover
 
     every = discover()
-    before = tmp_path / "through_234"
+    before = tmp_path / "through_235"
     before.mkdir()
     for migration in every:
-        if migration.version <= 234:
+        if migration.version <= 235:
             (before / migration.path.name).write_text(migration.path.read_text(encoding="utf-8"), encoding="utf-8")
     database = tmp_path / "state.sqlite"
     with upgrade_allowance(UPGRADE_TEST_HELPER):

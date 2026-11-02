@@ -106,7 +106,7 @@ ROLE_OUTCOMES: dict[TableRole, str] = {
 
 
 PURPOSE_OVERRIDES: dict[str, str] = {
-    "router_suggestion_responses": "Appends the learner's one response to a shown lesson suggestion (teacher TE1b, spec_teacher_v1 §15.1): accepted (Start), chose_alternative (one of the card's alternatives), declined (\"Not now\") or ignored (unanswered by the end of its day), the candidate and its learning objects, and the lesson id a Start opened under. The acceptance model and the decline recovery replay it on every read (no derived table).",
+    "router_suggestion_responses": "Appends the learner's one response to a shown lesson suggestion (teacher TE1b, spec_teacher_v1 §15.1): accepted (Start), chose_alternative (one of the card's alternatives), declined (\"Not now\") or ignored (unanswered by the end of its day), the candidate and its learning objects, and the lesson id a Start reserved; and at most one release of a Start whose lesson never opened (released: \"Not now\" on the pending card; expired: it can no longer open on the current vault; landing ruling R2), nothing deleted. The acceptance model and the decline recovery replay it on every read (no derived table).",
     "interactive_figures": "Keeps each explorable figure version the Reader built (reader workbench RW5a): the declarative figure spec the figure author wrote (never code), what was asked for (the selection, a region of a figure and the block whose crop was sent), how it verified (verified, illustrative, failed or unsupported, with the report) and the reuse key (`input_hash`); a \"not right?\" version supersedes an earlier one, which is kept. Paid output: never re-run on rebuild, and nothing that grades, schedules or projects reads it.",
     "figure_predictions": "Records a learner's prediction on an explorable figure (reader workbench RW5a): the answer, the observed readout before and after the prediction's change, whether it matched (decided by code) and the optional \"what changed?\" line. Formative only: never an attempt or an evidence observation; a missed one is read by learner-text gaps as a `reader_formative` text and listed by \"Last time here\". Append-only by trigger, its one update setting `explanation_text` once.",
     "source_block_fts": "Indexes source block text for FTS5 BM25 keyword search (Slice 2 T6: library search, tutor spans, Quick Add scope); triggers keep it in step with `source_document_blocks` and its one replayer rebuilds it, so it never holds anything the block ledger does not. Hazard: rows are keyed by the blocks' implicit rowid (the block table has a composite key), so a migration that rebuilds `source_document_blocks` must recreate the triggers and rerun the replayer (`learnloop rebuild-derived-state`); deletes also match the block's identity as well as its rowid (migration 177), and `learnloop doctor` reports stale or missing rows.",
@@ -1384,6 +1384,15 @@ CONFIG_FUNCTION_OVERRIDES: dict[str, str] = {
         "assisted retry is left to the next serve's withdrawal, exactly as mvp-0.37. Dormant below the "
         "successor; replay never reads it (replay schedules nothing)."
     ),
+    "hints.fold_follows_attach": (
+        "Kill switch for follow-ups Nov 2's successor (mvp-0.42; learnloop.help_fold_attach_upgrade; Codex "
+        "review F1 of docs/reviews/followups-nov2.md). On, a keyed submit's fold counts the key's shown "
+        "server hint rows in any practice session (H0's attach rule) and the attempt takes the rows it counted "
+        "in its own write transaction, so a hint shown before the session rolled over raises hints_used "
+        "(levels 1-3) or primes (levels 4-5) the attempt it attaches to. Off, the fold reads the submit's own "
+        "session only and H0's attach takes the key's rows after the commit, exactly as mvp-0.41. Dormant "
+        "below the successor; replay never reads it (replay never folds)."
+    ),
     "teacher.enabled": (
         "Kill switch for teacher TE1's successor (mvp-0.41; learnloop.teacher_upgrade; spec_teacher_v1 §18.3). "
         "On, a lesson the learner starts may open (lesson.turn); its checks enter mastery at the learned mass "
@@ -1396,7 +1405,7 @@ CONFIG_FUNCTION_OVERRIDES: dict[str, str] = {
         "at most one instruct(lesson) suggestion a day with an exact logged propensity (a lesson_suggestion router "
         "decision, shown or not); Start opens a TE1 lesson whose origin is that decision and every response is a "
         "router_suggestion_responses row. Off, or below the tag, nothing is drawn or written and Today and the plan "
-        "are mvp-0.41's byte for byte."
+        "are mvp-0.42's byte for byte."
     ),
     "router.lesson_suggestions.ceiling_per_day": (
         "keep: the anti-nagging ceiling on shown lesson suggestions a day (spec_teacher_v1 §18.4); never learned; a "

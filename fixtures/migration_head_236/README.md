@@ -37,27 +37,59 @@ at S0's checkpoint (D6). Rebuilding the head for a new migration keeps the
 sanitized content: apply the migration to a backup-API copy of this fixture,
 as before.
 
-## Teacher TE1b (migration 236), branch `teacher/te1b-router-suggestions`, 2026-11-02
+## Teacher TE1b (migration 236), landing of `teacher/te1b-router-suggestions`, 2026-11-02
 
-Renamed from `migration_head_234` (`docs/reviews/teacher-te1b-router-suggestions.md`;
-followups-nov2's 235 lands first on main, so 236 is renumbered at landing if
-needed). Rebuilt from main's tracked, sanitized `migration_head_234/state.sqlite`
-(main `1a33bb5db3`): a backup-API copy under `fixtures-local/` with only
+Renamed from `migration_head_235` at TE1b's landing onto main
+(`docs/reviews/teacher-te1b-router-suggestions.md`, "Landing onto main"). The
+branch numbered its migration 236 from the start (follow-ups Nov 2's 235 landed
+first), so 236 keeps its number and the branch's own rebuilds are replaced.
+Rebuilt from main's tracked, sanitized `migration_head_235/state.sqlite` (main
+`f9bc4254b3`): a backup-API copy under `fixtures-local/` with only
 `236_router_lesson_suggestions.sql` applied through
 `learnloop.db.migrate.apply_migrations` under the scratch-copy allowance
 (`UPGRADE_SCRATCH_COPY`), then `wal_checkpoint(TRUNCATE)` (0, 0, 0),
 `journal_mode=DELETE` (header bytes 1/1), `integrity_check` ok and
 `foreign_key_check` empty, and copied into place with the backup API, with no
-companion files. The head holds 229 through 234 and 236 (no 235 on this branch).
+companion files. The head holds 229 through 236.
 
 * 236 adds exactly its objects: `router_suggestion_responses` (RAW_LEDGER, no
   row), its primary-key autoindex, its index, its two partial UNIQUE indexes
   (one learner response and at most one reservation release per decision;
-  landing ruling R2, rebuilt at the landing from the same main head) and
-  append-only triggers; and rebuilds
-  `router_decisions` (its `decision_kind` CHECK gains `lesson_suggestion`;
-  every row and id kept, the same indexes and triggers, no row in this
-  fixture).
+  landing ruling R2) and append-only triggers; and rebuilds `router_decisions`
+  (its `decision_kind` CHECK gains `lesson_suggestion`; every row and id kept,
+  the same indexes and triggers, no row in this fixture).
+
+Against main's 235 head only those definitions changed and only
+`schema_migrations` gained a row (236); every other table's rows are
+identical, so the sanitized content carries over (every companion file is
+byte-identical to main's).
+
+## Follow-ups Nov 2 (migration 235), landing of `fix/followups-nov2`, 2026-11-02
+
+Renamed from `migration_head_234` at the follow-ups' landing onto main
+(`docs/reviews/followups-nov2.md`, "Landing onto main"). The branch built 235
+on main's 231 head (`67c05ed37c`); RW5d P3's 232, curriculum C2b's 233 and
+teacher TE1's 234 landed first, so 235 keeps its number and the branch's own
+rebuilds are replaced. Rebuilt from main's tracked, sanitized
+`migration_head_234/state.sqlite` (main `1a33bb5db3`): a backup-API copy under
+`fixtures-local/` with only `235_learner_gap_unlinked_reversal.sql` applied
+through `learnloop.db.migrate.apply_migrations` under the scratch-copy
+allowance (`UPGRADE_SCRATCH_COPY`), then `wal_checkpoint(TRUNCATE)` (0, 0, 0),
+`journal_mode=DELETE` (header bytes 1/1), `integrity_check` ok and
+`foreign_key_check` empty, and copied into place with the backup API, with no
+companion files. The head holds 229 through 235.
+
+* 235 adds no object: it rebuilds `learner_text_gap_reversals` in place
+  (temp-then-rename under `PRAGMA foreign_keys = OFF`, the FK-safe precedent of
+  208, 212 and 231), whose `reversal` CHECK gains `unlinked` (C5 ruling R2: a
+  gap read from a note that is no longer linked is set aside); the same
+  columns, key, foreign key and append-only triggers, every row and id kept
+  (this fixture holds no reversal).
+
+Against main's 234 head only that definition changed and only
+`schema_migrations` gained a row (235); every other table's rows are
+identical, so the sanitized content carries over (every companion file is
+byte-identical to main's).
 
 ## Teacher TE1 (migration 234), branch `teacher/te1-first-lesson`, 2026-11-02
 

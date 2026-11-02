@@ -1837,7 +1837,16 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # lesson). Content and display only, never evidence (no successor; inert below mvp-0.41, where no
     # lesson can open); every snapshot moves only because the effective config gains the key; all of
     # them were recomputed from the composed defaults (defaults_fingerprint_for_version).
-    "mvp-0.9": "68557f06ad8c73a216a09af5f6f0d2ddef08e69e4bf7a170ee54a5b7994e6e26",
+    # Follow-ups Nov 2's successor (the keyed help fold counts exactly the
+    # help rows that attach; docs/reviews/followups-nov2.md and its Codex
+    # review F1) adds [hints] fold_follows_attach (true; a modelled default,
+    # left out of the decision-only template): the kill switch of its
+    # successor. It acts only at that tag and later; at every earlier version
+    # the key is present and inert. Every snapshot moves only because the
+    # effective config gains the key; all of them were recomputed from the
+    # composed defaults (defaults_fingerprint_for_version), and dropping the
+    # key reproduces every earlier value.
+    "mvp-0.9": "400ee91eea730e408930833806dab62aafb0752c01e1a15199f4e1cf4f17c631",
     # mvp-0.10 (Slice 1 M2): the same effective defaults with the split live:
     # blind grading, the asynchronous diagnoser (history_mode = "full", O16),
     # the diagnosis card and PF-c grading support. Reached by
@@ -1930,7 +1939,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Curriculum C2b's [notes] (the tend adapter's table removed) moves it too (see mvp-0.9; display and learner-voice records, no successor).
     # Teacher TE1's [teacher] keys and ai.routing.teacher move it too (see mvp-0.9; inert below mvp-0.41).
     # Reader RW5d P4b's [teacher] visuals moves it too (see mvp-0.9; content and display, no successor).
-    "mvp-0.10": "8dde83b4185649be326e9b48caf79d7f364b7d52f98af0a3979c4a5f22324a44",
+    # Follow-ups Nov 2's [hints] fold_follows_attach moves it too (see mvp-0.9; inert below mvp-0.42).
+    "mvp-0.10": "225d0dbeddba100b81510d0a49ec53065e5ab46a45d7de24fad8f2e9887bea87",
     # mvp-0.11 (Slice A Phase 6, learner field F2): mvp-0.10's split plus
     # placement (the [placement] section, modelled defaults only, left out of
     # the decision-only template): no opening probes, assumed-known checked in
@@ -2031,7 +2041,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Curriculum C2b's [notes] (the tend adapter's table removed) moves it too (see mvp-0.9; display and learner-voice records, no successor).
     # Teacher TE1's [teacher] keys and ai.routing.teacher move it too (see mvp-0.9; inert below mvp-0.41).
     # Reader RW5d P4b's [teacher] visuals moves it too (see mvp-0.9; content and display, no successor).
-    "mvp-0.11": "175b52707c4a86b371e4a2769f57f1a980ab13d23b74e5f72d025bac9426e168",
+    # Follow-ups Nov 2's [hints] fold_follows_attach moves it too (see mvp-0.9; inert below mvp-0.42).
+    "mvp-0.11": "d2b14962694a19f452a6d131c4c216320c4d8370f0dddbd7a6e528cae8f94cd7",
     # mvp-0.12 (Slice 2 T1 / M3): mvp-0.11's split and placement plus
     # recurrence groups live (recurrence.enabled, the live same-cause judge
     # with top_k 3 and no blocking cutoff until B3 sets one, the escalation
@@ -2126,7 +2137,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Curriculum C2b's [notes] (the tend adapter's table removed) moves it too (see mvp-0.9; display and learner-voice records, no successor).
     # Teacher TE1's [teacher] keys and ai.routing.teacher move it too (see mvp-0.9; inert below mvp-0.41).
     # Reader RW5d P4b's [teacher] visuals moves it too (see mvp-0.9; content and display, no successor).
-    "mvp-0.12": "fa14699d0b831720b967430a22ddad53143928869e4c8a417a4ef70c614f8523",
+    # Follow-ups Nov 2's [hints] fold_follows_attach moves it too (see mvp-0.9; inert below mvp-0.42).
+    "mvp-0.12": "1b4e2c223e356bf776c5b30f7ac18ae59634a4b94bcb304dc9dd89e9111fb2b0",
     # mvp-0.13 ("Write what you can" replaces "I don't know"): mvp-0.12's
     # split, placement and recurrence groups plus "I'm stuck" live
     # (stuck_prompt.enabled = true): a stuck answer with text is an ordinary
@@ -2216,7 +2228,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Curriculum C2b's [notes] (the tend adapter's table removed) moves it too (see mvp-0.9; display and learner-voice records, no successor).
     # Teacher TE1's [teacher] keys and ai.routing.teacher move it too (see mvp-0.9; inert below mvp-0.41).
     # Reader RW5d P4b's [teacher] visuals moves it too (see mvp-0.9; content and display, no successor).
-    "mvp-0.13": "346d09e967cb3ddd374ebf5d2b83708f061d869255e3d0a25efc9d1786e285fa",
+    # Follow-ups Nov 2's [hints] fold_follows_attach moves it too (see mvp-0.9; inert below mvp-0.42).
+    "mvp-0.13": "09077b04348307cc761a513a7da0da1e719777ec7eca5cc4fe8c3d5d472d7093",
     # mvp-0.14 (daily-loop DL1, daily_plan_v1): mvp-0.13's split, placement,
     # recurrence groups and stuck prompt plus the finite daily plan ([plan],
     # modelled defaults only): the system-set split, load-based new-material
@@ -2305,7 +2318,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Curriculum C2b's [notes] (the tend adapter's table removed) moves it too (see mvp-0.9; display and learner-voice records, no successor).
     # Teacher TE1's [teacher] keys and ai.routing.teacher move it too (see mvp-0.9; inert below mvp-0.41).
     # Reader RW5d P4b's [teacher] visuals moves it too (see mvp-0.9; content and display, no successor).
-    "mvp-0.14": "c483741f70635cdcc23e9b812729dc8d54c61b20ae1bed1f0fbfed87e340f4d4",
+    # Follow-ups Nov 2's [hints] fold_follows_attach moves it too (see mvp-0.9; inert below mvp-0.42).
+    "mvp-0.14": "89ba9626199b31e5975238a836394c2b0a6e0031dadfe1474132100c120a5583",
     # mvp-0.15 (router R1): mvp-0.14's split, placement, recurrence groups,
     # stuck prompt and plan plus probe near-ties (teach-back items included,
     # owner decision D11) admitted to the Today queue's seeded exploration
@@ -2392,7 +2406,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Curriculum C2b's [notes] (the tend adapter's table removed) moves it too (see mvp-0.9; display and learner-voice records, no successor).
     # Teacher TE1's [teacher] keys and ai.routing.teacher move it too (see mvp-0.9; inert below mvp-0.41).
     # Reader RW5d P4b's [teacher] visuals moves it too (see mvp-0.9; content and display, no successor).
-    "mvp-0.15": "b81b993fe7543a3335a53f01b20a2bcb4107f4d900127ae62a79b91c9bdc2c15",
+    # Follow-ups Nov 2's [hints] fold_follows_attach moves it too (see mvp-0.9; inert below mvp-0.42).
+    "mvp-0.15": "f75b6792a821dec2d943908aea4f57e228466e995278dc0e4e784d09b1cad113",
     # mvp-0.16 (learner-text gaps, implementation_handoffs §4): mvp-0.15's
     # split, placement, recurrence groups, stuck prompt, plan and probe ties
     # plus the sooner check: a matched prerequisite gap on an LO assumed known
@@ -2486,7 +2501,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Curriculum C2b's [notes] (the tend adapter's table removed) moves it too (see mvp-0.9; display and learner-voice records, no successor).
     # Teacher TE1's [teacher] keys and ai.routing.teacher move it too (see mvp-0.9; inert below mvp-0.41).
     # Reader RW5d P4b's [teacher] visuals moves it too (see mvp-0.9; content and display, no successor).
-    "mvp-0.16": "758dd132d888efeb84a052837bf1062bc6fa0b7005d0034ac96b812a290681a8",
+    # Follow-ups Nov 2's [hints] fold_follows_attach moves it too (see mvp-0.9; inert below mvp-0.42).
+    "mvp-0.16": "c66e69270f6583eb04ae1f8f5b2ce6195a14764c0d2c85f4d76812aaa57041a4",
     # mvp-0.17 (the proofs-and-explanations route check; built as mvp-0.15, a
     # placeholder tag, and relabelled at its merge): mvp-0.16's split,
     # placement, recurrence groups, stuck prompt, plan, probe ties and sooner
@@ -2576,7 +2592,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Curriculum C2b's [notes] (the tend adapter's table removed) moves it too (see mvp-0.9; display and learner-voice records, no successor).
     # Teacher TE1's [teacher] keys and ai.routing.teacher move it too (see mvp-0.9; inert below mvp-0.41).
     # Reader RW5d P4b's [teacher] visuals moves it too (see mvp-0.9; content and display, no successor).
-    "mvp-0.17": "66d3998aef6b046177958c5a8730dc06db014bb1e63b110cd9d40dfe8b244241",
+    # Follow-ups Nov 2's [hints] fold_follows_attach moves it too (see mvp-0.9; inert below mvp-0.42).
+    "mvp-0.17": "d563c1f19e61b8ef403cb1fc4e08860e11dfdc17be7e9c9f8d1ffae34287a041",
     # mvp-0.18 (canonical sources S1, the certification gate C3; built as
     # mvp-0.15, a placeholder tag, and relabelled at its merge): mvp-0.17
     # plus practice_attempts.reference_status. An attempt on an imported
@@ -2659,7 +2676,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Curriculum C2b's [notes] (the tend adapter's table removed) moves it too (see mvp-0.9; display and learner-voice records, no successor).
     # Teacher TE1's [teacher] keys and ai.routing.teacher move it too (see mvp-0.9; inert below mvp-0.41).
     # Reader RW5d P4b's [teacher] visuals moves it too (see mvp-0.9; content and display, no successor).
-    "mvp-0.18": "049ed248322372d21cda830793e9a1cacdf369b8c16de2d3ae92d75f4fdbf4f3",
+    # Follow-ups Nov 2's [hints] fold_follows_attach moves it too (see mvp-0.9; inert below mvp-0.42).
+    "mvp-0.18": "17b9757c346013e8ba57ad32d06201537f1b157f64db9396509c4f95ea7d7b89",
     # mvp-0.19 (canonical sources S2b; built as mvp-0.16, a placeholder tag,
     # and relabelled at its merge): mvp-0.18 plus source-first fulfilment of
     # intervention needs: the primed-retry handler and `learnloop
@@ -2742,7 +2760,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Curriculum C2b's [notes] (the tend adapter's table removed) moves it too (see mvp-0.9; display and learner-voice records, no successor).
     # Teacher TE1's [teacher] keys and ai.routing.teacher move it too (see mvp-0.9; inert below mvp-0.41).
     # Reader RW5d P4b's [teacher] visuals moves it too (see mvp-0.9; content and display, no successor).
-    "mvp-0.19": "19bcdb2c8eeb5d8b395220d3fde7fcf6b750b13647cde8bb189744cbd5229cb1",
+    # Follow-ups Nov 2's [hints] fold_follows_attach moves it too (see mvp-0.9; inert below mvp-0.42).
+    "mvp-0.19": "54251b79978ebcc1c025e0b771f04c31f70d8bfe6402495705cdd8fb7e24c4bf",
     # mvp-0.20 (route rules in the grader, route-check-in-grader; built as
     # mvp-0.18, a placeholder tag, and relabelled at its merge after the
     # sources track): mvp-0.19 plus the own-route rules in the blind grader's
@@ -2821,7 +2840,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Curriculum C2b's [notes] (the tend adapter's table removed) moves it too (see mvp-0.9; display and learner-voice records, no successor).
     # Teacher TE1's [teacher] keys and ai.routing.teacher move it too (see mvp-0.9; inert below mvp-0.41).
     # Reader RW5d P4b's [teacher] visuals moves it too (see mvp-0.9; content and display, no successor).
-    "mvp-0.20": "e229636c09b4be81b20aaaafef6e1ecc25d9f9ee7c007c4b0c81310699c06413",
+    # Follow-ups Nov 2's [hints] fold_follows_attach moves it too (see mvp-0.9; inert below mvp-0.42).
+    "mvp-0.20": "cc5de28f06f59260ea5c7f5666aace9cffadaca3b176776f1e552b18ed17ede0",
     # mvp-0.21 (value-of-information stopping, owner-directed 2026-10-12/13;
     # built as mvp-0.17, a placeholder tag, and relabelled at its merge after
     # the route rules): mvp-0.20 plus Part 1, four count caps lifted onto
@@ -2909,7 +2929,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Curriculum C2b's [notes] (the tend adapter's table removed) moves it too (see mvp-0.9; display and learner-voice records, no successor).
     # Teacher TE1's [teacher] keys and ai.routing.teacher move it too (see mvp-0.9; inert below mvp-0.41).
     # Reader RW5d P4b's [teacher] visuals moves it too (see mvp-0.9; content and display, no successor).
-    "mvp-0.21": "8cf405137a8c38eef97e02d4d3a66a88bb0b766da430232b40d167f192064a94",
+    # Follow-ups Nov 2's [hints] fold_follows_attach moves it too (see mvp-0.9; inert below mvp-0.42).
+    "mvp-0.21": "6edb64297378255c5e8829b5af015806f91b0775ab5417e3c6518933b8d12359",
     # mvp-0.22 (Tier 1, the Decider migration, owner decision 2026-10-13;
     # built as mvp-0.20, a placeholder tag, and relabelled at its merge after
     # the route rules and value-of-information stopping): mvp-0.21 plus the
@@ -2989,7 +3010,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Curriculum C2b's [notes] (the tend adapter's table removed) moves it too (see mvp-0.9; display and learner-voice records, no successor).
     # Teacher TE1's [teacher] keys and ai.routing.teacher move it too (see mvp-0.9; inert below mvp-0.41).
     # Reader RW5d P4b's [teacher] visuals moves it too (see mvp-0.9; content and display, no successor).
-    "mvp-0.22": "a6eba663ac0171e27b47252c77c76c14c072ab84a69ab1df07c50602a7de9215",
+    # Follow-ups Nov 2's [hints] fold_follows_attach moves it too (see mvp-0.9; inert below mvp-0.42).
+    "mvp-0.22": "9510bf9a1bd664037585244cfdab583bd8690dd7d83b9e176421a2bb9a210e53",
     # mvp-0.23 (router R2a, owner-directed 2026-10-13; a placeholder tag that
     # kept its label at its merge, nothing on main having taken it): mvp-0.22
     # plus Today composed by the staged frame (DL1's lanes and lane_quota_v1
@@ -3064,7 +3086,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Curriculum C2b's [notes] (the tend adapter's table removed) moves it too (see mvp-0.9; display and learner-voice records, no successor).
     # Teacher TE1's [teacher] keys and ai.routing.teacher move it too (see mvp-0.9; inert below mvp-0.41).
     # Reader RW5d P4b's [teacher] visuals moves it too (see mvp-0.9; content and display, no successor).
-    "mvp-0.23": "aa775b34d86073d66020ac87885e18edf49c31d830e915d46d6960fadf519cd6",
+    # Follow-ups Nov 2's [hints] fold_follows_attach moves it too (see mvp-0.9; inert below mvp-0.42).
+    "mvp-0.23": "f008a58e2b8d6e58314b83f43f48cc19931bd246ac32ac41d8a79bf68b7ab5b4",
     # mvp-0.24 (router R2b + R2c, owner decisions 2026-10-13; a placeholder
     # tag that kept its label at its merge, nothing on main having taken it):
     # mvp-0.23 plus Today's next block drawn from the logged model mixture
@@ -3136,7 +3159,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Curriculum C2b's [notes] (the tend adapter's table removed) moves it too (see mvp-0.9; display and learner-voice records, no successor).
     # Teacher TE1's [teacher] keys and ai.routing.teacher move it too (see mvp-0.9; inert below mvp-0.41).
     # Reader RW5d P4b's [teacher] visuals moves it too (see mvp-0.9; content and display, no successor).
-    "mvp-0.24": "007c7bcafb450c4e369968c7693d1e72fc4e49806702072a860afecc344c28d9",
+    # Follow-ups Nov 2's [hints] fold_follows_attach moves it too (see mvp-0.9; inert below mvp-0.42).
+    "mvp-0.24": "186e631437fc3456727ac461ea46e8e37ef4d369e3e118ca75bed677ee502efc",
     # mvp-0.25 (method-explicit items, owner rule 2026-10-13; built as
     # mvp-0.22-placeholder, a placeholder tag, and relabelled at its merge
     # after router R2b + R2c): mvp-0.24 plus required-method grading
@@ -3206,7 +3230,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Curriculum C2b's [notes] (the tend adapter's table removed) moves it too (see mvp-0.9; display and learner-voice records, no successor).
     # Teacher TE1's [teacher] keys and ai.routing.teacher move it too (see mvp-0.9; inert below mvp-0.41).
     # Reader RW5d P4b's [teacher] visuals moves it too (see mvp-0.9; content and display, no successor).
-    "mvp-0.25": "f2155c30720e91cdc4243b88c90731259d59202bf8f29695afda166f05d2270c",
+    # Follow-ups Nov 2's [hints] fold_follows_attach moves it too (see mvp-0.9; inert below mvp-0.42).
+    "mvp-0.25": "65cc2f74c7e3d65fe0484ebb0eafea302c12d311c005c4c84ae498cfc1b030c4",
     # mvp-0.26 (regrade contracts, queued 2026-10-16;
     # docs/reviews/regrade-contract-replay.md): mvp-0.25 plus every regrade
     # citing the assessment contract it graded against (a snapshot of the item
@@ -3275,7 +3300,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Curriculum C2b's [notes] (the tend adapter's table removed) moves it too (see mvp-0.9; display and learner-voice records, no successor).
     # Teacher TE1's [teacher] keys and ai.routing.teacher move it too (see mvp-0.9; inert below mvp-0.41).
     # Reader RW5d P4b's [teacher] visuals moves it too (see mvp-0.9; content and display, no successor).
-    "mvp-0.26": "2539043b1f11ad670eff6b9923090f78982c3b858d1ffc0f64b9cbae04d2c0ef",
+    # Follow-ups Nov 2's [hints] fold_follows_attach moves it too (see mvp-0.9; inert below mvp-0.42).
+    "mvp-0.26": "517b6c27b395a8cd113b530cd91c40a218b095e11fd04d4864443572d6c5d81a",
     # mvp-0.27 (one serve/administration eligibility decision, queued
     # 2026-10-16; docs/reviews/serve-eligibility-decision.md and its Codex
     # review F4): mvp-0.26 plus every serve path asking the decision submit
@@ -3344,7 +3370,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Curriculum C2b's [notes] (the tend adapter's table removed) moves it too (see mvp-0.9; display and learner-voice records, no successor).
     # Teacher TE1's [teacher] keys and ai.routing.teacher move it too (see mvp-0.9; inert below mvp-0.41).
     # Reader RW5d P4b's [teacher] visuals moves it too (see mvp-0.9; content and display, no successor).
-    "mvp-0.27": "fcb18739d358c9b21b240b0896cd3df47e2a4622dd2b7c8facca8d540a2ef72e",
+    # Follow-ups Nov 2's [hints] fold_follows_attach moves it too (see mvp-0.9; inert below mvp-0.42).
+    "mvp-0.27": "4e68961fb18cd7b13cbec483a3062b09170cd4b8420be07fe3d8b52e0192626b",
     # mvp-0.29 (daily-loop DL2, the learner's intent; docs/reviews/
     # daily-loop-dl2.md and its Codex re-review F2): the predecessor plus
     # serving by intent (an excluded item is never served, requested or
@@ -3402,7 +3429,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Curriculum C2b's [notes] (the tend adapter's table removed) moves it too (see mvp-0.9; display and learner-voice records, no successor).
     # Teacher TE1's [teacher] keys and ai.routing.teacher move it too (see mvp-0.9; inert below mvp-0.41).
     # Reader RW5d P4b's [teacher] visuals moves it too (see mvp-0.9; content and display, no successor).
-    "mvp-0.29": "3515edd497ca26af304364ebf5c738b1edf66750ecffc8824f31ec807bab321b",
+    # Follow-ups Nov 2's [hints] fold_follows_attach moves it too (see mvp-0.9; inert below mvp-0.42).
+    "mvp-0.29": "56017b05f0753a968d6e78c23a03535eb0a148ee0eec8f6bf965a95341466b22",
     # mvp-0.30 (adaptive difficulty AD2+AD3, owner 2026-10-18;
     # docs/reviews/adaptive-difficulty-ad23.md): mvp-0.29 plus AD's draw at a
     # planned new-material slot (practice in the 70-80% band, calibration within
@@ -3454,7 +3482,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Curriculum C2b's [notes] (the tend adapter's table removed) moves it too (see mvp-0.9; display and learner-voice records, no successor).
     # Teacher TE1's [teacher] keys and ai.routing.teacher move it too (see mvp-0.9; inert below mvp-0.41).
     # Reader RW5d P4b's [teacher] visuals moves it too (see mvp-0.9; content and display, no successor).
-    "mvp-0.30": "43412c883074ddc8e44a904651fa0bb1f9b0594434f8336bb561789b7d2c73f3",
+    # Follow-ups Nov 2's [hints] fold_follows_attach moves it too (see mvp-0.9; inert below mvp-0.42).
+    "mvp-0.30": "4d3d444a24b7137f8927869a6e9fc0e09335565955d1a843095daa5cc9aad72a",
     # mvp-0.31 (reader workbench RW2d, workbench signals in the learner
     # field; spec_reader_workbench_v1 §5.11, docs/reviews/
     # reader-workbench-RW2d.md; chained after adaptive difficulty AD2+AD3's
@@ -3500,7 +3529,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Curriculum C2b's [notes] (the tend adapter's table removed) moves it too (see mvp-0.9; display and learner-voice records, no successor).
     # Teacher TE1's [teacher] keys and ai.routing.teacher move it too (see mvp-0.9; inert below mvp-0.41).
     # Reader RW5d P4b's [teacher] visuals moves it too (see mvp-0.9; content and display, no successor).
-    "mvp-0.31": "5b1215ec14c65356f2d9f4f6e840a4c523cd0060171bf78a0b9a530c3b711d43",
+    # Follow-ups Nov 2's [hints] fold_follows_attach moves it too (see mvp-0.9; inert below mvp-0.42).
+    "mvp-0.31": "2421b573bf268e0b713412238017ffe98f45a406248ef11d5335a06989d20f97",
     # mvp-0.32 (reader workbench RW7b, the plan follows the reading path;
     # spec_reader_workbench_v1 §10.2, docs/reviews/reader-workbench-RW7b.md):
     # mvp-0.31 plus DL1's reading block opening the next unfinished core or
@@ -3543,7 +3573,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Curriculum C2b's [notes] (the tend adapter's table removed) moves it too (see mvp-0.9; display and learner-voice records, no successor).
     # Teacher TE1's [teacher] keys and ai.routing.teacher move it too (see mvp-0.9; inert below mvp-0.41).
     # Reader RW5d P4b's [teacher] visuals moves it too (see mvp-0.9; content and display, no successor).
-    "mvp-0.32": "69dc06b6c989a5341d09a117869d204d92e6adde562e7f611b10457737b83d64",
+    # Follow-ups Nov 2's [hints] fold_follows_attach moves it too (see mvp-0.9; inert below mvp-0.42).
+    "mvp-0.32": "e77044f7cb84e864c687b656ede2a86491470d8d09c596c958fdbbb36b34b43b",
     # mvp-0.33 (learned parameters LP-min (a), the four claim-defect fixes;
     # spec_learned_parameters_v1 §3.0b item 1, docs/reviews/lp-min-claim-fixes.md;
     # built beside reader workbench RW7b's successor as mvp-0.32, renumbered at
@@ -3584,7 +3615,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Curriculum C2b's [notes] (the tend adapter's table removed) moves it too (see mvp-0.9; display and learner-voice records, no successor).
     # Teacher TE1's [teacher] keys and ai.routing.teacher move it too (see mvp-0.9; inert below mvp-0.41).
     # Reader RW5d P4b's [teacher] visuals moves it too (see mvp-0.9; content and display, no successor).
-    "mvp-0.33": "437ceac618b8a540d7eaa5da9d09a74f1a7ad9872f55cc05112e2ee0af9ed903",
+    # Follow-ups Nov 2's [hints] fold_follows_attach moves it too (see mvp-0.9; inert below mvp-0.42).
+    "mvp-0.33": "48cc0a691ee0b1d3dbc42a833c41e2fdc5b3270242897a13bb6f78e1083de002",
     # mvp-0.34 (rebuild equivalence; docs/reviews/rebuild-equivalence-fix.md
     # and its Codex review F4; built on mvp-0.31 while RW7b and the LP claim
     # fixes took mvp-0.32 and mvp-0.33, and chained after them at its
@@ -3624,7 +3656,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Curriculum C2b's [notes] (the tend adapter's table removed) moves it too (see mvp-0.9; display and learner-voice records, no successor).
     # Teacher TE1's [teacher] keys and ai.routing.teacher move it too (see mvp-0.9; inert below mvp-0.41).
     # Reader RW5d P4b's [teacher] visuals moves it too (see mvp-0.9; content and display, no successor).
-    "mvp-0.34": "b865afa7be0d00da36584f27ef515ea89e770a79fbcd7b44437d820e49f55a17",
+    # Follow-ups Nov 2's [hints] fold_follows_attach moves it too (see mvp-0.9; inert below mvp-0.42).
+    "mvp-0.34": "96a97392545dd4fa861e7c9541c77e592ce7c2c267879c612638a5941aec78c8",
     # mvp-0.35 (Reader CA2, one Ask; docs/specs/ux_reader_compare_ask_v1.md
     # §7.7, K10, §15 Q3-Q4; docs/reviews/reader-ca2-one-ask.md; built on
     # mvp-0.32 as mvp-0.34 and renumbered after rebuild equivalence at the
@@ -3663,7 +3696,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Curriculum C2b's [notes] (the tend adapter's table removed) moves it too (see mvp-0.9; display and learner-voice records, no successor).
     # Teacher TE1's [teacher] keys and ai.routing.teacher move it too (see mvp-0.9; inert below mvp-0.41).
     # Reader RW5d P4b's [teacher] visuals moves it too (see mvp-0.9; content and display, no successor).
-    "mvp-0.35": "fc169fa55b3020f082114cbaa7e470efeecf4a735177335ed56f1b2c787bee03",
+    # Follow-ups Nov 2's [hints] fold_follows_attach moves it too (see mvp-0.9; inert below mvp-0.42).
+    "mvp-0.35": "72ffddc7df40efabd033c216314243451cac26012d6d90c15f8887e9a65a4588",
     # mvp-0.36 (replaced learner claims kept;
     # docs/reviews/lp-learner-report-superseded.md; the Medium recorded at
     # the rebuild-equivalence landing): mvp-0.35 plus the replace seam
@@ -3697,7 +3731,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Curriculum C2b's [notes] (the tend adapter's table removed) moves it too (see mvp-0.9; display and learner-voice records, no successor).
     # Teacher TE1's [teacher] keys and ai.routing.teacher move it too (see mvp-0.9; inert below mvp-0.41).
     # Reader RW5d P4b's [teacher] visuals moves it too (see mvp-0.9; content and display, no successor).
-    "mvp-0.36": "b618d6285071d9e8095773b6d6d431825bdac33f52956d347a536c14b73040c7",
+    # Follow-ups Nov 2's [hints] fold_follows_attach moves it too (see mvp-0.9; inert below mvp-0.42).
+    "mvp-0.36": "67575c2e6870b0ab909e560480dd600f00b8639f0af873aa402edfcbeb20baad",
     # mvp-0.37 (mobile PR-4: a live attempt writes only its item row's
     # scheduling columns; docs/specs/spec_mobile_tailnet_v1.md §3.3, §9.3;
     # docs/reviews/mobile-pr3-pr4.md and its Codex review F4; built on
@@ -3734,7 +3769,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Curriculum C2b's [notes] (the tend adapter's table removed) moves it too (see mvp-0.9; display and learner-voice records, no successor).
     # Teacher TE1's [teacher] keys and ai.routing.teacher move it too (see mvp-0.9; inert below mvp-0.41).
     # Reader RW5d P4b's [teacher] visuals moves it too (see mvp-0.9; content and display, no successor).
-    "mvp-0.37": "6daf0c1d4ca2d75673fa843af4df0dffbd9d188475fcf76e6a3b8019ef8313bd",
+    # Follow-ups Nov 2's [hints] fold_follows_attach moves it too (see mvp-0.9; inert below mvp-0.42).
+    "mvp-0.37": "aa90d3eca4149d0fc00711e30174bf9c17c1818488df89c1862b2ea4e8f9dad9",
     # mvp-0.38 (a fresh cold retry after help on a cold follow-up; owner
     # decision 2026-10-25, Reader CA2 follow-up Q4;
     # docs/reviews/cold-retry-after-assist.md): mvp-0.37 plus help taken on a
@@ -3768,7 +3804,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Curriculum C2b's [notes] (the tend adapter's table removed) moves it too (see mvp-0.9; display and learner-voice records, no successor).
     # Teacher TE1's [teacher] keys and ai.routing.teacher move it too (see mvp-0.9; inert below mvp-0.41).
     # Reader RW5d P4b's [teacher] visuals moves it too (see mvp-0.9; content and display, no successor).
-    "mvp-0.38": "e263a79fcd18ddc3f6238f68c9a581f2f0ed06af43470f181f4b47d3841b2ea2",
+    # Follow-ups Nov 2's [hints] fold_follows_attach moves it too (see mvp-0.9; inert below mvp-0.42).
+    "mvp-0.38": "c86f15befe29f5756972a0df7924b03631b8709f3e38940c0f4370fa11df1bed",
     # mvp-0.39 (Reader RW6b part 1: cold follow-ups after a reader session;
     # spec_reader_workbench_v1 §9.3; docs/reviews/reader-rw6b-p1-followups.md
     # and its Codex review F4): mvp-0.38 plus an ended reader session's checks
@@ -3800,7 +3837,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Curriculum C2b's [notes] (the tend adapter's table removed) moves it too (see mvp-0.9; display and learner-voice records, no successor).
     # Teacher TE1's [teacher] keys and ai.routing.teacher move it too (see mvp-0.9; inert below mvp-0.41).
     # Reader RW5d P4b's [teacher] visuals moves it too (see mvp-0.9; content and display, no successor).
-    "mvp-0.39": "c6932977733b0bf038652c639a697b857dc419fb59efc37c2eb9da979ee8bfc5",
+    # Follow-ups Nov 2's [hints] fold_follows_attach moves it too (see mvp-0.9; inert below mvp-0.42).
+    "mvp-0.39": "35e5e9559f0b15156872aebfa5d619f57781d05db78727bc7aea9e414f9cfa04",
     # mvp-0.40 (curriculum C1, the plan follows the deliverable;
     # spec_deliverable_curriculum_v1 §7.6, §8.1;
     # docs/reviews/curriculum-c1-plan-follows-path.md; built as mvp-0.39 and
@@ -3826,7 +3864,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Curriculum C2b's [notes] (the tend adapter's table removed) moves it too (see mvp-0.9; display and learner-voice records, no successor).
     # Teacher TE1's [teacher] keys and ai.routing.teacher move it too (see mvp-0.9; inert below mvp-0.41).
     # Reader RW5d P4b's [teacher] visuals moves it too (see mvp-0.9; content and display, no successor).
-    "mvp-0.40": "793f156288b5fb43dee32a960875f4b18e2caa9fc76cce5aa1731a7df21f96e0",
+    # Follow-ups Nov 2's [hints] fold_follows_attach moves it too (see mvp-0.9; inert below mvp-0.42).
+    "mvp-0.40": "f415a17355f665815908bb7ce81de52a21f525d3f27215ce748298635e848de3",
     # mvp-0.41 (teacher TE1, the first good lesson, with curriculum C4 folded in; spec_teacher_v1 §18.3,
     # §20; docs/reviews/teacher-te1-first-lesson.md): mvp-0.40 plus lessons the learner starts (an LO's or
     # a Reader selection's "Teach me this"): the teacher route teaches from a brief built from the ledger;
@@ -3838,21 +3877,39 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # off, no lesson opens and every path is mvp-0.40's) and [teacher.weight] learned (off: the type's
     # 0.5). No default changes here: only the version string moves the fingerprint (the keys are in every
     # snapshot above, inert below the tag). Existing vaults reach it by `learnloop upgrade` (default
-    # target) from mvp-0.40, or from mvp-0.9 onwards through the chain. New vaults start here (the
-    # template's LATEST_ALGORITHM_VERSION; owner decision 2026-10-12).
-    "mvp-0.41": "89ca3d3d070c567a10b46e77434ac65da930f5d8e1f55234e11c33e742980458",
+    # target) from mvp-0.40, or from mvp-0.9 onwards through the chain. New vaults started here (the
+    # template's LATEST_ALGORITHM_VERSION; owner decision 2026-10-12) until follow-ups Nov 2's successor
+    # landed.
+    "mvp-0.41": "990af8806111ae8b2644f9b6b46c3d3dc534a6aac13f570a23a93bd1439c6e83",
+    # mvp-0.42 (the keyed help fold counts exactly the help rows that attach;
+    # follow-ups Nov 2 (b) and its Codex review F1; docs/reviews/followups-nov2.md;
+    # built as mvp-0.41 while teacher TE1 + C4 was landing as mvp-0.41 too,
+    # renumbered mvp-0.42 at this landing, TE1 having landed first): mvp-0.41
+    # plus a keyed submit's fold counting the key's shown server hint rows in
+    # any practice session (H0's attach rule) and the attempt taking them in
+    # its own write transaction, so a hint shown before the session rolled over
+    # is counted (levels 1-3) or primes (levels 4-5) where it attaches. Kill
+    # switch [hints] fold_follows_attach (default true; off folds exactly as the
+    # predecessor). No default changes here: only the version string moves the
+    # fingerprint (the key is in every snapshot above, inert below the tag).
+    # Existing vaults reach it by `learnloop upgrade` (default target) from
+    # mvp-0.41, or from mvp-0.9 onwards through the chain. New vaults started
+    # here (the template's LATEST_ALGORITHM_VERSION; owner decision 2026-10-12)
+    # until teacher TE1b's successor landed.
+    "mvp-0.42": "128339ca93404669d66f21581e5c4249537403c9b1745891fec389fafc18ab14",
     # mvp-0.43 (teacher TE1b, the router suggests lessons and the learner opts in; spec_teacher_v1 §15.1,
-    # §18.3, §20; docs/reviews/teacher-te1b-router-suggestions.md): mvp-0.41 plus Today's suggestion card:
+    # §18.3, §20; docs/reviews/teacher-te1b-router-suggestions.md): mvp-0.42 plus Today's suggestion card:
     # at most one instruct(lesson) draw a day with an exact logged propensity (a lesson_suggestion router
     # decision, shown or not), Start / up to two alternatives / Not now, every response logged
     # (router_suggestion_responses) and moving the seeded acceptance model and decline recovery. Kill
     # switch [router.lesson_suggestions] enabled (default true; off, nothing is drawn and Today is
-    # mvp-0.41's) and the keep ceiling_per_day = 3. No default changes here: only the version string moves
+    # mvp-0.42's) and the keep ceiling_per_day = 3. No default changes here: only the version string moves
     # the fingerprint (the keys are in every snapshot above, inert below the tag). Built on main's mvp-0.41
-    # while follow-ups Nov 2 lands as mvp-0.42; renumbered at its landing. Existing vaults reach it by
-    # `learnloop upgrade` (default target) from mvp-0.41, or from mvp-0.9 onwards through the chain. New
-    # vaults start here (the template's LATEST_ALGORITHM_VERSION; owner decision 2026-10-12).
-    "mvp-0.43": "9c6be8c66f53435d6a2e29699d9eca49008d47e5d71ea04a9bc4473cd1d69461",
+    # while follow-ups Nov 2 was landing as mvp-0.42, which landed first (ruling R4 at this landing).
+    # Existing vaults reach it by `learnloop upgrade` (default target) from mvp-0.42, or from mvp-0.9
+    # onwards through the chain. New vaults start here (the template's LATEST_ALGORITHM_VERSION; owner
+    # decision 2026-10-12).
+    "mvp-0.43": "12d8dd2e701a911fe835f74ef1d8cb8a45179febdeab5b2387b38583ea0fef20",
 }
 
 

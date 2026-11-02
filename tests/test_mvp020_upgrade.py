@@ -86,7 +86,7 @@ def test_the_route_rules_successor_keeps_every_predecessor():
     assert SUCCESSOR_CHAIN[11] == ROUTE_RULES_ALGORITHM_VERSION
     assert SUCCESSOR_CHAIN[-1] == LATEST_ALGORITHM_VERSION == "mvp-0.43"
     assert SUCCESSOR_CHAIN[10] == SOURCE_FIRST_NEEDS_ALGORITHM_VERSION
-    assert ROUTE_RULES_VERSIONS == frozenset({"mvp-0.20", "mvp-0.21", "mvp-0.22", "mvp-0.23", "mvp-0.24", "mvp-0.25", "mvp-0.26", "mvp-0.27", "mvp-0.29", "mvp-0.30", "mvp-0.31", "mvp-0.32", "mvp-0.33", "mvp-0.34", "mvp-0.35", "mvp-0.36", "mvp-0.37", "mvp-0.38", "mvp-0.39", "mvp-0.40", "mvp-0.41", "mvp-0.43"})
+    assert ROUTE_RULES_VERSIONS == frozenset({"mvp-0.20", "mvp-0.21", "mvp-0.22", "mvp-0.23", "mvp-0.24", "mvp-0.25", "mvp-0.26", "mvp-0.27", "mvp-0.29", "mvp-0.30", "mvp-0.31", "mvp-0.32", "mvp-0.33", "mvp-0.34", "mvp-0.35", "mvp-0.36", "mvp-0.37", "mvp-0.38", "mvp-0.39", "mvp-0.40", "mvp-0.41", "mvp-0.42", "mvp-0.43"})
     # The chain is linear: mvp-0.20 means the split PLUS placement PLUS
     # recurrence groups PLUS the stuck prompt PLUS the plan PLUS probe ties
     # PLUS the sooner check PLUS the answer-key gate PLUS source-first needs

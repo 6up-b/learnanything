@@ -179,6 +179,12 @@ def deliver_figure(ctx: SidecarContext, result: dict[str, Any]) -> dict[str, Any
     # paragraphs around the selection included (Codex review F1).
     if figure and FS.figure_withheld(vault, repository, str(figure.get("figure_id") or "")):
         return {"figure": None, "reused": False, "withheld": True}
+    if figure:
+        # Follow-ups Nov 2: the kept view's fuller version is rebuilt from the
+        # current rows (rechecked like any figure as it goes out), never the
+        # one read when the build finished.
+        figure = FS.redelivered_view(vault, repository, figure)
+        result = {**result, "figure": figure}
     if attempt is not None and figure:
         # RW5d P3: a figure on an attempt host is recorded as it goes out (one
         # hint-equivalent per figure per attempt, and its reveal), or not shown.

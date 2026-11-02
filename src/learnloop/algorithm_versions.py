@@ -655,14 +655,35 @@ DELIVERABLE_PLAN_ALGORITHM_VERSION = "mvp-0.40"
 # ``teacher.weight.learned`` (off: a lesson check enters at the type's
 # configured 0.5); ``teacher.weight.source = "parametric"`` drops the pool.
 TEACHER_ALGORITHM_VERSION = "mvp-0.41"
+# mvp-0.42 (the help fold counts exactly the help rows that attach;
+# follow-ups Nov 2 (b) and its Codex review F1; docs/reviews/followups-nov2.md),
+# on top of mvp-0.41 (teacher TE1 + C4; the chain stays linear: mvp-0.42 means
+# everything mvp-0.41 means PLUS this). Built as mvp-0.41 while teacher
+# TE1 + C4 was landing as mvp-0.41 too: renumbered mvp-0.42 at this landing
+# (TE1 landed first; ruling R4; ONE constant). Below the tag, a keyed submit's fold counts the key's
+# shown server hints in the submit's own practice session only, and H0's
+# attach (after the commit) takes the key's rows in every session, so a hint
+# shown before the session rolled over was attached uncounted. From the tag
+# on, the keyed fold reads the key's rows in any session (H0's attach rule)
+# and the attempt takes the rows it counted in its own write transaction
+# (``hint_fold.attach_keyed``), so a level 1-3 row raises ``hints_used`` and a
+# level 4-5 row primes the attempt it attaches to. That changes which new
+# attempts are primed and their hint counts (so dampening, certification
+# eligibility and FSRS), never replay (replay re-applies the stored
+# ``hints_used`` and ``primed`` and never folds) or the projection, so it is a
+# successor by the 2026-10-17 eligibility rule. Kill switch:
+# ``hints.fold_follows_attach`` (off, or below the tag: the predecessor's fold
+# and attach exactly).
+HELP_FOLD_ATTACH_ALGORITHM_VERSION = "mvp-0.42"
 
 # mvp-0.43 (teacher TE1b, the router suggests lessons and the learner opts in;
 # docs/specs/spec_teacher_v1.md §15.1, §18.3, §20;
-# docs/reviews/teacher-te1b-router-suggestions.md), on top of mvp-0.41
-# (teacher TE1; the chain stays linear: mvp-0.43 means everything mvp-0.41
-# means PLUS this). Built on main's mvp-0.41 while follow-ups Nov 2 lands as
-# mvp-0.42; it claims the next tag after that and is renumbered at its
-# landing (ONE constant: the upgrade, the CLI and the gate all read it). Below
+# docs/reviews/teacher-te1b-router-suggestions.md), on top of mvp-0.42
+# (follow-ups Nov 2; the chain stays linear: mvp-0.43 means everything mvp-0.42
+# means PLUS this). Built on main's mvp-0.41 (teacher TE1) while follow-ups
+# Nov 2 was landing as mvp-0.42, which landed first; this claims the next tag
+# (ruling R4 at its landing; ONE constant: the upgrade, the CLI and the gate
+# all read it). Below
 # the tag, Today never suggests a lesson. From the tag on, with
 # ``router.lesson_suggestions.enabled`` on (and the router, its decision log
 # and lessons on), Today's open draws at most one ``instruct(lesson)``
@@ -676,7 +697,7 @@ TEACHER_ALGORITHM_VERSION = "mvp-0.41"
 # projection or replay (a suggestion writes no attempt; its decision is
 # RAW_LEDGER and its outcome joins ``router_outcomes`` intention-to-treat).
 # Kill switch: ``router.lesson_suggestions.enabled`` (off, or below the tag:
-# nothing is drawn or written, and Today and the plan are mvp-0.41's byte for
+# nothing is drawn or written, and Today and the plan are mvp-0.42's byte for
 # byte).
 LESSON_SUGGESTIONS_ALGORITHM_VERSION = "mvp-0.43"
 
@@ -720,6 +741,7 @@ SUCCESSOR_CHAIN: tuple[str, ...] = (
     READER_FOLLOWUPS_ALGORITHM_VERSION,
     DELIVERABLE_PLAN_ALGORITHM_VERSION,
     TEACHER_ALGORITHM_VERSION,
+    HELP_FOLD_ATTACH_ALGORITHM_VERSION,
     LESSON_SUGGESTIONS_ALGORITHM_VERSION,
 )
 
@@ -905,6 +927,12 @@ DELIVERABLE_PLAN_VERSIONS: frozenset[str] = successors_from(DELIVERABLE_PLAN_ALG
 # Versions at which a lesson may open (teacher TE1, behind ``teacher.enabled``).
 # Every later successor keeps it; gates must use this set, never equality.
 TEACHER_VERSIONS: frozenset[str] = successors_from(TEACHER_ALGORITHM_VERSION)
+# Versions whose keyed help fold counts the key's rows in any practice session
+# and whose attempt takes them in its own transaction (behind
+# ``hints.fold_follows_attach``; follow-ups Nov 2). Every later successor keeps
+# it; gates must use this set, never equality.
+HELP_FOLD_ATTACH_VERSIONS: frozenset[str] = successors_from(HELP_FOLD_ATTACH_ALGORITHM_VERSION)
+
 # Versions whose Today may suggest a lesson (teacher TE1b, behind
 # ``router.lesson_suggestions.enabled``). Every later successor keeps it; gates
 # must use this set, never equality.

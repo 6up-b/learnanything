@@ -66,7 +66,7 @@ def test_the_mixture_successor_follows_the_staged_frame_and_keeps_every_predeces
     assert ROUTER_MIXTURE_ALGORITHM_VERSION == "mvp-0.24"
     assert SUCCESSOR_CHAIN[14:16] == (ROUTER_STAGED_FRAME_ALGORITHM_VERSION, ROUTER_MIXTURE_ALGORITHM_VERSION)
     assert SUCCESSOR_CHAIN[-1] == LATEST_ALGORITHM_VERSION == "mvp-0.43"
-    assert ROUTER_MIXTURE_VERSIONS == frozenset({"mvp-0.24", "mvp-0.25", "mvp-0.26", "mvp-0.27", "mvp-0.29", "mvp-0.30", "mvp-0.31", "mvp-0.32", "mvp-0.33", "mvp-0.34", "mvp-0.35", "mvp-0.36", "mvp-0.37", "mvp-0.38", "mvp-0.39", "mvp-0.40", "mvp-0.41", "mvp-0.43"})
+    assert ROUTER_MIXTURE_VERSIONS == frozenset({"mvp-0.24", "mvp-0.25", "mvp-0.26", "mvp-0.27", "mvp-0.29", "mvp-0.30", "mvp-0.31", "mvp-0.32", "mvp-0.33", "mvp-0.34", "mvp-0.35", "mvp-0.36", "mvp-0.37", "mvp-0.38", "mvp-0.39", "mvp-0.40", "mvp-0.41", "mvp-0.42", "mvp-0.43"})
     for versions in (
         P0_SUCCESSOR_VERSIONS, P0_PROJECTION_VERSIONS, CANONICAL_STATE_VERSIONS, DIAGNOSIS_SPLIT_VERSIONS,
         PLACEMENT_VERSIONS, DAILY_PLAN_VERSIONS, VOI_STOPPING_VERSIONS, DECIDER_TIER1_VERSIONS,

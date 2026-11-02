@@ -205,6 +205,7 @@ def test_223_adds_only_the_earlier_opening_column(tmp_path):
     from tests.test_figure_requests_migration import RW5D_ADDED_OBJECTS, RW5D_ALTERED_TABLES
     from tests.test_session_ownership_migration import PR4_ADDED_OBJECTS, PR4_ALTERED_TABLES
     from tests.test_learner_note_source_kind_migration import C5_ALTERED_TABLES
+    from tests.test_learner_gap_unlinked_migration import UNLINKED_ALTERED_TABLES
     from tests.test_help_assist_work_md_migration import DR2_ALTERED_TABLES
     from tests.test_help_assist_figures_migration import P3_ADDED_OBJECTS, P3_ALTERED_TABLES
     from tests.test_reader_session_digests_migration import RW6B_ADDED_OBJECTS
@@ -228,11 +229,11 @@ def test_223_adds_only_the_earlier_opening_column(tmp_path):
                            "'2026-10-01T00:00:00Z', '2026-10-01T00:00:00Z')")
         connection.commit()
     with upgrade_allowance(UPGRADE_TEST_HELPER):
-        assert [migration.version for migration in apply_migrations(database)] == [223, 224, 225, 226, 227, 228, 229, 230, 231, 232, 233, 234, 236]
+        assert [migration.version for migration in apply_migrations(database)] == [223, 224, 225, 226, 227, 228, 229, 230, 231, 232, 233, 234, 235, 236]
     after = schema()
     assert set(after) - RW5D_ADDED_OBJECTS - PR4_ADDED_OBJECTS - RW6B_ADDED_OBJECTS - C0B_ADDED_OBJECTS - C2_ADDED_OBJECTS - P3_ADDED_OBJECTS - TE1_ADDED_OBJECTS == set(before)
     assert {name for name in before if before[name] != after[name]} == (
-        CA2_ALTERED_TABLES | RW5D_ALTERED_TABLES | SUPERSEDED_ALTERED_TABLES | PR4_ALTERED_TABLES | DR2_ALTERED_TABLES | C5_ALTERED_TABLES | P3_ALTERED_TABLES | TE1_ALTERED_TABLES
+        CA2_ALTERED_TABLES | RW5D_ALTERED_TABLES | SUPERSEDED_ALTERED_TABLES | PR4_ALTERED_TABLES | DR2_ALTERED_TABLES | C5_ALTERED_TABLES | P3_ALTERED_TABLES | UNLINKED_ALTERED_TABLES | TE1_ALTERED_TABLES
     )
     with closing(sqlite3.connect(database)) as connection:
         # A problem from before 223 reads as no opening carried.

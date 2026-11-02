@@ -184,10 +184,11 @@ def test_the_successor_is_one_constant_after_rw6bs_followups():
     from learnloop.config.template import DEFAULTS_SNAPSHOT_BY_ALGORITHM, defaults_fingerprint_for_version
     from learnloop.deliverable_plan_upgrade import PREDECESSOR as UPGRADE_PREDECESSOR
 
-    assert SUCCESSOR_CHAIN[-4:-2] == (PREDECESSOR, TAG) == ("mvp-0.39", "mvp-0.40")
-    assert SUCCESSOR_CHAIN[SUCCESSOR_CHAIN.index(TAG) + 1:] == ("mvp-0.41", "mvp-0.43")  # teacher TE1 and TE1b follow
+    assert SUCCESSOR_CHAIN[SUCCESSOR_CHAIN.index(TAG) - 1:SUCCESSOR_CHAIN.index(TAG) + 1] == (PREDECESSOR, TAG) == ("mvp-0.39", "mvp-0.40")
+    # Teacher TE1's mvp-0.41, follow-ups Nov 2's mvp-0.42 and teacher TE1b's mvp-0.43 follow it (and keep it).
+    assert SUCCESSOR_CHAIN[SUCCESSOR_CHAIN.index(TAG) + 1:] == ("mvp-0.41", "mvp-0.42", "mvp-0.43")
     assert UPGRADE_PREDECESSOR == PREDECESSOR
-    assert DELIVERABLE_PLAN_VERSIONS == frozenset({TAG, "mvp-0.41", "mvp-0.43"})
+    assert DELIVERABLE_PLAN_VERSIONS == frozenset({TAG, "mvp-0.41", "mvp-0.42", "mvp-0.43"})
     for version in SUCCESSOR_CHAIN:
         assert DEFAULTS_SNAPSHOT_BY_ALGORITHM[version] == defaults_fingerprint_for_version(version), version
     assert DEFAULTS_SNAPSHOT_BY_ALGORITHM[TAG] != DEFAULTS_SNAPSHOT_BY_ALGORITHM[PREDECESSOR]
@@ -633,7 +634,7 @@ def test_a_bare_upgrade_targets_mvp040_and_refuses_twice(tmp_path, _cli_process)
     from learnloop.deliverable_plan_upgrade import upgrade_to_deliverable_plan
 
     paths = create_placement_vault(tmp_path / "v", version=PREDECESSOR)
-    # Teacher TE1 (mvp-0.41) is the bare upgrade's target now; C1's own link is --to mvp-0.40.
+    # Follow-ups Nov 2 (mvp-0.42, after TE1's mvp-0.41) is the bare upgrade's target now; C1's own link is --to mvp-0.40.
     result = CliRunner().invoke(app, ["upgrade", "--vault", str(paths.root), "--to", TAG])
     assert result.exit_code == 0, result.output
     assert f"{PREDECESSOR} -> {TAG}" in result.output and _version(paths) == TAG

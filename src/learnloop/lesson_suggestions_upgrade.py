@@ -12,8 +12,9 @@ linear chain: everything the predecessor means PLUS this:
   and decline recovery (``learnloop.router.lesson_suggestions``).
 
 The tag is ONE constant (``LESSON_SUGGESTIONS_ALGORITHM_VERSION``) after
-teacher TE1's ``mvp-0.41`` (``learnloop.teacher_upgrade``); it claims the tag
-after follow-ups Nov 2's ``mvp-0.42`` and is renumbered at its landing.
+follow-ups Nov 2's ``mvp-0.42`` (``learnloop.help_fold_attach_upgrade``), which
+landed first (ruling R4 at TE1b's landing; the branch was built after teacher
+TE1's ``mvp-0.41``).
 
 The upgrade:
 
@@ -41,7 +42,7 @@ refused with the upgrade message. A journal naming this tag is completed
 here, and any other is handed to the predecessor's completion (which hands
 an earlier link's on in turn).
 
-Kill switch: ``router.lesson_suggestions.enabled = false`` restores mvp-0.41's
+Kill switch: ``router.lesson_suggestions.enabled = false`` restores mvp-0.42's
 behaviour without a downgrade (no suggestion is drawn); rolling the version
 back is restore-only.
 """
@@ -54,17 +55,17 @@ from pathlib import Path
 
 from learnloop import activation_journal
 from learnloop.algorithm_versions import (
+    HELP_FOLD_ATTACH_ALGORITHM_VERSION,
     LESSON_SUGGESTIONS_ALGORITHM_VERSION,
     SUCCESSOR_CHAIN,
-    TEACHER_ALGORITHM_VERSION,
 )
 from learnloop.claim_fixes_upgrade import write_activation_journal as _write_journal
 from learnloop.clock import Clock
 from learnloop.ops.vault_upgrade import UpgradeResult
 from learnloop.params import parameter_registry as registry_service
 from learnloop.regrade_contract_upgrade import publish_algorithm_version as _publish_algorithm_version
-from learnloop.teacher_upgrade import complete_interrupted_activation as _complete_predecessor_activation
-from learnloop.teacher_upgrade import upgrade_to_teacher
+from learnloop.help_fold_attach_upgrade import complete_interrupted_activation as _complete_predecessor_activation
+from learnloop.help_fold_attach_upgrade import upgrade_to_help_fold_attach
 from learnloop.substrate.p0_projection import activate_p0_projection
 from learnloop.vault.loader import load_vault
 from learnloop.vault.paths import VaultPaths
@@ -72,8 +73,8 @@ from learnloop.vault.repository import open_vault_repository
 from learnloop.vault_lock import vault_mutation_lock
 
 #: The immediate predecessor and its upgrade.
-PREDECESSOR = TEACHER_ALGORITHM_VERSION
-_upgrade_to_predecessor = upgrade_to_teacher
+PREDECESSOR = HELP_FOLD_ATTACH_ALGORITHM_VERSION
+_upgrade_to_predecessor = upgrade_to_help_fold_attach
 
 #: Versions the upgrade accepts through the existing chain: mvp-0.9 up to the predecessor's own predecessor.
 _CHAINED_PREDECESSORS = SUCCESSOR_CHAIN[:SUCCESSOR_CHAIN.index(PREDECESSOR)]

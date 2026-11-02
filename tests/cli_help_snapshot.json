@@ -1364,8 +1364,8 @@
     "sha256": "a07b81bb87d512abc37e080c985c0d5087e51241f04a64d1462f20116e169976"
   },
   "upgrade": {
-    "bytes": 14037,
-    "sha256": "f9e6f9e0297fb3f207775cd92d0e275aded3b2e4ea0306f8c1fc8f35ad23051b"
+    "bytes": 14361,
+    "sha256": "ca00a69ddd0b0984e8848c1c0ad944b45fbcd002c7a04af8576421a6cfb174c2"
   },
   "usage": {
     "bytes": 1546,

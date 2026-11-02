@@ -43,10 +43,11 @@ def _rows(repository, sql, params=()):
 def test_the_tag_is_the_chains_last_link_after_curriculum_c1():
     from learnloop.teacher_upgrade import PREDECESSOR
 
-    assert SUCCESSOR_CHAIN[-3:-1] == (DELIVERABLE_PLAN_ALGORITHM_VERSION, TAG) == ("mvp-0.40", "mvp-0.41")
-    # Teacher TE1b's mvp-0.43 follows it as the latest (renumbered at its landing).
-    assert LATEST_ALGORITHM_VERSION == SUCCESSOR_CHAIN[-1] == "mvp-0.43" and PREDECESSOR == DELIVERABLE_PLAN_ALGORITHM_VERSION
-    assert TEACHER_VERSIONS == frozenset({TAG, "mvp-0.43"})  # teacher TE1b follows
+    # Follow-ups Nov 2's mvp-0.42 and teacher TE1b's mvp-0.43 (the latest) follow it (and keep it).
+    assert SUCCESSOR_CHAIN[-4:] == (DELIVERABLE_PLAN_ALGORITHM_VERSION, TAG, "mvp-0.42", LATEST_ALGORITHM_VERSION) == (
+        "mvp-0.40", "mvp-0.41", "mvp-0.42", "mvp-0.43")
+    assert PREDECESSOR == DELIVERABLE_PLAN_ALGORITHM_VERSION
+    assert TEACHER_VERSIONS == frozenset({TAG, "mvp-0.42", "mvp-0.43"})
 
 
 def test_every_defaults_snapshot_drops_to_mains_value_without_the_teacher_keys():
@@ -70,6 +71,8 @@ def test_every_defaults_snapshot_drops_to_mains_value_without_the_teacher_keys()
                     "max_lesson_cost_usd", "visuals"):
             dumped["teacher"].pop(key)
         dumped["ai"]["routing"].pop("teacher")
+        # Follow-ups Nov 2's [hints] fold_follows_attach landed after TE1 (main's values predate it too).
+        dumped["hints"].pop("fold_follows_attach")
         dumped["router"].pop("lesson_suggestions")  # teacher TE1b's keys (tests/test_teacher_te1b_successor.py)
         digest = hashlib.sha256(json.dumps(dumped, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
         assert digest == main, version
@@ -192,14 +195,16 @@ def test_the_upgrade_from_the_predecessor_and_its_refusals(tmp_path):
 def test_the_cli_installs_this_links_completion():
     import inspect
 
+    from learnloop import help_fold_attach_upgrade, lesson_suggestions_upgrade
     from learnloop.cli import runtime
 
-    from learnloop import lesson_suggestions_upgrade
-
-    # The chain's latest link (teacher TE1b's) is installed, and hands an earlier journal to this link's.
+    # Teacher TE1b's mvp-0.43 is the chain's latest: the CLI installs its completion, which hands an
+    # earlier journal to follow-ups Nov 2's, which hands this link's journal to this link's completion.
     assert "learnloop.lesson_suggestions_upgrade" in inspect.getsource(runtime._complete_interrupted_activation)
-    assert "learnloop.teacher_upgrade import complete_interrupted_activation" in inspect.getsource(
+    assert "learnloop.help_fold_attach_upgrade import complete_interrupted_activation" in inspect.getsource(
         lesson_suggestions_upgrade)
+    assert "learnloop.teacher_upgrade import complete_interrupted_activation" in inspect.getsource(
+        help_fold_attach_upgrade)
 
 
 # --- the desktop RPCs ------------------------------------------------------------------------------
@@ -270,7 +275,7 @@ def test_a_metered_lesson_turn_needs_its_price_and_cap(tmp_path):
     assert raised.value.code == "plan_unavailable"
 
 
-def test_a_bare_upgrade_targets_mvp041_through_the_chain(tmp_path, monkeypatch):
+def test_a_bare_upgrade_goes_through_mvp041_along_the_chain(tmp_path, monkeypatch):
     from typer.testing import CliRunner
 
     from learnloop import activation_journal
@@ -282,6 +287,6 @@ def test_a_bare_upgrade_targets_mvp041_through_the_chain(tmp_path, monkeypatch):
     paths = create_placement_vault(tmp_path / "v", version="mvp-0.39")
     result = CliRunner().invoke(app, ["upgrade", "--vault", str(paths.root)])
     assert result.exit_code == 0, result.output
-    # The latest is teacher TE1b's (mvp-0.43), through TE1's tag.
+    # Teacher TE1b's mvp-0.43 is the bare upgrade's target now: it goes through this link.
     assert f"mvp-0.39 -> {LATEST_ALGORITHM_VERSION}" in result.output
     assert load_vault(paths.root).config.algorithms.algorithm_version == LATEST_ALGORITHM_VERSION

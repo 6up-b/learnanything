@@ -2239,6 +2239,17 @@ class HintsConfig(BaseModel):
     only, never the grade, the diagnosis or evidence; it joins the maps'
     envelope ``maps.max_daily_cost_usd``). Neither is read by scoring,
     scheduling, projection or serving, so no successor.
+
+    Follow-ups Nov 2 adds ``fold_follows_attach``: the kill switch of the
+    successor ``HELP_FOLD_ATTACH_ALGORITHM_VERSION`` (Codex review F1). At
+    that tag or later, with it on, a keyed submit's fold counts the key's
+    shown server hints in any practice session (H0's attach rule) and the
+    attempt takes the rows it counted in its own write transaction, so a hint
+    shown before the session rolled over is counted (levels 1-3) or primes
+    (levels 4-5) where it attaches. Off, or below the tag: the fold reads the
+    submit's own session only and H0's attach takes the key's rows after the
+    commit, exactly as the predecessor. Replay never reads it (replay never
+    folds).
     """
 
     telemetry_enabled: bool = True
@@ -2277,6 +2288,9 @@ class HintsConfig(BaseModel):
     #: report can say whether the learner got past the hint's target.
     #: Measurement only; off, no call is made.
     outcome_placement_enabled: bool = True
+    #: Follow-ups Nov 2 (successor mvp-0.42's kill switch): a keyed fold
+    #: counts exactly the help rows that attach (see the class docstring).
+    fold_follows_attach: bool = True
 
 
 class ReaderInquiryConfig(BaseModel):

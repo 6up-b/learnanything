@@ -1270,6 +1270,18 @@ the configured weights and `epsilon_min` floor, the Decider and the router LLM n
 their weight is the staged rule's, G7; `epsilon_tiebreak` when `staged`), and the draw's earlier `π ∝ exp(value)`
 is gone; a Start whose lesson never opened holds Today's card on later days too (no new draw while it does) until
 a lesson on its LOs opens.
+*Landing onto main (`f9bc4254b3`):* the successor is `mvp-0.43` after follow-ups Nov 2's `mvp-0.42` (its
+`PREDECESSOR`), migration 236 (head `migration_head_236`, rebuilt from main's 235 head). Ruling R1: lesson
+candidates are drawn by the router's `model_mixture` with the Decider and the router LLM recorded as `not_asked` and
+their weight moved to the staged rule (the epsilon floor and the exact logged propensities kept): **the models'
+weights do not yet influence lesson selection**; asking them about lesson candidates (a new question set and new
+model calls each day) is a follow-up once lesson suggestions have data. Ruling R2 (codex verify F8): a Start whose
+lesson never opened (a reservation) is checked against the current vault before it is offered again (its LO
+present, the exam material readable); one that can no longer open is set aside as an `expired` row on its decision
+(nothing deleted) and the day draws normally, and the pending card has a "Not now" that releases it (`released`;
+the Start stays recorded, its LOs count as declined for the decline recovery, no acceptance observation). Rulings
+R3: one card a day, `ceiling_per_day` a logged guard, `ignored` at the next day's first step, the lesson row's
+`origin = 'router'` with `origin_ref` the decision id.
 
 ---
 

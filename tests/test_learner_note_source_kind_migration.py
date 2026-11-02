@@ -118,7 +118,8 @@ def _upgrade(tmp_path: Path) -> Path:
     # Learner data-relax 2's 230 (help_assists.work_md, not a table read here) lands first;
     # RW5d P3's 232 (help_assists and figure_predictions), curriculum C2b's 233 (learner_notes) and
     # teacher TE1's 234 (its own tables and source_tool_calls) follow; none is read here.
-    assert [migration.version for migration in applied] == [230, 231, 232, 233, 234, 236]
+    # Follow-ups Nov 2's 235 (learner_text_gap_reversals) and teacher TE1b's 236 (router tables), not read here, follow too.
+    assert [migration.version for migration in applied] == [230, 231, 232, 233, 234, 235, 236]
     assert {table: _rows(database, table) for table in TABLES} == before  # every row, id and value survives
     for table, shape in columns.items():
         assert _columns(database, table) == shape  # the same columns, types, defaults and keys
@@ -211,7 +212,7 @@ def test_231_adds_learner_note_and_nothing_else():
 
 
 def test_the_head_fixture_holds_231_in_rollback_mode_with_no_note_gap():
-    # The head is teacher TE1's 234 now (rebuilt from C2b's 233 head with only 234 applied); it holds 231.
+    # The head is teacher TE1b's 236 now (rebuilt from follow-ups Nov 2's 235 head with only 236 applied); it holds 231.
     head = Path(__file__).resolve().parents[1] / "fixtures" / "migration_head_236" / "state.sqlite"
     assert head.read_bytes()[18:20] == b"\x01\x01"
     assert 231 in applied_versions(head)

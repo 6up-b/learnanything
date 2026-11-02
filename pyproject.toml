@@ -555,6 +555,7 @@ source_modules = [
     "learnloop.reader_followups_upgrade",
     "learnloop.deliverable_plan_upgrade",
     "learnloop.teacher_upgrade",
+    "learnloop.help_fold_attach_upgrade",
     "learnloop.lesson_suggestions_upgrade",
     "learnloop.teacher",
     "learnloop.adf_numeric",

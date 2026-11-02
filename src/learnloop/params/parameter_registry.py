@@ -1525,6 +1525,18 @@ _CONFIG_RULES: list[_ConfigRule] = [
         "and schedules one fresh cold retry on another independent surface at the lane's existing delay (one per "
         "chain, a structural bound); off, the assisted retry is withdrawn at the next serve as the predecessor "
         "did. Never read by replay."),
+    # Follow-ups Nov 2 (mvp-0.42, renumbered from mvp-0.41 at its landing; Codex review F1; docs/reviews/followups-nov2.md):
+    # the kill switch of the successor whose keyed help fold counts exactly the
+    # rows that attach. A boolean (classified so every new key has a rule); no
+    # weight, margin or threshold is added. Off restores the predecessor's fold
+    # exactly; replay never reads it.
+    _ConfigRule(_exact(
+        "hints.fold_follows_attach",
+    ), "structural", "operational",
+        "kill switch for the help-fold successor mvp-0.42: a keyed submit's fold counts the key's shown server "
+        "hints in any practice session and the attempt takes them in its own transaction (a hint shown before the "
+        "session rolled over is counted or primes where it attaches); off, the predecessor's session-only fold and "
+        "H0's attach after the commit. Never read by replay."),
     # Teacher TE0 (spec_teacher_v1 §15.2): the kill switch of the confidence
     # events in model contexts and on the router card. A boolean (classified
     # so every new key has a rule); the events are context, never a weight,
@@ -1580,7 +1592,7 @@ _CONFIG_RULES: list[_ConfigRule] = [
     # seeded priors); neither is a config value.
     _ConfigRule(_exact("router.lesson_suggestions.enabled"), "structural", "operational",
         "kill switch for teacher TE1b's successor: Today may draw one lesson suggestion a day with an exact "
-        "logged propensity; off (or below the tag) nothing is drawn or written and Today is mvp-0.41's."),
+        "logged propensity; off (or below the tag) nothing is drawn or written and Today is mvp-0.42's."),
     _ConfigRule(_exact("router.lesson_suggestions.ceiling_per_day"), "structural", "constraint",
         "keep: an anti-nagging guardrail on shown suggestions a day (spec §18.4: never learned; a bind is logged "
         "on the decision as ceiling_bound, and a ceiling that binds often means the acceptance model is wrong)."),

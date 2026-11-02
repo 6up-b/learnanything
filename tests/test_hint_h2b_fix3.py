@@ -149,7 +149,9 @@ def test_r1_f10_an_interrupted_answer_box_attach_never_lets_a_problem_take_the_h
     second = _open(ctx, session, "k1")["sessionId"]
     _call(ctx, "workbench.leave", {"sessionId": second})
     # The answer box's attempt commits; the process ends before H0's keyed
-    # attach (the row keeps attempt_id NULL).
+    # attach (the row keeps attempt_id NULL). This vault is below mvp-0.42
+    # (follow-ups Nov 2, Codex review F1): the predecessor's keyed fold, with
+    # no keyed attach in the attempt's own transaction.
     with monkeypatch.context() as interrupted:
         interrupted.setattr(practice, "_attach_hint_reveals", lambda *args, **kwargs: None)
         submitted = _answer_box(ctx, session, "k1")

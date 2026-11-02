@@ -39,7 +39,7 @@ from learnloop.scheduling.fsrs import (
     rating_from_score,
 )
 from learnloop.attempts.ability_transition import estimate_ability_transition
-from learnloop.attempts.hint_fold import ServerHintFold, attach_held, attach_keyless, refolded_draft
+from learnloop.attempts.hint_fold import ServerHintFold, attach_held, attach_keyed, attach_keyless, refolded_draft
 from learnloop.diagnosis.causal_activity_policy import classify_attempt_activity
 from learnloop.attempts.grading import (
     GradingValidationError,
@@ -3126,8 +3126,10 @@ def apply_attempt(
         result = _apply_attempt_in_transaction(vault, repository, attempt, clock=clock)
         if not attempt.replace_existing:
             # Round 3b: a keyless attempt takes the hint rows it counted, so
-            # no later fold counts them again (a keyed one's are H0's attach).
+            # no later fold counts them again; follow-ups Nov 2: a keyed one
+            # too (H0's attach after the commit binds the key's other rows).
             attach_keyless(repository.connection(), attempt.draft, result.attempt_id)
+            attach_keyed(repository.connection(), attempt.draft, result.attempt_id)
             # RW2b fix round 13: and the workbench server assists it counted.
             attach_held(repository.connection(), attempt.draft, result.attempt_id)
         if not attempt.replace_existing:
