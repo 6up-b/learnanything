@@ -115,7 +115,8 @@ def _upgrade(tmp_path: Path) -> Path:
     objects = {table: _objects(database, table) for table in TABLES[:2]}
     with upgrade_allowance(UPGRADE_TEST_HELPER):
         applied = apply_migrations(database)
-    assert [migration.version for migration in applied][0] == 231
+    # Learner data-relax 2's 230 (help_assists.work_md, not a table read here) lands first.
+    assert [migration.version for migration in applied] == [230, 231]
     assert {table: _rows(database, table) for table in TABLES} == before  # every row, id and value survives
     for table, shape in columns.items():
         assert _columns(database, table) == shape  # the same columns, types, defaults and keys
