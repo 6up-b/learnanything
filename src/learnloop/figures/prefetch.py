@@ -84,6 +84,7 @@ from learnloop.ai.transport import render_structured_prompt
 from learnloop.clock import Clock, SystemClock, utc_now_iso
 from learnloop.db.connection import connect
 from learnloop.db.repositories import Repository
+from learnloop.db.stores import figure_prefetch as store
 from learnloop.db.stores.judgments import append_judgment
 from learnloop.figures import foreground as FG
 from learnloop.figures import power as P
@@ -739,10 +740,9 @@ def observe_pause(env: PrefetchEnv) -> dict[str, Any] | None:
         connection = env.repository.connection()
         if connection.execute("SELECT 1 FROM plan_usage_pauses WHERE hit_at = ?", (hit_at,)).fetchone() is None:
             requests, tokens = PL.day_load(connection, plan_providers(env.vault), day, offset=env.offset())
-            connection.execute(
-                "INSERT INTO plan_usage_pauses (id, hit_at, reset_at, plan_requests_today, plan_tokens_today_known, "
-                "observed_at) VALUES (?, ?, ?, ?, ?, ?)",
-                ("pup_" + new_ulid(), hit_at, reset.isoformat(), requests, tokens, utc_now_iso(env.clock)))
+            store.insert_pause(connection, {"id": "pup_" + new_ulid(), "hit_at": hit_at, "reset_at": reset.isoformat(),
+                                            "plan_requests_today": requests, "plan_tokens_today_known": tokens,
+                                            "observed_at": utc_now_iso(env.clock)})
     return {"hit_at": hit_at, "reset_at": reset.isoformat(), "active": env.now() < reset}
 
 
@@ -838,13 +838,8 @@ def decide_and_log(env: PrefetchEnv, kept: Sequence[Candidate], *, on_mains: boo
         if verdict == "build":
             to_build.append((row, candidate))
     if rows:
-        columns = list(rows[0])
         with env.repository.atomic():
-            connection = env.repository.connection()
-            for row in rows:
-                connection.execute(
-                    f"INSERT INTO figure_prefetch_decisions ({', '.join(columns)}) "
-                    f"VALUES ({', '.join('?' for _ in columns)})", tuple(row[column] for column in columns))
+            store.insert_decisions(env.repository.connection(), rows)
     result.decisions.extend(rows)
     return to_build
 
@@ -882,9 +877,7 @@ def _link(env: PrefetchEnv, decision_id: str) -> None:
             "WHERE r.prefetch_decision_id = ? ORDER BY r.created_at LIMIT 1", (decision_id,)).fetchone()
         if found is None:
             return
-        connection.execute(
-            "UPDATE figure_prefetch_decisions SET request_id = COALESCE(request_id, ?), "
-            "input_hash = COALESCE(input_hash, ?) WHERE id = ?", (found[0], found[1], decision_id))
+        store.link_request(connection, decision_id, str(found[0]), found[1])
 
 
 def run_builds(env: PrefetchEnv, queue: Sequence[tuple[dict[str, Any], Candidate]], result: PassResult) -> None:
@@ -1044,9 +1037,7 @@ def close_horizons(env: PrefetchEnv, result: PassResult | None = None) -> int:
     with env.repository.atomic():
         connection = env.repository.connection()
         for decision_id, outcome in outcomes:
-            connection.execute(
-                "UPDATE figure_prefetch_decisions SET outcome = ?, outcome_at = ? WHERE id = ? AND outcome IS NULL",
-                (outcome, now, decision_id))
+            store.close_decision(connection, decision_id, outcome, now)
     if result is not None:
         result.closed += len(outcomes)
     return len(outcomes)

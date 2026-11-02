@@ -73,10 +73,12 @@ def reader_report(
                                                                 and loaded.config.figures.sketch_enabled),
                                      figure_rich_enabled=bool(loaded.config.figures.enabled
                                                               and loaded.config.figures.rich_tiers_enabled),
-                                     skipped_section_los=skipped_section_los,
-                                     figure_prefetch_enabled=bool(loaded.config.figures.enabled
-                                                                  and loaded.config.figures.prefetch_enabled),
-                                     plan_providers=_plan_providers(loaded))
+                                     skipped_section_los=skipped_section_los)
+        if loaded.config.figures.enabled and loaded.config.figures.prefetch_enabled:
+            # RW5d P5 (spec §10b.6): the prefetch block (absent with the switch off).
+            from learnloop.figures.prefetch_ledger import add_report_block
+
+            add_report_block(report, path, since=_since(since, now), plan_providers=_plan_providers(loaded), now=now)
         report["reader_inquiry"] = loaded.config.reader_inquiry.model_dump(mode="json")
         typer.echo(json.dumps(report, sort_keys=True, indent=None if json_output else 2))
     except (ValueError, OSError, sqlite3.Error) as exc:

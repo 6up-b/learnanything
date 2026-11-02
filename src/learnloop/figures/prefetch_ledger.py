@@ -306,6 +306,22 @@ def report_block(connection: Any, *, since: datetime | None = None,
     }
 
 
+def add_report_block(report: dict[str, Any], sqlite_path: Any, *, since: str | None = None,
+                     plan_providers: Iterable[str] = (), now: datetime | None = None) -> dict[str, Any]:
+    """Put :func:`report_block` under the reader report's ``figures`` (``learnloop reader report``
+    calls it only with ``figures.prefetch_enabled`` on, so off the report is P2b's)."""
+
+    from contextlib import closing
+
+    from learnloop.db.connection import connect
+
+    with closing(connect(sqlite_path, read_only=True)) as connection:
+        block = report_block(connection, since=_when(since) if since else None, plan_providers=plan_providers,
+                             now=now)
+    report.setdefault("figures", {})["prefetch"] = block
+    return report
+
+
 def anchor_of(row: Mapping[str, Any]) -> dict[str, Any] | None:
     try:
         value = json.loads(row.get("anchor_json") or "null")
@@ -316,6 +332,7 @@ def anchor_of(row: Mapping[str, Any]) -> dict[str, Any] | None:
 
 __all__ = [
     "DECISIONS_TABLE",
+    "add_report_block",
     "PAUSES_TABLE",
     "anchor_of",
     "blocked_minutes",

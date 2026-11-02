@@ -585,7 +585,8 @@ def test_the_report_block_appears_only_with_the_switch(tmp_path):
 
     _paths, repository, vault = make_vault(tmp_path)
     PF.run_trigger(env_for(vault, repository), PF.Trigger("offer", "tutor:q", blocks=((EXTRACTION, "p3"),)))
-    on = build_reader_report(repository.sqlite_path, figures_enabled=True, figure_prefetch_enabled=True)
+    on = PL.add_report_block(build_reader_report(repository.sqlite_path, figures_enabled=True),
+                             repository.sqlite_path, plan_providers=PL.plan_providers(vault))
     block = on["figures"]["prefetch"]
     assert block["decisions_by_trigger"]["offer"]["built"] == 1
     assert set(block) >= {"posterior", "measured_wait", "pauses", "skipped"}
