@@ -147,6 +147,8 @@ it("keeps the checks when every tested read on the page matches the verifier's, 
   const reads: Read[] = [];
   await open(sketchView(WALK.program, WALK.sketch), logging(reads, []));
   await waitFor(() => expect(time()).toContain("t = 0 / 100"));
+  // "t = 0" shows before the run is ready (the step's initial state); a press then lands on a disabled Play.
+  await waitFor(() => expect(document.querySelector<HTMLButtonElement>("[data-sketch-play]")!.disabled).toBe(false));
   await playToEnd(() => time().includes("t = 100 / 100"));
   expect(time()).toContain("t = 100 / 100");
   expect(document.querySelector("[data-sketch-play]")!.textContent).toBe(SKETCH_COPY.play);  // play stopped at t_max
