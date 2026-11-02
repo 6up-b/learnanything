@@ -153,36 +153,8 @@ def test_f3_every_displayed_field_writes_reveal_rows(tmp_path):
 
 
 # --- F4: resumed lessons never resend material that became protected ----------------------------------
-
-
-def test_f4_a_passage_held_out_after_delivery_is_never_resent_or_read_back(tmp_path):
-    from tests.section_coverage_fixtures import hold_out
-
-    reads = {"message": "Let me read.", "requests": [{"action": "read_source", "refs": ["ext_lay/lay_char"]}]}
-    paths, repository, fake, view = _open(tmp_path, [reads, {"message": "Read it."}])
-    delivered = fake.contexts[-1]["results"][0]["result"]["sections"][0]["passages"]
-    alias = delivered[0]["alias"]
-    assert "roots of the characteristic equation" in delivered[0]["text"]
-    hold_out(repository, "lay_char")
-    reread = {"message": "Again.", "requests": [{"action": "read_source", "refs": [alias]}]}
-    fake.turns = [reread, {"message": "ok"}]
-    _turn(paths, repository, view["lesson_id"], fake)
-    later = [prompt for purpose, prompt in fake.prompts if purpose == "teacher_turn"][-2:]
-    assert all("roots of the characteristic equation" not in prompt for prompt in later)
-    result = fake.contexts[-1]["results"][0]["result"]["sections"][0]
-    assert result.get("refused") and "passages" not in result
-
-
-def test_f4_a_revoked_alias_cannot_be_cited(tmp_path):
-    from tests.section_coverage_fixtures import hold_out
-
-    reads = {"message": "Let me read.", "requests": [{"action": "read_source", "refs": ["ext_lay/lay_char"]}]}
-    paths, repository, fake, view = _open(tmp_path, [reads, {"message": "Read it."}])
-    alias = fake.contexts[-1]["results"][0]["result"]["sections"][0]["passages"][0]["alias"]
-    hold_out(repository, "lay_char")
-    fake.turns = [{"message": f"As the book says [{alias}]."}, {"message": "Fine."}]
-    _turn(paths, repository, view["lesson_id"], fake)
-    assert "unknown_citation" in str(_rows(repository, "SELECT payload_json FROM lesson_turn_payloads"))
+# Closed structurally in round 3 (R1): a lesson whose protection state changed since its brief was built
+# ends with ``protection_changed`` (the ``test_r3_f4_*`` tests below); no saved-context redaction is tried.
 
 
 # --- F7: delayed checks never reuse the lesson's material ---------------------------------------------
@@ -620,35 +592,6 @@ def test_rr_f1_a_settled_request_replaces_its_reservation(tmp_path):
     assert all(row.get("reservation") for row in _spend(repository))
 
 
-def test_rr_f4_a_saved_plan_copying_a_now_held_out_passage_is_not_resent(tmp_path):
-    from tests.section_coverage_fixtures import hold_out
-
-    plan = {"message": "Here is the map.", "requests": [{"action": "write_plan", "plan": [
-        {"id": "n1", "statement": PASSAGE, "lo_id": "lo_eigen", "anchors": [], "premises": []}]}]}
-    paths, repository, fake, view = _open(tmp_path, [READ_LAY, plan])
-    hold_out(repository, "lay_char")
-    fake.turns = [{"message": "ok"}]
-    _turn(paths, repository, view["lesson_id"], fake)
-    assert PASSAGE_WORDS not in fake.prompts[-1][1]
-    assert fake.contexts[-1]["plan"][0]["statement"] == S.WITHDRAWN
-
-
-def test_rr_f4_an_uncited_copy_open_check_and_prediction_are_not_resent(tmp_path):
-    from tests.section_coverage_fixtures import hold_out
-
-    copy = {"message": f"Remember: {PASSAGE}", "prediction": {"node": "n1", "prompt": f"Will this hold? {PASSAGE}"}}
-    paths, repository, fake, view = _open(tmp_path, [READ_LAY, copy])
-    fake.turns = [check_turn(solution=PASSAGE, message="Now try one.")]
-    _turn(paths, repository, view["lesson_id"], fake, text="sure")
-    hold_out(repository, "lay_char")
-    fake.turns = [{"message": "ok"}]
-    _turn(paths, repository, view["lesson_id"], fake, text="hmm")
-    assert PASSAGE_WORDS not in fake.prompts[-1][1]
-    context = fake.contexts[-1]
-    assert context["open_check"]["check"]["committed_solution"] == S.WITHDRAWN
-    assert context["open_prediction"]["prompt"] == S.WITHDRAWN
-
-
 def test_rr_f4_nothing_revoked_leaves_the_prompt_unchanged(tmp_path):
     paths, repository, fake, view = _open(tmp_path, [READ_LAY, {"message": f"Remember: {PASSAGE}"}])
     fake.turns = [{"message": "ok"}]
@@ -689,3 +632,128 @@ def test_rr_f15_resume_keeps_the_pending_help_mode(tmp_path):
     assert _rows(repository, "SELECT COUNT(*) FROM lesson_turns WHERE action = 'check_withdrawn'") == [(1,)]
     assert _rows(repository, "SELECT validation FROM lesson_turns WHERE action = 'teacher_turn' ORDER BY seq")[-1] \
         == ("ok",)
+
+
+# --- Round 3 (re-review 2): F3 strict reveal writes, F4 the protection state -----------------------------
+
+
+def _count(repository, sql, params=()):
+    return _rows(repository, sql, params)[0][0]
+
+
+ACCEPTED = "SELECT COUNT(*) FROM lesson_turns WHERE action = 'teacher_turn' AND validation = 'ok'"
+
+
+def test_r3_f3_a_failed_reveal_write_leaves_the_turn_unaccepted(tmp_path, monkeypatch):
+    import sqlite3
+
+    paths, repository, fake, view = _open(tmp_path, [{"message": "Hello."}])
+    lesson_id = view["lesson_id"]
+    accepted = _count(repository, ACCEPTED)
+    reveals = _count(repository, "SELECT COUNT(*) FROM reveal_events")
+
+    def broken(*_args, **_kwargs):
+        raise sqlite3.OperationalError("disk I/O error")
+
+    monkeypatch.setattr(repository, "insert_reveal_event", broken)
+    fake.turns = [{"message": "Picture a capybara walking two steps."}]
+    with pytest.raises(Exception):
+        _turn(paths, repository, lesson_id, fake)
+    # Acceptance and exposure accounting roll back together: no accepted turn without its reveal rows.
+    assert _count(repository, ACCEPTED) == accepted
+    assert _count(repository, "SELECT COUNT(*) FROM reveal_events") == reveals
+    monkeypatch.undo()
+    fake.turns = [{"message": "Picture a capybara walking two steps."}]
+    _turn(paths, repository, lesson_id, fake, action="resume", text=None)
+    assert _count(repository, ACCEPTED) == accepted + 1
+    assert ("pi_det_1", "tutor_answer") in _rows(
+        repository, "SELECT practice_item_id, source_kind FROM reveal_events WHERE basis = ? AND amount > 0",
+        (f"lesson:{lesson_id}",))
+
+
+def _teacher_calls(fake):
+    return len([1 for purpose, _prompt in fake.prompts if purpose == "teacher_turn"])
+
+
+def test_r3_f4_a_lesson_whose_protection_changed_ends_without_another_call(tmp_path):
+    from tests.section_coverage_fixtures import hold_out
+
+    paths, repository, fake, view = _open(tmp_path, [READ_LAY, {"message": f"Remember: {PASSAGE}"}])
+    lesson_id = view["lesson_id"]
+    recorded = _rows(repository, "SELECT id FROM lesson_turns ORDER BY seq")
+    calls = _teacher_calls(fake)
+    hold_out(repository, "lay_char")
+    fake.turns = [{"message": "never sent"}]
+    closed = _turn(paths, repository, lesson_id, fake, text="next?")
+    # No teacher call at all: nothing saved under the old protection is resent, so nothing is redacted.
+    assert _teacher_calls(fake) == calls
+    assert closed["closed"] and closed["close_reason"] == "protection_changed"
+    assert any("fresh lesson" in notice for notice in closed["notices"])
+    # Everything already recorded stays; the close is one more entry with its receipt.
+    assert _rows(repository, "SELECT id FROM lesson_turns ORDER BY seq")[:len(recorded)] == recorded
+    assert _rows(repository, "SELECT close_reason FROM lesson_receipts") == [("protection_changed",)]
+    # A later action on the closed lesson makes no call either.
+    _turn(paths, repository, lesson_id, fake, text="hello?")
+    assert _teacher_calls(fake) == calls
+    # A fresh lesson starts with a fresh brief under the protection as it is now.
+    fresh_fake = TeacherFake([{"message": "Fresh start."}])
+    fresh = S.open_lesson(load_vault(paths.root), repository, entry="learning_object",
+                          learning_object_ids=["lo_eigen"], clients=clients(fresh_fake))
+    assert not fresh["closed"] and fresh["lesson_id"] != lesson_id
+    assert all(PASSAGE_WORDS not in prompt for _purpose, prompt in fresh_fake.prompts)
+
+
+def test_r3_f4_protection_changing_before_a_read_follow_up_ends_the_lesson(tmp_path):
+    from tests.section_coverage_fixtures import hold_out
+
+    paths, repository, fake, view = _open(tmp_path, [{"message": "Hello."}])
+    calls = _teacher_calls(fake)
+
+    def reads_then_hold(_context):
+        hold_out(repository, "lay_char")
+        return READ_LAY
+
+    fake.turns = [reads_then_hold, {"message": "never sent"}]
+    closed = _turn(paths, repository, view["lesson_id"], fake)
+    assert _teacher_calls(fake) == calls + 1
+    assert closed["closed"] and closed["close_reason"] == "protection_changed"
+
+
+def test_r3_f4_an_item_held_out_after_its_history_was_read_ends_the_lesson(tmp_path):
+    from learnloop.attempts.attempts import AttemptDraft, SelfGradeInput, complete_self_graded_attempt
+
+    paths, repository = build_teacher_vault(tmp_path / "vault")
+    complete_self_graded_attempt(load_vault(paths.root), repository, AttemptDraft(
+        practice_item_id="pi_det_1", learner_answer_md="LEARNERWORDS it is minus two",
+        attempt_type="independent_attempt"), SelfGradeInput(criterion_points={"correctness": 4}, confidence=4),
+        clock=FrozenClock(T0 - timedelta(days=10)))
+
+    def reads(context):
+        history = [entry["id"] for entry in context["brief"]["history"] if entry["id"].startswith("h:")]
+        return {"message": "Let me look.", "requests": [{"action": "read_history", "refs": history}]}
+
+    fake = TeacherFake([reads, {"message": "Thanks."}])
+    view = S.open_lesson(load_vault(paths.root), repository, entry="learning_object", learning_object_ids=["lo_eigen"],
+                         clients=clients(fake))
+    assert "LEARNERWORDS" in json.dumps(fake.contexts[-1]["results"])
+    goal_id = _rows(repository, "SELECT goal_id FROM exam_pool_items LIMIT 1")[0][0]
+    repository.insert_exam_pool_items([{"id": "epi_r3", "goal_id": goal_id, "practice_item_id": "pi_det_1",
+                                        "reserved_at": "2026-11-01T08:00:00Z"}])
+    calls = _teacher_calls(fake)
+    fake.turns = [{"message": "never sent"}]
+    closed = _turn(paths, repository, view["lesson_id"], fake)
+    assert _teacher_calls(fake) == calls
+    assert closed["closed"] and closed["close_reason"] == "protection_changed"
+
+
+def test_r3_f4_unreadable_protection_ends_the_lesson(tmp_path):
+    from learnloop.vault.paths import VaultPaths
+
+    paths, repository, fake, view = _open(tmp_path, [{"message": "Hello."}])
+    calls = _teacher_calls(fake)
+    vault = load_vault(paths.root)
+    VaultPaths(paths.root, vault.config).source_sets_path.write_bytes(b"")
+    fake.turns = [{"message": "never sent"}]
+    closed = _turn(paths, repository, view["lesson_id"], fake)
+    assert _teacher_calls(fake) == calls
+    assert closed["closed"] and closed["close_reason"] == "protection_changed"
