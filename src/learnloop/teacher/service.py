@@ -67,9 +67,9 @@ from learnloop.db.stores import lessons as store
 from learnloop.ids import new_ulid
 from learnloop.teacher import checks as CK
 from learnloop.teacher import guards as G
+from learnloop.teacher import visuals as V
 from learnloop.teacher.brief import LessonRefused, SourceBook, build_brief, resolve_goal
 from learnloop.teacher.contracts import (
-    PROMPT_VERSION,
     READ_ACTIONS,
     RECEIPT_VERSION,
     TURN_VERSION,
@@ -109,11 +109,14 @@ def require_active(vault: Any) -> None:
 
 @dataclass
 class Clients:
-    """The model clients one ``lesson.turn`` may use: the teacher's and the grader's (resolved lazily)."""
+    """The model clients one ``lesson.turn`` may use: the teacher's and the grader's (resolved lazily),
+    and (Reader RW5d P4b) the host's figure builder for the teacher's visuals (None: the host builds no
+    figure, so the lesson offers none and the teacher's prompt is TE1's)."""
 
     teacher: Callable[[], Any]
     grading: Callable[[], Any]
     grading_source: str = "ai"
+    figures: V.Builder | None = None
 
 
 # =============================================================================
@@ -281,6 +284,10 @@ def transcript(state: LessonState) -> list[dict[str, Any]]:
             out.append({"by": "code", "forecast_recorded": {k: data.get(k) for k in ("kind", "node", "p")}})
         elif action == "learner_stop":
             out.append({"by": "learner", "asked_to_stop": True})
+        elif action == "visual":
+            # Reader RW5d P4b: what the step's figure turned out to be (or why it isn't shown).
+            out.append({"by": "code", "visual": {k: data.get(k) for k in ("node", "status", "figure", "reason")
+                                                 if data.get(k) is not None}})
     return out
 
 
@@ -318,7 +325,8 @@ def _end_for_protection(vault: Any, repository: Any, state: LessonState, *, cloc
     outcome.notices.append(PROTECTION_CHANGED_NOTICE)
 
 
-def _prompt(state: LessonState, *, results: Sequence[Mapping[str, Any]], help_reply: bool) -> str:
+def _prompt(state: LessonState, *, results: Sequence[Mapping[str, Any]], help_reply: bool,
+            visuals: bool = False) -> str:
     # Sent only while the protection state is the brief's (:func:`protection_changed`, checked before
     # every call): what the lesson saved was safe when saved, and still is.
     context = {
@@ -330,9 +338,12 @@ def _prompt(state: LessonState, *, results: Sequence[Mapping[str, Any]], help_re
         "help_reply": help_reply,
         "transcript": transcript(state),
     }
+    # Reader RW5d P4b: the visuals paragraph and its prompt version only while visuals are on (off: TE1's
+    # prompt byte for byte).
     return render_structured_prompt(
-        "LearnLoop lesson: you are the teacher", PROMPT_VERSION,
-        {"instructions": doctrine_text(), "context": context}, context_tail_fields=("transcript",))
+        "LearnLoop lesson: you are the teacher", V.prompt_version(visuals),
+        {"instructions": V.instructions(doctrine_text(), visuals), "context": context},
+        context_tail_fields=("transcript",))
 
 
 # =============================================================================
@@ -584,7 +595,7 @@ def open_lesson(vault: Any, repository: Any, *, entry: str, learning_object_ids:
 
 
 def recover(vault: Any, repository: Any, state: LessonState, *, clock: Clock | None = None,
-            reads: bool = True) -> "_Outcome | None":
+            reads: bool = True, builder: V.Builder | None = None) -> "_Outcome | None":
     """Run what an interrupted action left of its last accepted teacher turn (review F9): each effect
     the ledger does not mark done, idempotently, with its reads' results riding with the next call.
     No teacher call. ``reads=False`` (``lesson.view``, which makes no model call at all) leaves the
@@ -594,11 +605,14 @@ def recover(vault: Any, repository: Any, state: LessonState, *, clock: Clock | N
     if entry is None or state.closed:
         return None
     data = entry.get("payload") or {}
-    turn_obj = TeacherTurnV1.model_validate(data.get("turn") or {})
+    turn_obj = V.stored_turn(data.get("turn"))
     outcome = _Outcome()
     done = state.effects_done.setdefault(str(entry["id"]), set())
+    # A turn's visual builds a figure (a model call): like its reads, only on an action's own recovery,
+    # never on ``lesson.view`` (Reader RW5d P4b).
     _execute(vault, repository, state, turn_obj, turn_entry=entry, model=state.lesson.get("model"), deferred=True,
-             outcome=outcome, clock=clock, help_reply=bool(data.get("help_reply")), done=done, reads=reads)
+             outcome=outcome, clock=clock, help_reply=bool(data.get("help_reply")), done=done, reads=reads,
+             builder=builder if reads else None)
     if str(entry["id"]) in state.executed:
         state.unexecuted = None
     return outcome
@@ -655,7 +669,7 @@ def _owes_followup(state: LessonState, accepted: Mapping[str, Any]) -> bool:
     """Whether ``accepted`` is the first accepted turn of its action, asked for reads, and they ran: its
     reads' results are owed one further call (the structural bound of :func:`_teach_loop`)."""
 
-    turn = TeacherTurnV1.model_validate((accepted.get("payload") or {}).get("turn") or {})
+    turn = V.stored_turn((accepted.get("payload") or {}).get("turn"))
     if not any(request.action in READ_ACTIONS for request in turn.requests):
         return False
     if not any(entry["action"] in READ_ACTIONS and (entry.get("refs") or {}).get("turn") == str(accepted["id"])
@@ -693,7 +707,7 @@ def take_turn(vault: Any, repository: Any, *, lesson_id: str, action: str, paylo
         return view(vault, repository, lesson_id)
     try:
         with _lesson_spend(vault, repository, state, clock=clock):
-            recover(vault, repository, state, clock=clock)
+            recover(vault, repository, state, clock=clock, builder=clients.figures)
             if state.closed:
                 return view(vault, repository, lesson_id)
             if protection_changed(vault, repository, state):
@@ -877,7 +891,7 @@ def _teach(vault: Any, repository: Any, state: LessonState, *, clients: Clients,
     outcome = _Outcome()
     try:
         _teach_loop(vault, repository, state, client=client, help_reply=help_reply, clock=clock, closing=closing,
-                    outcome=outcome, followup=followup, followup_results=results)
+                    outcome=outcome, followup=followup, followup_results=results, builder=clients.figures)
     except Exception as exc:
         if not _refused_by_budget(state, exc):
             raise
@@ -892,7 +906,7 @@ def _teach(vault: Any, repository: Any, state: LessonState, *, clients: Clients,
 
 def _teach_loop(vault: Any, repository: Any, state: LessonState, *, client: Any, help_reply: bool,
                 clock: Clock | None, closing: str | None, outcome: "_Outcome", followup: bool = False,
-                followup_results: Sequence[Mapping[str, Any]] = ()) -> None:
+                followup_results: Sequence[Mapping[str, Any]] = (), builder: V.Builder | None = None) -> None:
     # Deferred read results ride with this call; they are marked delivered only with the accepted
     # turn that consumed them (review F10), so an outage keeps them pending.
     results = list(state.pending_results)
@@ -912,8 +926,10 @@ def _teach_loop(vault: Any, repository: Any, state: LessonState, *, client: Any,
             _end_for_protection(vault, repository, state, clock=clock, outcome=outcome)
             break
         try:
+            # Reader RW5d P4b: visuals as configured NOW, before each call (off: TE1's prompt and schema).
             parsed = _call_teacher(vault, repository, state, client, results=results, help_reply=help_reply,
-                                   outcome=outcome, clock=clock, deliver=undelivered)
+                                   outcome=outcome, clock=clock, deliver=undelivered,
+                                   visuals=V.on(vault, builder))
         except LessonError:
             raise
         except Exception as exc:  # noqa: BLE001 - the plan is down or the route refused: the lesson waits
@@ -940,7 +956,8 @@ def _teach_loop(vault: Any, repository: Any, state: LessonState, *, client: Any,
         deferred = accepted >= 1
         accepted += 1
         new_results = _execute(vault, repository, state, turn_obj, turn_entry=turn_entry, model=_model_name(client),
-                               deferred=deferred, outcome=outcome, clock=clock, help_reply=help_reply)
+                               deferred=deferred, outcome=outcome, clock=clock, help_reply=help_reply,
+                               builder=builder)
         if state.closed:
             break
         if closing:
@@ -978,19 +995,24 @@ def _displayed(turn_obj: TeacherTurnV1) -> list[tuple[str, str]]:
             out.extend(("plan", str(node.statement or "")) for node in request.plan)
         elif request.action == "close" and request.recap:
             out.append(("recap", str(request.recap)))
+    # Reader RW5d P4b: a visual's goal is quoted on its figure's line (none in TE1's turn).
+    out.extend(V.displayed(turn_obj))
     return [(name, text) for name, text in out if text]
 
 
 def _call_teacher(vault: Any, repository: Any, state: LessonState, client: Any, *, results: Sequence[Mapping[str, Any]],
                   help_reply: bool, outcome: _Outcome, clock: Clock | None,
-                  deliver: Sequence[str] = ()) -> tuple[TeacherTurnV1, dict[str, Any]] | None:
-    """One teacher call: validated, guarded, recorded. None when refused (a correctable error)."""
+                  deliver: Sequence[str] = (), visuals: bool = False) -> tuple[TeacherTurnV1, dict[str, Any]] | None:
+    """One teacher call: validated, guarded, recorded. None when refused (a correctable error).
+    ``visuals`` (Reader RW5d P4b): the visuals paragraph and the turn's ``visual`` field; off, TE1's
+    prompt and schema exactly."""
 
     from learnloop.ai.errors import AIInvalidOutput
 
-    prompt = _prompt(state, results=results, help_reply=help_reply)
+    prompt = _prompt(state, results=results, help_reply=help_reply, visuals=visuals)
+    model = V.turn_model(visuals)
     try:
-        raw = execute_structured_operation(client, purpose=TEACHER_PURPOSE, prompt=prompt, result_model=TeacherTurnV1)
+        raw = execute_structured_operation(client, purpose=TEACHER_PURPOSE, prompt=prompt, result_model=model)
     except AIInvalidOutput as exc:
         # The provider could not produce a valid TeacherTurnV1 even after its own repair (review F12):
         # a correctable contract refusal, counted toward the consecutive-failure rule.
@@ -1000,7 +1022,8 @@ def _call_teacher(vault: Any, repository: Any, state: LessonState, client: Any, 
         return None
     _record_usage(client, outcome)
     try:
-        turn_obj = raw if isinstance(raw, TeacherTurnV1) else TeacherTurnV1.model_validate(raw)
+        turn_obj = raw if type(raw) is model else model.model_validate(
+            raw.model_dump() if isinstance(raw, TeacherTurnV1) else raw)
     except ValidationError as exc:
         _append(repository, state, actor="teacher", action="teacher_turn", validation="invalid",
                 payload={"reason": "schema", "detail": str(exc)[:2000]}, clock=clock)
@@ -1033,9 +1056,11 @@ def _call_teacher(vault: Any, repository: Any, state: LessonState, client: Any, 
         if deliver:
             _append(repository, state, actor="code", action="results_delivered", payload={"turn_ids": list(deliver)},
                     clock=clock)
+        payload = {"turn": turn_obj.model_dump(), "turn_version": TURN_VERSION, "help_reply": bool(help_reply)}
+        if visuals:
+            payload["visuals"] = V.VISUALS_VERSION
         entry = _append(repository, state, actor="teacher", action="teacher_turn", validation="ok",
-                        payload={"turn": turn_obj.model_dump(), "turn_version": TURN_VERSION,
-                                 "help_reply": bool(help_reply)}, clock=clock)
+                        payload=payload, clock=clock)
         _record_reveals(vault, repository, state, "\n".join(text for _name, text in displayed), clock=clock)
     if deliver:
         delivered = set(deliver)
@@ -1068,7 +1093,11 @@ def _contract_problem(state: LessonState, turn_obj: TeacherTurnV1) -> str | None
             return "a forecast needs forecast_kind, node and p"
         if request.action == "close" and request.close_reason is None:
             return "close needs a close_reason"
-    if not turn_obj.message and turn_obj.check is None and turn_obj.prediction is None and not turn_obj.requests:
+    visual_problem = V.contract_problem(state, turn_obj)
+    if visual_problem is not None:
+        return visual_problem
+    if not turn_obj.message and turn_obj.check is None and turn_obj.prediction is None and not turn_obj.requests \
+            and getattr(turn_obj, "visual", None) is None:
         return "the turn is empty"
     return None
 
@@ -1130,7 +1159,7 @@ def _withdraw(vault: Any, repository: Any, state: LessonState, *, overlap: float
 def _execute(vault: Any, repository: Any, state: LessonState, turn_obj: TeacherTurnV1, *,
              turn_entry: Mapping[str, Any], model: str | None, deferred: bool, outcome: _Outcome,
              clock: Clock | None, help_reply: bool, done: set[str] | frozenset[str] = frozenset(),
-             reads: bool = True) -> list[dict[str, Any]]:
+             reads: bool = True, builder: V.Builder | None = None) -> list[dict[str, Any]]:
     """An accepted turn's effects, in order, each marked with the turn and its name (``refs.effect``) in
     the transaction that makes it, then a ``turn_executed`` marker: recovery runs only what is unmarked
     (``done``), so an interrupted action resumes idempotently (review F9)."""
@@ -1151,6 +1180,14 @@ def _execute(vault: Any, repository: Any, state: LessonState, turn_obj: TeacherT
         outcome.shown.append({"kind": "prediction", **data})
     if turn_obj.check is not None and "check" not in done:
         _pose_check(vault, repository, state, turn_obj.check, outcome=outcome, clock=clock, turn_entry=turn_entry)
+    if getattr(turn_obj, "visual", None) is not None and "visual" not in done and V.active(vault):
+        # Reader RW5d P4b: the step's figure, built by the host's figure service (a model call, outside
+        # any ledger transaction). With no builder now (``lesson.view``), it waits for the next action.
+        if builder is None:
+            skipped = True
+        else:
+            _visual(vault, repository, state, turn_obj, builder=builder, outcome=outcome, clock=clock,
+                    turn_entry=turn_entry)
     for index, request in enumerate(turn_obj.requests):
         effect = f"request:{index}"
         if effect in done:
@@ -1191,6 +1228,54 @@ def _execute(vault: Any, repository: Any, state: LessonState, turn_obj: TeacherT
             clock=clock)
     state.executed.add(str(turn_entry["id"]))
     return results
+
+
+def _visual(vault: Any, repository: Any, state: LessonState, turn_obj: TeacherTurnV1, *, builder: V.Builder,
+            outcome: _Outcome, clock: Clock | None, turn_entry: Mapping[str, Any]) -> None:
+    """Reader RW5d P4b: build the turn's visual and record it. A shown figure's words pass the lesson's
+    guards (a vault item's key; the open check's solution, a check posed in this turn included) and are
+    accounted as exposure (reveal rows, basis ``lesson:<id>``) with the record, in one transaction; a
+    figure whose words fail a guard is recorded but not shown. Never evidence, never a help row: the
+    check's grader sees its question only."""
+
+    resolved = V.resolve(state, turn_obj)
+    if resolved is None:
+        return
+    record = V.build(vault, repository, state, resolved, builder)
+    text = ""
+    if record["status"] == V.SHOWN:
+        row = V.figure_row(repository, str(record["figure_id"]))
+        text = V.figure_text(row)
+        keys, unreadable = G.lesson_keys(vault, repository, state.los, list(state.minted.values()))
+        open_check = (state.open_check or {}).get("check")
+        for verdict in (G.key_guard(text, keys, unreadable), G.open_check_guard(text, open_check)):
+            if not verdict.ok:
+                record = {**record, "status": V.WITHHELD, "code": verdict.reason,
+                          "reason": "the figure gave an answer away, so it isn't shown"}
+                text = ""
+                break
+        else:
+            record["figure"] = V.summary(row)
+    with repository.atomic():
+        _append(repository, state, actor="code", action="visual",
+                refs=_effect_refs(turn_entry, "visual", {"figure": record.get("figure_id")}), payload=record,
+                clock=clock)
+        if text:
+            _record_reveals(vault, repository, state, text, clock=clock)
+    outcome.shown.append(_figure_entry(vault, repository, record))
+
+
+def _figure_entry(vault: Any, repository: Any, record: Mapping[str, Any]) -> dict[str, Any]:
+    """A lesson figure as the feed shows it (Reader RW5d P4b): its view NOW, with no predictions."""
+
+    figure = None
+    status = str(record.get("status") or V.FAILED)
+    if status == V.SHOWN and record.get("figure_id"):
+        figure = V.lesson_view(vault, repository, str(record["figure_id"]))
+        if figure is None:
+            status = V.WITHHELD
+    return {"kind": "figure", "node": record.get("node"), "goal": record.get("goal"), "status": status,
+            "figure": figure}
 
 
 def _pose_check(vault: Any, repository: Any, state: LessonState, check: CheckV1, *, outcome: _Outcome,
@@ -1272,7 +1357,10 @@ def _forecast(vault: Any, repository: Any, state: LessonState, request: ActionRe
                   "predicted_outcomes": {"success": round(float(request.p), 8),
                                          "failure": round(1.0 - float(request.p), 8)}},
         inputs=inputs, parameters=[{"name": "p", "value": float(request.p), "provenance": "model"}],
-        versions={"doctrine": DOCTRINE_VERSION, "prompt": PROMPT_VERSION}, inputs_as_of=now, p=float(request.p),
+        versions={"doctrine": DOCTRINE_VERSION,
+                  # The prompt the forecasting turn was written under (Reader RW5d P4b: with the visuals paragraph).
+                  "prompt": V.prompt_version(bool(((turn_entry or {}).get("payload") or {}).get("visuals")))},
+        inputs_as_of=now, p=float(request.p),
         columns={"decision_ref": state.lesson_id, "learning_object_id": lo})
     data = {"key": key, "kind": kind, "node": node, "p": float(request.p), "learning_object_id": lo,
             "family": family}
@@ -1360,7 +1448,7 @@ def displayed_texts(state: LessonState, *, extra: Sequence[str] = ()) -> list[st
         if entry["action"] == "teacher_turn" and entry["validation"] == "ok":
             turn = (entry.get("payload") or {}).get("turn")
             if turn:
-                out.extend(text for _name, text in _displayed(TeacherTurnV1.model_validate(turn)))
+                out.extend(text for _name, text in _displayed(V.stored_turn(turn)))
     out.extend(text for text in extra if text)
     return out
 
@@ -1397,6 +1485,8 @@ def _receipt(vault: Any, repository: Any, state: LessonState, *, reason: str, re
         "rule": (row["weight_inputs"] or {}).get("rule"), "forecast_key": row["forecast_correct_key"],
     } for row in rows if row["status"] == "answered"]
     stability_inputs = _stability_inputs(repository, landed, rows, state)
+    visuals = [{key: (entry.get("payload") or {}).get(key) for key in ("node", "figure_id", "status", "version")}
+               for entry in state.turns if entry["action"] == "visual"]
     return {
         "version": RECEIPT_VERSION,
         "lesson_id": state.lesson_id,
@@ -1424,6 +1514,8 @@ def _receipt(vault: Any, repository: Any, state: LessonState, *, reason: str, re
         "cost": {**dict(usage), "route": state.lesson.get("route"), "metered_usd": round(_spent_usd(state), 10),
                  "cap_usd": vault.config.teacher.max_lesson_cost_usd},
         "warnings": list(warnings),
+        # Reader RW5d P4b: the lesson's figures (absent when it had none: TE1's receipt).
+        **({"visuals": visuals} if visuals else {}),
     }
 
 
@@ -1468,6 +1560,7 @@ def view(vault: Any, repository: Any, lesson_id: str, *, outcome: _Outcome | Non
 
     state = load_state(repository, lesson_id)
     feed: list[dict[str, Any]] = []
+    visuals_shown = V.active(vault)
     for entry in state.turns:
         data = entry.get("payload") or {}
         action = entry["action"]
@@ -1492,6 +1585,9 @@ def view(vault: Any, repository: Any, lesson_id: str, *, outcome: _Outcome | Non
         elif action == "check_withdrawn":
             feed.append({"kind": "notice", "text": "That reply gave the check's answer away, so the check was "
                                                    "withdrawn; it doesn't count either way."})
+        elif action == "visual" and visuals_shown:
+            # Reader RW5d P4b: the step's figure inline (none while visuals are off: TE1's view).
+            feed.append(_figure_entry(vault, repository, data))
         elif action == "close":
             feed.append({"kind": "close", "reason": data.get("reason"), "recap": data.get("recap"),
                          "delayed_checks": [{"learning_object_id": c.get("learning_object_id"),

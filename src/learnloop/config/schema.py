@@ -4208,6 +4208,16 @@ class TeacherConfig(BaseModel):
       ``max_lesson_cost_usd``: the per-lesson cap on a metered route
       (``keep``, spend; set from one measured dry run, Q7: unset, a metered
       lesson turn is refused before sending).
+
+    Reader RW5d P4b (``spec_reader_show_me_figures_v1`` §6.5, §10.4) adds
+    ``visuals``: the kill switch of the teacher's manipulatives. On (with
+    ``figures.enabled`` and ``figures.show_me_enabled``), the teacher's turn may
+    carry a ``visual`` and plan nodes a planned one, built by the figure service
+    (grammar and sketch tiers) with origin ``teacher``, its own predictions off in
+    the lesson; the teacher's prompt carries the visuals paragraph. Off, the
+    teacher's prompt and turn schema are TE1's byte for byte and no lesson figure
+    is built or shown. Content and display only: a figure never grades and is
+    never evidence (no successor).
     """
 
     confidence_events_enabled: bool = True
@@ -4219,6 +4229,8 @@ class TeacherConfig(BaseModel):
     delayed: TeacherDelayedConfig = Field(default_factory=TeacherDelayedConfig)
     metered_price_per_million: float | None = None
     max_lesson_cost_usd: float | None = None
+    # Reader RW5d P4b: the teacher's manipulatives (off: TE1's prompt and turn schema exactly).
+    visuals: bool = True
 
 
 class EligibilityConfig(BaseModel):
