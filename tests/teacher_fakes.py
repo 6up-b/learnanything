@@ -49,7 +49,7 @@ RESERVED_ITEM = "pi_eig_reserved"
 def _item(item_id: str, lo_id: str, prompt: str, answer: str) -> dict[str, Any]:
     return {
         "id": item_id, "learning_object_id": lo_id, "practice_mode": "short_answer",
-        "attempt_types_allowed": ["independent_attempt"], "evidence_facets": [], "prompt": prompt,
+        "attempt_types_allowed": ["independent_attempt", "hinted_attempt"], "evidence_facets": [], "prompt": prompt,
         "expected_answer": answer, "hints": [],
         "grading_rubric": {"max_points": 4, "criteria": [
             {"id": "correctness", "points": 4, "description": "Answer matches the expected answer in substance."}]},

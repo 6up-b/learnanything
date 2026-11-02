@@ -198,6 +198,12 @@ def lo_prediction(vault: Any, repository: Any, learning_object_id: str) -> dict[
     learning_object = vault.learning_objects.get(learning_object_id)
     a, b = item_irt_params(None, learning_object, vault.config.mastery)
     state = repository.mastery_state(learning_object_id)
+    if state is None and learning_object is not None:
+        # No evidence yet: the model's own prior for the LO (what its first update would start from).
+        from learnloop.clock import utc_now_iso
+        from learnloop.learner.mastery import initial_mastery_state_for_learning_object
+
+        state = initial_mastery_state_for_learning_object(vault, repository, learning_object_id, utc_now_iso())
     if state is None:
         return {"source": "mastery_ekf", "p": None, "words": "no prediction yet"}
     mu, var = float(state.logit_mean), float(state.logit_variance)
