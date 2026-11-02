@@ -70,6 +70,7 @@ from learnloop.adf_numeric import (
     sigmoid,
 )
 from learnloop.clock import parse_utc
+from learnloop.held_grades import held_for_review_attempts
 
 #: The prior set's identity (``lp_priors_v1``, spec §12.1): a changed prior is a successor.
 PRIORS_VERSION = "lp_priors_v1"
@@ -344,16 +345,161 @@ def _days(start: str, end: str) -> float:
     return max(0.0, (b - a).total_seconds() / 86400.0)
 
 
-def pool_implied_mass(sensitivity: CheckSensitivity, target: float, mastery_config: Any) -> float:
-    """The mass at which the mastery update makes the predicted success equal ``target`` (§12.2).
+# --- the LO's recorded trajectory from the check to the outcome (§12.1; review F6) ------------
+
+
+@dataclass(frozen=True)
+class RecordedUpdate:
+    """One mastery update on the check's LO as the attempt step made it: its grade, its item, and the
+    observation factors it entered with (the observation weight the attempt step recorded, which
+    carries coverage, grading reliability, hints, the error sharpening and the familiarity discount;
+    and the grader-interpretation noise, recovered from the recorded variance step). ``varied``: the
+    resolving check itself, whose weight scales with the candidate mass (the weight is linear in the
+    attempt's mass: ``recall_coverage.resolve_reliability``)."""
+
+    attempt_id: str
+    at: str
+    y: float
+    item_a: float
+    item_b: float
+    weight: float
+    interpretation_variance: float
+    primed: bool
+    attempt_type: str
+    applied: bool
+    varied: bool = False
+
+
+def _interpretation_variance(mu: float, variance: float, last: str | None, at: str, *, a: float, b: float,
+                             weight: float, variance_after: float, config: Any) -> float:
+    """The extra observation noise an update carried, recovered from its recorded variance step
+    (``P_after = (1 − K·H)·P_pred``, ``K·H = H²P/(H²P + R)``), less the weight's own part of ``R``."""
+
+    irt = getattr(config, "irt", None)
+    if irt is None or not getattr(irt, "enabled", False):
+        return 0.0
+    p = min(max(float(sigmoid(a * (mu - b))), irt.p_clip), 1.0 - irt.p_clip)
+    pq = p * (1.0 - p)
+    h = a * pq
+    predicted = min(variance + float(config.sigma2_drift) * (_days(last, at) if last else 0.0), float(config.p_max))
+    kh = 1.0 - variance_after / predicted if predicted > 0 else 0.0
+    if kh <= 0.0 or h == 0.0:
+        return 0.0
+    r = h * h * predicted * (1.0 - kh) / kh
+    return max(0.0, r - float(config.base_observation_variance) * pq / max(weight, 0.10))
+
+
+def recorded_trajectory(connection: Any, vault: Any, mastery_config: Any, check: Mapping[str, Any],
+                        outcome: Mapping[str, Any]) -> list[RecordedUpdate] | None:
+    """The check's own update and every update on its LO after it and before the outcome, in order,
+    each with its recorded factors; None when one of them left no record to recompute it from."""
+
+    from learnloop.learner.mastery import item_irt_params
+
+    if vault is None or not check.get("attempt_id"):
+        return None
+    lo = str(check["learning_object_id"])
+    anchor = connection.execute("SELECT created_at FROM practice_attempts WHERE id = ?",
+                                (str(check["attempt_id"]),)).fetchone()
+    if anchor is None:
+        return None
+    rows = connection.execute(
+        "SELECT a.id, a.practice_item_id, a.created_at, a.correctness, a.primed, a.attempt_type, s.posterior_delta_json, "
+        "d.payload_json FROM practice_attempts a "
+        "LEFT JOIN attempt_surprise s ON s.attempt_id = a.id "
+        "LEFT JOIN attempt_debug_payloads d ON d.attempt_id = a.id "
+        "WHERE a.learning_object_id = ? AND (a.created_at > ? OR (a.created_at = ? AND a.id >= ?)) "
+        "AND (a.created_at < ? OR (a.created_at = ? AND a.id < ?)) ORDER BY a.created_at, a.id",
+        (lo, anchor[0], anchor[0], str(check["attempt_id"]), str(outcome["created_at"]),
+         str(outcome["created_at"]), str(outcome["id"]))).fetchall()
+    if not rows or str(rows[0][0]) != str(check["attempt_id"]):
+        return None
+    held = held_for_review_attempts(connection, [row[0] for row in rows])
+    sensitivity = check["inputs"].get("sensitivity") or {}
+    last = sensitivity.get("last_evidence_at")
+    out: list[RecordedUpdate] = []
+    for attempt_id, item_id, at, correctness, primed, attempt_type, delta_json, debug_json in rows:
+        try:
+            delta = json.loads(delta_json) if delta_json else None
+            debug = json.loads(debug_json) if debug_json else None
+        except ValueError:
+            return None
+        if not delta or not debug or debug.get("observation_weight") is None:
+            return None
+        mu0, var0 = float(delta["mu_before"]), float(delta["P_before"])
+        mu1, var1 = float(delta["mu_after"]), float(delta["P_after"])
+        applied = correctness is not None and str(attempt_id) not in held and (mu0 != mu1 or var0 != var1)
+        item = vault.practice_items.get(str(item_id))
+        a, b = item_irt_params(item, vault.learning_objects.get(lo), mastery_config)
+        weight = float(debug["observation_weight"])
+        variance = (_interpretation_variance(mu0, var0, last, str(at), a=float(a), b=float(b), weight=weight,
+                                             variance_after=var1, config=mastery_config) if applied else 0.0)
+        out.append(RecordedUpdate(
+            attempt_id=str(attempt_id), at=str(at), y=float(correctness or 0.0), item_a=float(a), item_b=float(b),
+            weight=weight, interpretation_variance=variance, primed=bool(primed), attempt_type=str(attempt_type),
+            applied=applied, varied=str(attempt_id) == str(check["attempt_id"])))
+        if applied and not primed:
+            last = str(at)
+    return out
+
+
+def trajectory_state(sensitivity: "CheckSensitivity", updates: Sequence[RecordedUpdate], *, mass: float,
+                     recorded_mass: float, mastery_config: Any) -> Any:
+    """The LO's mastery state just before the outcome, recomputed from the check's recorded prior with
+    the check entered at ``mass`` and every other update as recorded."""
+
+    from learnloop.db.repositories import MasteryState
+    from learnloop.learner.mastery import MasteryObservation, update_mastery
+
+    state = MasteryState(
+        learning_object_id="lesson_check", logit_mean=sensitivity.mu, logit_variance=sensitivity.variance,
+        evidence_count=0, last_evidence_at=sensitivity.last_evidence_at, algorithm_version="lesson_weight",
+        updated_at=sensitivity.observed_at)
+    for update in updates:
+        if not update.applied:
+            continue
+        weight = update.weight * (float(mass) / float(recorded_mass)) if update.varied and recorded_mass > 0 \
+            else update.weight
+        observed = parse_utc(update.at)
+        assert observed is not None
+        observation = MasteryObservation(
+            rubric_score=0, max_points=1, evidence_coverage=1.0, hint_dampening=1.0, grader_confidence=1.0,
+            attempt_type=update.attempt_type, observed_at=observed, observation_weight_override=weight,
+            interpretation_variance=update.interpretation_variance, soft_score_override=update.y,
+            primed=update.primed)
+        state = update_mastery(state, observation, mastery_config, "lesson_weight", item_a=update.item_a,
+                               item_b=update.item_b)
+    return state
+
+
+def trajectory_success(state: Any, *, a: float, b: float, at: str, mastery_config: Any) -> float:
+    """The mastery model's predicted success at ``at`` from ``state`` (its drift since the last evidence,
+    held to ``p_max`` as the model holds it)."""
+
+    days = _days(state.last_evidence_at, at) if state.last_evidence_at else 0.0
+    variance = min(float(state.logit_variance) + float(getattr(mastery_config, "sigma2_drift", 0.0)) * days,
+                   float(getattr(mastery_config, "p_max", math.inf)))
+    return predicted_success(float(state.logit_mean), variance, a=a, b=b)
+
+
+def pool_implied_mass(sensitivity: CheckSensitivity, target: float, mastery_config: Any, *,
+                      a: float | None = None, b: float | None = None, days: float = 0.0) -> float:
+    """The mass at which the mastery update makes the predicted success equal ``target`` (§12.2):
+    the success on the committed cold item (``a``, ``b``; the check's own item when not given) at
+    the forecast's horizon (``days`` of drift), the same item and horizon ``target``'s ``p_A`` was
+    computed for (review F5).
 
     A one-dimensional search on the logit scale (the mass lies in (0, 1) by the link); the
     predicted success is monotone in the mass for a fixed grade, so bisection finds it, or the
     end of the search interval nearest it when it is out of reach."""
 
+    item_a = sensitivity.item_a if a is None else float(a)
+    item_b = sensitivity.item_b if b is None else float(b)
+    drift = float(getattr(mastery_config, "sigma2_drift", 0.0))
+
     def p_at(eta: float) -> float:
         mu, var = posterior_after(sensitivity, float(sigmoid(eta)), mastery_config)
-        return predicted_success(mu, var, a=sensitivity.item_a, b=sensitivity.item_b)
+        return predicted_success(mu, var, a=item_a, b=item_b, drift=drift, days=days)
 
     lo, hi = -_IMPLIED_ETA_BOUND, _IMPLIED_ETA_BOUND
     p_lo, p_hi = p_at(lo), p_at(hi)
@@ -380,8 +526,14 @@ def _soft_log_lik(p: np.ndarray, y: float) -> np.ndarray:
 
 
 def _resolve_check(state: WeightState, check: Mapping[str, Any], outcome: Mapping[str, Any], share: float,
-                   mastery_config: Any) -> dict[str, Any]:
-    """One check's factor from its resolving outcome, at power ``share``."""
+                   mastery_config: Any, trajectory: Sequence[RecordedUpdate] | None = None) -> dict[str, Any]:
+    """One check's factor from its resolving outcome, at power ``share``.
+
+    With the LO's recorded ``trajectory`` (:func:`recorded_trajectory`), the likelihood recomputes the
+    LO's updates from the check's recorded prior with only the check's mass varied: the check keeps its
+    own recorded observation factors, and every intervening update is re-applied as recorded (§12.1).
+    Without one (an attempt left no record), the first-order form: the check alone at full reliability,
+    then the drift to the outcome."""
 
     inputs = check["inputs"]
     sensitivity = CheckSensitivity.from_dict(inputs["sensitivity"])
@@ -392,13 +544,21 @@ def _resolve_check(state: WeightState, check: Mapping[str, Any], outcome: Mappin
     drift = float(getattr(mastery_config, "sigma2_drift", 0.0))
     outcome_a = float(outcome.get("item_a", sensitivity.item_a))
     outcome_b = float(outcome.get("item_b", sensitivity.item_b))
+    recorded_mass = float(check.get("mass_applied") or 0.0)
+    exact = trajectory is not None and recorded_mass > 0.0
+
+    def p_at_mass(mass: float) -> float:
+        if exact:
+            assert trajectory is not None
+            final = trajectory_state(sensitivity, trajectory, mass=mass, recorded_mass=recorded_mass,
+                                     mastery_config=mastery_config)
+            return trajectory_success(final, a=outcome_a, b=outcome_b, at=str(outcome["created_at"]),
+                                      mastery_config=mastery_config)
+        mu, var = posterior_after(sensitivity, mass, mastery_config)
+        return predicted_success(mu, var, a=outcome_a, b=outcome_b, drift=drift, days=days)
 
     def p_of_eta(eta: np.ndarray) -> np.ndarray:
-        values = []
-        for value in np.atleast_1d(eta):
-            mu, var = posterior_after(sensitivity, float(sigmoid(value)), mastery_config)
-            values.append(predicted_success(mu, var, a=outcome_a, b=outcome_b, drift=drift, days=days))
-        return np.asarray(values)
+        return np.asarray([p_at_mass(float(sigmoid(value))) for value in np.atleast_1d(eta)])
 
     def log_lik(eta: np.ndarray) -> np.ndarray:
         return share * _soft_log_lik(p_of_eta(eta), y)
@@ -411,8 +571,7 @@ def _resolve_check(state: WeightState, check: Mapping[str, Any], outcome: Mappin
     for w, (m, v) in zip(weights, state.eta_moments(lo, z_c, z_p)):
         eta = m + math.sqrt(max(v, 0.0)) * NODES
         predictive += w * float((WEIGHTS * p_of_eta(eta)).sum())
-    fixed_mu, fixed_var = posterior_after(sensitivity, 0.5, mastery_config)
-    fixed = predicted_success(fixed_mu, fixed_var, a=outcome_a, b=outcome_b, drift=drift, days=days)
+    fixed = p_at_mass(0.5)
     state.prequential.append((float(share * _soft_log_lik(np.array([predictive]), y)[0]),
                               float(share * _soft_log_lik(np.array([fixed]), y)[0])))
     index = state._ensure_lo(lo)
@@ -421,24 +580,43 @@ def _resolve_check(state: WeightState, check: Mapping[str, Any], outcome: Mappin
         bank.mean, bank.cov, record = adf_update(bank.mean, bank.cov, h, log_lik)
         bank.log_w += record.log_z
     return {"z_c": z_c, "z_p": z_p, "y": y, "share": share, "days": round(days, 6),
+            "likelihood": "recorded_trajectory" if exact else "first_order",
+            "intervening": (sum(1 for u in trajectory if not u.varied and u.applied) if exact and trajectory else 0),
             "mass_before": round(learned_before, 10), "mass_after": round(state.learned_mass(lo, z_c, z_p), 10),
             "tau_weights": [round(float(w), 10) for w in state.tau_weights()]}
 
 
+def forecast_p_a(forecast: Mapping[str, Any], outcome: Mapping[str, Any], mastery_config: Any) -> float:
+    """``p_A`` for the outcome that resolves a forecast: the mastery prediction from the state the
+    forecast was made at, for the resolving item at the outcome's horizon (both predictors of the same
+    cold outcome, §12.2; review F5). A forecast recorded without its state keeps its recorded ``p_A``."""
+
+    recorded = forecast.get("state") or {}
+    if recorded.get("mu") is None or recorded.get("variance") is None or outcome.get("item_a") is None:
+        return float(forecast["p_a"])
+    last = recorded.get("last_evidence_at") or forecast.get("created_at")
+    days = _days(str(last), str(outcome["created_at"])) if last else 0.0
+    variance = min(float(recorded["variance"]) + float(getattr(mastery_config, "sigma2_drift", 0.0)) * days,
+                   float(getattr(mastery_config, "p_max", math.inf)))
+    return predicted_success(float(recorded["mu"]), variance, a=float(outcome["item_a"]), b=float(outcome["item_b"]))
+
+
 def _resolve_forecast(state: WeightState, forecast: Mapping[str, Any], outcome: Mapping[str, Any],
-                      share: float) -> dict[str, Any]:
+                      share: float, mastery_config: Any = None) -> dict[str, Any]:
     family = str(forecast["family"])
     log_w = state.pools.get(family)
     if log_w is None:
         log_w = _pool_prior_log_w()
     grid = _pool_grid()
-    p = grid * float(forecast["p_b"]) + (1.0 - grid) * float(forecast["p_a"])
+    p_a = forecast_p_a(forecast, outcome, mastery_config) if mastery_config is not None else float(forecast["p_a"])
+    p = grid * float(forecast["p_b"]) + (1.0 - grid) * p_a
     y = float(outcome["correctness"])
     before = float((normalized_log_weights(log_w) * grid).sum())
     log_w = log_w + share * _soft_log_lik(p, y)
     state.pools[family] = log_w
     state.pool_updates[family] = state.pool_updates.get(family, 0) + 1
-    return {"family": family, "p_a": forecast["p_a"], "p_b": forecast["p_b"], "y": y, "share": share,
+    return {"family": family, "p_a": p_a, "p_a_at_forecast": forecast["p_a"], "p_b": forecast["p_b"], "y": y,
+            "share": share,
             "lambda_before": round(before, 10), "lambda_after": round(float((normalized_log_weights(log_w) * grid).sum()), 10)}
 
 
@@ -502,8 +680,13 @@ def _checks(connection: Any) -> list[dict[str, Any]]:
         "SELECT id, lesson_id, node_id, learning_object_id, attempt_id, correctness, tap, hedge, "
         "mass_learned, mass_applied, weight_inputs_json, created_at FROM lesson_checks "
         "WHERE status = 'answered' ORDER BY created_at, id").fetchall()
+    # A check whose own grade is held moved nothing (the attempt step takes no evidence from it): it has
+    # no factor to resolve until its grade is released.
+    held = held_for_review_attempts(connection, [row[4] for row in rows if row[4]]) if rows else frozenset()
     out = []
     for row in rows:
+        if row[4] and str(row[4]) in held:
+            continue
         out.append({
             "id": row[0], "lesson_id": row[1], "node_id": row[2], "learning_object_id": row[3],
             "attempt_id": row[4], "correctness": row[5], "tap": row[6], "hedge": row[7],
@@ -523,7 +706,8 @@ def _forecasts(connection: Any) -> list[dict[str, Any]]:
         if p is None or data.get("p_a") is None or not data.get("learning_object_id"):
             continue
         out.append({"key": key, "p_b": float(p), "p_a": float(data["p_a"]), "family": str(data.get("family")),
-                    "learning_object_id": str(data["learning_object_id"]), "created_at": created})
+                    "learning_object_id": str(data["learning_object_id"]), "created_at": created,
+                    "state": data.get("state")})
     return out
 
 
@@ -544,7 +728,8 @@ def qualifying_outcomes(connection: Any, learning_object_ids: Iterable[str], aft
         bound = " AND a.created_at <= ?"
         params.append(until)
     rows = connection.execute(
-        f"SELECT a.id, a.learning_object_id, a.practice_item_id, a.correctness, a.created_at FROM practice_attempts a "
+        f"SELECT a.id, a.learning_object_id, a.practice_item_id, a.correctness, a.created_at, a.attempt_type "
+        f"FROM practice_attempts a "
         f"WHERE a.learning_object_id IN ({marks}) AND a.created_at > ? AND a.attempt_type IN ({types}) "
         f"AND a.primed = 0 AND a.hints_used = 0 AND a.correctness IS NOT NULL{bound} "
         "AND NOT EXISTS (SELECT 1 FROM practice_attempts b WHERE b.practice_item_id = a.practice_item_id "
@@ -552,8 +737,11 @@ def qualifying_outcomes(connection: Any, learning_object_ids: Iterable[str], aft
         "AND NOT EXISTS (SELECT 1 FROM reveal_events r WHERE r.practice_item_id = a.practice_item_id "
         "  AND r.created_at < a.created_at) "
         "ORDER BY a.created_at, a.id", params).fetchall()
+    # A grade held for review is the grader's provisional score: no outcome anywhere (held_grades, the
+    # canonical predicate; review F2). Released, it qualifies again on the next replay.
+    held = held_for_review_attempts(connection, [row[0] for row in rows]) if rows else frozenset()
     return [{"id": row[0], "learning_object_id": row[1], "practice_item_id": row[2], "correctness": float(row[3]),
-             "created_at": row[4]} for row in rows]
+             "created_at": row[4], "attempt_type": row[5]} for row in rows if str(row[0]) not in held]
 
 
 def _calibration_attempts(connection: Any, hedges: Mapping[str, str], until: str | None) -> list[dict[str, Any]]:
@@ -563,8 +751,11 @@ def _calibration_attempts(connection: Any, hedges: Mapping[str, str], until: str
     rows = connection.execute(
         "SELECT id, answer_confidence, correctness, created_at FROM practice_attempts "
         f"WHERE correctness IS NOT NULL{bound} ORDER BY created_at, id", params).fetchall()
+    held = held_for_review_attempts(connection, [row[0] for row in rows]) if rows else frozenset()
     out = []
     for attempt_id, tap, correctness, created in rows:
+        if str(attempt_id) in held:
+            continue
         hedge = hedges.get(str(attempt_id))
         if tap is None and hedge is None:
             continue
@@ -642,7 +833,10 @@ def replay_state(vault: Any, repository: Any, *, as_of: str | None = None,
             open_checks[lo] = [c for c in open_checks.get(lo, []) if str(c["created_at"]) >= at]
             enriched = {**payload, **_outcome_item_params(vault, mastery_config, payload)}
             for check in pending:
-                detail = _resolve_check(state, check, enriched, 1.0 / len(pending), mastery_config)
+                with repository.connection() as connection:
+                    trajectory = recorded_trajectory(connection, vault, mastery_config, check, payload)
+                detail = _resolve_check(state, check, enriched, 1.0 / len(pending), mastery_config,
+                                        trajectory=trajectory)
                 state.updates += 1
                 state.through_at = at
                 state.trace.append({"kind": "weight_update", "lesson_check_id": check["id"],
@@ -651,7 +845,7 @@ def replay_state(vault: Any, repository: Any, *, as_of: str | None = None,
             waiting = [f for f in open_forecasts.get(lo, []) if str(f["created_at"]) < at]
             open_forecasts[lo] = [f for f in open_forecasts.get(lo, []) if str(f["created_at"]) >= at]
             for forecast in waiting:
-                detail = _resolve_forecast(state, forecast, payload, 1.0 / len(waiting))
+                detail = _resolve_forecast(state, forecast, enriched, 1.0 / len(waiting), mastery_config)
                 state.through_at = at
                 state.trace.append({"kind": "pool_update", "lesson_check_id": None,
                                     "resolving_attempt_id": payload["id"], "learning_object_id": lo, "at": at,
@@ -808,6 +1002,7 @@ __all__ = [
     "RULE_FIXED",
     "RULE_LEARNED",
     "RULE_POOL",
+    "RecordedUpdate",
     "TAP_PRIOR_MAP",
     "TAU_GRID",
     "WeightState",
@@ -821,6 +1016,9 @@ __all__ = [
     "qualifying_outcomes",
     "read_hedges",
     "rebuild_lesson_weight_state",
+    "recorded_trajectory",
     "replay_state",
+    "trajectory_state",
+    "trajectory_success",
     "write_state",
 ]

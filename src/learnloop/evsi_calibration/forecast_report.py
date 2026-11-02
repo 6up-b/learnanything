@@ -568,6 +568,66 @@ def resolve_repair(ledgers: _Ledgers, receipt: Mapping[str, Any]) -> dict[str, A
                        regraded_since_verification=emission != disposition["outcome"], **common)
 
 
+# -- teacher TE1: the lesson forecasts (spec_teacher_v1 §8.3, §12.2) ------------------------------------
+
+#: A lesson check (and a cold outcome) is "right" at full credit: the lesson's own result rule.
+_LESSON_RIGHT = 1.0
+
+
+def _lesson_emission(correctness: Any) -> str:
+    return "success" if float(correctness) >= _LESSON_RIGHT else "failure"
+
+
+def resolve_lesson_check(ledgers: _Ledgers, receipt: Mapping[str, Any]) -> dict[str, Any]:
+    """``lesson_check_correct``: resolved on the check's own attempt (``lesson_checks`` by lesson and
+    check ref) under its current grade; a withdrawn check is censored, a held grade waits, an ungraded
+    one is pending, and a check never answered in a closed lesson is censored."""
+
+    connection = ledgers.connection
+    inputs = receipt.get("inputs") or {}
+    lesson_id, check_ref = inputs.get("lesson_id"), inputs.get("check_ref")
+    if not lesson_id or not check_ref or not _has(connection, "lesson_checks"):
+        return _resolution(CENSORED, "no_check_binding")
+    row = connection.execute(
+        "SELECT status, attempt_id FROM lesson_checks WHERE lesson_id = ? AND check_ref = ? ORDER BY created_at, id "
+        "LIMIT 1", (str(lesson_id), str(check_ref))).fetchone()
+    if row is None:
+        closed = connection.execute("SELECT closed_at FROM lessons WHERE id = ?", (str(lesson_id),)).fetchone() \
+            if _has(connection, "lessons") else None
+        if closed is not None and closed[0] is not None:
+            return _resolution(CENSORED, "check_never_answered")
+        return _resolution(PENDING, "awaiting_check_answer")
+    if row[0] == "withdrawn" or not row[1]:
+        return _resolution(CENSORED, "check_withdrawn")
+    attempt_id = str(row[1])
+    common = {"attempt_id": attempt_id, "binding": FR.LESSON_CHECK_ATTEMPT}
+    if ledgers.held(attempt_id):
+        return _resolution(HELD, GRADE_HELD_FOR_REVIEW, **common)
+    graded = connection.execute("SELECT correctness FROM practice_attempts WHERE id = ?", (attempt_id,)).fetchone()
+    if graded is None or graded[0] is None:
+        return _resolution(PENDING, "ungraded", **common)
+    return _resolution(RESOLVED, "realized", emission=_lesson_emission(graded[0]), **common)
+
+
+def resolve_lesson_step(ledgers: _Ledgers, receipt: Mapping[str, Any]) -> dict[str, Any]:
+    """``lesson_step_retained``: resolved on the first qualifying cold outcome on the node's LO after
+    the forecast (``learner.lesson_weight.qualifying_outcomes``: the outcome the pool weight learns
+    from, held grades left out until released); pending until one exists."""
+
+    from learnloop.learner.lesson_weight import qualifying_outcomes
+
+    inputs = receipt.get("inputs") or {}
+    lo = inputs.get("learning_object_id")
+    if not lo:
+        return _resolution(CENSORED, "no_learning_object")
+    outcomes = qualifying_outcomes(ledgers.connection, [str(lo)], str(receipt.get("created_at")))
+    if not outcomes:
+        return _resolution(PENDING, "awaiting_cold_outcome")
+    first = outcomes[0]
+    return _resolution(RESOLVED, "realized", emission=_lesson_emission(first["correctness"]),
+                       attempt_id=str(first["id"]), binding=FR.LESSON_COLD_OUTCOME)
+
+
 # -- the check-outcome adapter (voi_forecasts) ----------------------------------------------------
 
 
@@ -615,7 +675,8 @@ def _round(value: float | None, digits: int = 4) -> float | None:
 
 
 #: The binary event each kind's ``p`` forecasts, as an emission.
-_BINARY_EVENT = {FR.DIAGNOSIS_NEXT_OBSERVATION: "pass", FR.REPAIR_COLD_OUTCOME: "cold_success"}
+_BINARY_EVENT = {FR.DIAGNOSIS_NEXT_OBSERVATION: "pass", FR.REPAIR_COLD_OUTCOME: "cold_success",
+                 FR.LESSON_CHECK_CORRECT: "success", FR.LESSON_STEP_RETAINED: "success"}
 
 
 def _score(kind: str, rows: Sequence[tuple[Mapping[str, Any], Mapping[str, Any]]]) -> dict[str, Any]:
@@ -728,6 +789,10 @@ def _resolve_all(
             resolution = resolve_diagnosis(ledgers, receipt)
         elif receipt["kind"] == FR.REPAIR_COLD_OUTCOME:
             resolution = resolve_repair(ledgers, receipt)
+        elif receipt["kind"] == FR.LESSON_CHECK_CORRECT:
+            resolution = resolve_lesson_check(ledgers, receipt)
+        elif receipt["kind"] == FR.LESSON_STEP_RETAINED:
+            resolution = resolve_lesson_step(ledgers, receipt)
         else:
             resolution = _resolution(CENSORED, "kind_without_resolver")
         rows.append((receipt, resolution))
@@ -797,6 +862,8 @@ __all__ = [
     "next_observation",
     "resolved_receipts",
     "resolve_diagnosis",
+    "resolve_lesson_check",
+    "resolve_lesson_step",
     "resolve_repair",
     "summarize",
 ]

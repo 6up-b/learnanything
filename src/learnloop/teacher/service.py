@@ -700,9 +700,17 @@ def _answer_check(vault: Any, repository: Any, state: LessonState, payload: Mapp
     node_id = str(open_check["check"]["node"])
     lo = str(item.learning_object_id)
     retained = _latest_forecast(state, "lesson_step_retained", node_id)
-    family = _family(clients.teacher())
+    # The pool's forecaster is the one that made the forecast being mixed in (its doctrine and model).
+    family = str((retained or {}).get("family") or _family_of(state.lesson.get("model")))
+    reference = None
+    if retained is not None:
+        reference = CK.cold_reference(vault, repository, lo, lesson_id=state.lesson_id,
+                                      exclude=_lesson_shown(vault, state),
+                                      lesson_item_ids=[c["minted_item_id"] for c in state.checks
+                                                       if c.get("minted_item_id")])
     mass = CK.check_mass(vault, repository, learning_object_id=lo, tap=tap, hedge=hedge, correctness=correctness,
-                         item=item, as_of=as_of, p_teacher_retained=(retained or {}).get("p"), family=family)
+                         item=item, as_of=as_of, p_teacher_retained=(retained or {}).get("p"), family=family,
+                         reference=reference)
     correct_forecast = _latest_forecast(state, "lesson_check_correct", open_check["check_ref"])
     CK.record_answered_check(
         vault, repository, lesson_id=state.lesson_id, node_id=node_id, check_ref=open_check["check_ref"], item=item,
@@ -1109,9 +1117,24 @@ def _forecast(vault: Any, repository: Any, state: LessonState, request: ActionRe
         node = ref
     else:
         lo = state.node_lo(node)
-        p_a = lo_prediction(vault, repository, lo).get("p") if lo else None
+        p_a, recorded, reference = (lo_prediction(vault, repository, lo).get("p") if lo else None), None, None
+        if lo and lo in vault.learning_objects:
+            # p_A for the committed cold item at its horizon (§12.2; review F5), from the LO's state now;
+            # the state rides with the receipt so the pool scores p_A for the item that resolves it.
+            from learnloop.learner.lesson_weight import predicted_success
+
+            reference = CK.cold_reference(vault, repository, lo, lesson_id=state.lesson_id,
+                                          exclude=_lesson_shown(vault, state),
+                                          lesson_item_ids=[c["minted_item_id"] for c in state.checks
+                                                           if c.get("minted_item_id")])
+            row = repository.mastery_state(lo)
+            if row is not None:
+                recorded = {"mu": float(row.logit_mean), "variance": float(row.logit_variance),
+                            "last_evidence_at": row.last_evidence_at}
+                p_a = predicted_success(recorded["mu"], recorded["variance"], a=reference["a"], b=reference["b"],
+                                        drift=float(vault.config.mastery.sigma2_drift), days=reference["days"])
         inputs = {"lesson_id": state.lesson_id, "node_id": node, "learning_object_id": lo, "family": family,
-                  "p_a": p_a}
+                  "p_a": p_a, "state": recorded, "reference": reference}
         scope, binding, event = "lesson_node", LESSON_COLD_OUTCOME, "cold_success"
     key = f"{kind}:{state.lesson_id}:{node}:{len(state.forecasts) + 1}"
     receipt = ForecastReceipt(
@@ -1123,7 +1146,8 @@ def _forecast(vault: Any, repository: Any, state: LessonState, request: ActionRe
         inputs=inputs, parameters=[{"name": "p", "value": float(request.p), "provenance": "model"}],
         versions={"doctrine": DOCTRINE_VERSION, "prompt": PROMPT_VERSION}, inputs_as_of=now, p=float(request.p),
         columns={"decision_ref": state.lesson_id, "learning_object_id": lo})
-    data = {"key": key, "kind": kind, "node": node, "p": float(request.p), "learning_object_id": lo}
+    data = {"key": key, "kind": kind, "node": node, "p": float(request.p), "learning_object_id": lo,
+            "family": family}
     with repository.atomic():
         written = record_receipts(repository, [receipt], vault=vault, clock=clock, created_at=now)
         data["written"] = bool(written)
@@ -1189,6 +1213,14 @@ def _close(vault: Any, repository: Any, state: LessonState, *, reason: str, reca
     state.lesson["closed_at"], state.lesson["close_reason"] = now, reason
     outcome.shown.append({"kind": "close", "reason": reason, "recap": recap,
                           "delayed_checks": [c for c in delayed_checks if c.get("commitment_id")]})
+
+
+def _lesson_shown(vault: Any, state: LessonState) -> list[str]:
+    """The lesson's own check items and the vault items its displayed text reproduced so far."""
+
+    from learnloop.teacher import delayed as D
+
+    return [*state.minted.values(), *D.shown_vault_items(vault, displayed_texts(state))]
 
 
 def displayed_texts(state: LessonState, *, extra: Sequence[str] = ()) -> list[str]:

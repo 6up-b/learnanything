@@ -110,10 +110,34 @@ def lesson_item(item: Any) -> bool:
 # --- the mass ---------------------------------------------------------------------
 
 
+def cold_reference(vault: Any, repository: Any, learning_object_id: str, *, lesson_id: str,
+                   exclude: Sequence[str], lesson_item_ids: Sequence[str]) -> dict[str, Any]:
+    """The committed cold item a node's retention forecast is about, as of now (§12.2; review F5): the
+    item the delayed retention check would commit (``teacher.delayed``'s candidate rule and picker,
+    excluding the lesson's own and shown items and their lineage), its IRT parameters (the LO's when no
+    item fits), and the horizon the check would be dated at (``delayed.due_days``)."""
+
+    from learnloop.learner.mastery import item_irt_params
+    from learnloop.learner_protection import withheld_items
+    from learnloop.teacher import delayed as D
+
+    shown = [vault.practice_items[i] for i in exclude if i in vault.practice_items]
+    lineage: set[str] = set().union(*(D.lineage(i) for i in shown)) if shown else set()
+    found = D.pick(vault, repository, D.candidates(
+        vault, repository, learning_object_id, exclude=exclude, withheld=withheld_items(vault, repository),
+        attempted=D._attempted(repository), revealed=D._revealed(repository, lesson_id), excluded_lineage=lineage))
+    a, b = item_irt_params(found, vault.learning_objects.get(learning_object_id), vault.config.mastery)
+    days, basis = D.due_days(vault, repository, purpose="retention", lesson_item_ids=list(lesson_item_ids))
+    return {"item_id": found.id if found is not None else None, "a": float(a), "b": float(b),
+            "days": float(days), "dated_by": basis}
+
+
 def check_mass(vault: Any, repository: Any, *, learning_object_id: str, tap: int | None, hedge: str | None,
                correctness: float, item: Any, as_of: str, p_teacher_retained: float | None,
-               family: str) -> dict[str, Any]:
-    """The mass this check enters mastery at, with every input (``weight_inputs``)."""
+               family: str, reference: Mapping[str, Any] | None = None) -> dict[str, Any]:
+    """The mass this check enters mastery at, with every input (``weight_inputs``). ``reference``: the
+    committed cold item and horizon of the node's retention forecast (:func:`cold_reference`): the
+    pool's ``p_A`` and its inversion are both computed for it, never for the check's own item."""
 
     from learnloop.attempts.evidence import attempt_evidence_mass
     from learnloop.learner.mastery import item_irt_params
@@ -143,12 +167,18 @@ def check_mass(vault: Any, repository: Any, *, learning_object_id: str, tap: int
         rule, applied = LW.RULE_FIXED, fixed
     elif config.source == "pool" and p_teacher_retained is not None:
         lam = state.pool_lambda(family)
+        ref = dict(reference or {})
+        ref_a, ref_b = float(ref.get("a", a)), float(ref.get("b", b))
+        days = float(ref.get("days") or 0.0)
+        drift = float(getattr(vault.config.mastery, "sigma2_drift", 0.0))
         mu_l, var_l = LW.posterior_after(sensitivity, learned, vault.config.mastery)
-        p_a = LW.predicted_success(mu_l, var_l, a=float(a), b=float(b))
+        p_a = LW.predicted_success(mu_l, var_l, a=ref_a, b=ref_b, drift=drift, days=days)
         target = lam * float(p_teacher_retained) + (1.0 - lam) * p_a
-        applied = learned if lam <= 0.0 else LW.pool_implied_mass(sensitivity, target, vault.config.mastery)
+        applied = learned if lam <= 0.0 else LW.pool_implied_mass(sensitivity, target, vault.config.mastery,
+                                                                  a=ref_a, b=ref_b, days=days)
         rule = LW.RULE_POOL
-        pool = {"family": family, "lambda": lam, "p_b": float(p_teacher_retained), "p_a": p_a, "target": target}
+        pool = {"family": family, "lambda": lam, "p_b": float(p_teacher_retained), "p_a": p_a, "target": target,
+                "reference": ref}
     else:
         rule, applied = LW.RULE_LEARNED, learned
     return {
