@@ -178,3 +178,120 @@ Pytest files: `test_ad23_contract`, `test_ad2_model`, `test_ai_tool_isolation`, 
   regenerates it automatically. Rerunning `module_generate.py` at the end-of-queue docs pass keeps it current.
 * I's frozen edges are the existing cycles made visible, not fixed; the end-of-queue architecture pass may cut
   them.
+
+## Landing onto main
+
+Prepared on `fix/followups-batch5` (worktree `learnanything-merge2`) from the stage tip `2187722412` (final verify
+job `20261102-105615-VHBSol` CLEAN: F1, F2 High and F3 Medium fixed); the orchestrator fast-forwards main and
+pushes. No migration, no successor. By R4, TE1b and RW5d P5 landed first, so the branch merged main once, after
+both, and regenerated the generated catalogs last.
+
+### Before the merge
+
+With main at `f9bc4254b3` (already an ancestor) and neither TE1b nor P5 landed: targeted pytest (33 files) 832
+passed, 5 skipped; targeted vitest (hiddenNotesSettings, LessonScreen, the Reader figures folder) 18 files, 428
+passed; `lint-imports --no-cache` 42 kept, 0 broken.
+
+### Merge: main `d82e7a3666` (TE1b router suggestions, mvp-0.43, migration 236; RW5d P5 prefetch, migration 237) — `ffe9f3b078`
+
+* `src/learnloop_sidecar/handlers/lesson.py` (the one code conflict): C's `_RouteUnavailable` and
+  `route_unavailable_message` are kept beside TE1b's `LessonSuggestionInput` and `LessonSuggestionRespondInput`.
+  TE1b's router-suggested open (`origin = 'router'`, a pre-chosen `lesson_id`) also calls `clients.teacher()`
+  before `insert_lesson`. A route that isn't ready leaves no lesson row and an error with no `lesson_id`, so for
+  that open too "the lesson didn't start and nothing was saved" is true (the accepted suggestion is a decision
+  record, not the lesson).
+* `teacher/brief.py`, `teacher/service.py`, `teacher/visuals.py` and `pyproject.toml` merged without conflict.
+  The import-linter contracts hold both sides' ignores: I's text_gaps note door and frozen edges, and P5's
+  `figures.prefetch -> teacher.*` / `daily_plan.engine` frozen-cycle ignores.
+* Generated architecture-vault references (453 notes: Configuration 79, Database 370, Desktop 4) were taken
+  from main, then regenerated (`8535fa8b54`):
+  * `db_generate_reference` wrote 372 table notes; `db_validate_reference` errors `[]`.
+  * `desktop_generate` wrote 308 TS/TSX notes and 6 Rust notes; `desktop_validate` PASS, reproducible byte for
+    byte.
+  * Per R2, `module_generate` wrote 1147 module notes and 63 package maps. The 11 new notes are TE1b's and P5's
+    modules: `daily_plan/lesson_suggestion`, `db/stores/figure_prefetch`, `db/stores/router_suggestions`,
+    `figures/foreground`, `figures/power`, `figures/prefetch`, `figures/prefetch_ledger`,
+    `figures/prefetch_model`, `lesson_suggestions_upgrade`, `router/lesson_suggestions` and
+    `learnloop_sidecar/prefetch_runtime`. `module_validate` PASS (1211/1211 YAML, 39594 wikilinks, 37541 file
+    links).
+  * `validate_vault` PASS (2095 notes).
+* No config default changed on this branch, so no fingerprint recompute was needed. No Rust change on this
+  branch: `src-tauri` differs from main not at all, so cargo check was not run.
+
+### F's test after the merge — `0f6f375916`
+
+In the post-merge targeted vitest run, `sketchSandboxReview.test.tsx` "keeps the checks ... played to t_max"
+failed once, in 49 ms, with `t = 0 / 100`. The time label shows step 0 from the component's initial state
+before the run is ready, so the press could land on a disabled Play. No interval started, and the tick loop ran
+out at once. This is a different race from the one F fixed. The test now waits for Play to be enabled before
+pressing it. It passed alone 3/3 both before and after the change; the folder run passed 434/434 after (and
+3/3 unchanged before the change, so it was intermittent). It did not recur in the whole vitest run below.
+
+### Gate (tip `8535fa8b54`, main `d82e7a3666`)
+
+* `lint-imports --no-cache`: 42 kept, 0 broken.
+* Targeted pytest after the merge: 993 passed, 5 skipped. The 40 files were the 33 above plus TE1b's
+  `test_teacher_te1b_*` (5), P5's `test_figures_prefetch*` (3) and `test_figure_prefetch_migration`, and
+  `test_codex_lockdown_round3`.
+* Full suite (`-n 8 --dist worksteal`, 10G scope, `flock`, `env -i`): **24055 passed, 0 failed**, 90 skipped,
+  47 xfailed (43:20).
+* Durability lane: 188 passed, 1 skipped.
+* Owner lane on fresh backup-API copies of `owner-copies-mvp035` (`fixtures-local/landing-batch5/owner-lane`):
+  83 passed, 4 skipped, and the 2 known failures (`test_activity_backfill.py::test_backfill_logs_attempt_duration_interaction_events`,
+  `test_placement_fixture_copies.py::...[arxiv_v2]`).
+* Frontend: `npm install` (lockfile unchanged), typecheck clean, whole vitest 260 files / **2474 passed**
+  (`--maxWorkers=4`, 5G scope; no sketchSandboxReview failure, and neither known flake recurred), and
+  `frontend:build` built.
+
+### Smoke (fresh owner copies, `fixtures-local/landing-batch5-smoke/`, driver `scripts/smoke.sh`)
+
+**Setup**
+* Fresh backup-API copies of the three mvp035 owner copies, each neutralized under its own side's code: every
+  AI route at the `127.0.0.1:9` blackhole with the key variable unset; rewrite, rerank, dense, embeddings and
+  the gap pipeline off.
+* `env -i` with an empty `HOME`, `CODEX_HOME` and config directory.
+* An audit hook logging every process start and socket connect, refusing non-loopback sockets and Codex starts.
+  Its self-test refused `1.1.1.1:443` and `codex --version` and allowed `true`.
+* Code: `git archive` of main `d82e7a3666` and of the branch `8535fa8b54`, each with `src/`, `migrations/` and
+  `tests/`.
+* On each side: a bare `upgrade` mvp-0.35 -> **mvp-0.43** (through mvp-0.41 and mvp-0.42), the primary desktop
+  load, `migrate_vault` (head 237, 0 applied) and `rebuild-derived-state` (mvp-0.43).
+
+| Check | linear_algebra | probability | arxiv_v2 |
+|---|---|---|---|
+| Today, branch vs main | byte-identical (525266 B) | byte-identical (740827 B) | byte-identical (344204 B) |
+| Plan dump, branch vs main | byte-identical (84721 B) | byte-identical (124046 B) | byte-identical (32458 B) |
+| Hidden notes (a Reader note linked by hand, then hidden): `originLabel` main / branch | `null` / "your note in the Reader" | `null` / "your note in the Reader" | no readable vault note (4 annotations, none readable) |
+| Lesson start, routes blackholed, main | "...; your lesson is saved." (no lesson row: the copy C fixes) | same | same |
+| Lesson start, routes blackholed, branch | "AI provider blackhole is unavailable for lessons, so the lesson didn't start and nothing was saved; try again when it's back." lessons/turns/receipts unchanged | same | same |
+| `rebuild --shadow` (branch) | facet/mastery/schedule 0/0/0, live unchanged | 0/0/0, live unchanged | 0/0/0, live unchanged |
+
+* The owner copies hold no captures, so "your capture" is covered only by the tests
+  (`test_notes_linked.py` R5, `hiddenNotesSettings.test.tsx`).
+* **Receipts**: 0 new `model_call_receipts` across 18 compared databases.
+* **Audit**:
+  * No socket connect beyond the self-test's refused one, and no Codex start.
+  * The only process starts were `powerprofilesctl get`, from P5's `figures/power.py` read-only probes,
+    approved at P5's landing. Main and branch made them alike.
+  * The Codex processes on the machine all started before the smoke (the owner's own, Oct 25 to Nov 2 10:17).
+* The first run of the hidden-notes check picked a passage outside the readable sections. It was rerun on fresh
+  copies with each note's own anchor (`scripts/hidden.sh`); the table shows the rerun.
+
+### Rulings (orchestrator, verbatim)
+
+- R1 (item I): "Accepted: adding diagnosis/text_gaps/__init__.py brings the package under import-linter for the first time; C5's declared note door (text_gaps.sources -> note_gaps) is ignored by exactly that edge, and the three pre-existing edges into text_gaps are frozen as they stood, with no new edge. Cutting those edges is an item for the end-of-queue Opus architecture review."
+- R2 (item J): "Accepted: the module catalog is regenerated. Because TE1b and P5 add modules, rerun module_generate.py and module_validate.py after the last merge of main, so the catalog is current at landing."
+- R3 (item B): "Kind labels ('your note in the Reader', 'your capture') accepted; a location in the label is an owner copy choice, not a defect."
+- R4: "Landing order: TE1b (migration 236) and RW5d P5 (migration 237) land first; batch 5 lands after both, so it merges once more and regenerates the generated catalogs last."
+
+### Open items (landing)
+
+* I's import-linter edges (C5's note door, ignored in three contracts, and the frozen `goals.goal_lo`,
+  `learner_protection` and `reader.active_reading` edges into text_gaps) are for the end-of-queue Opus
+  architecture review (R1).
+* The module catalog goes stale whenever a landing adds modules; it was current at this landing (1147 modules).
+  Consider a guard: a test, or a landing-gate step that runs `module_validate.py`.
+* B: whether to add the note's location to the label is the owner's copy choice (R3). On the probability copy
+  the Reader note's title is the source's `file://` URI, a source-title matter older than this branch.
+* The sketch t_max test had a second race (Play pressed while disabled), fixed at landing (`0f6f375916`). Watch
+  the file in later whole-vitest runs.
