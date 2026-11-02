@@ -92,3 +92,52 @@ the worktree.
   * frontend, cargo and the DB reference scripts: nothing under apps/ changed and the schema did not
     change.
   * Full suite: deferred to the landing gate (owner rule, 2026-10-17).
+
+## Re-review (Codex job 20261102-104644-F99Se9)
+
+Verdict REOPENED. F1 and F2 were confirmed fixed. One new finding, F3, is now fixed.
+
+| id | severity | title | verdict | commit | test or reason |
+|----|----------|-------|---------|--------|----------------|
+| F1 | High | Inherited recaps are not part of a recap's dependencies | confirmed fixed (re-review) | a9107bae28 | `test_f1_*` (4) |
+| F2 | High | Notes the lesson was given are not part of a recap's dependencies | confirmed fixed (re-review) | a9107bae28 | `test_f2_*` (5) |
+| F3 | Medium | Long recap dependency chains crash lesson opening | fixed | 074d1972a0 | `test_f3_a_chain_longer_than_the_recursion_limit_is_judged_without_crashing`, `test_f3_a_missing_ancestor_at_the_bottom_of_a_long_chain_fails_every_recap_above_it`, `test_f3_a_cycle_in_a_long_chain_fails_closed` |
+
+### F3
+
+* Reproduced first. The three new tests build a synthetic chain of `sys.getrecursionlimit() + 200`
+  lessons. Each lesson inherits only its predecessor's recap and recorded a protection that no longer
+  matches, so every link is re-checked. Before the fix, all three raised `RecursionError`.
+* Fix (`src/learnloop/teacher/brief.py`):
+  * `_admissible` now walks the chain depth-first over an explicit stack instead of recursing.
+  * Memoization is kept. A lesson is held in `memo` as False while it is being judged, so a dependency
+    that reaches back to it (a cycle) fails closed.
+  * Any lesson above a failing lesson also fails. Earlier lessons are still checked in sorted order.
+  * The per-lesson check moved unchanged into `_own_verdict`. It returns False, True when nothing more
+    needs checking (including unchanged protection), or the earlier lessons that still need checking.
+* The tests also check that the memo ends complete: every lesson in the chain is admitted, or none is
+  when the bottom ancestor is missing.
+
+### Gate (re-review)
+
+Run in `/home/saturn/Documents/thinking/learnanything-merge2`. Every pytest ran inside
+`systemd-run --user --scope --quiet -p MemoryMax=5G -p MemorySwapMax=1G`.
+
+* `uv sync --extra dev --extra mobile` and `uv pip install pypdfium2`: ok.
+* `uv run lint-imports --no-cache`: 42 kept, 0 broken.
+* Before the fix, `pytest tests/test_followups_batch5_recap_dependencies.py -k f3` gave 3 failed
+  (RecursionError). After the fix, the whole file gave 12 passed.
+* Targeted pytest `-n 6`, 7 files: **98 passed, 0 failed**. The files were:
+  * `test_followups_batch5_recap_dependencies` and `test_followups_batch5_recap_protection`;
+  * `test_notes_never_read`;
+  * `test_teacher_te1_curriculum_c4`, `test_teacher_te1_lesson` and `test_teacher_te1_review_fixes`;
+  * `test_reader_rw5d_p4b_teacher_visuals`.
+* `test_architecture`: 18 passed.
+* `module_generate.py` regenerated the catalog for `teacher/brief.py` and the new tests.
+  `module_validate.py` gave PASS. Both ran under `env -i` with an empty HOME, CODEX_HOME and
+  LEARNLOOP_CONFIG_DIR.
+* Not run, and not needed:
+  * durability tests: no migration or DB code changed;
+  * frontend, cargo and the DB reference scripts: nothing under apps/ changed and the schema did not
+    change;
+  * the full suite: deferred to the landing gate (owner rule, 2026-10-17).
