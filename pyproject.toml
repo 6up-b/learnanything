@@ -246,6 +246,38 @@ ignore_imports = [
 allow_indirect_imports = true
 
 [[tool.importlinter.contracts]]
+id = "teacher-writes-evidence-only-through-the-attempts-path"
+name = "The teacher writes attempts only through the attempts path, never mastery, FSRS or evidence directly, and reads AD only through its read-only entries (spec_teacher_v1 §6)"
+type = "forbidden"
+source_modules = ["learnloop.teacher"]
+# The evidence writers and replay (mastery, FSRS, certification, placement,
+# the field, the projection) and adaptive difficulty's internals. A lesson's
+# check reaches evidence only as one attempt through attempts.attempts'
+# shared step (apply_attempt) at the mass learner.lesson_weight records; its
+# teaching text only as reveal rows (attempts.reveal_ledger.record_reveal);
+# AD only through adaptive_difficulty.readiness's read-only @entry functions.
+forbidden_modules = [
+    "learnloop.substrate",
+    "learnloop.goals",
+    "learnloop.placement",
+    "learnloop.field",
+    "learnloop.router",
+    "learnloop.daily_plan",
+    "learnloop.scheduling.scheduler",
+    "learnloop.adaptive_difficulty.generation",
+    "learnloop.adaptive_difficulty.replay",
+    "learnloop.adaptive_difficulty.model",
+    "learnloop.adaptive_difficulty.selection",
+    "learnloop.adaptive_difficulty.serve",
+    "learnloop.adaptive_difficulty.serving",
+    "learnloop.adaptive_difficulty.scoring",
+    "learnloop.adaptive_difficulty.operation",
+    "learnloop.cli",
+    "learnloop_sidecar",
+]
+allow_indirect_imports = true
+
+[[tool.importlinter.contracts]]
 id = "adaptive-difficulty-never-writes-evidence"
 name = "Adaptive difficulty is a predictor, never evidence: learnloop.adaptive_difficulty imports no evidence writer (spec A2, A12, §11.3)"
 type = "forbidden"

@@ -584,12 +584,21 @@ def _outcome_item_params(vault: Any, mastery_config: Any, outcome: Mapping[str, 
     return {"item_a": float(a), "item_b": float(b)}
 
 
-def replay_state(vault: Any, repository: Any, *, as_of: str | None = None) -> WeightState:
+#: The terms a report's prior-sensitivity rerun may shift (index in the state vector).
+PRIOR_TERMS: Mapping[str, int] = {"eta0": 0, "beta_c": 1, "beta_p": 2}
+
+
+def replay_state(vault: Any, repository: Any, *, as_of: str | None = None,
+                 prior_shift: Mapping[str, float] | None = None) -> WeightState:
     """The three posteriors from the ledgers, in order, with every event strictly before ``as_of``
-    (all of them when None): the prequential filter both the live check and the replayer run."""
+    (all of them when None): the prequential filter both the live check and the replayer run.
+    ``prior_shift`` (the report's sensitivity rerun only) moves prior means by the given amounts."""
 
     mastery_config = vault.config.mastery
     state = WeightState()
+    for term, amount in (prior_shift or {}).items():
+        for bank in state.banks:
+            bank.mean[PRIOR_TERMS[term]] += float(amount)
     with repository.connection() as connection:
         if not _table(connection, "lesson_checks"):
             return state
