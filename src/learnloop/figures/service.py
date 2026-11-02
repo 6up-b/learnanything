@@ -314,7 +314,8 @@ def attempt_hosted(request: "FigureRequest") -> bool:
 def prediction_home(row: Mapping[str, Any]) -> str | None:
     """The extraction a figure's prediction is recorded under: its home, or
     (RW5d P3, an attempt host's figure with no home) the first book it was
-    grounded in; None for a homeless illustration (no predictions there)."""
+    grounded in; None for a homeless illustration (its predictions are kept
+    with no extraction: Codex review F9)."""
 
     if row.get("extraction_id"):
         return str(row["extraction_id"])
@@ -1155,7 +1156,7 @@ def figure_view(vault: Any, repository: Repository, row: Mapping[str, Any], *, v
         {"text": item.text, "span_id": None, "quote": None} for item in compiled.spec.assumptions]
     dropped = set(report.get("dropped_predictions") or ())
     answered: dict[int, dict[str, Any]] = {}
-    if predictions_enabled(vault) and prediction_home(row) is not None:
+    if predictions_enabled(vault):
         with closing(connect(repository.sqlite_path, read_only=True)) as connection:
             answered = {found["prediction_index"]: found
                         for found in store.predictions_for_figure(connection, str(row["id"]))}
@@ -1207,7 +1208,7 @@ def _sketch_view(vault: Any, repository: Repository, row: Mapping[str, Any], vie
                    for entry in report.get("tested") or ()],
     }
     dropped = set(report.get("dropped_predictions") or ())
-    if predictions_enabled(vault) and prediction_home(row) is not None:
+    if predictions_enabled(vault):
         with closing(connect(repository.sqlite_path, read_only=True)) as connection:
             answered = {found["prediction_index"]: found
                         for found in store.predictions_for_figure(connection, str(row["id"]))}
@@ -2782,20 +2783,22 @@ def shown_figure(vault: Any, repository: Repository, figure_id: str) -> tuple[di
 # ---------------------------------------------------------------------------
 
 def record_prediction(vault: Any, repository: Repository, figure_id: str, index: int, answer: str, *,
-                      clock: Clock | None = None, on_queued: Callable[[str], None] | None = None) -> dict[str, Any]:
+                      clock: Clock | None = None, on_queued: Callable[[str], None] | None = None,
+                      assist_id: str | None = None) -> dict[str, Any]:
     """The learner's prediction, its observed before/after readout and
     whether it matched (code decides). Idempotent per (figure, prediction).
     ``on_queued`` hears the learner-text job a missed one queued (the
-    sidecar wakes its gap worker with it; Codex review F6)."""
+    sidecar wakes its gap worker with it; Codex review F6). ``assist_id``
+    (RW5d P3, Codex review F7): the open attempt's figure row it is made
+    under (the caller derives it), kept on the row for the diagnoser."""
 
     if not predictions_enabled(vault):
         raise FigureRefused("predictions_disabled", "Figure predictions are switched off (figures.predictions_enabled).")
     row, compiled = shown_figure(vault, repository, figure_id)
+    # RW5d P3 (Codex review F9): an attempt host's illustration with nothing
+    # from the learner's books keeps its predictions with no home (NULL),
+    # never an invented one.
     home = prediction_home(row)
-    if home is None:
-        # RW5d P3: an illustration built on an attempt host with nothing from
-        # the learner's books has no passage to keep a prediction under.
-        raise FigureRefused("validation_error", "That figure has no predictions.")
     dropped = set((row.get("verification_report") or {}).get("dropped_predictions") or ())
     count = len(compiled.program.predictions) if isinstance(compiled, K.CompiledSketch) else len(compiled.predictions)
     if not 0 <= int(index) < count or int(index) in dropped:
@@ -2817,6 +2820,7 @@ def record_prediction(vault: Any, repository: Repository, figure_id: str, index:
         "observed": {"kind": outcome["kind"], "before": outcome["before"], "after": outcome["after"],
                      "answer": outcome["answer"], "change": outcome["change"]},
         "matched": answer == outcome["answer"], "explanation_text": None, "created_at": utc_now_iso(clock),
+        "assist_id": assist_id, "explained_at": None,
     }
     with repository.atomic():
         store.insert_prediction(repository.connection(), prediction)
@@ -2857,7 +2861,7 @@ def record_explanation(vault: Any, repository: Repository, prediction_id: str, t
         raise FigureRefused("not_found", "That prediction is no longer kept.")
     shown_figure(vault, repository, str(found["figure_id"]))
     with repository.atomic():
-        set_now = store.set_explanation(repository.connection(), prediction_id, text)
+        set_now = store.set_explanation(repository.connection(), prediction_id, text, at=utc_now_iso(clock))
     if set_now and not found["matched"]:
         from learnloop.diagnosis.text_gaps.jobs import enqueue_figure_explanation
 

@@ -32,7 +32,10 @@ REQUEST_COLUMNS = ("id", "origin", "goal_text", "goal_author", "anchor_json", "r
                    "policy", "caller_kind", "policy_derived_from", "grounding", "grounding_manifest_json",
                    "build_mode", "tiers_allowed_json", "prefetch_decision_id", "figure_id", "created_at")
 PREDICTION_COLUMNS = ("id", "figure_id", "extraction_id", "prediction_index", "learner_answer", "observed_json",
-                      "matched", "explanation_text", "created_at")
+                      "matched", "explanation_text", "created_at",
+                      # Reader RW5d P3 (migration 232): the open attempt's figure row the
+                      # prediction was made under, and when "what changed?" was written.
+                      "assist_id", "explained_at")
 #: What a figure may be shown as.
 SHOWN = ("verified", "illustrative")
 #: The one stored value RW5a never writes (migration 216 keeps it for RW5c's
@@ -267,13 +270,14 @@ def predictions_for_figure(connection: sqlite3.Connection, figure_id: str) -> li
     return [found for found in (_prediction(row) for row in rows) if found is not None]
 
 
-def set_explanation(connection: sqlite3.Connection, prediction_id: str, text: str) -> bool:
-    """Set "what changed?" once; False when it was already set (the trigger
-    refuses any other update)."""
+def set_explanation(connection: sqlite3.Connection, prediction_id: str, text: str, *,
+                    at: str | None = None) -> bool:
+    """Set "what changed?" once, with when (``explained_at``, RW5d P3); False
+    when it was already set (the trigger refuses any other update)."""
 
     cursor = connection.execute(
-        "UPDATE figure_predictions SET explanation_text = ? WHERE id = ? AND explanation_text IS NULL",
-        (text, prediction_id))
+        "UPDATE figure_predictions SET explanation_text = ?, explained_at = ? WHERE id = ? "
+        "AND explanation_text IS NULL", (text, at, prediction_id))
     return cursor.rowcount == 1
 
 

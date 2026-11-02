@@ -306,6 +306,27 @@ def chain_root(connection: Any, figure_id: str) -> str:
     return current
 
 
+def open_assist_for(connection: Any, figure_id: str) -> str | None:
+    """The figure row of the open attempt a prediction on ``figure_id`` is
+    made under (Codex review F7, spec §11.2 "linked to the assist row"), or
+    None: the newest figure row attached to no attempt yet, requested after
+    its item's last attempt, whose figure is in the same chain (a "not
+    right?" version or a fuller version is the same figure). Read where the
+    prediction is recorded, so the link is persisted then and a later
+    prediction or explanation never joins an earlier attempt's trace."""
+
+    if connection.execute("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'help_assists'"
+                          ).fetchone() is None:
+        return None
+    root = chain_root(connection, figure_id)
+    rows = connection.execute(
+        "SELECT id, figure_id FROM help_assists AS a WHERE assist_kind = 'figure' AND attempt_id IS NULL "
+        "AND shown = 1 AND figure_id IS NOT NULL AND requested_at >= COALESCE((SELECT MAX(created_at) "
+        "FROM practice_attempts WHERE practice_item_id = a.practice_item_id), '') "
+        "ORDER BY requested_at DESC, rowid DESC").fetchall()
+    return next((str(row[0]) for row in rows if chain_root(connection, str(row[1])) == root), None)
+
+
 # ---------------------------------------------------------------------------
 # The chooser's precondition
 # ---------------------------------------------------------------------------
@@ -486,6 +507,7 @@ __all__ = [
     "figure_keys",
     "format_value",
     "manim_shown_text",
+    "open_assist_for",
     "offer_view",
     "qualifying_figure",
     "reveal_text",

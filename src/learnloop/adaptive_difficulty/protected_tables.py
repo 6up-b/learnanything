@@ -324,7 +324,10 @@ COLUMNS: Mapping[str, Mapping[str, str]] = MappingProxyType({
     # learner's predictions on it are READING rows; the built spec and its check, from the spans sent
     # (a tutor or library figure can send spans of other readings), are never read as stored.
     "figure_predictions": _table({"extraction_id": "extraction"},
-        values="id figure_id prediction_index learner_answer observed_json matched explanation_text created_at"),
+        values="id figure_id prediction_index learner_answer observed_json matched explanation_text created_at "
+               # Reader RW5d P3 (migration 232): the attempt's help row (help_assists names no
+               # reading) and when "what changed?" was written name nothing the predicate withholds.
+               "assist_id explained_at"),
     "interactive_figures": _table({
         "extraction_id": "extraction", "span_ids_json": "spans@extraction_id",
         "input_span_ids_json": "spans@extraction_id",

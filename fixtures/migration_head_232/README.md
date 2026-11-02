@@ -56,6 +56,19 @@ set-based; renumbered at landing if needed).
   `figure_id TEXT` is added (set once: `help_assists_identity_fixed` is
   recreated with that clause), with the new index `idx_help_assists_figure`.
   This fixture holds no help_assists row, so no row moved.
+* Codex review fix (F7, F9), same day: 232 also rebuilds `figure_predictions`
+  (temp-then-rename; no foreign key names it): `extraction_id` becomes
+  nullable, `assist_id TEXT` (the attempt's figure row) and
+  `explained_at TEXT` (set once with the explanation) are added, the
+  explanation trigger is recreated (it also fixes `assist_id`) and
+  `idx_figure_predictions_assist` is new. This fixture holds no
+  figure_predictions row. The head was rebuilt the same way, again from
+  main's tracked `migration_head_230/state.sqlite` (its exact blob at
+  `c0017b5740`, a backup-API scratch copy under `fixtures-local/rw5d-p3-fix/`,
+  the revised 232 applied under `UPGRADE_SCRATCH_COPY`): checkpoint (0, 0, 0),
+  `journal_mode=DELETE`, header bytes 1/1, `integrity_check` ok,
+  `foreign_key_check` empty, 218 applied migrations (head 232), copied into
+  place with the backup API.
 
 No other object changed definition, and only `schema_migrations` gained a row
 (232); every other table's rows are identical, so the sanitized content

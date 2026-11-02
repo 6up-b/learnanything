@@ -1,4 +1,5 @@
-"""Reader RW5d P3: migration 232 rebuilds help_assists for figures as a help kind (spec §13.2).
+"""Reader RW5d P3: migration 232 rebuilds help_assists for figures as a help kind (spec §13.2),
+and figure_predictions for predictions made inside an attempt (Codex review F7, F9).
 
 ``help_assists`` (RAW_LEDGER, migration 210; ``work_md`` 230) is rebuilt
 temp-then-rename with every row and id kept: ``assist_kind`` gains
@@ -26,8 +27,11 @@ from learnloop.db.table_roles import TableRole, role_for_table
 HEAD = Path(__file__).resolve().parents[1] / "fixtures" / "migration_head_232" / "state.sqlite"
 #: What 232 alters and adds: the earlier migrations' "nothing else changed"
 #: diffs on the way to head read these.
-P3_ALTERED_TABLES = frozenset({"help_assists", "help_assists_identity_fixed"})
-P3_ADDED_OBJECTS = frozenset({"idx_help_assists_figure"})
+#: Codex review F7/F9: figure_predictions is rebuilt too (nullable
+#: extraction_id, assist_id, explained_at; the explanation trigger fixes assist_id).
+P3_ALTERED_TABLES = frozenset({"help_assists", "help_assists_identity_fixed", "figure_predictions",
+                               "figure_predictions_explanation_once"})
+P3_ADDED_OBJECTS = frozenset({"idx_help_assists_figure", "idx_figure_predictions_assist"})
 
 
 def test_232_is_the_figures_migration_and_help_assists_stays_a_raw_ledger():
@@ -104,6 +108,53 @@ def test_232_widens_three_checks_adds_figure_id_and_keeps_every_row(tmp_path):
         assert connection.execute("PRAGMA foreign_key_check").fetchall() == []
 
 
+def test_232_rebuilds_figure_predictions_with_every_row_and_the_attempt_link(tmp_path):
+    """Codex review F7, F9: extraction_id nullable (an attempt host's
+    illustration has no home), assist_id (the attempt's figure row, fixed)
+    and explained_at (set once with the explanation); every row and id kept."""
+
+    from learnloop.db.migrate import UPGRADE_TEST_HELPER, apply_migrations, upgrade_allowance
+    from learnloop.db.stores import figures as figure_store
+
+    database = _at_230(tmp_path)
+    with closing(sqlite3.connect(database)) as connection:
+        for figure_id in ("fig_old", "fig_new"):
+            connection.execute(
+                "INSERT INTO interactive_figures (id, extraction_id, origin, spec_version, verification, "
+                "prompt_version, input_hash, created_at) VALUES (?, 'ext', 'selection', 'ifs-v1', 'failed', 'p', "
+                "'h', 't')", (figure_id,))
+        connection.execute(
+            "INSERT INTO figure_predictions (id, figure_id, extraction_id, prediction_index, learner_answer, "
+            "observed_json, matched, explanation_text, created_at) VALUES ('fp_old', 'fig_old', 'ext', 0, 'up', "
+            "'{}', 0, 'it grew', '2026-10-01T00:00:00Z')")
+        connection.commit()
+        before = tuple(connection.execute("SELECT * FROM figure_predictions").fetchone())
+        with pytest.raises(sqlite3.IntegrityError):
+            connection.execute(
+                "INSERT INTO figure_predictions (id, figure_id, extraction_id, prediction_index, learner_answer, "
+                "observed_json, matched, created_at) VALUES ('fp_x', 'fig_old', NULL, 1, 'up', '{}', 1, 't')")
+    with upgrade_allowance(UPGRADE_TEST_HELPER):
+        apply_migrations(database)
+    with closing(sqlite3.connect(database)) as connection:
+        columns = tuple(row[1] for row in connection.execute("PRAGMA table_info(figure_predictions)"))
+        assert columns == figure_store.PREDICTION_COLUMNS
+        assert tuple(connection.execute("SELECT * FROM figure_predictions").fetchone()) == (*before, None, None)
+        connection.execute(
+            "INSERT INTO figure_predictions (id, figure_id, extraction_id, prediction_index, learner_answer, "
+            "observed_json, matched, created_at, assist_id) VALUES ('fp_new', 'fig_new', NULL, 0, 'up', '{}', 0, "
+            "'t', 'ha_1')")
+        assert figure_store.set_explanation(connection, "fp_new", "it fell", at="t2")
+        assert connection.execute("SELECT explanation_text, explained_at FROM figure_predictions WHERE id = 'fp_new'"
+                                  ).fetchone() == ("it fell", "t2")
+        with pytest.raises(sqlite3.IntegrityError, match="append-only"):
+            connection.execute("UPDATE figure_predictions SET explained_at = 't3' WHERE id = 'fp_new'")
+        with pytest.raises(sqlite3.IntegrityError, match="append-only"):
+            connection.execute("UPDATE figure_predictions SET assist_id = 'ha_2' WHERE id = 'fp_old'")
+        with pytest.raises(sqlite3.IntegrityError, match="append-only"):
+            connection.execute("DELETE FROM figure_predictions")
+        assert connection.execute("PRAGMA integrity_check").fetchone()[0] == "ok"
+
+
 def test_the_check_values_are_the_kinds_the_code_writes():
     from learnloop.hints.kinds import KIND_NAMES
 
@@ -122,6 +173,8 @@ def test_the_head_fixture_holds_232_in_rollback_mode():
         assert connection.execute("PRAGMA journal_mode").fetchone()[0] == "delete"
         assert connection.execute(
             "SELECT 1 FROM sqlite_master WHERE type = 'index' AND name = 'idx_help_assists_figure'").fetchone()
+        assert [row[1] for row in connection.execute("PRAGMA table_info(figure_predictions)")][-2:] == [
+            "assist_id", "explained_at"]
 
 
 @pytest.mark.durability

@@ -389,3 +389,86 @@ def test_f6_a_workbench_figure_row_keeps_the_work_it_was_opened_against(tmp_path
     snapshot = json.loads(row["step_snapshot_json"])
     assert len(snapshot) == 1 and set(snapshot[0]) == {"chain_id", "step_id", "number", "hash"}
     assert "x^2" not in row["step_snapshot_json"]
+
+
+# ---------------------------------------------------------------------------
+# F7, F9: predictions inside an attempt are linked to its figure row and frozen at Submit
+# ---------------------------------------------------------------------------
+
+def _predictions(paths: Any) -> list[dict[str, Any]]:
+    with closing(sqlite3.connect(paths.sqlite_path)) as connection:
+        connection.row_factory = sqlite3.Row
+        return [dict(row) for row in connection.execute("SELECT * FROM figure_predictions ORDER BY created_at, id")]
+
+
+def _homeless_figure(tmp_path):
+    paths, ctx, session = _sidecar(tmp_path, author=AuthorFake([flagship(demonstrates="zebra stripes")
+                                                                for _ in range(4)]))
+    job = _show_me(ctx, _host(session))
+    figure = job["result"]["figure"]
+    return paths, ctx, session, figure
+
+
+def test_f9_a_homeless_attempt_illustration_keeps_its_predictions_with_no_invented_home(tmp_path):
+    paths, ctx, session, figure = _homeless_figure(tmp_path)
+    with closing(sqlite3.connect(paths.sqlite_path)) as connection:
+        stored = connection.execute("SELECT extraction_id, grounding, input_span_keys_json FROM interactive_figures "
+                                    "WHERE id = ?", (figure["figureId"],)).fetchone()
+    assert stored[0] is None and stored[1] == "none"
+    # The view offers the predictions, and the prediction RPC records one.
+    assert figure["predictions"], "the illustration's predictions are shown"
+    choice = figure["predictions"][0]["choices"][0]["value"]
+    found = _call(ctx, "reader.figure_predict", {"figureId": figure["figureId"], "predictionIndex": 0,
+                                                 "answer": choice})
+    assert found["learnerAnswer"] == choice
+    [prediction] = _predictions(paths)
+    [row] = _figure_rows(paths)
+    assert prediction["extraction_id"] is None and prediction["assist_id"] == row["id"]
+
+
+def test_f7_the_trace_reads_only_what_this_attempt_wrote_as_it_stood_at_submit(tmp_path):
+    from datetime import UTC, datetime
+
+    from learnloop.clock import FrozenClock
+    from learnloop.db.repositories import Repository
+    from learnloop.diagnosis.split.figure_trace import figure_trace_for_attempt
+    from learnloop.figures import service as FS
+    from learnloop.vault.loader import load_vault
+
+    paths, ctx, session, figure = _homeless_figure(tmp_path)
+    first = figure["predictions"][0]["choices"][0]["value"]
+    made = _call(ctx, "reader.figure_predict", {"figureId": figure["figureId"], "predictionIndex": 0,
+                                                "answer": first})
+    attempt_id = _submit(ctx, session)["attemptId"]
+    vault, repository = load_vault(paths.root), Repository.attach(paths.sqlite_path)
+    before = figure_trace_for_attempt(vault, repository, _attempt(paths, attempt_id))
+    assert [entry["prompt_index"] for entry in before["figures"][0]["predictions"]] == [0]
+    # Later, after Submit: another prediction on the same figure and a "what changed?" on the first.
+    second = figure["predictions"][1]["choices"][0]["value"]
+    _call(ctx, "reader.figure_predict", {"figureId": figure["figureId"], "predictionIndex": 1, "answer": second})
+    later = FrozenClock(datetime(2999, 1, 1, tzinfo=UTC))
+    FS.record_explanation(vault, repository, made["predictionId"], "it moved left", clock=later)
+    after = figure_trace_for_attempt(vault, repository, _attempt(paths, attempt_id))
+    assert after == before
+    assert [row["assist_id"] for row in _predictions(paths)][1] is None
+
+
+def test_f7_predictions_made_before_the_attempt_are_not_its_trace(tmp_path):
+    from learnloop.db.repositories import Repository
+    from learnloop.diagnosis.split.figure_trace import figure_trace_for_attempt
+    from learnloop.vault.loader import load_vault
+
+    paths, ctx, session = _sidecar(tmp_path, author=AuthorFake([flagship(demonstrates="zebra stripes")
+                                                                for _ in range(4)]))
+    # Built for free on an earlier attempt's feedback, predicted on there (no attempt row open).
+    earlier = _submit(ctx, session, key="k0")["attemptId"]
+    figure = _show_me(ctx, {"attemptId": earlier})["result"]["figure"]
+    _call(ctx, "reader.figure_predict", {"figureId": figure["figureId"], "predictionIndex": 0,
+                                         "answer": figure["predictions"][0]["choices"][0]["value"]})
+    assert _predictions(paths)[0]["assist_id"] is None
+    # Opened on the next attempt: the trace lists the figure, with no prediction of this attempt's.
+    _call(ctx, "figure.open", {"figureId": figure["figureId"], "hostRef": _host(session)})
+    attempt_id = _submit(ctx, session)["attemptId"]
+    trace = figure_trace_for_attempt(load_vault(paths.root), Repository.attach(paths.sqlite_path),
+                                     _attempt(paths, attempt_id))
+    assert trace is not None and trace["figures"][0]["predictions"] == []

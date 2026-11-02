@@ -30,6 +30,27 @@
 -- same names and definitions; the identity trigger also fixes figure_id once
 -- set. The same columns (plus figure_id), defaults, CHECKs (three widened),
 -- indexes (plus one on figure_id) and append-only triggers.
+--
+-- figure_predictions (RAW_LEDGER, migration 216) is rebuilt the same way
+-- (Codex review F7, F9; spec §11.2: a prediction made inside an attempt is
+-- "linked to the assist row"):
+--   * extraction_id becomes nullable: an attempt host's illustration has no
+--     home and no book (grounding none), and its predictions are kept with
+--     no invented home (RW6a's "Last time here" reads by extraction and
+--     never lists them);
+--   * assist_id (nullable, soft reference to help_assists, set with the row):
+--     the open attempt's figure row the prediction was made under, so the
+--     diagnoser reads an attempt's predictions by its assist rows, never
+--     every prediction on the figure;
+--   * explained_at (nullable, set once with explanation_text): when "what
+--     changed?" was written, so the diagnoser's trace is frozen at the
+--     attempt (an explanation written after Submit never changes an earlier
+--     attempt's context). Every earlier row keeps NULL in both.
+-- No table's foreign key names figure_predictions; its own (figure_id to
+-- interactive_figures) is unchanged. Same columns plus two, the same CHECKs
+-- and UNIQUE, the index (plus one on assist_id) and the append-only
+-- triggers (the explanation trigger also lets explained_at go from NULL to
+-- a value with explanation_text, and fixes assist_id).
 PRAGMA foreign_keys = OFF;
 
 CREATE TABLE help_assists__232 (
@@ -197,6 +218,61 @@ WHEN NEW.id IS NOT OLD.id
   OR (OLD.figure_id IS NOT NULL AND NEW.figure_id IS NOT OLD.figure_id)
 BEGIN
   SELECT RAISE(ABORT, 'help_assists: identity columns and a binding once set are fixed');
+END;
+
+CREATE TABLE figure_predictions__232 (
+  id TEXT PRIMARY KEY,
+  figure_id TEXT NOT NULL REFERENCES interactive_figures(id),
+  -- The figure's source (RW6a's "Last time here" reads it); RW5d P3: NULL
+  -- for a figure with no home and no book (an attempt host's illustration).
+  extraction_id TEXT,
+  prediction_index INTEGER NOT NULL CHECK (prediction_index >= 0),
+  learner_answer TEXT NOT NULL,
+  observed_json TEXT NOT NULL,
+  matched INTEGER NOT NULL CHECK (matched IN (0, 1)),
+  explanation_text TEXT,
+  created_at TEXT NOT NULL,
+  -- RW5d P3: the help_assists figure row of the open attempt the prediction
+  -- was made under (a soft reference; NULL outside attempts and before 232).
+  assist_id TEXT,
+  -- RW5d P3: when explanation_text was set (with it, once; NULL before 232).
+  explained_at TEXT,
+  UNIQUE (figure_id, prediction_index)
+);
+
+INSERT INTO figure_predictions__232 (id, figure_id, extraction_id, prediction_index, learner_answer, observed_json, matched, explanation_text, created_at)
+SELECT id, figure_id, extraction_id, prediction_index, learner_answer, observed_json, matched, explanation_text, created_at
+FROM figure_predictions;
+
+DROP TABLE figure_predictions;
+ALTER TABLE figure_predictions__232 RENAME TO figure_predictions;
+
+CREATE INDEX idx_figure_predictions_extraction ON figure_predictions(extraction_id, created_at);
+-- RW5d P3: an attempt's predictions by its figure rows (the diagnoser's trace).
+CREATE INDEX idx_figure_predictions_assist ON figure_predictions(assist_id);
+
+CREATE TRIGGER figure_predictions_no_delete
+BEFORE DELETE ON figure_predictions
+BEGIN
+  SELECT RAISE(ABORT, 'figure_predictions is append-only');
+END;
+
+CREATE TRIGGER figure_predictions_explanation_once
+BEFORE UPDATE ON figure_predictions
+WHEN OLD.explanation_text IS NOT NULL
+  OR NEW.explanation_text IS NULL
+  OR NEW.id IS NOT OLD.id
+  OR NEW.figure_id IS NOT OLD.figure_id
+  OR NEW.extraction_id IS NOT OLD.extraction_id
+  OR NEW.prediction_index IS NOT OLD.prediction_index
+  OR NEW.learner_answer IS NOT OLD.learner_answer
+  OR NEW.observed_json IS NOT OLD.observed_json
+  OR NEW.matched IS NOT OLD.matched
+  OR NEW.created_at IS NOT OLD.created_at
+  OR NEW.assist_id IS NOT OLD.assist_id
+  OR OLD.explained_at IS NOT NULL
+BEGIN
+  SELECT RAISE(ABORT, 'figure_predictions is append-only (explanation_text is set once)');
 END;
 
 PRAGMA foreign_keys = ON;

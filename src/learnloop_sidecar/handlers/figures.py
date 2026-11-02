@@ -817,13 +817,28 @@ def reader_figure_predict(ctx: SidecarContext, params: FigurePredictInput) -> di
     vault, repository = _require(ctx)
     try:
         found = FS.record_prediction(vault, repository, params.figure_id, params.prediction_index, params.answer,
-                                     on_queued=_wake_gap_worker(ctx))
+                                     on_queued=_wake_gap_worker(ctx), assist_id=_prediction_assist(vault, repository,
+                                                                                                   params.figure_id))
     except FS.FigureRefused as exc:
         raise _refused(exc) from exc
     _event(repository, "figure_predicted", {"figure_id": params.figure_id, "extraction_id": found.get("extraction_id"),
                                             "status": "matched" if found.get("matched") else "missed"},
            extraction_id=found.get("extraction_id"))
     return versioned(found)
+
+
+def _prediction_assist(vault: Any, repository: Any, figure_id: str) -> str | None:
+    """RW5d P3 (Codex review F7): the open attempt's figure row a prediction
+    is made under (:func:`learnloop.figures.help.open_assist_for`), while
+    figures in attempts are on; else None (formative only, as before)."""
+
+    from learnloop.db.connection import connect
+    from learnloop.figures.help import open_assist_for
+
+    if not FS.help_enabled(vault):
+        return None
+    with closing(connect(repository.sqlite_path, read_only=True)) as connection:
+        return open_assist_for(connection, figure_id)
 
 
 class FigureExplainInput(ParamsModel):
