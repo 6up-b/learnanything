@@ -3,13 +3,13 @@ title: "reader_session_digests"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "95dd20a1d45901033891f11b5a598581ca884e63"
-source_commit_timestamp: "2026-11-02T02:34:21-05:00"
+source_commit: "1f4746e57b09151f1559880f28d81659ce18e1cc"
+source_commit_timestamp: "2026-11-02T05:09:48-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite reader_session_digests"
   - "table reader_session_digests"
-schema_head: 234
+schema_head: 235
 table_name: "reader_session_digests"
 table_role: "workflow"
 functionality_status: "active"

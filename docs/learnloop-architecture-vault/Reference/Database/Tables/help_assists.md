@@ -3,13 +3,13 @@ title: "help_assists"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "95dd20a1d45901033891f11b5a598581ca884e63"
-source_commit_timestamp: "2026-11-02T02:34:21-05:00"
+source_commit: "1f4746e57b09151f1559880f28d81659ce18e1cc"
+source_commit_timestamp: "2026-11-02T05:09:48-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite help_assists"
   - "table help_assists"
-schema_head: 234
+schema_head: 235
 table_name: "help_assists"
 table_role: "raw_ledger"
 functionality_status: "active"
@@ -189,6 +189,7 @@ None found by exact static reference scan.
 - `tests/test_field_workbench_signals.py`
 - `tests/test_figure_predictions.py`
 - `tests/test_figures_help.py`
+- `tests/test_followups_nov2_help_fold.py`
 - `tests/test_help_assist_figures_migration.py`
 - `tests/test_help_assist_work_md_migration.py`
 - `tests/test_help_assists_schema.py`
@@ -199,7 +200,6 @@ None found by exact static reference scan.
 - `tests/test_hint_h2b_rereview.py`
 - `tests/test_hint_report.py`
 - `tests/test_hint_telemetry.py`
-- `tests/test_learner_note_source_kind_migration.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 
