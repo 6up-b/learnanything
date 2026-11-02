@@ -37,6 +37,30 @@ at S0's checkpoint (D6). Rebuilding the head for a new migration keeps the
 sanitized content: apply the migration to a backup-API copy of this fixture,
 as before.
 
+## Reader RW5d P3 (migration 232), branch `reader/rw5d-p3-figures-help`, 2026-11-01
+
+Renamed from `migration_head_230` on the P3 branch
+(`docs/reviews/reader-rw5d-p3-figures-help.md`). Rebuilt from main's tracked,
+sanitized `migration_head_230/state.sqlite` (main `c0017b5740`): a backup-API
+copy under `fixtures-local/` with only `232_help_assist_figures.sql` applied
+through `learnloop.db.migrate.apply_migrations` under the scratch-copy
+allowance (`UPGRADE_SCRATCH_COPY`), then `wal_checkpoint(TRUNCATE)` (0, 0, 0),
+`journal_mode=DELETE` (header bytes 1/1), `integrity_check` ok and
+`foreign_key_check` empty, and copied into place with the backup API, with no
+companion files. 231 is curriculum C5's, on its own branch (the runner is
+set-based; renumbered at landing if needed).
+
+* 232 rebuilds `help_assists` (temp-then-rename under `foreign_keys = OFF`;
+  no foreign key names it): `assist_kind` gains `figure`, `hint_kind` gains
+  `explore_figure`, `request` gains `take_step`, and the nullable
+  `figure_id TEXT` is added (set once: `help_assists_identity_fixed` is
+  recreated with that clause), with the new index `idx_help_assists_figure`.
+  This fixture holds no help_assists row, so no row moved.
+
+No other object changed definition, and only `schema_migrations` gained a row
+(232); every other table's rows are identical, so the sanitized content
+carries over (every companion file is byte-identical to main's).
+
 ## Learner data-relax 2 (migration 230), branch `learner/data-relax-2`, 2026-11-01
 
 Renamed from `migration_head_229` on the data-relax-2 branch
