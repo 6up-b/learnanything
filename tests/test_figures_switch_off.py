@@ -79,9 +79,10 @@ def test_figures_on_adds_only_its_key_and_its_action(tmp_path):
     golden = json.loads(GOLDEN.read_text(encoding="utf-8"))["contract"]
     # RW5b adds offers (figures.offers_enabled, on by default); RW5d P1 show_me;
     # RW5d P2's sketch (figures.sketch_enabled, on by default since G-SM14 passed
-    # from inside the sketch compartment, with the engine ready here).
+    # from inside the sketch compartment, with the engine ready here); RW5d P3's
+    # help (figures.help_kind_enabled, on by default).
     assert recorded.pop("figures") == {"predictions": True, "region": True, "revisions": True, "offers": True,
-                                       "showMe": True, "sketch": True}
+                                       "showMe": True, "sketch": True, "help": True}
     added = []
     for group in recorded["intent"]["palette"]:
         kept = [action for action in group["actions"] if action["effect"] != {"kind": "figure"}]

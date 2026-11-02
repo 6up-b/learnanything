@@ -227,7 +227,8 @@ _CLASSES: dict[str, tuple[str, str]] = {
         "id created_at status judgment_ids_json action_ids_json applied_at abandoned_at",
         "facets_json settle_detail_json"),
     "figure_predictions": (
-        "id figure_id extraction_id prediction_index matched created_at",
+        # Reader RW5d P3 (migration 232): the attempt's help row and when "what changed?" was written.
+        "id figure_id extraction_id prediction_index matched created_at assist_id explained_at",
         "learner_answer observed_json explanation_text"),
     "fitted_parameters": (
         "id scope fitted_at algorithm_version training_rows_count active deactivated_at created_at",
