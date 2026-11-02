@@ -3,8 +3,8 @@ title: "Config - teach_back"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "e54d9d7521c3c2d2fc9736f89baa70f582936c94"
-source_commit_timestamp: "2026-11-01T23:30:48-05:00"
+source_commit: "758514760f683f15b1c7f8a66fe0e0c53d86b7ea"
+source_commit_timestamp: "2026-11-02T01:11:52-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "learnloop.toml teach_back"
@@ -47,7 +47,7 @@ The main configuration contract, precedence rules, and safe-edit workflow live i
 | Dotted path | Effective value | Shape | Origin | Function | Runtime/refactor status | Consumer/source anchors |
 |---|---|---|---|---|---|---|
 | `teach_back.max_followups` | `4` | integer | modeled default or validator seed | Caps followups allowed by teach-back dialogue and evidence limits. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:674`; `src/learnloop/ai/plan_fallback.py:135`; `src/learnloop/tutor/teach_back.py:323` |
-| `teach_back.transfer_evidence_multiplier` | `0.5` | number | modeled default or validator seed | Scales the contribution of transfer evidence in teach-back dialogue and evidence limits. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:675`; `src/learnloop/ai/plan_fallback.py:135`; `src/learnloop/attempts/attempts.py:4317` |
+| `teach_back.transfer_evidence_multiplier` | `0.5` | number | modeled default or validator seed | Scales the contribution of transfer evidence in teach-back dialogue and evidence limits. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:675`; `src/learnloop/ai/plan_fallback.py:135`; `src/learnloop/attempts/attempts.py:4319` |
 | `teach_back.session_cap` | `1` | integer | modeled default or validator seed | Caps session allowed by teach-back dialogue and evidence limits. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:678`; `src/learnloop/ai/plan_fallback.py:135`; `src/learnloop/scheduling/scheduler.py:1090` |
 
 > [!warning] Omitted does not mean frozen in the file

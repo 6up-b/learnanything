@@ -3,13 +3,13 @@ title: "probe_observations"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "e54d9d7521c3c2d2fc9736f89baa70f582936c94"
-source_commit_timestamp: "2026-11-01T23:30:48-05:00"
+source_commit: "758514760f683f15b1c7f8a66fe0e0c53d86b7ea"
+source_commit_timestamp: "2026-11-02T01:11:52-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite probe_observations"
   - "table probe_observations"
-schema_head: 231
+schema_head: 235
 table_name: "probe_observations"
 table_role: "raw_ledger"
 functionality_status: "active"

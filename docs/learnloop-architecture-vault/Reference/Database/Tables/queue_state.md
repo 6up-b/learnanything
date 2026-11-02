@@ -3,13 +3,13 @@ title: "queue_state"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "e54d9d7521c3c2d2fc9736f89baa70f582936c94"
-source_commit_timestamp: "2026-11-01T23:30:48-05:00"
+source_commit: "758514760f683f15b1c7f8a66fe0e0c53d86b7ea"
+source_commit_timestamp: "2026-11-02T01:11:52-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite queue_state"
   - "table queue_state"
-schema_head: 231
+schema_head: 235
 table_name: "queue_state"
 table_role: "workflow"
 functionality_status: "active"
@@ -96,6 +96,7 @@ Indexes and uniqueness:
 - `src/learnloop/content/pipeline/runner.py`
 - `src/learnloop/diagnosis/probe_remint.py`
 - `src/learnloop/diagnosis/text_gaps/actions.py`
+- `src/learnloop/diagnosis/text_gaps/jobs.py`
 - `src/learnloop/diagnosis/text_gaps/pipeline.py`
 - `src/learnloop/instructional/reader_followups.py`
 - `src/learnloop/intent/checks.py`
@@ -110,7 +111,6 @@ Indexes and uniqueness:
 - `src/learnloop_sidecar/handlers/item_authoring.py`
 - `src/learnloop_sidecar/handlers/learner_gaps.py`
 - `src/learnloop_sidecar/handlers/queue.py`
-- `src/learnloop_sidecar/handlers/tutor_qa.py`
 
 > [!note] Static-reference boundary
 > These lists are evidence from exact table-name SQL and repository-method calls. Dynamic dispatch and higher-level tests may exercise the table without spelling its name.
