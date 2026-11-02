@@ -92,7 +92,9 @@ def linked_notes(vault: Any, repository: Repository) -> list[LinkedNote]:
             return []
         rows = store.links(connection)
     by_snapshot: dict[str, dict[str, Any]] = {}
-    for row, note in NL.effective_rows(repository, rows):
+    # Unfiltered here: :func:`note_text` refuses a note beside protected material by name
+    # (NoteWithheld), so its job is skipped as withheld, never as unlinked.
+    for row, note in NL.effective_rows(repository, rows, vault=vault, withhold=False):
         entry = by_snapshot.setdefault(str(note["id"]), {"note": note, "los": [], "passages": []})
         lo = row.get("learning_object_id")
         if lo and str(lo) not in entry["los"]:

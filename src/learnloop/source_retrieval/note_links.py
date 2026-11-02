@@ -842,7 +842,7 @@ def _shown_ai_rows(connection: Any, rows: Sequence[Mapping[str, Any]], *,
             and row["state_key"] in current.get(str(row["learning_object_id"]), ())]
 
 
-def effective(repository: Repository, rows: Sequence[Mapping[str, Any]], *,
+def effective(repository: Repository, rows: Sequence[Mapping[str, Any]], *, vault: Any,
               goal_id: str | None = None) -> list[dict[str, Any]]:
     """The links shown among ``rows``: the current state's proposals per topic and the
     learner's own links, minus everything the learner hid. The learner's newest row per
@@ -850,15 +850,35 @@ def effective(repository: Repository, rows: Sequence[Mapping[str, Any]], *,
     hidden link stays hidden. On a proposal that word is a decision only (Codex review
     F6): a kept one shows the topic's *current* proposal (its snapshot, how and anchor),
     never the proposal the learner's row was copied from. A link made by hand shows its
-    note's current snapshot (Codex re-review F13)."""
+    note's current snapshot (Codex re-review F13). A snapshot of a Reader note whose own
+    anchor sits beside protected material now is withheld (C2b review 5 F1)."""
 
-    return [link_view(row, note) for row, note in effective_rows(repository, rows, goal_id=goal_id)]
+    return [link_view(row, note) for row, note in effective_rows(repository, rows, vault=vault, goal_id=goal_id)]
 
 
-def effective_rows(repository: Repository, rows: Sequence[Mapping[str, Any]], *,
-                   goal_id: str | None = None) -> list[tuple[Mapping[str, Any], Mapping[str, Any]]]:
+def withhold_protected(vault: Any, repository: Repository,
+                       pairs: Sequence[tuple[Mapping[str, Any], Mapping[str, Any]]],
+                       ) -> list[tuple[Mapping[str, Any], Mapping[str, Any]]]:
+    """``pairs`` minus every snapshot of a Reader note whose own anchor (or its section's
+    header) sits beside protected material now (C0a's predicate read now; unreadable: every
+    Reader note is withheld, fail closed). Codex review C2b round 5 F1: a note linked
+    before its anchor became protected keeps its ledger rows, but its text and its
+    source-derived heading are never delivered again. Captures and tend-era snapshots
+    carry no anchor and stay."""
+
+    keys = {str(note["note_key"]) for _row, note in pairs}
+    protected = VN.protected_keys(vault, repository, keys) if keys else set()
+    return [(row, note) for row, note in pairs if str(note["note_key"]) not in protected]
+
+
+def effective_rows(repository: Repository, rows: Sequence[Mapping[str, Any]], *, vault: Any,
+                   goal_id: str | None = None,
+                   withhold: bool = True) -> list[tuple[Mapping[str, Any], Mapping[str, Any]]]:
     """:func:`effective`'s links as (link row, the snapshot it shows), oldest first: the
-    one rule for which links stand (curriculum C5's gap reading reads the same pairs)."""
+    one rule for which links stand (curriculum C5's gap reading reads the same pairs).
+    ``withhold`` (the default): a snapshot beside protected material now is left out
+    (:func:`withhold_protected`); only a caller that refuses such a note itself, by name,
+    passes False (C5's gap reading: ``note_gaps.NoteWithheld``)."""
 
     if not rows:
         return []
@@ -884,7 +904,7 @@ def effective_rows(repository: Repository, rows: Sequence[Mapping[str, Any]], *,
         note = notes.get(str(row["note_id"])) if row["authorship"] == "ai" else newest.get(str(row["note_key"]))
         if note is not None:
             pairs.append((row, note))
-    return pairs
+    return withhold_protected(vault, repository, pairs) if withhold else pairs
 
 
 def date_label(captured_on: str | None) -> str | None:
@@ -932,7 +952,7 @@ def for_goal(vault: Any, repository: Repository, goal_id: str, *,
     with repository.connection() as connection:
         rows = store.links(connection, learning_object_ids=by_lo)
     out: dict[str, list[dict[str, Any]]] = {}
-    for view in effective(repository, rows, goal_id=goal_id):
+    for view in effective(repository, rows, vault=vault, goal_id=goal_id):
         lo = str(view.get("learning_object_id") or "")
         if lo in by_lo:
             out.setdefault(lo, []).append(view)
@@ -944,7 +964,7 @@ def for_goal(vault: Any, repository: Repository, goal_id: str, *,
                     and row.get("section_id") == target.section_id]
             if not hand:
                 continue
-            for view in effective(repository, hand):
+            for view in effective(repository, hand, vault=vault):
                 if all(existing["link_id"] != view["link_id"] for existing in out.get(target.learning_object_id, [])):
                     out.setdefault(target.learning_object_id, []).append(view)
     return out
@@ -961,7 +981,7 @@ def marks(vault: Any, repository: Repository, extraction_id: str) -> list[dict[s
         reading = None
     starts = {section.section_id: section.start_span_id for section in (reading.sections.values() if reading else ())}
     by_span: dict[str, list[dict[str, Any]]] = {}
-    for view in effective(repository, rows):
+    for view in effective(repository, rows, vault=vault):
         span = view.get("span_id") or starts.get(str(view.get("section_id") or ""))
         if span:
             by_span.setdefault(str(span), []).append(view)
@@ -987,7 +1007,7 @@ def for_passages(vault: Any, repository: Repository, passages: Sequence[Mapping[
         with repository.connection() as connection:
             rows = [row for row in store.links(connection, extraction_id=extraction_id)
                     if (section_id is not None and row.get("section_id") == section_id) or row.get("span_id") == span_id]
-        for view in effective(repository, rows):
+        for view in effective(repository, rows, vault=vault):
             seen.setdefault(str(view["link_id"]), view)
     return list(seen.values())
 
@@ -1182,4 +1202,5 @@ __all__ = [
     "state_key",
     "verdict_problem",
     "take_text",
+    "withhold_protected",
 ]
