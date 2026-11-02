@@ -996,7 +996,12 @@ def _attempt_caller(vault: Any, repository: Any, host: AttemptHost) -> Any:
         return caller_for(repository, "learner", item_id=host.item_id, attempt_id=host.attempt_id,
                           learning_object_ids=los, post_attempt=True, context="feedback")
     caller = caller_for(repository, "learner", item_id=host.item_id, learning_object_ids=los, context="practice")
-    if host.take_step_id is not None and "exam_reserved" not in caller.notes:
+    if host.cold and host.take_step_id is None:
+        # A check on your own as the Ask panel derives it (an open cold
+        # follow-up, a held-out exam, or a "Check once" served cold): the
+        # request is ``cold_attempt`` until its take step converts it.
+        caller = replace(caller, cold=True)
+    elif host.take_step_id is not None and "exam_reserved" not in caller.notes:
         caller = replace(caller, cold=False)
     return caller
 
@@ -1028,7 +1033,8 @@ def _request_attempt_figure(ctx: SidecarContext, vault: Any, repository: Any, *,
     _event(repository, "show_me_requested", {"extraction_id": None, "via": "ask", "anchored": False,
                                              "goal_author": "learner", "host": host.kind}, extraction_id=None)
     payload = _start(ctx, request, attempt=host.record())
-    payload["help"] = {"host": host.kind, "line": host.cost_line(), "counts_as_hint": host.counts}
+    # The wire's keys (``_job_payload`` already camel-cased the rest).
+    payload["help"] = {"host": host.kind, "line": host.cost_line(), "countsAsHint": host.counts}
     return payload
 
 

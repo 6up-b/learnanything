@@ -28,6 +28,7 @@ existing reveal row. Figures never reach the grader.
 from __future__ import annotations
 
 import json
+import re
 from collections.abc import Iterable, Mapping, Sequence
 from contextlib import closing
 from typing import Any
@@ -73,16 +74,32 @@ def enabled(vault: Any) -> bool:
 # The figure's text, for the reveal check
 # ---------------------------------------------------------------------------
 
-def _strings(value: Any) -> Iterable[str]:
+#: The keys whose values are the figure's words (§11.2 row 2: what it
+#: demonstrates, its assumptions, labels, annotations, captions, prediction
+#: prompts and choices): its expressions, enums and span ids are not text.
+_TEXT_KEYS = frozenset({"demonstrates", "text", "label", "labels", "title", "caption", "annotation",
+                        "annotations", "prompt", "choices", "note", "legend", "readout_label"})
+#: A string literal in a sketch's program (its drawn words).
+_LITERAL = re.compile(r'"((?:[^"\\]|\\.)*)"|\'((?:[^\'\\]|\\.)*)\'')
+
+
+def _words(value: Any, *, keyed: bool = False) -> Iterable[str]:
+    """The text values of a figure's JSON: every string under a text key
+    (:data:`_TEXT_KEYS`), however deep; a sketch's program contributes its
+    string literals."""
+
     if isinstance(value, str):
-        if value.strip():
+        if keyed and value.strip():
             yield value
     elif isinstance(value, Mapping):
-        for item in value.values():
-            yield from _strings(item)
+        for key, item in value.items():
+            if key == "code" and isinstance(item, str):
+                yield from (first or second for first, second in _LITERAL.findall(item) if (first or second).strip())
+            else:
+                yield from _words(item, keyed=keyed or key in _TEXT_KEYS)
     elif isinstance(value, (list, tuple)):
         for item in value:
-            yield from _strings(item)
+            yield from _words(item, keyed=keyed)
 
 
 def _readouts(spec_json: str) -> list[str]:
@@ -114,9 +131,11 @@ def _readouts(spec_json: str) -> list[str]:
 
 
 def reveal_text(row: Mapping[str, Any]) -> str:
-    """Every model-written string of a stored figure and its readouts at the
-    defaults (§11.2 row 2, §11.4b): the text the overlap check reads. Its
-    goal and its verification report are not the author's output."""
+    """A stored figure's words (:func:`_words`: what it demonstrates, its
+    assumptions, labels, annotations, prompts; a sketch's drawn strings) and
+    its readouts at the defaults as formatted (§11.2 row 2, §11.4b): the text
+    the overlap check reads. Its goal and its verification report are not
+    the author's output."""
 
     raw = row.get("spec_json")
     if not raw:
@@ -125,7 +144,7 @@ def reveal_text(row: Mapping[str, Any]) -> str:
         data = json.loads(raw) if isinstance(raw, str) else dict(raw)
     except (TypeError, ValueError):
         return str(raw)
-    parts = list(_strings(data))
+    parts = list(_words(data))
     if row.get("spec_version") == _grammar_version():
         parts += _readouts(raw if isinstance(raw, str) else json.dumps(raw))
     return "\n".join(parts)
