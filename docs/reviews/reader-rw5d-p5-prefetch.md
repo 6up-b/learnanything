@@ -2,8 +2,8 @@
 
 - **Spec:** `docs/specs/spec_reader_show_me_figures_v1.md` rev 2, phase P5: §6.9, §10b, §12.3, §13.2b, §14, §15, gates G-SM27..G-SM30. The as-built note is in §14.
 - **Branch:** `reader/rw5d-p5-prefetch` in `learnanything-dl2`, base `1a33bb5db3` (main: TE1 + C4, mvp-0.41, migration 234).
-- **Migration:** `236_figure_prefetch.sql`. followups-nov2 claims 235; the runner is set-based, so this keeps 236 or renumbers at landing.
-- **Head fixture:** `fixtures/migration_head_236`, renamed from `migration_head_234` (README section added; every hard-coded path, 55 files, renamed; `SCHEMA_HEAD = 236` in both DB reference scripts).
+- **Migration:** `236_figure_prefetch.sql` on the branch; followups-nov2 claimed 235. **Landed as `237_figure_prefetch.sql`** after follow-ups Nov 2's 235 and TE1b's 236 (see "Landing onto main").
+- **Head fixture:** `fixtures/migration_head_236` on the branch, renamed from `migration_head_234` (README section added; every hard-coded path, 55 files, renamed; `SCHEMA_HEAD = 236` in both DB reference scripts). **Landed as `migration_head_237`**, rebuilt from main's 236 head (see "Landing onto main").
 - **Switch:** `figures.prefetch_enabled`, **default on** (Q21's recommended default, accepted by the owner's standing decision of 2026-10-12; first shipped off, corrected by the Codex review's F15, `docs/reviews/reader-rw5d-p5-prefetch-codex-review.md`). Caps `[figures.prefetch] max_daily_builds = 10`, `max_daily_render_minutes = 30` (`keep`).
 - **New route:** `ai.routing.figure_prefetch_judge` (unset: the active provider, the plan under T1). Not in `METERED_PRICE_SETTINGS`, so never offered OpenRouter; a non-subscription route is never called.
 - **Successor:** none (§1).
@@ -114,3 +114,142 @@ Every pytest run inside `systemd-run --user --scope --quiet -p MemoryMax=5G -p M
 - With no pause yet observed, C = 0, so every candidate with a measured wait builds up to the daily cap; the Thompson draw then orders rather than gates (spec-faithful; the caps are the guardrail).
 - Quick-tier W is read from every completed `figure_author` call in `model_call_receipts` (the paid-call wrapper records each one, owner `figure_author`, pressed or prebuilt alike: the same call, the same wait). A prebuilt call therefore also measures W; that is the duration a press would have waited, so it is kept.
 - P4b (teacher visuals) and followups-nov2 both touch `figures/service.py`; merge at landing.
+
+## Landing onto main
+
+Landed on branch `reader/rw5d-p5-prefetch` in `learnanything-dl2`, on top of main `1d244af053` (TE1b, mvp-0.43, migration 236). Main is an ancestor of the tip, so the orchestrator fast-forwards. No successor (ruling R4).
+
+### The R1 fix (F18), before the merges (`b5724c404b`)
+
+Each test was written first and failed before the fix.
+
+- **Backend (`figures/service.py`, `fuller_state`).** A prebuild's fuller version can have a rich intent that was never queued (no job). It now reports no fuller line (None, not `pending`) when background admission refuses it: figures ahead of need switched off, this machine not on mains, or its input held out (`_prefetch_intent_refused`). Foreground work only delays a build, so it is not a refusal. A fuller version built ahead of need that nobody pressed for carries `speculative: true`, whether its job is queued or not. The key is absent everywhere else, so no other view changes. `FigureFullerDto` gains `speculative?: boolean`.
+- **Reader (`useFigures.ts`).** The fuller-polling branch counts a speculative fuller line only until `prefetchExpired`. The 20-minute prefetch lifetime clock now also starts when a speculative fuller line is pending. Pressed fuller lines keep their polling.
+- **Tests.**
+  - pytest, in `tests/test_figures_prefetch_review_fixes.py` ("Landing ruling R1"): not pending on battery, switched off or held out; a pressed fuller keeps its line and is not speculative; a queued speculative fuller is marked.
+  - vitest, in `richFigure.test.tsx`: reads for a speculative fuller end after the lifetime; a pressed fuller keeps reading past it.
+- **The re-review's F18 vitest was vacuous.** Its mock answered the same payload object on every read, so the poll stopped re-arming after two reads whether or not the bound worked. The polling vitests now answer a fresh payload per read and advance one interval per `act`, so the bound is what stops them.
+
+### Merges and conflicts
+
+1. **Main `de9a03763d` (P4b, teacher visuals), commit `31302532b3`.**
+   - `figures/service.py`: `key_for` keeps both the prefetch switch (P5) and the lesson's `teacher.visuals` key (P4b). The goal-author check takes P4b's `teacher` entry and keeps P5's revision of a prebuilt figure.
+   - `config/template.py`: both comment blocks are kept. The 32 defaults snapshots were recomputed with `defaults_fingerprint_for_version` after clearing `.pyc`; a second pass changed none.
+2. **Main `f9bc4254b3` (follow-ups Nov 2, mvp-0.42, migration 235), commit `8828590eef`.**
+   - The head fixture rename/rename (234 → 235 on main, 234 → 236 here) was resolved to main's `migration_head_235`. It was then renamed `migration_head_236` and rebuilt from it with only P5's migration applied.
+   - The 55 conflicting tests and reference scripts took main's side. The branch's intent was reapplied: head paths, `SCHEMA_HEAD`, migration sets gaining P5's number, `P5_ADDED_OBJECTS` composed. Nov 2's own head test reads the new head.
+   - TE1's defaults-parity test also pops P5's keys. The 33 snapshots were recomputed (second pass 0).
+3. **R5, commit `d4c02ae062`** (below).
+4. **Main `1d244af053` (TE1b, mvp-0.43, migration 236), commit `24d941ce27`.**
+   - P5's migration was renumbered 237. The head fixture was rebuilt again from main's 236 head.
+   - 21 conflicting tests took main's side, then the branch's intent was reapplied. TE1b aliases its objects under TE1's names, so the composed sets matched line for line. The one exception, `test_help_assist_work_md_migration.py`, was fixed by hand.
+   - TE1b's defaults-parity test also pops P5's keys.
+   - `config/template.py`: P5's comments sit beside TE1b's mvp-0.43 entry. The 34 snapshots were recomputed (second pass 0).
+5. **Generated references.** Each time they took main's side and were regenerated: `db_generate_reference.py`; `db_validate_reference.py` (errors `[]`, prose leaf count 1127 in `Database.md` and `Configuration.md`); `validate_vault.py`; `desktop_generate.py` / `desktop_validate.py`; `module_validate.py`.
+6. **A new import cycle, now allowed.** Combining P4b's `teacher → figures` edge with P5's `figures.prefetch → teacher` edges forms a cycle. The frozen-cycles contract now ignores `figures.prefetch -> teacher.visuals` and `figures.prefetch -> teacher.contracts`. Both imports are function-local; teacher never imports prefetch, and the boundary test pins it. lint-imports: 42 kept.
+
+### Migration renumber (R4)
+
+- `236_figure_prefetch.sql` became `237_figure_prefetch.sql`; its header comment and P5's "migration 236" mentions in `column_classes.py`, `protected_tables.py`, `table_roles.py`, the store and the ledger say 237.
+- **Head fixture.** `fixtures/migration_head_237` was rebuilt from main's tracked, sanitized `migration_head_236` with only 237 applied:
+  - backup-API copy under `fixtures-local/`, `UPGRADE_SCRATCH_COPY`;
+  - checkpoint (0, 0, 0), `journal_mode=DELETE` (header 1/1), `integrity_check` ok, `foreign_key_check` empty;
+  - no definition changed and every row is identical; only 237's 13 objects were added, with no rows;
+  - the companion files are byte-identical to main's; README section added.
+- **Paths and sets.** The 5 hard-coded paths (`db_generate_reference.py` names it 3 times), `SCHEMA_HEAD = 237`, and every composed migration set (237 appended). `tests/test_figure_prefetch_migration.py` is renumbered.
+
+### R5 outcome: wired, a small adapter (`d4c02ae062`)
+
+- **The candidate.** The lesson trigger reads P4b's real planned visual: `PlannedVisualV1`, with `goal` and delivered-passage `anchors`. It builds each node's candidate with P4b's own builder, `teacher.visuals.figure_request`, so the goal and grounding keys match the lesson step's request byte for byte. A candidate carries `grounding_keys`; its ledger anchor names the first book's spans.
+- **The build.** The prebuild sends no passage, the keys as fixed grounding, goal author `teacher`, and no rich job. A lesson host is grammar and sketch only, so the input hash is the step's.
+- **Supporting changes.**
+  - `_validated_prefetch` accepts that form.
+  - The filters check every grounding key: held out (`keys_withheld`), and an item's own passages over each key's context.
+  - `already_built` matches the goal and keys.
+  - At the lesson horizon, a step that delivered the prebuilt figure counts as `opened`.
+- **Tests.** Through TE1's real `write_plan` and P4b's real request builder: the candidate equals P4b's request, the prebuild makes one author call, and the step that shows node n1's planned visual makes zero author calls. Its `figure_requests` row (origin `teacher`) names the prebuilt figure, and the decision closes `opened` when the lesson closes. A planned visual whose anchor is held out is no candidate. The earlier stand-in test now uses P4b's shape.
+
+### Gate (tip `24d941ce27`; the later commits change one test's allowlist and this record)
+
+| Command | Result |
+|---|---|
+| `uv run lint-imports --no-cache` | 42 kept, 0 broken |
+| Full pytest (`-n 8`, worksteal, 10G scope, under `env -i`) | 24025 passed, 90 skipped, 47 xfailed, 2 failed, 1 error (43m 46s). See below. |
+| Durability lane (`-m durability`) | 188 passed, 1 skipped |
+| Owner lane: fresh backup-API copies of `owner-copies-mvp035` in `fixtures-local/landing-p5/owner-lane` | 83 passed, 4 skipped, 2 failed: exactly the 2 known (`test_activity_backfill…duration`, `placement_fixture_copies[arxiv_v2]`) |
+| Frontend: `npm install`, `typecheck`, whole vitest (`--maxWorkers=4`, 5G scope), `frontend:build` | ok; 260 files, 2473 passed; build ok |
+| `cargo check` | not run: P5 changes nothing in `src-tauri` (the only diff there is TE1b's, already on main) |
+
+The full suite's two failures and one error:
+
+- **`test_codex_lockdown_round3.py::test_every_process_launch_site_is_approved` (a landing finding).** P5's `figures/power.py` has two process launches the security allowlist had never reviewed: `_profile` runs `powerprofilesctl get` (the tool resolved by `shutil.which`), and `mac_power_state` runs `pmset -g batt`. Both use fixed argv lists, no shell, `timeout=PROBE_TIMEOUT_SECONDS` and `check=False`. They parse only the power state, any failure reads as not on mains, and neither makes a model call. The branch's own gates never ran the full suite, so this surfaced only here. Both are now reviewed and added to `APPROVED_LAUNCH_SITES` with a comment; the file passes (16 passed).
+- **`test_query_student.py::test_a_client_that_gives_up_never_stops_the_query_process` (failure plus its thread-guard teardown error).** It is not P5's: P5 touches neither local retrieval nor this test. The test starts the student server in a thread and connects as soon as the socket path exists; once the connection came before the listen (`ConnectionRefusedError`). Rerun alone it passed 7 of 8 times (the third of the first three runs failed the same way). It is a pre-existing race.
+
+**Targeted runs before the gate.**
+- After the Nov 2 merge and R5: 200+ files (figures, rich, prefetch, sketch, teacher and P4b, migrations, configuration and registry, contracts, upgrades, Nov 2's files), 3719 passed, 15 skipped, 9 xfailed.
+- After the TE1b merge:
+  - the migration and head set: 849 passed and 2 failed, both fixed and rerun green (44 passed):
+    - an over-broad renumber that read TE1b's `names[236]` as `[236, 237]`;
+    - TE1b's defaults-parity test needing P5's keys popped;
+  - 126 figure, prefetch, teacher, router, Nov 2 and contract files: 2280 passed, 14 skipped.
+- vitest on the Reader figure files and LessonScreen: 425 passed.
+
+### Smoke on fresh owner copies
+
+**Setup.** The driver is `fixtures-local/landing-p5-smoke/scripts/smoke.sh`, adapted from TE1b's.
+- **Copies.** Fresh backup-API copies of the three mvp035 owner copies.
+- **Environment.** `env -i` with an empty `HOME`, `CODEX_HOME` and config.
+- **Audit hook.** It logs every process start and socket connect, and refuses non-loopback sockets and any Codex start.
+- **Code.** `git archive` of main `1d244af053` and of the branch, each with `src/` and `migrations/`.
+- **Prepared copies.**
+  - **m**: main code, every AI route at the `127.0.0.1:9` blackhole (keys unset), upgraded `--to mvp-0.41`, `--to mvp-0.42`, then bare to mvp-0.43 (head 236).
+  - **b**: the same under the branch code (head 237), prefetch on by default.
+  - **boff**: b with `figures.prefetch_enabled = false`.
+  - **bp**: branch code with the figure routes left on the vault's own ChatGPT-plan route (not signed in here) and the rest blackholed.
+  - Each had its primary desktop load, `migrate_vault` (0 pending) and `rebuild-derived-state` (mvp-0.43).
+
+**Results.**
+
+| Check | linear_algebra | probability | arxiv_v2 |
+|---|---|---|---|
+| Today, boff and b vs m | byte-identical (525266 B) | byte-identical (740827 B) | byte-identical (344204 B) |
+| Plan dump, boff and b vs m | payload (read, serve1, serve2, read2) byte-identical. The dump's only other difference: it lists every table named `plan%`, and P5's empty `plan_usage_pauses` exists only on the branch | same | same |
+| `reader.figures` for three extractions, boff and b vs m | byte-identical | byte-identical | byte-identical |
+| `figure_prefetch_decisions` / `plan_usage_pauses` rows after Today, plan and figures on boff and b | 0 / 0 | 0 / 0 | 0 / 0 |
+| `rebuild --shadow` (b, boff, bp) | 0/0/0, live unchanged | 0/0/0, live unchanged | 0/0/0, live unchanged |
+
+**The in-process pass (bp).** The sidecar runtime drained inline (`figure_prefetch_inline`), with power pinned to mains (`LEARNLOOP_POWER_STATE`). Triggers: `get_daily_plan`, which fires `plan` and `gap`; a `section` trigger on the vault's latest section progress; and a direct `offer` trigger on two blocks of a non-withheld section.
+- **plan and gap.** No candidates: no reading block in today's plan, and no open gaps on the touched topics.
+- **section.** "judge waiting: unavailable". The judge's plan route refused before any request: 0 judge calls, no socket.
+- **offer** (anchor-only, no judge). linear_algebra and probability each logged 2 decisions with propensities, both `skip` with propensity 0.0: these copies hold no measured figure-author wait yet, so a build has no value to weigh. Nothing was built (0 figures, 0 requests). No candidate's anchor is withheld now. arxiv_v2 found no section with two unwithheld blocks, so it had no offer.
+- **Totals.** 0 pauses; 0 new receipts.
+
+**Audit across the whole smoke.**
+- 12 databases compared with their base copies: **0 new `model_call_receipts`**.
+- **0 socket connects**; 0 refused starts; no Codex process.
+- The 30 process starts are all `powerprofilesctl get`, from the branch's power probe on the b copies' reads.
+- After each close, the only thread left is `learnloop-reading-sweep`, on main's copies as on the branch's. No prefetch thread is left running.
+
+### Rulings (verbatim)
+
+- **R1 (F18):** "Fix at landing: a speculative (build_mode prefetch) fuller projection whose rich intent is not queued or running reports not pending when background admission refuses it (battery, switch off, held out), and the Reader's fuller-polling branch honours the same prefetch lifetime bound (prefetchExpired) for speculative figures. Pressed figures keep their current polling. Regression tests (pytest + vitest). No further review round."
+- **R2 (F17):** "Low, accepted: a hidden prebuild that keeps hitting the plan's usage limit is retried on the next Reader open of its source, the next prebuild of the same input, or a press; losing one background retry costs only a later wait, never a wrong figure or spend. Record as an open item."
+- **R3:** "figures.prefetch_enabled ships ON, per spec Q21 (owner-accepted RW5d recommendations); the stage brief's 'default OFF' is superseded by the spec. The owner's one-week checkpoint with the report's prefetch block stays an owner item and may turn it off. Daily cap 10 builds with a zero cost term until a plan pause is observed is accepted as specified."
+  - **Owner decision (Nov 2), confirming R3:** "keep prefetch on".
+- **R4:** "No successor (pinned by test_figures_prefetch_boundary). Migration renumber: followups-nov2 lands first (migration 235), then TE1b (migration 236); P5 takes the next free number after whatever is on main when you reach the full gate (expected 237), with the head fixture rebuilt from main's head plus only your migration."
+- **R5:** "Lesson trigger vs P4b: P4b (teacher visuals) is already on main. After merging, wire the lesson trigger to P4b's real planned visual and make the prebuild's figure request byte-identical to the request teacher.visuals delivers for that node (same input hash), so a lesson visual reuses the prebuilt figure; a test through TE1's real write_plan and P4b's real request builder proves zero author calls on delivery. If this needs more than a small adapter, leave the lesson trigger building nothing and record it as an open item instead."
+
+### Owner items
+
+- **One week of prefetch on the desktop** (on by default; the owner decided "keep prefetch on"). Then read the `prefetch` block of `learnloop reader report --json`: opens versus builds, pauses, skipped for power and plan. The owner may switch it off (`figures.prefetch_enabled = false`).
+- **Working vaults.** Upgrade through the chain to mvp-0.43, which brings migration 237: back up, run `learnloop upgrade`, then `rebuild-derived-state`.
+
+### Open items
+
+- **R2 (F17), hidden plan-wait retry.** After a quick re-failure, retry pacing refuses for 300 s while `prefetch_pending` is false, so the Reader stops reading before the retry is due. That background retry is lost. The next Reader open of the source, the next prebuild of the same input, or a press retries it.
+- **F11.** The cue-density count of unpressed prebuilt lines is not shared with the margin marks.
+- **The gap passage** comes from the topic's provenance spans, not retrieval (deviation 2).
+- **The next section** ignores RW7b's path (deviation 7).
+- **Plan load tokens.** Known tokens are in the load; routes that report no tokens count as an average request (F14).
+- **The audit is unrelated to P5's correctness** but worth knowing: on the desktop, every Reader figures read with prefetch on (and every pass) calls `powerprofilesctl get` when the daemon is installed, the 30 starts above. It is a cheap read-only probe, and it is pinned off under `LEARNLOOP_POWER_STATE`.
+- **Pre-existing, not P5's:** the `test_query_student` connect-before-listen race.

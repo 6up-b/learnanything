@@ -521,6 +521,12 @@ APPROVED_LAUNCH_SITES = {
     ("src/learnloop/content/authoring/pf_sandbox.py", "run_equivalence_checks", "subprocess.run"),
     ("src/learnloop/content/authoring/pf_sandbox.py", "run_generator_tests", "subprocess.run"),
     ("src/learnloop/content/authoring/pf_sandbox.py", "run_sandboxed_python", "subprocess.run"),
+    # Reader RW5d P5 (landing review): the power probes behind figures built ahead of need, read-only:
+    # power-profiles-daemon's `powerprofilesctl get` (the tool resolved by shutil.which) and macOS'
+    # `pmset -g batt`, fixed argv lists, no shell, a timeout (PROBE_TIMEOUT_SECONDS), check=False, the
+    # output parsed for the power state only; any failure reads as not on mains. No model call.
+    ("src/learnloop/figures/power.py", "_profile", "subprocess.run"),
+    ("src/learnloop/figures/power.py", "mac_power_state", "subprocess.run"),
     ("src/learnloop/ingest/extractors/glm_text_layer.py", "pdfium_worker", "getattr(subprocess)"),
     ("src/learnloop/ingest/extractors/glm_text_layer.py", "pdfium_worker", "subprocess.run"),
     ("src/learnloop/ingest/extractors/marker_worker.py", "_exited", "subprocess.Popen"),
