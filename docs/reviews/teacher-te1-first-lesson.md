@@ -113,6 +113,45 @@ named `mvp-0.41`, the snapshot entry and its notes, and the CLI text. The migrat
 rebuild `migration_head_<N>` from main's head with it, and move the fixture paths and the reference scripts'
 `SCHEMA_HEAD`.
 
-## Gate (this step)
+## Gate (this step; the full suite, the whole durability lane and the whole vitest run are the landing's)
 
-Recorded at the end of the stage below.
+Every pytest/vitest/npm/cargo command ran inside `systemd-run --user --scope --quiet -p MemoryMax=5G
+-p MemorySwapMax=1G`, pytest at `-n 6`, vitest at `--maxWorkers=4`, one run at a time; the big targeted run behind
+`flock /tmp/learnloop-fullsuite.lock`.
+
+- `uv sync --extra dev --extra mobile`, `uv pip install pypdfium2`: ok.
+- `uv run lint-imports --no-cache`: **38 kept, 0 broken** (with the new teacher layering contract and the notes
+  contract's teacher sources).
+- **Targeted pytest, wide set** (256 files: every new TE1 file and every existing file that names a changed module,
+  table or contract: the version chain and its pins, the defaults snapshot, routing/price/disclosures, the
+  orchestrator and table roles, AD's protected tables and model, forecast receipts, attempts and replay, the
+  lifecycle hold, the instructional dispatcher and source tool calls, the head-fixture and migration tests, notes
+  guards, the sidecar contract, the CLI help snapshot, architecture, public-tip, tracked fixtures, sqlite copies):
+  **10424 passed, 57 failed, 16 skipped, 8 xfailed** in 45 min. Every failure was an expectation this stage moves
+  (the chain's latest and its slices, the head at 230 and the earlier migrations' "nothing else" diffs, the
+  disclosure list, the notes guards' allowed readers) or the Codex turn sweep flagging `S.turn(...)` (renamed
+  `take_turn`); all fixed (`tests/test_teacher_te1_migration.py` exports `TE1_ADDED_OBJECTS` /
+  `TE1_ALTERED_TABLES` for the diffs; the notes are reached only through `teacher.notes`, never by the minting).
+- **Rerun of the 32 failing files + the TE1 migration test + session ownership: 400 passed, 6 skipped, 1 xfailed.**
+- **Rerun of the touched set after the last refactor** (the four TE1 files, the migration test, notes guards and
+  linking, the Codex sweep, judge routes, architecture, mobile allowlist, desktop RPC contract, the moved pins,
+  registry audit, CLI help snapshot, config refactor): **673 passed, 6 skipped, 1 xfailed**.
+- Durability: `-m durability` over the TE1 files and every migration/head-fixture file above: **15 passed**;
+  the TE1 files with `--durable-sqlite`: **53 passed**.
+- Frontend (`apps/learnloop-tauri`): `npm install` ok; `npm run typecheck` ok; `npx vitest run --maxWorkers=4
+  src/app/lessonsConfig.test.ts src/screens/LessonScreen.test.tsx src/components/InspectorOverlay.phase4.test.tsx`:
+  **11 passed (3 files)**; `npm run frontend:build` ok.
+- `cargo check --manifest-path apps/learnloop-tauri/src-tauri/Cargo.toml`: ok.
+- References: `db_generate_reference.py` + `db_validate_reference.py`: errors `[]` (schema head 230, 369 table
+  notes, 1118 config leaves); `desktop_generate.py` + `desktop_validate.py`: passed (303 TS + 6 Rust).
+
+TE1 test files (for the landing gate): `tests/test_teacher_te1_lesson.py` (lifecycle, every action, guards,
+protection sentinels, withdrawal, reveals, switches), `tests/test_teacher_te1_weight.py` (the weight, the pool,
+the recalibration, DERIVED replay equivalence, the attempt-step seam, the report),
+`tests/test_teacher_te1_successor.py` (the tag, defaults parity, byte-identical practice with the switch off or below
+the tag, shadow rebuild zero deltas, the whole rebuild, upgrades, RPCs, the price gate),
+`tests/test_teacher_te1_curriculum_c4.py` (the deliverable brief, notes and `read_note`, C4 off), and
+`tests/test_teacher_te1_migration.py`; the fakes are `tests/teacher_fakes.py`.
+
+**No paid call; no live call.** Every model was a fake; every ad-hoc script ran isolated (`env -i`, empty `HOME`,
+`CODEX_HOME`, `LEARNLOOP_CONFIG_DIR`).

@@ -3,8 +3,8 @@ title: "confidence_calibration_state"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "92e511eeffe3f379fdc782d7d163ac20fec48e5f"
-source_commit_timestamp: "2026-11-01T19:35:28-05:00"
+source_commit: "4998dec9f94d0b244aaccc094dbea90f7478f5fd"
+source_commit_timestamp: "2026-11-01T21:15:52-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite confidence_calibration_state"
@@ -93,6 +93,7 @@ None found by exact static reference scan.
 ## Tests that define behavior
 
 - `tests/test_rebuild_orchestrator.py`
+- `tests/test_teacher_te1_migration.py`
 - `tests/test_teacher_te1_successor.py`
 - `tests/test_teacher_te1_weight.py`
 
