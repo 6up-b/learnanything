@@ -517,16 +517,19 @@ def run_rich_job(vault: Any, repository: Repository, payload: Mapping[str, Any],
         # NOW (it was when queued, and may have changed since); F6: today's
         # background render minutes are checked when it starts and before each
         # request; F7: each request first waits for foreground work to end.
+        # Codex re-review F16: that wait is the gate's, before it reads the
+        # vault it checks, so the whole gate (the switch included) is decided
+        # on the configuration read after the wait, at the start too.
         held = _prefetch_hold(repository, client)
-        if (reason := held(vault)) is not None:
-            raise RichJobStopped("figures_changed", reason)
         own_hold = hold
 
         def hold(current: Any) -> str | None:  # noqa: F811 - the prebuild's hold wraps the learner-state one
             return held(current) or (own_hold(current) if own_hold is not None else None)
 
-    gate = FiguresGate(vault, key, live_vault=live_vault, hold=hold)
+    gate = FiguresGate(vault, key, live_vault=live_vault, hold=hold, wait=_prefetch_wait if prefetch else None)
     try:
+        if prefetch:
+            gate.check("prebuild")
         with gate_model_requests(gate), _pressed_foreground(not prefetch):
             return _run(vault, repository, payload, base=base, gate=gate, client=client, report=report,
                         renderer=renderer, function_runner=function_runner, clock=clock,
@@ -554,16 +557,18 @@ BACKGROUND_HOLDS = _background_holds()
 
 def _prefetch_hold(repository: Repository, client: Any | None) -> Callable[[Any], str | None]:
     """RW5d P5: a prebuild's rich job's hold before every request (the vault as configured now):
-    the switch, the power and foreground work (waiting for it first), the rich author's route on
-    the plan (Codex review F2), and today's background render minutes (F6)."""
+    the switch, the power and foreground work (the gate waits for it first, before it reads the
+    vault: Codex re-review F16), the rich author's route on the plan (Codex review F2), and
+    today's background render minutes (F6)."""
 
-    from learnloop.figures import foreground as FG
     from learnloop.figures.power import background_hold
     from learnloop.figures.prefetch_ledger import render_minutes_left
     from learnloop.practice_index.paid import plan_route
 
     def hold(current: Any) -> str | None:
-        reason = background_hold(current, wait_foreground=FG.FOREGROUND_WAIT_SECONDS)
+        # The wait for foreground work is the gate's (``_prefetch_wait``), before it read
+        # ``current``; still busy after it, this yields (Codex re-review F16).
+        reason = background_hold(current)
         if reason is not None:
             return reason
         if plan_route(current, RICH_TASK, client).billing != "subscription":
@@ -573,6 +578,15 @@ def _prefetch_hold(repository: Repository, client: Any | None) -> Callable[[Any]
         return None
 
     return hold
+
+
+def _prefetch_wait() -> bool:
+    """A prebuild's rich job's wait for foreground work to end (at most
+    ``FOREGROUND_WAIT_SECONDS``), run by its gate before it reads the vault."""
+
+    from learnloop.figures import foreground as FG
+
+    return FG.wait_idle(FG.FOREGROUND_WAIT_SECONDS)
 
 
 @contextmanager

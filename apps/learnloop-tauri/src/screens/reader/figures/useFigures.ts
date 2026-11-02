@@ -19,6 +19,13 @@ export const FIGURE_POLL_MS = 1500;
 /** RW5d P2b: how often the source's figures are read again while a rich build
  *  runs (minutes long; the fuller line and the pending line follow it). */
 export const RICH_POLL_MS = 5000;
+/** RW5d P5 (Codex re-review F18): the longest the Reader keeps reading again for figures
+ *  built ahead of need, per open source. A pacing bound, not a decision: the sidecar says
+ *  `prefetchPending` only while work is running on mains, and a build waits at most ten minutes
+ *  for the learner's own work (FOREGROUND_WAIT_SECONDS) before it leaves the rest for later;
+ *  twice that covers a wait and the build after it. Past it the reads stop; reopening the
+ *  source reads afresh. */
+export const PREFETCH_POLL_LIFETIME_MS = 20 * 60 * 1000;
 
 export interface FigureRequestInput {
   spanIds: string[];
@@ -157,6 +164,9 @@ export function useFigures({
   const [richPending, setRichPending] = useState<FigureRichPendingDto[]>([]);
   // RW5d P5 (Codex review F11): a figure for this source is being built ahead of need.
   const [prefetchPending, setPrefetchPending] = useState(false);
+  // Codex re-review F18: the prefetch reads end after PREFETCH_POLL_LIFETIME_MS per open source.
+  const [prefetchExpired, setPrefetchExpired] = useState(false);
+  const prefetchClock = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [followed, setFollowed] = useState<FollowedFigure[]>([]);
   const followedRef = useRef(followed);
   followedRef.current = followed;
@@ -179,6 +189,9 @@ export function useFigures({
     setPending([]);
     setRichPending([]);
     setPrefetchPending(false);
+    setPrefetchExpired(false);
+    if (prefetchClock.current !== null) clearTimeout(prefetchClock.current);
+    prefetchClock.current = null;
     setFollowed([]);
     setExpandedKey(null);
     if (!enabled || !extractionId) return;
@@ -210,9 +223,18 @@ export function useFigures({
   // lines change in place under their passage, nothing else moves. RW5d P5
   // (Codex review F11): likewise while a figure for this source is being built
   // ahead of need, so its quiet line appears with the Reader open; the read
-  // stops once the sidecar says nothing more is coming.
+  // stops once the sidecar says nothing more is coming (Codex re-review F18:
+  // or once PREFETCH_POLL_LIFETIME_MS has passed for this source).
+  useEffect(() => {
+    // Started once per open source, the first time a prefetch is said to be coming; it runs on
+    // while the flag comes and goes (cleared only by a new source, above, or unmounting).
+    if (!prefetchPending || prefetchClock.current !== null) return;
+    const mine = generation.current;
+    prefetchClock.current = setTimeout(() => { if (generation.current === mine) setPrefetchExpired(true); }, PREFETCH_POLL_LIFETIME_MS);
+  }, [prefetchPending]);
+  useEffect(() => () => { if (prefetchClock.current !== null) clearTimeout(prefetchClock.current); }, []);
   const richRunning = (
-    prefetchPending
+    (prefetchPending && !prefetchExpired)
     || richPending.some((line) => line.state === "pending" || line.state === "waiting_for_plan")
     || figures.some((figure) => figure.fuller?.state === "pending" || figure.fuller?.state === "waiting_for_plan"));
   useEffect(() => {

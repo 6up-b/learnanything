@@ -2770,38 +2770,76 @@ def _prebuilt_pressed(repository: Repository, row: Mapping[str, Any]) -> bool:
     return found is not None
 
 
-def prefetch_pending(vault: Any, repository: Repository, extraction_id: str) -> bool:
-    """RW5d P5 (Codex review F11): whether a prebuild for this source is still to come (a
-    decision to build with no request yet, or a prebuild's rich job queued or running): the
-    Reader then reads its figures again, paced, so a completed prebuild appears without a
-    reopen. False with figures ahead of need off (rev 1's payload)."""
+def prefetch_pending(vault: Any, repository: Repository, extraction_id: str, *,
+                     pass_running: bool = False) -> bool:
+    """RW5d P5 (Codex review F11): whether a prebuild for this source is coming now: the Reader
+    then reads its figures again, paced, so a completed prebuild appears without a reopen.
+    False with figures ahead of need off (rev 1's payload).
+
+    Codex re-review F18: only active, admissible work counts, so the Reader never polls for
+    work no worker will do: nothing on battery (no background build runs there); a decision to
+    build with no request yet only while a prefetch pass is running now (``pass_running``: the
+    sidecar's drain thread, which builds the waiting decisions first; otherwise it waits for the
+    next trigger, which a read does not fire); a prebuild's rich job only while it is queued or
+    running (one waiting for the plan is asked again by the read, :func:`prefetch_plan_waits`,
+    and is pending again once requeued)."""
 
     from learnloop.figures.power import power_state, prefetch_switch
 
-    if not prefetch_switch(vault):
+    if not prefetch_switch(vault) or not power_state().on_mains:
         return False
-    # A deferred decision is still to come only while this machine is on mains
-    # (on battery the Reader never polls for it: low power first).
-    decisions = ("build", "deferred_power", "deferred_plan") if power_state().on_mains else ("build",)
-    with closing(connect(repository.sqlite_path, read_only=True)) as connection:
-        if connection.execute("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = "
-                              "'figure_prefetch_decisions'").fetchone() is None:
-            return False
-        for raw in connection.execute(
-                "SELECT anchor_json FROM figure_prefetch_decisions WHERE outcome IS NULL AND request_id IS NULL "
-                f"AND decision IN ({', '.join('?' for _ in decisions)})", decisions):
-            try:
-                anchor = json.loads(raw[0] or "null")
-            except (TypeError, ValueError):
-                continue
-            if isinstance(anchor, dict) and str(anchor.get("extraction_id")) == str(extraction_id):
-                return True
+    if pass_running:
+        with closing(connect(repository.sqlite_path, read_only=True)) as connection:
+            if connection.execute("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = "
+                                  "'figure_prefetch_decisions'").fetchone() is None:
+                return False
+            for raw in connection.execute(
+                    "SELECT anchor_json FROM figure_prefetch_decisions WHERE outcome IS NULL AND request_id IS NULL "
+                    "AND decision IN ('build', 'deferred_power', 'deferred_plan')"):
+                try:
+                    anchor = json.loads(raw[0] or "null")
+                except (TypeError, ValueError):
+                    continue
+                if isinstance(anchor, dict) and str(anchor.get("extraction_id")) == str(extraction_id):
+                    return True
     for job in RICH.rich_jobs(repository):
         payload = job.get("payload") or {}
         if payload.get("build_mode") == "prefetch" and RICH.job_state(job)["state"] == "pending" \
                 and str((payload.get("base") or {}).get("extraction_id") or "") == str(extraction_id):
             return True
     return False
+
+
+def prefetch_plan_waits(vault: Any, repository: Repository, extraction_id: str) -> list[str]:
+    """RW5d P5 (Codex re-review F17): this source's speculative prebuild rich jobs waiting for
+    the plan, newest per input, whose retry is admissible now: figures ahead of need on, this
+    machine on mains, and the passage not held out. They list no line (Codex review F10), so the
+    Reader's read asks the plan again for them here, paced as every plan wait is
+    (``rich.due_for_plan_retry``); the requeued job's own gate checks the rest before any
+    request. A newer job of the same input (a press, or a later prebuild) speaks for it."""
+
+    from learnloop.figures.power import power_state, prefetch_switch
+    from learnloop.figures.rich import _withheld
+
+    if not rich_enabled(vault) or not prefetch_switch(vault) or not power_state().on_mains:
+        return []
+    found: list[str] = []
+    seen: set[str] = set()
+    for job in RICH.rich_jobs(repository):
+        payload = job.get("payload") or {}
+        base = payload.get("base") or {}
+        if str(base.get("extraction_id") or "") != str(extraction_id):
+            continue
+        key = str(payload.get("input_hash"))
+        if key in seen:
+            continue
+        seen.add(key)
+        if payload.get("build_mode") != "prefetch" or RICH.job_state(job)["state"] != RICH.WAITING_FOR_PLAN:
+            continue
+        if _withheld(vault, repository, base) is not None:
+            continue
+        found.append(str(job["id"]))
+    return found
 
 
 def build_prefetch_figure(vault: Any, repository: Repository, request: FigureRequest, *,

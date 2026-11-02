@@ -696,11 +696,21 @@ def reader_figures(ctx: SidecarContext, params: FiguresInput) -> dict[str, Any]:
     if FS.rich_enabled(vault):
         pending = FS.rich_pending(vault, repository, params.extraction_id)
         payload["rich_pending"] = pending
-        _retry_plan_waits(ctx, [*(line for line in pending), *((figure.get("fuller") or {}) for figure in figures)])
-    if P.prefetch_switch(vault) and FS.prefetch_pending(vault, repository, params.extraction_id):
+        # Codex re-review F17: a speculative prebuild waiting for the plan lists no line
+        # (review F10), so it is found apart from the lines and asked again the same way.
+        speculative = [{"state": "waiting_for_plan", "rich_job_id": job_id}
+                       for job_id in FS.prefetch_plan_waits(vault, repository, params.extraction_id)]
+        _retry_plan_waits(ctx, [*(line for line in pending), *((figure.get("fuller") or {}) for figure in figures),
+                                *speculative])
+    from learnloop_sidecar.prefetch_runtime import pass_running as prefetch_pass_running
+
+    if P.prefetch_switch(vault) and FS.prefetch_pending(vault, repository, params.extraction_id,
+                                                        pass_running=prefetch_pass_running(ctx)):
         # RW5d P5 (Codex review F11): a prebuild still to come for this source;
         # the Reader reads its figures again, paced, while it is (absent
-        # otherwise, and always with figures ahead of need off).
+        # otherwise, and always with figures ahead of need off). Codex re-review
+        # F18: only active work (a pass running now, a prebuild's rich job queued
+        # or running) and never on battery, so the reads end with the work.
         payload["prefetch_pending"] = True
     return versioned(payload)
 

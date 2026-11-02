@@ -418,9 +418,9 @@ def test_f10_a_rich_only_prebuild_shows_no_pending_or_failure_line(tmp_path, mon
                                        spawn_rich=rig.spawn)
     assert outcome.view is None and outcome.rich is not None
     assert FS.rich_pending(rig.vault, rig.repository, EXTRACTION) == []
-    switch(rig.paths, False)
+    RF.configure(rig.paths, prefetch_enabled=False)
     assert FS.rich_pending(load_vault(rig.paths.root), rig.repository, EXTRACTION) == []
-    switch(rig.paths, True)
+    RF.configure(rig.paths, prefetch_enabled=True)
     rig.ingest.drain()
     assert rig.job()["status"] in ("completed", "failed")
     assert FS.rich_pending(rig.vault, rig.repository, EXTRACTION) == []
@@ -437,6 +437,11 @@ def test_f11_reader_figures_says_a_prebuild_is_coming_until_it_lands(tmp_path):
     with FG.foreground("lesson"):
         PF.run_trigger(env_for(vault, repository, author=author), PF.Trigger("offer", "tutor:q", blocks=((EXTRACTION, "p3"),)))
     ctx = context(paths.root, author=AuthorFake())
+    from learnloop_sidecar.prefetch_runtime import PrefetchRuntime
+
+    runtime = PrefetchRuntime()
+    runtime._running = True  # re-review F18: an unstarted decision is coming while a pass runs
+    ctx.figure_prefetch = runtime
     assert call(ctx, "reader.figures", {"extractionId": EXTRACTION}).get("prefetchPending") is True
     PF.run_trigger(env_for(vault, repository, author=author), PF.Trigger("offer", "tutor:q", blocks=()))
     found = call(ctx, "reader.figures", {"extractionId": EXTRACTION})
@@ -559,3 +564,227 @@ def test_f15_figures_ahead_of_need_are_on_by_default_and_the_suite_keeps_hooks_i
     assert "figure_prefetch" not in ctx.__dict__ and decisions(repository) == []
     ctx.figure_prefetch_inline = True  # a test that injects the seams runs it
     assert runs_here(ctx) is True
+
+
+# ===========================================================================
+# Codex re-review (F1 reopened, F16-F18)
+# ===========================================================================
+
+def _newer_snapshot_holds(monkeypatch, newer, spans: set[str]) -> None:
+    """``withheld_message`` holds ``spans`` back only on the newer vault snapshot."""
+
+    real = FS.withheld_message
+    monkeypatch.setattr(FS, "withheld_message",
+                        lambda v, r, e, found: "held out" if v is newer and spans & set(found) else real(v, r, e, found))
+
+
+def test_f1_rereview_a_section_judge_retry_revalidates_on_the_vault_loaded_now(tmp_path, monkeypatch):
+    paths, repository, vault = make_vault(tmp_path)
+    plan_record(monkeypatch)
+    newer = load_vault(paths.root)
+    loaded = {"vault": vault}
+    _newer_snapshot_holds(monkeypatch, newer, {"p3"})
+
+    def bad_then_newer(context):
+        loaded["vault"] = newer  # a newer snapshot marks the equation held out before the retry
+        return {"blocks": [{"block": "b99", "goal": "", "p_open": 0.5}]}
+
+    judge = JudgeFake([bad_then_newer])
+    env = env_for(vault, repository, judge=judge, live_vault=lambda: loaded["vault"])
+    result = PF.run_trigger(env, PF.Trigger("plan", "dp_1"))
+    assert judge.calls == 1 and all(EQUATION_TEXT not in prompt for prompt in judge.prompts[1:])
+    assert any("protection_changed" in note for note in result.notes) and decisions(repository) == []
+
+
+def test_f1_rereview_a_gap_judge_retry_revalidates_on_the_vault_loaded_now(tmp_path, monkeypatch):
+    from learnloop.figures import learner_state as LS
+
+    paths, repository, vault = make_vault(tmp_path)
+    monkeypatch.setattr(PF, "_touched_topics", lambda env: ["lo_matrices"])
+    monkeypatch.setattr(LS, "open_gap_statements", lambda vault, repository, los: [
+        {"id": "learner_text_gap:g1", "learning_object_id": "lo_matrices", "kind": "gap", "topic": "Matrices",
+         "statement": "unsure the mass left of zero is p"}])
+    newer = load_vault(paths.root)
+    loaded = {"vault": vault}
+    _newer_snapshot_holds(monkeypatch, newer, {"p2"})
+
+    def bad_then_newer(context):
+        loaded["vault"] = newer
+        return {"goal": " ", "p_open": 0.5}
+
+    judge = JudgeFake([bad_then_newer])
+    env = env_for(vault, repository, judge=judge, live_vault=lambda: loaded["vault"],
+                  passages=lambda v, r, lo: [(EXTRACTION, "p2")])
+    result = PF.run_trigger(env, PF.Trigger("gap", "gaps"))
+    assert judge.calls == 1 and decisions(repository) == []
+    assert any("protection_changed" in note for note in result.notes)
+
+
+def test_f1_rereview_an_unreadable_current_vault_sends_no_judge_request(tmp_path, monkeypatch):
+    _paths, repository, vault = make_vault(tmp_path)
+    judge = JudgeFake()
+
+    def unreadable():
+        raise OSError("learnloop.toml unreadable")
+
+    env = env_for(vault, repository, judge=judge, live_vault=unreadable)
+    with pytest.raises(PF.JudgeUnavailable) as stopped:
+        PF.judge_section(env, EXTRACTION, "u54")
+    assert stopped.value.reason == "protection_changed" and judge.calls == 0
+
+
+def test_f1_rereview_a_builds_protection_is_read_on_the_vault_loaded_now(tmp_path, monkeypatch):
+    from learnloop import learner_protection as LP
+    from learnloop.source_retrieval import corpus
+
+    paths, repository, vault = make_vault(tmp_path)
+    author = AuthorFake()
+    with FG.foreground("lesson"):
+        PF.run_trigger(env_for(vault, repository, author=author), PF.Trigger("offer", "tutor:q", blocks=((EXTRACTION, "p6"),)))
+    newer = load_vault(paths.root)
+    real = LP.withheld_items
+
+    def withheld(v, r):
+        found = real(v, r)
+        if v is not newer:
+            return found
+        return LP.Withheld(reasons={**found.reasons, "pi_eigen_1": LP.WITHHELD_COLD}, known_items=found.known_items)
+
+    monkeypatch.setattr(LP, "withheld_items", withheld)
+    monkeypatch.setattr(corpus, "item_exclusions", lambda repository, item: corpus.Exclusions(
+        spans=frozenset({(EXTRACTION, "p5")}) if item.id == "pi_eigen_1" else frozenset()))
+    result = PF.run_trigger(env_for(vault, repository, author=author, live_vault=lambda: newer),
+                            PF.Trigger("offer", "tutor:r", blocks=()))
+    assert author.calls == 0 and any("an item's own passage now" in note for note in result.notes)
+
+
+def test_f16_a_prebuilds_rich_request_rechecks_the_switch_after_waiting_for_foreground_work(tmp_path, monkeypatch):
+    from learnloop.ai.execution import active_request_gate
+
+    rig = _rich_rig(tmp_path, monkeypatch, [("rich", "manim", RF.brief(), WHY, flagship(kind="illustrative"))])
+    FS.build_prefetch_figure(rig.vault, rig.repository, _prefetch_request(), author_client=rig.author,
+                             spawn_rich=rig.spawn)
+    admitting = {"now": False}
+    complete = rig.rich_author.complete
+
+    def admitted_then_complete(request):
+        # As a real transport does: the physical request is admitted by the request gate first.
+        admitting["now"] = True
+        try:
+            active_request_gate().admit(rig.rich_author, purpose=request.purpose, prompt="", budget=None)
+        finally:
+            admitting["now"] = False
+        return complete(request)
+
+    def wait_then_switch_off(timeout, **_kwargs):
+        if admitting["now"]:  # the learner switches figures ahead of need off while the request waits
+            RF.configure(rig.paths, prefetch_enabled=False)
+        return True
+
+    monkeypatch.setattr(rig.rich_author, "complete", admitted_then_complete)
+    monkeypatch.setattr(FG, "wait_idle", wait_then_switch_off)
+    with FG.foreground("figure"):
+        rig.ingest.drain()
+    job = rig.job()
+    assert rig.rich_author.calls == 0
+    assert job["status"] == "failed" and P.SWITCHED_OFF in job["error"]["message"]
+
+
+def test_f16_the_gate_waits_before_it_reads_the_vault_it_checks():
+    from learnloop.figure_admission import FiguresChanged, FiguresGate
+
+    def snapshot(name):
+        return SimpleNamespace(root=None, name=name, config=SimpleNamespace(figures=SimpleNamespace(enabled=True)))
+
+    loaded = {"vault": snapshot("before")}
+    order = []
+
+    def wait():
+        order.append("wait")
+        loaded["vault"] = snapshot("after")  # the configuration changes while the unit waits
+
+    def hold(current):
+        order.append(f"hold:{current.name}")
+        return "switched off" if current.name == "after" else None
+
+    gate = FiguresGate(loaded["vault"], lambda vault: 1, live_vault=lambda: loaded["vault"], hold=hold, wait=wait)
+    with pytest.raises(FiguresChanged):
+        gate.check("request")
+    assert order == ["wait", "hold:after"] and gate.held
+
+
+def test_f17_a_speculative_prebuilds_plan_wait_is_retried_by_the_reader_read(tmp_path, monkeypatch):
+    from learnloop.ai.errors import AIProviderUnavailable
+    from learnloop_sidecar.handlers.figures import _rich_spawner
+    from tests.test_figure_rich_rpc import _ctx
+
+    _paths, repository, ctx, _author, rich_author = _ctx(
+        tmp_path, monkeypatch, [("rich", "manim", RF.brief(), WHY)],
+        [AIProviderUnavailable("usage limit reached"), RF.scene_output()])
+    monkeypatch.setattr(RICH, "_LAST_REQUEUE", {})
+    retried = []
+    original_retry = ctx.ingest_jobs.retry_figure_rich
+    monkeypatch.setattr(ctx.ingest_jobs, "retry_figure_rich",
+                        lambda job_id, **kwargs: retried.append(job_id) or original_retry(job_id, **kwargs))
+    FS.build_prefetch_figure(ctx.vault, repository, _prefetch_request(), author_client=ctx.figure_author_client,
+                             spawn_rich=_rich_spawner(ctx, ctx.vault, granted=False))
+    (job,) = repository.ingest_jobs_by_types(["figure_rich"])
+    assert job["status"] == "failed" and job["error"]["code"] == RICH.WAITING_FOR_PLAN
+    assert FS.rich_pending(ctx.vault, repository, EXTRACTION) == []  # still invisible (F10)
+    assert FS.prefetch_plan_waits(ctx.vault, repository, EXTRACTION) == [job["id"]]
+    listed = call(ctx, "reader.figures", {"extractionId": EXTRACTION})
+    assert retried == [job["id"]] and listed.get("richPending") == []
+    # Paced: a second read inside the interval asks nothing more.
+    call(ctx, "reader.figures", {"extractionId": EXTRACTION})
+    assert retried == [job["id"]]
+    assert rich_author.calls == 2
+
+
+def test_f17_a_plan_wait_is_not_retried_off_mains_or_switched_off(tmp_path, monkeypatch):
+    from learnloop.ai.errors import AIProviderUnavailable
+
+    rig = _rich_rig(tmp_path, monkeypatch, [("rich", "manim", RF.brief(), WHY)],
+                    [AIProviderUnavailable("usage limit reached"), RF.scene_output()])
+    FS.build_prefetch_figure(rig.vault, rig.repository, _prefetch_request(), author_client=rig.author,
+                             spawn_rich=rig.spawn)
+    rig.ingest.drain()
+    job = rig.job()
+    assert job["error"]["code"] == RICH.WAITING_FOR_PLAN
+    assert FS.prefetch_plan_waits(rig.vault, rig.repository, EXTRACTION) == [job["id"]]
+    P.set_power_reader(lambda: P.PowerState(False, P.BATTERY, "test"))
+    assert FS.prefetch_plan_waits(rig.vault, rig.repository, EXTRACTION) == []
+    P.set_power_reader(lambda: P.PowerState(True, P.MAINS, "test"))
+    RF.configure(rig.paths, prefetch_enabled=False)
+    assert FS.prefetch_plan_waits(load_vault(rig.paths.root), rig.repository, EXTRACTION) == []
+
+
+def test_f18_an_unstarted_decision_is_pending_only_while_a_pass_runs_and_never_on_battery(tmp_path):
+    from learnloop_sidecar.prefetch_runtime import PrefetchRuntime
+
+    paths, repository, vault = make_vault(tmp_path)
+    with FG.foreground("lesson"):  # the build yields: a decision to build with no request
+        PF.run_trigger(env_for(vault, repository), PF.Trigger("offer", "tutor:q", blocks=((EXTRACTION, "p3"),)))
+    (row,) = decisions(repository)
+    assert row["decision"] == "build" and row["request_id"] is None
+    assert FS.prefetch_pending(vault, repository, EXTRACTION) is False  # no worker: reads would not resume it
+    assert FS.prefetch_pending(vault, repository, EXTRACTION, pass_running=True) is True
+    P.set_power_reader(lambda: P.PowerState(False, P.BATTERY, "test"))
+    assert FS.prefetch_pending(vault, repository, EXTRACTION, pass_running=True) is False
+    P.set_power_reader(lambda: P.PowerState(True, P.MAINS, "test"))
+    ctx = context(paths.root, author=AuthorFake())
+    assert "prefetchPending" not in call(ctx, "reader.figures", {"extractionId": EXTRACTION})
+    runtime = PrefetchRuntime()
+    runtime._running = True  # a pass is draining the queue now
+    ctx.figure_prefetch = runtime
+    assert call(ctx, "reader.figures", {"extractionId": EXTRACTION}).get("prefetchPending") is True
+    P.set_power_reader(lambda: P.PowerState(False, P.BATTERY, "test"))
+    assert "prefetchPending" not in call(ctx, "reader.figures", {"extractionId": EXTRACTION})
+
+
+def test_f18_a_prebuilds_rich_job_is_pending_on_mains_only(tmp_path, monkeypatch):
+    rig = _rich_rig(tmp_path, monkeypatch, [("rich", "manim", RF.brief(), WHY, flagship(kind="illustrative"))])
+    FS.build_prefetch_figure(rig.vault, rig.repository, _prefetch_request(), author_client=rig.author,
+                             spawn_rich=rig.spawn)
+    assert FS.prefetch_pending(rig.vault, rig.repository, EXTRACTION) is True  # queued: a worker will run it
+    P.set_power_reader(lambda: P.PowerState(False, P.BATTERY, "test"))
+    assert FS.prefetch_pending(rig.vault, rig.repository, EXTRACTION) is False

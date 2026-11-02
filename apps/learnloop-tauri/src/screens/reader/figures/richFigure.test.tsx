@@ -15,7 +15,7 @@ import corpus from "./figureGoldenCorpus.json";
 import { FiguresUnder } from "./FigureInline";
 import { manimCheckLine, RICH_FRAME, RICH_PHASES } from "./RichFigure";
 import type { FigureSpec } from "./figureSpec";
-import { RICH_POLL_MS, useFigures, type FiguresContract } from "./useFigures";
+import { PREFETCH_POLL_LIFETIME_MS, RICH_POLL_MS, useFigures, type FiguresContract } from "./useFigures";
 
 const api = vi.hoisted(() => ({
   readerFigures: vi.fn(), readerFigureRequest: vi.fn(), readerFigureJob: vi.fn(), readerFigureJobCancel: vi.fn(),
@@ -249,4 +249,17 @@ it("a figure built ahead of need appears in an open Reader, then the reads stop 
   const reads = api.readerFigures.mock.calls.length;
   await act(async () => { await vi.advanceTimersByTimeAsync(RICH_POLL_MS * 3); });
   expect(api.readerFigures.mock.calls.length).toBe(reads);  // nothing more coming: no more reads
+});
+
+it("reads for figures built ahead of need end after their lifetime even while the sidecar still says one is coming (Codex re-review F18)", async () => {
+  vi.useFakeTimers({ shouldAdvanceTime: true });
+  api.readerFigures.mockResolvedValue({ extractionId: "ext_prob", figures: [], richPending: [], prefetchPending: true });
+  render(<Harness />);
+  await act(async () => { await Promise.resolve(); });
+  await act(async () => { await vi.advanceTimersByTimeAsync(RICH_POLL_MS * 2 + 10); });
+  expect(api.readerFigures.mock.calls.length).toBeGreaterThan(1);  // paced reads while it is coming
+  await act(async () => { await vi.advanceTimersByTimeAsync(PREFETCH_POLL_LIFETIME_MS); });
+  const reads = api.readerFigures.mock.calls.length;
+  await act(async () => { await vi.advanceTimersByTimeAsync(RICH_POLL_MS * 4); });
+  expect(api.readerFigures.mock.calls.length).toBe(reads);  // bounded: no more reads
 });

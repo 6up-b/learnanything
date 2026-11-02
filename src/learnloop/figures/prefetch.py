@@ -74,7 +74,7 @@ import logging
 import threading
 from collections.abc import Callable, Iterable, Mapping, Sequence
 from contextlib import closing
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from datetime import UTC, datetime, timedelta
 from typing import Any, Literal
 
@@ -213,6 +213,17 @@ class PrefetchEnv:
 
     def is_cancelled(self) -> bool:
         return bool(self.cancelled is not None and self.cancelled())
+
+    def loaded_now(self) -> "PrefetchEnv | None":
+        """This environment over the vault configured now (:meth:`current_vault`), or None when
+        it can't be read (the caller fails closed). Codex re-review F1: every check made just
+        before a physical request reads the protection from this, never from the snapshot the
+        pass started with."""
+
+        current = self.current_vault()
+        if current is None:
+            return None
+        return self if current is self.vault else replace(self, vault=current)
 
 
 @dataclass
@@ -380,7 +391,9 @@ def _ask(route: R.FigureRoute, prompt: Callable[[list[str]], str], result_model:
 
     Codex review F1: before every request the prompt's passages are checked again against the
     protection as it is now (``revalidate``); when anything in them became withheld or an item's
-    own since the context was saved, the saved context is discarded and nothing more is sent."""
+    own since the context was saved, the saved context is discarded and nothing more is sent.
+    Codex re-review F1: "now" is the vault configured now (``PrefetchEnv.loaded_now``), read
+    afresh before each request; unreadable, nothing is sent."""
 
     problems: list[str] = []
     for _attempt in range(MAX_JUDGE_ATTEMPTS):
@@ -490,8 +503,9 @@ def judge_section(env: PrefetchEnv, extraction_id: str, section_id: str, *, call
             "instructions": _SECTION_INSTRUCTIONS.format(limit=PREFETCH_SECTION_CANDIDATES), "context": shown})
 
     def revalidate() -> str | None:
-        current = item_protection(env)
-        again = section_blocks(env, extraction_id, section_id, current) if current.available else None
+        now = env.loaded_now()
+        current = item_protection(now) if now is not None else ItemProtection(available=False)
+        again = section_blocks(now, extraction_id, section_id, current) if current.available else None
         if again is None or _section_hash(extraction_id, section_id, again[1]) != input_hash:
             return "this section's material changed (something in it is withheld now): nothing more is sent"
         return None
@@ -562,8 +576,9 @@ def judge_gap(env: PrefetchEnv, gap: Mapping[str, Any], passage: Mapping[str, An
 
     def revalidate() -> str | None:
         extraction_id, span_id = str(passage["extraction_id"]), str(passage["span_id"])
-        if withheld_message(env.vault, env.repository, extraction_id, [span_id]) is not None \
-                or item_protection(env).covers(extraction_id, [span_id]):
+        now = env.loaded_now()
+        if now is None or withheld_message(now.vault, now.repository, extraction_id, [span_id]) is not None \
+                or item_protection(now).covers(extraction_id, [span_id]):
             return "this passage is withheld now: nothing more is sent"
         return None
 
@@ -1116,7 +1131,8 @@ def run_builds(env: PrefetchEnv, queue: Sequence[tuple[dict[str, Any], Candidate
         if _author_ready(env) is not None:
             result.notes.append("the figure author is not the plan now: the rest wait")
             return
-        if protected(env, candidate, item_protection(env)):
+        now = replace(env, vault=current) if current is not env.vault else env
+        if protected(now, candidate, item_protection(now)):
             result.notes.append(f"{row['id']}: an item's own passage now")
             continue
         if not reserve_build(env, str(row["id"])):

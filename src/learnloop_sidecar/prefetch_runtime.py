@@ -38,6 +38,12 @@ class PrefetchRuntime:
         #: Offers already turned into a trigger (a finished job is read more than once).
         self.offers_seen: set[tuple[str, str]] = set()
 
+    def running(self) -> bool:
+        """A pass is draining the queue now (Codex re-review F18: the Reader's ``prefetchPending``)."""
+
+        with self._lock:
+            return self._running
+
     def submit(self, ctx: Any, trigger: Any) -> None:
         with self._lock:
             if trigger in self._queue:
@@ -127,6 +133,13 @@ def runs_here(ctx: Any) -> bool:
     return True
 
 
+def pass_running(ctx: Any) -> bool:
+    """Whether this context's prefetch pass is running now (never creates the runtime)."""
+
+    runtime = getattr(ctx, "__dict__", {}).get("figure_prefetch")
+    return bool(runtime is not None and runtime.running())
+
+
 def notify(ctx: Any, kind: str, ref: str = "", **fields: Any) -> bool:
     """Queue one trigger (spec §10b.2); False when prefetch does not run here (switched off, a
     phone or MCP host, no vault). Never raises: a hook never fails its RPC."""
@@ -171,4 +184,4 @@ def notify_offer(ctx: Any, origin: str, offer_ref: str | None) -> bool:
         return False
 
 
-__all__ = ["PREFETCH_ENV", "PrefetchRuntime", "environment", "notify", "notify_offer", "runs_here"]
+__all__ = ["PREFETCH_ENV", "PrefetchRuntime", "environment", "notify", "notify_offer", "pass_running", "runs_here"]
