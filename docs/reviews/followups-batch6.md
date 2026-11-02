@@ -7,7 +7,9 @@ mvp-0.43, migration 236; follow-ups Nov 2; P4b; TE1). Worktree `learnanything-dl
 > stage before them. Three statements changed: (D) the bound now counts requeues, and item protection is checked
 > before a retry and in the worker; (G1) a card with a released line is versioned `+te1b+released`, and the
 > successor question is still open; (G2) the R_cold difference is `observed_difference_r_cold`, labelled
-> descriptive and not an ITT estimate.
+> descriptive and not an ITT estimate. The scoped verify's fixes (V1, V2, same file) corrected (D) below in place:
+> the stored plan's open items are in the one protection core, on every path, and only a pass that follows the
+> learner's own action retries.
 
 Seven queued follow-ups (A to G). Each defect has a reproduce-first test, and each item is its own commit.
 **No successor and no migration.** No config key was added. Kill switches are unchanged.
@@ -121,8 +123,9 @@ run).
 only by `reader.figures` reads of its source. After a quick re-failure, per-job pacing refused the next retry
 for 300 s, the Reader stopped polling, and that retry was lost.
 
-**Fix.** `prefetch.retry_plan_waits(env, result)` runs in every prefetch pass, before the pass's own builds, so a
-build from the same pass that meets the limit is not asked again at once. It applies the background guards:
+**Fix.** `prefetch.retry_plan_waits(env, result)` runs in a prefetch pass whose trigger carries learner activity
+(verify V2, below), before the pass's own builds, so a build from the same pass that meets the limit is not asked
+again at once. It applies the background guards:
 - It runs only when the pass itself would build: on mains, the plan not paused, and the author route on the
   plan.
 - It calls `service.prefetch_plan_waits` (now `extraction_id=None` for every source) on the vault as configured
@@ -138,9 +141,26 @@ The requeue goes through a new `PrefetchEnv.retry_plan_wait` seam. The runtime w
 `handlers.figures.retry_plan_wait`, the same paced requeue the Reader's reads use (`rich.due_for_plan_retry`), so
 the pass and the Reader share one clock per job. `PassResult.plan_wait_retries` records what was asked.
 
-**Retries follow passes, not a timer.** Passes come from learner activity (Today, section progress, tutor and
-library offers, lessons, the gap worker). So no plan request is made while the learner is away, and a retry that
-became due rides on the next pass.
+**Retries follow the learner's actions, not a timer (corrected by verify V2).** This section first said that every
+pass comes from learner activity. That was wrong: the gap worker polls on its own, and any nonempty drain fires a
+pass. A retry now runs only when the trigger says the learner just acted (`Trigger.learner_activity`, default False):
+
+| Trigger | Fired by | Retries? | Why |
+|---|---|---|---|
+| `section` | `reader.mark_section_progress` | yes | sent only for the learner's reading: the seen count advancing, a reveal, a completion |
+| `offer` (tutor) | the tutor's answer | yes | the answer to the learner's own question |
+| `offer` (library) | the read of a finished library job | yes | the learner's own ask, and once per ask (`offers_seen`) |
+| `lesson`, `gap` with ref `lesson:<id>` | `lesson.turn` | yes | the learner's own open or turn |
+| `plan`, `gap` with ref `plan:<id>` | `get_daily_plan` | **no** | a read: Today's queue-revision poll refetches it when background work lands, and its deciding and waiting timers do too, with nobody at the keyboard |
+| `gap` with ref `gaps` | the gap worker's nonempty drain | **no** | a poll tick fires it, even for deferred or failed work; a drain carries no sign that a learner attempt started it |
+
+So **a pass's retry step makes no plan request while the learner is away**, and a retry that became due waits for
+their next action above. Two other things can still ask, and this claim does not cover them; both are unchanged:
+- **The ordinary work of the same passes.** A `plan` or worker-origin `gap` pass still judges and runs `run_builds`
+  (`test_v2_characterization_a_worker_origin_pass_still_runs_ordinary_builds`). See the review record's "For the
+  orchestrator".
+- **The Reader's own reads of an open source** (`reader.figures`), which keep their paced retries while the Reader
+  polls.
 
 **Tests.** `tests/test_followups_batch6_prefetch_plan_wait.py` has 7 tests; all 7 failed against the pre-fix
 sources.
@@ -309,7 +329,7 @@ whole vitest run were not run.
 ## Open items
 
 - (F) The shared per-section count is not done; see (F) for the two designs.
-- (D) Retries ride on passes. A source whose prebuild hit the limit, with no learner activity afterwards, waits
-  for the next pass, a Reader open or a press.
+- (D) A source whose prebuild hit the limit, with no learner action afterwards, waits for the next one (a Reader
+  read of that source, a press, section progress, a question, a lesson's turn). Opening Today does not retry it.
 - (E) Completed sections are not skipped (book order did not skip them either).
 - (C) Power-saver and Mac unplugging reach background builds within 30 s.

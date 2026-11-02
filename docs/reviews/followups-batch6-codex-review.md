@@ -29,22 +29,22 @@ fix, three paths ignored the check:
 
 `run_builds` refuses that state for a new build, but none of the retry paths asked the same question.
 
-**Fix.** There is now one core, `service.item_passages(vault, repository, extra_item_ids=())`. It returns the
-passages (`corpus.item_exclusions`) of items under a live administration (`WITHHELD_COLD`, `WITHHELD_RESERVED`,
-`WITHHELD_PROBE`) plus any extra items. It returns None when protection can't be read, and callers fail closed.
-- `prefetch.item_protection` now reads that core, adding the stored plan's open items (`held_plan_item_ids`).
-  What it covers is unchanged.
+**Fix.** There is now one core, `service.item_passages(vault, repository, clock=None)` (V1 below replaced its first
+form, which took `extra_item_ids`). It returns the passages (`corpus.item_exclusions`) of items under a live
+administration (`WITHHELD_COLD`, `WITHHELD_RESERVED`, `WITHHELD_PROBE`) and of the stored plan's open items. It
+returns None when protection can't be read, and callers fail closed.
+- `prefetch.item_protection` now reads that core. What it covers is unchanged.
 - `service.prefetch_plan_waits`, which serves both the Reader's reads and the pass, drops a job whose saved
   context (`rich_base_keys`: its passage, the paragraphs it was sent, its region, retrieved keys and home)
   touches a protected passage. If protection can't be read, it returns nothing.
-- `retry_plan_waits` also passes the stored plan's open items, so it applies the same rule as `run_builds`.
+- `retry_plan_waits` applies the same rule as `run_builds`, through that core.
 - **The worker** (`rich.run_rich_job`, prebuilds only) checks `_item_protected` at the start and in its
   hold. The hold runs before every request and before the store. A stop is `exam_material`.
 
-**What the worker does not check.** It checks live administrations, not the stored plan's open items.
-`figures/prefetch.py` is a composition layer that nothing imports back (`test_figures_prefetch_boundary.py`).
-Reading the day plan from `figures.rich` would need a new ignore in the frozen-cycles contract. The plan's
-items are still checked at both points where a prebuild can start: `run_builds` and `retry_plan_waits`.
+**Corrected by V1.** This section first recorded that the worker checks live administrations only, because reading
+the day plan from `figures.rich` would need a new frozen-cycle ignore, and that the plan's items are checked at both
+points where a prebuild can start. Both statements were wrong. The Reader's retry was a third starting point that
+did not check them, and no ignore was needed. The worker now checks the stored plan too.
 
 **Tests (fakes).** The cold reservation starts **after** the initial plan failure. Each line below is one test:
 - the pass's function asks nothing, and a real pass sends nothing;
@@ -167,3 +167,119 @@ whole vitest run were not run.
   `ITEM_PASSAGE_PROTECTED` and `LIVE_ADMINISTRATION_REASONS`.
 - **`figures/rich.py` gains `plan_retry_order`;** `router/card.py` gains `SUGGESTION_RELEASE_CARD_SUFFIX`.
 - **F4 needs its ruling** before the landing: (a), (b) or (c) above.
+
+## Verify fixes
+
+The scoped Codex verify (job `20261102-154041-zRi7s1`, on `07101cd63f`) reported two Mediums, both ruled real. **No
+live or paid call was made**, every model is a fake, and only pytest's synthetic vaults were opened. **No migration,
+no successor, no config key and no new constant.** `main` was not merged.
+
+| Id | Severity | Title | Commit | Tests |
+|---|---|---|---|---|
+| V1 | Medium | Stored-plan protection is missing on the Reader's retry path and in the worker | `4f0f20451d` | `tests/test_followups_batch6_verify_fixes.py::test_v1_*` (11) |
+| V2 | Medium | Plan-wait retries can spend while the learner is away | `cb5b877397` | `test_v2_*` (8) |
+
+### V1: one core, and it always reads the stored plan
+
+**Reproduced on `07101cd63f`.** A prebuild meets the plan's limit, and then the day plan selects a question whose
+worked answer is in the job's saved context. Real plan rows, with `item_exclusions` faked:
+- `prefetch_plan_waits` still named the job, and the Reader's read sent a request (2 author calls, expected 1);
+- the worker, once the job was requeued, built and stored the figure (`completed`, expected `exam_material`).
+
+**A second defect found on the way.** An unreadable plan read as *no plan*: `prefetch._plan_record` catches every
+exception and returns None. So `item_protection` reported protection as available, which is failing open.
+
+**Fix.**
+- `service.item_passages(vault, repository, *, clock=None)` reads the stored plan itself, through the new
+  `service.stored_plan_open_items`. `extra_item_ids` and `prefetch.held_plan_item_ids` are gone, so no caller can
+  leave the plan out.
+- Everything reads that core: `prefetch_plan_waits` (Reader and pass), `prefetch.item_protection`, and the worker's
+  start and hold checks (before every request and before the store).
+- A plan that can't be read now makes the core return None, and every caller fails closed.
+- Who is covered is unchanged. Only prebuilds reach the worker's check, and a learner's own press keeps its
+  behaviour (`test_v1_a_learners_own_press_keeps_its_behaviour`).
+
+**How the import stays clean.** `figures.service` imports `daily_plan.records` inside the function and reads the rows
+through `db.stores.daily_plans`. `records` is a pure module that imports only `daily_plan.types`. `assemble` is the
+plan's own fold, so there is one meaning of "open" and no second fold to drift. The engine is not imported, and no
+frozen-cycle ignore was added (42 contracts kept). The earlier record's claim that this needed an ignore was wrong.
+
+**A limit of the linter.** `learnloop/content/` has no `__init__.py`, so the import graph omits that whole package,
+including `content.pipeline.jobs -> figures.rich`. The contracts say nothing about cycles through it. This edge is
+safe at import time because it is function-local and `records` reaches nothing above it. If `daily_plan` ever reaches
+`figures` through a package the linter can see, the contract will flag this edge.
+
+### V2: only the learner's own action retries
+
+**Reproduced on `07101cd63f`.** Deferred gap drains through the sidecar's real wiring, and `_schedule_prefetch` for
+Today's read, each produced a pass that requeued the waiting job with no learner action.
+
+**Fix.** `Trigger.learner_activity` defaults to False, and `run_trigger` calls `retry_plan_waits` only when it is
+True. A hook that doesn't say never counts. No time window was added.
+
+| Trigger | Fired by | Classified | Why |
+|---|---|---|---|
+| `section` | `reader.mark_section_progress` | learner | sent only for the learner's reading: the seen count advancing, a reveal, a completion |
+| `offer` (tutor) | the tutor's answer | learner | the answer to their own question |
+| `offer` (library) | the read of a finished library job | learner | their own ask, once per ask (`offers_seen`) |
+| `lesson`, `gap` with ref `lesson:<id>` | `lesson.turn` | learner | their own open or turn |
+| `plan`, `gap` with ref `plan:<id>` | `get_daily_plan` | **not learner** | a read that timers can fire: `TodayScreen`'s 3 s queue-revision poll invalidates the plan query when background work lands, and the deciding and waiting timers refetch it |
+| `gap` with ref `gaps` | the gap worker's nonempty drain | **worker** | a poll tick fires it, deferred and failed work included. A drain following a real attempt is not counted either: the drain carries no link to one, and today no retry depends on it |
+
+Classifying Today's read as not learner activity goes beyond the finding's two sites. The sidecar can't tell a press
+from a poll on that RPC without a frontend and RPC change, so this errs towards not spending. The cost is that opening
+Today no longer retries a hidden prebuild.
+
+### For the orchestrator (reported, not changed)
+
+**Can P5's ordinary `run_builds` spend from worker-origin passes? Yes.**
+- `run_trigger` still builds on any trigger when on mains with the plan available. A decision deferred for power is
+  built by a poll tick's pass, which sends a request to the rich author (a fake in the test:
+  `test_v2_characterization_a_worker_origin_pass_still_runs_ordinary_builds`).
+- From reading the code, not run: the same pass can also call the gap judge (`candidates(..., call=call)`).
+- The bounds: plan route only (never metered), foreground work first, `max_daily_builds`, `max_daily_render_minutes`,
+  and mains power.
+- A deferred gap job fires a full pass on every worker poll tick (`IDLE_POLL_SECONDS` = 30 s) for as long as it stays
+  deferred.
+- Passes from `get_daily_plan` behave the same way.
+
+**"No plan request while the learner is away" is true of a pass's retry step only.** The stage record now says so.
+Besides the ordinary builds above, the **Reader's own reads** still retry: `reader.figures` keeps its paced retries,
+hidden prebuilds included, while a source is open and polling. From reading `useFigures.ts`, not run: with a pressed
+build waiting for the plan, the Reader polls without end, so a Reader left open keeps asking once per job per interval.
+Closing this needs a poll-or-open signal on the RPC.
+
+**A finished prebuild is not re-checked when listed.** V1 covers a job up to its store. A figure stored *before* the
+plan selected the item, or before a cold check started, stays listed: `list_figures` filters held-out material, not
+`item_passages`. This is existing P5 behaviour.
+
+### Gate
+
+Every pytest command ran inside `systemd-run --user --scope --quiet -p MemoryMax=5G -p MemorySwapMax=1G`, at `-n 6` at
+most, one run at a time. The targeted run was behind `flock /tmp/learnloop-fullsuite.lock`. The full suite was not run.
+
+| Command | Result |
+|---|---|
+| reproduce-first: `pytest tests/test_followups_batch6_verify_fixes.py` on `07101cd63f`'s sources | 14 failed, 5 passed |
+| `lint-imports --no-cache` at `cb5b877397` | 42 kept, 0 broken |
+| targeted `pytest -n 6` over 63 paths at `cb5b877397` | **1415 passed, 1 skipped**, 0 failed (4 min 18 s) |
+
+- **The 5 that passed first** pin kept behaviour: the three answered-item cases, the press and the ordinary-builds
+  characterization.
+- **8 of the 14 failed on the behaviour itself:** the Reader's read, the shared rule, the worker's two checks, the
+  unreadable plan, the deferred drains, Today's read and the unstated trigger.
+- **6 of the 14 failed on a missing name, so they show only that the code was absent:** the fold comparison (written
+  against a store helper later dropped for the plan's own fold; it now calls `stored_plan_open_items`),
+  `test_v1_only_todays_plan_holds_an_item` (no `clock` argument, after its first assertion passed) and the four
+  hook provenance tests (no `learner_activity` field).
+- **The 63 paths:** 59 test files and 4 helpers that collect nothing. The test files are every one naming
+  `figures.rich`, `figures.prefetch`, `figures.service`, `handlers.figures`, `handlers.lesson`, `post_attempt_worker`
+  or `prefetch_runtime`, plus the prefetch boundary, architecture, table roles, registry audit and Codex tool lockdown
+  tests, and this stage's test files. They are merged into `docs/reviews/followups-batch6.targeted-tests.txt`, whose
+  other files (the stage's earlier list) were not rerun here.
+
+**Changed tests.** `_pass` and three triggers in `test_followups_batch6_prefetch_plan_wait.py` now state
+`learner_activity=True`. `test_f1_the_pass_also_protects_the_stored_plans_open_items` now uses real plan rows.
+
+**For the landing.** `figures/service.py` gains `stored_plan_open_items`. `prefetch.held_plan_item_ids` and the
+`extra_item_ids` arguments are gone, and `prefetch_plan_waits` and `rich_base_item_protected` take `clock`.
