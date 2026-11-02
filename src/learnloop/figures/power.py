@@ -16,6 +16,15 @@ next admission check (pressed builds are never affected: the learner asked).
 * **Windows:** ``GetSystemPowerStatus`` (``ACLineStatus`` 1 is mains).
 * Anything else, or any read that fails: on battery.
 
+The two process probes (``powerprofilesctl get``, ``pmset -g batt``) answer for
+:data:`PROBE_CACHE_SECONDS` (follow-ups batch 6 (C): a Reader figures read and
+every prefetch pass call :func:`power_state`, and each call started the probe,
+30 process starts in one smoke run). On Linux the profile's answer is also
+dropped the moment the power-supply inventory reads differently (a supply
+plugged or unplugged, a battery's status changing): the sysfs files are read on
+every call, so the condition they carry is never stale, and the profile is
+probed again with it. A failed probe is cached too, still read as not on mains.
+
 :func:`background_hold` is the one check every background build makes before
 each physical request (the figure gate's hold): the switch, then the power.
 It is here, beside the power reader, so the figure service and the rich job
@@ -29,6 +38,8 @@ import os
 import shutil
 import subprocess
 import sys
+import threading
+import time
 from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
@@ -39,6 +50,11 @@ SYSFS_ROOT = Path("/sys/class/power_supply")
 #: ``keep`` (operational): how long a power-profile or pmset read may take
 #: before it counts as unknown (fail closed: on battery).
 PROBE_TIMEOUT_SECONDS = 2.0
+#: ``keep`` (operational): how long one power-profile or pmset probe answers for
+#: before it is started again (a bound on process starts, not a model parameter;
+#: a Linux supply change drops it at once). Choosing power-saver or unplugging a
+#: Mac reaches background builds within this window at the latest.
+PROBE_CACHE_SECONDS = 30.0
 #: Why a state is what it is (a word for the report's skipped-for-power count).
 MAINS, BATTERY, POWER_SAVER, UNKNOWN = "mains", "battery", "power_saver", "unknown"
 
@@ -76,8 +92,45 @@ def _profile(run: Callable[..., Any] | None = None) -> str | None:
     return str(getattr(done, "stdout", "") or "").strip() or None
 
 
+#: The probes' answers: name -> (key, monotonic time it was probed, answer).
+_PROBE_CACHE: dict[str, tuple[object, float, Any]] = {}
+#: Held across a probe, so concurrent callers wait for one start instead of each starting one
+#: (at most :data:`PROBE_TIMEOUT_SECONDS`).
+_PROBE_LOCK = threading.Lock()
+#: The cache's clock (tests replace it).
+_clock: Callable[[], float] = time.monotonic
+
+
+def _cached_probe(name: str, key: object, probe: Callable[[], Any]) -> Any:
+    """``probe()``'s answer, reused while ``key`` is unchanged and younger than :data:`PROBE_CACHE_SECONDS`."""
+
+    with _PROBE_LOCK:
+        now = _clock()
+        hit = _PROBE_CACHE.get(name)
+        if hit is not None and hit[0] == key and 0.0 <= now - hit[1] < PROBE_CACHE_SECONDS:
+            return hit[2]
+        try:
+            answer = probe()
+        except Exception:  # noqa: BLE001 - a probe that raises is not cached; the caller fails closed
+            _PROBE_CACHE.pop(name, None)
+            raise
+        _PROBE_CACHE[name] = (key, now, answer)
+        return answer
+
+
+def reset_probe_cache() -> None:
+    """Forget every cached probe answer (tests; :func:`set_power_reader`)."""
+
+    with _PROBE_LOCK:
+        _PROBE_CACHE.clear()
+
+
 def linux_power_state(root: Path = SYSFS_ROOT, *, profile: Callable[[], str | None] | None = None) -> PowerState:
-    """The Linux reading (module docstring); ``profile`` reads the power profile (tests inject it)."""
+    """The Linux reading (module docstring); ``profile`` reads the power profile (tests inject it).
+
+    Unset, the profile comes from :func:`_profile` through the probe cache, keyed by what this
+    call read from sysfs: any supply's type, scope, online flag or status reading differently
+    starts the probe again."""
 
     # Codex review F12: only a complete inventory establishes anything. No
     # sysfs directory, an unreadable one, or a supply whose type can't be read
@@ -91,18 +144,24 @@ def linux_power_state(root: Path = SYSFS_ROOT, *, profile: Callable[[], str | No
         return PowerState(False, UNKNOWN, "power supplies unreadable")
     batteries: list[Path] = []
     mains_online = False
+    inventory: list[tuple[str, str, str | None, str | None, str | None]] = []
     for supply in supplies:
         raw_kind = _read(supply / "type")
         if raw_kind is None:
             return PowerState(False, UNKNOWN, f"power supply {supply.name} unreadable")
         kind = raw_kind.lower()
+        scope, online, status = _read(supply / "scope"), _read(supply / "online"), _read(supply / "status")
+        inventory.append((supply.name, raw_kind, scope, online, status))
         if kind == "battery":
-            if (_read(supply / "scope") or "").lower() == "device":
+            if (scope or "").lower() == "device":
                 continue  # a mouse's or headset's battery, not the machine's
             batteries.append(supply)
-        elif kind in ("mains", "usb", "usb_c", "usb_pd") and (_read(supply / "online") or "") == "1":
+        elif kind in ("mains", "usb", "usb_c", "usb_pd") and (online or "") == "1":
             mains_online = True
-    level = (profile or _profile)()
+    if profile is not None:
+        level = profile()
+    else:
+        level = _cached_probe("powerprofilesctl", (str(root), tuple(inventory)), _profile)
     if level == "power-saver":
         return PowerState(False, POWER_SAVER, "power-saver profile")
     if not batteries:
@@ -118,7 +177,14 @@ def linux_power_state(root: Path = SYSFS_ROOT, *, profile: Callable[[], str | No
 
 
 def mac_power_state(run: Callable[..., Any] | None = None) -> PowerState:
-    runner = run or subprocess.run
+    """``pmset -g batt``; unset ``run``, its answer comes through the probe cache (no cheap change signal)."""
+
+    if run is None:
+        return _cached_probe("pmset", None, lambda: _mac_power_state(subprocess.run))
+    return _mac_power_state(run)
+
+
+def _mac_power_state(runner: Callable[..., Any]) -> PowerState:
     try:
         done = runner(["pmset", "-g", "batt"], capture_output=True, text=True, timeout=PROBE_TIMEOUT_SECONDS,
                       check=False)
@@ -166,6 +232,7 @@ def set_power_reader(reader: Callable[[], PowerState] | None) -> None:
 
     global _OVERRIDE
     _OVERRIDE = reader
+    reset_probe_cache()
 
 
 def power_state() -> PowerState:
@@ -232,6 +299,7 @@ __all__ = [
     "NOT_ON_MAINS",
     "POWER_ENV",
     "POWER_SAVER",
+    "PROBE_CACHE_SECONDS",
     "PROBE_TIMEOUT_SECONDS",
     "SWITCHED_OFF",
     "SYSFS_ROOT",
@@ -243,6 +311,7 @@ __all__ = [
     "mac_power_state",
     "power_state",
     "prefetch_switch",
+    "reset_probe_cache",
     "set_power_reader",
     "windows_power_state",
 ]

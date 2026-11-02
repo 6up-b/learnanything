@@ -630,6 +630,10 @@ _reg_const("figure_prefetch:MAX_NODE_SPANS", "constraint", kind="structural", ow
 _reg_const("figure_power:PROBE_TIMEOUT_SECONDS", "operational", kind="structural", owner="figure_power",
            rationale="keep (operational): how long a power-profile or pmset read may take before it counts as "
                      "unknown (fail closed: on battery).")
+_reg_const("figure_power:PROBE_CACHE_SECONDS", "operational", kind="structural", owner="figure_power",
+           rationale="keep (operational): how long one power-profile or pmset probe answers before it is started "
+                     "again (follow-ups batch 6 C: a bound on process starts, not a model parameter); a Linux "
+                     "power-supply change in sysfs drops it at once, and a failed probe still reads as on battery.")
 
 # Reader RW5d P2: the sketch tier's module constants (all keep: caps, tolerances, sandbox limits, identities).
 # Reader RW5d P2b: the rich tiers' module constants (all keep: caps, guardrails, sandbox limits).
