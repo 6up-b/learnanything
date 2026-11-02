@@ -129,3 +129,92 @@ Pytest files: the two new files; `test_reader_ca5_also_in_books`, `test_reader_c
   cached (protection must be read every time).
 - A followed figure is not remembered across book switches or reloads (by design: it is a view, not a copy). Pressing
   the offer again shows it again.
+
+## Landing onto main
+
+Worktree `learnanything-ad1`, branch `reader/rw5d-p4a-figures-follow-section`, from the review tip `e54d9d7521`. No
+migration, no successor, no config key. No live model call. Every Python/CLI run outside pytest used `env -i` with an
+empty, existing `HOME`, `CODEX_HOME` and `LEARNLOOP_CONFIG_DIR`, and `TMPDIR` outside the worktree. Only the mvp035
+owner copies were opened, never a live vault.
+
+### Orchestrator scoped verify (Sol, job `20261101-233122-LneCUu`)
+
+CLEAN on `e54d9d7521`. F1, F2 and F3 are closed, with no regressions. `list_figures`' main behaviour and the
+protection checks are preserved, and book switches clear the followed state. The verify also ran 240 synthetic
+old/new listing comparisons.
+
+### Rulings
+
+- **R1:** "Only judged correspondents carry figures; CA5a's unchecked search hits never do (an unchecked hit is not an established correspondence). Accepted."
+- **R2:** "A followed figure shows in place in the current book with its home named and no 'not right?'; the quiet listing offers outdated sketches on their stored verdict and opening re-verifies. Accepted under the proportionate bar."
+
+### Merges
+
+- Main was still `de73fbda51`, the branch's base, so `git merge main` was already up to date and nothing conflicted.
+  Main was read again after the gate and the smoke and had not moved, so no second merge was needed.
+- `config/template.py` is untouched by this branch. All 31 fingerprints were checked with
+  `defaults_fingerprint_for_version` after clearing `.pyc`: 0 changed.
+- Generated references were regenerated (`9a31b58866`). The stage had not regenerated them, and its code moved
+  `correspondents.py`'s line cites and added `figures/service.py` and the P4a test file to the source lists. The rest
+  is `source_commit` metadata. `db_validate_reference.py` errors `[]`; `validate_vault.py` passes.
+- Desktop catalog: `desktop_generate.py` produced no change; `desktop_validate.py` passes (305/305 TS + 6/6 Rust,
+  ACTIVE=311).
+
+### Gate (on `9a31b58866`)
+
+| Lane | Result |
+|---|---|
+| `lint-imports --no-cache` | 40 kept, 0 broken |
+| Full pytest (`flock` + 10G scope, `env -i`, `-n 8 --dist worksteal`) | **23626 passed, 0 failed**, 90 skipped, 47 xfailed (38:54) |
+| Durability (`-m durability -n 6`) | 182 passed, 1 skipped |
+| Owner lane (`-m owner_vaults -n 6`; `LEARNLOOP_OWNER_VAULTS` = fresh backup-API copies of `fixtures-local/owner-copies-mvp035` in gitignored `fixtures-local/landing-p4a/`) | **83 passed, 2 failed, 4 skipped**. Both failures are the known ones (`test_activity_backfill::test_backfill_logs_attempt_duration_interaction_events`, `test_placement_fixture_copies::…[arxiv_v2]`) |
+| Frontend (`npm install`, `typecheck`, whole `vitest --maxWorkers=4` in a 5G scope, `frontend:build`) | ok; 254 files, 2423 tests passed; build ok |
+| `cargo check` | not run: nothing under `src-tauri` differs from main |
+
+There was no unexpected failure, so nothing needed a rerun.
+
+### Smoke (fresh owner copies, gitignored `fixtures-local/landing-p4a-smoke/`)
+
+**Setup:**
+
+- Fresh backup-API copies of the three mvp035 owner copies.
+- Every AI route at the `127.0.0.1:9` blackhole, with the key variables unset.
+- `env -i` with an empty `HOME`, `CODEX_HOME` and config directory, and `LEARNLOOP_NOTES_TEND=off`.
+- An audit hook logs every process start and socket connect, and refuses non-loopback connects and Codex process
+  starts. A self-test afterwards logged both of its events.
+- Main's code (`de73fbda51`) against the branch's (`9a31b58866`), each a `git archive` with `migrations/`.
+- On each copy: `upgrade` mvp-0.35 -> mvp-0.40, a primary load, `rebuild-derived-state`. Both heads are 231.
+
+**Results:**
+
+- **Today and the daily plan** are byte-identical, main against branch. linear_algebra: 525266 / 84699 bytes;
+  probability: 740827 / 124024 bytes; arxiv_v2: 344204 / 32436 bytes.
+- **Router card** byte-identical too (23376 / 15151 / 14233 bytes).
+- **Quiet `reader.correspondents`** (`search_fallback=False`, through the sidecar handler) on every readable section
+  of every reading in the library: 49 / 11 / 20 sections, all `none`, byte-identical main against branch
+  (23914 / 4937 / 9097 bytes).
+  - On the branch, `figures_follow_enabled` is true, so the P4a path was armed.
+  - These copies have no `section_coverage` rows and no stored figures, so no section is judged and no `figures`
+    key can appear. The tests cover the judged path.
+  - The read writes nothing. A monitor connection opened after the load saw `PRAGMA data_version` 2 before and after
+    the reads, and a sha256 of every table's rows did not change, on both sides.
+- **The 9 July Reader questions** (8 in linear_algebra, 1 in arxiv_v2; `source_context_json` NULL) went through
+  `PastWork.reading_reason`. All 9 are now placed through `note_id`: one span each, complete. On main they were
+  `WITHHELD_UNREADABLE` ("the protection rules could not be read").
+  - Exam verdict: all 9 shown. None of the placed spans is exam or held-out material.
+  - Every other recorded question's verdict is unchanged (37 / 23 / 2 checked).
+- `learnloop rebuild --shadow --json` on each branch copy: **facet 0 / mastery 0 / schedule 0** changed, live database
+  unchanged.
+- `model_call_receipts`: **0 new** across 6 databases compared against their base copies. probability's 56 are
+  inherited.
+- Process and socket audit: **0 events**. No process started and no socket connected, loopback included.
+
+### Open items
+
+The stage's open items stand:
+
+- the uncached per-crossing `list_figures` call;
+- followed figures are not remembered across book switches or reloads.
+
+The followups-nov1c open item 5 (old Reader questions without a source context) is resolved by Part 2 here, as the
+smoke shows.
