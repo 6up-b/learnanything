@@ -1,4 +1,5 @@
-"""The output guards (spec_teacher_v1 §9.3): every learner-facing message passes three.
+"""The output guards (spec_teacher_v1 §9.3): every learner-facing field passes three (the message and its
+choices, a prediction, a check, plan statements and a close's recap: ``service._displayed``).
 
 1. **Keys**: ``learner_context.leaks_key`` against the answer keys of every item on
    the lesson's LOs (today's YAML and every recorded snapshot: the KeyBook), except

@@ -127,10 +127,15 @@ def test_the_derived_state_rebuild_reproduces_the_live_tables_exactly(tmp_path):
     with repository.atomic():
         LW.rebuild_lesson_weight_state(vault, repository)
     assert _snapshot(repository) == first
-    # The live writer and the replayer agree on every row except the outcome folded after the
-    # last live write (the live tables are refreshed at each check).
-    assert first["lesson_weight_state"] == live["lesson_weight_state"]
-    assert first["confidence_calibration_state"] == live["confidence_calibration_state"]
+    # The live writer and the replayer agree on every row: both describe the ledgers through the latest
+    # answered check.
+    assert first == live
+    # A cold outcome after the last check changes neither (the tables stay "as of the last check"; the
+    # current posterior is always replayed from the ledgers).
+    _cold(paths, repository, "pi_eig_3", T0 + timedelta(days=6))
+    with repository.atomic():
+        LW.rebuild_lesson_weight_state(load_vault(paths.root), repository)
+    assert _snapshot(repository) == live
 
 
 def test_a_lessonless_vault_rebuilds_to_empty_tables(tmp_path):

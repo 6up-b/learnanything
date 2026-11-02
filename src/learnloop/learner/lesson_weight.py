@@ -9,16 +9,22 @@ in order from receipts and the attempt ledger (one replayer:
 (§12.1). A Gaussian over ``(η₀, β_c, β_p, u_L...)`` per point of the per-LO
 offset scale's grid ``τ ∈ {0.1, 0.2, 0.4}`` (AD's ``ad_hyper`` mechanism: grid
 weights ``W_t(τ) ∝ W_{t−1}(τ)·Z_t(τ)`` from uniform). It learns only from later
-cold outcomes on unseen items of the same LO (:func:`qualifying_outcomes`): the
+cold outcomes on unseen items of the same LO (:func:`qualifying_outcomes`; a
+grade held for review is no outcome until released, ``held_grades``): the
 first qualifying outcome resolves every unresolved check on its LO. The
 likelihood ``p(y | η)`` is the mastery model's predicted success for the cold
-outcome from the state the check left (``learner.mastery.update_mastery`` from
-the check's recorded prior state, item parameters and grade, entered at mass
-``σ(η)``), with the drift accumulated to the outcome by the mastery model's own
-``sigma2_drift`` (the moderated logistic); intervening observations are not
-re-folded (first order: they shrink the check's share, so this overstates a
-late outcome's information a little, never the direction). An outcome that
-resolves ``n`` checks enters each factor at power ``1/n``, so it counts once.
+outcome after a recomputation of the LO's updates (:func:`recorded_trajectory`,
+:func:`trajectory_state`): from the check's recorded prior state, the check
+entered at mass ``σ(η)`` with its own recorded observation factors (the
+attempt step's observation weight scaled by ``σ(η)/m₀``, and its grader-
+interpretation noise recovered from the recorded variance step), then every
+later update on the LO before the outcome re-applied with its recorded
+factors, then the drift to the outcome (the moderated logistic, held to
+``p_max``). At the recorded mass it reproduces the recorded state (tested). An
+attempt that left no record falls back to the first-order form (the check
+alone at full reliability, then the drift), named on the trace. An outcome
+that resolves ``n`` checks enters each factor at power ``1/n`` (each varies
+its own mass, the others as recorded), so it counts once.
 The update is AD's §5.6 step (:func:`learnloop.adf_numeric.adf_update`).
 Filtering, never smoothing: the mass applied to a check is the posterior mean
 of ``σ(η)`` as of that check, recorded on its ``lesson_checks`` row; replay
@@ -29,7 +35,10 @@ reads it back (:func:`lesson_check_mass`), so a past check's mass never moves.
 parametric weight starts ahead), updated by ``W_t(λ) ∝ W_{t−1}(λ)·p_λ(y)`` when
 a ``lesson_step_retained`` forecast's LO gets its first qualifying cold outcome.
 One posterior per forecaster (doctrine version and teacher model): a new
-forecaster starts from the seeded prior. The pool-implied mass of a check is
+forecaster starts from the seeded prior. Both predictors are of the same cold
+outcome: ``p_A`` is computed for the committed cold item at the check's
+horizon when the check is entered, and for the resolving item at the outcome's
+horizon when the pool learns (:func:`forecast_p_a`). The pool-implied mass of a check is
 the ``m`` at which the mastery update makes the predicted success equal
 ``p_λ̂`` (:func:`pool_implied_mass`; at λ̂ = 0, or with no forecast for the
 node yet, exactly §12.1's mass).
@@ -39,8 +48,14 @@ probability through ``σ(α + β·logit(map[tap]))`` with today's fixed map as t
 legacy-seeded centre (α ~ N(0, 1), β ~ N(1, 1): ≥ 1 logit on both, the LP
 spec's rule for legacy priors); the grader's hedge read (``hedged`` /
 ``confident``) has one intercept per value, N(0, 1) (centre: chance, "no
-information"). Learned from every graded attempt that carries one, not only
-lesson checks, as of each check.
+information"). Learned from every graded attempt that carries one (a held
+grade excepted until released), not only lesson checks, as of each check.
+
+The DERIVED tables describe the ledgers through the latest answered lesson
+check (:func:`tables_through`): the live path writes them after each check and
+the replayer bounds its replay at the same instant, so the two agree row for
+row whatever happened since; every reader of the current posterior replays
+the ledgers itself.
 
 Nothing here writes evidence: it writes only its own DERIVED tables, and the
 mass reaches mastery only through the attempt step's one seam (the recorded
@@ -779,11 +794,13 @@ def _outcome_item_params(vault: Any, mastery_config: Any, outcome: Mapping[str, 
 PRIOR_TERMS: Mapping[str, int] = {"eta0": 0, "beta_c": 1, "beta_p": 2}
 
 
-def replay_state(vault: Any, repository: Any, *, as_of: str | None = None,
+def replay_state(vault: Any, repository: Any, *, as_of: str | None = None, through: str | None = None,
                  prior_shift: Mapping[str, float] | None = None) -> WeightState:
     """The three posteriors from the ledgers, in order, with every event strictly before ``as_of``
     (all of them when None): the prequential filter both the live check and the replayer run.
-    ``prior_shift`` (the report's sensitivity rerun only) moves prior means by the given amounts."""
+    ``through``: every event at or before that instant (the DERIVED tables' bound: the latest lesson
+    check, :func:`tables_through`). ``prior_shift`` (the report's sensitivity rerun only) moves prior
+    means by the given amounts."""
 
     mastery_config = vault.config.mastery
     state = WeightState()
@@ -815,6 +832,8 @@ def replay_state(vault: Any, repository: Any, *, as_of: str | None = None,
     for outcome in outcomes:
         events.append((str(outcome["created_at"]), 3, str(outcome["id"]), "outcome", outcome))
     events.sort(key=lambda event: (event[0], event[1], event[2]))
+    if through is not None:
+        events = [event for event in events if event[0] <= through]
     open_checks: dict[str, list[Mapping[str, Any]]] = {}
     open_forecasts: dict[str, list[Mapping[str, Any]]] = {}
     for at, _order, _ref, kind, payload in events:
@@ -955,10 +974,24 @@ def any_lessons(repository: Any) -> bool:
         return connection.execute("SELECT 1 FROM lesson_checks LIMIT 1").fetchone() is not None
 
 
+def tables_through(repository: Any) -> str | None:
+    """The instant the DERIVED tables describe: the latest answered lesson check (the live path writes
+    them right after each check, so the replayer bounds its replay at the same instant and the two agree
+    row for row whatever happened since; review claim on rebuild equivalence). None: no check yet."""
+
+    with repository.connection() as connection:
+        if not _table(connection, "lesson_checks"):
+            return None
+        row = connection.execute("SELECT MAX(created_at) FROM lesson_checks WHERE status = 'answered'").fetchone()
+    return str(row[0]) if row and row[0] is not None else None
+
+
 def rebuild_lesson_weight_state(vault: Any, repository: Any) -> dict[str, Any]:
     """The replayer (``substrate.rebuild_orchestrator``): clear the three DERIVED tables and recompute
-    them as of now. A vault where no lesson check was ever recorded keeps them empty (the live path
-    writes them only after a check), so a rebuild of a lessonless vault changes nothing."""
+    them through the latest answered lesson check (:func:`tables_through`), exactly as the live path
+    wrote them then. A vault where no lesson check was ever recorded keeps them empty (the live path
+    writes them only after a check), so a rebuild of a lessonless vault changes nothing. Every reader
+    of the current posterior replays the ledgers itself (:func:`replay_state`), never these tables."""
 
     with repository.connection() as connection:
         for table in DERIVED_TABLES:
@@ -966,7 +999,7 @@ def rebuild_lesson_weight_state(vault: Any, repository: Any) -> dict[str, Any]:
                 connection.execute(f"DELETE FROM {table}")
     if not any_lessons(repository):
         return {"rows": 0, "checks": 0}
-    state = replay_state(vault, repository)
+    state = replay_state(vault, repository, through=tables_through(repository))
     counts = write_state(repository, state)
     return {"rows": sum(counts.values()), "updates": state.updates, **counts}
 
@@ -1017,6 +1050,7 @@ __all__ = [
     "read_hedges",
     "rebuild_lesson_weight_state",
     "recorded_trajectory",
+    "tables_through",
     "replay_state",
     "trajectory_state",
     "trajectory_success",

@@ -13,9 +13,27 @@ that fails validation or a guard is refused back to the model as correctable;
 three consecutive refusals close the lesson with ``teacher_contract_failure``
 (``keep``: a contract guardrail, §18.4).
 
+**Guards** (§9.3) run on every learner-facing field of a turn (the message
+and its choices, a prediction, a check, plan statements, a close's recap), and
+every displayed field is accounted as exposure (reveal rows). Before every
+model call the saved context is revalidated against protection as it is NOW
+(:func:`revalidate_material`): a passage or an item that became exam or
+held-out material since it was delivered is never resent, read back or citable.
+
 **State** is the lesson ledger itself (``lesson_turns`` and their payloads,
 ``lesson_plans``, ``lesson_checks``): a lesson resumes after a restart or after
-the plan returns.
+the plan returns. An accepted turn, its delivered results and its reveal rows
+are one transaction; each of its effects is marked with the turn in the
+transaction that makes it, and a ``turn_executed`` marker ends them, so an
+interrupted action is resumed idempotently (:func:`recover`, run by the next
+action and by ``lesson.view``); closing (receipt, row, close entry) is one
+transaction. ``resume`` runs the teacher's turn an outage interrupted.
+
+**Spend** (§17): every physical metered request of a lesson action (the
+teacher's, the inline grader's, a retrieval call's) is admitted by the lesson's
+envelope (``ai.spend.MeteredRequestGate``) against what the lesson already
+spent, reserved before it is sent and settled into a durable ``spend`` row;
+a refused request closes the lesson with ``budget``.
 
 **Code owns** what enters the model's context (the brief, the delivered
 passages, the action results, all through the protection the brief uses), the
@@ -739,12 +757,13 @@ def _latest_forecast(state: LessonState, kind: str, ref: str) -> dict[str, Any] 
 
 
 def _update_weight_state(vault: Any, repository: Any) -> None:
-    """Refresh the DERIVED weight tables after a check (the replayer's own function, as of now)."""
+    """Refresh the DERIVED weight tables after a check (the replayer's own function and bound: through
+    the latest answered check, so a rebuild reproduces them row for row)."""
 
-    from learnloop.learner.lesson_weight import replay_state, write_state
+    from learnloop.learner.lesson_weight import replay_state, tables_through, write_state
 
     with repository.atomic():
-        write_state(repository, replay_state(vault, repository))
+        write_state(repository, replay_state(vault, repository, through=tables_through(repository)))
 
 
 # =============================================================================

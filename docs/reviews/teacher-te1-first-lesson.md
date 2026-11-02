@@ -62,17 +62,21 @@ run, and nothing ran against `fixtures/linear_algebra`, `fixtures/probability` o
    shrink the check's share; this overstates a late outcome's information a little, never its direction). An outcome
    resolving `n` checks enters each factor at power `1/n` (it counts once). Filtering: the mass applied is the
    posterior mean of σ(η) as of the check (events strictly before it); the replay recomputes it and the trace keeps
-   both (`mass_mismatches` is empty, tested).
+   both (`mass_mismatches` is empty, tested). *Codex review F2/F6 (`teacher-te1-first-lesson-codex-review.md`):
+   held grades are excluded, and the likelihood now recomputes the LO's recorded trajectory (the check's own
+   observation factors and every intervening update), the first-order form only as a named fallback.*
 5. **The pool (§12.2).** Beta(1, 4) on 21 points per forecaster (doctrine version + model). A check on a node whose
    retention the teacher already forecast in this lesson enters at the pool-implied mass (a bisection on the logit
    scale for the mass at which the mastery prediction equals `λ̂·p_B + (1−λ̂)·p_A`); no forecast yet: §12.1's mass.
    `p_A` is recorded with the forecast as the LO's predicted success (the cold item is unknown when a node lands).
+   *Codex review F5: `p_A` and the inversion are now both for the committed cold item at its horizon.*
 6. **`z_c` and `z_p`.** `z_c` is the recalibrated tap (else the hedge read) on the logit scale, centred on chance;
    `z_p` is the active predictor's success on the LO, centred at AD's band middle: AD exposes no per-LO prediction at
    the check's level (§5.7: no public API), so the brief shows AD's readiness line beside the predictor's.
 7. **The DERIVED tables** are written only once a lesson check exists (the live path after each check, the replayer
    on rebuild), so a lessonless vault's rebuild writes nothing: zero shadow deltas, tested; with lessons, the rebuild
-   reproduces the live tables row for row, tested.
+   reproduces the live tables row for row, tested. *Codex review: both are now bounded at the latest answered check,
+   so a later cold outcome no longer separates them.*
 8. **Reveals (§12).** After a shown message, each vault item on the brief's LOs (the lesson's own items excepted)
    gets a `tutor_answer` row at the tutor's own overlap measure, and a `source_review` row for what a cited passage
    exposes, basis `lesson:<id>`. Note: the tutor's measure counts common words, so teaching text on a topic can

@@ -10,8 +10,8 @@ area: "TypeScript/screens"
 source_path: "apps/learnloop-tauri/src/screens/LessonScreen.tsx"
 source_paths:
   - "apps/learnloop-tauri/src/screens/LessonScreen.tsx"
-source_commit: "490ad6751fd50ca0f45661618dc6cd11cd8507b8"
-source_commit_timestamp: "2026-11-01T19:33:59-05:00"
+source_commit: "d58b47159d58a248e2977f3612a9b8b18e89872a"
+source_commit_timestamp: "2026-11-01T22:12:18-05:00"
 source_worktree_state: "clean"
 activation_kind: "entry-reachable build graph"
 activation_evidence: "A static TypeScript import path reaches this file from the Vite entry src/main.tsx."
@@ -42,14 +42,14 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/screens/LessonScreen.tsx](../../../../../../apps/learnloop-tauri/src/screens/LessonScreen.tsx) |
-| Source lines | 312 |
+| Source lines | 339 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/screens/_area|TypeScript/screens]] |
 | Refactor status | `ACTIVE` |
 | Activation kind | `entry-reachable build graph` |
 | Worktree state | `clean` |
-| Source commit | `490ad6751fd50ca0f45661618dc6cd11cd8507b8` |
-| Commit timestamp | `2026-11-01T19:33:59-05:00` |
+| Source commit | `d58b47159d58a248e2977f3612a9b8b18e89872a` |
+| Commit timestamp | `2026-11-01T22:12:18-05:00` |
 
 ## Activation and status evidence
 
@@ -60,34 +60,37 @@ The system-level behavior stays authoritative in the linked architecture, concep
 
 ## Public API
 
-- `export type LessonEntry = |` — type, line 20
-- `export function LessonScreen(` — function, line 41
+- `export type LessonEntry = |` — type, line 26
+- `export function LessonScreen(` — function, line 47
 
 ## Internal implementation anchors
 
-- `const TAP_LABELS = ["1", "2", "3", "4", "5"]` — const, line 25
-- `const CLOSE_WORDS: Record<string, string> =` — const, line 26
-- `function dueWords(due: string): string` — function, line 34
-- `const day = new Date(`$` — const, line 35
-- `const days = Math.max(0, Math.round((day.getTime() - Date.now()) / 86_400_000))` — const, line 37
-- `const run = useCallback(async (input: LessonTurnInput)` — const, line 63
-- `const next = await api.lessonTurn(input)` — const, line 67
-- `const err = getCommandError(error)` — const, line 71
-- `const code = err?.code ?? ""` — const, line 72
-- `const message = err?.message ?? String(error)` — const, line 73
-- `let cancelled = false` — let, line 86
-- `const lessonId = view?.lessonId` — const, line 98
-- `const openCheck = view?.openCheck ?? null` — const, line 99
-- `const send = useCallback(async ()` — const, line 107
-- `const text = reply.trim()` — const, line 109
-- `const submitCheck = useCallback(async ()` — const, line 114
-- `const submitPrediction = useCallback(async ()` — const, line 120
-- `const value = predictionAnswer.trim()` — const, line 122
-- `const stop = useCallback(async ()` — const, line 127
-- `const feed = useMemo(()` — const, line 132
-- `const title = entry.kind === "open" ? entry.title : undefined` — const, line 133
-- `function FeedEntry(` — function, line 241
-- `const open = item.checkRef === openCheckRef` — const, line 260
+- `const TAP_LABELS = ["1", "2", "3", "4", "5"]` — const, line 31
+- `const CLOSE_WORDS: Record<string, string> =` — const, line 32
+- `function dueWords(due: string): string` — function, line 40
+- `const day = new Date(`$` — const, line 41
+- `const days = Math.max(0, Math.round((day.getTime() - Date.now()) / 86_400_000))` — const, line 43
+- `const run = useCallback(async (input: LessonTurnInput)` — const, line 71
+- `const next = await api.lessonTurn(input)` — const, line 76
+- `const err = getCommandError(error)` — const, line 80
+- `const code = err?.code ?? ""` — const, line 81
+- `const message = err?.message ?? String(error)` — const, line 82
+- `const details = (err?.details ??` — const, line 85
+- `const saved = details.lesson_id ?? details.lessonId` — const, line 86
+- `const lessonId = typeof saved === "string" && saved ? saved : input.lessonId` — const, line 87
+- `let cancelled = false` — let, line 106
+- `const lessonId = view?.lessonId` — const, line 118
+- `const openCheck = view?.openCheck ?? null` — const, line 119
+- `const send = useCallback(async ()` — const, line 127
+- `const text = reply.trim()` — const, line 129
+- `const submitCheck = useCallback(async ()` — const, line 134
+- `const submitPrediction = useCallback(async ()` — const, line 140
+- `const value = predictionAnswer.trim()` — const, line 142
+- `const stop = useCallback(async ()` — const, line 147
+- `const feed = useMemo(()` — const, line 152
+- `const title = entry.kind === "open" ? entry.title : undefined` — const, line 153
+- `function FeedEntry(` — function, line 268
+- `const open = item.checkRef === openCheckRef` — const, line 287
 
 ## Who imports or calls it
 

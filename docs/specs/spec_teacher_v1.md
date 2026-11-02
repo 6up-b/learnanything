@@ -1208,13 +1208,27 @@ lands first), migration 230 (the nine §18.1 tables except TE1b's `router_sugges
 read actions, the guards, the checks, the delayed checks, the service behind `lesson.turn`/`lesson.view`, the
 report) and `learnloop.learner.lesson_weight` (§12.1's weight, §12.2's pool and LP-min's tap/hedge recalibration:
 one DERIVED replayer; the attempt step reads each check's recorded mass through `lesson_check_mass`, the only
-seam into mastery). The likelihood of §12.1 is the mastery model's own update recomputed for the check's mass from
-the check's recorded prior state, with the drift to the outcome by `mastery.sigma2_drift` (first order: the
-intervening observations are not re-folded); an outcome resolving `n` checks enters each at power `1/n`. The pool
-mixes a node's `lesson_step_retained` forecast into a later check on it in the same lesson (no forecast yet: §12.1's
-mass). `z_p` reads the active predictor (AD exposes no per-LO prediction at the check's level; the brief shows AD's
+seam into mastery). The likelihood of §12.1 recomputes the LO's updates from the check's recorded prior state: the
+check entered at the candidate mass with its own recorded observation factors (the attempt step's observation weight,
+scaled by the mass, and its interpretation noise recovered from the recorded variance step), then every later update on
+the LO before the outcome re-applied as recorded, then the drift to the outcome (at the recorded mass it reproduces the
+recorded state; an attempt with no record falls back to the first-order form, named on the trace); an outcome resolving
+`n` checks enters each at power `1/n`. Held grades (`held_grades`) are no outcome, no calibration answer and no
+resolvable check until released. The pool mixes a node's `lesson_step_retained` forecast into a later check on it in
+the same lesson (no forecast yet: §12.1's mass); `p_A` and the pool-implied mass are both computed for the committed
+cold item (the item the delayed retention check would commit) at its horizon, and the pool learns from `p_A`
+recomputed for the resolving item at the outcome's horizon. The DERIVED tables describe the ledgers through the
+latest answered check (live and rebuild agree row for row). `z_p` reads the active predictor (AD exposes no per-LO prediction at the check's level; the brief shows AD's
 readiness line beside it). The delayed checks' picker is code's (the candidate rule, then the item pitched nearest
-AD's band middle), not `find_practice`'s rerank, which may call a model. A learner reply while a check is open is
+AD's band middle), not `find_practice`'s rerank, which may call a model; it excludes the vault items the lesson
+showed (a question its displayed text reproduces) and their lineage (family, contrast pair, shared stimulus, source
+exercise), and a transfer check is set only where the relation is established (a downstream item whose rubric
+measures a landed LO's facet, or a goal item whose recorded presentation differs from everything the lesson used),
+otherwise it is reported unavailable. Every learner-facing field passes the guards and is accounted as exposure; the
+saved context is revalidated against protection before every model call; every metered request of a lesson action
+(teacher, inline grader, retrieval) is admitted by one durable per-lesson envelope (`ai.spend.MeteredRequestGate`),
+and a refusal closes the lesson `budget`; accepted turns and their effects are journalled and recovered after an
+interruption, and `lesson.turn` gains `resume` (Codex review fixes, `docs/reviews/teacher-te1-first-lesson-codex-review.md`). A learner reply while a check is open is
 help (a `help_assists` row); its reply withdraws the check at the auto-prime overlap. Not built in TE1: compaction
 (no `teacher.context.compact_at` key), the turn's `visual`, TE1b. The real lesson on a `fixtures-local` copy and the
 per-lesson cap (Q7) are the owner's at the landing.
