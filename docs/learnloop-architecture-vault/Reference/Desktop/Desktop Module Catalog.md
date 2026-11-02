@@ -7,8 +7,8 @@ version: "1.0.0"
 source_paths:
   - "apps/learnloop-tauri/src"
   - "apps/learnloop-tauri/src-tauri/src"
-source_commit: "workspace/uncommitted @ 446a0cf89934d580d5a618923b98ff8b4ee737b2"
-source_commit_timestamp: "2026-11-02T00:40:38-05:00"
+source_commit: "e74f3156e03e164ac0619116dd099c4bafc70580"
+source_commit_timestamp: "2026-11-02T02:07:01-05:00"
 generated: true
 generated_at: "2026-08-18"
 tags:

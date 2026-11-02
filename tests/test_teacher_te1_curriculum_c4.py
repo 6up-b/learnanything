@@ -1,6 +1,6 @@
 """Curriculum C4, folded into teacher TE1 (spec_deliverable_curriculum_v1 §8.2, §12 C4): the brief's goal
 and sources from the deliverable and its path, the learner's linked notes as headers with ``read_note``,
-behind ``teacher.brief.use_deliverable``. The fake tend over synthetic notes (C2's), every model a fake.
+behind ``teacher.brief.use_deliverable``. The synthetic vault notes (C2b: Reader notes and captures), every model a fake.
 """
 
 from __future__ import annotations
@@ -18,7 +18,7 @@ from tests.ux_phase1_support import set_config
 
 
 def _linked(tmp_path, monkeypatch):
-    paths, repository, ctx, goal_id, fake_tend, corpus, notes = _deliverable(tmp_path, monkeypatch)
+    paths, repository, ctx, goal_id, corpus, notes = _deliverable(tmp_path)
     call(ctx, "notes.path", {"goal_id": goal_id})
     set_algorithm_version(paths, TEACHER_ALGORITHM_VERSION)
     return paths, repository
@@ -73,4 +73,4 @@ def test_a_note_never_reaches_the_grader(tmp_path, monkeypatch):
     S.take_turn(load_vault(paths.root), repository, lesson_id=view["lesson_id"], action="answer_check",
            payload={"answer": "det(A - tI) = 0"}, clients=clients(fake))
     grading = [prompt for purpose, prompt in fake.prompts if purpose != "teacher_turn"]
-    assert grading and all("Eigen stuff" not in p and SENTINEL not in p for p in grading)
+    assert grading and all(SENTINEL not in p for p in grading)

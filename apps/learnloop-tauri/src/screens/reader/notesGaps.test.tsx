@@ -17,14 +17,14 @@ const { api, invalidate } = vi.hoisted(() => ({
 vi.mock("../../api/client", () => ({ api }));
 vi.mock("../../api/queryCache", () => ({ invalidate }));
 
-const NOTES: NotesContractDto = { enabled: true, lexicalOnly: false, pocketNotesLabel: "handwritten", takePrefix: "From your note" };
+const NOTES: NotesContractDto = { enabled: true, meaning: false, pocketNotesLabel: "handwritten", takePrefix: "From your note" };
 
 function link(): NoteLinkDto {
   return {
     linkId: "nl_1", noteKey: "/n/a.org#Eigen", targetKind: "passage", learningObjectId: "lo_eigen", extractionId: "ext_book",
     sectionId: "ch_eigen", spanId: "s1", goalId: "g", authorship: "ai", byLabel: "linked by LearnLoop's model",
     how: "restates", howWords: "puts it in your words", howLine: "your note restates it", line: "your note from 3 Oct",
-    note: { title: "Linear algebra", heading: "Eigen stuff", capturedOn: "2026-10-03", dateLabel: "3 Oct", origin: "tend",
+    note: { title: "Linear algebra", heading: "Eigen stuff", capturedOn: "2026-10-03", dateLabel: "3 Oct", origin: "vault",
             originLabel: null, text: "Eigenvalues: Av = lv.", truncated: false },
   };
 }

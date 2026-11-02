@@ -1,9 +1,12 @@
 """Curriculum C4: the learner's linked notes in a lesson (spec_deliverable_curriculum_v1 §8.2, §10.2, §10.4).
 
-The teacher is the one model reader of note text the spec names besides the note link judge
-(``read_note``); the brief lists the notes' headers (``your_notes``). Both read C2's stored snapshots
-of linked notes (never a tend call during a lesson), both only while ``teacher.brief.use_deliverable``
-and ``notes.enabled`` are on and tend is present, and both label the text as the learner's own voice.
+The teacher reads note text through ``read_note``; the brief lists the notes' headers (``your_notes``).
+Since curriculum C2b the notes are the vault's own (the learner's Reader notes and highlights with text,
+and their capture-inbox items): both read the stored snapshots of linked notes through
+``note_links.effective`` (which withholds a snapshot whose anchor now sits beside protected material),
+both only while ``teacher.brief.use_deliverable`` and ``notes.enabled`` are on, and both label the
+text as the learner's own voice. Note text is learner text (owner, 2026-11-01), so the teacher may read
+it when it helps; it is never a source, a generation input or evidence.
 
 This module is the teacher package's only door to the notes' code: the service injects
 :func:`your_notes` into the brief and the read action calls :func:`read_note`, so the brief, the
@@ -31,7 +34,7 @@ def your_notes(vault: Any, repository: Any, learning_object_ids: Sequence[str]) 
         with repository.connection() as connection:
             rows = notes_store.links(connection, learning_object_ids=set(learning_object_ids))
         out: dict[str, list[dict[str, Any]]] = {}
-        for view in NL.effective(repository, rows):
+        for view in NL.effective(repository, rows, vault=vault):
             lo = str(view.get("learning_object_id") or "")
             if lo not in set(learning_object_ids):
                 continue
@@ -66,7 +69,7 @@ def read_note(vault: Any, repository: Any, state: Any, refs: list[str]) -> dict[
     out = []
     with repository.connection() as connection:
         rows = notes_store.links(connection, learning_object_ids=set(allowed.values()))
-    views = {f"n:{view['link_id']}": view for view in NL.effective(repository, rows)}
+    views = {f"n:{view['link_id']}": view for view in NL.effective(repository, rows, vault=vault)}
     for ref in refs:
         view = views.get(ref)
         if ref not in allowed or view is None:

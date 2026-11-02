@@ -65,7 +65,7 @@ _ROLES: tuple[tuple[str, str], ...] = (
     ("commitment_target_versions", DENIED),
     ("commitment_versions", DENIED),
     ("commitments", DENIED),
-    # Teacher TE1 (migration 233): the tap/hedge recalibration, derived from every tapped answer (AD
+    # Teacher TE1 (migration 234): the tap/hedge recalibration, derived from every tapped answer (AD
     # reads none of it).
     ("confidence_calibration_state", DENIED),
     ("composed_selector_telemetry_horizons", DENIED),
@@ -124,7 +124,7 @@ _ROLES: tuple[tuple[str, str], ...] = (
     # Curriculum C2 (migration 229): the learner's linked notes and their links (AD reads neither).
     ("learner_note_links", PROTECTED),
     ("learner_notes", PROTECTED),
-    # Teacher TE1 (migration 233): the lesson ledger, its receipts and the learned lesson-check weight
+    # Teacher TE1 (migration 234): the lesson ledger, its receipts and the learned lesson-check weight
     # are the incumbent's state derived from answers (a check's grade, its mass, the forecasts); AD
     # reads none of them (spec_teacher_v1 §14.2: AD never reads a lesson check), and teacher code never
     # runs inside an AD operation (§5.7).
@@ -438,8 +438,9 @@ COLUMNS: Mapping[str, Mapping[str, str]] = MappingProxyType({
         derived="label reason state_key"),
     # Curriculum C2 (migration 229): a note link names one reading's section and span (its margin
     # mark): a READING row; the link's how, its line and the state key it was judged under are never
-    # read as stored. A note snapshot names no reading; its text, title, heading and tend reference
-    # are the learner's own words (a note may copy an exam question) and never read as stored.
+    # read as stored. A note snapshot names no reading; its text, title, heading and file reference
+    # (C2's tend era) are the learner's own words (a note may copy an exam question) and never read as
+    # stored; C2b's vault reference (annotation or capture, by id) is a value.
     "learner_note_links": _table({
         "extraction_id": "extraction", "section_id": "section@extraction_id", "span_id": "span@extraction_id",
     },
@@ -447,7 +448,7 @@ COLUMNS: Mapping[str, Mapping[str, str]] = MappingProxyType({
                "prompt_version created_at",
         derived="target_key how how_line state_key"),
     "learner_notes": _table({},
-        values="id note_key line content_hash captured_on origin truncated created_at",
+        values="id note_key line content_hash captured_on origin truncated created_at vault_ref_kind vault_ref_id",
         derived="path heading_path title heading text_md"),
     # Curriculum C0b: a scope input may name a passage of a reading (a syllabus page): a READING row;
     # the learner's words are never read as stored.

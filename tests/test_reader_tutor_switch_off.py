@@ -107,6 +107,8 @@ def _record(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, *, offers: bool = F
                                            "help": True}
         for group in contract["intent"]["palette"]:
             group["actions"] = [action for action in group["actions"] if action["effect"] != {"kind": "figure"}]
+        # Curriculum C2b (the vault's own notes, in every vault since; pinned by tests/test_notes_linked.py).
+        contract.pop("notes", None)
     events = [
         {"kind": event["kind"], "payload": event.get("payload")}
         for kind in ("reader_answer_submitted", "learner_question_asked", "reader_answer_mode_set")

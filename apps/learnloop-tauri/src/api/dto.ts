@@ -6784,14 +6784,15 @@ export interface ReaderPromptContractDto {
   };
   /** Reader CA6: side by side (present only while reader.side_by_side.enabled and curriculum.enabled are on). */
   sideBySide?: { enabled: boolean };
-  /** Curriculum C2: your notes, linked (present only while notes.enabled is on and tend is installed). */
+  /** Curriculum C2: your notes, linked (present only while notes.enabled is on; C2b: the vault's own notes, in every vault). */
   notes?: NotesContractDto;
 }
 
 /** Curriculum C2 (spec §10): the notes part of the Reader's prompt contract. */
 export interface NotesContractDto {
   enabled: boolean;
-  lexicalOnly: boolean;
+  /** C2b: *link one of your notes* may search by meaning (the vault's embeddings are on); false hides the toggle. */
+  meaning: boolean;
   pocketNotesLabel: string;
   takePrefix: string;
   /** Curriculum C5: present (true) only with the learner's opt-in (notes.gaps_enabled): a linked
@@ -6838,7 +6839,7 @@ export interface NoteLinkDto {
     heading: string;
     capturedOn: string | null;
     dateLabel: string | null;
-    /** tend | pocket_notes */
+    /** vault (C2b: a Reader note or a capture) | tend | pocket_notes (C2's history) */
     origin: string;
     /** "handwritten · transcribed by Pocket Notes" for a Pocket Notes page, else null. */
     originLabel: string | null;
@@ -6867,19 +6868,30 @@ export interface NoteMarksDto {
   marks: Array<{ spanId: string; notes: NoteLinkDto[] }>;
 }
 
-/** notes.search: a note section tend found (inside the allowlist). */
+/** notes.search: one of the learner's notes in this vault (C2b: a Reader note or highlight with their words,
+ *  or a capture-inbox item). */
 export interface NoteHitDto {
+  /** annotation:<id> | capture:<id> */
   noteKey: string;
-  path: string;
+  /** annotation | capture */
+  refKind: string;
+  refId: string;
   title: string;
   heading: string;
-  headingPath: string;
-  line: number;
   snippet: string;
   capturedOn: string | null;
+  /** vault */
   origin: string;
   contentHash: string;
-  mtime: number;
+}
+
+/** notes.search's answer: the hits, the search's mode (words | meaning) and its basis. */
+export interface NoteSearchDto {
+  query: string;
+  mode: "words" | "meaning";
+  /** words | meaning:ready | meaning:partial | meaning:empty | meaning:unavailable */
+  basis?: string;
+  hits: NoteHitDto[];
 }
 
 /** Reader CA5: the line's hide preferences (Settings brings it back). */

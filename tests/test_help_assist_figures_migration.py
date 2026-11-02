@@ -23,10 +23,11 @@ from learnloop.adaptive_difficulty import protected_tables as PT
 from learnloop.db.migrate import applied_versions, discover_migrations
 from learnloop.db.stores import help_assists as store
 from learnloop.db.table_roles import TableRole, role_for_table
+from tests.test_learner_notes_vault_origin_migration import C2B_ALTERED_TABLES
 
 from tests.test_teacher_te1_migration import TE1_ADDED_OBJECTS, TE1_ALTERED_TABLES
 
-HEAD = Path(__file__).resolve().parents[1] / "fixtures" / "migration_head_233" / "state.sqlite"
+HEAD = Path(__file__).resolve().parents[1] / "fixtures" / "migration_head_234" / "state.sqlite"
 #: What 232 alters and adds: the earlier migrations' "nothing else changed"
 #: diffs on the way to head read these.
 #: Codex review F7/F9: figure_predictions is rebuilt too (nullable
@@ -81,11 +82,13 @@ def test_232_widens_three_checks_adds_figure_id_and_keeps_every_row(tmp_path):
                                "VALUES ('ha_bad', 'practice', 'figure', 'none', 1, 't')")
     before = _schema(database)
     with upgrade_allowance(UPGRADE_TEST_HELPER):
-        # Teacher TE1's 233 (its own tables and source_tool_calls) follows on the way to head.
-        assert [migration.version for migration in apply_migrations(database)] == [232, 233]
+        # Curriculum C2b's 233 (learner_notes) and teacher TE1's 234 (its own tables and source_tool_calls)
+        # follow on the way to head; neither is read here.
+        assert [migration.version for migration in apply_migrations(database)] == [232, 233, 234]
     after = _schema(database)
     assert set(after) - set(before) - TE1_ADDED_OBJECTS == set(P3_ADDED_OBJECTS)
-    assert {name for name in before if before[name] != after.get(name)} == set(P3_ALTERED_TABLES) | TE1_ALTERED_TABLES
+    assert {name for name in before if before[name] != after.get(name)} == set(P3_ALTERED_TABLES) | set(
+        C2B_ALTERED_TABLES) | TE1_ALTERED_TABLES
     with closing(sqlite3.connect(database)) as connection:
         columns = [row[1] for row in connection.execute("PRAGMA table_info(help_assists)")]
         assert columns[-1] == "figure_id" and tuple(columns) == store.COLUMNS
@@ -169,10 +172,10 @@ def test_the_check_values_are_the_kinds_the_code_writes():
 
 
 def test_the_head_fixture_holds_232_in_rollback_mode():
-    # The head is teacher TE1's 233 (rebuilt from this 232 head with only 233 applied); it holds 232.
+    # The head is teacher TE1's 234 now (rebuilt from C2b's 233 head with only 234 applied); it holds 232.
     assert HEAD.read_bytes()[18:20] == b"\x01\x01"
     assert 232 in applied_versions(HEAD)
-    assert max(applied_versions(HEAD)) == max(m.version for m in discover_migrations()) == 233
+    assert max(applied_versions(HEAD)) == max(m.version for m in discover_migrations()) == 234
     with closing(sqlite3.connect(f"file:{HEAD}?mode=ro", uri=True)) as connection:
         columns = [row[1] for row in connection.execute("PRAGMA table_info(help_assists)")]
         assert columns[-1] == "figure_id"
@@ -189,7 +192,7 @@ def test_232_on_the_durability_lane(tmp_path):
 
     database = _at_231(tmp_path)
     with upgrade_allowance(UPGRADE_TEST_HELPER):
-        assert [migration.version for migration in apply_migrations(database)] == [232, 233]
+        assert [migration.version for migration in apply_migrations(database)] == [232, 233, 234]
     with closing(sqlite3.connect(database)) as connection:
         assert connection.execute("PRAGMA journal_mode").fetchone()[0] == "wal"
         store.insert_assist(connection, {"id": "ha_d", "surface": "practice", "assist_kind": "figure",

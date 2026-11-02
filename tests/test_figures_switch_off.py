@@ -45,7 +45,8 @@ def _record(tmp_path: Path, *, enabled: bool | None, sketch: bool | None = None)
 #: (find this section in my other books) is pinned by
 #: tests/test_reader_ca5a_find_section.py; Reader CA6's ``sideBySide`` by
 #: tests/test_reader_ca6_side_by_side.py.
-LATER_CONTRACT_KEYS = ("compareKeep", "readingPaths", "correspondence", "sideBySide")
+LATER_CONTRACT_KEYS = ("compareKeep", "readingPaths", "correspondence", "sideBySide",
+                       "notes")  # curriculum C2b: the vault's own notes, pinned by tests/test_notes_linked.py
 LATER_REPORT_KEYS = ("comparisons", "roles", "reading_paths")
 
 

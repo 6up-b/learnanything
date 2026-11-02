@@ -6,8 +6,8 @@ refactor_status: "ACTIVE"
 version: "1.0.0"
 source_paths:
   - "apps/learnloop-tauri/src/screens/practice"
-source_commit: "4066ab56bccaee0859f87dc6db5d2de2853a8252"
-source_commit_timestamp: "2026-10-25T20:20:20-04:00"
+source_commit: "afb17672c627b4f4422c149ac63dd2addef98a9b"
+source_commit_timestamp: "2026-11-01T20:23:43-05:00"
 generated: true
 generated_at: "2026-08-18"
 tags:

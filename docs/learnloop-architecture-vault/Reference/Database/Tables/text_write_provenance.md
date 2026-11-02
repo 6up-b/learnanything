@@ -3,13 +3,13 @@ title: "text_write_provenance"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "446a0cf89934d580d5a618923b98ff8b4ee737b2"
-source_commit_timestamp: "2026-11-02T00:40:38-05:00"
+source_commit: "95dd20a1d45901033891f11b5a598581ca884e63"
+source_commit_timestamp: "2026-11-02T02:34:21-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite text_write_provenance"
   - "table text_write_provenance"
-schema_head: 233
+schema_head: 234
 table_name: "text_write_provenance"
 table_role: "raw_ledger"
 functionality_status: "active"
@@ -109,6 +109,7 @@ None found by exact static reference scan.
 - `tests/test_forecast_receipts_landing.py`
 - `tests/test_hint_feedback_texts.py`
 - `tests/test_notes_as_learner_text.py`
+- `tests/test_notes_c2b_review5.py`
 - `tests/test_reader_formative_texts.py`
 - `tests/test_regrade_contract_successor.py`
 - `tests/test_ux_phase4_landing.py`

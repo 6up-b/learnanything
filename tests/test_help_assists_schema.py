@@ -50,7 +50,7 @@ from tests.test_learner_notes_migration import C2_ADDED_OBJECTS
 from tests.test_teacher_te1_migration import TE1_ADDED_OBJECTS, TE1_ALTERED_TABLES
 
 NOW = "2026-10-17T10:00:00.000Z"
-HEAD = Path(__file__).resolve().parents[1] / "fixtures" / "migration_head_233" / "state.sqlite"
+HEAD = Path(__file__).resolve().parents[1] / "fixtures" / "migration_head_234" / "state.sqlite"
 
 #: spec_adaptive_hints_v1 §9, "This spec's columns".
 HINTS_SPEC_COLUMNS = {
@@ -382,6 +382,6 @@ def test_help_assists_is_a_raw_ledger():
 
 def test_the_head_fixture_is_at_head_in_rollback_mode():
     assert HEAD.read_bytes()[18:20] == b"\x01\x01"
-    assert max(applied_versions(HEAD)) == max(m.version for m in discover_migrations()) == 233
+    assert max(applied_versions(HEAD)) == max(m.version for m in discover_migrations()) == 234
     for suffix in ("-wal", "-shm", "-journal"):
         assert not HEAD.with_name(HEAD.name + suffix).exists()

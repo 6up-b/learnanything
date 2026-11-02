@@ -25,7 +25,7 @@ The upgrade:
   refusal's included). If the chained steps succeed and this step then fails,
   the vault is left at the valid predecessor. Anything older is refused;
 * changes nothing already recorded: no lesson exists below the tag, so the
-  lesson tables (migration 233) are empty and the DERIVED weight state has
+  lesson tables (migration 234) are empty and the DERIVED weight state has
   nothing to fold. Its activation is the idempotent rebuild of the same
   projection namespace, the registry refresh and the config's publication.
 

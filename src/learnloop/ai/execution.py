@@ -45,9 +45,9 @@ JUDGE_LABELS = frozenset({"decider", "llm"})
 def withhold_receipt_input():
     """Calls started in this context keep no prompt text on their receipts.
 
-    For a route whose prompt carries text the learner keeps private (curriculum C2's
-    note link judge, Codex review F3: the candidate notes the judge reads, most of
-    them never linked). The receipt keeps everything else: the prompt and schema
+    For a route whose prompt carries text that must not stay on a receipt (no caller
+    since curriculum C2b: note text is learner text, owner 2026-11-01). The receipt
+    keeps everything else: the prompt and schema
     hashes, the request identity it declared (so a paid answer is still recovered
     from its receipt), the usage and the answer (the verdicts). Nested contexts
     inherit it; there is no way to switch it back off inside one.

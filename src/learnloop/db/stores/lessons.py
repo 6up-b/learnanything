@@ -1,4 +1,4 @@
-"""Teacher TE1 persistence (migration 233; spec_teacher_v1 §18.1).
+"""Teacher TE1 persistence (migration 234; spec_teacher_v1 §18.1).
 
 The lesson ledger (``lessons``, ``lesson_turns``, ``lesson_plans``: append-only,
 a lesson closes once), the raw turn text (``lesson_turn_payloads``), and the

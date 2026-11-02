@@ -337,7 +337,7 @@ _TABLE_ROLE_ITEMS: tuple[tuple[str, TableRole], ...] = (
     ("placement_quick_check_items", TableRole.WORKFLOW),
     ("lapse_episodes", TableRole.WORKFLOW),
     ("learner_claims", TableRole.RAW_LEDGER),
-    # Teacher TE1 (migration 233; spec_teacher_v1 §18.1): the lesson ledger
+    # Teacher TE1 (migration 234; spec_teacher_v1 §18.1): the lesson ledger
     # (lessons, their turns and plans: append-only, a lesson closes once), the
     # raw turn text (workflow, as router_decision_payloads), the check and
     # lesson receipts (append-only; replay reads each check's recorded mass),

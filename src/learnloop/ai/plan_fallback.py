@@ -101,10 +101,11 @@ METERED_PRICE_SETTINGS: dict[str, str] = {
 }
 
 
-#: Tasks that read text the owner allowed to the ChatGPT plan only (curriculum C2's note
-#: link judge reads the learner's notes, spec §10.4, owner Q6): OpenRouter is never offered
-#: for them and no grant routes them there; with the plan down they wait.
-PLAN_ONLY_TASKS: frozenset[str] = frozenset({"note_link_judge"})
+#: Tasks that read text the owner allowed to the ChatGPT plan only: OpenRouter is never
+#: offered for them and no grant routes them there; with the plan down they wait. Empty
+#: since curriculum C2b (owner, 2026-11-01): the note link judge reads the learner's notes,
+#: which are learner text, under ordinary quiet-route rules.
+PLAN_ONLY_TASKS: frozenset[str] = frozenset()
 
 
 #: Set inside :func:`priced_by`: the price settings of the feature resolving a route.
@@ -146,8 +147,7 @@ def offer_blocker(config: LearnLoopConfig, task: str) -> str | None:
     """
 
     if task in PLAN_ONLY_TASKS:
-        return ("Your notes are read only by the ChatGPT plan, so OpenRouter isn't offered for this; "
-                "it waits for the plan.")
+        return "This is read only by the ChatGPT plan, so OpenRouter isn't offered for it; it waits for the plan."
     # The task's own price, then the price of the feature resolving it
     # (:func:`priced_by`, re-review F2): a passage check rides
     # ``canonical_ingest`` but is held to ``reader_inquiry.metered_price_per_million``.

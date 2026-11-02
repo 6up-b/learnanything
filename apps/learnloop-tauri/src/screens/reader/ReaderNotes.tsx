@@ -1,5 +1,6 @@
-// Curriculum C2 (spec §10.2, §10.3; UX §3.4's third voice): the learner's own notes,
-// linked to the passages and topics they discuss, always in the learner's voice (›):
+// Curriculum C2 (spec §10.2, §10.3; UX §3.4's third voice): the learner's own notes (C2b: the
+// vault's own, their Reader notes and captured notes), linked to the passages and topics they
+// discuss, always in the learner's voice (›):
 //
 // * NoteMark: › in the margin beside a passage with a linked note (the learner's own
 //   mark, like ⇄: outside the cue budget, never counted by the density setting).
@@ -7,8 +8,9 @@
 // * PathLineNotes: "your note from 3 Oct" on a deliverable path line.
 // * NotesTakeBand: Compare's *your take* band lists the notes linked to the compared
 //   passages, each with *use as my take* (RW4d's own take, quoting the note).
-// * NoteLinkPicker: *link one of your notes…* from the Reader's passage menu: tend's
-//   notes for the passage's section, or a words-only search of the learner's own words.
+// * NoteLinkPicker: *link one of your notes…* from the Reader's passage menu: the notes for the
+//   passage's section, or a search of the learner's own words, by exact words or (only while the
+//   vault's embeddings are on: the contract's `meaning`) by meaning.
 //
 // Curriculum C5 (spec §10.2, UX §4.10): with the learner's opt-in (the contract's
 // `gaps`, Settings), every notes surface also says *where this goes*: a linked note may be
@@ -38,13 +40,15 @@ export const NOTES_COPY = {
   linkNote: "link one of your notes…",
   linkHere: "link it here",
   linked: "linked",
-  searchPlaceholder: "search your notes (words only)",
+  searchPlaceholder: "search your notes",
+  byWords: "exact words",
+  byMeaning: "by meaning",
   searching: "looking in your notes…",
   nothingFound: "Nothing in your notes matched.",
   forSection: "your notes for this section",
   whereThisGoes: "ⓘ where this goes",
   whereLine: "Your note is shown beside the book in your own words. It is never a source, never used to write questions and never grades you.",
-  gapsLine: "You let your linked notes steer suggestions (Settings): LearnLoop's model on your ChatGPT plan reads a note you linked for gaps in your understanding. It only ever steers what to suggest, never grades you, and a note you hide is never read.",
+  gapsLine: "You let your linked notes steer suggestions (Settings): LearnLoop's model reads a note you linked for gaps in your understanding. It only ever steers what to suggest, never grades you, and a note you hide is never read.",
   truncated: "(shortened)",
 } as const;
 
@@ -61,7 +65,7 @@ export function noteLabel(link: NoteLinkDto): string {
   return [NOTES_COPY.yourNote, where, link.note.dateLabel].filter(Boolean).join(" · ");
 }
 
-/** UI refresh cadence while the background linking runs or waits for the plan or tend
+/** UI refresh cadence while the background linking runs or waits for its model
  *  (Codex review F4). `keep`: how often a screen asks again, never a model parameter. */
 export const NOTES_POLL_MS = { running: 3_000, waiting: 60_000 } as const;
 
@@ -311,7 +315,7 @@ export function PathLineNotes({ notes }: { notes: NoteLinkDto[] }) {
 }
 
 /** The notes of one deliverable's path, by topic (and the background linking started once
- *  a day). While that linking runs (or waits for the plan or tend) the path is read again
+ *  a day). While that linking runs (or waits for its model) the path is read again
  *  (Codex review F4: `NOTES_POLL_MS`); when it finishes, every surface reads its notes
  *  again (the reading's › marks too). */
 export function usePathNotes(goalId: string | null, ready: boolean) {
@@ -435,11 +439,17 @@ export function NoteLinkPicker({ extractionId, spanId, onClose, onError }: {
   const [hits, setHits] = useState<NoteHitDto[] | null>(null);
   const [busy, setBusy] = useState(false);
   const [linked, setLinked] = useState<string[]>([]);
+  // C2b: by meaning only while the vault's embeddings are on (the contract's `meaning`); otherwise
+  // the toggle is not shown at all and every search is by exact words.
+  const meaningOffered = Boolean(ctx?.settings.meaning);
+  const [byMeaning, setByMeaning] = useState(false);
+  const mode: "words" | "meaning" = meaningOffered && byMeaning ? "meaning" : "words";
 
-  const search = useCallback(async (words: string) => {
+  const search = useCallback(async (words: string, how: "words" | "meaning" = "words") => {
     setBusy(true);
     try {
-      const out = await api.notesSearch(words ? { query: words } : { extractionId, spanId });
+      const where = words ? { query: words } : { extractionId, spanId };
+      const out = await api.notesSearch(how === "meaning" ? { ...where, mode: how } : where);
       setAsked(out.query);
       setHits(out.hits);
     } catch (error) {
@@ -456,10 +466,7 @@ export function NoteLinkPicker({ extractionId, spanId, onClose, onError }: {
   const link = async (hit: NoteHitDto) => {
     setBusy(true);
     try {
-      await api.notesLink({
-        note: { path: hit.path, line: hit.line, headingPath: hit.headingPath, title: hit.title, contentHash: hit.contentHash, mtime: hit.mtime },
-        extractionId, spanId,
-      });
+      await api.notesLink({ note: { noteKey: hit.noteKey }, extractionId, spanId });
       setLinked((value) => [...value, hit.noteKey]);
       ctx?.onChanged();
     } catch (error) {
@@ -479,12 +486,20 @@ export function NoteLinkPicker({ extractionId, spanId, onClose, onError }: {
         <span style={{ flex: 1 }} />
         <button type="button" style={quietStyle} onClick={onClose}>{NOTES_COPY.close}</button>
       </span>
-      <form style={{ display: "flex", gap: 6 }} onSubmit={(event) => { event.preventDefault(); void search(query.trim()); }}>
+      <form style={{ display: "flex", gap: 6 }} onSubmit={(event) => { event.preventDefault(); void search(query.trim(), mode); }}>
         <input aria-label={NOTES_COPY.searchPlaceholder} placeholder={NOTES_COPY.searchPlaceholder} value={query}
           onChange={(event) => setQuery(event.target.value)}
           style={{ flex: 1, fontFamily: FONT_MONO, fontSize: 11, background: COLOR.bgInput, color: COLOR.text, border: `1px solid ${COLOR.border}`, padding: "3px 6px" }} />
         <button type="submit" style={linkStyle} disabled={busy}>↵</button>
       </form>
+      {meaningOffered ? (
+        <span data-note-search-mode={mode} style={{ display: "flex", gap: 8, alignItems: "baseline" }}>
+          <button type="button" aria-pressed={!byMeaning} style={byMeaning ? quietStyle : linkStyle}
+            onClick={() => setByMeaning(false)}>{NOTES_COPY.byWords}</button>
+          <button type="button" aria-pressed={byMeaning} style={byMeaning ? linkStyle : quietStyle}
+            onClick={() => setByMeaning(true)}>{NOTES_COPY.byMeaning}</button>
+        </span>
+      ) : null}
       {busy && hits === null ? <MeaningLabel><span aria-hidden="true">◐</span> {NOTES_COPY.searching}</MeaningLabel> : null}
       {hits !== null && !query.trim() && asked ? <MeaningLabel>{NOTES_COPY.forSection}: {asked}</MeaningLabel> : null}
       {hits !== null && hits.length === 0 ? <MeaningLabel>{NOTES_COPY.nothingFound}</MeaningLabel> : null}

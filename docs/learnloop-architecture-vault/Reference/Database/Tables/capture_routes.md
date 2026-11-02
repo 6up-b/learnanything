@@ -3,13 +3,13 @@ title: "capture_routes"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "446a0cf89934d580d5a618923b98ff8b4ee737b2"
-source_commit_timestamp: "2026-11-02T00:40:38-05:00"
+source_commit: "95dd20a1d45901033891f11b5a598581ca884e63"
+source_commit_timestamp: "2026-11-02T02:34:21-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite capture_routes"
   - "table capture_routes"
-schema_head: 233
+schema_head: 234
 table_name: "capture_routes"
 table_role: "workflow"
 functionality_status: "active"
@@ -21,6 +21,7 @@ source_paths:
   - "migrations/171_mobile_capture.sql"
   - "src/learnloop/capture/inbox.py"
   - "src/learnloop/capture/routing.py"
+  - "src/learnloop/source_retrieval/vault_notes.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/workflow"
@@ -86,6 +87,7 @@ None found by exact static reference scan.
 
 - `src/learnloop/capture/inbox.py`
 - `src/learnloop/capture/routing.py`
+- `src/learnloop/source_retrieval/vault_notes.py`
 
 ### Direct SQL writers
 

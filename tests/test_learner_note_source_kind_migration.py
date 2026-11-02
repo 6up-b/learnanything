@@ -116,8 +116,9 @@ def _upgrade(tmp_path: Path) -> Path:
     with upgrade_allowance(UPGRADE_TEST_HELPER):
         applied = apply_migrations(database)
     # Learner data-relax 2's 230 (help_assists.work_md, not a table read here) lands first;
-    # RW5d P3's 232 (help_assists and figure_predictions) and teacher TE1's 233 (its own tables and source_tool_calls) follow; none is read here.
-    assert [migration.version for migration in applied] == [230, 231, 232, 233]
+    # RW5d P3's 232 (help_assists and figure_predictions), curriculum C2b's 233 (learner_notes) and
+    # teacher TE1's 234 (its own tables and source_tool_calls) follow; none is read here.
+    assert [migration.version for migration in applied] == [230, 231, 232, 233, 234]
     assert {table: _rows(database, table) for table in TABLES} == before  # every row, id and value survives
     for table, shape in columns.items():
         assert _columns(database, table) == shape  # the same columns, types, defaults and keys
@@ -210,11 +211,11 @@ def test_231_adds_learner_note_and_nothing_else():
 
 
 def test_the_head_fixture_holds_231_in_rollback_mode_with_no_note_gap():
-    # The head is teacher TE1's 233 now (rebuilt from RW5d P3's 232 head with only 233 applied); it holds 231.
-    head = Path(__file__).resolve().parents[1] / "fixtures" / "migration_head_233" / "state.sqlite"
+    # The head is teacher TE1's 234 now (rebuilt from C2b's 233 head with only 234 applied); it holds 231.
+    head = Path(__file__).resolve().parents[1] / "fixtures" / "migration_head_234" / "state.sqlite"
     assert head.read_bytes()[18:20] == b"\x01\x01"
     assert 231 in applied_versions(head)
-    assert max(applied_versions(head)) == max(m.version for m in discover_migrations()) == 233
+    assert max(applied_versions(head)) == max(m.version for m in discover_migrations()) == 234
     with closing(sqlite3.connect(f"file:{head}?mode=ro", uri=True)) as connection:
         assert connection.execute("PRAGMA journal_mode").fetchone()[0] == "delete"
         for table in ("learner_text_gaps", "learner_text_gap_jobs"):

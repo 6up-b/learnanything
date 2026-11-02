@@ -3,13 +3,13 @@ title: "learner_note_links"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "446a0cf89934d580d5a618923b98ff8b4ee737b2"
-source_commit_timestamp: "2026-11-02T00:40:38-05:00"
+source_commit: "95dd20a1d45901033891f11b5a598581ca884e63"
+source_commit_timestamp: "2026-11-02T02:34:21-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite learner_note_links"
   - "table learner_note_links"
-schema_head: 233
+schema_head: 234
 table_name: "learner_note_links"
 table_role: "raw_ledger"
 functionality_status: "active"
@@ -46,7 +46,7 @@ It belongs to the **learner state** navigation family. The family context lives 
 - **Role:** `raw_ledger` — Authoritative replay input or mixed authoritative state. The rebuild umbrella preserves it.
 - **Functionality status:** `active`.
 - **Introduced by:** `migrations/229_learner_notes.sql`.
-- **Schema touched by:** `229_learner_notes.sql`, `231_learner_note_source_kind.sql`.
+- **Schema touched by:** `229_learner_notes.sql`, `231_learner_note_source_kind.sql`, `233_learner_notes_vault_origin.sql`.
 - **Rebuild owner:** none; this table is preserved by the rebuild umbrella.
 
 For the distinction between SQLite state and human-authored vault files, see [[State and Persistence]]. For whole-vault creation and opening behavior, see [[Vault Lifecycle]]. ^table-lifecycle
@@ -121,6 +121,8 @@ None found by exact static reference scan.
 - `tests/test_curriculum_c3_exam_scoping.py`
 - `tests/test_learner_note_source_kind_migration.py`
 - `tests/test_learner_notes_migration.py`
+- `tests/test_learner_notes_vault_origin_migration.py`
+- `tests/test_notes_c2b_review5.py`
 - `tests/test_notes_linked.py`
 - `tests/test_notes_never_read.py`
 

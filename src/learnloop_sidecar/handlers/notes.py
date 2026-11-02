@@ -1,5 +1,5 @@
 """Deliverable curriculum C2 RPCs: the learner's notes, linked
-(spec_deliverable_curriculum_v1 §10, §12 C2).
+(spec_deliverable_curriculum_v1 §10, §12 C2; C2b: the vault's own notes, in every vault).
 
 Desktop only (pinned in tests/test_mobile_allowlist.py).
 
@@ -9,27 +9,29 @@ Desktop only (pinned in tests/test_mobile_allowlist.py).
 * ``notes.marks``: the ``›`` marks of one reading (per passage, its linked notes).
 * ``notes.passages``: Compare's *your take* band (the notes linked to the compared
   passages); *use as my take* is RW4d's own keep with a take quoting the note.
-* ``notes.search`` / ``notes.link``: the Reader's *link one of your notes* (a search with
-  no words uses the passage's section title; the learner's words search by words only),
-  and the link made by hand.
+* ``notes.search`` / ``notes.link``: the Reader's *link one of your notes* over the vault's
+  own notes (Reader notes and highlights with the learner's words, capture-inbox items): a
+  search with no words uses the passage's section title; ``mode`` ``words`` (exact words,
+  always) or ``meaning`` (only while the vault's embeddings are on: the contract's
+  ``meaning`` flag); and the link made by hand.
 * ``notes.decide``: one tap hides a link (``hide``), or keeps it after all (``keep``).
 * ``notes.hidden``: the links the learner hid (Settings' *hidden notes*, followups-nov1c
   C, C2 ruling R5); *show again* is ``notes.decide`` ``keep`` on one.
 * ``notes.set_gaps``: curriculum C5's opt-in from Settings (``notes.gaps_enabled``, off by
-  default): a linked note may then be read for gaps in the learner's understanding, on the
-  ChatGPT plan only; it only ever steers what to suggest, never grades. The links that
+  default): a linked note may then be read for gaps in the learner's understanding, like
+  any other learner text; it only ever steers what to suggest, never grades. The links that
   stand are queued for the gap pipeline when a link run ends, when the learner links a
   note or keeps a link, when the opt-in is turned on and when a vault opens
   (:func:`queue_note_gaps`); a hidden link never is.
 
-**The ChatGPT plan only (§10.4):** the background linking runs under
-``plan_fallback.quiet()``: no OpenRouter offer and no grant, ever; a route that does not
-resolve to the plan sends nothing; with the plan down it waits and nothing asks. No RPC
-here makes a model call in the request.
+**Quiet (T1):** the background linking runs under ``plan_fallback.quiet()``: no OpenRouter
+offer and no grant; the route as configured, metered only when priced and inside the
+curriculum's daily cap; unavailable, it waits and nothing asks. No RPC here makes a chat
+model call in the request (a meaning search embeds its query, and any note not yet
+embedded, through the vault's embedding route).
 
-Kill switch ``notes.enabled`` (and tend absent): every RPC refuses, no tend call is made,
-the prompt contract has no ``notes`` key, and the Reader, the path and Compare are
-today's exactly. Display and learner-voice records only: nothing here writes a source, an
+Kill switch ``notes.enabled``: every RPC refuses, nothing is searched, the prompt contract
+has no ``notes`` key, and the Reader, the path and Compare are today's exactly. Display and learner-voice records only: nothing here writes a source, an
 item, evidence, mastery, FSRS, scheduler state or a plan.
 """
 from __future__ import annotations
@@ -66,17 +68,19 @@ NOTES_RPCS: tuple[str, ...] = (
 )
 
 #: Settings' copy for curriculum C5's opt-in (owner Q9): honest about what it does.
-GAPS_LINE = ("Let LearnLoop's model on your ChatGPT plan read the notes you've linked for gaps in your "
-             "understanding. It only ever steers what to suggest, never grades you.")
+GAPS_LINE = ("Let LearnLoop's model read the notes you've linked for gaps in your understanding. It only "
+             "ever steers what to suggest, never grades you.")
 
 
 def prompt_contract_fields(vault: Any) -> dict[str, Any]:
-    """What the Reader's prompt contract adds for C2 (absent while off or tend is absent)."""
+    """What the Reader's prompt contract adds for C2 (absent while ``notes.enabled`` is off).
+    ``meaning``: whether *link one of your notes* may search by meaning (the vault's
+    embeddings on); false, the toggle is hidden (C2b)."""
 
-    settings = NL.tend_settings(vault)
+    settings = NL.notes_settings(vault)
     if settings is None:
         return {}
-    fields: dict[str, Any] = {"enabled": True, "lexical_only": settings.lexical_only,
+    fields: dict[str, Any] = {"enabled": True, "meaning": settings.meaning,
                               "pocket_notes_label": NL.POCKET_NOTES_LABEL, "take_prefix": NL.TAKE_PREFIX}
     if bool(getattr(vault.config.notes, "gaps_enabled", False)):
         # Curriculum C5: present only with the opt-in on, so switched off the contract is today's.
@@ -107,8 +111,6 @@ def _require(ctx: SidecarContext) -> tuple[Any, Any]:
     vault, repository = ctx.require_vault()
     if not NL.enabled(vault):
         raise SidecarError("notes_disabled", "Your notes are switched off (notes.enabled = false).")
-    if not NL.available(vault):
-        raise SidecarError("notes_unavailable", "Your notes aren't available here: tend isn't installed.")
     return vault, repository
 
 
@@ -163,7 +165,7 @@ def _spawn(ctx: SidecarContext, name: str, run: Any) -> None:
 def _link(ctx: SidecarContext, vault: Any, repository: Any, goal_id: str, targets: list[NL.Target], *,
           retry: bool) -> None:
     """Start the deliverable's note linking in the background: once a local day per path
-    (its topics and their passages), again after a run that waited for the plan or tend,
+    (its topics and their passages), again after a run that waited for its model,
     once ``NL.WAITING_RETRY_SECONDS`` have passed since it stopped (Codex re-review F14:
     the reads polling a waiting run never restart it each time), or at once on ``retry``."""
 
@@ -185,6 +187,7 @@ def _link(ctx: SidecarContext, vault: Any, repository: Any, goal_id: str, target
         work.started[goal_id] = key
         work.state[goal_id] = {"state": "running"}
     client = getattr(ctx, "note_link_client", None)
+    embedder = getattr(ctx, "note_embedding_client", None)
     sqlite_path = repository.sqlite_path
     live_vault = ctx.loaded_vault
     root = Path(vault.root).resolve()
@@ -200,7 +203,7 @@ def _link(ctx: SidecarContext, vault: Any, repository: Any, goal_id: str, target
 
         outcome: dict[str, Any]
         try:
-            # Quiet (§10.4): never an OpenRouter offer and never a grant; the plan or nothing.
+            # Quiet (T1): never an OpenRouter offer and never a grant from background work.
             with plan_fallback.quiet():
                 current = live_vault()
                 if current is None or Path(current.root).resolve() != root or not still_wanted():
@@ -209,8 +212,8 @@ def _link(ctx: SidecarContext, vault: Any, repository: Any, goal_id: str, target
                     worker = Repository.attach(sqlite_path)
                     with record_model_calls(worker, owner_kind="sidecar_rpc", owner_id=f"notes.link:{goal_id}"):
                         result = NL.link_goal(current, worker, goal_id, client=client, live_vault=live_vault,
-                                              still_wanted=still_wanted)
-                    outcome = {"state": "waiting" if result.status in ("waiting", "tend_unavailable") else "done",
+                                              still_wanted=still_wanted, embedder=embedder)
+                    outcome = {"state": "waiting" if result.status == "waiting" else "done",
                                "status": result.status, "reason": result.reason,
                                "linked": sum(entry.linked for entry in result.results)}
         except BaseException as exc:  # noqa: BLE001 - a failed run answers the next read, never the loop
@@ -298,32 +301,28 @@ class SearchInput(ParamsModel):
     query: str | None = None
     extraction_id: str | None = None
     span_id: str | None = None
+    #: words (exact words, always) | meaning (only while the contract's ``meaning`` is true)
+    mode: str = "words"
 
 
 @method("notes.search", SearchInput)
 def notes_search(ctx: SidecarContext, params: SearchInput) -> dict[str, Any]:
-    """*link one of your notes*: tend's hits for the passage (or the learner's words, by words only)."""
-
-    from learnloop.curriculum.notes_tend import TendUnavailable
+    """*link one of your notes*: the vault's own notes for the passage (or the learner's words),
+    by exact words or (embeddings on) by meaning."""
 
     vault, repository = _require(ctx)
     extraction_id = _extraction(repository, params.extraction_id) if params.extraction_id else None
     try:
         return versioned(NL.search(vault, repository, query=params.query, extraction_id=extraction_id,
-                                   span_id=params.span_id))
+                                   span_id=params.span_id, mode=params.mode,
+                                   embedder=getattr(ctx, "note_embedding_client", None)))
     except NL.NotesError as exc:
         raise _error(exc) from exc
-    except TendUnavailable as exc:
-        raise SidecarError("tend_unavailable", str(exc)) from exc
 
 
 class NoteRef(ParamsModel):
-    path: str
-    line: int
-    heading_path: str = ""
-    title: str = ""
-    content_hash: str = ""
-    mtime: float = 0.0
+    #: ``annotation:<id>`` | ``capture:<id>`` (a ``notes.search`` hit's ``note_key``).
+    note_key: str
 
 
 class LinkInput(ParamsModel):
@@ -374,7 +373,7 @@ class HiddenInput(ParamsModel):
 @method("notes.hidden", HiddenInput)
 def notes_hidden(ctx: SidecarContext, params: HiddenInput) -> dict[str, Any]:
     """The note links the learner hid, newest first (Settings; *show again* is
-    ``notes.decide`` ``keep``). No tend call, no model call."""
+    ``notes.decide`` ``keep``). No model call; a note beside protected material is not listed."""
 
     vault, repository = _require(ctx)
     return versioned({"hidden": NL.hidden(vault, repository)})
@@ -387,8 +386,8 @@ class GapsInput(ParamsModel):
 @method("notes.set_gaps", GapsInput)
 def notes_set_gaps(ctx: SidecarContext, params: GapsInput) -> dict[str, Any]:
     """Curriculum C5's opt-in from Settings (owner Q9: off by default): writes
-    ``notes.gaps_enabled``. On, the linked notes are queued for the gap pipeline (read on
-    the ChatGPT plan only); off, the gaps code reads no note row again."""
+    ``notes.gaps_enabled``. On, the linked notes are queued for the gap pipeline; off, the
+    gaps code reads no note row again."""
 
     from learnloop.ops.settings_store import SettingsStoreError, apply_config_updates
 

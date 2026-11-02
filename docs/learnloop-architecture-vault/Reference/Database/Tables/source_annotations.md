@@ -3,13 +3,13 @@ title: "source_annotations"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "446a0cf89934d580d5a618923b98ff8b4ee737b2"
-source_commit_timestamp: "2026-11-02T00:40:38-05:00"
+source_commit: "95dd20a1d45901033891f11b5a598581ca884e63"
+source_commit_timestamp: "2026-11-02T02:34:21-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite source_annotations"
   - "table source_annotations"
-schema_head: 233
+schema_head: 234
 table_name: "source_annotations"
 table_role: "raw_ledger"
 functionality_status: "active"
@@ -20,6 +20,7 @@ source_paths:
   - "src/learnloop/db/table_roles.py"
   - "migrations/090_source_annotations.sql"
   - "src/learnloop/db/repositories.py"
+  - "src/learnloop/source_retrieval/vault_notes.py"
   - "src/learnloop_sidecar/handlers/reader.py"
   - "src/learnloop/content/pipeline/reread.py"
   - "src/learnloop/content/sources/source_deletion.py"
@@ -48,7 +49,7 @@ It belongs to the **sources and ingest** navigation family. The family context l
 - **Role:** `raw_ledger` — Authoritative replay input or mixed authoritative state. The rebuild umbrella preserves it.
 - **Functionality status:** `active`.
 - **Introduced by:** `migrations/090_source_annotations.sql`.
-- **Schema touched by:** `090_source_annotations.sql`.
+- **Schema touched by:** `090_source_annotations.sql`, `233_learner_notes_vault_origin.sql`.
 - **Rebuild owner:** none; this table is preserved by the rebuild umbrella.
 
 For the distinction between SQLite state and human-authored vault files, see [[State and Persistence]]. For whole-vault creation and opening behavior, see [[Vault Lifecycle]]. ^table-lifecycle
@@ -79,10 +80,12 @@ Indexes and uniqueness:
 - `Repository.capture_local_transaction()`
 - `Repository.create_annotation()`
 - `Repository.delete_source_artifact()`
+- `Repository.standing_annotation_ids()`
 
 ### Direct SQL readers
 
 - `src/learnloop/db/repositories.py`
+- `src/learnloop/source_retrieval/vault_notes.py`
 
 ### Direct SQL writers
 
@@ -99,6 +102,7 @@ Indexes and uniqueness:
 - `src/learnloop/reader/reader_requests.py`
 - `src/learnloop/reader/reader_restoration.py`
 - `src/learnloop/reader/source_identity.py`
+- `src/learnloop/source_retrieval/vault_notes.py`
 - `src/learnloop_sidecar/handlers/reader.py`
 
 > [!note] Static-reference boundary

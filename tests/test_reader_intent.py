@@ -335,11 +335,11 @@ def _base_contract(vault) -> dict:
     "[reader_tutor]\nretrieval_enabled = false\noffers_enabled = false\nlearner_state_enabled = false\n"
     "[reader_compare]\nkeep_enabled = false\n"
     "[reading_paths]\nenabled = false\n[figures]\nenabled = false\n[reader.correspondence]\nenabled = false\n"
-    "[reader.side_by_side]\nenabled = false\n",
+    "[reader.side_by_side]\nenabled = false\n[notes]\nenabled = false\n",
     "\n[reader_inquiry]\nenabled = false\n[reader_tutor]\nretrieval_enabled = false\noffers_enabled = false\n"
     "learner_state_enabled = false\n"
     "[reading_paths]\nenabled = false\n[figures]\nenabled = false\n[reader.correspondence]\nenabled = false\n"
-    "[reader.side_by_side]\nenabled = false\n",
+    "[reader.side_by_side]\nenabled = false\n[notes]\nenabled = false\n",
 ])
 def test_switched_off_the_prompt_contract_is_the_bases(tmp_path, toml):
     from learnloop_sidecar.dto import versioned

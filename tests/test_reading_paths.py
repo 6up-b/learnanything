@@ -75,6 +75,8 @@ def _without_rw5a(contract: dict) -> dict:
     assert contract.pop("correspondence") == {"enabled": True, "findSection": True, "alsoInBooks": True, "hiddenEverywhere": False, "hiddenSources": []}
     # Reader CA6 (on by default) adds its own key too, pinned by tests/test_reader_ca6_side_by_side.py.
     assert contract.pop("sideBySide") == {"enabled": True}
+    # Curriculum C2b: the vault's own notes, in every vault (pinned by tests/test_notes_linked.py).
+    assert contract.pop("notes")["enabled"] is True
     # The learner-blindness relax (on by default, pinned by tests/test_learner_blindness_relax.py): the
     # version suffix, the learner-state manifest line and the ability reading out of the never-list.
     from learnloop.reader.reader_dialogue import reader_prompt_contract

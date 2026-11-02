@@ -16,17 +16,18 @@ with now, and a changed note (a new snapshot) is a new reading.
 the LOs the passages it was linked to by hand are provenance-linked to. Its context: the
 topics' titles and statements and the linked sections' first blocks, read through C0a's
 protection (:func:`section_coverage.peek`). A note linked to a passage that is protected
-material is not read at all (:class:`NoteWithheld`): no exam-material text, and no note
+material, or a Reader note written beside protected material (C2b), is not read at all
+(:class:`NoteWithheld`): no exam-material text, and no note
 written beside it, reaches the gap model.
 
-**Read on the ChatGPT plan only** (C2's transport rules, §10.4, unchanged: the pipeline's
-``NOTE_SOURCE_KINDS`` rules), never written to, never a source, never a generation input.
-This module is the gap pipeline's one way to the notes (the declared exception in the
+**Learner text like any other** (C2b, owner 2026-11-01): a note's reading takes the
+learner-text-gaps pipeline's ordinary transport (its reader and judge routes, the Decider,
+the embedding shortlist); never written to, never a source, never a generation input. This
+module is the gap pipeline's one way to the notes (the declared exception in the
 ``notes-are-never-a-source-or-evidence`` import contract); it only reads.
 
-Off (``notes.gaps_enabled``, ``notes.enabled``, tend absent, or
-``learner_text_gaps.enabled`` off): :func:`enabled` is false and nothing here reads a
-note row.
+Off (``notes.gaps_enabled``, ``notes.enabled``, or ``learner_text_gaps.enabled`` off):
+:func:`enabled` is false and nothing here reads a note row.
 """
 
 from __future__ import annotations
@@ -36,11 +37,11 @@ from dataclasses import dataclass
 import json
 from typing import Any
 
-from learnloop.curriculum import notes_tend as NT
 from learnloop.db.repositories import Repository
 from learnloop.db.stores import learner_notes as store
 from learnloop.source_retrieval import note_links as NL
 from learnloop.source_retrieval import section_coverage as SC
+from learnloop.source_retrieval import vault_notes as VN
 
 SOURCE_KIND = "learner_note"
 #: Structural bounds (what fits a prompt; none is a weight, margin or threshold).
@@ -56,8 +57,8 @@ class NoteWithheld(Exception):
 
 
 def enabled(vault: Any) -> bool:
-    """The opt-in, the notes and the gap pipeline all on, and tend present (C2: tend absent
-    hides every notes feature). False: the gaps code reads no note row."""
+    """The opt-in, the notes and the gap pipeline all on. False: the gaps code reads no
+    note row."""
 
     notes = getattr(vault.config, "notes", None)
     gaps = getattr(vault.config, "learner_text_gaps", None)
@@ -81,26 +82,19 @@ class LinkedNote:
 
 
 def linked_notes(vault: Any, repository: Repository) -> list[LinkedNote]:
-    """Every note linked now, by the snapshot its links show, oldest link first.
-
-    Only a note whose path is inside the allowlist as configured NOW (Codex review F2):
-    a note linked while its folder was allowed, whose folder the learner later removed
-    from ``notes.tend.paths``, is no gaps input (C2's rule: a note outside the allowlist
-    is never sent). Only with :func:`enabled`; empty otherwise (no note row is read)."""
+    """Every note linked now, by the snapshot its links show, oldest link first. Only with
+    :func:`enabled`; empty otherwise (no note row is read)."""
 
     if not enabled(vault):
-        return []
-    settings = NL.tend_settings(vault)
-    if settings is None:
         return []
     with repository.connection() as connection:
         if not store.tables_present(connection):
             return []
         rows = store.links(connection)
     by_snapshot: dict[str, dict[str, Any]] = {}
-    for row, note in NL.effective_rows(repository, rows):
-        if not NT.allowed(str(note.get("path") or ""), settings.roots):
-            continue  # outside the allowlist as it is now (Codex review F2)
+    # Unfiltered here: :func:`note_text` refuses a note beside protected material by name
+    # (NoteWithheld), so its job is skipped as withheld, never as unlinked.
+    for row, note in NL.effective_rows(repository, rows, vault=vault, withhold=False):
         entry = by_snapshot.setdefault(str(note["id"]), {"note": note, "los": [], "passages": []})
         lo = row.get("learning_object_id")
         if lo and str(lo) not in entry["los"]:
@@ -151,6 +145,29 @@ def _section_lead(vault: Any, repository: Repository, library: SC.Library, passa
             "lead": _one_line(text, LEAD_CHARS)}
 
 
+def _section_spans(library: SC.Library, passage: tuple[str, str | None, str | None]) -> tuple[str, tuple[str, ...]]:
+    """Every span a linked passage's lead may carry text from (Codex review C2b round 5 F2):
+    the passage's own span and every span of its section (its title's header and every block
+    :func:`SC.peek` may supply; a ref keeps no section id). A section that cannot be placed
+    names the whole reading (no spans: conservative)."""
+
+    extraction_id, section_id, span_id = passage
+    try:
+        reading = library.reading(extraction_id)
+    except SC.CoverageError:
+        reading = None
+    if reading is None:
+        return str(extraction_id), ()
+    if not section_id and span_id:
+        section_id = reading.span_section.get(span_id) or reading.all_spans.get(span_id)
+    if not section_id:
+        return str(extraction_id), ()
+    spans = {str(span) for span, owner in reading.all_spans.items() if owner == section_id}
+    if span_id:
+        spans.add(str(span_id))
+    return str(extraction_id), tuple(sorted(spans))
+
+
 def note_text(vault: Any, repository: Repository, note_id: str) -> dict[str, Any] | None:
     """What the gap pipeline reads for one linked snapshot, or None: switched off, the
     note is no longer linked (hidden, unlinked, or a newer snapshot shows), or it is gone.
@@ -164,14 +181,35 @@ def note_text(vault: Any, repository: Repository, note_id: str) -> dict[str, Any
     linked = next((entry for entry in linked_notes(vault, repository) if entry.note_id == str(note_id)), None)
     if linked is None:
         return None
+    if linked.note.get("origin") == VN.ORIGIN and VN.beside_protected(vault, repository, linked.note_key,
+                                                                       every_anchor=True):
+        # C2b: a Reader note written beside material protected since it was linked is not read
+        # (re-review F1: by any anchor it ever had; the snapshot may come from an older one).
+        raise NoteWithheld("written beside protected material")
     los = [lo for lo in linked.learning_object_ids if lo in vault.learning_objects]
     library = SC.Library(vault, repository)
     passages: list[dict[str, Any]] = []
+    # Everything the text and context carry book text from (Codex review C2b round 5 F2): the
+    # note's own anchor and heading, and every span of each linked section read.
+    sources: dict[str, set[str]] = {}
+    whole: set[str] = set()
+    if linked.note.get("origin") == VN.ORIGIN:
+        for extraction_id, spans in VN.anchor_sources(repository, linked.note_key):
+            if spans:
+                sources.setdefault(extraction_id, set()).update(spans)
+            else:
+                whole.add(extraction_id)
     for passage in linked.passages:
         extraction_id, _section_id, span_id = passage
         lead = _section_lead(vault, repository, library, passage)
         if lead is not None and lead not in passages:
             passages.append(lead)
+        if lead is not None:
+            read_from, spans = _section_spans(library, passage)
+            if spans:
+                sources.setdefault(read_from, set()).update(spans)
+            else:
+                whole.add(read_from)
         if span_id:
             for lo in learning_objects_for_span(vault, repository, extraction_id=extraction_id, span_id=str(span_id)):
                 if lo in vault.learning_objects and lo not in los:
@@ -201,6 +239,12 @@ def note_text(vault: Any, repository: Repository, note_id: str) -> dict[str, Any
         # What the text and context were built from (never sent): the request gate
         # revalidates exactly these (Codex re-review F3).
         "passage_refs": tuple(linked.passages),
+        # Every book span they carry text from, frozen with the prepared text (the write-time
+        # provenance and the request gate read these: Codex review C2b round 5 F2). A
+        # reading named with no spans stands for the whole reading.
+        "source_refs": tuple(sorted((extraction_id, tuple(sorted(spans))) for extraction_id, spans in sources.items()
+                                    if extraction_id not in whole))
+        + tuple((extraction_id, ()) for extraction_id in sorted(whole)),
     }
 
 
@@ -214,28 +258,45 @@ def payload(*, text: str, learning_object_ids: Sequence[str], subject_id: str | 
                        "subject_id": subject_id, "context": context}, sort_keys=True, default=str)
 
 
+def _sources_out(library: SC.Library, sources: Sequence[tuple[str, Sequence[str]]]) -> None:
+    """Raise :class:`NoteWithheld` when any of ``sources`` is protected material now (a
+    reading named with no spans: when any part of it is)."""
+
+    protection = library.protection
+    for extraction_id, spans in sources:
+        if protection.reading_out(extraction_id):
+            raise NoteWithheld("built from protected material")
+        if not spans:
+            material = getattr(protection.material, "spans", ()) or ()
+            if any(key[0] == extraction_id for key in (*protection.excluded_spans, *material)):
+                raise NoteWithheld("built from protected material")
+        elif any(protection.span_out(extraction_id, span) for span in spans):
+            raise NoteWithheld("built from protected material")
+
+
 #: The gate's reasons (shown on the skipped job; no note text in them).
-OFF = "your notes, or reading them for gaps, are switched off (or tend is gone)"
+OFF = "your notes, or reading them for gaps, are switched off"
 PROTECTED = "the note is linked to protected material"
-UNLINKED = "the note is no longer linked (hidden, unlinked, changed, or outside the folders LearnLoop may read)"
+UNLINKED = "the note is no longer linked (hidden, unlinked or changed)"
 CHANGED = ("what the note is linked to changed after its reading was prepared (the next sweep prepares it "
            "again from its links as they are then)")
 
 
 def refusal(vault: Any, repository: Repository, note_id: str, *, prepared: str | None = None,
-            passages: Sequence[tuple[str, str | None, str | None]] = ()) -> str | None:
+            passages: Sequence[tuple[str, str | None, str | None]] = (),
+            sources: Sequence[tuple[str, Sequence[str]]] = ()) -> str | None:
     """Why the snapshot ``note_id`` may not be read for gaps now, or None when it may
     (Codex review F3: the note reading's request gate asks before every request and
     before the gap row is written). Read from ``vault`` as configured now: switched
-    off, tend gone, no longer linked (hidden, unlinked, superseded) or outside the
-    allowlist, or linked to protected material.
+    off, no longer linked (hidden, unlinked, superseded), or linked to protected material.
 
     Bound to the prepared request (Codex re-review F3): ``passages`` are the passages
     it was built from (``LearnerText.bound_passages``), each revalidated against the
     protection read now even when its link is gone; ``prepared`` is its
     :func:`payload`, which must still be what the note's links build now (a link
     removed, a topic added, an opening changed: the prepared request is stale and is
-    not sent)."""
+    not sent). ``sources`` (``LearnerText.bound_sources``): every book span the prepared
+    text carries text from; any protected now refuses it (Codex review C2b round 5 F2)."""
 
     if not enabled(vault):
         return OFF
@@ -244,6 +305,7 @@ def refusal(vault: Any, repository: Repository, note_id: str, *, prepared: str |
         library = SC.Library(vault, repository)
         for passage in passages:
             _section_lead(vault, repository, library, tuple(passage))
+        _sources_out(library, sources)
     except NoteWithheld:
         return PROTECTED
     if found is None:

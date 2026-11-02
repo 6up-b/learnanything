@@ -250,6 +250,8 @@ def text_record(connection: Any, text: Any) -> WriteRecord:
         # RW2b: a workbench text is written beside an open problem and its
         # hints, as a reply to a hint is (the same record).
         return hint_feedback_record(connection, text)
+    if text.source_kind == "learner_note":
+        return note_record(text)
     inputs = answer_inputs(connection, [text.attempt_id]).union(
         Inputs.of(items=[text.practice_item_id], topics=topics))
     if text.source_kind == "diagnosis":
@@ -258,6 +260,25 @@ def text_record(connection: Any, text: Any) -> WriteRecord:
     # A stuck answer: the answer, its item's question, its topic and the
     # grader's verbatim quote of the answer.
     return WriteRecord(inputs)
+
+
+def note_record(text: Any) -> WriteRecord:
+    """Curriculum C5 (C2b): what a linked note shows its reader -- the learner's own words
+    (no attempt, so no answer contract), the topics it is linked to, the passages it is
+    linked to, and every book span its text and context carry text from, frozen when the
+    reading was prepared (Codex review C2b round 5 F2): the note's own anchor and its
+    heading's section header, and every span of each linked section read (a ref keeps no
+    section id, so the section is recorded by its spans). A reading named with no spans
+    stands for the whole reading (the protection check is conservative on it)."""
+
+    topics = tuple(text.anchor_learning_object_ids or ())
+    sources = [{"ref_type": "canonical_source", "ref_id": str(extraction_id), "extraction_id": str(extraction_id),
+                "span_ids": [str(span_id)] if span_id else []}
+               for extraction_id, _section_id, span_id in (getattr(text, "bound_passages", ()) or ())]
+    sources += [{"ref_type": "canonical_source", "ref_id": str(extraction_id), "extraction_id": str(extraction_id),
+                 "span_ids": [str(span) for span in spans]}
+                for extraction_id, spans in (getattr(text, "bound_sources", ()) or ())]
+    return WriteRecord(Inputs.of(topics=topics, sources=sources))
 
 
 def formative_record(connection: Any, question_id: str, *, topics: Iterable[str] = ()) -> WriteRecord:
@@ -343,11 +364,6 @@ def reading_record(connection: Any, text: Any, reading: Any = None) -> WriteReco
     """What wrote a reading's named gap (a belief statement, a prerequisite
     name and line): its reader's inputs (see the module doc)."""
 
-    if text.source_kind == "learner_note":
-        # Curriculum C5 (Codex review F1): nothing written from a note's reading carries
-        # a provenance record (no holding-pen candidate, no drafted LO); a record here
-        # would name only its topics and lose that the words came from a note.
-        raise ValueError("a note's reading writes no record that needs write-time provenance")
     record = text_record(connection, text)
     if text.source_kind == "tutor_question":
         record = record.join(WriteRecord.incomplete(TUTOR_UNRECORDED))

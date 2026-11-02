@@ -3,13 +3,13 @@ title: "source_annotation_anchor_versions"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "446a0cf89934d580d5a618923b98ff8b4ee737b2"
-source_commit_timestamp: "2026-11-02T00:40:38-05:00"
+source_commit: "95dd20a1d45901033891f11b5a598581ca884e63"
+source_commit_timestamp: "2026-11-02T02:34:21-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite source_annotation_anchor_versions"
   - "table source_annotation_anchor_versions"
-schema_head: 233
+schema_head: 234
 table_name: "source_annotation_anchor_versions"
 table_role: "raw_ledger"
 functionality_status: "active"
@@ -20,6 +20,7 @@ source_paths:
   - "src/learnloop/db/table_roles.py"
   - "migrations/090_source_annotations.sql"
   - "src/learnloop/db/repositories.py"
+  - "src/learnloop/source_retrieval/vault_notes.py"
   - "src/learnloop/content/sources/source_deletion.py"
   - "src/learnloop/reader/annotations.py"
   - "src/learnloop/reader/reader_capture.py"
@@ -93,6 +94,7 @@ Indexes and uniqueness:
 ### Direct SQL readers
 
 - `src/learnloop/db/repositories.py`
+- `src/learnloop/source_retrieval/vault_notes.py`
 
 ### Direct SQL writers
 

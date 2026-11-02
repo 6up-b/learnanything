@@ -354,9 +354,9 @@ _CLASSES: dict[str, tuple[str, str]] = {
         "authorship status how state_key ledger_id model prompt_version created_at",
         "how_line"),
     "learner_notes": (
-        "id note_key line content_hash captured_on origin truncated created_at",
+        "id note_key line content_hash captured_on origin truncated created_at vault_ref_kind vault_ref_id",
         "path heading_path title heading text_md"),
-    # Teacher TE1 (migration 233): every lesson table (DENIED); its text is content.
+    # Teacher TE1 (migration 234): every lesson table (DENIED); its text is content.
     "lesson_checks": (
         "id lesson_id node_id check_ref learning_object_id minted_item_id status attempt_id correctness tap hedge "
         "predicted_success predicted_source mass_learned mass_applied forecast_correct_key forecast_retained_key "

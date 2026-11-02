@@ -3,22 +3,22 @@ title: "confidence_calibration_state"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "446a0cf89934d580d5a618923b98ff8b4ee737b2"
-source_commit_timestamp: "2026-11-02T00:40:38-05:00"
+source_commit: "95dd20a1d45901033891f11b5a598581ca884e63"
+source_commit_timestamp: "2026-11-02T02:34:21-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite confidence_calibration_state"
   - "table confidence_calibration_state"
-schema_head: 233
+schema_head: 234
 table_name: "confidence_calibration_state"
 table_role: "derived"
 functionality_status: "active"
 domain_family: "operations"
-introduced_in: "233_teacher_lessons.sql"
+introduced_in: "234_teacher_lessons.sql"
 generated: true
 source_paths:
   - "src/learnloop/db/table_roles.py"
-  - "migrations/233_teacher_lessons.sql"
+  - "migrations/234_teacher_lessons.sql"
   - "src/learnloop/adaptive_difficulty/column_classes.py"
   - "src/learnloop/adaptive_difficulty/protected_tables.py"
   - "src/learnloop/learner/lesson_weight.py"
@@ -45,8 +45,8 @@ It belongs to the **operations** navigation family. The family context lives in 
 
 - **Role:** `derived` — Clearable projection reconstructed by exactly one registered replayer.
 - **Functionality status:** `active`.
-- **Introduced by:** `migrations/233_teacher_lessons.sql`.
-- **Schema touched by:** `233_teacher_lessons.sql`.
+- **Introduced by:** `migrations/234_teacher_lessons.sql`.
+- **Schema touched by:** `234_teacher_lessons.sql`.
 - **Rebuild owner:** `lesson_weight`
 
 For the distinction between SQLite state and human-authored vault files, see [[State and Persistence]]. For whole-vault creation and opening behavior, see [[Vault Lifecycle]]. ^table-lifecycle

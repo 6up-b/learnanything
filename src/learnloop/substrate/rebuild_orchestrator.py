@@ -205,7 +205,7 @@ DERIVED_STATE_REPLAYERS: tuple[DerivedStateReplayer, ...] = (
     # order (deterministic: no random step, fitted_at from the inputs). It
     # reads receipts only, never learner state, and changes no evidence.
     DerivedStateReplayer("retrieval_fusion_posteriors", frozenset({"retrieval_fusion_posteriors"})),
-    # Teacher TE1 (migration 233; spec_teacher_v1 §12.1, §12.2, §18.1): the
+    # Teacher TE1 (migration 234; spec_teacher_v1 §12.1, §12.2, §18.1): the
     # learned lesson-check weight, the forecast pool and the tap/hedge
     # recalibration, recomputed in order from the lesson receipts, the
     # forecast receipts and the attempt ledger (zero model calls). Mastery

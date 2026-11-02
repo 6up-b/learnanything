@@ -10,9 +10,9 @@ area: "TypeScript/screens/practice"
 source_path: "apps/learnloop-tauri/src/screens/practice/HintPanel.tsx"
 source_paths:
   - "apps/learnloop-tauri/src/screens/practice/HintPanel.tsx"
-source_commit: "4066ab56bccaee0859f87dc6db5d2de2853a8252"
-source_commit_timestamp: "2026-10-25T20:20:20-04:00"
-source_worktree_state: "staged-or-mixed"
+source_commit: "afb17672c627b4f4422c149ac63dd2addef98a9b"
+source_commit_timestamp: "2026-11-01T20:23:43-05:00"
+source_worktree_state: "clean"
 activation_kind: "entry-reachable build graph"
 activation_evidence: "A static TypeScript import path reaches this file from the Vite entry src/main.tsx."
 generated: true
@@ -47,9 +47,9 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Area | [[Reference/Desktop/TypeScript/screens/practice/_area|TypeScript/screens/practice]] |
 | Refactor status | `ACTIVE` |
 | Activation kind | `entry-reachable build graph` |
-| Worktree state | `staged-or-mixed` |
-| Source commit | `4066ab56bccaee0859f87dc6db5d2de2853a8252` |
-| Commit timestamp | `2026-10-25T20:20:20-04:00` |
+| Worktree state | `clean` |
+| Source commit | `afb17672c627b4f4422c149ac63dd2addef98a9b` |
+| Commit timestamp | `2026-11-01T20:23:43-05:00` |
 
 ## Activation and status evidence
 

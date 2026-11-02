@@ -3,13 +3,13 @@ title: "hypothesis_recurrence_state"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "446a0cf89934d580d5a618923b98ff8b4ee737b2"
-source_commit_timestamp: "2026-11-02T00:40:38-05:00"
+source_commit: "95dd20a1d45901033891f11b5a598581ca884e63"
+source_commit_timestamp: "2026-11-02T02:34:21-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite hypothesis_recurrence_state"
   - "table hypothesis_recurrence_state"
-schema_head: 233
+schema_head: 234
 table_name: "hypothesis_recurrence_state"
 table_role: "derived"
 functionality_status: "active"

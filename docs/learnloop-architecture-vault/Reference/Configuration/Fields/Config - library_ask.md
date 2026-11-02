@@ -3,8 +3,8 @@ title: "Config - library_ask"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "446a0cf89934d580d5a618923b98ff8b4ee737b2"
-source_commit_timestamp: "2026-11-02T00:40:38-05:00"
+source_commit: "95dd20a1d45901033891f11b5a598581ca884e63"
+source_commit_timestamp: "2026-11-02T02:34:21-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "learnloop.toml library_ask"
@@ -22,6 +22,7 @@ source_paths:
   - "src/learnloop/source_retrieval/library_ask.py"
   - "tests/codex_cli_fakes.py"
   - "tests/local_embeddings_fakes.py"
+  - "tests/notes_fixtures.py"
   - "tests/pf_fakes.py"
   - "tests/practice_index_fakes.py"
   - "tests/router_model_fakes.py"
@@ -31,7 +32,6 @@ source_paths:
   - "tests/test_ad2_model.py"
   - "tests/test_ai_config.py"
   - "tests/test_approach_maps.py"
-  - "tests/test_capability_residual.py"
 tags:
   - "learnloop/configuration/fields"
   - "learnloop/configuration/section/library-ask"
@@ -52,10 +52,10 @@ The main configuration contract, precedence rules, and safe-edit workflow live i
 
 | Dotted path | Effective value | Shape | Origin | Function | Runtime/refactor status | Consumer/source anchors |
 |---|---|---|---|---|---|---|
-| `library_ask.enabled` | `true` | boolean | modeled default or validator seed | Turns library ask behavior on or off within reader workbench RW4a: ask your library (Shift+Enter in the library search, Ctrl+Shift+F or a selection's where else / where is this used / what do I need first): verbatim passages from the sources service's find_sources under the Reader caller's derived policy, grouped by source and role, each with one organizer line (one listwise call, route library_organizer) that must cite its own passage: the kill switch, the concept-graph expansion's switch, the personalized chip's default and the organizer's daily metered cap; retrieval is context and the lines are display (no successor). | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:2629`; `src/learnloop/ai/plan_fallback.py:137`; `src/learnloop/source_retrieval/library_ask.py:172` |
-| `library_ask.expand_graph` | `true` | boolean | modeled default or validator seed | Turns expand graph behavior on or off within reader workbench RW4a: ask your library (Shift+Enter in the library search, Ctrl+Shift+F or a selection's where else / where is this used / what do I need first): verbatim passages from the sources service's find_sources under the Reader caller's derived policy, grouped by source and role, each with one organizer line (one listwise call, route library_organizer) that must cite its own passage: the kill switch, the concept-graph expansion's switch, the personalized chip's default and the organizer's daily metered cap; retrieval is context and the lines are display (no successor). | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:2630`; `src/learnloop/ai/plan_fallback.py:137`; `src/learnloop/source_retrieval/library_ask.py:622` |
-| `library_ask.personalized_default` | `true` | boolean | modeled default or validator seed | Turns personalized default behavior on or off within reader workbench RW4a: ask your library (Shift+Enter in the library search, Ctrl+Shift+F or a selection's where else / where is this used / what do I need first): verbatim passages from the sources service's find_sources under the Reader caller's derived policy, grouped by source and role, each with one organizer line (one listwise call, route library_organizer) that must cite its own passage: the kill switch, the concept-graph expansion's switch, the personalized chip's default and the organizer's daily metered cap; retrieval is context and the lines are display (no successor). | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:2631`; `src/learnloop/ai/plan_fallback.py:137`; `src/learnloop/source_retrieval/library_ask.py:593` |
-| `library_ask.max_daily_cost_usd` | `1.0` | number | modeled default or validator seed | Caps daily cost usd allowed by reader workbench RW4a: ask your library (Shift+Enter in the library search, Ctrl+Shift+F or a selection's where else / where is this used / what do I need first): verbatim passages from the sources service's find_sources under the Reader caller's derived policy, grouped by source and role, each with one organizer line (one listwise call, route library_organizer) that must cite its own passage: the kill switch, the concept-graph expansion's switch, the personalized chip's default and the organizer's daily metered cap; retrieval is context and the lines are display (no successor). | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:2632`; `src/learnloop/ai/plan_fallback.py:137`; `src/learnloop/source_retrieval/library_ask.py:757` |
+| `library_ask.enabled` | `true` | boolean | modeled default or validator seed | Turns library ask behavior on or off within reader workbench RW4a: ask your library (Shift+Enter in the library search, Ctrl+Shift+F or a selection's where else / where is this used / what do I need first): verbatim passages from the sources service's find_sources under the Reader caller's derived policy, grouped by source and role, each with one organizer line (one listwise call, route library_organizer) that must cite its own passage: the kill switch, the concept-graph expansion's switch, the personalized chip's default and the organizer's daily metered cap; retrieval is context and the lines are display (no successor). | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:2629`; `src/learnloop/ai/plan_fallback.py:138`; `src/learnloop/source_retrieval/library_ask.py:172` |
+| `library_ask.expand_graph` | `true` | boolean | modeled default or validator seed | Turns expand graph behavior on or off within reader workbench RW4a: ask your library (Shift+Enter in the library search, Ctrl+Shift+F or a selection's where else / where is this used / what do I need first): verbatim passages from the sources service's find_sources under the Reader caller's derived policy, grouped by source and role, each with one organizer line (one listwise call, route library_organizer) that must cite its own passage: the kill switch, the concept-graph expansion's switch, the personalized chip's default and the organizer's daily metered cap; retrieval is context and the lines are display (no successor). | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:2630`; `src/learnloop/ai/plan_fallback.py:138`; `src/learnloop/source_retrieval/library_ask.py:622` |
+| `library_ask.personalized_default` | `true` | boolean | modeled default or validator seed | Turns personalized default behavior on or off within reader workbench RW4a: ask your library (Shift+Enter in the library search, Ctrl+Shift+F or a selection's where else / where is this used / what do I need first): verbatim passages from the sources service's find_sources under the Reader caller's derived policy, grouped by source and role, each with one organizer line (one listwise call, route library_organizer) that must cite its own passage: the kill switch, the concept-graph expansion's switch, the personalized chip's default and the organizer's daily metered cap; retrieval is context and the lines are display (no successor). | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:2631`; `src/learnloop/ai/plan_fallback.py:138`; `src/learnloop/source_retrieval/library_ask.py:593` |
+| `library_ask.max_daily_cost_usd` | `1.0` | number | modeled default or validator seed | Caps daily cost usd allowed by reader workbench RW4a: ask your library (Shift+Enter in the library search, Ctrl+Shift+F or a selection's where else / where is this used / what do I need first): verbatim passages from the sources service's find_sources under the Reader caller's derived policy, grouped by source and role, each with one organizer line (one listwise call, route library_organizer) that must cite its own passage: the kill switch, the concept-graph expansion's switch, the personalized chip's default and the organizer's daily metered cap; retrieval is context and the lines are display (no successor). | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:2632`; `src/learnloop/ai/plan_fallback.py:138`; `src/learnloop/source_retrieval/library_ask.py:757` |
 
 > [!warning] Omitted does not mean frozen in the file
 > Most values are intentionally absent from `learnloop.toml`. Their reproducibility is protected by the defaults fingerprint keyed to `algorithms.algorithm_version`, not by dumping every default into each vault.
@@ -66,6 +66,7 @@ Every row cites the exact Pydantic field declaration (or typed dynamic-key conta
 
 - `tests/codex_cli_fakes.py`
 - `tests/local_embeddings_fakes.py`
+- `tests/notes_fixtures.py`
 - `tests/pf_fakes.py`
 - `tests/practice_index_fakes.py`
 - `tests/router_model_fakes.py`
@@ -75,7 +76,6 @@ Every row cites the exact Pydantic field declaration (or typed dynamic-key conta
 - `tests/test_ad2_model.py`
 - `tests/test_ai_config.py`
 - `tests/test_approach_maps.py`
-- `tests/test_capability_residual.py`
 
 ## Extension and modification guidance
 

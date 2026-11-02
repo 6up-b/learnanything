@@ -176,8 +176,10 @@ def test_settings_payload_discloses_each_judgment_route(tmp_path, monkeypatch, c
     # Reader RW5d P2b: the rich author receives what the figure author did plus the brief, never learner data.
     assert "never material held out for an exam" in judges["figure_rich_author"]["disclosure"]
     assert "allow it once" in judges["figure_rich_author"]["disclosure"]
-    # Curriculum C2: the note link judge reads the learner's notes, on the ChatGPT plan only.
-    assert "Only on the ChatGPT plan: never OpenRouter" in judges["note_link_judge"]["disclosure"]
+    # Curriculum C2 (C2b: the vault's own notes, ordinary quiet-route rules, never exam material).
+    assert "never asks" in judges["note_link_judge"]["disclosure"]
+    assert "beside protected exam material is never sent" in judges["note_link_judge"]["disclosure"]
+    assert "Only on the ChatGPT plan" not in judges["note_link_judge"]["disclosure"]
     assert "never evidence" in judges["note_link_judge"]["disclosure"]
     # Reader RW6b part 2: the narrative sends the typed summary; the learner-blindness relax adds the
     # learner's own inquiry words while digest.narrative_quotes_inquiry is on, and says so.

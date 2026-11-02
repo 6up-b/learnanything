@@ -88,15 +88,21 @@ def test_past_papers_are_read_per_subject_never_vault_wide(tmp_path):
     assert DL.past_paper_learning_objects(vault, repository, ()) == []
 
 
-def test_an_ambiguous_deliverable_reads_no_past_papers(tmp_path):
-    """Two subjects and nothing saying which: no paper is presented as this course's (v1's prompt)."""
+def test_an_ambiguous_deliverable_reads_the_past_papers_grouped_by_subject(tmp_path):
+    """Two subjects and nothing saying which (C2b, past papers option A, superseding C3's "no
+    paper"): every subject's ids go grouped by subject name, with the instruction to use only the
+    deliverable's own subject's group (v3); never a paper's text."""
 
     paths, repository = _with_physics(tmp_path / "vault")
     goal_id = _deliverable(paths, repository, "everything on my midterm")
     vault = load_vault(paths.root)
     assert DL.deliverable_subjects(vault, repository, goal_id, _scope_rows(repository, goal_id)) == frozenset()
     prompt = _prompt(paths, repository, goal_id)
-    assert prompt.version == DL.SCOPE_PROMPT_VERSION and "past_papers_test" not in prompt_context(prompt.text)
+    context = prompt_context(prompt.text)
+    assert prompt.version == DL.SCOPE_PAST_PAPERS_GROUPED_PROMPT_VERSION and "past_papers_test" not in context
+    groups = {group["subject"]: group["topics"] for group in context["past_papers_by_subject"]}
+    assert list(PAST_PAPER_LOS) in groups.values()
+    assert all("lo_force" not in topics for subject, topics in groups.items() if topics == list(PAST_PAPER_LOS))
     assert PHYS_SENTINEL not in prompt.text
 
 
@@ -385,10 +391,12 @@ def test_a_vault_without_a_syllabus_keeps_c0b_s_view(tmp_path):
     assert "syllabi" not in DL.scope_view(load_vault(paths.root), repository, goal_id)
 
 
-def test_a_second_active_subject_without_topics_leaves_an_unresolved_deliverable_without_past_papers(tmp_path):
+def test_a_second_active_subject_without_topics_sends_linear_algebras_papers_as_its_own_group(tmp_path):
     """Orchestrator scoped verify remainder of F1: the last fallback is the vault's only *active
     subject*, not the only subject its active topics happen to name. Physics is active but has no
-    topics yet, so an unresolved deliverable (possibly a physics one) gets no linear-algebra papers."""
+    topics yet, so the deliverable's subject is ambiguous: C2b's option A sends linear algebra's
+    papers as linear algebra's group (never as this course's flat list), to be used only if the
+    deliverable is linear algebra's; physics has no group."""
 
     paths, repository = build_exam_scope_vault(tmp_path / "vault")
     add_subject(paths.root, "physics", "Physics")
@@ -398,7 +406,9 @@ def test_a_second_active_subject_without_topics_leaves_an_unresolved_deliverable
     assert not any("physics" in (lo.subjects or ()) for lo in vault.learning_objects.values())
     assert DL.deliverable_subjects(vault, repository, goal_id, _scope_rows(repository, goal_id)) == frozenset()
     prompt = _prompt(paths, repository, goal_id)
-    assert prompt.version == DL.SCOPE_PROMPT_VERSION and "past_papers_test" not in prompt_context(prompt.text)
+    context = prompt_context(prompt.text)
+    assert prompt.version == DL.SCOPE_PAST_PAPERS_GROUPED_PROMPT_VERSION and "past_papers_test" not in context
+    assert [group["topics"] for group in context["past_papers_by_subject"]] == [list(PAST_PAPER_LOS)]
     fake = DeliverableFake()
     assert DL.resolve(vault, repository, goal_id, client=fake).status == "ready"
     assert "past_papers_test" not in fake.contexts[0]
