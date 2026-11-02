@@ -3,13 +3,13 @@ title: "source_annotation_anchor_segments"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "f2aa9b0347839074749330bcf75cca57de51476c"
-source_commit_timestamp: "2026-11-02T01:33:10-05:00"
+source_commit: "26c97cbcb92a0912ded996ec5763b5a18fab939e"
+source_commit_timestamp: "2026-11-01T23:44:34-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite source_annotation_anchor_segments"
   - "table source_annotation_anchor_segments"
-schema_head: 233
+schema_head: 232
 table_name: "source_annotation_anchor_segments"
 table_role: "raw_ledger"
 functionality_status: "active"
@@ -20,7 +20,6 @@ source_paths:
   - "src/learnloop/db/table_roles.py"
   - "migrations/090_source_annotations.sql"
   - "src/learnloop/db/repositories.py"
-  - "src/learnloop/source_retrieval/vault_notes.py"
   - "src/learnloop/reader/annotations.py"
   - "src/learnloop/reader/reader_capture.py"
   - "src/learnloop/reader/reader_intent.py"
@@ -94,7 +93,6 @@ Indexes and uniqueness:
 ### Direct SQL readers
 
 - `src/learnloop/db/repositories.py`
-- `src/learnloop/source_retrieval/vault_notes.py`
 
 ### Direct SQL writers
 

@@ -1441,6 +1441,7 @@ sidecar_passthrough!(notes_passages, "notes.passages");
 sidecar_passthrough!(notes_search, "notes.search");
 sidecar_passthrough!(notes_link, "notes.link");
 sidecar_passthrough!(notes_decide, "notes.decide");
+sidecar_passthrough!(notes_hidden, "notes.hidden");
 // Curriculum C5: the opt-in for your linked notes to steer suggestions (Settings; desktop only).
 sidecar_passthrough!(notes_set_gaps, "notes.set_gaps");
 // Reader CA6 (side by side: one section of the other book for the second pane): desktop only.
@@ -1455,6 +1456,10 @@ sidecar_passthrough!(figure_rich_cancel, "figure.rich_cancel");
 // Reader RW5d P2b (Codex review F9): try a rich build again that ended with no row: desktop only.
 sidecar_passthrough!(figure_rich_retry, "figure.rich_retry");
 sidecar_passthrough!(figure_manim_opt_in, "figure.manim_opt_in");
+// Reader RW5d P3 (figures as a help kind: a check on your own's take step, and
+// opening a stored figure on an attempt host): desktop only.
+sidecar_passthrough!(figure_take_step, "figure.take_step");
+sidecar_passthrough!(figure_open, "figure.open");
 sidecar_passthrough!(reader_figure_revise, "reader.figure_revise");
 sidecar_passthrough!(reader_figure_job, "reader.figure_job");
 sidecar_passthrough!(reader_figure_job_cancel, "reader.figure_job_cancel");

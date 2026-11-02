@@ -10,8 +10,8 @@ area: "TypeScript/screens/reader"
 source_path: "apps/learnloop-tauri/src/screens/reader/NotesRail.tsx"
 source_paths:
   - "apps/learnloop-tauri/src/screens/reader/NotesRail.tsx"
-source_commit: "9ed381bc3787439c88ffe3ec08b319b51049fa02"
-source_commit_timestamp: "2026-11-01T03:48:43-05:00"
+source_commit: "2bac2d18efb2dbf7ca9e3f0474532abf324ca58a"
+source_commit_timestamp: "2026-11-01T19:16:35-05:00"
 source_worktree_state: "clean"
 activation_kind: "entry-reachable build graph"
 activation_evidence: "A static TypeScript import path reaches this file from the Vite entry src/main.tsx."
@@ -42,14 +42,14 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/screens/reader/NotesRail.tsx](../../../../../../../apps/learnloop-tauri/src/screens/reader/NotesRail.tsx) |
-| Source lines | 692 |
+| Source lines | 696 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/screens/reader/_area|TypeScript/screens/reader]] |
 | Refactor status | `ACTIVE` |
 | Activation kind | `entry-reachable build graph` |
 | Worktree state | `clean` |
-| Source commit | `9ed381bc3787439c88ffe3ec08b319b51049fa02` |
-| Commit timestamp | `2026-11-01T03:48:43-05:00` |
+| Source commit | `2bac2d18efb2dbf7ca9e3f0474532abf324ca58a` |
+| Commit timestamp | `2026-11-01T19:16:35-05:00` |
 
 ## Activation and status evidence
 
@@ -63,17 +63,17 @@ The system-level behavior stays authoritative in the linked architecture, concep
 - `export const PALETTE: Array<` — const, line 19
 - `export interface ExerciseImportState` — interface, line 46
 - `export interface NotesRailProps` — interface, line 60
-- `export function NotesRail(props: NotesRailProps)` — function, line 149
+- `export function NotesRail(props: NotesRailProps)` — function, line 152
 
 ## Internal implementation anchors
 
-- `const MODEL_GROUPS: ReadonlySet<string> = new Set(["Request · answered in background", "Remember later"])` — const, line 147
-- `const spanId = selection?.spanId ?? activeSpan` — const, line 370
-- `const requestError = parseRequestError(request.errorJson)` — const, line 479
-- `const result = sourceObjectId ? synthesizedObjects.get(sourceObjectId) : undefined` — const, line 480
-- `const expanded = expandedRequests.has(request.id)` — const, line 481
-- `const proposalOpen = proposalId !== null && openProposalIds.has(proposalId)` — const, line 482
-- `const next = new Set(ids)` — const, line 501
+- `const MODEL_GROUPS: ReadonlySet<string> = new Set(["Request · answered in background", "Remember later"])` — const, line 150
+- `const spanId = selection?.spanId ?? activeSpan` — const, line 374
+- `const requestError = parseRequestError(request.errorJson)` — const, line 483
+- `const result = sourceObjectId ? synthesizedObjects.get(sourceObjectId) : undefined` — const, line 484
+- `const expanded = expandedRequests.has(request.id)` — const, line 485
+- `const proposalOpen = proposalId !== null && openProposalIds.has(proposalId)` — const, line 486
+- `const next = new Set(ids)` — const, line 505
 
 ## Who imports or calls it
 
@@ -110,6 +110,7 @@ The workflow note owns end-to-end sequencing; this module note describes only it
 ## Tests that define behavior
 
 - [apps/learnloop-tauri/src/screens/reader/splitRails.test.tsx](../../../../../../../apps/learnloop-tauri/src/screens/reader/splitRails.test.tsx) — vitest test: imports and executes this module under jsdom (`npm test`).
+- [apps/learnloop-tauri/src/screens/reader/scopeFromPassage.test.tsx](../../../../../../../apps/learnloop-tauri/src/screens/reader/scopeFromPassage.test.tsx) — vitest test: imports and executes this module under jsdom (`npm test`).
 - [tests/test_reader_intentions.py](../../../../../../../tests/test_reader_intentions.py) — cross-boundary name contract: references uniquely owned exported name `NotesRail`; it does **not** directly execute this source module.
 - [tests/test_sidecar_reader.py](../../../../../../../tests/test_sidecar_reader.py) — related cross-boundary behavior contract; it does **not** directly execute this source module.
 - [tests/test_sidecar_reader_pdf_view.py](../../../../../../../tests/test_sidecar_reader_pdf_view.py) — related cross-boundary behavior contract; it does **not** directly execute this source module.

@@ -161,11 +161,15 @@ from learnloop.figures import verify as V
 from learnloop.ids import new_ulid
 
 #: The origins a request may name. RW5d P1 adds ``show_me`` (the Reader's
-#: intent box with words, or its Ask rail); ``ask`` (CA2's panel), ``teacher``
+#: intent box with words, or its Ask rail); RW5d P3 adds ``ask`` (CA2's panel
+#: on practice, feedback and the workbench: an attempt host, P3); ``teacher``
 #: (TE1) and ``prefetch`` (P5, in-process only) are reserved by migration 224
 #: and refused from every request until their phases land.
-ORIGINS = ("selection", "library", "tutor", "show_me")
-RESERVED_ORIGINS = ("ask", "teacher", "prefetch")
+ORIGINS = ("selection", "library", "tutor", "show_me", "ask")
+RESERVED_ORIGINS = ("teacher", "prefetch")
+#: RW5d P3: the host references that name an attempt (an attempt host's
+#: figure has no reading position, so no home: spec §7.2, §13.1).
+ATTEMPT_HOST_REFS = ("item_id", "submission_id", "workbench_session_id", "attempt_id")
 #: RW5b: the origins an offer builds with (``figures.offers_enabled``).
 OFFER_ORIGINS = ("library", "tutor")
 #: RW5d: who wrote a goal (set on the server, never taken from a client).
@@ -229,7 +233,9 @@ class FigureRefused(Exception):
 
 @dataclass
 class FigureRequest:
-    extraction_id: str
+    #: The home's extraction (the anchor's, else the reading position's);
+    #: None only for an attempt host's figure with no reading position (P3).
+    extraction_id: str | None
     span_ids: list[str]
     #: ``{span_id, bbox}``: a learner-drawn box over a figure block.
     region: dict[str, Any] | None = None
@@ -298,6 +304,25 @@ class Grounding:
     manifest: dict[str, Any] = field(default_factory=dict)
 
 
+def attempt_hosted(request: "FigureRequest") -> bool:
+    """RW5d P3: a request made on an attempt host (practice, feedback or the
+    workbench: its verified host references name an item or attempt)."""
+
+    return any((request.host_ref or {}).get(name) for name in ATTEMPT_HOST_REFS)
+
+
+def prediction_home(row: Mapping[str, Any]) -> str | None:
+    """The extraction a figure's prediction is recorded under: its home, or
+    (RW5d P3, an attempt host's figure with no home) the first book it was
+    grounded in; None for a homeless illustration (its predictions are kept
+    with no extraction: Codex review F9)."""
+
+    if row.get("extraction_id"):
+        return str(row["extraction_id"])
+    keys = [key for key in row.get("input_span_keys") or () if len(key) == 2 and key[0]]
+    return str(keys[0][0]) if keys else None
+
+
 def anchored(request: "FigureRequest") -> bool:
     """A request with a passage (a selection or a region)."""
 
@@ -355,6 +380,16 @@ def show_me_build_key(vault: Any) -> tuple[Any, ...]:
 
 
 def key_for(request: "FigureRequest"):
+    if attempt_hosted(request):
+        # RW5d P3 (Codex review F5): a build on an attempt host is admitted
+        # only while figures in attempts stay on (switched off since: it asks
+        # nothing more, and its delivery shows nothing).
+        base = _key_for(request)
+        return lambda vault: (*base(vault), help_enabled(vault))
+    return _key_for(request)
+
+
+def _key_for(request: "FigureRequest"):
     if show_me_input(request):
         if offered(request):
             return lambda vault: (*offer_build_key(vault), show_me_enabled(vault))
@@ -394,6 +429,14 @@ def show_me_enabled(vault: Any) -> bool:
     """RW5d's "show me" (``figures.show_me_enabled``; :func:`learnloop.figure_admission.show_me_enabled`)."""
 
     return admission_show_me_enabled(vault)
+
+
+def help_enabled(vault: Any) -> bool:
+    """RW5d P3: ``figures.help_kind_enabled`` (:func:`learnloop.figure_admission.help_kind_enabled`)."""
+
+    from learnloop.figure_admission import help_kind_enabled
+
+    return help_kind_enabled(vault)
 
 
 def sketch_switch(vault: Any) -> bool:
@@ -485,7 +528,7 @@ def row_withheld(vault: Any, repository: Repository, row: Mapping[str, Any]) -> 
     message = None
     if row.get("extraction_id"):
         message = withheld_message(vault, repository, row["extraction_id"], _figure_spans(row))
-    elif not row.get("input_span_keys"):
+    elif not row.get("input_span_keys") and (row.get("grounding") or "anchor") != "none":
         return "That figure has no source to check, so it isn't shown."
     message = message or keys_withheld(vault, repository, row.get("input_span_keys") or ())
     if message is None and row.get("id"):
@@ -1044,6 +1087,18 @@ def _prediction_view(found: Mapping[str, Any] | None) -> dict[str, Any] | None:
             "explanation_text": found.get("explanation_text")}
 
 
+def _anchor_span(row: Mapping[str, Any], asked: Mapping[str, Any] | None,
+                 home: Mapping[str, Any] | None) -> str | None:
+    """Where a figure shows: under the selection's last block; a region's
+    figure (no selected text) under the region's block (Codex review F2);
+    RW5d: a figure with no passage under the passage the learner was reading
+    (``home``, else its own request's reading position)."""
+
+    region = row.get("region") or {}
+    home = home or (asked or {}).get("reading_at") or {}
+    return (list(row.get("span_ids") or ()) or [region.get("span_id") or home.get("span_id")])[-1]
+
+
 def figure_view(vault: Any, repository: Repository, row: Mapping[str, Any], *, versions: int = 1,
                 home: Mapping[str, Any] | None = None) -> dict[str, Any]:
     """A figure as the Reader shows it. The spec goes out as JSON text (its
@@ -1061,15 +1116,10 @@ def figure_view(vault: Any, repository: Repository, row: Mapping[str, Any], *, v
     # After the re-verification (it reads the stored program): the free-text
     # label rule as presented (spec §9b.4, Codex review F3, Nov 1b).
     row = worded_row(row)
-    region = row.get("region") or {}
     asked = _figure_request(repository, row)
-    home = home or (asked or {}).get("reading_at") or {}
     view: dict[str, Any] = {
         "figure_id": row["id"], "extraction_id": row["extraction_id"], "span_ids": list(row.get("span_ids") or ()),
-        # Under the selection's last block; a region's figure (no selected
-        # text) under the region's block (Codex review F2); RW5d: a figure
-        # with no passage under the passage the learner was reading.
-        "anchor_span_id": (list(row.get("span_ids") or ()) or [region.get("span_id") or home.get("span_id")])[-1],
+        "anchor_span_id": _anchor_span(row, asked, home),
         "region": row.get("region"),
         "origin": row["origin"], "verification": row["verification"], "kind": row.get("kind"),
         "label": _label(row), "reason": (row.get("verification_report") or {}).get("reason") or None,
@@ -1385,11 +1435,14 @@ def _validated_request(vault: Any, repository: Repository, request: FigureReques
                                                     "(figures.show_me_enabled).")
         # Who wrote it is the server's: the learner for the box and the rail,
         # the tutor only for its stored answer's goal (G-SM5).
-        expected = {"selection": "learner", "show_me": "learner", "tutor": "tutor"}.get(request.origin)
+        expected = {"selection": "learner", "show_me": "learner", "tutor": "tutor", "ask": "learner"}.get(request.origin)
         if expected is None or goal_author != expected:
             raise FigureRefused("validation_error", "That figure goal can't come from here.")
-    elif request.origin == "show_me":
+    elif request.origin in ("show_me", "ask"):
         raise FigureRefused("validation_error", "Say what you want to see first.")
+    attempt_host = attempt_hosted(request)
+    if request.origin == "ask" and not attempt_host:
+        raise FigureRefused("validation_error", "A figure from the Ask panel needs its practice item.")
     spans = [str(span) for span in dict.fromkeys(request.span_ids) if span][:40]
     reading_at = None
     if request.reading_at and request.reading_at.get("extraction_id") and request.reading_at.get("span_id"):
@@ -1398,9 +1451,10 @@ def _validated_request(vault: Any, repository: Repository, request: FigureReques
     if not spans and not request.region:
         if goal is None:
             raise FigureRefused("validation_error", "Select a passage, an equation or a figure first.")
-        if reading_at is None:
-            # P1's hosts are the Reader's: a figure with no passage lands under
-            # the passage the learner was reading (spec §7.2, "Home").
+        if reading_at is None and not attempt_host:
+            # A figure with no passage lands under the passage the learner was
+            # reading (spec §7.2, "Home"); RW5d P3: an attempt host's figure
+            # with no reading position has no home (it lands in the panel).
             raise FigureRefused("validation_error", "Open a passage first, so the figure has a place to land.")
     region = None
     if request.region is not None:
@@ -1415,7 +1469,8 @@ def _validated_request(vault: Any, repository: Repository, request: FigureReques
         if not revisions_enabled(vault):
             raise FigureRefused("revisions_disabled", "Asking for a better version is switched off (figures.revisions_enabled).")
         note = " ".join(str(request.revision_note or "").split())[:NOTE_CHARS] or None
-    extraction_id = str(request.extraction_id) if (spans or region) else str((reading_at or {}).get("extraction_id"))
+    extraction_id = str(request.extraction_id) if (spans or region) else (
+        str(reading_at["extraction_id"]) if reading_at is not None else None)
     keys = None if request.grounding_keys is None else [
         (str(key[0]), str(key[1])) for key in request.grounding_keys if len(key) == 2 and key[0] and key[1]]
     return FigureRequest(extraction_id=extraction_id, span_ids=spans, region=region,
@@ -1436,7 +1491,9 @@ def check_request(vault: Any, repository: Repository, request: FigureRequest) ->
         # RW5d: with no passage, the home (the passage the learner was
         # reading): a figure never lands on held-out material.
         spans = [str((request.reading_at or {}).get("span_id"))]
-    message = withheld_message(vault, repository, request.extraction_id, spans)
+    # RW5d P3: an attempt host's figure with no reading position has no home
+    # to check (its retrieved passages are checked as they are kept).
+    message = withheld_message(vault, repository, request.extraction_id, spans) if request.extraction_id else None
     if message is None and request.grounding_keys:
         message = keys_withheld(vault, repository, request.grounding_keys)
     if message is not None:
@@ -2232,6 +2289,11 @@ class _RichSpawn:
             "goal_text": request.goal_text, "grounding": self.grounding.mode, "origin": request.origin,
             "home": None if anchored(request) else dict(request.reading_at or {}),
         }
+        if attempt_hosted(request):
+            # RW5d P3 ruling R1: never reached (an attempt host's build has no
+            # rich spawner); if it were, the worker refuses the job before any
+            # request (``rich.attempt_hosted_job``).
+            base["attempt_hosted"] = True
         payload = {"request_id": request_row_id, "fast_figure_id": fast_figure_id, "input_hash": self.input_hash,
                    "tier": self.brief.tier, "brief": self.brief.as_dict(), "author_context": author_context,
                    "span_texts": dict(self.context.span_texts), "base": base,
@@ -2509,10 +2571,11 @@ def _root(rows_by_id: Mapping[str, Mapping[str, Any]], row: Mapping[str, Any]) -
     return str(current["id"])
 
 
-def list_figures(vault: Any, repository: Repository, extraction_id: str) -> list[dict[str, Any]]:
-    """The figures of one source as the Reader shows them: per version chain,
-    the newest shown version (else the newest failed or unsupported one), of
-    the current spec version, and never one whose passage is held out now."""
+def _listed(vault: Any, repository: Repository,
+            extraction_id: str) -> list[tuple[Mapping[str, Any], int, list[dict[str, Any] | None]]]:
+    """The rows :func:`list_figures` presents, with no presentation (RW5d P4a,
+    Codex review F3): per version chain, the pick, the chain's length and its
+    placements in this source. Read-only: nothing is verified or written."""
 
     if not enabled(vault):
         return []
@@ -2530,7 +2593,7 @@ def list_figures(vault: Any, repository: Repository, extraction_id: str) -> list
     chains: dict[str, list[dict[str, Any]]] = {}
     for row in rows:
         chains.setdefault(_root(by_id, row), []).append(row)
-    views = []
+    picks: list[tuple[Mapping[str, Any], int, list[dict[str, Any] | None]]] = []
     for chain in chains.values():
         shown = [row for row in chain if row["verification"] in store.SHOWN]
         # Codex review F5: with the panels off, the newest version that can
@@ -2542,13 +2605,78 @@ def list_figures(vault: Any, repository: Repository, extraction_id: str) -> list
         # RW5d (Codex review F3): a figure with no passage is listed at every
         # paragraph of this source it was asked at (one view per placement),
         # each opening where that request was made.
-        homes = [{"extraction_id": key[0], "span_id": key[1]} for key in figure_homes(repository, pick) or ()
-                 if key[0] == extraction_id] or [None]
+        homes: list[dict[str, Any] | None] = [
+            {"extraction_id": key[0], "span_id": key[1]} for key in figure_homes(repository, pick) or ()
+            if key[0] == extraction_id] or [None]
+        picks.append((pick, len(chain), homes))
+    return picks
+
+
+def list_figures(vault: Any, repository: Repository, extraction_id: str) -> list[dict[str, Any]]:
+    """The figures of one source as the Reader shows them: per version chain,
+    the newest shown version (else the newest failed or unsupported one), of
+    the current spec version, and never one whose passage is held out now."""
+
+    views = []
+    for pick, versions, homes in _listed(vault, repository, extraction_id):
         try:
-            views.extend(figure_view(vault, repository, pick, versions=len(chain), home=home) for home in homes)
+            views.extend(figure_view(vault, repository, pick, versions=versions, home=home) for home in homes)
         except (S.SpecError, K.SketchError):
             continue
     return sorted(views, key=lambda view: view["created_at"])
+
+
+def section_figures(vault: Any, repository: Repository, extraction_id: str,
+                    section_of: Callable[[str], str | None]) -> dict[str, list[dict[str, Any]]]:
+    """RW5d P4a (spec §10.2): the kept figures of one reading by the section
+    their anchor is in, for the correspondents read (figures follow the
+    section). A read of what :func:`list_figures` lists (no copy, no
+    ``source_objects`` row, Q8): only what the Reader would list on that
+    reading now, held-out figures and figures switched off left out, and of
+    those only the shown ones (verified or an illustration; never a failed or
+    unsupported line). Read-only (Codex review F3): the rows are presented as
+    the list presents them except that a sketch built under another engine is
+    not re-verified here (opening it does that, and a figure that fails then
+    is not shown). ``section_of`` maps an anchor span to its section (the
+    caller's protected library: a withheld section maps to none). Each entry
+    is the figure's id, its home (reading and anchor span), its label and kind;
+    one entry per figure and section."""
+
+    out: dict[str, list[dict[str, Any]]] = {}
+    seen: set[tuple[str, str]] = set()
+    picks = sorted(_listed(vault, repository, extraction_id), key=lambda found: str(found[0]["created_at"]))
+    for pick, _versions, homes in picks:
+        # Codex review F3: the list's own presentation, minus the sketch
+        # re-verification (it runs the engine and appends to judgment_ledger):
+        # that happens when the figure is opened, through its own book's
+        # listing. A verdict this process already reached is honoured.
+        row = rich_off_row(vault, sketch_off_row(vault, advanced_off_row(vault, shown_row(pick))))
+        if sketch_row(row) and row.get("verification") in store.SHOWN:
+            from learnloop.figures import sketch_verify as SV
+            from learnloop.figures.sketch_engine import ENGINE_SHA256
+
+            with _RECHECKED_GUARD:
+                cached = _RECHECKED.get((str(row["id"]), ENGINE_SHA256, SV.VERIFIER_REPORT_VERSION))
+            if cached is not None and cached["outcome"] != V.ILLUSTRATIVE:
+                continue
+        row = worded_row(row)
+        if row.get("verification") not in store.SHOWN:
+            continue
+        asked = _figure_request(repository, row)
+        for home in homes:
+            anchor = _anchor_span(row, asked, home)
+            if not anchor:
+                continue
+            section_id = section_of(str(anchor))
+            if section_id is None or (section_id, str(row["id"])) in seen:
+                continue
+            seen.add((section_id, str(row["id"])))
+            out.setdefault(section_id, []).append({
+                "figure_id": row["id"], "extraction_id": row["extraction_id"], "anchor_span_id": anchor,
+                "label": _label(row), "kind": row.get("kind"), "verification": row["verification"],
+                "created_at": row["created_at"],
+            })
+    return out
 
 
 def rich_pending(vault: Any, repository: Repository, extraction_id: str) -> list[dict[str, Any]]:
@@ -2733,15 +2861,22 @@ def shown_figure(vault: Any, repository: Repository, figure_id: str) -> tuple[di
 # ---------------------------------------------------------------------------
 
 def record_prediction(vault: Any, repository: Repository, figure_id: str, index: int, answer: str, *,
-                      clock: Clock | None = None, on_queued: Callable[[str], None] | None = None) -> dict[str, Any]:
+                      clock: Clock | None = None, on_queued: Callable[[str], None] | None = None,
+                      assist_id: str | None = None) -> dict[str, Any]:
     """The learner's prediction, its observed before/after readout and
     whether it matched (code decides). Idempotent per (figure, prediction).
     ``on_queued`` hears the learner-text job a missed one queued (the
-    sidecar wakes its gap worker with it; Codex review F6)."""
+    sidecar wakes its gap worker with it; Codex review F6). ``assist_id``
+    (RW5d P3, Codex review F7): the open attempt's figure row it is made
+    under (the caller derives it), kept on the row for the diagnoser."""
 
     if not predictions_enabled(vault):
         raise FigureRefused("predictions_disabled", "Figure predictions are switched off (figures.predictions_enabled).")
     row, compiled = shown_figure(vault, repository, figure_id)
+    # RW5d P3 (Codex review F9): an attempt host's illustration with nothing
+    # from the learner's books keeps its predictions with no home (NULL),
+    # never an invented one.
+    home = prediction_home(row)
     dropped = set((row.get("verification_report") or {}).get("dropped_predictions") or ())
     count = len(compiled.program.predictions) if isinstance(compiled, K.CompiledSketch) else len(compiled.predictions)
     if not 0 <= int(index) < count or int(index) in dropped:
@@ -2758,11 +2893,12 @@ def record_prediction(vault: Any, repository: Repository, figure_id: str, index:
     if existing is not None:
         return _prediction_view(existing) or {}
     prediction = {
-        "id": PREDICTION_PREFIX + new_ulid(), "figure_id": figure_id, "extraction_id": row["extraction_id"],
+        "id": PREDICTION_PREFIX + new_ulid(), "figure_id": figure_id, "extraction_id": home,
         "prediction_index": int(index), "learner_answer": answer,
         "observed": {"kind": outcome["kind"], "before": outcome["before"], "after": outcome["after"],
                      "answer": outcome["answer"], "change": outcome["change"]},
         "matched": answer == outcome["answer"], "explanation_text": None, "created_at": utc_now_iso(clock),
+        "assist_id": assist_id, "explained_at": None,
     }
     with repository.atomic():
         store.insert_prediction(repository.connection(), prediction)
@@ -2803,7 +2939,7 @@ def record_explanation(vault: Any, repository: Repository, prediction_id: str, t
         raise FigureRefused("not_found", "That prediction is no longer kept.")
     shown_figure(vault, repository, str(found["figure_id"]))
     with repository.atomic():
-        set_now = store.set_explanation(repository.connection(), prediction_id, text)
+        set_now = store.set_explanation(repository.connection(), prediction_id, text, at=utc_now_iso(clock))
     if set_now and not found["matched"]:
         from learnloop.diagnosis.text_gaps.jobs import enqueue_figure_explanation
 
@@ -2862,6 +2998,7 @@ __all__ = [
     "record_prediction",
     "region_enabled",
     "revisions_enabled",
+    "section_figures",
     "shown_figure",
     "withheld_message",
 ]

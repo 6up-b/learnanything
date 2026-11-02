@@ -3,13 +3,13 @@ title: "learner_notes"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "f2aa9b0347839074749330bcf75cca57de51476c"
-source_commit_timestamp: "2026-11-02T01:33:10-05:00"
+source_commit: "26c97cbcb92a0912ded996ec5763b5a18fab939e"
+source_commit_timestamp: "2026-11-01T23:44:34-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite learner_notes"
   - "table learner_notes"
-schema_head: 233
+schema_head: 232
 table_name: "learner_notes"
 table_role: "raw_ledger"
 functionality_status: "active"
@@ -38,7 +38,7 @@ tags:
 
 ## Why it exists
 
-Gives learner note a stable database identity so learner-facing mastery and capability decisions use a reproducible evidence projection. It supplies replay-stable input rather than a disposable cache. Rows bind `vault_ref_id`, `vault_ref_kind`, `content_hash`, making the operational relationship explicit. ^table-purpose
+Gives learner note a stable database identity so learner-facing mastery and capability decisions use a reproducible evidence projection. It supplies replay-stable input rather than a disposable cache. Rows bind `content_hash`, `note_key`, `path`, making the operational relationship explicit. ^table-purpose
 
 It belongs to the **learner state** navigation family. The family context lives in [[Database Catalog#Learner State]]. Its persistence behavior follows [[Table Roles#Raw Ledger]].
 
@@ -47,7 +47,7 @@ It belongs to the **learner state** navigation family. The family context lives 
 - **Role:** `raw_ledger` — Authoritative replay input or mixed authoritative state. The rebuild umbrella preserves it.
 - **Functionality status:** `active`.
 - **Introduced by:** `migrations/229_learner_notes.sql`.
-- **Schema touched by:** `229_learner_notes.sql`, `231_learner_note_source_kind.sql`, `233_learner_notes_vault_origin.sql`.
+- **Schema touched by:** `229_learner_notes.sql`, `231_learner_note_source_kind.sql`.
 - **Rebuild owner:** none; this table is preserved by the rebuild umbrella.
 
 For the distinction between SQLite state and human-authored vault files, see [[State and Persistence]]. For whole-vault creation and opening behavior, see [[Vault Lifecycle]]. ^table-lifecycle
@@ -58,9 +58,9 @@ For the distinction between SQLite state and human-authored vault files, see [[S
 |---|---|---:|---|---|---|
 | `id` | `TEXT` | no | — | PRIMARY KEY | Stored value |
 | `note_key` | `TEXT` | yes | — | — | Stored value |
-| `path` | `TEXT` | no | — | — | Stored value |
+| `path` | `TEXT` | yes | — | — | Stored value |
 | `heading_path` | `TEXT` | yes | `''` | — | Stored value |
-| `line` | `INTEGER` | no | — | — | Stored value |
+| `line` | `INTEGER` | yes | — | — | Stored value |
 | `content_hash` | `TEXT` | yes | — | — | Stored value |
 | `title` | `TEXT` | yes | — | — | Stored value |
 | `heading` | `TEXT` | yes | `''` | — | Stored value |
@@ -69,8 +69,6 @@ For the distinction between SQLite state and human-authored vault files, see [[S
 | `text_md` | `TEXT` | yes | — | — | Stored value |
 | `truncated` | `INTEGER` | yes | `0` | — | Stored value |
 | `created_at` | `TEXT` | yes | — | — | Timestamp (ISO-8601 UTC text) |
-| `vault_ref_kind` | `TEXT` | no | — | — | Stored value |
-| `vault_ref_id` | `TEXT` | no | — | — | Application-validated soft reference |
 
 ## Relationships and access paths
 
@@ -113,9 +111,7 @@ None found by exact static reference scan.
 - `tests/test_architecture.py`
 - `tests/test_learner_note_source_kind_migration.py`
 - `tests/test_learner_notes_migration.py`
-- `tests/test_learner_notes_vault_origin_migration.py`
 - `tests/test_notes_as_learner_text.py`
-- `tests/test_notes_c2b_review5.py`
 - `tests/test_notes_linked.py`
 - `tests/test_notes_never_read.py`
 
@@ -134,24 +130,20 @@ Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when c
 > It captures CHECK constraints and defaults that a column summary can hide. The migration files remain authoritative.
 
 ```sql
-CREATE TABLE "learner_notes" (
+CREATE TABLE learner_notes (
   id TEXT PRIMARY KEY,
   note_key TEXT NOT NULL,
-  path TEXT,
+  path TEXT NOT NULL,
   heading_path TEXT NOT NULL DEFAULT '',
-  line INTEGER CHECK (line IS NULL OR line >= 1),
+  line INTEGER NOT NULL CHECK (line >= 1),
   content_hash TEXT NOT NULL,
   title TEXT NOT NULL,
   heading TEXT NOT NULL DEFAULT '',
   captured_on TEXT,
-  origin TEXT NOT NULL CHECK (origin IN ('tend', 'pocket_notes', 'vault')),
+  origin TEXT NOT NULL CHECK (origin IN ('tend', 'pocket_notes')),
   text_md TEXT NOT NULL,
   truncated INTEGER NOT NULL DEFAULT 0 CHECK (truncated IN (0, 1)),
   created_at TEXT NOT NULL,
-  vault_ref_kind TEXT CHECK (vault_ref_kind IS NULL OR vault_ref_kind IN ('annotation', 'capture')),
-  vault_ref_id TEXT,
-  CHECK (origin <> 'vault' OR (vault_ref_kind IS NOT NULL AND vault_ref_id IS NOT NULL)),
-  CHECK (origin = 'vault' OR (path IS NOT NULL AND line IS NOT NULL)),
   UNIQUE (note_key, content_hash)
 );
 ```

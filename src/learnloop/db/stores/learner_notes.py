@@ -94,23 +94,37 @@ def latest_notes(connection: sqlite3.Connection, note_keys: Iterable[str]) -> di
     return out
 
 
-def _markers(connection: sqlite3.Connection, task: str, note_keys: Iterable[str]) -> dict[str, tuple[int, dict[str, Any]]]:
-    """Each note's newest current-snapshot marker, in append order: (its ``rowid``, the
-    snapshot it names). Markers are appended only inside a write transaction that saw
-    the previous newest one (:func:`current_revisions`), so append order is the order the
-    reads were recorded in."""
+def _read_token(rationale: Any) -> str:
+    """A marker's read token (C2 R6): the monotonic token its read took when it started.
+    A marker written before R6 carries none (``""``), so any later read is newer."""
+
+    try:
+        named = json.loads(rationale or "{}")
+    except (TypeError, ValueError):
+        return ""
+    token = named.get("read_token") if isinstance(named, Mapping) else None
+    return str(token) if token else ""
+
+
+def _markers(connection: sqlite3.Connection, task: str,
+             note_keys: Iterable[str]) -> dict[str, tuple[str, dict[str, Any]]]:
+    """Each note's newest current-snapshot marker, in append order: (its read token, the
+    snapshot it names). A marker is appended only inside a write transaction, and only by
+    a read whose token is newer than the newest marker's (:func:`current_fences`), so
+    append order is token order: the newest marker is the newest read."""
 
     wanted = sorted({str(key) for key in note_keys})
     if not wanted:
         return {}
-    out: dict[str, tuple[int, dict[str, Any]]] = {}
+    out: dict[str, tuple[str, dict[str, Any]]] = {}
     cursor = connection.execute(
-        f"SELECT j.rowid AS marker_rowid, n.* FROM judgment_ledger AS j JOIN learner_notes AS n ON n.id = j.right_id "
+        f"SELECT j.rationale AS marker_rationale, n.* FROM judgment_ledger AS j "
+        f"JOIN learner_notes AS n ON n.id = j.right_id "
         f"WHERE j.task = ? AND j.judge = 'exact_key' AND n.note_key IN ({','.join('?' for _ in wanted)}) "
         f"ORDER BY j.rowid", (task, *wanted))
     for row in _dicts(cursor):
-        revision = int(row.pop("marker_rowid"))
-        out[str(row["note_key"])] = (revision, row)
+        token = _read_token(row.pop("marker_rationale"))
+        out[str(row["note_key"])] = (token, row)
     return out
 
 
@@ -121,18 +135,31 @@ def current_notes(connection: sqlite3.Connection, task: str, note_keys: Iterable
     hand, a refresh) appends a marker; a snapshot stored for a model's proposal never
     does, so a note no such read made current has no entry here."""
 
-    return {key: row for key, (_revision, row) in _markers(connection, task, note_keys).items()}
+    return {key: row for key, (_token, row) in _markers(connection, task, note_keys).items()}
 
 
-def current_revisions(connection: sqlite3.Connection, task: str, note_keys: Iterable[str]) -> dict[str, int]:
-    """Each note's current-snapshot revision (its newest marker's ``rowid``; 0 with none):
-    a read captures it before reading the note, and advances the marker only if it is
-    unchanged inside the write transaction (compare-and-set), so an older read never
-    replaces a marker a newer read advanced."""
+def current_fences(connection: sqlite3.Connection, task: str, note_keys: Iterable[str]) -> dict[str, str]:
+    """Each note's fence (C2 ruling R6): the read token of its newest current-snapshot
+    marker (``""`` with none, or with a marker written before R6). A read publishes only if
+    the token it took when it started is newer than the fence, inside the write
+    transaction; an unchanged read publishes too (a marker naming the same snapshot), so it
+    fences off every older read still in flight."""
 
     keys = sorted({str(key) for key in note_keys})
     found = _markers(connection, task, keys)
-    return {key: (found[key][0] if key in found else 0) for key in keys}
+    return {key: (found[key][0] if key in found else "") for key in keys}
+
+
+def newest_read_token(connection: sqlite3.Connection, task: str) -> str:
+    """The newest read token any current-snapshot marker carries, over every note (``""``
+    with none): the floor a new read's token is minted above (Codex review F2), so a token
+    persisted while the clock ran ahead, before a restart, never fences off later reads.
+    Tokens are ULIDs, so the text order is the token order."""
+
+    row = connection.execute(
+        "SELECT MAX(json_extract(rationale, '$.read_token')) FROM judgment_ledger "
+        "WHERE task = ? AND judge = 'exact_key' AND json_valid(rationale)", (task,)).fetchone()
+    return str(row[0]) if row is not None and row[0] else ""
 
 
 def note_count(connection: sqlite3.Connection) -> int:
@@ -248,7 +275,7 @@ __all__ = [
     "ai_rows_for_state",
     "insert_link",
     "current_notes",
-    "current_revisions",
+    "current_fences",
     "current_states",
     "judged",
     "latest_notes",
@@ -259,6 +286,7 @@ __all__ = [
     "learner_rows_for",
     "link_counts",
     "links",
+    "newest_read_token",
     "note_count",
     "notes_by_id",
     "snapshot",

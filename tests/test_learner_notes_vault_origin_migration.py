@@ -34,15 +34,16 @@ HEAD = Path(__file__).resolve().parents[1] / "fixtures" / "migration_head_233" /
 C2B_ALTERED_TABLES = frozenset({"learner_notes"})
 
 
-def _database_at_231(tmp_path: Path) -> Path:
-    through = tmp_path / "through_231"
+def _database_at_232(tmp_path: Path) -> Path:
+    # RW5d P3's 232 landed first (233 kept its number at C2b's landing).
+    through = tmp_path / "through_232"
     through.mkdir()
     for migration in discover_migrations():
-        if migration.version <= 231:
+        if migration.version <= 232:
             (through / migration.path.name).write_text(migration.path.read_text(encoding="utf-8"), encoding="utf-8")
     database = tmp_path / "state.sqlite"
     apply_migrations(database, migrations_dir=through)
-    assert max(applied_versions(database)) == 231
+    assert max(applied_versions(database)) == 232
     return database
 
 
@@ -76,7 +77,7 @@ def _objects(database: Path, table: str) -> dict[tuple[str, str], str | None]:
 
 
 def _upgrade(tmp_path: Path) -> Path:
-    database = _database_at_231(tmp_path)
+    database = _database_at_232(tmp_path)
     _seed(database)
     notes = _rows(database, "learner_notes")
     links = _rows(database, "learner_note_links")

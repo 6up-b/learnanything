@@ -37,26 +37,67 @@ at S0's checkpoint (D6). Rebuilding the head for a new migration keeps the
 sanitized content: apply the migration to a backup-API copy of this fixture,
 as before.
 
-## Curriculum C2b (migration 233), branch `curriculum/c2b-vault-notes`, 2026-11-01
+## Curriculum C2b (migration 233), landing of `curriculum/c2b-vault-notes`, 2026-11-02
 
-Renamed from `migration_head_231` (`docs/reviews/curriculum-c2b-vault-notes.md`). Built from
-the base's tracked, sanitized `migration_head_231/state.sqlite` (main `6b9cb117ba`): a
-backup-API copy under `fixtures-local/` with only `233_learner_notes_vault_origin.sql`
-applied through `learnloop.db.migrate.apply_migrations` under the scratch-copy allowance
-(`UPGRADE_SCRATCH_COPY`), then `wal_checkpoint(TRUNCATE)` (0, 0, 0), `journal_mode=DELETE`
-(header bytes 1/1), `integrity_check` ok and `foreign_key_check` empty, and copied into place
-with the backup API, with no companion files. The head holds 229, 230, 231 and 233 (232 is
-RW5d P3's, landing in parallel; numbers are renumbered at landing if needed).
+Renamed from `migration_head_232` at C2b's landing onto main
+(`docs/reviews/curriculum-c2b-vault-notes.md`, "Landing onto main"). The
+branch built 233 on main's 231 head (`6b9cb117ba`); RW5d P3's 232 landed
+first, so 233 keeps its number and the branch's own rebuild is replaced.
+Rebuilt from main's tracked, sanitized `migration_head_232/state.sqlite`
+(main `947200afee`): a backup-API copy under `fixtures-local/` with only
+`233_learner_notes_vault_origin.sql` applied through
+`learnloop.db.migrate.apply_migrations` under the scratch-copy allowance
+(`UPGRADE_SCRATCH_COPY`), then `wal_checkpoint(TRUNCATE)` (0, 0, 0),
+`journal_mode=DELETE` (header bytes 1/1), `integrity_check` ok and
+`foreign_key_check` empty, and copied into place with the backup API, with no
+companion files. The head holds 229, 230, 231, 232 and 233.
 
-* 233 adds no table: it rebuilds `learner_notes` in place (temp-then-rename under
-  `PRAGMA foreign_keys = OFF`, the precedent of 208, 212 and 231), whose `origin` CHECK gains
-  `vault`, whose `path` and `line` become nullable (a vault note has neither), and which gains
-  `vault_ref_kind` (`annotation` | `capture`) and `vault_ref_id`, with CHECKs that a `vault`
-  row carries its reference and any other row its path and line. The same index and
+* 233 adds no table: it rebuilds `learner_notes` in place (temp-then-rename
+  under `PRAGMA foreign_keys = OFF`, the precedent of 208, 212 and 231), whose
+  `origin` CHECK gains `vault`, whose `path` and `line` become nullable (a
+  vault note has neither), and which gains `vault_ref_kind` (`annotation` |
+  `capture`) and `vault_ref_id`, with CHECKs that a `vault` row carries its
+  reference and any other row its path and line. The same index and
   append-only triggers; every row and id kept (the fixture holds no note).
 
-Against the 231 head only that definition changed and only `schema_migrations` gained a row
-(233); the companion files are byte-identical.
+Against main's 232 head only that definition changed and only
+`schema_migrations` gained a row (233); every other table's rows are
+identical, so the sanitized content carries over (every companion file is
+byte-identical to main's).
+
+## Reader RW5d P3 (migration 232), landing of `reader/rw5d-p3-figures-help`, 2026-11-01
+
+Renamed from `migration_head_231` at P3's landing onto main
+(`docs/reviews/reader-rw5d-p3-figures-help.md`, "Landing onto main"). The
+branch built 232 on main's 230 head (`c0017b5740`); curriculum C5's 231
+landed first, so 232 keeps its number and the branch's own rebuild is
+replaced. Rebuilt from main's tracked, sanitized
+`migration_head_231/state.sqlite` (main `de73fbda51`): a backup-API copy
+under `fixtures-local/` with only `232_help_assist_figures.sql` applied
+through `learnloop.db.migrate.apply_migrations` under the scratch-copy
+allowance (`UPGRADE_SCRATCH_COPY`), then `wal_checkpoint(TRUNCATE)` (0, 0, 0),
+`journal_mode=DELETE` (header bytes 1/1), `integrity_check` ok and
+`foreign_key_check` empty, and copied into place with the backup API, with no
+companion files. The head holds 229, 230, 231 and 232.
+
+* 232 rebuilds `help_assists` (temp-then-rename under `foreign_keys = OFF`;
+  no foreign key names it): `assist_kind` gains `figure`, `hint_kind` gains
+  `explore_figure`, `request` gains `take_step`, and the nullable
+  `figure_id TEXT` is added (set once: `help_assists_identity_fixed` is
+  recreated with that clause), with the new index `idx_help_assists_figure`.
+  This fixture holds no help_assists row, so no row moved.
+* 232 also rebuilds `figure_predictions` (Codex review F7, F9;
+  temp-then-rename; no foreign key names it): `extraction_id` becomes
+  nullable, `assist_id TEXT` (the attempt's figure row) and
+  `explained_at TEXT` (set once with the explanation) are added, the
+  explanation trigger is recreated (it also fixes `assist_id`) and
+  `idx_figure_predictions_assist` is new. This fixture holds no
+  figure_predictions row.
+
+Against main's 231 head only those definitions changed and only
+`schema_migrations` gained a row (232); every other table's rows are
+identical, so the sanitized content carries over (every companion file is
+byte-identical to main's).
 
 ## Curriculum C5 (migration 231), branch `curriculum/c5-notes-as-learner-text`, 2026-11-01
 

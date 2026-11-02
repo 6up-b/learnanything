@@ -231,6 +231,9 @@ MODULE_INVENTORY: dict[str, str] = {
     # author is told about the learner; prompt-size bounds only, every one a
     # `keep` (no learner-model weight, margin or threshold).
     "figure_learner_state": "src/learnloop/figures/learner_state.py",
+    # Reader RW5d P3 (spec §11.2, §11.4): figures as a help kind; a structural
+    # ladder level and a read bound, every one a `keep` (no weight or margin).
+    "figure_help": "src/learnloop/figures/help.py",
     "concept_animation": "src/learnloop/content/authoring/concept_animation.py",
     # Local contextual retrieval P2 (spec §7.1, §9.3, §9.6): the query student's pins and
     # guardrails, the decision core's computation budgets, the data and schedule budgets. No
@@ -444,6 +447,14 @@ _reg_const("figure_admission:GROUNDING_PASSAGES", "constraint", kind="structural
            rationale="keep: prompt size (spec_reader_show_me_figures_v1 §8.3, §15, owner-approved): at most three "
                      "passages ground a figure goal (retrieved, or a tutor answer's cited ones); more dilute the "
                      "author's context. A bound on what is sent, never a weight, margin or threshold.")
+
+# Reader RW5d P3: figures as a help kind (all keep: a structural ladder level and a read bound).
+_reg_const("figure_help:FIGURE_LEVEL", "version", kind="structural", owner="figure_help",
+           rationale="keep: identity: the hints spec's ladder level 2 a figure's help row is written at (one "
+                     "hint-equivalent in the fold, the level of explore_figure, spec §11.2, §11.4).")
+_reg_const("figure_help:QUALIFYING_SCAN", "operational", kind="structural", owner="figure_help",
+           rationale="keep: read size: the newest shown figures the chooser's precondition scans (a bound on a "
+                     "local read, never a weight, margin or threshold).")
 
 # Learner data-relax 2: the figure author's learner state (all keep: prompt and read size).
 _reg_const("figure_learner_state:MAX_TOPICS", "constraint", kind="structural", owner="figure_learner_state",
@@ -1844,6 +1855,14 @@ _CONFIG_RULES: list[_ConfigRule] = [
         "kill switch for RW5d's rich tiers (a narrated Manim animation built from the author's brief) / the "
         "learner's standing opt-in to render AI-written animation code in the sandbox and its date; on-off "
         "availability of content and a permission, no measurement, scheduling or serving authority."),
+    # Reader RW5d P3: figures as a help kind inside attempts. A kill switch over help content.
+    _ConfigRule(_exact(
+        "figures.help_kind_enabled",
+    ), "structural", "operational",
+        "kill switch for figures inside an open attempt (show me on practice, feedback and the workbench with "
+        "its cost line, the cold take step, the chooser's explore_figure, figure in the help outcomes); a "
+        "figure adds one hint-equivalent through the existing fold (hints_used's existing meaning), so this "
+        "switch decides which help is offered, never a weight, margin or threshold."),
     # Learner data-relax 2: the figure author's learner state. A kill switch over content.
     _ConfigRule(_exact(
         "figures.author_learner_state",

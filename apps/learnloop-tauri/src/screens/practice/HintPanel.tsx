@@ -15,6 +15,8 @@ import { quietLine, quietLink } from "../../components/PlainParts";
 import { MarkdownMath } from "../../render/MarkdownMath";
 import { HELP_STYLE_COPY, HINT_COPY, SHORTCUT_COPY } from "./hintCopy";
 import type { AdaptiveHints, HintEntry } from "./useAdaptiveHints";
+import type { AskTarget } from "../../components/AskOverlay";
+import { PANEL_FIGURE_COPY, PanelFigureThreadLine, usePanelFigures, type PanelFigureEvent } from "../../components/askFigures";
 
 const chip = (on: boolean) => ({
   border: `1px solid ${on ? COLOR.borderFocus : COLOR.border}`,
@@ -157,14 +159,46 @@ function DiscriminatingBox({
   );
 }
 
-function HintCard({ entry, hints, answer }: { entry: HintEntry; hints: AdaptiveHints; answer: string }) {
+/** Reader RW5d P3 (§11.4): the chooser's "a figure to explore", one line
+ *  that opens the figure under the hint (recorded once on the attempt: the
+ *  hint's own row already counts it). */
+function ExploreFigure({ entry, target, onEvent }: {
+  entry: HintEntry; target: AskTarget; onEvent?: (event: PanelFigureEvent) => void;
+}) {
+  const figures = usePanelFigures(target, { cold: false, onEvent, chooser: true });
+  const offer = entry.result.figure;
+  if (!offer) return null;
+  const opened = figures.lines.find((line) => line.key === `open:${offer.figureId}`);
+  return (
+    <div data-testid="hint-explore-figure" style={{ display: "grid", gap: 4 }}>
+      <div style={quietLine}>
+        {PANEL_FIGURE_COPY.explore}{offer.goalText ? ` · “${offer.goalText}”` : ""}{" · "}
+        {opened ? null : (
+          <button type="button" style={quietLink} onClick={() => void figures.open(offer.figureId, offer.goalText ?? offer.label)}>
+            {PANEL_FIGURE_COPY.open}
+          </button>
+        )}
+      </div>
+      {opened ? <PanelFigureThreadLine line={opened} figures={figures} /> : null}
+    </div>
+  );
+}
+
+function HintCard({ entry, hints, answer, figureTarget, onFigureEvent }: {
+  entry: HintEntry; hints: AdaptiveHints; answer: string; figureTarget?: AskTarget;
+  onFigureEvent?: (event: PanelFigureEvent) => void;
+}) {
   const [feedbackOpen, setFeedbackOpen] = useState(false);
   const replies = entry.result.replies ?? [];
   const asking = entry.result.kind === "discriminating" && Boolean(entry.result.discriminating?.answerBox);
   return (
     <div className="hint-banner" data-testid="hint-entry" style={{ display: "grid", gap: 4 }}>
       <div style={{ ...quietLine, fontFamily: FONT_MONO, fontSize: 11 }} data-testid="hint-labels">{hintLabelLine(entry)}</div>
-      <div><MarkdownMath value={entry.result.hintMd ?? ""} /></div>
+      {entry.result.kind === "explore_figure" && entry.result.figure && figureTarget ? (
+        <ExploreFigure entry={entry} target={figureTarget} onEvent={onFigureEvent} />
+      ) : (
+        <div><MarkdownMath value={entry.result.hintMd ?? ""} /></div>
+      )}
       {entry.result.message ? <div style={quietLine}>{entry.result.message}</div> : null}
       {asking ? (
         <DiscriminatingBox
@@ -222,11 +256,16 @@ function HintCard({ entry, hints, answer }: { entry: HintEntry; hints: AdaptiveH
 export function HintPanel({
   hints,
   answer,
-  helpStyle
+  helpStyle,
+  figureTarget,
+  onFigureEvent
 }: {
   hints: AdaptiveHints;
   answer: string;
   helpStyle: HelpStyle;
+  /** Reader RW5d P3: the attempt an explore_figure hint opens its figure on. */
+  figureTarget?: AskTarget;
+  onFigureEvent?: (event: PanelFigureEvent) => void;
 }) {
   const [menuOpen, setMenuOpen] = useState(false);
   if (!hints.entries.length && !hints.pending && !hints.notice) return null;
@@ -269,7 +308,10 @@ export function HintPanel({
           <span style={quietLine}>{HINT_COPY.menuNote}</span>
         </div>
       ) : null}
-      {hints.entries.map((entry) => <HintCard key={entry.key} entry={entry} hints={hints} answer={answer} />)}
+      {hints.entries.map((entry) => (
+        <HintCard key={entry.key} entry={entry} hints={hints} answer={answer} figureTarget={figureTarget}
+          onFigureEvent={onFigureEvent} />
+      ))}
       {hints.pending ? (
         <div role="status" style={quietLine} data-testid="hint-writing">
           {HINT_COPY.writing}

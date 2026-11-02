@@ -578,7 +578,7 @@ class CardGatherer:
                     reversed_ids = {row[0] for row in connection.execute("SELECT gap_id FROM learner_text_gap_reversals")}
                 for row in connection.execute(
                     f"""SELECT id, anchor_learning_object_id, target_id, kind, learner_text, created_at,
-                               attempt_id, practice_item_id
+                               attempt_id, practice_item_id, source_kind, source_id
                           FROM learner_text_gaps
                          WHERE kind IN ('prerequisite', 'misconception')
                            AND (anchor_learning_object_id IN ({_marks(sorted(los))})
@@ -596,6 +596,15 @@ class CardGatherer:
                         answers=[row["attempt_id"]] if row["attempt_id"] else [],
                         items=[row["practice_item_id"]] if row["practice_item_id"] else [],
                         los=(row["anchor_learning_object_id"],))
+                    # A gap named from a reading (a question asked in the Reader, an
+                    # active-reading answer, a figure prediction) also checks the
+                    # passage it was written on (followups-nov1c E: exam-material
+                    # protection): exam or held-out material, or a passage that
+                    # cannot be established, keeps the entry and withholds the words.
+                    if reason is None:
+                        reason = past.reading_reason(row["source_kind"], row["source_id"])
+                        if reason is not None:
+                            statement = None
                     entries.append({
                         "kind": f"learner_named_{row['kind']}", "learning_object_id": lo,
                         "topic": titles.get(lo, lo), "status": "open", "since": row["created_at"],

@@ -492,6 +492,8 @@ CURRICULUM_C2_RPCS = (
     "notes.search",
     "notes.link",
     "notes.decide",
+    # followups-nov1c C (C2 ruling R5): Settings' hidden notes.
+    "notes.hidden",
     # Curriculum C5: Settings' opt-in for linked notes to steer suggestions (desktop only).
     "notes.set_gaps",
 )
@@ -539,6 +541,10 @@ READER_RW5D_RPCS = (
     "figure.rich_cancel",
     "figure.rich_retry",
     "figure.manim_opt_in",
+    # Reader RW5d P3: a check on your own's take step; opening a stored figure
+    # on an attempt host (the chooser's explore_figure). Desktop only.
+    "figure.take_step",
+    "figure.open",
 )
 
 

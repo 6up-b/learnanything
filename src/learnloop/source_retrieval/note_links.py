@@ -78,7 +78,7 @@ from learnloop.clock import Clock, utc_now_iso
 from learnloop.db.repositories import Repository
 from learnloop.db.stores import learner_notes as store
 from learnloop.db.stores.judgments import append_judgment
-from learnloop.ids import new_ulid
+from learnloop.ids import new_ulid, new_ulid_after
 from learnloop.source_retrieval import deliverable_path as DP
 from learnloop.source_retrieval import deliverables as DL
 from learnloop.source_retrieval import section_coverage as SC
@@ -701,32 +701,41 @@ def _store_snapshot(connection: Any, note: VN.VaultNote, now: str) -> str:
         "vault_ref_id": note.ref_id})
 
 
-def _observed(repository: Repository, note_keys: Iterable[str]) -> dict[str, int]:
-    """The current-snapshot revision of each note, captured before its text is read."""
+def _read_token(repository: Repository) -> str:
+    """A read's monotonic token (C2 ruling R6), taken when the read starts, before the note
+    is read from the vault: a ULID that sorts after every ULID this process minted before it and after the
+    newest token any read has published (read from the database now: Codex review F2, a
+    token persisted while the clock ran ahead, before a restart, would otherwise fence off
+    every later read until wall time caught up). The read publishes by token order
+    (:func:`_show_read`), so of two reads of the same note the one that started later
+    stands, whichever writes first."""
 
     with repository.connection() as connection:
-        return store.current_revisions(connection, CURRENT_TASK, note_keys)
+        floor = store.newest_read_token(connection, CURRENT_TASK)
+    return new_ulid_after(floor)
 
 
-def _show_read(connection: Any, note: VN.VaultNote, observed: int, now: str) -> str | None:
+def _show_read(connection: Any, note: VN.VaultNote, token: str, now: str) -> str | None:
     """Inside the caller's write transaction: a read of the note made to show it (a link by
     hand, a refresh) makes its text the snapshot the note shows (Codex re-review F13), a
-    text the note had before included (that snapshot again) — but only if no newer read
-    advanced the marker since this read captured ``observed`` (compare-and-set, Codex
-    round 3). Returns the snapshot shown now by this read, or None when a newer read won
-    (nothing is stored). Recording a model's proposal never calls this."""
+    text the note had before included (that snapshot again) — but only if it started
+    after every read published so far (C2 ruling R6: its ``token``, taken at read start,
+    is newer than the note's fence). An unchanged read publishes too: it appends a marker
+    naming the snapshot already shown, which advances the fence, so an older read still in
+    flight can never publish its older text over it. Returns the snapshot shown now by
+    this read, or None when a read that started later already published (nothing is
+    stored). Recording a model's proposal never calls this."""
 
     note_key = note.note_key
-    revision = store.current_revisions(connection, CURRENT_TASK, [note_key])[note_key]
-    if revision != observed:
-        return None  # another read advanced it after this one looked: that read stands
+    fence = store.current_fences(connection, CURRENT_TASK, [note_key])[note_key]
+    if token <= fence:
+        return None  # a read that started after this one has published: it stands
     snapshot_id = _store_snapshot(connection, note, now)
-    current = store.current_notes(connection, CURRENT_TASK, [note_key]).get(note_key)
-    if current is None or str(current["id"]) != snapshot_id:
-        append_judgment(
-            connection, task=CURRENT_TASK, left_kind=CURRENT_LEFT, left_id=opaque(note_key), right_kind=CURRENT_RIGHT,
-            right_id=snapshot_id, judge="exact_key", prompt_version=CURRENT_VERSION,
-            input_hash=_content_hash(note), verdict="current", rationale="{}", created_at=now)
+    append_judgment(
+        connection, task=CURRENT_TASK, left_kind=CURRENT_LEFT, left_id=opaque(note_key), right_kind=CURRENT_RIGHT,
+        right_id=snapshot_id, judge="exact_key", prompt_version=CURRENT_VERSION,
+        input_hash=_content_hash(note), verdict="current",
+        rationale=json.dumps({"read_token": token}, sort_keys=True), created_at=now)
     return snapshot_id
 
 
@@ -797,18 +806,15 @@ def refresh_learner_links(vault: Any, repository: Repository, *, clock: Clock | 
     kept = [row for row in word.values() if row["status"] == "accepted" and not row.get("learning_object_id")]
     if not kept:
         return 0
-    # Captured before the notes are read, and before the snapshots they are compared with
-    # (Codex round 3, F13): a read recorded after this point wins, and this one's write is dropped.
-    observed = _observed(repository, (row["note_key"] for row in kept))
+    # Taken when this read starts, before the notes are read from the vault (C2 ruling R6):
+    # the read publishes only if no read that started after it has published meanwhile.
+    token = _read_token(repository)
     with repository.connection() as connection:
-        latest = store.current_notes(connection, CURRENT_TASK, observed)
+        latest = store.current_notes(connection, CURRENT_TASK, (row["note_key"] for row in kept))
     reads = VN.read_many(vault, repository, (key for key, note in latest.items() if note.get("origin") == VN.ORIGIN))
     now = utc_now_iso(clock)
     refreshed = 0
     for note_key, read in reads.items():
-        note = latest[note_key]
-        if read.text == note["text_md"] and read.content_hash == note["content_hash"]:
-            continue
         with repository.atomic():
             connection = repository.connection()
             standing = _standing(store.learner_rows_for(connection, [note_key]))
@@ -818,9 +824,12 @@ def refresh_learner_links(vault: Any, repository: Repository, *, clock: Clock | 
                 continue  # hidden (or changed) meanwhile: the learner's newest word stands
             guard.check_notes("refreshing a note you linked")
             # A new text is a new snapshot; a text the note had before is that snapshot,
-            # current again (Codex re-review F13). Neither is a new acceptance. A read
-            # another writer superseded meanwhile writes nothing (compare-and-set).
-            if _show_read(connection, read, observed.get(note_key, 0), now) is not None:
+            # current again (Codex re-review F13). Neither is a new acceptance. An
+            # unchanged text advances the fence only (R6). A read that started before
+            # one already published writes nothing.
+            shown = store.current_notes(connection, CURRENT_TASK, [note_key]).get(note_key)
+            published = _show_read(connection, read, token, now)
+            if published is not None and (shown is None or str(shown["id"]) != published):
                 refreshed += 1
     return refreshed
 
@@ -1069,6 +1078,69 @@ def decide(vault: Any, repository: Repository, link_id: str, choice: str, *, clo
     return {"link_id": new_id, "status": status}
 
 
+def _where(vault: Any, library: SC.Library | None, row: Mapping[str, Any]) -> str:
+    """Where a hidden link was: its topic's title, else its reading and section."""
+
+    lo = row.get("learning_object_id")
+    if lo:
+        found = (getattr(vault, "learning_objects", None) or {}).get(str(lo))
+        return f"the topic “{getattr(found, 'title', None) or lo}”"
+    reading = None
+    if library is not None and row.get("extraction_id"):
+        try:
+            reading = library.reading(str(row["extraction_id"]))
+        except SC.CoverageError:
+            reading = None
+    if reading is None:
+        return "a passage"
+    section = reading.sections.get(str(row.get("section_id") or ""))
+    return " › ".join(part for part in (reading.source_title, getattr(section, "title", None)) if part) or "a passage"
+
+
+def hidden(vault: Any, repository: Repository) -> list[dict[str, Any]]:
+    """The links the learner hid and still keeps hidden, newest first (C2 ruling R5,
+    followups-nov1c C: Settings lists them, to bring one back after the reading changed):
+    the learner's newest row per (note, topic) or (note, passage) is a hide. Each names its
+    note (title, heading, date, origin; never its text or where it lives), where it was
+    linked and who linked it. *show again* is :func:`decide`'s ``keep`` on its ``link_id``
+    (the learner's own word again, a ``learner_card`` verdict): a link made by hand shows
+    again at once; a model's link shows again where the topic's current proposals still
+    name the note (F6: a keep is a decision only). No model call; a note beside protected
+    material now is not listed (C2b)."""
+
+    with repository.connection() as connection:
+        if not store.tables_present(connection):
+            return []
+        word = _standing(row for row in store.links(connection) if row["authorship"] == "learner")
+        rows = [row for row in word.values() if row["status"] == "rejected"]
+        snapshots = store.notes_by_id(connection, (row["note_id"] for row in rows))
+        current = store.current_notes(connection, CURRENT_TASK,
+                                      (row["note_key"] for row in rows if not row.get("learning_object_id")))
+    try:
+        library: SC.Library | None = SC.Library(vault, repository)
+    except SC.CoverageError:
+        library = None
+    pairs: list[tuple[Mapping[str, Any], Mapping[str, Any]]] = []
+    for row in sorted(rows, key=lambda r: (str(r["created_at"]), str(r["id"])), reverse=True):
+        note = (current.get(str(row["note_key"])) if not row.get("learning_object_id") else None) \
+            or snapshots.get(str(row["note_id"]))
+        if note is not None:
+            pairs.append((row, note))
+    out: list[dict[str, Any]] = []
+    # A note beside protected material now is never listed (C2b: every delivery boundary
+    # withholds it, its title and its source-derived heading; the hide row stays).
+    for row, note in withhold_protected(vault, repository, pairs):
+        by_model = bool(row.get("learning_object_id"))
+        out.append({
+            "link_id": row["id"], "hidden_at": row["created_at"], "target_kind": row["target_kind"],
+            "learning_object_id": row.get("learning_object_id"), "extraction_id": row.get("extraction_id"),
+            "where": _where(vault, library, row), "by_label": BY_MODEL_LABEL if by_model else BY_YOU_LABEL,
+            "note": {"title": note["title"], "heading": note["heading"], "date_label": date_label(note.get("captured_on")),
+                     "origin_label": POCKET_NOTES_LABEL if note["origin"] == "pocket_notes" else None},
+        })
+    return out
+
+
 def search(vault: Any, repository: Repository, *, query: str | None = None, extraction_id: str | None = None,
            span_id: str | None = None, mode: str = "words", embedder: Any | None = None) -> dict[str, Any]:
     """The Reader's *link one of your notes* (C2b: the vault's own notes): with no words, the
@@ -1119,7 +1191,7 @@ def link_by_hand(vault: Any, repository: Repository, *, hit: Mapping[str, Any], 
     key = str(hit.get("note_key") or "")
     if VN.split_key(key) is None:
         raise NotesError("validation_error", "That note reference is incomplete.")
-    observed = _observed(repository, [key])[key]  # before the read (F13, round 3)
+    token = _read_token(repository)  # when the read starts, before the vault is read (C2 ruling R6)
     read = VN.read(vault, repository, key)
     if read is None:
         raise NotesError("unreadable", "That note isn't in your notes any more (it was deleted or changed): "
@@ -1132,9 +1204,9 @@ def link_by_hand(vault: Any, repository: Repository, *, hit: Mapping[str, Any], 
     now = utc_now_iso(clock)
     with repository.atomic():
         connection = repository.connection()
-        # The snapshot the learner linked; it shows unless a newer read of the note was
-        # recorded meanwhile, which then shows instead (compare-and-set, F13 round 3).
-        note_id = _show_read(connection, read, observed, now) or _store_snapshot(connection, read, now)
+        # The snapshot the learner linked; it shows unless a read of the note that started
+        # later was published meanwhile, which then shows instead (C2 ruling R6).
+        note_id = _show_read(connection, read, token, now) or _store_snapshot(connection, read, now)
         ledger_id = append_judgment(
             connection, task=LEDGER_TASK, left_kind="reader_passage",
             left_id=passage_key(extraction_id, section_id, span_id), right_kind=LEDGER_RIGHT,
@@ -1195,6 +1267,7 @@ __all__ = [
     "enabled",
     "for_goal",
     "for_passages",
+    "hidden",
     "judge_target",
     "link_by_hand",
     "link_goal",

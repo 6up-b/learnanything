@@ -353,6 +353,8 @@ def test_every_kind_has_the_readers_plain_words_and_worked_help_is_marked():
         "worked_parallel": "the same move on another example", "authored": "from the item",
         "continuation": "the next part, written for you", "worked_chunk": "a worked piece, from the goal back",
         "walkthrough": "the rest, worked through",
+        # Reader RW5d P3 (§11.4): offered only with a qualifying figure.
+        "explore_figure": "a figure to explore",
     }
     assert {name: kind.label for name, kind in K.KINDS.items()} == expected
     assert K.KINDS["discriminating"].label_at(3) == "a check that tells them apart"

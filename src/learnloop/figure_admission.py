@@ -289,6 +289,18 @@ def author_learner_state_enabled(vault: Any) -> bool:
     return figures_enabled(config) and bool(getattr(config.figures, "author_learner_state", False))
 
 
+def help_kind_enabled(vault: Any) -> bool:
+    """Reader RW5d P3: ``figures.help_kind_enabled`` under ``figures.enabled``
+    and ``figures.show_me_enabled``: figures inside an open attempt (the Ask
+    panel's *show me* on practice, feedback and the workbench, the cold take
+    step, the chooser's ``explore_figure``, ``figure`` in the help outcomes).
+    Off: none of these, and every hint, fold and outcome is the
+    predecessor's byte for byte."""
+
+    config = getattr(vault, "config", vault)
+    return show_me_enabled(config) and bool(getattr(config.figures, "help_kind_enabled", False))
+
+
 def manim_opt_in(vault: Any) -> str | None:
     """Reader RW5d P2b: the learner's standing opt-in for Manim figures
     (``"standing"``), their "not now" (``"declined"``), or None (not asked)."""
@@ -406,6 +418,7 @@ __all__ = [
     "TUTOR_FIGURE_GOAL_TASK",
     "advanced_panels_enabled",
     "author_learner_state_enabled",
+    "help_kind_enabled",
     "explorable_yes",
     "figure_goal_digest",
     "figure_home_keys",

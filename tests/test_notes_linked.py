@@ -32,7 +32,7 @@ from tests.reading_path_fixtures import call, context, normalized
 from tests.section_coverage_fixtures import CoverageJudgeFake, table_counts
 
 RPCS = ("notes.path", "notes.marks", "notes.passages", "notes.search", "notes.link", "notes.decide",
-        "notes.set_gaps")  # curriculum C5's opt-in
+        "notes.hidden", "notes.set_gaps")  # followups-nov1c C; curriculum C5's opt-in
 
 
 def _ctx(paths, **attrs):
@@ -226,7 +226,7 @@ def test_switched_off_every_rpc_refuses_nothing_is_read_and_the_reader_is_todays
               "notes.passages": {"passages": [{"extraction_id": "ext_book", "span_id": "s2"}]},
               "notes.search": {"query": "eigen"},
               "notes.link": {"note": {"note_key": corpus["typed"]}, "extraction_id": "ext_book", "span_id": "s2"},
-              "notes.decide": {"link_id": "nl_x", "choice": "hide"},
+              "notes.decide": {"link_id": "nl_x", "choice": "hide"}, "notes.hidden": {},
               "notes.set_gaps": {"enabled": True}}
     for name in RPCS:
         with pytest.raises(SidecarError) as caught:
@@ -645,6 +645,190 @@ def test_re3_f13_a_delayed_judgment_never_makes_its_snapshot_current_again(tmp_p
                                      (NL.CURRENT_TASK,)).fetchone()[0]
     assert markers == 2
 
+
+# -- C2 ruling R6 (followups-nov1c A): monotonic read tokens, published by token order ------------
+# Ported at C2b's landing from main's tend-era tests: the note is read again from the vault
+# (VN.read_many), not from tend.
+
+def test_r6_two_concurrent_refreshes_resolve_to_the_newest_read(tmp_path, monkeypatch):
+    """C2 ruling R6, the round-3 verify's first ordering: two refreshes of the same hand-linked
+    note run concurrently; the older one (started first, it reads B) writes first and the
+    newer one (started after the note changed to C, it reads C) writes second. Each read takes
+    a monotonic token when it starts and publishes by token order, so C (the newest read)
+    shows, whichever writes first."""
+
+    import threading
+
+    from learnloop.db.repositories import Repository
+
+    paths, repository, ctx, goal_id, corpus, notes = _deliverable(tmp_path)
+    _link_typed_by_hand(ctx, corpus)
+    edit_annotation(repository, _ref(corpus["typed"]), "Version B of the note.")
+    vault = load_vault(paths.root)
+    real_read = VN.read_many
+    older_read, newer_read, older_done = threading.Event(), threading.Event(), threading.Event()
+
+    def read(*args, **kwargs):
+        result = real_read(*args, **kwargs)
+        if threading.current_thread().name == "r6-older":
+            older_read.set()
+            assert newer_read.wait(20)  # the newer refresh started (and read) before this one writes
+        elif threading.current_thread().name == "r6-newer":
+            newer_read.set()
+            assert older_done.wait(20)  # ... and writes only after this one wrote
+        return result
+
+    monkeypatch.setattr(VN, "read_many", read)
+    results: dict[str, int] = {}
+
+    def run(name: str) -> None:
+        try:
+            results[name] = NL.refresh_learner_links(vault, Repository.attach(repository.sqlite_path))
+        finally:
+            if name == "r6-older":
+                older_done.set()
+
+    older = threading.Thread(target=run, args=("r6-older",), name="r6-older")
+    older.start()
+    assert older_read.wait(20)
+    edit_annotation(repository, _ref(corpus["typed"]), "Version C of the note.")
+    newer = threading.Thread(target=run, args=("r6-newer",), name="r6-newer")
+    newer.start()
+    older.join(30)
+    newer.join(30)
+    assert not older.is_alive() and not newer.is_alive()
+    monkeypatch.setattr(VN, "read_many", real_read)
+    assert results == {"r6-older": 1, "r6-newer": 1}  # both published, in token order
+    texts = _hand_texts(ctx)
+    assert texts and all("Version C" in text for text in texts)  # the newest read shows
+
+
+def test_r6_an_unchanged_read_fences_off_an_older_refresh_in_flight(tmp_path, monkeypatch):
+    """C2 ruling R6, the round-3 verify's second ordering: the note shows A; a refresh reads B
+    slowly; meanwhile the note changes back to A and a newer refresh reads A, unchanged. The
+    unchanged read advances the fence (a marker naming the snapshot already shown), so the
+    older refresh writes nothing and A (the newest read) stays shown."""
+
+    paths, repository, ctx, goal_id, corpus, notes = _deliverable(tmp_path)
+    _link_typed_by_hand(ctx, corpus)
+    original = f"Eigenvalues: Av = lv, so det(A - lI) = 0. {SENTINEL}"
+    edit_annotation(repository, _ref(corpus["typed"]), "Version B of the note.")
+    vault = load_vault(paths.root)
+    refresh = lambda: NL.refresh_learner_links(vault, repository)  # noqa: E731
+    real_read = VN.read_many
+    inner: list[int] = []
+
+    def slow_read(*args, **kwargs):
+        result = real_read(*args, **kwargs)  # B, read before the note changed back
+        monkeypatch.setattr(VN, "read_many", real_read)
+        edit_annotation(repository, _ref(corpus["typed"]), original)
+        inner.append(refresh())  # reads A: unchanged, nothing to refresh, but it fences
+        return result
+
+    monkeypatch.setattr(VN, "read_many", slow_read)
+    assert refresh() == 0 and inner == [0]
+    texts = _hand_texts(ctx)
+    assert texts and all(SENTINEL in text and "Version B" not in text for text in texts)
+    with repository.connection() as connection:
+        stored = [row[0] for row in connection.execute("SELECT text_md FROM learner_notes")]
+    assert not any("Version B" in text for text in stored)  # the older read stored nothing
+    assert _count(repository, "learner_note_links") == 1  # and no link row: refreshing is never an acceptance
+
+
+# -- C2 ruling R5 (followups-nov1c C): Settings' hidden notes, with show again ------------------
+
+def test_r5_settings_lists_the_hidden_notes_and_show_again_unhides_through_decide(tmp_path, monkeypatch):
+    """C2 ruling R5 / open question 4: ``notes.hidden`` lists the learner's standing hides,
+    newest first, naming each note (title, heading, date; never its text or where it lives),
+    where it was linked and who linked it; *show again* is the existing ``notes.decide keep``
+    (a ``learner_card`` verdict reversing the hide). No vault-notes read and no model call."""
+
+    paths, repository, ctx, goal_id, corpus, notes = _deliverable(tmp_path)
+    model_link = next(line for line in _lines(call(ctx, "notes.path", {"goal_id": goal_id}))
+                      if line["authorship"] == "ai" and line["noteKey"] == corpus["captured"])
+    hand = _link_typed_by_hand(ctx, corpus)
+    assert call(ctx, "notes.hidden", {})["hidden"] == []
+    call(ctx, "notes.decide", {"link_id": model_link["linkId"], "choice": "hide"})
+    call(ctx, "notes.decide", {"link_id": hand["linkId"], "choice": "hide"})
+    reads: list[str] = []
+    real_notes, real_read = VN.notes, VN.read_many
+    monkeypatch.setattr(VN, "notes", lambda *a, **k: reads.append("notes") or real_notes(*a, **k))
+    monkeypatch.setattr(VN, "read_many", lambda *a, **k: reads.append("read") or real_read(*a, **k))
+    model_calls = notes.calls
+    listed = call(ctx, "notes.hidden", {})["hidden"]
+    assert reads == [] and notes.calls == model_calls  # no vault-notes read, no model
+    by_hand, by_model = listed  # newest first
+    assert by_hand["byLabel"] == NL.BY_YOU_LABEL and by_hand["targetKind"] == "passage"
+    assert by_hand["note"]["dateLabel"] and by_hand["note"]["originLabel"] is None
+    assert by_model["byLabel"] == NL.BY_MODEL_LABEL and by_model["where"] == "the topic “Eigenvalues”"
+    assert by_model["learningObjectId"] == "lo_eigen"
+    text = json.dumps(listed)
+    assert SENTINEL not in text and "eigen example" not in text and "text" not in by_hand["note"]  # no text
+    monkeypatch.setattr(VN, "notes", real_notes)
+    monkeypatch.setattr(VN, "read_many", real_read)
+    # Show again: the existing decide path (keep), a learner_card verdict reversing the hide.
+    call(ctx, "notes.decide", {"link_id": by_hand["linkId"], "choice": "keep"})
+    assert [entry["linkId"] for entry in call(ctx, "notes.hidden", {})["hidden"]] == [by_model["linkId"]]
+    assert _hand_texts(ctx)  # the hand link shows again beside its passage
+    call(ctx, "notes.decide", {"link_id": by_model["linkId"], "choice": "keep"})
+    assert call(ctx, "notes.hidden", {})["hidden"] == []
+    shown = _keys(_lines(call(ctx, "notes.path", {"goal_id": goal_id, "link": False})))
+    assert corpus["captured"] in shown  # the model's link shows again: still the topic's current proposal
+    with repository.connection() as connection:
+        verdicts = [row[0] for row in connection.execute(
+            "SELECT verdict FROM judgment_ledger WHERE task = 'note_link' AND judge = 'learner_card' "
+            "ORDER BY rowid")]
+    assert verdicts[-4:] == ["rejected", "rejected", "accepted", "accepted"]
+
+
+def test_landing_c2b_a_hidden_note_beside_material_protected_since_is_not_listed(tmp_path):
+    """C2b's landing (main's R5 list is a new delivery boundary): a Reader note hidden while
+    its section was readable, then its section held out, is not listed (its title and its
+    source-derived heading are never delivered again); the hide row stays."""
+
+    from tests.notes_fixtures import add_annotation
+    from tests.section_coverage_fixtures import hold_out
+
+    paths, repository, ctx, goal_id, corpus, notes = _deliverable(tmp_path)
+    lay = "annotation:" + add_annotation(repository, "My own words on Lay's section.", extraction_id="ext_lay",
+                                         span_id="s2", source_id="src_lay", revision_id="rev_lay")
+    out = call(ctx, "notes.link", {"note": {"note_key": lay}, "extraction_id": "ext_book", "span_id": "s2"})
+    call(ctx, "notes.decide", {"link_id": out["linkId"], "choice": "hide"})
+    assert [entry["linkId"] for entry in call(ctx, "notes.hidden", {})["hidden"]] == [out["linkId"]]
+    links = _count(repository, "learner_note_links")
+    hold_out(repository, "lay_eigen")
+    assert call(ctx, "notes.hidden", {})["hidden"] == []
+    assert _count(repository, "learner_note_links") == links
+
+
+def test_r6_review_f2_a_clock_correction_and_restart_never_blocks_later_refreshes(tmp_path, monkeypatch):
+    """Codex review F2: a note published a token while the machine clock ran an hour ahead;
+    the clock is then corrected and LearnLoop restarts (a fresh process: its ULID state
+    starts over), so the wall clock now mints ULIDs that sort below the persisted fence. A
+    read's token sorts after the newest token already published (read from the database when
+    the read starts), so each refresh after the restart publishes its changed text."""
+
+    from learnloop import ids
+
+    paths, repository, ctx, goal_id, corpus, notes = _deliverable(tmp_path)
+    now_ms = ids._wall_clock_ms()
+    monkeypatch.setattr(ids, "_last_timestamp_ms", -1)
+    monkeypatch.setattr(ids, "_last_randomness", 0)
+    monkeypatch.setattr(ids, "_wall_clock_ms", lambda: now_ms + 3_600_000)  # an hour ahead
+    _link_typed_by_hand(ctx, corpus)  # publishes the first snapshot with a future token
+    vault = load_vault(paths.root)
+    # The clock is corrected and LearnLoop restarts: the generator's in-process floor is gone.
+    monkeypatch.setattr(ids, "_last_timestamp_ms", -1)
+    monkeypatch.setattr(ids, "_last_randomness", 0)
+    monkeypatch.setattr(ids, "_wall_clock_ms", lambda: now_ms)
+    for version in ("B", "C", "D"):
+        edit_annotation(repository, _ref(corpus["typed"]), f"Version {version} of the note.")
+        assert NL.refresh_learner_links(vault, repository) == 1
+        texts = _hand_texts(ctx)
+        assert texts and all(f"Version {version}" in text for text in texts)
+
+
+# -- Landing: CoverageGuard's two hooks (C1's gate, C2's also) on one guard -----------------------
 
 def test_landing_the_coverage_guard_composes_c1s_gate_and_c2s_also(tmp_path):
     from learnloop.source_retrieval import section_coverage as SC

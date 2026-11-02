@@ -3,8 +3,8 @@ title: "Config - reader"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "f2aa9b0347839074749330bcf75cca57de51476c"
-source_commit_timestamp: "2026-11-02T01:33:10-05:00"
+source_commit: "26c97cbcb92a0912ded996ec5763b5a18fab939e"
+source_commit_timestamp: "2026-11-01T23:44:34-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "learnloop.toml reader"
@@ -22,7 +22,6 @@ source_paths:
   - "src/learnloop_sidecar/handlers/side_by_side.py"
   - "tests/codex_cli_fakes.py"
   - "tests/local_embeddings_fakes.py"
-  - "tests/notes_fixtures.py"
   - "tests/pf_fakes.py"
   - "tests/practice_index_fakes.py"
   - "tests/router_model_fakes.py"
@@ -32,6 +31,7 @@ source_paths:
   - "tests/test_ad2_model.py"
   - "tests/test_ai_config.py"
   - "tests/test_approach_maps.py"
+  - "tests/test_capability_residual.py"
 tags:
   - "learnloop/configuration/fields"
   - "learnloop/configuration/section/reader"
@@ -52,10 +52,10 @@ The main configuration contract, precedence rules, and safe-edit workflow live i
 
 | Dotted path | Effective value | Shape | Origin | Function | Runtime/refactor status | Consumer/source anchors |
 |---|---|---|---|---|---|---|
-| `reader.correspondence.enabled` | `true` | boolean | modeled default or validator seed | Turns correspondence behavior on or off within reader CA5a and CA5 (ux_reader_compare_ask_v1 §6.2, §6.3): find this section in my other books (the Guide footer's pressed action over reader.correspondents' unchecked search hits by book) and also in your books (the Guide's one line and its list by LO over judged coverage; peek, go there, compare, not about this, also about), with the presentation's kill switch respecting curriculum.enabled and the learner's hide preferences for the line (hide everywhere, hidden books); navigation and display only, no successor. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:3123`; `src/learnloop_sidecar/handlers/correspondents.py:90` |
-| `reader.correspondence.hide_everywhere` | `false` | boolean | modeled default or validator seed | Turns hide everywhere behavior on or off within reader CA5a and CA5 (ux_reader_compare_ask_v1 §6.2, §6.3): find this section in my other books (the Guide footer's pressed action over reader.correspondents' unchecked search hits by book) and also in your books (the Guide's one line and its list by LO over judged coverage; peek, go there, compare, not about this, also about), with the presentation's kill switch respecting curriculum.enabled and the learner's hide preferences for the line (hide everywhere, hidden books); navigation and display only, no successor. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:3124`; `src/learnloop_sidecar/handlers/correspondents.py:94` |
-| `reader.correspondence.hidden_sources` | `[]` | array | modeled default or validator seed | Controls hidden sources in reader CA5a and CA5 (ux_reader_compare_ask_v1 §6.2, §6.3): find this section in my other books (the Guide footer's pressed action over reader.correspondents' unchecked search hits by book) and also in your books (the Guide's one line and its list by LO over judged coverage; peek, go there, compare, not about this, also about), with the presentation's kill switch respecting curriculum.enabled and the learner's hide preferences for the line (hide everywhere, hidden books); navigation and display only, no successor, using the typed value shown here as the fresh-vault default. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:3125`; `src/learnloop_sidecar/handlers/correspondents.py:98` |
-| `reader.side_by_side.enabled` | `true` | boolean | modeled default or validator seed | Turns side by side behavior on or off within reader CA5a and CA5 (ux_reader_compare_ask_v1 §6.2, §6.3): find this section in my other books (the Guide footer's pressed action over reader.correspondents' unchecked search hits by book) and also in your books (the Guide's one line and its list by LO over judged coverage; peek, go there, compare, not about this, also about), with the presentation's kill switch respecting curriculum.enabled and the learner's hide preferences for the line (hide everywhere, hidden books); navigation and display only, no successor. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:3147`; `src/learnloop_sidecar/handlers/side_by_side.py:51` |
+| `reader.correspondence.enabled` | `true` | boolean | modeled default or validator seed | Turns correspondence behavior on or off within reader CA5a and CA5 (ux_reader_compare_ask_v1 §6.2, §6.3): find this section in my other books (the Guide footer's pressed action over reader.correspondents' unchecked search hits by book) and also in your books (the Guide's one line and its list by LO over judged coverage; peek, go there, compare, not about this, also about), with the presentation's kill switch respecting curriculum.enabled and the learner's hide preferences for the line (hide everywhere, hidden books); navigation and display only, no successor. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:3150`; `src/learnloop_sidecar/handlers/correspondents.py:94` |
+| `reader.correspondence.hide_everywhere` | `false` | boolean | modeled default or validator seed | Turns hide everywhere behavior on or off within reader CA5a and CA5 (ux_reader_compare_ask_v1 §6.2, §6.3): find this section in my other books (the Guide footer's pressed action over reader.correspondents' unchecked search hits by book) and also in your books (the Guide's one line and its list by LO over judged coverage; peek, go there, compare, not about this, also about), with the presentation's kill switch respecting curriculum.enabled and the learner's hide preferences for the line (hide everywhere, hidden books); navigation and display only, no successor. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:3151`; `src/learnloop_sidecar/handlers/correspondents.py:105` |
+| `reader.correspondence.hidden_sources` | `[]` | array | modeled default or validator seed | Controls hidden sources in reader CA5a and CA5 (ux_reader_compare_ask_v1 §6.2, §6.3): find this section in my other books (the Guide footer's pressed action over reader.correspondents' unchecked search hits by book) and also in your books (the Guide's one line and its list by LO over judged coverage; peek, go there, compare, not about this, also about), with the presentation's kill switch respecting curriculum.enabled and the learner's hide preferences for the line (hide everywhere, hidden books); navigation and display only, no successor, using the typed value shown here as the fresh-vault default. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:3152`; `src/learnloop_sidecar/handlers/correspondents.py:109` |
+| `reader.side_by_side.enabled` | `true` | boolean | modeled default or validator seed | Turns side by side behavior on or off within reader CA5a and CA5 (ux_reader_compare_ask_v1 §6.2, §6.3): find this section in my other books (the Guide footer's pressed action over reader.correspondents' unchecked search hits by book) and also in your books (the Guide's one line and its list by LO over judged coverage; peek, go there, compare, not about this, also about), with the presentation's kill switch respecting curriculum.enabled and the learner's hide preferences for the line (hide everywhere, hidden books); navigation and display only, no successor. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:3174`; `src/learnloop_sidecar/handlers/side_by_side.py:51` |
 
 > [!warning] Omitted does not mean frozen in the file
 > Most values are intentionally absent from `learnloop.toml`. Their reproducibility is protected by the defaults fingerprint keyed to `algorithms.algorithm_version`, not by dumping every default into each vault.
@@ -66,7 +66,6 @@ Every row cites the exact Pydantic field declaration (or typed dynamic-key conta
 
 - `tests/codex_cli_fakes.py`
 - `tests/local_embeddings_fakes.py`
-- `tests/notes_fixtures.py`
 - `tests/pf_fakes.py`
 - `tests/practice_index_fakes.py`
 - `tests/router_model_fakes.py`
@@ -76,6 +75,7 @@ Every row cites the exact Pydantic field declaration (or typed dynamic-key conta
 - `tests/test_ad2_model.py`
 - `tests/test_ai_config.py`
 - `tests/test_approach_maps.py`
+- `tests/test_capability_residual.py`
 
 ## Extension and modification guidance
 

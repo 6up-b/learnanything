@@ -3,13 +3,13 @@ title: "source_document_blocks"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "f2aa9b0347839074749330bcf75cca57de51476c"
-source_commit_timestamp: "2026-11-02T01:33:10-05:00"
+source_commit: "26c97cbcb92a0912ded996ec5763b5a18fab939e"
+source_commit_timestamp: "2026-11-01T23:44:34-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite source_document_blocks"
   - "table source_document_blocks"
-schema_head: 233
+schema_head: 232
 table_name: "source_document_blocks"
 table_role: "raw_ledger"
 functionality_status: "active"
@@ -118,7 +118,6 @@ Database triggers:
 - `src/learnloop/db/stores/source_service.py`
 - `src/learnloop/experiments/contextual_embeddings/system_arms.py`
 - `src/learnloop/source_retrieval/evaluation.py`
-- `src/learnloop/source_retrieval/vault_notes.py`
 
 ### Direct SQL writers
 
@@ -145,8 +144,8 @@ Database triggers:
 - `src/learnloop/content/synthesis/source_unit_selection.py`
 - `src/learnloop/daily_plan/reading.py`
 - `src/learnloop/diagnosis/text_gaps/sources.py`
+- `src/learnloop/figures/help.py`
 - `src/learnloop/figures/service.py`
-- `src/learnloop/practice_index/dossiers.py`
 
 > [!note] Static-reference boundary
 > These lists are evidence from exact table-name SQL and repository-method calls. Dynamic dispatch and higher-level tests may exercise the table without spelling its name.
@@ -154,10 +153,10 @@ Database triggers:
 ## Tests that define behavior
 
 - `tests/ad_ingest_fakes.py`
-- `tests/notes_fixtures.py`
 - `tests/test_ad_guard.py`
 - `tests/test_ad_protected_tables.py`
 - `tests/test_compare_sources_keep.py`
+- `tests/test_deliverable_rpcs.py`
 - `tests/test_e0_corpus.py`
 - `tests/test_e0_isolation.py`
 - `tests/test_e0_relabel_round.py`
@@ -167,12 +166,12 @@ Database triggers:
 - `tests/test_exercise_arm.py`
 - `tests/test_label_roles_cli.py`
 - `tests/test_migrations.py`
-- `tests/test_notes_c2b_review5.py`
 - `tests/test_reader_branches.py`
 - `tests/test_reader_ca1_astra_fixes.py`
 - `tests/test_reader_ca3_codex_review.py`
 - `tests/test_reader_ca3_compare_anywhere.py`
 - `tests/test_reader_ca3_landing_ca5a.py`
+- `tests/test_reader_ca4_table_by_point.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

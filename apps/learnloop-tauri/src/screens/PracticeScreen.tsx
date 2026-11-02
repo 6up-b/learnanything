@@ -46,6 +46,7 @@ import { OpenInSource } from "../components/OpenInSource";
 import { AskOverlay, type AskTarget } from "../components/AskOverlay";
 import { ASK_COPY } from "../components/askPanel";
 import { DockedAsk } from "../components/DockedAsk";
+import { PANEL_FIGURE_COPY, type PanelFigureEvent } from "../components/askFigures";
 
 /** RW2a (D9): "Work in steps", remembered once chosen, on this device. */
 const WORK_IN_STEPS_KEY = "ll.workbench.workInSteps";
@@ -433,6 +434,8 @@ export function PracticeScreen({
   const [stepAskSignal, setStepAskSignal] = useState(0);
   // §7.7: a substantive question made this check practice with help.
   const [askConverted, setAskConverted] = useState(false);
+  // Reader RW5d P3 (§11.3): a figure's take step made this check practice with help.
+  const [figureConverted, setFigureConverted] = useState(false);
   // K8: the questions this attempt asked, in order, with what they counted as.
   const [askRecord, setAskRecord] = useState<Array<{ eventId: string; hintEquivalent: boolean }>>([]);
   // K6, Q2: *earlier on this question* opened before Submit, counted once per
@@ -1099,6 +1102,14 @@ export function PracticeScreen({
     };
   }
 
+  /** Reader RW5d P3 (§6.4): a figure from the panel counted a hint (the
+   *  server's fold counts it at Submit: the record is read back), or its take
+   *  step converted the check. */
+  function onFigureEvent(event: PanelFigureEvent) {
+    if (event.converted && coldCheck) setFigureConverted(true);
+    refreshHelpRecord();
+  }
+
   function onAskAnswered(answered: { eventId: string; hintEquivalent: boolean }) {
     setAskRecord((record) => (record.some((entry) => entry.eventId === answered.eventId) ? record : [...record, answered]));
     // §7.7: only a question about the maths changes the banner.
@@ -1612,6 +1623,7 @@ export function PracticeScreen({
       onAnswered={onAskAnswered}
       onEarlierOpened={onEarlierOpened}
       onTakeWorked={takeWorkedFromAsk}
+      onFigureEvent={onFigureEvent}
     />
   ) : null;
 
@@ -1720,7 +1732,7 @@ export function PracticeScreen({
             // Reader CA2 (§7.7): it changes only after a question about the
             // maths; a clarification leaves it as it was.
             <div className="hint-banner" role="status" data-testid="intent-check-banner" style={{ borderColor: COLOR.amber }}>
-              {askConverted ? ASK_COPY.convertedBanner : intentCheck.banner}
+              {askConverted ? ASK_COPY.convertedBanner : figureConverted ? PANEL_FIGURE_COPY.banner : intentCheck.banner}
             </div>
           ) : null}
           {coldTakeStep ? null : simple && onYourOwnCheck ? (
@@ -2041,6 +2053,7 @@ export function PracticeScreen({
                       onToast={onError}
                       onAnswered={onAskAnswered}
                       onTakeWorked={onTakeWorked}
+                      onFigureEvent={onFigureEvent}
                     />
                   )
                 } : {})}
@@ -2192,7 +2205,13 @@ export function PracticeScreen({
                 </div>
               </div>
             ) : null}
-            {adaptive ? <HintPanel hints={adaptiveHints} answer={answer} helpStyle={helpStyle} /> : null}
+            {adaptive ? (
+              <HintPanel hints={adaptiveHints} answer={answer} helpStyle={helpStyle}
+                // RW5d P3 (§11.4): an explore_figure hint opens its figure on this attempt.
+                figureTarget={adaptiveHints.entries.some((entry) => entry.result.kind === "explore_figure")
+                  ? practiceAskTarget() : undefined}
+                onFigureEvent={onFigureEvent} />
+            ) : null}
             {panelOn && !isTeachBack && !probeActive ? (
               // Reader CA2 (§7.5, K8): one help record for the attempt, in
               // order, each with its cost; Submit counts the same things.
@@ -3048,6 +3067,9 @@ export function helpRecordLine({ hints, entries, book, earlier, questions, serve
       parts.push(entry.level ? `a hint (L${entry.level})` : "a hint");
     } else if (entry.kind === "check") {
       parts.push("a check");
+    } else if (entry.kind === "figure") {
+      // Reader RW5d P3: a figure opened on this attempt (one hint, however often reopened).
+      parts.push("a figure (counts as a hint)");
     } else if (entry.kind === "worked") {
       parts.push(`worked help${entry.level ? ` (L${entry.level})` : ""} · practice with help`);
     } else if (entry.kind === "earlier") {

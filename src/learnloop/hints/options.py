@@ -36,7 +36,10 @@ from learnloop.hints.state import EarlierHint, HintState
 
 #: The kinds the chooser may offer: ``authored`` is served by the fallback,
 #: or by the writer verbatim when one fits (§4.7), never drawn.
-OFFERABLE = tuple(name for name in KINDS if name != "authored")
+#: ``explore_figure`` (Reader RW5d P3) is added on its own, to a "More"
+#: press on the practice screen, when a figure qualifies (:func:`build_options`).
+FIGURE_KIND = "explore_figure"
+OFFERABLE = tuple(name for name in KINDS if name not in ("authored", FIGURE_KIND))
 
 
 @dataclass(frozen=True)
@@ -98,6 +101,10 @@ def precondition(kind: str, state: HintState) -> str | None:
             return "answered_here"
     if kind == "worked_parallel" and not (state.worked_example_at_hand or state.another_instance_at_hand):
         return "no_example"
+    if kind == FIGURE_KIND and not state.figure_offer:
+        # RW5d P3 (§11.4): only a shown figure that already exists for this
+        # topic, never one built from the item's own blocks, never cold.
+        return "no_figure"
     return None
 
 
@@ -176,9 +183,16 @@ def build_options(state: HintState, *, request: str, answered: EarlierHint | Non
                          target_node_id=target, max_horizon=max_horizon, excluded=excluded)
     # "More": a Hint press never serves worked help here (D17).
     options = _offer(PRESS_LEVELS, state, excluded)
+    if state.figure_kind_on:
+        # RW5d P3: a figure to explore (level 2), with its precondition.
+        reason = precondition(FIGURE_KIND, state)
+        if reason is None:
+            options.append(Option(FIGURE_KIND, 2))
+        else:
+            excluded[option_id(FIGURE_KIND, 2)] = reason
     last = state.shown_hints[-1] if state.shown_hints else None
     target = last.target_node_id if last is not None and last.hint_kind == "waypoint" else None
     return OptionSet(options, level_source="offered", target_node_id=target, excluded=excluded)
 
 
-__all__ = ["OFFERABLE", "Option", "OptionSet", "build_options", "precondition"]
+__all__ = ["FIGURE_KIND", "OFFERABLE", "Option", "OptionSet", "build_options", "precondition"]

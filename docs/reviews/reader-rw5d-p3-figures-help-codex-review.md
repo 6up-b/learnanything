@@ -1,0 +1,224 @@
+# Reader RW5d P3: figures as a help kind (Codex review and fixes)
+
+- **Stage:** `reader-rw5d-p3-figures-help`, branch `reader/rw5d-p3-figures-help` in `learnanything-merge2`; stage record `docs/reviews/reader-rw5d-p3-figures-help.md`.
+- **Review:** Codex (gpt-6.1-sol), job `20261101-204152-5rvAyd`, on the stage head `3c24c95401`. It reported 4 High and 5 Medium findings.
+- **Live calls:** none. Every model in the tests is a fake: the figure author, the rich author and renderer, the retrieval, the Decider and the hint writer. Outside pytest, two things ran under `env -i` with an empty, existing HOME, CODEX_HOME and LEARNLOOP_CONFIG_DIR: the head-fixture rebuild on a backup-API scratch copy under `fixtures-local/rw5d-p3-fix/`, and the reference scripts.
+- **Reproduced first:** each finding has a test in `tests/test_figures_help_codex_review.py` (21 tests), plus the migration tests in `tests/test_help_assist_figures_migration.py`. I ran these against the pre-fix source and migration (`git checkout 3c24c95401 -- src migrations fixtures/migration_head_232`, restored afterwards). All 21 new tests and the 3 migration tests that read the new 232 failed: 24 failed, 3 passed. The vitest cases for F4 and F8 test calls the pre-fix panel never made.
+
+## Findings
+
+| id | severity | title | verdict | commit | test or reason |
+|---|---|---|---|---|---|
+| F1 | High | Unverified session references let displayed figures escape the Submit fold | fixed | `09380802a8`, tests `61d4bb1264` | `test_f1_an_unknown_or_ended_session_is_refused_before_any_job`, `test_f1_a_key_already_in_another_session_is_refused_so_no_row_escapes_the_fold`, `test_f1_a_take_step_token_from_another_session_is_not_this_attempts` |
+| F2 | High | The reveal scan misses answers visibly present in figures | fixed | `09380802a8`, tests `61d4bb1264` | `test_f2_a_manim_figure_reveals_its_shown_words_and_narration`, `test_f2_a_manim_figure_stating_the_key_overlaps_it_and_a_neutral_one_does_not`, `test_f2_a_js_animation_reads_its_html_and_js_literals`, `test_f2_numbers_are_formatted_as_the_desktop_panels_format_them`, `test_f2_a_grammar_figures_shaded_area_is_read_as_shown` |
+| F3 | High | Moving into Work in Steps can count the same figure twice | fixed | `09380802a8`, tests `61d4bb1264` | `test_f3_the_same_figure_opened_on_the_answer_box_and_in_work_in_steps_counts_once` |
+| F4 | High | Revising a chooser figure loses its current attempt binding | fixed | `09380802a8`, tests `61d4bb1264` | `test_f4_revising_a_reader_figure_opened_in_practice_is_recorded_and_reveal_checked_there`, `test_f4_a_revision_names_an_attempt_host_or_none`; vitest "not right? asks the new version on the host the figure is open on now (F4)" |
+| F5 | Medium | Disabling figure help does not stop pending delivery | fixed | `09380802a8`, tests `61d4bb1264` | `test_f5_switched_off_between_the_build_and_the_delivery_nothing_is_shown_or_counted`, `test_f5_an_attempt_builds_admission_key_carries_the_switch`, `test_f5_a_chooser_figure_line_switched_off_before_delivery_is_not_shown` |
+| F6 | Medium | Figure help is reported as unaided continuation | fixed | `09380802a8`, tests `61d4bb1264` | `test_f6_hint_then_figure_then_check_is_more_help_not_unaided_progress`, `test_f6_a_workbench_figure_row_keeps_the_work_it_was_opened_against` |
+| F7 | Medium | Diagnosis reads predictions outside the attempt being diagnosed | fixed | `b49f7df5c8` | `test_f7_the_trace_reads_only_what_this_attempt_wrote_as_it_stood_at_submit`, `test_f7_predictions_made_before_the_attempt_are_not_its_trace`, `test_232_rebuilds_figure_predictions_with_every_row_and_the_attempt_link` |
+| F8 | Medium | Attempt requests suppress supported rich builds | fixed | `c131a916c3` | `test_f8_a_rich_only_build_on_the_answer_box_is_read_by_its_job_and_recorded_when_opened`, `test_f8_a_quick_figures_fuller_version_opened_on_the_attempt_is_the_same_figure`; vitest "a rich-only build shows its pending line…", "opening a quick figure's fuller version is recorded on the attempt first" |
+| F9 | Medium | Ungrounded attempt figures silently lose valid predictions | fixed | `b49f7df5c8` | `test_f9_a_homeless_attempt_illustration_keeps_its_predictions_with_no_invented_home` |
+
+Rejected: none.
+
+## What changed, per finding
+
+- **F1.**
+  - `_attempt_host` resolves the answer box's practice session on the server with `require_owned_session`, the same acceptance boundary a hint request uses: the session exists, is open and this device owns it. A made-up session gets `not_found`, an ended one `validation_error`, and another device's `session_moved`.
+  - The submission key may not already be another session's (`help_assists.submission_session_conflict`). The attach matches on the key alone and the fold also matches on the session, so a row under a second session would attach without being counted.
+  - A take-step token must be a row of this item, unattached, under one of the attempt's identities (its aliases included). An answer-box token must also be in the request's session (`_token_row_matches`).
+  - What remains: two genuinely open sessions on one device, where the first row of a fresh key goes to the wrong one. That is the hint service's existing trust boundary for `practice.request_hint`, and it is unchanged here.
+- **F2.** `figures.help.reveal_text` reads each tier's displayed words:
+  - **Manim:** `title` and `narration_md`, plus the string literals (f-string parts included) and number literals in the arguments of Manim's text and number mobjects (`Text`, `MathTex`, `Tex`, `DecimalNumber`, `Integer`, tables, braces, labelled mobjects) and of `*_label(s)`/`add_coordinates` calls. These are found by AST (`manim_shown_text`). Program structure such as class names and `Circle(radius=…)` is never read.
+  - **JS animation:** the literals in `html` and `js`.
+  - **Any tier:** `alt_text`.
+  - **Grammar figures:** readouts, shaded areas (value and bounds), a bar chart's highlighted mass and a linear map's determinant at the defaults. They are formatted by `format_value`, a port of `FigurePanels.tsx` `formatValue`: `toPrecision(5)` then `String(Number(...))`, `toExponential(3)` and `toFixed(1)%`, with JavaScript's tie rule. `0.12345` now reads `0.12345`; before, it read `0.1235`.
+  - The chooser's leak filter (`span_leaks_expected(reveal_text(row), …)`) reads the same text.
+- **F3.**
+  - The figure row lookup (`open_figure_rows`) takes the attempt's identity sets, from CA2's `reader.workbench.attempt_identities` via `handlers.figures.attempt_aliases`. Chain-root deduplication therefore covers every host of the attempt.
+  - The take step's idempotence uses the same sets.
+  - Alias resolution happens at recording time, inside the delivery's failure handling. An unreadable handoff refuses the record, so the figure is not shown.
+- **F4.**
+  - `reader.figure_revise` takes an optional `hostRef` and `takeStepToken`. It accepts only an attempt host, verified like a request's. With one, the revision is asked under that host: its caller and policy, the take step on a cold check, the item's own blocks refused, and the help switch.
+  - The delivered version is recorded on that attempt. It is the same figure for the count (chain root) and gets its own reveal check (basis `figure:<new id>`).
+  - The panel (`askFigures.tsx`) sends the host and token. Without them, the behaviour is the one before this fix: the host the figure was asked on, as it stands now.
+- **F5.** The live switch is checked at every point:
+  - **Build admission:** `FS.key_for` adds `figures.help_kind_enabled` to the key of an attempt-hosted build, so a build switched off midway asks nothing more.
+  - **Every delivery:** `deliver_figure` and `record_attempt_figure` (and through it `figure.open`) answer `status: disabled` with no figure and no row.
+  - **The chooser's prepared figure line:** `handlers.hints._deliver` checks `_figure_deliverable` before marking it shown (switch on, figure not withheld, item not cold). Otherwise it answers `not_deliverable` and the row stays unshown, so nothing is counted.
+- **F6.**
+  - `hints.report_workbench.WORKBENCH_HELP_KINDS` gains `figure`. A figure between a hint and the next check is now further help (`more_help`), on the one shared definition.
+  - A workbench figure row keeps `step_snapshot_json`: step ids, numbers and content hashes, never text. Its own continuation therefore reads like an example's: its snapshot, and the last check before it for verdicts.
+  - With the switch off, help outcomes still leave every figure row out, so RW2c's read is unchanged.
+- **F7.** Migration 232 also rebuilds `figure_predictions`:
+  - **The link:** a prediction made while its figure (any version in the chain) is open on an unfinished attempt gets that attempt's figure row in `assist_id` (`figures.help.open_assist_for`, derived on the server when it is recorded).
+  - **The freeze:** `explained_at` is set once with the explanation. The diagnoser's trace (`diagnosis/split/figure_trace.py`) reads only the predictions linked to the attempt's own figure rows, made at or before its Submit, with "what changed?" only if written by then. A later prediction or explanation never changes an earlier attempt's trace, and one made in the Reader before the attempt is not its trace.
+  - **Versions:** each version a linked prediction was made on is listed, so every delivered version (F4) has its trace association.
+- **F8.**
+  - On an attempt host, the build gets the rich spawner (§11.4b: every tier).
+  - **Rich-only builds:** the pending line goes to the panel, which shows `RichPendingLine` with cancel. The panel reads the build by its job: `figure.open` with `richJobId` answers the line and records nothing until the figure is stored. It refuses a job of another item or one with a quick figure. Once the figure is stored it is opened and recorded like any figure: one hint-equivalent, its reveal, and the take step when cold.
+  - **Quick figure with a fuller version:** the panel refreshes the fuller line through the idempotent `figure.open` of the quick figure.
+  - **Expanding a fuller version:** `FiguresCtl.openFuller`, a new optional hook that the Reader's controller does not set, records the expansion first. It is the same figure for the count, with the Manim figure's own reveal (F2), and it shows only once recorded.
+  - Manim rows open through the new `FS.openable_rich_figure`: shown, rich tiers on, not withheld, the author's learner state not protected now.
+- **F9.**
+  - `figure_predictions.extraction_id` is nullable, so a homeless illustration (grounding `none`) built on an attempt host shows its predictions and records them with no invented home, linked to the attempt's row (F7).
+  - The learner-text gap path already accepts a figure with no source (its provenance lists no source for it).
+  - The AD material classification gains the two new columns as values (`adaptive_difficulty/protected_tables.py`).
+
+## Migration and head fixture
+
+- `232_help_assist_figures.sql` (not yet landed) now rebuilds `figure_predictions` too, temp-then-rename under `foreign_keys = OFF`. No foreign key names that table. The rebuild makes `extraction_id` nullable and adds `assist_id` and `explained_at`. It recreates the explanation trigger (it also fixes `assist_id`) and adds `idx_figure_predictions_assist`.
+- Table roles are unchanged: it stays RAW_LEDGER, with no new table.
+- `P3_ALTERED_TABLES` and `P3_ADDED_OBJECTS` gain the new objects, so the earlier migrations' "nothing else changed" diffs know them.
+- `fixtures/migration_head_232/state.sqlite` was rebuilt as follows:
+  1. The source was main's exact `migration_head_230` blob at `c0017b5740`, as a backup-API scratch copy in `fixtures-local/rw5d-p3-fix/`.
+  2. The revised 232 was applied under `UPGRADE_SCRATCH_COPY`.
+  3. The checks: checkpoint (0, 0, 0), `journal_mode=DELETE`, header bytes 1/1, `integrity_check` ok, `foreign_key_check` empty, and 218 applied migrations (head 232).
+  4. It was copied into place with the backup API. Its README records this.
+- The DB reference was regenerated: `figure_predictions` and `help_assists` notes, plus the stamps. The desktop catalog was regenerated too: 303 TS / 6 Rust, ACTIVE 309.
+
+## Gate (this step; the full suite runs once at landing)
+
+Every pytest, vitest and npm command ran inside `systemd-run --user --scope --quiet -p MemoryMax=5G -p MemorySwapMax=1G`. pytest ran at `-n 6`, and vitest at `--maxWorkers=4`.
+
+| Check | Result |
+|---|---|
+| `uv sync --extra dev --extra mobile`, `uv pip install pypdfium2` | ok |
+| `uv run lint-imports --no-cache` | 40 kept, 0 broken |
+| Pre-fix reproduction: `tests/test_figures_help_codex_review.py` and `tests/test_help_assist_figures_migration.py` on the pre-fix `src`, `migrations` and head fixture | 24 failed, 3 passed (every new test failed) |
+| New and stage tests after the fixes: `tests/test_figures_help_codex_review.py`, `tests/test_figures_help.py`, `tests/test_help_assist_figures_migration.py` | 21 + 25 + 6 passed |
+| Targeted lane (C below, 263 files): the stage's lanes A and B, every test file that names a changed module or function (git grep), and the figure, rich, Manim, text-gap and AD-guard families | 2 failed, 10514 passed, 20 skipped, 5 xfailed (38 min). The two failures are below; after the fixes, those 2 files gave 15 passed, and the AD files (`test_ad_guard.py`, `test_ad_guard_offer_receipts.py`, `test_ad_guard_reachable_reads.py`, `test_ad_protected_tables.py`, `test_ad23_contract.py`, `test_ad_projection.py`) gave 87 passed |
+| `-m durability` on the migration, stage, prediction and tracked-fixture files | 1 passed (the one marked test) |
+| `--durable-sqlite` (WAL, production pragmas) on the migration, stage and review test files | 52 passed |
+| `npm install`, `npm run typecheck` | ok, 0 errors |
+| `npx vitest run --maxWorkers=4 src/components/askFigures.test.tsx src/screens/reader/figures src/screens/practice src/components/AskOverlay` | 42 files, 618 passed (3 new cases in `askFigures.test.tsx`) |
+| `npm run frontend:build` | built |
+| `cargo check` | not run: nothing under `src-tauri` changed (the new `figure.open` and `reader.figure_revise` params go through the existing generic passthroughs) |
+| `db_generate_reference.py`, `db_validate_reference.py` | errors [] |
+| `desktop_generate.py`, `desktop_validate.py`, `validate_vault.py` | pass (303 TS / 6 Rust, ACTIVE 309, reproducible; 1375 notes) |
+
+The two lane failures:
+- `tests/test_ad_protected_tables.py::test_every_column_of_every_readable_table_is_metadata_or_content`: this stage's own miss. The two new `figure_predictions` columns also need a class in `adaptive_difficulty/column_classes.py`. They were added as metadata.
+- `tests/test_figures_switch_off.py::test_figures_on_adds_only_its_key_and_its_action`: a pin from the stage itself (the stage head fails it too). It pins the Reader contract's `figures` keys, and P3 adds `help: true` while `figures.help_kind_enabled` is on. The stage's lane B did not include this file. The pin was updated.
+
+**C. Targeted lane files:** `tests/test_active_errors_overlay.py`, `tests/test_ad1_attempt_columns.py`, `tests/test_ad1_codex_review_fixes.py`, `tests/test_ad1_fix_round4.py`, `tests/test_ad1_fix_round8.py`, `tests/test_ad1_fix_round9.py`, `tests/test_ad1_migration.py`, `tests/test_ad1_outside_and_cli.py`, `tests/test_ad23_contract.py`, `tests/test_ad23_migration.py`, `tests/test_ad23_successor.py`, `tests/test_ad_epoch.py`, `tests/test_ad_guard_offer_receipts.py`, `tests/test_ad_guard.py`, `tests/test_ad_guard_reachable_reads.py`, `tests/test_ad_projection.py`, `tests/test_ad_protected_tables.py`, `tests/test_ai_compare.py`, `tests/test_answer_calibration_duel.py`, `tests/test_approach_map_boundaries.py`, `tests/test_approach_map_replay.py`, `tests/test_approach_maps.py`, `tests/test_approach_maps_schema.py`, `tests/test_architecture.py`, `tests/test_attempt_content_state_successor.py`, `tests/test_batch3_landing.py`, `tests/test_capture_desktop.py`, `tests/test_chatgpt_plan_workspace.py`, `tests/test_chat_total_transport_deadline.py`, `tests/test_cli_help_snapshot.py`, `tests/test_codex_lockdown_round3.py`, `tests/test_codex_tool_lockdown.py`, `tests/test_cold_retry_reschedule.py`, `tests/test_compare_methods.py`, `tests/test_config_refactor.py`, `tests/test_coordinated_migrations.py`, `tests/test_curriculum_c1_plan_follows_path.py`, `tests/test_daily_loop_start_minutes.py`, `tests/test_daily_plan_replay.py`, `tests/test_deliverable_curriculum_migration.py`, `tests/test_desktop_rpc_contract.py`, `tests/test_diagnosis_context.py`, `tests/test_diagnosis_contract.py`, `tests/test_diagnosis_embeddings.py`, `tests/test_diagnosis_history_modes.py`, `tests/test_diagnosis_input_provenance_landing.py`, `tests/test_diagnosis_input_provenance.py`, `tests/test_diagnosis_pipeline.py`, `tests/test_diagnosis_replay.py`, `tests/test_diagnosis_reports.py`, `tests/test_e0_isolation.py`, `tests/test_exam_protection_review.py`, `tests/test_facet_outcome_view.py`, `tests/test_field_workbench_signals.py`, `tests/test_figure_grammar.py`, `tests/test_figure_label_wording.py`, `tests/test_figure_offers.py`, `tests/test_figure_panels.py`, `tests/test_figure_predictions.py`, `tests/test_figure_property.py`, `tests/test_figure_region.py`, `tests/test_figure_requests_migration.py`, `tests/test_figure_revisions.py`, `tests/test_figure_rich_contract.py`, `tests/test_figure_rich_failed_correction_durable.py`, `tests/test_figure_rich_job.py`, `tests/test_figure_rich_rereview_fixes.py`, `tests/test_figure_rich_review_fixes.py`, `tests/test_figure_rich_rpc.py`, `tests/test_figures_codex_review.py`, `tests/test_figures_final_round.py`, `tests/test_figures_fix_round2.py`, `tests/test_figures_fix_round3.py`, `tests/test_figures_fix_round4.py`, `tests/test_figures_fix_round5.py`, `tests/test_figures_help_codex_review.py`, `tests/test_figures_help.py`, `tests/test_figures_migration.py`, `tests/test_figures_rpc.py`, `tests/test_figures_rw5b_fix_round2.py`, `tests/test_figures_rw5b_review.py`, `tests/test_figures_scope_redesign.py`, `tests/test_figures_show_me_codex_review.py`, `tests/test_figures_show_me.py`, `tests/test_figures_switch_off.py`, `tests/test_figure_verification.py`, `tests/test_forecast_receipts.py`, `tests/test_held_grade_composition.py`, `tests/test_held_grade_evidence.py`, `tests/test_help_assist_figures_migration.py`, `tests/test_help_assists_schema.py`, `tests/test_help_assist_work_md_migration.py`, `tests/test_help_outcomes.py`, `tests/test_hint_blind.py`, `tests/test_hint_contracts.py`, `tests/test_hint_discriminating.py`, `tests/test_hint_evidence.py`, `tests/test_hint_feedback_texts.py`, `tests/test_hint_feedback_widening.py`, `tests/test_hint_h2a_review.py`, `tests/test_hint_h2a_review_round2.py`, `tests/test_hint_h2a_review_round3.py`, `tests/test_hint_h2a_review_round4.py`, `tests/test_hint_h2b_fix4.py`, `tests/test_hint_h2b_rereview.py`, `tests/test_hint_h2b_review.py`, `tests/test_hint_kill_switch.py`, `tests/test_hint_outcome.py`, `tests/test_hint_replies.py`, `tests/test_hint_report.py`, `tests/test_hint_service.py`, `tests/test_hint_telemetry.py`, `tests/test_intent_codex_rereview.py`, `tests/test_learner_blindness_relax_codex_review.py`, `tests/test_learner_blindness_relax.py`, `tests/test_learner_claim_application_migration.py`, `tests/test_learner_claim_superseded_migration.py`, `tests/test_learner_data_relax_2.py`, `tests/test_learner_notes_migration.py`, `tests/test_learner_report_superseded.py`, `tests/test_learner_text_gaps_composition.py`, `tests/test_learner_text_gaps_flow.py`, `tests/test_learner_text_gaps.py`, `tests/test_learner_text_gaps_rereview.py`, `tests/test_learner_text_gaps_review.py`, `tests/test_library_ask.py`, `tests/test_library_asks_migration.py`, `tests/test_lp_claim_fixes.py`, `tests/test_manim_figure_checks.py`, `tests/test_manim_sandbox_hostile.py`, `tests/test_mcp_c1a_narrow.py`, `tests/test_method_explicit_upgrade.py`, `tests/test_migration_coordinator.py`, `tests/test_migrations.py`, `tests/test_mobile_allowlist.py`, `tests/test_mvp010_upgrade.py`, `tests/test_mvp011_upgrade.py`, `tests/test_mvp013_upgrade.py`, `tests/test_mvp014_upgrade.py`, `tests/test_mvp015_upgrade.py`, `tests/test_mvp016_upgrade.py`, `tests/test_mvp017_upgrade.py`, `tests/test_mvp018_upgrade.py`, `tests/test_mvp020_upgrade.py`, `tests/test_mvp021_upgrade.py`, `tests/test_mvp022_upgrade.py`, `tests/test_mvp023_upgrade.py`, `tests/test_mvp024_upgrade.py`, `tests/test_notes_never_read.py`, `tests/test_owner_capture_1025.py`, `tests/test_pfc_unassessed_readers.py`, `tests/test_pfc_unverified_unassessed.py`, `tests/test_placement_diagnosis_decides.py`, `tests/test_plan_determinism.py`, `tests/test_plan_first_transport_grant_scope.py`, `tests/test_plan_first_transport_offer_grants.py`, `tests/test_plan_first_transport_offer_grants_r5.py`, `tests/test_plan_first_transport.py`, `tests/test_plan_follows_path.py`, `tests/test_post_attempt_worker.py`, `tests/test_probability_prep.py`, `tests/test_public_tip_guards.py`, `tests/test_reader_activity.py`, `tests/test_reader_branches.py`, `tests/test_reader_ca2_astra_handoff.py`, `tests/test_reader_ca2_codex_rereview.py`, `tests/test_reader_ca2_codex_review.py`, `tests/test_reader_ca2_fix_orchestrator.py`, `tests/test_reader_ca2_one_ask.py`, `tests/test_reader_ca5_also_in_books.py`, `tests/test_reader_ca6_side_by_side.py`, `tests/test_reader_cues.py`, `tests/test_reader_digest_narrative.py`, `tests/test_reader_followups_successor.py`, `tests/test_reader_guidance.py`, `tests/test_reader_inquiry_kill_switch.py`, `tests/test_reader_inquiry_status.py`, `tests/test_reader_intent.py`, `tests/test_reader_passage_check.py`, `tests/test_reader_recap.py`, `tests/test_reader_recap_review.py`, `tests/test_reader_recap_review_r2.py`, `tests/test_reader_recap_review_r3.py`, `tests/test_reader_reconnect.py`, `tests/test_reader_reconstruct.py`, `tests/test_reader_report.py`, `tests/test_reader_rw2b_fix10.py`, `tests/test_reader_rw2b_fix11.py`, `tests/test_reader_rw2b_fix14.py`, `tests/test_reader_rw2b_fix15.py`, `tests/test_reader_rw2b_fix5.py`, `tests/test_reader_rw2b_fix9.py`, `tests/test_reader_rw2b_review.py`, `tests/test_reader_rw3b_migration.py`, `tests/test_reader_rw3b_protection.py`, `tests/test_reader_rw6b_p2_landing.py`, `tests/test_reader_rw7a_migration.py`, `tests/test_reader_session_digests_migration.py`, `tests/test_reader_source_identity_guard.py`, `tests/test_reader_tutor_offers.py`, `tests/test_reader_tutor_switch_off.py`, `tests/test_reader_workbench_rw2a.py`, `tests/test_reading_step_switch.py`, `tests/test_rebuild_equivalence_review.py`, `tests/test_rebuild_orchestrator.py`, `tests/test_recurrence_commands.py`, `tests/test_recurrence_live.py`, `tests/test_recurrence_merge_composition.py`, `tests/test_registry_audit.py`, `tests/test_regrade_contract_successor.py`, `tests/test_regrade_contract_upgrade.py`, `tests/test_required_method_grading.py`, `tests/test_required_method_round3_review.py`, `tests/test_retrieval_spaces_migration.py`, `tests/test_router_offer_log.py`, `tests/test_router_reader_activity.py`, `tests/test_route_rules_in_grader.py`, `tests/test_rw2c_fix_round2.py`, `tests/test_rw2c_fix_round3.py`, `tests/test_rw2c_switch_off.py`, `tests/test_rw2d_receipts_migration.py`, `tests/test_rw4_kill_switches.py`, `tests/test_salience_firewall.py`, `tests/test_section_coverage_migration.py`, `tests/test_serve_eligibility_review.py`, `tests/test_session_ownership_migration.py`, `tests/test_session_ownership.py`, `tests/test_settings_store.py`, `tests/test_shadow_rebuild.py`, `tests/test_sidecar_registry.py`, `tests/test_sidecar_source_retrieval.py`, `tests/test_sidecar_tutor_qa.py`, `tests/test_sketch_engine.py`, `tests/test_sketch_hostile.py`, `tests/test_sketch_parity.py`, `tests/test_sketch_sandbox_review.py`, `tests/test_sketch_service.py`, `tests/test_sketch_verify.py`, `tests/test_source_retrieval_followup.py`, `tests/test_stuck_prompt.py`, `tests/test_stuck_prompt_replay.py`, `tests/test_success_head_cli.py`, `tests/test_t1_batch_origin_migration.py`, `tests/test_table_roles.py`, `tests/test_teacher_te0_confidence_events.py`, `tests/test_teacher_te0_fix_round2.py`, `tests/test_teacher_te0_review_fixes.py`, `tests/test_tracked_fixture_databases.py`, `tests/test_tutor_delivery_fixes.py`, `tests/test_tutor_practice_request.py`, `tests/test_tutor_tool_requests.py`, `tests/test_ux_phase1_landing.py`, `tests/test_ux_phase3_today.py`, `tests/test_voi_stopping.py`, `tests/test_workbench_assistance.py`, `tests/test_workbench_check.py`, `tests/test_workbench_chooser.py`, `tests/test_workbench_help_kill_switch.py`, `tests/test_workbench_hint_service.py`, `tests/test_workbench_report.py`, `tests/test_workbench_step_graph.py`, `tests/test_workbench_text_gaps.py`, `tests/test_workbench_trace.py`
+
+## Re-review
+
+- **Review:** Codex (gpt-6.1-sol), job `20261101-220851-WBO5kk`, on `eec239126d`. Verdict REOPENED: F1 and F2 reopened, F3 and F4 confirmed fixed, and three new Medium findings (F10, F11, F12). F5 to F9 were not reopened.
+- **Live calls:** none. All models in the tests are fakes. Outside pytest, only the desktop catalog scripts ran, under `env -i` with an empty, existing HOME, CODEX_HOME and LEARNLOOP_CONFIG_DIR.
+- **Reproduced first:**
+  - **pytest:** the 6 new tests in `tests/test_figures_help_codex_review.py` (prefix `test_rr_`) all failed on `eec239126d`: 6 failed.
+  - **vitest:** the 3 new `askFigures.test.tsx` cases ran against the pre-fix `askFigures.tsx` (from `git show HEAD:`, restored afterwards) and failed: 3 failed, 11 passed. This includes the unmount case, where the pre-fix panel still called `figure.open` after unmount.
+
+| id | severity | title | verdict | commit | test or reason |
+|---|---|---|---|---|---|
+| F1 | High | Session check does not bind item, submission and session; a committed key of another item is free | fixed | `51200ac32e` | `test_rr_f1_a_fresh_key_under_another_open_session_is_refused`, `test_rr_f1_a_committed_key_of_another_item_or_session_is_not_free_feedback` |
+| F2 | High | The Manim reveal scan misses shown text supplied through variables | fixed | `51200ac32e` | `test_rr_f2_displayed_text_through_variables_is_read`, `test_rr_f2_a_variable_scene_stating_the_key_overlaps_it` |
+| F3 | High | (confirmed fixed by the re-review) | — | `09380802a8` | no change |
+| F4 | High | (confirmed fixed by the re-review) | — | `09380802a8` | no change |
+| F10 | Medium | Rich polling silently moves delivery to another attempt | fixed | `51200ac32e` | vitest "a rich build's polling stays on the attempt it was asked on; another attempt opens it only by open here (F10)", "a rich build's polling stops when the panel unmounts (F10)" |
+| F11 | Medium | "Not right?" does nothing on a fuller animation | fixed | `51200ac32e` | vitest "not right? on a quick figure's fuller version revises the version shown, on the current host (F11)" |
+| F12 | Medium | Queued attempt animations bypass help-switch admission | fixed | `51200ac32e` | `test_rr_f12_a_queued_attempt_animation_stops_when_figure_help_is_switched_off`, `test_rr_f12_the_rich_jobs_key_carries_the_help_switch_for_an_attempt_host` |
+
+Rejected: none.
+
+### What changed, per finding
+
+- **F1.**
+  - **One open session.** `_attempt_host` now requires the answer box's session to be the only open session (`_sole_open_session`), after `require_owned_session`. Mobile PR-4's `start_session_exclusive` is the only code path that creates sessions, and it ends every other session in the same transaction. A Submit can therefore only be accepted in that session, so a figure row under it is folded by the attempt that attaches it. A second open session (legacy or crafted state, as in the re-review's probe) refuses the figure with `validation_error` and the figure take step likewise; it never guesses which session submits. The take step is refused through the same `_attempt_host`.
+  - **Committed keys.** `_committed` was replaced by `_committed_attempt`. A committed key is feedback only for its own attempt: the same item, and on the answer box the session named (when the attempt row has one). Another item's key, or the key under another session, gets `validation_error` before anything is built. The feedback host now names the committed attempt (`attempt_id`), so its caller is that attempt's post-attempt policy.
+  - **Ownership on feedback.** It is deliberately not checked on this path: the explicit feedback host (`hostRef.attemptId`) never checked it either, and feedback writes nothing.
+  - **The delivery's committed check.** `help_assists.submission_committed` takes an optional `practice_item_id`. `record_attempt_figure` now passes it, so another item's key never makes a delivery free.
+  - **What remains.** A session ended and a new one started while the client keeps the same submission key: the old session's rows attach by key without the new fold counting them. That is the hint service's existing attach/fold boundary (H0) for every help kind, not something figures add, and it is unchanged here.
+- **F2.** `manim_shown_text` keeps reading the literals of text and number mobject arguments, and now also reads:
+  - **Every string literal in the scene**, except docstrings and imports. A scene's strings are its shown words; a colour or font name never matches the key's words.
+  - **Through names:** for those arguments, whatever reaches them through a name, a `self.x` attribute, a local function or method's return, a subscript, or an f-string. This is followed flow-insensitively through every value the name is given anywhere (assignments, loop targets, defaults, comprehension targets), to a depth bound.
+  - **Arithmetic:** constant folding of `+ - * / // % **`, signs, and `float`/`int`/`abs`/`round` over those values (`a / b` is read as `0.25`).
+  - **Number forms:** shown numbers are emitted as the panels format them, as Python's `str` prints them, and, for `DecimalNumber`, at its `num_decimal_places` (Manim's default 2: `DecimalNumber(0.5)` reads `0.50`). An f-string format spec is applied.
+  - **Structure stays out:** numbers outside these arguments (a radius, a run time, even through a name) are never read.
+  - **Bounds:** the three new bounds (`_NAME_DEPTH`, `_FOLD_LIMIT`, `_DECIMAL_PLACES`) are registered as `keep` in `params/parameter_registry.py`, under a new `figure_help` module entry. The stage's earlier `FIGURE_LEVEL` and `QUALIFYING_SCAN` were registered there too.
+- **F10.**
+  - **Bound to the asking attempt.** `usePanelFigures` records the attempt each line was asked on (`figureHostIdentity`: the verified host references). The rich polling checks it before every read and stops when the panel's target names another attempt, the line is dismissed, or the panel unmounts.
+  - **Another attempt.** A rich-only line then reads "asked on another attempt, so it isn't shown here", with an **open here** link. Opening an old result on the current attempt (`figure.open` by `richJobId`, recorded there) happens only on that click.
+  - **Revisions.** "Not right?" is an explicit action on the current host (F4), so it re-binds its line to the current attempt.
+- **F11.** The panel's `revise` finds the line through the quick figure's nested `fuller.figure` as well. It then revises the displayed (fuller) version on the current host with the current take-step token.
+- **F12.**
+  - **The flag.** The rich job's payload `base` carries `attempt_hosted` for an attempt host's build. `base` is not part of the content key, so recovery is unchanged.
+  - **The worker's start.** `run_rich_job` refuses such a job before anything else when `figures.help_kind_enabled` is off (`figures_changed`, nothing stored, no request).
+  - **Every model request.** The job's `FiguresGate` key (`rich.rich_job_key`) adds the switch, composed with data-relax 2's learner-state key, so a switch-off midway asks nothing more.
+
+### Gate (this step; the full suite runs once at landing)
+
+Every pytest, vitest and npm command ran inside `systemd-run --user --scope --quiet -p MemoryMax=5G -p MemorySwapMax=1G`. pytest ran at `-n 6`, and vitest at `--maxWorkers=4`.
+
+| Check | Result |
+|---|---|
+| `uv sync --extra dev --extra mobile`, `uv pip install pypdfium2` | ok |
+| `uv run lint-imports --no-cache` | 40 kept, 0 broken |
+| Pre-fix reproduction, `tests/test_figures_help_codex_review.py -k rr_` on `eec239126d` | 6 failed |
+| Pre-fix reproduction, `npx vitest run src/components/askFigures.test.tsx` with the pre-fix component | 3 failed, 11 passed |
+| Targeted lane R1 (67 files, below) | 1525 passed, 6 skipped |
+| `tests/test_registry_audit.py` (after registering the `figure_help` constants) | 18 passed |
+| Registry lane R2 (46 files naming `parameter_registry`/`MODULE_INVENTORY`, below) | 2 failed, 798 passed, 12 skipped, 1 xfailed (15 min); both failures were in `tests/test_reading_paths.py` (below); after the fix, that file gave 51 passed |
+| `--durable-sqlite` on `tests/test_figures_help_codex_review.py`, `tests/test_figures_help.py` | 52 passed |
+| `npm install`, `npm run typecheck` | ok, exit 0 |
+| `npx vitest run --maxWorkers=4 src/components/askFigures.test.tsx src/screens/reader/figures src/screens/practice src/components/AskOverlay` | 42 files, 621 passed |
+| `npm run frontend:build` | built |
+| `cargo check` | not run: nothing under `src-tauri` changed |
+| DB reference scripts | not run: no schema change |
+| `desktop_generate.py`, `desktop_validate.py`, `validate_vault.py` | pass (303 TS / 6 Rust, ACTIVE 309, reproducible; 1375 notes); `askFigures` note regenerated |
+
+The two R2 failures:
+- `tests/test_reading_paths.py::test_on_by_default_classified_and_the_contract_and_palette_gain_only_rw7a_keys` and `::test_switched_off_the_guide_contract_and_palette_are_a76c8358a_and_every_rpc_refuses` failed for the same reason as last round's `test_figures_switch_off.py` pin: the stage's own `figures.help: true` contract key, which neither earlier lane ran.
+- This fix step's changes did not cause them: no contract key changed here.
+- The pin (`_without_rw5a`) now expects `help: True`.
+- The other files pinning the `figures` keys all passed in R1: `test_figure_offers.py`, `test_figures_rpc.py`, `test_figures_switch_off.py` and `test_reader_tutor_switch_off.py`.
+
+Not run, and why:
+- **`-m durability`:** no migration or connection code changed. `help_assists.submission_committed` only gained an optional filter on a read query.
+
+**R1 files:** `tests/test_architecture.py`, `tests/test_batch3_landing.py`, `tests/test_compare_methods.py`, `tests/test_desktop_rpc_contract.py`, `tests/test_figure_label_wording.py`, `tests/test_figure_offers.py`, `tests/test_figure_predictions.py`, `tests/test_figure_requests_migration.py`, `tests/test_figure_revisions.py`, `tests/test_figure_rich_contract.py`, `tests/test_figure_rich_failed_correction_durable.py`, `tests/test_figure_rich_job.py`, `tests/test_figure_rich_rereview_fixes.py`, `tests/test_figure_rich_review_fixes.py`, `tests/test_figure_rich_rpc.py`, `tests/test_figures_codex_review.py`, `tests/test_figures_final_round.py`, `tests/test_figures_fix_round2.py`, `tests/test_figures_fix_round3.py`, `tests/test_figures_fix_round4.py`, `tests/test_figures_fix_round5.py`, `tests/test_figures_help_codex_review.py`, `tests/test_figures_help.py`, `tests/test_figures_migration.py`, `tests/test_figures_rpc.py`, `tests/test_figures_rw5b_fix_round2.py`, `tests/test_figures_rw5b_review.py`, `tests/test_figures_scope_redesign.py`, `tests/test_figures_show_me_codex_review.py`, `tests/test_figures_show_me.py`, `tests/test_figures_switch_off.py`, `tests/test_figure_verification.py`, `tests/test_help_assist_figures_migration.py`, `tests/test_help_assists_schema.py`, `tests/test_help_assist_work_md_migration.py`, `tests/test_help_outcomes.py`, `tests/test_hint_h2a_review.py`, `tests/test_hint_h2a_review_round3.py`, `tests/test_hint_h2b_rereview.py`, `tests/test_hint_kill_switch.py`, `tests/test_hint_outcome.py`, `tests/test_hint_service.py`, `tests/test_hint_telemetry.py`, `tests/test_judge_routes.py`, `tests/test_learner_data_relax_2.py`, `tests/test_learner_text_gaps_composition.py`, `tests/test_learner_text_gaps_flow.py`, `tests/test_learner_text_gaps.py`, `tests/test_learner_text_gaps_rereview.py`, `tests/test_learner_text_gaps_review.py`, `tests/test_manim_figure_checks.py`, `tests/test_mobile_allowlist.py`, `tests/test_post_attempt_worker.py`, `tests/test_reader_ca2_astra_handoff.py`, `tests/test_reader_ca2_codex_rereview.py`, `tests/test_reader_ca2_codex_review.py`, `tests/test_reader_ca2_one_ask.py`, `tests/test_reader_qualified_span_keys.py`, `tests/test_reader_source_identity_guard.py`, `tests/test_reader_tutor_switch_off.py`, `tests/test_session_ownership.py`, `tests/test_sidecar_contract.py`, `tests/test_sidecar_registry.py`, `tests/test_sketch_service.py`, `tests/test_workbench_assistance.py`, `tests/test_workbench_help_kill_switch.py`, `tests/test_workbench_hint_service.py`
+
+**R2 files:** `tests/test_ad1_codex_review_fixes.py`, `tests/test_ad23_owner_decisions.py`, `tests/test_ad23_successor.py`, `tests/test_architecture.py`, `tests/test_attempt_content_state_successor.py`, `tests/test_cold_retry_reschedule.py`, `tests/test_constraint_engine.py`, `tests/test_curriculum_c1_plan_follows_path.py`, `tests/test_deliverable_codex_review.py`, `tests/test_field_workbench_signals.py`, `tests/test_figures_show_me_codex_review.py`, `tests/test_grading_cli.py`, `tests/test_kinship_feature.py`, `tests/test_library_exercises.py`, `tests/test_lp_claim_fixes.py`, `tests/test_method_explicit_upgrade.py`, `tests/test_mvp011_upgrade.py`, `tests/test_mvp013_upgrade.py`, `tests/test_mvp014_upgrade.py`, `tests/test_mvp015_upgrade.py`, `tests/test_mvp016_upgrade.py`, `tests/test_mvp017_upgrade.py`, `tests/test_mvp018_upgrade.py`, `tests/test_mvp020_upgrade.py`, `tests/test_mvp021_upgrade.py`, `tests/test_mvp022_upgrade.py`, `tests/test_mvp023_upgrade.py`, `tests/test_mvp024_upgrade.py`, `tests/test_open_world_gate.py`, `tests/test_p0_cutover_mvp08.py`, `tests/test_plan_follows_path.py`, `tests/test_reader_ca2_one_ask.py`, `tests/test_reader_ca4_table_by_point.py`, `tests/test_reader_followups_successor.py`, `tests/test_reader_rw2b_review.py`, `tests/test_reading_paths.py`, `tests/test_rebuild_equivalence_review.py`, `tests/test_recurrence_commands.py`, `tests/test_registry_audit.py`, `tests/test_regrade_contract_upgrade.py`, `tests/test_rw2c_switch_off.py`, `tests/test_sensitivity_certificates.py`, `tests/test_source_roles.py`, `tests/test_table_roles.py`, `tests/test_teacher_te0_review_fixes.py`, `tests/test_ux_phase2_shell.py`
+
+## Third review and step 0 (structural simplification)
+
+- **Review:** Codex (gpt-6.1-sol), job `20261101-225210-5u2jBM`, on `5423f57539`. Verdict REOPENED: F3, F4 and F11 confirmed fixed; F1 (session rollover), F2 (computed displayed values in Manim scenes), F10 (an in-flight poll landing on another attempt) and F12 (legacy queued payloads without the flag) reopened; one new Medium, F13 (undisplayed strings in a Manim scene now create false answer reveals).
+- **Stuck-loop rule.** This was the third round on the rich-figure-in-attempt classes, so the orchestrator ruled a structural simplification instead of a fourth fix round.
+
+orchestrator ruling: F2/F10/F11/F12/F13 class closed structurally (no rich tiers on attempt hosts)
+
+### What step 0 changed
+
+- **Attempt hosts are grammar and sketch only.** An attempt host's build gets no rich spawner (`handlers.figures._start`), so the author's menu has no rich tier, no rich job starts and the view carries no fuller version (`attempt_view`; the panel strips it too).
+- **Refused at the RPC:**
+  - `figure.open` refuses a rich (Manim) figure, a fuller version included, with `validation_error`, and no longer takes `richJobId`.
+  - `reader.figure_revise` on an attempt host refuses a rich figure.
+  - `figure.rich_retry` refuses an attempt-hosted rich job.
+  - `record_attempt_figure` never records a rich row (`not_recorded`).
+  - The chooser's `qualifying_figure` skips rich rows.
+- **Refused at worker admission.** `rich.attempt_hosted_job(repository, payload)` reads the payload's `attempt_hosted` flag or, for a legacy payload without it, the stored request's verified host (`figure_requests.host_ref_json`). An unreadable request fails closed. `run_rich_job` stops such a job first, before any model request (`figures_changed`, `ATTEMPT_HOST_READER_ONLY`). The help-switch job key (`rich_job_key`, `HELP_KIND_OFF`) is gone, since such a job never runs.
+- **Removed:** the attempt-host rich polling, "open here", the fuller opening (`FiguresCtl.openFuller`) and the fuller revision path, from `askFigures.tsx`, `FigureInline.tsx`, `useFigures.ts`, `client.ts` and `dto.ts`; and `FS.openable_rich_figure` and `_rich_job_figure`, on the server.
+- **Reveal scan reverted to the base.** It now reads the text keys, a sketch's literals and a grammar figure's displayed values as the panels format them (the F2 round-1 grammar fixes are kept). The Manim AST scan (`manim_shown_text`), the JS animation literals and the three scan bounds registered in the parameter registry (`_NAME_DEPTH`, `_FOLD_LIMIT`, `_DECIMAL_PLACES`) are removed.
+- **F1** stays as the hint service's H0 attach/fold boundary, ruled Low at landing and queued as a cross-help follow-up (landing ruling R2).
+
+### Regressions (written first; all failed on `5423f57539`: 5 failed)
+
+- `test_s0_an_attempt_host_build_offers_no_rich_tier_and_its_quick_figure_counts_once`: a sketch or grammar figure on an attempt is still counted once.
+- `test_s0_an_attempt_host_rich_request_is_refused_at_the_rpc`.
+- `test_s0_a_legacy_queued_attempt_rich_job_stops_before_any_model_request`, and `test_s0_an_attempt_hosted_payload_is_refused_by_its_flag_too`.
+- `test_s0_f13_an_undisplayed_string_in_a_scene_is_not_reveal_text`.
+- **vitest:**
+  - "a figure lands on the attempt without its fuller version, and nothing rich is read or polled (R1)";
+  - "a build answering only a rich pending line is not a figure here and is never polled (R1)".
+- **Removed with their code paths:** the F8, re-review F2 and F12 tests, and the vitest cases for F8, F10 and F11.
+
+### Gate (step 0; the full suite runs once at landing)
+
+| Check | Result |
+|---|---|
+| Stage tests (`test_figures_help_codex_review.py`, `test_figures_help.py`, `test_help_assist_figures_migration.py`) | 54 passed |
+| Targeted lane: every `test_figure*`, `test_rich*`, `test_hint*`, `test_help_*`, `test_manim*`, `test_reader_ca2*` and `test_parameter*` file, plus the registry audit, architecture, desktop RPC contract, mobile allowlist, sidecar registry, reading paths, Reader tutor switch-off and data-relax 2 files (73 files) | 1589 passed, 1 skipped |
+| `lint-imports --no-cache` | 40 kept, 0 broken |
+| `npm run typecheck`; `vitest --maxWorkers=4` on `askFigures.test.tsx`, `screens/reader/figures`, `screens/practice` and `components/AskOverlay` | 0 errors; 42 files, 618 passed |

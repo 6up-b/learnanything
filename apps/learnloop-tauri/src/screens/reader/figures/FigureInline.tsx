@@ -91,7 +91,7 @@ export function frameChecks(keys: readonly string[] | null | undefined): string[
     .map((key) => PROPERTY_CHECK_COPY[key]);
 }
 
-import { figurePlacementKey, type FigurePending, type FiguresCtl } from "./useFigures";
+import { figurePlacementKey, type FigureHome, type FigurePending, type FiguresCtl, type FollowedFigure } from "./useFigures";
 import { checksStand, SketchFigure, sketchBadge, SKETCH_FRAME } from "./sketch/SketchFigure";
 import { useChecksWithdrawn } from "./sketch/checksWithdrawn";
 import { parseProgram } from "./sketch/sketchScene";
@@ -123,6 +123,8 @@ export const FIGURE_COPY = {
   unreadable: "couldn't draw this version here",
   /** RW5d P1. */
   fromYourBooks: "from your books:",
+  /** RW5d P4a: a figure followed here from another book names its home. */
+  fromYourReading: "from your reading of",
 } as const;
 
 const PLAY_STEPS = 40;
@@ -468,7 +470,12 @@ function FigureBody({ figure, ctl, compiled }: { figure: FigureViewDto; ctl: Fig
 }
 
 /** One figure under its passage: the collapsed line and, when expanded, the figure. */
-export function FigureInline({ figure, ctl }: { figure: FigureViewDto; ctl: FiguresCtl }) {
+/** RW5d P4a: the line naming a followed figure's home ("from your reading of Lay § 5.1 …"). */
+export function figureHomeLine(home: FigureHome): string {
+  return `${FIGURE_COPY.fromYourReading} ${home.sourceTitle} § ${home.sectionTitle}`;
+}
+
+export function FigureInline({ figure, ctl, home = null }: { figure: FigureViewDto; ctl: FiguresCtl; home?: FigureHome | null }) {
   const shown = figure.verification === "verified" || figure.verification === "illustrative";
   const expanded = shown && ctl.expandedKey === figurePlacementKey(figure);
   // RW5d P2: a sketch's specJson is its SketchProgramV1, drawn by SketchFigure.
@@ -550,6 +557,10 @@ export function FigureInline({ figure, ctl }: { figure: FigureViewDto; ctl: Figu
           <span data-figure-badge="">{isManim ? manimBadge(figure) : isSketch ? sketchBadge(figure, withdrawn) : frameBadge(figure.verification, figure.grounding)}</span>
           {!expanded && fullerReady ? <span data-fuller-collapsed=""> · {RICH_FRAME.collapsedReady}</span> : null}
         </button>
+        {home ? (
+          // RW5d P4a: a figure from another book says so, always (collapsed or open).
+          <span data-figure-home=""><MeaningLabel style={{ fontSize: 11 }}>{figureHomeLine(home)}</MeaningLabel></span>
+        ) : null}
         <FigurePassages figure={figure} />
         {checks.length ? (
           <span data-figure-checks=""><MeaningLabel style={{ fontSize: 11 }}>{isSketch ? SKETCH_FRAME.checksLead : FIGURE_FRAME.checksLead} {checks.join("; ")}</MeaningLabel></span>
@@ -568,15 +579,24 @@ export function FigureInline({ figure, ctl }: { figure: FigureViewDto; ctl: Figu
 /** Everything figure-related under one passage (figures and their pending lines). */
 export function FiguresUnder({ ctl, spanId }: { ctl: FiguresCtl; spanId: string | null | undefined }) {
   if (!ctl.enabled || !spanId) return null;
-  const { figures, pending, richPending } = ctl.under(spanId);
+  const { figures, pending, richPending, followed } = ctl.under(spanId);
   const askOptIn = ctl.optInSpanId === spanId && ctl.manimOptIn === "ask";
-  if (!figures.length && !pending.length && !richPending.length && !askOptIn) return null;
+  if (!figures.length && !pending.length && !richPending.length && !followed.length && !askOptIn) return null;
   return (
     <div data-figures-under={spanId}>
       {pending.map((item) => <FigurePendingLine key={item.key} pending={item} />)}
       {askOptIn ? <ManimOptInLine onAnswer={(choice) => ctl.answerManimOptIn(choice)} /> : null}
       {richPending.map((line) => <RichPendingLine key={line.richJobId ?? line.requestId ?? ""} line={line} onCancel={(id) => ctl.cancelRich(id)} onRetry={(id) => ctl.retryRich(id)} />)}
       {figures.map((figure) => <FigureInline key={figure.figureId} figure={figure} ctl={ctl} />)}
+      {followed.map((entry) => <FollowedFigureInline key={`followed:${entry.figure.figureId}`} entry={entry} ctl={ctl} />)}
     </div>
   );
+}
+
+/** RW5d P4a: a figure followed here from another book: shown as its own book shows it,
+ *  its home named, with no "not right?" (a new version belongs to its own book). */
+function FollowedFigureInline({ entry, ctl }: { entry: FollowedFigure; ctl: FiguresCtl }) {
+  const followCtl = useMemo<FiguresCtl>(
+    () => ({ ...ctl, contract: ctl.contract ? { ...ctl.contract, revisions: false } : null }), [ctl]);
+  return <FigureInline figure={entry.figure} ctl={followCtl} home={entry.home} />;
 }

@@ -3,13 +3,13 @@ title: "sessions"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "f2aa9b0347839074749330bcf75cca57de51476c"
-source_commit_timestamp: "2026-11-02T01:33:10-05:00"
+source_commit: "26c97cbcb92a0912ded996ec5763b5a18fab939e"
+source_commit_timestamp: "2026-11-01T23:44:34-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite sessions"
   - "table sessions"
-schema_head: 233
+schema_head: 232
 table_name: "sessions"
 table_role: "workflow"
 functionality_status: "active"
@@ -105,6 +105,7 @@ Indexes and uniqueness:
 - `src/learnloop/db/repositories.py`
 - `src/learnloop/db/stores/session_ownership.py`
 - `src/learnloop/router/outcomes.py`
+- `src/learnloop_sidecar/handlers/figures.py`
 
 ### Direct SQL writers
 
@@ -155,10 +156,10 @@ Indexes and uniqueness:
 - `tests/test_evsi_staged_binding.py`
 - `tests/test_facet_outcome_view.py`
 - `tests/test_field_workbench_signals.py`
+- `tests/test_figures_help_codex_review.py`
 - `tests/test_forecast_receipts.py`
 - `tests/test_glm_ocr.py`
 - `tests/test_hint_telemetry.py`
-- `tests/test_init.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

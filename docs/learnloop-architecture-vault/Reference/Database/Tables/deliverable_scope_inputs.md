@@ -3,13 +3,13 @@ title: "deliverable_scope_inputs"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "f2aa9b0347839074749330bcf75cca57de51476c"
-source_commit_timestamp: "2026-11-02T01:33:10-05:00"
+source_commit: "26c97cbcb92a0912ded996ec5763b5a18fab939e"
+source_commit_timestamp: "2026-11-01T23:44:34-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite deliverable_scope_inputs"
   - "table deliverable_scope_inputs"
-schema_head: 233
+schema_head: 232
 table_name: "deliverable_scope_inputs"
 table_role: "raw_ledger"
 functionality_status: "active"
@@ -104,6 +104,7 @@ None found by exact static reference scan.
 - `tests/test_curriculum_c3_exam_scoping.py`
 - `tests/test_deliverable_codex_review.py`
 - `tests/test_deliverable_curriculum_migration.py`
+- `tests/test_deliverable_rpcs.py`
 - `tests/test_deliverable_scope.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.

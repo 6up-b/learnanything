@@ -3,13 +3,13 @@ title: "help_assists"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "f2aa9b0347839074749330bcf75cca57de51476c"
-source_commit_timestamp: "2026-11-02T01:33:10-05:00"
+source_commit: "26c97cbcb92a0912ded996ec5763b5a18fab939e"
+source_commit_timestamp: "2026-11-01T23:44:34-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite help_assists"
   - "table help_assists"
-schema_head: 233
+schema_head: 232
 table_name: "help_assists"
 table_role: "raw_ledger"
 functionality_status: "active"
@@ -19,13 +19,13 @@ generated: true
 source_paths:
   - "src/learnloop/db/table_roles.py"
   - "migrations/210_help_assists.sql"
+  - "src/learnloop/adaptive_difficulty/protected_tables.py"
   - "src/learnloop/attempts/hint_fold.py"
   - "src/learnloop/config/schema.py"
   - "src/learnloop/config/template.py"
   - "src/learnloop/db/stores/approach_maps.py"
   - "src/learnloop/db/stores/help_assists.py"
   - "src/learnloop/diagnosis/split/context.py"
-  - "src/learnloop/diagnosis/split/workbench_trace.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/raw-ledger"
@@ -49,7 +49,7 @@ It belongs to the **operations** navigation family. The family context lives in 
 - **Role:** `raw_ledger` — Authoritative replay input or mixed authoritative state. The rebuild umbrella preserves it.
 - **Functionality status:** `active`.
 - **Introduced by:** `migrations/210_help_assists.sql`.
-- **Schema touched by:** `210_help_assists.sql`, `211_approach_maps.sql`, `212_hint_feedback_source_kind.sql`, `230_help_assist_work_md.sql`, `231_learner_note_source_kind.sql`.
+- **Schema touched by:** `210_help_assists.sql`, `211_approach_maps.sql`, `212_hint_feedback_source_kind.sql`, `230_help_assist_work_md.sql`, `231_learner_note_source_kind.sql`, `232_help_assist_figures.sql`.
 - **Rebuild owner:** none; this table is preserved by the rebuild umbrella.
 
 For the distinction between SQLite state and human-authored vault files, see [[State and Persistence]]. For whole-vault creation and opening behavior, see [[Vault Lifecycle]]. ^table-lifecycle
@@ -120,6 +120,7 @@ For the distinction between SQLite state and human-authored vault files, see [[S
 | `retrieval_manifest_json` | `TEXT` | no | — | — | JSON-encoded structured payload |
 | `alternatives_json` | `TEXT` | no | — | — | JSON-encoded structured payload |
 | `work_md` | `TEXT` | no | — | — | Stored value |
+| `figure_id` | `TEXT` | no | — | — | Application-validated soft reference |
 
 ## Relationships and access paths
 
@@ -130,6 +131,7 @@ Declared SQLite foreign keys:
 
 Indexes and uniqueness:
 
+- `idx_help_assists_figure` on `figure_id`.
 - `idx_help_assists_requested` on `surface`, `requested_at`.
 - `idx_help_assists_workbench` on `workbench_session_id`, `requested_at`.
 - `idx_help_assists_submission` on `submission_id`, `practice_item_id`.
@@ -151,15 +153,18 @@ None found by exact static reference scan.
 ### Direct SQL readers
 
 - `src/learnloop/db/stores/help_assists.py`
+- `src/learnloop/diagnosis/split/figure_trace.py`
 - `src/learnloop/diagnosis/split/workbench_trace.py`
 - `src/learnloop/diagnosis/text_gaps/sources.py`
 - `src/learnloop/field/workbench_signals.py`
+- `src/learnloop/figures/help.py`
 - `src/learnloop/hints/outcome.py`
 - `src/learnloop/hints/report.py`
 - `src/learnloop/hints/report_workbench.py`
 - `src/learnloop/tutor/tutor_qa.py`
 - `src/learnloop/workbench/check.py`
 - `src/learnloop/workbench/help_outcomes.py`
+- `src/learnloop_sidecar/handlers/hints.py`
 - `src/learnloop_sidecar/handlers/tutor_qa.py`
 
 ### Direct SQL writers
@@ -183,6 +188,8 @@ None found by exact static reference scan.
 - `tests/test_compare_methods.py`
 - `tests/test_field_workbench_signals.py`
 - `tests/test_figure_predictions.py`
+- `tests/test_figures_help.py`
+- `tests/test_help_assist_figures_migration.py`
 - `tests/test_help_assist_work_md_migration.py`
 - `tests/test_help_assists_schema.py`
 - `tests/test_help_outcomes.py`
@@ -193,8 +200,6 @@ None found by exact static reference scan.
 - `tests/test_hint_report.py`
 - `tests/test_hint_telemetry.py`
 - `tests/test_learner_note_source_kind_migration.py`
-- `tests/test_library_asks_migration.py`
-- `tests/test_owner_capture_1025.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 
@@ -211,7 +216,7 @@ Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when c
 > It captures CHECK constraints and defaults that a column summary can hide. The migration files remain authoritative.
 
 ```sql
-CREATE TABLE help_assists (
+CREATE TABLE "help_assists" (
   id TEXT PRIMARY KEY,
   surface TEXT NOT NULL CHECK (surface IN ('practice', 'workbench', 'guided_redo', 'tutor')),
   -- The Reader's assist kind (its §5.7). Outside the workbench the hint
@@ -219,7 +224,7 @@ CREATE TABLE help_assists (
   -- 'discriminate_answer' (hints spec §16.4 item 1); 'bridge', 'example' and
   -- 'compare_methods' are RW2c's.
   assist_kind TEXT NOT NULL CHECK (assist_kind IN (
-    'hint', 'check', 'discriminate_answer', 'bridge', 'example', 'compare_methods', 'feedback'
+    'hint', 'check', 'discriminate_answer', 'bridge', 'example', 'compare_methods', 'feedback', 'figure'
   )),
   -- NULL only for a workbench problem not yet bound to an item (RW2a's
   -- workbench_sessions.practice_item_id, UX S2).
@@ -241,7 +246,8 @@ CREATE TABLE help_assists (
   -- continuation). NULL on rows that are not hints (a check, a bridge).
   hint_kind TEXT CHECK (hint_kind IS NULL OR hint_kind IN (
     'approach_question', 'discriminating', 'localize', 'waypoint', 'subgoal_plan', 'next_step',
-    'error_specific', 'worked_parallel', 'authored', 'continuation', 'worked_chunk', 'walkthrough'
+    'error_specific', 'worked_parallel', 'authored', 'continuation', 'worked_chunk', 'walkthrough',
+    'explore_figure'
   )),
   -- The Reader's ladder: how much of the solution the help does (1-5). The
   -- level alone decides evidence (hints spec §5).
@@ -279,7 +285,9 @@ CREATE TABLE help_assists (
   policy_version TEXT,
   question_set_version TEXT,
   state_hash TEXT,
-  request TEXT CHECK (request IS NULL OR request IN ('more', 'feedback', 'book_way', 'smaller_step')),
+  -- RW5d P3 adds 'take_step': a cold check's take step for a figure (the
+  -- attempt converts first; the row's id is the token later requests carry).
+  request TEXT CHECK (request IS NULL OR request IN ('more', 'feedback', 'book_way', 'smaller_step', 'take_step')),
   feedback_text TEXT,
   -- The "doesn't connect" shortcut (the first draft's different_approach is
   -- withdrawn: it read the opposite way; hints spec §4.2, Reader C2).
@@ -324,8 +332,16 @@ CREATE TABLE help_assists (
   feedback_step_id TEXT,
   cited_span_ids_json TEXT,
   retrieval_manifest_json TEXT,
-  alternatives_json TEXT
-, work_md TEXT);
+  alternatives_json TEXT,
+  -- Learner data-relax 2 (migration 230): the draft when the help was asked for.
+  work_md TEXT,
+  -- Reader RW5d P3 (this migration): the interactive_figures row a 'figure'
+  -- assist opened (a soft reference, as map_id: the figure ledger is the
+  -- figure service's and is rebuilt by its own migrations). NULL on every
+  -- other row, and on a cold take step's row until its figure is delivered;
+  -- set once (the trigger below).
+  figure_id TEXT
+);
 ```
 
 ## Related notes

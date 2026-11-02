@@ -862,7 +862,7 @@ def _help_record(repository: Any, params: GetTutorTranscriptInput, panel_ask: Pa
         # What Submit's server side adds: the questions it folds, the hint
         # service's shown hints (levels 1-3) and the earlier attempt's help.
         "counted": question_hints + earlier + sum(
-            1 for entry in items if entry["kind"] == "hint" and entry.get("counted_by") == "server"
+            1 for entry in items if entry["kind"] in ("hint", "figure") and entry.get("counted_by") == "server"
             and entry["counts"]),
         "earlier_opened": opened,
     }
@@ -890,7 +890,8 @@ def _shown_assists(repository: Any, item_id: str, session_id: str | None,
             rows = connection.execute(
                 "SELECT id, assist_kind, level, hint_kind, counted_by, requested_at, shown_at FROM help_assists "
                 "WHERE practice_item_id = ? AND submission_id = ? AND attempt_id IS NULL AND shown = 1 "
-                "AND assist_kind IN ('hint', 'check') ORDER BY requested_at, id",
+                # RW5d P3: a figure opened on the attempt (one hint-equivalent).
+                "AND assist_kind IN ('hint', 'check', 'figure') ORDER BY requested_at, id",
                 (item_id, submission_id),
             ).fetchall()
     except Exception:  # noqa: BLE001 - a vault before help_assists shows none

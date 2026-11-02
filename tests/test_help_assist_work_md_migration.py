@@ -33,6 +33,13 @@ DR2_ALTERED_TABLES = frozenset({"help_assists"})
 DR2_ADDED_OBJECTS: frozenset[str] = frozenset()
 
 
+def _later():
+    # RW5d P3's migration 232 also applies on the way to head.
+    from tests.test_help_assist_figures_migration import P3_ADDED_OBJECTS, P3_ALTERED_TABLES
+
+    return P3_ADDED_OBJECTS, P3_ALTERED_TABLES
+
+
 def test_230_is_the_work_md_migration_and_help_assists_stays_a_raw_ledger():
     names = {migration.version: migration.path.name for migration in discover_migrations()}
     assert names[230] == "230_help_assist_work_md.sql"
@@ -74,18 +81,20 @@ def test_230_adds_only_the_nullable_column_and_keeps_every_row(tmp_path):
         before_row = connection.execute("SELECT * FROM help_assists").fetchone()
     before = _schema(database)
     with upgrade_allowance(UPGRADE_TEST_HELPER):
-        # Curriculum C5's 231 (the two gap tables' source kinds) follows on the way to head.
-        assert [migration.version for migration in apply_migrations(database)] == [230, 231, 233]
+        # Curriculum C5's 231 (the two gap tables' source kinds), RW5d P3's 232 and curriculum C2b's
+        # 233 (learner_notes' vault origin) follow on the way to head.
+        assert [migration.version for migration in apply_migrations(database)] == [230, 231, 232, 233]
     after = _schema(database)
-    assert set(after) - set(before) == set(DR2_ADDED_OBJECTS)
-    assert {name for name in before if before[name] != after.get(name)} == set(DR2_ALTERED_TABLES) | set(C5_ALTERED_TABLES) | set(C2B_ALTERED_TABLES)
+    later_added, later_altered = _later()
+    assert set(after) - set(before) == set(DR2_ADDED_OBJECTS) | set(later_added)
+    assert {name for name in before if before[name] != after.get(name)} == set(DR2_ALTERED_TABLES) | set(C5_ALTERED_TABLES) | set(later_altered) | set(C2B_ALTERED_TABLES)
     with closing(sqlite3.connect(database)) as connection:
         columns = [row[1] for row in connection.execute("PRAGMA table_info(help_assists)")]
-        assert columns[-1] == "work_md" and tuple(columns) == store.COLUMNS
+        assert columns[-2] == "work_md" and tuple(columns) == store.COLUMNS
         info = {row[1]: row for row in connection.execute("PRAGMA table_info(help_assists)")}
         assert info["work_md"][2] == "TEXT" and info["work_md"][3] == 0 and info["work_md"][4] is None
         row = connection.execute("SELECT * FROM help_assists").fetchone()
-        assert tuple(row)[:-1] == tuple(before_row) and row[-1] is None
+        assert tuple(row)[:-2] == tuple(before_row) and row[-2] is None and row[-1] is None
         # The ledger's triggers are unchanged: still append-only, identity fixed.
         with pytest.raises(sqlite3.IntegrityError, match="append-only"):
             connection.execute("DELETE FROM help_assists")
@@ -94,12 +103,13 @@ def test_230_adds_only_the_nullable_column_and_keeps_every_row(tmp_path):
 
 def test_the_head_fixture_holds_230_in_rollback_mode():
     assert HEAD.read_bytes()[18:20] == b"\x01\x01"
-    # The head is 231 (curriculum C5, rebuilt from 230's head with only 231 applied); it holds 230.
-    assert 230 in applied_versions(HEAD)
+    # The head is 233 (curriculum C2b, rebuilt from 232's head with only 233 applied); it holds 230,
+    # 231 and 232.
+    assert {230, 231, 232} <= set(applied_versions(HEAD))
     assert max(applied_versions(HEAD)) == max(m.version for m in discover_migrations()) == 233
     with closing(sqlite3.connect(f"file:{HEAD}?mode=ro", uri=True)) as connection:
         columns = [row[1] for row in connection.execute("PRAGMA table_info(help_assists)")]
-        assert columns[-1] == "work_md"
+        assert "work_md" in columns
         assert connection.execute("PRAGMA journal_mode").fetchone()[0] == "delete"
         assert connection.execute("SELECT COUNT(*) FROM help_assists WHERE work_md IS NOT NULL").fetchone()[0] == 0
 
@@ -110,7 +120,7 @@ def test_230_on_the_durability_lane(tmp_path):
 
     database = _at_229(tmp_path)
     with upgrade_allowance(UPGRADE_TEST_HELPER):
-        assert [migration.version for migration in apply_migrations(database)] == [230, 231, 233]
+        assert [migration.version for migration in apply_migrations(database)] == [230, 231, 232, 233]
     with closing(sqlite3.connect(database)) as connection:
         assert connection.execute("PRAGMA journal_mode").fetchone()[0] == "wal"
         store.insert_assist(connection, {"id": "ha_d", "surface": "practice", "assist_kind": "hint",

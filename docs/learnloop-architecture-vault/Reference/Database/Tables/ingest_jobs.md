@@ -3,13 +3,13 @@ title: "ingest_jobs"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "f2aa9b0347839074749330bcf75cca57de51476c"
-source_commit_timestamp: "2026-11-02T01:33:10-05:00"
+source_commit: "26c97cbcb92a0912ded996ec5763b5a18fab939e"
+source_commit_timestamp: "2026-11-01T23:44:34-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite ingest_jobs"
   - "table ingest_jobs"
-schema_head: 233
+schema_head: 232
 table_name: "ingest_jobs"
 table_role: "workflow"
 functionality_status: "active"
@@ -126,6 +126,7 @@ None found by exact static reference scan.
 - `tests/test_figure_rich_job.py`
 - `tests/test_figure_rich_review_fixes.py`
 - `tests/test_figure_rich_rpc.py`
+- `tests/test_figures_help_codex_review.py`
 - `tests/test_glm_ocr.py`
 - `tests/test_ingest_jobs.py`
 - `tests/test_ingest_latency_journey.py`
@@ -134,7 +135,6 @@ None found by exact static reference scan.
 - `tests/test_keep_local_retired.py`
 - `tests/test_migrations.py`
 - `tests/test_plan_first_transport_offer_grants.py`
-- `tests/test_plan_first_transport_offer_grants_r5.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

@@ -15,6 +15,8 @@ Desktop only (pinned in tests/test_mobile_allowlist.py).
   always) or ``meaning`` (only while the vault's embeddings are on: the contract's
   ``meaning`` flag); and the link made by hand.
 * ``notes.decide``: one tap hides a link (``hide``), or keeps it after all (``keep``).
+* ``notes.hidden``: the links the learner hid (Settings' *hidden notes*, followups-nov1c
+  C, C2 ruling R5); *show again* is ``notes.decide`` ``keep`` on one.
 * ``notes.set_gaps``: curriculum C5's opt-in from Settings (``notes.gaps_enabled``, off by
   default): a linked note may then be read for gaps in the learner's understanding, like
   any other learner text; it only ever steers what to suggest, never grades. The links that
@@ -61,6 +63,7 @@ NOTES_RPCS: tuple[str, ...] = (
     "notes.search",
     "notes.link",
     "notes.decide",
+    "notes.hidden",
     "notes.set_gaps",
 )
 
@@ -361,6 +364,19 @@ def notes_decide(ctx: SidecarContext, params: DecideInput) -> dict[str, Any]:
     if params.choice == "keep":
         queue_note_gaps(ctx, vault, repository)  # a hidden link is never queued (C5)
     return versioned(out)
+
+
+class HiddenInput(ParamsModel):
+    pass
+
+
+@method("notes.hidden", HiddenInput)
+def notes_hidden(ctx: SidecarContext, params: HiddenInput) -> dict[str, Any]:
+    """The note links the learner hid, newest first (Settings; *show again* is
+    ``notes.decide`` ``keep``). No model call; a note beside protected material is not listed."""
+
+    vault, repository = _require(ctx)
+    return versioned({"hidden": NL.hidden(vault, repository)})
 
 
 class GapsInput(ParamsModel):

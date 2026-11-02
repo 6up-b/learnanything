@@ -37,6 +37,8 @@ import {
   shortDate,
   useStoredHelpStyle
 } from "./askPanel";
+import { figureCostLine, PANEL_FIGURE_COPY, PanelFigureThreadLine, usePanelFigures, type PanelFigureEvent } from "./askFigures";
+import { isShowMeKey } from "../screens/reader/figures/showMe";
 import { passageKeys } from "../screens/reader/readerShared";
 
 /**
@@ -233,7 +235,8 @@ export function AskOverlay({
   variant = "modal",
   onAnswered,
   onEarlierOpened,
-  onTakeWorked
+  onTakeWorked,
+  onFigureEvent
 }: {
   target: AskTarget | null;
   onClose: () => void;
@@ -253,6 +256,9 @@ export function AskOverlay({
    *  rung 4 or 5 when an answer was withheld (recorded as that rung only if
    *  taken). Absent: the take step points at the host's Hint. */
   onTakeWorked?: (level: 4 | 5) => void;
+  /** Reader RW5d P3 (§6.4): a figure from the panel counted a hint, or its
+   *  take step converted a check on your own (the host's record and banner). */
+  onFigureEvent?: (event: PanelFigureEvent) => void;
 }) {
   // Reader CA2: the panel's own parts render only on a panel host while the
   // sidecar sends `ask` (ask.panel_enabled); off, every host is the modal.
@@ -296,6 +302,11 @@ export function AskOverlay({
   // that span's conversation), then each answer this overlay receives.
   const readerParentRef = useRef<string | null | undefined>(undefined);
   const gapTimersRef = useRef<number[]>([]);
+  // Reader RW5d P3 (§6.4): "show me ▸" in the panel on practice, feedback and
+  // the workbench, while the sidecar sends `ask.figures`.
+  const figures = usePanelFigures(panel ? target : null, {
+    cold: Boolean(target?.coldCheck) || serverCold, onEvent: onFigureEvent
+  });
 
   useEffect(
     () => () => {
@@ -1198,6 +1209,9 @@ export function AskOverlay({
               )}
             </div>
           ))}
+          {figures.enabled ? figures.lines.map((line) => (
+            <PanelFigureThreadLine key={line.key} line={line} figures={figures} />
+          )) : null}
           {inlineError ? (
             <div style={{ color: COLOR.red, fontSize: 12, marginTop: 4 }}>{inlineError}</div>
           ) : null}
@@ -1225,6 +1239,15 @@ export function AskOverlay({
               event.stopPropagation();
               if (event.shiftKey && !event.ctrlKey && !event.metaKey) return;
               event.preventDefault();
+              if (figures.enabled && isShowMeKey(event)) {
+                // RW5d P3: alt+↵ sends the words as a figure goal (its cost said below).
+                const goal = question.trim();
+                if (goal) {
+                  setQuestion("");
+                  void figures.send(goal);
+                }
+                return;
+              }
               void send();
             }}
             placeholder={
@@ -1265,6 +1288,22 @@ export function AskOverlay({
             // another mode for this one question.
             <div data-testid="ask-cost-line" style={{ marginTop: 6, fontSize: 11, color: COLOR.textDim, display: "flex", gap: 8, flexWrap: "wrap", alignItems: "baseline" }}>
               <span>{target.context === "feedback" ? ASK_COPY.costFeedback : cold ? "" : ASK_COPY.cost}</span>
+              {figures.enabled ? (
+                // RW5d P3 (§6.4): show me ▸ and what a figure costs here, said before sending.
+                <span data-testid="ask-figure-cost" style={{ flexBasis: "100%", display: "flex", gap: 8, flexWrap: "wrap", alignItems: "baseline" }}>
+                  <button type="button" disabled={pending || !question.trim()}
+                    onClick={() => {
+                      const goal = question.trim();
+                      if (!goal) return;
+                      setQuestion("");
+                      void figures.send(goal);
+                    }}
+                    style={{ border: 0, background: "transparent", color: COLOR.amberLink, cursor: "pointer", fontFamily: FONT_MONO, fontSize: 11, padding: 0 }}>
+                    {PANEL_FIGURE_COPY.send}
+                  </button>
+                  <span>{PANEL_FIGURE_COPY.keys.replace(PANEL_FIGURE_COPY.send, "").trim()} · {figureCostLine(target, cold, figures.converted)}</span>
+                </span>
+              ) : null}
               <span style={{ flex: 1 }} />
               <span>{ANSWER_MODE_LABEL[oneMode ?? STYLE_ANSWER_MODE[helpStyle]]}</span>
               <button type="button" aria-expanded={changeOpen} onClick={() => setChangeOpen((value) => !value)}

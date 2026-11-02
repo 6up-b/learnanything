@@ -18,6 +18,7 @@ from learnloop.db.migrate import applied_versions, discover_migrations, schema_i
 from learnloop.db.repositories import Repository
 from learnloop.hints.map_builder import BackgroundBuilds
 from learnloop.substrate.canonical_projection_rollout import (
+    forget_fold_memo,
     refresh_canonical_projection_on_startup,
 )
 from learnloop.learner.facet_diagnostics import mastery_diagnostic_view
@@ -149,6 +150,8 @@ class SidecarContext:
         if self.vault_root is not None and target != self.vault_root:
             # A switch: the previous vault's map builds stop before anything of the new one opens.
             self.map_builds.close()
+            # followups-nov1c B: the previous vault's fold memo and its watcher go too.
+            forget_fold_memo()
             # Plan-first transport T1 (review F4): "Use OpenRouter instead" was
             # the previous vault's; the new one is asked again.
             from learnloop.ai import plan_fallback
@@ -446,6 +449,8 @@ class SidecarContext:
         self.close_background_builds()
         self.background_jobs.close()
         _forget_reading_choice()
+        # followups-nov1c B: the canonical fold's memo and its database watcher.
+        forget_fold_memo()
 
     def _worker_target(self) -> tuple[LoadedVault, Path] | None:
         if self.vault is None or self.repository is None:
@@ -830,6 +835,12 @@ def _adaptive_difficulty_dto(config: Any) -> dict[str, Any]:
     return {"adaptive_difficulty": {"rating_tap": rating, "first_hint_progress": marker}}
 
 
+def _figures_help(vault: LoadedVault) -> bool:
+    from learnloop.figure_admission import help_kind_enabled
+
+    return help_kind_enabled(vault)
+
+
 def _cold_help_converts(vault: LoadedVault) -> bool:
     from learnloop.serve_eligibility import help_converts_active
 
@@ -894,8 +905,12 @@ def config_dto(vault: LoadedVault) -> dict[str, Any]:
             # ``help_style`` is the stored preference Ask's mode follows;
             # ``cold_help_converts`` says the successor's one help rule is live
             # (the placeholder and labels on a check on your own say it).
+            # Reader RW5d P3: ``figures`` (present only while
+            # figures.help_kind_enabled is on): the panel's show me ▸ on
+            # practice, feedback and the workbench, with its cost line.
             **({"ask": {"panel_enabled": True, "help_style": config.hints.help_style,
-                        "cold_help_converts": _cold_help_converts(vault)}}
+                        "cold_help_converts": _cold_help_converts(vault),
+                        **({"figures": True} if _figures_help(vault) else {})}}
                if config.ask.panel_enabled else {}),
             # Adaptive difficulty AD1 (spec §12, §11.2): the practice screen's
             # rating tap and first-hint progress marker. Present only while

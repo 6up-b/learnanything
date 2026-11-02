@@ -5,6 +5,7 @@ import { noteFallbackOffer } from "../app/planFallback";
 import type {
   NoteSearchDto,
   NoteLinkDto,
+  HiddenNoteDto,
   NoteMarksDto,
   NotesPathDto,
   DifficultyRating,
@@ -1684,6 +1685,8 @@ export const api = {
     call<{ linkId: string; marks: NoteMarksDto["marks"] }>("notes_link", { input }),
   notesDecide: (input: { linkId: string; choice: "hide" | "keep" }) =>
     call<{ linkId: string; status: string }>("notes_decide", { input }),
+  // followups-nov1c C (C2 ruling R5): the note links the learner hid (Settings); show again = notesDecide keep.
+  notesHidden: () => call<{ hidden: HiddenNoteDto[] }>("notes_hidden", { input: {} }),
   // Curriculum C5: Settings' opt-in (notes.gaps_enabled, off by default).
   notesSetGaps: (input: { enabled: boolean }) => call<{ gapsEnabled: boolean; line: string }>("notes_set_gaps", { input }),
   readerReadingPath: (input: { extractionId: string; judge?: boolean; retry?: boolean }) =>
@@ -1740,7 +1743,10 @@ export const api = {
   // with or without a passage; the same build job (read it with readerFigureJob).
   figureRequest: (input: import("./dto").FigureRequestV1Input) =>
     call<LibraryJobDto<FigureBuildResultDto>>("figure_request", { input }),
-  readerFigureRevise: (input: { figureId: string; note: string; differentKind?: boolean }) =>
+  // Reader RW5d P3 (Codex review F4): on an attempt host, the host the figure is open on now
+  // (verified on the server) and the take step's token on a check on your own.
+  readerFigureRevise: (input: { figureId: string; note: string; differentKind?: boolean;
+    hostRef?: import("./dto").FigureHostRef | null; takeStepToken?: string | null }) =>
     call<LibraryJobDto<FigureBuildResultDto>>("reader_figure_revise", { input }),
   readerFigureJob: (input: { jobId: string }) =>
     call<LibraryJobDto<FigureBuildResultDto>>("reader_figure_job", { input }),
@@ -1753,6 +1759,13 @@ export const api = {
     call<{ richJobId: string; state: "cancelled" }>("figure_rich_cancel", { input }),
   figureRichRetry: (input: { richJobId: string }) =>
     call<{ richJobId: string; state: "pending" }>("figure_rich_retry", { input }),
+  // Reader RW5d P3: a check on your own's take step (converts the attempt, answers its token),
+  // and opening a stored figure on an attempt host (the chooser's explore_figure line).
+  figureTakeStep: (input: { itemId: string; submissionId?: string | null; sessionId?: string | null;
+    workbenchSessionId?: string | null }) =>
+    call<import("./dto").FigureTakeStepDto>("figure_take_step", { input }),
+  figureOpen: (input: { figureId: string; hostRef: import("./dto").FigureHostRef; takeStepToken?: string | null }) =>
+    call<{ figure: import("./dto").FigureViewDto | null; help: import("./dto").FigureHelpDto }>("figure_open", { input }),
   figureManimOptIn: (input: { choice: "allow" | "decline" }) =>
     call<{ manimOptIn: "standing" | "declined" | "ask" | "unavailable" }>("figure_manim_opt_in", { input }),
   readerFigurePredict: (input: { figureId: string; predictionIndex: number; answer: string }) =>
