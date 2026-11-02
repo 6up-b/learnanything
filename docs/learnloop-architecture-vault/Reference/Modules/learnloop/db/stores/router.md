@@ -7,8 +7,8 @@ version: "1.0.0"
 source_path: "src/learnloop/db/stores/router.py"
 source_paths:
   - "src/learnloop/db/stores/router.py"
-source_commit: "bf51a51a9634f2570fdefe3bace585bb7506424e"
-source_commit_timestamp: "2026-10-14T09:16:50-04:00"
+source_commit: "9218ba7a856652fb4091a4d048fdc4cb77d0ee84"
+source_commit_timestamp: "2026-11-02T07:45:40-05:00"
 source_worktree_state: "clean"
 generated: true
 generated_at: "2026-11-02"
@@ -51,34 +51,34 @@ The authoritative system-level explanation remains in [[State and Persistence]],
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/db/stores/router.py](../../../../../../../src/learnloop/db/stores/router.py) |
-| Source lines | 314 |
+| Source lines | 327 |
 | Owning package | [[Reference/Modules/learnloop/db/stores/_package|learnloop.db.stores]] |
 | Architecture layer | `infrastructure` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `bf51a51a9634f2570fdefe3bace585bb7506424e` |
-| Commit timestamp | `2026-10-14T09:16:50-04:00` |
+| Source commit | `9218ba7a856652fb4091a4d048fdc4cb77d0ee84` |
+| Commit timestamp | `2026-11-02T07:45:40-05:00` |
 
 ## Public API
 
-- `insert_router_decision(connection: sqlite3.Connection, row: Mapping[str, Any]) -> bool` ([source](../../../../../../../src/learnloop/db/stores/router.py), line 89) — Append one decision; a repeated ``receipt_key`` is a no-op (returns False).
-- `append_router_decision(connection: sqlite3.Connection, row: Mapping[str, Any]) -> bool` ([source](../../../../../../../src/learnloop/db/stores/router.py), line 111) — Append one decision inside the caller's transaction, never failing it.
-- `record_learner_pick(connection: sqlite3.Connection, *, scheduler_candidate_id: str, practice_item_id: str, session_id: str, entry_surface: str, submission_id: str | None, created_at: str) -> str | None` ([source](../../../../../../../src/learnloop/db/stores/router.py), line 134) — Log a learner pick that overrides a logged Today offer's choice.
-- `router_payloads_present(connection: sqlite3.Connection) -> bool` ([source](../../../../../../../src/learnloop/db/stores/router.py), line 234)
-- `append_router_payload(connection: sqlite3.Connection, row: Mapping[str, Any]) -> bool` ([source](../../../../../../../src/learnloop/db/stores/router.py), line 240) — Store one decision payload (router R2a: its learner-state card) inside the caller's transaction, never failing it: a refused row rolls back alone with a warning.
-- `prune_router_payloads(connection: sqlite3.Connection, *, before: str) -> int` ([source](../../../../../../../src/learnloop/db/stores/router.py), line 265) — Delete payloads stored before ``before`` (``router.payload_retention_days``).
-- `router_payload(connection: sqlite3.Connection, decision_id: str, kind: str) -> dict[str, Any] | None` ([source](../../../../../../../src/learnloop/db/stores/router.py), line 276)
-- `replace_router_outcomes(connection: sqlite3.Connection, rows: Iterable[Mapping[str, Any]]) -> int` ([source](../../../../../../../src/learnloop/db/stores/router.py), line 285) — Replace the derived outcome cache whole (its one replayer only).
-- `router_decision_rows(connection: sqlite3.Connection, *, limit: int | None=None) -> list[dict[str, Any]]` ([source](../../../../../../../src/learnloop/db/stores/router.py), line 298) — Decisions oldest first (the newest ``limit`` when given).
-- `router_outcome_rows(connection: sqlite3.Connection) -> list[dict[str, Any]]` ([source](../../../../../../../src/learnloop/db/stores/router.py), line 312)
+- `insert_router_decision(connection: sqlite3.Connection, row: Mapping[str, Any]) -> bool` ([source](../../../../../../../src/learnloop/db/stores/router.py), line 102) — Append one decision; a repeated ``receipt_key`` is a no-op (returns False).
+- `append_router_decision(connection: sqlite3.Connection, row: Mapping[str, Any]) -> bool` ([source](../../../../../../../src/learnloop/db/stores/router.py), line 124) — Append one decision inside the caller's transaction, never failing it.
+- `record_learner_pick(connection: sqlite3.Connection, *, scheduler_candidate_id: str, practice_item_id: str, session_id: str, entry_surface: str, submission_id: str | None, created_at: str) -> str | None` ([source](../../../../../../../src/learnloop/db/stores/router.py), line 147) — Log a learner pick that overrides a logged Today offer's choice.
+- `router_payloads_present(connection: sqlite3.Connection) -> bool` ([source](../../../../../../../src/learnloop/db/stores/router.py), line 247)
+- `append_router_payload(connection: sqlite3.Connection, row: Mapping[str, Any]) -> bool` ([source](../../../../../../../src/learnloop/db/stores/router.py), line 253) — Store one decision payload (router R2a: its learner-state card) inside the caller's transaction, never failing it: a refused row rolls back alone with a warning.
+- `prune_router_payloads(connection: sqlite3.Connection, *, before: str) -> int` ([source](../../../../../../../src/learnloop/db/stores/router.py), line 278) — Delete payloads stored before ``before`` (``router.payload_retention_days``).
+- `router_payload(connection: sqlite3.Connection, decision_id: str, kind: str) -> dict[str, Any] | None` ([source](../../../../../../../src/learnloop/db/stores/router.py), line 289)
+- `replace_router_outcomes(connection: sqlite3.Connection, rows: Iterable[Mapping[str, Any]]) -> int` ([source](../../../../../../../src/learnloop/db/stores/router.py), line 298) — Replace the derived outcome cache whole (its one replayer only).
+- `router_decision_rows(connection: sqlite3.Connection, *, limit: int | None=None) -> list[dict[str, Any]]` ([source](../../../../../../../src/learnloop/db/stores/router.py), line 311) — Decisions oldest first (the newest ``limit`` when given).
+- `router_outcome_rows(connection: sqlite3.Connection) -> list[dict[str, Any]]` ([source](../../../../../../../src/learnloop/db/stores/router.py), line 325)
 
 ### Module constants
 
 - `ROUTER_LOG_VERSION` ([src/learnloop/db/stores/router.py](../../../../../../../src/learnloop/db/stores/router.py), line 23)
-- `ROUTER_DESIGNS` ([src/learnloop/db/stores/router.py](../../../../../../../src/learnloop/db/stores/router.py), line 44)
-- `DECISION_COLUMNS` ([src/learnloop/db/stores/router.py](../../../../../../../src/learnloop/db/stores/router.py), line 50)
-- `OUTCOME_COLUMNS` ([src/learnloop/db/stores/router.py](../../../../../../../src/learnloop/db/stores/router.py), line 63)
-- `PAYLOAD_COLUMNS` ([src/learnloop/db/stores/router.py](../../../../../../../src/learnloop/db/stores/router.py), line 84)
+- `ROUTER_DESIGNS` ([src/learnloop/db/stores/router.py](../../../../../../../src/learnloop/db/stores/router.py), line 53)
+- `DECISION_COLUMNS` ([src/learnloop/db/stores/router.py](../../../../../../../src/learnloop/db/stores/router.py), line 63)
+- `OUTCOME_COLUMNS` ([src/learnloop/db/stores/router.py](../../../../../../../src/learnloop/db/stores/router.py), line 76)
+- `PAYLOAD_COLUMNS` ([src/learnloop/db/stores/router.py](../../../../../../../src/learnloop/db/stores/router.py), line 97)
 
 ## Internal implementation anchors
 
@@ -90,6 +90,7 @@ No private top-level function or class definition is declared in this file.
 > “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
 
 - [[Reference/Modules/learnloop/cli/router|learnloop.cli.router]] — imports `router_decision_rows`, `router_payload`, `router_payloads_present`; statically calls `router_decision_rows`, `router_payload`, `router_payloads_present`
+- [[Reference/Modules/learnloop/daily_plan/lesson_suggestion|learnloop.daily_plan.lesson_suggestion]] — imports `ROUTER_LOG_VERSION`, `insert_router_decision`; statically calls `insert_router_decision`
 - [[Reference/Modules/learnloop/db/stores/collection|learnloop.db.stores.collection]] — imports `append_router_decision`, `record_learner_pick`; statically calls `append_router_decision`, `record_learner_pick`
 - [[Reference/Modules/learnloop/router/decisions|learnloop.router.decisions]] — imports `ROUTER_LOG_VERSION`, `insert_router_decision`; statically calls `insert_router_decision`
 - [[Reference/Modules/learnloop/router/outcomes|learnloop.router.outcomes]] — imports `replace_router_outcomes`; statically calls `replace_router_outcomes`
@@ -113,7 +114,7 @@ Use this module in context through:
 - [[Inspect Persistent State]]
 - [[Doctor Migrations and Recovery]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/cli/router|learnloop.cli.router]], [[Reference/Modules/learnloop/db/stores/collection|learnloop.db.stores.collection]], [[Reference/Modules/learnloop/router/decisions|learnloop.router.decisions]], [[Reference/Modules/learnloop/router/outcomes|learnloop.router.outcomes]], [[Reference/Modules/learnloop/router/plan_log|learnloop.router.plan_log]].
+Static participation evidence comes from [[Reference/Modules/learnloop/cli/router|learnloop.cli.router]], [[Reference/Modules/learnloop/daily_plan/lesson_suggestion|learnloop.daily_plan.lesson_suggestion]], [[Reference/Modules/learnloop/db/stores/collection|learnloop.db.stores.collection]], [[Reference/Modules/learnloop/router/decisions|learnloop.router.decisions]], [[Reference/Modules/learnloop/router/outcomes|learnloop.router.outcomes]] and 1 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
@@ -128,6 +129,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_router_r1_composition.py](../../../../../../../tests/test_router_r1_composition.py) — direct import
   - `test_a_refused_plan_row_never_blocks_the_plan`
 - [tests/test_router_r2c_retrieval.py](../../../../../../../tests/test_router_r2c_retrieval.py) — direct import
+- [tests/test_teacher_te1b_suggestions.py](../../../../../../../tests/test_teacher_te1b_suggestions.py) — direct import
+  - `test_the_decision_logs_the_draw_with_its_exact_propensity`
 
 ## Modification guidance
 

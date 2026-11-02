@@ -7,8 +7,8 @@ version: "1.0.0"
 source_path: "src/learnloop_sidecar/handlers/library_ask.py"
 source_paths:
   - "src/learnloop_sidecar/handlers/library_ask.py"
-source_commit: "e54b064acd0205356eaa04ad3ec5d33dd420b9d4"
-source_commit_timestamp: "2026-11-01T08:29:36-05:00"
+source_commit: "8b967e3b7e1afd9d0eafa309cf6d9758bb647b57"
+source_commit_timestamp: "2026-11-02T05:28:19-05:00"
 source_worktree_state: "clean"
 generated: true
 generated_at: "2026-11-02"
@@ -53,13 +53,13 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop_sidecar/handlers/library_ask.py](../../../../../../src/learnloop_sidecar/handlers/library_ask.py) |
-| Source lines | 822 |
+| Source lines | 829 |
 | Owning package | [[Reference/Modules/learnloop_sidecar/handlers/_package|learnloop_sidecar.handlers]] |
 | Architecture layer | `adapter` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `e54b064acd0205356eaa04ad3ec5d33dd420b9d4` |
-| Commit timestamp | `2026-11-01T08:29:36-05:00` |
+| Source commit | `8b967e3b7e1afd9d0eafa309cf6d9758bb647b57` |
+| Commit timestamp | `2026-11-02T05:28:19-05:00` |
 
 ## Public API
 
@@ -77,25 +77,25 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `deliver_comparison(ctx: SidecarContext, ask_id: str, result: dict[str, Any]) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/library_ask.py), line 363) — A comparison job's result as it may go out NOW (RW4d fix round 5, F2), at every delivery (the first one, and each cached read through ``reader.library_job``): a comparison any of whose contributing passages is withheld now, or whose provenance cannot be resolved, is refused whol…
 - `class LibraryJobInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/library_ask.py), line 387)
 - `reader_library_job(ctx: SidecarContext, params: LibraryJobInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/library_ask.py), line 395) — A library job's state, at once (never a wait on the request path).
-- `class LibraryJobCancelInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/library_ask.py), line 405)
-- `reader_library_job_cancel(ctx: SidecarContext, params: LibraryJobCancelInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/library_ask.py), line 410) — Cancel a library job: it never answers after this (the result is fenced).
-- `class LibraryAskInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/library_ask.py), line 427)
-- `reader_library_ask(ctx: SidecarContext, params: LibraryAskInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/library_ask.py), line 453) — Passages from the learner's library for a question, sources first (spec §7.3).
-- `class LibraryAskIdInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/library_ask.py), line 496)
-- `reader_library_ask_notes(ctx: SidecarContext, params: LibraryAskIdInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/library_ask.py), line 501) — The organizer's line per passage (one listwise call; cached per ask).
-- `class LibraryCompareInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/library_ask.py), line 536) — One comparison request for every door (Reader CA3, K12; §4.1).
-- `scope_enabled(vault: Any) -> bool` ([source](../../../../../../src/learnloop_sidecar/handlers/library_ask.py), line 573) — Reader CA3 is on: its switch and the comparison it builds on.
-- `reader_library_compare(ctx: SidecarContext, params: LibraryCompareInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/library_ask.py), line 580) — How the pinned passages' sources treat the question (display only until RW4d).
-- `class LibraryAskTutorInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/library_ask.py), line 727) — The tutor over the pins, or (Reader CA3) over the comparison shown.
-- `reader_library_ask_tutor(ctx: SidecarContext, params: LibraryAskTutorInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/library_ask.py), line 748) — The tutor on request, answering only from the pinned passages (§3.4 item 11).
+- `class LibraryJobCancelInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/library_ask.py), line 412)
+- `reader_library_job_cancel(ctx: SidecarContext, params: LibraryJobCancelInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/library_ask.py), line 417) — Cancel a library job: it never answers after this (the result is fenced).
+- `class LibraryAskInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/library_ask.py), line 434)
+- `reader_library_ask(ctx: SidecarContext, params: LibraryAskInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/library_ask.py), line 460) — Passages from the learner's library for a question, sources first (spec §7.3).
+- `class LibraryAskIdInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/library_ask.py), line 503)
+- `reader_library_ask_notes(ctx: SidecarContext, params: LibraryAskIdInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/library_ask.py), line 508) — The organizer's line per passage (one listwise call; cached per ask).
+- `class LibraryCompareInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/library_ask.py), line 543) — One comparison request for every door (Reader CA3, K12; §4.1).
+- `scope_enabled(vault: Any) -> bool` ([source](../../../../../../src/learnloop_sidecar/handlers/library_ask.py), line 580) — Reader CA3 is on: its switch and the comparison it builds on.
+- `reader_library_compare(ctx: SidecarContext, params: LibraryCompareInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/library_ask.py), line 587) — How the pinned passages' sources treat the question (display only until RW4d).
+- `class LibraryAskTutorInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/library_ask.py), line 734) — The tutor over the pins, or (Reader CA3) over the comparison shown.
+- `reader_library_ask_tutor(ctx: SidecarContext, params: LibraryAskTutorInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/library_ask.py), line 755) — The tutor on request, answering only from the pinned passages (§3.4 item 11).
 
 ### Module constants
 
 - `LOG` ([src/learnloop_sidecar/handlers/library_ask.py](../../../../../../src/learnloop_sidecar/handlers/library_ask.py), line 49)
 - `LIBRARY_ASK_RPCS` ([src/learnloop_sidecar/handlers/library_ask.py](../../../../../../src/learnloop_sidecar/handlers/library_ask.py), line 52)
 - `MAX_KEPT_JOBS` ([src/learnloop_sidecar/handlers/library_ask.py](../../../../../../src/learnloop_sidecar/handlers/library_ask.py), line 61)
-- `ANCHOR_SPANS_MAX` ([src/learnloop_sidecar/handlers/library_ask.py](../../../../../../src/learnloop_sidecar/handlers/library_ask.py), line 518)
-- `_CA3_FIELDS` ([src/learnloop_sidecar/handlers/library_ask.py](../../../../../../src/learnloop_sidecar/handlers/library_ask.py), line 570)
+- `ANCHOR_SPANS_MAX` ([src/learnloop_sidecar/handlers/library_ask.py](../../../../../../src/learnloop_sidecar/handlers/library_ask.py), line 525)
+- `_CA3_FIELDS` ([src/learnloop_sidecar/handlers/library_ask.py](../../../../../../src/learnloop_sidecar/handlers/library_ask.py), line 577)
 
 ### Explicit exports
 
@@ -117,11 +117,11 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `_jobs(ctx: SidecarContext) -> LibraryJobs` ([source](../../../../../../src/learnloop_sidecar/handlers/library_ask.py), line 324)
 - `_job_payload(job: _Job) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/library_ask.py), line 332) — The job as the wire reads it; a failed job raises its error.
 - `_start(ctx: SidecarContext, kind: str, ask_id: str | None, work: Work, *, deliver: Deliver | None=None, supersede: bool=False, on_job: Callable[[_Job], None] | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/library_ask.py), line 356)
-- `_resolved_or_none(repository: Any, extraction_id: str | None) -> str | None` ([source](../../../../../../src/learnloop_sidecar/handlers/library_ask.py), line 442) — A named reading as the handlers resolve it (a source names its current reading).
-- `class _PinnedCompareInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/library_ask.py), line 521) — RW4a/RW4d's request, exactly: what the RPC takes while ``reader_compare.scope_enabled`` is off (CA3 off = today).
-- `_open_for_door(ctx: SidecarContext, vault: Any, repository: Any, params: LibraryCompareInput) -> str` ([source](../../../../../../src/learnloop_sidecar/handlers/library_ask.py), line 671) — CA3: the ask this request binds by: the one it names, else (a door with no library answer) the comparison's own row, opened under the caller the server derives from the open book and workbench session (G19).
-- `_door_scope(repository: Any, row: dict[str, Any], params: LibraryCompareInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/library_ask.py), line 705) — CA3: the request's scope, from the ask row (its anchor, never one the follow-up names) and the books the request names.
-- `class _PinnedTutorInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/library_ask.py), line 718) — Today's request, exactly: what the RPC takes while ``reader_compare.scope_enabled`` is off (CA3 off = today).
+- `_resolved_or_none(repository: Any, extraction_id: str | None) -> str | None` ([source](../../../../../../src/learnloop_sidecar/handlers/library_ask.py), line 449) — A named reading as the handlers resolve it (a source names its current reading).
+- `class _PinnedCompareInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/library_ask.py), line 528) — RW4a/RW4d's request, exactly: what the RPC takes while ``reader_compare.scope_enabled`` is off (CA3 off = today).
+- `_open_for_door(ctx: SidecarContext, vault: Any, repository: Any, params: LibraryCompareInput) -> str` ([source](../../../../../../src/learnloop_sidecar/handlers/library_ask.py), line 678) — CA3: the ask this request binds by: the one it names, else (a door with no library answer) the comparison's own row, opened under the caller the server derives from the open book and workbench session (G19).
+- `_door_scope(repository: Any, row: dict[str, Any], params: LibraryCompareInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/library_ask.py), line 712) — CA3: the request's scope, from the ask row (its anchor, never one the follow-up names) and the books the request names.
+- `class _PinnedTutorInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/library_ask.py), line 725) — Today's request, exactly: what the RPC takes while ``reader_compare.scope_enabled`` is off (CA3 off = today).
 
 ## Who imports or calls it
 
@@ -164,6 +164,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop_sidecar/handlers/ai_providers|learnloop_sidecar.handlers.ai_providers]] — imports `provider_label`, `ready_tutor_qa_provider`; calls `provider_label`, `ready_tutor_qa_provider`
 - [[Reference/Modules/learnloop_sidecar/handlers/compare_scope|learnloop_sidecar.handlers.compare_scope]] — imports `books_payload`; calls `books_payload`
 - [[Reference/Modules/learnloop_sidecar/handlers/learner_gaps|learnloop_sidecar.handlers.learner_gaps]] — imports `queue_tutor_question_gap`; calls `queue_tutor_question_gap`
+- [[Reference/Modules/learnloop_sidecar/prefetch_runtime|learnloop_sidecar.prefetch_runtime]] — imports `notify_offer`; calls `notify_offer`
 - [[Reference/Modules/learnloop_sidecar/registry|learnloop_sidecar.registry]] — imports `method`; calls `method`
 - [[Reference/Modules/learnloop_sidecar/source_identity|learnloop_sidecar.source_identity]] — imports `require_identity`; calls `require_identity`
 

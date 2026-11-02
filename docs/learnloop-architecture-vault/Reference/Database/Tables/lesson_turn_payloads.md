@@ -3,8 +3,8 @@ title: "lesson_turn_payloads"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "d4c02ae06286e5c2866d0e08949bc66df459fc03"
-source_commit_timestamp: "2026-11-02T10:02:02-05:00"
+source_commit: "0f6f375916eb04b32b8976b7e3562dc6db7258a7"
+source_commit_timestamp: "2026-11-02T13:36:57-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite lesson_turn_payloads"
@@ -94,6 +94,9 @@ None found by exact static reference scan.
 
 ## Tests that define behavior
 
+- `tests/test_followups_batch5_lesson.py`
+- `tests/test_followups_batch5_recap_dependencies.py`
+- `tests/test_followups_batch5_recap_protection.py`
 - `tests/test_reader_rw5d_p4b_teacher_visuals.py`
 - `tests/test_teacher_te1_lesson.py`
 - `tests/test_teacher_te1_migration.py`

@@ -109,6 +109,8 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 - [[Reference/Modules/learnloop/content/pipeline/reread|learnloop.content.pipeline.reread]] — imports `extraction_sections`; statically calls `extraction_sections`
 - [[Reference/Modules/learnloop/daily_plan/reading|learnloop.daily_plan.reading]] — imports `extraction_sections`; statically calls `extraction_sections`
 - [[Reference/Modules/learnloop/figures/help|learnloop.figures.help]] — imports `extraction_sections`; statically calls `extraction_sections`
+- [[Reference/Modules/learnloop/figures/prefetch|learnloop.figures.prefetch]] — imports `extraction_sections`; statically calls `extraction_sections`
+- [[Reference/Modules/learnloop/figures/service|learnloop.figures.service]] — imports `extraction_sections`; statically calls `extraction_sections`
 - [[Reference/Modules/learnloop/reader/reader_cues|learnloop.reader.reader_cues]] — imports `held_out_sections`; statically calls `held_out_sections`
 - [[Reference/Modules/learnloop/reader/reader_progression|learnloop.reader.reader_progression]] — imports `_canonical_note_ids`, `_span_for_ref`, `extraction_sections`; statically calls `_canonical_note_ids`, `_span_for_ref`, `extraction_sections`
 - [[Reference/Modules/learnloop/reader/reader_quick_check|learnloop.reader.reader_quick_check]] — imports `extraction_sections`; statically calls `extraction_sections`
@@ -140,7 +142,7 @@ Use this module in context through:
 
 - [[Reader to Practice Workflow]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/adaptive_difficulty/material_view|learnloop.adaptive_difficulty.material_view]], [[Reference/Modules/learnloop/content/pipeline/reread|learnloop.content.pipeline.reread]], [[Reference/Modules/learnloop/daily_plan/reading|learnloop.daily_plan.reading]], [[Reference/Modules/learnloop/figures/help|learnloop.figures.help]], [[Reference/Modules/learnloop/reader/reader_cues|learnloop.reader.reader_cues]] and 8 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/adaptive_difficulty/material_view|learnloop.adaptive_difficulty.material_view]], [[Reference/Modules/learnloop/content/pipeline/reread|learnloop.content.pipeline.reread]], [[Reference/Modules/learnloop/daily_plan/reading|learnloop.daily_plan.reading]], [[Reference/Modules/learnloop/figures/help|learnloop.figures.help]], [[Reference/Modules/learnloop/figures/prefetch|learnloop.figures.prefetch]] and 10 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 

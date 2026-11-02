@@ -143,6 +143,7 @@ The authoritative system-level explanation remains in [[AI Architecture]], [[Arc
 - [[Reference/Modules/learnloop/ai/runtime|learnloop.ai.runtime]] — imports `PlanSession`; statically calls `PlanSession`
 - [[Reference/Modules/learnloop/cli/ai|learnloop.cli.ai]] — imports `PlanSession`; statically calls `PlanSession`
 - [[Reference/Modules/learnloop/cli/ai_compare|learnloop.cli.ai_compare]] — imports `MANAGE_USAGE_URL`, `PlanSession`; statically calls `PlanSession`
+- [[Reference/Modules/learnloop/figures/prefetch|learnloop.figures.prefetch]] — imports `DEFAULT_PAUSE_MINUTES`, `PlanSession`; statically calls `PlanSession`
 - [[Reference/Modules/learnloop/ops/doctor|learnloop.ops.doctor]] — imports `PlanSession`; statically calls `PlanSession`
 - [[Reference/Modules/learnloop_sidecar/handlers/chatgpt_plan|learnloop_sidecar.handlers.chatgpt_plan]] — imports `PendingSignIn`, `PlanSession`, `SIGN_IN_TIMEOUT_SECONDS`; statically calls `PlanSession`
 - [[Reference/Modules/learnloop_sidecar/handlers/first_run|learnloop_sidecar.handlers.first_run]] — imports `PlanSession`; statically calls `PlanSession`
@@ -171,7 +172,7 @@ Use this module in context through:
 - [[Configure AI Providers]]
 - [[Process Model Output]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/ai/providers/chatgpt_plan|learnloop.ai.providers.chatgpt_plan]], [[Reference/Modules/learnloop/ai/runtime|learnloop.ai.runtime]], [[Reference/Modules/learnloop/cli/ai|learnloop.cli.ai]], [[Reference/Modules/learnloop/cli/ai_compare|learnloop.cli.ai_compare]], [[Reference/Modules/learnloop/ops/doctor|learnloop.ops.doctor]] and 2 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/ai/providers/chatgpt_plan|learnloop.ai.providers.chatgpt_plan]], [[Reference/Modules/learnloop/ai/runtime|learnloop.ai.runtime]], [[Reference/Modules/learnloop/cli/ai|learnloop.cli.ai]], [[Reference/Modules/learnloop/cli/ai_compare|learnloop.cli.ai_compare]], [[Reference/Modules/learnloop/figures/prefetch|learnloop.figures.prefetch]] and 3 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 

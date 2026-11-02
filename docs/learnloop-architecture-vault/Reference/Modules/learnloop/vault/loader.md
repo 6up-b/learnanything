@@ -187,6 +187,7 @@ The authoritative system-level explanation remains in [[State and Persistence]];
 - [[Reference/Modules/learnloop/intent_upgrade|learnloop.intent_upgrade]] — imports `load_vault`; statically calls `load_vault`
 - [[Reference/Modules/learnloop/learner/recall_calibration|learnloop.learner.recall_calibration]] — imports `add_subject`, `init_vault`, `load_vault`; statically calls `add_subject`, `init_vault`, `load_vault`
 - [[Reference/Modules/learnloop/learner_text_gap_upgrade|learnloop.learner_text_gap_upgrade]] — imports `load_vault`; statically calls `load_vault`
+- [[Reference/Modules/learnloop/lesson_suggestions_upgrade|learnloop.lesson_suggestions_upgrade]] — imports `load_vault`; statically calls `load_vault`
 - [[Reference/Modules/learnloop/method_explicit_upgrade|learnloop.method_explicit_upgrade]] — imports `load_vault`; statically calls `load_vault`
 - [[Reference/Modules/learnloop/one_ask_upgrade|learnloop.one_ask_upgrade]] — imports `load_vault`; statically calls `load_vault`
 - [[Reference/Modules/learnloop/ops/debug_time|learnloop.ops.debug_time]] — imports `load_vault`; statically calls `load_vault`
@@ -259,7 +260,7 @@ Use this module in context through:
 
 - [[Initialize a Vault]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/ad_successor_upgrade|learnloop.ad_successor_upgrade]], [[Reference/Modules/learnloop/adaptive_difficulty/generation|learnloop.adaptive_difficulty.generation]], [[Reference/Modules/learnloop/adaptive_difficulty/operation|learnloop.adaptive_difficulty.operation]], [[Reference/Modules/learnloop/attempt_content_state_upgrade|learnloop.attempt_content_state_upgrade]], [[Reference/Modules/learnloop/attempts/measurement_corrections|learnloop.attempts.measurement_corrections]] and 117 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/ad_successor_upgrade|learnloop.ad_successor_upgrade]], [[Reference/Modules/learnloop/adaptive_difficulty/generation|learnloop.adaptive_difficulty.generation]], [[Reference/Modules/learnloop/adaptive_difficulty/operation|learnloop.adaptive_difficulty.operation]], [[Reference/Modules/learnloop/attempt_content_state_upgrade|learnloop.attempt_content_state_upgrade]], [[Reference/Modules/learnloop/attempts/measurement_corrections|learnloop.attempts.measurement_corrections]] and 118 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
@@ -1389,6 +1390,22 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_f5_an_attempt_builds_admission_key_carries_the_switch`
   - `test_f7_predictions_made_before_the_attempt_are_not_its_trace`
   - `test_f7_the_trace_reads_only_what_this_attempt_wrote_as_it_stood_at_submit`
+- [tests/test_figures_prefetch.py](../../../../../../tests/test_figures_prefetch.py) — direct import
+  - `test_a_prebuilt_figure_lists_only_while_on_or_once_pressed`
+  - `test_the_switch_going_off_stops_the_queue`
+- [tests/test_figures_prefetch_review_fixes.py](../../../../../../tests/test_figures_prefetch_review_fixes.py) — direct import
+  - `test_f10_a_rich_only_prebuild_shows_no_pending_or_failure_line`
+  - `test_f11_unpressed_prebuilt_lines_keep_to_the_cue_budget`
+  - `test_f17_a_plan_wait_is_not_retried_off_mains_or_switched_off`
+  - `test_f1_rereview_a_builds_protection_is_read_on_the_vault_loaded_now`
+  - `test_f1_rereview_a_gap_judge_retry_revalidates_on_the_vault_loaded_now`
+  - `test_f1_rereview_a_section_judge_retry_revalidates_on_the_vault_loaded_now`
+  - `test_f2_a_quick_prebuild_on_a_metered_author_route_sends_nothing`
+  - `test_f3_a_recovered_prebuild_intent_keeps_its_guards`
+  - `test_f8_a_te1_lesson_plan_has_no_planned_visual_so_nothing_is_prebuilt`
+  - `test_r1_an_unqueued_speculative_fuller_is_not_pending_switched_off_or_held_out`
+  - `test_r5_a_planned_visual_is_prebuilt_and_the_lesson_step_reuses_it_with_no_author_call`
+  - `test_r5_a_planned_visual_on_a_held_out_passage_is_not_a_candidate`
 - [tests/test_figures_rw5b_fix_round2.py](../../../../../../tests/test_figures_rw5b_fix_round2.py) — direct import
   - `test_a_forked_ask_offers_and_builds_on_the_fork`
   - `test_a_library_note_pointing_at_another_tasks_yes_row_is_refused`
@@ -3054,6 +3071,39 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_the_pool_mixes_in_the_teachers_forecast_and_learns_from_the_outcome`
   - `test_the_report_lines`
   - `test_the_tap_recalibration_learns_from_every_tapped_graded_answer`
+- [tests/test_teacher_te1b_landing_r2.py](../../../../../../tests/test_teacher_te1b_landing_r2.py) — direct import
+  - `test_a_reservation_is_set_aside_when_the_exam_material_cannot_be_checked`
+  - `test_a_same_day_reservation_whose_lo_is_gone_leaves_the_day_without_a_card`
+  - `test_a_valid_reservation_is_still_offered`
+  - `test_an_expired_reservation_cannot_then_be_released`
+  - `test_an_overnight_reservation_whose_lo_is_gone_is_set_aside_and_the_day_draws`
+  - `test_not_now_on_a_pending_card_releases_the_reservation`
+  - `test_release_needs_a_pending_lesson`
+  - `test_the_protection_check_matches_the_lessons_opening`
+- [tests/test_teacher_te1b_rereview_fixes.py](../../../../../../tests/test_teacher_te1b_rereview_fixes.py) — direct import
+  - `test_a_reserved_lesson_is_dropped_once_teach_me_opened_one_on_it`
+  - `test_a_start_left_unopened_overnight_is_offered_the_next_day`
+  - `test_an_overnight_alternative_start_keeps_the_alternative`
+- [tests/test_teacher_te1b_review_fixes.py](../../../../../../tests/test_teacher_te1b_review_fixes.py) — direct import
+  - `test_a_provider_failure_before_the_lesson_is_saved_leaves_an_idempotent_open`
+  - `test_a_start_interrupted_before_its_lesson_opened_stays_on_the_card`
+  - `test_an_accepted_alternatives_delayed_check_reaches_its_decision`
+  - `test_an_alternative_start_interrupted_keeps_the_alternative`
+  - `test_below_band_reads_adaptive_difficultys_posterior_not_the_mastery_model`
+  - `test_the_learners_answers_are_preference_lines_on_the_router_card`
+- [tests/test_teacher_te1b_suggestions.py](../../../../../../tests/test_teacher_te1b_suggestions.py) — direct import
+  - `test_a_closed_suggested_lessons_receipt_names_the_decision`
+  - `test_every_response_is_logged_once`
+  - `test_not_now_mutes_the_goal_per_the_recovery_prior`
+  - `test_off_or_below_the_tag_nothing_is_drawn_or_written`
+  - `test_responses_move_the_acceptance_model`
+  - `test_the_candidate_reasons`
+  - `test_the_card_comes_at_most_once_a_day`
+  - `test_the_outcome_is_r_cold_on_the_drawn_lo_shown_or_not`
+  - `test_the_shell_reads_lessons_and_room_to_learn_as_the_teacher_does`
+  - `test_the_upgrade_from_teacher_te1_and_its_refusals`
+  - `test_todays_plan_is_byte_identical_with_a_suggestion_drawn`
+  - `test_with_the_switch_off_the_desktop_config_is_byte_identical`
 - [tests/test_tier1_decider.py](../../../../../../tests/test_tier1_decider.py) — direct import
   - `test_a_decider_cancellation_in_misconception_matching_never_reaches_the_llm`
   - `test_a_review_resume_refuses_a_changed_decider_profile`

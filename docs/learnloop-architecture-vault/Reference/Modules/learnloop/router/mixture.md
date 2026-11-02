@@ -7,8 +7,8 @@ version: "1.0.0"
 source_path: "src/learnloop/router/mixture.py"
 source_paths:
   - "src/learnloop/router/mixture.py"
-source_commit: "bf51a51a9634f2570fdefe3bace585bb7506424e"
-source_commit_timestamp: "2026-10-14T09:16:50-04:00"
+source_commit: "9218ba7a856652fb4091a4d048fdc4cb77d0ee84"
+source_commit_timestamp: "2026-11-02T07:45:40-05:00"
 source_worktree_state: "clean"
 generated: true
 generated_at: "2026-11-02"
@@ -50,13 +50,13 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/router/mixture.py](../../../../../../src/learnloop/router/mixture.py) |
-| Source lines | 242 |
+| Source lines | 257 |
 | Owning package | [[Reference/Modules/learnloop/router/_package|learnloop.router]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `bf51a51a9634f2570fdefe3bace585bb7506424e` |
-| Commit timestamp | `2026-10-14T09:16:50-04:00` |
+| Source commit | `9218ba7a856652fb4091a4d048fdc4cb77d0ee84` |
+| Commit timestamp | `2026-11-02T07:45:40-05:00` |
 
 ## Public API
 
@@ -71,7 +71,8 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `class Draw` ([source](../../../../../../src/learnloop/router/mixture.py), line 156)
   - `deterministic(self) -> bool` (line 166; public)
 - `draw(support: Sequence[str], components: Mapping[str, Mapping[str, float]], weights: Mapping[str, float], epsilon: float, seed: str) -> Draw` ([source](../../../../../../src/learnloop/router/mixture.py), line 186) — The two-stage draw; its marginal is :func:`mixture`.
-- `recompute(record: Mapping[str, Any]) -> float` ([source](../../../../../../src/learnloop/router/mixture.py), line 210) — G3: ``pi(chosen)`` from a logged decision's own components.
+- `draw_with_uniforms(support: Sequence[str], components: Mapping[str, Mapping[str, float]], weights: Mapping[str, float], epsilon: float, u1: float, u2: float) -> Draw` ([source](../../../../../../src/learnloop/router/mixture.py), line 199) — :func:`draw` with its two uniforms given (a caller that derives its own from its seed, such as teacher TE1b's day draw, which needs a third for its show coin).
+- `recompute(record: Mapping[str, Any]) -> float` ([source](../../../../../../src/learnloop/router/mixture.py), line 224) — G3: ``pi(chosen)`` from a logged decision's own components.
 
 ### Module constants
 
@@ -98,6 +99,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `UNIFORM`
 - `component_distributions`
 - `draw`
+- `draw_with_uniforms`
 - `effective_weights`
 - `fallback_label`
 - `mixture`
@@ -118,6 +120,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop/daily_plan/router_chooser|learnloop.daily_plan.router_chooser]] — imports `module`; statically calls `component_distributions`, `draw`, `effective_weights`, `fallback_label`
 - [[Reference/Modules/learnloop/daily_plan/router_retrieval|learnloop.daily_plan.router_retrieval]] — imports `uniform`; statically calls `uniform`
 - [[Reference/Modules/learnloop/daily_plan/router_runtime|learnloop.daily_plan.router_runtime]] — imports `seed_for`; statically calls `seed_for`
+- [[Reference/Modules/learnloop/router/lesson_suggestions|learnloop.router.lesson_suggestions]] — imports `module`; statically calls `component_distributions`, `draw_with_uniforms`, `effective_weights`, `uniform`
 - [[Reference/Modules/learnloop/scheduling/randomization_layer|learnloop.scheduling.randomization_layer]] — imports `module`; statically calls `component_distributions`, `draw`, `effective_weights`
 
 ## Dependencies
@@ -138,7 +141,7 @@ Use this module in context through:
 - [[Initialize a Vault]]
 - [[Start a Learning Cycle]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/daily_plan/router_chooser|learnloop.daily_plan.router_chooser]], [[Reference/Modules/learnloop/daily_plan/router_retrieval|learnloop.daily_plan.router_retrieval]], [[Reference/Modules/learnloop/daily_plan/router_runtime|learnloop.daily_plan.router_runtime]], [[Reference/Modules/learnloop/scheduling/randomization_layer|learnloop.scheduling.randomization_layer]].
+Static participation evidence comes from [[Reference/Modules/learnloop/daily_plan/router_chooser|learnloop.daily_plan.router_chooser]], [[Reference/Modules/learnloop/daily_plan/router_retrieval|learnloop.daily_plan.router_retrieval]], [[Reference/Modules/learnloop/daily_plan/router_runtime|learnloop.daily_plan.router_runtime]], [[Reference/Modules/learnloop/router/lesson_suggestions|learnloop.router.lesson_suggestions]], [[Reference/Modules/learnloop/scheduling/randomization_layer|learnloop.scheduling.randomization_layer]].
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
@@ -153,6 +156,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_the_logged_propensity_is_reproducible_from_the_logged_components`
   - `test_the_two_stage_marginal_is_the_mixture`
 - [tests/test_router_r2b_serving.py](../../../../../../tests/test_router_r2b_serving.py) — direct import
+- [tests/test_teacher_te1b_rereview_fixes.py](../../../../../../tests/test_teacher_te1b_rereview_fixes.py) — direct import
+  - `test_mixture_mode_draws_the_target_by_the_routers_model_mixture`
 
 ## Modification guidance
 

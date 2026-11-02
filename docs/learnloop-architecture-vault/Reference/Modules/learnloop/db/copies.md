@@ -173,6 +173,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_replay_preserves_paid_inputs_without_models`
 - [tests/test_exam_protection_review.py](../../../../../../tests/test_exam_protection_review.py) — direct import
   - `test_replay_never_reads_the_switch`
+- [tests/test_figure_prefetch_migration.py](../../../../../../tests/test_figure_prefetch_migration.py) — direct import
+  - `test_237_on_the_head_fixture_copy_adds_only_its_objects`
 - [tests/test_forecast_receipts.py](../../../../../../tests/test_forecast_receipts.py) — direct import
   - `test_replay_neither_reads_nor_writes_forecast_receipts`
 - [tests/test_held_grade_evidence.py](../../../../../../tests/test_held_grade_evidence.py) — direct import

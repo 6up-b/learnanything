@@ -7,8 +7,8 @@ version: "1.0.0"
 source_path: "src/learnloop/router/card.py"
 source_paths:
   - "src/learnloop/router/card.py"
-source_commit: "28c1e434c1f87809ce95de89773bffb9c492939f"
-source_commit_timestamp: "2026-11-01T02:58:57-05:00"
+source_commit: "b00d07e6fab059e8f9778cf04decb5543c849998"
+source_commit_timestamp: "2026-11-02T07:07:50-05:00"
 source_worktree_state: "clean"
 generated: true
 generated_at: "2026-11-02"
@@ -50,13 +50,13 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/router/card.py](../../../../../../src/learnloop/router/card.py) |
-| Source lines | 566 |
+| Source lines | 604 |
 | Owning package | [[Reference/Modules/learnloop/router/_package|learnloop.router]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `28c1e434c1f87809ce95de89773bffb9c492939f` |
-| Commit timestamp | `2026-11-01T02:58:57-05:00` |
+| Source commit | `b00d07e6fab059e8f9778cf04decb5543c849998` |
+| Commit timestamp | `2026-11-02T07:07:50-05:00` |
 
 ## Public API
 
@@ -67,7 +67,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `class LearnerStateCard` ([source](../../../../../../src/learnloop/router/card.py), line 123)
   - `payload(self) -> dict[str, Any]` (line 131; public) — What the decision stores (``router_decision_payloads``, kind card).
 - `render_text(card: Mapping[str, Any]) -> str` ([source](../../../../../../src/learnloop/router/card.py), line 196) — The card's text sections (deterministic from the typed card).
-- `build_card(inputs: CardInputs, *, token_budget: int=DEFAULT_TOKEN_BUDGET) -> LearnerStateCard` ([source](../../../../../../src/learnloop/router/card.py), line 460) — The card for one decision, within ``token_budget`` (deterministic).
+- `build_card(inputs: CardInputs, *, token_budget: int=DEFAULT_TOKEN_BUDGET) -> LearnerStateCard` ([source](../../../../../../src/learnloop/router/card.py), line 491) — The card for one decision, within ``token_budget`` (deterministic).
 
 ### Module constants
 
@@ -78,11 +78,14 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `STEM_LIMIT` ([src/learnloop/router/card.py](../../../../../../src/learnloop/router/card.py), line 62)
 - `STATEMENT_LIMIT` ([src/learnloop/router/card.py](../../../../../../src/learnloop/router/card.py), line 63)
 - `TYPED_SECTIONS` ([src/learnloop/router/card.py](../../../../../../src/learnloop/router/card.py), line 68)
-- `AD_CARD_VERSION` ([src/learnloop/router/card.py](../../../../../../src/learnloop/router/card.py), line 355)
-- `_METADATA_TRUNCATION_KEYS` ([src/learnloop/router/card.py](../../../../../../src/learnloop/router/card.py), line 368)
-- `READER_SECTION` ([src/learnloop/router/card.py](../../../../../../src/learnloop/router/card.py), line 376)
-- `_READER_LISTS` ([src/learnloop/router/card.py](../../../../../../src/learnloop/router/card.py), line 377)
-- `_READER_OLDEST_FIRST` ([src/learnloop/router/card.py](../../../../../../src/learnloop/router/card.py), line 381)
+- `SUGGESTION_SECTION` ([src/learnloop/router/card.py](../../../../../../src/learnloop/router/card.py), line 297)
+- `_SUGGESTION_WORDS` ([src/learnloop/router/card.py](../../../../../../src/learnloop/router/card.py), line 298)
+- `AD_CARD_VERSION` ([src/learnloop/router/card.py](../../../../../../src/learnloop/router/card.py), line 378)
+- `SUGGESTION_CARD_SUFFIX` ([src/learnloop/router/card.py](../../../../../../src/learnloop/router/card.py), line 383)
+- `_METADATA_TRUNCATION_KEYS` ([src/learnloop/router/card.py](../../../../../../src/learnloop/router/card.py), line 398)
+- `READER_SECTION` ([src/learnloop/router/card.py](../../../../../../src/learnloop/router/card.py), line 407)
+- `_READER_LISTS` ([src/learnloop/router/card.py](../../../../../../src/learnloop/router/card.py), line 408)
+- `_READER_OLDEST_FIRST` ([src/learnloop/router/card.py](../../../../../../src/learnloop/router/card.py), line 412)
 
 ### Explicit exports
 
@@ -90,6 +93,8 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 
 - `AD_CARD_VERSION`
 - `CARD_VERSION`
+- `SUGGESTION_CARD_SUFFIX`
+- `SUGGESTION_SECTION`
 - `PREDECESSOR_CARD_VERSION`
 - `CardInputs`
 - `DEFAULT_TOKEN_BUDGET`
@@ -106,19 +111,20 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `_successful(entry: Mapping[str, Any]) -> bool` ([source](../../../../../../src/learnloop/router/card.py), line 138)
 - `_work_line(entry: Mapping[str, Any]) -> str` ([source](../../../../../../src/learnloop/router/card.py), line 142)
 - `_lo_line(lo_id: str, row: Mapping[str, Any]) -> str` ([source](../../../../../../src/learnloop/router/card.py), line 166)
-- `_topics(ids: Any, card: Mapping[str, Any]) -> str` ([source](../../../../../../src/learnloop/router/card.py), line 291)
-- `_reader_lines(reader: Mapping[str, Any], card: Mapping[str, Any]) -> list[str]` ([source](../../../../../../src/learnloop/router/card.py), line 296) — Reader workbench RW6b part 2 (spec §9.2; router R2): the "Reader activity" section, typed facts in plain words.
-- `_card_version(inputs: CardInputs) -> str` ([source](../../../../../../src/learnloop/router/card.py), line 358)
-- `_drop_reader_entry(reader: dict[str, Any]) -> bool` ([source](../../../../../../src/learnloop/router/card.py), line 385) — Remove one entry of the reader section, deterministically, counting it in the section's ``omitted`` (Codex re-review F9): the model-written narrative first, then one entry of the longest list (ties: the later list), its oldest end.
-- `_assemble(inputs: CardInputs, work: list[dict[str, Any]], truncation: Mapping[str, Any], confidence: Mapping[str, Sequence[Mapping[str, Any]]] | None=None, confidence_dropped: int=0, *, limit: bool=True, notice: bool=True, evidence_sections: Mapping[str, Any] | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/router/card.py), line 412)
-- `_drop_oldest_event(confidence: dict[str, list[dict[str, Any]]]) -> bool` ([source](../../../../../../src/learnloop/router/card.py), line 448) — Remove the oldest 7-day confidence event of any topic (each list is newest first); False when none is left.
+- `_suggestion_lines(entries: Sequence[Mapping[str, Any]]) -> list[str]` ([source](../../../../../../src/learnloop/router/card.py), line 304)
+- `_topics(ids: Any, card: Mapping[str, Any]) -> str` ([source](../../../../../../src/learnloop/router/card.py), line 314)
+- `_reader_lines(reader: Mapping[str, Any], card: Mapping[str, Any]) -> list[str]` ([source](../../../../../../src/learnloop/router/card.py), line 319) — Reader workbench RW6b part 2 (spec §9.2; router R2): the "Reader activity" section, typed facts in plain words.
+- `_card_version(inputs: CardInputs, evidence_sections: Mapping[str, Any] | None=None) -> str` ([source](../../../../../../src/learnloop/router/card.py), line 386)
+- `_drop_reader_entry(reader: dict[str, Any]) -> bool` ([source](../../../../../../src/learnloop/router/card.py), line 416) — Remove one entry of the reader section, deterministically, counting it in the section's ``omitted`` (Codex re-review F9): the model-written narrative first, then one entry of the longest list (ties: the later list), its oldest end.
+- `_assemble(inputs: CardInputs, work: list[dict[str, Any]], truncation: Mapping[str, Any], confidence: Mapping[str, Sequence[Mapping[str, Any]]] | None=None, confidence_dropped: int=0, *, limit: bool=True, notice: bool=True, evidence_sections: Mapping[str, Any] | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/router/card.py), line 443)
+- `_drop_oldest_event(confidence: dict[str, list[dict[str, Any]]]) -> bool` ([source](../../../../../../src/learnloop/router/card.py), line 479) — Remove the oldest 7-day confidence event of any topic (each list is newest first); False when none is left.
 
 ## Who imports or calls it
 
 > [!note] Static evidence boundary
 > “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
 
-- [[Reference/Modules/learnloop/daily_plan/router_card|learnloop.daily_plan.router_card]] — imports `CardInputs`, `EXCERPT_LIMIT`, `LearnerStateCard`, `STATEMENT_LIMIT`, `STEM_LIMIT`, `build_card`, `excerpt`; statically calls `CardInputs`, `build_card`, `excerpt`
+- [[Reference/Modules/learnloop/daily_plan/router_card|learnloop.daily_plan.router_card]] — imports `CardInputs`, `EXCERPT_LIMIT`, `LearnerStateCard`, `STATEMENT_LIMIT`, `STEM_LIMIT`, `SUGGESTION_SECTION`, `build_card`, `excerpt`; statically calls `CardInputs`, `build_card`, `excerpt`
 
 ## Dependencies
 
@@ -172,6 +178,9 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_a_card_within_budget_states_no_omission`
   - `test_a_heavy_confidence_week_stays_within_the_card_budget_and_keeps_recent_work`
   - `test_switched_off_the_card_is_the_predecessors_card`
+- [tests/test_teacher_te1b_review_fixes.py](../../../../../../tests/test_teacher_te1b_review_fixes.py) — direct import
+  - `test_a_chosen_alternative_reads_as_a_choice_over_the_suggestion`
+  - `test_the_learners_answers_are_preference_lines_on_the_router_card`
 
 ## Modification guidance
 

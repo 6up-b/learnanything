@@ -299,9 +299,11 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 > “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
 
 - [[Reference/Modules/learnloop/cli/plan|learnloop.cli.plan]] — imports `load_records_from_connection`, `local_date`, `plan_active`; statically calls `load_records_from_connection`, `local_date`, `plan_active`
+- [[Reference/Modules/learnloop/daily_plan/lesson_suggestion|learnloop.daily_plan.lesson_suggestion]] — imports `PlanEnv`, `latest_today`; statically calls `PlanEnv`, `latest_today`
 - [[Reference/Modules/learnloop/daily_plan/policy|learnloop.daily_plan.policy]] — imports `DEFAULT_POLICY`, `PlanPolicy`, `plan_active`; statically calls `PlanPolicy`, `plan_active`
 - [[Reference/Modules/learnloop/daily_plan/slot_facts|learnloop.daily_plan.slot_facts]] — imports `admitted_new_material_ids`; statically calls `admitted_new_material_ids`
 - [[Reference/Modules/learnloop/daily_plan/view|learnloop.daily_plan.view]] — imports `PlanEnv`, `PlanPolicy`, `PoolContext`, `day_records`, `simulate_blocks`; statically calls `day_records`, `simulate_blocks`
+- [[Reference/Modules/learnloop/figures/prefetch|learnloop.figures.prefetch]] — imports `load_records`; statically calls `load_records`
 - [[Reference/Modules/learnloop/remote/views|learnloop.remote.views]] — imports `PlanEnv`, `load_records`, `plan_active`; statically calls `PlanEnv`, `load_records`, `plan_active`
 - [[Reference/Modules/learnloop_sidecar/handlers/daily_plan|learnloop_sidecar.handlers.daily_plan]] — imports `PlanEnv`, `PlanInactiveError`, `PlanStillOpenError`, `advance_with_context`, `intent_view`, `keep_going`, `latest_today`, `learner_pick`, `more_new`, `picked_under`, `plan_active`, `plan_scheduler_session`, `reading_ended`, `set_minutes`, `stop_today`; statically calls `PlanEnv`, `advance_with_context`, `intent_view`, `keep_going`, `latest_today`, `learner_pick`, `more_new`, `picked_under`, `plan_active`, `plan_scheduler_session`, `reading_ended`, `set_minutes`, `stop_today`
 - [[Reference/Modules/learnloop_sidecar/handlers/deliverables|learnloop_sidecar.handlers.deliverables]] — imports `deliverable_plan_active`, `local_date`; statically calls `deliverable_plan_active`, `local_date`
@@ -365,7 +367,7 @@ Use this module in context through:
 - [[Initialize a Vault]]
 - [[Start a Learning Cycle]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/cli/plan|learnloop.cli.plan]], [[Reference/Modules/learnloop/daily_plan/policy|learnloop.daily_plan.policy]], [[Reference/Modules/learnloop/daily_plan/slot_facts|learnloop.daily_plan.slot_facts]], [[Reference/Modules/learnloop/daily_plan/view|learnloop.daily_plan.view]], [[Reference/Modules/learnloop/remote/views|learnloop.remote.views]] and 5 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/cli/plan|learnloop.cli.plan]], [[Reference/Modules/learnloop/daily_plan/lesson_suggestion|learnloop.daily_plan.lesson_suggestion]], [[Reference/Modules/learnloop/daily_plan/policy|learnloop.daily_plan.policy]], [[Reference/Modules/learnloop/daily_plan/slot_facts|learnloop.daily_plan.slot_facts]], [[Reference/Modules/learnloop/daily_plan/view|learnloop.daily_plan.view]] and 7 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
@@ -717,6 +719,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_the_12_9_reproduction_is_served_as_practice_and_its_check_withdrawn`
 - [tests/test_serve_eligibility_review.py](../../../../../../tests/test_serve_eligibility_review.py) — direct import
   - `test_f4_the_plan_serves_the_12_9_case_as_mvp_026_with_the_switch_off`
+- [tests/test_teacher_te1b_suggestions.py](../../../../../../tests/test_teacher_te1b_suggestions.py) — direct import
+  - `test_todays_plan_is_byte_identical_with_a_suggestion_drawn`
 - [tests/test_ux_phase4_feedback.py](../../../../../../tests/test_ux_phase4_feedback.py) — direct import
   - `test_f1j_a_planned_cold_check_revealed_before_it_is_served_is_not_served`
   - `test_f1j_no_serve_path_serves_a_cold_check_submit_would_prime`

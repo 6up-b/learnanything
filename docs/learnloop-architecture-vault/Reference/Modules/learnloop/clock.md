@@ -169,6 +169,7 @@ No private top-level function or class definition is declared in this file.
 - [[Reference/Modules/learnloop/daily_plan/estimates|learnloop.daily_plan.estimates]] — imports `parse_utc`; statically calls `parse_utc`
 - [[Reference/Modules/learnloop/daily_plan/intent_cost|learnloop.daily_plan.intent_cost]] — imports `Clock`, `SystemClock`; statically calls `SystemClock`
 - [[Reference/Modules/learnloop/daily_plan/lanes|learnloop.daily_plan.lanes]] — imports `parse_utc`; statically calls `parse_utc`
+- [[Reference/Modules/learnloop/daily_plan/lesson_suggestion|learnloop.daily_plan.lesson_suggestion]] — imports `Clock`, `parse_utc`; statically calls `parse_utc`
 - [[Reference/Modules/learnloop/daily_plan/reentry|learnloop.daily_plan.reentry]] — imports `parse_utc`; statically calls `parse_utc`
 - [[Reference/Modules/learnloop/daily_plan/report|learnloop.daily_plan.report]] — imports `parse_utc`; statically calls `parse_utc`
 - [[Reference/Modules/learnloop/daily_plan/router_card|learnloop.daily_plan.router_card]] — imports `parse_utc`, `utc_now_iso`; statically calls `parse_utc`, `utc_now_iso`
@@ -248,6 +249,7 @@ No private top-level function or class definition is declared in this file.
 - [[Reference/Modules/learnloop/field/probability_prep|learnloop.field.probability_prep]] — imports `parse_utc`; statically calls `parse_utc`
 - [[Reference/Modules/learnloop/field/probability_states|learnloop.field.probability_states]] — imports `parse_utc`; statically calls `parse_utc`
 - [[Reference/Modules/learnloop/field/success_head|learnloop.field.success_head]] — imports `parse_utc`; statically calls `parse_utc`
+- [[Reference/Modules/learnloop/figures/prefetch|learnloop.figures.prefetch]] — imports `Clock`, `SystemClock`, `utc_now_iso`; statically calls `SystemClock`, `utc_now_iso`
 - [[Reference/Modules/learnloop/figures/rich|learnloop.figures.rich]] — imports `Clock`, `utc_now_iso`; statically calls `utc_now_iso`
 - [[Reference/Modules/learnloop/figures/routes|learnloop.figures.routes]] — imports `Clock`
 - [[Reference/Modules/learnloop/figures/service|learnloop.figures.service]] — imports `Clock`, `utc_now_iso`; statically calls `utc_now_iso`
@@ -299,6 +301,7 @@ No private top-level function or class definition is declared in this file.
 - [[Reference/Modules/learnloop/learner/surfaced_beliefs|learnloop.learner.surfaced_beliefs]] — imports `Clock`
 - [[Reference/Modules/learnloop/learner_context|learnloop.learner_context]] — imports `parse_utc`, `utc_now_iso`; statically calls `parse_utc`, `utc_now_iso`
 - [[Reference/Modules/learnloop/learner_text_gap_upgrade|learnloop.learner_text_gap_upgrade]] — imports `Clock`
+- [[Reference/Modules/learnloop/lesson_suggestions_upgrade|learnloop.lesson_suggestions_upgrade]] — imports `Clock`
 - [[Reference/Modules/learnloop/matching/judge|learnloop.matching.judge]] — imports `utc_now_iso`
 - [[Reference/Modules/learnloop/method_explicit_upgrade|learnloop.method_explicit_upgrade]] — imports `Clock`
 - [[Reference/Modules/learnloop/migration_coordinator|learnloop.migration_coordinator]] — imports `Clock`, `utc_now_iso`; statically calls `utc_now_iso`
@@ -491,7 +494,7 @@ Use this module in context through:
 - [[Initialize a Vault]]
 - [[Start a Learning Cycle]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/ad_successor_upgrade|learnloop.ad_successor_upgrade]], [[Reference/Modules/learnloop/adaptive_difficulty/backfill|learnloop.adaptive_difficulty.backfill]], [[Reference/Modules/learnloop/adaptive_difficulty/claims|learnloop.adaptive_difficulty.claims]], [[Reference/Modules/learnloop/adaptive_difficulty/dose|learnloop.adaptive_difficulty.dose]], [[Reference/Modules/learnloop/adaptive_difficulty/feature_audit|learnloop.adaptive_difficulty.feature_audit]] and 385 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/ad_successor_upgrade|learnloop.ad_successor_upgrade]], [[Reference/Modules/learnloop/adaptive_difficulty/backfill|learnloop.adaptive_difficulty.backfill]], [[Reference/Modules/learnloop/adaptive_difficulty/claims|learnloop.adaptive_difficulty.claims]], [[Reference/Modules/learnloop/adaptive_difficulty/dose|learnloop.adaptive_difficulty.dose]], [[Reference/Modules/learnloop/adaptive_difficulty/feature_audit|learnloop.adaptive_difficulty.feature_audit]] and 388 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
@@ -981,6 +984,15 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_f5_an_explanation_after_a_checkpointed_reading_is_its_own_text`
 - [tests/test_figures_help_codex_review.py](../../../../../tests/test_figures_help_codex_review.py) — direct import
   - `test_f7_the_trace_reads_only_what_this_attempt_wrote_as_it_stood_at_submit`
+- [tests/test_figures_prefetch.py](../../../../../tests/test_figures_prefetch.py) — direct import
+  - `test_a_plan_pause_is_recorded_once_and_defers_the_builds`
+  - `test_unbuilt_candidates_close_asked_or_neither_and_withheld_ones_void`
+- [tests/test_figures_prefetch_review_fixes.py](../../../../../tests/test_figures_prefetch_review_fixes.py) — direct import
+  - `test_f5_a_deferred_decision_is_built_once_the_condition_clears`
+  - `test_f6_a_resumed_build_spends_todays_cap`
+  - `test_f9_an_ask_is_the_same_request_before_the_horizon`
+  - `test_f9_an_open_after_the_horizon_is_not_an_outcome`
+  - `test_r5_a_planned_visual_is_prebuilt_and_the_lesson_step_reuses_it_with_no_author_call`
 - [tests/test_followup_diagnostic_selection.py](../../../../../tests/test_followup_diagnostic_selection.py) — direct import
 - [tests/test_followups.py](../../../../../tests/test_followups.py) — direct import
   - `test_manual_override_forces_followup_when_gate_silent`
@@ -1979,6 +1991,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_teacher_te1_weight.py](../../../../../tests/test_teacher_te1_weight.py) — direct import
   - `test_a_primed_or_hinted_or_seen_or_earlier_attempt_never_resolves_a_check`
   - `test_the_tap_recalibration_learns_from_every_tapped_graded_answer`
+- [tests/test_teacher_te1b_suggestions.py](../../../../../tests/test_teacher_te1b_suggestions.py) — direct import
+  - `test_the_candidate_reasons`
 - [tests/test_today_headline.py](../../../../../tests/test_today_headline.py) — direct import
   - `test_a_blueprint_lo_with_an_integration_gap_is_learning`
 - [tests/test_today_surfaces.py](../../../../../tests/test_today_surfaces.py) — direct import

@@ -162,6 +162,7 @@ The authoritative system-level explanation remains in [[AI Architecture]], [[Arc
 - [[Reference/Modules/learnloop/field/probability_prep|learnloop.field.probability_prep]] — imports `call_labels`, `generation_limit`, `observe_model_calls`, `single_request`; statically calls `call_labels`, `generation_limit`, `observe_model_calls`, `single_request`
 - [[Reference/Modules/learnloop/figure_admission|learnloop.figure_admission]] — imports `active_request_gate`, `content_key`; statically calls `active_request_gate`, `content_key`
 - [[Reference/Modules/learnloop/figures/learner_state|learnloop.figures.learner_state]] — imports `content_key`; statically calls `content_key`
+- [[Reference/Modules/learnloop/figures/prefetch|learnloop.figures.prefetch]] — imports `content_key`, `gate_model_requests`; statically calls `content_key`, `gate_model_requests`
 - [[Reference/Modules/learnloop/figures/rich|learnloop.figures.rich]] — imports `content_key`, `gate_model_requests`; statically calls `content_key`, `gate_model_requests`
 - [[Reference/Modules/learnloop/figures/service|learnloop.figures.service]] — imports `content_key`, `gate_model_requests`; statically calls `content_key`, `gate_model_requests`
 - [[Reference/Modules/learnloop/hints/chooser|learnloop.hints.chooser]] — imports `content_key`; statically calls `content_key`
@@ -250,7 +251,7 @@ Use this module in context through:
 - [[Configure AI Providers]]
 - [[Process Model Output]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/adaptive_difficulty/feature_audit|learnloop.adaptive_difficulty.feature_audit]], [[Reference/Modules/learnloop/adaptive_difficulty/outside|learnloop.adaptive_difficulty.outside]], [[Reference/Modules/learnloop/adaptive_difficulty/sending|learnloop.adaptive_difficulty.sending]], [[Reference/Modules/learnloop/ai/output_budget|learnloop.ai.output_budget]], [[Reference/Modules/learnloop/ai/providers/chatgpt_plan|learnloop.ai.providers.chatgpt_plan]] and 121 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/adaptive_difficulty/feature_audit|learnloop.adaptive_difficulty.feature_audit]], [[Reference/Modules/learnloop/adaptive_difficulty/outside|learnloop.adaptive_difficulty.outside]], [[Reference/Modules/learnloop/adaptive_difficulty/sending|learnloop.adaptive_difficulty.sending]], [[Reference/Modules/learnloop/ai/output_budget|learnloop.ai.output_budget]], [[Reference/Modules/learnloop/ai/providers/chatgpt_plan|learnloop.ai.providers.chatgpt_plan]] and 122 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
@@ -333,6 +334,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_figure_offers.py](../../../../../../tests/test_figure_offers.py) — direct import
 - [tests/test_figure_rich_rereview_fixes.py](../../../../../../tests/test_figure_rich_rereview_fixes.py) — direct import
   - `test_a_different_kind_hashes_apart_from_the_ordinary_correction`
+- [tests/test_figures_prefetch_review_fixes.py](../../../../../../tests/test_figures_prefetch_review_fixes.py) — direct import
+  - `test_f16_a_prebuilds_rich_request_rechecks_the_switch_after_waiting_for_foreground_work`
 - [tests/test_figures_rw5b_fix_round2.py](../../../../../../tests/test_figures_rw5b_fix_round2.py) — direct import
   - `test_the_tutors_explorable_rows_hash_the_input_not_the_verdict`
 - [tests/test_figures_scope_redesign.py](../../../../../../tests/test_figures_scope_redesign.py) — direct import

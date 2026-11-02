@@ -54,7 +54,7 @@ For system intent, use [[AI Architecture]], [[Architecture Overview]].
 | [[Reference/Modules/learnloop/ai/chatgpt_plan/oauth|learnloop.ai.chatgpt_plan.oauth]] | [[Reference/Modules/learnloop/ai/chatgpt_plan/oauth#^module-purpose|purpose]] | `ACTIVE` | 4 | 2 |
 | [[Reference/Modules/learnloop/ai/chatgpt_plan/responses|learnloop.ai.chatgpt_plan.responses]] | [[Reference/Modules/learnloop/ai/chatgpt_plan/responses#^module-purpose|purpose]] | `ACTIVE` | 1 | 2 |
 | [[Reference/Modules/learnloop/ai/chatgpt_plan/routes|learnloop.ai.chatgpt_plan.routes]] | [[Reference/Modules/learnloop/ai/chatgpt_plan/routes#^module-purpose|purpose]] | `ACTIVE` | 4 | 0 |
-| [[Reference/Modules/learnloop/ai/chatgpt_plan/session|learnloop.ai.chatgpt_plan.session]] | [[Reference/Modules/learnloop/ai/chatgpt_plan/session#^module-purpose|purpose]] | `ACTIVE` | 7 | 12 |
+| [[Reference/Modules/learnloop/ai/chatgpt_plan/session|learnloop.ai.chatgpt_plan.session]] | [[Reference/Modules/learnloop/ai/chatgpt_plan/session#^module-purpose|purpose]] | `ACTIVE` | 8 | 12 |
 | [[Reference/Modules/learnloop/ai/chatgpt_plan/store|learnloop.ai.chatgpt_plan.store]] | [[Reference/Modules/learnloop/ai/chatgpt_plan/store#^module-purpose|purpose]] | `ACTIVE` | 3 | 1 |
 | [[Reference/Modules/learnloop/ai/chatgpt_plan/workspace|learnloop.ai.chatgpt_plan.workspace]] | [[Reference/Modules/learnloop/ai/chatgpt_plan/workspace#^module-purpose|purpose]] | `ACTIVE` | 2 | 3 |
 
@@ -72,6 +72,7 @@ For system intent, use [[AI Architecture]], [[Architecture Overview]].
 - [[Reference/Modules/learnloop_sidecar/handlers/_package|learnloop_sidecar.handlers]] — 5 static module edges
 - [[Reference/Modules/learnloop/ops/_package|learnloop.ops]] — 3 static module edges
 - [[Reference/Modules/learnloop/ai/_package|learnloop.ai]] — 1 static module edge
+- [[Reference/Modules/learnloop/figures/_package|learnloop.figures]] — 1 static module edge
 
 ### Dependency neighborhood
 
@@ -86,6 +87,7 @@ flowchart LR
     n_learnloop_ai["learnloop.ai"]
     n_learnloop_config["learnloop.config"]
     n_learnloop_ops["learnloop.ops"]
+    n_learnloop_figures["learnloop.figures"]
     n_learnloop_ai_providers -->|5| center
     n_learnloop_cli -->|5| center
     n_learnloop_sidecar_handlers -->|5| center
@@ -93,6 +95,7 @@ flowchart LR
     center -->|2| n_learnloop_ai
     center -->|3| n_learnloop_config
     n_learnloop_ops -->|3| center
+    n_learnloop_figures -->|1| center
 ```
 
 Interpretation: arrow direction is static import direction and the label is the number of distinct module-to-module edges. It shows coupling pressure, not runtime call frequency or ownership permission.

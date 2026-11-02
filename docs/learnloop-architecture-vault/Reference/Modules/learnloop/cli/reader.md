@@ -7,8 +7,8 @@ version: "1.0.0"
 source_path: "src/learnloop/cli/reader.py"
 source_paths:
   - "src/learnloop/cli/reader.py"
-source_commit: "693ca5adda6e118de9be5ed7e41d7b184ee2d32e"
-source_commit_timestamp: "2026-11-01T08:43:41-05:00"
+source_commit: "144497f9effca275e8320b14486e0b34053c19d0"
+source_commit_timestamp: "2026-11-02T05:49:20-05:00"
 source_worktree_state: "clean"
 generated: true
 generated_at: "2026-11-02"
@@ -49,19 +49,19 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/cli/reader.py](../../../../../../src/learnloop/cli/reader.py) |
-| Source lines | 156 |
+| Source lines | 169 |
 | Owning package | [[Reference/Modules/learnloop/cli/_package|learnloop.cli]] |
 | Architecture layer | `adapter` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `693ca5adda6e118de9be5ed7e41d7b184ee2d32e` |
-| Commit timestamp | `2026-11-01T08:43:41-05:00` |
+| Source commit | `144497f9effca275e8320b14486e0b34053c19d0` |
+| Commit timestamp | `2026-11-02T05:49:20-05:00` |
 
 ## Public API
 
 - `reader_report(vault: Annotated[Path, typer.Option('--vault', help='Vault root (read-only).')], since: Annotated[str | None, typer.Option('--since', help='Only activity at or after this ISO time, or a span such as 7d or 24h.')]=None, json_output: Annotated[bool, typer.Option('--json')]=False) -> None` ([source](../../../../../../src/learnloop/cli/reader.py), line 38) — Workflows with denominators: selection -> action -> result -> back to reading, inquiries, detours (return rate, cost), proactive load, waiting behaviour, visits.
-- `cues_discover(vault: Annotated[Path, typer.Option('--vault', help='Vault root.')], source: Annotated[str, typer.Option('--source', help='The source (or extraction) to discover cue links for.')], dry_run: Annotated[bool, typer.Option('--dry-run', help='List the targets, their keyword shortlists and a spend plan; call and write nothing.')]=False, json_output: Annotated[bool, typer.Option('--json')]=False) -> None` ([source](../../../../../../src/learnloop/cli/reader.py), line 85) — Find a source's discovered margin-cue links now (what opening it in the Reader does in the background): the open targets, each one's shortlist and one cue judgment each, under cues.max_calls_per_source_open (every request, a retry included) and cues.max_daily_cost_usd (query emb…
-- `reader_label_roles(vault: Annotated[Path, typer.Option('--vault', help='Vault root.')], source: Annotated[str, typer.Option('--source', help='The source (or extraction) to label.')], dry_run: Annotated[bool, typer.Option('--dry-run', help='Give the batch plan, its estimated tokens and dollars and the cap; call and write nothing.')]=False, json_output: Annotated[bool, typer.Option('--json')]=False) -> None` ([source](../../../../../../src/learnloop/cli/reader.py), line 122) — Label a source's passages with instructional roles now (RW4e).
+- `cues_discover(vault: Annotated[Path, typer.Option('--vault', help='Vault root.')], source: Annotated[str, typer.Option('--source', help='The source (or extraction) to discover cue links for.')], dry_run: Annotated[bool, typer.Option('--dry-run', help='List the targets, their keyword shortlists and a spend plan; call and write nothing.')]=False, json_output: Annotated[bool, typer.Option('--json')]=False) -> None` ([source](../../../../../../src/learnloop/cli/reader.py), line 98) — Find a source's discovered margin-cue links now (what opening it in the Reader does in the background): the open targets, each one's shortlist and one cue judgment each, under cues.max_calls_per_source_open (every request, a retry included) and cues.max_daily_cost_usd (query emb…
+- `reader_label_roles(vault: Annotated[Path, typer.Option('--vault', help='Vault root.')], source: Annotated[str, typer.Option('--source', help='The source (or extraction) to label.')], dry_run: Annotated[bool, typer.Option('--dry-run', help='Give the batch plan, its estimated tokens and dollars and the cap; call and write nothing.')]=False, json_output: Annotated[bool, typer.Option('--json')]=False) -> None` ([source](../../../../../../src/learnloop/cli/reader.py), line 135) — Label a source's passages with instructional roles now (RW4e).
 
 ### Module constants
 
@@ -70,6 +70,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 ## Internal implementation anchors
 
 - `_since(value: str | None, now: datetime) -> str | None` ([source](../../../../../../src/learnloop/cli/reader.py), line 27)
+- `_plan_providers(loaded: object) -> list[str]` ([source](../../../../../../src/learnloop/cli/reader.py), line 89) — RW5d P5: the vault's plan profiles (the prefetch block reads the plan's load from their receipts).
 
 ## Who imports or calls it
 
@@ -84,6 +85,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 
 - [[Reference/Modules/learnloop/content/sources/source_outline|learnloop.content.sources.source_outline]] — imports `resolve_extraction_id`; calls `resolve_extraction_id`
 - [[Reference/Modules/learnloop/db/repositories|learnloop.db.repositories]] — imports `Repository`
+- [[Reference/Modules/learnloop/figures/prefetch_ledger|learnloop.figures.prefetch_ledger]] — imports `add_report_block`, `plan_providers`; calls `add_report_block`, `plan_providers`
 - [[Reference/Modules/learnloop/practice_index/paid|learnloop.practice_index.paid]] — imports `planning_repository`; calls `planning_repository`
 - [[Reference/Modules/learnloop/reader/reader_report|learnloop.reader.reader_report]] — imports `build_reader_report`; calls `build_reader_report`
 - [[Reference/Modules/learnloop/source_retrieval/passage_cues|learnloop.source_retrieval.passage_cues]] — imports `discover`; calls `discover`

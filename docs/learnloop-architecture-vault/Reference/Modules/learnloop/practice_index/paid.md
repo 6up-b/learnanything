@@ -142,6 +142,8 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop/cli/reader|learnloop.cli.reader]] — imports `planning_repository`; statically calls `planning_repository`
 - [[Reference/Modules/learnloop/cli/sources|learnloop.cli.sources]] — imports `planning_repository`; statically calls `planning_repository`
 - [[Reference/Modules/learnloop/content/authoring/source_exercise_import|learnloop.content.authoring.source_exercise_import]] — imports `FRAMING_TOKENS`, `estimated_call_tokens`, `plan_route`; statically calls `estimated_call_tokens`, `plan_route`
+- [[Reference/Modules/learnloop/figures/prefetch|learnloop.figures.prefetch]] — imports `plan_route`; statically calls `plan_route`
+- [[Reference/Modules/learnloop/figures/prefetch_ledger|learnloop.figures.prefetch_ledger]] — imports `billing_for`; statically calls `billing_for`
 - [[Reference/Modules/learnloop/figures/rich|learnloop.figures.rich]] — imports `plan_route`; statically calls `plan_route`
 - [[Reference/Modules/learnloop/figures/routes|learnloop.figures.routes]] — imports `PaidCalls`, `PaidRoute`, `plan_route`, `resolve_client`; statically calls `PaidCalls`, `plan_route`, `resolve_client`
 - [[Reference/Modules/learnloop/figures/service|learnloop.figures.service]] — imports `plan_route`; statically calls `plan_route`
@@ -205,7 +207,7 @@ Use this module in context through:
 - [[Initialize a Vault]]
 - [[Start a Learning Cycle]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/adaptive_difficulty/backfill|learnloop.adaptive_difficulty.backfill]], [[Reference/Modules/learnloop/adaptive_difficulty/feature_audit|learnloop.adaptive_difficulty.feature_audit]], [[Reference/Modules/learnloop/adaptive_difficulty/outside|learnloop.adaptive_difficulty.outside]], [[Reference/Modules/learnloop/adaptive_difficulty/relatedness|learnloop.adaptive_difficulty.relatedness]], [[Reference/Modules/learnloop/adaptive_difficulty/sending|learnloop.adaptive_difficulty.sending]] and 39 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/adaptive_difficulty/backfill|learnloop.adaptive_difficulty.backfill]], [[Reference/Modules/learnloop/adaptive_difficulty/feature_audit|learnloop.adaptive_difficulty.feature_audit]], [[Reference/Modules/learnloop/adaptive_difficulty/outside|learnloop.adaptive_difficulty.outside]], [[Reference/Modules/learnloop/adaptive_difficulty/relatedness|learnloop.adaptive_difficulty.relatedness]], [[Reference/Modules/learnloop/adaptive_difficulty/sending|learnloop.adaptive_difficulty.sending]] and 41 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 

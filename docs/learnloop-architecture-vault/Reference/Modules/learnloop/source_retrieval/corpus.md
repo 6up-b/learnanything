@@ -151,6 +151,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop/experiments/contextual_embeddings/corpus|learnloop.experiments.contextual_embeddings.corpus]] — imports `current_extractions`, `model_reader_withheld`; statically calls `current_extractions`, `model_reader_withheld`
 - [[Reference/Modules/learnloop/experiments/contextual_embeddings/system_arms|learnloop.experiments.contextual_embeddings.system_arms]] — imports `current_extractions`, `library_scope`; statically calls `current_extractions`, `library_scope`
 - [[Reference/Modules/learnloop/figures/help|learnloop.figures.help]] — imports `item_exclusions`; statically calls `item_exclusions`
+- [[Reference/Modules/learnloop/figures/prefetch|learnloop.figures.prefetch]] — imports `item_exclusions`; statically calls `item_exclusions`
 - [[Reference/Modules/learnloop/instructional/exercises|learnloop.instructional.exercises]] — imports `Scope`, `teaching_scope`; statically calls `teaching_scope`
 - [[Reference/Modules/learnloop/instructional/exposure|learnloop.instructional.exposure]] — imports `role_keys`, `teaching_scope`; statically calls `role_keys`, `teaching_scope`
 - [[Reference/Modules/learnloop/instructional/needs|learnloop.instructional.needs]] — imports `teaching_scope`; statically calls `teaching_scope`
@@ -213,7 +214,7 @@ Use this module in context through:
 - [[Initialize a Vault]]
 - [[Start a Learning Cycle]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/adaptive_difficulty/material_view|learnloop.adaptive_difficulty.material_view]], [[Reference/Modules/learnloop/cli/embeddings|learnloop.cli.embeddings]], [[Reference/Modules/learnloop/content/authoring/source_exercise_import|learnloop.content.authoring.source_exercise_import]], [[Reference/Modules/learnloop/content/pipeline/add_source|learnloop.content.pipeline.add_source]], [[Reference/Modules/learnloop/content/sources/exercise_statements|learnloop.content.sources.exercise_statements]] and 37 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/adaptive_difficulty/material_view|learnloop.adaptive_difficulty.material_view]], [[Reference/Modules/learnloop/cli/embeddings|learnloop.cli.embeddings]], [[Reference/Modules/learnloop/content/authoring/source_exercise_import|learnloop.content.authoring.source_exercise_import]], [[Reference/Modules/learnloop/content/pipeline/add_source|learnloop.content.pipeline.add_source]], [[Reference/Modules/learnloop/content/sources/exercise_statements|learnloop.content.sources.exercise_statements]] and 38 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
@@ -244,6 +245,10 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_an_exam_members_material_is_exam_to_both_predicates`
 - [tests/test_figures_help.py](../../../../../../tests/test_figures_help.py) — direct import
   - `test_a_figure_built_from_the_items_own_blocks_never_qualifies`
+- [tests/test_figures_prefetch_review_fixes.py](../../../../../../tests/test_figures_prefetch_review_fixes.py) — direct import
+  - `test_f1_rereview_a_builds_protection_is_read_on_the_vault_loaded_now`
+  - `test_f4_a_build_rechecks_the_protection_before_it_starts`
+  - `test_f4_a_cold_items_passage_and_its_neighbours_are_never_prebuilt`
 - [tests/test_passage_links.py](../../../../../../tests/test_passage_links.py) — direct import
   - `test_roles_are_kept_with_confidence_judge_and_ledger_and_never_exclude`
 - [tests/test_query_student.py](../../../../../../tests/test_query_student.py) — direct import

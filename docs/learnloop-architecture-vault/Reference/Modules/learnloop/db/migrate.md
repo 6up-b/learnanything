@@ -185,6 +185,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_facet_rewords_migration.py](../../../../../../tests/test_facet_rewords_migration.py) — direct import
   - `test_migration_196_upgrades_a_195_vault_keeping_actions_and_the_forecast_log`
 - [tests/test_familiarity.py](../../../../../../tests/test_familiarity.py) — direct import
+- [tests/test_figure_prefetch_migration.py](../../../../../../tests/test_figure_prefetch_migration.py) — direct import
+  - `test_237_is_p5s_migration_and_every_table_is_classified`
 - [tests/test_figure_requests_migration.py](../../../../../../tests/test_figure_requests_migration.py) — direct import
   - `test_224_is_the_figure_requests_migration_and_the_table_is_a_raw_ledger`
 - [tests/test_figures_migration.py](../../../../../../tests/test_figures_migration.py) — direct import
@@ -359,6 +361,9 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_migration_020_allows_teach_back_on_existing_db`
 - [tests/test_teacher_te1_migration.py](../../../../../../tests/test_teacher_te1_migration.py) — direct import
   - `test_234_is_te1s_migration_and_every_table_is_classified`
+- [tests/test_teacher_te1b_migration.py](../../../../../../tests/test_teacher_te1b_migration.py) — direct import
+  - `test_236_is_te1bs_migration_and_its_table_is_classified`
+  - `test_236_keeps_every_router_decision_row`
 - [tests/test_today_surfaces.py](../../../../../../tests/test_today_surfaces.py) — direct import
   - `test_overconfidence_probe_origin_survives_target_selection`
   - `test_overconfidence_probe_records_origin`

@@ -10,9 +10,9 @@ area: "TypeScript/api"
 source_path: "apps/learnloop-tauri/src/api/dto.ts"
 source_paths:
   - "apps/learnloop-tauri/src/api/dto.ts"
-source_commit: "31302532b33dc9e06e69e23a35d99b0c0b1a0485"
-source_commit_timestamp: "2026-11-02T09:53:59-05:00"
-source_worktree_state: "staged-or-mixed"
+source_commit: "ffe9f3b0783a9f0158b90d4e3b45dd1e86e5b6b1"
+source_commit_timestamp: "2026-11-02T13:33:23-05:00"
+source_worktree_state: "clean"
 activation_kind: "entry-reachable build graph"
 activation_evidence: "A static TypeScript import path reaches this file from the Vite entry src/main.tsx."
 generated: true
@@ -42,14 +42,14 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/api/dto.ts](../../../../../../apps/learnloop-tauri/src/api/dto.ts) |
-| Source lines | 10500 |
+| Source lines | 10502 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/api/_area|TypeScript/api]] |
 | Refactor status | `ACTIVE` |
 | Activation kind | `entry-reachable build graph` |
-| Worktree state | `staged-or-mixed` |
-| Source commit | `31302532b33dc9e06e69e23a35d99b0c0b1a0485` |
-| Commit timestamp | `2026-11-02T09:53:59-05:00` |
+| Worktree state | `clean` |
+| Source commit | `ffe9f3b0783a9f0158b90d4e3b45dd1e86e5b6b1` |
+| Commit timestamp | `2026-11-02T13:33:23-05:00` |
 
 ## Activation and status evidence
 
@@ -613,313 +613,313 @@ The system-level behavior stays authoritative in the linked architecture, concep
 - `export interface ReaderPromptContractDto` — interface, line 6740
 - `export interface NotesContractDto` — interface, line 6792
 - `export interface HiddenNoteDto` — interface, line 6805
-- `export interface NoteLinkDto` — interface, line 6820
-- `export interface NotesPathDto` — interface, line 6856
-- `export interface NoteMarksDto` — interface, line 6865
-- `export interface NoteHitDto` — interface, line 6873
-- `export interface NoteSearchDto` — interface, line 6889
-- `export interface CorrespondencePreferencesDto` — interface, line 6898
-- `export interface CorrespondentKeptDto` — interface, line 6905
-- `export interface CorrespondentSectionDto` — interface, line 6915
-- `export interface CorrespondentFigureDto` — interface, line 6947
-- `export interface CorrespondentSourceDto` — interface, line 6958
-- `export interface CorrespondentsDto` — interface, line 6964
-- `export type CoverageCorrectionChoice = "is_about" | "not_about" | "none"` — type, line 6976
-- `export interface CorrespondentPeekDto` — interface, line 6979
-- `export interface SideBySideSectionDto` — interface, line 6993
-- `export interface CorrespondentOperationDto` — interface, line 7011
-- `export interface CompareKeepContractDto` — interface, line 7020
-- `export interface ReaderTutorContractDto` — interface, line 7029
-- `export type ReaderAnswerMode = "answer_directly" | "help_me_reason" | "ask_me_first"` — type, line 7039
-- `export type ReaderIntentEffect = |` — type, line 7044
-- `export type ReaderIntention = "orient" | "understand" | "apply" | "consolidate" | "transfer"` — type, line 7057
-- `export interface ReaderIntentActionDto` — interface, line 7058
-- `export interface ReaderIntentGroupDto` — interface, line 7067
-- `export interface ReaderIntentContractDto` — interface, line 7073
-- `export interface ReaderIntentRoutingDto` — interface, line 7082
-- `export type ReaderActiveStyle = "next_step" | "why_step" | "assumptions" | "reconstruct"` — type, line 7096
-- `export interface ReaderActiveQuestionDto` — interface, line 7097
-- `export interface ReaderActiveQuestionRequestDto` — interface, line 7120
-- `export interface ReaderActiveQuestionStatusDto` — interface, line 7130
-- `export interface ReaderAskInput` — interface, line 7136
-- `export type ReaderRetrievalIntent = "explain" | "alternative" | "remediate"` — type, line 7162
-- `export interface ReaderExcerptDto` — interface, line 7164
-- `export interface ReaderTutorViewDto` — interface, line 7173
-- `export interface ReaderTutorButtonDto` — interface, line 7199
-- `export interface ReaderAnswerDto` — interface, line 7208
-- `export interface ReaderAskHistoryExchangeDto` — interface, line 7240
-- `export type InquiryResolution = "open" | "resolved" | "dismissed"` — type, line 7263
-- `export interface ReaderSetInquiryStatusInput` — interface, line 7267
-- `export interface ReaderInquiryStatusDto` — interface, line 7273
-- `export type ReconnectAnswer = "yes" | "still_unclear" | "quick_check"` — type, line 7281
-- `export interface ReaderReconnectAnswerInput` — interface, line 7282
-- `export interface ReaderReconnectAnswerDto` — interface, line 7288
-- `export type InquirySelfCheck = "matches" | "partly" | "no"` — type, line 7300
-- `export interface ReaderInquiryQuestionDto` — interface, line 7302
-- `export interface ReaderInquiryCheckJobDto` — interface, line 7325
-- `export interface ReaderInquiryQuestionReadDto` — interface, line 7333
-- `export interface ReaderInquiryQuestionActionInput` — interface, line 7338
-- `export interface ReaderActivityEvent` — interface, line 7347
-- `export interface ReaderAskHistoryDto` — interface, line 7382
-- `export type ReaderDisposition = | "comprehension_only" | "check_once_later" | "keep_developing" | "reference_only"` — type, line 7388
-- `export interface ReaderDispositionResultDto` — interface, line 7393
-- `export type ReaderAnchorStatus = | "exact" | "reanchored" | "needs_reanchor" | "orphaned" | "manually_anchored"` — type, line 7401
-- `export type ReaderBlockHealthStatus = "ok" | "suspect" | "failed" | "unknown"` — type, line 7408
-- `export type ReaderRecommendedView = "derived" | "crop_adjacent" | "crop_default" | "warn_link"` — type, line 7409
-- `export interface ReaderWatchPausePointDto` — interface, line 7414
-- `export interface ReaderWatchPlanDto` — interface, line 7425
-- `export interface ReaderRenderBlockDto` — interface, line 7433
-- `export interface ReaderRenderViewDto` — interface, line 7451
-- `export interface ReaderProtectionDto` — interface, line 7480
-- `export interface ReaderAnnotationPlacementDto` — interface, line 7492
-- `export interface ReaderSavedPlaceDto` — interface, line 7501
-- `export interface ReaderSuggestedPassageDto` — interface, line 7520
-- `export interface ReaderSectionQuestionDto` — interface, line 7532
-- `export interface ReaderAuthoredQuestionDto` — interface, line 7559
-- `export interface ReaderAuthorSectionQuestionDto` — interface, line 7571
-- `export interface ReaderSourceSearchHitDto` — interface, line 7579
-- `export interface ReaderSourceSearchDto` — interface, line 7589
-- `export interface ReaderMeaningSearchDto` — interface, line 7607
-- `export interface SuggestedLearningObjectDto` — interface, line 7618
-- `export interface ReaderSpanLearningObjectsDto` — interface, line 7626
-- `export interface ReaderSectionProgressDto` — interface, line 7637
-- `export interface ReaderProgressListDto` — interface, line 7647
-- `export interface ReaderMarkProgressResultDto` — interface, line 7653
-- `export interface ReaderGuideSectionDto` — interface, line 7660
-- `export interface ReaderGuidePlanDto` — interface, line 7670
-- `export type CueDensity = "off" | "fewer" | "normal" | "more"` — type, line 7695
-- `export interface ReaderCueEarlierDto` — interface, line 7699
-- `export type ReaderCueKind = "revisit" | "distinction" | "prerequisite" | "application" | "try_first"` — type, line 7724
-- `export interface ReaderCueDto` — interface, line 7729
-- `export interface ReaderCueDiscoveryDto` — interface, line 7767
-- `export interface ReaderCuesDto` — interface, line 7787
-- `export type ReaderCueAction = "opened" | "check_me" | "not_relevant" | "not_relevant_undone"` — type, line 7800
-- `export interface ReaderCueCheckDto` — interface, line 7802
-- `export interface ReaderCueActionDto` — interface, line 7811
-- `export type ReaderCueTapAction = ReaderCueAction | "try_first"` — type, line 7822
-- `export interface ReaderCueTapDto extends Omit<ReaderCueActionDto, "action">` — interface, line 7824
-- `export interface ReaderCueDiscoveryJobDto` — interface, line 7834
-- `export interface ReaderCueImpressionInput` — interface, line 7842
-- `export interface ReaderCuePreferencesDto` — interface, line 7849
-- `export interface ReaderPdfBlockDto` — interface, line 7859
-- `export interface ReaderPdfViewDto` — interface, line 7871
-- `export interface ReaderRawSelectionNode` — interface, line 7891
-- `export interface ReaderRawSelection` — interface, line 7905
-- `export interface ReaderTranslateSelectionInput` — interface, line 7920
-- `export interface ReaderAnchorSegmentDto` — interface, line 7925
-- `export interface ReaderTranslationDto` — interface, line 7935
-- `export interface SourceIdentity` — interface, line 7950
-- `export interface ReaderCaptureInput extends SourceIdentity` — interface, line 7957
-- `export interface ReaderCaptureReceiptDto` — interface, line 7969
-- `export interface ReaderCreateAnnotationInput` — interface, line 7981
-- `export interface ReaderAnnotationResultDto` — interface, line 7992
-- `export interface ReaderBlockRegionDto` — interface, line 7999
-- `export interface PrintedCropDto` — interface, line 8013
-- `export interface PrintRegionDto` — interface, line 8024
-- `export interface PrintedCropsDto` — interface, line 8031
-- `export interface AsPrintedViewDto` — interface, line 8043
-- `export interface TranscriptionReportDto` — interface, line 8065
-- `export interface ReaderInvokePresetInput extends SourceIdentity` — interface, line 8073
-- `export interface ReaderPresetReceiptDto extends ReaderCaptureReceiptDto` — interface, line 8086
-- `export interface ReaderImportExerciseInput extends SourceIdentity` — interface, line 8095
-- `export interface ReaderExerciseImportReceiptDto` — interface, line 8105
-- `export interface ReaderExerciseImportedItem` — interface, line 8110
-- `export interface ReaderExerciseImportSkip` — interface, line 8124
-- `export interface ReaderExerciseImportResult` — interface, line 8130
-- `export interface ReaderExerciseImportStatusDto` — interface, line 8137
-- `export interface ReaderAuthorQAInput` — interface, line 8145
-- `export interface ReaderAuthoredCardDto` — interface, line 8157
-- `export interface ReaderCoachSuggestion` — interface, line 8174
-- `export interface ReaderCoachLintDto` — interface, line 8178
-- `export interface ReaderMaintainInput` — interface, line 8184
-- `export interface ReaderArcDto` — interface, line 8199
-- `export interface ReaderRestorationAnnotationDto` — interface, line 8213
-- `export interface ReaderRestorationDto` — interface, line 8224
-- `export interface ReaderSetModeResultDto` — interface, line 8237
-- `export interface ReaderQuestionControlResultDto` — interface, line 8243
-- `export interface ReaderEnqueueRequestInput` — interface, line 8250
-- `export interface ReaderRequestScopeDto` — interface, line 8264
-- `export interface ReaderEnqueueRequestDto` — interface, line 8270
-- `export interface ReaderRequestRow` — interface, line 8286
-- `export interface StubDiagnosticPackDto` — interface, line 8301
-- `export interface StubPoolSurfacesDto` — interface, line 8305
-- `export type AdjudicationVerdict = | "correct" | "wrong_anchor" | "wrong_repair" | "should_have_abstained" | "correctly_abstained" | "should_not_have_abstained"` — type, line 8317
-- `export type AdjudicationQueueReason = string` — type, line 8326
-- `export interface AdjudicationAnchorDto` — interface, line 8328
-- `export interface AdjudicationRepairClassOptionDto` — interface, line 8339
-- `export interface AdjudicationShownToLearnerDto` — interface, line 8346
-- `export interface AdjudicationCaseDto` — interface, line 8366
-- `export interface AdjudicationQueueDto` — interface, line 8393
-- `export interface AdjudicationRecordInput` — interface, line 8400
-- `export interface AdjudicationBeliefEffectDto` — interface, line 8419
-- `export interface AdjudicationOutcomeDto` — interface, line 8428
-- `export interface AdjudicationRecordResultDto` — interface, line 8437
-- `export interface AdjudicationScoreboardGroupDto` — interface, line 8454
-- `export interface AdjudicationScoreboardDto` — interface, line 8476
-- `export type PlanLane = "repair" | "maintain" | "new" | "push"` — type, line 8488
-- `export interface PlanSplitLaneDto` — interface, line 8490
-- `export interface PlanReadingDto` — interface, line 8501
-- `export interface PlanItemDto` — interface, line 8514
-- `export interface PlanBlockDto` — interface, line 8528
-- `export interface PlanProjectedBlockDto` — interface, line 8551
-- `export interface PlanItemStepDto` — interface, line 8561
-- `export interface PlanReadingStepDto` — interface, line 8579
-- `export interface PlanDoneStepDto` — interface, line 8589
-- `export interface PlanWaitingStepDto` — interface, line 8598
-- `export interface PlanWaitingDto` — interface, line 8610
-- `export type PlanStepDto = PlanItemStepDto | PlanReadingStepDto | PlanDoneStepDto | PlanWaitingStepDto` — type, line 8617
-- `export interface PlanTotalsDto` — interface, line 8619
-- `export interface PlanReentryDto` — interface, line 8631
-- `export interface DailyPlanBodyDto` — interface, line 8643
-- `export interface DailyPlanDto` — interface, line 8688
-- `export interface TodayHeadlineDto` — interface, line 8711
-- `export type WorkbenchOrigin = "reader" | "practice" | "plan"` — type, line 8725
-- `export type WorkbenchEntry = | "work_through" | "resume" | "check_me" | "practice_this" | "path_exercise" | "discriminating_problem" | "practice_screen" | "plan"` — type, line 8726
-- `export type WorkbenchStatus = "open" | "submitted" | "abandoned"` — type, line 8735
-- `export type WorkbenchImportStatus = "none" | "pending" | "bound" | "failed"` — type, line 8736
-- `export type WorkbenchStepKind = "step" | "stuck"` — type, line 8737
-- `export interface WorkbenchStepVersionDto` — interface, line 8739
-- `export interface WorkbenchStepDto` — interface, line 8745
-- `export interface WorkbenchRecordDto` — interface, line 8761
-- `export interface WorkbenchPartDto` — interface, line 8778
-- `export interface WorkbenchSessionDto` — interface, line 8784
-- `export interface WorkbenchSourceExerciseDto` — interface, line 8837
-- `export interface WorkbenchSummaryDto` — interface, line 8850
-- `export interface WorkbenchOpenProblemDto extends WorkbenchSummaryDto` — interface, line 8871
-- `export interface WorkbenchOpenInput` — interface, line 8875
-- `export interface WorkbenchAdmitDto` — interface, line 8917
-- `export interface ExercisePickDto` — interface, line 8928
-- `export interface WorkbenchExercisePickDto` — interface, line 8934
-- `export interface ExerciseExposureDto` — interface, line 8947
-- `export interface ExerciseCandidateViewDto` — interface, line 8960
-- `export interface ExerciseCandidatesDto` — interface, line 8969
-- `export interface FoundExerciseDto` — interface, line 8978
-- `export interface FindExercisesDto` — interface, line 8995
-- `export interface WorkbenchSaveStepInput` — interface, line 9003
-- `export interface WorkbenchSaveStepDto` — interface, line 9013
-- `export interface WorkbenchSubmitInput` — interface, line 9020
-- `export interface WorkbenchSubmitDto` — interface, line 9031
-- `export interface ReaderRecapSessionDto` — interface, line 9041
-- `export interface ReaderRecapOpenDto` — interface, line 9051
-- `export interface ReaderRecapUnfinishedDto` — interface, line 9062
-- `export type ReaderObservationKind = | "still_unclear" | "next_step_missed" | "why_step_missed" | "assumption_missed" | "prediction_missed" | "check_questionable" | "hint_taken" | "doesnt_connect" | "discriminate_answer"` — type, line 9075
-- `export interface ReaderRecapSecondLookDto` — interface, line 9080
-- `export interface ReaderRecapDemonstratedDto` — interface, line 9091
-- `export type ReaderFollowupPurpose = "discriminating" | "retention"` — type, line 9103
-- `export interface ReaderFollowupLineDto` — interface, line 9105
-- `export interface ReaderComingUpDto` — interface, line 9125
-- `export interface ReaderFollowupsDto extends ReaderComingUpDto` — interface, line 9133
-- `export type ReaderDigestNarrativeState = "pending" | "landed" | "failed" | "unreachable" | "capped"` — type, line 9143
-- `export interface ReaderDigestNarrativeDto` — interface, line 9145
-- `export interface ReaderRecapCardDto` — interface, line 9164
-- `export interface ReaderRecapDto` — interface, line 9190
-- `export type ReaderRecapEvent = "recap_shown" | "recap_dismissed" | "wrap_up_opened"` — type, line 9196
-- `export interface ReaderWrapUpActionDto` — interface, line 9199
-- `export interface ReaderWrapUpInquiryLineDto` — interface, line 9207
-- `export interface ReaderWrapUpReinforceLineDto` — interface, line 9214
-- `export interface ReaderWrapUpDto` — interface, line 9228
-- `export interface ReaderWrapUpOfferDto` — interface, line 9243
-- `export type LibraryAskEntry = | "library_search" | "reader" | "where_else_explained" | "where_is_this_used" | "what_do_i_need_first"` — type, line 9251
-- `export type LibraryExpansion = "prerequisites" | "applications" | "confusables"` — type, line 9257
-- `export interface LibraryHitDto` — interface, line 9259
-- `export interface ProposedRoleDto` — interface, line 9281
-- `export interface LibraryExpansionDto` — interface, line 9288
-- `export interface LibraryAskDto` — interface, line 9294
-- `export interface LibraryNoteDto` — interface, line 9319
-- `export interface LibraryNotesDto` — interface, line 9331
-- `export interface CompareCellDto` — interface, line 9343
-- `export interface ComparePointCellDto` — interface, line 9353
-- `export interface ComparePointRelationDto` — interface, line 9366
-- `export interface ComparePointDto` — interface, line 9377
-- `export interface CompareTableDto` — interface, line 9387
-- `export type CompareDoor = "selection" | "ask_box" | "tutor_offer" | "library_answer" | "refine" | "pins"` — type, line 9437
-- `export interface LibraryBookDto` — interface, line 9439
-- `export interface CompareRequestDto` — interface, line 9445
-- `export interface CompareScopeReadingDto` — interface, line 9465
-- `export interface KeptComparisonDto` — interface, line 9485
-- `export interface KeepComparisonResultDto` — interface, line 9500
-- `export interface KeptMarkDto` — interface, line 9509
-- `export interface KeptMarksDto` — interface, line 9519
-- `export type ReadingPathDepth = "get_the_idea" | "learn_to_use_it" | "fluency"` — type, line 9527
-- `export type ReadingPathLabel = "core" | "prerequisite" | "enrichment" | "already_shown" | "assumed"` — type, line 9529
-- `export type ReadingPathChoice = "read_anyway" | "skip" | "none"` — type, line 9531
-- `export interface ReadingPathExerciseDto` — interface, line 9534
-- `export interface ReadingPathSectionDto` — interface, line 9548
-- `export interface ReadingPathDto` — interface, line 9569
-- `export type DeliverablePathChoice = "use_instead" | "read_anyway" | "skip" | "check_later" | "none"` — type, line 9598
-- `export type DeliverablePathLabel = "core" | "prerequisite" | "alternate" | "already_shown" | "assumed"` — type, line 9600
-- `export interface DeliverableSectionDto` — interface, line 9603
-- `export interface DeliverableLineDto` — interface, line 9620
-- `export interface DeliverableSliceDto` — interface, line 9643
-- `export interface DeliverableReadyDto` — interface, line 9663
-- `export interface DeliverableScopeDto` — interface, line 9681
-- `export interface KeepTakeDto` — interface, line 9706
-- `export type FigureVerification = "verified" | "illustrative" | "failed" | "unsupported"` — type, line 9718
-- `export interface FigurePredictionResultDto` — interface, line 9721
-- `export interface FigurePredictionDto` — interface, line 9736
-- `export interface FigureViewDto` — interface, line 9747
-- `export interface FigureManimCheckDto` — interface, line 9794
-- `export interface FigureManimDto` — interface, line 9807
-- `export type FigureRichState = "pending" | "ready" | "failed" | "waiting_for_plan" | "cancelled"` — type, line 9821
-- `export interface FigureFullerDto` — interface, line 9823
-- `export interface FigureRichPendingDto` — interface, line 9839
-- `export interface FigureSketchCheckDto` — interface, line 9852
-- `export interface FigureSketchDto` — interface, line 9866
-- `export type FigureGrounding = "anchor" | "retrieved" | "none"` — type, line 9882
-- `export interface FigurePassageDto` — interface, line 9884
-- `export interface FigureHostRef` — interface, line 9896
-- `export interface FigureRequestV1Input` — interface, line 9908
-- `export interface FigureHelpDto` — interface, line 9922
-- `export interface FigureTakeStepDto` — interface, line 9935
-- `export interface FigureBuildResultDto` — interface, line 9942
-- `export interface FiguresDto` — interface, line 9953
-- `export interface LibraryJobDto<T>` — interface, line 9965
-- `export interface LibraryTutorDto` — interface, line 9975
-- `export type HintStatus = "ready" | "withheld" | "unavailable" | "disabled" | "refused" | "cancelled"` — type, line 9997
-- `export type HintRequestKind = "more" | "feedback" | "book_way" | "smaller_step"` — type, line 9998
-- `export type HintShortcut = "not_where_stuck" | "too_big" | "learner_route" | "notation"` — type, line 9999
-- `export type HelpStyle = "let_me_struggle" | "balanced" | "guide_me"` — type, line 10000
-- `export interface HintLabelsDto` — interface, line 10002
-- `export interface HintPickDto` — interface, line 10009
-- `export interface HintDiscriminatingDto` — interface, line 10016
-- `export interface HintResultDto` — interface, line 10024
-- `export interface HintJobDto` — interface, line 10049
-- `export interface HintCancelDto` — interface, line 10056
-- `export interface HintDiscriminateAnswerDto` — interface, line 10064
-- `export interface HintRequestInput` — interface, line 10074
-- `export interface ReaderDoseOfferDto` — interface, line 10091
-- `export type ReaderDoseOfferEvent = "delivered" | "not_delivered" | "taken" | "dismissed"` — type, line 10115
-- `export interface AdaptiveReadinessDto` — interface, line 10118
-- `export interface AdaptiveWhyItemDto` — interface, line 10133
-- `export type CheckVerdict = "valid" | "questionable" | "unchecked"` — type, line 10145
-- `export type CheckMethod = "checked" | "checked_numerically" | "model"` — type, line 10146
-- `export interface CheckStepVerdictDto` — interface, line 10148
-- `export interface CheckViewDto` — interface, line 10171
-- `export interface WorkbenchStepLabelsDto` — interface, line 10185
-- `export interface LadderRungDto` — interface, line 10193
-- `export interface HelpSuggestionDto` — interface, line 10201
-- `export interface WorkbenchHelpResultDto` — interface, line 10216
-- `export interface WorkbenchHelpJobDto` — interface, line 10259
-- `export interface WorkbenchHintViewDto` — interface, line 10267
-- `export interface HintClaimDto` — interface, line 10291
-- `export interface WorkbenchHelpStateDto` — interface, line 10301
-- `export interface PassageTarget` — interface, line 10317
-- `export interface WorkbenchPassageDrawDto` — interface, line 10323
-- `export interface WorkbenchExampleViewDto extends WorkbenchPassageDrawDto` — interface, line 10331
-- `export interface WorkbenchAnotherPassageDto` — interface, line 10346
-- `export interface WorkbenchCompareOfferDto` — interface, line 10352
-- `export interface WorkbenchCompareLinesDto` — interface, line 10360
-- `export interface WorkbenchComparisonDto` — interface, line 10369
-- `export interface WorkbenchCompareMethodsDto` — interface, line 10377
-- `export interface WorkbenchCompareJobResultDto` — interface, line 10384
-- `export interface WorkbenchRequestHelpInput` — interface, line 10392
-- `export interface LessonTurnInput` — interface, line 10409
-- `export interface LessonSuggestionEntryDto` — interface, line 10432
-- `export interface LessonSuggestionDto` — interface, line 10441
-- `export interface LessonSuggestionResponseDto` — interface, line 10455
-- `export type LessonFigureStatus = "shown" | "failed" | "withheld" | "unavailable"` — type, line 10465
-- `export type LessonFeedEntryDto = |` — type, line 10467
-- `export interface LessonViewDto` — interface, line 10482
+- `export interface NoteLinkDto` — interface, line 6822
+- `export interface NotesPathDto` — interface, line 6858
+- `export interface NoteMarksDto` — interface, line 6867
+- `export interface NoteHitDto` — interface, line 6875
+- `export interface NoteSearchDto` — interface, line 6891
+- `export interface CorrespondencePreferencesDto` — interface, line 6900
+- `export interface CorrespondentKeptDto` — interface, line 6907
+- `export interface CorrespondentSectionDto` — interface, line 6917
+- `export interface CorrespondentFigureDto` — interface, line 6949
+- `export interface CorrespondentSourceDto` — interface, line 6960
+- `export interface CorrespondentsDto` — interface, line 6966
+- `export type CoverageCorrectionChoice = "is_about" | "not_about" | "none"` — type, line 6978
+- `export interface CorrespondentPeekDto` — interface, line 6981
+- `export interface SideBySideSectionDto` — interface, line 6995
+- `export interface CorrespondentOperationDto` — interface, line 7013
+- `export interface CompareKeepContractDto` — interface, line 7022
+- `export interface ReaderTutorContractDto` — interface, line 7031
+- `export type ReaderAnswerMode = "answer_directly" | "help_me_reason" | "ask_me_first"` — type, line 7041
+- `export type ReaderIntentEffect = |` — type, line 7046
+- `export type ReaderIntention = "orient" | "understand" | "apply" | "consolidate" | "transfer"` — type, line 7059
+- `export interface ReaderIntentActionDto` — interface, line 7060
+- `export interface ReaderIntentGroupDto` — interface, line 7069
+- `export interface ReaderIntentContractDto` — interface, line 7075
+- `export interface ReaderIntentRoutingDto` — interface, line 7084
+- `export type ReaderActiveStyle = "next_step" | "why_step" | "assumptions" | "reconstruct"` — type, line 7098
+- `export interface ReaderActiveQuestionDto` — interface, line 7099
+- `export interface ReaderActiveQuestionRequestDto` — interface, line 7122
+- `export interface ReaderActiveQuestionStatusDto` — interface, line 7132
+- `export interface ReaderAskInput` — interface, line 7138
+- `export type ReaderRetrievalIntent = "explain" | "alternative" | "remediate"` — type, line 7164
+- `export interface ReaderExcerptDto` — interface, line 7166
+- `export interface ReaderTutorViewDto` — interface, line 7175
+- `export interface ReaderTutorButtonDto` — interface, line 7201
+- `export interface ReaderAnswerDto` — interface, line 7210
+- `export interface ReaderAskHistoryExchangeDto` — interface, line 7242
+- `export type InquiryResolution = "open" | "resolved" | "dismissed"` — type, line 7265
+- `export interface ReaderSetInquiryStatusInput` — interface, line 7269
+- `export interface ReaderInquiryStatusDto` — interface, line 7275
+- `export type ReconnectAnswer = "yes" | "still_unclear" | "quick_check"` — type, line 7283
+- `export interface ReaderReconnectAnswerInput` — interface, line 7284
+- `export interface ReaderReconnectAnswerDto` — interface, line 7290
+- `export type InquirySelfCheck = "matches" | "partly" | "no"` — type, line 7302
+- `export interface ReaderInquiryQuestionDto` — interface, line 7304
+- `export interface ReaderInquiryCheckJobDto` — interface, line 7327
+- `export interface ReaderInquiryQuestionReadDto` — interface, line 7335
+- `export interface ReaderInquiryQuestionActionInput` — interface, line 7340
+- `export interface ReaderActivityEvent` — interface, line 7349
+- `export interface ReaderAskHistoryDto` — interface, line 7384
+- `export type ReaderDisposition = | "comprehension_only" | "check_once_later" | "keep_developing" | "reference_only"` — type, line 7390
+- `export interface ReaderDispositionResultDto` — interface, line 7395
+- `export type ReaderAnchorStatus = | "exact" | "reanchored" | "needs_reanchor" | "orphaned" | "manually_anchored"` — type, line 7403
+- `export type ReaderBlockHealthStatus = "ok" | "suspect" | "failed" | "unknown"` — type, line 7410
+- `export type ReaderRecommendedView = "derived" | "crop_adjacent" | "crop_default" | "warn_link"` — type, line 7411
+- `export interface ReaderWatchPausePointDto` — interface, line 7416
+- `export interface ReaderWatchPlanDto` — interface, line 7427
+- `export interface ReaderRenderBlockDto` — interface, line 7435
+- `export interface ReaderRenderViewDto` — interface, line 7453
+- `export interface ReaderProtectionDto` — interface, line 7482
+- `export interface ReaderAnnotationPlacementDto` — interface, line 7494
+- `export interface ReaderSavedPlaceDto` — interface, line 7503
+- `export interface ReaderSuggestedPassageDto` — interface, line 7522
+- `export interface ReaderSectionQuestionDto` — interface, line 7534
+- `export interface ReaderAuthoredQuestionDto` — interface, line 7561
+- `export interface ReaderAuthorSectionQuestionDto` — interface, line 7573
+- `export interface ReaderSourceSearchHitDto` — interface, line 7581
+- `export interface ReaderSourceSearchDto` — interface, line 7591
+- `export interface ReaderMeaningSearchDto` — interface, line 7609
+- `export interface SuggestedLearningObjectDto` — interface, line 7620
+- `export interface ReaderSpanLearningObjectsDto` — interface, line 7628
+- `export interface ReaderSectionProgressDto` — interface, line 7639
+- `export interface ReaderProgressListDto` — interface, line 7649
+- `export interface ReaderMarkProgressResultDto` — interface, line 7655
+- `export interface ReaderGuideSectionDto` — interface, line 7662
+- `export interface ReaderGuidePlanDto` — interface, line 7672
+- `export type CueDensity = "off" | "fewer" | "normal" | "more"` — type, line 7697
+- `export interface ReaderCueEarlierDto` — interface, line 7701
+- `export type ReaderCueKind = "revisit" | "distinction" | "prerequisite" | "application" | "try_first"` — type, line 7726
+- `export interface ReaderCueDto` — interface, line 7731
+- `export interface ReaderCueDiscoveryDto` — interface, line 7769
+- `export interface ReaderCuesDto` — interface, line 7789
+- `export type ReaderCueAction = "opened" | "check_me" | "not_relevant" | "not_relevant_undone"` — type, line 7802
+- `export interface ReaderCueCheckDto` — interface, line 7804
+- `export interface ReaderCueActionDto` — interface, line 7813
+- `export type ReaderCueTapAction = ReaderCueAction | "try_first"` — type, line 7824
+- `export interface ReaderCueTapDto extends Omit<ReaderCueActionDto, "action">` — interface, line 7826
+- `export interface ReaderCueDiscoveryJobDto` — interface, line 7836
+- `export interface ReaderCueImpressionInput` — interface, line 7844
+- `export interface ReaderCuePreferencesDto` — interface, line 7851
+- `export interface ReaderPdfBlockDto` — interface, line 7861
+- `export interface ReaderPdfViewDto` — interface, line 7873
+- `export interface ReaderRawSelectionNode` — interface, line 7893
+- `export interface ReaderRawSelection` — interface, line 7907
+- `export interface ReaderTranslateSelectionInput` — interface, line 7922
+- `export interface ReaderAnchorSegmentDto` — interface, line 7927
+- `export interface ReaderTranslationDto` — interface, line 7937
+- `export interface SourceIdentity` — interface, line 7952
+- `export interface ReaderCaptureInput extends SourceIdentity` — interface, line 7959
+- `export interface ReaderCaptureReceiptDto` — interface, line 7971
+- `export interface ReaderCreateAnnotationInput` — interface, line 7983
+- `export interface ReaderAnnotationResultDto` — interface, line 7994
+- `export interface ReaderBlockRegionDto` — interface, line 8001
+- `export interface PrintedCropDto` — interface, line 8015
+- `export interface PrintRegionDto` — interface, line 8026
+- `export interface PrintedCropsDto` — interface, line 8033
+- `export interface AsPrintedViewDto` — interface, line 8045
+- `export interface TranscriptionReportDto` — interface, line 8067
+- `export interface ReaderInvokePresetInput extends SourceIdentity` — interface, line 8075
+- `export interface ReaderPresetReceiptDto extends ReaderCaptureReceiptDto` — interface, line 8088
+- `export interface ReaderImportExerciseInput extends SourceIdentity` — interface, line 8097
+- `export interface ReaderExerciseImportReceiptDto` — interface, line 8107
+- `export interface ReaderExerciseImportedItem` — interface, line 8112
+- `export interface ReaderExerciseImportSkip` — interface, line 8126
+- `export interface ReaderExerciseImportResult` — interface, line 8132
+- `export interface ReaderExerciseImportStatusDto` — interface, line 8139
+- `export interface ReaderAuthorQAInput` — interface, line 8147
+- `export interface ReaderAuthoredCardDto` — interface, line 8159
+- `export interface ReaderCoachSuggestion` — interface, line 8176
+- `export interface ReaderCoachLintDto` — interface, line 8180
+- `export interface ReaderMaintainInput` — interface, line 8186
+- `export interface ReaderArcDto` — interface, line 8201
+- `export interface ReaderRestorationAnnotationDto` — interface, line 8215
+- `export interface ReaderRestorationDto` — interface, line 8226
+- `export interface ReaderSetModeResultDto` — interface, line 8239
+- `export interface ReaderQuestionControlResultDto` — interface, line 8245
+- `export interface ReaderEnqueueRequestInput` — interface, line 8252
+- `export interface ReaderRequestScopeDto` — interface, line 8266
+- `export interface ReaderEnqueueRequestDto` — interface, line 8272
+- `export interface ReaderRequestRow` — interface, line 8288
+- `export interface StubDiagnosticPackDto` — interface, line 8303
+- `export interface StubPoolSurfacesDto` — interface, line 8307
+- `export type AdjudicationVerdict = | "correct" | "wrong_anchor" | "wrong_repair" | "should_have_abstained" | "correctly_abstained" | "should_not_have_abstained"` — type, line 8319
+- `export type AdjudicationQueueReason = string` — type, line 8328
+- `export interface AdjudicationAnchorDto` — interface, line 8330
+- `export interface AdjudicationRepairClassOptionDto` — interface, line 8341
+- `export interface AdjudicationShownToLearnerDto` — interface, line 8348
+- `export interface AdjudicationCaseDto` — interface, line 8368
+- `export interface AdjudicationQueueDto` — interface, line 8395
+- `export interface AdjudicationRecordInput` — interface, line 8402
+- `export interface AdjudicationBeliefEffectDto` — interface, line 8421
+- `export interface AdjudicationOutcomeDto` — interface, line 8430
+- `export interface AdjudicationRecordResultDto` — interface, line 8439
+- `export interface AdjudicationScoreboardGroupDto` — interface, line 8456
+- `export interface AdjudicationScoreboardDto` — interface, line 8478
+- `export type PlanLane = "repair" | "maintain" | "new" | "push"` — type, line 8490
+- `export interface PlanSplitLaneDto` — interface, line 8492
+- `export interface PlanReadingDto` — interface, line 8503
+- `export interface PlanItemDto` — interface, line 8516
+- `export interface PlanBlockDto` — interface, line 8530
+- `export interface PlanProjectedBlockDto` — interface, line 8553
+- `export interface PlanItemStepDto` — interface, line 8563
+- `export interface PlanReadingStepDto` — interface, line 8581
+- `export interface PlanDoneStepDto` — interface, line 8591
+- `export interface PlanWaitingStepDto` — interface, line 8600
+- `export interface PlanWaitingDto` — interface, line 8612
+- `export type PlanStepDto = PlanItemStepDto | PlanReadingStepDto | PlanDoneStepDto | PlanWaitingStepDto` — type, line 8619
+- `export interface PlanTotalsDto` — interface, line 8621
+- `export interface PlanReentryDto` — interface, line 8633
+- `export interface DailyPlanBodyDto` — interface, line 8645
+- `export interface DailyPlanDto` — interface, line 8690
+- `export interface TodayHeadlineDto` — interface, line 8713
+- `export type WorkbenchOrigin = "reader" | "practice" | "plan"` — type, line 8727
+- `export type WorkbenchEntry = | "work_through" | "resume" | "check_me" | "practice_this" | "path_exercise" | "discriminating_problem" | "practice_screen" | "plan"` — type, line 8728
+- `export type WorkbenchStatus = "open" | "submitted" | "abandoned"` — type, line 8737
+- `export type WorkbenchImportStatus = "none" | "pending" | "bound" | "failed"` — type, line 8738
+- `export type WorkbenchStepKind = "step" | "stuck"` — type, line 8739
+- `export interface WorkbenchStepVersionDto` — interface, line 8741
+- `export interface WorkbenchStepDto` — interface, line 8747
+- `export interface WorkbenchRecordDto` — interface, line 8763
+- `export interface WorkbenchPartDto` — interface, line 8780
+- `export interface WorkbenchSessionDto` — interface, line 8786
+- `export interface WorkbenchSourceExerciseDto` — interface, line 8839
+- `export interface WorkbenchSummaryDto` — interface, line 8852
+- `export interface WorkbenchOpenProblemDto extends WorkbenchSummaryDto` — interface, line 8873
+- `export interface WorkbenchOpenInput` — interface, line 8877
+- `export interface WorkbenchAdmitDto` — interface, line 8919
+- `export interface ExercisePickDto` — interface, line 8930
+- `export interface WorkbenchExercisePickDto` — interface, line 8936
+- `export interface ExerciseExposureDto` — interface, line 8949
+- `export interface ExerciseCandidateViewDto` — interface, line 8962
+- `export interface ExerciseCandidatesDto` — interface, line 8971
+- `export interface FoundExerciseDto` — interface, line 8980
+- `export interface FindExercisesDto` — interface, line 8997
+- `export interface WorkbenchSaveStepInput` — interface, line 9005
+- `export interface WorkbenchSaveStepDto` — interface, line 9015
+- `export interface WorkbenchSubmitInput` — interface, line 9022
+- `export interface WorkbenchSubmitDto` — interface, line 9033
+- `export interface ReaderRecapSessionDto` — interface, line 9043
+- `export interface ReaderRecapOpenDto` — interface, line 9053
+- `export interface ReaderRecapUnfinishedDto` — interface, line 9064
+- `export type ReaderObservationKind = | "still_unclear" | "next_step_missed" | "why_step_missed" | "assumption_missed" | "prediction_missed" | "check_questionable" | "hint_taken" | "doesnt_connect" | "discriminate_answer"` — type, line 9077
+- `export interface ReaderRecapSecondLookDto` — interface, line 9082
+- `export interface ReaderRecapDemonstratedDto` — interface, line 9093
+- `export type ReaderFollowupPurpose = "discriminating" | "retention"` — type, line 9105
+- `export interface ReaderFollowupLineDto` — interface, line 9107
+- `export interface ReaderComingUpDto` — interface, line 9127
+- `export interface ReaderFollowupsDto extends ReaderComingUpDto` — interface, line 9135
+- `export type ReaderDigestNarrativeState = "pending" | "landed" | "failed" | "unreachable" | "capped"` — type, line 9145
+- `export interface ReaderDigestNarrativeDto` — interface, line 9147
+- `export interface ReaderRecapCardDto` — interface, line 9166
+- `export interface ReaderRecapDto` — interface, line 9192
+- `export type ReaderRecapEvent = "recap_shown" | "recap_dismissed" | "wrap_up_opened"` — type, line 9198
+- `export interface ReaderWrapUpActionDto` — interface, line 9201
+- `export interface ReaderWrapUpInquiryLineDto` — interface, line 9209
+- `export interface ReaderWrapUpReinforceLineDto` — interface, line 9216
+- `export interface ReaderWrapUpDto` — interface, line 9230
+- `export interface ReaderWrapUpOfferDto` — interface, line 9245
+- `export type LibraryAskEntry = | "library_search" | "reader" | "where_else_explained" | "where_is_this_used" | "what_do_i_need_first"` — type, line 9253
+- `export type LibraryExpansion = "prerequisites" | "applications" | "confusables"` — type, line 9259
+- `export interface LibraryHitDto` — interface, line 9261
+- `export interface ProposedRoleDto` — interface, line 9283
+- `export interface LibraryExpansionDto` — interface, line 9290
+- `export interface LibraryAskDto` — interface, line 9296
+- `export interface LibraryNoteDto` — interface, line 9321
+- `export interface LibraryNotesDto` — interface, line 9333
+- `export interface CompareCellDto` — interface, line 9345
+- `export interface ComparePointCellDto` — interface, line 9355
+- `export interface ComparePointRelationDto` — interface, line 9368
+- `export interface ComparePointDto` — interface, line 9379
+- `export interface CompareTableDto` — interface, line 9389
+- `export type CompareDoor = "selection" | "ask_box" | "tutor_offer" | "library_answer" | "refine" | "pins"` — type, line 9439
+- `export interface LibraryBookDto` — interface, line 9441
+- `export interface CompareRequestDto` — interface, line 9447
+- `export interface CompareScopeReadingDto` — interface, line 9467
+- `export interface KeptComparisonDto` — interface, line 9487
+- `export interface KeepComparisonResultDto` — interface, line 9502
+- `export interface KeptMarkDto` — interface, line 9511
+- `export interface KeptMarksDto` — interface, line 9521
+- `export type ReadingPathDepth = "get_the_idea" | "learn_to_use_it" | "fluency"` — type, line 9529
+- `export type ReadingPathLabel = "core" | "prerequisite" | "enrichment" | "already_shown" | "assumed"` — type, line 9531
+- `export type ReadingPathChoice = "read_anyway" | "skip" | "none"` — type, line 9533
+- `export interface ReadingPathExerciseDto` — interface, line 9536
+- `export interface ReadingPathSectionDto` — interface, line 9550
+- `export interface ReadingPathDto` — interface, line 9571
+- `export type DeliverablePathChoice = "use_instead" | "read_anyway" | "skip" | "check_later" | "none"` — type, line 9600
+- `export type DeliverablePathLabel = "core" | "prerequisite" | "alternate" | "already_shown" | "assumed"` — type, line 9602
+- `export interface DeliverableSectionDto` — interface, line 9605
+- `export interface DeliverableLineDto` — interface, line 9622
+- `export interface DeliverableSliceDto` — interface, line 9645
+- `export interface DeliverableReadyDto` — interface, line 9665
+- `export interface DeliverableScopeDto` — interface, line 9683
+- `export interface KeepTakeDto` — interface, line 9708
+- `export type FigureVerification = "verified" | "illustrative" | "failed" | "unsupported"` — type, line 9720
+- `export interface FigurePredictionResultDto` — interface, line 9723
+- `export interface FigurePredictionDto` — interface, line 9738
+- `export interface FigureViewDto` — interface, line 9749
+- `export interface FigureManimCheckDto` — interface, line 9796
+- `export interface FigureManimDto` — interface, line 9809
+- `export type FigureRichState = "pending" | "ready" | "failed" | "waiting_for_plan" | "cancelled"` — type, line 9823
+- `export interface FigureFullerDto` — interface, line 9825
+- `export interface FigureRichPendingDto` — interface, line 9841
+- `export interface FigureSketchCheckDto` — interface, line 9854
+- `export interface FigureSketchDto` — interface, line 9868
+- `export type FigureGrounding = "anchor" | "retrieved" | "none"` — type, line 9884
+- `export interface FigurePassageDto` — interface, line 9886
+- `export interface FigureHostRef` — interface, line 9898
+- `export interface FigureRequestV1Input` — interface, line 9910
+- `export interface FigureHelpDto` — interface, line 9924
+- `export interface FigureTakeStepDto` — interface, line 9937
+- `export interface FigureBuildResultDto` — interface, line 9944
+- `export interface FiguresDto` — interface, line 9955
+- `export interface LibraryJobDto<T>` — interface, line 9967
+- `export interface LibraryTutorDto` — interface, line 9977
+- `export type HintStatus = "ready" | "withheld" | "unavailable" | "disabled" | "refused" | "cancelled"` — type, line 9999
+- `export type HintRequestKind = "more" | "feedback" | "book_way" | "smaller_step"` — type, line 10000
+- `export type HintShortcut = "not_where_stuck" | "too_big" | "learner_route" | "notation"` — type, line 10001
+- `export type HelpStyle = "let_me_struggle" | "balanced" | "guide_me"` — type, line 10002
+- `export interface HintLabelsDto` — interface, line 10004
+- `export interface HintPickDto` — interface, line 10011
+- `export interface HintDiscriminatingDto` — interface, line 10018
+- `export interface HintResultDto` — interface, line 10026
+- `export interface HintJobDto` — interface, line 10051
+- `export interface HintCancelDto` — interface, line 10058
+- `export interface HintDiscriminateAnswerDto` — interface, line 10066
+- `export interface HintRequestInput` — interface, line 10076
+- `export interface ReaderDoseOfferDto` — interface, line 10093
+- `export type ReaderDoseOfferEvent = "delivered" | "not_delivered" | "taken" | "dismissed"` — type, line 10117
+- `export interface AdaptiveReadinessDto` — interface, line 10120
+- `export interface AdaptiveWhyItemDto` — interface, line 10135
+- `export type CheckVerdict = "valid" | "questionable" | "unchecked"` — type, line 10147
+- `export type CheckMethod = "checked" | "checked_numerically" | "model"` — type, line 10148
+- `export interface CheckStepVerdictDto` — interface, line 10150
+- `export interface CheckViewDto` — interface, line 10173
+- `export interface WorkbenchStepLabelsDto` — interface, line 10187
+- `export interface LadderRungDto` — interface, line 10195
+- `export interface HelpSuggestionDto` — interface, line 10203
+- `export interface WorkbenchHelpResultDto` — interface, line 10218
+- `export interface WorkbenchHelpJobDto` — interface, line 10261
+- `export interface WorkbenchHintViewDto` — interface, line 10269
+- `export interface HintClaimDto` — interface, line 10293
+- `export interface WorkbenchHelpStateDto` — interface, line 10303
+- `export interface PassageTarget` — interface, line 10319
+- `export interface WorkbenchPassageDrawDto` — interface, line 10325
+- `export interface WorkbenchExampleViewDto extends WorkbenchPassageDrawDto` — interface, line 10333
+- `export interface WorkbenchAnotherPassageDto` — interface, line 10348
+- `export interface WorkbenchCompareOfferDto` — interface, line 10354
+- `export interface WorkbenchCompareLinesDto` — interface, line 10362
+- `export interface WorkbenchComparisonDto` — interface, line 10371
+- `export interface WorkbenchCompareMethodsDto` — interface, line 10379
+- `export interface WorkbenchCompareJobResultDto` — interface, line 10386
+- `export interface WorkbenchRequestHelpInput` — interface, line 10394
+- `export interface LessonTurnInput` — interface, line 10411
+- `export interface LessonSuggestionEntryDto` — interface, line 10434
+- `export interface LessonSuggestionDto` — interface, line 10443
+- `export interface LessonSuggestionResponseDto` — interface, line 10457
+- `export type LessonFigureStatus = "shown" | "failed" | "withheld" | "unavailable"` — type, line 10467
+- `export type LessonFeedEntryDto = |` — type, line 10469
+- `export interface LessonViewDto` — interface, line 10484
 
 ## Internal implementation anchors
 

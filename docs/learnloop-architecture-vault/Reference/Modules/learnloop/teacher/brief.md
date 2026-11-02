@@ -7,9 +7,9 @@ version: "1.0.0"
 source_path: "src/learnloop/teacher/brief.py"
 source_paths:
   - "src/learnloop/teacher/brief.py"
-source_commit: "workspace/uncommitted @ HEAD 676924cc56d56fb29828c323cd846be7c0ea63ba"
-source_commit_timestamp: "2026-11-02T10:46:11-05:00"
-source_worktree_state: "modified"
+source_commit: "074d1972a0a4d2f8f9cf2f6a86a7835ceb441011"
+source_commit_timestamp: "2026-11-02T10:54:18-05:00"
+source_worktree_state: "clean"
 generated: true
 generated_at: "2026-11-02"
 package: "learnloop.teacher"
@@ -54,9 +54,9 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Owning package | [[Reference/Modules/learnloop/teacher/_package|learnloop.teacher]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
-| Worktree state | `modified` |
-| Source commit | `workspace/uncommitted @ HEAD 676924cc56d56fb29828c323cd846be7c0ea63ba` |
-| Commit timestamp | `2026-11-02T10:46:11-05:00` |
+| Worktree state | `clean` |
+| Source commit | `074d1972a0a4d2f8f9cf2f6a86a7835ceb441011` |
+| Commit timestamp | `2026-11-02T10:54:18-05:00` |
 
 ## Public API
 
@@ -197,6 +197,10 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_a_recap_quoting_a_passage_held_out_since_is_not_in_the_fresh_lesson_s_prompt`
   - `test_read_history_cannot_fetch_that_recap_either`
   - `test_unreadable_protection_drops_the_recap_only`
+- [tests/test_teacher_te1b_landing_r2.py](../../../../../../tests/test_teacher_te1b_landing_r2.py) — direct import
+  - `test_the_protection_check_matches_the_lessons_opening`
+- [tests/test_teacher_te1b_suggestions.py](../../../../../../tests/test_teacher_te1b_suggestions.py) — direct import
+  - `test_the_shell_reads_lessons_and_room_to_learn_as_the_teacher_does`
 
 ## Modification guidance
 

@@ -190,6 +190,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_a_malformed_choosers_fallback_block_gets_r1s_id`
   - `test_plan_block_decisions_get_router_decision_ids_end_to_end`
 - [tests/test_router_r2c_teach_back.py](../../../../../../tests/test_router_r2c_teach_back.py) — direct import
+- [tests/test_teacher_te1b_review_fixes.py](../../../../../../tests/test_teacher_te1b_review_fixes.py) — direct import
 - [tests/test_ux_phase4_feedback.py](../../../../../../tests/test_ux_phase4_feedback.py) — direct import
   - `test_f1m_a_valid_stop_with_work_feasible_is_kept`
 - [tests/test_ux_phase4_landing.py](../../../../../../tests/test_ux_phase4_landing.py) — direct import

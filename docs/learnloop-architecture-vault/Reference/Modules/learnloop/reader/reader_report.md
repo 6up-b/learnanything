@@ -135,6 +135,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_the_report_shows_the_rich_tier_rows`
 - [tests/test_figures_final_round.py](../../../../../../tests/test_figures_final_round.py) — direct import
   - `test_the_report_counts_a_legacy_verified_as_an_illustration`
+- [tests/test_figures_prefetch.py](../../../../../../tests/test_figures_prefetch.py) — direct import
+  - `test_the_report_block_appears_only_with_the_switch`
 - [tests/test_figures_show_me.py](../../../../../../tests/test_figures_show_me.py) — direct import
   - `test_the_reader_report_counts_show_me_without_the_words`
 - [tests/test_figures_switch_off.py](../../../../../../tests/test_figures_switch_off.py) — direct import

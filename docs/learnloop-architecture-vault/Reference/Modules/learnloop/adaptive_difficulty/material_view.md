@@ -311,6 +311,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_probe_raw_section_membership_in_the_dose_arm`
 - [tests/test_ad_protected_tables.py](../../../../../../tests/test_ad_protected_tables.py) — direct import
   - `test_every_derived_column_has_a_treatment`
+- [tests/test_teacher_te1b_review_fixes.py](../../../../../../tests/test_teacher_te1b_review_fixes.py) — direct import
+  - `test_band_positions_thresholds_p_band_and_reads_the_side_from_expected_success`
 
 ## Modification guidance
 

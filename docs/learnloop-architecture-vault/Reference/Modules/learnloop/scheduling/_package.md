@@ -45,7 +45,7 @@ source_paths:
   - "src/learnloop/scheduling/unresolved_cost.py"
   - "src/learnloop/scheduling/voi_forecasts.py"
 source_commit: "aggregate; see module notes"
-source_commit_timestamp: "2026-11-01T18:45:27-05:00"
+source_commit_timestamp: "2026-11-02T07:45:40-05:00"
 generated: true
 generated_at: "2026-11-02"
 package: "learnloop.scheduling"
@@ -106,7 +106,7 @@ For system intent, use [[Learning System]].
 | [[Reference/Modules/learnloop/scheduling/prequential|learnloop.scheduling.prequential]] | [[Reference/Modules/learnloop/scheduling/prequential#^module-purpose|purpose]] | `DORMANT` | 0 | 2 |
 | [[Reference/Modules/learnloop/scheduling/progression|learnloop.scheduling.progression]] | [[Reference/Modules/learnloop/scheduling/progression#^module-purpose|purpose]] | `ACTIVE` | 0 | 3 |
 | [[Reference/Modules/learnloop/scheduling/progression_policy|learnloop.scheduling.progression_policy]] | [[Reference/Modules/learnloop/scheduling/progression_policy#^module-purpose|purpose]] | `ACTIVE` | 1 | 2 |
-| [[Reference/Modules/learnloop/scheduling/randomization_layer|learnloop.scheduling.randomization_layer]] | [[Reference/Modules/learnloop/scheduling/randomization_layer#^module-purpose|purpose]] | `ACTIVE` | 4 | 3 |
+| [[Reference/Modules/learnloop/scheduling/randomization_layer|learnloop.scheduling.randomization_layer]] | [[Reference/Modules/learnloop/scheduling/randomization_layer#^module-purpose|purpose]] | `ACTIVE` | 5 | 4 |
 | [[Reference/Modules/learnloop/scheduling/reentry_adapter|learnloop.scheduling.reentry_adapter]] | [[Reference/Modules/learnloop/scheduling/reentry_adapter#^module-purpose|purpose]] | `ACTIVE` | 0 | 1 |
 | [[Reference/Modules/learnloop/scheduling/reentry_summary|learnloop.scheduling.reentry_summary]] | [[Reference/Modules/learnloop/scheduling/reentry_summary#^module-purpose|purpose]] | `ACTIVE` | 5 | 3 |
 | [[Reference/Modules/learnloop/scheduling/review_log|learnloop.scheduling.review_log]] | [[Reference/Modules/learnloop/scheduling/review_log#^module-purpose|purpose]] | `ACTIVE` | 3 | 3 |
@@ -152,10 +152,10 @@ For system intent, use [[Learning System]].
 
 - [[Reference/Modules/learnloop_sidecar/handlers/_package|learnloop_sidecar.handlers]] — 13 static module edges
 - [[Reference/Modules/learnloop/diagnosis/_package|learnloop.diagnosis]] — 12 static module edges
+- [[Reference/Modules/learnloop/daily_plan/_package|learnloop.daily_plan]] — 10 static module edges
 - [[Reference/Modules/learnloop/evsi_calibration/_package|learnloop.evsi_calibration]] — 10 static module edges
 - [[Reference/Modules/learnloop/adaptive_difficulty/_package|learnloop.adaptive_difficulty]] — 9 static module edges
 - [[Reference/Modules/learnloop/cli/_package|learnloop.cli]] — 9 static module edges
-- [[Reference/Modules/learnloop/daily_plan/_package|learnloop.daily_plan]] — 9 static module edges
 - [[Reference/Modules/learnloop/field/_package|learnloop.field]] — 5 static module edges
 - [[Reference/Modules/learnloop/sim/_package|learnloop.sim]] — 5 static module edges
 - [[Reference/Modules/learnloop/tui/screens/_package|learnloop.tui.screens]] — 5 static module edges
@@ -189,8 +189,8 @@ flowchart LR
     n_learnloop_sidecar_handlers["learnloop_sidecar.handlers"]
     n_learnloop_learner["learnloop.learner"]
     n_learnloop_goals["learnloop.goals"]
+    n_learnloop_daily_plan["learnloop.daily_plan"]
     n_learnloop_evsi_calibration["learnloop.evsi_calibration"]
-    n_learnloop_adaptive_difficulty["learnloop.adaptive_difficulty"]
     n_learnloop -->|1| center
     center -->|44| n_learnloop
     center -->|29| n_learnloop_db
@@ -204,8 +204,8 @@ flowchart LR
     center -->|11| n_learnloop_learner
     n_learnloop_goals -->|4| center
     center -->|7| n_learnloop_goals
+    n_learnloop_daily_plan -->|10| center
     n_learnloop_evsi_calibration -->|10| center
-    n_learnloop_adaptive_difficulty -->|9| center
 ```
 
 Interpretation: arrow direction is static import direction and the label is the number of distinct module-to-module edges. It shows coupling pressure, not runtime call frequency or ownership permission.

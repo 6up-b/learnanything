@@ -279,6 +279,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_rr_f1_a_fresh_key_under_another_open_session_is_refused`
   - `test_s0_a_legacy_queued_attempt_rich_job_stops_before_any_model_request`
   - `test_s0_an_attempt_host_rich_request_is_refused_at_the_rpc`
+- [tests/test_figures_prefetch.py](../../../../../tests/test_figures_prefetch.py) — direct import
+  - `test_origin_prefetch_is_refused_from_every_rpc_and_outside_the_service`
 - [tests/test_figures_rpc.py](../../../../../tests/test_figures_rpc.py) — direct import
   - `test_a_figure_whose_passage_becomes_held_out_is_not_shown`
   - `test_a_metered_route_needs_a_price_and_is_refused_before_sending`
@@ -556,6 +558,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_off_a_stored_sketch_lists_as_cant_draw_this_yet`
 - [tests/test_teacher_te1_successor.py](../../../../../tests/test_teacher_te1_successor.py) — direct import
   - `test_lesson_turn_refuses_with_the_switch_off`
+- [tests/test_teacher_te1b_suggestions.py](../../../../../tests/test_teacher_te1b_suggestions.py) — direct import
+  - `test_start_opens_a_lesson_whose_origin_is_the_decision`
 - [tests/test_ux_phase1_add_source.py](../../../../../tests/test_ux_phase1_add_source.py) — direct import
   - `test_add_source_rejects_a_bad_page_range_plainly`
 - [tests/test_ux_phase1_connect_ai.py](../../../../../tests/test_ux_phase1_connect_ai.py) — direct import

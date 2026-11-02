@@ -142,6 +142,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 > “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
 
 - [[Reference/Modules/learnloop/experiments/contextual_embeddings/system_arms|learnloop.experiments.contextual_embeddings.system_arms]] — imports `INTENTS`, `find_sources`; statically calls `find_sources`
+- [[Reference/Modules/learnloop/figures/prefetch|learnloop.figures.prefetch]] — imports `PROVENANCE_SPANS_PER_LO`
 - [[Reference/Modules/learnloop/figures/service|learnloop.figures.service]] — imports `find_sources_for_caller`; statically calls `find_sources_for_caller`
 - [[Reference/Modules/learnloop/hints/map_seeds|learnloop.hints.map_seeds]] — imports `find_sources_for_caller`
 - [[Reference/Modules/learnloop/instructional/sources|learnloop.instructional.sources]] — imports `SourceHits`, `find_sources`, `find_sources_for_caller`; statically calls `find_sources`, `find_sources_for_caller`
@@ -200,7 +201,7 @@ Use this module in context through:
 - [[Import Canonical Sources]]
 - [[Build a Study Map]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/experiments/contextual_embeddings/system_arms|learnloop.experiments.contextual_embeddings.system_arms]], [[Reference/Modules/learnloop/figures/service|learnloop.figures.service]], [[Reference/Modules/learnloop/hints/map_seeds|learnloop.hints.map_seeds]], [[Reference/Modules/learnloop/instructional/sources|learnloop.instructional.sources]], [[Reference/Modules/learnloop/instructional/tools|learnloop.instructional.tools]] and 9 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/experiments/contextual_embeddings/system_arms|learnloop.experiments.contextual_embeddings.system_arms]], [[Reference/Modules/learnloop/figures/prefetch|learnloop.figures.prefetch]], [[Reference/Modules/learnloop/figures/service|learnloop.figures.service]], [[Reference/Modules/learnloop/hints/map_seeds|learnloop.hints.map_seeds]], [[Reference/Modules/learnloop/instructional/sources|learnloop.instructional.sources]] and 10 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 

@@ -7,8 +7,8 @@ version: "1.0.0"
 source_path: "src/learnloop_sidecar/post_attempt_worker.py"
 source_paths:
   - "src/learnloop_sidecar/post_attempt_worker.py"
-source_commit: "091f05ea056d5cc812464f2d9782dbc2a2594c64"
-source_commit_timestamp: "2026-10-27T01:55:10-04:00"
+source_commit: "8b967e3b7e1afd9d0eafa309cf6d9758bb647b57"
+source_commit_timestamp: "2026-11-02T05:28:19-05:00"
 source_worktree_state: "clean"
 generated: true
 generated_at: "2026-11-02"
@@ -50,30 +50,30 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop_sidecar/post_attempt_worker.py](../../../../../src/learnloop_sidecar/post_attempt_worker.py) |
-| Source lines | 248 |
+| Source lines | 256 |
 | Owning package | [[Reference/Modules/learnloop_sidecar/_package|learnloop_sidecar]] |
 | Architecture layer | `adapter` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `091f05ea056d5cc812464f2d9782dbc2a2594c64` |
-| Commit timestamp | `2026-10-27T01:55:10-04:00` |
+| Source commit | `8b967e3b7e1afd9d0eafa309cf6d9758bb647b57` |
+| Commit timestamp | `2026-11-02T05:28:19-05:00` |
 
 ## Public API
 
 - `class PostAttemptWorker` ([source](../../../../../src/learnloop_sidecar/post_attempt_worker.py), line 48)
   - `__init__(self, *, autostart: bool=True) -> None` (line 49; internal)
-  - `note_wait(self, session_id: str, seconds: float) -> None` (line 68; public)
-  - `take_wait(self, session_id: str) -> float` (line 72; public)
-  - `bind(self, supplier: VaultSupplier) -> None` (line 76; public) — ``supplier`` returns the CURRENT (vault, sqlite path) or None.
-  - `notify(self) -> None` (line 84; public) — A job may be runnable: wake both slots (start them on first use).
-  - `running(self) -> bool` (line 106; public)
-  - `shutdown(self, timeout: float=2.0) -> None` (line 110; public) — Stop the slots: each wakes and returns, and a job in flight stops before its next paid request.
-  - `_repository(self, sqlite_path: Any) -> Any` (line 127; internal)
-  - `run_pending(self, kind: str='diagnose', *, max_jobs: int=100, clock: Any=None) -> list[Any]` (line 133; public) — Synchronously run runnable jobs of ``kind`` (tests and drains).
-  - `_run_gaps(self, vault: Any, repository: Any, *, max_jobs: int, clock: Any) -> list[Any]` (line 177; internal)
-  - `_with_busy_retry(self, work: Callable[[], Any]) -> Any` (line 202; internal)
-  - `_loop(self, kind: str) -> None` (line 212; internal)
-  - `wait_for(self, pending: Callable[[], list[str]], timeout: float) -> tuple[list[str], float]` (line 226; public) — Wait until ``pending()`` is empty or ``timeout`` passes.
+  - `note_wait(self, session_id: str, seconds: float) -> None` (line 71; public)
+  - `take_wait(self, session_id: str) -> float` (line 75; public)
+  - `bind(self, supplier: VaultSupplier) -> None` (line 79; public) — ``supplier`` returns the CURRENT (vault, sqlite path) or None.
+  - `notify(self) -> None` (line 87; public) — A job may be runnable: wake both slots (start them on first use).
+  - `running(self) -> bool` (line 109; public)
+  - `shutdown(self, timeout: float=2.0) -> None` (line 113; public) — Stop the slots: each wakes and returns, and a job in flight stops before its next paid request.
+  - `_repository(self, sqlite_path: Any) -> Any` (line 130; internal)
+  - `run_pending(self, kind: str='diagnose', *, max_jobs: int=100, clock: Any=None) -> list[Any]` (line 136; public) — Synchronously run runnable jobs of ``kind`` (tests and drains).
+  - `_run_gaps(self, vault: Any, repository: Any, *, max_jobs: int, clock: Any) -> list[Any]` (line 180; internal)
+  - `_with_busy_retry(self, work: Callable[[], Any]) -> Any` (line 210; internal)
+  - `_loop(self, kind: str) -> None` (line 220; internal)
+  - `wait_for(self, pending: Callable[[], list[str]], timeout: float) -> tuple[list[str], float]` (line 234; public) — Wait until ``pending()`` is empty or ``timeout`` passes.
 
 ### Module constants
 
@@ -127,6 +127,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
+- [tests/test_figures_prefetch.py](../../../../../tests/test_figures_prefetch.py) — direct import
+  - `test_the_gap_worker_fires_the_gap_trigger_after_a_drain`
 - [tests/test_learner_text_gaps_flow.py](../../../../../tests/test_learner_text_gaps_flow.py) — direct import
   - `test_the_sidecar_queues_the_reading_and_the_overlay_shows_it_with_undo`
 - [tests/test_learner_text_gaps_rereview.py](../../../../../tests/test_learner_text_gaps_rereview.py) — direct import

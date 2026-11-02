@@ -7,8 +7,8 @@ version: "1.0.0"
 source_path: "src/learnloop/figure_admission.py"
 source_paths:
   - "src/learnloop/figure_admission.py"
-source_commit: "a2907d6325e0f83c6311a779f48e4f09314a6f98"
-source_commit_timestamp: "2026-11-01T19:47:12-05:00"
+source_commit: "c6356d13e97c941eec48cbd7cac9174d1a75b7e7"
+source_commit_timestamp: "2026-11-02T09:14:59-05:00"
 source_worktree_state: "clean"
 generated: true
 generated_at: "2026-11-02"
@@ -50,13 +50,13 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/figure_admission.py](../../../../../src/learnloop/figure_admission.py) |
-| Source lines | 437 |
+| Source lines | 448 |
 | Owning package | [[Reference/Modules/learnloop/_package|learnloop]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `a2907d6325e0f83c6311a779f48e4f09314a6f98` |
-| Commit timestamp | `2026-11-01T19:47:12-05:00` |
+| Source commit | `c6356d13e97c941eec48cbd7cac9174d1a75b7e7` |
+| Commit timestamp | `2026-11-02T09:14:59-05:00` |
 
 ## Public API
 
@@ -82,11 +82,11 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `text_key(vault: Any) -> Hashable` ([source](../../../../../src/learnloop/figure_admission.py), line 313) — What a figure prediction's learner-text reading depends on: the vault and the switch (its money cap is ``learner_text_gaps``'s, as on main).
 - `class FiguresChanged(BaseException)` ([source](../../../../../src/learnloop/figure_admission.py), line 320) — A figure-derived request refused before it was sent: the configuration its unit of work started under has changed (the switch turned off, the route, cap or price changed, or another vault is open).
 - `class FiguresGate` ([source](../../../../../src/learnloop/figure_admission.py), line 336) — Admit a figure-derived unit of work's requests only while its key holds.
-  - `__init__(self, vault: Any, key: Callable[[Any], Hashable], *, live_vault: Callable[[], Any] | None=None, hold: Callable[[Any], str | None] | None=None) -> None` (line 349; internal)
-  - `_current(self) -> Any | None` (line 364; internal)
-  - `check(self, purpose: str='request') -> None` (line 374; public) — Raise :class:`FiguresChanged` when the unit may do nothing more.
-  - `admit(self, client: Any, *, purpose: str, prompt: Any, budget: int | None) -> Any` (line 393; public)
-  - `settle(self, admission: Any, usage: dict[str, Any]) -> None` (line 406; public)
+  - `__init__(self, vault: Any, key: Callable[[Any], Hashable], *, live_vault: Callable[[], Any] | None=None, hold: Callable[[Any], str | None] | None=None, wait: Callable[[], Any] | None=None) -> None` (line 356; internal)
+  - `_current(self) -> Any | None` (line 373; internal)
+  - `check(self, purpose: str='request') -> None` (line 383; public) — Raise :class:`FiguresChanged` when the unit may do nothing more.
+  - `admit(self, client: Any, *, purpose: str, prompt: Any, budget: int | None) -> Any` (line 404; public)
+  - `settle(self, admission: Any, usage: dict[str, Any]) -> None` (line 417; public)
 
 ### Module constants
 
@@ -141,6 +141,7 @@ No private top-level function or class definition is declared in this file.
 - [[Reference/Modules/learnloop/diagnosis/text_gaps/sources|learnloop.diagnosis.text_gaps.sources]] — imports `figure_home_keys`, `figures_enabled`; statically calls `figure_home_keys`, `figures_enabled`
 - [[Reference/Modules/learnloop/figures/help|learnloop.figures.help]] — imports `figure_home_keys`, `help_kind_enabled`; statically calls `figure_home_keys`, `help_kind_enabled`
 - [[Reference/Modules/learnloop/figures/learner_state|learnloop.figures.learner_state]] — imports `author_learner_state_enabled`; statically calls `author_learner_state_enabled`
+- [[Reference/Modules/learnloop/figures/prefetch|learnloop.figures.prefetch]] — imports `FiguresChanged`, `FiguresGate`; statically calls `FiguresGate`
 - [[Reference/Modules/learnloop/figures/rich|learnloop.figures.rich]] — imports `FiguresChanged`, `FiguresGate`, `author_learner_state_enabled`, `figures_enabled`, `manim_opt_in`, `rich_tiers_enabled`; statically calls `FiguresGate`, `author_learner_state_enabled`, `figures_enabled`, `manim_opt_in`, `rich_tiers_enabled`
 - [[Reference/Modules/learnloop/figures/service|learnloop.figures.service]] — imports `FiguresChanged`, `FiguresGate`, `GROUNDING_PASSAGES`, `advanced_panels_enabled`, `author_learner_state_enabled`, `figure_home_keys`, `figures_enabled`, `help_kind_enabled`, `offers_enabled`, `show_me_enabled`, `sketch_enabled`; statically calls `FiguresGate`, `advanced_panels_enabled`, `author_learner_state_enabled`, `figure_home_keys`, `figures_enabled`, `help_kind_enabled`, `offers_enabled`, `show_me_enabled`, `sketch_enabled`
 - [[Reference/Modules/learnloop/source_retrieval/library_ask|learnloop.source_retrieval.library_ask]] — imports `EXPLORABLE`, `explorable_yes`, `offer_kind`, `offers_enabled`; statically calls `explorable_yes`, `offer_kind`, `offers_enabled`
@@ -175,7 +176,7 @@ Use this module in context through:
 - [[Initialize a Vault]]
 - [[Start a Learning Cycle]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/diagnosis/split/figure_trace|learnloop.diagnosis.split.figure_trace]], [[Reference/Modules/learnloop/diagnosis/text_gaps/jobs|learnloop.diagnosis.text_gaps.jobs]], [[Reference/Modules/learnloop/diagnosis/text_gaps/sources|learnloop.diagnosis.text_gaps.sources]], [[Reference/Modules/learnloop/figures/help|learnloop.figures.help]], [[Reference/Modules/learnloop/figures/learner_state|learnloop.figures.learner_state]] and 11 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/diagnosis/split/figure_trace|learnloop.diagnosis.split.figure_trace]], [[Reference/Modules/learnloop/diagnosis/text_gaps/jobs|learnloop.diagnosis.text_gaps.jobs]], [[Reference/Modules/learnloop/diagnosis/text_gaps/sources|learnloop.diagnosis.text_gaps.sources]], [[Reference/Modules/learnloop/figures/help|learnloop.figures.help]], [[Reference/Modules/learnloop/figures/learner_state|learnloop.figures.learner_state]] and 12 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
@@ -184,6 +185,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_figure_offers.py](../../../../../tests/test_figure_offers.py) — direct import
   - `test_code_decides_the_block_and_only_yes_is_a_yes`
   - `test_the_gate_key_of_an_offered_build_includes_the_offers_switch`
+- [tests/test_figures_prefetch_review_fixes.py](../../../../../tests/test_figures_prefetch_review_fixes.py) — direct import
+  - `test_f16_the_gate_waits_before_it_reads_the_vault_it_checks`
 - [tests/test_figures_rw5b_fix_round2.py](../../../../../tests/test_figures_rw5b_fix_round2.py) — direct import
   - `test_a_library_note_pointing_at_another_tasks_yes_row_is_refused`
 - [tests/test_figures_rw5b_review.py](../../../../../tests/test_figures_rw5b_review.py) — direct import

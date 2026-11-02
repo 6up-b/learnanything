@@ -196,6 +196,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_ad_guard.py](../../../../../../tests/test_ad_guard.py) — direct import
   - `test_a_denied_dose_response_rolls_the_draw_back`
   - `test_a_write_then_a_swallowed_denial_then_an_early_return_keeps_no_ad_rows`
+- [tests/test_teacher_te1b_review_fixes.py](../../../../../../tests/test_teacher_te1b_review_fixes.py) — direct import
+  - `test_band_positions_thresholds_p_band_and_reads_the_side_from_expected_success`
 
 ## Modification guidance
 

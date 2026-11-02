@@ -323,6 +323,9 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_a_rich_only_tier_judgment_is_receipted_once_against_its_request`
 - [tests/test_figure_rich_rpc.py](../../../../../../tests/test_figure_rich_rpc.py) — direct import
   - `test_without_a_grant_the_job_belongs_to_no_action_waits_and_a_read_asks_again`
+- [tests/test_figures_prefetch_review_fixes.py](../../../../../../tests/test_figures_prefetch_review_fixes.py) — direct import
+  - `test_f17_a_plan_wait_is_not_retried_off_mains_or_switched_off`
+  - `test_f17_a_speculative_prebuilds_plan_wait_is_retried_by_the_reader_read`
 - [tests/test_followups_batch5_lesson.py](../../../../../../tests/test_followups_batch5_lesson.py) — direct import
   - `test_c_an_opening_whose_teacher_call_fails_after_the_save_says_it_is_saved_and_carries_its_id`
 - [tests/test_held_grade_composition.py](../../../../../../tests/test_held_grade_composition.py) — direct import

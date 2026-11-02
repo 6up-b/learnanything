@@ -204,6 +204,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_f5_the_reading_records_whether_it_read_the_explanation`
 - [tests/test_figures_fix_round4.py](../../../../../../../tests/test_figures_fix_round4.py) — direct import
   - `test_f5_an_explanation_after_a_checkpointed_reading_is_its_own_text`
+- [tests/test_figures_prefetch.py](../../../../../../../tests/test_figures_prefetch.py) — direct import
+  - `test_the_gap_worker_fires_the_gap_trigger_after_a_drain`
 - [tests/test_figures_scope_redesign.py](../../../../../../../tests/test_figures_scope_redesign.py) — direct import
   - `test_a_figure_reading_makes_no_request_after_figures_are_switched_off`
 - [tests/test_figures_show_me_codex_review.py](../../../../../../../tests/test_figures_show_me_codex_review.py) — direct import

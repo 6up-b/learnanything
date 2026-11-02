@@ -146,6 +146,10 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_every_rw4d_event_is_salience_only`
 - [tests/test_figure_rich_rpc.py](../../../../../../tests/test_figure_rich_rpc.py) — direct import
   - `test_rich_build_cancelled_is_a_salience_only_event_without_words`
+- [tests/test_figures_prefetch.py](../../../../../../tests/test_figures_prefetch.py) — direct import
+  - `test_outcomes_close_once_at_the_structural_horizon`
+- [tests/test_figures_prefetch_review_fixes.py](../../../../../../tests/test_figures_prefetch_review_fixes.py) — direct import
+  - `test_f9_an_open_after_the_horizon_is_not_an_outcome`
 - [tests/test_figures_rpc.py](../../../../../../tests/test_figures_rpc.py) — direct import
   - `test_server_events_are_salience_only`
 - [tests/test_figures_show_me.py](../../../../../../tests/test_figures_show_me.py) — direct import
