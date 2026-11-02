@@ -25,6 +25,7 @@ const { api, plan, state } = vi.hoisted(() => ({
     readerSetCorrespondencePreferences: vi.fn(),
     getSpanView: vi.fn(), readerLibraryAsk: vi.fn(), readerLibraryAskNotes: vi.fn(), readerLibraryCompare: vi.fn(),
     readerLibraryJob: vi.fn(), readerLibraryJobCancel: vi.fn(), readerSaveProgress: vi.fn(),
+    readerFigures: vi.fn(),
   },
   plan: {
     sourceId: "src", extractionId: "ext", personalized: true, selectionBasis: "", goalContext: null,
@@ -301,4 +302,53 @@ it("landing (i): the line or CA5a's action, never both; the last line corrected 
   expect(api.readerCorrespondentDismiss.mock.calls[1][0]).toMatchObject({ undoOf: api.readerCorrespondentDismiss.mock.calls[0][0].operationId });
   await waitFor(() => expect(document.querySelector('[data-also-gone="ext_axler/ax5a"]')).toBeNull());
   expect(both()).toBe(false);
+});
+
+it("RW5d P4a: a kept figure of the line's section opens under the passage here, its home named", async () => {
+  // Figures on (the contract's `figures`), and the judged line's section holds a kept figure.
+  state.contract = { ...ON, figures: { predictions: true, region: true, revisions: true } };
+  const ref = { figureId: "fig_axler", extractionId: "ext_axler", anchorSpanId: "a7", label: "AI-built illustration",
+    kind: "illustrative", verification: "illustrative" as const, createdAt: "2026-10-30T00:00:00Z" };
+  api.readerCorrespondents.mockImplementation(async (input: { searchFallback?: boolean }) => (input.searchFallback ? PRESSED : {
+    ...JUDGED, learningObjects: [{ learningObjectId: "lo_sym", title: "symmetric matrices", sources: [
+      { sourceId: "src_axler", sourceTitle: "Axler", sections: [{ ...JUDGED_LINE, figures: [ref] }] }] }] }));
+  api.readerFigures.mockImplementation(async ({ extractionId }: { extractionId: string }) => ({ extractionId, figures: extractionId !== "ext_axler" ? [] : [{
+    figureId: "fig_axler", extractionId: "ext_axler", spanIds: ["a7"], anchorSpanId: "a7", region: null, origin: "selection",
+    verification: "illustrative", kind: "illustrative", label: "AI-built illustration", reason: null, unsupportedKind: null,
+    supersedesId: null, revisionNote: null, versions: 1, createdAt: "2026-10-30T00:00:00Z", specJson: null,
+    demonstrates: null, assumptions: [], predictions: [] }] }));
+  render(<ReaderScreen initialSource={source} onError={vi.fn()} />);
+  await waitFor(() => expect(line()).toBeTruthy());
+  fireEvent.click(line()!);
+  const offer = await waitFor(() => {
+    const found = document.querySelector<HTMLButtonElement>('[data-also-figure="fig_axler"]');
+    expect(found).toBeTruthy();
+    return found!;
+  });
+  expect(offer.textContent).toBe("◇▸ interactive version from Axler §5.A");
+  fireEvent.click(offer);
+  const shown = await waitFor(() => {
+    const found = document.querySelector<HTMLElement>('[data-figure="fig_axler"]');
+    expect(found).toBeTruthy();
+    return found!;
+  });
+  expect(api.readerFigures).toHaveBeenCalledWith({ extractionId: "ext_axler" });
+  expect(shown.querySelector("[data-figure-home]")!.textContent).toBe("from your reading of Axler § 5.A Invariant subspaces");
+  // Under a passage of this book (the one in view in this section, else its first), never in the rail.
+  const host = shown.closest<HTMLElement>("[data-figures-under]")!;
+  expect(SPAN_IDS).toContain(host.dataset.figuresUnder);
+});
+
+it("RW5d P4a: with figures off, the line offers no figure (and none is read)", async () => {
+  const ref = { figureId: "fig_axler", extractionId: "ext_axler", anchorSpanId: "a7", label: "x", kind: null,
+    verification: "illustrative" as const, createdAt: "t" };
+  api.readerCorrespondents.mockImplementation(async (input: { searchFallback?: boolean }) => (input.searchFallback ? PRESSED : {
+    ...JUDGED, learningObjects: [{ learningObjectId: "lo_sym", title: "symmetric matrices", sources: [
+      { sourceId: "src_axler", sourceTitle: "Axler", sections: [{ ...JUDGED_LINE, figures: [ref] }] }] }] }));
+  render(<ReaderScreen initialSource={source} onError={vi.fn()} />);
+  await waitFor(() => expect(line()).toBeTruthy());
+  fireEvent.click(line()!);
+  await screen.findByRole("button", { name: "⋯ Axler 5.A Invariant subspaces" });
+  expect(document.querySelector("[data-also-figure]")).toBeNull();
+  expect(api.readerFigures).not.toHaveBeenCalled();
 });

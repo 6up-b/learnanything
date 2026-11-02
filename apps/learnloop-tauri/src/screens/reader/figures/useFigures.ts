@@ -9,7 +9,7 @@
 // no RPC is ever called and nothing renders (U13).
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { api } from "../../../api/client";
-import type { FigureBuildResultDto, FigurePredictionResultDto, FigureRichPendingDto, FigureViewDto, LibraryJobDto } from "../../../api/dto";
+import type { CorrespondentFigureDto, FigureBuildResultDto, FigurePredictionResultDto, FigureRichPendingDto, FigureViewDto, LibraryJobDto } from "../../../api/dto";
 import { errorMessage, getCommandError } from "../../../errors";
 import { frameBadge } from "./FigureInline";
 import { passageKeys } from "../readerShared";
@@ -71,6 +71,21 @@ export interface FiguresContract {
   rich?: { manimOptIn: "ask" | "standing" | "declined" | "unavailable" };
 }
 
+/** RW5d P4a (figures follow the section): where a figure from another book lives. */
+export interface FigureHome {
+  sourceTitle: string;
+  sectionTitle: string;
+}
+
+/** RW5d P4a: a figure of another book's corresponding section, opened from "also
+ *  in your books" and shown under the passage the learner is reading here, its
+ *  home named. Only this view of it: nothing is copied, and it goes with the book. */
+export interface FollowedFigure {
+  /** The figure as its own book lists it, placed under the passage here. */
+  figure: FigureViewDto;
+  home: FigureHome;
+}
+
 export interface FiguresCtl {
   enabled: boolean;
   contract: FiguresContract | null;
@@ -87,10 +102,17 @@ export interface FiguresCtl {
   revise: (figure: FigureViewDto, note: string, differentKind?: boolean) => void;
   predict: (figure: FigureViewDto, index: number, answer: string) => Promise<FigurePredictionResultDto | null>;
   explain: (figure: FigureViewDto, predictionId: string, text: string) => Promise<FigurePredictionResultDto | null>;
-  /** The figures and pending lines under one passage (RW5d P2b: and its rich builds with no quick figure). */
+  /** The figures and pending lines under one passage (RW5d P2b: and its rich builds with no quick figure;
+   *  RW5d P4a: and the figures followed here from another book). */
   under: (spanId: string | null | undefined) => {
-    figures: FigureViewDto[]; pending: FigurePending[]; richPending: FigureRichPendingDto[];
+    figures: FigureViewDto[]; pending: FigurePending[]; richPending: FigureRichPendingDto[]; followed: FollowedFigure[];
   };
+  /** RW5d P4a: the figures followed here from other books' corresponding sections. */
+  followed: FollowedFigure[];
+  /** RW5d P4a: open a figure of another book's corresponding section under the passage
+   *  `at` here, expanded, its home named. Resolves false when it may not be shown now
+   *  (its own book no longer lists it: held out, switched off, gone). */
+  follow: (ref: CorrespondentFigureDto, home: FigureHome, at: string) => Promise<boolean>;
   /** RW5d P2b: rich builds with no quick figure (pending lines). */
   richPending: FigureRichPendingDto[];
   /** RW5d P2b: cancel a rich build (only it: a quick figure stays). */
@@ -127,6 +149,7 @@ export function useFigures({
   const [pending, setPending] = useState<FigurePending[]>([]);
   const [expandedKey, setExpandedKey] = useState<string | null>(null);
   const [richPending, setRichPending] = useState<FigureRichPendingDto[]>([]);
+  const [followed, setFollowed] = useState<FollowedFigure[]>([]);
   const [manimOptIn, setManimOptIn] = useState<FiguresCtl["manimOptIn"]>(contract?.rich?.manimOptIn ?? null);
   const [optInSpanId, setOptInSpanId] = useState<string | null>(null);
   useEffect(() => { setManimOptIn(contract?.rich?.manimOptIn ?? null); }, [contract?.rich?.manimOptIn]);
@@ -142,6 +165,7 @@ export function useFigures({
     setFigures([]);
     setPending([]);
     setRichPending([]);
+    setFollowed([]);
     setExpandedKey(null);
     if (!enabled || !extractionId) return;
     const mine = generation.current;
@@ -338,12 +362,40 @@ export function useFigures({
   );
 
   const patchPrediction = useCallback((found: FigurePredictionResultDto) => {
-    setFigures((list) => list.map((figure) => figure.figureId !== found.figureId ? figure : {
+    const patch = (figure: FigureViewDto): FigureViewDto => figure.figureId !== found.figureId ? figure : {
       ...figure,
       predictions: figure.predictions.map((prediction) => prediction.index === found.predictionIndex
         ? { ...prediction, answered: found } : prediction),
-    }));
+    };
+    setFigures((list) => list.map(patch));
+    setFollowed((list) => list.map((entry) => ({ ...entry, figure: patch(entry.figure) })));
   }, []);
+
+  const follow = useCallback(
+    async (ref: CorrespondentFigureDto, home: FigureHome, at: string): Promise<boolean> => {
+      if (!enabled || !extractionId || !at || ref.extractionId === extractionId) return false;
+      const mine = generation.current;
+      let found: FigureViewDto | undefined;
+      try {
+        // Its own book's listing, read now: protection and the switches are checked again there.
+        const listed = await api.readerFigures({ extractionId: ref.extractionId });
+        found = (listed?.figures ?? []).find((figure) => figure.figureId === ref.figureId && figure.anchorSpanId === ref.anchorSpanId)
+          ?? (listed?.figures ?? []).find((figure) => figure.figureId === ref.figureId);
+      } catch {
+        return false;
+      }
+      if (generation.current !== mine || !found) return false;
+      if (found.verification !== "verified" && found.verification !== "illustrative") return false;
+      // Shown here, under the passage the learner is reading; a fuller version still
+      // being built stays with its own book (only a ready one comes along).
+      const figure: FigureViewDto = { ...found, anchorSpanId: at,
+        ...(found.fuller !== undefined ? { fuller: found.fuller?.state === "ready" ? found.fuller : null } : {}) };
+      setFollowed((list) => [...list.filter((entry) => entry.figure.figureId !== figure.figureId), { figure, home }]);
+      setExpandedKey(figurePlacementKey(figure));
+      return true;
+    },
+    [enabled, extractionId],
+  );
 
   const predict = useCallback(
     async (figure: FigureViewDto, index: number, answer: string) => {
@@ -367,14 +419,15 @@ export function useFigures({
 
   const under = useCallback(
     (spanId: string | null | undefined) => {
-      if (!spanId) return { figures: [], pending: [], richPending: [] };
+      if (!spanId) return { figures: [], pending: [], richPending: [], followed: [] };
       return {
         figures: figures.filter((figure) => figure.anchorSpanId === spanId),
         pending: pending.filter((item) => item.anchorSpanId === spanId),
         richPending: richPending.filter((line) => line.anchorSpanId === spanId),
+        followed: followed.filter((entry) => entry.figure.anchorSpanId === spanId),
       };
     },
-    [figures, pending, richPending],
+    [figures, pending, richPending, followed],
   );
 
   return useMemo(
@@ -390,6 +443,8 @@ export function useFigures({
       predict,
       explain,
       under,
+      followed,
+      follow,
       richPending,
       cancelRich,
       retryRich,
@@ -398,6 +453,6 @@ export function useFigures({
       answerManimOptIn,
     }),
     [enabled, contract, figures, pending, expandedKey, setExpanded, request, revise, predict, explain, under,
-     richPending, cancelRich, retryRich, manimOptIn, optInSpanId, answerManimOptIn],
+     followed, follow, richPending, cancelRich, retryRich, manimOptIn, optInSpanId, answerManimOptIn],
   );
 }

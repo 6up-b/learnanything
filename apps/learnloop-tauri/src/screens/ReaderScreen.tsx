@@ -31,6 +31,7 @@ import type {
   ReaderPromptContractDto,
   LibraryAskEntry,
   LibraryHitDto,
+  CorrespondentFigureDto,
   CorrespondentSectionDto,
   ProposedItemDto,
   ReaderRenderBlockDto,
@@ -125,7 +126,7 @@ import { SIDE_BY_SIDE_COPY, SIDE_BY_SIDE_SCROLL_KEYS, useSideBySide } from "./re
 import { clampSplit, crumbLabel, readSplit, targetOf as sideBySideTarget, writeSplit } from "./reader/sideBySide";
 import { inSidePane, useSidePane, type PaneCaptureTarget, type SidePane } from "./reader/useSidePane";
 import type { AskAnchor } from "./reader/useReaderInquiry";
-import { AlsoInBooks, type AlsoPeekCrumb } from "./reader/AlsoInBooks";
+import { ALSO_COPY, AlsoInBooks, type AlsoPeekCrumb } from "./reader/AlsoInBooks";
 import { WORKBENCH_COPY, problemTitle } from "./workbench/stepModel";
 import { screenLeavesKey } from "../app/keymap";
 import {
@@ -2696,6 +2697,23 @@ export function ReaderScreen({
     return openSource(card, hit.spanId, { via: "search", jumpReading: hit.extractionId });
   };
   openBesideRef.current = openLibraryHit;
+  // RW5d P4a (figures follow the section): a figure the learner kept in another
+  // book's corresponding section, opened from "also in your books", shows here
+  // under the passage in view (when it is in this section, else the section's
+  // first passage), expanded, its home named. Its own book's listing is read
+  // now (protection and switches checked there); nothing is copied.
+  const openFollowedFigure = (figure: CorrespondentFigureDto, hit: CorrespondentSectionDto) => {
+    if (!render || offline || !currentGuideSection) return;
+    const here = readingSpan && currentGuideSection.spanIds.includes(readingSpan) ? readingSpan : currentGuideSection.startSpanId;
+    void figuresCtl.follow(figure, { sourceTitle: hit.sourceTitle, sectionTitle: hit.title }, here).then((shown) => {
+      if (!shown) {
+        onError(ALSO_COPY.figureGone);
+        return;
+      }
+      logReaderAction("figure_opened", { figure_id: figure.figureId, extraction_id: figure.extractionId });
+      if (here !== readingSpan) peekPassage(here);
+    });
+  };
   // Reader CA5a: compare a section found in another book with the one in view,
   // through the library compare path (an ask anchored on this section, its
   // title the question, both passages pinned) while CA3 is off; with CA3 on,
@@ -3690,7 +3708,8 @@ export function ReaderScreen({
               onPageLayout={setPdfLayout}
               {...(activeCtl.folded.size ? { coveredSpans: activeCtl.folded } : {})}
               {...(figuresCtl.enabled ? {
-                inlineNotes: [...new Set([...figuresCtl.figures.map((f) => f.anchorSpanId), ...figuresCtl.pending.map((p) => p.anchorSpanId)])]
+                inlineNotes: [...new Set([...figuresCtl.figures.map((f) => f.anchorSpanId), ...figuresCtl.pending.map((p) => p.anchorSpanId),
+                  ...figuresCtl.followed.map((entry) => entry.figure.anchorSpanId)])]
                   .filter((spanId): spanId is string => Boolean(spanId))
                   .map((spanId) => ({ spanId, node: <FiguresUnder ctl={figuresCtl} spanId={spanId} /> })),
                 regionSelection: Boolean(contract?.figures?.region),
@@ -4233,6 +4252,8 @@ export function ReaderScreen({
                 onCompare={libraryCtl.settings?.compare ? compareFoundSection : null}
                 // `s` side by side (CA6): the same entry as CA5a's find list's.
                 onSideBySide={sbs.enabled ? (hit) => sbs.open(sideBySideTarget(hit), "also_list") : null}
+                // RW5d P4a: a kept figure of the line's section, shown here (figures follow the section).
+                onOpenFigure={figuresCtl.enabled && !offline ? openFollowedFigure : null}
                 onPeekChange={setAlsoPeek}
                 onAvailableChange={setAlsoAvailable}
                 onCoverageChanged={() => setCoverageRefresh((count) => count + 1)}

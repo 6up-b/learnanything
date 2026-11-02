@@ -6925,6 +6925,22 @@ export interface CorrespondentSectionDto {
   linkedByYou?: boolean;
   kept?: CorrespondentKeptDto[];
   alsoLearningObjectIds?: string[];
+  /** RW5d P4a (figures follow the section): the kept figures anchored in this judged
+   *  section (present only while reader.correspondence.enabled and figures.enabled are
+   *  on, and only when there is one; never on a search hit). */
+  figures?: CorrespondentFigureDto[];
+}
+
+/** RW5d P4a: a kept figure of another book's corresponding section (its home). */
+export interface CorrespondentFigureDto {
+  figureId: string;
+  /** The figure's home: its reading and the passage it sits under there. */
+  extractionId: string;
+  anchorSpanId: string;
+  label: string;
+  kind: string | null;
+  verification: "verified" | "illustrative";
+  createdAt: string;
 }
 
 export interface CorrespondentSourceDto {
