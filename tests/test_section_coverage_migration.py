@@ -12,7 +12,7 @@ from learnloop.db.table_roles import TableRole, tables_for_role
 from tests.test_figure_requests_migration import RW5D_ADDED_OBJECTS, RW5D_ALTERED_TABLES
 from tests.test_session_ownership_migration import PR4_ADDED_OBJECTS, PR4_ALTERED_TABLES
 from tests.test_help_assist_work_md_migration import DR2_ALTERED_TABLES
-from tests.test_help_assist_figures_migration import P3_ALTERED_TABLES
+from tests.test_help_assist_figures_migration import P3_ADDED_OBJECTS, P3_ALTERED_TABLES
 from tests.test_reader_session_digests_migration import RW6B_ADDED_OBJECTS
 from tests.test_deliverable_curriculum_migration import C0B_ADDED_OBJECTS
 from tests.test_learner_notes_migration import C2_ADDED_OBJECTS
@@ -60,7 +60,7 @@ def test_222_adds_one_table_and_alters_nothing(tmp_path):
     assert {name for name in before if before[name] != after.get(name)} == (
         CA2_ALTERED_TABLES | RW5D_ALTERED_TABLES | SUPERSEDED_ALTERED_TABLES | PR4_ALTERED_TABLES | DR2_ALTERED_TABLES | P3_ALTERED_TABLES
     )
-    assert set(after) - set(before) - RW5D_ADDED_OBJECTS - PR4_ADDED_OBJECTS - RW6B_ADDED_OBJECTS - C0B_ADDED_OBJECTS - C2_ADDED_OBJECTS == C0A_ADDED_OBJECTS
+    assert set(after) - set(before) - RW5D_ADDED_OBJECTS - PR4_ADDED_OBJECTS - RW6B_ADDED_OBJECTS - C0B_ADDED_OBJECTS - C2_ADDED_OBJECTS - P3_ADDED_OBJECTS == C0A_ADDED_OBJECTS
 
 
 def test_the_head_fixture_is_at_222_in_rollback_mode():

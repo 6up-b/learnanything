@@ -202,7 +202,7 @@ def test_223_adds_only_the_earlier_opening_column(tmp_path):
     from tests.test_figure_requests_migration import RW5D_ADDED_OBJECTS, RW5D_ALTERED_TABLES
     from tests.test_session_ownership_migration import PR4_ADDED_OBJECTS, PR4_ALTERED_TABLES
     from tests.test_help_assist_work_md_migration import DR2_ALTERED_TABLES
-    from tests.test_help_assist_figures_migration import P3_ALTERED_TABLES
+    from tests.test_help_assist_figures_migration import P3_ADDED_OBJECTS, P3_ALTERED_TABLES
     from tests.test_reader_session_digests_migration import RW6B_ADDED_OBJECTS
 
     through = tmp_path / "through_222"
@@ -226,7 +226,7 @@ def test_223_adds_only_the_earlier_opening_column(tmp_path):
     with upgrade_allowance(UPGRADE_TEST_HELPER):
         assert [migration.version for migration in apply_migrations(database)] == [223, 224, 225, 226, 227, 228, 229, 230, 232]
     after = schema()
-    assert set(after) - RW5D_ADDED_OBJECTS - PR4_ADDED_OBJECTS - RW6B_ADDED_OBJECTS - C0B_ADDED_OBJECTS - C2_ADDED_OBJECTS == set(before)
+    assert set(after) - RW5D_ADDED_OBJECTS - PR4_ADDED_OBJECTS - RW6B_ADDED_OBJECTS - C0B_ADDED_OBJECTS - C2_ADDED_OBJECTS - P3_ADDED_OBJECTS == set(before)
     assert {name for name in before if before[name] != after[name]} == (
         CA2_ALTERED_TABLES | RW5D_ALTERED_TABLES | SUPERSEDED_ALTERED_TABLES | PR4_ALTERED_TABLES | DR2_ALTERED_TABLES | P3_ALTERED_TABLES
     )

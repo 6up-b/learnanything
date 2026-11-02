@@ -37,7 +37,7 @@ from tests.test_learner_claim_application_migration import CLAIM_POINT_ALTERED_T
 from tests.test_figure_requests_migration import RW5D_ADDED_OBJECTS, RW5D_ALTERED_TABLES
 from tests.test_session_ownership_migration import PR4_ADDED_OBJECTS, PR4_ALTERED_TABLES
 from tests.test_help_assist_work_md_migration import DR2_ALTERED_TABLES
-from tests.test_help_assist_figures_migration import P3_ALTERED_TABLES
+from tests.test_help_assist_figures_migration import P3_ADDED_OBJECTS, P3_ALTERED_TABLES
 from tests.test_reader_session_digests_migration import RW6B_ADDED_OBJECTS
 from tests.test_deliverable_curriculum_migration import C0B_ADDED_OBJECTS
 from tests.test_learner_notes_migration import C2_ADDED_OBJECTS
@@ -97,7 +97,7 @@ def _upgrade(tmp_path: Path) -> Path:
     # (ingest_batches.origin_method), RW2d's 219 (its receipt table, workbench_sessions.contract_subject_id) and local retrieval P1's 220 (its three tables).
     assert [migration.version for migration in applied] == [213, 214, 215, 216, 217, 218, 219, 220, 221, 222, 223, 224, 225, 226, 227, 228, 229, 230, 232]
     after = _schema(database)
-    assert set(after) - set(before) - AD23_ADDED_OBJECTS - RW3B_ADDED_OBJECTS - RW5A_ADDED_OBJECTS - RW7A_ADDED_OBJECTS - RW2D_ADDED_OBJECTS - P1_ADDED_OBJECTS - C0A_ADDED_OBJECTS - RW5D_ADDED_OBJECTS - PR4_ADDED_OBJECTS - RW6B_ADDED_OBJECTS - C0B_ADDED_OBJECTS - C2_ADDED_OBJECTS == {name for name in NEW_OBJECTS if not name.startswith("sqlite_autoindex")} | {
+    assert set(after) - set(before) - AD23_ADDED_OBJECTS - RW3B_ADDED_OBJECTS - RW5A_ADDED_OBJECTS - RW7A_ADDED_OBJECTS - RW2D_ADDED_OBJECTS - P1_ADDED_OBJECTS - C0A_ADDED_OBJECTS - RW5D_ADDED_OBJECTS - PR4_ADDED_OBJECTS - RW6B_ADDED_OBJECTS - C0B_ADDED_OBJECTS - C2_ADDED_OBJECTS - P3_ADDED_OBJECTS == {name for name in NEW_OBJECTS if not name.startswith("sqlite_autoindex")} | {
         name for name in after if name.startswith("sqlite_autoindex") and name.split("_autoindex_")[1].rsplit("_", 1)[0]
         in NEW_TABLES}
     changed = {name for name in before if before[name] != after.get(name)} - T1_ALTERED_TABLES - (RW2D_ALTERED_TABLES | CLAIM_POINT_ALTERED_TABLES | PR4_ALTERED_TABLES | DR2_ALTERED_TABLES | P3_ALTERED_TABLES)

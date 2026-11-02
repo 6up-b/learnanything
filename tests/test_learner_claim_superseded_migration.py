@@ -23,7 +23,7 @@ from learnloop.db.migrate import (
 
 from tests.test_session_ownership_migration import PR4_ADDED_OBJECTS, PR4_ALTERED_TABLES
 from tests.test_help_assist_work_md_migration import DR2_ALTERED_TABLES
-from tests.test_help_assist_figures_migration import P3_ALTERED_TABLES
+from tests.test_help_assist_figures_migration import P3_ADDED_OBJECTS, P3_ALTERED_TABLES
 from tests.test_deliverable_curriculum_migration import C0B_ADDED_OBJECTS
 from tests.test_learner_notes_migration import C2_ADDED_OBJECTS
 
@@ -70,7 +70,7 @@ def test_225_adds_the_superseded_by_column_and_nothing_else(tmp_path):
     # Mobile PR-4's 226 (session ownership) follows it on the way to head.
     assert [migration.version for migration in applied] == [225, 226, 227, 228, 229, 230, 232]
     after = _schema(database)
-    assert set(after) - PR4_ADDED_OBJECTS - RW6B_ADDED_OBJECTS - C0B_ADDED_OBJECTS - C2_ADDED_OBJECTS == set(before)
+    assert set(after) - PR4_ADDED_OBJECTS - RW6B_ADDED_OBJECTS - C0B_ADDED_OBJECTS - C2_ADDED_OBJECTS - P3_ADDED_OBJECTS == set(before)
     assert {name for name in before if before[name] != after[name]} == SUPERSEDED_ALTERED_TABLES | PR4_ALTERED_TABLES | DR2_ALTERED_TABLES | P3_ALTERED_TABLES
     with closing(sqlite3.connect(database)) as connection:
         assert [row[1] for row in connection.execute("PRAGMA table_info(learner_claims)")][-1] == "superseded_by"
