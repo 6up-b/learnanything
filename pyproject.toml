@@ -487,6 +487,12 @@ forbidden_modules = [
 # through learnloop.source_retrieval.note_gaps (read-only). text_gaps is
 # a namespace package grimp does not graph, so tests/test_notes_never_read.py pins that
 # exception statically (the only importer of note_gaps outside the sidecar and the CLI).
+ignore_imports = [
+    # Curriculum C5's declared exception (spec §10.2, §12 C5): the gap pipeline's adapter reads a LINKED
+    # note through note_gaps (read-only, opt-in). Graphed since text_gaps became a regular package
+    # (followups batch 5, I); tests/test_notes_never_read.py pins it as the only such importer.
+    "learnloop.diagnosis.text_gaps.sources -> learnloop.source_retrieval.note_gaps",
+]
 allow_indirect_imports = false
 
 [[tool.importlinter.contracts]]
@@ -764,6 +770,12 @@ source_modules = [
 ]
 # RW2b: the workbench's help package too (checks, the ladder's Reader side).
 forbidden_modules = ["learnloop.reader.workbench", "learnloop.db.stores.workbench", "learnloop.workbench"]
+ignore_imports = [
+    # Curriculum C5's declared note door (see notes-are-never-a-source-or-evidence): the chains this
+    # contract would see run through note_gaps -> note_links (the Reader's notes code), never a gap
+    # write into evidence (text_gaps writes tier-2 gap rows; nothing there is evidence, G13).
+    "learnloop.diagnosis.text_gaps.sources -> learnloop.source_retrieval.note_gaps",
+]
 allow_indirect_imports = false
 
 [[tool.importlinter.contracts]]
@@ -847,6 +859,12 @@ forbidden_modules = [
     # router card's reader activity (routing only) are never evidence inputs.
     "learnloop.instructional.reader_digest",
     "learnloop.daily_plan.router_reader",
+]
+ignore_imports = [
+    # Curriculum C5's declared note door (see notes-are-never-a-source-or-evidence): the chains this
+    # contract would see run through note_gaps -> note_links (the Reader's notes code), never a gap
+    # write into evidence (text_gaps writes tier-2 gap rows; nothing there is evidence, G13).
+    "learnloop.diagnosis.text_gaps.sources -> learnloop.source_retrieval.note_gaps",
 ]
 allow_indirect_imports = false
 
@@ -1011,6 +1029,17 @@ type = "acyclic_siblings"
 ancestors = ["learnloop"]
 depth = 0
 ignore_imports = [
+    # Curriculum C5's declared note door (graphed since text_gaps became a regular package,
+    # followups batch 5, I): text_gaps.sources reads a linked note through note_gaps
+    # (function-local imports, opt-in); see notes-are-never-a-source-or-evidence.
+    "learnloop.diagnosis.text_gaps.sources -> learnloop.source_retrieval.note_gaps",
+    # Existing edges INTO text_gaps that the namespace package hid until followups batch 5 (I)
+    # made it a regular package; frozen as they stood (no new edge): the explicit-goal LO path
+    # reuses the text-gap write, protection reads its reading provenance (function-local), and
+    # active reading queues a formative answer's gap job.
+    "learnloop.goals.goal_lo -> learnloop.diagnosis.text_gaps.actions",
+    "learnloop.learner_protection -> learnloop.diagnosis.text_gaps.provenance",
+    "learnloop.reader.active_reading -> learnloop.diagnosis.text_gaps.jobs",
     # Composition-root registration of the field's sole DERIVED-table owner.
     "learnloop.substrate.rebuild_orchestrator -> learnloop.field.outcomes",
     # Reader RW5d P5 (spec_reader_show_me_figures_v1 §10b): figures/prefetch.py is a

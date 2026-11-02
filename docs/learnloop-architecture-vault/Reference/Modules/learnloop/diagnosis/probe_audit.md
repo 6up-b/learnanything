@@ -7,11 +7,11 @@ version: "1.0.0"
 source_path: "src/learnloop/diagnosis/probe_audit.py"
 source_paths:
   - "src/learnloop/diagnosis/probe_audit.py"
-source_commit: "b322ef2e9b5cebc241b612e4963a5aaf1a37f99a"
-source_commit_timestamp: "2026-08-20T18:04:29-04:00"
+source_commit: "171ae5a5ed15b7627add8b2e512d0c0e91c5f3da"
+source_commit_timestamp: "2026-10-13T09:11:59-04:00"
 source_worktree_state: "clean"
 generated: true
-generated_at: "2026-09-23"
+generated_at: "2026-11-02"
 package: "learnloop.diagnosis"
 layer: "domain"
 concepts:
@@ -50,13 +50,13 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/diagnosis/probe_audit.py](../../../../../../src/learnloop/diagnosis/probe_audit.py) |
-| Source lines | 722 |
+| Source lines | 727 |
 | Owning package | [[Reference/Modules/learnloop/diagnosis/_package|learnloop.diagnosis]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `b322ef2e9b5cebc241b612e4963a5aaf1a37f99a` |
-| Commit timestamp | `2026-08-20T18:04:29-04:00` |
+| Source commit | `171ae5a5ed15b7627add8b2e512d0c0e91c5f3da` |
+| Commit timestamp | `2026-10-13T09:11:59-04:00` |
 
 ## Public API
 
@@ -64,15 +64,15 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 - `time_calibration_report(repository: Repository) -> dict[str, Any]` ([source](../../../../../../src/learnloop/diagnosis/probe_audit.py), line 127) — Expected instrument seconds vs observed served→submitted seconds.
 - `cross_surface_replication_report(vault: LoadedVault, repository: Repository) -> dict[str, Any]` ([source](../../../../../../src/learnloop/diagnosis/probe_audit.py), line 171) — Whether early diagnoses replicate on later observations from a different surface family within the same episode.
 - `downstream_outcome_report(repository: Repository) -> dict[str, Any]` ([source](../../../../../../src/learnloop/diagnosis/probe_audit.py), line 224) — Post-episode success proxy: attempt success on the LO before vs after completion.
-- `replay_determinism_report(vault: LoadedVault, repository: Repository) -> dict[str, Any]` ([source](../../../../../../src/learnloop/diagnosis/probe_audit.py), line 274) — Pilot integrity check: replay is deterministic and stored observation rows are internally consistent (entropies match their posterior JSON, the realized gain matches the entropy delta).
-- `record_probe_regrade_check(repository: Repository, *, attempt_id: str, regrade_rubric_score: int | None, max_points: int=4, regrade_error_types: list[str] | None=None, attempt_type: str='diagnostic_probe', clock: Clock | None=None) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/diagnosis/probe_audit.py), line 396) — Classify a regraded response through the observation's own persisted card snapshot and record the (original, regrade) outcome pair.
-- `run_probe_regrade_checks(vault: LoadedVault, repository: Repository, client: Any, *, limit: int=10, clock: Clock | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/diagnosis/probe_audit.py), line 445) — Re-grade a sample of probe observations and record agreement (§7.6).
-- `grading_confusion_report(repository: Repository) -> dict[str, Any]` ([source](../../../../../../src/learnloop/diagnosis/probe_audit.py), line 523) — Regrade agreement and the (original, regrade) confusion matrix per family version and grader version (§7.6).
-- `calibration_evidence_report(repository: Repository) -> dict[str, Any]` ([source](../../../../../../src/learnloop/diagnosis/probe_audit.py), line 556) — Family calibration rows grouped by evidence source.
-- `shadow_policy_report(repository: Repository) -> dict[str, Any]` ([source](../../../../../../src/learnloop/diagnosis/probe_audit.py), line 586) — Compare the executed selection against logged shadow rankings.
-- `planner_shadow_report(repository: Repository) -> dict[str, Any]` ([source](../../../../../../src/learnloop/diagnosis/probe_audit.py), line 632) — §5.9 routine-planner shadow comparison (§13.3, log-only).
-- `shadow_intent_report(repository: Repository) -> dict[str, Any]` ([source](../../../../../../src/learnloop/diagnosis/probe_audit.py), line 669) — §11.2 intent-first session-composition shadow comparison (log-only).
-- `pilot_report(vault: LoadedVault, repository: Repository) -> dict[str, Any]` ([source](../../../../../../src/learnloop/diagnosis/probe_audit.py), line 702) — The full fixture-vault pilot audit (Checkpoint 4).
+- `replay_determinism_report(vault: LoadedVault, repository: Repository) -> dict[str, Any]` ([source](../../../../../../src/learnloop/diagnosis/probe_audit.py), line 279) — Pilot integrity check: replay is deterministic and stored observation rows are internally consistent (entropies match their posterior JSON, the realized gain matches the entropy delta).
+- `record_probe_regrade_check(repository: Repository, *, attempt_id: str, regrade_rubric_score: int | None, max_points: int=4, regrade_error_types: list[str] | None=None, attempt_type: str='diagnostic_probe', clock: Clock | None=None) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/diagnosis/probe_audit.py), line 401) — Classify a regraded response through the observation's own persisted card snapshot and record the (original, regrade) outcome pair.
+- `run_probe_regrade_checks(vault: LoadedVault, repository: Repository, client: Any, *, limit: int=10, clock: Clock | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/diagnosis/probe_audit.py), line 450) — Re-grade a sample of probe observations and record agreement (§7.6).
+- `grading_confusion_report(repository: Repository) -> dict[str, Any]` ([source](../../../../../../src/learnloop/diagnosis/probe_audit.py), line 528) — Regrade agreement and the (original, regrade) confusion matrix per family version and grader version (§7.6).
+- `calibration_evidence_report(repository: Repository) -> dict[str, Any]` ([source](../../../../../../src/learnloop/diagnosis/probe_audit.py), line 561) — Family calibration rows grouped by evidence source.
+- `shadow_policy_report(repository: Repository) -> dict[str, Any]` ([source](../../../../../../src/learnloop/diagnosis/probe_audit.py), line 591) — Compare the executed selection against logged shadow rankings.
+- `planner_shadow_report(repository: Repository) -> dict[str, Any]` ([source](../../../../../../src/learnloop/diagnosis/probe_audit.py), line 637) — §5.9 routine-planner shadow comparison (§13.3, log-only).
+- `shadow_intent_report(repository: Repository) -> dict[str, Any]` ([source](../../../../../../src/learnloop/diagnosis/probe_audit.py), line 674) — §11.2 intent-first session-composition shadow comparison (log-only).
+- `pilot_report(vault: LoadedVault, repository: Repository) -> dict[str, Any]` ([source](../../../../../../src/learnloop/diagnosis/probe_audit.py), line 707) — The full fixture-vault pilot audit (Checkpoint 4).
 
 ## Internal implementation anchors
 
@@ -95,11 +95,12 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 
 ### LearnLoop dependencies
 
-- [[Reference/Modules/learnloop/attempts/grading|learnloop.attempts.grading]] — imports `build_grading_context`, `request_grading_proposal`, `validate_codex_grading_proposal`; calls `build_grading_context`, `request_grading_proposal`, `validate_codex_grading_proposal`
+- [[Reference/Modules/learnloop/attempts/grading|learnloop.attempts.grading]] — imports `build_grading_context`, `request_vault_grading_proposal`, `validate_codex_grading_proposal`; calls `build_grading_context`, `request_vault_grading_proposal`, `validate_codex_grading_proposal`
 - [[Reference/Modules/learnloop/clock|learnloop.clock]] — imports `Clock`, `parse_utc`; calls `parse_utc`
 - [[Reference/Modules/learnloop/db/repositories|learnloop.db.repositories]] — imports `ProbeEpisodeRecord`, `Repository`
 - [[Reference/Modules/learnloop/diagnosis/probe_episodes|learnloop.diagnosis.probe_episodes]] — imports `_bayes_update`, `_observation_likelihoods_from_row`, `episode_hypothesis_set`, `episode_posterior`; calls `_bayes_update`, `_observation_likelihoods_from_row`, `episode_hypothesis_set`, `episode_posterior`
 - [[Reference/Modules/learnloop/diagnosis/probe_families|learnloop.diagnosis.probe_families]] — imports `CompiledInstrument`, `classify_outcome`; calls `classify_outcome`
+- [[Reference/Modules/learnloop/held_grades|learnloop.held_grades]] — imports `held_attempt_ids`; calls `held_attempt_ids`
 - [[Reference/Modules/learnloop/vault/models|learnloop.vault.models]] — imports `LoadedVault`
 
 ### Platform and third-party dependencies
@@ -122,6 +123,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 - [tests/test_characterization_probe_regrade.py](../../../../../../tests/test_characterization_probe_regrade.py) — direct import
   - `test_regrade_records_original_vs_regrade_grader_outputs`
+- [tests/test_held_grade_evidence.py](../../../../../../tests/test_held_grade_evidence.py) — direct import
+  - `test_review_f3_diagnostic_observations_held_by_a_regrade_qualify_nothing`
 - [tests/test_intent_planner.py](../../../../../../tests/test_intent_planner.py) — direct import
   - `test_intent_planner_is_shadow_only`
 - [tests/test_probe_audit.py](../../../../../../tests/test_probe_audit.py) — direct import

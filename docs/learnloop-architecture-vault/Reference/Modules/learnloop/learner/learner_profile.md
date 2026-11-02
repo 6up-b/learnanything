@@ -7,11 +7,11 @@ version: "1.0.0"
 source_path: "src/learnloop/learner/learner_profile.py"
 source_paths:
   - "src/learnloop/learner/learner_profile.py"
-source_commit: "b322ef2e9b5cebc241b612e4963a5aaf1a37f99a"
-source_commit_timestamp: "2026-08-20T18:04:29-04:00"
+source_commit: "39509ee107cc154fdfa9e66347a45b40bd0b99ca"
+source_commit_timestamp: "2026-10-27T10:01:35-04:00"
 source_worktree_state: "clean"
 generated: true
-generated_at: "2026-09-23"
+generated_at: "2026-11-02"
 package: "learnloop.learner"
 layer: "domain"
 concepts:
@@ -50,23 +50,23 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/learner/learner_profile.py](../../../../../../src/learnloop/learner/learner_profile.py) |
-| Source lines | 82 |
+| Source lines | 91 |
 | Owning package | [[Reference/Modules/learnloop/learner/_package|learnloop.learner]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `b322ef2e9b5cebc241b612e4963a5aaf1a37f99a` |
-| Commit timestamp | `2026-08-20T18:04:29-04:00` |
+| Source commit | `39509ee107cc154fdfa9e66347a45b40bd0b99ca` |
+| Commit timestamp | `2026-10-27T10:01:35-04:00` |
 
 ## Public API
 
-- `read_learner_profile(paths: VaultPaths) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/learner/learner_profile.py), line 27)
-- `write_learner_profile(paths: VaultPaths, *, starting_level: str, level_note: str | None=None, clock: Clock | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/learner/learner_profile.py), line 42)
-- `seed_global_learner_claim(repository, starting_level: str, *, clock: Clock | None=None) -> str` ([source](../../../../../../src/learnloop/learner/learner_profile.py), line 61) — Replace the init-wizard global claim with one for ``starting_level``.
+- `read_learner_profile(paths: VaultPaths) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/learner/learner_profile.py), line 30)
+- `write_learner_profile(paths: VaultPaths, *, starting_level: str, level_note: str | None=None, clock: Clock | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/learner/learner_profile.py), line 45)
+- `seed_global_learner_claim(repository, starting_level: str, *, keep_replaced: bool=False, clock: Clock | None=None) -> str` ([source](../../../../../../src/learnloop/learner/learner_profile.py), line 64) — Replace the init-wizard global claim with one for ``starting_level``.
 
 ### Module constants
 
-- `LEARNER_PROFILE_SCHEMA_VERSION` ([src/learnloop/learner/learner_profile.py](../../../../../../src/learnloop/learner/learner_profile.py), line 24)
+- `LEARNER_PROFILE_SCHEMA_VERSION` ([src/learnloop/learner/learner_profile.py](../../../../../../src/learnloop/learner/learner_profile.py), line 27)
 
 ## Internal implementation anchors
 
@@ -109,20 +109,9 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
-No test imports this module directly. These tests exercise a direct production consumer:
-
-- [tests/test_init.py](../../../../../../tests/test_init.py) — imports consumer [[Reference/Modules/learnloop/bootstrap|learnloop.bootstrap]]
-- [tests/test_quick_add.py](../../../../../../tests/test_quick_add.py) — imports consumer [[Reference/Modules/learnloop/content/pipeline/quick_add|learnloop.content.pipeline.quick_add]]
-- [tests/test_exam_readiness_and_conflict.py](../../../../../../tests/test_exam_readiness_and_conflict.py) — imports consumer [[Reference/Modules/learnloop/content/synthesis/source_set_synthesis|learnloop.content.synthesis.source_set_synthesis]]
-- [tests/test_facet_mint_gate.py](../../../../../../tests/test_facet_mint_gate.py) — imports consumer [[Reference/Modules/learnloop/content/synthesis/source_set_synthesis|learnloop.content.synthesis.source_set_synthesis]]
-- [tests/test_ingest_instrument_gates.py](../../../../../../tests/test_ingest_instrument_gates.py) — imports consumer [[Reference/Modules/learnloop/content/synthesis/source_set_synthesis|learnloop.content.synthesis.source_set_synthesis]]
-- [tests/test_ingest_runner.py](../../../../../../tests/test_ingest_runner.py) — imports consumer [[Reference/Modules/learnloop/content/synthesis/source_set_synthesis|learnloop.content.synthesis.source_set_synthesis]]
-- [tests/test_ingestion_checkpoints.py](../../../../../../tests/test_ingestion_checkpoints.py) — imports consumer [[Reference/Modules/learnloop/content/synthesis/source_set_synthesis|learnloop.content.synthesis.source_set_synthesis]]
-- [tests/test_inventory_merge_parallel.py](../../../../../../tests/test_inventory_merge_parallel.py) — imports consumer [[Reference/Modules/learnloop/content/synthesis/source_set_synthesis|learnloop.content.synthesis.source_set_synthesis]]
-- [tests/test_maintenance_feed.py](../../../../../../tests/test_maintenance_feed.py) — imports consumer [[Reference/Modules/learnloop/content/synthesis/source_set_synthesis|learnloop.content.synthesis.source_set_synthesis]]
-- [tests/test_model_usage_report.py](../../../../../../tests/test_model_usage_report.py) — imports consumer [[Reference/Modules/learnloop/content/synthesis/source_set_synthesis|learnloop.content.synthesis.source_set_synthesis]]
-- [tests/test_model_work_checkpoints.py](../../../../../../tests/test_model_work_checkpoints.py) — imports consumer [[Reference/Modules/learnloop/content/synthesis/source_set_synthesis|learnloop.content.synthesis.source_set_synthesis]]
-- [tests/test_practice_leakage.py](../../../../../../tests/test_practice_leakage.py) — imports consumer [[Reference/Modules/learnloop/content/synthesis/source_set_synthesis|learnloop.content.synthesis.source_set_synthesis]]
+- [tests/test_learner_report_superseded.py](../../../../../../tests/test_learner_report_superseded.py) — direct import
+  - `test_a_global_claim_made_after_materialization_rebuilds_to_live`
+  - `test_a_new_starting_level_keeps_the_old_one_for_an_lo_first_practised_under_it`
 
 ## Modification guidance
 

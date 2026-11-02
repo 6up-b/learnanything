@@ -7,11 +7,11 @@ version: "1.0.0"
 source_path: "src/learnloop/ai/providers/openrouter.py"
 source_paths:
   - "src/learnloop/ai/providers/openrouter.py"
-source_commit: "b322ef2e9b5cebc241b612e4963a5aaf1a37f99a"
-source_commit_timestamp: "2026-08-20T18:04:29-04:00"
+source_commit: "debd86c0d24a1e4837b20b76aad6a47a8720f8b2"
+source_commit_timestamp: "2026-10-13T00:18:31-04:00"
 source_worktree_state: "clean"
 generated: true
-generated_at: "2026-09-23"
+generated_at: "2026-11-02"
 package: "learnloop.ai.providers"
 layer: "infrastructure"
 concepts:
@@ -51,13 +51,13 @@ The authoritative system-level explanation remains in [[AI Architecture]], [[Arc
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/ai/providers/openrouter.py](../../../../../../../src/learnloop/ai/providers/openrouter.py) |
-| Source lines | 37 |
+| Source lines | 43 |
 | Owning package | [[Reference/Modules/learnloop/ai/providers/_package|learnloop.ai.providers]] |
 | Architecture layer | `infrastructure` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `b322ef2e9b5cebc241b612e4963a5aaf1a37f99a` |
-| Commit timestamp | `2026-08-20T18:04:29-04:00` |
+| Source commit | `debd86c0d24a1e4837b20b76aad6a47a8720f8b2` |
+| Commit timestamp | `2026-10-13T00:18:31-04:00` |
 
 ## Public API
 
@@ -86,7 +86,7 @@ No private top-level function or class definition is declared in this file.
 
 ### LearnLoop dependencies
 
-- [[Reference/Modules/learnloop/ai/providers/openai_chat|learnloop.ai.providers.openai_chat]] — imports `OpenAIChatProviderClient`
+- [[Reference/Modules/learnloop/ai/providers/openai_chat|learnloop.ai.providers.openai_chat]] — imports `OpenAIChatProviderClient`, `_request_options`
 
 ### Platform and third-party dependencies
 
@@ -117,6 +117,12 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_openrouter_reasoning_effort_maps_to_unified_body`
   - `test_openrouter_supports_exercise_authoring`
   - `test_openrouter_thinking_disabled_sends_no_reasoning`
+- [tests/test_output_budget.py](../../../../../../../tests/test_output_budget.py) — direct import
+- [tests/test_practice_index_paid.py](../../../../../../../tests/test_practice_index_paid.py) — direct import
+- [tests/test_t6_followup_composition.py](../../../../../../../tests/test_t6_followup_composition.py) — direct import
+  - `test_pf_caller_prices_a_truncation_retry_at_its_doubled_output_budget`
+- [tests/test_t6_followup_review.py](../../../../../../../tests/test_t6_followup_review.py) — direct import
+- [tests/test_ux_phase1_review_fixes.py](../../../../../../../tests/test_ux_phase1_review_fixes.py) — direct import
 
 ## Modification guidance
 

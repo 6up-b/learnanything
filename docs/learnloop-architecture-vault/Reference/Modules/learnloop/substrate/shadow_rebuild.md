@@ -7,11 +7,11 @@ version: "1.0.0"
 source_path: "src/learnloop/substrate/shadow_rebuild.py"
 source_paths:
   - "src/learnloop/substrate/shadow_rebuild.py"
-source_commit: "workspace/uncommitted @ HEAD df970cd96725b112447395846bb53a0164a5853c"
-source_commit_timestamp: "2026-09-23T20:46:40-04:00"
-source_worktree_state: "modified"
+source_commit: "c7b71c1e22fd49c848c0b984ea39c871de184756"
+source_commit_timestamp: "2026-09-23T18:50:00-04:00"
+source_worktree_state: "clean"
 generated: true
-generated_at: "2026-09-23"
+generated_at: "2026-11-02"
 package: "learnloop.substrate"
 layer: "domain"
 concepts:
@@ -54,9 +54,9 @@ The authoritative system-level explanation remains in [[Learning System]], [[Sta
 | Owning package | [[Reference/Modules/learnloop/substrate/_package|learnloop.substrate]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
-| Worktree state | `modified` |
-| Source commit | `workspace/uncommitted @ HEAD df970cd96725b112447395846bb53a0164a5853c` |
-| Commit timestamp | `2026-09-23T20:46:40-04:00` |
+| Worktree state | `clean` |
+| Source commit | `c7b71c1e22fd49c848c0b984ea39c871de184756` |
+| Commit timestamp | `2026-09-23T18:50:00-04:00` |
 
 ## Public API
 
@@ -130,11 +130,44 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
+- [tests/test_approach_map_replay.py](../../../../../../tests/test_approach_map_replay.py) — direct import
+  - `test_rebuild_and_replay_call_no_model_and_never_read_approach_maps`
+- [tests/test_batch3_landing.py](../../../../../../tests/test_batch3_landing.py) — direct import
+- [tests/test_cold_retry_reschedule.py](../../../../../../tests/test_cold_retry_reschedule.py) — direct import
+  - `test_a_shadow_rebuild_is_zero_with_the_fresh_retries_present`
+- [tests/test_curriculum_c0b_landing.py](../../../../../../tests/test_curriculum_c0b_landing.py) — direct import
+  - `test_iii_a_shadow_rebuild_is_zero_with_the_checks_present`
+- [tests/test_curriculum_c1_plan_follows_path.py](../../../../../../tests/test_curriculum_c1_plan_follows_path.py) — direct import
+  - `test_a_shadow_rebuild_is_zero_and_never_reads_a_deliverable_path`
+- [tests/test_forecast_receipts.py](../../../../../../tests/test_forecast_receipts.py) — direct import
+  - `test_replay_neither_reads_nor_writes_forecast_receipts`
+- [tests/test_help_fold_attach_successor.py](../../../../../../tests/test_help_fold_attach_successor.py) — direct import
+  - `test_a_rebuild_changes_no_attempt_and_a_shadow_rebuild_is_zero`
+- [tests/test_hint_telemetry.py](../../../../../../tests/test_hint_telemetry.py) — direct import
+  - `test_rebuild_with_help_assists_populated_calls_no_model_and_never_reads_it`
 - [tests/test_model_grade_lane.py](../../../../../../tests/test_model_grade_lane.py) — direct import
   - `test_rebuild_moves_only_learning_objects_with_model_graded_attempts`
+- [tests/test_reader_digest_narrative.py](../../../../../../tests/test_reader_digest_narrative.py) — direct import
+  - `test_rebuild_shadow_is_zero_with_a_narrative_present`
+- [tests/test_reader_followups.py](../../../../../../tests/test_reader_followups.py) — direct import
+  - `test_rebuild_shadow_is_zero_with_follow_ups_present`
+- [tests/test_reader_followups_successor.py](../../../../../../tests/test_reader_followups_successor.py) — direct import
+  - `test_replay_plans_nothing_and_a_shadow_rebuild_is_zero`
+- [tests/test_rebuild_equivalence.py](../../../../../../tests/test_rebuild_equivalence.py) — direct import
+- [tests/test_reference_gate_imports.py](../../../../../../tests/test_reference_gate_imports.py) — direct import
+  - `test_a_shadow_rebuild_at_the_tag_shows_zero_deltas`
+  - `test_the_projection_reads_the_recorded_status_on_replay`
+  - `test_the_regraded_grade_is_gated_live_and_on_rebuild`
+- [tests/test_regrade_contract_successor.py](../../../../../../tests/test_regrade_contract_successor.py) — direct import
+  - `test_a_held_unrecorded_grade_is_no_evidence`
+- [tests/test_regrade_contract_upgrade.py](../../../../../../tests/test_regrade_contract_upgrade.py) — direct import
+  - `test_an_upgrade_interrupted_after_publication_is_resumed`
+  - `test_the_upgrade_shadow_predicts_the_upgrade_exactly`
 - [tests/test_shadow_rebuild.py](../../../../../../tests/test_shadow_rebuild.py) — direct import
   - `test_shadow_rebuild_rejects_unknown_override_without_touching_live_db`
   - `test_shadow_rebuild_reports_semantic_diff_and_proves_live_db_isolation`
+- [tests/test_teacher_te1_successor.py](../../../../../../tests/test_teacher_te1_successor.py) — direct import
+  - `test_a_shadow_rebuild_after_a_lesson_has_zero_projection_deltas`
 
 ## Modification guidance
 

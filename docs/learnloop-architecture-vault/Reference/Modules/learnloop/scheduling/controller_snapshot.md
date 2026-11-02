@@ -11,7 +11,7 @@ source_commit: "b322ef2e9b5cebc241b612e4963a5aaf1a37f99a"
 source_commit_timestamp: "2026-08-20T18:04:29-04:00"
 source_worktree_state: "clean"
 generated: true
-generated_at: "2026-09-23"
+generated_at: "2026-11-02"
 package: "learnloop.scheduling"
 layer: "domain"
 concepts:
@@ -94,6 +94,7 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 - [[Reference/Modules/learnloop/scheduling/constraint_engine|learnloop.scheduling.constraint_engine]] — imports `Candidate`, `ControllerSnapshot`
 - [[Reference/Modules/learnloop/scheduling/controller_cutover|learnloop.scheduling.controller_cutover]] — imports `module`; statically calls `build_snapshot`
 - [[Reference/Modules/learnloop/scheduling/dispersion|learnloop.scheduling.dispersion]] — imports `Candidate`, `ControllerSnapshot`
+- [[Reference/Modules/learnloop/scheduling/frame_constraints|learnloop.scheduling.frame_constraints]] — imports `module`; statically calls `Candidate`, `ControllerSnapshot`, `build_snapshot`
 - [[Reference/Modules/learnloop/scheduling/interleaving|learnloop.scheduling.interleaving]] — imports `Candidate`, `ControllerSnapshot`
 - [[Reference/Modules/learnloop/scheduling/reentry_adapter|learnloop.scheduling.reentry_adapter]] — imports `module`; statically calls `build_snapshot`
 - [[Reference/Modules/learnloop/scheduling/short_session|learnloop.scheduling.short_session]] — imports `module`
@@ -126,7 +127,7 @@ Use this module in context through:
 - [[Start a Learning Cycle]]
 - [[Continue a Learning Cycle]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/scheduling/constraint_engine|learnloop.scheduling.constraint_engine]], [[Reference/Modules/learnloop/scheduling/controller_cutover|learnloop.scheduling.controller_cutover]], [[Reference/Modules/learnloop/scheduling/dispersion|learnloop.scheduling.dispersion]], [[Reference/Modules/learnloop/scheduling/interleaving|learnloop.scheduling.interleaving]], [[Reference/Modules/learnloop/scheduling/reentry_adapter|learnloop.scheduling.reentry_adapter]] and 3 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/scheduling/constraint_engine|learnloop.scheduling.constraint_engine]], [[Reference/Modules/learnloop/scheduling/controller_cutover|learnloop.scheduling.controller_cutover]], [[Reference/Modules/learnloop/scheduling/dispersion|learnloop.scheduling.dispersion]], [[Reference/Modules/learnloop/scheduling/frame_constraints|learnloop.scheduling.frame_constraints]], [[Reference/Modules/learnloop/scheduling/interleaving|learnloop.scheduling.interleaving]] and 4 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
@@ -162,6 +163,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_practice_block_is_not_dispersed`
   - `test_same_facet_fresh_evidence_not_back_to_back`
   - `test_unstaged_block_leaves_interleaving_inert`
+- [tests/test_evsi_staged_binding.py](../../../../../../tests/test_evsi_staged_binding.py) — direct import
 - [tests/test_instrument_servability_journeys.py](../../../../../../tests/test_instrument_servability_journeys.py) — direct import
   - `test_the_staged_controller_admits_both_instruments`
 - [tests/test_reentry_short_session.py](../../../../../../tests/test_reentry_short_session.py) — direct import
@@ -169,6 +171,9 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_short_session_retry_after_commit_is_idempotent`
   - `test_short_session_stops_honestly_when_nothing_fits`
   - `test_three_minute_activity_completes_a_session`
+- [tests/test_router_g1_feasibility.py](../../../../../../tests/test_router_g1_feasibility.py) — direct import
+  - `test_a_snapshot_failure_fails_closed_only_where_a_constraint_cannot_be_established`
+- [tests/test_router_ladder_parity.py](../../../../../../tests/test_router_ladder_parity.py) — direct import
 - [tests/test_shadow_components.py](../../../../../../tests/test_shadow_components.py) — direct import
 - [tests/test_staged_policy.py](../../../../../../tests/test_staged_policy.py) — direct import
   - `test_high_shadow_score_cannot_resurrect_infeasible_candidate`
@@ -187,6 +192,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_retention_not_near_limit_when_future_due`
   - `test_robust_value_positive_with_in_progress_episode`
   - `test_robust_value_zero_without_open_episode`
+- [tests/test_voi_forecasts.py](../../../../../../tests/test_voi_forecasts.py) — direct import
 
 ## Modification guidance
 

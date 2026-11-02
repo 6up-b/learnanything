@@ -7,11 +7,11 @@ version: "1.0.0"
 source_path: "src/learnloop/ops/startup.py"
 source_paths:
   - "src/learnloop/ops/startup.py"
-source_commit: "b322ef2e9b5cebc241b612e4963a5aaf1a37f99a"
-source_commit_timestamp: "2026-08-20T18:04:29-04:00"
+source_commit: "42ab0bc90d513d76d7b0eea692d52330b51a8385"
+source_commit_timestamp: "2026-10-23T10:49:09-04:00"
 source_worktree_state: "clean"
 generated: true
-generated_at: "2026-09-23"
+generated_at: "2026-11-02"
 package: "learnloop.ops"
 layer: "domain"
 concepts:
@@ -50,19 +50,19 @@ The authoritative system-level explanation remains in [[State and Persistence]],
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/ops/startup.py](../../../../../../src/learnloop/ops/startup.py) |
-| Source lines | 95 |
+| Source lines | 110 |
 | Owning package | [[Reference/Modules/learnloop/ops/_package|learnloop.ops]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `b322ef2e9b5cebc241b612e4963a5aaf1a37f99a` |
-| Commit timestamp | `2026-08-20T18:04:29-04:00` |
+| Source commit | `42ab0bc90d513d76d7b0eea692d52330b51a8385` |
+| Commit timestamp | `2026-10-23T10:49:09-04:00` |
 
 ## Public API
 
-- `class StartupMaintenanceResult` ([source](../../../../../../src/learnloop/ops/startup.py), line 16)
-  - `as_dict(self) -> dict[str, object]` (line 23; public)
-- `run_startup_maintenance(vault: LoadedVault, repository: Repository, *, clock: Clock | None=None) -> StartupMaintenanceResult` ([source](../../../../../../src/learnloop/ops/startup.py), line 32)
+- `class StartupMaintenanceResult` ([source](../../../../../../src/learnloop/ops/startup.py), line 23)
+  - `as_dict(self) -> dict[str, object]` (line 30; public)
+- `run_startup_maintenance(vault: LoadedVault, repository: Repository, *, clock: Clock | None=None) -> StartupMaintenanceResult` ([source](../../../../../../src/learnloop/ops/startup.py), line 39)
 
 ## Internal implementation anchors
 
@@ -81,6 +81,7 @@ No private top-level function or class definition is declared in this file.
 
 ### LearnLoop dependencies
 
+- [[Reference/Modules/learnloop/ai/plan_fallback|learnloop.ai.plan_fallback]] — imports `quiet`; calls `quiet`
 - [[Reference/Modules/learnloop/ai/providers/codex|learnloop.ai.providers.codex]] — imports `CodexRuntimeReport`
 - [[Reference/Modules/learnloop/ai/routing|learnloop.ai.routing]] — imports `ready_client_for_task`, `runtime_for_provider`; calls `ready_client_for_task`, `runtime_for_provider`
 - [[Reference/Modules/learnloop/ai/runtime|learnloop.ai.runtime]] — imports `AIRuntimeReport`
@@ -89,11 +90,12 @@ No private top-level function or class definition is declared in this file.
 - [[Reference/Modules/learnloop/clock|learnloop.clock]] — imports `Clock`
 - [[Reference/Modules/learnloop/config/__init__|learnloop.config]] — imports `CODEX_PROVIDER_NAMES`
 - [[Reference/Modules/learnloop/db/repositories|learnloop.db.repositories]] — imports `Repository`
+- [[Reference/Modules/learnloop/projects/capture|learnloop.projects.capture]] — imports `auto_sweep`; calls `auto_sweep`
 - [[Reference/Modules/learnloop/vault/models|learnloop.vault.models]] — imports `LoadedVault`
 
 ### Platform and third-party dependencies
 
-- Standard library: `__future__`, `dataclasses`
+- Standard library: `__future__`, `dataclasses`, `typing`
 - Third party: none imported directly
 
 ## Larger workflow participation
@@ -110,6 +112,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 - [tests/test_deferred_regrade.py](../../../../../../tests/test_deferred_regrade.py) — direct import
   - `test_startup_maintenance_regrades_pending_self_grade_when_codex_ready`
+- [tests/test_project_hooks.py](../../../../../../tests/test_project_hooks.py) — direct import
+  - `test_startup_maintenance_runs_the_sweep_without_creating_anything`
 - [tests/test_provider_resolution_parity.py](../../../../../../tests/test_provider_resolution_parity.py) — direct import
   - `test_config_matrix_executes_all_six_production_resolution_paths`
 

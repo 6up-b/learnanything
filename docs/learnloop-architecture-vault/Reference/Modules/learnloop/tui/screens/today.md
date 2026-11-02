@@ -7,11 +7,11 @@ version: "1.0.0"
 source_path: "src/learnloop/tui/screens/today.py"
 source_paths:
   - "src/learnloop/tui/screens/today.py"
-source_commit: "b322ef2e9b5cebc241b612e4963a5aaf1a37f99a"
-source_commit_timestamp: "2026-08-20T18:04:29-04:00"
+source_commit: "2d7c4948399efdc96c3c60d7379da37bc90a9e3d"
+source_commit_timestamp: "2026-10-14T20:18:37-04:00"
 source_worktree_state: "clean"
 generated: true
-generated_at: "2026-09-23"
+generated_at: "2026-11-02"
 package: "learnloop.tui.screens"
 layer: "adapter"
 concepts:
@@ -50,56 +50,56 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/tui/screens/today.py](../../../../../../../src/learnloop/tui/screens/today.py) |
-| Source lines | 412 |
+| Source lines | 422 |
 | Owning package | [[Reference/Modules/learnloop/tui/screens/_package|learnloop.tui.screens]] |
 | Architecture layer | `adapter` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `b322ef2e9b5cebc241b612e4963a5aaf1a37f99a` |
-| Commit timestamp | `2026-08-20T18:04:29-04:00` |
+| Source commit | `2d7c4948399efdc96c3c60d7379da37bc90a9e3d` |
+| Commit timestamp | `2026-10-14T20:18:37-04:00` |
 
 ## Public API
 
-- `class PracticeCard(TextStatic)` ([source](../../../../../../../src/learnloop/tui/screens/today.py), line 32) — A single queue item rendered as a bordered card (one Content block).
-  - `__init__(self, content: Content, index: int, **kwargs) -> None` (line 45; internal)
-  - `on_click(self) -> None` (line 49; public)
-- `class TodayScreen(Screen)` ([source](../../../../../../../src/learnloop/tui/screens/today.py), line 53)
-  - `__init__(self, state: TuiState)` (line 71; internal)
-  - `compose(self) -> ComposeResult` (line 79; public)
-  - `on_mount(self) -> None` (line 96; public)
-  - `on_screen_resume(self) -> None` (line 99; public)
-  - `action_refresh(self) -> None` (line 105; public)
-  - `action_move(self, delta: int) -> None` (line 110; public)
-  - `action_open_selected(self) -> None` (line 116; public)
-  - `action_quick_open(self, n: int) -> None` (line 122; public)
-  - `async open_practice(self)` (line 129; public)
-  - `_practice_screen(self, item)` (line 137; internal)
-  - `on_practice_card_selected(self, event: PracticeCard.Selected) -> None` (line 142; public)
-  - `_render_queue(self) -> None` (line 149; internal)
-  - `_refresh_static_panels(self) -> None` (line 189; internal)
-  - `_grouped(self) -> list[tuple[str, list[ScheduledItem]]]` (line 195; internal) — Presentation grouping over the flat priority queue (scheduler order is unchanged).
-  - `_mark_focused(self) -> None` (line 222; internal)
-  - `_selected_item(self) -> ScheduledItem | None` (line 226; internal)
-  - `_header_content(self) -> Content` (line 232; internal)
-  - `_status_content(self) -> Content` (line 241; internal)
-  - `_summary_content(self) -> Content` (line 255; internal)
-  - `_banner_content(self) -> Content` (line 262; internal)
-  - `_why_order_content(self) -> Content` (line 277; internal)
-  - `_card_content(self, item: ScheduledItem, index: int, inserted: bool) -> Content` (line 295; internal)
-  - `_section_counts(self) -> tuple[int, int, int]` (line 331; internal)
-  - `_followup_item(self) -> tuple[object, ScheduledItem] | None` (line 346; internal)
-  - `_budget(self) -> int` (line 352; internal)
-  - `_subject(self, practice_item) -> str` (line 359; internal)
-  - `_mastery(self, learning_object_id: str) -> float` (line 363; internal)
-  - `_due_offset(self, practice_item_id: str) -> str` (line 369; internal)
-  - `_primary_goal_title(self) -> str` (line 375; internal)
-  - `_ai_status(self) -> tuple[str, bool]` (line 381; internal)
+- `class PracticeCard(TextStatic)` ([source](../../../../../../../src/learnloop/tui/screens/today.py), line 33) — A single queue item rendered as a bordered card (one Content block).
+  - `__init__(self, content: Content, index: int, **kwargs) -> None` (line 46; internal)
+  - `on_click(self) -> None` (line 50; public)
+- `class TodayScreen(Screen)` ([source](../../../../../../../src/learnloop/tui/screens/today.py), line 54)
+  - `__init__(self, state: TuiState)` (line 72; internal)
+  - `compose(self) -> ComposeResult` (line 83; public)
+  - `on_mount(self) -> None` (line 100; public)
+  - `on_screen_resume(self) -> None` (line 103; public)
+  - `action_refresh(self) -> None` (line 113; public)
+  - `action_move(self, delta: int) -> None` (line 118; public)
+  - `action_open_selected(self) -> None` (line 124; public)
+  - `action_quick_open(self, n: int) -> None` (line 130; public)
+  - `async open_practice(self)` (line 137; public)
+  - `_practice_screen(self, item)` (line 145; internal)
+  - `on_practice_card_selected(self, event: PracticeCard.Selected) -> None` (line 150; public)
+  - `_render_queue(self) -> None` (line 157; internal)
+  - `_refresh_static_panels(self) -> None` (line 197; internal)
+  - `_grouped(self) -> list[tuple[str, list[ScheduledItem]]]` (line 203; internal) — Presentation grouping over the flat priority queue (scheduler order is unchanged).
+  - `_mark_focused(self) -> None` (line 230; internal)
+  - `_selected_item(self) -> ScheduledItem | None` (line 234; internal)
+  - `_header_content(self) -> Content` (line 240; internal)
+  - `_status_content(self) -> Content` (line 249; internal)
+  - `_summary_content(self) -> Content` (line 263; internal)
+  - `_banner_content(self) -> Content` (line 272; internal)
+  - `_why_order_content(self) -> Content` (line 287; internal)
+  - `_card_content(self, item: ScheduledItem, index: int, inserted: bool) -> Content` (line 305; internal)
+  - `_section_counts(self) -> tuple[int, int, int]` (line 343; internal)
+  - `_followup_item(self) -> tuple[object, ScheduledItem] | None` (line 358; internal)
+  - `_budget(self) -> int | None` (line 364; internal)
+  - `_subject(self, practice_item) -> str` (line 369; internal)
+  - `_mastery(self, learning_object_id: str) -> float` (line 373; internal)
+  - `_due_offset(self, practice_item_id: str) -> str` (line 379; internal)
+  - `_primary_goal_title(self) -> str` (line 385; internal)
+  - `_ai_status(self) -> tuple[str, bool]` (line 391; internal)
 
 ## Internal implementation anchors
 
-- `_is_followup(components: dict[str, float]) -> bool` ([source](../../../../../../../src/learnloop/tui/screens/today.py), line 25)
-- `_clip(text: str, limit: int) -> str` ([source](../../../../../../../src/learnloop/tui/screens/today.py), line 389)
-- `_relative(iso: str, now: datetime) -> str` ([source](../../../../../../../src/learnloop/tui/screens/today.py), line 394)
+- `_is_followup(components: dict[str, float]) -> bool` ([source](../../../../../../../src/learnloop/tui/screens/today.py), line 26)
+- `_clip(text: str, limit: int) -> str` ([source](../../../../../../../src/learnloop/tui/screens/today.py), line 399)
+- `_relative(iso: str, now: datetime) -> str` ([source](../../../../../../../src/learnloop/tui/screens/today.py), line 404)
 
 ## Who imports or calls it
 
@@ -118,6 +118,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop/tui/screens/practice|learnloop.tui.screens.practice]] — imports `PracticeScreen`; calls `PracticeScreen`
 - [[Reference/Modules/learnloop/tui/state|learnloop.tui.state]] — imports `TuiState`
 - [[Reference/Modules/learnloop/tui/widgets|learnloop.tui.widgets]] — imports `KeyBar`, `TextStatic`, `block_bar`, `mastery_token`, `mode_pill_color`, `pill`; calls `KeyBar`, `TextStatic`, `block_bar`, `mastery_token`, `mode_pill_color`, `pill`
+- [[Reference/Modules/learnloop/vault/required_method|learnloop.vault.required_method]] — imports `fit_presented_prompt`; calls `fit_presented_prompt`
 
 ### Platform and third-party dependencies
 
@@ -137,6 +138,10 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
+- [tests/test_daily_loop_start_minutes.py](../../../../../../../tests/test_daily_loop_start_minutes.py) — direct import
+  - `test_tui_esc_keeps_the_list_and_an_ungraded_next_returns_to_it`
+  - `test_tui_next_opens_the_head_of_the_live_queue`
+  - `test_tui_start_asks_for_minutes_only_and_starts_on_the_remembered_minutes`
 - [tests/test_e2e_tui.py](../../../../../../../tests/test_e2e_tui.py) — direct import
   - `test_tui_end_to_end_self_graded_practice`
 - [tests/test_tui_app.py](../../../../../../../tests/test_tui_app.py) — direct import

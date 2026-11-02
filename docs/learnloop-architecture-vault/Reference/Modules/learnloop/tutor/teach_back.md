@@ -7,11 +7,11 @@ version: "1.0.0"
 source_path: "src/learnloop/tutor/teach_back.py"
 source_paths:
   - "src/learnloop/tutor/teach_back.py"
-source_commit: "6881ed330e2ef2a2f50d51d6f98d68d0845a8c59"
-source_commit_timestamp: "2026-09-23T15:55:52-04:00"
+source_commit: "0c445c246cee05db2245abe7ac4dd298d033da07"
+source_commit_timestamp: "2026-10-15T21:08:59-04:00"
 source_worktree_state: "clean"
 generated: true
-generated_at: "2026-09-23"
+generated_at: "2026-11-02"
 package: "learnloop.tutor"
 layer: "domain"
 concepts:
@@ -50,13 +50,13 @@ The authoritative system-level explanation remains in [[Learning System]], [[AI 
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/tutor/teach_back.py](../../../../../../src/learnloop/tutor/teach_back.py) |
-| Source lines | 1362 |
+| Source lines | 1409 |
 | Owning package | [[Reference/Modules/learnloop/tutor/_package|learnloop.tutor]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `6881ed330e2ef2a2f50d51d6f98d68d0845a8c59` |
-| Commit timestamp | `2026-09-23T15:55:52-04:00` |
+| Source commit | `0c445c246cee05db2245abe7ac4dd298d033da07` |
+| Commit timestamp | `2026-10-15T21:08:59-04:00` |
 
 ## Public API
 
@@ -78,10 +78,12 @@ The authoritative system-level explanation remains in [[Learning System]], [[AI 
 - `asked_criterion_ids(state: TeachBackState) -> list[str]` ([source](../../../../../../src/learnloop/tutor/teach_back.py), line 453) — Criteria whose question was asked AND answered, in ask order.
 - `render_transcript_md(state: TeachBackState, item: PracticeItem) -> str` ([source](../../../../../../src/learnloop/tutor/teach_back.py), line 473) — Render the conversation to Markdown (the graded ``learner_answer_md``).
 - `finish_teach_back(vault: LoadedVault, repository: Repository, state: TeachBackState, client: Any, *, session_id: str | None=None, latency_seconds: int | None=None, conversation_id: str | None=None, grading_source: str='ai', runtime: Any | None=None, entry_surface: str='unspecified', evidence_origin: str='unknown', awaits_completion: bool=True, clock: Clock | None=None) -> TeachBackFinishResult` ([source](../../../../../../src/learnloop/tutor/teach_back.py), line 504) — Grade the whole transcript as ONE ``teach_back`` attempt.
-- `core_criteria(rubric: Rubric) -> list[RubricCriterion]` ([source](../../../../../../src/learnloop/tutor/teach_back.py), line 719) — Core-tier criteria of a rubric (the fallback graded set).
-- `restrict_grading_context_to_criteria(context: Any, item: PracticeItem, rubric: Rubric, criteria: list[RubricCriterion]) -> Any` ([source](../../../../../../src/learnloop/tutor/teach_back.py), line 725) — Restrict a grading context's rubric + facet weights to ``criteria``.
-- `asked_rubric_score(rubric: Rubric, asked_criteria: list[RubricCriterion], criterion_points: Mapping[str, float], fatal_errors: list[str]) -> int` ([source](../../../../../../src/learnloop/tutor/teach_back.py), line 764) — Rubric score normalized over the asked criteria's points.
-- `ensure_teach_back_item(root, vault: LoadedVault, repository: Repository, learning_object_id: str, *, source_practice_item_id: str | None=None, authoring_client: Any | None=None, quest_sentence: str | None=None, clock: Clock | None=None) -> tuple[str, bool]` ([source](../../../../../../src/learnloop/tutor/teach_back.py), line 797) — Find or mint a learner-requested teach-back card.
+- `core_criteria(rubric: Rubric) -> list[RubricCriterion]` ([source](../../../../../../src/learnloop/tutor/teach_back.py), line 722) — Core-tier criteria of a rubric (the fallback graded set).
+- `restrict_grading_context_to_criteria(context: Any, item: PracticeItem, rubric: Rubric, criteria: list[RubricCriterion]) -> Any` ([source](../../../../../../src/learnloop/tutor/teach_back.py), line 728) — Restrict a grading context's rubric + facet weights to ``criteria``.
+- `asked_rubric_score(rubric: Rubric, asked_criteria: list[RubricCriterion], criterion_points: Mapping[str, float], fatal_errors: list[str]) -> int` ([source](../../../../../../src/learnloop/tutor/teach_back.py), line 767) — Rubric score normalized over the asked criteria's points.
+- `ensure_teach_back_item(root, vault: LoadedVault, repository: Repository, learning_object_id: str, *, source_practice_item_id: str | None=None, authoring_client: Any | None=None, quest_sentence: str | None=None, clock: Clock | None=None) -> tuple[str, bool]` ([source](../../../../../../src/learnloop/tutor/teach_back.py), line 800) — Find or mint a learner-requested teach-back card.
+- `teach_back_authoring_context(vault: LoadedVault, source_item: PracticeItem, learning_object, *, quest_sentence: str | None=None) -> tuple[TeachBackAuthoringContext, list[dict[str, Any]]]` ([source](../../../../../../src/learnloop/tutor/teach_back.py), line 1045) — The teach-back authoring context exactly as the tutor builds it (and its source criteria).
+- `validate_teach_back_authoring(authored: TeachBackAuthoring, *, source_criteria: list[dict[str, Any]], source_item: PracticeItem, learning_object, quest_sentence: str | None) -> None` ([source](../../../../../../src/learnloop/tutor/teach_back.py), line 1061) — The tutor's own check of an AI authoring draft; raises :class:`TeachBackError`.
 
 ### Module constants
 
@@ -98,16 +100,16 @@ The authoritative system-level explanation remains in [[Learning System]], [[AI 
 
 - `_sanitize_ai_markdown(value: str) -> str` ([source](../../../../../../src/learnloop/tutor/teach_back.py), line 132)
 - `_criterion_tier(criterion: RubricCriterion) -> str` ([source](../../../../../../src/learnloop/tutor/teach_back.py), line 147)
-- `_grade_and_apply_transcript(vault: LoadedVault, repository: Repository, client: Any, *, item: PracticeItem, rubric: Rubric, asked: list[str], asked_criteria: list[RubricCriterion], context: Any, attempt_id: str, draft: AttemptDraft, conversation_id: str | None, grading_source: str, grading_run_id: str, clock: Clock | None) -> tuple[AttemptResult, list[str]]` ([source](../../../../../../src/learnloop/tutor/teach_back.py), line 625) — Request the grade for the restricted context and record the attempt.
-- `_teach_back_rubric(vault: LoadedVault, item: PracticeItem) -> Rubric` ([source](../../../../../../src/learnloop/tutor/teach_back.py), line 790)
-- `_active_quest_for_learning_object(vault: LoadedVault, repository: Repository, learning_object_id: str) -> tuple[str | None, str | None, str | None]` ([source](../../../../../../src/learnloop/tutor/teach_back.py), line 947) — Highest-priority relevant active goal with a resolvable learner quest.
-- `_teach_back_authoring_context(vault: LoadedVault, source_item: PracticeItem, learning_object, *, quest_sentence: str | None) -> tuple[TeachBackAuthoringContext, list[dict[str, Any]]]` ([source](../../../../../../src/learnloop/tutor/teach_back.py), line 976)
-- `_run_teach_back_authoring(client: Any | None, context: TeachBackAuthoringContext, *, source_criteria: list[dict[str, Any]], allowed_facet_ids: set[str], learning_object_title: str) -> TeachBackAuthoring | None` ([source](../../../../../../src/learnloop/tutor/teach_back.py), line 1039)
-- `_validate_teach_back_authoring(authored: TeachBackAuthoring, *, source_criteria: list[dict[str, Any]], allowed_facet_ids: set[str], quest_sentence: str | None, learning_object_title: str) -> None` ([source](../../../../../../src/learnloop/tutor/teach_back.py), line 1066)
-- `_fallback_teach_back_authoring(source_item: PracticeItem, source_criteria: list[dict[str, Any]], *, quest_sentence: str | None) -> TeachBackAuthoring` ([source](../../../../../../src/learnloop/tutor/teach_back.py), line 1127) — Conservative source-specific fallback: useful wording, zero false facet links.
-- `_compiled_teach_back_criteria(authored: TeachBackAuthoring) -> tuple[list[dict[str, Any]], dict[str, dict[str, float]]]` ([source](../../../../../../src/learnloop/tutor/teach_back.py), line 1185)
-- `_ensure_lo_wide_teach_back_item(root, vault: LoadedVault, repository: Repository, learning_object_id: str, *, clock: Clock | None) -> tuple[str, bool]` ([source](../../../../../../src/learnloop/tutor/teach_back.py), line 1229) — Compatibility path for direct LO requests with no source item.
-- `_facet_ranks(vault: LoadedVault, repository: Repository, item: PracticeItem, *, clock: Clock | None) -> dict[str, tuple[int, float, str]]` ([source](../../../../../../src/learnloop/tutor/teach_back.py), line 1334) — Uncertainty rank per item facet, from the diagnostic read path.
+- `_grade_and_apply_transcript(vault: LoadedVault, repository: Repository, client: Any, *, item: PracticeItem, rubric: Rubric, asked: list[str], asked_criteria: list[RubricCriterion], context: Any, attempt_id: str, draft: AttemptDraft, conversation_id: str | None, grading_source: str, grading_run_id: str, clock: Clock | None) -> tuple[AttemptResult, list[str]]` ([source](../../../../../../src/learnloop/tutor/teach_back.py), line 624) — Request the grade for the restricted context and record the attempt.
+- `_teach_back_rubric(vault: LoadedVault, item: PracticeItem) -> Rubric` ([source](../../../../../../src/learnloop/tutor/teach_back.py), line 793)
+- `_active_quest_for_learning_object(vault: LoadedVault, repository: Repository, learning_object_id: str) -> tuple[str | None, str | None, str | None]` ([source](../../../../../../src/learnloop/tutor/teach_back.py), line 950) — Highest-priority relevant active goal with a resolvable learner quest.
+- `_teach_back_authoring_context(vault: LoadedVault, source_item: PracticeItem, learning_object, *, quest_sentence: str | None) -> tuple[TeachBackAuthoringContext, list[dict[str, Any]]]` ([source](../../../../../../src/learnloop/tutor/teach_back.py), line 979)
+- `_run_teach_back_authoring(client: Any | None, context: TeachBackAuthoringContext, *, source_criteria: list[dict[str, Any]], allowed_facet_ids: set[str], learning_object_title: str) -> TeachBackAuthoring | None` ([source](../../../../../../src/learnloop/tutor/teach_back.py), line 1086)
+- `_validate_teach_back_authoring(authored: TeachBackAuthoring, *, source_criteria: list[dict[str, Any]], allowed_facet_ids: set[str], quest_sentence: str | None, learning_object_title: str) -> None` ([source](../../../../../../src/learnloop/tutor/teach_back.py), line 1113)
+- `_fallback_teach_back_authoring(source_item: PracticeItem, source_criteria: list[dict[str, Any]], *, quest_sentence: str | None) -> TeachBackAuthoring` ([source](../../../../../../src/learnloop/tutor/teach_back.py), line 1174) — Conservative source-specific fallback: useful wording, zero false facet links.
+- `_compiled_teach_back_criteria(authored: TeachBackAuthoring) -> tuple[list[dict[str, Any]], dict[str, dict[str, float]]]` ([source](../../../../../../src/learnloop/tutor/teach_back.py), line 1232)
+- `_ensure_lo_wide_teach_back_item(root, vault: LoadedVault, repository: Repository, learning_object_id: str, *, clock: Clock | None) -> tuple[str, bool]` ([source](../../../../../../src/learnloop/tutor/teach_back.py), line 1276) — Compatibility path for direct LO requests with no source item.
+- `_facet_ranks(vault: LoadedVault, repository: Repository, item: PracticeItem, *, clock: Clock | None) -> dict[str, tuple[int, float, str]]` ([source](../../../../../../src/learnloop/tutor/teach_back.py), line 1381) — Uncertainty rank per item facet, from the diagnostic read path.
 
 ## Who imports or calls it
 
@@ -115,6 +117,7 @@ The authoritative system-level explanation remains in [[Learning System]], [[AI 
 > “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
 
 - [[Reference/Modules/learnloop/attempts/regrade|learnloop.attempts.regrade]] — imports `TEACH_BACK_ATTEMPT_TYPE`, `asked_rubric_score`, `core_criteria`, `restrict_grading_context_to_criteria`; statically calls `asked_rubric_score`, `core_criteria`, `restrict_grading_context_to_criteria`
+- [[Reference/Modules/learnloop/cli/ai_compare|learnloop.cli.ai_compare]] — imports `TeachBackError`, `request_teach_back_authoring`, `teach_back_authoring_context`, `validate_teach_back_authoring`; statically calls `request_teach_back_authoring`, `teach_back_authoring_context`, `validate_teach_back_authoring`
 - [[Reference/Modules/learnloop/content/authoring/practice_generation|learnloop.content.authoring.practice_generation]] — imports `TEACH_BACK_PRACTICE_MODE`
 - [[Reference/Modules/learnloop/sim/runner|learnloop.sim.runner]] — imports `TEACH_BACK_ATTEMPT_TYPE`, `TEACH_BACK_PRACTICE_MODE`, `begin_teach_back`, `finish_teach_back`, `next_question`, `record_answer`; statically calls `begin_teach_back`, `finish_teach_back`, `next_question`, `record_answer`
 - [[Reference/Modules/learnloop_sidecar/handlers/teach_back|learnloop_sidecar.handlers.teach_back]] — imports `TEACH_BACK_PRACTICE_MODE`, `TeachBackError`, `TeachBackState`, `asked_criterion_ids`, `begin_teach_back`, `ensure_teach_back_item`, `finish_teach_back`, `next_question`, `plan_followups`, `record_answer`, `render_transcript_md`; statically calls `TeachBackError`, `TeachBackState`, `asked_criterion_ids`, `begin_teach_back`, `ensure_teach_back_item`, `finish_teach_back`, `next_question`, `plan_followups`, `record_answer`, `render_transcript_md`
@@ -126,8 +129,8 @@ The authoritative system-level explanation remains in [[Learning System]], [[AI 
 
 - [[Reference/Modules/learnloop/ai/runs|learnloop.ai.runs]] — imports `finish_agent_run`; calls `finish_agent_run`
 - [[Reference/Modules/learnloop/ai/transport|learnloop.ai.transport]] — imports `OperationClient`, `execute_structured_operation`; calls `execute_structured_operation`
-- [[Reference/Modules/learnloop/attempts/attempts|learnloop.attempts.attempts]] — imports `ApplyAttemptInput`, `AttemptDraft`, `AttemptResult`, `AttemptValidationError`, `GRADING_PROMPT_VERSION`, `GradeAttribution`, `ResolvedGrade`, `agent_run_provider_fields`, `apply_attempt`; calls `ApplyAttemptInput`, `AttemptDraft`, `AttemptValidationError`, `GradeAttribution`, `ResolvedGrade`, `agent_run_provider_fields`, `apply_attempt`
-- [[Reference/Modules/learnloop/attempts/grading|learnloop.attempts.grading]] — imports `GradingValidationError`, `build_grading_context`, `grading_context_hash`, `request_grading_proposal`, `resolved_rubric`, `validate_codex_grading_proposal`; calls `build_grading_context`, `grading_context_hash`, `request_grading_proposal`, `resolved_rubric`, `validate_codex_grading_proposal`
+- [[Reference/Modules/learnloop/attempts/attempts|learnloop.attempts.attempts]] — imports `ApplyAttemptInput`, `AttemptDraft`, `AttemptResult`, `AttemptValidationError`, `GradeAttribution`, `ResolvedGrade`, `agent_run_provider_fields`, `apply_attempt`; calls `ApplyAttemptInput`, `AttemptDraft`, `AttemptValidationError`, `GradeAttribution`, `ResolvedGrade`, `agent_run_provider_fields`, `apply_attempt`
+- [[Reference/Modules/learnloop/attempts/grading|learnloop.attempts.grading]] — imports `GradingValidationError`, `build_grading_context`, `request_vault_grading_proposal`, `resolved_rubric`, `validate_codex_grading_proposal`, `vault_grading_calibration_identity`, `vault_grading_run_identity`; calls `build_grading_context`, `request_vault_grading_proposal`, `resolved_rubric`, `validate_codex_grading_proposal`, `vault_grading_calibration_identity`, `vault_grading_run_identity`
 - [[Reference/Modules/learnloop/clock|learnloop.clock]] — imports `Clock`, `utc_now_iso`; calls `utc_now_iso`
 - [[Reference/Modules/learnloop/config/__init__|learnloop.config]] — imports `LearnLoopConfig`
 - [[Reference/Modules/learnloop/db/repositories|learnloop.db.repositories]] — imports `Repository`
@@ -138,6 +141,7 @@ The authoritative system-level explanation remains in [[Learning System]], [[AI 
 - [[Reference/Modules/learnloop/learner/recall_coverage|learnloop.learner.recall_coverage]] — imports `criterion_facet_weights_for_item`; calls `criterion_facet_weights_for_item`
 - [[Reference/Modules/learnloop/tutor/ai_contracts|learnloop.tutor.ai_contracts]] — imports `TeachBackAuthoring`, `TeachBackAuthoringContext`, `TeachBackCriterionDraft`, `TeachBackQuestion`, `TeachBackQuestionContext`, `teach_back_authoring_prompt`, `teach_back_question_prompt`; calls `TeachBackAuthoring`, `TeachBackAuthoringContext`, `TeachBackCriterionDraft`, `TeachBackQuestionContext`, `teach_back_authoring_prompt`, `teach_back_question_prompt`
 - [[Reference/Modules/learnloop/vault/models|learnloop.vault.models]] — imports `LoadedVault`, `PracticeItem`, `Rubric`, `RubricCriterion`
+- [[Reference/Modules/learnloop/vault/required_method|learnloop.vault.required_method]] — imports `presented_prompt`; calls `presented_prompt`
 - [[Reference/Modules/learnloop/vault/writer|learnloop.vault.writer]] — imports `upsert_practice_item`; calls `upsert_practice_item`
 
 ### Platform and third-party dependencies
@@ -151,7 +155,7 @@ Use this module in context through:
 
 - [[Tutor and Teach-Back Workflow]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/attempts/regrade|learnloop.attempts.regrade]], [[Reference/Modules/learnloop/content/authoring/practice_generation|learnloop.content.authoring.practice_generation]], [[Reference/Modules/learnloop/sim/runner|learnloop.sim.runner]], [[Reference/Modules/learnloop_sidecar/handlers/teach_back|learnloop_sidecar.handlers.teach_back]], [[Reference/Modules/learnloop_sidecar/handlers/tutor_qa|learnloop_sidecar.handlers.tutor_qa]].
+Static participation evidence comes from [[Reference/Modules/learnloop/attempts/regrade|learnloop.attempts.regrade]], [[Reference/Modules/learnloop/cli/ai_compare|learnloop.cli.ai_compare]], [[Reference/Modules/learnloop/content/authoring/practice_generation|learnloop.content.authoring.practice_generation]], [[Reference/Modules/learnloop/sim/runner|learnloop.sim.runner]], [[Reference/Modules/learnloop_sidecar/handlers/teach_back|learnloop_sidecar.handlers.teach_back]] and 1 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
@@ -159,8 +163,12 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 - [tests/test_codex_output_schema.py](../../../../../../tests/test_codex_output_schema.py) — direct import
   - `test_sdk_teach_back_authoring_passes_source_and_quest_to_prompt`
+- [tests/test_required_method_round3_review.py](../../../../../../tests/test_required_method_round3_review.py) — direct import
+  - `test_f4_the_teach_back_author_reads_the_task_as_it_was_set`
 - [tests/test_structured_transport_parity.py](../../../../../../tests/test_structured_transport_parity.py) — direct import
 - [tests/test_teach_back.py](../../../../../../tests/test_teach_back.py) — direct import
+  - `test_a_teach_back_grade_is_calibrated_and_replayed_under_its_graders_identity`
+  - `test_a_teach_back_regraded_blind_keeps_the_blind_identity_through_rebuilds`
   - `test_ai_question_control_sequences_are_removed_from_live_and_restored_state`
   - `test_ensure_teach_back_item_authors_from_exact_source_and_active_quest`
   - `test_ensure_teach_back_item_mints_transfer_criterion`

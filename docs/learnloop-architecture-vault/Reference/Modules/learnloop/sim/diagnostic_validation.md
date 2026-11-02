@@ -7,11 +7,11 @@ version: "1.0.0"
 source_path: "src/learnloop/sim/diagnostic_validation.py"
 source_paths:
   - "src/learnloop/sim/diagnostic_validation.py"
-source_commit: "e60a0e7483883c54f90a66010ede37deb0b11513"
-source_commit_timestamp: "2026-09-23T12:27:35-04:00"
+source_commit: "efc53a86c469ed562dc4cc1d950629151b840423"
+source_commit_timestamp: "2026-10-17T02:09:17-04:00"
 source_worktree_state: "clean"
 generated: true
-generated_at: "2026-09-23"
+generated_at: "2026-11-02"
 package: "learnloop.sim"
 layer: "simulation"
 concepts:
@@ -49,43 +49,43 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/sim/diagnostic_validation.py](../../../../../../src/learnloop/sim/diagnostic_validation.py) |
-| Source lines | 485 |
+| Source lines | 498 |
 | Owning package | [[Reference/Modules/learnloop/sim/_package|learnloop.sim]] |
 | Architecture layer | `simulation` |
 | Refactor status | `EVALUATION` |
 | Worktree state | `clean` |
-| Source commit | `e60a0e7483883c54f90a66010ede37deb0b11513` |
-| Commit timestamp | `2026-09-23T12:27:35-04:00` |
+| Source commit | `efc53a86c469ed562dc4cc1d950629151b840423` |
+| Commit timestamp | `2026-10-17T02:09:17-04:00` |
 
 > [!note] Evaluation-only authority
 > This module computes shadow, audit, or offline evidence. Its outputs do not directly choose learner-facing actions unless a governed promotion path says otherwise.
 
 ## Public API
 
-- `class PlantedResponse` ([source](../../../../../../src/learnloop/sim/diagnostic_validation.py), line 94)
-- `planted_response(planted: str, instrument: CompiledInstrument, rng: random.Random) -> PlantedResponse` ([source](../../../../../../src/learnloop/sim/diagnostic_validation.py), line 118) — Behavioral response of one planted student to one instrument.
-- `class EpisodeValidationResult` ([source](../../../../../../src/learnloop/sim/diagnostic_validation.py), line 179)
-  - `as_dict(self) -> dict[str, Any]` (line 194; public)
-- `class ValidationReport` ([source](../../../../../../src/learnloop/sim/diagnostic_validation.py), line 213)
-  - `by_planted(self) -> dict[str, dict[str, Any]]` (line 216; public)
-  - `as_dict(self) -> dict[str, Any]` (line 232; public)
-  - `passes(self, *, label_accuracy_threshold: float, action_accuracy_threshold: float) -> bool` (line 244; public) — Checkpoint 4 entry gate: every planted type classified at or above threshold within the budget, with matching instructional actions.
-- `run_probe_validation(source_vault: Path, workdir: Path, *, planted_types: tuple[str, ...]=PLANTED_TYPES, seeds: tuple[int, ...]=(11, 12, 13), learning_object_id: str | None=None, claim_level: float=0.7, config_overrides: Mapping[str, Any] | None=None) -> ValidationReport` ([source](../../../../../../src/learnloop/sim/diagnostic_validation.py), line 274) — Run the planted-type episode validation against copies of one vault.
+- `class PlantedResponse` ([source](../../../../../../src/learnloop/sim/diagnostic_validation.py), line 96)
+- `planted_response(planted: str, instrument: CompiledInstrument, rng: random.Random) -> PlantedResponse` ([source](../../../../../../src/learnloop/sim/diagnostic_validation.py), line 120) — Behavioral response of one planted student to one instrument.
+- `class EpisodeValidationResult` ([source](../../../../../../src/learnloop/sim/diagnostic_validation.py), line 181)
+  - `as_dict(self) -> dict[str, Any]` (line 196; public)
+- `class ValidationReport` ([source](../../../../../../src/learnloop/sim/diagnostic_validation.py), line 215)
+  - `by_planted(self) -> dict[str, dict[str, Any]]` (line 218; public)
+  - `as_dict(self) -> dict[str, Any]` (line 234; public)
+  - `passes(self, *, label_accuracy_threshold: float, action_accuracy_threshold: float) -> bool` (line 246; public) — Checkpoint 4 entry gate: every planted type classified at or above threshold within the budget, with matching instructional actions.
+- `run_probe_validation(source_vault: Path, workdir: Path, *, planted_types: tuple[str, ...]=PLANTED_TYPES, seeds: tuple[int, ...]=(11, 12, 13), learning_object_id: str | None=None, claim_level: float=0.7, config_overrides: Mapping[str, Any] | None=None) -> ValidationReport` ([source](../../../../../../src/learnloop/sim/diagnostic_validation.py), line 276) — Run the planted-type episode validation against copies of one vault.
 
 ### Module constants
 
-- `VALIDATION_START` ([src/learnloop/sim/diagnostic_validation.py](../../../../../../src/learnloop/sim/diagnostic_validation.py), line 58)
-- `PLANTED_TYPES` ([src/learnloop/sim/diagnostic_validation.py](../../../../../../src/learnloop/sim/diagnostic_validation.py), line 60)
-- `_CORRECT_OUTCOMES` ([src/learnloop/sim/diagnostic_validation.py](../../../../../../src/learnloop/sim/diagnostic_validation.py), line 68)
-- `_WEAK_OUTCOMES` ([src/learnloop/sim/diagnostic_validation.py](../../../../../../src/learnloop/sim/diagnostic_validation.py), line 80)
+- `VALIDATION_START` ([src/learnloop/sim/diagnostic_validation.py](../../../../../../src/learnloop/sim/diagnostic_validation.py), line 60)
+- `PLANTED_TYPES` ([src/learnloop/sim/diagnostic_validation.py](../../../../../../src/learnloop/sim/diagnostic_validation.py), line 62)
+- `_CORRECT_OUTCOMES` ([src/learnloop/sim/diagnostic_validation.py](../../../../../../src/learnloop/sim/diagnostic_validation.py), line 70)
+- `_WEAK_OUTCOMES` ([src/learnloop/sim/diagnostic_validation.py](../../../../../../src/learnloop/sim/diagnostic_validation.py), line 82)
 
 ## Internal implementation anchors
 
-- `_effective_slot(planted: str, instrument: CompiledInstrument) -> str` ([source](../../../../../../src/learnloop/sim/diagnostic_validation.py), line 100)
-- `_expected_label(planted: str, diagnosed: str | None) -> bool` ([source](../../../../../../src/learnloop/sim/diagnostic_validation.py), line 256)
-- `_action_for_label(label: str | None) -> str | None` ([source](../../../../../../src/learnloop/sim/diagnostic_validation.py), line 264)
-- `_run_one_episode(vault_root: Path, *, planted: str, seed: int, learning_object_id: str | None, claim_level: float, config_overrides: Mapping[str, Any] | None) -> EpisodeValidationResult | None` ([source](../../../../../../src/learnloop/sim/diagnostic_validation.py), line 311)
-- `_submit_response(vault, repository: Repository, practice_item_id: str, presentation_id: str, response: PlantedResponse, *, clock: FrozenClock) -> None` ([source](../../../../../../src/learnloop/sim/diagnostic_validation.py), line 424)
+- `_effective_slot(planted: str, instrument: CompiledInstrument) -> str` ([source](../../../../../../src/learnloop/sim/diagnostic_validation.py), line 102)
+- `_expected_label(planted: str, diagnosed: str | None) -> bool` ([source](../../../../../../src/learnloop/sim/diagnostic_validation.py), line 258)
+- `_action_for_label(label: str | None) -> str | None` ([source](../../../../../../src/learnloop/sim/diagnostic_validation.py), line 266)
+- `_run_one_episode(vault_root: Path, *, planted: str, seed: int, learning_object_id: str | None, claim_level: float, config_overrides: Mapping[str, Any] | None) -> EpisodeValidationResult | None` ([source](../../../../../../src/learnloop/sim/diagnostic_validation.py), line 313)
+- `_submit_response(vault, repository: Repository, practice_item_id: str, presentation_id: str, response: PlantedResponse, *, clock: FrozenClock) -> None` ([source](../../../../../../src/learnloop/sim/diagnostic_validation.py), line 437)
 
 ## Who imports or calls it
 
@@ -101,8 +101,8 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 - [[Reference/Modules/learnloop/attempts/attempts|learnloop.attempts.attempts]] — imports `ApplyAttemptInput`, `AttemptDraft`, `GradeAttribution`, `ResolvedGrade`, `apply_attempt`; calls `ApplyAttemptInput`, `AttemptDraft`, `GradeAttribution`, `ResolvedGrade`, `apply_attempt`
 - [[Reference/Modules/learnloop/attempts/grading|learnloop.attempts.grading]] — imports `resolved_rubric`; calls `resolved_rubric`
 - [[Reference/Modules/learnloop/clock|learnloop.clock]] — imports `FrozenClock`; calls `FrozenClock`
-- [[Reference/Modules/learnloop/db/repositories|learnloop.db.repositories]] — imports `Repository`; calls `Repository`
-- [[Reference/Modules/learnloop/diagnosis/probe_episodes|learnloop.diagnosis.probe_episodes]] — imports `commit_presentation`, `eligible_instruments`, `episode_posterior`, `serve_presentation`; calls `commit_presentation`, `eligible_instruments`, `episode_posterior`, `serve_presentation`
+- [[Reference/Modules/learnloop/db/repositories|learnloop.db.repositories]] — imports `Repository`
+- [[Reference/Modules/learnloop/diagnosis/probe_episodes|learnloop.diagnosis.probe_episodes]] — imports `RoutineDisplayCovered`, `commit_presentation`, `eligible_instruments`, `episode_posterior`, `serve_presentation`; calls `commit_presentation`, `eligible_instruments`, `episode_posterior`, `serve_presentation`
 - [[Reference/Modules/learnloop/diagnosis/probe_families|learnloop.diagnosis.probe_families]] — imports `CompiledInstrument`, `DEFAULT_INSTRUCTIONAL_ACTIONS`, `builtin_family_templates`; calls `builtin_family_templates`
 - [[Reference/Modules/learnloop/diagnosis/probe_hypotheses|learnloop.diagnosis.probe_hypotheses]] — imports `CONFUSES_PREFIX`
 - [[Reference/Modules/learnloop/diagnosis/probe_instance_generation|learnloop.diagnosis.probe_instance_generation]] — imports `generate_instances_for_episode`; calls `generate_instances_for_episode`
@@ -111,6 +111,7 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 - [[Reference/Modules/learnloop/substrate/state_sync|learnloop.substrate.state_sync]] — imports `sync_vault_state`; calls `sync_vault_state`
 - [[Reference/Modules/learnloop/vault/loader|learnloop.vault.loader]] — imports `load_vault`; calls `load_vault`
 - [[Reference/Modules/learnloop/vault/paths|learnloop.vault.paths]] — imports `VaultPaths`; calls `VaultPaths`
+- [[Reference/Modules/learnloop/vault/repository|learnloop.vault.repository]] — imports `vault_repository`; calls `vault_repository`
 
 ### Platform and third-party dependencies
 
@@ -129,6 +130,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 - [tests/test_sim_probe_validation.py](../../../../../../tests/test_sim_probe_validation.py) — direct import
   - `test_planted_confuses_with_is_diagnosed_within_budget`
+- [tests/test_ux_phase4_feedback.py](../../../../../../tests/test_ux_phase4_feedback.py) — direct import
+  - `test_f1l_the_sim_skips_a_covered_instrument_instead_of_aborting_the_run`
 
 ## Modification guidance
 

@@ -7,11 +7,11 @@ version: "1.0.0"
 source_path: "src/learnloop/diagnosis/causal_factor_deferral.py"
 source_paths:
   - "src/learnloop/diagnosis/causal_factor_deferral.py"
-source_commit: "b322ef2e9b5cebc241b612e4963a5aaf1a37f99a"
-source_commit_timestamp: "2026-08-20T18:04:29-04:00"
+source_commit: "67bc38f20b64011adbc8cf81f90c0722618a49d0"
+source_commit_timestamp: "2026-10-12T13:10:39-04:00"
 source_worktree_state: "clean"
 generated: true
-generated_at: "2026-09-23"
+generated_at: "2026-11-02"
 package: "learnloop.diagnosis"
 layer: "domain"
 concepts:
@@ -50,33 +50,33 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/diagnosis/causal_factor_deferral.py](../../../../../../src/learnloop/diagnosis/causal_factor_deferral.py) |
-| Source lines | 488 |
+| Source lines | 499 |
 | Owning package | [[Reference/Modules/learnloop/diagnosis/_package|learnloop.diagnosis]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `b322ef2e9b5cebc241b612e4963a5aaf1a37f99a` |
-| Commit timestamp | `2026-08-20T18:04:29-04:00` |
+| Source commit | `67bc38f20b64011adbc8cf81f90c0722618a49d0` |
+| Commit timestamp | `2026-10-12T13:10:39-04:00` |
 
 ## Public API
 
-- `apply_cold_verification_to_factors(repository: Repository, *, receipt: Mapping[str, Any], clock: Clock | None=None) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/diagnosis/causal_factor_deferral.py), line 171) — Route one recorded cold verification into open diagnostic factors.
-- `sweep_promotion_blocking_factors(repository: Repository, *, clock: Clock | None=None) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/diagnosis/causal_factor_deferral.py), line 347) — Attempt-time sweep: exits (b-ii) and (c) for every open factor.
+- `apply_cold_verification_to_factors(repository: Repository, *, receipt: Mapping[str, Any], clock: Clock | None=None) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/diagnosis/causal_factor_deferral.py), line 175) — Route one recorded cold verification into open diagnostic factors.
+- `sweep_promotion_blocking_factors(repository: Repository, *, clock: Clock | None=None) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/diagnosis/causal_factor_deferral.py), line 358) — Attempt-time sweep: exits (b-ii) and (c) for every open factor.
 
 ### Module constants
 
-- `ESCALATION_RECURRENCE_K` ([src/learnloop/diagnosis/causal_factor_deferral.py](../../../../../../src/learnloop/diagnosis/causal_factor_deferral.py), line 69)
-- `FACTOR_DEFERRAL_TTL` ([src/learnloop/diagnosis/causal_factor_deferral.py](../../../../../../src/learnloop/diagnosis/causal_factor_deferral.py), line 75)
-- `_HYPOTHESIS_STATUSES` ([src/learnloop/diagnosis/causal_factor_deferral.py](../../../../../../src/learnloop/diagnosis/causal_factor_deferral.py), line 77)
+- `ESCALATION_RECURRENCE_K` ([src/learnloop/diagnosis/causal_factor_deferral.py](../../../../../../src/learnloop/diagnosis/causal_factor_deferral.py), line 73)
+- `FACTOR_DEFERRAL_TTL` ([src/learnloop/diagnosis/causal_factor_deferral.py](../../../../../../src/learnloop/diagnosis/causal_factor_deferral.py), line 79)
+- `_HYPOTHESIS_STATUSES` ([src/learnloop/diagnosis/causal_factor_deferral.py](../../../../../../src/learnloop/diagnosis/causal_factor_deferral.py), line 81)
 
 ## Internal implementation anchors
 
-- `_concrete_refs(factor: Mapping[str, Any]) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/diagnosis/causal_factor_deferral.py), line 80) — The factor's hydrated non-open-set candidate refs.
-- `_open_factors(repository: Repository) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/diagnosis/causal_factor_deferral.py), line 96) — Every open factor, attempt-keyed AND observation-keyed (G15).
-- `_withdraw_candidate_hypothesis(repository: Repository, hypothesis_id: str, *, reason: str, evidence_ref: Mapping[str, Any], clock: Clock | None) -> str | None` ([source](../../../../../../src/learnloop/diagnosis/causal_factor_deferral.py), line 110) — Withdraw one candidate belief by appending a retired hypothesis version.
-- `_factor_signature(repository: Repository, factor: Mapping[str, Any]) -> tuple[set[str], str | None]` ([source](../../../../../../src/learnloop/diagnosis/causal_factor_deferral.py), line 267) — (normalized statements, learning_object_id) for a factor's concrete refs.
-- `_signature_hypotheses(repository: Repository, learning_object_id: str, statements: set[str]) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/diagnosis/causal_factor_deferral.py), line 285)
-- `_case_engaged(repository: Repository, *, learning_object_id: str, statements: set[str], case_factor_ids: list[str], hypothesis_rows: list[dict[str, Any]], since: str) -> bool` ([source](../../../../../../src/learnloop/diagnosis/causal_factor_deferral.py), line 301) — Any learner engagement on the case since its first factor opened.
+- `_concrete_refs(factor: Mapping[str, Any]) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/diagnosis/causal_factor_deferral.py), line 84) — The factor's hydrated non-open-set candidate refs.
+- `_open_factors(repository: Repository) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/diagnosis/causal_factor_deferral.py), line 100) — Every open factor, attempt-keyed AND observation-keyed (G15).
+- `_withdraw_candidate_hypothesis(repository: Repository, hypothesis_id: str, *, reason: str, evidence_ref: Mapping[str, Any], clock: Clock | None) -> str | None` ([source](../../../../../../src/learnloop/diagnosis/causal_factor_deferral.py), line 114) — Withdraw one candidate belief by appending a retired hypothesis version.
+- `_factor_signature(repository: Repository, factor: Mapping[str, Any]) -> tuple[set[str], str | None]` ([source](../../../../../../src/learnloop/diagnosis/causal_factor_deferral.py), line 271) — (recurrence keys, learning_object_id) for a factor's concrete refs.
+- `_signature_hypotheses(repository: Repository, learning_object_id: str, statements: set[str]) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/diagnosis/causal_factor_deferral.py), line 296)
+- `_case_engaged(repository: Repository, *, learning_object_id: str, statements: set[str], case_factor_ids: list[str], hypothesis_rows: list[dict[str, Any]], since: str) -> bool` ([source](../../../../../../src/learnloop/diagnosis/causal_factor_deferral.py), line 312) — Any learner engagement on the case since its first factor opened.
 
 ## Who imports or calls it
 
@@ -86,6 +86,7 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 - [[Reference/Modules/learnloop/diagnosis/causal_orchestrator|learnloop.diagnosis.causal_orchestrator]] — imports `sweep_promotion_blocking_factors`; statically calls `sweep_promotion_blocking_factors`
 - [[Reference/Modules/learnloop/diagnosis/causal_probe_coherence|learnloop.diagnosis.causal_probe_coherence]] — imports `apply_cold_verification_to_factors`; statically calls `apply_cold_verification_to_factors`
 - [[Reference/Modules/learnloop/diagnosis/misconceptions|learnloop.diagnosis.misconceptions]] — imports `sweep_promotion_blocking_factors`; statically calls `sweep_promotion_blocking_factors`
+- [[Reference/Modules/learnloop/diagnosis/recurrence/live|learnloop.diagnosis.recurrence.live]] — imports `ESCALATION_RECURRENCE_K`
 
 ## Dependencies
 
@@ -93,6 +94,7 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 
 - [[Reference/Modules/learnloop/clock|learnloop.clock]] — imports `Clock`, `SystemClock`, `parse_utc`; calls `SystemClock`, `parse_utc`
 - [[Reference/Modules/learnloop/db/repositories|learnloop.db.repositories]] — imports `Repository`
+- [[Reference/Modules/learnloop/recurrence|learnloop.recurrence]] — imports `RECURRENCE_KEY_VERSION`, `recurrence_key`; calls `recurrence_key`
 
 ### Platform and third-party dependencies
 
@@ -106,7 +108,7 @@ Use this module in context through:
 - [[Process Model Output]]
 - [[Start a Learning Cycle]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/diagnosis/causal_orchestrator|learnloop.diagnosis.causal_orchestrator]], [[Reference/Modules/learnloop/diagnosis/causal_probe_coherence|learnloop.diagnosis.causal_probe_coherence]], [[Reference/Modules/learnloop/diagnosis/misconceptions|learnloop.diagnosis.misconceptions]].
+Static participation evidence comes from [[Reference/Modules/learnloop/diagnosis/causal_orchestrator|learnloop.diagnosis.causal_orchestrator]], [[Reference/Modules/learnloop/diagnosis/causal_probe_coherence|learnloop.diagnosis.causal_probe_coherence]], [[Reference/Modules/learnloop/diagnosis/misconceptions|learnloop.diagnosis.misconceptions]], [[Reference/Modules/learnloop/diagnosis/recurrence/live|learnloop.diagnosis.recurrence.live]].
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
@@ -119,6 +121,12 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_projection_sync_does_not_resurrect_deferral_closed_factors`
   - `test_successful_cold_verification_resolves_factor_and_withdraws_belief`
   - `test_unengaged_recurrences_escalate_and_promote`
+- [tests/test_recurrence_deferral.py](../../../../../../tests/test_recurrence_deferral.py) — direct import
+  - `test_below_the_successor_the_verdict_changes_nothing`
+  - `test_reworded_recurrences_escalate_only_once_judged_the_same_cause`
+- [tests/test_recurrence_key.py](../../../../../../tests/test_recurrence_key.py) — direct import
+  - `test_factor_signature_counts_through_the_seam`
+  - `test_the_seam_is_the_exact_statement_key_without_groups`
 
 ## Modification guidance
 

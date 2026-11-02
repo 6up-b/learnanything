@@ -11,7 +11,7 @@ source_commit: "b322ef2e9b5cebc241b612e4963a5aaf1a37f99a"
 source_commit_timestamp: "2026-08-20T18:04:29-04:00"
 source_worktree_state: "clean"
 generated: true
-generated_at: "2026-09-23"
+generated_at: "2026-11-02"
 package: "learnloop"
 layer: "primitive"
 concepts:
@@ -80,6 +80,7 @@ No private top-level function or class definition is declared in this file.
 > “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
 
 - [[Reference/Modules/learnloop/attempts/attempts|learnloop.attempts.attempts]] — imports `NON_RECORDING_ATTEMPT_TYPES`, `SUPPORTED_ATTEMPT_TYPES`, `unsupported_attempt_types`; statically calls `unsupported_attempt_types`
+- [[Reference/Modules/learnloop/attempts/stuck|learnloop.attempts.stuck]] — imports `default_attempt_type`; statically calls `default_attempt_type`
 - [[Reference/Modules/learnloop/cli/runtime|learnloop.cli.runtime]] — imports `default_attempt_type`
 - [[Reference/Modules/learnloop/content/proposals/ai_contracts|learnloop.content.proposals.ai_contracts]] — imports `AttemptType`
 - [[Reference/Modules/learnloop/content/proposals/proposals|learnloop.content.proposals.proposals]] — imports `unsupported_attempt_types`; statically calls `unsupported_attempt_types`
@@ -105,12 +106,14 @@ Use this module in context through:
 - [[Process Model Output]]
 - [[Inspect Persistent State]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/attempts/attempts|learnloop.attempts.attempts]], [[Reference/Modules/learnloop/cli/runtime|learnloop.cli.runtime]], [[Reference/Modules/learnloop/content/proposals/ai_contracts|learnloop.content.proposals.ai_contracts]], [[Reference/Modules/learnloop/content/proposals/proposals|learnloop.content.proposals.proposals]], [[Reference/Modules/learnloop/scheduling/scheduler|learnloop.scheduling.scheduler]] and 2 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/attempts/attempts|learnloop.attempts.attempts]], [[Reference/Modules/learnloop/attempts/stuck|learnloop.attempts.stuck]], [[Reference/Modules/learnloop/cli/runtime|learnloop.cli.runtime]], [[Reference/Modules/learnloop/content/proposals/ai_contracts|learnloop.content.proposals.ai_contracts]], [[Reference/Modules/learnloop/content/proposals/proposals|learnloop.content.proposals.proposals]] and 3 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
 ## Tests that define behavior
 
+- [tests/test_intent_fix_round4.py](../../../../../tests/test_intent_fix_round4.py) — direct import
+  - `test_f13_on_your_own_is_the_activity_policys_classification`
 - [tests/test_migrations.py](../../../../../tests/test_migrations.py) — direct import
   - `test_practice_attempts_schema_matches_supported_attempt_types`
 

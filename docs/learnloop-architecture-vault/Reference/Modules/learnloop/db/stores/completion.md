@@ -11,7 +11,7 @@ source_commit: "a49d99aad627225600924d88939fdfe967998d39"
 source_commit_timestamp: "2026-09-23T12:27:19-04:00"
 source_worktree_state: "clean"
 generated: true
-generated_at: "2026-09-23"
+generated_at: "2026-11-02"
 package: "learnloop.db.stores"
 layer: "infrastructure"
 concepts:
@@ -103,18 +103,18 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 No test imports this module directly. These tests exercise a direct production consumer:
 
+- [tests/ad23_fakes.py](../../../../../../../tests/ad23_fakes.py) — imports consumer [[Reference/Modules/learnloop/db/repositories|learnloop.db.repositories]]
+- [tests/ad_ingest_fakes.py](../../../../../../../tests/ad_ingest_fakes.py) — imports consumer [[Reference/Modules/learnloop/db/repositories|learnloop.db.repositories]]
+- [tests/approach_map_fakes.py](../../../../../../../tests/approach_map_fakes.py) — imports consumer [[Reference/Modules/learnloop/db/repositories|learnloop.db.repositories]]
+- [tests/daily_plan_fakes.py](../../../../../../../tests/daily_plan_fakes.py) — imports consumer [[Reference/Modules/learnloop/db/repositories|learnloop.db.repositories]]
+- [tests/deliverable_fixtures.py](../../../../../../../tests/deliverable_fixtures.py) — imports consumer [[Reference/Modules/learnloop/db/repositories|learnloop.db.repositories]]
+- [tests/diagnosis_split_helpers.py](../../../../../../../tests/diagnosis_split_helpers.py) — imports consumer [[Reference/Modules/learnloop/db/repositories|learnloop.db.repositories]]
+- [tests/e0_fakes.py](../../../../../../../tests/e0_fakes.py) — imports consumer [[Reference/Modules/learnloop/db/repositories|learnloop.db.repositories]]
+- [tests/exam_scope_fixtures.py](../../../../../../../tests/exam_scope_fixtures.py) — imports consumer [[Reference/Modules/learnloop/db/repositories|learnloop.db.repositories]]
 - [tests/helpers.py](../../../../../../../tests/helpers.py) — imports consumer [[Reference/Modules/learnloop/db/repositories|learnloop.db.repositories]]
-- [tests/test_action_loss.py](../../../../../../../tests/test_action_loss.py) — imports consumer [[Reference/Modules/learnloop/db/repositories|learnloop.db.repositories]]
-- [tests/test_activity_backfill.py](../../../../../../../tests/test_activity_backfill.py) — imports consumer [[Reference/Modules/learnloop/db/repositories|learnloop.db.repositories]]
-- [tests/test_activity_contract_extensions.py](../../../../../../../tests/test_activity_contract_extensions.py) — imports consumer [[Reference/Modules/learnloop/db/repositories|learnloop.db.repositories]]
-- [tests/test_activity_patterns.py](../../../../../../../tests/test_activity_patterns.py) — imports consumer [[Reference/Modules/learnloop/db/repositories|learnloop.db.repositories]]
-- [tests/test_activity_substrate.py](../../../../../../../tests/test_activity_substrate.py) — imports consumer [[Reference/Modules/learnloop/db/repositories|learnloop.db.repositories]]
-- [tests/test_administration_adapters.py](../../../../../../../tests/test_administration_adapters.py) — imports consumer [[Reference/Modules/learnloop/db/repositories|learnloop.db.repositories]]
-- [tests/test_agent_run_tokens.py](../../../../../../../tests/test_agent_run_tokens.py) — imports consumer [[Reference/Modules/learnloop/db/repositories|learnloop.db.repositories]]
-- [tests/test_agent_runs.py](../../../../../../../tests/test_agent_runs.py) — imports consumer [[Reference/Modules/learnloop/db/repositories|learnloop.db.repositories]]
-- [tests/test_annotations.py](../../../../../../../tests/test_annotations.py) — imports consumer [[Reference/Modules/learnloop/db/repositories|learnloop.db.repositories]]
-- [tests/test_answer_calibration_duel.py](../../../../../../../tests/test_answer_calibration_duel.py) — imports consumer [[Reference/Modules/learnloop/db/repositories|learnloop.db.repositories]]
-- [tests/test_anti_double_count.py](../../../../../../../tests/test_anti_double_count.py) — imports consumer [[Reference/Modules/learnloop/db/repositories|learnloop.db.repositories]]
+- [tests/hint_fakes.py](../../../../../../../tests/hint_fakes.py) — imports consumer [[Reference/Modules/learnloop/db/repositories|learnloop.db.repositories]]
+- [tests/intent_fakes.py](../../../../../../../tests/intent_fakes.py) — imports consumer [[Reference/Modules/learnloop/db/repositories|learnloop.db.repositories]]
+- [tests/mcp_world.py](../../../../../../../tests/mcp_world.py) — imports consumer [[Reference/Modules/learnloop/db/repositories|learnloop.db.repositories]]
 
 ## Modification guidance
 

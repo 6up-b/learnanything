@@ -7,11 +7,11 @@ version: "1.0.0"
 source_path: "src/learnloop/cli/registry.py"
 source_paths:
   - "src/learnloop/cli/registry.py"
-source_commit: "b322ef2e9b5cebc241b612e4963a5aaf1a37f99a"
-source_commit_timestamp: "2026-08-20T18:04:29-04:00"
+source_commit: "f948926ddc29adb727dc3bfa8f08bbff37aeaaac"
+source_commit_timestamp: "2026-10-12T13:48:47-04:00"
 source_worktree_state: "clean"
 generated: true
-generated_at: "2026-09-23"
+generated_at: "2026-11-02"
 package: "learnloop.cli"
 layer: "adapter"
 concepts:
@@ -52,13 +52,13 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/cli/registry.py](../../../../../../src/learnloop/cli/registry.py) |
-| Source lines | 290 |
+| Source lines | 294 |
 | Owning package | [[Reference/Modules/learnloop/cli/_package|learnloop.cli]] |
 | Architecture layer | `adapter` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `b322ef2e9b5cebc241b612e4963a5aaf1a37f99a` |
-| Commit timestamp | `2026-08-20T18:04:29-04:00` |
+| Source commit | `f948926ddc29adb727dc3bfa8f08bbff37aeaaac` |
+| Commit timestamp | `2026-10-12T13:48:47-04:00` |
 
 ## Public API
 
@@ -66,8 +66,8 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `registry_list(vault: Annotated[Path | None, typer.Option('--vault', help='Vault root.')]=None, status: Annotated[str | None, typer.Option('--status')]=None, lifecycle: Annotated[str | None, typer.Option('--lifecycle')]=None, kind: Annotated[str | None, typer.Option('--kind')]=None, json_output: Annotated[bool, typer.Option('--json')]=False) -> None` ([source](../../../../../../src/learnloop/cli/registry.py), line 43) — List registry entries with optional status/lifecycle/kind filters.
 - `registry_show(path: Annotated[str, typer.Argument(help='Registered parameter path.')], vault: Annotated[Path | None, typer.Option('--vault', help='Vault root.')]=None, json_output: Annotated[bool, typer.Option('--json')]=False) -> None` ([source](../../../../../../src/learnloop/cli/registry.py), line 72) — Trace one parameter to its registry entry (§9.7 item 5): effective value, source, status, lifecycle, evidence refs, last review.
 - `registry_certify(path: Annotated[str, typer.Argument(help='Config parameter path to certify (sweepable).')], low: Annotated[float, typer.Option('--low', help='Low end of the plausible range.')], high: Annotated[float, typer.Option('--high', help='High end of the plausible range.')], steps: Annotated[int, typer.Option('--steps', min=2, help='Grid points across [low, high].')]=3, profile: Annotated[str, typer.Option('--profile', help='Built-in profile name or YAML path.')]='intermediate_with_misconception', days: Annotated[int, typer.Option('--days', min=1, help='Sim days per grid point.')]=8, items_per_day: Annotated[int, typer.Option('--items-per-day', min=1)]=4, seed: Annotated[int, typer.Option('--seed')]=42, vault: Annotated[Path | None, typer.Option('--vault', help='Vault root.')]=None, json_output: Annotated[bool, typer.Option('--json')]=False) -> None` ([source](../../../../../../src/learnloop/cli/registry.py), line 99) — Run the real seeded decision-relevance sweep across ``[low, high]`` on the current vault, produce a COVERAGE certificate for the parameter's current effective value, and store + link it (U-022 v2).
-- `registry_promote(path: Annotated[str, typer.Argument(help='Config parameter path to promote (sweepable).')], low: Annotated[float, typer.Option('--low', help='Low end of the plausible range.')], high: Annotated[float, typer.Option('--high', help='High end of the plausible range.')], steps: Annotated[int, typer.Option('--steps', min=2, help='Grid points across [low, high].')]=3, profile: Annotated[str, typer.Option('--profile', help='Built-in profile name or YAML path.')]='intermediate_with_misconception', days: Annotated[int, typer.Option('--days', min=1, help='Sim days per grid point.')]=8, items_per_day: Annotated[int, typer.Option('--items-per-day', min=1)]=4, seed: Annotated[int, typer.Option('--seed')]=42, vault: Annotated[Path | None, typer.Option('--vault', help='Vault root.')]=None, json_output: Annotated[bool, typer.Option('--json')]=False) -> None` ([source](../../../../../../src/learnloop/cli/registry.py), line 182) — Consume sim PROMOTION EVIDENCE to advance status ``heuristic -> simulation_validated`` (U-022 v2, the normative gate).
-- `registry_release_check(vault: Annotated[Path | None, typer.Option('--vault', help='Vault root.')]=None, json_output: Annotated[bool, typer.Option('--json')]=False) -> None` ([source](../../../../../../src/learnloop/cli/registry.py), line 262) — Strict §9.6 release gate: fails on any audit failure AND on any outstanding coverage debt (``active_pending_certificate`` count > 0), with the pending list attached.
+- `registry_promote(path: Annotated[str, typer.Argument(help='Config parameter path to promote (sweepable).')], low: Annotated[float, typer.Option('--low', help='Low end of the plausible range.')], high: Annotated[float, typer.Option('--high', help='High end of the plausible range.')], steps: Annotated[int, typer.Option('--steps', min=2, help='Grid points across [low, high].')]=3, profile: Annotated[str, typer.Option('--profile', help='Built-in profile name or YAML path.')]='intermediate_with_misconception', days: Annotated[int, typer.Option('--days', min=1, help='Sim days per grid point.')]=8, items_per_day: Annotated[int, typer.Option('--items-per-day', min=1)]=4, seed: Annotated[int, typer.Option('--seed')]=42, vault: Annotated[Path | None, typer.Option('--vault', help='Vault root.')]=None, json_output: Annotated[bool, typer.Option('--json')]=False) -> None` ([source](../../../../../../src/learnloop/cli/registry.py), line 184) — Consume sim PROMOTION EVIDENCE to advance status ``heuristic -> simulation_validated`` (U-022 v2, the normative gate).
+- `registry_release_check(vault: Annotated[Path | None, typer.Option('--vault', help='Vault root.')]=None, json_output: Annotated[bool, typer.Option('--json')]=False) -> None` ([source](../../../../../../src/learnloop/cli/registry.py), line 266) — Strict §9.6 release gate: fails on any audit failure AND on any outstanding coverage debt (``active_pending_certificate`` count > 0), with the pending list attached.
 
 ## Internal implementation anchors
 
@@ -113,7 +113,11 @@ No test imports this module directly. These tests exercise a direct production c
 
 - [tests/test_cli_generate_practice.py](../../../../../../tests/test_cli_generate_practice.py) — imports consumer [[Reference/Modules/learnloop/cli/__init__|learnloop.cli]]
 - [tests/test_cli_ingest.py](../../../../../../tests/test_cli_ingest.py) — imports consumer [[Reference/Modules/learnloop/cli/__init__|learnloop.cli]]
+- [tests/test_facet_identity_ingest.py](../../../../../../tests/test_facet_identity_ingest.py) — imports consumer [[Reference/Modules/learnloop/cli/__init__|learnloop.cli]]
+- [tests/test_graph_nomination_ingest.py](../../../../../../tests/test_graph_nomination_ingest.py) — imports consumer [[Reference/Modules/learnloop/cli/__init__|learnloop.cli]]
 - [tests/test_model_call_receipt_owners.py](../../../../../../tests/test_model_call_receipt_owners.py) — imports consumer [[Reference/Modules/learnloop/cli/__init__|learnloop.cli]]
+- [tests/test_route_rules_in_grader.py](../../../../../../tests/test_route_rules_in_grader.py) — imports consumer [[Reference/Modules/learnloop/cli/__init__|learnloop.cli]]
+- [tests/test_stuck_prompt.py](../../../../../../tests/test_stuck_prompt.py) — imports consumer [[Reference/Modules/learnloop/cli/__init__|learnloop.cli]]
 - [tests/test_teach_back_generation.py](../../../../../../tests/test_teach_back_generation.py) — imports consumer [[Reference/Modules/learnloop/cli/__init__|learnloop.cli]]
 
 ## Modification guidance

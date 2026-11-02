@@ -7,11 +7,11 @@ version: "1.0.0"
 source_path: "src/learnloop/substrate/data_quality.py"
 source_paths:
   - "src/learnloop/substrate/data_quality.py"
-source_commit: "97d74d1da8b0077e7cbaa42c9d934d5ba1106c3b"
-source_commit_timestamp: "2026-09-23T15:31:55-04:00"
+source_commit: "171ae5a5ed15b7627add8b2e512d0c0e91c5f3da"
+source_commit_timestamp: "2026-10-13T09:11:59-04:00"
 source_worktree_state: "clean"
 generated: true
-generated_at: "2026-09-23"
+generated_at: "2026-11-02"
 package: "learnloop.substrate"
 layer: "domain"
 concepts:
@@ -51,29 +51,29 @@ The authoritative system-level explanation remains in [[Learning System]], [[Sta
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/substrate/data_quality.py](../../../../../../src/learnloop/substrate/data_quality.py) |
-| Source lines | 160 |
+| Source lines | 175 |
 | Owning package | [[Reference/Modules/learnloop/substrate/_package|learnloop.substrate]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `97d74d1da8b0077e7cbaa42c9d934d5ba1106c3b` |
-| Commit timestamp | `2026-09-23T15:31:55-04:00` |
+| Source commit | `171ae5a5ed15b7627add8b2e512d0c0e91c5f3da` |
+| Commit timestamp | `2026-10-13T09:11:59-04:00` |
 
 ## Public API
 
-- `table_names(connection: sqlite3.Connection) -> set[str]` ([source](../../../../../../src/learnloop/substrate/data_quality.py), line 23)
-- `rows(connection: sqlite3.Connection, table: str, *, columns: tuple[str, ...] | None=None, where: str='') -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/substrate/data_quality.py), line 31) — Read a table as dicts, optionally narrowed to the named columns.
-- `data_quality_report(sqlite_path: Path) -> dict[str, Any]` ([source](../../../../../../src/learnloop/substrate/data_quality.py), line 49)
-- `inspect_collection(connection: sqlite3.Connection, *, splits: dict[str, Any] | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/substrate/data_quality.py), line 55) — Coverage report over one connection.
+- `table_names(connection: sqlite3.Connection) -> set[str]` ([source](../../../../../../src/learnloop/substrate/data_quality.py), line 24)
+- `rows(connection: sqlite3.Connection, table: str, *, columns: tuple[str, ...] | None=None, where: str='') -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/substrate/data_quality.py), line 32) — Read a table as dicts, optionally narrowed to the named columns.
+- `data_quality_report(sqlite_path: Path) -> dict[str, Any]` ([source](../../../../../../src/learnloop/substrate/data_quality.py), line 50)
+- `inspect_collection(connection: sqlite3.Connection, *, splits: dict[str, Any] | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/substrate/data_quality.py), line 56) — Coverage report over one connection.
 
 ### Module constants
 
 - `_ATTEMPT_COLUMNS` ([src/learnloop/substrate/data_quality.py](../../../../../../src/learnloop/substrate/data_quality.py), line 16)
-- `_CANDIDATE_COLUMNS` ([src/learnloop/substrate/data_quality.py](../../../../../../src/learnloop/substrate/data_quality.py), line 20)
+- `_CANDIDATE_COLUMNS` ([src/learnloop/substrate/data_quality.py](../../../../../../src/learnloop/substrate/data_quality.py), line 21)
 
 ## Internal implementation anchors
 
-- `_quote(identifier: str) -> str` ([source](../../../../../../src/learnloop/substrate/data_quality.py), line 27)
+- `_quote(identifier: str) -> str` ([source](../../../../../../src/learnloop/substrate/data_quality.py), line 28)
 
 ## Who imports or calls it
 
@@ -90,7 +90,9 @@ The authoritative system-level explanation remains in [[Learning System]], [[Sta
 
 - [[Reference/Modules/learnloop/clock|learnloop.clock]] — imports `utc_now_iso`; calls `utc_now_iso`
 - [[Reference/Modules/learnloop/db/connection|learnloop.db.connection]] — imports `connect`; calls `connect`
+- [[Reference/Modules/learnloop/held_grades|learnloop.held_grades]] — imports `held_for_review_attempts`; calls `held_for_review_attempts`
 - [[Reference/Modules/learnloop/outcome_contract|learnloop.outcome_contract]] — imports `COLLECTION_VERSION`, `LABEL_VERSION`, `retention_exclusions`; calls `retention_exclusions`
+- [[Reference/Modules/learnloop/substrate/canonical_projection|learnloop.substrate.canonical_projection]] — imports `pfc_assessments`; calls `pfc_assessments`
 
 ### Platform and third-party dependencies
 
@@ -117,6 +119,9 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_exact_offer_survives_refresh_recovery_and_dataset_export`
   - `test_export_preserves_censored_repair_disposition_as_distinct_from_failure`
   - `test_scored_item_text_is_snapshotted_once_per_revision_and_exported`
+- [tests/test_held_grade_evidence.py](../../../../../../tests/test_held_grade_evidence.py) — direct import
+- [tests/test_pfc_unassessed_readers.py](../../../../../../tests/test_pfc_unassessed_readers.py) — direct import
+  - `test_retention_reads_the_pfc_flag_as_informational`
 - [tests/test_sqlite_wal.py](../../../../../../tests/test_sqlite_wal.py) — direct import
   - `test_read_only_reports_explain_a_read_only_vault_without_wal_files`
 

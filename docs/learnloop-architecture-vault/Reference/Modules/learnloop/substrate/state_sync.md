@@ -7,11 +7,11 @@ version: "1.0.0"
 source_path: "src/learnloop/substrate/state_sync.py"
 source_paths:
   - "src/learnloop/substrate/state_sync.py"
-source_commit: "b322ef2e9b5cebc241b612e4963a5aaf1a37f99a"
-source_commit_timestamp: "2026-08-20T18:04:29-04:00"
+source_commit: "c36ecd6c4875f79bab11435a5fe0fb5961c9d55f"
+source_commit_timestamp: "2026-10-25T20:13:31-04:00"
 source_worktree_state: "clean"
 generated: true
-generated_at: "2026-09-23"
+generated_at: "2026-11-02"
 package: "learnloop.substrate"
 layer: "domain"
 concepts:
@@ -40,7 +40,7 @@ Up: [[Reference/Modules/learnloop/substrate/_package|learnloop.substrate]] · Ro
 
 ## Why this module exists
 
-This module keeps state sync behavior inside its owning package, [[Reference/Modules/learnloop/substrate/_package|learnloop.substrate]]. Its public surface centers on `StateSyncResult`, `practice_item_activatable`, `sync_vault_state`.
+This module keeps state sync behavior inside its owning package, [[Reference/Modules/learnloop/substrate/_package|learnloop.substrate]]. Its public surface centers on `StateSyncResult`, `practice_item_activatable`, `reconcile_practice_item_state`, `sync_vault_state`.
 
 The authoritative system-level explanation remains in [[Learning System]], [[State and Persistence]]; this note records where this source module participates rather than restating those concepts.
 
@@ -51,25 +51,26 @@ The authoritative system-level explanation remains in [[Learning System]], [[Sta
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/substrate/state_sync.py](../../../../../../src/learnloop/substrate/state_sync.py) |
-| Source lines | 222 |
+| Source lines | 279 |
 | Owning package | [[Reference/Modules/learnloop/substrate/_package|learnloop.substrate]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `b322ef2e9b5cebc241b612e4963a5aaf1a37f99a` |
-| Commit timestamp | `2026-08-20T18:04:29-04:00` |
+| Source commit | `c36ecd6c4875f79bab11435a5fe0fb5961c9d55f` |
+| Commit timestamp | `2026-10-25T20:13:31-04:00` |
 
 ## Public API
 
 - `class StateSyncResult` ([source](../../../../../../src/learnloop/substrate/state_sync.py), line 14)
   - `as_dict(self) -> dict[str, int]` (line 20; public)
 - `practice_item_activatable(item_id: str, item, *, review_parked: set[str], measurement_superseded: set[str], state=None) -> bool` ([source](../../../../../../src/learnloop/substrate/state_sync.py), line 29) — The one lifecycle gate shared by full and incremental vault sync.
-- `sync_vault_state(vault: LoadedVault, repository: Repository, *, clock: Clock | None=None) -> StateSyncResult` ([source](../../../../../../src/learnloop/substrate/state_sync.py), line 59) — Reconcile YAML-owned entities with derived SQLite rows.
+- `reconcile_practice_item_state(repository: Repository, item_id: str, item, *, state: PracticeItemState | None, review_parked: set[str], measurement_superseded: set[str], content_hash: str | None=None, clock: Clock | None=None) -> tuple[str, bool]` ([source](../../../../../../src/learnloop/substrate/state_sync.py), line 59) — Bring one item's ``active`` flag and content hash in line with its YAML.
+- `sync_vault_state(vault: LoadedVault, repository: Repository, *, clock: Clock | None=None) -> StateSyncResult` ([source](../../../../../../src/learnloop/substrate/state_sync.py), line 131) — Reconcile YAML-owned entities with derived SQLite rows.
 
 ## Internal implementation anchors
 
-- `_enter_initial_probes(vault: LoadedVault, repository: Repository, *, clock: Clock | None) -> None` ([source](../../../../../../src/learnloop/substrate/state_sync.py), line 175) — Open initial diagnostic episodes (probe redesign §5/§10).
-- `_has_active_local_item(vault: LoadedVault, repository: Repository, learning_object_id: str) -> bool` ([source](../../../../../../src/learnloop/substrate/state_sync.py), line 214)
+- `_enter_initial_probes(vault: LoadedVault, repository: Repository, *, clock: Clock | None) -> None` ([source](../../../../../../src/learnloop/substrate/state_sync.py), line 232) — Open initial diagnostic episodes (probe redesign §5/§10).
+- `_has_active_local_item(vault: LoadedVault, repository: Repository, learning_object_id: str) -> bool` ([source](../../../../../../src/learnloop/substrate/state_sync.py), line 271)
 
 ## Who imports or calls it
 
@@ -80,15 +81,19 @@ The authoritative system-level explanation remains in [[Learning System]], [[Sta
 - [[Reference/Modules/learnloop/cli/runtime|learnloop.cli.runtime]] — imports `sync_vault_state`
 - [[Reference/Modules/learnloop/content/authoring/practice_generation|learnloop.content.authoring.practice_generation]] — imports `sync_vault_state`; statically calls `sync_vault_state`
 - [[Reference/Modules/learnloop/content/authoring/rung_variants|learnloop.content.authoring.rung_variants]] — imports `sync_vault_state`; statically calls `sync_vault_state`
+- [[Reference/Modules/learnloop/content/facet_identity/actions|learnloop.content.facet_identity.actions]] — imports `sync_vault_state`; statically calls `sync_vault_state`
 - [[Reference/Modules/learnloop/content/pipeline/jobs|learnloop.content.pipeline.jobs]] — imports `sync_vault_state`; statically calls `sync_vault_state`
 - [[Reference/Modules/learnloop/content/proposals/apply_protocol|learnloop.content.proposals.apply_protocol]] — imports `sync_vault_state`; statically calls `sync_vault_state`
 - [[Reference/Modules/learnloop/content/proposals/patches|learnloop.content.proposals.patches]] — imports `sync_vault_state`; statically calls `sync_vault_state`
 - [[Reference/Modules/learnloop/curriculum/concepts|learnloop.curriculum.concepts]] — imports `sync_vault_state`; statically calls `sync_vault_state`
+- [[Reference/Modules/learnloop/diagnosis/text_gaps/actions|learnloop.diagnosis.text_gaps.actions]] — imports `sync_vault_state`; statically calls `sync_vault_state`
+- [[Reference/Modules/learnloop/diagnosis/text_gaps/pipeline|learnloop.diagnosis.text_gaps.pipeline]] — imports `sync_vault_state`; statically calls `sync_vault_state`
+- [[Reference/Modules/learnloop/goals/goal_lo|learnloop.goals.goal_lo]] — imports `sync_vault_state`; statically calls `sync_vault_state`
 - [[Reference/Modules/learnloop/learner/recall_calibration|learnloop.learner.recall_calibration]] — imports `sync_vault_state`; statically calls `sync_vault_state`
 - [[Reference/Modules/learnloop/ops/doctor|learnloop.ops.doctor]] — imports `StateSyncResult`, `sync_vault_state`; statically calls `sync_vault_state`
 - [[Reference/Modules/learnloop/sim/diagnostic_validation|learnloop.sim.diagnostic_validation]] — imports `sync_vault_state`; statically calls `sync_vault_state`
 - [[Reference/Modules/learnloop/tui/state|learnloop.tui.state]] — imports `StateSyncResult`, `sync_vault_state`; statically calls `sync_vault_state`
-- [[Reference/Modules/learnloop_sidecar/context|learnloop_sidecar.context]] — imports `practice_item_activatable`, `sync_vault_state`; statically calls `practice_item_activatable`, `sync_vault_state`
+- [[Reference/Modules/learnloop_sidecar/context|learnloop_sidecar.context]] — imports `reconcile_practice_item_state`, `sync_vault_state`; statically calls `reconcile_practice_item_state`, `sync_vault_state`
 
 ### Repository tooling consumers
 
@@ -99,12 +104,14 @@ The authoritative system-level explanation remains in [[Learning System]], [[Sta
 ### LearnLoop dependencies
 
 - [[Reference/Modules/learnloop/clock|learnloop.clock]] — imports `Clock`, `utc_now_iso`; calls `utc_now_iso`
-- [[Reference/Modules/learnloop/db/repositories|learnloop.db.repositories]] — imports `Repository`
+- [[Reference/Modules/learnloop/db/repositories|learnloop.db.repositories]] — imports `PracticeItemState`, `Repository`
 - [[Reference/Modules/learnloop/diagnosis/probe_episodes|learnloop.diagnosis.probe_episodes]] — imports `enter_episode`, `enter_stale_uncertainty_reprobes`; calls `enter_episode`, `enter_stale_uncertainty_reprobes`
 - [[Reference/Modules/learnloop/diagnosis/probe_instance_generation|learnloop.diagnosis.probe_instance_generation]] — imports `pending_review_instance_ids`; calls `pending_review_instance_ids`
 - [[Reference/Modules/learnloop/goals/goal_projection|learnloop.goals.goal_projection]] — imports `resolve_goal_scope`; calls `resolve_goal_scope`
 - [[Reference/Modules/learnloop/learner/mastery|learnloop.learner.mastery]] — imports `initial_mastery_state_for_learning_object`; calls `initial_mastery_state_for_learning_object`
+- [[Reference/Modules/learnloop/placement/state|learnloop.placement.state]] — imports `initial_probes_enabled`; calls `initial_probes_enabled`
 - [[Reference/Modules/learnloop/scheduling/shadow_components|learnloop.scheduling.shadow_components]] — imports `retire_expired_telemetry`; calls `retire_expired_telemetry`
+- [[Reference/Modules/learnloop/substrate/recurrence_groups|learnloop.substrate.recurrence_groups]] — imports `refresh_recurrence_groups`; calls `refresh_recurrence_groups`
 - [[Reference/Modules/learnloop/vault/hashes|learnloop.vault.hashes]] — imports `practice_item_hash`; calls `practice_item_hash`
 - [[Reference/Modules/learnloop/vault/models|learnloop.vault.models]] — imports `LoadedVault`
 
@@ -120,20 +127,27 @@ Use this module in context through:
 - [[Inspect Persistent State]]
 - [[Rebuild and Shadow Compare]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/attempts/measurement_corrections|learnloop.attempts.measurement_corrections]], [[Reference/Modules/learnloop/cli/runtime|learnloop.cli.runtime]], [[Reference/Modules/learnloop/content/authoring/practice_generation|learnloop.content.authoring.practice_generation]], [[Reference/Modules/learnloop/content/authoring/rung_variants|learnloop.content.authoring.rung_variants]], [[Reference/Modules/learnloop/content/pipeline/jobs|learnloop.content.pipeline.jobs]] and 8 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/attempts/measurement_corrections|learnloop.attempts.measurement_corrections]], [[Reference/Modules/learnloop/cli/runtime|learnloop.cli.runtime]], [[Reference/Modules/learnloop/content/authoring/practice_generation|learnloop.content.authoring.practice_generation]], [[Reference/Modules/learnloop/content/authoring/rung_variants|learnloop.content.authoring.rung_variants]], [[Reference/Modules/learnloop/content/facet_identity/actions|learnloop.content.facet_identity.actions]] and 12 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
 ## Tests that define behavior
 
+- [tests/test_ad_guard.py](../../../../../../tests/test_ad_guard.py) — direct import
+  - `test_incumbent_maintenance_and_vault_loads_never_run_inside_an_operation`
 - [tests/test_agent_run_tokens.py](../../../../../../tests/test_agent_run_tokens.py) — direct import
 - [tests/test_anti_double_count.py](../../../../../../tests/test_anti_double_count.py) — direct import
 - [tests/test_assessment_contracts.py](../../../../../../tests/test_assessment_contracts.py) — direct import
   - `test_legacy_attempt_records_no_observation_lineage`
   - `test_mvp07_attempt_stamps_observation_lineage`
+- [tests/test_assumed_known.py](../../../../../../tests/test_assumed_known.py) — direct import
+  - `test_kill_switch_ignores_assumptions_made_while_on`
 - [tests/test_attempt_ai_flow.py](../../../../../../tests/test_attempt_ai_flow.py) — direct import
   - `test_attempt_ai_flow_records_provider_model_and_ai_source`
 - [tests/test_attempt_completion.py](../../../../../../tests/test_attempt_completion.py) — direct import
+- [tests/test_attempt_content_state_race.py](../../../../../../tests/test_attempt_content_state_race.py) — direct import
+  - `test_a_probe_attempt_still_closes_its_single_use_surface`
+- [tests/test_attempt_content_state_successor.py](../../../../../../tests/test_attempt_content_state_successor.py) — direct import
 - [tests/test_attempt_write_order.py](../../../../../../tests/test_attempt_write_order.py) — direct import
   - `test_canonical_attempt_write_order_is_receipt_grade_evidence_state_then_post`
 - [tests/test_attempts.py](../../../../../../tests/test_attempts.py) — direct import
@@ -141,6 +155,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_hinted_attempt_caps_fsrs_rating`
   - `test_self_graded_attempt_updates_attempt_evidence_state_and_surprise`
   - `test_unknown_attempt_type_fails_before_sqlite_insert`
+- [tests/test_canonical_projection_fold_skip.py](../../../../../../tests/test_canonical_projection_fold_skip.py) — direct import
 - [tests/test_canonical_projection_rollout.py](../../../../../../tests/test_canonical_projection_rollout.py) — direct import
 - [tests/test_capability_residual.py](../../../../../../tests/test_capability_residual.py) — direct import
 - [tests/test_causal_attribution_exhibit.py](../../../../../../tests/test_causal_attribution_exhibit.py) — direct import
@@ -170,15 +185,19 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_codex_graded_attempt_proposes_unknown_error_type`
   - `test_codex_graded_attempt_uses_same_update_path_with_tier_three_evidence`
   - `test_codex_recall_wording_uses_recall_failure_not_new_error_type`
+- [tests/test_cold_retry_reschedule.py](../../../../../../tests/test_cold_retry_reschedule.py) — direct import
 - [tests/test_common_repair_delivery.py](../../../../../../tests/test_common_repair_delivery.py) — direct import
   - `test_receipted_divergence_skips_the_consultation_entirely`
 - [tests/test_conjunctive_instruments.py](../../../../../../tests/test_conjunctive_instruments.py) — direct import
 - [tests/test_contrast_pairs.py](../../../../../../tests/test_contrast_pairs.py) — direct import
 - [tests/test_controller_ownership.py](../../../../../../tests/test_controller_ownership.py) — direct import
 - [tests/test_controller_snapshot.py](../../../../../../tests/test_controller_snapshot.py) — direct import
+- [tests/test_curriculum_c0b_landing.py](../../../../../../tests/test_curriculum_c0b_landing.py) — direct import
 - [tests/test_curriculum_locks.py](../../../../../../tests/test_curriculum_locks.py) — direct import
-  - `test_deactivate_locked_learning_object_is_invalid`
-  - `test_locked_semantic_merge_is_invalid`
+- [tests/test_daily_loop_lo_lifecycle_serving.py](../../../../../../tests/test_daily_loop_lo_lifecycle_serving.py) — direct import
+  - `test_exam_start_does_not_administer_items_of_an_lo_put_away_after_reservation`
+- [tests/test_daily_loop_reader_authored_practice.py](../../../../../../tests/test_daily_loop_reader_authored_practice.py) — direct import
+  - `test_written_question_keeps_returning_after_it_is_answered`
 - [tests/test_deferred_regrade.py](../../../../../../tests/test_deferred_regrade.py) — direct import
   - `test_deferred_ai_regrade_records_provider_and_ai_origin`
   - `test_deferred_regrade_failure_leaves_self_grade_current_and_agent_failed`
@@ -191,9 +210,14 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_deferred_regrade_supersedes_self_grade_and_updates_mastery`
   - `test_deferred_regrade_validates_repaired_trace_against_learner_answer`
   - `test_startup_maintenance_regrades_pending_self_grade_when_codex_ready`
+- [tests/test_diagnosis_async_router.py](../../../../../../tests/test_diagnosis_async_router.py) — direct import
+  - `test_the_open_factor_takes_the_diagnosis_causes_when_it_lands`
+- [tests/test_diagnosis_input_provenance_landing.py](../../../../../../tests/test_diagnosis_input_provenance_landing.py) — direct import
+  - `test_q14_on_a_vault_the_coordinator_upgrades_the_receipt_commits_with_the_grade`
 - [tests/test_diagnostic_augmentation.py](../../../../../../tests/test_diagnostic_augmentation.py) — direct import
+  - `test_a_committed_joint_grade_carries_its_receipt_and_grading_record`
+  - `test_a_receipt_that_cannot_be_written_commits_no_augmented_grade`
   - `test_c3_k1_leaves_no_sample_support_on_the_stored_attribution`
-  - `test_post_commit_receipt_failure_never_records_a_fallback_attempt`
 - [tests/test_diagnostic_probe_freshness.py](../../../../../../tests/test_diagnostic_probe_freshness.py) — direct import
   - `test_a_fresh_replacement_surface_resolves_the_pending_need`
 - [tests/test_diagnostic_probe_single_use.py](../../../../../../tests/test_diagnostic_probe_single_use.py) — direct import
@@ -209,7 +233,11 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_error_hunt_items.py](../../../../../../tests/test_error_hunt_items.py) — direct import
 - [tests/test_evaluation.py](../../../../../../tests/test_evaluation.py) — direct import
 - [tests/test_exam_session.py](../../../../../../tests/test_exam_session.py) — direct import
+  - `test_an_exam_answer_is_stamped_with_its_graders_calibration_identity`
   - `test_exam_answers_certify_facet_evidence_on_canonical_vault`
+- [tests/test_facet_identity_actions.py](../../../../../../tests/test_facet_identity_actions.py) — direct import
+- [tests/test_facet_state_write_on_change.py](../../../../../../tests/test_facet_state_write_on_change.py) — direct import
+- [tests/test_field_workbench_signals.py](../../../../../../tests/test_field_workbench_signals.py) — direct import
 - [tests/test_followup_diagnostic_selection.py](../../../../../../tests/test_followup_diagnostic_selection.py) — direct import
 - [tests/test_goal_certification_any_of.py](../../../../../../tests/test_goal_certification_any_of.py) — direct import
 - [tests/test_grade_resolution_pipeline.py](../../../../../../tests/test_grade_resolution_pipeline.py) — direct import
@@ -222,6 +250,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_pre_first_practice_doctor_watermark`
 - [tests/test_instrument_servability_journeys.py](../../../../../../tests/test_instrument_servability_journeys.py) — direct import
   - `test_the_certification_cold_probe_selects_an_instrument_as_its_held_out_item`
+- [tests/test_intent_fix_round4.py](../../../../../../tests/test_intent_fix_round4.py) — direct import
+  - `test_f15_the_probe_contract_carries_the_diagnostic_variant`
 - [tests/test_intent_planner.py](../../../../../../tests/test_intent_planner.py) — direct import
 - [tests/test_item_authoring.py](../../../../../../tests/test_item_authoring.py) — direct import
   - `test_author_item_creates_learner_card`
@@ -241,18 +271,55 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_laddered_stems.py](../../../../../../tests/test_laddered_stems.py) — direct import
 - [tests/test_large_practice_flow.py](../../../../../../tests/test_large_practice_flow.py) — direct import
   - `test_many_open_text_practice_items_schedule_and_record_attempt`
+- [tests/test_learner_report_superseded.py](../../../../../../tests/test_learner_report_superseded.py) — direct import
+  - `test_a_new_starting_level_keeps_the_old_one_for_an_lo_first_practised_under_it`
+  - `test_random_attempts_and_learner_reports_rebuild_to_live`
 - [tests/test_learner_review_system_entries.py](../../../../../../tests/test_learner_review_system_entries.py) — direct import
+- [tests/test_learner_text_gaps.py](../../../../../../tests/test_learner_text_gaps.py) — direct import
+  - `test_asking_never_lowers_the_record`
+- [tests/test_learner_text_gaps_composition.py](../../../../../../tests/test_learner_text_gaps_composition.py) — direct import
+- [tests/test_learner_text_gaps_flow.py](../../../../../../tests/test_learner_text_gaps_flow.py) — direct import
+- [tests/test_learner_text_gaps_review.py](../../../../../../tests/test_learner_text_gaps_review.py) — direct import
+  - `test_f13_the_pipeline_switched_off_queues_exactly_as_the_predecessor_version`
+- [tests/test_lp_claim_fixes.py](../../../../../../tests/test_lp_claim_fixes.py) — direct import
+- [tests/test_lp_claim_fixes_review.py](../../../../../../tests/test_lp_claim_fixes_review.py) — direct import
 - [tests/test_measurement_corrections.py](../../../../../../tests/test_measurement_corrections.py) — direct import
   - `test_attempted_item_correction_is_append_only_and_projection_versioned`
   - `test_historical_reinterpretation_rejects_a_changed_task`
 - [tests/test_measurement_rank.py](../../../../../../tests/test_measurement_rank.py) — direct import
   - `test_computing_the_rank_triggers_no_merge`
   - `test_graph_identifiability_report_publishes_the_rank`
+- [tests/test_method_explicit_upgrade.py](../../../../../../tests/test_method_explicit_upgrade.py) — direct import
+  - `test_upgrade_from_mvp024_flips_rebuilds_and_rewrites_nothing`
 - [tests/test_misconception_resolution.py](../../../../../../tests/test_misconception_resolution.py) — direct import
+- [tests/test_mvp011_upgrade.py](../../../../../../tests/test_mvp011_upgrade.py) — direct import
+  - `test_existing_vaults_keep_their_version_until_the_owner_upgrades`
+  - `test_upgrade_from_mvp010_flips_rebuilds_and_preserves_history_and_open_episodes`
+- [tests/test_mvp015_upgrade.py](../../../../../../tests/test_mvp015_upgrade.py) — direct import
+  - `test_upgrade_from_mvp014_flips_rebuilds_and_rewrites_nothing`
+- [tests/test_mvp016_upgrade.py](../../../../../../tests/test_mvp016_upgrade.py) — direct import
+  - `test_upgrade_from_mvp015_flips_rebuilds_and_rewrites_nothing`
+- [tests/test_mvp017_upgrade.py](../../../../../../tests/test_mvp017_upgrade.py) — direct import
+  - `test_upgrade_from_mvp016_flips_rebuilds_and_rewrites_nothing`
+- [tests/test_mvp018_upgrade.py](../../../../../../tests/test_mvp018_upgrade.py) — direct import
+  - `test_upgrade_from_mvp017_flips_rebuilds_and_rewrites_nothing`
+- [tests/test_mvp020_upgrade.py](../../../../../../tests/test_mvp020_upgrade.py) — direct import
+  - `test_upgrade_from_mvp019_flips_rebuilds_and_rewrites_nothing`
+- [tests/test_mvp021_upgrade.py](../../../../../../tests/test_mvp021_upgrade.py) — direct import
+  - `test_upgrade_from_mvp020_flips_rebuilds_and_rewrites_nothing`
+- [tests/test_mvp022_upgrade.py](../../../../../../tests/test_mvp022_upgrade.py) — direct import
+  - `test_upgrade_from_mvp021_flips_rebuilds_and_rewrites_nothing`
+- [tests/test_mvp023_upgrade.py](../../../../../../tests/test_mvp023_upgrade.py) — direct import
+  - `test_upgrade_from_mvp022_flips_rebuilds_and_rewrites_nothing`
+- [tests/test_mvp024_upgrade.py](../../../../../../tests/test_mvp024_upgrade.py) — direct import
+  - `test_upgrade_from_mvp023_flips_rebuilds_and_rewrites_nothing`
 - [tests/test_observation_ledger_bulk.py](../../../../../../tests/test_observation_ledger_bulk.py) — direct import
 - [tests/test_p0_cutover_mvp08.py](../../../../../../tests/test_p0_cutover_mvp08.py) — direct import
   - `test_mvp06_derived_output_is_byte_identical_across_p0_machinery`
 - [tests/test_p0_projection_cutover.py](../../../../../../tests/test_p0_projection_cutover.py) — direct import
+- [tests/test_placement_fixture_copies.py](../../../../../../tests/test_placement_fixture_copies.py) — direct import
+  - `test_placement_ignores_unanswered_opening_episodes_on_fixture_copies`
+- [tests/test_placement_opening_probes.py](../../../../../../tests/test_placement_opening_probes.py) — direct import
 - [tests/test_practice_information.py](../../../../../../tests/test_practice_information.py) — direct import
 - [tests/test_probe_episodes.py](../../../../../../tests/test_probe_episodes.py) — direct import
   - `test_missing_instruments_park_episode_with_one_deduplicated_need`
@@ -286,6 +353,24 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_integration_condition_probes_coordination_not_components`
 - [tests/test_projection_evidence_polarity.py](../../../../../../tests/test_projection_evidence_polarity.py) — direct import
   - `test_p0_timeline_matches_banked_ledger_including_a6_supporting_credit`
+- [tests/test_quick_check.py](../../../../../../tests/test_quick_check.py) — direct import
+  - `test_quick_check_is_never_prompted`
+- [tests/test_reader_recap_review.py](../../../../../../tests/test_reader_recap_review.py) — direct import
+- [tests/test_reader_recap_review_r2.py](../../../../../../tests/test_reader_recap_review_r2.py) — direct import
+  - `test_f1_r2_a_later_regrade_does_not_rewrite_the_credit_banked_before_the_cutoff`
+  - `test_f1_r2_the_as_of_curve_ignores_gradings_recorded_after_the_cutoff`
+- [tests/test_reader_recap_review_r3.py](../../../../../../tests/test_reader_recap_review_r3.py) — direct import
+- [tests/test_rebuild_closed_row_answer.py](../../../../../../tests/test_rebuild_closed_row_answer.py) — direct import
+  - `test_a_sibling_retired_after_the_last_answer_rebuilds_to_live`
+  - `test_an_answer_after_a_sibling_was_retired_rebuilds_to_live`
+- [tests/test_rebuild_equivalence.py](../../../../../../tests/test_rebuild_equivalence.py) — direct import
+  - `test_a_full_sync_after_a_rebuild_keeps_retired_items_retired`
+  - `test_a_retired_item_stays_inactive_through_a_primary_load_and_a_rebuild`
+  - `test_a_second_learner_report_on_an_lo_after_an_attempt_rebuilds_to_live`
+  - `test_content_sync_nests_inside_a_rebuild_transaction_and_rolls_back_with_it`
+  - `test_random_attempt_histories_rebuild_to_live_state_exactly`
+  - `test_random_histories_with_claims_after_attempts_and_too_easy_retirements_rebuild_to_live`
+- [tests/test_rebuild_equivalence_review.py](../../../../../../tests/test_rebuild_equivalence_review.py) — direct import
 - [tests/test_recall_coverage_interventions.py](../../../../../../tests/test_recall_coverage_interventions.py) — direct import
   - `test_bad_item_suspicion_uses_prior_snapshot_not_current_attempt_update`
   - `test_diagnostic_generation_stales_resolved_repeat_failure_need`
@@ -296,6 +381,10 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_intervention_needs_canonicalize_target_facets_for_dedup`
   - `test_success_breaks_item_streak_before_a_later_failure`
   - `test_success_resets_repeat_failure_gate_and_coverage_is_not_failed`
+- [tests/test_recurrence_commands.py](../../../../../../tests/test_recurrence_commands.py) — direct import
+  - `test_a_failure_after_preparation_leaves_no_group_in_force`
+  - `test_the_kill_switch_takes_effect_at_vault_open_with_groups_already_populated`
+- [tests/test_recurrence_deferral.py](../../../../../../tests/test_recurrence_deferral.py) — direct import
 - [tests/test_reentry_short_session.py](../../../../../../tests/test_reentry_short_session.py) — direct import
 - [tests/test_replay.py](../../../../../../tests/test_replay.py) — direct import
   - `test_compute_attempt_application_materializes_outputs_without_persisting`
@@ -307,9 +396,15 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_residual_diagnostics.py](../../../../../../tests/test_residual_diagnostics.py) — direct import
   - `test_positive_residual_dependence_flags_missing_factor`
 - [tests/test_review_log.py](../../../../../../tests/test_review_log.py) — direct import
+- [tests/test_router_offer_log.py](../../../../../../tests/test_router_offer_log.py) — direct import
+  - `test_placement_components_and_exclusions_are_in_the_candidate_set`
+- [tests/test_router_probe_ties.py](../../../../../../tests/test_router_probe_ties.py) — direct import
+  - `test_teach_back_items_are_probe_near_ties_at_the_successor`
+  - `test_without_probe_candidates_the_successor_serves_exactly_as_mvp014`
 - [tests/test_scoreboard.py](../../../../../../tests/test_scoreboard.py) — direct import
 - [tests/test_shadow_components.py](../../../../../../tests/test_shadow_components.py) — direct import
   - `test_state_sync_retires_expired_telemetry_horizon`
+- [tests/test_sidecar_close_cancels_jobs.py](../../../../../../tests/test_sidecar_close_cancels_jobs.py) — direct import
 - [tests/test_sidecar_contract.py](../../../../../../tests/test_sidecar_contract.py) — direct import
   - `test_knowledge_field_is_recipe_topological_and_uses_pooled_ready`
 - [tests/test_sidecar_knowledge_model.py](../../../../../../tests/test_sidecar_knowledge_model.py) — direct import
@@ -328,8 +423,31 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_state_sync_no_probe_gap_for_item_less_goal_lo`
   - `test_state_sync_seeds_from_weak_learner_claim_below_probe_threshold`
   - `test_state_sync_uses_strong_learner_claim_for_initial_mastery`
+- [tests/test_state_sync_scheduling_race.py](../../../../../../tests/test_state_sync_scheduling_race.py) — direct import
+  - `test_a_measurement_correction_after_the_lifecycle_reads_keeps_the_original_retired`
+  - `test_a_probe_attempt_after_the_fallback_read_stays_retired`
+  - `test_a_stale_snapshot_never_reactivates_a_probe_an_attempt_retired`
+  - `test_an_attempt_from_a_second_process_survives_a_concurrent_content_sync`
+  - `test_content_change_sync_keeps_an_attempt_committed_after_its_snapshot`
+  - `test_creating_sync_keeps_a_row_an_attempt_inserted_after_its_snapshot`
+  - `test_deactivating_sync_keeps_an_attempt_committed_after_its_snapshot`
+  - `test_review_parking_after_the_lifecycle_reads_keeps_the_item_inactive`
+- [tests/test_stuck_prompt.py](../../../../../../tests/test_stuck_prompt.py) — direct import
+- [tests/test_success_head_cli.py](../../../../../../tests/test_success_head_cli.py) — direct import
+  - `test_seen_stem_backfill_embeds_retired_and_earlier_texts_only_explicitly`
+  - `test_without_vectors_the_embedding_arms_abstain_and_say_so`
 - [tests/test_surfaced_belief_corrections.py](../../../../../../tests/test_surfaced_belief_corrections.py) — direct import
+- [tests/test_today_headline.py](../../../../../../tests/test_today_headline.py) — direct import
+  - `test_a_blueprint_lo_with_an_integration_gap_is_learning`
 - [tests/test_unresolved_cause_gate.py](../../../../../../tests/test_unresolved_cause_gate.py) — direct import
+- [tests/test_ux_phase2_error_type_proposals.py](../../../../../../tests/test_ux_phase2_error_type_proposals.py) — direct import
+- [tests/test_ux_phase4_feedback.py](../../../../../../tests/test_ux_phase4_feedback.py) — direct import
+  - `test_f1l_the_scheduler_never_commits_or_serves_a_covered_probe`
+- [tests/test_voi_forecasts.py](../../../../../../tests/test_voi_forecasts.py) — direct import
+- [tests/test_voi_stopping.py](../../../../../../tests/test_voi_stopping.py) — direct import
+  - `test_a_served_probe_records_its_probability_over_the_composed_queue`
+- [tests/test_voi_v2.py](../../../../../../tests/test_voi_v2.py) — direct import
+- [tests/voi_restore_scenarios.py](../../../../../../tests/voi_restore_scenarios.py) — direct import
 
 ## Modification guidance
 

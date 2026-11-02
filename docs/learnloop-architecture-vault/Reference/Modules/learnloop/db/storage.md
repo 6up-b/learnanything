@@ -7,11 +7,11 @@ version: "1.0.0"
 source_path: "src/learnloop/db/storage.py"
 source_paths:
   - "src/learnloop/db/storage.py"
-source_commit: "workspace/uncommitted @ HEAD df970cd96725b112447395846bb53a0164a5853c"
-source_commit_timestamp: "2026-09-23T20:46:40-04:00"
-source_worktree_state: "modified"
+source_commit: "8a3586fadb840cea61417b11816fd9c346e2d0fd"
+source_commit_timestamp: "2026-09-23T18:49:46-04:00"
+source_worktree_state: "clean"
 generated: true
-generated_at: "2026-09-23"
+generated_at: "2026-11-02"
 package: "learnloop.db"
 layer: "infrastructure"
 concepts:
@@ -55,9 +55,9 @@ The authoritative system-level explanation remains in [[State and Persistence]],
 | Owning package | [[Reference/Modules/learnloop/db/_package|learnloop.db]] |
 | Architecture layer | `infrastructure` |
 | Refactor status | `ACTIVE` |
-| Worktree state | `modified` |
-| Source commit | `workspace/uncommitted @ HEAD df970cd96725b112447395846bb53a0164a5853c` |
-| Commit timestamp | `2026-09-23T20:46:40-04:00` |
+| Worktree state | `clean` |
+| Source commit | `8a3586fadb840cea61417b11816fd9c346e2d0fd` |
+| Commit timestamp | `2026-09-23T18:49:46-04:00` |
 
 ## Public API
 
@@ -157,8 +157,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_network_and_fuse_filesystems_are_recognised`
   - `test_sim_run_vault_keeps_commits_still_in_the_source_wal`
   - `test_wal_stays_bounded_across_twenty_queue_builds_on_a_fixture_copy`
-- [tests/test_tracked_fixture_databases.py](../../../../../../tests/test_tracked_fixture_databases.py) — direct import
-  - `test_tracked_fixture_databases_are_rollback_mode_without_companions`
 
 ## Modification guidance
 

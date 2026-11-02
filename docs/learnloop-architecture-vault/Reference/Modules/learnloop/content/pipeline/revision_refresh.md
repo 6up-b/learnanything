@@ -7,11 +7,11 @@ version: "1.0.0"
 source_path: "src/learnloop/content/pipeline/revision_refresh.py"
 source_paths:
   - "src/learnloop/content/pipeline/revision_refresh.py"
-source_commit: "b322ef2e9b5cebc241b612e4963a5aaf1a37f99a"
-source_commit_timestamp: "2026-08-20T18:04:29-04:00"
+source_commit: "86f17850ae44f63d89602534064feb6c21c5f776"
+source_commit_timestamp: "2026-10-15T12:20:59-04:00"
 source_worktree_state: "clean"
 generated: true
-generated_at: "2026-09-23"
+generated_at: "2026-11-02"
 package: "learnloop.content.pipeline"
 layer: "domain"
 concepts:
@@ -51,30 +51,30 @@ The authoritative system-level explanation remains in [[Learning System]], [[AI 
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/content/pipeline/revision_refresh.py](../../../../../../../src/learnloop/content/pipeline/revision_refresh.py) |
-| Source lines | 213 |
+| Source lines | 230 |
 | Owning package | [[Reference/Modules/learnloop/content/pipeline/_package|learnloop.content.pipeline]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `b322ef2e9b5cebc241b612e4963a5aaf1a37f99a` |
-| Commit timestamp | `2026-08-20T18:04:29-04:00` |
+| Source commit | `86f17850ae44f63d89602534064feb6c21c5f776` |
+| Commit timestamp | `2026-10-15T12:20:59-04:00` |
 
 ## Public API
 
-- `class RefreshResult` ([source](../../../../../../../src/learnloop/content/pipeline/revision_refresh.py), line 34)
-  - `as_dict(self) -> dict[str, Any]` (line 46; public)
-- `refresh_revision(root: Path, source_set_id: str, *, source_id: str, old_revision_id: str, new_revision_id: str, client: Any=None, new_extraction_id: str | None=None, confirm: bool=False, run_append: bool=True, repository: Repository | None=None, clock: Clock | None=None) -> RefreshResult` ([source](../../../../../../../src/learnloop/content/pipeline/revision_refresh.py), line 73) — Adopt ``new_revision_id`` for ``source_id`` in ``source_set_id`` (§10.4).
+- `class RefreshResult` ([source](../../../../../../../src/learnloop/content/pipeline/revision_refresh.py), line 36)
+  - `as_dict(self) -> dict[str, Any]` (line 51; public)
+- `refresh_revision(root: Path, source_set_id: str, *, source_id: str, old_revision_id: str, new_revision_id: str, client: Any=None, new_extraction_id: str | None=None, confirm: bool=False, run_append: bool=True, repository: Repository | None=None, clock: Clock | None=None) -> RefreshResult` ([source](../../../../../../../src/learnloop/content/pipeline/revision_refresh.py), line 79) — Adopt ``new_revision_id`` for ``source_id`` in ``source_set_id`` (§10.4).
 
 ### Module constants
 
-- `_EVENTABLE` ([src/learnloop/content/pipeline/revision_refresh.py](../../../../../../../src/learnloop/content/pipeline/revision_refresh.py), line 187)
+- `_EVENTABLE` ([src/learnloop/content/pipeline/revision_refresh.py](../../../../../../../src/learnloop/content/pipeline/revision_refresh.py), line 194)
 
 ## Internal implementation anchors
 
-- `_span_id_from_locator(link: dict[str, Any]) -> str | None` ([source](../../../../../../../src/learnloop/content/pipeline/revision_refresh.py), line 61)
-- `_refresh(root, vault, repository, source_set_id, source_id, old_revision_id, new_revision_id, *, client, new_extraction_id, confirm, run_append, clock)` ([source](../../../../../../../src/learnloop/content/pipeline/revision_refresh.py), line 100)
-- `_record_span_change_event(repository, link, status, now) -> None` ([source](../../../../../../../src/learnloop/content/pipeline/revision_refresh.py), line 168)
-- `_advance_membership(root, vault, source_set_id, source_id, old_revision_id, new_revision_id, clock) -> None` ([source](../../../../../../../src/learnloop/content/pipeline/revision_refresh.py), line 193)
+- `_span_id_from_locator(link: dict[str, Any]) -> str | None` ([source](../../../../../../../src/learnloop/content/pipeline/revision_refresh.py), line 67)
+- `_refresh(root, vault, repository, source_set_id, source_id, old_revision_id, new_revision_id, *, client, new_extraction_id, confirm, run_append, clock)` ([source](../../../../../../../src/learnloop/content/pipeline/revision_refresh.py), line 106)
+- `_record_span_change_event(repository, link, status, now) -> None` ([source](../../../../../../../src/learnloop/content/pipeline/revision_refresh.py), line 175)
+- `_advance_membership(root, vault, source_set_id, source_id, old_revision_id, new_revision_id, clock) -> list[str]` ([source](../../../../../../../src/learnloop/content/pipeline/revision_refresh.py), line 200) — Advance the set's members of ``source_id`` to the new revision; returns the members kept on the old one.
 
 ## Who imports or calls it
 
@@ -88,14 +88,16 @@ The authoritative system-level explanation remains in [[Learning System]], [[AI 
 ### LearnLoop dependencies
 
 - [[Reference/Modules/learnloop/clock|learnloop.clock]] — imports `Clock`, `utc_now_iso`; calls `utc_now_iso`
+- [[Reference/Modules/learnloop/content/sources/exam_material|learnloop.content.sources.exam_material]] — imports `is_exam_role`; calls `is_exam_role`
 - [[Reference/Modules/learnloop/content/sources/source_outline|learnloop.content.sources.source_outline]] — imports `resolve_extraction_id`; calls `resolve_extraction_id`
 - [[Reference/Modules/learnloop/content/synthesis/source_append|learnloop.content.synthesis.source_append]] — imports `append_source`; calls `append_source`
-- [[Reference/Modules/learnloop/db/repositories|learnloop.db.repositories]] — imports `Repository`; calls `Repository`
+- [[Reference/Modules/learnloop/db/repositories|learnloop.db.repositories]] — imports `Repository`
 - [[Reference/Modules/learnloop/ids|learnloop.ids]] — imports `new_ulid`; calls `new_ulid`
 - [[Reference/Modules/learnloop/ingest/locators|learnloop.ingest.locators]] — imports `parse_block_span`; calls `parse_block_span`
 - [[Reference/Modules/learnloop/ingest/reanchor|learnloop.ingest.reanchor]] — imports `EXACT_HASH`, `reanchor_spans`; calls `reanchor_spans`
 - [[Reference/Modules/learnloop/vault/loader|learnloop.vault.loader]] — imports `load_vault`; calls `load_vault`
 - [[Reference/Modules/learnloop/vault/paths|learnloop.vault.paths]] — imports `VaultPaths`; calls `VaultPaths`
+- [[Reference/Modules/learnloop/vault/repository|learnloop.vault.repository]] — imports `vault_repository`; calls `vault_repository`
 - [[Reference/Modules/learnloop/vault/writer|learnloop.vault.writer]] — imports `upsert_source_set`; calls `upsert_source_set`
 
 ### Platform and third-party dependencies
@@ -116,6 +118,11 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
+- [tests/test_exam_protection_identity.py](../../../../../../../tests/test_exam_protection_identity.py) — direct import
+  - `test_f14_a_refresh_never_drops_signal_only_protection`
+  - `test_the_scopes_reading_round_trips_through_the_writers`
+- [tests/test_reread_safety.py](../../../../../../../tests/test_reread_safety.py) — direct import
+  - `test_redesign_a_refresh_keeps_an_exam_scoped_member_on_its_revision`
 - [tests/test_revision_refresh.py](../../../../../../../tests/test_revision_refresh.py) — direct import
   - `test_new_revision_pinned_membership_requires_confirmation`
   - `test_unchanged_spans_keep_links_changed_spans_go_stale`

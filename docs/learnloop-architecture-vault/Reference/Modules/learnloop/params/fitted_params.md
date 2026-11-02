@@ -11,7 +11,7 @@ source_commit: "b322ef2e9b5cebc241b612e4963a5aaf1a37f99a"
 source_commit_timestamp: "2026-08-20T18:04:29-04:00"
 source_worktree_state: "clean"
 generated: true
-generated_at: "2026-09-23"
+generated_at: "2026-11-02"
 package: "learnloop.params"
 layer: "domain"
 concepts:
@@ -88,13 +88,23 @@ The authoritative system-level explanation remains in [[Learning System]], [[Con
 - [[Reference/Modules/learnloop/attempts/effective_observation|learnloop.attempts.effective_observation]] — imports `CERTAINTY_LCB_QUANTILE_DEFAULT`, `resolve_grader_channel_prior`; statically calls `resolve_grader_channel_prior`
 - [[Reference/Modules/learnloop/attempts/grade_resolution|learnloop.attempts.grade_resolution]] — imports `resolve_grader_channel_prior`; statically calls `resolve_grader_channel_prior`
 - [[Reference/Modules/learnloop/attempts/grader_calibration|learnloop.attempts.grader_calibration]] — imports `resolve_grader_channel_prior`; statically calls `resolve_grader_channel_prior`
+- [[Reference/Modules/learnloop/cli/field|learnloop.cli.field]] — imports `fitted_fsrs_provenance`, `resolve_fsrs_weights`; statically calls `fitted_fsrs_provenance`, `resolve_fsrs_weights`
 - [[Reference/Modules/learnloop/cli/fit|learnloop.cli.fit]] — imports `FOLLOWUP_GATE_SCOPE`, `FSRS_WEIGHTS_SCOPE`
+- [[Reference/Modules/learnloop/daily_plan/headline|learnloop.daily_plan.headline]] — imports `resolve_fsrs_weights`; statically calls `resolve_fsrs_weights`
+- [[Reference/Modules/learnloop/daily_plan/intent_cost|learnloop.daily_plan.intent_cost]] — imports `resolve_fsrs_weights`; statically calls `resolve_fsrs_weights`
+- [[Reference/Modules/learnloop/daily_plan/reentry|learnloop.daily_plan.reentry]] — imports `resolve_fsrs_weights`; statically calls `resolve_fsrs_weights`
 - [[Reference/Modules/learnloop/diagnosis/causal_probe_coherence|learnloop.diagnosis.causal_probe_coherence]] — imports `CAUSAL_PROBE_POLICY_SCOPE`
 - [[Reference/Modules/learnloop/diagnosis/gate_score|learnloop.diagnosis.gate_score]] — imports `FOLLOWUP_GATE_SCOPE`
+- [[Reference/Modules/learnloop/field/outcomes|learnloop.field.outcomes]] — imports `resolve_fsrs_weights`; statically calls `resolve_fsrs_weights`
 - [[Reference/Modules/learnloop/goals/certification_cold_probe|learnloop.goals.certification_cold_probe]] — imports `CERTIFICATION_COLD_PROBE_SCOPE`
 - [[Reference/Modules/learnloop/goals/goal_projection|learnloop.goals.goal_projection]] — imports `resolve_fsrs_weights`; statically calls `resolve_fsrs_weights`
+- [[Reference/Modules/learnloop/instructional/reader_followups|learnloop.instructional.reader_followups]] — imports `resolve_fsrs_weights`; statically calls `resolve_fsrs_weights`
+- [[Reference/Modules/learnloop/learner_context|learnloop.learner_context]] — imports `resolve_fsrs_weights`; statically calls `resolve_fsrs_weights`
 - [[Reference/Modules/learnloop/scheduling/evaluation|learnloop.scheduling.evaluation]] — imports `resolve_fsrs_weights`; statically calls `resolve_fsrs_weights`
+- [[Reference/Modules/learnloop/scheduling/intent/serving|learnloop.scheduling.intent.serving]] — imports `resolve_fsrs_weights`; statically calls `resolve_fsrs_weights`
 - [[Reference/Modules/learnloop/scheduling/scheduler|learnloop.scheduling.scheduler]] — imports `resolve_fsrs_weights`; statically calls `resolve_fsrs_weights`
+- [[Reference/Modules/learnloop/source_retrieval/deliverable_path|learnloop.source_retrieval.deliverable_path]] — imports `resolve_fsrs_weights`; statically calls `resolve_fsrs_weights`
+- [[Reference/Modules/learnloop/substrate/family_memory|learnloop.substrate.family_memory]] — imports `resolve_fsrs_weights`; statically calls `resolve_fsrs_weights`
 - [[Reference/Modules/learnloop_sidecar/handlers/knowledge_map|learnloop_sidecar.handlers.knowledge_map]] — imports `resolve_fsrs_weights`; statically calls `resolve_fsrs_weights`
 
 ## Dependencies
@@ -115,7 +125,7 @@ Use this module in context through:
 
 - [[Rebuild and Shadow Compare]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/attempts/attempts|learnloop.attempts.attempts]], [[Reference/Modules/learnloop/attempts/effective_observation|learnloop.attempts.effective_observation]], [[Reference/Modules/learnloop/attempts/grade_resolution|learnloop.attempts.grade_resolution]], [[Reference/Modules/learnloop/attempts/grader_calibration|learnloop.attempts.grader_calibration]], [[Reference/Modules/learnloop/cli/fit|learnloop.cli.fit]] and 7 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/attempts/attempts|learnloop.attempts.attempts]], [[Reference/Modules/learnloop/attempts/effective_observation|learnloop.attempts.effective_observation]], [[Reference/Modules/learnloop/attempts/grade_resolution|learnloop.attempts.grade_resolution]], [[Reference/Modules/learnloop/attempts/grader_calibration|learnloop.attempts.grader_calibration]], [[Reference/Modules/learnloop/cli/field|learnloop.cli.field]] and 17 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
@@ -129,6 +139,12 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_resolver_defaults_and_fitted_override`
   - `test_resolver_rejects_malformed_values`
   - `test_retuned_knob_reaches_an_already_seeded_vault`
+- [tests/test_intent_codex_review.py](../../../../../../tests/test_intent_codex_review.py) — direct import
+  - `test_f4_a_held_grade_never_becomes_the_anchor_through_the_real_attempt_path`
+- [tests/test_reader_followups.py](../../../../../../tests/test_reader_followups.py) — direct import
+  - `test_without_fsrs_state_the_date_is_the_schedulers_first_interval`
+- [tests/test_router_coldness_covariates.py](../../../../../../tests/test_router_coldness_covariates.py) — direct import
+  - `test_the_replayer_records_the_fsrs_predicted_retrievability`
 
 ## Modification guidance
 

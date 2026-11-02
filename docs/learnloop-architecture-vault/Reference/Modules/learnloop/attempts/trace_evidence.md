@@ -7,11 +7,11 @@ version: "1.0.0"
 source_path: "src/learnloop/attempts/trace_evidence.py"
 source_paths:
   - "src/learnloop/attempts/trace_evidence.py"
-source_commit: "b322ef2e9b5cebc241b612e4963a5aaf1a37f99a"
-source_commit_timestamp: "2026-08-20T18:04:29-04:00"
+source_commit: "ba3b4b9bc8e5574c127ee78f736846f6c3c8b38a"
+source_commit_timestamp: "2026-10-15T15:43:26-04:00"
 source_worktree_state: "clean"
 generated: true
-generated_at: "2026-09-23"
+generated_at: "2026-11-02"
 package: "learnloop.attempts"
 layer: "domain"
 concepts:
@@ -50,45 +50,48 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/attempts/trace_evidence.py](../../../../../../src/learnloop/attempts/trace_evidence.py) |
-| Source lines | 327 |
+| Source lines | 348 |
 | Owning package | [[Reference/Modules/learnloop/attempts/_package|learnloop.attempts]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `b322ef2e9b5cebc241b612e4963a5aaf1a37f99a` |
-| Commit timestamp | `2026-08-20T18:04:29-04:00` |
+| Source commit | `ba3b4b9bc8e5574c127ee78f736846f6c3c8b38a` |
+| Commit timestamp | `2026-10-15T15:43:26-04:00` |
 
 ## Public API
 
 - `class ElicitationDecision` ([source](../../../../../../src/learnloop/attempts/trace_evidence.py), line 70) — Whether to offer the one-line justification field on this item.
   - `as_dict(self) -> dict[str, Any]` (line 77; public)
-- `compose_learner_trace(answer_md: str, explanation_md: str | None) -> str` ([source](../../../../../../src/learnloop/attempts/trace_evidence.py), line 106) — Join the answer and the volunteered line into the one trace the grader reads.
-- `volunteered_explanation(trace_md: str | None) -> str | None` ([source](../../../../../../src/learnloop/attempts/trace_evidence.py), line 121) — The volunteered line inside a composed trace, or None — the exact inverse.
-- `elicited_explanations_in(traces) -> int` ([source](../../../../../../src/learnloop/attempts/trace_evidence.py), line 140) — How many of ``traces`` carry a volunteered explanation.
-- `decide_elicitation(item, *, config, elicitations_this_session: int) -> ElicitationDecision` ([source](../../../../../../src/learnloop/attempts/trace_evidence.py), line 159) — Whether to offer a one-line justification alongside ``item``.
-- `elicitation_reward(exercised_facets, *, explanation_md: str | None=None, learner_answer_md: str | None=None) -> str | None` ([source](../../../../../../src/learnloop/attempts/trace_evidence.py), line 194) — The visible reward for a volunteered explanation, or None.
-- `trace_evidence_report(repository) -> dict[str, Any]` ([source](../../../../../../src/learnloop/attempts/trace_evidence.py), line 252) — Concentration + volume of A6 observations, and unexercised supporting mass.
+- `compose_learner_trace(answer_md: str, explanation_md: str | None) -> str` ([source](../../../../../../src/learnloop/attempts/trace_evidence.py), line 109) — Join the answer and the volunteered line into the one trace the grader reads.
+- `volunteered_explanation(trace_md: str | None) -> str | None` ([source](../../../../../../src/learnloop/attempts/trace_evidence.py), line 124) — The volunteered line inside a composed trace, or None — the exact inverse.
+- `learner_answer_part(trace_md: str | None) -> str` ([source](../../../../../../src/learnloop/attempts/trace_evidence.py), line 143) — The learner's answer inside a composed trace, without the volunteered line: the other half of :func:`volunteered_explanation`'s inverse.
+- `elicited_explanations_in(traces) -> int` ([source](../../../../../../src/learnloop/attempts/trace_evidence.py), line 161) — How many of ``traces`` carry a volunteered explanation.
+- `decide_elicitation(item, *, config, elicitations_this_session: int) -> ElicitationDecision` ([source](../../../../../../src/learnloop/attempts/trace_evidence.py), line 180) — Whether to offer a one-line justification alongside ``item``.
+- `elicitation_reward(exercised_facets, *, explanation_md: str | None=None, learner_answer_md: str | None=None) -> str | None` ([source](../../../../../../src/learnloop/attempts/trace_evidence.py), line 215) — The visible reward for a volunteered explanation, or None.
+- `trace_evidence_report(repository) -> dict[str, Any]` ([source](../../../../../../src/learnloop/attempts/trace_evidence.py), line 273) — Concentration + volume of A6 observations, and unexercised supporting mass.
 
 ### Module constants
 
 - `UNDERDETERMINED_CAPABILITIES` ([src/learnloop/attempts/trace_evidence.py](../../../../../../src/learnloop/attempts/trace_evidence.py), line 56)
 - `_DECISION_POINT_PROMPT` ([src/learnloop/attempts/trace_evidence.py](../../../../../../src/learnloop/attempts/trace_evidence.py), line 84)
-- `_APPLICABILITY_PROMPT` ([src/learnloop/attempts/trace_evidence.py](../../../../../../src/learnloop/attempts/trace_evidence.py), line 85)
-- `ELICITATION_ANSWER_HEADING` ([src/learnloop/attempts/trace_evidence.py](../../../../../../src/learnloop/attempts/trace_evidence.py), line 103)
+- `_APPLICABILITY_PROMPT` ([src/learnloop/attempts/trace_evidence.py](../../../../../../src/learnloop/attempts/trace_evidence.py), line 88)
+- `ELICITATION_ANSWER_HEADING` ([src/learnloop/attempts/trace_evidence.py](../../../../../../src/learnloop/attempts/trace_evidence.py), line 106)
 
 ## Internal implementation anchors
 
-- `_field(row: Any, key: str) -> Any` ([source](../../../../../../src/learnloop/attempts/trace_evidence.py), line 243)
+- `_field(row: Any, key: str) -> Any` ([source](../../../../../../src/learnloop/attempts/trace_evidence.py), line 264)
 
 ## Who imports or calls it
 
 > [!note] Static evidence boundary
 > “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
 
+- [[Reference/Modules/learnloop/attempts/reveal_ledger|learnloop.attempts.reveal_ledger]] — imports `compose_learner_trace`; statically calls `compose_learner_trace`
 - [[Reference/Modules/learnloop/cli/app|learnloop.cli.app]] — imports `trace_evidence_report`; statically calls `trace_evidence_report`
 - [[Reference/Modules/learnloop_sidecar/handlers/feedback|learnloop_sidecar.handlers.feedback]] — imports `elicitation_reward`; statically calls `elicitation_reward`
 - [[Reference/Modules/learnloop_sidecar/handlers/measurement|learnloop_sidecar.handlers.measurement]] — imports `trace_evidence_report`; statically calls `trace_evidence_report`
 - [[Reference/Modules/learnloop_sidecar/handlers/practice|learnloop_sidecar.handlers.practice]] — imports `compose_learner_trace`, `decide_elicitation`, `elicited_explanations_in`; statically calls `compose_learner_trace`, `decide_elicitation`, `elicited_explanations_in`
+- [[Reference/Modules/learnloop_sidecar/handlers/serializers|learnloop_sidecar.handlers.serializers]] — imports `learner_answer_part`, `volunteered_explanation`; statically calls `learner_answer_part`, `volunteered_explanation`
 
 ## Dependencies
 
@@ -108,7 +111,7 @@ Use this module in context through:
 - [[Process Model Output]]
 - [[Inspect Persistent State]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/cli/app|learnloop.cli.app]], [[Reference/Modules/learnloop_sidecar/handlers/feedback|learnloop_sidecar.handlers.feedback]], [[Reference/Modules/learnloop_sidecar/handlers/measurement|learnloop_sidecar.handlers.measurement]], [[Reference/Modules/learnloop_sidecar/handlers/practice|learnloop_sidecar.handlers.practice]].
+Static participation evidence comes from [[Reference/Modules/learnloop/attempts/reveal_ledger|learnloop.attempts.reveal_ledger]], [[Reference/Modules/learnloop/cli/app|learnloop.cli.app]], [[Reference/Modules/learnloop_sidecar/handlers/feedback|learnloop_sidecar.handlers.feedback]], [[Reference/Modules/learnloop_sidecar/handlers/measurement|learnloop_sidecar.handlers.measurement]], [[Reference/Modules/learnloop_sidecar/handlers/practice|learnloop_sidecar.handlers.practice]] and 1 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
@@ -125,7 +128,14 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_schema_interpretation_gets_the_applicability_prompt`
   - `test_the_session_budget_is_hard`
   - `test_trace_evidence_report_surfaces_unexercised_cells_and_abstains_on_concentration`
+- [tests/test_intent_orchestrator_rulings.py](../../../../../../tests/test_intent_orchestrator_rulings.py) — direct import
+  - `test_r2_one_attributable_disclosure_function`
 - [tests/test_sidecar_trace_and_clarification.py](../../../../../../tests/test_sidecar_trace_and_clarification.py) — direct import
+- [tests/test_ux_phase4_feedback.py](../../../../../../tests/test_ux_phase4_feedback.py) — direct import
+  - `test_f1j_a_key_that_ends_in_a_trace_hash_never_exempts_another_draft`
+  - `test_f1j_a_legacy_row_whose_display_id_is_the_hash_gets_no_exemption`
+  - `test_f1k_a_malformed_identity_exempts_nothing`
+  - `test_the_optional_line_asks_about_any_question_not_a_case`
 
 ## Modification guidance
 

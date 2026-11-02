@@ -7,9 +7,9 @@ version: "1.0.0"
 source_paths:
   - "src/learnloop/content/"
 source_commit: "aggregate; see module notes"
-source_commit_timestamp: "2026-09-23T20:46:40-04:00"
+source_commit_timestamp: "2026-11-02T07:07:21-05:00"
 generated: true
-generated_at: "2026-09-23"
+generated_at: "2026-11-02"
 package: "learnloop.content"
 layer: "domain"
 concepts:
@@ -50,6 +50,7 @@ For system intent, use [[Learning System]], [[AI Architecture]].
 ## Child package maps
 
 - [[Reference/Modules/learnloop/content/authoring/_package|learnloop.content.authoring]] — Practice-content authoring gates, generation contracts, and authored artifacts.
+- [[Reference/Modules/learnloop/content/facet_identity/_package|learnloop.content.facet_identity]] — Facet identity at mint time and the dedupe command: embedding shortlists, a judge over each neighbourhood, live merges with exact undo.
 - [[Reference/Modules/learnloop/content/pipeline/_package|learnloop.content.pipeline]] — Canonical content extraction and transformation stages.
 - [[Reference/Modules/learnloop/content/proposals/_package|learnloop.content.proposals]] — Reviewable content and graph change proposals and their lifecycle.
 - [[Reference/Modules/learnloop/content/sources/_package|learnloop.content.sources]] — Canonical source-library identity, manifests, and source-set behavior.

@@ -11,7 +11,7 @@ source_commit: "b322ef2e9b5cebc241b612e4963a5aaf1a37f99a"
 source_commit_timestamp: "2026-08-20T18:04:29-04:00"
 source_worktree_state: "clean"
 generated: true
-generated_at: "2026-09-23"
+generated_at: "2026-11-02"
 package: "learnloop.scheduling"
 layer: "domain"
 concepts:
@@ -90,16 +90,26 @@ No private top-level function or class definition is declared in this file.
 
 - [[Reference/Modules/learnloop/attempts/attempts|learnloop.attempts.attempts]] — imports `FSRS6_DEFAULT_WEIGHTS`, `MemoryState`, `Rating`, `apply_review`, `interval_for_retention`, `rating_from_score`; statically calls `MemoryState`, `Rating`, `apply_review`, `interval_for_retention`, `rating_from_score`
 - [[Reference/Modules/learnloop/cli/fit|learnloop.cli.fit]] — imports `FSRS6_DEFAULT_WEIGHTS`
+- [[Reference/Modules/learnloop/daily_plan/reentry|learnloop.daily_plan.reentry]] — imports `forgetting_curve`; statically calls `forgetting_curve`
+- [[Reference/Modules/learnloop/daily_plan/router_card|learnloop.daily_plan.router_card]] — imports `forgetting_curve`; statically calls `forgetting_curve`
+- [[Reference/Modules/learnloop/field/evaluation|learnloop.field.evaluation]] — imports `FSRS6_DEFAULT_WEIGHTS`
+- [[Reference/Modules/learnloop/field/memory|learnloop.field.memory]] — imports `FSRS6_DEFAULT_WEIGHTS`
 - [[Reference/Modules/learnloop/goals/goal_projection|learnloop.goals.goal_projection]] — imports `forgetting_curve`; statically calls `forgetting_curve`
+- [[Reference/Modules/learnloop/instructional/reader_followups|learnloop.instructional.reader_followups]] — imports `module`; statically calls `initial_stability`, `interval_for_retention`
+- [[Reference/Modules/learnloop/intent/report|learnloop.intent.report]] — imports `FSRS6_DEFAULT_WEIGHTS`
+- [[Reference/Modules/learnloop/learner_context|learnloop.learner_context]] — imports `forgetting_curve`; statically calls `forgetting_curve`
 - [[Reference/Modules/learnloop/params/fitted_params|learnloop.params.fitted_params]] — imports `FSRS6_DEFAULT_WEIGHTS`
 - [[Reference/Modules/learnloop/scheduling/evaluation|learnloop.scheduling.evaluation]] — imports `MemoryState`, `apply_review`, `forgetting_curve`; statically calls `apply_review`, `forgetting_curve`
+- [[Reference/Modules/learnloop/scheduling/family_memory_model|learnloop.scheduling.family_memory_model]] — imports `MemoryState`, `Rating`, `apply_review`, `forgetting_curve`; statically calls `MemoryState`, `Rating`, `apply_review`, `forgetting_curve`
 - [[Reference/Modules/learnloop/scheduling/fsrs_fitting|learnloop.scheduling.fsrs_fitting]] — imports `FSRS6_DEFAULT_WEIGHTS`, `MemoryState`, `Rating`, `apply_review`, `forgetting_curve`; statically calls `apply_review`, `forgetting_curve`
-- [[Reference/Modules/learnloop/scheduling/review_log|learnloop.scheduling.review_log]] — imports `Rating`
+- [[Reference/Modules/learnloop/scheduling/review_log|learnloop.scheduling.review_log]] — imports `MemoryState`, `Rating`, `apply_review`, `forgetting_curve`; statically calls `apply_review`, `forgetting_curve`
 - [[Reference/Modules/learnloop/scheduling/scheduler|learnloop.scheduling.scheduler]] — imports `FSRS6_DEFAULT_WEIGHTS`, `forgetting_curve`; statically calls `forgetting_curve`
 - [[Reference/Modules/learnloop/sim/runner|learnloop.sim.runner]] — imports `forgetting_curve`; statically calls `forgetting_curve`
+- [[Reference/Modules/learnloop/source_retrieval/deliverable_path|learnloop.source_retrieval.deliverable_path]] — imports `interval_for_retention`; statically calls `interval_for_retention`
 - [[Reference/Modules/learnloop/substrate/administration_adapters|learnloop.substrate.administration_adapters]] — imports `FSRS6_DEFAULT_WEIGHTS`, `Rating`
 - [[Reference/Modules/learnloop/substrate/card_lineage|learnloop.substrate.card_lineage]] — imports `FSRS6_DEFAULT_WEIGHTS`, `MemoryState`, `Rating`, `apply_review`; statically calls `Rating`, `apply_review`
 - [[Reference/Modules/learnloop/substrate/compat/substrate_cutover|learnloop.substrate.compat.substrate_cutover]] — imports `FSRS6_DEFAULT_WEIGHTS`, `Rating`, `apply_review`; statically calls `apply_review`
+- [[Reference/Modules/learnloop/teacher/delayed|learnloop.teacher.delayed]] — imports `interval_for_retention`; statically calls `interval_for_retention`
 - [[Reference/Modules/learnloop_sidecar/handlers/knowledge_map|learnloop_sidecar.handlers.knowledge_map]] — imports `forgetting_curve`; statically calls `forgetting_curve`
 
 ## Dependencies
@@ -120,7 +130,7 @@ Use this module in context through:
 - [[Start a Learning Cycle]]
 - [[Continue a Learning Cycle]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/attempts/attempts|learnloop.attempts.attempts]], [[Reference/Modules/learnloop/cli/fit|learnloop.cli.fit]], [[Reference/Modules/learnloop/goals/goal_projection|learnloop.goals.goal_projection]], [[Reference/Modules/learnloop/params/fitted_params|learnloop.params.fitted_params]], [[Reference/Modules/learnloop/scheduling/evaluation|learnloop.scheduling.evaluation]] and 8 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/attempts/attempts|learnloop.attempts.attempts]], [[Reference/Modules/learnloop/cli/fit|learnloop.cli.fit]], [[Reference/Modules/learnloop/daily_plan/reentry|learnloop.daily_plan.reentry]], [[Reference/Modules/learnloop/daily_plan/router_card|learnloop.daily_plan.router_card]], [[Reference/Modules/learnloop/field/evaluation|learnloop.field.evaluation]] and 18 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
@@ -136,6 +146,13 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_evaluation.py](../../../../../../tests/test_evaluation.py) — direct import
   - `test_report_on_real_session_flow`
 - [tests/test_event_sufficiency.py](../../../../../../tests/test_event_sufficiency.py) — direct import
+- [tests/test_family_evaluation.py](../../../../../../tests/test_family_evaluation.py) — direct import
+  - `test_distance_arm_discounts_only_real_positive_credit`
+  - `test_memory_arm_inputs_are_frozen_and_never_a_store`
+  - `test_memory_coldness_and_transfer_gate`
+  - `test_prequential_predict_all_before_observe_including_memory`
+  - `test_shared_key_weights_and_elapsed_are_consistent`
+  - `test_unfamilied_falls_back_to_item_and_transfer_never_trains`
 - [tests/test_fitted_parameters.py](../../../../../../tests/test_fitted_parameters.py) — direct import
   - `test_resolve_fsrs_weights_defaults_when_absent`
   - `test_resolve_fsrs_weights_falls_back_on_malformed_payload`
@@ -154,11 +171,21 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_refuses_below_min_reviews`
   - `test_review_log_loss_skips_short_gaps_and_zero_weight`
   - `test_shrinkage_dominates_at_tiny_n`
+- [tests/test_held_grade_composition.py](../../../../../../tests/test_held_grade_composition.py) — direct import
+  - `test_router_never_scores_a_held_attempt_and_its_fold_applies_no_review`
+- [tests/test_held_grade_evidence.py](../../../../../../tests/test_held_grade_evidence.py) — direct import
+  - `test_f8_the_fsrs_fitter_never_fits_a_review_that_never_happened`
+- [tests/test_intent_recall_targets.py](../../../../../../tests/test_intent_recall_targets.py) — direct import
+  - `test_the_ratio_is_the_fsrs_interval_ratio_and_exactly_one_at_090`
 - [tests/test_journey6.py](../../../../../../tests/test_journey6.py) — direct import
+- [tests/test_reader_followups.py](../../../../../../tests/test_reader_followups.py) — direct import
+  - `test_without_fsrs_state_the_date_is_the_schedulers_first_interval`
 - [tests/test_review_log.py](../../../../../../tests/test_review_log.py) — direct import
   - `test_dont_know_rating_and_weight`
   - `test_hint_cap_and_score_binning_match_live_semantics`
   - `test_reconstruction_reproduces_live_practice_item_state`
+- [tests/test_router_coldness_covariates.py](../../../../../../tests/test_router_coldness_covariates.py) — direct import
+  - `test_the_replayer_records_the_fsrs_predicted_retrievability`
 - [tests/test_substrate_cutover.py](../../../../../../tests/test_substrate_cutover.py) — direct import
   - `test_deferred_projection_rebuild_is_deterministic_and_idempotent`
   - `test_diagnostic_and_assessment_write_no_practice_schedule`

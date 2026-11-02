@@ -660,13 +660,17 @@ def test_review_f4_a_budget_refusal_while_recovering_a_visual_closes_the_lesson(
     """The lesson's envelope refuses the recovered visual's author request: the lesson closes with
     ``budget`` (atomically, with its receipt) and returns its view, whatever the action."""
 
-    from learnloop.ai.spend import SpendLimitExceeded
+    from tests.test_followups_batch5_lesson import lesson_envelope_refuses
+    from tests.ux_phase1_support import set_config
 
     paths, repository = build_teacher_vault(tmp_path / "vault")
-    author = AuthorFake([SpendLimitExceeded("the lesson's cap would be passed")])
+    # Followups batch 5 (E): the LESSON's gate refuses the author's request (a per-lesson cap with no price),
+    # not a bare SpendLimitExceeded, which now means the figures' own daily envelope (the visual only).
+    author = AuthorFake([lesson_envelope_refuses])
     fake = TeacherFake([visual_turn])
     build = _builder(paths, repository, author)
     lesson_id = _interrupt_visual(monkeypatch, paths, repository, fake, build)
+    set_config(paths.root, {("teacher", "max_lesson_cost_usd"): 1.0})
     calls = len(fake.prompts)
     fake.turns = [{"message": "never sent"}]
     view = S.take_turn(load_vault(paths.root), repository, lesson_id=lesson_id, action=action, payload=payload,

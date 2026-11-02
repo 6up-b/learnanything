@@ -7,11 +7,11 @@ version: "1.0.0"
 source_path: "src/learnloop/goals/exam_pool.py"
 source_paths:
   - "src/learnloop/goals/exam_pool.py"
-source_commit: "b322ef2e9b5cebc241b612e4963a5aaf1a37f99a"
-source_commit_timestamp: "2026-08-20T18:04:29-04:00"
+source_commit: "3159eb4a25b171a2bf4cde14435456b9fe646616"
+source_commit_timestamp: "2026-10-13T18:47:31-04:00"
 source_worktree_state: "clean"
 generated: true
-generated_at: "2026-09-23"
+generated_at: "2026-11-02"
 package: "learnloop.goals"
 layer: "domain"
 concepts:
@@ -49,35 +49,42 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/goals/exam_pool.py](../../../../../../src/learnloop/goals/exam_pool.py) |
-| Source lines | 484 |
+| Source lines | 590 |
 | Owning package | [[Reference/Modules/learnloop/goals/_package|learnloop.goals]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `b322ef2e9b5cebc241b612e4963a5aaf1a37f99a` |
-| Commit timestamp | `2026-08-20T18:04:29-04:00` |
+| Source commit | `3159eb4a25b171a2bf4cde14435456b9fe646616` |
+| Commit timestamp | `2026-10-13T18:47:31-04:00` |
 
 ## Public API
 
-- `class ExamPoolReport` ([source](../../../../../../src/learnloop/goals/exam_pool.py), line 83)
-  - `as_dict(self) -> dict[str, Any]` (line 98; public)
-- `reserved_item_ids(repository: Repository) -> set[str]` ([source](../../../../../../src/learnloop/goals/exam_pool.py), line 113) — All practice item ids currently reserved (unreleased) across all goals.
-- `release_exam_pool(repository: Repository, goal_id: str, *, clock: Clock | None=None) -> list[str]` ([source](../../../../../../src/learnloop/goals/exam_pool.py), line 123) — Release every unreleased reservation for ``goal_id``.
-- `reserve_exam_pool(vault: LoadedVault, repository: Repository, goal: Goal, *, item_count: int | None=None, defer_if_insufficient: bool=False, practice_floor: int=PRACTICE_FLOOR, clock: Clock | None=None) -> ExamPoolReport` ([source](../../../../../../src/learnloop/goals/exam_pool.py), line 133) — Reserve up to ``item_count`` held-out items covering the goal's scope.
+- `class ExamPoolReport` ([source](../../../../../../src/learnloop/goals/exam_pool.py), line 84)
+  - `as_dict(self) -> dict[str, Any]` (line 102; public)
+- `reserved_item_ids(repository: Repository) -> set[str]` ([source](../../../../../../src/learnloop/goals/exam_pool.py), line 119) — All practice item ids currently reserved (unreleased) across all goals.
+- `release_exam_pool(repository: Repository, goal_id: str, *, clock: Clock | None=None) -> list[str]` ([source](../../../../../../src/learnloop/goals/exam_pool.py), line 129) — Release every unreleased reservation for ``goal_id``.
+- `reserve_exam_pool(vault: LoadedVault, repository: Repository, goal: Goal, *, item_count: int | None=None, defer_if_insufficient: bool=False, practice_floor: int=PRACTICE_FLOOR, clock: Clock | None=None) -> ExamPoolReport` ([source](../../../../../../src/learnloop/goals/exam_pool.py), line 139) — Reserve up to ``item_count`` held-out items covering the goal's scope.
+- `withdrawn_reasons_text(reasons: Any) -> str` ([source](../../../../../../src/learnloop/goals/exam_pool.py), line 340) — How the learner saw withdrawn exam items, in words ("an answer revealed, ...").
+- `withdrawn_note(withdrawn: list[dict[str, Any]]) -> str | None` ([source](../../../../../../src/learnloop/goals/exam_pool.py), line 346) — The learner-facing line for withdrawn exam items, or None.
+- `withdraw_exposed_reservations(vault: LoadedVault, repository: Repository, goal_id: str, *, clock: Clock | None=None) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/goals/exam_pool.py), line 356) — Release this goal's reserved exam items the learner has been shown since (or before) they were reserved, and say why (Codex review F5).
 
 ### Module constants
 
-- `_DIFFICULTY_STRATA` ([src/learnloop/goals/exam_pool.py](../../../../../../src/learnloop/goals/exam_pool.py), line 42)
-- `PRACTICE_FLOOR` ([src/learnloop/goals/exam_pool.py](../../../../../../src/learnloop/goals/exam_pool.py), line 79)
+- `_DIFFICULTY_STRATA` ([src/learnloop/goals/exam_pool.py](../../../../../../src/learnloop/goals/exam_pool.py), line 43)
+- `PRACTICE_FLOOR` ([src/learnloop/goals/exam_pool.py](../../../../../../src/learnloop/goals/exam_pool.py), line 80)
+- `WITHDRAWN_NOTE` ([src/learnloop/goals/exam_pool.py](../../../../../../src/learnloop/goals/exam_pool.py), line 333)
+- `_WITHDRAWN_REASONS` ([src/learnloop/goals/exam_pool.py](../../../../../../src/learnloop/goals/exam_pool.py), line 336)
 
 ## Internal implementation anchors
 
-- `_difficulty_stratum(item: PracticeItem) -> str` ([source](../../../../../../src/learnloop/goals/exam_pool.py), line 45)
-- `class _Candidate` ([source](../../../../../../src/learnloop/goals/exam_pool.py), line 57)
-- `_candidates(vault: LoadedVault, repository: Repository, scope: dict[str, set[str]], own_reserved_ids: set[str]) -> list[_Candidate]` ([source](../../../../../../src/learnloop/goals/exam_pool.py), line 294) — Reservable items: active, never attempted, not reserved elsewhere.
-- `_item_components(vault: LoadedVault, item: PracticeItem, covered: set[str]) -> frozenset[tuple[str, str]]` ([source](../../../../../../src/learnloop/goals/exam_pool.py), line 353) — The (facet, capability) blueprint components ``item`` can testify to.
-- `_practiced_surface_families(vault: LoadedVault, attempted: set[str]) -> set[str]` ([source](../../../../../../src/learnloop/goals/exam_pool.py), line 414) — Independent-evidence groups the learner has already been served.
-- `_select(candidates: list[_Candidate], item_count: int) -> list[_Candidate]` ([source](../../../../../../src/learnloop/goals/exam_pool.py), line 437) — Greedy blueprint-coverage selection with stratification + surface novelty.
+- `_difficulty_stratum(item: PracticeItem) -> str` ([source](../../../../../../src/learnloop/goals/exam_pool.py), line 46)
+- `class _Candidate` ([source](../../../../../../src/learnloop/goals/exam_pool.py), line 58)
+- `_unverified_imports(vault: LoadedVault, repository: Repository) -> set[str]` ([source](../../../../../../src/learnloop/goals/exam_pool.py), line 307)
+- `_shown_items(vault: LoadedVault, repository: Repository) -> set[str]` ([source](../../../../../../src/learnloop/goals/exam_pool.py), line 321) — Items whose own material the learner has already been shown (exam protection, owner default 2026-10-13: such material never becomes an exam item): a reveal of the answer, the canonical exercise or its book solution read in a source, or the prompt rendered in a proposal, ever.
+- `_candidates(vault: LoadedVault, repository: Repository, scope: dict[str, set[str]], own_reserved_ids: set[str]) -> list[_Candidate]` ([source](../../../../../../src/learnloop/goals/exam_pool.py), line 392) — Reservable items: active, never attempted, never shown, not reserved elsewhere.
+- `_item_components(vault: LoadedVault, item: PracticeItem, covered: set[str]) -> frozenset[tuple[str, str]]` ([source](../../../../../../src/learnloop/goals/exam_pool.py), line 459) — The (facet, capability) blueprint components ``item`` can testify to.
+- `_practiced_surface_families(vault: LoadedVault, attempted: set[str]) -> set[str]` ([source](../../../../../../src/learnloop/goals/exam_pool.py), line 520) — Independent-evidence groups the learner has already been served.
+- `_select(candidates: list[_Candidate], item_count: int) -> list[_Candidate]` ([source](../../../../../../src/learnloop/goals/exam_pool.py), line 543) — Greedy blueprint-coverage selection with stratification + surface novelty.
 
 ## Who imports or calls it
 
@@ -85,16 +92,22 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 > “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
 
 - [[Reference/Modules/learnloop/cli/runtime|learnloop.cli.runtime]] — imports `reserve_exam_pool`
-- [[Reference/Modules/learnloop/goals/exam_session|learnloop.goals.exam_session]] — imports `release_exam_pool`; statically calls `release_exam_pool`
-- [[Reference/Modules/learnloop/scheduling/scheduler|learnloop.scheduling.scheduler]] — imports `reserved_item_ids`; statically calls `reserved_item_ids`
-- [[Reference/Modules/learnloop_sidecar/handlers/exams|learnloop_sidecar.handlers.exams]] — imports `reserve_exam_pool`; statically calls `reserve_exam_pool`
+- [[Reference/Modules/learnloop/goals/exam_session|learnloop.goals.exam_session]] — imports `release_exam_pool`, `withdraw_exposed_reservations`, `withdrawn_note`, `withdrawn_reasons_text`; statically calls `release_exam_pool`, `withdraw_exposed_reservations`, `withdrawn_note`, `withdrawn_reasons_text`
+- [[Reference/Modules/learnloop/practice_index/dossiers|learnloop.practice_index.dossiers]] — imports `reserved_item_ids`; statically calls `reserved_item_ids`
+- [[Reference/Modules/learnloop/scheduling/intent/feasibility|learnloop.scheduling.intent.feasibility]] — imports `module`; statically calls `reserved_item_ids`
+- [[Reference/Modules/learnloop/scheduling/serving_exclusions|learnloop.scheduling.serving_exclusions]] — imports `reserved_item_ids`; statically calls `reserved_item_ids`
+- [[Reference/Modules/learnloop_sidecar/handlers/exams|learnloop_sidecar.handlers.exams]] — imports `reserve_exam_pool`, `withdrawn_note`; statically calls `reserve_exam_pool`, `withdrawn_note`
 
 ## Dependencies
 
 ### LearnLoop dependencies
 
+- [[Reference/Modules/learnloop/algorithm_versions|learnloop.algorithm_versions]] — imports `SOURCE_REFERENCE_GATE_VERSIONS`
 - [[Reference/Modules/learnloop/clock|learnloop.clock]] — imports `Clock`, `SystemClock`, `utc_now_iso`; calls `SystemClock`, `utc_now_iso`
+- [[Reference/Modules/learnloop/content/sources/exam_material|learnloop.content.sources.exam_material]] — imports `exposed_items`; calls `exposed_items`
+- [[Reference/Modules/learnloop/db/connection|learnloop.db.connection]] — imports `connect`; calls `connect`
 - [[Reference/Modules/learnloop/db/repositories|learnloop.db.repositories]] — imports `Repository`
+- [[Reference/Modules/learnloop/db/stores/source_service|learnloop.db.stores.source_service]] — imports `unverified_import_ids`; calls `unverified_import_ids`
 - [[Reference/Modules/learnloop/goals/goal_contracts|learnloop.goals.goal_contracts]] — imports `resolve_head`; calls `resolve_head`
 - [[Reference/Modules/learnloop/goals/goal_projection|learnloop.goals.goal_projection]] — imports `resolve_goal_scope`; calls `resolve_goal_scope`
 - [[Reference/Modules/learnloop/ids|learnloop.ids]] — imports `new_ulid`; calls `new_ulid`
@@ -107,7 +120,7 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 
 ### Platform and third-party dependencies
 
-- Standard library: `__future__`, `dataclasses`, `typing`
+- Standard library: `__future__`, `contextlib`, `dataclasses`, `typing`
 - Third party: none imported directly
 
 ## Larger workflow participation
@@ -116,7 +129,7 @@ Use this module in context through:
 
 - [[Goals Exams and Certification Workflow]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/cli/runtime|learnloop.cli.runtime]], [[Reference/Modules/learnloop/goals/exam_session|learnloop.goals.exam_session]], [[Reference/Modules/learnloop/scheduling/scheduler|learnloop.scheduling.scheduler]], [[Reference/Modules/learnloop_sidecar/handlers/exams|learnloop_sidecar.handlers.exams]].
+Static participation evidence comes from [[Reference/Modules/learnloop/cli/runtime|learnloop.cli.runtime]], [[Reference/Modules/learnloop/goals/exam_session|learnloop.goals.exam_session]], [[Reference/Modules/learnloop/practice_index/dossiers|learnloop.practice_index.dossiers]], [[Reference/Modules/learnloop/scheduling/intent/feasibility|learnloop.scheduling.intent.feasibility]], [[Reference/Modules/learnloop/scheduling/serving_exclusions|learnloop.scheduling.serving_exclusions]] and 1 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
@@ -133,6 +146,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_a_supporting_only_facet_contributes_no_reachable_cell`
   - `test_item_components_reads_authored_primary_targets_at_both_capabilities`
   - `test_item_components_without_authored_targets_is_unchanged`
+- [tests/test_daily_loop_lo_lifecycle_serving.py](../../../../../../tests/test_daily_loop_lo_lifecycle_serving.py) — direct import
+  - `test_exam_start_does_not_administer_items_of_an_lo_put_away_after_reservation`
 - [tests/test_dual_authority_administration.py](../../../../../../tests/test_dual_authority_administration.py) — direct import
   - `test_assign_refused_when_item_already_exam_reserved`
   - `test_staged_owned_item_not_reservable_into_exam_pool`
@@ -144,7 +159,14 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_reservation_is_idempotent_per_goal`
   - `test_scheduler_skips_reserved_items`
   - `test_uncovered_facets_reported_when_no_item_tests_a_facet`
+- [tests/test_exam_protection.py](../../../../../../tests/test_exam_protection.py) — direct import
+  - `test_an_exposed_import_never_becomes_an_exam_item`
+- [tests/test_exam_protection_review.py](../../../../../../tests/test_exam_protection_review.py) — direct import
+  - `test_a_pool_every_item_of_which_was_exposed_is_reserved_afresh`
+  - `test_a_sitting_every_unanswered_item_of_which_was_exposed_is_closed_and_its_pool_released`
+  - `test_with_the_switch_off_shown_material_is_selected_as_before`
 - [tests/test_exam_session.py](../../../../../../tests/test_exam_session.py) — direct import
+  - `test_an_exam_answer_is_stamped_with_its_graders_calibration_identity`
   - `test_availability_open_ended_goal_never_in_window_but_startable`
   - `test_exam_answers_certify_facet_evidence_on_canonical_vault`
   - `test_finish_releases_the_exam_pool`
@@ -157,6 +179,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_exam_practiced_surfaces_are_groups`
 - [tests/test_instrument_servability_journeys.py](../../../../../../tests/test_instrument_servability_journeys.py) — direct import
   - `test_exam_reservation_may_reserve_an_instrument`
+- [tests/test_intent_fix_round6.py](../../../../../../tests/test_intent_fix_round6.py) — direct import
 - [tests/test_post_attempt_pipeline.py](../../../../../../tests/test_post_attempt_pipeline.py) — direct import
 - [tests/test_sidecar_exams.py](../../../../../../tests/test_sidecar_exams.py) — direct import
   - `test_exam_submit_advances_before_background_grade_finishes`

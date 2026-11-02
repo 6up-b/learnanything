@@ -7,11 +7,11 @@ version: "1.0.0"
 source_path: "src/learnloop/content/proposals/apply_protocol.py"
 source_paths:
   - "src/learnloop/content/proposals/apply_protocol.py"
-source_commit: "workspace/uncommitted @ HEAD df970cd96725b112447395846bb53a0164a5853c"
-source_commit_timestamp: "2026-09-23T20:46:40-04:00"
-source_worktree_state: "modified"
+source_commit: "ddbdb51df610516f4ebd27b64b60505c8a0190ab"
+source_commit_timestamp: "2026-10-15T02:25:24-04:00"
+source_worktree_state: "clean"
 generated: true
-generated_at: "2026-09-23"
+generated_at: "2026-11-02"
 package: "learnloop.content.proposals"
 layer: "domain"
 concepts:
@@ -51,21 +51,22 @@ The authoritative system-level explanation remains in [[Learning System]], [[AI 
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/content/proposals/apply_protocol.py](../../../../../../../src/learnloop/content/proposals/apply_protocol.py) |
-| Source lines | 517 |
+| Source lines | 602 |
 | Owning package | [[Reference/Modules/learnloop/content/proposals/_package|learnloop.content.proposals]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
-| Worktree state | `modified` |
-| Source commit | `workspace/uncommitted @ HEAD df970cd96725b112447395846bb53a0164a5853c` |
-| Commit timestamp | `2026-09-23T20:46:40-04:00` |
+| Worktree state | `clean` |
+| Source commit | `ddbdb51df610516f4ebd27b64b60505c8a0190ab` |
+| Commit timestamp | `2026-10-15T02:25:24-04:00` |
 
 ## Public API
 
 - `compute_dependency_closure(repository: Repository, requested: list[dict[str, Any]]) -> tuple[list[str], dict[str, dict[str, Any]]]` ([source](../../../../../../../src/learnloop/content/proposals/apply_protocol.py), line 60) — Split the requested items into an applyable ordered closure and a blocked set (source-ingestion §10.2).
-- `stage_target_contents(root: Path, vault: LoadedVault, ordered_items: list[dict[str, Any]], origin: str, patch_id: str, *, clock: Clock | None) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]` ([source](../../../../../../../src/learnloop/content/proposals/apply_protocol.py), line 151) — Replay the compiled writers against a throwaway staging copy and capture the final target file contents plus the DB side-effect plan.
-- `materialize_targets(root: Path, targets: list[dict[str, Any]]) -> None` ([source](../../../../../../../src/learnloop/content/proposals/apply_protocol.py), line 315) — Write each target via a staged fsynced temp file and an atomic rename.
-- `perform_db_effects(repository: Repository, db_plan: list[dict[str, Any]], *, clock: Clock | None) -> list[str]` ([source](../../../../../../../src/learnloop/content/proposals/apply_protocol.py), line 362) — Record proposal decisions, content events, and provenance links.
-- `recover_apply_intents(root: Path, repository: Repository, *, clock: Clock | None=None) -> list[str]` ([source](../../../../../../../src/learnloop/content/proposals/apply_protocol.py), line 496) — Complete any apply intent left mid-flight (startup/doctor recovery, §10.2).
+- `stage_target_contents(root: Path, vault: LoadedVault, ordered_items: list[dict[str, Any]], origin: str, patch_id: str, *, clock: Clock | None, facet_authority: Any=None) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]` ([source](../../../../../../../src/learnloop/content/proposals/apply_protocol.py), line 151) — Replay the compiled writers against a throwaway staging copy and capture the final target file contents plus the DB side-effect plan.
+- `entity_source_link_rows(entity_type: str, entity_id: str, payload: Any, patch_id: str) -> list[dict[str, Any]]` ([source](../../../../../../../src/learnloop/content/proposals/apply_protocol.py), line 319) — The entity_source_links rows a payload's ``provenance.source_refs`` record (fixed ids).
+- `materialize_targets(root: Path, targets: list[dict[str, Any]]) -> None` ([source](../../../../../../../src/learnloop/content/proposals/apply_protocol.py), line 335) — Write each target via a staged fsynced temp file and an atomic rename.
+- `perform_db_effects(repository: Repository, db_plan: list[dict[str, Any]], *, clock: Clock | None) -> list[str]` ([source](../../../../../../../src/learnloop/content/proposals/apply_protocol.py), line 382) — Record proposal decisions, content events, and provenance links.
+- `recover_apply_intents(root: Path, repository: Repository, *, clock: Clock | None=None) -> list[str]` ([source](../../../../../../../src/learnloop/content/proposals/apply_protocol.py), line 581) — Complete any apply intent left mid-flight (startup/doctor recovery, §10.2).
 
 ### Module constants
 
@@ -76,20 +77,24 @@ The authoritative system-level explanation remains in [[Learning System]], [[AI 
 
 - `_sha256_bytes(data: bytes) -> str` ([source](../../../../../../../src/learnloop/content/proposals/apply_protocol.py), line 53)
 - `_topological_order(repository: Repository, requested_by_id: dict[str, dict[str, Any]], applyable: list[str], deps: dict[str, list[str]]) -> list[str]` ([source](../../../../../../../src/learnloop/content/proposals/apply_protocol.py), line 112)
-- `_stamp_side_effect(side_effect: dict[str, Any] | None, patch_id: str) -> dict[str, Any] | None` ([source](../../../../../../../src/learnloop/content/proposals/apply_protocol.py), line 211) — Stamp the accepting patch id onto a specialized additive side effect (§10.2).
-- `_diff_targets(real_root: Path, staging_root: Path) -> list[dict[str, Any]]` ([source](../../../../../../../src/learnloop/content/proposals/apply_protocol.py), line 221)
-- `_database_name(vault: LoadedVault) -> str` ([source](../../../../../../../src/learnloop/content/proposals/apply_protocol.py), line 249)
-- `_is_ignored(rel: Path) -> bool` ([source](../../../../../../../src/learnloop/content/proposals/apply_protocol.py), line 253)
-- `_entity_source_link_rows(entity_type: str, entity_id: str, payload: Any, patch_id: str) -> list[dict[str, Any]]` ([source](../../../../../../../src/learnloop/content/proposals/apply_protocol.py), line 260) — Map a created entity's YAML ``provenance.source_refs`` snapshot into entity_source_links rows (source-ingestion §9.1).
-- `_fsync_dir(directory: Path) -> None` ([source](../../../../../../../src/learnloop/content/proposals/apply_protocol.py), line 346)
-- `_perform_side_effect(repository: Repository, side_effect: dict[str, Any] | None, created_at: str, clock: Clock | None) -> None` ([source](../../../../../../../src/learnloop/content/proposals/apply_protocol.py), line 425) — Apply a specialized additive item's DB write (§10.2).
+- `_stamp_side_effect(side_effect: dict[str, Any] | None, patch_id: str) -> dict[str, Any] | None` ([source](../../../../../../../src/learnloop/content/proposals/apply_protocol.py), line 218) — Stamp the accepting patch id onto a specialized additive side effect (§10.2).
+- `_diff_targets(real_root: Path, staging_root: Path) -> list[dict[str, Any]]` ([source](../../../../../../../src/learnloop/content/proposals/apply_protocol.py), line 228)
+- `_database_name(vault: LoadedVault) -> str` ([source](../../../../../../../src/learnloop/content/proposals/apply_protocol.py), line 256)
+- `_is_ignored(rel: Path) -> bool` ([source](../../../../../../../src/learnloop/content/proposals/apply_protocol.py), line 260)
+- `_entity_source_link_rows(entity_type: str, entity_id: str, payload: Any, patch_id: str) -> list[dict[str, Any]]` ([source](../../../../../../../src/learnloop/content/proposals/apply_protocol.py), line 267) — Map a created entity's YAML ``provenance.source_refs`` snapshot into entity_source_links rows (source-ingestion §9.1).
+- `_fsync_dir(directory: Path) -> None` ([source](../../../../../../../src/learnloop/content/proposals/apply_protocol.py), line 366)
+- `_perform_side_effect(repository: Repository, side_effect: dict[str, Any] | None, created_at: str, clock: Clock | None) -> None` ([source](../../../../../../../src/learnloop/content/proposals/apply_protocol.py), line 445) — Apply a specialized additive item's DB write (§10.2).
+- `_run_id_for_patch(repository: Repository, patch_id: str | None) -> str` ([source](../../../../../../../src/learnloop/content/proposals/apply_protocol.py), line 565) — The synthesis run that produced a proposal, so its job lists the reword.
 
 ## Who imports or calls it
 
 > [!note] Static evidence boundary
 > “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
 
+- [[Reference/Modules/learnloop/content/facet_identity/actions|learnloop.content.facet_identity.actions]] — imports `entity_source_link_rows`; statically calls `entity_source_link_rows`
+- [[Reference/Modules/learnloop/content/facet_identity/authority|learnloop.content.facet_identity.authority]] — imports `materialize_targets`; statically calls `materialize_targets`
 - [[Reference/Modules/learnloop/content/proposals/patches|learnloop.content.proposals.patches]] — imports `compute_dependency_closure`, `materialize_targets`, `perform_db_effects`, `stage_target_contents`; statically calls `compute_dependency_closure`, `materialize_targets`, `perform_db_effects`, `stage_target_contents`
+- [[Reference/Modules/learnloop/ops/content_fixes|learnloop.ops.content_fixes]] — imports `materialize_targets`; statically calls `materialize_targets`
 - [[Reference/Modules/learnloop/ops/doctor|learnloop.ops.doctor]] — imports `recover_apply_intents`; statically calls `recover_apply_intents`
 
 ## Dependencies
@@ -97,7 +102,9 @@ The authoritative system-level explanation remains in [[Learning System]], [[AI 
 ### LearnLoop dependencies
 
 - [[Reference/Modules/learnloop/clock|learnloop.clock]] — imports `Clock`, `utc_now_iso`; calls `utc_now_iso`
+- [[Reference/Modules/learnloop/content/facet_identity/actions|learnloop.content.facet_identity.actions]] — imports `record_reword`, `record_reword_confirm`; calls `record_reword`, `record_reword_confirm`
 - [[Reference/Modules/learnloop/content/proposals/patches|learnloop.content.proposals.patches]] — imports `PatchApplicationError`, `_proposal_apply_order`, `compile_proposal_item`; calls `PatchApplicationError`, `_proposal_apply_order`, `compile_proposal_item`
+- [[Reference/Modules/learnloop/content/proposals/required_method_override|learnloop.content.proposals.required_method_override]] — imports `record_owner_verdict`; calls `record_owner_verdict`
 - [[Reference/Modules/learnloop/db/copies|learnloop.db.copies]] — imports `copy_tree_without_databases`; calls `copy_tree_without_databases`
 - [[Reference/Modules/learnloop/db/repositories|learnloop.db.repositories]] — imports `Repository`
 - [[Reference/Modules/learnloop/ids|learnloop.ids]] — imports `new_ulid`; calls `new_ulid`
@@ -118,7 +125,7 @@ Use this module in context through:
 - [[Import Canonical Sources]]
 - [[Build a Study Map]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/content/proposals/patches|learnloop.content.proposals.patches]], [[Reference/Modules/learnloop/ops/doctor|learnloop.ops.doctor]].
+Static participation evidence comes from [[Reference/Modules/learnloop/content/facet_identity/actions|learnloop.content.facet_identity.actions]], [[Reference/Modules/learnloop/content/facet_identity/authority|learnloop.content.facet_identity.authority]], [[Reference/Modules/learnloop/content/proposals/patches|learnloop.content.proposals.patches]], [[Reference/Modules/learnloop/ops/content_fixes|learnloop.ops.content_fixes]], [[Reference/Modules/learnloop/ops/doctor|learnloop.ops.doctor]].
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
@@ -128,6 +135,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_crash_between_intent_and_rename_recovers`
   - `test_crash_between_rename_and_applied_mark_recovers`
   - `test_recovery_is_idempotent_and_noop_when_clean`
+- [tests/test_required_method_reopened.py](../../../../../../../tests/test_required_method_reopened.py) — direct import
+  - `test_f16_a_generated_items_override_is_ledgered_and_the_write_is_idempotent`
 - [tests/test_source_append.py](../../../../../../../tests/test_source_append.py) — direct import
   - `test_specialized_side_effects_recover_idempotently`
 

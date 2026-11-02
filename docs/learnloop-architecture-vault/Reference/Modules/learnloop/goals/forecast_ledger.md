@@ -7,11 +7,11 @@ version: "1.0.0"
 source_path: "src/learnloop/goals/forecast_ledger.py"
 source_paths:
   - "src/learnloop/goals/forecast_ledger.py"
-source_commit: "b322ef2e9b5cebc241b612e4963a5aaf1a37f99a"
-source_commit_timestamp: "2026-08-20T18:04:29-04:00"
+source_commit: "171ae5a5ed15b7627add8b2e512d0c0e91c5f3da"
+source_commit_timestamp: "2026-10-13T09:11:59-04:00"
 source_worktree_state: "clean"
 generated: true
-generated_at: "2026-09-23"
+generated_at: "2026-11-02"
 package: "learnloop.goals"
 layer: "domain"
 concepts:
@@ -49,22 +49,22 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/goals/forecast_ledger.py](../../../../../../src/learnloop/goals/forecast_ledger.py) |
-| Source lines | 274 |
+| Source lines | 282 |
 | Owning package | [[Reference/Modules/learnloop/goals/_package|learnloop.goals]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `b322ef2e9b5cebc241b612e4963a5aaf1a37f99a` |
-| Commit timestamp | `2026-08-20T18:04:29-04:00` |
+| Source commit | `171ae5a5ed15b7627add8b2e512d0c0e91c5f3da` |
+| Commit timestamp | `2026-10-13T09:11:59-04:00` |
 
 ## Public API
 
 - `class ForecastError(ValueError)` ([source](../../../../../../src/learnloop/goals/forecast_ledger.py), line 18)
 - `issue_forecast(repository: Repository, *, goal_id: str, kind: str, input_snapshot_hash: str, algorithm_version: str, horizon: str, target_metric: str, predicted_value: float, model_coverage: Mapping[str, Any] | None=None, clock: Clock | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/goals/forecast_ledger.py), line 22)
-- `resolve_due_forecasts(repository: Repository, *, current_estimates: Mapping[str, float] | None=None, clock: Clock | None=None) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/goals/forecast_ledger.py), line 117) — Resolve due rows only from outcomes; estimates become projection drift.
-- `active_forecasts(repository: Repository, goal_id: str) -> dict[str, dict[str, Any]]` ([source](../../../../../../src/learnloop/goals/forecast_ledger.py), line 167) — Read-only: the current open issued forecast per kind for a goal.
-- `forecast_track_record(repository: Repository, goal_id: str | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/goals/forecast_ledger.py), line 183)
-- `issue_goal_forecasts(vault, repository: Repository, *, clock: Clock | None=None) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/goals/forecast_ledger.py), line 206) — Issue material decay/pace snapshots at session start, never at render.
+- `resolve_due_forecasts(repository: Repository, *, current_estimates: Mapping[str, float] | None=None, clock: Clock | None=None) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/goals/forecast_ledger.py), line 125) — Resolve due rows only from outcomes; estimates become projection drift.
+- `active_forecasts(repository: Repository, goal_id: str) -> dict[str, dict[str, Any]]` ([source](../../../../../../src/learnloop/goals/forecast_ledger.py), line 175) — Read-only: the current open issued forecast per kind for a goal.
+- `forecast_track_record(repository: Repository, goal_id: str | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/goals/forecast_ledger.py), line 191)
+- `issue_goal_forecasts(vault, repository: Repository, *, clock: Clock | None=None) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/goals/forecast_ledger.py), line 214) — Issue material decay/pace snapshots at session start, never at render.
 
 ### Module constants
 
@@ -74,7 +74,7 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 
 - `_scoped_attempts(repository: Repository, forecast: Mapping[str, Any]) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/goals/forecast_ledger.py), line 57)
 - `_cold_outcomes(repository: Repository, forecast: Mapping[str, Any], now) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/goals/forecast_ledger.py), line 78)
-- `_attempt_facets(attempt: Mapping[str, Any]) -> set[str]` ([source](../../../../../../src/learnloop/goals/forecast_ledger.py), line 104) — Read facets from either a decoded attempt or the repository's raw row.
+- `_attempt_facets(attempt: Mapping[str, Any]) -> set[str]` ([source](../../../../../../src/learnloop/goals/forecast_ledger.py), line 112) — Read facets from either a decoded attempt or the repository's raw row.
 
 ## Who imports or calls it
 
@@ -93,6 +93,7 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 - [[Reference/Modules/learnloop/db/repositories|learnloop.db.repositories]] — imports `Repository`
 - [[Reference/Modules/learnloop/goals/goal_pace|learnloop.goals.goal_pace]] — imports `compute_goal_pace`; calls `compute_goal_pace`
 - [[Reference/Modules/learnloop/goals/goal_projection|learnloop.goals.goal_projection]] — imports `goal_report`, `resolve_goal_scope`; calls `goal_report`, `resolve_goal_scope`
+- [[Reference/Modules/learnloop/held_grades|learnloop.held_grades]] — imports `held_attempt_ids`; calls `held_attempt_ids`
 - [[Reference/Modules/learnloop/ids|learnloop.ids]] — imports `new_ulid`; calls `new_ulid`
 
 ### Platform and third-party dependencies

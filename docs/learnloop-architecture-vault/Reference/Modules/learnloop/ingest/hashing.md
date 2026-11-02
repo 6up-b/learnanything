@@ -11,7 +11,7 @@ source_commit: "5ce697ea8f4fd05519152bfa2f9f7b9e53cf14fa"
 source_commit_timestamp: "2026-07-13T21:17:38-04:00"
 source_worktree_state: "clean"
 generated: true
-generated_at: "2026-09-23"
+generated_at: "2026-11-02"
 package: "learnloop.ingest"
 layer: "infrastructure"
 concepts:
@@ -87,14 +87,17 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 > “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
 
 - [[Reference/Modules/learnloop/content/pipeline/jobs|learnloop.content.pipeline.jobs]] — imports `extraction_request_hash`, `extraction_result_hash`; statically calls `extraction_request_hash`, `extraction_result_hash`
+- [[Reference/Modules/learnloop/content/pipeline/reread|learnloop.content.pipeline.reread]] — imports `asset_hash`; statically calls `asset_hash`
 - [[Reference/Modules/learnloop/content/pipeline/source_ingestion|learnloop.content.pipeline.source_ingestion]] — imports `asset_hash`; statically calls `asset_hash`
 - [[Reference/Modules/learnloop/content/sources/source_library|learnloop.content.sources.source_library]] — imports `asset_hash`; statically calls `asset_hash`
 - [[Reference/Modules/learnloop/content/sources/source_outline|learnloop.content.sources.source_outline]] — imports `normalize_semantic_text`; statically calls `normalize_semantic_text`
 - [[Reference/Modules/learnloop/content/synthesis/source_unit_inventory|learnloop.content.synthesis.source_unit_inventory]] — imports `normalize_semantic_text`
 - [[Reference/Modules/learnloop/ingest/extractors/base|learnloop.ingest.extractors.base]] — imports `semantic_hash`; statically calls `semantic_hash`
+- [[Reference/Modules/learnloop/ingest/extractors/glm_ocr|learnloop.ingest.extractors.glm_ocr]] — imports `semantic_hash`; statically calls `semantic_hash`
 - [[Reference/Modules/learnloop/ingest/extractors/marker|learnloop.ingest.extractors.marker]] — imports `semantic_hash`
 - [[Reference/Modules/learnloop/ingest/extractors/normalizers|learnloop.ingest.extractors.normalizers]] — imports `semantic_hash`; statically calls `semantic_hash`
 - [[Reference/Modules/learnloop/ingest/originals|learnloop.ingest.originals]] — imports `asset_hash`; statically calls `asset_hash`
+- [[Reference/Modules/learnloop/projects/capture|learnloop.projects.capture]] — imports `asset_hash`; statically calls `asset_hash`
 
 ## Dependencies
 
@@ -113,18 +116,24 @@ Use this module in context through:
 
 - [[Import Canonical Sources]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/content/pipeline/jobs|learnloop.content.pipeline.jobs]], [[Reference/Modules/learnloop/content/pipeline/source_ingestion|learnloop.content.pipeline.source_ingestion]], [[Reference/Modules/learnloop/content/sources/source_library|learnloop.content.sources.source_library]], [[Reference/Modules/learnloop/content/sources/source_outline|learnloop.content.sources.source_outline]], [[Reference/Modules/learnloop/content/synthesis/source_unit_inventory|learnloop.content.synthesis.source_unit_inventory]] and 4 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/content/pipeline/jobs|learnloop.content.pipeline.jobs]], [[Reference/Modules/learnloop/content/pipeline/reread|learnloop.content.pipeline.reread]], [[Reference/Modules/learnloop/content/pipeline/source_ingestion|learnloop.content.pipeline.source_ingestion]], [[Reference/Modules/learnloop/content/sources/source_library|learnloop.content.sources.source_library]], [[Reference/Modules/learnloop/content/sources/source_outline|learnloop.content.sources.source_outline]] and 7 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
 ## Tests that define behavior
 
+- [tests/exam_scope_fixtures.py](../../../../../../tests/exam_scope_fixtures.py) — direct import
+- [tests/helpers.py](../../../../../../tests/helpers.py) — direct import
+- [tests/test_daily_plan_reading.py](../../../../../../tests/test_daily_plan_reading.py) — direct import
 - [tests/test_document_ir.py](../../../../../../tests/test_document_ir.py) — direct import
   - `test_request_hash_computable_before_execution_and_versioned`
   - `test_result_hash_depends_on_request_and_ir`
   - `test_semantic_hash_keeps_equation_content_verbatim`
   - `test_semantic_hash_stable_under_cosmetic_html_changes`
   - `test_semantic_normalization_drops_repeated_headers_and_page_numbers`
+- [tests/test_exam_protection_identity.py](../../../../../../tests/test_exam_protection_identity.py) — direct import
+- [tests/test_glm_ocr.py](../../../../../../tests/test_glm_ocr.py) — direct import
+  - `test_versions_name_backend_models_and_mapping_so_caches_re_extract`
 - [tests/test_ingest_m3.py](../../../../../../tests/test_ingest_m3.py) — direct import
   - `test_targeted_repair_records_consent_and_preserves_unaffected_hashes`
 - [tests/test_ingest_runner.py](../../../../../../tests/test_ingest_runner.py) — direct import
@@ -134,6 +143,13 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_resolve_prefers_store_then_original_uri`
 - [tests/test_primed_attempts.py](../../../../../../tests/test_primed_attempts.py) — direct import
   - `test_feedback_resolves_current_ingest_span_and_filename`
+- [tests/test_reread_safety.py](../../../../../../tests/test_reread_safety.py) — direct import
+  - `test_a_retried_import_reads_the_revision_it_registered_not_the_current_one`
+  - `test_e1_bytes_that_match_nowhere_refuse_plainly_and_register_nothing`
+  - `test_e1_one_tap_repair_for_a_library_already_in_that_state`
+  - `test_e1_the_reread_reads_the_stored_original_and_reuses_the_revision`
+- [tests/test_reread_safety_landing.py](../../../../../../tests/test_reread_safety_landing.py) — direct import
+  - `test_a_marker_reread_hands_the_worker_the_stored_originals_bytes`
 - [tests/test_sidecar_ingest_m3.py](../../../../../../tests/test_sidecar_ingest_m3.py) — direct import
 - [tests/test_sidecar_quick_add.py](../../../../../../tests/test_sidecar_quick_add.py) — direct import
 - [tests/test_sidecar_reader_pdf_view.py](../../../../../../tests/test_sidecar_reader_pdf_view.py) — direct import
@@ -143,6 +159,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_source_inventory.py](../../../../../../tests/test_source_inventory.py) — direct import
 - [tests/test_source_layer.py](../../../../../../tests/test_source_layer.py) — direct import
   - `test_retry_keys_on_request_hash_before_result_exists`
+- [tests/test_ux_phase1_round2_review.py](../../../../../../tests/test_ux_phase1_round2_review.py) — direct import
 
 ## Modification guidance
 

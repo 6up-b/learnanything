@@ -11,7 +11,7 @@ source_commit: "b322ef2e9b5cebc241b612e4963a5aaf1a37f99a"
 source_commit_timestamp: "2026-08-20T18:04:29-04:00"
 source_worktree_state: "clean"
 generated: true
-generated_at: "2026-09-23"
+generated_at: "2026-11-02"
 package: "learnloop.scheduling"
 layer: "domain"
 concepts:
@@ -156,8 +156,10 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_result_is_clamped`
   - `test_thin_mastery_evidence_cannot_suppress_strong_facet_evidence`
   - `test_zero_evidence_mastery_row_is_uninformative`
+- [tests/test_router_probe_ties.py](../../../../../../tests/test_router_probe_ties.py) — direct import
 - [tests/test_scheduler.py](../../../../../../tests/test_scheduler.py) — direct import
   - `test_selection_propensities_greedy_when_disabled_or_singleton_or_probe`
+- [tests/test_voi_stopping.py](../../../../../../tests/test_voi_stopping.py) — direct import
 
 ## Modification guidance
 

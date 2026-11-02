@@ -7,11 +7,11 @@ version: "1.0.0"
 source_path: "src/learnloop/goals/exam_calibration.py"
 source_paths:
   - "src/learnloop/goals/exam_calibration.py"
-source_commit: "b322ef2e9b5cebc241b612e4963a5aaf1a37f99a"
-source_commit_timestamp: "2026-08-20T18:04:29-04:00"
+source_commit: "171ae5a5ed15b7627add8b2e512d0c0e91c5f3da"
+source_commit_timestamp: "2026-10-13T09:11:59-04:00"
 source_worktree_state: "clean"
 generated: true
-generated_at: "2026-09-23"
+generated_at: "2026-11-02"
 package: "learnloop.goals"
 layer: "domain"
 concepts:
@@ -49,28 +49,28 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/goals/exam_calibration.py](../../../../../../src/learnloop/goals/exam_calibration.py) |
-| Source lines | 147 |
+| Source lines | 173 |
 | Owning package | [[Reference/Modules/learnloop/goals/_package|learnloop.goals]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `b322ef2e9b5cebc241b612e4963a5aaf1a37f99a` |
-| Commit timestamp | `2026-08-20T18:04:29-04:00` |
+| Source commit | `171ae5a5ed15b7627add8b2e512d0c0e91c5f3da` |
+| Commit timestamp | `2026-10-13T09:11:59-04:00` |
 
 ## Public API
 
-- `calibration_report(vault: LoadedVault, repository: Repository) -> dict[str, Any]` ([source](../../../../../../src/learnloop/goals/exam_calibration.py), line 74) — Pooled prediction-outcome calibration across all completed exam sessions.
+- `calibration_report(vault: LoadedVault, repository: Repository) -> dict[str, Any]` ([source](../../../../../../src/learnloop/goals/exam_calibration.py), line 75) — Pooled prediction-outcome calibration across all completed exam sessions.
 
 ### Module constants
 
-- `_EPS` ([src/learnloop/goals/exam_calibration.py](../../../../../../src/learnloop/goals/exam_calibration.py), line 26)
-- `_BIN_COUNT` ([src/learnloop/goals/exam_calibration.py](../../../../../../src/learnloop/goals/exam_calibration.py), line 27)
-- `MINIMUM_CURVE_N` ([src/learnloop/goals/exam_calibration.py](../../../../../../src/learnloop/goals/exam_calibration.py), line 28)
-- `_ANSWER_CONFIDENCE_PROBABILITY` ([src/learnloop/goals/exam_calibration.py](../../../../../../src/learnloop/goals/exam_calibration.py), line 29)
+- `_EPS` ([src/learnloop/goals/exam_calibration.py](../../../../../../src/learnloop/goals/exam_calibration.py), line 27)
+- `_BIN_COUNT` ([src/learnloop/goals/exam_calibration.py](../../../../../../src/learnloop/goals/exam_calibration.py), line 28)
+- `MINIMUM_CURVE_N` ([src/learnloop/goals/exam_calibration.py](../../../../../../src/learnloop/goals/exam_calibration.py), line 29)
+- `_ANSWER_CONFIDENCE_PROBABILITY` ([src/learnloop/goals/exam_calibration.py](../../../../../../src/learnloop/goals/exam_calibration.py), line 30)
 
 ## Internal implementation anchors
 
-- `_reliability_table(pairs: list[tuple[float, float]], *, bins: int=_BIN_COUNT) -> dict[str, Any]` ([source](../../../../../../src/learnloop/goals/exam_calibration.py), line 32) — n / Brier / log loss / equal-width reliability table for (predicted, observed) pairs.
+- `_reliability_table(pairs: list[tuple[float, float]], *, bins: int=_BIN_COUNT) -> dict[str, Any]` ([source](../../../../../../src/learnloop/goals/exam_calibration.py), line 33) — n / Brier / log loss / equal-width reliability table for (predicted, observed) pairs.
 
 ## Who imports or calls it
 
@@ -86,6 +86,8 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 ### LearnLoop dependencies
 
 - [[Reference/Modules/learnloop/db/repositories|learnloop.db.repositories]] — imports `Repository`
+- [[Reference/Modules/learnloop/held_grades|learnloop.held_grades]] — imports `held_attempt_ids`; calls `held_attempt_ids`
+- [[Reference/Modules/learnloop/numeric|learnloop.numeric]] — imports `brier_decomposition`; calls `brier_decomposition`
 - [[Reference/Modules/learnloop/vault/models|learnloop.vault.models]] — imports `LoadedVault`
 
 ### Platform and third-party dependencies
@@ -112,6 +114,10 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_empty_calibration_is_defined`
   - `test_facet_projection_calibration`
   - `test_known_pairs_produce_known_brier_and_bins`
+- [tests/test_held_grade_evidence.py](../../../../../../tests/test_held_grade_evidence.py) — direct import
+  - `test_f7_exam_calibration_reads_no_held_outcome`
+- [tests/test_teacher_te1_weight.py](../../../../../../tests/test_teacher_te1_weight.py) — direct import
+  - `test_the_tap_map_and_the_hedge_read_are_the_existing_ones`
 
 ## Modification guidance
 

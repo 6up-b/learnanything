@@ -592,14 +592,14 @@ def open_lesson(vault: Any, repository: Any, *, entry: str, learning_object_ids:
     constraints = {"max_lesson_cost_usd": vault.config.teacher.max_lesson_cost_usd,
                    "sources_tokens": vault.config.teacher.context.sources_tokens}
     from learnloop.teacher.brief import protection_state
-    from learnloop.teacher.notes import your_notes
+    from learnloop.teacher.notes import notes_still_deliverable, your_notes
 
     # The protection state the brief is built under (ruling R1): read before and after building it, so a
     # change while it is built never stands recorded as the brief's.
     before = protection_state(vault, repository)
     brief, book = build_brief(vault, repository, learning_object_ids=los, how=how, goal_text=text,
                               selection=selected, driver=driver, lesson_id=lesson_id, constraints=constraints,
-                              notes_provider=your_notes)
+                              notes_provider=your_notes, notes_check=notes_still_deliverable)
     protection = protection_state(vault, repository, brief)
     if before is None or protection is None:
         raise LessonError("protected", "LearnLoop couldn't check your exam material right now, so no lesson "
@@ -607,6 +607,8 @@ def open_lesson(vault: Any, repository: Any, *, entry: str, learning_object_ids:
     if before["vault"] != protection["vault"]:
         raise LessonError("protection_changed", "Your exam material changed while the lesson was being prepared; "
                                                 "start it again.")
+    # The route is resolved before anything is written: a route that isn't ready leaves no lesson (the
+    # desktop says nothing was saved; followups batch 5, C).
     client = clients.teacher()
     now = utc_now_iso(clock)
     with repository.atomic():
@@ -658,8 +660,18 @@ def recover(vault: Any, repository: Any, state: LessonState, *, clock: Clock | N
     return outcome
 
 
-#: The steps that wait for a teacher call (the learner's, or code's after a check).
+#: The steps that wait for a teacher call (the learner's, or code's after a check). A step written as an
+#: accepted turn's effect (``refs.turn``: a withdrawn check is one) is part of that turn's action, never a
+#: boundary (TE1 F16, followups batch 5 D: resume after a completed help action made one more call).
 _CALLS_TEACHER = ("open", "learner_reply", "prediction_answer", "check_result", "check_withdrawn")
+
+
+def _boundary(entry: Mapping[str, Any]) -> bool:
+    """Whether a ledger step waits for a teacher call (it starts an action's calls)."""
+
+    if (entry.get("refs") or {}).get("turn"):
+        return False
+    return entry["action"] in _CALLS_TEACHER or entry["action"] == "learner_stop"
 
 
 @dataclass
@@ -689,9 +701,11 @@ def _pending_call(state: LessonState) -> _PendingCall | None:
                 accepted = entry
                 break
             refused = True
+        elif not _boundary(entry):
+            continue
         elif action == "learner_stop":
             return _PendingCall(closing="learner_stop")
-        elif action in _CALLS_TEACHER:
+        else:
             data = entry.get("payload") or {}
             return _PendingCall(help_reply=action == "learner_reply" and bool(data.get("help")))
     if accepted is None:
@@ -719,7 +733,7 @@ def _owes_followup(state: LessonState, accepted: Mapping[str, Any]) -> bool:
     for entry in reversed(state.turns[:index]):
         if entry["action"] == "teacher_turn" and entry["validation"] == "ok":
             return False
-        if entry["action"] in _CALLS_TEACHER or entry["action"] == "learner_stop":
+        if _boundary(entry):
             return True
     return False
 

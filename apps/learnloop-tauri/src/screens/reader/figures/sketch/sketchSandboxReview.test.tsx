@@ -14,7 +14,7 @@ import parity from "./sketchParityCorpus.json";
 import hostileText from "./sketchHostileCorpus.json?raw";
 import { FIGURE_COPY, FiguresUnder } from "../FigureInline";
 import { useFigures, type FiguresContract } from "../useFigures";
-import { SKETCH_FRAME } from "./SketchFigure";
+import { SKETCH_COPY, SKETCH_FRAME } from "./SketchFigure";
 import { resetWithdrawnChecks } from "./checksWithdrawn";
 import { hostRunner, SketchRunnerContext, type SketchRunner, type SketchRunnerFactory } from "./sketchRunner";
 import { newHost } from "./engineForTests";
@@ -127,12 +127,31 @@ it("withdraws the reviewer's false check: a fresh start at the default draws rad
   expect(reads[0].digest).not.toBe(stale);
 });
 
+/** Play to the end by its ticks, not the wall clock (followups batch 5, F: under the whole vitest run the
+ *  real 60 ms interval drifted past the wait and the test raced). Only the play interval is faked; each
+ *  tick is fired and the engine work it queued (promises; real setTimeout yields between timers) finishes
+ *  before the next, so a tick is never skipped for a busy run. Bounded in ticks: one per scheduled step. */
+async function playToEnd(done: () => boolean) {
+  vi.useFakeTimers({ toFake: ["setInterval", "clearInterval"] });
+  try {
+    fireEvent.click(document.querySelector("[data-sketch-play]")!);
+    for (let tick = 0; tick <= PLAY_TICKS && !done(); tick += 1) {
+      await act(async () => { await vi.advanceTimersToNextTimerAsync(); });
+    }
+  } finally {
+    vi.useRealTimers();
+  }
+}
+
 it("keeps the checks when every tested read on the page matches the verifier's, played to t_max at the defaults", async () => {
   const reads: Read[] = [];
   await open(sketchView(WALK.program, WALK.sketch), logging(reads, []));
   await waitFor(() => expect(time()).toContain("t = 0 / 100"));
-  fireEvent.click(document.querySelector("[data-sketch-play]")!);
-  await waitFor(() => expect(time()).toContain("t = 100 / 100"), { timeout: 12000 });
+  // "t = 0" shows before the run is ready (the step's initial state); a press then lands on a disabled Play.
+  await waitFor(() => expect(document.querySelector<HTMLButtonElement>("[data-sketch-play]")!.disabled).toBe(false));
+  await playToEnd(() => time().includes("t = 100 / 100"));
+  expect(time()).toContain("t = 100 / 100");
+  expect(document.querySelector("[data-sketch-play]")!.textContent).toBe(SKETCH_COPY.play);  // play stopped at t_max
   const atDefaults = WALK.sketch.tested!.find((entry) => entry.values[0] === 200)!;
   for (const [position, step] of atDefaults.steps.entries()) {
     const read = reads.find((entry) => entry.index === step && entry.params.walkers === 200);
@@ -143,7 +162,7 @@ it("keeps the checks when every tested read on the page matches the verifier's, 
   expect(document.querySelector("[data-sketch-checks-withdrawn]")).toBeNull();
   expect(checkLines()[0]).toContain("‘envelope’ is sqrt(x)");
   expect(badge()).toBe(SKETCH_FRAME.badge);
-}, 15000);
+});
 
 it("matches the verifier's digests again after repeated restarts", async () => {
   const reads: Read[] = [];

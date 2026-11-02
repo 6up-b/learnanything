@@ -11,7 +11,7 @@ source_commit: "b322ef2e9b5cebc241b612e4963a5aaf1a37f99a"
 source_commit_timestamp: "2026-08-20T18:04:29-04:00"
 source_worktree_state: "clean"
 generated: true
-generated_at: "2026-09-23"
+generated_at: "2026-11-02"
 package: "learnloop.learner"
 layer: "domain"
 concepts:
@@ -140,6 +140,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_tight_kinship_single_linkage_caps_independent_groups`
   - `test_tutor_exposure_propagation_warms_and_degrades`
   - `test_warmth_is_monotone_in_exposure_features`
+- [tests/test_item_fingerprints.py](../../../../../../tests/test_item_fingerprints.py) — direct import
+  - `test_keys_use_the_077_namespaces_and_never_mix_them`
 - [tests/test_kinship_feature.py](../../../../../../tests/test_kinship_feature.py) — direct import
 - [tests/test_laddered_stems.py](../../../../../../tests/test_laddered_stems.py) — direct import
   - `test_the_rule_is_inert_without_stem_identity`

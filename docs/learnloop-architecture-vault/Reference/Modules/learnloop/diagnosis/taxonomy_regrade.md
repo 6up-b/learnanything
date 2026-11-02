@@ -7,11 +7,11 @@ version: "1.0.0"
 source_path: "src/learnloop/diagnosis/taxonomy_regrade.py"
 source_paths:
   - "src/learnloop/diagnosis/taxonomy_regrade.py"
-source_commit: "b322ef2e9b5cebc241b612e4963a5aaf1a37f99a"
-source_commit_timestamp: "2026-08-20T18:04:29-04:00"
+source_commit: "0f1b28d6338790fc0ee28078ac0d55a641bb4fdb"
+source_commit_timestamp: "2026-10-12T06:18:41-04:00"
 source_worktree_state: "clean"
 generated: true
-generated_at: "2026-09-23"
+generated_at: "2026-11-02"
 package: "learnloop.diagnosis"
 layer: "domain"
 concepts:
@@ -50,22 +50,22 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/diagnosis/taxonomy_regrade.py](../../../../../../src/learnloop/diagnosis/taxonomy_regrade.py) |
-| Source lines | 118 |
+| Source lines | 120 |
 | Owning package | [[Reference/Modules/learnloop/diagnosis/_package|learnloop.diagnosis]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `b322ef2e9b5cebc241b612e4963a5aaf1a37f99a` |
-| Commit timestamp | `2026-08-20T18:04:29-04:00` |
+| Source commit | `0f1b28d6338790fc0ee28078ac0d55a641bb4fdb` |
+| Commit timestamp | `2026-10-12T06:18:41-04:00` |
 
 ## Public API
 
-- `run_taxonomy_regrade_checks(vault: LoadedVault, repository: Repository, client: Any, *, limit: int=20) -> dict[str, Any]` ([source](../../../../../../src/learnloop/diagnosis/taxonomy_regrade.py), line 36) — Re-grade a sample of graded attempts and report attribution regressions.
+- `run_taxonomy_regrade_checks(vault: LoadedVault, repository: Repository, client: Any, *, limit: int=20) -> dict[str, Any]` ([source](../../../../../../src/learnloop/diagnosis/taxonomy_regrade.py), line 37) — Re-grade a sample of graded attempts and report attribution regressions.
 
 ## Internal implementation anchors
 
-- `_mechanisms(error_types: list[str | None]) -> set[str]` ([source](../../../../../../src/learnloop/diagnosis/taxonomy_regrade.py), line 28)
-- `_grading_prompt_version() -> str` ([source](../../../../../../src/learnloop/diagnosis/taxonomy_regrade.py), line 117)
+- `_mechanisms(error_types: list[str | None]) -> set[str]` ([source](../../../../../../src/learnloop/diagnosis/taxonomy_regrade.py), line 29)
+- `_grading_prompt_version(vault: LoadedVault) -> str` ([source](../../../../../../src/learnloop/diagnosis/taxonomy_regrade.py), line 118)
 
 ## Who imports or calls it
 
@@ -79,7 +79,8 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 ### LearnLoop dependencies
 
 - [[Reference/Modules/learnloop/attempts/ai_contracts|learnloop.attempts.ai_contracts]] — imports `GRADING_PROMPT_VERSION`
-- [[Reference/Modules/learnloop/attempts/grading|learnloop.attempts.grading]] — imports `build_grading_context`, `request_grading_proposal`, `validate_codex_grading_proposal`; calls `build_grading_context`, `request_grading_proposal`, `validate_codex_grading_proposal`
+- [[Reference/Modules/learnloop/attempts/blind_grading|learnloop.attempts.blind_grading]] — imports `BLIND_GRADING_PROMPT_VERSION`, `split_grading_active`; calls `split_grading_active`
+- [[Reference/Modules/learnloop/attempts/grading|learnloop.attempts.grading]] — imports `build_grading_context`, `request_vault_grading_proposal`, `validate_codex_grading_proposal`; calls `build_grading_context`, `request_vault_grading_proposal`, `validate_codex_grading_proposal`
 - [[Reference/Modules/learnloop/db/repositories|learnloop.db.repositories]] — imports `Repository`
 - [[Reference/Modules/learnloop/diagnosis/error_taxonomy_map|learnloop.diagnosis.error_taxonomy_map]] — imports `map_legacy_error_type`; calls `map_legacy_error_type`
 - [[Reference/Modules/learnloop/vault/models|learnloop.vault.models]] — imports `LoadedVault`
@@ -102,6 +103,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
+- [tests/test_diagnosis_pipeline.py](../../../../../../tests/test_diagnosis_pipeline.py) — direct import
+  - `test_non_practice_graders_use_the_blind_contract_in_an_isolated_turn`
 - [tests/test_km4_taxonomy.py](../../../../../../tests/test_km4_taxonomy.py) — direct import
   - `test_taxonomy_regrade_check_no_attribution_regressions`
 

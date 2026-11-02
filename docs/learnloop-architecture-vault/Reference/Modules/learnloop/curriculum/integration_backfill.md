@@ -11,7 +11,7 @@ source_commit: "b322ef2e9b5cebc241b612e4963a5aaf1a37f99a"
 source_commit_timestamp: "2026-08-20T18:04:29-04:00"
 source_worktree_state: "clean"
 generated: true
-generated_at: "2026-09-23"
+generated_at: "2026-11-02"
 package: "learnloop.curriculum"
 layer: "domain"
 concepts:
@@ -153,6 +153,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_learning_object_scope_is_the_pilot_seam`
   - `test_lower_when_coordination_is_unobservable_and_a_deeper_authorable_rung_exists`
   - `test_out_of_vocabulary_capability_abstains`
+- [tests/test_rebuild_equivalence_review.py](../../../../../../tests/test_rebuild_equivalence_review.py) — direct import
+  - `test_an_interrupted_integration_backfill_replay_publishes_nothing`
 
 ## Modification guidance
 

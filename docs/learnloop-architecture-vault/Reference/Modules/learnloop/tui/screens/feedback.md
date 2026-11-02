@@ -7,11 +7,11 @@ version: "1.0.0"
 source_path: "src/learnloop/tui/screens/feedback.py"
 source_paths:
   - "src/learnloop/tui/screens/feedback.py"
-source_commit: "75d4474a6e5950eb79877fbbf5f0b46f6590926a"
-source_commit_timestamp: "2026-09-23T15:53:13-04:00"
+source_commit: "c6d5a6ae6d6d85ed8dd0a3f1455d0e1ab40b54c9"
+source_commit_timestamp: "2026-10-12T23:02:34-04:00"
 source_worktree_state: "clean"
 generated: true
-generated_at: "2026-09-23"
+generated_at: "2026-11-02"
 package: "learnloop.tui.screens"
 layer: "adapter"
 concepts:
@@ -50,61 +50,65 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/tui/screens/feedback.py](../../../../../../../src/learnloop/tui/screens/feedback.py) |
-| Source lines | 569 |
+| Source lines | 681 |
 | Owning package | [[Reference/Modules/learnloop/tui/screens/_package|learnloop.tui.screens]] |
 | Architecture layer | `adapter` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `75d4474a6e5950eb79877fbbf5f0b46f6590926a` |
-| Commit timestamp | `2026-09-23T15:53:13-04:00` |
+| Source commit | `c6d5a6ae6d6d85ed8dd0a3f1455d0e1ab40b54c9` |
+| Commit timestamp | `2026-10-12T23:02:34-04:00` |
 
 ## Public API
 
-- `class FeedbackScreen(Screen)` ([source](../../../../../../../src/learnloop/tui/screens/feedback.py), line 33) — Grade an attempt, then show the prototype's read-only results display.
-  - `__init__(self, state: TuiState, item: ScheduledItem, draft: AttemptDraft)` (line 56; internal)
-  - `compose(self) -> ComposeResult` (line 76; public)
-  - `on_mount(self) -> None` (line 132; public)
-  - `watch_surprise_direction(self, value: str | None) -> None` (line 144; public)
-  - `watch_graded(self, value: bool) -> None` (line 147; public)
-  - `watch_has_errors(self, value: bool) -> None` (line 150; public)
-  - `_rubric_content(self) -> Content` (line 153; internal)
-  - `set_points(self, criterion_id: str, points: float) -> None` (line 167; public)
-  - `set_confidence(self, confidence: int) -> None` (line 172; public)
-  - `set_error_type(self, error_type: str | None) -> None` (line 177; public)
-  - `toggle_fatal(self, fatal_error_id: str) -> None` (line 182; public)
-  - `submit(self) -> AttemptResult` (line 192; public)
-  - `_submit(self) -> AttemptResult` (line 196; internal)
-  - `async auto_submit_ai(self) -> AttemptResult | None` (line 239; public)
-  - `async _auto_submit_ai(self) -> AttemptResult | None` (line 244; internal)
-  - `_committed_result(self) -> AttemptResult | None` (line 291; internal)
-  - `async auto_submit_codex(self) -> AttemptResult | None` (line 294; public)
-  - `_grading_provider(self)` (line 297; internal)
-  - `_ai_ready(self) -> bool` (line 306; internal)
-  - `_provider_label(self) -> str` (line 310; internal)
-  - `_complete_result(self, result: AttemptResult) -> None` (line 314; internal)
-  - `_render_results(self, result: AttemptResult) -> None` (line 359; internal)
-  - `_result_head_content(self, result: AttemptResult) -> Content` (line 369; internal)
-  - `_score_block_content(self, result: AttemptResult) -> Content` (line 378; internal)
-  - `_rubric_evidence_content(self, result: AttemptResult) -> Content` (line 395; internal)
-  - `_tutor_note_content(self, result: AttemptResult) -> Content` (line 418; internal)
-  - `_error_content(self, result: AttemptResult) -> Content` (line 429; internal)
-  - `_belief_content(self, result: AttemptResult) -> Content` (line 456; internal)
-  - `_followup_content(self) -> Content` (line 473; internal)
-  - `_schedule_content(self, result: AttemptResult) -> Content` (line 493; internal)
-  - `_criterion_mark(self, awarded: float, points: float) -> tuple[str, str]` (line 505; internal)
-  - `_mastery_mean_sd(self) -> tuple[float, float]` (line 512; internal)
-  - `_breadcrumb_content(self) -> Content` (line 520; internal)
-  - `_read_form_state(self) -> None` (line 531; internal)
-  - `_render_fatal_summary(self) -> None` (line 542; internal)
-  - `return_to_today(self) -> None` (line 548; public)
-  - `action_submit(self) -> None` (line 554; public)
-  - `action_next(self) -> None` (line 557; public)
-  - `action_back(self) -> None` (line 560; public)
-  - `on_button_pressed(self, event: Button.Pressed) -> None` (line 563; public)
+- `class FeedbackScreen(Screen)` ([source](../../../../../../../src/learnloop/tui/screens/feedback.py), line 34) — Grade an attempt, then show the prototype's read-only results display.
+  - `__init__(self, state: TuiState, item: ScheduledItem, draft: AttemptDraft, *, committed: AttemptResult | None=None)` (line 57; internal)
+  - `compose(self) -> ComposeResult` (line 88; public)
+  - `on_mount(self) -> None` (line 145; public)
+  - `watch_surprise_direction(self, value: str | None) -> None` (line 162; public)
+  - `watch_graded(self, value: bool) -> None` (line 165; public)
+  - `watch_has_errors(self, value: bool) -> None` (line 168; public)
+  - `_rubric_content(self) -> Content` (line 171; internal)
+  - `set_points(self, criterion_id: str, points: float) -> None` (line 185; public)
+  - `set_confidence(self, confidence: int) -> None` (line 190; public)
+  - `set_error_type(self, error_type: str | None) -> None` (line 195; public)
+  - `toggle_fatal(self, fatal_error_id: str) -> None` (line 200; public)
+  - `submit(self) -> AttemptResult` (line 210; public)
+  - `_submit(self) -> AttemptResult` (line 214; internal)
+  - `async auto_submit_ai(self) -> AttemptResult | None` (line 257; public)
+  - `async _auto_submit_ai(self) -> AttemptResult | None` (line 262; internal)
+  - `_committed_result(self) -> AttemptResult | None` (line 309; internal)
+  - `async auto_submit_codex(self) -> AttemptResult | None` (line 312; public)
+  - `_grading_provider(self)` (line 315; internal)
+  - `_ai_ready(self) -> bool` (line 324; internal)
+  - `_provider_label(self) -> str` (line 328; internal)
+  - `_run_inline_diagnosis(self, result: AttemptResult) -> None` (line 332; internal) — Slice 1 §11: the TUI has no daemon; a queued diagnosis runs inline after the grade is shown, and its summary is shown when it finishes.
+  - `_complete_result(self, result: AttemptResult, *, model: bool=True) -> None` (line 361; internal)
+  - `_render_results(self, result: AttemptResult) -> None` (line 416; internal)
+  - `_record_worked_answer_reveal(self, result: AttemptResult) -> None` (line 426; internal) — The worked answer is now visible: debit the reveal ledger (re-review F8).
+  - `_worked_answer_content(self) -> Content` (line 445; internal) — The item's worked answer, shown after an empty stuck answer.
+  - `_result_head_content(self, result: AttemptResult) -> Content` (line 455; internal)
+  - `_score_block_content(self, result: AttemptResult) -> Content` (line 464; internal)
+  - `_rubric_evidence_content(self, result: AttemptResult) -> Content` (line 481; internal)
+  - `_tutor_note_content(self, result: AttemptResult) -> Content` (line 514; internal)
+  - `_error_content(self, result: AttemptResult) -> Content` (line 525; internal)
+  - `_belief_content(self, result: AttemptResult) -> Content` (line 554; internal)
+  - `_followup_content(self) -> Content` (line 571; internal)
+  - `_schedule_content(self, result: AttemptResult) -> Content` (line 591; internal)
+  - `_criterion_mark(self, awarded: float, points: float) -> tuple[str, str]` (line 603; internal)
+  - `_mastery_mean_sd(self) -> tuple[float, float]` (line 610; internal)
+  - `_breadcrumb_content(self) -> Content` (line 618; internal)
+  - `_read_form_state(self) -> None` (line 629; internal)
+  - `_render_fatal_summary(self) -> None` (line 640; internal)
+  - `return_to_today(self) -> None` (line 646; public)
+  - `action_submit(self) -> None` (line 652; public)
+  - `action_next(self) -> None` (line 655; public)
+  - `advance_to_next(self) -> None` (line 664; public)
+  - `action_back(self) -> None` (line 672; public)
+  - `on_button_pressed(self, event: Button.Pressed) -> None` (line 675; public)
 
 ### Module constants
 
-- `_RATING_PILL` ([src/learnloop/tui/screens/feedback.py](../../../../../../../src/learnloop/tui/screens/feedback.py), line 30)
+- `_RATING_PILL` ([src/learnloop/tui/screens/feedback.py](../../../../../../../src/learnloop/tui/screens/feedback.py), line 31)
 
 ## Internal implementation anchors
 
@@ -123,19 +127,23 @@ No private top-level function or class definition is declared in this file.
 
 - [[Reference/Modules/learnloop/ai/routing|learnloop.ai.routing]] — imports `ready_client_for_task`; calls `ready_client_for_task`
 - [[Reference/Modules/learnloop/attempts/attempts|learnloop.attempts.attempts]] — imports `AttemptDraft`, `AttemptResult`, `SelfGradeInput`, `complete_attempt_with_ai_fallback`, `complete_attempt_with_ai_required`, `complete_attempt_with_codex_fallback`, `complete_attempt_with_codex_required`; calls `SelfGradeInput`, `complete_attempt_with_ai_fallback`, `complete_attempt_with_codex_fallback`
+- [[Reference/Modules/learnloop/attempts/grading_support|learnloop.attempts.grading_support]] — imports `UNASSESSED_CRITERION_LABEL`
 - [[Reference/Modules/learnloop/attempts/post_attempt|learnloop.attempts.post_attempt]] — imports `committed_submission_result`, `run_post_attempt_pipeline`; calls `committed_submission_result`, `run_post_attempt_pipeline`
+- [[Reference/Modules/learnloop/attempts/reveal_ledger|learnloop.attempts.reveal_ledger]] — imports `record_answer_display_reveal`; calls `record_answer_display_reveal`
 - [[Reference/Modules/learnloop/config/__init__|learnloop.config]] — imports `CODEX_PROVIDER_NAMES`
 - [[Reference/Modules/learnloop/diagnosis/followups|learnloop.diagnosis.followups]] — imports `FollowupDecision`
 - [[Reference/Modules/learnloop/diagnosis/probe_blocks|learnloop.diagnosis.probe_blocks]] — imports `end_diagnostic_block`; calls `end_diagnostic_block`
+- [[Reference/Modules/learnloop/diagnosis/split/jobs|learnloop.diagnosis.split.jobs]] — imports `DIAGNOSE_KIND`, `DONE`, `NOT_NEEDED`, `diagnosis_status`, `drain`; calls `diagnosis_status`, `drain`
 - [[Reference/Modules/learnloop/learner/mastery|learnloop.learner.mastery]] — imports `sigmoid`; calls `sigmoid`
 - [[Reference/Modules/learnloop/scheduling/scheduler|learnloop.scheduling.scheduler]] — imports `ScheduledItem`
+- [[Reference/Modules/learnloop/substrate/canonical_projection|learnloop.substrate.canonical_projection]] — imports `unassessed_evidence_row`; calls `unassessed_evidence_row`
 - [[Reference/Modules/learnloop/tui/screens/today|learnloop.tui.screens.today]] — imports `TodayScreen`
 - [[Reference/Modules/learnloop/tui/state|learnloop.tui.state]] — imports `TuiState`
 - [[Reference/Modules/learnloop/tui/widgets|learnloop.tui.widgets]] — imports `KeyBar`, `TextStatic`, `block_bar`, `mode_pill_color`, `pill`; calls `KeyBar`, `TextStatic`, `block_bar`, `mode_pill_color`, `pill`
 
 ### Platform and third-party dependencies
 
-- Standard library: `__future__`, `asyncio`
+- Standard library: `__future__`, `asyncio`, `types`
 - Third party: `textual`
 
 ## Larger workflow participation
@@ -151,10 +159,17 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
+- [tests/test_active_errors_overlay.py](../../../../../../../tests/test_active_errors_overlay.py) — direct import
+- [tests/test_daily_loop_start_minutes.py](../../../../../../../tests/test_daily_loop_start_minutes.py) — direct import
 - [tests/test_e2e_tui.py](../../../../../../../tests/test_e2e_tui.py) — direct import
   - `test_tui_end_to_end_self_graded_practice`
+- [tests/test_pfc_unverified_unassessed.py](../../../../../../../tests/test_pfc_unverified_unassessed.py) — direct import
+  - `test_feedback_shows_an_unverified_criterion_as_not_assessed`
 - [tests/test_provider_resolution_parity.py](../../../../../../../tests/test_provider_resolution_parity.py) — direct import
   - `test_config_matrix_executes_all_six_production_resolution_paths`
+- [tests/test_stuck_prompt.py](../../../../../../../tests/test_stuck_prompt.py) — direct import
+  - `test_tui_empty_stuck_probe_answer_keeps_feedback_deferred`
+  - `test_tui_empty_stuck_submit_shows_the_result_and_the_worked_answer`
 - [tests/test_tui_feedback.py](../../../../../../../tests/test_tui_feedback.py) — direct import
   - `test_committed_model_grade_is_not_regraded_when_a_later_step_fails`
   - `test_feedback_submit_matches_cli_attempt_and_updates_state`

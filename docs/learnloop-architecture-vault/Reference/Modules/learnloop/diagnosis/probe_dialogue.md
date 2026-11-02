@@ -7,11 +7,11 @@ version: "1.0.0"
 source_path: "src/learnloop/diagnosis/probe_dialogue.py"
 source_paths:
   - "src/learnloop/diagnosis/probe_dialogue.py"
-source_commit: "b322ef2e9b5cebc241b612e4963a5aaf1a37f99a"
-source_commit_timestamp: "2026-08-20T18:04:29-04:00"
+source_commit: "efc53a86c469ed562dc4cc1d950629151b840423"
+source_commit_timestamp: "2026-10-17T02:09:17-04:00"
 source_worktree_state: "clean"
 generated: true
-generated_at: "2026-09-23"
+generated_at: "2026-11-02"
 package: "learnloop.diagnosis"
 layer: "domain"
 concepts:
@@ -50,40 +50,40 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/diagnosis/probe_dialogue.py](../../../../../../src/learnloop/diagnosis/probe_dialogue.py) |
-| Source lines | 450 |
+| Source lines | 464 |
 | Owning package | [[Reference/Modules/learnloop/diagnosis/_package|learnloop.diagnosis]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `b322ef2e9b5cebc241b612e4963a5aaf1a37f99a` |
-| Commit timestamp | `2026-08-20T18:04:29-04:00` |
+| Source commit | `efc53a86c469ed562dc4cc1d950629151b840423` |
+| Commit timestamp | `2026-10-17T02:09:17-04:00` |
 
 ## Public API
 
-- `request_probe_dialogue_turn(client: StructuredTransport, context: ProbeDialogueTurnContext) -> ProbeDialogueTurn` ([source](../../../../../../src/learnloop/diagnosis/probe_dialogue.py), line 64) — Generate one adaptive dialogue turn through the shared transport.
-- `class DialogueBlockError(ValueError)` ([source](../../../../../../src/learnloop/diagnosis/probe_dialogue.py), line 77)
-- `class DialogueTurn` ([source](../../../../../../src/learnloop/diagnosis/probe_dialogue.py), line 82)
-  - `as_dict(self) -> dict[str, Any]` (line 89; public)
-- `class DialogueBlockState` ([source](../../../../../../src/learnloop/diagnosis/probe_dialogue.py), line 100) — Serializable dialogue-block state (mirrors the teach-back pattern).
-  - `to_json(self) -> str` (line 110; public)
-  - `from_json(cls, payload: str) -> 'DialogueBlockState'` (line 123; public)
-  - `completed_turns(self) -> int` (line 144; public)
-- `begin_dialogue_block(vault: LoadedVault, repository: Repository, learning_object_id: str, *, clock: Clock | None=None) -> DialogueBlockState` ([source](../../../../../../src/learnloop/diagnosis/probe_dialogue.py), line 148) — Open a dialogue block against the LO's in-progress episode (§8.1).
-- `next_dialogue_turn(vault: LoadedVault, repository: Repository, state: DialogueBlockState, *, ai_client: object | None=None, clock: Clock | None=None) -> tuple[DialogueBlockState, dict[str, Any] | None]` ([source](../../../../../../src/learnloop/diagnosis/probe_dialogue.py), line 180) — Mint and commit the next turn: ephemeral instance + presentation.
-- `record_turn_submitted(state: DialogueBlockState, presentation_id: str) -> DialogueBlockState` ([source](../../../../../../src/learnloop/diagnosis/probe_dialogue.py), line 415)
-- `end_dialogue_block(vault: LoadedVault, repository: Repository, state: DialogueBlockState, *, ai_client: object | None=None, clock: Clock | None=None) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/diagnosis/probe_dialogue.py), line 422) — Block boundary (§5.7): invalidate any unsubmitted turn presentation, then run the ordered block-end hook — release withheld feedback, normalize the block's misconceptions, evaluate the open-set trigger and the completion policy, and route (probe_blocks.end_diagnostic_block).
+- `request_probe_dialogue_turn(client: StructuredTransport, context: ProbeDialogueTurnContext) -> ProbeDialogueTurn` ([source](../../../../../../src/learnloop/diagnosis/probe_dialogue.py), line 67) — Generate one adaptive dialogue turn through the shared transport.
+- `class DialogueBlockError(ValueError)` ([source](../../../../../../src/learnloop/diagnosis/probe_dialogue.py), line 80)
+- `class DialogueTurn` ([source](../../../../../../src/learnloop/diagnosis/probe_dialogue.py), line 85)
+  - `as_dict(self) -> dict[str, Any]` (line 92; public)
+- `class DialogueBlockState` ([source](../../../../../../src/learnloop/diagnosis/probe_dialogue.py), line 103) — Serializable dialogue-block state (mirrors the teach-back pattern).
+  - `to_json(self) -> str` (line 113; public)
+  - `from_json(cls, payload: str) -> 'DialogueBlockState'` (line 126; public)
+  - `completed_turns(self) -> int` (line 147; public)
+- `begin_dialogue_block(vault: LoadedVault, repository: Repository, learning_object_id: str, *, clock: Clock | None=None) -> DialogueBlockState` ([source](../../../../../../src/learnloop/diagnosis/probe_dialogue.py), line 151) — Open a dialogue block against the LO's in-progress episode (§8.1).
+- `next_dialogue_turn(vault: LoadedVault, repository: Repository, state: DialogueBlockState, *, ai_client: object | None=None, clock: Clock | None=None) -> tuple[DialogueBlockState, dict[str, Any] | None]` ([source](../../../../../../src/learnloop/diagnosis/probe_dialogue.py), line 186) — Mint and commit the next turn: ephemeral instance + presentation.
+- `record_turn_submitted(state: DialogueBlockState, presentation_id: str) -> DialogueBlockState` ([source](../../../../../../src/learnloop/diagnosis/probe_dialogue.py), line 429)
+- `end_dialogue_block(vault: LoadedVault, repository: Repository, state: DialogueBlockState, *, ai_client: object | None=None, clock: Clock | None=None) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/diagnosis/probe_dialogue.py), line 436) — Block boundary (§5.7): invalidate any unsubmitted turn presentation, then run the ordered block-end hook — release withheld feedback, normalize the block's misconceptions, evaluate the open-set trigger and the completion policy, and route (probe_blocks.end_diagnostic_block).
 
 ### Module constants
 
-- `DIALOGUE_TURN_KINDS` ([src/learnloop/diagnosis/probe_dialogue.py](../../../../../../src/learnloop/diagnosis/probe_dialogue.py), line 58)
-- `DIALOGUE_PRACTICE_MODE` ([src/learnloop/diagnosis/probe_dialogue.py](../../../../../../src/learnloop/diagnosis/probe_dialogue.py), line 59)
-- `_KIND_TO_SURFACE_INDEX` ([src/learnloop/diagnosis/probe_dialogue.py](../../../../../../src/learnloop/diagnosis/probe_dialogue.py), line 61)
+- `DIALOGUE_TURN_KINDS` ([src/learnloop/diagnosis/probe_dialogue.py](../../../../../../src/learnloop/diagnosis/probe_dialogue.py), line 61)
+- `DIALOGUE_PRACTICE_MODE` ([src/learnloop/diagnosis/probe_dialogue.py](../../../../../../src/learnloop/diagnosis/probe_dialogue.py), line 62)
+- `_KIND_TO_SURFACE_INDEX` ([src/learnloop/diagnosis/probe_dialogue.py](../../../../../../src/learnloop/diagnosis/probe_dialogue.py), line 64)
 
 ## Internal implementation anchors
 
-- `_dialogue_prompt_version() -> str` ([source](../../../../../../src/learnloop/diagnosis/probe_dialogue.py), line 339)
-- `_prior_turns_with_answers(repository: Repository, state: DialogueBlockState) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/diagnosis/probe_dialogue.py), line 345) — The block so far as {kind, prompt_md, learner_answer_md}, oldest first.
-- `_adaptive_turn_surface(vault: LoadedVault, repository: Repository, state: DialogueBlockState, card, kind: str, *, ai_client: object | None) -> tuple[str, str] | None` ([source](../../../../../../src/learnloop/diagnosis/probe_dialogue.py), line 370) — LLM-generated (prompt, expected_answer) for one turn, or None to fall back to the parametric template (§8.1 adaptive dialogue).
+- `_dialogue_prompt_version() -> str` ([source](../../../../../../src/learnloop/diagnosis/probe_dialogue.py), line 353)
+- `_prior_turns_with_answers(repository: Repository, state: DialogueBlockState) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/diagnosis/probe_dialogue.py), line 359) — The block so far as {kind, prompt_md, learner_answer_md}, oldest first.
+- `_adaptive_turn_surface(vault: LoadedVault, repository: Repository, state: DialogueBlockState, card, kind: str, *, ai_client: object | None) -> tuple[str, str] | None` ([source](../../../../../../src/learnloop/diagnosis/probe_dialogue.py), line 384) — LLM-generated (prompt, expected_answer) for one turn, or None to fall back to the parametric template (§8.1 adaptive dialogue).
 
 ## Who imports or calls it
 
@@ -102,12 +102,14 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 - [[Reference/Modules/learnloop/db/repositories|learnloop.db.repositories]] — imports `Repository`
 - [[Reference/Modules/learnloop/diagnosis/ai_contracts|learnloop.diagnosis.ai_contracts]] — imports `PROBE_DIALOGUE_TURN_PROMPT_VERSION`, `ProbeDialogueTurn`, `ProbeDialogueTurnContext`, `probe_dialogue_turn_prompt`; calls `ProbeDialogueTurnContext`, `probe_dialogue_turn_prompt`
 - [[Reference/Modules/learnloop/diagnosis/probe_blocks|learnloop.diagnosis.probe_blocks]] — imports `end_diagnostic_block`; calls `end_diagnostic_block`
-- [[Reference/Modules/learnloop/diagnosis/probe_episodes|learnloop.diagnosis.probe_episodes]] — imports `EligibleInstrument`, `commit_presentation`, `episode_hypothesis_set`, `serve_presentation`; calls `EligibleInstrument`, `commit_presentation`, `episode_hypothesis_set`, `serve_presentation`
+- [[Reference/Modules/learnloop/diagnosis/probe_episodes|learnloop.diagnosis.probe_episodes]] — imports `EligibleInstrument`, `RoutineDisplayCovered`, `commit_presentation`, `episode_hypothesis_set`, `serve_presentation`; calls `EligibleInstrument`, `commit_presentation`, `episode_hypothesis_set`, `serve_presentation`
 - [[Reference/Modules/learnloop/diagnosis/probe_families|learnloop.diagnosis.probe_families]] — imports `DIALOGUE_MICROPROBE_V1`, `map_episode_labels_to_slots`, `real_calibration_counts`, `validate_and_compile_card`; calls `map_episode_labels_to_slots`, `real_calibration_counts`, `validate_and_compile_card`
 - [[Reference/Modules/learnloop/diagnosis/probe_instance_generation|learnloop.diagnosis.probe_instance_generation]] — imports `GENERATOR_ID`, `GENERATOR_VERSION`, `LLM_GENERATOR_ID`, `LLM_GENERATOR_VERSION`, `ensure_instrument_card`, `instance_gate_errors`, `parametric_instance_payloads`; calls `ensure_instrument_card`, `instance_gate_errors`, `parametric_instance_payloads`
 - [[Reference/Modules/learnloop/ids|learnloop.ids]] — imports `new_ulid`; calls `new_ulid`
+- [[Reference/Modules/learnloop/vault/lifecycle|learnloop.vault.lifecycle]] — imports `learning_object_servable`; calls `learning_object_servable`
 - [[Reference/Modules/learnloop/vault/loader|learnloop.vault.loader]] — imports `load_vault`; calls `load_vault`
 - [[Reference/Modules/learnloop/vault/models|learnloop.vault.models]] — imports `LoadedVault`
+- [[Reference/Modules/learnloop/vault/required_method|learnloop.vault.required_method]] — imports `presented_prompt`; calls `presented_prompt`
 - [[Reference/Modules/learnloop/vault/writer|learnloop.vault.writer]] — imports `upsert_practice_item`; calls `upsert_practice_item`
 
 ### Platform and third-party dependencies
@@ -128,6 +130,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
+- [tests/test_daily_loop_lo_lifecycle_serving.py](../../../../../../tests/test_daily_loop_lo_lifecycle_serving.py) — direct import
+  - `test_probe_dialogue_block_refuses_an_inactive_lo`
 - [tests/test_probe_dialogue.py](../../../../../../tests/test_probe_dialogue.py) — direct import
   - `test_adaptive_llm_turn_conditions_on_prior_answers`
   - `test_adaptive_turn_falls_back_to_parametric_on_failure_or_leak`

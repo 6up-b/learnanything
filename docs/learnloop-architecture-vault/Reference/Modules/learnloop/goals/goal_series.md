@@ -7,11 +7,11 @@ version: "1.0.0"
 source_path: "src/learnloop/goals/goal_series.py"
 source_paths:
   - "src/learnloop/goals/goal_series.py"
-source_commit: "workspace/uncommitted @ HEAD df970cd96725b112447395846bb53a0164a5853c"
-source_commit_timestamp: "2026-09-23T20:46:40-04:00"
-source_worktree_state: "modified"
+source_commit: "c7b71c1e22fd49c848c0b984ea39c871de184756"
+source_commit_timestamp: "2026-09-23T18:50:00-04:00"
+source_worktree_state: "clean"
 generated: true
-generated_at: "2026-09-23"
+generated_at: "2026-11-02"
 package: "learnloop.goals"
 layer: "domain"
 concepts:
@@ -53,9 +53,9 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 | Owning package | [[Reference/Modules/learnloop/goals/_package|learnloop.goals]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
-| Worktree state | `modified` |
-| Source commit | `workspace/uncommitted @ HEAD df970cd96725b112447395846bb53a0164a5853c` |
-| Commit timestamp | `2026-09-23T20:46:40-04:00` |
+| Worktree state | `clean` |
+| Source commit | `c7b71c1e22fd49c848c0b984ea39c871de184756` |
+| Commit timestamp | `2026-09-23T18:50:00-04:00` |
 
 ## Public API
 

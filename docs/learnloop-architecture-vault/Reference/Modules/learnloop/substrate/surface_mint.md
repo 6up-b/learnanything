@@ -11,7 +11,7 @@ source_commit: "b322ef2e9b5cebc241b612e4963a5aaf1a37f99a"
 source_commit_timestamp: "2026-08-20T18:04:29-04:00"
 source_worktree_state: "clean"
 generated: true
-generated_at: "2026-09-23"
+generated_at: "2026-11-02"
 package: "learnloop.substrate"
 layer: "domain"
 concepts:
@@ -132,6 +132,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
+- [tests/test_item_fingerprints.py](../../../../../../tests/test_item_fingerprints.py) — direct import
+  - `test_generic_rotation_claims_never_take_pf_generation_jobs`
 - [tests/test_journey6.py](../../../../../../tests/test_journey6.py) — direct import
   - `test_journey6_end_to_end_on_fresh_mvp08_vault`
 - [tests/test_surface_mint.py](../../../../../../tests/test_surface_mint.py) — direct import

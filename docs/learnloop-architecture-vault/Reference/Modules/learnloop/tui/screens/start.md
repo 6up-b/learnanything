@@ -7,11 +7,11 @@ version: "1.0.0"
 source_path: "src/learnloop/tui/screens/start.py"
 source_paths:
   - "src/learnloop/tui/screens/start.py"
-source_commit: "b322ef2e9b5cebc241b612e4963a5aaf1a37f99a"
-source_commit_timestamp: "2026-08-20T18:04:29-04:00"
+source_commit: "ad5780816a9030b6e03e43ba02d423519dc32904"
+source_commit_timestamp: "2026-10-12T02:19:46-04:00"
 source_worktree_state: "clean"
 generated: true
-generated_at: "2026-09-23"
+generated_at: "2026-11-02"
 package: "learnloop.tui.screens"
 layer: "adapter"
 concepts:
@@ -39,7 +39,7 @@ Up: [[Reference/Modules/learnloop/tui/screens/_package|learnloop.tui.screens]] �
 
 ## Why this module exists
 
-This module keeps start behavior inside its owning package, [[Reference/Modules/learnloop/tui/screens/_package|learnloop.tui.screens]]. Its public surface centers on `Torus`, `Slider`, `MinutesPicker`, `StartScreen`.
+This module keeps start behavior inside its owning package, [[Reference/Modules/learnloop/tui/screens/_package|learnloop.tui.screens]]. Its public surface centers on `Torus`, `MinutesPicker`, `StartScreen`.
 
 The authoritative system-level explanation remains in [[Architecture Overview]]; this note records where this source module participates rather than restating those concepts.
 
@@ -50,67 +50,57 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/tui/screens/start.py](../../../../../../../src/learnloop/tui/screens/start.py) |
-| Source lines | 405 |
+| Source lines | 386 |
 | Owning package | [[Reference/Modules/learnloop/tui/screens/_package|learnloop.tui.screens]] |
 | Architecture layer | `adapter` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `b322ef2e9b5cebc241b612e4963a5aaf1a37f99a` |
-| Commit timestamp | `2026-08-20T18:04:29-04:00` |
+| Source commit | `ad5780816a9030b6e03e43ba02d423519dc32904` |
+| Commit timestamp | `2026-10-12T02:19:46-04:00` |
 
 ## Public API
 
-- `class Torus(Static)` ([source](../../../../../../../src/learnloop/tui/screens/start.py), line 28) — Rotating shaded ASCII torus (Andy Sloane's donut.c), tinted with theme tokens.
-  - `__init__(self, **kwargs) -> None` (line 33; internal)
-  - `on_mount(self) -> None` (line 38; public)
-  - `_tick(self) -> None` (line 42; internal)
-  - `_frame(self) -> Content` (line 49; internal)
-- `class Slider(Static)` ([source](../../../../../../../src/learnloop/tui/screens/start.py), line 111) — Focusable block-fill slider in [0, 1]; ←/→ adjust by 0.1, click to set.
-  - `__init__(self, label: str, value: float=0.5, **kwargs) -> None` (line 127; internal)
-  - `on_mount(self) -> None` (line 132; public)
-  - `action_step(self, delta: float) -> None` (line 135; public)
-  - `on_click(self, event) -> None` (line 138; public)
-  - `watch_value(self, _value: float) -> None` (line 144; public)
-  - `_render(self) -> Content` (line 149; internal)
-- `class MinutesPicker(Static)` ([source](../../../../../../../src/learnloop/tui/screens/start.py), line 157) — Focusable preset chips for available session minutes; ←/→ cycle.
-  - `__init__(self, minutes: int=30, **kwargs) -> None` (line 171; internal)
-  - `on_mount(self) -> None` (line 176; public)
-  - `minutes(self) -> int` (line 180; public)
-  - `action_step(self, delta: int) -> None` (line 183; public)
-  - `watch_index(self, _index: int) -> None` (line 186; public)
-  - `_render(self) -> Content` (line 191; internal)
-- `class StartScreen(Screen)` ([source](../../../../../../../src/learnloop/tui/screens/start.py), line 204) — Session warm-up: readiness inputs + queue preview, then begin.
-  - `__init__(self, state: TuiState)` (line 216; internal)
-  - `compose(self) -> ComposeResult` (line 220; public)
-  - `on_mount(self) -> None` (line 250; public)
-  - `on_slider_changed(self, _event: Slider.Changed) -> None` (line 254; public)
-  - `on_minutes_picker_changed(self, _event: MinutesPicker.Changed) -> None` (line 257; public)
-  - `_refresh_mode(self) -> None` (line 260; internal)
-  - `_energy(self) -> float` (line 263; internal)
-  - `_sleep(self) -> float` (line 266; internal)
-  - `_minutes(self) -> int` (line 269; internal)
-  - `_energy_bucket(self) -> str` (line 272; internal)
-  - `_session(self) -> SchedulerSession` (line 276; internal)
-  - `async begin_session(self)` (line 280; public)
-  - `action_begin(self) -> None` (line 288; public)
-  - `action_postpone(self) -> None` (line 291; public)
-  - `on_button_pressed(self, event: Button.Pressed) -> None` (line 294; public)
-  - `_left_head(self) -> Content` (line 301; internal)
-  - `_scope_text(self) -> Content` (line 308; internal)
-  - `_intro_text(self) -> Content` (line 318; internal)
-  - `_mode_text(self) -> Content` (line 324; internal)
-  - `_queue_preview(self) -> Content` (line 341; internal)
-  - `_recap_text(self) -> Content` (line 355; internal)
-  - `_queue_counts(self) -> tuple[int, int, int, int]` (line 368; internal)
-  - `_overdue_count(self) -> int` (line 385; internal)
-  - `_primary_goal_title(self) -> str` (line 401; internal)
+- `class Torus(Static)` ([source](../../../../../../../src/learnloop/tui/screens/start.py), line 30) — Rotating shaded ASCII torus (Andy Sloane's donut.c), tinted with theme tokens.
+  - `__init__(self, **kwargs) -> None` (line 35; internal)
+  - `on_mount(self) -> None` (line 40; public)
+  - `_tick(self) -> None` (line 44; internal)
+  - `_frame(self) -> Content` (line 51; internal)
+- `class MinutesPicker(Static)` ([source](../../../../../../../src/learnloop/tui/screens/start.py), line 113) — Focusable one-tap minute chips; ←/→ cycle (daily-loop §6.6).
+  - `__init__(self, minutes: int, **kwargs) -> None` (line 131; internal)
+  - `on_mount(self) -> None` (line 136; public)
+  - `choices(self) -> tuple[int, ...]` (line 140; public)
+  - `minutes(self) -> int` (line 144; public)
+  - `action_step(self, delta: int) -> None` (line 147; public)
+  - `on_click(self, event) -> None` (line 150; public)
+  - `watch_index(self, _index: int) -> None` (line 161; public)
+  - `_render(self) -> Content` (line 166; internal)
+- `class StartScreen(Screen)` ([source](../../../../../../../src/learnloop/tui/screens/start.py), line 179) — Session warm-up: minutes only, a queue preview, then begin.
+  - `__init__(self, state: TuiState)` (line 194; internal)
+  - `compose(self) -> ComposeResult` (line 204; public)
+  - `on_mount(self) -> None` (line 232; public)
+  - `on_minutes_picker_changed(self, _event: MinutesPicker.Changed) -> None` (line 236; public)
+  - `_refresh_mode(self) -> None` (line 239; internal)
+  - `_minutes(self) -> int` (line 242; internal)
+  - `_session(self) -> SchedulerSession` (line 247; internal)
+  - `async begin_session(self)` (line 252; public)
+  - `action_begin(self) -> None` (line 268; public)
+  - `on_button_pressed(self, event: Button.Pressed) -> None` (line 271; public)
+  - `_left_head(self) -> Content` (line 276; internal)
+  - `_scope_text(self) -> Content` (line 283; internal)
+  - `_intro_text(self) -> Content` (line 293; internal)
+  - `_mode_text(self) -> Content` (line 306; internal)
+  - `_queue_preview(self) -> Content` (line 322; internal)
+  - `_recap_text(self) -> Content` (line 336; internal)
+  - `_queue_counts(self) -> tuple[int, int, int, int]` (line 349; internal)
+  - `_overdue_count(self) -> int` (line 366; internal)
+  - `_primary_goal_title(self) -> str` (line 382; internal)
 
 ### Module constants
 
-- `_RAMP` ([src/learnloop/tui/screens/start.py](../../../../../../../src/learnloop/tui/screens/start.py), line 20)
-- `_RAMP_TOKENS` ([src/learnloop/tui/screens/start.py](../../../../../../../src/learnloop/tui/screens/start.py), line 22)
-- `_TORUS_W` ([src/learnloop/tui/screens/start.py](../../../../../../../src/learnloop/tui/screens/start.py), line 24)
-- `_TORUS_H` ([src/learnloop/tui/screens/start.py](../../../../../../../src/learnloop/tui/screens/start.py), line 25)
+- `_RAMP` ([src/learnloop/tui/screens/start.py](../../../../../../../src/learnloop/tui/screens/start.py), line 22)
+- `_RAMP_TOKENS` ([src/learnloop/tui/screens/start.py](../../../../../../../src/learnloop/tui/screens/start.py), line 24)
+- `_TORUS_W` ([src/learnloop/tui/screens/start.py](../../../../../../../src/learnloop/tui/screens/start.py), line 26)
+- `_TORUS_H` ([src/learnloop/tui/screens/start.py](../../../../../../../src/learnloop/tui/screens/start.py), line 27)
 
 ## Internal implementation anchors
 
@@ -128,9 +118,11 @@ No private top-level function or class definition is declared in this file.
 ### LearnLoop dependencies
 
 - [[Reference/Modules/learnloop/scheduling/scheduler|learnloop.scheduling.scheduler]] — imports `SchedulerSession`; calls `SchedulerSession`
+- [[Reference/Modules/learnloop/scheduling/session_minutes|learnloop.scheduling.session_minutes]] — imports `minute_choices`, `remembered_session_minutes`; calls `minute_choices`, `remembered_session_minutes`
+- [[Reference/Modules/learnloop/tui/minutes_memory|learnloop.tui.minutes_memory]] — imports `load_chosen_minutes`, `save_chosen_minutes`; calls `load_chosen_minutes`, `save_chosen_minutes`
 - [[Reference/Modules/learnloop/tui/screens/today|learnloop.tui.screens.today]] — imports `TodayScreen`; calls `TodayScreen`
 - [[Reference/Modules/learnloop/tui/state|learnloop.tui.state]] — imports `TuiState`
-- [[Reference/Modules/learnloop/tui/widgets|learnloop.tui.widgets]] — imports `KeyBar`, `TextStatic`, `block_bar`; calls `KeyBar`, `TextStatic`, `block_bar`
+- [[Reference/Modules/learnloop/tui/widgets|learnloop.tui.widgets]] — imports `KeyBar`, `TextStatic`; calls `KeyBar`, `TextStatic`
 
 ### Platform and third-party dependencies
 
@@ -151,6 +143,12 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 ## Tests that define behavior
 
 - [tests/helpers.py](../../../../../../../tests/helpers.py) — direct import
+- [tests/test_daily_loop_start_minutes.py](../../../../../../../tests/test_daily_loop_start_minutes.py) — direct import
+  - `test_tui_start_asks_for_minutes_only_and_starts_on_the_remembered_minutes`
+  - `test_tui_start_lays_the_minute_chips_out_on_screen`
+  - `test_tui_start_uses_25_minutes_on_a_fresh_vault_and_keeps_an_old_budget`
+- [tests/test_daily_loop_start_postpone.py](../../../../../../../tests/test_daily_loop_start_postpone.py) — direct import
+  - `test_tui_start_screen_offers_no_postpone_it_cannot_honour`
 - [tests/test_tui_app.py](../../../../../../../tests/test_tui_app.py) — direct import
   - `test_tui_app_launches_start_screen_and_syncs_state`
 

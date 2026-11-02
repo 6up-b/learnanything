@@ -11,7 +11,7 @@ source_commit: "b322ef2e9b5cebc241b612e4963a5aaf1a37f99a"
 source_commit_timestamp: "2026-08-20T18:04:29-04:00"
 source_worktree_state: "clean"
 generated: true
-generated_at: "2026-09-23"
+generated_at: "2026-11-02"
 package: "learnloop.learner"
 layer: "domain"
 concepts:
@@ -86,7 +86,7 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 - [[Reference/Modules/learnloop/attempts/attempts|learnloop.attempts.attempts]] — imports `CanonicalFacetStateReader`, `is_canonical_state_vault`; statically calls `CanonicalFacetStateReader`, `is_canonical_state_vault`
 - [[Reference/Modules/learnloop/attempts/grading|learnloop.attempts.grading]] — imports `is_canonical_state_vault`; statically calls `is_canonical_state_vault`
 - [[Reference/Modules/learnloop/content/authoring/practice_generation|learnloop.content.authoring.practice_generation]] — imports `facet_recall_states_for_lo`; statically calls `facet_recall_states_for_lo`
-- [[Reference/Modules/learnloop/curriculum/curriculum_locks|learnloop.curriculum.curriculum_locks]] — imports `is_canonical_state_vault`, `resolve_canonical_facet`; statically calls `is_canonical_state_vault`, `resolve_canonical_facet`
+- [[Reference/Modules/learnloop/daily_plan/headline|learnloop.daily_plan.headline]] — imports `is_canonical_state_vault`; statically calls `is_canonical_state_vault`
 - [[Reference/Modules/learnloop/diagnosis/followups|learnloop.diagnosis.followups]] — imports `facet_recall_state_for_lo`, `facet_recall_states_for_lo`, `facet_uncertainty_states_for_lo`; statically calls `facet_recall_state_for_lo`, `facet_recall_states_for_lo`, `facet_uncertainty_states_for_lo`
 - [[Reference/Modules/learnloop/diagnosis/misconceptions|learnloop.diagnosis.misconceptions]] — imports `is_canonical_state_vault`; statically calls `is_canonical_state_vault`
 - [[Reference/Modules/learnloop/diagnosis/probe_instance_generation|learnloop.diagnosis.probe_instance_generation]] — imports `is_canonical_state_vault`; statically calls `is_canonical_state_vault`
@@ -124,7 +124,7 @@ Use this module in context through:
 
 - [[Reader to Practice Workflow]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/attempts/attempts|learnloop.attempts.attempts]], [[Reference/Modules/learnloop/attempts/grading|learnloop.attempts.grading]], [[Reference/Modules/learnloop/content/authoring/practice_generation|learnloop.content.authoring.practice_generation]], [[Reference/Modules/learnloop/curriculum/curriculum_locks|learnloop.curriculum.curriculum_locks]], [[Reference/Modules/learnloop/diagnosis/followups|learnloop.diagnosis.followups]] and 16 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/attempts/attempts|learnloop.attempts.attempts]], [[Reference/Modules/learnloop/attempts/grading|learnloop.attempts.grading]], [[Reference/Modules/learnloop/content/authoring/practice_generation|learnloop.content.authoring.practice_generation]], [[Reference/Modules/learnloop/daily_plan/headline|learnloop.daily_plan.headline]], [[Reference/Modules/learnloop/diagnosis/followups|learnloop.diagnosis.followups]] and 16 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 

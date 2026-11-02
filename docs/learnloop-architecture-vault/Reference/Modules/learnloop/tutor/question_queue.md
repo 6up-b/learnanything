@@ -7,11 +7,11 @@ version: "1.0.0"
 source_path: "src/learnloop/tutor/question_queue.py"
 source_paths:
   - "src/learnloop/tutor/question_queue.py"
-source_commit: "b322ef2e9b5cebc241b612e4963a5aaf1a37f99a"
-source_commit_timestamp: "2026-08-20T18:04:29-04:00"
+source_commit: "910ecb2dd2d46aa200e447cd8d1d4b212b69a702"
+source_commit_timestamp: "2026-10-25T22:41:45-04:00"
 source_worktree_state: "clean"
 generated: true
-generated_at: "2026-09-23"
+generated_at: "2026-11-02"
 package: "learnloop.tutor"
 layer: "domain"
 concepts:
@@ -50,20 +50,20 @@ The authoritative system-level explanation remains in [[Learning System]], [[AI 
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/tutor/question_queue.py](../../../../../../src/learnloop/tutor/question_queue.py) |
-| Source lines | 237 |
+| Source lines | 242 |
 | Owning package | [[Reference/Modules/learnloop/tutor/_package|learnloop.tutor]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `b322ef2e9b5cebc241b612e4963a5aaf1a37f99a` |
-| Commit timestamp | `2026-08-20T18:04:29-04:00` |
+| Source commit | `910ecb2dd2d46aa200e447cd8d1d4b212b69a702` |
+| Commit timestamp | `2026-10-25T22:41:45-04:00` |
 
 ## Public API
 
 - `class QuestionQueueError(ValueError)` ([source](../../../../../../src/learnloop/tutor/question_queue.py), line 25) — Invalid queue operation (unknown event id or resolution state).
 - `list_question_queue(repository: Repository, *, vault: LoadedVault | None=None, resolution: str | None='open', limit: int | None=None) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/tutor/question_queue.py), line 29) — Queue rows, newest first, each carrying its promotion (if any).
-- `count_open_questions(repository: Repository) -> int` ([source](../../../../../../src/learnloop/tutor/question_queue.py), line 214)
-- `set_question_resolution(repository: Repository, *, question_event_id: str, resolution: str) -> dict[str, Any]` ([source](../../../../../../src/learnloop/tutor/question_queue.py), line 218) — Move one question to ``open``/``resolved``/``dismissed``; returns the row.
+- `count_open_questions(repository: Repository) -> int` ([source](../../../../../../src/learnloop/tutor/question_queue.py), line 219)
+- `set_question_resolution(repository: Repository, *, question_event_id: str, resolution: str) -> dict[str, Any]` ([source](../../../../../../src/learnloop/tutor/question_queue.py), line 223) — Move one question to ``open``/``resolved``/``dismissed``; returns the row.
 
 ### Module constants
 
@@ -71,7 +71,7 @@ The authoritative system-level explanation remains in [[Learning System]], [[AI 
 
 ## Internal implementation anchors
 
-- `_source_citation(repository: Repository, event: dict[str, Any], *, vault: LoadedVault | None) -> dict[str, str | None] | None` ([source](../../../../../../src/learnloop/tutor/question_queue.py), line 87) — Best canonical teaching span for an outstanding question.
+- `_source_citation(repository: Repository, event: dict[str, Any], *, vault: LoadedVault | None) -> dict[str, str | None] | None` ([source](../../../../../../src/learnloop/tutor/question_queue.py), line 92) — Best canonical teaching span for an outstanding question.
 
 ## Who imports or calls it
 
@@ -79,6 +79,8 @@ The authoritative system-level explanation remains in [[Learning System]], [[AI 
 > “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
 
 - [[Reference/Modules/learnloop/cli/questions|learnloop.cli.questions]] — imports `QuestionQueueError`, `list_question_queue`, `set_question_resolution`; statically calls `list_question_queue`, `set_question_resolution`
+- [[Reference/Modules/learnloop/reader/reader_inquiry|learnloop.reader.reader_inquiry]] — imports `module`; statically calls `set_question_resolution`
+- [[Reference/Modules/learnloop_sidecar/handlers/reader|learnloop_sidecar.handlers.reader]] — imports `module`; statically calls `count_open_questions`
 - [[Reference/Modules/learnloop_sidecar/handlers/tutor_qa|learnloop_sidecar.handlers.tutor_qa]] — imports `QuestionQueueError`, `module`; statically calls `count_open_questions`, `list_question_queue`, `set_question_resolution`
 
 ## Dependencies
@@ -87,7 +89,7 @@ The authoritative system-level explanation remains in [[Learning System]], [[AI 
 
 - [[Reference/Modules/learnloop/db/repositories|learnloop.db.repositories]] — imports `Repository`
 - [[Reference/Modules/learnloop/tutor/promotions|learnloop.tutor.promotions]] — imports `promotion_target_ids`; calls `promotion_target_ids`
-- [[Reference/Modules/learnloop/tutor/tutor_qa|learnloop.tutor.tutor_qa]] — imports `_source_spans`; calls `_source_spans`
+- [[Reference/Modules/learnloop/tutor/tutor_qa|learnloop.tutor.tutor_qa]] — imports `_source_spans`, `delivered_answer_md`; calls `_source_spans`, `delivered_answer_md`
 - [[Reference/Modules/learnloop/vault/models|learnloop.vault.models]] — imports `LoadedVault`
 
 ### Platform and third-party dependencies
@@ -101,7 +103,7 @@ Use this module in context through:
 
 - [[Tutor and Teach-Back Workflow]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/cli/questions|learnloop.cli.questions]], [[Reference/Modules/learnloop_sidecar/handlers/tutor_qa|learnloop_sidecar.handlers.tutor_qa]].
+Static participation evidence comes from [[Reference/Modules/learnloop/cli/questions|learnloop.cli.questions]], [[Reference/Modules/learnloop/reader/reader_inquiry|learnloop.reader.reader_inquiry]], [[Reference/Modules/learnloop_sidecar/handlers/reader|learnloop_sidecar.handlers.reader]], [[Reference/Modules/learnloop_sidecar/handlers/tutor_qa|learnloop_sidecar.handlers.tutor_qa]].
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 

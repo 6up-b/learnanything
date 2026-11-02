@@ -11,7 +11,7 @@ source_commit: "4a28c9635f24945d78366fa26212db7488d82545"
 source_commit_timestamp: "2026-05-28T11:36:12-04:00"
 source_worktree_state: "clean"
 generated: true
-generated_at: "2026-09-23"
+generated_at: "2026-11-02"
 package: "learnloop.tui"
 layer: "adapter"
 concepts:
@@ -90,7 +90,7 @@ No private top-level function or class definition is declared in this file.
 - [[Reference/Modules/learnloop/tui/app|learnloop.tui.app]] — imports `TextStatic`; statically calls `TextStatic`
 - [[Reference/Modules/learnloop/tui/screens/feedback|learnloop.tui.screens.feedback]] — imports `KeyBar`, `TextStatic`, `block_bar`, `mode_pill_color`, `pill`; statically calls `KeyBar`, `TextStatic`, `block_bar`, `mode_pill_color`, `pill`
 - [[Reference/Modules/learnloop/tui/screens/practice|learnloop.tui.screens.practice]] — imports `KeyBar`, `TextStatic`, `block_bar`, `mastery_token`, `mode_pill_color`, `pill`; statically calls `KeyBar`, `TextStatic`, `block_bar`, `mastery_token`, `mode_pill_color`, `pill`
-- [[Reference/Modules/learnloop/tui/screens/start|learnloop.tui.screens.start]] — imports `KeyBar`, `TextStatic`, `block_bar`; statically calls `KeyBar`, `TextStatic`, `block_bar`
+- [[Reference/Modules/learnloop/tui/screens/start|learnloop.tui.screens.start]] — imports `KeyBar`, `TextStatic`; statically calls `KeyBar`, `TextStatic`
 - [[Reference/Modules/learnloop/tui/screens/today|learnloop.tui.screens.today]] — imports `KeyBar`, `TextStatic`, `block_bar`, `mastery_token`, `mode_pill_color`, `pill`; statically calls `KeyBar`, `TextStatic`, `block_bar`, `mastery_token`, `mode_pill_color`, `pill`
 
 ## Dependencies

@@ -11,7 +11,7 @@ source_commit: "b322ef2e9b5cebc241b612e4963a5aaf1a37f99a"
 source_commit_timestamp: "2026-08-20T18:04:29-04:00"
 source_worktree_state: "clean"
 generated: true
-generated_at: "2026-09-23"
+generated_at: "2026-11-02"
 package: "learnloop.content.synthesis"
 layer: "domain"
 concepts:
@@ -115,12 +115,16 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 - [tests/test_ingest_ownership.py](../../../../../../../tests/test_ingest_ownership.py) — direct import
   - `test_synthesis_run_hygiene_runs_at_startup_but_not_on_drain_ticks`
+- [tests/test_mobile_host_coexistence.py](../../../../../../../tests/test_mobile_host_coexistence.py) — direct import
+  - `test_capture_host_coexists_without_primary_startup_work`
+- [tests/test_secondary_attach.py](../../../../../../../tests/test_secondary_attach.py) — direct import
 - [tests/test_synthesis_manifests.py](../../../../../../../tests/test_synthesis_manifests.py) — direct import
   - `test_persist_manifest_is_idempotent_and_seam_documented`
 - [tests/test_synthesis_runs_repo.py](../../../../../../../tests/test_synthesis_runs_repo.py) — direct import
   - `test_finalize_stale_synthesis_runs_spares_recent_rows`
   - `test_synthesis_run_introducing_entity_lineage`
   - `test_synthesis_run_lifecycle`
+- [tests/test_synthesis_sweep_primary_only.py](../../../../../../../tests/test_synthesis_sweep_primary_only.py) — direct import
 
 ## Modification guidance
 

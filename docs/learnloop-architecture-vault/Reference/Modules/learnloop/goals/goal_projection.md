@@ -11,7 +11,7 @@ source_commit: "b322ef2e9b5cebc241b612e4963a5aaf1a37f99a"
 source_commit_timestamp: "2026-08-20T18:04:29-04:00"
 source_worktree_state: "clean"
 generated: true
-generated_at: "2026-09-23"
+generated_at: "2026-11-02"
 package: "learnloop.goals"
 layer: "domain"
 concepts:
@@ -110,6 +110,7 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 > “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
 
 - [[Reference/Modules/learnloop/content/authoring/practice_generation|learnloop.content.authoring.practice_generation]] — imports `goal_report`, `resolve_goal_scope`; statically calls `goal_report`, `resolve_goal_scope`
+- [[Reference/Modules/learnloop/daily_plan/engine|learnloop.daily_plan.engine]] — imports `resolve_goal_scope`; statically calls `resolve_goal_scope`
 - [[Reference/Modules/learnloop/diagnosis/calibration_sessions|learnloop.diagnosis.calibration_sessions]] — imports `resolve_goal_scope`; statically calls `resolve_goal_scope`
 - [[Reference/Modules/learnloop/goals/exam_pool|learnloop.goals.exam_pool]] — imports `resolve_goal_scope`; statically calls `resolve_goal_scope`
 - [[Reference/Modules/learnloop/goals/exam_session|learnloop.goals.exam_session]] — imports `goal_report`, `resolve_goal_scope`; statically calls `goal_report`, `resolve_goal_scope`
@@ -118,6 +119,7 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 - [[Reference/Modules/learnloop/goals/goal_series|learnloop.goals.goal_series]] — imports `goal_report`, `projected_ready_mean_at`, `resolve_goal_scope`; statically calls `goal_report`, `projected_ready_mean_at`, `resolve_goal_scope`
 - [[Reference/Modules/learnloop/learner/capability_grid|learnloop.learner.capability_grid]] — imports `project_lo_blueprint_readiness`; statically calls `project_lo_blueprint_readiness`
 - [[Reference/Modules/learnloop/learner/overconfidence|learnloop.learner.overconfidence]] — imports `GoalReport`, `goal_report`; statically calls `goal_report`
+- [[Reference/Modules/learnloop/remote/views|learnloop.remote.views]] — imports `goal_report`; statically calls `goal_report`
 - [[Reference/Modules/learnloop/scheduling/decay_pressure|learnloop.scheduling.decay_pressure]] — imports `facet_projections_at`; statically calls `facet_projections_at`
 - [[Reference/Modules/learnloop/scheduling/reentry_adapter|learnloop.scheduling.reentry_adapter]] — imports `facet_projections_at`, `goal_report`; statically calls `facet_projections_at`, `goal_report`
 - [[Reference/Modules/learnloop/scheduling/reentry_summary|learnloop.scheduling.reentry_summary]] — imports `facet_projections_at`, `goal_report`; statically calls `facet_projections_at`, `goal_report`
@@ -161,7 +163,7 @@ Use this module in context through:
 
 - [[Goals Exams and Certification Workflow]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/content/authoring/practice_generation|learnloop.content.authoring.practice_generation]], [[Reference/Modules/learnloop/diagnosis/calibration_sessions|learnloop.diagnosis.calibration_sessions]], [[Reference/Modules/learnloop/goals/exam_pool|learnloop.goals.exam_pool]], [[Reference/Modules/learnloop/goals/exam_session|learnloop.goals.exam_session]], [[Reference/Modules/learnloop/goals/forecast_ledger|learnloop.goals.forecast_ledger]] and 15 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/content/authoring/practice_generation|learnloop.content.authoring.practice_generation]], [[Reference/Modules/learnloop/daily_plan/engine|learnloop.daily_plan.engine]], [[Reference/Modules/learnloop/diagnosis/calibration_sessions|learnloop.diagnosis.calibration_sessions]], [[Reference/Modules/learnloop/goals/exam_pool|learnloop.goals.exam_pool]], [[Reference/Modules/learnloop/goals/exam_session|learnloop.goals.exam_session]] and 17 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
@@ -205,6 +207,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_fixture_vault_goal_over_unauthored_concepts_resolves`
   - `test_goal_scope_resolves_over_unauthored_material`
   - `test_material_gaps_report_the_fillable_learning_object`
+- [tests/test_intent_codex_review.py](../../../../../../tests/test_intent_codex_review.py) — direct import
+  - `test_f8_a_deadline_covers_its_own_los_not_others_on_the_same_concept`
 - [tests/test_km2b_consumer_rekey.py](../../../../../../tests/test_km2b_consumer_rekey.py) — direct import
   - `test_goal_projection_reads_canonical_state`
 - [tests/test_km3_projections.py](../../../../../../tests/test_km3_projections.py) — direct import

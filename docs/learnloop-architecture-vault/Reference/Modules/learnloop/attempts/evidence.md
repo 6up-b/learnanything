@@ -11,7 +11,7 @@ source_commit: "b322ef2e9b5cebc241b612e4963a5aaf1a37f99a"
 source_commit_timestamp: "2026-08-20T18:04:29-04:00"
 source_worktree_state: "clean"
 generated: true
-generated_at: "2026-09-23"
+generated_at: "2026-11-02"
 package: "learnloop.attempts"
 layer: "domain"
 concepts:
@@ -78,12 +78,14 @@ No private top-level function or class definition is declared in this file.
 > “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
 
 - [[Reference/Modules/learnloop/attempts/attempts|learnloop.attempts.attempts]] — imports `attempt_evidence_mass`; statically calls `attempt_evidence_mass`
+- [[Reference/Modules/learnloop/field/outcomes|learnloop.field.outcomes]] — imports `attempt_evidence_mass`; statically calls `attempt_evidence_mass`
 - [[Reference/Modules/learnloop/learner/facet_evidence_timeline|learnloop.learner.facet_evidence_timeline]] — imports `attempt_evidence_mass`; statically calls `attempt_evidence_mass`
 - [[Reference/Modules/learnloop/learner/mastery|learnloop.learner.mastery]] — imports `attempt_evidence_mass`; statically calls `attempt_evidence_mass`
 - [[Reference/Modules/learnloop/learner/recall_coverage|learnloop.learner.recall_coverage]] — imports `attempt_evidence_mass`, `attempt_surface_exposure`, `practice_mode_item_coverage`; statically calls `attempt_evidence_mass`, `attempt_surface_exposure`, `practice_mode_item_coverage`
 - [[Reference/Modules/learnloop/scheduling/review_log|learnloop.scheduling.review_log]] — imports `attempt_evidence_mass`; statically calls `attempt_evidence_mass`
 - [[Reference/Modules/learnloop/scheduling/scheduler|learnloop.scheduling.scheduler]] — imports `attempt_evidence_mass`; statically calls `attempt_evidence_mass`
 - [[Reference/Modules/learnloop/substrate/canonical_projection|learnloop.substrate.canonical_projection]] — imports `attempt_evidence_mass`; statically calls `attempt_evidence_mass`
+- [[Reference/Modules/learnloop/teacher/checks|learnloop.teacher.checks]] — imports `attempt_evidence_mass`; statically calls `attempt_evidence_mass`
 
 ## Dependencies
 
@@ -103,7 +105,7 @@ Use this module in context through:
 - [[Process Model Output]]
 - [[Inspect Persistent State]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/attempts/attempts|learnloop.attempts.attempts]], [[Reference/Modules/learnloop/learner/facet_evidence_timeline|learnloop.learner.facet_evidence_timeline]], [[Reference/Modules/learnloop/learner/mastery|learnloop.learner.mastery]], [[Reference/Modules/learnloop/learner/recall_coverage|learnloop.learner.recall_coverage]], [[Reference/Modules/learnloop/scheduling/review_log|learnloop.scheduling.review_log]] and 2 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/attempts/attempts|learnloop.attempts.attempts]], [[Reference/Modules/learnloop/field/outcomes|learnloop.field.outcomes]], [[Reference/Modules/learnloop/learner/facet_evidence_timeline|learnloop.learner.facet_evidence_timeline]], [[Reference/Modules/learnloop/learner/mastery|learnloop.learner.mastery]], [[Reference/Modules/learnloop/learner/recall_coverage|learnloop.learner.recall_coverage]] and 4 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 

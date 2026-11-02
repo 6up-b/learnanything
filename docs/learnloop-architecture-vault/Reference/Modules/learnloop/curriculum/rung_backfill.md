@@ -7,11 +7,11 @@ version: "1.0.0"
 source_path: "src/learnloop/curriculum/rung_backfill.py"
 source_paths:
   - "src/learnloop/curriculum/rung_backfill.py"
-source_commit: "b322ef2e9b5cebc241b612e4963a5aaf1a37f99a"
-source_commit_timestamp: "2026-08-20T18:04:29-04:00"
+source_commit: "2d7c4948399efdc96c3c60d7379da37bc90a9e3d"
+source_commit_timestamp: "2026-10-14T20:18:37-04:00"
 source_worktree_state: "clean"
 generated: true
-generated_at: "2026-09-23"
+generated_at: "2026-11-02"
 package: "learnloop.curriculum"
 layer: "domain"
 concepts:
@@ -49,19 +49,19 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/curriculum/rung_backfill.py](../../../../../../src/learnloop/curriculum/rung_backfill.py) |
-| Source lines | 153 |
+| Source lines | 156 |
 | Owning package | [[Reference/Modules/learnloop/curriculum/_package|learnloop.curriculum]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `b322ef2e9b5cebc241b612e4963a5aaf1a37f99a` |
-| Commit timestamp | `2026-08-20T18:04:29-04:00` |
+| Source commit | `2d7c4948399efdc96c3c60d7379da37bc90a9e3d` |
+| Commit timestamp | `2026-10-14T20:18:37-04:00` |
 
 ## Public API
 
-- `class RungBackfillError(ValueError)` ([source](../../../../../../src/learnloop/curriculum/rung_backfill.py), line 38)
-- `request_rung_backfill(client: StructuredTransport, context: RungBackfillContext) -> RungBackfillClassification` ([source](../../../../../../src/learnloop/curriculum/rung_backfill.py), line 42) — Classify legacy item rungs through the shared transport.
-- `backfill_item_rungs(root: Path, repository: Repository, client: Any, *, subject: str | None=None, dry_run: bool=False, batch_size: int=40, clock: Clock | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/curriculum/rung_backfill.py), line 55) — Classify + stamp rung metadata on active items that lack it.
+- `class RungBackfillError(ValueError)` ([source](../../../../../../src/learnloop/curriculum/rung_backfill.py), line 39)
+- `request_rung_backfill(client: StructuredTransport, context: RungBackfillContext) -> RungBackfillClassification` ([source](../../../../../../src/learnloop/curriculum/rung_backfill.py), line 43) — Classify legacy item rungs through the shared transport.
+- `backfill_item_rungs(root: Path, repository: Repository, client: Any, *, subject: str | None=None, dry_run: bool=False, batch_size: int=40, clock: Clock | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/curriculum/rung_backfill.py), line 56) — Classify + stamp rung metadata on active items that lack it.
 
 ## Internal implementation anchors
 
@@ -85,6 +85,7 @@ No private top-level function or class definition is declared in this file.
 - [[Reference/Modules/learnloop/db/repositories|learnloop.db.repositories]] — imports `Repository`
 - [[Reference/Modules/learnloop/substrate/activity_patterns|learnloop.substrate.activity_patterns]] — imports `LEGACY_UNMAPPED`, `ensure_builtin_task_feature_schema`, `ensure_capability_alias_registry`, `map_capability`, `validate_task_features`; calls `ensure_builtin_task_feature_schema`, `ensure_capability_alias_registry`, `map_capability`, `validate_task_features`
 - [[Reference/Modules/learnloop/vault/loader|learnloop.vault.loader]] — imports `load_vault`; calls `load_vault`
+- [[Reference/Modules/learnloop/vault/required_method|learnloop.vault.required_method]] — imports `fit_presented_prompt`; calls `fit_presented_prompt`
 - [[Reference/Modules/learnloop/vault/writer|learnloop.vault.writer]] — imports `upsert_practice_item`; calls `upsert_practice_item`
 
 ### Platform and third-party dependencies

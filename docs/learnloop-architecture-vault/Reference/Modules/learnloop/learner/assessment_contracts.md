@@ -7,11 +7,11 @@ version: "1.0.0"
 source_path: "src/learnloop/learner/assessment_contracts.py"
 source_paths:
   - "src/learnloop/learner/assessment_contracts.py"
-source_commit: "b322ef2e9b5cebc241b612e4963a5aaf1a37f99a"
-source_commit_timestamp: "2026-08-20T18:04:29-04:00"
+source_commit: "021f65890a2258a170e403ccf300aa7ec86a2ef7"
+source_commit_timestamp: "2026-10-15T01:33:46-04:00"
 source_worktree_state: "clean"
 generated: true
-generated_at: "2026-09-23"
+generated_at: "2026-11-02"
 package: "learnloop.learner"
 layer: "domain"
 concepts:
@@ -50,45 +50,50 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/learner/assessment_contracts.py](../../../../../../src/learnloop/learner/assessment_contracts.py) |
-| Source lines | 213 |
+| Source lines | 252 |
 | Owning package | [[Reference/Modules/learnloop/learner/_package|learnloop.learner]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `b322ef2e9b5cebc241b612e4963a5aaf1a37f99a` |
-| Commit timestamp | `2026-08-20T18:04:29-04:00` |
+| Source commit | `021f65890a2258a170e403ccf300aa7ec86a2ef7` |
+| Commit timestamp | `2026-10-15T01:33:46-04:00` |
 
 ## Public API
 
-- `compile_assessment_contract(vault: LoadedVault, item: PracticeItem, *, rubric: Rubric | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/learner/assessment_contracts.py), line 74) — Deterministic assessment-contract content for an item (§5.2).
-- `rubric_from_contract(contract: dict[str, Any]) -> Rubric` ([source](../../../../../../src/learnloop/learner/assessment_contracts.py), line 154) — Rehydrate the immutable grading rubric used at presentation time.
-- `contract_hash(contract: dict[str, Any]) -> str` ([source](../../../../../../src/learnloop/learner/assessment_contracts.py), line 185) — Content-addressed hash of a compiled contract (attribution-affecting only).
-- `snapshot_for_presentation(repository, vault: LoadedVault, item: PracticeItem, *, rubric: Rubric | None=None, clock: Clock | None=None) -> str` ([source](../../../../../../src/learnloop/learner/assessment_contracts.py), line 191) — Ensure an assessment-contract snapshot exists for a presented item (§5.2).
+- `compile_assessment_contract(vault: LoadedVault, item: PracticeItem, *, rubric: Rubric | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/learner/assessment_contracts.py), line 76) — Deterministic assessment-contract content for an item (§5.2).
+- `contract_required_method(contract: dict[str, Any] | None) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/learner/assessment_contracts.py), line 179) — The required method a stored contract froze, or None.
+- `rubric_from_contract(contract: dict[str, Any]) -> Rubric` ([source](../../../../../../src/learnloop/learner/assessment_contracts.py), line 193) — Rehydrate the immutable grading rubric used at presentation time.
+- `contract_hash(contract: dict[str, Any]) -> str` ([source](../../../../../../src/learnloop/learner/assessment_contracts.py), line 224) — Content-addressed hash of a compiled contract (attribution-affecting only).
+- `snapshot_for_presentation(repository, vault: LoadedVault, item: PracticeItem, *, rubric: Rubric | None=None, clock: Clock | None=None) -> str` ([source](../../../../../../src/learnloop/learner/assessment_contracts.py), line 230) — Ensure an assessment-contract snapshot exists for a presented item (§5.2).
 
 ### Module constants
 
-- `CONTRACT_SCHEMA_VERSION` ([src/learnloop/learner/assessment_contracts.py](../../../../../../src/learnloop/learner/assessment_contracts.py), line 42)
+- `CONTRACT_SCHEMA_VERSION` ([src/learnloop/learner/assessment_contracts.py](../../../../../../src/learnloop/learner/assessment_contracts.py), line 44)
 
 ## Internal implementation anchors
 
-- `_content_hash(value: Any) -> str` ([source](../../../../../../src/learnloop/learner/assessment_contracts.py), line 45)
-- `_blueprint_recipes(lo: LearningObject | None) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/learner/assessment_contracts.py), line 50)
+- `_content_hash(value: Any) -> str` ([source](../../../../../../src/learnloop/learner/assessment_contracts.py), line 47)
+- `_blueprint_recipes(lo: LearningObject | None) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/learner/assessment_contracts.py), line 52)
 
 ## Who imports or calls it
 
 > [!note] Static evidence boundary
 > “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
 
-- [[Reference/Modules/learnloop/attempts/attempts|learnloop.attempts.attempts]] — imports `CANONICAL_STATE_VERSIONS`, `KM_ALGORITHM_VERSION`, `rubric_from_contract`, `snapshot_for_presentation`; statically calls `rubric_from_contract`, `snapshot_for_presentation`
-- [[Reference/Modules/learnloop/attempts/grade_resolution|learnloop.attempts.grade_resolution]] — imports `P0_ALGORITHM_VERSION`
+- [[Reference/Modules/learnloop/attempts/attempts|learnloop.attempts.attempts]] — imports `CANONICAL_STATE_VERSIONS`, `KM_ALGORITHM_VERSION`, `compile_assessment_contract`, `contract_required_method`, `rubric_from_contract`, `snapshot_for_presentation`; statically calls `compile_assessment_contract`, `contract_required_method`, `rubric_from_contract`, `snapshot_for_presentation`
+- [[Reference/Modules/learnloop/attempts/grade_resolution|learnloop.attempts.grade_resolution]] — imports `P0_ALGORITHM_VERSION`, `snapshot_for_presentation`; statically calls `snapshot_for_presentation`
 - [[Reference/Modules/learnloop/attempts/measurement_corrections|learnloop.attempts.measurement_corrections]] — imports `compile_assessment_contract`, `snapshot_for_presentation`; statically calls `compile_assessment_contract`, `snapshot_for_presentation`
 - [[Reference/Modules/learnloop/content/proposals/patches|learnloop.content.proposals.patches]] — imports `CANONICAL_STATE_VERSIONS`
 - [[Reference/Modules/learnloop/diagnosis/probe_robust|learnloop.diagnosis.probe_robust]] — imports `P0_ALGORITHM_VERSION`, `P0_PROJECTION_VERSIONS`
+- [[Reference/Modules/learnloop/diagnosis/voi_forecasting|learnloop.diagnosis.voi_forecasting]] — imports `compile_assessment_contract`; statically calls `compile_assessment_contract`
+- [[Reference/Modules/learnloop/field/outcomes|learnloop.field.outcomes]] — imports `compile_assessment_contract`, `rubric_from_contract`; statically calls `compile_assessment_contract`, `rubric_from_contract`
+- [[Reference/Modules/learnloop/field/probability_states|learnloop.field.probability_states]] — imports `rubric_from_contract`; statically calls `rubric_from_contract`
 - [[Reference/Modules/learnloop/learner/facet_evidence_timeline|learnloop.learner.facet_evidence_timeline]] — imports `P0_PROJECTION_VERSIONS`, `rubric_from_contract`; statically calls `rubric_from_contract`
 - [[Reference/Modules/learnloop/learner/facet_state_reader|learnloop.learner.facet_state_reader]] — imports `CANONICAL_STATE_VERSIONS`, `KM_ALGORITHM_VERSION`
 - [[Reference/Modules/learnloop/learner/residual_diagnostics|learnloop.learner.residual_diagnostics]] — imports `CANONICAL_STATE_VERSIONS`, `KM_ALGORITHM_VERSION`
 - [[Reference/Modules/learnloop/ops/doctor|learnloop.ops.doctor]] — imports `CANONICAL_STATE_VERSIONS`, `KM_ALGORITHM_VERSION`
 - [[Reference/Modules/learnloop/ops/vault_upgrade|learnloop.ops.vault_upgrade]] — imports `KM_ALGORITHM_VERSION`, `P0_ALGORITHM_VERSION`, `REVEAL_LEDGER_ALGORITHM_VERSION`
+- [[Reference/Modules/learnloop/scheduling/frame_constraints|learnloop.scheduling.frame_constraints]] — imports `compile_assessment_contract`; statically calls `compile_assessment_contract`
 - [[Reference/Modules/learnloop/substrate/activities|learnloop.substrate.activities]] — imports `compile_assessment_contract`; statically calls `compile_assessment_contract`
 - [[Reference/Modules/learnloop/substrate/administration_adapters|learnloop.substrate.administration_adapters]] — imports `P0_PROJECTION_VERSIONS`
 - [[Reference/Modules/learnloop/substrate/canonical_projection|learnloop.substrate.canonical_projection]] — imports `CANONICAL_STATE_VERSIONS`, `KM_ALGORITHM_VERSION`, `P0_ALGORITHM_VERSION`, `P0_PROJECTION_VERSIONS`
@@ -97,7 +102,9 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 - [[Reference/Modules/learnloop/substrate/compat/substrate_cutover|learnloop.substrate.compat.substrate_cutover]] — imports `CANONICAL_STATE_VERSIONS`, `KM_ALGORITHM_VERSION`, `P0_ALGORITHM_VERSION`, `P0_SUCCESSOR_VERSIONS`
 - [[Reference/Modules/learnloop/substrate/p0_projection|learnloop.substrate.p0_projection]] — imports `KM_ALGORITHM_VERSION`, `P0_ALGORITHM_VERSION`, `P0_PROJECTION_VERSIONS`
 - [[Reference/Modules/learnloop/substrate/rebuild_orchestrator|learnloop.substrate.rebuild_orchestrator]] — imports `CANONICAL_STATE_VERSIONS`
-- [[Reference/Modules/learnloop_sidecar/handlers/serializers|learnloop_sidecar.handlers.serializers]] — imports `CANONICAL_STATE_VERSIONS`, `snapshot_for_presentation`; statically calls `snapshot_for_presentation`
+- [[Reference/Modules/learnloop/tutor/tutor_qa|learnloop.tutor.tutor_qa]] — imports `snapshot_for_presentation`; statically calls `snapshot_for_presentation`
+- [[Reference/Modules/learnloop_sidecar/handlers/serializers|learnloop_sidecar.handlers.serializers]] — imports `CANONICAL_STATE_VERSIONS`, `contract_required_method`, `rubric_from_contract`, `snapshot_for_presentation`; statically calls `contract_required_method`, `rubric_from_contract`, `snapshot_for_presentation`
+- [[Reference/Modules/learnloop_sidecar/handlers/workbench|learnloop_sidecar.handlers.workbench]] — imports `CANONICAL_STATE_VERSIONS`, `snapshot_for_presentation`; statically calls `snapshot_for_presentation`
 
 ## Dependencies
 
@@ -106,7 +113,9 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 - [[Reference/Modules/learnloop/algorithm_versions|learnloop.algorithm_versions]] — imports `CANONICAL_STATE_VERSIONS`, `KM_ALGORITHM_VERSION`, `P0_ALGORITHM_VERSION`, `P0_PROJECTION_VERSIONS`, `P0_SUCCESSOR_VERSIONS`, `REVEAL_LEDGER_ALGORITHM_VERSION`
 - [[Reference/Modules/learnloop/attempts/grading|learnloop.attempts.grading]] — imports `resolved_rubric`; calls `resolved_rubric`
 - [[Reference/Modules/learnloop/clock|learnloop.clock]] — imports `Clock`
+- [[Reference/Modules/learnloop/db/stores/source_service|learnloop.db.stores.source_service]] — imports `KEY_IDENTITY`, `KEY_IDENTITY_FIELD`
 - [[Reference/Modules/learnloop/learner/capability_mapping|learnloop.learner.capability_mapping]] — imports `compile_criterion_targets`; calls `compile_criterion_targets`
+- [[Reference/Modules/learnloop/vault/hashes|learnloop.vault.hashes]] — imports `reference_content_hash`; calls `reference_content_hash`
 - [[Reference/Modules/learnloop/vault/models|learnloop.vault.models]] — imports `LearningObject`, `LoadedVault`, `PracticeItem`, `Rubric`, `RubricCriterion`, `RubricFatalError`, `recipe_components`; calls `Rubric`, `RubricCriterion`, `RubricFatalError`, `recipe_components`
 
 ### Platform and third-party dependencies
@@ -121,7 +130,7 @@ Use this module in context through:
 - [[Inspect Persistent State]]
 - [[Start a Learning Cycle]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/attempts/attempts|learnloop.attempts.attempts]], [[Reference/Modules/learnloop/attempts/grade_resolution|learnloop.attempts.grade_resolution]], [[Reference/Modules/learnloop/attempts/measurement_corrections|learnloop.attempts.measurement_corrections]], [[Reference/Modules/learnloop/content/proposals/patches|learnloop.content.proposals.patches]], [[Reference/Modules/learnloop/diagnosis/probe_robust|learnloop.diagnosis.probe_robust]] and 14 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/attempts/attempts|learnloop.attempts.attempts]], [[Reference/Modules/learnloop/attempts/grade_resolution|learnloop.attempts.grade_resolution]], [[Reference/Modules/learnloop/attempts/measurement_corrections|learnloop.attempts.measurement_corrections]], [[Reference/Modules/learnloop/content/proposals/patches|learnloop.content.proposals.patches]], [[Reference/Modules/learnloop/diagnosis/probe_robust|learnloop.diagnosis.probe_robust]] and 20 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
@@ -136,6 +145,25 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_characterization_assessment_exam.py](../../../../../../tests/test_characterization_assessment_exam.py) — direct import
   - `test_contract_hash_is_single_monolithic_content_hash`
   - `test_single_hash_moves_when_any_covered_component_changes`
+- [tests/test_diagnosis_input_provenance.py](../../../../../../tests/test_diagnosis_input_provenance.py) — direct import
+  - `test_the_tutor_records_the_contract_a_mid_attempt_question_is_about`
+- [tests/test_field_workbench_signals.py](../../../../../../tests/test_field_workbench_signals.py) — direct import
+  - `test_review_f3_an_edited_or_removed_item_keeps_the_signal_on_the_frozen_lo`
+- [tests/test_method_explicit_landing.py](../../../../../../tests/test_method_explicit_landing.py) — direct import
+- [tests/test_probability_prep.py](../../../../../../tests/test_probability_prep.py) — direct import
+- [tests/test_reader_workbench_rw2a.py](../../../../../../tests/test_reader_workbench_rw2a.py) — direct import
+  - `test_f1_a_bound_import_snapshots_the_contract_of_the_item_it_bound`
+  - `test_f1_a_resumed_problem_is_graded_against_the_contract_it_showed`
+- [tests/test_required_method_grading.py](../../../../../../tests/test_required_method_grading.py) — direct import
+  - `test_the_contract_snapshots_the_required_method_and_its_hash_moves_with_it`
+- [tests/test_required_method_rereview.py](../../../../../../tests/test_required_method_rereview.py) — direct import
+  - `test_f19_a_method_contract_records_the_reference_content_hash`
+- [tests/test_required_method_round3.py](../../../../../../tests/test_required_method_round3.py) — direct import
+  - `test_f14_the_grader_renders_the_instruction_the_frozen_contract_presented`
+- [tests/test_required_method_round3_rereview.py](../../../../../../tests/test_required_method_round3_rereview.py) — direct import
+- [tests/test_router_card.py](../../../../../../tests/test_router_card.py) — direct import
+- [tests/test_ux_phase4_feedback.py](../../../../../../tests/test_ux_phase4_feedback.py) — direct import
+- [tests/test_voi_forecasts.py](../../../../../../tests/test_voi_forecasts.py) — direct import
 
 ## Modification guidance
 

@@ -7,11 +7,11 @@ version: "1.0.0"
 source_path: "src/learnloop/diagnosis/causal_probe_coherence.py"
 source_paths:
   - "src/learnloop/diagnosis/causal_probe_coherence.py"
-source_commit: "b322ef2e9b5cebc241b612e4963a5aaf1a37f99a"
-source_commit_timestamp: "2026-08-20T18:04:29-04:00"
+source_commit: "f9c42bf9928ee3dd58826f64b39f8dd6d9d31f4b"
+source_commit_timestamp: "2026-10-12T14:04:57-04:00"
 source_worktree_state: "clean"
 generated: true
-generated_at: "2026-09-23"
+generated_at: "2026-11-02"
 package: "learnloop.diagnosis"
 layer: "domain"
 concepts:
@@ -50,13 +50,13 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/diagnosis/causal_probe_coherence.py](../../../../../../src/learnloop/diagnosis/causal_probe_coherence.py) |
-| Source lines | 1998 |
+| Source lines | 2010 |
 | Owning package | [[Reference/Modules/learnloop/diagnosis/_package|learnloop.diagnosis]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `b322ef2e9b5cebc241b612e4963a5aaf1a37f99a` |
-| Commit timestamp | `2026-08-20T18:04:29-04:00` |
+| Source commit | `f9c42bf9928ee3dd58826f64b39f8dd6d9d31f4b` |
+| Commit timestamp | `2026-10-12T14:04:57-04:00` |
 
 ## Public API
 
@@ -141,6 +141,7 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 - [[Reference/Modules/learnloop/diagnosis/causal_orchestrator|learnloop.diagnosis.causal_orchestrator]] — imports `ColdVerificationPrecondition`, `ProbeDecision`, `bundle_feature_row_report`, `candidate_has_current_blind_input_contract`, `classify_against_blind_bundles`, `decide_probe`, `order_probe_candidates`, `record_causal_cold_outcome`, `record_delayed_cold_verification`, `repair_class_need_for_factor`, `resolve_causal_probe_parameters`; statically calls `bundle_feature_row_report`, `candidate_has_current_blind_input_contract`, `classify_against_blind_bundles`, `decide_probe`, `order_probe_candidates`, `record_causal_cold_outcome`, `record_delayed_cold_verification`, `repair_class_need_for_factor`, `resolve_causal_probe_parameters`
 - [[Reference/Modules/learnloop/diagnosis/causal_probe_commissioning|learnloop.diagnosis.causal_probe_commissioning]] — imports `audit_manipulation_contract`, `blind_bundle_discrimination`, `build_causal_hypothesis_set`, `candidate_has_current_blind_input_contract`, `create_probe_candidate`, `generate_blind_prediction_bundle`, `lock_causal_hypothesis_set`, `repair_class_need_for_factor`, `transition_probe_candidate`; statically calls `audit_manipulation_contract`, `blind_bundle_discrimination`, `build_causal_hypothesis_set`, `candidate_has_current_blind_input_contract`, `create_probe_candidate`, `generate_blind_prediction_bundle`, `lock_causal_hypothesis_set`, `repair_class_need_for_factor`, `transition_probe_candidate`
 - [[Reference/Modules/learnloop/diagnosis/causal_selection_audit|learnloop.diagnosis.causal_selection_audit]] — imports `candidate_has_current_blind_input_contract`, `order_probe_candidates`; statically calls `candidate_has_current_blind_input_contract`, `order_probe_candidates`
+- [[Reference/Modules/learnloop/diagnosis/forecast_receipts|learnloop.diagnosis.forecast_receipts]] — imports `resolve_causal_probe_parameters`; statically calls `resolve_causal_probe_parameters`
 - [[Reference/Modules/learnloop/diagnosis/probe_episodes|learnloop.diagnosis.probe_episodes]] — imports `lock_causal_hypothesis_set`; statically calls `lock_causal_hypothesis_set`
 - [[Reference/Modules/learnloop/diagnosis/remediation|learnloop.diagnosis.remediation]] — imports `record_causal_cold_outcome`; statically calls `record_causal_cold_outcome`
 - [[Reference/Modules/learnloop/diagnosis/scoreboard|learnloop.diagnosis.scoreboard]] — imports `resolve_causal_probe_parameters`; statically calls `resolve_causal_probe_parameters`
@@ -158,7 +159,7 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 - [[Reference/Modules/learnloop/diagnosis/probe_hypotheses|learnloop.diagnosis.probe_hypotheses]] — imports `H_OTHER`
 - [[Reference/Modules/learnloop/diagnosis/probes|learnloop.diagnosis.probes]] — imports `Hypothesis`, `HypothesisSet`; calls `Hypothesis`, `HypothesisSet`
 - [[Reference/Modules/learnloop/params/fitted_params|learnloop.params.fitted_params]] — imports `CAUSAL_PROBE_POLICY_SCOPE`
-- [[Reference/Modules/learnloop/substrate/canonical_projection|learnloop.substrate.canonical_projection]] — imports `surface_group_id`; calls `surface_group_id`
+- [[Reference/Modules/learnloop/substrate/canonical_projection|learnloop.substrate.canonical_projection]] — imports `surface_group_id`, `unassessed_evidence_row`; calls `surface_group_id`, `unassessed_evidence_row`
 - [[Reference/Modules/learnloop/vault/models|learnloop.vault.models]] — imports `LoadedVault`, `PracticeItem`
 
 ### Platform and third-party dependencies
@@ -173,7 +174,7 @@ Use this module in context through:
 - [[Process Model Output]]
 - [[Start a Learning Cycle]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/cli/app|learnloop.cli.app]], [[Reference/Modules/learnloop/content/authoring/rung_variants|learnloop.content.authoring.rung_variants]], [[Reference/Modules/learnloop/diagnosis/causal_diagnostic_selector|learnloop.diagnosis.causal_diagnostic_selector]], [[Reference/Modules/learnloop/diagnosis/causal_health|learnloop.diagnosis.causal_health]], [[Reference/Modules/learnloop/diagnosis/causal_orchestrator|learnloop.diagnosis.causal_orchestrator]] and 6 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/cli/app|learnloop.cli.app]], [[Reference/Modules/learnloop/content/authoring/rung_variants|learnloop.content.authoring.rung_variants]], [[Reference/Modules/learnloop/diagnosis/causal_diagnostic_selector|learnloop.diagnosis.causal_diagnostic_selector]], [[Reference/Modules/learnloop/diagnosis/causal_health|learnloop.diagnosis.causal_health]], [[Reference/Modules/learnloop/diagnosis/causal_orchestrator|learnloop.diagnosis.causal_orchestrator]] and 7 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
@@ -216,6 +217,11 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_order_probe_candidates_is_status_first_then_discrimination_then_age`
 - [tests/test_km2_write_path.py](../../../../../../tests/test_km2_write_path.py) — direct import
   - `test_open_set_arm_survives_apply_attempt_into_the_probe_path`
+- [tests/test_pfc_unassessed_readers.py](../../../../../../tests/test_pfc_unassessed_readers.py) — direct import
+  - `test_the_cold_verification_guard_refuses_an_unassessed_attempt_directly`
+- [tests/test_serve_eligibility_review.py](../../../../../../tests/test_serve_eligibility_review.py) — direct import
+  - `test_f5_a_withdrawal_racing_a_consume_leaves_the_consume_time_disposition_free`
+- [tests/test_voi_forecasts.py](../../../../../../tests/test_voi_forecasts.py) — direct import
 
 ## Modification guidance
 

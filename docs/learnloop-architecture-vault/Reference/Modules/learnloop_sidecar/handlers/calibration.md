@@ -7,11 +7,11 @@ version: "1.0.0"
 source_path: "src/learnloop_sidecar/handlers/calibration.py"
 source_paths:
   - "src/learnloop_sidecar/handlers/calibration.py"
-source_commit: "b322ef2e9b5cebc241b612e4963a5aaf1a37f99a"
-source_commit_timestamp: "2026-08-20T18:04:29-04:00"
+source_commit: "1f2bed45dec6dca4bc6c882b02b980f179aa998b"
+source_commit_timestamp: "2026-10-12T12:25:04-04:00"
 source_worktree_state: "clean"
 generated: true
-generated_at: "2026-09-23"
+generated_at: "2026-11-02"
 package: "learnloop_sidecar.handlers"
 layer: "adapter"
 concepts:
@@ -53,32 +53,32 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop_sidecar/handlers/calibration.py](../../../../../../src/learnloop_sidecar/handlers/calibration.py) |
-| Source lines | 164 |
+| Source lines | 172 |
 | Owning package | [[Reference/Modules/learnloop_sidecar/handlers/_package|learnloop_sidecar.handlers]] |
 | Architecture layer | `adapter` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `b322ef2e9b5cebc241b612e4963a5aaf1a37f99a` |
-| Commit timestamp | `2026-08-20T18:04:29-04:00` |
+| Source commit | `1f2bed45dec6dca4bc6c882b02b980f179aa998b` |
+| Commit timestamp | `2026-10-12T12:25:04-04:00` |
 
 ## Public API
 
-- `class StartCalibrationInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/calibration.py), line 27)
-- `class CalibrationSessionInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/calibration.py), line 34)
-- `start_calibration(ctx: SidecarContext, params: StartCalibrationInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/calibration.py), line 39) — Open a §5.9 calibration session over a goal scope or explicit LO list.
-- `get_calibration(ctx: SidecarContext, params: CalibrationSessionInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/calibration.py), line 69)
-- `stop_calibration(ctx: SidecarContext, params: CalibrationSessionInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/calibration.py), line 79)
-- `class BeginDialogueInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/calibration.py), line 92)
-- `class DialogueStateInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/calibration.py), line 96)
-- `class DialogueTurnSubmittedInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/calibration.py), line 100)
-- `begin_probe_dialogue(ctx: SidecarContext, params: BeginDialogueInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/calibration.py), line 106)
-- `next_probe_dialogue_turn(ctx: SidecarContext, params: DialogueStateInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/calibration.py), line 116) — Mint and commit the next dialogue turn (ephemeral instance + presentation).
-- `record_probe_dialogue_turn(ctx: SidecarContext, params: DialogueTurnSubmittedInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/calibration.py), line 142)
-- `end_probe_dialogue(ctx: SidecarContext, params: DialogueStateInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/calibration.py), line 151) — §5.7 block boundary: runs the ordered block-end hook and returns the released feedback plus the route (typed transition / next block / ordinary practice) so the client can reveal and navigate.
+- `class StartCalibrationInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/calibration.py), line 26)
+- `class CalibrationSessionInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/calibration.py), line 33)
+- `start_calibration(ctx: SidecarContext, params: StartCalibrationInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/calibration.py), line 38) — Open a §5.9 calibration session over a goal scope or explicit LO list.
+- `get_calibration(ctx: SidecarContext, params: CalibrationSessionInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/calibration.py), line 77)
+- `stop_calibration(ctx: SidecarContext, params: CalibrationSessionInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/calibration.py), line 87)
+- `class BeginDialogueInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/calibration.py), line 100)
+- `class DialogueStateInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/calibration.py), line 104)
+- `class DialogueTurnSubmittedInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/calibration.py), line 108)
+- `begin_probe_dialogue(ctx: SidecarContext, params: BeginDialogueInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/calibration.py), line 114)
+- `next_probe_dialogue_turn(ctx: SidecarContext, params: DialogueStateInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/calibration.py), line 124) — Mint and commit the next dialogue turn (ephemeral instance + presentation).
+- `record_probe_dialogue_turn(ctx: SidecarContext, params: DialogueTurnSubmittedInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/calibration.py), line 150)
+- `end_probe_dialogue(ctx: SidecarContext, params: DialogueStateInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/calibration.py), line 159) — §5.7 block boundary: runs the ordered block-end hook and returns the released feedback plus the route (typed transition / next block / ordinary practice) so the client can reveal and navigate.
 
 ## Internal implementation anchors
 
-No private top-level function or class definition is declared in this file.
+- `_progress(vault, repository, calibration_session_id: str) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/calibration.py), line 67) — Calibration progress; a quick check (learner field F2) adds its own target, answer count and, once it ends, its results.
 
 ## Who imports or calls it
 
@@ -91,8 +91,9 @@ No private top-level function or class definition is declared in this file.
 
 ### LearnLoop dependencies
 
-- [[Reference/Modules/learnloop/diagnosis/calibration_sessions|learnloop.diagnosis.calibration_sessions]] — imports `CalibrationSessionError`, `calibration_session_progress`, `start_calibration_session`, `stop_calibration_session`; calls `calibration_session_progress`, `start_calibration_session`, `stop_calibration_session`
+- [[Reference/Modules/learnloop/diagnosis/calibration_sessions|learnloop.diagnosis.calibration_sessions]] — imports `CalibrationSessionError`, `start_calibration_session`, `stop_calibration_session`; calls `start_calibration_session`, `stop_calibration_session`
 - [[Reference/Modules/learnloop/diagnosis/probe_dialogue|learnloop.diagnosis.probe_dialogue]] — imports `DialogueBlockError`, `DialogueBlockState`, `begin_dialogue_block`, `end_dialogue_block`, `next_dialogue_turn`, `record_turn_submitted`; calls `begin_dialogue_block`, `end_dialogue_block`, `next_dialogue_turn`, `record_turn_submitted`
+- [[Reference/Modules/learnloop/diagnosis/quick_check|learnloop.diagnosis.quick_check]] — imports `quick_check_progress`; calls `quick_check_progress`
 - [[Reference/Modules/learnloop_sidecar/context|learnloop_sidecar.context]] — imports `SidecarContext`
 - [[Reference/Modules/learnloop_sidecar/dto|learnloop_sidecar.dto]] — imports `ParamsModel`, `versioned`; calls `versioned`
 - [[Reference/Modules/learnloop_sidecar/errors|learnloop_sidecar.errors]] — imports `SidecarError`; calls `SidecarError`
@@ -122,17 +123,18 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 No test imports this module directly. These tests exercise a direct production consumer:
 
-- [tests/test_desktop_rpc_contract.py](../../../../../../tests/test_desktop_rpc_contract.py) — imports consumer [[Reference/Modules/learnloop_sidecar/handlers/__init__|learnloop_sidecar.handlers]]
-- [tests/test_dialogue_causal_join.py](../../../../../../tests/test_dialogue_causal_join.py) — imports consumer [[Reference/Modules/learnloop_sidecar/handlers/__init__|learnloop_sidecar.handlers]]
-- [tests/test_goal_scope_material.py](../../../../../../tests/test_goal_scope_material.py) — imports consumer [[Reference/Modules/learnloop_sidecar/handlers/__init__|learnloop_sidecar.handlers]]
-- [tests/test_graph_editor_reads.py](../../../../../../tests/test_graph_editor_reads.py) — imports consumer [[Reference/Modules/learnloop_sidecar/handlers/__init__|learnloop_sidecar.handlers]]
-- [tests/test_instrument_servability_journeys.py](../../../../../../tests/test_instrument_servability_journeys.py) — imports consumer [[Reference/Modules/learnloop_sidecar/handlers/__init__|learnloop_sidecar.handlers]]
-- [tests/test_sidecar_adjudication.py](../../../../../../tests/test_sidecar_adjudication.py) — imports consumer [[Reference/Modules/learnloop_sidecar/handlers/__init__|learnloop_sidecar.handlers]]
-- [tests/test_sidecar_exams.py](../../../../../../tests/test_sidecar_exams.py) — imports consumer [[Reference/Modules/learnloop_sidecar/handlers/__init__|learnloop_sidecar.handlers]]
-- [tests/test_sidecar_goals.py](../../../../../../tests/test_sidecar_goals.py) — imports consumer [[Reference/Modules/learnloop_sidecar/handlers/__init__|learnloop_sidecar.handlers]]
-- [tests/test_sidecar_item_presentation.py](../../../../../../tests/test_sidecar_item_presentation.py) — imports consumer [[Reference/Modules/learnloop_sidecar/handlers/__init__|learnloop_sidecar.handlers]]
-- [tests/test_sidecar_measurement.py](../../../../../../tests/test_sidecar_measurement.py) — imports consumer [[Reference/Modules/learnloop_sidecar/handlers/__init__|learnloop_sidecar.handlers]]
-- [tests/test_sidecar_trace_and_clarification.py](../../../../../../tests/test_sidecar_trace_and_clarification.py) — imports consumer [[Reference/Modules/learnloop_sidecar/handlers/__init__|learnloop_sidecar.handlers]]
+- [tests/reading_path_fixtures.py](../../../../../../tests/reading_path_fixtures.py) — imports consumer [[Reference/Modules/learnloop_sidecar/handlers/__init__|learnloop_sidecar.handlers]]
+- [tests/recap_fixtures.py](../../../../../../tests/recap_fixtures.py) — imports consumer [[Reference/Modules/learnloop_sidecar/handlers/__init__|learnloop_sidecar.handlers]]
+- [tests/rw2b_fix10_base_sequence.py](../../../../../../tests/rw2b_fix10_base_sequence.py) — imports consumer [[Reference/Modules/learnloop_sidecar/handlers/__init__|learnloop_sidecar.handlers]]
+- [tests/rw2b_fix11_base_sequence.py](../../../../../../tests/rw2b_fix11_base_sequence.py) — imports consumer [[Reference/Modules/learnloop_sidecar/handlers/__init__|learnloop_sidecar.handlers]]
+- [tests/rw2c_base_sequence.py](../../../../../../tests/rw2c_base_sequence.py) — imports consumer [[Reference/Modules/learnloop_sidecar/handlers/__init__|learnloop_sidecar.handlers]]
+- [tests/rw2c_state_parity.py](../../../../../../tests/rw2c_state_parity.py) — imports consumer [[Reference/Modules/learnloop_sidecar/handlers/__init__|learnloop_sidecar.handlers]]
+- [tests/test_ad1_attempt_columns.py](../../../../../../tests/test_ad1_attempt_columns.py) — imports consumer [[Reference/Modules/learnloop_sidecar/handlers/__init__|learnloop_sidecar.handlers]]
+- [tests/test_ad23_contract.py](../../../../../../tests/test_ad23_contract.py) — imports consumer [[Reference/Modules/learnloop_sidecar/handlers/__init__|learnloop_sidecar.handlers]]
+- [tests/test_ad23_fix_review.py](../../../../../../tests/test_ad23_fix_review.py) — imports consumer [[Reference/Modules/learnloop_sidecar/handlers/__init__|learnloop_sidecar.handlers]]
+- [tests/test_ad23_intent_compose.py](../../../../../../tests/test_ad23_intent_compose.py) — imports consumer [[Reference/Modules/learnloop_sidecar/handlers/__init__|learnloop_sidecar.handlers]]
+- [tests/test_ad23_successor.py](../../../../../../tests/test_ad23_successor.py) — imports consumer [[Reference/Modules/learnloop_sidecar/handlers/__init__|learnloop_sidecar.handlers]]
+- [tests/test_ad2_serving.py](../../../../../../tests/test_ad2_serving.py) — imports consumer [[Reference/Modules/learnloop_sidecar/handlers/__init__|learnloop_sidecar.handlers]]
 
 ## Modification guidance
 

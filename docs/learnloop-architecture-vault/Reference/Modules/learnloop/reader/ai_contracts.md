@@ -7,11 +7,11 @@ version: "1.0.0"
 source_path: "src/learnloop/reader/ai_contracts.py"
 source_paths:
   - "src/learnloop/reader/ai_contracts.py"
-source_commit: "b322ef2e9b5cebc241b612e4963a5aaf1a37f99a"
-source_commit_timestamp: "2026-08-20T18:04:29-04:00"
+source_commit: "089398fbc7fdab7071ef6c746f8573d4dd76ea60"
+source_commit_timestamp: "2026-10-17T14:33:11-04:00"
 source_worktree_state: "clean"
 generated: true
-generated_at: "2026-09-23"
+generated_at: "2026-11-02"
 package: "learnloop.reader"
 layer: "domain"
 concepts:
@@ -49,13 +49,13 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/reader/ai_contracts.py](../../../../../../src/learnloop/reader/ai_contracts.py) |
-| Source lines | 117 |
+| Source lines | 232 |
 | Owning package | [[Reference/Modules/learnloop/reader/_package|learnloop.reader]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `b322ef2e9b5cebc241b612e4963a5aaf1a37f99a` |
-| Commit timestamp | `2026-08-20T18:04:29-04:00` |
+| Source commit | `089398fbc7fdab7071ef6c746f8573d4dd76ea60` |
+| Commit timestamp | `2026-10-17T14:33:11-04:00` |
 
 ## Public API
 
@@ -63,8 +63,12 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 - `class ReadingQuickCheckContext` ([source](../../../../../../src/learnloop/reader/ai_contracts.py), line 26)
 - `class ReaderPresetSynthesis(WireModel)` ([source](../../../../../../src/learnloop/reader/ai_contracts.py), line 31)
 - `class ReadingQuickCheck(WireModel)` ([source](../../../../../../src/learnloop/reader/ai_contracts.py), line 36)
-- `reader_preset_synthesis_prompt(context: ReaderPresetSynthesisContext) -> str` ([source](../../../../../../src/learnloop/reader/ai_contracts.py), line 104)
-- `reading_quick_check_prompt(context: ReadingQuickCheckContext) -> str` ([source](../../../../../../src/learnloop/reader/ai_contracts.py), line 112)
+- `reading_passage_check_prompt(context: ReadingQuickCheckContext) -> str` ([source](../../../../../../src/learnloop/reader/ai_contracts.py), line 135)
+- `reader_preset_synthesis_prompt(context: ReaderPresetSynthesisContext) -> str` ([source](../../../../../../src/learnloop/reader/ai_contracts.py), line 143)
+- `reading_quick_check_prompt(context: ReadingQuickCheckContext) -> str` ([source](../../../../../../src/learnloop/reader/ai_contracts.py), line 151)
+- `class ReadingActiveContext` ([source](../../../../../../src/learnloop/reader/ai_contracts.py), line 167)
+- `class ReadingActiveCheck(WireModel)` ([source](../../../../../../src/learnloop/reader/ai_contracts.py), line 173)
+- `reading_active_prompt(context: ReadingActiveContext) -> str` ([source](../../../../../../src/learnloop/reader/ai_contracts.py), line 227)
 
 ### Module constants
 
@@ -72,6 +76,11 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 - `READING_QUICK_CHECK_PROMPT_VERSION` ([src/learnloop/reader/ai_contracts.py](../../../../../../src/learnloop/reader/ai_contracts.py), line 43)
 - `READER_PRESET_SYNTHESIS_PROMPT` ([src/learnloop/reader/ai_contracts.py](../../../../../../src/learnloop/reader/ai_contracts.py), line 45)
 - `READING_QUICK_CHECK_PROMPT` ([src/learnloop/reader/ai_contracts.py](../../../../../../src/learnloop/reader/ai_contracts.py), line 80)
+- `READING_PASSAGE_CHECK_PROMPT_VERSION` ([src/learnloop/reader/ai_contracts.py](../../../../../../src/learnloop/reader/ai_contracts.py), line 106)
+- `READING_PASSAGE_CHECK_PROMPT` ([src/learnloop/reader/ai_contracts.py](../../../../../../src/learnloop/reader/ai_contracts.py), line 108)
+- `READING_ACTIVE_PROMPT_VERSION` ([src/learnloop/reader/ai_contracts.py](../../../../../../src/learnloop/reader/ai_contracts.py), line 162)
+- `ACTIVE_QUESTION_STYLES` ([src/learnloop/reader/ai_contracts.py](../../../../../../src/learnloop/reader/ai_contracts.py), line 163)
+- `READING_ACTIVE_PROMPT` ([src/learnloop/reader/ai_contracts.py](../../../../../../src/learnloop/reader/ai_contracts.py), line 185)
 
 ## Internal implementation anchors
 
@@ -82,7 +91,7 @@ No private top-level function or class definition is declared in this file.
 > [!note] Static evidence boundary
 > “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
 
-- [[Reference/Modules/learnloop/reader/reader_quick_check|learnloop.reader.reader_quick_check]] — imports `READING_QUICK_CHECK_PROMPT_VERSION`, `ReadingQuickCheck`, `ReadingQuickCheckContext`, `reading_quick_check_prompt`; statically calls `ReadingQuickCheckContext`, `reading_quick_check_prompt`
+- [[Reference/Modules/learnloop/reader/reader_quick_check|learnloop.reader.reader_quick_check]] — imports `ACTIVE_QUESTION_STYLES`, `READING_ACTIVE_PROMPT_VERSION`, `READING_PASSAGE_CHECK_PROMPT_VERSION`, `READING_QUICK_CHECK_PROMPT_VERSION`, `ReadingActiveCheck`, `ReadingActiveContext`, `ReadingQuickCheck`, `ReadingQuickCheckContext`, `reading_active_prompt`, `reading_passage_check_prompt`, `reading_quick_check_prompt`; statically calls `ReadingActiveContext`, `ReadingQuickCheckContext`, `reading_active_prompt`, `reading_passage_check_prompt`, `reading_quick_check_prompt`
 - [[Reference/Modules/learnloop/reader/reader_requests|learnloop.reader.reader_requests]] — imports `ReaderPresetSynthesis`, `ReaderPresetSynthesisContext`, `reader_preset_synthesis_prompt`; statically calls `ReaderPresetSynthesisContext`, `reader_preset_synthesis_prompt`
 
 ## Dependencies
@@ -114,8 +123,17 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_sdk_reader_preset_regenerates_when_app_server_rejects_hex_escape`
   - `test_sdk_reader_preset_repairs_invalid_unicode_json_once`
 - [tests/test_openai_chat_client.py](../../../../../../tests/test_openai_chat_client.py) — direct import
+- [tests/test_reader_active_reading.py](../../../../../../tests/test_reader_active_reading.py) — direct import
+  - `test_a_reconstruction_expects_the_selected_derivation`
+  - `test_a_why_step_answer_is_the_books_only_when_its_quote_is_found`
+  - `test_section_quick_checks_are_byte_identical`
+  - `test_the_selection_reuse_key_holds`
+- [tests/test_reader_formative_texts.py](../../../../../../tests/test_reader_formative_texts.py) — direct import
+- [tests/test_reader_passage_check.py](../../../../../../tests/test_reader_passage_check.py) — direct import
 - [tests/test_reader_quick_check.py](../../../../../../tests/test_reader_quick_check.py) — direct import
   - `test_author_quick_check_rejects_invented_spans`
+- [tests/test_reader_reconnect.py](../../../../../../tests/test_reader_reconnect.py) — direct import
+- [tests/test_reader_reconstruct.py](../../../../../../tests/test_reader_reconstruct.py) — direct import
 - [tests/test_reader_requests.py](../../../../../../tests/test_reader_requests.py) — direct import
 - [tests/test_structured_transport_parity.py](../../../../../../tests/test_structured_transport_parity.py) — direct import
 

@@ -7,11 +7,11 @@ version: "1.0.0"
 source_path: "src/learnloop/ai/runtime.py"
 source_paths:
   - "src/learnloop/ai/runtime.py"
-source_commit: "b322ef2e9b5cebc241b612e4963a5aaf1a37f99a"
-source_commit_timestamp: "2026-08-20T18:04:29-04:00"
+source_commit: "986e7227906adc3349ee514cbba0eb6a4d5c7a0e"
+source_commit_timestamp: "2026-10-24T14:49:56-04:00"
 source_worktree_state: "clean"
 generated: true
-generated_at: "2026-09-23"
+generated_at: "2026-11-02"
 package: "learnloop.ai"
 layer: "infrastructure"
 concepts:
@@ -40,7 +40,7 @@ Up: [[Reference/Modules/learnloop/ai/_package|learnloop.ai]] · Root: [[Module C
 
 ## Why this module exists
 
-This module keeps runtime behavior inside its owning package, [[Reference/Modules/learnloop/ai/_package|learnloop.ai]]. Its public surface centers on `legacy_codex_status`, `OpenAIChatHealthcheck`, `AIRuntimeReport`, `check_ai_runtime`.
+This module keeps runtime behavior inside its owning package, [[Reference/Modules/learnloop/ai/_package|learnloop.ai]]. Its public surface centers on `legacy_codex_status`, `check_codex_runtime`, `codex_config_from_ai_profile`, `OpenAIChatHealthcheck`, `AIRuntimeReport`, `check_ai_runtime`.
 
 The authoritative system-level explanation remains in [[AI Architecture]], [[Architecture Overview]]; this note records where this source module participates rather than restating those concepts.
 
@@ -51,32 +51,35 @@ The authoritative system-level explanation remains in [[AI Architecture]], [[Arc
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/ai/runtime.py](../../../../../../src/learnloop/ai/runtime.py) |
-| Source lines | 140 |
+| Source lines | 256 |
 | Owning package | [[Reference/Modules/learnloop/ai/_package|learnloop.ai]] |
 | Architecture layer | `infrastructure` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `b322ef2e9b5cebc241b612e4963a5aaf1a37f99a` |
-| Commit timestamp | `2026-08-20T18:04:29-04:00` |
+| Source commit | `986e7227906adc3349ee514cbba0eb6a4d5c7a0e` |
+| Commit timestamp | `2026-10-24T14:49:56-04:00` |
 
 ## Public API
 
 - `legacy_codex_status(status: str) -> str` ([source](../../../../../../src/learnloop/ai/runtime.py), line 27) — Translate a neutral runtime state at a legacy Codex-facing boundary.
-- `class OpenAIChatHealthcheck(Protocol)` ([source](../../../../../../src/learnloop/ai/runtime.py), line 38)
-  - `__call__(self, profile: AIProviderConfig) -> None` (line 39; internal)
-- `class AIRuntimeReport` ([source](../../../../../../src/learnloop/ai/runtime.py), line 44)
-  - `ready(self) -> bool` (line 53; public)
-  - `actual_revision(self) -> str | None` (line 57; public)
-  - `as_dict(self) -> dict[str, str | bool | None]` (line 60; public)
-- `check_ai_runtime(vault_root: Path, config: LearnLoopConfig, *, provider_name: str | None=None, openai_chat_healthcheck: OpenAIChatHealthcheck | None=None) -> AIRuntimeReport` ([source](../../../../../../src/learnloop/ai/runtime.py), line 72)
+- `check_codex_runtime(vault_root: Path, codex_config)` ([source](../../../../../../src/learnloop/ai/runtime.py), line 38) — The Codex health check, loaded only for an opted-in Codex profile.
+- `codex_config_from_ai_profile(profile: AIProviderConfig)` ([source](../../../../../../src/learnloop/ai/runtime.py), line 51)
+- `class OpenAIChatHealthcheck(Protocol)` ([source](../../../../../../src/learnloop/ai/runtime.py), line 57)
+  - `__call__(self, profile: AIProviderConfig) -> None` (line 58; internal)
+- `class AIRuntimeReport` ([source](../../../../../../src/learnloop/ai/runtime.py), line 63)
+  - `ready(self) -> bool` (line 78; public)
+  - `actual_revision(self) -> str | None` (line 82; public)
+  - `as_dict(self) -> dict[str, str | bool | None]` (line 85; public)
+- `check_ai_runtime(vault_root: Path, config: LearnLoopConfig, *, provider_name: str | None=None, openai_chat_healthcheck: OpenAIChatHealthcheck | None=None) -> AIRuntimeReport` ([source](../../../../../../src/learnloop/ai/runtime.py), line 100)
 
 ### Module constants
 
 - `_CODEX_COMPAT_STATUS` ([src/learnloop/ai/runtime.py](../../../../../../src/learnloop/ai/runtime.py), line 19)
+- `_CHATGPT_PLAN_STATES` ([src/learnloop/ai/runtime.py](../../../../../../src/learnloop/ai/runtime.py), line 226)
 
 ## Internal implementation anchors
 
-No private top-level function or class definition is declared in this file.
+- `_chatgpt_plan_runtime(selected: str, profile: AIProviderConfig) -> AIRuntimeReport` ([source](../../../../../../src/learnloop/ai/runtime.py), line 236) — Local files only: the profile, the machine's sign-in and its pause state.
 
 ## Who imports or calls it
 
@@ -90,13 +93,17 @@ No private top-level function or class definition is declared in this file.
 - [[Reference/Modules/learnloop/content/authoring/concept_animation|learnloop.content.authoring.concept_animation]] — imports `check_ai_runtime`; statically calls `check_ai_runtime`
 - [[Reference/Modules/learnloop/ops/doctor|learnloop.ops.doctor]] — imports `AIRuntimeReport`
 - [[Reference/Modules/learnloop/ops/startup|learnloop.ops.startup]] — imports `AIRuntimeReport`
+- [[Reference/Modules/learnloop/source_retrieval/fallback_space|learnloop.source_retrieval.fallback_space]] — imports `check_ai_runtime`; statically calls `check_ai_runtime`
 - [[Reference/Modules/learnloop_sidecar/handlers/settings|learnloop_sidecar.handlers.settings]] — imports `check_ai_runtime`; statically calls `check_ai_runtime`
 
 ## Dependencies
 
 ### LearnLoop dependencies
 
+- [[Reference/Modules/learnloop/ai/agent_harness|learnloop.ai.agent_harness]] — imports `harness_refusal`; calls `harness_refusal`
+- [[Reference/Modules/learnloop/ai/chatgpt_plan/session|learnloop.ai.chatgpt_plan.session]] — imports `PlanSession`; calls `PlanSession`
 - [[Reference/Modules/learnloop/ai/providers/codex|learnloop.ai.providers.codex]] — imports `check_codex_runtime`, `codex_config_from_ai_profile`; calls `check_codex_runtime`, `codex_config_from_ai_profile`
+- [[Reference/Modules/learnloop/ai/providers/decider|learnloop.ai.providers.decider]] — imports `resolved_decider_settings`; calls `resolved_decider_settings`
 - [[Reference/Modules/learnloop/config/__init__|learnloop.config]] — imports `AIProviderConfig`, `LearnLoopConfig`
 
 ### Platform and third-party dependencies
@@ -111,12 +118,13 @@ Use this module in context through:
 - [[Configure AI Providers]]
 - [[Process Model Output]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/ai/routing|learnloop.ai.routing]], [[Reference/Modules/learnloop/attempts/attempts|learnloop.attempts.attempts]], [[Reference/Modules/learnloop/attempts/regrade|learnloop.attempts.regrade]], [[Reference/Modules/learnloop/cli/runtime|learnloop.cli.runtime]], [[Reference/Modules/learnloop/content/authoring/concept_animation|learnloop.content.authoring.concept_animation]] and 3 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/ai/routing|learnloop.ai.routing]], [[Reference/Modules/learnloop/attempts/attempts|learnloop.attempts.attempts]], [[Reference/Modules/learnloop/attempts/regrade|learnloop.attempts.regrade]], [[Reference/Modules/learnloop/cli/runtime|learnloop.cli.runtime]], [[Reference/Modules/learnloop/content/authoring/concept_animation|learnloop.content.authoring.concept_animation]] and 4 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
 ## Tests that define behavior
 
+- [tests/helpers.py](../../../../../../tests/helpers.py) — direct import
 - [tests/test_agent_run_tokens.py](../../../../../../tests/test_agent_run_tokens.py) — direct import
 - [tests/test_ai_runtime.py](../../../../../../tests/test_ai_runtime.py) — direct import
   - `test_ai_runtime_reports_missing_provider`
@@ -129,11 +137,25 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_attempt_ai_flow.py](../../../../../../tests/test_attempt_ai_flow.py) — direct import
   - `test_attempt_ai_flow_records_provider_model_and_ai_source`
 - [tests/test_attempt_completion.py](../../../../../../tests/test_attempt_completion.py) — direct import
+- [tests/test_chatgpt_plan_provider.py](../../../../../../tests/test_chatgpt_plan_provider.py) — direct import
+  - `test_readiness_reads_local_state_only`
+  - `test_usage_limit_mid_stream_pauses_the_plan_and_routes_fall_back`
+- [tests/test_codex_lockdown_round2.py](../../../../../../tests/test_codex_lockdown_round2.py) — direct import
+  - `test_the_http_runtime_check_never_runs_its_health_request_or_startup_command`
 - [tests/test_deferred_regrade.py](../../../../../../tests/test_deferred_regrade.py) — direct import
   - `test_deferred_ai_regrade_records_provider_and_ai_origin`
+- [tests/test_diagnosis_input_provenance_landing.py](../../../../../../tests/test_diagnosis_input_provenance_landing.py) — direct import
+  - `test_q14_on_a_vault_the_coordinator_upgrades_the_receipt_commits_with_the_grade`
 - [tests/test_diagnostic_augmentation.py](../../../../../../tests/test_diagnostic_augmentation.py) — direct import
+  - `test_a_committed_joint_grade_carries_its_receipt_and_grading_record`
+  - `test_a_receipt_that_cannot_be_written_commits_no_augmented_grade`
   - `test_c3_k1_leaves_no_sample_support_on_the_stored_attribution`
-  - `test_post_commit_receipt_failure_never_records_a_fallback_attempt`
+- [tests/test_mcp_tools.py](../../../../../../tests/test_mcp_tools.py) — direct import
+  - `test_status_reports_readiness_without_probing_a_runtime`
+- [tests/test_openai_embedding_client.py](../../../../../../tests/test_openai_embedding_client.py) — direct import
+  - `test_readiness_factory_and_authoritative_embedding_model`
+- [tests/test_plan_first_transport.py](../../../../../../tests/test_plan_first_transport.py) — direct import
+  - `test_readiness_of_a_refused_codex_profile_runs_no_health_check`
 - [tests/test_provider_resolution_parity.py](../../../../../../tests/test_provider_resolution_parity.py) — direct import
   - `test_config_matrix_executes_all_six_production_resolution_paths`
   - `test_provider_resolution_config_matrix_is_uniform`

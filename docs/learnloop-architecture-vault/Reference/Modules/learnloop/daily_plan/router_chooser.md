@@ -1,0 +1,178 @@
+---
+title: "learnloop.daily_plan.router_chooser"
+type: "module-reference"
+status: "current"
+refactor_status: "ACTIVE"
+version: "1.0.0"
+source_path: "src/learnloop/daily_plan/router_chooser.py"
+source_paths:
+  - "src/learnloop/daily_plan/router_chooser.py"
+source_commit: "ad3c0b4cf6f8f4e7f2a1fafdbe8203ecab3ce0cb"
+source_commit_timestamp: "2026-10-14T11:36:29-04:00"
+source_worktree_state: "clean"
+generated: true
+generated_at: "2026-11-02"
+package: "learnloop.daily_plan"
+layer: "domain"
+concepts:
+  - "Architecture Overview"
+workflows:
+  - "Initialize a Vault"
+  - "Start a Learning Cycle"
+aliases:
+  - "learnloop.daily_plan.router_chooser module"
+  - "src/learnloop/daily_plan/router_chooser.py"
+tags:
+  - "docs/module"
+  - "architecture/reference"
+  - "refactor/active"
+  - "layer/domain"
+  - "package/learnloop-daily-plan"
+---
+
+# `learnloop.daily_plan.router_chooser`
+
+> [!info] Generated source reference
+> Facts in this note are generated from the Python AST, repository tests, and Git. Purpose and change guidance are conservative inferences from those facts. Regenerate with `.venv/bin/python docs/learnloop-architecture-vault/_scripts/module_generate.py`; do not hand-edit generated sections.
+
+Up: [[Reference/Modules/learnloop/daily_plan/_package|learnloop.daily_plan]] · Root: [[Module Catalog]] · Jump to [[#Public API|API]], [[#Who imports or calls it|callers]], [[#Tests that define behavior|tests]], or [[#Modification guidance|change guidance]].
+
+## Why this module exists
+
+`learnloop.daily_plan.router_chooser` exists within [[Reference/Modules/learnloop/daily_plan/_package|learnloop.daily_plan]] to own the behavior summarized by its module contract: Router R2b + R2c: the mixture chooser and the restraint gate on Today.
+
+The authoritative system-level explanation remains in [[Architecture Overview]]; this note records where this source module participates rather than restating those concepts.
+
+^module-purpose
+
+## Source facts
+
+| Fact | Value |
+|---|---|
+| Source | [src/learnloop/daily_plan/router_chooser.py](../../../../../../src/learnloop/daily_plan/router_chooser.py) |
+| Source lines | 771 |
+| Owning package | [[Reference/Modules/learnloop/daily_plan/_package|learnloop.daily_plan]] |
+| Architecture layer | `domain` |
+| Refactor status | `ACTIVE` |
+| Worktree state | `clean` |
+| Source commit | `ad3c0b4cf6f8f4e7f2a1fafdbe8203ecab3ce0cb` |
+| Commit timestamp | `2026-10-14T11:36:29-04:00` |
+
+## Public API
+
+- `router_settings(config: Any) -> dict[str, Any]` ([source](../../../../../../src/learnloop/daily_plan/router_chooser.py), line 101) — The router settings a decision's key and record carry.
+- `support_order(state: PlanState, candidates: Sequence[BlockCandidate], staged_id: str, *, k: int, stop_offered: bool, ties_only: bool) -> list[str]` ([source](../../../../../../src/learnloop/daily_plan/router_chooser.py), line 125) — The top-k options in the deterministic order of plan §3.3 item 3.
+- `favoured_option(distribution: Mapping[str, float] | None) -> str | None` ([source](../../../../../../src/learnloop/daily_plan/router_chooser.py), line 165) — The one option a model's distribution puts the most on (None on a tie at the top).
+- `class RouterChooser` ([source](../../../../../../src/learnloop/daily_plan/router_chooser.py), line 355) — ``router_mixture_v1``: the logged model mixture over the staged frame's candidates.
+  - `scope(self) -> str` (line 370; public)
+  - `_now_iso(self) -> str` (line 373; internal)
+  - `choose(self, state: PlanState, feasible: Sequence[BlockCandidate]) -> BlockChoice` (line 378; public)
+  - `_start(self, key: str, state: PlanState, feasible: Sequence[BlockCandidate], support: Sequence[str], by_id: Mapping[str, BlockCandidate], ready: tuple[str, ...]) -> Prefetch` (line 421; internal)
+  - `_decide(self, entry: Prefetch, state: PlanState, staged: BlockChoice, record: dict[str, Any], support: Sequence[str], by_id: Mapping[str, BlockCandidate], readiness: Mapping[str, str | None], settings: Mapping[str, Any]) -> BlockChoice` (line 450; internal)
+- `class RestraintOutcome` ([source](../../../../../../src/learnloop/daily_plan/router_chooser.py), line 557) — A follow-up's ``plan_interrupt`` decision, made outside any write.
+  - `insert(self) -> bool` (line 570; public)
+  - `wait(self) -> bool` (line 574; public)
+- `class RestraintGate` ([source](../../../../../../src/learnloop/daily_plan/router_chooser.py), line 579) — ``plan_interrupt``: insert a placeable mid-block follow-up now, or let it wait.
+  - `scope(self) -> str` (line 592; public)
+  - `refusals(self, item: Any) -> tuple[dict[str, Any], ...]` (line 595; public) — The P4 constraint engine's named refusals of one follow-up (none: placeable).
+  - `declined(refusals: Sequence[Mapping[str, Any]]) -> RestraintOutcome` (line 601; public) — A refused follow-up's deterministic ``decline`` (no model is asked).
+  - `_refusals(self, item: Any) -> tuple[dict[str, Any], ...]` (line 611; internal)
+  - `decide(self, record: Any, current: Any, item: Any, *, wait_feasible: bool=True) -> RestraintOutcome` (line 621; public) — The decision for one follow-up the rules would place now (raises :class:`DecisionPending` on a read whose models are still out).
+  - `_state(self, record: Any, current: Any, item: Any) -> tuple[PlanState, list[BlockCandidate]]` (line 708; internal)
+  - `_start(self, key: str, state: PlanState, candidates: list[BlockCandidate], item: Any, ready: tuple[str, ...]) -> Prefetch` (line 733; internal)
+
+### Module constants
+
+- `LOG` ([src/learnloop/daily_plan/router_chooser.py](../../../../../../src/learnloop/daily_plan/router_chooser.py), line 85)
+- `CHOOSER_NAME` ([src/learnloop/daily_plan/router_chooser.py](../../../../../../src/learnloop/daily_plan/router_chooser.py), line 87)
+- `MODE` ([src/learnloop/daily_plan/router_chooser.py](../../../../../../src/learnloop/daily_plan/router_chooser.py), line 88)
+- `KEY_VERSION` ([src/learnloop/daily_plan/router_chooser.py](../../../../../../src/learnloop/daily_plan/router_chooser.py), line 89)
+- `INSERT_NOW` ([src/learnloop/daily_plan/router_chooser.py](../../../../../../src/learnloop/daily_plan/router_chooser.py), line 90)
+
+### Explicit exports
+
+`__all__` declares:
+
+- `CHOOSER_NAME`
+- `INSERT_NOW`
+- `MODE`
+- `RestraintGate`
+- `RestraintOutcome`
+- `RouterChooser`
+- `router_settings`
+- `support_order`
+
+## Internal implementation anchors
+
+- `_canonical(value: Any) -> str` ([source](../../../../../../src/learnloop/daily_plan/router_chooser.py), line 93)
+- `_hash(value: Any) -> str` ([source](../../../../../../src/learnloop/daily_plan/router_chooser.py), line 97)
+- `_latest_attempt(repository: Any) -> str | None` ([source](../../../../../../src/learnloop/daily_plan/router_chooser.py), line 117)
+- `_rule_sentence(candidate: BlockCandidate | None, state: PlanState) -> tuple[str, str]` ([source](../../../../../../src/learnloop/daily_plan/router_chooser.py), line 175)
+- `_option(candidate: BlockCandidate, titles: Mapping[str, str]) -> rq.BlockOption` ([source](../../../../../../src/learnloop/daily_plan/router_chooser.py), line 184)
+- `_run_components(runtime: RouterRuntime, entry: Prefetch, vault: Any, repository: Any, request: Any, parse: Mapping[str, Any], card_hash: str | None) -> None` ([source](../../../../../../src/learnloop/daily_plan/router_chooser.py), line 200) — Ask every component of ``entry`` (the Decider on this thread, the LLM on its own).
+- `_block_job(entry: Prefetch, *, runtime: RouterRuntime, vault: Any, sqlite_path: Any, session_id: str | None, plan_id: str | None) -> None` ([source](../../../../../../src/learnloop/daily_plan/router_chooser.py), line 246)
+- `_restraint_job(entry: Prefetch, *, runtime: RouterRuntime, vault: Any, sqlite_path: Any) -> None` ([source](../../../../../../src/learnloop/daily_plan/router_chooser.py), line 279)
+- `_await(runtime: RouterRuntime, entry: Prefetch, *, may_defer: bool, timeout: float) -> None` ([source](../../../../../../src/learnloop/daily_plan/router_chooser.py), line 298)
+- `_results(entry: Prefetch, readiness: Mapping[str, str | None]) -> dict[str, ComponentResult]` ([source](../../../../../../src/learnloop/daily_plan/router_chooser.py), line 307)
+- `_payloads(results: Mapping[str, ComponentResult]) -> dict[str, Any]` ([source](../../../../../../src/learnloop/daily_plan/router_chooser.py), line 315)
+- `class _Card` ([source](../../../../../../src/learnloop/daily_plan/router_chooser.py), line 326)
+- `_build_card(builder: CardBuilder | None, state: PlanState, feasible: Sequence[BlockCandidate]) -> _Card` ([source](../../../../../../src/learnloop/daily_plan/router_chooser.py), line 335)
+- `_card_fields(card: _Card) -> dict[str, Any]` ([source](../../../../../../src/learnloop/daily_plan/router_chooser.py), line 348)
+
+## Who imports or calls it
+
+> [!note] Static evidence boundary
+> “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
+
+- [[Reference/Modules/learnloop/daily_plan/policy|learnloop.daily_plan.policy]] — imports `RestraintGate`, `RouterChooser`; statically calls `RestraintGate`, `RouterChooser`
+
+## Dependencies
+
+### LearnLoop dependencies
+
+- [[Reference/Modules/learnloop/clock|learnloop.clock]] — imports `utc_now_iso`; calls `utc_now_iso`
+- [[Reference/Modules/learnloop/daily_plan/chooser|learnloop.daily_plan.chooser]] — imports `LaneQuotaChooser`, `unspent_share`; calls `unspent_share`
+- [[Reference/Modules/learnloop/daily_plan/router_retrieval|learnloop.daily_plan.router_retrieval]] — imports `module`; calls `prepare`
+- [[Reference/Modules/learnloop/daily_plan/router_runtime|learnloop.daily_plan.router_runtime]] — imports `ANSWERED`, `ComponentResult`, `DECIDER`, `INVALID`, `LLM`, `NOT_READY`, `Prefetch`, `RECEIPT_OWNER`, `RouterRuntime`, `call_decider`, `call_llm`; calls `ComponentResult`
+- [[Reference/Modules/learnloop/daily_plan/staged_frame|learnloop.daily_plan.staged_frame]] — imports `CardBuilder`, `StagedChooser`; calls `StagedChooser`
+- [[Reference/Modules/learnloop/daily_plan/types|learnloop.daily_plan.types]] — imports `BlockCandidate`, `BlockChoice`, `CONTINUE_CURRENT`, `DecisionPending`, `LANES`, `PlanState`, `STOP_FOR_TODAY`, `STOP_OFFER_MINUTES`; calls `BlockCandidate`, `BlockChoice`, `DecisionPending`, `PlanState`
+- [[Reference/Modules/learnloop/db/repositories|learnloop.db.repositories]] — imports `Repository`
+- [[Reference/Modules/learnloop/ids|learnloop.ids]] — imports `new_ulid`; calls `new_ulid`
+- [[Reference/Modules/learnloop/router/mixture|learnloop.router.mixture]] — imports `module`; calls `component_distributions`, `draw`, `effective_weights`, `fallback_label`
+- [[Reference/Modules/learnloop/router/plan_log|learnloop.router.plan_log]] — imports `module`
+- [[Reference/Modules/learnloop/router/requests|learnloop.router.requests]] — imports `module`; calls `BlockOption`, `BoundaryRequest`, `RestraintRequest`, `SensorTopic`, `evidence_from_card`, `option_description`, `parse_decider_restraint`, `parse_llm_restraint`, `state_text`
+- [[Reference/Modules/learnloop/router/why|learnloop.router.why]] — imports `module`; calls `model_why`, `rationale_guard`, `sentence`, `stop_code`
+
+### Platform and third-party dependencies
+
+- Standard library: `__future__`, `collections`, `contextvars`, `dataclasses`, `functools`, `hashlib`, `json`, `logging`, `threading`, `time`, `typing`
+- Third party: none imported directly
+
+## Larger workflow participation
+
+Use this module in context through:
+
+- [[Initialize a Vault]]
+- [[Start a Learning Cycle]]
+
+Static participation evidence comes from [[Reference/Modules/learnloop/daily_plan/policy|learnloop.daily_plan.policy]].
+
+The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
+
+## Tests that define behavior
+
+- [tests/test_mvp024_upgrade.py](../../../../../../tests/test_mvp024_upgrade.py) — direct import
+  - `test_the_mixture_serves_only_at_the_successor_in_mixture_mode`
+
+## Modification guidance
+
+- Make changes here when the responsibility remains router chooser within learnloop.daily_plan; otherwise move the behavior to its owning boundary.
+- Run the directly importing tests below, then the architecture/import-linter checks when imports or public ownership change.
+- Treat `__all__` as an intentional compatibility surface and update consumers and documentation when it changes.
+
+### Regeneration and review checklist
+
+1. Modify [src/learnloop/daily_plan/router_chooser.py](../../../../../../src/learnloop/daily_plan/router_chooser.py) and its owning tests.
+2. Regenerate [[Module Catalog]] so imports, symbols, source provenance, and test anchors remain current.
+3. Run `.venv/bin/python docs/learnloop-architecture-vault/_scripts/module_validate.py`.
+4. If ownership or workflow behavior changed, update the linked canonical concept or workflow note—not a duplicate explanation here.

@@ -7,11 +7,11 @@ version: "1.0.0"
 source_path: "src/learnloop/learner/recall_calibration.py"
 source_paths:
   - "src/learnloop/learner/recall_calibration.py"
-source_commit: "e60a0e7483883c54f90a66010ede37deb0b11513"
-source_commit_timestamp: "2026-09-23T12:27:35-04:00"
+source_commit: "86f17850ae44f63d89602534064feb6c21c5f776"
+source_commit_timestamp: "2026-10-15T12:20:59-04:00"
 source_worktree_state: "clean"
 generated: true
-generated_at: "2026-09-23"
+generated_at: "2026-11-02"
 package: "learnloop.learner"
 layer: "domain"
 concepts:
@@ -50,35 +50,35 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/learner/recall_calibration.py](../../../../../../src/learnloop/learner/recall_calibration.py) |
-| Source lines | 348 |
+| Source lines | 349 |
 | Owning package | [[Reference/Modules/learnloop/learner/_package|learnloop.learner]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `e60a0e7483883c54f90a66010ede37deb0b11513` |
-| Commit timestamp | `2026-09-23T12:27:35-04:00` |
+| Source commit | `86f17850ae44f63d89602534064feb6c21c5f776` |
+| Commit timestamp | `2026-10-15T12:20:59-04:00` |
 
 ## Public API
 
-- `class RecallCalibrationRow` ([source](../../../../../../src/learnloop/learner/recall_calibration.py), line 29)
-  - `as_dict(self) -> dict[str, object]` (line 50; public)
-- `run_recall_calibration_harness(work_root: Path | None=None) -> list[RecallCalibrationRow]` ([source](../../../../../../src/learnloop/learner/recall_calibration.py), line 74)
-- `format_recall_calibration_table(rows: list[RecallCalibrationRow]) -> str` ([source](../../../../../../src/learnloop/learner/recall_calibration.py), line 83)
-- `assert_recall_calibration_bands(rows: list[RecallCalibrationRow]) -> None` ([source](../../../../../../src/learnloop/learner/recall_calibration.py), line 117)
+- `class RecallCalibrationRow` ([source](../../../../../../src/learnloop/learner/recall_calibration.py), line 30)
+  - `as_dict(self) -> dict[str, object]` (line 51; public)
+- `run_recall_calibration_harness(work_root: Path | None=None) -> list[RecallCalibrationRow]` ([source](../../../../../../src/learnloop/learner/recall_calibration.py), line 75)
+- `format_recall_calibration_table(rows: list[RecallCalibrationRow]) -> str` ([source](../../../../../../src/learnloop/learner/recall_calibration.py), line 84)
+- `assert_recall_calibration_bands(rows: list[RecallCalibrationRow]) -> None` ([source](../../../../../../src/learnloop/learner/recall_calibration.py), line 118)
 
 ### Module constants
 
-- `CALIBRATION_NOW` ([src/learnloop/learner/recall_calibration.py](../../../../../../src/learnloop/learner/recall_calibration.py), line 21)
-- `CALIBRATION_NOW_ISO` ([src/learnloop/learner/recall_calibration.py](../../../../../../src/learnloop/learner/recall_calibration.py), line 22)
-- `SEVERITY_EXAMPLES` ([src/learnloop/learner/recall_calibration.py](../../../../../../src/learnloop/learner/recall_calibration.py), line 25)
+- `CALIBRATION_NOW` ([src/learnloop/learner/recall_calibration.py](../../../../../../src/learnloop/learner/recall_calibration.py), line 22)
+- `CALIBRATION_NOW_ISO` ([src/learnloop/learner/recall_calibration.py](../../../../../../src/learnloop/learner/recall_calibration.py), line 23)
+- `SEVERITY_EXAMPLES` ([src/learnloop/learner/recall_calibration.py](../../../../../../src/learnloop/learner/recall_calibration.py), line 26)
 
 ## Internal implementation anchors
 
-- `_run_scenario(root: Path, scenario: str) -> RecallCalibrationRow` ([source](../../../../../../src/learnloop/learner/recall_calibration.py), line 131)
-- `_fresh_calibration_vault(root: Path)` ([source](../../../../../../src/learnloop/learner/recall_calibration.py), line 205)
-- `_attempt(repository: Repository, vault, *, points: float, practice_item_id: str='pi_calibration_main', attempt_type: str='independent_attempt', error_type: str | None=None, hints_used: int=0, days: int=0)` ([source](../../../../../../src/learnloop/learner/recall_calibration.py), line 288)
-- `_intervention_decision(vault, repository: Repository, result, event: dict, debug: dict) -> FollowupDecision` ([source](../../../../../../src/learnloop/learner/recall_calibration.py), line 317)
-- `_intervention_status(decision: FollowupDecision) -> str` ([source](../../../../../../src/learnloop/learner/recall_calibration.py), line 341)
+- `_run_scenario(root: Path, scenario: str) -> RecallCalibrationRow` ([source](../../../../../../src/learnloop/learner/recall_calibration.py), line 132)
+- `_fresh_calibration_vault(root: Path)` ([source](../../../../../../src/learnloop/learner/recall_calibration.py), line 206)
+- `_attempt(repository: Repository, vault, *, points: float, practice_item_id: str='pi_calibration_main', attempt_type: str='independent_attempt', error_type: str | None=None, hints_used: int=0, days: int=0)` ([source](../../../../../../src/learnloop/learner/recall_calibration.py), line 289)
+- `_intervention_decision(vault, repository: Repository, result, event: dict, debug: dict) -> FollowupDecision` ([source](../../../../../../src/learnloop/learner/recall_calibration.py), line 318)
+- `_intervention_status(decision: FollowupDecision) -> str` ([source](../../../../../../src/learnloop/learner/recall_calibration.py), line 342)
 
 ## Who imports or calls it
 
@@ -94,13 +94,14 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 - [[Reference/Modules/learnloop/attempts/attempts|learnloop.attempts.attempts]] — imports `AttemptDraft`, `SelfGradeInput`, `complete_self_graded_attempt`; calls `AttemptDraft`, `SelfGradeInput`, `complete_self_graded_attempt`
 - [[Reference/Modules/learnloop/clock|learnloop.clock]] — imports `FrozenClock`; calls `FrozenClock`
 - [[Reference/Modules/learnloop/config/__init__|learnloop.config]] — imports `SeverityExampleConfig`, `default_severity_examples`; calls `default_severity_examples`
-- [[Reference/Modules/learnloop/db/repositories|learnloop.db.repositories]] — imports `MasteryState`, `Repository`; calls `MasteryState`, `Repository`
+- [[Reference/Modules/learnloop/db/repositories|learnloop.db.repositories]] — imports `MasteryState`, `Repository`; calls `MasteryState`
 - [[Reference/Modules/learnloop/diagnosis/followups|learnloop.diagnosis.followups]] — imports `FollowupDecision`, `evaluate_intervention_followup`; calls `evaluate_intervention_followup`
 - [[Reference/Modules/learnloop/learner/facet_state_reader|learnloop.learner.facet_state_reader]] — imports `facet_recall_state_for_lo`; calls `facet_recall_state_for_lo`
 - [[Reference/Modules/learnloop/ops/vault_upgrade|learnloop.ops.vault_upgrade]] — imports `KM_ALGORITHM_VERSION`, `LEGACY_ALGORITHM_VERSION`
 - [[Reference/Modules/learnloop/substrate/state_sync|learnloop.substrate.state_sync]] — imports `sync_vault_state`; calls `sync_vault_state`
 - [[Reference/Modules/learnloop/vault/loader|learnloop.vault.loader]] — imports `add_subject`, `init_vault`, `load_vault`; calls `add_subject`, `init_vault`, `load_vault`
 - [[Reference/Modules/learnloop/vault/paths|learnloop.vault.paths]] — imports `VaultPaths`; calls `VaultPaths`
+- [[Reference/Modules/learnloop/vault/repository|learnloop.vault.repository]] — imports `vault_repository`; calls `vault_repository`
 - [[Reference/Modules/learnloop/vault/writer|learnloop.vault.writer]] — imports `upsert_concept`, `upsert_learning_object`, `upsert_practice_item`; calls `upsert_concept`, `upsert_learning_object`, `upsert_practice_item`
 
 ### Platform and third-party dependencies

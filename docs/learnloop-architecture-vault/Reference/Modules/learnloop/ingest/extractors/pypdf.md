@@ -7,11 +7,11 @@ version: "1.0.0"
 source_path: "src/learnloop/ingest/extractors/pypdf.py"
 source_paths:
   - "src/learnloop/ingest/extractors/pypdf.py"
-source_commit: "f0052f7260eb63224bd103193929a03fd54660d6"
-source_commit_timestamp: "2026-07-21T15:03:22-04:00"
+source_commit: "26e9df09127773d1858eedbf30bd9850ad359e9a"
+source_commit_timestamp: "2026-10-13T22:15:21-04:00"
 source_worktree_state: "clean"
 generated: true
-generated_at: "2026-09-23"
+generated_at: "2026-11-02"
 package: "learnloop.ingest.extractors"
 layer: "infrastructure"
 concepts:
@@ -49,30 +49,32 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/ingest/extractors/pypdf.py](../../../../../../../src/learnloop/ingest/extractors/pypdf.py) |
-| Source lines | 179 |
+| Source lines | 192 |
 | Owning package | [[Reference/Modules/learnloop/ingest/extractors/_package|learnloop.ingest.extractors]] |
 | Architecture layer | `infrastructure` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `f0052f7260eb63224bd103193929a03fd54660d6` |
-| Commit timestamp | `2026-07-21T15:03:22-04:00` |
+| Source commit | `26e9df09127773d1858eedbf30bd9850ad359e9a` |
+| Commit timestamp | `2026-10-13T22:15:21-04:00` |
 
 ## Public API
 
-- `read_embedded_outline(raw_bytes: bytes) -> list[dict[str, Any]]` ([source](../../../../../../../src/learnloop/ingest/extractors/pypdf.py), line 24) — Flatten a PDF's embedded outline (bookmarks) into ToC-shaped entries.
-- `class PyPdfExtractionError(ValueError)` ([source](../../../../../../../src/learnloop/ingest/extractors/pypdf.py), line 66)
-- `class PyPdfDocumentExtractor` ([source](../../../../../../../src/learnloop/ingest/extractors/pypdf.py), line 70)
-  - `version(self) -> str` (line 78; public)
-  - `model_versions(self) -> dict[str, str]` (line 87; public)
-  - `extract(self, raw_bytes: bytes, context: ExtractionContext) -> DocumentIR` (line 90; public)
+- `read_embedded_outline(raw_bytes: bytes) -> list[dict[str, Any]]` ([source](../../../../../../../src/learnloop/ingest/extractors/pypdf.py), line 25) — Flatten a PDF's embedded outline (bookmarks) into ToC-shaped entries.
+- `class PyPdfExtractionError(ValueError)` ([source](../../../../../../../src/learnloop/ingest/extractors/pypdf.py), line 67)
+- `class PyPdfDocumentExtractor` ([source](../../../../../../../src/learnloop/ingest/extractors/pypdf.py), line 83)
+  - `version(self) -> str` (line 91; public)
+  - `model_versions(self) -> dict[str, str]` (line 100; public)
+  - `extract(self, raw_bytes: bytes, context: ExtractionContext) -> DocumentIR` (line 103; public)
 
 ### Module constants
 
-- `EXTRACTOR_NAME` ([src/learnloop/ingest/extractors/pypdf.py](../../../../../../../src/learnloop/ingest/extractors/pypdf.py), line 21)
+- `EXTRACTOR_NAME` ([src/learnloop/ingest/extractors/pypdf.py](../../../../../../../src/learnloop/ingest/extractors/pypdf.py), line 22)
+- `_SURROGATES` ([src/learnloop/ingest/extractors/pypdf.py](../../../../../../../src/learnloop/ingest/extractors/pypdf.py), line 80)
 
 ## Internal implementation anchors
 
-- `_pdf_title(raw_bytes: bytes) -> str | None` ([source](../../../../../../../src/learnloop/ingest/extractors/pypdf.py), line 172)
+- `_valid_text(text: str) -> str` ([source](../../../../../../../src/learnloop/ingest/extractors/pypdf.py), line 71) — pypdf can return lone UTF-16 surrogates for unmapped maths-font glyphs (seen on an arXiv paper's equations); they cannot be encoded, hashed or stored, so each becomes U+FFFD.
+- `_pdf_title(raw_bytes: bytes) -> str | None` ([source](../../../../../../../src/learnloop/ingest/extractors/pypdf.py), line 185)
 
 ## Who imports or calls it
 
@@ -81,7 +83,8 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 
 - [[Reference/Modules/learnloop/ingest/extractors/__init__|learnloop.ingest.extractors]] — imports `PyPdfDocumentExtractor`, `PyPdfExtractionError`, `read_embedded_outline`; statically calls `PyPdfDocumentExtractor`
 - [[Reference/Modules/learnloop/ingest/extractors/datalab|learnloop.ingest.extractors.datalab]] — imports `read_embedded_outline`; statically calls `read_embedded_outline`
-- [[Reference/Modules/learnloop/ingest/extractors/marker|learnloop.ingest.extractors.marker]] — imports `read_embedded_outline`; statically calls `read_embedded_outline`
+- [[Reference/Modules/learnloop/ingest/extractors/glm_ocr|learnloop.ingest.extractors.glm_ocr]] — imports `read_embedded_outline`; statically calls `read_embedded_outline`
+- [[Reference/Modules/learnloop/ingest/extractors/marker_worker|learnloop.ingest.extractors.marker_worker]] — imports `read_embedded_outline`; statically calls `read_embedded_outline`
 
 ## Dependencies
 
@@ -93,7 +96,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 
 ### Platform and third-party dependencies
 
-- Standard library: `__future__`, `importlib`, `io`, `typing`
+- Standard library: `__future__`, `importlib`, `io`, `re`, `typing`
 - Third party: `pypdf`
 
 ## Larger workflow participation
@@ -102,7 +105,7 @@ Use this module in context through:
 
 - [[Import Canonical Sources]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/ingest/extractors/__init__|learnloop.ingest.extractors]], [[Reference/Modules/learnloop/ingest/extractors/datalab|learnloop.ingest.extractors.datalab]], [[Reference/Modules/learnloop/ingest/extractors/marker|learnloop.ingest.extractors.marker]].
+Static participation evidence comes from [[Reference/Modules/learnloop/ingest/extractors/__init__|learnloop.ingest.extractors]], [[Reference/Modules/learnloop/ingest/extractors/datalab|learnloop.ingest.extractors.datalab]], [[Reference/Modules/learnloop/ingest/extractors/glm_ocr|learnloop.ingest.extractors.glm_ocr]], [[Reference/Modules/learnloop/ingest/extractors/marker_worker|learnloop.ingest.extractors.marker_worker]].
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 

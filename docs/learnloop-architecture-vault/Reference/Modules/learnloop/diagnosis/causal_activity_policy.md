@@ -7,11 +7,11 @@ version: "1.0.0"
 source_path: "src/learnloop/diagnosis/causal_activity_policy.py"
 source_paths:
   - "src/learnloop/diagnosis/causal_activity_policy.py"
-source_commit: "b322ef2e9b5cebc241b612e4963a5aaf1a37f99a"
-source_commit_timestamp: "2026-08-20T18:04:29-04:00"
+source_commit: "724bca0f4f0b8eefe58a93785cbdc7db7f64bc73"
+source_commit_timestamp: "2026-10-13T08:02:15-04:00"
 source_worktree_state: "clean"
 generated: true
-generated_at: "2026-09-23"
+generated_at: "2026-11-02"
 package: "learnloop.diagnosis"
 layer: "domain"
 concepts:
@@ -50,25 +50,26 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/diagnosis/causal_activity_policy.py](../../../../../../src/learnloop/diagnosis/causal_activity_policy.py) |
-| Source lines | 374 |
+| Source lines | 423 |
 | Owning package | [[Reference/Modules/learnloop/diagnosis/_package|learnloop.diagnosis]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `b322ef2e9b5cebc241b612e4963a5aaf1a37f99a` |
-| Commit timestamp | `2026-08-20T18:04:29-04:00` |
+| Source commit | `724bca0f4f0b8eefe58a93785cbdc7db7f64bc73` |
+| Commit timestamp | `2026-10-13T08:02:15-04:00` |
 
 ## Public API
 
 - `contamination_class_for_attempt(*, attempt_type: str, primed: bool=False, hints_used: int=0) -> str` ([source](../../../../../../src/learnloop/diagnosis/causal_activity_policy.py), line 121) — The contamination class implied by an attempt's own signals.
 - `classify_attempt_activity(*, attempt_type: str, primed: bool=False, hints_used: int=0, near_clone: bool=False, explicit_class: str | None=None) -> CausalActivityPolicy` ([source](../../../../../../src/learnloop/diagnosis/causal_activity_policy.py), line 145) — Resolve the full policy for one concrete attempt.
 - `attempt_counts_as_assisted(*, attempt_type: str, primed: bool=False, hints_used: int=0) -> bool` ([source](../../../../../../src/learnloop/diagnosis/causal_activity_policy.py), line 189) — The canonical-projection / facet-timeline assistance test.
-- `resolve_attempt_activity_policy(*, attempt_type: str, primed: bool=False, hints_used: int=0, recorded: Mapping[str, Any] | None=None) -> CausalActivityPolicy` ([source](../../../../../../src/learnloop/diagnosis/causal_activity_policy.py), line 202) — Fail-closed attempt policy from immutable signals plus recorded facts.
-- `resolve_conflicting_classes(existing: str, incoming: str) -> str` ([source](../../../../../../src/learnloop/diagnosis/causal_activity_policy.py), line 260) — Most-contaminated wins.
-- `class NearCloneAssessment` ([source](../../../../../../src/learnloop/diagnosis/causal_activity_policy.py), line 282) — An auditable near-clone verdict.
-  - `as_dict(self) -> dict[str, Any]` (line 299; public)
-- `assess_near_clone(vault: 'LoadedVault', *, practice_item_id: str, source_practice_item_id: str | None, explicit: bool | None=None) -> NearCloneAssessment` ([source](../../../../../../src/learnloop/diagnosis/causal_activity_policy.py), line 309) — Compare the administered item's surface fingerprint against its source.
-- `near_clone_from_selection_components(vault: 'LoadedVault', *, practice_item_id: str, selection_components: Mapping[str, Any] | None) -> NearCloneAssessment` ([source](../../../../../../src/learnloop/diagnosis/causal_activity_policy.py), line 359) — ``assess_near_clone`` over a probe presentation's selection components.
+- `gate_unverified_reference(policy: CausalActivityPolicy, reference_status: str | None) -> CausalActivityPolicy` ([source](../../../../../../src/learnloop/diagnosis/causal_activity_policy.py), line 210) — C3: an attempt graded against an unverified answer key certifies nothing.
+- `resolve_attempt_activity_policy(*, attempt_type: str, primed: bool=False, hints_used: int=0, recorded: Mapping[str, Any] | None=None, reference_status: str | None=None) -> CausalActivityPolicy` ([source](../../../../../../src/learnloop/diagnosis/causal_activity_policy.py), line 231) — See :func:`_resolve_attempt_activity_policy`; ``reference_status`` is the attempt's answer-key signal for the grade in force (C3): ``unverified`` forces ``eligible_for_certification`` off and changes nothing else.
+- `resolve_conflicting_classes(existing: str, incoming: str) -> str` ([source](../../../../../../src/learnloop/diagnosis/causal_activity_policy.py), line 309) — Most-contaminated wins.
+- `class NearCloneAssessment` ([source](../../../../../../src/learnloop/diagnosis/causal_activity_policy.py), line 331) — An auditable near-clone verdict.
+  - `as_dict(self) -> dict[str, Any]` (line 348; public)
+- `assess_near_clone(vault: 'LoadedVault', *, practice_item_id: str, source_practice_item_id: str | None, explicit: bool | None=None) -> NearCloneAssessment` ([source](../../../../../../src/learnloop/diagnosis/causal_activity_policy.py), line 358) — Compare the administered item's surface fingerprint against its source.
+- `near_clone_from_selection_components(vault: 'LoadedVault', *, practice_item_id: str, selection_components: Mapping[str, Any] | None) -> NearCloneAssessment` ([source](../../../../../../src/learnloop/diagnosis/causal_activity_policy.py), line 408) — ``assess_near_clone`` over a probe presentation's selection components.
 
 ### Module constants
 
@@ -76,10 +77,11 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 - `DIAGNOSTIC_ATTEMPT_TYPES` ([src/learnloop/diagnosis/causal_activity_policy.py](../../../../../../src/learnloop/diagnosis/causal_activity_policy.py), line 101)
 - `ASSISTED_ATTEMPT_TYPES` ([src/learnloop/diagnosis/causal_activity_policy.py](../../../../../../src/learnloop/diagnosis/causal_activity_policy.py), line 106)
 - `NEAR_CLONE_BASES` ([src/learnloop/diagnosis/causal_activity_policy.py](../../../../../../src/learnloop/diagnosis/causal_activity_policy.py), line 112)
+- `REFERENCE_STATUSES` ([src/learnloop/diagnosis/causal_activity_policy.py](../../../../../../src/learnloop/diagnosis/causal_activity_policy.py), line 207)
 
 ## Internal implementation anchors
 
-No private top-level function or class definition is declared in this file.
+- `_resolve_attempt_activity_policy(*, attempt_type: str, primed: bool=False, hints_used: int=0, recorded: Mapping[str, Any] | None=None) -> CausalActivityPolicy` ([source](../../../../../../src/learnloop/diagnosis/causal_activity_policy.py), line 251) — Fail-closed attempt policy from immutable signals plus recorded facts.
 
 ## Who imports or calls it
 
@@ -90,8 +92,11 @@ No private top-level function or class definition is declared in this file.
 - [[Reference/Modules/learnloop/diagnosis/causal_probe_coherence|learnloop.diagnosis.causal_probe_coherence]] — imports `NEAR_CLONE_BASES`, `assess_near_clone`, `policy_for_class`; statically calls `assess_near_clone`, `policy_for_class`
 - [[Reference/Modules/learnloop/diagnosis/probe_episodes|learnloop.diagnosis.probe_episodes]] — imports `near_clone_from_selection_components`; statically calls `near_clone_from_selection_components`
 - [[Reference/Modules/learnloop/diagnosis/scoreboard|learnloop.diagnosis.scoreboard]] — imports `attempt_counts_as_assisted`; statically calls `attempt_counts_as_assisted`
+- [[Reference/Modules/learnloop/field/outcomes|learnloop.field.outcomes]] — imports `resolve_attempt_activity_policy`; statically calls `resolve_attempt_activity_policy`
 - [[Reference/Modules/learnloop/goals/certification_cold_probe|learnloop.goals.certification_cold_probe]] — imports `attempt_counts_as_assisted`; statically calls `attempt_counts_as_assisted`
 - [[Reference/Modules/learnloop/learner/facet_evidence_timeline|learnloop.learner.facet_evidence_timeline]] — imports `resolve_attempt_activity_policy`; statically calls `resolve_attempt_activity_policy`
+- [[Reference/Modules/learnloop/scheduling/intent/recall_targets|learnloop.scheduling.intent.recall_targets]] — imports `classify_attempt_activity`; statically calls `classify_attempt_activity`
+- [[Reference/Modules/learnloop/scheduling/intent/serving|learnloop.scheduling.intent.serving]] — imports `attempt_counts_as_assisted`; statically calls `attempt_counts_as_assisted`
 - [[Reference/Modules/learnloop/substrate/canonical_projection|learnloop.substrate.canonical_projection]] — imports `ASSISTED_ATTEMPT_TYPES`, `resolve_attempt_activity_policy`; statically calls `resolve_attempt_activity_policy`
 
 ## Dependencies
@@ -114,7 +119,7 @@ Use this module in context through:
 - [[Process Model Output]]
 - [[Start a Learning Cycle]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/attempts/attempts|learnloop.attempts.attempts]], [[Reference/Modules/learnloop/diagnosis/causal_probe_coherence|learnloop.diagnosis.causal_probe_coherence]], [[Reference/Modules/learnloop/diagnosis/probe_episodes|learnloop.diagnosis.probe_episodes]], [[Reference/Modules/learnloop/diagnosis/scoreboard|learnloop.diagnosis.scoreboard]], [[Reference/Modules/learnloop/goals/certification_cold_probe|learnloop.goals.certification_cold_probe]] and 2 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/attempts/attempts|learnloop.attempts.attempts]], [[Reference/Modules/learnloop/diagnosis/causal_probe_coherence|learnloop.diagnosis.causal_probe_coherence]], [[Reference/Modules/learnloop/diagnosis/probe_episodes|learnloop.diagnosis.probe_episodes]], [[Reference/Modules/learnloop/diagnosis/scoreboard|learnloop.diagnosis.scoreboard]], [[Reference/Modules/learnloop/field/outcomes|learnloop.field.outcomes]] and 5 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
@@ -141,8 +146,20 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_unknown_class_raises`
 - [tests/test_causal_factor_deferral.py](../../../../../../tests/test_causal_factor_deferral.py) — direct import
   - `test_a_primed_attempt_is_not_eligible_for_fsrs`
+- [tests/test_hint_evidence.py](../../../../../../tests/test_hint_evidence.py) — direct import
+  - `test_a_primed_attempt_with_no_hint_count_is_classified_as_a_counted_one_is`
+  - `test_levels_one_to_three_add_one_each_and_attach_to_the_attempt`
+  - `test_worked_help_sets_primed_and_adds_no_count`
+- [tests/test_intent_fix_round4.py](../../../../../../tests/test_intent_fix_round4.py) — direct import
+  - `test_f13_on_your_own_is_the_activity_policys_classification`
+- [tests/test_reader_workbench_rw2a.py](../../../../../../tests/test_reader_workbench_rw2a.py) — direct import
 - [tests/test_receipt_exactness.py](../../../../../../tests/test_receipt_exactness.py) — direct import
   - `test_timeline_final_credit_equals_banked_ledger_credit`
+- [tests/test_reference_gate_imports.py](../../../../../../tests/test_reference_gate_imports.py) — direct import
+  - `test_a_regrade_against_an_edited_unverified_key_never_certifies`
+  - `test_attempts_record_the_key_status_and_unverified_ones_never_certify`
+  - `test_the_policy_gate_changes_only_certification`
+- [tests/test_workbench_assistance.py](../../../../../../tests/test_workbench_assistance.py) — direct import
 
 ## Modification guidance
 

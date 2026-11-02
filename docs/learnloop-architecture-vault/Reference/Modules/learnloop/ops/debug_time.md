@@ -11,7 +11,7 @@ source_commit: "b322ef2e9b5cebc241b612e4963a5aaf1a37f99a"
 source_commit_timestamp: "2026-08-20T18:04:29-04:00"
 source_worktree_state: "clean"
 generated: true
-generated_at: "2026-09-23"
+generated_at: "2026-11-02"
 package: "learnloop.ops"
 layer: "domain"
 concepts:
@@ -107,8 +107,18 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 No test imports this module directly. These tests exercise a direct production consumer:
 
+- [tests/test_ad_denial_log.py](../../../../../../tests/test_ad_denial_log.py) — imports consumer [[Reference/Modules/learnloop/cli/runtime|learnloop.cli.runtime]]
+- [tests/test_attempt_content_state_successor.py](../../../../../../tests/test_attempt_content_state_successor.py) — imports consumer [[Reference/Modules/learnloop/cli/runtime|learnloop.cli.runtime]]
+- [tests/test_batch3_landing.py](../../../../../../tests/test_batch3_landing.py) — imports consumer [[Reference/Modules/learnloop/cli/runtime|learnloop.cli.runtime]]
+- [tests/test_cold_retry_reschedule.py](../../../../../../tests/test_cold_retry_reschedule.py) — imports consumer [[Reference/Modules/learnloop/cli/runtime|learnloop.cli.runtime]]
+- [tests/test_curriculum_c1_plan_follows_path.py](../../../../../../tests/test_curriculum_c1_plan_follows_path.py) — imports consumer [[Reference/Modules/learnloop/cli/runtime|learnloop.cli.runtime]]
+- [tests/test_help_fold_attach_successor.py](../../../../../../tests/test_help_fold_attach_successor.py) — imports consumer [[Reference/Modules/learnloop/cli/runtime|learnloop.cli.runtime]]
+- [tests/test_learner_report_superseded.py](../../../../../../tests/test_learner_report_superseded.py) — imports consumer [[Reference/Modules/learnloop/cli/runtime|learnloop.cli.runtime]]
+- [tests/test_lp_claim_fixes_rereview.py](../../../../../../tests/test_lp_claim_fixes_rereview.py) — imports consumer [[Reference/Modules/learnloop/cli/runtime|learnloop.cli.runtime]]
 - [tests/test_model_call_receipt_owners.py](../../../../../../tests/test_model_call_receipt_owners.py) — imports consumer [[Reference/Modules/learnloop/cli/runtime|learnloop.cli.runtime]]
+- [tests/test_pr4_superseded_claims_landing.py](../../../../../../tests/test_pr4_superseded_claims_landing.py) — imports consumer [[Reference/Modules/learnloop/cli/runtime|learnloop.cli.runtime]]
 - [tests/test_provider_resolution_parity.py](../../../../../../tests/test_provider_resolution_parity.py) — imports consumer [[Reference/Modules/learnloop/cli/runtime|learnloop.cli.runtime]]
+- [tests/test_rbeq_pr2_landing.py](../../../../../../tests/test_rbeq_pr2_landing.py) — imports consumer [[Reference/Modules/learnloop/cli/runtime|learnloop.cli.runtime]]
 
 ## Modification guidance
 

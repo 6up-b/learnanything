@@ -7,11 +7,11 @@ version: "1.0.0"
 source_path: "src/learnloop/curriculum/concepts.py"
 source_paths:
   - "src/learnloop/curriculum/concepts.py"
-source_commit: "b322ef2e9b5cebc241b612e4963a5aaf1a37f99a"
-source_commit_timestamp: "2026-08-20T18:04:29-04:00"
+source_commit: "86f17850ae44f63d89602534064feb6c21c5f776"
+source_commit_timestamp: "2026-10-15T12:20:59-04:00"
 source_worktree_state: "clean"
 generated: true
-generated_at: "2026-09-23"
+generated_at: "2026-11-02"
 package: "learnloop.curriculum"
 layer: "domain"
 concepts:
@@ -49,38 +49,38 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/curriculum/concepts.py](../../../../../../src/learnloop/curriculum/concepts.py) |
-| Source lines | 469 |
+| Source lines | 470 |
 | Owning package | [[Reference/Modules/learnloop/curriculum/_package|learnloop.curriculum]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `b322ef2e9b5cebc241b612e4963a5aaf1a37f99a` |
-| Commit timestamp | `2026-08-20T18:04:29-04:00` |
+| Source commit | `86f17850ae44f63d89602534064feb6c21c5f776` |
+| Commit timestamp | `2026-10-15T12:20:59-04:00` |
 
 ## Public API
 
-- `class ConceptMergeError(ValueError)` ([source](../../../../../../src/learnloop/curriculum/concepts.py), line 22)
-- `class ConceptMergeResult` ([source](../../../../../../src/learnloop/curriculum/concepts.py), line 27)
-  - `as_dict(self) -> dict[str, Any]` (line 35; public)
-- `merge_concepts(root: Path, canonical_id: str, duplicate_id: str, *, add_alias: bool=True, dry_run: bool=False, force: bool=False, clock: Clock | None=None) -> ConceptMergeResult` ([source](../../../../../../src/learnloop/curriculum/concepts.py), line 46)
+- `class ConceptMergeError(ValueError)` ([source](../../../../../../src/learnloop/curriculum/concepts.py), line 23)
+- `class ConceptMergeResult` ([source](../../../../../../src/learnloop/curriculum/concepts.py), line 28)
+  - `as_dict(self) -> dict[str, Any]` (line 36; public)
+- `merge_concepts(root: Path, canonical_id: str, duplicate_id: str, *, add_alias: bool=True, dry_run: bool=False, force: bool=False, clock: Clock | None=None) -> ConceptMergeResult` ([source](../../../../../../src/learnloop/curriculum/concepts.py), line 47)
 
 ## Internal implementation anchors
 
-- `_merge_concepts_file(path: Path, canonical_id: str, duplicate_id: str, *, add_alias: bool, clock_iso: str, changed_files: set[str], dry_run: bool) -> None` ([source](../../../../../../src/learnloop/curriculum/concepts.py), line 127)
-- `_rewrite_relations_file(path: Path, canonical_id: str, duplicate_id: str, changed_files: set[str], *, dry_run: bool) -> None` ([source](../../../../../../src/learnloop/curriculum/concepts.py), line 164)
-- `_rewrite_goals_file(path: Path, canonical_id: str, duplicate_id: str, changed_files: set[str], *, dry_run: bool, clock_iso: str) -> None` ([source](../../../../../../src/learnloop/curriculum/concepts.py), line 208)
-- `_rewrite_error_types_file(path: Path, canonical_id: str, duplicate_id: str, changed_files: set[str], *, dry_run: bool, clock_iso: str) -> None` ([source](../../../../../../src/learnloop/curriculum/concepts.py), line 241)
-- `_rewrite_subject_graph_file(path: Path, canonical_id: str, duplicate_id: str, changed_files: set[str], *, dry_run: bool) -> None` ([source](../../../../../../src/learnloop/curriculum/concepts.py), line 265)
-- `_rewrite_learning_object_file(path: Path, canonical_id: str, duplicate_id: str, changed_files: set[str], *, dry_run: bool, clock_iso: str) -> None` ([source](../../../../../../src/learnloop/curriculum/concepts.py), line 286)
-- `_rewrite_note_file(path: Path, canonical_id: str, duplicate_id: str, changed_files: set[str], *, dry_run: bool, clock_iso: str) -> None` ([source](../../../../../../src/learnloop/curriculum/concepts.py), line 313)
-- `_rewrite_pending_proposal_refs(repository: Repository, canonical_id: str, duplicate_id: str, *, clock_iso: str) -> None` ([source](../../../../../../src/learnloop/curriculum/concepts.py), line 336)
-- `_rewrite_proposal_payload(payload: Any, canonical_id: str, duplicate_id: str) -> Any` ([source](../../../../../../src/learnloop/curriculum/concepts.py), line 380)
-- `_record_concept_merge_events(repository: Repository, canonical_id: str, duplicate_id: str, *, clock_iso: str) -> str` ([source](../../../../../../src/learnloop/curriculum/concepts.py), line 393)
-- `_write_yaml_if_changed(path: Path, data: dict[str, Any], changed_files: set[str], *, dry_run: bool, force_changed: bool=True) -> None` ([source](../../../../../../src/learnloop/curriculum/concepts.py), line 427)
-- `_rewrite_value(value: Any, canonical_id: str, duplicate_id: str) -> Any` ([source](../../../../../../src/learnloop/curriculum/concepts.py), line 442)
-- `_rewrite_list(values: list[Any], canonical_id: str, duplicate_id: str) -> list[Any]` ([source](../../../../../../src/learnloop/curriculum/concepts.py), line 446)
-- `_unique_strings(values: Any, *, exclude: set[Any] | None=None) -> list[str]` ([source](../../../../../../src/learnloop/curriculum/concepts.py), line 450)
-- `_relative(root: Path, path: str) -> str` ([source](../../../../../../src/learnloop/curriculum/concepts.py), line 465)
+- `_merge_concepts_file(path: Path, canonical_id: str, duplicate_id: str, *, add_alias: bool, clock_iso: str, changed_files: set[str], dry_run: bool) -> None` ([source](../../../../../../src/learnloop/curriculum/concepts.py), line 128)
+- `_rewrite_relations_file(path: Path, canonical_id: str, duplicate_id: str, changed_files: set[str], *, dry_run: bool) -> None` ([source](../../../../../../src/learnloop/curriculum/concepts.py), line 165)
+- `_rewrite_goals_file(path: Path, canonical_id: str, duplicate_id: str, changed_files: set[str], *, dry_run: bool, clock_iso: str) -> None` ([source](../../../../../../src/learnloop/curriculum/concepts.py), line 209)
+- `_rewrite_error_types_file(path: Path, canonical_id: str, duplicate_id: str, changed_files: set[str], *, dry_run: bool, clock_iso: str) -> None` ([source](../../../../../../src/learnloop/curriculum/concepts.py), line 242)
+- `_rewrite_subject_graph_file(path: Path, canonical_id: str, duplicate_id: str, changed_files: set[str], *, dry_run: bool) -> None` ([source](../../../../../../src/learnloop/curriculum/concepts.py), line 266)
+- `_rewrite_learning_object_file(path: Path, canonical_id: str, duplicate_id: str, changed_files: set[str], *, dry_run: bool, clock_iso: str) -> None` ([source](../../../../../../src/learnloop/curriculum/concepts.py), line 287)
+- `_rewrite_note_file(path: Path, canonical_id: str, duplicate_id: str, changed_files: set[str], *, dry_run: bool, clock_iso: str) -> None` ([source](../../../../../../src/learnloop/curriculum/concepts.py), line 314)
+- `_rewrite_pending_proposal_refs(repository: Repository, canonical_id: str, duplicate_id: str, *, clock_iso: str) -> None` ([source](../../../../../../src/learnloop/curriculum/concepts.py), line 337)
+- `_rewrite_proposal_payload(payload: Any, canonical_id: str, duplicate_id: str) -> Any` ([source](../../../../../../src/learnloop/curriculum/concepts.py), line 381)
+- `_record_concept_merge_events(repository: Repository, canonical_id: str, duplicate_id: str, *, clock_iso: str) -> str` ([source](../../../../../../src/learnloop/curriculum/concepts.py), line 394)
+- `_write_yaml_if_changed(path: Path, data: dict[str, Any], changed_files: set[str], *, dry_run: bool, force_changed: bool=True) -> None` ([source](../../../../../../src/learnloop/curriculum/concepts.py), line 428)
+- `_rewrite_value(value: Any, canonical_id: str, duplicate_id: str) -> Any` ([source](../../../../../../src/learnloop/curriculum/concepts.py), line 443)
+- `_rewrite_list(values: list[Any], canonical_id: str, duplicate_id: str) -> list[Any]` ([source](../../../../../../src/learnloop/curriculum/concepts.py), line 447)
+- `_unique_strings(values: Any, *, exclude: set[Any] | None=None) -> list[str]` ([source](../../../../../../src/learnloop/curriculum/concepts.py), line 451)
+- `_relative(root: Path, path: str) -> str` ([source](../../../../../../src/learnloop/curriculum/concepts.py), line 466)
 
 ## Who imports or calls it
 
@@ -94,11 +94,12 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 ### LearnLoop dependencies
 
 - [[Reference/Modules/learnloop/clock|learnloop.clock]] — imports `Clock`, `utc_now_iso`; calls `utc_now_iso`
-- [[Reference/Modules/learnloop/db/repositories|learnloop.db.repositories]] — imports `Repository`; calls `Repository`
+- [[Reference/Modules/learnloop/db/repositories|learnloop.db.repositories]] — imports `Repository`
 - [[Reference/Modules/learnloop/ids|learnloop.ids]] — imports `new_ulid`; calls `new_ulid`
 - [[Reference/Modules/learnloop/substrate/state_sync|learnloop.substrate.state_sync]] — imports `sync_vault_state`; calls `sync_vault_state`
 - [[Reference/Modules/learnloop/vault/loader|learnloop.vault.loader]] — imports `load_vault`; calls `load_vault`
 - [[Reference/Modules/learnloop/vault/paths|learnloop.vault.paths]] — imports `VaultPaths`; calls `VaultPaths`
+- [[Reference/Modules/learnloop/vault/repository|learnloop.vault.repository]] — imports `vault_repository`; calls `vault_repository`
 - [[Reference/Modules/learnloop/vault/yaml_io|learnloop.vault.yaml_io]] — imports `read_markdown_with_frontmatter`, `read_yaml`, `write_markdown_with_frontmatter`, `write_yaml`; calls `read_markdown_with_frontmatter`, `read_yaml`, `write_markdown_with_frontmatter`, `write_yaml`
 
 ### Platform and third-party dependencies

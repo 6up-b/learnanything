@@ -8,13 +8,16 @@ source_paths:
   - "src/learnloop/ingest/extractors/__init__.py"
   - "src/learnloop/ingest/extractors/base.py"
   - "src/learnloop/ingest/extractors/datalab.py"
+  - "src/learnloop/ingest/extractors/glm_ocr.py"
+  - "src/learnloop/ingest/extractors/glm_text_layer.py"
   - "src/learnloop/ingest/extractors/marker.py"
+  - "src/learnloop/ingest/extractors/marker_worker.py"
   - "src/learnloop/ingest/extractors/normalizers.py"
   - "src/learnloop/ingest/extractors/pypdf.py"
 source_commit: "aggregate; see module notes"
-source_commit_timestamp: "2026-09-03T10:49:04-07:00"
+source_commit_timestamp: "2026-10-15T07:39:48-04:00"
 generated: true
-generated_at: "2026-09-23"
+generated_at: "2026-11-02"
 package: "learnloop.ingest.extractors"
 layer: "infrastructure"
 concepts:
@@ -48,22 +51,52 @@ For system intent, use [[Architecture Overview]].
 
 | Module | Purpose | Status | Direct importers | Direct test files |
 |---|---|---:|---:|---:|
-| [[Reference/Modules/learnloop/ingest/extractors/__init__|learnloop.ingest.extractors]] | [[Reference/Modules/learnloop/ingest/extractors/__init__#^module-purpose|purpose]] | `ACTIVE` | 2 | 2 |
-| [[Reference/Modules/learnloop/ingest/extractors/base|learnloop.ingest.extractors.base]] | [[Reference/Modules/learnloop/ingest/extractors/base#^module-purpose|purpose]] | `ACTIVE` | 5 | 1 |
+| [[Reference/Modules/learnloop/ingest/extractors/__init__|learnloop.ingest.extractors]] | [[Reference/Modules/learnloop/ingest/extractors/__init__#^module-purpose|purpose]] | `ACTIVE` | 4 | 6 |
+| [[Reference/Modules/learnloop/ingest/extractors/base|learnloop.ingest.extractors.base]] | [[Reference/Modules/learnloop/ingest/extractors/base#^module-purpose|purpose]] | `ACTIVE` | 6 | 3 |
 | [[Reference/Modules/learnloop/ingest/extractors/datalab|learnloop.ingest.extractors.datalab]] | [[Reference/Modules/learnloop/ingest/extractors/datalab#^module-purpose|purpose]] | `ACTIVE` | 1 | 0 |
-| [[Reference/Modules/learnloop/ingest/extractors/marker|learnloop.ingest.extractors.marker]] | [[Reference/Modules/learnloop/ingest/extractors/marker#^module-purpose|purpose]] | `ACTIVE` | 2 | 2 |
-| [[Reference/Modules/learnloop/ingest/extractors/normalizers|learnloop.ingest.extractors.normalizers]] | [[Reference/Modules/learnloop/ingest/extractors/normalizers#^module-purpose|purpose]] | `ACTIVE` | 1 | 8 |
-| [[Reference/Modules/learnloop/ingest/extractors/pypdf|learnloop.ingest.extractors.pypdf]] | [[Reference/Modules/learnloop/ingest/extractors/pypdf#^module-purpose|purpose]] | `ACTIVE` | 3 | 1 |
+| [[Reference/Modules/learnloop/ingest/extractors/glm_ocr|learnloop.ingest.extractors.glm_ocr]] | [[Reference/Modules/learnloop/ingest/extractors/glm_ocr#^module-purpose|purpose]] | `ACTIVE` | 8 | 5 |
+| [[Reference/Modules/learnloop/ingest/extractors/glm_text_layer|learnloop.ingest.extractors.glm_text_layer]] | [[Reference/Modules/learnloop/ingest/extractors/glm_text_layer#^module-purpose|purpose]] | `ACTIVE` | 1 | 1 |
+| [[Reference/Modules/learnloop/ingest/extractors/marker|learnloop.ingest.extractors.marker]] | [[Reference/Modules/learnloop/ingest/extractors/marker#^module-purpose|purpose]] | `ACTIVE` | 3 | 4 |
+| [[Reference/Modules/learnloop/ingest/extractors/marker_worker|learnloop.ingest.extractors.marker_worker]] | [[Reference/Modules/learnloop/ingest/extractors/marker_worker#^module-purpose|purpose]] | `ACTIVE` | 2 | 2 |
+| [[Reference/Modules/learnloop/ingest/extractors/normalizers|learnloop.ingest.extractors.normalizers]] | [[Reference/Modules/learnloop/ingest/extractors/normalizers#^module-purpose|purpose]] | `ACTIVE` | 1 | 13 |
+| [[Reference/Modules/learnloop/ingest/extractors/pypdf|learnloop.ingest.extractors.pypdf]] | [[Reference/Modules/learnloop/ingest/extractors/pypdf#^module-purpose|purpose]] | `ACTIVE` | 4 | 1 |
 
 ## Cross-package dependencies
 
 ### This package imports
 
-- [[Reference/Modules/learnloop/ingest/_package|learnloop.ingest]] — 10 static module edges
+- [[Reference/Modules/learnloop/ingest/_package|learnloop.ingest]] — 13 static module edges
+- [[Reference/Modules/learnloop/ai/_package|learnloop.ai]] — 3 static module edges
+- [[Reference/Modules/learnloop/config/_package|learnloop.config]] — 1 static module edge
 
 ### Packages that import this package
 
-- [[Reference/Modules/learnloop/content/pipeline/_package|learnloop.content.pipeline]] — 3 static module edges
+- [[Reference/Modules/learnloop/content/pipeline/_package|learnloop.content.pipeline]] — 8 static module edges
+- [[Reference/Modules/learnloop/content/sources/_package|learnloop.content.sources]] — 3 static module edges
+- [[Reference/Modules/learnloop_sidecar/handlers/_package|learnloop_sidecar.handlers]] — 2 static module edges
+
+### Dependency neighborhood
+
+This diagram compresses package-level static imports; edge labels are distinct module-to-module import counts.
+
+```mermaid
+flowchart LR
+    center["learnloop.ingest.extractors"]
+    n_learnloop_ingest["learnloop.ingest"]
+    n_learnloop_content_pipeline["learnloop.content.pipeline"]
+    n_learnloop_ai["learnloop.ai"]
+    n_learnloop_content_sources["learnloop.content.sources"]
+    n_learnloop_sidecar_handlers["learnloop_sidecar.handlers"]
+    n_learnloop_config["learnloop.config"]
+    center -->|13| n_learnloop_ingest
+    n_learnloop_content_pipeline -->|8| center
+    center -->|3| n_learnloop_ai
+    n_learnloop_content_sources -->|3| center
+    n_learnloop_sidecar_handlers -->|2| center
+    center -->|1| n_learnloop_config
+```
+
+Interpretation: arrow direction is static import direction and the label is the number of distinct module-to-module edges. It shows coupling pressure, not runtime call frequency or ownership permission.
 
 ## Workflow entry points
 

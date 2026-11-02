@@ -120,6 +120,10 @@ HOW_WORDS: dict[str, str] = {
 }
 #: C2's Pocket Notes snapshots (tend era, kept readable as history) still say so.
 POCKET_NOTES_LABEL = "handwritten · transcribed by Pocket Notes"
+#: Settings' hidden notes name a vault note's kind (C2b's notes carry no Pocket Notes label, so the
+#: row's origin part was blank: followups batch 5, B).
+VAULT_ORIGIN_LABELS: dict[str, str] = {VN.KIND_ANNOTATION: "your note in the Reader",
+                                       VN.KIND_CAPTURE: "your capture"}
 BY_MODEL_LABEL = "linked by LearnLoop's model"
 BY_YOU_LABEL = "linked by you"
 #: The prefix of a Compare take written from a note (*use as my take*: RW4d's own
@@ -1097,6 +1101,18 @@ def _where(vault: Any, library: SC.Library | None, row: Mapping[str, Any]) -> st
     return " › ".join(part for part in (reading.source_title, getattr(section, "title", None)) if part) or "a passage"
 
 
+def hidden_origin_label(key: str, note: Mapping[str, Any]) -> str | None:
+    """Where a hidden note came from, in words: a Pocket Notes page (C2's history), or a vault note's
+    kind (a Reader note, a capture); None for a tend-era note (its title and heading name it)."""
+
+    if note.get("origin") == "pocket_notes":
+        return POCKET_NOTES_LABEL
+    if note.get("origin") == VN.ORIGIN:
+        split = VN.split_key(key)
+        return VAULT_ORIGIN_LABELS.get(split[0]) if split else None
+    return None
+
+
 def hidden(vault: Any, repository: Repository) -> list[dict[str, Any]]:
     """The links the learner hid and still keeps hidden, newest first (C2 ruling R5,
     followups-nov1c C: Settings lists them, to bring one back after the reading changed):
@@ -1136,7 +1152,7 @@ def hidden(vault: Any, repository: Repository) -> list[dict[str, Any]]:
             "learning_object_id": row.get("learning_object_id"), "extraction_id": row.get("extraction_id"),
             "where": _where(vault, library, row), "by_label": BY_MODEL_LABEL if by_model else BY_YOU_LABEL,
             "note": {"title": note["title"], "heading": note["heading"], "date_label": date_label(note.get("captured_on")),
-                     "origin_label": POCKET_NOTES_LABEL if note["origin"] == "pocket_notes" else None},
+                     "origin_label": hidden_origin_label(str(row["note_key"]), note)},
         })
     return out
 

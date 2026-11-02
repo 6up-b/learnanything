@@ -759,7 +759,10 @@ def test_r5_settings_lists_the_hidden_notes_and_show_again_unhides_through_decid
     assert reads == [] and notes.calls == model_calls  # no vault-notes read, no model
     by_hand, by_model = listed  # newest first
     assert by_hand["byLabel"] == NL.BY_YOU_LABEL and by_hand["targetKind"] == "passage"
-    assert by_hand["note"]["dateLabel"] and by_hand["note"]["originLabel"] is None
+    assert by_hand["note"]["dateLabel"]
+    # Followups batch 5 (B): a vault note's row names its kind (its origin part was blank).
+    assert by_hand["note"]["originLabel"] == NL.VAULT_ORIGIN_LABELS["annotation"] == "your note in the Reader"
+    assert by_model["note"]["originLabel"] == NL.VAULT_ORIGIN_LABELS["capture"] == "your capture"
     assert by_model["byLabel"] == NL.BY_MODEL_LABEL and by_model["where"] == "the topic “Eigenvalues”"
     assert by_model["learningObjectId"] == "lo_eigen"
     text = json.dumps(listed)

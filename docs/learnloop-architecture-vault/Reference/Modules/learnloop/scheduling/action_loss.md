@@ -7,11 +7,11 @@ version: "1.0.0"
 source_path: "src/learnloop/scheduling/action_loss.py"
 source_paths:
   - "src/learnloop/scheduling/action_loss.py"
-source_commit: "b322ef2e9b5cebc241b612e4963a5aaf1a37f99a"
-source_commit_timestamp: "2026-08-20T18:04:29-04:00"
+source_commit: "d0ed73fe5b70b267fab771a67b9eb99cdf2d5e21"
+source_commit_timestamp: "2026-10-13T00:39:06-04:00"
 source_worktree_state: "clean"
 generated: true
-generated_at: "2026-09-23"
+generated_at: "2026-11-02"
 package: "learnloop.scheduling"
 layer: "domain"
 concepts:
@@ -50,43 +50,43 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/scheduling/action_loss.py](../../../../../../src/learnloop/scheduling/action_loss.py) |
-| Source lines | 358 |
+| Source lines | 384 |
 | Owning package | [[Reference/Modules/learnloop/scheduling/_package|learnloop.scheduling]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `b322ef2e9b5cebc241b612e4963a5aaf1a37f99a` |
-| Commit timestamp | `2026-08-20T18:04:29-04:00` |
+| Source commit | `d0ed73fe5b70b267fab771a67b9eb99cdf2d5e21` |
+| Commit timestamp | `2026-10-13T00:39:06-04:00` |
 
 ## Public API
 
-- `class LossDerivationError(ValueError)` ([source](../../../../../../src/learnloop/scheduling/action_loss.py), line 49) — A loss cell was constructed without a minutes derivation (registration lint).
-- `class LossTableIncompleteError(ValueError)` ([source](../../../../../../src/learnloop/scheduling/action_loss.py), line 53) — The loss table is missing cells or hypotheses the decision needs.
-  - `__init__(self, reason: str, detail: Sequence[str] | str=()) -> None` (line 64; internal)
-- `class DurationEstimate` ([source](../../../../../../src/learnloop/scheduling/action_loss.py), line 71) — One intervention's minutes estimate + its provenance (inspectable).
-  - `as_dict(self) -> dict[str, Any]` (line 79; public)
-- `class LossCell` ([source](../../../../../../src/learnloop/scheduling/action_loss.py), line 89) — One L(h, a) entry with its expected-minutes derivation attached (§6.2).
-  - `as_dict(self) -> dict[str, Any]` (line 97; public)
-- `class LossTable` ([source](../../../../../../src/learnloop/scheduling/action_loss.py), line 107) — A frozen, content-hashed, minutes-denominated loss table (§6.2).
-  - `loss(self, hypothesis: str, action: str) -> float` (line 122; public)
-  - `expected_loss(self, action: str, posterior: Mapping[str, float]) -> float` (line 132; public)
-  - `argmin_action(self, posterior: Mapping[str, float]) -> str` (line 138; public) — The minimum-expected-loss action under ``posterior`` (§6.3 ``current_loss`` argmin).
-  - `argmin_action_set(self, posterior: Mapping[str, float], *, tol: float=1e-09) -> frozenset[str]` (line 154; public) — All actions whose expected loss is within ``tol`` of the minimum -- the decision-space "same optimal action" set (§6.2), never closeness of values.
-  - `as_dict(self) -> dict[str, Any]` (line 162; public)
-- `attempt_minutes_by_intervention(interventions: Sequence[str], *, repository: Repository | None=None, overrides: Mapping[str, float] | None=None) -> dict[str, DurationEstimate]` ([source](../../../../../../src/learnloop/scheduling/action_loss.py), line 197) — Per-intervention minutes estimate with provenance.
-- `build_loss_table(*, routes: Sequence[Mapping[str, Any]], hypotheses: Sequence[str] | None=None, repository: Repository | None=None, duration_overrides: Mapping[str, float] | None=None, calibration_label: str='heuristic', scope: str='global') -> LossTable` ([source](../../../../../../src/learnloop/scheduling/action_loss.py), line 235) — Derive L(h, a) from triage-route structure + logged attempt durations (§6.2).
-- `assert_derived(table: LossTable) -> None` ([source](../../../../../../src/learnloop/scheduling/action_loss.py), line 320) — Registration lint (U-023, spec §16.3): every loss cell must carry a minutes derivation.
-- `raw_cell(hypothesis: str, action: str, minutes: float) -> LossCell` ([source](../../../../../../src/learnloop/scheduling/action_loss.py), line 353) — Construct an UNDERIVED loss cell (a free constant).
+- `class LossDerivationError(ValueError)` ([source](../../../../../../src/learnloop/scheduling/action_loss.py), line 57) — A loss cell was constructed without a minutes derivation (registration lint).
+- `class LossTableIncompleteError(ValueError)` ([source](../../../../../../src/learnloop/scheduling/action_loss.py), line 61) — The loss table is missing cells or hypotheses the decision needs.
+  - `__init__(self, reason: str, detail: Sequence[str] | str=()) -> None` (line 72; internal)
+- `class DurationEstimate` ([source](../../../../../../src/learnloop/scheduling/action_loss.py), line 79) — One intervention's minutes estimate + its provenance (inspectable).
+  - `as_dict(self) -> dict[str, Any]` (line 87; public)
+- `class LossCell` ([source](../../../../../../src/learnloop/scheduling/action_loss.py), line 97) — One L(h, a) entry with its expected-minutes derivation attached (§6.2).
+  - `as_dict(self) -> dict[str, Any]` (line 105; public)
+- `class LossTable` ([source](../../../../../../src/learnloop/scheduling/action_loss.py), line 115) — A frozen, content-hashed, minutes-denominated loss table (§6.2).
+  - `loss(self, hypothesis: str, action: str) -> float` (line 130; public)
+  - `expected_loss(self, action: str, posterior: Mapping[str, float]) -> float` (line 140; public)
+  - `argmin_action(self, posterior: Mapping[str, float]) -> str` (line 146; public) — The minimum-expected-loss action under ``posterior`` (§6.3 ``current_loss`` argmin).
+  - `argmin_action_set(self, posterior: Mapping[str, float], *, tol: float=1e-09) -> frozenset[str]` (line 162; public) — All actions whose expected loss is within ``tol`` of the minimum -- the decision-space "same optimal action" set (§6.2), never closeness of values.
+  - `as_dict(self) -> dict[str, Any]` (line 170; public)
+- `attempt_minutes_by_intervention(interventions: Sequence[str], *, repository: Repository | None=None, overrides: Mapping[str, float] | None=None) -> dict[str, DurationEstimate]` ([source](../../../../../../src/learnloop/scheduling/action_loss.py), line 205) — Per-intervention minutes estimate with provenance.
+- `build_loss_table(*, routes: Sequence[Mapping[str, Any]], hypotheses: Sequence[str] | None=None, repository: Repository | None=None, duration_overrides: Mapping[str, float] | None=None, calibration_label: str='heuristic', scope: str='global', unresolved_minutes: Mapping[str, Mapping[str, Any]] | None=None) -> LossTable` ([source](../../../../../../src/learnloop/scheduling/action_loss.py), line 243) — Derive L(h, a) from triage-route structure + logged attempt durations (§6.2).
+- `assert_derived(table: LossTable) -> None` ([source](../../../../../../src/learnloop/scheduling/action_loss.py), line 342) — Registration lint (U-023, spec §16.3): every loss cell must carry a minutes derivation.
+- `raw_cell(hypothesis: str, action: str, minutes: float) -> LossCell` ([source](../../../../../../src/learnloop/scheduling/action_loss.py), line 379) — Construct an UNDERIVED loss cell (a free constant).
 
 ### Module constants
 
-- `LOSS_TABLE_VERSION` ([src/learnloop/scheduling/action_loss.py](../../../../../../src/learnloop/scheduling/action_loss.py), line 41)
-- `DEFAULT_INTERVENTION_MINUTES` ([src/learnloop/scheduling/action_loss.py](../../../../../../src/learnloop/scheduling/action_loss.py), line 46)
+- `LOSS_TABLE_VERSION` ([src/learnloop/scheduling/action_loss.py](../../../../../../src/learnloop/scheduling/action_loss.py), line 49)
+- `DEFAULT_INTERVENTION_MINUTES` ([src/learnloop/scheduling/action_loss.py](../../../../../../src/learnloop/scheduling/action_loss.py), line 54)
 
 ## Internal implementation anchors
 
-- `_pooled_attempt_minutes(repository: Repository) -> tuple[float | None, int]` ([source](../../../../../../src/learnloop/scheduling/action_loss.py), line 181) — Median logged attempt duration in minutes + the sample count.
-- `_routes_by_reason(routes: Sequence[Mapping[str, Any]]) -> dict[str, Mapping[str, Any]]` ([source](../../../../../../src/learnloop/scheduling/action_loss.py), line 226)
+- `_pooled_attempt_minutes(repository: Repository) -> tuple[float | None, int]` ([source](../../../../../../src/learnloop/scheduling/action_loss.py), line 189) — Median logged attempt duration in minutes + the sample count.
+- `_routes_by_reason(routes: Sequence[Mapping[str, Any]]) -> dict[str, Mapping[str, Any]]` ([source](../../../../../../src/learnloop/scheduling/action_loss.py), line 234)
 
 ## Who imports or calls it
 
@@ -94,8 +94,14 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 > “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
 
 - [[Reference/Modules/learnloop/diagnosis/causal_diagnostic_selector|learnloop.diagnosis.causal_diagnostic_selector]] — imports `module`; statically calls `build_loss_table`
+- [[Reference/Modules/learnloop/diagnosis/voi_stopping|learnloop.diagnosis.voi_stopping]] — imports `module`; statically calls `attempt_minutes_by_intervention`, `build_loss_table`
+- [[Reference/Modules/learnloop/evsi_calibration/experiments|learnloop.evsi_calibration.experiments]] — imports `module`
+- [[Reference/Modules/learnloop/evsi_calibration/policies|learnloop.evsi_calibration.policies]] — imports `module`
+- [[Reference/Modules/learnloop/evsi_calibration/simulate|learnloop.evsi_calibration.simulate]] — imports `module`; statically calls `build_loss_table`
 - [[Reference/Modules/learnloop/scheduling/evsi|learnloop.scheduling.evsi]] — imports `module`
 - [[Reference/Modules/learnloop/scheduling/staged_policy|learnloop.scheduling.staged_policy]] — imports `module`
+- [[Reference/Modules/learnloop/scheduling/unresolved_cost|learnloop.scheduling.unresolved_cost]] — imports `module`
+- [[Reference/Modules/learnloop/scheduling/voi_forecasts|learnloop.scheduling.voi_forecasts]] — imports `module`
 - [[Reference/Modules/learnloop/sim/interval_width_viability|learnloop.sim.interval_width_viability]] — imports `module`; statically calls `LossCell`, `LossTable`
 
 ## Dependencies
@@ -117,7 +123,7 @@ Use this module in context through:
 - [[Start a Learning Cycle]]
 - [[Continue a Learning Cycle]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/diagnosis/causal_diagnostic_selector|learnloop.diagnosis.causal_diagnostic_selector]], [[Reference/Modules/learnloop/scheduling/evsi|learnloop.scheduling.evsi]], [[Reference/Modules/learnloop/scheduling/staged_policy|learnloop.scheduling.staged_policy]], [[Reference/Modules/learnloop/sim/interval_width_viability|learnloop.sim.interval_width_viability]].
+Static participation evidence comes from [[Reference/Modules/learnloop/diagnosis/causal_diagnostic_selector|learnloop.diagnosis.causal_diagnostic_selector]], [[Reference/Modules/learnloop/diagnosis/voi_stopping|learnloop.diagnosis.voi_stopping]], [[Reference/Modules/learnloop/evsi_calibration/experiments|learnloop.evsi_calibration.experiments]], [[Reference/Modules/learnloop/evsi_calibration/policies|learnloop.evsi_calibration.policies]], [[Reference/Modules/learnloop/evsi_calibration/simulate|learnloop.evsi_calibration.simulate]] and 5 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
@@ -135,7 +141,17 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_incomplete_grid_fails_registration`
   - `test_missing_loss_cell_raises_instead_of_impersonating_the_effective_repair`
   - `test_routeless_hypothesis_fails_closed_instead_of_silently_dropping`
+- [tests/test_reader_followups_round3.py](../../../../../../tests/test_reader_followups_round3.py) — direct import
+- [tests/test_sources_merge_composition.py](../../../../../../tests/test_sources_merge_composition.py) — direct import
+  - `test_a_decision_mode_valuation_records_its_forecast_when_logging_is_on`
 - [tests/test_staged_policy_evsi.py](../../../../../../tests/test_staged_policy_evsi.py) — direct import
+- [tests/test_value_candidates.py](../../../../../../tests/test_value_candidates.py) — direct import
+- [tests/test_voi_forecasts.py](../../../../../../tests/test_voi_forecasts.py) — direct import
+  - `test_loss_table_is_byte_identical_without_unresolved_minutes`
+  - `test_measured_loss_switch_charges_unresolved_minutes_in_the_shadow`
+- [tests/test_voi_merge_composition.py](../../../../../../tests/test_voi_merge_composition.py) — direct import
+  - `test_rank_four_off_keeps_todays_table_for_every_label_class`
+  - `test_rank_four_off_prices_the_minutes_only_table_exactly`
 
 ## Modification guidance
 

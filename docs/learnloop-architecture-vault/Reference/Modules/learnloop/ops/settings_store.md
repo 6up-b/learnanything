@@ -7,11 +7,11 @@ version: "1.0.0"
 source_path: "src/learnloop/ops/settings_store.py"
 source_paths:
   - "src/learnloop/ops/settings_store.py"
-source_commit: "86e3157496340294e84eebfe068e8f2f3d0df893"
-source_commit_timestamp: "2026-09-03T10:49:33-07:00"
+source_commit: "ba24b75411731cec4d49f47d63eb10bd78c3b388"
+source_commit_timestamp: "2026-10-13T00:56:51-04:00"
 source_worktree_state: "clean"
 generated: true
-generated_at: "2026-09-23"
+generated_at: "2026-11-02"
 package: "learnloop.ops"
 layer: "domain"
 concepts:
@@ -50,25 +50,25 @@ The authoritative system-level explanation remains in [[State and Persistence]],
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/ops/settings_store.py](../../../../../../src/learnloop/ops/settings_store.py) |
-| Source lines | 304 |
+| Source lines | 315 |
 | Owning package | [[Reference/Modules/learnloop/ops/_package|learnloop.ops]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `86e3157496340294e84eebfe068e8f2f3d0df893` |
-| Commit timestamp | `2026-09-03T10:49:33-07:00` |
+| Source commit | `ba24b75411731cec4d49f47d63eb10bd78c3b388` |
+| Commit timestamp | `2026-10-13T00:56:51-04:00` |
 
 ## Public API
 
 - `class SettingsStoreError(ValueError)` ([source](../../../../../../src/learnloop/ops/settings_store.py), line 30)
   - `__init__(self, code: str, message: str)` (line 31; internal)
-- `openrouter_profile_name(use_case: str) -> str` ([source](../../../../../../src/learnloop/ops/settings_store.py), line 48)
-- `openrouter_task_profile_values(base: AIProviderConfig, model: str, *, input_modalities: list[str] | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/ops/settings_store.py), line 52) — Concrete keys for a per-use-case OpenRouter profile cloned from ``base``.
-- `apply_config_updates(config_path: Path, updates: Mapping[tuple[str, ...], Any]) -> None` ([source](../../../../../../src/learnloop/ops/settings_store.py), line 85) — Set dotted key-paths in ``learnloop.toml``, preserving comments/layout.
-- `remove_config_paths(config_path: Path, key_paths: tuple[tuple[str, ...], ...]) -> tuple[tuple[str, ...], ...]` ([source](../../../../../../src/learnloop/ops/settings_store.py), line 128) — Remove retired config keys/tables with atomic, comment-preserving edits.
-- `copy_ai_settings(source_path: Path, target_path: Path) -> bool` ([source](../../../../../../src/learnloop/ops/settings_store.py), line 178) — Copy the persisted ``[ai]`` provider selection from one vault's ``learnloop.toml`` into another's.
-- `save_ai_settings_to(source_path: Path, target_path: Path) -> bool` ([source](../../../../../../src/learnloop/ops/settings_store.py), line 232) — Mirror a vault's ``[ai]`` selection into ``target_path``, creating the target (and its parent dir) if absent.
-- `upsert_env_var(path: Path, key: str, value: str | None) -> None` ([source](../../../../../../src/learnloop/ops/settings_store.py), line 256) — Set (or remove, when ``value`` is None) ``KEY=value`` in a dotenv file.
+- `openrouter_profile_name(use_case: str) -> str` ([source](../../../../../../src/learnloop/ops/settings_store.py), line 50)
+- `openrouter_task_profile_values(base: AIProviderConfig, model: str, *, input_modalities: list[str] | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/ops/settings_store.py), line 54) — Concrete keys for a per-use-case OpenRouter profile cloned from ``base``.
+- `apply_config_updates(config_path: Path, updates: Mapping[tuple[str, ...], Any]) -> None` ([source](../../../../../../src/learnloop/ops/settings_store.py), line 87) — Set dotted key-paths in ``learnloop.toml``, preserving comments/layout.
+- `remove_config_paths(config_path: Path, key_paths: tuple[tuple[str, ...], ...]) -> tuple[tuple[str, ...], ...]` ([source](../../../../../../src/learnloop/ops/settings_store.py), line 130) — Remove retired config keys/tables with atomic, comment-preserving edits.
+- `copy_ai_settings(source_path: Path, target_path: Path) -> bool` ([source](../../../../../../src/learnloop/ops/settings_store.py), line 180) — Copy the persisted ``[ai]`` provider selection from one vault's ``learnloop.toml`` into another's.
+- `save_ai_settings_to(source_path: Path, target_path: Path) -> bool` ([source](../../../../../../src/learnloop/ops/settings_store.py), line 243) — Mirror a vault's ``[ai]`` selection into ``target_path``, creating the target (and its parent dir) if absent.
+- `upsert_env_var(path: Path, key: str, value: str | None) -> None` ([source](../../../../../../src/learnloop/ops/settings_store.py), line 267) — Set (or remove, when ``value`` is None) ``KEY=value`` in a dotenv file.
 
 ### Module constants
 
@@ -76,7 +76,7 @@ The authoritative system-level explanation remains in [[State and Persistence]],
 
 ## Internal implementation anchors
 
-- `_flatten_into_updates(prefix: tuple[str, ...], table: Mapping[str, Any], updates: dict[tuple[str, ...], Any]) -> None` ([source](../../../../../../src/learnloop/ops/settings_store.py), line 246)
+- `_flatten_into_updates(prefix: tuple[str, ...], table: Mapping[str, Any], updates: dict[tuple[str, ...], Any]) -> None` ([source](../../../../../../src/learnloop/ops/settings_store.py), line 257)
 
 ## Who imports or calls it
 
@@ -84,6 +84,13 @@ The authoritative system-level explanation remains in [[State and Persistence]],
 > “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
 
 - [[Reference/Modules/learnloop/bootstrap|learnloop.bootstrap]] — imports `SettingsStoreError`, `copy_ai_settings`; statically calls `copy_ai_settings`
+- [[Reference/Modules/learnloop/ops/plan_transport|learnloop.ops.plan_transport]] — imports `apply_config_updates`; statically calls `apply_config_updates`
+- [[Reference/Modules/learnloop_sidecar/handlers/correspondents|learnloop_sidecar.handlers.correspondents]] — imports `SettingsStoreError`, `apply_config_updates`; statically calls `SettingsStoreError`, `apply_config_updates`
+- [[Reference/Modules/learnloop_sidecar/handlers/figures|learnloop_sidecar.handlers.figures]] — imports `SettingsStoreError`, `apply_config_updates`; statically calls `apply_config_updates`
+- [[Reference/Modules/learnloop_sidecar/handlers/first_run|learnloop_sidecar.handlers.first_run]] — imports `SettingsStoreError`, `USE_CASE_ROUTES`, `apply_config_updates`, `save_ai_settings_to`; statically calls `apply_config_updates`, `save_ai_settings_to`
+- [[Reference/Modules/learnloop_sidecar/handlers/hints|learnloop_sidecar.handlers.hints]] — imports `SettingsStoreError`, `apply_config_updates`; statically calls `apply_config_updates`
+- [[Reference/Modules/learnloop_sidecar/handlers/notes|learnloop_sidecar.handlers.notes]] — imports `SettingsStoreError`, `apply_config_updates`; statically calls `apply_config_updates`
+- [[Reference/Modules/learnloop_sidecar/handlers/reader|learnloop_sidecar.handlers.reader]] — imports `SettingsStoreError`, `apply_config_updates`; statically calls `apply_config_updates`
 - [[Reference/Modules/learnloop_sidecar/handlers/settings|learnloop_sidecar.handlers.settings]] — imports `SettingsStoreError`, `USE_CASE_ROUTES`, `apply_config_updates`, `openrouter_profile_name`, `openrouter_task_profile_values`, `save_ai_settings_to`, `upsert_env_var`; statically calls `apply_config_updates`, `openrouter_profile_name`, `openrouter_task_profile_values`, `save_ai_settings_to`, `upsert_env_var`
 
 ## Dependencies
@@ -103,12 +110,13 @@ Use this module in context through:
 
 - [[Configure AI Providers]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/bootstrap|learnloop.bootstrap]], [[Reference/Modules/learnloop_sidecar/handlers/settings|learnloop_sidecar.handlers.settings]].
+Static participation evidence comes from [[Reference/Modules/learnloop/bootstrap|learnloop.bootstrap]], [[Reference/Modules/learnloop/ops/plan_transport|learnloop.ops.plan_transport]], [[Reference/Modules/learnloop_sidecar/handlers/correspondents|learnloop_sidecar.handlers.correspondents]], [[Reference/Modules/learnloop_sidecar/handlers/figures|learnloop_sidecar.handlers.figures]], [[Reference/Modules/learnloop_sidecar/handlers/first_run|learnloop_sidecar.handlers.first_run]] and 4 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
 ## Tests that define behavior
 
+- [tests/rich_fixtures.py](../../../../../../tests/rich_fixtures.py) — direct import
 - [tests/test_concept_animation_service.py](../../../../../../tests/test_concept_animation_service.py) — direct import
   - `test_request_video_model_requires_a_ready_route`
   - `test_storyboard_total_is_checked_on_the_clamped_durations`
@@ -122,6 +130,10 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_native_route_takes_precedence_over_openrouter_transcription_setting`
   - `test_routed_transcription_keeps_the_chat_upload_size_cap`
   - `test_transcription_route_never_falls_back_to_an_unconsented_provider`
+- [tests/test_notes_as_learner_text.py](../../../../../../tests/test_notes_as_learner_text.py) — direct import
+  - `test_a_vault_opened_with_the_opt_in_on_queues_its_linked_notes`
+  - `test_f3_revoking_consent_before_dispatch_sends_nothing`
+  - `test_f3_switched_off_before_the_final_write_writes_nothing`
 - [tests/test_settings_sidecar.py](../../../../../../tests/test_settings_sidecar.py) — direct import
   - `test_detect_provider_capabilities_without_a_model_skips_the_network`
   - `test_start_import_batch_fails_fast_for_native_pdf_conflicts`
@@ -144,6 +156,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_sidecar_animation.py](../../../../../../tests/test_sidecar_animation.py) — direct import
 - [tests/test_sidecar_contract.py](../../../../../../tests/test_sidecar_contract.py) — direct import
   - `test_update_ingest_settings_transcription_provider_switch`
+- [tests/ux_phase1_support.py](../../../../../../tests/ux_phase1_support.py) — direct import
 
 ## Modification guidance
 

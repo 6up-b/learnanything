@@ -7,11 +7,11 @@ version: "1.0.0"
 source_path: "src/learnloop/content/synthesis/synthesis_gates.py"
 source_paths:
   - "src/learnloop/content/synthesis/synthesis_gates.py"
-source_commit: "b322ef2e9b5cebc241b612e4963a5aaf1a37f99a"
-source_commit_timestamp: "2026-08-20T18:04:29-04:00"
+source_commit: "10415fdfc4ec39c1d2471c0207fcb62a8f7f9a80"
+source_commit_timestamp: "2026-10-13T08:25:43-04:00"
 source_worktree_state: "clean"
 generated: true
-generated_at: "2026-09-23"
+generated_at: "2026-11-02"
 package: "learnloop.content.synthesis"
 layer: "domain"
 concepts:
@@ -51,72 +51,77 @@ The authoritative system-level explanation remains in [[Learning System]], [[AI 
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/content/synthesis/synthesis_gates.py](../../../../../../../src/learnloop/content/synthesis/synthesis_gates.py) |
-| Source lines | 930 |
+| Source lines | 1044 |
 | Owning package | [[Reference/Modules/learnloop/content/synthesis/_package|learnloop.content.synthesis]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `b322ef2e9b5cebc241b612e4963a5aaf1a37f99a` |
-| Commit timestamp | `2026-08-20T18:04:29-04:00` |
+| Source commit | `10415fdfc4ec39c1d2471c0207fcb62a8f7f9a80` |
+| Commit timestamp | `2026-10-13T08:25:43-04:00` |
 
 ## Public API
 
-- `class GateDiagnostic` ([source](../../../../../../../src/learnloop/content/synthesis/synthesis_gates.py), line 38)
-  - `to_dict(self) -> dict[str, Any]` (line 45; public)
-- `class ProvenanceRef` ([source](../../../../../../../src/learnloop/content/synthesis/synthesis_gates.py), line 56) — A source span backing a proposed entity (§4.2/§8.5).
-- `class GateItem` ([source](../../../../../../../src/learnloop/content/synthesis/synthesis_gates.py), line 70)
-  - `is_semantic(self) -> bool` (line 93; public)
-  - `is_destructive(self) -> bool` (line 98; public)
-  - `refs(self) -> tuple[str, ...]` (line 103; public)
-- `class GateProposal` ([source](../../../../../../../src/learnloop/content/synthesis/synthesis_gates.py), line 108)
-- `class GateContext` ([source](../../../../../../../src/learnloop/content/synthesis/synthesis_gates.py), line 117)
-- `class GateReport` ([source](../../../../../../../src/learnloop/content/synthesis/synthesis_gates.py), line 146)
-  - `hard_fails(self) -> list[GateDiagnostic]` (line 150; public)
-  - `reviews(self) -> list[GateDiagnostic]` (line 154; public)
-  - `blocked(self) -> bool` (line 158; public) — True when any hard_fail is present — the proposal cannot be persisted.
-  - `requires_review(self) -> bool` (line 164; public)
-  - `gates_fired(self) -> set[str]` (line 167; public)
-- `run_synthesis_gates(proposal: GateProposal, ctx: GateContext) -> GateReport` ([source](../../../../../../../src/learnloop/content/synthesis/synthesis_gates.py), line 171) — Run every §8.7 gate and collect typed diagnostics.
+- `class GateDiagnostic` ([source](../../../../../../../src/learnloop/content/synthesis/synthesis_gates.py), line 44)
+  - `to_dict(self) -> dict[str, Any]` (line 51; public)
+- `class ProvenanceRef` ([source](../../../../../../../src/learnloop/content/synthesis/synthesis_gates.py), line 62) — A source span backing a proposed entity (§4.2/§8.5).
+- `class GateItem` ([source](../../../../../../../src/learnloop/content/synthesis/synthesis_gates.py), line 80)
+  - `is_semantic(self) -> bool` (line 103; public)
+  - `is_destructive(self) -> bool` (line 108; public)
+  - `refs(self) -> tuple[str, ...]` (line 113; public)
+- `class GateProposal` ([source](../../../../../../../src/learnloop/content/synthesis/synthesis_gates.py), line 118)
+- `class GateContext` ([source](../../../../../../../src/learnloop/content/synthesis/synthesis_gates.py), line 127)
+- `class GateReport` ([source](../../../../../../../src/learnloop/content/synthesis/synthesis_gates.py), line 161)
+  - `hard_fails(self) -> list[GateDiagnostic]` (line 165; public)
+  - `reviews(self) -> list[GateDiagnostic]` (line 169; public)
+  - `blocked(self) -> bool` (line 173; public) — True when any hard_fail is present — the proposal cannot be persisted.
+  - `requires_review(self) -> bool` (line 179; public)
+  - `gates_fired(self) -> set[str]` (line 182; public)
+- `run_synthesis_gates(proposal: GateProposal, ctx: GateContext) -> GateReport` ([source](../../../../../../../src/learnloop/content/synthesis/synthesis_gates.py), line 186) — Run every §8.7 gate and collect typed diagnostics.
 
 ### Module constants
 
-- `SEMANTIC_AUTHORITY_ROLES` ([src/learnloop/content/synthesis/synthesis_gates.py](../../../../../../../src/learnloop/content/synthesis/synthesis_gates.py), line 25)
-- `ASSESSMENT_ONLY_ROLES` ([src/learnloop/content/synthesis/synthesis_gates.py](../../../../../../../src/learnloop/content/synthesis/synthesis_gates.py), line 29)
-- `_SEMANTIC_ITEM_TYPES` ([src/learnloop/content/synthesis/synthesis_gates.py](../../../../../../../src/learnloop/content/synthesis/synthesis_gates.py), line 31)
-- `_TOKEN_RE` ([src/learnloop/content/synthesis/synthesis_gates.py](../../../../../../../src/learnloop/content/synthesis/synthesis_gates.py), line 32)
-- `_ADDITIVE_ITEM_TYPES` ([src/learnloop/content/synthesis/synthesis_gates.py](../../../../../../../src/learnloop/content/synthesis/synthesis_gates.py), line 695)
-- `_GATES` ([src/learnloop/content/synthesis/synthesis_gates.py](../../../../../../../src/learnloop/content/synthesis/synthesis_gates.py), line 824)
+- `SEMANTIC_AUTHORITY_ROLES` ([src/learnloop/content/synthesis/synthesis_gates.py](../../../../../../../src/learnloop/content/synthesis/synthesis_gates.py), line 33)
+- `_SEMANTIC_ITEM_TYPES` ([src/learnloop/content/synthesis/synthesis_gates.py](../../../../../../../src/learnloop/content/synthesis/synthesis_gates.py), line 37)
+- `_TOKEN_RE` ([src/learnloop/content/synthesis/synthesis_gates.py](../../../../../../../src/learnloop/content/synthesis/synthesis_gates.py), line 38)
+- `_ADDITIVE_ITEM_TYPES` ([src/learnloop/content/synthesis/synthesis_gates.py](../../../../../../../src/learnloop/content/synthesis/synthesis_gates.py), line 786)
+- `_PROPOSAL_ONLY_KEYS` ([src/learnloop/content/synthesis/synthesis_gates.py](../../../../../../../src/learnloop/content/synthesis/synthesis_gates.py), line 841)
+- `ATTACH_GROWABLE_FIELDS` ([src/learnloop/content/synthesis/synthesis_gates.py](../../../../../../../src/learnloop/content/synthesis/synthesis_gates.py), line 847)
+- `_GATES` ([src/learnloop/content/synthesis/synthesis_gates.py](../../../../../../../src/learnloop/content/synthesis/synthesis_gates.py), line 937)
 
 ## Internal implementation anchors
 
-- `_gate_span_resolution(proposal: GateProposal, ctx: GateContext) -> list[GateDiagnostic]` ([source](../../../../../../../src/learnloop/content/synthesis/synthesis_gates.py), line 185)
-- `_gate_scope(proposal: GateProposal, ctx: GateContext) -> list[GateDiagnostic]` ([source](../../../../../../../src/learnloop/content/synthesis/synthesis_gates.py), line 208)
-- `_gate_unit_id_validity(proposal: GateProposal, ctx: GateContext) -> list[GateDiagnostic]` ([source](../../../../../../../src/learnloop/content/synthesis/synthesis_gates.py), line 227)
-- `_gate_conflict_disposition(proposal: GateProposal, ctx: GateContext) -> list[GateDiagnostic]` ([source](../../../../../../../src/learnloop/content/synthesis/synthesis_gates.py), line 252)
-- `_gate_lock_guard(proposal: GateProposal, ctx: GateContext) -> list[GateDiagnostic]` ([source](../../../../../../../src/learnloop/content/synthesis/synthesis_gates.py), line 274)
-- `_lock_reason_for(item: GateItem, ctx: GateContext) -> str | None` ([source](../../../../../../../src/learnloop/content/synthesis/synthesis_gates.py), line 293) — Delegate to can_apply when a vault/repository is wired, else use the item's injected lock_reason.
-- `_gate_adequate_provenance(proposal: GateProposal, ctx: GateContext) -> list[GateDiagnostic]` ([source](../../../../../../../src/learnloop/content/synthesis/synthesis_gates.py), line 313)
-- `_has_semantic_authority(item: GateItem) -> bool` ([source](../../../../../../../src/learnloop/content/synthesis/synthesis_gates.py), line 335)
-- `_gate_criterion_targets_dag(proposal: GateProposal, ctx: GateContext) -> list[GateDiagnostic]` ([source](../../../../../../../src/learnloop/content/synthesis/synthesis_gates.py), line 346)
-- `_gate_recipe_validity(proposal: GateProposal, ctx: GateContext) -> list[GateDiagnostic]` ([source](../../../../../../../src/learnloop/content/synthesis/synthesis_gates.py), line 397)
-- `_gate_dependency_closure(proposal: GateProposal, ctx: GateContext) -> list[GateDiagnostic]` ([source](../../../../../../../src/learnloop/content/synthesis/synthesis_gates.py), line 485)
-- `_gate_exam_authority(proposal: GateProposal, ctx: GateContext) -> list[GateDiagnostic]` ([source](../../../../../../../src/learnloop/content/synthesis/synthesis_gates.py), line 516)
-- `_gate_held_out_leakage(proposal: GateProposal, ctx: GateContext) -> list[GateDiagnostic]` ([source](../../../../../../../src/learnloop/content/synthesis/synthesis_gates.py), line 539)
-- `_gate_token_truncation(proposal: GateProposal, ctx: GateContext) -> list[GateDiagnostic]` ([source](../../../../../../../src/learnloop/content/synthesis/synthesis_gates.py), line 560)
-- `_gate_practice_exam_only(proposal: GateProposal, ctx: GateContext) -> list[GateDiagnostic]` ([source](../../../../../../../src/learnloop/content/synthesis/synthesis_gates.py), line 583)
-- `_gate_duplicate_ids_dangling(proposal: GateProposal, ctx: GateContext) -> list[GateDiagnostic]` ([source](../../../../../../../src/learnloop/content/synthesis/synthesis_gates.py), line 604)
-- `_endpoint_known(endpoint: str, proposal: GateProposal) -> bool` ([source](../../../../../../../src/learnloop/content/synthesis/synthesis_gates.py), line 650)
-- `_gate_near_duplicate_facets(proposal: GateProposal, ctx: GateContext) -> list[GateDiagnostic]` ([source](../../../../../../../src/learnloop/content/synthesis/synthesis_gates.py), line 657)
-- `_gate_append_vocabulary(proposal: GateProposal, ctx: GateContext) -> list[GateDiagnostic]` ([source](../../../../../../../src/learnloop/content/synthesis/synthesis_gates.py), line 700) — Append vocabulary gate (§10.2/§10.3).
-- `_is_alias_only_facet_append(item: GateItem, ctx: GateContext) -> bool` ([source](../../../../../../../src/learnloop/content/synthesis/synthesis_gates.py), line 748) — Is this a D2 alias registration — provably additive, so append-legal?
-- `_default_identifiability(proposal: GateProposal, ctx: GateContext) -> list[GateDiagnostic]` ([source](../../../../../../../src/learnloop/content/synthesis/synthesis_gates.py), line 783) — Degenerate identifiability check (SEAM for KM5's §11.3 doctor).
-- `_criteria_of(item: GateItem) -> list[dict[str, Any]]` ([source](../../../../../../../src/learnloop/content/synthesis/synthesis_gates.py), line 847)
-- `_blueprints_of(item: GateItem) -> list[dict[str, Any]]` ([source](../../../../../../../src/learnloop/content/synthesis/synthesis_gates.py), line 857)
-- `_facet_tokens(payload: dict[str, Any]) -> set[str]` ([source](../../../../../../../src/learnloop/content/synthesis/synthesis_gates.py), line 864)
-- `_facet_signature(payload: dict[str, Any]) -> tuple[str, ...]` ([source](../../../../../../../src/learnloop/content/synthesis/synthesis_gates.py), line 869)
-- `_text_tokens(text: str) -> set[str]` ([source](../../../../../../../src/learnloop/content/synthesis/synthesis_gates.py), line 877)
-- `_jaccard(left: set[str], right: set[str]) -> float` ([source](../../../../../../../src/learnloop/content/synthesis/synthesis_gates.py), line 881)
-- `_first_cycle(graph: dict[str, Iterable[str]]) -> list[str] | None` ([source](../../../../../../../src/learnloop/content/synthesis/synthesis_gates.py), line 902)
+- `_gate_span_resolution(proposal: GateProposal, ctx: GateContext) -> list[GateDiagnostic]` ([source](../../../../../../../src/learnloop/content/synthesis/synthesis_gates.py), line 200)
+- `_gate_scope(proposal: GateProposal, ctx: GateContext) -> list[GateDiagnostic]` ([source](../../../../../../../src/learnloop/content/synthesis/synthesis_gates.py), line 223)
+- `_gate_unit_id_validity(proposal: GateProposal, ctx: GateContext) -> list[GateDiagnostic]` ([source](../../../../../../../src/learnloop/content/synthesis/synthesis_gates.py), line 242)
+- `_gate_citation_scope(proposal: GateProposal, ctx: GateContext) -> list[GateDiagnostic]` ([source](../../../../../../../src/learnloop/content/synthesis/synthesis_gates.py), line 267) — A citation outside the selected scope supports nothing (Codex verification of F6).
+- `_hard_failed_citation(ref: ProvenanceRef, ctx: GateContext) -> bool` ([source](../../../../../../../src/learnloop/content/synthesis/synthesis_gates.py), line 295) — Whether the span/scope/unit gates already fail this citation.
+- `_gate_conflict_disposition(proposal: GateProposal, ctx: GateContext) -> list[GateDiagnostic]` ([source](../../../../../../../src/learnloop/content/synthesis/synthesis_gates.py), line 309)
+- `_gate_lock_guard(proposal: GateProposal, ctx: GateContext) -> list[GateDiagnostic]` ([source](../../../../../../../src/learnloop/content/synthesis/synthesis_gates.py), line 331)
+- `_lock_reason_for(item: GateItem, ctx: GateContext) -> str | None` ([source](../../../../../../../src/learnloop/content/synthesis/synthesis_gates.py), line 350) — Delegate to can_apply when a vault/repository is wired, else use the item's injected lock_reason.
+- `_gate_adequate_provenance(proposal: GateProposal, ctx: GateContext) -> list[GateDiagnostic]` ([source](../../../../../../../src/learnloop/content/synthesis/synthesis_gates.py), line 375)
+- `_has_semantic_authority(item: GateItem) -> bool` ([source](../../../../../../../src/learnloop/content/synthesis/synthesis_gates.py), line 397)
+- `_known_facet_references(proposal: GateProposal, ctx: GateContext) -> set[str]` ([source](../../../../../../../src/learnloop/content/synthesis/synthesis_gates.py), line 403) — Facet ids a reference may name: registered, proposed, or an alias of either.
+- `_gate_criterion_targets_dag(proposal: GateProposal, ctx: GateContext) -> list[GateDiagnostic]` ([source](../../../../../../../src/learnloop/content/synthesis/synthesis_gates.py), line 426)
+- `_gate_recipe_validity(proposal: GateProposal, ctx: GateContext) -> list[GateDiagnostic]` ([source](../../../../../../../src/learnloop/content/synthesis/synthesis_gates.py), line 475)
+- `_gate_dependency_closure(proposal: GateProposal, ctx: GateContext) -> list[GateDiagnostic]` ([source](../../../../../../../src/learnloop/content/synthesis/synthesis_gates.py), line 561)
+- `_gate_exam_authority(proposal: GateProposal, ctx: GateContext) -> list[GateDiagnostic]` ([source](../../../../../../../src/learnloop/content/synthesis/synthesis_gates.py), line 592)
+- `_gate_held_out_leakage(proposal: GateProposal, ctx: GateContext) -> list[GateDiagnostic]` ([source](../../../../../../../src/learnloop/content/synthesis/synthesis_gates.py), line 616)
+- `_gate_token_truncation(proposal: GateProposal, ctx: GateContext) -> list[GateDiagnostic]` ([source](../../../../../../../src/learnloop/content/synthesis/synthesis_gates.py), line 637)
+- `_gate_practice_exam_only(proposal: GateProposal, ctx: GateContext) -> list[GateDiagnostic]` ([source](../../../../../../../src/learnloop/content/synthesis/synthesis_gates.py), line 660)
+- `_gate_duplicate_ids_dangling(proposal: GateProposal, ctx: GateContext) -> list[GateDiagnostic]` ([source](../../../../../../../src/learnloop/content/synthesis/synthesis_gates.py), line 681)
+- `_endpoint_known(endpoint: str, proposal: GateProposal) -> bool` ([source](../../../../../../../src/learnloop/content/synthesis/synthesis_gates.py), line 727)
+- `_cosine_note(ctx: GateContext, left: Any, right: Any) -> str` ([source](../../../../../../../src/learnloop/content/synthesis/synthesis_gates.py), line 734) — ``", cosine 0.91"`` beside the Jaccard, when T5 vectors exist (display only).
+- `_gate_near_duplicate_facets(proposal: GateProposal, ctx: GateContext) -> list[GateDiagnostic]` ([source](../../../../../../../src/learnloop/content/synthesis/synthesis_gates.py), line 746)
+- `_gate_append_vocabulary(proposal: GateProposal, ctx: GateContext) -> list[GateDiagnostic]` ([source](../../../../../../../src/learnloop/content/synthesis/synthesis_gates.py), line 791) — Append vocabulary gate (§10.2/§10.3).
+- `_is_alias_only_facet_append(item: GateItem, ctx: GateContext) -> bool` ([source](../../../../../../../src/learnloop/content/synthesis/synthesis_gates.py), line 850) — Is this a D2 alias registration — provably additive, so append-legal?
+- `_default_identifiability(proposal: GateProposal, ctx: GateContext) -> list[GateDiagnostic]` ([source](../../../../../../../src/learnloop/content/synthesis/synthesis_gates.py), line 896) — Degenerate identifiability check (SEAM for KM5's §11.3 doctor).
+- `_criteria_of(item: GateItem) -> list[dict[str, Any]]` ([source](../../../../../../../src/learnloop/content/synthesis/synthesis_gates.py), line 961)
+- `_blueprints_of(item: GateItem) -> list[dict[str, Any]]` ([source](../../../../../../../src/learnloop/content/synthesis/synthesis_gates.py), line 971)
+- `_facet_tokens(payload: dict[str, Any]) -> set[str]` ([source](../../../../../../../src/learnloop/content/synthesis/synthesis_gates.py), line 978)
+- `_facet_signature(payload: dict[str, Any]) -> tuple[str, ...]` ([source](../../../../../../../src/learnloop/content/synthesis/synthesis_gates.py), line 983)
+- `_text_tokens(text: str) -> set[str]` ([source](../../../../../../../src/learnloop/content/synthesis/synthesis_gates.py), line 991)
+- `_jaccard(left: set[str], right: set[str]) -> float` ([source](../../../../../../../src/learnloop/content/synthesis/synthesis_gates.py), line 995)
+- `_first_cycle(graph: dict[str, Iterable[str]]) -> list[str] | None` ([source](../../../../../../../src/learnloop/content/synthesis/synthesis_gates.py), line 1016)
 
 ## Who imports or calls it
 
@@ -124,9 +129,12 @@ The authoritative system-level explanation remains in [[Learning System]], [[AI 
 > “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
 
 - [[Reference/Modules/learnloop/content/authoring/practice_generation|learnloop.content.authoring.practice_generation]] — imports `GateDiagnostic`; statically calls `GateDiagnostic`
+- [[Reference/Modules/learnloop/content/facet_identity/authority|learnloop.content.facet_identity.authority]] — imports `ProvenanceRef`; statically calls `ProvenanceRef`
+- [[Reference/Modules/learnloop/content/facet_identity/grouping|learnloop.content.facet_identity.grouping]] — imports `facet_tokens`, `jaccard`; statically calls `facet_tokens`, `jaccard`
+- [[Reference/Modules/learnloop/content/facet_identity/plan|learnloop.content.facet_identity.plan]] — imports `facet_tokens`, `jaccard`; statically calls `facet_tokens`, `jaccard`
 - [[Reference/Modules/learnloop/content/synthesis/facet_mint_gate|learnloop.content.synthesis.facet_mint_gate]] — imports `facet_tokens`, `jaccard`; statically calls `facet_tokens`, `jaccard`
-- [[Reference/Modules/learnloop/content/synthesis/source_append|learnloop.content.synthesis.source_append]] — imports `GateItem`, `GateProposal`, `ProvenanceRef`, `run_synthesis_gates`; statically calls `GateItem`, `GateProposal`, `run_synthesis_gates`
-- [[Reference/Modules/learnloop/content/synthesis/source_set_synthesis|learnloop.content.synthesis.source_set_synthesis]] — imports `GateContext`, `GateDiagnostic`, `GateItem`, `GateProposal`, `ProvenanceRef`, `run_synthesis_gates`; statically calls `GateContext`, `GateDiagnostic`, `GateItem`, `GateProposal`, `ProvenanceRef`, `run_synthesis_gates`
+- [[Reference/Modules/learnloop/content/synthesis/source_append|learnloop.content.synthesis.source_append]] — imports `ASSESSMENT_ONLY_ROLES`, `GateItem`, `GateProposal`, `ProvenanceRef`, `run_synthesis_gates`; statically calls `GateItem`, `GateProposal`, `run_synthesis_gates`
+- [[Reference/Modules/learnloop/content/synthesis/source_set_synthesis|learnloop.content.synthesis.source_set_synthesis]] — imports `ATTACH_GROWABLE_FIELDS`, `GateContext`, `GateDiagnostic`, `GateItem`, `GateProposal`, `ProvenanceRef`, `run_synthesis_gates`; statically calls `GateContext`, `GateDiagnostic`, `GateItem`, `GateProposal`, `ProvenanceRef`, `run_synthesis_gates`
 - [[Reference/Modules/learnloop/curriculum/depth_edge_authoring|learnloop.curriculum.depth_edge_authoring]] — imports `GateDiagnostic`; statically calls `GateDiagnostic`
 - [[Reference/Modules/learnloop/curriculum/depth_rungs|learnloop.curriculum.depth_rungs]] — imports `GateDiagnostic`; statically calls `GateDiagnostic`
 
@@ -134,6 +142,7 @@ The authoritative system-level explanation remains in [[Learning System]], [[AI 
 
 ### LearnLoop dependencies
 
+- [[Reference/Modules/learnloop/content/sources/role_authority|learnloop.content.sources.role_authority]] — imports `ASSESSMENT_ONLY_ROLES`, `EXAM_UNCORROBORATED`, `EXPLANATORY`, `support_verdict`; calls `support_verdict`
 - [[Reference/Modules/learnloop/curriculum/curriculum_locks|learnloop.curriculum.curriculum_locks]] — imports `Operation`, `can_apply`; calls `Operation`, `can_apply`
 
 ### Platform and third-party dependencies
@@ -148,12 +157,27 @@ Use this module in context through:
 - [[Import Canonical Sources]]
 - [[Build a Study Map]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/content/authoring/practice_generation|learnloop.content.authoring.practice_generation]], [[Reference/Modules/learnloop/content/synthesis/facet_mint_gate|learnloop.content.synthesis.facet_mint_gate]], [[Reference/Modules/learnloop/content/synthesis/source_append|learnloop.content.synthesis.source_append]], [[Reference/Modules/learnloop/content/synthesis/source_set_synthesis|learnloop.content.synthesis.source_set_synthesis]], [[Reference/Modules/learnloop/curriculum/depth_edge_authoring|learnloop.curriculum.depth_edge_authoring]] and 1 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/content/authoring/practice_generation|learnloop.content.authoring.practice_generation]], [[Reference/Modules/learnloop/content/facet_identity/authority|learnloop.content.facet_identity.authority]], [[Reference/Modules/learnloop/content/facet_identity/grouping|learnloop.content.facet_identity.grouping]], [[Reference/Modules/learnloop/content/facet_identity/plan|learnloop.content.facet_identity.plan]], [[Reference/Modules/learnloop/content/synthesis/facet_mint_gate|learnloop.content.synthesis.facet_mint_gate]] and 4 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
 ## Tests that define behavior
 
+- [tests/test_facet_authority.py](../../../../../../../tests/test_facet_authority.py) — direct import
+  - `test_a_notes_citation_never_corroborates_exam_material_at_the_gate`
+- [tests/test_facet_identity.py](../../../../../../../tests/test_facet_identity.py) — direct import
+  - `test_judge_writes_one_ledger_row_per_pair_and_never_pays_twice`
+- [tests/test_facet_identity_composition.py](../../../../../../../tests/test_facet_identity_composition.py) — direct import
+  - `test_the_ledger_records_merged_pairs_and_shortlisted_different_pairs_only`
+- [tests/test_facet_identity_ingest.py](../../../../../../../tests/test_facet_identity_ingest.py) — direct import
+  - `test_revalidation_replays_the_plan_without_a_judge_call`
+  - `test_revalidation_with_the_switch_off_replays_no_stored_plan`
+  - `test_the_alias_only_append_gate_refuses_a_precondition_growth`
+  - `test_the_gate_knows_aliases_only_while_facet_identity_is_on`
+- [tests/test_facet_rewords.py](../../../../../../../tests/test_facet_rewords.py) — direct import
+  - `test_the_gate_lets_a_facet_update_through_and_still_guards_a_practised_learning_object`
+- [tests/test_graph_nomination.py](../../../../../../../tests/test_graph_nomination.py) — direct import
+  - `test_synthesis_gate_and_facet_candidates_show_cosine_beside_jaccard`
 - [tests/test_source_append.py](../../../../../../../tests/test_source_append.py) — direct import
   - `test_append_vocabulary_gate_rejects_mutation_outside_restructure`
 - [tests/test_synthesis_gates.py](../../../../../../../tests/test_synthesis_gates.py) — direct import

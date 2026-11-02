@@ -6813,6 +6813,8 @@ export interface HiddenNoteDto {
   where: string;
   /** "linked by LearnLoop's model" | "linked by you" */
   byLabel: string;
+  /** originLabel: "handwritten · transcribed by Pocket Notes", or a vault note's kind ("your note in the
+   *  Reader", "your capture"; followups batch 5 B); null for a tend-era note. */
   note: { title: string; heading: string; dateLabel: string | null; originLabel: string | null };
 }
 

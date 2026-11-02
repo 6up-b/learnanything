@@ -7,11 +7,11 @@ version: "1.0.0"
 source_path: "src/learnloop/reader/reader_progression.py"
 source_paths:
   - "src/learnloop/reader/reader_progression.py"
-source_commit: "b322ef2e9b5cebc241b612e4963a5aaf1a37f99a"
-source_commit_timestamp: "2026-08-20T18:04:29-04:00"
+source_commit: "90c261ba8578c8fcc343b5158d8f18a1d091a30a"
+source_commit_timestamp: "2026-10-17T10:18:04-04:00"
 source_worktree_state: "clean"
 generated: true
-generated_at: "2026-09-23"
+generated_at: "2026-11-02"
 package: "learnloop.reader"
 layer: "domain"
 concepts:
@@ -49,46 +49,66 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/reader/reader_progression.py](../../../../../../src/learnloop/reader/reader_progression.py) |
-| Source lines | 321 |
+| Source lines | 399 |
 | Owning package | [[Reference/Modules/learnloop/reader/_package|learnloop.reader]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `b322ef2e9b5cebc241b612e4963a5aaf1a37f99a` |
-| Commit timestamp | `2026-08-20T18:04:29-04:00` |
+| Source commit | `90c261ba8578c8fcc343b5158d8f18a1d091a30a` |
+| Commit timestamp | `2026-10-17T10:18:04-04:00` |
 
 ## Public API
 
-- `section_id_for_span(repository: Repository, *, extraction_id: str, span_id: str) -> str | None` ([source](../../../../../../src/learnloop/reader/reader_progression.py), line 30) — Resolve one reader span to its containing normalized section.
-- `learning_objects_for_span(vault: LoadedVault, repository: Repository, *, extraction_id: str, span_id: str) -> list[str]` ([source](../../../../../../src/learnloop/reader/reader_progression.py), line 43) — Provenance-linked Learning Objects available as promotion targets.
-- `learning_objects_for_section(vault: LoadedVault, repository: Repository, *, extraction_id: str, section_id: str) -> list[str]` ([source](../../../../../../src/learnloop/reader/reader_progression.py), line 65) — Active Learning Objects whose provenance cites spans inside the section.
-- `source_refs_for_span(vault: LoadedVault, repository: Repository, *, extraction_id: str, span_id: str, learning_object_ids: list[str]) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/reader/reader_progression.py), line 123) — Canonical, path-backed grounding bundles for a selected reader target.
-- `section_generation_candidates(vault: LoadedVault, repository: Repository, *, extraction_id: str, section_id: str, target_items_per_lo: int=3, max_new_per_lo: int=3) -> list[str]` ([source](../../../../../../src/learnloop/reader/reader_progression.py), line 147) — LOs in the section that actually need items (dry-run of the expansion plan with the probe gate waived).
-- `source_refs_for_section(vault: LoadedVault, repository: Repository, *, extraction_id: str, section_id: str, learning_object_ids: list[str]) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/reader/reader_progression.py), line 189) — Build bounded, proposal-local citation bundles for reader seeding.
+- `section_id_for_span(repository: Repository, *, extraction_id: str, span_id: str) -> str | None` ([source](../../../../../../src/learnloop/reader/reader_progression.py), line 31) — Resolve one reader span to its containing normalized section.
+- `learning_objects_for_span(vault: LoadedVault, repository: Repository, *, extraction_id: str, span_id: str) -> list[str]` ([source](../../../../../../src/learnloop/reader/reader_progression.py), line 44) — Provenance-linked Learning Objects available as promotion targets.
+- `learning_objects_for_section(vault: LoadedVault, repository: Repository, *, extraction_id: str, section_id: str) -> list[str]` ([source](../../../../../../src/learnloop/reader/reader_progression.py), line 66) — Active Learning Objects whose provenance cites spans inside the section.
+- `learning_objects_by_section(vault: LoadedVault, repository: Repository, *, extraction_id: str) -> dict[str, list[str]]` ([source](../../../../../../src/learnloop/reader/reader_progression.py), line 130) — Every section of an extraction with its provenance-linked Learning Objects.
+- `source_refs_for_span(vault: LoadedVault, repository: Repository, *, extraction_id: str, span_id: str, learning_object_ids: list[str]) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/reader/reader_progression.py), line 197) — Canonical, path-backed grounding bundles for a selected reader target.
+- `section_generation_candidates(vault: LoadedVault, repository: Repository, *, extraction_id: str, section_id: str, target_items_per_lo: int=3, max_new_per_lo: int=3) -> list[str]` ([source](../../../../../../src/learnloop/reader/reader_progression.py), line 221) — LOs in the section that actually need items (dry-run of the expansion plan with the probe gate waived).
+- `source_refs_for_section(vault: LoadedVault, repository: Repository, *, extraction_id: str, section_id: str, learning_object_ids: list[str]) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/reader/reader_progression.py), line 263) — Build bounded, proposal-local citation bundles for reader seeding.
 
 ### Module constants
 
-- `_SOURCE_BUNDLE_RADIUS` ([src/learnloop/reader/reader_progression.py](../../../../../../src/learnloop/reader/reader_progression.py), line 26)
-- `_MAX_SOURCE_BUNDLES_PER_LO` ([src/learnloop/reader/reader_progression.py](../../../../../../src/learnloop/reader/reader_progression.py), line 27)
+- `_SOURCE_BUNDLE_RADIUS` ([src/learnloop/reader/reader_progression.py](../../../../../../src/learnloop/reader/reader_progression.py), line 27)
+- `_MAX_SOURCE_BUNDLES_PER_LO` ([src/learnloop/reader/reader_progression.py](../../../../../../src/learnloop/reader/reader_progression.py), line 28)
 
 ## Internal implementation anchors
 
-- `_merged_context_intervals(anchor_indices: list[int], span_count: int) -> list[tuple[int, int]]` ([source](../../../../../../src/learnloop/reader/reader_progression.py), line 307)
+- `_merged_context_intervals(anchor_indices: list[int], span_count: int) -> list[tuple[int, int]]` ([source](../../../../../../src/learnloop/reader/reader_progression.py), line 385)
 
 ## Who imports or calls it
 
 > [!note] Static evidence boundary
 > “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
 
+- [[Reference/Modules/learnloop/adaptive_difficulty/data_check|learnloop.adaptive_difficulty.data_check]] — imports `learning_objects_for_span`; statically calls `learning_objects_for_span`
+- [[Reference/Modules/learnloop/adaptive_difficulty/reading|learnloop.adaptive_difficulty.reading]] — imports `learning_objects_for_section`, `learning_objects_for_span`; statically calls `learning_objects_for_section`, `learning_objects_for_span`
+- [[Reference/Modules/learnloop/daily_plan/router_reader|learnloop.daily_plan.router_reader]] — imports `learning_objects_for_span`; statically calls `learning_objects_for_span`
+- [[Reference/Modules/learnloop/diagnosis/text_gaps/sources|learnloop.diagnosis.text_gaps.sources]] — imports `learning_objects_for_span`; statically calls `learning_objects_for_span`
+- [[Reference/Modules/learnloop/figures/help|learnloop.figures.help]] — imports `learning_objects_for_section`; statically calls `learning_objects_for_section`
+- [[Reference/Modules/learnloop/instructional/reader_followups|learnloop.instructional.reader_followups]] — imports `learning_objects_for_span`; statically calls `learning_objects_for_span`
+- [[Reference/Modules/learnloop/reader/reader_authoring|learnloop.reader.reader_authoring]] — imports `learning_objects_for_span`; statically calls `learning_objects_for_span`
+- [[Reference/Modules/learnloop/reader/reader_observations|learnloop.reader.reader_observations]] — imports `learning_objects_for_span`; statically calls `learning_objects_for_span`
+- [[Reference/Modules/learnloop/reader/recap|learnloop.reader.recap]] — imports `learning_objects_by_section`, `learning_objects_for_span`; statically calls `learning_objects_by_section`, `learning_objects_for_span`
+- [[Reference/Modules/learnloop/source_retrieval/deliverable_path|learnloop.source_retrieval.deliverable_path]] — imports `learning_objects_by_section`; statically calls `learning_objects_by_section`
+- [[Reference/Modules/learnloop/source_retrieval/evaluation|learnloop.source_retrieval.evaluation]] — imports `learning_objects_for_span`; statically calls `learning_objects_for_span`
+- [[Reference/Modules/learnloop/source_retrieval/library_ask|learnloop.source_retrieval.library_ask]] — imports `learning_objects_for_span`; statically calls `learning_objects_for_span`
+- [[Reference/Modules/learnloop/source_retrieval/note_gaps|learnloop.source_retrieval.note_gaps]] — imports `learning_objects_for_span`; statically calls `learning_objects_for_span`
+- [[Reference/Modules/learnloop/source_retrieval/passage_cues|learnloop.source_retrieval.passage_cues]] — imports `learning_objects_for_span`; statically calls `learning_objects_for_span`
+- [[Reference/Modules/learnloop/source_retrieval/reading_paths|learnloop.source_retrieval.reading_paths]] — imports `learning_objects_by_section`; statically calls `learning_objects_by_section`
+- [[Reference/Modules/learnloop/source_retrieval/section_coverage|learnloop.source_retrieval.section_coverage]] — imports `learning_objects_by_section`; statically calls `learning_objects_by_section`
+- [[Reference/Modules/learnloop/source_retrieval/suggest|learnloop.source_retrieval.suggest]] — imports `learning_objects_for_span`; statically calls `learning_objects_for_span`
 - [[Reference/Modules/learnloop/tutor/promotions|learnloop.tutor.promotions]] — imports `learning_objects_for_span`, `source_refs_for_span`; statically calls `learning_objects_for_span`, `source_refs_for_span`
 - [[Reference/Modules/learnloop/tutor/tutor_qa|learnloop.tutor.tutor_qa]] — imports `learning_objects_for_span`; statically calls `learning_objects_for_span`
-- [[Reference/Modules/learnloop_sidecar/handlers/reader|learnloop_sidecar.handlers.reader]] — imports `section_generation_candidates`, `source_refs_for_section`; statically calls `section_generation_candidates`, `source_refs_for_section`
+- [[Reference/Modules/learnloop_sidecar/handlers/reader|learnloop_sidecar.handlers.reader]] — imports `learning_objects_for_span`, `section_generation_candidates`, `source_refs_for_section`; statically calls `learning_objects_for_span`, `section_generation_candidates`, `source_refs_for_section`
+- [[Reference/Modules/learnloop_sidecar/handlers/reader_intent|learnloop_sidecar.handlers.reader_intent]] — imports `learning_objects_for_span`; statically calls `learning_objects_for_span`
 
 ## Dependencies
 
 ### LearnLoop dependencies
 
 - [[Reference/Modules/learnloop/content/authoring/practice_generation|learnloop.content.authoring.practice_generation]] — imports `PracticeExpansionError`, `build_practice_expansion_plan`; calls `build_practice_expansion_plan`
+- [[Reference/Modules/learnloop/content/sources/span_aliases|learnloop.content.sources.span_aliases]] — imports `SpanTranslator`; calls `SpanTranslator`
 - [[Reference/Modules/learnloop/db/repositories|learnloop.db.repositories]] — imports `Repository`
 - [[Reference/Modules/learnloop/reader/reader_guidance|learnloop.reader.reader_guidance]] — imports `_canonical_note_ids`, `_span_for_ref`, `extraction_sections`; calls `_canonical_note_ids`, `_span_for_ref`, `extraction_sections`
 - [[Reference/Modules/learnloop/vault/models|learnloop.vault.models]] — imports `LoadedVault`, `learning_object_facet_union`; calls `learning_object_facet_union`
@@ -105,14 +125,26 @@ Use this module in context through:
 
 - [[Reader to Practice Workflow]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/tutor/promotions|learnloop.tutor.promotions]], [[Reference/Modules/learnloop/tutor/tutor_qa|learnloop.tutor.tutor_qa]], [[Reference/Modules/learnloop_sidecar/handlers/reader|learnloop_sidecar.handlers.reader]].
+Static participation evidence comes from [[Reference/Modules/learnloop/adaptive_difficulty/data_check|learnloop.adaptive_difficulty.data_check]], [[Reference/Modules/learnloop/adaptive_difficulty/reading|learnloop.adaptive_difficulty.reading]], [[Reference/Modules/learnloop/daily_plan/router_reader|learnloop.daily_plan.router_reader]], [[Reference/Modules/learnloop/diagnosis/text_gaps/sources|learnloop.diagnosis.text_gaps.sources]], [[Reference/Modules/learnloop/figures/help|learnloop.figures.help]] and 16 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
 ## Tests that define behavior
 
+- [tests/test_ad_projection.py](../../../../../../tests/test_ad_projection.py) — direct import
+  - `test_a_mixed_reading_gives_no_reading_signal_as_if_deleted`
+- [tests/test_ad_protected_readings.py](../../../../../../tests/test_ad_protected_readings.py) — direct import
+  - `test_a_clean_reading_is_read_as_the_reader_and_the_incumbent_read_it`
 - [tests/test_reader_progression.py](../../../../../../tests/test_reader_progression.py) — direct import
   - `test_reader_source_refs_preserve_bounded_span_context`
+- [tests/test_reader_rw1c_review.py](../../../../../../tests/test_reader_rw1c_review.py) — direct import
+  - `test_a_mapped_lo_does_not_suppress_the_attribution`
+- [tests/test_reread_safety.py](../../../../../../tests/test_reread_safety.py) — direct import
+  - `test_the_guide_and_lo_highlights_survive_with_moved_passages_flagged`
+- [tests/test_router_reader_activity.py](../../../../../../tests/test_router_reader_activity.py) — direct import
+  - `test_a_narrative_written_after_the_cutoff_is_not_shown_at_it`
+  - `test_a_real_missed_prediction_reaches_the_section_through_its_figure`
+  - `test_a_session_that_touched_the_lo_only_through_a_figure_is_kept_for_its_prediction`
 
 ## Modification guidance
 

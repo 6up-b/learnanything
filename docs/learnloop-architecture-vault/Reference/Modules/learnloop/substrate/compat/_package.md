@@ -12,7 +12,7 @@ source_paths:
 source_commit: "aggregate; see module notes"
 source_commit_timestamp: "2026-08-20T18:04:29-04:00"
 generated: true
-generated_at: "2026-09-23"
+generated_at: "2026-11-02"
 package: "learnloop.substrate.compat"
 layer: "domain"
 concepts:

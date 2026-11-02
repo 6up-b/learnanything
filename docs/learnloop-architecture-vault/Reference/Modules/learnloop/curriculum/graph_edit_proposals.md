@@ -7,11 +7,11 @@ version: "1.0.0"
 source_path: "src/learnloop/curriculum/graph_edit_proposals.py"
 source_paths:
   - "src/learnloop/curriculum/graph_edit_proposals.py"
-source_commit: "b322ef2e9b5cebc241b612e4963a5aaf1a37f99a"
-source_commit_timestamp: "2026-08-20T18:04:29-04:00"
+source_commit: "86f17850ae44f63d89602534064feb6c21c5f776"
+source_commit_timestamp: "2026-10-15T12:20:59-04:00"
 source_worktree_state: "clean"
 generated: true
-generated_at: "2026-09-23"
+generated_at: "2026-11-02"
 package: "learnloop.curriculum"
 layer: "domain"
 concepts:
@@ -50,55 +50,55 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/curriculum/graph_edit_proposals.py](../../../../../../src/learnloop/curriculum/graph_edit_proposals.py) |
-| Source lines | 684 |
+| Source lines | 675 |
 | Owning package | [[Reference/Modules/learnloop/curriculum/_package|learnloop.curriculum]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `b322ef2e9b5cebc241b612e4963a5aaf1a37f99a` |
-| Commit timestamp | `2026-08-20T18:04:29-04:00` |
+| Source commit | `86f17850ae44f63d89602534064feb6c21c5f776` |
+| Commit timestamp | `2026-10-15T12:20:59-04:00` |
 
 ## Public API
 
-- `class GraphEditError(ValueError)` ([source](../../../../../../src/learnloop/curriculum/graph_edit_proposals.py), line 56) — A user graph-edit request that cannot be compiled (maps to a SidecarError).
-  - `__init__(self, code: str, message: str) -> None` (line 59; internal)
-- `propose_graph_edits(root: Path, rationale: str, edits: list[dict[str, Any]], *, clock: Clock | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/curriculum/graph_edit_proposals.py), line 67) — Compile a batch of user graph edits into ONE pending proposal batch.
-- `queue_restructure_request(root: Path, facet_ids: list[str], requested_operation: str, rationale: str, *, clock: Clock | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/curriculum/graph_edit_proposals.py), line 297) — Queue a durable restructure-intent record for LOCKED facets (spec §17).
-- `resolve_edge_direction(root: Path, edge_id: str, resolution: str, rationale: str, *, clock: Clock | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/curriculum/graph_edit_proposals.py), line 379) — Resolve an ``ambiguous_edge_direction`` notice into a concept_edge edit.
-- `ambiguous_edge_direction_notices(vault: LoadedVault, repository: Repository) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/curriculum/graph_edit_proposals.py), line 466) — Deterministic ambiguous-direction notices (design "Write path" heuristics).
-- `restructure_request_notices(vault: LoadedVault, repository: Repository) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/curriculum/graph_edit_proposals.py), line 655) — Surface queued restructure-intent records in the maintenance feed (§17).
+- `class GraphEditError(ValueError)` ([source](../../../../../../src/learnloop/curriculum/graph_edit_proposals.py), line 57) — A user graph-edit request that cannot be compiled (maps to a SidecarError).
+  - `__init__(self, code: str, message: str) -> None` (line 60; internal)
+- `propose_graph_edits(root: Path, rationale: str, edits: list[dict[str, Any]], *, clock: Clock | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/curriculum/graph_edit_proposals.py), line 68) — Compile a batch of user graph edits into ONE pending proposal batch.
+- `queue_restructure_request(root: Path, facet_ids: list[str], requested_operation: str, rationale: str, *, clock: Clock | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/curriculum/graph_edit_proposals.py), line 298) — Queue a durable restructure request (split or merge) for any facets.
+- `resolve_edge_direction(root: Path, edge_id: str, resolution: str, rationale: str, *, clock: Clock | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/curriculum/graph_edit_proposals.py), line 363) — Resolve an ``ambiguous_edge_direction`` notice into a concept_edge edit.
+- `ambiguous_edge_direction_notices(vault: LoadedVault, repository: Repository) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/curriculum/graph_edit_proposals.py), line 450) — Deterministic ambiguous-direction notices (design "Write path" heuristics).
+- `restructure_request_notices(vault: LoadedVault, repository: Repository) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/curriculum/graph_edit_proposals.py), line 646) — Surface queued restructure requests in the maintenance feed.
 
 ### Module constants
 
-- `_GRAPH_EDIT_ITEM_TYPES` ([src/learnloop/curriculum/graph_edit_proposals.py](../../../../../../src/learnloop/curriculum/graph_edit_proposals.py), line 39)
-- `_AUTHORING_ITEM_TYPES` ([src/learnloop/curriculum/graph_edit_proposals.py](../../../../../../src/learnloop/curriculum/graph_edit_proposals.py), line 40)
-- `_EDIT_OPERATIONS` ([src/learnloop/curriculum/graph_edit_proposals.py](../../../../../../src/learnloop/curriculum/graph_edit_proposals.py), line 41)
-- `_OPERATION_MAP` ([src/learnloop/curriculum/graph_edit_proposals.py](../../../../../../src/learnloop/curriculum/graph_edit_proposals.py), line 44)
-- `_GRAPH_EDITOR_PURPOSE` ([src/learnloop/curriculum/graph_edit_proposals.py](../../../../../../src/learnloop/curriculum/graph_edit_proposals.py), line 46)
-- `_GRAPH_EDITOR_PROVIDER` ([src/learnloop/curriculum/graph_edit_proposals.py](../../../../../../src/learnloop/curriculum/graph_edit_proposals.py), line 47)
-- `_EDGE_RESOLUTIONS` ([src/learnloop/curriculum/graph_edit_proposals.py](../../../../../../src/learnloop/curriculum/graph_edit_proposals.py), line 49)
-- `AMBIGUOUS_EDGE_DIRECTION_NOTICE` ([src/learnloop/curriculum/graph_edit_proposals.py](../../../../../../src/learnloop/curriculum/graph_edit_proposals.py), line 51)
-- `RESTRUCTURE_REQUEST_NOTICE` ([src/learnloop/curriculum/graph_edit_proposals.py](../../../../../../src/learnloop/curriculum/graph_edit_proposals.py), line 52)
-- `RESTRUCTURE_REQUEST_NEED_KIND` ([src/learnloop/curriculum/graph_edit_proposals.py](../../../../../../src/learnloop/curriculum/graph_edit_proposals.py), line 53)
+- `_GRAPH_EDIT_ITEM_TYPES` ([src/learnloop/curriculum/graph_edit_proposals.py](../../../../../../src/learnloop/curriculum/graph_edit_proposals.py), line 40)
+- `_AUTHORING_ITEM_TYPES` ([src/learnloop/curriculum/graph_edit_proposals.py](../../../../../../src/learnloop/curriculum/graph_edit_proposals.py), line 41)
+- `_EDIT_OPERATIONS` ([src/learnloop/curriculum/graph_edit_proposals.py](../../../../../../src/learnloop/curriculum/graph_edit_proposals.py), line 42)
+- `_OPERATION_MAP` ([src/learnloop/curriculum/graph_edit_proposals.py](../../../../../../src/learnloop/curriculum/graph_edit_proposals.py), line 45)
+- `_GRAPH_EDITOR_PURPOSE` ([src/learnloop/curriculum/graph_edit_proposals.py](../../../../../../src/learnloop/curriculum/graph_edit_proposals.py), line 47)
+- `_GRAPH_EDITOR_PROVIDER` ([src/learnloop/curriculum/graph_edit_proposals.py](../../../../../../src/learnloop/curriculum/graph_edit_proposals.py), line 48)
+- `_EDGE_RESOLUTIONS` ([src/learnloop/curriculum/graph_edit_proposals.py](../../../../../../src/learnloop/curriculum/graph_edit_proposals.py), line 50)
+- `AMBIGUOUS_EDGE_DIRECTION_NOTICE` ([src/learnloop/curriculum/graph_edit_proposals.py](../../../../../../src/learnloop/curriculum/graph_edit_proposals.py), line 52)
+- `RESTRUCTURE_REQUEST_NOTICE` ([src/learnloop/curriculum/graph_edit_proposals.py](../../../../../../src/learnloop/curriculum/graph_edit_proposals.py), line 53)
+- `RESTRUCTURE_REQUEST_NEED_KIND` ([src/learnloop/curriculum/graph_edit_proposals.py](../../../../../../src/learnloop/curriculum/graph_edit_proposals.py), line 54)
 
 ## Internal implementation anchors
 
-- `_persist_graph_edit_batch(root: Path, vault: LoadedVault, repository: Repository, rationale: str, edits: list[dict[str, Any]], *, clock: Clock | None) -> tuple[str, list[dict[str, Any]]]` ([source](../../../../../../src/learnloop/curriculum/graph_edit_proposals.py), line 94)
-- `_authoring_item(edit: dict[str, Any], index: int, vault: LoadedVault) -> AuthoringProposalItem` ([source](../../../../../../src/learnloop/curriculum/graph_edit_proposals.py), line 170)
-- `_snapshot_edge_for_deactivate(payload: dict[str, Any], target_entity_id: Any, vault: LoadedVault) -> None` ([source](../../../../../../src/learnloop/curriculum/graph_edit_proposals.py), line 211) — Fill a concept_edge deactivate payload from the live edge.
-- `_raw_row(edit: dict[str, Any], index: int, now: str) -> dict[str, Any]` ([source](../../../../../../src/learnloop/curriculum/graph_edit_proposals.py), line 233) — A directly-built proposal row for a learnable-map type with no authoring payload model (``task_blueprint``) — persisted the way synthesis persists it.
-- `_stamp_expected_target_hash(row: dict[str, Any], vault: LoadedVault) -> None` ([source](../../../../../../src/learnloop/curriculum/graph_edit_proposals.py), line 260) — Stamp the §8.2 accept-time staleness hash on update/deactivate rows.
-- `_item_dto(row: dict[str, Any]) -> dict[str, Any]` ([source](../../../../../../src/learnloop/curriculum/graph_edit_proposals.py), line 281)
-- `_subject_for_facets(vault: LoadedVault, facet_ids: list[str]) -> str` ([source](../../../../../../src/learnloop/curriculum/graph_edit_proposals.py), line 366)
-- `_edge_resolution_edit(edge: Any, resolution: str) -> dict[str, Any]` ([source](../../../../../../src/learnloop/curriculum/graph_edit_proposals.py), line 423)
-- `_resolve_edge_direction_notices(repository: Repository, edge_id: str, *, clock: Clock | None) -> list[str]` ([source](../../../../../../src/learnloop/curriculum/graph_edit_proposals.py), line 447)
-- `_edge_notice(vault: LoadedVault, repository: Repository, *, dedup_key: str, entity_id: str | None, edge_id: str | None, source: str, target: str, relation_type: str, rationale: str | None, reason: str, proposal_item_id: str | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/curriculum/graph_edit_proposals.py), line 530)
-- `_direction_evidence(vault: LoadedVault, repository: Repository, source_concept: str, target_concept: str) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/curriculum/graph_edit_proposals.py), line 572) — Success on the target's items before vs after the first correct attempt on any source item.
-- `_items_for_concept(vault: LoadedVault, concept_id: str) -> list[str]` ([source](../../../../../../src/learnloop/curriculum/graph_edit_proposals.py), line 604)
-- `_is_correct(outcome: dict[str, Any]) -> bool` ([source](../../../../../../src/learnloop/curriculum/graph_edit_proposals.py), line 613)
-- `_concept_title(vault: LoadedVault, concept_id: str) -> str` ([source](../../../../../../src/learnloop/curriculum/graph_edit_proposals.py), line 621)
-- `_reachable(adjacency: dict[str, set[str]], start: str, goal: str) -> bool` ([source](../../../../../../src/learnloop/curriculum/graph_edit_proposals.py), line 626)
-- `_pending_prerequisite_edge_items(repository: Repository) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/curriculum/graph_edit_proposals.py), line 640)
+- `_persist_graph_edit_batch(root: Path, vault: LoadedVault, repository: Repository, rationale: str, edits: list[dict[str, Any]], *, clock: Clock | None) -> tuple[str, list[dict[str, Any]]]` ([source](../../../../../../src/learnloop/curriculum/graph_edit_proposals.py), line 95)
+- `_authoring_item(edit: dict[str, Any], index: int, vault: LoadedVault) -> AuthoringProposalItem` ([source](../../../../../../src/learnloop/curriculum/graph_edit_proposals.py), line 171)
+- `_snapshot_edge_for_deactivate(payload: dict[str, Any], target_entity_id: Any, vault: LoadedVault) -> None` ([source](../../../../../../src/learnloop/curriculum/graph_edit_proposals.py), line 212) — Fill a concept_edge deactivate payload from the live edge.
+- `_raw_row(edit: dict[str, Any], index: int, now: str) -> dict[str, Any]` ([source](../../../../../../src/learnloop/curriculum/graph_edit_proposals.py), line 234) — A directly-built proposal row for a learnable-map type with no authoring payload model (``task_blueprint``) — persisted the way synthesis persists it.
+- `_stamp_expected_target_hash(row: dict[str, Any], vault: LoadedVault) -> None` ([source](../../../../../../src/learnloop/curriculum/graph_edit_proposals.py), line 261) — Stamp the §8.2 accept-time staleness hash on update/deactivate rows.
+- `_item_dto(row: dict[str, Any]) -> dict[str, Any]` ([source](../../../../../../src/learnloop/curriculum/graph_edit_proposals.py), line 282)
+- `_subject_for_facets(vault: LoadedVault, facet_ids: list[str]) -> str` ([source](../../../../../../src/learnloop/curriculum/graph_edit_proposals.py), line 350)
+- `_edge_resolution_edit(edge: Any, resolution: str) -> dict[str, Any]` ([source](../../../../../../src/learnloop/curriculum/graph_edit_proposals.py), line 407)
+- `_resolve_edge_direction_notices(repository: Repository, edge_id: str, *, clock: Clock | None) -> list[str]` ([source](../../../../../../src/learnloop/curriculum/graph_edit_proposals.py), line 431)
+- `_edge_notice(vault: LoadedVault, repository: Repository, *, dedup_key: str, entity_id: str | None, edge_id: str | None, source: str, target: str, relation_type: str, rationale: str | None, reason: str, proposal_item_id: str | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/curriculum/graph_edit_proposals.py), line 514)
+- `_direction_evidence(vault: LoadedVault, repository: Repository, source_concept: str, target_concept: str) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/curriculum/graph_edit_proposals.py), line 556) — Success on the target's items before vs after the first correct attempt on any source item.
+- `_items_for_concept(vault: LoadedVault, concept_id: str) -> list[str]` ([source](../../../../../../src/learnloop/curriculum/graph_edit_proposals.py), line 595)
+- `_is_correct(outcome: dict[str, Any]) -> bool` ([source](../../../../../../src/learnloop/curriculum/graph_edit_proposals.py), line 604)
+- `_concept_title(vault: LoadedVault, concept_id: str) -> str` ([source](../../../../../../src/learnloop/curriculum/graph_edit_proposals.py), line 612)
+- `_reachable(adjacency: dict[str, set[str]], start: str, goal: str) -> bool` ([source](../../../../../../src/learnloop/curriculum/graph_edit_proposals.py), line 617)
+- `_pending_prerequisite_edge_items(repository: Repository) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/curriculum/graph_edit_proposals.py), line 631)
 
 ## Who imports or calls it
 
@@ -116,12 +116,13 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 - [[Reference/Modules/learnloop/content/proposals/ai_contracts|learnloop.content.proposals.ai_contracts]] — imports `AuthoringProposal`, `AuthoringProposalItem`; calls `AuthoringProposal`
 - [[Reference/Modules/learnloop/content/proposals/patches|learnloop.content.proposals.patches]] — imports `compute_target_hash`; calls `compute_target_hash`
 - [[Reference/Modules/learnloop/content/proposals/proposals|learnloop.content.proposals.proposals]] — imports `auto_apply_rows`, `proposal_item_row`; calls `auto_apply_rows`, `proposal_item_row`
-- [[Reference/Modules/learnloop/curriculum/curriculum_locks|learnloop.curriculum.curriculum_locks]] — imports `Operation`, `can_apply`; calls `Operation`, `can_apply`
-- [[Reference/Modules/learnloop/db/repositories|learnloop.db.repositories]] — imports `Repository`; calls `Repository`
+- [[Reference/Modules/learnloop/db/repositories|learnloop.db.repositories]] — imports `Repository`
+- [[Reference/Modules/learnloop/held_grades|learnloop.held_grades]] — imports `held_attempt_ids`; calls `held_attempt_ids`
 - [[Reference/Modules/learnloop/ids|learnloop.ids]] — imports `new_ulid`; calls `new_ulid`
 - [[Reference/Modules/learnloop/vault/loader|learnloop.vault.loader]] — imports `load_vault`; calls `load_vault`
 - [[Reference/Modules/learnloop/vault/models|learnloop.vault.models]] — imports `LoadedVault`
 - [[Reference/Modules/learnloop/vault/paths|learnloop.vault.paths]] — imports `VaultPaths`; calls `VaultPaths`
+- [[Reference/Modules/learnloop/vault/repository|learnloop.vault.repository]] — imports `vault_repository`; calls `vault_repository`
 
 ### Platform and third-party dependencies
 
@@ -150,9 +151,9 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_propose_graph_edits_requires_rationale_and_edits`
   - `test_propose_graph_edits_task_blueprint_raw_row`
   - `test_propose_graph_edits_update_stamps_target_hash`
+  - `test_queue_restructure_request_needs_no_lock`
   - `test_queue_restructure_request_records_and_surfaces_in_feed`
   - `test_queue_restructure_request_rejects_bad_operation`
-  - `test_queue_restructure_request_requires_a_locked_facet`
   - `test_reject_after_apply_restores_concept_edge`
   - `test_resolve_edge_direction_flip_files_proposal_and_resolves_notice`
   - `test_resolve_edge_direction_keep_resolves_without_filing`

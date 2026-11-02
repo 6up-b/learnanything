@@ -11,7 +11,7 @@ source_commit: "b322ef2e9b5cebc241b612e4963a5aaf1a37f99a"
 source_commit_timestamp: "2026-08-20T18:04:29-04:00"
 source_worktree_state: "clean"
 generated: true
-generated_at: "2026-09-23"
+generated_at: "2026-11-02"
 package: "learnloop.ai.providers"
 layer: "infrastructure"
 concepts:
@@ -108,18 +108,18 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 No test imports this module directly. These tests exercise a direct production consumer:
 
+- [tests/codex_cli_fakes.py](../../../../../../../tests/codex_cli_fakes.py) — imports consumer [[Reference/Modules/learnloop/ai/providers/codex|learnloop.ai.providers.codex]]
 - [tests/test_ai_config.py](../../../../../../../tests/test_ai_config.py) — imports consumer [[Reference/Modules/learnloop/ai/providers/codex|learnloop.ai.providers.codex]]
+- [tests/test_ai_single_request.py](../../../../../../../tests/test_ai_single_request.py) — imports consumer [[Reference/Modules/learnloop/ai/providers/codex|learnloop.ai.providers.codex]]
+- [tests/test_ai_tool_isolation.py](../../../../../../../tests/test_ai_tool_isolation.py) — imports consumer [[Reference/Modules/learnloop/ai/providers/codex|learnloop.ai.providers.codex]]
 - [tests/test_codex_attempt_flow.py](../../../../../../../tests/test_codex_attempt_flow.py) — imports consumer [[Reference/Modules/learnloop/ai/providers/codex|learnloop.ai.providers.codex]]
+- [tests/test_codex_cli_0164_lockdown.py](../../../../../../../tests/test_codex_cli_0164_lockdown.py) — imports consumer [[Reference/Modules/learnloop/ai/providers/codex|learnloop.ai.providers.codex]]
+- [tests/test_codex_cli_0165_lockdown.py](../../../../../../../tests/test_codex_cli_0165_lockdown.py) — imports consumer [[Reference/Modules/learnloop/ai/providers/codex|learnloop.ai.providers.codex]]
 - [tests/test_codex_http_client.py](../../../../../../../tests/test_codex_http_client.py) — imports consumer [[Reference/Modules/learnloop/ai/providers/codex|learnloop.ai.providers.codex]]
-- [tests/test_codex_output_schema.py](../../../../../../../tests/test_codex_output_schema.py) — imports consumer [[Reference/Modules/learnloop/ai/providers/codex|learnloop.ai.providers.codex]]
-- [tests/test_codex_runtime.py](../../../../../../../tests/test_codex_runtime.py) — imports consumer [[Reference/Modules/learnloop/ai/providers/codex|learnloop.ai.providers.codex]]
-- [tests/test_deferred_regrade.py](../../../../../../../tests/test_deferred_regrade.py) — imports consumer [[Reference/Modules/learnloop/ai/providers/codex|learnloop.ai.providers.codex]]
-- [tests/test_e2e_codex_mock.py](../../../../../../../tests/test_e2e_codex_mock.py) — imports consumer [[Reference/Modules/learnloop/ai/providers/codex|learnloop.ai.providers.codex]]
-- [tests/test_ingestion_checkpoints.py](../../../../../../../tests/test_ingestion_checkpoints.py) — imports consumer [[Reference/Modules/learnloop/ai/providers/codex|learnloop.ai.providers.codex]]
-- [tests/test_learner_review_system_entries.py](../../../../../../../tests/test_learner_review_system_entries.py) — imports consumer [[Reference/Modules/learnloop/ai/providers/codex|learnloop.ai.providers.codex]]
-- [tests/test_openai_chat_client.py](../../../../../../../tests/test_openai_chat_client.py) — imports consumer [[Reference/Modules/learnloop/ai/providers/codex|learnloop.ai.providers.codex]]
-- [tests/test_provider_resolution_parity.py](../../../../../../../tests/test_provider_resolution_parity.py) — imports consumer [[Reference/Modules/learnloop/ai/providers/codex|learnloop.ai.providers.codex]]
-- [tests/test_structured_transport_parity.py](../../../../../../../tests/test_structured_transport_parity.py) — imports consumer [[Reference/Modules/learnloop/ai/providers/codex|learnloop.ai.providers.codex]]
+- [tests/test_codex_isolation_mcp_check.py](../../../../../../../tests/test_codex_isolation_mcp_check.py) — imports consumer [[Reference/Modules/learnloop/ai/providers/codex|learnloop.ai.providers.codex]]
+- [tests/test_codex_lockdown_frozen.py](../../../../../../../tests/test_codex_lockdown_frozen.py) — imports consumer [[Reference/Modules/learnloop/ai/providers/codex|learnloop.ai.providers.codex]]
+- [tests/test_codex_lockdown_round2.py](../../../../../../../tests/test_codex_lockdown_round2.py) — imports consumer [[Reference/Modules/learnloop/ai/providers/codex|learnloop.ai.providers.codex]]
+- [tests/test_codex_lockdown_round3.py](../../../../../../../tests/test_codex_lockdown_round3.py) — imports consumer [[Reference/Modules/learnloop/ai/providers/codex|learnloop.ai.providers.codex]]
 
 ## Modification guidance
 

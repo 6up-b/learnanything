@@ -7,11 +7,11 @@ version: "1.0.0"
 source_path: "src/learnloop_sidecar/handlers/facet_detail.py"
 source_paths:
   - "src/learnloop_sidecar/handlers/facet_detail.py"
-source_commit: "b322ef2e9b5cebc241b612e4963a5aaf1a37f99a"
-source_commit_timestamp: "2026-08-20T18:04:29-04:00"
+source_commit: "3fa780b50a46ea4a95ff64fad57ff6e27e904dbd"
+source_commit_timestamp: "2026-10-13T02:46:02-04:00"
 source_worktree_state: "clean"
 generated: true
-generated_at: "2026-09-23"
+generated_at: "2026-11-02"
 package: "learnloop_sidecar.handlers"
 layer: "adapter"
 concepts:
@@ -42,7 +42,7 @@ Up: [[Reference/Modules/learnloop_sidecar/handlers/_package|learnloop_sidecar.ha
 
 ## Why this module exists
 
-`learnloop_sidecar.handlers.facet_detail` exists within [[Reference/Modules/learnloop_sidecar/handlers/_package|learnloop_sidecar.handlers]] to own the behavior summarized by its module contract: Graph/knowledge-map editor read RPCs (§3.4 locks, §8 graphs, §9.6 UI).
+`learnloop_sidecar.handlers.facet_detail` exists within [[Reference/Modules/learnloop_sidecar/handlers/_package|learnloop_sidecar.handlers]] to own the behavior summarized by its module contract: Graph/knowledge-map editor read RPCs (§3.4 facet history, §8 graphs, §9.6 UI).
 
 The authoritative system-level explanation remains in [[Architecture Overview]]; this note records where this source module participates rather than restating those concepts.
 
@@ -53,30 +53,30 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop_sidecar/handlers/facet_detail.py](../../../../../../src/learnloop_sidecar/handlers/facet_detail.py) |
-| Source lines | 345 |
+| Source lines | 333 |
 | Owning package | [[Reference/Modules/learnloop_sidecar/handlers/_package|learnloop_sidecar.handlers]] |
 | Architecture layer | `adapter` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `b322ef2e9b5cebc241b612e4963a5aaf1a37f99a` |
-| Commit timestamp | `2026-08-20T18:04:29-04:00` |
+| Source commit | `3fa780b50a46ea4a95ff64fad57ff6e27e904dbd` |
+| Commit timestamp | `2026-10-13T02:46:02-04:00` |
 
 ## Public API
 
-- `class FacetIdInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/facet_detail.py), line 43)
-- `get_facet_detail(ctx: SidecarContext, params: FacetIdInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/facet_detail.py), line 48) — Facet contract + lock reasons + blueprint membership + evidence (§9.6).
-- `list_facets(ctx: SidecarContext, _params) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/facet_detail.py), line 146) — Lightweight facet list for autocomplete pickers, sorted by id.
-- `class PreviewBlueprintReadinessParams(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/facet_detail.py), line 168)
-- `preview_blueprint_readiness(ctx: SidecarContext, params: PreviewBlueprintReadinessParams) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/facet_detail.py), line 176) — Current-vs-proposed LO readiness for an edited blueprint payload (§9.2).
+- `class FacetIdInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/facet_detail.py), line 45)
+- `get_facet_detail(ctx: SidecarContext, params: FacetIdInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/facet_detail.py), line 50) — Facet contract + history + blueprint membership + evidence (§9.6).
+- `list_facets(ctx: SidecarContext, _params) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/facet_detail.py), line 140) — Lightweight facet list for autocomplete pickers, sorted by id.
+- `class PreviewBlueprintReadinessParams(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/facet_detail.py), line 156)
+- `preview_blueprint_readiness(ctx: SidecarContext, params: PreviewBlueprintReadinessParams) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/facet_detail.py), line 164) — Current-vs-proposed LO readiness for an edited blueprint payload (§9.2).
 
 ## Internal implementation anchors
 
-- `_components_with_role(recipe)` ([source](../../../../../../src/learnloop_sidecar/handlers/facet_detail.py), line 226) — (role, component) for every component of a recipe, integration included.
-- `_facet_evidence(vault, repository, facet_id: str, item_los: list[str]) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/facet_detail.py), line 237) — Capability ledger + facet-global readiness/evidence-mass for a facet.
-- `_facet_readiness(vault, repository, facet_id: str, item_los: list[str]) -> tuple[float | None, float | None]` ([source](../../../../../../src/learnloop_sidecar/handlers/facet_detail.py), line 262) — Facet-global predicted recall, averaged over LOs exercising the facet.
-- `_readiness_summary(readiness) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/facet_detail.py), line 307) — The ``{readiness, bottleneck}`` pair the blast-radius panel renders.
-- `_identifiability_warnings(vault, learning_object) -> list[str]` ([source](../../../../../../src/learnloop_sidecar/handlers/facet_detail.py), line 318) — Identifiability findings that touch this LO's facet neighborhood (§11.3).
-- `_affected_goals(vault, repository, learning_object_id: str) -> list[dict[str, str]]` ([source](../../../../../../src/learnloop_sidecar/handlers/facet_detail.py), line 336) — Active goals whose resolved scope includes this LO (or its facets).
+- `_components_with_role(recipe)` ([source](../../../../../../src/learnloop_sidecar/handlers/facet_detail.py), line 214) — (role, component) for every component of a recipe, integration included.
+- `_facet_evidence(vault, repository, facet_id: str, item_los: list[str]) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/facet_detail.py), line 225) — Capability ledger + facet-global readiness/evidence-mass for a facet.
+- `_facet_readiness(vault, repository, facet_id: str, item_los: list[str]) -> tuple[float | None, float | None]` ([source](../../../../../../src/learnloop_sidecar/handlers/facet_detail.py), line 250) — Facet-global predicted recall, averaged over LOs exercising the facet.
+- `_readiness_summary(readiness) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/facet_detail.py), line 295) — The ``{readiness, bottleneck}`` pair the blast-radius panel renders.
+- `_identifiability_warnings(vault, learning_object) -> list[str]` ([source](../../../../../../src/learnloop_sidecar/handlers/facet_detail.py), line 306) — Identifiability findings that touch this LO's facet neighborhood (§11.3).
+- `_affected_goals(vault, repository, learning_object_id: str) -> list[dict[str, str]]` ([source](../../../../../../src/learnloop_sidecar/handlers/facet_detail.py), line 324) — Active goals whose resolved scope includes this LO (or its facets).
 
 ## Who imports or calls it
 
@@ -89,7 +89,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 
 ### LearnLoop dependencies
 
-- [[Reference/Modules/learnloop/curriculum/curriculum_locks|learnloop.curriculum.curriculum_locks]] — imports `Operation`, `can_apply`, `identity_locks`; calls `Operation`, `can_apply`, `identity_locks`
+- [[Reference/Modules/learnloop/content/facet_identity/actions|learnloop.content.facet_identity.actions]] — imports `facet_history`; calls `facet_history`
 - [[Reference/Modules/learnloop/goals/certification|learnloop.goals.certification]] — imports `is_demonstrated_credit`; calls `is_demonstrated_credit`
 - [[Reference/Modules/learnloop/goals/goal_projection|learnloop.goals.goal_projection]] — imports `resolve_goal_scope`; calls `resolve_goal_scope`
 - [[Reference/Modules/learnloop/learner/capability_grid|learnloop.learner.capability_grid]] — imports `lo_blueprint_readiness`; calls `lo_blueprint_readiness`
@@ -125,17 +125,18 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 No test imports this module directly. These tests exercise a direct production consumer:
 
-- [tests/test_desktop_rpc_contract.py](../../../../../../tests/test_desktop_rpc_contract.py) — imports consumer [[Reference/Modules/learnloop_sidecar/handlers/__init__|learnloop_sidecar.handlers]]
-- [tests/test_dialogue_causal_join.py](../../../../../../tests/test_dialogue_causal_join.py) — imports consumer [[Reference/Modules/learnloop_sidecar/handlers/__init__|learnloop_sidecar.handlers]]
-- [tests/test_goal_scope_material.py](../../../../../../tests/test_goal_scope_material.py) — imports consumer [[Reference/Modules/learnloop_sidecar/handlers/__init__|learnloop_sidecar.handlers]]
-- [tests/test_graph_editor_reads.py](../../../../../../tests/test_graph_editor_reads.py) — imports consumer [[Reference/Modules/learnloop_sidecar/handlers/__init__|learnloop_sidecar.handlers]]
-- [tests/test_instrument_servability_journeys.py](../../../../../../tests/test_instrument_servability_journeys.py) — imports consumer [[Reference/Modules/learnloop_sidecar/handlers/__init__|learnloop_sidecar.handlers]]
-- [tests/test_sidecar_adjudication.py](../../../../../../tests/test_sidecar_adjudication.py) — imports consumer [[Reference/Modules/learnloop_sidecar/handlers/__init__|learnloop_sidecar.handlers]]
-- [tests/test_sidecar_exams.py](../../../../../../tests/test_sidecar_exams.py) — imports consumer [[Reference/Modules/learnloop_sidecar/handlers/__init__|learnloop_sidecar.handlers]]
-- [tests/test_sidecar_goals.py](../../../../../../tests/test_sidecar_goals.py) — imports consumer [[Reference/Modules/learnloop_sidecar/handlers/__init__|learnloop_sidecar.handlers]]
-- [tests/test_sidecar_item_presentation.py](../../../../../../tests/test_sidecar_item_presentation.py) — imports consumer [[Reference/Modules/learnloop_sidecar/handlers/__init__|learnloop_sidecar.handlers]]
-- [tests/test_sidecar_measurement.py](../../../../../../tests/test_sidecar_measurement.py) — imports consumer [[Reference/Modules/learnloop_sidecar/handlers/__init__|learnloop_sidecar.handlers]]
-- [tests/test_sidecar_trace_and_clarification.py](../../../../../../tests/test_sidecar_trace_and_clarification.py) — imports consumer [[Reference/Modules/learnloop_sidecar/handlers/__init__|learnloop_sidecar.handlers]]
+- [tests/reading_path_fixtures.py](../../../../../../tests/reading_path_fixtures.py) — imports consumer [[Reference/Modules/learnloop_sidecar/handlers/__init__|learnloop_sidecar.handlers]]
+- [tests/recap_fixtures.py](../../../../../../tests/recap_fixtures.py) — imports consumer [[Reference/Modules/learnloop_sidecar/handlers/__init__|learnloop_sidecar.handlers]]
+- [tests/rw2b_fix10_base_sequence.py](../../../../../../tests/rw2b_fix10_base_sequence.py) — imports consumer [[Reference/Modules/learnloop_sidecar/handlers/__init__|learnloop_sidecar.handlers]]
+- [tests/rw2b_fix11_base_sequence.py](../../../../../../tests/rw2b_fix11_base_sequence.py) — imports consumer [[Reference/Modules/learnloop_sidecar/handlers/__init__|learnloop_sidecar.handlers]]
+- [tests/rw2c_base_sequence.py](../../../../../../tests/rw2c_base_sequence.py) — imports consumer [[Reference/Modules/learnloop_sidecar/handlers/__init__|learnloop_sidecar.handlers]]
+- [tests/rw2c_state_parity.py](../../../../../../tests/rw2c_state_parity.py) — imports consumer [[Reference/Modules/learnloop_sidecar/handlers/__init__|learnloop_sidecar.handlers]]
+- [tests/test_ad1_attempt_columns.py](../../../../../../tests/test_ad1_attempt_columns.py) — imports consumer [[Reference/Modules/learnloop_sidecar/handlers/__init__|learnloop_sidecar.handlers]]
+- [tests/test_ad23_contract.py](../../../../../../tests/test_ad23_contract.py) — imports consumer [[Reference/Modules/learnloop_sidecar/handlers/__init__|learnloop_sidecar.handlers]]
+- [tests/test_ad23_fix_review.py](../../../../../../tests/test_ad23_fix_review.py) — imports consumer [[Reference/Modules/learnloop_sidecar/handlers/__init__|learnloop_sidecar.handlers]]
+- [tests/test_ad23_intent_compose.py](../../../../../../tests/test_ad23_intent_compose.py) — imports consumer [[Reference/Modules/learnloop_sidecar/handlers/__init__|learnloop_sidecar.handlers]]
+- [tests/test_ad23_successor.py](../../../../../../tests/test_ad23_successor.py) — imports consumer [[Reference/Modules/learnloop_sidecar/handlers/__init__|learnloop_sidecar.handlers]]
+- [tests/test_ad2_serving.py](../../../../../../tests/test_ad2_serving.py) — imports consumer [[Reference/Modules/learnloop_sidecar/handlers/__init__|learnloop_sidecar.handlers]]
 
 ## Modification guidance
 

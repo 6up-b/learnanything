@@ -7,11 +7,11 @@ version: "1.0.0"
 source_path: "src/learnloop/db/stores/observation_ledger.py"
 source_paths:
   - "src/learnloop/db/stores/observation_ledger.py"
-source_commit: "b322ef2e9b5cebc241b612e4963a5aaf1a37f99a"
-source_commit_timestamp: "2026-08-20T18:04:29-04:00"
+source_commit: "8e529218954fcf26cc284a07612cf76f2f430d67"
+source_commit_timestamp: "2026-10-16T10:17:46-04:00"
 source_worktree_state: "clean"
 generated: true
-generated_at: "2026-09-23"
+generated_at: "2026-11-02"
 package: "learnloop.db.stores"
 layer: "infrastructure"
 concepts:
@@ -51,23 +51,23 @@ The authoritative system-level explanation remains in [[State and Persistence]],
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/db/stores/observation_ledger.py](../../../../../../../src/learnloop/db/stores/observation_ledger.py) |
-| Source lines | 283 |
+| Source lines | 299 |
 | Owning package | [[Reference/Modules/learnloop/db/stores/_package|learnloop.db.stores]] |
 | Architecture layer | `infrastructure` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `b322ef2e9b5cebc241b612e4963a5aaf1a37f99a` |
-| Commit timestamp | `2026-08-20T18:04:29-04:00` |
+| Source commit | `8e529218954fcf26cc284a07612cf76f2f430d67` |
+| Commit timestamp | `2026-10-16T10:17:46-04:00` |
 
 ## Public API
 
 - `load_canonical_observation_ledger(connection: sqlite3.Connection) -> list[dict[str, Any]]` ([source](../../../../../../../src/learnloop/db/stores/observation_ledger.py), line 29) — Load attempts plus live grading evidence in two queries.
-- `load_authoritative_observation_ledger(connection: sqlite3.Connection) -> list[dict[str, Any]]` ([source](../../../../../../../src/learnloop/db/stores/observation_ledger.py), line 108) — Load the P0 authoritative ledger with a fixed six-query budget.
-- `load_effective_assessment_contracts(connection: sqlite3.Connection, source_version_ids: Iterable[str], *, projection_version: str) -> dict[str, dict[str, Any]]` ([source](../../../../../../../src/learnloop/db/stores/observation_ledger.py), line 243) — Resolve immutable contract snapshots for a replay in one bulk query.
+- `load_authoritative_observation_ledger(connection: sqlite3.Connection) -> list[dict[str, Any]]` ([source](../../../../../../../src/learnloop/db/stores/observation_ledger.py), line 124) — Load the P0 authoritative ledger with a fixed six-query budget.
+- `load_effective_assessment_contracts(connection: sqlite3.Connection, source_version_ids: Iterable[str], *, projection_version: str) -> dict[str, dict[str, Any]]` ([source](../../../../../../../src/learnloop/db/stores/observation_ledger.py), line 259) — Resolve immutable contract snapshots for a replay in one bulk query.
 
 ### Module constants
 
-- `_LATEST_OBSERVATIONS` ([src/learnloop/db/stores/observation_ledger.py](../../../../../../../src/learnloop/db/stores/observation_ledger.py), line 95)
+- `_LATEST_OBSERVATIONS` ([src/learnloop/db/stores/observation_ledger.py](../../../../../../../src/learnloop/db/stores/observation_ledger.py), line 111)
 
 ## Internal implementation anchors
 
@@ -78,7 +78,9 @@ The authoritative system-level explanation remains in [[State and Persistence]],
 > [!note] Static evidence boundary
 > “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
 
+- [[Reference/Modules/learnloop/adaptive_difficulty/material_view|learnloop.adaptive_difficulty.material_view]] — imports `load_authoritative_observation_ledger`; statically calls `load_authoritative_observation_ledger`
 - [[Reference/Modules/learnloop/db/repositories|learnloop.db.repositories]] — imports `load_authoritative_observation_ledger`, `load_canonical_observation_ledger`, `load_effective_assessment_contracts`; statically calls `load_authoritative_observation_ledger`, `load_canonical_observation_ledger`, `load_effective_assessment_contracts`
+- [[Reference/Modules/learnloop/field/outcomes|learnloop.field.outcomes]] — imports `load_authoritative_observation_ledger`; statically calls `load_authoritative_observation_ledger`
 
 ## Dependencies
 
@@ -98,14 +100,19 @@ Use this module in context through:
 - [[Process Model Output]]
 - [[Inspect Persistent State]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/db/repositories|learnloop.db.repositories]].
+Static participation evidence comes from [[Reference/Modules/learnloop/adaptive_difficulty/material_view|learnloop.adaptive_difficulty.material_view]], [[Reference/Modules/learnloop/db/repositories|learnloop.db.repositories]], [[Reference/Modules/learnloop/field/outcomes|learnloop.field.outcomes]].
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
 ## Tests that define behavior
 
+- [tests/test_ad23_fix_review.py](../../../../../../../tests/test_ad23_fix_review.py) — direct import
+  - `test_a_historical_regrade_reads_its_current_epoch_not_a_surviving_obsolete_criterion`
 - [tests/test_observation_ledger_bulk.py](../../../../../../../tests/test_observation_ledger_bulk.py) — direct import
   - `test_observation_ledgers_have_constant_query_budget_and_stable_order`
+- [tests/test_reference_gate_imports.py](../../../../../../../tests/test_reference_gate_imports.py) — direct import
+  - `test_a_regrade_against_an_edited_unverified_key_never_certifies`
+  - `test_attempts_record_the_key_status_and_unverified_ones_never_certify`
 
 ## Modification guidance
 

@@ -194,6 +194,17 @@ def links(connection: sqlite3.Connection, *, extraction_id: str | None = None,
     return _dicts(connection.execute(f"SELECT * FROM learner_note_links{where} ORDER BY created_at, rowid", params))
 
 
+def links_by_id(connection: sqlite3.Connection, link_ids: Iterable[str]) -> dict[str, dict[str, Any]]:
+    """Link rows by id (append-only: a row read later says what it said when it was shown)."""
+
+    wanted = sorted({str(link_id) for link_id in link_ids})
+    if not wanted:
+        return {}
+    rows = _dicts(connection.execute(
+        f"SELECT * FROM learner_note_links WHERE id IN ({','.join('?' for _ in wanted)})", wanted))
+    return {str(row["id"]): row for row in rows}
+
+
 def learner_rows_for(connection: sqlite3.Connection, note_keys: Iterable[str]) -> list[dict[str, Any]]:
     """The learner's own rows on these notes (their links and hides), oldest first."""
 
@@ -286,6 +297,7 @@ __all__ = [
     "learner_rows_for",
     "link_counts",
     "links",
+    "links_by_id",
     "newest_read_token",
     "note_count",
     "notes_by_id",

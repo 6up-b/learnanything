@@ -11,7 +11,7 @@ source_commit: "4a28c9635f24945d78366fa26212db7488d82545"
 source_commit_timestamp: "2026-05-28T11:36:12-04:00"
 source_worktree_state: "clean"
 generated: true
-generated_at: "2026-09-23"
+generated_at: "2026-11-02"
 package: "learnloop_sidecar"
 layer: "adapter"
 concepts:
@@ -87,9 +87,13 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 
 - [[Reference/Modules/learnloop_sidecar/__main__|learnloop_sidecar.__main__]] — imports `configure_logging`; statically calls `configure_logging`
 - [[Reference/Modules/learnloop_sidecar/handlers/feedback|learnloop_sidecar.handlers.feedback]] — imports `log_event`; statically calls `log_event`
+- [[Reference/Modules/learnloop_sidecar/handlers/figures|learnloop_sidecar.handlers.figures]] — imports `log_event`; statically calls `log_event`
+- [[Reference/Modules/learnloop_sidecar/handlers/hints|learnloop_sidecar.handlers.hints]] — imports `log_event`; statically calls `log_event`
 - [[Reference/Modules/learnloop_sidecar/handlers/practice|learnloop_sidecar.handlers.practice]] — imports `debug_enabled`, `log_event`; statically calls `debug_enabled`, `log_event`
 - [[Reference/Modules/learnloop_sidecar/handlers/queue|learnloop_sidecar.handlers.queue]] — imports `log_event`; statically calls `log_event`
 - [[Reference/Modules/learnloop_sidecar/handlers/teach_back|learnloop_sidecar.handlers.teach_back]] — imports `log_event`; statically calls `log_event`
+- [[Reference/Modules/learnloop_sidecar/handlers/workbench|learnloop_sidecar.handlers.workbench]] — imports `log_event`; statically calls `log_event`
+- [[Reference/Modules/learnloop_sidecar/handlers/workbench_help|learnloop_sidecar.handlers.workbench_help]] — imports `log_event`; statically calls `log_event`
 - [[Reference/Modules/learnloop_sidecar/server|learnloop_sidecar.server]] — imports `log_event`; statically calls `log_event`
 
 ## Dependencies
@@ -113,7 +117,7 @@ Use this module in context through:
 - [[Process Model Output]]
 - [[Inspect Persistent State]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop_sidecar/__main__|learnloop_sidecar.__main__]], [[Reference/Modules/learnloop_sidecar/handlers/feedback|learnloop_sidecar.handlers.feedback]], [[Reference/Modules/learnloop_sidecar/handlers/practice|learnloop_sidecar.handlers.practice]], [[Reference/Modules/learnloop_sidecar/handlers/queue|learnloop_sidecar.handlers.queue]], [[Reference/Modules/learnloop_sidecar/handlers/teach_back|learnloop_sidecar.handlers.teach_back]] and 1 more.
+Static participation evidence comes from [[Reference/Modules/learnloop_sidecar/__main__|learnloop_sidecar.__main__]], [[Reference/Modules/learnloop_sidecar/handlers/feedback|learnloop_sidecar.handlers.feedback]], [[Reference/Modules/learnloop_sidecar/handlers/figures|learnloop_sidecar.handlers.figures]], [[Reference/Modules/learnloop_sidecar/handlers/hints|learnloop_sidecar.handlers.hints]], [[Reference/Modules/learnloop_sidecar/handlers/practice|learnloop_sidecar.handlers.practice]] and 5 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
@@ -123,16 +127,16 @@ No test imports this module directly. These tests exercise a direct production c
 
 - [tests/test_common_repair_delivery.py](../../../../../tests/test_common_repair_delivery.py) — imports consumer [[Reference/Modules/learnloop_sidecar/handlers/feedback|learnloop_sidecar.handlers.feedback]]
 - [tests/test_reveal_ledger.py](../../../../../tests/test_reveal_ledger.py) — imports consumer [[Reference/Modules/learnloop_sidecar/handlers/feedback|learnloop_sidecar.handlers.feedback]]
-- [tests/test_causal_repair_sidecar_rpcs.py](../../../../../tests/test_causal_repair_sidecar_rpcs.py) — imports consumer [[Reference/Modules/learnloop_sidecar/handlers/practice|learnloop_sidecar.handlers.practice]]
-- [tests/test_sidecar_contract.py](../../../../../tests/test_sidecar_contract.py) — imports consumer [[Reference/Modules/learnloop_sidecar/handlers/practice|learnloop_sidecar.handlers.practice]]
-- [tests/test_probe_orchestration_remainder.py](../../../../../tests/test_probe_orchestration_remainder.py) — imports consumer [[Reference/Modules/learnloop_sidecar/server|learnloop_sidecar.server]]
-- [tests/test_probe_remint.py](../../../../../tests/test_probe_remint.py) — imports consumer [[Reference/Modules/learnloop_sidecar/server|learnloop_sidecar.server]]
-- [tests/test_provenance_service.py](../../../../../tests/test_provenance_service.py) — imports consumer [[Reference/Modules/learnloop_sidecar/server|learnloop_sidecar.server]]
-- [tests/test_question_queue.py](../../../../../tests/test_question_queue.py) — imports consumer [[Reference/Modules/learnloop_sidecar/server|learnloop_sidecar.server]]
-- [tests/test_settings_sidecar.py](../../../../../tests/test_settings_sidecar.py) — imports consumer [[Reference/Modules/learnloop_sidecar/server|learnloop_sidecar.server]]
-- [tests/test_sidecar_animation.py](../../../../../tests/test_sidecar_animation.py) — imports consumer [[Reference/Modules/learnloop_sidecar/server|learnloop_sidecar.server]]
-- [tests/test_sidecar_append.py](../../../../../tests/test_sidecar_append.py) — imports consumer [[Reference/Modules/learnloop_sidecar/server|learnloop_sidecar.server]]
-- [tests/test_sidecar_blueprint_picker.py](../../../../../tests/test_sidecar_blueprint_picker.py) — imports consumer [[Reference/Modules/learnloop_sidecar/server|learnloop_sidecar.server]]
+- [tests/test_source_first_needs.py](../../../../../tests/test_source_first_needs.py) — imports consumer [[Reference/Modules/learnloop_sidecar/handlers/feedback|learnloop_sidecar.handlers.feedback]]
+- [tests/test_figures_codex_review.py](../../../../../tests/test_figures_codex_review.py) — imports consumer [[Reference/Modules/learnloop_sidecar/handlers/figures|learnloop_sidecar.handlers.figures]]
+- [tests/test_figures_help.py](../../../../../tests/test_figures_help.py) — imports consumer [[Reference/Modules/learnloop_sidecar/handlers/figures|learnloop_sidecar.handlers.figures]]
+- [tests/test_figures_help_codex_review.py](../../../../../tests/test_figures_help_codex_review.py) — imports consumer [[Reference/Modules/learnloop_sidecar/handlers/figures|learnloop_sidecar.handlers.figures]]
+- [tests/test_figures_prefetch_review_fixes.py](../../../../../tests/test_figures_prefetch_review_fixes.py) — imports consumer [[Reference/Modules/learnloop_sidecar/handlers/figures|learnloop_sidecar.handlers.figures]]
+- [tests/test_figures_show_me.py](../../../../../tests/test_figures_show_me.py) — imports consumer [[Reference/Modules/learnloop_sidecar/handlers/figures|learnloop_sidecar.handlers.figures]]
+- [tests/test_figures_show_me_codex_review.py](../../../../../tests/test_figures_show_me_codex_review.py) — imports consumer [[Reference/Modules/learnloop_sidecar/handlers/figures|learnloop_sidecar.handlers.figures]]
+- [tests/test_followups_nov2_figure_provenance.py](../../../../../tests/test_followups_nov2_figure_provenance.py) — imports consumer [[Reference/Modules/learnloop_sidecar/handlers/figures|learnloop_sidecar.handlers.figures]]
+- [tests/test_mobile_allowlist.py](../../../../../tests/test_mobile_allowlist.py) — imports consumer [[Reference/Modules/learnloop_sidecar/handlers/figures|learnloop_sidecar.handlers.figures]]
+- [tests/test_plan_first_transport.py](../../../../../tests/test_plan_first_transport.py) — imports consumer [[Reference/Modules/learnloop_sidecar/handlers/hints|learnloop_sidecar.handlers.hints]]
 
 ## Modification guidance
 

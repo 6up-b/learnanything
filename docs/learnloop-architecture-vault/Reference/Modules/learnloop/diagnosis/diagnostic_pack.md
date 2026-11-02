@@ -7,11 +7,11 @@ version: "1.0.0"
 source_path: "src/learnloop/diagnosis/diagnostic_pack.py"
 source_paths:
   - "src/learnloop/diagnosis/diagnostic_pack.py"
-source_commit: "b322ef2e9b5cebc241b612e4963a5aaf1a37f99a"
-source_commit_timestamp: "2026-08-20T18:04:29-04:00"
+source_commit: "611adf5c00aa6f45be68f2f6d344d25faa4900d2"
+source_commit_timestamp: "2026-10-13T10:09:04-04:00"
 source_worktree_state: "clean"
 generated: true
-generated_at: "2026-09-23"
+generated_at: "2026-11-02"
 package: "learnloop.diagnosis"
 layer: "domain"
 concepts:
@@ -50,13 +50,13 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/diagnosis/diagnostic_pack.py](../../../../../../src/learnloop/diagnosis/diagnostic_pack.py) |
-| Source lines | 535 |
+| Source lines | 540 |
 | Owning package | [[Reference/Modules/learnloop/diagnosis/_package|learnloop.diagnosis]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `b322ef2e9b5cebc241b612e4963a5aaf1a37f99a` |
-| Commit timestamp | `2026-08-20T18:04:29-04:00` |
+| Source commit | `611adf5c00aa6f45be68f2f6d344d25faa4900d2` |
+| Commit timestamp | `2026-10-13T10:09:04-04:00` |
 
 ## Public API
 
@@ -74,8 +74,8 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 - `clamp_visible_cap(requested: int | None=None) -> int` ([source](../../../../../../src/learnloop/diagnosis/diagnostic_pack.py), line 251)
 - `pin_pack_to_run(repository: Repository, *, run_id: str, pack_id: str, goal_contract_version_id: str | None=None, visible_cap: int | None=None, probe_episode_id: str | None=None, clock: Clock | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/diagnosis/diagnostic_pack.py), line 258) — Pin exactly one reviewed pack to the run at diagnostic entry (§5.2).
 - `enter_baseline(vault: Any, repository: Repository, *, run_id: str, learning_object_id: str, pack_id: str, visible_cap: int | None=None, clock: Clock | None=None, ai_client: object | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/diagnosis/diagnostic_pack.py), line 292) — Open one bounded diagnostic episode for the run and pin the pack (§5.2).
-- `boundary_view(repository: Repository, *, run_id: str) -> dict[str, Any]` ([source](../../../../../../src/learnloop/diagnosis/diagnostic_pack.py), line 457) — Render only the facet x capability cells relevant to the target blueprint (§5.3), projected over the pinned baseline episode's P0/P1 evidence.
-- `snapshot_baseline_boundary(repository: Repository, *, run_id: str, clock: Clock | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/diagnosis/diagnostic_pack.py), line 488) — Persist the baseline boundary view as a run artifact at diagnostic-segment close (§5.3 / §8.4).
+- `boundary_view(repository: Repository, *, run_id: str) -> dict[str, Any]` ([source](../../../../../../src/learnloop/diagnosis/diagnostic_pack.py), line 462) — Render only the facet x capability cells relevant to the target blueprint (§5.3), projected over the pinned baseline episode's P0/P1 evidence.
+- `snapshot_baseline_boundary(repository: Repository, *, run_id: str, clock: Clock | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/diagnosis/diagnostic_pack.py), line 493) — Persist the baseline boundary view as a run artifact at diagnostic-segment close (§5.3 / §8.4).
 
 ### Module constants
 
@@ -89,7 +89,7 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 - `_reject_unstable_repair(card: Mapping[str, Any]) -> None` ([source](../../../../../../src/learnloop/diagnosis/diagnostic_pack.py), line 107) — §5.1 admission gate: reject a card whose recommended repair is unstable under plausible grader/likelihood perturbations unless it carries a disclosure/abstention path.
 - `_recipe_cells(spec: Mapping[str, Any]) -> list[tuple[str, str]]` ([source](../../../../../../src/learnloop/diagnosis/diagnostic_pack.py), line 348) — The ordered, de-duplicated (facet, capability) cells of the blueprint's solution recipes (§5.3).
 - `_baseline_evidence_projection(repository: Repository, run: Mapping[str, Any], spec: Mapping[str, Any]) -> dict[tuple[str, str], dict[str, Any]]` ([source](../../../../../../src/learnloop/diagnosis/diagnostic_pack.py), line 372) — Project the pinned baseline episode's observations onto the recipe cells (§5.3).
-- `_load_pack(repository: Repository, pack_id: str, *, minted: bool=True) -> PackRecord` ([source](../../../../../../src/learnloop/diagnosis/diagnostic_pack.py), line 512)
+- `_load_pack(repository: Repository, pack_id: str, *, minted: bool=True) -> PackRecord` ([source](../../../../../../src/learnloop/diagnosis/diagnostic_pack.py), line 517)
 
 ## Who imports or calls it
 
@@ -137,6 +137,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_pin_binds_pack_to_run_and_goal_contract_version`
   - `test_pin_requires_reviewed_pack`
   - `test_visible_cap_is_clamped_into_the_2_to_4_band`
+- [tests/test_held_grade_evidence.py](../../../../../../tests/test_held_grade_evidence.py) — direct import
+  - `test_review_f3_diagnostic_observations_held_by_a_regrade_qualify_nothing`
 - [tests/test_p2_acceptance.py](../../../../../../tests/test_p2_acceptance.py) — direct import
   - `test_event_replay_equivalence_after_full_walk`
   - `test_fault_injection_diagnostic_baseline_boundary_yields_exactly_one`

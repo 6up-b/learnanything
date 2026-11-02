@@ -11,7 +11,7 @@ source_commit: "b322ef2e9b5cebc241b612e4963a5aaf1a37f99a"
 source_commit_timestamp: "2026-08-20T18:04:29-04:00"
 source_worktree_state: "clean"
 generated: true
-generated_at: "2026-09-23"
+generated_at: "2026-11-02"
 package: "learnloop.content.synthesis"
 layer: "domain"
 concepts:
@@ -102,6 +102,12 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 No test imports this module directly. These tests exercise a direct production consumer:
 
 - [tests/test_build_study_map_routing.py](../../../../../../../tests/test_build_study_map_routing.py) — imports consumer [[Reference/Modules/learnloop/content/synthesis/source_append|learnloop.content.synthesis.source_append]]
+- [tests/test_facet_authority.py](../../../../../../../tests/test_facet_authority.py) — imports consumer [[Reference/Modules/learnloop/content/synthesis/source_append|learnloop.content.synthesis.source_append]]
+- [tests/test_facet_identity_ingest.py](../../../../../../../tests/test_facet_identity_ingest.py) — imports consumer [[Reference/Modules/learnloop/content/synthesis/source_append|learnloop.content.synthesis.source_append]]
+- [tests/test_facet_reword_confirm.py](../../../../../../../tests/test_facet_reword_confirm.py) — imports consumer [[Reference/Modules/learnloop/content/synthesis/source_append|learnloop.content.synthesis.source_append]]
+- [tests/test_facet_reword_confirm_review.py](../../../../../../../tests/test_facet_reword_confirm_review.py) — imports consumer [[Reference/Modules/learnloop/content/synthesis/source_append|learnloop.content.synthesis.source_append]]
+- [tests/test_facet_reword_paths.py](../../../../../../../tests/test_facet_reword_paths.py) — imports consumer [[Reference/Modules/learnloop/content/synthesis/source_append|learnloop.content.synthesis.source_append]]
+- [tests/test_graph_nomination_ingest.py](../../../../../../../tests/test_graph_nomination_ingest.py) — imports consumer [[Reference/Modules/learnloop/content/synthesis/source_append|learnloop.content.synthesis.source_append]]
 - [tests/test_ingest_instrument_gates.py](../../../../../../../tests/test_ingest_instrument_gates.py) — imports consumer [[Reference/Modules/learnloop/content/synthesis/source_append|learnloop.content.synthesis.source_append]]
 - [tests/test_source_append.py](../../../../../../../tests/test_source_append.py) — imports consumer [[Reference/Modules/learnloop/content/synthesis/source_append|learnloop.content.synthesis.source_append]]
 - [tests/test_structured_transport_parity.py](../../../../../../../tests/test_structured_transport_parity.py) — imports consumer [[Reference/Modules/learnloop/content/synthesis/source_append|learnloop.content.synthesis.source_append]]

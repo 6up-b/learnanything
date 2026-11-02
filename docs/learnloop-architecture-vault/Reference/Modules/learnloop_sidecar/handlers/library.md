@@ -7,11 +7,11 @@ version: "1.0.0"
 source_path: "src/learnloop_sidecar/handlers/library.py"
 source_paths:
   - "src/learnloop_sidecar/handlers/library.py"
-source_commit: "4a28c9635f24945d78366fa26212db7488d82545"
-source_commit_timestamp: "2026-05-28T11:36:12-04:00"
+source_commit: "1096319f33ad11023a19451610eaff4622402e50"
+source_commit_timestamp: "2026-10-13T04:15:27-04:00"
 source_worktree_state: "clean"
 generated: true
-generated_at: "2026-09-23"
+generated_at: "2026-11-02"
 package: "learnloop_sidecar.handlers"
 layer: "adapter"
 concepts:
@@ -53,35 +53,35 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop_sidecar/handlers/library.py](../../../../../../src/learnloop_sidecar/handlers/library.py) |
-| Source lines | 198 |
+| Source lines | 216 |
 | Owning package | [[Reference/Modules/learnloop_sidecar/handlers/_package|learnloop_sidecar.handlers]] |
 | Architecture layer | `adapter` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `4a28c9635f24945d78366fa26212db7488d82545` |
-| Commit timestamp | `2026-05-28T11:36:12-04:00` |
+| Source commit | `1096319f33ad11023a19451610eaff4622402e50` |
+| Commit timestamp | `2026-10-13T04:15:27-04:00` |
 
 ## Public API
 
-- `get_vault_tree(ctx: SidecarContext, _params) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/library.py), line 66) — The on-disk vault file tree for the Library screen.
-- `class ReadFileInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/library.py), line 81)
-- `read_vault_file(ctx: SidecarContext, params: ReadFileInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/library.py), line 86) — Read a single vault file, sandboxed to the vault root.
-- `class WriteFileInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/library.py), line 122)
-- `write_vault_file(ctx: SidecarContext, params: WriteFileInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/library.py), line 128) — Overwrite an existing text file in the vault, sandboxed to the vault root.
-- `class CreateFileInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/library.py), line 161)
-- `create_vault_file(ctx: SidecarContext, params: CreateFileInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/library.py), line 167) — Create a new text file in the vault (e.g.
+- `get_vault_tree(ctx: SidecarContext, _params) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/library.py), line 68) — The on-disk vault file tree for the Library screen.
+- `class ReadFileInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/library.py), line 83)
+- `read_vault_file(ctx: SidecarContext, params: ReadFileInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/library.py), line 88) — Read a single vault file, sandboxed to the vault root.
+- `class WriteFileInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/library.py), line 124)
+- `write_vault_file(ctx: SidecarContext, params: WriteFileInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/library.py), line 130) — Overwrite an existing text file in the vault, sandboxed to the vault root.
+- `class CreateFileInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/library.py), line 179)
+- `create_vault_file(ctx: SidecarContext, params: CreateFileInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/library.py), line 185) — Create a new text file in the vault (e.g.
 
 ### Module constants
 
-- `_IGNORE_DIRS` ([src/learnloop_sidecar/handlers/library.py](../../../../../../src/learnloop_sidecar/handlers/library.py), line 12)
-- `_MAX_FILE_BYTES` ([src/learnloop_sidecar/handlers/library.py](../../../../../../src/learnloop_sidecar/handlers/library.py), line 13)
+- `_IGNORE_DIRS` ([src/learnloop_sidecar/handlers/library.py](../../../../../../src/learnloop_sidecar/handlers/library.py), line 14)
+- `_MAX_FILE_BYTES` ([src/learnloop_sidecar/handlers/library.py](../../../../../../src/learnloop_sidecar/handlers/library.py), line 15)
 
 ## Internal implementation anchors
 
-- `_kind(path: Path) -> str` ([source](../../../../../../src/learnloop_sidecar/handlers/library.py), line 16)
-- `_relative(path: Path, root: Path) -> str` ([source](../../../../../../src/learnloop_sidecar/handlers/library.py), line 35)
-- `_build_tree(directory: Path, root: Path) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop_sidecar/handlers/library.py), line 39)
-- `_resolve_in_vault(root: Path, relative: str) -> Path` ([source](../../../../../../src/learnloop_sidecar/handlers/library.py), line 74)
+- `_kind(path: Path) -> str` ([source](../../../../../../src/learnloop_sidecar/handlers/library.py), line 18)
+- `_relative(path: Path, root: Path) -> str` ([source](../../../../../../src/learnloop_sidecar/handlers/library.py), line 37)
+- `_build_tree(directory: Path, root: Path) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop_sidecar/handlers/library.py), line 41)
+- `_resolve_in_vault(root: Path, relative: str) -> Path` ([source](../../../../../../src/learnloop_sidecar/handlers/library.py), line 76)
 
 ## Who imports or calls it
 
@@ -94,6 +94,8 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 
 ### LearnLoop dependencies
 
+- [[Reference/Modules/learnloop/content/facet_identity/actions|learnloop.content.facet_identity.actions]] — imports `FacetIdentityActionError`, `save_registry_text`; calls `save_registry_text`
+- [[Reference/Modules/learnloop/vault/paths|learnloop.vault.paths]] — imports `VaultPaths`; calls `VaultPaths`
 - [[Reference/Modules/learnloop_sidecar/context|learnloop_sidecar.context]] — imports `SidecarContext`
 - [[Reference/Modules/learnloop_sidecar/dto|learnloop_sidecar.dto]] — imports `ParamsModel`, `versioned`; calls `versioned`
 - [[Reference/Modules/learnloop_sidecar/errors|learnloop_sidecar.errors]] — imports `SidecarError`; calls `SidecarError`
@@ -122,17 +124,18 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 No test imports this module directly. These tests exercise a direct production consumer:
 
-- [tests/test_desktop_rpc_contract.py](../../../../../../tests/test_desktop_rpc_contract.py) — imports consumer [[Reference/Modules/learnloop_sidecar/handlers/__init__|learnloop_sidecar.handlers]]
-- [tests/test_dialogue_causal_join.py](../../../../../../tests/test_dialogue_causal_join.py) — imports consumer [[Reference/Modules/learnloop_sidecar/handlers/__init__|learnloop_sidecar.handlers]]
-- [tests/test_goal_scope_material.py](../../../../../../tests/test_goal_scope_material.py) — imports consumer [[Reference/Modules/learnloop_sidecar/handlers/__init__|learnloop_sidecar.handlers]]
-- [tests/test_graph_editor_reads.py](../../../../../../tests/test_graph_editor_reads.py) — imports consumer [[Reference/Modules/learnloop_sidecar/handlers/__init__|learnloop_sidecar.handlers]]
-- [tests/test_instrument_servability_journeys.py](../../../../../../tests/test_instrument_servability_journeys.py) — imports consumer [[Reference/Modules/learnloop_sidecar/handlers/__init__|learnloop_sidecar.handlers]]
-- [tests/test_sidecar_adjudication.py](../../../../../../tests/test_sidecar_adjudication.py) — imports consumer [[Reference/Modules/learnloop_sidecar/handlers/__init__|learnloop_sidecar.handlers]]
-- [tests/test_sidecar_exams.py](../../../../../../tests/test_sidecar_exams.py) — imports consumer [[Reference/Modules/learnloop_sidecar/handlers/__init__|learnloop_sidecar.handlers]]
-- [tests/test_sidecar_goals.py](../../../../../../tests/test_sidecar_goals.py) — imports consumer [[Reference/Modules/learnloop_sidecar/handlers/__init__|learnloop_sidecar.handlers]]
-- [tests/test_sidecar_item_presentation.py](../../../../../../tests/test_sidecar_item_presentation.py) — imports consumer [[Reference/Modules/learnloop_sidecar/handlers/__init__|learnloop_sidecar.handlers]]
-- [tests/test_sidecar_measurement.py](../../../../../../tests/test_sidecar_measurement.py) — imports consumer [[Reference/Modules/learnloop_sidecar/handlers/__init__|learnloop_sidecar.handlers]]
-- [tests/test_sidecar_trace_and_clarification.py](../../../../../../tests/test_sidecar_trace_and_clarification.py) — imports consumer [[Reference/Modules/learnloop_sidecar/handlers/__init__|learnloop_sidecar.handlers]]
+- [tests/reading_path_fixtures.py](../../../../../../tests/reading_path_fixtures.py) — imports consumer [[Reference/Modules/learnloop_sidecar/handlers/__init__|learnloop_sidecar.handlers]]
+- [tests/recap_fixtures.py](../../../../../../tests/recap_fixtures.py) — imports consumer [[Reference/Modules/learnloop_sidecar/handlers/__init__|learnloop_sidecar.handlers]]
+- [tests/rw2b_fix10_base_sequence.py](../../../../../../tests/rw2b_fix10_base_sequence.py) — imports consumer [[Reference/Modules/learnloop_sidecar/handlers/__init__|learnloop_sidecar.handlers]]
+- [tests/rw2b_fix11_base_sequence.py](../../../../../../tests/rw2b_fix11_base_sequence.py) — imports consumer [[Reference/Modules/learnloop_sidecar/handlers/__init__|learnloop_sidecar.handlers]]
+- [tests/rw2c_base_sequence.py](../../../../../../tests/rw2c_base_sequence.py) — imports consumer [[Reference/Modules/learnloop_sidecar/handlers/__init__|learnloop_sidecar.handlers]]
+- [tests/rw2c_state_parity.py](../../../../../../tests/rw2c_state_parity.py) — imports consumer [[Reference/Modules/learnloop_sidecar/handlers/__init__|learnloop_sidecar.handlers]]
+- [tests/test_ad1_attempt_columns.py](../../../../../../tests/test_ad1_attempt_columns.py) — imports consumer [[Reference/Modules/learnloop_sidecar/handlers/__init__|learnloop_sidecar.handlers]]
+- [tests/test_ad23_contract.py](../../../../../../tests/test_ad23_contract.py) — imports consumer [[Reference/Modules/learnloop_sidecar/handlers/__init__|learnloop_sidecar.handlers]]
+- [tests/test_ad23_fix_review.py](../../../../../../tests/test_ad23_fix_review.py) — imports consumer [[Reference/Modules/learnloop_sidecar/handlers/__init__|learnloop_sidecar.handlers]]
+- [tests/test_ad23_intent_compose.py](../../../../../../tests/test_ad23_intent_compose.py) — imports consumer [[Reference/Modules/learnloop_sidecar/handlers/__init__|learnloop_sidecar.handlers]]
+- [tests/test_ad23_successor.py](../../../../../../tests/test_ad23_successor.py) — imports consumer [[Reference/Modules/learnloop_sidecar/handlers/__init__|learnloop_sidecar.handlers]]
+- [tests/test_ad2_serving.py](../../../../../../tests/test_ad2_serving.py) — imports consumer [[Reference/Modules/learnloop_sidecar/handlers/__init__|learnloop_sidecar.handlers]]
 
 ## Modification guidance
 

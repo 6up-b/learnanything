@@ -14,6 +14,7 @@ source_paths:
   - "src/learnloop/content/synthesis/facet_candidates.py"
   - "src/learnloop/content/synthesis/facet_doctor.py"
   - "src/learnloop/content/synthesis/facet_mint_gate.py"
+  - "src/learnloop/content/synthesis/graph_nomination.py"
   - "src/learnloop/content/synthesis/source_append.py"
   - "src/learnloop/content/synthesis/source_coverage.py"
   - "src/learnloop/content/synthesis/source_set_synthesis.py"
@@ -25,9 +26,9 @@ source_paths:
   - "src/learnloop/content/synthesis/synthesis_manifests.py"
   - "src/learnloop/content/synthesis/vault_epigraphs.py"
 source_commit: "aggregate; see module notes"
-source_commit_timestamp: "2026-09-23T15:53:48-04:00"
+source_commit_timestamp: "2026-11-01T13:52:05-05:00"
 generated: true
-generated_at: "2026-09-23"
+generated_at: "2026-11-02"
 package: "learnloop.content.synthesis"
 layer: "domain"
 concepts:
@@ -64,52 +65,56 @@ For system intent, use [[Learning System]], [[AI Architecture]].
 | Module | Purpose | Status | Direct importers | Direct test files |
 |---|---|---:|---:|---:|
 | [[Reference/Modules/learnloop/content/synthesis/__init__|learnloop.content.synthesis]] | [[Reference/Modules/learnloop/content/synthesis/__init__#^module-purpose|purpose]] | `ACTIVE` | 0 | 0 |
-| [[Reference/Modules/learnloop/content/synthesis/ai_contracts|learnloop.content.synthesis.ai_contracts]] | [[Reference/Modules/learnloop/content/synthesis/ai_contracts#^module-purpose|purpose]] | `ACTIVE` | 5 | 11 |
-| [[Reference/Modules/learnloop/content/synthesis/append_neighborhood|learnloop.content.synthesis.append_neighborhood]] | [[Reference/Modules/learnloop/content/synthesis/append_neighborhood#^module-purpose|purpose]] | `ACTIVE` | 1 | 1 |
+| [[Reference/Modules/learnloop/content/synthesis/ai_contracts|learnloop.content.synthesis.ai_contracts]] | [[Reference/Modules/learnloop/content/synthesis/ai_contracts#^module-purpose|purpose]] | `ACTIVE` | 5 | 24 |
+| [[Reference/Modules/learnloop/content/synthesis/append_neighborhood|learnloop.content.synthesis.append_neighborhood]] | [[Reference/Modules/learnloop/content/synthesis/append_neighborhood#^module-purpose|purpose]] | `ACTIVE` | 1 | 2 |
 | [[Reference/Modules/learnloop/content/synthesis/brief|learnloop.content.synthesis.brief]] | [[Reference/Modules/learnloop/content/synthesis/brief#^module-purpose|purpose]] | `ACTIVE` | 7 | 1 |
 | [[Reference/Modules/learnloop/content/synthesis/coverage_rollup|learnloop.content.synthesis.coverage_rollup]] | [[Reference/Modules/learnloop/content/synthesis/coverage_rollup#^module-purpose|purpose]] | `ACTIVE` | 1 | 1 |
 | [[Reference/Modules/learnloop/content/synthesis/exam_profile|learnloop.content.synthesis.exam_profile]] | [[Reference/Modules/learnloop/content/synthesis/exam_profile#^module-purpose|purpose]] | `ACTIVE` | 2 | 1 |
-| [[Reference/Modules/learnloop/content/synthesis/facet_candidates|learnloop.content.synthesis.facet_candidates]] | [[Reference/Modules/learnloop/content/synthesis/facet_candidates#^module-purpose|purpose]] | `ACTIVE` | 1 | 1 |
-| [[Reference/Modules/learnloop/content/synthesis/facet_doctor|learnloop.content.synthesis.facet_doctor]] | [[Reference/Modules/learnloop/content/synthesis/facet_doctor#^module-purpose|purpose]] | `ACTIVE` | 2 | 1 |
-| [[Reference/Modules/learnloop/content/synthesis/facet_mint_gate|learnloop.content.synthesis.facet_mint_gate]] | [[Reference/Modules/learnloop/content/synthesis/facet_mint_gate#^module-purpose|purpose]] | `ACTIVE` | 3 | 1 |
-| [[Reference/Modules/learnloop/content/synthesis/source_append|learnloop.content.synthesis.source_append]] | [[Reference/Modules/learnloop/content/synthesis/source_append#^module-purpose|purpose]] | `ACTIVE` | 4 | 4 |
+| [[Reference/Modules/learnloop/content/synthesis/facet_candidates|learnloop.content.synthesis.facet_candidates]] | [[Reference/Modules/learnloop/content/synthesis/facet_candidates#^module-purpose|purpose]] | `ACTIVE` | 1 | 2 |
+| [[Reference/Modules/learnloop/content/synthesis/facet_doctor|learnloop.content.synthesis.facet_doctor]] | [[Reference/Modules/learnloop/content/synthesis/facet_doctor#^module-purpose|purpose]] | `ACTIVE` | 4 | 2 |
+| [[Reference/Modules/learnloop/content/synthesis/facet_mint_gate|learnloop.content.synthesis.facet_mint_gate]] | [[Reference/Modules/learnloop/content/synthesis/facet_mint_gate#^module-purpose|purpose]] | `ACTIVE` | 5 | 2 |
+| [[Reference/Modules/learnloop/content/synthesis/graph_nomination|learnloop.content.synthesis.graph_nomination]] | [[Reference/Modules/learnloop/content/synthesis/graph_nomination#^module-purpose|purpose]] | `ACTIVE` | 9 | 2 |
+| [[Reference/Modules/learnloop/content/synthesis/source_append|learnloop.content.synthesis.source_append]] | [[Reference/Modules/learnloop/content/synthesis/source_append#^module-purpose|purpose]] | `ACTIVE` | 4 | 10 |
 | [[Reference/Modules/learnloop/content/synthesis/source_coverage|learnloop.content.synthesis.source_coverage]] | [[Reference/Modules/learnloop/content/synthesis/source_coverage#^module-purpose|purpose]] | `ACTIVE` | 2 | 1 |
-| [[Reference/Modules/learnloop/content/synthesis/source_set_synthesis|learnloop.content.synthesis.source_set_synthesis]] | [[Reference/Modules/learnloop/content/synthesis/source_set_synthesis#^module-purpose|purpose]] | `ACTIVE` | 4 | 19 |
-| [[Reference/Modules/learnloop/content/synthesis/source_unit_inventory|learnloop.content.synthesis.source_unit_inventory]] | [[Reference/Modules/learnloop/content/synthesis/source_unit_inventory#^module-purpose|purpose]] | `ACTIVE` | 5 | 10 |
-| [[Reference/Modules/learnloop/content/synthesis/source_unit_selection|learnloop.content.synthesis.source_unit_selection]] | [[Reference/Modules/learnloop/content/synthesis/source_unit_selection#^module-purpose|purpose]] | `ACTIVE` | 6 | 6 |
+| [[Reference/Modules/learnloop/content/synthesis/source_set_synthesis|learnloop.content.synthesis.source_set_synthesis]] | [[Reference/Modules/learnloop/content/synthesis/source_set_synthesis#^module-purpose|purpose]] | `ACTIVE` | 4 | 33 |
+| [[Reference/Modules/learnloop/content/synthesis/source_unit_inventory|learnloop.content.synthesis.source_unit_inventory]] | [[Reference/Modules/learnloop/content/synthesis/source_unit_inventory#^module-purpose|purpose]] | `ACTIVE` | 5 | 13 |
+| [[Reference/Modules/learnloop/content/synthesis/source_unit_selection|learnloop.content.synthesis.source_unit_selection]] | [[Reference/Modules/learnloop/content/synthesis/source_unit_selection#^module-purpose|purpose]] | `ACTIVE` | 9 | 42 |
 | [[Reference/Modules/learnloop/content/synthesis/study_map_diff|learnloop.content.synthesis.study_map_diff]] | [[Reference/Modules/learnloop/content/synthesis/study_map_diff#^module-purpose|purpose]] | `ACTIVE` | 1 | 0 |
 | [[Reference/Modules/learnloop/content/synthesis/synthesis_eval|learnloop.content.synthesis.synthesis_eval]] | [[Reference/Modules/learnloop/content/synthesis/synthesis_eval#^module-purpose|purpose]] | `ACTIVE` | 1 | 1 |
-| [[Reference/Modules/learnloop/content/synthesis/synthesis_gates|learnloop.content.synthesis.synthesis_gates]] | [[Reference/Modules/learnloop/content/synthesis/synthesis_gates#^module-purpose|purpose]] | `ACTIVE` | 6 | 2 |
-| [[Reference/Modules/learnloop/content/synthesis/synthesis_manifests|learnloop.content.synthesis.synthesis_manifests]] | [[Reference/Modules/learnloop/content/synthesis/synthesis_manifests#^module-purpose|purpose]] | `ACTIVE` | 2 | 3 |
+| [[Reference/Modules/learnloop/content/synthesis/synthesis_gates|learnloop.content.synthesis.synthesis_gates]] | [[Reference/Modules/learnloop/content/synthesis/synthesis_gates#^module-purpose|purpose]] | `ACTIVE` | 9 | 8 |
+| [[Reference/Modules/learnloop/content/synthesis/synthesis_manifests|learnloop.content.synthesis.synthesis_manifests]] | [[Reference/Modules/learnloop/content/synthesis/synthesis_manifests#^module-purpose|purpose]] | `ACTIVE` | 2 | 6 |
 | [[Reference/Modules/learnloop/content/synthesis/vault_epigraphs|learnloop.content.synthesis.vault_epigraphs]] | [[Reference/Modules/learnloop/content/synthesis/vault_epigraphs#^module-purpose|purpose]] | `ACTIVE` | 2 | 2 |
 
 ## Cross-package dependencies
 
 ### This package imports
 
-- [[Reference/Modules/learnloop/vault/_package|learnloop.vault]] — 18 static module edges
-- [[Reference/Modules/learnloop/ai/_package|learnloop.ai]] — 13 static module edges
-- [[Reference/Modules/learnloop/_package|learnloop]] — 11 static module edges
-- [[Reference/Modules/learnloop/db/_package|learnloop.db]] — 10 static module edges
-- [[Reference/Modules/learnloop/content/sources/_package|learnloop.content.sources]] — 6 static module edges
-- [[Reference/Modules/learnloop/ingest/_package|learnloop.ingest]] — 6 static module edges
-- [[Reference/Modules/learnloop/curriculum/_package|learnloop.curriculum]] — 3 static module edges
+- [[Reference/Modules/learnloop/vault/_package|learnloop.vault]] — 26 static module edges
+- [[Reference/Modules/learnloop/ai/_package|learnloop.ai]] — 17 static module edges
+- [[Reference/Modules/learnloop/_package|learnloop]] — 12 static module edges
+- [[Reference/Modules/learnloop/db/_package|learnloop.db]] — 11 static module edges
+- [[Reference/Modules/learnloop/content/facet_identity/_package|learnloop.content.facet_identity]] — 9 static module edges
+- [[Reference/Modules/learnloop/content/sources/_package|learnloop.content.sources]] — 9 static module edges
+- [[Reference/Modules/learnloop/ingest/_package|learnloop.ingest]] — 5 static module edges
 - [[Reference/Modules/learnloop/learner/_package|learnloop.learner]] — 3 static module edges
 - [[Reference/Modules/learnloop/content/authoring/_package|learnloop.content.authoring]] — 2 static module edges
 - [[Reference/Modules/learnloop/content/proposals/_package|learnloop.content.proposals]] — 2 static module edges
-- [[Reference/Modules/learnloop/diagnosis/_package|learnloop.diagnosis]] — 1 static module edge
+- [[Reference/Modules/learnloop/db/stores/_package|learnloop.db.stores]] — 2 static module edges
+- [[Reference/Modules/learnloop/diagnosis/_package|learnloop.diagnosis]] — 2 static module edges
+- [[Reference/Modules/learnloop/curriculum/_package|learnloop.curriculum]] — 1 static module edge
 
 ### Packages that import this package
 
-- [[Reference/Modules/learnloop/cli/_package|learnloop.cli]] — 10 static module edges
+- [[Reference/Modules/learnloop/cli/_package|learnloop.cli]] — 12 static module edges
 - [[Reference/Modules/learnloop_sidecar/handlers/_package|learnloop_sidecar.handlers]] — 8 static module edges
-- [[Reference/Modules/learnloop/content/pipeline/_package|learnloop.content.pipeline]] — 6 static module edges
+- [[Reference/Modules/learnloop/content/pipeline/_package|learnloop.content.pipeline]] — 7 static module edges
+- [[Reference/Modules/learnloop/content/facet_identity/_package|learnloop.content.facet_identity]] — 6 static module edges
+- [[Reference/Modules/learnloop/ops/_package|learnloop.ops]] — 4 static module edges
+- [[Reference/Modules/learnloop/content/sources/_package|learnloop.content.sources]] — 2 static module edges
 - [[Reference/Modules/learnloop/curriculum/_package|learnloop.curriculum]] — 2 static module edges
 - [[Reference/Modules/learnloop/_package|learnloop]] — 1 static module edge
 - [[Reference/Modules/learnloop/content/authoring/_package|learnloop.content.authoring]] — 1 static module edge
-- [[Reference/Modules/learnloop/content/sources/_package|learnloop.content.sources]] — 1 static module edge
 - [[Reference/Modules/learnloop/learner/_package|learnloop.learner]] — 1 static module edge
-- [[Reference/Modules/learnloop/ops/_package|learnloop.ops]] — 1 static module edge
 
 ### Dependency neighborhood
 
@@ -120,27 +125,27 @@ flowchart LR
     center["learnloop.content.synthesis"]
     n_learnloop_vault["learnloop.vault"]
     n_learnloop_ai["learnloop.ai"]
+    n_learnloop_content_facet_identity["learnloop.content.facet_identity"]
     n_learnloop["learnloop"]
     n_learnloop_cli["learnloop.cli"]
+    n_learnloop_content_sources["learnloop.content.sources"]
     n_learnloop_db["learnloop.db"]
     n_learnloop_sidecar_handlers["learnloop_sidecar.handlers"]
-    n_learnloop_content_sources["learnloop.content.sources"]
     n_learnloop_content_pipeline["learnloop.content.pipeline"]
     n_learnloop_ingest["learnloop.ingest"]
-    n_learnloop_curriculum["learnloop.curriculum"]
-    center -->|18| n_learnloop_vault
-    center -->|13| n_learnloop_ai
+    center -->|26| n_learnloop_vault
+    center -->|17| n_learnloop_ai
+    n_learnloop_content_facet_identity -->|6| center
+    center -->|9| n_learnloop_content_facet_identity
     n_learnloop -->|1| center
-    center -->|11| n_learnloop
-    n_learnloop_cli -->|10| center
-    center -->|10| n_learnloop_db
+    center -->|12| n_learnloop
+    n_learnloop_cli -->|12| center
+    n_learnloop_content_sources -->|2| center
+    center -->|9| n_learnloop_content_sources
+    center -->|11| n_learnloop_db
     n_learnloop_sidecar_handlers -->|8| center
-    n_learnloop_content_sources -->|1| center
-    center -->|6| n_learnloop_content_sources
-    n_learnloop_content_pipeline -->|6| center
-    center -->|6| n_learnloop_ingest
-    n_learnloop_curriculum -->|2| center
-    center -->|3| n_learnloop_curriculum
+    n_learnloop_content_pipeline -->|7| center
+    center -->|5| n_learnloop_ingest
 ```
 
 Interpretation: arrow direction is static import direction and the label is the number of distinct module-to-module edges. It shows coupling pressure, not runtime call frequency or ownership permission.

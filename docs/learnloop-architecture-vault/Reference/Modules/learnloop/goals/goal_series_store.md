@@ -7,11 +7,11 @@ version: "1.0.0"
 source_path: "src/learnloop/goals/goal_series_store.py"
 source_paths:
   - "src/learnloop/goals/goal_series_store.py"
-source_commit: "b322ef2e9b5cebc241b612e4963a5aaf1a37f99a"
-source_commit_timestamp: "2026-08-20T18:04:29-04:00"
+source_commit: "7ee17730cc8fb532f5e438aeda915444cf9609f2"
+source_commit_timestamp: "2026-10-12T17:19:54-04:00"
 source_worktree_state: "clean"
 generated: true
-generated_at: "2026-09-23"
+generated_at: "2026-11-02"
 package: "learnloop.goals"
 layer: "domain"
 concepts:
@@ -49,17 +49,17 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/goals/goal_series_store.py](../../../../../../src/learnloop/goals/goal_series_store.py) |
-| Source lines | 113 |
+| Source lines | 109 |
 | Owning package | [[Reference/Modules/learnloop/goals/_package|learnloop.goals]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `b322ef2e9b5cebc241b612e4963a5aaf1a37f99a` |
-| Commit timestamp | `2026-08-20T18:04:29-04:00` |
+| Source commit | `7ee17730cc8fb532f5e438aeda915444cf9609f2` |
+| Commit timestamp | `2026-10-12T17:19:54-04:00` |
 
 ## Public API
 
-- `prune_rows(connection, table: str, column: str, values: list[Any], *, delete_rows: bool=True, depth: int=0) -> None` ([source](../../../../../../src/learnloop/goals/goal_series_store.py), line 67) — Prune scratch rows while respecting non-cascading foreign keys.
+- `prune_rows(connection, table: str, column: str, values: list[Any], *, delete_rows: bool=True, depth: int=0) -> None` ([source](../../../../../../src/learnloop/goals/goal_series_store.py), line 63) — Prune scratch rows while respecting non-cascading foreign keys.
 
 ### Module constants
 
@@ -76,7 +76,7 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 
 - `_chunked(values: list[Any]) -> list[list[Any]]` ([source](../../../../../../src/learnloop/goals/goal_series_store.py), line 13)
 - `_referencing_columns(connection, table: str) -> list[tuple[str, str, str, str]]` ([source](../../../../../../src/learnloop/goals/goal_series_store.py), line 20) — Return child references as ``(table, column, parent, on_delete)``.
-- `_distinct_column(connection, table: str, column: str, key: str, values: list[Any]) -> list[Any]` ([source](../../../../../../src/learnloop/goals/goal_series_store.py), line 44)
+- `_distinct_column(connection, table: str, column: str, key: str, values: list[Any]) -> list[Any]` ([source](../../../../../../src/learnloop/goals/goal_series_store.py), line 40)
 
 ## Who imports or calls it
 
@@ -89,7 +89,7 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 
 ### LearnLoop dependencies
 
-- [[Reference/Modules/learnloop/db/table_roles|learnloop.db.table_roles]] — imports `role_for_table`; calls `role_for_table`
+- [[Reference/Modules/learnloop/db/table_roles|learnloop.db.table_roles]] — imports `role_for_table`, `user_table_names`; calls `role_for_table`, `user_table_names`
 
 ### Platform and third-party dependencies
 

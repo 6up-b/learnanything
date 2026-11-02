@@ -7,11 +7,11 @@ version: "1.0.0"
 source_path: "src/learnloop/diagnosis/diagnostic_surface_supply.py"
 source_paths:
   - "src/learnloop/diagnosis/diagnostic_surface_supply.py"
-source_commit: "b322ef2e9b5cebc241b612e4963a5aaf1a37f99a"
-source_commit_timestamp: "2026-08-20T18:04:29-04:00"
+source_commit: "172113ce71fde1319a191392f85ec531f3f8c28b"
+source_commit_timestamp: "2026-10-23T17:40:35-04:00"
 source_worktree_state: "clean"
 generated: true
-generated_at: "2026-09-23"
+generated_at: "2026-11-02"
 package: "learnloop.diagnosis"
 layer: "domain"
 concepts:
@@ -50,22 +50,23 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/diagnosis/diagnostic_surface_supply.py](../../../../../../src/learnloop/diagnosis/diagnostic_surface_supply.py) |
-| Source lines | 456 |
+| Source lines | 486 |
 | Owning package | [[Reference/Modules/learnloop/diagnosis/_package|learnloop.diagnosis]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `b322ef2e9b5cebc241b612e4963a5aaf1a37f99a` |
-| Commit timestamp | `2026-08-20T18:04:29-04:00` |
+| Source commit | `172113ce71fde1319a191392f85ec531f3f8c28b` |
+| Commit timestamp | `2026-10-23T17:40:35-04:00` |
 
 ## Public API
 
 - `reconcile_diagnostic_surface_needs(vault: LoadedVault, repository: Repository, *, clock: Clock | None=None) -> dict[str, list[str]]` ([source](../../../../../../src/learnloop/diagnosis/diagnostic_surface_supply.py), line 67) — Enqueue needs for consumed diagnostic surfaces; resolve satisfied ones.
 - `class EmptyPoolCondition` ([source](../../../../../../src/learnloop/diagnosis/diagnostic_surface_supply.py), line 138) — One learning object whose diagnostic surface pool is currently empty.
 - `probe_pool_empty_conditions(vault: LoadedVault, repository: Repository) -> list[EmptyPoolCondition]` ([source](../../../../../../src/learnloop/diagnosis/diagnostic_surface_supply.py), line 155) — Learning objects whose eligible diagnostic pool is empty right now.
-- `probe_pool_empty_notice_payload(vault: LoadedVault, condition: EmptyPoolCondition) -> dict[str, Any]` ([source](../../../../../../src/learnloop/diagnosis/diagnostic_surface_supply.py), line 259) — The one notice shape both writers use (sweep upsert + feed collector).
-- `authoring_provider_available(vault: LoadedVault) -> str | None` ([source](../../../../../../src/learnloop/diagnosis/diagnostic_surface_supply.py), line 305) — The routed authoring provider when its runtime is ready, else None.
-- `reconcile_empty_probe_pools(vault: LoadedVault, repository: Repository, *, clock: Clock | None=None, provider_available: bool | None=None, ai_client: object | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/diagnosis/diagnostic_surface_supply.py), line 324) — Detect empty pools; queue generation (provider-gated); raise/clear notices.
+- `held_probe_pool_notice_keys(vault: LoadedVault, repository: Repository) -> frozenset[str]` ([source](../../../../../../src/learnloop/diagnosis/diagnostic_surface_supply.py), line 264) — LOs whose empty-pool notice neither the sweep nor the feed raises or resolves.
+- `probe_pool_empty_notice_payload(vault: LoadedVault, condition: EmptyPoolCondition) -> dict[str, Any]` ([source](../../../../../../src/learnloop/diagnosis/diagnostic_surface_supply.py), line 283) — The one notice shape both writers use (sweep upsert + feed collector).
+- `authoring_provider_available(vault: LoadedVault) -> str | None` ([source](../../../../../../src/learnloop/diagnosis/diagnostic_surface_supply.py), line 329) — The routed authoring provider when its runtime is ready, else None.
+- `reconcile_empty_probe_pools(vault: LoadedVault, repository: Repository, *, clock: Clock | None=None, provider_available: bool | None=None, ai_client: object | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/diagnosis/diagnostic_surface_supply.py), line 353) — Detect empty pools; queue generation (provider-gated); raise/clear notices.
 
 ### Module constants
 
@@ -77,25 +78,27 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 
 - `_facet_target_key(item: PracticeItem) -> str` ([source](../../../../../../src/learnloop/diagnosis/diagnostic_surface_supply.py), line 57)
 - `_misconception_ids(vault: LoadedVault, item: PracticeItem) -> list[str]` ([source](../../../../../../src/learnloop/diagnosis/diagnostic_surface_supply.py), line 62)
-- `_queue_episode_generation_need(vault: LoadedVault, repository: Repository, episode_id: str, *, clock: Clock | None=None) -> str | None` ([source](../../../../../../src/learnloop/diagnosis/diagnostic_surface_supply.py), line 425) — Ensure the starved episode has one pending generation need.
+- `_queue_episode_generation_need(vault: LoadedVault, repository: Repository, episode_id: str, *, clock: Clock | None=None) -> str | None` ([source](../../../../../../src/learnloop/diagnosis/diagnostic_surface_supply.py), line 455) — Ensure the starved episode has one pending generation need.
 
 ## Who imports or calls it
 
 > [!note] Static evidence boundary
 > “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
 
-- [[Reference/Modules/learnloop/ops/maintenance_feed|learnloop.ops.maintenance_feed]] — imports `probe_pool_empty_conditions`, `probe_pool_empty_notice_payload`; statically calls `probe_pool_empty_conditions`, `probe_pool_empty_notice_payload`
+- [[Reference/Modules/learnloop/ops/maintenance_feed|learnloop.ops.maintenance_feed]] — imports `PROBE_POOL_EMPTY_NOTICE_TYPE`, `held_probe_pool_notice_keys`, `probe_pool_empty_conditions`, `probe_pool_empty_notice_payload`; statically calls `held_probe_pool_notice_keys`, `probe_pool_empty_conditions`, `probe_pool_empty_notice_payload`
 - [[Reference/Modules/learnloop/scheduling/scheduler|learnloop.scheduling.scheduler]] — imports `reconcile_diagnostic_surface_needs`, `reconcile_empty_probe_pools`; statically calls `reconcile_diagnostic_surface_needs`, `reconcile_empty_probe_pools`
 
 ## Dependencies
 
 ### LearnLoop dependencies
 
+- [[Reference/Modules/learnloop/ai/plan_fallback|learnloop.ai.plan_fallback]] — imports `module`; calls `quiet`
 - [[Reference/Modules/learnloop/ai/routing|learnloop.ai.routing]] — imports `ready_client_for_task`; calls `ready_client_for_task`
 - [[Reference/Modules/learnloop/clock|learnloop.clock]] — imports `Clock`
 - [[Reference/Modules/learnloop/db/repositories|learnloop.db.repositories]] — imports `Repository`
 - [[Reference/Modules/learnloop/diagnosis/probe_episodes|learnloop.diagnosis.probe_episodes]] — imports `_record_generation_need`, `administered_surface_exclusions`, `episode_hypothesis_set`; calls `_record_generation_need`, `administered_surface_exclusions`, `episode_hypothesis_set`
 - [[Reference/Modules/learnloop/diagnosis/probe_instance_generation|learnloop.diagnosis.probe_instance_generation]] — imports `mint_single_use_probe_surface`; calls `mint_single_use_probe_surface`
+- [[Reference/Modules/learnloop/placement/state|learnloop.placement.state]] — imports `ignored_opening_episode_ids`, `servable_open_episodes`; calls `ignored_opening_episode_ids`, `servable_open_episodes`
 - [[Reference/Modules/learnloop/substrate/canonical_projection|learnloop.substrate.canonical_projection]] — imports `surface_group_id`; calls `surface_group_id`
 - [[Reference/Modules/learnloop/substrate/instrument_serving|learnloop.substrate.instrument_serving]] — imports `unservable_reason`; calls `unservable_reason`
 - [[Reference/Modules/learnloop/vault/models|learnloop.vault.models]] — imports `LoadedVault`, `PracticeItem`, `discriminates`; calls `discriminates`
@@ -121,6 +124,11 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_diagnostic_probe_freshness.py](../../../../../../tests/test_diagnostic_probe_freshness.py) — direct import
   - `test_a_fresh_replacement_surface_resolves_the_pending_need`
   - `test_consuming_a_diagnostic_administration_enqueues_one_deduplicated_need`
+- [tests/test_placement_opening_probes.py](../../../../../../tests/test_placement_opening_probes.py) — direct import
+  - `test_a_notice_raised_before_placement_is_held_not_resolved`
+  - `test_an_ignored_opening_episode_commissions_no_instrument_generation`
+- [tests/test_plan_first_transport_today_quiet.py](../../../../../../tests/test_plan_first_transport_today_quiet.py) — direct import
+  - `test_the_probe_pool_sweep_asks_nothing_and_honours_no_grant`
 - [tests/test_probe_pool_empty.py](../../../../../../tests/test_probe_pool_empty.py) — direct import
   - `test_empty_pool_raises_exactly_one_urgent_deduplicated_notice`
   - `test_maintenance_feed_sustains_and_auto_resolves_the_notice`

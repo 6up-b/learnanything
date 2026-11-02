@@ -7,11 +7,11 @@ version: "1.0.0"
 source_path: "src/learnloop/curriculum/depth_rungs.py"
 source_paths:
   - "src/learnloop/curriculum/depth_rungs.py"
-source_commit: "2f1331ce04afea51266eaa93ae26b8c5ef72517a"
-source_commit_timestamp: "2026-09-23T12:47:57-04:00"
+source_commit: "80edc01a5734d60471ca774c9d32659ff39b10b6"
+source_commit_timestamp: "2026-10-20T12:45:06-04:00"
 source_worktree_state: "clean"
 generated: true
-generated_at: "2026-09-23"
+generated_at: "2026-11-02"
 package: "learnloop.curriculum"
 layer: "domain"
 concepts:
@@ -49,13 +49,13 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/curriculum/depth_rungs.py](../../../../../../src/learnloop/curriculum/depth_rungs.py) |
-| Source lines | 658 |
+| Source lines | 664 |
 | Owning package | [[Reference/Modules/learnloop/curriculum/_package|learnloop.curriculum]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `2f1331ce04afea51266eaa93ae26b8c5ef72517a` |
-| Commit timestamp | `2026-09-23T12:47:57-04:00` |
+| Source commit | `80edc01a5734d60471ca774c9d32659ff39b10b6` |
+| Commit timestamp | `2026-10-20T12:45:06-04:00` |
 
 ## Public API
 
@@ -68,10 +68,10 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 - `waypoint_rung(repository: Repository, slug: str) -> RungTarget` ([source](../../../../../../src/learnloop/curriculum/depth_rungs.py), line 163) — A RungTarget for one default-trajectory waypoint (public seam for rung_variants and other callers; keeps them off module-private names).
 - `waypoint_slug_for_capability(capability: str) -> str | None` ([source](../../../../../../src/learnloop/curriculum/depth_rungs.py), line 173) — The default-trajectory waypoint that authors AT ``capability``, or ``None``.
 - `capability_rung(repository: Repository, capability: str) -> RungTarget | None` ([source](../../../../../../src/learnloop/curriculum/depth_rungs.py), line 188) — A RungTarget authoring AT ``capability``, or ``None`` when none exists.
-- `select_rung(vault, repository: Repository, *, learning_object_id: str, mastery_mean: float | None, evidence_count: int=0, claimed_level: float | None=None, commitment_id: str | None=None) -> RungTarget` ([source](../../../../../../src/learnloop/curriculum/depth_rungs.py), line 228) — Pick the generation waypoint for one learning object.
-- `project_task_contract(repository: Repository, contract: Mapping[str, Any], schema_version_id: str) -> tuple[str, dict[str, Any], dict[str, dict[str, Any]]] | None` ([source](../../../../../../src/learnloop/curriculum/depth_rungs.py), line 436) — Project a milestone ``task_contract_json`` into (capability, point vector, bounds), or None when any piece is malformed (no partial rungs).
-- `rung_float_proxies(rung: RungTarget) -> dict[str, tuple[float, float]]` ([source](../../../../../../src/learnloop/curriculum/depth_rungs.py), line 497) — Legacy float bands consistent with the rung, so the two vocabularies (task features vs retrieval_demand/transfer_distance/scaffold_level) cannot silently drift.
-- `validate_item_against_rung(repository: Repository, *, payload: Mapping[str, Any], rung: RungTarget) -> list[GateDiagnostic]` ([source](../../../../../../src/learnloop/curriculum/depth_rungs.py), line 538) — Deterministic admission check of one generated-item payload against its rung.
+- `select_rung(vault, repository: Repository, *, learning_object_id: str, mastery_mean: float | None, evidence_count: int=0, claimed_level: float | None=None, commitment_id: str | None=None, episode_hypotheses: bool=True) -> RungTarget` ([source](../../../../../../src/learnloop/curriculum/depth_rungs.py), line 228) — Pick the generation waypoint for one learning object.
+- `project_task_contract(repository: Repository, contract: Mapping[str, Any], schema_version_id: str) -> tuple[str, dict[str, Any], dict[str, dict[str, Any]]] | None` ([source](../../../../../../src/learnloop/curriculum/depth_rungs.py), line 442) — Project a milestone ``task_contract_json`` into (capability, point vector, bounds), or None when any piece is malformed (no partial rungs).
+- `rung_float_proxies(rung: RungTarget) -> dict[str, tuple[float, float]]` ([source](../../../../../../src/learnloop/curriculum/depth_rungs.py), line 503) — Legacy float bands consistent with the rung, so the two vocabularies (task features vs retrieval_demand/transfer_distance/scaffold_level) cannot silently drift.
+- `validate_item_against_rung(repository: Repository, *, payload: Mapping[str, Any], rung: RungTarget) -> list[GateDiagnostic]` ([source](../../../../../../src/learnloop/curriculum/depth_rungs.py), line 544) — Deterministic admission check of one generated-item payload against its rung.
 
 ### Module constants
 
@@ -84,32 +84,34 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 - `_WAYPOINT_BY_SLUG` ([src/learnloop/curriculum/depth_rungs.py](../../../../../../src/learnloop/curriculum/depth_rungs.py), line 124)
 - `_WAYPOINT_SLUG_BY_CAPABILITY` ([src/learnloop/curriculum/depth_rungs.py](../../../../../../src/learnloop/curriculum/depth_rungs.py), line 130)
 - `_RETIRED_WAYPOINT_SLUGS` ([src/learnloop/curriculum/depth_rungs.py](../../../../../../src/learnloop/curriculum/depth_rungs.py), line 134)
-- `UNCERTAIN_EVIDENCE_COUNT` ([src/learnloop/curriculum/depth_rungs.py](../../../../../../src/learnloop/curriculum/depth_rungs.py), line 313)
-- `UNCERTAIN_OPTIMISM_STEPS` ([src/learnloop/curriculum/depth_rungs.py](../../../../../../src/learnloop/curriculum/depth_rungs.py), line 314)
-- `_RUNG_BY_HYPOTHESIS` ([src/learnloop/curriculum/depth_rungs.py](../../../../../../src/learnloop/curriculum/depth_rungs.py), line 326)
-- `_HYPOTHESIS_COMPLETION_REASONS` ([src/learnloop/curriculum/depth_rungs.py](../../../../../../src/learnloop/curriculum/depth_rungs.py), line 335)
+- `UNCERTAIN_EVIDENCE_COUNT` ([src/learnloop/curriculum/depth_rungs.py](../../../../../../src/learnloop/curriculum/depth_rungs.py), line 319)
+- `UNCERTAIN_OPTIMISM_STEPS` ([src/learnloop/curriculum/depth_rungs.py](../../../../../../src/learnloop/curriculum/depth_rungs.py), line 320)
+- `_RUNG_BY_HYPOTHESIS` ([src/learnloop/curriculum/depth_rungs.py](../../../../../../src/learnloop/curriculum/depth_rungs.py), line 332)
+- `_HYPOTHESIS_COMPLETION_REASONS` ([src/learnloop/curriculum/depth_rungs.py](../../../../../../src/learnloop/curriculum/depth_rungs.py), line 341)
 
 ## Internal implementation anchors
 
 - `_default_bounds(features: Mapping[str, Any]) -> dict[str, dict[str, Any]]` ([source](../../../../../../src/learnloop/curriculum/depth_rungs.py), line 204) — Point-target bounds: max equals the target on every declared dimension — the generated item may not exceed the waypoint's hardness anywhere.
 - `_waypoint_target(waypoint: Waypoint, schema_version_id: str, *, fallback_reason: str | None=None) -> RungTarget` ([source](../../../../../../src/learnloop/curriculum/depth_rungs.py), line 211)
-- `_uncertainty_optimism(evidence_count: int) -> int` ([source](../../../../../../src/learnloop/curriculum/depth_rungs.py), line 317) — Waypoints to climb past the point estimate when evidence is thin.
-- `_rung_from_episode_hypothesis(repository: Repository, learning_object_id: str) -> str | None` ([source](../../../../../../src/learnloop/curriculum/depth_rungs.py), line 338) — Entry slug from the LO's latest trusted completed probe episode, or None.
-- `_milestone_rung(repository: Repository, commitment_id: str, schema_version_id: str) -> RungTarget | None` ([source](../../../../../../src/learnloop/curriculum/depth_rungs.py), line 353) — Project the commitment's NEXT milestone into a RungTarget, or None.
-- `_reached_milestones(repository: Repository, commitment_id: str) -> list[str]` ([source](../../../../../../src/learnloop/curriculum/depth_rungs.py), line 414)
+- `_uncertainty_optimism(evidence_count: int) -> int` ([source](../../../../../../src/learnloop/curriculum/depth_rungs.py), line 323) — Waypoints to climb past the point estimate when evidence is thin.
+- `_rung_from_episode_hypothesis(repository: Repository, learning_object_id: str) -> str | None` ([source](../../../../../../src/learnloop/curriculum/depth_rungs.py), line 344) — Entry slug from the LO's latest trusted completed probe episode, or None.
+- `_milestone_rung(repository: Repository, commitment_id: str, schema_version_id: str) -> RungTarget | None` ([source](../../../../../../src/learnloop/curriculum/depth_rungs.py), line 359) — Project the commitment's NEXT milestone into a RungTarget, or None.
+- `_reached_milestones(repository: Repository, commitment_id: str) -> list[str]` ([source](../../../../../../src/learnloop/curriculum/depth_rungs.py), line 420)
 
 ## Who imports or calls it
 
 > [!note] Static evidence boundary
 > “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
 
+- [[Reference/Modules/learnloop/adaptive_difficulty/selection|learnloop.adaptive_difficulty.selection]] — imports `DEFAULT_TRAJECTORY`
 - [[Reference/Modules/learnloop/content/authoring/contract_commissioning|learnloop.content.authoring.contract_commissioning]] — imports `RungTarget`, `capability_rung`; statically calls `capability_rung`
 - [[Reference/Modules/learnloop/content/authoring/exercise_authoring|learnloop.content.authoring.exercise_authoring]] — imports `TASK_FEATURE_SCHEMA_SLUG`
-- [[Reference/Modules/learnloop/content/authoring/practice_generation|learnloop.content.authoring.practice_generation]] — imports `RungTarget`, `TASK_FEATURE_SCHEMA_SLUG`, `capability_rung`, `rung_float_proxies`, `select_rung`, `validate_item_against_rung`; statically calls `capability_rung`, `rung_float_proxies`, `select_rung`, `validate_item_against_rung`
+- [[Reference/Modules/learnloop/content/authoring/practice_generation|learnloop.content.authoring.practice_generation]] — imports `RungTarget`, `TASK_FEATURE_SCHEMA_SLUG`, `capability_rung`, `rung_float_proxies`, `select_rung`, `validate_item_against_rung`; statically calls `RungTarget`, `capability_rung`, `rung_float_proxies`, `select_rung`, `validate_item_against_rung`
 - [[Reference/Modules/learnloop/content/authoring/rung_variants|learnloop.content.authoring.rung_variants]] — imports `RungTarget`, `adjacent_slug`, `rung_float_proxies`, `select_rung`, `trajectory_slugs`, `waypoint_rung`; statically calls `RungTarget`, `adjacent_slug`, `rung_float_proxies`, `select_rung`, `trajectory_slugs`, `waypoint_rung`
 - [[Reference/Modules/learnloop/curriculum/depth_edge_authoring|learnloop.curriculum.depth_edge_authoring]] — imports `project_task_contract`; statically calls `project_task_contract`
 - [[Reference/Modules/learnloop/curriculum/integration_backfill|learnloop.curriculum.integration_backfill]] — imports `DEFAULT_TRAJECTORY`, `waypoint_slug_for_capability`; statically calls `waypoint_slug_for_capability`
 - [[Reference/Modules/learnloop/curriculum/rung_backfill|learnloop.curriculum.rung_backfill]] — imports `TASK_FEATURE_SCHEMA_SLUG`
+- [[Reference/Modules/learnloop/sim/ad_synthetic|learnloop.sim.ad_synthetic]] — imports `DEFAULT_TRAJECTORY`, `UNCERTAIN_EVIDENCE_COUNT`, `UNCERTAIN_OPTIMISM_STEPS`
 
 ## Dependencies
 
@@ -131,12 +133,14 @@ Use this module in context through:
 
 - [[Build a Study Map]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/content/authoring/contract_commissioning|learnloop.content.authoring.contract_commissioning]], [[Reference/Modules/learnloop/content/authoring/exercise_authoring|learnloop.content.authoring.exercise_authoring]], [[Reference/Modules/learnloop/content/authoring/practice_generation|learnloop.content.authoring.practice_generation]], [[Reference/Modules/learnloop/content/authoring/rung_variants|learnloop.content.authoring.rung_variants]], [[Reference/Modules/learnloop/curriculum/depth_edge_authoring|learnloop.curriculum.depth_edge_authoring]] and 2 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/adaptive_difficulty/selection|learnloop.adaptive_difficulty.selection]], [[Reference/Modules/learnloop/content/authoring/contract_commissioning|learnloop.content.authoring.contract_commissioning]], [[Reference/Modules/learnloop/content/authoring/exercise_authoring|learnloop.content.authoring.exercise_authoring]], [[Reference/Modules/learnloop/content/authoring/practice_generation|learnloop.content.authoring.practice_generation]], [[Reference/Modules/learnloop/content/authoring/rung_variants|learnloop.content.authoring.rung_variants]] and 4 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
 ## Tests that define behavior
 
+- [tests/test_ad23_contract.py](../../../../../../tests/test_ad23_contract.py) — direct import
+  - `test_the_commissioned_generation_path_reads_no_incumbent_diagnosis_or_probe_counts`
 - [tests/test_contract_commissioning.py](../../../../../../tests/test_contract_commissioning.py) — direct import
   - `test_capability_rung_refuses_to_guess`
   - `test_coordination_cell_is_deferred_with_a_typed_reason`

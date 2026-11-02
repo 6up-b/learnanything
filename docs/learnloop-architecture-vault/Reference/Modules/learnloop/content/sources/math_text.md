@@ -11,7 +11,7 @@ source_commit: "b322ef2e9b5cebc241b612e4963a5aaf1a37f99a"
 source_commit_timestamp: "2026-08-20T18:04:29-04:00"
 source_worktree_state: "clean"
 generated: true
-generated_at: "2026-09-23"
+generated_at: "2026-11-02"
 package: "learnloop.content.sources"
 layer: "domain"
 concepts:
@@ -99,6 +99,7 @@ The authoritative system-level explanation remains in [[Learning System]], [[AI 
 
 - [[Reference/Modules/learnloop/content/authoring/exercise_authoring|learnloop.content.authoring.exercise_authoring]] — imports `contains_unicode_math`, `unicode_math_to_latex`; statically calls `contains_unicode_math`, `unicode_math_to_latex`
 - [[Reference/Modules/learnloop/reader/annotations|learnloop.reader.annotations]] — imports `locate_by_canonical`; statically calls `locate_by_canonical`
+- [[Reference/Modules/learnloop/reader/as_printed|learnloop.reader.as_printed]] — imports `contains_unicode_math`, `unicode_math_to_latex`; statically calls `contains_unicode_math`, `unicode_math_to_latex`
 
 ## Dependencies
 
@@ -118,7 +119,7 @@ Use this module in context through:
 - [[Import Canonical Sources]]
 - [[Build a Study Map]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/content/authoring/exercise_authoring|learnloop.content.authoring.exercise_authoring]], [[Reference/Modules/learnloop/reader/annotations|learnloop.reader.annotations]].
+Static participation evidence comes from [[Reference/Modules/learnloop/content/authoring/exercise_authoring|learnloop.content.authoring.exercise_authoring]], [[Reference/Modules/learnloop/reader/annotations|learnloop.reader.annotations]], [[Reference/Modules/learnloop/reader/as_printed|learnloop.reader.as_printed]].
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
@@ -132,6 +133,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_transliteration_leaves_prose_and_existing_latex_alone`
   - `test_transliteration_mixed_prose`
   - `test_transliteration_upgrades_runs_and_reports_change`
+- [tests/test_reader_ca1_unicode_containment.py](../../../../../../../tests/test_reader_ca1_unicode_containment.py) — direct import
 
 ## Modification guidance
 

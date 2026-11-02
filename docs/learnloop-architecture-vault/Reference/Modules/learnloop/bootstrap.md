@@ -11,7 +11,7 @@ source_commit: "b322ef2e9b5cebc241b612e4963a5aaf1a37f99a"
 source_commit_timestamp: "2026-08-20T18:04:29-04:00"
 source_worktree_state: "clean"
 generated: true
-generated_at: "2026-09-23"
+generated_at: "2026-11-02"
 package: "learnloop"
 layer: "coordination"
 concepts:
@@ -76,6 +76,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 > “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
 
 - [[Reference/Modules/learnloop/cli/app|learnloop.cli.app]] — imports `BootstrapError`, `create_vault`; statically calls `create_vault`
+- [[Reference/Modules/learnloop_sidecar/handlers/app|learnloop_sidecar.handlers.app]] — imports `BootstrapError`, `create_vault`; statically calls `create_vault`
 - [[Reference/Modules/learnloop_sidecar/handlers/vault|learnloop_sidecar.handlers.vault]] — imports `BootstrapError`, `create_vault`; statically calls `create_vault`
 
 ## Dependencies
@@ -103,16 +104,25 @@ Use this module in context through:
 
 - [[Initialize a Vault]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/cli/app|learnloop.cli.app]], [[Reference/Modules/learnloop_sidecar/handlers/vault|learnloop_sidecar.handlers.vault]].
+Static participation evidence comes from [[Reference/Modules/learnloop/cli/app|learnloop.cli.app]], [[Reference/Modules/learnloop_sidecar/handlers/app|learnloop_sidecar.handlers.app]], [[Reference/Modules/learnloop_sidecar/handlers/vault|learnloop_sidecar.handlers.vault]].
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
 ## Tests that define behavior
 
+- [tests/test_ad23_successor.py](../../../../../tests/test_ad23_successor.py) — direct import
+  - `test_new_vaults_start_at_the_successor_with_every_switch_on`
 - [tests/test_init.py](../../../../../tests/test_init.py) — direct import
   - `test_bootstrap_completes_partial_vault_without_touching_config`
   - `test_bootstrap_seeds_subject_and_starting_level`
   - `test_bootstrap_validates_request_before_writing`
+- [tests/test_intent_codex_rereview.py](../../../../../tests/test_intent_codex_rereview.py) — direct import
+  - `test_f2_new_vaults_start_at_the_successor_with_intent_live`
+- [tests/test_serve_eligibility_review.py](../../../../../tests/test_serve_eligibility_review.py) — direct import
+  - `test_f4_new_vaults_start_at_the_successor_with_the_switch_on`
+- [tests/test_ux_phase1_connect_ai.py](../../../../../tests/test_ux_phase1_connect_ai.py) — direct import
+  - `test_continue_with_chatgpt_routes_every_use_case_to_the_plan`
+- [tests/ux_phase1_support.py](../../../../../tests/ux_phase1_support.py) — direct import
 
 ## Modification guidance
 

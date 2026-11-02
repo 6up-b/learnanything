@@ -7,11 +7,11 @@ version: "1.0.0"
 source_path: "src/learnloop/ingest/resolution.py"
 source_paths:
   - "src/learnloop/ingest/resolution.py"
-source_commit: "22d319783aa8c03d45f349b104a7dc1e4c0d188d"
-source_commit_timestamp: "2026-07-22T21:50:39-05:00"
+source_commit: "0b480dd851da8df0926e348ae9183a1d3282e192"
+source_commit_timestamp: "2026-10-13T22:15:33-04:00"
 source_worktree_state: "clean"
 generated: true
-generated_at: "2026-09-23"
+generated_at: "2026-11-02"
 package: "learnloop.ingest"
 layer: "infrastructure"
 concepts:
@@ -49,13 +49,13 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/ingest/resolution.py](../../../../../../src/learnloop/ingest/resolution.py) |
-| Source lines | 76 |
+| Source lines | 80 |
 | Owning package | [[Reference/Modules/learnloop/ingest/_package|learnloop.ingest]] |
 | Architecture layer | `infrastructure` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `22d319783aa8c03d45f349b104a7dc1e4c0d188d` |
-| Commit timestamp | `2026-07-22T21:50:39-05:00` |
+| Source commit | `0b480dd851da8df0926e348ae9183a1d3282e192` |
+| Commit timestamp | `2026-10-13T22:15:33-04:00` |
 
 ## Public API
 
@@ -90,6 +90,7 @@ No private top-level function or class definition is declared in this file.
 > “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
 
 - [[Reference/Modules/learnloop/content/pipeline/acquisition_preview|learnloop.content.pipeline.acquisition_preview]] — imports `resolve_source`; statically calls `resolve_source`
+- [[Reference/Modules/learnloop/content/pipeline/add_source|learnloop.content.pipeline.add_source]] — imports `resolve_source`; statically calls `resolve_source`
 - [[Reference/Modules/learnloop/content/pipeline/jobs|learnloop.content.pipeline.jobs]] — imports `resolve_source`; statically calls `resolve_source`
 - [[Reference/Modules/learnloop/content/pipeline/source_ingestion|learnloop.content.pipeline.source_ingestion]] — imports `ResolvedSource`, `resolve_source`; statically calls `resolve_source`
 - [[Reference/Modules/learnloop/ingest/detect|learnloop.ingest.detect]] — imports `resolve_source`; statically calls `resolve_source`
@@ -113,16 +114,22 @@ Use this module in context through:
 
 - [[Import Canonical Sources]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/content/pipeline/acquisition_preview|learnloop.content.pipeline.acquisition_preview]], [[Reference/Modules/learnloop/content/pipeline/jobs|learnloop.content.pipeline.jobs]], [[Reference/Modules/learnloop/content/pipeline/source_ingestion|learnloop.content.pipeline.source_ingestion]], [[Reference/Modules/learnloop/ingest/detect|learnloop.ingest.detect]], [[Reference/Modules/learnloop/ingest/fetchers|learnloop.ingest.fetchers]] and 1 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/content/pipeline/acquisition_preview|learnloop.content.pipeline.acquisition_preview]], [[Reference/Modules/learnloop/content/pipeline/add_source|learnloop.content.pipeline.add_source]], [[Reference/Modules/learnloop/content/pipeline/jobs|learnloop.content.pipeline.jobs]], [[Reference/Modules/learnloop/content/pipeline/source_ingestion|learnloop.content.pipeline.source_ingestion]], [[Reference/Modules/learnloop/ingest/detect|learnloop.ingest.detect]] and 2 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
 ## Tests that define behavior
 
+- [tests/test_glm_ocr.py](../../../../../../tests/test_glm_ocr.py) — direct import
+  - `test_an_image_import_needs_glm_and_reads_with_it`
 - [tests/test_ingest_transcripts.py](../../../../../../tests/test_ingest_transcripts.py) — direct import
   - `test_resolution_classifies_caption_files_as_textfile`
 - [tests/test_quick_add.py](../../../../../../tests/test_quick_add.py) — direct import
+- [tests/test_reread_safety.py](../../../../../../tests/test_reread_safety.py) — direct import
+  - `test_e1_the_reread_hands_the_import_the_stored_bytes_never_a_store_path`
 - [tests/test_sidecar_quick_add.py](../../../../../../tests/test_sidecar_quick_add.py) — direct import
+- [tests/test_source_retrieval_search.py](../../../../../../tests/test_source_retrieval_search.py) — direct import
+  - `test_quick_add_with_retrieval_off_plans_exactly_as_before`
 
 ## Modification guidance
 

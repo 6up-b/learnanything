@@ -214,16 +214,15 @@ _UNAVAILABLE = frozenset({"unavailable", "unrouted", "unpriced", "capped", "mode
 
 
 def _budget_refused(state: Any, exc: BaseException) -> bool:
-    """The lesson's spend envelope refused a request of the build (§17): the lesson closes ``budget``."""
+    """The LESSON's spend envelope refused a request of the build (§17): the lesson closes ``budget``.
 
-    from learnloop.ai.spend import SpendLimitExceeded
+    Only the lesson's own gate says so (its ``refusal``). A ``SpendLimitExceeded`` from anywhere else, the
+    figures' daily envelope (``figures.max_daily_cost_usd``, which the figure service reports as
+    ``capped``) above all, only leaves this visual unavailable and the lesson goes on (followups batch 5,
+    E: any ``SpendLimitExceeded`` in the chain used to close the whole lesson)."""
 
-    seen: BaseException | None = exc
-    while seen is not None:
-        if isinstance(seen, SpendLimitExceeded):
-            return True
-        seen = seen.__cause__ or seen.__context__
-    return state.gate is not None and getattr(state.gate, "refusal", None) is not None
+    gate = getattr(state, "gate", None)
+    return gate is not None and getattr(gate, "refusal", None) is not None
 
 
 def _base(resolved: Mapping[str, Any]) -> dict[str, Any]:

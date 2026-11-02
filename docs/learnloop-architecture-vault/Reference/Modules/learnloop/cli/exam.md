@@ -7,11 +7,11 @@ version: "1.0.0"
 source_path: "src/learnloop/cli/exam.py"
 source_paths:
   - "src/learnloop/cli/exam.py"
-source_commit: "b322ef2e9b5cebc241b612e4963a5aaf1a37f99a"
-source_commit_timestamp: "2026-08-20T18:04:29-04:00"
+source_commit: "3159eb4a25b171a2bf4cde14435456b9fe646616"
+source_commit_timestamp: "2026-10-13T18:47:31-04:00"
 source_worktree_state: "clean"
 generated: true
-generated_at: "2026-09-23"
+generated_at: "2026-11-02"
 package: "learnloop.cli"
 layer: "adapter"
 concepts:
@@ -49,20 +49,20 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/cli/exam.py](../../../../../../src/learnloop/cli/exam.py) |
-| Source lines | 192 |
+| Source lines | 202 |
 | Owning package | [[Reference/Modules/learnloop/cli/_package|learnloop.cli]] |
 | Architecture layer | `adapter` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `b322ef2e9b5cebc241b612e4963a5aaf1a37f99a` |
-| Commit timestamp | `2026-08-20T18:04:29-04:00` |
+| Source commit | `3159eb4a25b171a2bf4cde14435456b9fe646616` |
+| Commit timestamp | `2026-10-13T18:47:31-04:00` |
 
 ## Public API
 
 - `exam_reserve_command(goal: Annotated[str, typer.Option('--goal', help='Goal id to reserve a held-out exam pool for.')], item_count: Annotated[int | None, typer.Option('--item-count', help="Override the goal's exam item_count.")]=None, json_output: Annotated[bool, typer.Option('--json', help='Emit stable JSON.')]=False, vault: Annotated[Path | None, typer.Option('--vault', help='Vault root.')]=None) -> None` ([source](../../../../../../src/learnloop/cli/exam.py), line 8)
 - `exam_start_command(goal: Annotated[str, typer.Option('--goal', help='Goal id to start a held-out exam for.')], json_output: Annotated[bool, typer.Option('--json', help='Emit stable JSON.')]=False, vault: Annotated[Path | None, typer.Option('--vault', help='Vault root.')]=None) -> None` ([source](../../../../../../src/learnloop/cli/exam.py), line 32)
 - `exam_answer_command(session: Annotated[str, typer.Option('--session', help='Exam session id.')], practice_item_id: Annotated[str, typer.Argument(help='Practice item id being answered.')], answer: Annotated[str | None, typer.Option('--answer', help='Learner answer markdown.')]=None, criterion_points: Annotated[str | None, typer.Option('--criterion-points', help='REFUSED: a held-out exam is not self-graded.')]=None, fatal_errors: Annotated[str | None, typer.Option('--fatal-errors', help='REFUSED: a held-out exam is not self-graded.')]=None, confidence: Annotated[int | None, typer.Option('--confidence', min=1, max=5, help='REFUSED: a held-out exam is not self-graded.')]=None, error_type: Annotated[str | None, typer.Option('--error-type', help='REFUSED: a held-out exam is not self-graded.')]=None, ai_provider: Annotated[str | None, typer.Option('--ai-provider', help='AI provider profile to use for grading.')]=None, json_output: Annotated[bool, typer.Option('--json', help='Emit stable JSON.')]=False, vault: Annotated[Path | None, typer.Option('--vault', help='Vault root.')]=None) -> None` ([source](../../../../../../src/learnloop/cli/exam.py), line 59) — Answer one held-out exam item.
-- `exam_finish_command(session: Annotated[str, typer.Option('--session', help='Exam session id to finish.')], json_output: Annotated[bool, typer.Option('--json', help='Emit stable JSON.')]=False, vault: Annotated[Path | None, typer.Option('--vault', help='Vault root.')]=None) -> None` ([source](../../../../../../src/learnloop/cli/exam.py), line 167)
+- `exam_finish_command(session: Annotated[str, typer.Option('--session', help='Exam session id to finish.')], json_output: Annotated[bool, typer.Option('--json', help='Emit stable JSON.')]=False, vault: Annotated[Path | None, typer.Option('--vault', help='Vault root.')]=None) -> None` ([source](../../../../../../src/learnloop/cli/exam.py), line 177)
 
 ## Internal implementation anchors
 
@@ -80,8 +80,9 @@ No private top-level function or class definition is declared in this file.
 ### LearnLoop dependencies
 
 - [[Reference/Modules/learnloop/attempts/attempts|learnloop.attempts.attempts]] — imports `resolved_codex_grade`; calls `resolved_codex_grade`
-- [[Reference/Modules/learnloop/attempts/grading|learnloop.attempts.grading]] — imports `GradingValidationError`, `build_grading_context`, `request_grading_proposal`, `validate_codex_grading_proposal`; calls `build_grading_context`, `request_grading_proposal`, `validate_codex_grading_proposal`
+- [[Reference/Modules/learnloop/attempts/grading|learnloop.attempts.grading]] — imports `GradingValidationError`, `build_grading_context`, `request_vault_grading_proposal`, `validate_codex_grading_proposal`, `vault_grading_calibration_identity`; calls `build_grading_context`, `request_vault_grading_proposal`, `validate_codex_grading_proposal`, `vault_grading_calibration_identity`
 - [[Reference/Modules/learnloop/cli/runtime|learnloop.cli.runtime]] — imports `module`
+- [[Reference/Modules/learnloop/goals/exam_session|learnloop.goals.exam_session]] — imports `ExamItemWithdrawnError`, `refuse_withdrawn_answer`; calls `refuse_withdrawn_answer`
 
 ### Platform and third-party dependencies
 
@@ -104,7 +105,11 @@ No test imports this module directly. These tests exercise a direct production c
 
 - [tests/test_cli_generate_practice.py](../../../../../../tests/test_cli_generate_practice.py) — imports consumer [[Reference/Modules/learnloop/cli/__init__|learnloop.cli]]
 - [tests/test_cli_ingest.py](../../../../../../tests/test_cli_ingest.py) — imports consumer [[Reference/Modules/learnloop/cli/__init__|learnloop.cli]]
+- [tests/test_facet_identity_ingest.py](../../../../../../tests/test_facet_identity_ingest.py) — imports consumer [[Reference/Modules/learnloop/cli/__init__|learnloop.cli]]
+- [tests/test_graph_nomination_ingest.py](../../../../../../tests/test_graph_nomination_ingest.py) — imports consumer [[Reference/Modules/learnloop/cli/__init__|learnloop.cli]]
 - [tests/test_model_call_receipt_owners.py](../../../../../../tests/test_model_call_receipt_owners.py) — imports consumer [[Reference/Modules/learnloop/cli/__init__|learnloop.cli]]
+- [tests/test_route_rules_in_grader.py](../../../../../../tests/test_route_rules_in_grader.py) — imports consumer [[Reference/Modules/learnloop/cli/__init__|learnloop.cli]]
+- [tests/test_stuck_prompt.py](../../../../../../tests/test_stuck_prompt.py) — imports consumer [[Reference/Modules/learnloop/cli/__init__|learnloop.cli]]
 - [tests/test_teach_back_generation.py](../../../../../../tests/test_teach_back_generation.py) — imports consumer [[Reference/Modules/learnloop/cli/__init__|learnloop.cli]]
 
 ## Modification guidance

@@ -7,11 +7,11 @@ version: "1.0.0"
 source_path: "src/learnloop/diagnosis/diagnostic_augmentation.py"
 source_paths:
   - "src/learnloop/diagnosis/diagnostic_augmentation.py"
-source_commit: "b322ef2e9b5cebc241b612e4963a5aaf1a37f99a"
-source_commit_timestamp: "2026-08-20T18:04:29-04:00"
+source_commit: "2d7c4948399efdc96c3c60d7379da37bc90a9e3d"
+source_commit_timestamp: "2026-10-14T20:18:37-04:00"
 source_worktree_state: "clean"
 generated: true
-generated_at: "2026-09-23"
+generated_at: "2026-11-02"
 package: "learnloop.diagnosis"
 layer: "domain"
 concepts:
@@ -50,78 +50,81 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/diagnosis/diagnostic_augmentation.py](../../../../../../src/learnloop/diagnosis/diagnostic_augmentation.py) |
-| Source lines | 1240 |
+| Source lines | 1243 |
 | Owning package | [[Reference/Modules/learnloop/diagnosis/_package|learnloop.diagnosis]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `b322ef2e9b5cebc241b612e4963a5aaf1a37f99a` |
-| Commit timestamp | `2026-08-20T18:04:29-04:00` |
+| Source commit | `2d7c4948399efdc96c3c60d7379da37bc90a9e3d` |
+| Commit timestamp | `2026-10-14T20:18:37-04:00` |
 
 ## Public API
 
-- `normalize_semantic_key(value: Any) -> str` ([source](../../../../../../src/learnloop/diagnosis/diagnostic_augmentation.py), line 147)
-- `model_family(provider: str | None, model: str | None) -> str` ([source](../../../../../../src/learnloop/diagnosis/diagnostic_augmentation.py), line 151) — Conservative B3 family identity.
-- `class PlantedDiagnosticCase` ([source](../../../../../../src/learnloop/diagnosis/diagnostic_augmentation.py), line 184)
-  - `__post_init__(self) -> None` (line 199; internal)
-- `class DiagnosisSample` ([source](../../../../../../src/learnloop/diagnosis/diagnostic_augmentation.py), line 215)
-- `class DiagnosisConsensus` ([source](../../../../../../src/learnloop/diagnosis/diagnostic_augmentation.py), line 225) — One live diagnosis, plus whatever agreement (if any) was measured.
-  - `disagreed(self) -> bool` (line 244; public)
-  - `receipt_agreement_support(self) -> float` (line 248; public) — The receipt column's non-null float (migration 144 is NOT NULL).
-  - `as_dict(self) -> dict[str, Any]` (line 258; public)
-- `class DiagnosticEvalReport` ([source](../../../../../../src/learnloop/diagnosis/diagnostic_augmentation.py), line 281)
-  - `as_dict(self) -> dict[str, Any]` (line 292; public)
-- `diagnostic_verifier_observations(learner_answer_md: str, expected_answer: str) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/diagnosis/diagnostic_augmentation.py), line 307) — C2 verifier instrument over the submitted answer.
-- `diagnostic_history_context(vault: LoadedVault, repository: Repository, item: PracticeItem, *, limit: int=DEFAULT_HISTORY_LIMIT) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/diagnosis/diagnostic_augmentation.py), line 331) — C4 raw prior traces on the same facet and surface family.
-- `augment_grading_context(vault: LoadedVault, repository: Repository, item: PracticeItem, context: GradingContext, *, history_limit: int=DEFAULT_HISTORY_LIMIT) -> GradingContext` ([source](../../../../../../src/learnloop/diagnosis/diagnostic_augmentation.py), line 382) — Attach C2/C4 evidence before the model call.
-- `run_diagnosis_samples(client: Any, context: GradingContext, *, sample_count: int=DEFAULT_DIAGNOSIS_SAMPLES) -> DiagnosisConsensus` ([source](../../../../../../src/learnloop/diagnosis/diagnostic_augmentation.py), line 503) — C3 k independent calls, modal answer, and a disagreement cause set.
-- `cases_from_discrimination_profiles(vault: LoadedVault) -> list[PlantedDiagnosticCase]` ([source](../../../../../../src/learnloop/diagnosis/diagnostic_augmentation.py), line 610) — Turn A5 profiles into authored ground truth, without a model labeler.
-- `planted_cases_from_manifest(payload: Any) -> list[PlantedDiagnosticCase]` ([source](../../../../../../src/learnloop/diagnosis/diagnostic_augmentation.py), line 652) — Parse the explicit JSON boundary used by the commissioning CLI.
-- `run_planted_diagnostic_evaluation(vault: LoadedVault, repository: Repository, *, generator_client: Any, diagnostician_client: Any, cases: Sequence[PlantedDiagnosticCase] | None=None, sample_count: int=EVAL_DIAGNOSIS_SAMPLES, personas_pre_generated: bool=False, clock: Clock | None=None) -> DiagnosticEvalReport` ([source](../../../../../../src/learnloop/diagnosis/diagnostic_augmentation.py), line 896) — B1/B3 live-path evaluation, blind to the planted cause.
-- `commission_planted_diagnostic_evaluation(vault: LoadedVault, repository: Repository, *, generator_client: Any, diagnostician_client: Any, cases: Sequence[PlantedDiagnosticCase] | None=None, real_traces: Sequence[str] | None=None, sample_count: int=EVAL_DIAGNOSIS_SAMPLES, separation_threshold: float=0.7, clock: Clock | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/diagnosis/diagnostic_augmentation.py), line 1074) — Generate once, run B2 on those exact traces, then score them in B1.
-- `record_phase_c_receipt(repository: Repository, *, attempt_id: str, context: GradingContext, consensus: DiagnosisConsensus, grader_provider: str | None, grader_model: str | None, clock: Clock | None=None) -> str | None` ([source](../../../../../../src/learnloop/diagnosis/diagnostic_augmentation.py), line 1165) — Append the hypothesis/revert manifest for one live augmented diagnosis.
-- `diagnostic_augmentation_report(repository: Repository) -> dict[str, Any]` ([source](../../../../../../src/learnloop/diagnosis/diagnostic_augmentation.py), line 1203) — Read-only Stage-7 report, grouped by the version pins persisted at source.
+- `normalize_semantic_key(value: Any) -> str` ([source](../../../../../../src/learnloop/diagnosis/diagnostic_augmentation.py), line 149)
+- `model_family(provider: str | None, model: str | None) -> str` ([source](../../../../../../src/learnloop/diagnosis/diagnostic_augmentation.py), line 153) — Conservative B3 family identity.
+- `class PlantedDiagnosticCase` ([source](../../../../../../src/learnloop/diagnosis/diagnostic_augmentation.py), line 186)
+  - `__post_init__(self) -> None` (line 201; internal)
+- `class DiagnosisSample` ([source](../../../../../../src/learnloop/diagnosis/diagnostic_augmentation.py), line 217)
+- `class DiagnosisConsensus` ([source](../../../../../../src/learnloop/diagnosis/diagnostic_augmentation.py), line 227) — One live diagnosis, plus whatever agreement (if any) was measured.
+  - `disagreed(self) -> bool` (line 246; public)
+  - `receipt_agreement_support(self) -> float` (line 250; public) — The receipt column's non-null float (migration 144 is NOT NULL).
+  - `as_dict(self) -> dict[str, Any]` (line 260; public)
+- `class DiagnosticEvalReport` ([source](../../../../../../src/learnloop/diagnosis/diagnostic_augmentation.py), line 283)
+  - `as_dict(self) -> dict[str, Any]` (line 294; public)
+- `diagnostic_verifier_observations(learner_answer_md: str, expected_answer: str) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/diagnosis/diagnostic_augmentation.py), line 309) — C2 verifier instrument over the submitted answer.
+- `diagnostic_history_context(vault: LoadedVault, repository: Repository, item: PracticeItem, *, limit: int=DEFAULT_HISTORY_LIMIT) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/diagnosis/diagnostic_augmentation.py), line 333) — C4 raw prior traces on the same facet and surface family.
+- `augment_grading_context(vault: LoadedVault, repository: Repository, item: PracticeItem, context: GradingContext, *, history_limit: int=DEFAULT_HISTORY_LIMIT) -> GradingContext` ([source](../../../../../../src/learnloop/diagnosis/diagnostic_augmentation.py), line 384) — Attach C2/C4 evidence before the model call.
+- `run_diagnosis_samples(client: Any, context: GradingContext, *, sample_count: int=DEFAULT_DIAGNOSIS_SAMPLES) -> DiagnosisConsensus` ([source](../../../../../../src/learnloop/diagnosis/diagnostic_augmentation.py), line 505) — C3 k independent calls, modal answer, and a disagreement cause set.
+- `cases_from_discrimination_profiles(vault: LoadedVault) -> list[PlantedDiagnosticCase]` ([source](../../../../../../src/learnloop/diagnosis/diagnostic_augmentation.py), line 612) — Turn A5 profiles into authored ground truth, without a model labeler.
+- `planted_cases_from_manifest(payload: Any) -> list[PlantedDiagnosticCase]` ([source](../../../../../../src/learnloop/diagnosis/diagnostic_augmentation.py), line 654) — Parse the explicit JSON boundary used by the commissioning CLI.
+- `run_planted_diagnostic_evaluation(vault: LoadedVault, repository: Repository, *, generator_client: Any, diagnostician_client: Any, cases: Sequence[PlantedDiagnosticCase] | None=None, sample_count: int=EVAL_DIAGNOSIS_SAMPLES, personas_pre_generated: bool=False, clock: Clock | None=None) -> DiagnosticEvalReport` ([source](../../../../../../src/learnloop/diagnosis/diagnostic_augmentation.py), line 898) — B1/B3 live-path evaluation, blind to the planted cause.
+- `commission_planted_diagnostic_evaluation(vault: LoadedVault, repository: Repository, *, generator_client: Any, diagnostician_client: Any, cases: Sequence[PlantedDiagnosticCase] | None=None, real_traces: Sequence[str] | None=None, sample_count: int=EVAL_DIAGNOSIS_SAMPLES, separation_threshold: float=0.7, clock: Clock | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/diagnosis/diagnostic_augmentation.py), line 1076) — Generate once, run B2 on those exact traces, then score them in B1.
+- `record_phase_c_receipt(repository: Repository, *, attempt_id: str, context: GradingContext, consensus: DiagnosisConsensus, grader_provider: str | None, grader_model: str | None, clock: Clock | None=None) -> str | None` ([source](../../../../../../src/learnloop/diagnosis/diagnostic_augmentation.py), line 1167) — Append the hypothesis/revert manifest for one live augmented diagnosis.
+- `diagnostic_augmentation_report(repository: Repository) -> dict[str, Any]` ([source](../../../../../../src/learnloop/diagnosis/diagnostic_augmentation.py), line 1206) — Read-only Stage-7 report, grouped by the version pins persisted at source.
 
 ### Module constants
 
-- `DIAGNOSTIC_EVAL_HARNESS_VERSION` ([src/learnloop/diagnosis/diagnostic_augmentation.py](../../../../../../src/learnloop/diagnosis/diagnostic_augmentation.py), line 50)
-- `PHASE_C_VERSION` ([src/learnloop/diagnosis/diagnostic_augmentation.py](../../../../../../src/learnloop/diagnosis/diagnostic_augmentation.py), line 51)
-- `DEFAULT_DIAGNOSIS_SAMPLES` ([src/learnloop/diagnosis/diagnostic_augmentation.py](../../../../../../src/learnloop/diagnosis/diagnostic_augmentation.py), line 55)
-- `EVAL_DIAGNOSIS_SAMPLES` ([src/learnloop/diagnosis/diagnostic_augmentation.py](../../../../../../src/learnloop/diagnosis/diagnostic_augmentation.py), line 59)
-- `DEFAULT_HISTORY_LIMIT` ([src/learnloop/diagnosis/diagnostic_augmentation.py](../../../../../../src/learnloop/diagnosis/diagnostic_augmentation.py), line 60)
-- `SINGLE_SAMPLE_BASIS` ([src/learnloop/diagnosis/diagnostic_augmentation.py](../../../../../../src/learnloop/diagnosis/diagnostic_augmentation.py), line 66)
-- `SAMPLE_AGREEMENT_BASIS` ([src/learnloop/diagnosis/diagnostic_augmentation.py](../../../../../../src/learnloop/diagnosis/diagnostic_augmentation.py), line 67)
-- `CAUSE_SCOPES` ([src/learnloop/diagnosis/diagnostic_augmentation.py](../../../../../../src/learnloop/diagnosis/diagnostic_augmentation.py), line 72)
-- `LEARNER_DERIVED_CAUSE_SCOPE` ([src/learnloop/diagnosis/diagnostic_augmentation.py](../../../../../../src/learnloop/diagnosis/diagnostic_augmentation.py), line 101)
-- `UNATTRIBUTED_CAUSE_SCOPE` ([src/learnloop/diagnosis/diagnostic_augmentation.py](../../../../../../src/learnloop/diagnosis/diagnostic_augmentation.py), line 108)
-- `REGRESSION_SHAPES` ([src/learnloop/diagnosis/diagnostic_augmentation.py](../../../../../../src/learnloop/diagnosis/diagnostic_augmentation.py), line 110)
-- `PLANTED_CASE_SOURCES` ([src/learnloop/diagnosis/diagnostic_augmentation.py](../../../../../../src/learnloop/diagnosis/diagnostic_augmentation.py), line 126)
-- `PHASE_C_HYPOTHESES` ([src/learnloop/diagnosis/diagnostic_augmentation.py](../../../../../../src/learnloop/diagnosis/diagnostic_augmentation.py), line 130)
-- `PHASE_C_REVERT_CRITERIA` ([src/learnloop/diagnosis/diagnostic_augmentation.py](../../../../../../src/learnloop/diagnosis/diagnostic_augmentation.py), line 137)
-- `_NORMALIZE_RE` ([src/learnloop/diagnosis/diagnostic_augmentation.py](../../../../../../src/learnloop/diagnosis/diagnostic_augmentation.py), line 144)
+- `DIAGNOSTIC_EVAL_HARNESS_VERSION` ([src/learnloop/diagnosis/diagnostic_augmentation.py](../../../../../../src/learnloop/diagnosis/diagnostic_augmentation.py), line 52)
+- `PHASE_C_VERSION` ([src/learnloop/diagnosis/diagnostic_augmentation.py](../../../../../../src/learnloop/diagnosis/diagnostic_augmentation.py), line 53)
+- `DEFAULT_DIAGNOSIS_SAMPLES` ([src/learnloop/diagnosis/diagnostic_augmentation.py](../../../../../../src/learnloop/diagnosis/diagnostic_augmentation.py), line 57)
+- `EVAL_DIAGNOSIS_SAMPLES` ([src/learnloop/diagnosis/diagnostic_augmentation.py](../../../../../../src/learnloop/diagnosis/diagnostic_augmentation.py), line 61)
+- `DEFAULT_HISTORY_LIMIT` ([src/learnloop/diagnosis/diagnostic_augmentation.py](../../../../../../src/learnloop/diagnosis/diagnostic_augmentation.py), line 62)
+- `SINGLE_SAMPLE_BASIS` ([src/learnloop/diagnosis/diagnostic_augmentation.py](../../../../../../src/learnloop/diagnosis/diagnostic_augmentation.py), line 68)
+- `SAMPLE_AGREEMENT_BASIS` ([src/learnloop/diagnosis/diagnostic_augmentation.py](../../../../../../src/learnloop/diagnosis/diagnostic_augmentation.py), line 69)
+- `CAUSE_SCOPES` ([src/learnloop/diagnosis/diagnostic_augmentation.py](../../../../../../src/learnloop/diagnosis/diagnostic_augmentation.py), line 74)
+- `LEARNER_DERIVED_CAUSE_SCOPE` ([src/learnloop/diagnosis/diagnostic_augmentation.py](../../../../../../src/learnloop/diagnosis/diagnostic_augmentation.py), line 103)
+- `UNATTRIBUTED_CAUSE_SCOPE` ([src/learnloop/diagnosis/diagnostic_augmentation.py](../../../../../../src/learnloop/diagnosis/diagnostic_augmentation.py), line 110)
+- `REGRESSION_SHAPES` ([src/learnloop/diagnosis/diagnostic_augmentation.py](../../../../../../src/learnloop/diagnosis/diagnostic_augmentation.py), line 112)
+- `PLANTED_CASE_SOURCES` ([src/learnloop/diagnosis/diagnostic_augmentation.py](../../../../../../src/learnloop/diagnosis/diagnostic_augmentation.py), line 128)
+- `PHASE_C_HYPOTHESES` ([src/learnloop/diagnosis/diagnostic_augmentation.py](../../../../../../src/learnloop/diagnosis/diagnostic_augmentation.py), line 132)
+- `PHASE_C_REVERT_CRITERIA` ([src/learnloop/diagnosis/diagnostic_augmentation.py](../../../../../../src/learnloop/diagnosis/diagnostic_augmentation.py), line 139)
+- `_NORMALIZE_RE` ([src/learnloop/diagnosis/diagnostic_augmentation.py](../../../../../../src/learnloop/diagnosis/diagnostic_augmentation.py), line 146)
 
 ## Internal implementation anchors
 
-- `_primary_attribution(proposal: GradingProposal) -> Any | None` ([source](../../../../../../src/learnloop/diagnosis/diagnostic_augmentation.py), line 403)
-- `_disagreement_cause_scope(attribution: Any | None) -> str` ([source](../../../../../../src/learnloop/diagnosis/diagnostic_augmentation.py), line 415) — Scope for one disagreement arm (see ``LEARNER_DERIVED_CAUSE_SCOPE``).
-- `_repair_equivalence(proposal: GradingProposal) -> str | None` ([source](../../../../../../src/learnloop/diagnosis/diagnostic_augmentation.py), line 432)
-- `_proposal_keys(proposal: GradingProposal) -> tuple[str, str | None, str | None]` ([source](../../../../../../src/learnloop/diagnosis/diagnostic_augmentation.py), line 442)
-- `_sample(proposal: GradingProposal, index: int) -> DiagnosisSample` ([source](../../../../../../src/learnloop/diagnosis/diagnostic_augmentation.py), line 461)
-- `_disagreement_cause(sample: DiagnosisSample, votes: int) -> dict[str, Any]` ([source](../../../../../../src/learnloop/diagnosis/diagnostic_augmentation.py), line 481) — One C3 disagreement arm, carrying its own scope and target.
-- `_system_abstained(proposal: GradingProposal) -> bool` ([source](../../../../../../src/learnloop/diagnosis/diagnostic_augmentation.py), line 601)
-- `_generated_trace(generator_client: Any, case: PlantedDiagnosticCase, item: PracticeItem) -> str` ([source](../../../../../../src/learnloop/diagnosis/diagnostic_augmentation.py), line 744) — Use the generator model when available; never ask it to label the cause.
-- `_case_result(case: PlantedDiagnosticCase, proposal: GradingProposal, consensus: DiagnosisConsensus) -> dict[str, Any]` ([source](../../../../../../src/learnloop/diagnosis/diagnostic_augmentation.py), line 777)
-- `_rate(rows: Sequence[Mapping[str, Any]], key: str) -> dict[str, Any]` ([source](../../../../../../src/learnloop/diagnosis/diagnostic_augmentation.py), line 840)
-- `_eval_metrics(rows: Sequence[Mapping[str, Any]]) -> dict[str, Any]` ([source](../../../../../../src/learnloop/diagnosis/diagnostic_augmentation.py), line 850)
+- `_primary_attribution(proposal: GradingProposal) -> Any | None` ([source](../../../../../../src/learnloop/diagnosis/diagnostic_augmentation.py), line 405)
+- `_disagreement_cause_scope(attribution: Any | None) -> str` ([source](../../../../../../src/learnloop/diagnosis/diagnostic_augmentation.py), line 417) — Scope for one disagreement arm (see ``LEARNER_DERIVED_CAUSE_SCOPE``).
+- `_repair_equivalence(proposal: GradingProposal) -> str | None` ([source](../../../../../../src/learnloop/diagnosis/diagnostic_augmentation.py), line 434)
+- `_proposal_keys(proposal: GradingProposal) -> tuple[str, str | None, str | None]` ([source](../../../../../../src/learnloop/diagnosis/diagnostic_augmentation.py), line 444)
+- `_sample(proposal: GradingProposal, index: int) -> DiagnosisSample` ([source](../../../../../../src/learnloop/diagnosis/diagnostic_augmentation.py), line 463)
+- `_disagreement_cause(sample: DiagnosisSample, votes: int) -> dict[str, Any]` ([source](../../../../../../src/learnloop/diagnosis/diagnostic_augmentation.py), line 483) — One C3 disagreement arm, carrying its own scope and target.
+- `_system_abstained(proposal: GradingProposal) -> bool` ([source](../../../../../../src/learnloop/diagnosis/diagnostic_augmentation.py), line 603)
+- `_generated_trace(generator_client: Any, case: PlantedDiagnosticCase, item: PracticeItem) -> str` ([source](../../../../../../src/learnloop/diagnosis/diagnostic_augmentation.py), line 746) — Use the generator model when available; never ask it to label the cause.
+- `_case_result(case: PlantedDiagnosticCase, proposal: GradingProposal, consensus: DiagnosisConsensus) -> dict[str, Any]` ([source](../../../../../../src/learnloop/diagnosis/diagnostic_augmentation.py), line 779)
+- `_rate(rows: Sequence[Mapping[str, Any]], key: str) -> dict[str, Any]` ([source](../../../../../../src/learnloop/diagnosis/diagnostic_augmentation.py), line 842)
+- `_eval_metrics(rows: Sequence[Mapping[str, Any]]) -> dict[str, Any]` ([source](../../../../../../src/learnloop/diagnosis/diagnostic_augmentation.py), line 852)
 
 ## Who imports or calls it
 
 > [!note] Static evidence boundary
 > “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
 
-- [[Reference/Modules/learnloop/attempts/attempts|learnloop.attempts.attempts]] — imports `DEFAULT_DIAGNOSIS_SAMPLES`, `DEFAULT_HISTORY_LIMIT`, `augment_grading_context`, `record_phase_c_receipt`, `run_diagnosis_samples`; statically calls `augment_grading_context`, `record_phase_c_receipt`, `run_diagnosis_samples`
+- [[Reference/Modules/learnloop/attempts/attempts|learnloop.attempts.attempts]] — imports `DEFAULT_DIAGNOSIS_SAMPLES`, `DEFAULT_HISTORY_LIMIT`, `PHASE_C_HYPOTHESES`, `PHASE_C_REVERT_CRITERIA`, `augment_grading_context`, `diagnostic_verifier_observations`, `record_phase_c_receipt`, `run_diagnosis_samples`; statically calls `augment_grading_context`, `diagnostic_verifier_observations`, `record_phase_c_receipt`, `run_diagnosis_samples`
 - [[Reference/Modules/learnloop/cli/app|learnloop.cli.app]] — imports `commission_planted_diagnostic_evaluation`, `diagnostic_augmentation_report`, `model_family`, `planted_cases_from_manifest`; statically calls `commission_planted_diagnostic_evaluation`, `diagnostic_augmentation_report`, `model_family`, `planted_cases_from_manifest`
 - [[Reference/Modules/learnloop/content/authoring/persona_gate|learnloop.content.authoring.persona_gate]] — imports `model_family`; statically calls `model_family`
+- [[Reference/Modules/learnloop/diagnosis/grading_hardcases|learnloop.diagnosis.grading_hardcases]] — imports `diagnostic_verifier_observations`; statically calls `diagnostic_verifier_observations`
+- [[Reference/Modules/learnloop/diagnosis/offline_review/runner|learnloop.diagnosis.offline_review.runner]] — imports `diagnostic_verifier_observations`; statically calls `diagnostic_verifier_observations`
+- [[Reference/Modules/learnloop/diagnosis/split/pfc_report|learnloop.diagnosis.split.pfc_report]] — imports `diagnostic_verifier_observations`; statically calls `diagnostic_verifier_observations`
 
 ## Dependencies
 
@@ -129,7 +132,7 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 
 - [[Reference/Modules/learnloop/ai/schemas|learnloop.ai.schemas]] — imports `CandidateCause`; calls `CandidateCause`
 - [[Reference/Modules/learnloop/ai/transport|learnloop.ai.transport]] — imports `STRUCTURED_COMPLETION`
-- [[Reference/Modules/learnloop/attempts/ai_contracts|learnloop.attempts.ai_contracts]] — imports `GRADING_PROMPT_VERSION`, `GradingContext`, `GradingProposal`
+- [[Reference/Modules/learnloop/attempts/ai_contracts|learnloop.attempts.ai_contracts]] — imports `GRADING_PROMPT_VERSION`, `GradingContext`, `GradingProposal`, `grading_prompt_version`; calls `grading_prompt_version`
 - [[Reference/Modules/learnloop/attempts/grading|learnloop.attempts.grading]] — imports `build_grading_context`, `request_grading_proposal`, `resolved_rubric`; calls `build_grading_context`, `request_grading_proposal`, `resolved_rubric`
 - [[Reference/Modules/learnloop/clock|learnloop.clock]] — imports `Clock`
 - [[Reference/Modules/learnloop/content/authoring/persona_realism|learnloop.content.authoring.persona_realism]] — imports `latest_realism_license`, `match_persona_realism`, `trace_corpus_hash`; calls `latest_realism_license`, `match_persona_realism`, `trace_corpus_hash`
@@ -139,6 +142,7 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 - [[Reference/Modules/learnloop/diagnosis/diagnostic_gate|learnloop.diagnosis.diagnostic_gate]] — imports `request_diagnostic_trials`; calls `request_diagnostic_trials`
 - [[Reference/Modules/learnloop/ids|learnloop.ids]] — imports `new_ulid`; calls `new_ulid`
 - [[Reference/Modules/learnloop/vault/models|learnloop.vault.models]] — imports `LoadedVault`, `PracticeItem`
+- [[Reference/Modules/learnloop/vault/required_method|learnloop.vault.required_method]] — imports `presented_prompt`; calls `presented_prompt`
 
 ### Platform and third-party dependencies
 
@@ -152,7 +156,7 @@ Use this module in context through:
 - [[Process Model Output]]
 - [[Start a Learning Cycle]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/attempts/attempts|learnloop.attempts.attempts]], [[Reference/Modules/learnloop/cli/app|learnloop.cli.app]], [[Reference/Modules/learnloop/content/authoring/persona_gate|learnloop.content.authoring.persona_gate]].
+Static participation evidence comes from [[Reference/Modules/learnloop/attempts/attempts|learnloop.attempts.attempts]], [[Reference/Modules/learnloop/cli/app|learnloop.cli.app]], [[Reference/Modules/learnloop/content/authoring/persona_gate|learnloop.content.authoring.persona_gate]], [[Reference/Modules/learnloop/diagnosis/grading_hardcases|learnloop.diagnosis.grading_hardcases]], [[Reference/Modules/learnloop/diagnosis/offline_review/runner|learnloop.diagnosis.offline_review.runner]] and 1 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 

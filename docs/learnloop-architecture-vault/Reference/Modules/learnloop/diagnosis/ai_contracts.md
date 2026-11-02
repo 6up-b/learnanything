@@ -11,7 +11,7 @@ source_commit: "b322ef2e9b5cebc241b612e4963a5aaf1a37f99a"
 source_commit_timestamp: "2026-08-20T18:04:29-04:00"
 source_worktree_state: "clean"
 generated: true
-generated_at: "2026-09-23"
+generated_at: "2026-11-02"
 package: "learnloop.diagnosis"
 layer: "domain"
 concepts:
@@ -101,7 +101,7 @@ No private top-level function or class definition is declared in this file.
 > “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
 
 - [[Reference/Modules/learnloop/diagnosis/diagnostic_gate|learnloop.diagnosis.diagnostic_gate]] — imports `DiagnosticFireJudgment`, `DiagnosticTrials`, `diagnostic_fire_prompt`, `diagnostic_trials_prompt`; statically calls `diagnostic_fire_prompt`, `diagnostic_trials_prompt`
-- [[Reference/Modules/learnloop/diagnosis/misconceptions|learnloop.diagnosis.misconceptions]] — imports `MisconceptionMatch`, `MisconceptionMatchContext`, `misconception_match_prompt`; statically calls `MisconceptionMatchContext`, `misconception_match_prompt`
+- [[Reference/Modules/learnloop/diagnosis/misconceptions|learnloop.diagnosis.misconceptions]] — imports `MisconceptionMatch`, `MisconceptionMatchContext`, `misconception_match_prompt`; statically calls `MisconceptionMatch`, `MisconceptionMatchContext`, `misconception_match_prompt`
 - [[Reference/Modules/learnloop/diagnosis/probe_dialogue|learnloop.diagnosis.probe_dialogue]] — imports `PROBE_DIALOGUE_TURN_PROMPT_VERSION`, `ProbeDialogueTurn`, `ProbeDialogueTurnContext`, `probe_dialogue_turn_prompt`; statically calls `ProbeDialogueTurnContext`, `probe_dialogue_turn_prompt`
 - [[Reference/Modules/learnloop/diagnosis/probe_instance_generation|learnloop.diagnosis.probe_instance_generation]] — imports `PROBE_INSTANCE_PROMPT_VERSION`, `ProbeFamilyTrials`, `ProbeFamilyTrialsContext`, `ProbeInstanceContext`, `ProbeInstanceSurfaces`, `probe_family_trials_prompt`, `probe_instance_surfaces_prompt`; statically calls `ProbeFamilyTrialsContext`, `ProbeInstanceContext`, `probe_family_trials_prompt`, `probe_instance_surfaces_prompt`
 
@@ -148,6 +148,9 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_chat_complete_and_declared_media_capabilities_share_one_contract`
   - `test_diagnostic_fire_uses_the_structured_completion_path`
 - [tests/test_structured_transport_parity.py](../../../../../../tests/test_structured_transport_parity.py) — direct import
+- [tests/test_tier1_decider.py](../../../../../../tests/test_tier1_decider.py) — direct import
+  - `test_a_decider_cancellation_in_misconception_matching_never_reaches_the_llm`
+  - `test_misconception_match`
 
 ## Modification guidance
 
