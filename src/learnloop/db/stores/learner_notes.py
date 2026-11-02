@@ -145,6 +145,18 @@ def current_fences(connection: sqlite3.Connection, task: str, note_keys: Iterabl
     return {key: (found[key][0] if key in found else "") for key in keys}
 
 
+def newest_read_token(connection: sqlite3.Connection, task: str) -> str:
+    """The newest read token any current-snapshot marker carries, over every note (``""``
+    with none): the floor a new read's token is minted above (Codex review F2), so a token
+    persisted while the clock ran ahead, before a restart, never fences off later reads.
+    Tokens are ULIDs, so the text order is the token order."""
+
+    row = connection.execute(
+        "SELECT MAX(json_extract(rationale, '$.read_token')) FROM judgment_ledger "
+        "WHERE task = ? AND judge = 'exact_key' AND json_valid(rationale)", (task,)).fetchone()
+    return str(row[0]) if row is not None and row[0] else ""
+
+
 def note_count(connection: sqlite3.Connection) -> int:
     return int(connection.execute("SELECT COUNT(*) FROM learner_notes").fetchone()[0])
 
@@ -269,6 +281,7 @@ __all__ = [
     "learner_rows_for",
     "link_counts",
     "links",
+    "newest_read_token",
     "note_count",
     "notes_by_id",
     "snapshot",

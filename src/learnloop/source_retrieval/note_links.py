@@ -82,7 +82,7 @@ from learnloop.curriculum import notes_tend as NT
 from learnloop.db.repositories import Repository
 from learnloop.db.stores import learner_notes as store
 from learnloop.db.stores.judgments import append_judgment
-from learnloop.ids import new_ulid
+from learnloop.ids import new_ulid, new_ulid_after
 from learnloop.source_retrieval import deliverable_path as DP
 from learnloop.source_retrieval import deliverables as DL
 from learnloop.source_retrieval import section_coverage as SC
@@ -668,14 +668,18 @@ def _store_snapshot(connection: Any, note: NT.NoteText, now: str) -> str:
         "truncated": 1 if note.truncated else 0, "created_at": now})
 
 
-def _read_token() -> str:
+def _read_token(repository: Repository) -> str:
     """A read's monotonic token (C2 ruling R6), taken when the read starts, before tend is
-    asked: a ULID, which sorts after every ULID this process minted before it (and, across
-    processes, by the wall clock's millisecond). The read publishes by token order
+    asked: a ULID that sorts after every ULID this process minted before it and after the
+    newest token any read has published (read from the database now: Codex review F2, a
+    token persisted while the clock ran ahead, before a restart, would otherwise fence off
+    every later read until wall time caught up). The read publishes by token order
     (:func:`_show_read`), so of two reads of the same note the one that started later
     stands, whichever writes first."""
 
-    return new_ulid()
+    with repository.connection() as connection:
+        floor = store.newest_read_token(connection, CURRENT_TASK)
+    return new_ulid_after(floor)
 
 
 def _show_read(connection: Any, note: NT.NoteText, token: str, now: str) -> str | None:
@@ -784,7 +788,7 @@ def refresh_learner_links(vault: Any, repository: Repository, *, settings: NT.Te
         return 0
     # Taken when this read starts, before tend is asked (C2 ruling R6): the read publishes
     # only if no read that started after it has published meanwhile.
-    token = _read_token()
+    token = _read_token(repository)
     with repository.connection() as connection:
         latest = store.current_notes(connection, CURRENT_TASK, (row["note_key"] for row in kept))
     resolved: dict[str, NT.NoteHit] = {}
@@ -1145,7 +1149,7 @@ def link_by_hand(vault: Any, repository: Repository, *, hit: Mapping[str, Any], 
                           title=" ".join(str(hit.get("title") or "").split()) or os.path.basename(resolved),
                           line=line, snippet="", content_hash=str(hit.get("content_hash") or ""), mtime=mtime, via="",
                           origin=NT.origin_of(resolved, settings.pocket_roots))
-    token = _read_token()  # when the read starts, before tend is asked (C2 ruling R6)
+    token = _read_token(repository)  # when the read starts, before tend is asked (C2 ruling R6)
     try:
         texts = NT.read_sections(settings, [note_hit])
     except NT.TendUnavailable as exc:

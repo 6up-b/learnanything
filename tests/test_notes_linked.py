@@ -1036,6 +1036,36 @@ def test_r5_settings_lists_the_hidden_notes_and_show_again_unhides_through_decid
     assert verdicts[-4:] == ["rejected", "rejected", "accepted", "accepted"]
 
 
+def test_r6_review_f2_a_clock_correction_and_restart_never_blocks_later_refreshes(tmp_path, monkeypatch):
+    """Codex review F2: a note published a token while the machine clock ran an hour ahead;
+    the clock is then corrected and LearnLoop restarts (a fresh process: its ULID state
+    starts over), so the wall clock now mints ULIDs that sort below the persisted fence.
+    Every later refresh used to be rejected until wall time caught up. A read's token now
+    sorts after the newest token already published (read from the database when the read
+    starts), so each refresh after the restart publishes its changed text."""
+
+    from learnloop import ids
+
+    paths, repository, ctx, goal_id, fake_tend, corpus, notes = _deliverable(tmp_path, monkeypatch)
+    now_ms = ids._wall_clock_ms()
+    monkeypatch.setattr(ids, "_last_timestamp_ms", -1)
+    monkeypatch.setattr(ids, "_last_randomness", 0)
+    monkeypatch.setattr(ids, "_wall_clock_ms", lambda: now_ms + 3_600_000)  # an hour ahead
+    _link_pocket_by_hand(ctx, fake_tend)  # publishes the first snapshot with a future token
+    entry = _corpus_entry(fake_tend, "Eigen page")
+    entry["words"] = ["eigenvalues", "eigen page"]
+    vault = load_vault(paths.root)
+    # The clock is corrected and LearnLoop restarts: the generator's in-process floor is gone.
+    monkeypatch.setattr(ids, "_last_timestamp_ms", -1)
+    monkeypatch.setattr(ids, "_last_randomness", 0)
+    monkeypatch.setattr(ids, "_wall_clock_ms", lambda: now_ms)
+    for version in ("B", "C", "D"):
+        _set_note(fake_tend, entry, f"# Eigen page\nVersion {version} of the page.\n", f"h-{version.lower()}")
+        assert NL.refresh_learner_links(vault, repository, settings=NL.tend_settings(vault)) == 1
+        texts = _hand_texts(ctx)
+        assert texts and all(f"Version {version}" in text for text in texts)
+
+
 # -- Landing: CoverageGuard's two hooks (C1's gate, C2's also) on one guard -----------------------
 
 def test_landing_the_coverage_guard_composes_c1s_gate_and_c2s_also(tmp_path, monkeypatch):
