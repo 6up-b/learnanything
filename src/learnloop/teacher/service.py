@@ -570,6 +570,8 @@ def open_lesson(vault: Any, repository: Any, *, entry: str, learning_object_ids:
     if before["vault"] != protection["vault"]:
         raise LessonError("protection_changed", "Your exam material changed while the lesson was being prepared; "
                                                 "start it again.")
+    # The route is resolved before anything is written: a route that isn't ready leaves no lesson (the
+    # desktop says nothing was saved; followups batch 5, C).
     client = clients.teacher()
     now = utc_now_iso(clock)
     with repository.atomic():

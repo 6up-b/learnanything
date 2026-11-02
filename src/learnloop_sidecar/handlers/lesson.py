@@ -24,6 +24,7 @@ covers it and the lesson's spend envelope admits its requests.
 """
 from __future__ import annotations
 
+from dataclasses import dataclass
 from typing import Any, Literal
 
 from learnloop.teacher import service as S
@@ -67,6 +68,22 @@ class LessonViewInput(ParamsModel):
     lesson_id: str
 
 
+@dataclass
+class _RouteUnavailable(SidecarError):
+    """The teacher's route is not ready; :func:`lesson_turn` words it by whether the lesson exists yet."""
+
+    label: str = ""
+
+
+def route_unavailable_message(label: str, *, saved: bool) -> str:
+    """The unavailable route's line, true to what exists (followups batch 5, C: an opening that failed
+    before its lesson was saved said "your lesson is saved")."""
+
+    if saved:
+        return f"{label} is unavailable for lessons; your lesson is saved and resumes when it's back."
+    return f"{label} is unavailable for lessons, so the lesson didn't start and nothing was saved; try again when it's back."
+
+
 def _error(exc: S.LessonError) -> SidecarError:
     retryable = exc.code in ("plan_unavailable", "teacher_unavailable", "grading_unavailable")
     # ``lesson_id`` once the lesson is saved (review F11): the screen resumes it, never opens another.
@@ -95,9 +112,9 @@ def _clients(ctx: SidecarContext, vault: Any) -> S.Clients:
     def teacher() -> Any:
         provider_name, runtime, client = ready_client_for_task(vault.root, vault.config, "teacher")
         if not runtime.ready or client is None:
-            raise SidecarError("plan_unavailable",
-                               f"{provider_label(provider_name)} is unavailable for lessons; your lesson is saved.",
-                               retryable=True)
+            label = provider_label(provider_name)
+            raise _RouteUnavailable("plan_unavailable", f"{label} is unavailable for lessons.", retryable=True,
+                                    label=label)
         return client
 
     clients: S.Clients
@@ -143,6 +160,12 @@ def lesson_turn(ctx: SidecarContext, params: LessonTurnInput) -> dict[str, Any]:
                             clients=clients)
     except S.LessonError as exc:
         raise _error(exc) from exc
+    except _RouteUnavailable as exc:
+        # Saved: a step of an existing lesson, or an opening that failed after its lesson was written (its
+        # error carries the id). An opening resolves its route before writing anything.
+        saved = params.action != "open" or bool(exc.details.get("lesson_id"))
+        raise SidecarError(exc.code, route_unavailable_message(exc.label, saved=saved), retryable=True,
+                           details=dict(exc.details)) from exc
     if result.get("vault_changed"):
         ctx.reload(maintenance=False)
     return versioned(result)
