@@ -339,8 +339,14 @@ class CardGatherer:
     def _suggestion_preferences(self, connection: Any, titles: Mapping[str, str], now_iso: str,
                                 unknowns: list[str]) -> list[dict[str, Any]]:
         """Teacher TE1b: the responses to Today's lesson suggestion card in the card's 7-day window,
-        newest first (at most one a day: the card's own rhythm). Empty while suggestions are off or
-        below their tag (the card is then the predecessor's byte for byte)."""
+        newest first (at most one card a day: the card's own rhythm). Empty while suggestions are off
+        or below their tag (the card is then the predecessor's byte for byte).
+
+        Follow-ups batch 6 (G1): a pending card's "Not now" (``released``: a Start whose lesson never
+        opened, then let go) is the learner's answer too, so it is a line of its own (``released``,
+        its own words), after the Start's line, never folded into a decline's "not now on X": the
+        learner did take the suggestion first. An ``expired`` reservation (set aside by the app when
+        its lesson could no longer open) is not the learner's answer and is not shown."""
 
         from learnloop.daily_plan.lesson_suggestion import suggestions_active
         from learnloop.db.stores import router_suggestions
@@ -360,7 +366,11 @@ class CardGatherer:
                 if entries:
                     primaries[decision["id"]] = entries[0]
             out: list[dict[str, Any]] = []
-            for row in reversed(router_suggestions.responses(connection)):
+            answers = [*router_suggestions.responses(connection),
+                       *(row for row in router_suggestions.releases(connection) if row["response"] == "released")]
+            answers.sort(key=lambda row: (str(row["responded_at"]), row["response"] == "released", str(row["id"])),
+                         reverse=True)
+            for row in answers:
                 if not (since <= str(row["responded_at"]) < now_iso):
                     continue
                 los = [str(lo) for lo in json.loads(row["learning_object_ids_json"] or "[]")]

@@ -298,7 +298,10 @@ SUGGESTION_SECTION = "lesson_suggestions"
 _SUGGESTION_WORDS = {"accepted": "started the suggested lesson on {topics}",
                      "chose_alternative": "chose a lesson on {topics} over {instead}",
                      "declined": "not now on {topics}",
-                     "ignored": "no answer on {topics}"}
+                     "ignored": "no answer on {topics}",
+                     # Follow-ups batch 6 (G1): "Not now" on a pending card, after a Start whose lesson
+                     # never opened; not a decline of the suggestion (the learner took it first).
+                     "released": "let the started lesson on {topics} go before it opened (not now)"}
 
 
 def _suggestion_lines(entries: Sequence[Mapping[str, Any]]) -> list[str]:
