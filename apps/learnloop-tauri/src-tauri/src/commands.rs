@@ -1447,6 +1447,9 @@ sidecar_passthrough!(notes_set_gaps, "notes.set_gaps");
 // Teacher TE1: a lesson (lesson.turn is every model-calling step; lesson.view resumes): desktop only.
 sidecar_passthrough!(lesson_turn, "lesson.turn");
 sidecar_passthrough!(lesson_view, "lesson.view");
+// Teacher TE1b: Today's lesson suggestion card and the learner's one response to it: desktop only.
+sidecar_passthrough!(lesson_suggestion, "lesson.suggestion");
+sidecar_passthrough!(lesson_suggestion_respond, "lesson.suggestion_respond");
 // Reader CA6 (side by side: one section of the other book for the second pane): desktop only.
 sidecar_passthrough!(reader_side_by_side_section, "reader.side_by_side_section");
 // Reader workbench RW5a (explorable figures: build, "not right?", the source's

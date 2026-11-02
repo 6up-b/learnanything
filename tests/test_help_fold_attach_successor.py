@@ -53,9 +53,10 @@ def test_mvp042_is_one_constant_after_mvp041_and_the_latest():
     from learnloop.help_fold_attach_upgrade import PREDECESSOR as UPGRADE_PREDECESSOR
     from learnloop.params.parameter_registry import classify_config_path
 
-    assert SUCCESSOR_CHAIN[-2:] == (PREDECESSOR, TAG) == ("mvp-0.41", "mvp-0.42")
-    assert LATEST_ALGORITHM_VERSION == TAG and UPGRADE_PREDECESSOR == PREDECESSOR
-    assert HELP_FOLD_ATTACH_VERSIONS == frozenset({TAG})
+    # Teacher TE1b's mvp-0.43 follows it as the latest (and keeps it).
+    assert SUCCESSOR_CHAIN[-3:-1] == (PREDECESSOR, TAG) == ("mvp-0.41", "mvp-0.42")
+    assert LATEST_ALGORITHM_VERSION == SUCCESSOR_CHAIN[-1] == "mvp-0.43" and UPGRADE_PREDECESSOR == PREDECESSOR
+    assert HELP_FOLD_ATTACH_VERSIONS == frozenset({TAG, "mvp-0.43"})
     assert HintsConfig().fold_follows_attach is True
     rule = classify_config_path("hints.fold_follows_attach")
     assert rule is not None and rule.kind == "structural" and "mvp-0.42" in rule.rationale
@@ -212,7 +213,8 @@ def test_a_bare_upgrade_targets_mvp042_and_it_refuses_twice(tmp_path, _cli_proce
     from learnloop.help_fold_attach_upgrade import upgrade_to_help_fold_attach
 
     paths = _vault_at(tmp_path, "v", PREDECESSOR)
-    result = CliRunner().invoke(app, ["upgrade", "--vault", str(paths.root)])
+    # Teacher TE1b's mvp-0.43 is the bare upgrade's target since its landing: this link is reached by --to.
+    result = CliRunner().invoke(app, ["upgrade", "--to", TAG, "--vault", str(paths.root)])
     assert result.exit_code == 0, result.output
     assert f"{PREDECESSOR} -> {TAG}" in result.output
     assert _version(paths) == TAG and _activated(paths)

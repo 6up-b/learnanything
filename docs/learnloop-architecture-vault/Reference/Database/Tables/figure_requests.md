@@ -3,13 +3,13 @@ title: "figure_requests"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "0f1d1abf38dcb9d4401a6c7a4cd80bbd0f6c871f"
-source_commit_timestamp: "2026-11-02T07:49:16-05:00"
+source_commit: "d4c02ae06286e5c2866d0e08949bc66df459fc03"
+source_commit_timestamp: "2026-11-02T10:02:02-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite figure_requests"
   - "table figure_requests"
-schema_head: 235
+schema_head: 237
 table_name: "figure_requests"
 table_role: "raw_ledger"
 functionality_status: "active"
@@ -23,9 +23,9 @@ source_paths:
   - "src/learnloop/diagnosis/split/figure_trace.py"
   - "src/learnloop/diagnosis/text_gaps/sources.py"
   - "src/learnloop/figure_admission.py"
+  - "src/learnloop/figures/prefetch.py"
+  - "src/learnloop/figures/prefetch_ledger.py"
   - "src/learnloop/figures/rich.py"
-  - "src/learnloop/figures/service.py"
-  - "src/learnloop/reader/reader_report.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/raw-ledger"
@@ -49,7 +49,7 @@ It belongs to the **operations** navigation family. The family context lives in 
 - **Role:** `raw_ledger` — Authoritative replay input or mixed authoritative state. The rebuild umbrella preserves it.
 - **Functionality status:** `active`.
 - **Introduced by:** `migrations/224_figure_requests.sql`.
-- **Schema touched by:** `224_figure_requests.sql`.
+- **Schema touched by:** `224_figure_requests.sql`, `237_figure_prefetch.sql`.
 - **Rebuild owner:** none; this table is preserved by the rebuild umbrella.
 
 For the distinction between SQLite state and human-authored vault files, see [[State and Persistence]]. For whole-vault creation and opening behavior, see [[Vault Lifecycle]]. ^table-lifecycle
@@ -84,6 +84,7 @@ Declared SQLite foreign keys:
 
 Indexes and uniqueness:
 
+- `idx_figure_requests_prefetch_decision` on `prefetch_decision_id`.
 - `idx_figure_requests_created` on `created_at`.
 - `idx_figure_requests_figure` on `figure_id`.
 - `sqlite_autoindex_figure_requests_1` on `id` (unique).
@@ -105,6 +106,9 @@ None found by exact static reference scan.
 - `src/learnloop/diagnosis/split/figure_trace.py`
 - `src/learnloop/diagnosis/text_gaps/sources.py`
 - `src/learnloop/figure_admission.py`
+- `src/learnloop/figures/prefetch.py`
+- `src/learnloop/figures/prefetch_ledger.py`
+- `src/learnloop/figures/service.py`
 - `src/learnloop/reader/reader_report.py`
 
 ### Direct SQL writers
@@ -120,12 +124,15 @@ None found by exact static reference scan.
 
 ## Tests that define behavior
 
+- `tests/test_figure_prefetch_migration.py`
 - `tests/test_figure_requests_migration.py`
 - `tests/test_figure_rich_contract.py`
 - `tests/test_figure_rich_job.py`
 - `tests/test_figure_rich_review_fixes.py`
 - `tests/test_figures_help.py`
 - `tests/test_figures_help_codex_review.py`
+- `tests/test_figures_prefetch.py`
+- `tests/test_figures_prefetch_review_fixes.py`
 - `tests/test_figures_show_me.py`
 - `tests/test_figures_show_me_codex_review.py`
 - `tests/test_reader_rw5d_p4b_teacher_visuals.py`

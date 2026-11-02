@@ -176,11 +176,11 @@ def test_235_adds_unlinked_and_nothing_else():
 
 
 def test_the_head_fixture_holds_235_in_rollback_mode():
-    # RW5d P5's 236 is the head now (rebuilt from this 235 head with only 236 applied).
-    head = Path(__file__).resolve().parents[1] / "fixtures" / "migration_head_236" / "state.sqlite"
+    # The head is teacher TE1b's 236 now (rebuilt from this 235 head with only 236 applied); it holds 235.
+    head = Path(__file__).resolve().parents[1] / "fixtures" / "migration_head_237" / "state.sqlite"
     assert head.read_bytes()[18:20] == b"\x01\x01"
     assert 235 in applied_versions(head)
-    assert max(applied_versions(head)) == max(m.version for m in discover_migrations()) == 236
+    assert max(applied_versions(head)) == max(m.version for m in discover_migrations()) == 237
     with closing(sqlite3.connect(f"file:{head}?mode=ro", uri=True)) as connection:
         assert connection.execute("PRAGMA journal_mode").fetchone()[0] == "delete"
         sql = connection.execute("SELECT sql FROM sqlite_master WHERE name = 'learner_text_gap_reversals'"

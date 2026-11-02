@@ -229,7 +229,7 @@ _CLASSES: dict[str, tuple[str, str]] = {
     "facet_registry_saves": (
         "id created_at status judgment_ids_json action_ids_json applied_at abandoned_at",
         "facets_json settle_detail_json"),
-    # Reader RW5d P5 (migration 236): the prefetch service's decisions (DENIED to AD): the anchor
+    # Reader RW5d P5 (migration 237): the prefetch service's decisions (DENIED to AD): the anchor
     # and the goal are content; the rest is metadata.
     "figure_prefetch_decisions": (
         "id trigger_kind trigger_ref request_key input_hash source_key p_open_content model_version "
@@ -447,7 +447,7 @@ _CLASSES: dict[str, tuple[str, str]] = {
         "id block_id router_decision_id controller_decision_id practice_item_id position origin "
         "scheduler_candidate_id probe_presentation_id session_id served_at",
         ""),
-    # Reader RW5d P5 (migration 236): the plan's observed usage-limit pauses (DENIED to AD).
+    # Reader RW5d P5 (migration 237): the plan's observed usage-limit pauses (DENIED to AD).
     "plan_usage_pauses": (
         "id hit_at reset_at plan_requests_today plan_tokens_today_known observed_at",
         ""),

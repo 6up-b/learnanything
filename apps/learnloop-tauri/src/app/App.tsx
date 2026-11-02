@@ -1880,6 +1880,7 @@ export function App() {
         onTakeExam={openExam}
         subjects={subjectOptions}
         wrapUp={wrapUpLine("today")}
+        {...(algoConfig().lessons ? { onStartLesson: setLessonEntry } : {})}
         onError={onError}
       />
     );
@@ -2050,6 +2051,7 @@ export function App() {
             needSession("plan");
           }}
           onBeginSession={beginSession}
+          {...(algoConfig().lessons ? { onStartLesson: setLessonEntry } : {})}
           onError={onError}
         />
       );

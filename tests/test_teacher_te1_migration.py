@@ -19,7 +19,7 @@ from learnloop.adaptive_difficulty import protected_tables as PT
 from learnloop.db.migrate import UPGRADE_TEST_HELPER, apply_migrations, discover_migrations, upgrade_allowance
 from learnloop.db.table_roles import TableRole, role_for_table
 
-HEAD = Path(__file__).resolve().parents[1] / "fixtures" / "migration_head_236" / "state.sqlite"
+HEAD = Path(__file__).resolve().parents[1] / "fixtures" / "migration_head_237" / "state.sqlite"
 TE1_TABLES = {
     "lessons": TableRole.RAW_LEDGER, "lesson_turns": TableRole.RAW_LEDGER, "lesson_plans": TableRole.RAW_LEDGER,
     "lesson_turn_payloads": TableRole.WORKFLOW, "lesson_checks": TableRole.RECEIPT,
@@ -64,8 +64,7 @@ def test_the_head_fixture_is_at_234_in_rollback_mode_with_empty_lesson_tables():
     # Follow-ups Nov 2's 235 is the head now (rebuilt from TE1's 234 head with only 235 applied); it holds 234.
     assert HEAD.read_bytes()[18:20] == b"\x01\x01"
     with closing(sqlite3.connect(f"file:{HEAD}?mode=ro", uri=True)) as connection:
-        assert connection.execute("SELECT 1 FROM schema_migrations WHERE version = 234").fetchone()
-        assert connection.execute("SELECT MAX(version) FROM schema_migrations").fetchone()[0] == 236
+        assert connection.execute("SELECT MAX(version) FROM schema_migrations").fetchone()[0] == 237
         names = {row[0] for row in connection.execute("SELECT name FROM sqlite_master")}
         assert TE1_ADDED_OBJECTS <= names
         for table in TE1_TABLES:

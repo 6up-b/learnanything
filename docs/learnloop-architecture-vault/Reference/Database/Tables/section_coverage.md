@@ -3,13 +3,13 @@ title: "section_coverage"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "0f1d1abf38dcb9d4401a6c7a4cd80bbd0f6c871f"
-source_commit_timestamp: "2026-11-02T07:49:16-05:00"
+source_commit: "d4c02ae06286e5c2866d0e08949bc66df459fc03"
+source_commit_timestamp: "2026-11-02T10:02:02-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite section_coverage"
   - "table section_coverage"
-schema_head: 235
+schema_head: 237
 table_name: "section_coverage"
 table_role: "workflow"
 functionality_status: "active"
@@ -23,9 +23,9 @@ source_paths:
   - "src/learnloop/adaptive_difficulty/protected_tables.py"
   - "src/learnloop/cli/curriculum.py"
   - "src/learnloop/content/pipeline/jobs.py"
+  - "src/learnloop/daily_plan/lesson_suggestion.py"
   - "src/learnloop/db/stores/section_coverage.py"
   - "src/learnloop/figures/help.py"
-  - "src/learnloop/source_retrieval/deliverable_path.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/workflow"

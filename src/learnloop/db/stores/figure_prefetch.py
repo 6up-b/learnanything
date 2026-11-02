@@ -1,4 +1,4 @@
-"""Reader RW5d P5: the prefetch ledgers' writes (migration 236; spec_reader_show_me_figures_v1 §13.2b).
+"""Reader RW5d P5: the prefetch ledgers' writes (migration 237; spec_reader_show_me_figures_v1 §13.2b).
 
 ``figure_prefetch_decisions`` is append-only: one row per decided candidate, and later only its
 ``request_id`` and ``input_hash`` (when the build stored its request) and its ``outcome`` with

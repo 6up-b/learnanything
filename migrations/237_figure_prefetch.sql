@@ -1,9 +1,8 @@
 -- Reader RW5d P5: figures ahead of need (docs/specs/spec_reader_show_me_figures_v1.md
 -- §10b, §13.2b; docs/reviews/reader-rw5d-p5-prefetch.md).
 --
--- Numbered 236: 235 is claimed by followups-nov2 (the help-fold successor);
--- the migration runner has no contiguity rule, and the number is confirmed at
--- landing.
+-- Numbered 237 at landing: follow-ups Nov 2's 235 and teacher TE1b's 236
+-- landed first (the branch built it as 236).
 --
 -- figure_prefetch_decisions (RAW_LEDGER, append-only): one row per candidate
 -- the prefetch service decided on: the trigger (plan, section, offer, lesson,

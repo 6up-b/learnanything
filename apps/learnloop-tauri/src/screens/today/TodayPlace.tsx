@@ -42,6 +42,9 @@ import { InboxStrip } from "../../components/InboxStrip";
 import { targetForDialogue } from "../../components/QuestionQueue";
 import type { AskTarget } from "../../components/AskOverlay";
 import { INTERACTIVE_SELECTOR, screenLeavesKey } from "../../app/keymap";
+import { algoConfig } from "../../app/algoConfig";
+import { LessonSuggestionCard } from "./LessonSuggestionCard";
+import type { LessonEntry } from "../LessonScreen";
 import { todayQueueInput } from "../../app/autoAdvance";
 import { aboutMinutes, planStepAction, useDailyPlan, waitingLine } from "../../app/dailyPlan";
 import {
@@ -88,6 +91,8 @@ export interface TodayPlaceProps {
   subjects?: { id: string; title: string }[];
   /** RW6a's wrap-up offer, when the shell armed it for this view. */
   wrapUp?: ReactNode;
+  /** Teacher TE1b: Start on Today's lesson suggestion card opens this lesson (absent: no card). */
+  onStartLesson?: (entry: LessonEntry) => void;
   onError: (message: string, report?: ErrorReport) => void;
 }
 
@@ -427,6 +432,7 @@ export function TodayPlace({
   onTakeExam,
   subjects = [],
   wrapUp,
+  onStartLesson,
   onError
 }: TodayPlaceProps) {
   const planQuery = useDailyPlan(session?.sessionId ?? null);
@@ -864,6 +870,11 @@ export function TodayPlace({
           <span style={{ flex: 1, fontSize: 13, color: COLOR.textDim }}>{dayPhrase(now)}</span>
           {choices.length && minutes !== null && !done && !list ? <MinuteChips value={minutes} choices={choices} disabled={busy || (planOff && session !== null)} onChange={chooseMinutes} /> : null}
         </div>
+        {/* Teacher TE1b (codex review F1): the router's lesson suggestion card, at most one a day, only
+            while the sidecar says Today may suggest one; otherwise nothing is asked. A section, never a dialog. */}
+        {!list && onStartLesson && algoConfig().lessonSuggestions ? (
+          <LessonSuggestionCard sessionId={session?.sessionId ?? null} onStartLesson={onStartLesson} onError={onError} />
+        ) : null}
         {body}
         {!list && primaryGoal ? (
           <GoalCard goal={primaryGoal} onPractise={() => void practiseGoal()} onTakeExam={onTakeExam} onGoalChanged={() => void goals.refetch().catch(() => undefined)} onNewGoal={() => setWizard(true)} onError={onError} />

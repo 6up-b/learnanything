@@ -3,13 +3,13 @@ title: "router_decisions"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "0f1d1abf38dcb9d4401a6c7a4cd80bbd0f6c871f"
-source_commit_timestamp: "2026-11-02T07:49:16-05:00"
+source_commit: "d4c02ae06286e5c2866d0e08949bc66df459fc03"
+source_commit_timestamp: "2026-11-02T10:02:02-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite router_decisions"
   - "table router_decisions"
-schema_head: 235
+schema_head: 237
 table_name: "router_decisions"
 table_role: "raw_ledger"
 functionality_status: "active"
@@ -53,7 +53,7 @@ It belongs to the **scheduling** navigation family. The family context lives in 
 - **Role:** `raw_ledger` — Authoritative replay input or mixed authoritative state. The rebuild umbrella preserves it.
 - **Functionality status:** `active`.
 - **Introduced by:** `migrations/181_router_decisions.sql`.
-- **Schema touched by:** `181_router_decisions.sql`, `202_router_staged_frame.sql`, `208_learner_text_source_kinds.sql`.
+- **Schema touched by:** `181_router_decisions.sql`, `202_router_staged_frame.sql`, `208_learner_text_source_kinds.sql`, `236_router_lesson_suggestions.sql`.
 - **Rebuild owner:** none; this table is preserved by the rebuild umbrella.
 
 For the distinction between SQLite state and human-authored vault files, see [[State and Persistence]]. For whole-vault creation and opening behavior, see [[Vault Lifecycle]]. ^table-lifecycle
@@ -134,6 +134,7 @@ None found by exact static reference scan.
 - `src/learnloop/daily_plan/router_retrieval.py`
 - `src/learnloop/db/stores/plan_presentations.py`
 - `src/learnloop/db/stores/router.py`
+- `src/learnloop/db/stores/router_suggestions.py`
 - `src/learnloop/evsi_calibration/live_report.py`
 - `src/learnloop/router/agreement.py`
 - `src/learnloop/router/outcomes.py`
@@ -192,7 +193,8 @@ CREATE TABLE "router_decisions" (
   id TEXT PRIMARY KEY,
   receipt_key TEXT NOT NULL UNIQUE,
   decision_kind TEXT NOT NULL CHECK (
-    decision_kind IN ('today_offer', 'staged_p2', 'learner_pick', 'plan_block', 'plan_interrupt')
+    decision_kind IN ('today_offer', 'staged_p2', 'learner_pick', 'plan_block', 'plan_interrupt',
+                      'lesson_suggestion')
   ),
   surface TEXT NOT NULL,
   mode TEXT NOT NULL,

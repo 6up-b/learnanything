@@ -18,7 +18,7 @@ decision time; this module reads what it needs, by SQL, from a connection:
 decisions and outcomes by trigger, the posteriors' contraction, the measured
 waits, the pauses with and without prebuilds before them, and the builds
 skipped for power and caps. Counts and posteriors only, never learner text.
-Read-only; a vault before migration 236 reads as empty.
+Read-only; a vault before migration 237 reads as empty.
 """
 
 from __future__ import annotations

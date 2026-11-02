@@ -3,22 +3,22 @@ title: "figure_prefetch_decisions"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "ec2060b5e053639a05d205609eb9d564cee70209"
-source_commit_timestamp: "2026-11-02T07:07:21-05:00"
+source_commit: "d4c02ae06286e5c2866d0e08949bc66df459fc03"
+source_commit_timestamp: "2026-11-02T10:02:02-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite figure_prefetch_decisions"
   - "table figure_prefetch_decisions"
-schema_head: 236
+schema_head: 237
 table_name: "figure_prefetch_decisions"
 table_role: "raw_ledger"
 functionality_status: "active"
 domain_family: "operations"
-introduced_in: "236_figure_prefetch.sql"
+introduced_in: "237_figure_prefetch.sql"
 generated: true
 source_paths:
   - "src/learnloop/db/table_roles.py"
-  - "migrations/236_figure_prefetch.sql"
+  - "migrations/237_figure_prefetch.sql"
   - "src/learnloop/adaptive_difficulty/column_classes.py"
   - "src/learnloop/adaptive_difficulty/protected_tables.py"
   - "src/learnloop/config/schema.py"
@@ -48,8 +48,8 @@ It belongs to the **operations** navigation family. The family context lives in 
 
 - **Role:** `raw_ledger` — Authoritative replay input or mixed authoritative state. The rebuild umbrella preserves it.
 - **Functionality status:** `active`.
-- **Introduced by:** `migrations/236_figure_prefetch.sql`.
-- **Schema touched by:** `236_figure_prefetch.sql`.
+- **Introduced by:** `migrations/237_figure_prefetch.sql`.
+- **Schema touched by:** `237_figure_prefetch.sql`.
 - **Rebuild owner:** none; this table is preserved by the rebuild umbrella.
 
 For the distinction between SQLite state and human-authored vault files, see [[State and Persistence]]. For whole-vault creation and opening behavior, see [[Vault Lifecycle]]. ^table-lifecycle

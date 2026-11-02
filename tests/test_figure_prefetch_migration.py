@@ -1,9 +1,9 @@
-"""Reader RW5d P5: migration 236 (spec_reader_show_me_figures_v1 §13.2b; renumbered at landing if 235 moves).
+"""Reader RW5d P5: migration 237 (spec_reader_show_me_figures_v1 §13.2b; numbered 237 at landing, after follow-ups Nov 2's 235 and teacher TE1b's 236).
 
 Two RAW_LEDGER tables: ``figure_prefetch_decisions`` (append-only; ``request_id``, ``input_hash`` and the
 outcome set once each) and ``plan_usage_pauses`` (append-only, one row per hit time), plus the index on
 ``figure_requests.prefetch_decision_id``. Both classified for rebuild (no replayer: posteriors are
-recomputed from the ledger) and for AD (DENIED: AD reads neither). The head fixture is at 236 in rollback
+recomputed from the ledger) and for AD (DENIED: AD reads neither). The head fixture is at 237 in rollback
 mode with empty tables. Earlier migrations' "nothing else changed" diffs on the way to head read
 ``P5_ADDED_OBJECTS``.
 """
@@ -20,9 +20,9 @@ from learnloop.adaptive_difficulty import protected_tables as PT
 from learnloop.db.migrate import UPGRADE_TEST_HELPER, apply_migrations, discover_migrations, upgrade_allowance
 from learnloop.db.table_roles import TableRole, role_for_table
 
-HEAD = Path(__file__).resolve().parents[1] / "fixtures" / "migration_head_236" / "state.sqlite"
+HEAD = Path(__file__).resolve().parents[1] / "fixtures" / "migration_head_237" / "state.sqlite"
 P5_TABLES = {"figure_prefetch_decisions": TableRole.RAW_LEDGER, "plan_usage_pauses": TableRole.RAW_LEDGER}
-#: What 236 adds (its tables, their indexes and autoindexes, the triggers, the figure_requests index).
+#: What 237 adds (its tables, their indexes and autoindexes, the triggers, the figure_requests index).
 P5_ADDED_OBJECTS = frozenset({
     *P5_TABLES,
     "figure_prefetch_decisions_no_delete", "figure_prefetch_decisions_set_once",
@@ -38,18 +38,18 @@ DECISION = ("INSERT INTO figure_prefetch_decisions (id, trigger_kind, trigger_re
             "'2026-11-02T00:00:00Z')")
 
 
-def test_236_is_p5s_migration_and_every_table_is_classified():
+def test_237_is_p5s_migration_and_every_table_is_classified():
     names = {migration.version: migration.path.name for migration in discover_migrations()}
-    assert names[236] == "236_figure_prefetch.sql"
+    assert names[237] == "237_figure_prefetch.sql"
     for table, role in P5_TABLES.items():
         assert role_for_table(table) == role, table
         assert PT.role(table) == PT.DENIED, table
 
 
-def test_the_head_fixture_is_at_236_in_rollback_mode_with_empty_tables():
+def test_the_head_fixture_is_at_237_in_rollback_mode_with_empty_tables():
     assert HEAD.read_bytes()[18:20] == b"\x01\x01"
     with closing(sqlite3.connect(f"file:{HEAD}?mode=ro", uri=True)) as connection:
-        assert connection.execute("SELECT MAX(version) FROM schema_migrations").fetchone()[0] == 236
+        assert connection.execute("SELECT MAX(version) FROM schema_migrations").fetchone()[0] == 237
         names = {row[0] for row in connection.execute("SELECT name FROM sqlite_master")}
         assert P5_ADDED_OBJECTS <= names
         for table in P5_TABLES:
@@ -94,11 +94,11 @@ def _check(database: Path) -> None:
         assert "idx_figure_requests_prefetch_decision" in indexes
 
 
-def test_236_keeps_the_ledgers_append_only_and_set_once(tmp_path):
+def test_237_keeps_the_ledgers_append_only_and_set_once(tmp_path):
     _check(_upgrade(tmp_path))
 
 
-def test_236_on_the_head_fixture_copy_adds_only_its_objects(tmp_path):
+def test_237_on_the_head_fixture_copy_adds_only_its_objects(tmp_path):
     from learnloop.db.copies import backup_database
 
     database = tmp_path / "state.sqlite"
@@ -108,11 +108,11 @@ def test_236_on_the_head_fixture_copy_adds_only_its_objects(tmp_path):
     _check(database)
     with closing(sqlite3.connect(database)) as connection:
         after = {row[0]: row[1] for row in connection.execute("SELECT name, sql FROM sqlite_master")}
-    assert before == after  # the head already holds 236: nothing changes but the rows
+    assert before == after  # the head already holds 237: nothing changes but the rows
 
 
 @pytest.mark.durability
-def test_236_on_the_durability_lane(tmp_path):
+def test_237_on_the_durability_lane(tmp_path):
     database = _upgrade(tmp_path)
     with closing(sqlite3.connect(database)) as connection:
         assert connection.execute("PRAGMA journal_mode").fetchone()[0] in ("wal", "delete")
