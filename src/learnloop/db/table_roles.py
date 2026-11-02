@@ -249,6 +249,14 @@ _TABLE_ROLE_ITEMS: tuple[tuple[str, TableRole], ...] = (
     # manifest). Append-only by trigger (figure_id is set once); never
     # evidence, and replay never reads it.
     ("figure_requests", TableRole.RAW_LEDGER),
+    # Reader RW5d P5 (migration 237; spec_reader_show_me_figures_v1 §13.2b):
+    # the prefetch service's decisions (append-only; request_id, input_hash
+    # and the outcome set once each) and the ChatGPT plan's usage-limit pauses
+    # it observed (append-only). The decision model is recomputed from them at
+    # decision time (no DERIVED table, no replayer); never evidence, and replay
+    # never reads them.
+    ("figure_prefetch_decisions", TableRole.RAW_LEDGER),
+    ("plan_usage_pauses", TableRole.RAW_LEDGER),
     ("fitted_parameters", TableRole.RAW_LEDGER),
     ("followup_ratings", TableRole.RAW_LEDGER),
     ("followup_tasks", TableRole.WORKFLOW),
@@ -515,6 +523,11 @@ _TABLE_ROLE_ITEMS: tuple[tuple[str, TableRole], ...] = (
     # Router R1: R_next / R_cold / S per decision, one replayer
     # (rebuild_orchestrator "router_outcomes"); pending outcomes right-censored.
     ("router_outcomes", TableRole.DERIVED),
+    # Teacher TE1b (migration 236; spec_teacher_v1 §15.1, §18.1): the
+    # learner's one response to a shown lesson suggestion (append-only). The
+    # acceptance model and the decline recovery replay it on every read; no
+    # derived table.
+    ("router_suggestion_responses", TableRole.RAW_LEDGER),
     ("rung_variant_requests", TableRole.WORKFLOW),
     ("scheduler_explanations", TableRole.RECEIPT),
     ("scheduler_offer_receipts", TableRole.RECEIPT),

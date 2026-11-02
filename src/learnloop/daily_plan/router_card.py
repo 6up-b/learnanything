@@ -68,6 +68,7 @@ Read-only; nothing is written and no model is called.
 
 from __future__ import annotations
 
+import json
 import logging
 from collections.abc import Mapping, Sequence
 from datetime import timedelta
@@ -84,6 +85,7 @@ from learnloop.router.card import (
     EXCERPT_LIMIT,
     STATEMENT_LIMIT,
     STEM_LIMIT,
+    SUGGESTION_SECTION,
     CardInputs,
     LearnerStateCard,
     build_card,
@@ -212,6 +214,11 @@ class CardGatherer:
             hypotheses = self._open_problems(connection, set(los), titles, unknowns, past, rule)
             reports = self._self_reports(connection, set(los), titles, now_iso, unknowns)
             evidence_sections = self._evidence_sections(connection, los, titles, now_iso, withheld, unknowns)
+            preferences = self._suggestion_preferences(connection, titles, now_iso, unknowns)
+            if preferences:
+                # Teacher TE1b (spec_teacher_v1 §15.1; codex review F5): the learner's answers to
+                # Today's lesson suggestion card as preference lines ("not now on X, Oct 24").
+                evidence_sections = {**evidence_sections, SUGGESTION_SECTION: preferences}
             recent = self._recent_work(attempts, held, past, rule, titles)
             confidence_7d, confidence_limit, confidence_omitted = (
                 self._confidence(connection, attempts, candidate_los, recent, held, now_iso, unknowns)
@@ -328,6 +335,45 @@ class CardGatherer:
                 continue
             bucket.append({"attempt_id": row["id"], "at": row["created_at"], "event": event})
         return by_lo, confidence_events.taps_limit(taps), omitted
+
+    def _suggestion_preferences(self, connection: Any, titles: Mapping[str, str], now_iso: str,
+                                unknowns: list[str]) -> list[dict[str, Any]]:
+        """Teacher TE1b: the responses to Today's lesson suggestion card in the card's 7-day window,
+        newest first (at most one a day: the card's own rhythm). Empty while suggestions are off or
+        below their tag (the card is then the predecessor's byte for byte)."""
+
+        from learnloop.daily_plan.lesson_suggestion import suggestions_active
+        from learnloop.db.stores import router_suggestions
+
+        if not suggestions_active(self.vault):
+            return []
+        now = parse_utc(now_iso)
+        if now is None:
+            return []
+        since = (now - timedelta(days=7)).strftime("%Y-%m-%dT%H:%M:%SZ")
+        try:
+            if not router_suggestions.tables_present(connection):
+                return []
+            primaries = {}
+            for decision in router_suggestions.decisions(connection):
+                entries = ((decision["detail"].get("card") or {}).get("candidates") or [])
+                if entries:
+                    primaries[decision["id"]] = entries[0]
+            out: list[dict[str, Any]] = []
+            for row in reversed(router_suggestions.responses(connection)):
+                if not (since <= str(row["responded_at"]) < now_iso):
+                    continue
+                los = [str(lo) for lo in json.loads(row["learning_object_ids_json"] or "[]")]
+                entry = {"at": row["responded_at"], "response": row["response"],
+                         "topics": [titles.get(lo, lo) for lo in los]}
+                primary = primaries.get(row["decision_id"]) or {}
+                if row["response"] == "chose_alternative" and primary:
+                    entry["instead_of"] = [titles.get(str(lo), str(lo)) for lo in primary.get("learning_object_ids") or ()]
+                out.append(entry)
+            return out
+        except Exception:  # noqa: BLE001 - a section that cannot be read is named, never guessed
+            unknowns.append("lesson suggestion answers could not be read")
+            return []
 
     @staticmethod
     def _evidence_sections(connection: Any, los: Sequence[str], titles: Mapping[str, str], now_iso: str,

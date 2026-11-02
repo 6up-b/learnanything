@@ -34,9 +34,12 @@ from tests.test_help_assist_figures_migration import P3_ADDED_OBJECTS, P3_ALTERE
 from tests.test_reader_session_digests_migration import RW6B_ADDED_OBJECTS
 from tests.test_deliverable_curriculum_migration import C0B_ADDED_OBJECTS
 from tests.test_learner_notes_migration import C2_ADDED_OBJECTS
-from tests.test_teacher_te1_migration import TE1_ADDED_OBJECTS, TE1_ALTERED_TABLES
+# TE1's 234 and TE1b's 236 follow on the way to head (composed in tests/test_teacher_te1b_migration.py).
+from tests.test_teacher_te1b_migration import TE1_AND_TE1B_ADDED_OBJECTS as TE1_ADDED_OBJECTS
+from tests.test_teacher_te1b_migration import TE1_AND_TE1B_ALTERED_TABLES as TE1_ALTERED_TABLES
+from tests.test_figure_prefetch_migration import P5_ADDED_OBJECTS
 
-HEAD = Path(__file__).resolve().parents[1] / "fixtures" / "migration_head_235" / "state.sqlite"
+HEAD = Path(__file__).resolve().parents[1] / "fixtures" / "migration_head_237" / "state.sqlite"
 #: What 219 adds: the earlier migrations' "nothing else changed" diffs on the way to head read this.
 RW2D_ADDED_OBJECTS = frozenset({
     "field_signal_receipts", "field_signal_receipts_lo", "field_signal_receipts_no_update",
@@ -88,9 +91,9 @@ def test_219_adds_the_receipt_table_and_the_subject_column_and_nothing_else(tmp_
     with upgrade_allowance(UPGRADE_TEST_HELPER):
         applied = apply_migrations(database)
     # Local retrieval P1's 220 (its three tables, altering nothing) follows on the way to head.
-    assert [migration.version for migration in applied] == [219, 220, 221, 222, 223, 224, 225, 226, 227, 228, 229, 230, 231, 232, 233, 234, 235]
+    assert [migration.version for migration in applied] == [219, 220, 221, 222, 223, 224, 225, 226, 227, 228, 229, 230, 231, 232, 233, 234, 235, 236, 237]
     after = _schema(database)
-    assert set(after) - set(before) - P1_ADDED_OBJECTS - C0A_ADDED_OBJECTS - RW5D_ADDED_OBJECTS - PR4_ADDED_OBJECTS - RW6B_ADDED_OBJECTS - C0B_ADDED_OBJECTS - C2_ADDED_OBJECTS - P3_ADDED_OBJECTS - TE1_ADDED_OBJECTS == RW2D_ADDED_OBJECTS
+    assert set(after) - set(before) - P1_ADDED_OBJECTS - C0A_ADDED_OBJECTS - RW5D_ADDED_OBJECTS - PR4_ADDED_OBJECTS - RW6B_ADDED_OBJECTS - C0B_ADDED_OBJECTS - C2_ADDED_OBJECTS - P3_ADDED_OBJECTS - TE1_ADDED_OBJECTS - P5_ADDED_OBJECTS == RW2D_ADDED_OBJECTS
     assert {name for name in before if before[name] != after[name]} == (RW2D_ALTERED_TABLES | CLAIM_POINT_ALTERED_TABLES | RW5D_ALTERED_TABLES | PR4_ALTERED_TABLES | DR2_ALTERED_TABLES | C5_ALTERED_TABLES | P3_ALTERED_TABLES | UNLINKED_ALTERED_TABLES | TE1_ALTERED_TABLES)
     assert role_for_table("field_signal_receipts") is TableRole.RECEIPT
     with closing(sqlite3.connect(database)) as connection:
@@ -121,7 +124,7 @@ def test_the_receipts_are_append_only_and_keyed_once(tmp_path):
 def test_the_head_fixture_holds_219_in_rollback_mode():
     # LP-min (a)'s 221 is the head now (tests/test_learner_claim_application_migration.py).
     assert 219 in applied_versions(HEAD)
-    assert max(applied_versions(HEAD)) == max(m.version for m in discover_migrations()) == 235
+    assert max(applied_versions(HEAD)) == max(m.version for m in discover_migrations()) == 237
     assert HEAD.read_bytes()[18:20] == b"\x01\x01"
     with closing(sqlite3.connect(f"file:{HEAD}?mode=ro", uri=True)) as connection:
         assert connection.execute("SELECT COUNT(*) FROM field_signal_receipts").fetchone() == (0,)
@@ -137,7 +140,7 @@ def test_219_on_the_durability_lane(tmp_path):
 
     database = _database_at(tmp_path, 218)
     with upgrade_allowance(UPGRADE_TEST_HELPER):
-        assert [migration.version for migration in apply_migrations(database)] == [219, 220, 221, 222, 223, 224, 225, 226, 227, 228, 229, 230, 231, 232, 233, 234, 235]
+        assert [migration.version for migration in apply_migrations(database)] == [219, 220, 221, 222, 223, 224, 225, 226, 227, 228, 229, 230, 231, 232, 233, 234, 235, 236, 237]
     with closing(sqlite3.connect(database)) as connection:
         assert connection.execute("PRAGMA journal_mode").fetchone()[0] == "wal"
         with connection:

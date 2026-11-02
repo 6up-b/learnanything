@@ -45,7 +45,12 @@ REGISTERED_SQL_OWNERS = frozenset(
         "src/learnloop/db/stores/ingest_queue.py",
         # Teacher TE1 (migration 230): the lesson ledger and receipts, and the DERIVED weight state.
         "src/learnloop/db/stores/lessons.py",
+        # Reader RW5d P5 (migration 237): the prefetch decisions (append-only, set once) and the
+        # plan's observed usage-limit pauses.
+        "src/learnloop/db/stores/figure_prefetch.py",
         "src/learnloop/learner/lesson_weight.py",
+        # Teacher TE1b (migration 236): the lesson suggestions' responses (the decisions go through stores.router).
+        "src/learnloop/db/stores/router_suggestions.py",
         "src/learnloop/db/stores/completion.py",
         "src/learnloop/db/stores/model_calls.py",
         "src/learnloop/db/stores/collection.py",

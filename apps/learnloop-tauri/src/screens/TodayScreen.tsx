@@ -28,7 +28,7 @@ import { QuestionQueuePanel } from "../components/QuestionQueue";
 import { notifyQueueChanged } from "../queueEvents";
 import { WriteCardDialog } from "../components/WriteCardDialog";
 import { InboxStrip } from "../components/InboxStrip";
-import { masteryTone } from "../app/algoConfig";
+import { algoConfig, masteryTone } from "../app/algoConfig";
 import { screenLeavesKey } from "../app/keymap";
 import { todayQueueInput } from "../app/autoAdvance";
 import { MarkdownMath } from "../render/MarkdownMath";
@@ -36,6 +36,8 @@ import { ItemPresentation } from "../components/ItemPresentation";
 import type { AskTarget } from "../components/AskOverlay";
 import { reentryRefresherLine, reentryRefreshers } from "./today/reentry";
 import { DailyPlanView } from "./today/DailyPlanView";
+import { LessonSuggestionCard } from "./today/LessonSuggestionCard";
+import type { LessonEntry } from "./LessonScreen";
 import { planStepAction, useDailyPlan } from "../app/dailyPlan";
 import type { DailyPlanDto, PlanReadingDto, PlanStepDto, TodayHeadlineDto } from "../api/dto";
 
@@ -148,6 +150,7 @@ export function TodayScreen({
   onOpenPlanReading,
   onRequireSession,
   onBeginSession,
+  onStartLesson,
   onError
 }: {
   session: SessionSnapshot | null;
@@ -185,6 +188,8 @@ export function TodayScreen({
    *  round 2: it bounced the learner to Start with "Begin today's plan on Start
    *  first."). */
   onBeginSession?: (session: SessionSnapshot, firstStep?: PlanStepDto | null) => void;
+  /** Teacher TE1b: Start on Today's lesson suggestion card opens this lesson (absent: no card). */
+  onStartLesson?: (entry: LessonEntry) => void;
   onError: (message: string) => void;
 }) {
   // The scheduler queue is cached by its inputs: returning to Today repaints
@@ -736,10 +741,17 @@ export function TodayScreen({
     void finishSession();
   }
 
+  // Teacher TE1b: the router's lesson suggestion card (at most one a day), only while the sidecar says
+  // Today may suggest one; otherwise nothing is asked and Today is exactly what it was.
+  const suggestionCard = onStartLesson && algoConfig().lessonSuggestions
+    ? <LessonSuggestionCard sessionId={session?.sessionId ?? null} onStartLesson={onStartLesson} onError={onError} />
+    : null;
+
   if (planView && planData) {
     return (
       <div style={{ display: "flex", flexDirection: "column", flex: 1, minHeight: 0 }}>
         <InboxStrip subjects={subjects} onAsk={onAsk} />
+        {suggestionCard}
         <DailyPlanView
           data={planData}
           headline={headlineQuery.data ?? null}
@@ -770,6 +782,7 @@ export function TodayScreen({
   return (
     <div style={{ display: "flex", flexDirection: "column", flex: 1, minHeight: 0 }}>
       <InboxStrip subjects={subjects} onAsk={onAsk} />
+      {suggestionCard}
       {/* F7 welcome-back diff (§4.4): survival-first, BEFORE the hero. */}
       {reentry && !planEnabled ? <ReentryPanel summary={reentry} refreshers={reentryRefreshers(reentry, queue)} /> : null}
       {planEnabled ? (

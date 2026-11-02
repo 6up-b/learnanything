@@ -5,7 +5,7 @@ This script intentionally reads the checked-in migration-head fixture rather
 than attempting to reconstruct a schema from prose.  It combines four live
 authorities:
 
-* ``fixtures/migration_head_235/state.sqlite`` for columns, keys, indexes,
+* ``fixtures/migration_head_237/state.sqlite`` for columns, keys, indexes,
   triggers, and foreign keys;
 * ``learnloop.db.table_roles`` for rebuild policy;
 * ``learnloop.substrate.rebuild_orchestrator`` for DERIVED-table ownership;
@@ -37,7 +37,7 @@ REPOSITORY_ROOT = SCRIPT_PATH.parents[3]
 SRC_ROOT = REPOSITORY_ROOT / "src"
 TABLES_ROOT = VAULT_ROOT / "Reference" / "Database" / "Tables"
 CONFIG_FIELDS_ROOT = VAULT_ROOT / "Reference" / "Configuration" / "Fields"
-SCHEMA_PATH = REPOSITORY_ROOT / "fixtures" / "migration_head_235" / "state.sqlite"
+SCHEMA_PATH = REPOSITORY_ROOT / "fixtures" / "migration_head_237" / "state.sqlite"
 MIGRATIONS_ROOT = REPOSITORY_ROOT / "migrations"
 
 sys.path.insert(0, str(SRC_ROOT))
@@ -58,7 +58,7 @@ COMMIT_TIMESTAMP = subprocess.check_output(
     ["git", "log", "-1", "--format=%cI"], cwd=REPOSITORY_ROOT, text=True
 ).strip()
 VERIFIED_DATE = "2026-09-23"
-SCHEMA_HEAD = 235
+SCHEMA_HEAD = 237
 
 
 DOMAIN_DESCRIPTIONS: dict[str, str] = {
@@ -106,6 +106,7 @@ ROLE_OUTCOMES: dict[TableRole, str] = {
 
 
 PURPOSE_OVERRIDES: dict[str, str] = {
+    "router_suggestion_responses": "Appends the learner's one response to a shown lesson suggestion (teacher TE1b, spec_teacher_v1 §15.1): accepted (Start), chose_alternative (one of the card's alternatives), declined (\"Not now\") or ignored (unanswered by the end of its day), the candidate and its learning objects, and the lesson id a Start reserved; and at most one release of a Start whose lesson never opened (released: \"Not now\" on the pending card; expired: it can no longer open on the current vault; landing ruling R2), nothing deleted. The acceptance model and the decline recovery replay it on every read (no derived table).",
     "interactive_figures": "Keeps each explorable figure version the Reader built (reader workbench RW5a): the declarative figure spec the figure author wrote (never code), what was asked for (the selection, a region of a figure and the block whose crop was sent), how it verified (verified, illustrative, failed or unsupported, with the report) and the reuse key (`input_hash`); a \"not right?\" version supersedes an earlier one, which is kept. Paid output: never re-run on rebuild, and nothing that grades, schedules or projects reads it.",
     "figure_predictions": "Records a learner's prediction on an explorable figure (reader workbench RW5a): the answer, the observed readout before and after the prediction's change, whether it matched (decided by code) and the optional \"what changed?\" line. Formative only: never an attempt or an evidence observation; a missed one is read by learner-text gaps as a `reader_formative` text and listed by \"Last time here\". Append-only by trigger, its one update setting `explanation_text` once.",
     "source_block_fts": "Indexes source block text for FTS5 BM25 keyword search (Slice 2 T6: library search, tutor spans, Quick Add scope); triggers keep it in step with `source_document_blocks` and its one replayer rebuilds it, so it never holds anything the block ledger does not. Hazard: rows are keyed by the blocks' implicit rowid (the block table has a composite key), so a migration that rebuilds `source_document_blocks` must recreate the triggers and rerun the replayer (`learnloop rebuild-derived-state`); deletes also match the block's identity as well as its rowid (migration 177), and `learnloop doctor` reports stale or missing rows.",
@@ -1398,6 +1399,19 @@ CONFIG_FUNCTION_OVERRIDES: dict[str, str] = {
         "recorded on lesson_checks, its teaching text writes lesson reveal rows and its close commits delayed "
         "checks. Off, or below the tag, no lesson opens and every path is mvp-0.40's byte for byte."
     ),
+    "router.lesson_suggestions.enabled": (
+        "Kill switch for teacher TE1b's successor (mvp-0.43; learnloop.lesson_suggestions_upgrade; "
+        "spec_teacher_v1 §15.1). On (with router.enabled, router.log_decisions and lessons on), Today's open draws "
+        "at most one instruct(lesson) suggestion a day with an exact logged propensity (a lesson_suggestion router "
+        "decision, shown or not); Start opens a TE1 lesson whose origin is that decision and every response is a "
+        "router_suggestion_responses row. Off, or below the tag, nothing is drawn or written and Today and the plan "
+        "are mvp-0.42's byte for byte."
+    ),
+    "router.lesson_suggestions.ceiling_per_day": (
+        "keep: the anti-nagging ceiling on shown lesson suggestions a day (spec_teacher_v1 §18.4); never learned; a "
+        "draw it binds shows no card and is logged with ceiling_bound. The card is drawn at most once a day, so the "
+        "default 3 binds only if that rule is relaxed."
+    ),
     "teacher.weight.learned": (
         "Operational switch of the learned lesson-check weight (spec_teacher_v1 §12.1): on, a lesson check enters "
         "mastery at the posterior mean of sigma(eta) as of the check; off, at the type's configured 0.5. Replay "
@@ -2138,7 +2152,7 @@ def generate_table_catalog(grouped: dict[str, list[str]]) -> None:
             ],
             source_paths=[
                 "src/learnloop/db/table_roles.py",
-                "fixtures/migration_head_235/state.sqlite",
+                "fixtures/migration_head_237/state.sqlite",
                 "migrations/",
                 "tests/test_table_roles.py",
                 "tests/test_migrations.py",

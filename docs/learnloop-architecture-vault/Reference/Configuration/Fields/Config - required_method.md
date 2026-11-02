@@ -3,8 +3,8 @@ title: "Config - required_method"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "359c2ab64e0a0582d728207a3aafe64127cdd240"
-source_commit_timestamp: "2026-11-02T10:05:25-05:00"
+source_commit: "d4c02ae06286e5c2866d0e08949bc66df459fc03"
+source_commit_timestamp: "2026-11-02T10:02:02-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "learnloop.toml required_method"
@@ -52,7 +52,7 @@ The main configuration contract, precedence rules, and safe-edit workflow live i
 
 | Dotted path | Effective value | Shape | Origin | Function | Runtime/refactor status | Consumer/source anchors |
 |---|---|---|---|---|---|---|
-| `required_method.enabled` | `true` | boolean | modeled default or validator seed | Kill switch for the method-explicit successor's required-method grading (owner rule 2026-10-13; mvp-0.25). On, the own-route rules are own-route-v2: an item's required_method, frozen with the assessment contract (the one authority: no prompt is parsed to decide it), reaches the grader's policy, and a criterion tied to it is graded on use of that method, so a divergent route fails it with no quoted wrong step (neither PF-c's gate nor the unlocated rule unassesses it); every other criterion keeps the own-route rules. Off, new answers grade exactly as mvp-0.24. Dormant below the successor and when proof_check.enabled is off; replay reads the blind record, never this switch. Generation phrasing criteria by fact and doctor's criterion:method_phrased are content paths, not gated here. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:3318`; `src/learnloop/ai/plan_fallback.py:138`; `src/learnloop/attempts/grading_support.py:272` |
+| `required_method.enabled` | `true` | boolean | modeled default or validator seed | Kill switch for the method-explicit successor's required-method grading (owner rule 2026-10-13; mvp-0.25). On, the own-route rules are own-route-v2: an item's required_method, frozen with the assessment contract (the one authority: no prompt is parsed to decide it), reaches the grader's policy, and a criterion tied to it is graded on use of that method, so a divergent route fails it with no quoted wrong step (neither PF-c's gate nor the unlocated rule unassesses it); every other criterion keeps the own-route rules. Off, new answers grade exactly as mvp-0.24. Dormant below the successor and when proof_check.enabled is off; replay reads the blind record, never this switch. Generation phrasing criteria by fact and doctor's criterion:method_phrased are content paths, not gated here. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:3361`; `src/learnloop/ai/plan_fallback.py:138`; `src/learnloop/attempts/grading_support.py:272` |
 
 > [!warning] Omitted does not mean frozen in the file
 > Most values are intentionally absent from `learnloop.toml`. Their reproducibility is protected by the defaults fingerprint keyed to `algorithms.algorithm_version`, not by dumping every default into each vault.

@@ -3,13 +3,13 @@ title: "lessons"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "359c2ab64e0a0582d728207a3aafe64127cdd240"
-source_commit_timestamp: "2026-11-02T10:05:25-05:00"
+source_commit: "d4c02ae06286e5c2866d0e08949bc66df459fc03"
+source_commit_timestamp: "2026-11-02T10:02:02-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite lessons"
   - "table lessons"
-schema_head: 235
+schema_head: 237
 table_name: "lessons"
 table_role: "raw_ledger"
 functionality_status: "active"
@@ -22,10 +22,11 @@ source_paths:
   - "src/learnloop/adaptive_difficulty/column_classes.py"
   - "src/learnloop/adaptive_difficulty/protected_tables.py"
   - "src/learnloop/ai/disclosures.py"
+  - "src/learnloop/algorithm_versions.py"
   - "src/learnloop/config/schema.py"
   - "src/learnloop/config/template.py"
+  - "src/learnloop/daily_plan/lesson_suggestion.py"
   - "src/learnloop/db/stores/lessons.py"
-  - "src/learnloop/evsi_calibration/forecast_report.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/raw-ledger"
@@ -49,7 +50,7 @@ It belongs to the **operations** navigation family. The family context lives in 
 - **Role:** `raw_ledger` — Authoritative replay input or mixed authoritative state. The rebuild umbrella preserves it.
 - **Functionality status:** `active`.
 - **Introduced by:** `migrations/234_teacher_lessons.sql`.
-- **Schema touched by:** `234_teacher_lessons.sql`.
+- **Schema touched by:** `234_teacher_lessons.sql`, `236_router_lesson_suggestions.sql`.
 - **Rebuild owner:** none; this table is preserved by the rebuild umbrella.
 
 For the distinction between SQLite state and human-authored vault files, see [[State and Persistence]]. For whole-vault creation and opening behavior, see [[Vault Lifecycle]]. ^table-lifecycle
@@ -98,7 +99,9 @@ None found by exact static reference scan.
 ### Direct SQL readers
 
 - `src/learnloop/db/stores/lessons.py`
+- `src/learnloop/db/stores/router_suggestions.py`
 - `src/learnloop/evsi_calibration/forecast_report.py`
+- `src/learnloop/figures/prefetch.py`
 
 ### Direct SQL writers
 
@@ -113,13 +116,16 @@ None found by exact static reference scan.
 
 ## Tests that define behavior
 
+- `tests/conftest.py`
 - `tests/test_architecture.py`
-- `tests/test_followups_batch5_lesson.py`
+- `tests/test_figures_prefetch_review_fixes.py`
 - `tests/test_reader_rw5d_p4b_teacher_visuals.py`
 - `tests/test_teacher_te1_lesson.py`
 - `tests/test_teacher_te1_migration.py`
 - `tests/test_teacher_te1_review_fixes.py`
 - `tests/test_teacher_te1_successor.py`
+- `tests/test_teacher_te1b_review_fixes.py`
+- `tests/test_teacher_te1b_suggestions.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

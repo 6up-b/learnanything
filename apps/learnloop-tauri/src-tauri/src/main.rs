@@ -674,6 +674,8 @@ fn main() {
                 notes_set_gaps,
                 lesson_turn,
                 lesson_view,
+                lesson_suggestion,
+                lesson_suggestion_respond,
                 reader_side_by_side_section,
                 reader_figure_request,
                 figure_request,

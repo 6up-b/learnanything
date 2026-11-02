@@ -152,6 +152,12 @@ def _tied_set(refs: Sequence[str], values: Sequence[float], margin: float) -> li
     return sorted(tied)
 
 
+def tied_set(refs: Sequence[str], values: Sequence[float], margin: float = EPSILON_TIE_MARGIN) -> list[str]:
+    """The refs :func:`epsilon_tiebreak` randomizes over when the top is near-equivalent (sorted)."""
+
+    return _tied_set(refs, values, margin)
+
+
 def _clamped_uniform_propensity(
     repository: Repository | None, n: int, *, floor: float, clock: Clock | None
 ) -> float:

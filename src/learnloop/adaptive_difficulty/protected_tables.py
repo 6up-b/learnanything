@@ -90,6 +90,9 @@ _ROLES: tuple[tuple[str, str], ...] = (
     ("facet_merges", NEUTRAL),
     ("facet_recall_state", DENIED),
     ("facet_registry_saves", NEUTRAL),
+    # Reader RW5d P5 (migration 237): the prefetch service's decisions (content and opening
+    # behaviour) and the plan's usage-limit pauses it observed; AD reads neither.
+    ("figure_prefetch_decisions", DENIED),
     ("figure_predictions", PROTECTED),
     ("fitted_parameters", DENIED),
     ("followup_tasks", DENIED),
@@ -149,6 +152,7 @@ _ROLES: tuple[tuple[str, str], ...] = (
     ("passage_links", PROTECTED),
     ("pf_candidates", PROTECTED),
     ("plan_presentations", PROTECTED),
+    ("plan_usage_pauses", DENIED),
     ("practice_attempts", PROTECTED),
     ("practice_item_snapshots", PROTECTED),
     ("practice_item_state", DENIED),

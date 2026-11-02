@@ -16,6 +16,21 @@ Desktop only (pinned in tests/test_mobile_allowlist.py).
 Kill switch ``teacher.enabled`` (and the vault below the teacher's successor):
 both RPCs refuse, no lesson opens, nothing is written.
 
+Teacher TE1b (spec_teacher_v1 §15.1, §19; ``learnloop.daily_plan.lesson_suggestion``):
+
+* ``lesson.suggestion``: Today's suggestion card (no model call). The day's
+  first call draws the day's decision and writes it; later calls read it back.
+  ``null`` when there is no card (none today, already answered, or switched
+  off: ``router.lesson_suggestions.enabled``, the router, its decision log or
+  lessons off, or the vault below TE1b's tag; then nothing is written).
+* ``lesson.suggestion_respond``: Start (``accepted``), an alternative
+  (``chose_alternative``) or "Not now" (``declined``), appended once to
+  ``router_suggestion_responses``. Start returns the lesson to open:
+  ``lesson.turn`` ``open`` with ``origin = "router_suggestion"``, the decision id
+  and the lesson id the response recorded.
+  On a pending card (a Start whose lesson never opened) "Not now" is
+  ``released``: the reservation is let go, the Start staying recorded.
+
 Reader RW5d P4b: a teacher turn's ``visual`` is built inside ``lesson.turn`` by the
 figure service (``learnloop.figures.service.build_figure``, origin ``teacher``,
 the author route and live configuration the Reader's builds use), grammar and
@@ -40,7 +55,7 @@ from learnloop_sidecar.handlers.ai_providers import (
 from learnloop_sidecar.registry import method
 
 #: Every RPC this module registers (pinned desktop-only).
-LESSON_RPCS: tuple[str, ...] = ("lesson.turn", "lesson.view")
+LESSON_RPCS: tuple[str, ...] = ("lesson.turn", "lesson.view", "lesson.suggestion", "lesson.suggestion_respond")
 
 
 class LessonSelection(ParamsModel):
@@ -56,6 +71,9 @@ class LessonTurnInput(ParamsModel):
     learning_object_ids: list[str] = []
     selection: LessonSelection | None = None
     goal_text: str | None = None
+    # TE1b: a router suggestion's Start (the decision; ``lesson_id`` is the id its response recorded)
+    origin: Literal["learner_pick", "router_suggestion"] = "learner_pick"
+    suggestion_decision_id: str | None = None
     # reply / answers
     text: str | None = None
     answer: str | None = None
@@ -82,6 +100,18 @@ def route_unavailable_message(label: str, *, saved: bool) -> str:
     if saved:
         return f"{label} is unavailable for lessons; your lesson is saved and resumes when it's back."
     return f"{label} is unavailable for lessons, so the lesson didn't start and nothing was saved; try again when it's back."
+
+
+class LessonSuggestionInput(ParamsModel):
+    session_id: str | None = None
+
+
+class LessonSuggestionRespondInput(ParamsModel):
+    decision_id: str
+    # ``released``: "Not now" on a pending card (a Start whose lesson never opened; landing ruling R2)
+    response: Literal["accepted", "chose_alternative", "declined", "released"]
+    candidate_ref: str | None = None
+    session_id: str | None = None
 
 
 def _error(exc: S.LessonError) -> SidecarError:
@@ -147,10 +177,14 @@ def lesson_turn(ctx: SidecarContext, params: LessonTurnInput) -> dict[str, Any]:
         if params.action == "open":
             if params.entry is None:
                 raise SidecarError("validation_error", "A lesson needs an entry (a topic or a passage).")
+            suggested = params.origin == "router_suggestion"
             result = S.open_lesson(
                 vault, repository, entry=params.entry, learning_object_ids=params.learning_object_ids,
                 selection=params.selection.model_dump() if params.selection is not None else None,
-                goal_text=params.goal_text, clients=clients)
+                goal_text=params.goal_text, clients=clients,
+                origin="router" if suggested else "learner_pick",
+                origin_ref=params.suggestion_decision_id if suggested else None,
+                lesson_id=params.lesson_id if suggested else None)
         else:
             if not params.lesson_id:
                 raise SidecarError("validation_error", "lesson_id is required.")
@@ -168,6 +202,15 @@ def lesson_turn(ctx: SidecarContext, params: LessonTurnInput) -> dict[str, Any]:
                            details=dict(exc.details)) from exc
     if result.get("vault_changed"):
         ctx.reload(maintenance=False)
+    lesson_id = result.get("lesson_id") or params.lesson_id
+    if lesson_id and result.get("plan"):
+        # RW5d P5 (spec §10b.2, §10.4): the plan's nodes not yet reached, and
+        # the open gaps on the lesson's topics, ahead of need (quiet, not the
+        # lesson's grant; a no-op with figures.prefetch_enabled off).
+        from learnloop_sidecar.prefetch_runtime import notify
+
+        notify(ctx, "lesson", str(lesson_id))
+        notify(ctx, "gap", f"lesson:{lesson_id}")
     return versioned(result)
 
 
@@ -181,3 +224,28 @@ def lesson_view(ctx: SidecarContext, params: LessonViewInput) -> dict[str, Any]:
         return versioned(S.view_lesson(vault, repository, params.lesson_id))
     except S.LessonError as exc:
         raise _error(exc) from exc
+
+
+@method("lesson.suggestion", LessonSuggestionInput)
+def lesson_suggestion(ctx: SidecarContext, params: LessonSuggestionInput) -> dict[str, Any]:
+    """Today's suggestion card, or ``null`` (TE1b; no model call)."""
+
+    from learnloop.daily_plan.lesson_suggestion import today_suggestion
+
+    vault, repository = ctx.require_vault()
+    return versioned({"suggestion": today_suggestion(vault, repository, session_id=params.session_id)})
+
+
+@method("lesson.suggestion_respond", LessonSuggestionRespondInput)
+def lesson_suggestion_respond(ctx: SidecarContext, params: LessonSuggestionRespondInput) -> dict[str, Any]:
+    """The learner's one response to the card (TE1b); a Start returns the lesson to open."""
+
+    from learnloop.daily_plan.lesson_suggestion import SuggestionError, respond
+
+    vault, repository = ctx.require_vault()
+    try:
+        result = respond(vault, repository, decision_id=params.decision_id, response=params.response,
+                         candidate_ref=params.candidate_ref, session_id=params.session_id)
+    except SuggestionError as exc:
+        raise SidecarError(exc.code, str(exc)) from exc
+    return versioned(result)

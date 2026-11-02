@@ -69,6 +69,7 @@ from typing import Any, Literal
 from pydantic import Field
 
 from learnloop.attempts.salience_firewall import salience_payload
+from learnloop.figures import power as P
 from learnloop.figures import service as FS
 from learnloop.substrate.activities import log_interaction_event
 from learnloop_sidecar.context import SidecarContext
@@ -248,11 +249,15 @@ def _start(ctx: SidecarContext, request: FS.FigureRequest, *, attempt: dict[str,
     spawn = _rich_spawner(ctx, vault) if FS.rich_enabled(vault) and attempt is None else None
 
     def work(worker_repo: Any) -> dict[str, Any]:
+        from learnloop.figures.foreground import foreground
+
         try:
             # Every request is admitted against the vault loaded NOW (the
-            # build's FiguresGate), not the one captured here.
-            outcome = FS.build_figure(vault, worker_repo, request, author_client=author,
-                                      live_vault=ctx.loaded_vault, find=find, spawn_rich=spawn)
+            # build's FiguresGate), not the one captured here. RW5d P5: a
+            # pressed build is foreground work (background prebuilds yield).
+            with foreground("figure"):
+                outcome = FS.build_figure(vault, worker_repo, request, author_client=author,
+                                          live_vault=ctx.loaded_vault, find=find, spawn_rich=spawn)
         except FS.FigureRefused as exc:
             raise _refused(exc) from exc
         result: dict[str, Any] = {"figure": outcome.view, "reused": outcome.reused}
@@ -699,7 +704,22 @@ def reader_figures(ctx: SidecarContext, params: FiguresInput) -> dict[str, Any]:
     if FS.rich_enabled(vault):
         pending = FS.rich_pending(vault, repository, params.extraction_id)
         payload["rich_pending"] = pending
-        _retry_plan_waits(ctx, [*(line for line in pending), *((figure.get("fuller") or {}) for figure in figures)])
+        # Codex re-review F17: a speculative prebuild waiting for the plan lists no line
+        # (review F10), so it is found apart from the lines and asked again the same way.
+        speculative = [{"state": "waiting_for_plan", "rich_job_id": job_id}
+                       for job_id in FS.prefetch_plan_waits(vault, repository, params.extraction_id)]
+        _retry_plan_waits(ctx, [*(line for line in pending), *((figure.get("fuller") or {}) for figure in figures),
+                                *speculative])
+    from learnloop_sidecar.prefetch_runtime import pass_running as prefetch_pass_running
+
+    if P.prefetch_switch(vault) and FS.prefetch_pending(vault, repository, params.extraction_id,
+                                                        pass_running=prefetch_pass_running(ctx)):
+        # RW5d P5 (Codex review F11): a prebuild still to come for this source;
+        # the Reader reads its figures again, paced, while it is (absent
+        # otherwise, and always with figures ahead of need off). Codex re-review
+        # F18: only active work (a pass running now, a prebuild's rich job queued
+        # or running) and never on battery, so the reads end with the work.
+        payload["prefetch_pending"] = True
     return versioned(payload)
 
 

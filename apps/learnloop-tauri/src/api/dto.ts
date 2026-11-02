@@ -9832,6 +9832,9 @@ export interface FigureFullerDto {
   richJobId: string | null;
   /** The fuller figure once ready. */
   figure: FigureViewDto | null;
+  /** RW5d P5 (landing ruling R1; present, true, only then): built ahead of need and never
+   *  pressed for; the Reader's reads for it keep to the prefetch lifetime. */
+  speculative?: boolean;
 }
 
 /** RW5d P2b: a rich build with no quick figure: its pending line under the passage. */
@@ -9955,6 +9958,9 @@ export interface FiguresDto {
   figures: FigureViewDto[];
   /** RW5d P2b (present while the rich tiers are on): rich builds with no quick figure. */
   richPending?: FigureRichPendingDto[];
+  /** RW5d P5 (present, true, only while a figure for this source is being built ahead of need):
+   *  the Reader reads its figures again, paced, so the prebuilt figure's quiet line appears. */
+  prefetchPending?: boolean;
 }
 
 /** A library request running off the request path (reader.library_job). */
@@ -10417,6 +10423,42 @@ export interface LessonTurnInput {
   tap?: number;
   /** "Your thinking": goes to the teacher, never to the grader. */
   thinking?: string;
+  /** Teacher TE1b: a router suggestion's Start (with `lessonId`, the id its response recorded). */
+  origin?: "learner_pick" | "router_suggestion";
+  suggestionDecisionId?: string;
+}
+
+// ── Teacher TE1b: the router's lesson suggestion card in Today (spec_teacher_v1 §15.1, §19) ──
+
+/** One lesson on the card: its topic in plain words and the planner's honest reason. */
+export interface LessonSuggestionEntryDto {
+  ref: string;
+  title: string;
+  learningObjectIds: string[];
+  reason: "new_goal" | "cold_failing" | "below_band";
+  why: string;
+}
+
+/** Today's card: "Learn X now? (about 15 min)", Start, up to two alternatives, Not now. */
+export interface LessonSuggestionDto {
+  decisionId: string;
+  day: string;
+  minutes: number;
+  suggestion: LessonSuggestionEntryDto;
+  alternatives: LessonSuggestionEntryDto[];
+  whyLabel: string;
+  /** A Start (or alternative) whose lesson never opened (codex review F2): open this one, under the id its
+   *  response recorded; the card then offers nothing else. */
+  pendingLesson?: { lessonId: string; decisionId: string; learningObjectIds: string[]; title: string } | null;
+}
+
+/** lesson.suggestion_respond: Start or an alternative returns the lesson to open; `released` is
+ *  "Not now" on a pending lesson (the reservation is let go, the Start stays recorded). */
+export interface LessonSuggestionResponseDto {
+  decisionId: string;
+  response: "accepted" | "chose_alternative" | "declined" | "released";
+  candidateRef: string;
+  lesson: { lessonId: string; decisionId: string; learningObjectIds: string[]; title: string } | null;
 }
 
 /** One entry of the lesson's document, in order. */

@@ -37,6 +37,58 @@ at S0's checkpoint (D6). Rebuilding the head for a new migration keeps the
 sanitized content: apply the migration to a backup-API copy of this fixture,
 as before.
 
+## Reader RW5d P5 (migration 237), landing of `reader/rw5d-p5-prefetch`, 2026-11-02
+
+Renamed from `migration_head_236` at P5's landing onto main
+(`docs/reviews/reader-rw5d-p5-prefetch.md`, "Landing onto main"). The branch
+built its migration as 236; follow-ups Nov 2's 235 and teacher TE1b's 236
+landed first, so it is renumbered 237 and the branch's own rebuilds are
+replaced. Rebuilt from main's tracked, sanitized
+`migration_head_236/state.sqlite` (main `1d244af053`): a backup-API copy under
+`fixtures-local/` with only `237_figure_prefetch.sql` applied through
+`learnloop.db.migrate.apply_migrations` under the scratch-copy allowance
+(`UPGRADE_SCRATCH_COPY`), then `wal_checkpoint(TRUNCATE)` (0, 0, 0),
+`journal_mode=DELETE` (header bytes 1/1), `integrity_check` ok and
+`foreign_key_check` empty, and copied into place with the backup API, with no
+companion files. The head holds 229 through 237.
+
+* 237 adds exactly its objects: `figure_prefetch_decisions` and
+  `plan_usage_pauses` (RAW_LEDGER), their indexes (`plan_usage_pauses`' unique
+  `hit_at` autoindex included) and append-only triggers, and the partial index
+  `idx_figure_requests_prefetch_decision` on `figure_requests`, with no row.
+
+Against main's 236 head no other object changed definition and only
+`schema_migrations` gained a row (237); every other table's rows are
+identical, so the sanitized content carries over (every companion file is
+byte-identical to main's).
+
+## Teacher TE1b (migration 236), landing of `teacher/te1b-router-suggestions`, 2026-11-02
+
+Renamed from `migration_head_235` at TE1b's landing onto main
+(`docs/reviews/teacher-te1b-router-suggestions.md`, "Landing onto main"). The
+branch numbered its migration 236 from the start (follow-ups Nov 2's 235 landed
+first), so 236 keeps its number and the branch's own rebuilds are replaced.
+Rebuilt from main's tracked, sanitized `migration_head_235/state.sqlite` (main
+`f9bc4254b3`): a backup-API copy under `fixtures-local/` with only
+`236_router_lesson_suggestions.sql` applied through
+`learnloop.db.migrate.apply_migrations` under the scratch-copy allowance
+(`UPGRADE_SCRATCH_COPY`), then `wal_checkpoint(TRUNCATE)` (0, 0, 0),
+`journal_mode=DELETE` (header bytes 1/1), `integrity_check` ok and
+`foreign_key_check` empty, and copied into place with the backup API, with no
+companion files. The head holds 229 through 236.
+
+* 236 adds exactly its objects: `router_suggestion_responses` (RAW_LEDGER, no
+  row), its primary-key autoindex, its index, its two partial UNIQUE indexes
+  (one learner response and at most one reservation release per decision;
+  landing ruling R2) and append-only triggers; and rebuilds `router_decisions`
+  (its `decision_kind` CHECK gains `lesson_suggestion`; every row and id kept,
+  the same indexes and triggers, no row in this fixture).
+
+Against main's 235 head only those definitions changed and only
+`schema_migrations` gained a row (236); every other table's rows are
+identical, so the sanitized content carries over (every companion file is
+byte-identical to main's).
+
 ## Follow-ups Nov 2 (migration 235), landing of `fix/followups-nov2`, 2026-11-02
 
 Renamed from `migration_head_234` at the follow-ups' landing onto main

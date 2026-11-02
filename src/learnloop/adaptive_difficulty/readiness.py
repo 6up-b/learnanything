@@ -24,7 +24,7 @@ from __future__ import annotations
 
 from learnloop.adaptive_difficulty.operation import entry
 
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from typing import Any
 
 from learnloop.adaptive_difficulty import predict as PR
@@ -141,6 +141,71 @@ def card_fields(vault: Any, repository: Any, learning_object_id: str, *,
     }
 
 
+@entry(read_only=True)
+def band_positions(vault: Any, repository: Any, learning_object_ids: Sequence[str], *,
+                   snapshot: RP.Snapshot | None = None, view: Any = None) -> dict[str, dict[str, Any]]:
+    """Per LO, where adaptive difficulty predicts the learner stands against its practice band
+    (teacher TE1b's ``below_band`` lesson reason; codex review F6). Empty with ``promoted_predictor``
+    off; an LO with no visible cell is left out.
+
+    Over the LO's commission points ``X_c`` in its main cell (the cell :func:`card_fields` reads):
+    ``p_band`` the highest ``P_band`` (a probability of being in the band, the quantity
+    ``calibrate_below`` thresholds, selection §6.2) and ``p_bar`` the highest expected success (the
+    easiest point). ``below``: the cell is tested (an untested cell's prediction is never a claim,
+    A4), AD's own out-of-band rule holds (no point has ``P_band`` at ``calibrate_below`` or more) and
+    even the easiest point's expected success is under the band's lower edge, so the learner is
+    predicted below the band, not above it or merely uncertain. No new number: the band and
+    ``calibrate_below`` are AD's."""
+
+    if not subject_view_live(vault.config):
+        return {}
+    from learnloop.adaptive_difficulty.material_view import material_view
+
+    view = material_view(vault, repository, view)
+    snapshot = snapshot or RP.snapshot(vault, repository, view=view)
+    constants = S.constants_from_config(vault.config)
+    out: dict[str, dict[str, Any]] = {}
+    for learning_object_id in learning_object_ids:
+        cell = _main_cell(view, vault, learning_object_id)
+        if cell is None:
+            continue
+        facet, capability, subject = cell
+        specs = [PR.point_spec(point, learning_object_id=learning_object_id, subject=subject, facet=facet,
+                               capability_name=capability) for point in S.commission_candidates(capability)]
+        scored = PR.score(snapshot.subject, specs, constants=constants, information=False)
+        if not scored:
+            continue
+        best_band = max(s.p_band for s in scored)
+        easiest = max(s.p_bar for s in scored)
+        untested = (facet, capability) not in snapshot.observed_cells
+        out[learning_object_id] = {
+            "kind": "prediction", "cell": [facet, capability],
+            "p_band": round(best_band, 6), "p_bar": round(easiest, 6),
+            "band": [float(constants.band[0]), float(constants.band[1])],
+            "calibrate_below": float(constants.calibrate_below),
+            "untested": untested,
+            "below": (not untested) and best_band < constants.calibrate_below and easiest < constants.band[0],
+        }
+    return out
+
+
+def _main_cell(view: Any, vault: Any, learning_object_id: str) -> tuple[str, str, str] | None:
+    """The LO's main cell: the facet its visible items weigh most (as :func:`card_fields` picks)."""
+
+    cells = _cells(view, learning_object_id)
+    if not cells:
+        return None
+    weights = {f: 0.0 for f, _c, _s in cells}
+    for item in view.items(learning_object_id=learning_object_id):
+        for f, w in PR.facet_weights(vault, item).items():
+            if f in weights:
+                weights[f] += w
+    facet = sorted(weights.items(), key=lambda kv: (-kv[1], kv[0]))[0][0]
+    capability = next(c for f, c, _s in cells if f == facet)
+    subject = next(s for f, _c, s in cells if f == facet)
+    return facet, capability, subject
+
+
 def card_line(fields: Mapping[str, Any]) -> str:
     if fields.get("untested"):
         return f"AD (prediction): {fields.get('p_band_next', 0):.2f} chance the next point lands in the band; untested"
@@ -148,5 +213,5 @@ def card_line(fields: Mapping[str, Any]) -> str:
             f"{fields.get('p_bar_at_top') or 0:.2f} predicted at the top level")
 
 
-__all__ = ["LIKELY", "NOT_PREDICTED", "NOT_YET", "READINESS_VERSION", "UNTESTED", "aggregate_line", "card_fields", "card_line",
-           "lo_readiness"]
+__all__ = ["LIKELY", "NOT_PREDICTED", "NOT_YET", "READINESS_VERSION", "UNTESTED", "aggregate_line", "band_positions",
+           "card_fields", "card_line", "lo_readiness"]

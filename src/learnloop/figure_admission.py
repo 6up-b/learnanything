@@ -344,16 +344,25 @@ class FiguresGate:
     asked at the same moments with the same vault: why the unit may send
     nothing more now (a saved input that has become protected), or None.
     A hold sets :attr:`held`.
+
+    ``wait()`` (RW5d P5, Codex re-review F16), when given, runs first at each
+    of those moments, before the vault is read: a background unit waits there
+    for the learner's foreground work to end, so the configuration it is then
+    admitted on is the one read after the wait, never a snapshot taken before
+    it (the switch may have turned off meanwhile). Its result is not a
+    verdict: ``hold`` decides on the vault read after it.
     """
 
     def __init__(self, vault: Any, key: Callable[[Any], Hashable], *,
                  live_vault: Callable[[], Any] | None = None,
-                 hold: Callable[[Any], str | None] | None = None) -> None:
+                 hold: Callable[[Any], str | None] | None = None,
+                 wait: Callable[[], Any] | None = None) -> None:
         self._root = getattr(vault, "root", None)
         self._key = key
         self._start = key(vault)
         self._live = live_vault
         self._hold = hold
+        self._wait = wait
         self._outer = active_request_gate()
         self._lock = threading.Lock()
         #: Why the unit's requests are refused (None: they are not).
@@ -376,6 +385,8 @@ class FiguresGate:
 
         with self._lock:
             if self.changed is None:
+                if self._wait is not None:
+                    self._wait()
                 vault = self._current()
                 if vault is None or getattr(vault, "root", None) != self._root:
                     self.changed = "the vault is no longer open"

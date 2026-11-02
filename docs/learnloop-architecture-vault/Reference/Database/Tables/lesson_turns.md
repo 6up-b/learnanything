@@ -3,13 +3,13 @@ title: "lesson_turns"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "359c2ab64e0a0582d728207a3aafe64127cdd240"
-source_commit_timestamp: "2026-11-02T10:05:25-05:00"
+source_commit: "d4c02ae06286e5c2866d0e08949bc66df459fc03"
+source_commit_timestamp: "2026-11-02T10:02:02-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite lesson_turns"
   - "table lesson_turns"
-schema_head: 235
+schema_head: 237
 table_name: "lesson_turns"
 table_role: "raw_ledger"
 functionality_status: "active"
@@ -104,8 +104,6 @@ None found by exact static reference scan.
 
 ## Tests that define behavior
 
-- `tests/test_followups_batch5_lesson.py`
-- `tests/test_followups_batch5_recap_protection.py`
 - `tests/test_reader_rw5d_p4b_teacher_visuals.py`
 - `tests/test_teacher_te1_lesson.py`
 - `tests/test_teacher_te1_migration.py`

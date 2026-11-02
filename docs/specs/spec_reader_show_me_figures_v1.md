@@ -1247,6 +1247,7 @@ Existing kinds with a payload `event` and `authority_class = 'salience_only'` (p
   - A prebuilt figure can make the chooser's `explore_figure` precondition true sooner. That is the same ruling as P3: it changes which help is offered, not evidence, so it takes a kill switch and no successor.
   - The plan is not changed. The plan trigger reads the stored plan, and the plan never reads figures.
   - Stop rule as P3: if the P5 agent finds otherwise, it becomes the next free `mvp-0.N`.
+  - *As built (2026-11-02):* checked. No successor: no scoring, scheduling, projection, serving, grading or evidence path reads `figure_prefetch_decisions` or `plan_usage_pauses` (pinned by `tests/test_figures_prefetch_boundary.py`), the plan trigger reads the stored plan after it is built, and a prebuilt figure is an ordinary figure once opened. `figures.prefetch_enabled` ships **on** (Q21; first built off, corrected by the Codex review's F15, `docs/reviews/reader-rw5d-p5-prefetch-codex-review.md`, which also records the review's other fixes: the offer horizon is the reading session's end or the local day's, known tokens are in the load, and lesson candidates are planned visuals only). The record, with the remaining deviation (the gap passage from the topic's provenance spans, not retrieval), is `docs/reviews/reader-rw5d-p5-prefetch.md`.
 - **Deferred, and a successor if built:** prediction outcomes as numeric weak observations (the parent's §17 row).
 
 ## 15. Every number

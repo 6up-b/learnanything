@@ -149,6 +149,40 @@ it("an opening that saved nothing is repeated by Try again", async () => {
   expect(screen.getByText("Here is the map.")).toBeTruthy();
 });
 
+it("a suggested lesson whose opening failed before it was saved is opened again, never resumed (TE1b review F2)", async () => {
+  // The Start reserved les_reserved; the teacher's client failed before the lesson row was written, so the
+  // error names no saved lesson: Try again repeats the idempotent open with the suggestion's ids.
+  api.lessonTurn.mockRejectedValueOnce({ code: "teacher_unavailable", message: "The teacher's model isn't set up." });
+  const entry = { kind: "open" as const, entry: "learning_object" as const, learningObjectIds: ["lo_eigen"],
+                  suggestion: { decisionId: "rd1", lessonId: "les_reserved" } };
+  await act(async () => {
+    render(<LessonScreen entry={entry} onClose={vi.fn()} onError={vi.fn()} />);
+  });
+  const opening = { action: "open", entry: "learning_object", learningObjectIds: ["lo_eigen"],
+                    origin: "router_suggestion", suggestionDecisionId: "rd1", lessonId: "les_reserved" };
+  expect(api.lessonTurn).toHaveBeenLastCalledWith(opening);
+  expect(api.lessonView).not.toHaveBeenCalled();
+  api.lessonTurn.mockResolvedValueOnce(lesson({ lessonId: "les_reserved" }));
+  await act(async () => { fireEvent.click(screen.getByTestId("lesson-retry")); });
+  expect(api.lessonTurn).toHaveBeenLastCalledWith(opening);
+  expect(api.lessonTurn).not.toHaveBeenCalledWith({ action: "resume", lessonId: "les_reserved" });
+  expect(screen.getByText("Here is the map.")).toBeTruthy();
+});
+
+it("a suggested lesson saved before the failure is resumed under the sidecar's saved id", async () => {
+  api.lessonTurn.mockRejectedValueOnce({ code: "plan_unavailable", message: "The teacher isn't available right now.",
+                                         details: { lesson_id: "les_reserved" } });
+  api.lessonView.mockResolvedValueOnce(lesson({ lessonId: "les_reserved", feed: [] }));
+  await act(async () => {
+    render(<LessonScreen entry={{ kind: "open", entry: "learning_object", learningObjectIds: ["lo_eigen"],
+                                  suggestion: { decisionId: "rd1", lessonId: "les_reserved" } }}
+                         onClose={vi.fn()} onError={vi.fn()} />);
+  });
+  api.lessonTurn.mockResolvedValueOnce(lesson());
+  await act(async () => { fireEvent.click(screen.getByTestId("lesson-retry")); });
+  expect(api.lessonTurn).toHaveBeenLastCalledWith({ action: "resume", lessonId: "les_reserved" });
+});
+
 it("a reply that hit an outage resumes the saved lesson", async () => {
   await open(lesson());
   api.lessonTurn.mockRejectedValueOnce({ code: "plan_unavailable", message: "The teacher isn't available right now." });

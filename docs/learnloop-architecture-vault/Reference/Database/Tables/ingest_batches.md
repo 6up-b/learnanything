@@ -3,13 +3,13 @@ title: "ingest_batches"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "359c2ab64e0a0582d728207a3aafe64127cdd240"
-source_commit_timestamp: "2026-11-02T10:05:25-05:00"
+source_commit: "d4c02ae06286e5c2866d0e08949bc66df459fc03"
+source_commit_timestamp: "2026-11-02T10:02:02-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite ingest_batches"
   - "table ingest_batches"
-schema_head: 235
+schema_head: 237
 table_name: "ingest_batches"
 table_role: "workflow"
 functionality_status: "active"
@@ -111,6 +111,7 @@ None found by exact static reference scan.
 - `tests/test_ad1_migration.py`
 - `tests/test_auto_build_spend_report.py`
 - `tests/test_capture_route_recovery.py`
+- `tests/test_figures_prefetch_review_fixes.py`
 - `tests/test_ingest_queue_store.py`
 - `tests/test_migrations.py`
 - `tests/test_plan_first_transport_offer_grants_r5.py`

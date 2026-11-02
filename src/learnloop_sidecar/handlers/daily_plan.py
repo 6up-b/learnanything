@@ -215,7 +215,30 @@ def get_daily_plan(ctx: SidecarContext, params: PlanSessionInput) -> dict[str, A
     _vault, _repository, env = required
     view = _current_view(env)
     _schedule_ad(ctx, env, step=None)
+    _schedule_prefetch(ctx, env)
     return versioned(view)
+
+
+def _schedule_prefetch(ctx: SidecarContext, env: PlanEnv) -> None:
+    """RW5d P5 (spec §10b.2): the stored plan's reading section and the open gaps on its
+    topics are figure triggers. The plan never calls into figures: the trigger reads the
+    stored plan afterwards, in the background; a no-op with figures.prefetch_enabled off."""
+
+    from learnloop_sidecar.prefetch_runtime import notify, runs_here
+
+    if not runs_here(ctx):
+        return
+    try:
+        from learnloop.daily_plan.engine import latest_today
+
+        record = latest_today(env)
+        if record is not None:
+            notify(ctx, "plan", str(record.id))
+            notify(ctx, "gap", f"plan:{record.id}")
+    except Exception:  # noqa: BLE001 - background scheduling never reaches the plan
+        import logging
+
+        logging.getLogger(__name__).warning("figure prefetch not scheduled", exc_info=True)
 
 
 def _schedule_ad(ctx: SidecarContext, env: PlanEnv, *, step: Mapping[str, Any] | None) -> None:

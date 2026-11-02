@@ -234,6 +234,15 @@ MODULE_INVENTORY: dict[str, str] = {
     # Reader RW5d P3 (spec §11.2, §11.4): figures as a help kind; a structural
     # ladder level and a read bound, every one a `keep` (no weight or margin).
     "figure_help": "src/learnloop/figures/help.py",
+    # Reader RW5d P5 (spec §10b, §15): figures ahead of need. The decision model's
+    # seeded, labelled priors (learn: data move them; LP §2 fields in each rationale),
+    # the numerical resolution of its posterior, and the service's prompt, output and
+    # queue bounds and the power probe's timeout, every one a `keep` guardrail. No
+    # weight, margin or threshold decides a prebuild: the posterior EU does.
+    "figure_prefetch": "src/learnloop/figures/prefetch.py",
+    "figure_prefetch_model": "src/learnloop/figures/prefetch_model.py",
+    "figure_power": "src/learnloop/figures/power.py",
+    "figure_foreground": "src/learnloop/figures/foreground.py",
     "concept_animation": "src/learnloop/content/authoring/concept_animation.py",
     # Local contextual retrieval P2 (spec §7.1, §9.3, §9.6): the query student's pins and
     # guardrails, the decision core's computation budgets, the data and schedule budgets. No
@@ -251,6 +260,9 @@ MODULE_INVENTORY: dict[str, str] = {
     "teacher_brief": "src/learnloop/teacher/brief.py",
     "teacher_service": "src/learnloop/teacher/service.py",
     "teacher_actions": "src/learnloop/teacher/actions.py",
+    # Teacher TE1b (spec_teacher_v1 §15.1, §18.4): the acceptance model's and the decline
+    # recovery's seeded priors (basis legacy, labelled), the card's presentation bounds.
+    "lesson_suggestions": "src/learnloop/router/lesson_suggestions.py",
 }
 
 # Runtime imports are derived from the same source inventory so a module move
@@ -410,6 +422,36 @@ _reg_const("teacher_service:MAX_CONTRACT_FAILURES", "constraint", kind="structur
 _reg_const("teacher_actions:_HISTORY_TEXT_CHARS", "display", kind="structural", owner="teacher_actions",
            rationale="keep: how much of one past answer or tutor reply read_history returns (a prompt-size bound).")
 
+# Teacher TE1b module constants (spec_teacher_v1 §15.1, §18.4): seeded priors (basis legacy:
+# revision 3's defaults, 1.0 logit per effect, the recovery rate on a grid), learned from every
+# shown suggestion's response; presentation bounds kept.
+_reg_const("lesson_suggestions:LEGACY_DAILY_SHOW", "prior", owner="lesson_suggestions",
+           rationale="seeded prior, basis legacy (revision 3's about-one-suggestion-a-day): the acceptance "
+                     "intercept's centre, logit(0.9), so with no data a card shows on about nine days in ten; "
+                     "the responses move it.")
+_reg_const("lesson_suggestions:LEGACY_DECLINED_SHOW", "prior", owner="lesson_suggestions",
+           rationale="seeded prior, basis legacy (revision 3's Not-now mute): a goal just declined starts at about "
+                     "one chance in a hundred (the decline depth D's centre, logit(0.9) - logit(0.01)); "
+                     "re-acceptance after a decline moves it.")
+_reg_const("lesson_suggestions:LEGACY_CADENCE_DAYS", "prior", owner="lesson_suggestions",
+           rationale="seeded prior, basis legacy (revision 3's about-one-suggestion-a-day): the gap at which the "
+                     "days-since-last-suggestion feature 1/(1+c) - 1/(1+d) is 0, so the seeded centres are the "
+                     "one-a-day context's; its learned coefficient (prior N(0, 1)) sets how acceptance moves with "
+                     "the gap (codex review F7).")
+_reg_const("lesson_suggestions:PRIOR_SD", "prior", owner="lesson_suggestions",
+           rationale="seeded prior width, basis legacy: 1.0 logit on every effect (spec §18.4; the LP spec's rule "
+                     "for legacy priors), centre 0 (no effect) for every context effect.")
+_reg_const("lesson_suggestions:RECOVERY_DAYS_GRID", "prior", owner="lesson_suggestions",
+           rationale="the per-learner recovery rate's grid support, basis legacy: centred on revision 3's 7-day mute, "
+                     "a factor of two either side at half-octave steps; its weights start uniform and are learned "
+                     "(AD's ad_hyper mechanism).")
+_reg_const("lesson_suggestions:CARD_MINUTES", "display", kind="structural", owner="lesson_suggestions",
+           rationale="keep: the card's 'about 15 min' (spec §19 copy; presentation, not a model of the learner).")
+_reg_const("lesson_suggestions:MAX_ALTERNATIVES", "display", kind="structural", owner="lesson_suggestions",
+           rationale="keep: up to two alternatives on the suggestion card (spec §18.4: presentation).")
+_reg_const("lesson_suggestions:_SECONDS_PER_DAY", "numerical", kind="structural", owner="lesson_suggestions",
+           rationale="keep: a unit conversion (seconds in a day).")
+
 # Local contextual retrieval P2 module constants (identities, guardrails, budgets, optimizer settings;
 # no quality margin or ranking weight: those are expected-utility decisions and learned fusion weights).
 _reg_const("student_pins:STUDENT_DIMENSIONS", "version", kind="structural", owner="student_pins",
@@ -530,6 +572,64 @@ _reg_const("figure_learner_state:QUESTION_CHARS", "constraint", kind="structural
            rationale="keep: prompt size: one graded question's characters.")
 _reg_const("figure_learner_state:ATTEMPTS_SCANNED", "operational", kind="structural", owner="figure_learner_state",
            rationale="keep: read size: the newest attempts on the topics scanned for two unprotected answers.")
+
+# Reader RW5d P5 (spec §10b.3, §15): the prefetch decision model's priors, each with LP §2's
+# treatment (learn), prior_basis and prior_scale in its rationale; outside the learner model (SM8).
+_reg_const("figure_prefetch_model:ALPHA_PRIOR_MEAN", "prior", owner="figure_prefetch_model",
+           rationale="treatment learn, prior_basis llm_content, prior_scale 1 (with ALPHA_PRIOR_SD): the judge-"
+                     "trust slope's centre is the identity map (believe the judge's stated probability until "
+                     "opens say otherwise); moved by assumed-density filtering on closed, built decisions.")
+_reg_const("figure_prefetch_model:ALPHA_PRIOR_SD", "prior", owner="figure_prefetch_model",
+           rationale="treatment learn, prior_basis llm_content: the slope's prior width, 1 (spec §10b.3).")
+_reg_const("figure_prefetch_model:KIND_PRIOR_MEAN", "prior", owner="figure_prefetch_model",
+           rationale="treatment learn, prior_basis legacy (debt, LP §3.3): beta_kind's shared level centred at 0 "
+                     "logits; no population data exist.")
+_reg_const("figure_prefetch_model:KIND_PRIOR_SD", "prior", owner="figure_prefetch_model",
+           rationale="treatment learn, prior_basis legacy (debt): LP §3.0's widest un-sourced prior, 1.5 logits "
+                     "(spec §10b.3).")
+_reg_const("figure_prefetch_model:POOLING_GRID", "prior", owner="figure_prefetch_model",
+           rationale="structural form: the a-priori grid (uniform) of the pooling scales of beta_kind's "
+                     "per-trigger deviations and beta_src's per-source offsets; the scale is a posterior over it "
+                     "(AD's ad_hyper_v1 mechanism), so the grid is the search's resolution, not a weight.")
+_reg_const("figure_prefetch_model:PAUSE_INTERCEPT_PRIOR_MEAN", "prior", owner="figure_prefetch_model",
+           rationale="treatment learn, prior_basis legacy (debt): the plan pause-risk logistic's intercept centre, "
+                     "-3 logits (spec §10b.3); learned from plan_usage_pauses and the days' plan loads.")
+_reg_const("figure_prefetch_model:PAUSE_INTERCEPT_PRIOR_SD", "prior", owner="figure_prefetch_model",
+           rationale="treatment learn, prior_basis legacy (debt): the intercept's width, 2 logits (spec §10b.3).")
+_reg_const("figure_prefetch_model:PAUSE_SLOPE_PRIOR_MEAN", "prior", owner="figure_prefetch_model",
+           rationale="treatment learn, prior_basis legacy (debt): the slope per standardized unit of the day's plan "
+                     "load, 1.5 logits (spec §10b.3).")
+_reg_const("figure_prefetch_model:PAUSE_SLOPE_PRIOR_SD", "prior", owner="figure_prefetch_model",
+           rationale="treatment learn, prior_basis legacy (debt): the slope's width, 2 logits (spec §10b.3).")
+_reg_const("figure_prefetch_model:POSTERIOR_DRAWS", "numerical", kind="structural", owner="figure_prefetch_model",
+           rationale="keep (numerical): the Monte Carlo resolution of the logged propensity (spec §15: 64 draws).")
+_reg_const("figure_prefetch_model:P_CONTENT_CLIP", "numerical", kind="structural", owner="figure_prefetch_model",
+           rationale="keep (numerical): the judge's stated 0 or 1 clipped before its logit so the feature stays "
+                     "finite; resolution, not a weight.")
+_reg_const("figure_prefetch:PREFETCH_SECTION_CANDIDATES", "constraint", kind="structural", owner="figure_prefetch",
+           rationale="keep (spec §15: 3): the section judge's output size, one idea per block.")
+_reg_const("figure_prefetch:PREFETCH_CONCURRENT_BUILDS", "operational", kind="structural", owner="figure_prefetch",
+           rationale="keep (spec §15: 1): one background build at a time, given the oomd history.")
+_reg_const("figure_prefetch:MAX_SECTION_BLOCKS", "constraint", kind="structural", owner="figure_prefetch",
+           rationale="keep: the blocks of one section the judge reads (prompt bound).")
+_reg_const("figure_prefetch:BLOCK_CHARS", "constraint", kind="structural", owner="figure_prefetch",
+           rationale="keep: one block's text as the judge reads it (prompt bound).")
+_reg_const("figure_prefetch:GAP_STATEMENT_CHARS", "constraint", kind="structural", owner="figure_prefetch",
+           rationale="keep: a gap's statement as the gap judge reads it (prompt bound).")
+_reg_const("figure_prefetch:PASSAGE_CHARS", "constraint", kind="structural", owner="figure_prefetch",
+           rationale="keep: a gap's passage as the gap judge reads it (prompt bound).")
+_reg_const("figure_prefetch:MAX_JUDGE_ATTEMPTS", "constraint", kind="structural", owner="figure_prefetch",
+           rationale="keep (plan headroom): judge calls per section or gap; the second is told the first's "
+                     "problems (rev 1's author cap carried over).")
+_reg_const("figure_foreground:FOREGROUND_WAIT_SECONDS", "operational", kind="structural", owner="figure_foreground",
+           rationale="keep (operational): how long background figure work (the prebuild queue, the judge, a "
+                     "prebuild's rich job before its next request) waits for foreground work to end before it "
+                     "leaves the rest for later; a pause length, never a decision.")
+_reg_const("figure_prefetch:MAX_NODE_SPANS", "constraint", kind="structural", owner="figure_prefetch",
+           rationale="keep: a lesson node's passages one prebuild anchors (inside the figure anchor's 40-span cap).")
+_reg_const("figure_power:PROBE_TIMEOUT_SECONDS", "operational", kind="structural", owner="figure_power",
+           rationale="keep (operational): how long a power-profile or pmset read may take before it counts as "
+                     "unknown (fail closed: on battery).")
 
 # Reader RW5d P2: the sketch tier's module constants (all keep: caps, tolerances, sandbox limits, identities).
 # Reader RW5d P2b: the rich tiers' module constants (all keep: caps, guardrails, sandbox limits).
@@ -1553,6 +1653,16 @@ _CONFIG_RULES: list[_ConfigRule] = [
         "default desired retention; RW6b's valuation replaces it); 3 and 7 days, basis legacy (RW6b's "
         "retention fallback and capture.test_me_later_days), used only while the LO has no FSRS state. "
         "Serving dates, never evidence."),
+    # Teacher TE1b (spec_teacher_v1 §15.1, §18.4): the successor's kill switch and
+    # the anti-nagging ceiling (keep: never learned, each bind logged). How often a
+    # suggestion comes and how long a "Not now" lasts are learned (the module's
+    # seeded priors); neither is a config value.
+    _ConfigRule(_exact("router.lesson_suggestions.enabled"), "structural", "operational",
+        "kill switch for teacher TE1b's successor: Today may draw one lesson suggestion a day with an exact "
+        "logged propensity; off (or below the tag) nothing is drawn or written and Today is mvp-0.42's."),
+    _ConfigRule(_exact("router.lesson_suggestions.ceiling_per_day"), "structural", "constraint",
+        "keep: an anti-nagging guardrail on shown suggestions a day (spec §18.4: never learned; a bind is logged "
+        "on the decision as ceiling_bound, and a ceiling that binds often means the acceptance model is wrong)."),
     # Reader workbench RW1b: the intent box's router (one Decider choice per
     # routing; verdicts go to judgment_ledger, never evidence): the typing
     # pause before a speculative routing, the routing's deadline and the
@@ -1983,6 +2093,20 @@ _CONFIG_RULES: list[_ConfigRule] = [
         "kill switch for RW5d's \"show me\" (figure goals in the learner's words, grounding in their books, "
         "the tutor's figure_goal button); on-off availability of content, no measurement, scheduling or "
         "serving authority."),
+    # Reader RW5d P5 (spec §10b.4, §15): figures ahead of need. A kill switch and two
+    # `keep` caps (guardrails that cut the queue in EU order, never admit a candidate).
+    _ConfigRule(_exact(
+        "figures.prefetch_enabled",
+    ), "structural", "operational",
+        "kill switch for figures built ahead of need (background, plan only, mains only, never exam material); "
+        "which content exists sooner, no measurement, scheduling or serving authority (a figure never grades)."),
+    _ConfigRule(_exact(
+        "figures.prefetch.max_daily_builds",
+        "figures.prefetch.max_daily_render_minutes",
+    ), "structural", "constraint",
+        "keep (spec §15, Q24): plan headroom spent on speculation a day / wall-clock minutes of background "
+        "Manim renders a day; guardrails that cut the prebuild queue in expected-utility order, never a weight, "
+        "margin or threshold."),
     _ConfigRule(_exact(
         "figures.max_daily_cost_usd",
         "figures.price_per_million",

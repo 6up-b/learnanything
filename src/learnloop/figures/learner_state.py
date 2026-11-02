@@ -203,7 +203,7 @@ def _misconception_statements(connection: Any, repository: Any, past: Any, rule:
             if withheld or not shown:
                 continue
             found.append({"topic": titles.get(lo, lo), "kind": "misconception", "statement": shown,
-                          "written_by": WRITTEN_BY_DIAGNOSIS,
+                          "written_by": WRITTEN_BY_DIAGNOSIS, "_id": f"misconception:{record.id}", "_lo": lo,
                           "_at": str(getattr(record, "updated_at", None) or getattr(record, "created_at", "") or ""),
                           "_inputs": Inputs.of(answers=[(answer, None) for answer in answers])})
     return found
@@ -254,6 +254,7 @@ def _gap_statements(connection: Any, past: Any, rule: _AnswerText, los: Sequence
             continue
         found.append({"topic": titles.get(str(target), str(target)), "kind": f"named {row['kind']}",
                       "statement": shown, "written_by": written_by, "_at": str(row.get("created_at") or ""),
+                      "_id": f"learner_text_gap:{row['id']}", "_lo": str(target),
                       "_inputs": inputs})
     return found
 
@@ -375,6 +376,36 @@ def read_learner_state(vault: Any, repository: Any, learning_object_ids: Iterabl
     return LearnerStateRead(state, inputs.as_json())
 
 
+def open_gap_statements(vault: Any, repository: Any, learning_object_ids: Iterable[str]) -> list[dict[str, Any]]:
+    """RW5d P5 (spec §10b.2, the gap trigger): the open misconceptions and
+    learner-text gaps on these topics, each with its id, topic and statement,
+    read exactly as the figure author's state reads them (through
+    ``learner_protection``: a statement written from protected work is left
+    out; unreadable protection, none at all). Newest first."""
+
+    from learnloop.learner_protection import PastWork
+
+    los = [lo for lo in dict.fromkeys(str(lo) for lo in learning_object_ids) if lo in vault.learning_objects]
+    if not los:
+        return []
+    titles = {lo: str(getattr(vault.learning_objects[lo], "title", "") or lo) for lo in los}
+    try:
+        with closing(connect(repository.sqlite_path, read_only=True)) as connection:
+            past = PastWork(connection, vault, repository)
+            rule = _AnswerText(past)
+            if not past.withheld.available:
+                return []
+            found = [*_misconception_statements(connection, repository, past, rule, los, titles),
+                     *(_gap_statements(connection, past, rule, los, titles)
+                       if _table(connection, "learner_text_gaps") else [])]
+    except Exception:  # noqa: BLE001 - no gap is read when it cannot be read safely
+        _LOG.warning("open gap statements could not be read", exc_info=True)
+        return []
+    found.sort(key=lambda entry: entry["_at"], reverse=True)
+    return [{"id": entry["_id"], "learning_object_id": entry["_lo"], "kind": entry["kind"],
+             "topic": entry["topic"], "statement": entry["statement"]} for entry in found]
+
+
 def learner_state(vault: Any, repository: Any, learning_object_ids: Iterable[str]) -> dict[str, Any] | None:
     """The state alone (:func:`read_learner_state`)."""
 
@@ -427,6 +458,7 @@ __all__ = [
     "inputs_reason",
     "inputs_withheld",
     "learner_state",
+    "open_gap_statements",
     "read_learner_state",
     "state_hash",
 ]

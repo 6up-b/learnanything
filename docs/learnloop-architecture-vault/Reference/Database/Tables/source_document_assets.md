@@ -3,13 +3,13 @@ title: "source_document_assets"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "359c2ab64e0a0582d728207a3aafe64127cdd240"
-source_commit_timestamp: "2026-11-02T10:05:25-05:00"
+source_commit: "d4c02ae06286e5c2866d0e08949bc66df459fc03"
+source_commit_timestamp: "2026-11-02T10:02:02-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite source_document_assets"
   - "table source_document_assets"
-schema_head: 235
+schema_head: 237
 table_name: "source_document_assets"
 table_role: "raw_ledger"
 functionality_status: "active"
@@ -116,7 +116,7 @@ Indexes and uniqueness:
 - `src/learnloop/daily_plan/reading.py`
 - `src/learnloop/diagnosis/text_gaps/sources.py`
 - `src/learnloop/figures/help.py`
-- `src/learnloop/figures/service.py`
+- `src/learnloop/figures/prefetch.py`
 
 > [!note] Static-reference boundary
 > These lists are evidence from exact table-name SQL and repository-method calls. Dynamic dispatch and higher-level tests may exercise the table without spelling its name.

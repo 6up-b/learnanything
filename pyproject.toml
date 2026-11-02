@@ -562,6 +562,7 @@ source_modules = [
     "learnloop.deliverable_plan_upgrade",
     "learnloop.teacher_upgrade",
     "learnloop.help_fold_attach_upgrade",
+    "learnloop.lesson_suggestions_upgrade",
     "learnloop.teacher",
     "learnloop.adf_numeric",
     "learnloop.clock",
@@ -1041,6 +1042,18 @@ ignore_imports = [
     "learnloop.reader.active_reading -> learnloop.diagnosis.text_gaps.jobs",
     # Composition-root registration of the field's sole DERIVED-table owner.
     "learnloop.substrate.rebuild_orchestrator -> learnloop.field.outcomes",
+    # Reader RW5d P5 (spec_reader_show_me_figures_v1 §10b): figures/prefetch.py is a
+    # composition layer that nothing imports back (only the sidecar's prefetch runtime;
+    # tests/test_figures_prefetch_boundary.py pins it). It reads the stored day plan and a
+    # lesson's stored plan (function-local imports) to name what comes next; neither the plan
+    # nor the teacher imports it, so these edges cannot cycle at import time.
+    "learnloop.figures.prefetch -> learnloop.daily_plan.engine",
+    "learnloop.figures.prefetch -> learnloop.teacher.service",
+    # Landing ruling R5: the lesson trigger builds a planned visual as the lesson step's own
+    # request through P4b's builder (teacher.visuals.figure_request) and reads the node's
+    # PlannedVisualV1 (teacher.contracts); function-local, and teacher never imports prefetch.
+    "learnloop.figures.prefetch -> learnloop.teacher.visuals",
+    "learnloop.figures.prefetch -> learnloop.teacher.contracts",
     # Adaptive difficulty AD2+AD3: composition-root registration of AD's two
     # DERIVED-table owners (function-local imports in the orchestrator).
     "learnloop.substrate.rebuild_orchestrator -> learnloop.adaptive_difficulty.replay",

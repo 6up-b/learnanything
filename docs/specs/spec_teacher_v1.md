@@ -1249,6 +1249,40 @@ help (a `help_assists` row); its reply withdraws the check at the auto-prime ove
 (no `teacher.context.compact_at` key), the turn's `visual` (built by Reader RW5d P4b, below), TE1b. The real lesson on a `fixtures-local` copy and the
 per-lesson cap (Q7) are the owner's at the landing.
 
+*As built (TE1b, `docs/reviews/teacher-te1b-router-suggestions.md`):* router successor `mvp-0.43` after TE1's
+`mvp-0.41` (claims the tag after follow-ups Nov 2's `mvp-0.42`; ONE constant, `LESSON_SUGGESTIONS_ALGORITHM_VERSION`,
+renumbered at landing), kill switch `router.lesson_suggestions.enabled`, migration 236 (`router_suggestion_responses`;
+`router_decisions.decision_kind` widened with `lesson_suggestion`). One draw a local day at Today's open
+(`learnloop.router.lesson_suggestions`, `learnloop.daily_plan.lesson_suggestion`): value `log P(accept) + log(1 − p)`,
+`π` with the router's `epsilon_min` floor over the top `router.k`, then the card shows at the drawn candidate's
+`P(accept)`; shown or not, one decision row with the exact propensity, and an intention-to-treat `R_cold` outcome
+in `router_outcomes`. The acceptance model is §15.1's (seeded at about one a day and about a 7-day mute, basis
+`legacy`, 1 logit per effect, the recovery on a grid), replayed from the response ledger. Start opens a TE1 lesson with
+`origin = 'router'` and the decision id. Rulings asked in the review: the draw is the staged component alone (no model
+asked about lesson candidates), one card a day with the ceiling logged, `ignored` at the next day's step, and the
+router card's preference line deferred. *Codex fix round:* the card is in the default shell's Today; the row's
+propensity is the joint probability of the drawn target and the arm; the outcome records `R_cold` over a predeclared
+scope (the target and its alternatives) with the taken entry marked; `below_band` is adaptive difficulty's out-of-band
+rule on `P_band`; the days-since-last-suggestion feature keeps every gap; the preference line is built (section
+`lesson_suggestions`, card version `+te1b`); an accepted Start whose lesson never opened stays on the card.
+*Codex re-review:* the target is drawn by the router's design for `router.mode` (the router's `model_mixture` with
+the configured weights and `epsilon_min` floor, the Decider and the router LLM not asked about lesson candidates so
+their weight is the staged rule's, G7; `epsilon_tiebreak` when `staged`), and the draw's earlier `π ∝ exp(value)`
+is gone; a Start whose lesson never opened holds Today's card on later days too (no new draw while it does) until
+a lesson on its LOs opens.
+*Landing onto main (`f9bc4254b3`):* the successor is `mvp-0.43` after follow-ups Nov 2's `mvp-0.42` (its
+`PREDECESSOR`), migration 236 (head `migration_head_236`, rebuilt from main's 235 head). Ruling R1: lesson
+candidates are drawn by the router's `model_mixture` with the Decider and the router LLM recorded as `not_asked` and
+their weight moved to the staged rule (the epsilon floor and the exact logged propensities kept): **the models'
+weights do not yet influence lesson selection**; asking them about lesson candidates (a new question set and new
+model calls each day) is a follow-up once lesson suggestions have data. Ruling R2 (codex verify F8): a Start whose
+lesson never opened (a reservation) is checked against the current vault before it is offered again (its LO
+present, the exam material readable); one that can no longer open is set aside as an `expired` row on its decision
+(nothing deleted) and the day draws normally, and the pending card has a "Not now" that releases it (`released`;
+the Start stays recorded, its LOs count as declined for the decline recovery, no acceptance observation). Rulings
+R3: one card a day, `ceiling_per_day` a logged guard, `ignored` at the next day's first step, the lesson row's
+`origin = 'router'` with `origin_ref` the decision id.
+
 ---
 
 ## 21. Measurement

@@ -83,7 +83,8 @@ def _handle(ctx: SidecarContext, request: Any) -> dict[str, Any] | None:
         # work this request creates belongs to it and is listed on its offer.
         with plan_fallback.request(getattr(ctx, "vault_root", None), method_name), \
                 plan_fallback.collecting(origin=method_name) as offers, \
-                _observed_model_calls(ctx, method_name, params):
+                _observed_model_calls(ctx, method_name, params), \
+                _foreground(method_name):
             try:
                 result = spec.handler(ctx, params)
                 # Round 5, Medium 3: a response that reports a batch shows that
@@ -200,6 +201,16 @@ def _with_fallback_offer(result: Any, hint: dict[str, Any] | None) -> Any:
     if hint is None or not isinstance(result, dict) or "fallbackAvailable" in result:
         return result
     return {**result, **to_camel(hint)}
+
+
+def _foreground(method_name: str):
+    """RW5d P5 (spec §10b.4): a learner-facing method in flight is foreground work, which
+    background figure prebuilds yield to (no prebuild starts while it runs)."""
+
+    from learnloop.figures.foreground import FOREGROUND_METHODS, foreground
+
+    kind = FOREGROUND_METHODS.get(method_name)
+    return foreground(kind) if kind is not None else nullcontext()
 
 
 def _observed_model_calls(ctx: SidecarContext, method_name: str, params: Any):

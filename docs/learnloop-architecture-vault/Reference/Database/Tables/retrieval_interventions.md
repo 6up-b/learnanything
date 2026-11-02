@@ -3,13 +3,13 @@ title: "retrieval_interventions"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "359c2ab64e0a0582d728207a3aafe64127cdd240"
-source_commit_timestamp: "2026-11-02T10:05:25-05:00"
+source_commit: "d4c02ae06286e5c2866d0e08949bc66df459fc03"
+source_commit_timestamp: "2026-11-02T10:02:02-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite retrieval_interventions"
   - "table retrieval_interventions"
-schema_head: 235
+schema_head: 237
 table_name: "retrieval_interventions"
 table_role: "raw_ledger"
 functionality_status: "active"
@@ -48,7 +48,7 @@ It belongs to the **operations** navigation family. The family context lives in 
 - **Role:** `raw_ledger` — Authoritative replay input or mixed authoritative state. The rebuild umbrella preserves it.
 - **Functionality status:** `active`.
 - **Introduced by:** `migrations/193_retrieval_interventions.sql`.
-- **Schema touched by:** `193_retrieval_interventions.sql`.
+- **Schema touched by:** `193_retrieval_interventions.sql`, `236_router_lesson_suggestions.sql`.
 - **Rebuild owner:** none; this table is preserved by the rebuild umbrella.
 
 For the distinction between SQLite state and human-authored vault files, see [[State and Persistence]]. For whole-vault creation and opening behavior, see [[Vault Lifecycle]]. ^table-lifecycle

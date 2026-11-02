@@ -12,3 +12,12 @@ it("lessons are off until the sidecar sends its teacher key", () => {
   setAlgoConfig({ teacher: { lessons: "yes" } });
   expect(algoConfig().lessons).toBe(false);
 });
+
+it("Today's lesson suggestion card is off until the sidecar sends teacher.suggestions with lessons on (TE1b)", () => {
+  setAlgoConfig({ teacher: { lessons: true } });
+  expect(algoConfig().lessonSuggestions).toBe(false);
+  setAlgoConfig({ teacher: { lessons: true, suggestions: true } });
+  expect(algoConfig().lessonSuggestions).toBe(true);
+  setAlgoConfig({ teacher: { suggestions: true } });
+  expect(algoConfig().lessonSuggestions).toBe(false);
+});

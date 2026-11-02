@@ -1508,6 +1508,16 @@ class AIRoutingConfig(BaseModel):
     # inside curriculum's daily cap. Empty = ai.active_provider (the ChatGPT
     # plan under T1; estimated_only).
     note_link_judge: str | None = None
+    # Reader RW5d P5 (spec_reader_show_me_figures_v1 §10b.2, §12.1): the
+    # prefetch judge, a listwise call in the background only: section mode
+    # (one section's blocks, exam and held-out roles removed: which blocks are
+    # worth a figure, with what goal, and the content probability that a
+    # reader would explore each) and gap mode (an open gap's statement, its
+    # topic and a passage: the goal for a help figure). The ChatGPT plan only:
+    # never metered (a metered route is not called: the prebuild waits), never
+    # an OpenRouter offer or a grant. Empty = ai.active_provider (the plan
+    # under T1).
+    figure_prefetch_judge: str | None = None
     # Teacher TE1 (spec_teacher_v1 §17): the lesson's teacher, one structured
     # call per lesson turn on the request path (lesson.turn). Empty: the ChatGPT
     # plan's medium tier (keep: an operational route choice until a dry run picks
@@ -2710,6 +2720,19 @@ class LibraryExercisesConfig(BaseModel):
     fallback_enabled: bool = False
 
 
+class FiguresPrefetchConfig(BaseModel):
+    """Reader RW5d P5 (spec_reader_show_me_figures_v1 §10b.4, §15): the
+    guardrails of figures built ahead of need, each a ``keep`` cap, never a
+    learned number. ``max_daily_builds``: background builds started a local
+    day (plan headroom spent on speculation; a lesson alone is 15-25 calls).
+    ``max_daily_render_minutes``: wall-clock minutes of background Manim
+    renders a local day. The caps cut the queue in expected-utility order;
+    they never admit a candidate the decision refused."""
+
+    max_daily_builds: int = Field(default=10, ge=0, le=1000)
+    max_daily_render_minutes: float = Field(default=30.0, ge=0, le=1440)
+
+
 class FiguresConfig(BaseModel):
     """Reader workbench RW5a: explorable figures (spec_reader_workbench_v1 §8, §8.6).
 
@@ -2808,6 +2831,24 @@ class FiguresConfig(BaseModel):
     help outcomes are unchanged. Figures are help, never certification, and
     never reach the grader.
 
+    RW5d P5 (spec_reader_show_me_figures_v1 §10b): ``prefetch_enabled``:
+    figures built ahead of need, quietly, on the desktop sidecar only, on
+    mains power only, on the ChatGPT plan only (never metered, never an
+    OpenRouter offer or a grant), never for exam or held-out material. Five
+    triggers name candidates (the stored plan's reading section, the next
+    section after reading progress, RW5b's explorable offers, a lesson plan's
+    nodes not yet reached, and open gaps on the plan's or a lesson's topics);
+    the ``figure_prefetch_judge`` route picks a section's blocks (and writes a
+    gap's goal), and a learned decision (Thompson sampling over a logistic
+    model of opening, with seeded, labelled priors; the propensity logged in
+    ``figure_prefetch_decisions``) decides each one, inside the ``prefetch``
+    caps. A press of the same input reuses the prebuilt figure by its input
+    hash. Default **on** (Q21's recommended default, accepted by the owner's
+    standing decision 2026-10-12; Codex review F15; the P5 checkpoint, a week
+    on the desktop with the report's prefetch block, may turn it off): off,
+    nothing builds in the background, no decision is written, and a prebuilt
+    figure nobody pressed for is not listed (rev 1's behaviour exactly).
+
     Caps (money, W4): two author attempts per request; ``max_daily_cost_usd``
     meters the author route's metered spend a UTC day at
     ``price_per_million`` (unset: a metered route is refused before sending;
@@ -2827,6 +2868,8 @@ class FiguresConfig(BaseModel):
     rich_tiers_enabled: bool = True
     author_learner_state: bool = True
     help_kind_enabled: bool = True
+    prefetch_enabled: bool = True
+    prefetch: FiguresPrefetchConfig = Field(default_factory=FiguresPrefetchConfig)
     manim_opt_in: Literal["standing", "declined"] | None = None
     manim_opt_in_at: str | None = None
     max_daily_cost_usd: float = Field(default=1.0, ge=0)
@@ -3958,6 +4001,32 @@ class RouterWeights(BaseModel):
         return self
 
 
+class RouterLessonSuggestionsConfig(BaseModel):
+    """Teacher TE1b: the router suggests a lesson, the learner opts in
+    (spec_teacher_v1 §15.1, §18.4; ``learnloop.daily_plan.lesson_suggestion``).
+
+    ``enabled`` is the kill switch of the successor
+    ``LESSON_SUGGESTIONS_ALGORITHM_VERSION``. On (at that tag or later, with
+    ``router.enabled``, ``router.log_decisions`` and lessons able to open),
+    Today may show one suggestion card a day ("Learn *X* now? (about 15
+    min)": Start, up to two alternatives, Not now), drawn with an exact logged
+    propensity among ``instruct(lesson)`` candidates; the acceptance model and
+    the decline recovery are seeded priors the responses move. Off, or below
+    the tag, nothing is drawn or written and Today and the plan are the
+    predecessor's byte for byte.
+
+    ``ceiling_per_day`` (``keep``, spec §18.4): an anti-nagging guardrail, never
+    learned; a draw it binds shows no card and is logged with
+    ``ceiling_bound``. The card is also drawn at most once a day (spec §19),
+    so the default 3 binds only if that rule is ever relaxed.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    enabled: bool = True
+    ceiling_per_day: int = Field(default=3, ge=0)
+
+
 class RouterConfig(BaseModel):
     """Action router (spec_action_router_v1). R1: decision logging on today's paths.
 
@@ -4005,6 +4074,7 @@ class RouterConfig(BaseModel):
     (needs ``embedding.enabled``; a logged no-op otherwise).
     ``teach_back_summary`` summarizes each graded teach-back dialogue (after
     grading, off the hot path) into the card's typed evidence.
+    ``lesson_suggestions`` is teacher TE1b's (its own docstring).
     """
 
     log_decisions: bool = True
@@ -4027,6 +4097,8 @@ class RouterConfig(BaseModel):
     similar_k: int = Field(default=6, ge=1, le=32)
     similar_include_rate: float = Field(default=0.5, ge=0.0, le=1.0)
     teach_back_summary: bool = True
+    # Teacher TE1b: the successor's kill switch and its anti-nagging ceiling.
+    lesson_suggestions: RouterLessonSuggestionsConfig = Field(default_factory=RouterLessonSuggestionsConfig)
 
     @model_validator(mode="after")
     def validate_floor(self) -> "RouterConfig":

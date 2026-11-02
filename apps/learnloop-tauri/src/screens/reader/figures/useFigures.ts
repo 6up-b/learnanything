@@ -19,6 +19,13 @@ export const FIGURE_POLL_MS = 1500;
 /** RW5d P2b: how often the source's figures are read again while a rich build
  *  runs (minutes long; the fuller line and the pending line follow it). */
 export const RICH_POLL_MS = 5000;
+/** RW5d P5 (Codex re-review F18): the longest the Reader keeps reading again for figures
+ *  built ahead of need, per open source. A pacing bound, not a decision: the sidecar says
+ *  `prefetchPending` only while work is running on mains, and a build waits at most ten minutes
+ *  for the learner's own work (FOREGROUND_WAIT_SECONDS) before it leaves the rest for later;
+ *  twice that covers a wait and the build after it. Past it the reads stop; reopening the
+ *  source reads afresh. */
+export const PREFETCH_POLL_LIFETIME_MS = 20 * 60 * 1000;
 
 export interface FigureRequestInput {
   spanIds: string[];
@@ -155,6 +162,11 @@ export function useFigures({
   const [pending, setPending] = useState<FigurePending[]>([]);
   const [expandedKey, setExpandedKey] = useState<string | null>(null);
   const [richPending, setRichPending] = useState<FigureRichPendingDto[]>([]);
+  // RW5d P5 (Codex review F11): a figure for this source is being built ahead of need.
+  const [prefetchPending, setPrefetchPending] = useState(false);
+  // Codex re-review F18: the prefetch reads end after PREFETCH_POLL_LIFETIME_MS per open source.
+  const [prefetchExpired, setPrefetchExpired] = useState(false);
+  const prefetchClock = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [followed, setFollowed] = useState<FollowedFigure[]>([]);
   const followedRef = useRef(followed);
   followedRef.current = followed;
@@ -176,6 +188,10 @@ export function useFigures({
     setFigures([]);
     setPending([]);
     setRichPending([]);
+    setPrefetchPending(false);
+    setPrefetchExpired(false);
+    if (prefetchClock.current !== null) clearTimeout(prefetchClock.current);
+    prefetchClock.current = null;
     setFollowed([]);
     setExpandedKey(null);
     if (!enabled || !extractionId) return;
@@ -185,6 +201,7 @@ export function useFigures({
         if (generation.current === mine && found) {
           setFigures(found.figures ?? []);
           setRichPending(found.richPending ?? []);
+          setPrefetchPending(found.prefetchPending === true);
         }
       })
       .catch(() => undefined);
@@ -203,10 +220,30 @@ export function useFigures({
 
   // RW5d P2b: while a rich build runs (a fuller line pending or waiting, or a
   // rich-only pending line), the source's figures are read again, paced; the
-  // lines change in place under their passage, nothing else moves.
+  // lines change in place under their passage, nothing else moves. RW5d P5
+  // (Codex review F11): likewise while a figure for this source is being built
+  // ahead of need, so its quiet line appears with the Reader open; the read
+  // stops once the sidecar says nothing more is coming (Codex re-review F18:
+  // or once PREFETCH_POLL_LIFETIME_MS has passed for this source).
+  // Landing ruling R1 (final verify F18): a fuller version built ahead of need that nobody
+  // pressed for (`speculative`) keeps to the same lifetime; a pressed one is read as before.
+  const fullerRunning = (figure: FigureViewDto) =>
+    figure.fuller?.state === "pending" || figure.fuller?.state === "waiting_for_plan";
+  const speculativeFuller = figures.some((figure) => fullerRunning(figure) && figure.fuller?.speculative === true);
+  const prefetchActive = prefetchPending || speculativeFuller;
+  useEffect(() => {
+    // Started once per open source, the first time a prefetch is said to be coming (or a
+    // speculative fuller version is pending); it runs on while that comes and goes (cleared
+    // only by a new source, above, or unmounting).
+    if (!prefetchActive || prefetchClock.current !== null) return;
+    const mine = generation.current;
+    prefetchClock.current = setTimeout(() => { if (generation.current === mine) setPrefetchExpired(true); }, PREFETCH_POLL_LIFETIME_MS);
+  }, [prefetchActive]);
+  useEffect(() => () => { if (prefetchClock.current !== null) clearTimeout(prefetchClock.current); }, []);
   const richRunning = (
-    richPending.some((line) => line.state === "pending" || line.state === "waiting_for_plan")
-    || figures.some((figure) => figure.fuller?.state === "pending" || figure.fuller?.state === "waiting_for_plan"));
+    (prefetchActive && !prefetchExpired)
+    || richPending.some((line) => line.state === "pending" || line.state === "waiting_for_plan")
+    || figures.some((figure) => fullerRunning(figure) && figure.fuller?.speculative !== true));
   useEffect(() => {
     if (!enabled || !extractionId || !richRunning) return;
     const mine = generation.current;
@@ -216,12 +253,13 @@ export function useFigures({
           if (generation.current === mine && found) {
             setFigures(found.figures ?? []);
             setRichPending(found.richPending ?? []);
+            setPrefetchPending(found.prefetchPending === true);
           }
         })
         .catch(() => undefined);
     }, RICH_POLL_MS);
     return () => clearTimeout(timer);
-  }, [enabled, extractionId, richRunning, figures, richPending]);
+  }, [enabled, extractionId, richRunning, figures, richPending, prefetchPending]);
 
   const land = useCallback((figure: FigureViewDto) => {
     const sameRequest = (item: FigureViewDto) => item.spanIds.join(",") === figure.spanIds.join(",")

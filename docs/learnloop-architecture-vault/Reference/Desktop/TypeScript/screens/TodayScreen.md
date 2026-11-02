@@ -12,7 +12,7 @@ source_paths:
   - "apps/learnloop-tauri/src/screens/TodayScreen.tsx"
 source_commit: "3ff403d6b8e867037e05fc2ef5dc0fcfa5141492"
 source_commit_timestamp: "2026-10-21T13:01:47-04:00"
-source_worktree_state: "clean"
+source_worktree_state: "staged-or-mixed"
 activation_kind: "entry-reachable build graph"
 activation_evidence: "A static TypeScript import path reaches this file from the Vite entry src/main.tsx."
 generated: true
@@ -42,12 +42,12 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/screens/TodayScreen.tsx](../../../../../../apps/learnloop-tauri/src/screens/TodayScreen.tsx) |
-| Source lines | 1945 |
+| Source lines | 1958 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/screens/_area|TypeScript/screens]] |
 | Refactor status | `ACTIVE` |
 | Activation kind | `entry-reachable build graph` |
-| Worktree state | `clean` |
+| Worktree state | `staged-or-mixed` |
 | Source commit | `3ff403d6b8e867037e05fc2ef5dc0fcfa5141492` |
 | Commit timestamp | `2026-10-21T13:01:47-04:00` |
 
@@ -60,190 +60,191 @@ The system-level behavior stays authoritative in the linked architecture, concep
 
 ## Public API
 
-- `export function TodayScreen(` — function, line 131
+- `export function TodayScreen(` — function, line 133
 
 ## Internal implementation anchors
 
-- `const HOTKEYS = "123456789abcdef"` — const, line 42
-- `function fmtDeferredUntil(iso: string): string` — function, line 46
-- `function masteryColor(mastery: number): string` — function, line 54
-- `function GoalPopulationStrip(` — function, line 58
-- `const job = batch.jobs[0]` — const, line 67
-- `const active = batch.status === "queued" || batch.status === "running"` — const, line 68
-- `const completed = batch.status === "completed"` — const, line 69
-- `const failed = batch.status === "failed" || batch.status === "blocked"` — const, line 70
-- `const rawCount = job?.result?.appliedCount ?? job?.result?.applied_count` — const, line 71
-- `const appliedCount = typeof rawCount === "number" ? rawCount : null` — const, line 72
-- `const message = active ? job?.message || "Generating practice for your goal" : completed ? appliedCount === 0 ? "Your goal already has enough practice." : `$` — const, line 73
-- `const tone = completed ? COLOR.green : failed ? COLOR.red : COLOR.cyan` — const, line 80
-- `const stripActionStyle: CSSProperties =` — const, line 121
-- `const queueInput = useMemo( ()` — const, line 194
-- `const planQuery = useDailyPlan(session?.sessionId ?? null)` — const, line 202
-- `const planData: DailyPlanDto | null = planQuery.data ?? null` — const, line 203
-- `const planKnown = planQuery.data !== undefined || planQuery.error !== null` — const, line 204
-- `const planEnabled = planData?.enabled === true && planData.plan !== null` — const, line 205
-- `const planView = planEnabled && !showFullList` — const, line 207
-- `const planDeciding = planView && planData?.plan?.deciding === true` — const, line 212
-- `const refetchPlan = planQuery.refetch` — const, line 213
-- `let reads = 0` — let, line 216
-- `const timer = window.setInterval(()` — const, line 217
-- `const planWaitingUntil = planView ? planData?.plan?.waiting?.until ?? null : null` — const, line 229
-- `const at = Date.parse(planWaitingUntil)` — const, line 232
-- `const timer = window.setTimeout(()` — const, line 234
-- `const headlineQuery = useCachedQuery<TodayHeadlineDto>( planEnabled ? ["get_today_headline"] : null, ()` — const, line 239
-- `const queueQuery = useCachedQuery( planKnown && !planView ? ["get_today_queue", queueInput] : null, ()` — const, line 247
-- `const queue: QueueSnapshot | null = ended ? null : queueQuery.data ?? null` — const, line 255
-- `const queueLoading = !ended && (queueQuery.loading || !planKnown)` — const, line 256
-- `const goalsQuery = useCachedQuery(["goals_list"], ()` — const, line 260
-- `const goals: GoalDto[] | null = goalsQuery.data?.goals ?? null` — const, line 261
-- `const now = useNowMinute()` — const, line 270
-- `const visitIdRef = useRef<string>(mintVisitId())` — const, line 273
-- `const refetchGoals = goalsQuery.refetch` — const, line 275
-- `const refreshGoals = useCallback(()` — const, line 276
-- `const queueRefreshing = queueQuery.refreshing` — const, line 290
-- `const ids = queueItems(queue).map((item)` — const, line 298
-- `const activeGoals = useMemo(()` — const, line 303
-- `const active = (goals ?? []).filter((g)` — const, line 304
-- `const da = a.dueAt ? Date.parse(a.dueAt) : Infinity` — const, line 306
-- `const db = b.dueAt ? Date.parse(b.dueAt) : Infinity` — const, line 307
-- `const reviewCandidate = useMemo(():` — const, line 314
-- `const duePassed = goal.dueAt != null && !Number.isNaN(Date.parse(goal.dueAt)) && Date.parse(goal.dueAt) < Date.now()` — const, line 317
-- `const stale = Date.now() - Date.parse(goal.updatedAt) > 7 * 86_400_000` — const, line 318
-- `const frontierClear = goal.report != null && goal.report.atRiskCount === 0 && goal.report.total > 0` — const, line 319
-- `const items = useMemo(()` — const, line 327
-- `const flatIds = useMemo(()` — const, line 328
-- `const focusedItem = useMemo( ()` — const, line 329
-- `const followup = useMemo(()` — const, line 333
-- `const dueCount = useMemo( ()` — const, line 335
-- `const probeCount = useMemo(()` — const, line 339
-- `const laterCount = useMemo(()` — const, line 340
-- `const primaryGoalId = activeGoals[0]?.id ?? null` — const, line 344
-- `const goalReportQuery = useCachedQuery( primaryGoalId ? ["get_goal_report", primaryGoalId] : null, ()` — const, line 345
-- `const nextGap = useMemo(()` — const, line 350
-- `const readiness = goalReportQuery.data?.report.blueprintReadiness ??` — const, line 351
-- `let worst:` — let, line 352
-- `const b = lo.bottleneck` — const, line 354
-- `const hasActiveGoal = activeGoals.length > 0` — const, line 365
-- `const overconfidenceQuery = useCachedQuery( primaryGoalId ? ["get_overconfidence_list", primaryGoalId] : null, ()` — const, line 366
-- `const overconfidence: OverconfidentFacetDto[] = overconfidenceQuery.data?.facets ?? []` — const, line 371
-- `const reentryQuery = useCachedQuery( primaryGoalId ? ["get_reentry_summary", primaryGoalId] : null, ()` — const, line 372
-- `const reentry: ReentrySummaryDto | null = reentryQuery.data?.summary.show ? reentryQuery.data.summary : null` — const, line 377
-- `const decayQuery = useCachedQuery( !hasActiveGoal && goals != null ? ["get_decay_pressure", null] : null, ()` — const, line 381
-- `const decayPressure: DecayPressureDto | null = hasActiveGoal ? null : decayQuery.data?.pressure ?? null` — const, line 386
-- `const startOverconfidenceProbe = useCallback( (facet: OverconfidentFacetDto)` — const, line 388
-- `const sessionNarrative = useMemo(()` — const, line 400
-- `const followups = items.filter((item)` — const, line 401
-- `const reps = Math.max(0, items.length - probeCount - followups)` — const, line 402
-- `const parts: string[] = []` — const, line 404
-- `const gap = nextGap ? ` — next gap: $` — const, line 409
-- `const seenQueueRevisionRef = useRef<number | null>(null)` — const, line 419
-- `let cancelled = false` — let, line 421
-- `const poll = async ()` — const, line 422
-- `const snapshot = await api.getQueueRevision()` — const, line 424
-- `const previous = seenQueueRevisionRef.current` — const, line 426
-- `const interval = window.setInterval(()` — const, line 439
-- `const seenBatchStatusRef = useRef<Map<string, string> | null>(null)` — const, line 451
-- `let cancelled = false` — let, line 453
-- `const poll = async ()` — const, line 454
-- `const previous = seenBatchStatusRef.current` — const, line 458
-- `const next = new Map(batches.map((batch)` — const, line 459
-- `const newlyCompleted = batches.some( (batch)` — const, line 461
-- `const latestPopulation = batches.find( (batch)` — const, line 469
-- `const interval = window.setInterval(()` — const, line 483
-- `const populationStripStale = useMemo(()` — const, line 512
-- `const running = goalPopulation.status === "queued" || goalPopulation.status === "running"` — const, line 514
-- `const focusedPracticeItemId = focusedItem?.practiceItemId ?? null` — const, line 525
-- `const detailQuery = useCachedQuery( focusedPracticeItemId && !ended ? ["open_queue_item", focusedPracticeItemId] : null, ()` — const, line 526
-- `const detail: PracticeItemDetail | null = detailQuery.data ?? null` — const, line 531
-- `const finishSession = useCallback(async ()` — const, line 536
-- `const summary = await api.endSession(session.sessionId)` — const, line 540
-- `const openPractice = useCallback( (practiceItemId: string, schedulerCandidateId?: string | null)` — const, line 554
-- `const budget = planData?.plan?.minutesBudget` — const, line 561
-- `const result = await api.planLearnerPick(practiceItemId, started.sessionId, schedulerCandidateId ?? null)` — const, line 571
-- `const step = result.step` — const, line 580
-- `const onKey = (event: KeyboardEvent)` — const, line 594
-- `const tag = (event.target as HTMLElement | null)?.tagName?.toLowerCase()` — const, line 599
-- `const index = focusedItem ? flatIds.indexOf(focusedItem.practiceItemId) : -1` — const, line 608
-- `const target = queueRefreshing ? undefined : flatIds[Number(event.key) - 1]` — const, line 619
-- `async function refreshQueue(_options:` — function, line 643
-- `function refreshAfterGoalChange()` — function, line 653
-- `async function practiceAtRisk()` — function, line 658
-- `let target = firstGoalFrontierItem(queue)` — let, line 659
-- `async function runPlan<T>(work: ()` — function, line 672
-- `async function continuePlan()` — function, line 685
-- `const budget = planData?.plan?.minutesBudget` — const, line 690
-- `const begun = await runPlan(async ()` — const, line 697
-- `const started = await api.startSession(` — const, line 698
-- `const first = await api.nextPlanItem(` — const, line 699
-- `const result = await runPlan(()` — const, line 705
-- `const action = planStepAction(result?.step,` — const, line 706
-- `async function skipPlanItem(practiceItemId: string)` — function, line 712
-- `async function skipPlanReading()` — function, line 716
-- `async function setPlanMinutes(minutes: number)` — function, line 720
-- `async function keepGoing()` — function, line 724
-- `async function moreNew(confirm: boolean)` — function, line 729
-- `const result = await runPlan(()` — const, line 730
-- `async function donePlan()` — function, line 734
-- `const first = items[0]` — const, line 816
-- `const first = items.find((item)` — const, line 821
-- `function TodayHero(` — function, line 1026
-- `const remainingMinutes = remainingSessionMinutes(rawSession, now)` — const, line 1055
-- `const session = rawSession && remainingMinutes != null ?` — const, line 1056
-- `const stats: Array<` — const, line 1057
-- `const sep = <span style=` — const, line 1063
-- `const Stat = (` — const, line 1064
-- `function QueueSectionGroup(` — function, line 1163
-- `const isProbe = /probe/i.test(section.title)` — const, line 1178
-- `const isDue = /due|now|overdue/i.test(section.title)` — const, line 1179
-- `const color = isProbe ? COLOR.pink : isDue ? COLOR.amber : COLOR.textDim` — const, line 1180
-- `const mark = isProbe ? "◆" : "▸"` — const, line 1181
-- `function QueueRow(` — function, line 1210
-- `const dueOffset = relativeDue(item, now)` — const, line 1225
-- `const overdue = dueOffset.includes("ago")` — const, line 1226
-- `const mastery = item.mastery` — const, line 1227
-- `const borderLeft = focused || item.isFollowup ? COLOR.amber : item.isProbe ? COLOR.pink : "transparent"` — const, line 1228
-- `function SurpriseInsertionBanner(` — function, line 1312
-- `const coldProbe = followup.followupKind === "certification_cold_probe"` — const, line 1327
-- `const coldRetry = followup.followupKind === "cold_retry"` — const, line 1334
-- `const heading = coldProbe ? "validity check - held-out cold probe inserted" : coldRetry ? "unassisted check - answer this one cold" : "intervention gate - diagnostic follow-up inserted"` — const, line 1335
-- `const noun = coldProbe ? "cold probe" : coldRetry ? "unassisted check" : "follow-up"` — const, line 1340
-- `const WHY_ROWS: Array<` — const, line 1436
-- `function WhyRow(` — function, line 1443
-- `function QueueDetail(` — function, line 1455
-- `const components = detail?.scheduler?.components ?? item.components` — const, line 1498
-- `const variance = detail?.mastery?.variance ?? item.masteryVariance ?? 0.1` — const, line 1499
-- `const mastery = detail?.mastery?.mean ?? item.mastery` — const, line 1500
-- `const evidenceFacetButtonStyle: CSSProperties =` — const, line 1653
-- `function QueueRankingStrip(` — function, line 1660
-- `function scheduleChoiceClaim(item: ScheduledItemDto, producerVersion: string): ClaimCandidateDto` — function, line 1682
-- `function OverconfidenceList(` — function, line 1698
-- `const key = `$` — const, line 1729
-- `const done = started.has(key)` — const, line 1730
-- `function ReentryPanel(` — function, line 1756
-- `const named = summary.slippedTop.map((f)` — const, line 1757
-- `const sessionLine = reentryRefresherLine(refreshers)` — const, line 1758
-- `function NoGoalFallback(` — function, line 1788
-- `const action = (label: string, onClick: ()` — const, line 1801
-- `const dismiss = ( <button type="button" onClick=` — const, line 1817
-- `const dismissBannerButtonStyle: CSSProperties =` — const, line 1875
-- `function unique(values: string[]): string[]` — function, line 1886
-- `function queueItems(snapshot: QueueSnapshot | null): ScheduledItemDto[]` — function, line 1890
-- `function firstGoalFrontierItem(snapshot: QueueSnapshot | null): ScheduledItemDto | null` — function, line 1894
-- `function useNowMinute(): Date` — function, line 1898
-- `const id = window.setInterval(()` — const, line 1901
-- `function remainingSessionMinutes(session: SessionSnapshot | null, now: Date): number | null` — function, line 1907
-- `const startedAt = new Date(session.startedAt).getTime()` — const, line 1909
-- `const elapsedMinutes = Math.max(0, Math.floor((now.getTime() - startedAt) / 60_000))` — const, line 1911
-- `function formatHeroTime(date: Date): string` — function, line 1915
-- `function formatSessionNumber(sessionId: string): string` — function, line 1919
-- `const matches = sessionId.match(/\d+/g)` — const, line 1920
-- `const digits = matches ? matches[matches.length - 1] : undefined` — const, line 1921
-- `function relativeDue(item: ScheduledItemDto, now: Date): string` — function, line 1927
-- `const due = new Date(item.dueAt).getTime()` — const, line 1930
-- `const diffMs = due - now.getTime()` — const, line 1932
-- `const past = diffMs < 0` — const, line 1933
-- `const minutes = Math.round(Math.abs(diffMs) / 60_000)` — const, line 1934
-- `const span = minutes < 1 ? "now" : minutes < 60 ? `$` — const, line 1935
+- `const HOTKEYS = "123456789abcdef"` — const, line 44
+- `function fmtDeferredUntil(iso: string): string` — function, line 48
+- `function masteryColor(mastery: number): string` — function, line 56
+- `function GoalPopulationStrip(` — function, line 60
+- `const job = batch.jobs[0]` — const, line 69
+- `const active = batch.status === "queued" || batch.status === "running"` — const, line 70
+- `const completed = batch.status === "completed"` — const, line 71
+- `const failed = batch.status === "failed" || batch.status === "blocked"` — const, line 72
+- `const rawCount = job?.result?.appliedCount ?? job?.result?.applied_count` — const, line 73
+- `const appliedCount = typeof rawCount === "number" ? rawCount : null` — const, line 74
+- `const message = active ? job?.message || "Generating practice for your goal" : completed ? appliedCount === 0 ? "Your goal already has enough practice." : `$` — const, line 75
+- `const tone = completed ? COLOR.green : failed ? COLOR.red : COLOR.cyan` — const, line 82
+- `const stripActionStyle: CSSProperties =` — const, line 123
+- `const queueInput = useMemo( ()` — const, line 199
+- `const planQuery = useDailyPlan(session?.sessionId ?? null)` — const, line 207
+- `const planData: DailyPlanDto | null = planQuery.data ?? null` — const, line 208
+- `const planKnown = planQuery.data !== undefined || planQuery.error !== null` — const, line 209
+- `const planEnabled = planData?.enabled === true && planData.plan !== null` — const, line 210
+- `const planView = planEnabled && !showFullList` — const, line 212
+- `const planDeciding = planView && planData?.plan?.deciding === true` — const, line 217
+- `const refetchPlan = planQuery.refetch` — const, line 218
+- `let reads = 0` — let, line 221
+- `const timer = window.setInterval(()` — const, line 222
+- `const planWaitingUntil = planView ? planData?.plan?.waiting?.until ?? null : null` — const, line 234
+- `const at = Date.parse(planWaitingUntil)` — const, line 237
+- `const timer = window.setTimeout(()` — const, line 239
+- `const headlineQuery = useCachedQuery<TodayHeadlineDto>( planEnabled ? ["get_today_headline"] : null, ()` — const, line 244
+- `const queueQuery = useCachedQuery( planKnown && !planView ? ["get_today_queue", queueInput] : null, ()` — const, line 252
+- `const queue: QueueSnapshot | null = ended ? null : queueQuery.data ?? null` — const, line 260
+- `const queueLoading = !ended && (queueQuery.loading || !planKnown)` — const, line 261
+- `const goalsQuery = useCachedQuery(["goals_list"], ()` — const, line 265
+- `const goals: GoalDto[] | null = goalsQuery.data?.goals ?? null` — const, line 266
+- `const now = useNowMinute()` — const, line 275
+- `const visitIdRef = useRef<string>(mintVisitId())` — const, line 278
+- `const refetchGoals = goalsQuery.refetch` — const, line 280
+- `const refreshGoals = useCallback(()` — const, line 281
+- `const queueRefreshing = queueQuery.refreshing` — const, line 295
+- `const ids = queueItems(queue).map((item)` — const, line 303
+- `const activeGoals = useMemo(()` — const, line 308
+- `const active = (goals ?? []).filter((g)` — const, line 309
+- `const da = a.dueAt ? Date.parse(a.dueAt) : Infinity` — const, line 311
+- `const db = b.dueAt ? Date.parse(b.dueAt) : Infinity` — const, line 312
+- `const reviewCandidate = useMemo(():` — const, line 319
+- `const duePassed = goal.dueAt != null && !Number.isNaN(Date.parse(goal.dueAt)) && Date.parse(goal.dueAt) < Date.now()` — const, line 322
+- `const stale = Date.now() - Date.parse(goal.updatedAt) > 7 * 86_400_000` — const, line 323
+- `const frontierClear = goal.report != null && goal.report.atRiskCount === 0 && goal.report.total > 0` — const, line 324
+- `const items = useMemo(()` — const, line 332
+- `const flatIds = useMemo(()` — const, line 333
+- `const focusedItem = useMemo( ()` — const, line 334
+- `const followup = useMemo(()` — const, line 338
+- `const dueCount = useMemo( ()` — const, line 340
+- `const probeCount = useMemo(()` — const, line 344
+- `const laterCount = useMemo(()` — const, line 345
+- `const primaryGoalId = activeGoals[0]?.id ?? null` — const, line 349
+- `const goalReportQuery = useCachedQuery( primaryGoalId ? ["get_goal_report", primaryGoalId] : null, ()` — const, line 350
+- `const nextGap = useMemo(()` — const, line 355
+- `const readiness = goalReportQuery.data?.report.blueprintReadiness ??` — const, line 356
+- `let worst:` — let, line 357
+- `const b = lo.bottleneck` — const, line 359
+- `const hasActiveGoal = activeGoals.length > 0` — const, line 370
+- `const overconfidenceQuery = useCachedQuery( primaryGoalId ? ["get_overconfidence_list", primaryGoalId] : null, ()` — const, line 371
+- `const overconfidence: OverconfidentFacetDto[] = overconfidenceQuery.data?.facets ?? []` — const, line 376
+- `const reentryQuery = useCachedQuery( primaryGoalId ? ["get_reentry_summary", primaryGoalId] : null, ()` — const, line 377
+- `const reentry: ReentrySummaryDto | null = reentryQuery.data?.summary.show ? reentryQuery.data.summary : null` — const, line 382
+- `const decayQuery = useCachedQuery( !hasActiveGoal && goals != null ? ["get_decay_pressure", null] : null, ()` — const, line 386
+- `const decayPressure: DecayPressureDto | null = hasActiveGoal ? null : decayQuery.data?.pressure ?? null` — const, line 391
+- `const startOverconfidenceProbe = useCallback( (facet: OverconfidentFacetDto)` — const, line 393
+- `const sessionNarrative = useMemo(()` — const, line 405
+- `const followups = items.filter((item)` — const, line 406
+- `const reps = Math.max(0, items.length - probeCount - followups)` — const, line 407
+- `const parts: string[] = []` — const, line 409
+- `const gap = nextGap ? ` — next gap: $` — const, line 414
+- `const seenQueueRevisionRef = useRef<number | null>(null)` — const, line 424
+- `let cancelled = false` — let, line 426
+- `const poll = async ()` — const, line 427
+- `const snapshot = await api.getQueueRevision()` — const, line 429
+- `const previous = seenQueueRevisionRef.current` — const, line 431
+- `const interval = window.setInterval(()` — const, line 444
+- `const seenBatchStatusRef = useRef<Map<string, string> | null>(null)` — const, line 456
+- `let cancelled = false` — let, line 458
+- `const poll = async ()` — const, line 459
+- `const previous = seenBatchStatusRef.current` — const, line 463
+- `const next = new Map(batches.map((batch)` — const, line 464
+- `const newlyCompleted = batches.some( (batch)` — const, line 466
+- `const latestPopulation = batches.find( (batch)` — const, line 474
+- `const interval = window.setInterval(()` — const, line 488
+- `const populationStripStale = useMemo(()` — const, line 517
+- `const running = goalPopulation.status === "queued" || goalPopulation.status === "running"` — const, line 519
+- `const focusedPracticeItemId = focusedItem?.practiceItemId ?? null` — const, line 530
+- `const detailQuery = useCachedQuery( focusedPracticeItemId && !ended ? ["open_queue_item", focusedPracticeItemId] : null, ()` — const, line 531
+- `const detail: PracticeItemDetail | null = detailQuery.data ?? null` — const, line 536
+- `const finishSession = useCallback(async ()` — const, line 541
+- `const summary = await api.endSession(session.sessionId)` — const, line 545
+- `const openPractice = useCallback( (practiceItemId: string, schedulerCandidateId?: string | null)` — const, line 559
+- `const budget = planData?.plan?.minutesBudget` — const, line 566
+- `const result = await api.planLearnerPick(practiceItemId, started.sessionId, schedulerCandidateId ?? null)` — const, line 576
+- `const step = result.step` — const, line 585
+- `const onKey = (event: KeyboardEvent)` — const, line 599
+- `const tag = (event.target as HTMLElement | null)?.tagName?.toLowerCase()` — const, line 604
+- `const index = focusedItem ? flatIds.indexOf(focusedItem.practiceItemId) : -1` — const, line 613
+- `const target = queueRefreshing ? undefined : flatIds[Number(event.key) - 1]` — const, line 624
+- `async function refreshQueue(_options:` — function, line 648
+- `function refreshAfterGoalChange()` — function, line 658
+- `async function practiceAtRisk()` — function, line 663
+- `let target = firstGoalFrontierItem(queue)` — let, line 664
+- `async function runPlan<T>(work: ()` — function, line 677
+- `async function continuePlan()` — function, line 690
+- `const budget = planData?.plan?.minutesBudget` — const, line 695
+- `const begun = await runPlan(async ()` — const, line 702
+- `const started = await api.startSession(` — const, line 703
+- `const first = await api.nextPlanItem(` — const, line 704
+- `const result = await runPlan(()` — const, line 710
+- `const action = planStepAction(result?.step,` — const, line 711
+- `async function skipPlanItem(practiceItemId: string)` — function, line 717
+- `async function skipPlanReading()` — function, line 721
+- `async function setPlanMinutes(minutes: number)` — function, line 725
+- `async function keepGoing()` — function, line 729
+- `async function moreNew(confirm: boolean)` — function, line 734
+- `const result = await runPlan(()` — const, line 735
+- `async function donePlan()` — function, line 739
+- `const suggestionCard = onStartLesson && algoConfig().lessonSuggestions ? <LessonSuggestionCard sessionId=` — const, line 746
+- `const first = items[0]` — const, line 829
+- `const first = items.find((item)` — const, line 834
+- `function TodayHero(` — function, line 1039
+- `const remainingMinutes = remainingSessionMinutes(rawSession, now)` — const, line 1068
+- `const session = rawSession && remainingMinutes != null ?` — const, line 1069
+- `const stats: Array<` — const, line 1070
+- `const sep = <span style=` — const, line 1076
+- `const Stat = (` — const, line 1077
+- `function QueueSectionGroup(` — function, line 1176
+- `const isProbe = /probe/i.test(section.title)` — const, line 1191
+- `const isDue = /due|now|overdue/i.test(section.title)` — const, line 1192
+- `const color = isProbe ? COLOR.pink : isDue ? COLOR.amber : COLOR.textDim` — const, line 1193
+- `const mark = isProbe ? "◆" : "▸"` — const, line 1194
+- `function QueueRow(` — function, line 1223
+- `const dueOffset = relativeDue(item, now)` — const, line 1238
+- `const overdue = dueOffset.includes("ago")` — const, line 1239
+- `const mastery = item.mastery` — const, line 1240
+- `const borderLeft = focused || item.isFollowup ? COLOR.amber : item.isProbe ? COLOR.pink : "transparent"` — const, line 1241
+- `function SurpriseInsertionBanner(` — function, line 1325
+- `const coldProbe = followup.followupKind === "certification_cold_probe"` — const, line 1340
+- `const coldRetry = followup.followupKind === "cold_retry"` — const, line 1347
+- `const heading = coldProbe ? "validity check - held-out cold probe inserted" : coldRetry ? "unassisted check - answer this one cold" : "intervention gate - diagnostic follow-up inserted"` — const, line 1348
+- `const noun = coldProbe ? "cold probe" : coldRetry ? "unassisted check" : "follow-up"` — const, line 1353
+- `const WHY_ROWS: Array<` — const, line 1449
+- `function WhyRow(` — function, line 1456
+- `function QueueDetail(` — function, line 1468
+- `const components = detail?.scheduler?.components ?? item.components` — const, line 1511
+- `const variance = detail?.mastery?.variance ?? item.masteryVariance ?? 0.1` — const, line 1512
+- `const mastery = detail?.mastery?.mean ?? item.mastery` — const, line 1513
+- `const evidenceFacetButtonStyle: CSSProperties =` — const, line 1666
+- `function QueueRankingStrip(` — function, line 1673
+- `function scheduleChoiceClaim(item: ScheduledItemDto, producerVersion: string): ClaimCandidateDto` — function, line 1695
+- `function OverconfidenceList(` — function, line 1711
+- `const key = `$` — const, line 1742
+- `const done = started.has(key)` — const, line 1743
+- `function ReentryPanel(` — function, line 1769
+- `const named = summary.slippedTop.map((f)` — const, line 1770
+- `const sessionLine = reentryRefresherLine(refreshers)` — const, line 1771
+- `function NoGoalFallback(` — function, line 1801
+- `const action = (label: string, onClick: ()` — const, line 1814
+- `const dismiss = ( <button type="button" onClick=` — const, line 1830
+- `const dismissBannerButtonStyle: CSSProperties =` — const, line 1888
+- `function unique(values: string[]): string[]` — function, line 1899
+- `function queueItems(snapshot: QueueSnapshot | null): ScheduledItemDto[]` — function, line 1903
+- `function firstGoalFrontierItem(snapshot: QueueSnapshot | null): ScheduledItemDto | null` — function, line 1907
+- `function useNowMinute(): Date` — function, line 1911
+- `const id = window.setInterval(()` — const, line 1914
+- `function remainingSessionMinutes(session: SessionSnapshot | null, now: Date): number | null` — function, line 1920
+- `const startedAt = new Date(session.startedAt).getTime()` — const, line 1922
+- `const elapsedMinutes = Math.max(0, Math.floor((now.getTime() - startedAt) / 60_000))` — const, line 1924
+- `function formatHeroTime(date: Date): string` — function, line 1928
+- `function formatSessionNumber(sessionId: string): string` — function, line 1932
+- `const matches = sessionId.match(/\d+/g)` — const, line 1933
+- `const digits = matches ? matches[matches.length - 1] : undefined` — const, line 1934
+- `function relativeDue(item: ScheduledItemDto, now: Date): string` — function, line 1940
+- `const due = new Date(item.dueAt).getTime()` — const, line 1943
+- `const diffMs = due - now.getTime()` — const, line 1945
+- `const past = diffMs < 0` — const, line 1946
+- `const minutes = Math.round(Math.abs(diffMs) / 60_000)` — const, line 1947
+- `const span = minutes < 1 ? "now" : minutes < 60 ? `$` — const, line 1948
 
 ## Who imports or calls it
 
@@ -260,7 +261,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 - [[Reference/Desktop/TypeScript/api/dto|src/api/dto.ts]] — import-or-re-export; imports `ClaimCandidateDto`, `DailyPlanDto`, `DecayPressureDto`, `GoalDto`, `IngestBatchDto`, `OverconfidentFacetDto`, `PlanReadingDto`, `PlanStepDto`, `PracticeItemDetail`, `QueueSection`, `QueueSnapshot`, `ReentrySummaryDto`, `ScheduledItemDto`, `SchedulerComponents`, `SessionEndSummary`, `SessionSnapshot`, `TodayHeadlineDto`
 - [[Reference/Desktop/TypeScript/api/queryTags|src/api/queryTags.ts]] — import-or-re-export; imports `TAG`
 - [[Reference/Desktop/TypeScript/api/useCachedQuery|src/api/useCachedQuery.ts]] — import-or-re-export; imports `useCachedQuery`
-- [[Reference/Desktop/TypeScript/app/algoConfig|src/app/algoConfig.ts]] — import-or-re-export; imports `masteryTone`
+- [[Reference/Desktop/TypeScript/app/algoConfig|src/app/algoConfig.ts]] — import-or-re-export; imports `algoConfig`, `masteryTone`
 - [[Reference/Desktop/TypeScript/app/autoAdvance|src/app/autoAdvance.ts]] — import-or-re-export; imports `todayQueueInput`
 - [[Reference/Desktop/TypeScript/app/dailyPlan|src/app/dailyPlan.ts]] — import-or-re-export; imports `planStepAction`, `useDailyPlan`
 - [[Reference/Desktop/TypeScript/app/keymap|src/app/keymap.ts]] — import-or-re-export; imports `screenLeavesKey`
@@ -278,7 +279,9 @@ The system-level behavior stays authoritative in the linked architecture, concep
 - [[Reference/Desktop/TypeScript/components/ui|src/components/ui.tsx]] — import-or-re-export; imports `EmptyPlaceholder`, `EntityLink`
 - [[Reference/Desktop/TypeScript/queueEvents|src/queueEvents.ts]] — import-or-re-export; imports `notifyQueueChanged`
 - [[Reference/Desktop/TypeScript/render/MarkdownMath|src/render/MarkdownMath.tsx]] — import-or-re-export; imports `MarkdownMath`
+- [[Reference/Desktop/TypeScript/screens/LessonScreen|src/screens/LessonScreen.tsx]] — import-or-re-export; imports `LessonEntry`
 - [[Reference/Desktop/TypeScript/screens/today/DailyPlanView|src/screens/today/DailyPlanView.tsx]] — import-or-re-export; imports `DailyPlanView`
+- [[Reference/Desktop/TypeScript/screens/today/LessonSuggestionCard|src/screens/today/LessonSuggestionCard.tsx]] — import-or-re-export; imports `LessonSuggestionCard`
 - [[Reference/Desktop/TypeScript/screens/today/reentry|src/screens/today/reentry.ts]] — import-or-re-export; imports `reentryRefresherLine`, `reentryRefreshers`
 
 ### Assets, platform, and third-party dependencies
@@ -295,6 +298,7 @@ The workflow note owns end-to-end sequencing; this module note describes only it
 
 ## Tests that define behavior
 
+- [apps/learnloop-tauri/src/screens/TodayScreen.suggestion.test.tsx](../../../../../../apps/learnloop-tauri/src/screens/TodayScreen.suggestion.test.tsx) — vitest test: imports and executes this module under jsdom (`npm test`).
 - [apps/learnloop-tauri/src/screens/TodayScreen.plan.test.tsx](../../../../../../apps/learnloop-tauri/src/screens/TodayScreen.plan.test.tsx) — vitest test: imports and executes this module under jsdom (`npm test`).
 - [tests/test_daily_loop_start_minutes.py](../../../../../../tests/test_daily_loop_start_minutes.py) — cross-boundary name contract: references uniquely owned exported name `TodayScreen`; it does **not** directly execute this source module.
 - [tests/test_e2e_tui.py](../../../../../../tests/test_e2e_tui.py) — cross-boundary name contract: references uniquely owned exported name `TodayScreen`; it does **not** directly execute this source module.
