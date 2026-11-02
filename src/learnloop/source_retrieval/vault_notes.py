@@ -216,6 +216,47 @@ def _anchor(connection: Any, annotation_id: str) -> tuple[str | None, list[tuple
     return str(anchor[1]), segments
 
 
+def _out(protection: Any, extraction_id: str, segments: Sequence[tuple[str, list[str]]]) -> bool:
+    """Whether an annotation's anchor touches protected material. An anchor with no
+    segments (a selection still to be re-anchored) is judged by its reading: out when any
+    part of that reading is protected (fail closed)."""
+
+    if protection.reading_out(extraction_id):
+        return True
+    if not segments:
+        material_spans = getattr(protection.material, "spans", ()) or ()
+        return any(key[0] == extraction_id for key in (*protection.excluded_spans, *material_spans))
+    return any(protection.span_out(extraction_id, span_id) for span_id, _path in segments)
+
+
+def _section_title(connection: Any, extraction_id: str, segments: Sequence[tuple[str, list[str]]],
+                   headers: dict[str, dict[str, str]]) -> str:
+    """The section the annotation sits in, by its header's text (the recorded section
+    path names header blocks by id, ``/page/16/SectionHeader/2``)."""
+
+    path = next((path for _span, path in segments if path), [])
+    if not path and segments:
+        # The anchor recorded no section path: the block's own (the extraction's record).
+        row = connection.execute("SELECT section_path_json FROM source_document_blocks WHERE extraction_id = ? "
+                                 "AND span_id = ?", (extraction_id, segments[0][0])).fetchone()
+        try:
+            path = [str(part) for part in json.loads((row[0] if row else None) or "[]") if str(part).strip()]
+        except (TypeError, ValueError):
+            path = []
+    if not path:
+        return ""
+    if extraction_id not in headers:
+        from learnloop.db.stores.source_block_fts import section_header_titles
+
+        try:
+            headers[extraction_id] = section_header_titles(connection, extraction_id)
+        except Exception:  # noqa: BLE001 - a heading is display only
+            headers[extraction_id] = {}
+    found = headers[extraction_id]
+    last = str(path[-1])
+    return found.get(last) or ("" if last.startswith("/") else " ".join(last.split()))
+
+
 def _annotation_notes(vault: Any, repository: Repository, *, only: Iterable[str] | None = None) -> list[VaultNote]:
     protection = _protection(vault, repository)
     if protection is None:
@@ -223,6 +264,7 @@ def _annotation_notes(vault: Any, repository: Repository, *, only: Iterable[str]
     standing = _standing_annotation_ids(repository)
     wanted = None if only is None else {str(value) for value in only}
     titles: dict[str, str] | None = None
+    headers: dict[str, dict[str, str]] = {}
     out: list[VaultNote] = []
     with closing(connect(repository.sqlite_path, read_only=True)) as connection:
         if not _table(connection, "source_annotation_versions"):
@@ -244,12 +286,11 @@ def _annotation_notes(vault: Any, repository: Repository, *, only: Iterable[str]
             extraction_id, segments = _anchor(connection, annotation_id)
             if extraction_id is None:
                 continue
-            if protection.reading_out(extraction_id) or any(
-                    protection.span_out(extraction_id, span_id) for span_id, _path in segments):
+            if _out(protection, extraction_id, segments):
                 continue  # beside protected material: never a note here
             if titles is None:
                 titles = _source_titles(repository)
-            section = next((path[-1] for _span, path in segments if path), "")
+            section = _section_title(connection, extraction_id, segments, headers)
             heading = " › ".join(part for part in (section, ANNOTATION_HEADINGS.get(str(kind), "")) if part)
             bounded, truncated = _bounded(text)
             out.append(VaultNote(
@@ -305,8 +346,7 @@ def beside_protected(vault: Any, repository: Repository, key: str) -> bool:
         extraction_id, segments = _anchor(connection, ref[1])
     if extraction_id is None:
         return False
-    return protection.reading_out(extraction_id) or any(
-        protection.span_out(extraction_id, span_id) for span_id, _path in segments)
+    return _out(protection, extraction_id, segments)
 
 
 def notes(vault: Any, repository: Repository) -> list[VaultNote]:

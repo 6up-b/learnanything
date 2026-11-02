@@ -1,186 +1,157 @@
-"""Builders and fakes for curriculum C2's tests (notes linked; no network, no real tend).
+"""Builders and fakes for curriculum C2/C2b's tests (notes linked; no network).
 
-Privacy: no test ever reaches the owner's real ``tend`` or notes. ``conftest`` sets
-``LEARNLOOP_NOTES_TEND=off``; :func:`install_fake_tend` points it at a FAKE ``tend``
-executable written into the test's tmp directory, which answers from a synthetic
-corpus of notes also written there:
+C2b: "your notes" are the vault's own, so every note here is SYNTHETIC vault data written
+through the Reader's own annotation API (``reader.annotations.append_annotation``) or the
+capture inbox's (``capture.inbox.create_capture``); nothing outside the test's tmp vault
+is read.
 
-* ``search -k K --json --local --notes-only [--words] -- QUERY``: every corpus entry one
-  of whose ``words`` appears in the query (tend's JSON shape: ``results`` and
-  ``warning``); entries outside the allowlist and another machine's entries are returned
-  too, so the adapter's dropping is exercised;
-* ``serve``: one JSON request per stdin line; ``read`` answers the file's whole text, or
-  ``{"error": "PermissionError: private note"}`` for a path the corpus marks private.
+* :func:`add_annotation` writes a learner's Reader note beside a span (``ext_book`` by
+  default, the deliverable fixtures' textbook);
+* :func:`add_capture` writes a capture-inbox item;
+* :func:`eigen_notes` writes the standard corpus: two notes that discuss eigenvalues (a
+  Reader note carrying :data:`SENTINEL`, and a capture), one that only mentions the word,
+  one beside the exam (protected: never a note), a bare highlight and a deleted note.
 
-Every invocation's argv is appended to the log (one JSON line each).
-``FAKE_TEND_MODE``: ``slow`` (sleeps past any timeout), ``no_read`` (``unknown op``),
-``fail`` (exit 1); ``serve_fail`` (``serve`` exits 1 and says nothing), ``serve_garbage``
-(``serve`` prints unreadable lines), ``serve_slow`` (``serve`` sleeps past any timeout):
-search still answers in those three (Codex review F1: tend's read is down, its search up).
-
-``NoteLinkFake`` answers the note link judge from the prompt's context: a note whose
-text contains one of ``discusses`` words discusses it (``how`` and ``about`` as
-configured); every other note is unrelated. It is a ChatGPT-plan client
-(``provider_type = "chatgpt_plan"``), the only route the judge may ask.
+``NoteLinkFake`` answers the note link judge from the prompt's context: a note whose text
+contains one of ``discusses`` words discusses it (``how`` and ``about`` as configured);
+every other note is unrelated. ``NoteEmbeddingFake`` is a bag-of-words embedding client
+(similar words, near vectors) at the width :func:`embeddings_config` sets.
 """
 
 from __future__ import annotations
 
+import hashlib
 import json
-import stat
-import sys
-from pathlib import Path
 from typing import Any, Callable, Sequence
 
-from learnloop.ai.execution import report_call_usage
+from learnloop.ai.execution import model_call, report_call_usage
 from learnloop.ai.isolation import TOOL_FREE
 from learnloop.ai.transport import BOUNDED_STRUCTURED_COMPLETION, ISOLATED_TURN, STRUCTURED_COMPLETION
+from learnloop.db.repositories import Repository
+from learnloop.ids import new_ulid
 from tests.structured_ai import StructuredClientFake
 
 SENTINEL = "SENTINEL-NOTE-TEXT-7f3a"
-
-_FAKE = r'''#!{python}
-import json, os, sys, time
-corpus = json.load(open(os.environ["FAKE_TEND_CORPUS"]))
-log = os.environ.get("FAKE_TEND_LOG")
-if log:
-    with open(log, "a") as handle:
-        handle.write(json.dumps(sys.argv[1:]) + "\n")
-mode = os.environ.get("FAKE_TEND_MODE", "")
-if mode == "slow":
-    time.sleep(30)
-if mode == "fail":
-    sys.exit(1)
-args = sys.argv[1:]
-if args and args[0] == "search":
-    query = args[args.index("--") + 1:] if "--" in args else [a for a in args[1:] if not a.startswith("-")]
-    text = " ".join(query).casefold()
-    k = int(args[args.index("-k") + 1]) if "-k" in args else 10
-    hits = [dict(entry["hit"], via="words" if "--words" in args else "both")
-            for entry in corpus["entries"] if any(word.casefold() in text for word in entry["words"])]
-    print(json.dumps({{"results": hits[:k], "warning": None}}))
-elif args and args[0] == "serve":
-    if mode == "serve_fail":
-        sys.exit(1)
-    if mode == "serve_slow":
-        time.sleep(30)
-    if mode == "serve_garbage":
-        for line in sys.stdin:
-            print("not json at all", flush=True)
-        sys.exit(0)
-    private = set(corpus.get("private", []))
-    for line in sys.stdin:
-        if not line.strip():
-            continue
-        req = json.loads(line)
-        if mode == "no_read":
-            res = {{"error": "unknown op 'read'"}}
-        elif req.get("op") != "read":
-            res = {{"error": "unknown op " + repr(req.get("op"))}}
-        elif req["path"] in private:
-            res = {{"error": "PermissionError: private note"}}
-        else:
-            try:
-                res = {{"text": open(req["path"]).read(), "title": os.path.basename(req["path"])}}
-            except OSError as exc:
-                res = {{"error": "RemoteError: not an indexed file: " + req["path"]}}
-        res["id"] = req.get("id")
-        print(json.dumps(res), flush=True)
-else:
-    sys.exit(2)
-'''
+#: ext_book's eigenvalue chapter spans (tests.source_retrieval_fakes numbering).
+EIGEN_SPAN = "s2"
+EIGEN_SPAN_2 = "s3"
+#: The exam's question span (protected material).
+EXAM_SPAN = "s2"
+EMBEDDING_DIMS = 16
+EMBEDDING_MODEL = "qwen/qwen3-embedding-8b"
 
 
-class FakeTend:
-    """The fake executable, its synthetic corpus and its invocation log."""
+def add_annotation(repository: Repository, text: str, *, extraction_id: str = "ext_book", span_id: str = EIGEN_SPAN,
+                   source_id: str = "src_book", revision_id: str = "rev_book", annotation_type: str = "question",
+                   thinking: str | None = None) -> str:
+    """A learner's Reader note (or highlight with words) beside ``span_id``; its id."""
 
-    def __init__(self, root: Path) -> None:
-        self.root = root
-        self.notes = root / "notes"
-        self.quicknote = root / "Quicknote"
-        self.pocket = self.quicknote / "Pocket Notes"
-        self.outside = root / "projects" / "repo"
-        for folder in (self.notes, self.pocket, self.outside):
-            folder.mkdir(parents=True, exist_ok=True)
-        self.binary = root / "bin" / "tend"
-        self.corpus_path = root / "corpus.json"
-        self.log = root / "tend.log"
-        self.entries: list[dict[str, Any]] = []
-        self.private: list[str] = []
+    from learnloop.reader import annotations as ANN
 
-    def write_binary(self) -> None:
-        self.binary.parent.mkdir(parents=True, exist_ok=True)
-        self.binary.write_text(_FAKE.format(python=sys.executable), encoding="utf-8")
-        self.binary.chmod(self.binary.stat().st_mode | stat.S_IXUSR)
-
-    def add(self, path: Path, text: str, *, words: Sequence[str], heading: str = "", line: int = 1,
-            content_hash: str | None = None, mtime: float = 1_759_500_000.0, source: str = "local",
-            private: bool = False, title: str | None = None) -> dict[str, Any]:
-        """A synthetic note file and its tend hit (``line`` is the heading's line)."""
-
-        path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text(text, encoding="utf-8")
-        hit = {"id": len(self.entries) + 1, "path": str(path), "title": title or path.stem, "heading": heading,
-               "line": line, "snippet": text[:80], "score": 1.0, "via": "both",
-               "hash": content_hash or f"h-{len(self.entries)}-{abs(hash(text)) % 10_000}", "source": source,
-               "mtime": mtime}
-        self.entries.append({"hit": hit, "words": list(words)})
-        if private:
-            self.private.append(str(path))
-        self.save()
-        return hit
-
-    def save(self) -> None:
-        self.corpus_path.write_text(json.dumps({"entries": self.entries, "private": self.private}), encoding="utf-8")
-
-    def calls(self) -> list[list[str]]:
-        if not self.log.exists():
-            return []
-        return [json.loads(line) for line in self.log.read_text(encoding="utf-8").splitlines() if line.strip()]
-
-    def config(self, *, lexical_only: bool = False, extra: str = "") -> str:
-        """The vault's ``[notes.tend]`` section for this corpus (the allowlist: notes and Quicknote)."""
-
-        return (f'[notes.tend]\npaths = ["{self.notes}", "{self.quicknote}"]\n'
-                f'pocket_notes_paths = ["{self.pocket}"]\nlexical_only = {"true" if lexical_only else "false"}\n'
-                f"timeout_seconds = 5.0\n{extra}")
+    with repository.connection() as connection:
+        block = connection.execute("SELECT text FROM source_document_blocks WHERE extraction_id = ? AND span_id = ?",
+                                   (extraction_id, span_id)).fetchone()
+    quote = " ".join(str(block[0]).split()[:4]) if block else ""
+    translation = ANN.translate_selection(repository, extraction_id=extraction_id,
+                                          raw_selection={"nodes": [{"span_id": span_id, "quote": quote}]})
+    assert translation["status"] == "exact", translation
+    return ANN.append_annotation(repository, source_id=source_id, revision_id=revision_id,
+                                 extraction_id=extraction_id, annotation_type=annotation_type, learner_text=text,
+                                 what_i_think_is_going_on=thinking, translation=translation)["annotation_id"]
 
 
-def install_fake_tend(root: Path, monkeypatch: Any, *, mode: str = "") -> FakeTend:
-    fake = FakeTend(root)
-    fake.write_binary()
-    fake.save()
-    monkeypatch.setenv("LEARNLOOP_NOTES_TEND", str(fake.binary))
-    monkeypatch.setenv("FAKE_TEND_CORPUS", str(fake.corpus_path))
-    monkeypatch.setenv("FAKE_TEND_LOG", str(fake.log))
-    if mode:
-        monkeypatch.setenv("FAKE_TEND_MODE", mode)
-    else:
-        monkeypatch.delenv("FAKE_TEND_MODE", raising=False)
-    return fake
+def edit_annotation(repository: Repository, annotation_id: str, text: str) -> None:
+    from learnloop.reader import annotations as ANN
+
+    ANN.edit_annotation(repository, annotation_id=annotation_id, learner_text=text)
 
 
-def eigen_corpus(fake: FakeTend) -> dict[str, dict[str, Any]]:
-    """Synthetic notes: two that discuss eigenvalues (one a Pocket Notes page), one that
-    does not, one outside the allowlist, one another machine's, one private."""
+def delete_annotation(repository: Repository, annotation_id: str) -> None:
+    from learnloop.reader import annotations as ANN
 
-    return {
-        "typed": fake.add(fake.notes / "linear.org",
-                          "#+title: Linear algebra\n* Eigen stuff\nEigenvalues: Av = lv, so det(A - lI) = 0. "
-                          f"{SENTINEL}\n* Other\nUnrelated text.\n", words=["eigenvalues"], heading="Eigen stuff",
-                          line=2, title="Linear algebra"),
-        "pocket": fake.add(fake.pocket / "2026-10-03.md",
-                           "# Eigen page\nWorked the 2x2 eigen example by hand.\n", words=["eigenvalues"],
-                           heading="Eigen page", line=1, title="2026-10-03"),
-        "unrelated": fake.add(fake.notes / "groceries.org", "* Shopping\nEggs, milk, eigen-free bread.\n",
-                              words=["eigenvalues"], heading="Shopping", line=1, title="groceries"),
-        "outside": fake.add(fake.outside / "README.md", "# Eigen solver\nProject docs about eigenvalues.\n",
-                            words=["eigenvalues"], heading="Eigen solver", line=1),
-        "remote": fake.add(fake.notes / "remote.org", "* Eigen remote\nEigenvalues on the laptop.\n",
-                           words=["eigenvalues"], heading="Eigen remote", line=1, source="laptop"),
-        "private": fake.add(fake.notes / "private.org", "* Eigen private\nEigenvalues, private.\n",
-                            words=["eigenvalues"], heading="Eigen private", line=1, private=True),
-    }
+    ANN.delete_intent_annotation(repository, annotation_id=annotation_id)
+
+
+def add_capture(repository: Repository, text: str, *, note: str | None = None, kind: str = "text",
+                url: str | None = None, captured_at: str = "2026-10-03T09:00:00+00:00") -> str:
+    """A capture-inbox item; its id."""
+
+    from learnloop.capture.inbox import create_capture
+
+    created = create_capture(repository, client_capture_id=new_ulid(), kind=kind,
+                             text=text if kind == "text" else None, url=url, note=note, captured_at=captured_at)
+    return str(created["capture_id"])
+
+
+def dismiss_capture(repository: Repository, capture_id: str) -> None:
+    from learnloop.capture.inbox import dismiss_capture as dismiss
+
+    dismiss(repository, capture_id)
+
+
+def eigen_notes(repository: Repository) -> dict[str, str]:
+    """The standard synthetic notes, by name: their note keys (``annotation:<id>`` /
+    ``capture:<id>``)."""
+
+    typed = add_annotation(repository, f"Eigenvalues: Av = lv, so det(A - lI) = 0. {SENTINEL}")
+    captured = add_capture(repository, "Worked the 2x2 eigen example by hand; eigenvalues 1 and 3.")
+    unrelated = add_capture(repository, "Shopping list: eggs, milk. No eigenvalues today.")
+    exam = add_annotation(repository, "Eigenvalues on the midterm: copy this one.", extraction_id="ext_exam",
+                          span_id=EXAM_SPAN, source_id="src_exam", revision_id="rev_exam")
+    bare = add_annotation(repository, "", annotation_type="highlight", span_id=EIGEN_SPAN_2)
+    deleted = add_annotation(repository, "Eigenvalues, deleted thought.", span_id=EIGEN_SPAN_2)
+    delete_annotation(repository, deleted)
+    return {"typed": f"annotation:{typed}", "captured": f"capture:{captured}", "unrelated": f"capture:{unrelated}",
+            "exam": f"annotation:{exam}", "bare": f"annotation:{bare}", "deleted": f"annotation:{deleted}"}
+
+
+def turn_on_embeddings(paths: Any, *, backfill: bool = True) -> None:
+    """Switch the vault's embeddings on (its template's ``[embedding]`` table) at the fake's
+    width; no route is ever reached: tests inject :class:`NoteEmbeddingFake`."""
+
+    import re
+
+    config_path = paths.root / "learnloop.toml"
+    text = config_path.read_text(encoding="utf-8")
+    head, _, tail = text.partition("[embedding]\n")
+    assert tail, "the vault config has an [embedding] table"
+    body, sep, rest = tail.partition("\n[")
+    body = re.sub(r"(?m)^enabled = \w+$", "enabled = true", body, count=1)
+    body = re.sub(r"(?m)^backfill_enabled = \w+$", f"backfill_enabled = {'true' if backfill else 'false'}", body)
+    body = re.sub(r"(?m)^dimensions = \d+$", f"dimensions = {EMBEDDING_DIMS}", body)
+    config_path.write_text(head + "[embedding]\n" + body + sep + rest, encoding="utf-8")
+
+
+class NoteEmbeddingFake:
+    """Bag-of-words hashed into a few dimensions: similar words, near vectors."""
+
+    provider_name = "openrouter_embedding"
+    provider_type = "openai_embedding"
+
+    def __init__(self, dims: int = EMBEDDING_DIMS, *, synonyms: dict[str, str] | None = None) -> None:
+        self.model_id = EMBEDDING_MODEL
+        self.model = self.model_id
+        self.dims = dims
+        self.modalities = frozenset({"text"})
+        self.max_input_tokens = 32_768
+        #: Words embedded as another (a "meaning" the exact words would miss).
+        self.synonyms = dict(synonyms or {})
+        self.inputs: list[str] = []
+
+    def embed(self, inputs, task_prefix):
+        with model_call(self, purpose="embedding", prompt=None):
+            report_call_usage({"input_tokens": sum(len(str(text)) // 4 for text in inputs)})
+        vectors = []
+        for text in inputs:
+            self.inputs.append(str(text))
+            vector = [0.0] * self.dims
+            for word in str(text).lower().replace(",", " ").replace(".", " ").replace(":", " ").split():
+                word = self.synonyms.get(word, word)
+                digest = int(hashlib.sha256(word.encode()).hexdigest(), 16)
+                vector[digest % self.dims] += 1.0
+            vector[0] += 0.001
+            vectors.append(vector)
+        return vectors
 
 
 def prompt_context(prompt: str) -> dict[str, Any]:
@@ -238,11 +209,12 @@ class NoteLinkFake(StructuredClientFake):
 
 
 class MeteredNoteLinkFake(NoteLinkFake):
-    """The same answers on a metered (OpenRouter-like) route: the judge must refuse it."""
+    """The same answers on a metered (OpenRouter-like) route."""
 
     provider_name = "fake_metered_notes"
     provider_type = "openrouter"
 
 
-__all__ = ["FakeTend", "MeteredNoteLinkFake", "NoteLinkFake", "SENTINEL", "eigen_corpus", "install_fake_tend",
-           "prompt_context"]
+__all__ = ["EIGEN_SPAN", "MeteredNoteLinkFake", "NoteEmbeddingFake", "NoteLinkFake", "SENTINEL", "add_annotation",
+           "add_capture", "delete_annotation", "dismiss_capture", "edit_annotation", "eigen_notes",
+           "prompt_context", "turn_on_embeddings"]

@@ -1,8 +1,9 @@
-"""Curriculum C2: notes in the learner's voice, linked (spec_deliverable_curriculum_v1 §10, §12 C2, §12.3).
+"""Curriculum C2: notes in the learner's voice, linked (spec_deliverable_curriculum_v1 §10, §12 C2,
+§12.3), with C2b's vault-native notes: the learner's Reader notes (annotations with their words) and
+capture-inbox items in the vault, searched by exact words or (embeddings on) by meaning.
 
-Every tend here is the FAKE executable (tests/notes_fixtures.py) over synthetic notes in
-tmp; the owner's real tend and notes are never reached. Every model is a fake; background
-work runs inline (``notes_inline``).
+Every note is synthetic vault data (tests/notes_fixtures.py); every model and embedding client is a
+fake; background work runs inline (``notes_inline``).
 """
 from __future__ import annotations
 
@@ -12,12 +13,21 @@ from pathlib import Path
 import pytest
 
 from learnloop.ai import plan_fallback
-from learnloop.curriculum import notes_tend as NT
 from learnloop.source_retrieval import note_links as NL
+from learnloop.source_retrieval import vault_notes as VN
 from learnloop.vault.loader import load_vault
 from learnloop_sidecar.errors import SidecarError
 from tests.deliverable_fixtures import DeliverableFake, build_deliverable_vault
-from tests.notes_fixtures import (SENTINEL, MeteredNoteLinkFake, NoteLinkFake, eigen_corpus, install_fake_tend)
+from tests.notes_fixtures import (
+    SENTINEL,
+    MeteredNoteLinkFake,
+    NoteLinkFake,
+    add_capture,
+    delete_annotation,
+    dismiss_capture,
+    edit_annotation,
+    eigen_notes,
+)
 from tests.reading_path_fixtures import call, context, normalized
 from tests.section_coverage_fixtures import CoverageJudgeFake, table_counts
 
@@ -31,26 +41,27 @@ def _ctx(paths, **attrs):
                    deliverable_scope_client=fake, deliverable_path_client=fake, **attrs)
 
 
-def _deliverable(tmp_path: Path, monkeypatch, *, config: str = "", mode: str = "", lexical_only: bool = False,
-                 notes: NoteLinkFake | None = None):
+def _deliverable(tmp_path: Path, *, config: str = "", notes: NoteLinkFake | None = None):
     """A deliverable vault with a judged path for lo_eigen (primary ch_eigen in ext_book),
-    the fake tend over the eigen corpus, and the sidecar context."""
+    the synthetic vault notes, and the sidecar context."""
 
-    fake_tend = install_fake_tend(tmp_path / "tend", monkeypatch, mode=mode)
-    corpus = eigen_corpus(fake_tend)
-    paths, repository = build_deliverable_vault(tmp_path / "vault",
-                                                config=fake_tend.config(lexical_only=lexical_only) + config)
+    paths, repository = build_deliverable_vault(tmp_path / "vault", config=config)
+    corpus = eigen_notes(repository)
     notes = notes or NoteLinkFake()
     ctx = _ctx(paths, note_link_client=notes)
     created = call(ctx, "curriculum.create_deliverable", {"sentence": "eigenvalues for my midterm"})
     goal_id = created["goalId"]
     view = call(ctx, "curriculum.set_depth", {"goal_id": goal_id, "depth": "learn_to_use_it"})
     assert view["status"] == "ready"
-    return paths, repository, ctx, goal_id, fake_tend, corpus, notes
+    return paths, repository, ctx, goal_id, corpus, notes
 
 
 def _lines(out, lo: str = "lo_eigen") -> list:
     return next((entry["notes"] for entry in out["lines"] if entry["learningObjectId"] == lo), [])
+
+
+def _keys(lines) -> set[str]:
+    return {line["noteKey"] for line in lines}
 
 
 def _count(repository, table: str) -> int:
@@ -58,141 +69,54 @@ def _count(repository, table: str) -> int:
         return int(connection.execute(f"SELECT COUNT(*) FROM {table}").fetchone()[0])
 
 
-# -- the adapter -------------------------------------------------------------------------------------
-
-def _settings(fake_tend, *, lexical_only: bool = False) -> NT.TendSettings:
-    roots = tuple(Path(p).resolve() for p in (fake_tend.notes, fake_tend.quicknote))
-    return NT.TendSettings(binary=str(fake_tend.binary), roots=roots, pocket_roots=(fake_tend.pocket.resolve(),),
-                           lexical_only=lexical_only, timeout=5.0, k=10)
-
-
-def test_the_adapter_drops_every_hit_outside_the_allowlist_and_another_machines(tmp_path, monkeypatch):
-    fake_tend = install_fake_tend(tmp_path / "tend", monkeypatch)
-    corpus = eigen_corpus(fake_tend)
-    hits = NT.search(_settings(fake_tend), "Eigenvalues")
-    paths = {hit.path for hit in hits}
-    assert str(Path(corpus["typed"]["path"]).resolve()) in paths and str(Path(corpus["pocket"]["path"]).resolve()) in paths
-    assert corpus["outside"]["path"] not in paths  # a project repository: never returned
-    assert all(hit.heading != "Eigen remote" for hit in hits)  # another machine's hit: never returned
-    pocket = next(hit for hit in hits if hit.heading == "Eigen page")
-    assert pocket.origin == "pocket_notes" and pocket.captured_on is not None
-    # The command: tend's JSON search, this machine only, notes only, the query after "--".
-    argv = fake_tend.calls()[-1]
-    assert argv[:2] == ["search", "-k"] and {"--json", "--local", "--notes-only"} <= set(argv)
-    assert "--words" not in argv and argv[-2:] == ["--", "Eigenvalues"]
-
-
-def test_lexical_only_asks_tend_for_words_only(tmp_path, monkeypatch):
-    fake_tend = install_fake_tend(tmp_path / "tend", monkeypatch)
-    eigen_corpus(fake_tend)
-    NT.search(_settings(fake_tend, lexical_only=True), "Eigenvalues")
-    assert "--words" in fake_tend.calls()[-1]
-
-
-def test_reads_go_through_tends_read_op_and_a_refused_note_is_dropped(tmp_path, monkeypatch):
-    fake_tend = install_fake_tend(tmp_path / "tend", monkeypatch)
-    eigen_corpus(fake_tend)
-    settings = _settings(fake_tend)
-    hits = NT.search(settings, "Eigenvalues")
-    texts = NT.read_sections(settings, hits)
-    typed = next(text for text in texts.values() if text.hit.heading == "Eigen stuff")
-    assert typed.read_via == "tend" and SENTINEL in typed.text
-    assert "Unrelated text" not in typed.text  # the heading section only: up to the next heading
-    assert all(text.hit.heading != "Eigen private" for text in texts.values())  # tend refused it: dropped
-    assert ["serve"] in fake_tend.calls()
-
-
-@pytest.mark.parametrize("mode", ["no_read", "serve_fail", "serve_garbage", "serve_slow"])
-def test_f1_with_tends_read_down_no_file_is_read_and_linking_waits(tmp_path, monkeypatch, mode):
-    """Codex review F1: tend's read op is the only privacy gate LearnLoop has (tend's
-    ``private`` setting lives in tend's own config). With tend's read down (no read op,
-    a crash, unreadable output, a stall) a note inside the allowlist that tend marks
-    private is never read from its file: the read raises and the linking waits."""
-
-    fake_tend = install_fake_tend(tmp_path / "tend", monkeypatch, mode=mode)
-    corpus = eigen_corpus(fake_tend)
-    settings = NT.TendSettings(**{**_settings(fake_tend).__dict__, "timeout": 1.0})
-    hits = NT.search(settings, "Eigenvalues")  # tend's search still answers
-    assert any(hit.heading == "Eigen private" for hit in hits)  # search does not filter private notes
-    with pytest.raises(NT.TendUnavailable):
-        NT.read_sections(settings, hits)
-    assert NT.read_sections(settings, [hit for hit in hits if hit.path == corpus["outside"]["path"]]) == {}
-
-
-def test_f1_the_background_linking_waits_for_tends_read_and_sends_nothing(tmp_path, monkeypatch):
-    paths, repository, ctx, goal_id, fake_tend, corpus, notes = _deliverable(tmp_path, monkeypatch, mode="serve_fail")
-    out = call(ctx, "notes.path", {"goal_id": goal_id})
-    assert out["linking"] == "waiting" and notes.calls == 0 and _lines(out) == []
-    assert _count(repository, "learner_notes") == 0 and _count(repository, "learner_note_links") == 0
-
-
-def test_a_stalled_tend_times_out_and_an_absent_tend_hides_the_notes(tmp_path, monkeypatch):
-    fake_tend = install_fake_tend(tmp_path / "tend", monkeypatch, mode="slow")
-    settings = NT.TendSettings(**{**_settings(fake_tend).__dict__, "timeout": 1.0})
-    with pytest.raises(NT.TendUnavailable) as caught:
-        NT.search(settings, "Eigenvalues")
-    assert caught.value.reason == "timeout"
-    monkeypatch.setenv("LEARNLOOP_NOTES_TEND", "off")
-    paths, _repository = build_deliverable_vault(tmp_path / "vault")
-    vault = load_vault(paths.root)
-    assert NT.executable(vault.config) is None and not NL.available(vault)
-    assert "notes" not in call(context(paths.root), "reader.prompt_contract", {})
-    with pytest.raises(SidecarError) as refused:
-        call(context(paths.root), "notes.marks", {"extraction_id": "ext_book"})
-    assert refused.value.code == "notes_unavailable"
-
-
-def test_the_section_slice_follows_tends_heading_boundary():
-    org = "#+title: t\n* A\nline a\n#+begin_src\n* not a heading\n#+end_src\nmore\n** B\nline b\n"
-    assert NT.slice_section(org, 2, org=True) == "* A\nline a\n#+begin_src\n* not a heading\n#+end_src\nmore"
-    md = "# A\ntext\n```\n# code\n```\n## B\nb\n"
-    assert NT.slice_section(md, 1, org=False) == "# A\ntext\n```\n# code\n```"
+def _ref(key: str) -> str:
+    return key.split(":", 1)[1]
 
 
 # -- linking: candidates, the judgment, proposals --------------------------------------------------
 
-def test_the_path_links_the_notes_that_discuss_it_and_stores_only_linked_notes(tmp_path, monkeypatch):
-    paths, repository, ctx, goal_id, fake_tend, corpus, notes = _deliverable(tmp_path, monkeypatch)
+def test_the_path_links_the_vault_notes_that_discuss_it_and_stores_only_linked_notes(tmp_path):
+    paths, repository, ctx, goal_id, corpus, notes = _deliverable(tmp_path)
     out = call(ctx, "notes.path", {"goal_id": goal_id})
     assert notes.calls == 1
     lines = _lines(out)
-    by_heading = {line["note"]["heading"]: line for line in lines}
-    assert set(by_heading) == {"Eigen stuff", "Eigen page"}  # the unrelated note is not linked
-    assert by_heading["Eigen page"]["note"]["originLabel"] == NL.POCKET_NOTES_LABEL
-    assert by_heading["Eigen stuff"]["note"]["originLabel"] is None
+    assert _keys(lines) == {corpus["typed"], corpus["captured"]}  # the unrelated capture is not linked
+    by_key = {line["noteKey"]: line for line in lines}
+    assert all(line["note"]["origin"] == "vault" and line["note"]["originLabel"] is None for line in lines)
     assert all(line["byLabel"] == NL.BY_MODEL_LABEL and line["authorship"] == "ai" for line in lines)
-    assert by_heading["Eigen stuff"]["line"].startswith("your note from ")
-    # Only linked notes are stored; nothing of the unrelated, outside, remote or private notes.
-    assert _count(repository, "learner_notes") == 2
+    assert by_key[corpus["captured"]]["line"] == "your note from 3 Oct"
+    assert "Chapter 5 Eigenvalues" in by_key[corpus["typed"]]["note"]["heading"]
+    # Only linked notes are stored, with origin vault and their vault reference.
     with repository.connection() as connection:
-        stored = " ".join(str(row[0]) for row in connection.execute("SELECT text_md || path FROM learner_notes"))
+        stored = [dict(zip(("key", "origin", "kind", "ref", "path", "text"), row)) for row in connection.execute(
+            "SELECT note_key, origin, vault_ref_kind, vault_ref_id, path, text_md FROM learner_notes")]
         ledger = " ".join(str(row[0]) for row in connection.execute(
             "SELECT right_id || rationale FROM judgment_ledger WHERE task = 'note_link'"))
-    assert "groceries" not in stored and "Eigen private" not in stored and "README" not in stored
-    assert "groceries" not in ledger and str(fake_tend.notes) not in ledger  # the ledger names notes by digest
-    # The judge read the LO, its passage's lead and the candidates; never an outside, remote or private note.
+    assert {row["key"] for row in stored} == {corpus["typed"], corpus["captured"]}
+    assert all(row["origin"] == "vault" and row["path"] is None for row in stored)
+    assert {(row["kind"], row["ref"]) for row in stored} == {("annotation", _ref(corpus["typed"])),
+                                                              ("capture", _ref(corpus["captured"]))}
+    assert "Shopping list" not in " ".join(row["text"] for row in stored)
+    assert _ref(corpus["unrelated"]) not in ledger  # the ledger names notes by digest
+    # The judge read the LO, its passage's lead and the candidates; never the exam's annotation,
+    # a deleted note or a bare highlight.
     prompt = notes.prompts[0]
-    assert "Project docs about eigenvalues" not in prompt and "on the laptop" not in prompt
-    assert "Eigenvalues, private" not in prompt
+    assert "copy this one" not in prompt and "deleted thought" not in prompt
     context_ = notes.contexts[0]
     assert context_["topic"]["title"] == "Eigenvalues" and context_["passage"]["opening"]
+    assert len(context_["notes"]) == 3 and any(SENTINEL in note["text"] for note in context_["notes"])
     # The marks sit beside the primary passage's start span.
     marks = call(ctx, "notes.marks", {"extraction_id": "ext_book"})["marks"]
-    assert len(marks) == 1 and {note["note"]["heading"] for note in marks[0]["notes"]} == {"Eigen stuff", "Eigen page"}
+    assert len(marks) == 1 and {n["noteKey"] for n in marks[0]["notes"]} == {corpus["typed"], corpus["captured"]}
 
 
-def test_the_same_state_is_never_judged_twice_and_a_new_content_hash_is(tmp_path, monkeypatch):
-    paths, repository, ctx, goal_id, fake_tend, corpus, notes = _deliverable(tmp_path, monkeypatch)
+def test_the_same_state_is_never_judged_twice_and_an_edited_note_is(tmp_path):
+    paths, repository, ctx, goal_id, corpus, notes = _deliverable(tmp_path)
     call(ctx, "notes.path", {"goal_id": goal_id})
     call(ctx, "notes.path", {"goal_id": goal_id, "retry": True})
-    assert notes.calls == 1  # same candidates, same hashes: answered from the ledger
-    # The note changes: tend reports a new content hash; the snapshot is refreshed and re-judged.
-    entry = next(e for e in fake_tend.entries if e["hit"]["heading"] == "Eigen stuff")
-    Path(entry["hit"]["path"]).write_text("* Eigen stuff\nEigenvalues again: Av = lv, now with a picture.\n",
-                                          encoding="utf-8")
-    entry["hit"]["hash"] = "h-new"
-    entry["hit"]["line"] = 1
-    fake_tend.save()
+    assert notes.calls == 1  # same candidates, same texts: answered from the ledger
+    # The learner edits the note in the Reader: a new text, a new snapshot, judged again.
+    edit_annotation(repository, _ref(corpus["typed"]), "Eigenvalues again: Av = lv, now with a picture.")
     out = call(ctx, "notes.path", {"goal_id": goal_id, "retry": True})
     assert notes.calls == 2
     texts = [line["note"]["text"] for line in _lines(out)]
@@ -200,110 +124,133 @@ def test_the_same_state_is_never_judged_twice_and_a_new_content_hash_is(tmp_path
     assert _count(repository, "learner_notes") == 3  # the old snapshot is kept (append-only)
 
 
-def test_one_tap_hides_a_link_and_it_stays_hidden_across_rejudgments(tmp_path, monkeypatch):
-    paths, repository, ctx, goal_id, fake_tend, corpus, notes = _deliverable(tmp_path, monkeypatch)
+def test_one_tap_hides_a_link_and_it_stays_hidden_across_rejudgments(tmp_path):
+    paths, repository, ctx, goal_id, corpus, notes = _deliverable(tmp_path)
     lines = _lines(call(ctx, "notes.path", {"goal_id": goal_id}))
-    typed = next(line for line in lines if line["note"]["heading"] == "Eigen stuff")
+    typed = next(line for line in lines if line["noteKey"] == corpus["typed"])
     call(ctx, "notes.decide", {"link_id": typed["linkId"], "choice": "hide"})
     shown = _lines(call(ctx, "notes.path", {"goal_id": goal_id, "link": False}))
-    assert [line["note"]["heading"] for line in shown] == ["Eigen page"]
+    assert _keys(shown) == {corpus["captured"]}
     with repository.connection() as connection:
         verdicts = connection.execute("SELECT verdict FROM judgment_ledger WHERE task = 'note_link' "
                                       "AND judge = 'learner_card'").fetchall()
     assert [row[0] for row in verdicts] == ["rejected"]
-    # A re-judgment (a new hash) proposes it again: it stays hidden.
-    entry = next(e for e in fake_tend.entries if e["hit"]["heading"] == "Eigen stuff")
-    entry["hit"]["hash"] = "h-again"
-    fake_tend.save()
-    note_file = Path(entry["hit"]["path"])
-    note_file.write_text(note_file.read_text(encoding="utf-8").replace("* Other", "One more line.\n* Other"),
-                         encoding="utf-8")
+    # A re-judgment (an edited note) proposes it again: it stays hidden.
+    edit_annotation(repository, _ref(corpus["typed"]), f"Eigenvalues: Av = lv. One more line. {SENTINEL}")
     again = _lines(call(ctx, "notes.path", {"goal_id": goal_id, "retry": True}))
-    assert notes.calls == 2 and [line["note"]["heading"] for line in again] == ["Eigen page"]
+    assert notes.calls == 2 and _keys(again) == {corpus["captured"]}
     # keep (undo) shows it again, still labelled as the model's link.
     hidden_ids = [row[0] for row in repository.connection().execute(
         "SELECT id FROM learner_note_links WHERE authorship = 'learner' AND status = 'rejected'")]
     call(ctx, "notes.decide", {"link_id": hidden_ids[0], "choice": "keep"})
     kept = _lines(call(ctx, "notes.path", {"goal_id": goal_id, "link": False}))
-    assert {line["note"]["heading"] for line in kept} == {"Eigen stuff", "Eigen page"}
+    assert _keys(kept) == {corpus["typed"], corpus["captured"]}
     assert all(line["byLabel"] == NL.BY_MODEL_LABEL for line in kept)
 
 
-def test_a_learner_links_a_note_by_hand_from_the_reader(tmp_path, monkeypatch):
-    paths, repository, ctx, goal_id, fake_tend, corpus, notes = _deliverable(tmp_path, monkeypatch)
-    # No words: tend's hits for the passage's section title.
+def test_a_learner_links_a_note_by_hand_from_the_reader(tmp_path):
+    paths, repository, ctx, goal_id, corpus, notes = _deliverable(tmp_path)
+    # No words: the notes for the passage's section title (exact words: embeddings are off).
     found = call(ctx, "notes.search", {"extraction_id": "ext_book", "span_id": "s2"})
-    # The learner's own words: searched by words only (never leaves the machine).
-    typed = call(ctx, "notes.search", {"query": "my eigenvalues page"})
-    assert "--words" in fake_tend.calls()[-1]
-    hit = next(h for h in typed["hits"] if h["heading"] == "Eigen page")
-    assert all(h["path"] != corpus["outside"]["path"] for h in typed["hits"] + found["hits"])
-    out = call(ctx, "notes.link", {"note": {"path": hit["path"], "line": hit["line"], "heading_path": hit["headingPath"],
-                                            "title": hit["title"], "content_hash": hit["contentHash"],
-                                            "mtime": hit["mtime"]},
-                                   "extraction_id": "ext_book", "span_id": "s2"})
+    assert found["query"] == "Chapter 5 Eigenvalues" and found["mode"] == "words"
+    assert {hit["noteKey"] for hit in found["hits"]} == {corpus["typed"], corpus["captured"], corpus["unrelated"]}
+    # The learner's own words: exact words.
+    typed = call(ctx, "notes.search", {"query": "2x2 example"})
+    assert [hit["noteKey"] for hit in typed["hits"]] == [corpus["captured"]]
+    hit = typed["hits"][0]
+    assert hit["origin"] == "vault" and hit["refKind"] == "capture" and "2x2" in hit["snippet"]
+    out = call(ctx, "notes.link", {"note": {"note_key": hit["noteKey"]}, "extraction_id": "ext_book", "span_id": "s2"})
     assert notes.calls == 0  # a link by hand is the learner's: no model
     mark = next(mark for mark in out["marks"] if mark["spanId"] == "s2")
-    assert [(n["note"]["heading"], n["byLabel"]) for n in mark["notes"]] == [("Eigen page", NL.BY_YOU_LABEL)]
-    # Outside the allowlist: refused, nothing stored.
+    assert [(n["noteKey"], n["byLabel"]) for n in mark["notes"]] == [(corpus["captured"], NL.BY_YOU_LABEL)]
+    # A note that is not one (beside the exam, deleted, or unknown): refused, nothing stored.
     before = _count(repository, "learner_notes")
-    with pytest.raises(SidecarError) as refused:
-        call(ctx, "notes.link", {"note": {"path": corpus["outside"]["path"], "line": 1},
-                                 "extraction_id": "ext_book", "span_id": "s2"})
-    assert refused.value.code == "not_allowed" and _count(repository, "learner_notes") == before
+    for key in (corpus["exam"], corpus["deleted"], "capture:nope"):
+        with pytest.raises(SidecarError) as refused:
+            call(ctx, "notes.link", {"note": {"note_key": key}, "extraction_id": "ext_book", "span_id": "s2"})
+        assert refused.value.code == "unreadable"
+    with pytest.raises(SidecarError) as malformed:
+        call(ctx, "notes.link", {"note": {"note_key": "/home/x/notes.org#Eigen"}, "extraction_id": "ext_book",
+                                 "span_id": "s2"})
+    assert malformed.value.code == "validation_error" and _count(repository, "learner_notes") == before
     # Compare's your-take band lists it with the take that quotes it.
     band = call(ctx, "notes.passages", {"passages": [{"extraction_id": "ext_book", "span_id": "s2"}]})
-    assert band["notes"] and band["notes"][0]["takeText"].startswith(NL.TAKE_PREFIX + " “2026-10-03 › Eigen page”")
+    assert band["notes"] and band["notes"][0]["takeText"].startswith(NL.TAKE_PREFIX + " “captured note”, 3 Oct")
     assert "Worked the 2x2 eigen example" in band["notes"][0]["takeText"]
 
 
-def test_a_metered_route_is_refused_and_plan_down_waits_quietly(tmp_path, monkeypatch):
+def test_meaning_search_is_refused_while_embeddings_are_off(tmp_path):
+    paths, repository, ctx, goal_id, corpus, notes = _deliverable(tmp_path)
+    with pytest.raises(SidecarError) as refused:
+        call(ctx, "notes.search", {"query": "eigen", "mode": "meaning"})
+    assert refused.value.code == "meaning_unavailable"
+    with pytest.raises(SidecarError) as unknown:
+        call(ctx, "notes.search", {"query": "eigen", "mode": "vibes"})
+    assert unknown.value.code == "validation_error"
+
+
+def test_a_metered_route_needs_its_price_and_a_route_down_waits_quietly(tmp_path):
+    """C2b: note_link_judge takes ordinary quiet-route rules (no longer the plan only): a
+    metered route without ``source_retrieval.llm_price_per_million`` sends nothing and waits;
+    priced, it is asked inside the curriculum's daily cap; no client (models off) waits
+    and no OpenRouter offer is made."""
+
     metered = MeteredNoteLinkFake()
-    paths, repository, ctx, goal_id, fake_tend, corpus, _notes = _deliverable(tmp_path, monkeypatch, notes=metered)
+    paths, repository, ctx, goal_id, corpus, _notes = _deliverable(tmp_path, notes=metered)
     out = call(ctx, "notes.path", {"goal_id": goal_id})
     assert metered.calls == 0 and out["lines"] == [] and _count(repository, "learner_notes") == 0
     assert out["linking"] == "waiting"
-    # No client and models off (the plan down, for the job): it waits; no OpenRouter offer is made.
     plain = context(paths.root, notes_inline=True)
     with plan_fallback.collecting() as offers:
         assert call(plain, "notes.path", {"goal_id": goal_id})["linking"] == "waiting"
     assert offers.hint() is None and _count(repository, "learner_note_links") == 0
-    assert plan_fallback.offer_blocker(load_vault(paths.root).config, "note_link_judge") is not None
+    assert "note_link_judge" not in plan_fallback.PLAN_ONLY_TASKS
+    assert plan_fallback.offer_blocker(load_vault(paths.root).config, "note_link_judge") is None
+    priced = tmp_path / "priced"
+    paths2, repository2, ctx2, goal2, _corpus2, metered2 = _deliverable(
+        priced, config="[source_retrieval]\nllm_price_per_million = 1.0\n", notes=MeteredNoteLinkFake())
+    linked = call(ctx2, "notes.path", {"goal_id": goal2})
+    assert metered2.calls == 1 and linked["linking"] == "done" and len(_lines(linked)) == 2
 
 
-def test_switched_off_every_rpc_refuses_nothing_is_called_and_the_reader_is_todays(tmp_path, monkeypatch):
-    fake_tend = install_fake_tend(tmp_path / "tend", monkeypatch)
-    eigen_corpus(fake_tend)
-    paths, repository = build_deliverable_vault(tmp_path / "vault",
-                                                config=fake_tend.config() + "[notes]\nenabled = false\n")
+def test_switched_off_every_rpc_refuses_nothing_is_read_and_the_reader_is_todays(tmp_path, monkeypatch):
+    paths, repository = build_deliverable_vault(tmp_path / "vault", config="[notes]\nenabled = false\n")
+    corpus = eigen_notes(repository)
     notes = NoteLinkFake()
     ctx = _ctx(paths, note_link_client=notes)
+    reads: list[str] = []
+    real = VN.notes
+    monkeypatch.setattr(VN, "notes", lambda *a, **k: reads.append("notes") or real(*a, **k))
     before = table_counts(repository)
     params = {"notes.path": {"goal_id": "g"}, "notes.marks": {"extraction_id": "ext_book"},
               "notes.passages": {"passages": [{"extraction_id": "ext_book", "span_id": "s2"}]},
               "notes.search": {"query": "eigen"},
-              "notes.link": {"note": {"path": str(fake_tend.notes / "linear.org"), "line": 2},
-                             "extraction_id": "ext_book", "span_id": "s2"},
+              "notes.link": {"note": {"note_key": corpus["typed"]}, "extraction_id": "ext_book", "span_id": "s2"},
               "notes.decide": {"link_id": "nl_x", "choice": "hide"},
               "notes.set_gaps": {"enabled": True}}
     for name in RPCS:
         with pytest.raises(SidecarError) as caught:
             call(ctx, name, params[name])
         assert caught.value.code == "notes_disabled", name
-    assert notes.calls == 0 and fake_tend.calls() == [] and table_counts(repository) == before
+    assert notes.calls == 0 and reads == [] and table_counts(repository) == before
     contract = call(ctx, "reader.prompt_contract", {})
     assert "notes" not in contract
-    monkeypatch.setenv("LEARNLOOP_NOTES_TEND", "off")
     assert normalized(call(context(paths.root), "reader.prompt_contract", {})) == normalized(contract)
 
 
-def test_on_the_contract_only_when_on_and_tend_is_installed(tmp_path, monkeypatch):
-    fake_tend = install_fake_tend(tmp_path / "tend", monkeypatch)
-    paths, _repository = build_deliverable_vault(tmp_path / "vault", config=fake_tend.config(lexical_only=True))
+def test_on_the_contract_in_every_vault_with_the_meaning_flag(tmp_path):
+    from tests.notes_fixtures import turn_on_embeddings
+
+    paths, _repository = build_deliverable_vault(tmp_path / "vault")
     contract = call(context(paths.root), "reader.prompt_contract", {})
-    assert contract["notes"] == {"enabled": True, "lexicalOnly": True, "pocketNotesLabel": NL.POCKET_NOTES_LABEL,
+    assert contract["notes"] == {"enabled": True, "meaning": False, "pocketNotesLabel": NL.POCKET_NOTES_LABEL,
                                  "takePrefix": NL.TAKE_PREFIX}
-    assert fake_tend.calls() == []  # the contract runs no tend
+    on, _repository = build_deliverable_vault(tmp_path / "on")
+    turn_on_embeddings(on)
+    assert call(context(on.root), "reader.prompt_contract", {})["notes"]["meaning"] is True
+    half, _repository = build_deliverable_vault(tmp_path / "half")
+    turn_on_embeddings(half, backfill=False)
+    assert call(context(half.root), "reader.prompt_contract", {})["notes"]["meaning"] is False
 
 
 def test_the_rpcs_are_registered_and_desktop_only():
@@ -315,8 +262,8 @@ def test_the_rpcs_are_registered_and_desktop_only():
     assert all(name in METHOD_REGISTRY and name not in ALLOWLIST for name in RPCS)
 
 
-def test_the_report_counts_notes_without_their_text(tmp_path, monkeypatch):
-    paths, repository, ctx, goal_id, fake_tend, corpus, notes = _deliverable(tmp_path, monkeypatch)
+def test_the_report_counts_notes_without_their_text(tmp_path):
+    paths, repository, ctx, goal_id, corpus, notes = _deliverable(tmp_path)
     lines = _lines(call(ctx, "notes.path", {"goal_id": goal_id}))
     call(ctx, "notes.decide", {"link_id": lines[0]["linkId"], "choice": "hide"})
     row = NL.report_row(repository)
@@ -324,75 +271,13 @@ def test_the_report_counts_notes_without_their_text(tmp_path, monkeypatch):
     assert SENTINEL not in json.dumps(row)
 
 
-# -- Codex review (2026-11-01) -----------------------------------------------------------------------
+# -- C2b: note text is learner text --------------------------------------------------------------
 
-def _target(paths, repository, goal_id):
-    vault = load_vault(paths.root)
-    return vault, NL.path_targets(vault, repository, goal_id)[0]
+def test_the_judges_receipts_keep_the_prompt_like_any_learner_text(tmp_path):
+    """C2b (owner, 2026-11-01): Codex review F3's withheld receipt input is dropped for notes:
+    the judge's receipt keeps its prompt (the notes' text included) and its verdicts."""
 
-
-def _reconfigured(paths, change):
-    """The vault as it loads after the learner changed learnloop.toml (``change``: text to
-    append, or a function of the file's text)."""
-
-    toml = paths.root / "learnloop.toml"
-    original = toml.read_text(encoding="utf-8")
-    toml.write_text(change(original) if callable(change) else original + change, encoding="utf-8")
-    try:
-        return load_vault(paths.root)
-    finally:
-        toml.write_text(original, encoding="utf-8")
-
-
-@pytest.mark.parametrize("change", [
-    "[notes]\nenabled = false\n",
-    "lexical_only_flip",
-    "allowlist_shrunk",
-])
-def test_f2_a_changed_notes_authorization_refuses_the_pending_request(tmp_path, monkeypatch, change):
-    """Codex review F2: the run started authorized, then the learner switched the notes
-    off, flipped words-only search or narrowed the allowlist before the request: the
-    request is refused at its admission (nothing sent) and nothing is written."""
-
-    paths, repository, ctx, goal_id, fake_tend, corpus, notes = _deliverable(tmp_path, monkeypatch)
-    vault, target = _target(paths, repository, goal_id)
-    settings = NL.tend_settings(vault)
-    if change == "lexical_only_flip":
-        changed = _reconfigured(paths, lambda text: text.replace("lexical_only = false", "lexical_only = true"))
-    elif change == "allowlist_shrunk":
-        changed = _reconfigured(paths, lambda text: text.replace(f', "{fake_tend.quicknote}"', ""))
-    else:
-        changed = _reconfigured(paths, change)
-    assert NL.tend_settings(changed) != settings
-    before = table_counts(repository)
-    result = NL.judge_target(vault, repository, target, settings=settings, client=notes, live_vault=lambda: changed)
-    assert result.status == "switched_off" and notes.calls == 0
-    assert table_counts(repository) == before
-
-
-def test_f2_switching_notes_off_during_the_request_records_nothing(tmp_path, monkeypatch):
-    paths, repository, ctx, goal_id, fake_tend, corpus, _notes = _deliverable(tmp_path, monkeypatch)
-    vault, target = _target(paths, repository, goal_id)
-    live = {"vault": vault}
-    off = _reconfigured(paths, "[notes]\nenabled = false\n")
-    notes = NoteLinkFake(on_call=lambda: live.update(vault=off))  # the learner switches off meanwhile
-    with repository.connection() as connection:
-        ledger_before = connection.execute("SELECT COUNT(*) FROM judgment_ledger").fetchone()[0]
-    result = NL.judge_target(vault, repository, target, settings=NL.tend_settings(vault), client=notes,
-                             live_vault=lambda: live["vault"])
-    assert result.status == "switched_off" and notes.calls == 1
-    with repository.connection() as connection:
-        assert connection.execute("SELECT COUNT(*) FROM judgment_ledger").fetchone()[0] == ledger_before
-    assert _count(repository, "learner_notes") == 0 and _count(repository, "learner_note_links") == 0
-    run = NL.link_goal(vault, repository, goal_id, client=notes, live_vault=lambda: live["vault"])
-    assert run.status == "switched_off" and notes.calls == 1
-
-
-def test_f3_the_judges_receipts_keep_no_note_text(tmp_path, monkeypatch):
-    """Codex review F3: an unlinked candidate's text is never kept, receipts included;
-    the receipt keeps the prompt hash, usage and the verdicts."""
-
-    paths, repository, ctx, goal_id, fake_tend, corpus, notes = _deliverable(tmp_path, monkeypatch)
+    paths, repository, ctx, goal_id, corpus, notes = _deliverable(tmp_path)
     call(ctx, "notes.path", {"goal_id": goal_id})
     assert notes.calls == 1
     with repository.connection() as connection:
@@ -401,21 +286,94 @@ def test_f3_the_judges_receipts_keep_no_note_text(tmp_path, monkeypatch):
             "SELECT * FROM model_call_receipts WHERE purpose LIKE 'note_link_judge%'").fetchall()
         names = [column[0] for column in connection.execute(
             "SELECT * FROM model_call_receipts LIMIT 0").description]
-    assert receipts, "the judge's call has receipts"
     rows = [dict(zip(names, row)) for row in receipts]
-    assert all(row["input_text"] is None and row["prompt_hash"] for row in rows)
-    dumped = json.dumps(rows, default=str)
-    assert "eigen-free bread" not in dumped and SENTINEL not in dumped  # neither the unlinked nor a linked note
-    assert any(row["output_text"] and "discusses" in row["output_text"] for row in rows)  # the verdicts stay
+    assert rows and any(row["input_text"] and SENTINEL in row["input_text"] for row in rows)
+    assert any(row["output_text"] and "discusses" in row["output_text"] for row in rows)
 
 
-def test_f4_background_linking_completes_and_the_next_read_shows_it(tmp_path, monkeypatch):
-    """Codex review F4 (server half): with the linking really in the background, the read
-    that starts it says ``running`` and the read after it finishes shows the notes."""
+def test_legacy_tend_snapshots_stay_readable(tmp_path):
+    """C2's tend-era rows (origin tend / pocket_notes, a path and line) are history: they
+    still render (a Pocket Notes page keeps its label) after migration 233."""
 
+    from learnloop.db.stores import learner_notes as store
+
+    paths, repository = build_deliverable_vault(tmp_path / "vault")
+    with repository.atomic():
+        connection = repository.connection()
+        note_id = store.insert_note(connection, {
+            "id": "ln_old", "note_key": "/n/2026-10-03.md#Eigen page", "path": "/n/2026-10-03.md",
+            "heading_path": "Eigen page", "line": 1, "content_hash": "h-old", "title": "2026-10-03",
+            "heading": "Eigen page", "captured_on": "2026-10-03", "origin": "pocket_notes",
+            "text_md": "Worked it by hand.", "truncated": 0, "created_at": "2026-10-03T09:00:00Z"})
+        store.insert_link(connection, {
+            "id": "nl_old", "note_id": note_id, "note_key": "/n/2026-10-03.md#Eigen page", "target_kind": "passage",
+            "target_key": "passage:ext_book/ch_eigen/s2", "learning_object_id": None, "extraction_id": "ext_book",
+            "section_id": "ch_eigen", "span_id": "s2", "goal_id": None, "authorship": "learner",
+            "status": "accepted", "how": None, "how_line": None, "state_key": None, "ledger_id": None,
+            "model": None, "prompt_version": None, "created_at": "2026-10-03T09:00:00Z"})
+    with repository.connection() as connection:
+        rows = store.links(connection, extraction_id="ext_book")
+    views = [NL.link_view(row, store.notes_by_id(repository.connection(), [row["note_id"]])[row["note_id"]])
+             for row in rows]
+    assert views[0]["note"]["origin"] == "pocket_notes" and views[0]["note"]["origin_label"] == NL.POCKET_NOTES_LABEL
+    # The refresh never reads a tend-era note (there is no tend): it keeps its snapshot.
+    assert NL.refresh_learner_links(load_vault(paths.root), repository) == 0
+
+
+# -- Codex review (2026-11-01, C2), adapted to the vault's notes --------------------------------------
+
+def _target(paths, repository, goal_id):
+    vault = load_vault(paths.root)
+    return vault, NL.path_targets(vault, repository, goal_id)[0]
+
+
+def _reconfigured(paths, change):
+    """The vault as it loads after the learner changed learnloop.toml (``change``: text to append)."""
+
+    toml = paths.root / "learnloop.toml"
+    original = toml.read_text(encoding="utf-8")
+    toml.write_text(original + change, encoding="utf-8")
+    try:
+        return load_vault(paths.root)
+    finally:
+        toml.write_text(original, encoding="utf-8")
+
+
+def test_f2_notes_switched_off_refuses_the_pending_request(tmp_path):
+    """Codex review F2: the run started authorized, then the learner switched the notes off
+    before the request: the request is refused at its admission (nothing sent) and nothing
+    is written."""
+
+    paths, repository, ctx, goal_id, corpus, notes = _deliverable(tmp_path)
+    vault, target = _target(paths, repository, goal_id)
+    changed = _reconfigured(paths, "[notes]\nenabled = false\n")
+    before = table_counts(repository)
+    result = NL.judge_target(vault, repository, target, client=notes, live_vault=lambda: changed)
+    assert result.status == "switched_off" and notes.calls == 0
+    assert table_counts(repository) == before
+
+
+def test_f2_switching_notes_off_during_the_request_records_nothing(tmp_path):
+    paths, repository, ctx, goal_id, corpus, _notes = _deliverable(tmp_path)
+    vault, target = _target(paths, repository, goal_id)
+    live = {"vault": vault}
+    off = _reconfigured(paths, "[notes]\nenabled = false\n")
+    notes = NoteLinkFake(on_call=lambda: live.update(vault=off))  # the learner switches off meanwhile
+    with repository.connection() as connection:
+        ledger_before = connection.execute("SELECT COUNT(*) FROM judgment_ledger").fetchone()[0]
+    result = NL.judge_target(vault, repository, target, client=notes, live_vault=lambda: live["vault"])
+    assert result.status == "switched_off" and notes.calls == 1
+    with repository.connection() as connection:
+        assert connection.execute("SELECT COUNT(*) FROM judgment_ledger").fetchone()[0] == ledger_before
+    assert _count(repository, "learner_notes") == 0 and _count(repository, "learner_note_links") == 0
+    run = NL.link_goal(vault, repository, goal_id, client=notes, live_vault=lambda: live["vault"])
+    assert run.status == "switched_off" and notes.calls == 1
+
+
+def test_f4_background_linking_completes_and_the_next_read_shows_it(tmp_path):
     from learnloop_sidecar.background_jobs import background_jobs
 
-    paths, repository, _ctx_inline, goal_id, fake_tend, corpus, notes = _deliverable(tmp_path, monkeypatch)
+    paths, repository, _ctx_inline, goal_id, corpus, notes = _deliverable(tmp_path)
     ctx = _ctx(paths, note_link_client=notes)
     ctx.notes_inline = False
     first = call(ctx, "notes.path", {"goal_id": goal_id})
@@ -423,106 +381,46 @@ def test_f4_background_linking_completes_and_the_next_read_shows_it(tmp_path, mo
     for thread in background_jobs(ctx).running:
         thread.join(timeout=60)
     after = call(ctx, "notes.path", {"goal_id": goal_id})
-    assert after["linking"] == "done" and {line["note"]["heading"] for line in _lines(after)} == {"Eigen stuff", "Eigen page"}
+    assert after["linking"] == "done" and _keys(_lines(after)) == {corpus["typed"], corpus["captured"]}
     assert notes.calls == 1
 
 
-def test_f6_undo_shows_the_current_proposal_not_the_one_hidden(tmp_path, monkeypatch):
-    """Codex review F6: hide, the note changes and is judged again, then undo: the topic
-    shows the current proposal (its new text), still the model's link."""
-
-    paths, repository, ctx, goal_id, fake_tend, corpus, notes = _deliverable(tmp_path, monkeypatch)
+def test_f6_undo_shows_the_current_proposal_not_the_one_hidden(tmp_path):
+    paths, repository, ctx, goal_id, corpus, notes = _deliverable(tmp_path)
     typed = next(line for line in _lines(call(ctx, "notes.path", {"goal_id": goal_id}))
-                 if line["note"]["heading"] == "Eigen stuff")
+                 if line["noteKey"] == corpus["typed"])
     hidden = call(ctx, "notes.decide", {"link_id": typed["linkId"], "choice": "hide"})
-    entry = next(e for e in fake_tend.entries if e["hit"]["heading"] == "Eigen stuff")
-    entry["hit"]["hash"] = "h-edited"
-    fake_tend.save()
-    note_file = Path(entry["hit"]["path"])
-    note_file.write_text(note_file.read_text(encoding="utf-8").replace("* Other", "Edited after the hide.\n* Other"),
-                         encoding="utf-8")
+    edit_annotation(repository, _ref(corpus["typed"]), "Eigenvalues: Av = lv. Edited after the hide.")
     call(ctx, "notes.path", {"goal_id": goal_id, "retry": True})
     assert notes.calls == 2
     call(ctx, "notes.decide", {"link_id": hidden["linkId"], "choice": "keep"})
-    kept = {line["note"]["heading"]: line for line in _lines(call(ctx, "notes.path", {"goal_id": goal_id, "link": False}))}
-    assert "Edited after the hide." in kept["Eigen stuff"]["note"]["text"]
-    assert kept["Eigen stuff"]["authorship"] == "ai" and kept["Eigen stuff"]["linkId"] != typed["linkId"]
-    marks = call(ctx, "notes.marks", {"extraction_id": "ext_book"})["marks"]
-    assert all(note["extractionId"] == "ext_book" for mark in marks for note in mark["notes"])
+    kept = {line["noteKey"]: line for line in _lines(call(ctx, "notes.path", {"goal_id": goal_id, "link": False}))}
+    assert "Edited after the hide." in kept[corpus["typed"]]["note"]["text"]
+    assert kept[corpus["typed"]]["authorship"] == "ai" and kept[corpus["typed"]]["linkId"] != typed["linkId"]
 
 
-def test_f6_a_kept_proposal_follows_the_topic_to_its_new_passage(tmp_path, monkeypatch):
-    """Codex review F6: the learner's keep on a proposal anchored in one reading never shows
-    in another reading's marks with its old anchor; the topic's current proposal does."""
-
-    from learnloop.db.stores import learner_notes as store
-    from learnloop.db.stores.judgments import append_judgment
-
-    paths, repository, ctx, goal_id, fake_tend, corpus, notes = _deliverable(tmp_path, monkeypatch)
-    typed = next(line for line in _lines(call(ctx, "notes.path", {"goal_id": goal_id}))
-                 if line["note"]["heading"] == "Eigen stuff")
-    hidden = call(ctx, "notes.decide", {"link_id": typed["linkId"], "choice": "hide"})
-    call(ctx, "notes.decide", {"link_id": hidden["linkId"], "choice": "keep"})
-    # The topic is judged again at another reading (its primary passage moved): state S2.
-    with repository.atomic():
-        connection = repository.connection()
-        old = next(row for row in store.links(connection) if row["id"] == typed["linkId"])
-        ledger = append_judgment(connection, task=NL.LEDGER_TASK, left_kind="learning_object", left_id="lo_eigen",
-                                 right_kind="learner_note", right_id=NL.opaque(old["note_key"]), judge="llm",
-                                 judge_model="m", prompt_version=NL.PROMPT_VERSION, input_hash="S2",
-                                 verdict="discusses", rationale="{}", created_at="2099-01-01T00:00:00+00:00")
-        store.insert_link(connection, {**old, "id": "nl_s2", "extraction_id": "ext_other", "section_id": "sec_o",
-                                       "span_id": "o1", "target_key": "passage:ext_other/sec_o/o1", "state_key": "S2",
-                                       "ledger_id": ledger, "created_at": "2099-01-01T00:00:00+00:00"})
-        append_judgment(connection, task=NL.SHOWN_TASK, left_kind=NL.SHOWN_LEFT,
-                        left_id=store.topic_key(goal_id, "lo_eigen"), right_kind="learning_object", right_id="lo_eigen",
-                        judge="exact_key", prompt_version=NL.SHOWN_VERSION, input_hash="S2", verdict="shown",
-                        rationale=json.dumps({"goal_id": goal_id, "learning_object_id": "lo_eigen"}),
-                        created_at="2099-01-01T00:00:00+00:00")
-    vault = load_vault(paths.root)
-    other = NL.effective(repository, store.links(repository.connection(), extraction_id="ext_other"))
-    assert [(view["link_id"], view["extraction_id"]) for view in other] == [("nl_s2", "ext_other")]
-    assert NL.marks(vault, repository, "ext_book") == []  # the old anchor shows nothing now
-
-
-def _corpus_entry(fake_tend, heading):
-    return next(e for e in fake_tend.entries if e["hit"]["heading"] == heading)
-
-
-def test_f7_returning_to_a_judged_state_shows_that_states_links_without_a_call(tmp_path, monkeypatch):
-    """Codex review F7: state A links two notes, state B one; back to A, A's links show
-    again (no new call); with no candidates at all, nothing shows."""
-
-    paths, repository, ctx, goal_id, fake_tend, corpus, notes = _deliverable(tmp_path, monkeypatch)
-    heads = lambda out: sorted(line["note"]["heading"] for line in _lines(out))  # noqa: E731
-    assert heads(call(ctx, "notes.path", {"goal_id": goal_id})) == ["Eigen page", "Eigen stuff"]
-    entry = _corpus_entry(fake_tend, "Eigen stuff")
-    note_file = Path(entry["hit"]["path"])
-    text_a, hash_a = note_file.read_text(encoding="utf-8"), entry["hit"]["hash"]
-    note_file.write_text(text_a.replace("Av = lv", "something else"), encoding="utf-8")
-    entry["hit"]["hash"] = "h-b"
-    fake_tend.save()
-    assert heads(call(ctx, "notes.path", {"goal_id": goal_id, "retry": True})) == ["Eigen page"]  # state B
-    note_file.write_text(text_a, encoding="utf-8")
-    entry["hit"]["hash"] = hash_a
-    fake_tend.save()
-    assert heads(call(ctx, "notes.path", {"goal_id": goal_id, "retry": True})) == ["Eigen page", "Eigen stuff"]
+def test_f7_returning_to_a_judged_state_shows_that_states_links_without_a_call(tmp_path):
+    paths, repository, ctx, goal_id, corpus, notes = _deliverable(tmp_path)
+    keys = lambda out: _keys(_lines(out))  # noqa: E731
+    both = {corpus["typed"], corpus["captured"]}
+    assert keys(call(ctx, "notes.path", {"goal_id": goal_id})) == both
+    original = f"Eigenvalues: Av = lv, so det(A - lI) = 0. {SENTINEL}"
+    edit_annotation(repository, _ref(corpus["typed"]), "Eigenvalues: something else.")
+    assert keys(call(ctx, "notes.path", {"goal_id": goal_id, "retry": True})) == {corpus["captured"]}  # state B
+    edit_annotation(repository, _ref(corpus["typed"]), original)
+    assert keys(call(ctx, "notes.path", {"goal_id": goal_id, "retry": True})) == both
     assert notes.calls == 2  # A again was not paid again
-    marks = call(ctx, "notes.marks", {"extraction_id": "ext_book"})["marks"]
-    assert sorted(n["note"]["heading"] for m in marks for n in m["notes"]) == ["Eigen page", "Eigen stuff"]
-    for item in fake_tend.entries:
-        item["words"] = ["nothing-matches-this"]
-    fake_tend.save()
-    assert heads(call(ctx, "notes.path", {"goal_id": goal_id, "retry": True})) == []
+    # No candidates at all: nothing shows.
+    delete_annotation(repository, _ref(corpus["typed"]))
+    dismiss_capture(repository, _ref(corpus["captured"]))
+    dismiss_capture(repository, _ref(corpus["unrelated"]))
+    assert keys(call(ctx, "notes.path", {"goal_id": goal_id, "retry": True})) == set()
     assert call(ctx, "notes.marks", {"extraction_id": "ext_book"})["marks"] == []
 
 
-def _link_pocket_by_hand(ctx, fake_tend):
-    hit = next(h for h in call(ctx, "notes.search", {"query": "my eigenvalues page"})["hits"]
-               if h["heading"] == "Eigen page")
-    return call(ctx, "notes.link", {"note": {"path": hit["path"], "line": hit["line"], "heading_path": hit["headingPath"],
-                                             "title": hit["title"], "content_hash": hit["contentHash"],
-                                             "mtime": hit["mtime"]}, "extraction_id": "ext_book", "span_id": "s2"})
+def _link_typed_by_hand(ctx, corpus):
+    return call(ctx, "notes.link", {"note": {"note_key": corpus["typed"]}, "extraction_id": "ext_book",
+                                    "span_id": "s2"})
 
 
 def _hand_texts(ctx):
@@ -530,80 +428,41 @@ def _hand_texts(ctx):
     return [n["note"]["text"] for m in marks for n in m["notes"] if n["byLabel"] == NL.BY_YOU_LABEL]
 
 
-def test_f8_refresh_finds_the_heading_again_before_reading_it(tmp_path, monkeypatch):
-    """Codex review F8: a heading inserted above the linked one moves it; the refresh finds
-    it again through tend (words only) and never snapshots the new heading's text; when
-    tend no longer finds it, the link keeps its last snapshot."""
-
-    paths, repository, ctx, goal_id, fake_tend, corpus, notes = _deliverable(tmp_path, monkeypatch)
-    _link_pocket_by_hand(ctx, fake_tend)
-    entry = _corpus_entry(fake_tend, "Eigen page")
-    Path(entry["hit"]["path"]).write_text("# New top\nUnrelated top text here.\n# Eigen page\nWorked it again, redone.\n",
-                                          encoding="utf-8")
-    # tend has not re-indexed yet: the stored line (1) now opens "New top". Nothing is refreshed.
+def test_refresh_reads_a_hand_linked_note_again_from_the_vault(tmp_path):
+    paths, repository, ctx, goal_id, corpus, notes = _deliverable(tmp_path)
+    _link_typed_by_hand(ctx, corpus)
     vault = load_vault(paths.root)
-    assert NL.refresh_learner_links(vault, repository, settings=NL.tend_settings(vault)) == 0
-    assert all("Unrelated top text" not in text for text in _hand_texts(ctx))
-    # tend re-indexed: the heading is at line 3 and found again by a words-only search.
-    entry["hit"].update(line=3, hash="h-moved")
-    entry["words"] = ["eigenvalues", "eigen page"]
-    fake_tend.save()
-    assert NL.refresh_learner_links(vault, repository, settings=NL.tend_settings(vault)) == 1
-    assert "--words" in fake_tend.calls()[-2]  # the resolving search never leaves the machine
-    texts = _hand_texts(ctx)
-    assert texts and all("redone" in text and "Unrelated top text" not in text for text in texts)
+    assert NL.refresh_learner_links(vault, repository) == 0  # unchanged
+    edit_annotation(repository, _ref(corpus["typed"]), "Rewritten: Av = lv, redone.")
+    assert NL.refresh_learner_links(vault, repository) == 1
+    assert all("redone" in text for text in _hand_texts(ctx))
     assert _count(repository, "learner_note_links") == 1  # refreshing writes no link row
-    # Not found any more: the last snapshot stays.
-    entry["words"] = ["nothing-matches-this"]
-    fake_tend.save()
-    Path(entry["hit"]["path"]).write_text("# Eigen page\nChanged once more.\n", encoding="utf-8")
-    assert NL.refresh_learner_links(vault, repository, settings=NL.tend_settings(vault)) == 0
+    # Deleted from the Reader: the last snapshot stays.
+    delete_annotation(repository, _ref(corpus["typed"]))
+    assert NL.refresh_learner_links(vault, repository) == 0
     assert all("redone" in text for text in _hand_texts(ctx))
 
 
-def test_f8_a_stale_line_that_opens_another_heading_is_never_read_as_the_note(tmp_path, monkeypatch):
-    fake_tend = install_fake_tend(tmp_path / "tend", monkeypatch)
-    corpus = eigen_corpus(fake_tend)
-    path = Path(corpus["pocket"]["path"])
-    path.write_text("# New top\nUnrelated top text here.\n# Eigen page\nWorked it.\n", encoding="utf-8")
-    stale = NT.NoteHit(path=str(path.resolve()), heading_path="Eigen page", title="2026-10-03", line=1, snippet="",
-                       content_hash="", mtime=0.0, via="", origin="pocket_notes")
-    assert NT.read_sections(_settings(fake_tend), [stale]) == {}
-    moved = NT.read_sections(_settings(fake_tend), [NT.NoteHit(**{**stale.__dict__, "line": 3})])
-    assert [text.text for text in moved.values()] == ["# Eigen page\nWorked it."]
-    assert NT.heading_text("** TODO Eigen stuff   :math:", org=True) == "Eigen stuff"
-    assert NT.heading_text("## Eigen page ##", org=False) == "Eigen page"
-    assert NT.heading_text("plain text", org=False) is None
-
-
 def test_f9_a_link_hidden_during_the_refresh_stays_hidden(tmp_path, monkeypatch):
-    """Codex review F9: the refresh read the learner's link, then (during its slow tend
-    read) the learner hid it: the refresh writes nothing and the link stays hidden."""
+    paths, repository, ctx, goal_id, corpus, notes = _deliverable(tmp_path)
+    out = _link_typed_by_hand(ctx, corpus)
+    edit_annotation(repository, _ref(corpus["typed"]), "Changed: Av = lv.")
+    real_read = VN.read_many
 
-    paths, repository, ctx, goal_id, fake_tend, corpus, notes = _deliverable(tmp_path, monkeypatch)
-    out = _link_pocket_by_hand(ctx, fake_tend)
-    entry = _corpus_entry(fake_tend, "Eigen page")
-    entry["words"] = ["eigenvalues", "eigen page"]
-    entry["hit"]["hash"] = "h-changed"
-    fake_tend.save()
-    Path(entry["hit"]["path"]).write_text("# Eigen page\nWorked the 2x2 eigen example by hand, changed.\n",
-                                          encoding="utf-8")
-    real_read = NT.read_sections
-
-    def read_while_hiding(settings, hits):
+    def read_while_hiding(*args, **kwargs):
         call(ctx, "notes.decide", {"link_id": out["linkId"], "choice": "hide"})
-        return real_read(settings, hits)
+        return real_read(*args, **kwargs)
 
-    monkeypatch.setattr(NL.NT, "read_sections", read_while_hiding)
+    monkeypatch.setattr(VN, "read_many", read_while_hiding)
     vault = load_vault(paths.root)
     links_before = _count(repository, "learner_note_links")
-    assert NL.refresh_learner_links(vault, repository, settings=NL.tend_settings(vault)) == 0
+    assert NL.refresh_learner_links(vault, repository) == 0
     with repository.connection() as connection:
         rows = connection.execute("SELECT authorship, status FROM learner_note_links ORDER BY created_at, rowid").fetchall()
-    assert len(rows) == links_before + 1 and tuple(rows[-1]) == ("learner", "rejected")  # the hide only: no new acceptance
+    assert len(rows) == links_before + 1 and tuple(rows[-1]) == ("learner", "rejected")
     assert _count(repository, "learner_notes") == 1  # nothing snapshotted for a hidden link
-    monkeypatch.setattr(NL.NT, "read_sections", real_read)
-    assert _hand_texts(ctx) == []  # hidden, and it stays hidden
+    monkeypatch.setattr(VN, "read_many", real_read)
+    assert _hand_texts(ctx) == []
 
 
 def _drop_first(verdicts):
@@ -624,13 +483,9 @@ def _discusses_without_how(verdicts):
 
 @pytest.mark.parametrize("shape", [lambda verdicts: [], _drop_first, _twice, _unknown, _discusses_without_how],
                          ids=["empty", "omitted", "duplicate", "unknown", "discusses_without_how"])
-def test_f12_an_incomplete_answer_is_never_recorded_or_cached(tmp_path, monkeypatch, shape):
-    """Codex review F12: an answer without exactly one verdict per candidate (or a
-    ``discusses`` without how) is not read as ``unrelated``: nothing is recorded, nothing
-    checkpointed, and the next run asks again."""
-
+def test_f12_an_incomplete_answer_is_never_recorded_or_cached(tmp_path, shape):
     notes = NoteLinkFake(shape=shape)
-    paths, repository, ctx, goal_id, fake_tend, corpus, _notes = _deliverable(tmp_path, monkeypatch, notes=notes)
+    paths, repository, ctx, goal_id, corpus, _notes = _deliverable(tmp_path, notes=notes)
     out = call(ctx, "notes.path", {"goal_id": goal_id})
     assert out["linking"] == "waiting" and _lines(out) == [] and notes.calls >= 1
     with repository.connection() as connection:
@@ -641,7 +496,7 @@ def test_f12_an_incomplete_answer_is_never_recorded_or_cached(tmp_path, monkeypa
     calls = notes.calls
     notes.shape = None
     again = call(ctx, "notes.path", {"goal_id": goal_id, "retry": True})
-    assert notes.calls == calls + 1 and {line["note"]["heading"] for line in _lines(again)} == {"Eigen stuff", "Eigen page"}
+    assert notes.calls == calls + 1 and _keys(_lines(again)) == {corpus["typed"], corpus["captured"]}
 
 
 def test_f12_verdict_problem_names_each_defect():
@@ -655,8 +510,6 @@ def test_f12_verdict_problem_names_each_defect():
     good = NL.NoteLinkOutputV1.model_validate({"notes": [{"note": "n1", "verdict": "unrelated"}]})
     assert NL.verdict_problem(good, ["n1"]) is None
 
-
-# -- Codex re-review (2026-11-01) --------------------------------------------------------------------
 
 class _Published:
     """A loaded-vault provider shaped as the sidecar's (``snapshot()`` and a
@@ -679,10 +532,9 @@ class _Published:
 
 
 def _reload_during_notes_reading(monkeypatch, provider, to):
-    """Publish ``to`` right after the guard reads the notes settings for the ``at``-th time
-    (a reload landing between the notes reading and the admission it decides)."""
+    """Publish ``to`` right after the guard reads the notes switch for the ``at``-th time."""
 
-    real = NL.tend_settings
+    real = NL.enabled
     plan = {"at": None, "readings": 0}
 
     def reading(vault):
@@ -692,39 +544,18 @@ def _reload_during_notes_reading(monkeypatch, provider, to):
             provider.publish(to)
         return out
 
-    monkeypatch.setattr(NL, "tend_settings", reading)
+    monkeypatch.setattr(NL, "enabled", reading)
     return plan
 
 
-def test_re_f2_a_reload_during_the_requests_admission_refuses_it(tmp_path, monkeypatch):
-    """Codex re-review F2: the notes were read on one published snapshot and a reload that
-    switches them off is published before the protection check reads the next: both are
-    judged on one snapshot, so the request is refused and nothing is sent or written."""
-
-    paths, repository, ctx, goal_id, fake_tend, corpus, notes = _deliverable(tmp_path, monkeypatch)
-    vault, target = _target(paths, repository, goal_id)
-    settings = NL.tend_settings(vault)
-    provider = _Published(vault)
-    plan = _reload_during_notes_reading(monkeypatch, provider, _reconfigured(paths, "[notes]\nenabled = false\n"))
-    plan["at"] = 1  # the request's admission (the fake client is gated once, before its call)
-    before = table_counts(repository)
-    result = NL.judge_target(vault, repository, target, settings=settings, client=notes, live_vault=provider)
-    assert result.status == "switched_off" and notes.calls == 0
-    assert table_counts(repository) == before
-
-
 def test_re_f2_the_composed_gate_admits_on_one_snapshot(tmp_path, monkeypatch):
-    """The request gate itself (a real transport's admission of each physical request):
-    a reload published between the notes reading and the protection check is refused,
-    and every later admission and record of the judgment is refused too."""
-
     from learnloop.source_retrieval import section_coverage as SC
 
-    paths, repository, ctx, goal_id, fake_tend, corpus, notes = _deliverable(tmp_path, monkeypatch)
+    paths, repository, ctx, goal_id, corpus, notes = _deliverable(tmp_path)
     vault, target = _target(paths, repository, goal_id)
     provider = _Published(vault)
     plan = _reload_during_notes_reading(monkeypatch, provider, _reconfigured(paths, "[notes]\nenabled = false\n"))
-    guard = NL.NotesGuard(vault, NL.tend_settings(vault), live_vault=provider).with_coverage(
+    guard = NL.NotesGuard(vault, live_vault=provider).with_coverage(
         SC.Library(vault, repository), [(target.extraction_id, target.section_id)])
     plan["at"] = plan["readings"] + 1  # the admission's notes reading
     with pytest.raises(NL.NotesSwitchedOff):
@@ -736,179 +567,89 @@ def test_re_f2_the_composed_gate_admits_on_one_snapshot(tmp_path, monkeypatch):
         guard.check_notes("recording which notes show")
 
 
-def test_re_f2_a_reload_during_the_records_check_records_nothing(tmp_path, monkeypatch):
-    """Codex re-review F2 (persistence): the answer came back, then a reload switching the
-    notes off is published while the record's check reads the notes settings: nothing is
-    written."""
-
-    paths, repository, ctx, goal_id, fake_tend, corpus, _notes = _deliverable(tmp_path, monkeypatch)
-    vault, target = _target(paths, repository, goal_id)
-    settings = NL.tend_settings(vault)
-    provider = _Published(vault)
-    plan = _reload_during_notes_reading(monkeypatch, provider, _reconfigured(paths, "[notes]\nenabled = false\n"))
-    notes = NoteLinkFake(on_call=lambda: plan.update(at=plan["readings"] + 1))  # the next reading: the record's
-    with repository.connection() as connection:
-        ledger_before = connection.execute("SELECT COUNT(*) FROM judgment_ledger").fetchone()[0]
-    result = NL.judge_target(vault, repository, target, settings=settings, client=notes, live_vault=provider)
-    assert result.status == "switched_off" and notes.calls == 1
-    with repository.connection() as connection:
-        assert connection.execute("SELECT COUNT(*) FROM judgment_ledger").fetchone()[0] == ledger_before
-    assert _count(repository, "learner_notes") == 0 and _count(repository, "learner_note_links") == 0
-
-
 def test_re_f2_an_unchanged_reload_still_links(tmp_path, monkeypatch):
-    """A reload that changes nothing the notes depend on is read again and admitted."""
-
-    paths, repository, ctx, goal_id, fake_tend, corpus, notes = _deliverable(tmp_path, monkeypatch)
+    paths, repository, ctx, goal_id, corpus, notes = _deliverable(tmp_path)
     vault, target = _target(paths, repository, goal_id)
     provider = _Published(vault)
     plan = _reload_during_notes_reading(monkeypatch, provider, load_vault(paths.root))
     plan["at"] = 2
-    result = NL.judge_target(vault, repository, target, settings=NL.tend_settings(vault), client=notes,
-                             live_vault=provider)
+    result = NL.judge_target(vault, repository, target, client=notes, live_vault=provider)
     assert result.status == "linked" and notes.calls == 1
 
 
-def _set_note(fake_tend, entry, text, content_hash):
-    Path(entry["hit"]["path"]).write_text(text, encoding="utf-8")
-    entry["hit"]["hash"] = content_hash
-    fake_tend.save()
-
-
-def test_re_f13_a_note_linked_by_hand_changed_and_changed_back_shows_its_text_now(tmp_path, monkeypatch):
-    """Codex re-review F13: a note linked by hand reads A, then B, then A again: the link
-    shows A (the snapshot read last), A's snapshot is reused (no new row) and no link row
-    (no new acceptance) is written."""
-
-    paths, repository, ctx, goal_id, fake_tend, corpus, notes = _deliverable(tmp_path, monkeypatch)
-    _link_pocket_by_hand(ctx, fake_tend)
-    entry = _corpus_entry(fake_tend, "Eigen page")
-    entry["words"] = ["eigenvalues", "eigen page"]
-    text_a, hash_a = Path(entry["hit"]["path"]).read_text(encoding="utf-8"), entry["hit"]["hash"]
+def test_re_f13_a_note_linked_by_hand_changed_and_changed_back_shows_its_text_now(tmp_path):
+    paths, repository, ctx, goal_id, corpus, notes = _deliverable(tmp_path)
+    _link_typed_by_hand(ctx, corpus)
+    original = f"Eigenvalues: Av = lv, so det(A - lI) = 0. {SENTINEL}"
     vault = load_vault(paths.root)
-    refresh = lambda: NL.refresh_learner_links(vault, repository, settings=NL.tend_settings(vault))  # noqa: E731
-    _set_note(fake_tend, entry, "# Eigen page\nVersion B of the page.\n", "h-b")
+    refresh = lambda: NL.refresh_learner_links(vault, repository)  # noqa: E731
+    edit_annotation(repository, _ref(corpus["typed"]), "Version B of the note.")
     assert refresh() == 1 and all("Version B" in text for text in _hand_texts(ctx))
-    _set_note(fake_tend, entry, text_a, hash_a)
+    edit_annotation(repository, _ref(corpus["typed"]), original)
     assert refresh() == 1
     texts = _hand_texts(ctx)
-    assert texts and all("Worked the 2x2 eigen example" in text and "Version B" not in text for text in texts)
+    assert texts and all(SENTINEL in text and "Version B" not in text for text in texts)
     assert _count(repository, "learner_notes") == 2 and _count(repository, "learner_note_links") == 1
-    assert refresh() == 0  # unchanged since: nothing more is written
-    _set_note(fake_tend, entry, "# Eigen page\nVersion B of the page.\n", "h-b")
-    assert refresh() == 1 and all("Version B" in text for text in _hand_texts(ctx))
-    assert _count(repository, "learner_notes") == 2 and _count(repository, "learner_note_links") == 1
-
-
-def _tend_searches(fake_tend) -> int:
-    return sum(1 for argv in fake_tend.calls() if "search" in argv)
+    assert refresh() == 0
 
 
 def test_re_f14_a_waiting_run_is_not_restarted_by_every_read(tmp_path, monkeypatch):
-    """Codex re-review F14: a run that waits is not restarted by the reads that poll it
-    (each would search tend again, and the next poll would come at the running cadence):
-    only once the wait has passed, or when the learner asks again (``retry``)."""
-
     from learnloop_sidecar.handlers import notes as NH
 
-    metered = MeteredNoteLinkFake()
-    paths, repository, ctx, goal_id, fake_tend, corpus, _notes = _deliverable(tmp_path, monkeypatch, notes=metered)
+    metered = MeteredNoteLinkFake()  # unpriced: the run waits
+    paths, repository, ctx, goal_id, corpus, _notes = _deliverable(tmp_path, notes=metered)
+    searches = {"n": 0}
+    real = VN.notes
+
+    def counted(*args, **kwargs):
+        searches["n"] += 1
+        return real(*args, **kwargs)
+
+    monkeypatch.setattr(VN, "notes", counted)
     clock = {"now": 1000.0}
     monkeypatch.setattr(NH, "_monotonic", lambda: clock["now"])
     assert call(ctx, "notes.path", {"goal_id": goal_id})["linking"] == "waiting"
-    searches = _tend_searches(fake_tend)
-    assert searches > 0
+    seen = searches["n"]
+    assert seen > 0
     for _poll in range(3):
         assert call(ctx, "notes.path", {"goal_id": goal_id})["linking"] == "waiting"
-    assert _tend_searches(fake_tend) == searches  # the polls restarted nothing
+    assert searches["n"] == seen
     clock["now"] += NL.WAITING_RETRY_SECONDS
     assert call(ctx, "notes.path", {"goal_id": goal_id})["linking"] == "waiting"
-    assert _tend_searches(fake_tend) > searches  # the wait passed: tried again once
-    searches = _tend_searches(fake_tend)
-    assert call(ctx, "notes.path", {"goal_id": goal_id})["linking"] == "waiting"
-    assert _tend_searches(fake_tend) == searches
+    assert searches["n"] > seen
+    seen = searches["n"]
     assert call(ctx, "notes.path", {"goal_id": goal_id, "retry": True})["linking"] == "waiting"
-    assert _tend_searches(fake_tend) > searches  # asked again: tried now
-    assert metered.calls == 0
+    assert searches["n"] > seen and metered.calls == 0
 
 
-# -- Codex round 3 (F13 reopened): only a refresh read advances the current snapshot -------------
-
-def test_re3_f13_a_delayed_judgment_never_makes_its_snapshot_current_again(tmp_path, monkeypatch):
-    """Codex round 3, F13: the learner linked note A by hand; a background judgment reads A
-    and is held; the note changes to B and a concurrent refresh shows B; the judgment of A
-    is then recorded. Recording a model's proposal never advances the current-snapshot
-    marker, so the hand link still shows B (no later refresh is needed: ``link_goal`` may
-    stop at a topic that waits). The model's proposal keeps the snapshot it judged (A)."""
-
-    paths, repository, ctx, goal_id, fake_tend, corpus, notes = _deliverable(tmp_path, monkeypatch)
-    _link_pocket_by_hand(ctx, fake_tend)
-    entry = _corpus_entry(fake_tend, "Eigen page")
-    entry["words"] = ["eigenvalues", "eigen page"]
-    fake_tend.save()
+def test_re3_f13_a_delayed_judgment_never_makes_its_snapshot_current_again(tmp_path):
+    paths, repository, ctx, goal_id, corpus, notes = _deliverable(tmp_path)
+    _link_typed_by_hand(ctx, corpus)
     vault, target = _target(paths, repository, goal_id)
     refreshed: list[int] = []
 
     def meanwhile():  # the judgment of A is held here, at the model
-        _set_note(fake_tend, entry, "# Eigen page\nVersion B of the page.\n", "h-b")
-        refreshed.append(NL.refresh_learner_links(vault, repository, settings=NL.tend_settings(vault)))
+        edit_annotation(repository, _ref(corpus["typed"]), "Version B: Av = lv.")
+        refreshed.append(NL.refresh_learner_links(vault, repository))
 
     notes.on_call = meanwhile
-    result = NL.judge_target(vault, repository, target, settings=NL.tend_settings(vault), client=notes)
+    result = NL.judge_target(vault, repository, target, client=notes)
     assert result.status == "linked" and notes.calls == 1 and refreshed == [1]
     texts = _hand_texts(ctx)
-    assert texts and all("Version B" in text for text in texts)  # the newer read still shows
-    # The model's proposal shows the snapshot it judged.
+    assert texts and all("Version B" in text for text in texts)
     proposed = [line for line in _lines(call(ctx, "notes.path", {"goal_id": goal_id, "link": False}))
-                if line["authorship"] == "ai" and line["note"]["heading"] == "Eigen page"]
-    assert proposed and "Worked the 2x2 eigen example" in proposed[0]["note"]["text"]
+                if line["authorship"] == "ai" and line["noteKey"] == corpus["typed"]]
+    assert proposed and SENTINEL in proposed[0]["note"]["text"]
     with repository.connection() as connection:
         markers = connection.execute("SELECT COUNT(*) FROM judgment_ledger WHERE task = ?",
                                      (NL.CURRENT_TASK,)).fetchone()[0]
-    assert markers == 2  # the hand link's read (A) and the refresh's (B); none for the proposal
+    assert markers == 2
 
 
-def test_re3_f13_a_refresh_whose_marker_was_advanced_meanwhile_writes_nothing(tmp_path, monkeypatch):
-    """Codex round 3, F13 (compare-and-set): a refresh observes the current snapshot (A),
-    reads B slowly; meanwhile the note changes to C and another refresh shows C. The slow
-    refresh's write finds the marker advanced past what it observed and writes nothing."""
-
-    paths, repository, ctx, goal_id, fake_tend, corpus, notes = _deliverable(tmp_path, monkeypatch)
-    _link_pocket_by_hand(ctx, fake_tend)
-    entry = _corpus_entry(fake_tend, "Eigen page")
-    entry["words"] = ["eigenvalues", "eigen page"]
-    _set_note(fake_tend, entry, "# Eigen page\nVersion B of the page.\n", "h-b")
-    vault = load_vault(paths.root)
-    refresh = lambda: NL.refresh_learner_links(vault, repository, settings=NL.tend_settings(vault))  # noqa: E731
-    real_read = NT.read_sections
-    inner: list[int] = []
-
-    def slow_read(settings, hits):
-        result = real_read(settings, hits)  # B, read before the note changed again
-        monkeypatch.setattr(NL.NT, "read_sections", real_read)
-        _set_note(fake_tend, entry, "# Eigen page\nVersion C of the page.\n", "h-c")
-        inner.append(refresh())
-        return result
-
-    monkeypatch.setattr(NL.NT, "read_sections", slow_read)
-    assert refresh() == 0 and inner == [1]
-    texts = _hand_texts(ctx)
-    assert texts and all("Version C" in text for text in texts)
-    with repository.connection() as connection:
-        stored = [row[0] for row in connection.execute("SELECT text_md FROM learner_notes")]
-    assert not any("Version B" in text for text in stored)  # the obsolete read stored nothing
-
-
-# -- Landing: CoverageGuard's two hooks (C1's gate, C2's also) on one guard -----------------------
-
-def test_landing_the_coverage_guard_composes_c1s_gate_and_c2s_also(tmp_path, monkeypatch):
-    """Main's C1 ``gate`` and C2's ``also`` on one CoverageGuard, both judged on the same
-    published snapshot: open gate and no refusal admit; a closed gate raises GateClosed; a
-    refusing ``also`` raises its own refusal (judged first, so it wins over a closed gate)."""
-
+def test_landing_the_coverage_guard_composes_c1s_gate_and_c2s_also(tmp_path):
     from learnloop.source_retrieval import section_coverage as SC
 
-    paths, repository, ctx, goal_id, fake_tend, corpus, notes = _deliverable(tmp_path, monkeypatch)
+    paths, repository, ctx, goal_id, corpus, notes = _deliverable(tmp_path)
     vault, target = _target(paths, repository, goal_id)
     library = SC.Library(vault, repository)
     keys = [(target.extraction_id, target.section_id)]
@@ -918,15 +659,23 @@ def test_landing_the_coverage_guard_composes_c1s_gate_and_c2s_also(tmp_path, mon
         return SC.CoverageGuard(library, keys, live_vault=provider, gate=lambda _vault: gate,
                                 also=lambda _vault: also, also_refusal=NL.NotesSwitchedOff)
 
-    guard(True, None).check("request")  # admitted
+    guard(True, None).check("request")
     with pytest.raises(SC.GateClosed):
         guard(False, None).check("request")
     with pytest.raises(NL.NotesSwitchedOff):
         guard(True, "notes switched off").check("request")
-    with pytest.raises(NL.NotesSwitchedOff):
-        guard(False, "notes switched off").check("request")
     closed = guard(False, None)
     with pytest.raises(SC.GateClosed):
         closed.admit(notes, purpose="request", prompt="p", budget=None)
-    with pytest.raises(SC.GateClosed):  # the first refusal stands for the rest of the judgment
+    with pytest.raises(SC.GateClosed):
         closed.check("record")
+
+
+def test_a_capture_is_a_note_and_a_dismissed_one_is_not(tmp_path):
+    paths, repository = build_deliverable_vault(tmp_path / "vault")
+    kept = add_capture(repository, "Spectral theorem: symmetric means orthogonal eigenvectors.")
+    gone = add_capture(repository, "Spectral idea I dismissed.")
+    dismiss_capture(repository, gone)
+    vault = load_vault(paths.root)
+    keys = {note.note_key for note in VN.notes(vault, repository)}
+    assert f"capture:{kept}" in keys and f"capture:{gone}" not in keys
