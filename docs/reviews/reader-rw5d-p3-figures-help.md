@@ -135,3 +135,101 @@ Every pytest, vitest, npm and cargo command ran inside `systemd-run --user --sco
 5. **The workbench's Reader-side host** (`reader.ask` inside a bound workbench) is not wired. The practice screen's inline panel under a step is. RW2c's passage draw including a kept figure (§11.4 "Reader-side draw") is owned by RW2c's switch and not built.
 6. **The overlap measure is coarse.** The existing tutor measure is token-based, so a figure about P(X ≤ 0) shows about 0.5 overlap against a key about P(X ≤ 1/2). Reveals, and so auto-priming, will fire on topical figures as they do for hints and tutor answers. This is the spec's rule ("the existing overlap check"); flagged for the owner's checkpoint.
 7. **Owner checkpoint (spec):** one real show me in the practice panel on a `fixtures-local` copy with the plan route. Not run here (no live calls in this stage).
+
+## Landing onto main
+
+### Step 0 (structural simplification, stuck-loop rule)
+
+The third Codex round (job `20261101-225210-5u2jBM`) reopened F1, F2, F10 and F12 (in its legacy-payload variant) and added F13. It was the third round on the rich-figure-in-attempt classes, so the orchestrator ruled a structural simplification instead of a fourth fix round (commit `63f2337c4d`; the details are in the Codex review record, "Third review and step 0"):
+
+- **Grammar and sketch only.** An attempt host (the answer box, a workbench step, the chooser's `explore_figure` during an open attempt, feedback) has no rich spawner. The author's menu therefore has no rich tier, no rich job starts and no view carries a fuller version.
+- **Refused at the RPC:** `figure.open` (a Manim figure; it no longer takes `richJobId`), `reader.figure_revise` on an attempt host (a rich figure), `figure.rich_retry` (an attempt-hosted job), the record and the chooser's precondition.
+- **Refused at worker admission:** `rich.attempt_hosted_job` reads the payload flag or, for a legacy payload, the stored request's host. It fails closed and stops the job before any model request.
+- **Removed:** the attempt-host rich polling, "open here", the fuller opening and the fuller revision paths, from the panel and its controller.
+- **Reveal scan:** reverted to the base scan (text keys, a sketch's literals, a grammar figure's values as formatted). The Manim/JS scan and its three registered bounds are gone.
+- **Regressions, written first:** 5 pytest (all failed on `5423f57539`) and 2 vitest. They cover: an attempt-host rich request is refused; a legacy queued job stops; a sketch or grammar figure on an attempt is still counted once; and F13.
+
+### Merges
+
+1. **Main `de73fbda51`** (curriculum C5's migration 231, followups-nov1c), merge `0899470206`.
+   - **Migration:** 232 was still free, so it keeps its number.
+   - **Head fixture:** `migration_head_231` became `migration_head_232`, and `migration_head_230` and `migration_head_231` were dropped. It was rebuilt from main's tracked `migration_head_231/state.sqlite`: a backup-API copy under `fixtures-local/landing-p3-head/`, with only 232 applied under `UPGRADE_SCRATCH_COPY`.
+   - **Checks:** checkpoint (0, 0, 0), `journal_mode=DELETE`, header bytes 1/1, `integrity_check` ok, `foreign_key_check` empty, 219 applied migrations (head 232). It was copied into place with the backup API.
+   - **Diff against main's 231 head:** exactly `help_assists`, `help_assists_identity_fixed`, `figure_predictions` and `figure_predictions_explanation_once`, plus `idx_help_assists_figure` and `idx_figure_predictions_assist`. Only `schema_migrations` rows moved. The README's P3 section was rewritten for the landing, above C5's.
+   - **Paths:** head paths in tests, the sanitizer and both DB reference scripts, with `SCHEMA_HEAD = 232`. The composed applied lists now end `230, 231, 232`. The altered sets carry both `C5_ALTERED_TABLES` and `P3_ALTERED_TABLES`. C5's own migration test now expects 232 after 231 and the 232 head.
+   - **Fix after the merge:** 232's own migration tests start from a 231 database (commit `26c97cbcb9`), because the migration lane caught them applying 231 too.
+   - **`config/template.py`:** both sides' notes are kept on every snapshot. All 31 fingerprints were recomputed with `defaults_fingerprint_for_version` after clearing `.pyc` files, and a second pass changed 0.
+   - **Generated references:** main's side, then regenerated. `db_validate_reference` reports errors [], with the prose leaf count moving from 1111 to 1112.
+   - **Desktop catalog:** 306 TS / 6 Rust, ACTIVE 312 (the validator's pinned counts moved).
+   - **Parameter registry:** both sides' entries are kept.
+2. **Main `67c05ed37c`** (RW5d P4a, figures follow section; no migration), merge `d1e83c7e70`.
+   - **Source:** auto-merged: the figures service's `_listed`/`section_figures`, `useFigures` `followEnabled`/followed, `FigureInline`, `ReaderScreen`, correspondents and text_gaps provenance.
+   - **One manual resolution, in TypeScript:** the attempt panel's `FiguresCtl` gains inert `followed: []`/`follow: async () => false`, since no figure is followed onto an attempt host.
+   - **References:** main's side, then regenerated: errors [], desktop catalog 306 / 6, ACTIVE 312, `validate_vault` passes.
+   - **Gate:** the full gate below ran once, on this merged tree. The queued pre-P4a full suite was stopped before it started.
+
+### Gate (on `d1e83c7e70`)
+
+Every pytest, vitest, npm and cargo command ran in a `systemd-run` scope: 10G for the full suite, 5G otherwise. Python ran under `env -i` with an empty HOME, CODEX_HOME and config directory.
+
+| Check | Result |
+|---|---|
+| `lint-imports --no-cache` | 40 kept, 0 broken |
+| Full pytest (`-n 8 --dist worksteal`, under the full-suite lock) | 23682 passed, 0 failed, 90 skipped, 47 xfailed (41 min) |
+| `-m durability` | 183 passed, 1 skipped |
+| Owner lane: fresh backup-API copies of `learnanything-ad1/fixtures-local/owner-copies-mvp035` in `fixtures-local/landing-p3/` | 83 passed, 4 skipped, 2 failed: the two known failures (`test_activity_backfill::test_backfill_logs_attempt_duration_interaction_events`, `test_placement_fixture_copies::…[arxiv_v2]`) |
+| Figures and help targeted lane after the P4a merge (74 files) | 1597 passed, 1 skipped |
+| Migration and config lane after the first merge (68 files) | 1210 passed, 2 failed (232's tests on a 230 base); fixed in `26c97cbcb9`, and the two files give 11 passed (also under `--durable-sqlite`) |
+| `npm install`, `npm run typecheck` | ok, 0 errors |
+| Whole vitest (`--maxWorkers=4`) | 2434 passed, 0 failed |
+| `npm run frontend:build` | built |
+| `cargo check` | ok |
+| DB reference generate and validate; desktop generate and validate; module and vault validation | errors []; 306/306 TS + 6/6 Rust, ACTIVE 312, reproducible; pass |
+
+After the gate, main was re-read: it was still `67c05ed37c`, so no further merge was needed.
+
+### Smoke (fresh owner copies, `fixtures-local/landing-p3-smoke/`)
+
+**Setup:**
+- Fresh backup-API copies of the three mvp035 owner copies.
+- Every AI route at the `127.0.0.1:9` blackhole, with the key variables unset.
+- `env -i` with an empty HOME, CODEX_HOME and config directory.
+- An audit hook logs every process start and socket connect, and refuses non-loopback connects and Codex process starts.
+- Main's code (`67c05ed37c`) against the branch's (`d1e83c7e70`), each a `git archive` with `migrations/`.
+- On each copy: `upgrade` from mvp-0.35 to mvp-0.40, a primary load, the migration check (main head 231, branch head 232) and `rebuild-derived-state`.
+- Nothing was requested, rendered or built. No Manim and no bwrap ran on owner data.
+
+**Results:**
+- **Today and the daily plan:** byte-identical, main against branch.
+  - linear_algebra: 525266 B and 84696 B;
+  - probability: 740827 B and 124021 B;
+  - arxiv_v2: 344204 B and 32433 B.
+- **`help_outcomes` and the hints report** (frozen `as_of`/now, all facets): byte-identical (6163, 7135 and 8534 B). No figure rows exist on the owner copies, there is no help kind `figure`, and there is no `figures` block.
+- **The hint chooser on a "More" press,** built as the hint service builds it, with the sidecar's figure provider on (no model call):
+  - over 40, 40 and 32 practice items, `explore_figure` is never offered and is excluded as `no_figure` on every item;
+  - no figure qualifies, and the copies hold 0 figures and 0 figure help rows.
+- **The branch's head** is 232, `help_assists.figure_id` exists, and no help row exists.
+- **`rebuild --shadow`** on the branch's copies: facet, mastery and schedule 0/0/0 on all three, and the live database is unchanged.
+- **Receipts:** 0 new `model_call_receipts` across the 6 databases compared with base.
+- **Audit log:** 0 process starts and 0 socket connects from the smoke, so no non-loopback socket. A separate self-test of the hook logged its `true` start and its `127.0.0.1:9` connect.
+
+### Rulings (orchestrator)
+
+- R1: "Attempt-hosted figures are grammar and sketch only; rich (Manim) figures stay Reader-side. This closes the reveal-scan, rich polling, fuller revision and queued-job admission findings structurally."
+- R2: "F1 session rollover (a help row attached by submission key after its session ended and a new one started) is the hint service's existing H0 attach/fold boundary for every help kind, not specific to figures. Ruled Low; queued as a cross-help follow-up."
+- R3: "Successor: none. No figure row exists before this migration and replay reads stored hints_used; for new attempts a figure is one hint-equivalent with that field's existing meaning. Accepted."
+- R4: "The token-overlap reveal measure is coarse (topical figures can prime), following the spec's 'existing overlap check' rule; flagged for the owner checkpoint."
+
+### Owner items
+
+- **Migration 232** applies on the first open after the update. There is no successor and no algorithm version. It rebuilds `help_assists` and `figure_predictions` in place and keeps every row.
+- **The spec's checkpoint:** one real *show me* in the practice panel, on a `fixtures-local` copy with the plan route (open item 7 above). It was not run here, since this landing made no live calls. Also check R4's coarse overlap on a topical figure.
+- **Switch:** `figures.help_kind_enabled` (default on). Off, every hint, fold and outcome is the predecessor's.
+
+### Open items
+
+- **`figure_predictions` NOT NULL `extraction_id`:** resolved in 232 (F9: now nullable). What remains is the follow-up check that no reader of `figure_predictions` outside the diagnoser's trace assumes a home.
+- **The Reader-side workbench host wiring** (`reader.ask` inside a bound workbench) is not built (open item 5).
+- **RW2c's passage draw including a kept figure** (§11.4 "Reader-side draw") is not built. It is owned by RW2c's switch.
+- **R2's cross-help follow-up:** the attach/fold session rollover, for every help kind.
+- **Animations on attempt hosts (R1):** if wanted later, they need a design-first stage. That stage needs a displayed-text contract for scenes, not an AST scan.
