@@ -325,3 +325,65 @@ def test_c2b_re_f3_exact_words_search_the_whole_note(tmp_path):
     edit_annotation(repository, annotation, long_text.replace("very end", "very, very end"))
     (edited,) = [n for n in VN.notes(load_vault(paths.root), repository) if n.note_key == note.note_key]
     assert edited.text == note.text and edited.content_hash != before
+
+
+def _many_captures(repository, count):
+    return [f"capture:{add_capture(repository, f'Eigen note number {index}.')}" for index in range(count)]
+
+
+def test_c2b_r3_f2_a_switch_turned_off_between_batches_stops_the_embedding(tmp_path, monkeypatch):
+    from learnloop.source_retrieval.source_vectors import BATCH_SIZE
+
+    paths, repository = _vault(tmp_path, embeddings=True)
+    _many_captures(repository, BATCH_SIZE + 3)
+    vault = load_vault(paths.root)
+    real = VN._authorized_now
+    seen: list[int] = []
+
+    def off_after_the_first(vault):
+        seen.append(1)
+        return real(vault) if len(seen) == 1 else (None, "embedding.enabled is false")
+
+    monkeypatch.setattr(VN, "_authorized_now", off_after_the_first)
+    embedder = NoteEmbeddingFake()
+    report = VN.ensure_vectors(vault, VN.notes(vault, repository), client_factory=lambda: embedder,
+                               repository=repository)
+    assert report["status"] == "disabled" and report["embedded"] == BATCH_SIZE
+    assert len(embedder.inputs) == BATCH_SIZE  # the second batch was never sent
+
+
+def test_c2b_r3_f3_one_money_cap_for_the_whole_run(tmp_path, monkeypatch):
+    from learnloop.ops import embedding_backfill as EB
+    from learnloop.source_retrieval.source_vectors import BATCH_SIZE
+
+    paths, repository = _vault(tmp_path, embeddings=True)
+    _many_captures(repository, BATCH_SIZE * 2)
+    vault = load_vault(paths.root)
+    cap = float(vault.config.embedding.source_backfill_max_cost_usd)
+    asked: list[float] = []
+
+    def fake_backfill(loaded, *, caps, records, **_kwargs):
+        asked.append(caps.max_estimated_usd)
+        return {"status": "complete", "records": len(records), "embedded": len(records),
+                "charged": {"estimated_usd": cap * 0.6}}
+
+    monkeypatch.setattr(EB, "backfill_embeddings", fake_backfill)
+    VN.ensure_vectors(vault, VN.notes(vault, repository), repository=repository)
+    assert asked[0] == cap and abs(asked[1] - cap * 0.4) < 1e-9
+
+
+def test_c2b_r3_f4_several_named_subjects_send_the_grouped_form_for_those(tmp_path, monkeypatch):
+    from learnloop.source_retrieval import deliverables as DL
+    from tests.test_curriculum_c2b_past_papers import _two_subject_vault
+
+    paths, repository = _two_subject_vault(tmp_path)
+    vault = load_vault(paths.root)
+    goal_id = DL.create_deliverable(vault, repository, "my midterm")["goal_id"]
+    monkeypatch.setattr(DL, "deliverable_subjects", lambda *_a, **_k: frozenset({"linear-algebra", "probability"}))
+    with repository.connection() as connection:
+        from learnloop.db.stores import deliverables as store
+
+        rows = store.inputs(connection, goal_id)
+    prompt = DL.build_scope_prompt(load_vault(paths.root), repository, DL.goal_of(load_vault(paths.root), goal_id), rows)
+    assert prompt.version == DL.SCOPE_PAST_PAPERS_GROUPED_PROMPT_VERSION
+    assert [subject for subject, _ids in prompt.past_paper_groups] == ["linear-algebra", "probability"]

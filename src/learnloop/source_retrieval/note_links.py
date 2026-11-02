@@ -579,8 +579,22 @@ def _judge_target(vault: Any, repository: Repository, target: Target, *, setting
                   client: Any | None, clock: Clock | None, notes_guard: NotesGuard,
                   corpus: Sequence[VN.VaultNote] | None, embedder: Any | None) -> JudgeResult:
     lo = target.learning_object_id
-    notes = candidates(vault, repository, target, limit=int(vault.config.notes.max_candidates), corpus=corpus,
-                       embedder=embedder, settings=settings)
+    if corpus is None:
+        # The notes found with the vault as its files say now (Codex re-review C2b R3 F1: an
+        # earlier topic's judgment may have outlasted a protection or switch change).
+        from learnloop.vault.loader import load_vault
+
+        try:
+            found_in = load_vault(vault.root)
+        except Exception:  # noqa: BLE001 - an unreadable vault finds no note
+            found_in = None
+        if found_in is None or not enabled(found_in):
+            _record_shown(repository, target, NO_CANDIDATES_STATE, notes_guard, clock)
+            return JudgeResult("no_candidates", lo)
+    else:
+        found_in = vault
+    notes = candidates(found_in, repository, target, limit=int(vault.config.notes.max_candidates), corpus=corpus,
+                       embedder=embedder, settings=None if corpus is None else settings)
     if not notes:
         # Nothing found: the topic's older proposals give way (Codex review F7).
         _record_shown(repository, target, NO_CANDIDATES_STATE, notes_guard, clock)

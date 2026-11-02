@@ -936,14 +936,19 @@ def _subject_name(vault: Any, subject_id: str) -> str:
     return _one_line(title or subject_id, 120)
 
 
-def past_paper_groups(vault: Any, repository: Repository) -> list[tuple[str, list[str]]]:
+def past_paper_groups(vault: Any, repository: Repository,
+                      among: Iterable[str] | None = None) -> list[tuple[str, list[str]]]:
     """C2b (past papers option A, §5.3 as built): with the deliverable's subject ambiguous,
     each active subject's past-papers ids (:func:`past_paper_learning_objects` for that
     subject alone, so a unit counts only for its own subject), empty groups left out, in
-    subject-id order. Ids only, as ever; an unreadable predicate contributes nothing."""
+    subject-id order. ``among``: the subjects named when several are (else every active
+    subject). Ids only, as ever; an unreadable predicate contributes nothing."""
 
     subjects = sorted(str(subject_id) for subject_id, subject in (getattr(vault, "subjects", None) or {}).items()
                       if getattr(getattr(subject, "metadata", None), "status", None) == "active")
+    if among is not None:
+        named = {str(subject) for subject in among}
+        subjects = sorted(named) if named else subjects
     groups: list[tuple[str, list[str]]] = []
     for subject_id in subjects:
         ids = past_paper_learning_objects(vault, repository, (subject_id,))
@@ -1041,13 +1046,16 @@ def build_scope_prompt(vault: Any, repository: Repository, goal: Any,
     groups: list[tuple[str, list[str]]] = []
     if exam_units_in_scope(vault):
         subjects = deliverable_subjects(vault, repository, goal.id, inputs)
-        if subjects:
+        if len(subjects) == 1:
             # A known subject: only its own ids (the code filters; v2, unchanged).
             past = past_paper_learning_objects(vault, repository, subjects)
         else:
-            # Ambiguous (C2b, option A): every subject's ids, grouped by its name; the
-            # resolver is told to use only the group of this deliverable's subject.
-            groups = past_paper_groups(vault, repository)
+            # Ambiguous (C2b, option A): every candidate subject's ids (the named ones when
+            # several are named, e.g. a syllabus in two subjects' sets: Codex re-review C2b R3
+            # F4; else every active subject), grouped by its name; the resolver is told to use
+            # only the group of this deliverable's subject.
+            groups = past_paper_groups(vault, repository, subjects or None)
+            subjects = frozenset()
     grouped = [{"subject": _subject_name(vault, subject_id), "topics": ids} for subject_id, ids in groups]
     used = len(json.dumps(sent)) + (len(json.dumps(past)) if past else 0) + (len(json.dumps(grouped)) if grouped else 0)
     topics = _bounded_topics(vault, max(0, budget - used))

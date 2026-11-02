@@ -491,6 +491,31 @@ def records(corpus: Sequence[VaultNote]) -> list[EmbeddingRecord]:
     return [recipe.record(note.note_key, recipe_text(note)) for note in corpus]
 
 
+def _current(vault: Any) -> Any:
+    """The vault as its files say now (switches and protection may have changed since ``vault``
+    was loaded); ``vault`` itself when it has no root on disk."""
+
+    from learnloop.vault.loader import load_vault
+
+    try:
+        return load_vault(vault.root)
+    except Exception:  # noqa: BLE001 - unreadable: nothing is authorized (see the callers)
+        return None
+
+
+def _authorized_now(vault: Any) -> tuple[Any | None, str | None]:
+    """``(the vault as it is now, None)``, or ``(None, why not)``: the notes and the vault's
+    embeddings must still be on before any embedding request (Codex re-review C2b R3 F2)."""
+
+    current = _current(vault)
+    if current is None:
+        return None, "the vault's settings could not be read"
+    if not bool(current.config.notes.enabled):
+        return None, "notes.enabled is false"
+    reason = meaning_unavailable(current)
+    return (current, None) if reason is None else (None, reason)
+
+
 def ensure_vectors(vault: Any, corpus: Sequence[VaultNote], *,
                    client_factory: Callable[[], Any] | None = None,
                    repository: Repository | None = None) -> dict[str, Any]:
@@ -498,9 +523,13 @@ def ensure_vectors(vault: Any, corpus: Sequence[VaultNote], *,
     is never embedded again), through the vault's embedding backfill: its switches, lock,
     receipts and price, capped per run like a source's backfill. Aggregate report only.
 
-    With ``repository``, the notes go in batches, and before each batch the vault is read
-    again and any annotation that now sits beside protected material is dropped (Codex
-    re-review C2b F2: protection marked while an earlier batch was embedded)."""
+    With ``repository``, the notes go in batches under ONE money cap for the whole run (the
+    remaining cap passed to each batch: Codex re-review C2b R3 F3), and before every batch,
+    the first included, the vault is read again from its files: a switch turned off stops the
+    run, and any annotation that now sits beside protected material is dropped (Codex
+    re-reviews C2b F2, R3 F1/F2)."""
+
+    from dataclasses import replace as replace_caps
 
     from learnloop.ops.embedding_backfill import BackfillLockBusy, backfill_embeddings
     from learnloop.source_retrieval.source_vectors import BATCH_SIZE, backfill_caps
@@ -513,22 +542,26 @@ def ensure_vectors(vault: Any, corpus: Sequence[VaultNote], *,
         return {"status": "complete", "records": 0}
     batches = [notes] if repository is None else [notes[start:start + BATCH_SIZE]
                                                   for start in range(0, len(notes), BATCH_SIZE)]
+    remaining = backfill_caps(vault.config, records(notes)).max_estimated_usd
     totals: dict[str, Any] = {"status": "complete", "records": 0, "cached": 0, "embedded": 0, "dropped": 0}
-    for index, batch in enumerate(batches):
-        if repository is not None and index:
-            from learnloop.vault.loader import load_vault
-
-            current = load_vault(vault.root)
+    for batch in batches:
+        if repository is not None:
+            current, why = _authorized_now(vault)
+            if current is None:
+                return {**totals, "status": "disabled", "reason": why}
             protected = protected_keys(current, repository, [note.note_key for note in batch])
             totals["dropped"] += len(protected)
             batch = [note for note in batch if note.note_key not in protected]
         wanted = records(batch)
         if not wanted:
             continue
+        caps = backfill_caps(vault.config, wanted)
+        if remaining is not None:
+            caps = replace_caps(caps, max_estimated_usd=max(0.0, float(remaining)))
         try:
             result = backfill_embeddings(
-                vault, caps=backfill_caps(vault.config, wanted), recipes=(RECIPE,), registry=NOTE_RECIPES,
-                records=wanted, price_per_million=vault.config.source_retrieval.query_embedding_price_per_million,
+                vault, caps=caps, recipes=(RECIPE,), registry=NOTE_RECIPES, records=wanted,
+                price_per_million=vault.config.source_retrieval.query_embedding_price_per_million,
                 client_factory=client_factory)
         except BackfillLockBusy as exc:
             return {**totals, "status": "busy", "reason": str(exc)}
@@ -536,6 +569,8 @@ def ensure_vectors(vault: Any, corpus: Sequence[VaultNote], *,
             return {**totals, "status": "blocked", "reason": str(exc)}
         for key in ("records", "cached", "embedded"):
             totals[key] += int(result.get(key) or 0)
+        if remaining is not None:
+            remaining = float(remaining) - float((result.get("charged") or {}).get("estimated_usd") or 0.0)
         if result.get("status") != "complete":
             return {**totals, "status": result.get("status"), "reason": result.get("reason")}
     return totals
@@ -596,6 +631,11 @@ def meaning_search(vault: Any, repository: Repository, corpus: Sequence[VaultNot
                        repository=repository)
     model_id = vault.config.embedding.model
     covered = _covered(repository, model_id, corpus)
+    if covered:
+        # The switches as they are now, before the query is embedded (Codex re-review C2b R3 F2).
+        _now, why = _authorized_now(vault)
+        if _now is None:
+            raise MeaningUnavailable(why or "switched off")
     result.covered = len(covered)
     if not covered:
         result.status, result.reason = "empty", "no note has a vector yet"
