@@ -37,6 +37,29 @@ at S0's checkpoint (D6). Rebuilding the head for a new migration keeps the
 sanitized content: apply the migration to a backup-API copy of this fixture,
 as before.
 
+## Reader RW5d P5 (migration 236), branch `reader/rw5d-p5-prefetch`, 2026-11-02
+
+Renamed from `migration_head_234` (`docs/reviews/reader-rw5d-p5-prefetch.md`).
+Numbered 236: followups-nov2 claims 235 (the runner is set-based, so the gap
+is fine; renumbered at landing if needed). Rebuilt from main's tracked,
+sanitized `migration_head_234/state.sqlite` (main `1a33bb5db3`): a backup-API
+copy under `fixtures-local/` with only `236_figure_prefetch.sql` applied
+through `learnloop.db.migrate.apply_migrations` under the scratch-copy
+allowance (`UPGRADE_SCRATCH_COPY`), then `wal_checkpoint(TRUNCATE)` (0, 0, 0),
+`journal_mode=DELETE` (header bytes 1/1), `integrity_check` ok and
+`foreign_key_check` empty, and copied into place with the backup API, with no
+companion files. The head holds 229 through 234 and 236.
+
+* 236 adds exactly its objects: `figure_prefetch_decisions` and
+  `plan_usage_pauses` (RAW_LEDGER), their indexes (`plan_usage_pauses`' unique
+  `hit_at` autoindex included) and append-only triggers, and the partial index
+  `idx_figure_requests_prefetch_decision` on `figure_requests`, with no row.
+
+Against main's 234 head no other object changed definition and only
+`schema_migrations` gained a row (236); every other table's rows are
+identical, so the sanitized content carries over (every companion file is
+byte-identical to main's).
+
 ## Teacher TE1 (migration 234), branch `teacher/te1-first-lesson`, 2026-11-02
 
 Renamed from `migration_head_233` at TE1's landing
