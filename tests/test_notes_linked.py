@@ -794,7 +794,8 @@ def test_landing_c2b_a_hidden_note_beside_material_protected_since_is_not_listed
                                          span_id="s2", source_id="src_lay", revision_id="rev_lay")
     out = call(ctx, "notes.link", {"note": {"note_key": lay}, "extraction_id": "ext_book", "span_id": "s2"})
     call(ctx, "notes.decide", {"link_id": out["linkId"], "choice": "hide"})
-    assert [entry["linkId"] for entry in call(ctx, "notes.hidden", {})["hidden"]] == [out["linkId"]]
+    (listed,) = call(ctx, "notes.hidden", {})["hidden"]  # control: listed while readable
+    assert listed["targetKind"] == "passage" and listed["byLabel"] == NL.BY_YOU_LABEL
     links = _count(repository, "learner_note_links")
     hold_out(repository, "lay_eigen")
     assert call(ctx, "notes.hidden", {})["hidden"] == []
