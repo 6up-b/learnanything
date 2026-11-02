@@ -6,8 +6,8 @@ refactor_status: "ACTIVE"
 version: "1.0.0"
 source_paths:
   - "apps/learnloop-tauri/src/api"
-source_commit: "63224444311cdddfd02843e2a455d24ce18ac540"
-source_commit_timestamp: "2026-11-01T13:41:16-05:00"
+source_commit: "490ad6751fd50ca0f45661618dc6cd11cd8507b8"
+source_commit_timestamp: "2026-11-01T19:33:59-05:00"
 generated: true
 generated_at: "2026-08-18"
 tags:
@@ -37,8 +37,8 @@ No nested ownership area.
 | Module | Status | Purpose | Imports | Imported by |
 |---|---|---|---:|---:|
 | [[Reference/Desktop/TypeScript/api/capture|capture.ts]] | `ACTIVE` | Provides `CaptureDto`, `InboxSummary`, `CaptureMediaDto` within the desktop's TypeScript/api ownership area. | 0 | 3 |
-| [[Reference/Desktop/TypeScript/api/client|client.ts]] | `ACTIVE` | Defines the typed renderer-side RPC facade that converts UI actions into named Tauri commands. | 5 | 115 |
-| [[Reference/Desktop/TypeScript/api/dto|dto.ts]] | `ACTIVE` | Owns the renderer's TypeScript representation of sidecar request, response, and view contracts. | 0 | 201 |
+| [[Reference/Desktop/TypeScript/api/client|client.ts]] | `ACTIVE` | Defines the typed renderer-side RPC facade that converts UI actions into named Tauri commands. | 5 | 116 |
+| [[Reference/Desktop/TypeScript/api/dto|dto.ts]] | `ACTIVE` | Owns the renderer's TypeScript representation of sidecar request, response, and view contracts. | 0 | 202 |
 | [[Reference/Desktop/TypeScript/api/queryCache|queryCache.ts]] | `ACTIVE` | Provides `QueryKey`, `QueryTag`, `QueryState`, `FetchOptions` and related exports within the desktop's TypeScript/api ownership area. | 2 | 12 |
 | [[Reference/Desktop/TypeScript/api/queryTags|queryTags.ts]] | `ACTIVE` | Provides `TAG`, `KnownTag`, `READER_PREFIX`, `readerTag` within the desktop's TypeScript/api ownership area. | 0 | 22 |
 | [[Reference/Desktop/TypeScript/api/useCachedQuery|useCachedQuery.ts]] | `ACTIVE` | Provides `CachedQuery`, `CachedQueryOptions`, `useCachedQuery`, `useReportQueryError` within the desktop's TypeScript/api ownership area. | 3 | 17 |

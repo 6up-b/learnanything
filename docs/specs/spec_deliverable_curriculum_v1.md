@@ -353,6 +353,13 @@ An amendment to `spec_teacher_v1.md`, recorded there when C4 lands:
 - **`your_notes`** (C2 on): per node, headers of the linked notes (title, heading, date, one line), with the note text through a `read_note` action. It is the learner's voice, labelled so; the doctrine says to use it as what the learner already thinks, not as a source of truth.
 - **Router-suggested lessons** (TE1b) may name a deliverable LO whose primary section was read but whose cold checks failed. That is the router's choice, and the deliverable adds no rule.
 
+*As built (C4 with teacher TE1, `docs/reviews/teacher-te1-first-lesson.md`):* carried by TE1's successor
+(`mvp-0.41`), behind `teacher.brief.use_deliverable`, and recorded in `spec_teacher_v1.md` §8.1. The deliverable is the
+nearest active one whose resolution names a lesson LO; its path's lines give each node's primary (whole) and
+alternates (outline). `your_notes` lists the linked notes' headers (C2's effective links: hidden ones stay hidden);
+`read_note` returns a stored snapshot's text labelled as the learner's own (no tend call at lesson time), and only
+for a note the brief listed. Notes never reach the grader (tested). Off: the brief has no deliverable and no notes.
+
 ### 8.3 Adaptive difficulty
 
 - **No change to AD.** AD's band is one vault-wide setting (`config/schema.py:3719`) applied per slot, and its draws are per LO and cell; the deliverable decides which LOs are on the frontier, so AD's band applies to the deliverable's LOs through the existing serve path.

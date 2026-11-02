@@ -3,13 +3,13 @@ title: "exam_pool_items"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "5fae2f76d65e28cf5f94461990fa8013acd483fd"
-source_commit_timestamp: "2026-11-01T15:52:32-05:00"
+source_commit: "92e511eeffe3f379fdc782d7d163ac20fec48e5f"
+source_commit_timestamp: "2026-11-01T19:35:28-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite exam_pool_items"
   - "table exam_pool_items"
-schema_head: 229
+schema_head: 230
 table_name: "exam_pool_items"
 table_role: "workflow"
 functionality_status: "active"
@@ -118,6 +118,7 @@ Indexes and uniqueness:
 - `tests/test_ad_protected_tables.py`
 - `tests/test_exam_protection_review.py`
 - `tests/exam_scope_fixtures.py`
+- `tests/teacher_fakes.py`
 - `tests/test_characterization_assessment_exam.py`
 - `tests/test_deliverable_path.py`
 - `tests/test_exam_pool.py`

@@ -10,8 +10,8 @@ area: "TypeScript/screens/reader"
 source_path: "apps/learnloop-tauri/src/screens/reader/NotesRail.tsx"
 source_paths:
   - "apps/learnloop-tauri/src/screens/reader/NotesRail.tsx"
-source_commit: "9ed381bc3787439c88ffe3ec08b319b51049fa02"
-source_commit_timestamp: "2026-11-01T03:48:43-05:00"
+source_commit: "490ad6751fd50ca0f45661618dc6cd11cd8507b8"
+source_commit_timestamp: "2026-11-01T19:33:59-05:00"
 source_worktree_state: "clean"
 activation_kind: "entry-reachable build graph"
 activation_evidence: "A static TypeScript import path reaches this file from the Vite entry src/main.tsx."
@@ -42,14 +42,14 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/screens/reader/NotesRail.tsx](../../../../../../../apps/learnloop-tauri/src/screens/reader/NotesRail.tsx) |
-| Source lines | 692 |
+| Source lines | 702 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/screens/reader/_area|TypeScript/screens/reader]] |
 | Refactor status | `ACTIVE` |
 | Activation kind | `entry-reachable build graph` |
 | Worktree state | `clean` |
-| Source commit | `9ed381bc3787439c88ffe3ec08b319b51049fa02` |
-| Commit timestamp | `2026-11-01T03:48:43-05:00` |
+| Source commit | `490ad6751fd50ca0f45661618dc6cd11cd8507b8` |
+| Commit timestamp | `2026-11-01T19:33:59-05:00` |
 
 ## Activation and status evidence
 
@@ -63,17 +63,17 @@ The system-level behavior stays authoritative in the linked architecture, concep
 - `export const PALETTE: Array<` — const, line 19
 - `export interface ExerciseImportState` — interface, line 46
 - `export interface NotesRailProps` — interface, line 60
-- `export function NotesRail(props: NotesRailProps)` — function, line 149
+- `export function NotesRail(props: NotesRailProps)` — function, line 151
 
 ## Internal implementation anchors
 
-- `const MODEL_GROUPS: ReadonlySet<string> = new Set(["Request · answered in background", "Remember later"])` — const, line 147
-- `const spanId = selection?.spanId ?? activeSpan` — const, line 370
-- `const requestError = parseRequestError(request.errorJson)` — const, line 479
-- `const result = sourceObjectId ? synthesizedObjects.get(sourceObjectId) : undefined` — const, line 480
-- `const expanded = expandedRequests.has(request.id)` — const, line 481
-- `const proposalOpen = proposalId !== null && openProposalIds.has(proposalId)` — const, line 482
-- `const next = new Set(ids)` — const, line 501
+- `const MODEL_GROUPS: ReadonlySet<string> = new Set(["Request · answered in background", "Remember later"])` — const, line 149
+- `const spanId = selection?.spanId ?? activeSpan` — const, line 380
+- `const requestError = parseRequestError(request.errorJson)` — const, line 489
+- `const result = sourceObjectId ? synthesizedObjects.get(sourceObjectId) : undefined` — const, line 490
+- `const expanded = expandedRequests.has(request.id)` — const, line 491
+- `const proposalOpen = proposalId !== null && openProposalIds.has(proposalId)` — const, line 492
+- `const next = new Set(ids)` — const, line 511
 
 ## Who imports or calls it
 

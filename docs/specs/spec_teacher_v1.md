@@ -489,6 +489,13 @@ The brief is built deterministically from the ledger and versioned. It is the on
 | `sources` | The goal's sections, whole, from `teaching_scope`, with exam and model-withheld roles removed, and with span ids. If they exceed `teacher.context.sources_tokens`, the section outline instead (§9.2) |
 | `constraints` | Driver, caps, budget remaining |
 | `doctrine` | Version |
+| `your_notes` (curriculum C4, per node) | With `teacher.brief.use_deliverable`, `notes.enabled` and tend present: headers of the learner's linked notes (title, heading, date, one line), labelled as the learner's voice; the text through `read_note` |
+
+*Curriculum C4's amendment (as built with TE1, `teacher.brief.use_deliverable`):* with a deliverable whose resolution
+names a lesson LO, `goal` carries the deliverable's sentence and "how they were resolved" is the resolution's phrase
+per LO; `sources` are the path's primary sections whole (a Reader selection's section first) and its alternates as
+outline only, through the section library's protection. Off: the brief has no deliverable and no notes, and
+`read_note` refuses.
 
 **Never in the brief:**
 - EVSI values, costs or policy scores (B1);
@@ -1193,6 +1200,24 @@ Accuracy decay within a session, by minutes on task, error streak and time of da
 - targeted tests while iterating, with `StructuredClientFake` and no model calls;
 - the full suite once, at landing;
 - one real lesson on a `fixtures-local` copy.
+
+*As built (TE1 with curriculum C4, `docs/reviews/teacher-te1-first-lesson.md`):* successor `mvp-0.41` after
+curriculum C1's `mvp-0.40` (ONE constant, `TEACHER_ALGORITHM_VERSION`; renumbered at landing if another successor
+lands first), migration 230 (the nine §18.1 tables except TE1b's `router_suggestion_responses`, and
+`source_tool_calls.caller_kind` widened with `teacher`). `learnloop.teacher` (contracts, doctrine v1, the brief, the
+read actions, the guards, the checks, the delayed checks, the service behind `lesson.turn`/`lesson.view`, the
+report) and `learnloop.learner.lesson_weight` (§12.1's weight, §12.2's pool and LP-min's tap/hedge recalibration:
+one DERIVED replayer; the attempt step reads each check's recorded mass through `lesson_check_mass`, the only
+seam into mastery). The likelihood of §12.1 is the mastery model's own update recomputed for the check's mass from
+the check's recorded prior state, with the drift to the outcome by `mastery.sigma2_drift` (first order: the
+intervening observations are not re-folded); an outcome resolving `n` checks enters each at power `1/n`. The pool
+mixes a node's `lesson_step_retained` forecast into a later check on it in the same lesson (no forecast yet: §12.1's
+mass). `z_p` reads the active predictor (AD exposes no per-LO prediction at the check's level; the brief shows AD's
+readiness line beside it). The delayed checks' picker is code's (the candidate rule, then the item pitched nearest
+AD's band middle), not `find_practice`'s rerank, which may call a model. A learner reply while a check is open is
+help (a `help_assists` row); its reply withdraws the check at the auto-prime overlap. Not built in TE1: compaction
+(no `teacher.context.compact_at` key), the turn's `visual`, TE1b. The real lesson on a `fixtures-local` copy and the
+per-lesson cap (Q7) are the owner's at the landing.
 
 ---
 

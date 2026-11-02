@@ -38,7 +38,7 @@ CONFIG_FIELDS_ROOT = CONFIG_ROOT / "Fields"
 INITIALIZATION_NOTE = VAULT_ROOT / "Reference" / "CLI" / "Initialization.md"
 SCHEMA_PATH = REPOSITORY_ROOT / "fixtures" / "migration_head_230" / "state.sqlite"
 CONFIG_SCHEMA_SOURCE = REPOSITORY_ROOT / "src" / "learnloop" / "config" / "schema.py"
-SCHEMA_HEAD = 229
+SCHEMA_HEAD = 230
 
 sys.path.insert(0, str(SRC_ROOT))
 

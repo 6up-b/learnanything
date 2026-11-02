@@ -3,13 +3,13 @@ title: "question_events"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "5fae2f76d65e28cf5f94461990fa8013acd483fd"
-source_commit_timestamp: "2026-11-01T15:52:32-05:00"
+source_commit: "92e511eeffe3f379fdc782d7d163ac20fec48e5f"
+source_commit_timestamp: "2026-11-01T19:35:28-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite question_events"
   - "table question_events"
-schema_head: 229
+schema_head: 230
 table_name: "question_events"
 table_role: "raw_ledger"
 functionality_status: "active"
@@ -139,6 +139,8 @@ Indexes and uniqueness:
 - `src/learnloop/learner_protection.py`
 - `src/learnloop/reader/reader_report.py`
 - `src/learnloop/router/outcomes.py`
+- `src/learnloop/teacher/actions.py`
+- `src/learnloop/teacher/brief.py`
 
 ### Direct SQL writers
 
