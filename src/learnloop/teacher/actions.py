@@ -16,7 +16,8 @@ same protection the brief does:
 * ``read_history``: the learner's own words and results for history ids from
   the brief, through ``learner_protection`` (an exam or protected attempt keeps
   its result and shows no question and no answer; a withheld item's question is
-  never shown). Owner principle 2026-11-01: the learner's questions, answers
+  never shown; an earlier lesson's recap only while what that lesson relied on is
+  still teachable, :func:`learnloop.teacher.brief.recap_admissible`). Owner principle 2026-11-01: the learner's questions, answers
   and history are not private from the teacher; only the grader stays blind;
 * ``read_note`` (C4, ``teacher.brief.use_deliverable`` and ``notes.enabled``):
   one of the learner's linked notes, labelled as their own voice.
@@ -177,6 +178,7 @@ def read_history(vault: Any, repository: Any, state: Any, refs: list[str]) -> di
     allowed = {entry["id"] for entry in state.brief.get("history") or []}
     allowed |= {entry["id"] for entry in state.brief.get("last_lessons") or []}
     out = []
+    lessons: list[tuple[int, str, Any]] = []
     with repository.connection() as connection:
         for ref in refs:
             if ref not in allowed:
@@ -221,10 +223,18 @@ def read_history(vault: Any, repository: Any, state: Any, refs: list[str]) -> di
                 from learnloop.db.stores import lessons as store
 
                 receipt = store.receipt(connection, raw) or {}
-                out.append({"id": ref, "recap": receipt.get("recap"), "nodes": receipt.get("nodes_summary"),
+                lessons.append((len(out), raw, receipt.get("recap")))
+                out.append({"id": ref, "recap": None, "nodes": receipt.get("nodes_summary"),
                             "close_reason": receipt.get("close_reason")})
             else:
                 out.append({"id": ref, "refused": "unknown history id"})
+    if lessons:
+        # An earlier lesson's recap through today's protection, as the brief takes it (followups batch 5, A).
+        from learnloop.teacher.brief import admitted_recap, protection_state
+
+        current = protection_state(vault, repository) if any(recap for _i, _id, recap in lessons) else None
+        for index, lesson_id, recap in lessons:
+            out[index].update(admitted_recap(vault, repository, lesson_id, recap, current=current))
     return {"entries": out}
 
 
