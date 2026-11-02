@@ -333,3 +333,147 @@ whole vitest run were not run.
   read of that source, a press, section progress, a question, a lesson's turn). Opening Today does not retry it.
 - (E) Completed sections are not skipped (book order did not skip them either).
 - (C) Power-saver and Mac unplugging reach background builds within 30 s.
+
+## Landing onto main
+
+Prepared on `fix/followups-batch6` (worktree `learnanything-dl2`) from the stage tip `e3bfedcb86` (re-verify job
+`20261102-160534-hqxd06` CLEAN, reporting one pre-existing P5 defect, step 0 below); the orchestrator
+fast-forwards main and pushes. No migration, no successor and no config key.
+
+### Step 0: a candidate is decided once for its trigger — `d12f346b5b`
+
+**The defect (P5's, not this batch's).** A closed horizon removes a decision's open-key protection, and plan
+candidate generation kept returning the plan's reading after the plan ended. So every `get_daily_plan` read after
+that decided each unbuilt candidate again: a new decision row and a fresh Thompson draw per read (the re-verify
+estimated 120 x candidates rows per hour at one read per 30 s). Repeated draws until one builds also make the
+logged propensity understate the real chance of a build.
+
+**Same defect on the section trigger, found while reproducing.** Once the next section is marked read, its decision
+closes, and each further progress report on the earlier section decided it again. The brief named only the plan,
+but its rule (a pass with unchanged inputs adds 0 rows and 0 draws) covers this, so the fix includes it.
+
+**Fix (`figures/prefetch.py`; no new constant, no migration).** The brief offered either of two guards. Both went
+in, because each covers a case the other leaves open:
+- An ended plan offers no candidates. `candidates()` checks `_plan_ended`, which uses `_plan_end`, the instant
+  `horizon_at` closes decisions on (now one function, so the two can't disagree). There is no judge call, row or
+  build for it, including a plan that ended before anything was decided (on battery all day, say). A plan with no
+  stored row does not count as ended here; only a test fake's plan reaches that case, since a real record was just
+  read from its row.
+- `filter_candidates` drops a request already decided for this same trigger, its horizon closed or not
+  (`decided_requests`: kind, ref and request key). This is the section trigger's guard, and it also means a reopened
+  plan (a raised budget, RW7b's path reading) keeps its decision and does not draw again. The `gap` trigger already
+  worked this way (`_decided_refs`).
+
+**Consequences to review.**
+- A `void` row does not count as decided: it says the passage was withheld, and once released it is new input (one
+  more decision, with its own row and propensity). The withheld filter keeps it out until then.
+- A reopened plan's deferred decision that closed when the plan ended is not retried. That plan's next read decides
+  nothing for it, and the next day's plan decides for itself (a later plan is a new trigger, pinned by a test).
+- A `section` ref is stable, so a section's candidate is decided once ever (a void row aside), until the section's
+  text changes the request.
+- R6 is unchanged: `next_section` still does not skip a completed section. A section already read that was never
+  decided gets its one decision, as before.
+
+**Reproduce-first.** `tests/test_followups_batch6_prefetch_decided_once.py` has 10 tests using the real pass and
+real model with a fake judge and author, on real `daily_plans` and `reader_section_progress` rows; they check rows,
+decision calls and the generator's state across repeated passes, before and after the end. Against `e3bfedcb86`'s
+`prefetch.py`: 8 failed, 2 passed (those two pin behaviour that is kept: a built decision and a void one). With the
+fix: 10 passed. The neighbouring prefetch files (`test_figures_prefetch*`, the batch 6 prefetch tests, the P4b
+visuals) passed with the fix unchanged.
+
+Also in that commit: the module docstring, an as-built line under spec §10b.2's filters, and the new test file in
+`docs/reviews/followups-batch6.targeted-tests.txt`.
+
+### Merge: main `a5b2b23e17` (follow-ups batch 5) — `856ce60f74`
+
+No conflicts. `src/learnloop_sidecar/handlers/lesson.py` auto-merged, `teacher/*` needed nothing, and `pyproject.toml`
+holds both sides' import-linter ignores. References regenerated last (`8cc40194b6`):
+- `db_generate_reference` wrote 372 table notes; `db_validate_reference` errors `[]`.
+- `desktop_generate` wrote 308 TS/TSX and 6 Rust notes; `desktop_validate` passed.
+- `module_generate` wrote 1148 module notes and 63 package maps. The one new note is `router/suggestion_report`.
+  `module_validate` PASS (1212/1212 YAML, 39627 wikilinks, 37638 file links).
+- `validate_vault` passed (2096 notes).
+
+The Configuration and Database notes changed only in their source commit stamps. No config default changed, so no
+fingerprint recompute. Main was re-read just before the gate and at the end of the smoke: still `a5b2b23e17`, so no
+second merge.
+
+### Gate (tip `8cc40194b6`, main `a5b2b23e17`)
+
+| Check | Result |
+|---|---|
+| `lint-imports --no-cache` | 42 kept, 0 broken |
+| Targeted pytest (145 listed files, 4 `test_followups_batch5_*`) | 2796 passed, 29 skipped, 1 xfailed |
+| Targeted vitest (Reader figures folder, sideBySideCorrespondence, alsoInBooksReader) | 19 files, 442 passed |
+| Full suite (`-n 8 --dist worksteal`, 10G scope, `flock`, `env -i`) | **24128 passed, 0 failed**, 90 skipped, 47 xfailed (42:33) |
+| Durability lane | 188 passed, 1 skipped |
+| Owner lane (fresh backup-API copies, `fixtures-local/landing-batch6/owner-lane`) | 83 passed, 4 skipped, and the 2 known failures only (`test_activity_backfill.py::test_backfill_logs_attempt_duration_interaction_events`, `test_placement_fixture_copies.py::...[arxiv_v2]`) |
+| Frontend | `npm install` (lockfile unchanged), typecheck clean, whole vitest 260 files / **2475 passed** (`--maxWorkers=4`, 5G scope), `frontend:build` built |
+
+No unexpected failure, so nothing needed a rerun. `test_query_student` passed in the full run, and neither known
+vitest flake recurred. `src-tauri` does not differ from main, so cargo check was not run.
+
+### Smoke (fresh owner copies, `fixtures-local/landing-batch6-smoke/`, driver `scripts/smoke.sh`)
+
+**Setup.** Adapted from batch 5's.
+- Fresh backup-API copies of the three mvp035 owner copies, each neutralized under its own side's code: every AI
+  route at the `127.0.0.1:9` blackhole with the key variable unset.
+- `env -i` with an empty `HOME`, `CODEX_HOME` and config directory.
+- An audit hook logging every process start and socket connect, refusing non-loopback sockets and Codex starts. Its
+  self-test refused `1.1.1.1:443` and `codex --version`.
+- Code: `git archive` of main `a5b2b23e17` and the branch `8cc40194b6`, each with `src/` and `migrations/`.
+- On each side: a bare `upgrade` mvp-0.35 -> **mvp-0.43**, the primary desktop load, `migrate_vault` (head 237,
+  0 applied) and `rebuild-derived-state` (mvp-0.43).
+
+| Check | linear_algebra | probability | arxiv_v2 |
+|---|---|---|---|
+| Today, branch vs main | byte-identical (525266 B) | byte-identical (740827 B) | byte-identical (344204 B) |
+| Plan dump, branch vs main | byte-identical (84721 B) | byte-identical (124046 B) | byte-identical (32458 B) |
+| Router decisions in the plan dump, card hash included (no released line) | 1, identical | 4, identical | 1, identical |
+| `router card --json` on the copy's own decisions, main vs branch | none on this copy | 2 of 2 byte-identical | none on this copy |
+| `router report --json` | exit 0, database and WAL hash unchanged | same | same |
+| `rebuild --shadow` (branch) | facet/mastery/schedule 0/0/0, live unchanged | same | same |
+
+**Repeated prefetch passes.** Four passes per phase, identical on all three copies. These copies' plans hold no
+reading block and the routes are blackholed, so `scripts/prefetch_repeat.py` uses three smoke seams, on these copies
+only: the real plan's reading overlaid on a real section, a stubbed judge answer, and a seeded measured wait so the
+real model draws. Rows per pass:
+
+| Phase | main | branch |
+|---|---|---|
+| plan open | 1, 0, 0, 0 | 1, 0, 0, 0 |
+| plan ended | **1, 1, 1, 1** (4 more draws) | 0, 0, 0, 0 (0 draws) |
+| section, next unread | 1, 0, 0, 0 | 1, 0, 0, 0 |
+| section, next read | **1, 1, 1, 1** (4 more draws) | 0, 0, 0, 0 (0 draws) |
+| offer | 2, 0, 0, 0 | 2, 0, 0, 0 |
+
+Every verdict was `deferred_plan` (the blackholed author route), so nothing was built: 0 figures, 0 requests.
+
+**Power probe.** Process starts for 30 `power_state()` calls, then 30 more after the window: main 30 and 30, branch
+1 and 1. Across the whole smoke, `powerprofilesctl get` started 72 times on main's code and 5 on the branch's.
+
+**Audit.**
+- 0 new `model_call_receipts` across 12 compared databases.
+- No socket connect beyond the self-test's refused one, and no Codex start beyond the self-test's refused one.
+- The only other process starts were `powerprofilesctl get` and the self-test's `true`.
+- The Codex processes on the machine all started before the smoke (the latest Nov 2 15:15).
+- After each close, the only thread left is `learnloop-reading-sweep`, on both sides.
+
+### Rulings (orchestrator, verbatim)
+
+- R1 (F4): "Option (a): G1's card line is accepted in place under mvp-0.43, as an in-place amendment before any vault reached the tag (the owner's vaults are at mvp-0.35; TE1b landed Nov 2). Precedent: TE0's confidence section, RW6b part 2 R1, follow-ups Nov 1c (E). The +te1b+released card suffix stays. The re-verify found no persisted blocker."
+- R2 (item F): "Not built, with the reason recorded in the code. Prebuilt lines and margin marks keep separate per-section counts. Queued for the UX journey audit: build a shared count only if the Reader looks crowded."
+- R3 (V2): "A pass retries plan waits only when its trigger carries learner_activity=True. get_daily_plan passes do not retry, because the sidecar can't tell a press from a poll; opening Today not retrying a hidden prebuild is accepted."
+- R4: "Ordinary run_builds from worker-origin passes stay allowed: plan route only, foreground first, max_daily_builds, max_daily_render_minutes, mains. The owner kept prefetch on deliberately, and has been told about this."
+- R5: "reader.figures keeps its paced retries while a source is open and polling. Closing this needs a poll-or-open signal on the RPC; not worth building now."
+- R6 (E): "The next section follows the reading path when reading_paths.enabled is on, and does not skip completed sections, as book order did not."
+- R7: "Finished prebuilt figures stay listed after an item is planned or a cold check begins. Accepted on the re-verify's evidence: during a cold attempt the source pane and its inline figures are covered together, and a merely planned item's passage is visible in the Reader anyway."
+- R8: "learnloop/content/ has no __init__.py, so the import graph omits that package and the contracts say nothing about cycles through it. Queued for the end-of-queue Opus architecture review."
+- R9 (step 0): "Fixed at landing: see the review record."
+
+### Open items (landing)
+
+* `learnloop/content/` has no `__init__.py`, so the import graph omits that package and the contracts say nothing
+  about cycles through it: for the end-of-queue Opus architecture review (R8).
+* The shared per-section cue count: for the UX journey audit, built only if the Reader looks crowded (R2).
+* A poll-or-open signal on `reader.figures`: not planned (R5).
