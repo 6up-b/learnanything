@@ -181,8 +181,10 @@ def note_text(vault: Any, repository: Repository, note_id: str) -> dict[str, Any
     linked = next((entry for entry in linked_notes(vault, repository) if entry.note_id == str(note_id)), None)
     if linked is None:
         return None
-    if linked.note.get("origin") == VN.ORIGIN and VN.beside_protected(vault, repository, linked.note_key):
-        # C2b: a Reader note written beside material protected since it was linked is not read.
+    if linked.note.get("origin") == VN.ORIGIN and VN.beside_protected(vault, repository, linked.note_key,
+                                                                       every_anchor=True):
+        # C2b: a Reader note written beside material protected since it was linked is not read
+        # (re-review F1: by any anchor it ever had; the snapshot may come from an older one).
         raise NoteWithheld("written beside protected material")
     los = [lo for lo in linked.learning_object_ids if lo in vault.learning_objects]
     library = SC.Library(vault, repository)

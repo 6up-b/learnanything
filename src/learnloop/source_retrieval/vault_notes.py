@@ -195,6 +195,21 @@ def _standing_annotation_ids(repository: Repository) -> set[str]:
     return repository.standing_annotation_ids()
 
 
+def _segments(connection: Any, anchor_version_id: Any) -> list[tuple[str, list[str]]]:
+    """One anchor version's segments (span id, section path)."""
+
+    segments: list[tuple[str, list[str]]] = []
+    for span_id, path_json in connection.execute(
+            "SELECT span_id, section_path_json FROM source_annotation_anchor_segments WHERE anchor_version_id = ? "
+            "ORDER BY segment_ordinal", (anchor_version_id,)):
+        try:
+            path = [str(part) for part in json.loads(path_json or "[]") if str(part).strip()]
+        except (TypeError, ValueError):
+            path = []
+        segments.append((str(span_id), path))
+    return segments
+
+
 def _anchor(connection: Any, annotation_id: str) -> tuple[str | None, list[tuple[str, list[str]]]]:
     """The head anchor's reading and its segments (span id, section path)."""
 
@@ -203,16 +218,15 @@ def _anchor(connection: Any, annotation_id: str) -> tuple[str | None, list[tuple
         "ORDER BY version_ordinal DESC LIMIT 1", (annotation_id,)).fetchone()
     if anchor is None:
         return None, []
-    segments: list[tuple[str, list[str]]] = []
-    for span_id, path_json in connection.execute(
-            "SELECT span_id, section_path_json FROM source_annotation_anchor_segments WHERE anchor_version_id = ? "
-            "ORDER BY segment_ordinal", (anchor[0],)):
-        try:
-            path = [str(part) for part in json.loads(path_json or "[]") if str(part).strip()]
-        except (TypeError, ValueError):
-            path = []
-        segments.append((str(span_id), path))
-    return str(anchor[1]), segments
+    return str(anchor[1]), _segments(connection, anchor[0])
+
+
+def _anchors(connection: Any, annotation_id: str) -> list[tuple[str, list[tuple[str, list[str]]]]]:
+    """Every anchor version the annotation ever had, oldest first: (reading, segments)."""
+
+    return [(str(extraction_id), _segments(connection, version_id)) for version_id, extraction_id in connection.execute(
+        "SELECT id, extraction_id FROM source_annotation_anchor_versions WHERE annotation_id = ? "
+        "ORDER BY version_ordinal", (annotation_id,)).fetchall()]
 
 
 def _out(protection: Any, extraction_id: str, segments: Sequence[tuple[str, list[str]]],
@@ -357,20 +371,39 @@ def _capture_notes(repository: Repository, *, only: Iterable[str] | None = None)
     return out
 
 
-def beside_protected(vault: Any, repository: Repository, key: str) -> bool:
+def beside_protected(vault: Any, repository: Repository, key: str, *, every_anchor: bool = False) -> bool:
     """Whether the note ``key`` is an annotation anchored on protected material now (or the
-    predicate cannot be read: fail closed). A capture never is (it holds no book text)."""
+    predicate cannot be read: fail closed). A capture never is (it holds no book text).
+    ``every_anchor``: judged by every anchor it ever had (:func:`snapshot_protected_keys`)."""
 
     ref = split_key(key)
     if ref is None or ref[0] != KIND_ANNOTATION:
         return False
-    return bool(protected_keys(vault, repository, [key]))
+    check = snapshot_protected_keys if every_anchor else protected_keys
+    return bool(check(vault, repository, [key]))
 
 
 def protected_keys(vault: Any, repository: Repository, keys: Iterable[str]) -> set[str]:
     """The annotation notes among ``keys`` anchored on protected material now (C0a's
-    predicate read once; unreadable: every annotation is, fail closed). Captures never are."""
+    predicate read once; unreadable: every annotation is, fail closed). Captures never are.
+    Judges the note as it reads now (its newest anchor and heading); a stored snapshot is
+    judged by :func:`snapshot_protected_keys`."""
 
+    return _protected(vault, repository, keys, every_anchor=False)
+
+
+def snapshot_protected_keys(vault: Any, repository: Repository, keys: Iterable[str]) -> set[str]:
+    """The annotation notes among ``keys`` any of whose anchor versions (or their sections'
+    headers) touch protected material now (Codex re-review C2b F1). A stored snapshot may
+    carry text and a heading from an anchor older than the newest (it records no anchor of
+    its own), so a snapshot is judged by every anchor its annotation ever had, the same
+    history :func:`anchor_sources` freezes for a gap reading. Fail closed as
+    :func:`protected_keys`."""
+
+    return _protected(vault, repository, keys, every_anchor=True)
+
+
+def _protected(vault: Any, repository: Repository, keys: Iterable[str], *, every_anchor: bool) -> set[str]:
     annotations = [(key, ref[1]) for key, ref in ((key, split_key(key)) for key in keys)
                    if ref is not None and ref[0] == KIND_ANNOTATION]
     if not annotations:
@@ -383,8 +416,12 @@ def protected_keys(vault: Any, repository: Repository, keys: Iterable[str]) -> s
         if not _table(connection, "source_annotation_anchor_versions"):
             return set()
         for key, annotation_id in annotations:
-            extraction_id, segments = _anchor(connection, annotation_id)
-            if extraction_id is not None and _out(protection, extraction_id, segments, connection):
+            if every_anchor:
+                anchors = _anchors(connection, annotation_id)
+            else:
+                extraction_id, segments = _anchor(connection, annotation_id)
+                anchors = [] if extraction_id is None else [(extraction_id, segments)]
+            if any(_out(protection, extraction_id, segments, connection) for extraction_id, segments in anchors):
                 out.add(key)
     return out
 
@@ -409,15 +446,7 @@ def anchor_sources(repository: Repository, key: str) -> list[tuple[str, tuple[st
             "ORDER BY version_ordinal", (ref[1],)).fetchall()
         for version_id, extraction_id in versions:
             extraction_id = str(extraction_id)
-            segments: list[tuple[str, list[str]]] = []
-            for span_id, path_json in connection.execute(
-                    "SELECT span_id, section_path_json FROM source_annotation_anchor_segments "
-                    "WHERE anchor_version_id = ? ORDER BY segment_ordinal", (version_id,)):
-                try:
-                    path = [str(part) for part in json.loads(path_json or "[]") if str(part).strip()]
-                except (TypeError, ValueError):
-                    path = []
-                segments.append((str(span_id), path))
+            segments = _segments(connection, version_id)
             if not segments:
                 whole.add(extraction_id)
                 continue
@@ -720,6 +749,7 @@ __all__ = [
     "anchor_sources",
     "beside_protected",
     "protected_keys",
+    "snapshot_protected_keys",
     "KIND_CAPTURE",
     "MODES",
     "MeaningResult",

@@ -535,7 +535,7 @@ def test_c2b_a_reader_note_written_beside_material_protected_since_is_never_read
     assert learner_text(vault, repository, "learner_note", snapshots[TYPED]) is not None
     real = VN.beside_protected
     monkeypatch.setattr(note_gaps.VN, "beside_protected",
-                        lambda vault, repository, key: key == corpus[TYPED] or real(vault, repository, key))
+                        lambda vault, repository, key, **kw: key == corpus[TYPED] or real(vault, repository, key, **kw))
     with pytest.raises(SourceWithheld):
         learner_text(vault, repository, "learner_note", snapshots[TYPED])
     assert learner_note_refusal(vault, repository, snapshots[TYPED]) == note_gaps.PROTECTED

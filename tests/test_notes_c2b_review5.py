@@ -155,3 +155,63 @@ def test_c2b_r5_f2_the_note_gate_refuses_once_a_bound_source_is_protected(tmp_pa
     monkeypatch.setattr(note_gaps.VN, "beside_protected", lambda *_a, **_k: False)
     hold_out(repository, "lay_eigen")
     assert learner_note_refusal(load_vault(paths.root), repository, snapshot, prepared=prepared) == note_gaps.PROTECTED
+
+
+def _reanchor(repository, key: str, *, extraction_id: str, span_id: str, source_id: str, revision_id: str) -> None:
+    """The Reader note moved by hand onto another passage (a successor anchor; the old one kept)."""
+
+    from learnloop.reader import annotations as ANN
+
+    with repository.connection() as connection:
+        block = connection.execute("SELECT text FROM source_document_blocks WHERE extraction_id = ? AND span_id = ?",
+                                   (extraction_id, span_id)).fetchone()
+    translation = ANN.translate_selection(repository, extraction_id=extraction_id, raw_selection={
+        "nodes": [{"span_id": span_id, "quote": " ".join(str(block[0]).split()[:4])}]})
+    assert translation["status"] == "exact", translation
+    ANN.manual_anchor(repository, annotation_id=key.split(":", 1)[1], source_id=source_id, revision_id=revision_id,
+                      extraction_id=extraction_id, segments=translation["segments"])
+
+
+def test_c2b_r5_rereview_f1_a_snapshot_from_an_older_anchor_is_withheld_once_that_anchor_is_protected(tmp_path):
+    """Codex re-review F1 (job 20261102-012346-6YalUi): the snapshot a note shows may carry
+    text and a heading from an anchor older than its newest one. A note linked beside Lay's
+    eigenvector section, then moved onto an unprotected passage, then Lay's section held
+    out: the stored snapshot (Lay's heading, written there) is withheld everywhere."""
+
+    from learnloop.source_retrieval import vault_notes as VN
+
+    paths, repository, ctx, goal_id, corpus, notes = _deliverable(tmp_path)
+    key = _lay_note(repository)
+    call(ctx, "notes.link", {"note": {"note_key": key}, "extraction_id": "ext_book", "span_id": "s2"})
+    call(ctx, "notes.path", {"goal_id": goal_id})  # the model's proposals too (inline)
+    _reanchor(repository, key, extraction_id="ext_book", span_id="s3", source_id="src_book", revision_id="rev_book")
+    before = _shown(ctx, goal_id)
+    # The snapshot taken beside Lay still shows, with Lay's header as its heading (control).
+    assert LAY_SENTINEL in before and LAY_HEADER in before and "Av = lv" in before
+    rows = _rows(repository)
+    hold_out(repository, "lay_eigen")
+    vault = load_vault(paths.root)
+    # The newest anchor alone is unprotected: the old check passes the note...
+    assert VN.protected_keys(vault, repository, [key]) == set()
+    # ...but the snapshot's own (older) anchor is protected now: withheld on every surface.
+    after = _shown(ctx, goal_id)
+    assert LAY_SENTINEL not in after and LAY_HEADER not in after and key not in after
+    assert _rows(repository) == rows
+    assert "Av = lv" in after
+    assert all(view["note_key"] != key for view in NL.marks(vault, repository, "ext_book")[0]["notes"])
+
+
+def test_c2b_r5_rereview_f1_a_notes_reading_refuses_a_snapshot_from_a_now_protected_older_anchor(tmp_path, monkeypatch):
+    """The gap reading's own refusal reads the same history (the note's every anchor)."""
+
+    import pytest
+
+    from learnloop.source_retrieval import note_gaps
+
+    paths, repository, key, snapshot, gap = _lay_reading(tmp_path, monkeypatch)
+    _reanchor(repository, key, extraction_id="ext_book", span_id="s3", source_id="src_book", revision_id="rev_book")
+    vault = load_vault(paths.root)
+    assert note_gaps.note_text(vault, repository, snapshot) is not None  # control: nothing protected yet
+    hold_out(repository, "lay_eigen")
+    with pytest.raises(note_gaps.NoteWithheld):
+        note_gaps.note_text(load_vault(paths.root), repository, snapshot)

@@ -850,8 +850,8 @@ def effective(repository: Repository, rows: Sequence[Mapping[str, Any]], *, vaul
     hidden link stays hidden. On a proposal that word is a decision only (Codex review
     F6): a kept one shows the topic's *current* proposal (its snapshot, how and anchor),
     never the proposal the learner's row was copied from. A link made by hand shows its
-    note's current snapshot (Codex re-review F13). A snapshot of a Reader note whose own
-    anchor sits beside protected material now is withheld (C2b review 5 F1)."""
+    note's current snapshot (Codex re-review F13). A snapshot of a Reader note any of whose
+    anchors sits beside protected material now is withheld (C2b review 5 F1, re-review F1)."""
 
     return [link_view(row, note) for row, note in effective_rows(repository, rows, vault=vault, goal_id=goal_id)]
 
@@ -859,15 +859,17 @@ def effective(repository: Repository, rows: Sequence[Mapping[str, Any]], *, vaul
 def withhold_protected(vault: Any, repository: Repository,
                        pairs: Sequence[tuple[Mapping[str, Any], Mapping[str, Any]]],
                        ) -> list[tuple[Mapping[str, Any], Mapping[str, Any]]]:
-    """``pairs`` minus every snapshot of a Reader note whose own anchor (or its section's
-    header) sits beside protected material now (C0a's predicate read now; unreadable: every
-    Reader note is withheld, fail closed). Codex review C2b round 5 F1: a note linked
-    before its anchor became protected keeps its ledger rows, but its text and its
-    source-derived heading are never delivered again. Captures and tend-era snapshots
-    carry no anchor and stay."""
+    """``pairs`` minus every snapshot of a Reader note any of whose anchors (or their
+    sections' headers) sits beside protected material now (C0a's predicate read now;
+    unreadable: every Reader note is withheld, fail closed). Codex review C2b round 5 F1: a
+    note linked before its anchor became protected keeps its ledger rows, but its text and
+    its source-derived heading are never delivered again. Codex re-review F1: a snapshot
+    may come from an anchor older than the note's newest (re-anchored since), so every
+    anchor the note ever had is checked (:func:`VN.snapshot_protected_keys`). Captures and
+    tend-era snapshots carry no anchor and stay."""
 
     keys = {str(note["note_key"]) for _row, note in pairs}
-    protected = VN.protected_keys(vault, repository, keys) if keys else set()
+    protected = VN.snapshot_protected_keys(vault, repository, keys) if keys else set()
     return [(row, note) for row, note in pairs if str(note["note_key"]) not in protected]
 
 
