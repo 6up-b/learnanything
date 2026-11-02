@@ -1,10 +1,13 @@
 import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, expect, it, vi } from "vitest";
-import type { LessonViewDto } from "../api/dto";
-import { LessonScreen } from "./LessonScreen";
+import type { FigureViewDto, LessonViewDto } from "../api/dto";
+import { LESSON_FIGURE_COPY, LessonScreen } from "./LessonScreen";
+import corpus from "./reader/figures/figureGoldenCorpus.json";
+import { FIGURE_COPY } from "./reader/figures/FigureInline";
 
 const { api } = vi.hoisted(() => ({
-  api: { lessonTurn: vi.fn(), lessonView: vi.fn() }
+  api: { lessonTurn: vi.fn(), lessonView: vi.fn(), readerLogActivity: vi.fn(), readerFigurePredict: vi.fn(),
+         readerFigureRevise: vi.fn(), figureRequest: vi.fn() }
 }));
 vi.mock("../api/client", () => ({ api }));
 vi.mock("../render/MarkdownMath", () => ({ MarkdownMath: ({ value }: { value: string }) => <span>{value}</span> }));
@@ -157,4 +160,60 @@ it("a reply that hit an outage resumes the saved lesson", async () => {
   api.lessonTurn.mockResolvedValueOnce(lesson());
   await act(async () => { fireEvent.click(screen.getByTestId("lesson-retry")); });
   expect(api.lessonTurn).toHaveBeenLastCalledWith({ action: "resume", lessonId: "les1" });
+});
+
+// --- Reader RW5d P4b: the teacher's visual ------------------------------------------------------
+
+const FLAGSHIP = corpus.figures.find((item) => item.id === "two_sided_exponential")!.spec as unknown as { demonstrates: string };
+
+function teacherFigure(overrides: Partial<FigureViewDto> = {}): FigureViewDto {
+  return {
+    figureId: "fig_t1", extractionId: null as unknown as string, spanIds: [], anchorSpanId: null, region: null,
+    origin: "teacher", verification: "illustrative", kind: "illustrative",
+    label: "AI-built illustration of an interpretation · not checked against the book", reason: null,
+    unsupportedKind: null, supersedesId: null, revisionNote: null, versions: 1, createdAt: "2026-11-02T00:00:00",
+    specJson: JSON.stringify(FLAGSHIP), demonstrates: FLAGSHIP.demonstrates, assumptions: [],
+    // A figure that carried its own prediction: the lesson suppresses it anyway.
+    predictions: [{ index: 0, prompt: "OWNPREDICTION if λ doubles?", kind: "direction", answered: null,
+                    choices: [{ value: "rises", label: "it rises" }, { value: "falls", label: "it falls" }] }],
+    goalText: "Move λ with p fixed at 0.3", goalAuthor: "teacher", grounding: "retrieved", passages: [],
+    tier: "grammar", host: "lesson",
+    ...overrides,
+  };
+}
+
+it("shows the teacher's figure inline in its turn, open, with no prediction of its own and no \"not right?\"", async () => {
+  api.readerLogActivity.mockResolvedValue({ recorded: 0 });
+  await open(lesson({
+    feed: [{ kind: "message", text: "Here only λ is yours to move.", choices: [] },
+           { kind: "prediction", node: "n1", prompt: "What happens to the left mass?", choices: [] },
+           { kind: "figure", node: "n1", goal: "Move λ with p fixed at 0.3", status: "shown", figure: teacherFigure() }],
+    openPrediction: { node: "n1", prompt: "What happens to the left mass?", choices: [] },
+  }));
+  const frame = screen.getByTestId("lesson-figure");
+  expect(frame.getAttribute("data-status")).toBe("shown");
+  expect(frame.querySelector('[data-figure="fig_t1"]')).not.toBeNull();
+  expect(frame.querySelector("[data-figure-body]")).not.toBeNull();
+  expect(frame.querySelector('[data-figure-goal="teacher"]')?.textContent).toContain("AI-written");
+  expect(screen.getByText(FLAGSHIP.demonstrates)).toBeTruthy();
+  expect(frame.querySelector("[data-figure-prediction]")).toBeNull();
+  expect(screen.queryByText(/OWNPREDICTION/)).toBeNull();
+  expect(screen.queryByText(FIGURE_COPY.notRight)).toBeNull();
+  // The teacher's own prediction is the one prompt for this move.
+  expect(screen.getByTestId("lesson-prediction-answer")).toBeTruthy();
+  expect(api.readerFigurePredict).not.toHaveBeenCalled();
+  expect(api.figureRequest).not.toHaveBeenCalled();
+});
+
+it("a lesson figure that isn't drawn says why in one quiet line", async () => {
+  await open(lesson({
+    feed: [{ kind: "figure", node: "n1", status: "failed", figure: null },
+           { kind: "figure", node: "n2", status: "withheld", figure: null },
+           { kind: "figure", node: "n3", status: "unavailable", figure: null }],
+  }));
+  const lines = screen.getAllByTestId("lesson-figure");
+  expect(lines.map((line) => line.getAttribute("data-status"))).toEqual(["failed", "withheld", "unavailable"]);
+  expect(lines.map((line) => line.textContent)).toEqual([LESSON_FIGURE_COPY.failed, LESSON_FIGURE_COPY.withheld,
+                                                         LESSON_FIGURE_COPY.unavailable]);
+  expect(document.querySelector("[data-figure]")).toBeNull();
 });

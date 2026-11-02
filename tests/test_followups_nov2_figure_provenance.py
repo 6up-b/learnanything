@@ -392,3 +392,43 @@ def test_a_rich_revision_with_nothing_inherited_carries_no_record(tmp_path, monk
         base = store.figure(connection, first["figure_id"])
     rig.build(FS.revision_request(rig.repository, base, "red"))
     assert RICH.INHERITED_LEARNER_INPUTS_KEY not in rig.job()["payload"]
+
+
+# ---------------------------------------------------------------------------
+# Landing onto main de9a03763d: RW5d P4b's lesson figures follow the same rules
+# ---------------------------------------------------------------------------
+
+def test_a_lesson_figure_keeps_its_record_and_is_rechecked_by_its_learner_inputs(tmp_path, monkeypatch):
+    """RW5d P4b's teacher visuals are built by the figure service (``_build``) and
+    shown through ``figure_withheld`` (``row_withheld``), so a lesson figure keeps
+    the learner-inputs record whenever its author was sent a learner state, and
+    once that state's inputs are protected the lesson stops showing it, exactly
+    as a Reader figure."""
+
+    from learnloop.teacher import service as S
+    from learnloop.teacher import visuals as V
+    from tests.test_reader_rw5d_p4b_teacher_visuals import _open, visual_turn
+
+    paths, repository, _fake, _author, view, _ = _open(tmp_path, [visual_turn])
+    [entry] = [e for e in view["feed"] if e["kind"] == "figure"]
+    assert entry["status"] == V.SHOWN
+    figure_id = entry["figure"]["figure_id"]
+    with repository.connection() as connection:
+        row = store.figure(connection, figure_id)
+    assert row["origin"] == "teacher"
+    report = row["verification_report"]
+    # The record is kept exactly when a learner state was sent (the "+learner-v1" prompt).
+    assert ("+learner-v1" in row["prompt_version"]) == (RICH.LEARNER_STATE_INPUTS_KEY in report)
+    vault = load_vault(paths.root)
+    assert FS.learner_state_withheld(vault, repository, row) is None
+    real = FS.learner_state_withheld
+
+    def protected_since(vault, repository, found):
+        if found.get("id") == figure_id:
+            return "Something that figure was written from is protected now."
+        return real(vault, repository, found)
+
+    monkeypatch.setattr(FS, "learner_state_withheld", protected_since)
+    assert FS.figure_withheld(load_vault(paths.root), repository, figure_id)
+    again = S.view_lesson(load_vault(paths.root), repository, view["lesson_id"])
+    assert [(e["status"], e["figure"]) for e in again["feed"] if e["kind"] == "figure"] == [(V.WITHHELD, None)]

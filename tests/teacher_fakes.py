@@ -107,6 +107,7 @@ class TeacherFake(StructuredClientFake):
         self.prompts: list[tuple[str, str]] = []
         self.contexts: list[dict[str, Any]] = []
         self.grading_contexts: list[Any] = []
+        self.result_models: list[Any] = []
 
     def supports(self, capability: str) -> bool:
         return capability in {STRUCTURED_COMPLETION, TOOL_FREE, ISOLATED_TURN}
@@ -116,13 +117,16 @@ class TeacherFake(StructuredClientFake):
         if request.purpose == "teacher_turn":
             from learnloop.teacher.contracts import TeacherTurnV1
 
+            # The schema the lesson asked for (Reader RW5d P4b: TE1's, or the turn with ``visual``).
+            model = getattr(request, "result_model", None) or TeacherTurnV1
+            self.result_models.append(model)
             context = context_of(request.prompt)
             self.contexts.append(context)
             if not self.turns:
-                return TeacherTurnV1.model_validate({"message": "Let's pause here."})
+                return model.model_validate({"message": "Let's pause here."})
             nxt = self.turns.pop(0)
             payload = nxt(context) if callable(nxt) else nxt
-            return TeacherTurnV1.model_validate(dict(payload))
+            return model.model_validate(dict(payload))
         return super().complete(request)
 
     def run_blind_grading_proposal(self, context: Any) -> Any:

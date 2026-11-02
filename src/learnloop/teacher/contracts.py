@@ -14,6 +14,15 @@ C4), ``write_plan``, ``forecast`` and ``close``; ``pose_prediction`` and
 ``pose_check`` are the turn's own ``prediction`` and ``check`` fields. No action
 grades, writes evidence, picks or dates a delayed check, creates an edge or
 reads protected material: no field exists for any of them (§9).
+
+Reader RW5d P4b (the teacher's manipulatives, ``spec_reader_show_me_figures_v1``
+§6.5, §10.4): with ``teacher.visuals`` on, the turn is :class:`TeacherTurnVisualsV1`,
+which adds the optional ``visual`` (:class:`TeacherVisualV1`: the goal the teacher
+writes from the brief and the delivered passages it rests on, or a planned node's
+visual), and ``write_plan`` nodes may carry a planned ``visual``
+(:class:`PlannedVisualV1`). Code completes either into a ``FigureRequestV1`` with
+origin ``teacher`` (``learnloop.teacher.visuals``). Off, the turn is
+:class:`TeacherTurnV1`, TE1's schema byte for byte.
 """
 
 from __future__ import annotations
@@ -120,6 +129,45 @@ class TeacherTurnV1(WireModel):
     requests: list[ActionRequestV1] = Field(default_factory=list, max_length=8)
 
 
+# --- Reader RW5d P4b: the teacher's manipulatives (teacher.visuals) ------------------------------
+
+#: The passages a visual may rest on (the figure service keeps at most this many grounding passages:
+#: ``learnloop.figure_admission.GROUNDING_PASSAGES``; keep, a prompt size).
+VISUAL_ANCHORS = 3
+
+
+class PlannedVisualV1(WireModel):
+    """A plan node's planned visual (spec §10.4): the goal written from the brief (which quantity the
+    learner gets to move, which stays fixed, what to watch) and the delivered passages it rests on."""
+
+    goal: str = Field(min_length=1, max_length=600)
+    anchors: list[str] = Field(min_length=1, max_length=VISUAL_ANCHORS)
+
+
+class TeacherVisualV1(WireModel):
+    """A turn's visual (spec §6.5): either ``planned_node`` (the node whose planned visual this step
+    shows, so it is the identical request), or a ``goal`` with the passages it rests on."""
+
+    goal: str = Field(default="", max_length=600)
+    anchors: list[str] = Field(default_factory=list, max_length=VISUAL_ANCHORS)
+    planned_node: str | None = Field(default=None, max_length=80)
+
+
+class PlanNodeVisualsV1(PlanNodeV1):
+    visual: PlannedVisualV1 | None = None
+
+
+class ActionRequestVisualsV1(ActionRequestV1):
+    plan: list[PlanNodeVisualsV1] = Field(default_factory=list, max_length=12)
+
+
+class TeacherTurnVisualsV1(TeacherTurnV1):
+    """One model turn with ``teacher.visuals`` on: TE1's turn plus the optional ``visual``."""
+
+    requests: list[ActionRequestVisualsV1] = Field(default_factory=list, max_length=8)
+    visual: TeacherVisualV1 | None = None
+
+
 __all__ = [
     "ACTIONS",
     "BRIEF_VERSION",
@@ -131,9 +179,15 @@ __all__ = [
     "TEACHER_CLOSE_REASONS",
     "TURN_VERSION",
     "ActionRequestV1",
+    "ActionRequestVisualsV1",
     "CheckV1",
     "CriterionV1",
     "PlanNodeV1",
+    "PlanNodeVisualsV1",
+    "PlannedVisualV1",
     "PredictionV1",
     "TeacherTurnV1",
+    "TeacherTurnVisualsV1",
+    "TeacherVisualV1",
+    "VISUAL_ANCHORS",
 ]

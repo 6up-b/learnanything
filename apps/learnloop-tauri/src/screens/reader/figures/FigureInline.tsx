@@ -59,9 +59,10 @@ export function frameBadge(verification: FigureViewDto["verification"], groundin
 export function FigureGoal({ figure }: { figure: FigureViewDto }) {
   const goal = figure.goalText?.trim();
   if (!goal) return null;
-  if (figure.goalAuthor === "tutor") {
+  if (figure.goalAuthor === "tutor" || figure.goalAuthor === "teacher") {
+    // RW5d P4b: a lesson figure's goal is the teacher's, AI-written as the tutor's is.
     return (
-      <span data-figure-goal="tutor">
+      <span data-figure-goal={figure.goalAuthor}>
         <span style={{ color: COLOR.purpleText }}>◇ “{goal}”</span> <MeaningLabel style={{ fontSize: 10 }}>(AI-written)</MeaningLabel>
       </span>
     );
