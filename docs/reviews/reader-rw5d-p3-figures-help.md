@@ -1,5 +1,7 @@
 # Reader RW5d P3: figures as a help kind (stage record)
 
+> Codex review fixes: `docs/reviews/reader-rw5d-p3-figures-help-codex-review.md` (F1-F9 fixed; migration 232 also rebuilds `figure_predictions`).
+
 - **Spec:** `docs/specs/spec_reader_show_me_figures_v1.md` rev 2, phase P3: §6.4, §11.2-§11.4b, §13.2, §14, and gates G-SM15..G-SM18. The as-built notes are in §11.4 and §14.
 - **Branch:** `reader/rw5d-p3-figures-help` in `learnanything-merge2`, base `c0017b5740`.
 - **Migration:** `232_help_assist_figures.sql`. 231 is curriculum C5's, on its own branch. The runner is set-based, so this renumbers at landing if needed; TE1 also carries a migration.
@@ -127,9 +129,9 @@ Every pytest, vitest, npm and cargo command ran inside `systemd-run --user --sco
 ## 5. Open items for the landing and the owner
 
 1. **Renumbering.** C5 holds 231 and TE1 carries a migration too. If the numbers change at landing, rename `232_help_assist_figures.sql`, `fixtures/migration_head_232` and the paths together, and rebuild the head fixture from main's tracked copy with the landed migrations.
-2. **Rich tiers on attempt hosts are not built.** §11.4b says a Manim figure opened in an attempt counts once, and the count rule (the chain root through `fuller_of_id`) is in place. But an attempt host's build gets no rich spawner, because rich pending lines list under a passage and a practice figure has none. A follow-up could list them in the panel.
-3. **Homeless illustrations have no predictions** (§2.1). If the owner wants them, `figure_predictions.extraction_id` needs a nullable rebuild.
-4. **The answer box to Work in Steps hand-off.** One attempt has two keys there (CA2's aliases). A figure opened on the answer box and the same figure opened in the steps is deduplicated only when the workbench problem's key matches; the alias set is not read.
+2. **Resolved in the Codex review fixes (F8).** ~~Rich tiers on attempt hosts are not built.~~ §11.4b says a Manim figure opened in an attempt counts once, and the count rule (the chain root through `fuller_of_id`) is in place. But an attempt host's build gets no rich spawner, because rich pending lines list under a passage and a practice figure has none. A follow-up could list them in the panel.
+3. **Resolved in the Codex review fixes (F9; 232 also rebuilds `figure_predictions`).** ~~Homeless illustrations have no predictions~~ (§2.1). If the owner wants them, `figure_predictions.extraction_id` needs a nullable rebuild.
+4. **Resolved in the Codex review fixes (F3: CA2's aliases are read).** ~~The answer box to Work in Steps hand-off.~~ One attempt has two keys there (CA2's aliases). A figure opened on the answer box and the same figure opened in the steps is deduplicated only when the workbench problem's key matches; the alias set is not read.
 5. **The workbench's Reader-side host** (`reader.ask` inside a bound workbench) is not wired. The practice screen's inline panel under a step is. RW2c's passage draw including a kept figure (§11.4 "Reader-side draw") is owned by RW2c's switch and not built.
 6. **The overlap measure is coarse.** The existing tutor measure is token-based, so a figure about P(X ≤ 0) shows about 0.5 overlap against a key about P(X ≤ 1/2). Reveals, and so auto-priming, will fire on topical figures as they do for hints and tutor answers. This is the spec's rule ("the existing overlap check"); flagged for the owner's checkpoint.
 7. **Owner checkpoint (spec):** one real show me in the practice panel on a `fixtures-local` copy with the plan route. Not run here (no live calls in this stage).
