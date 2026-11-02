@@ -318,3 +318,130 @@ C), `apps/learnloop-tauri/src/screens/reader/scopeFromPassage.test.tsx` (new, D)
    Selections in CA6's side-by-side pane do not offer it.
 4. **(E) Reader activity's hypotheses.** `router_reader._open_hypotheses` lists named gaps by id, kind and target
    only (no words), so it needs no passage check. Only the open problems' learner words are checked.
+
+## Landing onto main
+
+Worktree `learnanything-ad1`, branch `fix/followups-nov1c`, from the review tip `c9955df02f`. No migration,
+no successor, no config key. No live model call. The real `tend` never ran: tests use the fake, and every smoke
+process ran with `LEARNLOOP_NOTES_TEND=off`. Every Python/CLI run outside pytest used `env -i` with an empty,
+existing `HOME`, `CODEX_HOME` and `LEARNLOOP_CONFIG_DIR`, and `TMPDIR` outside the worktree. Only the mvp035 owner
+copies were opened, never a live vault.
+
+### Before the merges
+
+- `a9ee92e3e5`: section D quotes the passage action's copy as revised by review F3 (the stale "reads this
+  passage, and only it ... adds them to its scope" copy is gone). Docs only.
+
+### Orchestrator scoped verify (job `20261101-201837-Hdf34w`)
+
+F2, F3 and F4 are closed, with no false withholding on ordinary questions. F1 had one Medium remainder: delivered spans
+with no extraction id were treated as safe. The fix is `612f4cf1b8`, with a fail-first test; the record is
+`563fed91b7` ("Orchestrator scoped verify remainder, fixed" in `followups-nov1c-codex-review.md`). In `e50cac1c47` the
+fix's `source_ref_keys` import moved to module level, because `test_architecture`'s frozen function-local edge
+inventory refused the new function-local edge. `text_gaps/sources.py` already imports `exam_material` at module
+level, so the module-level import adds no new package edge. lint-imports: 40 kept.
+
+### Merges
+
+1. **Main `c0017b5740`** (learner data-relax-2: migration 230, figures `learner_state`) -> `146a40038c`.
+   - Only generated references conflicted. Main's side was taken, then regenerated: `db_validate_reference.py`
+     errors `[]`; `validate_vault.py` passes.
+   - `config/template.py` merged cleanly (this branch never touches it). All 31 fingerprints were checked with
+     `defaults_fingerprint_for_version` after clearing `.pyc`: 0 changed, second pass 0.
+   - Parameter registry: this branch adds no entries, so main's side auto-merged.
+   - Desktop catalog regenerated with no change.
+   - (E) and data-relax-2: `provenance.py` and `router_card.py` auto-merged. Both checks end in `PastWork.source_reason`, but they read
+     different records: `figures/learner_state.inputs_reason` reads a writer's write-time `Inputs` (a question's
+     passages from `question_record` / `_reader_sources`), and `PastWork.reading_reason` uses the router card's stricter
+     `reading_sources`. They overlap but do not duplicate each other. Not refactored.
+2. **Main `6b9cb117ba`** (curriculum C5: migration 231, head fixture `migration_head_231`, notes gaps) ->
+   `ca9a5cadeb`. It landed while the first full gate was running. That gate was stopped, and the full gate below ran
+   on the result.
+   - Union resolutions keep both sides: `notes.hidden` (this branch, C) beside `notes.set_gaps` (C5).
+     - `handlers/notes.py`: the module docstring bullets, `NOTES_RPCS`, both methods and main's `__all__`.
+     - The Tauri passthroughs (`commands.rs`, `main.rs`).
+     - `api/client.ts`.
+     - `SettingsScreen.tsx` (`HiddenNotesSettings` beside `NotesGapsSettings`).
+     - `test_mobile_allowlist.py` and `test_notes_linked.py`'s RPC lists.
+   - `desktop_validate.py` counts compose: 305 TS (base 302, +2 here, +1 C5), 295 entry-build, ACTIVE 311.
+   - `note_links.py` (A: read tokens and `hidden`; C5: `effective_rows`) and `text_gaps/provenance.py` (F1;
+     C5: `reading_record` refuses `learner_note`) auto-merged. No remaining caller of the removed
+     `_observed`/`current_revisions`.
+   - References: main's side was taken, then regenerated. `db_validate_reference.py` errors `[]`; `validate_vault.py`
+     passes (1377 notes). Fingerprints: 31 checked, 0 changed, second pass 0.
+   - Desktop catalog regenerated after the merge commit (`b7f7c1016f`). `desktop_validate.py` passes: 305/305 TS + 6/6
+     Rust, ACTIVE=311, reproducible byte for byte.
+   - Targeted after the merge (`-n 6`, 5G): 99 files naming the notes modules or RPCs, text_gaps,
+     `learner_protection`/`reading_reason` or the router card, plus the contract tests. **2024 passed, 1 failed**
+     (`test_architecture`'s edge inventory, fixed in `e50cac1c47`). The rerun of `test_architecture` plus the 22
+     provenance/router files: 374 passed, 2 xfailed.
+   - The manual resolution in `handlers/notes.py` was more than snapshot data, so the full pytest ran on the merged tree.
+- `module_generate.py` / `module_validate.py` exit 1 here as on main (missing package descriptions, module
+  coverage 474/1113). This is pre-existing and outside the landing's generated set; nothing was written.
+
+### Gate (on `e50cac1c47`)
+
+| Lane | Result |
+|---|---|
+| `lint-imports --no-cache` | 40 kept, 0 broken |
+| Full pytest (`flock` + 10G scope, `env -i`, `-n 8 --dist worksteal`) | **23616 passed, 0 failed**, 90 skipped, 47 xfailed (39:58) |
+| Durability (`-m durability -n 6`) | 182 passed, 1 skipped |
+| Owner lane (`-m owner_vaults -n 6`; `LEARNLOOP_OWNER_VAULTS` = fresh backup-API copies of `fixtures-local/owner-copies-mvp035` in gitignored `fixtures-local/landing-nov1c/`) | **83 passed, 2 failed, 4 skipped**. Both failures are the known ones (`test_activity_backfill::test_backfill_logs_attempt_duration_interaction_events`, `test_placement_fixture_copies::…[arxiv_v2]`) |
+| Frontend on the C5 merge's tree (`npm install`, `typecheck`, whole `vitest --maxWorkers=4` in a 5G scope, `frontend:build`) | ok; 253 files, 2415 tests passed; build ok. `apps/` is unchanged since |
+| `cargo check` (`src-tauri`: the `notes_hidden` passthrough beside C5's `notes_set_gaps`) | ok |
+
+There was no unexpected failure, so nothing needed a rerun.
+
+### Smoke (fresh owner copies, gitignored `fixtures-local/landing-nov1c-smoke/`)
+
+**Setup:**
+
+- Fresh backup-API copies of the three mvp035 owner copies.
+- Every AI route at the `127.0.0.1:9` blackhole, with the key variables unset.
+- `env -i` with an empty `HOME`, `CODEX_HOME` and config directory, and `LEARNLOOP_NOTES_TEND=off`.
+- An audit hook logs every process start and socket connect, and refuses non-loopback connects and Codex process
+  starts. A self-test afterwards logged both of its events.
+- Main's code (`6b9cb117ba`) against the branch's (`e50cac1c47`), each a `git archive` with `migrations/`.
+- On each copy: `upgrade` mvp-0.35 -> mvp-0.40, a primary load, `rebuild-derived-state`. Both heads are 231.
+- An earlier full smoke on main `c0017b5740` against `563fed91b7` gave the same results.
+
+**Results:**
+
+- **Today and the daily plan** are byte-identical, main against branch. linear_algebra: 525266 / 84705 bytes;
+  probability: 740827 / 124030 bytes; arxiv_v2: 344204 / 32442 bytes.
+- **Router card** byte-identical, main against branch, for every vault. The card dump covers the whole card over every topic,
+  plus the open problems per topic for every topic (linear_algebra 23376 bytes, probability 15151, arxiv_v2
+  14233). No open-problem words are withheld, because none of these copies has a reading-derived gap:
+  - linear_algebra and arxiv_v2 have no `learner_text_gaps` rows;
+  - probability has 2, from `diagnosis` and `workbench_text`, and both show as on main.
+  - **Probe.** To see what the card would do on these copies' real readings, every recorded question and active-reading
+    question went through `PastWork.reading_reason` (37 / 23 / 2).
+    - Every active-reading question and every practice or feedback question passes.
+    - Every Reader question with a recorded source context passes (3 / 3 / 0).
+    - Nine July Reader questions (8 in linear_algebra, 1 in arxiv_v2) come back `WITHHELD_UNREADABLE`. Their
+      `source_context_json` is NULL (asked before that structured field existed), and Codex review F1 made a
+      Reader question naming no passage fail closed. Their passage is still recorded as
+      `question_events.note_id` = `span:<extraction>/<span>`. Open item 5.
+- **Reload with the fold skip**, one process per vault, `load(maintenance=False)` then six
+  `reload(maintenance=False)`:
+  - The branch folded once, at load; all six reloads skipped the fold. Main folded on every reload.
+  - `PRAGMA data_version` (its own read-only connection) and a sha256 of every table's rows did not change from the
+    first reload on (data_version 2 throughout), on both sides.
+  - Median reload: linear_algebra 617.6 -> 542.5 ms; arxiv_v2 950.9 -> 867.0 ms; probability 468.1 -> 490.1 ms
+    (3 attempts, so the fold costs little and the difference is within noise).
+- `learnloop rebuild --shadow --json` on each branch copy: **facet 0 / mastery 0 / schedule 0** changed, live database
+  unchanged.
+- `model_call_receipts`: **0 new** across 6 databases compared against their base copies. probability's 56 are
+  inherited.
+- Process and socket audit: **0 events**. No process started and no socket connected, loopback included.
+
+### Open items
+
+The stage's open items 1–4 (above) stand.
+
+5. **Old Reader questions without a source context** (found in the smoke probe; no learner-visible effect on these
+   copies). A gap named from a Reader question asked before `source_context` was recorded would have its words
+   withheld on the router card as unreadable. Withholding is the safe direction. The passage could be placed from
+   `question_events.note_id` (`span:<extraction>/<span>`, `tutor_qa.reader_span_key`) instead of failing closed. Not
+   changed here: this is outside the scoped-verify fix.
+6. `module_generate.py` / `module_validate.py` fail on main too (pre-existing).
