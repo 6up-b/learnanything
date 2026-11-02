@@ -99,7 +99,51 @@ rebuild it from main's then-current head, which will hold 235).
 
 ## Gate (this step; the full suite runs once, in the landing gate)
 
-GATE_PLACEHOLDER
+Every pytest/vitest/npm/cargo command ran inside `systemd-run --user --scope --quiet -p MemoryMax=5G -p
+MemorySwapMax=1G`, pytest at `-n 6`, vitest at `--maxWorkers=4`, one test run at a time.
+
+- `uv sync --extra dev --extra mobile` and `uv pip install pypdfium2`: ok.
+- `uv run lint-imports --no-cache`: **41 kept, 0 broken** (a first draft had the shell import the teacher; the
+  teacher reads are now inlined, pinned equal to `teacher.service.lessons_active` and `teacher.brief.lo_prediction`).
+- Targeted pytest, migration and head-fixture set (97 files: every test naming `migration_head_236`,
+  `discover_migrations` or `apply_migrations`, plus `tests/test_teacher_te1_successor.py`): **1400 passed, 7
+  skipped, 5 failed**; the five were stale version pins (method-explicit, plan-follows-path, mvp018's bare upgrade,
+  TE1's chain position and its installed-completion check), fixed and rerun in the wide set below.
+- Targeted pytest, wide set (149 files: the TE1b and TE1 files, every file naming the router outcomes, the router
+  store or its designs, `config_dto`, `RouterConfig`, `activation_journal`, the parameter registry, the defaults
+  snapshots, `SUCCESSOR_CHAIN`/`LATEST_ALGORITHM_VERSION`, `table_roles`, the lesson handler or the teacher service,
+  and the contract files: desktop RPC contract, mobile allowlist, architecture, coordinated migrations, tracked
+  fixture databases, registry audit, CLI help snapshot, serializer snapshot, public-tip guards, sqlite file copies):
+  **2711 passed, 12 skipped, 6 xfailed, 4 failed**; the four (three chain-position pins and the architecture
+  test's SQL-owner registry, which now names `db/stores/router_suggestions.py`) fixed; rerun of those files with
+  the TE1b files and the mobile allowlist: **434 passed**.
+- Durability: `-m durability` over the 97-file migration set: **71 passed**; the TE1b files with
+  `--durable-sqlite`: **31 passed**.
+- Frontend: `npm install` ok; `npm run typecheck` ok; vitest on the touched files
+  (`src/screens/today/LessonSuggestionCard.test.tsx`, `src/screens/TodayScreen.suggestion.test.tsx`,
+  `src/app/lessonsConfig.test.ts`, `src/screens/LessonScreen.test.tsx`, `src/screens/TodayScreen.plan.test.tsx`,
+  `src/app/App.today.test.tsx`): **6 files, 51 passed**; `src/copy` and `src/app` (the jargon deny-list and the
+  shell): **29 files, 270 passed**; `npm run frontend:build` ok.
+- `cargo check --manifest-path apps/learnloop-tauri/src-tauri/Cargo.toml`: ok.
+- References: `db_generate_reference.py` then `db_validate_reference.py`: **errors []** (prose counts moved to 370
+  tables / 1121 leaves); `desktop_generate.py` then `desktop_validate.py`: **passed** (308 TS, ACTIVE 314); the
+  CLI help snapshot rewritten (`upgrade --to`'s help).
+- Head fixture: a backup-API copy of main's `migration_head_234` under `fixtures-local/te1b-head/`, only 236
+  applied under `UPGRADE_SCRATCH_COPY`; `wal_checkpoint(TRUNCATE)` (0, 0, 0), `journal_mode=DELETE`, header 1/1,
+  `integrity_check` ok, `foreign_key_check` empty; copied into place with the backup API, no companion files.
+
+**TE1b test files (for the landing gate):** `tests/test_teacher_te1b_suggestions.py` (the card once a day, the
+logged draw and its exact propensities, a no-card day logged, no candidate writes nothing, the candidate reasons,
+responses logged once and idempotent, `ignored` the next day, responses moving the model, "Not now" muting per the
+recovery prior, the seeded priors, re-acceptance teaching the grid, Start opening a lesson with the decision as
+origin and resuming on a second Start, the receipt's origin, the ITT outcome, off/below-tag/router-off/lessons-off
+writing nothing, the desktop config, the plan byte-identical with a draw, the chain, the upgrade and its refusals,
+the installed completion, the defaults parity, the ceiling bind, the parity with the teacher's reads; a socket guard
+on the flows: no network) and `tests/test_teacher_te1b_migration.py`; frontend
+`src/screens/today/LessonSuggestionCard.test.tsx`, `src/screens/TodayScreen.suggestion.test.tsx`,
+`src/app/lessonsConfig.test.ts`. Changed existing tests: the 56 head-path/chain-pin files, the 15 migration tests
+composing `TE1_AND_TE1B_*`, `tests/test_teacher_te1_successor.py`, `tests/test_recurrence_commands.py`,
+`tests/test_mobile_allowlist.py`, `tests/test_architecture.py`, `tests/cli_help_snapshot.json`.
 
 ## Owner items
 

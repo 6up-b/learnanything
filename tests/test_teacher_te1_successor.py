@@ -46,7 +46,7 @@ def test_the_tag_is_the_chains_last_link_after_curriculum_c1():
     assert SUCCESSOR_CHAIN[-3:-1] == (DELIVERABLE_PLAN_ALGORITHM_VERSION, TAG) == ("mvp-0.40", "mvp-0.41")
     # Teacher TE1b's mvp-0.43 follows it as the latest (renumbered at its landing).
     assert LATEST_ALGORITHM_VERSION == SUCCESSOR_CHAIN[-1] == "mvp-0.43" and PREDECESSOR == DELIVERABLE_PLAN_ALGORITHM_VERSION
-    assert TEACHER_VERSIONS == frozenset({TAG})
+    assert TEACHER_VERSIONS == frozenset({TAG, "mvp-0.43"})  # teacher TE1b follows
 
 
 def test_every_defaults_snapshot_drops_to_mains_value_without_the_teacher_keys():
