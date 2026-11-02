@@ -117,8 +117,9 @@ GAP_STATEMENT_CHARS = 600
 PASSAGE_CHARS = 2000
 #: Judge calls per section or gap (the second is told the first's problems).
 MAX_JUDGE_ATTEMPTS = 2
-#: How long the queue waits for foreground work to end before it leaves the rest for the next trigger.
-FOREGROUND_WAIT_SECONDS = 600.0
+#: How long the queue waits for foreground work to end before it leaves the rest for the next trigger
+#: (registered where it lives, :data:`learnloop.figures.foreground.FOREGROUND_WAIT_SECONDS`).
+FOREGROUND_WAIT_SECONDS = FG.FOREGROUND_WAIT_SECONDS
 #: Spans of a lesson node's passages one candidate anchors (a figure's anchor cap is 40).
 MAX_NODE_SPANS = 8
 #: Plan routes: a route on a subscription profile (the ChatGPT plan, or Codex under its opt-in).
@@ -229,6 +230,87 @@ def enabled(vault: Any) -> bool:
 
 
 # ---------------------------------------------------------------------------
+# The items' own passages (spec §10b.2's second filter; Codex review F4)
+# ---------------------------------------------------------------------------
+
+@dataclass(frozen=True)
+class ItemProtection:
+    """The passages no prebuild may show: every passage of an item that is the subject of a live
+    administration (an open cold check, a repair's cold retry, an assessment reservation or a
+    diagnostic probe: ``learner_protection.withheld_items``) or that the stored plan holds open
+    (its exercise, solution or worked answer: ``item_exclusions``). ``available`` False: the
+    protection could not be read, so everything is covered (fail closed)."""
+
+    spans: frozenset[tuple[str, str]] = frozenset()
+    extractions: frozenset[str] = frozenset()
+    available: bool = True
+
+    def covers(self, extraction_id: str, span_ids: Iterable[str]) -> bool:
+        if not self.available:
+            return True
+        if str(extraction_id) in self.extractions:
+            return True
+        return any((str(extraction_id), str(span)) in self.spans for span in span_ids)
+
+
+#: ``withheld_items`` reasons naming an item under a live administration (exam and held-out
+#: material is the span filter's, ``withheld_message``, on every span).
+_LIVE_REASONS = ("WITHHELD_COLD", "WITHHELD_RESERVED", "WITHHELD_PROBE")
+
+
+def item_protection(env: PrefetchEnv) -> ItemProtection:
+    """What :class:`ItemProtection` covers now (read fresh on every call: before judging, on
+    the author's whole context, and again before each build)."""
+
+    from learnloop import learner_protection as LP
+    from learnloop.source_retrieval.corpus import item_exclusions
+
+    vault = env.vault
+    withheld = LP.withheld_items(vault, env.repository)
+    if not withheld.available:
+        return ItemProtection(available=False)
+    live = {getattr(LP, name) for name in _LIVE_REASONS}
+    ids = {item_id for item_id, reason in withheld.reasons.items() if reason in live}
+    ids |= {str(item.practice_item_id) for item in _held_plan_items(env)}
+    spans: set[tuple[str, str]] = set()
+    whole: set[str] = set()
+    for item_id in sorted(ids):
+        item = vault.practice_items.get(item_id)
+        if item is None:
+            continue  # an item the vault can't read links to no passage it can name
+        try:
+            own = item_exclusions(env.repository, item)
+        except Exception:  # noqa: BLE001 - an item whose passages can't be read: fail closed
+            _LOG.warning("figure prefetch: the passages of item %s could not be read", item_id, exc_info=True)
+            return ItemProtection(available=False)
+        spans |= {(str(key[0]), str(key[1])) for key in own.spans}
+        whole |= {str(extraction) for extraction in own.extractions}
+    return ItemProtection(frozenset(spans), frozenset(whole))
+
+
+def context_spans(env: PrefetchEnv, candidate: "Candidate") -> list[str]:
+    """The spans the figure author would be sent for this candidate: its passage and the
+    paragraphs around it (``service.source_context``, the anchored build's own context)."""
+
+    from learnloop.figures import service as FS
+
+    try:
+        context = FS.source_context(env.vault, env.repository, FS.FigureRequest(
+            extraction_id=candidate.extraction_id, span_ids=list(candidate.span_ids)))
+    except Exception:  # noqa: BLE001 - a context that can't be read: its passage only
+        return list(candidate.span_ids)
+    return list(dict.fromkeys([*candidate.span_ids, *(str(span) for span in context.span_texts)]))
+
+
+def protected(env: PrefetchEnv, candidate: "Candidate", protection: ItemProtection) -> bool:
+    """The candidate's whole author context touches an item's own passage."""
+
+    if not protection.available:
+        return True
+    return protection.covers(candidate.extraction_id, context_spans(env, candidate))
+
+
+# ---------------------------------------------------------------------------
 # The judge
 # ---------------------------------------------------------------------------
 
@@ -290,11 +372,18 @@ def _judge_route(env: PrefetchEnv, owner_id: str) -> R.FigureRoute:
 
 
 def _ask(route: R.FigureRoute, prompt: Callable[[list[str]], str], result_model: type[WireModel],
-         validate: Callable[[Any], str | None]) -> Any:
-    """At most :data:`MAX_JUDGE_ATTEMPTS` calls; the second is told the first's problems (in its context)."""
+         validate: Callable[[Any], str | None], revalidate: Callable[[], str | None]) -> Any:
+    """At most :data:`MAX_JUDGE_ATTEMPTS` calls; the second is told the first's problems (in its context).
+
+    Codex review F1: before every request the prompt's passages are checked again against the
+    protection as it is now (``revalidate``); when anything in them became withheld or an item's
+    own since the context was saved, the saved context is discarded and nothing more is sent."""
 
     problems: list[str] = []
     for _attempt in range(MAX_JUDGE_ATTEMPTS):
+        changed = revalidate()
+        if changed is not None:
+            raise JudgeUnavailable("protection_changed", changed)
         try:
             output = route.ask(prompt(problems), result_model)
         except R.FigureUnavailable as exc:
@@ -318,9 +407,11 @@ def _section_problem(output: PrefetchSectionOutputV1, ids: Sequence[str]) -> str
     return "; ".join(found) or None
 
 
-def section_blocks(env: PrefetchEnv, extraction_id: str, section_id: str
-                   ) -> tuple[str, list[dict[str, Any]]] | None:
-    """A section's label and its blocks the judge may read: exam and held-out spans removed."""
+def section_blocks(env: PrefetchEnv, extraction_id: str, section_id: str,
+                   protection: ItemProtection | None = None) -> tuple[str, list[dict[str, Any]]] | None:
+    """A section's label and its blocks the judge may read: exam and held-out spans removed, and
+    (Codex review F4) every passage of an item under a live administration or held open by the
+    stored plan."""
 
     from learnloop.figures.service import withheld_message
     from learnloop.reader.reader_guidance import extraction_sections
@@ -338,6 +429,8 @@ def section_blocks(env: PrefetchEnv, extraction_id: str, section_id: str
         if block is None or not str(block.text or "").strip():
             continue
         if withheld_message(env.vault, env.repository, extraction_id, [span_id]) is not None:
+            continue
+        if protection is not None and protection.covers(extraction_id, [span_id]):
             continue
         blocks.append({"span_id": str(span_id), "type": str(block.block_type), "text": str(block.text)[:BLOCK_CHARS]})
         if len(blocks) >= MAX_SECTION_BLOCKS:
@@ -368,7 +461,9 @@ def judge_section(env: PrefetchEnv, extraction_id: str, section_id: str, *, call
     """The section judge's picks ``[{span_id, goal, p_open}]`` (cached by content); None when it
     could not run (``call`` False and nothing cached: off mains, the plan down, or no section)."""
 
-    found = section_blocks(env, extraction_id, section_id)
+    if not (protection := item_protection(env)).available:
+        return []  # fail closed: the items' protection could not be read
+    found = section_blocks(env, extraction_id, section_id, protection)
     if found is None:
         return []
     label, blocks = found
@@ -391,7 +486,14 @@ def judge_section(env: PrefetchEnv, extraction_id: str, section_id: str, *, call
         return render_structured_prompt("Figures ahead of need", JUDGE_PROMPT_VERSION, {
             "instructions": _SECTION_INSTRUCTIONS.format(limit=PREFETCH_SECTION_CANDIDATES), "context": shown})
 
-    output = _ask(route, prompt, PrefetchSectionOutputV1, lambda out: _section_problem(out, ids))
+    def revalidate() -> str | None:
+        current = item_protection(env)
+        again = section_blocks(env, extraction_id, section_id, current) if current.available else None
+        if again is None or _section_hash(extraction_id, section_id, again[1]) != input_hash:
+            return "this section's material changed (something in it is withheld now): nothing more is sent"
+        return None
+
+    output = _ask(route, prompt, PrefetchSectionOutputV1, lambda out: _section_problem(out, ids), revalidate)
     if result is not None:
         result.judge_calls += route.made
     by_id = dict(zip(ids, blocks))
@@ -406,11 +508,42 @@ def judge_section(env: PrefetchEnv, extraction_id: str, section_id: str, *, call
     return picks
 
 
+def _gap_hash(context: Mapping[str, Any], gap: Mapping[str, Any], passage: Mapping[str, Any]) -> str:
+    return content_key({"prompt_version": JUDGE_PROMPT_VERSION, "gap_id": str(gap["id"]),
+                        "extraction_id": str(passage["extraction_id"]), "span_id": str(passage["span_id"]),
+                        "context": dict(context)})
+
+
+def _cached_gap(repository: Repository, input_hash: str) -> tuple[str, float] | None:
+    with closing(connect(repository.sqlite_path, read_only=True)) as connection:
+        row = connection.execute(
+            "SELECT rationale FROM judgment_ledger WHERE task = ? AND left_kind = 'learner_gap' AND input_hash = ? "
+            "AND prompt_version = ? ORDER BY created_at DESC LIMIT 1",
+            (LEDGER_TASK, input_hash, JUDGE_PROMPT_VERSION)).fetchone()
+    if row is None:
+        return None
+    try:
+        found = json.loads(row[0])
+        return str(found["goal"]), float(found["p_open"])
+    except (TypeError, ValueError, KeyError):
+        return None
+
+
 def judge_gap(env: PrefetchEnv, gap: Mapping[str, Any], passage: Mapping[str, Any],
               result: PassResult | None = None) -> tuple[str, float]:
-    route = _judge_route(env, f"prefetch_gap:{content_key([gap['id'], passage['span_id']])[:24]}")
+    """The gap judge's goal and ``p_open`` for one gap on one passage. Codex review F13: the verdict
+    is a ``judgment_ledger`` row (task ``figure_prefetch_judge``, ``left_kind`` learner_gap, keyed
+    by the input's hash and the prompt version, appended once), as the section judge's is."""
+
+    from learnloop.figures.service import withheld_message
+
     context = {"mode": "gap", "unsure_of": str(gap["statement"])[:GAP_STATEMENT_CHARS], "topic": gap.get("topic"),
                "passage": str(passage.get("text") or "")[:PASSAGE_CHARS]}
+    input_hash = _gap_hash(context, gap, passage)
+    cached = _cached_gap(env.repository, input_hash)
+    if cached is not None:
+        return cached
+    route = _judge_route(env, f"prefetch_gap:{content_key([gap['id'], passage['span_id']])[:24]}")
 
     def prompt(problems: list[str]) -> str:
         shown = {**context, **({"problems_with_the_last_answer": problems} if problems else {})}
@@ -424,10 +557,29 @@ def judge_gap(env: PrefetchEnv, gap: Mapping[str, Any], passage: Mapping[str, An
             return "p_open outside 0..1"
         return None
 
-    output = _ask(route, prompt, PrefetchGapOutputV1, problem)
+    def revalidate() -> str | None:
+        extraction_id, span_id = str(passage["extraction_id"]), str(passage["span_id"])
+        if withheld_message(env.vault, env.repository, extraction_id, [span_id]) is not None \
+                or item_protection(env).covers(extraction_id, [span_id]):
+            return "this passage is withheld now: nothing more is sent"
+        return None
+
+    output = _ask(route, prompt, PrefetchGapOutputV1, problem, revalidate)
     if result is not None:
         result.judge_calls += route.made
-    return " ".join(output.goal.split()), float(output.p_open)
+    goal, p_open = " ".join(output.goal.split()), float(output.p_open)
+    with env.repository.atomic():
+        connection = env.repository.connection()
+        if connection.execute("SELECT 1 FROM judgment_ledger WHERE task = ? AND input_hash = ? AND prompt_version = ? "
+                              "AND left_kind = 'learner_gap' LIMIT 1",
+                              (LEDGER_TASK, input_hash, JUDGE_PROMPT_VERSION)).fetchone() is None:
+            append_judgment(connection, task=LEDGER_TASK, left_kind="learner_gap", left_id=str(gap["id"]),
+                            right_kind="reader_span", right_id=f"{passage['extraction_id']}:{passage['span_id']}",
+                            judge="llm", judge_model=route.model or "unspecified", prompt_version=JUDGE_PROMPT_VERSION,
+                            input_hash=input_hash, verdict="judged",
+                            rationale=json.dumps({"mode": "gap", "goal": goal, "p_open": p_open}, sort_keys=True),
+                            created_at=utc_now_iso(env.clock))
+    return goal, p_open
 
 
 # ---------------------------------------------------------------------------
@@ -476,6 +628,19 @@ def next_section(env: PrefetchEnv, extraction_id: str, section_id: str) -> str |
     return None
 
 
+def planned_visual(node: Mapping[str, Any]) -> dict[str, Any] | None:
+    """A plan node's planned visual (spec §10.4: ``write_plan``'s node ``visual``, a figure request
+    whose goal the teacher wrote), or None. Codex review F8: only a node that carries one is ever
+    prebuilt; TE1's ``PlanNodeV1`` has no ``visual`` yet (RW5d P4b adds it), so with TE1's plans
+    the lesson trigger builds nothing."""
+
+    visual = node.get("visual")
+    if not isinstance(visual, Mapping):
+        return None
+    goal = " ".join(str(visual.get("goal_text") or "").split())
+    return {"goal_text": goal or None}
+
+
 def _lesson_candidates(env: PrefetchEnv, lesson_id: str) -> list[Candidate]:
     from learnloop.teacher.service import load_state
 
@@ -489,15 +654,15 @@ def _lesson_candidates(env: PrefetchEnv, lesson_id: str) -> list[Candidate]:
     found: list[Candidate] = []
     for node in state.plans[-1]["outline"]:
         node_id = str(node.get("id") or "")
-        if not node_id or node_id in landed:
+        visual = planned_visual(node)
+        if not node_id or node_id in landed or visual is None:
             continue
         passages = [state.book.passages[alias] for alias in node.get("anchors") or () if alias in state.book.passages]
         if not passages:
             continue
         extraction_id = str(passages[0]["extraction_id"])
         spans = list(dict.fromkeys(str(p["span_id"]) for p in passages if str(p["extraction_id"]) == extraction_id))
-        visual = node.get("visual") if isinstance(node.get("visual"), Mapping) else None
-        goal = " ".join(str((visual or {}).get("goal_text") or "").split()) or None
+        goal = visual["goal_text"]
         found.append(Candidate("lesson", f"{lesson_id}:{node_id}", extraction_id, spans[:MAX_NODE_SPANS], goal,
                                "teacher" if goal else None, None))
     return found
@@ -552,12 +717,17 @@ def _gap_candidates(env: PrefetchEnv, *, call: bool, result: PassResult, open_ke
         return []  # a gap's figure has a goal: "show me" must be on
     found: list[Candidate] = []
     decided = _decided_refs(env.repository, "gap")
+    protection: ItemProtection | None = None
     for gap in open_gap_statements(env.vault, env.repository, _touched_topics(env)):
         if gap["id"] in decided:
             continue
+        protection = protection or item_protection(env)
+        if not protection.available:
+            return found  # fail closed
         passage = next(((extraction_id, span_id) for extraction_id, span_id in
                         (env.passages or _topic_passages)(env.vault, env.repository, gap["learning_object_id"])
-                        if withheld_message(env.vault, env.repository, extraction_id, [span_id]) is None), None)
+                        if withheld_message(env.vault, env.repository, extraction_id, [span_id]) is None
+                        and not protected(env, Candidate("gap", "", extraction_id, [span_id]), protection)), None)
         if passage is None:
             continue
         if not call:
@@ -646,35 +816,27 @@ def already_built(repository: Repository, candidate: Candidate) -> bool:
                for row in rows)
 
 
-def _held_items(env: PrefetchEnv) -> list[Any]:
+def _held_plan_items(env: PrefetchEnv) -> list[Any]:
+    """The stored plan's (today's latest) items not yet resolved."""
+
     record = _plan_record(env, None)
     if record is None:
         return []
-    items = []
-    for item in record.items():
-        if not getattr(item, "resolved", False) and item.practice_item_id in env.vault.practice_items:
-            items.append(env.vault.practice_items[item.practice_item_id])
-    return items
+    return [item for item in record.items()
+            if not getattr(item, "resolved", False) and getattr(item, "practice_item_id", None)]
 
 
 def filter_candidates(env: PrefetchEnv, found: Iterable[Candidate], *, open_keys: set[str]) -> list[Candidate]:
     """The code filters (spec §10b.2), before any build call; the build repeats the protection."""
 
     from learnloop.figures.service import withheld_message
-    from learnloop.source_retrieval.corpus import item_exclusions
 
     vault = env.vault
     if not enabled(vault):
         return []
-    owned: set[tuple[str, str]] = set()
-    owned_whole: set[str] = set()
-    for item in _held_items(env):
-        try:
-            own = item_exclusions(env.repository, item)
-        except Exception:  # noqa: BLE001 - an item whose passages can't be read holds its whole topic back
-            continue
-        owned |= {(str(key[0]), str(key[1])) for key in own.spans}
-        owned_whole |= {str(extraction) for extraction in own.extractions}
+    protection = item_protection(env)
+    if not protection.available:
+        return []  # fail closed
     kept: list[Candidate] = []
     seen: set[str] = set()
     for candidate in found:
@@ -688,9 +850,8 @@ def filter_candidates(env: PrefetchEnv, found: Iterable[Candidate], *, open_keys
             continue
         if withheld_message(vault, env.repository, candidate.extraction_id, candidate.span_ids) is not None:
             continue
-        if candidate.extraction_id in owned_whole or any(
-                (candidate.extraction_id, span) in owned for span in candidate.span_ids):
-            continue
+        if protected(env, candidate, protection):
+            continue  # the author's whole context, its neighbours too (Codex review F4)
         if already_built(env.repository, candidate):
             continue
         kept.append(candidate)
@@ -795,13 +956,14 @@ def decide_and_log(env: PrefetchEnv, kept: Sequence[Candidate], *, on_mains: boo
     providers = plan_providers(vault)
     with closing(connect(env.repository.sqlite_path, read_only=True)) as connection:
         model = PL.load_model(connection, providers, now=env.now(), offset=env.offset())
-        built_today = PL.builds_today(connection, today=env.today(), offset=env.offset())
         render_today = PL.render_minutes_today(connection, today=env.today(), offset=env.offset())
+    built_today = len(started_today(env))
     digest = model.digest()
     decided: list[tuple[Candidate, PM.Decision]] = []
     for candidate in kept:
         source = _source_key(env.repository, candidate.extraction_id)
-        decision = model.decide(PM.Candidate(candidate.trigger_kind, source, candidate.p_open_content), rng)
+        decision = model.decide(PM.Candidate(candidate.trigger_kind, source, candidate.p_open_content,
+                                             model.expected_requests(candidate.trigger_kind)), rng)
         decided.append((candidate, decision))
     order = sorted(range(len(decided)), key=lambda index: -(decided[index][1].sampled_eu or float("-inf")))
     section = vault.config.figures.prefetch
@@ -845,14 +1007,17 @@ def decide_and_log(env: PrefetchEnv, kept: Sequence[Candidate], *, on_mains: boo
 
 
 def pending_builds(env: PrefetchEnv) -> list[tuple[dict[str, Any], Candidate]]:
-    """Decisions to build that no build has served yet (the queue yielded, the power or the plan
-    went away): they wait for the next pass while their horizon is open."""
+    """Decisions to build that no build has served yet, while their horizon is open: the queue
+    yielded, the cap or the power or the plan went away mid-queue, or (Codex review F5) the
+    decision itself was deferred for the power or the plan. A deferral is temporary: the row
+    keeps what was decided then (immutable), and its build, once it runs, sets its request
+    (set once), so the deferred decision is retried, never decided twice."""
 
     with closing(connect(env.repository.sqlite_path, read_only=True)) as connection:
         if not PL.has_tables(connection):
             return []
         rows = [row for row in PL.decisions(connection)
-                if row["decision"] == "build" and not row.get("request_id") and not row.get("outcome")]
+                if row["decision"] in PL.BUILD_DECISIONS and not row.get("request_id") and not row.get("outcome")]
     found = []
     for row in rows:
         anchor = PL.anchor_of(row)
@@ -865,6 +1030,48 @@ def pending_builds(env: PrefetchEnv) -> list[tuple[dict[str, Any], Candidate]]:
 
 
 _BUILD_SLOTS = threading.BoundedSemaphore(PREFETCH_CONCURRENT_BUILDS)
+#: Codex review F6: the daily build cap is spent when a build STARTS (a resumed one included),
+#: atomically: the decisions whose build started today (their prefetch request rows, durable)
+#: and, in this process, the ones started and not (yet) stored (a build that failed before its
+#: row still spent its plan requests).
+_CAP_LOCK = threading.Lock()
+_STARTED: dict[tuple[str, str], set[str]] = {}
+
+
+def started_today(env: PrefetchEnv) -> set[str]:
+    """The decisions whose build started today (local day)."""
+
+    with closing(connect(env.repository.sqlite_path, read_only=True)) as connection:
+        durable = PL.started_today(connection, today=env.today(), offset=env.offset())
+    with _CAP_LOCK:
+        return durable | set(_STARTED.get((str(env.repository.sqlite_path), env.today()), ()))
+
+
+def reserve_build(env: PrefetchEnv, decision_id: str) -> bool:
+    """Spend one of today's builds on this decision, or False when the cap is used up."""
+
+    cap = int(env.current_vault().config.figures.prefetch.max_daily_builds)
+    with closing(connect(env.repository.sqlite_path, read_only=True)) as connection:
+        durable = PL.started_today(connection, today=env.today(), offset=env.offset())
+    with _CAP_LOCK:
+        mine = _STARTED.setdefault((str(env.repository.sqlite_path), env.today()), set())
+        used = durable | mine
+        if decision_id in used:
+            return True
+        if len(used) >= cap:
+            return False
+        mine.add(decision_id)
+        return True
+
+
+def rich_in_flight(env: PrefetchEnv) -> bool:
+    """A prebuild's durable rich job is queued or running (Codex review F7: background work is
+    one pipeline at a time, so nothing else starts until it ends)."""
+
+    from learnloop.figures import rich as RICH
+
+    return any((job.get("payload") or {}).get("build_mode") == "prefetch"
+               and RICH.job_state(job)["state"] == "pending" for job in RICH.rich_jobs(env.repository))
 
 
 def _link(env: PrefetchEnv, decision_id: str) -> None:
@@ -886,13 +1093,15 @@ def run_builds(env: PrefetchEnv, queue: Sequence[tuple[dict[str, Any], Candidate
 
     from learnloop.figures import service as FS
 
-    spawn = _rich_spawn(env)
     for row, candidate in queue:
         if env.is_cancelled():
             result.notes.append("cancelled")
             return
         if not FG.wait_idle(env.foreground_wait_seconds, cancelled=env.is_cancelled):
             result.notes.append("yielded to foreground work: the rest wait for the next trigger")
+            return
+        if rich_in_flight(env):
+            result.notes.append("a background animation is still building: the rest wait for the next trigger")
             return
         current = env.current_vault()
         if current is None or not enabled(current):
@@ -901,6 +1110,16 @@ def run_builds(env: PrefetchEnv, queue: Sequence[tuple[dict[str, Any], Candidate
         if not P.power_state().on_mains:
             result.notes.append("left mains power")
             return
+        if _author_ready(env) is not None:
+            result.notes.append("the figure author is not the plan now: the rest wait")
+            return
+        if protected(env, candidate, item_protection(env)):
+            result.notes.append(f"{row['id']}: an item's own passage now")
+            continue
+        if not reserve_build(env, str(row["id"])):
+            result.notes.append("today's prebuilds are used up: the rest wait")
+            return
+        spawn = _rich_spawn(env)
         request = FS.FigureRequest(extraction_id=candidate.extraction_id, span_ids=list(candidate.span_ids),
                                    origin="prefetch", goal_text=candidate.goal_text,
                                    goal_author=candidate.goal_author if candidate.goal_text else None,
@@ -925,34 +1144,85 @@ def run_builds(env: PrefetchEnv, queue: Sequence[tuple[dict[str, Any], Candidate
 # Horizons and outcomes
 # ---------------------------------------------------------------------------
 
-def _horizon_passed(env: PrefetchEnv, connection: Any, row: Mapping[str, Any], open_gaps: set[str] | None) -> bool:
+def _day_end(env: PrefetchEnv, local_date: str) -> datetime | None:
+    """The instant a local day ends (its next midnight, in this machine's offset)."""
+
+    try:
+        start = datetime.fromisoformat(str(local_date)[:10]).replace(tzinfo=UTC)
+    except ValueError:
+        return None
+    return start + timedelta(days=1) - env.offset()
+
+
+def _session_end(connection: Any, extraction_id: str | None, created: datetime) -> datetime | None:
+    """The end of the reading session the offer was made in (RW6b's session digest of that
+    source spanning the decision), or None while no such session has ended."""
+
+    if not extraction_id or connection.execute(
+            "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'reader_session_digests'").fetchone() is None:
+        return None
+    ends = []
+    for started_at, ended_at in connection.execute(
+            "SELECT started_at, ended_at FROM reader_session_digests WHERE extraction_id = ?", (str(extraction_id),)):
+        begun, ended = PL._when(started_at), PL._when(ended_at)
+        if begun is not None and ended is not None and begun <= created <= ended:
+            ends.append(ended)
+    return min(ends) if ends else None
+
+
+def horizon_at(env: PrefetchEnv, connection: Any, row: Mapping[str, Any], open_gaps: set[str] | None
+               ) -> datetime | None:
+    """When the decision's structural horizon passed (spec §10b.5), or None while it is open.
+
+    Codex review F9: the instant itself, so an outcome reads only what happened before it.
+    plan: the plan's day ended, or it was completed or stopped; section: marked read; lesson:
+    closed; offer: the reading session it was made in ended (its session digest), or its local
+    day ended, whichever is first; gap: the next plan was built, or the gap is closed (first seen
+    closed now: its closing moment is not recorded)."""
+
     kind = row["trigger_kind"]
     created = PL._when(row["created_at"])
-    decided_day = None if created is None else (created + env.offset()).date().isoformat()
+    now = env.now()
+    if created is None:
+        return now
+    found: datetime | None = None
     if kind == "plan":
-        plan = connection.execute("SELECT local_date, status FROM daily_plans WHERE id = ?",
+        plan = connection.execute("SELECT local_date, status, completed_at, updated_at FROM daily_plans WHERE id = ?",
                                   (row["trigger_ref"],)).fetchone()
-        return plan is None or plan[0] < env.today() or plan[1] != "open"
-    if kind == "section":
+        if plan is None:
+            return now
+        moments = [moment for moment in (_day_end(env, plan[0]),) if moment is not None]
+        if plan[1] != "open":
+            moments.append(PL._when(plan[2] or plan[3]) or now)
+        found = min(moments) if moments else None
+    elif kind == "section":
         extraction_id, _sep, section_id = str(row["trigger_ref"]).partition(":")
         done = connection.execute(
             "SELECT completed_at FROM reader_section_progress WHERE extraction_id = ? AND section_id = ?",
             (extraction_id, section_id)).fetchone()
-        return bool(done and done[0])
-    if kind == "lesson":
+        found = PL._when(done[0]) if done and done[0] else None
+    elif kind == "lesson":
         lesson_id = str(row["trigger_ref"]).split(":", 1)[0]
         lesson = connection.execute("SELECT closed_at FROM lessons WHERE id = ?", (lesson_id,)).fetchone()
-        return lesson is None or lesson[0] is not None
-    if kind == "offer":
-        # The offer's thread ends with the reading session at the latest: the local day it was made.
-        return decided_day is not None and decided_day < env.today()
-    if kind == "gap":
+        found = now if lesson is None else (PL._when(lesson[0]) if lesson[0] else None)
+    elif kind == "offer":
+        anchor = PL.anchor_of(row) or {}
+        moments = [moment for moment in (_session_end(connection, anchor.get("extraction_id"), created),
+                                         _day_end(env, (created + env.offset()).date().isoformat()))
+                   if moment is not None]
+        found = min(moments) if moments else None
+    elif kind == "gap":
+        moments = []
+        newer = connection.execute("SELECT created_at FROM daily_plans WHERE created_at > ? ORDER BY created_at "
+                                   "LIMIT 1", (row["created_at"],)).fetchone()
+        if newer is not None and PL._when(newer[0]) is not None:
+            moments.append(PL._when(newer[0]))
         if open_gaps is not None and str(row["trigger_ref"]) not in open_gaps:
-            return True
-        newer = connection.execute("SELECT 1 FROM daily_plans WHERE created_at > ? LIMIT 1",
-                                   (row["created_at"],)).fetchone()
-        return newer is not None
-    return False
+            moments.append(now)
+        found = min(moments) if moments else None
+    if found is None or found > now:
+        return None
+    return max(found, created)
 
 
 def _figure_ids(connection: Any, request_id: str) -> set[str]:
@@ -963,12 +1233,18 @@ def _figure_ids(connection: Any, request_id: str) -> set[str]:
     return ids
 
 
-def _opened(connection: Any, figure_ids: set[str], since: str) -> bool:
+def _between(value: Any, since: datetime, until: datetime) -> bool:
+    when = PL._when(value)
+    return when is not None and since <= when <= until
+
+
+def _opened(connection: Any, figure_ids: set[str], since: datetime, until: datetime) -> bool:
     if not figure_ids:
         return False
-    for (raw,) in connection.execute(
-            "SELECT payload_json FROM interaction_events WHERE kind = 'reader_action_invoked' AND created_at >= ?",
-            (since,)):
+    for raw, created_at in connection.execute(
+            "SELECT payload_json, created_at FROM interaction_events WHERE kind = 'reader_action_invoked'"):
+        if not _between(created_at, since, until):
+            continue
         try:
             payload = json.loads(raw or "{}")
         except (TypeError, ValueError):
@@ -979,18 +1255,24 @@ def _opened(connection: Any, figure_ids: set[str], since: str) -> bool:
     return False
 
 
-def _asked(connection: Any, anchor: Mapping[str, Any] | None, since: str) -> bool:
+def _asked(connection: Any, row: Mapping[str, Any], since: datetime, until: datetime) -> bool:
+    """A pressed request for this very input (its passage, and its goal or none) before the horizon."""
+
+    anchor = PL.anchor_of(row)
     if not anchor:
         return False
-    spans = set(anchor.get("span_ids") or ())
-    for (raw,) in connection.execute(
-            "SELECT anchor_json FROM figure_requests WHERE build_mode = 'pressed' AND created_at >= ?", (since,)):
+    goal = " ".join(str(row.get("goal_text") or "").split()) or None
+    for raw, asked_goal, created_at in connection.execute(
+            "SELECT anchor_json, goal_text, created_at FROM figure_requests WHERE build_mode = 'pressed'"):
+        if not _between(created_at, since, until):
+            continue
         try:
             asked = json.loads(raw or "null")
         except (TypeError, ValueError):
             continue
-        if (isinstance(asked, dict) and asked.get("extraction_id") == anchor.get("extraction_id")
-                and spans & set(asked.get("span_ids") or ())):
+        if (isinstance(asked, dict) and str(asked.get("extraction_id")) == str(anchor.get("extraction_id"))
+                and [str(span) for span in asked.get("span_ids") or ()] == [str(span) for span in anchor.get("span_ids") or ()]
+                and (" ".join(str(asked_goal or "").split()) or None) == goal):
             return True
     return False
 
@@ -1023,13 +1305,15 @@ def close_horizons(env: PrefetchEnv, result: PassResult | None = None) -> int:
                       "gap": "daily_plans"}.get(row["trigger_kind"])
             if needed is not None and needed not in tables:
                 continue
-            if not _horizon_passed(env, connection, row, open_gaps):
+            until = horizon_at(env, connection, row, open_gaps)
+            if until is None:
                 continue
-            if row["decision"] == "build" and row.get("request_id"):
+            since = PL._when(row["created_at"]) or until
+            if row.get("request_id"):
                 outcome = "opened" if _opened(connection, _figure_ids(connection, str(row["request_id"])),
-                                              str(row["created_at"])) else "neither"
+                                              since, until) else "neither"
             else:
-                outcome = "asked" if _asked(connection, anchor, str(row["created_at"])) else "neither"
+                outcome = "asked" if _asked(connection, row, since, until) else "neither"
             outcomes.append((str(row["id"]), outcome))
     if not outcomes:
         return 0
@@ -1053,6 +1337,22 @@ def _key(vault: Any) -> tuple[Any, ...]:
     return (P.prefetch_switch(vault), plan_route(vault, JUDGE_TASK, None).billing)
 
 
+def _pass_hold(env: PrefetchEnv) -> Callable[[Any], str | None]:
+    """The pass's hold before every physical request (the judge's, a quick build's author):
+    the switch, the power and foreground work in flight (``power.background_hold``)."""
+
+    def hold(current: Any) -> str | None:
+        return P.background_hold(current)
+
+    return hold
+
+
+def _judge_admitted(env: PrefetchEnv) -> bool:
+    if not FG.wait_idle(env.foreground_wait_seconds, cancelled=env.is_cancelled):
+        return False
+    return not rich_in_flight(env)
+
+
 def run_trigger(env: PrefetchEnv, trigger: Trigger) -> PassResult:
     """One pass for one trigger (module docstring). Never raises for a model or build failure."""
 
@@ -1066,7 +1366,7 @@ def run_trigger(env: PrefetchEnv, trigger: Trigger) -> PassResult:
     if trigger.kind not in TRIGGER_KINDS:
         result.status = "unknown_trigger"
         return result
-    gate = FiguresGate(env.vault, _key, live_vault=env.live_vault, hold=P.background_hold)
+    gate = FiguresGate(env.vault, _key, live_vault=env.live_vault, hold=_pass_hold(env))
     try:
         with plan_fallback.quiet(), gate_model_requests(gate):
             pause = observe_pause(env)
@@ -1075,9 +1375,14 @@ def run_trigger(env: PrefetchEnv, trigger: Trigger) -> PassResult:
             plan_wait = "the ChatGPT plan is paused" if pause and pause.get("active") else _author_ready(env)
             open_keys = open_request_keys(env.repository)
             waiting = pending_builds(env)
+            call = on_mains and plan_wait is None
+            if call and not _judge_admitted(env):
+                # Codex review F7: the judge yields too (foreground work, or a background
+                # animation still building): cached judgments only, the rest at the next trigger.
+                result.notes.append("judge waiting: foreground or background work in flight")
+                call = False
             try:
-                found = candidates(env, trigger, call=on_mains and plan_wait is None, result=result,
-                                   open_keys=open_keys)
+                found = candidates(env, trigger, call=call, result=result, open_keys=open_keys)
             except JudgeUnavailable as exc:
                 result.notes.append(f"judge waiting: {exc.reason}")
                 found = []
@@ -1108,8 +1413,17 @@ __all__ = [
     "PrefetchGapOutputV1",
     "PrefetchSectionOutputV1",
     "Trigger",
+    "ItemProtection",
     "already_built",
     "candidates",
+    "context_spans",
+    "horizon_at",
+    "item_protection",
+    "planned_visual",
+    "protected",
+    "reserve_build",
+    "rich_in_flight",
+    "started_today",
     "close_horizons",
     "decide_and_log",
     "enabled",

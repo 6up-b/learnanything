@@ -1680,10 +1680,10 @@ def build_figure(vault: Any, repository: Repository, request: FigureRequest, *, 
     # embedding and verification calls, the reuse lookup and the author are
     # each admitted against the configuration as it is NOW (``live_vault``),
     # so switching figures or show me off stops the request wherever it is.
-    # RW5d P5: a background build also holds on the switch and mains power.
-    hold = None
-    if request.origin == "prefetch":
-        from learnloop.figures.power import background_hold as hold
+    # RW5d P5: a background build also holds on the switch, mains power and
+    # foreground work, and (Codex review F2) on the figure author's route
+    # being the plan as configured NOW: a prebuild is never metered.
+    hold = _prefetch_build_hold(author_client) if request.origin == "prefetch" else None
     gate = FiguresGate(vault, key_for(request), live_vault=live_vault, hold=hold)
     try:
         with gate_model_requests(gate):
@@ -1691,6 +1691,24 @@ def build_figure(vault: Any, repository: Repository, request: FigureRequest, *, 
                           spawn_rich=spawn_rich)
     except FiguresChanged as exc:
         raise FigureRefused("figures_changed", str(exc)) from exc
+
+
+#: RW5d P5 (Codex review F2): a prebuild whose figure author is not the plan now.
+PREFETCH_AUTHOR_NOT_PLAN = ("Not built ahead of need: the figure author is not the ChatGPT plan now, and a figure "
+                            "built ahead of need is never metered.")
+
+
+def _prefetch_build_hold(author_client: Any | None) -> Callable[[Any], str | None]:
+    from learnloop.figures.power import background_hold
+    from learnloop.practice_index.paid import plan_route
+
+    def hold(current: Any) -> str | None:
+        reason = background_hold(current)
+        if reason is None and plan_route(current, R.AUTHOR_TASK, author_client).billing != "subscription":
+            return PREFETCH_AUTHOR_NOT_PLAN
+        return reason
+
+    return hold
 
 
 def _build(vault: Any, repository: Repository, request: FigureRequest, *, gate: FiguresGate,
@@ -2298,7 +2316,18 @@ def resume_rich_intents(vault: Any, repository: Repository, extraction_id: str, 
         intent = (row.get("verification_report") or {}).get(RICH_INTENT_KEY)
         if row.get("verification") not in store.SHOWN or not isinstance(intent, dict) or rich_row(row):
             continue
-        payload = {**intent, "build_mode": "recovered"}
+        if intent.get("build_mode") == "prefetch":
+            # RW5d P5 (Codex review F3): a prebuild's intent stays a prebuild
+            # when recovered: every P5 admission condition holds (the switch,
+            # the power, foreground work, the plan route; the worker checks
+            # them again), so with figures ahead of need off nothing starts.
+            from learnloop.figures.power import background_hold
+
+            if background_hold(vault) is not None:
+                continue
+            payload = dict(intent)
+        else:
+            payload = {**intent, "build_mode": "recovered"}
         if RICH.rich_job_id_for_quick(repository, str(row["id"])) is not None:
             continue
         try:
@@ -2683,7 +2712,41 @@ def _listed(vault: Any, repository: Repository,
             {"extraction_id": key[0], "span_id": key[1]} for key in figure_homes(repository, pick) or ()
             if key[0] == extraction_id] or [None]
         picks.append((pick, len(chain), homes))
+    if any(pick.get("origin") == "prefetch" for pick, _length, _homes in picks):
+        picks = _prebuilt_within_budget(vault, repository, extraction_id, picks)
     return picks
+
+
+def _prebuilt_within_budget(vault: Any, repository: Repository, extraction_id: str,
+                            picks: list[tuple[Mapping[str, Any], int, list[dict[str, Any] | None]]]
+                            ) -> list[tuple[Mapping[str, Any], int, list[dict[str, Any] | None]]]:
+    """RW5d P5 (spec §6.9; Codex review F11): a prebuilt figure nobody pressed for takes its
+    place in the Reader's cue budget (``[cues] density``, per section; cues off: none), the
+    earliest built first; once pressed it is the learner's like any figure (never cut)."""
+
+    from learnloop.reader.reader_cues import cue_density, cues_enabled, density_budget
+    from learnloop.reader.reader_guidance import extraction_sections
+
+    budget = density_budget(cue_density(vault)) if cues_enabled(vault) else 0
+    ir = repository.load_document_ir(extraction_id)
+    section_of: dict[str, str] = {}
+    if ir is not None:
+        for section in extraction_sections(ir)[0]:
+            for span in section["span_ids"]:
+                section_of.setdefault(str(span), str(section["id"]))
+    used: dict[str, int] = {}
+    kept = []
+    for entry in sorted(picks, key=lambda found: (str(found[0].get("created_at") or ""), str(found[0]["id"]))):
+        row = entry[0]
+        if row.get("origin") == "prefetch" and not _prebuilt_pressed(repository, row):
+            spans = [str(span) for span in row.get("span_ids") or ()]
+            section = next((section_of[span] for span in spans if span in section_of), "")
+            if used.get(section, 0) >= budget:
+                continue
+            used[section] = used.get(section, 0) + 1
+        kept.append(entry)
+    order = {id(entry): index for index, entry in enumerate(picks)}
+    return sorted(kept, key=lambda entry: order[id(entry)])
 
 
 def _prebuilt_listed(vault: Any, repository: Repository, row: Mapping[str, Any]) -> bool:
@@ -2692,13 +2755,53 @@ def _prebuilt_listed(vault: Any, repository: Repository, row: Mapping[str, Any])
 
     from learnloop.figures.power import prefetch_switch
 
-    if prefetch_switch(vault):
+    if _prebuilt_pressed(repository, row):
         return True
+    # Codex review F10: unpressed, only a completed (shown) prebuild lists,
+    # never a failed or unsupported one (speculation is invisible until useful).
+    return prefetch_switch(vault) and row.get("verification") in store.SHOWN
+
+
+def _prebuilt_pressed(repository: Repository, row: Mapping[str, Any]) -> bool:
     with closing(connect(repository.sqlite_path, read_only=True)) as connection:
         found = connection.execute(
             "SELECT 1 FROM figure_requests WHERE figure_id = ? AND build_mode = 'pressed' LIMIT 1",
             (str(row["id"]),)).fetchone()
     return found is not None
+
+
+def prefetch_pending(vault: Any, repository: Repository, extraction_id: str) -> bool:
+    """RW5d P5 (Codex review F11): whether a prebuild for this source is still to come (a
+    decision to build with no request yet, or a prebuild's rich job queued or running): the
+    Reader then reads its figures again, paced, so a completed prebuild appears without a
+    reopen. False with figures ahead of need off (rev 1's payload)."""
+
+    from learnloop.figures.power import power_state, prefetch_switch
+
+    if not prefetch_switch(vault):
+        return False
+    # A deferred decision is still to come only while this machine is on mains
+    # (on battery the Reader never polls for it: low power first).
+    decisions = ("build", "deferred_power", "deferred_plan") if power_state().on_mains else ("build",)
+    with closing(connect(repository.sqlite_path, read_only=True)) as connection:
+        if connection.execute("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = "
+                              "'figure_prefetch_decisions'").fetchone() is None:
+            return False
+        for raw in connection.execute(
+                "SELECT anchor_json FROM figure_prefetch_decisions WHERE outcome IS NULL AND request_id IS NULL "
+                f"AND decision IN ({', '.join('?' for _ in decisions)})", decisions):
+            try:
+                anchor = json.loads(raw[0] or "null")
+            except (TypeError, ValueError):
+                continue
+            if isinstance(anchor, dict) and str(anchor.get("extraction_id")) == str(extraction_id):
+                return True
+    for job in RICH.rich_jobs(repository):
+        payload = job.get("payload") or {}
+        if payload.get("build_mode") == "prefetch" and RICH.job_state(job)["state"] == "pending" \
+                and str((payload.get("base") or {}).get("extraction_id") or "") == str(extraction_id):
+            return True
+    return False
 
 
 def build_prefetch_figure(vault: Any, repository: Repository, request: FigureRequest, *,
@@ -2850,6 +2953,12 @@ def rich_pending(vault: Any, repository: Repository, extraction_id: str) -> list
         payload = job.get("payload") or {}
         base = payload.get("base") or {}
         if payload.get("fast_figure_id") or str(base.get("extraction_id") or "") != str(extraction_id):
+            continue
+        if payload.get("build_mode") == "prefetch":
+            # RW5d P5 (Codex review F10): a speculative rich-only prebuild is
+            # invisible until a figure exists (no building, waiting or failed
+            # line, switch on or off); a press of the same input is its own
+            # request with its own line.
             continue
         if str(payload.get("input_hash")) in seen:
             continue

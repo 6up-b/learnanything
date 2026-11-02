@@ -9,7 +9,9 @@ next admission check (pressed builds are never affected: the learner asked).
   ``Discharging``, or a battery with no ``Mains``/``USB`` supply ``online = 1``,
   is on battery; power-profiles-daemon's active profile (``powerprofilesctl
   get``) ``power-saver`` counts as on battery too (prefer low power when the
-  learner asked for it). A machine with no battery is on mains.
+  learner asked for it). A machine with no battery is on mains, but only
+  when the inventory itself was read whole: no ``power_supply`` directory,
+  or a supply whose type or a battery whose status can't be read, is unknown.
 * **macOS:** ``pmset -g batt`` ("AC Power" is mains).
 * **Windows:** ``GetSystemPowerStatus`` (``ACLineStatus`` 1 is mains).
 * Anything else, or any read that fails: on battery.
@@ -77,14 +79,23 @@ def _profile(run: Callable[..., Any] | None = None) -> str | None:
 def linux_power_state(root: Path = SYSFS_ROOT, *, profile: Callable[[], str | None] | None = None) -> PowerState:
     """The Linux reading (module docstring); ``profile`` reads the power profile (tests inject it)."""
 
+    # Codex review F12: only a complete inventory establishes anything. No
+    # sysfs directory, an unreadable one, or a supply whose type can't be read
+    # is unknown (fail closed: on battery); an empty, readable directory is a
+    # machine with no power supply listed at all (a desktop): mains.
+    if not root.is_dir():
+        return PowerState(False, UNKNOWN, "no power supply inventory")
     try:
-        supplies = sorted(entry for entry in root.iterdir()) if root.is_dir() else []
+        supplies = sorted(entry for entry in root.iterdir())
     except OSError:
         return PowerState(False, UNKNOWN, "power supplies unreadable")
     batteries: list[Path] = []
     mains_online = False
     for supply in supplies:
-        kind = (_read(supply / "type") or "").lower()
+        raw_kind = _read(supply / "type")
+        if raw_kind is None:
+            return PowerState(False, UNKNOWN, f"power supply {supply.name} unreadable")
+        kind = raw_kind.lower()
         if kind == "battery":
             if (_read(supply / "scope") or "").lower() == "device":
                 continue  # a mouse's or headset's battery, not the machine's
@@ -96,7 +107,10 @@ def linux_power_state(root: Path = SYSFS_ROOT, *, profile: Callable[[], str | No
         return PowerState(False, POWER_SAVER, "power-saver profile")
     if not batteries:
         return PowerState(True, MAINS, "no battery")
-    if any((_read(battery / "status") or "").lower() == "discharging" for battery in batteries):
+    statuses = [_read(battery / "status") for battery in batteries]
+    if any(status is None for status in statuses):
+        return PowerState(False, UNKNOWN, "battery status unreadable")
+    if any(str(status).lower() == "discharging" for status in statuses):
         return PowerState(False, BATTERY, "battery discharging")
     if not mains_online:
         return PowerState(False, BATTERY, "no mains supply online")
@@ -189,13 +203,26 @@ SWITCHED_OFF = "Figures ahead of need are switched off (figures.prefetch_enabled
 NOT_ON_MAINS = "This computer is not on mains power, so figures are not built ahead of need now."
 
 
-def background_hold(vault: Any) -> str | None:
-    """Why a background (prefetch) build may not make its next request now, or None."""
+#: What a background build that yielded to the learner's own work says.
+YIELDED = "Waiting for what you are doing now to finish (figures ahead of need yield to it)."
+
+
+def background_hold(vault: Any, *, wait_foreground: float = 0.0) -> str | None:
+    """Why a background (prefetch) build may not make its next request now, or None:
+    the switch, the power, then foreground work in flight (Codex review F7: a
+    prebuild's every request yields to the learner; ``wait_foreground`` seconds
+    it may wait for that work to end first, as the durable rich job does)."""
+
+    from learnloop.figures import foreground as FG
 
     if not prefetch_switch(vault):
         return SWITCHED_OFF
     if not power_state().on_mains:
         return NOT_ON_MAINS
+    if FG.busy() and not FG.wait_idle(wait_foreground):
+        return YIELDED
+    if not prefetch_switch(vault) or not power_state().on_mains:
+        return SWITCHED_OFF if not prefetch_switch(vault) else NOT_ON_MAINS
     return None
 
 
@@ -209,6 +236,7 @@ __all__ = [
     "SWITCHED_OFF",
     "SYSFS_ROOT",
     "UNKNOWN",
+    "YIELDED",
     "PowerState",
     "background_hold",
     "linux_power_state",

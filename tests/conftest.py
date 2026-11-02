@@ -87,6 +87,12 @@ os.environ["LEARNLOOP_DIGEST_MODELS"] = "off"
 # Local retrieval P2: no query-student generator model is reached and no query
 # process is started unless the test injected a fake (a client, or a spawn).
 os.environ["LEARNLOOP_QUERY_STUDENT_MODELS"] = "off"
+# Reader RW5d P5: figures ahead of need (figures.prefetch_enabled, on by
+# default) queue a background pass from the plan, reading progress, the
+# tutor's offers, lessons and the gap worker. No test starts one by accident:
+# with this set, a hook queues nothing unless the test injected the runtime's
+# seams (ctx.figure_prefetch_inline, with its fake judge and readers).
+os.environ["LEARNLOOP_FIGURE_PREFETCH"] = "off"
 
 # Disable sqlite durability for every test connection. Each durable commit
 # pays a journal write plus an fsync, and on Windows on-access antivirus

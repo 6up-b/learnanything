@@ -33,6 +33,10 @@ from learnloop.figures import prefetch_model as PM
 
 DECISIONS_TABLE = "figure_prefetch_decisions"
 PAUSES_TABLE = "plan_usage_pauses"
+#: Decisions whose Thompson draw said build: ``build``, and the two temporary deferrals (the power,
+#: the plan), retried while their horizon is open (Codex review F5). Once built, any of them is an
+#: observation of opening (the draw built it and the cue was there).
+BUILD_DECISIONS = ("build", "deferred_power", "deferred_plan")
 
 
 def plan_providers(vault: Any) -> set[str]:
@@ -89,7 +93,8 @@ def observations(rows: Iterable[Mapping[str, Any]]) -> list[PM.Observation]:
     return [PM.Observation(str(row["trigger_kind"]), row.get("source_key"), row.get("p_open_content"),
                            row.get("outcome") == "opened")
             for row in rows
-            if row.get("decision") == "build" and row.get("request_id") and row.get("outcome") in ("opened", "neither")]
+            if row.get("decision") in BUILD_DECISIONS and row.get("request_id")
+            and row.get("outcome") in ("opened", "neither")]
 
 
 # -- the plan's load and pauses ---------------------------------------------------------------------------
@@ -109,16 +114,34 @@ def plan_receipts(connection: Any, plan_providers: Iterable[str]) -> list[dict[s
         f"FROM model_call_receipts WHERE provider IN ({marks}) ORDER BY started_at", providers))
 
 
+def _tokens(row: Mapping[str, Any]) -> int | None:
+    """A receipt's reported tokens, or None when the provider reported none (missing, not zero)."""
+
+    if row.get("input_tokens") is None and row.get("output_tokens") is None:
+        return None
+    return int(row.get("input_tokens") or 0) + int(row.get("output_tokens") or 0)
+
+
 def day_load(connection: Any, plan_providers: Iterable[str], day: str, *, offset: timedelta = timedelta(0)
              ) -> tuple[int, int]:
     """``(requests, known tokens)`` on a plan provider during one local day."""
 
-    requests = tokens = 0
+    found = plan_day(connection, plan_providers, day, offset=offset)
+    return found.requests, found.tokens
+
+
+def plan_day(connection: Any, plan_providers: Iterable[str], day: str, *, offset: timedelta = timedelta(0),
+             paused: bool = False) -> PM.PlanDay:
+    """One local day's plan load: its requests, its known tokens and how many requests reported them."""
+
+    requests = tokens = reported = 0
     for row in plan_receipts(connection, plan_providers):
         if _local_day(row["started_at"], offset) == day:
             requests += 1
-            tokens += int(row.get("input_tokens") or 0) + int(row.get("output_tokens") or 0)
-    return requests, tokens
+            if (known := _tokens(row)) is not None:
+                reported += 1
+                tokens += known
+    return PM.PlanDay(requests, tokens, paused, reported)
 
 
 def pauses(connection: Any) -> list[dict[str, Any]]:
@@ -133,15 +156,18 @@ def plan_days(connection: Any, plan_providers: Iterable[str], *, today: str,
 
     requests: Counter[str] = Counter()
     tokens: Counter[str] = Counter()
+    reported: Counter[str] = Counter()
     for row in plan_receipts(connection, plan_providers):
         day = _local_day(row["started_at"], offset)
         if day is None or day >= today:
             continue
         requests[day] += 1
-        tokens[day] += int(row.get("input_tokens") or 0) + int(row.get("output_tokens") or 0)
+        if (known := _tokens(row)) is not None:
+            reported[day] += 1
+            tokens[day] += known
     paused = {day for row in pauses(connection) if (day := _local_day(row["hit_at"], offset))}
-    return [PM.PlanDay(requests[day], tokens[day], day in paused) for day in sorted(set(requests) | (paused - {today}))
-            if day < today]
+    return [PM.PlanDay(requests[day], tokens[day], day in paused, reported[day])
+            for day in sorted(set(requests) | (paused - {today})) if day < today]
 
 
 def blocked_minutes(connection: Any, plan_providers: Iterable[str]) -> float | None:
@@ -225,25 +251,72 @@ def waits(connection: Any) -> PM.Waits:
     return PM.waits(latencies, pressed_tiers, by_kind)
 
 
+def incremental(connection: Any) -> PM.Incremental:
+    """The measured calls a build makes (Codex review F14): the figure author's calls per authored
+    request (its receipts per ``figure:<request>`` owner) and the rich author's per rich job (per
+    ``figure_rich:<request>`` owner). Unmeasured: None (the structural minimum, one call)."""
+
+    if not _table(connection, "model_call_receipts"):
+        return PM.Incremental()
+
+    def per_owner(purpose: str) -> float | None:
+        row = connection.execute(
+            "SELECT COUNT(*), COUNT(DISTINCT owner_id) FROM model_call_receipts WHERE purpose = ? "
+            "AND status IN ('completed', 'failed') AND owner_id IS NOT NULL", (purpose,)).fetchone()
+        return float(row[0]) / float(row[1]) if row and row[1] else None
+
+    return PM.Incremental(per_owner("figure_author"), per_owner("figure_rich_author"))
+
+
 def load_model(connection: Any, plan_providers: Iterable[str], *, now: datetime,
                offset: timedelta = timedelta(0)) -> PM.Model:
     providers = list(plan_providers)
     today = (now + offset).date().isoformat()
     rows = decisions(connection)
+    pause = PM.pause_posterior(plan_days(connection, providers, today=today, offset=offset))
     return PM.Model(
         opening=PM.open_posterior(observations(rows)),
-        pause=PM.pause_posterior(plan_days(connection, providers, today=today, offset=offset)),
+        pause=pause,
         waits=waits(connection),
         blocked_minutes=blocked_minutes(connection, providers),
-        load_today=float(day_load(connection, providers, today, offset=offset)[0]),
+        load_today=pause.load(plan_day(connection, providers, today, offset=offset)),
+        incremental=incremental(connection),
     )
 
 
 # -- the caps ------------------------------------------------------------------------------------------
 
+def started_today(connection: Any, *, today: str, offset: timedelta = timedelta(0)) -> set[str]:
+    """The decisions whose build started today (Codex review F6: the cap counts work when it
+    starts, a resumed decision of an earlier day included): their prefetch requests stored today."""
+
+    if not _table(connection, "figure_requests"):
+        return set()
+    return {str(decision) for decision, created_at in connection.execute(
+                "SELECT prefetch_decision_id, created_at FROM figure_requests WHERE build_mode = 'prefetch' "
+                "AND prefetch_decision_id IS NOT NULL")
+            if _local_day(created_at, offset) == today}
+
+
 def builds_today(connection: Any, *, today: str, offset: timedelta = timedelta(0)) -> int:
-    return sum(1 for row in decisions(connection)
-               if row["decision"] == "build" and _local_day(row["created_at"], offset) == today)
+    return len(started_today(connection, today=today, offset=offset))
+
+
+def render_minutes_left(vault: Any, sqlite_path: Any, *, now: datetime | None = None) -> float:
+    """``figures.prefetch.max_daily_render_minutes`` less today's background render minutes
+    (Codex review F6: the rich worker checks it when a prebuild's rich job starts and before
+    each of its requests)."""
+
+    from contextlib import closing
+
+    from learnloop.db.connection import connect
+
+    moment = (now or datetime.now(UTC)).astimezone()
+    offset = moment.utcoffset() or timedelta(0)
+    today = (moment.astimezone(UTC) + offset).date().isoformat()
+    with closing(connect(sqlite_path, read_only=True)) as connection:
+        used = render_minutes_today(connection, today=today, offset=offset)
+    return float(vault.config.figures.prefetch.max_daily_render_minutes) - used
 
 
 def render_minutes_today(connection: Any, *, today: str, offset: timedelta = timedelta(0)) -> float:
@@ -273,7 +346,7 @@ def report_block(connection: Any, *, since: datetime | None = None,
         mine = [row for row in rows if row["trigger_kind"] == kind]
         by_trigger[kind] = {
             "decisions": dict(Counter(str(row["decision"]) for row in mine)),
-            "built": sum(1 for row in mine if row["decision"] == "build" and row.get("request_id")),
+            "built": sum(1 for row in mine if row["decision"] in BUILD_DECISIONS and row.get("request_id")),
             "outcomes": dict(Counter(str(row["outcome"]) for row in mine if row.get("outcome"))),
             "opened": sum(1 for row in mine if row.get("outcome") == "opened"),
             "asked": sum(1 for row in mine if row.get("outcome") == "asked"),
@@ -283,7 +356,7 @@ def report_block(connection: Any, *, since: datetime | None = None,
     model = load_model(connection, providers, now=current)
     pause_rows = [row for row in pauses(connection)
                   if since is None or ((when := _when(row["hit_at"])) is not None and when >= since)]
-    built_times = [when for row in decisions(connection) if row["decision"] == "build" and row.get("request_id")
+    built_times = [when for row in decisions(connection) if row["decision"] in BUILD_DECISIONS and row.get("request_id")
                    and (when := _when(row["created_at"])) is not None]
     with_prebuilds = 0
     for row in pause_rows:
@@ -331,6 +404,7 @@ def anchor_of(row: Mapping[str, Any]) -> dict[str, Any] | None:
 
 
 __all__ = [
+    "BUILD_DECISIONS",
     "DECISIONS_TABLE",
     "add_report_block",
     "PAUSES_TABLE",
@@ -340,13 +414,17 @@ __all__ = [
     "day_load",
     "decisions",
     "has_tables",
+    "incremental",
     "load_model",
     "observations",
     "pauses",
+    "plan_day",
     "plan_days",
     "plan_providers",
     "plan_receipts",
+    "render_minutes_left",
     "render_minutes_today",
     "report_block",
+    "started_today",
     "waits",
 ]

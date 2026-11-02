@@ -2829,10 +2829,11 @@ class FiguresConfig(BaseModel):
     model of opening, with seeded, labelled priors; the propensity logged in
     ``figure_prefetch_decisions``) decides each one, inside the ``prefetch``
     caps. A press of the same input reuses the prebuilt figure by its input
-    hash. Default **off** (stage decision 2026-11-02, the spec recommends on,
-    Q21: the owner turns it on at the P5 checkpoint): off, nothing builds in
-    the background, no decision is written, and a prebuilt figure nobody
-    pressed for is not listed (rev 1's behaviour exactly).
+    hash. Default **on** (Q21's recommended default, accepted by the owner's
+    standing decision 2026-10-12; Codex review F15; the P5 checkpoint, a week
+    on the desktop with the report's prefetch block, may turn it off): off,
+    nothing builds in the background, no decision is written, and a prebuilt
+    figure nobody pressed for is not listed (rev 1's behaviour exactly).
 
     Caps (money, W4): two author attempts per request; ``max_daily_cost_usd``
     meters the author route's metered spend a UTC day at
@@ -2853,7 +2854,7 @@ class FiguresConfig(BaseModel):
     rich_tiers_enabled: bool = True
     author_learner_state: bool = True
     help_kind_enabled: bool = True
-    prefetch_enabled: bool = False
+    prefetch_enabled: bool = True
     prefetch: FiguresPrefetchConfig = Field(default_factory=FiguresPrefetchConfig)
     manim_opt_in: Literal["standing", "declined"] | None = None
     manim_opt_in_at: str | None = None

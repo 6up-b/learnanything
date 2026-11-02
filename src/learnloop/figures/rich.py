@@ -53,8 +53,8 @@ import sqlite3
 import sys
 import threading
 import time
-from collections.abc import Callable, Mapping, Sequence
-from contextlib import closing
+from collections.abc import Callable, Iterator, Mapping, Sequence
+from contextlib import closing, contextmanager
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -507,32 +507,86 @@ def run_rich_job(vault: Any, repository: Repository, payload: Mapping[str, Any],
         def hold(current: Any) -> str | None:
             return _learner_state_withheld(current, repository, payload)
 
-    if payload.get("build_mode") == "prefetch":
+    prefetch = payload.get("build_mode") == "prefetch"
+    if prefetch:
         # RW5d P5 (spec §10b.4): a prebuild's rich job stops before its next
         # request (and before it stores) when figures ahead of need are switched
         # off or this computer leaves mains power; a render already running
-        # finishes, niced (``capped_scope_prefix(background=True)``).
-        from learnloop.figures.power import background_hold
-
-        if (reason := background_hold(vault)) is not None:
+        # finishes, niced (``capped_scope_prefix(background=True)``). Codex
+        # review F2: never metered, so the rich author's route must be the plan
+        # NOW (it was when queued, and may have changed since); F6: today's
+        # background render minutes are checked when it starts and before each
+        # request; F7: each request first waits for foreground work to end.
+        held = _prefetch_hold(repository, client)
+        if (reason := held(vault)) is not None:
             raise RichJobStopped("figures_changed", reason)
         own_hold = hold
 
         def hold(current: Any) -> str | None:  # noqa: F811 - the prebuild's hold wraps the learner-state one
-            return background_hold(current) or (own_hold(current) if own_hold is not None else None)
+            return held(current) or (own_hold(current) if own_hold is not None else None)
 
     gate = FiguresGate(vault, key, live_vault=live_vault, hold=hold)
     try:
-        with gate_model_requests(gate):
+        with gate_model_requests(gate), _pressed_foreground(not prefetch):
             return _run(vault, repository, payload, base=base, gate=gate, client=client, report=report,
                         renderer=renderer, function_runner=function_runner, clock=clock,
                         cancellation=tuple(cancellation))
     except FiguresChanged as exc:
-        from learnloop.figures.power import NOT_ON_MAINS, SWITCHED_OFF
-
-        if gate.held and str(gate.changed) not in (NOT_ON_MAINS, SWITCHED_OFF):
+        if gate.held and str(gate.changed) not in BACKGROUND_HOLDS:
             raise RichJobStopped("exam_material", str(gate.changed)) from exc
         raise RichJobStopped("figures_changed", str(exc)) from exc
+
+
+#: RW5d P5: why a prebuild's rich job stopped that is not held-out material.
+PREFETCH_NOT_PLAN = ("Not built ahead of need: the rich figure author is not the ChatGPT plan now, and a figure "
+                     "built ahead of need is never metered.")
+PREFETCH_RENDER_CAP = "Today's minutes for building animations ahead of need are used up."
+
+
+def _background_holds() -> tuple[str, ...]:
+    from learnloop.figures.power import NOT_ON_MAINS, SWITCHED_OFF, YIELDED
+
+    return (NOT_ON_MAINS, SWITCHED_OFF, YIELDED, PREFETCH_NOT_PLAN, PREFETCH_RENDER_CAP)
+
+
+BACKGROUND_HOLDS = _background_holds()
+
+
+def _prefetch_hold(repository: Repository, client: Any | None) -> Callable[[Any], str | None]:
+    """RW5d P5: a prebuild's rich job's hold before every request (the vault as configured now):
+    the switch, the power and foreground work (waiting for it first), the rich author's route on
+    the plan (Codex review F2), and today's background render minutes (F6)."""
+
+    from learnloop.figures import foreground as FG
+    from learnloop.figures.power import background_hold
+    from learnloop.figures.prefetch_ledger import render_minutes_left
+    from learnloop.practice_index.paid import plan_route
+
+    def hold(current: Any) -> str | None:
+        reason = background_hold(current, wait_foreground=FG.FOREGROUND_WAIT_SECONDS)
+        if reason is not None:
+            return reason
+        if plan_route(current, RICH_TASK, client).billing != "subscription":
+            return PREFETCH_NOT_PLAN
+        if render_minutes_left(current, repository.sqlite_path) <= 0:
+            return PREFETCH_RENDER_CAP
+        return None
+
+    return hold
+
+
+@contextmanager
+def _pressed_foreground(pressed: bool) -> Iterator[None]:
+    """RW5d P5 (Codex review F7): a pressed rich build is the learner's work in flight, so
+    background prebuilds yield to it while it runs."""
+
+    if not pressed:
+        yield
+        return
+    from learnloop.figures.foreground import foreground
+
+    with foreground("figure"):
+        yield
 
 
 #: Learner data-relax 2: a saved rich job whose context carries the

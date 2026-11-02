@@ -9950,6 +9950,9 @@ export interface FiguresDto {
   figures: FigureViewDto[];
   /** RW5d P2b (present while the rich tiers are on): rich builds with no quick figure. */
   richPending?: FigureRichPendingDto[];
+  /** RW5d P5 (present, true, only while a figure for this source is being built ahead of need):
+   *  the Reader reads its figures again, paced, so the prebuilt figure's quiet line appears. */
+  prefetchPending?: boolean;
 }
 
 /** A library request running off the request path (reader.library_job). */

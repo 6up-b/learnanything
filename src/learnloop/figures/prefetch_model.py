@@ -30,10 +30,15 @@ never a threshold. For a candidate ``i``::
   prebuild).
 * ``C_i``: what the build can take from foreground use. On the plan the money
   is zero; the cost is ``P(usage-limit pause | today's plan load + this
-  build's requests) * E[foreground minutes blocked by a pause]``. The pause
-  probability is a logistic in the standardized day's plan load (requests,
-  ``plan_load``), priors centre -3 and slope 1.5, each sd 2, basis
+  build's expected requests) * E[foreground minutes blocked by a pause]``. The
+  pause probability is a logistic in the standardized day's plan load
+  (:meth:`PausePosterior.load`: the day's requests with the known tokens in
+  them, a request with no reported tokens counting as one measured average
+  request; Codex review F14), priors centre -3 and slope 1.5, each sd 2, basis
   ``legacy`` (debt), filtered from ``plan_usage_pauses`` and the days' loads;
+  a build's expected requests are measured (:class:`Incremental`: the author
+  calls per authored request, plus the rich calls per rich job times the
+  trigger kind's measured rich share);
   the blocked minutes are measured (pressed requests that failed inside past
   pauses, times the measured call latency). Nothing measured: no cost.
 * ``u.minute``: one learner minute, the unit both terms are in (LP §6: an
@@ -222,11 +227,22 @@ def open_posterior(observations: Iterable[Observation]) -> OpenPosterior:
 
 @dataclass(frozen=True)
 class PlanDay:
-    """One past local day with plan activity: its load and whether a usage-limit pause was hit."""
+    """One past local day with plan activity: its load and whether a usage-limit pause was hit.
+    ``tokens`` are the known tokens, reported by ``requests_with_tokens`` of the requests."""
 
     requests: int
     tokens: int
     paused: bool
+    requests_with_tokens: int = 0
+
+
+def tokens_per_request(days: Iterable[PlanDay]) -> float | None:
+    """The measured mean tokens of a request that reported them, or None (none reported)."""
+
+    rows = list(days)
+    reported = sum(day.requests_with_tokens for day in rows)
+    tokens = sum(day.tokens for day in rows if day.requests_with_tokens)
+    return tokens / reported if reported and tokens > 0 else None
 
 
 @dataclass
@@ -237,9 +253,14 @@ class PausePosterior:
     load_sd: float
     days: int
     pauses: int
+    #: The measured mean tokens per reporting request (None: no tokens reported yet).
+    per_request: float | None = None
 
     def standardized(self, load: float) -> float:
         return 0.0 if self.load_sd <= 0 else (float(load) - self.load_mean) / self.load_sd
+
+    def load(self, day: PlanDay) -> float:
+        return plan_load(day, self.per_request)
 
     def summary(self) -> dict[str, Any]:
         return {"days": self.days, "pauses": self.pauses,
@@ -251,23 +272,32 @@ class PausePosterior:
                                         "sd": round(math.sqrt(max(float(self.cov[1, 1]), 0.0)), 4)}}}
 
 
-def plan_load(day: PlanDay | Mapping[str, Any]) -> float:
-    """A day's plan load: its plan requests. Plan tokens are reported for some routes only
-    (spec §10b.3), so v1's load is the requests; the known tokens are recorded beside each
-    pause (``plan_usage_pauses.plan_tokens_today_known``) for a later version to read."""
+def plan_load(day: PlanDay | Mapping[str, Any], per_request: float | None = None) -> float:
+    """A day's plan load in requests, with the known tokens in it (spec §10b.3: "the day's plan
+    requests, plus tokens where known"; Codex review F14). Tokens are reported for some routes
+    only, so missingness is explicit: a request that reported its tokens counts as its tokens
+    over the measured mean tokens per reporting request (``per_request``), and a request that
+    reported none counts as one average request. With no tokens ever reported the load is the
+    requests."""
 
     if isinstance(day, Mapping):
-        return float(day.get("requests") or 0)
-    return float(day.requests)
+        day = PlanDay(int(day.get("requests") or 0), int(day.get("tokens") or 0), bool(day.get("paused")),
+                      int(day.get("requests_with_tokens") or 0))
+    reported = min(int(day.requests_with_tokens), int(day.requests))
+    if not per_request or reported <= 0:
+        return float(day.requests)
+    return float(day.requests - reported) + float(day.tokens) / float(per_request)
 
 
 def pause_posterior(days: Sequence[PlanDay]) -> PausePosterior:
-    loads = [plan_load(day) for day in days]
+    per_request = tokens_per_request(days)
+    loads = [plan_load(day, per_request) for day in days]
     load_mean = float(np.mean(loads)) if loads else 0.0
     load_sd = float(np.std(loads)) if len(loads) >= 2 else 0.0
     mean = np.array([PAUSE_INTERCEPT_PRIOR_MEAN, PAUSE_SLOPE_PRIOR_MEAN])
     cov = np.diag([PAUSE_INTERCEPT_PRIOR_SD ** 2, PAUSE_SLOPE_PRIOR_SD ** 2])
-    posterior = PausePosterior(mean, cov, load_mean, load_sd, len(days), sum(1 for day in days if day.paused))
+    posterior = PausePosterior(mean, cov, load_mean, load_sd, len(days), sum(1 for day in days if day.paused),
+                               per_request)
     for day, load in zip(days, loads):
         h = np.array([1.0, posterior.standardized(load)])
         posterior.mean, posterior.cov, _update = adf_update(posterior.mean, posterior.cov, h,
@@ -345,11 +375,24 @@ def waits(latencies: Mapping[str, Sequence[float]], pressed_tiers: Sequence[str]
 # ---------------------------------------------------------------------------
 
 @dataclass(frozen=True)
+class Incremental:
+    """What one prebuild adds to the plan's load, measured (Codex review F14): the figure author's
+    calls per authored request (a repair is a second call), and the rich author's calls per
+    rich job. None: not measured yet, so the structural minimum, one call."""
+
+    author_calls: float | None = None
+    rich_calls: float | None = None
+
+    def expected(self, rich_share: float) -> float:
+        return (self.author_calls or 1.0) + max(0.0, float(rich_share)) * (self.rich_calls or 1.0)
+
+
+@dataclass(frozen=True)
 class Candidate:
     trigger_kind: str
     source: str | None
     p_open_content: float | None
-    #: The build's expected plan requests (an author call, and a rich call when a rich tier is likely).
+    #: The build's expected plan requests (:meth:`Model.expected_requests`, measured).
     expected_requests: float = 1.0
 
 
@@ -373,8 +416,18 @@ class Model:
     waits: Waits
     #: Measured foreground minutes a pause blocked, per pause (None: none measured).
     blocked_minutes: float | None
-    #: Today's plan load so far (requests).
+    #: Today's plan load so far (:meth:`PausePosterior.load`: requests with the known tokens).
     load_today: float
+    #: What a prebuild adds to the load, measured.
+    incremental: Incremental = field(default_factory=Incremental)
+
+    def expected_requests(self, trigger_kind: str) -> float:
+        """The plan requests a prebuild for this trigger kind is expected to make: the author's
+        measured calls, plus the rich calls times the kind's measured rich share (else the
+        pressed builds' share)."""
+
+        mix = self.waits.mix_by_kind.get(trigger_kind) or self.waits.pressed_mix
+        return self.incremental.expected(sum(share for tier, share in mix.items() if tier in RICH_TIERS))
 
     def digest(self) -> str:
         """The posterior's identity, so an audit can recompute a decision."""
@@ -387,6 +440,8 @@ class Model:
             "pause": {"mean": [round(float(v), 10) for v in self.pause.mean], "days": self.pause.days,
                       "load": [self.pause.load_mean, self.pause.load_sd]},
             "waits": self.waits.summary(), "blocked_minutes": self.blocked_minutes, "load_today": self.load_today,
+            "incremental": [self.incremental.author_calls, self.incremental.rich_calls],
+            "per_request": self.pause.per_request,
         }
         return hashlib.sha256(json.dumps(payload, sort_keys=True).encode("utf-8")).hexdigest()
 
@@ -432,6 +487,7 @@ __all__ = [
     "TRIGGER_KINDS",
     "Candidate",
     "Decision",
+    "Incremental",
     "Model",
     "Observation",
     "OpenPosterior",
@@ -442,5 +498,6 @@ __all__ = [
     "open_posterior",
     "pause_posterior",
     "plan_load",
+    "tokens_per_request",
     "waits",
 ]

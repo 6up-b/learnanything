@@ -155,6 +155,8 @@ export function useFigures({
   const [pending, setPending] = useState<FigurePending[]>([]);
   const [expandedKey, setExpandedKey] = useState<string | null>(null);
   const [richPending, setRichPending] = useState<FigureRichPendingDto[]>([]);
+  // RW5d P5 (Codex review F11): a figure for this source is being built ahead of need.
+  const [prefetchPending, setPrefetchPending] = useState(false);
   const [followed, setFollowed] = useState<FollowedFigure[]>([]);
   const followedRef = useRef(followed);
   followedRef.current = followed;
@@ -176,6 +178,7 @@ export function useFigures({
     setFigures([]);
     setPending([]);
     setRichPending([]);
+    setPrefetchPending(false);
     setFollowed([]);
     setExpandedKey(null);
     if (!enabled || !extractionId) return;
@@ -185,6 +188,7 @@ export function useFigures({
         if (generation.current === mine && found) {
           setFigures(found.figures ?? []);
           setRichPending(found.richPending ?? []);
+          setPrefetchPending(found.prefetchPending === true);
         }
       })
       .catch(() => undefined);
@@ -203,9 +207,13 @@ export function useFigures({
 
   // RW5d P2b: while a rich build runs (a fuller line pending or waiting, or a
   // rich-only pending line), the source's figures are read again, paced; the
-  // lines change in place under their passage, nothing else moves.
+  // lines change in place under their passage, nothing else moves. RW5d P5
+  // (Codex review F11): likewise while a figure for this source is being built
+  // ahead of need, so its quiet line appears with the Reader open; the read
+  // stops once the sidecar says nothing more is coming.
   const richRunning = (
-    richPending.some((line) => line.state === "pending" || line.state === "waiting_for_plan")
+    prefetchPending
+    || richPending.some((line) => line.state === "pending" || line.state === "waiting_for_plan")
     || figures.some((figure) => figure.fuller?.state === "pending" || figure.fuller?.state === "waiting_for_plan"));
   useEffect(() => {
     if (!enabled || !extractionId || !richRunning) return;
@@ -216,12 +224,13 @@ export function useFigures({
           if (generation.current === mine && found) {
             setFigures(found.figures ?? []);
             setRichPending(found.richPending ?? []);
+            setPrefetchPending(found.prefetchPending === true);
           }
         })
         .catch(() => undefined);
     }, RICH_POLL_MS);
     return () => clearTimeout(timer);
-  }, [enabled, extractionId, richRunning, figures, richPending]);
+  }, [enabled, extractionId, richRunning, figures, richPending, prefetchPending]);
 
   const land = useCallback((figure: FigureViewDto) => {
     const sameRequest = (item: FigureViewDto) => item.spanIds.join(",") === figure.spanIds.join(",")

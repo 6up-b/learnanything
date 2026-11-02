@@ -5012,10 +5012,12 @@ class DurableIngestJobs:
         Returns the job's id (the figure line reads it back by payload)."""
 
         runner = self._require_runner()
+        # RW5d P5 (Codex review F7): a prebuild's rich job is background work,
+        # so it takes the default band, after every pressed figure's.
         batch_id = runner.enqueue_batch(
             "figure_rich",
             [JobSpec("figure_rich", dict(payload))],
-            priority=QUICK_ADD_PRIORITY,
+            priority=0 if payload.get("build_mode") == "prefetch" else QUICK_ADD_PRIORITY,
             grant=grant,
             origin=origin if grant is not None else None,
         )

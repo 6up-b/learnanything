@@ -17,6 +17,7 @@ is the judge's injected client (tests; unset: the route as configured).
 from __future__ import annotations
 
 import logging
+import os
 import threading
 from collections import deque
 from typing import Any
@@ -108,13 +109,30 @@ def _runtime(ctx: Any) -> PrefetchRuntime:
     return runtime
 
 
+#: ``LEARNLOOP_FIGURE_PREFETCH=off``: no trigger is queued unless the context injected the
+#: prefetch runtime's test seams (``figure_prefetch_inline``); the test suite sets it, as it
+#: sets ``LEARNLOOP_APPROACH_MAP_BUILDS``, so no test starts a background pass by accident.
+PREFETCH_ENV = "LEARNLOOP_FIGURE_PREFETCH"
+
+
+def runs_here(ctx: Any) -> bool:
+    """Whether prefetch runs in this context now (the desktop sidecar, the switch on, the env)."""
+
+    vault = getattr(ctx, "vault", None)
+    if vault is None or getattr(ctx, "secondary", False) or not P.prefetch_switch(vault):
+        return False
+    if os.environ.get(PREFETCH_ENV, "").strip().lower() == "off" \
+            and not ctx.__dict__.get("figure_prefetch_inline", False):
+        return False
+    return True
+
+
 def notify(ctx: Any, kind: str, ref: str = "", **fields: Any) -> bool:
     """Queue one trigger (spec §10b.2); False when prefetch does not run here (switched off, a
     phone or MCP host, no vault). Never raises: a hook never fails its RPC."""
 
     try:
-        vault = getattr(ctx, "vault", None)
-        if vault is None or getattr(ctx, "secondary", False) or not P.prefetch_switch(vault):
+        if not runs_here(ctx):
             return False
         from learnloop.figures.prefetch import Trigger
 
@@ -134,8 +152,8 @@ def notify_offer(ctx: Any, origin: str, offer_ref: str | None) -> bool:
 
     try:
         vault, repository = getattr(ctx, "vault", None), getattr(ctx, "repository", None)
-        if (vault is None or repository is None or not offer_ref or getattr(ctx, "secondary", False)
-                or not P.prefetch_switch(vault) or not vault.config.figures.offers_enabled):
+        if (vault is None or repository is None or not offer_ref or not runs_here(ctx)
+                or not vault.config.figures.offers_enabled):
             return False
         runtime = _runtime(ctx)
         key = (origin, str(offer_ref))
@@ -153,4 +171,4 @@ def notify_offer(ctx: Any, origin: str, offer_ref: str | None) -> bool:
         return False
 
 
-__all__ = ["PrefetchRuntime", "environment", "notify", "notify_offer"]
+__all__ = ["PREFETCH_ENV", "PrefetchRuntime", "environment", "notify", "notify_offer", "runs_here"]

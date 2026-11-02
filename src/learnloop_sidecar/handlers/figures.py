@@ -69,6 +69,7 @@ from typing import Any, Literal
 from pydantic import Field
 
 from learnloop.attempts.salience_firewall import salience_payload
+from learnloop.figures import power as P
 from learnloop.figures import service as FS
 from learnloop.substrate.activities import log_interaction_event
 from learnloop_sidecar.context import SidecarContext
@@ -696,6 +697,11 @@ def reader_figures(ctx: SidecarContext, params: FiguresInput) -> dict[str, Any]:
         pending = FS.rich_pending(vault, repository, params.extraction_id)
         payload["rich_pending"] = pending
         _retry_plan_waits(ctx, [*(line for line in pending), *((figure.get("fuller") or {}) for figure in figures)])
+    if P.prefetch_switch(vault) and FS.prefetch_pending(vault, repository, params.extraction_id):
+        # RW5d P5 (Codex review F11): a prebuild still to come for this source;
+        # the Reader reads its figures again, paced, while it is (absent
+        # otherwise, and always with figures ahead of need off).
+        payload["prefetch_pending"] = True
     return versioned(payload)
 
 

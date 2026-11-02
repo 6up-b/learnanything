@@ -224,13 +224,12 @@ def _schedule_prefetch(ctx: SidecarContext, env: PlanEnv) -> None:
     topics are figure triggers. The plan never calls into figures: the trigger reads the
     stored plan afterwards, in the background; a no-op with figures.prefetch_enabled off."""
 
-    from learnloop.figures.power import prefetch_switch
+    from learnloop_sidecar.prefetch_runtime import notify, runs_here
 
-    if not prefetch_switch(env.vault):
+    if not runs_here(ctx):
         return
     try:
         from learnloop.daily_plan.engine import latest_today
-        from learnloop_sidecar.prefetch_runtime import notify
 
         record = latest_today(env)
         if record is not None:

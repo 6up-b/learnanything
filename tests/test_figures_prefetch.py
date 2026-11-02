@@ -1,6 +1,6 @@
 """Reader RW5d P5: figures ahead of need (docs/specs/spec_reader_show_me_figures_v1.md §10b; gates G-SM27-G-SM30).
 
-* **The switch** (``figures.prefetch_enabled``, default off): off, no pass runs, nothing is read, written or
+* **The switch** (``figures.prefetch_enabled``, default on, Q21): off, no pass runs, nothing is read, written or
   called, and a prebuilt figure nobody pressed for is not listed (rev 1 exactly).
 * **The five triggers**: the stored plan's reading section, the next section after reading progress,
   RW5b's offers (anchor-only, no judge), a lesson plan's nodes not yet reached (with a teacher's planned
@@ -145,8 +145,7 @@ def seed_wait(repository: Any, *, seconds: float = 40.0) -> None:
 
 def make_vault(tmp_path: Path, *, on: bool = True, wait: bool = True, two: bool = False, **prefetch: Any):
     paths, repository = build_figure_vault(tmp_path / "vault")
-    if on:
-        set_config(paths, "figures", prefetch_enabled=True)
+    set_config(paths, "figures", prefetch_enabled=on)
     if prefetch:
         set_config(paths, "figures.prefetch", **prefetch)
     if two:
@@ -218,11 +217,11 @@ def test_switch_off_nothing_builds_nothing_is_written_and_nothing_is_called(tmp_
     assert rows(repository, "figure_prefetch_decisions") == []
 
 
-def test_the_switch_defaults_off():
+def test_the_switch_defaults_on():
     from learnloop.config.schema import FiguresConfig
 
     config = FiguresConfig()
-    assert config.prefetch_enabled is False
+    assert config.prefetch_enabled is True  # Q21's recommended default (Codex review F15)
     assert config.prefetch.max_daily_builds == 10 and config.prefetch.max_daily_render_minutes == 30.0
 
 
@@ -295,14 +294,19 @@ def test_offer_trigger_is_anchor_only_and_needs_no_judge(tmp_path):
     assert row["horizon_kind"] == "thread_closed" and row["decision"] == "build"
 
 
-def test_lesson_trigger_builds_the_nodes_not_yet_reached_with_the_teachers_goal(tmp_path, monkeypatch):
+def test_lesson_trigger_builds_the_planned_visuals_of_nodes_not_yet_reached(tmp_path, monkeypatch):
+    """A stored node carrying a planned ``visual`` (spec §10.4; the shape RW5d P4b adds to
+    ``write_plan``): only that node is a candidate (Codex review F8: n3, with no visual, is not;
+    TE1's real plans carry none, ``test_figures_prefetch_review_fixes``)."""
+
     from learnloop.teacher import service as TS
 
     _paths, repository, vault = make_vault(tmp_path)
     state = SimpleNamespace(
         closed=False, landed=["n1"],
         plans=[{"outline": [{"id": "n1", "anchors": ["S1"]},
-                            {"id": "n2", "anchors": ["S2"], "visual": {"goal_text": "slide p, watch the left mass"}}]}],
+                            {"id": "n2", "anchors": ["S2"], "visual": {"goal_text": "slide p, watch the left mass"}},
+                            {"id": "n3", "anchors": ["S1"]}]}],
         book=SimpleNamespace(passages={"S1": {"extraction_id": EXTRACTION, "span_id": "p2"},
                                        "S2": {"extraction_id": EXTRACTION, "span_id": "p3"}}))
     monkeypatch.setattr(TS, "load_state", lambda repository, lesson_id: state)
@@ -644,7 +648,10 @@ def _supply(root: Path, name: str, **files: str) -> None:
 
 def test_power_state_reads_linux_supplies_and_fails_closed(tmp_path):
     profile = lambda: "balanced"  # noqa: E731
-    assert P.linux_power_state(tmp_path / "none", profile=profile).on_mains is True  # no battery
+    none = tmp_path / "none"
+    none.mkdir()
+    assert P.linux_power_state(none, profile=profile).on_mains is True  # no battery listed (a desktop)
+    assert P.linux_power_state(tmp_path / "missing", profile=profile).reason == P.UNKNOWN  # no inventory
     desk = tmp_path / "desk"
     _supply(desk, "BAT0", type="Battery", status="Charging")
     _supply(desk, "AC", type="Mains", online="1")

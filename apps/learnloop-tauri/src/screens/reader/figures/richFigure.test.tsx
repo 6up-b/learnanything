@@ -232,3 +232,21 @@ it("without revisions in the contract an animation has no not right?", async () 
   fireEvent.click(await screen.findByRole("button", { name: /animation/ }));
   expect(screen.queryByRole("button", { name: RICH_FRAME.notRight })).toBeNull();
 });
+
+it("a figure built ahead of need appears in an open Reader, then the reads stop (RW5d P5, Codex review F11)", async () => {
+  vi.useFakeTimers({ shouldAdvanceTime: true });
+  api.readerFigures.mockResolvedValueOnce({ extractionId: "ext_prob", figures: [], richPending: [], prefetchPending: true });
+  api.readerFigures.mockResolvedValueOnce({ extractionId: "ext_prob", richPending: [],
+    figures: [quickView(null)] });
+  api.readerFigures.mockResolvedValue({ extractionId: "ext_prob", richPending: [], figures: [quickView(null)] });
+  render(<Harness />);
+  await act(async () => { await Promise.resolve(); });
+  expect(screen.queryByRole("button", { name: /interactive version/ })).toBeNull();
+  await act(async () => { await vi.advanceTimersByTimeAsync(RICH_POLL_MS + 10); });
+  // One quiet collapsed line under its passage: no toast, nothing moves.
+  expect(await screen.findByRole("button", { name: /interactive version/ })).toBeTruthy();
+  expect(document.querySelector("[role=alert], [role=status]")).toBeNull();
+  const reads = api.readerFigures.mock.calls.length;
+  await act(async () => { await vi.advanceTimersByTimeAsync(RICH_POLL_MS * 3); });
+  expect(api.readerFigures.mock.calls.length).toBe(reads);  // nothing more coming: no more reads
+});

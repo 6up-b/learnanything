@@ -242,6 +242,7 @@ MODULE_INVENTORY: dict[str, str] = {
     "figure_prefetch": "src/learnloop/figures/prefetch.py",
     "figure_prefetch_model": "src/learnloop/figures/prefetch_model.py",
     "figure_power": "src/learnloop/figures/power.py",
+    "figure_foreground": "src/learnloop/figures/foreground.py",
     "concept_animation": "src/learnloop/content/authoring/concept_animation.py",
     # Local contextual retrieval P2 (spec §7.1, §9.3, §9.6): the query student's pins and
     # guardrails, the decision core's computation budgets, the data and schedule budgets. No
@@ -587,9 +588,10 @@ _reg_const("figure_prefetch:PASSAGE_CHARS", "constraint", kind="structural", own
 _reg_const("figure_prefetch:MAX_JUDGE_ATTEMPTS", "constraint", kind="structural", owner="figure_prefetch",
            rationale="keep (plan headroom): judge calls per section or gap; the second is told the first's "
                      "problems (rev 1's author cap carried over).")
-_reg_const("figure_prefetch:FOREGROUND_WAIT_SECONDS", "operational", kind="structural", owner="figure_prefetch",
-           rationale="keep (operational): how long the prebuild queue waits for foreground work to end before it "
-                     "leaves the rest for the next trigger; a pause length, never a decision.")
+_reg_const("figure_foreground:FOREGROUND_WAIT_SECONDS", "operational", kind="structural", owner="figure_foreground",
+           rationale="keep (operational): how long background figure work (the prebuild queue, the judge, a "
+                     "prebuild's rich job before its next request) waits for foreground work to end before it "
+                     "leaves the rest for later; a pause length, never a decision.")
 _reg_const("figure_prefetch:MAX_NODE_SPANS", "constraint", kind="structural", owner="figure_prefetch",
            rationale="keep: a lesson node's passages one prebuild anchors (inside the figure anchor's 40-span cap).")
 _reg_const("figure_power:PROBE_TIMEOUT_SECONDS", "operational", kind="structural", owner="figure_power",

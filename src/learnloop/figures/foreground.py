@@ -17,6 +17,12 @@ from collections import Counter
 from collections.abc import Callable, Iterator
 from contextlib import contextmanager
 
+#: ``keep`` (operational): how long background work waits for foreground work
+#: to end before it leaves the rest for later (the prebuild queue, the judge,
+#: a prebuild's durable rich job before its next request); a pause length,
+#: never a decision.
+FOREGROUND_WAIT_SECONDS = 600.0
+
 _LOCK = threading.Lock()
 _IN_FLIGHT: Counter[str] = Counter()
 _IDLE = threading.Condition(_LOCK)
@@ -78,4 +84,4 @@ FOREGROUND_METHODS: dict[str, str] = {
 }
 
 
-__all__ = ["FOREGROUND_METHODS", "busy", "foreground", "in_flight", "wait_idle"]
+__all__ = ["FOREGROUND_METHODS", "FOREGROUND_WAIT_SECONDS", "busy", "foreground", "in_flight", "wait_idle"]
