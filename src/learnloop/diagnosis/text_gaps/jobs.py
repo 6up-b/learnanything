@@ -322,18 +322,20 @@ def retract_unlinked_notes(vault: LoadedVault, repository: Repository, *, clock:
 
     if not learner_notes_enabled(vault):
         return 0
-    linked = set(learner_note_ids(vault, repository))
-    with closing(connect(repository.sqlite_path, read_only=True)) as connection:
+    now = utc_now_iso(clock)
+    written = 0
+    # Codex review F2: the links, the gaps, the reversals and the writes in ONE
+    # ``BEGIN IMMEDIATE`` transaction on the repository's pinned connection, so a
+    # second sidecar that links a note and writes its gap cannot land between the
+    # read of the links and the read of the gaps (its gap would be set aside for
+    # good, its note never unlinked): its write waits for this one.
+    with repository.atomic():
+        connection = repository.connection()
+        linked = set(learner_note_ids(vault, repository))
         rows = store.gaps(connection, source_kind="learner_note")
         retracted = {row["gap_id"] for row in store.reversals(connection, [row["id"] for row in rows])
                      if row["reversal"] == UNLINKED}
-    stale = [row for row in rows if str(row["source_id"]) not in linked and row["id"] not in retracted]
-    if not stale:
-        return 0
-    now = utc_now_iso(clock)
-    written = 0
-    with repository.atomic():
-        connection = repository.connection()
+        stale = [row for row in rows if str(row["source_id"]) not in linked and row["id"] not in retracted]
         for row in stale:
             if store.insert_reversal(connection, gap_id=str(row["id"]), reversal=UNLINKED, actor="learner",
                                      created_at=now, detail={"note_id": str(row["source_id"]),

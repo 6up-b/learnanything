@@ -133,3 +133,53 @@ def test_unlinked_is_never_a_learners_manual_reversal(tmp_path, monkeypatch):
     assert "unlinked" not in REVERSALS
     with pytest.raises(UndoError):
         reverse_gap(paths.root, repository, typed["id"], "unlinked")
+
+
+def test_a_note_linked_while_the_retraction_runs_keeps_its_gap(tmp_path, monkeypatch):
+    """Codex review F2: the retraction read the linked notes, then (on another
+    connection) the gap rows, then wrote. A second sidecar that linked a note and
+    wrote its gap between those reads had that gap set aside for good, though its
+    note was never unlinked. Now the links, the gaps, the reversals and the
+    writes are one ``BEGIN IMMEDIATE`` transaction: the second sidecar's write
+    waits for it, and the next sweep sees the note linked."""
+
+    import sqlite3
+    from contextlib import closing
+
+    paths, repository, ctx, goal_id, fake_tend, lines = _linked(tmp_path, monkeypatch)
+    page = _snapshots(repository)["Eigen page"]
+    real = J.learner_note_ids
+    seen: dict[str, bool] = {}
+
+    def second_sidecar_writes_the_gap() -> bool:
+        try:
+            with closing(sqlite3.connect(repository.sqlite_path, timeout=0.2)) as other:
+                other.execute(
+                    "INSERT INTO learner_text_gaps (id, source_kind, source_id, learner_text, chooser, "
+                    "context_judge, kind, named_json, action, detail_json, algorithm_version, pipeline_version, "
+                    "created_at) VALUES ('ltg_b', 'learner_note', ?, '', 'context_model', 'gap_reader', "
+                    "'prerequisite', '{}', 'matched_prerequisite', '{}', 'mvp-0.40', 'learner-text-gaps-v1', "
+                    "'2026-10-20T09:00:00Z')", (page,))
+                other.commit()
+            return True
+        except sqlite3.OperationalError as exc:
+            assert "locked" in str(exc)
+            return False
+
+    def interleaved(vault, repo):
+        ids = real(vault, repo)
+        if "first" not in seen:
+            # The links as they were before the second sidecar linked the page ...
+            seen["first"] = True
+            ids = [note_id for note_id in ids if note_id != page]
+            # ... which then links it and completes its gap job.
+            seen["wrote_during"] = second_sidecar_writes_the_gap()
+        return ids
+
+    monkeypatch.setattr(J, "learner_note_ids", interleaved)
+    J.retract_unlinked_notes(load_vault(paths.root), repository, clock=CLOCK)
+    if not seen["wrote_during"]:
+        # It waited for the retraction's transaction; it writes now.
+        assert second_sidecar_writes_the_gap()
+    J.retract_unlinked_notes(load_vault(paths.root), repository, clock=CLOCK)
+    assert [row for row in _reversals(repository) if row["gap_id"] == "ltg_b"] == []
