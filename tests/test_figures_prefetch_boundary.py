@@ -26,11 +26,12 @@ def test_nothing_imports_the_prefetch_service_back():
 
 def test_the_decision_ledger_is_never_read_by_evidence_scheduling_or_serving():
     """The evidence-never-reads-figures packages (and the plan, the hints) never name the P5 tables;
-    AD's table classes name them only to deny them."""
+    AD's table and column classes name them only to deny and classify them."""
 
     packages = ("substrate", "learner", "attempts", "scheduling", "goals", "diagnosis", "placement", "field",
                 "router", "adaptive_difficulty", "daily_plan", "hints")
     readers = sorted(str(path.relative_to(ROOT)) for package in packages for path in (ROOT / "learnloop" / package).rglob("*.py")
                      if "figure_prefetch_decisions" in (text := path.read_text(encoding="utf-8"))
                      or "plan_usage_pauses" in text)
-    assert readers == ["learnloop/adaptive_difficulty/protected_tables.py"], readers
+    assert readers == ["learnloop/adaptive_difficulty/column_classes.py",
+                       "learnloop/adaptive_difficulty/protected_tables.py"], readers
