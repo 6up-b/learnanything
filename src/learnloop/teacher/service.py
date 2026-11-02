@@ -474,11 +474,12 @@ def _teach(vault: Any, repository: Any, state: LessonState, *, clients: Clients,
         _append(repository, state, actor="code", action="results_delivered",
                 payload={"turn_ids": [r.get("turn_id") for r in results]}, clock=clock)
         state.pending_results = []
-    rounds = 0
+    # Accepted turns this action: the first one's read requests get one follow-up call; later ones ride with
+    # the next learner action (a refused turn does not count, so its correction never defers a read).
+    accepted = 0
+    if closing:
+        results = [*results, {"code": "the learner asked to stop: close the lesson now with a recap"}]
     while not state.closed:
-        rounds += 1
-        if closing:
-            results = [*results, {"code": "the learner asked to stop: close the lesson now with a recap"}]
         try:
             parsed = _call_teacher(vault, repository, state, client, results=results, help_reply=help_reply,
                                    outcome=outcome, clock=clock)
@@ -499,11 +500,11 @@ def _teach(vault: Any, repository: Any, state: LessonState, *, clients: Clients,
                 _close(vault, repository, state, reason="teacher_contract_failure", recap=None, clock=clock,
                        outcome=outcome)
                 break
-            results = []
             continue
         turn_obj, turn_entry = parsed
         requested_reads = [request for request in turn_obj.requests if request.action in READ_ACTIONS]
-        deferred = rounds > 1
+        deferred = accepted >= 1
+        accepted += 1
         new_results = _execute(vault, repository, state, turn_obj, client=client, deferred=deferred,
                                outcome=outcome, clock=clock, help_reply=help_reply)
         if state.closed:

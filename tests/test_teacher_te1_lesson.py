@@ -292,3 +292,11 @@ def test_with_the_learned_weight_off_a_check_enters_at_the_types_configured_mass
            payload={"answer": "det(A - tI) = 0"}, clients=clients(fake))
     assert _rows(repository, "SELECT mass_applied, json_extract(weight_inputs_json, '$.rule') FROM lesson_checks") \
         == [(0.5, "fixed")]
+
+
+def test_a_refused_turn_never_defers_the_corrected_turns_reads(tmp_path):
+    bad = {"message": "The book says [S99]."}
+    reads = {"message": "Let me read.", "requests": [{"action": "read_source", "refs": ["ext_book/ch_det"]}]}
+    paths, repository, fake, view = _open(tmp_path, [bad, reads, {"message": "Read it."}])
+    # The corrected turn's reads came back in the same action, not deferred to the next one.
+    assert fake.contexts[-1]["results"] and fake.contexts[-1]["results"][0]["action"] == "read_source"
