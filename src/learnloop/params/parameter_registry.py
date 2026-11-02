@@ -236,6 +236,14 @@ MODULE_INVENTORY: dict[str, str] = {
     "student_decision": "src/learnloop/local_embeddings/student_decision.py",
     "student_data": "src/learnloop/source_retrieval/student_data.py",
     "query_student": "src/learnloop/source_retrieval/query_student.py",
+    # Teacher TE1 (spec_teacher_v1 §12.1, §12.2, §18.4): the learned lesson-check weight's,
+    # the forecast pool's and the tap/hedge recalibration's seeded priors (each labelled with its
+    # basis and width), the numerical resolution of their search, and the lesson's budgets and
+    # its one contract guardrail. No weight, margin or threshold is a hand-set constant.
+    "lesson_weight": "src/learnloop/learner/lesson_weight.py",
+    "teacher_brief": "src/learnloop/teacher/brief.py",
+    "teacher_service": "src/learnloop/teacher/service.py",
+    "teacher_actions": "src/learnloop/teacher/actions.py",
 }
 
 # Runtime imports are derived from the same source inventory so a module move
@@ -345,6 +353,55 @@ _reg_const("voyage_contextual:MAX_INPUTS_PER_REQUEST", "constraint", kind="struc
            rationale="keep: Voyage's documented inputs per request (provider limit).")
 _reg_const("voyage_contextual:MAX_CHUNKS_PER_REQUEST", "constraint", kind="structural", owner="voyage_contextual",
            rationale="keep: Voyage's documented chunks per request (provider limit).")
+
+# Teacher TE1 module constants (spec_teacher_v1 §18.4: every number a seeded prior, a structural
+# form or keep). The priors are lp_priors_v1's; the data move them.
+_reg_const("lesson_weight:ETA0_PRIOR_MEAN", "prior", owner="lesson_weight",
+           rationale="seeded prior, basis legacy: logit of the type's configured 0.5 (config evidence masses); "
+                     "the lesson-check mass's centre before any later cold outcome.")
+_reg_const("lesson_weight:ETA0_PRIOR_SD", "prior", owner="lesson_weight",
+           rationale="seeded prior width, basis legacy: the LP spec's rule for legacy priors (>= 1 logit).")
+_reg_const("lesson_weight:BETA_C_PRIOR_SD", "prior", owner="lesson_weight",
+           rationale="seeded prior width, basis simulation: the narrowest under which a planted +-0.5-logit "
+                     "confidence effect is still recovered; centre 0 (no effect).")
+_reg_const("lesson_weight:BETA_P_PRIOR_SD", "prior", owner="lesson_weight",
+           rationale="seeded prior width, basis simulation (as beta_c), for the predicted-success effect.")
+_reg_const("lesson_weight:TAU_GRID", "prior", owner="lesson_weight",
+           rationale="the per-LO offset scale's grid support, basis simulation (the planted-recovery suite tells "
+                     "the points apart); its weights start uniform and are learned (AD's ad_hyper mechanism).")
+_reg_const("lesson_weight:TAP_PRIOR_MAP", "prior", owner="lesson_weight",
+           rationale="today's fixed tap -> probability map {1: .10 ... 5: .90}, the recalibration's legacy-seeded "
+                     "centre (goals.exam_calibration's map; a test pins them equal).")
+_reg_const("lesson_weight:PRIOR_TERMS", "version", kind="structural", owner="lesson_weight",
+           rationale="keep: the state vector's index of each prior term (identity; the report's sensitivity rerun "
+                     "shifts these).")
+_reg_const("lesson_weight:POOL_GRID_POINTS", "numerical", kind="structural", owner="lesson_weight",
+           rationale="keep: the pool weight's grid resolution (numerical resolution, spec §18.4).")
+_reg_const("lesson_weight:POOL_PRIOR_ALPHA", "prior", owner="lesson_weight",
+           rationale="Beta(1, 4) over the pool weight, basis legacy (owner: the parametric weight starts ahead).")
+_reg_const("lesson_weight:POOL_PRIOR_BETA", "prior", owner="lesson_weight",
+           rationale="Beta(1, 4) over the pool weight, basis legacy (owner: the parametric weight starts ahead).")
+_reg_const("lesson_weight:TAP_INTERCEPT_PRIOR", "prior", owner="lesson_weight",
+           rationale="the tap recalibration's intercept N(0, 1), basis legacy (>= 1 logit around today's map).")
+_reg_const("lesson_weight:TAP_SLOPE_PRIOR", "prior", owner="lesson_weight",
+           rationale="the tap recalibration's slope N(1, 1), basis legacy (centred on today's fixed map).")
+_reg_const("lesson_weight:HEDGE_INTERCEPT_PRIOR", "prior", owner="lesson_weight",
+           rationale="each hedge value's intercept N(0, 1): centre chance (no information), >= 1 logit wide.")
+_reg_const("lesson_weight:_IMPLIED_ETA_BOUND", "numerical", kind="structural", owner="lesson_weight",
+           rationale="keep: the pool-implied mass's search interval on the logit scale (numerical resolution: "
+                     "sigma(+-12) is within 1e-5 of the link's bounds).")
+_reg_const("lesson_weight:_BISECTION_STEPS", "numerical", kind="structural", owner="lesson_weight",
+           rationale="keep: bisection steps of that search (numerical resolution).")
+_reg_const("teacher_brief:STEM_CHARS", "display", kind="structural", owner="teacher_brief",
+           rationale="keep: how much of a long prompt a brief header shows (a size bound; text comes through "
+                     "the actions).")
+_reg_const("teacher_brief:INTERVAL_Z", "display", kind="structural", owner="teacher_brief",
+           rationale="keep: the conventional 95% interval shown with a prediction (display convention).")
+_reg_const("teacher_service:MAX_CONTRACT_FAILURES", "constraint", kind="structural", owner="teacher_service",
+           rationale="keep: three consecutive refused teacher turns close the lesson (contract guardrail, "
+                     "spec §18.4).")
+_reg_const("teacher_actions:_HISTORY_TEXT_CHARS", "display", kind="structural", owner="teacher_actions",
+           rationale="keep: how much of one past answer or tutor reply read_history returns (a prompt-size bound).")
 
 # Local contextual retrieval P2 module constants (identities, guardrails, budgets, optimizer settings;
 # no quality margin or ranking weight: those are expected-utility decisions and learned fusion weights).
