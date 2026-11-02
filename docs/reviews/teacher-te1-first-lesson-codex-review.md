@@ -152,3 +152,80 @@ The full suite, the whole durability lane and the whole vitest run are the landi
 `tests/test_teacher_te1_weight.py`, `apps/learnloop-tauri/src/screens/LessonScreen.test.tsx`,
 `docs/specs/spec_teacher_v1.md` (§20 as-built), `docs/reviews/teacher-te1-first-lesson.md` (pointers), the desktop
 catalog under `docs/learnloop-architecture-vault/Reference/Desktop/`.
+
+## Re-review (codex-job `20261101-222330-VW72um`, verdict REOPENED)
+
+**Base of this step:** `f0a9b75985`. F2 and F3 were confirmed fixed. F1 and F4 were reopened; F14 and F15 are new
+(Medium). **No paid or live call was made**: every model is a fake (`TeacherFake`, `MeteredTeacher`); no ad-hoc
+Python or CLI ran outside pytest. No migration, no config key, no schema change, no frontend or `src-tauri` change
+(the desktop catalog is unaffected: no RPC or DTO changed). No owner vault, `~/.config/learnloop`, `settings.env` or
+`~/.codex` was read.
+
+**Reproduced first.** The seven re-review tests were committed alone (`b9b49979f7`) and run against the base `src/`:
+6 failed, 1 passed (the passing one, `test_rr_f4_nothing_revoked_leaves_the_prompt_unchanged`, pins that the F4 fix
+changes nothing when nothing is protected). Each failure was the finding's own: F1, no `spend_reserved` row at send
+time and, after a crash between send and settlement, the next request admitted past the cap (`view["closed"]` was
+false); F4, the passage sentence present in the next prompt through the saved plan, and through an uncited message,
+the open check and the open prediction; F14, resume made no call (`3 == 3 + 1` failed); F15, the resumed call ran
+with `help_reply = False`. With the fixes (`6ba1484ec2`) all seven pass.
+
+| id | severity | title | verdict | commit | test or reason |
+|---|---|---|---|---|---|
+| F1 | High | Reservations live only in memory; a crash after sending forgets them | fixed | `6ba1484ec2` | `test_rr_f1_a_reservation_is_durable_before_the_request_and_outlives_a_crash`, `test_rr_f1_a_settled_request_replaces_its_reservation` |
+| F2 | High | Held grades train future evidence weights | confirmed fixed | `a27561ff43` | (re-review probe) |
+| F3 | High | Plan statements and recaps bypass output guards | confirmed fixed | `232fe29911` | (re-review probe) |
+| F4 | High | Saved plan, open check, prediction and uncited copies still resend protected text | fixed | `6ba1484ec2` | `test_rr_f4_a_saved_plan_copying_a_now_held_out_passage_is_not_resent`, `test_rr_f4_an_uncited_copy_open_check_and_prediction_are_not_resent`, `test_rr_f4_nothing_revoked_leaves_the_prompt_unchanged` |
+| F14 | Medium | Resume silently skips a failed read follow-up | fixed | `6ba1484ec2` | `test_rr_f14_resume_runs_a_read_follow_up_an_outage_interrupted` |
+| F15 | Medium | Resume loses the pending help mode | fixed | `6ba1484ec2` | `test_rr_f15_resume_keeps_the_pending_help_mode` |
+
+No finding was rejected.
+
+### What changed
+
+- **F1.** `LessonSpendGate.admit` commits a `spend_reserved` ledger row (reservation id, estimate, purpose, provider,
+  tokens) before it returns the admission, so the reservation is on disk before the request is sent; if that write
+  fails, the in-memory reservation is released and the request is not sent. `settle` writes the `spend` row with the
+  reservation id. `_spent_usd` (the envelope's starting total and the receipt's `metered_usd`) is the settled rows
+  plus every reservation no settlement replaced, at its whole estimate: the gate's own rule for a request that
+  reported nothing. No lesson model request runs inside a ledger transaction (the teacher call, the grader and the
+  read actions all run outside `repository.atomic()`), so each reservation commits as written.
+- **F4.** Before every call `_prompt` scrubs the whole context it resends (brief, open check, open prediction, plan,
+  results, transcript: the teacher's turns, the learner's replies, the grader's feedback) against the text that became
+  protected since it was saved: each sentence of every revoked passage and every now-withheld brief stem. A string
+  that reproduces one, by the tutor's span filter (`span_leaks_expected`, the measure that withholds a retrieved span
+  before the tutor sees it; its thresholds are the existing `keep` guardrails, no new constant), is replaced whole by
+  the withdrawal notice. Nothing protected leaves the prompt byte-identical. The earlier structural redaction (aliases,
+  stems, cited turns) stays. Like the guards it is lexical: a paraphrase is not caught (the review's probes were
+  copies).
+- **F14 and F15.** `resume` reads the call it owes from the ledger (`_pending_call`): a learner's or code's step with no
+  accepted teacher turn after it, in the help mode the learner's reply recorded (F15); or the action's first accepted
+  turn whose reads ran with no accepted turn after it (F14), whose non-deferred read results ride with the resumed call
+  as they did with the original; that call counts as the action's second, so its own reads are deferred (the
+  one-further-call bound). The pending state is the ledger itself, so it survives a restart and clears only when the
+  consuming teacher turn commits.
+
+### Gate (this step)
+
+| Command | Result |
+|---|---|
+| `uv sync --extra dev --extra mobile`; `uv pip install pypdfium2` | ok |
+| `uv run lint-imports --no-cache` | 38 kept, 0 broken |
+| targeted pytest (`-n 6`, memory-capped), 20 files below | **564 passed** |
+| `--durable-sqlite` on `test_teacher_te1_review_fixes.py`, `test_teacher_te1_lesson.py` | 48 passed |
+| npm / vitest / frontend build / cargo check | not run (no frontend or `src-tauri` change) |
+| DB reference generate/validate | not run (no schema change) |
+
+Targeted pytest files: `tests/test_teacher_te1_review_fixes.py`, `tests/test_teacher_te1_lesson.py`,
+`tests/test_teacher_te1_weight.py`, `tests/test_teacher_te1_curriculum_c4.py`, `tests/test_teacher_te1_migration.py`,
+`tests/test_teacher_te1_successor.py`, `tests/test_notes_never_read.py`, `tests/test_architecture.py`,
+`tests/test_forecast_receipts.py`, `tests/test_mobile_allowlist.py`, `tests/test_rebuild_orchestrator.py`,
+`tests/test_registry_audit.py`, `tests/test_desktop_rpc_contract.py`, `tests/test_sidecar_registry.py`,
+`tests/test_table_roles.py`, `tests/test_held_grade_evidence.py`, `tests/test_tracked_fixture_databases.py`,
+`tests/test_teacher_te0_review_fixes.py`, `tests/test_teacher_te0_fix_round2.py`,
+`tests/test_teacher_te0_confidence_events.py`. The full suite, the whole durability lane and the whole vitest run are
+the landing gate's (owner rule 2026-10-17).
+
+### Files touched
+
+`src/learnloop/teacher/service.py`, `tests/test_teacher_te1_review_fixes.py`, `docs/specs/spec_teacher_v1.md` (§20
+as-built), this file.
