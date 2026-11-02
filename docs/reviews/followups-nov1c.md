@@ -206,8 +206,10 @@ after the reading changes).
   the selection's spans and `context: {"from": "reader_selection"}`, then shows the resolution's summary ("For
   midterm: 3 topics from your books") or the server's notice. With several deliverables there is one button each,
   named.
-- Honest copy: "LearnLoop's model reads this passage, and only it, to find the topics your deliverable needs and adds
-  them to its scope. Review them in the Guide."
+- Honest copy (as revised by review F3, `followups-nov1c-codex-review.md`): "This passage joins what you've already
+  given your deliverable (its description, earlier passages, a syllabus). LearnLoop's model reads them all again and
+  updates its scope, which can add topics or drop some. Review them in the Guide." This matches
+  `deliverables.resolve`, which rereads every scope input in order, a later input refining an earlier one.
 - **Refusals.** The existing guard (`deliverables.passage_texts`) refuses exam material, a reading held back, a span
   without teaching authority and an unreadable predicate. It refuses an exam-role reading or a held-out unit inside a
   teaching book with `exam_material` and `EXAM_REFUSAL`, before anything is written. The learner sees that message
