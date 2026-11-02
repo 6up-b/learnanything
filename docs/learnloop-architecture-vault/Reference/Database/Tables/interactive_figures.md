@@ -3,13 +3,13 @@ title: "interactive_figures"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "95dd20a1d45901033891f11b5a598581ca884e63"
-source_commit_timestamp: "2026-11-02T02:34:21-05:00"
+source_commit: "144497f9effca275e8320b14486e0b34053c19d0"
+source_commit_timestamp: "2026-11-02T05:49:20-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite interactive_figures"
   - "table interactive_figures"
-schema_head: 234
+schema_head: 236
 table_name: "interactive_figures"
 table_role: "workflow"
 functionality_status: "active"
@@ -125,6 +125,8 @@ None found by exact static reference scan.
 - `src/learnloop/diagnosis/text_gaps/sources.py`
 - `src/learnloop/figure_admission.py`
 - `src/learnloop/figures/help.py`
+- `src/learnloop/figures/prefetch.py`
+- `src/learnloop/figures/prefetch_ledger.py`
 - `src/learnloop/reader/reader_report.py`
 
 ### Direct SQL writers
@@ -155,11 +157,11 @@ None found by exact static reference scan.
 - `tests/test_figures_fix_round2.py`
 - `tests/test_figures_help_codex_review.py`
 - `tests/test_figures_migration.py`
+- `tests/test_figures_prefetch.py`
 - `tests/test_figures_rpc.py`
 - `tests/test_figures_rw5b_review.py`
 - `tests/test_figures_scope_redesign.py`
 - `tests/test_figures_show_me.py`
-- `tests/test_figures_show_me_codex_review.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

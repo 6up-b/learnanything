@@ -3,13 +3,13 @@ title: "reader_section_progress"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "95dd20a1d45901033891f11b5a598581ca884e63"
-source_commit_timestamp: "2026-11-02T02:34:21-05:00"
+source_commit: "144497f9effca275e8320b14486e0b34053c19d0"
+source_commit_timestamp: "2026-11-02T05:49:20-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite reader_section_progress"
   - "table reader_section_progress"
-schema_head: 234
+schema_head: 236
 table_name: "reader_section_progress"
 table_role: "workflow"
 functionality_status: "active"
@@ -100,6 +100,7 @@ Indexes and uniqueness:
 - `src/learnloop/daily_plan/engine.py`
 - `src/learnloop/db/repositories.py`
 - `src/learnloop/db/stores/source_service.py`
+- `src/learnloop/figures/prefetch.py`
 - `src/learnloop/instructional/exposure.py`
 - `src/learnloop/reader/recap.py`
 
@@ -138,10 +139,10 @@ Indexes and uniqueness:
 - `tests/test_curriculum_c1_plan_follows_path.py`
 - `tests/test_daily_plan_reading.py`
 - `tests/test_deliverable_path.py`
+- `tests/test_figures_prefetch.py`
 - `tests/test_plan_follows_path.py`
 - `tests/test_reading_paths.py`
 - `tests/test_reread_safety.py`
-- `tests/test_ux_phase1_round2_rereview.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

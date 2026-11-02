@@ -51,7 +51,11 @@ ALLOWED = {
 }
 #: Teacher TE1 + curriculum C4 (spec §8.2, §10.4): the teacher reads note text through read_note, and the
 #: brief lists the headers, through teacher.notes only; the service injects it, the read action calls it.
-TEACHER_NOTE_READERS = ("learnloop.teacher.notes", "learnloop.teacher.actions", "learnloop.teacher.service")
+TEACHER_NOTE_READERS = ("learnloop.teacher.notes", "learnloop.teacher.actions", "learnloop.teacher.service",
+                        # Reader RW5d P5: the prefetch service reads a lesson's stored plan through
+                        # teacher.service.load_state (the plan nodes and their delivered passages; never a
+                        # note); it reaches the notes modules only through that module.
+                        "learnloop.figures.prefetch")
 #: The modules that must never read a note (spec §10.2's list).
 NEVER = (
     "learnloop.source_retrieval.find_sources",

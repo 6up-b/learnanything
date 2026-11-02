@@ -68,6 +68,10 @@ def test_every_defaults_snapshot_drops_to_mains_value_without_the_teacher_keys()
                     "max_lesson_cost_usd"):
             dumped["teacher"].pop(key)
         dumped["ai"]["routing"].pop("teacher")
+        # Reader RW5d P5 (after main's 19c72752b3): its [figures] prefetch keys and route moved them too.
+        dumped["figures"].pop("prefetch_enabled")
+        dumped["figures"].pop("prefetch")
+        dumped["ai"]["routing"].pop("figure_prefetch_judge")
         digest = hashlib.sha256(json.dumps(dumped, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
         assert digest == main, version
     assert TAG in DEFAULTS_SNAPSHOT_BY_ALGORITHM
