@@ -29,6 +29,7 @@ from typing import Any
 
 from learnloop.attempts.stuck import stuck_attempt_type
 from learnloop.db.stores.help_assists import (
+    attach_keyed_fold,
     attach_keyless_fold,
     attach_workbench_rows,
     keyless_window_start,
@@ -350,5 +351,27 @@ def attach_keyless(connection: Any, draft: Any, attempt_id: str) -> int:
                                since=fold.since, attempt_id=attempt_id, submitted_at=fold.submitted_at)
 
 
-__all__ = ["HeldPart", "ServerHintFold", "attach_held", "attach_keyless", "combine_held", "held_components",
-           "read_fold", "refolded_draft"]
+def attach_keyed(connection: Any, draft: Any, attempt_id: str) -> int:
+    """A keyed submit's attempt takes the rows its fold counted (follow-ups
+    Nov 2), in its own write transaction, as :func:`attach_keyless` does for
+    a keyless one: the submission's rows of the item in any practice session
+    (a hint shown before the session rolled over included), through the
+    fold's own row definition, so the rows it attaches are exactly the rows
+    it counted. H0's attach by key still binds the submission's other rows
+    after the commit. Returns how many it attached."""
+
+    fold: ServerHintFold | None = getattr(draft, "server_hint_fold", None)
+    if fold is None or fold.submission_id is None:
+        return 0
+    exists = connection.execute(
+        "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'help_assists'"
+    ).fetchone()
+    if exists is None:
+        return 0
+    return attach_keyed_fold(connection, practice_item_id=fold.practice_item_id, session_id=fold.session_id,
+                             submission_id=fold.submission_id, attempt_id=attempt_id,
+                             submitted_at=fold.submitted_at, latency_seconds=getattr(draft, "latency_seconds", None))
+
+
+__all__ = ["HeldPart", "ServerHintFold", "attach_held", "attach_keyed", "attach_keyless", "combine_held",
+           "held_components", "read_fold", "refolded_draft"]

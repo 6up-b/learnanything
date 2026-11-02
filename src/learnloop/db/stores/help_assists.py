@@ -239,10 +239,13 @@ def server_fold(
     """The server-counted hints a submission folds (hints spec §5): how many
     shown rows at levels 1-3, and whether any shown row is at level 4-5
     (``primed``). Only rows still unattached (an attempt already took its
-    own), of this session and item, under the submission's key when it has
-    one (H0 review F1: never another submission's rows); a client with no key
-    folds the session's unattached rows requested after ``since`` (the item's
-    last attempt in this session: the window ``mark_shown`` closes)."""
+    own) of the item: under the submission's key when it has one, in any
+    practice session (H0 review F1: never another submission's rows;
+    follow-ups Nov 2: the key alone, as H0's attach reads it, so a hint shown
+    before the session rolled over is counted where it attaches); a client
+    with no key folds the session's unattached rows requested after ``since``
+    (the item's last attempt in this session: the window ``mark_shown``
+    closes)."""
 
     where, values = _fold_rows(practice_item_id=practice_item_id, session_id=session_id,
                                submission_id=submission_id, since=since)
@@ -257,20 +260,26 @@ def server_fold(
 
 def _fold_rows(*, practice_item_id: str, session_id: str, submission_id: str | None,
                since: str | None) -> tuple[str, tuple[Any, ...]]:
-    """The rows a fold counts (:func:`server_fold`) and a keyless attempt
-    attaches (:func:`attach_keyless_fold`): one definition, so the rows
-    attached are exactly the rows counted. Only unattached rows: a row an
-    attempt took is never counted again, whatever its key."""
+    """The rows a fold counts (:func:`server_fold`) and its attempt attaches
+    (:func:`attach_keyless_fold`, :func:`attach_keyed_fold`): one definition,
+    so the rows attached are exactly the rows counted, whatever help kinds it
+    counts. Only unattached rows: a row an attempt took is never counted
+    again, whatever its key. A keyed fold reads the submission's rows of the
+    item in any practice session (follow-ups Nov 2: H0's attach rule, by the
+    key alone); a keyless one the session's window."""
 
-    clauses = ["practice_item_id = ?", "practice_session_id = ?", "attempt_id IS NULL", "shown = 1",
+    clauses = ["practice_item_id = ?", "attempt_id IS NULL", "shown = 1",
                "counted_by = 'server'", "assist_kind = 'hint'"]
-    values: list[Any] = [practice_item_id, session_id]
+    values: list[Any] = [practice_item_id]
     if submission_id is not None:
         clauses.append("submission_id = ?")
         values.append(submission_id)
-    elif since is not None:
-        clauses.append("requested_at > ?")
-        values.append(since)
+    else:
+        clauses.append("practice_session_id = ?")
+        values.append(session_id)
+        if since is not None:
+            clauses.append("requested_at > ?")
+            values.append(since)
     return " AND ".join(clauses), tuple(values)
 
 
@@ -292,6 +301,29 @@ def attach_keyless_fold(
     cursor = connection.execute(
         f"UPDATE help_assists SET attempt_id = ?, submitted_at = COALESCE(submitted_at, ?) WHERE {where}",
         (attempt_id, submitted_at, *values))
+    return int(cursor.rowcount or 0)
+
+
+def attach_keyed_fold(
+    connection: sqlite3.Connection, *, practice_item_id: str, session_id: str, submission_id: str, attempt_id: str,
+    submitted_at: str | None = None, latency_seconds: float | None = None,
+) -> int:
+    """A keyed attempt takes the rows its fold counted (follow-ups Nov 2), in
+    its own write transaction, as a keyless one does (:func:`attach_keyless_fold`):
+    the fold's own rows (:func:`_fold_rows`, so every help kind it counts), and
+    no others; H0's attach by key then binds the rest of the submission's rows
+    (client reveals, unshown requests, answers) as before. ``submitted_at``
+    and ``latency_seconds`` are written together where a row has no stamp,
+    exactly as :func:`attach_submission` writes them, so a hint shown during
+    grading keeps the timing H0's attach would have given it."""
+
+    where, values = _fold_rows(practice_item_id=practice_item_id, session_id=session_id,
+                               submission_id=submission_id, since=None)
+    cursor = connection.execute(
+        "UPDATE help_assists SET attempt_id = ?, submitted_at = COALESCE(submitted_at, ?), "
+        "submit_latency_seconds = CASE WHEN submitted_at IS NULL AND ? IS NOT NULL THEN ? "
+        f"ELSE submit_latency_seconds END WHERE {where}",
+        (attempt_id, submitted_at, submitted_at, _latency(latency_seconds), *values))
     return int(cursor.rowcount or 0)
 
 
@@ -593,7 +625,7 @@ __all__ = [
     "workbench_assist_ids",
     "workbench_window",
     "workbench_window_ids",
-    "COLUMNS", "TABLE", "assist", "attach_keyless_fold", "attach_submission", "authored_reveals_in_window",
+    "COLUMNS", "TABLE", "assist", "attach_keyed_fold", "attach_keyless_fold", "attach_submission", "authored_reveals_in_window",
     "count_closed", "fold_row_count",
     "insert_assist", "keyless_window_start", "mark_shown", "server_fold", "stamp_submitted",
     "stamp_window_submitted", "submission_assists", "submission_committed",
