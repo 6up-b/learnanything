@@ -51,6 +51,7 @@ from learnloop.db.stores.router import ROUTER_LOG_VERSION, insert_router_decisio
 from learnloop.ids import new_ulid
 from learnloop.learner.lesson_weight import COLD_ATTEMPT_TYPES, predicted_success
 from learnloop.router import lesson_suggestions as LS
+from learnloop.scheduling import randomization_layer as RL
 from learnloop.vault.models import learning_object_facet_union
 
 #: Plain words for each reason (the card's honest "why": the planner's reason, router §7.4).
@@ -308,8 +309,6 @@ def _target(vault: Any, scored: Sequence[LS.ScoredCandidate], seed: str) -> LS.T
     config = vault.config.router
     if config.mode == "mixture" and vault.config.algorithms.algorithm_version in ROUTER_MIXTURE_VERSIONS:
         return LS.mixture_target(scored, weights=config.weights.model_dump(), epsilon=config.epsilon_min, seed=seed)
-    from learnloop.scheduling import randomization_layer as RL
-
     refs = [s.candidate.ref for s in scored]
     values = [math.exp(s.value) for s in scored]
     assignment = RL.epsilon_tiebreak(None, experiment_id=LS.DECISION_KIND, refs=refs, values=values, seed=seed)

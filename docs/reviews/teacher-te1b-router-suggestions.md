@@ -57,8 +57,12 @@ rebuild it from main's then-current head, which will hold 235).
    on the card's suggestion and 1 on the alternative), entered in response order with the inputs stored at its
    draw, so a replay never reads today's state. Every reader replays the ledger (no derived table).
 3. **The draw** (once per local day, at Today's open): each candidate's value is `log P(accept) + log(1 − p)` (`p`
-   the predicted success: room to learn); `π ∝ exp(value)` over the top `router.k` with the router's
-   `epsilon_min` floor each; then the card shows with the drawn candidate's `P(accept)`. Shown or not, ONE
+   the predicted success: room to learn); the target over the top `router.k` is drawn by the router's design for
+   its mode (codex re-review F5): `router.mode = "mixture"` is the router's `model_mixture` (the configured
+   `router.weights`, the staged rule's pick the top value, the `epsilon_min` floor each; the Decider and the
+   router LLM are not asked about lesson candidates, so their weight is the staged rule's, G7), `staged` is the
+   randomization layer's `epsilon_tiebreak` on `P(accept)·room`; then the card shows with the drawn candidate's
+   `P(accept)`. Shown or not, ONE
    `lesson_suggestion` decision is written (receipt key `lesson_suggestion:<date>`: at most one a day), with the
    candidates' `pi`, `p_accept`, `room`, `value` and inputs, the seed, the snapshot hash, the model summary, the
    card hash, and the exact joint probability of the drawn target and the arm (`π(c)·P(c)` shown, `π(c)·(1 − P(c))`
@@ -95,11 +99,14 @@ rebuild it from main's then-current head, which will hold 235).
 
 ## Rulings wanted (deviations from the spec text)
 
-1. **The draw is the staged component alone, as its own design.** §15.1 says the candidate "joins the `mixture`
-   draw … or `epsilon_tiebreak` in `staged` mode". The Decider and the router LLM are not asked about lesson
-   candidates (their question set `router_qs_v2` is unchanged; no new model call), so the draw is a registered
-   design `lesson_suggestion_draw` (value-proportional with the router's floor, then the show coin), with
-   `mode` recorded from `router.mode`. Asking the models is a later step behind the router's own evaluation.
+1. **The models are not asked about lesson candidates.** §15.1 says the candidate "joins the `mixture`
+   draw … or `epsilon_tiebreak` in `staged` mode". Since the codex re-review (F5) the target IS drawn that way:
+   the router's `model_mixture` with the configured weights and floor, or `epsilon_tiebreak` when staged
+   (`detail.target`, recomputable with `router.mixture.recompute`). The Decider and the router LLM are not asked
+   (their question set `router_qs_v2` is unchanged; no new model call), so their weight goes to the staged rule
+   as for any model not set up (G7), recorded `not_asked`. The row's design `lesson_suggestion_draw` names the
+   two stages (the router's target draw, then the show coin). Asking the models is a later step behind the
+   router's own evaluation.
 2. **"At most one a day" (§19) against "no per-day quota, ceiling 3" (§15.1).** Built: one decision a day (the
    §19 rule and the stage brief), and the ceiling enforced and logged, which therefore binds only at 0. If the
    owner wants the model to set the frequency within the day, the receipt key moves to a per-boundary key and

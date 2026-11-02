@@ -1256,6 +1256,11 @@ propensity is the joint probability of the drawn target and the arm; the outcome
 scope (the target and its alternatives) with the taken entry marked; `below_band` is adaptive difficulty's out-of-band
 rule on `P_band`; the days-since-last-suggestion feature keeps every gap; the preference line is built (section
 `lesson_suggestions`, card version `+te1b`); an accepted Start whose lesson never opened stays on the card.
+*Codex re-review:* the target is drawn by the router's design for `router.mode` (the router's `model_mixture` with
+the configured weights and `epsilon_min` floor, the Decider and the router LLM not asked about lesson candidates so
+their weight is the staged rule's, G7; `epsilon_tiebreak` when `staged`), and the draw's earlier `π ∝ exp(value)`
+is gone; a Start whose lesson never opened holds Today's card on later days too (no new draw while it does) until
+a lesson on its LOs opens.
 
 ---
 

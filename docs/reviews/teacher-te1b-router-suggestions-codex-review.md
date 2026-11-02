@@ -61,14 +61,55 @@ Test files run (for the landing gate): `tests/test_activity_backfill.py`, `tests
 
 ## Owner items
 
-- **Ruling 1 (F5):** should lesson suggestions join the block mixture? The draw would need a day-level boundary,
-  and the router models would be asked about lesson candidates (question-set change). It stays the registered
-  `lesson_suggestion_draw` until the owner decides.
+- **Ruling 1 (F5), narrowed by the re-review:** the day's target is now drawn by the router's `model_mixture`, or by
+  `epsilon_tiebreak` when staged. The open question is only whether the Decider and the router LLM should be asked
+  about lesson candidates, which is a question-set change with model calls at Today's open.
 - The owner's real-lesson checkpoint on a `fixtures-local` copy (TE1's) and a look at the card copy, including the
   new "Your lesson on X hasn't opened yet. / Open the lesson".
 
 ## Open items
 
-- A Start left unopened across a day boundary is not re-offered: only the day's decision is read back. The response
-  stays on record, and "Teach me X" is available everywhere.
+- *(Closed by the re-review, F2.)* ~~A Start left unopened across a day boundary is not re-offered.~~
 - The router report does not yet print the suggestion decisions' ITT split or the scope records.
+
+---
+
+# Re-review (Codex job `20261102-073312-gY9zrd`, verdict REOPENED)
+
+Codex confirmed F1, F3, F4, F6 and F7 as fixed, and found no new defects in the fix commits. It reopened F2 and F5.
+Both were reproduced first. The new file `tests/test_teacher_te1b_rereview_fixes.py` was run against the pre-fix
+sources (`git archive` of `18f62e90c6`'s `src`, `migrations` and `calibration_bundles`, with `-o pythonpath=` pointing
+at the copy). All 7 of its tests failed there. The three F2 tests were also run with the pre-fix two-uniform `shown`
+fixture, so that they fail on the behaviour itself and not on the new fixture shape. They failed: the next day drew a
+new card, the overnight alternative was lost, and a reservation stayed on the card after "Teach me" had opened a lesson
+on its LO. No paid or live call was made, no owner vault or `~/.config/learnloop` was read, and no GUI was launched.
+
+| id | severity | title | verdict | commit | test or reason |
+|---|---|---|---|---|---|
+| F2 | Medium | An accepted-but-unopened Start is lost across a day boundary | **fixed** | `9218ba7a85` | `today_suggestion` now looks for the newest earlier day's Start (or alternative) whose reserved lesson never opened (`_pending_from_earlier_day`). It looks before any draw, and that card takes Today's slot until the lesson opens: one card in Today, and no new decision is logged while it shows. `card_view` also drops a reservation once any lesson on its LOs opens at or after the response (its own, or one from "Teach me"). Tests: `test_a_start_left_unopened_overnight_is_offered_the_next_day` (day 1 and day 3 both offer the reserved id, there is no second decision, and once the lesson opens day 3 draws its own), `test_an_overnight_alternative_start_keeps_the_alternative`, `test_a_reserved_lesson_is_dropped_once_teach_me_opened_one_on_it`. `test_responses_move_the_acceptance_model` now opens the Start's lesson before the next day, because an unopened one would hold the card |
+| F5 | Medium | The draw bypasses the configured mixture and the staged `epsilon_tiebreak` | **fixed (router draw); the models are still not asked, recorded for the owner** | `9218ba7a85` | The target is now drawn by the router's own design for `router.mode`, as §15.1 requires. With `mixture` (the default, at the router's mixture successor) it is `router.mixture`'s two-stage `model_mixture` over the top `router.k`. That uses the configured `router.weights` and the `epsilon_min` floor, and the staged rule's pick is the top value (`LS.mixture_target`, via the new `mixture.draw_with_uniforms`, so the show coin keeps a third uniform from the same seed). With `staged` it is the randomization layer's `epsilon_tiebreak` on `P(accept)·room` (`LS.tiebreak_target`, using the new public `randomization_layer.tied_set`). The earlier `π ∝ exp(value)` is gone. `detail.target` holds the design, support, staged pick, configured and effective weights, the models' status, the component and the uniforms, or the tied set. `mixture.recompute(detail.target)` returns the logged `pi_drawn`, and `mixture_weights_json` carries the effective weights. The Decider and the router LLM are **not asked** about lesson candidates, which would need a new question set and new model calls. Their weight therefore goes to the staged rule, exactly as the router does for any model that is not set up (G7), and is recorded as `not_asked`. `model_distributions_json` and `fallback` stay NULL, so the agreement ledger counts no model failure. The joint propensity (F3) and the predeclared scope (F4) are unchanged. Scope alternatives are ordered by `π`, then value. Tests: `test_mixture_mode_draws_the_target_by_the_routers_model_mixture` (configured weights 0.5/0.25/0.25 logged, effective 1/0/0, top `π = 1 − (k−1)·ε`, others `ε`, recompute matches), `test_the_mixture_floor_draws_a_non_staged_target_with_its_exact_propensity` (400 seeds: the floor does draw the other candidates, and every row's propensity is `π·arm`), `test_staged_mode_draws_the_target_by_the_epsilon_tiebreak` (uniform over the near-tied set), `test_the_staged_tiebreak_is_deterministic_without_a_near_tie`. The F3 Horvitz-Thompson test now draws its half-and-half target explicitly |
+
+**What remains for the owner (narrowed ruling 1):** should the Decider and the router LLM be asked about lesson
+candidates? That would be a `router_qs_v2` question-set change, with model calls at Today's open. The draw already goes
+through the router's mixture, so asking the models would only fill their components, and their configured weights
+would apply.
+
+## Re-review gate (this step; the full suite runs once, in the landing gate)
+
+Every pytest command ran inside `systemd-run --user --scope --quiet -p MemoryMax=5G -p MemorySwapMax=1G`, at `-n 6`,
+one run at a time.
+
+- `uv sync --extra dev --extra mobile` and `uv pip install pypdfium2`: ok.
+- `uv run lint-imports --no-cache`: **41 kept, 0 broken**.
+- Targeted pytest, `-n 6`, 73 files: **1471 passed, 15 skipped, 1 xfailed, 0 failed** (24 min 9 s). The set is every
+  test file naming a changed module or function (`router.mixture` / `router import mixture`, `randomization_layer`,
+  `lesson_suggestion`, `ROUTER_DESIGNS`, `stores.router import`, `parameter_registry`), plus these contract and related
+  files: architecture, registry audit, desktop RPC contract, serializer snapshot, CLI help snapshot, tracked fixture
+  databases, public-tip guards, router card, mobile allowlist, table_roles, coordinated migrations, sqlite file copies,
+  and TE1 lesson and review fixes.
+- The TE1b files with `--durable-sqlite` (`tests/test_teacher_te1b_rereview_fixes.py`,
+  `tests/test_teacher_te1b_review_fixes.py`, `tests/test_teacher_te1b_suggestions.py`): **46 passed**. No migration
+  or DB/connection code changed.
+- Frontend, `src-tauri` and schema: unchanged. No npm, vitest, cargo, desktop catalog or DB reference run was needed.
+
+Test files run (for the landing gate): `tests/test_ad1_codex_review_fixes.py`, `tests/test_ad23_owner_decisions.py`, `tests/test_ad23_successor.py`, `tests/test_ad3_dose_arm.py`, `tests/test_ad_guard.py`, `tests/test_architecture.py`, `tests/test_attempt_content_state_successor.py`, `tests/test_cli_help_snapshot.py`, `tests/test_cold_retry_reschedule.py`, `tests/test_constraint_engine.py`, `tests/test_coordinated_migrations.py`, `tests/test_curriculum_c1_plan_follows_path.py`, `tests/test_deliverable_codex_review.py`, `tests/test_desktop_rpc_contract.py`, `tests/test_field_workbench_signals.py`, `tests/test_figures_show_me_codex_review.py`, `tests/test_grading_cli.py`, `tests/test_held_grade_composition.py`, `tests/test_kinship_feature.py`, `tests/test_library_exercises.py`, `tests/test_lp_claim_fixes.py`, `tests/test_method_explicit_upgrade.py`, `tests/test_mobile_allowlist.py`, `tests/test_mvp011_upgrade.py`, `tests/test_mvp013_upgrade.py`, `tests/test_mvp014_upgrade.py`, `tests/test_mvp015_upgrade.py`, `tests/test_mvp016_upgrade.py`, `tests/test_mvp017_upgrade.py`, `tests/test_mvp018_upgrade.py`, `tests/test_mvp020_upgrade.py`, `tests/test_mvp021_upgrade.py`, `tests/test_mvp022_upgrade.py`, `tests/test_mvp023_upgrade.py`, `tests/test_mvp024_upgrade.py`, `tests/test_open_world_gate.py`, `tests/test_p0_cutover_mvp08.py`, `tests/test_plan_determinism_landing.py`, `tests/test_plan_follows_path.py`, `tests/test_public_tip_guards.py`, `tests/test_randomization_layer.py`, `tests/test_reader_ca2_one_ask.py`, `tests/test_reader_ca4_table_by_point.py`, `tests/test_reader_followups_successor.py`, `tests/test_reader_rw2b_review.py`, `tests/test_reading_paths.py`, `tests/test_rebuild_equivalence_review.py`, `tests/test_recurrence_commands.py`, `tests/test_registry_audit.py`, `tests/test_regrade_contract_upgrade.py`, `tests/test_router_card.py`, `tests/test_router_coldness_covariates.py`, `tests/test_router_g3_propensity.py`, `tests/test_router_offer_log.py`, `tests/test_router_outcomes.py`, `tests/test_router_r2b_serving.py`, `tests/test_router_r2c_retrieval.py`, `tests/test_rw2c_switch_off.py`, `tests/test_sensitivity_certificates.py`, `tests/test_sidecar_serializer_snapshot.py`, `tests/test_source_roles.py`, `tests/test_sqlite_file_copies.py`, `tests/test_table_roles.py`, `tests/test_teacher_te0_review_fixes.py`, `tests/test_teacher_te1b_migration.py`, `tests/test_teacher_te1b_rereview_fixes.py`, `tests/test_teacher_te1b_review_fixes.py`, `tests/test_teacher_te1b_suggestions.py`, `tests/test_teacher_te1_lesson.py`, `tests/test_teacher_te1_review_fixes.py`, `tests/test_teacher_te1_successor.py`, `tests/test_tracked_fixture_databases.py`, `tests/test_ux_phase2_shell.py`.
