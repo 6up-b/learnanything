@@ -592,8 +592,10 @@ def test_a_rich_figure_whose_learner_inputs_became_protected_is_not_delivered(tm
     _make_exam_material(rig)
     assert FS.figure_withheld(rig.vault, rig.repository, rich["id"])
     assert FS.row_withheld(rig.vault, rig.repository, rich) is not None
-    (line,) = rig.listed()  # the quick figure stays; its fuller version is not delivered
-    assert not (line["fuller"] or {}).get("figure")
+    # Follow-ups Nov 2 (a): the quick figure was written from the same learner
+    # state (its own record), so it is not listed either (before: it stayed,
+    # without its fuller version).
+    assert rig.listed() == []
 
 
 def test_a_rich_only_figure_whose_learner_inputs_became_protected_is_never_reused(tmp_path, monkeypatch):
