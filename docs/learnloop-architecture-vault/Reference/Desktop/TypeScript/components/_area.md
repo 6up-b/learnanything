@@ -113,7 +113,7 @@ Reusable learner-facing controls and composite interaction surfaces.
 | [[Reference/Desktop/TypeScript/components/pdfPages|pdfPages.ts]] | `ACTIVE` | Provides shared `pdfPages` state or utility behavior for desktop components. | 0 | 1 |
 | [[Reference/Desktop/TypeScript/components/quickAddConsent|quickAddConsent.ts]] | `ACTIVE` | Provides shared `quickAddConsent` state or utility behavior for desktop components. | 1 | 1 |
 | [[Reference/Desktop/TypeScript/components/sourceTail|sourceTail.ts]] | `ACTIVE` | Provides shared `sourceTail` state or utility behavior for desktop components. | 0 | 3 |
-| [[Reference/Desktop/TypeScript/components/term|term.tsx]] | `ACTIVE` | Provides the reusable `term` interaction surface used by one or more desktop workflows. | 0 | 155 |
+| [[Reference/Desktop/TypeScript/components/term|term.tsx]] | `ACTIVE` | Provides the reusable `term` interaction surface used by one or more desktop workflows. | 0 | 157 |
 | [[Reference/Desktop/TypeScript/components/ui|ui.tsx]] | `ACTIVE` | Provides the reusable `ui` interaction surface used by one or more desktop workflows. | 3 | 23 |
 | [[Reference/Desktop/TypeScript/components/useSourceFileDrop|useSourceFileDrop.ts]] | `ACTIVE` | Provides shared `useSourceFileDrop` state or utility behavior for desktop components. | 0 | 5 |
 
