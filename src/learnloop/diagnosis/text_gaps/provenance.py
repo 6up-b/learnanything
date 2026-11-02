@@ -25,8 +25,10 @@ from __future__ import annotations
 
 import json
 from collections.abc import Iterable, Mapping
+from types import SimpleNamespace
 from typing import Any
 
+from learnloop.content.sources.exam_material import source_ref_keys
 from learnloop.db.stores.write_provenance import (
     GRADING,
     Inputs,
@@ -175,10 +177,6 @@ def _located_without_extraction(value: Mapping[str, Any]) -> dict[str, Any] | No
     a block the shared parser places (``exam_material.source_ref_keys``: a namespaced
     span id ``ext:span`` or ``ext/span``, a block locator), or a source or revision id
     (checked against every extraction of it); None when nothing places it."""
-
-    from types import SimpleNamespace
-
-    from learnloop.content.sources.exam_material import source_ref_keys
 
     ref = source_ref(value)
     if ref is None:
