@@ -114,3 +114,60 @@ Not run here (owner rule): the full suite, the whole durability lane, the whole 
   `HINT_EQUIVALENT_KINDS_SQL`. The predicate now appears in both branches of the `any_session` split (the
   predecessor's clause list and the successor's), so the lander puts P3's constant in both. The attach follows
   whatever the fold counts.
+
+## Re-review
+
+- **Review:** Codex (gpt-6.1-sol), job `20261102-035918-1MJ7Bg`, range `2359bbf258..fix/followups-nov2`. F1, F2 and
+  F4 confirmed fixed; F3 reopened as F5 (Low). The reviewer could not run integration tests (uv lock, read-only
+  environment); it confirmed F5 with an in-memory probe.
+- **No live or paid call was made.** Every model is a fake; nothing ran outside pytest; no owner vault,
+  `~/.config/learnloop` or tracked fixture vault was opened.
+
+| id | severity | title | verdict | commit | test or reason |
+|---|---|---|---|---|---|
+| F1 | High | Changed priming and scoring ship without an algorithm successor | confirmed fixed (no change) | 8a939d438b, 675ed08733 | re-review: confirmed |
+| F2 | Medium | Retraction can permanently discard a gap whose note remains linked | confirmed fixed (no change) | 7257e7227d | re-review: confirmed |
+| F3 | Low | Legacy learner-informed figures still fail open | reopened as F5, fixed there | 10f767076f | see F5 |
+| F4 | Low | Queued rich revisions do not inherit dependencies before author calls | confirmed fixed (no change) | 75f2d7fdfb | re-review: confirmed |
+| F5 | Low | Legacy provenance backfill can substitute different source dependencies | fixed | 10f767076f | `tests/test_followups_nov2_figure_provenance.py::test_a_press_of_the_same_input_never_backfills_the_marked_row_and_builds_afresh` (replaces the F3 backfill test). The press reads the same learner state (same hash) from different sources, here a patched read whose inputs name another answer set. Before the fix it reused the marked row and recorded its own sources on it (failed: the figure id was the old row's). After the fix the old row gets no record and stays withheld, the press builds a fresh figure (one author call) that records its own sources, the listing shows only the fresh one, and a third press reuses it with no call. |
+
+### What changed (F5)
+
+- `_establish_learner_inputs` is gone, along with its store writer `figures.record_learner_inputs`. The round-one
+  text above (F3, "What changed") describes the backfill this replaces. A marked row with no record is never given
+  dependencies; it stays withheld (`LEARNER_STATE_UNRECORDED`, whose "ask for it again" is now true).
+- The fresh build cannot take the old row's input hash, because the reuse index (`input_hash, spec_version` over
+  shown and unsupported rows) still holds the old row, which is kept as history. So when a press with a learner
+  state finds its input's reusable figure (the quick figure, or a rich figure built with no quick one; a fuller
+  version is excluded because its quick figure's intent covers it) marked and unrecorded, it switches to
+  `_recorded_input_key(input_hash)`. That is a deterministic hash of the input hash plus the label
+  `LEARNER_INPUTS_RECORDED = "recorded-v1"`, a version label rather than a tunable. Reuse, the build lock, the retry
+  generation, the request identity and any rich job all follow that key. The fresh row records its inputs, so it
+  takes at most one hop, and every later press of the input lands on it.
+- A marked unrecorded row is also never reused under another setting (the `other_hash` loop in `_reusable`), so a
+  press builds instead of returning a withheld figure.
+- Nothing changes without a learner state or without such a row: the key and reuse are exactly as before. No
+  migration and no config key.
+
+### Gate (re-review)
+
+| Step | Result |
+|---|---|
+| `uv sync --extra dev --extra mobile`, `uv pip install pypdfium2` | ok |
+| `uv run lint-imports --no-cache` | **40 kept, 0 broken** |
+| Fail-first: the new F5 test on the pre-fix sources | failed (the press reused the marked row; the figure id was the old row's) |
+| `tests/test_followups_nov2_figure_provenance.py` after the fix | **14 passed** |
+| Figure lane, 31 files (every test file importing `learnloop.figures.service`, `learnloop.db.stores.figures` or `tests/figure_fixtures`, plus `test_architecture.py`), `-n 6` in the 5G scope | **633 passed, 1 skipped** |
+| Durability, frontend, cargo, DB reference | not run: no migration, DB/connection, `apps/` or schema change |
+
+Files in the figure lane: `test_architecture`, `test_batch3_landing`, `test_codex_tool_lockdown`,
+`test_figure_label_wording`, `test_figure_offers`, `test_figure_predictions`, `test_figure_region`,
+`test_figure_revisions`, `test_figure_rich_contract`, `test_figure_rich_failed_correction_durable`,
+`test_figure_rich_job`, `test_figure_rich_rereview_fixes`, `test_figure_rich_review_fixes`, `test_figure_rich_rpc`,
+`test_figure_verification`, `test_figures_codex_review`, `test_figures_final_round`, `test_figures_fix_round2`,
+`test_figures_fix_round3`, `test_figures_fix_round4`, `test_figures_fix_round5`, `test_figures_rpc`,
+`test_figures_rw5b_fix_round2`, `test_figures_rw5b_review`, `test_figures_scope_redesign`, `test_figures_show_me`,
+`test_figures_show_me_codex_review`, `test_followups_nov2_figure_provenance`, `test_learner_data_relax_2`,
+`test_reader_rw5d_p4a_figures_follow`, `test_sketch_service` (all under `tests/`).
+
+Not run here (owner rule): the full suite, the whole durability lane, the whole vitest run.

@@ -60,9 +60,11 @@ passed, the switch-off pin):
 
 Decision (revised by Codex review F3): a quick row built **before this branch** with a learner state (prompt
 version `+learner-v1`) keeps no record of its own; with a rich intent carrying the inputs it is checked through
-that; otherwise it is withheld (its dependencies cannot be named) until a press of the same input records the
-press's own read on it (`_establish_learner_inputs`: the reuse matched the input hash, which names the state's hash,
-so it is the same state), after which it is checked like any row. Unmarked rows keep the no-learner-state reading.
+that; otherwise it is withheld for good (its dependencies cannot be named). Revised again by Codex re-review F5: they are
+never inferred from a later press (the state hash strips what each statement was read from, so an identical
+statement from another gap hashes the same); a press of the same input builds a fresh figure with its own record
+under a recorded-inputs key (`_recorded_input_key`), reused from then on, and the old row is never given a record
+or reused. Unmarked rows keep the no-learner-state reading.
 
 ## (b) The help fold counts exactly the help rows that attach
 
@@ -189,7 +191,8 @@ Not run here (owner rule): the full suite, the whole durability lane, the whole 
 
 ## Open questions
 
-* (a) Closed by Codex review F3: marked quick figures with no record are withheld until a press records them.
+* (a) Closed by Codex review F3 and re-review F5: marked quick figures with no record stay withheld; a press of the
+  same input builds a fresh figure with its own record.
 * (b) The `_fold_rows` hunk conflicts textually with RW5d P3's `HINT_EQUIVALENT_KINDS_SQL` line: whichever lands
   second keeps this branch's clause order with P3's kind constant (the attach follows it with no other change).
 * (c) Migration number 235 and head fixture `migration_head_235`: renumber/rename at landing after P3 (232), C2b (233)
