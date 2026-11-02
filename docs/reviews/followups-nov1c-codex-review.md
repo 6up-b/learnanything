@@ -90,3 +90,41 @@ All four (A, C, D, E) were the same defects as F2, F4, F3 and F1, and are fixed 
   returned `errors: []` without regeneration.
 - Not run: cargo (nothing under `src-tauri` changed), and the full pytest, durability or
   vitest suites (owner rule 2026-10-17: landing gate only).
+
+## Orchestrator scoped verify remainder, fixed
+
+Scoped Sol verify of F1–F4 (job `20261101-201837-Hdf34w`): F2, F3 and F4 closed; no false
+withholding on ordinary questions. One F1 remainder, verbatim:
+
+> [Medium] F1 remains partially open: delivered spans without an extraction ID are silently
+> treated as safe. At provenance.py:148, such entries are skipped without setting
+> complete=False. For a question anchored on an ordinary textbook passage, a delivered entry
+> such as {"source_id":"src_exam","span_id":"s1"} or {"span_id":"ext_exam:s1"} therefore
+> escapes checking. Reproduced through the router's actual open-problems method: learner words
+> remained visible, although the shared exam predicate recognizes those references as
+> protected. Preserve/check resolvable references; fail closed on incomplete book provenance
+> while allowing identified note references.
+
+Fixed in 612f4cf1b8 (`diagnosis/text_gaps/provenance.py`, `_question_passages`). A delivered
+span with no `extraction_id` is now:
+
+- **kept** for the shared exam predicate (`exam_material.source_ref_protected`) when something
+  places it: a block that `exam_material.source_ref_keys` parses (a namespaced span id
+  `ext:span` or `ext/span`, a block locator), or a source or revision id (the predicate checks
+  it against every extraction of that source or revision);
+- **allowed** as no book passage when it is an identified note (`note_id`, `note_key`, or
+  `ref_type`/`kind` `note`) that names no book location;
+- otherwise **incomplete** (a bare block id, an unparsable locator): the card fails closed with
+  `WITHHELD_UNREADABLE`.
+
+Test: `tests/test_router_card_reading_gaps.py::test_a_delivered_span_without_an_extraction_is_placed_or_fails_closed`
+covers `{"source_id": "src_exam", "span_id": "s1"}`, `{"span_id": "ext_exam:s1"}` and
+`{"span_ids": ["ext_exam/s1"]}` (each withheld as exam), a bare `{"span_id": "s1"}` (withheld as
+unreadable), and two positive cases shown as before: an identified note reference beside the
+book passage, and a textbook passage named by its source with no exam material in it. It failed
+on the pre-fix code (all four protected words visible) and passes with the fix.
+
+Targeted run after the fix (`-n 6`, 5G scope): 22 files that touch `learner_protection`,
+`reading_reason` or `text_gaps.provenance`, plus the router, MCP and figure suites:
+**356 passed, 2 xfailed, 0 failed**. `lint-imports`: 40 kept, 0 broken. `question_record`
+(the C1 write record) is unchanged.
