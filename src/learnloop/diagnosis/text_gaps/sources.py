@@ -1085,6 +1085,7 @@ def learner_note_text(vault: LoadedVault, repository: Repository, note_id: str) 
         reading=None,
         context=found["context"],
         bound_passages=tuple(found["passage_refs"]),
+        bound_sources=tuple(found.get("source_refs") or ()),
     )
 
 
@@ -1107,7 +1108,8 @@ def learner_note_refusal(vault: LoadedVault, repository: Repository, note_id: st
         return note_gaps.refusal(vault, repository, note_id)
     bound = note_gaps.payload(text=prepared.text, learning_object_ids=prepared.anchor_learning_object_ids,
                               subject_id=prepared.subject_id, context=prepared.context)
-    return note_gaps.refusal(vault, repository, note_id, prepared=bound, passages=prepared.bound_passages)
+    return note_gaps.refusal(vault, repository, note_id, prepared=bound, passages=prepared.bound_passages,
+                             sources=prepared.bound_sources)
 
 
 def learner_text(

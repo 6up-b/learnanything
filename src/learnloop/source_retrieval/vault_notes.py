@@ -387,6 +387,46 @@ def protected_keys(vault: Any, repository: Repository, keys: Iterable[str]) -> s
     return out
 
 
+def anchor_sources(repository: Repository, key: str) -> list[tuple[str, tuple[str, ...]]]:
+    """Every book span a Reader note's snapshot may carry text from (Codex review C2b round 5
+    F2): for each anchor version the annotation ever had (a snapshot was taken from one of
+    them), its reading and its anchored spans plus the header blocks of their sections (the
+    note's heading is that header's text). An anchor version with no segments names its
+    whole reading (no spans: conservative). A capture carries no book text: none."""
+
+    ref = split_key(key)
+    if ref is None or ref[0] != KIND_ANNOTATION:
+        return []
+    out: dict[str, set[str]] = {}
+    whole: set[str] = set()
+    with closing(connect(repository.sqlite_path, read_only=True)) as connection:
+        if not _table(connection, "source_annotation_anchor_versions"):
+            return []
+        versions = connection.execute(
+            "SELECT id, extraction_id FROM source_annotation_anchor_versions WHERE annotation_id = ? "
+            "ORDER BY version_ordinal", (ref[1],)).fetchall()
+        for version_id, extraction_id in versions:
+            extraction_id = str(extraction_id)
+            segments: list[tuple[str, list[str]]] = []
+            for span_id, path_json in connection.execute(
+                    "SELECT span_id, section_path_json FROM source_annotation_anchor_segments "
+                    "WHERE anchor_version_id = ? ORDER BY segment_ordinal", (version_id,)):
+                try:
+                    path = [str(part) for part in json.loads(path_json or "[]") if str(part).strip()]
+                except (TypeError, ValueError):
+                    path = []
+                segments.append((str(span_id), path))
+            if not segments:
+                whole.add(extraction_id)
+                continue
+            spans = out.setdefault(extraction_id, set())
+            spans.update(span for span, _path in segments)
+            spans.update(_header_spans(connection, extraction_id, segments))
+    found = [(extraction_id, tuple(sorted(spans))) for extraction_id, spans in sorted(out.items())
+             if extraction_id not in whole]
+    return found + [(extraction_id, ()) for extraction_id in sorted(whole)]
+
+
 def notes(vault: Any, repository: Repository) -> list[VaultNote]:
     """Every note of the learner's in this vault, as it is now (annotations, then captures)."""
 
@@ -675,6 +715,7 @@ def meaning_search(vault: Any, repository: Repository, corpus: Sequence[VaultNot
 __all__ = [
     "CAPTURE_TITLE",
     "KIND_ANNOTATION",
+    "anchor_sources",
     "beside_protected",
     "protected_keys",
     "KIND_CAPTURE",

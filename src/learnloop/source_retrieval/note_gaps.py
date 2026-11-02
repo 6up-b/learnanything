@@ -123,17 +123,29 @@ def _section_lead(vault: Any, repository: Repository, library: SC.Library, passa
     """A linked passage's section, its title and first blocks, protection read now.
     Raises :class:`NoteWithheld` for protected material; None when it is not readable."""
 
+    return _section_read(vault, repository, library, passage)[0]
+
+
+def _section_read(vault: Any, repository: Repository, library: SC.Library,
+                  passage: tuple[str, str | None, str | None],
+                  ) -> tuple[dict[str, Any] | None, tuple[str, tuple[str, ...]] | None]:
+    """:func:`_section_lead`, with every span of the section it read from (its title's
+    header and every block :func:`SC.peek` may supply: Codex review C2b round 5 F2), or
+    ``(None, None)`` when it is not readable."""
+
     extraction_id, section_id, span_id = passage
     if span_id and library.protection.span_out(extraction_id, span_id):
         raise NoteWithheld("linked to protected material")
+    try:
+        reading = library.reading(extraction_id)
+    except SC.CoverageError:
+        reading = None
     if not section_id:
-        try:
-            reading = library.reading(extraction_id)
-        except SC.CoverageError:
-            return None
-        section_id = (reading.span_section.get(span_id) or reading.all_spans.get(span_id)) if reading and span_id else None
+        if reading is None:
+            return None, None
+        section_id = (reading.span_section.get(span_id) or reading.all_spans.get(span_id)) if span_id else None
     if not section_id:
-        return None
+        return None, None
     try:
         peeked = SC.peek(vault, repository, extraction_id, str(section_id))
     except SC.CoverageError as exc:
@@ -141,8 +153,16 @@ def _section_lead(vault: Any, repository: Repository, library: SC.Library, passa
             raise NoteWithheld("linked to protected material") from exc
         return None
     text = " ".join(" ".join(str(block.get("text") or "").split()) for block in peeked.get("blocks") or ())
-    return {"book": str(peeked.get("source_title") or ""), "section": str(peeked.get("title") or ""),
+    spans = {str(block.get("span_id")) for block in peeked.get("blocks") or () if block.get("span_id")}
+    if peeked.get("jump_span_id"):
+        spans.add(str(peeked["jump_span_id"]))
+    if span_id:
+        spans.add(str(span_id))
+    if reading is not None:
+        spans.update(str(span) for span, owner in reading.all_spans.items() if owner == section_id)
+    lead = {"book": str(peeked.get("source_title") or ""), "section": str(peeked.get("title") or ""),
             "lead": _one_line(text, LEAD_CHARS)}
+    return lead, (str(extraction_id), tuple(sorted(spans)))
 
 
 def note_text(vault: Any, repository: Repository, note_id: str) -> dict[str, Any] | None:
@@ -164,11 +184,23 @@ def note_text(vault: Any, repository: Repository, note_id: str) -> dict[str, Any
     los = [lo for lo in linked.learning_object_ids if lo in vault.learning_objects]
     library = SC.Library(vault, repository)
     passages: list[dict[str, Any]] = []
+    # Everything the text and context carry book text from (Codex review C2b round 5 F2): the
+    # note's own anchor and heading, and every span of each linked section read.
+    sources: dict[str, set[str]] = {}
+    whole: set[str] = set()
+    if linked.note.get("origin") == VN.ORIGIN:
+        for extraction_id, spans in VN.anchor_sources(repository, linked.note_key):
+            if spans:
+                sources.setdefault(extraction_id, set()).update(spans)
+            else:
+                whole.add(extraction_id)
     for passage in linked.passages:
         extraction_id, _section_id, span_id = passage
-        lead = _section_lead(vault, repository, library, passage)
+        lead, read = _section_read(vault, repository, library, passage)
         if lead is not None and lead not in passages:
             passages.append(lead)
+        if read is not None:
+            sources.setdefault(read[0], set()).update(read[1])
         if span_id:
             for lo in learning_objects_for_span(vault, repository, extraction_id=extraction_id, span_id=str(span_id)):
                 if lo in vault.learning_objects and lo not in los:
@@ -198,6 +230,12 @@ def note_text(vault: Any, repository: Repository, note_id: str) -> dict[str, Any
         # What the text and context were built from (never sent): the request gate
         # revalidates exactly these (Codex re-review F3).
         "passage_refs": tuple(linked.passages),
+        # Every book span they carry text from, frozen with the prepared text (the write-time
+        # provenance and the request gate read these: Codex review C2b round 5 F2). A
+        # reading named with no spans stands for the whole reading.
+        "source_refs": tuple(sorted((extraction_id, tuple(sorted(spans))) for extraction_id, spans in sources.items()
+                                    if extraction_id not in whole))
+        + tuple((extraction_id, ()) for extraction_id in sorted(whole)),
     }
 
 
@@ -211,6 +249,22 @@ def payload(*, text: str, learning_object_ids: Sequence[str], subject_id: str | 
                        "subject_id": subject_id, "context": context}, sort_keys=True, default=str)
 
 
+def _sources_out(library: SC.Library, sources: Sequence[tuple[str, Sequence[str]]]) -> None:
+    """Raise :class:`NoteWithheld` when any of ``sources`` is protected material now (a
+    reading named with no spans: when any part of it is)."""
+
+    protection = library.protection
+    for extraction_id, spans in sources:
+        if protection.reading_out(extraction_id):
+            raise NoteWithheld("built from protected material")
+        if not spans:
+            material = getattr(protection.material, "spans", ()) or ()
+            if any(key[0] == extraction_id for key in (*protection.excluded_spans, *material)):
+                raise NoteWithheld("built from protected material")
+        elif any(protection.span_out(extraction_id, span) for span in spans):
+            raise NoteWithheld("built from protected material")
+
+
 #: The gate's reasons (shown on the skipped job; no note text in them).
 OFF = "your notes, or reading them for gaps, are switched off"
 PROTECTED = "the note is linked to protected material"
@@ -220,7 +274,8 @@ CHANGED = ("what the note is linked to changed after its reading was prepared (t
 
 
 def refusal(vault: Any, repository: Repository, note_id: str, *, prepared: str | None = None,
-            passages: Sequence[tuple[str, str | None, str | None]] = ()) -> str | None:
+            passages: Sequence[tuple[str, str | None, str | None]] = (),
+            sources: Sequence[tuple[str, Sequence[str]]] = ()) -> str | None:
     """Why the snapshot ``note_id`` may not be read for gaps now, or None when it may
     (Codex review F3: the note reading's request gate asks before every request and
     before the gap row is written). Read from ``vault`` as configured now: switched
@@ -231,7 +286,8 @@ def refusal(vault: Any, repository: Repository, note_id: str, *, prepared: str |
     protection read now even when its link is gone; ``prepared`` is its
     :func:`payload`, which must still be what the note's links build now (a link
     removed, a topic added, an opening changed: the prepared request is stale and is
-    not sent)."""
+    not sent). ``sources`` (``LearnerText.bound_sources``): every book span the prepared
+    text carries text from; any protected now refuses it (Codex review C2b round 5 F2)."""
 
     if not enabled(vault):
         return OFF
@@ -240,6 +296,7 @@ def refusal(vault: Any, repository: Repository, note_id: str, *, prepared: str |
         library = SC.Library(vault, repository)
         for passage in passages:
             _section_lead(vault, repository, library, tuple(passage))
+        _sources_out(library, sources)
     except NoteWithheld:
         return PROTECTED
     if found is None:

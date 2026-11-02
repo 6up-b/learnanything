@@ -131,13 +131,20 @@ def text_record(connection: Any, text: Any) -> WriteRecord:
 
 def note_record(text: Any) -> WriteRecord:
     """Curriculum C5 (C2b): what a linked note shows its reader -- the learner's own words
-    (no attempt, so no answer contract), the topics it is linked to and the openings of
-    the passages it is linked to (read under protection when the reading was prepared)."""
+    (no attempt, so no answer contract), the topics it is linked to, the passages it is
+    linked to, and every book span its text and context carry text from, frozen when the
+    reading was prepared (Codex review C2b round 5 F2): the note's own anchor and its
+    heading's section header, and every span of each linked section read (a ref keeps no
+    section id, so the section is recorded by its spans). A reading named with no spans
+    stands for the whole reading (the protection check is conservative on it)."""
 
     topics = tuple(text.anchor_learning_object_ids or ())
     sources = [{"ref_type": "canonical_source", "ref_id": str(extraction_id), "extraction_id": str(extraction_id),
-                "section_id": section_id, "span_ids": [str(span_id)] if span_id else []}
-               for extraction_id, section_id, span_id in (getattr(text, "bound_passages", ()) or ())]
+                "span_ids": [str(span_id)] if span_id else []}
+               for extraction_id, _section_id, span_id in (getattr(text, "bound_passages", ()) or ())]
+    sources += [{"ref_type": "canonical_source", "ref_id": str(extraction_id), "extraction_id": str(extraction_id),
+                 "span_ids": [str(span) for span in spans]}
+                for extraction_id, spans in (getattr(text, "bound_sources", ()) or ())]
     return WriteRecord(Inputs.of(topics=topics, sources=sources))
 
 

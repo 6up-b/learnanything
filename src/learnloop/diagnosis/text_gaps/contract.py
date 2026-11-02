@@ -222,6 +222,12 @@ class LearnerText:
     #: note reading's request gate revalidates them (protection read now) before every
     #: request and the write, whatever the note is linked to by then. Empty otherwise.
     bound_passages: tuple[tuple[str, str | None, str | None], ...] = ()
+    #: Curriculum C2b (Codex review round 5 F2): every book span a note's text and context
+    #: carry text from, ``(extraction, spans)`` (no spans: the whole reading), frozen when the
+    #: reading is prepared: the note's own anchor and its heading's header, and every span of
+    #: each linked section read. The write-time provenance of the gap and of a belief named
+    #: from it records them, and the request gate revalidates them. Never sent. Empty otherwise.
+    bound_sources: tuple[tuple[str, tuple[str, ...]], ...] = ()
 
     @property
     def anchor(self) -> str | None:
