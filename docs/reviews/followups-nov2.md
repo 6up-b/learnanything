@@ -9,7 +9,10 @@ empty, existing `HOME`, `CODEX_HOME` and `LEARNLOOP_CONFIG_DIR`, the real `tend`
 `~/.config/learnloop` was opened, and nothing ran against `fixtures/linear_algebra`, `fixtures/probability` or
 `fixtures/arxiv_v2`.
 
-**Successor: none** (decided below, per `docs/algorithm-change-playbook.md` step 1).
+**Successor: mvp-0.41** for (b) (`HELP_FOLD_ATTACH_ALGORITHM_VERSION`, kill switch `hints.fold_follows_attach`),
+added by the Codex review's F1 (`docs/reviews/followups-nov2-codex-review.md`): the "none" first decided below
+did not hold, because the playbook's 2026-10-17 rule makes a change to which new attempts are primed a successor
+even when replay is unchanged. (a) and (c) need none.
 
 ## (a) Figure learner-state provenance (closes learner data-relax 2, ruling R1's remainder)
 
@@ -55,10 +58,11 @@ passed, the switch-off pin):
 | `test_a_kept_result_naming_a_ready_fuller_version_is_not_delivered_once_its_inputs_are_protected` | cached fuller delivery (protected since) |
 | `test_with_the_rich_tiers_off_a_kept_view_goes_out_exactly_as_kept` | switch-off byte-identical delivery |
 
-Decision: a quick row built **before this branch** with a learner state (prompt version `+learner-v1`) keeps no
-record of its own; it is rechecked through its rich intent when it has one, and otherwise, as before this stage, not
-for its learner inputs (failing it closed would hide every such figure and, because a fresh read gives the same state
-and reuse key, a press would rebuild into the same unique key and show "withheld"). Open question below.
+Decision (revised by Codex review F3): a quick row built **before this branch** with a learner state (prompt
+version `+learner-v1`) keeps no record of its own; with a rich intent carrying the inputs it is checked through
+that; otherwise it is withheld (its dependencies cannot be named) until a press of the same input records the
+press's own read on it (`_establish_learner_inputs`: the reuse matched the input hash, which names the state's hash,
+so it is the same state), after which it is checked like any row. Unmarked rows keep the no-learner-state reading.
 
 ## (b) The help fold counts exactly the help rows that attach
 
@@ -88,10 +92,13 @@ What changed:
 * No telemetry gate: adaptive hints need `hints.telemetry_enabled` (`adaptive_enabled() and telemetry_enabled`), so
   with telemetry off no server row exists and nothing changes.
 
-**Successor decision (playbook step 1): none.** Only new attempts change: replay re-applies the stored `hints_used`
-and `primed` and never refolds (`attempts._refold_server_hints` returns at once for `replace_existing` or a draft
-with no fold, and replayed drafts carry none), and `help_assists` is RAW_LEDGER that replay and rebuild never read.
-No persisted meaning of an existing attempt changes.
+**Successor decision (playbook step 1): mvp-0.41** (corrected by Codex review F1; first recorded here as "none").
+Replay re-applies the stored `hints_used` and `primed` and never refolds (`attempts._refold_server_hints` returns at
+once for `replace_existing` or a draft with no fold, and replayed drafts carry none), and `help_assists` is
+RAW_LEDGER that replay and rebuild never read; but the change alters which NEW attempts are primed and their hint
+counts, which the playbook's 2026-10-17 eligibility rule makes a successor with a kill switch. Below the tag, or
+with `hints.fold_follows_attach = false`, the fold is the predecessor's clause for clause and no keyed row is
+attached in the attempt's transaction (`tests/test_help_fold_attach_successor.py`).
 
 Tests (`tests/test_followups_nov2_help_fold.py`, 8; fail-first: 7 failed, 2 passed on the pre-fix tree, the second
 pass being a pin that was then extended):
@@ -182,9 +189,7 @@ Not run here (owner rule): the full suite, the whole durability lane, the whole 
 
 ## Open questions
 
-* (a) Quick figures built with a learner state **before this branch** (since data-relax 2 landed, 2026-11-01) keep
-  no record; with no rich intent they are not rechecked for their learner inputs (as before this stage). Fail them
-  closed instead? (It would hide them, and a press would rebuild into the same reuse key.)
+* (a) Closed by Codex review F3: marked quick figures with no record are withheld until a press records them.
 * (b) The `_fold_rows` hunk conflicts textually with RW5d P3's `HINT_EQUIVALENT_KINDS_SQL` line: whichever lands
   second keeps this branch's clause order with P3's kind constant (the attach follows it with no other change).
 * (c) Migration number 235 and head fixture `migration_head_235`: renumber/rename at landing after P3 (232), C2b (233)
