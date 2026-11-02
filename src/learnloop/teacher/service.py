@@ -32,8 +32,11 @@ transaction. ``resume`` runs the teacher's turn an outage interrupted.
 **Spend** (§17): every physical metered request of a lesson action (the
 teacher's, the inline grader's, a retrieval call's) is admitted by the lesson's
 envelope (``ai.spend.MeteredRequestGate``) against what the lesson already
-spent, reserved before it is sent and settled into a durable ``spend`` row;
-a refused request closes the lesson with ``budget``.
+spent, its reservation committed to the ledger before it is sent (a reservation
+no settlement replaced stands at its estimate after a restart) and settled into
+a durable ``spend`` row; a refused request closes the lesson with ``budget``.
+No lesson model request runs inside a ledger transaction, so a reservation is
+committed when it is written.
 
 **Code owns** what enters the model's context (the brief, the delivered
 passages, the action results, all through the protection the brief uses), the
@@ -45,6 +48,7 @@ pedagogy.
 from __future__ import annotations
 
 import json
+import re
 from collections.abc import Callable, Iterator, Mapping, Sequence
 from contextlib import contextmanager
 from dataclasses import dataclass, field
@@ -323,6 +327,48 @@ def _redacted_transcript(state: LessonState) -> list[dict[str, Any]]:
     return out
 
 
+#: Sentence boundaries of a protected passage (each sentence is matched on its own: a copy of one
+#: sentence of a long passage is a copy, though it is a small fraction of the passage).
+_SENTENCES = re.compile(r"(?<=[.!?;])\s+|\n+")
+
+
+def _protected_texts(state: LessonState) -> list[str]:
+    """The text that became protected since it entered the lesson (re-review F4): each sentence of every
+    revoked passage, and every now-withheld brief item's stem."""
+
+    texts: list[str] = []
+    for alias in sorted(state.book.revoked):
+        text = str((state.book.passages.get(alias) or {}).get("text") or "")
+        texts.extend(part.strip() for part in _SENTENCES.split(text) if part.strip())
+    for node in state.brief.get("nodes") or []:
+        for probe in node.get("probes") or []:
+            if str(probe.get("id")) in state.withheld_items and probe.get("stem"):
+                texts.append(str(probe["stem"]))
+    return texts
+
+
+def _scrub(value: Any, protected: Sequence[str]) -> Any:
+    """``value`` with every text that reproduces protected text replaced (re-review F4).
+
+    Every saved text the prompt resends (the plan, the open check, the open prediction, the
+    transcript's turns and replies, results, the brief) may carry a copy of a passage or a stem
+    that is exam or held-out material now, cited or not: each string is measured against each
+    protected sentence with the tutor's span filter (``span_leaks_expected``, the measure that
+    withholds a retrieved span before the tutor sees it) and is withdrawn whole on a hit."""
+
+    if not protected:
+        return value
+    if isinstance(value, str):
+        from learnloop.tutor.tutor_qa import span_leaks_expected
+
+        return WITHDRAWN if any(span_leaks_expected(value, text) for text in protected) else value
+    if isinstance(value, Mapping):
+        return {key: _scrub(item, protected) for key, item in value.items()}
+    if isinstance(value, list):
+        return [_scrub(item, protected) for item in value]
+    return value
+
+
 def _prompt(state: LessonState, *, results: Sequence[Mapping[str, Any]], help_reply: bool) -> str:
     context = {
         "brief": _redact(state.brief, state),
@@ -333,6 +379,8 @@ def _prompt(state: LessonState, *, results: Sequence[Mapping[str, Any]], help_re
         "help_reply": help_reply,
         "transcript": _redacted_transcript(state),
     }
+    # Every saved field, not only the structured ones: nothing protected since it was saved is resent.
+    context = _scrub(context, _protected_texts(state))
     return render_structured_prompt(
         "LearnLoop lesson: you are the teacher", PROMPT_VERSION,
         {"instructions": doctrine_text(), "context": context}, context_tail_fields=("transcript",))
@@ -395,10 +443,20 @@ def _subscription(config: Any, client: Any) -> bool:
 
 
 def _spent_usd(state: LessonState) -> float:
-    """What the lesson's metered requests cost so far (each settled request's ``spend`` row)."""
+    """What the lesson's metered requests cost so far: each settled request's ``spend`` row, and each
+    reservation no settlement replaced at its whole estimate (re-review F1: a request sent before the
+    process died may have been charged, so its reservation stands, as for a request that reported nothing)."""
 
-    return float(sum(float((entry.get("payload") or {}).get("usd") or 0.0)
-                     for entry in state.turns if entry["action"] == "spend"))
+    settled = {str((entry.get("payload") or {}).get("reservation")) for entry in state.turns
+               if entry["action"] == "spend" and (entry.get("payload") or {}).get("reservation")}
+    total = 0.0
+    for entry in state.turns:
+        data = entry.get("payload") or {}
+        if entry["action"] == "spend":
+            total += float(data.get("usd") or 0.0)
+        elif entry["action"] == "spend_reserved" and str(data.get("reservation")) not in settled:
+            total += float(data.get("estimated_usd") or 0.0)
+    return float(total)
 
 
 def _lesson_tokens(state: LessonState, outcome: "_Outcome") -> dict[str, int]:
@@ -420,20 +478,33 @@ def _spend_gate_class() -> type:
     class LessonSpendGate(MeteredRequestGate):
         """The lesson's envelope: every physical metered request of a lesson action (the teacher's,
         the inline grader's, a retrieval call's) is reserved against what the lesson already spent
-        before it is sent, and each settled request is written to the ledger (a ``spend`` row), so
-        the next action, and the next process, starts from the durable total (review F1)."""
+        before it is sent, and the reservation is committed to the ledger (a ``spend_reserved`` row)
+        before the request leaves (re-review F1); each settled request is written as a ``spend`` row
+        that replaces its reservation. The next action, and the next process, starts from the durable
+        total, in which a reservation no settlement replaced stands at its whole estimate."""
 
         def __init__(self, repository: Any, state: LessonState, clock: Clock | None, **kwargs: Any) -> None:
             super().__init__(**kwargs)
             self._repository = repository
             self._state = state
             self._clock = clock
-            self._purposes: dict[int, str] = {}
+            self._reservations: dict[int, tuple[str, str]] = {}
 
         def admit(self, client: Any, *, purpose: str, prompt: Any, budget: int | None) -> Any:
             admission = super().admit(client, purpose=purpose, prompt=prompt, budget=budget)
-            if admission is not None:
-                self._purposes[admission.key] = purpose
+            if admission is None:
+                return None
+            reservation = f"rsv_{new_ulid().lower()}"
+            try:
+                _append(self._repository, self._state, actor="code", action="spend_reserved", payload={
+                    "reservation": reservation, "estimated_usd": round(admission.estimated_usd, 10),
+                    "purpose": purpose, "provider": admission.provider, "tokens": admission.tokens,
+                }, clock=self._clock)
+            except BaseException:
+                # Not durable, so not sent: release the in-memory reservation and fail the request.
+                super().settle(admission, {"cost": 0.0})
+                raise
+            self._reservations[admission.key] = (reservation, purpose)
             return admission
 
         def settle(self, admission: Any, usage: Mapping[str, Any]) -> None:
@@ -441,9 +512,10 @@ def _spend_gate_class() -> type:
                 return
             before = self.spent_usd
             super().settle(admission, usage)
+            reservation, purpose = self._reservations.pop(admission.key, (None, None))
             _append(self._repository, self._state, actor="code", action="spend", payload={
                 "usd": round(self.spent_usd - before, 10), "estimated_usd": round(admission.estimated_usd, 10),
-                "purpose": self._purposes.pop(admission.key, None), "provider": admission.provider,
+                "reservation": reservation, "purpose": purpose, "provider": admission.provider,
                 "input_tokens": usage.get("input_tokens"), "output_tokens": usage.get("output_tokens"),
             }, clock=self._clock)
 
@@ -572,19 +644,70 @@ def recover(vault: Any, repository: Any, state: LessonState, *, clock: Clock | N
     return outcome
 
 
-def _awaits_teacher(state: LessonState) -> str | None:
-    """Whether the ledger's last step is the learner's or code's with no accepted teacher turn after
-    it (an action interrupted before the teacher answered): ``"stop"`` for a stop, else ``"turn"``."""
+#: The steps that wait for a teacher call (the learner's, or code's after a check).
+_CALLS_TEACHER = ("open", "learner_reply", "prediction_answer", "check_result", "check_withdrawn")
 
+
+@dataclass
+class _PendingCall:
+    """The teacher call an interrupted action still owes (``resume`` runs it), with the mode it had."""
+
+    closing: str | None = None
+    help_reply: bool = False
+    #: A read follow-up (re-review F14): the reads' results ride with it, and its own reads are deferred.
+    followup: bool = False
+    results: list[dict[str, Any]] = field(default_factory=list)
+
+
+def _pending_call(state: LessonState) -> _PendingCall | None:
+    """The call the ledger still waits for, read from the ledger itself (so it survives a restart and
+    clears only when the consuming teacher turn commits): a learner's or code's step with no accepted
+    teacher turn after it, with the help mode its reply recorded (re-review F15); or an accepted turn
+    whose reads ran but whose follow-up call no accepted turn answered (re-review F14). None: nothing
+    waits."""
+
+    refused = False
+    accepted: dict[str, Any] | None = None
     for entry in reversed(state.turns):
         action = entry["action"]
         if action == "teacher_turn":
-            return None if entry["validation"] == "ok" else "turn"
-        if action == "learner_stop":
-            return "stop"
-        if action in ("open", "learner_reply", "prediction_answer", "check_result", "check_withdrawn"):
-            return "turn"
-    return None
+            if entry["validation"] == "ok":
+                accepted = entry
+                break
+            refused = True
+        elif action == "learner_stop":
+            return _PendingCall(closing="learner_stop")
+        elif action in _CALLS_TEACHER:
+            data = entry.get("payload") or {}
+            return _PendingCall(help_reply=action == "learner_reply" and bool(data.get("help")))
+    if accepted is None:
+        return _PendingCall() if refused else None
+    if _owes_followup(state, accepted):
+        return _PendingCall(followup=True, results=[
+            {"action": entry["action"], "result": _model_result((entry.get("payload") or {}).get("result"))}
+            for entry in state.turns
+            if entry["action"] in READ_ACTIONS and (entry.get("refs") or {}).get("turn") == str(accepted["id"])
+            and not (entry.get("payload") or {}).get("deferred")])
+    return _PendingCall() if refused else None
+
+
+def _owes_followup(state: LessonState, accepted: Mapping[str, Any]) -> bool:
+    """Whether ``accepted`` is the first accepted turn of its action, asked for reads, and they ran: its
+    reads' results are owed one further call (the structural bound of :func:`_teach_loop`)."""
+
+    turn = TeacherTurnV1.model_validate((accepted.get("payload") or {}).get("turn") or {})
+    if not any(request.action in READ_ACTIONS for request in turn.requests):
+        return False
+    if not any(entry["action"] in READ_ACTIONS and (entry.get("refs") or {}).get("turn") == str(accepted["id"])
+               for entry in state.turns):
+        return False
+    index = next(i for i, entry in enumerate(state.turns) if entry["id"] == accepted["id"])
+    for entry in reversed(state.turns[:index]):
+        if entry["action"] == "teacher_turn" and entry["validation"] == "ok":
+            return False
+        if entry["action"] in _CALLS_TEACHER or entry["action"] == "learner_stop":
+            return True
+    return False
 
 
 def view_lesson(vault: Any, repository: Any, lesson_id: str, *, clock: Clock | None = None) -> dict[str, Any]:
@@ -622,11 +745,12 @@ def take_turn(vault: Any, repository: Any, *, lesson_id: str, action: str, paylo
 def _learner_action(vault: Any, repository: Any, state: LessonState, action: str, payload: Mapping[str, Any], *,
                     clients: Clients, clock: Clock | None) -> dict[str, Any]:
     if action == "resume":
-        waiting = _awaits_teacher(state)
-        if waiting is None:
+        pending = _pending_call(state)
+        if pending is None:
             return view(vault, repository, state.lesson_id)
-        return _teach(vault, repository, state, clients=clients, client=clients.teacher(), help_reply=False,
-                      clock=clock, closing="learner_stop" if waiting == "stop" else None)
+        return _teach(vault, repository, state, clients=clients, client=clients.teacher(),
+                      help_reply=pending.help_reply, clock=clock, closing=pending.closing,
+                      followup=pending.followup, results=pending.results)
     if action == "stop":
         _append(repository, state, actor="learner", action="learner_stop", payload={}, clock=clock)
         client = clients.teacher()
@@ -783,11 +907,12 @@ class _Outcome:
 
 
 def _teach(vault: Any, repository: Any, state: LessonState, *, clients: Clients, client: Any, help_reply: bool,
-           clock: Clock | None, closing: str | None = None) -> dict[str, Any]:
+           clock: Clock | None, closing: str | None = None, followup: bool = False,
+           results: Sequence[Mapping[str, Any]] = ()) -> dict[str, Any]:
     outcome = _Outcome()
     try:
         _teach_loop(vault, repository, state, client=client, help_reply=help_reply, clock=clock, closing=closing,
-                    outcome=outcome)
+                    outcome=outcome, followup=followup, followup_results=results)
     except Exception as exc:
         if not _refused_by_budget(state, exc):
             raise
@@ -801,15 +926,19 @@ def _teach(vault: Any, repository: Any, state: LessonState, *, clients: Clients,
 
 
 def _teach_loop(vault: Any, repository: Any, state: LessonState, *, client: Any, help_reply: bool,
-                clock: Clock | None, closing: str | None, outcome: "_Outcome") -> None:
+                clock: Clock | None, closing: str | None, outcome: "_Outcome", followup: bool = False,
+                followup_results: Sequence[Mapping[str, Any]] = ()) -> None:
     # Deferred read results ride with this call; they are marked delivered only with the accepted
     # turn that consumed them (review F10), so an outage keeps them pending.
     results = list(state.pending_results)
     undelivered = [str(r.get("turn_id")) for r in results if r.get("turn_id")]
+    # A resumed read follow-up (re-review F14) carries its reads' results, as the original call did.
+    results.extend(dict(r) for r in followup_results)
     _require_metered_settings(vault, client)
     # Accepted turns this action: the first one's read requests get one follow-up call; later ones ride with
-    # the next learner action (a refused turn does not count, so its correction never defers a read).
-    accepted = 0
+    # the next learner action (a refused turn does not count, so its correction never defers a read). A
+    # resumed follow-up is the action's second call already, so its reads are deferred.
+    accepted = 1 if followup else 0
     if closing:
         results = [*results, {"code": "the learner asked to stop: close the lesson now with a recap"}]
     while not state.closed:

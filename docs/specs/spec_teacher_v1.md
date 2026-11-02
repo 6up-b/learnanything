@@ -1225,10 +1225,14 @@ showed (a question its displayed text reproduces) and their lineage (family, con
 exercise), and a transfer check is set only where the relation is established (a downstream item whose rubric
 measures a landed LO's facet, or a goal item whose recorded presentation differs from everything the lesson used),
 otherwise it is reported unavailable. Every learner-facing field passes the guards and is accounted as exposure; the
-saved context is revalidated against protection before every model call; every metered request of a lesson action
-(teacher, inline grader, retrieval) is admitted by one durable per-lesson envelope (`ai.spend.MeteredRequestGate`),
-and a refusal closes the lesson `budget`; accepted turns and their effects are journalled and recovered after an
-interruption, and `lesson.turn` gains `resume` (Codex review fixes, `docs/reviews/teacher-te1-first-lesson-codex-review.md`). A learner reply while a check is open is
+saved context is revalidated against protection before every model call (every resent string that reproduces a
+now-protected passage sentence or withheld stem is withdrawn, by the tutor's span filter); every metered request of a
+lesson action (teacher, inline grader, retrieval) is admitted by one durable per-lesson envelope
+(`ai.spend.MeteredRequestGate`) whose reservation is committed before the request is sent (an unsettled one stands
+at its estimate after a restart), and a refusal closes the lesson `budget`; accepted turns and their effects are
+journalled and recovered after an interruption, and `lesson.turn` gains `resume`, which runs the call the ledger
+still owes in its saved mode (a help reply, a read follow-up) (Codex review and re-review fixes,
+`docs/reviews/teacher-te1-first-lesson-codex-review.md`). A learner reply while a check is open is
 help (a `help_assists` row); its reply withdraws the check at the auto-prime overlap. Not built in TE1: compaction
 (no `teacher.context.compact_at` key), the turn's `visual`, TE1b. The real lesson on a `fixtures-local` copy and the
 per-lesson cap (Q7) are the owner's at the landing.
