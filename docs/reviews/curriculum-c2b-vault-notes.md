@@ -226,3 +226,174 @@ no fifth round was started; the residual is above.
   `settings` is optional, `link_by_hand(hit={"note_key": ...})`, snapshots carry
   `vault_ref_kind`/`vault_ref_id` and no path for vault notes. TE1's `read_note` should read a
   snapshot's `text_md` (unchanged) or `VN.read(vault, repository, note_key)`.
+
+## Landing onto main
+
+Prepared on `curriculum/c2b-vault-notes` (worktree `learnanything-dl2`) from the stage tip
+`21d14817bf`; the orchestrator fast-forwards main and pushes.
+
+### Step 0: the final verify's F1 (ruling R2)
+
+The final verify (job `20261102-014150-SGh5IK`) confirmed F2 fixed and reopened F1: a note
+prepared while anchored beside A, moved onto B, then A protected before the request's admission
+or the next embedding batch would still be sent, because `NotesGuard`'s candidate check
+(`_refusal_in`, reached from `admit`) and `ensure_vectors` read `VN.protected_keys` (the newest
+anchor only). The reviewer's named fix is applied (`11b7268e6a`): both now read
+`VN.snapshot_protected_keys` (every anchor the annotation ever had, its sections' headers
+included). Two regression tests, each failing before the fix (`DID NOT RAISE` and
+`dropped == 0, embedded == 1`) and passing after:
+
+* `test_notes_c2b_review5.py::test_c2b_final_verify_f1_the_notes_guard_judges_a_candidate_by_every_anchor_it_ever_had`
+* `test_notes_c2b_review5.py::test_c2b_final_verify_f1_an_embedding_batch_drops_a_note_from_a_now_protected_older_anchor`
+
+The two earlier tests that monkeypatched `VN.protected_keys` to simulate a protection change
+(`test_c2b_f2_...`, `test_c2b_re_f2_...`) now patch `VN.snapshot_protected_keys`, the seam both
+call sites use. No further review round was run on this class (R2).
+
+### Merge of main `947200afee` (`f3d6aba0ae`)
+
+Main had moved from the stage's base `6b9cb117ba` by followups-nov1c (C2 rulings R5 and R6),
+RW5d P4a and RW5d P3 (migration 232, head fixture `migration_head_232`). TE1+C4 is not on main
+yet, so no `read_note` adaptation was needed here (the API notes for it are in the open items
+above). Conflicts and how they were resolved:
+
+* **Generated references** (444 files under `Reference/`): main's side, then regenerated
+  (`471c8d3e34`).
+* **Migration and head fixture**: 233 keeps its number (the next free after P3's 232).
+  `migration_head_233` was rebuilt from main's tracked, sanitized `migration_head_232/state.sqlite`:
+  a backup-API copy under `fixtures-local/`, only `233_learner_notes_vault_origin.sql` applied
+  under `UPGRADE_SCRATCH_COPY`, then `wal_checkpoint(TRUNCATE)` (0, 0, 0), `journal_mode=DELETE`
+  (header bytes 1/1), `integrity_check` ok, `foreign_key_check` empty, and copied into place with
+  the backup API (no companion files). Compared with main's 232 head, only `learner_notes`'
+  definition changed and only `schema_migrations` gained a row; every companion file is
+  byte-identical. The branch's own 233 build (from 231) and main's 231/232 directories are gone. The
+  README gained a C2b section. The five hard-coded paths (`db_generate_reference.py` three times,
+  `db_validate_reference.py`, the sanitize script's usage line and the tests), `SCHEMA_HEAD = 233`
+  and every chain/head list now include 232. Version lists that held `..., 231, 233]` on the branch
+  and `..., 231, 232]` on main became `..., 231, 232, 233]`.
+* **Migration tests by hand**: `test_help_assist_work_md_migration.py` keeps main's `_later()`
+  (P3's objects) and adds C2b's altered table. `test_learner_note_source_kind_migration.py` now
+  applies 230-233. `test_help_assist_figures_migration.py` (main's) applies 232 and 233, with C2b's
+  altered table and a 233 head. `test_learner_notes_vault_origin_migration.py` starts from a 232
+  database (P3's 232 landed first).
+* **`config/template.py`** (31 fingerprint hunks): both sides' comments are kept. Every fingerprint
+  was recomputed with `defaults_fingerprint_for_version` after clearing `.pyc`: the first pass
+  changed 31 of 31, the second changed 0.
+* **`note_links.py`, C2 ruling R6 (monotonic read tokens)**: main replaced C2's compare-and-set
+  (`_observed` revisions) with `_read_token` / `current_fences`, and an unchanged read now
+  publishes a fence marker. The intent is kept on C2b's vault reads. `link_by_hand` and
+  `refresh_learner_links` take the token before `VN.read` / `VN.read_many`, `_show_read` takes a
+  `VN.VaultNote` and the token, and the refresh's equality shortcut is dropped, as main dropped it.
+* **`note_links.hidden`, C2 ruling R5 (Settings' hidden notes)**: main's new list is a delivery
+  boundary C2b's rule covers, so it now passes its pairs through `withhold_protected`. A note whose
+  anchor (any version) is now beside protected material is not listed: not its title, and not its
+  source-derived heading. The hide row stays. The sidecar handler's docstring says so.
+* **`test_notes_linked.py`**: main's new tend-era tests were ported to vault notes (`VN.read_many`
+  in place of `NT.read_sections`, `edit_annotation` in place of the fake tend):
+  * R6's two orderings: two concurrent refreshes resolve to the newest read; an unchanged read
+    fences off an older refresh.
+  * R5's hidden list and *show again*: no vault-notes read and no model call; no text or
+    location is delivered.
+  * The clock-correction restart (review F2).
+  * One new landing test: a hidden note beside material protected since is not listed.
+
+  The base's compare-and-set test (`test_re3_f13_a_refresh_whose_marker...`), which C2b had
+  already removed, stays removed (R6 replaces it). The switched-off RPC list includes
+  `notes.hidden`.
+* **Hand-written counts**: `Database.md` and `Configuration.md` now say 1106 effective
+  configuration leaves. Main's 1112, less the six removed `[notes.tend]` leaves, is what
+  `db_validate_reference` reported.
+
+Main did not move again before the gate (`947200afee` at the gate and at the end).
+
+### Gate (tip `32a701584a`)
+
+* `lint-imports --no-cache`: 40 kept, 0 broken.
+* Targeted (137 files: the notes, past-papers, C3, C5 and text-gaps files, every migration and
+  head-fixture test, table roles, tracked fixture DBs, public-tip guards, config and registry
+  files, P3's figure files): 2533 passed, 4 skipped, 1 failed. The failure was the new
+  hidden-list landing test, which asserted the original link's id, but the hide row's id is the
+  one listed. The test was corrected in `32a701584a`; it and the R5/R6 ports then passed (5 passed).
+* Full suite (`-n 8 --dist worksteal`, 10G scope, `flock`): **23699 passed, 0 failed**, 90
+  skipped, 47 xfailed (40:38).
+* Durability lane: 184 passed, 1 skipped.
+* Owner lane on fresh backup-API copies of `owner-copies-mvp035` (`fixtures-local/landing-c2b/`):
+  83 passed and 4 skipped, with the 2 known failures
+  (`test_activity_backfill...attempt_duration...`,
+  `test_placement_fixture_copies...[arxiv_v2]`).
+* Frontend: `npm install`, typecheck clean, whole vitest 255 files / 2435 tests passed
+  (`--maxWorkers=4`), `frontend:build` ok. Targeted vitest before the gate (readerNotes,
+  compareKeep, notesGaps, hiddenNotesSettings, compareKeepSwitchOff, SettingsScreen): 46 passed.
+* `cargo check` not run: nothing under `src-tauri` differs from main.
+* References: `db_generate_reference.py` regenerated; `db_validate_reference.py` errors `[]`;
+  `validate_vault.py` passes (1378 notes); `desktop_generate.py` regenerated and
+  `desktop_validate.py` passes (306/306 TS + 6/6 Rust, ACTIVE=312, byte-for-byte reproducible).
+
+### Smoke (fresh owner copies, `fixtures-local/landing-c2b-smoke/`)
+
+**Setup:**
+- Fresh backup-API copies of the three mvp035 owner copies.
+- Every AI route at the `127.0.0.1:9` blackhole, with the key variables unset; embeddings off.
+- `env -i` with an empty HOME, CODEX_HOME and config directory.
+- An audit hook logs every process start and socket connect, and refuses non-loopback connects
+  and Codex starts.
+- Main's code (`947200afee`) against the branch's (`32a701584a`), each a `git archive` with
+  `migrations/`.
+- On each copy: `upgrade` mvp-0.35 to mvp-0.40, a primary load, the migration check (main head
+  232, branch head 233) and `rebuild-derived-state`.
+- Each dump ran on its own fresh copy of the upgraded vault.
+
+**Results:**
+- **Today and the daily plan**: byte-identical, main against branch.
+  - linear_algebra: 525266 B and 84699 B;
+  - probability: 740827 B and 124024 B;
+  - arxiv_v2: 344204 B and 32436 B.
+- **Curriculum scoping prompt with `curriculum.exam_units_in_scope` off**: a new deliverable from
+  a fixed sentence, at a frozen clock with fixed ids. The prompt's text, state key and version
+  (`deliverable_scope_resolver.v1`) are byte-identical to main's on all three copies. With the
+  switch on it is also v1 and identical, since the copies have no past papers to contribute.
+- **A legacy `[notes.tend]` table** (binary, paths, pocket_notes_paths, lexical_only,
+  timeout_seconds, k) loads without error, and the effective config is identical to the one
+  without it (notes keys: `enabled`, `gaps_enabled`, `max_candidates`), on all three.
+- **Notes by exact words over the copies' real Reader annotations:**
+  - The copies hold 14, 13 and 4 annotations: 12, 9 and 4 bare highlights; 1, 3 and 1 beside
+    protected material; no model annotations; no captures.
+  - The notes corpus is 2, 3 and 0 annotations. None is bare or empty, and none is beside
+    protected material by its newest anchor or by any anchor it ever had.
+  - Each word probe (a note's own longest word) found that note.
+  - Every hit is in the learner's corpus, with 0 hits protected, bare or model-made.
+  - The `notes.search` RPC in words mode returns corpus notes only.
+  - The prompt contract reports `notes.enabled` true and `notes.meaning` false with embeddings
+    off.
+  - A `notes.search` in meaning mode is refused (`meaning_unavailable`).
+- **`rebuild --shadow`** on the branch's copies: facet, mastery and schedule 0/0/0 on all three;
+  the live database is unchanged.
+- **Receipts**: 0 new `model_call_receipts` across the 36 databases compared with base.
+- **Audit log**: 0 process starts and 0 socket connects from the smoke, so no non-loopback socket
+  and no Codex process. A separate self-test of the hook logged its `true` start and its
+  `127.0.0.1:9` connect.
+
+### Rulings (orchestrator)
+
+- R1: "Round-4 residual High (a failed embedding request retried inside the same backfill batch without re-reading protection or the switches) is ruled Low under the owner's proportionate-protection bar: the window is one failed request of at most 32 notes whose anchors were checked just before the batch, spend stays inside the run's cap, and the payload is the learner's own note text. No change to ops.embedding_backfill."
+- R2: "Final-verify F1 (prepared notes and embedding batches check only the current anchor): apply the reviewer's named fix at landing — NotesGuard.admit and ensure_vectors use snapshot_protected_keys (every anchor the annotation ever had) — with one regression test each. This class (note-anchor protection) has now reopened across five rounds; under the stuck-loop rule no further review round is run on it, and any remaining race of the same class is ruled Low (the exposed text is a section header plus the learner's own words, under the proportionate bar)."
+- R3: "Per the owner (Nov 1), learner Q/A/history and vault notes are not private; privacy findings about note text outside grading are not defects."
+
+### Open items
+
+* **TE1+C4** (lands in parallel): its `read_note` / note-link callers adapt to C2b's API at
+  whichever landing comes second. The API changes are listed in the open items above:
+  * `NL.notes_settings`;
+  * `NotesGuard(vault, live_vault=...)`;
+  * `link_by_hand(hit={"note_key": ...})`;
+  * snapshots carry `vault_ref_kind` / `vault_ref_id`;
+  * `VN.read(vault, repository, note_key)` for live notes.
+
+  Migration 233 stays 233 unless TE1's migration lands first.
+* **Main's hidden-notes Settings panel** still renders `originLabel` (Pocket Notes). Vault notes
+  carry none (null), so it shows nothing for them; a tend-era snapshot keeps its label.
+* **R6 on vault reads**: every refresh now appends a fence marker per hand-linked note even when
+  the note is unchanged, as main's R6 does (ledger growth per link run, no model call).
+* **R1's residual** (above) and any remaining race of the note-anchor class (R2) are ruled Low.
+* **Owner checkpoint (unchanged from the stage)**: migration 233 applies on the first open after
+  the update (it rebuilds `learner_notes` in place, every row kept); there is no successor.
