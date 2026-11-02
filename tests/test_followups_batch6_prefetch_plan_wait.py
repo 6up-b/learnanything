@@ -57,7 +57,7 @@ def _rig(tmp_path, monkeypatch, rich_answers, *, author_answers=(RICH_ONLY,)):
 def _pass(ctx, ref: str, span: str = "p3"):
     from learnloop_sidecar import prefetch_runtime as RT
 
-    assert RT.notify(ctx, "offer", ref, blocks=[(EXTRACTION, span)])
+    assert RT.notify(ctx, "offer", ref, blocks=[(EXTRACTION, span)], learner_activity=True)
     return ctx.figure_prefetch.results[-1]
 
 
@@ -138,14 +138,16 @@ def test_the_pass_retries_only_on_mains_with_the_switch_on_and_the_plan_not_paus
     paths, repository, _ctx_, job = _waiting_prebuild(tmp_path, monkeypatch)
     retried: list[str] = []
     P.set_power_reader(lambda: P.PowerState(False, P.BATTERY, "test"))
-    PF.run_trigger(_env(paths, repository, retried), PF.Trigger("offer", "tutor:q5", blocks=((EXTRACTION, "p3"),)))
+    PF.run_trigger(_env(paths, repository, retried),
+                   PF.Trigger("offer", "tutor:q5", blocks=((EXTRACTION, "p3"),), learner_activity=True))
     assert retried == []
     P.set_power_reader(lambda: P.PowerState(True, P.MAINS, "test"))
     paused = {"at": datetime.now(UTC).isoformat()}
     PF.run_trigger(_env(paths, repository, retried, pause_reader=lambda: paused),
-                   PF.Trigger("offer", "tutor:q6", blocks=((EXTRACTION, "p3"),)))
+                   PF.Trigger("offer", "tutor:q6", blocks=((EXTRACTION, "p3"),), learner_activity=True))
     assert retried == []
-    PF.run_trigger(_env(paths, repository, retried), PF.Trigger("offer", "tutor:q7", blocks=((EXTRACTION, "p3"),)))
+    PF.run_trigger(_env(paths, repository, retried),
+                   PF.Trigger("offer", "tutor:q7", blocks=((EXTRACTION, "p3"),), learner_activity=True))
     assert retried == [job["id"]]
     # Switched off as configured now (the pass's snapshot still says on): nothing.
     retried.clear()

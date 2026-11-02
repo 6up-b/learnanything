@@ -1932,7 +1932,7 @@ def reader_mark_section_progress(
         from learnloop_sidecar.prefetch_runtime import notify
 
         notify(ctx, "section", f"{resolved}:{params.section_id}", extraction_id=resolved,
-               section_id=params.section_id)
+               section_id=params.section_id, learner_activity=True)
 
     # Daily-loop DL1 (§6.10): while a plan's reading block is current for this
     # section, the progress is also a `reading_progress` block event, and a

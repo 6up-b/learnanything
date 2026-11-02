@@ -261,3 +261,119 @@ def test_v1_the_open_items_are_the_plan_records_own(tmp_path):
     assert FS.stored_plan_open_items(repository, clock=day) == expected
     assert "second_block_open" in expected and "other_day_open" not in expected and "done" not in expected
     assert FS.stored_plan_open_items(repository, clock=FrozenClock(datetime(2026, 10, 1, 12, 0, tzinfo=UTC))) == []
+
+
+# --- V2: retries ride on real learner activity only ---------------------------------------------------
+
+
+def _due(job_id: str) -> None:
+    RICH._LAST_REQUEUE.pop(job_id, None)
+
+
+def test_v2_deferred_gap_drains_fire_passes_that_never_retry_a_plan_wait(tmp_path, monkeypatch):
+    from learnloop.diagnosis.text_gaps import jobs
+
+    paths, repository, ctx, rich_author, job, _item = _waiting_rig(tmp_path, monkeypatch)
+    monkeypatch.setattr(jobs, "process_next_gap_job", lambda *args, **kwargs: SimpleNamespace(state="deferred"))
+    requeued: list[str] = []
+    real = ctx.ingest_jobs.retry_figure_rich
+    monkeypatch.setattr(ctx.ingest_jobs, "retry_figure_rich",
+                        lambda job_id, **kwargs: requeued.append(job_id) or real(job_id, **kwargs))
+    worker = ctx.post_attempt_worker
+    assert worker.after_gaps == ctx._prefetch_gaps  # the sidecar's own wiring
+    before = len(ctx.figure_prefetch.results)
+    for _tick in range(2):  # two ticks of the worker's poll: no call from the app, no new gap stored
+        _due(job["id"])
+        worker._run_gaps(SimpleNamespace(root=paths.root), repository, max_jobs=5, clock=None)
+    passes = ctx.figure_prefetch.results[before:]
+    assert [result.trigger for result in passes] == ["gap", "gap"]  # the passes still fire (see the record)
+    assert [result.plan_wait_retries for result in passes] == [[], []]
+    assert requeued == [] and rich_author.calls == 1 and _waiting(_prebuild_jobs(repository)[0])
+
+
+def test_v2_todays_read_never_retries_a_plan_wait(tmp_path, monkeypatch):
+    """``get_daily_plan`` is a read: the queue revision's poll refetches it when background
+    work lands, with nobody at the keyboard."""
+
+    from learnloop_sidecar.handlers.daily_plan import _schedule_prefetch
+
+    paths, repository, ctx, rich_author, job, _item = _waiting_rig(tmp_path, monkeypatch)
+    _plan_holds(repository, "not_in_the_vault")
+    before = len(ctx.figure_prefetch.results)
+    _due(job["id"])
+    _schedule_prefetch(ctx, PlanEnv(vault=load_vault(paths.root), repository=repository))
+    passes = ctx.figure_prefetch.results[before:]
+    assert [result.trigger for result in passes] == ["plan", "gap"]
+    assert [result.plan_wait_retries for result in passes] == [[], []] and rich_author.calls == 1
+
+
+def test_v2_a_trigger_that_names_no_provenance_never_retries(tmp_path, monkeypatch):
+    from learnloop_sidecar import prefetch_runtime as RT
+
+    _paths, _repository, ctx, rich_author, job, _item = _waiting_rig(tmp_path, monkeypatch)
+    _due(job["id"])
+    assert RT.notify(ctx, "offer", "tutor:q2", blocks=[(EXTRACTION, "p3")])
+    assert ctx.figure_prefetch.results[-1].plan_wait_retries == [] and rich_author.calls == 1
+    _due(job["id"])
+    assert RT.notify(ctx, "offer", "tutor:q3", blocks=[(EXTRACTION, "p3")], learner_activity=True)
+    assert ctx.figure_prefetch.results[-1].plan_wait_retries == [job["id"]] and rich_author.calls == 2
+
+
+def _record_triggers(monkeypatch) -> list[PF.Trigger]:
+    from learnloop_sidecar import prefetch_runtime as RT
+
+    seen: list[PF.Trigger] = []
+    monkeypatch.setattr(RT.PrefetchRuntime, "submit", lambda self, ctx, trigger: seen.append(trigger))
+    return seen
+
+
+def test_v2_section_progress_carries_learner_activity(tmp_path, monkeypatch):
+    paths, _repository, _vault = make_vault(tmp_path, two=True)
+    ctx = context(paths.root, author=AuthorFake())
+    ctx.figure_prefetch_inline = True
+    seen = _record_triggers(monkeypatch)
+    call(ctx, "reader.mark_section_progress", {"extractionId": TWO, "sectionId": "s1", "spansSeen": 1, "spanCount": 3})
+    assert [(trigger.kind, trigger.learner_activity) for trigger in seen] == [("section", True)]
+
+
+@pytest.mark.parametrize("origin", ["tutor", "library"])
+def test_v2_an_offer_from_the_learners_own_question_carries_learner_activity(tmp_path, monkeypatch, origin):
+    from learnloop_sidecar import handlers, prefetch_runtime as RT
+
+    paths, _repository, _vault = make_vault(tmp_path)
+    ctx = context(paths.root, author=AuthorFake())
+    ctx.figure_prefetch_inline = True
+    monkeypatch.setattr(handlers.figures, "offered_spans", lambda *args: {(EXTRACTION, "p3")})
+    seen = _record_triggers(monkeypatch)
+    assert RT.notify_offer(ctx, origin, "ask_1")
+    assert [(trigger.kind, trigger.learner_activity) for trigger in seen] == [("offer", True)]
+
+
+def test_v2_a_lessons_turn_carries_learner_activity(tmp_path, monkeypatch):
+    from learnloop_sidecar.handlers import lesson as LESSON
+
+    paths, _repository, _vault = make_vault(tmp_path)
+    ctx = context(paths.root, author=AuthorFake())
+    ctx.figure_prefetch_inline = True
+    monkeypatch.setattr(LESSON.S, "require_active", lambda vault: None)
+    monkeypatch.setattr(LESSON.S, "take_turn", lambda *args, **kwargs: {"lesson_id": "les_1", "plan": {"nodes": []}})
+    seen = _record_triggers(monkeypatch)
+    call(ctx, "lesson.turn", {"action": "reply", "lessonId": "les_1", "text": "go on"})
+    assert [(trigger.kind, trigger.ref, trigger.learner_activity) for trigger in seen] == [
+        ("lesson", "les_1", True), ("gap", "lesson:les_1", True)]
+
+
+def test_v2_characterization_a_worker_origin_pass_still_runs_ordinary_builds(tmp_path, monkeypatch):
+    """Recorded, not decided here: V2 changes only the retry step. A build the pass deferred for
+    power is built by the next pass, whatever fired it, the gap worker's poll tick included."""
+
+    paths, repository, ctx, rich_author = _rig(tmp_path, monkeypatch, [RF.scene_output()])
+    P.set_power_reader(lambda: P.PowerState(False, P.BATTERY, "test"))
+    _pass(ctx, "tutor:q1")
+    assert rich_author.calls == 0
+    P.set_power_reader(lambda: P.PowerState(True, P.MAINS, "test"))
+    ctx.figure_prefetch_judge_client = JudgeFake()
+    ctx.figure_prefetch_rng = np.random.default_rng(0)
+    ctx._prefetch_gaps()  # what a nonempty drain calls
+    assert ctx.figure_prefetch.results[-1].trigger == "gap"
+    assert rich_author.calls == 1 and _prebuild_jobs(repository)[0]["status"] == "completed"

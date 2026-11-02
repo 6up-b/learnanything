@@ -186,8 +186,8 @@ def lesson_turn(ctx: SidecarContext, params: LessonTurnInput) -> dict[str, Any]:
         # lesson's grant; a no-op with figures.prefetch_enabled off).
         from learnloop_sidecar.prefetch_runtime import notify
 
-        notify(ctx, "lesson", str(lesson_id))
-        notify(ctx, "gap", f"lesson:{lesson_id}")
+        notify(ctx, "lesson", str(lesson_id), learner_activity=True)
+        notify(ctx, "gap", f"lesson:{lesson_id}", learner_activity=True)
     return versioned(result)
 
 

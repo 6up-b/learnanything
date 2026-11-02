@@ -60,8 +60,10 @@ class PostAttemptWorker:
         self.embedding_factory: Callable[[Any], Any] | None = None
         #: vault -> learner-text gap PipelineClients (test seam; None: the routes).
         self.gap_clients: Callable[[Any], Any] | None = None
-        #: RW5d P5: called after a drain stored learner-text gaps (the prefetch gap trigger;
-        #: a no-op with figures.prefetch_enabled off). Never fails the drain.
+        #: RW5d P5: called after any nonempty gap drain, whatever its jobs' outcome (deferred or
+        #: failed work included, so a poll tick can fire it with nobody at the keyboard): the
+        #: prefetch gap trigger, a no-op with figures.prefetch_enabled off, and worker-origin,
+        #: so its pass never retries a plan wait (Codex verify V2). Never fails the drain.
         self.after_gaps: Callable[[], None] | None = None
         self.last_errors: list[str] = []
         #: session id -> seconds the last next-item wait took, until the

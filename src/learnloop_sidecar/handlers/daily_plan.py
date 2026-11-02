@@ -222,7 +222,9 @@ def get_daily_plan(ctx: SidecarContext, params: PlanSessionInput) -> dict[str, A
 def _schedule_prefetch(ctx: SidecarContext, env: PlanEnv) -> None:
     """RW5d P5 (spec §10b.2): the stored plan's reading section and the open gaps on its
     topics are figure triggers. The plan never calls into figures: the trigger reads the
-    stored plan afterwards, in the background; a no-op with figures.prefetch_enabled off."""
+    stored plan afterwards, in the background; a no-op with figures.prefetch_enabled off. A read,
+    not the learner's action (Today's queue-revision poll refetches it when background work
+    lands): these passes don't carry ``learner_activity``."""
 
     from learnloop_sidecar.prefetch_runtime import notify, runs_here
 

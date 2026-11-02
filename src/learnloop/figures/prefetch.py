@@ -60,6 +60,14 @@ request). A later press of the same input reuses the figure by its input hash.
 was opened; a lesson's, delivered by the lesson's step: landing ruling R5), ``asked`` (none was built and the learner pressed for one on
 this passage), ``neither``, ``void`` (the passage is withheld now). Set once.
 
+**Plan waits** (follow-ups batch 6 (D), Codex verify V2). A prebuild's rich job left waiting for
+the plan is asked again by a pass only when the pass's trigger says the learner just acted
+(``Trigger.learner_activity``): section progress, an offer from the learner's own question, a
+lesson's turn. Today's read does not count (a timer or background work refetches it, with nobody at
+the keyboard), nor does the gap worker's drain (its poll tick fires one even for deferred work, and
+it carries no sign of who started it). So a pass never asks while the learner is away; a retry that
+came due waits for their next action, a read of its source in the Reader, or a press.
+
 **Plan pauses.** The plan session keeps only its latest usage-limit pause;
 each pass appends any new one to ``plan_usage_pauses`` (idempotent by its
 hit time), the pause-risk model's data.
@@ -145,6 +153,11 @@ class Trigger:
     section_id: str | None = None
     #: ``offer``: the blocks the offer's judge said were explorable (confirmed by the caller).
     blocks: tuple[tuple[str, str], ...] = ()
+    #: The hook that fired this knows the learner just acted (their reading moved, their question
+    #: was answered, their lesson took a turn). Default False: a hook that doesn't say, a timer or
+    #: a worker never counts. Only this lets a pass ask the plan again for a prebuild's wait
+    #: (follow-ups batch 6, Codex verify V2; module docstring, **Plan waits**).
+    learner_activity: bool = False
 
 
 @dataclass
@@ -1455,10 +1468,11 @@ def retry_plan_waits(env: PrefetchEnv, result: PassResult) -> None:
 
     A hidden rich-only prebuild that hit the plan's limit was retried only by the Reader's figure
     reads of its source (``reader.figures``), and those end once the Reader stops polling: a
-    retry not yet due by then (``rich.due_for_plan_retry``'s interval) was lost. Each pass now
-    retries every such job (every source) under the background guards: called, before the pass's
-    own builds, only when the pass itself would build (on mains, the plan neither paused nor off
-    the author route), then
+    retry not yet due by then (``rich.due_for_plan_retry``'s interval) was lost. A pass whose
+    trigger carries learner activity (Codex verify V2: checked in ``run_trigger``, module
+    docstring) now retries every such job (every source) under the background guards: called,
+    before the pass's own builds, only when the pass itself would build (on mains, the plan neither
+    paused nor off the author route), then
     ``service.prefetch_plan_waits`` on the vault as configured now (the switch, the rich tiers,
     mains, the passage not held out). Bounded: only jobs built for a decision whose horizon is
     still open (a closed decision's prebuild is no longer ahead of need), at most
@@ -1543,8 +1557,10 @@ def run_trigger(env: PrefetchEnv, trigger: Trigger) -> PassResult:
             queue = decide_and_log(env, kept, on_mains=on_mains, plan_wait=plan_wait, result=result)
         if on_mains and plan_wait is None:
             # Follow-ups batch 6 (D): jobs left waiting before this pass, asked first, so a build
-            # of this pass that meets the plan's limit is not asked again at once.
-            retry_plan_waits(env, result)
+            # of this pass that meets the plan's limit is not asked again at once. Codex verify V2:
+            # only a pass that follows the learner's own action asks; a worker's poll tick never.
+            if trigger.learner_activity:
+                retry_plan_waits(env, result)
             run_builds(env, [*waiting, *queue], result)
     except FiguresChanged as exc:
         result.status = "stopped"

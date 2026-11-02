@@ -2,10 +2,16 @@
 
 The five trigger hooks call :func:`notify` from the RPCs they belong to
 (``get_daily_plan``, ``reader.mark_section_progress``, the tutor's and the
-library organizer's answers, ``lesson.turn``, and the gap worker's finished
-jobs). It returns at once: the trigger is queued and one background thread of
+library organizer's answers, ``lesson.turn``, and the gap worker's nonempty
+drains). It returns at once: the trigger is queued and one background thread of
 this context (``ctx.background_jobs``: a close cancels and joins it) drains
 the queue, one pass at a time (:func:`learnloop.figures.prefetch.run_trigger`).
+
+A hook passes ``learner_activity=True`` only when the RPC is the learner's own
+action (follow-ups batch 6, Codex verify V2; only such a pass retries a
+prebuild's plan wait): section progress, an offer (once per question they
+asked), a lesson's turn. Not ``get_daily_plan`` (Today's queue-revision poll
+refetches it when background work lands) and not the gap worker's drain.
 
 Never in the phone or MCP hosts (a secondary context) and never with
 ``figures.prefetch_enabled`` off: then nothing is queued, read, written or
@@ -145,7 +151,8 @@ def pass_running(ctx: Any) -> bool:
 
 def notify(ctx: Any, kind: str, ref: str = "", **fields: Any) -> bool:
     """Queue one trigger (spec §10b.2); False when prefetch does not run here (switched off, a
-    phone or MCP host, no vault). Never raises: a hook never fails its RPC."""
+    phone or MCP host, no vault). Never raises: a hook never fails its RPC. ``fields`` are the
+    trigger's, ``learner_activity`` among them (module docstring)."""
 
     try:
         if not runs_here(ctx):
@@ -181,7 +188,8 @@ def notify_offer(ctx: Any, origin: str, offer_ref: str | None) -> bool:
         runtime.offers_seen.add(key)
         if not blocks:
             return False
-        return notify(ctx, "offer", f"{origin}:{offer_ref}", blocks=blocks)
+        # The offer answers the learner's own question, and fires once per question.
+        return notify(ctx, "offer", f"{origin}:{offer_ref}", blocks=blocks, learner_activity=True)
     except Exception:  # noqa: BLE001 - a trigger never fails the RPC that fired it
         _LOG.warning("figure prefetch offer trigger not queued", exc_info=True)
         return False
