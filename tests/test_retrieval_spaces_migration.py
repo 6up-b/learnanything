@@ -30,6 +30,7 @@ from tests.test_section_coverage_migration import C0A_ADDED_OBJECTS
 from tests.test_figure_requests_migration import RW5D_ADDED_OBJECTS, RW5D_ALTERED_TABLES
 from tests.test_session_ownership_migration import PR4_ADDED_OBJECTS, PR4_ALTERED_TABLES
 from tests.test_learner_note_source_kind_migration import C5_ALTERED_TABLES
+from tests.test_help_assist_work_md_migration import DR2_ALTERED_TABLES
 from tests.test_reader_session_digests_migration import RW6B_ADDED_OBJECTS
 from tests.test_deliverable_curriculum_migration import C0B_ADDED_OBJECTS
 from tests.test_learner_notes_migration import C2_ADDED_OBJECTS
@@ -68,9 +69,9 @@ def test_220_adds_three_tables_and_alters_nothing(tmp_path):
     before = _schema(database)
     with upgrade_allowance(UPGRADE_TEST_HELPER):
         applied = apply_migrations(database)
-    assert [migration.version for migration in applied] == [220, 221, 222, 223, 224, 225, 226, 227, 228, 229, 231]
+    assert [migration.version for migration in applied] == [220, 221, 222, 223, 224, 225, 226, 227, 228, 229, 230, 231]
     after = _schema(database)
-    assert {name for name in before if before[name] != after.get(name)} == CLAIM_POINT_ALTERED_TABLES | CA2_ALTERED_TABLES | RW5D_ALTERED_TABLES | PR4_ALTERED_TABLES | C5_ALTERED_TABLES
+    assert {name for name in before if before[name] != after.get(name)} == CLAIM_POINT_ALTERED_TABLES | CA2_ALTERED_TABLES | RW5D_ALTERED_TABLES | PR4_ALTERED_TABLES | C5_ALTERED_TABLES | DR2_ALTERED_TABLES
     # LP-min (a)'s 221 (one learner_claims column) and curriculum C0a's 222 (its one table, altering nothing)
     # follow on the way to head.
     assert set(after) - set(before) - C0A_ADDED_OBJECTS - RW5D_ADDED_OBJECTS - PR4_ADDED_OBJECTS - RW6B_ADDED_OBJECTS - C0B_ADDED_OBJECTS - C2_ADDED_OBJECTS == P1_ADDED_OBJECTS
@@ -131,7 +132,7 @@ def test_220_on_the_durability_lane(tmp_path):
 
     database = _database_at(tmp_path, 219)
     with upgrade_allowance(UPGRADE_TEST_HELPER):
-        assert [migration.version for migration in apply_migrations(database)] == [220, 221, 222, 223, 224, 225, 226, 227, 228, 229, 231]
+        assert [migration.version for migration in apply_migrations(database)] == [220, 221, 222, 223, 224, 225, 226, 227, 228, 229, 230, 231]
     with closing(sqlite3.connect(database)) as connection:
         assert connection.execute("PRAGMA journal_mode").fetchone()[0] == "wal"
     with closing(connect(database)) as connection:

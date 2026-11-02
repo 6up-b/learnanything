@@ -1,0 +1,18 @@
+-- Learner data-relax 2: the learner's draft when a hint was asked for
+-- (owner principle 2026-11-01: the learner's questions, answers and history
+-- are not private; keep them where they help; docs/reviews/learner-data-relax-2.md).
+--
+-- Numbered 230: main's head is 229 (the migration runner has no contiguity
+-- rule; renumbered at landing if another stage lands first).
+--
+-- help_assists (RAW_LEDGER, migration 210) kept only a sha256 of the
+-- learner's work and its length (work_hash, work_chars). work_md keeps the
+-- draft itself, bounded by its writer (hints.telemetry and hints.service;
+-- db.stores.help_assists.WORK_MD_CHARS), so a hint can later be read
+-- against the work it answered. NULL on every earlier row and on rows whose
+-- writer has no draft (a check, a bridge, the workbench, whose steps are
+-- workbench_steps). Still never evidence: replay and rebuild never read
+-- this table, no scoring, scheduling, projection or serving path does, and
+-- the grader never sees it (standing constraint H2). The append-only and
+-- fixed-identity triggers are unchanged (the column is written with the row).
+ALTER TABLE help_assists ADD COLUMN work_md TEXT;

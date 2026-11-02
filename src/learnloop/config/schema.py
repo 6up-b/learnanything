@@ -2759,6 +2759,18 @@ class FiguresConfig(BaseModel):
     list as "can't show this kind here". Nothing in scoring, scheduling,
     projection or serving reads these keys.
 
+    Learner data-relax 2 (owner principle 2026-11-01: the learner's questions,
+    answers and history are not private; include them where they help):
+    ``author_learner_state``: the figure author is also sent the learner's
+    state on the passage's topics (their status in words, the open
+    misconception and gap statements, and at most two recent answers of
+    theirs, read through ``learner_protection`` so exam, held-out, reserved
+    and cold-in-flight work never shows), under its own prompt version, and
+    the reuse key names a hash of that state (only when it is non-empty: a
+    learner with no state keeps the predecessor's keys and reuse). Off: the
+    author's payload, prompt and keys are the predecessor's byte for byte.
+    Figures stay help, never evidence.
+
     Caps (money, W4): two author attempts per request; ``max_daily_cost_usd``
     meters the author route's metered spend a UTC day at
     ``price_per_million`` (unset: a metered route is refused before sending;
@@ -2776,6 +2788,7 @@ class FiguresConfig(BaseModel):
     show_me_enabled: bool = True
     sketch_enabled: bool = True
     rich_tiers_enabled: bool = True
+    author_learner_state: bool = True
     manim_opt_in: Literal["standing", "declined"] | None = None
     manim_opt_in_at: str | None = None
     max_daily_cost_usd: float = Field(default=1.0, ge=0)

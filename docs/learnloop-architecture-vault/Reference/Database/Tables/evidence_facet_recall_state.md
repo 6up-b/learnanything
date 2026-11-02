@@ -3,13 +3,13 @@ title: "evidence_facet_recall_state"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "a8455f1b6e43e152fc50d2efbcaeef31cb1c4318"
-source_commit_timestamp: "2026-11-01T19:20:11-05:00"
+source_commit: "6662b42c3b1cbdd26140d86e139d4d7f2eabaa95"
+source_commit_timestamp: "2026-11-01T18:37:22-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite evidence_facet_recall_state"
   - "table evidence_facet_recall_state"
-schema_head: 231
+schema_head: 230
 table_name: "evidence_facet_recall_state"
 table_role: "compat"
 functionality_status: "legacy-preserved"

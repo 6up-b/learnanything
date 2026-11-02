@@ -3,9 +3,11 @@
 One ``interaction_events`` row per MCP tool call (migration 203): kind
 ``chat_tool_call``, origin ``chat_host`` (a host model acting in the learner's
 chat), the surface ``chat_mcp``, the host (``claude`` | ``chatgpt`` |
-``unknown``, from the request), the tool, a hash of its arguments and of its
-result, the result's counts, the learning objects it touched and the exposure
-rows it wrote. The row is written before the result is returned: a call that
+``unknown``, from the request), the tool, its arguments (bounded:
+:func:`bounded_arguments`; learner data-relax 2, owner principle 2026-11-01:
+the learner's questions are not private, so what a chat asked about is kept,
+not only its hash) with a hash of them and of its result, the result's
+counts, the learning objects it touched and the exposure rows it wrote. The row is written before the result is returned: a call that
 cannot be recorded returns an error instead (everything the chat side does is
 in the ledger).
 
@@ -44,13 +46,48 @@ CHAT_EXPOSURE_ENTITY = "chat_tool_call"
 CHAT_EXPOSURE_CONTEXT = "library"
 HOSTS = ("claude", "chatgpt", "unknown")
 TRANSPORTS = ("streamable_http", "stdio", "in_process")
-PAYLOAD_SCHEMA_VERSION = "chat-tool-call-v1"
+#: v2 (learner data-relax 2): the payload also keeps ``arguments`` (bounded).
+PAYLOAD_SCHEMA_VERSION = "chat-tool-call-v2"
 ACTOR = "chat_host_model"
+#: keep: storage bound: one argument string's characters (the longest a tool's
+#: input schema admits, find_sources' query, is 1,000).
+ARGUMENT_CHARS = 1000
+#: keep: storage bound: items kept of one list argument (learning object ids).
+ARGUMENT_ITEMS = 50
+#: keep: storage bound: argument names kept (a tool takes at most a handful;
+#: a rejected request may send anything).
+ARGUMENT_KEYS = 20
 
 
 def canonical_hash(value: Any) -> str:
     text = json.dumps(value, sort_keys=True, ensure_ascii=False, separators=(",", ":"), default=str)
     return "sha256:" + hashlib.sha256(text.encode("utf-8")).hexdigest()
+
+
+def _bounded(value: Any, *, depth: int = 0) -> Any:
+    if value is None or isinstance(value, (bool, int, float)):
+        return value
+    if isinstance(value, str):
+        return value[:ARGUMENT_CHARS]
+    if depth < 1 and isinstance(value, (list, tuple)):
+        return [_bounded(item, depth=depth + 1) for item in list(value)[:ARGUMENT_ITEMS]]
+    if depth < 1 and isinstance(value, Mapping):
+        return {str(key)[:64]: _bounded(item, depth=depth + 1)
+                for key, item in sorted(value.items(), key=lambda pair: str(pair[0]))[:ARGUMENT_KEYS]}
+    return str(value)[:ARGUMENT_CHARS]
+
+
+def bounded_arguments(arguments: Any) -> dict[str, Any]:
+    """A tool call's arguments as the ledger keeps them (the topic, the query,
+    the ids, the counts): each string at most :data:`ARGUMENT_CHARS`, each list
+    at most :data:`ARGUMENT_ITEMS` items, at most :data:`ARGUMENT_KEYS` names;
+    anything deeper is kept as bounded text. A request whose arguments are not
+    an object (one the input schema rejected) keeps them under ``value``."""
+
+    if not isinstance(arguments, Mapping):
+        return {"value": _bounded(arguments, depth=1)} if arguments is not None else {}
+    return {str(key)[:64]: _bounded(value)
+            for key, value in sorted(arguments.items(), key=lambda pair: str(pair[0]))[:ARGUMENT_KEYS]}
 
 
 @dataclass(frozen=True)
@@ -86,7 +123,7 @@ def record_tool_call(
     call_id: str,
     tool: str,
     origin: CallOrigin,
-    arguments: Mapping[str, Any],
+    arguments: Any,
     result: Any,
     status: str,
     summary: Mapping[str, Any] | None = None,
@@ -110,6 +147,7 @@ def record_tool_call(
         "call_id": call_id,
         "status": status,
         "error_code": error_code,
+        "arguments": bounded_arguments(arguments),
         "arguments_hash": canonical_hash(arguments),
         "result_hash": canonical_hash(result) if result is not None else None,
         "summary": dict(summary or {}),
@@ -193,6 +231,7 @@ __all__ = [
     "CallOrigin",
     "HOSTS",
     "PAYLOAD_SCHEMA_VERSION",
+    "bounded_arguments",
     "canonical_hash",
     "chat_activity",
     "record_shown_passages",

@@ -3,13 +3,13 @@ title: "learner_gap_check_advances"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "a8455f1b6e43e152fc50d2efbcaeef31cb1c4318"
-source_commit_timestamp: "2026-11-01T19:20:11-05:00"
+source_commit: "6662b42c3b1cbdd26140d86e139d4d7f2eabaa95"
+source_commit_timestamp: "2026-11-01T18:37:22-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite learner_gap_check_advances"
   - "table learner_gap_check_advances"
-schema_head: 231
+schema_head: 230
 table_name: "learner_gap_check_advances"
 table_role: "receipt"
 functionality_status: "active"
@@ -51,7 +51,7 @@ It belongs to the **learner state** navigation family. The family context lives 
 - **Role:** `receipt` — Historical audit/decision receipt. It is preserved and never rebuilt.
 - **Functionality status:** `active`.
 - **Introduced by:** `migrations/182_learner_text_gaps.sql`.
-- **Schema touched by:** `182_learner_text_gaps.sql`, `208_learner_text_source_kinds.sql`, `212_hint_feedback_source_kind.sql`, `231_learner_note_source_kind.sql`.
+- **Schema touched by:** `182_learner_text_gaps.sql`, `208_learner_text_source_kinds.sql`, `212_hint_feedback_source_kind.sql`.
 - **Rebuild owner:** none; this table is preserved by the rebuild umbrella.
 
 For the distinction between SQLite state and human-authored vault files, see [[State and Persistence]]. For whole-vault creation and opening behavior, see [[Vault Lifecycle]]. ^table-lifecycle
@@ -105,10 +105,8 @@ None found by exact static reference scan.
 ## Tests that define behavior
 
 - `tests/test_hint_feedback_widening.py`
-- `tests/test_learner_note_source_kind_migration.py`
 - `tests/test_learner_text_source_widening.py`
 - `tests/test_mvp016_upgrade.py`
-- `tests/test_notes_as_learner_text.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

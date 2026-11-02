@@ -3,13 +3,13 @@ title: "help_assists"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "a8455f1b6e43e152fc50d2efbcaeef31cb1c4318"
-source_commit_timestamp: "2026-11-01T19:20:11-05:00"
+source_commit: "6662b42c3b1cbdd26140d86e139d4d7f2eabaa95"
+source_commit_timestamp: "2026-11-01T18:37:22-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite help_assists"
   - "table help_assists"
-schema_head: 231
+schema_head: 230
 table_name: "help_assists"
 table_role: "raw_ledger"
 functionality_status: "active"
@@ -49,7 +49,7 @@ It belongs to the **operations** navigation family. The family context lives in 
 - **Role:** `raw_ledger` — Authoritative replay input or mixed authoritative state. The rebuild umbrella preserves it.
 - **Functionality status:** `active`.
 - **Introduced by:** `migrations/210_help_assists.sql`.
-- **Schema touched by:** `210_help_assists.sql`, `211_approach_maps.sql`, `212_hint_feedback_source_kind.sql`, `231_learner_note_source_kind.sql`.
+- **Schema touched by:** `210_help_assists.sql`, `211_approach_maps.sql`, `212_hint_feedback_source_kind.sql`, `230_help_assist_work_md.sql`.
 - **Rebuild owner:** none; this table is preserved by the rebuild umbrella.
 
 For the distinction between SQLite state and human-authored vault files, see [[State and Persistence]]. For whole-vault creation and opening behavior, see [[Vault Lifecycle]]. ^table-lifecycle
@@ -119,6 +119,7 @@ For the distinction between SQLite state and human-authored vault files, see [[S
 | `cited_span_ids_json` | `TEXT` | no | — | — | JSON-encoded structured payload |
 | `retrieval_manifest_json` | `TEXT` | no | — | — | JSON-encoded structured payload |
 | `alternatives_json` | `TEXT` | no | — | — | JSON-encoded structured payload |
+| `work_md` | `TEXT` | no | — | — | Stored value |
 
 ## Relationships and access paths
 
@@ -182,6 +183,7 @@ None found by exact static reference scan.
 - `tests/test_compare_methods.py`
 - `tests/test_field_workbench_signals.py`
 - `tests/test_figure_predictions.py`
+- `tests/test_help_assist_work_md_migration.py`
 - `tests/test_help_assists_schema.py`
 - `tests/test_help_outcomes.py`
 - `tests/test_hint_feedback_texts.py`
@@ -193,7 +195,6 @@ None found by exact static reference scan.
 - `tests/test_library_asks_migration.py`
 - `tests/test_owner_capture_1025.py`
 - `tests/test_rw2c_fix_round3.py`
-- `tests/test_session_ownership.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 
@@ -324,7 +325,7 @@ CREATE TABLE help_assists (
   cited_span_ids_json TEXT,
   retrieval_manifest_json TEXT,
   alternatives_json TEXT
-);
+, work_md TEXT);
 ```
 
 ## Related notes

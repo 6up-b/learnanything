@@ -206,15 +206,22 @@ _WHEN = {
         "figures.revisions_enabled, a \"not right?\" note you write goes with the earlier version. With "
         "figures.show_me_enabled, \"show me\" sends your request in your words (or the goal LearnLoop's tutor "
         "wrote, when you press it) and, when you select no passage, the passages LearnLoop finds in your books for "
-        "it (or none) -- never to grade you. Nothing else about you, and never material held out for an exam."
+        "it (or none) -- never to grade you. With figures.author_learner_state on (the default), when you have "
+        "state on the passage's topics, it also sends where you stand on them: your status on each in words, the "
+        "open misunderstandings and gaps LearnLoop has named, and at most two of your recent answers on them with "
+        "their questions and results, so the figure can show what you most need to see. Never an answer on exam, "
+        "held-out or reserved material or on a check still waiting for you, never a reference answer, and never "
+        "material held out for an exam. A figure never grades you and is never evidence."
     ),
     "figures_rich": (
         "While figures.rich_tiers_enabled is on and a richer kind of figure (a narrated Manim animation, after "
         "you allow it once) was chosen for a request you pressed: what the figure author received (the passage "
         "and the paragraphs around it, or the passages found in your books, and your request in your words or "
-        "the goal LearnLoop's tutor wrote) and the author's plan for the animation, so LearnLoop's model can "
-        "write it; when an attempt fails, what went wrong in code's words (never anything about you). Nothing "
-        "else about you, and never material held out for an exam. It never grades you."
+        "the goal LearnLoop's tutor wrote, and, with figures.author_learner_state on, where you stand on the "
+        "passage's topics as the figure author received it) and the author's plan for the animation, so "
+        "LearnLoop's model can write it; when an attempt fails, what went wrong in code's words. Never an answer "
+        "on exam, held-out or reserved material or on a check still waiting for you, and never material held out "
+        "for an exam. It never grades you and is never evidence."
     ),
     "reader_digest": (
         "While digest.enabled and digest.narrative_enabled are on, once per reader session, in the background "

@@ -3,8 +3,8 @@ title: "Configuration Field Catalog"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "a8455f1b6e43e152fc50d2efbcaeef31cb1c4318"
-source_commit_timestamp: "2026-11-01T19:20:11-05:00"
+source_commit: "6662b42c3b1cbdd26140d86e139d4d7f2eabaa95"
+source_commit_timestamp: "2026-11-01T18:37:22-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "Effective config index"
@@ -109,13 +109,13 @@ Every one of the 1110 effective leaves has a semantic Function, a runtime/refact
 | [[Config - reader_formative|`reader_formative`]] | 1 | Runtime configuration |
 | [[Config - library_ask|`library_ask`]] | 4 | Runtime configuration |
 | [[Config - library_exercises|`library_exercises`]] | 2 | Runtime configuration |
-| [[Config - figures|`figures`]] | 13 | Runtime configuration |
+| [[Config - figures|`figures`]] | 14 | Runtime configuration |
 | [[Config - reader_compare|`reader_compare`]] | 7 | Runtime configuration |
 | [[Config - practice|`practice`]] | 3 | Runtime configuration |
 | [[Config - roles|`roles`]] | 3 | Runtime configuration |
 | [[Config - reading_paths|`reading_paths`]] | 3 | Runtime configuration |
 | [[Config - curriculum|`curriculum`]] | 7 | Runtime configuration |
-| [[Config - notes|`notes`]] | 9 | Runtime configuration |
+| [[Config - notes|`notes`]] | 8 | Runtime configuration |
 | [[Config - reader|`reader`]] | 4 | Runtime configuration |
 | [[Config - reader_tutor|`reader_tutor`]] | 3 | Runtime configuration |
 | [[Config - proof_check|`proof_check`]] | 1 | Runtime configuration |

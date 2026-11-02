@@ -32,7 +32,17 @@ refuse a figure any of whose spans is held out now (Codex review F1).
 **What a prompt carries.** The selected passage, the paragraphs around it
 (held-out ones left out), the figure's crop when a figure block or a region
 was selected and the route reads images (a region needs it), and, for a "not
-right?" version, the earlier spec and the learner's note. No learner data.
+right?" version, the earlier spec and the learner's note. Learner data-relax
+2 (owner principle 2026-11-01: the learner's questions, answers and history
+are not private; include them where they help): with
+``figures.author_learner_state`` on, also ``learner_state``, the learner's
+state on the passage's topics (:mod:`.learner_state`: status in words, open
+misconception and gap statements, at most two recent answers of theirs, read
+through ``learner_protection`` so exam, held-out, reserved and cold-in-flight
+work never shows), under the prompt version's ``+learner-v1``, and the reuse
+key names its hash. Only a non-empty state does any of this: a learner with
+no state (or the switch off) is sent, prompted and keyed exactly as before.
+Figures stay help, never evidence.
 
 **RW5b** (spec §8.7). With ``figures.advanced_panels_enabled`` the author
 is told of heat maps, vector fields, trajectories and iterated maps (its own
@@ -132,6 +142,7 @@ from learnloop.figure_admission import (
     FiguresChanged,
     FiguresGate,
     advanced_panels_enabled,
+    author_learner_state_enabled,
     figure_home_keys,
     figures_enabled,
     offers_enabled,
@@ -250,6 +261,16 @@ class FigureRequest:
     #: of an animation's "not right?": the note re-runs the tier choice
     #: instead of going to the rich author with the earlier program.
     different_kind: bool = False
+    #: Learner data-relax 2: the learner's state on the passage's topics
+    #: (:func:`learnloop.figures.learner_state.learner_state`), set by the build
+    #: with ``figures.author_learner_state`` on, never by a client; None when
+    #: off or empty (then payload, prompt and reuse key are the predecessor's).
+    learner_state: dict[str, Any] | None = None
+    #: What that state was read from (``LearnerStateRead.inputs``: answers,
+    #: items, questions, passages), set with it by the build, never sent to a
+    #: model: a rich job carries it and checks it again before it sends the
+    #: saved state (Codex review F2).
+    learner_state_inputs: dict[str, Any] | None = None
 
 
 @dataclass
@@ -300,7 +321,9 @@ def build_key(vault: Any) -> tuple[Any, ...]:
     """What a build depends on, compared before every request it makes
     (:class:`~learnloop.figure_admission.FiguresGate`): the vault, the switch,
     the author route as configured, the day's cap and the price, and (RW5b)
-    whether the advanced panels are on (the author's prompt depends on it)."""
+    whether the advanced panels are on (the author's prompt depends on it);
+    likewise (learner data-relax 2, Codex review F2) whether the author is
+    sent the learner's state (``figures.author_learner_state``)."""
 
     from learnloop.practice_index.paid import plan_route
 
@@ -308,7 +331,7 @@ def build_key(vault: Any) -> tuple[Any, ...]:
     return (str(vault.root), figures_enabled(vault), plan_route(vault, R.AUTHOR_TASK, None),
             getattr(section, "max_daily_cost_usd", None), getattr(section, "price_per_million", None),
             advanced_panels_enabled(vault), sketch_switch(vault), RICH.rich_tiers_switch(vault),
-            RICH.manim_tier_ready(vault))
+            RICH.manim_tier_ready(vault), author_learner_state_enabled(vault))
 
 
 def offer_build_key(vault: Any) -> tuple[Any, ...]:
@@ -473,7 +496,10 @@ def row_withheld(vault: Any, repository: Repository, row: Mapping[str, Any]) -> 
         if homes is None:
             return "That figure's place in the book is unreadable, so it isn't shown."
         message = keys_withheld(vault, repository, homes)
-    return message
+    # Learner data-relax 2 (Codex re-review F2): a rich figure whose author
+    # was sent the learner's state keeps what that state was read from; it
+    # goes out only while none of that is protected now.
+    return message or RICH.stored_learner_state_withheld(vault, repository, row)
 
 
 def figure_homes(repository: Repository, row: Mapping[str, Any]) -> list[tuple[str, str]] | None:
@@ -1193,6 +1219,9 @@ def fuller_state(vault: Any, repository: Repository, row: Mapping[str, Any]) -> 
         return None
     with closing(connect(repository.sqlite_path, read_only=True)) as connection:
         rows = store.fuller_rows(connection, str(row["id"]))
+    # Codex re-review F2: a fuller version whose author's learner state was
+    # read from something protected now is not delivered (nor named failed).
+    rows = [found for found in rows if RICH.stored_learner_state_withheld(vault, repository, found) is None]
     shown = [found for found in rows if found["verification"] in store.SHOWN]
     if shown:
         rich = shown[-1]
@@ -1243,7 +1272,8 @@ REUSE_ORIGIN = "selection"
 
 def request_hash(request: FigureRequest, context: SourceContext, image_digest: str | None, *,
                  advanced: bool = False, grounding: Grounding | None = None, sketch: bool = False,
-                 tiers: Sequence[str] | None = None, rich_runtime: str | None = None) -> str:
+                 tiers: Sequence[str] | None = None, rich_runtime: str | None = None,
+                 learner_state: Mapping[str, Any] | None = None) -> str:
     """The reuse key: the spec and prompt versions (RW5b's panels have their
     own prompt version, so RW5a's hashes are unchanged while they are off)
     and everything the author is sent (never the origin: :data:`REUSE_ORIGIN`).
@@ -1264,12 +1294,19 @@ def request_hash(request: FigureRequest, context: SourceContext, image_digest: s
     carries ``+rich-v1`` and the menu, and the key names ``tiers_allowed`` and
     the rich tier versions (``manim-fig-v1``, the Manim version and the
     sandbox profile); with none on the menu, it is exactly P2's. A revision
-    asking for a different kind of figure names it (Codex re-review F13)."""
+    asking for a different kind of figure names it (Codex re-review F13).
+
+    Learner data-relax 2: a non-empty ``learner_state`` (what the author is
+    sent about the learner) puts ``+learner-v1`` on the prompt version and
+    names the state's hash; None or empty, the key is exactly the
+    predecessor's (a learner with no state keeps today's keys and reuse)."""
 
     show_me = show_me_input(request)
+    learner = bool(learner_state)
     key: dict[str, Any] = {
         "spec_version": S.SPEC_VERSION,
-        "prompt_version": R.author_prompt_version(advanced=advanced, show_me=show_me, sketch=sketch, tiers=tiers),
+        "prompt_version": R.author_prompt_version(advanced=advanced, show_me=show_me, sketch=sketch, tiers=tiers,
+                                                  learner=learner),
         "extraction_id": request.extraction_id,
         "span_ids": list(request.span_ids), "region": request.region, "origin": REUSE_ORIGIN,
         "passage": context.passage, "around": context.around, "image_sha256": image_digest,
@@ -1294,17 +1331,24 @@ def request_hash(request: FigureRequest, context: SourceContext, image_digest: s
         key["rich"] = {"tiers_allowed": list(menu),
                        "manim": {"version": M.MANIM_FIG_VERSION, "runtime": rich_runtime}
                        if "manim" in menu else None}
+    if learner:
+        from learnloop.figures.learner_state import state_hash
+
+        key["learner_state"] = state_hash(learner_state)
     return content_key(key)
 
 
-def _reusable(vault: Any, connection: Any, input_hash: str, other_hash: str | Sequence[str]) -> dict[str, Any] | None:
+def _reusable(vault: Any, repository: Repository, connection: Any, input_hash: str,
+              other_hash: str | Sequence[str]) -> dict[str, Any] | None:
     """The figure a build reuses: this input's under the current prompt
     version, else (Codex review F2) a SHOWN one of the same input under the
     other prompt version when it can be drawn now. RW5a's figures are drawable
     with the panels on, and a panels-era figure with none of the new kinds is
     drawable with them off; so switching the panels never pays again for a
     figure already on the page. Another version's "can't draw this yet" is
-    never reused: it was that prompt's verdict (the panels may draw it now)."""
+    never reused: it was that prompt's verdict (the panels may draw it now).
+    Nor is a rich figure whose author's learner state was read from something
+    protected now (Codex re-review F2)."""
 
     found = store.reusable(connection, input_hash, SPEC_VERSIONS)
     if found is not None:
@@ -1312,7 +1356,8 @@ def _reusable(vault: Any, connection: Any, input_hash: str, other_hash: str | Se
     # RW5d P2b: a rich figure built with no quick figure is this input's own
     # figure (its fuller version is reached through the quick one instead).
     rich_only = store.reusable(connection, input_hash, RICH_SPEC_VERSIONS) if rich_enabled(vault) else None
-    if rich_only is not None and not rich_only.get("fuller_of_id") and drawable_now(vault, rich_only):
+    if (rich_only is not None and not rich_only.get("fuller_of_id") and drawable_now(vault, rich_only)
+            and RICH.stored_learner_state_withheld(vault, repository, rich_only) is None):
         return rich_only
     # RW5d P2: the same input under the other settings of the panels and of
     # the sketch tier; only a shown figure that can be drawn now.
@@ -1492,6 +1537,10 @@ def _author_context(request: FigureRequest, context: SourceContext, image_digest
         payload["learner_note"] = request.revision_note or ""
     if problems:
         payload["problems_with_the_last_attempt"] = list(problems)[:12]
+    if request.learner_state:
+        # Learner data-relax 2: where the learner stands on the passage's
+        # topics (protected work never in it); absent with none.
+        payload["learner_state"] = request.learner_state
     return payload
 
 
@@ -1564,18 +1613,25 @@ def _build(vault: Any, repository: Repository, request: FigureRequest, *, gate: 
     request.tiers_allowed = menu
     tiers = menu if R.rich_menu(menu) is not None else None
     runtime = RICH.runtime_digest(vault) if tiers is not None and "manim" in tiers else None
+    # Learner data-relax 2: the learner's state on the passage's topics
+    # (None with the switch off or nothing to say: everything below is then
+    # the predecessor's byte for byte).
+    read = _learner_state(vault, repository, request, context, grounding)
+    request.learner_state = read.state if read is not None else None
+    request.learner_state_inputs = read.inputs if read is not None and read.state else None
+    learner = request.learner_state
     input_hash = request_hash(request, context, digest, advanced=advanced, grounding=grounding, sketch=sketch,
-                              tiers=tiers, rich_runtime=runtime)
+                              tiers=tiers, rich_runtime=runtime, learner_state=learner)
     # The same input under the other settings (RW5b's panels, RW5d P2's
     # sketch tier, RW5d P2b's rich menu): a shown figure drawable now is never
     # paid for again.
     other_hash = [request_hash(request, context, digest, advanced=a, grounding=grounding, sketch=k, tiers=t,
-                               rich_runtime=runtime)
+                               rich_runtime=runtime, learner_state=learner)
                   for a, k, t in ((not advanced, sketch, tiers), (advanced, not sketch, None),
                                   (not advanced, not sketch, None), (advanced, sketch, None),
                                   (not advanced, sketch, None)) if (a, k, t) != (advanced, sketch, tiers)]
     with closing(connect(repository.sqlite_path, read_only=True)) as connection:
-        reused = _reusable(vault, connection, input_hash, other_hash)
+        reused = _reusable(vault, repository, connection, input_hash, other_hash)
         seen = store.latest_for_input(connection, input_hash, SPEC_VERSIONS)
     if reused is not None:
         return _reused(vault, repository, reused, request=request, grounding=grounding, clock=clock, gate=gate)
@@ -1600,7 +1656,7 @@ def _build(vault: Any, repository: Repository, request: FigureRequest, *, gate: 
             # Reread inside the lock (fix round 2, F7): a build that committed
             # between the reads above left `reused` empty but `seen` naming
             # its row, so only this read can tell its figure is reusable.
-            reused = _reusable(vault, connection, input_hash, other_hash)
+            reused = _reusable(vault, repository, connection, input_hash, other_hash)
             latest = store.latest_for_input(connection, input_hash, SPEC_VERSIONS)
             # Codex review F7: a stored rich failure (a rich-only build that
             # used both attempts) starts the next generation too, so "try
@@ -1629,6 +1685,27 @@ def _build(vault: Any, repository: Repository, request: FigureRequest, *, gate: 
                                  input_hash=input_hash, request_id=request_id, clock=clock, gate=gate,
                                  advanced=advanced, grounding=grounding, sketch=sketch, tiers=tiers,
                                  spawn_rich=spawn_rich, generation=generation)
+
+
+def _learner_state(vault: Any, repository: Repository, request: FigureRequest, context: SourceContext,
+                   grounding: Grounding) -> Any:
+    """Learner data-relax 2: what the author is told about the learner on
+    the passage's topics and what it was read from
+    (:func:`.learner_state.read_learner_state`), or None (switched off or no
+    topics; an empty or unreadable state: the predecessor's build)."""
+
+    from learnloop.figures import learner_state as LS
+
+    if not LS.enabled(vault):
+        return None
+    if anchored(request):
+        spans = [*request.span_ids, *([request.region["span_id"]] if request.region else [])]
+        los = LS.anchored_learning_objects(vault, repository, extraction_id=request.extraction_id, span_ids=spans)
+    else:
+        home = request.reading_at or {}
+        keys = list(grounding.keys) or [(str(home.get("extraction_id") or ""), str(home.get("span_id") or ""))]
+        los = LS.anchored_learning_objects(vault, repository, extraction_id=None, span_ids=(), keys=keys)
+    return LS.read_learner_state(vault, repository, los) if los else None
 
 
 def _rich_pending(vault: Any, repository: Repository, request: FigureRequest, input_hash: str
@@ -1821,7 +1898,9 @@ def _author_and_store(vault: Any, repository: Repository, request: FigureRequest
     grounding = grounding or Grounding("anchor")
     show_me = show_me_input(request)
     images = (image,) if image is not None else ()
-    prompt_version = R.author_prompt_version(advanced=advanced, show_me=show_me, sketch=sketch, tiers=tiers)
+    learner = bool(request.learner_state)
+    prompt_version = R.author_prompt_version(advanced=advanced, show_me=show_me, sketch=sketch, tiers=tiers,
+                                             learner=learner)
     # RW5d P2b: with a rich tier on the menu the contract is V3 (the tier judgment, always receipted).
     v3 = tiers is not None
     request.tiers_allowed = tuple(tiers) if v3 else (("grammar", "sketch") if sketch else ("grammar",))
@@ -1839,7 +1918,7 @@ def _author_and_store(vault: Any, repository: Repository, request: FigureRequest
     for attempt in range(R.MAX_AUTHOR_ATTEMPTS):
         prompt = R.author_prompt(_author_context(request, context, digest, previous, problems, request_id=request_id,
                                                  grounding=grounding),
-                                 advanced=advanced, show_me=show_me, sketch=sketch, tiers=tiers)
+                                 advanced=advanced, show_me=show_me, sketch=sketch, tiers=tiers, learner=learner)
         try:
             output = author.ask(prompt, R.output_model(sketch=sketch, tiers=tiers), images=images,
                                 metadata={"attempt": attempt + 1, "prompt_version": prompt_version})
@@ -2153,13 +2232,19 @@ class _RichSpawn:
             "goal_text": request.goal_text, "grounding": self.grounding.mode, "origin": request.origin,
             "home": None if anchored(request) else dict(request.reading_at or {}),
         }
-        return {"request_id": request_row_id, "fast_figure_id": fast_figure_id, "input_hash": self.input_hash,
-                "tier": self.brief.tier, "brief": self.brief.as_dict(), "author_context": author_context,
-                "span_texts": dict(self.context.span_texts), "base": base,
-                "verdict": list(self.verdict) if self.verdict else None,
-                "author_model": self.author.model if self.author is not None else None,
-                "prompt_version": self.prompt_version, "build_mode": "pressed", "generation": self.generation,
-                "quick_dropped": self.quick_dropped, **self.extra}
+        payload = {"request_id": request_row_id, "fast_figure_id": fast_figure_id, "input_hash": self.input_hash,
+                   "tier": self.brief.tier, "brief": self.brief.as_dict(), "author_context": author_context,
+                   "span_texts": dict(self.context.span_texts), "base": base,
+                   "verdict": list(self.verdict) if self.verdict else None,
+                   "author_model": self.author.model if self.author is not None else None,
+                   "prompt_version": self.prompt_version, "build_mode": "pressed", "generation": self.generation,
+                   "quick_dropped": self.quick_dropped, **self.extra}
+        if "learner_state" in author_context:
+            # Learner data-relax 2 (Codex review F2): what the saved state was
+            # read from goes with the job (and the quick figure's intent), so
+            # the job checks it again before it sends the state.
+            payload["learner_state_inputs"] = request.learner_state_inputs
+        return payload
 
     def with_intent(self, report: Mapping[str, Any], request_row_id: str, figure_id: str) -> dict[str, Any]:
         """The quick figure's report with its rich job's intent (Codex review F8)."""
