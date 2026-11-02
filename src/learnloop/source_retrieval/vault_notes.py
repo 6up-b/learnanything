@@ -24,9 +24,11 @@ whole word of a note's title, heading or text; the notes ranked by how many dist
 terms they contain, newest first among equals.
 
 **By meaning** (only while the vault's embeddings are on: ``embedding.enabled`` and
-``embedding.backfill_enabled``): the same embedding model, route, query cache, price and
-caps as the tutor's natural-language library retrieval (``source_retrieval.queries.
-embed_query_texts``; record kind ``source_query``), over ``learner_note/text`` vectors
+``embedding.backfill_enabled``): the vault's hosted embedding model and route
+(``embedding.model``), with the query cache, price and caps of the tutor's hosted query path
+(``source_retrieval.queries.embed_query_texts``; record kind ``source_query``; the local
+contextual space, ``embedding.local`` / ``embedding.source_space``, indexes book extractions
+only and does not cover notes), over ``learner_note/text`` vectors
 kept incrementally beside the source blocks' (``ops.embedding_backfill``: content-
 addressed, so only a new or changed note is ever embedded; capped per run like a source's
 backfill, ``source_vectors.backfill_caps``, at ``source_retrieval.

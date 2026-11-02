@@ -8,8 +8,8 @@ Nothing outside the vault is read; a note beside protected material is no note h
 **Candidates (no model).** For each topic a deliverable needs (a ``needed`` line of its
 current path, :func:`deliverable_path.path_view`), the vault notes search with the topic's
 title and with the title of each section the path names for it (the primary and the
-alternates): by meaning first while the vault's embeddings are on (the same model and route
-as the tutor's library retrieval), then by exact words, each note once, at most
+alternates): by meaning first while the vault's hosted embeddings are on (``embedding.model``,
+the tutor's hosted query path), then by exact words, each note once, at most
 ``notes.max_candidates`` (a prompt bound).
 
 **One listwise judgment per topic** (route ``note_link_judge``, background): the topic's

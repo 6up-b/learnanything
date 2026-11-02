@@ -123,29 +123,17 @@ def _section_lead(vault: Any, repository: Repository, library: SC.Library, passa
     """A linked passage's section, its title and first blocks, protection read now.
     Raises :class:`NoteWithheld` for protected material; None when it is not readable."""
 
-    return _section_read(vault, repository, library, passage)[0]
-
-
-def _section_read(vault: Any, repository: Repository, library: SC.Library,
-                  passage: tuple[str, str | None, str | None],
-                  ) -> tuple[dict[str, Any] | None, tuple[str, tuple[str, ...]] | None]:
-    """:func:`_section_lead`, with every span of the section it read from (its title's
-    header and every block :func:`SC.peek` may supply: Codex review C2b round 5 F2), or
-    ``(None, None)`` when it is not readable."""
-
     extraction_id, section_id, span_id = passage
     if span_id and library.protection.span_out(extraction_id, span_id):
         raise NoteWithheld("linked to protected material")
-    try:
-        reading = library.reading(extraction_id)
-    except SC.CoverageError:
-        reading = None
     if not section_id:
-        if reading is None:
-            return None, None
-        section_id = (reading.span_section.get(span_id) or reading.all_spans.get(span_id)) if span_id else None
+        try:
+            reading = library.reading(extraction_id)
+        except SC.CoverageError:
+            return None
+        section_id = (reading.span_section.get(span_id) or reading.all_spans.get(span_id)) if reading and span_id else None
     if not section_id:
-        return None, None
+        return None
     try:
         peeked = SC.peek(vault, repository, extraction_id, str(section_id))
     except SC.CoverageError as exc:
@@ -153,16 +141,31 @@ def _section_read(vault: Any, repository: Repository, library: SC.Library,
             raise NoteWithheld("linked to protected material") from exc
         return None
     text = " ".join(" ".join(str(block.get("text") or "").split()) for block in peeked.get("blocks") or ())
-    spans = {str(block.get("span_id")) for block in peeked.get("blocks") or () if block.get("span_id")}
-    if peeked.get("jump_span_id"):
-        spans.add(str(peeked["jump_span_id"]))
+    return {"book": str(peeked.get("source_title") or ""), "section": str(peeked.get("title") or ""),
+            "lead": _one_line(text, LEAD_CHARS)}
+
+
+def _section_spans(library: SC.Library, passage: tuple[str, str | None, str | None]) -> tuple[str, tuple[str, ...]]:
+    """Every span a linked passage's lead may carry text from (Codex review C2b round 5 F2):
+    the passage's own span and every span of its section (its title's header and every block
+    :func:`SC.peek` may supply; a ref keeps no section id). A section that cannot be placed
+    names the whole reading (no spans: conservative)."""
+
+    extraction_id, section_id, span_id = passage
+    try:
+        reading = library.reading(extraction_id)
+    except SC.CoverageError:
+        reading = None
+    if reading is None:
+        return str(extraction_id), ()
+    if not section_id and span_id:
+        section_id = reading.span_section.get(span_id) or reading.all_spans.get(span_id)
+    if not section_id:
+        return str(extraction_id), ()
+    spans = {str(span) for span, owner in reading.all_spans.items() if owner == section_id}
     if span_id:
         spans.add(str(span_id))
-    if reading is not None:
-        spans.update(str(span) for span, owner in reading.all_spans.items() if owner == section_id)
-    lead = {"book": str(peeked.get("source_title") or ""), "section": str(peeked.get("title") or ""),
-            "lead": _one_line(text, LEAD_CHARS)}
-    return lead, (str(extraction_id), tuple(sorted(spans)))
+    return str(extraction_id), tuple(sorted(spans))
 
 
 def note_text(vault: Any, repository: Repository, note_id: str) -> dict[str, Any] | None:
@@ -196,11 +199,15 @@ def note_text(vault: Any, repository: Repository, note_id: str) -> dict[str, Any
                 whole.add(extraction_id)
     for passage in linked.passages:
         extraction_id, _section_id, span_id = passage
-        lead, read = _section_read(vault, repository, library, passage)
+        lead = _section_lead(vault, repository, library, passage)
         if lead is not None and lead not in passages:
             passages.append(lead)
-        if read is not None:
-            sources.setdefault(read[0], set()).update(read[1])
+        if lead is not None:
+            read_from, spans = _section_spans(library, passage)
+            if spans:
+                sources.setdefault(read_from, set()).update(spans)
+            else:
+                whole.add(read_from)
         if span_id:
             for lo in learning_objects_for_span(vault, repository, extraction_id=extraction_id, span_id=str(span_id)):
                 if lo in vault.learning_objects and lo not in los:

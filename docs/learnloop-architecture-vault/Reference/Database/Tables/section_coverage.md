@@ -3,8 +3,8 @@ title: "section_coverage"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "5dacdf7873b877931172950dc16421f7a375c1d3"
-source_commit_timestamp: "2026-11-01T22:21:31-05:00"
+source_commit: "b7ea2b2856d7d66e82ebc13a850d701dc2d7cc90"
+source_commit_timestamp: "2026-11-02T00:59:12-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite section_coverage"
@@ -131,6 +131,7 @@ None found by exact static reference scan.
 - `tests/test_deliverable_rpcs.py`
 - `tests/test_deliverable_scope.py`
 - `tests/test_notes_as_learner_text.py`
+- `tests/test_notes_c2b_review5.py`
 - `tests/test_notes_linked.py`
 - `tests/test_notes_vault_search.py`
 - `tests/test_reader_ca5_also_in_books.py`
