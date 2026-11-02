@@ -555,14 +555,14 @@ def open_lesson(vault: Any, repository: Any, *, entry: str, learning_object_ids:
     constraints = {"max_lesson_cost_usd": vault.config.teacher.max_lesson_cost_usd,
                    "sources_tokens": vault.config.teacher.context.sources_tokens}
     from learnloop.teacher.brief import protection_state
-    from learnloop.teacher.notes import your_notes
+    from learnloop.teacher.notes import notes_still_deliverable, your_notes
 
     # The protection state the brief is built under (ruling R1): read before and after building it, so a
     # change while it is built never stands recorded as the brief's.
     before = protection_state(vault, repository)
     brief, book = build_brief(vault, repository, learning_object_ids=los, how=how, goal_text=text,
                               selection=selected, driver=driver, lesson_id=lesson_id, constraints=constraints,
-                              notes_provider=your_notes)
+                              notes_provider=your_notes, notes_check=notes_still_deliverable)
     protection = protection_state(vault, repository, brief)
     if before is None or protection is None:
         raise LessonError("protected", "LearnLoop couldn't check your exam material right now, so no lesson "

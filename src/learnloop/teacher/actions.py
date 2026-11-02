@@ -231,10 +231,13 @@ def read_history(vault: Any, repository: Any, state: Any, refs: list[str]) -> di
     if lessons:
         # An earlier lesson's recap through today's protection, as the brief takes it (followups batch 5, A).
         from learnloop.teacher.brief import admitted_recap, protection_state
+        from learnloop.teacher.notes import notes_still_deliverable
 
         current = protection_state(vault, repository) if any(recap for _i, _id, recap in lessons) else None
+        memo: dict[str, bool] = {}
         for index, lesson_id, recap in lessons:
-            out[index].update(admitted_recap(vault, repository, lesson_id, recap, current=current))
+            out[index].update(admitted_recap(vault, repository, lesson_id, recap, current=current,
+                                             notes_check=notes_still_deliverable, memo=memo))
     return {"entries": out}
 
 

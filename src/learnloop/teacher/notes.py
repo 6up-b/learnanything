@@ -82,4 +82,38 @@ def read_note(vault: Any, repository: Any, state: Any, refs: list[str]) -> dict[
     return {"notes": out}
 
 
-__all__ = ["read_note", "your_notes"]
+def notes_still_deliverable(vault: Any, repository: Any, note_refs: Sequence[str]) -> bool:
+    """Whether every note a lesson was given (``n:<link id>``: a ``your_notes`` header or a ``read_note``
+    text) could still be given now, so an earlier lesson's recap may carry what it took from them
+    (followups batch 5, Codex review F2; :func:`learnloop.teacher.brief.recap_admissible` calls it by
+    injection). The note is the delivered link row's (append-only, so a later hide or re-link cannot
+    drop the dependency), judged by C2b's predicate on every anchor its annotation ever had
+    (``vault_notes.snapshot_protected_keys``, the one that withholds the note itself). Fail closed: a
+    ref that names no link row, a Reader note with no anchor history (its source cannot be told), or
+    notes that cannot be read. A capture holds no book text and stays."""
+
+    refs = {str(ref) for ref in note_refs}
+    if not refs:
+        return True
+    if any(not ref.startswith("n:") or len(ref) <= 2 for ref in refs):
+        return False
+    try:
+        from learnloop.db.stores import learner_notes as notes_store
+        from learnloop.source_retrieval import vault_notes as VN
+
+        link_ids = {ref[2:] for ref in refs}
+        with repository.connection() as connection:
+            rows = notes_store.links_by_id(connection, link_ids)
+        if set(rows) != link_ids:
+            return False
+        keys = {str(row["note_key"]) for row in rows.values()}
+        for key in keys:
+            ref = VN.split_key(key)
+            if ref is not None and ref[0] == VN.KIND_ANNOTATION and not VN.anchor_sources(repository, key):
+                return False
+        return not VN.snapshot_protected_keys(vault, repository, keys)
+    except Exception:  # noqa: BLE001 - notes that can't be judged leave the recap out
+        return False
+
+
+__all__ = ["notes_still_deliverable", "read_note", "your_notes"]

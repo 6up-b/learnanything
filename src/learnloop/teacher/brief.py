@@ -16,7 +16,8 @@ actions. It holds:
   (assisted, primed or cold, the tap and the hedge read); text comes through
   ``read_history``;
 * ``last_lessons``: earlier receipts on these LOs with their delayed checks' results; a recap only
-  while what its lesson relied on is still teachable (:func:`recap_admissible`);
+  while what its lesson relied on is still teachable (:func:`recap_admissible`: its passages and items,
+  the earlier recaps it was given, transitively, and the notes it was given);
 * ``sources``: the goal's sections whole (C4: the deliverable path's primaries
   whole, alternates as outline), model-safe passages only, each with a short
   alias (``S1``) the teacher cites; over ``teacher.context.sources_tokens``, the
@@ -37,7 +38,7 @@ from __future__ import annotations
 
 import json
 import math
-from collections.abc import Iterable, Mapping, Sequence
+from collections.abc import Callable, Iterable, Mapping, Sequence
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -437,11 +438,24 @@ RECAP_OMITTED = "left out: some of what that lesson relied on is now kept for yo
 _UNREAD: Any = object()
 
 
-def _lesson_exposure(repository: Any, lesson_id: str) -> tuple[dict[str, Any], SourceBook, set[str]]:
-    """An earlier lesson's recorded protection, the passages it delivered (its brief's and every read's
-    additions: everything its recap may quote or cite) and the vault items it was shown while they were
-    not withheld (its brief's probes and tutor questions, its unprotected history, ``find_practice``
-    results and its own checks)."""
+@dataclass
+class _Exposure:
+    """What an earlier lesson relied on: its recorded protection, the passages it delivered (its brief's
+    and every read's additions), the vault items it was shown, the earlier lessons whose recaps it was
+    given (``last_lessons``, ``read_history``) and the learner's notes it was given (``your_notes``,
+    ``read_note``): everything its own recap may have been written from."""
+
+    protection: dict[str, Any]
+    book: SourceBook
+    items: set[str]
+    lessons: set[str]
+    notes: set[str]
+
+
+def _lesson_exposure(repository: Any, lesson_id: str) -> _Exposure | None:
+    """An earlier lesson's :class:`_Exposure`, or None when its opening cannot be found (fail closed).
+    Items: its brief's probes and tutor questions, its unprotected history, ``find_practice`` results and
+    its own checks, all shown while not withheld."""
 
     from learnloop.db.stores import lessons as store
     from learnloop.teacher.contracts import READ_ACTIONS
@@ -450,7 +464,9 @@ def _lesson_exposure(repository: Any, lesson_id: str) -> tuple[dict[str, Any], S
         turns = store.turns(connection, lesson_id)
         checks = store.checks(connection, lesson_id)
         opened = next((t for t in turns if t["action"] == "open"), None)
-        payload = (opened or {}).get("payload") or {}
+        if opened is None:
+            return None
+        payload = opened.get("payload") or {}
         brief = payload.get("brief") or {}
         items = {str(probe.get("id")) for node in brief.get("nodes") or [] for probe in node.get("probes") or []
                  if probe.get("id")}
@@ -463,6 +479,11 @@ def _lesson_exposure(repository: Any, lesson_id: str) -> tuple[dict[str, Any], S
                     f"SELECT practice_item_id FROM {table} WHERE id IN (SELECT value FROM json_each(?))",
                     (json.dumps(ids),)) if row[0])
     book = SourceBook.from_dict(payload.get("book"))
+    # Codex review F1/F2: an inherited recap and a note are inputs too (their ids; any recap given counts).
+    lessons = {str(entry.get("id"))[2:] for entry in brief.get("last_lessons") or []
+               if entry.get("recap") and str(entry.get("id") or "").startswith("l:")}
+    notes = {str(note.get("id")) for node in brief.get("nodes") or [] for note in node.get("your_notes") or []
+             if note.get("id")}
     for entry in turns:
         if entry["action"] not in READ_ACTIONS:
             continue
@@ -470,53 +491,95 @@ def _lesson_exposure(repository: Any, lesson_id: str) -> tuple[dict[str, Any], S
         book.passages.update(result.get("book_additions") or {})
         items.update(str(found.get("practice_item_id")) for found in result.get("items") or []
                      if isinstance(found, Mapping) and found.get("practice_item_id"))
+        lessons.update(str(found.get("id"))[2:] for found in result.get("entries") or []
+                       if isinstance(found, Mapping) and found.get("recap")
+                       and str(found.get("id") or "").startswith("l:"))
+        notes.update(str(found.get("id")) for found in result.get("notes") or []
+                     if isinstance(found, Mapping) and found.get("id") and not found.get("refused"))
     items.update(str(check["minted_item_id"]) for check in checks if check.get("minted_item_id"))
-    return dict(payload.get("protection") or {}), book, items
+    lessons.discard(lesson_id)
+    return _Exposure(dict(payload.get("protection") or {}), book, items, lessons, notes)
 
 
-def recap_admissible(vault: Any, repository: Any, lesson_id: str, *, current: Any = _UNREAD) -> bool:
+#: A notes check (``teacher.notes.notes_still_deliverable``, injected: the brief never reaches the notes'
+#: code): whether every delivered note ref could still be given now.
+NotesCheck = Callable[[Any, Any, Sequence[str]], bool]
+
+
+def recap_admissible(vault: Any, repository: Any, lesson_id: str, *, current: Any = _UNREAD,
+                     notes_check: NotesCheck | None = None, memo: dict[str, bool] | None = None) -> bool:
     """Whether an earlier lesson's recap may enter a brief or a ``read_history`` result NOW.
 
     The recap was written under the protection that lesson recorded (a change mid-lesson ends it with
     ``protection_changed`` and no recap). While the vault's protection is the same, it stands. When it
-    changed (or that lesson recorded none), every passage the lesson delivered (its recap's cited aliases
-    among them) must still be teachable and no item it was shown may since have become exam or reserved
-    material; protection that cannot be read leaves the recap out (fail closed, for that recap only).
-    ``current``: :func:`protection_state` read once by a caller checking several lessons."""
-
-    from learnloop.learner_protection import WITHHELD_EXAM, WITHHELD_RESERVED, withheld_items
-    from learnloop.source_retrieval.section_coverage import CoverageError, Library
+    changed (or that lesson recorded none), everything the recap may have been written from is re-checked:
+    every passage the lesson delivered (its recap's cited aliases among them) must still be teachable, no
+    item it was shown may since have become exam or reserved material, every earlier recap it was given
+    must itself still be admissible (transitively; Codex review F1) and every note it was given must still
+    be deliverable (``notes_check``, injected; none given when the lesson had notes leaves the recap out;
+    Codex review F2). Protection or provenance that cannot be read leaves the recap out (fail closed, for
+    that recap only). ``current``: :func:`protection_state` read once by a caller checking several
+    lessons; ``memo``: verdicts by lesson id shared across those checks."""
 
     now = protection_state(vault, repository) if current is _UNREAD else current
     if now is None:
         return False
-    recorded, book, items = _lesson_exposure(repository, lesson_id)
+    memo = {} if memo is None else memo
+    return _admissible(vault, repository, lesson_id, now, notes_check, memo, {})
+
+
+def _admissible(vault: Any, repository: Any, lesson_id: str, now: Mapping[str, Any],
+                notes_check: NotesCheck | None, memo: dict[str, bool], reads: dict[str, Any]) -> bool:
+    from learnloop.learner_protection import WITHHELD_EXAM, WITHHELD_RESERVED, withheld_items
+    from learnloop.source_retrieval.section_coverage import CoverageError, Library
+
+    if lesson_id in memo:
+        return memo[lesson_id]
+    memo[lesson_id] = False  # while it is being judged (a cycle cannot be told safe: fail closed)
+    exposure = _lesson_exposure(repository, lesson_id)
+    if exposure is None:
+        return False
+    recorded = exposure.protection
     if recorded.get("version") == now.get("version") and recorded.get("vault") == now.get("vault"):
+        memo[lesson_id] = True
         return True
     try:
-        if book.passages and revoke_unteachable(Library(vault, repository), book):
+        if "library" not in reads:
+            reads["library"] = Library(vault, repository)
+        if exposure.book.passages and revoke_unteachable(reads["library"], exposure.book):
             return False
     except CoverageError:
         return False
-    withheld = withheld_items(vault, repository)
+    if "withheld" not in reads:
+        reads["withheld"] = withheld_items(vault, repository)
+    withheld = reads["withheld"]
     if not withheld.available:
         return False
-    return not any(withheld.reason(item) in (WITHHELD_EXAM, WITHHELD_RESERVED) for item in items)
+    if any(withheld.reason(item) in (WITHHELD_EXAM, WITHHELD_RESERVED) for item in exposure.items):
+        return False
+    if exposure.notes and (notes_check is None or not notes_check(vault, repository, sorted(exposure.notes))):
+        return False
+    if not all(_admissible(vault, repository, earlier, now, notes_check, memo, reads)
+               for earlier in sorted(exposure.lessons)):
+        return False
+    memo[lesson_id] = True
+    return True
 
 
 def admitted_recap(vault: Any, repository: Any, lesson_id: str, recap: Any, *,
-                   current: Any = _UNREAD) -> dict[str, Any]:
+                   current: Any = _UNREAD, notes_check: NotesCheck | None = None,
+                   memo: dict[str, bool] | None = None) -> dict[str, Any]:
     """``{"recap": ...}`` when :func:`recap_admissible`, else the recap left out and said so."""
 
     if not recap:
         return {"recap": recap}
-    if recap_admissible(vault, repository, lesson_id, current=current):
+    if recap_admissible(vault, repository, lesson_id, current=current, notes_check=notes_check, memo=memo):
         return {"recap": recap}
     return {"recap": None, "recap_omitted": RECAP_OMITTED}
 
 
 def _last_lessons(vault: Any, repository: Any, learning_object_ids: Sequence[str],
-                  exclude: str | None) -> list[dict[str, Any]]:
+                  exclude: str | None, notes_check: NotesCheck | None = None) -> list[dict[str, Any]]:
     from learnloop.db.stores import lessons as store
 
     out = []
@@ -534,9 +597,11 @@ def _last_lessons(vault: Any, repository: Any, learning_object_ids: Sequence[str
                         "delayed_checks": checks})
     # Every recap through today's protection (one read for them all), before it can enter the brief.
     current = protection_state(vault, repository) if any(recaps.values()) else None
+    memo: dict[str, bool] = {}
     for entry in out:
         lesson_id = entry["id"][2:]
-        entry.update(admitted_recap(vault, repository, lesson_id, recaps[lesson_id], current=current))
+        entry.update(admitted_recap(vault, repository, lesson_id, recaps[lesson_id], current=current,
+                                    notes_check=notes_check, memo=memo))
     return out
 
 
@@ -669,10 +734,12 @@ def _resolution_phrases(resolution: Any) -> dict[str, str]:
 def build_brief(vault: Any, repository: Any, *, learning_object_ids: Sequence[str], how: Mapping[str, str],
                 goal_text: str, selection: Mapping[str, Any] | None, driver: str, lesson_id: str | None,
                 constraints: Mapping[str, Any],
-                notes_provider: Any = None) -> tuple[dict[str, Any], SourceBook]:
+                notes_provider: Any = None, notes_check: NotesCheck | None = None) -> tuple[dict[str, Any], SourceBook]:
     """``(LessonBriefV1, the delivered passages)``. ``notes_provider`` (curriculum C4) gives the learner's
     linked notes per LO; it is injected by the service (``teacher.notes``), so the brief, and the check
-    minting that reads it, never reach the notes' code (spec_deliverable_curriculum_v1 §10.2)."""
+    minting that reads it, never reach the notes' code (spec_deliverable_curriculum_v1 §10.2).
+    ``notes_check`` (injected the same way): whether the notes an earlier lesson was given could still be
+    given, before its recap enters ``last_lessons`` (:func:`recap_admissible`)."""
 
     from learnloop.learner.lesson_weight import read_hedges
     from learnloop.learner_protection import withheld_items
@@ -737,7 +804,7 @@ def build_brief(vault: Any, repository: Any, *, learning_object_ids: Sequence[st
         "goal": goal,
         "nodes": nodes,
         "history": history,
-        "last_lessons": _last_lessons(vault, repository, all_los, lesson_id),
+        "last_lessons": _last_lessons(vault, repository, all_los, lesson_id, notes_check),
         "sources": sources,
         "constraints": {"driver": driver, **dict(constraints)},
         "doctrine": doctrine_identity(),
@@ -747,6 +814,7 @@ def build_brief(vault: Any, repository: Any, *, learning_object_ids: Sequence[st
 
 __all__ = [
     "LessonRefused",
+    "NotesCheck",
     "RECAP_OMITTED",
     "SourceBook",
     "ad_readiness",
