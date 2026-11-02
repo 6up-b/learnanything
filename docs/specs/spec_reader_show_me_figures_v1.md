@@ -936,6 +936,7 @@ The output is cached by the section's content hash and the prompt version, so ea
 - No block of an item that is the subject of an open or cold administration, and no passage that `assisted_practice` would withhold for an item in tomorrow's plan.
 - Not already built under the current key.
 - `figures.enabled`, `figures.show_me_enabled` (for goals), `figures.prefetch_enabled`.
+- *As built (follow-ups batch 6, landing step 0):* not already decided for this same trigger, its horizon closed or not (a `void` row excepted: released, its passage is new input), and nothing from a plan that has ended. One draw per candidate per trigger keeps the logged propensity the real chance of a build (§10b.3).
 
 ### 10b.3 The decision: learned, not a threshold
 

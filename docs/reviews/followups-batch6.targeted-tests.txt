@@ -46,6 +46,7 @@ tests/test_figures_show_me.py
 tests/test_figures_switch_off.py
 tests/test_figure_verification.py
 tests/test_followups_batch6_power_probe_cache.py
+tests/test_followups_batch6_prefetch_decided_once.py
 tests/test_followups_batch6_prefetch_next_section.py
 tests/test_followups_batch6_prefetch_plan_wait.py
 tests/test_followups_batch6_review_fixes.py

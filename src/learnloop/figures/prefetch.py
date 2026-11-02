@@ -39,11 +39,16 @@ exam and held-out spans (``exam_material``/``spans_withheld``); every passage
 of an item under a live administration (an open cold check, a cold retry, an
 assessment reservation, a probe) or held open by the stored plan, over the
 author's whole context, neighbours included (:func:`item_protection`); a
-request already built; a request already decided whose horizon is open. A
-judge retry checks its passages again first (Codex review F1).
+request already built; a request already decided whose horizon is open; a
+request already decided for this same trigger, whose horizon has closed. A plan
+that has ended offers nothing at all. A judge retry checks its passages again
+first (Codex review F1).
 
 **The decision** (:mod:`.prefetch_model`): one Thompson draw decides, the
-propensity is logged; candidates that pass queue in sampled-EU order, and
+propensity is logged. So a candidate is drawn once for its trigger: drawn again
+until one built, the logged propensity would understate the real chance of a
+build (a ``void`` row excepted: its passage was withheld, and released is new
+input). Candidates that pass queue in sampled-EU order, and
 the ``keep`` caps (``figures.prefetch.max_daily_builds``,
 ``max_daily_render_minutes``) cut the queue (``capped``); off mains:
 ``deferred_power``; the plan not the route or not answering: ``deferred_plan``.
@@ -820,6 +825,8 @@ def candidates(env: PrefetchEnv, trigger: Trigger, *, call: bool, result: PassRe
     keys = open_keys or set()
     if trigger.kind == "plan":
         record = _plan_record(env, trigger.ref or None)
+        if record is not None and _plan_ended(env, str(record.id)):
+            return []  # no longer next (spec §10b.5): no judge call, no decision, no build for it
         reading = next((block.reading_target for block in (record.blocks if record is not None else ())
                         if block.is_reading and not block.withdrawn_path_reading), None)
         if reading is None or not reading.extraction_id or not reading.section_id:
@@ -854,6 +861,20 @@ def _decided_refs(repository: Repository, kind: str) -> set[str]:
             return set()
         return {str(row[0]) for row in connection.execute(
             "SELECT trigger_ref FROM figure_prefetch_decisions WHERE trigger_kind = ?", (kind,))}
+
+
+def decided_requests(repository: Repository) -> set[tuple[str, str, str]]:
+    """What each trigger has decided already, closed or not: a read of today's plan, or more
+    progress on a section, is not a new reason to draw for a candidate whose horizon has closed.
+    A ``void`` row is left out: it says the passage was withheld, and released it is new input
+    (the withheld filter keeps it out until then)."""
+
+    with closing(connect(repository.sqlite_path, read_only=True)) as connection:
+        if not PL.has_tables(connection):
+            return set()
+        return {(str(row[0]), str(row[1]), str(row[2])) for row in connection.execute(
+            "SELECT trigger_kind, trigger_ref, request_key FROM figure_prefetch_decisions "
+            "WHERE outcome IS NULL OR outcome != 'void'")}
 
 
 def open_request_keys(repository: Repository) -> set[str]:
@@ -915,11 +936,12 @@ def filter_candidates(env: PrefetchEnv, found: Iterable[Candidate], *, open_keys
     protection = item_protection(env)
     if not protection.available:
         return []  # fail closed
+    decided = decided_requests(env.repository)
     kept: list[Candidate] = []
     seen: set[str] = set()
     for candidate in found:
         key = candidate.request_key
-        if key in seen or key in open_keys:
+        if key in seen or key in open_keys or (candidate.trigger_kind, candidate.trigger_ref, key) in decided:
             continue
         seen.add(key)
         if not candidate.span_ids:
@@ -1261,6 +1283,30 @@ def _session_end(connection: Any, extraction_id: str | None, created: datetime) 
     return min(ends) if ends else None
 
 
+def _plan_row(connection: Any, plan_id: Any) -> Any:
+    return connection.execute("SELECT local_date, status, completed_at, updated_at FROM daily_plans WHERE id = ?",
+                              (plan_id,)).fetchone()
+
+
+def _plan_end(env: PrefetchEnv, plan: Any) -> datetime | None:
+    """The instant a stored plan stopped being next: its local day ended, or it was completed or
+    stopped, whichever is first. A decision's horizon, and the end of the plan's candidates."""
+
+    moments = [moment for moment in (_day_end(env, plan[0]),) if moment is not None]
+    if plan[1] != "open":
+        moments.append(PL._when(plan[2] or plan[3]) or env.now())
+    return min(moments) if moments else None
+
+
+def _plan_ended(env: PrefetchEnv, plan_id: str) -> bool:
+    """Whether a plan just read has ended, by the instant its decisions close on."""
+
+    with closing(connect(env.repository.sqlite_path, read_only=True)) as connection:
+        plan = _plan_row(connection, plan_id)
+    ended = _plan_end(env, plan) if plan is not None else None
+    return ended is not None and ended <= env.now()
+
+
 def horizon_at(env: PrefetchEnv, connection: Any, row: Mapping[str, Any], open_gaps: set[str] | None
                ) -> datetime | None:
     """When the decision's structural horizon passed (spec §10b.5), or None while it is open.
@@ -1278,14 +1324,10 @@ def horizon_at(env: PrefetchEnv, connection: Any, row: Mapping[str, Any], open_g
         return now
     found: datetime | None = None
     if kind == "plan":
-        plan = connection.execute("SELECT local_date, status, completed_at, updated_at FROM daily_plans WHERE id = ?",
-                                  (row["trigger_ref"],)).fetchone()
+        plan = _plan_row(connection, row["trigger_ref"])
         if plan is None:
             return now
-        moments = [moment for moment in (_day_end(env, plan[0]),) if moment is not None]
-        if plan[1] != "open":
-            moments.append(PL._when(plan[2] or plan[3]) or now)
-        found = min(moments) if moments else None
+        found = _plan_end(env, plan)
     elif kind == "section":
         extraction_id, _sep, section_id = str(row["trigger_ref"]).partition(":")
         done = connection.execute(
@@ -1589,6 +1631,7 @@ __all__ = [
     "already_built",
     "candidates",
     "context_spans",
+    "decided_requests",
     "horizon_at",
     "item_protection",
     "planned_visual",
