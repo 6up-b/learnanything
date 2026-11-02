@@ -98,10 +98,10 @@
   figure under a passage of this book with its home named; with figures off, no offer and no `reader.figures` read.
 
 ## Gate (this step; targeted only, per the owner's 2026-10-17 rule)
-See the stage's structured result for counts. Commands run:
+Commands run:
 - `uv sync --extra dev --extra mobile` and `uv pip install pypdfium2`
 - `uv run lint-imports --no-cache`: 40 kept, 0 broken
-- targeted pytest (`-n 6`, memory-capped) over the files listed below
+- targeted pytest (`-n 6`, memory-capped) over the 35 files listed below: 1070 passed, 0 failed (202 s)
 - `npm install`, `npm run typecheck` (clean), vitest (`--maxWorkers=4`) over `alsoInBooks*.test.tsx`,
   `figures/` (whole folder), `findSectionReader`, `figuresWithReadingPath` and `readerCorrespondenceSettings`:
   21 files, 464 passed
