@@ -518,6 +518,17 @@ def stored_learner_state_withheld(vault: Any, repository: Repository, row: Mappi
     return _learner_state_withheld(vault, repository, {LEARNER_STATE_INPUTS_KEY: report[LEARNER_STATE_INPUTS_KEY]})
 
 
+def intent_learner_state_withheld(vault: Any, repository: Repository, payload: Any) -> str | None:
+    """Why a saved rich job payload's learner state (a quick figure's durable
+    rich intent) may not go out now, or None when its author was sent no
+    learner state (follow-ups Nov 2: a fuller version stored with no record of
+    its own is read from its quick figure's intent, the job's payload)."""
+
+    if not isinstance(payload, Mapping) or not _carries_learner_state(payload):
+        return None
+    return _learner_state_withheld(vault, repository, payload)
+
+
 def _recovered(vault: Any, repository: Repository, payload: Mapping[str, Any],
                found: Mapping[str, Any]) -> dict[str, Any]:
     """The figure this job's input already stored (a resumed job whose row
@@ -952,6 +963,7 @@ __all__ = [
     "LEARNER_STATE_PROTECTED",
     "RichJobStopped",
     "WAITING_FOR_PLAN",
+    "intent_learner_state_withheld",
     "job_state",
     "manim_opt_in_needed",
     "manim_runtime_state",

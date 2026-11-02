@@ -498,8 +498,63 @@ def row_withheld(vault: Any, repository: Repository, row: Mapping[str, Any]) -> 
         message = keys_withheld(vault, repository, homes)
     # Learner data-relax 2 (Codex re-review F2): a rich figure whose author
     # was sent the learner's state keeps what that state was read from; it
-    # goes out only while none of that is protected now.
-    return message or RICH.stored_learner_state_withheld(vault, repository, row)
+    # goes out only while none of that is protected now. Follow-ups Nov 2:
+    # a quick figure too, and every figure it was made from (its earlier
+    # versions, a fuller version's quick figure), read from the current rows.
+    return message or learner_state_withheld(vault, repository, row)
+
+
+def learner_state_withheld(vault: Any, repository: Repository, row: Mapping[str, Any]) -> str | None:
+    """Why a stored figure may not go out now because of the learner state
+    an author of it was sent, or None (follow-ups Nov 2, ruling R1 of learner
+    data-relax 2: exam-material protection, not privacy).
+
+    Read from the current rows at presentation time, for the figure and every
+    figure it was made from (its earlier versions through ``supersedes_id``,
+    whose spec or program a revision's author is sent; a fuller version's
+    quick figure through ``fuller_of_id``, whose brief its author is sent):
+    each row's own record (quick and rich rows alike keep
+    ``learner_state_inputs`` in their report) and a quick figure's rich intent
+    (the job's payload, so a fuller version stored with no record of its own
+    is checked by what its job carried). A figure no author of which was sent
+    a learner state has nothing to check here, exactly as before."""
+
+    lineage = [row]
+    seen = {str(row.get("id") or "")}
+    with closing(connect(repository.sqlite_path, read_only=True)) as connection:
+        if not store.has_tables(connection):
+            return None
+        index = 0
+        while index < len(lineage):  # each row once (``seen``), so it ends
+            current = lineage[index]
+            index += 1
+            for parent_id in (current.get("supersedes_id"), current.get("fuller_of_id")):
+                if parent_id and str(parent_id) not in seen:
+                    seen.add(str(parent_id))
+                    parent = store.figure(connection, str(parent_id))
+                    if parent is not None:
+                        lineage.append(parent)
+    for found in lineage:
+        message = RICH.stored_learner_state_withheld(vault, repository, found)
+        if message is None:
+            report = found.get("verification_report") or {}
+            intent = report.get(RICH_INTENT_KEY) if isinstance(report, Mapping) else None
+            message = RICH.intent_learner_state_withheld(vault, repository, intent)
+        if message is not None:
+            return message
+    return None
+
+
+def _with_learner_inputs(report: Mapping[str, Any], request: "FigureRequest") -> dict[str, Any]:
+    """A quick figure's report with what its author's learner state was read
+    from (follow-ups Nov 2: the record rich rows keep since learner data-relax
+    2, ``RICH.LEARNER_STATE_INPUTS_KEY``; never shown or sent to a model), so
+    the figure is rechecked whenever it goes out. No learner state sent: the
+    report exactly as before."""
+
+    if not request.learner_state:
+        return dict(report)
+    return {**dict(report), RICH.LEARNER_STATE_INPUTS_KEY: request.learner_state_inputs}
 
 
 def figure_homes(repository: Repository, row: Mapping[str, Any]) -> list[tuple[str, str]] | None:
@@ -1067,12 +1122,7 @@ def figure_view(vault: Any, repository: Repository, row: Mapping[str, Any], *, v
     this view (the request delivering it, or one placement in a listing);
     unset, its own request's reading position."""
 
-    row = rich_off_row(vault, sketch_off_row(vault, advanced_off_row(vault, shown_row(row))))
-    if sketch_enabled(vault):
-        row = sketch_rechecked(row, repository)
-    # After the re-verification (it reads the stored program): the free-text
-    # label rule as presented (spec §9b.4, Codex review F3, Nov 1b).
-    row = worded_row(row)
+    row = _presented_row(vault, repository, row)
     asked = _figure_request(repository, row)
     view: dict[str, Any] = {
         "figure_id": row["id"], "extraction_id": row["extraction_id"], "span_ids": list(row.get("span_ids") or ()),
@@ -1216,6 +1266,37 @@ def _manim_view(row: Mapping[str, Any], view: dict[str, Any]) -> dict[str, Any]:
     return view
 
 
+def _presented_row(vault: Any, repository: Repository, row: Mapping[str, Any]) -> dict[str, Any]:
+    """A stored row as :func:`figure_view` presents it under the switches now."""
+
+    row = rich_off_row(vault, sketch_off_row(vault, advanced_off_row(vault, shown_row(row))))
+    if sketch_enabled(vault):
+        row = sketch_rechecked(row, repository)
+    # After the re-verification (it reads the stored program): the free-text
+    # label rule as presented (spec §9b.4, Codex review F3, Nov 1b).
+    return worded_row(row)
+
+
+def redelivered_view(vault: Any, repository: Repository, view: Mapping[str, Any]) -> dict[str, Any]:
+    """A figure view kept since its build (a finished job's result, read
+    again through ``reader.figure_job``) as it may go out now (follow-ups
+    Nov 2): its fuller version is rebuilt from the current rows
+    (:func:`fuller_state`), so a fuller version whose learner inputs became
+    protected since, or that was stored since, is presented as it is now.
+    The caller has already rechecked the figure itself
+    (:func:`figure_withheld`). A view with no fuller line (the rich tiers off,
+    or a rich figure) is returned as it is."""
+
+    if "fuller" not in view or not view.get("figure_id"):
+        return dict(view)
+    with closing(connect(repository.sqlite_path, read_only=True)) as connection:
+        row = store.figure(connection, str(view["figure_id"])) if store.has_tables(connection) else None
+    if row is None:
+        return dict(view)
+    presented = _presented_row(vault, repository, row)
+    return {**view, "fuller": None if rich_row(presented) else fuller_state(vault, repository, presented)}
+
+
 def fuller_state(vault: Any, repository: Repository, row: Mapping[str, Any]) -> dict[str, Any] | None:
     """RW5d P2b (spec §6.8, §8.6): the fuller version of a quick figure, or
     None when it has none: ``ready`` (with the rich figure's view),
@@ -1228,7 +1309,7 @@ def fuller_state(vault: Any, repository: Repository, row: Mapping[str, Any]) -> 
         rows = store.fuller_rows(connection, str(row["id"]))
     # Codex re-review F2: a fuller version whose author's learner state was
     # read from something protected now is not delivered (nor named failed).
-    rows = [found for found in rows if RICH.stored_learner_state_withheld(vault, repository, found) is None]
+    rows = [found for found in rows if learner_state_withheld(vault, repository, found) is None]
     shown = [found for found in rows if found["verification"] in store.SHOWN]
     if shown:
         rich = shown[-1]
@@ -1364,7 +1445,7 @@ def _reusable(vault: Any, repository: Repository, connection: Any, input_hash: s
     # figure (its fuller version is reached through the quick one instead).
     rich_only = store.reusable(connection, input_hash, RICH_SPEC_VERSIONS) if rich_enabled(vault) else None
     if (rich_only is not None and not rich_only.get("fuller_of_id") and drawable_now(vault, rich_only)
-            and RICH.stored_learner_state_withheld(vault, repository, rich_only) is None):
+            and learner_state_withheld(vault, repository, rich_only) is None):
         return rich_only
     # RW5d P2: the same input under the other settings of the panels and of
     # the sketch tier; only a shown figure that can be drawn now.
@@ -2108,6 +2189,7 @@ def _author_and_store(vault: Any, repository: Repository, request: FigureRequest
     gate.check("store")
     row["verification"] = report.outcome
     row.setdefault("verification_report", report.as_dict())
+    row["verification_report"] = _with_learner_inputs(row["verification_report"], request)
     if rich_spawn is not None and row["verification"] in store.SHOWN:
         # Codex review F8: the rich job's intent commits with the quick figure.
         row["verification_report"] = rich_spawn.with_intent(row["verification_report"], asked["id"], figure_id)
@@ -2385,6 +2467,7 @@ def _store_sketch(vault: Any, repository: Repository, request: FigureRequest, co
         failed = report.as_dict() if report is not None else {"tier": "sketch", "problems": list(problems)[:12]}
         failed.update({"outcome": V.FAILED, "reason": str(reason)[:300]})
         row.update({"verification": V.FAILED, "verification_report": failed})
+    row["verification_report"] = _with_learner_inputs(row["verification_report"], request)
     gate.check("store")
     if rich_spawn is not None and row["verification"] in store.SHOWN:
         # Codex review F8: the rich job's intent commits with the quick figure.
@@ -2915,6 +2998,8 @@ __all__ = [
     "keys_withheld",
     "revision_request",
     "row_withheld",
+    "learner_state_withheld",
+    "redelivered_view",
     "show_me_enabled",
     "show_me_input",
     "fuller_state",
