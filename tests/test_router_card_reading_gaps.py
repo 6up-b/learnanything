@@ -124,3 +124,63 @@ def test_an_unreadable_exam_predicate_withholds_a_reading_gaps_words(tmp_path, m
     entries = [entry for entry in _card_inputs(env).open_hypotheses if entry["kind"] == "learner_named_misconception"]
     assert [entry["statement"] for entry in entries] == [None]
     assert BOOK_WORDS not in json.dumps(entries, default=str)
+
+
+def _raw_question(env, question_id: str, *, context: str, source_context_json: str | None) -> None:
+    with env.repository.connection() as connection:
+        connection.execute(
+            "INSERT INTO question_events(id, context, question_md, answer_status, source_context_json, created_at) "
+            "VALUES (?, ?, 'a question', 'answered', ?, ?)", (question_id, context, source_context_json, iso(LAST)))
+        connection.commit()
+
+
+def test_a_reader_question_whose_passage_is_unreadable_or_missing_fails_closed(tmp_path, monkeypatch):
+    """Codex review F1: a Reader question is always asked on a passage; a source
+    context that is missing, not JSON, not an object, or names a block without its
+    extraction cannot place it, so the words are withheld (not shown as if the
+    question had no reading). A practice question with no recorded context, the
+    legitimate no-reading case, is shown as before."""
+
+    env = _world(tmp_path, monkeypatch)
+    _exam_passage(monkeypatch, ("ext_exam", "s1"))
+    cases = {
+        "q_missing": ("reader", None),
+        "q_malformed": ("reader", "{not json"),
+        "q_not_object": ("reader", json.dumps(["ext_exam", "s1"])),
+        "q_span_only": ("reader", json.dumps({"span_id": "s1"})),
+        "q_bad_spans": ("reader", json.dumps({"extraction_id": "ext_book", "span_id": "s2", "source_spans": "s1"})),
+        "q_practice_malformed": ("practice", "{not json"),
+    }
+    for question_id, (context, raw) in cases.items():
+        _raw_question(env, question_id, context=context, source_context_json=raw)
+        _gap(env, f"gap_{question_id}", "tutor_question", question_id, f"WORDS_{question_id.upper()}")
+    _raw_question(env, "q_practice_none", context="practice", source_context_json=None)
+    _gap(env, "gap_practice_none", "tutor_question", "q_practice_none", PRACTICE_WORDS)
+    inputs = _card_inputs(env)
+    entries = [entry for entry in inputs.open_hypotheses if entry["kind"] == "learner_named_misconception"]
+    assert len(entries) == len(cases) + 1
+    assert [entry["statement"] for entry in entries if entry["statement"]] == [PRACTICE_WORDS]
+    assert all(entry["withheld"] == protection.WITHHELD_UNREADABLE for entry in entries if not entry["statement"])
+    for question_id in cases:
+        assert f"WORDS_{question_id.upper()}" not in json.dumps(list(inputs.open_hypotheses), default=str)
+
+
+def test_an_extraction_named_without_a_block_is_checked_whole(tmp_path, monkeypatch):
+    """Codex review F1: ``{"extraction_id": "ext_exam"}`` (or a delivered span with
+    no block) names the whole extraction: any exam material in it withholds the
+    words; an extraction with none shows them."""
+
+    env = _world(tmp_path, monkeypatch)
+    _exam_passage(monkeypatch, ("ext_exam", "s1"))
+    _raw_question(env, "q_exam_whole", context="reader", source_context_json=json.dumps({"extraction_id": "ext_exam"}))
+    _raw_question(env, "q_exam_delivered", context="reader", source_context_json=json.dumps(
+        {"extraction_id": "ext_book", "span_id": "s2", "source_spans": [{"extraction_id": "ext_exam"}]}))
+    _raw_question(env, "q_book_whole", context="reader", source_context_json=json.dumps({"extraction_id": "ext_book"}))
+    _gap(env, "gap_exam_whole", "tutor_question", "q_exam_whole", EXAM_WORDS)
+    _gap(env, "gap_exam_delivered", "tutor_question", "q_exam_delivered", FORMATIVE_WORDS)
+    _gap(env, "gap_book_whole", "tutor_question", "q_book_whole", BOOK_WORDS)
+    inputs = _card_inputs(env)
+    entries = [entry for entry in inputs.open_hypotheses if entry["kind"] == "learner_named_misconception"]
+    assert len(entries) == 3
+    assert [entry["statement"] for entry in entries if entry["statement"]] == [BOOK_WORDS]
+    assert all(entry["withheld"] == protection.WITHHELD_EXAM for entry in entries if not entry["statement"])
