@@ -10,8 +10,8 @@ area: "TypeScript/screens/reader"
 source_path: "apps/learnloop-tauri/src/screens/reader/ScopeFromPassage.tsx"
 source_paths:
   - "apps/learnloop-tauri/src/screens/reader/ScopeFromPassage.tsx"
-source_commit: "2bac2d18efb2dbf7ca9e3f0474532abf324ca58a"
-source_commit_timestamp: "2026-11-01T19:16:35-05:00"
+source_commit: "47ef1fe071b0997d37aed997b25b84aa959a1476"
+source_commit_timestamp: "2026-11-01T20:06:41-05:00"
 source_worktree_state: "clean"
 activation_kind: "entry-reachable build graph"
 activation_evidence: "A static TypeScript import path reaches this file from the Vite entry src/main.tsx."
@@ -42,14 +42,14 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/screens/reader/ScopeFromPassage.tsx](../../../../../../../apps/learnloop-tauri/src/screens/reader/ScopeFromPassage.tsx) |
-| Source lines | 85 |
+| Source lines | 87 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/screens/reader/_area|TypeScript/screens/reader]] |
 | Refactor status | `ACTIVE` |
 | Activation kind | `entry-reachable build graph` |
 | Worktree state | `clean` |
-| Source commit | `2bac2d18efb2dbf7ca9e3f0474532abf324ca58a` |
-| Commit timestamp | `2026-11-01T19:16:35-05:00` |
+| Source commit | `47ef1fe071b0997d37aed997b25b84aa959a1476` |
+| Commit timestamp | `2026-11-01T20:06:41-05:00` |
 
 ## Activation and status evidence
 
@@ -60,15 +60,15 @@ The system-level behavior stays authoritative in the linked architecture, concep
 
 ## Public API
 
-- `export const SCOPE_FROM_PASSAGE_COPY =` — const, line 22
-- `export interface ScopeFromPassageProps` — interface, line 31
-- `export function ScopeFromPassage(` — function, line 38
+- `export const SCOPE_FROM_PASSAGE_COPY =` — const, line 23
+- `export interface ScopeFromPassageProps` — interface, line 33
+- `export function ScopeFromPassage(` — function, line 40
 
 ## Internal implementation anchors
 
-- `let alive = true` — let, line 43
-- `const scope = async (goalId: string)` — const, line 57
-- `const out = await api.curriculumSetScope(` — const, line 62
+- `let alive = true` — let, line 45
+- `const scope = async (goalId: string)` — const, line 59
+- `const out = await api.curriculumSetScope(` — const, line 64
 
 ## Who imports or calls it
 
