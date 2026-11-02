@@ -35,6 +35,7 @@ const CLOSE_WORDS: Record<string, string> = {
   budget: "This lesson reached its spending cap.",
   plan_unavailable: "The teacher became unavailable, so the lesson closed.",
   teacher_contract_failure: "The teacher kept getting its turns wrong, so the lesson closed.",
+  protection_changed: "Some of what this lesson relied on is now kept for your exam or held out, so the lesson ended here.",
 };
 
 function dueWords(due: string): string {
@@ -149,6 +150,13 @@ export function LessonScreen({
     await run({ action: "stop", lessonId });
   }, [lessonId, run]);
 
+  /** Ruling R1: a lesson ended by a protection change restarts as a fresh lesson with a fresh brief. */
+  const startFresh = useCallback(async () => {
+    const learningObjectIds = view?.learningObjectIds ?? [];
+    if (!learningObjectIds.length) return;
+    await run({ action: "open", entry: "learning_object", learningObjectIds });
+  }, [view, run]);
+
   const feed = useMemo(() => view?.feed ?? [], [view]);
   const title = entry.kind === "open" ? entry.title : undefined;
 
@@ -177,6 +185,13 @@ export function LessonScreen({
             <FeedEntry key={index} item={item} openCheckRef={openCheck?.checkRef ?? null} checkOpen={checkOpen}
                        onOpenCheck={() => setCheckOpen(true)} />
           ))}
+          {view && view.closed && view.closeReason === "protection_changed" && view.learningObjectIds?.length ? (
+            <div style={{ marginTop: 10 }}>
+              <button type="button" data-testid="lesson-start-fresh" disabled={busy} onClick={() => void startFresh()}>
+                Start a fresh lesson
+              </button>
+            </div>
+          ) : null}
           {busy ? <Faint>The teacher is writing…</Faint> : null}
           {unavailable ? (
             <div role="status" data-testid="lesson-unavailable" style={{ color: COLOR.textDim }}>

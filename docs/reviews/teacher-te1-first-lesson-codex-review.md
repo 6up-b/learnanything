@@ -229,3 +229,107 @@ the landing gate's (owner rule 2026-10-17).
 
 `src/learnloop/teacher/service.py`, `tests/test_teacher_te1_review_fixes.py`, `docs/specs/spec_teacher_v1.md` (§20
 as-built), this file.
+
+## Re-review 2 (codex-job `20261101-222330-VW72um` and the latest re-review): directed fixes at landing
+
+**Base of this step:** `15a001d7ad`. Codex confirmed F1, F2, F14 and F15 fixed, as well as F5–F13 from round 1. It
+reopened F3 and F4, and raised F16 (Medium). The orchestrator directed the fixes below; F4 was handled as a
+**structural simplification under the stuck-loop rule** (this was the third round on saved-context protection).
+**No paid or live call was made**: every model is a fake, and no ad-hoc Python or CLI ran outside pytest.
+
+**Reproduced first.** The five regression tests were committed alone in `c00622f91e` and run against the base `src/`:
+all five failed, each for its finding's own reason.
+
+- F3: the turn was accepted with no exception after the reveal write failed (`DID NOT RAISE`).
+- F4: the next action made a teacher call (`3 == 2`) after a passage was held out, after a history item was reserved
+  for an exam, and when protection became unreadable; it also made one after a hold that happened between a turn and
+  its read follow-up (`3 == 2`).
+- The unreadable case also raised `CoverageError`, from inside the redaction path.
+
+With the fixes all five pass.
+
+| id | severity | title | verdict | commit | test or reason |
+|---|---|---|---|---|---|
+| F3 | High | A reveal write failure is swallowed, so a turn is accepted with zero reveals | fixed (R2) | step 0 | `test_r3_f3_a_failed_reveal_write_leaves_the_turn_unaccepted` |
+| F4 | High | Saved `read_history` results for an item held out mid-lesson are resent | fixed structurally (R1) | step 0 | `test_r3_f4_a_lesson_whose_protection_changed_ends_without_another_call`, `test_r3_f4_protection_changing_before_a_read_follow_up_ends_the_lesson`, `test_r3_f4_an_item_held_out_after_its_history_was_read_ends_the_lesson`, `test_r3_f4_unreadable_protection_ends_the_lesson`; `test_rr_f4_nothing_revoked_leaves_the_prompt_unchanged` kept |
+| F16 | Medium | Resume can make one extra follow-up call after a completed help action (`_owes_followup` treats `check_withdrawn` as an action boundary) | ruled Low (R3), queued follow-up | none | R3: one extra plan call, metered calls stay under the lesson cap, no evidence or exposure effect |
+
+### What changed
+
+- **F3 (R2).** `_record_reveals` now writes through `attempts.reveal_ledger.record_reveal_strict` (the writer H2a's hints
+  use), not the best-effort `record_reveal`. It runs inside the accepted turn's `repository.atomic()` transaction,
+  so a failed write raises and rolls back `results_delivered`, the accepted `teacher_turn` and every reveal row
+  together. The action then fails (surfaced as the teacher being unavailable, so the lesson's "Try again" runs
+  `resume`). The ledger still waits on the learner's step, so `resume` makes the call again, and the turn is accepted
+  only together with its reveal rows.
+- **F4 (R1): the protection state.** This adds `teacher.brief.protection_state(vault, repository, brief)` and
+  replaces word-matching redaction with ending the lesson. The function returns a record of two digests, or None
+  when protection cannot be read (fail closed):
+  - **`vault`.** A digest of the section library's protection key (`section_coverage.Protection.key`: exam and
+    held-out material, teaching exclusions, readings held back) and of every item that
+    `learner_protection.withheld_items` withholds as exam/held-out material or a live reservation.
+  - **`brief`.** A digest of why each item the brief names is withheld now, whatever the reason. The items are its
+    probes and the items behind its history entries: attempts and tutor questions, which `read_history` may later
+    deliver.
+
+  How it is used:
+  - **When the lesson opens.** The state is read before and after `build_brief`, and recorded in the `open`
+    entry's payload with the brief. A vault part that changed while the brief was being built refuses the opening
+    (`protection_changed`, nothing saved). Unreadable protection refuses it too (`protected`).
+  - **Before every model call of an action.** In `take_turn`, after recovery, the check runs before the teacher's
+    call and the inline grader's. In `_teach_loop`, it runs before every teacher call, so a read follow-up is
+    covered. The lesson ends with `close_reason = protection_changed` when any of these holds:
+    - the current state differs from the recorded one;
+    - the state cannot be read;
+    - a passage the lesson delivered is no longer teachable (`revoke_unteachable`), which covers a reading leaving
+      the library as well as protection.
+  - **How it ends.** `_close` runs as for every close: the delayed checks are picked under the current protection,
+    then the receipt, the closed row and the close entry are written in one transaction. Every earlier ledger entry
+    is kept. The view carries the plain notice. The lesson screen shows the close words and **Start a fresh
+    lesson**, which opens a new lesson on the same topics with a fresh brief (new vitest cases).
+  - **Schema and contracts.** The migration's `lessons.close_reason` CHECK and `contracts.CLOSE_REASONS` gain
+    `protection_changed` (code's, never the teacher's); the spec's §8 table and §20 as-built note say so.
+
+  **What was removed.** Nothing saved under an earlier protection state is ever resent, so the redaction path is
+  redundant and was deleted:
+  - `revalidate_material`;
+  - `_redact` and `_redacted_transcript`;
+  - `_protected_texts`, `_scrub` and the span-filter scrub;
+  - `WITHDRAWN`;
+  - `LessonState.withheld_items`.
+
+  `_prompt` now sends the saved context as saved. These stay, because they guard delivery rather than resending:
+  - `SourceBook.revoked`;
+  - `read_source`'s teachability refusal;
+  - the citation guard's `book.available`.
+
+  **What the state does not cover**, said here as the ruling asks:
+  - **Cold holds outside the brief.** An item that a find_practice result listed and that a cold check later holds is
+    not part of the state; the earlier redaction did not cover it either. Its exposure is accounted by the reveal
+    rows, which the cold lane reads.
+  - **Unrelated items.** A probe presentation or cold hold elsewhere in the vault (on an item the brief does not name)
+    deliberately ends no lesson.
+
+  **Tests.** The four redaction tests (`test_f4_a_passage_held_out_after_delivery_is_never_resent_or_read_back`,
+  `test_f4_a_revoked_alias_cannot_be_cited`, `test_rr_f4_a_saved_plan_copying_a_now_held_out_passage_is_not_resent`,
+  `test_rr_f4_an_uncited_copy_open_check_and_prediction_are_not_resent`) asserted the removed behaviour. The
+  `test_r3_f4_*` tests replace them: under the new behaviour no call is made, so no prompt can carry the text.
+
+### Gate (this step)
+
+| Command | Result |
+|---|---|
+| `uv run lint-imports --no-cache` | 38 kept, 0 broken |
+| targeted pytest (`-n 4`, 5G scope, `env -i`): the 20 files of the previous step | 561 passed, 4 failed. The failures were `test_registry_audit`, flagging a new module constant (`teacher_brief:_ID_CHUNK`). The constant was removed (one `json_each` query instead of chunks). |
+| rerun: `test_registry_audit`, the TE1 review-fix, lesson and C4 files, `test_architecture` | 88 passed |
+| `npm run typecheck`; `npx vitest run --maxWorkers=4 src/screens/LessonScreen.test.tsx` | ok; 10 passed (2 new) |
+
+The migration's CHECK changed, so the head fixture is rebuilt at the landing merge, where the migration is renumbered
+anyway. The full suite, the whole durability lane and the whole vitest run are the landing gate's.
+
+### Files touched
+
+`src/learnloop/teacher/service.py`, `src/learnloop/teacher/brief.py`, `src/learnloop/teacher/contracts.py`,
+`migrations/230_teacher_lessons.sql`, `apps/learnloop-tauri/src/screens/LessonScreen.tsx`,
+`apps/learnloop-tauri/src/screens/LessonScreen.test.tsx`, `tests/test_teacher_te1_review_fixes.py`,
+`docs/specs/spec_teacher_v1.md` (§8 close reasons, §20 as-built), this file.

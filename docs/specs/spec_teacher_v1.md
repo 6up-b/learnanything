@@ -518,7 +518,7 @@ Validation errors go back to the model as correctable. After three consecutive f
 | Field | Contents |
 |---|---|
 | Identity | `lesson_id`, driver (`desktop` or `chat:<host label>`), model and route, doctrine version, goal, LOs |
-| `close_reason` | `goal_reached`, `learner_stop`, `budget`, `plan_unavailable`, `teacher_contract_failure` |
+| `close_reason` | `goal_reached`, `learner_stop`, `budget`, `plan_unavailable`, `teacher_contract_failure`, `protection_changed` (code's: the vault's protection state changed since the brief was built; TE1 ruling R1) |
 | `plan_versions` | Every stored outline |
 | `nodes` | Final status (`held`, `uncertain`, `taught`, `landed`), anchors, checks (attempt ids and grades), probes |
 | `exposure` | Items given reveal rows; passages shown |
@@ -1224,9 +1224,12 @@ AD's band middle), not `find_practice`'s rerank, which may call a model; it excl
 showed (a question its displayed text reproduces) and their lineage (family, contrast pair, shared stimulus, source
 exercise), and a transfer check is set only where the relation is established (a downstream item whose rubric
 measures a landed LO's facet, or a goal item whose recorded presentation differs from everything the lesson used),
-otherwise it is reported unavailable. Every learner-facing field passes the guards and is accounted as exposure; the
-saved context is revalidated against protection before every model call (every resent string that reproduces a
-now-protected passage sentence or withheld stem is withdrawn, by the tutor's span filter); every metered request of a
+otherwise it is reported unavailable. Every learner-facing field passes the guards and is accounted as exposure (the
+strict reveal writer, in the accepted turn's transaction: a failed write rolls the turn back); the lesson records the
+vault's protection state when its brief is built (the section library's protection key, the items exam or held-out
+material or a reservation withholds, and why each item the brief names is withheld), and before every model call a
+changed or unreadable state, or a delivered passage no longer teachable, ends the lesson `protection_changed` with
+everything recorded kept and a fresh lesson offered (no saved-context redaction is attempted); every metered request of a
 lesson action (teacher, inline grader, retrieval) is admitted by one durable per-lesson envelope
 (`ai.spend.MeteredRequestGate`) whose reservation is committed before the request is sent (an unsettled one stands
 at its estimate after a restart), and a refusal closes the lesson `budget`; accepted turns and their effects are

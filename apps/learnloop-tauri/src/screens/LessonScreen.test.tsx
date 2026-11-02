@@ -86,6 +86,25 @@ it("the close card promises only the checks that were set, and a plan outage kee
   expect(screen.queryByText("Send")).toBeNull();
 });
 
+it("a lesson ended by a protection change offers a fresh lesson with a fresh brief (ruling R1)", async () => {
+  await open(lesson({
+    closed: true, closeReason: "protection_changed",
+    feed: [{ kind: "close", reason: "protection_changed", recap: null, delayedChecks: [] }],
+  }));
+  expect(screen.getByTestId("lesson-close").textContent).toContain("now kept for your exam or held out");
+  expect(screen.queryByText("Send")).toBeNull();
+  api.lessonTurn.mockResolvedValueOnce(lesson({ lessonId: "les2" }));
+  await act(async () => { fireEvent.click(screen.getByTestId("lesson-start-fresh")); });
+  expect(api.lessonTurn).toHaveBeenLastCalledWith({ action: "open", entry: "learning_object", learningObjectIds: ["lo_eigen"] });
+  expect(screen.queryByTestId("lesson-start-fresh")).toBeNull();
+});
+
+it("only a protection change offers the fresh start", async () => {
+  await open(lesson({ closed: true, closeReason: "goal_reached",
+                      feed: [{ kind: "close", reason: "goal_reached", recap: null, delayedChecks: [] }] }));
+  expect(screen.queryByTestId("lesson-start-fresh")).toBeNull();
+});
+
 it("a plan outage shows a plain line, not an error", async () => {
   api.lessonTurn.mockRejectedValueOnce({ code: "plan_unavailable", message: "The teacher isn't available right now." });
   const onError = vi.fn();

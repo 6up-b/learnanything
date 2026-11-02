@@ -38,6 +38,8 @@ ACTIONS: tuple[str, ...] = (
 READ_ACTIONS = frozenset({"read_source", "find_sources", "find_practice", "read_history", "read_note"})
 CLOSE_REASONS: tuple[str, ...] = (
     "goal_reached", "learner_stop", "budget", "plan_unavailable", "teacher_contract_failure",
+    # The vault's protection state changed since the brief was built (ruling R1): code's, never the teacher's.
+    "protection_changed",
 )
 #: Close reasons the teacher itself may give (the others are code's).
 TEACHER_CLOSE_REASONS: tuple[str, ...] = ("goal_reached", "learner_stop")

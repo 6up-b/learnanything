@@ -34,6 +34,7 @@ blind grader stays blind.
 
 from __future__ import annotations
 
+import json
 import math
 from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass, field
@@ -66,8 +67,8 @@ class SourceBook:
     passages: dict[str, dict[str, Any]] = field(default_factory=dict)
     sections: dict[str, dict[str, Any]] = field(default_factory=dict)
     #: Aliases whose passage is no longer teachable (now exam or held-out material, or withheld):
-    #: computed before every model call (:func:`passage_teachable`), never persisted. They keep their
-    #: number (an alias is never reused) but are never resent, returned or citable (review F4).
+    #: computed before every model call (:func:`passage_teachable`), never persisted. Any of them ends
+    #: the lesson before the call (``protection_changed``, ruling R1); ``read_source`` refuses them.
     revoked: set[str] = field(default_factory=set)
 
     def available(self, alias: str) -> bool:
@@ -111,6 +112,62 @@ def revoke_unteachable(library: Any, book: SourceBook) -> set[str]:
     book.revoked = {alias for alias, passage in book.passages.items()
                     if not passage_teachable(library, str(passage["extraction_id"]), str(passage["span_id"]))}
     return set(book.revoked)
+
+
+# --- the protection state (re-review 2, F4; ruling R1) ---------------------------------------------------
+
+PROTECTION_VERSION = "teacher_protection_v1"
+
+
+def _brief_item_ids(repository: Any, brief: Mapping[str, Any] | None) -> list[str]:
+    """The vault items a brief names: its probes, and the items of its history entries (an attempt's,
+    a tutor question's), whose results ``read_history`` may deliver later."""
+
+    if not brief:
+        return []
+    items = {str(probe.get("id")) for node in brief.get("nodes") or [] for probe in node.get("probes") or []
+             if probe.get("id")}
+    history = [str(entry.get("id") or "") for entry in brief.get("history") or []]
+    with repository.connection() as connection:
+        for table, prefix in (("practice_attempts", "h:"), ("question_events", "q:")):
+            ids = [ref[2:] for ref in history if ref.startswith(prefix)]
+            if ids:
+                items.update(str(row[0]) for row in connection.execute(
+                    f"SELECT practice_item_id FROM {table} WHERE id IN (SELECT value FROM json_each(?))",
+                    (json.dumps(ids),)) if row[0])
+    return sorted(items)
+
+
+def protection_state(vault: Any, repository: Any, brief: Mapping[str, Any] | None = None) -> dict[str, str] | None:
+    """The vault's protection state as a lesson relies on it, or None when it cannot be read (fail closed).
+
+    ``vault``: a digest of the source side (the section library's protection key: exam and held-out
+    material, teaching exclusions, readings held back) and of every item exam or held-out material or a
+    live reservation withholds (``learner_protection.withheld_items``). ``brief``: a digest of why each
+    item the brief names is withheld now, whatever the reason. A lesson records it when its brief is
+    built; before every teacher call a different state ends the lesson (``protection_changed``, ruling
+    R1) rather than redacting what its saved context holds."""
+
+    import hashlib
+
+    from learnloop.learner_protection import WITHHELD_EXAM, WITHHELD_RESERVED, withheld_items
+    from learnloop.source_retrieval.section_coverage import CoverageError, read_protection
+
+    def digest(body: Any) -> str:
+        return hashlib.sha256(json.dumps(body, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
+
+    withheld = withheld_items(vault, repository)
+    if not withheld.available:
+        return None
+    try:
+        sources = read_protection(vault, repository).key
+    except CoverageError:
+        return None
+    exam = sorted([item, reason] for item, reason in withheld.reasons.items()
+                  if reason in (WITHHELD_EXAM, WITHHELD_RESERVED))
+    named = [[item, withheld.reason(item)] for item in _brief_item_ids(repository, brief) if withheld.reason(item)]
+    return {"version": PROTECTION_VERSION, "vault": digest({"sources": sources, "items": exam}),
+            "brief": digest(named)}
 
 
 # --- the goal ------------------------------------------------------------------
@@ -604,5 +661,6 @@ __all__ = [
     "downstream_learning_objects",
     "lo_prediction",
     "prerequisite_nodes",
+    "protection_state",
     "resolve_goal",
 ]

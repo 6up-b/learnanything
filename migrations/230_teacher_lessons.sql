@@ -59,7 +59,8 @@ CREATE TABLE lessons (
   opened_at TEXT NOT NULL,
   closed_at TEXT,
   close_reason TEXT CHECK (close_reason IS NULL OR close_reason IN (
-    'goal_reached', 'learner_stop', 'budget', 'plan_unavailable', 'teacher_contract_failure')),
+    'goal_reached', 'learner_stop', 'budget', 'plan_unavailable', 'teacher_contract_failure',
+    'protection_changed')),
   CHECK ((closed_at IS NULL) = (close_reason IS NULL))
 );
 CREATE INDEX idx_lessons_opened ON lessons(opened_at);

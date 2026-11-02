@@ -15,10 +15,14 @@ three consecutive refusals close the lesson with ``teacher_contract_failure``
 
 **Guards** (§9.3) run on every learner-facing field of a turn (the message
 and its choices, a prediction, a check, plan statements, a close's recap), and
-every displayed field is accounted as exposure (reveal rows). Before every
-model call the saved context is revalidated against protection as it is NOW
-(:func:`revalidate_material`): a passage or an item that became exam or
-held-out material since it was delivered is never resent, read back or citable.
+every displayed field is accounted as exposure (reveal rows, written with the
+accepted turn by the strict writer: a failed write rolls the turn back).
+**Protection** (ruling R1): the lesson records the vault's protection state when
+its brief is built (:func:`learnloop.teacher.brief.protection_state`). Before
+every teacher call, if that state changed (or a delivered passage is no longer
+teachable, or protection cannot be read), nothing is redacted: the lesson ends
+with ``protection_changed``, everything recorded stays, and the learner is
+offered a fresh lesson with a fresh brief.
 
 **State** is the lesson ledger itself (``lesson_turns`` and their payloads,
 ``lesson_plans``, ``lesson_checks``): a lesson resumes after a restart or after
@@ -48,7 +52,6 @@ pedagogy.
 from __future__ import annotations
 
 import json
-import re
 from collections.abc import Callable, Iterator, Mapping, Sequence
 from contextlib import contextmanager
 from dataclasses import dataclass, field
@@ -141,8 +144,8 @@ class LessonState:
     unexecuted: dict[str, Any] | None = None
     #: The lesson's spend gate while an action runs (§17).
     gate: Any = None
-    #: Brief items withheld since the lesson opened (recomputed before every call: review F4).
-    withheld_items: set[str] = field(default_factory=set)
+    #: The protection state recorded when the brief was built (ruling R1; None: not recorded).
+    protection: dict[str, Any] | None = None
 
     @property
     def lesson_id(self) -> str:
@@ -180,7 +183,7 @@ def load_state(repository: Any, lesson_id: str) -> LessonState:
     opened = next((t for t in turns if t["action"] == "open"), None)
     payload = (opened or {}).get("payload") or {}
     state = LessonState(lesson=lesson, brief=payload.get("brief") or {}, book=SourceBook.from_dict(payload.get("book")),
-                        turns=turns, checks=checks, plans=plans)
+                        turns=turns, checks=checks, plans=plans, protection=payload.get("protection"))
     ended = {check["check_ref"] for check in checks}
     last_accepted: dict[str, Any] | None = None
     for entry in turns:
@@ -281,106 +284,52 @@ def transcript(state: LessonState) -> list[dict[str, Any]]:
     return out
 
 
-WITHDRAWN = "no longer available: this material is now kept for an exam or held out; don't use or cite it"
+#: Why a lesson ended on a protection change, as the learner reads it (ruling R1).
+PROTECTION_CHANGED_NOTICE = ("Some of what this lesson relied on is now kept for your exam or held out, so the lesson "
+                             "ended here. Everything so far is saved; start a fresh lesson to go on.")
 
 
-def revalidate_material(vault: Any, repository: Any, state: LessonState) -> None:
-    """Before every model call (review F4): which delivered passages and which brief items are no
-    longer teachable as of NOW (protection the lesson's saved context predates). Their text is
-    never resent (:func:`_redact`), and a revoked alias can't be cited or read back."""
+def protection_changed(vault: Any, repository: Any, state: LessonState) -> bool:
+    """Whether the lesson must end before its next teacher call (ruling R1): the vault's protection state
+    differs from the one recorded when the brief was built, it cannot be read, or a passage the lesson
+    delivered is no longer teachable (its reading left the library, or it became protected). Nothing the
+    lesson saved is then resent, so nothing needs redacting."""
 
-    from learnloop.learner_protection import withheld_items
-    from learnloop.source_retrieval.section_coverage import Library
-    from learnloop.teacher.brief import revoke_unteachable
+    from learnloop.source_retrieval.section_coverage import CoverageError, Library
+    from learnloop.teacher.brief import protection_state, revoke_unteachable
 
-    revoke_unteachable(Library(vault, repository), state.book)
-    withheld = withheld_items(vault, repository)
-    probes = {str(probe.get("id")) for node in state.brief.get("nodes") or [] for probe in node.get("probes") or []}
-    state.withheld_items = {item for item in probes if withheld.reason(item)}
-
-
-def _redact(value: Any, state: LessonState) -> Any:
-    """``value`` with every revoked passage's text and every now-withheld item's stem taken out."""
-
-    if isinstance(value, Mapping):
-        alias = value.get("alias")
-        if isinstance(alias, str) and alias in state.book.revoked:
-            return {"alias": alias, "withdrawn": WITHDRAWN}
-        if "stem" in value and str(value.get("id")) in state.withheld_items:
-            return {"id": value.get("id"), "withdrawn": WITHDRAWN}
-        return {key: _redact(item, state) for key, item in value.items()}
-    if isinstance(value, list):
-        return [_redact(item, state) for item in value]
-    return value
+    recorded = state.protection
+    if not recorded:
+        return True
+    now = protection_state(vault, repository, state.brief)
+    if now is None or now != recorded:
+        return True
+    if not state.book.passages:
+        return False
+    try:
+        return bool(revoke_unteachable(Library(vault, repository), state.book))
+    except CoverageError:
+        return True
 
 
-def _redacted_transcript(state: LessonState) -> list[dict[str, Any]]:
-    out = []
-    for entry in transcript(state):
-        if entry.get("by") == "teacher" and state.book.revoked:
-            cited = set(G.CITATION.findall(json.dumps(entry.get("turn"), ensure_ascii=False)))
-            if cited & state.book.revoked:
-                out.append({"by": "code", "turn_withdrawn": "an earlier turn of yours cited material that is "
-                                                            "now kept for an exam or held out; it is left out"})
-                continue
-        out.append(_redact(entry, state))
-    return out
-
-
-#: Sentence boundaries of a protected passage (each sentence is matched on its own: a copy of one
-#: sentence of a long passage is a copy, though it is a small fraction of the passage).
-_SENTENCES = re.compile(r"(?<=[.!?;])\s+|\n+")
-
-
-def _protected_texts(state: LessonState) -> list[str]:
-    """The text that became protected since it entered the lesson (re-review F4): each sentence of every
-    revoked passage, and every now-withheld brief item's stem."""
-
-    texts: list[str] = []
-    for alias in sorted(state.book.revoked):
-        text = str((state.book.passages.get(alias) or {}).get("text") or "")
-        texts.extend(part.strip() for part in _SENTENCES.split(text) if part.strip())
-    for node in state.brief.get("nodes") or []:
-        for probe in node.get("probes") or []:
-            if str(probe.get("id")) in state.withheld_items and probe.get("stem"):
-                texts.append(str(probe["stem"]))
-    return texts
-
-
-def _scrub(value: Any, protected: Sequence[str]) -> Any:
-    """``value`` with every text that reproduces protected text replaced (re-review F4).
-
-    Every saved text the prompt resends (the plan, the open check, the open prediction, the
-    transcript's turns and replies, results, the brief) may carry a copy of a passage or a stem
-    that is exam or held-out material now, cited or not: each string is measured against each
-    protected sentence with the tutor's span filter (``span_leaks_expected``, the measure that
-    withholds a retrieved span before the tutor sees it) and is withdrawn whole on a hit."""
-
-    if not protected:
-        return value
-    if isinstance(value, str):
-        from learnloop.tutor.tutor_qa import span_leaks_expected
-
-        return WITHDRAWN if any(span_leaks_expected(value, text) for text in protected) else value
-    if isinstance(value, Mapping):
-        return {key: _scrub(item, protected) for key, item in value.items()}
-    if isinstance(value, list):
-        return [_scrub(item, protected) for item in value]
-    return value
+def _end_for_protection(vault: Any, repository: Any, state: LessonState, *, clock: Clock | None,
+                        outcome: "_Outcome") -> None:
+    _close(vault, repository, state, reason="protection_changed", recap=None, clock=clock, outcome=outcome)
+    outcome.notices.append(PROTECTION_CHANGED_NOTICE)
 
 
 def _prompt(state: LessonState, *, results: Sequence[Mapping[str, Any]], help_reply: bool) -> str:
+    # Sent only while the protection state is the brief's (:func:`protection_changed`, checked before
+    # every call): what the lesson saved was safe when saved, and still is.
     context = {
-        "brief": _redact(state.brief, state),
+        "brief": state.brief,
         "open_check": state.open_check and {k: state.open_check.get(k) for k in ("check_ref", "check")},
         "open_prediction": state.open_prediction,
         "plan": state.plans[-1]["outline"] if state.plans else None,
-        "results": _redact(list(results), state),
+        "results": list(results),
         "help_reply": help_reply,
-        "transcript": _redacted_transcript(state),
+        "transcript": transcript(state),
     }
-    # Every saved field, not only the structured ones: nothing protected since it was saved is resent.
-    context = _scrub(context, _protected_texts(state))
     return render_structured_prompt(
         "LearnLoop lesson: you are the teacher", PROMPT_VERSION,
         {"instructions": doctrine_text(), "context": context}, context_tail_fields=("transcript",))
@@ -591,11 +540,22 @@ def open_lesson(vault: Any, repository: Any, *, entry: str, learning_object_ids:
     lesson_id = f"les_{new_ulid().lower()}"
     constraints = {"max_lesson_cost_usd": vault.config.teacher.max_lesson_cost_usd,
                    "sources_tokens": vault.config.teacher.context.sources_tokens}
+    from learnloop.teacher.brief import protection_state
     from learnloop.teacher.notes import your_notes
 
+    # The protection state the brief is built under (ruling R1): read before and after building it, so a
+    # change while it is built never stands recorded as the brief's.
+    before = protection_state(vault, repository)
     brief, book = build_brief(vault, repository, learning_object_ids=los, how=how, goal_text=text,
                               selection=selected, driver=driver, lesson_id=lesson_id, constraints=constraints,
                               notes_provider=your_notes)
+    protection = protection_state(vault, repository, brief)
+    if before is None or protection is None:
+        raise LessonError("protected", "LearnLoop couldn't check your exam material right now, so no lesson "
+                                       "opened. Try again in a moment.")
+    if before["vault"] != protection["vault"]:
+        raise LessonError("protection_changed", "Your exam material changed while the lesson was being prepared; "
+                                                "start it again.")
     client = clients.teacher()
     now = utc_now_iso(clock)
     with repository.atomic():
@@ -607,7 +567,7 @@ def open_lesson(vault: Any, repository: Any, *, entry: str, learning_object_ids:
             "route": getattr(client, "provider_name", None), "model": _model_name(client),
             "algorithm_version": vault.config.algorithms.algorithm_version, "opened_at": now})
         store.append_turn(connection, lesson_id=lesson_id, actor="code", action="open", validation="ok",
-                          refs={"selection": selected}, payload={"brief": brief, "book": book.as_dict()},
+                          refs={"selection": selected}, payload={"brief": brief, "book": book.as_dict(), "protection": protection},
                           created_at=now)
     state = load_state(repository, lesson_id)
     try:
@@ -736,6 +696,11 @@ def take_turn(vault: Any, repository: Any, *, lesson_id: str, action: str, paylo
             recover(vault, repository, state, clock=clock)
             if state.closed:
                 return view(vault, repository, lesson_id)
+            if protection_changed(vault, repository, state):
+                # Before any model call of this action (the teacher's, the grader's): ruling R1.
+                outcome = _Outcome()
+                _end_for_protection(vault, repository, state, clock=clock, outcome=outcome)
+                return view(vault, repository, lesson_id, outcome=outcome)
             return _learner_action(vault, repository, state, action, payload, clients=clients, clock=clock)
     except LessonError as exc:
         exc.details.setdefault("lesson_id", lesson_id)
@@ -942,6 +907,10 @@ def _teach_loop(vault: Any, repository: Any, state: LessonState, *, client: Any,
     if closing:
         results = [*results, {"code": "the learner asked to stop: close the lesson now with a recap"}]
     while not state.closed:
+        if protection_changed(vault, repository, state):
+            # Before every teacher call, a read follow-up's included (ruling R1).
+            _end_for_protection(vault, repository, state, clock=clock, outcome=outcome)
+            break
         try:
             parsed = _call_teacher(vault, repository, state, client, results=results, help_reply=help_reply,
                                    outcome=outcome, clock=clock, deliver=undelivered)
@@ -1019,7 +988,6 @@ def _call_teacher(vault: Any, repository: Any, state: LessonState, client: Any, 
 
     from learnloop.ai.errors import AIInvalidOutput
 
-    revalidate_material(vault, repository, state)
     prompt = _prompt(state, results=results, help_reply=help_reply)
     try:
         raw = execute_structured_operation(client, purpose=TEACHER_PURPOSE, prompt=prompt, result_model=TeacherTurnV1)
@@ -1108,9 +1076,12 @@ def _contract_problem(state: LessonState, turn_obj: TeacherTurnV1) -> str | None
 def _record_reveals(vault: Any, repository: Any, state: LessonState, message: str, *, clock: Clock | None) -> None:
     """Teaching text and cited passages (§12): ``tutor_answer`` for each item on the lesson's LOs whose key
     the text overlaps (amount = overlap, as the tutor), ``source_review`` for what a cited passage exposes;
-    basis ``lesson:<id>``. The lesson's own check items are the attempts themselves, not reveals."""
+    basis ``lesson:<id>``. The lesson's own check items are the attempts themselves, not reveals.
 
-    from learnloop.attempts.reveal_ledger import record_reveal
+    The strict writer (re-review 2, F3; ruling R2): a failed write raises inside the accepted turn's
+    transaction, so the turn and its exposure accounting commit or roll back together."""
+
+    from learnloop.attempts.reveal_ledger import record_reveal_strict as record_reveal
     from learnloop.tutor.tutor_qa import answer_leak_overlap, span_answer_overlap
 
     if not message:
@@ -1350,7 +1321,8 @@ def _close(vault: Any, repository: Any, state: LessonState, *, reason: str, reca
     warnings: list[str] = []
     now = utc_now_iso(clock)
     with repository.atomic():
-        if reason in ("goal_reached", "learner_stop", "budget", "teacher_contract_failure", "plan_unavailable"):
+        if reason in ("goal_reached", "learner_stop", "budget", "teacher_contract_failure", "plan_unavailable",
+                      "protection_changed"):
             delayed_checks, warnings = D.commit_checks(
                 loaded, repository, lesson_id=state.lesson_id, landed=landed,
                 goal_learning_object_ids=(state.brief.get("goal") or {}).get("learning_object_ids") or [],
