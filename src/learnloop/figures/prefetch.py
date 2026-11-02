@@ -32,9 +32,12 @@ judged once). Gap mode: the gap's statement, its topic and the passage: a goal
 and ``p_open_content``; never an attempt, an item stem, a key or a rubric.
 
 **Filters** (code, before any call and again in the build): the switches;
-exam and held-out spans (``exam_material``/``spans_withheld``); the blocks of
-an item the stored plan holds open (its exercise, solution or worked answer);
-a request already built; a request already decided whose horizon is open.
+exam and held-out spans (``exam_material``/``spans_withheld``); every passage
+of an item under a live administration (an open cold check, a cold retry, an
+assessment reservation, a probe) or held open by the stored plan, over the
+author's whole context, neighbours included (:func:`item_protection`); a
+request already built; a request already decided whose horizon is open. A
+judge retry checks its passages again first (Codex review F1).
 
 **The decision** (:mod:`.prefetch_model`): one Thompson draw decides, the
 propensity is logged; candidates that pass queue in sampled-EU order, and
