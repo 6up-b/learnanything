@@ -399,7 +399,14 @@ def reader_library_job(ctx: SidecarContext, params: LibraryJobInput) -> dict[str
     job = _jobs(ctx).get(params.job_id)
     if job is None:
         raise SidecarError("not_found", "That library request is no longer kept; ask again.")
-    return _job_payload(job)
+    payload = _job_payload(job)
+    if payload.get("state") == "done" and job.ask_id:
+        # RW5d P5 (spec §10b.2): the organizer's explorable offers, built ahead
+        # of the press, quietly (a no-op with figures.prefetch_enabled off).
+        from learnloop_sidecar.prefetch_runtime import notify_offer
+
+        notify_offer(ctx, "library", job.ask_id)
+    return payload
 
 
 class LibraryJobCancelInput(ParamsModel):

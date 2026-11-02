@@ -353,6 +353,8 @@ def build_reader_report(
     figure_sketch_enabled: bool = False,
     figure_rich_enabled: bool = False,
     skipped_section_los: Mapping[str, Mapping[str, Sequence[str]]] | None = None,
+    figure_prefetch_enabled: bool = False,
+    plan_providers: Sequence[str] = (),
 ) -> dict[str, Any]:
     """Compute the report from the ledgers (pure read).
 
@@ -381,6 +383,14 @@ def build_reader_report(
     the median build latency per rich tier (request to stored row), the
     author's ``why_this_tier`` reasons by verdict, fuller and quick versions
     opened and rich builds cancelled; off, the block is P2's.
+    ``figure_prefetch_enabled`` (RW5d P5, ``figures.prefetch_enabled``) adds
+    ``prefetch`` (spec §10b.6): decisions and outcomes by trigger, the
+    decision model's prior-to-posterior contraction, the measured waits by
+    tier, the plan's usage-limit pauses with and without prebuilds earlier
+    that day, and the builds skipped for power, the plan and the caps
+    (:func:`learnloop.figures.prefetch_ledger.report_block`; counts and
+    posteriors only); off, the block is P2b's. ``plan_providers`` names the
+    vault's plan profiles (the plan's load is read from their receipts).
 
     ``skipped_section_los`` (RW7b, §15's reading-path row): the vault's map
     of skipped sections to their LOs (the CLI passes
@@ -927,6 +937,12 @@ def build_reader_report(
         }
         if figure_rich_enabled:
             report["figures"]["tiers"]["rich"] = _rich_tier_rows(rich_rows, tier_verdicts, actions)
+    if figures_enabled and figure_prefetch_enabled:
+        from learnloop.figures.prefetch_ledger import report_block
+
+        with closing(connect(Path(sqlite_path), read_only=True)) as connection:
+            report["figures"]["prefetch"] = report_block(connection, since=since_at, plan_providers=plan_providers,
+                                                         now=now)
     return report
 
 

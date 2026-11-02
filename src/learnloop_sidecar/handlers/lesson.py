@@ -120,6 +120,15 @@ def lesson_turn(ctx: SidecarContext, params: LessonTurnInput) -> dict[str, Any]:
         raise _error(exc) from exc
     if result.get("vault_changed"):
         ctx.reload(maintenance=False)
+    lesson_id = result.get("lesson_id") or params.lesson_id
+    if lesson_id and result.get("plan"):
+        # RW5d P5 (spec §10b.2, §10.4): the plan's nodes not yet reached, and
+        # the open gaps on the lesson's topics, ahead of need (quiet, not the
+        # lesson's grant; a no-op with figures.prefetch_enabled off).
+        from learnloop_sidecar.prefetch_runtime import notify
+
+        notify(ctx, "lesson", str(lesson_id))
+        notify(ctx, "gap", f"lesson:{lesson_id}")
     return versioned(result)
 
 

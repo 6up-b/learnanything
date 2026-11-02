@@ -73,12 +73,23 @@ def reader_report(
                                                                 and loaded.config.figures.sketch_enabled),
                                      figure_rich_enabled=bool(loaded.config.figures.enabled
                                                               and loaded.config.figures.rich_tiers_enabled),
-                                     skipped_section_los=skipped_section_los)
+                                     skipped_section_los=skipped_section_los,
+                                     figure_prefetch_enabled=bool(loaded.config.figures.enabled
+                                                                  and loaded.config.figures.prefetch_enabled),
+                                     plan_providers=_plan_providers(loaded))
         report["reader_inquiry"] = loaded.config.reader_inquiry.model_dump(mode="json")
         typer.echo(json.dumps(report, sort_keys=True, indent=None if json_output else 2))
     except (ValueError, OSError, sqlite3.Error) as exc:
         typer.echo(json.dumps({"status": "invalid", "reason": str(exc)}, sort_keys=True))
         raise typer.Exit(code=1) from exc
+
+
+def _plan_providers(loaded: object) -> list[str]:
+    """RW5d P5: the vault's plan profiles (the prefetch block reads the plan's load from their receipts)."""
+
+    from learnloop.figures.prefetch_ledger import plan_providers
+
+    return sorted(plan_providers(loaded))
 
 
 @cues_app.command("discover")

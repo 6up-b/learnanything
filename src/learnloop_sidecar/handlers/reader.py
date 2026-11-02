@@ -267,6 +267,12 @@ def reader_ask(ctx: SidecarContext, params: ReaderAskInput) -> dict[str, Any]:
         response["tutor_offers"] = offers
     if practice_request is not None:
         response["practice_request"] = practice_request
+    if not cold:
+        # RW5d P5 (spec §10b.2): the answer's explorable offers may be built
+        # ahead of the press, quietly (nothing happens with prefetch off).
+        from learnloop_sidecar.prefetch_runtime import notify_offer
+
+        notify_offer(ctx, "tutor", result["event_id"])
     return versioned(response)
 
 
@@ -1921,6 +1927,12 @@ def reader_mark_section_progress(
             import logging
 
             logging.getLogger(__name__).warning("failed to keep questions a chapter ahead", exc_info=True)
+        # RW5d P5 (spec §10b.2): the next section's figures, ahead of need
+        # (quiet, background, a no-op with figures.prefetch_enabled off).
+        from learnloop_sidecar.prefetch_runtime import notify
+
+        notify(ctx, "section", f"{resolved}:{params.section_id}", extraction_id=resolved,
+               section_id=params.section_id)
 
     # Daily-loop DL1 (§6.10): while a plan's reading block is current for this
     # section, the progress is also a `reading_progress` block event, and a

@@ -507,6 +507,20 @@ def run_rich_job(vault: Any, repository: Repository, payload: Mapping[str, Any],
         def hold(current: Any) -> str | None:
             return _learner_state_withheld(current, repository, payload)
 
+    if payload.get("build_mode") == "prefetch":
+        # RW5d P5 (spec §10b.4): a prebuild's rich job stops before its next
+        # request (and before it stores) when figures ahead of need are switched
+        # off or this computer leaves mains power; a render already running
+        # finishes, niced (``capped_scope_prefix(background=True)``).
+        from learnloop.figures.power import background_hold
+
+        if (reason := background_hold(vault)) is not None:
+            raise RichJobStopped("figures_changed", reason)
+        own_hold = hold
+
+        def hold(current: Any) -> str | None:  # noqa: F811 - the prebuild's hold wraps the learner-state one
+            return background_hold(current) or (own_hold(current) if own_hold is not None else None)
+
     gate = FiguresGate(vault, key, live_vault=live_vault, hold=hold)
     try:
         with gate_model_requests(gate):
@@ -514,7 +528,9 @@ def run_rich_job(vault: Any, repository: Repository, payload: Mapping[str, Any],
                         renderer=renderer, function_runner=function_runner, clock=clock,
                         cancellation=tuple(cancellation))
     except FiguresChanged as exc:
-        if gate.held:
+        from learnloop.figures.power import NOT_ON_MAINS, SWITCHED_OFF
+
+        if gate.held and str(gate.changed) not in (NOT_ON_MAINS, SWITCHED_OFF):
             raise RichJobStopped("exam_material", str(gate.changed)) from exc
         raise RichJobStopped("figures_changed", str(exc)) from exc
 

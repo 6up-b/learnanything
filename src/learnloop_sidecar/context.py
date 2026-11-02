@@ -194,6 +194,10 @@ class SidecarContext:
             sync_vault_state(self.vault, self.repository)
             self.repository.bump_queue_revision()
         self.post_attempt_worker.bind(self._worker_target)
+        # RW5d P5 (spec §10b.2): a drain that stored gaps is the prefetch gap
+        # trigger (a no-op with figures.prefetch_enabled off, and never here on
+        # a secondary host, which takes load_secondary).
+        self.post_attempt_worker.after_gaps = self._prefetch_gaps
         # Canonical facet state is a deterministic cache over the immutable
         # attempt ledger. Re-project on app load so vaults activated by the old
         # mvp-0.7 upgrader (which only flipped the config field) self-heal and
@@ -451,6 +455,11 @@ class SidecarContext:
         _forget_reading_choice()
         # followups-nov1c B: the canonical fold's memo and its database watcher.
         forget_fold_memo()
+
+    def _prefetch_gaps(self) -> None:
+        from learnloop_sidecar.prefetch_runtime import notify
+
+        notify(self, "gap", "gaps")
 
     def _worker_target(self) -> tuple[LoadedVault, Path] | None:
         if self.vault is None or self.repository is None:

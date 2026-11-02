@@ -242,11 +242,15 @@ def _start(ctx: SidecarContext, request: FS.FigureRequest, *, attempt: dict[str,
     spawn = _rich_spawner(ctx, vault) if FS.rich_enabled(vault) and attempt is None else None
 
     def work(worker_repo: Any) -> dict[str, Any]:
+        from learnloop.figures.foreground import foreground
+
         try:
             # Every request is admitted against the vault loaded NOW (the
-            # build's FiguresGate), not the one captured here.
-            outcome = FS.build_figure(vault, worker_repo, request, author_client=author,
-                                      live_vault=ctx.loaded_vault, find=find, spawn_rich=spawn)
+            # build's FiguresGate), not the one captured here. RW5d P5: a
+            # pressed build is foreground work (background prebuilds yield).
+            with foreground("figure"):
+                outcome = FS.build_figure(vault, worker_repo, request, author_client=author,
+                                          live_vault=ctx.loaded_vault, find=find, spawn_rich=spawn)
         except FS.FigureRefused as exc:
             raise _refused(exc) from exc
         result: dict[str, Any] = {"figure": outcome.view, "reused": outcome.reused}

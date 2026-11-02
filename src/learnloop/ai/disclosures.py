@@ -39,6 +39,7 @@ JUDGE_ROUTES: tuple[tuple[str, str, str], ...] = (
     ("deliverable_path_judge", "llm", "curriculum_path"),
     ("figure_author", "llm", "figures"),
     ("figure_rich_author", "llm", "figures_rich"),
+    ("figure_prefetch_judge", "llm", "figures_prefetch"),
     ("reader_digest", "llm", "reader_digest"),
     ("note_link_judge", "llm", "notes"),
     ("teacher", "llm", "teacher"),
@@ -223,6 +224,17 @@ _WHEN = {
         "LearnLoop's model can write it; when an attempt fails, what went wrong in code's words. Never an answer "
         "on exam, held-out or reserved material or on a check still waiting for you, and never material held out "
         "for an exam. It never grades you and is never evidence."
+    ),
+    "figures_prefetch": (
+        "Only while figures.prefetch_enabled is on (off unless you turn it on), on this computer's desktop app, "
+        "on mains power, in the background, and only on the ChatGPT plan (never a metered route, never an offer): "
+        "the blocks of a section LearnLoop expects you to read next (the plan's reading, the section after the "
+        "one you are in, a lesson's planned passages), with exam and held-out material removed, so LearnLoop's "
+        "model can say which blocks are worth an explorable figure and how likely a reader is to open one. For a "
+        "gap LearnLoop found in your understanding on a topic the plan or a lesson touches, also what LearnLoop "
+        "thinks you're unsure of, in one sentence, with the topic and a passage that treats it, to prepare a "
+        "figure. The figures it builds are sent to the figure author like any figure you ask for. Never an answer "
+        "key, a rubric or exam material. It never grades you and is never evidence."
     ),
     "reader_digest": (
         "While digest.enabled and digest.narrative_enabled are on, once per reader session, in the background "

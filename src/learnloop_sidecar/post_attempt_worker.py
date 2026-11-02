@@ -60,6 +60,9 @@ class PostAttemptWorker:
         self.embedding_factory: Callable[[Any], Any] | None = None
         #: vault -> learner-text gap PipelineClients (test seam; None: the routes).
         self.gap_clients: Callable[[Any], Any] | None = None
+        #: RW5d P5: called after a drain stored learner-text gaps (the prefetch gap trigger;
+        #: a no-op with figures.prefetch_enabled off). Never fails the drain.
+        self.after_gaps: Callable[[], None] | None = None
         self.last_errors: list[str] = []
         #: session id -> seconds the last next-item wait took, until the
         #: serve that follows it records it (E7).
@@ -197,6 +200,11 @@ class PostAttemptWorker:
             # (``retry_later``) does not stop the drain.
             if result.state in ("deferred", "released", "lease_lost"):
                 break
+        if outcomes and self.after_gaps is not None:
+            try:
+                self.after_gaps()
+            except Exception:  # noqa: BLE001 - a trigger never fails the gap drain
+                pass
         return outcomes
 
     def _with_busy_retry(self, work: Callable[[], Any]) -> Any:

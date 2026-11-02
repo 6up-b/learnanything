@@ -249,6 +249,14 @@ _TABLE_ROLE_ITEMS: tuple[tuple[str, TableRole], ...] = (
     # manifest). Append-only by trigger (figure_id is set once); never
     # evidence, and replay never reads it.
     ("figure_requests", TableRole.RAW_LEDGER),
+    # Reader RW5d P5 (migration 236; spec_reader_show_me_figures_v1 §13.2b):
+    # the prefetch service's decisions (append-only; request_id, input_hash
+    # and the outcome set once each) and the ChatGPT plan's usage-limit pauses
+    # it observed (append-only). The decision model is recomputed from them at
+    # decision time (no DERIVED table, no replayer); never evidence, and replay
+    # never reads them.
+    ("figure_prefetch_decisions", TableRole.RAW_LEDGER),
+    ("plan_usage_pauses", TableRole.RAW_LEDGER),
     ("fitted_parameters", TableRole.RAW_LEDGER),
     ("followup_ratings", TableRole.RAW_LEDGER),
     ("followup_tasks", TableRole.WORKFLOW),
