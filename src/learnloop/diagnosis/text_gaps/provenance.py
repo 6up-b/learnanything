@@ -105,6 +105,32 @@ def question_record(connection: Any, event_id: str, *, topics: Iterable[Any] = (
     return record
 
 
+#: The learner-text sources written on a reading (followups-nov1c E): a question asked in
+#: the Reader (its passage), an active-reading answer or a figure prediction (the book's
+#: passage, the expected answer's cited spans, the figure's input spans).
+READING_SOURCE_KINDS: tuple[str, ...] = ("tutor_question", "reader_formative")
+
+
+def reading_sources(connection: Any, source_kind: str, source_id: str) -> tuple[tuple[Mapping[str, Any], ...], bool]:
+    """The passages a learner text was written on, for a reading-derived source
+    (:data:`READING_SOURCE_KINDS`), and whether they could all be read: a Reader
+    question's passage (``question_events.source_context``; a question asked outside
+    the Reader names none), an active-reading answer's or a figure prediction's
+    passages (:func:`formative_record`). Any other source reads no passage: ``((), True)``.
+    A question or formative record that is gone answers ``((), False)``: the caller
+    fails closed (the router card's provenance check, exam material only)."""
+
+    if source_kind == "tutor_question":
+        row = _question_row(connection, str(source_id))
+        if row is None:
+            return (), False
+        return tuple(Inputs.of(sources=_reader_sources(row["source_context"])).sources), True
+    if source_kind == "reader_formative":
+        record = formative_record(connection, str(source_id))
+        return tuple(record.inputs.sources), record.complete
+    return (), True
+
+
 def text_record(connection: Any, text: Any) -> WriteRecord:
     """What a learner text and its context show any reader of it."""
 
