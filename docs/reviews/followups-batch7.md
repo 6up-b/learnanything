@@ -55,7 +55,8 @@ protection over the whole author context. `run_trigger` still only runs that que
 * **A press while waiting.** A capped row lasts for days, so the learner may press for the same input first. Resuming
   would spend a build, record a prebuild request on the pressed figure, and turn the press into an observation of
   opening. `run_builds` now passes over a row whose figure exists (`already_built`) and its horizon closes it `asked`.
-  A row with a request already stored (a pass that died before `_link`) still goes through, so it gets linked.
+  A row with a request already stored (a pass that died before `_link`) is linked by `link_stored_requests` before
+  any horizon closes and before any build guard (Codex review F1; `docs/reviews/followups-batch7-codex-review.md`).
 * **The Reader's "a prebuild is coming"** (`prefetch_pending`) had its own copy of the decision list. It now reads
   `BUILD_DECISIONS` and needs today's caps to have room (`capacity_left`), so a read doesn't poll for work no pass will
   start today (Codex re-review F18's rule).

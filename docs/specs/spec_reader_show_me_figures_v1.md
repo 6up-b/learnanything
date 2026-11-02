@@ -1014,6 +1014,8 @@ The outcome is one of:
 - `neither`;
 - `void` (the input became withheld, or the switch went off).
 
+*As built (follow-ups batch 7, Codex review F1):* before any horizon closes, an open decision whose build stored its request but never linked it (the pass died in between) is linked. This is bookkeeping, with no model call and no budget, so no build guard applies, and an opening of that figure stays an `opened` observation. A request with no figure and no rich job built nothing: it stays unlinked and its build is retried.
+
 Only built rows inform `P(open | built, cue)`. `asked` rows on unbuilt candidates are logged as evidence about demand without the cue; they are a separate quantity, reported but not used in the decision (R11). A prebuild nobody opened before its horizon is kept as an ordinary figure. It is reused whenever its input recurs, and costs nothing more.
 
 ### 10b.6 What the report shows

@@ -1195,17 +1195,58 @@ def rich_in_flight(env: PrefetchEnv) -> bool:
                and RICH.job_state(job)["state"] == "pending" for job in RICH.rich_jobs(env.repository))
 
 
+def _requests_of(connection: Any, decision_id: str) -> list[tuple[str, Any, Any]]:
+    """The decision's stored requests as (id, figure's input hash, figure id), one naming a figure
+    first (an earlier one may be a rich-only build's whose job never started, which holds nothing
+    to open), then oldest first."""
+
+    return [tuple(found) for found in connection.execute(
+        "SELECT r.id, f.input_hash, r.figure_id FROM figure_requests r "
+        "LEFT JOIN interactive_figures f ON f.id = r.figure_id WHERE r.prefetch_decision_id = ? "
+        "ORDER BY r.figure_id IS NULL, r.created_at, r.id", (decision_id,))]
+
+
 def _link(env: PrefetchEnv, decision_id: str) -> None:
     """Set the decision's request and the figure's input hash, once each (the build stored them)."""
 
     with env.repository.atomic():
         connection = env.repository.connection()
-        found = connection.execute(
-            "SELECT r.id, f.input_hash FROM figure_requests r LEFT JOIN interactive_figures f ON f.id = r.figure_id "
-            "WHERE r.prefetch_decision_id = ? ORDER BY r.created_at LIMIT 1", (decision_id,)).fetchone()
-        if found is None:
+        found = _requests_of(connection, decision_id)
+        if not found:
             return
-        store.link_request(connection, decision_id, str(found[0]), found[1])
+        store.link_request(connection, decision_id, str(found[0][0]), found[0][1])
+
+
+def link_stored_requests(env: PrefetchEnv) -> int:
+    """Link every open decision whose build stored its request and whose pass died before
+    :func:`_link` (Codex review F1). Returns how many it linked.
+
+    Bookkeeping: no model call and no budget, so no build guard applies, and it comes before any
+    horizon closes, or a figure the learner opened would close ``neither`` with no request to read
+    openings from, and the opening model would lose it. A request counts when it names a figure or
+    its rich job exists. One with neither (a rich-only build whose job never started) built
+    nothing: it stays unlinked and the row stays in the queue, so its build is retried. Rows closed
+    before this existed are immutable and stay as they closed."""
+
+    from learnloop.figures import rich as RICH
+
+    with closing(connect(env.repository.sqlite_path, read_only=True)) as connection:
+        if not PL.has_tables(connection):
+            return 0
+        links: list[tuple[str, tuple[str, Any, Any]]] = []
+        for (decision_id,) in connection.execute(
+                f"SELECT d.id FROM {PL.DECISIONS_TABLE} d WHERE d.request_id IS NULL AND d.outcome IS NULL "
+                "AND EXISTS (SELECT 1 FROM figure_requests r WHERE r.prefetch_decision_id = d.id)").fetchall():
+            served = next((found for found in _requests_of(connection, str(decision_id))
+                           if found[2] or RICH.rich_job_for_request(env.repository, str(found[0])) is not None), None)
+            if served is not None:
+                links.append((str(decision_id), served))
+    if links:
+        with env.repository.atomic():
+            connection = env.repository.connection()
+            for decision_id, served in links:
+                store.link_request(connection, decision_id, str(served[0]), served[1])
+    return len(links)
 
 
 def _build_started(env: PrefetchEnv, decision_id: str) -> bool:
@@ -1467,6 +1508,7 @@ def close_horizons(env: PrefetchEnv, result: PassResult | None = None) -> int:
     from learnloop.figures.learner_state import open_gap_statements
     from learnloop.figures.service import withheld_message
 
+    link_stored_requests(env)
     with closing(connect(env.repository.sqlite_path, read_only=True)) as connection:
         if not PL.has_tables(connection):
             return 0
@@ -1681,6 +1723,7 @@ __all__ = [
     "filter_candidates",
     "judge_gap",
     "judge_section",
+    "link_stored_requests",
     "next_section",
     "observe_pause",
     "open_request_keys",

@@ -17,14 +17,18 @@ from typing import Any
 
 import pytest
 
+from learnloop.attempts.salience_firewall import salience_payload
 from learnloop.clock import FrozenClock
+from learnloop.db.stores import figures as figure_store
 from learnloop.figures import foreground as FG
 from learnloop.figures import power as P
 from learnloop.figures import prefetch as PF
 from learnloop.figures import prefetch_ledger as PL
 from learnloop.figures import prefetch_model as PM
+from learnloop.figures import rich as RICH
 from learnloop.figures import service as FS
 from learnloop.ops.settings_store import apply_config_updates
+from learnloop.substrate.activities import log_interaction_event
 from learnloop.vault.loader import load_vault
 from tests.figure_fixtures import EXTRACTION, AuthorFake, rows
 from tests.test_figures_prefetch import TWO, count, decisions, env_for, make_vault, mains, switch  # noqa: F401
@@ -333,3 +337,122 @@ def test_a_capped_decision_is_coming_only_while_the_budget_has_room(tmp_path):
     assert FS.prefetch_pending(raised, repository, EXTRACTION) is False  # no pass running: nobody will build it
     _caps(paths, max_daily_render_minutes=0)
     assert FS.prefetch_pending(load_vault(paths.root), repository, EXTRACTION, pass_running=True) is False
+
+
+# ---------------------------------------------------------------------------
+# Codex review F1: a stored request is linked before horizons close and before any build guard
+# ---------------------------------------------------------------------------
+
+def _stored_unlinked(monkeypatch: Any, tmp_path: Any) -> tuple[Any, Any, Any, AuthorFake, dict[str, Any], dict[str, Any]]:
+    """Day two: the resumed build stored its request and quick figure, and the pass died before ``_link``."""
+
+    paths, repository, vault, author, capped = _capped_section(tmp_path)
+    with monkeypatch.context() as patch:
+        patch.setattr(PF, "_link", lambda env, decision_id: None)
+        PF.run_trigger(env_for(vault, repository, author=author, clock=_clock(DAY_TWO)), LATER)
+    assert author.calls == 2 and _section_row(repository)["request_id"] is None
+    (request,) = [row for row in rows(repository, "figure_requests") if row["prefetch_decision_id"] == capped["id"]]
+    assert request["figure_id"]
+    return paths, repository, vault, author, capped, request
+
+
+def _opened_at(repository: Any, figure_id: str, when: datetime) -> None:
+    log_interaction_event(repository, kind="reader_action_invoked", origin="learner", subject_type="reader_extraction",
+                          subject_id=TWO, payload=salience_payload({"event": "figure_opened", "figure_id": figure_id}),
+                          clock=_clock(when))
+
+
+@pytest.mark.parametrize("blocker", ["render_minutes", "todays_builds", "battery", "rich_job_in_flight"])
+def test_a_stored_request_is_linked_whatever_holds_new_builds_and_its_opening_is_observed(tmp_path, monkeypatch, blocker):
+    paths, repository, vault, author, capped, request = _stored_unlinked(monkeypatch, tmp_path)
+    _opened_at(repository, request["figure_id"], DAY_TWO + timedelta(minutes=30))
+    when = DAY_TWO + timedelta(hours=1)
+    if blocker == "render_minutes":
+        _caps(paths, max_daily_render_minutes=0)
+    elif blocker == "todays_builds":
+        _caps(paths, max_daily_builds=0)
+        when = DAY_THREE  # the request is yesterday's, so today's cap does not count it as started
+    elif blocker == "battery":
+        P.set_power_reader(lambda: P.PowerState(False, P.BATTERY, "test"))
+    else:
+        monkeypatch.setattr(PF, "rich_in_flight", lambda env: True)
+    current = load_vault(paths.root)
+    result = PF.run_trigger(env_for(current, repository, author=author, clock=_clock(when)), LATER)
+    # Bookkeeping: no model call, no build, nothing of today's budget.
+    assert author.calls == 2 and result.built == []
+    row = _section_row(repository)
+    assert row["id"] == capped["id"] and row["request_id"] == request["id"] and row["input_hash"]
+    assert len([item for item in rows(repository, "figure_requests") if item["prefetch_decision_id"] == capped["id"]]) == 1
+    repository.upsert_reader_section_progress(extraction_id=TWO, section_id="s2", spans_seen=3, span_count=3,
+                                              completed=True, clock=_clock(when + timedelta(hours=1)))
+    PF.run_trigger(env_for(current, repository, author=author, clock=_clock(when + timedelta(hours=2))), LATER)
+    row = _section_row(repository)
+    assert row["outcome"] == "opened" and author.calls == 2
+    (observed,) = [item for item in PL.observations(decisions(repository)) if item.trigger_kind == "section"]
+    assert observed.opened is True
+    with repository.connection() as connection:
+        block = PL.report_block(connection, now=when + timedelta(hours=2))
+    assert block["decisions_by_trigger"]["section"]["built"] == 1 and block["skipped"]["caps"] == 0
+
+
+def test_a_stored_request_is_linked_when_its_horizon_passed_before_the_next_pass(tmp_path, monkeypatch):
+    """The same pass closes it, so the link comes first, with no budget to run out at all."""
+
+    _paths, repository, vault, author, _capped, request = _stored_unlinked(monkeypatch, tmp_path)
+    _opened_at(repository, request["figure_id"], DAY_TWO + timedelta(minutes=30))
+    repository.upsert_reader_section_progress(extraction_id=TWO, section_id="s2", spans_seen=3, span_count=3,
+                                              completed=True, clock=_clock(DAY_TWO + timedelta(hours=1)))
+    PF.run_trigger(env_for(vault, repository, author=author, clock=_clock(DAY_TWO + timedelta(hours=2))), LATER)
+    row = _section_row(repository)
+    assert row["request_id"] == request["id"] and row["outcome"] == "opened" and author.calls == 2
+
+
+def test_close_horizons_itself_links_first(tmp_path, monkeypatch):
+    _paths, repository, vault, _author, _capped, request = _stored_unlinked(monkeypatch, tmp_path)
+    repository.upsert_reader_section_progress(extraction_id=TWO, section_id="s2", spans_seen=3, span_count=3,
+                                              completed=True, clock=_clock(DAY_TWO + timedelta(hours=1)))
+    PF.close_horizons(env_for(vault, repository, clock=_clock(DAY_TWO + timedelta(hours=2))))
+    row = _section_row(repository)
+    # Built and not opened: an observation of not opening, not a decision with no build.
+    assert row["request_id"] == request["id"] and row["outcome"] == "neither"
+    (observed,) = [item for item in PL.observations(decisions(repository)) if item.trigger_kind == "section"]
+    assert observed.opened is False
+
+
+def _orphan_request(repository: Any, decision_id: str, when: datetime) -> str:
+    """A rich-only build's request whose job never started (the enqueue failed, or the sidecar stopped)."""
+
+    asked = FS._request_row(FS.FigureRequest(extraction_id=TWO, span_ids=["q6"], origin="prefetch",
+                                             prefetch_decision_id=decision_id),
+                            FS.Grounding("anchor"), figure_id=None, clock=_clock(when))
+    with repository.atomic():
+        figure_store.insert_request(repository.connection(), asked)
+    return str(asked["id"])
+
+
+def test_a_request_with_no_figure_and_no_job_is_not_linked_and_its_build_is_still_retried(tmp_path):
+    """Linking this one would drop the retry: nothing was built, so nothing could ever be opened."""
+
+    _paths, repository, vault, author, capped = _capped_section(tmp_path)
+    orphan = _orphan_request(repository, capped["id"], DAY_TWO)
+    PF.close_horizons(env_for(vault, repository, clock=_clock(DAY_TWO + timedelta(minutes=1))))
+    assert _section_row(repository)["request_id"] is None
+    env = env_for(vault, repository, author=author, clock=_clock(DAY_TWO + timedelta(minutes=2)))
+    result = PF.run_trigger(env, LATER)
+    assert result.built == [capped["id"]] and author.calls == 2
+    # Linked to the request that holds the figure, or an opening of it could never be seen.
+    linked = _section_row(repository)["request_id"]
+    assert linked != orphan
+    (served,) = [row for row in rows(repository, "figure_requests") if row["id"] == linked]
+    assert served["figure_id"]
+
+
+def test_a_rich_only_request_whose_job_exists_is_linked_with_no_figure_yet(tmp_path, monkeypatch):
+    _paths, repository, vault, author, capped = _capped_section(tmp_path)
+    orphan = _orphan_request(repository, capped["id"], DAY_TWO)
+    monkeypatch.setattr(PF, "rich_in_flight", lambda env: True)
+    monkeypatch.setattr(RICH, "rich_job_for_request",
+                        lambda repo, request_id: {"id": "job_1"} if request_id == orphan else None)
+    result = PF.run_trigger(env_for(vault, repository, author=author, clock=_clock(DAY_TWO + timedelta(minutes=1))), LATER)
+    assert result.built == [] and author.calls == 1
+    assert _section_row(repository)["request_id"] == orphan
