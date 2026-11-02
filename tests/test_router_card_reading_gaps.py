@@ -184,3 +184,49 @@ def test_an_extraction_named_without_a_block_is_checked_whole(tmp_path, monkeypa
     assert len(entries) == 3
     assert [entry["statement"] for entry in entries if entry["statement"]] == [BOOK_WORDS]
     assert all(entry["withheld"] == protection.WITHHELD_EXAM for entry in entries if not entry["statement"])
+
+
+def test_a_delivered_span_without_an_extraction_is_placed_or_fails_closed(tmp_path, monkeypatch):
+    """Orchestrator scoped verify remainder (F1): a Reader question anchored on an
+    ordinary textbook passage whose delivered spans name a book passage without an
+    ``extraction_id`` -- by its source (``{"source_id", "span_id"}``) or by a
+    namespaced key (``"ext_exam:s1"``) -- was skipped as if it were a note, so its
+    words reached the router. Such a span is now kept and checked by the shared exam
+    predicate; one with nothing that places it (a bare block id) fails closed. An
+    identified note reference (a note id, no book location) still reads as no book
+    passage, so the words show as before."""
+
+    env = _world(tmp_path, monkeypatch)
+    material = EM.Material(spans=frozenset({("ext_exam", "s1")}))
+    monkeypatch.setattr(EM, "exam_material", lambda _vault, _repo: EM.ExamMaterial(
+        material=material, held_out=EM.Material(), runs={"ext_exam": ("rev_exam", "src_exam")}))
+    anchor = {"extraction_id": "ext_book", "span_id": "s2"}
+    cases = {
+        "q_by_source": [{"source_id": "src_exam", "span_id": "s1"}],
+        "q_namespaced_colon": [{"span_id": "ext_exam:s1"}],
+        "q_namespaced_slash": [{"span_ids": ["ext_exam/s1"]}],
+    }
+    for question_id, delivered in cases.items():
+        _raw_question(env, question_id, context="reader",
+                      source_context_json=json.dumps({**anchor, "source_spans": delivered}))
+        _gap(env, f"gap_{question_id}", "tutor_question", question_id, f"WORDS_{question_id.upper()}")
+    _raw_question(env, "q_bare_block", context="reader",
+                  source_context_json=json.dumps({**anchor, "source_spans": [{"span_id": "s1", "text": "?"}]}))
+    _gap(env, "gap_bare_block", "tutor_question", "q_bare_block", "WORDS_Q_BARE_BLOCK")
+    _raw_question(env, "q_note", context="reader", source_context_json=json.dumps(
+        {**anchor, "source_spans": [{"extraction_id": "ext_book", "span_id": "s2"},
+                                    {"note_id": "note_vectors", "label": "my note", "text": "..."}]}))
+    _gap(env, "gap_note", "tutor_question", "q_note", BOOK_WORDS)
+    _raw_question(env, "q_book_by_source", context="reader", source_context_json=json.dumps(
+        {**anchor, "source_spans": [{"source_id": "src_book", "span_id": "s2"}]}))
+    _gap(env, "gap_book_by_source", "tutor_question", "q_book_by_source", PRACTICE_WORDS)
+    inputs = _card_inputs(env)
+    entries = [entry for entry in inputs.open_hypotheses if entry["kind"] == "learner_named_misconception"]
+    assert len(entries) == len(cases) + 3  # every gap keeps its entry
+    shown = sorted(entry["statement"] for entry in entries if entry["statement"])
+    assert shown == sorted([BOOK_WORDS, PRACTICE_WORDS])  # an identified note; a textbook source with no exam
+    withheld = [entry["withheld"] for entry in entries if not entry["statement"]]
+    assert sorted(withheld) == sorted([protection.WITHHELD_EXAM] * len(cases) + [protection.WITHHELD_UNREADABLE])
+    dumped = json.dumps(list(inputs.open_hypotheses), default=str)
+    for question_id in [*cases, "q_bare_block"]:
+        assert f"WORDS_{question_id.upper()}" not in dumped

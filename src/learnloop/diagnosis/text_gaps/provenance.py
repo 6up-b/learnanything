@@ -34,6 +34,7 @@ from learnloop.db.stores.write_provenance import (
     answer_inputs,
     closure,
     fold_topic_records,
+    source_ref,
 )
 
 #: Why what a tutor question's reading named is held back.
@@ -147,8 +148,46 @@ def _question_passages(source_context: Mapping[str, Any]) -> tuple[list[dict[str
             continue
         if value.get("extraction_id"):
             add(value["extraction_id"], value.get("span_id"))
-        # A delivered span with no extraction (a note, a library passage) is not on a book's page.
+            continue
+        # A delivered span with no extraction (orchestrator scoped verify remainder):
+        # one that places a book passage some other way (its source or revision, a
+        # locator, an ``ext:span`` key) is kept for the exam predicate to check
+        # (``exam_material.source_ref_protected``); an identified note is on no
+        # book's page; anything else cannot be placed and fails closed.
+        located = _located_without_extraction(value)
+        if located is not None:
+            refs.append(located)
+        elif not _identified_note(value):
+            complete = False
     return refs, complete
+
+
+#: The fields that name a note in a delivered span (a vault note, a learner note).
+_NOTE_FIELDS = ("note_id", "note_key")
+
+
+def _identified_note(value: Mapping[str, Any]) -> bool:
+    return any(value.get(name) for name in _NOTE_FIELDS) or "note" in (value.get("ref_type"), value.get("kind"))
+
+
+def _located_without_extraction(value: Mapping[str, Any]) -> dict[str, Any] | None:
+    """A delivered span with no ``extraction_id`` that still places a book passage:
+    a block the shared parser places (``exam_material.source_ref_keys``: a namespaced
+    span id ``ext:span`` or ``ext/span``, a block locator), or a source or revision id
+    (checked against every extraction of it); None when nothing places it."""
+
+    from types import SimpleNamespace
+
+    from learnloop.content.sources.exam_material import source_ref_keys
+
+    ref = source_ref(value)
+    if ref is None:
+        return None
+    keys, whole = source_ref_keys(SimpleNamespace(extraction_id=None, span_ids=ref.get("span_ids"),
+                                                  locator=ref.get("locator")))
+    if keys or whole or ref.get("source_id") or ref.get("revision_id"):
+        return ref
+    return None
 
 
 def reading_sources(connection: Any, source_kind: str, source_id: str) -> tuple[tuple[Mapping[str, Any], ...], bool]:
