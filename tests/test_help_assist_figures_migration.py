@@ -42,17 +42,18 @@ def test_232_is_the_figures_migration_and_help_assists_stays_a_raw_ledger():
     assert "help_assists" not in PT.ROLES
 
 
-def _at_230(tmp_path: Path) -> Path:
+def _at_231(tmp_path: Path) -> Path:
+    # Curriculum C5's 231 landed first (232 kept its number at P3's landing).
     from learnloop.db.migrate import apply_migrations
 
-    through = tmp_path / "through_230"
+    through = tmp_path / "through_231"
     through.mkdir()
     for migration in discover_migrations():
-        if migration.version <= 230:
+        if migration.version <= 231:
             (through / migration.path.name).write_text(migration.path.read_text(encoding="utf-8"), encoding="utf-8")
     database = tmp_path / "state.sqlite"
     apply_migrations(database, migrations_dir=through)
-    assert max(applied_versions(database)) == 230
+    assert max(applied_versions(database)) == 231
     return database
 
 
@@ -65,7 +66,7 @@ def _schema(database: Path) -> dict[str, str]:
 def test_232_widens_three_checks_adds_figure_id_and_keeps_every_row(tmp_path):
     from learnloop.db.migrate import UPGRADE_TEST_HELPER, apply_migrations, upgrade_allowance
 
-    database = _at_230(tmp_path)
+    database = _at_231(tmp_path)
     with closing(sqlite3.connect(database)) as connection:
         connection.execute(
             "INSERT INTO help_assists (id, surface, assist_kind, hint_kind, level, chooser, shown, requested_at, "
@@ -116,7 +117,7 @@ def test_232_rebuilds_figure_predictions_with_every_row_and_the_attempt_link(tmp
     from learnloop.db.migrate import UPGRADE_TEST_HELPER, apply_migrations, upgrade_allowance
     from learnloop.db.stores import figures as figure_store
 
-    database = _at_230(tmp_path)
+    database = _at_231(tmp_path)
     with closing(sqlite3.connect(database)) as connection:
         for figure_id in ("fig_old", "fig_new"):
             connection.execute(
@@ -181,7 +182,7 @@ def test_the_head_fixture_holds_232_in_rollback_mode():
 def test_232_on_the_durability_lane(tmp_path):
     from learnloop.db.migrate import UPGRADE_TEST_HELPER, apply_migrations, upgrade_allowance
 
-    database = _at_230(tmp_path)
+    database = _at_231(tmp_path)
     with upgrade_allowance(UPGRADE_TEST_HELPER):
         assert [migration.version for migration in apply_migrations(database)] == [232]
     with closing(sqlite3.connect(database)) as connection:
