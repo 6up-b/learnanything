@@ -3007,7 +3007,16 @@ def _prebuilt_within_budget(vault: Any, repository: Repository, extraction_id: s
                             ) -> list[tuple[Mapping[str, Any], int, list[dict[str, Any] | None]]]:
     """RW5d P5 (spec §6.9; Codex review F11): a prebuilt figure nobody pressed for takes its
     place in the Reader's cue budget (``[cues] density``, per section; cues off: none), the
-    earliest built first; once pressed it is the learner's like any figure (never cut)."""
+    earliest built first; once pressed it is the learner's like any figure (never cut).
+
+    The count is not shared with that section's margin marks (follow-ups batch 6 (F), recorded
+    as not a small change): the marks are ``reader.guide_plan``'s, built from the Guide's plan
+    and, with RW3b's discovery on, merged and remembered for the taps (a write) on that read.
+    Sharing here would rebuild the Guide's plan and the merge on every ``reader.figures`` read
+    (the Reader polls it while a prebuild is coming); sharing in the Reader needs a new
+    "unpressed prebuilt" flag on the figure view (pressed is not in it) and a re-cut joining the
+    two reads by section on every refresh of either. Worst case today: a section shows its
+    marks plus up to the same budget of unpressed prebuilt lines (collapsed "▸" lines)."""
 
     from learnloop.reader.reader_cues import cue_density, cues_enabled, density_budget
     from learnloop.reader.reader_guidance import extraction_sections
