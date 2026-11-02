@@ -467,3 +467,212 @@ def test_teacher_checks_and_the_grader_never_import_figure_code():
         imported = {node.module for node in ast.walk(tree) if isinstance(node, ast.ImportFrom) and node.module}
         imported |= {alias.name for node in ast.walk(tree) if isinstance(node, ast.Import) for alias in node.names}
         assert not any(module.startswith(("learnloop.figures", "learnloop.teacher.visuals")) for module in imported)
+
+
+# --- Codex review (docs/reviews/reader-rw5d-p4b-teacher-visuals-codex-review.md) ---------------------
+
+
+def _interrupt_visual(monkeypatch, paths, repository, fake, build):
+    """Open a lesson whose accepted turn's visual is interrupted (the process stops before it builds)."""
+
+    original = S._visual
+
+    def interrupted(*args, **kwargs):
+        raise KeyboardInterrupt
+
+    monkeypatch.setattr(S, "_visual", interrupted)
+    with pytest.raises(KeyboardInterrupt):
+        S.open_lesson(load_vault(paths.root), repository, entry="learning_object", learning_object_ids=["lo_eigen"],
+                      clients=_clients(fake, build))
+    monkeypatch.setattr(S, "_visual", original)
+    return _rows(repository, "SELECT id FROM lessons")[0][0]
+
+
+def _turn_payloads(repository, action):
+    return [json.loads(row[0]) for row in _rows(
+        repository, "SELECT p.payload_json FROM lesson_turns t JOIN lesson_turn_payloads p ON p.turn_id = t.id "
+                    "WHERE t.action = ? ORDER BY t.seq", (action,))]
+
+
+def test_review_f1_a_recovered_visual_is_never_built_after_protection_changed(tmp_path, monkeypatch):
+    """The saved goal carries words of a passage (S2: ``ext_lay/lay_char``, read in the lesson) other than
+    the visual's anchor (S1, in the brief). S2 becomes held out before the interrupted visual recovers:
+    the goal is never sent to the figure author, and the lesson ends with ``protection_changed``."""
+
+    from tests.section_coverage_fixtures import hold_out
+
+    paths, repository = build_teacher_vault(tmp_path / "vault")
+    author = AuthorFake([_spec()])
+    read_lay = {"message": "Let me read.", "requests": [{"action": "read_source", "refs": ["ext_lay/lay_char"]}]}
+    goal = f"{GOAL} The book's other passage says: the roots of the characteristic equation."
+    fake = TeacherFake([read_lay, lambda context: visual_turn(context, goal=goal)])
+    build = _builder(paths, repository, author)
+    lesson_id = _interrupt_visual(monkeypatch, paths, repository, fake, build)
+    state = S.load_state(repository, lesson_id)
+    (turn,) = [entry for entry in _turn_payloads(repository, "teacher_turn") if entry["turn"].get("visual")]
+    (anchor,) = turn["turn"]["visual"]["anchors"]
+    assert state.book.passages[anchor]["span_id"] != "lay_char", "the anchor is another passage than S2"
+    hold_out(repository, "lay_char")
+    calls = len(fake.prompts)
+    fake.turns = [{"message": "never sent"}]
+    view = S.take_turn(load_vault(paths.root), repository, lesson_id=lesson_id, action="answer_prediction",
+                       payload={"answer": "it shrinks"}, clients=_clients(fake, build))
+    assert author.calls == 0 and _rows(repository, "SELECT COUNT(*) FROM figure_requests") == [(0,)]
+    assert len(fake.prompts) == calls
+    assert view["closed"] and view["close_reason"] == "protection_changed"
+
+
+def test_review_f1_a_visual_after_protection_changed_mid_action_is_not_built(tmp_path, monkeypatch):
+    """Within one action too: protection changing between the accepted turn and its visual's build sends
+    nothing to the figure author; the step records the visual withheld and the lesson then ends."""
+
+    from tests.section_coverage_fixtures import hold_out
+
+    paths, repository = build_teacher_vault(tmp_path / "vault")
+    author = AuthorFake([_spec()])
+    read_lay = {"message": "Let me read.", "requests": [{"action": "read_source", "refs": ["ext_lay/lay_char"]}]}
+
+    def visual_then_hold(context):
+        hold_out(repository, "lay_char")
+        return visual_turn(context, prediction=False)
+
+    fake = TeacherFake([read_lay, visual_then_hold, {"message": "never sent"}])
+    view = S.open_lesson(load_vault(paths.root), repository, entry="learning_object", learning_object_ids=["lo_eigen"],
+                         clients=_clients(fake, _builder(paths, repository, author)))
+    assert author.calls == 0
+    assert view["closed"] and view["close_reason"] == "protection_changed"
+    (visual,) = _turn_payloads(repository, "visual")
+    assert visual["status"] == V.WITHHELD and visual["code"] == "protection_changed"
+
+
+def test_review_f2_a_suppressed_prediction_is_never_counted_as_shown(tmp_path):
+    """A figure's own prediction prompt reproduces a vault question the visible figure does not: the
+    lesson suppresses the prediction, so its words are neither exposure nor a reason to withhold."""
+
+    from tests.teacher_fakes import ITEMS
+
+    question = ITEMS["pi_eig_1"][1]
+    solution = "The eigenvalues are the roots of the characteristic polynomial det(A - tI) = 0."
+    predictions = [{"prompt": question, "change": {"lam": 2},
+                    "observe": {"kind": "direction", "expr": "integral(f, x, -40, 0)"}}]
+
+    def close(context):
+        return {"message": "Done.", "requests": [{"action": "close", "close_reason": "goal_reached",
+                                                  "recap": "Retrieve later: eigenvalues solve det(A - tI) = 0."}]}
+
+    author = AuthorFake([_spec(predictions=predictions)])
+    paths, repository, fake, author, view, build = _open(tmp_path / "a", [visual_turn, close], author=author)
+    assert [e["status"] for e in view["feed"] if e["kind"] == "figure"] == [V.SHOWN]
+    (visual,) = _turn_payloads(repository, "visual")
+    assert question not in visual["shown_text"] and FIGURE_WORDS in visual["shown_text"]
+    S.take_turn(load_vault(paths.root), repository, lesson_id=view["lesson_id"], action="answer_prediction",
+                payload={"answer": "it shrinks"}, clients=_clients(fake, build))
+    receipt = json.loads(_rows(repository, "SELECT receipt_json FROM lesson_receipts")[0][0])
+    assert "pi_eig_1" not in receipt["exposure"]["shown_items"]
+
+    # A hidden prediction carrying the open check's solution does not withhold an otherwise safe figure.
+    def visual_and_check(context):
+        turn = visual_turn(context, prediction=False)
+        turn.update({k: v for k, v in check_turn(solution=solution).items() if k in ("check", "requests")})
+        return turn
+
+    hidden = [{**predictions[0], "prompt": solution}]
+    author = AuthorFake([_spec(predictions=hidden)])
+    paths, repository, fake, author, view, _ = _open(tmp_path / "b", [visual_and_check], author=author)
+    assert [e["status"] for e in view["feed"] if e["kind"] == "figure"] == [V.SHOWN]
+
+
+def test_review_f3_a_visuals_lesson_forecasts_under_its_own_family(tmp_path):
+    """The visuals paragraph is a new doctrine version for §12.2's pool: a visuals-on lesson's forecasts
+    carry their own family (TE1's unchanged off), so each policy's λ posterior is learned apart, and the
+    replay reproduces both."""
+
+    from datetime import UTC, datetime, timedelta
+
+    from learnloop.clock import FrozenClock
+    from learnloop.learner import lesson_weight as LW
+    from tests.teacher_fakes import landed_turn
+
+    t0 = datetime(2026, 11, 1, 9, 0, tzinfo=UTC)
+    paths, repository = build_teacher_vault(tmp_path / "vault")
+    author = AuthorFake([_spec()])
+    build = _builder(paths, repository, author)
+
+    def lesson(builder, at):
+        fake = TeacherFake([plan_turn, landed_turn(p=0.3), check_turn()])
+        view = S.open_lesson(load_vault(paths.root), repository, entry="learning_object",
+                             learning_object_ids=["lo_eigen"], clients=_clients(fake, builder), clock=FrozenClock(at))
+        for minute, (action, payload) in enumerate((("reply", {"text": "go"}), ("reply", {"text": "and?"}),
+                                                     ("answer_check", {"answer": "det(A - tI) = 0", "tap": 5})),
+                                                    start=1):
+            S.take_turn(load_vault(paths.root), repository, lesson_id=view["lesson_id"], action=action,
+                        payload=payload, clients=_clients(fake, builder), clock=FrozenClock(at + timedelta(minutes=minute)))
+        return view["lesson_id"]
+
+    off = lesson(None, t0)
+    on = lesson(build, t0 + timedelta(hours=1))
+    te1 = S._family_of("fake-teacher-model")
+    assert te1 == f"{S.DOCTRINE_VERSION}:fake-teacher-model"
+    families = {lesson_id: {f["family"] for f in _turn_payloads_for(repository, lesson_id, "forecast")}
+                for lesson_id in (off, on)}
+    assert families[off] == {te1}
+    (visuals_family,) = families[on]
+    assert visuals_family != te1 and V.VISUALS_VERSION in visuals_family
+    receipts = dict(_rows(repository, "SELECT decision_ref, forecaster_version FROM forecast_receipts "
+                                      "WHERE kind = 'lesson_step_retained'"))
+    assert receipts == {off: te1, on: visuals_family}
+    checks = {row[0]: json.loads(row[1])["pool"]["family"]
+              for row in _rows(repository, "SELECT lesson_id, weight_inputs_json FROM lesson_checks")}
+    assert checks == {off: te1, on: visuals_family}
+    # One cold outcome resolves both forecasts: each family's posterior updates once, apart.
+    from learnloop.attempts.attempts import AttemptDraft, SelfGradeInput, complete_self_graded_attempt
+
+    complete_self_graded_attempt(
+        load_vault(paths.root), repository,
+        AttemptDraft(practice_item_id="pi_eig_2", learner_answer_md="cold answer", attempt_type="independent_attempt",
+                     answer_confidence=4),
+        SelfGradeInput(criterion_points={"correctness": 4}, confidence=4), clock=FrozenClock(t0 + timedelta(days=3)))
+    state = LW.replay_state(load_vault(paths.root), repository)
+    assert state.pool_updates.get(te1, 0) >= 1 and state.pool_updates.get(visuals_family, 0) >= 1
+    assert set(state.pools) >= {te1, visuals_family}
+    # Replay parity: the written state is the replay's, both families included.
+    with repository.atomic():
+        LW.write_state(repository, state)
+    again = LW.replay_state(load_vault(paths.root), repository)
+    assert set(again.pools) == set(state.pools) and again.pool_updates == state.pool_updates
+    assert all(again.pool_lambda(family) == pytest.approx(state.pool_lambda(family)) for family in state.pools)
+    written = dict(_rows(repository, "SELECT family, updates FROM lesson_weight_state WHERE family LIKE 'pool:%'"))
+    assert written == {f"pool:{family}": count for family, count in state.pool_updates.items()}
+
+
+def _turn_payloads_for(repository, lesson_id, action):
+    return [json.loads(row[0]) for row in _rows(
+        repository, "SELECT p.payload_json FROM lesson_turns t JOIN lesson_turn_payloads p ON p.turn_id = t.id "
+                    "WHERE t.lesson_id = ? AND t.action = ? ORDER BY t.seq", (lesson_id, action))]
+
+
+@pytest.mark.parametrize("action,payload", [("answer_prediction", {"answer": "it shrinks"}), ("stop", {}),
+                                            ("resume", {})])
+def test_review_f4_a_budget_refusal_while_recovering_a_visual_closes_the_lesson(tmp_path, monkeypatch, action,
+                                                                                 payload):
+    """The lesson's envelope refuses the recovered visual's author request: the lesson closes with
+    ``budget`` (atomically, with its receipt) and returns its view, whatever the action."""
+
+    from learnloop.ai.spend import SpendLimitExceeded
+
+    paths, repository = build_teacher_vault(tmp_path / "vault")
+    author = AuthorFake([SpendLimitExceeded("the lesson's cap would be passed")])
+    fake = TeacherFake([visual_turn])
+    build = _builder(paths, repository, author)
+    lesson_id = _interrupt_visual(monkeypatch, paths, repository, fake, build)
+    calls = len(fake.prompts)
+    fake.turns = [{"message": "never sent"}]
+    view = S.take_turn(load_vault(paths.root), repository, lesson_id=lesson_id, action=action, payload=payload,
+                       clients=_clients(fake, build))
+    assert view["closed"] and view["close_reason"] == "budget"
+    assert len(fake.prompts) == calls
+    assert _rows(repository, "SELECT close_reason FROM lesson_receipts") == [("budget",)]
+    # A later action on the closed lesson recovers nothing and calls nothing.
+    again = S.take_turn(load_vault(paths.root), repository, lesson_id=lesson_id, action="stop", payload={},
+                        clients=_clients(fake, build))
+    assert again["closed"] and author.calls == 1 and len(fake.prompts) == calls

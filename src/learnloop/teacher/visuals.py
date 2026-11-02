@@ -225,14 +225,27 @@ def _budget_refused(state: Any, exc: BaseException) -> bool:
     return state.gate is not None and getattr(state.gate, "refusal", None) is not None
 
 
+def _base(resolved: Mapping[str, Any]) -> dict[str, Any]:
+    return {"node": resolved.get("node"), "goal": resolved.get("goal"), "planned": bool(resolved.get("planned")),
+            "version": VISUALS_VERSION}
+
+
+def not_built_for_protection(resolved: Mapping[str, Any]) -> dict[str, Any]:
+    """The record of a visual not built because the lesson's protection state changed since its brief
+    (Codex review F1): its saved goal may carry words of a passage that is now exam or held-out material,
+    which the figure service's check of the visual's own anchors cannot see, so nothing is sent."""
+
+    return {**_base(resolved), "status": WITHHELD, "code": "protection_changed",
+            "reason": "some of what this lesson relied on is now kept for your exam, so the figure isn't built"}
+
+
 def build(vault: Any, repository: Any, state: Any, resolved: Mapping[str, Any], builder: Builder) -> dict[str, Any]:
     """Build the step's figure: ``{status, figure_id?, reason?, code?}`` (never raises a refusal; a spend
     refusal of the lesson's envelope propagates, so the lesson closes with ``budget``)."""
 
     from learnloop.figures import service as FS
 
-    base: dict[str, Any] = {"node": resolved.get("node"), "goal": resolved.get("goal"),
-                            "planned": bool(resolved.get("planned")), "version": VISUALS_VERSION}
+    base = _base(resolved)
     try:
         outcome = builder(figure_request(state, resolved))
     except FS.FigureRefused as exc:
@@ -270,11 +283,22 @@ def figure_row(repository: Any, figure_id: str) -> dict[str, Any] | None:
 
 
 def figure_text(row: Mapping[str, Any] | None) -> str:
-    """The figure's words and displayed values (P3's reveal text: what the learner reads in it)."""
+    """The figure's words and displayed values as the lesson shows it (P3's reveal text over the stored
+    spec or program **without its predictions**: a lesson suppresses them, :func:`lesson_view`), so a
+    hidden prediction's prompt is neither exposure nor a reason to withhold the figure (Codex review F2)."""
 
     from learnloop.figures.help import reveal_text
 
-    return reveal_text(row or {})
+    row = dict(row or {})
+    raw = row.get("spec_json")
+    if raw:
+        try:
+            data = json.loads(raw) if isinstance(raw, str) else dict(raw)
+        except (TypeError, ValueError):
+            data = None
+        if isinstance(data, dict) and "predictions" in data:
+            row["spec_json"] = json.dumps({key: value for key, value in data.items() if key != "predictions"})
+    return reveal_text(row)
 
 
 def summary(row: Mapping[str, Any] | None) -> dict[str, Any] | None:
@@ -332,6 +356,7 @@ __all__ = [
     "figure_text",
     "instructions",
     "lesson_view",
+    "not_built_for_protection",
     "on",
     "paragraph",
     "prompt_version",

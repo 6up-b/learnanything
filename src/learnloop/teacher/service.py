@@ -378,10 +378,13 @@ def _model_name(client: Any) -> str | None:
     return getattr(client, "model", None)
 
 
-def _family_of(model: str | None) -> str:
-    """The forecaster of §12.2's pool: the doctrine version and the teacher model."""
+def _family_of(model: str | None, *, visuals: bool = False) -> str:
+    """The forecaster of §12.2's pool: the doctrine version and the teacher model. A turn written under
+    the visuals paragraph (Reader RW5d P4b) is a new doctrine version, so its forecasts start their own
+    posterior (Codex review F3); TE1's family exactly when off."""
 
-    return f"{DOCTRINE_VERSION}:{model or 'unknown'}"
+    doctrine = f"{DOCTRINE_VERSION}+{V.VISUALS_VERSION}" if visuals else DOCTRINE_VERSION
+    return f"{doctrine}:{model or 'unknown'}"
 
 
 def _family(client: Any) -> str:
@@ -707,11 +710,24 @@ def take_turn(vault: Any, repository: Any, *, lesson_id: str, action: str, paylo
         return view(vault, repository, lesson_id)
     try:
         with _lesson_spend(vault, repository, state, clock=clock):
-            recover(vault, repository, state, clock=clock, builder=clients.figures)
+            # Before any model call of this action (the teacher's, the grader's, and a recovered turn's
+            # reads and visual: Reader RW5d P4b, Codex review F1): ruling R1. Changed, recovery runs only
+            # what makes no model call, and the lesson ends.
+            changed = protection_changed(vault, repository, state)
+            try:
+                recovered = recover(vault, repository, state, clock=clock, reads=not changed,
+                                    builder=None if changed else clients.figures)
+            except Exception as exc:
+                if not _refused_by_budget(state, exc):
+                    raise
+                # The lesson's envelope refused a recovered request (a visual's figure author: Codex
+                # review F4): the lesson closes with ``budget``, before the action, as in ``_teach``.
+                outcome = _Outcome()
+                _close(vault, repository, state, reason="budget", recap=None, clock=clock, outcome=outcome)
+                return view(vault, repository, lesson_id, outcome=outcome)
             if state.closed:
                 return view(vault, repository, lesson_id)
-            if protection_changed(vault, repository, state):
-                # Before any model call of this action (the teacher's, the grader's): ruling R1.
+            if changed or (recovered is not None and protection_changed(vault, repository, state)):
                 outcome = _Outcome()
                 _end_for_protection(vault, repository, state, clock=clock, outcome=outcome)
                 return view(vault, repository, lesson_id, outcome=outcome)
@@ -882,6 +898,9 @@ class _Outcome:
     shown: list[dict[str, Any]] = field(default_factory=list)
     notices: list[str] = field(default_factory=list)
     vault_changed: bool = False
+    #: A step found the protection state changed since the brief (Reader RW5d P4b, Codex review F1: its
+    #: visual was not built); the action ends the lesson with ``protection_changed`` after the turn.
+    protection_changed: bool = False
     usage: dict[str, int] = field(default_factory=lambda: {"calls": 0, "input_tokens": 0, "output_tokens": 0})
 
 
@@ -959,6 +978,9 @@ def _teach_loop(vault: Any, repository: Any, state: LessonState, *, client: Any,
                                deferred=deferred, outcome=outcome, clock=clock, help_reply=help_reply,
                                builder=builder)
         if state.closed:
+            break
+        if outcome.protection_changed:
+            _end_for_protection(vault, repository, state, clock=clock, outcome=outcome)
             break
         if closing:
             _close(vault, repository, state, reason=closing, recap=None, clock=clock, outcome=outcome)
@@ -1241,7 +1263,13 @@ def _visual(vault: Any, repository: Any, state: LessonState, turn_obj: TeacherTu
     resolved = V.resolve(state, turn_obj)
     if resolved is None:
         return
-    record = V.build(vault, repository, state, resolved, builder)
+    if protection_changed(vault, repository, state):
+        # Before the figure author's call (Codex review F1): the saved goal may carry words of a delivered
+        # passage other than the visual's anchors, now protected; nothing is sent, the lesson then ends.
+        record = V.not_built_for_protection(resolved)
+        outcome.protection_changed = True
+    else:
+        record = V.build(vault, repository, state, resolved, builder)
     text = ""
     if record["status"] == V.SHOWN:
         row = V.figure_row(repository, str(record["figure_id"]))
@@ -1323,7 +1351,9 @@ def _forecast(vault: Any, repository: Any, state: LessonState, request: ActionRe
 
     kind = str(request.forecast_kind)
     node = str(request.node)
-    family = _family_of(model)
+    # The doctrine the forecasting turn was written under (Reader RW5d P4b: with the visuals paragraph or not).
+    visuals = bool(((turn_entry or {}).get("payload") or {}).get("visuals"))
+    family = _family_of(model, visuals=visuals)
     now = utc_now_iso(clock)
     if kind == "lesson_check_correct":
         ref = state.open_check["check_ref"] if state.open_check is not None else node
@@ -1362,7 +1392,7 @@ def _forecast(vault: Any, repository: Any, state: LessonState, request: ActionRe
         inputs=inputs, parameters=[{"name": "p", "value": float(request.p), "provenance": "model"}],
         versions={"doctrine": DOCTRINE_VERSION,
                   # The prompt the forecasting turn was written under (Reader RW5d P4b: with the visuals paragraph).
-                  "prompt": V.prompt_version(bool(((turn_entry or {}).get("payload") or {}).get("visuals")))},
+                  "prompt": V.prompt_version(visuals)},
         inputs_as_of=now, p=float(request.p),
         columns={"decision_ref": state.lesson_id, "learning_object_id": lo})
     data = {"key": key, "kind": kind, "node": node, "p": float(request.p), "learning_object_id": lo,
