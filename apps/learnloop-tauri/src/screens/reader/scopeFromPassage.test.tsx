@@ -48,6 +48,31 @@ it("scopes the one deliverable from the selected passage through set_scope's pas
   expect(document.querySelector("[data-scope-from-passage-notice]")?.textContent).toBe("For midterm: 3 topics from your books");
 });
 
+it("says the passage joins earlier scope inputs and the scope is updated, not only added to (Codex review F3)", async () => {
+  // A deliverable that already has a syllabus and an earlier passage as scope inputs: the
+  // resolver rereads them all with the new passage and replaces the scope (here it drops
+  // topics), so the copy never promises "only this passage" or "adds".
+  const earlier = {
+    ...scope("g1", "midterm", 3),
+    inputs: [
+      { id: "dsi_1", kind: "passage", text: null, extractionId: "ext_syllabus", createdAt: "2026-10-30T00:00:00Z" },
+      { id: "dsi_2", kind: "passage", text: null, extractionId: "ext_book", createdAt: "2026-10-31T00:00:00Z" },
+    ],
+  };
+  api.curriculumDeliverables.mockResolvedValueOnce({ deliverables: [earlier] });
+  api.curriculumSetScope.mockResolvedValueOnce({ status: "ready", message: null, scope: scope("g1", "midterm", 1) });
+  await mount({ spanIds: ["s9"] });
+  const meaning = SCOPE_FROM_PASSAGE_COPY.meaning;
+  expect(screen.getByText(meaning)).toBeTruthy();
+  expect(meaning).not.toMatch(/only it/);
+  expect(meaning).toMatch(/earlier passages/);
+  expect(meaning).toMatch(/drop/);
+  fireEvent.click(screen.getByRole("button", { name: SCOPE_FROM_PASSAGE_COPY.action }));
+  await settle();
+  // The scope shown is the resolver's replacement (1 topic), not the earlier 3 plus more.
+  expect(document.querySelector("[data-scope-from-passage-notice]")?.textContent).toBe("For midterm: 1 topic from your books");
+});
+
 it("names each deliverable when there are several", async () => {
   api.curriculumDeliverables.mockResolvedValueOnce({ deliverables: [scope("g1", "midterm"), scope("g2", "project")] });
   api.curriculumSetScope.mockResolvedValueOnce({ status: "ready", message: null, scope: scope("g2", "project", 1) });

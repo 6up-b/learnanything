@@ -1,9 +1,10 @@
 // followups-nov1c D: the Reader's selection action "scope my deliverable from this
 // passage". It sends the selected passage to the existing scope input
-// (curriculum.set_scope, kind "passage", with the selection's spans), so the
-// deliverable's resolver reads that passage (only it) to find the topics the deliverable
-// needs. Honest copy: the model reads the passage and the learner reviews the result in
-// the Guide; nothing else is read or changed.
+// (curriculum.set_scope, kind "passage", with the selection's spans): the passage joins the
+// deliverable's earlier scope inputs, and the resolver reads them all again, in order (its
+// description, earlier passages, an attached syllabus, the learner's words), and replaces
+// the scope; a later input may drop a topic an earlier one brought in. Honest copy says so
+// (Codex review F3), and the learner reviews the result in the Guide.
 //
 // Shown only with a deliverable to scope (curriculum.deliverables answers: absent while the
 // curriculum is off) and a selection that offers model actions: NotesRail hides it with
@@ -23,8 +24,9 @@ export const SCOPE_FROM_PASSAGE_COPY = {
   group: "DELIVERABLE",
   action: "scope my deliverable from this passage",
   actionFor: (title: string) => `scope “${title}” from this passage`,
-  meaning: "LearnLoop's model reads this passage, and only it, to find the topics your deliverable needs and adds "
-    + "them to its scope. Review them in the Guide.",
+  meaning: "This passage joins what you've already given your deliverable (its description, earlier passages, a "
+    + "syllabus). LearnLoop's model reads them all again and updates its scope, which can add topics or drop some. "
+    + "Review them in the Guide.",
   failed: "Couldn't scope from that passage.",
 } as const;
 
