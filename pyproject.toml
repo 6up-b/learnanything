@@ -765,6 +765,18 @@ forbidden_modules = ["learnloop.reader.workbench", "learnloop.db.stores.workbenc
 allow_indirect_imports = false
 
 [[tool.importlinter.contracts]]
+id = "lesson-checks-never-read-figures"
+name = "A lesson check's minting, grading and delayed checks never read a figure or the teacher's visuals (RW5d P4b: a figure never feeds certification)"
+type = "forbidden"
+# Reader RW5d P4b: a teacher's visual is teaching material shown in the lesson;
+# the blind grader sees a check's question text only, and the delayed checks'
+# picker reads items. The guards read the figure's text only as a string
+# handed to them by teacher.service.
+source_modules = ["learnloop.teacher.checks", "learnloop.teacher.delayed", "learnloop.teacher.guards"]
+forbidden_modules = ["learnloop.figures", "learnloop.db.stores.figures", "learnloop.teacher.visuals"]
+allow_indirect_imports = false
+
+[[tool.importlinter.contracts]]
 id = "evidence-never-reads-figures"
 name = "Replay, evidence and serving internals never read explorable figures (RW5a: W1, G24, spec 8.5)"
 type = "forbidden"

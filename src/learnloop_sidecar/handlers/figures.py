@@ -420,7 +420,9 @@ def _request_figure(ctx: SidecarContext, *, origin: str, extraction_id: str | No
                          span_ids=[*span_ids, (region or {}).get("span_id")], reading_span_keys=span_keys)
     if reading_at and reading_at.get("extraction_id"):
         require_identity(repository, extraction_id=str(reading_at["extraction_id"]), span_ids=[reading_at.get("span_id")])
-    if origin in FS.RESERVED_ORIGINS:
+    if origin in FS.SERVICE_ORIGINS:
+        # RW5d P4b: a lesson's figure is the lesson service's (lesson.turn); the
+        # prefetch service's is in-process only. No RPC names either origin.
         raise SidecarError("validation_error", f"Figures with origin {origin!r} are not made here.")
     goal = " ".join(str(goal_text or "").split()) or None
     if goal is not None and not FS.show_me_enabled(vault):

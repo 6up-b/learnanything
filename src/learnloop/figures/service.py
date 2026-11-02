@@ -173,18 +173,27 @@ from learnloop.ids import new_ulid
 
 #: The origins a request may name. RW5d P1 adds ``show_me`` (the Reader's
 #: intent box with words, or its Ask rail); RW5d P3 adds ``ask`` (CA2's panel
-#: on practice, feedback and the workbench: an attempt host, P3); ``teacher``
-#: (TE1) and ``prefetch`` (P5, in-process only) are reserved by migration 224
-#: and refused from every request until their phases land.
-ORIGINS = ("selection", "library", "tutor", "show_me", "ask")
-RESERVED_ORIGINS = ("teacher", "prefetch")
+#: on practice, feedback and the workbench: an attempt host, P3); RW5d P4b adds
+#: ``teacher`` (a lesson's visual: made only by the lesson service, under a
+#: ``teacher`` caller with the lesson as its host, never from an RPC);
+#: ``prefetch`` (P5, in-process only) is reserved by migration 224 and refused
+#: from every request until its phase lands.
+ORIGINS = ("selection", "library", "tutor", "show_me", "ask", "teacher")
+RESERVED_ORIGINS = ("prefetch",)
+#: The origins no RPC may name (the lesson service's and the prefetch service's own).
+SERVICE_ORIGINS = ("teacher", "prefetch")
+#: RW5d P4b: a lesson host's tiers (spec §10.4, the teacher spec's "grammar or
+#: sketch tier"; P3 ruling R1's precedent): the turn waits on its figure, so no
+#: rich (minutes-long, queued) tier is on the author's menu in a lesson.
+LESSON_TIERS = ("grammar", "sketch")
 #: RW5d P3: the host references that name an attempt (an attempt host's
 #: figure has no reading position, so no home: spec §7.2, §13.1).
 ATTEMPT_HOST_REFS = ("item_id", "submission_id", "workbench_session_id", "attempt_id")
 #: RW5b: the origins an offer builds with (``figures.offers_enabled``).
 OFFER_ORIGINS = ("library", "tutor")
-#: RW5d: who wrote a goal (set on the server, never taken from a client).
-GOAL_AUTHORS = ("learner", "tutor")
+#: RW5d: who wrote a goal (set on the server, never taken from a client;
+#: ``teacher`` only by the lesson service, RW5d P4b).
+GOAL_AUTHORS = ("learner", "tutor", "teacher")
 GOAL_CHARS = 600
 #: keep: prompt size (:data:`learnloop.figure_admission.GROUNDING_PASSAGES`).
 GROUNDING_PASSAGES = ADMISSION_GROUNDING_PASSAGES
@@ -325,6 +334,20 @@ def attempt_hosted(request: "FigureRequest") -> bool:
     return any((request.host_ref or {}).get(name) for name in ATTEMPT_HOST_REFS)
 
 
+def lesson_hosted(request: "FigureRequest") -> bool:
+    """RW5d P4b: a lesson's visual (origin ``teacher``; its host is the lesson,
+    so it has no reading position and no home: it shows in the lesson only)."""
+
+    return request.origin == "teacher"
+
+
+def teacher_visuals_switch(vault: Any) -> bool:
+    """RW5d P4b: ``teacher.visuals`` (the teacher's manipulatives)."""
+
+    teacher = getattr(getattr(vault, "config", vault), "teacher", None)
+    return bool(getattr(teacher, "visuals", False))
+
+
 def prediction_home(row: Mapping[str, Any]) -> str | None:
     """The extraction a figure's prediction is recorded under: its home, or
     (RW5d P3, an attempt host's figure with no home) the first book it was
@@ -401,6 +424,11 @@ def key_for(request: "FigureRequest"):
 
         base = _key_for(request)
         return lambda vault: (*base(vault), prefetch_switch(vault))
+    if lesson_hosted(request):
+        # RW5d P4b: a lesson's visual is admitted only while the teacher's
+        # visuals stay on (switched off since: it asks nothing more).
+        base = _key_for(request)
+        return lambda vault: (*base(vault), teacher_visuals_switch(vault))
     if attempt_hosted(request):
         # RW5d P3 (Codex review F5): a build on an attempt host is admitted
         # only while figures in attempts stay on (switched off since: it asks
@@ -1482,6 +1510,20 @@ def _validated_request(vault: Any, repository: Repository, request: FigureReques
         return _validated_prefetch(vault, request)
     if request.origin not in ORIGINS:
         raise FigureRefused("validation_error", f"Unknown figure origin {request.origin!r}.")
+    lesson_host = lesson_hosted(request)
+    if lesson_host:
+        # RW5d P4b (spec §7.1, G-SM5): a teacher's goal only from the lesson
+        # service: a teacher caller (the lesson's derived policy), the lesson
+        # as host, the passages it was delivered as fixed grounding, no
+        # passage selection and no "not right?" in a lesson.
+        caller = request.caller
+        if getattr(caller, "kind", None) != "teacher" or not (request.host_ref or {}).get("lesson_id"):
+            raise FigureRefused("validation_error", "Figures with origin 'teacher' are made in a lesson only.")
+        if request.span_ids or request.region or request.supersedes_id is not None or not request.grounding_keys:
+            raise FigureRefused("validation_error", "A lesson's figure rests on the passages the lesson delivered.")
+        if not teacher_visuals_switch(vault):
+            raise FigureRefused("teacher_visuals_disabled", "The teacher's figures are switched off "
+                                                            "(teacher.visuals).")
     if offered(request) and not figure_offers_enabled(vault):
         raise FigureRefused("offers_disabled", "Offered figures are switched off (figures.offers_enabled).")
     goal = " ".join(str(request.goal_text or "").split())[:GOAL_CHARS] or None
@@ -1492,13 +1534,14 @@ def _validated_request(vault: Any, repository: Repository, request: FigureReques
                                                     "(figures.show_me_enabled).")
         # Who wrote it is the server's: the learner for the box and the rail,
         # the tutor only for its stored answer's goal (G-SM5).
-        expected = {"selection": "learner", "show_me": "learner", "tutor": "tutor", "ask": "learner"}.get(request.origin)
+        expected = {"selection": "learner", "show_me": "learner", "tutor": "tutor", "ask": "learner",
+                    "teacher": "teacher"}.get(request.origin)
         # RW5d P5: a revision of a prebuilt figure keeps its stored goal and who wrote it.
         revised_prebuilt = (request.origin == "selection" and request.supersedes_id is not None
                             and goal_author in PREFETCH_GOAL_AUTHORS)
         if (expected is None or goal_author != expected) and not revised_prebuilt:
             raise FigureRefused("validation_error", "That figure goal can't come from here.")
-    elif request.origin in ("show_me", "ask"):
+    elif request.origin in ("show_me", "ask", "teacher"):
         raise FigureRefused("validation_error", "Say what you want to see first.")
     attempt_host = attempt_hosted(request)
     if request.origin == "ask" and not attempt_host:
@@ -1511,10 +1554,11 @@ def _validated_request(vault: Any, repository: Repository, request: FigureReques
     if not spans and not request.region:
         if goal is None:
             raise FigureRefused("validation_error", "Select a passage, an equation or a figure first.")
-        if reading_at is None and not attempt_host:
+        if reading_at is None and not attempt_host and not lesson_host:
             # A figure with no passage lands under the passage the learner was
             # reading (spec §7.2, "Home"); RW5d P3: an attempt host's figure
-            # with no reading position has no home (it lands in the panel).
+            # with no reading position has no home (it lands in the panel);
+            # RW5d P4b: a lesson's figure has none either (it shows in the lesson).
             raise FigureRefused("validation_error", "Open a passage first, so the figure has a place to land.")
     region = None
     if request.region is not None:
@@ -1529,6 +1573,8 @@ def _validated_request(vault: Any, repository: Repository, request: FigureReques
         if not revisions_enabled(vault):
             raise FigureRefused("revisions_disabled", "Asking for a better version is switched off (figures.revisions_enabled).")
         note = " ".join(str(request.revision_note or "").split())[:NOTE_CHARS] or None
+    if lesson_host:
+        reading_at = None
     extraction_id = str(request.extraction_id) if (spans or region) else (
         str(reading_at["extraction_id"]) if reading_at is not None else None)
     keys = None if request.grounding_keys is None else [
@@ -1701,6 +1747,10 @@ def build_figure(vault: Any, repository: Repository, request: FigureRequest, *, 
     no rich tier is on the author's menu."""
 
     request = check_request(vault, repository, request)
+    if lesson_hosted(request):
+        # RW5d P4b: a lesson host is grammar and sketch only (LESSON_TIERS):
+        # no rich job is started from a lesson, whatever the caller passed.
+        spawn_rich = None
     request.rich_spawnable = spawn_rich is not None
     # One gate for the whole request (Codex review F1): grounding's rewrite,
     # embedding and verification calls, the reuse lookup and the author are
@@ -3248,7 +3298,9 @@ __all__ = [
     "GROUNDING_PASSAGES",
     "Grounding",
     "LABELS",
+    "LESSON_TIERS",
     "NOT_FROM_BOOKS_LABEL",
+    "SERVICE_ORIGINS",
     "anchored",
     "build_figure",
     "check_request",
@@ -3258,6 +3310,7 @@ __all__ = [
     "figure_withheld",
     "ground",
     "keys_withheld",
+    "lesson_hosted",
     "revision_request",
     "row_withheld",
     "show_me_enabled",
@@ -3282,5 +3335,6 @@ __all__ = [
     "revisions_enabled",
     "section_figures",
     "shown_figure",
+    "teacher_visuals_switch",
     "withheld_message",
 ]

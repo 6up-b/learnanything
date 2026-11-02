@@ -1582,6 +1582,16 @@ _CONFIG_RULES: list[_ConfigRule] = [
         "learned mass (off: the type's configured 0.5) / the forecast pool on top of it (parametric: the "
         "learned mass alone) / curriculum C4's deliverable and notes in the brief. Operational only: the "
         "learned quantities move with the data, never with these."),
+    # Reader RW5d P4b (spec_reader_show_me_figures_v1 §6.5, §10.4): the teacher's
+    # manipulatives. A boolean (classified so every new key has a rule): content and
+    # display only, no weight, margin or threshold; off, the teacher's prompt and turn
+    # schema are TE1's byte for byte and no lesson figure is built or shown.
+    _ConfigRule(_exact(
+        "teacher.visuals",
+    ), "structural", "operational",
+        "kill switch for the teacher's visuals (RW5d P4b): a lesson turn may carry a figure built by the "
+        "figure service (grammar and sketch tiers, its own predictions off in the lesson); a figure never "
+        "grades and is never evidence; off, the teacher's prompt and turn schema are TE1's exactly."),
     _ConfigRule(_exact(
         "teacher.brief.depth", "teacher.context.sources_tokens", "teacher.delayed.max_wait_days",
         "teacher.metered_price_per_million", "teacher.max_lesson_cost_usd",

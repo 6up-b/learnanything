@@ -15,6 +15,12 @@ Desktop only (pinned in tests/test_mobile_allowlist.py).
 
 Kill switch ``teacher.enabled`` (and the vault below the teacher's successor):
 both RPCs refuse, no lesson opens, nothing is written.
+
+Reader RW5d P4b: a teacher turn's ``visual`` is built inside ``lesson.turn`` by the
+figure service (``learnloop.figures.service.build_figure``, origin ``teacher``,
+the author route and live configuration the Reader's builds use), grammar and
+sketch tiers only (no rich job is spawned from a lesson), so the lesson's grant
+covers it and the lesson's spend envelope admits its requests.
 """
 from __future__ import annotations
 
@@ -67,6 +73,22 @@ def _error(exc: S.LessonError) -> SidecarError:
     return SidecarError(exc.code, str(exc), retryable=retryable, details=dict(exc.details))
 
 
+def _figure_builder(ctx: SidecarContext, vault: Any, repository: Any) -> Any:
+    """Reader RW5d P4b: how a lesson builds its teacher's visual (inline: the turn waits on it)."""
+
+    def build(request: Any) -> Any:
+        from learnloop.figures import service as FS
+
+        # Every request is admitted against the vault loaded NOW (the build's FiguresGate); no rich
+        # spawner: a lesson host is grammar and sketch only (FS.LESSON_TIERS).
+        return FS.build_figure(vault, repository, request, author_client=getattr(ctx, "figure_author_client", None),
+                               live_vault=getattr(ctx, "loaded_vault", None),
+                               find=getattr(ctx, "figure_find_sources", None),
+                               spawn_rich=None)
+
+    return build
+
+
 def _clients(ctx: SidecarContext, vault: Any) -> S.Clients:
     from learnloop.ai.routing import ready_client_for_task
 
@@ -102,6 +124,9 @@ def lesson_turn(ctx: SidecarContext, params: LessonTurnInput) -> dict[str, Any]:
     try:
         S.require_active(vault)
         clients = _clients(ctx, vault)
+        if clients.figures is None:
+            # Reader RW5d P4b: the teacher's visuals are built here, inline.
+            clients.figures = _figure_builder(ctx, vault, repository)
         if params.action == "open":
             if params.entry is None:
                 raise SidecarError("validation_error", "A lesson needs an entry (a topic or a passage).")
