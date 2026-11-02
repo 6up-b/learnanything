@@ -376,7 +376,10 @@ def replay(observed: Iterable[Observation]) -> AcceptanceState:
 
 def declines_by_learning_object(decisions: Mapping[str, Mapping[str, Any]],
                                 responses: Iterable[Mapping[str, Any]]) -> dict[str, str]:
-    """Per LO, the time of its latest "Not now" not followed by an acceptance of a lesson on it."""
+    """Per LO, the time of its latest "Not now" not followed by an acceptance of a lesson on it.
+
+    A ``released`` row (the learner's "Not now" on a pending card, letting a Start's unopened lesson go)
+    is a "Not now" on its LOs too; an ``expired`` one (the lesson could no longer open) is not."""
 
     latest: dict[str, str] = {}
     for response in sorted(responses, key=lambda row: (str(row["responded_at"]), str(row["id"]))):
@@ -384,7 +387,7 @@ def declines_by_learning_object(decisions: Mapping[str, Mapping[str, Any]],
             response.get("learning_object_ids_json"), str) else list(response.get("learning_object_ids") or ())
         kind = str(response["response"])
         for lo in los:
-            if kind == "declined":
+            if kind in ("declined", "released"):
                 latest[str(lo)] = str(response["responded_at"])
             elif kind in ("accepted", "chose_alternative"):
                 latest.pop(str(lo), None)

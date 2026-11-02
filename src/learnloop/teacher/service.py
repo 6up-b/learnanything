@@ -537,6 +537,9 @@ def _accepted_suggestion(repository: Any, decision_id: str | None, lesson_id: st
         if (response is None or response["response"] not in ("accepted", "chose_alternative")
                 or response["lesson_id"] != lesson_id):
             raise LessonError("not_found", "That suggestion wasn't accepted.")
+        if suggestions.release_for(connection, decision_id) is not None:
+            # "Not now" on the pending card, or it could no longer open (landing ruling R2).
+            raise LessonError("not_found", "That suggested lesson was set aside.")
         if suggestions.lesson_exists(connection, lesson_id):
             # Already open (a second Start, or a retry after the plan returned): the screen resumes it.
             raise LessonError("lesson_exists", "That lesson is already open.", details={"lesson_id": lesson_id})

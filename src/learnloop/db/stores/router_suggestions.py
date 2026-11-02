@@ -18,6 +18,14 @@ from learnloop.ids import new_ulid
 
 RECEIPT_PREFIX = "lesson_suggestion:"
 
+#: The learner's one response to a decision (a partial UNIQUE index: one per decision).
+RESPONSE_KINDS: tuple[str, ...] = ("accepted", "chose_alternative", "declined", "ignored")
+#: A reservation let go (a Start whose lesson never opened; at most one per decision, nothing deleted):
+#: ``released`` (the learner's "Not now" on the pending card) or ``expired`` (it can no longer open).
+RELEASE_KINDS: tuple[str, ...] = ("released", "expired")
+_RESPONSE_SQL = "('accepted', 'chose_alternative', 'declined', 'ignored')"
+_RELEASE_SQL = "('released', 'expired')"
+
 RESPONSE_COLUMNS: tuple[str, ...] = (
     "id", "decision_id", "response", "candidate_ref", "learning_object_ids_json", "lesson_id", "session_id",
     "responded_at", "detail_json", "created_at",
@@ -65,17 +73,39 @@ def decisions(connection: sqlite3.Connection) -> list[dict[str, Any]]:
 
 
 def responses(connection: sqlite3.Connection) -> list[dict[str, Any]]:
-    """Every response, in response order."""
+    """Every learner response (never a release), in response order."""
 
     if not tables_present(connection):
         return []
     return [dict(row) for row in connection.execute(
-        "SELECT * FROM router_suggestion_responses ORDER BY responded_at, id")]
+        f"SELECT * FROM router_suggestion_responses WHERE response IN {_RESPONSE_SQL} ORDER BY responded_at, id")]
+
+
+def releases(connection: sqlite3.Connection) -> list[dict[str, Any]]:
+    """Every reservation let go (``released`` or ``expired``), in order."""
+
+    if not tables_present(connection):
+        return []
+    return [dict(row) for row in connection.execute(
+        f"SELECT * FROM router_suggestion_responses WHERE response IN {_RELEASE_SQL} ORDER BY responded_at, id")]
 
 
 def response_for(connection: sqlite3.Connection, decision_id: str) -> dict[str, Any] | None:
+    """The decision's one learner response (never its release)."""
+
     row = connection.execute(
-        "SELECT * FROM router_suggestion_responses WHERE decision_id = ?", (decision_id,)
+        f"SELECT * FROM router_suggestion_responses WHERE decision_id = ? AND response IN {_RESPONSE_SQL}",
+        (decision_id,),
+    ).fetchone()
+    return dict(row) if row is not None else None
+
+
+def release_for(connection: sqlite3.Connection, decision_id: str) -> dict[str, Any] | None:
+    """The row that let the decision's reservation go, if one did."""
+
+    row = connection.execute(
+        f"SELECT * FROM router_suggestion_responses WHERE decision_id = ? AND response IN {_RELEASE_SQL}",
+        (decision_id,),
     ).fetchone()
     return dict(row) if row is not None else None
 
@@ -99,11 +129,15 @@ def insert_response(
     session_id: str | None = None,
     detail: Mapping[str, Any] | None = None,
 ) -> bool:
-    """Append the decision's one response; a second response to the same decision is a no-op (False)."""
+    """Append the decision's one response (or its one release); a second of either is a no-op (False)."""
 
+    if response not in RESPONSE_KINDS and response not in RELEASE_KINDS:
+        raise ValueError(f"unknown suggestion response {response!r}")
+    kinds = _RESPONSE_SQL if response in RESPONSE_KINDS else _RELEASE_SQL
     cursor = connection.execute(
         f"INSERT INTO router_suggestion_responses ({','.join(RESPONSE_COLUMNS)}) "
-        f"VALUES ({','.join('?' for _ in RESPONSE_COLUMNS)}) ON CONFLICT(decision_id) DO NOTHING",
+        f"VALUES ({','.join('?' for _ in RESPONSE_COLUMNS)}) "
+        f"ON CONFLICT(decision_id) WHERE response IN {kinds} DO NOTHING",
         (f"rsr_{new_ulid().lower()}", decision_id, response, candidate_ref,
          json.dumps(list(learning_object_ids)), lesson_id, session_id, responded_at,
          json.dumps(dict(detail or {}), sort_keys=True), responded_at),
@@ -152,6 +186,8 @@ def attempts_by_learning_object(connection: sqlite3.Connection) -> dict[str, lis
 
 __all__ = [
     "RECEIPT_PREFIX",
+    "RELEASE_KINDS",
+    "RESPONSE_KINDS",
     "attempts_by_learning_object",
     "decision",
     "decision_for_day",
@@ -161,6 +197,8 @@ __all__ = [
     "lesson_exists",
     "open_lesson_learning_objects",
     "receipt_key",
+    "release_for",
+    "releases",
     "response_for",
     "response_for_lesson",
     "responses",

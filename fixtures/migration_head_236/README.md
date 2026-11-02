@@ -51,7 +51,10 @@ needed). Rebuilt from main's tracked, sanitized `migration_head_234/state.sqlite
 companion files. The head holds 229 through 234 and 236 (no 235 on this branch).
 
 * 236 adds exactly its objects: `router_suggestion_responses` (RAW_LEDGER, no
-  row), its autoindexes, index and append-only triggers; and rebuilds
+  row), its primary-key autoindex, its index, its two partial UNIQUE indexes
+  (one learner response and at most one reservation release per decision;
+  landing ruling R2, rebuilt at the landing from the same main head) and
+  append-only triggers; and rebuilds
   `router_decisions` (its `decision_kind` CHECK gains `lesson_suggestion`;
   every row and id kept, the same indexes and triggers, no row in this
   fixture).

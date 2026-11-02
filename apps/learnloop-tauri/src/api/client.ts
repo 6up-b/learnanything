@@ -1700,7 +1700,8 @@ export const api = {
   // Teacher TE1b: Today's suggestion card (no model call; null when there is none) and the learner's one response.
   lessonSuggestion: (input: { sessionId?: string | null } = {}) =>
     call<{ suggestion: LessonSuggestionDto | null }>("lesson_suggestion", { input }),
-  lessonSuggestionRespond: (input: { decisionId: string; response: "accepted" | "chose_alternative" | "declined";
+  lessonSuggestionRespond: (input: { decisionId: string;
+    response: "accepted" | "chose_alternative" | "declined" | "released";
     candidateRef?: string; sessionId?: string | null }) =>
     call<LessonSuggestionResponseDto>("lesson_suggestion_respond", { input }),
   readerReadingPath: (input: { extractionId: string; judge?: boolean; retry?: boolean }) =>

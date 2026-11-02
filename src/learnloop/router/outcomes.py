@@ -668,7 +668,9 @@ def _suggestion_responses(connection: sqlite3.Connection) -> dict[str, dict[str,
         return {}
     out: dict[str, dict[str, Any]] = {}
     for row in connection.execute(
-            "SELECT decision_id, response, candidate_ref, learning_object_ids_json FROM router_suggestion_responses"):
+            "SELECT decision_id, response, candidate_ref, learning_object_ids_json FROM router_suggestion_responses "
+            # A reservation's release is not a response (the decision's arm and its response stand).
+            "WHERE response IN ('accepted', 'chose_alternative', 'declined', 'ignored')"):
         try:
             los = [str(lo) for lo in json.loads(row[3] or "[]")]
         except (TypeError, ValueError):  # pragma: no cover - the row is ours

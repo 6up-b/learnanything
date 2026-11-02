@@ -36,7 +36,8 @@ export function LessonSuggestionCard({
 
   if (!card) return null;
 
-  async function respond(response: "accepted" | "chose_alternative" | "declined", chosen?: LessonSuggestionEntryDto) {
+  async function respond(response: "accepted" | "chose_alternative" | "declined" | "released",
+                         chosen?: LessonSuggestionEntryDto) {
     if (!card) return;
     setBusy(true);
     try {
@@ -63,6 +64,7 @@ export function LessonSuggestionCard({
   if (pending) {
     // Codex review F2: the learner already said Start, but the lesson never opened (the teacher was
     // unavailable, or the app closed in between). Opening it again uses the id the Start recorded.
+    // "Not now" lets it go (landing ruling R2: `released`; the Start stays recorded).
     return (
       <section aria-label="Suggested lesson" data-testid="lesson-suggestion-card"
                style={{ margin: "0 18px 10px", padding: "10px 12px", border: `1px solid ${COLOR.border}`,
@@ -71,7 +73,7 @@ export function LessonSuggestionCard({
           Your lesson on <strong>{pending.title || card.suggestion.title}</strong> hasn't opened yet.
         </div>
         <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginTop: 8 }}>
-          <button type="button" onClick={() => {
+          <button type="button" disabled={busy} onClick={() => {
             setCard(null);
             onStartLesson({
               kind: "open", entry: "learning_object", learningObjectIds: pending.learningObjectIds,
@@ -79,6 +81,7 @@ export function LessonSuggestionCard({
               suggestion: { decisionId: pending.decisionId, lessonId: pending.lessonId }
             });
           }}>Open the lesson</button>
+          <button type="button" disabled={busy} onClick={() => void respond("released")}>Not now</button>
         </div>
       </section>
     );

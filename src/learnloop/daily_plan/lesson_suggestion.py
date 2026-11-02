@@ -17,13 +17,19 @@ acceptance model and the draw). Three steps, each its own call:
   decision back: the card while it is shown and unanswered (or its Start's lesson
   while that never opened), else nothing. A Start from an earlier day whose lesson
   never opened takes the card instead of a new draw, whatever day it is (codex
-  re-review F2). No candidate: nothing is written (a later open may draw).
+  re-review F2). Before a Start left unopened is offered again it is checked against
+  the current vault (its LO still there, the exam material readable, as the lesson's
+  opening needs); one that can no longer open is let go (an ``expired`` row on its
+  decision, nothing deleted) and the day draws normally (landing ruling R2, codex
+  verify F8). No candidate: nothing is written (a later open may draw).
 * :func:`respond`: the learner's one response (Start = ``accepted``, an
   alternative = ``chose_alternative``, "Not now" = ``declined``), appended to
   ``router_suggestion_responses``. A Start names the lesson id the lesson will
   open under, so the response is recorded before the teacher is called and the
   lesson row carries the decision id (``lessons.origin_ref``, receipt
-  ``origin``).
+  ``origin``). On a pending card (a Start whose lesson never opened) "Not now"
+  is ``released``: the reservation is let go (one more row on the decision; the
+  Start stays recorded) and the LO counts as declined for the decline recovery.
 * The lesson itself opens through ``lesson.turn`` (``teacher.service.open_lesson``
   with ``origin = 'router'``), which checks the response.
 
@@ -270,7 +276,8 @@ def card_view(connection: Any, decision: Mapping[str, Any] | None) -> dict[str, 
                 "pending_lesson": None}
     lesson_id = response.get("lesson_id")
     if (response["response"] not in ("accepted", "chose_alternative") or not lesson_id
-            or store.lesson_exists(connection, str(lesson_id))):
+            or store.lesson_exists(connection, str(lesson_id))
+            or store.release_for(connection, decision["id"]) is not None):
         return None
     opened = store.last_lesson_opened_by_learning_object(connection)
     reserved = json.loads(response.get("learning_object_ids_json") or "[]")
@@ -295,6 +302,78 @@ def _pending_from_earlier_day(connection: Any, decisions: Sequence[Mapping[str, 
         if view is not None and view.get("pending_lesson") is not None:
             return view
     return None
+
+
+def _protection_readable(vault: Any, repository: Any) -> bool:
+    """The exam material can be checked: what a lesson's opening needs before its brief
+    (``teacher.brief.protection_state`` is None otherwise and the opening refuses; read here
+    without importing the teacher; a test pins the two equal)."""
+
+    from learnloop.learner_protection import withheld_items
+    from learnloop.source_retrieval.section_coverage import CoverageError, read_protection
+
+    try:
+        if not withheld_items(vault, repository).available:
+            return False
+        read_protection(vault, repository)
+    except CoverageError:
+        return False
+    return True
+
+
+def reservation_problem(vault: Any, repository: Any, view: Mapping[str, Any]) -> str | None:
+    """Why a pending card's reserved lesson can no longer open on the current vault, or None.
+
+    Landing ruling R2 (codex verify F8): every LO it reserved must still be in the vault (the
+    opening refuses ``unknown_topic`` otherwise, and no lesson row would ever clear the card) and
+    the exam material must be readable (the opening refuses otherwise)."""
+
+    lesson = view.get("pending_lesson") or {}
+    los = [str(lo) for lo in lesson.get("learning_object_ids") or ()]
+    if not los or any(lo not in vault.learning_objects for lo in los):
+        return "learning_object_missing"
+    if not _protection_readable(vault, repository):
+        return "protection_unavailable"
+    return None
+
+
+def _expire(connection: Any, view: Mapping[str, Any], problem: str, *, now_iso: str) -> None:
+    """Let an unopenable reservation go: an ``expired`` row on its decision (nothing deleted)."""
+
+    lesson = view.get("pending_lesson") or {}
+    store.insert_response(
+        connection, decision_id=str(view["decision_id"]), response="expired",
+        candidate_ref=str((view.get("suggestion") or {}).get("ref") or ""),
+        learning_object_ids=list(lesson.get("learning_object_ids") or ()), responded_at=now_iso,
+        detail={"reason": problem, "lesson_id": lesson.get("lesson_id"), "recorded": "suggestion_step",
+                "shown_on": view.get("day")})
+
+
+def _recovered(vault: Any, repository: Any, *, today: str, now_iso: str) -> tuple[bool, dict[str, Any] | None]:
+    """Today's card before any draw: ``(True, card)`` when the day already has its decision or an
+    earlier day's Start still waits to open (validated first; R2), else ``(False, None)`` (draw).
+
+    A reservation that can no longer open is expired, then the next one is looked at: today's own
+    leaves the day without a card (one decision a day), an earlier day's lets the day draw."""
+
+    while True:
+        with repository.atomic():
+            connection = repository.connection()
+            if not store.tables_present(connection):
+                return True, None
+            _sweep_ignored(connection, store.decisions(connection), today=today, now_iso=now_iso)
+            existing = store.decision_for_day(connection, today)
+            if existing is not None:
+                view = card_view(connection, existing)
+            else:
+                view = _pending_from_earlier_day(connection, store.decisions(connection), today=today)
+        if view is None or view.get("pending_lesson") is None:
+            return existing is not None, view
+        problem = reservation_problem(vault, repository, view)
+        if problem is None:
+            return True, view
+        with repository.atomic():
+            _expire(repository.connection(), view, problem, now_iso=now_iso)
 
 
 def _target(vault: Any, scored: Sequence[LS.ScoredCandidate], seed: str) -> LS.Target:
@@ -324,92 +403,85 @@ def today_suggestion(vault: Any, repository: Any, *, clock: Clock | None = None,
         return None
     env = PlanEnv(vault, repository, clock=clock, session_id=session_id)
     today, now_iso = env.today(), env.now_iso()
-    with repository.atomic():
-        connection = repository.connection()
-        if not store.tables_present(connection):
-            return None
-        _sweep_ignored(connection, store.decisions(connection), today=today, now_iso=now_iso)
-        existing = store.decision_for_day(connection, today)
-        if existing is not None:
-            return card_view(connection, existing)
-        pending = _pending_from_earlier_day(connection, store.decisions(connection), today=today)
-        if pending is not None:
-            return pending
+    settled, view = _recovered(vault, repository, today=today, now_iso=now_iso)
+    if settled:
+        return view
     candidates, excluded = build_candidates(vault, repository, now_iso=now_iso)
     if not candidates:
         return None
     with repository.atomic():
         connection = repository.connection()
-        existing = store.decision_for_day(connection, today)
-        if existing is not None:
-            return card_view(connection, existing)
         state, decisions, responses = _model(connection)
-        pending = _pending_from_earlier_day(connection, decisions, today=today)
-        if pending is not None:
-            return pending
-        context = _context(env, decisions)
-        details = {str(d["id"]): d["detail"] for d in decisions}
-        declined = LS.declines_by_learning_object(details, responses)
-        now = env.now()
-        dated = []
-        for candidate in candidates:
-            days = [d for lo in candidate.learning_object_ids if (d := _days(now, declined.get(lo))) is not None]
-            dated.append(replace(candidate, days_since_decline=min(days) if days else None))
-        config = vault.config.router
-        scored = LS.score(state, context, dated, k=config.k)
-        ceiling = int(config.lesson_suggestions.ceiling_per_day)
-        shown_today = sum(1 for d in decisions if _shown(d) and d["day"] == today)
-        inputs = {"version": LS.SUGGESTION_VERSION, "priors_version": LS.PRIORS_VERSION,
-                  "context": context.as_dict(), "candidates": [s.candidate.as_dict() for s in scored],
-                  "updates": state.updates, "epsilon": config.epsilon_min, "k": config.k, "ceiling": ceiling,
-                  "mode": config.mode, "weights": config.weights.model_dump(),
-                  "algorithm_version": vault.config.algorithms.algorithm_version}
-        snapshot = LS.canonical_hash(inputs)
-        seed = LS.seed_for(today, snapshot)
-        target = _target(vault, scored, seed)
-        result = LS.draw(scored, target=target, seed=seed, ceiling_bound=shown_today >= ceiling)
-        card = [result.drawn, *result.alternatives] if result.shown else []
-        card_payload = {"candidates": [entry.as_dict() for entry in card]}
-        detail = {
-            "version": LS.SUGGESTION_VERSION, "context": context.as_dict(), "shown": result.shown,
-            "drawn_ref": result.drawn.candidate.ref, "drawn_learning_object_ids": list(result.drawn.candidate.learning_object_ids),
-            "p_show_drawn": round(result.drawn.p_accept, 12), "p_no_card": round(result.p_no_card, 12),
-            # The estimand (codex review F3): the outcome is the drawn target's, so the row's propensity
-            # is P(target) · P(arm | target); both factors are here, P(target) for policy evaluation.
-            "pi_drawn": round(result.drawn.pi, 12), "arm_propensity": round(result.arm_propensity, 12),
-            "propensity_basis": "joint_target_arm",
-            # The target's design and its record (codex re-review F5): the router's mixture (weights,
-            # components, the floor, the models' status) or the staged tie-break (the tied set).
-            "target_design": target.design, "target": dict(target.record),
-            # The predeclared outcome scope (codex review F4): the target, then the candidates the card
-            # offers (or would offer) beside it, fixed before the arm.
-            "target_scope": [{"ref": entry.candidate.ref,
-                              "learning_object_ids": list(entry.candidate.learning_object_ids)}
-                             for entry in result.scope],
-            "card": card_payload, "model": state.summary(), "epsilon": config.epsilon_min, "k": config.k,
-            "ceiling": {"per_day": ceiling, "shown_today": shown_today, "bound": result.ceiling_bound},
-            "candidates_considered": len(candidates),
-        }
-        row = {
-            "id": new_ulid(), "receipt_key": store.receipt_key(today), "decision_kind": LS.DECISION_KIND,
-            "surface": LS.SURFACE, "mode": config.mode, "policy": LS.POLICY,
-            "algorithm_version": vault.config.algorithms.algorithm_version, "log_version": ROUTER_LOG_VERSION,
-            "session_id": session_id, "parent_decision_id": None, "scheduler_slate_id": None,
-            "controller_decision_id": None, "snapshot_hash": snapshot, "design": LS.DESIGN, "seed": seed,
-            "candidates_json": json.dumps([s.as_dict() for s in result.scored], sort_keys=True),
-            "exclusions_json": json.dumps({"named": excluded, "counts": {}}, sort_keys=True),
-            "candidate_count": len(result.scored), "chosen_ref": result.chosen_ref,
-            "chosen_practice_item_id": None,
-            "chosen_learning_object_id": result.drawn.candidate.learning_object_ids[0] if result.shown else None,
-            "chosen_scheduler_candidate_id": None, "propensity": result.propensity,
-            "mixture_weights_json": (json.dumps(target.record["effective_weights"], sort_keys=True)
-                                     if target.design == LS.TARGET_MIXTURE else None),
-            "propensity_kind": result.propensity_kind, "learner_pick": 0,
-            "card_hash": LS.canonical_hash(card_payload) if result.shown else None,
-            "detail_json": json.dumps(detail, sort_keys=True), "created_at": now_iso,
-        }
-        insert_router_decision(connection, row)
-        return card_view(connection, store.decision_for_day(connection, today))
+        raced = (store.decision_for_day(connection, today) is not None
+                 or _pending_from_earlier_day(connection, decisions, today=today) is not None)
+        if not raced:
+            context = _context(env, decisions)
+            details = {str(d["id"]): d["detail"] for d in decisions}
+            # A released reservation ("Not now" on a pending card) is a decline of its LOs.
+            declined = LS.declines_by_learning_object(
+                details, [*responses, *(r for r in store.releases(connection) if r["response"] == "released")])
+            now = env.now()
+            dated = []
+            for candidate in candidates:
+                days = [d for lo in candidate.learning_object_ids if (d := _days(now, declined.get(lo))) is not None]
+                dated.append(replace(candidate, days_since_decline=min(days) if days else None))
+            config = vault.config.router
+            scored = LS.score(state, context, dated, k=config.k)
+            ceiling = int(config.lesson_suggestions.ceiling_per_day)
+            shown_today = sum(1 for d in decisions if _shown(d) and d["day"] == today)
+            inputs = {"version": LS.SUGGESTION_VERSION, "priors_version": LS.PRIORS_VERSION,
+                      "context": context.as_dict(), "candidates": [s.candidate.as_dict() for s in scored],
+                      "updates": state.updates, "epsilon": config.epsilon_min, "k": config.k, "ceiling": ceiling,
+                      "mode": config.mode, "weights": config.weights.model_dump(),
+                      "algorithm_version": vault.config.algorithms.algorithm_version}
+            snapshot = LS.canonical_hash(inputs)
+            seed = LS.seed_for(today, snapshot)
+            target = _target(vault, scored, seed)
+            result = LS.draw(scored, target=target, seed=seed, ceiling_bound=shown_today >= ceiling)
+            card = [result.drawn, *result.alternatives] if result.shown else []
+            card_payload = {"candidates": [entry.as_dict() for entry in card]}
+            detail = {
+                "version": LS.SUGGESTION_VERSION, "context": context.as_dict(), "shown": result.shown,
+                "drawn_ref": result.drawn.candidate.ref, "drawn_learning_object_ids": list(result.drawn.candidate.learning_object_ids),
+                "p_show_drawn": round(result.drawn.p_accept, 12), "p_no_card": round(result.p_no_card, 12),
+                # The estimand (codex review F3): the outcome is the drawn target's, so the row's propensity
+                # is P(target) · P(arm | target); both factors are here, P(target) for policy evaluation.
+                "pi_drawn": round(result.drawn.pi, 12), "arm_propensity": round(result.arm_propensity, 12),
+                "propensity_basis": "joint_target_arm",
+                # The target's design and its record (codex re-review F5): the router's mixture (weights,
+                # components, the floor, the models' status) or the staged tie-break (the tied set).
+                "target_design": target.design, "target": dict(target.record),
+                # The predeclared outcome scope (codex review F4): the target, then the candidates the card
+                # offers (or would offer) beside it, fixed before the arm.
+                "target_scope": [{"ref": entry.candidate.ref,
+                                  "learning_object_ids": list(entry.candidate.learning_object_ids)}
+                                 for entry in result.scope],
+                "card": card_payload, "model": state.summary(), "epsilon": config.epsilon_min, "k": config.k,
+                "ceiling": {"per_day": ceiling, "shown_today": shown_today, "bound": result.ceiling_bound},
+                "candidates_considered": len(candidates),
+            }
+            row = {
+                "id": new_ulid(), "receipt_key": store.receipt_key(today), "decision_kind": LS.DECISION_KIND,
+                "surface": LS.SURFACE, "mode": config.mode, "policy": LS.POLICY,
+                "algorithm_version": vault.config.algorithms.algorithm_version, "log_version": ROUTER_LOG_VERSION,
+                "session_id": session_id, "parent_decision_id": None, "scheduler_slate_id": None,
+                "controller_decision_id": None, "snapshot_hash": snapshot, "design": LS.DESIGN, "seed": seed,
+                "candidates_json": json.dumps([s.as_dict() for s in result.scored], sort_keys=True),
+                "exclusions_json": json.dumps({"named": excluded, "counts": {}}, sort_keys=True),
+                "candidate_count": len(result.scored), "chosen_ref": result.chosen_ref,
+                "chosen_practice_item_id": None,
+                "chosen_learning_object_id": result.drawn.candidate.learning_object_ids[0] if result.shown else None,
+                "chosen_scheduler_candidate_id": None, "propensity": result.propensity,
+                "mixture_weights_json": (json.dumps(target.record["effective_weights"], sort_keys=True)
+                                         if target.design == LS.TARGET_MIXTURE else None),
+                "propensity_kind": result.propensity_kind, "learner_pick": 0,
+                "card_hash": LS.canonical_hash(card_payload) if result.shown else None,
+                "detail_json": json.dumps(detail, sort_keys=True), "created_at": now_iso,
+            }
+            insert_router_decision(connection, row)
+            return card_view(connection, store.decision_for_day(connection, today))
+    # Another call settled the day between the two reads (its decision, or a reservation): read it back.
+    return _recovered(vault, repository, today=today, now_iso=now_iso)[1]
 
 
 # =============================================================================
@@ -419,11 +491,14 @@ def today_suggestion(vault: Any, repository: Any, *, clock: Clock | None = None,
 
 def respond(vault: Any, repository: Any, *, decision_id: str, response: str, candidate_ref: str | None = None,
             session_id: str | None = None, clock: Clock | None = None) -> dict[str, Any]:
-    """Record the learner's one response to a shown card; a Start or an alternative names its lesson id."""
+    """Record the learner's one response to a shown card; a Start or an alternative names its lesson id.
+
+    ``released`` is "Not now" on a pending card (a Start whose lesson never opened; landing ruling R2):
+    the reservation is let go with one more row on the decision, the Start staying recorded."""
 
     if not suggestions_active(vault):
         raise SuggestionError("suggestions_disabled", "Lesson suggestions are switched off.")
-    if response not in ("accepted", "chose_alternative", "declined"):
+    if response not in ("accepted", "chose_alternative", "declined", "released"):
         raise SuggestionError("validation_error", f"unknown response {response!r}")
     env = PlanEnv(vault, repository, clock=clock, session_id=session_id)
     now_iso = env.now_iso()
@@ -432,6 +507,8 @@ def respond(vault: Any, repository: Any, *, decision_id: str, response: str, can
         decision = store.decision(connection, decision_id)
         if decision is None or not _shown(decision):
             raise SuggestionError("not_found", "That suggestion isn't on your Today card.")
+        if response == "released":
+            return _release(connection, decision, session_id=session_id, now_iso=now_iso)
         entries = (decision["detail"].get("card") or {}).get("candidates") or []
         primary, alternatives = entries[0], entries[1:]
         if response == "chose_alternative":
@@ -453,6 +530,29 @@ def respond(vault: Any, repository: Any, *, decision_id: str, response: str, can
         return _response_view(store.response_for(connection, decision_id), chosen)
 
 
+def _release(connection: Any, decision: Mapping[str, Any], *, session_id: str | None,
+             now_iso: str) -> dict[str, Any]:
+    """Let a pending card's reservation go (the learner's "Not now" on it); idempotent."""
+
+    existing = store.release_for(connection, decision["id"])
+    if existing is not None:
+        if existing["response"] != "released":
+            raise SuggestionError("not_found", "That lesson is no longer on your Today card.")
+        return {"decision_id": existing["decision_id"], "response": "released",
+                "candidate_ref": existing["candidate_ref"], "lesson": None}
+    view = card_view(connection, decision)
+    lesson = (view or {}).get("pending_lesson")
+    if lesson is None:
+        raise SuggestionError("not_found", "There's no lesson waiting on your Today card for that suggestion.")
+    candidate_ref = str((view or {}).get("suggestion", {}).get("ref") or "")
+    store.insert_response(
+        connection, decision_id=str(decision["id"]), response="released", candidate_ref=candidate_ref,
+        learning_object_ids=list(lesson.get("learning_object_ids") or ()), responded_at=now_iso,
+        session_id=session_id, detail={"reason": "not_now", "lesson_id": lesson.get("lesson_id"),
+                                       "card_hash": decision.get("card_hash")})
+    return {"decision_id": decision["id"], "response": "released", "candidate_ref": candidate_ref, "lesson": None}
+
+
 def _response_view(row: Mapping[str, Any], chosen: Mapping[str, Any]) -> dict[str, Any]:
     lesson = None
     if row.get("lesson_id"):
@@ -469,6 +569,7 @@ __all__ = [
     "WHY_LABEL",
     "build_candidates",
     "card_view",
+    "reservation_problem",
     "respond",
     "suggestions_active",
     "today_suggestion",

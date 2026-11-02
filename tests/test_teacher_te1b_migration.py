@@ -24,7 +24,9 @@ HEAD = Path(__file__).resolve().parents[1] / "fixtures" / "migration_head_236" /
 TE1B_ADDED_OBJECTS = frozenset({
     "router_suggestion_responses", "idx_router_suggestion_responses_at",
     "router_suggestion_responses_no_update", "router_suggestion_responses_no_delete",
-    "sqlite_autoindex_router_suggestion_responses_1", "sqlite_autoindex_router_suggestion_responses_2",
+    "sqlite_autoindex_router_suggestion_responses_1",
+    # One learner response per decision, and at most one release of a Start's reservation (landing ruling R2).
+    "idx_router_suggestion_responses_one_response", "idx_router_suggestion_responses_one_release",
 })
 #: 236 rebuilds this table (its decision_kind CHECK gains 'lesson_suggestion'); its objects keep their names.
 TE1B_ALTERED_TABLES = frozenset({"router_decisions"})
@@ -79,6 +81,13 @@ def _check(database: Path) -> None:
         connection.execute(insert, ("r1", "d1", "accepted", "lesson:lo_a", "les_1"))
         with pytest.raises(sqlite3.IntegrityError):  # one response per decision
             connection.execute(insert, ("r2", "d1", "declined", "lesson:lo_a", None))
+        # Landing ruling R2: the reservation is let go by one more row (released or expired), at most one.
+        connection.execute(insert, ("r1b", "d1", "released", "lesson:lo_a", None))
+        with pytest.raises(sqlite3.IntegrityError):
+            connection.execute(insert, ("r1c", "d1", "expired", "lesson:lo_a", None))
+        with pytest.raises(sqlite3.IntegrityError):  # a release names its lesson in detail_json, not lesson_id
+            connection.execute(_DECISION, ("d4", "lesson_suggestion:2026-11-04", "lesson_suggestion", "lesson:lo_c"))
+            connection.execute(insert, ("r6", "d4", "expired", "lesson:lo_c", "les_4"))
         with pytest.raises(sqlite3.IntegrityError):  # a decline opens no lesson
             connection.execute(_DECISION, ("d3", "lesson_suggestion:2026-11-03", "lesson_suggestion", "lesson:lo_b"))
             connection.execute(insert, ("r3", "d3", "declined", "lesson:lo_b", "les_2"))

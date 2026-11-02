@@ -28,6 +28,8 @@ Teacher TE1b (spec_teacher_v1 §15.1, §19; ``learnloop.daily_plan.lesson_sugges
   ``router_suggestion_responses``. Start returns the lesson to open:
   ``lesson.turn`` ``open`` with ``origin = "router_suggestion"``, the decision id
   and the lesson id the response recorded.
+  On a pending card (a Start whose lesson never opened) "Not now" is
+  ``released``: the reservation is let go, the Start staying recorded.
 """
 from __future__ import annotations
 
@@ -83,7 +85,8 @@ class LessonSuggestionInput(ParamsModel):
 
 class LessonSuggestionRespondInput(ParamsModel):
     decision_id: str
-    response: Literal["accepted", "chose_alternative", "declined"]
+    # ``released``: "Not now" on a pending card (a Start whose lesson never opened; landing ruling R2)
+    response: Literal["accepted", "chose_alternative", "declined", "released"]
     candidate_ref: str | None = None
     session_id: str | None = None
 

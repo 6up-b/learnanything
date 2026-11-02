@@ -120,3 +120,39 @@ it("the lesson screen opens a suggested lesson with its origin, the decision and
     action: "open", entry: "learning_object", learningObjectIds: ["lo_eigen"], origin: "router_suggestion",
     suggestionDecisionId: "dec1", lessonId: "les_1" });
 });
+
+// Landing ruling R2 (codex verify F8): a Start whose lesson never opened offers "Open the lesson" and "Not now";
+// "Not now" releases the reservation (the Start stays recorded) and opens nothing.
+const PENDING: LessonSuggestionDto = {
+  ...CARD, alternatives: [],
+  pendingLesson: { lessonId: "les_9", decisionId: "dec1", learningObjectIds: ["lo_eigen"], title: "Eigenvalues" }
+};
+
+it("a pending lesson offers Open the lesson and Not now", async () => {
+  await mount(PENDING);
+  const card = screen.getByTestId("lesson-suggestion-card");
+  expect(card.textContent).toContain("Your lesson on Eigenvalues hasn't opened yet.");
+  expect(screen.getByRole("button", { name: "Open the lesson" })).toBeTruthy();
+  expect(screen.getByRole("button", { name: "Not now" })).toBeTruthy();
+  expect(screen.queryByRole("dialog")).toBeNull();
+});
+
+it("Not now on a pending lesson releases it, hides the card and opens nothing", async () => {
+  const { onStartLesson, onError } = await mount(PENDING);
+  api.lessonSuggestionRespond.mockResolvedValueOnce({
+    decisionId: "dec1", response: "released", candidateRef: "lesson:lo_eigen", lesson: null });
+  await act(async () => { fireEvent.click(screen.getByRole("button", { name: "Not now" })); });
+  expect(api.lessonSuggestionRespond).toHaveBeenCalledWith({ decisionId: "dec1", response: "released", sessionId: "sess1" });
+  expect(onStartLesson).not.toHaveBeenCalled();
+  expect(onError).not.toHaveBeenCalled();
+  expect(screen.queryByTestId("lesson-suggestion-card")).toBeNull();
+});
+
+it("a failed release keeps the pending card and reports the error", async () => {
+  const { onStartLesson, onError } = await mount(PENDING);
+  api.lessonSuggestionRespond.mockRejectedValueOnce(new Error("That lesson is no longer on your Today card."));
+  await act(async () => { fireEvent.click(screen.getByRole("button", { name: "Not now" })); });
+  expect(onError.mock.calls[0][0]).toContain("That lesson is no longer on your Today card.");
+  expect(onStartLesson).not.toHaveBeenCalled();
+  expect(screen.getByTestId("lesson-suggestion-card")).toBeTruthy();
+});

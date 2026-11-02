@@ -10441,10 +10441,11 @@ export interface LessonSuggestionDto {
   pendingLesson?: { lessonId: string; decisionId: string; learningObjectIds: string[]; title: string } | null;
 }
 
-/** lesson.suggestion_respond: Start or an alternative returns the lesson to open. */
+/** lesson.suggestion_respond: Start or an alternative returns the lesson to open; `released` is
+ *  "Not now" on a pending lesson (the reservation is let go, the Start stays recorded). */
 export interface LessonSuggestionResponseDto {
   decisionId: string;
-  response: "accepted" | "chose_alternative" | "declined" | "ignored";
+  response: "accepted" | "chose_alternative" | "declined" | "released";
   candidateRef: string;
   lesson: { lessonId: string; decisionId: string; learningObjectIds: string[]; title: string } | null;
 }

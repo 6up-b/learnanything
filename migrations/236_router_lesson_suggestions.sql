@@ -23,9 +23,19 @@
 --    of the card's up to two alternatives; candidate_ref names it), declined
 --    ("Not now") or ignored (no response by the end of the day the card was
 --    shown, recorded at the next suggestion step), its time, and the lesson
---    that opened when one did. One response per decision (UNIQUE): the
---    acceptance model and the decline recovery replay this ledger (no derived
---    table; every reader replays it).
+--    that opened when one did. One response per decision (a partial UNIQUE
+--    index over the four learner responses): the acceptance model and the
+--    decline recovery replay this ledger (no derived table; every reader
+--    replays it).
+--
+--    A Start whose lesson never opened is a reservation (the card keeps
+--    offering that lesson). It is let go by at most one more row on the same
+--    decision (a second partial UNIQUE index), nothing deleted: 'released'
+--    (the learner's "Not now" on the pending card) or 'expired' (the reserved
+--    lesson can no longer open on the current vault: its LO is gone or the
+--    exam material cannot be checked; recorded at the suggestion step that
+--    found it). Neither is an acceptance observation; the decision's own
+--    response stays as it was.
 PRAGMA foreign_keys = OFF;
 
 CREATE TABLE router_decisions__236 (
@@ -117,13 +127,16 @@ END;
 
 CREATE TABLE router_suggestion_responses (
   id TEXT PRIMARY KEY,
-  decision_id TEXT NOT NULL UNIQUE REFERENCES router_decisions(id),
-  response TEXT NOT NULL CHECK (response IN ('accepted', 'chose_alternative', 'declined', 'ignored')),
+  decision_id TEXT NOT NULL REFERENCES router_decisions(id),
+  response TEXT NOT NULL CHECK (
+    response IN ('accepted', 'chose_alternative', 'declined', 'ignored', 'released', 'expired')
+  ),
   -- The candidate the response is about: the card's suggestion (accepted,
   -- declined, ignored) or the alternative the learner picked.
   candidate_ref TEXT NOT NULL,
   learning_object_ids_json TEXT NOT NULL,
-  -- The lesson that opened (accepted or chose_alternative), when one did.
+  -- The lesson id a Start reserved (accepted or chose_alternative); a
+  -- release names the reservation's lesson id in detail_json.
   lesson_id TEXT,
   session_id TEXT,
   responded_at TEXT NOT NULL,
@@ -132,6 +145,10 @@ CREATE TABLE router_suggestion_responses (
   CHECK (lesson_id IS NULL OR response IN ('accepted', 'chose_alternative'))
 );
 CREATE INDEX idx_router_suggestion_responses_at ON router_suggestion_responses(responded_at);
+CREATE UNIQUE INDEX idx_router_suggestion_responses_one_response ON router_suggestion_responses(decision_id)
+  WHERE response IN ('accepted', 'chose_alternative', 'declined', 'ignored');
+CREATE UNIQUE INDEX idx_router_suggestion_responses_one_release ON router_suggestion_responses(decision_id)
+  WHERE response IN ('released', 'expired');
 
 CREATE TRIGGER router_suggestion_responses_no_update
 BEFORE UPDATE ON router_suggestion_responses
