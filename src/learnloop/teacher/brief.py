@@ -259,7 +259,7 @@ def _attempt_rows(repository: Any, learning_object_ids: Sequence[str]) -> list[d
     with repository.connection() as connection:
         cursor = connection.execute(
             f"SELECT id, practice_item_id, learning_object_id, attempt_type, correctness, rubric_score, hints_used, "
-            f"primed, answer_confidence, created_at, entry_surface FROM practice_attempts "
+            f"primed, answer_confidence, created_at, entry_surface, probe_presentation_id FROM practice_attempts "
             f"WHERE learning_object_id IN ({marks}) ORDER BY created_at, id", list(learning_object_ids))
         names = [d[0] for d in cursor.description]
         return [dict(zip(names, row)) for row in cursor.fetchall()]
@@ -289,7 +289,8 @@ def _history(vault: Any, repository: Any, learning_object_ids: Sequence[str], wi
 
     out = []
     for row in _attempt_rows(repository, learning_object_ids):
-        protected = attempt_protection(withheld, {**row, "practice_item_id": row["practice_item_id"]})
+        protected = attempt_protection(withheld, {"item": row["practice_item_id"], "type": row["attempt_type"],
+                                                  "probe": row.get("probe_presentation_id")})
         kind = "cold" if _cold(row) else ("assisted" if row["attempt_type"] in (
             "hinted_attempt", "guided_walkthrough", "reconstruction_after_walkthrough") or row["hints_used"] else (
             "primed" if row["primed"] else row["attempt_type"]))

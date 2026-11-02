@@ -248,6 +248,8 @@ def _prompt(state: LessonState, *, results: Sequence[Mapping[str, Any]], help_re
 
 def _append(repository: Any, state: LessonState, *, actor: str, action: str, validation: str = "ok",
             refs: Mapping[str, Any] | None = None, payload: Any = None, clock: Clock | None) -> dict[str, Any]:
+    if actor == "teacher" and action == "teacher_turn":
+        state.failures = 0 if validation == "ok" else state.failures + 1
     with repository.atomic():
         row = store.append_turn(repository.connection(), lesson_id=state.lesson_id, actor=actor, action=action,
                                 validation=validation, refs=refs, payload=payload, created_at=utc_now_iso(clock))
@@ -549,9 +551,15 @@ def _call_teacher(vault: Any, repository: Any, state: LessonState, client: Any, 
         texts.extend([turn_obj.prediction.prompt, *turn_obj.prediction.choices])
     if turn_obj.check is not None:
         texts.extend([turn_obj.check.question, *turn_obj.check.choices])
-    for text in texts:
+    # The open check's solution guard also covers the check this turn poses: its message (never its
+    # options, which carry the right one by design) must not give the solution away.
+    posing = turn_obj.check.model_dump() if turn_obj.check is not None else None
+    for index, text in enumerate(texts):
+        open_check = state.open_check and state.open_check.get("check")
+        if open_check is None and posing is not None and index == 0:
+            open_check = posing
         verdict = G.check_all(text, keys=keys, unreadable=unreadable, book=state.book,
-                              open_check=state.open_check and state.open_check.get("check"), help_reply=help_reply)
+                              open_check=open_check, help_reply=help_reply)
         if not verdict.ok:
             _append(repository, state, actor="teacher", action="teacher_turn", validation="withheld",
                     payload={"reason": verdict.reason, "detail": verdict.detail, "turn": turn_obj.model_dump()},

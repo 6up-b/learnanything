@@ -173,13 +173,15 @@ def read_history(vault: Any, repository: Any, state: Any, refs: list[str]) -> di
             if kind == "h":
                 cursor = connection.execute(
                     "SELECT id, practice_item_id, learning_object_id, attempt_type, learner_answer_md, correctness, "
-                    "answer_confidence, created_at FROM practice_attempts WHERE id = ?", (raw,))
+                    "answer_confidence, created_at, probe_presentation_id FROM practice_attempts WHERE id = ?", (raw,))
                 row = cursor.fetchone()
                 if row is None:
                     out.append({"id": ref, "refused": "not found"})
                     continue
                 data = dict(zip([d[0] for d in cursor.description], row))
-                protected = attempt_protection(withheld, data)
+                protected = attempt_protection(withheld, {"item": data["practice_item_id"],
+                                                          "type": data["attempt_type"],
+                                                          "probe": data.get("probe_presentation_id")})
                 feedback = connection.execute(
                     "SELECT evidence FROM grading_evidence WHERE attempt_id = ? AND superseded_at IS NULL "
                     "ORDER BY id", (raw,)).fetchall()
