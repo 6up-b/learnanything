@@ -1,4 +1,4 @@
-"""`learnloop router log`, `card` and `embed-decisions`: the router's logged decisions.
+"""`learnloop router log`, `card`, `report` and `embed-decisions`: the router's logged decisions.
 
 ``log`` lists router R1's logged decisions and their outcomes; ``card`` prints
 the learner-state card a decision stored (router R2a). Both are read-only: the
@@ -9,7 +9,8 @@ cache was last rebuilt days ago. ``embed-decisions`` (router R2c) backfills
 the ``decision/context`` vectors of logged decisions that have none: paid,
 metered embedding calls through the shared embedding backfill, under its
 enforced caps (``--max-cost-usd`` and the rest) and both embedding switches,
-with a priced ``--dry-run`` first.
+with a priced ``--dry-run`` first. ``report`` (follow-ups batch 6, teacher TE1b) prints the lesson
+suggestion decisions' intention-to-treat split by arm, read-only like ``log``.
 """
 from __future__ import annotations
 
@@ -29,7 +30,7 @@ router_app = typer.Typer(
     no_args_is_help=True,
     help=(
         "Action router (R1: logged decisions and their outcomes; R2a: the learner-state card each decision "
-        "stored; R2c: the decision/context embedding backfill)."
+        "stored; R2c: the decision/context embedding backfill; TE1b: the lesson suggestions' report)."
     ),
 )
 
@@ -181,6 +182,60 @@ def router_log(
             ],
         }
         _emit(payload, json_output)
+    except (ValueError, OSError, sqlite3.Error) as exc:
+        _emit({"status": "invalid", "reason": str(exc)}, json_output)
+        raise typer.Exit(code=1) from exc
+
+
+@router_app.command("report")
+def router_report(
+    vault: Annotated[Path, typer.Option("--vault", help="Vault root (read-only).")],
+    json_output: Annotated[bool, typer.Option("--json")] = False,
+) -> None:
+    """Lesson suggestions (teacher TE1b): the intention-to-treat split by arm (card shown or not):
+    offered, accepted, opened, completed, and R_cold on the drawn topic, weighted by the logged arm
+    propensity (read-only; no model call)."""
+
+    from learnloop.db.stores import router_suggestions
+    from learnloop.router.outcomes import derive_router_outcomes, servable_items_by_learning_object
+    from learnloop.router.suggestion_report import itt_split, lines
+    from learnloop.substrate.canonical_projection import held_for_review_attempts, pfc_assessments
+
+    try:
+        if not (vault / "learnloop.toml").is_file():
+            raise ValueError("--vault must contain learnloop.toml")
+        loaded = load_vault(vault, load_environment=False)
+        path = VaultPaths(loaded.root, loaded.config).sqlite_path
+        with closing(connect(path, read_only=True)) as connection:
+            connection.execute("BEGIN")
+            if not router_suggestions.tables_present(connection):
+                raise ValueError("this database predates lesson suggestions (migration 236)")
+            decisions = router_suggestions.decisions(connection)
+            responses = router_suggestions.responses(connection)
+            releases = router_suggestions.releases(connection)
+            lessons = {
+                str(row["id"]): dict(row) for row in connection.execute(
+                    "SELECT id, origin_ref, closed_at, close_reason FROM lessons WHERE origin = 'router'")
+            }
+            attempt_ids = [row[0] for row in connection.execute("SELECT id FROM practice_attempts")]
+            wanted = {str(decision["id"]) for decision in decisions}
+            outcomes = {
+                str(row["decision_id"]): row
+                for row in derive_router_outcomes(
+                    connection,
+                    pfc_states=pfc_assessments(connection, attempt_ids),
+                    servable_items_by_lo=servable_items_by_learning_object(loaded),
+                    held_attempt_ids=held_for_review_attempts(connection),
+                )
+                if str(row["decision_id"]) in wanted
+            }
+        split = itt_split(decisions, responses, releases, lessons, outcomes)
+        if json_output:
+            _emit({"algorithm_version": loaded.config.algorithms.algorithm_version, "lesson_suggestions": split},
+                  True)
+        else:
+            for line in lines(split):
+                typer.echo(line)
     except (ValueError, OSError, sqlite3.Error) as exc:
         _emit({"status": "invalid", "reason": str(exc)}, json_output)
         raise typer.Exit(code=1) from exc
