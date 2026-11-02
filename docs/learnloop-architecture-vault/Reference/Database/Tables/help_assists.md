@@ -3,8 +3,8 @@ title: "help_assists"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "4b77cd4c5f224113d427946fcba4a10f371bbc69"
-source_commit_timestamp: "2026-11-01T20:25:51-05:00"
+source_commit: "c131a916c3fc8c3b5a47ecacb69315ace4d38b82"
+source_commit_timestamp: "2026-11-01T21:15:04-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite help_assists"
@@ -19,13 +19,13 @@ generated: true
 source_paths:
   - "src/learnloop/db/table_roles.py"
   - "migrations/210_help_assists.sql"
+  - "src/learnloop/adaptive_difficulty/protected_tables.py"
   - "src/learnloop/attempts/hint_fold.py"
   - "src/learnloop/config/schema.py"
   - "src/learnloop/config/template.py"
   - "src/learnloop/db/stores/approach_maps.py"
   - "src/learnloop/db/stores/help_assists.py"
   - "src/learnloop/diagnosis/split/context.py"
-  - "src/learnloop/diagnosis/split/figure_trace.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/raw-ledger"
@@ -157,6 +157,7 @@ None found by exact static reference scan.
 - `src/learnloop/diagnosis/split/workbench_trace.py`
 - `src/learnloop/diagnosis/text_gaps/sources.py`
 - `src/learnloop/field/workbench_signals.py`
+- `src/learnloop/figures/help.py`
 - `src/learnloop/hints/outcome.py`
 - `src/learnloop/hints/report.py`
 - `src/learnloop/hints/report_workbench.py`

@@ -6,8 +6,8 @@ refactor_status: "ACTIVE"
 version: "1.0.0"
 source_paths:
   - "apps/learnloop-tauri/src/components"
-source_commit: "afb17672c627b4f4422c149ac63dd2addef98a9b"
-source_commit_timestamp: "2026-11-01T20:23:43-05:00"
+source_commit: "c131a916c3fc8c3b5a47ecacb69315ace4d38b82"
+source_commit_timestamp: "2026-11-01T21:15:04-05:00"
 generated: true
 generated_at: "2026-08-18"
 tags:
@@ -105,7 +105,7 @@ Reusable learner-facing controls and composite interaction surfaces.
 | [[Reference/Desktop/TypeScript/components/TrackRecordView|TrackRecordView.tsx]] | `ACTIVE` | Provides the reusable `TrackRecordView` interaction surface used by one or more desktop workflows. | 3 | 1 |
 | [[Reference/Desktop/TypeScript/components/WhyDiagnosisOverlay|WhyDiagnosisOverlay.tsx]] | `ACTIVE` | Provides the reusable `WhyDiagnosisOverlay` interaction surface used by one or more desktop workflows. | 4 | 1 |
 | [[Reference/Desktop/TypeScript/components/WriteCardDialog|WriteCardDialog.tsx]] | `ACTIVE` | Provides the reusable `WriteCardDialog` interaction surface used by one or more desktop workflows. | 5 | 2 |
-| [[Reference/Desktop/TypeScript/components/askFigures|askFigures.tsx]] | `ACTIVE` | Provides the reusable `askFigures` interaction surface used by one or more desktop workflows. | 9 | 3 |
+| [[Reference/Desktop/TypeScript/components/askFigures|askFigures.tsx]] | `ACTIVE` | Provides the reusable `askFigures` interaction surface used by one or more desktop workflows. | 10 | 3 |
 | [[Reference/Desktop/TypeScript/components/askPanel|askPanel.tsx]] | `ACTIVE` | Provides the reusable `askPanel` interaction surface used by one or more desktop workflows. | 5 | 3 |
 | [[Reference/Desktop/TypeScript/components/askSuggestions|askSuggestions.ts]] | `ACTIVE` | Provides shared `askSuggestions` state or utility behavior for desktop components. | 1 | 1 |
 | [[Reference/Desktop/TypeScript/components/frameFocus|frameFocus.ts]] | `ACTIVE` | Provides shared `frameFocus` state or utility behavior for desktop components. | 0 | 2 |

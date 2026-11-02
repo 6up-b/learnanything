@@ -6,8 +6,8 @@ refactor_status: "ACTIVE"
 version: "1.0.0"
 source_paths:
   - "apps/learnloop-tauri/src/screens/reader/figures"
-source_commit: "d2afa824ceecb2f6e35f7c6ff51d9008a644e70d"
-source_commit_timestamp: "2026-11-01T14:49:03-05:00"
+source_commit: "c131a916c3fc8c3b5a47ecacb69315ace4d38b82"
+source_commit_timestamp: "2026-11-01T21:15:04-05:00"
 generated: true
 generated_at: "2026-08-18"
 tags:
@@ -39,7 +39,7 @@ Reader "show me" figures: the figure grammar and spec, inline figures, panels, p
 | [[Reference/Desktop/TypeScript/screens/reader/figures/AdvancedPanels|AdvancedPanels.tsx]] | `ACTIVE` | Implements the `AdvancedPanels` routed desktop screen and coordinates its learner-facing workflow state. | 3 | 1 |
 | [[Reference/Desktop/TypeScript/screens/reader/figures/FigureInline|FigureInline.tsx]] | `ACTIVE` | Implements the `FigureInline` routed desktop screen and coordinates its learner-facing workflow state. | 12 | 6 |
 | [[Reference/Desktop/TypeScript/screens/reader/figures/FigurePanels|FigurePanels.tsx]] | `ACTIVE` | Implements the `FigurePanels` routed desktop screen and coordinates its learner-facing workflow state. | 3 | 3 |
-| [[Reference/Desktop/TypeScript/screens/reader/figures/RichFigure|RichFigure.tsx]] | `ACTIVE` | Implements the `RichFigure` routed desktop screen and coordinates its learner-facing workflow state. | 5 | 1 |
+| [[Reference/Desktop/TypeScript/screens/reader/figures/RichFigure|RichFigure.tsx]] | `ACTIVE` | Implements the `RichFigure` routed desktop screen and coordinates its learner-facing workflow state. | 5 | 2 |
 | [[Reference/Desktop/TypeScript/screens/reader/figures/figureGrammar|figureGrammar.ts]] | `ACTIVE` | Provides `MAX_EXPR_CHARS`, `MAX_NODES`, `MAX_DEPTH`, `MAX_EXPANDED_NODES` and related exports within the desktop's TypeScript/screens/reader/figures ownership area. | 0 | 1 |
 | [[Reference/Desktop/TypeScript/screens/reader/figures/figureSpec|figureSpec.ts]] | `ACTIVE` | Provides `SPEC_VERSION`, `SAMPLES`, `DIRECTIONS`, `SAME_TOLERANCE` and related exports within the desktop's TypeScript/screens/reader/figures ownership area. | 1 | 3 |
 | [[Reference/Desktop/TypeScript/screens/reader/figures/showMe|showMe.ts]] | `ACTIVE` | Provides `SHOW_ME_COPY`, `ShowMeLine`, `passageChip`, `showMeSourceLine` and related exports within the desktop's TypeScript/screens/reader/figures ownership area. | 1 | 4 |
