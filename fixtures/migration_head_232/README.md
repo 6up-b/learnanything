@@ -37,19 +37,21 @@ at S0's checkpoint (D6). Rebuilding the head for a new migration keeps the
 sanitized content: apply the migration to a backup-API copy of this fixture,
 as before.
 
-## Teacher TE1 (migration 230), branch `teacher/te1-first-lesson`, 2026-11-01
+## Teacher TE1 (migration 232), branch `teacher/te1-first-lesson`, 2026-11-01
 
-Renamed from `migration_head_229` on the TE1 branch
-(`docs/reviews/teacher-te1-first-lesson.md`). Rebuilt from main's tracked,
-sanitized `migration_head_229/state.sqlite` (main `02614cfddd`): a backup-API
-copy under `fixtures-local/` with only `230_teacher_lessons.sql` applied through
+Renamed from `migration_head_231` at TE1's landing
+(`docs/reviews/teacher-te1-first-lesson.md`, "Landing onto main"; TE1's
+migration was 230 on its branch and is renumbered 232 after learner
+data-relax 2's 230 and curriculum C5's 231). Rebuilt from main's tracked,
+sanitized `migration_head_231/state.sqlite` (main `de73fbda51`): a backup-API
+copy under `fixtures-local/` with only `232_teacher_lessons.sql` applied through
 `learnloop.db.migrate.apply_migrations` under the scratch-copy allowance
 (`UPGRADE_SCRATCH_COPY`), then `wal_checkpoint(TRUNCATE)` (0, 0, 0),
 `journal_mode=DELETE` (header bytes 1/1), `integrity_check` ok and
 `foreign_key_check` empty, and copied into place with the backup API, with no
-companion files.
+companion files. The head holds 229, 230, 231 and 232.
 
-* 230 adds exactly its objects: `lessons`, `lesson_turns`, `lesson_plans`
+* 232 adds exactly its objects: `lessons`, `lesson_turns`, `lesson_plans`
   (RAW_LEDGER), `lesson_turn_payloads` (WORKFLOW), `lesson_checks` and
   `lesson_receipts` (RECEIPT), `lesson_weight_state`, `lesson_weight_trace` and
   `confidence_calibration_state` (DERIVED, one replayer), their autoindexes,
@@ -57,6 +59,51 @@ companion files.
   and rebuilds `source_tool_calls` (its `caller_kind` CHECK gains `teacher`;
   the same columns, indexes and append-only triggers, every row kept: it has
   none here).
+
+Against main's 231 head no other object changed definition and only
+`schema_migrations` gained a row (232); every other table's rows are identical,
+so the sanitized content carries over (every companion file is byte-identical
+to main's).
+
+## Curriculum C5 (migration 231), branch `curriculum/c5-notes-as-learner-text`, 2026-11-01
+
+Renamed from `migration_head_230` at C5's landing
+(`docs/reviews/curriculum-c5-notes-as-learner-text.md`, "Landing onto main").
+Rebuilt from main's tracked, sanitized `migration_head_230/state.sqlite` (main
+`c0017b5740`, learner data-relax 2 landed): a backup-API copy under
+`fixtures-local/` with only `231_learner_note_source_kind.sql` applied through
+`learnloop.db.migrate.apply_migrations` under the scratch-copy allowance
+(`UPGRADE_SCRATCH_COPY`), then `wal_checkpoint(TRUNCATE)` (0, 0, 0),
+`journal_mode=DELETE` (header bytes 1/1), `integrity_check` ok and
+`foreign_key_check` empty, and copied into place with the backup API, with no
+companion files. The head holds 229, 230 and 231.
+
+* 231 adds no object: it rebuilds `learner_text_gaps` and
+  `learner_text_gap_jobs` in place (temp-then-rename under
+  `PRAGMA foreign_keys = OFF`, the FK-safe precedent of 208 and 212), whose
+  `source_kind` CHECKs gain `learner_note`; the same columns, keys, indexes and
+  append-only triggers, every row and id kept.
+
+Against main's 230 head only those two definitions changed and only
+`schema_migrations` gained a row (231); every table's rows are identical, so the
+sanitized content carries over (every companion file is byte-identical to
+main's). No note text is in this fixture.
+
+## Learner data-relax 2 (migration 230), branch `learner/data-relax-2`, 2026-11-01
+
+Renamed from `migration_head_229` on the data-relax-2 branch
+(`docs/reviews/learner-data-relax-2.md`). Rebuilt from main's tracked,
+sanitized `migration_head_229/state.sqlite` (main `7401484f91`): a backup-API
+copy under `fixtures-local/` with only `230_help_assist_work_md.sql` applied
+through `learnloop.db.migrate.apply_migrations` under the scratch-copy
+allowance (`UPGRADE_SCRATCH_COPY`), then `wal_checkpoint(TRUNCATE)` (0, 0, 0),
+`journal_mode=DELETE` (header bytes 1/1), `integrity_check` ok and
+`foreign_key_check` empty, and copied into place with the backup API, with no
+companion files.
+
+* 230 alters exactly one object: `help_assists` gains the nullable
+  `work_md TEXT` (RAW_LEDGER; the learner's draft when help was asked for).
+  No row has one (this fixture holds no help_assists row with a draft).
 
 No other object changed definition, and only `schema_migrations` gained a row
 (230); every other table's rows are identical, so the sanitized content carries

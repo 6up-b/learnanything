@@ -227,6 +227,10 @@ MODULE_INVENTORY: dict[str, str] = {
     # Reader follow-ups Nov 1b (spec §9b.4, P2b ruling R2): the free-text
     # label rule's one structural bound (a `keep` wording guardrail).
     "figure_labels": "src/learnloop/figures/labels.py",
+    # Learner data-relax 2 (owner principle 2026-11-01): what the figure
+    # author is told about the learner; prompt-size bounds only, every one a
+    # `keep` (no learner-model weight, margin or threshold).
+    "figure_learner_state": "src/learnloop/figures/learner_state.py",
     "concept_animation": "src/learnloop/content/authoring/concept_animation.py",
     # Local contextual retrieval P2 (spec §7.1, §9.3, §9.6): the query student's pins and
     # guardrails, the decision core's computation budgets, the data and schedule budgets. No
@@ -497,6 +501,24 @@ _reg_const("figure_admission:GROUNDING_PASSAGES", "constraint", kind="structural
            rationale="keep: prompt size (spec_reader_show_me_figures_v1 §8.3, §15, owner-approved): at most three "
                      "passages ground a figure goal (retrieved, or a tutor answer's cited ones); more dilute the "
                      "author's context. A bound on what is sent, never a weight, margin or threshold.")
+
+# Learner data-relax 2: the figure author's learner state (all keep: prompt and read size).
+_reg_const("figure_learner_state:MAX_TOPICS", "constraint", kind="structural", owner="figure_learner_state",
+           rationale="keep: prompt size: the passage's topics described to the figure author (an anchor names one "
+                     "or two). A bound on what is sent, never a weight, margin or threshold.")
+_reg_const("figure_learner_state:MAX_STATEMENTS", "constraint", kind="structural", owner="figure_learner_state",
+           rationale="keep: prompt size: open misconception and gap statements sent, newest first.")
+_reg_const("figure_learner_state:STATEMENT_CHARS", "constraint", kind="structural", owner="figure_learner_state",
+           rationale="keep: prompt size: one statement's characters (library_ask's open-question bound).")
+_reg_const("figure_learner_state:RECENT_ANSWERS", "constraint", kind="structural", owner="figure_learner_state",
+           rationale="keep: the owner's bound for learner data-relax 2: at most two recent answer excerpts on the "
+                     "passage's topics.")
+_reg_const("figure_learner_state:ANSWER_CHARS", "constraint", kind="structural", owner="figure_learner_state",
+           rationale="keep: prompt size: one answer excerpt's characters.")
+_reg_const("figure_learner_state:QUESTION_CHARS", "constraint", kind="structural", owner="figure_learner_state",
+           rationale="keep: prompt size: one graded question's characters.")
+_reg_const("figure_learner_state:ATTEMPTS_SCANNED", "operational", kind="structural", owner="figure_learner_state",
+           rationale="keep: read size: the newest attempts on the topics scanned for two unprotected answers.")
 
 # Reader RW5d P2: the sketch tier's module constants (all keep: caps, tolerances, sandbox limits, identities).
 # Reader RW5d P2b: the rich tiers' module constants (all keep: caps, guardrails, sandbox limits).
@@ -1602,6 +1624,26 @@ _CONFIG_RULES: list[_ConfigRule] = [
         "kill switches for the Reader tutor's retrieval, answer modes, abstention, another way and that "
         "didn't help / the offer buttons under its answers; context and display, no measurement, scheduling "
         "or serving authority."),
+    # Learner-blindness relax (owner direction 2026-11-01: blindness only
+    # where it matters, the grader; docs/reviews/learner-blindness-relax.md).
+    # Three kill switches (booleans, classified so every new key has a rule)
+    # and the diagnoser's prior-analysis arm (a string: a randomized
+    # equipoise arm by default, recorded on each diagnosis receipt and read
+    # per arm in the m2 report, never a fixed preference). Every one changes
+    # a model context only: the tutor, the narrative, the diagnoser and AD's
+    # reporting-only forecasters never write an attempt, a claim, mastery or
+    # a grade, and the blind grader's inputs are untouched.
+    _ConfigRule(_exact(
+        "reader_tutor.learner_state_enabled",
+        "digest.narrative_quotes_inquiry",
+        "adaptive_difficulty.history_answer_excerpts",
+        "diagnosis.history_includes_prior_analysis",
+    ), "structural", "operational",
+        "kill switches for the Reader tutor's learner state (readiness in words, confidence events, recent "
+        "exchanges and outcomes through learner_protection) / the narrative's quotes of the learner's own "
+        "inquiry questions / the llm_v3 history card's answer excerpts / the diagnoser's prior-analysis arm "
+        "(randomized by default, measured per arm); model context only, no measurement, scheduling or serving "
+        "authority, never the grader."),
     # Reader workbench RW4b: the kill switches of the textbook-exercise view and
     # of its retired fallback search (booleans, so Inventory A's numeric walk
     # never reaches them; classified here so every new key has a rule, as
@@ -1793,6 +1835,17 @@ _CONFIG_RULES: list[_ConfigRule] = [
         "keep: a tend call's time bound (a stalled subprocess never holds a job), the sections one search asks "
         "for and the notes one note link judgment reads (prompt bounds); size and time bounds, never a "
         "threshold on any score."),
+    # Deliverable curriculum C5 (spec §10.2, §12 C5): notes as learner text. One
+    # boolean, the learner's opt-in (owner Q9: off by default): a linked note is
+    # then a tier-2 learner-text-gaps input, read on the ChatGPT plan only. No
+    # number: which gap a note names is the model's judgment.
+    _ConfigRule(_exact(
+        "notes.gaps_enabled",
+    ), "structural", "operational",
+        "the learner's opt-in (default off) for curriculum C5: a linked note (a standing proposal or the "
+        "learner's own link, never a hidden one) is read for gaps on the ChatGPT plan only, as tier-2 learner "
+        "text that steers hypotheses and suggestions; never mastery, evidence or grading (no algorithm "
+        "successor)."),
     # Reader CA6 (ux_reader_compare_ask_v1 §6.4, §13): side by side. A boolean
     # (classified so every new key has a rule): two panes, follow along at
     # section crossings to the first judged correspondent in the API's order;
@@ -1891,6 +1944,13 @@ _CONFIG_RULES: list[_ConfigRule] = [
         "kill switch for RW5d's rich tiers (a narrated Manim animation built from the author's brief) / the "
         "learner's standing opt-in to render AI-written animation code in the sandbox and its date; on-off "
         "availability of content and a permission, no measurement, scheduling or serving authority."),
+    # Learner data-relax 2: the figure author's learner state. A kill switch over content.
+    _ConfigRule(_exact(
+        "figures.author_learner_state",
+    ), "structural", "operational",
+        "kill switch for sending the figure author the learner's state on the passage's topics (status in words, "
+        "open statements, two recent answers, protected work never); on-off availability of context for help "
+        "content, no measurement, scheduling or serving authority."),
     _ConfigRule(_exact(
         "figures.show_me_enabled",
     ), "structural", "operational",

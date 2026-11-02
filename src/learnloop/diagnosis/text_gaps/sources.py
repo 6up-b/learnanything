@@ -27,6 +27,11 @@
   :class:`StuckTextSource`, whose default adapter is that module. An empty
   "I'm stuck" (a deterministic zero, no model call) carries no learner text.
   Its reading is one call to the stuck-text reader.
+* **A linked note** (curriculum C5, ``learner_note``): a note the learner
+  linked (C2's links: a standing proposal or their own link, never a hidden
+  one), with the learner's opt-in (``notes.gaps_enabled``). Read through
+  :mod:`learnloop.source_retrieval.note_gaps`, the declared exception to the
+  notes import contract; read by the gap reader on the ChatGPT plan only.
 """
 
 from __future__ import annotations
@@ -1020,6 +1025,91 @@ def workbench_text_ids(repository: Repository) -> list[str]:
     return [str(row[0]) for row in rows]
 
 
+# -- curriculum C5: a note the learner linked ------------------------------------------------
+
+
+def learner_notes_enabled(vault: LoadedVault) -> bool:
+    """Curriculum C5's switches (``notes.gaps_enabled``, the learner's opt-in, default
+    off; ``notes.enabled``; tend present; ``learner_text_gaps.enabled``). Read from the
+    config alone first: switched off, no notes code runs and no note row is read."""
+
+    notes = getattr(vault.config, "notes", None)
+    if notes is None or not bool(getattr(notes, "gaps_enabled", False)) or not bool(getattr(notes, "enabled", False)):
+        return False
+    # The declared exception to the notes-are-never-a-source-or-evidence contract:
+    # the gap pipeline's one way to the notes, read-only (pyproject.toml).
+    from learnloop.source_retrieval import note_gaps
+
+    return note_gaps.enabled(vault)
+
+
+def learner_note_ids(vault: LoadedVault, repository: Repository) -> list[str]:
+    """Curriculum C5: the linked notes' current snapshots, oldest link first: what the
+    backlog sweep may queue (empty while switched off; no note row is read then)."""
+
+    if not learner_notes_enabled(vault):
+        return []
+    from learnloop.source_retrieval import note_gaps
+
+    return note_gaps.linked_note_ids(vault, repository)
+
+
+def learner_note_text(vault: LoadedVault, repository: Repository, note_id: str) -> LearnerText | None:
+    """Curriculum C5 (spec §10.2, §12 C5): a note the learner linked, read by the gap
+    reader on the ChatGPT plan only, tier 2 (``NON_SERVING_SOURCE_KINDS``).
+
+    The text is the linked snapshot's (the note as it is linked now); its topics are the
+    LOs it is linked to (and those its hand-linked passages are provenance-linked to);
+    the context is those topics and the linked sections' first blocks, protection read
+    now. None while switched off, or once the note is no longer linked (hidden, unlinked,
+    or a newer snapshot shows). Linked to protected material: :class:`SourceWithheld`."""
+
+    if not learner_notes_enabled(vault):
+        return None
+    from learnloop.source_retrieval import note_gaps
+
+    try:
+        found = note_gaps.note_text(vault, repository, note_id)
+    except note_gaps.NoteWithheld as exc:
+        raise SourceWithheld(str(exc)) from exc
+    if found is None or not found["text"].strip():
+        return None
+    return LearnerText(
+        source_kind="learner_note",
+        source_id=str(found["source_id"]),
+        text=found["text"],
+        context_judge="gap_reader",
+        created_at=found["created_at"],
+        subject_id=found["subject_id"],
+        anchor_learning_object_ids=tuple(found["learning_object_ids"]),
+        reading=None,
+        context=found["context"],
+        bound_passages=tuple(found["passage_refs"]),
+    )
+
+
+def learner_note_refusal(vault: LoadedVault, repository: Repository, note_id: str, *,
+                         prepared: LearnerText | None = None) -> str | None:
+    """Curriculum C5 (Codex review F3): why the linked snapshot ``note_id`` may not be read
+    for gaps now (None: it may), from ``vault`` as configured now. The note reading's
+    request gate (``pipeline.NoteGate``) asks before every request and before the gap row
+    is written. Switched off it reads no note row.
+
+    ``prepared``: the text the reading was prepared with (Codex re-review F3). The
+    passages it was built from are revalidated against the protection read now, and
+    what it sends must still be what the note's links build now."""
+
+    if not learner_notes_enabled(vault):
+        return "your notes, or reading them for gaps, are switched off (or tend is gone)"
+    from learnloop.source_retrieval import note_gaps
+
+    if prepared is None:
+        return note_gaps.refusal(vault, repository, note_id)
+    bound = note_gaps.payload(text=prepared.text, learning_object_ids=prepared.anchor_learning_object_ids,
+                              subject_id=prepared.subject_id, context=prepared.context)
+    return note_gaps.refusal(vault, repository, note_id, prepared=bound, passages=prepared.bound_passages)
+
+
 def learner_text(
     vault: LoadedVault, repository: Repository, source_kind: str, source_id: str,
     *, stuck_source: StuckTextSource | None = None,
@@ -1036,6 +1126,8 @@ def learner_text(
         return hint_feedback_text(vault, repository, source_id)
     if source_kind == "workbench_text":
         return workbench_text(vault, repository, source_id)
+    if source_kind == "learner_note":
+        return learner_note_text(vault, repository, source_id)
     raise ValueError(f"unknown learner-text source {source_kind!r}")
 
 
@@ -1060,6 +1152,10 @@ __all__ = [
     "hint_feedback_ids",
     "hint_feedback_row",
     "hint_feedback_text",
+    "learner_note_ids",
+    "learner_note_refusal",
+    "learner_note_text",
+    "learner_notes_enabled",
     "learner_text",
     "missed_formative_ids",
     "reader_formative_text",

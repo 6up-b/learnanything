@@ -3,13 +3,13 @@ title: "capability_residual_state"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "4998dec9f94d0b244aaccc094dbea90f7478f5fd"
-source_commit_timestamp: "2026-11-01T21:15:52-05:00"
+source_commit: "9543d8c96d152c822106fe37bff6b8255b118dad"
+source_commit_timestamp: "2026-11-01T23:10:14-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite capability_residual_state"
   - "table capability_residual_state"
-schema_head: 230
+schema_head: 232
 table_name: "capability_residual_state"
 table_role: "derived"
 functionality_status: "active"
@@ -105,6 +105,7 @@ None found by exact static reference scan.
 
 ## Tests that define behavior
 
+- `tests/test_canonical_projection_fold_skip.py`
 - `tests/test_facet_state_write_on_change.py`
 - `tests/test_rebuild_orchestrator.py`
 - `tests/test_capability_residual.py`

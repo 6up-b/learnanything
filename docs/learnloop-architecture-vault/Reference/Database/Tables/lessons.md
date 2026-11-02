@@ -3,29 +3,29 @@ title: "lessons"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "4998dec9f94d0b244aaccc094dbea90f7478f5fd"
-source_commit_timestamp: "2026-11-01T21:15:52-05:00"
+source_commit: "9543d8c96d152c822106fe37bff6b8255b118dad"
+source_commit_timestamp: "2026-11-01T23:10:14-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite lessons"
   - "table lessons"
-schema_head: 230
+schema_head: 232
 table_name: "lessons"
 table_role: "raw_ledger"
 functionality_status: "active"
 domain_family: "operations"
-introduced_in: "230_teacher_lessons.sql"
+introduced_in: "232_teacher_lessons.sql"
 generated: true
 source_paths:
   - "src/learnloop/db/table_roles.py"
-  - "migrations/230_teacher_lessons.sql"
+  - "migrations/232_teacher_lessons.sql"
   - "src/learnloop/adaptive_difficulty/column_classes.py"
   - "src/learnloop/adaptive_difficulty/protected_tables.py"
   - "src/learnloop/ai/disclosures.py"
   - "src/learnloop/config/schema.py"
   - "src/learnloop/config/template.py"
   - "src/learnloop/db/stores/lessons.py"
-  - "src/learnloop/params/parameter_registry.py"
+  - "src/learnloop/evsi_calibration/forecast_report.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/raw-ledger"
@@ -48,8 +48,8 @@ It belongs to the **operations** navigation family. The family context lives in 
 
 - **Role:** `raw_ledger` — Authoritative replay input or mixed authoritative state. The rebuild umbrella preserves it.
 - **Functionality status:** `active`.
-- **Introduced by:** `migrations/230_teacher_lessons.sql`.
-- **Schema touched by:** `230_teacher_lessons.sql`.
+- **Introduced by:** `migrations/232_teacher_lessons.sql`.
+- **Schema touched by:** `232_teacher_lessons.sql`.
 - **Rebuild owner:** none; this table is preserved by the rebuild umbrella.
 
 For the distinction between SQLite state and human-authored vault files, see [[State and Persistence]]. For whole-vault creation and opening behavior, see [[Vault Lifecycle]]. ^table-lifecycle
@@ -98,6 +98,7 @@ None found by exact static reference scan.
 ### Direct SQL readers
 
 - `src/learnloop/db/stores/lessons.py`
+- `src/learnloop/evsi_calibration/forecast_report.py`
 
 ### Direct SQL writers
 
@@ -115,6 +116,7 @@ None found by exact static reference scan.
 - `tests/test_architecture.py`
 - `tests/test_teacher_te1_lesson.py`
 - `tests/test_teacher_te1_migration.py`
+- `tests/test_teacher_te1_review_fixes.py`
 - `tests/test_teacher_te1_successor.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
@@ -149,7 +151,8 @@ CREATE TABLE lessons (
   opened_at TEXT NOT NULL,
   closed_at TEXT,
   close_reason TEXT CHECK (close_reason IS NULL OR close_reason IN (
-    'goal_reached', 'learner_stop', 'budget', 'plan_unavailable', 'teacher_contract_failure')),
+    'goal_reached', 'learner_stop', 'budget', 'plan_unavailable', 'teacher_contract_failure',
+    'protection_changed')),
   CHECK ((closed_at IS NULL) = (close_reason IS NULL))
 );
 ```

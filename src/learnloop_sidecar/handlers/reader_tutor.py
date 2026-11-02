@@ -46,6 +46,68 @@ def offers_enabled(vault: Any) -> bool:
     return bool(getattr(section, "offers_enabled", False))
 
 
+def learner_state_enabled(vault: Any) -> bool:
+    """Learner-blindness relax's kill switch, ``reader_tutor.learner_state_enabled``."""
+
+    from learnloop import reader_learner_state as RLS
+
+    return RLS.enabled(vault)
+
+
+def learner_state(vault: Any, repository: Any, params: Any, restricted: "ReaderRestriction",
+                  *, now_iso: str | None = None) -> Any:
+    """The learner state one ``reader.ask`` hands the tutor, or None while the switch is off.
+
+    Learner-blindness relax (owner direction 2026-11-01): the passage's
+    learning objects (``passage_learning_objects``: the selection's, or a
+    follow-up's root selection) and the learner's state on them, through
+    ``learner_protection`` (``learnloop.reader_learner_state``). A question
+    asked during a cold administration -- the client's flag or the server's
+    own derivation -- carries none (recorded as omitted). No question carries
+    a stored tutor answer (ruling R1: the state is readiness, confidence,
+    outcomes and the learner's own questions).
+
+    Codex review F2: with both RW1c switches off the restriction is the
+    base's (no server-derived cold status, no binding, no item guard and no
+    accounting), so a question naming a workbench session is resolved here
+    on the server: cold carries none, and a session bound to an item carries
+    none either (``OMITTED_UNGUARDED_BINDING``: nothing would guard it or
+    attach its help to the item); a session that cannot be resolved carries
+    none (fail closed)."""
+
+    if not learner_state_enabled(vault):
+        return None
+    from learnloop import reader_learner_state as RLS
+    from learnloop.clock import utc_now_iso
+    from learnloop.reader import reader_dialogue as RD
+    from learnloop.source_retrieval import reader_tutor as RT
+
+    if params.cold_active or restricted.cold:
+        return RLS.omitted(RLS.OMITTED_COLD)
+    if not restricted.active and params.workbench_session_id:
+        from learnloop.source_retrieval.policy import derive_policy
+        from learnloop_sidecar.handlers.library_ask import reader_caller
+
+        try:
+            caller = reader_caller(vault, repository, extraction_id=params.extraction_id,
+                                   workbench_session_id=params.workbench_session_id)
+            policy = derive_policy(caller)[0]
+        except Exception:  # noqa: BLE001 - fail closed: an unresolved session carries nothing
+            return RLS.omitted(RLS.OMITTED_UNREADABLE)
+        if policy == "cold_attempt":
+            return RLS.omitted(RLS.OMITTED_COLD)
+        if caller.item_id:
+            return RLS.omitted(RLS.OMITTED_UNGUARDED_BINDING)
+    span_ids = [params.span_id, *params.selection_span_ids]
+    if params.parent_exchange_id and RD.inquiry_enabled(vault):
+        history = RD.ask_history(repository, extraction_id=params.extraction_id, branches=True)
+        ancestors = _ancestors(history, params.parent_exchange_id)
+        if ancestors:
+            span_ids = [ancestors[0]["span_id"], *(ancestors[0].get("selection_span_ids") or [])]
+    lo_ids = RT.passage_learning_objects(vault, repository, extraction_id=params.extraction_id, span_ids=span_ids)
+    return RLS.build(vault, repository, learning_object_ids=lo_ids, now_iso=now_iso or utc_now_iso())
+
+
 def prompt_contract_fields(vault: Any) -> dict[str, Any]:
     """What RW1c adds to the Reader's prompt contract (nothing while both switches are off)."""
 
@@ -395,6 +457,8 @@ __all__ = [
     "build_request",
     "ReaderRestriction",
     "fallback_practice_request",
+    "learner_state",
+    "learner_state_enabled",
     "offers",
     "offers_enabled",
     "prompt_contract_fields",

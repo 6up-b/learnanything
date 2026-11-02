@@ -147,13 +147,16 @@ def test_a_reveal_writes_one_authored_hint_row(tmp_path, frozen):
     }
     assert row["practice_item_hash"] == practice_item_hash(item)
     assert row["work_hash"] == hashlib.sha256(answer.encode()).hexdigest() and row["work_chars"] == len(answer)
-    # The draft itself is never stored, and every later phase's column is empty.
-    assert answer not in json.dumps(row)
+    # Learner data-relax 2 (migration 230; owner principle 2026-11-01): the
+    # draft itself is kept (bounded) in work_md and nowhere else on the row;
+    # every later phase's column is empty.
+    assert row["work_md"] == answer
+    assert answer not in json.dumps({key: value for key, value in row.items() if key != "work_md"})
     filled = {key for key, value in row.items() if value is not None}
     assert filled == {
         "id", "surface", "assist_kind", "practice_item_id", "practice_item_hash", "practice_session_id",
-        "submission_id", "hint_kind", "level", "authored_index", "work_hash", "work_chars", "chooser", "shown",
-        "counted_by", "requested_at", "shown_at",
+        "submission_id", "hint_kind", "level", "authored_index", "work_hash", "work_chars", "work_md", "chooser",
+        "shown", "counted_by", "requested_at", "shown_at",
     }
 
 
@@ -912,7 +915,7 @@ def test_the_report_summarises_any_number_of_rows(tmp_path, n):
     from learnloop.db.copies import backup_database
     from learnloop.hints.report import build_hints_report
 
-    head = Path(__file__).resolve().parents[1] / "fixtures" / "migration_head_230" / "state.sqlite"
+    head = Path(__file__).resolve().parents[1] / "fixtures" / "migration_head_232" / "state.sqlite"
     database = tmp_path / "state.sqlite"
     backup_database(head, database)
     with closing(connect(database)) as connection:

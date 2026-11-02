@@ -2061,6 +2061,17 @@ class DiagnosisConfig(BaseModel):
     # calibration`. Logging only (no grading, scoring, scheduling or serving
     # change, so no successor); off writes nothing and reads stay possible.
     forecast_receipts: bool = True
+    # Learner-blindness relax (owner direction 2026-11-01: blindness only where
+    # it matters, the grader; docs/reviews/learner-blindness-relax.md): whether
+    # the history-aware diagnoser's context re-feeds each shown prior attempt's
+    # earlier diagnosis (its ``analysis_md``, bounded) and an earlier workbench
+    # attempt's step trace. Not a fixed preference (no-made-up-constants,
+    # 2026-10-24): ``randomized`` (the default) assigns each diagnosed attempt
+    # to one arm by a seeded equipoise draw recorded on its context receipt
+    # with the context hash, and ``learnloop diagnose m2-report`` reads E2's
+    # ``anchoring_suspect`` rate per arm; ``on`` / ``off`` fix the arm. The
+    # grader never reads any of it. ``off`` is today's context byte for byte.
+    history_includes_prior_analysis: Literal["randomized", "on", "off"] = "randomized"
 
 
 class RecurrenceBlockingCutoff(BaseModel):
@@ -2515,6 +2526,12 @@ class DigestConfig(BaseModel):
     narrative_enabled: bool = True
     price_per_million: float | None = Field(default=None, gt=0)
     max_daily_cost_usd: float = Field(default=0.25, ge=0.0)
+    #: Learner-blindness relax (owner direction 2026-11-01): the narrative's
+    #: prompt also carries the learner's own words of each inquiry root
+    #: question in the summary (bounded excerpts), which the narrative may
+    #: quote; the cited-id, 120-word and no-well-marker checks are unchanged.
+    #: Off: the typed summary only, today's prompt exactly.
+    narrative_quotes_inquiry: bool = True
 
 
 class ReaderIntentConfig(BaseModel):
@@ -2641,6 +2658,17 @@ class ReaderTutorConfig(BaseModel):
 
     retrieval_enabled: bool = True
     offers_enabled: bool = True
+    #: Learner-blindness relax (owner direction 2026-11-01: blindness only
+    #: where it matters, the grader): the Reader tutor's context also carries
+    #: the learner's state on the passage's learning objects -- readiness in
+    #: words (the Today headline's class), the learner's confidence events
+    #: (TE0's block), attempt outcomes and the learner's own questions from
+    #: recent practice and feedback exchanges (never a stored tutor answer),
+    #: all through ``learner_protection`` (exam, held-out, reserved,
+    #: cold-check and probe work never shows; a question asked during a cold
+    #: administration carries none). Context only: the tutor still writes no
+    #: attempt, claim or mastery. Off: today's prompt and manifest byte for byte.
+    learner_state_enabled: bool = True
 
 
 class LibraryExercisesConfig(BaseModel):
@@ -2741,6 +2769,18 @@ class FiguresConfig(BaseModel):
     list as "can't show this kind here". Nothing in scoring, scheduling,
     projection or serving reads these keys.
 
+    Learner data-relax 2 (owner principle 2026-11-01: the learner's questions,
+    answers and history are not private; include them where they help):
+    ``author_learner_state``: the figure author is also sent the learner's
+    state on the passage's topics (their status in words, the open
+    misconception and gap statements, and at most two recent answers of
+    theirs, read through ``learner_protection`` so exam, held-out, reserved
+    and cold-in-flight work never shows), under its own prompt version, and
+    the reuse key names a hash of that state (only when it is non-empty: a
+    learner with no state keeps the predecessor's keys and reuse). Off: the
+    author's payload, prompt and keys are the predecessor's byte for byte.
+    Figures stay help, never evidence.
+
     Caps (money, W4): two author attempts per request; ``max_daily_cost_usd``
     meters the author route's metered spend a UTC day at
     ``price_per_million`` (unset: a metered route is refused before sending;
@@ -2758,6 +2798,7 @@ class FiguresConfig(BaseModel):
     show_me_enabled: bool = True
     sketch_enabled: bool = True
     rich_tiers_enabled: bool = True
+    author_learner_state: bool = True
     manim_opt_in: Literal["standing", "declined"] | None = None
     manim_opt_in_at: str | None = None
     max_daily_cost_usd: float = Field(default=1.0, ge=0)
@@ -3056,10 +3097,22 @@ class NotesConfig(BaseModel):
     notes one judgment reads (``keep``: a prompt bound). Display and
     learner-voice records only: nothing in scoring, scheduling, projection or
     serving reads a note, so no algorithm successor.
+
+    ``gaps_enabled`` (curriculum C5, spec §10.2, §12 C5; owner Q9: off by
+    default, the learner's opt-in in Settings): a LINKED note (a standing
+    proposal or the learner's own link, never a hidden one or an unlinked
+    note) is also a learner-text-gaps input (``source_kind = 'learner_note'``,
+    the snapshot's current text, keyed to the topics and passages it is linked
+    to), tier 2 only: it steers hypotheses and suggestions, never mastery,
+    evidence or grading. Read on the ChatGPT plan only (``note_link_judge``'s
+    route; with the plan down it waits), never by the Decider, never embedded,
+    never drafted into a new topic. Off (or ``enabled`` off, or
+    ``learner_text_gaps.enabled`` off): the gaps code reads no note row.
     """
 
     enabled: bool = True
     max_candidates: int = Field(default=8, ge=1, le=20)
+    gaps_enabled: bool = False
     tend: NotesTendConfig = Field(default_factory=NotesTendConfig)
 
 
@@ -4335,6 +4388,13 @@ class AdaptiveDifficultyConfig(BaseModel):
     calibrate_below: float = Field(default=0.25, ge=0.0, le=1.0)
     ready_threshold: float = Field(default=0.8, gt=0.0, lt=1.0)
     history_fallback: Literal["exclude", "current_content"] = "current_content"
+    #: Learner-blindness relax (owner direction 2026-11-01): the ``llm_v3``
+    #: forecasters' history card carries a bounded excerpt of each earlier
+    #: answer it lists (forecasts are reporting and scoring only, never an
+    #: offset prior; the material view still withholds exam and held-out
+    #: work). Its frozen state is ``ad-forecast-state-v2``. Off: the card and
+    #: state version of before, exactly.
+    history_answer_excerpts: bool = True
     priors: Literal["ad_priors_v1"] = "ad_priors_v1"
     hyper: Literal["ad_hyper_v1"] = "ad_hyper_v1"
     ladder: Literal["ad_ladder_v1"] = "ad_ladder_v1"

@@ -3,13 +3,13 @@ title: "facet_recall_state"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "4998dec9f94d0b244aaccc094dbea90f7478f5fd"
-source_commit_timestamp: "2026-11-01T21:15:52-05:00"
+source_commit: "9543d8c96d152c822106fe37bff6b8255b118dad"
+source_commit_timestamp: "2026-11-01T23:10:14-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite facet_recall_state"
   - "table facet_recall_state"
-schema_head: 230
+schema_head: 232
 table_name: "facet_recall_state"
 table_role: "derived"
 functionality_status: "active"
@@ -134,20 +134,20 @@ None found by exact static reference scan.
 - `tests/test_ad3_reading.py`
 - `tests/test_ad3_subject_view.py`
 - `tests/test_assumed_known.py`
+- `tests/test_canonical_projection_fold_skip.py`
 - `tests/test_deferred_regrade.py`
 - `tests/test_doctor.py`
 - `tests/test_facet_outcome_view.py`
 - `tests/test_facet_state_write_on_change.py`
 - `tests/test_km2_canonical.py`
 - `tests/test_migrations.py`
+- `tests/test_notes_as_learner_text.py`
 - `tests/test_post_attempt_worker.py`
 - `tests/test_reader_active_reading.py`
 - `tests/test_reader_branches.py`
 - `tests/test_rebuild_equivalence_review.py`
 - `tests/test_rebuild_orchestrator.py`
 - `tests/test_recall_coverage_interventions.py`
-- `tests/test_replay.py`
-- `tests/test_shadow_rebuild.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

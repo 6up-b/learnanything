@@ -5,6 +5,7 @@ import { noteFallbackOffer } from "../app/planFallback";
 import type {
   NoteHitDto,
   NoteLinkDto,
+  HiddenNoteDto,
   NoteMarksDto,
   NotesPathDto,
   DifficultyRating,
@@ -1688,6 +1689,10 @@ export const api = {
   }) => call<{ linkId: string; marks: NoteMarksDto["marks"] }>("notes_link", { input }),
   notesDecide: (input: { linkId: string; choice: "hide" | "keep" }) =>
     call<{ linkId: string; status: string }>("notes_decide", { input }),
+  // followups-nov1c C (C2 ruling R5): the note links the learner hid (Settings); show again = notesDecide keep.
+  notesHidden: () => call<{ hidden: HiddenNoteDto[] }>("notes_hidden", { input: {} }),
+  // Curriculum C5: Settings' opt-in (notes.gaps_enabled, off by default).
+  notesSetGaps: (input: { enabled: boolean }) => call<{ gapsEnabled: boolean; line: string }>("notes_set_gaps", { input }),
   // Teacher TE1: a lesson (desktop only). lesson.turn is every model-calling step (one origin action, T1
   // redesign D: a granted OpenRouter offer covers the whole lesson); lesson.view resumes one with no call.
   lessonTurn: (input: LessonTurnInput) => call<LessonViewDto>("lesson_turn", { input }),

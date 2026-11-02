@@ -109,6 +109,7 @@ import { CompareKeepContext } from "./reader/compareKeepContext";
 import { KeptMark } from "./reader/KeptMark";
 import { useKeptComparisons } from "./reader/useKeptComparisons";
 import { NoteLinkPicker, NoteMarkButton, NOTES_COPY, useNoteMarks } from "./reader/ReaderNotes";
+import { ScopeFromPassage } from "./reader/ScopeFromPassage";
 import { NotesContext } from "./reader/notesContext";
 import { LibraryAnswer } from "./reader/LibraryAnswer";
 import type { ReaderIntentActionDto, ReaderPresetReceiptDto } from "../api/dto";
@@ -4322,6 +4323,15 @@ export function ReaderScreen({
             manualAnchorToSelection={manualAnchorToSelection}
             reanchorNotes={reanchorNotes}
             protectionMessage={protectionMessage}
+            scopeAction={render && selection ? (
+              <ScopeFromPassage
+                key={render.extractionId}
+                extractionId={render.extractionId}
+                spanIds={[...new Set(selectionNodes(selection).map((node) => node.spanId))]}
+                disabled={busy}
+                onError={onError}
+              />
+            ) : undefined}
             editingAnnotationId={editingAnnotationId}
             setEditingAnnotationId={setEditingAnnotationId}
             editingAnnotationText={editingAnnotationText}

@@ -1,9 +1,8 @@
 -- Teacher TE1: the first good lesson (spec_teacher_v1 §18.1, §20;
 -- docs/reviews/teacher-te1-first-lesson.md).
 --
--- Numbered 230: main's head is 229 (the migration runner has no contiguity
--- rule; renumbered at landing if another stage lands first, e.g.
--- learner/data-relax-2 or curriculum C5).
+-- Numbered 232: renumbered from 230 at landing, after learner data-relax-2's
+-- 230 and curriculum C5's 231 (the migration runner has no contiguity rule).
 --
 -- lessons (RAW_LEDGER): one row per lesson the learner started or accepted:
 -- its driver, origin (a learner pick, or later a router decision), entry, the

@@ -30,6 +30,8 @@ from learnloop.attempts.ai_contracts import (
 )
 from learnloop.diagnosis.split.context import AssembledContext
 from learnloop.diagnosis.split.settings import DIAGNOSIS_PROMPT_VERSION
+from learnloop.diagnosis.split.prior_analysis import ARM_ON as PRIOR_ANALYSIS_ON
+from learnloop.diagnosis.split.prior_analysis import SUFFIX as PRIOR_ANALYSIS_SUFFIX
 from learnloop.diagnosis.split.workbench_trace import SUFFIX as WORKBENCH_TRACE_SUFFIX
 
 CAUSAL_CLASSES = ("learner_state", "transient_execution", "unknown")
@@ -265,11 +267,18 @@ def diagnosis_task(mode: str) -> str:
 
 def diagnosis_prompt_version(assembled: AssembledContext) -> str:
     """The prompt version; ``+workbench-v1`` only when the current attempt
-    carries a workbench step trace (RW2b, spec §5.4)."""
+    carries a workbench step trace (RW2b, spec §5.4); then
+    ``+prior-analysis-v1`` only in the prior-analysis arm's ``on`` arm
+    (learner-blindness relax)."""
 
+    version = DIAGNOSIS_PROMPT_VERSION
     if isinstance(assembled.current, Mapping) and assembled.current.get("workbench_trace"):
-        return f"{DIAGNOSIS_PROMPT_VERSION}{WORKBENCH_TRACE_SUFFIX}"
-    return DIAGNOSIS_PROMPT_VERSION
+        version = f"{DIAGNOSIS_PROMPT_VERSION}{WORKBENCH_TRACE_SUFFIX}"
+    arm = (assembled.receipt or {}).get("prior_analysis") if isinstance(assembled.receipt, Mapping) else None
+    if isinstance(arm, Mapping) and arm.get("arm") == PRIOR_ANALYSIS_ON:
+        # Learner-blindness relax: the prior-analysis arm's ``on`` arm.
+        version = f"{version}{PRIOR_ANALYSIS_SUFFIX}"
+    return version
 
 
 def diagnosis_prompt(assembled: AssembledContext) -> str:

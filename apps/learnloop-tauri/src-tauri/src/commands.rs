@@ -1441,6 +1441,9 @@ sidecar_passthrough!(notes_passages, "notes.passages");
 sidecar_passthrough!(notes_search, "notes.search");
 sidecar_passthrough!(notes_link, "notes.link");
 sidecar_passthrough!(notes_decide, "notes.decide");
+sidecar_passthrough!(notes_hidden, "notes.hidden");
+// Curriculum C5: the opt-in for your linked notes to steer suggestions (Settings; desktop only).
+sidecar_passthrough!(notes_set_gaps, "notes.set_gaps");
 // Teacher TE1: a lesson (lesson.turn is every model-calling step; lesson.view resumes): desktop only.
 sidecar_passthrough!(lesson_turn, "lesson.turn");
 sidecar_passthrough!(lesson_view, "lesson.view");

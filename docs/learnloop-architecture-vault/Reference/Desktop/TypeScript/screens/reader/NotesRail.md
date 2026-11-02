@@ -12,7 +12,7 @@ source_paths:
   - "apps/learnloop-tauri/src/screens/reader/NotesRail.tsx"
 source_commit: "490ad6751fd50ca0f45661618dc6cd11cd8507b8"
 source_commit_timestamp: "2026-11-01T19:33:59-05:00"
-source_worktree_state: "clean"
+source_worktree_state: "staged-or-mixed"
 activation_kind: "entry-reachable build graph"
 activation_evidence: "A static TypeScript import path reaches this file from the Vite entry src/main.tsx."
 generated: true
@@ -42,12 +42,12 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/screens/reader/NotesRail.tsx](../../../../../../../apps/learnloop-tauri/src/screens/reader/NotesRail.tsx) |
-| Source lines | 702 |
+| Source lines | 706 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/screens/reader/_area|TypeScript/screens/reader]] |
 | Refactor status | `ACTIVE` |
 | Activation kind | `entry-reachable build graph` |
-| Worktree state | `clean` |
+| Worktree state | `staged-or-mixed` |
 | Source commit | `490ad6751fd50ca0f45661618dc6cd11cd8507b8` |
 | Commit timestamp | `2026-11-01T19:33:59-05:00` |
 
@@ -63,17 +63,17 @@ The system-level behavior stays authoritative in the linked architecture, concep
 - `export const PALETTE: Array<` — const, line 19
 - `export interface ExerciseImportState` — interface, line 46
 - `export interface NotesRailProps` — interface, line 60
-- `export function NotesRail(props: NotesRailProps)` — function, line 151
+- `export function NotesRail(props: NotesRailProps)` — function, line 154
 
 ## Internal implementation anchors
 
-- `const MODEL_GROUPS: ReadonlySet<string> = new Set(["Request · answered in background", "Remember later"])` — const, line 149
-- `const spanId = selection?.spanId ?? activeSpan` — const, line 380
-- `const requestError = parseRequestError(request.errorJson)` — const, line 489
-- `const result = sourceObjectId ? synthesizedObjects.get(sourceObjectId) : undefined` — const, line 490
-- `const expanded = expandedRequests.has(request.id)` — const, line 491
-- `const proposalOpen = proposalId !== null && openProposalIds.has(proposalId)` — const, line 492
-- `const next = new Set(ids)` — const, line 511
+- `const MODEL_GROUPS: ReadonlySet<string> = new Set(["Request · answered in background", "Remember later"])` — const, line 152
+- `const spanId = selection?.spanId ?? activeSpan` — const, line 384
+- `const requestError = parseRequestError(request.errorJson)` — const, line 493
+- `const result = sourceObjectId ? synthesizedObjects.get(sourceObjectId) : undefined` — const, line 494
+- `const expanded = expandedRequests.has(request.id)` — const, line 495
+- `const proposalOpen = proposalId !== null && openProposalIds.has(proposalId)` — const, line 496
+- `const next = new Set(ids)` — const, line 515
 
 ## Who imports or calls it
 
@@ -110,6 +110,7 @@ The workflow note owns end-to-end sequencing; this module note describes only it
 ## Tests that define behavior
 
 - [apps/learnloop-tauri/src/screens/reader/splitRails.test.tsx](../../../../../../../apps/learnloop-tauri/src/screens/reader/splitRails.test.tsx) — vitest test: imports and executes this module under jsdom (`npm test`).
+- [apps/learnloop-tauri/src/screens/reader/scopeFromPassage.test.tsx](../../../../../../../apps/learnloop-tauri/src/screens/reader/scopeFromPassage.test.tsx) — vitest test: imports and executes this module under jsdom (`npm test`).
 - [tests/test_reader_intentions.py](../../../../../../../tests/test_reader_intentions.py) — cross-boundary name contract: references uniquely owned exported name `NotesRail`; it does **not** directly execute this source module.
 - [tests/test_sidecar_reader.py](../../../../../../../tests/test_sidecar_reader.py) — related cross-boundary behavior contract; it does **not** directly execute this source module.
 - [tests/test_sidecar_reader_pdf_view.py](../../../../../../../tests/test_sidecar_reader_pdf_view.py) — related cross-boundary behavior contract; it does **not** directly execute this source module.

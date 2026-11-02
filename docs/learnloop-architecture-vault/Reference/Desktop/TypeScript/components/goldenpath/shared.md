@@ -110,6 +110,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 - [[Reference/Desktop/TypeScript/screens/reader/GuideRail|src/screens/reader/GuideRail.tsx]] — import-or-re-export: `DispositionPicker`, `PrimaryButton`, `SecondaryButton`; references `DispositionPicker`, `PrimaryButton`, `SecondaryButton`
 - [[Reference/Desktop/TypeScript/screens/reader/InquiryQuickCheck|src/screens/reader/InquiryQuickCheck.tsx]] — import-or-re-export: `PrimaryButton`, `SecondaryButton`; references `PrimaryButton`, `SecondaryButton`
 - [[Reference/Desktop/TypeScript/screens/reader/NotesRail|src/screens/reader/NotesRail.tsx]] — import-or-re-export: `PrimaryButton`, `SecondaryButton`; references `PrimaryButton`, `SecondaryButton`
+- [[Reference/Desktop/TypeScript/screens/reader/ScopeFromPassage|src/screens/reader/ScopeFromPassage.tsx]] — import-or-re-export: `SecondaryButton`; references `SecondaryButton`
 - [[Reference/Desktop/TypeScript/screens/reader/YouTubeWatchPanel|src/screens/reader/YouTubeWatchPanel.tsx]] — import-or-re-export: `SecondaryButton`; references `SecondaryButton`
 
 ## Dependencies

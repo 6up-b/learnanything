@@ -179,8 +179,10 @@ def test_settings_payload_discloses_each_judgment_route(tmp_path, monkeypatch, c
     # Curriculum C2: the note link judge reads the learner's notes, on the ChatGPT plan only.
     assert "Only on the ChatGPT plan: never OpenRouter" in judges["note_link_judge"]["disclosure"]
     assert "never evidence" in judges["note_link_judge"]["disclosure"]
-    # Reader RW6b part 2: the narrative sends the typed summary, never the learner's words.
-    assert "Nothing you wrote" in judges["reader_digest"]["disclosure"]
+    # Reader RW6b part 2: the narrative sends the typed summary; the learner-blindness relax adds the
+    # learner's own inquiry words while digest.narrative_quotes_inquiry is on, and says so.
+    assert "narrative_quotes_inquiry is on" in judges["reader_digest"]["disclosure"]
+    assert "off, nothing you wrote" in judges["reader_digest"]["disclosure"]
     assert "never material held out for an exam" in judges["reader_digest"]["disclosure"]
     # Curriculum C0b: the resolver reads the learner's scope words; the path judge their reading context.
     assert "your words in order" in judges["deliverable_scope_resolver"]["disclosure"]

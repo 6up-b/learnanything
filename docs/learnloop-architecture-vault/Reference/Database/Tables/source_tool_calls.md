@@ -3,13 +3,13 @@ title: "source_tool_calls"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "4998dec9f94d0b244aaccc094dbea90f7478f5fd"
-source_commit_timestamp: "2026-11-01T21:15:52-05:00"
+source_commit: "9543d8c96d152c822106fe37bff6b8255b118dad"
+source_commit_timestamp: "2026-11-01T23:10:14-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite source_tool_calls"
   - "table source_tool_calls"
-schema_head: 230
+schema_head: 232
 table_name: "source_tool_calls"
 table_role: "receipt"
 functionality_status: "active"
@@ -52,7 +52,7 @@ It belongs to the **sources and ingest** navigation family. The family context l
 - **Role:** `receipt` — Historical audit/decision receipt. It is preserved and never rebuilt.
 - **Functionality status:** `active`.
 - **Introduced by:** `migrations/192_source_tool_calls.sql`.
-- **Schema touched by:** `192_source_tool_calls.sql`, `230_teacher_lessons.sql`.
+- **Schema touched by:** `192_source_tool_calls.sql`, `232_teacher_lessons.sql`.
 - **Rebuild owner:** none; this table is preserved by the rebuild umbrella.
 
 For the distinction between SQLite state and human-authored vault files, see [[State and Persistence]]. For whole-vault creation and opening behavior, see [[Vault Lifecycle]]. ^table-lifecycle
@@ -123,6 +123,7 @@ None found by exact static reference scan.
 
 ## Tests that define behavior
 
+- `tests/test_learner_note_source_kind_migration.py`
 - `tests/test_reader_rw1c_review.py`
 - `tests/test_reader_tutor_offers.py`
 - `tests/test_reader_tutor_retrieval.py`

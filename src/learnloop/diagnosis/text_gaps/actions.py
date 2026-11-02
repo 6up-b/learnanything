@@ -47,6 +47,7 @@ from learnloop.db.stores import learner_gaps as store
 from learnloop.db.stores.judgments import append_judgment
 from learnloop.diagnosis.text_gaps.contract import (
     NEEDED_TASK,
+    NOTE_SOURCE_KINDS,
     PROVENANCE_MECHANISM,
     SAME_BELIEF_TASK,
     LearnerText,
@@ -412,6 +413,15 @@ def record_belief(
 
                 outcome.writes.append(sighting)
         return outcome
+    if text.source_kind in NOTE_SOURCE_KINDS:
+        # Curriculum C5 (Codex review F1): a new candidate's statement is the plan's
+        # words for the note's belief, which may echo the note; the holding pen is
+        # read by every later gap's pair judges (the gap judge's route, the Decider),
+        # the diagnoser and the router, none of them plan-only. A note's belief is
+        # therefore only ever a sighting of an entry that already stands (judged on
+        # the plan); otherwise it is kept as a signal and nothing is written.
+        return ActionOutcome("signal_only", target_subject_id=subject,
+                             detail={"reason": "never_a_candidate_from_a_note"})
     learning_object = vault.learning_objects[anchor]
     candidate_id = new_ulid()
 

@@ -121,6 +121,14 @@ READER_BRANCHES_CONTRACT_VERSION = "p3-reader-branches-v1"
 # The most recent ancestors that enter a follow-up's prompt; every link stays
 # durable on the event log, the manifest records the omitted count.
 READER_BRANCH_PROMPT_ANCESTORS = 12
+#: Learner-blindness relax (``reader_tutor.learner_state_enabled``; owner
+#: direction 2026-11-01): the suffix of the contract and manifest version
+#: when the tutor's context carries the learner state.
+READER_LEARNER_STATE_CONTRACT_SUFFIX = "+learner-state-v1"
+#: What a manifest never carries, with and without the learner state: the
+#: ability estimate is excluded only while the state is off.
+READER_MANIFEST_EXCLUDED = ["ability_estimate", "assessment_reserved_surface", "cold_in_flight_response"]
+READER_MANIFEST_EXCLUDED_WITH_STATE = ["assessment_reserved_surface", "cold_in_flight_response"]
 
 # Coarse reading-answer outcome class -> triage-reason weight seed (design A.1).
 # Lowercase so the parameter-registry AST scan (UPPERCASE only) does not require
@@ -162,7 +170,7 @@ def reader_enabled(vault: LoadedVault) -> bool:
 # Owner-reviewable prompt contract (U-034 artifact; deterministic).
 # ---------------------------------------------------------------------------
 
-def reader_prompt_contract(*, branches: bool = False) -> dict[str, Any]:
+def reader_prompt_contract(*, branches: bool = False, learner_state: bool = False) -> dict[str, Any]:
     """The owner-reviewable ``reader`` prompt/manifest contract (design A.2).
 
     Deterministic (no live AI) so it can be diffed + reviewed like any other
@@ -171,8 +179,32 @@ def reader_prompt_contract(*, branches: bool = False) -> dict[str, Any]:
     invariant 10 -- what it must NEVER receive.
 
     ``branches`` (RW1a, ``reader_inquiry.enabled``): a follow-up carries only
-    its branch's ancestors instead of every earlier exchange on the span."""
+    its branch's ancestors instead of every earlier exchange on the span.
 
+    ``learner_state`` (learner-blindness relax, ``reader_tutor.
+    learner_state_enabled``): the manifest also carries the learner's state
+    on the passage's learning objects, and the ability reading leaves the
+    never-list (the reserved-surface and cold in-flight exclusions stay).
+    False: the contract of before, byte for byte."""
+
+    contract = _base_prompt_contract(branches=branches)
+    if learner_state:
+        contract["version"] = contract["version"] + READER_LEARNER_STATE_CONTRACT_SUFFIX
+        contract["manifest_includes"] = [
+            *contract["manifest_includes"],
+            "the learner's state on the passage's learning objects: readiness in words (the Today headline's "
+            "class), their confidence events, attempt outcomes and their own questions from recent practice and "
+            "feedback exchanges, through learner_protection (no exam, held-out, reserved, cold-check or probe "
+            "work; none during a cold administration; never a stored tutor answer)",
+        ]
+        contract["manifest_never_includes"] = [
+            entry for entry in contract["manifest_never_includes"]
+            if entry != "the learner ability / posterior estimate"
+        ]
+    return contract
+
+
+def _base_prompt_contract(*, branches: bool) -> dict[str, Any]:
     return {
         "version": READER_BRANCHES_CONTRACT_VERSION if branches else READER_PROMPT_CONTRACT_VERSION,
         "context": "reader",
@@ -282,8 +314,18 @@ def build_reader_manifest(
         ],
         # Explicit negative space -- asserted by tests; the ability estimate and any
         # reserved surface content are structurally absent.
-        "excluded": ["ability_estimate", "assessment_reserved_surface", "cold_in_flight_response"],
+        "excluded": list(READER_MANIFEST_EXCLUDED),
     }
+
+
+def _with_learner_state(manifest: dict[str, Any], learner_state: Any) -> None:
+    """The manifest of a question whose tutor context carries the learner
+    state (learner-blindness relax): its version suffix, the exclusions that
+    still hold, and what was given (the state's manifest view)."""
+
+    manifest["version"] = str(manifest["version"]) + READER_LEARNER_STATE_CONTRACT_SUFFIX
+    manifest["excluded"] = list(READER_MANIFEST_EXCLUDED_WITH_STATE)
+    manifest["learner_state"] = learner_state.manifest()
 
 
 # ---------------------------------------------------------------------------
@@ -516,9 +558,19 @@ def ask(
     reader_tutor: Any | None = None,
     reader_caller: Mapping[str, Any] | None = None,
     reader_binding: Any | None = None,
+    learner_state: Any | None = None,
     clock: Clock | None = None,
 ) -> dict[str, Any]:
     """Answer a span-grounded reader question (§7.6).
+
+    ``learner_state`` (learner-blindness relax, ``reader_tutor.
+    learner_state_enabled``: a ``learnloop.reader_learner_state.
+    ReaderLearnerState`` the adapter builds): the tutor's context also
+    carries the learner's state on the passage's learning objects, the
+    manifest's version takes :data:`READER_LEARNER_STATE_CONTRACT_SUFFIX`,
+    its ``excluded`` list keeps the reserved-surface and cold in-flight
+    exclusions only, and it records what was given (``learner_state``).
+    None (the switch off) changes nothing.
 
     ``reader_binding`` (RW1c fix round 5, R1: a ``tutor.reader_modes.BoundAsk``
     the adapter builds whatever the retrieval switch): the workbench item the
@@ -627,6 +679,8 @@ def ask(
         resolve_references=vault.config.tutor_qa.resolve_references,
         expanded_delivery=vault.config.tutor_qa.expanded_delivery,
     )
+    if learner_state is not None:
+        _with_learner_state(manifest, learner_state)
     if branches:
         if ancestors and not manifest["source_spans"]:
             raise ReaderDialogueError(
@@ -684,6 +738,7 @@ def ask(
         reader_tutor=reader_tutor,
         reader_caller=reader_caller,
         reader_binding=reader_binding,
+        **({"reader_learner_state": learner_state} if learner_state is not None else {}),
         clock=clock,
     )
     if source_span_provider is not None or "reader_tutor" in result or reader_binding is not None:

@@ -10,8 +10,8 @@ area: "TypeScript/screens"
 source_path: "apps/learnloop-tauri/src/screens/LessonScreen.tsx"
 source_paths:
   - "apps/learnloop-tauri/src/screens/LessonScreen.tsx"
-source_commit: "d58b47159d58a248e2977f3612a9b8b18e89872a"
-source_commit_timestamp: "2026-11-01T22:12:18-05:00"
+source_commit: "9543d8c96d152c822106fe37bff6b8255b118dad"
+source_commit_timestamp: "2026-11-01T23:10:14-05:00"
 source_worktree_state: "clean"
 activation_kind: "entry-reachable build graph"
 activation_evidence: "A static TypeScript import path reaches this file from the Vite entry src/main.tsx."
@@ -42,14 +42,14 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/screens/LessonScreen.tsx](../../../../../../apps/learnloop-tauri/src/screens/LessonScreen.tsx) |
-| Source lines | 339 |
+| Source lines | 354 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/screens/_area|TypeScript/screens]] |
 | Refactor status | `ACTIVE` |
 | Activation kind | `entry-reachable build graph` |
 | Worktree state | `clean` |
-| Source commit | `d58b47159d58a248e2977f3612a9b8b18e89872a` |
-| Commit timestamp | `2026-11-01T22:12:18-05:00` |
+| Source commit | `9543d8c96d152c822106fe37bff6b8255b118dad` |
+| Commit timestamp | `2026-11-01T23:10:14-05:00` |
 
 ## Activation and status evidence
 
@@ -61,36 +61,38 @@ The system-level behavior stays authoritative in the linked architecture, concep
 ## Public API
 
 - `export type LessonEntry = |` — type, line 26
-- `export function LessonScreen(` — function, line 47
+- `export function LessonScreen(` — function, line 48
 
 ## Internal implementation anchors
 
 - `const TAP_LABELS = ["1", "2", "3", "4", "5"]` — const, line 31
 - `const CLOSE_WORDS: Record<string, string> =` — const, line 32
-- `function dueWords(due: string): string` — function, line 40
-- `const day = new Date(`$` — const, line 41
-- `const days = Math.max(0, Math.round((day.getTime() - Date.now()) / 86_400_000))` — const, line 43
-- `const run = useCallback(async (input: LessonTurnInput)` — const, line 71
-- `const next = await api.lessonTurn(input)` — const, line 76
-- `const err = getCommandError(error)` — const, line 80
-- `const code = err?.code ?? ""` — const, line 81
-- `const message = err?.message ?? String(error)` — const, line 82
-- `const details = (err?.details ??` — const, line 85
-- `const saved = details.lesson_id ?? details.lessonId` — const, line 86
-- `const lessonId = typeof saved === "string" && saved ? saved : input.lessonId` — const, line 87
-- `let cancelled = false` — let, line 106
-- `const lessonId = view?.lessonId` — const, line 118
-- `const openCheck = view?.openCheck ?? null` — const, line 119
-- `const send = useCallback(async ()` — const, line 127
-- `const text = reply.trim()` — const, line 129
-- `const submitCheck = useCallback(async ()` — const, line 134
-- `const submitPrediction = useCallback(async ()` — const, line 140
-- `const value = predictionAnswer.trim()` — const, line 142
-- `const stop = useCallback(async ()` — const, line 147
-- `const feed = useMemo(()` — const, line 152
-- `const title = entry.kind === "open" ? entry.title : undefined` — const, line 153
-- `function FeedEntry(` — function, line 268
-- `const open = item.checkRef === openCheckRef` — const, line 287
+- `function dueWords(due: string): string` — function, line 41
+- `const day = new Date(`$` — const, line 42
+- `const days = Math.max(0, Math.round((day.getTime() - Date.now()) / 86_400_000))` — const, line 44
+- `const run = useCallback(async (input: LessonTurnInput)` — const, line 72
+- `const next = await api.lessonTurn(input)` — const, line 77
+- `const err = getCommandError(error)` — const, line 81
+- `const code = err?.code ?? ""` — const, line 82
+- `const message = err?.message ?? String(error)` — const, line 83
+- `const details = (err?.details ??` — const, line 86
+- `const saved = details.lesson_id ?? details.lessonId` — const, line 87
+- `const lessonId = typeof saved === "string" && saved ? saved : input.lessonId` — const, line 88
+- `let cancelled = false` — let, line 107
+- `const lessonId = view?.lessonId` — const, line 119
+- `const openCheck = view?.openCheck ?? null` — const, line 120
+- `const send = useCallback(async ()` — const, line 128
+- `const text = reply.trim()` — const, line 130
+- `const submitCheck = useCallback(async ()` — const, line 135
+- `const submitPrediction = useCallback(async ()` — const, line 141
+- `const value = predictionAnswer.trim()` — const, line 143
+- `const stop = useCallback(async ()` — const, line 148
+- `const startFresh = useCallback(async ()` — const, line 154
+- `const learningObjectIds = view?.learningObjectIds ?? []` — const, line 155
+- `const feed = useMemo(()` — const, line 160
+- `const title = entry.kind === "open" ? entry.title : undefined` — const, line 161
+- `function FeedEntry(` — function, line 283
+- `const open = item.checkRef === openCheckRef` — const, line 302
 
 ## Who imports or calls it
 

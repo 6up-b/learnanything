@@ -42,13 +42,14 @@ from tests.test_learner_claim_application_migration import CLAIM_POINT_ALTERED_T
 from tests.test_section_coverage_migration import C0A_ADDED_OBJECTS
 from tests.test_figure_requests_migration import RW5D_ADDED_OBJECTS, RW5D_ALTERED_TABLES
 from tests.test_session_ownership_migration import PR4_ADDED_OBJECTS, PR4_ALTERED_TABLES
+from tests.test_help_assist_work_md_migration import DR2_ALTERED_TABLES
 from tests.test_reader_session_digests_migration import RW6B_ADDED_OBJECTS
 from tests.test_deliverable_curriculum_migration import C0B_ADDED_OBJECTS
 from tests.test_learner_notes_migration import C2_ADDED_OBJECTS
 from tests.test_teacher_te1_migration import TE1_ADDED_OBJECTS, TE1_ALTERED_TABLES
 
 NOW = "2026-10-17T10:00:00.000Z"
-HEAD = Path(__file__).resolve().parents[1] / "fixtures" / "migration_head_230" / "state.sqlite"
+HEAD = Path(__file__).resolve().parents[1] / "fixtures" / "migration_head_232" / "state.sqlite"
 
 #: spec_adaptive_hints_v1 §9, "This spec's columns".
 HINTS_SPEC_COLUMNS = {
@@ -75,6 +76,9 @@ LOGGED_COLUMNS = {"drawn_option_json", "question_set_version", "state_hash"}
 #: reached the sidecar before grading (§6.1's "hint shown -> submit"), and the
 #: open-to-submit latency that same submission sent (stamped with it).
 SUBMISSION_COLUMNS = {"submission_id", "submitted_at", "submit_latency_seconds"}
+#: Learner data-relax 2 (migration 230; tests/test_help_assist_work_md_migration.py):
+#: the learner's draft itself, beside its hash and length.
+DRAFT_COLUMNS = {"work_md"}
 
 CHECKED_VALUES = {
     "surface": ("practice", "workbench", "guided_redo", "tutor"),
@@ -158,9 +162,9 @@ def _upgrade(tmp_path: Path) -> Path:
     # (their source_kind CHECK only; tests/test_hint_feedback_widening.py).
     # Adaptive difficulty AD1's 213 adds two practice_attempts columns on the way.
     assert {name: sql for name, sql in after.items()
-            if name in before and not name.startswith("learner_text_gap") and name not in AD1_ALTERED_TABLES | T1_ALTERED_TABLES | (RW2D_ALTERED_TABLES | CLAIM_POINT_ALTERED_TABLES | PR4_ALTERED_TABLES | TE1_ALTERED_TABLES)} \
+            if name in before and not name.startswith("learner_text_gap") and name not in AD1_ALTERED_TABLES | T1_ALTERED_TABLES | (RW2D_ALTERED_TABLES | CLAIM_POINT_ALTERED_TABLES | PR4_ALTERED_TABLES | DR2_ALTERED_TABLES | TE1_ALTERED_TABLES)} \
         == {name: sql for name, sql in before.items()
-            if not name.startswith("learner_text_gap") and name not in AD1_ALTERED_TABLES | T1_ALTERED_TABLES | (RW2D_ALTERED_TABLES | CLAIM_POINT_ALTERED_TABLES | PR4_ALTERED_TABLES | TE1_ALTERED_TABLES)}  # nothing else changed
+            if not name.startswith("learner_text_gap") and name not in AD1_ALTERED_TABLES | T1_ALTERED_TABLES | (RW2D_ALTERED_TABLES | CLAIM_POINT_ALTERED_TABLES | PR4_ALTERED_TABLES | DR2_ALTERED_TABLES | TE1_ALTERED_TABLES)}  # nothing else changed
     return database
 
 
@@ -202,7 +206,7 @@ def _check_constraints(database: Path) -> None:
 def test_every_column_both_specs_write_is_created_once():
     columns = _columns(HEAD)
     assert len(columns) == len(set(columns))
-    assert set(columns) == HINTS_SPEC_COLUMNS | READER_COLUMNS | LOGGED_COLUMNS | SUBMISSION_COLUMNS
+    assert set(columns) == HINTS_SPEC_COLUMNS | READER_COLUMNS | LOGGED_COLUMNS | SUBMISSION_COLUMNS | DRAFT_COLUMNS
     assert tuple(columns) == store.COLUMNS
 
 
@@ -372,6 +376,6 @@ def test_help_assists_is_a_raw_ledger():
 
 def test_the_head_fixture_is_at_head_in_rollback_mode():
     assert HEAD.read_bytes()[18:20] == b"\x01\x01"
-    assert max(applied_versions(HEAD)) == max(m.version for m in discover_migrations()) == 230
+    assert max(applied_versions(HEAD)) == max(m.version for m in discover_migrations()) == 232
     for suffix in ("-wal", "-shm", "-journal"):
         assert not HEAD.with_name(HEAD.name + suffix).exists()

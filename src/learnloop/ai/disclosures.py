@@ -139,8 +139,9 @@ _WHEN = {
         "statement, topic and skill names (llm_v1:item, never the reference answer, rubric or hints); and after "
         "each daily-plan question is served, the same plus a short record of your earlier answers on its topic "
         "and the topics it builds on, as of when it was served (each earlier question, whether it was right, the "
-        "hints used, never your answer text), so LearnLoop can score how well each forecaster predicts your "
-        "answers (llm_v3:llm on ai.routing.ad_forecast_llm, llm_v3:decider on ai.routing.ad_forecast_decider). "
+        "hints used and, while adaptive_difficulty.history_answer_excerpts is on (the default), a short excerpt "
+        "of your answer; off, never your answer text), so LearnLoop can score how well each forecaster predicts "
+        "your answers (llm_v3:llm on ai.routing.ad_forecast_llm, llm_v3:decider on ai.routing.ad_forecast_decider). "
         "Measurement only: nothing served, graded or scheduled changes. Never material held out for an exam."
     ),
     "ad_feature_audit": (
@@ -206,23 +207,32 @@ _WHEN = {
         "figures.revisions_enabled, a \"not right?\" note you write goes with the earlier version. With "
         "figures.show_me_enabled, \"show me\" sends your request in your words (or the goal LearnLoop's tutor "
         "wrote, when you press it) and, when you select no passage, the passages LearnLoop finds in your books for "
-        "it (or none) -- never to grade you. Nothing else about you, and never material held out for an exam."
+        "it (or none) -- never to grade you. With figures.author_learner_state on (the default), when you have "
+        "state on the passage's topics, it also sends where you stand on them: your status on each in words, the "
+        "open misunderstandings and gaps LearnLoop has named, and at most two of your recent answers on them with "
+        "their questions and results, so the figure can show what you most need to see. Never an answer on exam, "
+        "held-out or reserved material or on a check still waiting for you, never a reference answer, and never "
+        "material held out for an exam. A figure never grades you and is never evidence."
     ),
     "figures_rich": (
         "While figures.rich_tiers_enabled is on and a richer kind of figure (a narrated Manim animation, after "
         "you allow it once) was chosen for a request you pressed: what the figure author received (the passage "
         "and the paragraphs around it, or the passages found in your books, and your request in your words or "
-        "the goal LearnLoop's tutor wrote) and the author's plan for the animation, so LearnLoop's model can "
-        "write it; when an attempt fails, what went wrong in code's words (never anything about you). Nothing "
-        "else about you, and never material held out for an exam. It never grades you."
+        "the goal LearnLoop's tutor wrote, and, with figures.author_learner_state on, where you stand on the "
+        "passage's topics as the figure author received it) and the author's plan for the animation, so "
+        "LearnLoop's model can write it; when an attempt fails, what went wrong in code's words. Never an answer "
+        "on exam, held-out or reserved material or on a check still waiting for you, and never material held out "
+        "for an exam. It never grades you and is never evidence."
     ),
     "reader_digest": (
         "While digest.enabled and digest.narrative_enabled are on, once per reader session, in the background "
         "after the session has ended: the session's typed summary (which sections you read, the ids and status "
         "of the questions you opened, the problems you worked with the help level and grade, missed predictions "
         "and the gaps named from your questions, as ids, kinds and verdicts) with the titles of the topics and "
-        "sections it names, so LearnLoop's model can write a short summary of what you did. Nothing you wrote, "
-        "no passage text, never material held out for an exam. It never grades you and is never evidence."
+        "sections it names, so LearnLoop's model can write a short summary of what you did. While "
+        "digest.narrative_quotes_inquiry is on (the default) the words of the questions you opened go too (a "
+        "short excerpt each), so the summary may quote them; off, nothing you wrote. No passage text, never "
+        "material held out for an exam. It never grades you and is never evidence."
     ),
     "notes": (
         "While notes.enabled is on and tend is installed, in the background for each topic on a deliverable's "
@@ -230,7 +240,11 @@ _WHEN = {
         "yours tend found for it (only from the folders in notes.tend.paths), so LearnLoop's model can say which "
         "notes discuss it. Only on the ChatGPT plan: never OpenRouter, and with the plan down it waits. Only the "
         "notes it links are kept, in your vault. A note is never a source, never used to write questions and "
-        "never evidence. It never grades you."
+        "never evidence. It never grades you. Only if you turn on notes.gaps_enabled (off unless you opt in, in "
+        "Settings): also, in the background, one note you linked with the titles and statements of the topics "
+        "it is linked to and the opening of those passages, so LearnLoop's model can name a gap in your "
+        "understanding the note shows; that only steers what LearnLoop suggests, never grades you, and a note "
+        "you hid is never sent."
     ),
     "teacher": (
         "From mvp-0.41, while teacher.enabled is on, only during a lesson you start (Teach me this): each "
