@@ -2551,6 +2551,36 @@ def list_figures(vault: Any, repository: Repository, extraction_id: str) -> list
     return sorted(views, key=lambda view: view["created_at"])
 
 
+def section_figures(vault: Any, repository: Repository, extraction_id: str,
+                    section_of: Callable[[str], str | None]) -> dict[str, list[dict[str, Any]]]:
+    """RW5d P4a (spec §10.2): the kept figures of one reading by the section
+    their anchor is in, for the correspondents read (figures follow the
+    section). A read through :func:`list_figures` (no copy, no
+    ``source_objects`` row, Q8): only what the Reader would list on that
+    reading now, held-out figures and figures switched off left out, and of
+    those only the shown ones (verified or an illustration; never a failed or
+    unsupported line). ``section_of`` maps an anchor span to its section (the
+    caller's protected library: a withheld section maps to none). Each entry
+    is the figure's id, its home (reading and anchor span), its label and kind;
+    one entry per figure and section."""
+
+    out: dict[str, list[dict[str, Any]]] = {}
+    seen: set[tuple[str, str]] = set()
+    for view in list_figures(vault, repository, extraction_id):
+        if view.get("verification") not in store.SHOWN or not view.get("anchor_span_id"):
+            continue
+        section_id = section_of(str(view["anchor_span_id"]))
+        if section_id is None or (section_id, str(view["figure_id"])) in seen:
+            continue
+        seen.add((section_id, str(view["figure_id"])))
+        out.setdefault(section_id, []).append({
+            "figure_id": view["figure_id"], "extraction_id": view["extraction_id"],
+            "anchor_span_id": view["anchor_span_id"], "label": view["label"], "kind": view.get("kind"),
+            "verification": view["verification"], "created_at": view["created_at"],
+        })
+    return out
+
+
 def rich_pending(vault: Any, repository: Repository, extraction_id: str) -> list[dict[str, Any]]:
     """RW5d P2b (spec §6.8): the rich builds with no quick figure for this
     source that have not ended (pending, or waiting for the plan), each as
@@ -2862,6 +2892,7 @@ __all__ = [
     "record_prediction",
     "region_enabled",
     "revisions_enabled",
+    "section_figures",
     "shown_figure",
     "withheld_message",
 ]
