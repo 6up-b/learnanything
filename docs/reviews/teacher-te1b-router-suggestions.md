@@ -1,0 +1,117 @@
+# Teacher TE1b: the router suggests lessons, the learner opts in
+
+**Stage:** `teacher-te1b-router-suggestions`, branch `teacher/te1b-router-suggestions` (worktree
+`learnanything-astrafix`), base `1a33bb5db3` (main: teacher TE1 + C4, `mvp-0.41`, migration head 234). **Spec:**
+`docs/specs/spec_teacher_v1.md` §15.1 (with §7 step 1, §8.3 `origin`, §18.1, §18.3, §18.4, §19, §20's TE1b row,
+§21). **No paid or live call was made**: nothing in TE1b calls a model (the draw, the acceptance model and the
+card are code; the lesson Start reuses TE1's `lesson.turn`, tested with TE1's `TeacherFake`). Every ad-hoc script
+ran under `env -i` with an empty, existing `HOME`, `CODEX_HOME` and `LEARNLOOP_CONFIG_DIR` and
+`LEARNLOOP_ROUTER_MODELS=off`. No owner vault was opened, `~/.config/learnloop` was not read, nothing ran against
+`fixtures/linear_algebra`, `fixtures/probability` or `fixtures/arxiv_v2`, and no GUI was launched.
+
+**A successor:** `mvp-0.43` after `mvp-0.41` (ONE constant, `LESSON_SUGGESTIONS_ALGORITHM_VERSION`). follow-ups
+Nov 2 lands first as `mvp-0.42`, so this claims the next tag; at the landing the chain becomes
+`… mvp-0.41, mvp-0.42, mvp-0.43` and `PREDECESSOR` (`lesson_suggestions_upgrade.py`) moves to follow-ups' constant
+(renumber if another successor lands first). **One migration:** 236 (follow-ups Nov 2's 235 lands first; the head
+fixture is `migration_head_236`, rebuilt from main's `migration_head_234` with only 236 applied: at the landing
+rebuild it from main's then-current head, which will hold 235).
+
+## What was built
+
+| Piece | Where |
+|---|---|
+| The tag `LESSON_SUGGESTIONS_ALGORITHM_VERSION = "mvp-0.43"`, appended to `SUCCESSOR_CHAIN`; `LESSON_SUGGESTIONS_VERSIONS` | `src/learnloop/algorithm_versions.py` |
+| The upgrade (the TE1 pattern): accepts mvp-0.41 or mvp-0.9 onwards through the chain; one journalled activation; `complete_interrupted_activation` hands an earlier journal to TE1's; the CLI's and the sidecar's installed completion is this link's; `learnloop upgrade --to mvp-0.43` and the bare upgrade's target | `src/learnloop/lesson_suggestions_upgrade.py`, `cli/app.py`, `cli/runtime.py`, `learnloop_sidecar/context.py`, `activation_journal.py`, `pyproject.toml` |
+| Config `[router.lesson_suggestions]`: `enabled` (the successor's kill switch, default on) and `ceiling_per_day` = 3 (`keep`); both classified in the parameter registry; every defaults snapshot recomputed (the keys are present and inert below the tag; dropping them reproduces main's values, tested) and mvp-0.43 recorded | `config/schema.py`, `config/template.py`, `params/parameter_registry.py` |
+| Migration 236: `router_decisions` rebuilt so `decision_kind` admits `lesson_suggestion` (202's temp-then-rename precedent, every row and id kept, the same indexes, triggers and foreign keys); `router_suggestion_responses` (RAW_LEDGER, append-only, one response per decision, a decline carries no lesson) | `migrations/236_router_lesson_suggestions.sql`, `db/table_roles.py`, `fixtures/migration_head_236/` |
+| The design `lesson_suggestion_draw`, registered where every decision row is written | `db/stores/router.py` |
+| The functional core: the acceptance model (logistic with latent effects, AD's ADF step per recovery-grid bank, grid weights by `log Z`), the replay of the response ledger, the decline bookkeeping, the candidates' values and the draw with exact propensities | `src/learnloop/router/lesson_suggestions.py` |
+| The shell: candidates, the day's draw and decision row, the `ignored` sweep, the card view, the response | `src/learnloop/daily_plan/lesson_suggestion.py`, `db/stores/router_suggestions.py` |
+| Start opens a TE1 lesson with `origin = 'router'`, `origin_ref` = the decision id, under the lesson id its response recorded (refused unless that response exists; a second Start resumes the lesson); the receipt's `origin` is the decision id (§8.3) | `teacher/service.py` |
+| The intention-to-treat outcome of every suggestion decision (shown or not) on the drawn LO's `R_cold`, in the one `router_outcomes` replayer | `router/outcomes.py` |
+| `lesson.suggestion` (the day's card, no model call) and `lesson.suggestion_respond`; `lesson.turn` `open` takes `origin = "router_suggestion"`, `suggestion_decision_id` and `lesson_id`; desktop only; `teacher.suggestions` in the UI config (absent while off) | `learnloop_sidecar/handlers/lesson.py`, `learnloop_sidecar/context.py` |
+| The Today card (Start, up to two alternatives, Not now; a section in the page, never a dialog), shown above the plan or the list only while `teacher.suggestions` is on; Start opens the lesson screen with the suggestion's ids | `apps/learnloop-tauri/src/screens/today/LessonSuggestionCard.tsx`, `screens/TodayScreen.tsx`, `screens/LessonScreen.tsx`, `app/App.tsx`, `app/algoConfig.ts`, `api/client.ts`, `api/dto.ts`, `src-tauri/src/{commands,main}.rs` |
+| Generated references (DB, config, desktop) regenerated; validators' pins moved (schema head 236; 370 table notes; 1121 config leaves; 308 TS sources) | `docs/learnloop-architecture-vault/` |
+
+## How it works (the decisions taken here)
+
+1. **Candidates** (`instruct(lesson)`, one LO each, §15.1's three reasons): an LO on an active goal with no
+   attempt (`new_goal`); an LO whose two latest cold attempts (AD's cold types, unprimed, unhinted, graded) were
+   both not right (`cold_failing`); an attempted LO whose mastery-model predicted success is below adaptive
+   difficulty's own `calibrate_below` (`below_band`: AD's "well below", reused, not a new number). An LO with an
+   open lesson, or taught by a lesson since its last attempt, is left out (listed on the row's exclusions).
+2. **The acceptance model** `P(accept) = σ(h·θ)`: intercept; time of day as sin/cos; the share of a lesson that fits
+   in the plan's minutes left (`min(left, 15)/15 − 1`); re-entry; the reason (two indicators); a suggestion shown
+   within the last day (`min(days, 1) − 1`); and for a declined goal `−D · g_R(d)`, `g_R(d) = max(0, 1 −
+   log(1+d)/log(1+R))`, with the recovery `R` on a grid. Every context feature is 0 at the reference context, so
+   the seeds are the reference context's.
+   **Seeded priors (`suggestion_priors_v1`, basis `legacy`, every effect N(·, 1²)):** the intercept is centred
+   where the prior predictive is 0.9 (revision 3's "about one a day": with the one-card-a-day rule a card on about
+   nine days in ten), `D` where a goal just declined is at 0.01, and `R ∈ {3.5, 4.95, 7, 9.9, 14}` days (centred on
+   the 7-day mute, a factor of two either side), uniform weights. The seeded curve for a declined goal:
+   0.01 at the "Not now", 0.12 a day later, 0.52 at three days, 0.83 at seven, back at 0.9 by fourteen (tested).
+   Every shown suggestion's response is an observation (accepted 1; declined or ignored 0; a chosen alternative 0
+   on the card's suggestion and 1 on the alternative), entered in response order with the inputs stored at its
+   draw, so a replay never reads today's state. Every reader replays the ledger (no derived table).
+3. **The draw** (once per local day, at Today's open): each candidate's value is `log P(accept) + log(1 − p)` (`p`
+   the predicted success: room to learn); `π ∝ exp(value)` over the top `router.k` with the router's
+   `epsilon_min` floor each; then the card shows with the drawn candidate's `P(accept)`. Shown or not, ONE
+   `lesson_suggestion` decision is written (receipt key `lesson_suggestion:<date>`: at most one a day), with the
+   candidates' `pi`, `p_accept`, `room`, `value` and inputs, the seed, the snapshot hash, the model summary, the
+   card hash, and the exact propensity of what happened (`π(c)·P(c)` shown, `Σ π(i)(1 − P(i))` no card). So
+   suggestions come as often as they are predicted to be taken, and a "Not now" mutes that goal as long as the
+   recovery posterior says, with no quota and no fixed mute length.
+4. **The ceiling** (`keep`, 3): a draw it binds shows no card and is logged with `ceiling.bound` (deterministic
+   propensity). Since the card is drawn at most once a day (§19), it binds only if the owner sets it to 0 or the
+   one-a-day rule is relaxed: see ruling 2.
+5. **Responses.** `accepted` / `chose_alternative` (with the candidate) / `declined`, once per decision (the same
+   response again is idempotent; another is refused). A Start records the lesson id first, so the lesson row and
+   the response name each other even if the teacher call then fails (the lesson resumes on the id). A card left
+   unanswered is recorded `ignored` by the next day's first suggestion step.
+6. **The outcome** (§15.1's "lesson value on R_cold", logged for the router's 200-decision DR estimate, no switch
+   claimed): per suggestion decision, shown or not, the first eligible cold retrieval on the drawn LO at least a
+   day after both the decision and the last exposure (a lesson's reveal rows are exposures), `S = R_cold`,
+   `action_status` the learner's response (`taken` / `not_taken` / `open`; `not_applicable` with no card). A
+   suggestion decision never supersedes a plan block's outcome.
+7. **The kill switch.** Off (`router.lesson_suggestions.enabled`, or `router.enabled`, `router.log_decisions` or
+   `teacher.enabled` off), or below the tag: `lesson.suggestion` returns `null` and writes nothing (every table
+   byte-identical, tested), `lesson.suggestion_respond` refuses, the UI config has no `teacher.suggestions` and
+   Today never asks for the card. With it on, the plan's own payload is still byte-identical (the card is its
+   own RPC; tested by reading the plan at TE1's tag and at TE1b's after a draw).
+
+## Rulings wanted (deviations from the spec text)
+
+1. **The draw is the staged component alone, as its own design.** §15.1 says the candidate "joins the `mixture`
+   draw … or `epsilon_tiebreak` in `staged` mode". The Decider and the router LLM are not asked about lesson
+   candidates (their question set `router_qs_v2` is unchanged; no new model call), so the draw is a registered
+   design `lesson_suggestion_draw` (value-proportional with the router's floor, then the show coin), with
+   `mode` recorded from `router.mode`. Asking the models is a later step behind the router's own evaluation.
+2. **"At most one a day" (§19) against "no per-day quota, ceiling 3" (§15.1).** Built: one decision a day (the
+   §19 rule and the stage brief), and the ceiling enforced and logged, which therefore binds only at 0. If the
+   owner wants the model to set the frequency within the day, the receipt key moves to a per-boundary key and
+   the ceiling becomes live.
+3. **`ignored` is recorded at the next day's first suggestion step**, not at the end of the session (no session
+   end is reliably recorded on the desktop: closing the app ends none).
+4. **The lesson row keeps TE1's `origin = 'router'`** (migration 234's CHECK; no rebuild of a protected ledger)
+   with `origin_ref` = the decision id; the API names the origin `router_suggestion`.
+5. **The router card's preference line** ("not now on X, Oct 24", §15.1 logging) is not built: it changes the
+   learner-state card the models read (a card-version decision under the playbook). Open item below.
+
+## Gate (this step; the full suite runs once, in the landing gate)
+
+GATE_PLACEHOLDER
+
+## Owner items
+
+- Look at the card's copy and the seeded behaviour on a `fixtures-local` copy (no paid call is needed: the card
+  and the draw make none; Start then runs a real lesson, which is TE1's owner checkpoint).
+- Rulings 1-5 above. The seeds (0.9 / 0.01 / the 7-day grid) are revision 3's defaults; the owner may override.
+
+## Open items
+
+- The preference line on the router card (ruling 5).
+- The router report (`learnloop router report`) does not yet print the suggestion decisions' ITT split; the rows
+  and outcomes are logged for it.
+- At the landing: renumber the tag after follow-ups Nov 2's mvp-0.42 (`PREDECESSOR` and the chain), migration 236
+  if taken, and rebuild `migration_head_236` from main's head; the composed migration-test sets read
+  `TE1_AND_TE1B_*` from `tests/test_teacher_te1b_migration.py`.

@@ -33,7 +33,6 @@ nothing, so Today and the plan are the predecessor's byte for byte.
 from __future__ import annotations
 
 import json
-import math
 from collections.abc import Mapping, Sequence
 from datetime import datetime
 from typing import Any
@@ -362,27 +361,10 @@ def _response_view(row: Mapping[str, Any], chosen: Mapping[str, Any]) -> dict[st
             "lesson": lesson}
 
 
-def acceptance_curve(vault: Any, repository: Any, *, days: Sequence[float], clock: Clock | None = None) -> list[float]:
-    """The current model's P(accept) for a goal declined ``d`` days ago, in today's context (a report read)."""
-
-    env = PlanEnv(vault, repository, clock=clock)
-    with repository.connection() as connection:
-        state, decisions, _responses = _model(connection)
-    context = _context(env, decisions)
-    probe = LS.Candidate(ref="lesson:probe", learning_object_ids=("probe",), reason="new_goal", predicted_success=None)
-    out = []
-    for d in days:
-        candidate = LS.Candidate(ref=probe.ref, learning_object_ids=probe.learning_object_ids, reason=probe.reason,
-                                 predicted_success=None, days_since_decline=None if math.isinf(d) else float(d))
-        out.append(state.p_accept(context, candidate))
-    return out
-
-
 __all__ = [
     "REASON_WORDS",
     "SuggestionError",
     "WHY_LABEL",
-    "acceptance_curve",
     "build_candidates",
     "card_view",
     "respond",

@@ -1240,6 +1240,19 @@ help (a `help_assists` row); its reply withdraws the check at the auto-prime ove
 (no `teacher.context.compact_at` key), the turn's `visual`, TE1b. The real lesson on a `fixtures-local` copy and the
 per-lesson cap (Q7) are the owner's at the landing.
 
+*As built (TE1b, `docs/reviews/teacher-te1b-router-suggestions.md`):* router successor `mvp-0.43` after TE1's
+`mvp-0.41` (claims the tag after follow-ups Nov 2's `mvp-0.42`; ONE constant, `LESSON_SUGGESTIONS_ALGORITHM_VERSION`,
+renumbered at landing), kill switch `router.lesson_suggestions.enabled`, migration 236 (`router_suggestion_responses`;
+`router_decisions.decision_kind` widened with `lesson_suggestion`). One draw a local day at Today's open
+(`learnloop.router.lesson_suggestions`, `learnloop.daily_plan.lesson_suggestion`): value `log P(accept) + log(1 − p)`,
+`π` with the router's `epsilon_min` floor over the top `router.k`, then the card shows at the drawn candidate's
+`P(accept)`; shown or not, one decision row with the exact propensity, and an intention-to-treat `R_cold` outcome
+in `router_outcomes`. The acceptance model is §15.1's (seeded at about one a day and about a 7-day mute, basis
+`legacy`, 1 logit per effect, the recovery on a grid), replayed from the response ledger. Start opens a TE1 lesson with
+`origin = 'router'` and the decision id. Rulings asked in the review: the draw is the staged component alone (no model
+asked about lesson candidates), one card a day with the ceiling logged, `ignored` at the next day's step, and the
+router card's preference line deferred.
+
 ---
 
 ## 21. Measurement
