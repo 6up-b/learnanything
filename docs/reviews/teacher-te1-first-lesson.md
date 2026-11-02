@@ -159,3 +159,194 @@ the tag, shadow rebuild zero deltas, the whole rebuild, upgrades, RPCs, the pric
 
 **No paid call; no live call.** Every model was a fake; every ad-hoc script ran isolated (`env -i`, empty `HOME`,
 `CODEX_HOME`, `LEARNLOOP_CONFIG_DIR`).
+
+## Landing onto main
+
+Branch `teacher/te1-first-lesson` (worktree `learnanything-astrafix`), from `15a001d7ad`. The orchestrator
+fast-forwards and pushes.
+
+How every run was made:
+
+- **Isolation.** Every Python or CLI run outside pytest ran under `env -i`, with an empty `HOME`, `CODEX_HOME` and
+  `LEARNLOOP_CONFIG_DIR` and `TMPDIR` outside the worktree.
+- **Memory scopes.** pytest, vitest, npm and cargo ran in `systemd-run --user --scope`. The full suite ran at 10G
+  under `flock /tmp/learnloop-fullsuite.lock`; the rest ran at 5G, with vitest at `--maxWorkers=4`.
+- **No model calls, no real lesson.** No live model call was made, and no real lesson ran: that is R6's owner item.
+- **Notes.** The owner's real `tend` was never run, and no note of the owner's was read.
+- **Vaults.** No owner vault was opened. Only fresh backup-API copies of
+  `learnanything-ad1/fixtures-local/owner-copies-mvp035` were used.
+
+### Step 0: Codex re-review 2, directed fixes (`c00622f91e`, `9543d8c96d`)
+
+Codex job `20261101-222330-VW72um` and the latest re-review confirmed these fixed: F1, F2, F14 and F15, and F5–F13
+from round 1. They reopened F3 and F4 and raised F16 (Medium). The regression tests were written first and committed
+alone (`c00622f91e`). All five failed on `15a001d7ad`, each for its finding's own reason. The record is
+`teacher-te1-first-lesson-codex-review.md`, "Re-review 2".
+
+- **F3 (R2): reveals use the strict writer.** `_record_reveals` now writes through
+  `attempts.reveal_ledger.record_reveal_strict`, inside the accepted turn's transaction. A failed reveal write rolls
+  back the accepted turn, its delivered results and every reveal row together. `resume` then makes the call again.
+  Test: `test_r3_f3_a_failed_reveal_write_leaves_the_turn_unaccepted`.
+- **F4 (R1): structural; this is the third round on saved-context protection.**
+  - **What is recorded.** `teacher.brief.protection_state` is recorded in the lesson's `open` entry with its brief.
+    It holds two digests:
+    - a vault digest of the section library's protection key, plus every item that exam or held-out material or a
+      live reservation withholds;
+    - a digest of why each item the brief names (its probes and the items behind its history entries) is withheld
+      now.
+  - **When the lesson ends.** The check runs before every model call of an action: in `take_turn` and before each
+    call in `_teach_loop`, a read follow-up included. The lesson closes `protection_changed` when any of these holds:
+    - the state differs from the recorded one;
+    - the state cannot be read;
+    - a delivered passage is no longer teachable.
+  - **What is kept.** Every earlier ledger entry stays. The close runs as every close does: delayed checks under the
+    current protection, the receipt, the row and the entry in one transaction. The notice offers a fresh lesson, and
+    the screen's **Start a fresh lesson** opens one on the same topics with a fresh brief.
+  - **When the lesson opens.** The state is read before and after `build_brief`. A change in between refuses the
+    opening, with nothing saved.
+  - **What was removed.** The word-matching redaction path is gone because it is redundant: nothing saved under an
+    older state is ever resent. The removed code: `revalidate_material`, `_redact`, `_redacted_transcript`,
+    `_protected_texts`, `_scrub`, `WITHDRAWN` and `LessonState.withheld_items`.
+  - **What was kept, and why.** These guard delivery, not resending: `SourceBook.revoked`, `read_source`'s
+    teachability refusal and the citation guard.
+  - **What the state does not cover.** A cold hold on an item that only a `find_practice` result listed; the old
+    redaction did not cover it either. Its exposure is in the reveal rows the cold lane reads.
+  - **Schema and contracts.** `lessons.close_reason` and `contracts.CLOSE_REASONS` gain `protection_changed`.
+  - **Tests.** Four `test_r3_f4_*` tests replace the four redaction tests.
+- **F16 (R3): ruled Low; no change, queued follow-up.**
+
+Step 0's gate: lint-imports 38 kept; the targeted 20 files 561 passed, plus 4 `test_registry_audit` failures for a new
+module constant, which was removed (rerun 88 passed); typecheck ok; `LessonScreen` vitest 10 passed.
+
+### Merges
+
+Main moved four times while this landed. TE1's migration was renumbered at each merge that added one: **230 → 232 → 233 → 234**. The head fixture was rebuilt every time from main's tracked, sanitized head, with only TE1's migration applied. The rebuild steps each time:
+
+1. a backup-API copy under the gitignored `fixtures-local/landing-te1/`;
+2. `apply_migrations` under `UPGRADE_SCRATCH_COPY`;
+3. `wal_checkpoint(TRUNCATE)` (0, 0, 0) and `journal_mode=DELETE` (header 1/1);
+4. `integrity_check` ok and `foreign_key_check` empty;
+5. copied into place with the backup API, with no companion files.
+
+Against main's head, only the nine lesson tables were added (with their indexes, triggers and autoindexes, no rows), only `source_tool_calls` changed, and only `schema_migrations` gained a row. The companion files are byte-identical to main's, and the README gains a TE1 section above main's latest.
+
+| Commit | What |
+|---|---|
+| `4ac280e348` | **Merge of main `de73fbda51`.** It brought learner-blindness relax, data-relax 2 (migration 230), curriculum C5 (migration 231), followups-nov1c, the sketch compartment, C3 and C2. TE1 moved 230 → 232 and `migration_head_232` was rebuilt from main's `migration_head_231`. In 53 test files, the sanitizer and the two reference scripts, these were updated: head paths, `SCHEMA_HEAD`, chain lists and the composed sets (`DR2 \| C5 \| TE1`). `template.py`: both sides' notes kept, every fingerprint recomputed after clearing `.pyc`, second pass 0. Rust and TS: `lesson_turn`/`lesson_view` placed beside `notes_hidden`/`notes_set_gaps`; `desktop_validate.py` composed. Generated references: main's side, regenerated. |
+| `97636d581b` | The defaults parity test pins main's snapshot values. The codex-review record names the step-0 commit. |
+| `446a0cf899` | **Merge of main `67c05ed37c`** (Reader RW5d P4a: no migration, no config change). The only conflicts were generated references, which were regenerated. Targeted figures/correspondents set: 782 passed. |
+| `e74f3156e0` | **Merge of main `947200afee`** (Reader RW5d P3: migration 232). TE1 moved 232 → 233 and `migration_head_233` was rebuilt from P3's `migration_head_232`. The composed sets became `P3 \| TE1`; P3's own migration test and data-relax 2's `_later()` compose TE1. `algoConfig.ts`: `ask.figures` beside `teacher.lessons`. |
+| `95dd20a1d4` | Data-relax 2's migration test composes only TE1's objects that have SQL, since its schema reader skips autoindexes. Parity pins moved. |
+| `6975ac1949` | **Merge of main `19c72752b3`** (curriculum C2b, vault-native notes: migration 233). **TE1 moved 233 → 234** and `fixtures/migration_head_234` was rebuilt from C2b's `migration_head_233` (main `19c72752b3`). `SCHEMA_HEAD` is 234 and the chain lists run `[..., 232, 233, 234]`. C2b's and P3's migration tests compose TE1. `teacher/notes.py` now uses C2b's API: `note_links.effective(repository, rows, vault=...)`, whose vault-native snapshots withhold a note whose anchor now sits beside protected material. The tend wording is gone from TE1's code and tests. Note text is learner text (owner, Nov 1); `read_note` returns the linked snapshot's text, not a live re-read. The C4 test uses C2b's `_deliverable`. `template.py`: C2b's and TE1's notes kept, every fingerprint recomputed (second pass 0). TE1's code comments and the spec's §20 note now name migration 234. |
+| `9c8d758f27` | The defaults parity test pins main's values at `19c72752b3`. |
+
+State after the last merge:
+
+- `db_validate_reference`: errors `[]` (369 table notes, 1119 leaves; the prose counts in `Database.md` and `Configuration.md` were moved);
+- `desktop_validate`: 307/307 TS + 6/6 Rust, ACTIVE 313, reproducible byte for byte;
+- `validate_vault`: passed (1388 notes);
+- defaults fingerprints: all 32 equal `defaults_fingerprint_for_version`.
+
+The manual Python resolutions were limited to: head paths, chain lists and composed sets (the data a migration renumber needs); snapshot data; the two test pins; and the C2b notes adaptation (`teacher/notes.py`, the C4 test). The full suite ran on the final tree, after all of them.
+
+**Final: migration 234, successor `mvp-0.41`.** The chain on main ends at `mvp-0.40`; RW5d P3 and C2b added no successor. followups-nov2 lands after this as `mvp-0.42` with migration 235.
+
+### Gate (final tree `9c8d758f27`, on main `19c72752b3`)
+
+| Step | Result |
+|---|---|
+| `uv run lint-imports --no-cache` | **41 kept, 0 broken** |
+| Targeted head-fixture, migration, TE1 and notes set after the C2b merge (105 files) | 1687 passed, 12 skipped, 3 xfailed, 1 failed. The failure was the defaults parity pin, re-pinned in `9c8d758f27`; that file then passed 13. |
+| Full pytest (`flock /tmp/learnloop-fullsuite.lock systemd-run --user --scope -p MemoryMax=10G -p MemorySwapMax=2G -- <env -i> uv run --no-sync pytest -n 8 -p no:cacheprovider --dist worksteal --durations=50 -o faulthandler_timeout=600 --junitxml=…`) | **23793 passed, 90 skipped, 47 xfailed, 0 failed** (40:58) |
+| Durability lane (`pytest -m durability -n 6`, 5G) | **185 passed, 1 skipped** |
+| Owner lane (`pytest -m owner_vaults -n 6`; `LEARNLOOP_OWNER_VAULTS` = fresh `copy_tree_with_databases` copies of the mvp035 owner copies in the gitignored `fixtures-local/landing-te1/owner-lane`) | **83 passed, 2 failed, 4 skipped.** Both failures are the known ones: `test_activity_backfill::test_backfill_logs_attempt_duration_interaction_events` and `test_placement_fixture_copies::…[arxiv_v2]`. 0 new receipts; probability keeps its 56 historical rows. |
+| Frontend: `npm install`, `npm run typecheck`, whole vitest (`--maxWorkers=4`, 5G), `npm run frontend:build` | install ok, typecheck ok, **257 files, 2446 passed**, build ok |
+| `cargo check --manifest-path src-tauri/Cargo.toml` | ok |
+
+Earlier runs:
+
+- **Stopped full gates.** Two full gates (on `97636d581b` and on `446a0cf899`) were stopped unfinished because main moved under them; their results are not counted.
+- **Unexpected failure, rerun alone.** One unexpected failure on the merged tree, `test_ux_phase1_round2_rereview::test_f8_a_keep_ahead_that_failed_is_retried_off_the_rpc_path` ("cannot join thread before it is started", a thread race in a file TE1 does not touch), passed 3 of 3 when rerun alone.
+
+### Smoke on fresh owner copies (`fixtures-local/landing-te1-smoke4/`, driver `scripts/smoke.sh`)
+
+**Setup.**
+
+- **Copies and routes.** Fresh backup-API copies of the three mvp035 owner copies. Each was neutralized under its own side's code (`neutralize3.py`): every AI route at the `127.0.0.1:9` blackhole with the key variable unset, the teacher route included; rewrite, rerank, dense and embeddings off.
+- **Environment.** `env -i` with an empty `HOME`, `CODEX_HOME` and config.
+- **Audit hook.** It logs every process start and refuses any non-loopback socket. A self-test confirmed it catches both kinds.
+- **Code.** `git archive` of main `19c72752b3` (mvp-0.40) and of the branch `9c8d758f27`, each **with `src/`, `migrations/` and `tests/`**.
+
+Each copy ran under its own side's code:
+
+1. a bare `upgrade`: mvp-0.35 → mvp-0.40 on main (head 233), mvp-0.35 → **mvp-0.41** on the branch (head 234);
+2. the primary desktop start;
+3. `migrate_vault`;
+4. `rebuild-derived-state`.
+
+| Check | linear_algebra | probability | arxiv_v2 |
+|---|---|---|---|
+| Today, `teacher.enabled = false` vs main | byte-identical (525266 B) | byte-identical (740827 B) | byte-identical (344204 B) |
+| Today, `teacher.enabled = true`, no lessons, vs main | byte-identical | byte-identical | byte-identical |
+| Plan dump, teacher off vs on (branch) | byte-identical | byte-identical | byte-identical |
+| Plan dump vs main | differs only in the version label | same | same |
+| Lesson start (`lesson.turn` open), routes blackholed | refused `plan_unavailable`, no call; lessons/turns/receipts (0,0,0) → (0,0,0) | refused; (0,0,56) → (0,0,56) | refused; (0,0,0) → (0,0,0) |
+| `rebuild --shadow` | 0/0/0, live unchanged | 0/0/0, live unchanged | 0/0/0, live unchanged |
+
+**Plan dump vs main, in detail.** The plan dump differs from main only in the version label:
+
+- `algorithm_version` and `plan.algorithmVersion`: `mvp-0.40` → `mvp-0.41`;
+- the version strings inside the router decisions' and AD selections' `versions_json` and `detail_json`;
+- the card, snapshot and payload hashes computed over them.
+
+With the label replaced and those hashes dropped, the dump is identical for all three vaults (`plan_norm.py`). Today has no version label and is byte-identical.
+
+**Model calls and sockets.**
+
+- 0 new model-call receipts across 15 compared databases.
+- The audit log is empty: no non-loopback socket, and in fact no socket and no process start at all. The blackholed lesson start is refused before any request.
+- No real lesson was run (R6).
+
+The same smoke ran clean on the three earlier trees as well:
+
+- `97636d581b` vs main `de73fbda51`;
+- `446a0cf899` vs `67c05ed37c`;
+- `95dd20a1d4` vs `947200afee`.
+
+### Rulings (verbatim)
+
+- **R1:** "F4 class closed structurally: a lesson whose vault protection state changed since its brief was built is ended with protection_changed and must restart with a fresh brief; no saved-context redaction is attempted."
+- **R2:** "F3 fixed with the strict reveal writer; acceptance and exposure accounting commit or roll back together."
+- **R3:** "F16 (one extra follow-up call on resume after a completed help action) is ruled Low under the proportionate bar: one extra plan call, metered calls stay under the lesson cap, no evidence or exposure effect. Queued follow-up."
+- **R4:** "The lesson-check weight likelihood replays the topic's recorded mastery updates with only the check's mass varied (F6). Accepted."
+- **R5:** "A metered lesson needs both teacher.price_per_million and teacher.max_lesson_cost_usd; until set, OpenRouter is refused (plan route unaffected). Owner item: set the cap after the first real lesson."
+- **R6:** "The first real lesson on a fixtures-local copy (spec §20 gate) is an owner item: it needs one ChatGPT-plan call and the owner's go-ahead."
+
+(The config key R5 calls `teacher.price_per_million` is `teacher.metered_price_per_million` in the schema.)
+
+### Owner items
+
+1. **The first real lesson** on a `fixtures-local` backup copy (R6; spec §20). It needs one ChatGPT-plan call and the owner's go-ahead. It was not run here.
+2. **`teacher.max_lesson_cost_usd`.** Set it, together with `teacher.metered_price_per_million`, after that first lesson (R5; Q7). Until both are set, OpenRouter is refused for lessons; the plan route is unaffected.
+3. **The working vaults** are upgraded to the chain's head (`mvp-0.41` from mvp-0.35 through the chain: back up, run `learnloop upgrade`, then `rebuild-derived-state`) before the first real lesson (Q12).
+
+### Open items
+
+- **Compaction (§7).** There is no `teacher.context.compact_at` key; TE1 lessons fit the budget.
+- **The turn's `visual`.** RW5d's `FigureRequestV1` with origin `teacher` is not built.
+- **Uncited-claim rejection.** A source claim the turn makes without a citation is not rejected; only quotes before a citation are checked.
+- **Today entry.** There is no Today entry for lessons; they are reachable from the LO inspector and the Reader only.
+- **Practice-now close offer.** The close card offers no "practice now".
+- **The adopted §11 couplings.** They are not yet in the brief's nodes.
+- **F16 follow-up (R3).** `_owes_followup` treats `check_withdrawn` as an action boundary, so resume can make one extra follow-up call after a completed help action.
+- **TE1b.** Router suggestions and `router_suggestion_responses`. TE2 (probes, typed goals, `propose_gap`, resume UI) is also open.
+- **Payload retention.** There is no retention pruner for `lesson_turn_payloads` (WORKFLOW).
+- **Small copy fix.** When the teacher's client cannot be built at a lesson's *opening*, the sidecar's `plan_unavailable` message says "your lesson is saved", though nothing was saved (seen in the smoke; the refusal itself is correct). The wording should depend on whether a lesson id exists.
+- **Cold holds outside the brief.** The R1 protection state does not cover a cold hold on an item that only a `find_practice` result listed, and the earlier redaction did not either; its exposure is in the reveal rows.
+
+### Checks
+
+- **Ancestry.** Main `19c72752b3` is an ancestor of the tip.
+- **Tracked databases and binaries.** The only tracked database or binary change against main is the head fixture rename and rebuild (`migration_head_233` → `migration_head_234`, `state.sqlite` rebuilt; the companion `.bin` is a pure rename).
+- **Untouched files.** `.gitignore` and `README.md` are unchanged.
+- **`fixtures-local`.** Nothing from it is tracked.
