@@ -96,3 +96,22 @@ it.each([
   await mount();
   expect(document.querySelector("[data-hidden-notes-settings]")).toBeNull();
 });
+
+it("names a vault note's kind in its row (followups batch 5 B: the origin part was blank for vault notes)", async () => {
+  // C2b's notes are the vault's own: the server labels a Reader note or a capture, so the row
+  // says where the note came from instead of ending at "linked by you".
+  const READER_NOTE = {
+    ...BY_HAND, linkId: "nl_vault", note: { title: "Lay", heading: "5.2 The characteristic equation › question",
+      dateLabel: "1 Nov", originLabel: "your note in the Reader" },
+  };
+  const CAPTURE = {
+    ...BY_MODEL, linkId: "nl_capture", note: { title: "captured note", heading: "eigen example",
+      dateLabel: "2 Nov", originLabel: "your capture" },
+  };
+  api.notesHidden.mockResolvedValueOnce({ hidden: [READER_NOTE, CAPTURE] });
+  await mount();
+  const rows = document.querySelectorAll("[data-hidden-note]");
+  expect(rows[0].textContent).toContain("Lay › 5.2 The characteristic equation › question · 1 Nov");
+  expect(rows[0].textContent).toContain("hidden from Linear Algebra › Chapter 5 Eigenvalues · linked by you · your note in the Reader");
+  expect(rows[1].textContent).toContain("linked by LearnLoop's model · your capture");
+});
