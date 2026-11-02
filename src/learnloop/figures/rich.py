@@ -363,6 +363,33 @@ def rich_build_key(vault: Any) -> tuple[Any, ...]:
             admission_manim_opt_in(vault))
 
 
+def attempt_hosted_job(payload: Mapping[str, Any]) -> bool:
+    """RW5d P3 (Codex re-review F12): a rich job built for a figure on an
+    attempt host (practice, feedback or the workbench), as its payload says."""
+
+    return bool((payload.get("base") or {}).get("attempt_hosted"))
+
+
+def rich_job_key(payload: Mapping[str, Any]) -> Callable[[Any], tuple[Any, ...]]:
+    """The admission key of this job (:func:`rich_build_key`), with
+    ``figures.help_kind_enabled`` for an attempt host's job (Codex re-review
+    F12): switched off since it was queued, it asks nothing more."""
+
+    if not attempt_hosted_job(payload):
+        return rich_build_key
+    from learnloop.figure_admission import help_kind_enabled
+
+    def key(current: Any) -> tuple[Any, ...]:
+        return (*rich_build_key(current), help_kind_enabled(current))
+
+    return key
+
+
+#: An attempt host's rich job run after ``figures.help_kind_enabled`` went off.
+HELP_KIND_OFF = ("Not built: figures on practice, feedback and the workbench are switched off now "
+                 "(figures.help_kind_enabled).")
+
+
 class RichJobStopped(Exception):
     """The rich job ends without a row (``code``: ``figures_changed``,
     ``rich_disabled``, ``manim_unavailable``, ``exam_material``,
@@ -444,6 +471,11 @@ def run_rich_job(vault: Any, repository: Repository, payload: Mapping[str, Any],
         raise RichJobStopped("rich_disabled", "Rich figures are switched off (figures.rich_tiers_enabled).")
     if admission_manim_opt_in(vault) != "standing":
         raise RichJobStopped("rich_disabled", "Manim figures need your standing permission (figures.manim_opt_in).")
+    if attempt_hosted_job(payload):
+        from learnloop.figure_admission import help_kind_enabled
+
+        if not help_kind_enabled(vault):
+            raise RichJobStopped("figures_changed", HELP_KIND_OFF)
     if not manim_runtime_state(vault)["ready"]:
         raise RichJobStopped("manim_unavailable", "Manim can't run in its sandbox on this computer.")
     input_hash = str(payload["input_hash"])
@@ -454,7 +486,7 @@ def run_rich_job(vault: Any, repository: Repository, payload: Mapping[str, Any],
     message = _withheld(vault, repository, base)
     if message is not None:
         raise RichJobStopped("exam_material", message)
-    key, hold = rich_build_key, None
+    key, hold = rich_job_key(payload), None
     if _carries_learner_state(payload):
         # Learner data-relax 2 (Codex review F2): the saved context carries
         # the learner's state. Switched off since it was saved, it is never
@@ -467,8 +499,10 @@ def run_rich_job(vault: Any, repository: Repository, payload: Mapping[str, Any],
         if message is not None:
             raise RichJobStopped("exam_material", message)
 
+        job_key = key
+
         def key(current: Any) -> tuple[Any, ...]:
-            return (*rich_build_key(current), author_learner_state_enabled(current))
+            return (*job_key(current), author_learner_state_enabled(current))
 
         def hold(current: Any) -> str | None:
             return _learner_state_withheld(current, repository, payload)

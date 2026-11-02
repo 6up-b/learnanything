@@ -541,3 +541,141 @@ def test_f8_a_quick_figures_fuller_version_opened_on_the_attempt_is_the_same_fig
     opened = _call(ctx, "figure.open", {"figureId": fuller["figureId"], "hostRef": host})
     assert opened["figure"]["tier"] == "manim" and opened["help"]["status"] == "counted"
     assert opened["help"]["new"] is False and len(_figure_rows(paths)) == 1
+
+
+# ===========================================================================
+# Codex re-review (job 20261101-220851-WBO5kk): F1 and F2 reopened, F12
+# ===========================================================================
+
+def test_rr_f1_a_fresh_key_under_another_open_session_is_refused(tmp_path):
+    """Re-review F1: the answer box's session must be the one open session
+    (mobile PR-4 keeps exactly one: ``start_session_exclusive``), so a fresh
+    key cannot put a figure row under a session its Submit does not fold."""
+
+    author = AuthorFake([neutral_spec() for _ in range(4)])
+    paths, ctx, session = _sidecar(tmp_path, author=author)
+    _vault, repository = ctx.require_vault()
+    other = repository.create_session()
+    for host in (_host(other, key="fresh"), _host(session, key="fresh")):
+        with pytest.raises(SidecarError) as caught:
+            _call(ctx, "figure.request", {"goalText": GOAL, "origin": "ask", "hostRef": host})
+        assert caught.value.code == "validation_error"
+        with pytest.raises(SidecarError):
+            _call(ctx, "figure.take_step", {"itemId": ITEM, "submissionId": host["submissionId"],
+                                            "sessionId": host["sessionId"]})
+    assert author.calls == 0 and _requests(paths) == [] and _figure_rows(paths) == []
+    # The session the learner submits in folds exactly what attached: nothing escaped.
+    with repository.connection() as connection:
+        connection.execute("UPDATE sessions SET ended_at = '2026-11-01T00:00:00Z' WHERE id = ?", (other,))
+        connection.commit()
+    attempt = _attempt(paths, _submit(ctx, session, key="fresh")["attemptId"])
+    assert attempt["hints_used"] == 0 and _figure_rows(paths) == []
+
+
+def _copy_attempt(paths: Any, source_key: str, **changes: Any) -> None:
+    with closing(sqlite3.connect(paths.sqlite_path)) as connection:
+        connection.row_factory = sqlite3.Row
+        row = dict(connection.execute("SELECT * FROM practice_attempts WHERE submission_id = ?",
+                                      (source_key,)).fetchone())
+        row.update(changes)
+        columns = ", ".join(row)
+        connection.execute(f"INSERT INTO practice_attempts ({columns}) VALUES ({', '.join('?' for _ in row)})",
+                           tuple(row.values()))
+        connection.commit()
+
+
+def test_rr_f1_a_committed_key_of_another_item_or_session_is_not_free_feedback(tmp_path):
+    """Re-review F1: a committed submission key is feedback only for the
+    attempt it committed (this item, and the session named), resolved to that
+    attempt; another item's key, or the key under another session, is refused."""
+
+    author = AuthorFake([neutral_spec() for _ in range(4)])
+    paths, ctx, session = _sidecar(tmp_path, author=author)
+    _submit(ctx, session, key="k0")
+    _copy_attempt(paths, "k0", id="att_elsewhere", practice_item_id="pi_elsewhere", submission_id="k_other")
+    with pytest.raises(SidecarError) as caught:
+        _call(ctx, "figure.request", {"goalText": GOAL, "origin": "ask", "hostRef": _host(session, key="k_other")})
+    assert caught.value.code == "validation_error"
+    with pytest.raises(SidecarError) as caught:
+        _call(ctx, "figure.request", {"goalText": GOAL, "origin": "ask",
+                                      "hostRef": {"itemId": ITEM, "submissionId": "k0", "sessionId": "made_up"}})
+    assert caught.value.code == "validation_error"
+    assert author.calls == 0 and _requests(paths) == []
+    # This item's committed key in its own session: free, bound to that attempt.
+    job = _show_me(ctx, _host(session, key="k0"))
+    assert job["result"]["help"]["host"] == "feedback" and job["result"]["help"]["countsAsHint"] is False
+    [request] = _requests(paths)
+    assert json.loads(request["host_ref_json"])["attempt_id"] is not None
+
+
+def test_rr_f2_displayed_text_through_variables_is_read():
+    """Re-review F2: words and numbers reaching a text or number mobject
+    through names (assignments, attributes, helper returns, f-strings,
+    arithmetic) are what the scene shows."""
+
+    from learnloop.figures.help import reveal_text
+
+    def scene(body: str) -> str:
+        return reveal_text(_manim_row(scene_code="from manim import *\n\nclass A(Scene):\n"
+                                                 "    def construct(self):\n" + body))
+
+    assert "0.5" in scene('        answer = "0.5"\n        self.add(MathTex(answer))\n').split("\n")
+    assert "0.5" in scene("        p = 0.5\n        self.add(DecimalNumber(p, num_decimal_places=1))\n")
+    assert "0.25" in scene("        a = 1\n        b = 4\n        self.add(MathTex(str(a / b)))\n").split("\n")
+    assert "0.25" in scene("        self.value = 0.25\n        self.add(Text(f'{self.value}'))\n").split("\n")
+    assert "1/4" in scene('        label = "1/4"\n        parts = [label]\n        self.add(Tex(parts[0]))\n')
+    assert "0.25" in scene("        self.add(Text(self.result()))\n\n    def result(self):\n"
+                           "        return '0.25'\n").split("\n")
+    assert "0.50" in scene("        self.add(DecimalNumber(0.5))\n").split("\n")
+    # Structure stays out: a radius or a run time is never shown text.
+    neutral = scene("        r = 0.25\n        self.play(Create(Circle(radius=r)), run_time=0.25)\n").split("\n")
+    assert "0.25" not in neutral
+
+
+def test_rr_f2_a_variable_scene_stating_the_key_overlaps_it(tmp_path):
+    from learnloop.figures.help import reveal_text
+    from learnloop.hints import service as hint_service
+    from learnloop.vault.loader import load_vault
+    from tests.hint_fakes import hint_vault
+
+    item = load_vault(hint_vault(tmp_path).root).practice_items[ITEM]
+    stated = _manim_row(scene_code="from manim import *\n\nclass A(Scene):\n    def construct(self):\n"
+                                   f"        answer = {item.expected_answer!r}\n        self.add(MathTex(answer))\n")
+    assert hint_service.reveal_amount(item, reveal_text(stated)) > 0
+
+
+def test_rr_f12_a_queued_attempt_animation_stops_when_figure_help_is_switched_off(tmp_path, monkeypatch):
+    """Re-review F12: an attempt-hosted rich job is admitted under the help
+    switch too (the worker's start and before every model request)."""
+
+    from tests import rich_fixtures as RF
+
+    paths, ctx, host, rich_author = _rich_attempt(
+        tmp_path, monkeypatch, [("rich", "manim", RF.brief(), "a narrated video of the spiral")], foreground=False)
+    job = _show_me(ctx, host, goal="show the spiral tighten as the damping grows")
+    rich_job = job["result"]["rich"]["richJobId"]
+    _off(paths, ctx)
+    monkeypatch.setattr(ctx.ingest_jobs, "_ensure_worker",
+                        type(ctx.ingest_jobs)._ensure_worker.__get__(ctx.ingest_jobs))
+    ctx.ingest_jobs._ensure_worker()
+    assert rich_author.prompts == []
+    with closing(sqlite3.connect(paths.sqlite_path)) as connection:
+        tiers = [row[0] for row in connection.execute("SELECT tier FROM interactive_figures")]
+        state = connection.execute("SELECT status, error_json FROM ingest_jobs WHERE id = ?", (rich_job,)).fetchone()
+    assert "manim" not in tiers
+    assert state is not None and state[0] != "succeeded"
+
+
+def test_rr_f12_the_rich_jobs_key_carries_the_help_switch_for_an_attempt_host(tmp_path):
+    from learnloop.figures import rich as RICH
+    from learnloop.vault.loader import load_vault
+    from tests.hint_fakes import hint_vault
+
+    paths = hint_vault(tmp_path)
+    on = load_vault(paths.root)
+    set_config(paths, "figures", help_kind_enabled=False)
+    off = load_vault(paths.root)
+    attempt_key = RICH.rich_job_key({"base": {"attempt_hosted": True}})
+    reader_key = RICH.rich_job_key({"base": {}})
+    assert attempt_key(on) != attempt_key(off)
+    assert reader_key(on) == reader_key(off)

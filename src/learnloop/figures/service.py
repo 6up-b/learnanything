@@ -2282,6 +2282,10 @@ class _RichSpawn:
             "goal_text": request.goal_text, "grounding": self.grounding.mode, "origin": request.origin,
             "home": None if anchored(request) else dict(request.reading_at or {}),
         }
+        if attempt_hosted(request):
+            # RW5d P3 (Codex re-review F12): the job is admitted under the help
+            # switch too (``rich.rich_job_key``), at its start and before every request.
+            base["attempt_hosted"] = True
         payload = {"request_id": request_row_id, "fast_figure_id": fast_figure_id, "input_hash": self.input_hash,
                    "tier": self.brief.tier, "brief": self.brief.as_dict(), "author_context": author_context,
                    "span_texts": dict(self.context.span_texts), "base": base,

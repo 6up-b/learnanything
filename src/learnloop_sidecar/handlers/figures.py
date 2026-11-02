@@ -994,14 +994,47 @@ def take_step_available(vault: Any, repository: Any, item_id: str) -> bool:
         return False
 
 
-def _committed(repository: Any, submission_id: str | None) -> bool:
+def _committed_attempt(repository: Any, item_id: str, submission_id: str | None, *,
+                       session_id: str | None) -> dict[str, Any] | None:
+    """The attempt ``submission_id`` committed, or None (Codex re-review F1).
+    A committed key is feedback only for its own attempt: this item's, and,
+    on the answer box, in the session named. Another item's key, or the key
+    under another session, is refused rather than made free."""
+
     from learnloop.db.connection import connect
-    from learnloop.db.stores import help_assists as HA
 
     if not submission_id:
-        return False
+        return None
     with closing(connect(repository.sqlite_path, read_only=True)) as connection:
-        return HA.submission_committed(connection, submission_id)
+        row = connection.execute(
+            "SELECT id, practice_item_id, session_id FROM practice_attempts WHERE submission_id = ? "
+            "ORDER BY created_at, id LIMIT 1", (submission_id,)).fetchone()
+    if row is None:
+        return None
+    attempt = {"id": str(row[0]), "practice_item_id": str(row[1]), "session_id": row[2]}
+    if attempt["practice_item_id"] != item_id:
+        raise SidecarError("validation_error", "That submission key is another item's attempt.")
+    if session_id is not None and attempt["session_id"] is not None and attempt["session_id"] != session_id:
+        raise SidecarError("validation_error", "That submission key was submitted in another practice session.")
+    return attempt
+
+
+def _sole_open_session(repository: Any, session_id: str) -> None:
+    """Codex re-review F1: the answer box's session is the one open session.
+    Mobile PR-4 keeps exactly one (``start_session_exclusive`` ends every
+    other in the same transaction), so a submission key's Submit can only be
+    accepted in it: a figure row under any other session would attach by key
+    without its fold counting it. A second open session (legacy state or a
+    crafted one) refuses the figure rather than guess which one submits."""
+
+    from learnloop.db.connection import connect
+
+    with closing(connect(repository.sqlite_path, read_only=True)) as connection:
+        other = connection.execute(
+            "SELECT 1 FROM sessions WHERE ended_at IS NULL AND id != ? LIMIT 1", (session_id,)).fetchone()
+    if other is not None:
+        raise SidecarError("validation_error", "Another practice session is open: a figure on the answer box "
+                                               "needs the one open session.")
 
 
 def _attempt_host(ctx: SidecarContext, vault: Any, repository: Any, host_ref: dict[str, Any], *,
@@ -1040,11 +1073,15 @@ def _attempt_host(ctx: SidecarContext, vault: Any, repository: Any, host_ref: di
         submission_id = WB.submission_id_for(workbench_session_id)
     elif not submission_id or not session_id:
         raise SidecarError("validation_error", "A figure on the answer box needs its submission key and session.")
-    if _committed(repository, submission_id):
-        # Submitted since: the attempt is over, so a figure is free (feedback).
+    committed = _committed_attempt(repository, item_id, submission_id,
+                                   session_id=session_id if kind == "practice" else None)
+    if committed is not None:
+        # Submitted since: the attempt is over, so a figure is free (feedback),
+        # bound to the attempt the key committed (Codex re-review F1).
         if for_take_step:
             raise SidecarError("validation_error", "This answer was already submitted: show me is free now.")
-        return AttemptHost(kind="feedback", item_id=item_id, submission_id=submission_id)
+        return AttemptHost(kind="feedback", item_id=item_id, submission_id=submission_id,
+                           attempt_id=committed["id"])
     if kind == "practice":
         # Codex review F1: the practice session is resolved on the server, as
         # a hint request's is: it exists, is open and this device owns it
@@ -1055,6 +1092,7 @@ def _attempt_host(ctx: SidecarContext, vault: Any, repository: Any, host_ref: di
         from learnloop_sidecar.handlers.sessions import require_owned_session
 
         require_owned_session(ctx, repository, str(session_id))
+        _sole_open_session(repository, str(session_id))
         with closing(connect(repository.sqlite_path, read_only=True)) as connection:
             if HA.submission_session_conflict(connection, practice_item_id=item_id, submission_id=str(submission_id),
                                               session_id=str(session_id)):
@@ -1193,7 +1231,8 @@ def record_attempt_figure(ctx: SidecarContext, attempt: dict[str, Any], figure_i
         snapshot = _workbench_snapshot(repository, host.workbench_session_id) if host.kind == "workbench" else None
         with repository.atomic():
             connection = repository.connection()
-            if any(HA.submission_committed(connection, key) for key in {host.submission_id, *submissions} if key):
+            if any(HA.submission_committed(connection, key, practice_item_id=host.item_id)
+                   for key in {host.submission_id, *submissions} if key):
                 return {"host": "feedback", "line": COST_LINES["feedback"], "counts_as_hint": False,
                         "status": "free"}
             root = chain_root(connection, figure_id)

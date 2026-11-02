@@ -199,11 +199,18 @@ def count_closed(connection: sqlite3.Connection, assist_id: str) -> bool:
     return row is not None
 
 
-def submission_committed(connection: sqlite3.Connection, submission_id: str | None) -> bool:
-    """Whether a submission key already committed its attempt."""
+def submission_committed(connection: sqlite3.Connection, submission_id: str | None, *,
+                         practice_item_id: str | None = None) -> bool:
+    """Whether a submission key already committed its attempt (of
+    ``practice_item_id`` when given: another item's key is not this one's)."""
 
     if not submission_id:
         return False
+    if practice_item_id is not None:
+        row = connection.execute(
+            "SELECT 1 FROM practice_attempts WHERE submission_id = ? AND practice_item_id = ? LIMIT 1",
+            (submission_id, practice_item_id)).fetchone()
+        return row is not None
     row = connection.execute(
         "SELECT 1 FROM practice_attempts WHERE submission_id = ? LIMIT 1", (submission_id,)
     ).fetchone()
