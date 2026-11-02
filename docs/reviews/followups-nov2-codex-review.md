@@ -84,7 +84,7 @@ one at a time, with `TMPDIR` outside the worktree.
 |---|---|
 | `uv sync --extra dev --extra mobile`, `uv pip install pypdfium2` | done |
 | `uv run lint-imports --no-cache` | **40 kept, 0 broken** (after the last source change) |
-| Fail-first on the pre-fix sources | F2: the interleaving test failed (the gap got `unlinked`). F3/F4: 5 of the 7 new tests failed and 2 passed (the unmarked-row pin and the second F3 reading), and the existing 9 passed. F1: the tag did not exist, and the predecessor cases are the old behaviour the (b) commit had replaced. |
+| Fail-first on the pre-fix sources | F2: the interleaving test failed (the gap got `unlinked`). F3/F4: 5 of the 6 new tests failed and 1 passed (the unmarked-row pin), and the file's 8 existing tests passed (5 failed, 9 passed). F1: the tag did not exist, and the predecessor cases are the old behaviour the (b) commit had replaced. |
 | Figure lane (34 files: every `tests/test_figure*.py`, `tests/test_learner_data_relax*.py`, `tests/test_followups_nov2*.py`), after F3/F4 | **665 passed** |
 | Chain and contract lane (81 files naming `SUCCESSOR_CHAIN`, `LATEST_ALGORITHM_VERSION`, `mvp-0.40/41`, `DEFAULTS_SNAPSHOT_BY_ALGORITHM`, `classify_config_path` or `parameter_registry`, plus `test_cli_help_snapshot`, `test_config_refactor`, `test_architecture`), after F1 | first run 1512 passed, **23 failed** (all chain pins that name the latest, tuple slices and the CLI help snapshot, as expected), 12 skipped, 6 xfailed. The 23 files plus `test_hint_h2b_fix3.py` and the successor test after the fixes: **457 passed**, 6 skipped, 3 xfailed |
 | Hint and notes lane (177 more files naming `help_assists`, `hint_fold`, `hints_used`/`hintsUsed`, `request_hint`, `submit_dont_know`, `_server_hint_fold`, `retract_unlinked_notes`, `enqueue_learner_notes`, `notes.decide` or `learner_text_gap_reversals`), behind `flock /tmp/learnloop-fullsuite.lock` | **4462 passed, 1 failed**, 26 skipped, 2 xfailed. The failure was `test_hint_telemetry.py::test_the_report_cli_reads_the_vault_read_only`, which pins the `[hints]` section as configured and gains `fold_follows_attach`. Updated and rerun: **64 passed** |
@@ -110,6 +110,7 @@ Not run here (owner rule): the full suite, the whole durability lane, the whole 
   it. That means: the constant; the upgrade module's predecessor (TE1's upgrade, whose completion it then hands down
   to); the snapshot key and its comment; the CLI help text and snapshot; and the test pins that name "mvp-0.41"
   (the successor test, the help-fold tests' tag, and the chain pins).
-- **RW5d P3 (landing in parallel).** It replaces `_fold_rows`'s kind predicate with `HINT_EQUIVALENT_KINDS_SQL`. Both
-  branches of the `any_session` split carry the same predicate line, so P3's constant goes into both. The predecessor
-  branch must keep `'hint'` only if P3 itself is gated; otherwise P3's kinds apply in both, as P3 decides.
+- **RW5d P3 (landing in parallel).** It replaces `_fold_rows`'s kind predicate (`assist_kind = 'hint'`) with
+  `HINT_EQUIVALENT_KINDS_SQL`. The predicate now appears in both branches of the `any_session` split (the
+  predecessor's clause list and the successor's), so the lander puts P3's constant in both. The attach follows
+  whatever the fold counts.
