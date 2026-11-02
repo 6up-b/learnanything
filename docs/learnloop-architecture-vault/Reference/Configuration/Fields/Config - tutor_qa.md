@@ -3,8 +3,8 @@ title: "Config - tutor_qa"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "ec2060b5e053639a05d205609eb9d564cee70209"
-source_commit_timestamp: "2026-11-02T07:07:21-05:00"
+source_commit: "0f1d1abf38dcb9d4401a6c7a4cd80bbd0f6c871f"
+source_commit_timestamp: "2026-11-02T07:49:16-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "learnloop.toml tutor_qa"
@@ -33,9 +33,9 @@ source_paths:
   - "tests/test_daily_loop_reader_retire.py"
   - "tests/test_daily_loop_reference_adoption.py"
   - "tests/test_e0_delivery.py"
-  - "tests/test_figures_prefetch.py"
   - "tests/test_integration_daily_loop_field.py"
   - "tests/test_library_ask_review.py"
+  - "tests/test_project_capture.py"
 tags:
   - "learnloop/configuration/fields"
   - "learnloop/configuration/section/tutor-qa"
@@ -88,9 +88,9 @@ Every row cites the exact Pydantic field declaration (or typed dynamic-key conta
 - `tests/test_daily_loop_reader_retire.py`
 - `tests/test_daily_loop_reference_adoption.py`
 - `tests/test_e0_delivery.py`
-- `tests/test_figures_prefetch.py`
 - `tests/test_integration_daily_loop_field.py`
 - `tests/test_library_ask_review.py`
+- `tests/test_project_capture.py`
 
 ## Extension and modification guidance
 

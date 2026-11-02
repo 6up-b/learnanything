@@ -3,13 +3,13 @@ title: "lessons"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "ec2060b5e053639a05d205609eb9d564cee70209"
-source_commit_timestamp: "2026-11-02T07:07:21-05:00"
+source_commit: "0f1d1abf38dcb9d4401a6c7a4cd80bbd0f6c871f"
+source_commit_timestamp: "2026-11-02T07:49:16-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite lessons"
   - "table lessons"
-schema_head: 236
+schema_head: 235
 table_name: "lessons"
 table_role: "raw_ledger"
 functionality_status: "active"
@@ -99,7 +99,6 @@ None found by exact static reference scan.
 
 - `src/learnloop/db/stores/lessons.py`
 - `src/learnloop/evsi_calibration/forecast_report.py`
-- `src/learnloop/figures/prefetch.py`
 
 ### Direct SQL writers
 
@@ -114,8 +113,8 @@ None found by exact static reference scan.
 
 ## Tests that define behavior
 
-- `tests/conftest.py`
 - `tests/test_architecture.py`
+- `tests/test_reader_rw5d_p4b_teacher_visuals.py`
 - `tests/test_teacher_te1_lesson.py`
 - `tests/test_teacher_te1_migration.py`
 - `tests/test_teacher_te1_review_fixes.py`

@@ -3,13 +3,13 @@ title: "facet_uncertainty"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "ec2060b5e053639a05d205609eb9d564cee70209"
-source_commit_timestamp: "2026-11-02T07:07:21-05:00"
+source_commit: "0f1d1abf38dcb9d4401a6c7a4cd80bbd0f6c871f"
+source_commit_timestamp: "2026-11-02T07:49:16-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite facet_uncertainty"
   - "table facet_uncertainty"
-schema_head: 236
+schema_head: 235
 table_name: "facet_uncertainty"
 table_role: "compat"
 functionality_status: "legacy-preserved"

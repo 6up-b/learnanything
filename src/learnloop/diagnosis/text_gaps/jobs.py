@@ -292,10 +292,56 @@ def enqueue_learner_notes(vault: LoadedVault, repository: Repository, *, clock: 
     """Curriculum C5: queue every linked note's current snapshot that has no reading yet
     (and queue again one whose job was skipped while it was not linked or switched off,
     now that it is linked again). Called when a link run ends, when the learner links a
-    note or keeps a link, and when the sidecar opens a vault; idempotent, no model call.
-    Switched off it reads no note row and queues nothing. Returns how many it queued."""
+    note, hides or keeps a link, and when the sidecar opens a vault; idempotent, no model
+    call. Follow-ups Nov 2: first, the gaps read from a snapshot no longer linked are set
+    aside (:func:`retract_unlinked_notes`). Switched off it reads no note row, queues
+    nothing and sets nothing aside. Returns how many it queued."""
 
+    retract_unlinked_notes(vault, repository, clock=clock)
     return sweep_backlog(vault, repository, clock=clock, kinds=NOTE_BACKLOG_KINDS).get("learner_note", 0)
+
+
+#: Follow-ups Nov 2 (C5 ruling R2, migration 235): the reversal that sets aside a gap
+#: read from a note whose snapshot is no longer linked.
+UNLINKED = "unlinked"
+
+
+def retract_unlinked_notes(vault: LoadedVault, repository: Repository, *, clock: Clock | None = None) -> int:
+    """Follow-ups Nov 2 (C5 ruling R2): every gap read from a linked note's snapshot
+    (``source_kind = 'learner_note'``) whose snapshot is not linked now (C2's one rule,
+    :func:`learner_note_ids`, C2b's link model over the vault's own notes: the learner
+    hid the link, the proposal was superseded, or the note changed into a new snapshot)
+    gets one ``unlinked`` reversal: the gap row is append-only and stays, and every
+    reader that leaves out a reversed gap leaves it out. Idempotent (one per gap); a hidden link
+    kept again later does not bring the gap back (the snapshot is read again only as a
+    new snapshot). Switched off (the opt-in, the notes or the pipeline) it reads no
+    note row and writes nothing, so notes switched off never set every note gap aside.
+    Returns how many it set aside."""
+
+    if not learner_notes_enabled(vault):
+        return 0
+    now = utc_now_iso(clock)
+    written = 0
+    # Codex review F2: the links, the gaps, the reversals and the writes in ONE
+    # ``BEGIN IMMEDIATE`` transaction on the repository's pinned connection, so a
+    # second sidecar that links a note and writes its gap cannot land between the
+    # read of the links and the read of the gaps (its gap would be set aside for
+    # good, its note never unlinked): its write waits for this one.
+    with repository.atomic():
+        connection = repository.connection()
+        linked = set(learner_note_ids(vault, repository))
+        rows = store.gaps(connection, source_kind="learner_note")
+        retracted = {row["gap_id"] for row in store.reversals(connection, [row["id"] for row in rows])
+                     if row["reversal"] == UNLINKED}
+        stale = [row for row in rows if str(row["source_id"]) not in linked and row["id"] not in retracted]
+        for row in stale:
+            if store.insert_reversal(connection, gap_id=str(row["id"]), reversal=UNLINKED, actor="learner",
+                                     created_at=now, detail={"note_id": str(row["source_id"]),
+                                                             "why": "the note is no longer linked"}):
+                written += 1
+    if written:
+        repository.bump_queue_revision(clock=clock)
+    return written
 
 
 def sweep_backlog(vault: LoadedVault, repository: Repository, *, clock: Clock | None = None,
@@ -742,6 +788,7 @@ __all__ = [
     "GapJobOutcome",
     "LEASE_SECONDS",
     "MAX_ATTEMPTS",
+    "UNLINKED",
     "calls_today",
     "enqueue",
     "enqueue_figure_explanation",
@@ -757,6 +804,7 @@ __all__ = [
     "process_next_gap_job",
     "run_pending",
     "reconcile_hint_feedback",
+    "retract_unlinked_notes",
     "sweep_backlog",
     "workbench_text_enabled",
 ]

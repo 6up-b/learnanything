@@ -129,6 +129,7 @@ def test_successor_vocabulary():
         READER_FOLLOWUPS_ALGORITHM_VERSION,
         DELIVERABLE_PLAN_ALGORITHM_VERSION,
         TEACHER_ALGORITHM_VERSION,
+        HELP_FOLD_ATTACH_ALGORITHM_VERSION,
     )
 
     assert RECURRENCE_GROUP_ALGORITHM_VERSION == "mvp-0.12"
@@ -157,6 +158,7 @@ def test_successor_vocabulary():
         READER_FOLLOWUPS_ALGORITHM_VERSION,
         DELIVERABLE_PLAN_ALGORITHM_VERSION,
         TEACHER_ALGORITHM_VERSION,
+        HELP_FOLD_ATTACH_ALGORITHM_VERSION,
     }
     # Router R2a's staged frame (mvp-0.23), R2b + R2c's model mixture
     # (mvp-0.24), method-explicit items (mvp-0.25) and regrade contracts
@@ -178,13 +180,14 @@ def test_successor_vocabulary():
     # Reader CA2's one Ask (mvp-0.35) and the kept replaced claims (mvp-0.36) follow them.
     assert ONE_ASK_ALGORITHM_VERSION == "mvp-0.35" and SUPERSEDED_CLAIMS_ALGORITHM_VERSION == "mvp-0.36"
     # Mobile PR-4's attempt write (mvp-0.37), the cold-retry reschedule (mvp-0.38) and Reader RW6b's follow-ups
-    # (mvp-0.39) follow them, curriculum C1 (mvp-0.40) follows them, and teacher TE1 (mvp-0.41) follows
-    # them all as the latest.
+    # (mvp-0.39) follow them, curriculum C1 (mvp-0.40) follows them, teacher TE1 (mvp-0.41) follows
+    # them, and follow-ups Nov 2 (mvp-0.42) follows them all as the latest.
     assert ATTEMPT_CONTENT_STATE_ALGORITHM_VERSION == "mvp-0.37"
     assert COLD_RETRY_RESCHEDULE_ALGORITHM_VERSION == "mvp-0.38"
     assert READER_FOLLOWUPS_ALGORITHM_VERSION == "mvp-0.39"
     assert DELIVERABLE_PLAN_ALGORITHM_VERSION == "mvp-0.40"
-    assert TEACHER_ALGORITHM_VERSION == LATEST_ALGORITHM_VERSION == "mvp-0.41"
+    assert TEACHER_ALGORITHM_VERSION == "mvp-0.41"
+    assert HELP_FOLD_ATTACH_ALGORITHM_VERSION == LATEST_ALGORITHM_VERSION == "mvp-0.42"
 
 
 def test_defaults_fingerprint_is_recorded_for_the_successor():

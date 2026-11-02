@@ -43,9 +43,11 @@ def _rows(repository, sql, params=()):
 def test_the_tag_is_the_chains_last_link_after_curriculum_c1():
     from learnloop.teacher_upgrade import PREDECESSOR
 
-    assert SUCCESSOR_CHAIN[-2:] == (DELIVERABLE_PLAN_ALGORITHM_VERSION, TAG) == ("mvp-0.40", "mvp-0.41")
-    assert LATEST_ALGORITHM_VERSION == TAG and PREDECESSOR == DELIVERABLE_PLAN_ALGORITHM_VERSION
-    assert TEACHER_VERSIONS == frozenset({TAG})
+    # Follow-ups Nov 2's mvp-0.42 follows it as the latest (and keeps it).
+    assert SUCCESSOR_CHAIN[-3:] == (DELIVERABLE_PLAN_ALGORITHM_VERSION, TAG, LATEST_ALGORITHM_VERSION) == (
+        "mvp-0.40", "mvp-0.41", "mvp-0.42")
+    assert PREDECESSOR == DELIVERABLE_PLAN_ALGORITHM_VERSION
+    assert TEACHER_VERSIONS == frozenset({TAG, "mvp-0.42"})
 
 
 def test_every_defaults_snapshot_drops_to_mains_value_without_the_teacher_keys():
@@ -69,6 +71,8 @@ def test_every_defaults_snapshot_drops_to_mains_value_without_the_teacher_keys()
                     "max_lesson_cost_usd", "visuals"):
             dumped["teacher"].pop(key)
         dumped["ai"]["routing"].pop("teacher")
+        # Follow-ups Nov 2's [hints] fold_follows_attach landed after TE1 (main's values predate it too).
+        dumped["hints"].pop("fold_follows_attach")
         # Reader RW5d P5 (after main's 19c72752b3): its [figures] prefetch keys and route moved them too.
         dumped["figures"].pop("prefetch_enabled")
         dumped["figures"].pop("prefetch")
@@ -194,9 +198,14 @@ def test_the_upgrade_from_the_predecessor_and_its_refusals(tmp_path):
 def test_the_cli_installs_this_links_completion():
     import inspect
 
+    from learnloop import help_fold_attach_upgrade
     from learnloop.cli import runtime
 
-    assert "learnloop.teacher_upgrade" in inspect.getsource(runtime._complete_interrupted_activation)
+    # Follow-ups Nov 2's mvp-0.42 is the chain's latest: the CLI installs its completion, which hands
+    # this link's journal to this link's completion.
+    assert "learnloop.help_fold_attach_upgrade" in inspect.getsource(runtime._complete_interrupted_activation)
+    assert "learnloop.teacher_upgrade import complete_interrupted_activation" in inspect.getsource(
+        help_fold_attach_upgrade)
 
 
 # --- the desktop RPCs ------------------------------------------------------------------------------
@@ -267,7 +276,7 @@ def test_a_metered_lesson_turn_needs_its_price_and_cap(tmp_path):
     assert raised.value.code == "plan_unavailable"
 
 
-def test_a_bare_upgrade_targets_mvp041_through_the_chain(tmp_path, monkeypatch):
+def test_a_bare_upgrade_goes_through_mvp041_along_the_chain(tmp_path, monkeypatch):
     from typer.testing import CliRunner
 
     from learnloop import activation_journal
@@ -279,5 +288,6 @@ def test_a_bare_upgrade_targets_mvp041_through_the_chain(tmp_path, monkeypatch):
     paths = create_placement_vault(tmp_path / "v", version="mvp-0.39")
     result = CliRunner().invoke(app, ["upgrade", "--vault", str(paths.root)])
     assert result.exit_code == 0, result.output
-    assert f"mvp-0.39 -> {TAG}" in result.output
-    assert load_vault(paths.root).config.algorithms.algorithm_version == TAG
+    # Follow-ups Nov 2's mvp-0.42 is the bare upgrade's target now: it goes through this link.
+    assert f"mvp-0.39 -> {LATEST_ALGORITHM_VERSION}" in result.output and LATEST_ALGORITHM_VERSION == "mvp-0.42"
+    assert load_vault(paths.root).config.algorithms.algorithm_version == LATEST_ALGORITHM_VERSION

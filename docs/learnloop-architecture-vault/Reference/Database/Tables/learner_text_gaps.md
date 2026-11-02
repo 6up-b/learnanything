@@ -3,13 +3,13 @@ title: "learner_text_gaps"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "ec2060b5e053639a05d205609eb9d564cee70209"
-source_commit_timestamp: "2026-11-02T07:07:21-05:00"
+source_commit: "0f1d1abf38dcb9d4401a6c7a4cd80bbd0f6c871f"
+source_commit_timestamp: "2026-11-02T07:49:16-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite learner_text_gaps"
   - "table learner_text_gaps"
-schema_head: 236
+schema_head: 235
 table_name: "learner_text_gaps"
 table_role: "raw_ledger"
 functionality_status: "active"
@@ -50,7 +50,7 @@ It belongs to the **learner state** navigation family. The family context lives 
 - **Role:** `raw_ledger` — Authoritative replay input or mixed authoritative state. The rebuild umbrella preserves it.
 - **Functionality status:** `active`.
 - **Introduced by:** `migrations/182_learner_text_gaps.sql`.
-- **Schema touched by:** `182_learner_text_gaps.sql`, `208_learner_text_source_kinds.sql`, `212_hint_feedback_source_kind.sql`, `231_learner_note_source_kind.sql`.
+- **Schema touched by:** `182_learner_text_gaps.sql`, `208_learner_text_source_kinds.sql`, `212_hint_feedback_source_kind.sql`, `231_learner_note_source_kind.sql`, `235_learner_gap_unlinked_reversal.sql`.
 - **Rebuild owner:** none; this table is preserved by the rebuild umbrella.
 
 For the distinction between SQLite state and human-authored vault files, see [[State and Persistence]]. For whole-vault creation and opening behavior, see [[Vault Lifecycle]]. ^table-lifecycle
@@ -143,18 +143,18 @@ None found by exact static reference scan.
 - `tests/test_figures_fix_round2.py`
 - `tests/test_figures_scope_redesign.py`
 - `tests/test_figures_show_me_codex_review.py`
+- `tests/test_followups_nov2_note_gap_unlinked.py`
 - `tests/test_hint_feedback_texts.py`
 - `tests/test_hint_feedback_widening.py`
 - `tests/test_hint_h2b_review.py`
 - `tests/test_hypothesis_reference_contract.py`
+- `tests/test_learner_gap_unlinked_migration.py`
 - `tests/test_learner_note_source_kind_migration.py`
 - `tests/test_learner_text_gaps.py`
 - `tests/test_learner_text_gaps_composition.py`
 - `tests/test_learner_text_gaps_flow.py`
 - `tests/test_learner_text_gaps_rereview.py`
 - `tests/test_learner_text_gaps_review.py`
-- `tests/test_learner_text_source_widening.py`
-- `tests/test_mcp_c1a_landing.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

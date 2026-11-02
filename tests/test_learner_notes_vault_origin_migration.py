@@ -84,8 +84,9 @@ def _upgrade(tmp_path: Path) -> Path:
     objects = _objects(database, "learner_notes")
     with upgrade_allowance(UPGRADE_TEST_HELPER):
         applied = apply_migrations(database)
-    # Teacher TE1's 234 (its own tables and source_tool_calls, none read here) follows on the way to head.
-    assert [migration.version for migration in applied] == [233, 234, 236]
+    # Teacher TE1's 234 (its own tables and source_tool_calls, none read here) and follow-ups Nov 2's
+    # 235 (learner_text_gap_reversals, not a table read here) follow on the way to head.
+    assert [migration.version for migration in applied] == [233, 234, 235, 236]
     # Every row survives (two new columns, NULL for the C2-era rows).
     assert [row[:13] for row in _rows(database, "learner_notes")] == notes
     assert all(row[13:] == (None, None) for row in _rows(database, "learner_notes"))
