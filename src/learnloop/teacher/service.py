@@ -551,10 +551,12 @@ def open_lesson(vault: Any, repository: Any, *, entry: str, learning_object_ids:
 # =============================================================================
 
 
-def recover(vault: Any, repository: Any, state: LessonState, *, clock: Clock | None = None) -> "_Outcome | None":
+def recover(vault: Any, repository: Any, state: LessonState, *, clock: Clock | None = None,
+            reads: bool = True) -> "_Outcome | None":
     """Run what an interrupted action left of its last accepted teacher turn (review F9): each effect
     the ledger does not mark done, idempotently, with its reads' results riding with the next call.
-    No model call."""
+    No teacher call. ``reads=False`` (``lesson.view``, which makes no model call at all) leaves the
+    turn's read actions, which may retrieve, for the next action, under its spend envelope."""
 
     entry = state.unexecuted
     if entry is None or state.closed:
@@ -562,10 +564,11 @@ def recover(vault: Any, repository: Any, state: LessonState, *, clock: Clock | N
     data = entry.get("payload") or {}
     turn_obj = TeacherTurnV1.model_validate(data.get("turn") or {})
     outcome = _Outcome()
+    done = state.effects_done.setdefault(str(entry["id"]), set())
     _execute(vault, repository, state, turn_obj, turn_entry=entry, model=state.lesson.get("model"), deferred=True,
-             outcome=outcome, clock=clock, help_reply=bool(data.get("help_reply")),
-             done=state.effects_done.get(str(entry["id"]), set()))
-    state.unexecuted = None
+             outcome=outcome, clock=clock, help_reply=bool(data.get("help_reply")), done=done, reads=reads)
+    if str(entry["id"]) in state.executed:
+        state.unexecuted = None
     return outcome
 
 
@@ -590,7 +593,7 @@ def view_lesson(vault: Any, repository: Any, lesson_id: str, *, clock: Clock | N
 
     require_active(vault)
     state = load_state(repository, lesson_id)
-    outcome = recover(vault, repository, state, clock=clock)
+    outcome = recover(vault, repository, state, clock=clock, reads=False)
     return view(vault, repository, lesson_id, outcome=outcome)
 
 
@@ -605,11 +608,11 @@ def take_turn(vault: Any, repository: Any, *, lesson_id: str, action: str, paylo
     state = load_state(repository, lesson_id)
     if state.closed:
         return view(vault, repository, lesson_id)
-    recover(vault, repository, state, clock=clock)
-    if state.closed:
-        return view(vault, repository, lesson_id)
     try:
         with _lesson_spend(vault, repository, state, clock=clock):
+            recover(vault, repository, state, clock=clock)
+            if state.closed:
+                return view(vault, repository, lesson_id)
             return _learner_action(vault, repository, state, action, payload, clients=clients, clock=clock)
     except LessonError as exc:
         exc.details.setdefault("lesson_id", lesson_id)
@@ -1026,13 +1029,14 @@ def _withdraw(vault: Any, repository: Any, state: LessonState, *, overlap: float
 
 def _execute(vault: Any, repository: Any, state: LessonState, turn_obj: TeacherTurnV1, *,
              turn_entry: Mapping[str, Any], model: str | None, deferred: bool, outcome: _Outcome,
-             clock: Clock | None, help_reply: bool, done: set[str] | frozenset[str] = frozenset()
-             ) -> list[dict[str, Any]]:
+             clock: Clock | None, help_reply: bool, done: set[str] | frozenset[str] = frozenset(),
+             reads: bool = True) -> list[dict[str, Any]]:
     """An accepted turn's effects, in order, each marked with the turn and its name (``refs.effect``) in
     the transaction that makes it, then a ``turn_executed`` marker: recovery runs only what is unmarked
     (``done``), so an interrupted action resumes idempotently (review F9)."""
 
     results: list[dict[str, Any]] = []
+    skipped = False
     if "withdraw" not in done and help_reply and state.open_check is not None:
         overlap = G.solution_overlap(turn_obj.message, str(state.open_check["check"]["committed_solution"]))
         from learnloop.serve_eligibility import AUTO_PRIME_REVEAL_THRESHOLD
@@ -1050,6 +1054,9 @@ def _execute(vault: Any, repository: Any, state: LessonState, turn_obj: TeacherT
     for index, request in enumerate(turn_obj.requests):
         effect = f"request:{index}"
         if effect in done:
+            continue
+        if request.action in READ_ACTIONS and not reads:
+            skipped = True
             continue
         if request.action in READ_ACTIONS:
             result = _read_action(vault, repository, state, request, model=model)
@@ -1078,6 +1085,8 @@ def _execute(vault: Any, repository: Any, state: LessonState, turn_obj: TeacherT
             _close(vault, repository, state, reason=str(request.close_reason), recap=request.recap, clock=clock,
                    outcome=outcome, turn_entry=turn_entry, effect=effect)
             break
+    if skipped:
+        return results
     _append(repository, state, actor="code", action="turn_executed", payload={"turn_id": str(turn_entry["id"])},
             clock=clock)
     state.executed.add(str(turn_entry["id"]))

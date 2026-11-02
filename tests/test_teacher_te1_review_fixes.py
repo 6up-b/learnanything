@@ -288,6 +288,27 @@ def test_f9_an_accepted_check_turn_interrupted_before_its_effects_recovers_on_re
     assert forecasts == [(1,)]
 
 
+def test_f9_an_interrupted_turns_reads_run_with_the_next_action_never_in_lesson_view(tmp_path, monkeypatch):
+    reads = {"message": "Let me read.", "requests": [{"action": "read_source", "refs": ["ext_lay/lay_char"]}]}
+    paths, repository, fake, view = _open(tmp_path, [{"message": "Hello."}])
+    real = S._execute
+
+    def dies(*args, **kwargs):
+        raise KeyboardInterrupt("the process died")
+
+    fake.turns = [reads]
+    monkeypatch.setattr(S, "_execute", dies)
+    with pytest.raises(KeyboardInterrupt):
+        _turn(paths, repository, view["lesson_id"], fake)
+    monkeypatch.setattr(S, "_execute", real)
+    S.view_lesson(load_vault(paths.root), repository, view["lesson_id"])
+    assert _rows(repository, "SELECT COUNT(*) FROM lesson_turns WHERE action = 'read_source'") == [(0,)]
+    fake.turns = [{"message": "Thanks."}]
+    _turn(paths, repository, view["lesson_id"], fake, text="go on")
+    assert _rows(repository, "SELECT COUNT(*) FROM lesson_turns WHERE action = 'read_source'") == [(1,)]
+    assert "roots of the characteristic equation" in json.dumps(fake.contexts[-1]["results"])
+
+
 def test_f9_closing_is_one_transaction_and_an_interrupted_close_recovers(tmp_path, monkeypatch):
     close = {"message": "Done.", "requests": [{"action": "close", "close_reason": "goal_reached", "recap": "Recall it."}]}
     paths, repository, fake, view = _open(tmp_path, [plan_turn, close])
