@@ -56,7 +56,10 @@ export function HiddenNotesSettings({
     try {
       await api.notesDecide({ linkId: entry.linkId, choice: "keep" });
       setHidden((current) => (current ?? []).filter((other) => other.linkId !== entry.linkId));
-      onToast(entry.targetKind === "passage" ? HIDDEN_NOTES_COPY.shownByYou : HIDDEN_NOTES_COPY.shownByModel);
+      // Who made the link, by its origin (the server's rule: a model's link keeps its topic,
+      // learningObjectId), never by its target: a model can link a note to a passage too
+      // (Codex review F4), and keeping that only lifts the hide.
+      onToast(entry.learningObjectId ? HIDDEN_NOTES_COPY.shownByModel : HIDDEN_NOTES_COPY.shownByYou);
     } catch (error) {
       onToast(errorMessage(error));
     } finally {

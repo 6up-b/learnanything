@@ -61,6 +61,23 @@ it("shows a note again through the existing decide path (keep), with honest copy
   expect(document.querySelector("[data-hidden-notes-settings]")).toBeNull();  // nothing left hidden
 });
 
+it("a model's passage link whose proposal is gone gets the model's copy, not the manual one (Codex review F4)", async () => {
+  // A model-created link can target a passage and keep its topic (learningObjectId). Hidden,
+  // then a later judgment stopped proposing it: keeping it only lifts the hide, so the toast
+  // must not promise "shown again beside that passage".
+  const MODEL_PASSAGE = {
+    ...BY_MODEL, linkId: "nl_model_passage", targetKind: "passage", where: "Linear Algebra › Chapter 5 Eigenvalues",
+  };
+  api.notesHidden.mockResolvedValueOnce({ hidden: [MODEL_PASSAGE] });
+  api.notesDecide.mockResolvedValueOnce({ linkId: "nl_new", status: "accepted" });
+  const { onToast } = await mount();
+  fireEvent.click(screen.getByRole("button", { name: `${HIDDEN_NOTES_COPY.showAgain}: linear › Eigenvalues` }));
+  await settle();
+  expect(api.notesDecide).toHaveBeenCalledWith({ linkId: "nl_model_passage", choice: "keep" });
+  expect(onToast).toHaveBeenCalledWith(HIDDEN_NOTES_COPY.shownByModel);
+  expect(onToast).not.toHaveBeenCalledWith(HIDDEN_NOTES_COPY.shownByYou);
+});
+
 it("a failed show-again says why and keeps the row", async () => {
   api.notesHidden.mockResolvedValueOnce({ hidden: [BY_HAND] });
   api.notesDecide.mockRejectedValueOnce(new Error("That note link doesn't exist."));
