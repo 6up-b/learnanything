@@ -81,3 +81,55 @@ Every pytest, vitest, npm command inside `systemd-run --user --scope --quiet -p 
 - F8: P4b adds `visual` to `write_plan`'s nodes and delivers it by node id; at its landing, check that the delivered request is byte-identical to P5's `planned_visual` request (same input hash).
 - F11: unpressed prebuilt lines share the per-section density budget, but not net of that section's margin marks (the rail's cues are computed from the plan on a separate read); a shared count needs the Reader's cue service to see figures (or the reverse).
 - F9: a gap's closing moment is not recorded, so its horizon is the moment it is first seen closed (at the next pass), or the next plan, whichever is first.
+
+## Re-review (codex-job 20261102-085951-tiN0RK, reviewed `1d4aa6e437..3efd98ba86`): fixes
+
+Verdict was REOPENED: F2 and F3 confirmed fixed; F1 reopened; three new findings (F16 High, F17 and F18 Medium). Every finding was reproduced first with a failing test in `tests/test_figures_prefetch_review_fixes.py` (section "Codex re-review"); F16's end-to-end test was also run against `HEAD`'s `rich.py` and `figure_admission.py` (restored from git into the worktree for one run, then the fixed files put back) and failed there (`rich_author.calls == 1`). Fixes in `c6356d13e9`.
+
+| ID | Severity | Title | Verdict | Commit | Test or reason |
+|---|---|---|---|---|---|
+| F1 (reopened) | High | Judge retries revalidated against the pass's starting snapshot, not the vault loaded now | fixed | `c6356d13e9` | `test_f1_rereview_a_section_judge_retry_revalidates_on_the_vault_loaded_now`, `test_f1_rereview_a_gap_judge_retry_revalidates_on_the_vault_loaded_now`, `test_f1_rereview_an_unreadable_current_vault_sends_no_judge_request`, `test_f1_rereview_a_builds_protection_is_read_on_the_vault_loaded_now` |
+| F2 | High | Never metered | confirmed fixed by the reviewer | `ec2060b5e0` | unchanged |
+| F3 | High | Recovered prebuilds keep their guards | confirmed fixed by the reviewer | `ec2060b5e0` | unchanged |
+| F16 | High | Foreground waiting could admit a rich request after the switch turned off | fixed | `c6356d13e9` | `test_f16_a_prebuilds_rich_request_rechecks_the_switch_after_waiting_for_foreground_work`, `test_f16_the_gate_waits_before_it_reads_the_vault_it_checks` |
+| F17 | Medium | Hiding speculative jobs removed their automatic plan retry | fixed | `c6356d13e9` | `test_f17_a_speculative_prebuilds_plan_wait_is_retried_by_the_reader_read`, `test_f17_a_plan_wait_is_not_retried_off_mains_or_switched_off` |
+| F18 | Medium | Unstarted decisions caused indefinite Reader polling, also on battery | fixed | `c6356d13e9` | `test_f18_an_unstarted_decision_is_pending_only_while_a_pass_runs_and_never_on_battery`, `test_f18_a_prebuilds_rich_job_is_pending_on_mains_only`; vitest `reads for figures built ahead of need end after their lifetime ...` |
+
+What changed:
+
+- **F1.** `PrefetchEnv.loaded_now()` gives the environment over `current_vault()` (the sidecar's loaded vault), or None when it can't be read. Both judges' `revalidate` reads the item protection, the section's blocks and `withheld_message` from it before every physical request; None fails closed (`protection_changed`, nothing sent). `run_builds` also reads the item protection from the vault it already re-read for the switch (it read `env.vault` before), so a build's last check uses the same snapshot as its switch check.
+- **F16.** `FiguresGate` takes an optional `wait()`, run at each check before the gate reads the vault. A prebuild's rich job passes `_prefetch_wait` (wait up to `FOREGROUND_WAIT_SECONDS` for foreground work), and its hold no longer waits. So the whole gate (root, `figures.enabled`, the key, and the hold: switch, power, plan route, render minutes) is decided on the configuration read after the wait. The job's start check is now `gate.check("prebuild")`, which follows the same path. If foreground work is still running after the wait, the hold yields as before. Other gates are unchanged (`wait` defaults to None).
+- **F17.** `service.prefetch_plan_waits(vault, repository, extraction_id)` finds this source's prebuild rich jobs that are waiting for the plan. It takes the newest job per input (a newer press or prebuild of the same input speaks for it) and returns them only while figures ahead of need are on, the machine is on mains and the passage is not held out. `reader.figures` passes them to `_retry_plan_waits` along with the visible lines, so the per-job `due_for_plan_retry` interval still applies. They still list no line (F10), and the requeued job's own gate checks everything again before any request.
+- **F18.** `prefetch_pending(..., pass_running=False)` returns False on battery and with the switch off. An unstarted decision counts only while the context's prefetch pass is running now (`PrefetchRuntime.running()`, through `prefetch_runtime.pass_running(ctx)`; the drain builds waiting decisions first). Otherwise it waits for the next trigger, and a read does not fire one. A prebuild's rich job counts only while it is queued or running; one waiting for the plan is retried by the read (F17). The Reader also stops its prefetch-driven reads after `PREFETCH_POLL_LIFETIME_MS` (20 minutes) per open source; reopening the source starts afresh. This is a UI pacing bound (two foreground waits), not a model or decision parameter, so it has no registry entry. The F11 test now marks a pass running before it expects `prefetchPending` for an unstarted decision.
+
+Test fixes on the way: the F10 test's `switch(rig.paths, ...)` was a no-op on the rich rig's vault (its config has no `prefetch_enabled` line to replace); it now uses `RF.configure`.
+
+### Gate (re-review step)
+
+Every pytest, vitest and npm command ran inside `systemd-run --user --scope --quiet -p MemoryMax=5G -p MemorySwapMax=1G`, with pytest at `-n 6`, vitest at `--maxWorkers=4`, and one test run at a time.
+
+| Command | Result |
+|---|---|
+| `uv sync --extra dev --extra mobile`, `uv pip install pypdfium2` | ok |
+| `uv run lint-imports --no-cache` | 41 kept, 0 broken |
+| Reproduction: the 10 new tests against `3efd98ba86`'s code | 10 failed (every finding reproduced) |
+| `uv run pytest -n 6 tests/test_figures_prefetch_review_fixes.py` (after the fixes) | 37 passed |
+| `uv run pytest -n 6` over targeted list A below (45 files) | **1198 passed**, 0 failed |
+| `uv run pytest -n 6` over targeted list B below (10 files) | **188 passed, 5 skipped**, 0 failed |
+| `npm install`, `npm run typecheck` | ok, no errors |
+| `npx vitest run --maxWorkers=4` over the 10 Reader figure files below | 10 files, **267 passed** |
+| `npm run frontend:build` | built |
+| Durability lane, cargo, DB references, desktop catalog | not needed: no migration, DB or connection code, config key or schema changed; `src-tauri` untouched; no frontend file added |
+
+**Targeted list A (45 files):** `tests/test_figure_grammar.py`, `tests/test_figure_label_wording.py`, `tests/test_figure_offers.py`, `tests/test_figure_panels.py`, `tests/test_figure_predictions.py`, `tests/test_figure_prefetch_migration.py`, `tests/test_figure_property.py`, `tests/test_figure_region.py`, `tests/test_figure_requests_migration.py`, `tests/test_figure_revisions.py`, `tests/test_figure_rich_contract.py`, `tests/test_figure_rich_failed_correction_durable.py`, `tests/test_figure_rich_job.py`, `tests/test_figure_rich_rereview_fixes.py`, `tests/test_figure_rich_review_fixes.py`, `tests/test_figure_rich_rpc.py`, `tests/test_figures_codex_review.py`, `tests/test_figures_final_round.py`, `tests/test_figures_fix_round2.py`, `tests/test_figures_fix_round3.py`, `tests/test_figures_fix_round4.py`, `tests/test_figures_fix_round5.py`, `tests/test_figures_help_codex_review.py`, `tests/test_figures_help.py`, `tests/test_figures_migration.py`, `tests/test_figures_prefetch_boundary.py`, `tests/test_figures_prefetch.py`, `tests/test_figures_prefetch_review_fixes.py`, `tests/test_figures_rpc.py`, `tests/test_figures_rw5b_fix_round2.py`, `tests/test_figures_rw5b_review.py`, `tests/test_figures_scope_redesign.py`, `tests/test_figures_show_me_codex_review.py`, `tests/test_figures_show_me.py`, `tests/test_figures_switch_off.py`, `tests/test_figure_verification.py`, `tests/test_learner_data_relax_2.py`, `tests/test_sketch_service.py`, `tests/test_reader_rw5d_p4a_figures_follow.py`, `tests/test_judge_routes.py`, `tests/test_mobile_allowlist.py`, `tests/test_notes_never_read.py`, `tests/test_architecture.py`, `tests/test_router_card_reading_gaps.py`, `tests/test_reader_tutor_retrieval.py`
+
+**Targeted list B (10 files):** `tests/test_desktop_rpc_contract.py`, `tests/test_sidecar_contract.py`, `tests/test_sidecar_serializer_snapshot.py`, `tests/test_sidecar_close_cancels_jobs.py`, `tests/test_sidecar_idle_threads.py`, `tests/test_teacher_te1_lesson.py`, `tests/test_learner_text_gaps_flow.py`, `tests/test_learner_text_gaps_review.py`, `tests/test_learner_text_gaps_rereview.py` (the other `FiguresGate` user), `tests/test_daily_plan_rpc.py`
+
+**Vitest (10 files):** `src/screens/reader/alsoInBooksReader.test.tsx`, `src/screens/reader/figures/FigureInline.test.tsx`, `advancedPanels.test.tsx`, `figureGrammar.test.ts`, `figuresFollowSection.test.tsx`, `libraryOfferSettle.test.tsx`, `readerFigures.test.tsx`, `richFigure.test.tsx`, `showMe.test.tsx`, `sketch/SketchFigure.test.tsx`
+
+No live calls were made; every model-backed path used fakes.
+
+### Open items (re-review)
+
+- F17: a speculative plan wait is retried only while its source is open in the Reader (as visible plan waits are). A source never reopened keeps its waiting job until the next prebuild of the same input or a press.
+- F16: `FiguresGate.wait` holds the gate's lock while it waits, as the hold's wait did before; a unit's concurrent checks queue behind it, as before.
