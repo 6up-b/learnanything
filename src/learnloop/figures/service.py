@@ -1813,6 +1813,12 @@ def _build(vault: Any, repository: Repository, request: FigureRequest, *, gate: 
                   for a, k, t in ((not advanced, sketch, tiers), (advanced, not sketch, None),
                                   (not advanced, not sketch, None), (advanced, sketch, None),
                                   (not advanced, sketch, None)) if (a, k, t) != (advanced, sketch, tiers)]
+    if learner:
+        # Codex final verify F6: a fresh figure built for a marked row with no
+        # record sits under that setting's recorded-inputs key, so each other
+        # setting's key is followed by its recorded one (``_reusable``'s
+        # shown, drawable-now and never-unrecorded checks apply unchanged).
+        other_hash = [key for plain in other_hash for key in (plain, _recorded_input_key(plain))]
     with closing(connect(repository.sqlite_path, read_only=True)) as connection:
         if learner and _unrecorded_occupant(vault, connection, input_hash):
             # Codex re-review F5: a marked row with no record holds this

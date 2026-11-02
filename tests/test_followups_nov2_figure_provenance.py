@@ -278,6 +278,42 @@ def test_a_press_of_the_same_input_never_backfills_the_marked_row_and_builds_afr
     assert author.calls == calls + 1
 
 
+def test_a_fresh_figure_for_a_marked_row_is_reused_after_the_panels_are_switched(tmp_path, monkeypatch):
+    """Codex final verify F6 (landing ruling R1): the fresh figure built for a
+    marked row with no record sits under the input's recorded-inputs key.
+    Before the fix the other-settings reuse lookup searched only the plain
+    keys (whose occupant, the marked row, is never reused), so switching
+    ``figures.advanced_panels_enabled`` paid the author once more for a figure
+    still drawable. Now the lookup also searches each other setting's
+    recorded-inputs key: the same figure, no call."""
+
+    from tests.test_figures_rw5b_review import _panels
+
+    world, ctx, author, job = _quick_world(tmp_path, monkeypatch)
+    legacy_id = job["result"]["figure"]["figureId"]
+    _strip_record(world.repository, legacy_id)
+    ctx.load(world.root)
+    calls = author.calls
+    again = call(ctx, "reader.figure_request", {"extractionId": EXTRACTION, "spanIds": ["p3"]})
+    assert again["state"] == "done", again
+    fresh_id = again["result"]["figure"]["figureId"]
+    assert fresh_id != legacy_id and author.calls == calls + 1
+    vault = load_vault(world.root)
+    with world.repository.connection() as connection:
+        fresh = store.figure(connection, fresh_id)
+    assert FS.drawable_now(vault, fresh)
+    panels = bool(vault.config.figures.advanced_panels_enabled)
+    _panels(world.paths, not panels)
+    vault = load_vault(world.root)
+    assert bool(vault.config.figures.advanced_panels_enabled) is not panels
+    assert FS.drawable_now(vault, fresh)  # still drawable under the other setting
+    ctx.load(world.root)
+    third = call(ctx, "reader.figure_request", {"extractionId": EXTRACTION, "spanIds": ["p3"]})
+    assert third["state"] == "done" and third["result"]["figure"]["figureId"] == fresh_id, third
+    assert author.calls == calls + 1  # no second author call
+    assert FS.figure_withheld(vault, world.repository, legacy_id)  # the marked row is still never reused
+
+
 # ---------------------------------------------------------------------------
 # Codex review F4: a queued rich revision checks what it inherits
 # ---------------------------------------------------------------------------
