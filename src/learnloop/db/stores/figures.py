@@ -88,20 +88,6 @@ def _figure(row: sqlite3.Row | tuple | None) -> dict[str, Any] | None:
     return found
 
 
-def record_learner_inputs(connection: sqlite3.Connection, figure_id: str, inputs: Any) -> int:
-    """Follow-ups Nov 2, Codex review F3: what a figure's learner state was read
-    from, recorded on a row built before quick rows kept it (the report's
-    ``learner_state_inputs``), only where the report has none yet. Returns how
-    many rows it wrote (0 or 1)."""
-
-    cursor = connection.execute(
-        "UPDATE interactive_figures SET verification_report_json = json_set(COALESCE(verification_report_json, "
-        "'{}'), '$.learner_state_inputs', json(?)) WHERE id = ? "
-        "AND json_type(COALESCE(verification_report_json, '{}'), '$.learner_state_inputs') IS NULL",
-        (json.dumps(inputs, sort_keys=True, default=str), figure_id))
-    return int(cursor.rowcount or 0)
-
-
 def figure(connection: sqlite3.Connection, figure_id: str) -> dict[str, Any] | None:
     return _figure(connection.execute(
         f"SELECT {', '.join(FIGURE_COLUMNS)} FROM interactive_figures WHERE id = ?", (figure_id,)).fetchone())

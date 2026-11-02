@@ -230,25 +230,52 @@ def test_an_unmarked_quick_figure_with_no_record_keeps_the_no_learner_state_read
     assert not FS.figure_withheld(vault, repository, row["id"])
 
 
-def test_a_press_of_the_same_input_records_the_marked_rows_dependencies(tmp_path, monkeypatch):
-    """F3, "unless dependencies can be established": the press's own read of
-    the learner state matches the row's (the input hash names the state's
-    hash), so it records what that read came from on the row; the figure goes
-    out again, with no author call, and is withheld once those are protected."""
+def test_a_press_of_the_same_input_never_backfills_the_marked_row_and_builds_afresh(tmp_path, monkeypatch):
+    """Codex re-review F5: the press's read of the learner state can hash the
+    same as the marked row's (the hash strips ``_inputs``) while being read from
+    different sources (an identical statement from another gap). Before the fix
+    the press recorded ITS sources on the old row, which then went out on
+    them. Now the old row is never given a record (it stays withheld); the
+    press builds a fresh figure with its own record, and the next press reuses
+    that one with no call."""
+
+    from learnloop.db.stores.write_provenance import Inputs
+    from learnloop.figures import learner_state as LS
 
     world, ctx, author, job = _quick_world(tmp_path, monkeypatch)
-    figure_id = job["result"]["figure"]["figureId"]
+    legacy_id = job["result"]["figure"]["figureId"]
     recorded = _quick_row(world.repository)["verification_report"][RICH.LEARNER_STATE_INPUTS_KEY]
-    _strip_record(world.repository, figure_id)
+    _strip_record(world.repository, legacy_id)
+    # The same state, read from different sources this time.
+    other_sources = Inputs.of(answers=[("att_unpinned", None)]).as_json()
+    assert other_sources != recorded
+    real_read = LS.read_learner_state
+
+    def same_state_other_sources(vault, repository, los):
+        read = real_read(vault, repository, los)
+        return LS.LearnerStateRead(read.state, other_sources if read.state else read.inputs)
+
+    monkeypatch.setattr(LS, "read_learner_state", same_state_other_sources)
+    ctx.load(world.root)
     calls = author.calls
     again = call(ctx, "reader.figure_request", {"extractionId": EXTRACTION, "spanIds": ["p3"]})
-    assert again["state"] == "done" and again["result"]["figure"]["figureId"] == figure_id, again
-    assert author.calls == calls  # reused, never rebuilt
-    assert _quick_row(world.repository)["verification_report"][RICH.LEARNER_STATE_INPUTS_KEY] == recorded
+    assert again["state"] == "done", again
+    fresh_id = again["result"]["figure"]["figureId"]
+    assert fresh_id != legacy_id and author.calls == calls + 1
+    with world.repository.connection() as connection:
+        legacy = store.figure(connection, legacy_id)
+        fresh = store.figure(connection, fresh_id)
+    assert RICH.LEARNER_STATE_INPUTS_KEY not in legacy["verification_report"]  # never inferred
+    assert fresh["verification_report"][RICH.LEARNER_STATE_INPUTS_KEY] == other_sources
     vault = load_vault(world.root)
-    assert not FS.figure_withheld(vault, world.repository, figure_id)
-    _make_exam_material(SimpleNamespace(paths=world.paths))
-    assert FS.figure_withheld(load_vault(world.root), world.repository, figure_id)
+    assert FS.figure_withheld(vault, world.repository, legacy_id)
+    assert not FS.figure_withheld(vault, world.repository, fresh_id)
+    assert [view["figure_id"] for view in FS.list_figures(vault, world.repository, EXTRACTION)] == [fresh_id]
+    # The next press of the same input reuses the fresh figure, with no call.
+    ctx.load(world.root)
+    third = call(ctx, "reader.figure_request", {"extractionId": EXTRACTION, "spanIds": ["p3"]})
+    assert third["state"] == "done" and third["result"]["figure"]["figureId"] == fresh_id, third
+    assert author.calls == calls + 1
 
 
 # ---------------------------------------------------------------------------

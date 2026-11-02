@@ -520,8 +520,9 @@ def learner_state_withheld(vault: Any, repository: Repository, row: Mapping[str,
     author was sent a learner state (``+learner-v1``) but that keeps no record
     and no intent carrying one (a quick figure built before quick rows kept
     the record) has dependencies nobody can name: it is withheld (Codex review
-    F3) until a press of the same input records them
-    (:func:`_establish_learner_inputs`). A figure no author of which was sent a
+    F3) for good: its dependencies are never inferred (Codex re-review F5), and a
+    press of the same input builds a fresh figure with its own record
+    (:func:`_recorded_input_key`). A figure no author of which was sent a
     learner state has nothing to check here, exactly as before."""
 
     lineage = _lineage(repository, row)
@@ -609,24 +610,33 @@ def inherited_learner_inputs(repository: Repository, row: Mapping[str, Any]) -> 
     return inherited
 
 
-def _establish_learner_inputs(repository: Repository, row: Mapping[str, Any] | None,
-                              request: "FigureRequest") -> Mapping[str, Any] | None:
-    """Codex review F3: a press reusing a marked row that keeps no record
-    records what ITS OWN read of the learner state was read from on that row.
-    The reuse matched the input hash, which names the state's hash, so the
-    state this press read is the state the row's author was sent; from then
-    on the row is checked like any other (and withheld if any of it is
-    protected now). Only where the row still has no record; otherwise the row
-    as it is."""
+def _unrecorded_occupant(vault: Any, connection: Any, input_hash: str) -> bool:
+    """Codex re-review F5: whether this input's reusable figure (its quick
+    figure, or a rich figure built with no quick one) is a marked row that
+    keeps no record of what its author's learner state was read from."""
 
-    if row is None or not request.learner_state or request.learner_state_inputs is None:
-        return row
-    if not _learner_inputs_unrecorded(row):
-        return row
-    with repository.atomic():
-        store.record_learner_inputs(repository.connection(), str(row["id"]), request.learner_state_inputs)
-    with closing(connect(repository.sqlite_path, read_only=True)) as connection:
-        return store.figure(connection, str(row["id"])) or row
+    found = store.reusable(connection, input_hash, SPEC_VERSIONS)
+    rich_only = store.reusable(connection, input_hash, RICH_SPEC_VERSIONS) if rich_enabled(vault) else None
+    if rich_only is not None and rich_only.get("fuller_of_id"):
+        rich_only = None  # a fuller version is checked through its quick figure's intent
+    return any(row is not None and _learner_inputs_unrecorded(row) for row in (found, rich_only))
+
+
+def _recorded_input_key(input_hash: str) -> str:
+    """Codex re-review F5: the key a fresh build of an input takes when that
+    input's figure is a marked row with no record. Its dependencies are never
+    inferred (a press whose learner state hashes the same may have read it from
+    other sources: an identical statement from another gap), so the old row
+    stays withheld and is never reused; the fresh figure keeps its own record
+    under this key (the old row holds the input's place in the reuse index),
+    and every later press of the input takes the same key and reuses it."""
+
+    return content_key({"input_hash": input_hash, "learner_inputs": LEARNER_INPUTS_RECORDED})
+
+
+#: Codex re-review F5: names :func:`_recorded_input_key`'s keys (a version
+#: label, not a tunable).
+LEARNER_INPUTS_RECORDED = "recorded-v1"
 
 
 def _with_learner_inputs(report: Mapping[str, Any], request: "FigureRequest") -> dict[str, Any]:
@@ -1535,7 +1545,8 @@ def _reusable(vault: Any, repository: Repository, connection: Any, input_hash: s
     # the sketch tier; only a shown figure that can be drawn now.
     for other_key in ([other_hash] if isinstance(other_hash, str) else list(other_hash)):
         other = store.reusable(connection, other_key, SPEC_VERSIONS)
-        if other is not None and other["verification"] in store.SHOWN and drawable_now(vault, other):
+        if (other is not None and other["verification"] in store.SHOWN and drawable_now(vault, other)
+                and not _learner_inputs_unrecorded(other)):  # Codex re-review F5: withheld, never reused
             return other
     return None
 
@@ -1803,10 +1814,14 @@ def _build(vault: Any, repository: Repository, request: FigureRequest, *, gate: 
                                   (not advanced, not sketch, None), (advanced, sketch, None),
                                   (not advanced, sketch, None)) if (a, k, t) != (advanced, sketch, tiers)]
     with closing(connect(repository.sqlite_path, read_only=True)) as connection:
+        if learner and _unrecorded_occupant(vault, connection, input_hash):
+            # Codex re-review F5: a marked row with no record holds this
+            # input; it is never reused nor given dependencies inferred from
+            # this press: a fresh build keeps its own (one hop: it records).
+            input_hash = _recorded_input_key(input_hash)
         reused = _reusable(vault, repository, connection, input_hash, other_hash)
         seen = store.latest_for_input(connection, input_hash, SPEC_VERSIONS)
     if reused is not None:
-        reused = _establish_learner_inputs(repository, reused, request)
         return _reused(vault, repository, reused, request=request, grounding=grounding, clock=clock, gate=gate)
     pending = _rich_pending(vault, repository, request, input_hash)
     if pending is not None:
@@ -1836,7 +1851,6 @@ def _build(vault: Any, repository: Repository, request: FigureRequest, *, gate: 
             # again" asks the author, and then the rich author, afresh.
             generation = store.builds_for_input(connection, input_hash, ALL_SPEC_VERSIONS)
         if reused is not None:
-            reused = _establish_learner_inputs(repository, reused, request)
             return _reused(vault, repository, reused, request=request, grounding=grounding, clock=clock, gate=gate)
         if latest is not None and (seen is None or latest["id"] != seen["id"]):
             return _reused(vault, repository, latest, request=request, grounding=grounding, clock=clock, gate=gate)
