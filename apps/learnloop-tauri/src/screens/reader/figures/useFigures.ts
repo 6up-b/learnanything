@@ -225,18 +225,25 @@ export function useFigures({
   // ahead of need, so its quiet line appears with the Reader open; the read
   // stops once the sidecar says nothing more is coming (Codex re-review F18:
   // or once PREFETCH_POLL_LIFETIME_MS has passed for this source).
+  // Landing ruling R1 (final verify F18): a fuller version built ahead of need that nobody
+  // pressed for (`speculative`) keeps to the same lifetime; a pressed one is read as before.
+  const fullerRunning = (figure: FigureViewDto) =>
+    figure.fuller?.state === "pending" || figure.fuller?.state === "waiting_for_plan";
+  const speculativeFuller = figures.some((figure) => fullerRunning(figure) && figure.fuller?.speculative === true);
+  const prefetchActive = prefetchPending || speculativeFuller;
   useEffect(() => {
-    // Started once per open source, the first time a prefetch is said to be coming; it runs on
-    // while the flag comes and goes (cleared only by a new source, above, or unmounting).
-    if (!prefetchPending || prefetchClock.current !== null) return;
+    // Started once per open source, the first time a prefetch is said to be coming (or a
+    // speculative fuller version is pending); it runs on while that comes and goes (cleared
+    // only by a new source, above, or unmounting).
+    if (!prefetchActive || prefetchClock.current !== null) return;
     const mine = generation.current;
     prefetchClock.current = setTimeout(() => { if (generation.current === mine) setPrefetchExpired(true); }, PREFETCH_POLL_LIFETIME_MS);
-  }, [prefetchPending]);
+  }, [prefetchActive]);
   useEffect(() => () => { if (prefetchClock.current !== null) clearTimeout(prefetchClock.current); }, []);
   const richRunning = (
-    (prefetchPending && !prefetchExpired)
+    (prefetchActive && !prefetchExpired)
     || richPending.some((line) => line.state === "pending" || line.state === "waiting_for_plan")
-    || figures.some((figure) => figure.fuller?.state === "pending" || figure.fuller?.state === "waiting_for_plan"));
+    || figures.some((figure) => fullerRunning(figure) && figure.fuller?.speculative !== true));
   useEffect(() => {
     if (!enabled || !extractionId || !richRunning) return;
     const mine = generation.current;

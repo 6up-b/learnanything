@@ -9827,6 +9827,9 @@ export interface FigureFullerDto {
   richJobId: string | null;
   /** The fuller figure once ready. */
   figure: FigureViewDto | null;
+  /** RW5d P5 (landing ruling R1; present, true, only then): built ahead of need and never
+   *  pressed for; the Reader's reads for it keep to the prefetch lifetime. */
+  speculative?: boolean;
 }
 
 /** RW5d P2b: a rich build with no quick figure: its pending line under the passage. */

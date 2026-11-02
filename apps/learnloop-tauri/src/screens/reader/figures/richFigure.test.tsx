@@ -251,15 +251,52 @@ it("a figure built ahead of need appears in an open Reader, then the reads stop 
   expect(api.readerFigures.mock.calls.length).toBe(reads);  // nothing more coming: no more reads
 });
 
+/** Advances `count` poll intervals, one act each, so every answer re-renders (and re-arms
+ *  the next read) before the next interval. */
+async function polls(count: number) {
+  for (let index = 0; index < count; index += 1) {
+    await act(async () => { await vi.advanceTimersByTimeAsync(RICH_POLL_MS + 10); });
+  }
+}
+
 it("reads for figures built ahead of need end after their lifetime even while the sidecar still says one is coming (Codex re-review F18)", async () => {
   vi.useFakeTimers({ shouldAdvanceTime: true });
-  api.readerFigures.mockResolvedValue({ extractionId: "ext_prob", figures: [], richPending: [], prefetchPending: true });
+  // A fresh payload per read, as the sidecar answers (the poll re-arms on each new answer).
+  api.readerFigures.mockImplementation(async () => ({ extractionId: "ext_prob", figures: [], richPending: [],
+    prefetchPending: true }));
   render(<Harness />);
   await act(async () => { await Promise.resolve(); });
-  await act(async () => { await vi.advanceTimersByTimeAsync(RICH_POLL_MS * 2 + 10); });
-  expect(api.readerFigures.mock.calls.length).toBeGreaterThan(1);  // paced reads while it is coming
+  await polls(3);
+  expect(api.readerFigures.mock.calls.length).toBeGreaterThan(2);  // paced reads while it is coming
   await act(async () => { await vi.advanceTimersByTimeAsync(PREFETCH_POLL_LIFETIME_MS); });
   const reads = api.readerFigures.mock.calls.length;
-  await act(async () => { await vi.advanceTimersByTimeAsync(RICH_POLL_MS * 4); });
+  await polls(4);
   expect(api.readerFigures.mock.calls.length).toBe(reads);  // bounded: no more reads
+});
+
+it("reads for a speculative fuller version end after the prefetch lifetime (landing ruling R1, final verify F18)", async () => {
+  vi.useFakeTimers({ shouldAdvanceTime: true });
+  // A fresh payload per read, as the sidecar answers (the poll re-arms on each new answer).
+  api.readerFigures.mockImplementation(async () => ({ extractionId: "ext_prob", richPending: [],
+    figures: [{ ...quickView({ ...PENDING, speculative: true }), origin: "prefetch" as FigureViewDto["origin"] }] }));
+  render(<Harness />);
+  await act(async () => { await Promise.resolve(); });
+  await polls(3);
+  expect(api.readerFigures.mock.calls.length).toBeGreaterThan(2);  // paced reads while it may come
+  await act(async () => { await vi.advanceTimersByTimeAsync(PREFETCH_POLL_LIFETIME_MS); });
+  const reads = api.readerFigures.mock.calls.length;
+  await polls(4);
+  expect(api.readerFigures.mock.calls.length).toBe(reads);  // bounded: no more reads
+});
+
+it("a pressed fuller version keeps its reads past the prefetch lifetime (landing ruling R1)", async () => {
+  vi.useFakeTimers({ shouldAdvanceTime: true });
+  api.readerFigures.mockImplementation(async () => ({ extractionId: "ext_prob", richPending: [],
+    figures: [quickView({ ...PENDING })] }));
+  render(<Harness />);
+  await act(async () => { await Promise.resolve(); });
+  await act(async () => { await vi.advanceTimersByTimeAsync(PREFETCH_POLL_LIFETIME_MS + RICH_POLL_MS); });
+  const reads = api.readerFigures.mock.calls.length;
+  await polls(2);
+  expect(api.readerFigures.mock.calls.length).toBeGreaterThan(reads);  // still reading: the learner's build
 });

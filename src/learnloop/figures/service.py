@@ -1302,22 +1302,48 @@ def fuller_state(vault: Any, repository: Repository, row: Mapping[str, Any]) -> 
         return {"state": "ready", "figure": rich_view, "tier": "manim", "phase": None, "reason": None,
                 "rich_job_id": None}
     job = RICH.rich_job_for_quick(repository, str(row["id"]))
+    intent = (row.get("verification_report") or {}).get(RICH_INTENT_KEY)
+    build_mode = ((job or {}).get("payload") or {}).get("build_mode") if job is not None \
+        else (intent or {}).get("build_mode") if isinstance(intent, dict) else None
+    # Landing ruling R1 (final verify F18): a fuller version built ahead of need that nobody
+    # pressed for is marked, so the Reader bounds its reads for it by the prefetch lifetime
+    # (pressed figures keep their polling). Present only then: every other view is unchanged.
+    speculative = {"speculative": True} if build_mode == "prefetch" and not _prebuilt_pressed(repository, row) \
+        else {}
     if job is not None:
         state = RICH.job_state(job)
         if state["state"] != "done":
             return {"tier": "manim", "figure": None, "phase": state.get("phase"), "reason": state.get("reason"),
-                    **state}
+                    **state, **speculative}
     if rows:
         failed = rows[-1]
         return {"state": "failed", "tier": "manim", "figure": None, "phase": None, "rich_job_id": None,
                 "reason": str((failed.get("verification_report") or {}).get("reason") or "")[:300] or None}
-    if job is None and isinstance((row.get("verification_report") or {}).get(RICH_INTENT_KEY), dict):
+    if job is None and isinstance(intent, dict):
         # Codex review F8: the intent committed but no job was started (the
         # sidecar stopped first, or the enqueue failed): reading this source
         # starts it (resume_rich_intents); until then the line says so.
+        if build_mode == "prefetch" and _prefetch_intent_refused(vault, repository, intent):
+            # Landing ruling R1 (final verify F18): a prebuild's intent is started by a read
+            # only while background admission holds (resume_rich_intents); refused (battery,
+            # the switch off, its passage held out) nothing will start it, so it is not pending.
+            return None
         return {"state": "pending", "tier": "manim", "figure": None, "phase": "writing", "reason": None,
-                "rich_job_id": None}
+                "rich_job_id": None, **speculative}
     return None
+
+
+def _prefetch_intent_refused(vault: Any, repository: Repository, intent: Mapping[str, Any]) -> bool:
+    """Landing ruling R1: whether background admission refuses a prebuild's unqueued rich
+    intent now: figures ahead of need off, this machine not on mains, or its input held out.
+    (Foreground work only delays it, so it is not a refusal.)"""
+
+    from learnloop.figures.power import power_state, prefetch_switch
+    from learnloop.figures.rich import _withheld
+
+    if not prefetch_switch(vault) or not power_state().on_mains:
+        return True
+    return _withheld(vault, repository, intent.get("base") or {}) is not None
 
 
 def _figure_request(repository: Repository, row: Mapping[str, Any]) -> dict[str, Any] | None:

@@ -788,3 +788,72 @@ def test_f18_a_prebuilds_rich_job_is_pending_on_mains_only(tmp_path, monkeypatch
     assert FS.prefetch_pending(rig.vault, rig.repository, EXTRACTION) is True  # queued: a worker will run it
     P.set_power_reader(lambda: P.PowerState(False, P.BATTERY, "test"))
     assert FS.prefetch_pending(rig.vault, rig.repository, EXTRACTION) is False
+
+
+# ---------------------------------------------------------------------------
+# Landing ruling R1 (final verify F18): a speculative fuller version whose rich
+# intent is not queued is pending only while background admission would start it
+# ---------------------------------------------------------------------------
+
+def _unqueued_prebuild_intent(tmp_path, monkeypatch) -> _Rig:
+    rig = _rich_rig(tmp_path, monkeypatch, [("rich", "manim", RF.brief(), WHY, flagship(kind="illustrative"))])
+
+    def lost(payload):
+        raise RuntimeError("the sidecar stopped before the enqueue")
+
+    FS.build_prefetch_figure(rig.vault, rig.repository, _prefetch_request(), author_client=rig.author, spawn_rich=lost)
+    assert rig.ingest.repo.ingest_jobs_by_types(["figure_rich"]) == []
+    return rig
+
+
+def _quick_row(rig: _Rig) -> dict:
+    from learnloop.db.stores import figures as store
+
+    with rig.repository.connection() as connection:
+        found = store.figures_for_extraction(connection, EXTRACTION)
+    (quick,) = [row for row in found if not FS.rich_row(row)]
+    return quick
+
+
+def test_r1_an_unqueued_speculative_fuller_is_not_pending_on_battery(tmp_path, monkeypatch):
+    rig = _unqueued_prebuild_intent(tmp_path, monkeypatch)
+    quick = _quick_row(rig)
+    on_mains = FS.fuller_state(rig.vault, rig.repository, quick)
+    # On mains the next read starts it (resume_rich_intents): pending, and marked speculative.
+    assert on_mains["state"] == "pending" and on_mains["speculative"] is True
+    P.set_power_reader(lambda: P.PowerState(False, P.BATTERY, "test"))
+    assert FS.fuller_state(rig.vault, rig.repository, quick) is None
+    (listed,) = rig.listed()
+    assert listed["fuller"] is None  # the Reader has nothing to poll for
+
+
+def test_r1_an_unqueued_speculative_fuller_is_not_pending_switched_off_or_held_out(tmp_path, monkeypatch):
+    rig = _unqueued_prebuild_intent(tmp_path, monkeypatch)
+    quick = _quick_row(rig)
+    RF.configure(rig.paths, prefetch_enabled=False)
+    assert FS.fuller_state(load_vault(rig.paths.root), rig.repository, quick) is None
+    RF.configure(rig.paths, prefetch_enabled=True)
+    assert FS.fuller_state(rig.vault, rig.repository, quick)["state"] == "pending"
+    _held(monkeypatch, {"p3"})
+    assert FS.fuller_state(rig.vault, rig.repository, quick) is None
+
+
+def test_r1_a_pressed_fuller_keeps_its_pending_line_and_is_not_speculative(tmp_path, monkeypatch):
+    rig = _rich_rig(tmp_path, monkeypatch, [("rich", "manim", RF.brief(), WHY, flagship(kind="illustrative"))])
+
+    def lost(payload):
+        raise RuntimeError("the sidecar stopped before the enqueue")
+
+    FS.build_figure(rig.vault, rig.repository, FS.FigureRequest(extraction_id=EXTRACTION, span_ids=["p3"]),
+                    author_client=rig.author, spawn_rich=lost)
+    P.set_power_reader(lambda: P.PowerState(False, P.BATTERY, "test"))
+    fuller = FS.fuller_state(rig.vault, rig.repository, _quick_row(rig))
+    assert fuller["state"] == "pending" and "speculative" not in fuller
+
+
+def test_r1_a_queued_speculative_fuller_is_marked_speculative(tmp_path, monkeypatch):
+    rig = _rich_rig(tmp_path, monkeypatch, [("rich", "manim", RF.brief(), WHY, flagship(kind="illustrative"))])
+    FS.build_prefetch_figure(rig.vault, rig.repository, _prefetch_request(), author_client=rig.author,
+                             spawn_rich=rig.spawn)
+    fuller = FS.fuller_state(rig.vault, rig.repository, _quick_row(rig))
+    assert fuller["state"] == "pending" and fuller["speculative"] is True
