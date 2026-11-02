@@ -3,8 +3,8 @@ title: "plan_usage_pauses"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "144497f9effca275e8320b14486e0b34053c19d0"
-source_commit_timestamp: "2026-11-02T05:49:20-05:00"
+source_commit: "ec2060b5e053639a05d205609eb9d564cee70209"
+source_commit_timestamp: "2026-11-02T07:07:21-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite plan_usage_pauses"
@@ -19,6 +19,7 @@ generated: true
 source_paths:
   - "src/learnloop/db/table_roles.py"
   - "migrations/236_figure_prefetch.sql"
+  - "src/learnloop/adaptive_difficulty/column_classes.py"
   - "src/learnloop/adaptive_difficulty/protected_tables.py"
   - "src/learnloop/db/stores/figure_prefetch.py"
   - "src/learnloop/figures/prefetch.py"

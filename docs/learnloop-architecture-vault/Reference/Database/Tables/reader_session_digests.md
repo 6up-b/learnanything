@@ -3,8 +3,8 @@ title: "reader_session_digests"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "144497f9effca275e8320b14486e0b34053c19d0"
-source_commit_timestamp: "2026-11-02T05:49:20-05:00"
+source_commit: "ec2060b5e053639a05d205609eb9d564cee70209"
+source_commit_timestamp: "2026-11-02T07:07:21-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite reader_session_digests"
@@ -22,6 +22,7 @@ source_paths:
   - "src/learnloop/algorithm_versions.py"
   - "src/learnloop/daily_plan/router_reader.py"
   - "src/learnloop/db/stores/reader_digests.py"
+  - "src/learnloop/figures/prefetch.py"
   - "src/learnloop/instructional/reader_digest.py"
   - "src/learnloop/instructional/reader_followups.py"
   - "src/learnloop/reader_followups_upgrade.py"
@@ -97,6 +98,7 @@ None found by exact static reference scan.
 ### Direct SQL readers
 
 - `src/learnloop/db/stores/reader_digests.py`
+- `src/learnloop/figures/prefetch.py`
 
 ### Direct SQL writers
 

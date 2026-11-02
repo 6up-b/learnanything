@@ -58,7 +58,7 @@ this passage), ``neither``, ``void`` (the passage is withheld now). Set once.
 each pass appends any new one to ``plan_usage_pauses`` (idempotent by its
 hit time), the pause-risk model's data.
 
-Kill switch ``figures.prefetch_enabled`` (default off): off, no pass runs,
+Kill switch ``figures.prefetch_enabled`` (default on, Q21): off, no pass runs,
 nothing is read or written, nothing is called. Never evidence: a decision or
 outcome is about content and opening behaviour; unopened prebuilt figures
 record nothing about the learner (SM5, §11.4b).
@@ -1242,7 +1242,8 @@ def _opened(connection: Any, figure_ids: set[str], since: datetime, until: datet
     if not figure_ids:
         return False
     for raw, created_at in connection.execute(
-            "SELECT payload_json, created_at FROM interaction_events WHERE kind = 'reader_action_invoked'"):
+            "SELECT payload_json, created_at FROM interaction_events WHERE kind = 'reader_action_invoked' "
+            "AND payload_json LIKE '%figure_opened%'"):
         if not _between(created_at, since, until):
             continue
         try:
