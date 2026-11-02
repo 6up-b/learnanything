@@ -10,9 +10,9 @@ area: "TypeScript/screens/today"
 source_path: "apps/learnloop-tauri/src/screens/today/LessonSuggestionCard.tsx"
 source_paths:
   - "apps/learnloop-tauri/src/screens/today/LessonSuggestionCard.tsx"
-source_commit: "workspace/uncommitted @ 6965b781cb24500a8665e579bf84b533a9ee1532"
-source_commit_timestamp: "2026-11-02T05:25:31-05:00"
-source_worktree_state: "untracked"
+source_commit: "64a492ab8f1b7b6ad460eeaca30b51a9212e2b96"
+source_commit_timestamp: "2026-11-02T07:09:51-05:00"
+source_worktree_state: "clean"
 activation_kind: "entry-reachable build graph"
 activation_evidence: "A static TypeScript import path reaches this file from the Vite entry src/main.tsx."
 generated: true
@@ -42,14 +42,14 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/screens/today/LessonSuggestionCard.tsx](../../../../../../../apps/learnloop-tauri/src/screens/today/LessonSuggestionCard.tsx) |
-| Source lines | 85 |
+| Source lines | 110 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/screens/today/_area|TypeScript/screens/today]] |
 | Refactor status | `ACTIVE` |
 | Activation kind | `entry-reachable build graph` |
-| Worktree state | `untracked` |
-| Source commit | `workspace/uncommitted @ 6965b781cb24500a8665e579bf84b533a9ee1532` |
-| Commit timestamp | `2026-11-02T05:25:31-05:00` |
+| Worktree state | `clean` |
+| Source commit | `64a492ab8f1b7b6ad460eeaca30b51a9212e2b96` |
+| Commit timestamp | `2026-11-02T07:09:51-05:00` |
 
 ## Activation and status evidence
 
@@ -67,6 +67,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 - `let cancelled = false` — let, line 29
 - `async function respond(response: "accepted" | "chose_alternative" | "declined", chosen?: LessonSuggestionEntryDto)` — function, line 39
 - `const result = await api.lessonSuggestionRespond(` — const, line 43
+- `const pending = card.pendingLesson ?? null` — const, line 62
 
 ## Who imports or calls it
 
@@ -74,6 +75,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 > “Calls” here means an import/module edge plus a source reference to the imported name. React render callbacks, props, Tauri string dispatch, macro expansion, browser/Cargo entry points, and data-driven routing can add runtime consumers that static text cannot prove.
 
 - [[Reference/Desktop/TypeScript/screens/TodayScreen|src/screens/TodayScreen.tsx]] — import-or-re-export: `LessonSuggestionCard`; references `LessonSuggestionCard`
+- [[Reference/Desktop/TypeScript/screens/today/TodayPlace|src/screens/today/TodayPlace.tsx]] — import-or-re-export: `LessonSuggestionCard`; references `LessonSuggestionCard`
 
 ## Dependencies
 

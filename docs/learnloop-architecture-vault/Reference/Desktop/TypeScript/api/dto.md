@@ -10,9 +10,9 @@ area: "TypeScript/api"
 source_path: "apps/learnloop-tauri/src/api/dto.ts"
 source_paths:
   - "apps/learnloop-tauri/src/api/dto.ts"
-source_commit: "6975ac1949e79b05a13f0cf392d617aa1d91fc25"
-source_commit_timestamp: "2026-11-02T03:56:28-05:00"
-source_worktree_state: "staged-or-mixed"
+source_commit: "64a492ab8f1b7b6ad460eeaca30b51a9212e2b96"
+source_commit_timestamp: "2026-11-02T07:09:51-05:00"
+source_worktree_state: "clean"
 activation_kind: "entry-reachable build graph"
 activation_evidence: "A static TypeScript import path reaches this file from the Vite entry src/main.tsx."
 generated: true
@@ -42,14 +42,14 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/api/dto.ts](../../../../../../apps/learnloop-tauri/src/api/dto.ts) |
-| Source lines | 10481 |
+| Source lines | 10484 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/api/_area|TypeScript/api]] |
 | Refactor status | `ACTIVE` |
 | Activation kind | `entry-reachable build graph` |
-| Worktree state | `staged-or-mixed` |
-| Source commit | `6975ac1949e79b05a13f0cf392d617aa1d91fc25` |
-| Commit timestamp | `2026-11-02T03:56:28-05:00` |
+| Worktree state | `clean` |
+| Source commit | `64a492ab8f1b7b6ad460eeaca30b51a9212e2b96` |
+| Commit timestamp | `2026-11-02T07:09:51-05:00` |
 
 ## Activation and status evidence
 
@@ -916,9 +916,9 @@ The system-level behavior stays authoritative in the linked architecture, concep
 - `export interface LessonTurnInput` — interface, line 10400
 - `export interface LessonSuggestionEntryDto` — interface, line 10423
 - `export interface LessonSuggestionDto` — interface, line 10432
-- `export interface LessonSuggestionResponseDto` — interface, line 10442
-- `export type LessonFeedEntryDto = |` — type, line 10450
-- `export interface LessonViewDto` — interface, line 10463
+- `export interface LessonSuggestionResponseDto` — interface, line 10445
+- `export type LessonFeedEntryDto = |` — type, line 10453
+- `export interface LessonViewDto` — interface, line 10466
 
 ## Internal implementation anchors
 

@@ -10,9 +10,9 @@ area: "TypeScript/app"
 source_path: "apps/learnloop-tauri/src/app/App.tsx"
 source_paths:
   - "apps/learnloop-tauri/src/app/App.tsx"
-source_commit: "490ad6751fd50ca0f45661618dc6cd11cd8507b8"
-source_commit_timestamp: "2026-11-01T19:33:59-05:00"
-source_worktree_state: "staged-or-mixed"
+source_commit: "64a492ab8f1b7b6ad460eeaca30b51a9212e2b96"
+source_commit_timestamp: "2026-11-02T07:09:51-05:00"
+source_worktree_state: "clean"
 activation_kind: "entry-reachable build graph"
 activation_evidence: "A static TypeScript import path reaches this file from the Vite entry src/main.tsx."
 generated: true
@@ -42,14 +42,14 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/app/App.tsx](../../../../../../apps/learnloop-tauri/src/app/App.tsx) |
-| Source lines | 2481 |
+| Source lines | 2482 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/app/_area|TypeScript/app]] |
 | Refactor status | `ACTIVE` |
 | Activation kind | `entry-reachable build graph` |
-| Worktree state | `staged-or-mixed` |
-| Source commit | `490ad6751fd50ca0f45661618dc6cd11cd8507b8` |
-| Commit timestamp | `2026-11-01T19:33:59-05:00` |
+| Worktree state | `clean` |
+| Source commit | `64a492ab8f1b7b6ad460eeaca30b51a9212e2b96` |
+| Commit timestamp | `2026-11-02T07:09:51-05:00` |
 
 ## Activation and status evidence
 
@@ -266,21 +266,21 @@ The system-level behavior stays authoritative in the linked architecture, concep
 - `function renderBody()` — function, line 1802
 - `const practicing = tab === "today" && (todayStage === "practice" || todayStage === "feedback")` — const, line 1842
 - `const todayPlace = ()` — const, line 1866
-- `const start = ( <StartScreen onBegin=` — const, line 1888
-- `const fromReader = simplePracticeFeedback() && returnsToReader(readerReturn, practiceItemId)` — const, line 1982
-- `const planNext = Boolean(session && !calibrationSessionId && planServing)` — const, line 1983
-- `const feedbackDock = algoConfig().ask !== null && askTarget?.context === "feedback" ? askTarget : null` — const, line 1986
-- `const today = ( <TodayScreen key=` — const, line 2025
-- `const tool = uthToolOfTab(tab, uthToolState)` — const, line 2066
-- `function renderIngest()` — function, line 2091
-- `function renderProposals()` — function, line 2108
-- `function renderRegistry()` — function, line 2124
-- `function renderGolden()` — function, line 2139
-- `function renderMaintain()` — function, line 2162
-- `function renderUthTool(tool: UthToolId)` — function, line 2174
-- `function renderAfterGolden()` — function, line 2205
-- `const shellTree = ( <> <TerminalFrame active=` — const, line 2234
-- `function unique(values: Array<string | null>): string[]` — function, line 2479
+- `const start = ( <StartScreen onBegin=` — const, line 1889
+- `const fromReader = simplePracticeFeedback() && returnsToReader(readerReturn, practiceItemId)` — const, line 1983
+- `const planNext = Boolean(session && !calibrationSessionId && planServing)` — const, line 1984
+- `const feedbackDock = algoConfig().ask !== null && askTarget?.context === "feedback" ? askTarget : null` — const, line 1987
+- `const today = ( <TodayScreen key=` — const, line 2026
+- `const tool = uthToolOfTab(tab, uthToolState)` — const, line 2067
+- `function renderIngest()` — function, line 2092
+- `function renderProposals()` — function, line 2109
+- `function renderRegistry()` — function, line 2125
+- `function renderGolden()` — function, line 2140
+- `function renderMaintain()` — function, line 2163
+- `function renderUthTool(tool: UthToolId)` — function, line 2175
+- `function renderAfterGolden()` — function, line 2206
+- `const shellTree = ( <> <TerminalFrame active=` — const, line 2235
+- `function unique(values: Array<string | null>): string[]` — function, line 2480
 
 ## Who imports or calls it
 
@@ -383,6 +383,7 @@ The workflow note owns end-to-end sequencing; this module note describes only it
 - [apps/learnloop-tauri/src/app/App.wrapUpSkim.test.tsx](../../../../../../apps/learnloop-tauri/src/app/App.wrapUpSkim.test.tsx) — vitest test: imports and executes this module under jsdom (`npm test`).
 - [apps/learnloop-tauri/src/app/App.today.test.tsx](../../../../../../apps/learnloop-tauri/src/app/App.today.test.tsx) — vitest test: imports and executes this module under jsdom (`npm test`).
 - [apps/learnloop-tauri/src/app/App.shell.test.tsx](../../../../../../apps/learnloop-tauri/src/app/App.shell.test.tsx) — vitest test: imports and executes this module under jsdom (`npm test`).
+- [apps/learnloop-tauri/src/app/App.lessonSuggestion.test.tsx](../../../../../../apps/learnloop-tauri/src/app/App.lessonSuggestion.test.tsx) — vitest test: imports and executes this module under jsdom (`npm test`).
 - [apps/learnloop-tauri/src/app/App.fixRound5.test.tsx](../../../../../../apps/learnloop-tauri/src/app/App.fixRound5.test.tsx) — vitest test: imports and executes this module under jsdom (`npm test`).
 - [apps/learnloop-tauri/src/app/App.fixRound4.test.tsx](../../../../../../apps/learnloop-tauri/src/app/App.fixRound4.test.tsx) — vitest test: imports and executes this module under jsdom (`npm test`).
 - [apps/learnloop-tauri/src/app/App.fixRound3.test.tsx](../../../../../../apps/learnloop-tauri/src/app/App.fixRound3.test.tsx) — vitest test: imports and executes this module under jsdom (`npm test`).

@@ -6,8 +6,8 @@ refactor_status: "ACTIVE"
 version: "1.0.0"
 source_paths:
   - "apps/learnloop-tauri/src/screens"
-source_commit: "workspace/uncommitted @ 6965b781cb24500a8665e579bf84b533a9ee1532"
-source_commit_timestamp: "2026-11-02T05:25:31-05:00"
+source_commit: "64a492ab8f1b7b6ad460eeaca30b51a9212e2b96"
+source_commit_timestamp: "2026-11-02T07:09:51-05:00"
 generated: true
 generated_at: "2026-08-18"
 tags:
@@ -53,7 +53,7 @@ Top-level routed workflow screens in the desktop shell.
 | [[Reference/Desktop/TypeScript/screens/KnowledgeStrataView|KnowledgeStrataView.tsx]] | `ACTIVE` | Implements the `KnowledgeStrataView` routed desktop screen and coordinates its learner-facing workflow state. | 3 | 1 |
 | [[Reference/Desktop/TypeScript/screens/KnowledgeTerrainView|KnowledgeTerrainView.tsx]] | `ACTIVE` | Implements the `KnowledgeTerrainView` routed desktop screen and coordinates its learner-facing workflow state. | 3 | 1 |
 | [[Reference/Desktop/TypeScript/screens/KnowledgeWellView|KnowledgeWellView.tsx]] | `ACTIVE` | Implements the `KnowledgeWellView` routed desktop screen and coordinates its learner-facing workflow state. | 5 | 1 |
-| [[Reference/Desktop/TypeScript/screens/LessonScreen|LessonScreen.tsx]] | `ACTIVE` | Implements the `LessonScreen` routed desktop screen and coordinates its learner-facing workflow state. | 5 | 3 |
+| [[Reference/Desktop/TypeScript/screens/LessonScreen|LessonScreen.tsx]] | `ACTIVE` | Implements the `LessonScreen` routed desktop screen and coordinates its learner-facing workflow state. | 5 | 4 |
 | [[Reference/Desktop/TypeScript/screens/LibraryPlace|LibraryPlace.tsx]] | `ACTIVE` | Implements the `LibraryPlace` routed desktop screen and coordinates its learner-facing workflow state. | 9 | 1 |
 | [[Reference/Desktop/TypeScript/screens/LibraryScreen|LibraryScreen.tsx]] | `ACTIVE` | Implements the `LibraryScreen` routed desktop screen and coordinates its learner-facing workflow state. | 12 | 2 |
 | [[Reference/Desktop/TypeScript/screens/MaintenanceScreen|MaintenanceScreen.tsx]] | `ACTIVE` | Implements the `MaintenanceScreen` routed desktop screen and coordinates its learner-facing workflow state. | 8 | 1 |

@@ -10,9 +10,9 @@ area: "TypeScript/app"
 source_path: "apps/learnloop-tauri/src/app/algoConfig.ts"
 source_paths:
   - "apps/learnloop-tauri/src/app/algoConfig.ts"
-source_commit: "e74f3156e03e164ac0619116dd099c4bafc70580"
-source_commit_timestamp: "2026-11-02T02:07:01-05:00"
-source_worktree_state: "staged-or-mixed"
+source_commit: "ea4a3d46738a678115191097be49dad1080acaba"
+source_commit_timestamp: "2026-11-02T06:03:37-05:00"
+source_worktree_state: "clean"
 activation_kind: "entry-reachable build graph"
 activation_evidence: "A static TypeScript import path reaches this file from the Vite entry src/main.tsx."
 generated: true
@@ -47,9 +47,9 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Area | [[Reference/Desktop/TypeScript/app/_area|TypeScript/app]] |
 | Refactor status | `ACTIVE` |
 | Activation kind | `entry-reachable build graph` |
-| Worktree state | `staged-or-mixed` |
-| Source commit | `e74f3156e03e164ac0619116dd099c4bafc70580` |
-| Commit timestamp | `2026-11-02T02:07:01-05:00` |
+| Worktree state | `clean` |
+| Source commit | `ea4a3d46738a678115191097be49dad1080acaba` |
+| Commit timestamp | `2026-11-02T06:03:37-05:00` |
 
 ## Activation and status evidence
 
@@ -117,6 +117,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 - [[Reference/Desktop/TypeScript/screens/practice/HintPanel|src/screens/practice/HintPanel.tsx]] — import-or-re-export: `algoConfig`; references `algoConfig`
 - [[Reference/Desktop/TypeScript/screens/reader/ReaderWorkingPosture|src/screens/reader/ReaderWorkingPosture.tsx]] — import-or-re-export: `algoConfig`; references `algoConfig`
 - [[Reference/Desktop/TypeScript/screens/reader/WrapUpOffer|src/screens/reader/WrapUpOffer.tsx]] — import-or-re-export: `algoConfig`; references `algoConfig`
+- [[Reference/Desktop/TypeScript/screens/today/TodayPlace|src/screens/today/TodayPlace.tsx]] — import-or-re-export: `algoConfig`; references `algoConfig`
 - [[Reference/Desktop/TypeScript/screens/workbench/CheckColumn|src/screens/workbench/CheckColumn.tsx]] — import-or-re-export: `useSymbolicChecksLive`; references `useSymbolicChecksLive`
 - [[Reference/Desktop/TypeScript/screens/workbench/StepHints|src/screens/workbench/StepHints.tsx]] — import-or-re-export: `useSymbolicChecksLive`; references `useSymbolicChecksLive`
 - [[Reference/Desktop/TypeScript/screens/workbench/Workbench|src/screens/workbench/Workbench.tsx]] — import-or-re-export: `algoConfig`; references `algoConfig`

@@ -10,9 +10,9 @@ area: "TypeScript/screens"
 source_path: "apps/learnloop-tauri/src/screens/LessonScreen.tsx"
 source_paths:
   - "apps/learnloop-tauri/src/screens/LessonScreen.tsx"
-source_commit: "9543d8c96d152c822106fe37bff6b8255b118dad"
-source_commit_timestamp: "2026-11-01T23:10:14-05:00"
-source_worktree_state: "staged-or-mixed"
+source_commit: "64a492ab8f1b7b6ad460eeaca30b51a9212e2b96"
+source_commit_timestamp: "2026-11-02T07:09:51-05:00"
+source_worktree_state: "clean"
 activation_kind: "entry-reachable build graph"
 activation_evidence: "A static TypeScript import path reaches this file from the Vite entry src/main.tsx."
 generated: true
@@ -42,14 +42,14 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/screens/LessonScreen.tsx](../../../../../../apps/learnloop-tauri/src/screens/LessonScreen.tsx) |
-| Source lines | 365 |
+| Source lines | 368 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/screens/_area|TypeScript/screens]] |
 | Refactor status | `ACTIVE` |
 | Activation kind | `entry-reachable build graph` |
-| Worktree state | `staged-or-mixed` |
-| Source commit | `9543d8c96d152c822106fe37bff6b8255b118dad` |
-| Commit timestamp | `2026-11-01T23:10:14-05:00` |
+| Worktree state | `clean` |
+| Source commit | `64a492ab8f1b7b6ad460eeaca30b51a9212e2b96` |
+| Commit timestamp | `2026-11-02T07:09:51-05:00` |
 
 ## Activation and status evidence
 
@@ -78,22 +78,22 @@ The system-level behavior stays authoritative in the linked architecture, concep
 - `const existing = ((err?.details ??` — const, line 86
 - `const details = (err?.details ??` — const, line 94
 - `const saved = details.lesson_id ?? details.lessonId` — const, line 95
-- `const lessonId = typeof saved === "string" && saved ? saved : input.lessonId` — const, line 96
-- `let cancelled = false` — let, line 115
-- `const lessonId = view?.lessonId` — const, line 130
-- `const openCheck = view?.openCheck ?? null` — const, line 131
-- `const send = useCallback(async ()` — const, line 139
-- `const text = reply.trim()` — const, line 141
-- `const submitCheck = useCallback(async ()` — const, line 146
-- `const submitPrediction = useCallback(async ()` — const, line 152
-- `const value = predictionAnswer.trim()` — const, line 154
-- `const stop = useCallback(async ()` — const, line 159
-- `const startFresh = useCallback(async ()` — const, line 165
-- `const learningObjectIds = view?.learningObjectIds ?? []` — const, line 166
-- `const feed = useMemo(()` — const, line 171
-- `const title = entry.kind === "open" ? entry.title : undefined` — const, line 172
-- `function FeedEntry(` — function, line 294
-- `const open = item.checkRef === openCheckRef` — const, line 313
+- `const lessonId = typeof saved === "string" && saved ? saved : input.action === "open" ? undefined : input.lessonId` — const, line 99
+- `let cancelled = false` — let, line 118
+- `const lessonId = view?.lessonId` — const, line 133
+- `const openCheck = view?.openCheck ?? null` — const, line 134
+- `const send = useCallback(async ()` — const, line 142
+- `const text = reply.trim()` — const, line 144
+- `const submitCheck = useCallback(async ()` — const, line 149
+- `const submitPrediction = useCallback(async ()` — const, line 155
+- `const value = predictionAnswer.trim()` — const, line 157
+- `const stop = useCallback(async ()` — const, line 162
+- `const startFresh = useCallback(async ()` — const, line 168
+- `const learningObjectIds = view?.learningObjectIds ?? []` — const, line 169
+- `const feed = useMemo(()` — const, line 174
+- `const title = entry.kind === "open" ? entry.title : undefined` — const, line 175
+- `function FeedEntry(` — function, line 297
+- `const open = item.checkRef === openCheckRef` — const, line 316
 
 ## Who imports or calls it
 
@@ -103,6 +103,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 - [[Reference/Desktop/TypeScript/app/App|src/app/App.tsx]] — dynamic import: `LessonEntry`; references `LessonEntry`
 - [[Reference/Desktop/TypeScript/screens/TodayScreen|src/screens/TodayScreen.tsx]] — import-or-re-export: `LessonEntry`; references `LessonEntry`
 - [[Reference/Desktop/TypeScript/screens/today/LessonSuggestionCard|src/screens/today/LessonSuggestionCard.tsx]] — import-or-re-export: `LessonEntry`; references `LessonEntry`
+- [[Reference/Desktop/TypeScript/screens/today/TodayPlace|src/screens/today/TodayPlace.tsx]] — import-or-re-export: `LessonEntry`; references `LessonEntry`
 
 ## Dependencies
 

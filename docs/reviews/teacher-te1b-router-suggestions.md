@@ -30,19 +30,22 @@ rebuild it from main's then-current head, which will hold 235).
 | Start opens a TE1 lesson with `origin = 'router'`, `origin_ref` = the decision id, under the lesson id its response recorded (refused unless that response exists; a second Start resumes the lesson); the receipt's `origin` is the decision id (§8.3) | `teacher/service.py` |
 | The intention-to-treat outcome of every suggestion decision (shown or not) on the drawn LO's `R_cold`, in the one `router_outcomes` replayer | `router/outcomes.py` |
 | `lesson.suggestion` (the day's card, no model call) and `lesson.suggestion_respond`; `lesson.turn` `open` takes `origin = "router_suggestion"`, `suggestion_decision_id` and `lesson_id`; desktop only; `teacher.suggestions` in the UI config (absent while off) | `learnloop_sidecar/handlers/lesson.py`, `learnloop_sidecar/context.py` |
-| The Today card (Start, up to two alternatives, Not now; a section in the page, never a dialog), shown above the plan or the list only while `teacher.suggestions` is on; Start opens the lesson screen with the suggestion's ids | `apps/learnloop-tauri/src/screens/today/LessonSuggestionCard.tsx`, `screens/TodayScreen.tsx`, `screens/LessonScreen.tsx`, `app/App.tsx`, `app/algoConfig.ts`, `api/client.ts`, `api/dto.ts`, `src-tauri/src/{commands,main}.rs` |
+| The Today card (Start, up to two alternatives, Not now; a section in the page, never a dialog), shown in the default shell's Today (`TodayPlace`, Codex review F1) and the classic `TodayScreen`, only while `teacher.suggestions` is on; Start opens the lesson screen with the suggestion's ids | `apps/learnloop-tauri/src/screens/today/LessonSuggestionCard.tsx`, `screens/TodayScreen.tsx`, `screens/LessonScreen.tsx`, `app/App.tsx`, `app/algoConfig.ts`, `api/client.ts`, `api/dto.ts`, `src-tauri/src/{commands,main}.rs` |
 | Generated references (DB, config, desktop) regenerated; validators' pins moved (schema head 236; 370 table notes; 1121 config leaves; 308 TS sources) | `docs/learnloop-architecture-vault/` |
 
 ## How it works (the decisions taken here)
 
 1. **Candidates** (`instruct(lesson)`, one LO each, §15.1's three reasons): an LO on an active goal with no
    attempt (`new_goal`); an LO whose two latest cold attempts (AD's cold types, unprimed, unhinted, graded) were
-   both not right (`cold_failing`); an attempted LO whose mastery-model predicted success is below adaptive
-   difficulty's own `calibrate_below` (`below_band`: AD's "well below", reused, not a new number). An LO with an
+   both not right (`cold_failing`); an attempted LO that adaptive difficulty's posterior predicts below its practice
+   band (`below_band`, `adaptive_difficulty.readiness.band_positions`: the LO's main cell tested, AD's own
+   out-of-band rule `max P_band < calibrate_below` over its commission points, and even the easiest point's expected
+   success under the band's lower edge; Codex review F6). An LO with an
    open lesson, or taught by a lesson since its last attempt, is left out (listed on the row's exclusions).
 2. **The acceptance model** `P(accept) = σ(h·θ)`: intercept; time of day as sin/cos; the share of a lesson that fits
-   in the plan's minutes left (`min(left, 15)/15 − 1`); re-entry; the reason (two indicators); a suggestion shown
-   within the last day (`min(days, 1) − 1`); and for a declined goal `−D · g_R(d)`, `g_R(d) = max(0, 1 −
+   in the plan's minutes left (`min(left, 15)/15 − 1`); re-entry; the reason (two indicators); the days since the
+   last suggestion (`1/(1 + 1) − 1/(1 + d)`: 0 at the seeded one-a-day cadence, every gap its own value; Codex review
+   F7); and for a declined goal `−D · g_R(d)`, `g_R(d) = max(0, 1 −
    log(1+d)/log(1+R))`, with the recovery `R` on a grid. Every context feature is 0 at the reference context, so
    the seeds are the reference context's.
    **Seeded priors (`suggestion_priors_v1`, basis `legacy`, every effect N(·, 1²)):** the intercept is centred
@@ -58,21 +61,32 @@ rebuild it from main's then-current head, which will hold 235).
    `epsilon_min` floor each; then the card shows with the drawn candidate's `P(accept)`. Shown or not, ONE
    `lesson_suggestion` decision is written (receipt key `lesson_suggestion:<date>`: at most one a day), with the
    candidates' `pi`, `p_accept`, `room`, `value` and inputs, the seed, the snapshot hash, the model summary, the
-   card hash, and the exact propensity of what happened (`π(c)·P(c)` shown, `Σ π(i)(1 − P(i))` no card). So
+   card hash, and the exact joint probability of the drawn target and the arm (`π(c)·P(c)` shown, `π(c)·(1 − P(c))`
+   no card: the outcome is the drawn target's, so the propensity is too; `pi_drawn` and `arm_propensity` are on the
+   detail, the aggregate `p_no_card` only for the report; Codex review F3), and the predeclared outcome scope
+   (`target_scope`: the target and the up-to-two candidates the card offers, or would offer, beside it). So
    suggestions come as often as they are predicted to be taken, and a "Not now" mutes that goal as long as the
    recovery posterior says, with no quota and no fixed mute length.
 4. **The ceiling** (`keep`, 3): a draw it binds shows no card and is logged with `ceiling.bound` (deterministic
-   propensity). Since the card is drawn at most once a day (§19), it binds only if the owner sets it to 0 or the
+   propensity of the arm; the row's propensity is the drawn target's `π`). Since the card is drawn at most once a day
+   (§19), it binds only if the owner sets it to 0 or the
    one-a-day rule is relaxed: see ruling 2.
 5. **Responses.** `accepted` / `chose_alternative` (with the candidate) / `declined`, once per decision (the same
    response again is idempotent; another is refused). A Start records the lesson id first, so the lesson row and
-   the response name each other even if the teacher call then fails (the lesson resumes on the id). A card left
-   unanswered is recorded `ignored` by the next day's first suggestion step.
+   the response name each other. If the opening then fails before the lesson is saved (the teacher's client
+   unavailable) or the app stops in between, the day's card offers that one lesson again (`pending_lesson`, "Open
+   the lesson") under the recorded id, and the lesson screen repeats the idempotent open: it resumes only on the
+   sidecar's own saved-lesson id (Codex review F2). A card left unanswered is recorded `ignored` by the next day's
+   first suggestion step. The day's responses in the router card's 7-day window are preference lines on the
+   learner-state card ("not now on X", section `lesson_suggestions`, card version `+te1b` while present; Codex
+   review F5).
 6. **The outcome** (§15.1's "lesson value on R_cold", logged for the router's 200-decision DR estimate, no switch
    claimed): per suggestion decision, shown or not, the first eligible cold retrieval on the drawn LO at least a
    day after both the decision and the last exposure (a lesson's reveal rows are exposures), `S = R_cold`,
-   `action_status` the learner's response (`taken` / `not_taken` / `open`; `not_applicable` with no card). A
-   suggestion decision never supersedes a plan block's outcome.
+   `action_status` the learner's response (`taken` / `not_taken` / `open`; `not_applicable` with no card). The
+   detail also records `R_cold` on every LO of the predeclared scope, marking the one the learner took, so an
+   accepted alternative's delayed check reaches its decision without replacing the ITT target (Codex review F4).
+   A suggestion decision never supersedes a plan block's outcome.
 7. **The kill switch.** Off (`router.lesson_suggestions.enabled`, or `router.enabled`, `router.log_decisions` or
    `teacher.enabled` off), or below the tag: `lesson.suggestion` returns `null` and writes nothing (every table
    byte-identical, tested), `lesson.suggestion_respond` refuses, the UI config has no `teacher.suggestions` and
@@ -94,8 +108,8 @@ rebuild it from main's then-current head, which will hold 235).
    end is reliably recorded on the desktop: closing the app ends none).
 4. **The lesson row keeps TE1's `origin = 'router'`** (migration 234's CHECK; no rebuild of a protected ledger)
    with `origin_ref` = the decision id; the API names the origin `router_suggestion`.
-5. **The router card's preference line** ("not now on X, Oct 24", §15.1 logging) is not built: it changes the
-   learner-state card the models read (a card-version decision under the playbook). Open item below.
+5. ~~The router card's preference line is not built~~: built in the Codex fix round (F5), as an evidence section
+   present only with answers in the card's 7-day window, the card version suffixed `+te1b` while present.
 
 ## Gate (this step; the full suite runs once, in the landing gate)
 
@@ -153,7 +167,6 @@ composing `TE1_AND_TE1B_*`, `tests/test_teacher_te1_successor.py`, `tests/test_r
 
 ## Open items
 
-- The preference line on the router card (ruling 5).
 - The router report (`learnloop router report`) does not yet print the suggestion decisions' ITT split; the rows
   and outcomes are logged for it.
 - At the landing: renumber the tag after follow-ups Nov 2's mvp-0.42 (`PREDECESSOR` and the chain), migration 236

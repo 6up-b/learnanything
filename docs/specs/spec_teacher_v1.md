@@ -1251,7 +1251,11 @@ in `router_outcomes`. The acceptance model is §15.1's (seeded at about one a da
 `legacy`, 1 logit per effect, the recovery on a grid), replayed from the response ledger. Start opens a TE1 lesson with
 `origin = 'router'` and the decision id. Rulings asked in the review: the draw is the staged component alone (no model
 asked about lesson candidates), one card a day with the ceiling logged, `ignored` at the next day's step, and the
-router card's preference line deferred.
+router card's preference line deferred. *Codex fix round:* the card is in the default shell's Today; the row's
+propensity is the joint probability of the drawn target and the arm; the outcome records `R_cold` over a predeclared
+scope (the target and its alternatives) with the taken entry marked; `below_band` is adaptive difficulty's out-of-band
+rule on `P_band`; the days-since-last-suggestion feature keeps every gap; the preference line is built (section
+`lesson_suggestions`, card version `+te1b`); an accepted Start whose lesson never opened stays on the card.
 
 ---
 
