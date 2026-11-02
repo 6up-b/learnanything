@@ -250,8 +250,8 @@ With the fixes all five pass.
 
 | id | severity | title | verdict | commit | test or reason |
 |---|---|---|---|---|---|
-| F3 | High | A reveal write failure is swallowed, so a turn is accepted with zero reveals | fixed (R2) | step 0 | `test_r3_f3_a_failed_reveal_write_leaves_the_turn_unaccepted` |
-| F4 | High | Saved `read_history` results for an item held out mid-lesson are resent | fixed structurally (R1) | step 0 | `test_r3_f4_a_lesson_whose_protection_changed_ends_without_another_call`, `test_r3_f4_protection_changing_before_a_read_follow_up_ends_the_lesson`, `test_r3_f4_an_item_held_out_after_its_history_was_read_ends_the_lesson`, `test_r3_f4_unreadable_protection_ends_the_lesson`; `test_rr_f4_nothing_revoked_leaves_the_prompt_unchanged` kept |
+| F3 | High | A reveal write failure is swallowed, so a turn is accepted with zero reveals | fixed (R2) | `9543d8c96d` | `test_r3_f3_a_failed_reveal_write_leaves_the_turn_unaccepted` |
+| F4 | High | Saved `read_history` results for an item held out mid-lesson are resent | fixed structurally (R1) | `9543d8c96d` | `test_r3_f4_a_lesson_whose_protection_changed_ends_without_another_call`, `test_r3_f4_protection_changing_before_a_read_follow_up_ends_the_lesson`, `test_r3_f4_an_item_held_out_after_its_history_was_read_ends_the_lesson`, `test_r3_f4_unreadable_protection_ends_the_lesson`; `test_rr_f4_nothing_revoked_leaves_the_prompt_unchanged` kept |
 | F16 | Medium | Resume can make one extra follow-up call after a completed help action (`_owes_followup` treats `check_withdrawn` as an action boundary) | ruled Low (R3), queued follow-up | none | R3: one extra plan call, metered calls stay under the lesson cap, no evidence or exposure effect |
 
 ### What changed
