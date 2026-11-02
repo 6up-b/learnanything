@@ -562,3 +562,130 @@ def test_f13_a_withdrawn_check_censors_its_forecast(tmp_path):
     rows = [resolution for receipt, resolution in resolved_receipts(load_vault(paths.root))
             if receipt["kind"] == "lesson_check_correct"]
     assert rows and rows[0]["state"] == "censored" and rows[0]["reason"] == "check_withdrawn"
+
+
+# --- Re-review (docs/reviews/teacher-te1-first-lesson-codex-review.md, "Re-review") ----------------------
+
+PASSAGE = "The eigenvalues of A are the roots of the characteristic equation det(A - tI) = 0."
+PASSAGE_WORDS = "roots of the characteristic equation"
+READ_LAY = {"message": "Let me read.", "requests": [{"action": "read_source", "refs": ["ext_lay/lay_char"]}]}
+
+
+def _down(_context):
+    from learnloop.ai.errors import AIProviderUnavailable
+
+    raise AIProviderUnavailable("the plan is down")
+
+
+def test_rr_f1_a_reservation_is_durable_before_the_request_and_outlives_a_crash(tmp_path, monkeypatch):
+    seen: dict[str, Any] = {}
+
+    def at_send(_context):
+        # Inside the physical request (after admission): the reservation is already on disk.
+        seen["reserved"] = _rows(repository, "SELECT COUNT(*) FROM lesson_turns WHERE action = 'spend_reserved'")
+        return {"message": "One."}
+
+    paths, repository, fake, lesson_id, cap = _metered(tmp_path, [at_send], cap_factor=1.5)
+    before = _rows(repository, "SELECT COUNT(*) FROM lesson_turns WHERE action = 'spend_reserved'")[0][0]
+    real = S._append
+
+    def dies_before_settling(repository_, state, *, action, **kwargs):
+        if action == "spend":
+            raise KeyboardInterrupt("the process died after the request was sent")
+        return real(repository_, state, action=action, **kwargs)
+
+    monkeypatch.setattr(S, "_append", dies_before_settling)
+    with pytest.raises(KeyboardInterrupt):
+        _turn(paths, repository, lesson_id, fake)
+    monkeypatch.setattr(S, "_append", real)
+    # After the restart the unsettled request still counts at its reservation: one more request would pass the
+    # cap, so it is refused before it is sent and the lesson closes with ``budget``.
+    sent = len([1 for purpose, _p in fake.prompts if purpose == "teacher_turn"])
+    fake.turns = [{"message": "Two."}]
+    view = _turn(paths, repository, lesson_id, fake, text="still there?")
+    assert view["closed"] and view["close_reason"] == "budget"
+    assert len([1 for purpose, _p in fake.prompts if purpose == "teacher_turn"]) == sent
+    receipt = json.loads(_rows(repository, "SELECT receipt_json FROM lesson_receipts")[0][0])
+    assert receipt["cost"]["metered_usd"] > sum(row["usd"] for row in _spend(repository))
+    assert seen["reserved"] == [(before + 1,)]
+
+
+def test_rr_f1_a_settled_request_replaces_its_reservation(tmp_path):
+    paths, repository, fake, lesson_id, _cap = _metered(tmp_path, [{"message": "One."}], cap_factor=10.0)
+    _turn(paths, repository, lesson_id, fake)
+    state = S.load_state(repository, lesson_id)
+    assert S._spent_usd(state) == pytest.approx(sum(row["usd"] for row in _spend(repository)))
+    reserved = _rows(repository, "SELECT COUNT(*) FROM lesson_turns WHERE action = 'spend_reserved'")[0][0]
+    assert reserved == len(_spend(repository)) == 2
+    assert all(row.get("reservation") for row in _spend(repository))
+
+
+def test_rr_f4_a_saved_plan_copying_a_now_held_out_passage_is_not_resent(tmp_path):
+    from tests.section_coverage_fixtures import hold_out
+
+    plan = {"message": "Here is the map.", "requests": [{"action": "write_plan", "plan": [
+        {"id": "n1", "statement": PASSAGE, "lo_id": "lo_eigen", "anchors": [], "premises": []}]}]}
+    paths, repository, fake, view = _open(tmp_path, [READ_LAY, plan])
+    hold_out(repository, "lay_char")
+    fake.turns = [{"message": "ok"}]
+    _turn(paths, repository, view["lesson_id"], fake)
+    assert PASSAGE_WORDS not in fake.prompts[-1][1]
+    assert fake.contexts[-1]["plan"][0]["statement"] == S.WITHDRAWN
+
+
+def test_rr_f4_an_uncited_copy_open_check_and_prediction_are_not_resent(tmp_path):
+    from tests.section_coverage_fixtures import hold_out
+
+    copy = {"message": f"Remember: {PASSAGE}", "prediction": {"node": "n1", "prompt": f"Will this hold? {PASSAGE}"}}
+    paths, repository, fake, view = _open(tmp_path, [READ_LAY, copy])
+    fake.turns = [check_turn(solution=PASSAGE, message="Now try one.")]
+    _turn(paths, repository, view["lesson_id"], fake, text="sure")
+    hold_out(repository, "lay_char")
+    fake.turns = [{"message": "ok"}]
+    _turn(paths, repository, view["lesson_id"], fake, text="hmm")
+    assert PASSAGE_WORDS not in fake.prompts[-1][1]
+    context = fake.contexts[-1]
+    assert context["open_check"]["check"]["committed_solution"] == S.WITHDRAWN
+    assert context["open_prediction"]["prompt"] == S.WITHDRAWN
+
+
+def test_rr_f4_nothing_revoked_leaves_the_prompt_unchanged(tmp_path):
+    paths, repository, fake, view = _open(tmp_path, [READ_LAY, {"message": f"Remember: {PASSAGE}"}])
+    fake.turns = [{"message": "ok"}]
+    _turn(paths, repository, view["lesson_id"], fake)
+    assert PASSAGE_WORDS in json.dumps(fake.contexts[-1]["transcript"])
+
+
+def test_rr_f14_resume_runs_a_read_follow_up_an_outage_interrupted(tmp_path):
+    paths, repository, fake, view = _open(tmp_path, [{"message": "Hello."}])
+    fake.turns = [READ_LAY, _down]
+    with pytest.raises(S.LessonError):
+        _turn(paths, repository, view["lesson_id"], fake)
+    calls = len(fake.contexts)
+    fake.turns = [{"message": "I read it.", "requests": [{"action": "read_source", "refs": ["ext_book/ch_det"]}]}]
+    resumed = _turn(paths, repository, view["lesson_id"], fake, action="resume", text=None)
+    assert len(fake.contexts) == calls + 1
+    assert PASSAGE_WORDS in json.dumps(fake.contexts[-1]["results"])
+    assert resumed["feed"][-1]["text"] == "I read it."
+    # The resumed call is the follow-up: its own reads ride with the next learner action (one further call).
+    assert len(fake.contexts) == calls + 1
+    assert _rows(repository, "SELECT COUNT(*) FROM lesson_turns WHERE action = 'read_source'") == [(2,)]
+    # Nothing waits any more.
+    _turn(paths, repository, view["lesson_id"], fake, action="resume", text=None)
+    assert len(fake.contexts) == calls + 1
+
+
+def test_rr_f15_resume_keeps_the_pending_help_mode(tmp_path):
+    solution = "the roots of det(A - tI) = 0"
+    paths, repository, fake, view = _open(tmp_path, [plan_turn, check_turn(solution=solution)])
+    _turn(paths, repository, view["lesson_id"], fake)
+    fake.turns = [_down]
+    with pytest.raises(S.LessonError):
+        _turn(paths, repository, view["lesson_id"], fake, text="help?")
+    fake.turns = [{"message": f"Here it is: {solution}."}]
+    resumed = _turn(paths, repository, view["lesson_id"], fake, action="resume", text=None)
+    assert fake.contexts[-1]["help_reply"] is True
+    assert resumed["open_check"] is None and not resumed["closed"]
+    assert _rows(repository, "SELECT COUNT(*) FROM lesson_turns WHERE action = 'check_withdrawn'") == [(1,)]
+    assert _rows(repository, "SELECT validation FROM lesson_turns WHERE action = 'teacher_turn' ORDER BY seq")[-1] \
+        == ("ok",)
