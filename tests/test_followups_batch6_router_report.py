@@ -1,6 +1,6 @@
-"""Follow-ups batch 6 (G2): ``learnloop router report``, teacher TE1b's ITT split.
+"""Follow-ups batch 6 (G2): ``learnloop router report``, teacher TE1b's split by randomized arm.
 
-The lesson-suggestion decisions' intention-to-treat split by arm (card shown or not): offered,
+The lesson-suggestion decisions by randomized arm (card shown or not): offered,
 accepted, opened, completed, and R_cold on the drawn topic, weighted by the logged arm propensity,
 read-only from the ledgers.
 
@@ -56,21 +56,23 @@ def test_the_split_weights_each_arm_by_its_logged_propensity():
     w1, w2, w3 = 1 / 0.8, 1 / 0.5, 1 / 0.9
     assert card["weighted_rates"]["taken"] == round((w1 + w2) / (w1 + w2 + w3), 6)
     assert card["weighted_rates"]["opened"] == round(w1 / (w1 + w2 + w3), 6)
-    assert card["outcome"] == {"observed": 2, "pending": 2, "weighted_mean_r_cold": round(w1 / (w1 + w3), 6)}
+    assert card["outcome"] == {"observed": 2, "pending": 2, "observed_share": 0.5,
+                               "weighted_mean_r_cold": round(w1 / (w1 + w3), 6)}
     w4, w5 = 1 / 0.2, 1 / 0.1
     assert none["outcome"]["weighted_mean_r_cold"] == round(w5 / (w4 + w5), 6)
     assert none["funnel"] == {"offered": 0, "accepted": 0, "opened": 0, "completed": 0}
-    assert split["itt_difference_r_cold"] == round(round(w1 / (w1 + w3), 6) - round(w5 / (w4 + w5), 6), 6)
+    assert split["observed_difference_r_cold"] == round(round(w1 / (w1 + w3), 6) - round(w5 / (w4 + w5), 6), 6)
     text = "\n".join(SR.lines(split))
-    assert "card shown: 4" in text and "no card: 2" in text and "ITT difference in R_cold" in text
+    assert "card shown: 4" in text and "no card: 2" in text and "among observed outcomes only" in text
     assert "(1 without a logged arm propensity, unweighted)" in text
 
 
 def test_an_empty_ledger_reports_zeros_and_no_difference():
     split = SR.itt_split([], [], [], {}, {})
-    assert split["decisions"] == 0 and split["itt_difference_r_cold"] is None
+    assert split["decisions"] == 0 and split["observed_difference_r_cold"] is None
     assert split["arms"]["card"]["weighted_rates"] == {"taken": None, "opened": None, "completed": None}
-    assert SR.lines(split)[-1].startswith("ITT difference in R_cold (card - no card): - (an arm has no observed")
+    assert SR.lines(split)[-1].startswith(
+        "Difference in mean R_cold among observed outcomes only (card - no card): - (an arm has no observed")
 
 
 # --- (2) the ITT split: `learnloop router report` on logged decisions ------------------------------------

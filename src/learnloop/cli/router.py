@@ -192,9 +192,10 @@ def router_report(
     vault: Annotated[Path, typer.Option("--vault", help="Vault root (read-only).")],
     json_output: Annotated[bool, typer.Option("--json")] = False,
 ) -> None:
-    """Lesson suggestions (teacher TE1b): the intention-to-treat split by arm (card shown or not):
-    offered, accepted, opened, completed, and R_cold on the drawn topic, weighted by the logged arm
-    propensity (read-only; no model call)."""
+    """Lesson suggestions (teacher TE1b) by randomized arm (card shown or not): offered, accepted,
+    opened and completed over every decision (intention to treat), and the mean R_cold on the drawn
+    topic among outcomes observed so far (descriptive, not an ITT estimate), weighted by the logged
+    arm propensity (read-only; no model call)."""
 
     from learnloop.db.stores import router_suggestions
     from learnloop.router.outcomes import derive_router_outcomes, servable_items_by_learning_object

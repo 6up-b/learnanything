@@ -1184,8 +1184,8 @@
     "sha256": "2ff2b2944e521a70cdeb67167d28ceb42435dcc13c400bde5e3f7f2891691a2c"
   },
   "router": {
-    "bytes": 2514,
-    "sha256": "9518c92ecab9c88b44e6438a93f1f4a0c3cf78d948616d3841589aea00330203"
+    "bytes": 2684,
+    "sha256": "b8ec35c06beccb6985b197c3f99fce0de49cdb4369b8a353a1642b525258aba7"
   },
   "router card": {
     "bytes": 1376,
@@ -1200,8 +1200,8 @@
     "sha256": "b7d83a953bd8a13c55fee2f8af55c7c4ccdec01030ebb8d1ed7b5a9cb5943a3e"
   },
   "router report": {
-    "bytes": 1287,
-    "sha256": "a6cdb51f68a1b5f5da6805e2e8f267fbba53bc5e5d6a4236416ed5b99743047a"
+    "bytes": 1449,
+    "sha256": "1c6221b7c4ebc1ff3c5c11e3950a77b0f875b4e617024735b70cbd63e721fd67"
   },
   "scoreboard": {
     "bytes": 3216,

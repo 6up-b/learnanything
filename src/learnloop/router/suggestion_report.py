@@ -1,9 +1,18 @@
-"""Teacher TE1b's lesson suggestions: the intention-to-treat split (``learnloop router report``).
+"""Teacher TE1b's lesson suggestions by randomized arm (``learnloop router report``).
 
 Follow-ups batch 6 (G2; TE1b open item): every ``lesson_suggestion`` decision, shown or not, by its
 randomized arm (``card``: the card was shown; ``no_card``: it was drawn and not shown), with the
-funnel the card arm went through (offered, accepted, opened, completed) and the predeclared ITT
-outcome (the drawn LO's first eligible cold retrieval, ``router.outcomes``' ``S = R_cold``).
+funnel the card arm went through (offered, accepted, opened, completed: rates over every decision
+of the arm, intention to treat) and the predeclared outcome (the drawn LO's first eligible cold
+retrieval, ``router.outcomes``' ``S = R_cold``).
+
+Codex review F3: the R_cold figures are descriptive, among the outcomes observed so far. An
+accepted lesson adds exposures that can delay the drawn LO's eligible cold retrieval, so which
+decisions have an outcome yet can depend on the arm; weighting by the arm propensity does not
+correct that selection. Their difference (``observed_difference_r_cold``) is therefore never
+called an ITT estimate: each arm's observed share is reported beside it, and a causal estimate
+would need an explicit treatment of the pending outcomes (censoring), which this report does not
+claim.
 
 Pure: the caller reads the logged ledgers (the decisions, the response ledger, the lessons and the
 outcomes derived from them) and passes them in; nothing here reads a database, calls a model or
@@ -97,6 +106,10 @@ def itt_split(decisions: Iterable[Mapping[str, Any]], responses: Iterable[Mappin
             "outcome": {
                 "observed": sum(entry["observed"] for entry in entries),
                 "pending": sum(not entry["observed"] for entry in entries),
+                # Codex review F3: the share of the arm's decisions with an outcome yet (it can
+                # differ by arm), beside a mean taken among those only.
+                "observed_share": round(sum(entry["observed"] for entry in entries) / len(entries), 6)
+                if entries else None,
                 "weighted_mean_r_cold": _hajek((entry["weight"], entry["s"]) for entry in weighted
                                                if entry["observed"]),
             },
@@ -106,15 +119,17 @@ def itt_split(decisions: Iterable[Mapping[str, Any]], responses: Iterable[Mappin
         "decisions": sum(arms[arm]["decisions"] for arm in ARMS),
         "weights": "1 / P(arm | drawn target), Hajek",
         "arms": arms,
-        "itt_difference_r_cold": round(card - none, 6) if card is not None and none is not None else None,
+        # Codex review F3: among observed outcomes only (descriptive; not an ITT estimate).
+        "observed_difference_r_cold": round(card - none, 6) if card is not None and none is not None else None,
     }
 
 
 def lines(split: Mapping[str, Any]) -> list[str]:
     """The split in plain words (the text report)."""
 
-    out = [f"Lesson suggestions (teacher TE1b): {split['decisions']} decisions, intention to treat by arm "
-           f"(rates weighted by {split['weights']}; raw counts beside them)."]
+    out = [f"Lesson suggestions (teacher TE1b): {split['decisions']} decisions by randomized arm; funnel rates "
+           f"over every decision of the arm (intention to treat), weighted by {split['weights']}; raw counts beside "
+           f"them."]
     for arm in ARMS:
         row = split["arms"][arm]
         funnel, rates, outcome, said = row["funnel"], row["weighted_rates"], row["outcome"], row["responses"]
@@ -134,13 +149,14 @@ def lines(split: Mapping[str, Any]) -> list[str]:
                 f"set aside {said['expired']}.")
         else:
             out.append(f"- no card: {row['decisions']} (mean P(arm) {row['mean_arm_propensity'] or '-'}).")
-        out.append(f"  R_cold on the drawn topic: observed {outcome['observed']}, pending {outcome['pending']}, "
-                   f"weighted mean {'-' if mean is None else f'{mean:.2f}'}."
+        out.append(f"  R_cold on the drawn topic: observed {outcome['observed']} of {row['decisions']}, pending "
+                   f"{outcome['pending']}; weighted mean among observed {'-' if mean is None else f'{mean:.2f}'}."
                    + (f" ({row['unweighted']} without a logged arm propensity, unweighted)" if row["unweighted"] else ""))
-    difference = split["itt_difference_r_cold"]
-    out.append("ITT difference in R_cold (card - no card): "
+    difference = split["observed_difference_r_cold"]
+    out.append("Difference in mean R_cold among observed outcomes only (card - no card): "
                + ("- (an arm has no observed outcome yet)" if difference is None else f"{difference:+.2f}")
-               + ". A report only: no switch is claimed.")
+               + ". Descriptive, not an intention-to-treat estimate: an accepted lesson can delay its topic's "
+               "cold check, so which outcomes are in yet can differ by arm. A report only: no switch is claimed.")
     return out
 
 
