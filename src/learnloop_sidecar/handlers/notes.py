@@ -86,8 +86,10 @@ def prompt_contract_fields(vault: Any) -> dict[str, Any]:
 
 def queue_note_gaps(ctx: SidecarContext, vault: Any, repository: Any) -> int:
     """Curriculum C5: queue the linked notes' current snapshots for the gap pipeline and
-    wake its worker (no model call here). Switched off it reads no note row and queues
-    nothing; a failure never fails the learner's act."""
+    wake its worker (no model call here); follow-ups Nov 2: first set aside the gaps read
+    from a note no longer linked (``jobs.retract_unlinked_notes``). Switched off it reads
+    no note row, queues nothing and sets nothing aside; a failure never fails the
+    learner's act."""
 
     try:
         from learnloop.diagnosis.text_gaps.jobs import enqueue_learner_notes
@@ -362,8 +364,9 @@ def notes_decide(ctx: SidecarContext, params: DecideInput) -> dict[str, Any]:
         out = NL.decide(vault, repository, params.link_id, params.choice)
     except NL.NotesError as exc:
         raise _error(exc) from exc
-    if params.choice == "keep":
-        queue_note_gaps(ctx, vault, repository)  # a hidden link is never queued (C5)
+    # C5: a kept link's note is queued again; a hidden link is never queued, and
+    # (follow-ups Nov 2) the gaps read from a note no longer linked are set aside.
+    queue_note_gaps(ctx, vault, repository)
     return versioned(out)
 
 

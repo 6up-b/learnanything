@@ -37,6 +37,31 @@ at S0's checkpoint (D6). Rebuilding the head for a new migration keeps the
 sanitized content: apply the migration to a backup-API copy of this fixture,
 as before.
 
+## Follow-ups Nov 2 (migration 235), branch `fix/followups-nov2`, 2026-11-02
+
+Renamed from `migration_head_231` on the follow-ups branch
+(`docs/reviews/followups-nov2.md`). Rebuilt from main's tracked, sanitized
+`migration_head_231/state.sqlite` (main `67c05ed37c`): a backup-API copy under
+`fixtures-local/` with only `235_learner_gap_unlinked_reversal.sql` applied
+through `learnloop.db.migrate.apply_migrations` under the scratch-copy
+allowance (`UPGRADE_SCRATCH_COPY`), then `wal_checkpoint(TRUNCATE)` (0, 0, 0),
+`journal_mode=DELETE` (header bytes 1/1), `integrity_check` ok and
+`foreign_key_check` empty, and copied into place with the backup API, with no
+companion files. The head holds 229, 230, 231 and 235 (232 and 233 are claimed
+by RW5d P3 and curriculum C2b in parallel; the runner is set-based).
+
+* 235 adds no object: it rebuilds `learner_text_gap_reversals` in place
+  (temp-then-rename under `PRAGMA foreign_keys = OFF`, the FK-safe precedent of
+  208, 212 and 231), whose `reversal` CHECK gains `unlinked` (C5 ruling R2: a
+  gap read from a note that is no longer linked is set aside); the same
+  columns, key, foreign key and append-only triggers, every row and id kept
+  (this fixture holds no reversal).
+
+Against main's 231 head only that definition changed and only
+`schema_migrations` gained a row (235); every table's rows are identical, so
+the sanitized content carries over (every companion file is byte-identical to
+main's).
+
 ## Curriculum C5 (migration 231), branch `curriculum/c5-notes-as-learner-text`, 2026-11-01
 
 Renamed from `migration_head_230` at C5's landing

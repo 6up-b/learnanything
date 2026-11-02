@@ -15,7 +15,7 @@ table_count: 360
 generated: true
 source_paths:
   - "src/learnloop/db/table_roles.py"
-  - "fixtures/migration_head_231/state.sqlite"
+  - "fixtures/migration_head_235/state.sqlite"
   - "migrations/"
   - "tests/test_table_roles.py"
   - "tests/test_migrations.py"
