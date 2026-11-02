@@ -3,13 +3,13 @@ title: "source_document_blocks"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "20be0dd94c5a9dc770e856350be058ccc5f655b9"
-source_commit_timestamp: "2026-11-01T19:52:51-05:00"
+source_commit: "5dacdf7873b877931172950dc16421f7a375c1d3"
+source_commit_timestamp: "2026-11-01T22:21:31-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite source_document_blocks"
   - "table source_document_blocks"
-schema_head: 231
+schema_head: 233
 table_name: "source_document_blocks"
 table_role: "raw_ledger"
 functionality_status: "active"
@@ -118,6 +118,7 @@ Database triggers:
 - `src/learnloop/db/stores/source_service.py`
 - `src/learnloop/experiments/contextual_embeddings/system_arms.py`
 - `src/learnloop/source_retrieval/evaluation.py`
+- `src/learnloop/source_retrieval/vault_notes.py`
 
 ### Direct SQL writers
 
@@ -153,6 +154,7 @@ Database triggers:
 ## Tests that define behavior
 
 - `tests/ad_ingest_fakes.py`
+- `tests/notes_fixtures.py`
 - `tests/test_ad_guard.py`
 - `tests/test_ad_protected_tables.py`
 - `tests/test_compare_sources_keep.py`
@@ -171,7 +173,6 @@ Database triggers:
 - `tests/test_reader_ca3_compare_anywhere.py`
 - `tests/test_reader_ca3_landing_ca5a.py`
 - `tests/test_reader_ca4_table_by_point.py`
-- `tests/test_reader_followups_rereview.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

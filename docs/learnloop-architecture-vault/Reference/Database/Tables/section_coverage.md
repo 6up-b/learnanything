@@ -3,13 +3,13 @@ title: "section_coverage"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "20be0dd94c5a9dc770e856350be058ccc5f655b9"
-source_commit_timestamp: "2026-11-01T19:52:51-05:00"
+source_commit: "5dacdf7873b877931172950dc16421f7a375c1d3"
+source_commit_timestamp: "2026-11-01T22:21:31-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite section_coverage"
   - "table section_coverage"
-schema_head: 231
+schema_head: 233
 table_name: "section_coverage"
 table_role: "workflow"
 functionality_status: "active"
@@ -132,6 +132,7 @@ None found by exact static reference scan.
 - `tests/test_deliverable_scope.py`
 - `tests/test_notes_as_learner_text.py`
 - `tests/test_notes_linked.py`
+- `tests/test_notes_vault_search.py`
 - `tests/test_reader_ca5_also_in_books.py`
 - `tests/test_reader_ca5a_find_section.py`
 - `tests/test_reader_ca6_side_by_side.py`

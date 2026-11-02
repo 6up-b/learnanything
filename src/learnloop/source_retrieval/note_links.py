@@ -199,15 +199,23 @@ class NotesGuard:
         self._coverage: SC.CoverageGuard | None = None
         self._outer = active_request_gate()
         self._lock = threading.Lock()
+        #: The candidate notes one judgment sends (:meth:`with_coverage`), checked for protection.
+        self._notes: tuple[str, ...] = ()
+        self._repository: Repository | None = None
         #: Why the run may send or record nothing more (None: it may).
         self.changed: str | None = None
 
-    def with_coverage(self, library: SC.Library, keys: Iterable[tuple[str, str]]) -> "NotesGuard":
+    def with_coverage(self, library: SC.Library, keys: Iterable[tuple[str, str]], *,
+                      notes: Sequence[str] = ()) -> "NotesGuard":
         """The same authorization composed with one judgment's protection check over
-        ``keys``: both judged on one published snapshot (Codex re-review F2)."""
+        ``keys``: both judged on one published snapshot (Codex re-review F2). ``notes``: the
+        candidate notes the request carries; one written beside material protected on that
+        snapshot refuses the request (Codex review C2b F2)."""
 
         guard = NotesGuard.__new__(NotesGuard)
         guard.__dict__.update(self.__dict__)
+        guard._notes = tuple(notes)
+        guard._repository = library.repository
         guard._coverage = SC.CoverageGuard(library, keys, live_vault=self._live, also=self._refusal_in,
                                            also_refusal=NotesSwitchedOff)
         guard._outer = None  # the coverage guard composes with the outer gate itself
@@ -226,6 +234,14 @@ class NotesGuard:
             return "the notes settings could not be read"
         if not on:
             return "your notes are switched off"
+        notes = self._notes
+        if notes and self._repository is not None:
+            try:
+                protected = VN.protected_keys(vault, self._repository, notes)
+            except Exception:  # noqa: BLE001 - undecidable protection authorizes nothing
+                return "whether your notes sit beside protected material could not be read"
+            if protected:
+                return "a note it would send now sits beside protected material"
         return None
 
     def _refusal(self) -> str | None:
@@ -590,7 +606,8 @@ def _judge_target(vault: Any, repository: Repository, target: Target, *, setting
     problem = route.problem()
     if problem is not None:
         return JudgeResult("unavailable", lo, state_key=key, reason=problem.reason, message=problem.message)
-    guard = notes_guard.with_coverage(library, [(target.extraction_id, target.section_id)])
+    guard = notes_guard.with_coverage(library, [(target.extraction_id, target.section_id)],
+                                      notes=[note.note_key for note in notes])
     prompt = build_prompt(target, lead, notes)
     by_id = {f"n{index}": note for index, note in enumerate(notes, start=1)}
     try:
@@ -711,13 +728,14 @@ def link_goal(vault: Any, repository: Repository, goal_id: str, *, client: Any |
     guard = NotesGuard(vault, live_vault=live_vault)
     results: list[JudgeResult] = []
     try:
-        corpus = VN.notes(vault, repository)
         for target in path_targets(vault, repository, goal_id):
             if still_wanted is not None and not still_wanted():
                 return LinkRun("switched_off", tuple(results))
             guard.check_notes("linking your notes")
+            # The notes as they are now, per topic (Codex review C2b F2: never a corpus read
+            # before an earlier topic's judgment, when protection may since have changed).
             result = judge_target(vault, repository, target, settings=settings, client=client, clock=clock,
-                                  live_vault=live_vault, guard=guard, corpus=corpus, embedder=embedder)
+                                  live_vault=live_vault, guard=guard, embedder=embedder)
             results.append(result)
             if result.status == "switched_off":
                 return LinkRun("switched_off", tuple(results), reason=result.reason, message=result.message)

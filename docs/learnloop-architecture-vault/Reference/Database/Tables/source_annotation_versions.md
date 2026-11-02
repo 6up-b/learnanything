@@ -3,13 +3,13 @@ title: "source_annotation_versions"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "20be0dd94c5a9dc770e856350be058ccc5f655b9"
-source_commit_timestamp: "2026-11-01T19:52:51-05:00"
+source_commit: "5dacdf7873b877931172950dc16421f7a375c1d3"
+source_commit_timestamp: "2026-11-01T22:21:31-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite source_annotation_versions"
   - "table source_annotation_versions"
-schema_head: 231
+schema_head: 233
 table_name: "source_annotation_versions"
 table_role: "raw_ledger"
 functionality_status: "active"
@@ -20,6 +20,7 @@ source_paths:
   - "src/learnloop/db/table_roles.py"
   - "migrations/090_source_annotations.sql"
   - "src/learnloop/db/repositories.py"
+  - "src/learnloop/source_retrieval/vault_notes.py"
   - "src/learnloop/content/sources/source_deletion.py"
   - "src/learnloop/reader/annotations.py"
   - "src/learnloop/reader/reader_capture.py"
@@ -92,6 +93,7 @@ Indexes and uniqueness:
 ### Direct SQL readers
 
 - `src/learnloop/db/repositories.py`
+- `src/learnloop/source_retrieval/vault_notes.py`
 
 ### Direct SQL writers
 
@@ -113,6 +115,7 @@ Indexes and uniqueness:
 
 ## Tests that define behavior
 
+- `tests/test_notes_vault_search.py`
 - `tests/test_reader_capture.py`
 - `tests/test_ad1_reading_opportunities.py`
 - `tests/test_annotations.py`

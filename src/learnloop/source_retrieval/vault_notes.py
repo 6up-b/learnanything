@@ -216,17 +216,45 @@ def _anchor(connection: Any, annotation_id: str) -> tuple[str | None, list[tuple
     return str(anchor[1]), segments
 
 
-def _out(protection: Any, extraction_id: str, segments: Sequence[tuple[str, list[str]]]) -> bool:
+def _out(protection: Any, extraction_id: str, segments: Sequence[tuple[str, list[str]]],
+         connection: Any = None) -> bool:
     """Whether an annotation's anchor touches protected material. An anchor with no
     segments (a selection still to be re-anchored) is judged by its reading: out when any
-    part of that reading is protected (fail closed)."""
+    part of that reading is protected (fail closed). The header block of each anchored
+    span's section counts too (Codex review C2b F1: its text would be the note's heading)."""
 
     if protection.reading_out(extraction_id):
         return True
     if not segments:
         material_spans = getattr(protection.material, "spans", ()) or ()
         return any(key[0] == extraction_id for key in (*protection.excluded_spans, *material_spans))
-    return any(protection.span_out(extraction_id, span_id) for span_id, _path in segments)
+    if any(protection.span_out(extraction_id, span_id) for span_id, _path in segments):
+        return True
+    if connection is None:
+        return False
+    return any(protection.span_out(extraction_id, header) for header in _header_spans(connection, extraction_id, segments))
+
+
+def _header_spans(connection: Any, extraction_id: str, segments: Sequence[tuple[str, list[str]]]) -> set[str]:
+    """The span ids of the section header blocks the anchored spans sit under."""
+
+    refs: set[str] = set()
+    for span_id, path in segments:
+        found = list(path)
+        if not found:
+            row = connection.execute("SELECT section_path_json FROM source_document_blocks WHERE extraction_id = ? "
+                                     "AND span_id = ?", (extraction_id, span_id)).fetchone()
+            try:
+                found = [str(part) for part in json.loads((row[0] if row else None) or "[]")]
+            except (TypeError, ValueError):
+                found = []
+        refs.update(str(part) for part in found if str(part).strip())
+    if not refs:
+        return set()
+    marks = ", ".join("?" for _ in refs)
+    return {str(row[0]) for row in connection.execute(
+        f"SELECT span_id FROM source_document_blocks WHERE extraction_id = ? AND extractor_block_id IN ({marks})",
+        (extraction_id, *sorted(refs)))}
 
 
 def _section_title(connection: Any, extraction_id: str, segments: Sequence[tuple[str, list[str]]],
@@ -286,7 +314,7 @@ def _annotation_notes(vault: Any, repository: Repository, *, only: Iterable[str]
             extraction_id, segments = _anchor(connection, annotation_id)
             if extraction_id is None:
                 continue
-            if _out(protection, extraction_id, segments):
+            if _out(protection, extraction_id, segments, connection):
                 continue  # beside protected material: never a note here
             if titles is None:
                 titles = _source_titles(repository)
@@ -337,16 +365,29 @@ def beside_protected(vault: Any, repository: Repository, key: str) -> bool:
     ref = split_key(key)
     if ref is None or ref[0] != KIND_ANNOTATION:
         return False
+    return bool(protected_keys(vault, repository, [key]))
+
+
+def protected_keys(vault: Any, repository: Repository, keys: Iterable[str]) -> set[str]:
+    """The annotation notes among ``keys`` anchored on protected material now (C0a's
+    predicate read once; unreadable: every annotation is, fail closed). Captures never are."""
+
+    annotations = [(key, ref[1]) for key, ref in ((key, split_key(key)) for key in keys)
+                   if ref is not None and ref[0] == KIND_ANNOTATION]
+    if not annotations:
+        return set()
     protection = _protection(vault, repository)
     if protection is None:
-        return True
+        return {key for key, _ref in annotations}
+    out: set[str] = set()
     with closing(connect(repository.sqlite_path, read_only=True)) as connection:
         if not _table(connection, "source_annotation_anchor_versions"):
-            return False
-        extraction_id, segments = _anchor(connection, ref[1])
-    if extraction_id is None:
-        return False
-    return _out(protection, extraction_id, segments)
+            return set()
+        for key, annotation_id in annotations:
+            extraction_id, segments = _anchor(connection, annotation_id)
+            if extraction_id is not None and _out(protection, extraction_id, segments, connection):
+                out.add(key)
+    return out
 
 
 def notes(vault: Any, repository: Repository) -> list[VaultNote]:
@@ -492,10 +533,12 @@ def _covered(repository: Repository, model_id: str, corpus: Sequence[VaultNote])
     with closing(connect(repository.sqlite_path, read_only=True)) as connection:
         if not _table(connection, "embedding_vectors"):
             return {}
-        found = {str(record_id): str(content_hash) for record_id, content_hash in connection.execute(
+        # Every stored (record, hash) pair: a note keeps a vector per text it ever had (Codex
+        # review C2b F3: a text restored after an edit is still covered).
+        found = {(str(record_id), str(content_hash)) for record_id, content_hash in connection.execute(
             "SELECT record_id, content_hash FROM embedding_vectors WHERE record_kind = ? AND field = ? "
             "AND model_id = ? AND task_prefix = ?", (RECORD_KIND, RECORD_FIELD, model_id, TASK_PREFIX))}
-    return {key: digest for key, digest in expected.items() if found.get(key) == digest}
+    return {key: digest for key, digest in expected.items() if (key, digest) in found}
 
 
 @dataclass
@@ -573,6 +616,7 @@ __all__ = [
     "CAPTURE_TITLE",
     "KIND_ANNOTATION",
     "beside_protected",
+    "protected_keys",
     "KIND_CAPTURE",
     "MODES",
     "MeaningResult",

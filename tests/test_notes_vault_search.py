@@ -218,3 +218,64 @@ def test_a_legacy_tend_table_in_an_existing_config_is_ignored(tmp_path):
     corpus = eigen_notes(repository)
     assert corpus["typed"] in {note.note_key for note in VN.notes(vault, repository)}
     assert call(context(paths.root), "reader.prompt_contract", {})["notes"]["enabled"] is True
+
+
+# -- Codex review (C2b) ---------------------------------------------------------------------------
+
+def test_c2b_f1_a_note_under_a_protected_section_header_is_no_note(tmp_path):
+    """Codex review C2b F1: the note's heading is its section header's text, so a header span
+    that is protected makes the note one beside protected material (never searched or sent)."""
+
+    from contextlib import closing
+    from types import SimpleNamespace
+
+    from learnloop.db.connection import connect
+
+    paths, repository = _vault(tmp_path)
+    stub = SimpleNamespace(reading_out=lambda _e: False, span_out=lambda _e, span: span == "s1",
+                           excluded_spans=frozenset(), material=SimpleNamespace(spans=frozenset()))
+    with closing(connect(repository.sqlite_path, read_only=True)) as connection:
+        assert VN._out(stub, "ext_book", [("s2", [])], connection) is True  # s1: ch_eigen's header
+        assert VN._out(stub, "ext_book", [("s7", [])], connection) is False  # another chapter
+        assert VN._out(stub, "ext_book", [("s2", [])]) is False  # (no connection: anchored spans only)
+
+
+def test_c2b_f2_a_candidate_protected_before_the_request_refuses_it(tmp_path, monkeypatch):
+    """Codex review C2b F2: the candidates were read, then a candidate Reader note's anchor
+    became protected before the request: the request's admission reads the candidates'
+    protection on the live snapshot and refuses; nothing is sent or written."""
+
+    from tests.section_coverage_fixtures import table_counts
+    from tests.test_notes_linked import _deliverable
+
+    paths, repository, ctx, goal_id, corpus, notes = _deliverable(tmp_path)
+    vault = load_vault(paths.root)
+    target = NL.path_targets(vault, repository, goal_id)[0]
+    real = VN.protected_keys
+    monkeypatch.setattr(VN, "protected_keys", lambda vault, repository, keys: (
+        {key for key in keys if key == corpus["typed"]} | real(vault, repository, keys)))
+    before = table_counts(repository)
+    result = NL.judge_target(vault, repository, target, client=notes, live_vault=lambda: load_vault(paths.root))
+    assert result.status == "switched_off" and notes.calls == 0
+    assert table_counts(repository) == before
+
+
+def test_c2b_f3_a_restored_text_keeps_its_vector(tmp_path):
+    """Codex review C2b F3: a note edited and then restored to an earlier text is still covered
+    by that text's stored vector (no row collapsing by note id)."""
+
+    paths, repository = _vault(tmp_path, embeddings=True)
+    annotation = add_annotation(repository, "Eigenvalues first version.")
+    vault = load_vault(paths.root)
+    embedder = NoteEmbeddingFake()
+    VN.ensure_vectors(vault, VN.notes(vault, repository), client_factory=lambda: embedder)
+    edit_annotation(repository, annotation, "Eigenvalues second version.")
+    VN.ensure_vectors(vault, VN.notes(vault, repository), client_factory=lambda: embedder)
+    edit_annotation(repository, annotation, "Eigenvalues first version.")
+    notes = VN.notes(vault, repository)
+    assert VN._covered(repository, vault.config.embedding.model, notes) == {
+        f"annotation:{annotation}": notes[0].content_hash and VN.records(notes)[0].content_hash}
+    embedded = len(embedder.inputs)
+    found = VN.meaning_search(vault, repository, notes, ["eigenvalues"], limit=5, embedder=embedder)
+    assert found.status == "ready" and [n.note_key for n in found.notes] == [f"annotation:{annotation}"]
+    assert len(embedder.inputs) == embedded + 1  # only the query: the restored text was not paid again
