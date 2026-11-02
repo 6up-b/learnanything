@@ -180,7 +180,7 @@ def test_successor_vocabulary():
     assert ATTEMPT_CONTENT_STATE_ALGORITHM_VERSION == "mvp-0.37"
     assert COLD_RETRY_RESCHEDULE_ALGORITHM_VERSION == "mvp-0.38"
     assert READER_FOLLOWUPS_ALGORITHM_VERSION == "mvp-0.39"
-    assert DELIVERABLE_PLAN_ALGORITHM_VERSION == LATEST_ALGORITHM_VERSION == "mvp-0.40"
+    assert DELIVERABLE_PLAN_ALGORITHM_VERSION == LATEST_ALGORITHM_VERSION == "mvp-0.41"
 
 
 def test_defaults_fingerprint_is_recorded_for_the_successor():

@@ -1791,7 +1791,16 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # evidence or grading). No scoring, scheduling, projection or serving change at any version (no
     # successor); every snapshot moves only because the effective config gains the key; all of them
     # were recomputed from the composed defaults (defaults_fingerprint_for_version).
-    "mvp-0.9": "57d301b8d79208761bb3fbc024d332ddd222a077eb19dddfa83adfded3989739",
+    # Follow-ups Nov 2's successor (the keyed help fold counts exactly the
+    # help rows that attach; docs/reviews/followups-nov2.md and its Codex
+    # review F1) adds [hints] fold_follows_attach (true; a modelled default,
+    # left out of the decision-only template): the kill switch of its
+    # successor. It acts only at that tag and later; at every earlier version
+    # the key is present and inert. Every snapshot moves only because the
+    # effective config gains the key; all of them were recomputed from the
+    # composed defaults (defaults_fingerprint_for_version), and dropping the
+    # key reproduces every earlier value.
+    "mvp-0.9": "786ee3e29bc2b9cc945397554ce05ee9eae976c21f7ebcbb4b124e4524bf4259",
     # mvp-0.10 (Slice 1 M2): the same effective defaults with the split live:
     # blind grading, the asynchronous diagnoser (history_mode = "full", O16),
     # the diagnosis card and PF-c grading support. Reached by
@@ -1880,7 +1889,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Learner-blindness relax's four keys move it too (see mvp-0.9; model contexts only: no scoring, scheduling, projection or serving change).
     # Learner data-relax 2's [figures] author_learner_state moves it too (see mvp-0.9; context for the figure author, no successor).
     # Curriculum C5's [notes] gaps_enabled moves it too (see mvp-0.9; off by default: tier-2 learner text, no successor).
-    "mvp-0.10": "82eb1235ce6062933afa11e701c2f0735736d3d0b46df213566f00bf4c8fcf3b",
+    # Follow-ups Nov 2's [hints] fold_follows_attach moves it too (see mvp-0.9; inert below mvp-0.41).
+    "mvp-0.10": "99a2e318e253469a332ce9ee4dfbdc01b02f7c96a0e9868cb0fb37d46c0c61d9",
     # mvp-0.11 (Slice A Phase 6, learner field F2): mvp-0.10's split plus
     # placement (the [placement] section, modelled defaults only, left out of
     # the decision-only template): no opening probes, assumed-known checked in
@@ -1977,7 +1987,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Learner-blindness relax's four keys move it too (see mvp-0.9; model contexts only: no scoring, scheduling, projection or serving change).
     # Learner data-relax 2's [figures] author_learner_state moves it too (see mvp-0.9; context for the figure author, no successor).
     # Curriculum C5's [notes] gaps_enabled moves it too (see mvp-0.9; off by default: tier-2 learner text, no successor).
-    "mvp-0.11": "28c8f8b388dd710a82a6e7c65098ded2ca009bbdbcd0759ee7e35a18f4b9f640",
+    # Follow-ups Nov 2's [hints] fold_follows_attach moves it too (see mvp-0.9; inert below mvp-0.41).
+    "mvp-0.11": "f803f940f4f1bb391b91fe8d5ac71660d120c84f6c1c796a7d18e94897503e5d",
     # mvp-0.12 (Slice 2 T1 / M3): mvp-0.11's split and placement plus
     # recurrence groups live (recurrence.enabled, the live same-cause judge
     # with top_k 3 and no blocking cutoff until B3 sets one, the escalation
@@ -2068,7 +2079,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Learner-blindness relax's four keys move it too (see mvp-0.9; model contexts only: no scoring, scheduling, projection or serving change).
     # Learner data-relax 2's [figures] author_learner_state moves it too (see mvp-0.9; context for the figure author, no successor).
     # Curriculum C5's [notes] gaps_enabled moves it too (see mvp-0.9; off by default: tier-2 learner text, no successor).
-    "mvp-0.12": "4ce61ce05b2f7a580c0a6b08f79878d1cb0f5d51ea07fc7035030b5705be01f0",
+    # Follow-ups Nov 2's [hints] fold_follows_attach moves it too (see mvp-0.9; inert below mvp-0.41).
+    "mvp-0.12": "bb03ce523858600509a45603c2f7919d00ebbc460ce7205ecffddb47a089586b",
     # mvp-0.13 ("Write what you can" replaces "I don't know"): mvp-0.12's
     # split, placement and recurrence groups plus "I'm stuck" live
     # (stuck_prompt.enabled = true): a stuck answer with text is an ordinary
@@ -2154,7 +2166,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Learner-blindness relax's four keys move it too (see mvp-0.9; model contexts only: no scoring, scheduling, projection or serving change).
     # Learner data-relax 2's [figures] author_learner_state moves it too (see mvp-0.9; context for the figure author, no successor).
     # Curriculum C5's [notes] gaps_enabled moves it too (see mvp-0.9; off by default: tier-2 learner text, no successor).
-    "mvp-0.13": "c751c49ae3af823a38b31761600d6c06787ec8dc0bf9dc5ecfa4f6ec277bb40f",
+    # Follow-ups Nov 2's [hints] fold_follows_attach moves it too (see mvp-0.9; inert below mvp-0.41).
+    "mvp-0.13": "880d73e149b16e40cc1cd6ae0d33ae780dbb875f999305a31d656c78eba27870",
     # mvp-0.14 (daily-loop DL1, daily_plan_v1): mvp-0.13's split, placement,
     # recurrence groups and stuck prompt plus the finite daily plan ([plan],
     # modelled defaults only): the system-set split, load-based new-material
@@ -2239,7 +2252,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Learner-blindness relax's four keys move it too (see mvp-0.9; model contexts only: no scoring, scheduling, projection or serving change).
     # Learner data-relax 2's [figures] author_learner_state moves it too (see mvp-0.9; context for the figure author, no successor).
     # Curriculum C5's [notes] gaps_enabled moves it too (see mvp-0.9; off by default: tier-2 learner text, no successor).
-    "mvp-0.14": "4205b0121185fa7c05d01ed91fd7a5327f562fc30196094d4f248b8e60e4dc92",
+    # Follow-ups Nov 2's [hints] fold_follows_attach moves it too (see mvp-0.9; inert below mvp-0.41).
+    "mvp-0.14": "373523f0d2d5e8295181b49d3b8e28ef7ee23785455763d1333bfd021cec5fa6",
     # mvp-0.15 (router R1): mvp-0.14's split, placement, recurrence groups,
     # stuck prompt and plan plus probe near-ties (teach-back items included,
     # owner decision D11) admitted to the Today queue's seeded exploration
@@ -2322,7 +2336,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Learner-blindness relax's four keys move it too (see mvp-0.9; model contexts only: no scoring, scheduling, projection or serving change).
     # Learner data-relax 2's [figures] author_learner_state moves it too (see mvp-0.9; context for the figure author, no successor).
     # Curriculum C5's [notes] gaps_enabled moves it too (see mvp-0.9; off by default: tier-2 learner text, no successor).
-    "mvp-0.15": "e25c88ea5a3515fb6052b72e500e65b877afb7c284a4b52a5befb50f0ae9e011",
+    # Follow-ups Nov 2's [hints] fold_follows_attach moves it too (see mvp-0.9; inert below mvp-0.41).
+    "mvp-0.15": "e4aca83fe6b4a211a17fa880e889b62b52f7f3ebc75bc9af5db5aec3c6caec75",
     # mvp-0.16 (learner-text gaps, implementation_handoffs §4): mvp-0.15's
     # split, placement, recurrence groups, stuck prompt, plan and probe ties
     # plus the sooner check: a matched prerequisite gap on an LO assumed known
@@ -2412,7 +2427,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Learner-blindness relax's four keys move it too (see mvp-0.9; model contexts only: no scoring, scheduling, projection or serving change).
     # Learner data-relax 2's [figures] author_learner_state moves it too (see mvp-0.9; context for the figure author, no successor).
     # Curriculum C5's [notes] gaps_enabled moves it too (see mvp-0.9; off by default: tier-2 learner text, no successor).
-    "mvp-0.16": "666859d80908f09613d75b928aea4351a19cce2ab5ec23f820c9a8c1448e5aed",
+    # Follow-ups Nov 2's [hints] fold_follows_attach moves it too (see mvp-0.9; inert below mvp-0.41).
+    "mvp-0.16": "7fcf4a98f348b64041afb7ab858536ba19c5499c674e11db17779d1e9beaaa6a",
     # mvp-0.17 (the proofs-and-explanations route check; built as mvp-0.15, a
     # placeholder tag, and relabelled at its merge): mvp-0.16's split,
     # placement, recurrence groups, stuck prompt, plan, probe ties and sooner
@@ -2498,7 +2514,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Learner-blindness relax's four keys move it too (see mvp-0.9; model contexts only: no scoring, scheduling, projection or serving change).
     # Learner data-relax 2's [figures] author_learner_state moves it too (see mvp-0.9; context for the figure author, no successor).
     # Curriculum C5's [notes] gaps_enabled moves it too (see mvp-0.9; off by default: tier-2 learner text, no successor).
-    "mvp-0.17": "005961a22cdbad21d7124711c49a9448f3e5c9f31bc9bf24087142f6f64aa48a",
+    # Follow-ups Nov 2's [hints] fold_follows_attach moves it too (see mvp-0.9; inert below mvp-0.41).
+    "mvp-0.17": "cfa90d5d281714a0102b3e591b73da6a159d9f94b24cba491a2b2a66628e9401",
     # mvp-0.18 (canonical sources S1, the certification gate C3; built as
     # mvp-0.15, a placeholder tag, and relabelled at its merge): mvp-0.17
     # plus practice_attempts.reference_status. An attempt on an imported
@@ -2577,7 +2594,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Learner-blindness relax's four keys move it too (see mvp-0.9; model contexts only: no scoring, scheduling, projection or serving change).
     # Learner data-relax 2's [figures] author_learner_state moves it too (see mvp-0.9; context for the figure author, no successor).
     # Curriculum C5's [notes] gaps_enabled moves it too (see mvp-0.9; off by default: tier-2 learner text, no successor).
-    "mvp-0.18": "b215811237bf963b8cc608f8a77b0094855ef35999f03ab50fb18563008c16e0",
+    # Follow-ups Nov 2's [hints] fold_follows_attach moves it too (see mvp-0.9; inert below mvp-0.41).
+    "mvp-0.18": "7787e843dffa31d67a67fb0600bcd6eb18fb905e6d80fc25a1163c9eedb124c7",
     # mvp-0.19 (canonical sources S2b; built as mvp-0.16, a placeholder tag,
     # and relabelled at its merge): mvp-0.18 plus source-first fulfilment of
     # intervention needs: the primed-retry handler and `learnloop
@@ -2656,7 +2674,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Learner-blindness relax's four keys move it too (see mvp-0.9; model contexts only: no scoring, scheduling, projection or serving change).
     # Learner data-relax 2's [figures] author_learner_state moves it too (see mvp-0.9; context for the figure author, no successor).
     # Curriculum C5's [notes] gaps_enabled moves it too (see mvp-0.9; off by default: tier-2 learner text, no successor).
-    "mvp-0.19": "890fb75f58379c99b6e5556d7d0a10cc21db8fdb1c1ba8104b6e53e8e56d22bb",
+    # Follow-ups Nov 2's [hints] fold_follows_attach moves it too (see mvp-0.9; inert below mvp-0.41).
+    "mvp-0.19": "b21485ff84f10f12ebf85118557f03f934251c661c958dfe1bfee37c2050f4cd",
     # mvp-0.20 (route rules in the grader, route-check-in-grader; built as
     # mvp-0.18, a placeholder tag, and relabelled at its merge after the
     # sources track): mvp-0.19 plus the own-route rules in the blind grader's
@@ -2731,7 +2750,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Learner-blindness relax's four keys move it too (see mvp-0.9; model contexts only: no scoring, scheduling, projection or serving change).
     # Learner data-relax 2's [figures] author_learner_state moves it too (see mvp-0.9; context for the figure author, no successor).
     # Curriculum C5's [notes] gaps_enabled moves it too (see mvp-0.9; off by default: tier-2 learner text, no successor).
-    "mvp-0.20": "11191d602c8dd46c743c5bc294efec5c023672bf283159fc09cd5f5fa9e3f2c8",
+    # Follow-ups Nov 2's [hints] fold_follows_attach moves it too (see mvp-0.9; inert below mvp-0.41).
+    "mvp-0.20": "377c50dd85d818a04d5100a318048c3047426a297115878652c4df63650fd210",
     # mvp-0.21 (value-of-information stopping, owner-directed 2026-10-12/13;
     # built as mvp-0.17, a placeholder tag, and relabelled at its merge after
     # the route rules): mvp-0.20 plus Part 1, four count caps lifted onto
@@ -2815,7 +2835,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Learner-blindness relax's four keys move it too (see mvp-0.9; model contexts only: no scoring, scheduling, projection or serving change).
     # Learner data-relax 2's [figures] author_learner_state moves it too (see mvp-0.9; context for the figure author, no successor).
     # Curriculum C5's [notes] gaps_enabled moves it too (see mvp-0.9; off by default: tier-2 learner text, no successor).
-    "mvp-0.21": "342d4c7aeddc060b4770b1a9dafc1b4e5064fa6e371a638656d81ae132773576",
+    # Follow-ups Nov 2's [hints] fold_follows_attach moves it too (see mvp-0.9; inert below mvp-0.41).
+    "mvp-0.21": "49087e0b7519f724495c81637c86c2f4014429d2447022d9635fa15202977827",
     # mvp-0.22 (Tier 1, the Decider migration, owner decision 2026-10-13;
     # built as mvp-0.20, a placeholder tag, and relabelled at its merge after
     # the route rules and value-of-information stopping): mvp-0.21 plus the
@@ -2891,7 +2912,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Learner-blindness relax's four keys move it too (see mvp-0.9; model contexts only: no scoring, scheduling, projection or serving change).
     # Learner data-relax 2's [figures] author_learner_state moves it too (see mvp-0.9; context for the figure author, no successor).
     # Curriculum C5's [notes] gaps_enabled moves it too (see mvp-0.9; off by default: tier-2 learner text, no successor).
-    "mvp-0.22": "cfce715fdeef01b648b4578b626cc6bdc1a0365601f3eb752812e04bfed659ce",
+    # Follow-ups Nov 2's [hints] fold_follows_attach moves it too (see mvp-0.9; inert below mvp-0.41).
+    "mvp-0.22": "702acff7480c7156938f9af3a3995aebf4a4363672f6f8bc756b63f4b7094485",
     # mvp-0.23 (router R2a, owner-directed 2026-10-13; a placeholder tag that
     # kept its label at its merge, nothing on main having taken it): mvp-0.22
     # plus Today composed by the staged frame (DL1's lanes and lane_quota_v1
@@ -2962,7 +2984,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Learner-blindness relax's four keys move it too (see mvp-0.9; model contexts only: no scoring, scheduling, projection or serving change).
     # Learner data-relax 2's [figures] author_learner_state moves it too (see mvp-0.9; context for the figure author, no successor).
     # Curriculum C5's [notes] gaps_enabled moves it too (see mvp-0.9; off by default: tier-2 learner text, no successor).
-    "mvp-0.23": "0523ce4f8d600960cdce3898bfe4fd8614443344c3b114fe58365514c2e64bad",
+    # Follow-ups Nov 2's [hints] fold_follows_attach moves it too (see mvp-0.9; inert below mvp-0.41).
+    "mvp-0.23": "1d502f7e1370409426001ff35e0a585baccecd6806f8619f67dfdbbe48564cbf",
     # mvp-0.24 (router R2b + R2c, owner decisions 2026-10-13; a placeholder
     # tag that kept its label at its merge, nothing on main having taken it):
     # mvp-0.23 plus Today's next block drawn from the logged model mixture
@@ -3030,7 +3053,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Learner-blindness relax's four keys move it too (see mvp-0.9; model contexts only: no scoring, scheduling, projection or serving change).
     # Learner data-relax 2's [figures] author_learner_state moves it too (see mvp-0.9; context for the figure author, no successor).
     # Curriculum C5's [notes] gaps_enabled moves it too (see mvp-0.9; off by default: tier-2 learner text, no successor).
-    "mvp-0.24": "9bd4c297e073b1e37a45673bb31e2d2190f4969389aad8785a2cea0daa508ef3",
+    # Follow-ups Nov 2's [hints] fold_follows_attach moves it too (see mvp-0.9; inert below mvp-0.41).
+    "mvp-0.24": "817f1261c23882d2ea491de5db8a93d9a39607ce060f90fae7366a3a15e318cc",
     # mvp-0.25 (method-explicit items, owner rule 2026-10-13; built as
     # mvp-0.22-placeholder, a placeholder tag, and relabelled at its merge
     # after router R2b + R2c): mvp-0.24 plus required-method grading
@@ -3096,7 +3120,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Learner-blindness relax's four keys move it too (see mvp-0.9; model contexts only: no scoring, scheduling, projection or serving change).
     # Learner data-relax 2's [figures] author_learner_state moves it too (see mvp-0.9; context for the figure author, no successor).
     # Curriculum C5's [notes] gaps_enabled moves it too (see mvp-0.9; off by default: tier-2 learner text, no successor).
-    "mvp-0.25": "b725892f7710ef07bfc418da5566c561354c6005e41eee62fad832cee9e83f90",
+    # Follow-ups Nov 2's [hints] fold_follows_attach moves it too (see mvp-0.9; inert below mvp-0.41).
+    "mvp-0.25": "466369fa63012f8f80e5dfd671456909a8a0b066af53c969af461ce9f8355d84",
     # mvp-0.26 (regrade contracts, queued 2026-10-16;
     # docs/reviews/regrade-contract-replay.md): mvp-0.25 plus every regrade
     # citing the assessment contract it graded against (a snapshot of the item
@@ -3161,7 +3186,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Learner-blindness relax's four keys move it too (see mvp-0.9; model contexts only: no scoring, scheduling, projection or serving change).
     # Learner data-relax 2's [figures] author_learner_state moves it too (see mvp-0.9; context for the figure author, no successor).
     # Curriculum C5's [notes] gaps_enabled moves it too (see mvp-0.9; off by default: tier-2 learner text, no successor).
-    "mvp-0.26": "9fefcdf9af7d41f0b8d9d1a7fb58903b382aa560fa40c611e539ed4686ed970d",
+    # Follow-ups Nov 2's [hints] fold_follows_attach moves it too (see mvp-0.9; inert below mvp-0.41).
+    "mvp-0.26": "09d694273ac18a13a754623fabc6fb38baa20b25f85faf75fbbff7824e609e6b",
     # mvp-0.27 (one serve/administration eligibility decision, queued
     # 2026-10-16; docs/reviews/serve-eligibility-decision.md and its Codex
     # review F4): mvp-0.26 plus every serve path asking the decision submit
@@ -3226,7 +3252,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Learner-blindness relax's four keys move it too (see mvp-0.9; model contexts only: no scoring, scheduling, projection or serving change).
     # Learner data-relax 2's [figures] author_learner_state moves it too (see mvp-0.9; context for the figure author, no successor).
     # Curriculum C5's [notes] gaps_enabled moves it too (see mvp-0.9; off by default: tier-2 learner text, no successor).
-    "mvp-0.27": "47004c9c12b367176a1990418c6b83d05d3e9b2576f7b29dff088744fa15ea02",
+    # Follow-ups Nov 2's [hints] fold_follows_attach moves it too (see mvp-0.9; inert below mvp-0.41).
+    "mvp-0.27": "aca8061fdac5223c8a0ade93aa97aeb857904780e870e11ae0fc262d369c148b",
     # mvp-0.29 (daily-loop DL2, the learner's intent; docs/reviews/
     # daily-loop-dl2.md and its Codex re-review F2): the predecessor plus
     # serving by intent (an excluded item is never served, requested or
@@ -3280,7 +3307,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Learner-blindness relax's four keys move it too (see mvp-0.9; model contexts only: no scoring, scheduling, projection or serving change).
     # Learner data-relax 2's [figures] author_learner_state moves it too (see mvp-0.9; context for the figure author, no successor).
     # Curriculum C5's [notes] gaps_enabled moves it too (see mvp-0.9; off by default: tier-2 learner text, no successor).
-    "mvp-0.29": "ba5fdbae20a6c8dc0555b5ba91b59280bde7f29a65600de5fa9f34a2f8eb1529",
+    # Follow-ups Nov 2's [hints] fold_follows_attach moves it too (see mvp-0.9; inert below mvp-0.41).
+    "mvp-0.29": "7d644efce9bf8a4e85d08a94a5f07b4723d5493d0bdae21f1469d06b008fef91",
     # mvp-0.30 (adaptive difficulty AD2+AD3, owner 2026-10-18;
     # docs/reviews/adaptive-difficulty-ad23.md): mvp-0.29 plus AD's draw at a
     # planned new-material slot (practice in the 70-80% band, calibration within
@@ -3328,7 +3356,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Learner-blindness relax's four keys move it too (see mvp-0.9; model contexts only: no scoring, scheduling, projection or serving change).
     # Learner data-relax 2's [figures] author_learner_state moves it too (see mvp-0.9; context for the figure author, no successor).
     # Curriculum C5's [notes] gaps_enabled moves it too (see mvp-0.9; off by default: tier-2 learner text, no successor).
-    "mvp-0.30": "b6d2e0d88a1e577feb3441f1fc532d2ca6a83d0d1cc5b176c476687346180d69",
+    # Follow-ups Nov 2's [hints] fold_follows_attach moves it too (see mvp-0.9; inert below mvp-0.41).
+    "mvp-0.30": "87392bc366fe45ca36792cdeecd3f9a00f5da597a5478aae223f6d11d9371e30",
     # mvp-0.31 (reader workbench RW2d, workbench signals in the learner
     # field; spec_reader_workbench_v1 §5.11, docs/reviews/
     # reader-workbench-RW2d.md; chained after adaptive difficulty AD2+AD3's
@@ -3370,7 +3399,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Learner-blindness relax's four keys move it too (see mvp-0.9; model contexts only: no scoring, scheduling, projection or serving change).
     # Learner data-relax 2's [figures] author_learner_state moves it too (see mvp-0.9; context for the figure author, no successor).
     # Curriculum C5's [notes] gaps_enabled moves it too (see mvp-0.9; off by default: tier-2 learner text, no successor).
-    "mvp-0.31": "cc45570e0b5d7fd735fa3c9a0d9b71ac4d3304aaee3ca4b9f4e2b2ff85991e01",
+    # Follow-ups Nov 2's [hints] fold_follows_attach moves it too (see mvp-0.9; inert below mvp-0.41).
+    "mvp-0.31": "071f087362c4f8fa0130086addb3db7fce93b3bd5793ad51536e5869b1926a45",
     # mvp-0.32 (reader workbench RW7b, the plan follows the reading path;
     # spec_reader_workbench_v1 §10.2, docs/reviews/reader-workbench-RW7b.md):
     # mvp-0.31 plus DL1's reading block opening the next unfinished core or
@@ -3409,7 +3439,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Learner-blindness relax's four keys move it too (see mvp-0.9; model contexts only: no scoring, scheduling, projection or serving change).
     # Learner data-relax 2's [figures] author_learner_state moves it too (see mvp-0.9; context for the figure author, no successor).
     # Curriculum C5's [notes] gaps_enabled moves it too (see mvp-0.9; off by default: tier-2 learner text, no successor).
-    "mvp-0.32": "4d0110225ce2d6ee34e4c8f3c1fc1c91ddbf72afc7aaa10ec1819c13e046dcdc",
+    # Follow-ups Nov 2's [hints] fold_follows_attach moves it too (see mvp-0.9; inert below mvp-0.41).
+    "mvp-0.32": "20341d4ec9b95f81d51ec1d04dee5b0edd682b1bd0c7d5825839469113ef3dc4",
     # mvp-0.33 (learned parameters LP-min (a), the four claim-defect fixes;
     # spec_learned_parameters_v1 §3.0b item 1, docs/reviews/lp-min-claim-fixes.md;
     # built beside reader workbench RW7b's successor as mvp-0.32, renumbered at
@@ -3446,7 +3477,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Learner-blindness relax's four keys move it too (see mvp-0.9; model contexts only: no scoring, scheduling, projection or serving change).
     # Learner data-relax 2's [figures] author_learner_state moves it too (see mvp-0.9; context for the figure author, no successor).
     # Curriculum C5's [notes] gaps_enabled moves it too (see mvp-0.9; off by default: tier-2 learner text, no successor).
-    "mvp-0.33": "97cb6b04fbacde57c228f3d1535679bdb83ed18075a792d6fb43f2814d6a34ac",
+    # Follow-ups Nov 2's [hints] fold_follows_attach moves it too (see mvp-0.9; inert below mvp-0.41).
+    "mvp-0.33": "4412b304837b2a16508c18ed3d48265786703a4adecd492258cf18ada872dfbe",
     # mvp-0.34 (rebuild equivalence; docs/reviews/rebuild-equivalence-fix.md
     # and its Codex review F4; built on mvp-0.31 while RW7b and the LP claim
     # fixes took mvp-0.32 and mvp-0.33, and chained after them at its
@@ -3482,7 +3514,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Learner-blindness relax's four keys move it too (see mvp-0.9; model contexts only: no scoring, scheduling, projection or serving change).
     # Learner data-relax 2's [figures] author_learner_state moves it too (see mvp-0.9; context for the figure author, no successor).
     # Curriculum C5's [notes] gaps_enabled moves it too (see mvp-0.9; off by default: tier-2 learner text, no successor).
-    "mvp-0.34": "b394c0e406c4506eb86d1ea94e05063d11db58909b15720b7f681fc810085531",
+    # Follow-ups Nov 2's [hints] fold_follows_attach moves it too (see mvp-0.9; inert below mvp-0.41).
+    "mvp-0.34": "7c67aca76a7bf8a598f5aa4cf5062fda3a1736e2bf682ccce367b57148d728bd",
     # mvp-0.35 (Reader CA2, one Ask; docs/specs/ux_reader_compare_ask_v1.md
     # §7.7, K10, §15 Q3-Q4; docs/reviews/reader-ca2-one-ask.md; built on
     # mvp-0.32 as mvp-0.34 and renumbered after rebuild equivalence at the
@@ -3517,7 +3550,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Learner-blindness relax's four keys move it too (see mvp-0.9; model contexts only: no scoring, scheduling, projection or serving change).
     # Learner data-relax 2's [figures] author_learner_state moves it too (see mvp-0.9; context for the figure author, no successor).
     # Curriculum C5's [notes] gaps_enabled moves it too (see mvp-0.9; off by default: tier-2 learner text, no successor).
-    "mvp-0.35": "99ba282bb1e1dbdf02ad346b445e776dce406a92418dd5a73954b7ec30c0d2bb",
+    # Follow-ups Nov 2's [hints] fold_follows_attach moves it too (see mvp-0.9; inert below mvp-0.41).
+    "mvp-0.35": "5c7187f928fa1cc24cc7a785c7605226cafb134e67a849cc65c9116b191ecf14",
     # mvp-0.36 (replaced learner claims kept;
     # docs/reviews/lp-learner-report-superseded.md; the Medium recorded at
     # the rebuild-equivalence landing): mvp-0.35 plus the replace seam
@@ -3547,7 +3581,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Learner-blindness relax's four keys move it too (see mvp-0.9; model contexts only: no scoring, scheduling, projection or serving change).
     # Learner data-relax 2's [figures] author_learner_state moves it too (see mvp-0.9; context for the figure author, no successor).
     # Curriculum C5's [notes] gaps_enabled moves it too (see mvp-0.9; off by default: tier-2 learner text, no successor).
-    "mvp-0.36": "e71930a0f4535caa83622a1efab4351c2da83e0e284697f7b45f1b98c558dcc1",
+    # Follow-ups Nov 2's [hints] fold_follows_attach moves it too (see mvp-0.9; inert below mvp-0.41).
+    "mvp-0.36": "e0bbce8c9e3fae037a2360f1af5f75636b11ae056fb4ea4151bffd5b5938b03b",
     # mvp-0.37 (mobile PR-4: a live attempt writes only its item row's
     # scheduling columns; docs/specs/spec_mobile_tailnet_v1.md §3.3, §9.3;
     # docs/reviews/mobile-pr3-pr4.md and its Codex review F4; built on
@@ -3580,7 +3615,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Learner-blindness relax's four keys move it too (see mvp-0.9; model contexts only: no scoring, scheduling, projection or serving change).
     # Learner data-relax 2's [figures] author_learner_state moves it too (see mvp-0.9; context for the figure author, no successor).
     # Curriculum C5's [notes] gaps_enabled moves it too (see mvp-0.9; off by default: tier-2 learner text, no successor).
-    "mvp-0.37": "0ff66ad3fb25770b8390cb5c9e44980c3751648be988f6dec6f4bb498484ae32",
+    # Follow-ups Nov 2's [hints] fold_follows_attach moves it too (see mvp-0.9; inert below mvp-0.41).
+    "mvp-0.37": "4321d1932a873b4d8385e14381621ba1c5a28dd8dda8739f2f9e385adcc7b693",
     # mvp-0.38 (a fresh cold retry after help on a cold follow-up; owner
     # decision 2026-10-25, Reader CA2 follow-up Q4;
     # docs/reviews/cold-retry-after-assist.md): mvp-0.37 plus help taken on a
@@ -3610,7 +3646,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Learner-blindness relax's four keys move it too (see mvp-0.9; model contexts only: no scoring, scheduling, projection or serving change).
     # Learner data-relax 2's [figures] author_learner_state moves it too (see mvp-0.9; context for the figure author, no successor).
     # Curriculum C5's [notes] gaps_enabled moves it too (see mvp-0.9; off by default: tier-2 learner text, no successor).
-    "mvp-0.38": "b36a4034f15c96f48102b364b4fd6ac2f95085576a5c0b3c5bc7fd9d3e3a5bf4",
+    # Follow-ups Nov 2's [hints] fold_follows_attach moves it too (see mvp-0.9; inert below mvp-0.41).
+    "mvp-0.38": "78a575c1f502ca357ac35f0241e42b9d60930fa892c63c0ef9fa5cfee4172508",
     # mvp-0.39 (Reader RW6b part 1: cold follow-ups after a reader session;
     # spec_reader_workbench_v1 §9.3; docs/reviews/reader-rw6b-p1-followups.md
     # and its Codex review F4): mvp-0.38 plus an ended reader session's checks
@@ -3638,7 +3675,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Learner-blindness relax's four keys move it too (see mvp-0.9; model contexts only: no scoring, scheduling, projection or serving change).
     # Learner data-relax 2's [figures] author_learner_state moves it too (see mvp-0.9; context for the figure author, no successor).
     # Curriculum C5's [notes] gaps_enabled is in it too (see mvp-0.9; off by default: tier-2 learner text, no successor).
-    "mvp-0.39": "b403c8ebc8dc1c8c189473a74a8a254afcd4c2567431ff97d130ed1186b174c0",
+    # Follow-ups Nov 2's [hints] fold_follows_attach moves it too (see mvp-0.9; inert below mvp-0.41).
+    "mvp-0.39": "76f2d118f16ac2df98dbb89469420c17232ddb976be6542919a8793eaf5e4aff",
     # mvp-0.40 (curriculum C1, the plan follows the deliverable;
     # spec_deliverable_curriculum_v1 §7.6, §8.1;
     # docs/reviews/curriculum-c1-plan-follows-path.md; built as mvp-0.39 and
@@ -3651,15 +3689,32 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # for byte). No default changes here: only the version string moves the
     # fingerprint (the key is in every snapshot above, inert below the tag).
     # Existing vaults reach it by `learnloop upgrade` (default target) from
-    # mvp-0.39, or from mvp-0.9 onwards through the chain. New vaults start
-    # here (the template's LATEST_ALGORITHM_VERSION; owner decision 2026-10-12).
+    # mvp-0.39, or from mvp-0.9 onwards through the chain. New vaults started
+    # here (the template's LATEST_ALGORITHM_VERSION; owner decision 2026-10-12)
+    # until follow-ups Nov 2's successor landed.
     # Reader RW6b part 2's [digest] and ai.routing.reader_digest are in it too (see mvp-0.9; display and routing data, no successor).
     # Curriculum C2's [notes] and ai.routing.note_link_judge are in it too (see mvp-0.9; display and learner-voice records: no scoring, scheduling, projection or serving change).
     # Curriculum C3's [curriculum] exam_units_in_scope is in it too (see mvp-0.9; scoping display only, no successor).
     # Learner-blindness relax's four keys move it too (see mvp-0.9; model contexts only: no scoring, scheduling, projection or serving change).
     # Learner data-relax 2's [figures] author_learner_state moves it too (see mvp-0.9; context for the figure author, no successor).
     # Curriculum C5's [notes] gaps_enabled is in it too (see mvp-0.9; off by default: tier-2 learner text, no successor).
-    "mvp-0.40": "a7673dd4bbbe412c53af575422491f02adb0dc31440b5a14e1ec5537b1a95851",
+    # Follow-ups Nov 2's [hints] fold_follows_attach moves it too (see mvp-0.9; inert below mvp-0.41).
+    "mvp-0.40": "14542a4541d77f7bd1bca76cb12a2c434a55d7700ed323f4a41a489731d96c94",
+    # mvp-0.41 (the keyed help fold counts exactly the help rows that attach;
+    # follow-ups Nov 2 (b) and its Codex review F1; docs/reviews/followups-nov2.md;
+    # built as mvp-0.41 while teacher TE1 + C4 was landing as mvp-0.41 too,
+    # renumbered at whichever landing is second): mvp-0.40 plus a keyed
+    # submit's fold counting the key's shown server hint rows in any practice
+    # session (H0's attach rule) and the attempt taking them in its own write
+    # transaction, so a hint shown before the session rolled over is counted
+    # (levels 1-3) or primes (levels 4-5) where it attaches. Kill switch
+    # [hints] fold_follows_attach (default true; off folds exactly as the
+    # predecessor). No default changes here: only the version string moves the
+    # fingerprint (the key is in every snapshot above, inert below the tag).
+    # Existing vaults reach it by `learnloop upgrade` (default target) from
+    # mvp-0.40, or from mvp-0.9 onwards through the chain. New vaults start
+    # here (the template's LATEST_ALGORITHM_VERSION; owner decision 2026-10-12).
+    "mvp-0.41": "3a87f2c0d5510dd2fea64e1250a8231a26acd11157bc4ce67b4d31297e0ef7b3",
 }
 
 

@@ -190,6 +190,12 @@ class ServerHintFold:
     #: attempt the assisted type the answer box picks (``_held_assistance``);
     #: None leaves the type alone (``submit_dont_know``).
     held_types: tuple[str, ...] | None = None
+    #: Follow-ups Nov 2 (successor ``HELP_FOLD_ATTACH_ALGORITHM_VERSION``,
+    #: kill switch ``hints.fold_follows_attach``; :func:`fold_follows_attach`):
+    #: a keyed fold reads the key's rows in any practice session, and the
+    #: attempt takes them in its own transaction (:func:`attach_keyed`).
+    #: False: the predecessor's fold, in this session, and no keyed attach.
+    any_session: bool = False
 
     def base(self) -> int:
         if self.held_reader is None:
@@ -221,8 +227,24 @@ class ServerHintFold:
         return stuck_attempt_type(list(self.stuck_types), hints_used=self.hints_used(folded), probe=self.stuck_probe)
 
 
+def fold_follows_attach(vault: Any) -> bool:
+    """Whether a keyed fold counts the key's rows in any practice session and
+    its attempt takes them in its own transaction (follow-ups Nov 2; Codex
+    review F1: it changes ``hints_used`` and ``primed`` of new attempts, so it
+    is the successor ``HELP_FOLD_ATTACH_ALGORITHM_VERSION`` with the kill
+    switch ``hints.fold_follows_attach``). Below the tag, or switched off: the
+    predecessor's fold exactly. Replay never reads it (replay never folds)."""
+
+    from learnloop.algorithm_versions import HELP_FOLD_ATTACH_VERSIONS
+
+    config = getattr(vault, "config", None)
+    version = getattr(getattr(config, "algorithms", None), "algorithm_version", None)
+    switch = getattr(getattr(config, "hints", None), "fold_follows_attach", False)
+    return version in HELP_FOLD_ATTACH_VERSIONS and bool(switch)
+
+
 def read_fold(connection: Any, *, practice_item_id: str, session_id: str,
-              submission_id: str | None) -> tuple[int, bool, str | None]:
+              submission_id: str | None, any_session: bool = False) -> tuple[int, bool, str | None]:
     """The fold over the rows shown now, and a keyless submit's window start
     (a vault without ``help_assists`` folds nothing). A keyless submit's
     window is the session's rows requested after the item's last attempt in
@@ -238,7 +260,7 @@ def read_fold(connection: Any, *, practice_item_id: str, session_id: str,
     if submission_id is None:
         since = keyless_window_start(connection, practice_item_id=practice_item_id, session_id=session_id)
     count, primed = server_fold(connection, practice_item_id=practice_item_id, session_id=session_id,
-                                submission_id=submission_id, since=since)
+                                submission_id=submission_id, since=since, any_session=any_session)
     return count, primed, since
 
 
@@ -253,7 +275,8 @@ def refolded_draft(connection: Any, draft: Any) -> tuple[Any, ServerHintFold | N
     if fold is None:
         return draft, None
     count, primed, since = read_fold(connection, practice_item_id=fold.practice_item_id,
-                                     session_id=fold.session_id, submission_id=fold.submission_id)
+                                     session_id=fold.session_id, submission_id=fold.submission_id,
+                                     any_session=fold.any_session)
     held = (fold.held_hints, fold.held_primed, tuple(fold.held_parts))
     components = (tuple(fold.held_union), bool(fold.held_book), int(fold.held_carried))
     worked = tuple(fold.held_worked)
@@ -361,7 +384,8 @@ def attach_keyed(connection: Any, draft: Any, attempt_id: str) -> int:
     after the commit. Returns how many it attached."""
 
     fold: ServerHintFold | None = getattr(draft, "server_hint_fold", None)
-    if fold is None or fold.submission_id is None:
+    if fold is None or fold.submission_id is None or not fold.any_session:
+        # The predecessor's keyed rows are H0's attach's, after the commit.
         return 0
     exists = connection.execute(
         "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'help_assists'"
@@ -374,4 +398,4 @@ def attach_keyed(connection: Any, draft: Any, attempt_id: str) -> int:
 
 
 __all__ = ["HeldPart", "ServerHintFold", "attach_held", "attach_keyed", "attach_keyless", "combine_held",
-           "held_components", "read_fold", "refolded_draft"]
+           "fold_follows_attach", "held_components", "read_fold", "refolded_draft"]

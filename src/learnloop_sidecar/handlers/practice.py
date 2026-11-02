@@ -22,7 +22,7 @@ from learnloop.attempts.attempts import (
     complete_empty_stuck_attempt,
     complete_self_graded_attempt,
 )
-from learnloop.attempts.hint_fold import ServerHintFold, read_fold
+from learnloop.attempts.hint_fold import ServerHintFold, fold_follows_attach, read_fold
 from learnloop.attempts.stuck import stuck_attempt_type, stuck_prompt_active
 from learnloop.attempts.post_attempt import (
     CompletionRouteUnknown,
@@ -797,7 +797,7 @@ def _server_hint_fold(
     repository, practice_item_id: str, session_id: str, submission_id: str | None, *,
     base_hints: int, base_primed: bool = False, max_useful_hints: int = 0, clamp_without_fold: bool = True,
     stuck_types: tuple[str, ...] | None = None, stuck_probe: bool = False, window_fold: bool = False,
-    held: dict[str, Any] | None = None,
+    held: dict[str, Any] | None = None, any_session: bool = False,
 ) -> ServerHintFold:
     """Adaptive hints H2a (spec §5, G-H2, G-H3): the hints the hint service
     showed in this submission (its ``help_assists`` rows, shown, counted by
@@ -817,16 +817,20 @@ def _server_hint_fold(
     from learnloop.db.connection import connect
 
     # Ruling R1: the workbench's fold has no key (its attempt keeps its own).
+    # ``any_session`` (follow-ups Nov 2, Codex review F1): the successor's
+    # keyed fold, by the key alone (the caller's ``fold_follows_attach``).
     fold_key = None if window_fold else submission_id
     with closing(connect(repository.sqlite_path, read_only=True)) as connection:
         count, primed, since = read_fold(
             connection, practice_item_id=practice_item_id, session_id=session_id, submission_id=fold_key,
+            any_session=any_session,
         )
     return ServerHintFold(
         practice_item_id=practice_item_id, session_id=session_id, submission_id=fold_key, since=since,
         folded_hints=count, folded_primed=primed, base_hints=int(base_hints), base_primed=bool(base_primed),
         max_useful_hints=int(max_useful_hints or 0), clamp_without_fold=clamp_without_fold,
-        stuck_types=stuck_types, stuck_probe=stuck_probe, window_fold=window_fold, **(held or {}),
+        stuck_types=stuck_types, stuck_probe=stuck_probe, window_fold=window_fold, any_session=any_session,
+        **(held or {}),
     )
 
 
@@ -1346,6 +1350,7 @@ def submit_attempt_on(
         base_hints=client_hints + question_hints,
         base_primed=bool(params.primed) or disclosure_primed,
         max_useful_hints=item.hint_policy.max_useful_hints, window_fold=hint_window_fold,
+        any_session=fold_follows_attach(vault),
         held=_held_fields(item, held, client_hints=params.hints_used, extra_hints=question_hints,
                           attempt_types=True, authored_hints=params.authored_hints,
                           client_book=params.book_counted),
@@ -1537,6 +1542,7 @@ def submit_dont_know_on(
         max_useful_hints=item.hint_policy.max_useful_hints, clamp_without_fold=False,
         stuck_types=tuple(item.attempt_types_allowed or ()) if stuck else None,
         stuck_probe=params.probe_presentation_id is not None, window_fold=hint_window_fold,
+        any_session=fold_follows_attach(vault),
         held=_held_fields(item, held, client_hints=params.hints_used, extra_hints=0, attempt_types=False,
                           authored_hints=params.authored_hints, client_book=params.book_counted),
     )

@@ -14,8 +14,12 @@ fold's own row definition (``help_assists._fold_rows``), so whichever help
 kinds the fold counts are the kinds it attaches, and no other attempt can take
 a counted row between the commit and H0's attach.
 
-No successor: replay re-applies the stored ``hints_used`` and never refolds
-(``attempts._refold_server_hints``); only new attempts change. Fakes only.
+Replay re-applies the stored ``hints_used`` and never refolds
+(``attempts._refold_server_hints``); only new attempts change. It changes which
+new attempts are primed, so it is the successor mvp-0.41 with the kill switch
+``hints.fold_follows_attach`` (Codex review F1; the gate and the upgrade are
+pinned in ``tests/test_help_fold_attach_successor.py``): these tests run at the
+tag. Fakes only.
 """
 
 from __future__ import annotations
@@ -27,8 +31,25 @@ import pytest
 import learnloop_sidecar.handlers  # noqa: F401 - registers the RPCs
 from learnloop.db.connection import connect
 from tests.approach_map_fakes import LO
-from tests.hint_fakes import ITEM, WORK, ChooserFake, WriterFake, assists, hint_vault, prefer, store_map
+from tests.hint_fakes import ITEM, WORK, ChooserFake, WriterFake, assists, prefer, store_map
+from tests.hint_fakes import hint_vault as _hint_vault
 from tests.test_hint_h2a_review_round2 import ARGMAX, SELF_GRADE, _attempt, _call, _context
+
+
+def hint_vault(tmp_path, *, version: str | None = None, **kwargs):
+    """The hint vault at the successor's tag (Codex review F1: the fold below is
+    mvp-0.41's, behind ``hints.fold_follows_attach``), or at ``version``."""
+
+    from learnloop.algorithm_versions import HELP_FOLD_ATTACH_ALGORITHM_VERSION
+    from learnloop.ops.vault_upgrade import rewrite_algorithm_version
+    from learnloop.vault.loader import load_vault
+
+    paths = _hint_vault(tmp_path, **kwargs)
+    current = load_vault(paths.root).config.algorithms.algorithm_version
+    target = version or HELP_FOLD_ATTACH_ALGORITHM_VERSION
+    if current != target:
+        rewrite_algorithm_version(paths.root / "learnloop.toml", current, target, durable=True)
+    return paths
 
 def _hinted_session(paths, ctx, *, key: str = "k1", option: str = "next_step@L3") -> str:
     session = _call(ctx, "start_session", {"energy": "medium"})["sessionId"]
@@ -42,11 +63,11 @@ def _hinted_session(paths, ctx, *, key: str = "k1", option: str = "next_step@L3"
     return session
 
 
-def _rollover(tmp_path, *, config: str = ARGMAX, option: str = "next_step@L3"):
+def _rollover(tmp_path, *, config: str = ARGMAX, option: str = "next_step@L3", version: str | None = None):
     """A hint shown under ``k1`` in session one; session one ends; the same
     draft (same key) is submitted in session two."""
 
-    paths = hint_vault(tmp_path, config=config)
+    paths = hint_vault(tmp_path, config=config, version=version)
     store_map(paths)
     ctx = _context(paths, inline=True)
     first = _hinted_session(paths, ctx, option=option)
@@ -173,8 +194,10 @@ def test_every_help_kind_the_keyed_fold_counts_is_exactly_what_the_attempt_attac
                 _row(connection, f"ha_{kind}_{session}_other", kind=kind, session=session, key="k2")
         _row(connection, "ha_worked", kind="hint", session="s_old", key="k1", level=4)
         connection.commit()
-        counted = fold_row_count(connection, practice_item_id=ITEM, session_id="s_new", submission_id="k1")
-        hints, primed = server_fold(connection, practice_item_id=ITEM, session_id="s_new", submission_id="k1")
+        counted = fold_row_count(connection, practice_item_id=ITEM, session_id="s_new", submission_id="k1",
+                                 any_session=True)
+        hints, primed = server_fold(connection, practice_item_id=ITEM, session_id="s_new", submission_id="k1",
+                                    any_session=True)
         _attempt_row(connection, "att_k1", "s_new", "k1")
         attached = attach_keyed_fold(connection, practice_item_id=ITEM, session_id="s_new", submission_id="k1",
                                      attempt_id="att_k1")
@@ -197,5 +220,8 @@ def test_the_keyless_window_still_reads_its_own_session_only(tmp_path):
         _row(connection, "ha_b", kind="hint", session="s_new", key="k1")
         connection.commit()
         assert read_fold(connection, practice_item_id=ITEM, session_id="s_new", submission_id=None) == (1, False, None)
+        assert read_fold(connection, practice_item_id=ITEM, session_id="s_new", submission_id="k1",
+                         any_session=True) == (2, False, None)
+        # The predecessor's keyed fold (below the tag or switched off): its session only.
         assert read_fold(connection, practice_item_id=ITEM, session_id="s_new", submission_id="k1") == (
-            2, False, None)
+            1, False, None)

@@ -516,6 +516,7 @@ source_modules = [
     "learnloop.cold_retry_reschedule_upgrade",
     "learnloop.reader_followups_upgrade",
     "learnloop.deliverable_plan_upgrade",
+    "learnloop.help_fold_attach_upgrade",
     "learnloop.clock",
     "learnloop.confidence_events",
     "learnloop.config",

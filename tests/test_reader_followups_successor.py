@@ -50,8 +50,8 @@ def test_mvp039_is_one_constant_after_mvp038_and_the_latest():
 
     # Curriculum C1's mvp-0.40 follows it as the latest (and keeps it).
     assert SUCCESSOR_CHAIN[-3:-1] == (PREDECESSOR, TAG) == ("mvp-0.38", "mvp-0.39")
-    assert SUCCESSOR_CHAIN[-1] == LATEST_ALGORITHM_VERSION == "mvp-0.40" and UPGRADE_PREDECESSOR == PREDECESSOR
-    assert READER_FOLLOWUPS_VERSIONS == frozenset({TAG, "mvp-0.40"})
+    assert SUCCESSOR_CHAIN[-1] == LATEST_ALGORITHM_VERSION == "mvp-0.41" and UPGRADE_PREDECESSOR == PREDECESSOR
+    assert READER_FOLLOWUPS_VERSIONS == frozenset({TAG, "mvp-0.40", "mvp-0.41"})
     assert FollowupsConfig().enabled is True
     rule = classify_config_path("followups.enabled")
     assert rule is not None and rule.kind == "structural" and "mvp-0.39" in rule.rationale
