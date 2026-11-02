@@ -193,7 +193,11 @@ export function usePanelFigures(target: AskTarget | null, { cold, onEvent, choos
         const key = lines.find((line) => line.figure?.figureId === figure.figureId)?.key;
         if (!key) return;
         setLines((list) => list.map((line) => line.key === key ? { ...line, state: "pending" } : line));
-        void settle(() => api.readerFigureRevise({ figureId: figure.figureId, note }))
+        // Codex review F4: the version is asked on the host it is open on now (a Reader figure
+        // opened from the chooser's line too), so it is recorded and reveal-checked on this attempt.
+        const hostRef = target ? figureHostRef(target) : null;
+        const takeStepToken = token.current?.key === attemptKey ? token.current.token : null;
+        void settle(() => api.readerFigureRevise({ figureId: figure.figureId, note, hostRef, takeStepToken }))
           .then((result) => land(key, result))
           .catch((error) => setLines((list) => list.map((line) => line.key === key ? { ...line, state: "failed", message: errorMessage(error) } : line)));
       },
@@ -216,7 +220,7 @@ export function usePanelFigures(target: AskTarget | null, { cold, onEvent, choos
       optInSpanId: null,
       answerManimOptIn: () => undefined
     };
-  }, [enabled, contract, lines, expandedKey, land]);
+  }, [enabled, contract, lines, expandedKey, land, target, attemptKey]);
 
   return { enabled, lines, send, open, ctl, converted, dismiss: (key: string) => setLines((list) => list.filter((line) => line.key !== key)) };
 }

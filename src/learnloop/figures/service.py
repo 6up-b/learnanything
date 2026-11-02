@@ -379,6 +379,16 @@ def show_me_build_key(vault: Any) -> tuple[Any, ...]:
 
 
 def key_for(request: "FigureRequest"):
+    if attempt_hosted(request):
+        # RW5d P3 (Codex review F5): a build on an attempt host is admitted
+        # only while figures in attempts stay on (switched off since: it asks
+        # nothing more, and its delivery shows nothing).
+        base = _key_for(request)
+        return lambda vault: (*base(vault), help_enabled(vault))
+    return _key_for(request)
+
+
+def _key_for(request: "FigureRequest"):
     if show_me_input(request):
         if offered(request):
             return lambda vault: (*offer_build_key(vault), show_me_enabled(vault))

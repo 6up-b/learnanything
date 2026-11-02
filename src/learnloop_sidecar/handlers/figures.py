@@ -182,6 +182,11 @@ def deliver_figure(ctx: SidecarContext, result: dict[str, Any]) -> dict[str, Any
     if attempt is not None and figure:
         # RW5d P3: a figure on an attempt host is recorded as it goes out (one
         # hint-equivalent per figure per attempt, and its reveal), or not shown.
+        # Codex review F5: with figures in attempts switched off since the
+        # build was admitted, nothing of it is delivered (record_attempt_figure
+        # rechecks the switch too, for figure.open and the chooser's line).
+        if not FS.help_enabled(vault):
+            return {"figure": None, "reused": False, "withheld": False, "help": _help_off_line(attempt)}
         help_line = record_attempt_figure(ctx, attempt, str(figure.get("figure_id") or ""))
         if help_line.get("status") == "not_recorded":
             return {"figure": None, "reused": False, "withheld": False, "help": help_line}
@@ -568,6 +573,11 @@ class FigureReviseInput(ParamsModel):
     #: RW5d P2b (spec §8.5): on an animation, "try a different kind of figure"
     #: (the note re-runs the tier choice instead of going to the rich author).
     different_kind: bool = False
+    #: RW5d P3 (Codex review F4): the attempt host the figure is open on now
+    #: (the Ask panel or the chooser's line), verified here like a request's;
+    #: absent: the host the figure was asked on, as it stands now.
+    host_ref: HostRefInput | None = None
+    take_step_token: str | None = Field(default=None, max_length=200)
 
 
 @method("reader.figure_revise", FigureReviseInput)
@@ -583,19 +593,30 @@ def reader_figure_revise(ctx: SidecarContext, params: FigureReviseInput) -> dict
     if base is None:
         raise SidecarError("not_found", "That figure is no longer kept.")
     attempt = None
+    current = {key: value for key, value in (params.host_ref.model_dump() if params.host_ref else {}).items()
+               if value}
+    if current and not any(current.get(name) for name in FS.ATTEMPT_HOST_REFS):
+        raise SidecarError("validation_error", "A revision's host is an attempt host (practice, feedback or the "
+                                               "workbench).")
     try:
         # RW5d: a show-me figure keeps its goal, home and grounding.
         revision = FS.revision_request(repository, base, params.note)
         revision.different_kind = bool(params.different_kind)
-        if FS.attempt_hosted(revision):
-            # RW5d P3: a figure asked on an attempt host is revised there, under
+        if current or FS.attempt_hosted(revision):
+            # RW5d P3: a figure open on an attempt host is revised there, under
             # the host as it stands now (submitted since: free; cold: its take
             # step), and the new version is the same figure for the count.
+            # Codex review F4: the host is the one it is open on NOW when the
+            # panel names it (a Reader figure opened from the chooser's line),
+            # else the one it was asked on.
             from learnloop.source_retrieval.policy import derive_policy
 
             _help_required(vault)
-            stored = dict(revision.host_ref or {})
-            host = _attempt_host(ctx, vault, repository, stored, take_step=stored.get("take_step"))
+            stored = current or dict(revision.host_ref or {})
+            token = params.take_step_token if current else stored.get("take_step")
+            host = _attempt_host(ctx, vault, repository, stored, take_step=token)
+            if current and host.counts:
+                _refuse_own_blocks(vault, repository, host.item_id, base)
             revision.caller = _attempt_caller(vault, repository, host)
             if derive_policy(revision.caller)[0] == "cold_attempt":
                 raise SidecarError(TAKE_STEP_REQUIRED, "On a check on your own, a figure makes this practice with "
@@ -879,10 +900,50 @@ class AttemptHost:
         return COST_LINES["cold"] if self.cold and self.take_step_id is None else COST_LINES["open"]
 
 
+HELP_OFF_MESSAGE = "Figures on practice, feedback and the workbench are switched off (figures.help_kind_enabled)."
+
+
 def _help_required(vault: Any) -> None:
     if not FS.help_enabled(vault):
-        raise SidecarError("figures_help_disabled", "Figures on practice, feedback and the workbench are switched off "
-                                                    "(figures.help_kind_enabled).")
+        raise SidecarError("figures_help_disabled", HELP_OFF_MESSAGE)
+
+
+def _help_off_line(attempt: dict[str, Any]) -> dict[str, Any]:
+    """Codex review F5: what a delivery answers when figures in attempts were
+    switched off between the request and the delivery (nothing shown, nothing
+    recorded)."""
+
+    return {"host": attempt.get("kind"), "status": "disabled", "counts_as_hint": False, "message": HELP_OFF_MESSAGE}
+
+
+def attempt_aliases(repository: Any, item_id: str, submission_id: str | None,
+                    workbench_session_id: str | None) -> tuple[frozenset[str], frozenset[str]]:
+    """Codex review F3: every identity of the one attempt in progress
+    (Reader CA2's aliases, ``reader.workbench.attempt_identities``): the answer
+    box's draft keys handed into Work in Steps and the workbenches they were
+    handed into, so a figure is counted once across every host of the
+    attempt. A handoff that cannot be read raises (never read as none)."""
+
+    from learnloop.reader import workbench as WB
+
+    return WB.attempt_identities(repository, practice_item_id=item_id, submission_id=submission_id,
+                                 workbench_session_id=workbench_session_id)
+
+
+def _token_row_matches(row: dict[str, Any] | None, *, item_id: str, session_id: str | None, kind: str,
+                       submissions: frozenset[str], workbenches: frozenset[str]) -> bool:
+    """Whether a take step's row is this attempt's (Codex review F1): the
+    same item, unattached, under one of the attempt's identities (its
+    aliases included), and, for an answer-box row, in the same practice
+    session as the request."""
+
+    if row is None or row.get("practice_item_id") != item_id or row.get("attempt_id") is not None:
+        return False
+    if not (row.get("submission_id") in submissions or row.get("workbench_session_id") in workbenches):
+        return False
+    if kind == "practice" and row.get("practice_session_id") not in (None, session_id):
+        return False
+    return True
 
 
 def _item_cold(vault: Any, repository: Any, item_id: str) -> bool:
@@ -949,6 +1010,7 @@ def _attempt_host(ctx: SidecarContext, vault: Any, repository: Any, host_ref: di
         raise SidecarError("validation_error", "A figure on practice needs its practice item.")
     kind = "practice"
     if workbench_session_id is not None:
+        session_id = None
         from learnloop.reader import workbench as WB
 
         try:
@@ -966,16 +1028,30 @@ def _attempt_host(ctx: SidecarContext, vault: Any, repository: Any, host_ref: di
         if for_take_step:
             raise SidecarError("validation_error", "This answer was already submitted: show me is free now.")
         return AttemptHost(kind="feedback", item_id=item_id, submission_id=submission_id)
+    if kind == "practice":
+        # Codex review F1: the practice session is resolved on the server, as
+        # a hint request's is: it exists, is open and this device owns it
+        # (mobile PR-4's acceptance boundary), and the submission key is not
+        # already another session's (the attach at Submit matches the key
+        # alone, the fold the session too: a row under a session the attempt
+        # is not in would attach uncounted).
+        from learnloop_sidecar.handlers.sessions import require_owned_session
+
+        require_owned_session(ctx, repository, str(session_id))
+        with closing(connect(repository.sqlite_path, read_only=True)) as connection:
+            if HA.submission_session_conflict(connection, practice_item_id=item_id, submission_id=str(submission_id),
+                                              session_id=str(session_id)):
+                raise SidecarError("validation_error", "That submission key belongs to another practice session.")
     cold = _item_cold(vault, repository, item_id)
     token = None
     if cold and take_step:
+        submissions, workbenches = attempt_aliases(repository, item_id, submission_id, workbench_session_id)
         with closing(connect(repository.sqlite_path, read_only=True)) as connection:
             row = HA.take_step(connection, take_step)
-        if row is None or row.get("practice_item_id") != item_id or row.get("attempt_id") is not None or not (
-                (kind == "workbench" and row.get("workbench_session_id") == workbench_session_id)
-                or (kind == "practice" and row.get("submission_id") == submission_id)):
+        if not _token_row_matches(row, item_id=item_id, session_id=session_id, kind=kind, submissions=submissions,
+                                  workbenches=workbenches):
             raise SidecarError(TAKE_STEP_REQUIRED, "That take step is not this attempt's: take it again.")
-        token = str(row["id"])
+        token = str(row["id"])  # type: ignore[index]
     return AttemptHost(kind=kind, item_id=item_id, submission_id=submission_id, session_id=session_id,
                        workbench_session_id=workbench_session_id, cold=cold, take_step_id=token)
 
@@ -1079,6 +1155,10 @@ def record_attempt_figure(ctx: SidecarContext, attempt: dict[str, Any], figure_i
     host = AttemptHost(**{key: attempt.get(key) for key in (
         "kind", "item_id", "submission_id", "session_id", "workbench_session_id", "attempt_id", "cold",
         "take_step_id")})
+    if not FS.help_enabled(vault):
+        # Codex review F5: switched off since the request (a delivery, an open,
+        # a chooser line): nothing shown, nothing recorded.
+        return _help_off_line(attempt)
     if not host.counts:
         return {"host": host.kind, "line": COST_LINES["feedback"], "counts_as_hint": False, "status": "free"}
     item = vault.practice_items.get(host.item_id)
@@ -1086,14 +1166,22 @@ def record_attempt_figure(ctx: SidecarContext, attempt: dict[str, Any], figure_i
         return {"host": host.kind, "status": "not_recorded",
                 "message": "This item changed since, so the figure isn't shown on it."}
     try:
+        # Codex review F3: every host of the one attempt (the answer box's key
+        # handed into Work in Steps, and back): one row per figure across them.
+        submissions, workbenches = attempt_aliases(repository, item.id, host.submission_id,
+                                                   host.workbench_session_id)
+        # Codex review F6: a workbench figure keeps the work it was opened
+        # against (step ids and content hashes, never the text), so its own
+        # unaided continuation is measured as a hint's or an example's is.
+        snapshot = _workbench_snapshot(repository, host.workbench_session_id) if host.kind == "workbench" else None
         with repository.atomic():
             connection = repository.connection()
-            if HA.submission_committed(connection, host.submission_id):
+            if any(HA.submission_committed(connection, key) for key in {host.submission_id, *submissions} if key):
                 return {"host": "feedback", "line": COST_LINES["feedback"], "counts_as_hint": False,
                         "status": "free"}
             root = chain_root(connection, figure_id)
-            mine = HA.open_figure_rows(connection, practice_item_id=host.item_id, submission_id=host.submission_id,
-                                       workbench_session_id=host.workbench_session_id)
+            mine = HA.open_figure_rows(connection, practice_item_id=host.item_id, submission_ids=submissions,
+                                       workbench_session_ids=workbenches)
             assist_id = next((str(row["id"]) for row in mine if row.get("figure_id")
                               and chain_root(connection, str(row["figure_id"])) == root), None)
             new = False
@@ -1109,7 +1197,8 @@ def record_attempt_figure(ctx: SidecarContext, attempt: dict[str, Any], figure_i
                     "practice_session_id": host.session_id if host.kind == "practice" else None,
                     "workbench_session_id": host.workbench_session_id, "submission_id": host.submission_id,
                     "level": FIGURE_LEVEL, "chooser": "none", "shown": 1, "counted_by": "server",
-                    "requested_at": now, "shown_at": now, "figure_id": figure_id})
+                    "requested_at": now, "shown_at": now, "figure_id": figure_id,
+                    "step_snapshot_json": snapshot})
                 new = True
             figure_row = figure_store.figure(connection, figure_id)
             basis = f"figure:{figure_id}"
@@ -1129,6 +1218,34 @@ def record_attempt_figure(ctx: SidecarContext, attempt: dict[str, Any], figure_i
                                          "prebuilt": False, "counted": new}, extraction_id=None)
     return {"host": host.kind, "line": COST_LINES["open"], "counts_as_hint": True, "status": "counted",
             "assist_id": assist_id, "new": new}
+
+
+def _refuse_own_blocks(vault: Any, repository: Any, item_id: str, row: dict[str, Any]) -> None:
+    """A figure placed at or built from the item's own blocks (its exercise,
+    solution or worked answer) is never opened or revised on its attempt."""
+
+    from learnloop.figures.help import figure_keys
+    from learnloop.source_retrieval.corpus import item_exclusions
+
+    own = item_exclusions(repository, vault.practice_items[item_id])
+    if any(key in own.spans or key[0] in own.extractions for key in figure_keys(repository, row)):
+        raise SidecarError("not_offered", "That figure was made from this item's own passages.")
+
+
+def _workbench_snapshot(repository: Any, workbench_session_id: str | None) -> str | None:
+    """The problem's live steps as a workbench help row keeps them (ids,
+    numbers and content hashes: ``hints.report_workbench``'s work at
+    delivery), or None."""
+
+    import json
+
+    from learnloop.workbench.ladder import live_workbench_steps
+
+    if not workbench_session_id:
+        return None
+    steps = live_workbench_steps(repository, workbench_session_id)
+    return json.dumps([{"chain_id": step.chain_id, "step_id": step.step_id, "number": step.number,
+                        "hash": step.content_hash} for step in steps], sort_keys=True)
 
 
 class TakeStepInput(ParamsModel):
@@ -1163,11 +1280,15 @@ def figure_take_step(ctx: SidecarContext, params: TakeStepInput) -> dict[str, An
     if not take_step_available(vault, repository, host.item_id):
         raise SidecarError("cold_check", "No help is taken on this check, so a figure isn't shown here.")
     item = vault.practice_items[host.item_id]
+    submissions, workbenches = attempt_aliases(repository, item.id, host.submission_id, host.workbench_session_id)
     with repository.atomic():
         connection = repository.connection()
+        # One take step per attempt, across its hosts (Codex review F3).
         existing = next((row for row in HA.open_figure_rows(
-            connection, practice_item_id=item.id, submission_id=host.submission_id,
-            workbench_session_id=host.workbench_session_id) if row.get("request") == "take_step"), None)
+            connection, practice_item_id=item.id, submission_ids=submissions, workbench_session_ids=workbenches)
+            if row.get("request") == "take_step" and _token_row_matches(
+                row, item_id=item.id, session_id=host.session_id, kind=host.kind, submissions=submissions,
+                workbenches=workbenches)), None)
         if existing is not None:
             token = str(existing["id"])
         else:
@@ -1200,8 +1321,6 @@ def figure_open(ctx: SidecarContext, params: FigureOpenInput) -> dict[str, Any]:
 
     from learnloop.db.connection import connect
     from learnloop.db.stores import figures as figure_store
-    from learnloop.figures.help import figure_keys
-    from learnloop.source_retrieval.corpus import item_exclusions
     from learnloop.source_retrieval.policy import derive_policy
 
     vault, repository = _require(ctx)
@@ -1216,10 +1335,7 @@ def figure_open(ctx: SidecarContext, params: FigureOpenInput) -> dict[str, Any]:
         row, _compiled = FS.shown_figure(vault, repository, params.figure_id)
     except FS.FigureRefused as exc:
         raise _refused(exc) from exc
-    item = vault.practice_items[host.item_id]
-    own = item_exclusions(repository, item)
-    if any(key in own.spans or key[0] in own.extractions for key in figure_keys(repository, row)):
-        raise SidecarError("not_offered", "That figure was made from this item's own passages.")
+    _refuse_own_blocks(vault, repository, host.item_id, row)
     with closing(connect(repository.sqlite_path, read_only=True)) as connection:
         versions = len([1 for _ in figure_store.superseding(connection, params.figure_id)]) + 1
     view = FS.figure_view(vault, repository, row, versions=versions)

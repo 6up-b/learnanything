@@ -596,22 +596,26 @@ def mark_bridge_shown(connection: sqlite3.Connection, assist_id: str, *, shown_a
 # -- Reader RW5d P3: figures as a help kind (migration 232) ----------------------------
 
 
-def open_figure_rows(connection: sqlite3.Connection, *, practice_item_id: str, submission_id: str | None = None,
-                     workbench_session_id: str | None = None) -> list[dict[str, Any]]:
+def open_figure_rows(connection: sqlite3.Connection, *, practice_item_id: str,
+                     submission_ids: Sequence[str] = (), workbench_session_ids: Sequence[str] = ()
+                     ) -> list[dict[str, Any]]:
     """An open attempt's figure rows (``assist_kind = 'figure'``, attached to
-    no attempt): the answer box's by its submission key, a workbench
-    problem's by its session (and either way the other identity, so the same
-    figure is never counted twice across the two hosts of one attempt)."""
+    no attempt) under any of its identities: the answer box's submission keys
+    and the workbench problems (Codex review F3: the caller passes CA2's
+    aliases, so the same figure is never counted twice across the hosts of
+    one attempt)."""
 
     clauses = ["assist_kind = 'figure'", "practice_item_id = ?", "attempt_id IS NULL"]
     values: list[Any] = [practice_item_id]
     who = []
-    if submission_id:
-        who.append("submission_id = ?")
-        values.append(submission_id)
-    if workbench_session_id:
-        who.append("workbench_session_id = ?")
-        values.append(workbench_session_id)
+    keys = sorted({str(key) for key in submission_ids if key})
+    workbenches = sorted({str(key) for key in workbench_session_ids if key})
+    if keys:
+        who.append(f"submission_id IN ({', '.join('?' for _ in keys)})")
+        values.extend(keys)
+    if workbenches:
+        who.append(f"workbench_session_id IN ({', '.join('?' for _ in workbenches)})")
+        values.extend(workbenches)
     if not who:
         return []
     clauses.append(f"({' OR '.join(who)})")
@@ -619,6 +623,20 @@ def open_figure_rows(connection: sqlite3.Connection, *, practice_item_id: str, s
         f"SELECT {', '.join(COLUMNS)} FROM help_assists WHERE {' AND '.join(clauses)} ORDER BY requested_at, rowid",
         tuple(values)).fetchall()
     return [dict(zip(COLUMNS, tuple(row))) for row in rows]
+
+
+def submission_session_conflict(connection: sqlite3.Connection, *, practice_item_id: str, submission_id: str,
+                                session_id: str) -> bool:
+    """Codex review F1: whether an unattached server row of this item and
+    submission key names another practice session (the key is the attach's,
+    the session the fold's: one key in two sessions would attach a row its
+    attempt's fold never counted)."""
+
+    row = connection.execute(
+        "SELECT 1 FROM help_assists WHERE practice_item_id = ? AND submission_id = ? AND attempt_id IS NULL "
+        "AND practice_session_id IS NOT NULL AND practice_session_id != ? LIMIT 1",
+        (practice_item_id, submission_id, session_id)).fetchone()
+    return row is not None
 
 
 def take_step(connection: sqlite3.Connection, token: str) -> dict[str, Any] | None:
@@ -678,5 +696,6 @@ __all__ = [
     "settle_compare", "workbench_fold",
     "workbench_rows",
     "WORK_MD_CHARS", "kept_draft",
-    "HINT_EQUIVALENT_KINDS_SQL", "bind_figure", "figure_rows", "open_figure_rows", "take_step",
+    "HINT_EQUIVALENT_KINDS_SQL", "bind_figure", "figure_rows", "open_figure_rows", "submission_session_conflict",
+    "take_step",
 ]

@@ -1740,7 +1740,10 @@ export const api = {
   // with or without a passage; the same build job (read it with readerFigureJob).
   figureRequest: (input: import("./dto").FigureRequestV1Input) =>
     call<LibraryJobDto<FigureBuildResultDto>>("figure_request", { input }),
-  readerFigureRevise: (input: { figureId: string; note: string; differentKind?: boolean }) =>
+  // Reader RW5d P3 (Codex review F4): on an attempt host, the host the figure is open on now
+  // (verified on the server) and the take step's token on a check on your own.
+  readerFigureRevise: (input: { figureId: string; note: string; differentKind?: boolean;
+    hostRef?: import("./dto").FigureHostRef | null; takeStepToken?: string | null }) =>
     call<LibraryJobDto<FigureBuildResultDto>>("reader_figure_revise", { input }),
   readerFigureJob: (input: { jobId: string }) =>
     call<LibraryJobDto<FigureBuildResultDto>>("reader_figure_job", { input }),

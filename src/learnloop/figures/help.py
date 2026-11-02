@@ -76,25 +76,90 @@ def enabled(vault: Any) -> bool:
 
 #: The keys whose values are the figure's words (§11.2 row 2: what it
 #: demonstrates, its assumptions, labels, annotations, captions, prediction
-#: prompts and choices): its expressions, enums and span ids are not text.
+#: prompts and choices; §11.4b and §9b.4's wording rule for the rich tiers:
+#: a Manim figure's title and narration, any tier's ``alt_text``): its
+#: expressions, enums and span ids are not text.
 _TEXT_KEYS = frozenset({"demonstrates", "text", "label", "labels", "title", "caption", "annotation",
-                        "annotations", "prompt", "choices", "note", "legend", "readout_label"})
+                        "annotations", "prompt", "choices", "note", "legend", "readout_label", "narration_md",
+                        "alt_text"})
+#: Program keys whose string literals are drawn words: a sketch's ``code``
+#: and a JS animation's ``html`` and ``js`` (§11.4b).
+_LITERAL_KEYS = frozenset({"code", "html", "js"})
+#: A Manim figure's program (§11.4b: its ``Text``/``MathTex`` arguments, by AST).
+_SCENE_KEY = "scene_code"
 #: A string literal in a sketch's program (its drawn words).
-_LITERAL = re.compile(r'"((?:[^"\\]|\\.)*)"|\'((?:[^\'\\]|\\.)*)\'')
+_LITERAL = re.compile(r'"((?:[^"\\]|\\.)*)"|\'((?:[^\'\\]|\\.)*)\'|`((?:[^`\\]|\\.)*)`')
+#: The Manim mobjects whose arguments are shown as words or numbers on screen
+#: (the manim API's text and number classes: a structural list, never a weight).
+MANIM_TEXT_CALLS = frozenset({"Text", "MarkupText", "Paragraph", "Tex", "MathTex", "SingleStringMathTex",
+                              "Title", "BulletedList", "Code", "DecimalNumber", "Integer", "Variable",
+                              "MathTable", "Table", "IntegerTable", "DecimalTable", "Brace", "BraceLabel",
+                              "BraceText", "Underline", "LabeledDot", "LabeledLine", "LabeledArrow"})
+
+
+def _literals(code: str) -> Iterable[str]:
+    for match in _LITERAL.findall(code):
+        text = next((part for part in match if part), "")
+        if text.strip():
+            yield text
+
+
+def _call_name(node: Any) -> str:
+    import ast
+
+    func = node.func
+    if isinstance(func, ast.Name):
+        return func.id
+    if isinstance(func, ast.Attribute):
+        return func.attr
+    return ""
+
+
+def manim_shown_text(scene_code: str) -> list[str]:
+    """The words and numbers a Manim scene puts on screen (§11.4b, by AST):
+    every string literal (f-string parts included) and number literal in
+    the arguments of a text or number mobject (:data:`MANIM_TEXT_CALLS`),
+    and of ``get_axis_labels``/``get_graph_label``/``add_coordinates``-style
+    label calls. A scene that does not parse contributes its string literals."""
+
+    import ast
+
+    try:
+        tree = ast.parse(scene_code)
+    except (SyntaxError, ValueError):
+        return list(_literals(scene_code))
+    out: list[str] = []
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.Call):
+            continue
+        name = _call_name(node)
+        if name not in MANIM_TEXT_CALLS and not name.endswith("label") and not name.endswith("labels") \
+                and name != "add_coordinates":
+            continue
+        for argument in [*node.args, *(keyword.value for keyword in node.keywords)]:
+            for inner in ast.walk(argument):
+                if isinstance(inner, ast.Constant) and isinstance(inner.value, str) and inner.value.strip():
+                    out.append(inner.value)
+                elif isinstance(inner, ast.Constant) and isinstance(inner.value, (int, float)) \
+                        and not isinstance(inner.value, bool):
+                    out.append(format_value(float(inner.value)))
+    return out
 
 
 def _words(value: Any, *, keyed: bool = False) -> Iterable[str]:
     """The text values of a figure's JSON: every string under a text key
-    (:data:`_TEXT_KEYS`), however deep; a sketch's program contributes its
-    string literals."""
+    (:data:`_TEXT_KEYS`), however deep; a sketch's or JS animation's program
+    contributes its string literals, a Manim scene its shown words."""
 
     if isinstance(value, str):
         if keyed and value.strip():
             yield value
     elif isinstance(value, Mapping):
         for key, item in value.items():
-            if key == "code" and isinstance(item, str):
-                yield from (first or second for first, second in _LITERAL.findall(item) if (first or second).strip())
+            if key in _LITERAL_KEYS and isinstance(item, str):
+                yield from _literals(item)
+            elif key == _SCENE_KEY and isinstance(item, str):
+                yield from manim_shown_text(item)
             else:
                 yield from _words(item, keyed=keyed or key in _TEXT_KEYS)
     elif isinstance(value, (list, tuple)):
@@ -102,9 +167,71 @@ def _words(value: Any, *, keyed: bool = False) -> Iterable[str]:
             yield from _words(item, keyed=keyed)
 
 
+def _round_half_up(value: float, places: int) -> Any:
+    """``value`` (its exact binary value) rounded to ``places`` decimals, ties
+    away from zero: JavaScript's ``toFixed``/``toPrecision`` rule."""
+
+    from decimal import ROUND_HALF_UP, Decimal
+
+    return Decimal(value).quantize(Decimal(1).scaleb(-places), rounding=ROUND_HALF_UP)
+
+
+def _js_number(value: float) -> str:
+    """JavaScript's ``String(number)`` for a finite number in the formatter's
+    plain range (shortest round-trip digits, no trailing ``.0``)."""
+
+    if value == 0:
+        return "0"
+    text = repr(float(value))
+    if "e" in text or "E" in text:
+        from decimal import Decimal
+
+        text = format(Decimal(text), "f")
+    if text.endswith(".0"):
+        text = text[:-2]
+    return text
+
+
+def format_value(value: Any, form: str = "number") -> str:
+    """A number as the desktop's figure panels show it
+    (``FigurePanels.tsx`` ``formatValue``, operation for operation): a
+    percent to one decimal, a very large or small number in exponent form
+    with three decimals, else five significant digits."""
+
+    import math
+    from decimal import ROUND_HALF_UP, Decimal
+
+    try:
+        number = float(value)
+    except (TypeError, ValueError):
+        return "—"
+    if not math.isfinite(number):
+        return "—"
+    if form == "percent":
+        scaled = number * 100
+        if not math.isfinite(scaled):
+            return "—"
+        # toFixed(1): the sign, then the magnitude rounded half up.
+        return f"{'-' if scaled < 0 else ''}{_round_half_up(abs(scaled), 1):.1f}%"
+    if number != 0 and (abs(number) >= 1e5 or abs(number) < 1e-3):
+        exact = Decimal(number)
+        exponent = exact.adjusted()
+        mantissa = (exact.scaleb(-exponent)).quantize(Decimal("0.001"), rounding=ROUND_HALF_UP)
+        if abs(mantissa) >= 10:
+            exponent += 1
+            mantissa = (exact.scaleb(-exponent)).quantize(Decimal("0.001"), rounding=ROUND_HALF_UP)
+        return f"{mantissa}e{'+' if exponent >= 0 else '-'}{abs(exponent)}"
+    exact = Decimal(number)
+    places = 5 - 1 - exact.adjusted()
+    rounded = exact.quantize(Decimal(1).scaleb(-places), rounding=ROUND_HALF_UP)
+    return _js_number(float(rounded))
+
+
 def _readouts(spec_json: str) -> list[str]:
-    """A grammar figure's readouts and highlighted values at the defaults, as
-    the figure formats them (a figure that computes the item's number shows it)."""
+    """A grammar figure's displayed values at the defaults, as the panels
+    format them (:func:`format_value`): readouts, shaded areas (the value and
+    its bounds), a bar chart's highlighted mass, a linear map's determinant.
+    A figure that computes the item's number shows it."""
 
     from learnloop.figures import spec as S
 
@@ -117,25 +244,25 @@ def _readouts(spec_json: str) -> list[str]:
         values: list[tuple[Any, str]] = []
         if panel.get("kind") == "readout":
             values.append((panel.get("value"), str(panel.get("format") or "number")))
+        for shade in panel.get("shades") or ():
+            values += [(shade.get("value"), "number"), (shade.get("from"), "number"), (shade.get("to"), "number")]
         highlight = panel.get("highlight") or {}
         if highlight.get("value") is not None:
             values.append((highlight.get("value"), "number"))
         if panel.get("determinant") is not None:
             values.append((panel.get("determinant"), "number"))
-        for value, form in values:
-            if value is None:
-                continue
-            number = float(value)
-            out.append(f"{number * 100:.4g}%" if form == "percent" else f"{number:.4g}")
-    return out
+        out += [format_value(value, form) for value, form in values if value is not None]
+    return [text for text in out if text != "—"]
 
 
 def reveal_text(row: Mapping[str, Any]) -> str:
     """A stored figure's words (:func:`_words`: what it demonstrates, its
-    assumptions, labels, annotations, prompts; a sketch's drawn strings) and
-    its readouts at the defaults as formatted (§11.2 row 2, §11.4b): the text
-    the overlap check reads. Its goal and its verification report are not
-    the author's output."""
+    assumptions, labels, annotations, prompts; a sketch's drawn strings; a
+    rich figure's title, narration and, for Manim, the text and number
+    arguments of its scene's mobjects) and a grammar figure's displayed
+    values at the defaults as formatted (§11.2 row 2, §11.4b): the text the
+    overlap check reads. Its goal and its verification report are not the
+    author's output."""
 
     raw = row.get("spec_json")
     if not raw:
@@ -357,6 +484,8 @@ __all__ = [
     "chain_root",
     "enabled",
     "figure_keys",
+    "format_value",
+    "manim_shown_text",
     "offer_view",
     "qualifying_figure",
     "reveal_text",

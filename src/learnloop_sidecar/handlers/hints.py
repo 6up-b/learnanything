@@ -326,6 +326,35 @@ def _figure_reveal(repository: Any, item: Any, figure_id: str) -> tuple[float, s
     return (hint_service.reveal_amount(item, text) if text.strip() else 0.0), f"figure:{figure_id}"
 
 
+def _figure_deliverable(vault: Any, repository: Any, assist_id: str) -> bool:
+    """Whether a prepared row may be shown now: every row but a chooser's
+    figure; that one only with ``figures.help_kind_enabled`` on, its figure
+    not withheld now and its item not cold now (rechecked at delivery, as a
+    figure build's delivery is)."""
+
+    from contextlib import closing
+
+    from learnloop.db.connection import connect
+    from learnloop.db.stores import help_assists as assists_store
+    from learnloop.figure_admission import help_kind_enabled
+
+    with closing(connect(repository.sqlite_path, read_only=True)) as connection:
+        row = assists_store.assist(connection, assist_id)
+    if row is None or row.get("assist_kind") != "figure":
+        return True
+    if not help_kind_enabled(vault) or not row.get("figure_id"):
+        return False
+    from learnloop.figures import service as FS
+    from learnloop_sidecar.handlers.figures import _item_cold
+
+    try:
+        if FS.figure_withheld(vault, repository, str(row["figure_id"])):
+            return False
+        return not _item_cold(vault, repository, str(row.get("practice_item_id") or ""))
+    except Exception:  # noqa: BLE001 - fail closed: not shown
+        return False
+
+
 class _RevealNotRecorded(Exception):
     """The shown hint's reveal could not be written (rolls the delivery back)."""
 
@@ -347,6 +376,12 @@ def _deliver(ctx: SidecarContext, practice_item_id: str, assist_id: str) -> str:
     # changed is refused before it is marked shown (round 3, W5), so its
     # reveal is always written against the item it was written for.
     item = vault.practice_items.get(practice_item_id)
+    if not _figure_deliverable(vault, repository, assist_id):
+        # RW5d P3 (Codex review F5): a chooser's figure line is shown only
+        # while figures in attempts are on, the figure is not held out and
+        # the item is not under a check on your own now; else nothing is
+        # shown and the prepared row stays unshown (it counts nothing).
+        return hint_service.NOT_DELIVERABLE
     try:
         with repository.atomic():
             outcome, row = hint_service.deliver_hint(repository, assist_id, item=item)
