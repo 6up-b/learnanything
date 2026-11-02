@@ -191,6 +191,10 @@ def deliver_figure(ctx: SidecarContext, result: dict[str, Any]) -> dict[str, Any
         if help_line.get("status") == "not_recorded":
             return {"figure": None, "reused": False, "withheld": False, "help": help_line}
         result["help"] = help_line
+        result["figure"] = attempt_view(figure)
+    if attempt is not None:
+        # Ruling R1: no rich pending line on an attempt host (no rich job starts there).
+        result.pop("rich", None)
     return result
 
 
@@ -232,11 +236,10 @@ def _start(ctx: SidecarContext, request: FS.FigureRequest, *, attempt: dict[str,
     author = getattr(ctx, "figure_author_client", None)
     # RW5d: the grounding retrieval (the sources service's, unset; a fake in tests).
     find = getattr(ctx, "figure_find_sources", None)
-    # RW5d P3 (Codex review F8, §11.4b): every tier on an attempt host too. A
-    # rich-only build answers its pending line to the panel (no figure, so
-    # nothing recorded yet); the panel reads it with ``figure.open`` by its
-    # job, and the stored figure is recorded when it is opened there.
-    spawn = _rich_spawner(ctx, vault) if FS.rich_enabled(vault) else None
+    # RW5d P3 ruling R1: an attempt host's figure is grammar or sketch only (no
+    # rich spawner, so no rich tier on the author's menu, no rich job and no
+    # fuller version); rich (Manim) figures stay Reader-side.
+    spawn = _rich_spawner(ctx, vault) if FS.rich_enabled(vault) and attempt is None else None
 
     def work(worker_repo: Any) -> dict[str, Any]:
         try:
@@ -614,6 +617,7 @@ def reader_figure_revise(ctx: SidecarContext, params: FigureReviseInput) -> dict
             from learnloop.source_retrieval.policy import derive_policy
 
             _help_required(vault)
+            _refuse_rich(base)
             stored = current or dict(revision.host_ref or {})
             token = params.take_step_token if current else stored.get("take_step")
             host = _attempt_host(ctx, vault, repository, stored, take_step=token)
@@ -748,7 +752,14 @@ def figure_rich_retry(ctx: SidecarContext, params: RichRetryInput) -> dict[str, 
     (the rich author asked afresh), started here (no author call: it goes
     straight to the rich job, whose id is answered)."""
 
+    from learnloop.figures import rich as RICH
+
     vault, repository = _require(ctx)
+    job = repository.get_ingest_job(params.rich_job_id)
+    if job is not None and job.get("job_type") == RICH.RICH_JOB_TYPE \
+            and RICH.attempt_hosted_job(repository, job.get("payload") or {}):
+        # Ruling R1: an attempt host's rich job (a legacy one) is never asked again.
+        raise SidecarError("validation_error", RICH_READER_ONLY)
     revision = FS.rich_revision_retry(vault, repository, params.rich_job_id)
     if revision is not None:
         try:
@@ -918,6 +929,27 @@ class AttemptHost:
 
 
 HELP_OFF_MESSAGE = "Figures on practice, feedback and the workbench are switched off (figures.help_kind_enabled)."
+
+
+#: RW5d P3 ruling R1: what an attempt host answers for a rich (Manim) figure.
+RICH_READER_ONLY = ("Animations are made and opened in the Reader only; on practice, feedback and the "
+                    "workbench a figure is a quick one.")
+
+
+def attempt_view(view: dict[str, Any]) -> dict[str, Any]:
+    """A figure's view as an attempt host shows it (ruling R1): never its
+    fuller (Manim) version, which stays Reader-side."""
+
+    if view and view.get("fuller") is not None:
+        return {**view, "fuller": None}
+    return view
+
+
+def _refuse_rich(row: dict[str, Any] | None) -> None:
+    """Ruling R1: a rich figure is never opened or revised on an attempt host."""
+
+    if row is not None and FS.rich_row(row):
+        raise SidecarError("validation_error", RICH_READER_ONLY)
 
 
 def _help_required(vault: Any) -> None:
@@ -1235,6 +1267,9 @@ def record_attempt_figure(ctx: SidecarContext, attempt: dict[str, Any], figure_i
                    for key in {host.submission_id, *submissions} if key):
                 return {"host": "feedback", "line": COST_LINES["feedback"], "counts_as_hint": False,
                         "status": "free"}
+            if FS.rich_row(figure_store.figure(connection, figure_id) or {}):
+                # Ruling R1: a rich figure is never recorded (or shown) on an attempt host.
+                return {"host": host.kind, "status": "not_recorded", "message": RICH_READER_ONLY}
             root = chain_root(connection, figure_id)
             mine = HA.open_figure_rows(connection, practice_item_id=host.item_id, submission_ids=submissions,
                                        workbench_session_ids=workbenches)
@@ -1362,13 +1397,9 @@ def figure_take_step(ctx: SidecarContext, params: TakeStepInput) -> dict[str, An
 
 
 class FigureOpenInput(ParamsModel):
-    figure_id: str | None = Field(default=None, min_length=1, max_length=200)
+    figure_id: str = Field(min_length=1, max_length=200)
     host_ref: HostRefInput
     take_step_token: str | None = Field(default=None, max_length=200)
-    #: RW5d P3 (Codex review F8): a rich-only build asked on this host, read
-    #: by its job: its pending line until its figure is stored, then that
-    #: figure opened (recorded) like any other.
-    rich_job_id: str | None = Field(default=None, min_length=1, max_length=200)
 
 
 @method("figure.open", FigureOpenInput)
@@ -1391,65 +1422,24 @@ def figure_open(ctx: SidecarContext, params: FigureOpenInput) -> dict[str, Any]:
     if policy == "cold_attempt":
         raise SidecarError(TAKE_STEP_REQUIRED, "On a check on your own, a figure makes this practice with help: "
                                                "take the step first.")
-    if (params.figure_id is None) == (params.rich_job_id is None):
-        raise SidecarError("validation_error", "Open a figure, or a rich build, not both.")
     figure_id = params.figure_id
-    if params.rich_job_id is not None:
-        figure_id, line = _rich_job_figure(vault, repository, params.rich_job_id, host.item_id)
-        if figure_id is None:
-            # Still building (or ended with no figure): its line, nothing recorded.
-            return versioned({"figure": None, "rich": line, "help": {"host": host.kind, "status": "pending",
-                                                                     "line": host.cost_line(),
-                                                                     "counts_as_hint": host.counts}})
+    with closing(connect(repository.sqlite_path, read_only=True)) as connection:
+        stored = figure_store.figure(connection, figure_id) if figure_store.has_tables(connection) else None
+    # Ruling R1: a rich (Manim) figure, a fuller version included, is never
+    # opened on an attempt host.
+    _refuse_rich(stored)
     try:
-        with closing(connect(repository.sqlite_path, read_only=True)) as connection:
-            stored = figure_store.figure(connection, str(figure_id)) if figure_store.has_tables(connection) else None
-        if stored is not None and FS.rich_row(stored):
-            # §11.4b: a Manim figure (a fuller version, or a rich-only build) is
-            # opened by expanding its frame, recorded as any figure here.
-            row = FS.openable_rich_figure(vault, repository, str(figure_id))
-        else:
-            row, _compiled = FS.shown_figure(vault, repository, str(figure_id))
+        row, _compiled = FS.shown_figure(vault, repository, figure_id)
     except FS.FigureRefused as exc:
         raise _refused(exc) from exc
     _refuse_own_blocks(vault, repository, host.item_id, row)
     with closing(connect(repository.sqlite_path, read_only=True)) as connection:
         versions = len([1 for _ in figure_store.superseding(connection, str(figure_id))]) + 1
-    view = FS.figure_view(vault, repository, row, versions=versions)
-    help_line = record_attempt_figure(ctx, host.record(), str(figure_id))
+    view = attempt_view(FS.figure_view(vault, repository, row, versions=versions))
+    help_line = record_attempt_figure(ctx, host.record(), figure_id)
     if help_line.get("status") in ("not_recorded", "disabled"):
         return versioned({"figure": None, "help": help_line})
     return versioned({"figure": view, "help": help_line})
-
-
-def _rich_job_figure(vault: Any, repository: Any, rich_job_id: str, item_id: str
-                     ) -> tuple[str | None, dict[str, Any] | None]:
-    """A rich-only build's figure once stored (its request names it), else
-    None and the job's line. The job must be a rich build asked on an
-    attempt host of this item (its request's verified host)."""
-
-    from learnloop.db.connection import connect
-    from learnloop.db.stores import figures as figure_store
-    from learnloop.figures import rich as RICH
-
-    if not FS.rich_enabled(vault):
-        raise SidecarError("rich_disabled", "Rich figures are switched off (figures.rich_tiers_enabled).")
-    job = repository.get_ingest_job(rich_job_id)
-    payload = (job or {}).get("payload") or {}
-    request_id = str(payload.get("request_id") or "")
-    if job is None or job.get("job_type") != RICH.RICH_JOB_TYPE or not request_id or payload.get("fast_figure_id"):
-        raise SidecarError("not_found", "That animation build is no longer kept.")
-    with closing(connect(repository.sqlite_path, read_only=True)) as connection:
-        asked = figure_store.request(connection, request_id)
-    if asked is None or str((asked.get("host_ref") or {}).get("item_id") or "") != item_id:
-        raise SidecarError("not_found", "That animation was not asked on this item.")
-    if asked.get("figure_id"):
-        return str(asked["figure_id"]), None
-    state = RICH.job_state(job)
-    return None, {"rich_job_id": rich_job_id, "request_id": request_id, "tier": payload.get("tier"),
-                  "goal_text": (payload.get("base") or {}).get("goal_text"), "state": state.get("state"),
-                  "phase": state.get("phase"), "reason": state.get("reason"), "extraction_id": None,
-                  "anchor_span_id": None}
 
 
 __all__ = ["FIGURE_RPCS", "AttemptHost", "deliver_figure", "prompt_contract_fields", "record_attempt_figure",

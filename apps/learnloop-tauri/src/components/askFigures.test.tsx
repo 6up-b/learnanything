@@ -20,16 +20,10 @@ vi.mock("../render/MarkdownMath", () => ({ MarkdownMath: ({ value }: { value: st
 vi.mock("./OpenInSource", () => ({ OpenInSource: () => null }));
 vi.mock("../screens/reader/figures/FigureInline", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../screens/reader/figures/FigureInline")>()),
-  FigureInline: ({ figure, ctl }: { figure: { figureId: string }; ctl: { revise: (figure: unknown, note: string) => void;
-    openFuller?: (fuller: unknown) => Promise<boolean> } }) => (
+  FigureInline: ({ figure, ctl }: { figure: { figureId: string; fuller?: unknown }; ctl: { revise: (figure: unknown, note: string) => void } }) => (
     <>
-      <div data-testid="figure-inline">{figure.figureId}</div>
+      <div data-testid="figure-inline" data-fuller={figure.fuller ? "1" : "0"}>{figure.figureId}</div>
       <button type="button" onClick={() => ctl.revise(figure, "bigger")}>test-revise</button>
-      <button type="button" onClick={() => { void ctl.openFuller?.({ ...figure, figureId: "fig_full", tier: "manim" }); }}>test-fuller</button>
-      <button type="button" onClick={() => {
-        const fuller = (figure as { fuller?: { figure?: unknown } | null }).fuller?.figure;
-        if (fuller) ctl.revise(fuller, "slower");
-      }}>test-revise-fuller</button>
     </>
   )
 }));
@@ -191,7 +185,7 @@ it("the chooser's explore_figure hint is one line that opens its figure on the a
                                                hostRef: { itemId: "pi_1", submissionId: "serve-2", sessionId: "s1" } });
 });
 
-// Reader RW5d P3, Codex review F4 and F8.
+// Reader RW5d P3, Codex review F4.
 
 it("not right? asks the new version on the host the figure is open on now (F4)", async () => {
   api.readerFigureRevise.mockResolvedValue(job({ host: "practice", countsAsHint: true, status: "counted", new: false }));
@@ -205,96 +199,34 @@ it("not right? asks the new version on the host the figure is open on now (F4)",
                                                        hostRef: { itemId: "pi_1", submissionId: "serve-2", sessionId: "s1" } });
 });
 
-it("a rich-only build shows its pending line and is opened on the attempt once it lands (F8)", async () => {
-  const rich = { requestId: "fr_1", extractionId: null, anchorSpanId: null, tier: "manim", goalText: "the spiral",
-                 state: "pending", phase: "writing", reason: null, richJobId: "rj_1" };
-  api.figureRequest.mockResolvedValue({ version: 1, jobId: "ljob_1", kind: "figure_build", askId: null, state: "done",
-                                        result: { figure: null, reused: false, rich, help: { host: "practice", countsAsHint: true } } });
-  api.figureOpen.mockResolvedValue({ figure: { ...FIGURE, figureId: "fig_rich", tier: "manim" },
-                                     help: { host: "practice", countsAsHint: true, status: "counted", new: true } });
-  const onFigureEvent = vi.fn();
-  const panel = await openDocked(PRACTICE, { onFigureEvent });
-  type("the spiral");
-  fireEvent.click(within(panel).getByText(PANEL_FIGURE_COPY.send));
-  await waitFor(() => expect(screen.getByTestId("ask-figure-line").querySelector("[data-rich-pending]")).not.toBeNull());
-  expect(screen.queryByTestId("figure-inline")).toBeNull();
-  await waitFor(() => expect(screen.getByTestId("figure-inline").textContent).toBe("fig_rich"), { timeout: 5000 });
-  expect(api.figureOpen).toHaveBeenCalledWith({ richJobId: "rj_1", takeStepToken: null,
-                                               hostRef: { itemId: "pi_1", submissionId: "serve-2", sessionId: "s1" } });
-  expect(onFigureEvent).toHaveBeenCalledWith({ counted: true, converted: false });
-});
+// Ruling R1 (landing step 0): figures on an attempt host are grammar and sketch only.
 
-it("opening a quick figure's fuller version is recorded on the attempt first (F8)", async () => {
-  api.figureOpen.mockResolvedValue({ figure: { ...FIGURE, figureId: "fig_full", tier: "manim" },
-                                     help: { host: "practice", countsAsHint: true, status: "counted", new: false } });
-  const panel = await openDocked();
-  type("the area under 2x");
-  fireEvent.click(within(panel).getByText(PANEL_FIGURE_COPY.send));
-  await waitFor(() => expect(screen.getByTestId("figure-inline").textContent).toBe("fig_1"));
-  fireEvent.click(screen.getByText("test-fuller"));
-  await waitFor(() => expect(api.figureOpen).toHaveBeenCalledOnce());
-  expect(api.figureOpen).toHaveBeenCalledWith({ figureId: "fig_full", takeStepToken: null,
-                                               hostRef: { itemId: "pi_1", submissionId: "serve-2", sessionId: "s1" } });
-});
-
-// Reader RW5d P3, Codex re-review F10 and F11.
-
-const RICH_PENDING = { requestId: "fr_1", extractionId: null, anchorSpanId: null, tier: "manim", goalText: "the spiral",
-                       state: "pending", phase: "writing", reason: null, richJobId: "rj_1" };
-
-function richOnly() {
-  api.figureRequest.mockResolvedValue({ version: 1, jobId: "ljob_1", kind: "figure_build", askId: null, state: "done",
-                                        result: { figure: null, reused: false, rich: RICH_PENDING, help: { host: "practice", countsAsHint: true } } });
-  api.figureOpen.mockResolvedValue({ figure: null, rich: RICH_PENDING, help: { host: "practice", countsAsHint: true, status: "pending" } });
-}
-
-it("a rich build's polling stays on the attempt it was asked on; another attempt opens it only by open here (F10)", async () => {
-  richOnly();
-  const view = render(<AskOverlay variant="docked" target={PRACTICE} onClose={vi.fn()} onToast={vi.fn()} />);
-  await waitFor(() => expect(api.getTutorTranscript).toHaveBeenCalled());
-  type("the spiral");
-  fireEvent.click(within(screen.getByTestId("ask-panel-docked")).getByText(PANEL_FIGURE_COPY.send));
-  await waitFor(() => expect(screen.getByTestId("ask-figure-line").querySelector("[data-rich-pending]")).not.toBeNull());
-  // The panel moves to another attempt of the same item before the first read.
-  const other: AskTarget = { ...PRACTICE, submissionId: "serve-3" };
-  view.rerender(<AskOverlay variant="docked" target={other} onClose={vi.fn()} onToast={vi.fn()} />);
-  await waitFor(() => expect(screen.getByTestId("ask-figure-line").textContent).toContain(PANEL_FIGURE_COPY.moved),
-                { timeout: 5000 });
-  expect(api.figureOpen).not.toHaveBeenCalled();
-  // Opening it here is the learner's explicit choice, on the attempt the panel names now.
-  api.figureOpen.mockResolvedValue({ figure: { ...FIGURE, figureId: "fig_rich", tier: "manim" },
-                                     help: { host: "practice", countsAsHint: true, status: "counted", new: true } });
-  fireEvent.click(screen.getByText(PANEL_FIGURE_COPY.openHere));
-  await waitFor(() => expect(screen.getByTestId("figure-inline").textContent).toBe("fig_rich"));
-  expect(api.figureOpen).toHaveBeenCalledOnce();
-  expect(api.figureOpen).toHaveBeenCalledWith({ richJobId: "rj_1", takeStepToken: null,
-                                               hostRef: { itemId: "pi_1", submissionId: "serve-3", sessionId: "s1" } });
-}, 10000);
-
-it("a rich build's polling stops when the panel unmounts (F10)", async () => {
-  richOnly();
-  const view = render(<AskOverlay variant="docked" target={PRACTICE} onClose={vi.fn()} onToast={vi.fn()} />);
-  await waitFor(() => expect(api.getTutorTranscript).toHaveBeenCalled());
-  type("the spiral");
-  fireEvent.click(within(screen.getByTestId("ask-panel-docked")).getByText(PANEL_FIGURE_COPY.send));
-  await waitFor(() => expect(screen.getByTestId("ask-figure-line").querySelector("[data-rich-pending]")).not.toBeNull());
-  view.unmount();
-  await new Promise((resolve) => setTimeout(resolve, 2600));
-  expect(api.figureOpen).not.toHaveBeenCalled();
-}, 10000);
-
-it("not right? on a quick figure's fuller version revises the version shown, on the current host (F11)", async () => {
+it("a figure lands on the attempt without its fuller version, and nothing rich is read or polled (R1)", async () => {
   const fuller = { ...FIGURE, figureId: "fig_full", tier: "manim" };
   api.figureRequest.mockResolvedValue({ ...job({ host: "practice", countsAsHint: true, status: "counted", new: true }),
                                         result: { figure: { ...FIGURE, fuller: { state: "ready", tier: "manim", phase: null, reason: null, richJobId: "rj_1", figure: fuller } },
                                                   reused: false, help: { host: "practice", countsAsHint: true, status: "counted", new: true } } });
-  api.readerFigureRevise.mockResolvedValue(job({ host: "practice", countsAsHint: true, status: "counted", new: false }));
   const panel = await openDocked();
   type("the area under 2x");
   fireEvent.click(within(panel).getByText(PANEL_FIGURE_COPY.send));
   await waitFor(() => expect(screen.getByTestId("figure-inline").textContent).toBe("fig_1"));
-  fireEvent.click(screen.getByText("test-revise-fuller"));
-  await waitFor(() => expect(api.readerFigureRevise).toHaveBeenCalledOnce());
-  expect(api.readerFigureRevise).toHaveBeenCalledWith({ figureId: "fig_full", note: "slower", takeStepToken: null,
-                                                       hostRef: { itemId: "pi_1", submissionId: "serve-2", sessionId: "s1" } });
+  expect(screen.getByTestId("figure-inline").dataset.fuller).toBe("0");
+  await new Promise((resolve) => setTimeout(resolve, 50));
+  expect(api.figureOpen).not.toHaveBeenCalled();
+  expect(api.figureRichCancel).not.toHaveBeenCalled();
+});
+
+it("a build answering only a rich pending line is not a figure here and is never polled (R1)", async () => {
+  const rich = { requestId: "fr_1", extractionId: null, anchorSpanId: null, tier: "manim", goalText: "the spiral",
+                 state: "pending", phase: "writing", reason: null, richJobId: "rj_1" };
+  api.figureRequest.mockResolvedValue({ version: 1, jobId: "ljob_1", kind: "figure_build", askId: null, state: "done",
+                                        result: { figure: null, reused: false, rich, help: { host: "practice", countsAsHint: true } } });
+  const panel = await openDocked();
+  type("the spiral");
+  fireEvent.click(within(panel).getByText(PANEL_FIGURE_COPY.send));
+  await waitFor(() => expect(screen.getByTestId("ask-figure-line").dataset.state).toBe("failed"));
+  expect(screen.getByTestId("ask-figure-line").querySelector("[data-rich-pending]")).toBeNull();
+  expect(screen.queryByTestId("figure-inline")).toBeNull();
+  await new Promise((resolve) => setTimeout(resolve, 50));
+  expect(api.figureOpen).not.toHaveBeenCalled();
 });

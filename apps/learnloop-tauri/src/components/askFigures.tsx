@@ -9,13 +9,16 @@
 // The figure lands in the panel's thread at panel width, with "widen ↔".
 // Nothing here moves focus or starts on its own (W12). Rendered only while
 // the sidecar sends `ask.figures` (figures.help_kind_enabled).
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+//
+// Ruling R1 (landing): figures here are grammar and sketch only. No rich
+// (Manim) build, fuller version or rich revision is asked, polled or opened
+// on an attempt host; animations stay in the Reader.
+import { useCallback, useMemo, useRef, useState } from "react";
 import { api } from "../api/client";
-import type { FigureHelpDto, FigureHostRef, FigureRichPendingDto, FigureViewDto, LibraryJobDto, FigureBuildResultDto } from "../api/dto";
+import type { FigureHelpDto, FigureHostRef, FigureViewDto, LibraryJobDto, FigureBuildResultDto } from "../api/dto";
 import { algoConfig } from "../app/algoConfig";
 import { errorMessage } from "../errors";
 import { FigureInline } from "../screens/reader/figures/FigureInline";
-import { RichPendingLine } from "../screens/reader/figures/RichFigure";
 import { figurePlacementKey, type FiguresContract, type FiguresCtl } from "../screens/reader/figures/useFigures";
 import { showMeSourceLine } from "../screens/reader/figures/showMe";
 import type { AskTarget } from "./AskOverlay";
@@ -38,15 +41,10 @@ export const PANEL_FIGURE_COPY = {
   banner: "Practice with help ◌ — you asked for a figure",
   explore: "▸ a figure to explore",
   open: "open",
-  disabled: "figures on practice are switched off, so it isn't shown",
-  richCancelled: "animation cancelled",
-  moved: "asked on another attempt, so it isn't shown here",
-  openHere: "open here"
+  disabled: "figures on practice are switched off, so it isn't shown"
 } as const;
 
 const FIGURE_POLL_MS = 400;
-/** keep: how often the panel reads a rich build it is waiting on (a local read, never a weight). */
-const RICH_POLL_MS = 2000;
 
 /** Whether the panel offers *show me ▸* on this host (the sidecar's switch). */
 export function panelFiguresOn(target: AskTarget | null): boolean {
@@ -64,12 +62,6 @@ export function figureHostRef(target: AskTarget): FigureHostRef | null {
   return { itemId: target.practiceItemId, submissionId: target.submissionId, sessionId: target.sessionId };
 }
 
-/** Codex re-review F10: the attempt a host names (its verified references), "" for none. */
-export function figureHostIdentity(target: AskTarget | null): string {
-  const hostRef = target ? figureHostRef(target) : null;
-  return hostRef ? JSON.stringify(hostRef) : "";
-}
-
 /** The dim line under the box (§6.4), said before sending. */
 export function figureCostLine(target: AskTarget, cold: boolean, converted: boolean): string {
   if (target.context === "feedback") return PANEL_FIGURE_COPY.free;
@@ -83,14 +75,11 @@ export interface PanelFigureLine {
   figure: FigureViewDto | null;
   help: FigureHelpDto | null;
   message: string | null;
-  /** Codex review F8 (§11.4b): a rich-only build still running here (its pending line). */
-  rich?: FigureRichPendingDto | null;
-  /** Codex re-review F10: the build was asked on another attempt than the panel's now (opened only by "open here"). */
-  moved?: boolean;
 }
 
-function richRunning(state: string | null | undefined): boolean {
-  return state === "pending" || state === "waiting_for_plan";
+/** Ruling R1: a figure as an attempt host shows it, never with its fuller (Manim) version. */
+function quickOnly(figure: FigureViewDto | null): FigureViewDto | null {
+  return figure && figure.fuller ? { ...figure, fuller: null } : figure;
 }
 
 /** What a figure did to the attempt, for the host (its help record and cold banner). */
@@ -133,88 +122,19 @@ export function usePanelFigures(target: AskTarget | null, { cold, onEvent, choos
   onEventRef.current = onEvent;
   const attemptKey = target ? `${target.submissionId ?? ""}|${target.workbenchSessionId ?? ""}` : "";
 
-  const targetRef = useRef(target);
-  targetRef.current = target;
-  const attemptKeyRef = useRef(attemptKey);
-  attemptKeyRef.current = attemptKey;
-  const polling = useRef(new Set<string>());
-  /** Codex re-review F10: the attempt each line was asked on (its polling reads only there), and whether the
-   *  panel is still mounted; a dismissed line leaves the map, so its polling stops. */
-  const lineHosts = useRef(new Map<string, string>());
-  const alive = useRef(true);
-  useEffect(() => {
-    alive.current = true;
-    return () => { alive.current = false; };
-  }, []);
-
-  /** The host and the take step's token as they stand now (for reads started earlier). */
-  const hostNow = () => {
-    const now = targetRef.current;
-    const hostRef = now ? figureHostRef(now) : null;
-    const takeStepToken = token.current?.key === attemptKeyRef.current ? token.current.token : null;
-    return { hostRef, takeStepToken };
-  };
-
   const land = useCallback((key: string, result: FigureBuildResultDto | null) => {
-    const figure = result?.figure ?? null;
+    const figure = quickOnly(result?.figure ?? null);
     const help = result?.help ?? null;
-    const rich = figure ? null : result?.rich ?? null;
     const shown = figure !== null && (figure.verification === "verified" || figure.verification === "illustrative");
-    const waiting = rich !== null && richRunning(rich.state);
     setLines((list) => list.map((line) => line.key !== key ? line : {
-      ...line, figure, help, rich,
-      state: figure ? "landed" : waiting ? "pending" : "failed",
+      ...line, figure, help,
+      state: figure ? "landed" : "failed",
       message: help?.status === "not_recorded" ? PANEL_FIGURE_COPY.notRecorded
         : help?.status === "disabled" ? PANEL_FIGURE_COPY.disabled
-        : figure || waiting ? null
-        : rich?.state === "cancelled" ? PANEL_FIGURE_COPY.richCancelled : rich?.reason ?? PANEL_FIGURE_COPY.failed
+        : figure ? null : PANEL_FIGURE_COPY.failed
     }));
     if (figure && shown) setExpandedKey(figurePlacementKey(figure));
     if (help?.status === "counted" && help.new) onEventRef.current?.({ counted: true, converted: false });
-    // Codex review F8 (§11.4b): a rich build in this attempt is read until it lands; its figure is
-    // recorded when it is opened here (figure.open), the quick figure's fuller line likewise refreshed.
-    const watch = waiting && rich?.richJobId ? { richJobId: rich.richJobId }
-      : figure && richRunning(figure.fuller?.state) ? { figureId: figure.figureId } : null;
-    if (watch && !polling.current.has(key)) {
-      polling.current.add(key);
-      if (!lineHosts.current.has(key)) lineHosts.current.set(key, figureHostIdentity(targetRef.current));
-      // Codex re-review F10: the build is read only on the attempt it was asked on; the panel moved to
-      // another attempt, dismissed or unmounted, the polling stops (an old result goes out only by "open here").
-      const stillHere = () => alive.current && lineHosts.current.has(key)
-        && lineHosts.current.get(key) === figureHostIdentity(targetRef.current);
-      void (async () => {
-        try {
-          for (;;) {
-            await sleep(RICH_POLL_MS);
-            if (!stillHere()) {
-              if (alive.current && lineHosts.current.has(key)) {
-                setLines((list) => list.map((line) => line.key !== key || line.figure ? line
-                  : { ...line, state: "failed", moved: true, message: PANEL_FIGURE_COPY.moved }));
-              }
-              return;
-            }
-            const { hostRef, takeStepToken } = hostNow();
-            if (!hostRef) return;
-            const read = await api.figureOpen({ ...watch, hostRef, takeStepToken });
-            if (!alive.current || !lineHosts.current.has(key)) return;
-            const next = read.figure;
-            if (next && !richRunning(next.fuller?.state)) {
-              land(key, { figure: next, reused: true, help: read.help });
-              return;
-            }
-            if (!next && !richRunning(read.rich?.state)) {
-              land(key, { figure: null, reused: false, help: read.help, rich: read.rich ?? null });
-              return;
-            }
-            if (next) setLines((list) => list.map((line) => line.key === key ? { ...line, figure: next } : line));
-          }
-        } catch (error) {
-          setLines((list) => list.map((line) => line.key !== key ? line : { ...line, state: line.figure ? line.state : "failed", message: errorMessage(error) }));
-        } finally {
-          polling.current.delete(key);
-        }
-      })();
-    }
   }, []);
 
   const send = useCallback(async (goal: string) => {
@@ -223,7 +143,6 @@ export function usePanelFigures(target: AskTarget | null, { cold, onEvent, choos
     const hostRef = figureHostRef(target);
     if (!hostRef) return;
     const key = `fig:${Date.now()}:${words}`;
-    lineHosts.current.set(key, figureHostIdentity(target));
     setLines((list) => [...list, { key, goal: words, state: "pending", figure: null, help: null, message: null }]);
     try {
       let takeStepToken: string | null = null;
@@ -257,7 +176,6 @@ export function usePanelFigures(target: AskTarget | null, { cold, onEvent, choos
     const hostRef = figureHostRef(target);
     if (!hostRef) return;
     const key = `open:${figureId}`;
-    lineHosts.current.set(key, figureHostIdentity(target));
     setLines((list) => list.some((line) => line.key === key) ? list
       : [...list, { key, goal: label, state: "pending", figure: null, help: null, message: null }]);
     try {
@@ -267,22 +185,6 @@ export function usePanelFigures(target: AskTarget | null, { cold, onEvent, choos
       setLines((list) => list.map((line) => line.key !== key ? line : { ...line, state: "failed", message: errorMessage(error) }));
     }
   }, [enabled, target, attemptKey, land]);
-
-  /** Codex re-review F10: a build asked on another attempt, opened here on purpose (recorded on this one). */
-  const openHere = useCallback(async (key: string) => {
-    const line = lines.find((entry) => entry.key === key);
-    const richJobId = line?.rich?.richJobId;
-    const { hostRef, takeStepToken } = hostNow();
-    if (!line?.moved || !richJobId || !hostRef) return;
-    lineHosts.current.set(key, figureHostIdentity(targetRef.current));
-    setLines((list) => list.map((entry) => entry.key === key ? { ...entry, state: "pending", moved: false, message: null } : entry));
-    try {
-      const read = await api.figureOpen({ richJobId, hostRef, takeStepToken });
-      land(key, { figure: read.figure, reused: true, help: read.help, rich: read.rich ?? null });
-    } catch (error) {
-      setLines((list) => list.map((entry) => entry.key !== key ? entry : { ...entry, state: "failed", message: errorMessage(error) }));
-    }
-  }, [lines, land]);
 
   const contract: FiguresContract = useMemo(() => ({ predictions: true, region: false, revisions: true, showMe: true }), []);
   const ctl: FiguresCtl = useMemo(() => {
@@ -300,12 +202,8 @@ export function usePanelFigures(target: AskTarget | null, { cold, onEvent, choos
       setExpanded: (figure) => setExpandedKey(figure ? figurePlacementKey(figure) : null),
       request: async () => "skipped",
       revise: (figure, note) => {
-        // Codex re-review F11: the line holds the quick figure; its fuller version, shown in the same
-        // frame, is found through it, and the version shown is the one revised.
-        const key = lines.find((line) => line.figure?.figureId === figure.figureId
-          || line.figure?.fuller?.figure?.figureId === figure.figureId)?.key;
+        const key = lines.find((line) => line.figure?.figureId === figure.figureId)?.key;
         if (!key) return;
-        lineHosts.current.set(key, figureHostIdentity(target));
         setLines((list) => list.map((line) => line.key === key ? { ...line, state: "pending" } : line));
         // Codex review F4: the version is asked on the host it is open on now (a Reader figure
         // opened from the chooser's line too), so it is recorded and reveal-checked on this attempt.
@@ -328,25 +226,7 @@ export function usePanelFigures(target: AskTarget | null, { cold, onEvent, choos
       },
       under: () => ({ figures: [], pending: [], richPending: [] }),
       richPending: [],
-      cancelRich: (richJobId) => {
-        void api.figureRichCancel({ richJobId }).then(() => setLines((list) => list.map((line) =>
-          line.rich?.richJobId === richJobId
-            ? { ...line, state: line.figure ? line.state : "failed", rich: { ...line.rich, state: "cancelled" }, message: line.figure ? line.message : PANEL_FIGURE_COPY.richCancelled }
-            : line))).catch(() => undefined);
-      },
-      openFuller: async (fuller) => {
-        // §11.4b: expanding the fuller version is an opening on this attempt (the same figure for the
-        // count; its own reveal check), recorded before it shows.
-        const { hostRef, takeStepToken } = hostNow();
-        if (!hostRef) return false;
-        try {
-          const opened = await api.figureOpen({ figureId: fuller.figureId, hostRef, takeStepToken });
-          if (opened.help?.status === "counted" && opened.help.new) onEventRef.current?.({ counted: true, converted: false });
-          return opened.figure !== null;
-        } catch {
-          return false;
-        }
-      },
+      cancelRich: () => undefined,
       retryRich: () => undefined,
       manimOptIn: null,
       optInSpanId: null,
@@ -354,11 +234,8 @@ export function usePanelFigures(target: AskTarget | null, { cold, onEvent, choos
     };
   }, [enabled, contract, lines, expandedKey, land, target, attemptKey]);
 
-  const dismiss = (key: string) => {
-    lineHosts.current.delete(key);
-    setLines((list) => list.filter((line) => line.key !== key));
-  };
-  return { enabled, lines, send, open, openHere, ctl, converted, dismiss };
+  const dismiss = (key: string) => setLines((list) => list.filter((line) => line.key !== key));
+  return { enabled, lines, send, open, ctl, converted, dismiss };
 }
 
 export type PanelFigures = ReturnType<typeof usePanelFigures>;
@@ -375,16 +252,9 @@ export function PanelFigureThreadLine({ line, figures }: { line: PanelFigureLine
         <span style={{ color: COLOR.amber, fontWeight: 700 }}>›</span>
         <span>show me {line.goal}</span>
       </div>
-      {line.state === "pending" && line.rich ? (
-        <RichPendingLine line={line.rich} onCancel={(richJobId) => figures.ctl.cancelRich(richJobId)} />
-      ) : line.state === "pending" ? <div style={{ color: COLOR.textDim, marginTop: 4 }}>{PANEL_FIGURE_COPY.pending}</div> : null}
+      {line.state === "pending" ? <div style={{ color: COLOR.textDim, marginTop: 4 }}>{PANEL_FIGURE_COPY.pending}</div> : null}
       {line.state === "failed" ? (
-        <div style={{ color: COLOR.textDim, marginTop: 4, display: "flex", gap: 6, alignItems: "baseline" }}>
-          <span>{line.message ?? PANEL_FIGURE_COPY.failed}</span>
-          {line.moved && line.rich?.richJobId ? (
-            <button type="button" style={link} onClick={() => { void figures.openHere(line.key); }}>{PANEL_FIGURE_COPY.openHere}</button>
-          ) : null}
-        </div>
+        <div style={{ color: COLOR.textDim, marginTop: 4 }}>{line.message ?? PANEL_FIGURE_COPY.failed}</div>
       ) : null}
       {line.state === "landed" && line.figure ? (
         <>

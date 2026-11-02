@@ -9871,8 +9871,8 @@ export interface FigureHelpDto {
   line?: string;
   countsAsHint?: boolean;
   /** counted (one hint-equivalent, once per figure per attempt), free, not_recorded (not shown),
-   *  disabled (figures in attempts switched off since: not shown), or pending (a rich build still running). */
-  status?: "counted" | "free" | "not_recorded" | "disabled" | "pending";
+   *  or disabled (figures in attempts switched off since: not shown). */
+  status?: "counted" | "free" | "not_recorded" | "disabled";
   message?: string;
   assistId?: string;
   /** This delivery added the hint-equivalent (false: the same figure again). */

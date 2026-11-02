@@ -181,3 +181,44 @@ Not run, and why:
 **R1 files:** `tests/test_architecture.py`, `tests/test_batch3_landing.py`, `tests/test_compare_methods.py`, `tests/test_desktop_rpc_contract.py`, `tests/test_figure_label_wording.py`, `tests/test_figure_offers.py`, `tests/test_figure_predictions.py`, `tests/test_figure_requests_migration.py`, `tests/test_figure_revisions.py`, `tests/test_figure_rich_contract.py`, `tests/test_figure_rich_failed_correction_durable.py`, `tests/test_figure_rich_job.py`, `tests/test_figure_rich_rereview_fixes.py`, `tests/test_figure_rich_review_fixes.py`, `tests/test_figure_rich_rpc.py`, `tests/test_figures_codex_review.py`, `tests/test_figures_final_round.py`, `tests/test_figures_fix_round2.py`, `tests/test_figures_fix_round3.py`, `tests/test_figures_fix_round4.py`, `tests/test_figures_fix_round5.py`, `tests/test_figures_help_codex_review.py`, `tests/test_figures_help.py`, `tests/test_figures_migration.py`, `tests/test_figures_rpc.py`, `tests/test_figures_rw5b_fix_round2.py`, `tests/test_figures_rw5b_review.py`, `tests/test_figures_scope_redesign.py`, `tests/test_figures_show_me_codex_review.py`, `tests/test_figures_show_me.py`, `tests/test_figures_switch_off.py`, `tests/test_figure_verification.py`, `tests/test_help_assist_figures_migration.py`, `tests/test_help_assists_schema.py`, `tests/test_help_assist_work_md_migration.py`, `tests/test_help_outcomes.py`, `tests/test_hint_h2a_review.py`, `tests/test_hint_h2a_review_round3.py`, `tests/test_hint_h2b_rereview.py`, `tests/test_hint_kill_switch.py`, `tests/test_hint_outcome.py`, `tests/test_hint_service.py`, `tests/test_hint_telemetry.py`, `tests/test_judge_routes.py`, `tests/test_learner_data_relax_2.py`, `tests/test_learner_text_gaps_composition.py`, `tests/test_learner_text_gaps_flow.py`, `tests/test_learner_text_gaps.py`, `tests/test_learner_text_gaps_rereview.py`, `tests/test_learner_text_gaps_review.py`, `tests/test_manim_figure_checks.py`, `tests/test_mobile_allowlist.py`, `tests/test_post_attempt_worker.py`, `tests/test_reader_ca2_astra_handoff.py`, `tests/test_reader_ca2_codex_rereview.py`, `tests/test_reader_ca2_codex_review.py`, `tests/test_reader_ca2_one_ask.py`, `tests/test_reader_qualified_span_keys.py`, `tests/test_reader_source_identity_guard.py`, `tests/test_reader_tutor_switch_off.py`, `tests/test_session_ownership.py`, `tests/test_sidecar_contract.py`, `tests/test_sidecar_registry.py`, `tests/test_sketch_service.py`, `tests/test_workbench_assistance.py`, `tests/test_workbench_help_kill_switch.py`, `tests/test_workbench_hint_service.py`
 
 **R2 files:** `tests/test_ad1_codex_review_fixes.py`, `tests/test_ad23_owner_decisions.py`, `tests/test_ad23_successor.py`, `tests/test_architecture.py`, `tests/test_attempt_content_state_successor.py`, `tests/test_cold_retry_reschedule.py`, `tests/test_constraint_engine.py`, `tests/test_curriculum_c1_plan_follows_path.py`, `tests/test_deliverable_codex_review.py`, `tests/test_field_workbench_signals.py`, `tests/test_figures_show_me_codex_review.py`, `tests/test_grading_cli.py`, `tests/test_kinship_feature.py`, `tests/test_library_exercises.py`, `tests/test_lp_claim_fixes.py`, `tests/test_method_explicit_upgrade.py`, `tests/test_mvp011_upgrade.py`, `tests/test_mvp013_upgrade.py`, `tests/test_mvp014_upgrade.py`, `tests/test_mvp015_upgrade.py`, `tests/test_mvp016_upgrade.py`, `tests/test_mvp017_upgrade.py`, `tests/test_mvp018_upgrade.py`, `tests/test_mvp020_upgrade.py`, `tests/test_mvp021_upgrade.py`, `tests/test_mvp022_upgrade.py`, `tests/test_mvp023_upgrade.py`, `tests/test_mvp024_upgrade.py`, `tests/test_open_world_gate.py`, `tests/test_p0_cutover_mvp08.py`, `tests/test_plan_follows_path.py`, `tests/test_reader_ca2_one_ask.py`, `tests/test_reader_ca4_table_by_point.py`, `tests/test_reader_followups_successor.py`, `tests/test_reader_rw2b_review.py`, `tests/test_reading_paths.py`, `tests/test_rebuild_equivalence_review.py`, `tests/test_recurrence_commands.py`, `tests/test_registry_audit.py`, `tests/test_regrade_contract_upgrade.py`, `tests/test_rw2c_switch_off.py`, `tests/test_sensitivity_certificates.py`, `tests/test_source_roles.py`, `tests/test_table_roles.py`, `tests/test_teacher_te0_review_fixes.py`, `tests/test_ux_phase2_shell.py`
+
+## Third review and step 0 (structural simplification)
+
+- **Review:** Codex (gpt-6.1-sol), job `20261101-225210-5u2jBM`, on `5423f57539`. Verdict REOPENED: F3, F4 and F11 confirmed fixed; F1 (session rollover), F2 (computed displayed values in Manim scenes), F10 (an in-flight poll landing on another attempt) and F12 (legacy queued payloads without the flag) reopened; one new Medium, F13 (undisplayed strings in a Manim scene now create false answer reveals).
+- **Stuck-loop rule.** This was the third round on the rich-figure-in-attempt classes, so the orchestrator ruled a structural simplification instead of a fourth fix round.
+
+orchestrator ruling: F2/F10/F11/F12/F13 class closed structurally (no rich tiers on attempt hosts)
+
+### What step 0 changed
+
+- **Attempt hosts are grammar and sketch only.** An attempt host's build gets no rich spawner (`handlers.figures._start`), so the author's menu has no rich tier, no rich job starts and the view carries no fuller version (`attempt_view`; the panel strips it too).
+- **Refused at the RPC:**
+  - `figure.open` refuses a rich (Manim) figure, a fuller version included, with `validation_error`, and no longer takes `richJobId`.
+  - `reader.figure_revise` on an attempt host refuses a rich figure.
+  - `figure.rich_retry` refuses an attempt-hosted rich job.
+  - `record_attempt_figure` never records a rich row (`not_recorded`).
+  - The chooser's `qualifying_figure` skips rich rows.
+- **Refused at worker admission.** `rich.attempt_hosted_job(repository, payload)` reads the payload's `attempt_hosted` flag or, for a legacy payload without it, the stored request's verified host (`figure_requests.host_ref_json`). An unreadable request fails closed. `run_rich_job` stops such a job first, before any model request (`figures_changed`, `ATTEMPT_HOST_READER_ONLY`). The help-switch job key (`rich_job_key`, `HELP_KIND_OFF`) is gone, since such a job never runs.
+- **Removed:** the attempt-host rich polling, "open here", the fuller opening (`FiguresCtl.openFuller`) and the fuller revision path, from `askFigures.tsx`, `FigureInline.tsx`, `useFigures.ts`, `client.ts` and `dto.ts`; and `FS.openable_rich_figure` and `_rich_job_figure`, on the server.
+- **Reveal scan reverted to the base.** It now reads the text keys, a sketch's literals and a grammar figure's displayed values as the panels format them (the F2 round-1 grammar fixes are kept). The Manim AST scan (`manim_shown_text`), the JS animation literals and the three scan bounds registered in the parameter registry (`_NAME_DEPTH`, `_FOLD_LIMIT`, `_DECIMAL_PLACES`) are removed.
+- **F1** stays as the hint service's H0 attach/fold boundary, ruled Low at landing and queued as a cross-help follow-up (landing ruling R2).
+
+### Regressions (written first; all failed on `5423f57539`: 5 failed)
+
+- `test_s0_an_attempt_host_build_offers_no_rich_tier_and_its_quick_figure_counts_once`: a sketch or grammar figure on an attempt is still counted once.
+- `test_s0_an_attempt_host_rich_request_is_refused_at_the_rpc`.
+- `test_s0_a_legacy_queued_attempt_rich_job_stops_before_any_model_request`, and `test_s0_an_attempt_hosted_payload_is_refused_by_its_flag_too`.
+- `test_s0_f13_an_undisplayed_string_in_a_scene_is_not_reveal_text`.
+- **vitest:**
+  - "a figure lands on the attempt without its fuller version, and nothing rich is read or polled (R1)";
+  - "a build answering only a rich pending line is not a figure here and is never polled (R1)".
+- **Removed with their code paths:** the F8, re-review F2 and F12 tests, and the vitest cases for F8, F10 and F11.
+
+### Gate (step 0; the full suite runs once at landing)
+
+| Check | Result |
+|---|---|
+| Stage tests (`test_figures_help_codex_review.py`, `test_figures_help.py`, `test_help_assist_figures_migration.py`) | 54 passed |
+| Targeted lane: every `test_figure*`, `test_rich*`, `test_hint*`, `test_help_*`, `test_manim*`, `test_reader_ca2*` and `test_parameter*` file, plus the registry audit, architecture, desktop RPC contract, mobile allowlist, sidecar registry, reading paths, Reader tutor switch-off and data-relax 2 files (73 files) | 1589 passed, 1 skipped |
+| `lint-imports --no-cache` | 40 kept, 0 broken |
+| `npm run typecheck`; `vitest --maxWorkers=4` on `askFigures.test.tsx`, `screens/reader/figures`, `screens/practice` and `components/AskOverlay` | 0 errors; 42 files, 618 passed |

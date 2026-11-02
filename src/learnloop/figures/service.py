@@ -2283,8 +2283,9 @@ class _RichSpawn:
             "home": None if anchored(request) else dict(request.reading_at or {}),
         }
         if attempt_hosted(request):
-            # RW5d P3 (Codex re-review F12): the job is admitted under the help
-            # switch too (``rich.rich_job_key``), at its start and before every request.
+            # RW5d P3 ruling R1: never reached (an attempt host's build has no
+            # rich spawner); if it were, the worker refuses the job before any
+            # request (``rich.attempt_hosted_job``).
             base["attempt_hosted"] = True
         payload = {"request_id": request_row_id, "fast_figure_id": fast_figure_id, "input_hash": self.input_hash,
                    "tier": self.brief.tier, "brief": self.brief.as_dict(), "author_context": author_context,
@@ -2746,31 +2747,6 @@ def rich_revision_retry(vault: Any, repository: Repository, job_id: str) -> Figu
     if previous is None:
         return None
     return revision_request(repository, previous, str((payload.get("revision") or {}).get("note") or ""))
-
-
-def openable_rich_figure(vault: Any, repository: Repository, figure_id: str) -> dict[str, Any]:
-    """RW5d P3 (Codex review F8, §11.4b): a stored rich (Manim) figure that
-    may be opened now on an attempt host: shown, the rich tiers on, its
-    passages not held out, the learner state its author read not protected
-    now, and (a show-me figure) show me on. It has no spec to compile and no
-    predictions: it is shown through its view only."""
-
-    with closing(connect(repository.sqlite_path, read_only=True)) as connection:
-        row = store.figure(connection, figure_id) if store.has_tables(connection) else None
-    if row is None:
-        raise FigureRefused("not_found", "That figure is no longer kept.")
-    if not rich_row(row) or row.get("verification") not in store.SHOWN or not row.get("spec_json"):
-        raise FigureRefused("not_found", "That figure is not shown.")
-    if rich_off_row(vault, row) is not row:
-        raise FigureRefused("rich_disabled", "That figure is an animation, and rich figures are switched off "
-                                             "(figures.rich_tiers_enabled).")
-    if show_me_row(row) and not show_me_enabled(vault):
-        raise FigureRefused("show_me_disabled", "\"Show me\" in your own words is switched off "
-                                                "(figures.show_me_enabled).")
-    if row_withheld(vault, repository, row) is not None \
-            or RICH.stored_learner_state_withheld(vault, repository, row) is not None:
-        raise FigureRefused("exam_material", "That figure's passage is held out now.")
-    return row
 
 
 def shown_figure(vault: Any, repository: Repository, figure_id: str) -> tuple[dict[str, Any], Any]:

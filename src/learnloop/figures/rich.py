@@ -363,31 +363,34 @@ def rich_build_key(vault: Any) -> tuple[Any, ...]:
             admission_manim_opt_in(vault))
 
 
-def attempt_hosted_job(payload: Mapping[str, Any]) -> bool:
-    """RW5d P3 (Codex re-review F12): a rich job built for a figure on an
-    attempt host (practice, feedback or the workbench), as its payload says."""
-
-    return bool((payload.get("base") or {}).get("attempt_hosted"))
-
-
-def rich_job_key(payload: Mapping[str, Any]) -> Callable[[Any], tuple[Any, ...]]:
-    """The admission key of this job (:func:`rich_build_key`), with
-    ``figures.help_kind_enabled`` for an attempt host's job (Codex re-review
-    F12): switched off since it was queued, it asks nothing more."""
-
-    if not attempt_hosted_job(payload):
-        return rich_build_key
-    from learnloop.figure_admission import help_kind_enabled
-
-    def key(current: Any) -> tuple[Any, ...]:
-        return (*rich_build_key(current), help_kind_enabled(current))
-
-    return key
+#: The host references that name an attempt (``figures.service.ATTEMPT_HOST_REFS``).
+_ATTEMPT_HOST_REFS = ("item_id", "submission_id", "workbench_session_id", "attempt_id")
+#: An attempt host's rich job (RW5d P3 ruling R1: attempt hosts are grammar
+#: and sketch only; rich figures stay Reader-side).
+ATTEMPT_HOST_READER_ONLY = ("Not built: animations are made in the Reader only, never on practice, feedback "
+                            "or the workbench.")
 
 
-#: An attempt host's rich job run after ``figures.help_kind_enabled`` went off.
-HELP_KIND_OFF = ("Not built: figures on practice, feedback and the workbench are switched off now "
-                 "(figures.help_kind_enabled).")
+def attempt_hosted_job(repository: Repository, payload: Mapping[str, Any]) -> bool:
+    """RW5d P3 (orchestrator ruling R1): a rich job for a figure asked on an
+    attempt host (practice, feedback or the workbench). Its payload's flag
+    says so, or, for a job queued before the flag existed, its stored
+    request's verified host does (``figure_requests.host_ref_json``). Such a
+    job is never built: attempt hosts are grammar and sketch only."""
+
+    if (payload.get("base") or {}).get("attempt_hosted"):
+        return True
+    request_id = str(payload.get("request_id") or "")
+    if not request_id:
+        return False
+    try:
+        with closing(connect(repository.sqlite_path, read_only=True)) as connection:
+            asked = store.request(connection, request_id) if store.has_tables(connection) else None
+    except sqlite3.Error:
+        # Unreadable: refused (fail closed: never a model request on a guess).
+        return True
+    host_ref = (asked or {}).get("host_ref") or {}
+    return any(host_ref.get(name) for name in _ATTEMPT_HOST_REFS)
 
 
 class RichJobStopped(Exception):
@@ -465,17 +468,16 @@ def run_rich_job(vault: Any, repository: Repository, payload: Mapping[str, Any],
 
     from learnloop.ai.execution import gate_model_requests
 
+    if attempt_hosted_job(repository, payload):
+        # RW5d P3 ruling R1: before anything else, and so before any model
+        # request (a legacy payload's host is resolved from its stored request).
+        raise RichJobStopped("figures_changed", ATTEMPT_HOST_READER_ONLY)
     if payload.get("tier") != "manim":
         raise RichJobStopped("rich_disabled", "Only the manim tier is built in this version.")
     if not rich_tiers_switch(vault):
         raise RichJobStopped("rich_disabled", "Rich figures are switched off (figures.rich_tiers_enabled).")
     if admission_manim_opt_in(vault) != "standing":
         raise RichJobStopped("rich_disabled", "Manim figures need your standing permission (figures.manim_opt_in).")
-    if attempt_hosted_job(payload):
-        from learnloop.figure_admission import help_kind_enabled
-
-        if not help_kind_enabled(vault):
-            raise RichJobStopped("figures_changed", HELP_KIND_OFF)
     if not manim_runtime_state(vault)["ready"]:
         raise RichJobStopped("manim_unavailable", "Manim can't run in its sandbox on this computer.")
     input_hash = str(payload["input_hash"])
@@ -486,7 +488,7 @@ def run_rich_job(vault: Any, repository: Repository, payload: Mapping[str, Any],
     message = _withheld(vault, repository, base)
     if message is not None:
         raise RichJobStopped("exam_material", message)
-    key, hold = rich_job_key(payload), None
+    key, hold = rich_build_key, None
     if _carries_learner_state(payload):
         # Learner data-relax 2 (Codex review F2): the saved context carries
         # the learner's state. Switched off since it was saved, it is never
@@ -499,10 +501,8 @@ def run_rich_job(vault: Any, repository: Repository, payload: Mapping[str, Any],
         if message is not None:
             raise RichJobStopped("exam_material", message)
 
-        job_key = key
-
         def key(current: Any) -> tuple[Any, ...]:
-            return (*job_key(current), author_learner_state_enabled(current))
+            return (*rich_build_key(current), author_learner_state_enabled(current))
 
         def hold(current: Any) -> str | None:
             return _learner_state_withheld(current, repository, payload)

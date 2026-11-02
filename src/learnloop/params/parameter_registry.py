@@ -448,21 +448,13 @@ _reg_const("figure_admission:GROUNDING_PASSAGES", "constraint", kind="structural
                      "passages ground a figure goal (retrieved, or a tutor answer's cited ones); more dilute the "
                      "author's context. A bound on what is sent, never a weight, margin or threshold.")
 
-# Reader RW5d P3: figures as a help kind (all keep: a structural ladder level, read and scan bounds).
+# Reader RW5d P3: figures as a help kind (all keep: a structural ladder level and a read bound).
 _reg_const("figure_help:FIGURE_LEVEL", "version", kind="structural", owner="figure_help",
            rationale="keep: identity: the hints spec's ladder level 2 a figure's help row is written at (one "
                      "hint-equivalent in the fold, the level of explore_figure, spec §11.2, §11.4).")
 _reg_const("figure_help:QUALIFYING_SCAN", "operational", kind="structural", owner="figure_help",
            rationale="keep: read size: the newest shown figures the chooser's precondition scans (a bound on a "
                      "local read, never a weight, margin or threshold).")
-_reg_const("figure_help:_NAME_DEPTH", "operational", kind="structural", owner="figure_help",
-           rationale="keep: work bound (Codex re-review F2): how deep the reveal scan follows a name to its "
-                     "assigned values in a Manim scene; never a weight.")
-_reg_const("figure_help:_FOLD_LIMIT", "operational", kind="structural", owner="figure_help",
-           rationale="keep: work bound (Codex re-review F2): folded numbers per expression in the reveal scan.")
-_reg_const("figure_help:_DECIMAL_PLACES", "version", kind="structural", owner="figure_help",
-           rationale="keep: identity: Manim's DecimalNumber default num_decimal_places (its API default), so a "
-                     "shown number is read as drawn.")
 
 # Learner data-relax 2: the figure author's learner state (all keep: prompt and read size).
 _reg_const("figure_learner_state:MAX_TOPICS", "constraint", kind="structural", owner="figure_learner_state",

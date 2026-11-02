@@ -4,9 +4,9 @@ The pure reads the attempt hosts need; the writes are the sidecar's (the
 help row and its reveal are written in one transaction with the delivery,
 as a hint's are, ``learnloop_sidecar.handlers.figures``):
 
-* :func:`reveal_text`: every model-written string of a figure (what it
-  demonstrates, its assumptions, labels, annotations and every other string
-  of its spec or program) and its readouts at their defaults as formatted:
+* :func:`reveal_text`: a grammar or sketch figure's words (what it
+  demonstrates, its assumptions, labels, annotations, a sketch's drawn
+  strings) and its readouts at their defaults as formatted:
   the text the existing overlap check reads against the item's key, so a
   figure that states the answer writes the ``tutor_answer`` reveal with basis
   ``figure:<id>`` (§11.2 row 2).
@@ -76,25 +76,14 @@ def enabled(vault: Any) -> bool:
 
 #: The keys whose values are the figure's words (§11.2 row 2: what it
 #: demonstrates, its assumptions, labels, annotations, captions, prediction
-#: prompts and choices; §11.4b and §9b.4's wording rule for the rich tiers:
-#: a Manim figure's title and narration, any tier's ``alt_text``): its
-#: expressions, enums and span ids are not text.
+#: prompts and choices): its expressions, enums and span ids are not text.
+#: RW5d P3 ruling R1: attempt hosts are grammar and sketch only, so these and
+#: a sketch's literals are the scan; a rich (Manim) scene is never read.
 _TEXT_KEYS = frozenset({"demonstrates", "text", "label", "labels", "title", "caption", "annotation",
-                        "annotations", "prompt", "choices", "note", "legend", "readout_label", "narration_md",
-                        "alt_text"})
-#: Program keys whose string literals are drawn words: a sketch's ``code``
-#: and a JS animation's ``html`` and ``js`` (§11.4b).
-_LITERAL_KEYS = frozenset({"code", "html", "js"})
-#: A Manim figure's program (§11.4b: its ``Text``/``MathTex`` arguments, by AST).
-_SCENE_KEY = "scene_code"
-#: A string literal in a sketch's program (its drawn words).
+                        "annotations", "prompt", "choices", "note", "legend", "readout_label"})
+#: A string literal in a sketch's program (its drawn words; the sketch is
+#: JavaScript, so template literals too).
 _LITERAL = re.compile(r'"((?:[^"\\]|\\.)*)"|\'((?:[^\'\\]|\\.)*)\'|`((?:[^`\\]|\\.)*)`')
-#: The Manim mobjects whose arguments are shown as words or numbers on screen
-#: (the manim API's text and number classes: a structural list, never a weight).
-MANIM_TEXT_CALLS = frozenset({"Text", "MarkupText", "Paragraph", "Tex", "MathTex", "SingleStringMathTex",
-                              "Title", "BulletedList", "Code", "DecimalNumber", "Integer", "Variable",
-                              "MathTable", "Table", "IntegerTable", "DecimalTable", "Brace", "BraceLabel",
-                              "BraceText", "Underline", "LabeledDot", "LabeledLine", "LabeledArrow"})
 
 
 def _literals(code: str) -> Iterable[str]:
@@ -104,285 +93,18 @@ def _literals(code: str) -> Iterable[str]:
             yield text
 
 
-def _call_name(node: Any) -> str:
-    import ast
-
-    func = node.func
-    if isinstance(func, ast.Name):
-        return func.id
-    if isinstance(func, ast.Attribute):
-        return func.attr
-    return ""
-
-
-#: How deep a name is followed to what it was assigned (a structural bound
-#: on the scan's work, never a weight: a chain longer than this is unusual).
-_NAME_DEPTH = 8
-#: At most this many folded numbers per expression (the product of a
-#: name's several assignments; a bound on work, not a weight).
-_FOLD_LIMIT = 32
-#: Manim's ``DecimalNumber`` default ``num_decimal_places`` (its API default).
-_DECIMAL_PLACES = 2
-
-
-def _target_names(target: Any) -> Iterable[str]:
-    """The names an assignment target binds: ``x``, ``self.x`` (as
-    ``.x``), and every element of a tuple or list target."""
-
-    import ast
-
-    if isinstance(target, ast.Name):
-        yield target.id
-    elif isinstance(target, ast.Attribute):
-        yield "." + target.attr
-    elif isinstance(target, (ast.Tuple, ast.List)):
-        for element in target.elts:
-            yield from _target_names(element)
-    elif isinstance(target, ast.Starred):
-        yield from _target_names(target.value)
-
-
-def _bindings(tree: Any) -> dict[str, list[Any]]:
-    """Every value each name is given anywhere in the scene: assignments
-    (``self.x = ...`` as ``.x``), loop targets (the iterable), defaults,
-    comprehension targets, and a function's or method's returns (under its
-    name and ``.name``). Flow-insensitive on purpose: any value a name may
-    hold may be what is shown."""
-
-    import ast
-
-    out: dict[str, list[Any]] = {}
-
-    def bind(target: Any, value: Any) -> None:
-        for name in _target_names(target):
-            out.setdefault(name, []).append(value)
-
-    for node in ast.walk(tree):
-        if isinstance(node, ast.Assign):
-            for target in node.targets:
-                bind(target, node.value)
-        elif isinstance(node, (ast.AnnAssign, ast.AugAssign, ast.NamedExpr)) and node.value is not None:
-            bind(node.target, node.value)
-        elif isinstance(node, (ast.For, ast.AsyncFor, ast.comprehension)):
-            bind(node.target, node.iter)
-        elif isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.Lambda)):
-            arguments = node.args
-            positional = [*arguments.posonlyargs, *arguments.args]
-            for argument, default in zip(positional[len(positional) - len(arguments.defaults):], arguments.defaults):
-                out.setdefault(argument.arg, []).append(default)
-            for argument, default in zip(arguments.kwonlyargs, arguments.kw_defaults):
-                if default is not None:
-                    out.setdefault(argument.arg, []).append(default)
-            if isinstance(node, ast.Lambda):
-                continue
-            for inner in ast.walk(node):
-                if isinstance(inner, ast.Return) and inner.value is not None:
-                    out.setdefault(node.name + "()", []).append(inner.value)
-    return out
-
-
-def _reference(node: Any) -> str | None:
-    """The binding a node reads: a name, ``self.x``-style attribute, or a
-    call of a local function or method (its returns)."""
-
-    import ast
-
-    if isinstance(node, ast.Name):
-        return node.id
-    if isinstance(node, ast.Attribute):
-        return "." + node.attr
-    if isinstance(node, ast.Call):
-        func = node.func
-        if isinstance(func, ast.Name):
-            return func.id + "()"
-        if isinstance(func, ast.Attribute):
-            return func.attr + "()"
-    return None
-
-
-def _fold(node: Any, bindings: Mapping[str, list[Any]], depth: int = 0) -> list[float]:
-    """The numbers an arithmetic expression may evaluate to: numeric
-    constants, names bound to such expressions, ``+ - * / // % **`` and
-    signs, ``float``/``int``/``abs``/``round`` of one (no other call is
-    evaluated). Empty when it is not such an expression."""
-
-    import ast
-    import math
-    import operator
-
-    if depth > _NAME_DEPTH:
-        return []
-    if isinstance(node, ast.Constant) and isinstance(node.value, (int, float)) and not isinstance(node.value, bool):
-        return [float(node.value)]
-    if isinstance(node, ast.UnaryOp) and isinstance(node.op, (ast.USub, ast.UAdd)):
-        sign = -1.0 if isinstance(node.op, ast.USub) else 1.0
-        return [sign * value for value in _fold(node.operand, bindings, depth + 1)]
-    if isinstance(node, ast.BinOp):
-        operations = {ast.Add: operator.add, ast.Sub: operator.sub, ast.Mult: operator.mul,
-                      ast.Div: operator.truediv, ast.FloorDiv: operator.floordiv, ast.Mod: operator.mod,
-                      ast.Pow: operator.pow}
-        operation = operations.get(type(node.op))
-        if operation is None:
-            return []
-        out: list[float] = []
-        for left in _fold(node.left, bindings, depth + 1):
-            for right in _fold(node.right, bindings, depth + 1):
-                if isinstance(node.op, ast.Pow) and (abs(right) > 64 or abs(left) > 1e6):
-                    continue
-                try:
-                    value = float(operation(left, right))
-                except (ArithmeticError, ValueError, OverflowError):
-                    continue
-                if math.isfinite(value):
-                    out.append(value)
-                if len(out) >= _FOLD_LIMIT:
-                    return out
-        return out
-    if isinstance(node, ast.Call) and isinstance(node.func, ast.Name) and len(node.args) == 1 \
-            and node.func.id in ("float", "int", "abs", "round"):
-        convert = {"float": float, "int": lambda v: float(int(v)), "abs": abs, "round": lambda v: float(round(v))}
-        return [convert[node.func.id](value) for value in _fold(node.args[0], bindings, depth + 1)]
-    reference = _reference(node)
-    if reference is not None and reference in bindings:
-        out = []
-        for value in bindings[reference]:
-            out += _fold(value, bindings, depth + 1)
-            if len(out) >= _FOLD_LIMIT:
-                break
-        return out[:_FOLD_LIMIT]
-    return []
-
-
-def _number_forms(value: float, *, places: int | None = None) -> list[str]:
-    """A shown number's text: as the panels format it, as Python's ``str``
-    prints it, and with ``places`` decimals (``DecimalNumber``)."""
-
-    forms = [format_value(value)]
-    text = str(int(value)) if value == int(value) and abs(value) < 1e15 else repr(value)
-    forms.append(text)
-    if places is not None:
-        forms.append(f"{value:.{places}f}")
-    return list(dict.fromkeys(forms))
-
-
-def _shown(node: Any, bindings: Mapping[str, list[Any]], out: list[str], *, places: int | None,
-           seen: set[int], depth: int = 0) -> None:
-    """What an argument of a text or number mobject shows: its literals,
-    the folded value of its arithmetic, and, through every name it reads,
-    what that name was given (followed to :data:`_NAME_DEPTH`)."""
-
-    import ast
-
-    if depth > _NAME_DEPTH or id(node) in seen:
-        return
-    seen.add(id(node))
-    for inner in ast.walk(node):
-        if isinstance(inner, ast.Constant) and isinstance(inner.value, str) and inner.value.strip():
-            out.append(inner.value)
-        elif isinstance(inner, ast.Constant) and isinstance(inner.value, (int, float)) \
-                and not isinstance(inner.value, bool):
-            out.extend(_number_forms(float(inner.value), places=places))
-        elif isinstance(inner, (ast.BinOp, ast.UnaryOp, ast.Call)):
-            for value in _fold(inner, bindings):
-                out.extend(_number_forms(value, places=places))
-        if isinstance(inner, ast.FormattedValue) and isinstance(inner.format_spec, ast.JoinedStr):
-            spec = "".join(str(part.value) for part in inner.format_spec.values if isinstance(part, ast.Constant))
-            for value in _fold(inner.value, bindings):
-                try:
-                    out.append(format(value, spec))
-                except (ValueError, TypeError):
-                    pass
-        reference = _reference(inner)
-        if reference is not None:
-            for value in bindings.get(reference, ()):
-                _shown(value, bindings, out, places=places, seen=seen, depth=depth + 1)
-
-
-def _decimal_places(node: Any) -> int | None:
-    import ast
-
-    if _call_name(node) != "DecimalNumber":
-        return None
-    for keyword in node.keywords:
-        if keyword.arg == "num_decimal_places":
-            value = keyword.value
-            if isinstance(value, ast.Constant) and isinstance(value.value, int) and 0 <= value.value <= 12:
-                return int(value.value)
-            return None
-    return _DECIMAL_PLACES
-
-
-def _docstrings(tree: Any) -> set[int]:
-    import ast
-
-    found: set[int] = set()
-    for node in ast.walk(tree):
-        if isinstance(node, (ast.Module, ast.ClassDef, ast.FunctionDef, ast.AsyncFunctionDef)) and node.body:
-            first = node.body[0]
-            if isinstance(first, ast.Expr) and isinstance(first.value, ast.Constant) \
-                    and isinstance(first.value.value, str):
-                found.add(id(first.value))
-    return found
-
-
-def manim_shown_text(scene_code: str) -> list[str]:
-    """The words and numbers a Manim scene puts on screen (§11.4b, by AST).
-
-    * Every string literal in the program but its docstrings and imports: a
-      scene's strings are its shown words (a colour name or a font is not
-      the key's words, so reading them costs nothing).
-    * The arguments of a text or number mobject (:data:`MANIM_TEXT_CALLS`)
-      and of ``*_label(s)``/``add_coordinates`` calls: their number
-      literals, the value of their arithmetic, and (Codex re-review F2)
-      whatever reaches them through a name, an attribute (``self.x``), a
-      local function's return, a subscript or an f-string, followed through
-      every value the name is given anywhere in the scene.
-
-    Numbers elsewhere (a radius, a run time) are structure, never text. A
-    scene that does not parse contributes its string literals."""
-
-    import ast
-
-    try:
-        tree = ast.parse(scene_code)
-    except (SyntaxError, ValueError):
-        return list(_literals(scene_code))
-    bindings = _bindings(tree)
-    skipped = _docstrings(tree)
-    out: list[str] = []
-    for node in ast.walk(tree):
-        if isinstance(node, (ast.Import, ast.ImportFrom)):
-            continue
-        if isinstance(node, ast.Constant) and isinstance(node.value, str) and node.value.strip() \
-                and id(node) not in skipped:
-            out.append(node.value)
-        if not isinstance(node, ast.Call):
-            continue
-        name = _call_name(node)
-        if name not in MANIM_TEXT_CALLS and not name.endswith("label") and not name.endswith("labels") \
-                and name != "add_coordinates":
-            continue
-        places = _decimal_places(node)
-        for argument in [*node.args, *(keyword.value for keyword in node.keywords
-                                       if keyword.arg != "num_decimal_places")]:
-            _shown(argument, bindings, out, places=places, seen=set())
-    return list(dict.fromkeys(out))
-
-
 def _words(value: Any, *, keyed: bool = False) -> Iterable[str]:
     """The text values of a figure's JSON: every string under a text key
-    (:data:`_TEXT_KEYS`), however deep; a sketch's or JS animation's program
-    contributes its string literals, a Manim scene its shown words."""
+    (:data:`_TEXT_KEYS`), however deep; a sketch's program contributes its
+    string literals."""
 
     if isinstance(value, str):
         if keyed and value.strip():
             yield value
     elif isinstance(value, Mapping):
         for key, item in value.items():
-            if key in _LITERAL_KEYS and isinstance(item, str):
+            if key == "code" and isinstance(item, str):
                 yield from _literals(item)
-            elif key == _SCENE_KEY and isinstance(item, str):
-                yield from manim_shown_text(item)
             else:
                 yield from _words(item, keyed=keyed or key in _TEXT_KEYS)
     elif isinstance(value, (list, tuple)):
@@ -480,12 +202,10 @@ def _readouts(spec_json: str) -> list[str]:
 
 def reveal_text(row: Mapping[str, Any]) -> str:
     """A stored figure's words (:func:`_words`: what it demonstrates, its
-    assumptions, labels, annotations, prompts; a sketch's drawn strings; a
-    rich figure's title, narration and, for Manim, the text and number
-    arguments of its scene's mobjects) and a grammar figure's displayed
-    values at the defaults as formatted (§11.2 row 2, §11.4b): the text the
-    overlap check reads. Its goal and its verification report are not the
-    author's output."""
+    assumptions, labels, annotations, prompts; a sketch's drawn strings) and
+    a grammar figure's displayed values at the defaults as formatted (§11.2
+    row 2): the text the overlap check reads. Its goal and its verification
+    report are not the author's output."""
 
     raw = row.get("spec_json")
     if not raw:
@@ -690,6 +410,9 @@ def qualifying_figure(vault: Any, repository: Repository, item: Any, *,
         figure_id = str(row["id"])
         if figure_id in superseded or roots.get(figure_id) in excluded_roots:
             continue
+        if FS.rich_row(row):
+            # Ruling R1: attempt hosts are grammar and sketch only.
+            continue
         if FS.show_me_row(row) and not FS.show_me_enabled(vault):
             continue
         if not FS.drawable_now(vault, row) or FS.advanced_off_row(vault, row) is not row \
@@ -729,7 +452,6 @@ __all__ = [
     "enabled",
     "figure_keys",
     "format_value",
-    "manim_shown_text",
     "open_assist_for",
     "offer_view",
     "qualifying_figure",

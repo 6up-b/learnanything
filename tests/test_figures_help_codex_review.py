@@ -3,10 +3,14 @@
 * **F1.** The answer box's practice session is resolved on the server (it
   exists, is open, this device owns it, and the submission key is not
   another session's), and a cold take step's token is bound to that identity.
-* **F2.** The reveal reads what each tier shows: a Manim figure's narration
-  and its ``Text``/``MathTex`` arguments by AST, a JS animation's literals,
-  a grammar figure's shaded areas, all formatted as the desktop's panels
-  format them.
+* **F2.** The reveal reads what the grammar and sketch tiers show: a
+  grammar figure's shaded areas and readouts, formatted as the desktop's
+  panels format them.
+* **Step 0 (orchestrator ruling R1).** Attempt hosts are grammar and sketch
+  only: no rich tier on the menu, no rich job, no fuller version, a Manim
+  figure refused at ``figure.open`` and ``reader.figure_revise``, and a
+  queued attempt-hosted rich job (legacy payloads included) stopped before
+  any model request. The Manim scene is not scanned (F13).
 * **F3.** One row per figure across the hosts of one attempt (the answer
   box's key handed into Work in Steps: CA2's aliases).
 * **F4.** "Not right?" on a figure open on an attempt host is asked, recorded
@@ -27,6 +31,7 @@ import sqlite3
 from contextlib import closing
 from typing import Any
 
+import pydantic
 import pytest
 
 from learnloop_sidecar.errors import SidecarError
@@ -107,16 +112,16 @@ def test_f1_a_take_step_token_from_another_session_is_not_this_attempts(tmp_path
 
 
 # ---------------------------------------------------------------------------
-# F2: the reveal reads what each tier shows, as it is formatted
+# F2: the reveal reads what the grammar and sketch tiers show, as formatted
+# (orchestrator ruling: rich figures never appear on attempt hosts, so the
+# Manim scan is the base one: F2/F10/F11/F12/F13 closed structurally)
 # ---------------------------------------------------------------------------
 
 SCENE = '''from manim import *
 
 class Area(Scene):
     def construct(self):
-        title = Text("the area under the curve")
-        value = MathTex("0.25")
-        self.play(Write(title), Write(value))
+        unused = "0.5"
         self.play(Create(Circle(radius=2)))
 '''
 
@@ -134,40 +139,14 @@ def _manim_row(**changes: Any) -> dict[str, Any]:
     return {"spec_json": spec, "spec_version": M.MANIM_FIG_VERSION, "tier": "manim"}
 
 
-def test_f2_a_manim_figure_reveals_its_shown_words_and_narration():
+def test_s0_f13_an_undisplayed_string_in_a_scene_is_not_reveal_text():
+    """Codex re-re-review F13: a program's strings are not its shown words.
+    The scene is never scanned (a rich figure is never on an attempt host)."""
+
     from learnloop.figures.help import reveal_text
 
-    text = reveal_text(_manim_row())
-    assert "0.25" in text and "the area under the curve" in text
-    # Narration states the key: read too.
-    assert "P(X <= 1/2) = 1/4" in reveal_text(_manim_row(narration_md="So P(X <= 1/2) = 1/4.",
-                                                         scene_code="class A(Scene):\n    pass\n"))
-    # Program structure (class names, radii) is never text; the brief is not shown.
-    neutral = reveal_text(_manim_row(scene_code="class A(Scene):\n    def construct(self):\n"
-                                               "        self.add(Circle(radius=0.25))\n"))
-    assert "0.25" not in neutral and "Circle" not in neutral and neutral.split("\n").count("b") == 0
-
-
-def test_f2_a_manim_figure_stating_the_key_overlaps_it_and_a_neutral_one_does_not(tmp_path):
-    from learnloop.hints import service as hint_service
-    from learnloop.figures.help import reveal_text
-    from learnloop.vault.loader import load_vault
-    from tests.hint_fakes import hint_vault
-
-    item = load_vault(hint_vault(tmp_path).root).practice_items[ITEM]
-    stated = _manim_row(scene_code=f'class A(Scene):\n    def construct(self):\n'
-                                   f'        self.add(MathTex("{item.expected_answer}"))\n')
-    assert hint_service.reveal_amount(item, reveal_text(stated)) > 0
-    assert hint_service.reveal_amount(item, reveal_text(_manim_row(
-        scene_code="class A(Scene):\n    def construct(self):\n        self.add(Circle())\n"))) == 0
-
-
-def test_f2_a_js_animation_reads_its_html_and_js_literals():
-    from learnloop.figures.help import reveal_text
-
-    spec = {"demonstrates": "zebra", "html": "<div id='a'>area = 0.25</div>", "js": "label.textContent = `F(1/2)`;"}
-    text = reveal_text({"spec_json": json.dumps(spec), "spec_version": "js-anim-v1"})
-    assert "a" in text.split("\n") and "F(1/2)" in text
+    text = reveal_text(_manim_row()).split("\n")
+    assert "0.5" not in text and "Circle" not in text
 
 
 def test_f2_numbers_are_formatted_as_the_desktop_panels_format_them():
@@ -475,7 +454,8 @@ def test_f7_predictions_made_before_the_attempt_are_not_its_trace(tmp_path):
 
 
 # ---------------------------------------------------------------------------
-# F8: rich tiers on attempt hosts (§11.4b)
+# Step 0 (structural, the orchestrator's ruling R1): attempt hosts are grammar
+# and sketch only; rich (Manim) figures stay Reader-side
 # ---------------------------------------------------------------------------
 
 def _rich_attempt(tmp_path, monkeypatch, answers, *, foreground: bool = True):
@@ -501,50 +481,131 @@ def _rich_attempt(tmp_path, monkeypatch, answers, *, foreground: bool = True):
     return paths, ctx, {"itemId": "pi_eigen_1", "submissionId": "k1", "sessionId": session}, rich_author
 
 
-def test_f8_a_rich_only_build_on_the_answer_box_is_read_by_its_job_and_recorded_when_opened(tmp_path, monkeypatch):
-    from tests import rich_fixtures as RF
+def _rich_jobs(paths: Any) -> list[tuple[str, str]]:
+    with closing(sqlite3.connect(paths.sqlite_path)) as connection:
+        return [(row[0], row[1]) for row in connection.execute(
+            "SELECT id, status FROM ingest_jobs WHERE job_type = 'figure_rich' ORDER BY created_at, id")]
 
-    paths, ctx, host, rich_author = _rich_attempt(
-        tmp_path, monkeypatch, [("rich", "manim", RF.brief(), "a narrated video of the spiral")], foreground=False)
-    job = _show_me(ctx, host, goal="show the spiral tighten as the damping grows")
-    result = job["result"]
-    assert result["figure"] is None and result["rich"]["state"] == "pending"
-    rich_job = result["rich"]["richJobId"]
-    # While it builds: its line, nothing recorded.
-    read = _call(ctx, "figure.open", {"richJobId": rich_job, "hostRef": host})
-    assert read["figure"] is None and read["rich"]["state"] == "pending" and read["help"]["status"] == "pending"
-    assert _figure_rows(paths) == []
-    # Another item's host can't read it.
-    with pytest.raises(SidecarError):
-        _call(ctx, "figure.open", {"richJobId": rich_job, "hostRef": {**host, "itemId": "pi_missing"}})
-    # Built (the queue drains): opening it records it, once.
+
+def _drain(ctx: Any, monkeypatch: Any) -> None:
     monkeypatch.setattr(ctx.ingest_jobs, "_ensure_worker",
                         type(ctx.ingest_jobs)._ensure_worker.__get__(ctx.ingest_jobs))
     ctx.ingest_jobs._ensure_worker()
-    opened = _call(ctx, "figure.open", {"richJobId": rich_job, "hostRef": host})
-    assert opened["figure"]["tier"] == "manim" and opened["help"]["status"] == "counted" and opened["help"]["new"]
-    again = _call(ctx, "figure.open", {"figureId": opened["figure"]["figureId"], "hostRef": host})
-    assert again["help"]["new"] is False and len(_figure_rows(paths)) == 1
 
 
-def test_f8_a_quick_figures_fuller_version_opened_on_the_attempt_is_the_same_figure(tmp_path, monkeypatch):
+def test_s0_an_attempt_host_build_offers_no_rich_tier_and_its_quick_figure_counts_once(tmp_path, monkeypatch):
+    """A show me on the answer box, with the rich tiers on and the standing
+    Manim opt-in: the author's menu has no rich tier (an answer naming one is
+    refused and asked again), no rich job starts, the quick figure has no
+    fuller version, and it is one hint-equivalent however often it opens."""
+
     from tests import rich_fixtures as RF
 
-    paths, ctx, host, _rich_author = _rich_attempt(
-        tmp_path, monkeypatch, [("rich", "manim", RF.brief(), "a narrated video", flagship(kind="illustrative"))])
+    paths, ctx, host, rich_author = _rich_attempt(
+        tmp_path, monkeypatch,
+        [("rich", "manim", RF.brief(), "a narrated video", flagship(kind="illustrative")),
+         flagship(kind="illustrative")])
     job = _show_me(ctx, host, goal="show the spiral tighten as the damping grows")
-    quick = job["result"]["figure"]
-    assert quick["tier"] == "grammar" and job["result"]["help"]["new"] is True
-    refreshed = _call(ctx, "figure.open", {"figureId": quick["figureId"], "hostRef": host})["figure"]
-    assert refreshed["fuller"]["state"] == "ready"
-    fuller = refreshed["fuller"]["figure"]
-    opened = _call(ctx, "figure.open", {"figureId": fuller["figureId"], "hostRef": host})
-    assert opened["figure"]["tier"] == "manim" and opened["help"]["status"] == "counted"
-    assert opened["help"]["new"] is False and len(_figure_rows(paths)) == 1
+    figure = job["result"]["figure"]
+    assert figure is not None and figure["tier"] == "grammar" and "rich" not in job["result"]
+    assert figure.get("fuller") is None
+    assert job["result"]["help"]["status"] == "counted" and job["result"]["help"]["new"] is True
+    assert _rich_jobs(paths) == [] and rich_author.calls == 0
+    again = _call(ctx, "figure.open", {"figureId": figure["figureId"], "hostRef": host})
+    assert again["help"]["new"] is False and again["figure"].get("fuller") is None
+    assert len(_figure_rows(paths)) == 1
+
+
+def test_s0_an_attempt_host_rich_request_is_refused_at_the_rpc(tmp_path, monkeypatch):
+    """A Reader figure with a fuller Manim version: on an attempt host the
+    Manim version is never opened, revised or read by its job, and the quick
+    figure opens without its fuller version."""
+
+    from tests import rich_fixtures as RF
+    from tests.figure_fixtures import EXTRACTION, build
+
+    paths, ctx, host, rich_author = _rich_attempt(
+        tmp_path, monkeypatch, [("rich", "manim", RF.brief(), "a narrated video", flagship(kind="illustrative"))])
+    quick = build(ctx, {"extractionId": EXTRACTION, "spanIds": ["p3"]})["figure"]
+    listed = _call(ctx, "reader.figures", {"extractionId": EXTRACTION})
+    (line,) = listed["figures"]
+    assert line["fuller"]["state"] == "ready"
+    manim = line["fuller"]["figure"]["figureId"]
+    [(rich_job, _status)] = _rich_jobs(paths)
+    with pytest.raises(SidecarError) as caught:
+        _call(ctx, "figure.open", {"figureId": manim, "hostRef": host})
+    assert caught.value.code == "validation_error"
+    # No rich build is read by its job on an attempt host (the parameter is
+    # gone: the dispatcher answers ``validation_error`` for it).
+    with pytest.raises(pydantic.ValidationError):
+        _call(ctx, "figure.open", {"richJobId": rich_job, "hostRef": host})
+    with pytest.raises(SidecarError) as caught:
+        _call(ctx, "reader.figure_revise", {"figureId": manim, "note": "slower", "hostRef": host})
+    assert caught.value.code == "validation_error"
+    assert _figure_rows(paths) == []
+    opened = _call(ctx, "figure.open", {"figureId": quick["figureId"], "hostRef": host})
+    assert opened["figure"]["fuller"] is None and opened["help"]["status"] == "counted"
+    assert rich_author.calls == 1 and len(_figure_rows(paths)) == 1
+
+
+def test_s0_a_legacy_queued_attempt_rich_job_stops_before_any_model_request(tmp_path, monkeypatch):
+    """A rich job queued for an attempt host before this change (its payload
+    has no ``attempt_hosted`` flag): the worker resolves the stored request's
+    host and stops it before any model request, figure help on or off; it is
+    not retried either."""
+
+    from learnloop.db.repositories import Repository
+    from learnloop.figures import rich as RICH
+    from tests import rich_fixtures as RF
+    from tests.figure_fixtures import EXTRACTION, build
+
+    paths, ctx, host, rich_author = _rich_attempt(
+        tmp_path, monkeypatch, [("rich", "manim", RF.brief(), "a narrated video")], foreground=False)
+    result = build(ctx, {"extractionId": EXTRACTION, "spanIds": ["p3"]})
+    rich_job = result["rich"]["richJobId"]
+    payload = Repository.attach(paths.sqlite_path).get_ingest_job(rich_job)["payload"]
+    assert "attempt_hosted" not in (payload.get("base") or {})
+    # The request as a pre-change attempt build stored it (figure_requests is
+    # append-only: a copy under a new id naming the answer box, and the queued
+    # job's payload pointed at it, still without the flag).
+    with closing(sqlite3.connect(paths.sqlite_path)) as connection:
+        connection.row_factory = sqlite3.Row
+        row = dict(connection.execute("SELECT * FROM figure_requests WHERE id = ?",
+                                      (payload["request_id"],)).fetchone())
+        row.update(id="fr_legacy_attempt", host_ref_json=json.dumps(
+            {"item_id": host["itemId"], "submission_id": host["submissionId"], "session_id": host["sessionId"]},
+            sort_keys=True))
+        connection.execute(f"INSERT INTO figure_requests ({', '.join(row)}) VALUES ({', '.join('?' for _ in row)})",
+                           tuple(row.values()))
+        payload = {**payload, "request_id": "fr_legacy_attempt"}
+        connection.execute("UPDATE ingest_jobs SET payload_json = ? WHERE id = ?", (json.dumps(payload), rich_job))
+        connection.commit()
+    assert RICH.attempt_hosted_job(Repository.attach(paths.sqlite_path), payload) is True
+    _drain(ctx, monkeypatch)
+    assert rich_author.calls == 0
+    [(_job, status)] = _rich_jobs(paths)
+    assert status == "failed"
+    with closing(sqlite3.connect(paths.sqlite_path)) as connection:
+        tiers = [row[0] for row in connection.execute("SELECT tier FROM interactive_figures")]
+    assert "manim" not in tiers
+    with pytest.raises(SidecarError) as caught:
+        _call(ctx, "figure.rich_retry", {"richJobId": rich_job})
+    assert caught.value.code == "validation_error"
+    assert rich_author.calls == 0 and _figure_rows(paths) == []
+
+
+def test_s0_an_attempt_hosted_payload_is_refused_by_its_flag_too(tmp_path):
+    from learnloop.db.repositories import Repository
+    from learnloop.figures import rich as RICH
+    from tests.hint_fakes import hint_vault
+
+    repository = Repository.attach(hint_vault(tmp_path).sqlite_path)
+    assert RICH.attempt_hosted_job(repository, {"base": {"attempt_hosted": True}}) is True
+    assert RICH.attempt_hosted_job(repository, {"base": {}, "request_id": "fr_missing"}) is False
 
 
 # ===========================================================================
-# Codex re-review (job 20261101-220851-WBO5kk): F1 and F2 reopened, F12
+# Codex re-review (job 20261101-220851-WBO5kk): F1 (F2 and F12 closed by step 0)
 # ===========================================================================
 
 def test_rr_f1_a_fresh_key_under_another_open_session_is_refused(tmp_path):
@@ -606,76 +667,3 @@ def test_rr_f1_a_committed_key_of_another_item_or_session_is_not_free_feedback(t
     assert job["result"]["help"]["host"] == "feedback" and job["result"]["help"]["countsAsHint"] is False
     [request] = _requests(paths)
     assert json.loads(request["host_ref_json"])["attempt_id"] is not None
-
-
-def test_rr_f2_displayed_text_through_variables_is_read():
-    """Re-review F2: words and numbers reaching a text or number mobject
-    through names (assignments, attributes, helper returns, f-strings,
-    arithmetic) are what the scene shows."""
-
-    from learnloop.figures.help import reveal_text
-
-    def scene(body: str) -> str:
-        return reveal_text(_manim_row(scene_code="from manim import *\n\nclass A(Scene):\n"
-                                                 "    def construct(self):\n" + body))
-
-    assert "0.5" in scene('        answer = "0.5"\n        self.add(MathTex(answer))\n').split("\n")
-    assert "0.5" in scene("        p = 0.5\n        self.add(DecimalNumber(p, num_decimal_places=1))\n")
-    assert "0.25" in scene("        a = 1\n        b = 4\n        self.add(MathTex(str(a / b)))\n").split("\n")
-    assert "0.25" in scene("        self.value = 0.25\n        self.add(Text(f'{self.value}'))\n").split("\n")
-    assert "1/4" in scene('        label = "1/4"\n        parts = [label]\n        self.add(Tex(parts[0]))\n')
-    assert "0.25" in scene("        self.add(Text(self.result()))\n\n    def result(self):\n"
-                           "        return '0.25'\n").split("\n")
-    assert "0.50" in scene("        self.add(DecimalNumber(0.5))\n").split("\n")
-    # Structure stays out: a radius or a run time is never shown text.
-    neutral = scene("        r = 0.25\n        self.play(Create(Circle(radius=r)), run_time=0.25)\n").split("\n")
-    assert "0.25" not in neutral
-
-
-def test_rr_f2_a_variable_scene_stating_the_key_overlaps_it(tmp_path):
-    from learnloop.figures.help import reveal_text
-    from learnloop.hints import service as hint_service
-    from learnloop.vault.loader import load_vault
-    from tests.hint_fakes import hint_vault
-
-    item = load_vault(hint_vault(tmp_path).root).practice_items[ITEM]
-    stated = _manim_row(scene_code="from manim import *\n\nclass A(Scene):\n    def construct(self):\n"
-                                   f"        answer = {item.expected_answer!r}\n        self.add(MathTex(answer))\n")
-    assert hint_service.reveal_amount(item, reveal_text(stated)) > 0
-
-
-def test_rr_f12_a_queued_attempt_animation_stops_when_figure_help_is_switched_off(tmp_path, monkeypatch):
-    """Re-review F12: an attempt-hosted rich job is admitted under the help
-    switch too (the worker's start and before every model request)."""
-
-    from tests import rich_fixtures as RF
-
-    paths, ctx, host, rich_author = _rich_attempt(
-        tmp_path, monkeypatch, [("rich", "manim", RF.brief(), "a narrated video of the spiral")], foreground=False)
-    job = _show_me(ctx, host, goal="show the spiral tighten as the damping grows")
-    rich_job = job["result"]["rich"]["richJobId"]
-    _off(paths, ctx)
-    monkeypatch.setattr(ctx.ingest_jobs, "_ensure_worker",
-                        type(ctx.ingest_jobs)._ensure_worker.__get__(ctx.ingest_jobs))
-    ctx.ingest_jobs._ensure_worker()
-    assert rich_author.prompts == []
-    with closing(sqlite3.connect(paths.sqlite_path)) as connection:
-        tiers = [row[0] for row in connection.execute("SELECT tier FROM interactive_figures")]
-        state = connection.execute("SELECT status, error_json FROM ingest_jobs WHERE id = ?", (rich_job,)).fetchone()
-    assert "manim" not in tiers
-    assert state is not None and state[0] != "succeeded"
-
-
-def test_rr_f12_the_rich_jobs_key_carries_the_help_switch_for_an_attempt_host(tmp_path):
-    from learnloop.figures import rich as RICH
-    from learnloop.vault.loader import load_vault
-    from tests.hint_fakes import hint_vault
-
-    paths = hint_vault(tmp_path)
-    on = load_vault(paths.root)
-    set_config(paths, "figures", help_kind_enabled=False)
-    off = load_vault(paths.root)
-    attempt_key = RICH.rich_job_key({"base": {"attempt_hosted": True}})
-    reader_key = RICH.rich_job_key({"base": {}})
-    assert attempt_key(on) != attempt_key(off)
-    assert reader_key(on) == reader_key(off)

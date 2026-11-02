@@ -1761,11 +1761,8 @@ export const api = {
   figureTakeStep: (input: { itemId: string; submissionId?: string | null; sessionId?: string | null;
     workbenchSessionId?: string | null }) =>
     call<import("./dto").FigureTakeStepDto>("figure_take_step", { input }),
-  // Codex review F8: or a rich-only build by its job (its pending line until its figure is stored).
-  figureOpen: (input: { figureId?: string | null; richJobId?: string | null; hostRef: import("./dto").FigureHostRef;
-    takeStepToken?: string | null }) =>
-    call<{ figure: import("./dto").FigureViewDto | null; help: import("./dto").FigureHelpDto;
-      rich?: import("./dto").FigureRichPendingDto | null }>("figure_open", { input }),
+  figureOpen: (input: { figureId: string; hostRef: import("./dto").FigureHostRef; takeStepToken?: string | null }) =>
+    call<{ figure: import("./dto").FigureViewDto | null; help: import("./dto").FigureHelpDto }>("figure_open", { input }),
   figureManimOptIn: (input: { choice: "allow" | "decline" }) =>
     call<{ manimOptIn: "standing" | "declined" | "ask" | "unavailable" }>("figure_manim_opt_in", { input }),
   readerFigurePredict: (input: { figureId: string; predictionIndex: number; answer: string }) =>
