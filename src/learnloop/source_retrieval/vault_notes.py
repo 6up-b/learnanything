@@ -631,11 +631,7 @@ def meaning_search(vault: Any, repository: Repository, corpus: Sequence[VaultNot
                        repository=repository)
     model_id = vault.config.embedding.model
     covered = _covered(repository, model_id, corpus)
-    if covered:
-        # The switches as they are now, before the query is embedded (Codex re-review C2b R3 F2).
-        _now, why = _authorized_now(vault)
-        if _now is None:
-            raise MeaningUnavailable(why or "switched off")
+
     result.covered = len(covered)
     if not covered:
         result.status, result.reason = "empty", "no note has a vector yet"
@@ -644,6 +640,10 @@ def meaning_search(vault: Any, repository: Repository, corpus: Sequence[VaultNot
     vectors: dict[str, Any] = {}
     reasons: list[str] = []
     for key, text in texts.items():
+        # The switches as they are now, before each query is embedded (Codex re-reviews C2b R3 F2, R4 F3).
+        _now, why = _authorized_now(vault)
+        if _now is None:
+            raise MeaningUnavailable(why or "switched off")
         found, report = embed_query_texts(vault, repository, {key: text}, embedder=embedder, owner_id=owner_id)
         vectors.update(found)
         if not found:

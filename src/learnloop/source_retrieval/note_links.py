@@ -591,9 +591,17 @@ def _judge_target(vault: Any, repository: Repository, target: Target, *, setting
         if found_in is None or not enabled(found_in):
             _record_shown(repository, target, NO_CANDIDATES_STATE, notes_guard, clock)
             return JudgeResult("no_candidates", lo)
+        # The topic's queries from its path as it is now (Codex re-review C2b R4 F1: a section
+        # protected meanwhile drops out of the path, so its title is never searched with).
+        current = next((entry for entry in path_targets(found_in, repository, target.goal_id)
+                        if entry.learning_object_id == lo), None)
+        if current is None:
+            _record_shown(repository, target, NO_CANDIDATES_STATE, notes_guard, clock)
+            return JudgeResult("no_candidates", lo)
+        searched = current
     else:
-        found_in = vault
-    notes = candidates(found_in, repository, target, limit=int(vault.config.notes.max_candidates), corpus=corpus,
+        found_in, searched = vault, target
+    notes = candidates(found_in, repository, searched, limit=int(vault.config.notes.max_candidates), corpus=corpus,
                        embedder=embedder, settings=None if corpus is None else settings)
     if not notes:
         # Nothing found: the topic's older proposals give way (Codex review F7).
