@@ -64,6 +64,9 @@ def _record(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> dict[str, Any]:
         # RW5a (landed after this golden too): off, so its contract key and
         # "make this explorable" are absent; these pins are RW4d's.
         set_config(paths, "figures", enabled=False)
+        # Curriculum C2b (the vault's own notes, in every vault since): off, so its contract key
+        # is absent; these pins are RW4d's.
+        set_config(paths, "notes", enabled=False)
         # Reader CA3 (landed after this golden too): off, so its contract key and
         # "how do my other books treat this?" are absent; these pins are RW4d's.
         set_config(paths, "reader_compare", scope_enabled=False)

@@ -279,3 +279,49 @@ def test_c2b_f3_a_restored_text_keeps_its_vector(tmp_path):
     found = VN.meaning_search(vault, repository, notes, ["eigenvalues"], limit=5, embedder=embedder)
     assert found.status == "ready" and [n.note_key for n in found.notes] == [f"annotation:{annotation}"]
     assert len(embedder.inputs) == embedded + 1  # only the query: the restored text was not paid again
+
+
+def test_c2b_re_f2_embedding_batches_drop_notes_protected_meanwhile(tmp_path, monkeypatch):
+    """Codex re-review C2b F2: notes are embedded in batches; before each later batch the vault
+    is read again and a note now beside protected material is dropped (never embedded)."""
+
+    from learnloop.source_retrieval.source_vectors import BATCH_SIZE
+
+    paths, repository = _vault(tmp_path, embeddings=True)
+    keys = [f"capture:{add_capture(repository, f'Eigen note number {index}.')}" for index in range(BATCH_SIZE)]
+    late = f"annotation:{add_annotation(repository, 'Eigenvalues, a late Reader note.')}"
+    vault = load_vault(paths.root)
+    corpus = VN.notes(vault, repository)
+    assert corpus[0].note_key == late  # annotations first: put it in the second batch
+    corpus = corpus[1:] + corpus[:1]
+    real = VN.protected_keys
+    calls: list[int] = []
+
+    def protected_after_the_first_batch(vault, repository, wanted):
+        calls.append(1)
+        return {key for key in wanted if key == late} | real(vault, repository, wanted)
+
+    monkeypatch.setattr(VN, "protected_keys", protected_after_the_first_batch)
+    embedder = NoteEmbeddingFake()
+    report = VN.ensure_vectors(vault, corpus, client_factory=lambda: embedder, repository=repository)
+    assert report["status"] == "complete" and report["dropped"] == 1 and calls
+    assert len(embedder.inputs) == BATCH_SIZE and all("late Reader note" not in text for text in embedder.inputs)
+    assert late not in {record for record, _hash in _vectors(repository)} and set(keys) <= {
+        record for record, _hash in _vectors(repository)}
+
+
+def test_c2b_re_f3_exact_words_search_the_whole_note(tmp_path):
+    """Codex re-review C2b F3: a long note is bounded when stored and sent, but searched (and
+    hashed for change detection) whole."""
+
+    paths, repository = _vault(tmp_path)
+    long_text = ("filler " * (VN.NOTE_CHARS // 7 + 50)) + "eigendecomposition at the very end."
+    annotation = add_annotation(repository, long_text)
+    vault = load_vault(paths.root)
+    (note,) = [n for n in VN.notes(vault, repository) if n.note_key == f"annotation:{annotation}"]
+    assert note.truncated and "eigendecomposition" not in note.text
+    assert [n.note_key for n in VN.words_search([note], "eigendecomposition", limit=5)] == [note.note_key]
+    before = note.content_hash
+    edit_annotation(repository, annotation, long_text.replace("very end", "very, very end"))
+    (edited,) = [n for n in VN.notes(load_vault(paths.root), repository) if n.note_key == note.note_key]
+    assert edited.text == note.text and edited.content_hash != before

@@ -216,7 +216,8 @@ class NotesGuard:
         guard.__dict__.update(self.__dict__)
         guard._notes = tuple(notes)
         guard._repository = library.repository
-        guard._coverage = SC.CoverageGuard(library, keys, live_vault=self._live, also=self._refusal_in,
+        # The composed guard's own refusal (Codex re-review C2b F1: it carries the candidates).
+        guard._coverage = SC.CoverageGuard(library, keys, live_vault=self._live, also=guard._refusal_in,
                                            also_refusal=NotesSwitchedOff)
         guard._outer = None  # the coverage guard composes with the outer gate itself
         guard._lock = threading.Lock()

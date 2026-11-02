@@ -104,6 +104,9 @@ class VaultNote:
     span_id: str | None = None
     #: The note's newest change (for ranking among equals).
     changed_at: str = ""
+    #: The whole text (Codex re-review C2b F3): searched, and hashed for change detection;
+    #: ``text`` is the bounded one stored and sent.
+    full_text: str = ""
 
     @property
     def note_key(self) -> str:
@@ -111,8 +114,8 @@ class VaultNote:
 
     @property
     def content_hash(self) -> str:
-        return "text:" + hashlib.sha256(
-            json.dumps([self.title, self.heading, self.text], ensure_ascii=False).encode("utf-8")).hexdigest()[:40]
+        return "text:" + hashlib.sha256(json.dumps([self.title, self.heading, self.full_text or self.text],
+                                                   ensure_ascii=False).encode("utf-8")).hexdigest()[:40]
 
     @property
     def origin(self) -> str:
@@ -124,7 +127,7 @@ class VaultNote:
         return value if len(value) <= SNIPPET_CHARS else value[: SNIPPET_CHARS - 1].rstrip() + "…"
 
     def searchable(self) -> str:
-        return "\n".join(part for part in (self.title, self.heading, self.text) if part)
+        return "\n".join(part for part in (self.title, self.heading, self.full_text or self.text) if part)
 
     def view(self) -> dict[str, Any]:
         return {"note_key": self.note_key, "ref_kind": self.ref_kind, "ref_id": self.ref_id, "title": self.title,
@@ -187,13 +190,7 @@ def _source_titles(repository: Repository) -> dict[str, str]:
 def _standing_annotation_ids(repository: Repository) -> set[str]:
     """The annotations the Reader lists (no standing delete): the repository's own rule."""
 
-    from learnloop.db.repositories import _STANDING_DELETE
-
-    with closing(connect(repository.sqlite_path, read_only=True)) as connection:
-        if not _table(connection, "source_annotations"):
-            return set()
-        return {str(row[0]) for row in connection.execute(
-            "SELECT a.id FROM source_annotations a WHERE NOT " + _STANDING_DELETE.format(annotation="a.id"))}
+    return repository.standing_annotation_ids()
 
 
 def _anchor(connection: Any, annotation_id: str) -> tuple[str | None, list[tuple[str, list[str]]]]:
@@ -326,7 +323,7 @@ def _annotation_notes(vault: Any, repository: Repository, *, only: Iterable[str]
                 title=" ".join(str(titles.get(str(source_id)) or "your reading").split()), heading=heading,
                 text=bounded, truncated=truncated, captured_on=_day(changed_at) or _day(created_at),
                 extraction_id=extraction_id, span_id=segments[0][0] if segments else None,
-                changed_at=str(changed_at or created_at or "")))
+                changed_at=str(changed_at or created_at or ""), full_text=text))
     return out
 
 
@@ -354,7 +351,7 @@ def _capture_notes(repository: Repository, *, only: Iterable[str] | None = None)
         out.append(VaultNote(ref_kind=KIND_CAPTURE, ref_id=capture_id, title=CAPTURE_TITLE, heading=heading,
                              text=bounded, truncated=truncated,
                              captured_on=_day(captured_at) or _day(received_at),
-                             changed_at=str(captured_at or received_at or "")))
+                             changed_at=str(captured_at or received_at or ""), full_text=text))
     return out
 
 
@@ -495,31 +492,53 @@ def records(corpus: Sequence[VaultNote]) -> list[EmbeddingRecord]:
 
 
 def ensure_vectors(vault: Any, corpus: Sequence[VaultNote], *,
-                   client_factory: Callable[[], Any] | None = None) -> dict[str, Any]:
+                   client_factory: Callable[[], Any] | None = None,
+                   repository: Repository | None = None) -> dict[str, Any]:
     """Embed the notes that have no current vector yet (content-addressed: an unchanged note
     is never embedded again), through the vault's embedding backfill: its switches, lock,
-    receipts and price, capped per run like a source's backfill. Aggregate report only."""
+    receipts and price, capped per run like a source's backfill. Aggregate report only.
+
+    With ``repository``, the notes go in batches, and before each batch the vault is read
+    again and any annotation that now sits beside protected material is dropped (Codex
+    re-review C2b F2: protection marked while an earlier batch was embedded)."""
 
     from learnloop.ops.embedding_backfill import BackfillLockBusy, backfill_embeddings
-    from learnloop.source_retrieval.source_vectors import backfill_caps
+    from learnloop.source_retrieval.source_vectors import BATCH_SIZE, backfill_caps
 
     reason = meaning_unavailable(vault)
     if reason is not None:
         return {"status": "disabled", "reason": reason}
-    wanted = records(corpus)
-    if not wanted:
+    notes = list(corpus)
+    if not notes:
         return {"status": "complete", "records": 0}
-    try:
-        result = backfill_embeddings(
-            vault, caps=backfill_caps(vault.config, wanted), recipes=(RECIPE,), registry=NOTE_RECIPES,
-            records=wanted, price_per_million=vault.config.source_retrieval.query_embedding_price_per_million,
-            client_factory=client_factory)
-    except BackfillLockBusy as exc:
-        return {"status": "busy", "reason": str(exc), "records": len(wanted)}
-    except ValueError as exc:
-        return {"status": "blocked", "reason": str(exc), "records": len(wanted)}
-    return {key: result.get(key) for key in ("status", "reason", "records", "cached", "embedded", "pending")
-            if key in result}
+    batches = [notes] if repository is None else [notes[start:start + BATCH_SIZE]
+                                                  for start in range(0, len(notes), BATCH_SIZE)]
+    totals: dict[str, Any] = {"status": "complete", "records": 0, "cached": 0, "embedded": 0, "dropped": 0}
+    for index, batch in enumerate(batches):
+        if repository is not None and index:
+            from learnloop.vault.loader import load_vault
+
+            current = load_vault(vault.root)
+            protected = protected_keys(current, repository, [note.note_key for note in batch])
+            totals["dropped"] += len(protected)
+            batch = [note for note in batch if note.note_key not in protected]
+        wanted = records(batch)
+        if not wanted:
+            continue
+        try:
+            result = backfill_embeddings(
+                vault, caps=backfill_caps(vault.config, wanted), recipes=(RECIPE,), registry=NOTE_RECIPES,
+                records=wanted, price_per_million=vault.config.source_retrieval.query_embedding_price_per_million,
+                client_factory=client_factory)
+        except BackfillLockBusy as exc:
+            return {**totals, "status": "busy", "reason": str(exc)}
+        except ValueError as exc:
+            return {**totals, "status": "blocked", "reason": str(exc)}
+        for key in ("records", "cached", "embedded"):
+            totals[key] += int(result.get(key) or 0)
+        if result.get("status") != "complete":
+            return {**totals, "status": result.get("status"), "reason": result.get("reason")}
+    return totals
 
 
 def _covered(repository: Repository, model_id: str, corpus: Sequence[VaultNote]) -> dict[str, str]:
@@ -573,7 +592,8 @@ def meaning_search(vault: Any, repository: Repository, corpus: Sequence[VaultNot
         result.status = "empty"
         return result
     if index:
-        ensure_vectors(vault, corpus, client_factory=(lambda: embedder) if embedder is not None else None)
+        ensure_vectors(vault, corpus, client_factory=(lambda: embedder) if embedder is not None else None,
+                       repository=repository)
     model_id = vault.config.embedding.model
     covered = _covered(repository, model_id, corpus)
     result.covered = len(covered)
