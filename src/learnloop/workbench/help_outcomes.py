@@ -97,6 +97,11 @@ MAX_LINES_PER_FACET = 3
 #: A strategy is a writer's slug; anything else is not carried (leak control).
 _SLUG = re.compile(r"^[a-z][a-z0-9_]{0,47}$")
 _HELP_KINDS = ("hint", "bridge", "example", "compare_methods")
+#: Reader RW5d P3 (spec_reader_show_me_figures_v1 §11.4): a figure opened
+#: during an attempt is a help kind too, on the workbench and on the answer
+#: box (its continuation is the workbench's only; elsewhere it has none),
+#: while ``figures.help_kind_enabled`` is on.
+FIGURE_KIND = "figure"
 _S5_COLD_PASS = ("cold_success",)
 _S5_COLD_FAIL = ("cold_failure", "cold_dont_know")
 _S5_COLD_PENDING = ("right_censored_pending",)
@@ -227,6 +232,9 @@ def _rows(connection: sqlite3.Connection, sql: str, params: Sequence[Any] = ()) 
 
 def _help_key(row: Mapping[str, Any]) -> tuple[str, str | None, str | None]:
     kind = str(row["assist_kind"])
+    if kind == FIGURE_KIND:
+        # How it came: the chooser's draw (explore_figure) or the learner's own ask.
+        return FIGURE_KIND, "chooser" if row.get("hint_kind") == "explore_figure" else "asked", None
     if kind == "hint":
         return "hint", str(row.get("hint_kind") or "") or None, safe_slug(row.get("strategy"))
     if kind in ("bridge", "example"):
@@ -352,7 +360,14 @@ def help_outcomes(
     path; ``item_facets``: each item's evidence facets (the vault's);
     ``vault``: for an attempt regraded after ``as_of``, the item's rubric
     maximum its grade at ``as_of`` is read against (without it such an
-    attempt reads as ungraded at ``as_of``, never as its later grade)."""
+    attempt reads as ungraded at ``as_of``, never as its later grade).
+    RW5d P3: figure rows are read while ``figures.help_kind_enabled`` is on
+    (with no vault, whenever they exist); off, the read is RW2c's exactly."""
+
+    from learnloop.figure_admission import help_kind_enabled
+
+    figures = vault is None or help_kind_enabled(vault)
+    help_kinds = _HELP_KINDS + ((FIGURE_KIND,) if figures else ())
 
     wanted = tuple(dict.fromkeys(str(facet) for facet in facet_ids if facet))
     cutoff = _when(as_of)
@@ -425,11 +440,13 @@ def help_outcomes(
         if _table(connection, "help_assists"):
             sources["help_assists"] = "read"
             rows = []
-            for row in _rows(connection, "SELECT id, assist_kind, hint_kind, level, strategy, practice_item_id, "
-                             "workbench_session_id, attempt_id, shown, shown_at, requested_at, chooser, "
-                             "placement_json, step_snapshot_json, step_verdicts_json, first_questionable_step_id, "
-                             "error_kind_guess, map_id, route_id, from_node_id, target_node_id "
-                             "FROM help_assists WHERE surface = 'workbench' AND shown = 1"):
+            where = ("(surface = 'workbench' OR assist_kind = 'figure') AND shown = 1" if figures
+                     else "surface = 'workbench' AND shown = 1 AND assist_kind != 'figure'")
+            for row in _rows(connection, "SELECT id, surface, assist_kind, hint_kind, level, strategy, "
+                             "practice_item_id, workbench_session_id, attempt_id, shown, shown_at, requested_at, "
+                             "chooser, placement_json, step_snapshot_json, step_verdicts_json, "
+                             "first_questionable_step_id, error_kind_guess, map_id, route_id, from_node_id, "
+                             f"target_node_id FROM help_assists WHERE {where}"):
                 at = _when(row["shown_at"] or row["requested_at"])
                 if at is not None and at <= cutoff:
                     rows.append({**row, "_at": at})
@@ -473,14 +490,16 @@ def help_outcomes(
                     continue
                 # Review F3: only a passage pick ("another passage") is not a
                 # help kind of its own; a hint the learner picked is a hint.
-                if row["assist_kind"] not in _HELP_KINDS or _passage_pick(row):
+                if row["assist_kind"] not in help_kinds or _passage_pick(row):
                     continue
                 key = _help_key(row)
                 session_id = str(row["workbench_session_id"])
                 attempt_id = row.get("attempt_id") or session_attempt.get(session_id)
                 attempt = attempts.get(str(attempt_id)) if attempt_id else None
+                # RW5d P3: an answer-box figure has no later check to continue to.
                 continuation = (workbench_unaided_progress(row, by_session[session_id], maps=maps)
-                                if row["assist_kind"] != "compare_methods" else None)
+                                if row["assist_kind"] != "compare_methods" and row.get("surface") == "workbench"
+                                else None)
                 s5_linked = str(row["id"]) in linked
                 s5 = linked.get(str(row["id"]))
                 for facet in wanted:

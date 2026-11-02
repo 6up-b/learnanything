@@ -593,6 +593,68 @@ def mark_bridge_shown(connection: sqlite3.Connection, assist_id: str, *, shown_a
     return bool(cursor.rowcount)
 
 
+# -- Reader RW5d P3: figures as a help kind (migration 232) ----------------------------
+
+
+def open_figure_rows(connection: sqlite3.Connection, *, practice_item_id: str, submission_id: str | None = None,
+                     workbench_session_id: str | None = None) -> list[dict[str, Any]]:
+    """An open attempt's figure rows (``assist_kind = 'figure'``, attached to
+    no attempt): the answer box's by its submission key, a workbench
+    problem's by its session (and either way the other identity, so the same
+    figure is never counted twice across the two hosts of one attempt)."""
+
+    clauses = ["assist_kind = 'figure'", "practice_item_id = ?", "attempt_id IS NULL"]
+    values: list[Any] = [practice_item_id]
+    who = []
+    if submission_id:
+        who.append("submission_id = ?")
+        values.append(submission_id)
+    if workbench_session_id:
+        who.append("workbench_session_id = ?")
+        values.append(workbench_session_id)
+    if not who:
+        return []
+    clauses.append(f"({' OR '.join(who)})")
+    rows = connection.execute(
+        f"SELECT {', '.join(COLUMNS)} FROM help_assists WHERE {' AND '.join(clauses)} ORDER BY requested_at, rowid",
+        tuple(values)).fetchall()
+    return [dict(zip(COLUMNS, tuple(row))) for row in rows]
+
+
+def take_step(connection: sqlite3.Connection, token: str) -> dict[str, Any] | None:
+    """A cold take step's row by its token (its id), or None."""
+
+    row = assist(connection, token)
+    if row is None or row.get("assist_kind") != "figure" or row.get("request") != "take_step":
+        return None
+    return row
+
+
+def bind_figure(connection: sqlite3.Connection, assist_id: str, figure_id: str) -> bool:
+    """A take step's row names the figure it was taken for (set once: the
+    identity trigger fixes it)."""
+
+    cursor = connection.execute(
+        "UPDATE help_assists SET figure_id = ? WHERE id = ? AND assist_kind = 'figure' AND figure_id IS NULL "
+        "AND attempt_id IS NULL", (figure_id, assist_id))
+    return bool(cursor.rowcount)
+
+
+def figure_rows(connection: sqlite3.Connection) -> list[dict[str, Any]]:
+    """Every figure row, oldest first (the help outcomes and the report)."""
+
+    if connection.execute("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'help_assists'"
+                          ).fetchone() is None:
+        return []
+    columns = {row[1] for row in connection.execute("PRAGMA table_info(help_assists)")}
+    if "figure_id" not in columns:
+        return []
+    rows = connection.execute(
+        f"SELECT {', '.join(COLUMNS)} FROM help_assists WHERE assist_kind = 'figure' ORDER BY requested_at, rowid"
+    ).fetchall()
+    return [dict(zip(COLUMNS, tuple(row))) for row in rows]
+
+
 def _latency(value: float | None) -> float | None:
     """A latency the client sent, or None (a negative one is not believed)."""
 
@@ -616,4 +678,5 @@ __all__ = [
     "settle_compare", "workbench_fold",
     "workbench_rows",
     "WORK_MD_CHARS", "kept_draft",
+    "HINT_EQUIVALENT_KINDS_SQL", "bind_figure", "figure_rows", "open_figure_rows", "take_step",
 ]

@@ -122,6 +122,10 @@ RW5D_SERVER_EVENTS: tuple[str, ...] = (
     "show_me_requested",
     # RW5d P2b: a rich build cancelled (``figure.rich_cancel``; its tier, never words).
     "rich_build_cancelled",
+    # RW5d P3: a figure going out on an attempt host (its id, the host and
+    # whether it added a hint-equivalent), and a cold check's take step.
+    "attempt_figure_opened",
+    "figure_take_step",
 )
 INQUIRY_EVENTS = CLIENT_ACTION_EVENTS + SERVER_ACTION_EVENTS
 

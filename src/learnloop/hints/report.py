@@ -580,6 +580,40 @@ def build_hints_report(
         attempt = attempts[attempt_id]
         return later(attempt, independent_by_item.get(attempt["practice_item_id"], []))
 
+    # Reader RW5d P3 (spec_reader_show_me_figures_v1 §11.4): the figure kind
+    # on its own (it is also a row of ``kinds``): how each figure came (the
+    # learner's ask, the chooser's draw, a cold take step), its sample size
+    # and the attempts' outcomes with their intervals. Absent with no figure
+    # row (every earlier report is unchanged). Off-policy estimates for it
+    # wait with the hint kinds' (H5).
+    figure_rows = [row for row in rows if row["assist_kind"] == "figure"]
+    figures_block: dict[str, Any] | None = None
+    if figure_rows:
+        figure_attempts = sorted({row["resolved_attempt"] for row in figure_rows if row["resolved_attempt"]})
+        figure_outcomes = Counter(_outcome(attempts[a]["correctness"]) for a in figure_attempts)
+        figure_graded = sum(figure_outcomes.get(key, 0) for key in ("correct", "partial", "incorrect"))
+        figure_later = Counter(
+            later(attempts[a], independent_by_item.get(attempts[a]["practice_item_id"], [])) for a in figure_attempts)
+        figures_block = {
+            "shown": len(figure_rows),
+            "by_how": {
+                "asked": sum(1 for row in figure_rows if row["request"] != "take_step"
+                             and row["hint_kind"] != "explore_figure"),
+                "chooser": sum(1 for row in figure_rows if row["hint_kind"] == "explore_figure"),
+                "take_step": sum(1 for row in figure_rows if row["request"] == "take_step"),
+            },
+            "by_surface": dict(sorted(Counter(str(row["surface"]) for row in figure_rows).items())),
+            "items": len({row["practice_item_id"] for row in figure_rows}),
+            "attempts": len(figure_attempts),
+            "unattached": sum(1 for row in figure_rows if not row["resolved_attempt"]),
+            "attempt_outcome": {key: figure_outcomes.get(key, 0)
+                                for key in ("correct", "partial", "incorrect", "ungraded")},
+            "attempt_correct": _share(figure_outcomes.get("correct", 0), figure_graded),
+            "later_independent_success": {"item": later_block(figure_later)},
+            "off_policy_estimate": None,
+            "off_policy_reason": "not_yet_measured",
+        }
+
     per_item_all = Counter(row["practice_item_id"] for row in rows)
     top_items = [
         {
@@ -617,6 +651,7 @@ def build_hints_report(
             summarize=lambda members: _split_columns(members, attempts, unaided, replies, later_independent)),
         "help_seeking": seeking,
         "routes": route_rows,
+        **({"figures": figures_block} if figures_block is not None else {}),
         "not_yet_measured": [
             # H5's estimates, after a month of H2 rows.
             "off_policy_estimates",

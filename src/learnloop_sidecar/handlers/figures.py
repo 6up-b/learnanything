@@ -34,6 +34,23 @@
   The build job is read with ``reader.figure_job`` as before; its origin (T1
   redesign D: the offer is the grant) is the RPC method that started it.
 
+* RW5d P3 (spec §6.4, §11.2-§11.4, ``figures.help_kind_enabled``): figures
+  inside attempts. ``figure.request`` with origin ``ask`` and an attempt
+  host (``hostRef.itemId`` with ``submissionId`` and ``sessionId``: the
+  practice answer box; ``workbenchSessionId``: a workbench problem;
+  ``attemptId``: feedback) is the CA2 Ask panel's *show me*: built under
+  ``assisted_practice`` for the item (feedback: the item's post-attempt
+  policy), never from its own blocks; on an open attempt the delivered
+  figure writes one ``help_assists`` figure row (one hint-equivalent at
+  Submit through the hint fold, once per figure per attempt) and, on
+  overlap with the key, the ``tutor_answer`` reveal with basis
+  ``figure:<id>``, in one transaction with the delivery. ``figure.take_step``
+  is a check on your own's take step: it converts the attempt (its row is
+  the one hint-equivalent) and answers the token a cold request must carry;
+  without it a request is refused under ``cold_attempt``. ``figure.open``
+  opens a stored figure on an attempt host (the chooser's
+  ``explore_figure`` line), recorded the same way.
+
 Desktop only (pinned in tests/test_mobile_allowlist.py). Kill switches:
 ``figures.enabled`` (off: every RPC here refuses, the prompt contract has no
 ``figures`` key, the intent box has no "make this explorable" and no route
@@ -46,6 +63,7 @@ mastery, certification, FSRS, scheduler state or a plan.
 from __future__ import annotations
 
 from contextlib import closing
+from dataclasses import dataclass
 from typing import Any, Literal
 
 from pydantic import Field
@@ -62,6 +80,8 @@ from learnloop_sidecar.registry import method
 #: Every RPC this module registers (pinned desktop-only).
 FIGURE_RPCS: tuple[str, ...] = (
     "figure.request",
+    "figure.take_step",
+    "figure.open",
     "figure.rich_cancel",
     "figure.rich_retry",
     "figure.manim_opt_in",
@@ -94,6 +114,10 @@ def prompt_contract_fields(vault: Any) -> dict[str, Any]:
         # RW5d P2: present only while the sketch tier is on (and the engine
         # ready), so off the contract is P1's, key for key.
         figures["sketch"] = True
+    if FS.help_enabled(vault):
+        # RW5d P3: present only while figures in attempts are on, so off the
+        # contract is P2b's key for key.
+        figures["help"] = True
     if FS.rich_enabled(vault) and (state := manim_opt_in_state(vault)) != "unavailable":
         # RW5d P2b: present only while the rich tiers are on and the Manim tier
         # concerns this machine (so off, or where Manim can't run, the contract
@@ -149,11 +173,19 @@ def deliver_figure(ctx: SidecarContext, result: dict[str, Any]) -> dict[str, Any
     its passage held out since, nothing of it is delivered."""
 
     vault, repository = _require(ctx)
+    attempt = result.pop("_attempt", None)
     figure = result.get("figure") or {}
     # Rechecked on the stored row: every span the author was sent, the
     # paragraphs around the selection included (Codex review F1).
     if figure and FS.figure_withheld(vault, repository, str(figure.get("figure_id") or "")):
         return {"figure": None, "reused": False, "withheld": True}
+    if attempt is not None and figure:
+        # RW5d P3: a figure on an attempt host is recorded as it goes out (one
+        # hint-equivalent per figure per attempt, and its reveal), or not shown.
+        help_line = record_attempt_figure(ctx, attempt, str(figure.get("figure_id") or ""))
+        if help_line.get("status") == "not_recorded":
+            return {"figure": None, "reused": False, "withheld": False, "help": help_line}
+        result["help"] = help_line
     return result
 
 
@@ -187,14 +219,17 @@ def _rich_spawner(ctx: SidecarContext, vault: Any, *, granted: bool = True) -> A
     return spawn
 
 
-def _start(ctx: SidecarContext, request: FS.FigureRequest) -> dict[str, Any]:
+def _start(ctx: SidecarContext, request: FS.FigureRequest, *, attempt: dict[str, Any] | None = None
+           ) -> dict[str, Any]:
     from learnloop_sidecar.handlers.library_ask import _job_payload
 
     vault, _repository = _require(ctx)
     author = getattr(ctx, "figure_author_client", None)
     # RW5d: the grounding retrieval (the sources service's, unset; a fake in tests).
     find = getattr(ctx, "figure_find_sources", None)
-    spawn = _rich_spawner(ctx, vault) if FS.rich_enabled(vault) else None
+    # RW5d P3: an attempt host's figure is a quick one (grammar or sketch): a
+    # rich build's pending line lists under a passage, and this figure has none.
+    spawn = _rich_spawner(ctx, vault) if FS.rich_enabled(vault) and attempt is None else None
 
     def work(worker_repo: Any) -> dict[str, Any]:
         try:
@@ -208,6 +243,9 @@ def _start(ctx: SidecarContext, request: FS.FigureRequest) -> dict[str, Any]:
         if outcome.rich is not None:
             # RW5d P2b: only a rich figure is being built (its pending line).
             result["rich"] = outcome.rich
+        if attempt is not None:
+            # RW5d P3: the verified host, read by the delivery (never sent out).
+            result["_attempt"] = dict(attempt)
         return result
 
     job = _jobs(ctx).start(ctx, "figure_build", None, work, deliver=lambda result: deliver_figure(ctx, result))
@@ -310,8 +348,8 @@ def _same_goal(left: str | None, right: str | None) -> bool:
     return " ".join(str(left or "").split()) == " ".join(str(right or "").split()) != ""
 
 
-#: P1's hosts are the Reader's: the attempt, workbench and lesson references are P3's and P4's.
-_LATER_HOST_REFS = ("item_id", "submission_id", "workbench_session_id", "attempt_id", "lesson_id", "node_id")
+#: The lesson references are P4's (the attempt, workbench and feedback ones are P3's: origin ``ask``).
+_LATER_HOST_REFS = ("lesson_id", "node_id")
 
 
 def _host_caller(vault: Any, repository: Any, *, origin: str, host_ref: dict[str, Any],
@@ -351,7 +389,7 @@ def _host_caller(vault: Any, repository: Any, *, origin: str, host_ref: dict[str
 def _request_figure(ctx: SidecarContext, *, origin: str, extraction_id: str | None, span_ids: list[str],
                     region: dict[str, Any] | None, goal_text: str | None, reading_at: dict[str, Any] | None,
                     offer_ref: str | None, host_ref: dict[str, Any], cold_active: bool,
-                    span_keys: list[str] | None = None) -> dict[str, Any]:
+                    span_keys: list[str] | None = None, take_step: str | None = None) -> dict[str, Any]:
     """One figure request, from either RPC: validated, its caller derived and
     its held-out material refused here, on the request path, before any job or
     model call; then a build job."""
@@ -372,9 +410,16 @@ def _request_figure(ctx: SidecarContext, *, origin: str, extraction_id: str | No
     goal = " ".join(str(goal_text or "").split()) or None
     if goal is not None and not FS.show_me_enabled(vault):
         raise SidecarError("show_me_disabled", "\"Show me\" in your own words is switched off (figures.show_me_enabled).")
+    if origin == "ask" or any(host_ref.get(name) for name in FS.ATTEMPT_HOST_REFS):
+        # RW5d P3: the Ask panel on practice, feedback and the workbench.
+        if origin != "ask" or extraction_id or span_ids or region:
+            raise SidecarError("validation_error", "A figure on practice, feedback or the workbench comes from "
+                                                   "the Ask panel's show me, with no passage.")
+        return _request_attempt_figure(ctx, vault, repository, goal=goal, host_ref=host_ref,
+                                       take_step=take_step)
     if cold_active:
         # SM4: nothing is shown or built during a check on your own (taking a
-        # figure as help there is P3's take step).
+        # figure as help there is P3's take step, on the practice hosts).
         raise SidecarError("cold_check", "Figures aren't shown during a check on your own.")
     later = [name for name in _LATER_HOST_REFS if host_ref.get(name)]
     if later:
@@ -474,6 +519,9 @@ class HostRefInput(ParamsModel):
     question_event_id: str | None = Field(default=None, max_length=200)
     item_id: str | None = Field(default=None, max_length=200)
     submission_id: str | None = Field(default=None, max_length=200)
+    #: RW5d P3: the practice session the answer box's attempt is in (its
+    #: hints fold by it, so its figure row carries it).
+    session_id: str | None = Field(default=None, max_length=200)
     workbench_session_id: str | None = Field(default=None, max_length=200)
     attempt_id: str | None = Field(default=None, max_length=200)
     lesson_id: str | None = Field(default=None, max_length=200)
@@ -492,6 +540,8 @@ class FigureRequestV1Input(ParamsModel):
     offer_ref: str | None = Field(default=None, max_length=200)
     #: The Reader's own cold flag (a check on your own is open): it only ever narrows.
     cold_active: bool = False
+    #: RW5d P3: the take step's token (``figure.take_step``) on a check on your own.
+    take_step_token: str | None = Field(default=None, max_length=200)
 
 
 @method("figure.request", FigureRequestV1Input)
@@ -509,7 +559,7 @@ def figure_request(ctx: SidecarContext, params: FigureRequestV1Input) -> dict[st
                            span_ids=list(anchor.span_ids) if anchor else [], region=region,
                            goal_text=params.goal_text, reading_at=reading_at, offer_ref=params.offer_ref,
                            host_ref=host_ref, cold_active=params.cold_active,
-                           span_keys=anchor.span_keys if anchor else None)
+                           span_keys=anchor.span_keys if anchor else None, take_step=params.take_step_token)
 
 
 class FigureReviseInput(ParamsModel):
@@ -532,16 +582,32 @@ def reader_figure_revise(ctx: SidecarContext, params: FigureReviseInput) -> dict
         base = store.figure(connection, params.figure_id) if store.has_tables(connection) else None
     if base is None:
         raise SidecarError("not_found", "That figure is no longer kept.")
+    attempt = None
     try:
         # RW5d: a show-me figure keeps its goal, home and grounding.
         revision = FS.revision_request(repository, base, params.note)
         revision.different_kind = bool(params.different_kind)
+        if FS.attempt_hosted(revision):
+            # RW5d P3: a figure asked on an attempt host is revised there, under
+            # the host as it stands now (submitted since: free; cold: its take
+            # step), and the new version is the same figure for the count.
+            from learnloop.source_retrieval.policy import derive_policy
+
+            _help_required(vault)
+            stored = dict(revision.host_ref or {})
+            host = _attempt_host(ctx, vault, repository, stored, take_step=stored.get("take_step"))
+            revision.caller = _attempt_caller(vault, repository, host)
+            if derive_policy(revision.caller)[0] == "cold_attempt":
+                raise SidecarError(TAKE_STEP_REQUIRED, "On a check on your own, a figure makes this practice with "
+                                                       "help: take the step first.")
+            revision.host_ref = host.ref()
+            attempt = host.record()
         request = FS.check_request(vault, repository, revision)
     except FS.FigureRefused as exc:
         raise _refused(exc) from exc
     _event(repository, "figure_revision_requested", {"extraction_id": base["extraction_id"],
                                                      "figure_id": base["id"]}, extraction_id=base["extraction_id"])
-    return _start(ctx, request)
+    return _start(ctx, request, attempt=attempt)
 
 
 class FigureJobInput(ParamsModel):
@@ -760,4 +826,402 @@ def reader_figure_explain(ctx: SidecarContext, params: FigureExplainInput) -> di
     return versioned(found)
 
 
-__all__ = ["FIGURE_RPCS", "deliver_figure", "prompt_contract_fields"]
+# ---------------------------------------------------------------------------
+# RW5d P3: figures inside attempts (spec §6.4, §11.2-§11.4)
+# ---------------------------------------------------------------------------
+
+#: The take step's refusals and lines (§11.3).
+TAKE_STEP_REQUIRED = "take_step_required"
+
+
+@dataclass(frozen=True)
+class AttemptHost:
+    """An attempt host's verified references (§7.1: each resolved on the
+    server, never the client's word): ``practice`` (the answer box: its
+    submission key and practice session), ``workbench`` (a problem bound to
+    the item) or ``feedback`` (a committed attempt, or a submission that has
+    since committed: free). ``cold``: a check on your own is open on the item;
+    ``take_step_id``: its take step's row, which a cold request must name."""
+
+    kind: str
+    item_id: str
+    submission_id: str | None = None
+    session_id: str | None = None
+    workbench_session_id: str | None = None
+    attempt_id: str | None = None
+    cold: bool = False
+    take_step_id: str | None = None
+
+    @property
+    def counts(self) -> bool:
+        """An open attempt: a figure here is one hint-equivalent."""
+
+        return self.kind in ("practice", "workbench")
+
+    def ref(self) -> dict[str, Any]:
+        """The verified references as the request row keeps them."""
+
+        return {key: value for key, value in {
+            "item_id": self.item_id, "submission_id": self.submission_id, "session_id": self.session_id,
+            "workbench_session_id": self.workbench_session_id, "attempt_id": self.attempt_id,
+            "host": self.kind, "take_step": self.take_step_id}.items() if value}
+
+    def record(self) -> dict[str, Any]:
+        return {"kind": self.kind, "item_id": self.item_id, "submission_id": self.submission_id,
+                "session_id": self.session_id, "workbench_session_id": self.workbench_session_id,
+                "attempt_id": self.attempt_id, "cold": self.cold, "take_step_id": self.take_step_id}
+
+    def cost_line(self) -> str:
+        from learnloop.figures.help import COST_LINES
+
+        if not self.counts:
+            return COST_LINES["feedback"]
+        return COST_LINES["cold"] if self.cold and self.take_step_id is None else COST_LINES["open"]
+
+
+def _help_required(vault: Any) -> None:
+    if not FS.help_enabled(vault):
+        raise SidecarError("figures_help_disabled", "Figures on practice, feedback and the workbench are switched off "
+                                                    "(figures.help_kind_enabled).")
+
+
+def _item_cold(vault: Any, repository: Any, item_id: str) -> bool:
+    from learnloop_sidecar.handlers.tutor_qa import _item_cold as tutor_item_cold
+
+    return bool(tutor_item_cold(vault, repository, item_id))
+
+
+def take_step_available(vault: Any, repository: Any, item_id: str) -> bool:
+    """Whether a check on your own on ``item_id`` takes help (the ladder's
+    take step, as the hint panel's): a "Check once" served cold with the
+    help header, or a due cold follow-up under Reader CA2's conversion rule
+    (``ask.cold_help_converts``, mvp-0.34). Never an item reserved for a
+    held-out exam, and never a measured view whose safeguards refuse help: a
+    figure is then refused, as a hint is."""
+
+    from learnloop.clock import SystemClock
+    from learnloop.content.sources.exam_material import exam_reserved
+    from learnloop.intent.checks import cold_followup_view, served_check
+
+    try:
+        if exam_reserved(repository, item_id):
+            return False
+        now = SystemClock().now()
+        check = served_check(vault, repository, item_id, now=now)
+        if check is not None:
+            return bool(check.get("cold")) and bool(check.get("help_header"))
+        view = cold_followup_view(vault, repository, item_id, now=now)
+        return view is not None and bool(view.get("help_header"))
+    except Exception:  # noqa: BLE001 - fail closed: no take step
+        return False
+
+
+def _committed(repository: Any, submission_id: str | None) -> bool:
+    from learnloop.db.connection import connect
+    from learnloop.db.stores import help_assists as HA
+
+    if not submission_id:
+        return False
+    with closing(connect(repository.sqlite_path, read_only=True)) as connection:
+        return HA.submission_committed(connection, submission_id)
+
+
+def _attempt_host(ctx: SidecarContext, vault: Any, repository: Any, host_ref: dict[str, Any], *,
+                  take_step: str | None = None, for_take_step: bool = False) -> AttemptHost:
+    """Resolve an attempt host's references on the server (§7.1, §7.2)."""
+
+    from learnloop.db.connection import connect
+    from learnloop.db.stores import help_assists as HA
+
+    item_id = str(host_ref.get("item_id") or "") or None
+    attempt_id = str(host_ref.get("attempt_id") or "") or None
+    workbench_session_id = str(host_ref.get("workbench_session_id") or "") or None
+    submission_id = str(host_ref.get("submission_id") or "") or None
+    session_id = str(host_ref.get("session_id") or "") or None
+    if attempt_id is not None:
+        if for_take_step:
+            raise SidecarError("validation_error", "Feedback has no take step: show me is free there.")
+        attempt = repository.fetch_practice_attempt(attempt_id)
+        if attempt is None or (item_id is not None and str(attempt.get("practice_item_id")) != item_id):
+            raise SidecarError("not_found", "That attempt is not this item's.")
+        return AttemptHost(kind="feedback", item_id=str(attempt["practice_item_id"]), attempt_id=attempt_id)
+    if not item_id or item_id not in vault.practice_items:
+        raise SidecarError("validation_error", "A figure on practice needs its practice item.")
+    kind = "practice"
+    if workbench_session_id is not None:
+        from learnloop.reader import workbench as WB
+
+        try:
+            session = WB.session_row(repository, workbench_session_id)
+        except Exception as exc:  # noqa: BLE001 - an unknown session is the caller's error
+            raise SidecarError("validation_error", "That workbench session was not found.") from exc
+        if session is None or session.get("practice_item_id") != item_id:
+            raise SidecarError("validation_error", "That workbench session is not this item's problem.")
+        kind = "workbench"
+        submission_id = WB.submission_id_for(workbench_session_id)
+    elif not submission_id or not session_id:
+        raise SidecarError("validation_error", "A figure on the answer box needs its submission key and session.")
+    if _committed(repository, submission_id):
+        # Submitted since: the attempt is over, so a figure is free (feedback).
+        if for_take_step:
+            raise SidecarError("validation_error", "This answer was already submitted: show me is free now.")
+        return AttemptHost(kind="feedback", item_id=item_id, submission_id=submission_id)
+    cold = _item_cold(vault, repository, item_id)
+    token = None
+    if cold and take_step:
+        with closing(connect(repository.sqlite_path, read_only=True)) as connection:
+            row = HA.take_step(connection, take_step)
+        if row is None or row.get("practice_item_id") != item_id or row.get("attempt_id") is not None or not (
+                (kind == "workbench" and row.get("workbench_session_id") == workbench_session_id)
+                or (kind == "practice" and row.get("submission_id") == submission_id)):
+            raise SidecarError(TAKE_STEP_REQUIRED, "That take step is not this attempt's: take it again.")
+        token = str(row["id"])
+    return AttemptHost(kind=kind, item_id=item_id, submission_id=submission_id, session_id=session_id,
+                       workbench_session_id=workbench_session_id, cold=cold, take_step_id=token)
+
+
+def _attempt_caller(vault: Any, repository: Any, host: AttemptHost) -> Any:
+    """The caller an attempt host determines (§7.2): an open attempt
+    retrieves under ``assisted_practice`` for its item (a converted check
+    too: its take step made it practice with help), feedback under the
+    item's post-attempt policy; caller kind ``learner`` (origin ``ask``)."""
+
+    from dataclasses import replace
+
+    from learnloop.instructional.policy import caller_for
+
+    item = vault.practice_items.get(host.item_id)
+    los = [item.learning_object_id] if item is not None else []
+    if host.kind == "feedback":
+        return caller_for(repository, "learner", item_id=host.item_id, attempt_id=host.attempt_id,
+                          learning_object_ids=los, post_attempt=True, context="feedback")
+    caller = caller_for(repository, "learner", item_id=host.item_id, learning_object_ids=los, context="practice")
+    if host.take_step_id is not None and "exam_reserved" not in caller.notes:
+        caller = replace(caller, cold=False)
+    return caller
+
+
+def _request_attempt_figure(ctx: SidecarContext, vault: Any, repository: Any, *, goal: str | None,
+                            host_ref: dict[str, Any], take_step: str | None) -> dict[str, Any]:
+    """The Ask panel's *show me* on an attempt host (§6.4): verified, the
+    caller derived, a check on your own refused without its take step, then a
+    build job whose delivery records the figure on the attempt."""
+
+    from learnloop.source_retrieval.policy import derive_policy
+
+    _help_required(vault)
+    if goal is None:
+        raise SidecarError("validation_error", "Say what you want to see first.")
+    host = _attempt_host(ctx, vault, repository, host_ref, take_step=take_step)
+    caller = _attempt_caller(vault, repository, host)
+    policy, _why = derive_policy(caller)
+    if policy == "cold_attempt":
+        # §11.3, G-SM16: a cold policy is never bypassed by a crafted request.
+        raise SidecarError(TAKE_STEP_REQUIRED, "On a check on your own, a figure makes this practice with help: "
+                                               "take the step first.")
+    try:
+        request = FS.check_request(vault, repository, FS.FigureRequest(
+            extraction_id=None, span_ids=[], origin="ask", goal_text=goal, goal_author="learner",
+            host_ref=host.ref(), caller=caller))
+    except FS.FigureRefused as exc:
+        raise _refused(exc) from exc
+    _event(repository, "show_me_requested", {"extraction_id": None, "via": "ask", "anchored": False,
+                                             "goal_author": "learner", "host": host.kind}, extraction_id=None)
+    payload = _start(ctx, request, attempt=host.record())
+    payload["help"] = {"host": host.kind, "line": host.cost_line(), "counts_as_hint": host.counts}
+    return payload
+
+
+def _figure_overlap(item: Any, row: dict[str, Any]) -> float:
+    from learnloop.figures.help import reveal_text
+    from learnloop.hints import service as hint_service
+
+    text = reveal_text(row)
+    return hint_service.reveal_amount(item, text) if text.strip() else 0.0
+
+
+def _reveal_written(connection: Any, item_id: str, basis: str) -> bool:
+    """Whether this figure's reveal was already written for the item since
+    its last attempt (a delivery read again writes it once)."""
+
+    row = connection.execute(
+        "SELECT 1 FROM reveal_events WHERE practice_item_id = ? AND basis = ? AND created_at >= COALESCE("
+        "(SELECT MAX(created_at) FROM practice_attempts WHERE practice_item_id = ?), '') LIMIT 1",
+        (item_id, basis, item_id)).fetchone()
+    return row is not None
+
+
+def record_attempt_figure(ctx: SidecarContext, attempt: dict[str, Any], figure_id: str, *,
+                          chooser_row: str | None = None) -> dict[str, Any]:
+    """§11.2: a figure going out on an attempt host. On an open attempt, one
+    ``help_assists`` figure row per figure (its versions and fuller version
+    are one figure) per attempt, a take step's row naming the first, and the
+    ``tutor_answer`` reveal with basis ``figure:<id>`` when its text overlaps
+    the key, all in ONE transaction with the delivery: a figure is never
+    shown without its count and its reveal (``not_recorded`` withholds it).
+    Feedback, or an attempt submitted since: free, nothing written."""
+
+    from learnloop.attempts.reveal_ledger import record_reveal_strict, reveal_episode_id
+    from learnloop.clock import utc_now_iso
+    from learnloop.db.stores import figures as figure_store
+    from learnloop.db.stores import help_assists as HA
+    from learnloop.figures.help import COST_LINES, FIGURE_LEVEL, chain_root
+    from learnloop.ids import new_ulid
+    from learnloop.vault.hashes import practice_item_hash
+
+    vault, repository = _require(ctx)
+    host = AttemptHost(**{key: attempt.get(key) for key in (
+        "kind", "item_id", "submission_id", "session_id", "workbench_session_id", "attempt_id", "cold",
+        "take_step_id")})
+    if not host.counts:
+        return {"host": host.kind, "line": COST_LINES["feedback"], "counts_as_hint": False, "status": "free"}
+    item = vault.practice_items.get(host.item_id)
+    if item is None:
+        return {"host": host.kind, "status": "not_recorded",
+                "message": "This item changed since, so the figure isn't shown on it."}
+    try:
+        with repository.atomic():
+            connection = repository.connection()
+            if HA.submission_committed(connection, host.submission_id):
+                return {"host": "feedback", "line": COST_LINES["feedback"], "counts_as_hint": False,
+                        "status": "free"}
+            root = chain_root(connection, figure_id)
+            mine = HA.open_figure_rows(connection, practice_item_id=host.item_id, submission_id=host.submission_id,
+                                       workbench_session_id=host.workbench_session_id)
+            assist_id = next((str(row["id"]) for row in mine if row.get("figure_id")
+                              and chain_root(connection, str(row["figure_id"])) == root), None)
+            new = False
+            if assist_id is None and host.take_step_id and HA.bind_figure(connection, host.take_step_id, figure_id):
+                assist_id = host.take_step_id
+            if assist_id is None:
+                now = utc_now_iso(None)
+                assist_id = "ha_" + new_ulid()
+                HA.insert_assist(connection, {
+                    "id": assist_id, "surface": "workbench" if host.kind == "workbench" else "practice",
+                    "assist_kind": "figure", "practice_item_id": item.id,
+                    "practice_item_hash": practice_item_hash(item),
+                    "practice_session_id": host.session_id if host.kind == "practice" else None,
+                    "workbench_session_id": host.workbench_session_id, "submission_id": host.submission_id,
+                    "level": FIGURE_LEVEL, "chooser": "none", "shown": 1, "counted_by": "server",
+                    "requested_at": now, "shown_at": now, "figure_id": figure_id})
+                new = True
+            figure_row = figure_store.figure(connection, figure_id)
+            basis = f"figure:{figure_id}"
+            amount = _figure_overlap(item, figure_row or {})
+            if amount > 0 and not _reveal_written(connection, item.id, basis):
+                record_reveal_strict(
+                    repository, practice_item_id=item.id, learning_object_id=item.learning_object_id,
+                    remediation_episode_id=reveal_episode_id(repository, item.id, strict=True),
+                    source_kind="tutor_answer", amount=amount, basis=basis)
+    except Exception as exc:  # noqa: BLE001 - any failure: the figure is not shown
+        from learnloop_sidecar.logging import log_event
+
+        log_event("figure_help_not_recorded", practice_item_id=host.item_id, error=type(exc).__name__)
+        return {"host": host.kind, "status": "not_recorded",
+                "message": "The figure couldn't be recorded on this attempt just now, so it isn't shown; try again."}
+    _event(repository, "attempt_figure_opened", {"extraction_id": None, "figure_id": figure_id, "host": host.kind,
+                                         "prebuilt": False, "counted": new}, extraction_id=None)
+    return {"host": host.kind, "line": COST_LINES["open"], "counts_as_hint": True, "status": "counted",
+            "assist_id": assist_id, "new": new}
+
+
+class TakeStepInput(ParamsModel):
+    item_id: str = Field(min_length=1, max_length=200)
+    submission_id: str | None = Field(default=None, max_length=200)
+    session_id: str | None = Field(default=None, max_length=200)
+    workbench_session_id: str | None = Field(default=None, max_length=200)
+
+
+@method("figure.take_step", TakeStepInput)
+def figure_take_step(ctx: SidecarContext, params: TakeStepInput) -> dict[str, Any]:
+    """§11.3, G-SM16: *show me* on a check on your own. The take step
+    converts the attempt first (a ``help_assists`` figure row, the one
+    hint-equivalent, banner *Practice with help ◌ — you asked for a figure*)
+    and answers its token; only a request carrying it is built, under
+    ``assisted_practice``. Idempotent per attempt (the same token again).
+    Refused where the check takes no help (an exam item, a measured check)."""
+
+    from learnloop.clock import utc_now_iso
+    from learnloop.db.stores import help_assists as HA
+    from learnloop.figures.help import COST_LINES, FIGURE_LEVEL, TAKE_STEP_BANNER
+    from learnloop.ids import new_ulid
+    from learnloop.vault.hashes import practice_item_hash
+
+    vault, repository = _require(ctx)
+    _help_required(vault)
+    host = _attempt_host(ctx, vault, repository, {
+        "item_id": params.item_id, "submission_id": params.submission_id, "session_id": params.session_id,
+        "workbench_session_id": params.workbench_session_id}, for_take_step=True)
+    if not host.cold:
+        return versioned({"needed": False, "token": None, "line": COST_LINES["open"]})
+    if not take_step_available(vault, repository, host.item_id):
+        raise SidecarError("cold_check", "No help is taken on this check, so a figure isn't shown here.")
+    item = vault.practice_items[host.item_id]
+    with repository.atomic():
+        connection = repository.connection()
+        existing = next((row for row in HA.open_figure_rows(
+            connection, practice_item_id=item.id, submission_id=host.submission_id,
+            workbench_session_id=host.workbench_session_id) if row.get("request") == "take_step"), None)
+        if existing is not None:
+            token = str(existing["id"])
+        else:
+            now = utc_now_iso(None)
+            token = "ha_" + new_ulid()
+            HA.insert_assist(connection, {
+                "id": token, "surface": "workbench" if host.kind == "workbench" else "practice",
+                "assist_kind": "figure", "practice_item_id": item.id, "practice_item_hash": practice_item_hash(item),
+                "practice_session_id": host.session_id if host.kind == "practice" else None,
+                "workbench_session_id": host.workbench_session_id, "submission_id": host.submission_id,
+                "level": FIGURE_LEVEL, "chooser": "none", "request": "take_step", "shown": 1,
+                "counted_by": "server", "requested_at": now, "shown_at": now})
+    _event(repository, "figure_take_step", {"extraction_id": None, "host": host.kind}, extraction_id=None)
+    return versioned({"needed": True, "token": token, "banner": TAKE_STEP_BANNER, "line": COST_LINES["open"]})
+
+
+class FigureOpenInput(ParamsModel):
+    figure_id: str = Field(min_length=1, max_length=200)
+    host_ref: HostRefInput
+    take_step_token: str | None = Field(default=None, max_length=200)
+
+
+@method("figure.open", FigureOpenInput)
+def figure_open(ctx: SidecarContext, params: FigureOpenInput) -> dict[str, Any]:
+    """§11.4: open a stored figure on an attempt host (the chooser's
+    ``explore_figure`` line lands as one line that opens it). Only a figure
+    that is shown and not withheld now, never one built from the item's own
+    blocks; recorded as any figure on the host (one per attempt, its reveal).
+    A check on your own needs its take step, as a request does."""
+
+    from learnloop.db.connection import connect
+    from learnloop.db.stores import figures as figure_store
+    from learnloop.figures.help import _figure_keys
+    from learnloop.source_retrieval.corpus import item_exclusions
+    from learnloop.source_retrieval.policy import derive_policy
+
+    vault, repository = _require(ctx)
+    _help_required(vault)
+    host_ref = {key: value for key, value in params.host_ref.model_dump().items() if value}
+    host = _attempt_host(ctx, vault, repository, host_ref, take_step=params.take_step_token)
+    policy, _why = derive_policy(_attempt_caller(vault, repository, host))
+    if policy == "cold_attempt":
+        raise SidecarError(TAKE_STEP_REQUIRED, "On a check on your own, a figure makes this practice with help: "
+                                               "take the step first.")
+    try:
+        row, _compiled = FS.shown_figure(vault, repository, params.figure_id)
+    except FS.FigureRefused as exc:
+        raise _refused(exc) from exc
+    item = vault.practice_items[host.item_id]
+    own = item_exclusions(repository, item)
+    if any(key in own.spans or key[0] in own.extractions for key in _figure_keys(repository, row)):
+        raise SidecarError("not_offered", "That figure was made from this item's own passages.")
+    with closing(connect(repository.sqlite_path, read_only=True)) as connection:
+        versions = len([1 for _ in figure_store.superseding(connection, params.figure_id)]) + 1
+    view = FS.figure_view(vault, repository, row, versions=versions)
+    help_line = record_attempt_figure(ctx, host.record(), params.figure_id)
+    if help_line.get("status") == "not_recorded":
+        return versioned({"figure": None, "help": help_line})
+    return versioned({"figure": view, "help": help_line})
+
+
+__all__ = ["FIGURE_RPCS", "AttemptHost", "deliver_figure", "prompt_contract_fields", "record_attempt_figure",
+           "take_step_available"]

@@ -161,11 +161,15 @@ from learnloop.figures import verify as V
 from learnloop.ids import new_ulid
 
 #: The origins a request may name. RW5d P1 adds ``show_me`` (the Reader's
-#: intent box with words, or its Ask rail); ``ask`` (CA2's panel), ``teacher``
+#: intent box with words, or its Ask rail); RW5d P3 adds ``ask`` (CA2's panel
+#: on practice, feedback and the workbench: an attempt host, P3); ``teacher``
 #: (TE1) and ``prefetch`` (P5, in-process only) are reserved by migration 224
 #: and refused from every request until their phases land.
-ORIGINS = ("selection", "library", "tutor", "show_me")
-RESERVED_ORIGINS = ("ask", "teacher", "prefetch")
+ORIGINS = ("selection", "library", "tutor", "show_me", "ask")
+RESERVED_ORIGINS = ("teacher", "prefetch")
+#: RW5d P3: the host references that name an attempt (an attempt host's
+#: figure has no reading position, so no home: spec §7.2, §13.1).
+ATTEMPT_HOST_REFS = ("item_id", "submission_id", "workbench_session_id", "attempt_id")
 #: RW5b: the origins an offer builds with (``figures.offers_enabled``).
 OFFER_ORIGINS = ("library", "tutor")
 #: RW5d: who wrote a goal (set on the server, never taken from a client).
@@ -229,7 +233,9 @@ class FigureRefused(Exception):
 
 @dataclass
 class FigureRequest:
-    extraction_id: str
+    #: The home's extraction (the anchor's, else the reading position's);
+    #: None only for an attempt host's figure with no reading position (P3).
+    extraction_id: str | None
     span_ids: list[str]
     #: ``{span_id, bbox}``: a learner-drawn box over a figure block.
     region: dict[str, Any] | None = None
@@ -296,6 +302,24 @@ class Grounding:
     #: The kept passages as the figure line cites them (source title, section).
     passages: list[dict[str, Any]] = field(default_factory=list)
     manifest: dict[str, Any] = field(default_factory=dict)
+
+
+def attempt_hosted(request: "FigureRequest") -> bool:
+    """RW5d P3: a request made on an attempt host (practice, feedback or the
+    workbench: its verified host references name an item or attempt)."""
+
+    return any((request.host_ref or {}).get(name) for name in ATTEMPT_HOST_REFS)
+
+
+def prediction_home(row: Mapping[str, Any]) -> str | None:
+    """The extraction a figure's prediction is recorded under: its home, or
+    (RW5d P3, an attempt host's figure with no home) the first book it was
+    grounded in; None for a homeless illustration (no predictions there)."""
+
+    if row.get("extraction_id"):
+        return str(row["extraction_id"])
+    keys = [key for key in row.get("input_span_keys") or () if len(key) == 2 and key[0]]
+    return str(keys[0][0]) if keys else None
 
 
 def anchored(request: "FigureRequest") -> bool:
@@ -396,6 +420,14 @@ def show_me_enabled(vault: Any) -> bool:
     return admission_show_me_enabled(vault)
 
 
+def help_enabled(vault: Any) -> bool:
+    """RW5d P3: ``figures.help_kind_enabled`` (:func:`learnloop.figure_admission.help_kind_enabled`)."""
+
+    from learnloop.figure_admission import help_kind_enabled
+
+    return help_kind_enabled(vault)
+
+
 def sketch_switch(vault: Any) -> bool:
     """RW5d P2's switch (``figures.sketch_enabled`` under ``figures.enabled``)."""
 
@@ -485,7 +517,7 @@ def row_withheld(vault: Any, repository: Repository, row: Mapping[str, Any]) -> 
     message = None
     if row.get("extraction_id"):
         message = withheld_message(vault, repository, row["extraction_id"], _figure_spans(row))
-    elif not row.get("input_span_keys"):
+    elif not row.get("input_span_keys") and (row.get("grounding") or "anchor") != "none":
         return "That figure has no source to check, so it isn't shown."
     message = message or keys_withheld(vault, repository, row.get("input_span_keys") or ())
     if message is None and row.get("id"):
@@ -1113,7 +1145,7 @@ def figure_view(vault: Any, repository: Repository, row: Mapping[str, Any], *, v
         {"text": item.text, "span_id": None, "quote": None} for item in compiled.spec.assumptions]
     dropped = set(report.get("dropped_predictions") or ())
     answered: dict[int, dict[str, Any]] = {}
-    if predictions_enabled(vault):
+    if predictions_enabled(vault) and prediction_home(row) is not None:
         with closing(connect(repository.sqlite_path, read_only=True)) as connection:
             answered = {found["prediction_index"]: found
                         for found in store.predictions_for_figure(connection, str(row["id"]))}
@@ -1165,7 +1197,7 @@ def _sketch_view(vault: Any, repository: Repository, row: Mapping[str, Any], vie
                    for entry in report.get("tested") or ()],
     }
     dropped = set(report.get("dropped_predictions") or ())
-    if predictions_enabled(vault):
+    if predictions_enabled(vault) and prediction_home(row) is not None:
         with closing(connect(repository.sqlite_path, read_only=True)) as connection:
             answered = {found["prediction_index"]: found
                         for found in store.predictions_for_figure(connection, str(row["id"]))}
@@ -1385,11 +1417,14 @@ def _validated_request(vault: Any, repository: Repository, request: FigureReques
                                                     "(figures.show_me_enabled).")
         # Who wrote it is the server's: the learner for the box and the rail,
         # the tutor only for its stored answer's goal (G-SM5).
-        expected = {"selection": "learner", "show_me": "learner", "tutor": "tutor"}.get(request.origin)
+        expected = {"selection": "learner", "show_me": "learner", "tutor": "tutor", "ask": "learner"}.get(request.origin)
         if expected is None or goal_author != expected:
             raise FigureRefused("validation_error", "That figure goal can't come from here.")
-    elif request.origin == "show_me":
+    elif request.origin in ("show_me", "ask"):
         raise FigureRefused("validation_error", "Say what you want to see first.")
+    attempt_host = attempt_hosted(request)
+    if request.origin == "ask" and not attempt_host:
+        raise FigureRefused("validation_error", "A figure from the Ask panel needs its practice item.")
     spans = [str(span) for span in dict.fromkeys(request.span_ids) if span][:40]
     reading_at = None
     if request.reading_at and request.reading_at.get("extraction_id") and request.reading_at.get("span_id"):
@@ -1398,9 +1433,10 @@ def _validated_request(vault: Any, repository: Repository, request: FigureReques
     if not spans and not request.region:
         if goal is None:
             raise FigureRefused("validation_error", "Select a passage, an equation or a figure first.")
-        if reading_at is None:
-            # P1's hosts are the Reader's: a figure with no passage lands under
-            # the passage the learner was reading (spec §7.2, "Home").
+        if reading_at is None and not attempt_host:
+            # A figure with no passage lands under the passage the learner was
+            # reading (spec §7.2, "Home"); RW5d P3: an attempt host's figure
+            # with no reading position has no home (it lands in the panel).
             raise FigureRefused("validation_error", "Open a passage first, so the figure has a place to land.")
     region = None
     if request.region is not None:
@@ -1415,7 +1451,8 @@ def _validated_request(vault: Any, repository: Repository, request: FigureReques
         if not revisions_enabled(vault):
             raise FigureRefused("revisions_disabled", "Asking for a better version is switched off (figures.revisions_enabled).")
         note = " ".join(str(request.revision_note or "").split())[:NOTE_CHARS] or None
-    extraction_id = str(request.extraction_id) if (spans or region) else str((reading_at or {}).get("extraction_id"))
+    extraction_id = str(request.extraction_id) if (spans or region) else (
+        str(reading_at["extraction_id"]) if reading_at is not None else None)
     keys = None if request.grounding_keys is None else [
         (str(key[0]), str(key[1])) for key in request.grounding_keys if len(key) == 2 and key[0] and key[1]]
     return FigureRequest(extraction_id=extraction_id, span_ids=spans, region=region,
@@ -1436,7 +1473,9 @@ def check_request(vault: Any, repository: Repository, request: FigureRequest) ->
         # RW5d: with no passage, the home (the passage the learner was
         # reading): a figure never lands on held-out material.
         spans = [str((request.reading_at or {}).get("span_id"))]
-    message = withheld_message(vault, repository, request.extraction_id, spans)
+    # RW5d P3: an attempt host's figure with no reading position has no home
+    # to check (its retrieved passages are checked as they are kept).
+    message = withheld_message(vault, repository, request.extraction_id, spans) if request.extraction_id else None
     if message is None and request.grounding_keys:
         message = keys_withheld(vault, repository, request.grounding_keys)
     if message is not None:
@@ -2742,6 +2781,11 @@ def record_prediction(vault: Any, repository: Repository, figure_id: str, index:
     if not predictions_enabled(vault):
         raise FigureRefused("predictions_disabled", "Figure predictions are switched off (figures.predictions_enabled).")
     row, compiled = shown_figure(vault, repository, figure_id)
+    home = prediction_home(row)
+    if home is None:
+        # RW5d P3: an illustration built on an attempt host with nothing from
+        # the learner's books has no passage to keep a prediction under.
+        raise FigureRefused("validation_error", "That figure has no predictions.")
     dropped = set((row.get("verification_report") or {}).get("dropped_predictions") or ())
     count = len(compiled.program.predictions) if isinstance(compiled, K.CompiledSketch) else len(compiled.predictions)
     if not 0 <= int(index) < count or int(index) in dropped:
@@ -2758,7 +2802,7 @@ def record_prediction(vault: Any, repository: Repository, figure_id: str, index:
     if existing is not None:
         return _prediction_view(existing) or {}
     prediction = {
-        "id": PREDICTION_PREFIX + new_ulid(), "figure_id": figure_id, "extraction_id": row["extraction_id"],
+        "id": PREDICTION_PREFIX + new_ulid(), "figure_id": figure_id, "extraction_id": home,
         "prediction_index": int(index), "learner_answer": answer,
         "observed": {"kind": outcome["kind"], "before": outcome["before"], "after": outcome["after"],
                      "answer": outcome["answer"], "change": outcome["change"]},

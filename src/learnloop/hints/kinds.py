@@ -59,9 +59,14 @@ KINDS: Mapping[str, Kind] = {
         Kind("continuation", (4,), "the next part, written for you"),
         Kind("worked_chunk", (4,), "a worked piece, from the goal back"),
         Kind("walkthrough", (5,), "the rest, worked through"),
+        # Reader RW5d P3 (spec_reader_show_me_figures_v1 §11.4): a figure the
+        # learner (or anyone) already built for this topic, opened as help:
+        # offered only when one qualifies, never written by the writer.
+        Kind("explore_figure", (2,), "a figure to explore"),
     )
 }
-#: Every kind, in §4.2's table order (the help_assists CHECK's values).
+#: Every kind, in §4.2's table order (the help_assists CHECK's values;
+#: ``explore_figure``: migration 232).
 KIND_NAMES: tuple[str, ...] = tuple(KINDS)
 
 #: A waypoint's horizon in the chooser's ordinal rubric (§4.5): index i is

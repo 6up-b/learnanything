@@ -826,6 +826,11 @@ def _diagnose(
     # other attempt's version is unchanged.
     prompt_version = (f"{DIAGNOSIS_PROMPT_VERSION}{WORKBENCH_TRACE_SUFFIX}"
                       if current is not None and current.workbench_trace else DIAGNOSIS_PROMPT_VERSION)
+    if current is not None and current.figure_trace:
+        # RW5d P3: an attempt that used a figure reads under +figures-v1.
+        from learnloop.diagnosis.split.figure_trace import SUFFIX as FIGURE_TRACE_SUFFIX
+
+        prompt_version = f"{prompt_version}{FIGURE_TRACE_SUFFIX}"
     # Learner-blindness relax: the prior-analysis arm (randomized by default,
     # recorded on the context receipt; the grader never reads it). Its ``on``
     # arm reads under +prior-analysis-v1; the ``off`` arm is today's context.
