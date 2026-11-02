@@ -111,3 +111,22 @@ probability copy, and these tests rebuild the state synthetically (no display ti
 **Open.** Other surfaces name a source by `extraction.title` and so can show the same URI on such a source (Compare's
 books, tutor citations, the library's text search via `source_search._artifact_title`, the source deletion dialog).
 They are source titles, not note titles, so they stayed out of this item. See open questions below.
+
+## (C) Module catalog staleness
+
+**Measured.** `module_validate.py` runs in about 3 s (2.98 s wall clock, 1148 modules, 1212 notes), so a guard is
+worth having. But its `main()` also checks each note's frontmatter, headings, Wikilinks and test links, and those can
+change with ordinary edits, so the guard doesn't call it.
+
+**Guard.** `tests/test_module_catalog_inventory.py` runs `module_validate.inventory_gaps()`, which compares paths only and
+never opens a note (0.07 s): a source module or package with no note (*missing*), or a note with no module (*orphaned*).
+The failure names the notes and the command, `uv run python docs/learnloop-architecture-vault/_scripts/module_generate.py`.
+The generator never deletes a note, so the orphan message says to delete it first. It uses the validator's own inventory
+functions, so the two can't disagree about what a module is. Three more tests run it on a small tree: in step (with a
+note's contents garbled), a new module and package, and a module gone.
+
+**Effect on landings.** A stage that adds a module now fails the landing gate until the catalog is regenerated, which is
+already a landing step. A stage's targeted tests are unaffected unless they list this file.
+
+**Checked on the real tree.** With a stray `src/learnloop/zz_probe_module.py` the guard failed and named its note and the
+command (the probe was removed before the commit).

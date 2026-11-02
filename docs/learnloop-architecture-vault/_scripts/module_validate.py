@@ -87,6 +87,25 @@ def expected_moc(package: str) -> Path:
     return CATALOG_ROOT.joinpath(*package.split("."), "_package.md")
 
 
+def inventory_gaps() -> tuple[list[str], list[str]]:
+    """``(missing, orphaned)``: the catalog's notes against the source tree, by path alone.
+
+    Never opens a note, so an edit that makes a note's contents stale can't trip it; only a module
+    with no note, or a note with no module. ``tests/test_module_catalog_inventory.py`` runs this on
+    every full suite; :func:`main` is the deeper check."""
+
+    sources = source_files()
+    expected = {expected_note(source) for source in sources}
+    expected |= {expected_moc(package) for package in package_names(sources)}
+    expected.add(CATALOG_ROOT / "Module Catalog.md")
+    actual = set(CATALOG_ROOT.rglob("*.md"))
+
+    def relative(paths: set[Path]) -> list[str]:
+        return sorted(path.relative_to(REPO_ROOT).as_posix() for path in paths)
+
+    return relative(expected - actual), relative(actual - expected)
+
+
 def split_frontmatter(path: Path) -> tuple[dict[str, Any], str]:
     text = path.read_text(encoding="utf-8")
     if not text.startswith("---\n"):
