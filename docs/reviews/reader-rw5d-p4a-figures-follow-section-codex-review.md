@@ -50,7 +50,7 @@ Each finding was reproduced with a failing test first, then fixed.
   `figures/sketch/SketchFigure.test.tsx`, `figures/sketch/sketchSandboxReview.test.tsx`, `figures/tutorOfferPress.test.tsx`,
   `figuresWithReadingPath.test.tsx`, `findSectionByPoint.test.tsx`, `findSectionReader.test.tsx`,
   `readerCorrespondenceSettings.test.tsx`, `sideBySideCorrespondence.test.tsx`, `sideBySideIntent.test.tsx`,
-  `sideBySideReader.test.tsx`, and one more matched by the `AlsoInBooks` filter); `npm run frontend:build` ok.
+  `sideBySideReader.test.tsx`, `alsoInBooks.test.tsx`); `npm run frontend:build` ok.
 - `cargo check`: not applicable (nothing under `src-tauri` changed).
 - Desktop catalog regenerated after the code commit (e5d5c63de1); `desktop_validate.py` passes: 305/305 TS + 6/6 Rust,
   ACTIVE=311, reproducible byte-for-byte.
