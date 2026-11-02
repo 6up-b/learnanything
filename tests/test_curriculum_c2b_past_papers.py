@@ -20,7 +20,7 @@ from learnloop.vault.writer import upsert_concept, upsert_source_set
 from learnloop.vault.yaml_io import write_yaml
 from tests.deliverable_fixtures import DeliverableFake, prompt_context
 from tests.exam_scope_fixtures import PAST_PAPER_LOS, build_exam_scope_vault, ref
-from tests.helpers import NOW
+NOW = "2026-05-30T00:00:00Z"
 from tests.practice_index_fakes import _learning_object
 from tests.source_retrieval_fakes import seed_source
 
@@ -88,10 +88,8 @@ def test_ambiguous_subject_sends_the_ids_grouped_by_subject_name_and_the_resolve
     assert result.status == "ready"
     context = resolver.contexts[0]
     assert "past_papers_test" not in context
-    assert context["past_papers_by_subject"] == [
-        {"subject": "Linear algebra" if "Linear" in context["past_papers_by_subject"][0]["subject"]
-         else context["past_papers_by_subject"][0]["subject"], "topics": list(PAST_PAPER_LOS)},
-        {"subject": "Probability", "topics": ["lo_bayes"]}]
+    assert context["past_papers_by_subject"] == [{"subject": "Linear Algebra", "topics": list(PAST_PAPER_LOS)},
+                                                 {"subject": "Probability", "topics": ["lo_bayes"]}]
     prompt = resolver.prompts[0]
     assert DL.SCOPE_PAST_PAPERS_GROUPED_PROMPT_VERSION in prompt and "Use ONLY the group" in prompt
     assert "Find P(A | B)" not in prompt  # ids only: never a question's text
