@@ -21,7 +21,7 @@ from tests.notes_fixtures import (SENTINEL, MeteredNoteLinkFake, NoteLinkFake, e
 from tests.reading_path_fixtures import call, context, normalized
 from tests.section_coverage_fixtures import CoverageJudgeFake, table_counts
 
-RPCS = ("notes.path", "notes.marks", "notes.passages", "notes.search", "notes.link", "notes.decide")
+RPCS = ("notes.path", "notes.marks", "notes.passages", "notes.search", "notes.link", "notes.decide", "notes.hidden")
 
 
 def _ctx(paths, **attrs):
@@ -283,7 +283,7 @@ def test_switched_off_every_rpc_refuses_nothing_is_called_and_the_reader_is_toda
               "notes.search": {"query": "eigen"},
               "notes.link": {"note": {"path": str(fake_tend.notes / "linear.org"), "line": 2},
                              "extraction_id": "ext_book", "span_id": "s2"},
-              "notes.decide": {"link_id": "nl_x", "choice": "hide"}}
+              "notes.decide": {"link_id": "nl_x", "choice": "hide"}, "notes.hidden": {}}
     for name in RPCS:
         with pytest.raises(SidecarError) as caught:
             call(ctx, name, params[name])
@@ -991,6 +991,49 @@ def test_r6_an_unchanged_read_fences_off_an_older_refresh_in_flight(tmp_path, mo
         stored = [row[0] for row in connection.execute("SELECT text_md FROM learner_notes")]
     assert not any("Version B" in text for text in stored)  # the older read stored nothing
     assert _count(repository, "learner_note_links") == 1  # and no link row: refreshing is never an acceptance
+
+
+# -- C2 ruling R5 (followups-nov1c C): Settings' hidden notes, with show again ------------------
+
+def test_r5_settings_lists_the_hidden_notes_and_show_again_unhides_through_decide(tmp_path, monkeypatch):
+    """C2 ruling R5 / open question 4: there was no list of hidden notes to bring one back
+    after the reading changed. ``notes.hidden`` lists the learner's standing hides, newest
+    first, naming each note (title, heading, date; never its text or where it lives), where
+    it was linked and who linked it; *show again* is the existing ``notes.decide keep`` (a
+    ``learner_card`` verdict reversing the hide). No tend call and no model call."""
+
+    paths, repository, ctx, goal_id, fake_tend, corpus, notes = _deliverable(tmp_path, monkeypatch)
+    model_link = next(line for line in _lines(call(ctx, "notes.path", {"goal_id": goal_id}))
+                      if line["note"]["heading"] == "Eigen stuff")
+    hand = _link_pocket_by_hand(ctx, fake_tend)
+    assert call(ctx, "notes.hidden", {})["hidden"] == []
+    call(ctx, "notes.decide", {"link_id": model_link["linkId"], "choice": "hide"})
+    call(ctx, "notes.decide", {"link_id": hand["linkId"], "choice": "hide"})
+    tend_calls, model_calls = len(fake_tend.calls()), notes.calls
+    listed = call(ctx, "notes.hidden", {})["hidden"]
+    assert len(fake_tend.calls()) == tend_calls and notes.calls == model_calls  # no tend, no model
+    assert [entry["note"]["heading"] for entry in listed] == ["Eigen page", "Eigen stuff"]  # newest first
+    by_hand, by_model = listed
+    assert by_hand["byLabel"] == NL.BY_YOU_LABEL and by_hand["targetKind"] == "passage"
+    assert by_hand["note"]["originLabel"] == NL.POCKET_NOTES_LABEL and by_hand["note"]["dateLabel"]
+    assert by_model["byLabel"] == NL.BY_MODEL_LABEL and by_model["where"] == "the topic “Eigenvalues”"
+    assert by_model["learningObjectId"] == "lo_eigen"
+    text = json.dumps(listed)
+    assert "Worked the 2x2 eigen example" not in text and str(fake_tend.notes) not in text  # no text, no path
+    assert str(fake_tend.pocket) not in text and "text" not in by_hand["note"]
+    # Show again: the existing decide path (keep), a learner_card verdict reversing the hide.
+    call(ctx, "notes.decide", {"link_id": by_hand["linkId"], "choice": "keep"})
+    assert [entry["linkId"] for entry in call(ctx, "notes.hidden", {})["hidden"]] == [by_model["linkId"]]
+    assert _hand_texts(ctx)  # the hand link shows again beside its passage
+    call(ctx, "notes.decide", {"link_id": by_model["linkId"], "choice": "keep"})
+    assert call(ctx, "notes.hidden", {})["hidden"] == []
+    shown = {line["note"]["heading"] for line in _lines(call(ctx, "notes.path", {"goal_id": goal_id, "link": False}))}
+    assert "Eigen stuff" in shown  # the model's link shows again: still the topic's current proposal
+    with repository.connection() as connection:
+        verdicts = [row[0] for row in connection.execute(
+            "SELECT verdict FROM judgment_ledger WHERE task = 'note_link' AND judge = 'learner_card' "
+            "ORDER BY rowid")]
+    assert verdicts[-4:] == ["rejected", "rejected", "accepted", "accepted"]
 
 
 # -- Landing: CoverageGuard's two hooks (C1's gate, C2's also) on one guard -----------------------

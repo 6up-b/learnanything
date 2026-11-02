@@ -1034,6 +1034,64 @@ def decide(vault: Any, repository: Repository, link_id: str, choice: str, *, clo
     return {"link_id": new_id, "status": status}
 
 
+def _where(vault: Any, library: SC.Library | None, row: Mapping[str, Any]) -> str:
+    """Where a hidden link was: its topic's title, else its reading and section."""
+
+    lo = row.get("learning_object_id")
+    if lo:
+        found = (getattr(vault, "learning_objects", None) or {}).get(str(lo))
+        return f"the topic “{getattr(found, 'title', None) or lo}”"
+    reading = None
+    if library is not None and row.get("extraction_id"):
+        try:
+            reading = library.reading(str(row["extraction_id"]))
+        except SC.CoverageError:
+            reading = None
+    if reading is None:
+        return "a passage"
+    section = reading.sections.get(str(row.get("section_id") or ""))
+    return " › ".join(part for part in (reading.source_title, getattr(section, "title", None)) if part) or "a passage"
+
+
+def hidden(vault: Any, repository: Repository) -> list[dict[str, Any]]:
+    """The links the learner hid and still keeps hidden, newest first (C2 ruling R5,
+    followups-nov1c C: Settings lists them, to bring one back after the reading changed):
+    the learner's newest row per (note, topic) or (note, passage) is a hide. Each names its
+    note (title, heading, date, origin; never its text or where it lives), where it was
+    linked and who linked it. *show again* is :func:`decide`'s ``keep`` on its ``link_id``
+    (the learner's own word again, a ``learner_card`` verdict): a link made by hand shows
+    again at once; a model's link shows again where the topic's current proposals still
+    name the note (F6: a keep is a decision only). No tend call and no model call."""
+
+    with repository.connection() as connection:
+        if not store.tables_present(connection):
+            return []
+        word = _standing(row for row in store.links(connection) if row["authorship"] == "learner")
+        rows = [row for row in word.values() if row["status"] == "rejected"]
+        snapshots = store.notes_by_id(connection, (row["note_id"] for row in rows))
+        current = store.current_notes(connection, CURRENT_TASK,
+                                      (row["note_key"] for row in rows if not row.get("learning_object_id")))
+    try:
+        library: SC.Library | None = SC.Library(vault, repository)
+    except SC.CoverageError:
+        library = None
+    out: list[dict[str, Any]] = []
+    for row in sorted(rows, key=lambda r: (str(r["created_at"]), str(r["id"])), reverse=True):
+        note = (current.get(str(row["note_key"])) if not row.get("learning_object_id") else None) \
+            or snapshots.get(str(row["note_id"]))
+        if note is None:
+            continue
+        by_model = bool(row.get("learning_object_id"))
+        out.append({
+            "link_id": row["id"], "hidden_at": row["created_at"], "target_kind": row["target_kind"],
+            "learning_object_id": row.get("learning_object_id"), "extraction_id": row.get("extraction_id"),
+            "where": _where(vault, library, row), "by_label": BY_MODEL_LABEL if by_model else BY_YOU_LABEL,
+            "note": {"title": note["title"], "heading": note["heading"], "date_label": date_label(note.get("captured_on")),
+                     "origin_label": POCKET_NOTES_LABEL if note["origin"] == "pocket_notes" else None},
+        })
+    return out
+
+
 def search(vault: Any, repository: Repository, *, query: str | None = None, extraction_id: str | None = None,
            span_id: str | None = None) -> dict[str, Any]:
     """The Reader's *link one of your notes*: with no words, tend's hits for the passage's
@@ -1166,6 +1224,7 @@ __all__ = [
     "enabled",
     "for_goal",
     "for_passages",
+    "hidden",
     "judge_target",
     "link_by_hand",
     "link_goal",

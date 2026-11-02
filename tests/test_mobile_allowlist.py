@@ -492,6 +492,8 @@ CURRICULUM_C2_RPCS = (
     "notes.search",
     "notes.link",
     "notes.decide",
+    # followups-nov1c C (C2 ruling R5): Settings' hidden notes.
+    "notes.hidden",
 )
 
 

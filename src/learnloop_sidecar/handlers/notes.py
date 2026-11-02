@@ -13,6 +13,8 @@ Desktop only (pinned in tests/test_mobile_allowlist.py).
   no words uses the passage's section title; the learner's words search by words only),
   and the link made by hand.
 * ``notes.decide``: one tap hides a link (``hide``), or keeps it after all (``keep``).
+* ``notes.hidden``: the links the learner hid (Settings' *hidden notes*, followups-nov1c
+  C, C2 ruling R5); *show again* is ``notes.decide`` ``keep`` on one.
 
 **The ChatGPT plan only (§10.4):** the background linking runs under
 ``plan_fallback.quiet()``: no OpenRouter offer and no grant, ever; a route that does not
@@ -53,6 +55,7 @@ NOTES_RPCS: tuple[str, ...] = (
     "notes.search",
     "notes.link",
     "notes.decide",
+    "notes.hidden",
 )
 
 
@@ -317,6 +320,19 @@ def notes_decide(ctx: SidecarContext, params: DecideInput) -> dict[str, Any]:
         return versioned(NL.decide(vault, repository, params.link_id, params.choice))
     except NL.NotesError as exc:
         raise _error(exc) from exc
+
+
+class HiddenInput(ParamsModel):
+    pass
+
+
+@method("notes.hidden", HiddenInput)
+def notes_hidden(ctx: SidecarContext, params: HiddenInput) -> dict[str, Any]:
+    """The note links the learner hid, newest first (Settings; *show again* is
+    ``notes.decide`` ``keep``). No tend call, no model call."""
+
+    vault, repository = _require(ctx)
+    return versioned({"hidden": NL.hidden(vault, repository)})
 
 
 __all__ = ["NOTES_RPCS", "prompt_contract_fields"]

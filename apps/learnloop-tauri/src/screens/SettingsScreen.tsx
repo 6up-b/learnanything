@@ -17,6 +17,7 @@ import { COLOR, FONT_MONO, TermCheckbox, TermSelect } from "../components/term";
 import { SectionHeader } from "../components/ui";
 import { ReaderCueSettings } from "./reader/ReaderCueSettings";
 import { ReaderCorrespondenceSettings } from "./reader/ReaderCorrespondenceSettings";
+import { HiddenNotesSettings } from "./reader/HiddenNotesSettings";
 import { HelpStyleSettings } from "./practice/HelpStyleSettings";
 
 // UI metadata for the backend's use-case -> [ai.routing] expansion
@@ -995,6 +996,7 @@ export function SettingsScreen({
 
       <ReaderCueSettings rowStyle={rowStyle} labelStyle={labelStyle} onToast={onToast} />
       <ReaderCorrespondenceSettings rowStyle={rowStyle} labelStyle={labelStyle} onToast={onToast} />
+      <HiddenNotesSettings rowStyle={rowStyle} labelStyle={labelStyle} onToast={onToast} />
 
       <HelpStyleSettings rowStyle={rowStyle} labelStyle={labelStyle} onToast={onToast} />
 
