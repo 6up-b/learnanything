@@ -85,6 +85,7 @@ from learnloop.diagnosis.text_gaps.contract import (
     DRAFT_ROUTE,
     NON_SERVING_SOURCE_KINDS,
     NOTE_SOURCE_KINDS,
+    NOTE_UNCHECKPOINTED_FIELDS,
     PIPELINE_VERSION,
     UNREAD,
     GapReading,
@@ -926,16 +927,24 @@ def _decide(
     second reading could differ, or fail, and orphan what the first one
     wrote), and a chooser switched between attempts does not change a
     reading already acted on.
+
+    A note is the exception (curriculum C5 landing step 0): its reading and
+    decision are never checkpointed and never reused. Every attempt reads the
+    text as :func:`process_learner_text` prepared it from the note's current
+    links, with a fresh plan call (unmetered). A note's reading writes nothing
+    a second reading could orphan (no creation, no edge), and a reading made
+    from inputs that have changed since (a passage protected or unlinked) is
+    never acted on.
     """
 
-    decided = progress.get("decided")
+    note = text.source_kind in NOTE_SOURCE_KINDS
+    decided = None if note else progress.get("decided")
     if isinstance(decided, Mapping):
         recorded = decided.get("reading")
         return (
             GapReading.from_progress(recorded) if isinstance(recorded, Mapping) else None,
             DeciderKind(**dict(decided["decider"])), str(decided["chooser"]), str(decided["kind"]),
         )
-    note = text.source_kind in NOTE_SOURCE_KINDS
     if not note and _tier1(vault, "learner_gap_kind"):
         # Tier 1: the Decider's kind is authoritative; the context model names the gap.
         from learnloop.diagnosis.text_gaps import tier1
@@ -944,7 +953,7 @@ def _decide(
     config = vault.config.learner_text_gaps
     reading = text.reading
     if reading is None and text.context_judge == "gap_reader":
-        if isinstance(progress.get("reading"), Mapping):
+        if not note and isinstance(progress.get("reading"), Mapping):
             # Read by an earlier attempt that stopped before the kind (a
             # refused Decider): never paid for twice.
             reading = GapReading.from_progress(progress["reading"])
@@ -954,7 +963,7 @@ def _decide(
                 "none", judge="llm", status="unavailable", prompt_version="")
             if reading.status == "refused":
                 raise ReadingDeferred("the stuck-text reading was refused", spend=True)
-            if reading.status == "ok":
+            if reading.status == "ok" and not note:
                 checkpoint(reading=reading.as_progress())
     if reading is not None and reading.status == "ok":
         log_reading(repository, text, reading)
@@ -965,9 +974,8 @@ def _decide(
         if reading is not None and reading.status != "ok":
             # The plan answered nothing usable: read again later, never logged as unread.
             raise ReadingDeferred(f"the note's reading {reading.status}")
+        # Never checkpointed (landing step 0): a retry reads the note again.
         kind = authoritative("context_model", reading, decider)
-        checkpoint(decided={"reading": reading.as_progress() if reading is not None else None,
-                            "decider": decider.as_dict(), "chooser": "context_model", "kind": kind})
         return reading, decider, "context_model", kind
     if config.decider_enabled:
         decider_client = clients.get("decider")
@@ -1013,9 +1021,18 @@ def process_learner_text(
         clients = note_clients(clients)  # raises ReadingWaits without the plan
     budget = budget or TextBudget.for_text(vault)
     state: dict[str, Any] = dict(progress or {})
+    if note:
+        # Landing step 0: a note never reuses a checkpointed reading or decision (one
+        # written before this rule included), and never writes one.
+        for field_name in NOTE_UNCHECKPOINTED_FIELDS:
+            state.pop(field_name, None)
     save = save_progress or (lambda _payload: None)
 
     def checkpoint(**changes: Any) -> None:
+        if note:
+            changes = {key: value for key, value in changes.items() if key not in NOTE_UNCHECKPOINTED_FIELDS}
+            if not changes:
+                return
         state.update(changes)
         save(dict(state))
 
@@ -1114,7 +1131,8 @@ def _log(
         # the gap table's readers (the router's card, the learner context the MCP
         # server serves, library asks, passage cues) send them to routes that are
         # not the plan: the row keeps the kind and the vault's own target, never the
-        # words (they stay in the plan-only job's checkpoint).
+        # words. The job's checkpoint keeps none either (landing step 0): a note's
+        # reading is never checkpointed, so the words persist nowhere.
         named = {key: None for key in named}
         detail["named_words"] = "not_kept_for_a_note"
     row = {

@@ -349,3 +349,57 @@ Targeted test files (re-review):
 - `tests/test_tracked_fixture_databases.py`
 - `tests/test_ux_phase4_landing.py`
 - `tests/test_workbench_text_gaps.py`
+
+## Third re-review (Codex job `20261101-190354-nKrEQg`) and landing step 0
+
+Codex confirmed F1, F2, F4, F5 and F6 as fixed and reopened F3 (High) a third time. The reproduction: a note
+job checkpointed the plan's reading and decision (the job payload's `reading` and `decided`). The passage the
+note was linked to then became protected and its link was removed, while the note stayed linked by its
+topic. The retry prepared the text again from the current links, so the request gate (bound to that new
+prepared text) admitted it. `_decide` then reused the checkpointed reading, whose named prerequisite echoed
+the protected passage's sentinel, and sent it in a pair request.
+
+Under the stuck-loop rule the orchestrator chose a structural simplification over a fourth gate patch: **note
+jobs never reuse a checkpointed reading or decision**.
+
+- `contract.NOTE_UNCHECKPOINTED_FIELDS = ("reading", "decided")`.
+- `pipeline._decide`: for a note, neither field is read from the progress and neither is checkpointed. Every
+  attempt reads the text as prepared now, with a fresh plan call (unmetered: the note's route is
+  `subscription`). A note's reading writes nothing a second reading could orphan (no creation and no edge),
+  so the reason other kinds reuse a checkpointed reading (re-review F1 of the learner-text-gaps stage) does not
+  apply.
+- `pipeline.process_learner_text`: for a note, both fields are dropped from the incoming progress, and the
+  `checkpoint` callback filters them out, as a second line of defence.
+- `jobs.process_next_gap_job`: a note job whose stored payload still holds either field (written before
+  this rule) has them dropped from its progress and from the stored payload before anything runs.
+- `store.requeue_skipped_job` (only notes are requeued): clears `$.reading` and `$.decided` from a note job's
+  payload (`json_remove`).
+- This also resolves the earlier open item ("the job's checkpoint still holds the plan's reading of a note"):
+  the plan's reading of a note is no longer written to the checkpoint, so the note's words do not persist
+  there. The `_log` comment that pointed at the checkpoint is updated.
+- Every existing gate check is kept: `NoteGate` before every physical request and before the write,
+  bound to the prepared passages and payload, and checking the opt-in, the switches, tend, the link standing,
+  the allowlist and protection.
+
+| Id | Severity | Title | Verdict | Commit | Test |
+|---|---|---|---|---|---|
+| F3 | High | A checkpointed note reading is reused after its inputs changed (third reopening) | **fixed structurally** | step 0 commit | `test_step0_a_checkpointed_note_reading_is_never_reused_after_its_inputs_change`, `test_step0_a_legacy_checkpointed_note_reading_is_cleared_on_requeue_and_ignored_on_retry[queued]` and `[skipped]` |
+
+Reproduction, on `67fe8fcc7d` before the fix: all 3 new tests **failed**. The first fails because the payload
+holds `reading`/`decided`. With that assertion removed, it fails with the exact reproduction: the
+`learner_gap_same_prerequisite` request carried `PASSAGE-SENTINEL-c5-L0`, and no fresh reading was made. The
+legacy pair fails because the payload kept both fields after the requeue and no fresh reading was made.
+
+After the fix:
+
+| Step | Result |
+|---|---|
+| `tests/test_notes_as_learner_text.py`, `test_notes_never_read.py`, `test_notes_linked.py`, `test_matching.py` | **94 passed** |
+| `tests/test_learner_text_gaps*.py`, `test_tier1_decider.py`, `test_workbench_text_gaps.py`, `test_hint_feedback_texts.py`, `test_reader_formative_texts.py`, `test_figures_codex_review.py`, `test_figures_fix_round4.py`, `test_judge_routes.py`, `test_learner_note_source_kind_migration.py`, `test_architecture.py` | **277 passed** |
+| `--durable-sqlite tests/test_notes_as_learner_text.py` | **30 passed** |
+| `lint-imports --no-cache` | **37 kept, 0 broken** |
+
+No paid or live call was made. Every model is a fake, the notes are C2's FAKE `tend` over synthetic notes,
+and the sentinel is synthetic.
+
+orchestrator ruling: F3 class closed structurally (note jobs never reuse checkpointed readings)

@@ -32,7 +32,12 @@ from learnloop.clock import Clock, parse_utc, utc_now_iso
 from learnloop.db.connection import connect
 from learnloop.db.repositories import Repository
 from learnloop.db.stores import learner_gaps as store
-from learnloop.diagnosis.text_gaps.contract import NOTE_ROUTE, LearnerText
+from learnloop.diagnosis.text_gaps.contract import (
+    NOTE_ROUTE,
+    NOTE_SOURCE_KINDS,
+    NOTE_UNCHECKPOINTED_FIELDS,
+    LearnerText,
+)
 from learnloop.diagnosis.text_gaps.judges import TextBudget
 from learnloop.diagnosis.text_gaps.pipeline import (
     NoteReadingStopped,
@@ -469,6 +474,16 @@ def process_next_gap_job(
     outcome = GapJobOutcome(job_id, str(job["source_kind"]), str(job["source_id"]), "done")
     vault = load_vault(root)
     progress: dict[str, Any] = dict(job.get("payload") or {})
+    if outcome.source_kind in NOTE_SOURCE_KINDS and any(field in progress for field in NOTE_UNCHECKPOINTED_FIELDS):
+        # Curriculum C5 landing step 0: a note job never reuses a checkpointed reading or
+        # decision (one written before that rule): dropped here and from the stored
+        # payload, so the retry prepares the note from its current links and reads it
+        # again, and the note's words do not stay in the checkpoint.
+        for field in NOTE_UNCHECKPOINTED_FIELDS:
+            progress.pop(field, None)
+        with repository.atomic():
+            store.save_job_payload(repository.connection(), job_id, progress, owner=owner, epoch=epoch,
+                                   now=utc_now_iso(clock))
 
     def finish(state: str, error: str | None = None) -> bool:
         with repository.atomic():

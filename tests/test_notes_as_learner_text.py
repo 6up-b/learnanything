@@ -899,3 +899,151 @@ def test_f6_hidden_before_pair_dispatch_then_undo_resumes_without_an_abandoned_c
     assert outcome.state == "done", (outcome.state, outcome.error)
     assert any(purpose == "learner_gap_same_prerequisite" for purpose, _ in again.calls)
     assert len(_gaps(repository)) == 1
+
+
+# -- landing step 0: note jobs never reuse a checkpointed reading or decision ------------------------
+
+#: A synthetic sentinel in the protected passage's opening (never a real book's words).
+PASSAGE_SENTINEL = "PASSAGE-SENTINEL-c5-L0"
+
+
+class PromptRecordingPlanFake(PhysicalPlanFake):
+    """The plan's gap model that keeps every physical request's whole prompt."""
+
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self.prompts: list[tuple[str, str]] = []
+
+    def complete(self, request):
+        self.prompts.append((request.purpose, str(request.prompt)))
+        return super().complete(request)
+
+
+class PairsDownPlanFake(PlanOutageFake):
+    """The plan reads the note, then its pair verdicts hit the usage limit (the job is
+    released, waiting for the plan, with whatever it checkpointed)."""
+
+    def __init__(self, **kwargs):
+        super().__init__(down={"learner_gap_same_prerequisite"}, **kwargs)
+
+
+def _payload_of(repository, source_id: str) -> dict:
+    with repository.connection() as connection:
+        raw = connection.execute("SELECT payload_json FROM learner_text_gap_jobs WHERE source_id = ?",
+                                 (source_id,)).fetchone()[0]
+    return json.loads(raw) if raw else {}
+
+
+def _set_payload(repository, source_id: str, payload: dict, *, state: str | None = None) -> None:
+    with repository.atomic():
+        repository.connection().execute(
+            "UPDATE learner_text_gap_jobs SET payload_json = ?, state = COALESCE(?, state), not_before = NULL "
+            "WHERE source_id = ?", (json.dumps(payload), state, source_id))
+
+
+def _protected_passage_changes(monkeypatch, typed_id: str):
+    """The typed note is linked to PROTECTED_PASSAGE (its opening carries PASSAGE_SENTINEL) and
+    to its topic. ``change()`` makes that passage protected and removes its link, while the
+    note stays linked by its topic."""
+
+    from learnloop.source_retrieval import note_gaps
+
+    original_linked, original_lead = note_gaps.linked_notes, note_gaps._section_lead
+    changed = {"now": False}
+
+    def linked_now(vault, repository):
+        out = original_linked(vault, repository)
+        if not changed["now"]:
+            return out
+        return [note_gaps.LinkedNote(note_id=entry.note_id, note_key=entry.note_key,
+                                     learning_object_ids=entry.learning_object_ids, passages=(), note=entry.note)
+                if entry.note_id == typed_id else entry for entry in out]
+
+    def lead_now(vault, repository, library, passage):
+        if tuple(passage) == PROTECTED_PASSAGE:
+            if changed["now"]:
+                raise note_gaps.NoteWithheld("linked to protected material")
+            return f"{original_lead(vault, repository, library, passage)} {PASSAGE_SENTINEL}"
+        return original_lead(vault, repository, library, passage)
+
+    monkeypatch.setattr(note_gaps, "linked_notes", linked_now)
+    monkeypatch.setattr(note_gaps, "_section_lead", lead_now)
+    return lambda: changed.update(now=True)
+
+
+def test_step0_a_checkpointed_note_reading_is_never_reused_after_its_inputs_change(tmp_path, monkeypatch):
+    """Codex re-review F3, third reopening (job 20261101-190354-nKrEQg): the note is read with
+    its linked passage's opening (the plan's model echoes that passage's sentinel into the
+    prerequisite it names), and the pair verdicts wait for the plan. The passage then becomes
+    protected and its link goes, while the note stays linked by its topic. The retry must not
+    reuse the earlier reading or decision: it is prepared again from the current links and read
+    again by a fresh plan call, so no pair request carries the protected passage's sentinel.
+    The plan's reading of a note is never written to the job's checkpoint at all."""
+
+    paths, repository, ctx, goal_id, fake_tend, lines = _linked(tmp_path, monkeypatch)
+    typed_id = _snapshots(repository)["Eigen stuff"]
+    source = ("learner_note", typed_id)
+    change = _protected_passage_changes(monkeypatch, typed_id)
+    first_text = learner_text(load_vault(paths.root), repository, *source)
+    assert PASSAGE_SENTINEL in json.dumps(first_text.context)  # read with the passage's opening
+
+    echoed = LearnerGap(kind="prerequisite", prerequisite_name=f"the determinant of a matrix {PASSAGE_SENTINEL}")
+    first = PairsDownPlanFake(reading=echoed, decide=word_match("determinant"))
+    outcome = _run(paths, repository, _clients(first), source=source)
+    assert (outcome.state, outcome.error) == ("retry_later", "waiting_for_plan")
+    assert len(_readings(first)) == 1
+    payload = _payload_of(repository, typed_id)
+    assert "reading" not in payload and "decided" not in payload, payload
+    assert PASSAGE_SENTINEL not in json.dumps(payload)
+
+    change()
+    _clear_backoff(repository, typed_id)
+    again = PromptRecordingPlanFake(reading=LearnerGap(kind="prerequisite",
+                                                       prerequisite_name="the determinant of a matrix"),
+                                    decide=word_match("determinant"))
+    outcome = _run(paths, repository, _clients(again), source=source)
+    for purpose, prompt in again.prompts:
+        assert PASSAGE_SENTINEL not in prompt, purpose  # the reproduction: a pair request carried it
+    assert outcome.state == "done", (outcome.state, outcome.error)
+    assert len(_readings(again)) == 1  # read again, by a fresh (unmetered) plan call
+    assert any(purpose == "learner_gap_same_prerequisite" for purpose, _ in again.prompts)
+    assert PASSAGE_SENTINEL not in json.dumps(_gaps(repository), default=str)
+    assert PASSAGE_SENTINEL not in json.dumps(_payload_of(repository, typed_id))
+
+
+@pytest.mark.parametrize("state", ["queued", "skipped"])
+def test_step0_a_legacy_checkpointed_note_reading_is_cleared_on_requeue_and_ignored_on_retry(
+        tmp_path, monkeypatch, state):
+    """A note job checkpointed before step 0 (its payload holds the plan's reading and decision,
+    echoing the protected passage): a requeue of a skipped job clears both fields, and a retry
+    of a queued job ignores them, re-preparing from the current links and reading afresh."""
+
+    paths, repository, ctx, goal_id, fake_tend, lines = _linked(tmp_path, monkeypatch)
+    typed_id = _snapshots(repository)["Eigen stuff"]
+    source = ("learner_note", typed_id)
+    change = _protected_passage_changes(monkeypatch, typed_id)
+    stale = {"name": f"the determinant of a matrix {PASSAGE_SENTINEL}"}
+    J.enqueue_learner_notes(load_vault(paths.root), repository)
+    legacy = {"reading": {"kind": "prerequisite", "status": "ok", "judge": "llm",
+                          "prerequisite_name": stale["name"], "prompt_version": READER_NOTE_PROMPT_VERSION},
+              "decided": {"reading": {"kind": "prerequisite", "status": "ok", "judge": "llm",
+                                      "prerequisite_name": stale["name"],
+                                      "prompt_version": READER_NOTE_PROMPT_VERSION},
+                          "decider": {"status": "disabled"}, "chooser": "context_model", "kind": "prerequisite"}}
+    _set_payload(repository, typed_id, legacy, state=state)
+    change()
+    if state == "skipped":
+        assert J.enqueue_learner_notes(load_vault(paths.root), repository) == 1
+        payload = _payload_of(repository, typed_id)
+        assert "reading" not in payload and "decided" not in payload, payload
+        _set_payload(repository, typed_id, {**payload, **legacy})  # and a retry ignores them all the same
+    again = PromptRecordingPlanFake(reading=LearnerGap(kind="prerequisite",
+                                                       prerequisite_name="the determinant of a matrix"),
+                                    decide=word_match("determinant"))
+    outcome = _run(paths, repository, _clients(again), source=source)
+    for purpose, prompt in again.prompts:
+        assert PASSAGE_SENTINEL not in prompt, purpose
+    assert outcome.state == "done", (outcome.state, outcome.error)
+    assert len(_readings(again)) == 1
+    payload = _payload_of(repository, typed_id)
+    assert "reading" not in payload and "decided" not in payload, payload

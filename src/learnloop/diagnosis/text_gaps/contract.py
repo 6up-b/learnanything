@@ -76,6 +76,13 @@ NON_SERVING_SOURCE_KINDS = ("reader_formative", "workbench_text", "hint_feedback
 #: route (``NOTE_ROUTE``) under a request gate that reads consent, the link,
 #: the allowlist and protection again before each request and the write.
 NOTE_SOURCE_KINDS = ("learner_note",)
+#: The job-checkpoint fields a note's job never keeps and never reuses (curriculum C5
+#: landing step 0): the plan's reading of the note (its named words may echo the note
+#: or a passage it was linked to) and the decision made on it. A note's retry always
+#: prepares the text again from its current links and reads it again on the plan, so
+#: a reading made from inputs that have since changed is never acted on, and the note's
+#: words never persist in the checkpoint.
+NOTE_UNCHECKPOINTED_FIELDS = ("reading", "decided")
 #: The kinds, plus ``unread`` (the context model's reading failed and the
 #: Decider gave none either).
 KINDS = LEARNER_GAP_KINDS
@@ -394,6 +401,7 @@ __all__ = [
     "NON_SERVING_SOURCE_KINDS",
     "NOTE_ROUTE",
     "NOTE_SOURCE_KINDS",
+    "NOTE_UNCHECKPOINTED_FIELDS",
     "READER_NOTE_PROMPT_VERSION",
     "READER_NOTE_TASK",
     "READABLE_SOURCE_KINDS",

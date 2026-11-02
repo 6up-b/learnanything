@@ -240,11 +240,19 @@ def enqueue_job(
 
 def requeue_skipped_job(connection: sqlite3.Connection, job_id: str, *, now: str) -> bool:
     """Queue a skipped job again (curriculum C5: a note skipped while it was hidden or
-    switched off, linked again); False when it is not skipped (read, queued, leased)."""
+    switched off, linked again); False when it is not skipped (read, queued, leased).
+
+    A note job's checkpointed reading and decision (``reading``, ``decided``: the
+    text_gaps contract's ``NOTE_UNCHECKPOINTED_FIELDS``, written only before C5's landing
+    step 0) are cleared: a requeued note is prepared again from its current links and
+    read again, never acted on from an earlier reading."""
 
     cursor = connection.execute(
         "UPDATE learner_text_gap_jobs SET state = 'queued', lease_owner = NULL, lease_expires_at = NULL, "
-        "not_before = NULL, last_error = NULL, updated_at = ? WHERE id = ? AND state = 'skipped'",
+        "not_before = NULL, last_error = NULL, updated_at = ?, "
+        "payload_json = CASE WHEN source_kind = 'learner_note' AND json_valid(payload_json) "
+        "THEN json_remove(payload_json, '$.reading', '$.decided') ELSE payload_json END "
+        "WHERE id = ? AND state = 'skipped'",
         (now, job_id),
     )
     return cursor.rowcount == 1
