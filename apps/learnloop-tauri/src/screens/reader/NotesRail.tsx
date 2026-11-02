@@ -83,6 +83,8 @@ export interface NotesRailProps {
   exerciseImportActive: boolean;
   /** RW2a: "work through this" on the selection (absent while the workbench is off). */
   onWorkThrough?: () => void;
+  /** Teacher TE1: "Teach me this" on the selection (absent while lessons are off). */
+  onTeachMe?: () => void;
   /** RW2a: "work through this" on an imported exercise. */
   onWorkThroughItem?: (item: ReaderExerciseImportResult["items"][number]) => void;
   // make your own practice
@@ -151,7 +153,7 @@ export function NotesRail(props: NotesRailProps) {
     visible, offline, busy, pdfSurfaceActive, activeSpan, activeBlock,
     selection, selectionActions, editingCapture, setEditingCapture, clearSelection,
     editCaptureText, resetCaptureText, note, setNote, captureHighlight, invokePreset,
-    importExercise, exerciseImport, setExerciseImport, exerciseImportActive, onWorkThrough, onWorkThroughItem,
+    importExercise, exerciseImport, setExerciseImport, exerciseImportActive, onWorkThrough, onWorkThroughItem, onTeachMe,
     authoringOpen, setAuthoringOpen, setAuthoringSpanId, authoringQuote, setAuthoringQuote,
     authoredQuestion, setAuthoredQuestion, authoredAnswer, setAuthoredAnswer,
     authoredCardId, setAuthoredCardId, authoredStatus, authoringBusy, saveOwnQuestion,
@@ -245,6 +247,14 @@ export function NotesRail(props: NotesRailProps) {
             <span data-capture-protected="" style={{ color: COLOR.textFaint, fontSize: 11, lineHeight: 1.6 }}>
               {protectionMessage} You can still highlight it, mark it and keep notes.
             </span>
+          ) : null}
+          {!offline && !protectionMessage && onTeachMe ? (
+            <div data-testid="reader-teach-me" style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+              <PrimaryButton onClick={() => onTeachMe()} disabled={busy}>teach me this ▸</PrimaryButton>
+              <MeaningLabel>
+                a lesson on this section&apos;s topics, starting from what LearnLoop knows about you; it ends by setting one later check on your own.
+              </MeaningLabel>
+            </div>
           ) : null}
           {!offline && !protectionMessage ? (
             <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>

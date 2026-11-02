@@ -68,6 +68,7 @@ export function InspectorOverlay({
   onInspect,
   onError,
   onQuickCheck,
+  onTeachMe,
   answeringItemId = null
 }: {
   entityId: string | null;
@@ -76,6 +77,8 @@ export function InspectorOverlay({
   onError: (message: string) => void;
   /** Learner field F2: start "Check what I already know" over these LOs. */
   onQuickCheck?: (learningObjectIds: string[]) => void;
+  /** Teacher TE1: "Teach me this" on a topic (absent while lessons are off). */
+  onTeachMe?: (learningObjectId: string, title: string) => void;
   /** UX Phase 4.1: the question open on the practice screen right now; its
    *  expected answer and rubric stay hidden while it is being answered. */
   answeringItemId?: string | null;
@@ -233,6 +236,7 @@ export function InspectorOverlay({
                 if (entityId) void fetchEntity(entityId);
               }}
               onQuickCheck={onQuickCheck}
+              onTeachMe={onTeachMe}
               answeringItemId={answeringItemId}
             />
           )}
@@ -250,6 +254,7 @@ function InspectorEntityView({
   onError,
   onRefresh,
   onQuickCheck,
+  onTeachMe,
   answeringItemId
 }: {
   entity: InspectorEntity;
@@ -259,6 +264,7 @@ function InspectorEntityView({
   /** Re-fetch the currently shown entity (after a mutation like re-runging). */
   onRefresh: () => void;
   onQuickCheck?: (learningObjectIds: string[]) => void;
+  onTeachMe?: (learningObjectId: string, title: string) => void;
   answeringItemId: string | null;
 }) {
   if (entity.kind === "not_found") {
@@ -305,6 +311,7 @@ function InspectorEntityView({
             onGo={onGo}
             onRefresh={onRefresh}
             onQuickCheck={onQuickCheck}
+            onTeachMe={onTeachMe}
             onError={onError}
           />
         ) : entity.kind === "concept" ? (
@@ -582,6 +589,7 @@ function LearningObjectBody({
   onGo,
   onRefresh,
   onQuickCheck,
+  onTeachMe,
   onError
 }: {
   detail: LearningObjectDetail;
@@ -589,10 +597,24 @@ function LearningObjectBody({
   onGo: (id: string) => void;
   onRefresh?: () => void;
   onQuickCheck?: (learningObjectIds: string[]) => void;
+  onTeachMe?: (learningObjectId: string, title: string) => void;
   onError?: (message: string) => void;
 }) {
   return (
     <div>
+      {onTeachMe ? (
+        <div style={{ marginBottom: 10 }}>
+          <span
+            role="button"
+            data-testid="teach-me-this"
+            onClick={() => onTeachMe(detail.id, detail.title)}
+            title="a lesson on this topic: the teacher starts from what LearnLoop knows about you, and sets one later check on your own"
+            style={{ color: COLOR.amberLink, cursor: "pointer" }}
+          >
+            ▸ Teach me this
+          </span>
+        </div>
+      ) : null}
       {detail.placement?.active ? (
         <PlacementSection
           learningObjectId={detail.id}

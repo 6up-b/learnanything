@@ -670,6 +670,8 @@ fn main() {
                 notes_search,
                 notes_link,
                 notes_decide,
+                lesson_turn,
+                lesson_view,
                 reader_side_by_side_section,
                 reader_figure_request,
                 figure_request,

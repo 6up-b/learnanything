@@ -367,6 +367,8 @@ import type {
   AdjudicationRecordInput,
   AdjudicationRecordResultDto,
   AdjudicationScoreboardDto,
+  LessonTurnInput,
+  LessonViewDto
 } from "./dto";
 
 // Development aid for verifying the query cache: with
@@ -1686,6 +1688,10 @@ export const api = {
   }) => call<{ linkId: string; marks: NoteMarksDto["marks"] }>("notes_link", { input }),
   notesDecide: (input: { linkId: string; choice: "hide" | "keep" }) =>
     call<{ linkId: string; status: string }>("notes_decide", { input }),
+  // Teacher TE1: a lesson (desktop only). lesson.turn is every model-calling step (one origin action, T1
+  // redesign D: a granted OpenRouter offer covers the whole lesson); lesson.view resumes one with no call.
+  lessonTurn: (input: LessonTurnInput) => call<LessonViewDto>("lesson_turn", { input }),
+  lessonView: (input: { lessonId: string }) => call<LessonViewDto>("lesson_view", { input }),
   readerReadingPath: (input: { extractionId: string; judge?: boolean; retry?: boolean }) =>
     call<ReadingPathDto>("reader_reading_path", { input }),
   readerReadingPathSetDepth: (input: { extractionId: string; depth: ReadingPathDepth }) =>

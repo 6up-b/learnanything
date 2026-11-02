@@ -55,6 +55,10 @@ export interface AlgoDisplayConfig {
    *  `ask` key only while it is on, so null until it says so, and null leaves
    *  every Ask host exactly as before CA2 (the overlay, the Reader's mode). */
   ask: AskPanelConfig | null;
+  /** Teacher TE1's kill switch (`teacher.enabled`, at its successor's tag): the
+   *  sidecar sends a `teacher` key only while lessons may open, so false until
+   *  it says so, and off shows no "Teach me this" anywhere. */
+  lessons: boolean;
 }
 
 export interface AskPanelConfig {
@@ -101,7 +105,8 @@ const DEFAULTS: AlgoDisplayConfig = {
   ratingTap: false,
   firstHintProgress: false,
   workbenchHelp: null,
-  ask: null
+  ask: null,
+  lessons: false
 };
 
 let current: AlgoDisplayConfig = { ...DEFAULTS };
@@ -119,6 +124,7 @@ export function setAlgoConfig(config: unknown): void {
     hints?: { adaptiveEnabled?: unknown; authoredOfferAfterSeconds?: unknown; helpStyle?: unknown };
     adaptiveDifficulty?: { ratingTap?: unknown; firstHintProgress?: unknown };
     ask?: { panelEnabled?: unknown; helpStyle?: unknown; coldHelpConverts?: unknown };
+    teacher?: { lessons?: unknown };
   };
   current = {
     masteryStrongThreshold: asNumber(root.mastery?.displayStrongThreshold, DEFAULTS.masteryStrongThreshold),
@@ -150,7 +156,8 @@ export function setAlgoConfig(config: unknown): void {
       : null,
     ask: root.ask?.panelEnabled === true
       ? { helpStyle: asHelpStyle(root.ask.helpStyle), coldHelpConverts: root.ask.coldHelpConverts === true }
-      : null
+      : null,
+    lessons: root.teacher?.lessons === true
   };
   // A new snapshot names the shell again; the App mirrors what it draws next.
   renderedShell = null;

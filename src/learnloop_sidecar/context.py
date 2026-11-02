@@ -828,6 +828,12 @@ def _cold_help_converts(vault: LoadedVault) -> bool:
     return help_converts_active(vault)
 
 
+def _lessons_active(vault: LoadedVault) -> bool:
+    from learnloop.teacher.service import lessons_active
+
+    return lessons_active(vault)
+
+
 def config_dto(vault: LoadedVault) -> dict[str, Any]:
     config = vault.config
     return versioned(
@@ -838,6 +844,9 @@ def config_dto(vault: LoadedVault) -> dict[str, Any]:
             # mvp-0.13: the answer surfaces offer "I'm stuck" (write what you
             # can) instead of "I don't know" when this is true.
             "practice": {"stuck_prompt": stuck_prompt_active(vault)},
+            # Teacher TE1's kill switch (and its successor's tag): "Teach me this" shows only while
+            # lessons may open; absent otherwise, so with it off the snapshot is what it was.
+            **({"teacher": {"lessons": True}} if _lessons_active(vault) else {}),
             # UX Phase 4's kill switch (display only): "simple" practice and
             # feedback surfaces, or "classic" for the screens as they were.
             # UX Phase 2's kill switch (display only): the four-place shell,

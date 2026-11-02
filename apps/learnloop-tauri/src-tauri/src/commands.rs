@@ -1441,6 +1441,9 @@ sidecar_passthrough!(notes_passages, "notes.passages");
 sidecar_passthrough!(notes_search, "notes.search");
 sidecar_passthrough!(notes_link, "notes.link");
 sidecar_passthrough!(notes_decide, "notes.decide");
+// Teacher TE1: a lesson (lesson.turn is every model-calling step; lesson.view resumes): desktop only.
+sidecar_passthrough!(lesson_turn, "lesson.turn");
+sidecar_passthrough!(lesson_view, "lesson.view");
 // Reader CA6 (side by side: one section of the other book for the second pane): desktop only.
 sidecar_passthrough!(reader_side_by_side_section, "reader.side_by_side_section");
 // Reader workbench RW5a (explorable figures: build, "not right?", the source's
