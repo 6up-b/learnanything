@@ -3,13 +3,13 @@ title: "failure_triage_events"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "6662b42c3b1cbdd26140d86e139d4d7f2eabaa95"
-source_commit_timestamp: "2026-11-01T18:37:22-05:00"
+source_commit: "20be0dd94c5a9dc770e856350be058ccc5f655b9"
+source_commit_timestamp: "2026-11-01T19:52:51-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite failure_triage_events"
   - "table failure_triage_events"
-schema_head: 230
+schema_head: 231
 table_name: "failure_triage_events"
 table_role: "receipt"
 functionality_status: "active"
