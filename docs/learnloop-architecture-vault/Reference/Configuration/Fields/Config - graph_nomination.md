@@ -3,8 +3,8 @@ title: "Config - graph_nomination"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "26c97cbcb92a0912ded996ec5763b5a18fab939e"
-source_commit_timestamp: "2026-11-01T23:44:34-05:00"
+source_commit: "f3d6aba0ae47c99d0d4344e00c87287e27318f1c"
+source_commit_timestamp: "2026-11-02T02:00:30-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "learnloop.toml graph_nomination"
@@ -23,6 +23,7 @@ source_paths:
   - "src/learnloop/content/synthesis/graph_nomination.py"
   - "tests/codex_cli_fakes.py"
   - "tests/local_embeddings_fakes.py"
+  - "tests/notes_fixtures.py"
   - "tests/pf_fakes.py"
   - "tests/practice_index_fakes.py"
   - "tests/router_model_fakes.py"
@@ -32,7 +33,6 @@ source_paths:
   - "tests/test_ad2_model.py"
   - "tests/test_ai_config.py"
   - "tests/test_approach_maps.py"
-  - "tests/test_capability_residual.py"
 tags:
   - "learnloop/configuration/fields"
   - "learnloop/configuration/section/graph-nomination"
@@ -53,13 +53,13 @@ The main configuration contract, precedence rules, and safe-edit workflow live i
 
 | Dotted path | Effective value | Shape | Origin | Function | Runtime/refactor status | Consumer/source anchors |
 |---|---|---|---|---|---|---|
-| `graph_nomination.enabled` | `true` | boolean | modeled default or validator seed | Turns graph nomination behavior on or off within Slice 2 T5 embedding nominations for ingest and graph review (never identity), with ingest-time embedding caps. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:3515`; `src/learnloop/ai/plan_fallback.py:135`; `src/learnloop/content/synthesis/facet_doctor.py:74` |
-| `graph_nomination.top_k` | `5` | integer | modeled default or validator seed | Controls top k in Slice 2 T5 embedding nominations for ingest and graph review (never identity), with ingest-time embedding caps, using the typed value shown here as the fresh-vault default. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:3518`; `src/learnloop/ai/plan_fallback.py:135`; `src/learnloop/content/synthesis/graph_nomination.py:361` |
-| `graph_nomination.embed_new_text` | `true` | boolean | modeled default or validator seed | Turns embed new text behavior on or off within Slice 2 T5 embedding nominations for ingest and graph review (never identity), with ingest-time embedding caps. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:3519`; `src/learnloop/ai/plan_fallback.py:135`; `src/learnloop/content/synthesis/graph_nomination.py:363` |
-| `graph_nomination.max_query_texts` | `256` | integer | modeled default or validator seed | Caps query texts allowed by Slice 2 T5 embedding nominations for ingest and graph review (never identity), with ingest-time embedding caps. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:3520`; `src/learnloop/ai/plan_fallback.py:135`; `src/learnloop/content/synthesis/graph_nomination.py:379` |
-| `graph_nomination.max_query_calls` | `8` | integer | modeled default or validator seed | Caps query calls allowed by Slice 2 T5 embedding nominations for ingest and graph review (never identity), with ingest-time embedding caps. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:3521`; `src/learnloop/ai/plan_fallback.py:135`; `src/learnloop/content/synthesis/graph_nomination.py:381` |
-| `graph_nomination.max_query_tokens` | `200000` | integer | modeled default or validator seed | Caps query tokens allowed by Slice 2 T5 embedding nominations for ingest and graph review (never identity), with ingest-time embedding caps. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:3522`; `src/learnloop/ai/plan_fallback.py:135`; `src/learnloop/content/synthesis/graph_nomination.py:382` |
-| `graph_nomination.max_query_cost_usd` | `0.05` | number | modeled default or validator seed | Caps query cost usd allowed by Slice 2 T5 embedding nominations for ingest and graph review (never identity), with ingest-time embedding caps. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:3523`; `src/learnloop/ai/plan_fallback.py:135`; `src/learnloop/content/synthesis/graph_nomination.py:383` |
+| `graph_nomination.enabled` | `true` | boolean | modeled default or validator seed | Turns graph nomination behavior on or off within Slice 2 T5 embedding nominations for ingest and graph review (never identity), with ingest-time embedding caps. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:3502`; `src/learnloop/ai/plan_fallback.py:136`; `src/learnloop/content/synthesis/facet_doctor.py:74` |
+| `graph_nomination.top_k` | `5` | integer | modeled default or validator seed | Controls top k in Slice 2 T5 embedding nominations for ingest and graph review (never identity), with ingest-time embedding caps, using the typed value shown here as the fresh-vault default. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:3505`; `src/learnloop/ai/plan_fallback.py:136`; `src/learnloop/content/synthesis/graph_nomination.py:361` |
+| `graph_nomination.embed_new_text` | `true` | boolean | modeled default or validator seed | Turns embed new text behavior on or off within Slice 2 T5 embedding nominations for ingest and graph review (never identity), with ingest-time embedding caps. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:3506`; `src/learnloop/ai/plan_fallback.py:136`; `src/learnloop/content/synthesis/graph_nomination.py:363` |
+| `graph_nomination.max_query_texts` | `256` | integer | modeled default or validator seed | Caps query texts allowed by Slice 2 T5 embedding nominations for ingest and graph review (never identity), with ingest-time embedding caps. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:3507`; `src/learnloop/ai/plan_fallback.py:136`; `src/learnloop/content/synthesis/graph_nomination.py:379` |
+| `graph_nomination.max_query_calls` | `8` | integer | modeled default or validator seed | Caps query calls allowed by Slice 2 T5 embedding nominations for ingest and graph review (never identity), with ingest-time embedding caps. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:3508`; `src/learnloop/ai/plan_fallback.py:136`; `src/learnloop/content/synthesis/graph_nomination.py:381` |
+| `graph_nomination.max_query_tokens` | `200000` | integer | modeled default or validator seed | Caps query tokens allowed by Slice 2 T5 embedding nominations for ingest and graph review (never identity), with ingest-time embedding caps. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:3509`; `src/learnloop/ai/plan_fallback.py:136`; `src/learnloop/content/synthesis/graph_nomination.py:382` |
+| `graph_nomination.max_query_cost_usd` | `0.05` | number | modeled default or validator seed | Caps query cost usd allowed by Slice 2 T5 embedding nominations for ingest and graph review (never identity), with ingest-time embedding caps. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:3510`; `src/learnloop/ai/plan_fallback.py:136`; `src/learnloop/content/synthesis/graph_nomination.py:383` |
 
 > [!warning] Omitted does not mean frozen in the file
 > Most values are intentionally absent from `learnloop.toml`. Their reproducibility is protected by the defaults fingerprint keyed to `algorithms.algorithm_version`, not by dumping every default into each vault.
@@ -70,6 +70,7 @@ Every row cites the exact Pydantic field declaration (or typed dynamic-key conta
 
 - `tests/codex_cli_fakes.py`
 - `tests/local_embeddings_fakes.py`
+- `tests/notes_fixtures.py`
 - `tests/pf_fakes.py`
 - `tests/practice_index_fakes.py`
 - `tests/router_model_fakes.py`
@@ -79,7 +80,6 @@ Every row cites the exact Pydantic field declaration (or typed dynamic-key conta
 - `tests/test_ad2_model.py`
 - `tests/test_ai_config.py`
 - `tests/test_approach_maps.py`
-- `tests/test_capability_residual.py`
 
 ## Extension and modification guidance
 

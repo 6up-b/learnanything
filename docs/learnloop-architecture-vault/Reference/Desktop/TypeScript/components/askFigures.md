@@ -10,9 +10,9 @@ area: "TypeScript/components"
 source_path: "apps/learnloop-tauri/src/components/askFigures.tsx"
 source_paths:
   - "apps/learnloop-tauri/src/components/askFigures.tsx"
-source_commit: "63f2337c4d6837df7b3f647fd1d90d0afd7f7561"
-source_commit_timestamp: "2026-11-01T23:15:09-05:00"
-source_worktree_state: "staged-or-mixed"
+source_commit: "d1e83c7e701bfc9ed2da4275f107660bcec6b728"
+source_commit_timestamp: "2026-11-02T00:41:15-05:00"
+source_worktree_state: "clean"
 activation_kind: "entry-reachable build graph"
 activation_evidence: "A static TypeScript import path reaches this file from the Vite entry src/main.tsx."
 generated: true
@@ -47,9 +47,9 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Area | [[Reference/Desktop/TypeScript/components/_area|TypeScript/components]] |
 | Refactor status | `ACTIVE` |
 | Activation kind | `entry-reachable build graph` |
-| Worktree state | `staged-or-mixed` |
-| Source commit | `63f2337c4d6837df7b3f647fd1d90d0afd7f7561` |
-| Commit timestamp | `2026-11-01T23:15:09-05:00` |
+| Worktree state | `clean` |
+| Source commit | `d1e83c7e701bfc9ed2da4275f107660bcec6b728` |
+| Commit timestamp | `2026-11-02T00:41:15-05:00` |
 
 ## Activation and status evidence
 

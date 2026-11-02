@@ -3,8 +3,8 @@ title: "Config - probe"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "26c97cbcb92a0912ded996ec5763b5a18fab939e"
-source_commit_timestamp: "2026-11-01T23:44:34-05:00"
+source_commit: "f3d6aba0ae47c99d0d4344e00c87287e27318f1c"
+source_commit_timestamp: "2026-11-02T02:00:30-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "learnloop.toml probe"
@@ -32,6 +32,7 @@ source_paths:
   - "src/learnloop/diagnosis/probe_dialogue.py"
   - "tests/codex_cli_fakes.py"
   - "tests/local_embeddings_fakes.py"
+  - "tests/notes_fixtures.py"
   - "tests/pf_fakes.py"
   - "tests/practice_index_fakes.py"
   - "tests/router_model_fakes.py"
@@ -41,7 +42,6 @@ source_paths:
   - "tests/test_ad2_model.py"
   - "tests/test_ai_config.py"
   - "tests/test_approach_maps.py"
-  - "tests/test_capability_residual.py"
 tags:
   - "learnloop/configuration/fields"
   - "learnloop/configuration/section/probe"
@@ -62,11 +62,11 @@ The main configuration contract, precedence rules, and safe-edit workflow live i
 
 | Dotted path | Effective value | Shape | Origin | Function | Runtime/refactor status | Consumer/source anchors |
 |---|---|---|---|---|---|---|
-| `probe.attempts_target_default` | `3` | integer | modeled default or validator seed | Controls attempts target default in diagnostic episodes, instruments, calibration, and lifecycle, using the typed value shown here as the fresh-vault default. | **LEGACY** — Consumed only by the frozen pre-redesign replay path; live diagnostic policy uses probe.episode. | `src/learnloop/config/schema.py:380`; `src/learnloop/ai/plan_fallback.py:135`; `src/learnloop/diagnosis/probes.py:286` |
-| `probe.attempts_target_with_strong_claim` | `1` | integer | modeled default or validator seed | Controls attempts target with strong claim in diagnostic episodes, instruments, calibration, and lifecycle, using the typed value shown here as the fresh-vault default. | **LEGACY** — Consumed only by the frozen pre-redesign replay path; live diagnostic policy uses probe.episode. | `src/learnloop/config/schema.py:381`; `src/learnloop/ai/plan_fallback.py:135`; `src/learnloop/diagnosis/probes.py:291` |
-| `probe.claim_skip_threshold` | `0.75` | number | modeled default or validator seed | Sets the decision cutoff for claim skip in diagnostic episodes, instruments, calibration, and lifecycle. | **LEGACY** — Consumed only by the frozen pre-redesign replay path; live diagnostic policy uses probe.episode. | `src/learnloop/config/schema.py:382`; `src/learnloop/ai/plan_fallback.py:135`; `src/learnloop/diagnosis/probes.py:290` |
-| `probe.variance_convergence_threshold` | `0.1` | number | modeled default or validator seed | Sets the decision cutoff for variance convergence in diagnostic episodes, instruments, calibration, and lifecycle. | **LEGACY** — Consumed only by the frozen pre-redesign replay path; live diagnostic policy uses probe.episode. | `src/learnloop/config/schema.py:383`; `src/learnloop/ai/plan_fallback.py:135`; `src/learnloop/diagnosis/probes.py:1423` |
-| `probe.hypothesis_set_max_size` | `5` | integer | modeled default or validator seed | Controls hypothesis set max size in diagnostic episodes, instruments, calibration, and lifecycle, using the typed value shown here as the fresh-vault default. | **ACTIVE** — Kept by the refactor and consumed by current hypothesis construction to cap each live diagnostic hypothesis set. | `src/learnloop/config/schema.py:384`; `src/learnloop/ai/plan_fallback.py:135`; `src/learnloop/diagnosis/probe_hypotheses.py:231` |
+| `probe.attempts_target_default` | `3` | integer | modeled default or validator seed | Controls attempts target default in diagnostic episodes, instruments, calibration, and lifecycle, using the typed value shown here as the fresh-vault default. | **LEGACY** — Consumed only by the frozen pre-redesign replay path; live diagnostic policy uses probe.episode. | `src/learnloop/config/schema.py:380`; `src/learnloop/ai/plan_fallback.py:136`; `src/learnloop/diagnosis/probes.py:286` |
+| `probe.attempts_target_with_strong_claim` | `1` | integer | modeled default or validator seed | Controls attempts target with strong claim in diagnostic episodes, instruments, calibration, and lifecycle, using the typed value shown here as the fresh-vault default. | **LEGACY** — Consumed only by the frozen pre-redesign replay path; live diagnostic policy uses probe.episode. | `src/learnloop/config/schema.py:381`; `src/learnloop/ai/plan_fallback.py:136`; `src/learnloop/diagnosis/probes.py:291` |
+| `probe.claim_skip_threshold` | `0.75` | number | modeled default or validator seed | Sets the decision cutoff for claim skip in diagnostic episodes, instruments, calibration, and lifecycle. | **LEGACY** — Consumed only by the frozen pre-redesign replay path; live diagnostic policy uses probe.episode. | `src/learnloop/config/schema.py:382`; `src/learnloop/ai/plan_fallback.py:136`; `src/learnloop/diagnosis/probes.py:290` |
+| `probe.variance_convergence_threshold` | `0.1` | number | modeled default or validator seed | Sets the decision cutoff for variance convergence in diagnostic episodes, instruments, calibration, and lifecycle. | **LEGACY** — Consumed only by the frozen pre-redesign replay path; live diagnostic policy uses probe.episode. | `src/learnloop/config/schema.py:383`; `src/learnloop/ai/plan_fallback.py:136`; `src/learnloop/diagnosis/probes.py:1423` |
+| `probe.hypothesis_set_max_size` | `5` | integer | modeled default or validator seed | Controls hypothesis set max size in diagnostic episodes, instruments, calibration, and lifecycle, using the typed value shown here as the fresh-vault default. | **ACTIVE** — Kept by the refactor and consumed by current hypothesis construction to cap each live diagnostic hypothesis set. | `src/learnloop/config/schema.py:384`; `src/learnloop/ai/plan_fallback.py:136`; `src/learnloop/diagnosis/probe_hypotheses.py:231` |
 | `probe.irt.theta_mastered` | `2.0` | number | modeled default or validator seed | Sets the decision cutoff for mastered in diagnostic episodes, instruments, calibration, and lifecycle. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:174`; `src/learnloop/diagnosis/probe_hypotheses.py:116`; `src/learnloop/diagnosis/probes.py:551` |
 | `probe.irt.theta_unfamiliar` | `-2.0` | number | modeled default or validator seed | Sets the decision cutoff for unfamiliar in diagnostic episodes, instruments, calibration, and lifecycle. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:175`; `src/learnloop/diagnosis/probe_hypotheses.py:117`; `src/learnloop/diagnosis/probes.py:570` |
 | `probe.irt.cut_mid` | `-1.0` | number | modeled default or validator seed | Sets the decision cutoff for mid in diagnostic episodes, instruments, calibration, and lifecycle. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:176`; `src/learnloop/diagnosis/probes.py:551` |
@@ -144,6 +144,7 @@ Every row cites the exact Pydantic field declaration (or typed dynamic-key conta
 
 - `tests/codex_cli_fakes.py`
 - `tests/local_embeddings_fakes.py`
+- `tests/notes_fixtures.py`
 - `tests/pf_fakes.py`
 - `tests/practice_index_fakes.py`
 - `tests/router_model_fakes.py`
@@ -153,7 +154,6 @@ Every row cites the exact Pydantic field declaration (or typed dynamic-key conta
 - `tests/test_ad2_model.py`
 - `tests/test_ai_config.py`
 - `tests/test_approach_maps.py`
-- `tests/test_capability_residual.py`
 
 ## Extension and modification guidance
 

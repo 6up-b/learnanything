@@ -3,13 +3,13 @@ title: "measurement_events"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "26c97cbcb92a0912ded996ec5763b5a18fab939e"
-source_commit_timestamp: "2026-11-01T23:44:34-05:00"
+source_commit: "f3d6aba0ae47c99d0d4344e00c87287e27318f1c"
+source_commit_timestamp: "2026-11-02T02:00:30-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite measurement_events"
   - "table measurement_events"
-schema_head: 232
+schema_head: 233
 table_name: "measurement_events"
 table_role: "raw_ledger"
 functionality_status: "active"

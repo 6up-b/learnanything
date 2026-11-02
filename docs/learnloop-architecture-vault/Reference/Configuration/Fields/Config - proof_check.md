@@ -3,8 +3,8 @@ title: "Config - proof_check"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "26c97cbcb92a0912ded996ec5763b5a18fab939e"
-source_commit_timestamp: "2026-11-01T23:44:34-05:00"
+source_commit: "f3d6aba0ae47c99d0d4344e00c87287e27318f1c"
+source_commit_timestamp: "2026-11-02T02:00:30-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "learnloop.toml proof_check"
@@ -22,6 +22,7 @@ source_paths:
   - "src/learnloop/attempts/grading_support.py"
   - "tests/codex_cli_fakes.py"
   - "tests/local_embeddings_fakes.py"
+  - "tests/notes_fixtures.py"
   - "tests/pf_fakes.py"
   - "tests/practice_index_fakes.py"
   - "tests/router_model_fakes.py"
@@ -31,7 +32,6 @@ source_paths:
   - "tests/test_ad2_model.py"
   - "tests/test_ai_config.py"
   - "tests/test_approach_maps.py"
-  - "tests/test_capability_residual.py"
 tags:
   - "learnloop/configuration/fields"
   - "learnloop/configuration/section/proof-check"
@@ -52,7 +52,7 @@ The main configuration contract, precedence rules, and safe-edit workflow live i
 
 | Dotted path | Effective value | Shape | Origin | Function | Runtime/refactor status | Consumer/source anchors |
 |---|---|---|---|---|---|---|
-| `proof_check.enabled` | `true` | boolean | modeled default or validator seed | Kill switch for mvp-0.20's own-route rules. On, the blind grader's prompt grades every criterion on the learner's own route and marks down only by quoting the failing step, and a server-side rule leaves a mark-down on a divergent route that quotes nothing from the learner's words, an omitted criterion, or one the grader declares it cannot verify unassessed (holding the grade for review when nothing is then assessed and nothing validated) and appends the verdict to judgment_ledger: one grading call. Off, new answers grade as mvp-0.19 now does (whose grading is mvp-0.16's: mvp-0.17's separate route check was removed on 2026-10-13). Dormant below mvp-0.20; replay reads the blind record and evidence rows, never this switch. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:3287`; `src/learnloop/ai/plan_fallback.py:135`; `src/learnloop/attempts/grading_support.py:257` |
+| `proof_check.enabled` | `true` | boolean | modeled default or validator seed | Kill switch for mvp-0.20's own-route rules. On, the blind grader's prompt grades every criterion on the learner's own route and marks down only by quoting the failing step, and a server-side rule leaves a mark-down on a divergent route that quotes nothing from the learner's words, an omitted criterion, or one the grader declares it cannot verify unassessed (holding the grade for review when nothing is then assessed and nothing validated) and appends the verdict to judgment_ledger: one grading call. Off, new answers grade as mvp-0.19 now does (whose grading is mvp-0.16's: mvp-0.17's separate route check was removed on 2026-10-13). Dormant below mvp-0.20; replay reads the blind record and evidence rows, never this switch. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:3274`; `src/learnloop/ai/plan_fallback.py:136`; `src/learnloop/attempts/grading_support.py:257` |
 
 > [!warning] Omitted does not mean frozen in the file
 > Most values are intentionally absent from `learnloop.toml`. Their reproducibility is protected by the defaults fingerprint keyed to `algorithms.algorithm_version`, not by dumping every default into each vault.
@@ -63,6 +63,7 @@ Every row cites the exact Pydantic field declaration (or typed dynamic-key conta
 
 - `tests/codex_cli_fakes.py`
 - `tests/local_embeddings_fakes.py`
+- `tests/notes_fixtures.py`
 - `tests/pf_fakes.py`
 - `tests/practice_index_fakes.py`
 - `tests/router_model_fakes.py`
@@ -72,7 +73,6 @@ Every row cites the exact Pydantic field declaration (or typed dynamic-key conta
 - `tests/test_ad2_model.py`
 - `tests/test_ai_config.py`
 - `tests/test_approach_maps.py`
-- `tests/test_capability_residual.py`
 
 ## Extension and modification guidance
 

@@ -3,8 +3,8 @@ title: "Config - practice"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "26c97cbcb92a0912ded996ec5763b5a18fab939e"
-source_commit_timestamp: "2026-11-01T23:44:34-05:00"
+source_commit: "f3d6aba0ae47c99d0d4344e00c87287e27318f1c"
+source_commit_timestamp: "2026-11-02T02:00:30-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "learnloop.toml practice"
@@ -24,6 +24,7 @@ source_paths:
   - "src/learnloop/attempts/attempts.py"
   - "tests/codex_cli_fakes.py"
   - "tests/local_embeddings_fakes.py"
+  - "tests/notes_fixtures.py"
   - "tests/pf_fakes.py"
   - "tests/practice_index_fakes.py"
   - "tests/router_model_fakes.py"
@@ -33,7 +34,6 @@ source_paths:
   - "tests/test_ad2_model.py"
   - "tests/test_ai_config.py"
   - "tests/test_approach_maps.py"
-  - "tests/test_attempt_content_state_race.py"
 tags:
   - "learnloop/configuration/fields"
   - "learnloop/configuration/section/practice"
@@ -55,8 +55,8 @@ The main configuration contract, precedence rules, and safe-edit workflow live i
 | Dotted path | Effective value | Shape | Origin | Function | Runtime/refactor status | Consumer/source anchors |
 |---|---|---|---|---|---|---|
 | `practice.as_printed.enabled` | `true` | boolean | modeled default or validator seed | Turns as printed behavior on or off within reader CA1 (ux_reader_compare_ask_v1 §8, K15): the kill switch of the problem as printed (a crop of only an imported problem's own blocks from the page), the original page (one hint-equivalent before Submit, the existing book count of hints_used), the learner's photo for a card written from a phone photo, and the transcription report (a maintenance notice); display and a notice only, no scoring, scheduling, projection or serving change (no successor). | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:2878`; `src/learnloop_sidecar/handlers/as_printed.py:58`; `src/learnloop_sidecar/handlers/reader.py:748` |
-| `practice.attempt_keeps_content_state` | `true` | boolean | modeled default or validator seed | Kill switch for mobile PR-4's successor (mvp-0.37; learnloop.attempt_content_state_upgrade). On, a live attempt's write to its item's existing practice_item_state row takes only the scheduling columns and the last-attempt time: active can only close (a diagnostic probe's single use still lands) and content_hash is content sync's alone, so an attempt never reopens a row a content sync closed (one committed while the answer was graded, or a parked, superseded or deactivated item). Off, the attempt upserts the whole row from the vault it graded against, exactly as mvp-0.36. Dormant below the successor; replay never reads it. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:2914`; `src/learnloop/ai/plan_fallback.py:135`; `src/learnloop/attempts/attempts.py:1386` |
-| `practice.reschedule_cold_after_assist` | `true` | boolean | modeled default or validator seed | Kill switch for the cold-retry reschedule's successor (mvp-0.38; learnloop.cold_retry_reschedule_upgrade; owner decision 2026-10-25, Reader CA2 follow-up Q4). On (with ask.cold_help_converts on), help taken on a due repair cold_retry withdraws it in the attempt's own step (unmeasurable_no_held_out_surface, reason cold_check_help_taken) and schedules one fresh cold retry for the same repair on another independent surface, due the lane's COLD_RETRIEVAL_DELAY after that attempt and open for COLD_RETRY_WINDOW; a fresh retry that is itself assisted spawns none (one per chain). A certification cold probe is never rescheduled. Off, the assisted retry is left to the next serve's withdrawal, exactly as mvp-0.37. Dormant below the successor; replay never reads it (replay schedules nothing). | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:2915`; `src/learnloop/ai/plan_fallback.py:135` |
+| `practice.attempt_keeps_content_state` | `true` | boolean | modeled default or validator seed | Kill switch for mobile PR-4's successor (mvp-0.37; learnloop.attempt_content_state_upgrade). On, a live attempt's write to its item's existing practice_item_state row takes only the scheduling columns and the last-attempt time: active can only close (a diagnostic probe's single use still lands) and content_hash is content sync's alone, so an attempt never reopens a row a content sync closed (one committed while the answer was graded, or a parked, superseded or deactivated item). Off, the attempt upserts the whole row from the vault it graded against, exactly as mvp-0.36. Dormant below the successor; replay never reads it. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:2914`; `src/learnloop/ai/plan_fallback.py:136`; `src/learnloop/attempts/attempts.py:1386` |
+| `practice.reschedule_cold_after_assist` | `true` | boolean | modeled default or validator seed | Kill switch for the cold-retry reschedule's successor (mvp-0.38; learnloop.cold_retry_reschedule_upgrade; owner decision 2026-10-25, Reader CA2 follow-up Q4). On (with ask.cold_help_converts on), help taken on a due repair cold_retry withdraws it in the attempt's own step (unmeasurable_no_held_out_surface, reason cold_check_help_taken) and schedules one fresh cold retry for the same repair on another independent surface, due the lane's COLD_RETRIEVAL_DELAY after that attempt and open for COLD_RETRY_WINDOW; a fresh retry that is itself assisted spawns none (one per chain). A certification cold probe is never rescheduled. Off, the assisted retry is left to the next serve's withdrawal, exactly as mvp-0.37. Dormant below the successor; replay never reads it (replay schedules nothing). | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:2915`; `src/learnloop/ai/plan_fallback.py:136` |
 
 > [!warning] Omitted does not mean frozen in the file
 > Most values are intentionally absent from `learnloop.toml`. Their reproducibility is protected by the defaults fingerprint keyed to `algorithms.algorithm_version`, not by dumping every default into each vault.
@@ -67,6 +67,7 @@ Every row cites the exact Pydantic field declaration (or typed dynamic-key conta
 
 - `tests/codex_cli_fakes.py`
 - `tests/local_embeddings_fakes.py`
+- `tests/notes_fixtures.py`
 - `tests/pf_fakes.py`
 - `tests/practice_index_fakes.py`
 - `tests/router_model_fakes.py`
@@ -76,7 +77,6 @@ Every row cites the exact Pydantic field declaration (or typed dynamic-key conta
 - `tests/test_ad2_model.py`
 - `tests/test_ai_config.py`
 - `tests/test_approach_maps.py`
-- `tests/test_attempt_content_state_race.py`
 
 ## Extension and modification guidance
 

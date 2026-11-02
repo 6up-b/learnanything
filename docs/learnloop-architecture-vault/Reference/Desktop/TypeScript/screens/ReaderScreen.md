@@ -10,9 +10,9 @@ area: "TypeScript/screens"
 source_path: "apps/learnloop-tauri/src/screens/ReaderScreen.tsx"
 source_paths:
   - "apps/learnloop-tauri/src/screens/ReaderScreen.tsx"
-source_commit: "2bac2d18efb2dbf7ca9e3f0474532abf324ca58a"
-source_commit_timestamp: "2026-11-01T19:16:35-05:00"
-source_worktree_state: "staged-or-mixed"
+source_commit: "20c6c3ad3806f7951982f4768478fe77272f4c3a"
+source_commit_timestamp: "2026-11-01T23:26:02-05:00"
+source_worktree_state: "clean"
 activation_kind: "entry-reachable build graph"
 activation_evidence: "A static TypeScript import path reaches this file from the Vite entry src/main.tsx."
 generated: true
@@ -47,9 +47,9 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Area | [[Reference/Desktop/TypeScript/screens/_area|TypeScript/screens]] |
 | Refactor status | `ACTIVE` |
 | Activation kind | `entry-reachable build graph` |
-| Worktree state | `staged-or-mixed` |
-| Source commit | `2bac2d18efb2dbf7ca9e3f0474532abf324ca58a` |
-| Commit timestamp | `2026-11-01T19:16:35-05:00` |
+| Worktree state | `clean` |
+| Source commit | `20c6c3ad3806f7951982f4768478fe77272f4c3a` |
+| Commit timestamp | `2026-11-01T23:26:02-05:00` |
 
 ## Activation and status evidence
 

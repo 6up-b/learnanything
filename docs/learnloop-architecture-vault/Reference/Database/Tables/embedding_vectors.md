@@ -3,13 +3,13 @@ title: "embedding_vectors"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "26c97cbcb92a0912ded996ec5763b5a18fab939e"
-source_commit_timestamp: "2026-11-01T23:44:34-05:00"
+source_commit: "f3d6aba0ae47c99d0d4344e00c87287e27318f1c"
+source_commit_timestamp: "2026-11-02T02:00:30-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite embedding_vectors"
   - "table embedding_vectors"
-schema_head: 232
+schema_head: 233
 table_name: "embedding_vectors"
 table_role: "workflow"
 functionality_status: "active"
@@ -102,6 +102,7 @@ None found by exact static reference scan.
 - `src/learnloop/ops/contamination/detectors.py`
 - `src/learnloop/ops/embedding_backfill.py`
 - `src/learnloop/source_retrieval/dense.py`
+- `src/learnloop/source_retrieval/vault_notes.py`
 
 ### Direct SQL writers
 
@@ -127,6 +128,7 @@ None found by exact static reference scan.
 - `tests/test_knowledge_map_text_neighbors.py`
 - `tests/test_learner_text_gaps.py`
 - `tests/test_matching.py`
+- `tests/test_notes_vault_search.py`
 - `tests/test_practice_index_find.py`
 - `tests/test_router_r2c_retrieval.py`
 - `tests/test_source_retrieval_search.py`
