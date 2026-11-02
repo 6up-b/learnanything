@@ -14,8 +14,9 @@
 
 ### Backend (the correspondents read)
 - `learnloop.figures.service.section_figures(vault, repository, extraction_id, section_of)` returns one reading's kept
-  figures grouped by the section their anchor sits in. It reads through `list_figures`, so it lists exactly what the
-  Reader would list on that reading now:
+  figures grouped by the section their anchor sits in. It reads the rows `list_figures` picks (`_listed`), so it lists
+  what the Reader would list on that reading now (Codex review F3: without `list_figures`' presentation, so a sketch
+  built under another engine is not re-verified and nothing reaches `judgment_ledger`; opening the figure does that):
   - per version chain, the newest shown version;
   - held-out figures (`row_withheld`) left out, which covers the home spans, the input manifest, the retrieved
     passages' keys, the homes of figures with no passage, and stored learner state;
@@ -23,7 +24,8 @@
   
   Of those, only shown figures are kept (`verified` or `illustrative`, never a failed or unsupported line), at most
   once per figure and section. Each entry carries `figure_id`, its home (`extraction_id`, `anchor_span_id`), `label`,
-  `kind`, `verification` and `created_at`. Nothing is copied and nothing is written.
+  `kind`, `verification` and `created_at`. Nothing is copied and nothing is written (tested with an outdated sketch,
+  Codex review F3).
 - `learnloop_sidecar/handlers/correspondents.py` adds `figures_follow_enabled(vault)` and `_with_figures`. When the
   read is `judged` and the switch is on, each judged correspondent section gets `figures`, and only when it has at
   least one. The join goes through the section: the anchor span is mapped with the protected library's reading
@@ -51,8 +53,10 @@
   A ready fuller version comes along; one still being built stays with its own book.
 - `FigureInline.tsx`: a followed figure always names its home, collapsed or open: `from your reading of Lay § 5.1 …`
   (`FIGURE_COPY.fromYourReading`, `figureHomeLine`). It has no "not right?", because a new version belongs to its own
-  book. If its own book no longer lists it (held out, switched off, gone), the Reader says
-  `ALSO_COPY.figureGone` and shows nothing.
+  book. If its own book no longer lists it (held out, switched off, gone, unreadable), the Reader says
+  `ALSO_COPY.figureGone` and shows nothing; a copy shown by an earlier press leaves too (Codex review F1). With CA5's
+  switch off (`followEnabled`, from the contract's `correspondence.alsoInBooks`) followed figures are cleared, not
+  rendered, and a follow still in flight never lands (Codex review F2).
 - `ReaderScreen.tsx`: `openFollowedFigure`. It reuses the CA5a "passage in view, else the section's first" rule, logs
   `figure_opened`, jumps to that passage (with the usual crumb) only when it is not the passage in view, and includes
   followed figures in the PDF pane's inline notes.
