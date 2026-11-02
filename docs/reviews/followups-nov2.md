@@ -203,3 +203,157 @@ Not run here (owner rule): the full suite, the whole durability lane, the whole 
   reading; left as is.
 * The generated references (`dac01602ca`) stamp the source commit in every note; the lander regenerates them on the
   merged tree anyway.
+
+## Landing onto main
+
+Prepared on `fix/followups-nov2` (worktree `learnanything-ad1`) from the stage tip `e2d45d5c4a`; the orchestrator
+fast-forwards main and pushes. Main moved twice during the landing (TE1 + C4, then RW5d P4b), so the branch was
+merged three times; the gate below ran once, on the final tree.
+
+### Step 0: the final verify's F6 (ruling R1) — `3349d626e2`
+
+The final verify (jobs `20261102-041024-Cg9xnj`, `20261102-041606-eSv4yJ`) confirmed F1-F5 fixed and reopened only
+F6 [Low]: a fresh figure built for a marked legacy quick figure with no learner-inputs record sits under that input's
+recorded-inputs key (`_recorded_input_key`), but the other-settings reuse lookup in `_build` searched only the plain
+keys of the other settings (whose occupant, the marked row, is never reused), so toggling
+`figures.advanced_panels_enabled` paid the author once more for a figure still drawable. Fix, as R1 names it: when a
+learner state was sent, each other setting's key is followed by its own recorded-inputs key in `other_hash`;
+`_reusable`'s checks (shown, `drawable_now`, never an unrecorded marked row) apply unchanged. With no learner state
+the list is the predecessor's exactly. Regression
+`test_followups_nov2_figure_provenance.py::test_a_fresh_figure_for_a_marked_row_is_reused_after_the_panels_are_switched`
+reproduced first (built fresh-2 with a second author call), passes after; figure lane (`test_figure*`, 30 files)
+616 passed. No further review round (R1).
+
+### Merge 1: main `19c72752b3` (RW5d P3, migration 232; curriculum C2b, migration 233) — `47f2ffc037`
+
+* `help_assists._fold_rows`: this branch's clause order kept, with P3's `HINT_EQUIVALENT_KINDS_SQL` in both the
+  predecessor's clause list and the successor's, so the keyed attach (`attach_keyed_fold`) follows P3's kinds
+  (`'hint', 'figure'`).
+* `handlers/figures.deliver_figure`: the kept view is rebuilt from the current rows (`redelivered_view`) first, then
+  P3's attempt-host recording and `attempt_view` apply to the rebuilt view.
+* C2b: the retraction reads linked notes only through `learner_note_ids` -> `note_gaps.linked_notes` ->
+  `note_links.effective_rows`, C2b's link model over vault-origin snapshots, so no code change was needed; the
+  docstring drops the tend-era wording. `notes.decide` queues on hide as merged. The five retraction tests were
+  ported from the fake tend to C2b's vault notes (the typed Reader note and the capture; `edit_annotation` makes the
+  new snapshot).
+* Generated references: main's side, then regenerated (`d8829bbcac`).
+
+### Merge 2: main `1a33bb5db3` (teacher TE1 + C4, mvp-0.41, migration 234) and ruling R4 — `1f4746e57b`
+
+* **Successor renumber (R4)**: `HELP_FOLD_ATTACH_ALGORITHM_VERSION = "mvp-0.42"`, after
+  `TEACHER_ALGORITHM_VERSION` (`mvp-0.41`, untouched) in `SUCCESSOR_CHAIN`; `HELP_FOLD_ATTACH_VERSIONS` =
+  `{mvp-0.42}`, `LATEST_ALGORITHM_VERSION` = `mvp-0.42`. `help_fold_attach_upgrade` now chains through
+  `teacher_upgrade` (`PREDECESSOR = mvp-0.41`; mvp-0.9 to mvp-0.40 go through TE1's upgrade first; a journal naming
+  another target is handed to TE1's completion, which hands it on). The CLI runtime and the desktop sidecar install
+  `help_fold_attach_upgrade.complete_interrupted_activation`, the chain's latest. `cli/app.py`: help text, the
+  `--to` dispatch and the refusal list name mvp-0.41 and mvp-0.42; `tests/cli_help_snapshot.json` changed for
+  `upgrade` only. `activation_journal`, `config/schema.py`, `parameter_registry.py` and `db_generate_reference.py`
+  name mvp-0.42. The template keeps TE1's mvp-0.41 snapshot block ("New vaults started here ... until follow-ups
+  Nov 2's successor landed") and adds the mvp-0.42 block.
+* **Migration and head fixture**: 235 keeps its number (TE1 took 234). `migration_head_234` renamed
+  `migration_head_235`, rebuilt from main's tracked, sanitized `migration_head_234/state.sqlite`: a backup-API copy
+  under `fixtures-local/head235/`, only `235_learner_gap_unlinked_reversal.sql` applied under `UPGRADE_SCRATCH_COPY`,
+  `wal_checkpoint(TRUNCATE)` (0, 0, 0), `journal_mode=DELETE` (header 1/1), `integrity_check` ok, `foreign_key_check`
+  empty, copied into place with the backup API, no companion files. Against main's 234 head only
+  `learner_text_gap_reversals`' definition changed and only `schema_migrations` gained a row (221 -> 222); every
+  companion file is main's. README section added. `SCHEMA_HEAD = 235` in both reference scripts; the five hard-coded
+  head paths and every head test name `migration_head_235`; "applied from N" lists end `..., 233, 234, 235]`; the
+  "nothing else changed" diffs subtract `UNLINKED_ALTERED_TABLES` beside TE1's sets; TE1's head test now asserts the
+  head holds 234 and is at 235.
+* **Chain pins** (`e8fdaa52ec`): negative chain indices shift by one, the `*_VERSIONS` sets gain mvp-0.42 (and
+  mvp-0.41 where they listed up to the latest), TE1's chain test (`SUCCESSOR_CHAIN[-3:]`, `TEACHER_VERSIONS` =
+  `{mvp-0.41, mvp-0.42}`), its defaults parity (drops `hints.fold_follows_attach` too), its CLI-completion test (the
+  CLI installs this link's completion, which imports TE1's) and its bare-upgrade test (goes through mvp-0.41 to
+  mvp-0.42); the help-fold successor test now has `PREDECESSOR = mvp-0.41` and upgrades from mvp-0.9, 0.30, 0.39,
+  0.40 and 0.41.
+* References regenerated (`fd3c1e715f`; the desktop catalog's commit stamps of 8 notes were stale on main).
+
+### Merge 3: main `de9a03763d` (RW5d P4b, the teacher's visuals; no migration, no successor) — `0f1d1abf38`
+
+* One conflict: the 32 snapshot comments in `config/template.py` (P4b's `[teacher] visuals` beside this branch's
+  `[hints] fold_follows_attach`).
+* P4b's lesson figures follow this branch's learner-state provenance with no further change: they are built by
+  `_build` (the record is kept whenever their author was sent a learner state) and shown through `figure_withheld`
+  -> `row_withheld` -> `learner_state_withheld` (`teacher.visuals.lesson_view`). One new test pins it:
+  `test_followups_nov2_figure_provenance.py::test_a_lesson_figure_keeps_its_record_and_is_rechecked_by_its_learner_inputs`.
+* References regenerated (`349076c85a`).
+
+**Config fingerprints**: after each merge every snapshot was recomputed with `defaults_fingerprint_for_version` with
+`.pyc` cleared: merge 1, 32 of 32 then 0; merge 2, 33 of 33 then 0; merge 3, 33 of 33 then 0. **Config leaf count**:
+1121 effective leaves in `Database.md` and `Configuration.md`.
+
+### Gate (tip `349076c85a`, main `de9a03763d`)
+
+* `lint-imports --no-cache`: 42 kept, 0 broken.
+* Targeted, on the TE1 tree (420 files: the three nov2 test files and the migration file, the figure lane,
+  hint/help/submit, notes and gap tests (C2b's `test_notes_*`, C5's), the migration and head-fixture set, table roles,
+  tracked fixture DBs, public-tip guards, config fingerprints and registry, every successor/upgrade/landing test, TE1's
+  lesson tests): 8220 passed, 42 skipped, 8 xfailed, 14 failed — all chain pins after the renumber, fixed in
+  `e8fdaa52ec` and rerun (369 passed). After the P4b merge (59 files: P4b's `test_reader_rw5d_p4b_teacher_visuals.py`,
+  every test file P4b touched, the figure lane, the teacher tests, the nov2 files, config/registry/CLI-help, guards):
+  1027 passed.
+* Full suite (`-n 8 --dist worksteal`, 10G scope, `flock`): **23876 passed, 0 failed**, 90 skipped, 47 xfailed
+  (43:05).
+* Durability lane: 186 passed, 1 skipped.
+* Owner lane on fresh backup-API copies of `owner-copies-mvp035` (`fixtures-local/landing-nov2/owner-lane`): 83
+  passed, 4 skipped, the 2 known failures (`test_activity_backfill...attempt_duration...`,
+  `test_placement_fixture_copies...[arxiv_v2]`).
+* Frontend: typecheck clean, whole vitest 257 files / 2448 tests passed (`--maxWorkers=4`), `frontend:build` ok. No
+  `npm install` (dependencies unchanged since the last install). `cargo check` not run: nothing under `apps/`
+  differs from main.
+* References: `db_validate_reference.py` errors `[]` (schema head 235); `validate_vault.py`, `desktop_validate.py`
+  (307/307 TS + 6/6 Rust, reproducible) and `module_validate.py` pass.
+* An earlier full gate on the TE1 tree (`e8fdaa52ec`, before P4b reached main) had 23851 passed and 2 failures,
+  each passing 3/3 alone: `test_stuck_prompt.py::test_kill_switch_restores_dont_know_exactly` (0.7 vs 0.6977, a
+  mass decayed by elapsed time between two computations under load) and
+  `test_mvp021_upgrade.py::test_the_successor_rebuild_equals_mvp020s_projection` (two rebuilds' capability evidence a
+  few seconds apart). Neither touches hints or figures; neither failed on the final tree.
+
+### Smoke (fresh owner copies, `fixtures-local/landing-nov2-smoke/`, driver `scripts/smoke.sh`)
+
+**Setup.** Fresh backup-API copies of the three mvp035 owner copies; each neutralized under its own side's code
+(every AI route at the `127.0.0.1:9` blackhole, key variable unset; rewrite, rerank, dense, embeddings and the gap
+pipeline off); `env -i` with an empty `HOME`, `CODEX_HOME` and config directory; an audit hook logging every process
+start and socket connect and refusing non-loopback sockets and Codex starts (self-test: it logged a `127.0.0.1:9`
+connect and a `true` start and refused `192.0.2.1:80`). Code: `git archive` of main `de9a03763d` and of the branch
+`349076c85a`, each with `src/`, `migrations/` and `tests/`. Sides: **m** = main's code, bare upgrade mvp-0.35 ->
+mvp-0.41; **b41** = branch code, `upgrade --to mvp-0.41`; **b** = b41 then a bare upgrade mvp-0.41 -> **mvp-0.42**;
+**boff** = b with `hints.fold_follows_attach = false`. On each: the primary desktop load, `migrate_vault` (main head
+234, branch head 235, 0 applied) and `rebuild-derived-state`. Every dump ran on its own fresh copy.
+
+| Check | linear_algebra | probability | arxiv_v2 |
+|---|---|---|---|
+| Today, b41 / b / boff vs main | byte-identical (525266 B) | byte-identical (740827 B) | byte-identical (344204 B) |
+| Plan dump, b41 vs main (both mvp-0.41) | byte-identical (84702 B) | byte-identical (124027 B) | byte-identical (32439 B) |
+| Plan dump, b (mvp-0.42) vs main | identical after the version label | same | same |
+| Plan dump, boff vs b | byte-identical | byte-identical | byte-identical |
+| Stored attempts (`hints_used`, `primed`), help rows, help_outcomes | identical on every side | identical | identical |
+| `hints report --json` vs main | identical but for its wall-clock `generated_at` and the config echo's new `hints.fold_follows_attach` key | same | same |
+| Rollover fold (synthetic keyed row in an ended session, rolled back): m / b41 / b / boff | 0 / 0 (gate off below the tag) / **1** (gate on) / 0 (switched off) | same | same |
+| `rebuild --shadow` on b and boff | 0/0/0, live unchanged | 0/0/0, live unchanged | 0/0/0, live unchanged |
+
+The plan dump of b differs from main's only in the version label (`algorithm_version`, `plan.algorithmVersion`, the
+version strings inside the router decisions' and AD selections' JSON) and the card, snapshot and payload hashes
+computed over them (`plan_norm.py`). The owner copies hold no help row, so help_outcomes is empty on every side and
+the stored counts are re-applied unchanged (nothing is refolded). **Receipts**: 0 new `model_call_receipts` across 12
+compared databases. **Audit**: the log was empty for the whole smoke (no process start, no socket); no Codex
+process.
+
+### Rulings (orchestrator, verbatim)
+
+- R1: "F6 is Low: one extra author call after a settings toggle, for legacy rows only. Fix it at landing if it is a small change (include derived recorded-input keys in the alternate-setting reuse lookup, preserving drawability and protection checks, plus the regression the reviewer named); no further review round."
+- R2: "Legacy quick figures built with a learner state before this branch stay withheld until a press rebuilds them (fail closed). Accepted: the owner's vaults are still at mvp-0.35, so no such rows exist outside test copies."
+- R3: "Keeping a hidden link again does not reopen a gap already set aside (append-only reversals); accepted as built."
+- R4: "Successor renumber: teacher TE1+C4 claims mvp-0.41 and lands first; this branch's help-fold successor becomes mvp-0.42 <- mvp-0.41 (or the next free version if main has moved further). Migration 235 keeps its number if TE1 takes 234; otherwise the next free number."
+
+### Open items
+
+* Owner upgrade path: the owner's vaults (mvp-0.35) reach mvp-0.42 with a bare `learnloop upgrade` (through TE1's
+  mvp-0.41); `hints.fold_follows_attach = false` restores the predecessor's fold without a downgrade.
+* R2's legacy rows (marked quick figures with no record) stay withheld until a press rebuilds them; none exist
+  outside test copies.
+* R3: a hidden link kept again does not reopen its set-aside gap.
+* Two timing-sensitive tests failed once under full-suite load on the TE1 tree and pass alone (above):
+  `test_stuck_prompt.py::test_kill_switch_restores_dont_know_exactly`,
+  `test_mvp021_upgrade.py::test_the_successor_rebuild_equals_mvp020s_projection`.
+* TE1b (mvp-0.43, migration 236) lands after this branch and renumbers against mvp-0.42 / migration 235.
