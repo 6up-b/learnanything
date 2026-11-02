@@ -291,8 +291,11 @@ def open_lesson(vault: Any, repository: Any, *, entry: str, learning_object_ids:
     lesson_id = f"les_{new_ulid().lower()}"
     constraints = {"max_lesson_cost_usd": vault.config.teacher.max_lesson_cost_usd,
                    "sources_tokens": vault.config.teacher.context.sources_tokens}
+    from learnloop.teacher.notes import your_notes
+
     brief, book = build_brief(vault, repository, learning_object_ids=los, how=how, goal_text=text,
-                              selection=selected, driver=driver, lesson_id=lesson_id, constraints=constraints)
+                              selection=selected, driver=driver, lesson_id=lesson_id, constraints=constraints,
+                              notes_provider=your_notes)
     client = clients.teacher()
     now = utc_now_iso(clock)
     with repository.atomic():
@@ -315,7 +318,7 @@ def open_lesson(vault: Any, repository: Any, *, entry: str, learning_object_ids:
 # =============================================================================
 
 
-def turn(vault: Any, repository: Any, *, lesson_id: str, action: str, payload: Mapping[str, Any],
+def take_turn(vault: Any, repository: Any, *, lesson_id: str, action: str, payload: Mapping[str, Any],
          clients: Clients, clock: Clock | None = None) -> dict[str, Any]:
     """One learner action on an open lesson (``reply``, ``answer_prediction``, ``answer_check``, ``stop``)."""
 
@@ -1015,6 +1018,6 @@ __all__ = [
     "open_lesson",
     "require_active",
     "transcript",
-    "turn",
+    "take_turn",
     "view",
 ]

@@ -38,14 +38,14 @@ def _lesson_with_check(paths, repository, *, at, retained: float | None = None, 
     if retained is not None:
         # The teacher forecast the node's retention before the check opened (an earlier landing).
         fake.turns = [landed_turn(p=retained), check_turn()]
-        S.turn(load_vault(paths.root), repository, lesson_id=view["lesson_id"], action="reply",
+        S.take_turn(load_vault(paths.root), repository, lesson_id=view["lesson_id"], action="reply",
                payload={"text": "go"}, clients=clients(fake), clock=FrozenClock(at + timedelta(minutes=1)))
-        S.turn(load_vault(paths.root), repository, lesson_id=view["lesson_id"], action="reply",
+        S.take_turn(load_vault(paths.root), repository, lesson_id=view["lesson_id"], action="reply",
                payload={"text": "and?"}, clients=clients(fake), clock=FrozenClock(at + timedelta(minutes=2)))
     else:
-        S.turn(load_vault(paths.root), repository, lesson_id=view["lesson_id"], action="reply",
+        S.take_turn(load_vault(paths.root), repository, lesson_id=view["lesson_id"], action="reply",
                payload={"text": "go"}, clients=clients(fake), clock=FrozenClock(at + timedelta(minutes=2)))
-    S.turn(load_vault(paths.root), repository, lesson_id=view["lesson_id"], action="answer_check",
+    S.take_turn(load_vault(paths.root), repository, lesson_id=view["lesson_id"], action="answer_check",
            payload={"answer": "det(A - tI) = 0", "tap": 5}, clients=clients(fake),
            clock=FrozenClock(at + timedelta(minutes=3)))
     return view["lesson_id"]

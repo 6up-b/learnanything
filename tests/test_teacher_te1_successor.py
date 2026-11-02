@@ -127,10 +127,10 @@ def _whole_lesson(paths, repository):
     fake = TeacherFake([plan_turn, check_turn()])
     view = S.open_lesson(load_vault(paths.root), repository, entry="learning_object",
                          learning_object_ids=["lo_eigen"], clients=clients(fake), clock=FrozenClock(T0))
-    S.turn(load_vault(paths.root), repository, lesson_id=view["lesson_id"], action="reply", payload={"text": "go"},
+    S.take_turn(load_vault(paths.root), repository, lesson_id=view["lesson_id"], action="reply", payload={"text": "go"},
            clients=clients(fake), clock=FrozenClock(T0 + timedelta(minutes=1)))
     fake.turns = [landed_and_close_turn()]
-    S.turn(load_vault(paths.root), repository, lesson_id=view["lesson_id"], action="answer_check",
+    S.take_turn(load_vault(paths.root), repository, lesson_id=view["lesson_id"], action="answer_check",
            payload={"answer": "det(A - tI) = 0", "tap": 4}, clients=clients(fake),
            clock=FrozenClock(T0 + timedelta(minutes=2)))
     return view["lesson_id"]

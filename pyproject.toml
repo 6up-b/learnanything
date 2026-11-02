@@ -437,7 +437,7 @@ allow_indirect_imports = false
 
 [[tool.importlinter.contracts]]
 id = "notes-are-never-a-source-or-evidence"
-name = "A learner's note is never a source, a generation input or evidence: only the sidecar and the CLI reach the notes' code (curriculum C2, spec §10.2)"
+name = "A learner's note is never a source, a generation input or evidence: only the sidecar, the CLI and the teacher's notes door reach the notes' code (curriculum C2, C4, spec §10.2)"
 type = "forbidden"
 source_modules = [
     "learnloop.attempts",
@@ -457,6 +457,12 @@ source_modules = [
     "learnloop.source_retrieval.corpus",
     "learnloop.source_retrieval.deliverable_path",
     "learnloop.source_retrieval.section_coverage",
+    # Teacher TE1 + curriculum C4: the check minting, the brief (notes by injection only), the guards and
+    # the delayed checks never reach a note; only teacher.notes (the brief's headers, read_note) does.
+    "learnloop.teacher.checks",
+    "learnloop.teacher.brief",
+    "learnloop.teacher.guards",
+    "learnloop.teacher.delayed",
 ]
 forbidden_modules = [
     "learnloop.source_retrieval.note_links",

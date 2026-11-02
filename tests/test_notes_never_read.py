@@ -38,7 +38,11 @@ ALLOWED = {
     "src/learnloop/db/table_roles.py": "rebuild roles (RAW_LEDGER)",
     "src/learnloop/adaptive_difficulty/protected_tables.py": "AD's guard: classified so an AD read is refused",
     "src/learnloop/adaptive_difficulty/column_classes.py": "AD's guard: every column classified",
+    "src/learnloop/teacher/notes.py": "curriculum C4: the lesson's notes headers and read_note (the teacher's one door)",
 }
+#: Teacher TE1 + curriculum C4 (spec §8.2, §10.4): the teacher reads note text through read_note, and the
+#: brief lists the headers, through teacher.notes only; the service injects it, the read action calls it.
+TEACHER_NOTE_READERS = ("learnloop.teacher.notes", "learnloop.teacher.actions", "learnloop.teacher.service")
 #: The modules that must never read a note (spec §10.2's list).
 NEVER = (
     "learnloop.source_retrieval.find_sources",
@@ -46,7 +50,12 @@ NEVER = (
     "learnloop.ops.pf_generation",             # PF generation
     "learnloop.ops.pf_calls",
     "learnloop.attempts",                      # the blind grader (S1), evidence
-    "learnloop.tutor",                         # the tutor and teach-back (teacher item minting: TE1, not built)
+    "learnloop.tutor",                         # the tutor and teach-back
+    "learnloop.teacher.checks",                # teacher item minting (TE1): never a generation input
+    "learnloop.teacher.brief",                 # the brief takes the notes by injection only
+    "learnloop.teacher.guards",
+    "learnloop.teacher.delayed",
+    "learnloop.teacher.contracts",
     "learnloop.adaptive_difficulty",
     "learnloop.diagnosis",
     "learnloop.scheduling",
@@ -76,8 +85,9 @@ def test_no_generation_grading_evidence_or_ad_module_reaches_the_notes_modules()
     for module in NOTES_MODULES:
         importers |= {name for name in graph.find_downstream_modules(module) if not name.startswith(NOTES_MODULES)}
     # The only modules that reach the notes' code: the sidecar (its notes handler) and the CLI.
-    assert all(name.startswith(("learnloop_sidecar", "learnloop.cli", "learnloop.__main__")) for name in importers), (
-        sorted(name for name in importers if not name.startswith(("learnloop_sidecar", "learnloop.cli"))))
+    allowed = ("learnloop_sidecar", "learnloop.cli", "learnloop.__main__", *TEACHER_NOTE_READERS)
+    assert all(name.startswith(allowed) for name in importers), (
+        sorted(name for name in importers if not name.startswith(allowed)))
     for package in NEVER:
         members = {package} | (graph.find_descendants(package) if graph.find_children(package) else set())
         for member in members:

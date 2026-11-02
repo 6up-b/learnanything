@@ -68,9 +68,9 @@ def test_a_note_never_reaches_the_grader(tmp_path, monkeypatch):
     fake = TeacherFake([_note_reader, plan_turn, check_turn()])
     view = S.open_lesson(load_vault(paths.root), repository, entry="learning_object",
                          learning_object_ids=["lo_eigen"], clients=clients(fake))
-    S.turn(load_vault(paths.root), repository, lesson_id=view["lesson_id"], action="reply", payload={"text": "go"},
+    S.take_turn(load_vault(paths.root), repository, lesson_id=view["lesson_id"], action="reply", payload={"text": "go"},
            clients=clients(fake))
-    S.turn(load_vault(paths.root), repository, lesson_id=view["lesson_id"], action="answer_check",
+    S.take_turn(load_vault(paths.root), repository, lesson_id=view["lesson_id"], action="answer_check",
            payload={"answer": "det(A - tI) = 0"}, clients=clients(fake))
     grading = [prompt for purpose, prompt in fake.prompts if purpose != "teacher_turn"]
     assert grading and all("Eigen stuff" not in p and SENTINEL not in p for p in grading)

@@ -58,6 +58,8 @@ def run_read(vault: Any, repository: Any, state: Any, request: ActionRequestV1, 
     if request.action == "read_history":
         return read_history(vault, repository, state, request.refs)
     if request.action == "read_note":
+        from learnloop.teacher.notes import read_note
+
         return read_note(vault, repository, state, request.refs)
     raise ActionRefused("unknown_action", f"{request.action} is not a read action")
 
@@ -215,37 +217,4 @@ def read_history(vault: Any, repository: Any, state: Any, refs: list[str]) -> di
     return {"entries": out}
 
 
-def read_note(vault: Any, repository: Any, state: Any, refs: list[str]) -> dict[str, Any]:
-    from learnloop.teacher.brief import c4_active
-
-    if not c4_active(vault):
-        return {"refused": "notes_off", "message": "the learner's notes are not part of this lesson"}
-    try:
-        from learnloop.db.stores import learner_notes as notes_store
-        from learnloop.source_retrieval import note_links as NL
-
-        if not NL.enabled(vault) or not NL.available(vault):
-            return {"refused": "notes_off", "message": "the learner's notes are not available"}
-    except Exception:  # noqa: BLE001
-        return {"refused": "notes_off", "message": "the learner's notes are not available"}
-    allowed: dict[str, str] = {}
-    for node in state.brief.get("nodes") or []:
-        for note in node.get("your_notes") or []:
-            allowed[note["id"]] = node["id"]
-    out = []
-    with repository.connection() as connection:
-        rows = notes_store.links(connection, learning_object_ids=set(allowed.values()))
-    views = {f"n:{view['link_id']}": view for view in NL.effective(repository, rows)}
-    for ref in refs:
-        view = views.get(ref)
-        if ref not in allowed or view is None:
-            out.append({"id": ref, "refused": "not one of the notes in the brief"})
-            continue
-        note = view["note"]
-        out.append({"id": ref, "voice": "the learner's own note: what they think, not a source of truth",
-                    "title": note.get("title"), "heading": note.get("heading"), "date": note.get("date_label"),
-                    "text": note.get("text"), "truncated": note.get("truncated")})
-    return {"notes": out}
-
-
-__all__ = ["ActionRefused", "caller_for", "find", "read_history", "read_note", "read_source", "run_read"]
+__all__ = ["ActionRefused", "caller_for", "find", "read_history", "read_source", "run_read"]

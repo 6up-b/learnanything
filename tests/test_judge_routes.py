@@ -168,7 +168,11 @@ def test_settings_payload_discloses_each_judgment_route(tmp_path, monkeypatch, c
                            "hint_outcome", "ad_forecast_llm", "ad_forecast_decider", "ad_feature_audit",
                            "workbench_check", "passage_cue_judge", "reading_path_judge", "figure_author",
                            "deliverable_scope_resolver", "deliverable_path_judge", "reader_digest",
-                           "figure_rich_author", "note_link_judge"}
+                           "figure_rich_author", "note_link_judge", "teacher"}
+    # Teacher TE1: the lesson's teacher reads the learner's history and the lesson; never exam material,
+    # and it never grades.
+    assert "never exam or held-out material" in judges["teacher"]["disclosure"]
+    assert "The teacher never grades you" in judges["teacher"]["disclosure"]
     # Reader RW5d P2b: the rich author receives what the figure author did plus the brief, never learner data.
     assert "never material held out for an exam" in judges["figure_rich_author"]["disclosure"]
     assert "allow it once" in judges["figure_rich_author"]["disclosure"]

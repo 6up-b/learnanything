@@ -483,40 +483,16 @@ def _resolution_phrases(resolution: Any) -> dict[str, str]:
     return out
 
 
-def your_notes(vault: Any, repository: Any, learning_object_ids: Sequence[str]) -> dict[str, list[dict[str, Any]]]:
-    """Per LO, headers of the learner's linked notes (title, heading, date, one line): their own voice (C4)."""
-
-    try:
-        from learnloop.db.stores import learner_notes as notes_store
-        from learnloop.source_retrieval import note_links as NL
-
-        if not NL.enabled(vault) or not NL.available(vault):
-            return {}
-        with repository.connection() as connection:
-            rows = notes_store.links(connection, learning_object_ids=set(learning_object_ids))
-        out: dict[str, list[dict[str, Any]]] = {}
-        for view in NL.effective(repository, rows):
-            lo = str(view.get("learning_object_id") or "")
-            if lo not in set(learning_object_ids):
-                continue
-            note = view["note"]
-            first = next((line.strip() for line in str(note.get("text") or "").splitlines() if line.strip()), "")
-            out.setdefault(lo, []).append({
-                "id": f"n:{view['link_id']}", "title": note.get("title"), "heading": note.get("heading"),
-                "date": note.get("date_label"), "line": first[:STEM_CHARS],
-                "voice": "the learner's own note (what they think; not a source)"})
-        return out
-    except Exception:  # noqa: BLE001 - notes that can't be read are left out
-        return {}
-
-
 # --- the brief -------------------------------------------------------------------------
 
 
 def build_brief(vault: Any, repository: Any, *, learning_object_ids: Sequence[str], how: Mapping[str, str],
                 goal_text: str, selection: Mapping[str, Any] | None, driver: str, lesson_id: str | None,
-                constraints: Mapping[str, Any]) -> tuple[dict[str, Any], SourceBook]:
-    """``(LessonBriefV1, the delivered passages)``."""
+                constraints: Mapping[str, Any],
+                notes_provider: Any = None) -> tuple[dict[str, Any], SourceBook]:
+    """``(LessonBriefV1, the delivered passages)``. ``notes_provider`` (curriculum C4) gives the learner's
+    linked notes per LO; it is injected by the service (``teacher.notes``), so the brief, and the check
+    minting that reads it, never reach the notes' code (spec_deliverable_curriculum_v1 §10.2)."""
 
     from learnloop.learner.lesson_weight import read_hedges
     from learnloop.learner_protection import withheld_items
@@ -533,7 +509,7 @@ def build_brief(vault: Any, repository: Any, *, learning_object_ids: Sequence[st
     history = _history(vault, repository, all_los, withheld, hedges)
     attempted = {row["practice_item_id"] for row in _attempt_rows(repository, all_los)}
     deliverable = deliverable_for(vault, repository, learning_object_ids) if c4_active(vault) else None
-    notes = your_notes(vault, repository, all_los) if c4_active(vault) else {}
+    notes = notes_provider(vault, repository, all_los) if (c4_active(vault) and notes_provider) else {}
     nodes = []
     for lo, kind, depth in nodes_spec:
         learning_object = vault.learning_objects[lo]
@@ -600,5 +576,4 @@ __all__ = [
     "lo_prediction",
     "prerequisite_nodes",
     "resolve_goal",
-    "your_notes",
 ]

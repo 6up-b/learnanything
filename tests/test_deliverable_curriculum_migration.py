@@ -92,7 +92,7 @@ def test_the_checks_and_the_append_only_triggers(tmp_path):
 
 def test_the_head_fixture_holds_exactly_228s_objects_in_rollback_mode():
     assert HEAD.read_bytes()[18:20] == b"\x01\x01"
-    assert max(applied_versions(HEAD)) == max(m.version for m in discover_migrations()) == 229
+    assert max(applied_versions(HEAD)) == max(m.version for m in discover_migrations()) == 230
     with closing(sqlite3.connect(f"file:{HEAD}?mode=ro", uri=True)) as connection:
         names = {row[0] for row in connection.execute("SELECT name FROM sqlite_master")}
         assert C0B_ADDED_OBJECTS <= names

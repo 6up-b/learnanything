@@ -111,7 +111,7 @@ def lesson_turn(ctx: SidecarContext, params: LessonTurnInput) -> dict[str, Any]:
                 raise SidecarError("validation_error", "lesson_id is required.")
             payload = {"text": params.text, "answer": params.answer, "check_ref": params.check_ref,
                        "tap": params.tap, "thinking": params.thinking}
-            result = S.turn(vault, repository, lesson_id=params.lesson_id, action=params.action, payload=payload,
+            result = S.take_turn(vault, repository, lesson_id=params.lesson_id, action=params.action, payload=payload,
                             clients=clients)
     except S.LessonError as exc:
         raise _error(exc) from exc

@@ -91,7 +91,7 @@ def test_the_head_fixture_holds_exactly_227s_objects_in_rollback_mode():
         assert RW6B_ADDED_OBJECTS <= names
         # Curriculum C0b's 228 landed first; the head holds 226 + 227 + 228.
         assert connection.execute("SELECT 1 FROM schema_migrations WHERE version = 227").fetchone()
-        assert connection.execute("SELECT MAX(version) FROM schema_migrations").fetchone()[0] == 229
+        assert connection.execute("SELECT MAX(version) FROM schema_migrations").fetchone()[0] == 230
         assert connection.execute("PRAGMA journal_mode").fetchone()[0] == "delete"
         assert connection.execute("SELECT COUNT(*) FROM reader_session_digests").fetchone()[0] == 0
     assert HEAD.read_bytes()[18:20] == b"\x01\x01"

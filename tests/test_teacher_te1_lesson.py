@@ -42,11 +42,11 @@ def test_a_whole_lesson_opens_teaches_checks_and_closes_with_delayed_checks(tmp_
     assert [entry["kind"] for entry in view["feed"]][:1] == ["message"]
     assert view["plan"] and view["plan"][0]["id"] == "n1"
     # The learner says go; the teacher poses a check (minted, held, collapsed on screen).
-    view = S.turn(load_vault(paths.root), repository, lesson_id=lesson_id, action="reply",
+    view = S.take_turn(load_vault(paths.root), repository, lesson_id=lesson_id, action="reply",
                   payload={"text": "Go ahead."}, clients=clients(fake))
     assert view["open_check"] is not None and "committed_solution" not in str(view["open_check"])
     fake.turns = [landed_and_close_turn()]
-    view = S.turn(load_vault(paths.root), repository, lesson_id=lesson_id, action="answer_check",
+    view = S.take_turn(load_vault(paths.root), repository, lesson_id=lesson_id, action="answer_check",
                   payload={"answer": "det(A - tI) = 0", "tap": 4, "thinking": "THINKINGNOTE char poly"},
                   clients=clients(fake))
     assert view["closed"] and view["close_reason"] == "goal_reached"
@@ -79,7 +79,7 @@ def test_the_minted_check_item_is_held_to_its_lesson(tmp_path):
     from learnloop.vault.lifecycle import LESSON_HOLD, practice_item_serving_block
 
     paths, repository, fake, view = _open(tmp_path, [plan_turn, check_turn()])
-    S.turn(load_vault(paths.root), repository, lesson_id=view["lesson_id"], action="reply",
+    S.take_turn(load_vault(paths.root), repository, lesson_id=view["lesson_id"], action="reply",
            payload={"text": "ok"}, clients=clients(fake))
     vault = load_vault(paths.root)
     minted = [item for item in vault.practice_items.values() if item.id.startswith("pi_lesson_")]
@@ -148,7 +148,7 @@ def test_a_plan_whose_anchors_do_not_resolve_is_refused_back_to_the_teacher(tmp_
 
 def test_forecasts_are_receipts_with_their_bindings(tmp_path):
     paths, repository, fake, view = _open(tmp_path, [plan_turn, check_turn()])
-    S.turn(load_vault(paths.root), repository, lesson_id=view["lesson_id"], action="reply", payload={"text": "go"},
+    S.take_turn(load_vault(paths.root), repository, lesson_id=view["lesson_id"], action="reply", payload={"text": "go"},
            clients=clients(fake))
     rows = _rows(repository, "SELECT kind, scope, binding_kind, decision_kind, p FROM forecast_receipts")
     assert ("lesson_check_correct", "lesson_check", "lesson_check_attempt", "lesson", 0.75) in rows
@@ -185,7 +185,7 @@ def test_citations_must_name_delivered_passages_and_quotes_must_match(tmp_path):
 def test_while_a_check_is_open_its_solution_is_never_shown(tmp_path):
     leaking = check_turn(solution="the roots of det(A - tI) = 0", message="Hint: the roots of det(A - tI) = 0.")
     paths, repository, fake, view = _open(tmp_path, [plan_turn, leaking, check_turn(solution="the roots of det(A - tI) = 0")])
-    view = S.turn(load_vault(paths.root), repository, lesson_id=view["lesson_id"], action="reply",
+    view = S.take_turn(load_vault(paths.root), repository, lesson_id=view["lesson_id"], action="reply",
                   payload={"text": "go"}, clients=clients(fake))
     assert all("Hint: the roots" not in str(entry) for entry in view["feed"])
     assert view["open_check"] is not None
@@ -194,10 +194,10 @@ def test_while_a_check_is_open_its_solution_is_never_shown(tmp_path):
 
 def test_help_that_gives_the_solution_away_withdraws_the_check_with_no_attempt(tmp_path):
     paths, repository, fake, view = _open(tmp_path, [plan_turn, check_turn(solution="the roots of det(A - tI) = 0")])
-    S.turn(load_vault(paths.root), repository, lesson_id=view["lesson_id"], action="reply", payload={"text": "go"},
+    S.take_turn(load_vault(paths.root), repository, lesson_id=view["lesson_id"], action="reply", payload={"text": "go"},
            clients=clients(fake))
     fake.turns = [{"message": "Here it is: the roots of det(A - tI) = 0."}]
-    view = S.turn(load_vault(paths.root), repository, lesson_id=view["lesson_id"], action="reply",
+    view = S.take_turn(load_vault(paths.root), repository, lesson_id=view["lesson_id"], action="reply",
                   payload={"text": "I'm stuck, help?"}, clients=clients(fake))
     assert view["open_check"] is None and view["notices"]
     assert _rows(repository, "SELECT status, attempt_id FROM lesson_checks") == [("withdrawn", None)]
@@ -286,9 +286,9 @@ def test_with_the_learned_weight_off_a_check_enters_at_the_types_configured_mass
     fake = TeacherFake([plan_turn, check_turn()])
     view = S.open_lesson(load_vault(paths.root), repository, entry="learning_object", learning_object_ids=["lo_eigen"],
                          clients=clients(fake))
-    S.turn(load_vault(paths.root), repository, lesson_id=view["lesson_id"], action="reply", payload={"text": "go"},
+    S.take_turn(load_vault(paths.root), repository, lesson_id=view["lesson_id"], action="reply", payload={"text": "go"},
            clients=clients(fake))
-    S.turn(load_vault(paths.root), repository, lesson_id=view["lesson_id"], action="answer_check",
+    S.take_turn(load_vault(paths.root), repository, lesson_id=view["lesson_id"], action="answer_check",
            payload={"answer": "det(A - tI) = 0"}, clients=clients(fake))
     assert _rows(repository, "SELECT mass_applied, json_extract(weight_inputs_json, '$.rule') FROM lesson_checks") \
         == [(0.5, "fixed")]
