@@ -295,17 +295,20 @@ def test_offer_trigger_is_anchor_only_and_needs_no_judge(tmp_path):
 
 
 def test_lesson_trigger_builds_the_planned_visuals_of_nodes_not_yet_reached(tmp_path, monkeypatch):
-    """A stored node carrying a planned ``visual`` (spec §10.4; the shape RW5d P4b adds to
-    ``write_plan``): only that node is a candidate (Codex review F8: n3, with no visual, is not;
-    TE1's real plans carry none, ``test_figures_prefetch_review_fixes``)."""
+    """A stored node carrying a planned ``visual`` (spec §10.4; RW5d P4b's ``write_plan`` node
+    ``PlannedVisualV1``): only that node is a candidate (Codex review F8: n3, with no visual, is not),
+    built as the lesson step's own request (landing ruling R5: no passage, the delivered passages as
+    grounding keys; the end-to-end reuse through the real lesson is in
+    ``test_figures_prefetch_review_fixes``)."""
 
     from learnloop.teacher import service as TS
 
     _paths, repository, vault = make_vault(tmp_path)
     state = SimpleNamespace(
-        closed=False, landed=["n1"],
+        lesson_id="les_1", closed=False, landed=["n1"],
         plans=[{"outline": [{"id": "n1", "anchors": ["S1"]},
-                            {"id": "n2", "anchors": ["S2"], "visual": {"goal_text": "slide p, watch the left mass"}},
+                            {"id": "n2", "anchors": ["S2"],
+                             "visual": {"goal": "slide p, watch the left mass", "anchors": ["S2"]}},
                             {"id": "n3", "anchors": ["S1"]}]}],
         book=SimpleNamespace(passages={"S1": {"extraction_id": EXTRACTION, "span_id": "p2"},
                                        "S2": {"extraction_id": EXTRACTION, "span_id": "p3"}}))
@@ -317,6 +320,7 @@ def test_lesson_trigger_builds_the_planned_visuals_of_nodes_not_yet_reached(tmp_
     assert row["goal_text"] == "slide p, watch the left mass" and row["horizon_kind"] == "lesson_closed"
     (request,) = rows(repository, "figure_requests")
     assert request["goal_author"] == "teacher" and request["origin"] == "prefetch"
+    assert json.loads(request["grounding_manifest_json"])["given"] == [[EXTRACTION, "p3"]]
     assert author.contexts[0]["learner_request"] == {"text": "slide p, watch the left mass", "written_by": "teacher"}
 
 

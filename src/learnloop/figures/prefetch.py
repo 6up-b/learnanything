@@ -14,9 +14,12 @@ nothing imports it back (the sidecar calls it). One pass per trigger::
 * ``offer``: RW5b's explorable offers (the tutor's or the organizer's
   ``explorable: yes`` blocks, confirmed by their ledger rows): each block,
   anchor-only, exactly the input *make this explorable* sends;
-* ``lesson``: a TE1 lesson plan stored: each plan node not yet reached, on its
-  passages (anchor-only, or with a planned ``visual`` goal the teacher wrote
-  when a node carries one);
+* ``lesson``: a TE1 lesson plan stored: each plan node not yet reached that
+  carries a planned ``visual`` (RW5d P4b's ``write_plan`` node): exactly the
+  request the lesson's step will make (``teacher.visuals.figure_request``: the
+  teacher's goal, the delivered passages as fixed grounding keys, no passage,
+  grammar and sketch only), so the step reuses the prebuilt figure by its input
+  hash (landing ruling R5);
 * ``gap``: open misconceptions and learner-text gaps on topics the stored
   plan or an open lesson touches: one help figure per gap, on a passage that
   treats its topic (the topic's own provenance passages, no retrieval call),
@@ -54,7 +57,7 @@ under ``quiet()``; its gate holds on the switch and the power before every
 request). A later press of the same input reuses the figure by its input hash.
 
 **Outcomes** at the structural horizon (§10b.5): ``opened`` (a built figure
-was opened), ``asked`` (none was built and the learner pressed for one on
+was opened; a lesson's, delivered by the lesson's step: landing ruling R5), ``asked`` (none was built and the learner pressed for one on
 this passage), ``neither``, ``void`` (the passage is withheld now). Set once.
 
 **Plan pauses.** The plan session keeps only its latest usage-limit pause;
@@ -153,6 +156,10 @@ class Candidate:
     goal_text: str | None = None
     goal_author: str | None = None
     p_open_content: float | None = None
+    #: Landing ruling R5: a lesson's planned visual is grounded on the delivered passages, as the
+    #: lesson's own request is (``extraction_id``/``span_ids`` then name the first book's of them,
+    #: for the ledger's anchor); None for every other candidate (anchored on its passage).
+    grounding_keys: tuple[tuple[str, str], ...] | None = None
 
     @property
     def horizon_kind(self) -> str:
@@ -167,7 +174,11 @@ class Candidate:
         """The request's identity before any build: its passage and its goal and who wrote it."""
 
         goal = " ".join(str(self.goal_text or "").split()) or None
-        return content_key({"anchor": self.anchor, "goal_text": goal, "goal_author": self.goal_author if goal else None})
+        key: dict[str, Any] = {"anchor": self.anchor, "goal_text": goal,
+                               "goal_author": self.goal_author if goal else None}
+        if self.grounding_keys is not None:
+            key["grounding_keys"] = [list(item) for item in self.grounding_keys]
+        return content_key(key)
 
 
 @dataclass
@@ -317,10 +328,18 @@ def context_spans(env: PrefetchEnv, candidate: "Candidate") -> list[str]:
 
 
 def protected(env: PrefetchEnv, candidate: "Candidate", protection: ItemProtection) -> bool:
-    """The candidate's whole author context touches an item's own passage."""
+    """The candidate's whole author context touches an item's own passage (landing ruling R5:
+    a planned visual's, over each of its grounding passages and the paragraphs around them)."""
 
     if not protection.available:
         return True
+    if candidate.grounding_keys is not None:
+        books: dict[str, list[str]] = {}
+        for extraction_id, span_id in candidate.grounding_keys:
+            books.setdefault(str(extraction_id), []).append(str(span_id))
+        return any(protection.covers(extraction_id, context_spans(env, replace(
+            candidate, extraction_id=extraction_id, span_ids=spans, grounding_keys=None)))
+            for extraction_id, spans in books.items())
     return protection.covers(candidate.extraction_id, context_spans(env, candidate))
 
 
@@ -647,19 +666,29 @@ def next_section(env: PrefetchEnv, extraction_id: str, section_id: str) -> str |
 
 
 def planned_visual(node: Mapping[str, Any]) -> dict[str, Any] | None:
-    """A plan node's planned visual (spec §10.4: ``write_plan``'s node ``visual``, a figure request
-    whose goal the teacher wrote), or None. Codex review F8: only a node that carries one is ever
-    prebuilt; TE1's ``PlanNodeV1`` has no ``visual`` yet (RW5d P4b adds it), so with TE1's plans
-    the lesson trigger builds nothing."""
+    """A plan node's planned visual (spec §10.4: RW5d P4b's ``write_plan`` node ``visual``,
+    ``PlannedVisualV1``: the goal the teacher wrote and the delivered passages it rests on), as
+    ``{"goal": ..., "anchors": [...]}``, or None. Codex review F8: only a node that carries one is
+    ever prebuilt (a node without one, or one that does not validate, names nothing)."""
+
+    from learnloop.teacher.contracts import PlannedVisualV1
 
     visual = node.get("visual")
     if not isinstance(visual, Mapping):
         return None
-    goal = " ".join(str(visual.get("goal_text") or "").split())
-    return {"goal_text": goal or None}
+    try:
+        planned = PlannedVisualV1.model_validate(dict(visual))
+    except Exception:  # noqa: BLE001 - a stored visual that does not validate names nothing
+        return None
+    return {"goal": planned.goal, "anchors": list(planned.anchors)}
 
 
 def _lesson_candidates(env: PrefetchEnv, lesson_id: str) -> list[Candidate]:
+    """Landing ruling R5: each node not yet reached with a planned visual, as the request the
+    lesson's step will make for it (P4b's own builder, ``teacher.visuals.figure_request``, so the
+    goal and the grounding keys are byte for byte the step's and its input hash is the same)."""
+
+    from learnloop.teacher import visuals as TV
     from learnloop.teacher.service import load_state
 
     try:
@@ -675,14 +704,17 @@ def _lesson_candidates(env: PrefetchEnv, lesson_id: str) -> list[Candidate]:
         visual = planned_visual(node)
         if not node_id or node_id in landed or visual is None:
             continue
-        passages = [state.book.passages[alias] for alias in node.get("anchors") or () if alias in state.book.passages]
-        if not passages:
+        if any(alias not in state.book.passages for alias in visual["anchors"]):
+            continue  # the step would refuse it (P4b: anchors are delivered passages)
+        request = TV.figure_request(state, {"goal": visual["goal"], "anchors": visual["anchors"], "node": node_id,
+                                            "planned": True}, caller=None)
+        keys = tuple((str(key[0]), str(key[1])) for key in request.grounding_keys or ())
+        if not keys:
             continue
-        extraction_id = str(passages[0]["extraction_id"])
-        spans = list(dict.fromkeys(str(p["span_id"]) for p in passages if str(p["extraction_id"]) == extraction_id))
-        goal = visual["goal_text"]
-        found.append(Candidate("lesson", f"{lesson_id}:{node_id}", extraction_id, spans[:MAX_NODE_SPANS], goal,
-                               "teacher" if goal else None, None))
+        extraction_id = keys[0][0]
+        spans = list(dict.fromkeys(span for book, span in keys if book == extraction_id))
+        found.append(Candidate("lesson", f"{lesson_id}:{node_id}", extraction_id, spans[:MAX_NODE_SPANS],
+                               request.goal_text, "teacher", None, grounding_keys=keys))
     return found
 
 
@@ -826,12 +858,28 @@ def already_built(repository: Repository, candidate: Candidate) -> bool:
     from learnloop.db.stores.figures import SHOWN
 
     goal = " ".join(str(candidate.goal_text or "").split()) or None
+    if candidate.grounding_keys is not None:
+        # Landing ruling R5: a lesson's planned visual (no passage; its goal and grounding keys).
+        keys = [list(key) for key in candidate.grounding_keys]
+        with closing(connect(repository.sqlite_path, read_only=True)) as connection:
+            rows = connection.execute(
+                "SELECT input_span_keys_json, goal_text, verification FROM interactive_figures WHERE extraction_id "
+                "IS NULL AND supersedes_id IS NULL AND fuller_of_id IS NULL AND goal_text = ?", (goal,)).fetchall()
+        return any(_key_list(row[0]) == keys and row[2] in SHOWN for row in rows)
     with closing(connect(repository.sqlite_path, read_only=True)) as connection:
         rows = connection.execute(
             "SELECT span_ids_json, goal_text, verification FROM interactive_figures WHERE extraction_id = ? "
             "AND supersedes_id IS NULL AND fuller_of_id IS NULL", (candidate.extraction_id,)).fetchall()
     return any(_span_list(row[0]) == list(candidate.span_ids) and (row[1] or None) == goal and row[2] in SHOWN
                for row in rows)
+
+
+def _key_list(raw: Any) -> list[list[str]]:
+    try:
+        value = json.loads(raw or "[]")
+    except (TypeError, ValueError):
+        return []
+    return [[str(item) for item in key] for key in value or () if isinstance(key, (list, tuple))]
 
 
 def _held_plan_items(env: PrefetchEnv) -> list[Any]:
@@ -847,7 +895,7 @@ def _held_plan_items(env: PrefetchEnv) -> list[Any]:
 def filter_candidates(env: PrefetchEnv, found: Iterable[Candidate], *, open_keys: set[str]) -> list[Candidate]:
     """The code filters (spec §10b.2), before any build call; the build repeats the protection."""
 
-    from learnloop.figures.service import withheld_message
+    from learnloop.figures.service import keys_withheld, withheld_message
 
     vault = env.vault
     if not enabled(vault):
@@ -868,6 +916,9 @@ def filter_candidates(env: PrefetchEnv, found: Iterable[Candidate], *, open_keys
             continue
         if withheld_message(vault, env.repository, candidate.extraction_id, candidate.span_ids) is not None:
             continue
+        if candidate.grounding_keys is not None and keys_withheld(vault, env.repository,
+                                                                  list(candidate.grounding_keys)) is not None:
+            continue  # landing ruling R5: every grounding passage of a planned visual
         if protected(env, candidate, protection):
             continue  # the author's whole context, its neighbours too (Codex review F4)
         if already_built(env.repository, candidate):
@@ -1138,11 +1189,20 @@ def run_builds(env: PrefetchEnv, queue: Sequence[tuple[dict[str, Any], Candidate
         if not reserve_build(env, str(row["id"])):
             result.notes.append("today's prebuilds are used up: the rest wait")
             return
-        spawn = _rich_spawn(env)
-        request = FS.FigureRequest(extraction_id=candidate.extraction_id, span_ids=list(candidate.span_ids),
-                                   origin="prefetch", goal_text=candidate.goal_text,
-                                   goal_author=candidate.goal_author if candidate.goal_text else None,
-                                   prefetch_decision_id=str(row["id"]))
+        if candidate.grounding_keys is not None:
+            # Landing ruling R5: the lesson step's own request (no passage, its grounding keys);
+            # a lesson host is grammar and sketch only, so no rich job (the input hash is the step's).
+            spawn = None
+            request = FS.FigureRequest(extraction_id=None, span_ids=[], origin="prefetch",
+                                       goal_text=candidate.goal_text, goal_author="teacher",
+                                       grounding_keys=[tuple(key) for key in candidate.grounding_keys],
+                                       prefetch_decision_id=str(row["id"]))
+        else:
+            spawn = _rich_spawn(env)
+            request = FS.FigureRequest(extraction_id=candidate.extraction_id, span_ids=list(candidate.span_ids),
+                                       origin="prefetch", goal_text=candidate.goal_text,
+                                       goal_author=candidate.goal_author if candidate.goal_text else None,
+                                       prefetch_decision_id=str(row["id"]))
         with _BUILD_SLOTS:
             try:
                 FS.build_prefetch_figure(current, env.repository, request, author_client=env.author_client,
@@ -1275,6 +1335,21 @@ def _opened(connection: Any, figure_ids: set[str], since: datetime, until: datet
     return False
 
 
+def _delivered(connection: Any, figure_ids: set[str], since: datetime, until: datetime) -> bool:
+    """Landing ruling R5: a lesson's step delivered the prebuilt figure (its own request reused it)
+    before the horizon: the lesson showed it, the lesson's equivalent of opening it."""
+
+    if not figure_ids:
+        return False
+    marks = ",".join("?" for _ in figure_ids)
+    for (created_at,) in connection.execute(
+            f"SELECT created_at FROM figure_requests WHERE origin = 'teacher' AND figure_id IN ({marks})",
+            tuple(sorted(figure_ids))):
+        if _between(created_at, since, until):
+            return True
+    return False
+
+
 def _asked(connection: Any, row: Mapping[str, Any], since: datetime, until: datetime) -> bool:
     """A pressed request for this very input (its passage, and its goal or none) before the horizon."""
 
@@ -1330,8 +1405,10 @@ def close_horizons(env: PrefetchEnv, result: PassResult | None = None) -> int:
                 continue
             since = PL._when(row["created_at"]) or until
             if row.get("request_id"):
-                outcome = "opened" if _opened(connection, _figure_ids(connection, str(row["request_id"])),
-                                              since, until) else "neither"
+                ids = _figure_ids(connection, str(row["request_id"]))
+                shown = _opened(connection, ids, since, until) or (
+                    row["trigger_kind"] == "lesson" and _delivered(connection, ids, since, until))
+                outcome = "opened" if shown else "neither"
             else:
                 outcome = "asked" if _asked(connection, row, since, until) else "neither"
             outcomes.append((str(row["id"]), outcome))

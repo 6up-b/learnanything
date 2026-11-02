@@ -1019,6 +1019,11 @@ ignore_imports = [
     # nor the teacher imports it, so these edges cannot cycle at import time.
     "learnloop.figures.prefetch -> learnloop.daily_plan.engine",
     "learnloop.figures.prefetch -> learnloop.teacher.service",
+    # Landing ruling R5: the lesson trigger builds a planned visual as the lesson step's own
+    # request through P4b's builder (teacher.visuals.figure_request) and reads the node's
+    # PlannedVisualV1 (teacher.contracts); function-local, and teacher never imports prefetch.
+    "learnloop.figures.prefetch -> learnloop.teacher.visuals",
+    "learnloop.figures.prefetch -> learnloop.teacher.contracts",
     # Adaptive difficulty AD2+AD3: composition-root registration of AD's two
     # DERIVED-table owners (function-local imports in the orchestrator).
     "learnloop.substrate.rebuild_orchestrator -> learnloop.adaptive_difficulty.replay",

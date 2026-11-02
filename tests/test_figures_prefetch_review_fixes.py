@@ -857,3 +857,96 @@ def test_r1_a_queued_speculative_fuller_is_marked_speculative(tmp_path, monkeypa
                              spawn_rich=rig.spawn)
     fuller = FS.fuller_state(rig.vault, rig.repository, _quick_row(rig))
     assert fuller["state"] == "pending" and fuller["speculative"] is True
+
+
+# ---------------------------------------------------------------------------
+# Landing ruling R5: the lesson trigger prebuilds P4b's real planned visual as the
+# very request the lesson's step makes, so delivery reuses it with no author call
+# ---------------------------------------------------------------------------
+
+def _planned_lesson(tmp_path, author):
+    from learnloop.teacher import service as S
+    from tests.teacher_fakes import TeacherFake, build_teacher_vault, plan_turn
+    from tests.test_figures_prefetch import seed_wait
+    from tests.test_reader_rw5d_p4b_teacher_visuals import GOAL, _aliases, _builder, _clients
+
+    def plan_with_visual(context):
+        turn = plan_turn(context)
+        turn["requests"][0]["plan"][0]["visual"] = {"goal": GOAL, "anchors": _aliases(context)[:1]}
+        return turn
+
+    def step(context):
+        return {"message": "Step one.", "visual": {"goal": "", "anchors": [], "planned_node": "n1"}}
+
+    paths, repository = build_teacher_vault(tmp_path / "vault")
+    set_config(paths, "figures", prefetch_enabled=True)
+    seed_wait(repository)
+    fake = TeacherFake([plan_with_visual, step])
+    build = _builder(paths, repository, author)
+    view = S.open_lesson(load_vault(paths.root), repository, entry="learning_object", learning_object_ids=["lo_eigen"],
+                         clients=_clients(fake, build))
+    return paths, repository, fake, build, view
+
+
+def test_r5_a_planned_visual_is_prebuilt_and_the_lesson_step_reuses_it_with_no_author_call(tmp_path):
+    from learnloop.teacher import service as S
+    from learnloop.teacher import visuals as TV
+    from learnloop.teacher.service import load_state
+    from tests.test_reader_rw5d_p4b_teacher_visuals import GOAL, _clients, _spec
+
+    author = AuthorFake([_spec()])
+    paths, repository, fake, build, view = _planned_lesson(tmp_path, author)
+    lesson_id = view["lesson_id"]
+    state = load_state(repository, lesson_id)
+    planned = PF.planned_visual(state.plans[-1]["outline"][0])
+    assert planned is not None and planned["goal"] == GOAL
+    # The candidate is P4b's own request for that node (same goal and grounding keys).
+    lesson_request = TV.figure_request(state, {"goal": planned["goal"], "anchors": planned["anchors"], "node": "n1",
+                                               "planned": True}, caller=None)
+    vault = load_vault(paths.root)
+    (candidate,) = PF.candidates(env_for(vault, repository), PF.Trigger("lesson", lesson_id), call=True,
+                                 result=PF.PassResult("ok", "lesson"))
+    assert candidate.goal_text == lesson_request.goal_text and candidate.goal_author == "teacher"
+    assert list(candidate.grounding_keys) == [tuple(key) for key in lesson_request.grounding_keys]
+    PF.run_trigger(env_for(vault, repository, author=author), PF.Trigger("lesson", lesson_id))
+    (decision,) = decisions(repository)
+    assert decision["decision"] == "build" and decision["request_id"] is not None
+    assert author.calls == 1  # the prebuild
+    (prebuilt,) = rows(repository, "interactive_figures")
+    assert prebuilt["origin"] == "prefetch" and prebuilt["extraction_id"] is None
+    assert prebuilt["input_hash"] == decision["input_hash"]
+    # The step that shows node n1's planned visual: delivered from the prebuilt figure, no author call.
+    S.take_turn(load_vault(paths.root), repository, lesson_id=lesson_id, action="reply", payload={"text": "go"},
+                clients=_clients(fake, build))
+    assert author.calls == 1
+    delivered = [row for row in rows(repository, "figure_requests") if row["origin"] == "teacher"]
+    assert len(delivered) == 1 and delivered[0]["figure_id"] == prebuilt["id"]
+    assert len(rows(repository, "interactive_figures")) == 1
+    # Once the lesson closes, the decision's outcome is "opened" (the lesson showed it).
+    with repository.connection() as connection:
+        connection.execute("UPDATE lessons SET closed_at = ?, close_reason = 'learner_stop' WHERE id = ?",
+                           ("2999-01-01T00:00:00Z", lesson_id))
+        connection.commit()
+    PF.close_horizons(env_for(load_vault(paths.root), repository, clock=FrozenClock(datetime(3000, 1, 1, tzinfo=UTC))))
+    (closed,) = decisions(repository)
+    assert closed["outcome"] == "opened"
+
+
+def test_r5_a_planned_visual_on_a_held_out_passage_is_not_a_candidate(tmp_path, monkeypatch):
+    from learnloop.teacher.service import load_state
+
+    author = AuthorFake([_spec_for_r5()])
+    paths, repository, _fake, _build, view = _planned_lesson(tmp_path, author)
+    state = load_state(repository, view["lesson_id"])
+    planned = PF.planned_visual(state.plans[-1]["outline"][0])
+    key = state.book.passages[planned["anchors"][0]]
+    monkeypatch.setattr(FS, "keys_withheld", lambda v, r, keys: "held out" if any(
+        tuple(k) == (str(key["extraction_id"]), str(key["span_id"])) for k in keys) else None)
+    PF.run_trigger(env_for(load_vault(paths.root), repository, author=author), PF.Trigger("lesson", view["lesson_id"]))
+    assert decisions(repository) == [] and author.calls == 0
+
+
+def _spec_for_r5():
+    from tests.test_reader_rw5d_p4b_teacher_visuals import _spec
+
+    return _spec()

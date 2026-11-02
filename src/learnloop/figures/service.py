@@ -176,8 +176,8 @@ from learnloop.ids import new_ulid
 #: on practice, feedback and the workbench: an attempt host, P3); RW5d P4b adds
 #: ``teacher`` (a lesson's visual: made only by the lesson service, under a
 #: ``teacher`` caller with the lesson as its host, never from an RPC);
-#: ``prefetch`` (P5, in-process only) is reserved by migration 224 and refused
-#: from every request until its phase lands.
+#: ``prefetch`` (P5, reserved by migration 224) is made only in process by the
+#: prefetch service (:func:`build_prefetch_figure`) and refused from every request.
 ORIGINS = ("selection", "library", "tutor", "show_me", "ask", "teacher")
 RESERVED_ORIGINS = ("prefetch",)
 #: The origins no RPC may name (the lesson service's and the prefetch service's own).
@@ -1773,17 +1773,27 @@ def _validated_prefetch(vault: Any, request: FigureRequest) -> FigureRequest:
     if not prefetch_switch(vault):
         raise FigureRefused("prefetch_disabled", "Figures ahead of need are switched off (figures.prefetch_enabled).")
     spans = [str(span) for span in dict.fromkeys(request.span_ids) if span][:40]
-    if not request.extraction_id or not spans:
+    goal = " ".join(str(request.goal_text or "").split())[:GOAL_CHARS] or None
+    # Landing ruling R5: a lesson plan's planned visual is prebuilt as the very request the
+    # lesson's step will make (teacher.visuals.figure_request): no passage, the delivered
+    # passages as fixed grounding keys and the teacher's goal, so the step reuses it.
+    planned = (not spans and not request.extraction_id and bool(request.grounding_keys)
+               and goal is not None and request.goal_author == "teacher")
+    if not planned and (not request.extraction_id or not spans):
         raise FigureRefused("validation_error", "A figure built ahead of need needs its passage.")
     if attempt_hosted(request) or request.region is not None or request.supersedes_id is not None:
         raise FigureRefused("validation_error", "A figure built ahead of need is a passage's, never an attempt's.")
-    goal = " ".join(str(request.goal_text or "").split())[:GOAL_CHARS] or None
     if goal is not None:
         if not show_me_enabled(vault):
             raise FigureRefused("show_me_disabled", "\"Show me\" in your own words is switched off "
                                                     "(figures.show_me_enabled).")
         if request.goal_author not in PREFETCH_GOAL_AUTHORS:
             raise FigureRefused("validation_error", "That figure goal can't come from here.")
+    if planned:
+        keys = [(str(key[0]), str(key[1])) for key in request.grounding_keys or () if len(key) == 2 and key[0] and key[1]]
+        return FigureRequest(extraction_id=None, span_ids=[], origin="prefetch", goal_text=goal, goal_author="teacher",
+                             caller=request.caller, grounding_keys=keys,
+                             prefetch_decision_id=request.prefetch_decision_id)
     return FigureRequest(extraction_id=str(request.extraction_id), span_ids=spans, origin="prefetch",
                          goal_text=goal, goal_author=request.goal_author if goal is not None else None,
                          caller=request.caller, prefetch_decision_id=request.prefetch_decision_id)
