@@ -229,3 +229,119 @@ fixture rebuild, DB reference generate/validate).
   stateless key; a "reuse a shown stateless figure" fallback is possible if the
   owner prefers fewer builds.
 * `hints-report-v2` was not bumped for the additive `drafts_kept` count.
+
+## Landing onto main
+
+Worktree `learnanything-merge2`, branch `learner/data-relax-2`, from `3ddfd2d0d4`. Codex job
+20261101-182023-REgLcd: F1 CONFIRMED-FIXED; F2 reopened twice, remainder ruled Low (R1 below).
+No F2 code change was made in the landing.
+
+### Merges
+
+1. **Main `02614cfddd`** (curriculum C3, Reader RW5d P2 sketch compartment with
+   `sketch_enabled` on, Reader follow-ups Nov 1b) -> `984be9a89f`.
+   - `config/template.py` conflicted only in the 31 snapshot notes and hashes. Main's C3 notes
+     are kept beside this branch's notes. Every fingerprint was recomputed with
+     `defaults_fingerprint_for_version` after clearing `.pyc` (31 changed, second pass 0).
+     `sketch_enabled` stays true.
+   - Generated references: main's side taken, then regenerated. The two prose leaf counts
+     moved 1105 -> 1106. `db_validate_reference.py` errors `[]`; `validate_vault.py` passes.
+   - Parameter registry, `schema.py` and the spec auto-merged with both sides' entries.
+   - Desktop catalog regenerated after the merge commit (`6662b42c3b`), so source commits
+     resolve through main's history; `desktop_validate.py` passes.
+2. **Main `a2c26e4525`** (learner/blindness-relax, which landed while the first gate ran; the
+   gate was stopped and rerun on the result) -> `16787892b3`.
+   - `template.py` conflicted the same way: blindness-relax notes kept beside data-relax-2's,
+     so every key from both sides is in. 31 recomputed, second pass 0; `sketch_enabled` and
+     `author_learner_state` stay true.
+   - `ai/disclosures.py`, `config/schema.py`, the parameter registry and `pyproject.toml`
+     (two new import contracts) auto-merged.
+   - References: main's side taken and regenerated. Prose leaf counts 1109 -> 1110;
+     `db_validate_reference.py` errors `[]`; `validate_vault.py` passes; desktop and module
+     catalogs regenerate with no change, and both validate.
+   - `lint-imports`: 40 kept, 0 broken.
+- **Migration:** main's last migration is still 229, so this branch's stays
+  **`230_help_assist_work_md.sql`** (no renumber). Main's tracked `migration_head_229` did not
+  change after this branch's base. A check rebuilt it with the backup API plus 230 only: the
+  schema matches `fixtures/migration_head_230` exactly, and every table count matches except
+  `schema_migrations` (+1, the runner's row). The fixture is `journal_mode=delete`, header 1/1,
+  `integrity_check` ok. The tracked fixture was not rebuilt again.
+
+### Gate (on `16787892b3`)
+
+| Lane | Result |
+|---|---|
+| `lint-imports --no-cache` | 40 kept, 0 broken |
+| Full pytest (`flock` + 10G scope, `env -i`, `-n 8 --dist worksteal`) | **23547 passed, 0 failed**, 90 skipped, 47 xfailed (39:33) |
+| Durability (`-m durability -n 6`) | 180 passed, 1 skipped |
+| Owner lane (`-m owner_vaults -n 6`; `LEARNLOOP_OWNER_VAULTS` = fresh backup-API copies of `learnanything-ad1/fixtures-local/owner-copies-mvp035` in gitignored `fixtures-local/landing-dr2/`) | **83 passed, 2 failed, 4 skipped**. Both failures are the known ones (`test_activity_backfill::test_backfill_logs_attempt_duration_interaction_events`, `test_placement_fixture_copies::…[arxiv_v2]`) |
+| Frontend (`npm install`, `typecheck`, whole `vitest --maxWorkers=4` in a 5G scope, `frontend:build`) | ok; 250 files, 2397 tests passed; build ok. Run on the first merge's tree; `apps/` is identical to main `a2c26e4525` and to the tip |
+| cargo | not run: `src-tauri` does not differ from main |
+
+No unexpected failure, so nothing needed a rerun. No live model call.
+
+### Smoke (fresh owner copies, `fixtures-local/landing-dr2-smoke/`)
+
+**Setup:**
+
+- Fresh backup-API copies of the three mvp035 owner copies.
+- Every AI route at the `127.0.0.1:9` blackhole, with the key variables unset.
+- `env -i` with an empty `HOME`, `CODEX_HOME` and config directory.
+- An audit hook logs every process start and socket connect, and refuses non-loopback connects
+  and Codex process starts.
+- Main's code (`a2c26e4525`) against the branch's (`16787892b3`), each a `git archive` with
+  `migrations/`.
+- On each copy: `upgrade` mvp-0.35 -> mvp-0.40, a primary load, `rebuild-derived-state`. Main's
+  head is 229; the branch's is 230, applied cleanly.
+- Nothing was requested, rendered or built. No Manim or bwrap ran.
+
+**Results:**
+
+- **Today and the daily plan** are byte-identical, main against branch:
+  - linear_algebra: 525266 B and 84699 B;
+  - probability: 740827 B and 124024 B;
+  - arxiv_v2: 344204 B and 32436 B.
+- **Figure author payload.** Four real text passages per vault, chosen from current LO source
+  links on reader-enabled readings. For each, the payload, prompt, prompt version and reuse key
+  were built as `_build` builds them for an anchored request, without asking a model and with no
+  table changed.
+  - **Switch on:** all 12 carry `learner_state` and `+learner-v1`, and the reuse key changes.
+    - linear_algebra: topic statuses (learning/new) and two recent answers per passage ("held
+      for review" + correct; correct + partial). 33 of its 70 answered attempts are protected
+      now (30 exam/held-out, 2 checks waiting in the app, 1 diagnostic check), and none shows.
+      An answer with no pinned contract carries no question.
+    - probability: two open statements (a named misconception and a named prerequisite, both
+      labelled LearnLoop's reading of the learner's words) and two partial answers with their
+      questions.
+    - arxiv_v2: one partial answer with its question.
+    - `inputs_withheld` on every state's recorded inputs: None, meaning nothing it was read from
+      is protected now.
+  - **Switch off (in process) vs main's code:** byte-identical on all 12 (4630, 7097 and
+    10366 B per vault).
+- **`help_assists.work_md`** exists on every branch copy (head 230). These copies have no
+  `help_assists` rows, so "NULL on old rows" is vacuous on owner data. It is covered by
+  `test_help_assist_work_md_migration.py` (every row kept, column NULL).
+- **`rebuild --shadow`** on the branch's copies: facet, mastery and schedule are 0/0/0 on all
+  three, and the live database is unchanged.
+- **Receipts:** 0 new `model_call_receipts` across the 6 databases compared with base.
+- **Audit log:** 0 process starts and 0 socket connects from the smoke, so no non-loopback
+  socket. A separate self-test of the hook logged its `true` start and its `127.0.0.1:9`
+  connect.
+
+### Rulings (orchestrator)
+
+- R1: "F2 remainder (cached fuller delivery, pre-branch rich rows, revision inheritance) is ruled Low under the proportionate protection bar and the stuck-loop rule (third round on the same class). Every path needs an item or passage to be reclassified as exam material AFTER a figure was built from the learner's own state, and the figure's text is an author's explanation, not exam text. The recovery and direct-delivery checks shipped. Stored quick figures were never rechecked either. Queued follow-up: record inputs on quick rows and reconstruct fuller views from current rows at delivery."
+- R2: "With learner state present, the figure reuse key follows the state, so a re-press after new practice builds a new figure within the daily figure cap. Accepted (owner principle: include learner state when beneficial); no stateless fallback reuse for now."
+- R3: "hints-report-v2 keeps its version for the additive drafts_kept count; the MCP payload_schema_version moves to chat-tool-call-v2. Accepted."
+- R4: "daily_plan/router_card.py checks reading-derived gaps only by attempt and item (pre-existing; the pattern F1 fixed here). Queued follow-up: reuse learner_state.inputs_reason there."
+
+### Open items
+
+- R1 follow-up: record learner-state inputs on quick figure rows. Reconstruct fuller views from
+  current rows at delivery, which covers cached fuller delivery, pre-branch rich rows and
+  revision inheritance.
+- R4 follow-up: `daily_plan/router_card.py` should reuse `learner_state.inputs_reason` for
+  reading-derived gaps.
+- Owner: the figure author now receives "held for review" answers as well as graded ones, per
+  the spec's text rule. With state, a re-press after new practice builds a new figure (R2).
+- The two known owner-lane failures are unchanged.
