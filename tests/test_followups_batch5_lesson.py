@@ -91,3 +91,58 @@ def test_c_an_opening_whose_teacher_call_fails_after_the_save_says_it_is_saved_a
     assert "your lesson is saved" in error.message
     assert "is saved" in route_unavailable_message("The ChatGPT plan", saved=True)
     assert "nothing was saved" in route_unavailable_message("The ChatGPT plan", saved=False)
+
+
+# --- D: resume after a completed help action makes no call (TE1 F16, ruled Low at R3) --------------------
+
+SOLUTION = "the roots of det(A - tI) = 0"
+
+
+def _teacher_calls(fake):
+    return len([1 for purpose, _prompt in fake.prompts if purpose == "teacher_turn"])
+
+
+def _help_lesson(tmp_path, help_turns):
+    from tests.teacher_fakes import check_turn, plan_turn
+
+    paths, repository = build_teacher_vault(tmp_path / "vault")
+    fake = TeacherFake([plan_turn, check_turn(solution=SOLUTION)])
+    view = S.open_lesson(load_vault(paths.root), repository, entry="learning_object", learning_object_ids=["lo_eigen"],
+                         clients=clients(fake))
+    S.take_turn(load_vault(paths.root), repository, lesson_id=view["lesson_id"], action="reply",
+                payload={"text": "go"}, clients=clients(fake))
+    fake.turns = list(help_turns)
+    helped = S.take_turn(load_vault(paths.root), repository, lesson_id=view["lesson_id"], action="reply",
+                         payload={"text": "I'm stuck, help?"}, clients=clients(fake))
+    assert helped["open_check"] is None  # the help gave the solution away: the check was withdrawn
+    return paths, repository, fake, view["lesson_id"]
+
+
+def _resume(paths, repository, fake, lesson_id):
+    fake.turns = [{"message": "never sent"}]
+    return S.take_turn(load_vault(paths.root), repository, lesson_id=lesson_id, action="resume", payload={},
+                       clients=clients(fake))
+
+
+def test_d_resume_after_a_help_action_that_withdrew_the_check_makes_no_call(tmp_path):
+    paths, repository, fake, lesson_id = _help_lesson(tmp_path, [{"message": f"Here it is: {SOLUTION}."}])
+    calls = _teacher_calls(fake)
+    view = _resume(paths, repository, fake, lesson_id)
+    assert _teacher_calls(fake) == calls
+    assert not view["closed"] and view["feed"][-1]["text"] != "never sent"
+
+
+def test_d_resume_after_a_help_action_with_a_read_follow_up_makes_no_call(tmp_path):
+    reads = {"message": f"Here it is: {SOLUTION}.",
+             "requests": [{"action": "read_source", "refs": ["ext_book/ch_det"]}]}
+    followup = {"message": "And once more.", "requests": [{"action": "read_source", "refs": ["ext_lay/lay_char"]}]}
+    paths, repository, fake, lesson_id = _help_lesson(tmp_path, [reads, followup])
+    calls = _teacher_calls(fake)
+    _resume(paths, repository, fake, lesson_id)
+    assert _teacher_calls(fake) == calls
+    # The follow-up's own reads still ride with the next learner action (one call, results delivered).
+    fake.turns = [{"message": "Next."}]
+    S.take_turn(load_vault(paths.root), repository, lesson_id=lesson_id, action="reply", payload={"text": "ok"},
+                clients=clients(fake))
+    assert _teacher_calls(fake) == calls + 1
+    assert "roots of the characteristic equation" in str(fake.contexts[-1]["results"])

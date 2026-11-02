@@ -623,8 +623,18 @@ def recover(vault: Any, repository: Any, state: LessonState, *, clock: Clock | N
     return outcome
 
 
-#: The steps that wait for a teacher call (the learner's, or code's after a check).
+#: The steps that wait for a teacher call (the learner's, or code's after a check). A step written as an
+#: accepted turn's effect (``refs.turn``: a withdrawn check is one) is part of that turn's action, never a
+#: boundary (TE1 F16, followups batch 5 D: resume after a completed help action made one more call).
 _CALLS_TEACHER = ("open", "learner_reply", "prediction_answer", "check_result", "check_withdrawn")
+
+
+def _boundary(entry: Mapping[str, Any]) -> bool:
+    """Whether a ledger step waits for a teacher call (it starts an action's calls)."""
+
+    if (entry.get("refs") or {}).get("turn"):
+        return False
+    return entry["action"] in _CALLS_TEACHER or entry["action"] == "learner_stop"
 
 
 @dataclass
@@ -654,9 +664,11 @@ def _pending_call(state: LessonState) -> _PendingCall | None:
                 accepted = entry
                 break
             refused = True
+        elif not _boundary(entry):
+            continue
         elif action == "learner_stop":
             return _PendingCall(closing="learner_stop")
-        elif action in _CALLS_TEACHER:
+        else:
             data = entry.get("payload") or {}
             return _PendingCall(help_reply=action == "learner_reply" and bool(data.get("help")))
     if accepted is None:
@@ -684,7 +696,7 @@ def _owes_followup(state: LessonState, accepted: Mapping[str, Any]) -> bool:
     for entry in reversed(state.turns[:index]):
         if entry["action"] == "teacher_turn" and entry["validation"] == "ok":
             return False
-        if entry["action"] in _CALLS_TEACHER or entry["action"] == "learner_stop":
+        if _boundary(entry):
             return True
     return False
 
