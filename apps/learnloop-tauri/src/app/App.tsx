@@ -2050,6 +2050,7 @@ export function App() {
             needSession("plan");
           }}
           onBeginSession={beginSession}
+          {...(algoConfig().lessons ? { onStartLesson: setLessonEntry } : {})}
           onError={onError}
         />
       );

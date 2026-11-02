@@ -369,7 +369,9 @@ import type {
   AdjudicationRecordResultDto,
   AdjudicationScoreboardDto,
   LessonTurnInput,
-  LessonViewDto
+  LessonViewDto,
+  LessonSuggestionDto,
+  LessonSuggestionResponseDto
 } from "./dto";
 
 // Development aid for verifying the query cache: with
@@ -1695,6 +1697,12 @@ export const api = {
   // redesign D: a granted OpenRouter offer covers the whole lesson); lesson.view resumes one with no call.
   lessonTurn: (input: LessonTurnInput) => call<LessonViewDto>("lesson_turn", { input }),
   lessonView: (input: { lessonId: string }) => call<LessonViewDto>("lesson_view", { input }),
+  // Teacher TE1b: Today's suggestion card (no model call; null when there is none) and the learner's one response.
+  lessonSuggestion: (input: { sessionId?: string | null } = {}) =>
+    call<{ suggestion: LessonSuggestionDto | null }>("lesson_suggestion", { input }),
+  lessonSuggestionRespond: (input: { decisionId: string; response: "accepted" | "chose_alternative" | "declined";
+    candidateRef?: string; sessionId?: string | null }) =>
+    call<LessonSuggestionResponseDto>("lesson_suggestion_respond", { input }),
   readerReadingPath: (input: { extractionId: string; judge?: boolean; retry?: boolean }) =>
     call<ReadingPathDto>("reader_reading_path", { input }),
   readerReadingPathSetDepth: (input: { extractionId: string; depth: ReadingPathDepth }) =>

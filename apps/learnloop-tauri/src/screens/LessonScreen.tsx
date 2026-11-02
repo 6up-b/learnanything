@@ -25,7 +25,9 @@ import { MarkdownMath } from "../render/MarkdownMath";
 
 export type LessonEntry =
   | { kind: "open"; entry: "learning_object" | "reader_selection" | "new_topic"; learningObjectIds?: string[];
-      selection?: { extractionId: string; spanIds: string[] }; title?: string }
+      selection?: { extractionId: string; spanIds: string[] }; title?: string;
+      /** Teacher TE1b: the Start of Today's suggestion card (its decision and the lesson id its response recorded). */
+      suggestion?: { decisionId: string; lessonId: string } }
   | { kind: "resume"; lessonId: string };
 
 const TAP_LABELS = ["1", "2", "3", "4", "5"];
@@ -81,6 +83,12 @@ export function LessonScreen({
       const err = getCommandError(error);
       const code = err?.code ?? "";
       const message = err?.message ?? String(error);
+      const existing = ((err?.details ?? {}) as Record<string, unknown>).lesson_id;
+      if (code === "lesson_exists" && typeof existing === "string" && existing) {
+        // TE1b: a suggested lesson already opened (a second Start): show it, never another.
+        void api.lessonView({ lessonId: existing }).then(setView).catch(() => undefined);
+        return null;
+      }
       if (code === "plan_unavailable" || code === "teacher_unavailable" || code === "provider_unavailable") {
         setUnavailable(message);
         const details = (err?.details ?? {}) as Record<string, unknown>;
@@ -110,7 +118,10 @@ export function LessonScreen({
         .catch((error: unknown) => onError(getCommandError(error)?.message ?? String(error)));
     } else {
       void run({ action: "open", entry: entry.entry, learningObjectIds: entry.learningObjectIds ?? [],
-                 ...(entry.selection ? { selection: entry.selection } : {}) });
+                 ...(entry.selection ? { selection: entry.selection } : {}),
+                 ...(entry.suggestion ? { origin: "router_suggestion" as const,
+                                          suggestionDecisionId: entry.suggestion.decisionId,
+                                          lessonId: entry.suggestion.lessonId } : {}) });
     }
     return () => { cancelled = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps

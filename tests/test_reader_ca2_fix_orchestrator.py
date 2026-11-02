@@ -38,7 +38,9 @@ from tests.workbench_help_fakes import STEP_1
 from tests.test_learner_claim_superseded_migration import SUPERSEDED_ALTERED_TABLES
 from tests.test_deliverable_curriculum_migration import C0B_ADDED_OBJECTS
 from tests.test_learner_notes_migration import C2_ADDED_OBJECTS
-from tests.test_teacher_te1_migration import TE1_ADDED_OBJECTS, TE1_ALTERED_TABLES
+# TE1's 234 and TE1b's 236 follow on the way to head (composed in tests/test_teacher_te1b_migration.py).
+from tests.test_teacher_te1b_migration import TE1_AND_TE1B_ADDED_OBJECTS as TE1_ADDED_OBJECTS
+from tests.test_teacher_te1b_migration import TE1_AND_TE1B_ALTERED_TABLES as TE1_ALTERED_TABLES
 
 
 def _row(paths, workbench_id: str) -> dict:
@@ -226,7 +228,7 @@ def test_223_adds_only_the_earlier_opening_column(tmp_path):
                            "'2026-10-01T00:00:00Z', '2026-10-01T00:00:00Z')")
         connection.commit()
     with upgrade_allowance(UPGRADE_TEST_HELPER):
-        assert [migration.version for migration in apply_migrations(database)] == [223, 224, 225, 226, 227, 228, 229, 230, 231, 232, 233, 234]
+        assert [migration.version for migration in apply_migrations(database)] == [223, 224, 225, 226, 227, 228, 229, 230, 231, 232, 233, 234, 236]
     after = schema()
     assert set(after) - RW5D_ADDED_OBJECTS - PR4_ADDED_OBJECTS - RW6B_ADDED_OBJECTS - C0B_ADDED_OBJECTS - C2_ADDED_OBJECTS - P3_ADDED_OBJECTS - TE1_ADDED_OBJECTS == set(before)
     assert {name for name in before if before[name] != after[name]} == (
@@ -235,8 +237,8 @@ def test_223_adds_only_the_earlier_opening_column(tmp_path):
     with closing(sqlite3.connect(database)) as connection:
         # A problem from before 223 reads as no opening carried.
         assert connection.execute("SELECT earlier_opened_at FROM workbench_sessions").fetchone() == (None,)
-    head = Path(__file__).resolve().parents[1] / "fixtures" / "migration_head_234" / "state.sqlite"
-    assert max(applied_versions(head)) == max(m.version for m in discover_migrations()) == 234
+    head = Path(__file__).resolve().parents[1] / "fixtures" / "migration_head_236" / "state.sqlite"
+    assert max(applied_versions(head)) == max(m.version for m in discover_migrations()) == 236
     assert 223 in applied_versions(head)
     assert head.read_bytes()[18:20] == b"\x01\x01"
     with closing(sqlite3.connect(f"file:{head}?mode=ro", uri=True)) as connection:

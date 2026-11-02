@@ -43,8 +43,9 @@ def _rows(repository, sql, params=()):
 def test_the_tag_is_the_chains_last_link_after_curriculum_c1():
     from learnloop.teacher_upgrade import PREDECESSOR
 
-    assert SUCCESSOR_CHAIN[-2:] == (DELIVERABLE_PLAN_ALGORITHM_VERSION, TAG) == ("mvp-0.40", "mvp-0.41")
-    assert LATEST_ALGORITHM_VERSION == TAG and PREDECESSOR == DELIVERABLE_PLAN_ALGORITHM_VERSION
+    assert SUCCESSOR_CHAIN[-3:-1] == (DELIVERABLE_PLAN_ALGORITHM_VERSION, TAG) == ("mvp-0.40", "mvp-0.41")
+    # Teacher TE1b's mvp-0.43 follows it as the latest (renumbered at its landing).
+    assert LATEST_ALGORITHM_VERSION == SUCCESSOR_CHAIN[-1] == "mvp-0.43" and PREDECESSOR == DELIVERABLE_PLAN_ALGORITHM_VERSION
     assert TEACHER_VERSIONS == frozenset({TAG})
 
 
@@ -68,6 +69,7 @@ def test_every_defaults_snapshot_drops_to_mains_value_without_the_teacher_keys()
                     "max_lesson_cost_usd"):
             dumped["teacher"].pop(key)
         dumped["ai"]["routing"].pop("teacher")
+        dumped["router"].pop("lesson_suggestions")  # teacher TE1b's keys (tests/test_teacher_te1b_successor.py)
         digest = hashlib.sha256(json.dumps(dumped, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
         assert digest == main, version
     assert TAG in DEFAULTS_SNAPSHOT_BY_ALGORITHM
@@ -191,7 +193,12 @@ def test_the_cli_installs_this_links_completion():
 
     from learnloop.cli import runtime
 
-    assert "learnloop.teacher_upgrade" in inspect.getsource(runtime._complete_interrupted_activation)
+    from learnloop import lesson_suggestions_upgrade
+
+    # The chain's latest link (teacher TE1b's) is installed, and hands an earlier journal to this link's.
+    assert "learnloop.lesson_suggestions_upgrade" in inspect.getsource(runtime._complete_interrupted_activation)
+    assert "learnloop.teacher_upgrade import complete_interrupted_activation" in inspect.getsource(
+        lesson_suggestions_upgrade)
 
 
 # --- the desktop RPCs ------------------------------------------------------------------------------
@@ -274,5 +281,6 @@ def test_a_bare_upgrade_targets_mvp041_through_the_chain(tmp_path, monkeypatch):
     paths = create_placement_vault(tmp_path / "v", version="mvp-0.39")
     result = CliRunner().invoke(app, ["upgrade", "--vault", str(paths.root)])
     assert result.exit_code == 0, result.output
-    assert f"mvp-0.39 -> {TAG}" in result.output
-    assert load_vault(paths.root).config.algorithms.algorithm_version == TAG
+    # The latest is teacher TE1b's (mvp-0.43), through TE1's tag.
+    assert f"mvp-0.39 -> {LATEST_ALGORITHM_VERSION}" in result.output
+    assert load_vault(paths.root).config.algorithms.algorithm_version == LATEST_ALGORITHM_VERSION

@@ -184,10 +184,10 @@ def test_the_successor_is_one_constant_after_rw6bs_followups():
     from learnloop.config.template import DEFAULTS_SNAPSHOT_BY_ALGORITHM, defaults_fingerprint_for_version
     from learnloop.deliverable_plan_upgrade import PREDECESSOR as UPGRADE_PREDECESSOR
 
-    assert SUCCESSOR_CHAIN[-3:-1] == (PREDECESSOR, TAG) == ("mvp-0.39", "mvp-0.40")
-    assert SUCCESSOR_CHAIN[SUCCESSOR_CHAIN.index(TAG) + 1:] == ("mvp-0.41",)  # teacher TE1 follows
+    assert SUCCESSOR_CHAIN[-4:-2] == (PREDECESSOR, TAG) == ("mvp-0.39", "mvp-0.40")
+    assert SUCCESSOR_CHAIN[SUCCESSOR_CHAIN.index(TAG) + 1:] == ("mvp-0.41", "mvp-0.43")  # teacher TE1 and TE1b follow
     assert UPGRADE_PREDECESSOR == PREDECESSOR
-    assert DELIVERABLE_PLAN_VERSIONS == frozenset({TAG, "mvp-0.41"})
+    assert DELIVERABLE_PLAN_VERSIONS == frozenset({TAG, "mvp-0.41", "mvp-0.43"})
     for version in SUCCESSOR_CHAIN:
         assert DEFAULTS_SNAPSHOT_BY_ALGORITHM[version] == defaults_fingerprint_for_version(version), version
     assert DEFAULTS_SNAPSHOT_BY_ALGORITHM[TAG] != DEFAULTS_SNAPSHOT_BY_ALGORITHM[PREDECESSOR]

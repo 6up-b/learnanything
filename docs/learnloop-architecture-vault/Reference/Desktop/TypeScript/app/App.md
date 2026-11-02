@@ -12,7 +12,7 @@ source_paths:
   - "apps/learnloop-tauri/src/app/App.tsx"
 source_commit: "490ad6751fd50ca0f45661618dc6cd11cd8507b8"
 source_commit_timestamp: "2026-11-01T19:33:59-05:00"
-source_worktree_state: "clean"
+source_worktree_state: "staged-or-mixed"
 activation_kind: "entry-reachable build graph"
 activation_evidence: "A static TypeScript import path reaches this file from the Vite entry src/main.tsx."
 generated: true
@@ -42,12 +42,12 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/app/App.tsx](../../../../../../apps/learnloop-tauri/src/app/App.tsx) |
-| Source lines | 2480 |
+| Source lines | 2481 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/app/_area|TypeScript/app]] |
 | Refactor status | `ACTIVE` |
 | Activation kind | `entry-reachable build graph` |
-| Worktree state | `clean` |
+| Worktree state | `staged-or-mixed` |
 | Source commit | `490ad6751fd50ca0f45661618dc6cd11cd8507b8` |
 | Commit timestamp | `2026-11-01T19:33:59-05:00` |
 
@@ -271,16 +271,16 @@ The system-level behavior stays authoritative in the linked architecture, concep
 - `const planNext = Boolean(session && !calibrationSessionId && planServing)` — const, line 1983
 - `const feedbackDock = algoConfig().ask !== null && askTarget?.context === "feedback" ? askTarget : null` — const, line 1986
 - `const today = ( <TodayScreen key=` — const, line 2025
-- `const tool = uthToolOfTab(tab, uthToolState)` — const, line 2065
-- `function renderIngest()` — function, line 2090
-- `function renderProposals()` — function, line 2107
-- `function renderRegistry()` — function, line 2123
-- `function renderGolden()` — function, line 2138
-- `function renderMaintain()` — function, line 2161
-- `function renderUthTool(tool: UthToolId)` — function, line 2173
-- `function renderAfterGolden()` — function, line 2204
-- `const shellTree = ( <> <TerminalFrame active=` — const, line 2233
-- `function unique(values: Array<string | null>): string[]` — function, line 2478
+- `const tool = uthToolOfTab(tab, uthToolState)` — const, line 2066
+- `function renderIngest()` — function, line 2091
+- `function renderProposals()` — function, line 2108
+- `function renderRegistry()` — function, line 2124
+- `function renderGolden()` — function, line 2139
+- `function renderMaintain()` — function, line 2162
+- `function renderUthTool(tool: UthToolId)` — function, line 2174
+- `function renderAfterGolden()` — function, line 2205
+- `const shellTree = ( <> <TerminalFrame active=` — const, line 2234
+- `function unique(values: Array<string | null>): string[]` — function, line 2479
 
 ## Who imports or calls it
 
