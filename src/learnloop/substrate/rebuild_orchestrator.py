@@ -25,6 +25,7 @@ from learnloop.db.table_roles import TableRole, tables_for_role
 from learnloop.learner.assessment_contracts import CANONICAL_STATE_VERSIONS
 from learnloop.learner.facet_diagnostics import coverage_denominator_version
 from learnloop.learner.identifiability import graph_identifiability_report
+from learnloop.learner.lesson_weight import rebuild_lesson_weight_state
 from learnloop.learner.mastery import initial_mastery_state_for_learning_object
 from learnloop.vault.models import LoadedVault
 
@@ -617,8 +618,6 @@ def _run_retrieval_fusion_posteriors(
 def _run_lesson_weight(
     spec: DerivedStateReplayer, context: _ReplayContext
 ) -> ReplayerResult:
-    from learnloop.learner.lesson_weight import rebuild_lesson_weight_state
-
     report = rebuild_lesson_weight_state(context.vault, context.repository)
     return ReplayerResult(spec.name, tuple(sorted(spec.owned_tables)), rows_processed=report.get("rows", 0),
                           details=report)

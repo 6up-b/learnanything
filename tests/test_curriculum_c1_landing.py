@@ -42,7 +42,7 @@ ITEM = "pi_eigen_1"
 
 
 def test_the_chain_is_rw6b_then_c1():
-    assert SUCCESSOR_CHAIN[-3:] == (COLD, RW6B, C1) == ("mvp-0.38", "mvp-0.39", "mvp-0.40")
+    assert SUCCESSOR_CHAIN[-4:-1] == (COLD, RW6B, C1) == ("mvp-0.38", "mvp-0.39", "mvp-0.40")
 
 
 # -- (i) RW6b's follow-ups beside C1's reading block ---------------------------------------------------------
@@ -120,7 +120,8 @@ def test_ii_a_bare_upgrade_from_mvp038_activates_mvp039_then_mvp040(tmp_path, _c
     from learnloop.cli import app
 
     paths = create_placement_vault(tmp_path / "v", version=COLD)
-    result = CliRunner().invoke(app, ["upgrade", "--vault", str(paths.root)])
+    # Teacher TE1 (mvp-0.41) is the bare upgrade's target now; C1's own link is --to mvp-0.40.
+    result = CliRunner().invoke(app, ["upgrade", "--vault", str(paths.root), "--to", C1])
     assert result.exit_code == 0, result.output
     assert f"{COLD} -> {C1}" in result.output and _version(paths) == C1
     assert _activated(paths, RW6B) and _activated(paths, C1) and not _journal(paths).exists()

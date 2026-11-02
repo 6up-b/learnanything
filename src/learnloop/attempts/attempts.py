@@ -65,6 +65,7 @@ from learnloop.learner.facet_diagnostics import (
     covered_required_fraction,
     lo_relative_coverage,
 )
+from learnloop.learner.lesson_weight import lesson_check_mass
 from learnloop.learner.mastery import (
     MasteryObservation,
     MasteryObservationTrace,
@@ -4431,8 +4432,6 @@ def _compute_resolved_grade_application(
     # Teacher TE1 (spec_teacher_v1 §12.1): a lesson check enters at the mass recorded for it when it
     # was graded (the learned lesson-check weight, filtered as of the check); live and replay read the
     # same receipt row, and every other attempt (no row) keeps its type's configured mass.
-    from learnloop.learner.lesson_weight import lesson_check_mass
-
     recorded_mass = lesson_check_mass(repository, attempt_id, draft.attempt_type)
     reliability = resolve_reliability(
         item,

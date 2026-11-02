@@ -260,3 +260,19 @@ def test_a_metered_lesson_turn_needs_its_price_and_cap(tmp_path):
         S.open_lesson(load_vault(paths.root), repository, entry="learning_object", learning_object_ids=["lo_eigen"],
                       clients=clients(Metered([plan_turn])))
     assert raised.value.code == "plan_unavailable"
+
+
+def test_a_bare_upgrade_targets_mvp041_through_the_chain(tmp_path, monkeypatch):
+    from typer.testing import CliRunner
+
+    from learnloop import activation_journal
+    from learnloop.cli import app
+    from learnloop.cli.runtime import _complete_interrupted_activation
+    from tests.helpers import create_placement_vault
+
+    monkeypatch.setattr(activation_journal, "_COMPLETER", _complete_interrupted_activation)
+    paths = create_placement_vault(tmp_path / "v", version="mvp-0.39")
+    result = CliRunner().invoke(app, ["upgrade", "--vault", str(paths.root)])
+    assert result.exit_code == 0, result.output
+    assert f"mvp-0.39 -> {TAG}" in result.output
+    assert load_vault(paths.root).config.algorithms.algorithm_version == TAG

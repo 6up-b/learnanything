@@ -1,7 +1,7 @@
 {
   "<root>": {
-    "bytes": 25457,
-    "sha256": "1265ea99e9eeaa4a4a2caa262b1283bab5da68eed42b515c119719a2013d3dad"
+    "bytes": 25627,
+    "sha256": "ad9c0f524681bac6a7981b65b764209c23a130359a86351fa1b514338bb70197"
   },
   "accept": {
     "bytes": 1593,
@@ -1347,6 +1347,14 @@
     "bytes": 1622,
     "sha256": "e3cd2a740719c019e42c79efe9676bca75e3cc7efbc8063ab06558e7d471f23f"
   },
+  "teacher": {
+    "bytes": 1672,
+    "sha256": "3089730ef01b37f25f44c4c864f8afb188ca72d25b4a619f2421f79654cbf599"
+  },
+  "teacher report": {
+    "bytes": 1206,
+    "sha256": "edb61cc8f450c3f0ce6ec40b54803a3bc14641dff12ee269d91ca899abe6634a"
+  },
   "today": {
     "bytes": 878,
     "sha256": "f208e669bb6d213cdc44c2f57e6187d4d5765c33c4f8c2a343192f53e334bd10"
@@ -1356,8 +1364,8 @@
     "sha256": "a07b81bb87d512abc37e080c985c0d5087e51241f04a64d1462f20116e169976"
   },
   "upgrade": {
-    "bytes": 13632,
-    "sha256": "254d2df1b32e91819faca83b0ceb9179aad7a4523878bfcf5acadfdbd5bf0d20"
+    "bytes": 14037,
+    "sha256": "b9b2f2fa41abfec9351b1cb634e0b2caaa49238acb5dcd208f5903423681713e"
   },
   "usage": {
     "bytes": 1546,

@@ -90,10 +90,10 @@ def test_the_tag_is_one_constant_after_mvp035_and_the_latest():
 
     # Mobile PR-4's mvp-0.37, the cold-retry reschedule's mvp-0.38, Reader RW6b's mvp-0.39 and curriculum C1's mvp-0.40 (the latest)
     # follow it (and keep it).
-    assert SUCCESSOR_CHAIN[-6:] == ("mvp-0.35", "mvp-0.36", "mvp-0.37", "mvp-0.38", "mvp-0.39", "mvp-0.40")
-    assert TAG == "mvp-0.36" == SUCCESSOR_CHAIN[-5] and LATEST_ALGORITHM_VERSION == "mvp-0.40"
+    assert SUCCESSOR_CHAIN[-7:] == ("mvp-0.35", "mvp-0.36", "mvp-0.37", "mvp-0.38", "mvp-0.39", "mvp-0.40", "mvp-0.41")
+    assert TAG == "mvp-0.36" == SUCCESSOR_CHAIN[-6] and LATEST_ALGORITHM_VERSION == "mvp-0.41"
     assert UPGRADE_PREDECESSOR == PREDECESSOR == "mvp-0.35"
-    assert SUPERSEDED_CLAIMS_VERSIONS == frozenset({TAG, "mvp-0.37", "mvp-0.38", "mvp-0.39", "mvp-0.40"})
+    assert SUPERSEDED_CLAIMS_VERSIONS == frozenset({TAG, "mvp-0.37", "mvp-0.38", "mvp-0.39", "mvp-0.40", "mvp-0.41"})
     assert DEFAULTS_SNAPSHOT_BY_ALGORITHM[TAG] == defaults_fingerprint_for_version(TAG)
     # No new default and no kill switch: only the version string moves the fingerprint.
     assert DEFAULTS_SNAPSHOT_BY_ALGORITHM[TAG] != DEFAULTS_SNAPSHOT_BY_ALGORITHM[PREDECESSOR]
