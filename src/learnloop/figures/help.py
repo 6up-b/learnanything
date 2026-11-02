@@ -183,7 +183,7 @@ def chain_root(connection: Any, figure_id: str) -> str:
 # The chooser's precondition
 # ---------------------------------------------------------------------------
 
-def _figure_keys(repository: Repository, row: Mapping[str, Any]) -> list[tuple[str, str]]:
+def figure_keys(repository: Repository, row: Mapping[str, Any]) -> list[tuple[str, str]]:
     """Every ``(extraction_id, span_id)`` a figure is placed at or built from:
     its anchor, its region and crop, the passages around it, its retrieved
     passages and (a goal-only figure) where it was asked."""
@@ -329,7 +329,7 @@ def qualifying_figure(vault: Any, repository: Repository, item: Any, *,
             continue
         if own is None:
             own = item_exclusions(repository, item)
-        keys = _figure_keys(repository, row)
+        keys = figure_keys(repository, row)
         if any(key in own.spans or key[0] in own.extractions for key in keys):
             continue
         if span_leaks_expected(reveal_text(row), item.expected_answer):
@@ -356,6 +356,7 @@ __all__ = [
     "TAKE_STEP_BANNER",
     "chain_root",
     "enabled",
+    "figure_keys",
     "offer_view",
     "qualifying_figure",
     "reveal_text",

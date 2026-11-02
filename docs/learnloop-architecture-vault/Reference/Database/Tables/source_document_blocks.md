@@ -3,13 +3,13 @@ title: "source_document_blocks"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "6662b42c3b1cbdd26140d86e139d4d7f2eabaa95"
-source_commit_timestamp: "2026-11-01T18:37:22-05:00"
+source_commit: "4b77cd4c5f224113d427946fcba4a10f371bbc69"
+source_commit_timestamp: "2026-11-01T20:25:51-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite source_document_blocks"
   - "table source_document_blocks"
-schema_head: 230
+schema_head: 232
 table_name: "source_document_blocks"
 table_role: "raw_ledger"
 functionality_status: "active"
@@ -144,8 +144,8 @@ Database triggers:
 - `src/learnloop/content/synthesis/source_unit_selection.py`
 - `src/learnloop/daily_plan/reading.py`
 - `src/learnloop/diagnosis/text_gaps/sources.py`
+- `src/learnloop/figures/help.py`
 - `src/learnloop/figures/service.py`
-- `src/learnloop/practice_index/dossiers.py`
 
 > [!note] Static-reference boundary
 > These lists are evidence from exact table-name SQL and repository-method calls. Dynamic dispatch and higher-level tests may exercise the table without spelling its name.

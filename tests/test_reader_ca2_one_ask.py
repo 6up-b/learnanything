@@ -444,8 +444,9 @@ def test_a_steps_question_names_its_items_workbench_and_its_step(sidecar):
 def test_the_snapshot_carries_the_panel_and_the_rule(sidecar):
     _paths, ctx, _tutor = sidecar({("hints", "help_style"): "let_me_struggle"})
     vault, _ = ctx.require_vault()
+    # RW5d P3: show me in the panel (figures.help_kind_enabled, on by default).
     assert config_dto(vault)["ask"] == {"panelEnabled": True, "helpStyle": "let_me_struggle",
-                                        "coldHelpConverts": True}
+                                        "coldHelpConverts": True, "figures": True}
 
 
 def test_the_reader_asks_in_the_help_styles_mode(tmp_path, monkeypatch):

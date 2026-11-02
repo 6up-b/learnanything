@@ -3,13 +3,13 @@ title: "interactive_figures"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "6662b42c3b1cbdd26140d86e139d4d7f2eabaa95"
-source_commit_timestamp: "2026-11-01T18:37:22-05:00"
+source_commit: "4b77cd4c5f224113d427946fcba4a10f371bbc69"
+source_commit_timestamp: "2026-11-01T20:25:51-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite interactive_figures"
   - "table interactive_figures"
-schema_head: 230
+schema_head: 232
 table_name: "interactive_figures"
 table_role: "workflow"
 functionality_status: "active"
@@ -23,9 +23,9 @@ source_paths:
   - "src/learnloop/adaptive_difficulty/protected_tables.py"
   - "src/learnloop/daily_plan/router_reader.py"
   - "src/learnloop/db/stores/figures.py"
+  - "src/learnloop/diagnosis/split/figure_trace.py"
   - "src/learnloop/diagnosis/text_gaps/provenance.py"
   - "src/learnloop/diagnosis/text_gaps/sources.py"
-  - "src/learnloop/figure_admission.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/workflow"
@@ -52,7 +52,7 @@ It belongs to the **reader** navigation family. The family context lives in [[Da
 - **Role:** `workflow` — Mutable queue, session, lease, or other in-flight workflow state. It is preserved across rebuilds.
 - **Functionality status:** `active`.
 - **Introduced by:** `migrations/216_interactive_figures.sql`.
-- **Schema touched by:** `216_interactive_figures.sql`, `224_figure_requests.sql`.
+- **Schema touched by:** `216_interactive_figures.sql`, `224_figure_requests.sql`, `232_help_assist_figures.sql`.
 - **Rebuild owner:** none; this table is preserved by the rebuild umbrella.
 
 For the distinction between SQLite state and human-authored vault files, see [[State and Persistence]]. For whole-vault creation and opening behavior, see [[Vault Lifecycle]]. ^table-lifecycle
@@ -120,9 +120,11 @@ None found by exact static reference scan.
 
 - `src/learnloop/daily_plan/router_reader.py`
 - `src/learnloop/db/stores/figures.py`
+- `src/learnloop/diagnosis/split/figure_trace.py`
 - `src/learnloop/diagnosis/text_gaps/provenance.py`
 - `src/learnloop/diagnosis/text_gaps/sources.py`
 - `src/learnloop/figure_admission.py`
+- `src/learnloop/figures/help.py`
 - `src/learnloop/reader/reader_report.py`
 
 ### Direct SQL writers

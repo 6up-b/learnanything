@@ -6,8 +6,8 @@ refactor_status: "ACTIVE"
 version: "1.0.0"
 source_paths:
   - "apps/learnloop-tauri/src/screens"
-source_commit: "d2afa824ceecb2f6e35f7c6ff51d9008a644e70d"
-source_commit_timestamp: "2026-11-01T14:49:03-05:00"
+source_commit: "afb17672c627b4f4422c149ac63dd2addef98a9b"
+source_commit_timestamp: "2026-11-01T20:23:43-05:00"
 generated: true
 generated_at: "2026-08-18"
 tags:
@@ -56,7 +56,7 @@ Top-level routed workflow screens in the desktop shell.
 | [[Reference/Desktop/TypeScript/screens/LibraryPlace|LibraryPlace.tsx]] | `ACTIVE` | Implements the `LibraryPlace` routed desktop screen and coordinates its learner-facing workflow state. | 9 | 1 |
 | [[Reference/Desktop/TypeScript/screens/LibraryScreen|LibraryScreen.tsx]] | `ACTIVE` | Implements the `LibraryScreen` routed desktop screen and coordinates its learner-facing workflow state. | 12 | 2 |
 | [[Reference/Desktop/TypeScript/screens/MaintenanceScreen|MaintenanceScreen.tsx]] | `ACTIVE` | Implements the `MaintenanceScreen` routed desktop screen and coordinates its learner-facing workflow state. | 8 | 1 |
-| [[Reference/Desktop/TypeScript/screens/PracticeScreen|PracticeScreen.tsx]] | `ACTIVE` | Implements the `PracticeScreen` routed desktop screen and coordinates its learner-facing workflow state. | 29 | 1 |
+| [[Reference/Desktop/TypeScript/screens/PracticeScreen|PracticeScreen.tsx]] | `ACTIVE` | Implements the `PracticeScreen` routed desktop screen and coordinates its learner-facing workflow state. | 30 | 1 |
 | [[Reference/Desktop/TypeScript/screens/ProposalsScreen|ProposalsScreen.tsx]] | `ACTIVE` | Implements the `ProposalsScreen` routed desktop screen and coordinates its learner-facing workflow state. | 10 | 1 |
 | [[Reference/Desktop/TypeScript/screens/ReaderScreen|ReaderScreen.tsx]] | `ACTIVE` | Implements the `ReaderScreen` routed desktop screen and coordinates its learner-facing workflow state. | 78 | 1 |
 | [[Reference/Desktop/TypeScript/screens/RegistryReviewScreen|RegistryReviewScreen.tsx]] | `ACTIVE` | Implements the `RegistryReviewScreen` routed desktop screen and coordinates its learner-facing workflow state. | 7 | 1 |

@@ -3,14 +3,14 @@ title: "Database Catalog"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "6662b42c3b1cbdd26140d86e139d4d7f2eabaa95"
-source_commit_timestamp: "2026-11-01T18:37:22-05:00"
+source_commit: "4b77cd4c5f224113d427946fcba4a10f371bbc69"
+source_commit_timestamp: "2026-11-01T20:25:51-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite table index"
   - "Database table MOC"
   - "Table Catalog"
-schema_head: 230
+schema_head: 232
 table_count: 360
 generated: true
 source_paths:
@@ -21,13 +21,13 @@ source_paths:
   - "tests/test_migrations.py"
 tags:
   - "learnloop/database/moc"
-  - "learnloop/database/schema-head-230"
+  - "learnloop/database/schema-head-232"
   - "learnloop/navigation"
 ---
 
 # Database Catalog
 
-This is the exhaustive map of the 360 user tables at migration head 230. Use [[Table Roles]] to interpret rebuild policy and [[Rebuild Ownership]] to see which projections are actually cleared and replayed. The larger persistence boundary lives in [[State and Persistence]]. ^catalog-scope
+This is the exhaustive map of the 360 user tables at migration head 232. Use [[Table Roles]] to interpret rebuild policy and [[Rebuild Ownership]] to see which projections are actually cleared and replayed. The larger persistence boundary lives in [[State and Persistence]]. ^catalog-scope
 
 > [!important] Role is not runtime status
 > `raw_ledger`, `derived`, `receipt`, `workflow`, and `compat` say what rebuild may do. `active`, `legacy-preserved`, `dormant-shadow`, and `dormant-owner-gated` say how the refactored runtime treats the table. See [[Table Roles#Role versus functionality status]].

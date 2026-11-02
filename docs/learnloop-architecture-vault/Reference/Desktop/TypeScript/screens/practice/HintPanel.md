@@ -10,8 +10,8 @@ area: "TypeScript/screens/practice"
 source_path: "apps/learnloop-tauri/src/screens/practice/HintPanel.tsx"
 source_paths:
   - "apps/learnloop-tauri/src/screens/practice/HintPanel.tsx"
-source_commit: "4066ab56bccaee0859f87dc6db5d2de2853a8252"
-source_commit_timestamp: "2026-10-25T20:20:20-04:00"
+source_commit: "afb17672c627b4f4422c149ac63dd2addef98a9b"
+source_commit_timestamp: "2026-11-01T20:23:43-05:00"
 source_worktree_state: "clean"
 activation_kind: "entry-reachable build graph"
 activation_evidence: "A static TypeScript import path reaches this file from the Vite entry src/main.tsx."
@@ -42,14 +42,14 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/screens/practice/HintPanel.tsx](../../../../../../../apps/learnloop-tauri/src/screens/practice/HintPanel.tsx) |
-| Source lines | 307 |
+| Source lines | 349 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/screens/practice/_area|TypeScript/screens/practice]] |
 | Refactor status | `ACTIVE` |
 | Activation kind | `entry-reachable build graph` |
 | Worktree state | `clean` |
-| Source commit | `4066ab56bccaee0859f87dc6db5d2de2853a8252` |
-| Commit timestamp | `2026-10-25T20:20:20-04:00` |
+| Source commit | `afb17672c627b4f4422c149ac63dd2addef98a9b` |
+| Commit timestamp | `2026-11-01T20:23:43-05:00` |
 
 ## Activation and status evidence
 
@@ -60,24 +60,28 @@ The system-level behavior stays authoritative in the linked architecture, concep
 
 ## Public API
 
-- `export function hintLabelLine(entry: HintEntry): string` — function, line 31
-- `export function HintPanel(` — function, line 222
+- `export function hintLabelLine(entry: HintEntry): string` — function, line 33
+- `export function HintPanel(` — function, line 256
 
 ## Internal implementation anchors
 
-- `const chip = (on: boolean)` — const, line 19
-- `const labels = entry.result.labels ??` — const, line 32
-- `const parts: string[] = []` — const, line 33
-- `function draftLines(answer: string): string[]` — function, line 42
-- `function FeedbackBox(` — function, line 46
-- `const lines = draftLines(answer)` — const, line 58
-- `const send = ()` — const, line 59
-- `const selection = shortcut === "not_where_stuck" ? picked.sort((a, b)` — const, line 60
-- `const onKey = (event: KeyboardEvent<HTMLInputElement>)` — const, line 64
-- `function DiscriminatingBox(` — function, line 120
-- `function HintCard(` — function, line 160
-- `const replies = entry.result.replies ?? []` — const, line 162
-- `const asking = entry.result.kind === "discriminating" && Boolean(entry.result.discriminating?.answerBox)` — const, line 163
+- `const chip = (on: boolean)` — const, line 21
+- `const labels = entry.result.labels ??` — const, line 34
+- `const parts: string[] = []` — const, line 35
+- `function draftLines(answer: string): string[]` — function, line 44
+- `function FeedbackBox(` — function, line 48
+- `const lines = draftLines(answer)` — const, line 60
+- `const send = ()` — const, line 61
+- `const selection = shortcut === "not_where_stuck" ? picked.sort((a, b)` — const, line 62
+- `const onKey = (event: KeyboardEvent<HTMLInputElement>)` — const, line 66
+- `function DiscriminatingBox(` — function, line 122
+- `function ExploreFigure(` — function, line 165
+- `const figures = usePanelFigures(target,` — const, line 168
+- `const offer = entry.result.figure` — const, line 169
+- `const opened = figures.lines.find((line)` — const, line 171
+- `function HintCard(` — function, line 187
+- `const replies = entry.result.replies ?? []` — const, line 192
+- `const asking = entry.result.kind === "discriminating" && Boolean(entry.result.discriminating?.answerBox)` — const, line 193
 
 ## Who imports or calls it
 
@@ -92,7 +96,9 @@ The system-level behavior stays authoritative in the linked architecture, concep
 
 - [[Reference/Desktop/TypeScript/api/dto|src/api/dto.ts]] — import-or-re-export; imports `HelpStyle`, `HintShortcut`
 - [[Reference/Desktop/TypeScript/app/algoConfig|src/app/algoConfig.ts]] — import-or-re-export; imports `algoConfig`
+- [[Reference/Desktop/TypeScript/components/AskOverlay|src/components/AskOverlay.tsx]] — import-or-re-export; imports `AskTarget`
 - [[Reference/Desktop/TypeScript/components/PlainParts|src/components/PlainParts.tsx]] — import-or-re-export; imports `quietLine`, `quietLink`
+- [[Reference/Desktop/TypeScript/components/askFigures|src/components/askFigures.tsx]] — import-or-re-export; imports `PANEL_FIGURE_COPY`, `PanelFigureEvent`, `PanelFigureThreadLine`, `usePanelFigures`
 - [[Reference/Desktop/TypeScript/components/term|src/components/term.tsx]] — import-or-re-export; imports `COLOR`, `FONT_MONO`
 - [[Reference/Desktop/TypeScript/render/MarkdownMath|src/render/MarkdownMath.tsx]] — import-or-re-export; imports `MarkdownMath`
 - [[Reference/Desktop/TypeScript/screens/practice/hintCopy|src/screens/practice/hintCopy.ts]] — import-or-re-export; imports `HELP_STYLE_COPY`, `HINT_COPY`, `SHORTCUT_COPY`

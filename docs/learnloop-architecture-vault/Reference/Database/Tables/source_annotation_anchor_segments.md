@@ -3,13 +3,13 @@ title: "source_annotation_anchor_segments"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "6662b42c3b1cbdd26140d86e139d4d7f2eabaa95"
-source_commit_timestamp: "2026-11-01T18:37:22-05:00"
+source_commit: "4b77cd4c5f224113d427946fcba4a10f371bbc69"
+source_commit_timestamp: "2026-11-01T20:25:51-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite source_annotation_anchor_segments"
   - "table source_annotation_anchor_segments"
-schema_head: 230
+schema_head: 232
 table_name: "source_annotation_anchor_segments"
 table_role: "raw_ledger"
 functionality_status: "active"

@@ -3,13 +3,13 @@ title: "figure_requests"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "6662b42c3b1cbdd26140d86e139d4d7f2eabaa95"
-source_commit_timestamp: "2026-11-01T18:37:22-05:00"
+source_commit: "4b77cd4c5f224113d427946fcba4a10f371bbc69"
+source_commit_timestamp: "2026-11-01T20:25:51-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite figure_requests"
   - "table figure_requests"
-schema_head: 230
+schema_head: 232
 table_name: "figure_requests"
 table_role: "raw_ledger"
 functionality_status: "active"
@@ -20,6 +20,7 @@ source_paths:
   - "src/learnloop/db/table_roles.py"
   - "migrations/224_figure_requests.sql"
   - "src/learnloop/db/stores/figures.py"
+  - "src/learnloop/diagnosis/split/figure_trace.py"
   - "src/learnloop/diagnosis/text_gaps/sources.py"
   - "src/learnloop/figure_admission.py"
   - "src/learnloop/figures/service.py"
@@ -100,6 +101,7 @@ None found by exact static reference scan.
 ### Direct SQL readers
 
 - `src/learnloop/db/stores/figures.py`
+- `src/learnloop/diagnosis/split/figure_trace.py`
 - `src/learnloop/diagnosis/text_gaps/sources.py`
 - `src/learnloop/figure_admission.py`
 - `src/learnloop/reader/reader_report.py`
@@ -121,6 +123,7 @@ None found by exact static reference scan.
 - `tests/test_figure_rich_contract.py`
 - `tests/test_figure_rich_job.py`
 - `tests/test_figure_rich_review_fixes.py`
+- `tests/test_figures_help.py`
 - `tests/test_figures_show_me.py`
 - `tests/test_figures_show_me_codex_review.py`
 - `tests/test_sketch_service.py`

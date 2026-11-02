@@ -1200,7 +1200,7 @@ def figure_open(ctx: SidecarContext, params: FigureOpenInput) -> dict[str, Any]:
 
     from learnloop.db.connection import connect
     from learnloop.db.stores import figures as figure_store
-    from learnloop.figures.help import _figure_keys
+    from learnloop.figures.help import figure_keys
     from learnloop.source_retrieval.corpus import item_exclusions
     from learnloop.source_retrieval.policy import derive_policy
 
@@ -1218,7 +1218,7 @@ def figure_open(ctx: SidecarContext, params: FigureOpenInput) -> dict[str, Any]:
         raise _refused(exc) from exc
     item = vault.practice_items[host.item_id]
     own = item_exclusions(repository, item)
-    if any(key in own.spans or key[0] in own.extractions for key in _figure_keys(repository, row)):
+    if any(key in own.spans or key[0] in own.extractions for key in figure_keys(repository, row)):
         raise SidecarError("not_offered", "That figure was made from this item's own passages.")
     with closing(connect(repository.sqlite_path, read_only=True)) as connection:
         versions = len([1 for _ in figure_store.superseding(connection, params.figure_id)]) + 1

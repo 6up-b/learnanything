@@ -3,13 +3,13 @@ title: "figure_predictions"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "6662b42c3b1cbdd26140d86e139d4d7f2eabaa95"
-source_commit_timestamp: "2026-11-01T18:37:22-05:00"
+source_commit: "4b77cd4c5f224113d427946fcba4a10f371bbc69"
+source_commit_timestamp: "2026-11-01T20:25:51-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite figure_predictions"
   - "table figure_predictions"
-schema_head: 230
+schema_head: 232
 table_name: "figure_predictions"
 table_role: "raw_ledger"
 functionality_status: "active"
@@ -23,9 +23,9 @@ source_paths:
   - "src/learnloop/adaptive_difficulty/protected_tables.py"
   - "src/learnloop/daily_plan/router_reader.py"
   - "src/learnloop/db/stores/figures.py"
+  - "src/learnloop/diagnosis/split/figure_trace.py"
   - "src/learnloop/diagnosis/text_gaps/provenance.py"
   - "src/learnloop/diagnosis/text_gaps/sources.py"
-  - "src/learnloop/reader/reader_observations.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/raw-ledger"
@@ -98,6 +98,7 @@ None found by exact static reference scan.
 
 - `src/learnloop/daily_plan/router_reader.py`
 - `src/learnloop/db/stores/figures.py`
+- `src/learnloop/diagnosis/split/figure_trace.py`
 - `src/learnloop/diagnosis/text_gaps/provenance.py`
 - `src/learnloop/diagnosis/text_gaps/sources.py`
 - `src/learnloop/reader/reader_observations.py`

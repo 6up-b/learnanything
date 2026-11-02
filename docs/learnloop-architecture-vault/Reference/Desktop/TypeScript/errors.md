@@ -99,6 +99,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 - [[Reference/Desktop/TypeScript/components/NativeMediaSettings|src/components/NativeMediaSettings.tsx]] — import-or-re-export: `errorMessage`; references `errorMessage`
 - [[Reference/Desktop/TypeScript/components/NewVaultWizard|src/components/NewVaultWizard.tsx]] — import-or-re-export: `errorMessage`; references `errorMessage`
 - [[Reference/Desktop/TypeScript/components/QuickAddDialog|src/components/QuickAddDialog.tsx]] — import-or-re-export: `errorMessage`, `getCommandError`; references `errorMessage`, `getCommandError`
+- [[Reference/Desktop/TypeScript/components/askFigures|src/components/askFigures.tsx]] — import-or-re-export: `errorMessage`; references `errorMessage`
 - [[Reference/Desktop/TypeScript/components/askPanel|src/components/askPanel.tsx]] — import-or-re-export: `errorMessage`; references `errorMessage`
 - [[Reference/Desktop/TypeScript/components/goldenpath/GoldenPathSetup|src/components/goldenpath/GoldenPathSetup.tsx]] — import-or-re-export: `errorMessage`; references `errorMessage`
 - [[Reference/Desktop/TypeScript/fixtures/retryRequests|src/fixtures/retryRequests.ts]] — import-or-re-export: `RETRY_RAN`; references `RETRY_RAN`
