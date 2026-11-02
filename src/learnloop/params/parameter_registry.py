@@ -1848,6 +1848,14 @@ _CONFIG_RULES: list[_ConfigRule] = [
         "kill switch for RW5d's rich tiers (a narrated Manim animation built from the author's brief) / the "
         "learner's standing opt-in to render AI-written animation code in the sandbox and its date; on-off "
         "availability of content and a permission, no measurement, scheduling or serving authority."),
+    # Reader RW5d P3: figures as a help kind inside attempts. A kill switch over help content.
+    _ConfigRule(_exact(
+        "figures.help_kind_enabled",
+    ), "structural", "operational",
+        "kill switch for figures inside an open attempt (show me on practice, feedback and the workbench with "
+        "its cost line, the cold take step, the chooser's explore_figure, figure in the help outcomes); a "
+        "figure adds one hint-equivalent through the existing fold (hints_used's existing meaning), so this "
+        "switch decides which help is offered, never a weight, margin or threshold."),
     # Learner data-relax 2: the figure author's learner state. A kill switch over content.
     _ConfigRule(_exact(
         "figures.author_learner_state",

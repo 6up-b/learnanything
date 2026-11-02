@@ -1,4 +1,5 @@
-"""Adaptive hints H0: ``help_assists`` (migration 210; ``work_md``: migration 230).
+"""Adaptive hints H0: ``help_assists`` (migration 210; ``work_md``: migration 230; RW5d P3's ``figure``
+rows, ``explore_figure``, ``take_step`` and ``figure_id``: migration 232).
 
 Plain SQL over a caller's connection; the caller owns the transaction. The
 writers are :mod:`learnloop.hints.telemetry` (H0's authored reveals) and
@@ -34,6 +35,8 @@ COLUMNS: tuple[str, ...] = (
     "feedback_step_id", "cited_span_ids_json", "retrieval_manifest_json", "alternatives_json",
     # Learner data-relax 2 (migration 230): the draft when the help was asked for.
     "work_md",
+    # Reader RW5d P3 (migration 232): the figure a 'figure' row opened (set once).
+    "figure_id",
 )
 _COLUMN_SET = frozenset(COLUMNS)
 
@@ -136,6 +139,15 @@ def submission_assists(
         (submission_id, practice_item_id),
     ).fetchall()
     return [dict(zip(COLUMNS, tuple(row))) for row in rows]
+
+
+#: The assist kinds the submit's fold counts (hints spec §5): the hint
+#: service's hints and, Reader RW5d P3 (spec §11.2), a figure opened on the
+#: attempt's host, written at level 2 so it adds one hint-equivalent with
+#: hints_used's existing meaning (once per figure per attempt: its writer,
+#: :func:`record_figure_assist`, never writes a second row). No figure row
+#: exists before migration 232, so every earlier fold is unchanged.
+HINT_EQUIVALENT_KINDS_SQL = "assist_kind IN ('hint', 'figure')"
 
 
 #: The attempts that close a row's count (H2a review F1; round 3, W1): its
@@ -263,7 +275,7 @@ def _fold_rows(*, practice_item_id: str, session_id: str, submission_id: str | N
     attempt took is never counted again, whatever its key."""
 
     clauses = ["practice_item_id = ?", "practice_session_id = ?", "attempt_id IS NULL", "shown = 1",
-               "counted_by = 'server'", "assist_kind = 'hint'"]
+               "counted_by = 'server'", HINT_EQUIVALENT_KINDS_SQL]
     values: list[Any] = [practice_item_id, session_id]
     if submission_id is not None:
         clauses.append("submission_id = ?")
@@ -339,12 +351,14 @@ class WorkbenchFold:
     by_level: tuple[int, int, int] = (0, 0, 0)
     worked: int = 0
     discriminating: int = 0
+    #: Reader RW5d P3: figures opened on the problem (one hint-equivalent each).
+    figures: int = 0
 
     @property
     def hints(self) -> int:
-        """The hint-equivalents: every check and every level 1-3 hint."""
+        """The hint-equivalents: every check, every level 1-3 hint and (RW5d P3) every figure opened."""
 
-        return self.checks + sum(self.by_level)
+        return self.checks + sum(self.by_level) + self.figures
 
     @property
     def primed(self) -> bool:
@@ -378,12 +392,13 @@ def workbench_fold(connection: sqlite3.Connection, *, workbench_session_id: str,
         "COALESCE(SUM(CASE WHEN assist_kind = 'hint' AND level = 2 THEN 1 ELSE 0 END), 0), "
         "COALESCE(SUM(CASE WHEN assist_kind = 'hint' AND level = 3 THEN 1 ELSE 0 END), 0), "
         "COALESCE(SUM(CASE WHEN assist_kind = 'hint' AND level BETWEEN 4 AND 5 THEN 1 ELSE 0 END), 0), "
-        "COALESCE(SUM(CASE WHEN assist_kind = 'hint' AND hint_kind = 'discriminating' THEN 1 ELSE 0 END), 0) "
+        "COALESCE(SUM(CASE WHEN assist_kind = 'hint' AND hint_kind = 'discriminating' THEN 1 ELSE 0 END), 0), "
+        "COALESCE(SUM(CASE WHEN assist_kind = 'figure' THEN 1 ELSE 0 END), 0) "
         f"FROM help_assists WHERE {' AND '.join(clauses)}",
         tuple(values),
     ).fetchone()
     return WorkbenchFold(checks=int(row[0]), by_level=(int(row[1]), int(row[2]), int(row[3])),
-                         worked=int(row[4]), discriminating=int(row[5]))
+                         worked=int(row[4]), discriminating=int(row[5]), figures=int(row[6]))
 
 
 def workbench_assist_ids(connection: sqlite3.Connection, *, workbench_session_id: str,
@@ -397,7 +412,7 @@ def workbench_assist_ids(connection: sqlite3.Connection, *, workbench_session_id
                           ).fetchone() is None:
         return ()
     clauses = ["surface = 'workbench'", "workbench_session_id = ?", "attempt_id IS NULL", "shown = 1",
-               "counted_by = 'server'", "(assist_kind = 'check' OR (assist_kind = 'hint' AND level BETWEEN 1 AND 3))"]
+               "counted_by = 'server'", "(assist_kind IN ('check', 'figure') OR (assist_kind = 'hint' AND level BETWEEN 1 AND 3))"]
     values: list[Any] = [workbench_session_id]
     if practice_item_id is not None:
         clauses.append("practice_item_id = ?")
@@ -415,7 +430,7 @@ def workbench_assist_ids(connection: sqlite3.Connection, *, workbench_session_id
 #: session), whatever their problem's status (open, abandoned, reopened).
 _WINDOW = (
     "surface = 'workbench' AND practice_item_id = ? AND attempt_id IS NULL AND shown = 1 "
-    "AND counted_by = 'server' AND (assist_kind = 'check' OR (assist_kind = 'hint' AND level BETWEEN 1 AND 5)) "
+    "AND counted_by = 'server' AND (assist_kind IN ('check', 'figure') OR (assist_kind = 'hint' AND level BETWEEN 1 AND 5)) "
     # ">=": timestamps are whole seconds, and an unattached row in the last
     # attempt's second is never lost (an attempt that counted it took it).
     "AND requested_at >= COALESCE((SELECT MAX(attempts.created_at) FROM practice_attempts AS attempts "
@@ -436,7 +451,7 @@ def workbench_window(connection: sqlite3.Connection, *, practice_item_id: str
         return (), ()
     rows = connection.execute(f"SELECT id, assist_kind, level FROM help_assists WHERE {_WINDOW} ORDER BY id",
                               (practice_item_id,)).fetchall()
-    counted = tuple(str(row[0]) for row in rows if row[1] == "check" or int(row[2] or 0) <= 3)
+    counted = tuple(str(row[0]) for row in rows if row[1] in ("check", "figure") or int(row[2] or 0) <= 3)
     worked = tuple(str(row[0]) for row in rows if row[1] == "hint" and int(row[2] or 0) >= 4)
     return counted, worked
 

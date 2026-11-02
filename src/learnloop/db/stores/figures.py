@@ -156,6 +156,21 @@ def figures_for_extraction(connection: sqlite3.Connection, extraction_id: str) -
     return [found for found in (_figure(row) for row in rows) if found is not None]
 
 
+def shown_figures(connection: sqlite3.Connection, spec_versions: tuple[str, ...], *,
+                  limit: int) -> list[dict[str, Any]]:
+    """Reader RW5d P3: the newest shown figures of the given spec versions
+    (a quick figure's own row, never a fuller version's), newest first, at
+    most ``limit``: what the hint chooser's ``explore_figure`` precondition
+    scans (the figure help module checks each)."""
+
+    marks = ", ".join("?" for _ in spec_versions)
+    rows = connection.execute(
+        f"SELECT {', '.join(FIGURE_COLUMNS)} FROM interactive_figures WHERE verification IN (?, ?) "
+        f"AND spec_version IN ({marks}) AND fuller_of_id IS NULL AND spec_json IS NOT NULL "
+        "ORDER BY created_at DESC, id DESC LIMIT ?", (*SHOWN, *spec_versions, int(limit))).fetchall()
+    return [found for found in (_figure(row) for row in rows) if found is not None]
+
+
 def _versions(spec_version: str | tuple[str, ...]) -> tuple[tuple[str, ...], str]:
     """RW5d P2: one input may be answered under either spec version (a grammar
     spec or a sketch), so lookups take one version or several."""
@@ -293,6 +308,7 @@ __all__ = [
     "figure",
     "figure_verdicts",
     "figures_for_extraction",
+    "shown_figures",
     "has_tables",
     "insert_figure",
     "insert_prediction",
