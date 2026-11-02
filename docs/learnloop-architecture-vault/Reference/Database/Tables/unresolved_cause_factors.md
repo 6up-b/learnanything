@@ -3,8 +3,8 @@ title: "unresolved_cause_factors"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "6ab368e64e877d50f3d59b3c96cf96a3f13b4b8d"
-source_commit_timestamp: "2026-11-01T18:24:26-05:00"
+source_commit: "2bac2d18efb2dbf7ca9e3f0474532abf324ca58a"
+source_commit_timestamp: "2026-11-01T19:16:35-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite unresolved_cause_factors"
@@ -144,6 +144,7 @@ Indexes and uniqueness:
 ## Tests that define behavior
 
 - `tests/mcp_world.py`
+- `tests/test_canonical_projection_fold_skip.py`
 - `tests/test_causal_factor_deferral.py`
 - `tests/test_diagnosis_replay.py`
 - `tests/test_mcp_c1a_narrow.py`
@@ -162,7 +163,6 @@ Indexes and uniqueness:
 - `tests/test_causal_p2_acceptance.py`
 - `tests/test_causal_probe_commissioning.py`
 - `tests/test_causal_repair_mapping_p2.py`
-- `tests/test_causal_shadow_selection.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 
