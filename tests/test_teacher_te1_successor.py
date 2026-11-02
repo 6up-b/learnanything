@@ -50,15 +50,15 @@ def test_the_tag_is_the_chains_last_link_after_curriculum_c1():
 
 def test_every_defaults_snapshot_drops_to_mains_value_without_the_teacher_keys():
     """G-style parity of the defaults: the new keys and the route are all that moved the
-    snapshots recorded before the tag (main's values at de73fbda51, frozen here)."""
+    snapshots recorded before the tag (main's values at 947200afee, frozen here)."""
 
     from learnloop.config.schema import LearnLoopConfig
     from learnloop.config.template import DEFAULTS_SNAPSHOT_BY_ALGORITHM, default_config_text, \
         defaults_fingerprint_for_version
 
-    mains = {"mvp-0.9": "57d301b8d79208761bb3fbc024d332ddd222a077eb19dddfa83adfded3989739",
-             "mvp-0.39": "b403c8ebc8dc1c8c189473a74a8a254afcd4c2567431ff97d130ed1186b174c0",
-             "mvp-0.40": "a7673dd4bbbe412c53af575422491f02adb0dc31440b5a14e1ec5537b1a95851"}
+    mains = {"mvp-0.9": "a73a195a424476bc4091c560f2b773ca740be97fb312dfc02322d93049bf4135",
+             "mvp-0.39": "4f2dc83c0ff6efc33d215d8fb25c1de99110db712b847c5112f1c753663f9e18",
+             "mvp-0.40": "eb330f4b547387a34b350d2a3a374967fcd6ce9d92317c2f22f7cba837f336a9"}
     for version, fingerprint in DEFAULTS_SNAPSHOT_BY_ALGORITHM.items():
         assert fingerprint == defaults_fingerprint_for_version(version)
     for version, main in mains.items():

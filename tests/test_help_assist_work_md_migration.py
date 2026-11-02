@@ -37,7 +37,9 @@ def _later():
     # RW5d P3's migration 232 and teacher TE1's 233 also apply on the way to head.
     from tests.test_help_assist_figures_migration import P3_ADDED_OBJECTS, P3_ALTERED_TABLES
 
-    return P3_ADDED_OBJECTS | TE1_ADDED_OBJECTS, P3_ALTERED_TABLES | TE1_ALTERED_TABLES
+    # _schema reads objects with SQL only: TE1's autoindexes are not among them.
+    te1_added = {name for name in TE1_ADDED_OBJECTS if not name.startswith("sqlite_autoindex")}
+    return P3_ADDED_OBJECTS | te1_added, P3_ALTERED_TABLES | TE1_ALTERED_TABLES
 
 
 def test_230_is_the_work_md_migration_and_help_assists_stays_a_raw_ledger():
