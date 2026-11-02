@@ -671,6 +671,7 @@ fn main() {
                 notes_link,
                 notes_decide,
                 notes_hidden,
+                notes_set_gaps,
                 reader_side_by_side_section,
                 reader_figure_request,
                 figure_request,

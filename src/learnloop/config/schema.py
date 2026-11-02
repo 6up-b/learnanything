@@ -3087,10 +3087,22 @@ class NotesConfig(BaseModel):
     notes one judgment reads (``keep``: a prompt bound). Display and
     learner-voice records only: nothing in scoring, scheduling, projection or
     serving reads a note, so no algorithm successor.
+
+    ``gaps_enabled`` (curriculum C5, spec §10.2, §12 C5; owner Q9: off by
+    default, the learner's opt-in in Settings): a LINKED note (a standing
+    proposal or the learner's own link, never a hidden one or an unlinked
+    note) is also a learner-text-gaps input (``source_kind = 'learner_note'``,
+    the snapshot's current text, keyed to the topics and passages it is linked
+    to), tier 2 only: it steers hypotheses and suggestions, never mastery,
+    evidence or grading. Read on the ChatGPT plan only (``note_link_judge``'s
+    route; with the plan down it waits), never by the Decider, never embedded,
+    never drafted into a new topic. Off (or ``enabled`` off, or
+    ``learner_text_gaps.enabled`` off): the gaps code reads no note row.
     """
 
     enabled: bool = True
     max_candidates: int = Field(default=8, ge=1, le=20)
+    gaps_enabled: bool = False
     tend: NotesTendConfig = Field(default_factory=NotesTendConfig)
 
 

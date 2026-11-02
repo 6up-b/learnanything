@@ -494,6 +494,8 @@ CURRICULUM_C2_RPCS = (
     "notes.decide",
     # followups-nov1c C (C2 ruling R5): Settings' hidden notes.
     "notes.hidden",
+    # Curriculum C5: Settings' opt-in for linked notes to steer suggestions (desktop only).
+    "notes.set_gaps",
 )
 
 

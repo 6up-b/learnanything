@@ -6794,6 +6794,9 @@ export interface NotesContractDto {
   lexicalOnly: boolean;
   pocketNotesLabel: string;
   takePrefix: string;
+  /** Curriculum C5: present (true) only with the learner's opt-in (notes.gaps_enabled): a linked
+   *  note may then be read for gaps in their understanding (it only steers suggestions). */
+  gaps?: boolean;
 }
 
 /** followups-nov1c C (C2 ruling R5): a note link the learner hid, as Settings lists it

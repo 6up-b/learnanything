@@ -15,6 +15,12 @@ Desktop only (pinned in tests/test_mobile_allowlist.py).
 * ``notes.decide``: one tap hides a link (``hide``), or keeps it after all (``keep``).
 * ``notes.hidden``: the links the learner hid (Settings' *hidden notes*, followups-nov1c
   C, C2 ruling R5); *show again* is ``notes.decide`` ``keep`` on one.
+* ``notes.set_gaps``: curriculum C5's opt-in from Settings (``notes.gaps_enabled``, off by
+  default): a linked note may then be read for gaps in the learner's understanding, on the
+  ChatGPT plan only; it only ever steers what to suggest, never grades. The links that
+  stand are queued for the gap pipeline when a link run ends, when the learner links a
+  note or keeps a link, when the opt-in is turned on and when a vault opens
+  (:func:`queue_note_gaps`); a hidden link never is.
 
 **The ChatGPT plan only (§10.4):** the background linking runs under
 ``plan_fallback.quiet()``: no OpenRouter offer and no grant, ever; a route that does not
@@ -56,7 +62,12 @@ NOTES_RPCS: tuple[str, ...] = (
     "notes.link",
     "notes.decide",
     "notes.hidden",
+    "notes.set_gaps",
 )
+
+#: Settings' copy for curriculum C5's opt-in (owner Q9): honest about what it does.
+GAPS_LINE = ("Let LearnLoop's model on your ChatGPT plan read the notes you've linked for gaps in your "
+             "understanding. It only ever steers what to suggest, never grades you.")
 
 
 def prompt_contract_fields(vault: Any) -> dict[str, Any]:
@@ -65,8 +76,31 @@ def prompt_contract_fields(vault: Any) -> dict[str, Any]:
     settings = NL.tend_settings(vault)
     if settings is None:
         return {}
-    return {"notes": {"enabled": True, "lexical_only": settings.lexical_only,
-                      "pocket_notes_label": NL.POCKET_NOTES_LABEL, "take_prefix": NL.TAKE_PREFIX}}
+    fields: dict[str, Any] = {"enabled": True, "lexical_only": settings.lexical_only,
+                              "pocket_notes_label": NL.POCKET_NOTES_LABEL, "take_prefix": NL.TAKE_PREFIX}
+    if bool(getattr(vault.config.notes, "gaps_enabled", False)):
+        # Curriculum C5: present only with the opt-in on, so switched off the contract is today's.
+        fields["gaps"] = True
+    return {"notes": fields}
+
+
+def queue_note_gaps(ctx: SidecarContext, vault: Any, repository: Any) -> int:
+    """Curriculum C5: queue the linked notes' current snapshots for the gap pipeline and
+    wake its worker (no model call here). Switched off it reads no note row and queues
+    nothing; a failure never fails the learner's act."""
+
+    try:
+        from learnloop.diagnosis.text_gaps.jobs import enqueue_learner_notes
+
+        queued = enqueue_learner_notes(vault, repository)
+    except Exception:  # noqa: BLE001 - gaps from notes never block the notes
+        LOG.warning("could not queue linked notes for gaps", exc_info=True)
+        return 0
+    if queued:
+        worker = getattr(ctx, "post_attempt_worker", None)
+        if worker is not None:
+            worker.notify()
+    return queued
 
 
 def _require(ctx: SidecarContext) -> tuple[Any, Any]:
@@ -184,6 +218,13 @@ def _link(ctx: SidecarContext, vault: Any, repository: Any, goal_id: str, target
             outcome = {"state": "waiting", "status": "failed", "reason": type(exc).__name__}
         if outcome["state"] == "waiting":
             outcome["retry_at"] = _monotonic() + NL.WAITING_RETRY_SECONDS
+        elif outcome.get("status") == "done":
+            # Curriculum C5: the links that stand now, queued for gaps (with the opt-in only).
+            now_vault = live_vault()
+            if now_vault is not None and Path(now_vault.root).resolve() == root:
+                from learnloop.db.repositories import Repository
+
+                queue_note_gaps(ctx, now_vault, Repository.attach(sqlite_path))
         with work.lock:
             work.state[goal_id] = outcome
 
@@ -302,6 +343,7 @@ def notes_link(ctx: SidecarContext, params: LinkInput) -> dict[str, Any]:
                               span_id=params.span_id)
     except NL.NotesError as exc:
         raise _error(exc) from exc
+    queue_note_gaps(ctx, vault, repository)
     return versioned({**out, "marks": NL.marks(vault, repository, extraction_id)})
 
 
@@ -317,9 +359,12 @@ def notes_decide(ctx: SidecarContext, params: DecideInput) -> dict[str, Any]:
 
     vault, repository = _require(ctx)
     try:
-        return versioned(NL.decide(vault, repository, params.link_id, params.choice))
+        out = NL.decide(vault, repository, params.link_id, params.choice)
     except NL.NotesError as exc:
         raise _error(exc) from exc
+    if params.choice == "keep":
+        queue_note_gaps(ctx, vault, repository)  # a hidden link is never queued (C5)
+    return versioned(out)
 
 
 class HiddenInput(ParamsModel):
@@ -335,4 +380,29 @@ def notes_hidden(ctx: SidecarContext, params: HiddenInput) -> dict[str, Any]:
     return versioned({"hidden": NL.hidden(vault, repository)})
 
 
-__all__ = ["NOTES_RPCS", "prompt_contract_fields"]
+class GapsInput(ParamsModel):
+    enabled: bool
+
+
+@method("notes.set_gaps", GapsInput)
+def notes_set_gaps(ctx: SidecarContext, params: GapsInput) -> dict[str, Any]:
+    """Curriculum C5's opt-in from Settings (owner Q9: off by default): writes
+    ``notes.gaps_enabled``. On, the linked notes are queued for the gap pipeline (read on
+    the ChatGPT plan only); off, the gaps code reads no note row again."""
+
+    from learnloop.ops.settings_store import SettingsStoreError, apply_config_updates
+
+    vault, _repository = _require(ctx)
+    try:
+        apply_config_updates(vault.root / "learnloop.toml", {("notes", "gaps_enabled"): bool(params.enabled)})
+    except SettingsStoreError as exc:
+        raise SidecarError(exc.code, str(exc)) from exc
+    ctx.reload(maintenance=False)
+    vault, repository = _require(ctx)
+    enabled = bool(vault.config.notes.gaps_enabled)
+    if enabled:
+        queue_note_gaps(ctx, vault, repository)
+    return versioned({"gaps_enabled": enabled, "line": GAPS_LINE})
+
+
+__all__ = ["GAPS_LINE", "NOTES_RPCS", "prompt_contract_fields", "queue_note_gaps"]

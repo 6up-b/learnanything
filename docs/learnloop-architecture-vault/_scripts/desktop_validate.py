@@ -182,8 +182,8 @@ def main() -> int:
     # The inventory and activation counts are review gates: a new desktop file
     # must be classified by the activation audit before these numbers change.
     # followups-nov1c: HiddenNotesSettings.tsx (Settings) and ScopeFromPassage.tsx (the Notes rail).
-    if len(ts_sources) != 304:
-        errors.append(f"source inventory drift: expected 304 TypeScript/TSX files, found {len(ts_sources)}")
+    if len(ts_sources) != 305:
+        errors.append(f"source inventory drift: expected 305 TypeScript/TSX files, found {len(ts_sources)}")
     if len(rust_sources) != 6:
         errors.append(f"source inventory drift: expected 6 authored Rust modules, found {len(rust_sources)}")
     for path in sorted(expected - actual):
@@ -277,7 +277,7 @@ def main() -> int:
             errors.append(f"duplicate source coverage for {source_path}: {len(notes)} notes")
 
     expected_activation_counts = {
-        "entry-reachable build graph": 294,
+        "entry-reachable build graph": 295,
         # RW5d P2 sketch compartment: sketch.worker.ts and sketchWorkerCore.ts, bundled by vite.config.mjs.
         "bundled worker entry": 2,
         "compiler-implicit": 2,
@@ -291,7 +291,7 @@ def main() -> int:
     status_counts: dict[str, int] = defaultdict(int)
     for info in audited_infos.values():
         status_counts[info.refactor_status] += 1
-    if dict(status_counts) != {"ACTIVE": 310}:
+    if dict(status_counts) != {"ACTIVE": 311}:
         errors.append(f"lifecycle classification drift requires review: {dict(status_counts)}")
 
     link_errors, wikilinks, fragments, markdown_links = validate_links(sorted(actual))

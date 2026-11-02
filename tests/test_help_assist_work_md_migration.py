@@ -22,9 +22,10 @@ from learnloop.adaptive_difficulty import protected_tables as PT
 from learnloop.db.migrate import applied_versions, discover_migrations
 from learnloop.db.stores import help_assists as store
 from learnloop.db.table_roles import TableRole, role_for_table
+from tests.test_learner_note_source_kind_migration import C5_ALTERED_TABLES
 
 MIGRATIONS = Path(__file__).resolve().parents[1] / "migrations"
-HEAD = Path(__file__).resolve().parents[1] / "fixtures" / "migration_head_230" / "state.sqlite"
+HEAD = Path(__file__).resolve().parents[1] / "fixtures" / "migration_head_231" / "state.sqlite"
 #: The table 230 alters (it adds no object): the earlier migrations' "nothing
 #: else changed" diffs on the way to head read this.
 DR2_ALTERED_TABLES = frozenset({"help_assists"})
@@ -72,10 +73,11 @@ def test_230_adds_only_the_nullable_column_and_keeps_every_row(tmp_path):
         before_row = connection.execute("SELECT * FROM help_assists").fetchone()
     before = _schema(database)
     with upgrade_allowance(UPGRADE_TEST_HELPER):
-        assert [migration.version for migration in apply_migrations(database)] == [230]
+        # Curriculum C5's 231 (the two gap tables' source kinds) follows on the way to head.
+        assert [migration.version for migration in apply_migrations(database)] == [230, 231]
     after = _schema(database)
     assert set(after) - set(before) == set(DR2_ADDED_OBJECTS)
-    assert {name for name in before if before[name] != after.get(name)} == set(DR2_ALTERED_TABLES)
+    assert {name for name in before if before[name] != after.get(name)} == set(DR2_ALTERED_TABLES) | set(C5_ALTERED_TABLES)
     with closing(sqlite3.connect(database)) as connection:
         columns = [row[1] for row in connection.execute("PRAGMA table_info(help_assists)")]
         assert columns[-1] == "work_md" and tuple(columns) == store.COLUMNS
@@ -91,7 +93,9 @@ def test_230_adds_only_the_nullable_column_and_keeps_every_row(tmp_path):
 
 def test_the_head_fixture_holds_230_in_rollback_mode():
     assert HEAD.read_bytes()[18:20] == b"\x01\x01"
-    assert max(applied_versions(HEAD)) == max(m.version for m in discover_migrations()) == 230
+    # The head is 231 (curriculum C5, rebuilt from 230's head with only 231 applied); it holds 230.
+    assert 230 in applied_versions(HEAD)
+    assert max(applied_versions(HEAD)) == max(m.version for m in discover_migrations()) == 231
     with closing(sqlite3.connect(f"file:{HEAD}?mode=ro", uri=True)) as connection:
         columns = [row[1] for row in connection.execute("PRAGMA table_info(help_assists)")]
         assert columns[-1] == "work_md"
@@ -105,7 +109,7 @@ def test_230_on_the_durability_lane(tmp_path):
 
     database = _at_229(tmp_path)
     with upgrade_allowance(UPGRADE_TEST_HELPER):
-        assert [migration.version for migration in apply_migrations(database)] == [230]
+        assert [migration.version for migration in apply_migrations(database)] == [230, 231]
     with closing(sqlite3.connect(database)) as connection:
         assert connection.execute("PRAGMA journal_mode").fetchone()[0] == "wal"
         store.insert_assist(connection, {"id": "ha_d", "surface": "practice", "assist_kind": "hint",

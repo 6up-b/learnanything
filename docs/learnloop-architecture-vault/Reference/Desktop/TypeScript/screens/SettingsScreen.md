@@ -10,8 +10,8 @@ area: "TypeScript/screens"
 source_path: "apps/learnloop-tauri/src/screens/SettingsScreen.tsx"
 source_paths:
   - "apps/learnloop-tauri/src/screens/SettingsScreen.tsx"
-source_commit: "8c31c5334640d492343860412411e55e1ae522dc"
-source_commit_timestamp: "2026-11-01T19:16:35-05:00"
+source_commit: "1ff505191694b0c505027c4d768673042c708f36"
+source_commit_timestamp: "2026-11-01T17:58:28-05:00"
 source_worktree_state: "clean"
 activation_kind: "entry-reachable build graph"
 activation_evidence: "A static TypeScript import path reaches this file from the Vite entry src/main.tsx."
@@ -48,8 +48,8 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Refactor status | `ACTIVE` |
 | Activation kind | `entry-reachable build graph` |
 | Worktree state | `clean` |
-| Source commit | `8c31c5334640d492343860412411e55e1ae522dc` |
-| Commit timestamp | `2026-11-01T19:16:35-05:00` |
+| Source commit | `1ff505191694b0c505027c4d768673042c708f36` |
+| Commit timestamp | `2026-11-01T17:58:28-05:00` |
 
 ## Activation and status evidence
 
@@ -144,7 +144,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 - [[Reference/Desktop/TypeScript/components/term|src/components/term.tsx]] — import-or-re-export; imports `COLOR`, `FONT_MONO`, `TermCheckbox`, `TermSelect`
 - [[Reference/Desktop/TypeScript/components/ui|src/components/ui.tsx]] — import-or-re-export; imports `SectionHeader`
 - [[Reference/Desktop/TypeScript/screens/practice/HelpStyleSettings|src/screens/practice/HelpStyleSettings.tsx]] — import-or-re-export; imports `HelpStyleSettings`
-- [[Reference/Desktop/TypeScript/screens/reader/HiddenNotesSettings|src/screens/reader/HiddenNotesSettings.tsx]] — import-or-re-export; imports `HiddenNotesSettings`
+- [[Reference/Desktop/TypeScript/screens/reader/NotesGapsSettings|src/screens/reader/NotesGapsSettings.tsx]] — import-or-re-export; imports `NotesGapsSettings`
 - [[Reference/Desktop/TypeScript/screens/reader/ReaderCorrespondenceSettings|src/screens/reader/ReaderCorrespondenceSettings.tsx]] — import-or-re-export; imports `ReaderCorrespondenceSettings`
 - [[Reference/Desktop/TypeScript/screens/reader/ReaderCueSettings|src/screens/reader/ReaderCueSettings.tsx]] — import-or-re-export; imports `ReaderCueSettings`
 

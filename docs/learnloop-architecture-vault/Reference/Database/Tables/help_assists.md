@@ -3,13 +3,13 @@ title: "help_assists"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "a9ee92e3e5dc801b9325095a7bf9061ba7a47c92"
-source_commit_timestamp: "2026-11-01T20:19:31-05:00"
+source_commit: "563fed91b78a0ba82a19e8cd26f2fee5c94d9574"
+source_commit_timestamp: "2026-11-01T20:28:51-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite help_assists"
   - "table help_assists"
-schema_head: 230
+schema_head: 231
 table_name: "help_assists"
 table_role: "raw_ledger"
 functionality_status: "active"
@@ -49,7 +49,7 @@ It belongs to the **operations** navigation family. The family context lives in 
 - **Role:** `raw_ledger` — Authoritative replay input or mixed authoritative state. The rebuild umbrella preserves it.
 - **Functionality status:** `active`.
 - **Introduced by:** `migrations/210_help_assists.sql`.
-- **Schema touched by:** `210_help_assists.sql`, `211_approach_maps.sql`, `212_hint_feedback_source_kind.sql`, `230_help_assist_work_md.sql`.
+- **Schema touched by:** `210_help_assists.sql`, `211_approach_maps.sql`, `212_hint_feedback_source_kind.sql`, `230_help_assist_work_md.sql`, `231_learner_note_source_kind.sql`.
 - **Rebuild owner:** none; this table is preserved by the rebuild umbrella.
 
 For the distinction between SQLite state and human-authored vault files, see [[State and Persistence]]. For whole-vault creation and opening behavior, see [[Vault Lifecycle]]. ^table-lifecycle
@@ -192,9 +192,9 @@ None found by exact static reference scan.
 - `tests/test_hint_h2b_rereview.py`
 - `tests/test_hint_report.py`
 - `tests/test_hint_telemetry.py`
+- `tests/test_learner_note_source_kind_migration.py`
 - `tests/test_library_asks_migration.py`
 - `tests/test_owner_capture_1025.py`
-- `tests/test_rw2c_fix_round3.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

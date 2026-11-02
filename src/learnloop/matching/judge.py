@@ -229,6 +229,8 @@ def judge_pairs(
 
     Any other failure marks that pair ``failed`` (its claim released) and
     moves on: an unjudged pair merges nothing and is picked up by the next run.
+    A ``BaseException`` that is not an ``Exception`` releases the pair's claim
+    and propagates.
     """
 
     producer = str(producer or getattr(execute, "producer", "") or "")
@@ -274,6 +276,14 @@ def judge_pairs(
             _release(repository, key, owner, epoch, now)
             results.append(JudgedPair(left, right, "failed", score=pair.score, error=type(exc).__name__))
             continue
+        except BaseException:
+            # A stop that is not an Exception (curriculum C5's ``NoteReadingStopped``:
+            # consent withdrawn before this pair's request; a KeyboardInterrupt) unwinds
+            # the whole run. Its claim is released first (Codex re-review F6): a lease
+            # left behind would answer ``claimed_elsewhere`` to every retry until it
+            # expired, and a resumed reading would fail on it.
+            _release(repository, key, owner, epoch, now)
+            raise
         verdict = outcome[0] if isinstance(outcome, tuple) else outcome
         rationale = str(verdict.rationale or "").strip()[:1000]
         judgment_id: str | None = None

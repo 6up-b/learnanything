@@ -3,13 +3,13 @@ title: "learner_claims"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "a9ee92e3e5dc801b9325095a7bf9061ba7a47c92"
-source_commit_timestamp: "2026-11-01T20:19:31-05:00"
+source_commit: "563fed91b78a0ba82a19e8cd26f2fee5c94d9574"
+source_commit_timestamp: "2026-11-01T20:28:51-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite learner_claims"
   - "table learner_claims"
-schema_head: 230
+schema_head: 231
 table_name: "learner_claims"
 table_role: "raw_ledger"
 functionality_status: "active"
@@ -132,6 +132,7 @@ Indexes and uniqueness:
 - `tests/test_learner_report_superseded.py`
 - `tests/test_lp_claim_fixes_rereview.py`
 - `tests/test_lp_claim_fixes_review.py`
+- `tests/test_notes_as_learner_text.py`
 - `tests/test_pr4_superseded_claims_landing.py`
 - `tests/test_question_promotions.py`
 - `tests/test_rebuild_equivalence.py`
@@ -140,7 +141,6 @@ Indexes and uniqueness:
 - `tests/test_tutor_promotion_service.py`
 - `tests/test_ad23_fix_r8.py`
 - `tests/test_agent_runs.py`
-- `tests/test_anti_double_count.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

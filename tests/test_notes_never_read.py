@@ -12,6 +12,14 @@
   through any chain (the sidecar handler and the CLI are the only importers).
 * Dynamically: with a sentinel note linked, the coverage judge, the scope resolver and
   the path judge (C0a/C0b's model calls) never see its text.
+
+Curriculum C5 (spec §10.2, §12 C5) adds the one declared exception: with the learner's
+opt-in (``notes.gaps_enabled``, default off) a LINKED note is a tier-2 learner-text-gaps
+input, read through ``source_retrieval.note_gaps`` (notes code, read-only) by the gap
+pipeline's adapter ``diagnosis.text_gaps.sources`` alone. ``text_gaps`` is a namespace
+package grimp does not graph, so that exception is pinned statically here: no other
+module of the packages below imports ``note_gaps`` (tests/test_notes_as_learner_text.py
+covers what the reading may write: gap rows only, never evidence).
 """
 from __future__ import annotations
 
@@ -33,6 +41,7 @@ ALLOWED = {
     "src/learnloop/curriculum/notes_tend.py": "the one tend adapter",
     "src/learnloop/db/stores/learner_notes.py": "the tables' store",
     "src/learnloop/source_retrieval/note_links.py": "the linking service (display and learner-voice records)",
+    "src/learnloop/source_retrieval/note_gaps.py": "curriculum C5: the gap pipeline's read-only way to linked notes",
     "src/learnloop_sidecar/handlers/notes.py": "the notes RPCs",
     "src/learnloop/cli/curriculum.py": "the report's notes row (aggregates only)",
     "src/learnloop/db/table_roles.py": "rebuild roles (RAW_LEDGER)",
@@ -57,7 +66,12 @@ NEVER = (
     "learnloop.daily_plan",
 )
 NOTES_MODULES = ("learnloop.source_retrieval.note_links", "learnloop.curriculum.notes_tend",
-                 "learnloop.db.stores.learner_notes")
+                 "learnloop.db.stores.learner_notes", "learnloop.source_retrieval.note_gaps")
+#: Curriculum C5's one declared exception: the only source files outside the sidecar and the
+#: CLI that import ``note_gaps`` (the gap pipeline's adapter, lazily, behind the opt-in).
+NOTE_GAPS_IMPORTERS = {"src/learnloop/diagnosis/text_gaps/sources.py"}
+_IMPORTS_NOTE_GAPS = re.compile(r"(from\s+learnloop\.source_retrieval\s+import\s+[^\n]*\bnote_gaps\b"
+                                r"|learnloop\.source_retrieval\.note_gaps\b)")
 
 
 def test_only_the_notes_own_code_names_their_tables_or_modules():
@@ -68,6 +82,27 @@ def test_only_the_notes_own_code_names_their_tables_or_modules():
     assert found <= set(ALLOWED), sorted(found - set(ALLOWED))
     assert {"src/learnloop/source_retrieval/note_links.py", "src/learnloop/db/stores/learner_notes.py",
             "src/learnloop_sidecar/handlers/notes.py"} <= found
+
+
+def test_c5s_one_exception_only_the_gap_pipelines_adapter_imports_note_gaps():
+    found = set()
+    for path in sorted((ROOT / "src").rglob("*.py")):
+        relative = path.relative_to(ROOT).as_posix()
+        if relative.startswith(("src/learnloop_sidecar/", "src/learnloop/cli/")) or relative in ALLOWED:
+            continue
+        if _IMPORTS_NOTE_GAPS.search(path.read_text(encoding="utf-8")):
+            found.add(relative)
+    assert found == NOTE_GAPS_IMPORTERS, sorted(found)
+    # The adapter reaches it only behind the opt-in (the config is read first).
+    sources = (ROOT / "src/learnloop/diagnosis/text_gaps/sources.py").read_text(encoding="utf-8")
+    enabled = sources[sources.index("def learner_notes_enabled"):sources.index("def learner_note_ids")]
+    assert enabled.index("gaps_enabled") < enabled.index("import note_gaps")
+    # No text_gaps module other than the adapter names the notes' modules or tables.
+    for path in sorted((ROOT / "src/learnloop/diagnosis/text_gaps").glob("*.py")):
+        text = path.read_text(encoding="utf-8")
+        assert not NAMES.search(text), path.name
+        if path.name != "sources.py":
+            assert "note_gaps" not in text, path.name
 
 
 def test_no_generation_grading_evidence_or_ad_module_reaches_the_notes_modules():
