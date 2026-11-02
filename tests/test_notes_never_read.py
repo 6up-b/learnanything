@@ -16,10 +16,12 @@
 Curriculum C5 (spec §10.2, §12 C5) adds the one declared exception: with the learner's
 opt-in (``notes.gaps_enabled``, default off) a LINKED note is a tier-2 learner-text-gaps
 input, read through ``source_retrieval.note_gaps`` (notes code, read-only) by the gap
-pipeline's adapter ``diagnosis.text_gaps.sources`` alone. ``text_gaps`` is a namespace
-package grimp does not graph, so that exception is pinned statically here: no other
-module of the packages below imports ``note_gaps`` (tests/test_notes_as_learner_text.py
-covers what the reading may write: gap rows only, never evidence).
+pipeline's adapter ``diagnosis.text_gaps.sources`` alone. That exception is pinned
+statically here (no other module of the packages below imports ``note_gaps``) and, since
+``text_gaps`` became a regular package (followups batch 5, I; before, grimp did not graph
+it), in the import graph: that one edge exists, and with it set aside nothing below reaches
+the notes' code (tests/test_notes_as_learner_text.py covers what the reading may write: gap
+rows only, never evidence).
 """
 from __future__ import annotations
 
@@ -114,8 +116,16 @@ def test_c5s_one_exception_only_the_gap_pipelines_adapter_imports_note_gaps():
             assert "note_gaps" not in text, path.name
 
 
+#: Curriculum C5's declared edge (also the import-linter contracts' one ignore for it).
+C5_EDGE = {"importer": "learnloop.diagnosis.text_gaps.sources", "imported": "learnloop.source_retrieval.note_gaps"}
+
+
 def test_no_generation_grading_evidence_or_ad_module_reaches_the_notes_modules():
     graph = grimp.build_graph("learnloop", "learnloop_sidecar")
+    # C5's one exception, graphed now that text_gaps is a regular package: it exists, and it is the only
+    # way any module below reaches the notes' code (set aside, the checks are C2's as before).
+    assert graph.direct_import_exists(**C5_EDGE)
+    graph.remove_import(**C5_EDGE)
     importers = set()
     for module in NOTES_MODULES:
         importers |= {name for name in graph.find_downstream_modules(module) if not name.startswith(NOTES_MODULES)}
