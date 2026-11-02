@@ -3,13 +3,13 @@ title: "figure_requests"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "97636d581b53e193827cff4b6433943ef4c22373"
-source_commit_timestamp: "2026-11-01T23:43:02-05:00"
+source_commit: "446a0cf89934d580d5a618923b98ff8b4ee737b2"
+source_commit_timestamp: "2026-11-02T00:40:38-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite figure_requests"
   - "table figure_requests"
-schema_head: 232
+schema_head: 233
 table_name: "figure_requests"
 table_role: "raw_ledger"
 functionality_status: "active"
@@ -20,8 +20,10 @@ source_paths:
   - "src/learnloop/db/table_roles.py"
   - "migrations/224_figure_requests.sql"
   - "src/learnloop/db/stores/figures.py"
+  - "src/learnloop/diagnosis/split/figure_trace.py"
   - "src/learnloop/diagnosis/text_gaps/sources.py"
   - "src/learnloop/figure_admission.py"
+  - "src/learnloop/figures/rich.py"
   - "src/learnloop/figures/service.py"
   - "src/learnloop/reader/reader_report.py"
 tags:
@@ -100,6 +102,7 @@ None found by exact static reference scan.
 ### Direct SQL readers
 
 - `src/learnloop/db/stores/figures.py`
+- `src/learnloop/diagnosis/split/figure_trace.py`
 - `src/learnloop/diagnosis/text_gaps/sources.py`
 - `src/learnloop/figure_admission.py`
 - `src/learnloop/reader/reader_report.py`
@@ -121,6 +124,8 @@ None found by exact static reference scan.
 - `tests/test_figure_rich_contract.py`
 - `tests/test_figure_rich_job.py`
 - `tests/test_figure_rich_review_fixes.py`
+- `tests/test_figures_help.py`
+- `tests/test_figures_help_codex_review.py`
 - `tests/test_figures_show_me.py`
 - `tests/test_figures_show_me_codex_review.py`
 - `tests/test_sketch_service.py`

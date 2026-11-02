@@ -3,13 +3,13 @@ title: "figure_predictions"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "97636d581b53e193827cff4b6433943ef4c22373"
-source_commit_timestamp: "2026-11-01T23:43:02-05:00"
+source_commit: "446a0cf89934d580d5a618923b98ff8b4ee737b2"
+source_commit_timestamp: "2026-11-02T00:40:38-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite figure_predictions"
   - "table figure_predictions"
-schema_head: 232
+schema_head: 233
 table_name: "figure_predictions"
 table_role: "raw_ledger"
 functionality_status: "active"
@@ -23,9 +23,9 @@ source_paths:
   - "src/learnloop/adaptive_difficulty/protected_tables.py"
   - "src/learnloop/daily_plan/router_reader.py"
   - "src/learnloop/db/stores/figures.py"
+  - "src/learnloop/diagnosis/split/figure_trace.py"
   - "src/learnloop/diagnosis/text_gaps/provenance.py"
   - "src/learnloop/diagnosis/text_gaps/sources.py"
-  - "src/learnloop/reader/reader_observations.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/raw-ledger"
@@ -40,7 +40,7 @@ tags:
 
 ## Why it exists
 
-Records a learner's prediction on an explorable figure (reader workbench RW5a): the answer, the observed readout before and after the prediction's change, whether it matched (decided by code) and the optional "what changed?" line. Formative only: never an attempt or an evidence observation; a missed one is read by learner-text gaps as a `reader_formative` text and listed by "Last time here". Append-only by trigger, its one update setting `explanation_text` once. It supplies replay-stable input rather than a disposable cache. Rows bind `figure_id`, `extraction_id`, `prediction_index`, making the operational relationship explicit. ^table-purpose
+Records a learner's prediction on an explorable figure (reader workbench RW5a): the answer, the observed readout before and after the prediction's change, whether it matched (decided by code) and the optional "what changed?" line. Formative only: never an attempt or an evidence observation; a missed one is read by learner-text gaps as a `reader_formative` text and listed by "Last time here". Append-only by trigger, its one update setting `explanation_text` once. It supplies replay-stable input rather than a disposable cache. Rows bind `figure_id`, `extraction_id`, `assist_id`, making the operational relationship explicit. ^table-purpose
 
 > [!quote] Migration design note
 > figure_predictions (RAW_LEDGER): the learner's prediction on a figure, the observed before/after readout and whether it matched (decided by code), and the optional "what changed?" text. Formative (tier 2, W1): never an attempt, an evidence observation or a field signal; a missed one is read by learner-text gaps as a reader_formative text. extraction_id is the figure's source (RW6a's "Last time here" reads it). Append-only: a row is never deleted, and the only update sets explanation_text once.
@@ -52,7 +52,7 @@ It belongs to the **reader** navigation family. The family context lives in [[Da
 - **Role:** `raw_ledger` — Authoritative replay input or mixed authoritative state. The rebuild umbrella preserves it.
 - **Functionality status:** `active`.
 - **Introduced by:** `migrations/216_interactive_figures.sql`.
-- **Schema touched by:** `216_interactive_figures.sql`, `224_figure_requests.sql`.
+- **Schema touched by:** `216_interactive_figures.sql`, `224_figure_requests.sql`, `232_help_assist_figures.sql`.
 - **Rebuild owner:** none; this table is preserved by the rebuild umbrella.
 
 For the distinction between SQLite state and human-authored vault files, see [[State and Persistence]]. For whole-vault creation and opening behavior, see [[Vault Lifecycle]]. ^table-lifecycle
@@ -63,13 +63,15 @@ For the distinction between SQLite state and human-authored vault files, see [[S
 |---|---|---:|---|---|---|
 | `id` | `TEXT` | no | — | PRIMARY KEY | Stored value |
 | `figure_id` | `TEXT` | yes | — | FK → [[Reference/Database/Tables/interactive_figures\|interactive_figures.id]] | Stored value |
-| `extraction_id` | `TEXT` | yes | — | — | Application-validated soft reference |
+| `extraction_id` | `TEXT` | no | — | — | Application-validated soft reference |
 | `prediction_index` | `INTEGER` | yes | — | — | Stored value |
 | `learner_answer` | `TEXT` | yes | — | — | Stored value |
 | `observed_json` | `TEXT` | yes | — | — | JSON-encoded structured payload |
 | `matched` | `INTEGER` | yes | — | — | Stored value |
 | `explanation_text` | `TEXT` | no | — | — | Stored value |
 | `created_at` | `TEXT` | yes | — | — | Timestamp (ISO-8601 UTC text) |
+| `assist_id` | `TEXT` | no | — | — | Application-validated soft reference |
+| `explained_at` | `TEXT` | no | — | — | Timestamp (ISO-8601 UTC text) |
 
 ## Relationships and access paths
 
@@ -79,6 +81,7 @@ Declared SQLite foreign keys:
 
 Indexes and uniqueness:
 
+- `idx_figure_predictions_assist` on `assist_id`.
 - `idx_figure_predictions_extraction` on `extraction_id`, `created_at`.
 - `sqlite_autoindex_figure_predictions_2` on `figure_id`, `prediction_index` (unique).
 - `sqlite_autoindex_figure_predictions_1` on `id` (unique).
@@ -98,6 +101,7 @@ None found by exact static reference scan.
 
 - `src/learnloop/daily_plan/router_reader.py`
 - `src/learnloop/db/stores/figures.py`
+- `src/learnloop/diagnosis/split/figure_trace.py`
 - `src/learnloop/diagnosis/text_gaps/provenance.py`
 - `src/learnloop/diagnosis/text_gaps/sources.py`
 - `src/learnloop/reader/reader_observations.py`
@@ -119,9 +123,12 @@ None found by exact static reference scan.
 - `tests/test_architecture.py`
 - `tests/test_figure_predictions.py`
 - `tests/test_figure_requests_migration.py`
+- `tests/test_figures_help_codex_review.py`
 - `tests/test_figures_migration.py`
 - `tests/test_figures_rpc.py`
 - `tests/test_figures_switch_off.py`
+- `tests/test_help_assist_figures_migration.py`
+- `tests/test_learner_note_source_kind_migration.py`
 - `tests/test_router_reader_activity.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
@@ -139,16 +146,23 @@ Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when c
 > It captures CHECK constraints and defaults that a column summary can hide. The migration files remain authoritative.
 
 ```sql
-CREATE TABLE figure_predictions (
+CREATE TABLE "figure_predictions" (
   id TEXT PRIMARY KEY,
   figure_id TEXT NOT NULL REFERENCES interactive_figures(id),
-  extraction_id TEXT NOT NULL,
+  -- The figure's source (RW6a's "Last time here" reads it); RW5d P3: NULL
+  -- for a figure with no home and no book (an attempt host's illustration).
+  extraction_id TEXT,
   prediction_index INTEGER NOT NULL CHECK (prediction_index >= 0),
   learner_answer TEXT NOT NULL,
   observed_json TEXT NOT NULL,
   matched INTEGER NOT NULL CHECK (matched IN (0, 1)),
   explanation_text TEXT,
   created_at TEXT NOT NULL,
+  -- RW5d P3: the help_assists figure row of the open attempt the prediction
+  -- was made under (a soft reference; NULL outside attempts and before 232).
+  assist_id TEXT,
+  -- RW5d P3: when explanation_text was set (with it, once; NULL before 232).
+  explained_at TEXT,
   UNIQUE (figure_id, prediction_index)
 );
 ```

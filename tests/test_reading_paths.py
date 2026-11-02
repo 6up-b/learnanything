@@ -60,7 +60,7 @@ def _without_rw5a(contract: dict) -> dict:
     """RW5a (explorable figures, landed after a76c8358a and on by default) adds its own key and its one intent-box
     action, pinned by tests/test_figures_switch_off.py; these pins are about RW7a's switch (RW5a landing)."""
     assert contract.pop("figures") == {"predictions": True, "region": True, "revisions": True, "offers": True,
-                                       "showMe": True, "sketch": True}  # RW5b: offers; RW5d P1: showMe; RW5d P2: sketch (on since G-SM14 passed)
+                                       "showMe": True, "sketch": True, "help": True}  # RW5b: offers; RW5d P1: showMe; RW5d P2: sketch (on since G-SM14 passed); RW5d P3: help (figures.help_kind_enabled, on by default)
     # Reader CA3 (on by default, pinned by tests/test_reader_ca3_compare_anywhere.py): its contract key and
     # Transfer's "how do my other books treat this?".
     assert contract["libraryAsk"].pop("compareScope") is True

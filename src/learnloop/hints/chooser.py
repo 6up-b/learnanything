@@ -88,6 +88,11 @@ _DESCRIBE: Mapping[str, str] = {
     "worked_chunk": "A chunk of this problem worked backward from the goal, leaving a gap for the learner "
                     "(worked help).",
     "walkthrough": "The full solution, keeping the learner's route where it is valid (worked help).",
+    # Reader RW5d P3 (spec_reader_show_me_figures_v1 §11.4): offered only when
+    # one qualifies, so every other request's question is unchanged.
+    "explore_figure": "An interactive figure on this topic the learner's books already have (built earlier, never "
+                      "from this question's own passages): they vary its parameters and watch what changes. "
+                      "States nothing about this question's solution.",
 }
 
 _INSTRUCTIONS = (

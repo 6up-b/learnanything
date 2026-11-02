@@ -68,6 +68,9 @@ export interface AskPanelConfig {
    *  mvp-0.35 or later): on a check on your own only a question about the maths
    *  converts, and the box and the labels say so. */
   coldHelpConverts: boolean;
+  /** Reader RW5d P3 (`figures.help_kind_enabled`): the panel's *show me ▸* on
+   *  practice, feedback and the workbench, with its cost line. Absent while off. */
+  figures?: true;
 }
 
 export interface WorkbenchHelpConfig {
@@ -123,7 +126,7 @@ export function setAlgoConfig(config: unknown): void {
     recap?: { enabled?: unknown; wrapUpEnabled?: unknown };
     hints?: { adaptiveEnabled?: unknown; authoredOfferAfterSeconds?: unknown; helpStyle?: unknown };
     adaptiveDifficulty?: { ratingTap?: unknown; firstHintProgress?: unknown };
-    ask?: { panelEnabled?: unknown; helpStyle?: unknown; coldHelpConverts?: unknown };
+    ask?: { panelEnabled?: unknown; helpStyle?: unknown; coldHelpConverts?: unknown; figures?: unknown };
     teacher?: { lessons?: unknown };
   };
   current = {
@@ -155,7 +158,11 @@ export function setAlgoConfig(config: unknown): void {
         }
       : null,
     ask: root.ask?.panelEnabled === true
-      ? { helpStyle: asHelpStyle(root.ask.helpStyle), coldHelpConverts: root.ask.coldHelpConverts === true }
+      ? {
+          helpStyle: asHelpStyle(root.ask.helpStyle), coldHelpConverts: root.ask.coldHelpConverts === true,
+          // Reader RW5d P3: show me ▸ in the panel (present only while on).
+          ...(root.ask.figures === true ? { figures: true as const } : {})
+        }
       : null,
     lessons: root.teacher?.lessons === true
   };

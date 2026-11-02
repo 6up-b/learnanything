@@ -37,21 +37,21 @@ at S0's checkpoint (D6). Rebuilding the head for a new migration keeps the
 sanitized content: apply the migration to a backup-API copy of this fixture,
 as before.
 
-## Teacher TE1 (migration 232), branch `teacher/te1-first-lesson`, 2026-11-01
+## Teacher TE1 (migration 233), branch `teacher/te1-first-lesson`, 2026-11-02
 
-Renamed from `migration_head_231` at TE1's landing
+Renamed from `migration_head_232` at TE1's landing
 (`docs/reviews/teacher-te1-first-lesson.md`, "Landing onto main"; TE1's
-migration was 230 on its branch and is renumbered 232 after learner
-data-relax 2's 230 and curriculum C5's 231). Rebuilt from main's tracked,
-sanitized `migration_head_231/state.sqlite` (main `de73fbda51`): a backup-API
-copy under `fixtures-local/` with only `232_teacher_lessons.sql` applied through
-`learnloop.db.migrate.apply_migrations` under the scratch-copy allowance
-(`UPGRADE_SCRATCH_COPY`), then `wal_checkpoint(TRUNCATE)` (0, 0, 0),
-`journal_mode=DELETE` (header bytes 1/1), `integrity_check` ok and
-`foreign_key_check` empty, and copied into place with the backup API, with no
-companion files. The head holds 229, 230, 231 and 232.
+migration was 230 on its branch and is renumbered 233 after learner
+data-relax 2's 230, curriculum C5's 231 and Reader RW5d P3's 232). Rebuilt
+from main's tracked, sanitized `migration_head_232/state.sqlite` (main
+`947200afee`): a backup-API copy under `fixtures-local/` with only
+`233_teacher_lessons.sql` applied through `learnloop.db.migrate.apply_migrations`
+under the scratch-copy allowance (`UPGRADE_SCRATCH_COPY`), then
+`wal_checkpoint(TRUNCATE)` (0, 0, 0), `journal_mode=DELETE` (header bytes 1/1),
+`integrity_check` ok and `foreign_key_check` empty, and copied into place with
+the backup API, with no companion files. The head holds 229 through 233.
 
-* 232 adds exactly its objects: `lessons`, `lesson_turns`, `lesson_plans`
+* 233 adds exactly its objects: `lessons`, `lesson_turns`, `lesson_plans`
   (RAW_LEDGER), `lesson_turn_payloads` (WORKFLOW), `lesson_checks` and
   `lesson_receipts` (RECEIPT), `lesson_weight_state`, `lesson_weight_trace` and
   `confidence_calibration_state` (DERIVED, one replayer), their autoindexes,
@@ -60,10 +60,44 @@ companion files. The head holds 229, 230, 231 and 232.
   the same columns, indexes and append-only triggers, every row kept: it has
   none here).
 
-Against main's 231 head no other object changed definition and only
-`schema_migrations` gained a row (232); every other table's rows are identical,
+Against main's 232 head no other object changed definition and only
+`schema_migrations` gained a row (233); every other table's rows are identical,
 so the sanitized content carries over (every companion file is byte-identical
 to main's).
+
+## Reader RW5d P3 (migration 232), landing of `reader/rw5d-p3-figures-help`, 2026-11-01
+
+Renamed from `migration_head_231` at P3's landing onto main
+(`docs/reviews/reader-rw5d-p3-figures-help.md`, "Landing onto main"). The
+branch built 232 on main's 230 head (`c0017b5740`); curriculum C5's 231
+landed first, so 232 keeps its number and the branch's own rebuild is
+replaced. Rebuilt from main's tracked, sanitized
+`migration_head_231/state.sqlite` (main `de73fbda51`): a backup-API copy
+under `fixtures-local/` with only `232_help_assist_figures.sql` applied
+through `learnloop.db.migrate.apply_migrations` under the scratch-copy
+allowance (`UPGRADE_SCRATCH_COPY`), then `wal_checkpoint(TRUNCATE)` (0, 0, 0),
+`journal_mode=DELETE` (header bytes 1/1), `integrity_check` ok and
+`foreign_key_check` empty, and copied into place with the backup API, with no
+companion files. The head holds 229, 230, 231 and 232.
+
+* 232 rebuilds `help_assists` (temp-then-rename under `foreign_keys = OFF`;
+  no foreign key names it): `assist_kind` gains `figure`, `hint_kind` gains
+  `explore_figure`, `request` gains `take_step`, and the nullable
+  `figure_id TEXT` is added (set once: `help_assists_identity_fixed` is
+  recreated with that clause), with the new index `idx_help_assists_figure`.
+  This fixture holds no help_assists row, so no row moved.
+* 232 also rebuilds `figure_predictions` (Codex review F7, F9;
+  temp-then-rename; no foreign key names it): `extraction_id` becomes
+  nullable, `assist_id TEXT` (the attempt's figure row) and
+  `explained_at TEXT` (set once with the explanation) are added, the
+  explanation trigger is recreated (it also fixes `assist_id`) and
+  `idx_figure_predictions_assist` is new. This fixture holds no
+  figure_predictions row.
+
+Against main's 231 head only those definitions changed and only
+`schema_migrations` gained a row (232); every other table's rows are
+identical, so the sanitized content carries over (every companion file is
+byte-identical to main's).
 
 ## Curriculum C5 (migration 231), branch `curriculum/c5-notes-as-learner-text`, 2026-11-01
 

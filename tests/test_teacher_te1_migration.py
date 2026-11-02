@@ -1,8 +1,8 @@
-"""Teacher TE1: migration 232 (spec_teacher_v1 §18.1; 230 on its branch, renumbered at landing).
+"""Teacher TE1: migration 233 (spec_teacher_v1 §18.1; 230 on its branch, renumbered 233 at landing).
 
 Nine tables (the lesson ledger, its receipts and the DERIVED weight state), each classified for rebuild
 and for AD (DENIED: AD reads none of them), and ``source_tool_calls`` rebuilt so its ``caller_kind`` CHECK
-admits ``teacher``, every row and id kept. The head fixture is at 232 in rollback mode with empty lesson
+admits ``teacher``, every row and id kept. The head fixture is at 233 in rollback mode with empty lesson
 tables. The earlier migrations' "nothing else changed" diffs on the way to head read
 ``TE1_ADDED_OBJECTS`` and ``TE1_ALTERED_TABLES``.
 """
@@ -19,7 +19,7 @@ from learnloop.adaptive_difficulty import protected_tables as PT
 from learnloop.db.migrate import UPGRADE_TEST_HELPER, apply_migrations, discover_migrations, upgrade_allowance
 from learnloop.db.table_roles import TableRole, role_for_table
 
-HEAD = Path(__file__).resolve().parents[1] / "fixtures" / "migration_head_232" / "state.sqlite"
+HEAD = Path(__file__).resolve().parents[1] / "fixtures" / "migration_head_233" / "state.sqlite"
 TE1_TABLES = {
     "lessons": TableRole.RAW_LEDGER, "lesson_turns": TableRole.RAW_LEDGER, "lesson_plans": TableRole.RAW_LEDGER,
     "lesson_turn_payloads": TableRole.WORKFLOW, "lesson_checks": TableRole.RECEIPT,
@@ -39,20 +39,20 @@ TE1_ADDED_OBJECTS = frozenset({
     "sqlite_autoindex_lesson_turns_1", "sqlite_autoindex_lesson_turns_2", "sqlite_autoindex_lesson_weight_state_1",
     "sqlite_autoindex_lesson_weight_trace_1", "sqlite_autoindex_lesson_weight_trace_2", "sqlite_autoindex_lessons_1",
 })
-#: 232 rebuilds this table (its caller_kind CHECK gains 'teacher'); its objects keep their names.
+#: 233 rebuilds this table (its caller_kind CHECK gains 'teacher'); its objects keep their names.
 TE1_ALTERED_TABLES = frozenset({"source_tool_calls"})
 
 
-def test_232_is_te1s_migration_and_every_table_is_classified():
+def test_233_is_te1s_migration_and_every_table_is_classified():
     names = {migration.version: migration.path.name for migration in discover_migrations()}
-    assert names[232] == "232_teacher_lessons.sql"
+    assert names[233] == "233_teacher_lessons.sql"
     for table, role in TE1_TABLES.items():
         assert role_for_table(table) == role, table
         assert PT.role(table) == PT.DENIED, table
 
 
 def _upgrade(tmp_path: Path) -> Path:
-    """Every migration through 231 (main's head at the landing), then 232."""
+    """Every migration through 232 (main's head at the landing), then 233."""
 
     database = tmp_path / "state.sqlite"
     with upgrade_allowance(UPGRADE_TEST_HELPER):
@@ -60,10 +60,10 @@ def _upgrade(tmp_path: Path) -> Path:
     return database
 
 
-def test_the_head_fixture_is_at_232_in_rollback_mode_with_empty_lesson_tables():
+def test_the_head_fixture_is_at_233_in_rollback_mode_with_empty_lesson_tables():
     assert HEAD.read_bytes()[18:20] == b"\x01\x01"
     with closing(sqlite3.connect(f"file:{HEAD}?mode=ro", uri=True)) as connection:
-        assert connection.execute("SELECT MAX(version) FROM schema_migrations").fetchone()[0] == 232
+        assert connection.execute("SELECT MAX(version) FROM schema_migrations").fetchone()[0] == 233
         names = {row[0] for row in connection.execute("SELECT name FROM sqlite_master")}
         assert TE1_ADDED_OBJECTS <= names
         for table in TE1_TABLES:
@@ -110,19 +110,19 @@ def _check(database: Path) -> None:
                 "'2026-11-01T00:00:00Z', '2026-11-01T01:00:00Z', 'redacted')")
 
 
-def test_232_widens_the_caller_check_and_keeps_the_ledgers_append_only(tmp_path):
+def test_233_widens_the_caller_check_and_keeps_the_ledgers_append_only(tmp_path):
     _check(_upgrade(tmp_path))
 
 
 @pytest.mark.durability
-def test_232_on_the_durability_lane(tmp_path):
+def test_233_on_the_durability_lane(tmp_path):
     database = _upgrade(tmp_path)
     with closing(sqlite3.connect(database)) as connection:
         assert connection.execute("PRAGMA journal_mode").fetchone()[0] == "wal"
     _check(database)
 
 
-def test_232_keeps_every_source_tool_call_row(tmp_path):
+def test_233_keeps_every_source_tool_call_row(tmp_path):
     """From the head (a backup copy) with a recorded tool call: the rebuild keeps it, id and all."""
 
     from learnloop.db.copies import backup_database

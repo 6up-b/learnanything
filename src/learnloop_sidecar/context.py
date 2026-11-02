@@ -835,6 +835,12 @@ def _adaptive_difficulty_dto(config: Any) -> dict[str, Any]:
     return {"adaptive_difficulty": {"rating_tap": rating, "first_hint_progress": marker}}
 
 
+def _figures_help(vault: LoadedVault) -> bool:
+    from learnloop.figure_admission import help_kind_enabled
+
+    return help_kind_enabled(vault)
+
+
 def _cold_help_converts(vault: LoadedVault) -> bool:
     from learnloop.serve_eligibility import help_converts_active
 
@@ -908,8 +914,12 @@ def config_dto(vault: LoadedVault) -> dict[str, Any]:
             # ``help_style`` is the stored preference Ask's mode follows;
             # ``cold_help_converts`` says the successor's one help rule is live
             # (the placeholder and labels on a check on your own say it).
+            # Reader RW5d P3: ``figures`` (present only while
+            # figures.help_kind_enabled is on): the panel's show me ▸ on
+            # practice, feedback and the workbench, with its cost line.
             **({"ask": {"panel_enabled": True, "help_style": config.hints.help_style,
-                        "cold_help_converts": _cold_help_converts(vault)}}
+                        "cold_help_converts": _cold_help_converts(vault),
+                        **({"figures": True} if _figures_help(vault) else {})}}
                if config.ask.panel_enabled else {}),
             # Adaptive difficulty AD1 (spec §12, §11.2): the practice screen's
             # rating tap and first-hint progress marker. Present only while

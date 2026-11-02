@@ -233,9 +233,11 @@ def request_hint(ctx: SidecarContext, params: RequestHintInput) -> dict[str, Any
     seed = getattr(ctx, "hint_seed", None)
 
     def work(worker_repo: Any, cancelled: Callable[[], bool]) -> dict[str, Any]:
+        figure_provider = _figure_provider(vault, worker_repo, item)
         result = hint_service.request_hint(vault, worker_repo, request, writer_client=writer_client,
                                            chooser_client_factory=chooser_factory, seed=seed,
-                                           cancelled=cancelled)
+                                           cancelled=cancelled,
+                                           **({"figure_provider": figure_provider} if figure_provider else {}))
         if request.request == "feedback" and (request.feedback_text or "").strip() and result.assist_id:
             # H2b (spec §9): the reply's text is learner text, queued now so a
             # gap it names can join the next hint's rivals.
@@ -244,6 +246,41 @@ def request_hint(ctx: SidecarContext, params: RequestHintInput) -> dict[str, Any
 
     job = _jobs(ctx).start(ctx, item.id, work)
     return _job_payload(ctx, job)
+
+
+def _figure_provider(vault: Any, repository: Any, item: Any) -> Callable[[Any], Any] | None:
+    """Reader RW5d P3 (§11.4): the chooser's ``explore_figure`` precondition
+    read, given to the hint service only while ``figures.help_kind_enabled``
+    is on, and never on a check on your own (as no hint is offered there
+    unasked: G-SM17). The figures already opened in this attempt (their
+    "not right?" versions included) are left out."""
+
+    from learnloop.figure_admission import help_kind_enabled
+
+    if not help_kind_enabled(vault):
+        return None
+
+    def provide(state: Any) -> Any:
+        from contextlib import closing
+
+        from learnloop.db.connection import connect
+        from learnloop.figures import help as FH
+        from learnloop_sidecar.handlers.figures import _item_cold
+
+        if _item_cold(vault, repository, item.id):
+            return None
+        opened = [row.assist_id for row in state.earlier if row.assist_kind == "figure"]
+        roots: list[str] = []
+        if opened:
+            with closing(connect(repository.sqlite_path, read_only=True)) as connection:
+                marks = ", ".join("?" for _ in opened)
+                ids = [str(found[0]) for found in connection.execute(
+                    f"SELECT figure_id FROM help_assists WHERE id IN ({marks}) AND figure_id IS NOT NULL", opened)]
+                roots = [FH.chain_root(connection, figure_id) for figure_id in ids]
+        row = FH.qualifying_figure(vault, repository, item, exclude_roots=roots)
+        return FH.offer_view(row) if row is not None else None
+
+    return provide
 
 
 def _job_payload(ctx: SidecarContext, job: _HintJob) -> dict[str, Any]:
@@ -277,6 +314,47 @@ def _job_payload(ctx: SidecarContext, job: _HintJob) -> dict[str, Any]:
     return versioned({**base, "state": "done", "result": result})
 
 
+def _figure_reveal(repository: Any, item: Any, figure_id: str) -> tuple[float, str]:
+    """A served figure's key overlap (its model-written text and readouts,
+    :func:`learnloop.figures.help.reveal_text`) and its reveal basis."""
+
+    from learnloop.db.stores import figures as figure_store
+    from learnloop.figures.help import reveal_text
+
+    row = figure_store.figure(repository.connection(), figure_id) or {}
+    text = reveal_text(row)
+    return (hint_service.reveal_amount(item, text) if text.strip() else 0.0), f"figure:{figure_id}"
+
+
+def _figure_deliverable(vault: Any, repository: Any, assist_id: str) -> bool:
+    """Whether a prepared row may be shown now: every row but a chooser's
+    figure; that one only with ``figures.help_kind_enabled`` on, its figure
+    not withheld now and its item not cold now (rechecked at delivery, as a
+    figure build's delivery is)."""
+
+    from contextlib import closing
+
+    from learnloop.db.connection import connect
+    from learnloop.db.stores import help_assists as assists_store
+    from learnloop.figure_admission import help_kind_enabled
+
+    with closing(connect(repository.sqlite_path, read_only=True)) as connection:
+        row = assists_store.assist(connection, assist_id)
+    if row is None or row.get("assist_kind") != "figure":
+        return True
+    if not help_kind_enabled(vault) or not row.get("figure_id"):
+        return False
+    from learnloop.figures import service as FS
+    from learnloop_sidecar.handlers.figures import _item_cold
+
+    try:
+        if FS.figure_withheld(vault, repository, str(row["figure_id"])):
+            return False
+        return not _item_cold(vault, repository, str(row.get("practice_item_id") or ""))
+    except Exception:  # noqa: BLE001 - fail closed: not shown
+        return False
+
+
 class _RevealNotRecorded(Exception):
     """The shown hint's reveal could not be written (rolls the delivery back)."""
 
@@ -298,6 +376,12 @@ def _deliver(ctx: SidecarContext, practice_item_id: str, assist_id: str) -> str:
     # changed is refused before it is marked shown (round 3, W5), so its
     # reveal is always written against the item it was written for.
     item = vault.practice_items.get(practice_item_id)
+    if not _figure_deliverable(vault, repository, assist_id):
+        # RW5d P3 (Codex review F5): a chooser's figure line is shown only
+        # while figures in attempts are on, the figure is not held out and
+        # the item is not under a check on your own now; else nothing is
+        # shown and the prepared row stays unshown (it counts nothing).
+        return hint_service.NOT_DELIVERABLE
     try:
         with repository.atomic():
             outcome, row = hint_service.deliver_hint(repository, assist_id, item=item)
@@ -312,11 +396,15 @@ def _deliver(ctx: SidecarContext, practice_item_id: str, assist_id: str) -> str:
                     and not hint_service.reveal_exempt(str(row["hint_kind"])):
                 try:
                     amount = hint_service.reveal_amount(item, hint_service.shown_text(item, row))
+                    basis = hint_service.reveal_basis(str(row["hint_kind"]), int(row["level"]))
+                    if row.get("assist_kind") == "figure" and row.get("figure_id"):
+                        # RW5d P3 (§11.2): a served figure's reveal reads the
+                        # figure's own text, with basis figure:<id>.
+                        amount, basis = _figure_reveal(repository, item, str(row["figure_id"]))
                     record_reveal_strict(
                         repository, practice_item_id=item.id, learning_object_id=item.learning_object_id,
                         remediation_episode_id=reveal_episode_id(repository, item.id, strict=True),
-                        source_kind="tutor_answer", amount=amount,
-                        basis=hint_service.reveal_basis(str(row["hint_kind"]), int(row["level"])))
+                        source_kind="tutor_answer", amount=amount, basis=basis)
                 except Exception as exc:  # noqa: BLE001 - any failure: the hint is not shown
                     raise _RevealNotRecorded(type(exc).__name__) from exc
     except _RevealNotRecorded as exc:

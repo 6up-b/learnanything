@@ -2781,6 +2781,19 @@ class FiguresConfig(BaseModel):
     author's payload, prompt and keys are the predecessor's byte for byte.
     Figures stay help, never evidence.
 
+    RW5d P3 (spec_reader_show_me_figures_v1 §6.4, §11.2-§11.4): ``help_kind_enabled``:
+    figures inside an open attempt. The practice screen's and feedback's Ask
+    panel and the Reader workbench gain *show me* with its cost line
+    (feedback: free; an open attempt: one hint-equivalent, once per figure per
+    attempt, folded at Submit as hints are, with the reveal check on its
+    text; a check on your own: the take step converts the attempt first), the
+    hint chooser may offer ``explore_figure`` (level 2) when a shown figure
+    for the item's topic already exists (never one built from the item's own
+    blocks, never on a cold check), and the help outcomes and hints report
+    list ``figure``. Off: no figure in attempts, no chooser kind, and the
+    help outcomes are unchanged. Figures are help, never certification, and
+    never reach the grader.
+
     Caps (money, W4): two author attempts per request; ``max_daily_cost_usd``
     meters the author route's metered spend a UTC day at
     ``price_per_million`` (unset: a metered route is refused before sending;
@@ -2799,6 +2812,7 @@ class FiguresConfig(BaseModel):
     sketch_enabled: bool = True
     rich_tiers_enabled: bool = True
     author_learner_state: bool = True
+    help_kind_enabled: bool = True
     manim_opt_in: Literal["standing", "declined"] | None = None
     manim_opt_in_at: str | None = None
     max_daily_cost_usd: float = Field(default=1.0, ge=0)

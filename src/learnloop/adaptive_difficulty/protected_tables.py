@@ -65,7 +65,7 @@ _ROLES: tuple[tuple[str, str], ...] = (
     ("commitment_target_versions", DENIED),
     ("commitment_versions", DENIED),
     ("commitments", DENIED),
-    # Teacher TE1 (migration 230): the tap/hedge recalibration, derived from every tapped answer (AD
+    # Teacher TE1 (migration 233): the tap/hedge recalibration, derived from every tapped answer (AD
     # reads none of it).
     ("confidence_calibration_state", DENIED),
     ("composed_selector_telemetry_horizons", DENIED),
@@ -124,7 +124,7 @@ _ROLES: tuple[tuple[str, str], ...] = (
     # Curriculum C2 (migration 229): the learner's linked notes and their links (AD reads neither).
     ("learner_note_links", PROTECTED),
     ("learner_notes", PROTECTED),
-    # Teacher TE1 (migration 230): the lesson ledger, its receipts and the learned lesson-check weight
+    # Teacher TE1 (migration 233): the lesson ledger, its receipts and the learned lesson-check weight
     # are the incumbent's state derived from answers (a check's grade, its mass, the forecasts); AD
     # reads none of them (spec_teacher_v1 §14.2: AD never reads a lesson check), and teacher code never
     # runs inside an AD operation (§5.7).
@@ -339,7 +339,10 @@ COLUMNS: Mapping[str, Mapping[str, str]] = MappingProxyType({
     # learner's predictions on it are READING rows; the built spec and its check, from the spans sent
     # (a tutor or library figure can send spans of other readings), are never read as stored.
     "figure_predictions": _table({"extraction_id": "extraction"},
-        values="id figure_id prediction_index learner_answer observed_json matched explanation_text created_at"),
+        values="id figure_id prediction_index learner_answer observed_json matched explanation_text created_at "
+               # Reader RW5d P3 (migration 232): the attempt's help row (help_assists names no
+               # reading) and when "what changed?" was written name nothing the predicate withholds.
+               "assist_id explained_at"),
     "interactive_figures": _table({
         "extraction_id": "extraction", "span_ids_json": "spans@extraction_id",
         "input_span_ids_json": "spans@extraction_id",

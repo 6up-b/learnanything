@@ -1203,7 +1203,7 @@ Accuracy decay within a session, by minutes on task, error streak and time of da
 
 *As built (TE1 with curriculum C4, `docs/reviews/teacher-te1-first-lesson.md`):* successor `mvp-0.41` after
 curriculum C1's `mvp-0.40` (ONE constant, `TEACHER_ALGORITHM_VERSION`; renumbered at landing if another successor
-lands first), migration 230 (the nine §18.1 tables except TE1b's `router_suggestion_responses`, and
+lands first), migration 233 (230 on the branch, renumbered at landing; the nine §18.1 tables except TE1b's `router_suggestion_responses`, and
 `source_tool_calls.caller_kind` widened with `teacher`). `learnloop.teacher` (contracts, doctrine v1, the brief, the
 read actions, the guards, the checks, the delayed checks, the service behind `lesson.turn`/`lesson.view`, the
 report) and `learnloop.learner.lesson_weight` (§12.1's weight, §12.2's pool and LP-min's tap/hedge recalibration:

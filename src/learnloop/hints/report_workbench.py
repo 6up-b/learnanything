@@ -246,8 +246,11 @@ def build_workbench_report(sqlite_path: Path | str, *, item_facets: Mapping[str,
 # Per-help outcomes on the workbench (spec_adaptive_hints_v1 §6.1; Reader §5.10, C13)
 # ---------------------------------------------------------------------------
 
-#: The help rows that count as further help between a help and the next check.
-WORKBENCH_HELP_KINDS = ("hint", "bridge", "example", "compare_methods")
+#: The help rows that count as further help between a help and the next check
+#: (Reader RW5d P3, Codex review F6: a figure opened in between is further
+#: help too; with ``figures.help_kind_enabled`` off no figure row is written,
+#: and the Reader's help outcomes leave every figure row out of the read).
+WORKBENCH_HELP_KINDS = ("hint", "bridge", "example", "compare_methods", "figure")
 #: What :func:`workbench_unaided_progress` answers.
 PROGRESS_OUTCOMES = ("continued", "not_continued", "more_help", "no_later_check", "unknown")
 

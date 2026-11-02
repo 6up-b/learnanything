@@ -230,7 +230,8 @@ _CLASSES: dict[str, tuple[str, str]] = {
         "id created_at status judgment_ids_json action_ids_json applied_at abandoned_at",
         "facets_json settle_detail_json"),
     "figure_predictions": (
-        "id figure_id extraction_id prediction_index matched created_at",
+        # Reader RW5d P3 (migration 232): the attempt's help row and when "what changed?" was written.
+        "id figure_id extraction_id prediction_index matched created_at assist_id explained_at",
         "learner_answer observed_json explanation_text"),
     "fitted_parameters": (
         "id scope fitted_at algorithm_version training_rows_count active deactivated_at created_at",
@@ -355,7 +356,7 @@ _CLASSES: dict[str, tuple[str, str]] = {
     "learner_notes": (
         "id note_key line content_hash captured_on origin truncated created_at",
         "path heading_path title heading text_md"),
-    # Teacher TE1 (migration 230): every lesson table (DENIED); its text is content.
+    # Teacher TE1 (migration 233): every lesson table (DENIED); its text is content.
     "lesson_checks": (
         "id lesson_id node_id check_ref learning_object_id minted_item_id status attempt_id correctness tap hedge "
         "predicted_success predicted_source mass_learned mass_applied forecast_correct_key forecast_retained_key "

@@ -10,9 +10,9 @@ area: "TypeScript/screens/reader/figures"
 source_path: "apps/learnloop-tauri/src/screens/reader/figures/FigureInline.tsx"
 source_paths:
   - "apps/learnloop-tauri/src/screens/reader/figures/FigureInline.tsx"
-source_commit: "037248502b5de983d75467e41786b59dd1b6d4b3"
-source_commit_timestamp: "2026-11-01T09:50:06-05:00"
-source_worktree_state: "staged-or-mixed"
+source_commit: "d3a08c46b52cd1f8b79627e97ea5c03fd59d6ffe"
+source_commit_timestamp: "2026-11-01T23:00:19-05:00"
+source_worktree_state: "clean"
 activation_kind: "entry-reachable build graph"
 activation_evidence: "A static TypeScript import path reaches this file from the Vite entry src/main.tsx."
 generated: true
@@ -47,9 +47,9 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Area | [[Reference/Desktop/TypeScript/screens/reader/figures/_area|TypeScript/screens/reader/figures]] |
 | Refactor status | `ACTIVE` |
 | Activation kind | `entry-reachable build graph` |
-| Worktree state | `staged-or-mixed` |
-| Source commit | `037248502b5de983d75467e41786b59dd1b6d4b3` |
-| Commit timestamp | `2026-11-01T09:50:06-05:00` |
+| Worktree state | `clean` |
+| Source commit | `d3a08c46b52cd1f8b79627e97ea5c03fd59d6ffe` |
+| Commit timestamp | `2026-11-01T23:00:19-05:00` |
 
 ## Activation and status evidence
 
@@ -135,6 +135,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 > [!note] Static-evidence boundary
 > “Calls” here means an import/module edge plus a source reference to the imported name. React render callbacks, props, Tauri string dispatch, macro expansion, browser/Cargo entry points, and data-driven routing can add runtime consumers that static text cannot prove.
 
+- [[Reference/Desktop/TypeScript/components/askFigures|src/components/askFigures.tsx]] — import-or-re-export: `FigureInline`; references `FigureInline`
 - [[Reference/Desktop/TypeScript/screens/ReaderScreen|src/screens/ReaderScreen.tsx]] — import-or-re-export: `FiguresUnder`; references `FiguresUnder`
 - [[Reference/Desktop/TypeScript/screens/reader/AskRail|src/screens/reader/AskRail.tsx]] — import-or-re-export: `frameBadge`; references `frameBadge`
 - [[Reference/Desktop/TypeScript/screens/reader/figures/RichFigure|src/screens/reader/figures/RichFigure.tsx]] — import-or-re-export: `FIGURE_FRAME`, `linkStyle`; references `FIGURE_FRAME`, `linkStyle`

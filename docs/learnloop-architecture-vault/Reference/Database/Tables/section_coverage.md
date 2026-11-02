@@ -3,13 +3,13 @@ title: "section_coverage"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "97636d581b53e193827cff4b6433943ef4c22373"
-source_commit_timestamp: "2026-11-01T23:43:02-05:00"
+source_commit: "446a0cf89934d580d5a618923b98ff8b4ee737b2"
+source_commit_timestamp: "2026-11-02T00:40:38-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite section_coverage"
   - "table section_coverage"
-schema_head: 232
+schema_head: 233
 table_name: "section_coverage"
 table_role: "workflow"
 functionality_status: "active"
@@ -24,8 +24,8 @@ source_paths:
   - "src/learnloop/cli/curriculum.py"
   - "src/learnloop/content/pipeline/jobs.py"
   - "src/learnloop/db/stores/section_coverage.py"
+  - "src/learnloop/figures/help.py"
   - "src/learnloop/source_retrieval/deliverable_path.py"
-  - "src/learnloop/source_retrieval/deliverables.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/workflow"
@@ -105,6 +105,7 @@ None found by exact static reference scan.
 ### Direct SQL readers
 
 - `src/learnloop/db/stores/section_coverage.py`
+- `src/learnloop/figures/help.py`
 - `src/learnloop/source_retrieval/deliverable_path.py`
 - `src/learnloop/source_retrieval/section_coverage.py`
 
@@ -130,6 +131,7 @@ None found by exact static reference scan.
 - `tests/test_deliverable_codex_review.py`
 - `tests/test_deliverable_rpcs.py`
 - `tests/test_deliverable_scope.py`
+- `tests/test_figures_help.py`
 - `tests/test_notes_as_learner_text.py`
 - `tests/test_notes_linked.py`
 - `tests/test_reader_ca5_also_in_books.py`

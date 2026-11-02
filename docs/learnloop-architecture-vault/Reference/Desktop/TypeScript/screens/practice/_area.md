@@ -38,7 +38,7 @@ No nested ownership area.
 |---|---|---|---:|---:|
 | [[Reference/Desktop/TypeScript/screens/practice/DifficultyRatingTap|DifficultyRatingTap.tsx]] | `ACTIVE` | Implements the `DifficultyRatingTap` routed desktop screen and coordinates its learner-facing workflow state. | 2 | 1 |
 | [[Reference/Desktop/TypeScript/screens/practice/HelpStyleSettings|HelpStyleSettings.tsx]] | `ACTIVE` | Implements the `HelpStyleSettings` routed desktop screen and coordinates its learner-facing workflow state. | 7 | 1 |
-| [[Reference/Desktop/TypeScript/screens/practice/HintPanel|HintPanel.tsx]] | `ACTIVE` | Implements the `HintPanel` routed desktop screen and coordinates its learner-facing workflow state. | 7 | 1 |
+| [[Reference/Desktop/TypeScript/screens/practice/HintPanel|HintPanel.tsx]] | `ACTIVE` | Implements the `HintPanel` routed desktop screen and coordinates its learner-facing workflow state. | 9 | 1 |
 | [[Reference/Desktop/TypeScript/screens/practice/WhyThisItem|WhyThisItem.tsx]] | `ACTIVE` | Implements the `WhyThisItem` routed desktop screen and coordinates its learner-facing workflow state. | 2 | 1 |
 | [[Reference/Desktop/TypeScript/screens/practice/hintCopy|hintCopy.ts]] | `ACTIVE` | Provides `HINT_COPY`, `SHORTCUT_COPY`, `HELP_STYLE_COPY`, `FORBIDDEN_WORDING` within the desktop's TypeScript/screens/practice ownership area. | 1 | 3 |
 | [[Reference/Desktop/TypeScript/screens/practice/useAdaptiveHints|useAdaptiveHints.ts]] | `ACTIVE` | Provides `HintEntry`, `HintNotice`, `AdaptiveHintsOptions`, `useAdaptiveHints` and related exports within the desktop's TypeScript/screens/practice ownership area. | 4 | 2 |

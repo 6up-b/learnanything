@@ -3,13 +3,13 @@ title: "interactive_figures"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "97636d581b53e193827cff4b6433943ef4c22373"
-source_commit_timestamp: "2026-11-01T23:43:02-05:00"
+source_commit: "446a0cf89934d580d5a618923b98ff8b4ee737b2"
+source_commit_timestamp: "2026-11-02T00:40:38-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite interactive_figures"
   - "table interactive_figures"
-schema_head: 232
+schema_head: 233
 table_name: "interactive_figures"
 table_role: "workflow"
 functionality_status: "active"
@@ -23,9 +23,9 @@ source_paths:
   - "src/learnloop/adaptive_difficulty/protected_tables.py"
   - "src/learnloop/daily_plan/router_reader.py"
   - "src/learnloop/db/stores/figures.py"
+  - "src/learnloop/diagnosis/split/figure_trace.py"
   - "src/learnloop/diagnosis/text_gaps/provenance.py"
   - "src/learnloop/diagnosis/text_gaps/sources.py"
-  - "src/learnloop/figure_admission.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/workflow"
@@ -52,7 +52,7 @@ It belongs to the **reader** navigation family. The family context lives in [[Da
 - **Role:** `workflow` — Mutable queue, session, lease, or other in-flight workflow state. It is preserved across rebuilds.
 - **Functionality status:** `active`.
 - **Introduced by:** `migrations/216_interactive_figures.sql`.
-- **Schema touched by:** `216_interactive_figures.sql`, `224_figure_requests.sql`.
+- **Schema touched by:** `216_interactive_figures.sql`, `224_figure_requests.sql`, `232_help_assist_figures.sql`.
 - **Rebuild owner:** none; this table is preserved by the rebuild umbrella.
 
 For the distinction between SQLite state and human-authored vault files, see [[State and Persistence]]. For whole-vault creation and opening behavior, see [[Vault Lifecycle]]. ^table-lifecycle
@@ -120,9 +120,11 @@ None found by exact static reference scan.
 
 - `src/learnloop/daily_plan/router_reader.py`
 - `src/learnloop/db/stores/figures.py`
+- `src/learnloop/diagnosis/split/figure_trace.py`
 - `src/learnloop/diagnosis/text_gaps/provenance.py`
 - `src/learnloop/diagnosis/text_gaps/sources.py`
 - `src/learnloop/figure_admission.py`
+- `src/learnloop/figures/help.py`
 - `src/learnloop/reader/reader_report.py`
 
 ### Direct SQL writers
@@ -151,13 +153,13 @@ None found by exact static reference scan.
 - `tests/test_figures_codex_review.py`
 - `tests/test_figures_final_round.py`
 - `tests/test_figures_fix_round2.py`
+- `tests/test_figures_help_codex_review.py`
 - `tests/test_figures_migration.py`
 - `tests/test_figures_rpc.py`
 - `tests/test_figures_rw5b_review.py`
 - `tests/test_figures_scope_redesign.py`
 - `tests/test_figures_show_me.py`
 - `tests/test_figures_show_me_codex_review.py`
-- `tests/test_figures_switch_off.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

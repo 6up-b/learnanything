@@ -1459,6 +1459,10 @@ sidecar_passthrough!(figure_rich_cancel, "figure.rich_cancel");
 // Reader RW5d P2b (Codex review F9): try a rich build again that ended with no row: desktop only.
 sidecar_passthrough!(figure_rich_retry, "figure.rich_retry");
 sidecar_passthrough!(figure_manim_opt_in, "figure.manim_opt_in");
+// Reader RW5d P3 (figures as a help kind: a check on your own's take step, and
+// opening a stored figure on an attempt host): desktop only.
+sidecar_passthrough!(figure_take_step, "figure.take_step");
+sidecar_passthrough!(figure_open, "figure.open");
 sidecar_passthrough!(reader_figure_revise, "reader.figure_revise");
 sidecar_passthrough!(reader_figure_job, "reader.figure_job");
 sidecar_passthrough!(reader_figure_job_cancel, "reader.figure_job_cancel");

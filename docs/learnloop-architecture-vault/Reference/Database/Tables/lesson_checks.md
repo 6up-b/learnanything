@@ -3,22 +3,22 @@ title: "lesson_checks"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "97636d581b53e193827cff4b6433943ef4c22373"
-source_commit_timestamp: "2026-11-01T23:43:02-05:00"
+source_commit: "446a0cf89934d580d5a618923b98ff8b4ee737b2"
+source_commit_timestamp: "2026-11-02T00:40:38-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite lesson_checks"
   - "table lesson_checks"
-schema_head: 232
+schema_head: 233
 table_name: "lesson_checks"
 table_role: "receipt"
 functionality_status: "active"
 domain_family: "operations"
-introduced_in: "232_teacher_lessons.sql"
+introduced_in: "233_teacher_lessons.sql"
 generated: true
 source_paths:
   - "src/learnloop/db/table_roles.py"
-  - "migrations/232_teacher_lessons.sql"
+  - "migrations/233_teacher_lessons.sql"
   - "src/learnloop/adaptive_difficulty/column_classes.py"
   - "src/learnloop/adaptive_difficulty/protected_tables.py"
   - "src/learnloop/algorithm_versions.py"
@@ -48,8 +48,8 @@ It belongs to the **operations** navigation family. The family context lives in 
 
 - **Role:** `receipt` — Historical audit/decision receipt. It is preserved and never rebuilt.
 - **Functionality status:** `active`.
-- **Introduced by:** `migrations/232_teacher_lessons.sql`.
-- **Schema touched by:** `232_teacher_lessons.sql`.
+- **Introduced by:** `migrations/233_teacher_lessons.sql`.
+- **Schema touched by:** `233_teacher_lessons.sql`.
 - **Rebuild owner:** none; this table is preserved by the rebuild umbrella.
 
 For the distinction between SQLite state and human-authored vault files, see [[State and Persistence]]. For whole-vault creation and opening behavior, see [[Vault Lifecycle]]. ^table-lifecycle

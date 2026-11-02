@@ -12,7 +12,7 @@ source_paths:
   - "apps/learnloop-tauri/src/app/algoConfig.ts"
 source_commit: "490ad6751fd50ca0f45661618dc6cd11cd8507b8"
 source_commit_timestamp: "2026-11-01T19:33:59-05:00"
-source_worktree_state: "clean"
+source_worktree_state: "staged-or-mixed"
 activation_kind: "entry-reachable build graph"
 activation_evidence: "A static TypeScript import path reaches this file from the Vite entry src/main.tsx."
 generated: true
@@ -42,12 +42,12 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/app/algoConfig.ts](../../../../../../apps/learnloop-tauri/src/app/algoConfig.ts) |
-| Source lines | 244 |
+| Source lines | 251 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/app/_area|TypeScript/app]] |
 | Refactor status | `ACTIVE` |
 | Activation kind | `entry-reachable build graph` |
-| Worktree state | `clean` |
+| Worktree state | `staged-or-mixed` |
 | Source commit | `490ad6751fd50ca0f45661618dc6cd11cd8507b8` |
 | Commit timestamp | `2026-11-01T19:33:59-05:00` |
 
@@ -62,32 +62,32 @@ The system-level behavior stays authoritative in the linked architecture, concep
 
 - `export interface AlgoDisplayConfig` — interface, line 7
 - `export interface AskPanelConfig` — interface, line 64
-- `export interface WorkbenchHelpConfig` — interface, line 73
-- `export type HelpStyleValue = "let_me_struggle" | "balanced" | "guide_me"` — type, line 84
-- `export interface AdaptiveHintsConfig` — interface, line 86
-- `export function setAlgoConfig(config: unknown): void` — function, line 116
-- `export function subscribeAlgoConfig(listener: ()` — function, line 171
-- `export function setAdaptiveHelpStyle(style: HelpStyleValue): void` — function, line 183
-- `export function storedHelpStyle(): HelpStyleValue` — function, line 192
-- `export const STUCK_PROMPT_TEXT = "Write what you can, or what's confusing you"` — const, line 198
-- `export function algoConfig(): AlgoDisplayConfig` — function, line 200
-- `export type MasteryBand = "strong" | "developing" | "weak"` — type, line 204
-- `export function masteryBand(mastery: number): MasteryBand` — function, line 206
-- `export function masteryTone<T>(mastery: number, palette:` — function, line 213
-- `export function useSymbolicChecksLive(): boolean` — function, line 225
-- `export function setRenderedShell(shell: "simple" | "classic" | null): void` — function, line 237
-- `export function activeShell(): "simple" | "classic"` — function, line 242
+- `export interface WorkbenchHelpConfig` — interface, line 76
+- `export type HelpStyleValue = "let_me_struggle" | "balanced" | "guide_me"` — type, line 87
+- `export interface AdaptiveHintsConfig` — interface, line 89
+- `export function setAlgoConfig(config: unknown): void` — function, line 119
+- `export function subscribeAlgoConfig(listener: ()` — function, line 178
+- `export function setAdaptiveHelpStyle(style: HelpStyleValue): void` — function, line 190
+- `export function storedHelpStyle(): HelpStyleValue` — function, line 199
+- `export const STUCK_PROMPT_TEXT = "Write what you can, or what's confusing you"` — const, line 205
+- `export function algoConfig(): AlgoDisplayConfig` — function, line 207
+- `export type MasteryBand = "strong" | "developing" | "weak"` — type, line 211
+- `export function masteryBand(mastery: number): MasteryBand` — function, line 213
+- `export function masteryTone<T>(mastery: number, palette:` — function, line 220
+- `export function useSymbolicChecksLive(): boolean` — function, line 232
+- `export function setRenderedShell(shell: "simple" | "classic" | null): void` — function, line 244
+- `export function activeShell(): "simple" | "classic"` — function, line 249
 
 ## Internal implementation anchors
 
-- `const DEFAULTS: AlgoDisplayConfig =` — const, line 93
-- `let current: AlgoDisplayConfig =` — let, line 112
-- `let renderedShell: "simple" | "classic" | null = null` — let, line 114
-- `const root = (config ??` — const, line 117
-- `const listeners = new Set<()` — const, line 167
-- `function asHelpStyle(value: unknown): HelpStyleValue` — function, line 178
-- `const band = masteryBand(mastery)` — const, line 214
-- `function asNumber(value: unknown, fallback: number): number` — function, line 218
+- `const DEFAULTS: AlgoDisplayConfig =` — const, line 96
+- `let current: AlgoDisplayConfig =` — let, line 115
+- `let renderedShell: "simple" | "classic" | null = null` — let, line 117
+- `const root = (config ??` — const, line 120
+- `const listeners = new Set<()` — const, line 174
+- `function asHelpStyle(value: unknown): HelpStyleValue` — function, line 185
+- `const band = masteryBand(mastery)` — const, line 221
+- `function asNumber(value: unknown, fallback: number): number` — function, line 225
 
 ## Who imports or calls it
 
@@ -102,6 +102,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 - [[Reference/Desktop/TypeScript/components/AskOverlay|src/components/AskOverlay.tsx]] — import-or-re-export: `algoConfig`; references `algoConfig`
 - [[Reference/Desktop/TypeScript/components/DialogueProbe|src/components/DialogueProbe.tsx]] — import-or-re-export: `STUCK_PROMPT_TEXT`, `algoConfig`; references `STUCK_PROMPT_TEXT`, `algoConfig`
 - [[Reference/Desktop/TypeScript/components/InspectorOverlay|src/components/InspectorOverlay.tsx]] — import-or-re-export: `masteryTone`; references `masteryTone`
+- [[Reference/Desktop/TypeScript/components/askFigures|src/components/askFigures.tsx]] — import-or-re-export: `algoConfig`; references `algoConfig`
 - [[Reference/Desktop/TypeScript/components/askPanel|src/components/askPanel.tsx]] — import-or-re-export: `algoConfig`, `setAdaptiveHelpStyle`, `storedHelpStyle`, `subscribeAlgoConfig`; references `algoConfig`, `setAdaptiveHelpStyle`, `storedHelpStyle`, `subscribeAlgoConfig`
 - [[Reference/Desktop/TypeScript/screens/ExamScreen|src/screens/ExamScreen.tsx]] — import-or-re-export: `masteryTone`; references `masteryTone`
 - [[Reference/Desktop/TypeScript/screens/FeedbackScreen|src/screens/FeedbackScreen.tsx]] — import-or-re-export: `algoConfig`, `masteryTone`; references `algoConfig`, `masteryTone`
