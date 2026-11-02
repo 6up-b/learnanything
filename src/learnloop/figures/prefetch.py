@@ -653,7 +653,14 @@ def _plan_record(env: PrefetchEnv, plan_id: str | None) -> Any:
 
 
 def next_section(env: PrefetchEnv, extraction_id: str, section_id: str) -> str | None:
-    """The section after ``section_id`` in book order whose spans are not withheld."""
+    """The section to read after ``section_id`` whose spans are not withheld.
+
+    Follow-ups batch 6 (E): when the learner has an active reading path for this reading
+    (RW7b's ``plan_path``, the one the day plan follows: judged for the learner's current
+    state, their own choices on top), the next section the path plans (core or prerequisite,
+    not held out) after this one in book order; a path held out for an exam plans nothing.
+    Otherwise (reading paths off, no depth chosen, not judged, judged only for an older state,
+    or the path unreadable) the next section in book order, as before."""
 
     from learnloop.figures.service import withheld_message
     from learnloop.reader.reader_guidance import extraction_sections
@@ -665,10 +672,28 @@ def next_section(env: PrefetchEnv, extraction_id: str, section_id: str) -> str |
     ids = [str(row["id"]) for row in sections]
     if str(section_id) not in ids:
         return None
+    path = _active_path(env, extraction_id)
     for row in sections[ids.index(str(section_id)) + 1:]:
+        if path is not None and not path.plannable(str(row["id"])):
+            continue
         if withheld_message(env.vault, env.repository, extraction_id, [str(span) for span in row["span_ids"]]) is None:
             return str(row["id"])
     return None
+
+
+def _active_path(env: PrefetchEnv, extraction_id: str) -> Any | None:
+    """RW7b's reading path for this reading when it is followed now (``PlanPath.follows``), else
+    None (book order). Reads stored judgments only: never a model call."""
+
+    from learnloop.source_retrieval import reading_paths as RP
+
+    try:
+        if not RP.enabled(env.vault):
+            return None
+        path = RP.plan_path(env.vault, env.repository, extraction_id)
+    except Exception:  # noqa: BLE001 - an unreadable path leaves book order, as before RW7b
+        return None
+    return path if path.follows else None
 
 
 def planned_visual(node: Mapping[str, Any]) -> dict[str, Any] | None:
