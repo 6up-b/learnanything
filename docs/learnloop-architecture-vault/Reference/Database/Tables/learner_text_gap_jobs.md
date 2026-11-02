@@ -3,13 +3,13 @@ title: "learner_text_gap_jobs"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "6ab368e64e877d50f3d59b3c96cf96a3f13b4b8d"
-source_commit_timestamp: "2026-11-01T18:24:26-05:00"
+source_commit: "a8455f1b6e43e152fc50d2efbcaeef31cb1c4318"
+source_commit_timestamp: "2026-11-01T19:20:11-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite learner_text_gap_jobs"
   - "table learner_text_gap_jobs"
-schema_head: 229
+schema_head: 231
 table_name: "learner_text_gap_jobs"
 table_role: "workflow"
 functionality_status: "active"
@@ -48,7 +48,7 @@ It belongs to the **learner state** navigation family. The family context lives 
 - **Role:** `workflow` — Mutable queue, session, lease, or other in-flight workflow state. It is preserved across rebuilds.
 - **Functionality status:** `active`.
 - **Introduced by:** `migrations/182_learner_text_gaps.sql`.
-- **Schema touched by:** `182_learner_text_gaps.sql`, `208_learner_text_source_kinds.sql`, `212_hint_feedback_source_kind.sql`.
+- **Schema touched by:** `182_learner_text_gaps.sql`, `208_learner_text_source_kinds.sql`, `212_hint_feedback_source_kind.sql`, `231_learner_note_source_kind.sql`.
 - **Rebuild owner:** none; this table is preserved by the rebuild umbrella.
 
 For the distinction between SQLite state and human-authored vault files, see [[State and Persistence]]. For whole-vault creation and opening behavior, see [[Vault Lifecycle]]. ^table-lifecycle
@@ -115,16 +115,16 @@ None found by exact static reference scan.
 - `tests/test_hint_feedback_texts.py`
 - `tests/test_hint_feedback_widening.py`
 - `tests/test_hint_h2b_review.py`
+- `tests/test_learner_note_source_kind_migration.py`
 - `tests/test_learner_text_gaps_composition.py`
 - `tests/test_learner_text_gaps_rereview.py`
 - `tests/test_learner_text_source_widening.py`
 - `tests/test_mvp016_upgrade.py`
+- `tests/test_notes_as_learner_text.py`
 - `tests/test_reader_active_reading.py`
 - `tests/test_reader_formative_texts.py`
 - `tests/test_reader_rw1b_review.py`
 - `tests/test_reader_rw3b_protection.py`
-- `tests/test_workbench_in_session_gaps.py`
-- `tests/test_workbench_text_gaps.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 
@@ -144,7 +144,7 @@ Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when c
 CREATE TABLE "learner_text_gap_jobs" (
   id TEXT PRIMARY KEY,
   source_kind TEXT NOT NULL CHECK (source_kind IN (
-    'tutor_question', 'stuck_answer', 'diagnosis', 'workbench_text', 'reader_formative', 'hint_feedback'
+    'tutor_question', 'stuck_answer', 'diagnosis', 'workbench_text', 'reader_formative', 'hint_feedback', 'learner_note'
   )),
   source_id TEXT NOT NULL,
   state TEXT NOT NULL DEFAULT 'queued'

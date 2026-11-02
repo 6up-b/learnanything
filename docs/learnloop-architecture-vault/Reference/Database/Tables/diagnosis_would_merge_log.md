@@ -3,13 +3,13 @@ title: "diagnosis_would_merge_log"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "6ab368e64e877d50f3d59b3c96cf96a3f13b4b8d"
-source_commit_timestamp: "2026-11-01T18:24:26-05:00"
+source_commit: "a8455f1b6e43e152fc50d2efbcaeef31cb1c4318"
+source_commit_timestamp: "2026-11-01T19:20:11-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite diagnosis_would_merge_log"
   - "table diagnosis_would_merge_log"
-schema_head: 229
+schema_head: 231
 table_name: "diagnosis_would_merge_log"
 table_role: "receipt"
 functionality_status: "active"

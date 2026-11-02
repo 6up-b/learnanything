@@ -3,13 +3,13 @@ title: "facet_capability_evidence"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "6ab368e64e877d50f3d59b3c96cf96a3f13b4b8d"
-source_commit_timestamp: "2026-11-01T18:24:26-05:00"
+source_commit: "a8455f1b6e43e152fc50d2efbcaeef31cb1c4318"
+source_commit_timestamp: "2026-11-01T19:20:11-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite facet_capability_evidence"
   - "table facet_capability_evidence"
-schema_head: 229
+schema_head: 231
 table_name: "facet_capability_evidence"
 table_role: "derived"
 functionality_status: "active"
@@ -144,10 +144,10 @@ None found by exact static reference scan.
 - `tests/test_km2_write_path.py`
 - `tests/test_learner_text_gaps.py`
 - `tests/test_migrations.py`
+- `tests/test_notes_as_learner_text.py`
 - `tests/test_post_attempt_worker.py`
 - `tests/test_reader_active_reading.py`
 - `tests/test_reader_recap_review_r3.py`
-- `tests/test_rebuild_equivalence_review.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

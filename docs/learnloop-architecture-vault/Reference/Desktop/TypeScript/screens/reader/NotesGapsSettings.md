@@ -10,9 +10,9 @@ area: "TypeScript/screens/reader"
 source_path: "apps/learnloop-tauri/src/screens/reader/NotesGapsSettings.tsx"
 source_paths:
   - "apps/learnloop-tauri/src/screens/reader/NotesGapsSettings.tsx"
-source_commit: "workspace/uncommitted @ ad2c282a43b99042c49d31e5dec5b2e76e3a3958"
-source_commit_timestamp: "2026-11-01T17:33:11-05:00"
-source_worktree_state: "untracked"
+source_commit: "1ff505191694b0c505027c4d768673042c708f36"
+source_commit_timestamp: "2026-11-01T17:58:28-05:00"
+source_worktree_state: "clean"
 activation_kind: "entry-reachable build graph"
 activation_evidence: "A static TypeScript import path reaches this file from the Vite entry src/main.tsx."
 generated: true
@@ -47,9 +47,9 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Area | [[Reference/Desktop/TypeScript/screens/reader/_area|TypeScript/screens/reader]] |
 | Refactor status | `ACTIVE` |
 | Activation kind | `entry-reachable build graph` |
-| Worktree state | `untracked` |
-| Source commit | `workspace/uncommitted @ ad2c282a43b99042c49d31e5dec5b2e76e3a3958` |
-| Commit timestamp | `2026-11-01T17:33:11-05:00` |
+| Worktree state | `clean` |
+| Source commit | `1ff505191694b0c505027c4d768673042c708f36` |
+| Commit timestamp | `2026-11-01T17:58:28-05:00` |
 
 ## Activation and status evidence
 

@@ -3,13 +3,13 @@ title: "question_events"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "6ab368e64e877d50f3d59b3c96cf96a3f13b4b8d"
-source_commit_timestamp: "2026-11-01T18:24:26-05:00"
+source_commit: "a8455f1b6e43e152fc50d2efbcaeef31cb1c4318"
+source_commit_timestamp: "2026-11-01T19:20:11-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite question_events"
   - "table question_events"
-schema_head: 229
+schema_head: 231
 table_name: "question_events"
 table_role: "raw_ledger"
 functionality_status: "active"
@@ -56,7 +56,7 @@ It belongs to the **tutor and remediation** navigation family. The family contex
 - **Role:** `raw_ledger` — Authoritative replay input or mixed authoritative state. The rebuild umbrella preserves it.
 - **Functionality status:** `active`.
 - **Introduced by:** `migrations/019_question_events.sql`.
-- **Schema touched by:** `019_question_events.sql`, `026_question_event_answer_status.sql`, `027_question_promotions.sql`, `030_probe_pilot_and_policy.sql`, `086_reader_dialogue.sql`, `102_question_resolution.sql`, `117_question_promotion_jobs_and_queue_revision.sql`, `151_cold_measurement_opportunities.sql`, `154_reveal_ledger.sql`, `182_learner_text_gaps.sql`, `205_write_provenance.sql`, `208_learner_text_source_kinds.sql`, `209_library_asks.sql`, `212_hint_feedback_source_kind.sql`, `213_adaptive_difficulty_receipts.sql`.
+- **Schema touched by:** `019_question_events.sql`, `026_question_event_answer_status.sql`, `027_question_promotions.sql`, `030_probe_pilot_and_policy.sql`, `086_reader_dialogue.sql`, `102_question_resolution.sql`, `117_question_promotion_jobs_and_queue_revision.sql`, `151_cold_measurement_opportunities.sql`, `154_reveal_ledger.sql`, `182_learner_text_gaps.sql`, `205_write_provenance.sql`, `208_learner_text_source_kinds.sql`, `209_library_asks.sql`, `212_hint_feedback_source_kind.sql`, `213_adaptive_difficulty_receipts.sql`, `231_learner_note_source_kind.sql`.
 - **Rebuild owner:** none; this table is preserved by the rebuild umbrella.
 
 For the distinction between SQLite state and human-authored vault files, see [[State and Persistence]]. For whole-vault creation and opening behavior, see [[Vault Lifecycle]]. ^table-lifecycle
