@@ -3,6 +3,12 @@
 Base `d82e7a3666` (main: RW5d P5 figures ahead of need, migration 237; TE1b router lesson suggestions,
 mvp-0.43, migration 236; follow-ups Nov 2; P4b; TE1). Worktree `learnanything-dl2`.
 
+> **Updated by the Codex review fixes** (`docs/reviews/followups-batch6-codex-review.md`). This record describes the
+> stage before them. Three statements changed: (D) the bound now counts requeues, and item protection is checked
+> before a retry and in the worker; (G1) a card with a released line is versioned `+te1b+released`, and the
+> successor question is still open; (G2) the R_cold difference is `observed_difference_r_cold`, labelled
+> descriptive and not an ITT estimate.
+
 Seven queued follow-ups (A to G). Each defect has a reproduce-first test, and each item is its own commit.
 **No successor and no migration.** No config key was added. Kill switches are unchanged.
 

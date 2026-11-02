@@ -1,4 +1,5 @@
 tests/test_ad1_codex_review_fixes.py
+tests/test_ad23_contract.py
 tests/test_ad23_owner_decisions.py
 tests/test_ad23_successor.py
 tests/test_ad3_subject_view.py
@@ -6,6 +7,7 @@ tests/test_architecture.py
 tests/test_attempt_content_state_successor.py
 tests/test_batch3_landing.py
 tests/test_cli_help_snapshot.py
+tests/test_codex_tool_lockdown.py
 tests/test_cold_retry_reschedule.py
 tests/test_compare_keep_switch_off.py
 tests/test_compare_sources_keep.py
@@ -44,11 +46,13 @@ tests/test_figure_verification.py
 tests/test_followups_batch6_power_probe_cache.py
 tests/test_followups_batch6_prefetch_next_section.py
 tests/test_followups_batch6_prefetch_plan_wait.py
+tests/test_followups_batch6_review_fixes.py
 tests/test_followups_batch6_router_report.py
 tests/test_followups_batch6_te1b_card.py
 tests/test_followups_nov2_figure_provenance.py
 tests/test_grading_cli.py
 tests/test_help_fold_attach_successor.py
+tests/test_judge_routes.py
 tests/test_kinship_feature.py
 tests/test_learner_data_relax_2.py
 tests/test_library_exercises.py
@@ -92,6 +96,7 @@ tests/test_registry_audit.py
 tests/test_regrade_contract_upgrade.py
 tests/test_reread_safety_landing.py
 tests/test_router_card.py
+tests/test_router_card_reading_gaps.py
 tests/test_router_outcomes.py
 tests/test_router_r2a_landing.py
 tests/test_router_r2b_serving.py
@@ -111,6 +116,10 @@ tests/test_teacher_te0_confidence_events.py
 tests/test_teacher_te0_fix_round2.py
 tests/test_teacher_te0_review_fixes.py
 tests/test_teacher_te1b_landing_r2.py
+tests/test_teacher_te1b_migration.py
+tests/test_teacher_te1b_rereview_fixes.py
 tests/test_teacher_te1b_review_fixes.py
+tests/test_teacher_te1b_suggestions.py
+tests/test_teacher_te1_successor.py
 tests/test_tracked_fixture_databases.py
 tests/test_ux_phase2_shell.py
