@@ -472,3 +472,72 @@ def test_f7_predictions_made_before_the_attempt_are_not_its_trace(tmp_path):
     trace = figure_trace_for_attempt(load_vault(paths.root), Repository.attach(paths.sqlite_path),
                                      _attempt(paths, attempt_id))
     assert trace is not None and trace["figures"][0]["predictions"] == []
+
+
+# ---------------------------------------------------------------------------
+# F8: rich tiers on attempt hosts (§11.4b)
+# ---------------------------------------------------------------------------
+
+def _rich_attempt(tmp_path, monkeypatch, answers, *, foreground: bool = True):
+    from learnloop.content.pipeline.runner import RunnerServices
+    from tests import rich_fixtures as RF
+    from tests.figure_fixtures import build_figure_vault, context
+    from tests.test_figures_help import FindFake
+
+    paths, repository = build_figure_vault(tmp_path / "vault", rich=True)
+    set_config(paths, "figures", manim_opt_in="standing")
+    RF.ready_manim(monkeypatch)
+    author = AuthorFake(list(answers))
+    ctx = context(paths.root, author=author)
+    ctx.library_ask_inline = True
+    ctx.figure_find_sources = FindFake()
+    rich_author = RF.RichAuthorFake(None)
+    services = RunnerServices(figure_rich_client_factory=lambda job: rich_author, figure_rich_renderer=RF.Renders(),
+                              figure_function_runner=RF.InProcessRunner())
+    ctx.ingest_jobs.bind(ctx.repository, ctx.vault_root, services=services, background=False)
+    if not foreground:
+        monkeypatch.setattr(ctx.ingest_jobs, "_ensure_worker", lambda: None)
+    session = _call(ctx, "start_session", {"energy": "medium"})["sessionId"]
+    return paths, ctx, {"itemId": "pi_eigen_1", "submissionId": "k1", "sessionId": session}, rich_author
+
+
+def test_f8_a_rich_only_build_on_the_answer_box_is_read_by_its_job_and_recorded_when_opened(tmp_path, monkeypatch):
+    from tests import rich_fixtures as RF
+
+    paths, ctx, host, rich_author = _rich_attempt(
+        tmp_path, monkeypatch, [("rich", "manim", RF.brief(), "a narrated video of the spiral")], foreground=False)
+    job = _show_me(ctx, host, goal="show the spiral tighten as the damping grows")
+    result = job["result"]
+    assert result["figure"] is None and result["rich"]["state"] == "pending"
+    rich_job = result["rich"]["richJobId"]
+    # While it builds: its line, nothing recorded.
+    read = _call(ctx, "figure.open", {"richJobId": rich_job, "hostRef": host})
+    assert read["figure"] is None and read["rich"]["state"] == "pending" and read["help"]["status"] == "pending"
+    assert _figure_rows(paths) == []
+    # Another item's host can't read it.
+    with pytest.raises(SidecarError):
+        _call(ctx, "figure.open", {"richJobId": rich_job, "hostRef": {**host, "itemId": "pi_missing"}})
+    # Built (the queue drains): opening it records it, once.
+    monkeypatch.setattr(ctx.ingest_jobs, "_ensure_worker",
+                        type(ctx.ingest_jobs)._ensure_worker.__get__(ctx.ingest_jobs))
+    ctx.ingest_jobs._ensure_worker()
+    opened = _call(ctx, "figure.open", {"richJobId": rich_job, "hostRef": host})
+    assert opened["figure"]["tier"] == "manim" and opened["help"]["status"] == "counted" and opened["help"]["new"]
+    again = _call(ctx, "figure.open", {"figureId": opened["figure"]["figureId"], "hostRef": host})
+    assert again["help"]["new"] is False and len(_figure_rows(paths)) == 1
+
+
+def test_f8_a_quick_figures_fuller_version_opened_on_the_attempt_is_the_same_figure(tmp_path, monkeypatch):
+    from tests import rich_fixtures as RF
+
+    paths, ctx, host, _rich_author = _rich_attempt(
+        tmp_path, monkeypatch, [("rich", "manim", RF.brief(), "a narrated video", flagship(kind="illustrative"))])
+    job = _show_me(ctx, host, goal="show the spiral tighten as the damping grows")
+    quick = job["result"]["figure"]
+    assert quick["tier"] == "grammar" and job["result"]["help"]["new"] is True
+    refreshed = _call(ctx, "figure.open", {"figureId": quick["figureId"], "hostRef": host})["figure"]
+    assert refreshed["fuller"]["state"] == "ready"
+    fuller = refreshed["fuller"]["figure"]
+    opened = _call(ctx, "figure.open", {"figureId": fuller["figureId"], "hostRef": host})
+    assert opened["figure"]["tier"] == "manim" and opened["help"]["status"] == "counted"
+    assert opened["help"]["new"] is False and len(_figure_rows(paths)) == 1

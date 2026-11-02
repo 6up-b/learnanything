@@ -101,6 +101,9 @@ export interface FiguresCtl {
   manimOptIn: "ask" | "standing" | "declined" | "unavailable" | null;
   optInSpanId: string | null;
   answerManimOptIn: (choice: "allow" | "decline") => void;
+  /** RW5d P3 (Codex review F8): on an attempt host, opening a figure's fuller version is recorded
+   *  there first (its reveal); it is shown only when this resolves true. Absent: shown at once. */
+  openFuller?: (fuller: FigureViewDto) => Promise<boolean>;
 }
 
 /** One placement of a figure: the figure and the paragraph it is listed under

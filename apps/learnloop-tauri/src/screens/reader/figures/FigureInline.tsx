@@ -524,7 +524,12 @@ export function FigureInline({ figure, ctl }: { figure: FigureViewDto; ctl: Figu
   const openFuller = () => {
     if (!fullerReady) return;
     logReaderAction("fuller_version_opened", { figure_id: figure.figureId, extraction_id: figure.extractionId });
-    setShowingFuller(true);
+    if (!ctl.openFuller) {
+      setShowingFuller(true);
+      return;
+    }
+    // RW5d P3: on an attempt host the opening is recorded (and reveal-checked) before it shows.
+    void ctl.openFuller(fullerReady).then((ok) => { if (ok) setShowingFuller(true); });
   };
   const openQuick = () => {
     logReaderAction("quick_version_opened", { figure_id: figure.figureId, extraction_id: figure.extractionId });
