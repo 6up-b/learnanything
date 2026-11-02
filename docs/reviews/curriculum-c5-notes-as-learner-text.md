@@ -298,3 +298,153 @@ Head-fixture test files (first run): the 46 files of `git grep -l "migration_hea
 4. **`text_gaps` is not graphed by grimp** (no `__init__.py`): import contracts silently skip the whole
    learner-text-gaps package. Adding the `__init__.py` is outside this stage (other contracts would start to
    apply to it); a later architecture pass could.
+
+## Landing onto main
+
+Branch `curriculum/c5-notes-as-learner-text` (worktree `learnanything-dl2`), from `67fe8fcc7d`. The orchestrator
+fast-forwards and pushes. Every Python or CLI run outside pytest ran under `env -i` with an empty `HOME`, `CODEX_HOME`
+and `LEARNLOOP_CONFIG_DIR`, and `TMPDIR` outside the worktree. pytest, vitest, npm and cargo ran in
+`systemd-run --user --scope`: the full suite at 10G under `flock /tmp/learnloop-fullsuite.lock`, the rest at 5G, and
+vitest with `--maxWorkers=4`. No live model call was made. The owner's real `tend` was never run and no note of the
+owner's was read: every notes run used C2's FAKE `tend` over synthetic notes. No owner vault was opened: only fresh
+backup-API copies of `learnanything-ad1/fixtures-local/owner-copies-mvp035` were used.
+
+### Step 0: note jobs never reuse a checkpointed reading (`dfb053fddb`, `236a323c92`)
+
+This is the orchestrator's structural simplification under the stuck-loop rule. Codex (job
+`20261101-190354-nKrEQg`) reopened F3 a third time: a note job's checkpointed reading and decision (the payload's
+`reading`/`decided`) were reused on retry after the note's inputs changed, so the protected passage's sentinel
+reached a pair request. Now:
+
+- `contract.NOTE_UNCHECKPOINTED_FIELDS = ("reading", "decided")`.
+- `pipeline._decide` neither reads nor writes either field for a note. Every attempt reads the text as prepared from
+  the current links, with a fresh plan call (unmetered).
+- `process_learner_text` drops both fields from a note's incoming progress, and its `checkpoint` filters them out.
+- `process_next_gap_job` drops legacy fields from a note job's progress and from its stored payload.
+- `store.requeue_skipped_job` clears them on requeue (`json_remove`).
+- Every `NoteGate` check is kept.
+
+This also resolves the earlier open item: the plan's reading of a note is no longer stored in the job checkpoint.
+
+The regression tests were written first, from the exact reproduction, and failed on `67fe8fcc7d`. With the payload
+assertion removed, the first test failed because the `learner_gap_same_prerequisite` request carried
+`PASSAGE-SENTINEL-c5-L0`. The tests:
+
+- `test_step0_a_checkpointed_note_reading_is_never_reused_after_its_inputs_change`;
+- `test_step0_a_legacy_checkpointed_note_reading_is_cleared_on_requeue_and_ignored_on_retry[queued|skipped]`.
+
+After the fix:
+
+- C5, notes and matching tests: 94 passed;
+- text-gaps neighbours: 277 passed;
+- durable C5: 30 passed;
+- lint-imports: 37 kept.
+
+`236a323c92` corrects a comment and the codex-review record: the plan's `learner_gap_kind` verdict rationale in
+`judgment_ledger` still names the gap (open item below). The codex-review record carries the orchestrator ruling.
+
+### Merges
+
+| Commit | What |
+|---|---|
+| `a8455f1b6e` | Merge of main `a2c26e4525` (learner-blindness relax, RW5d P2 sketch compartment). `config/template.py`: 31 snapshot hunks, main's blindness-relax note and C5's note both kept, every fingerprint recomputed with `defaults_fingerprint_for_version` after clearing `.pyc`, second pass 0. `src-tauri/src/main.rs`: main's file with `notes_set_gaps` added after `notes_decide`. `desktop_validate.py` composed to 303 TS / 6 Rust / entry-build 293 / ACTIVE 309. The parameter registry auto-merged with both sides' entries. Generated references: main's side, regenerated in `3554efeed4` (1110 leaves). |
+| `20be0dd94c`, `4000d5a73c` | Merge of main `c0017b5740` (learner data-relax 2, **migration 230**, head `migration_head_230`). **The migration stays 231.** `fixtures/migration_head_231` was **rebuilt from main's sanitized `migration_head_230/state.sqlite`** with only 231 applied: a backup-API copy under `fixtures-local/landing-c5/head231`, `apply_migrations` under `UPGRADE_SCRATCH_COPY`, `wal_checkpoint(TRUNCATE)` (0, 0, 0), `journal_mode=DELETE` (header 1/1), `integrity_check` ok, `foreign_key_check` empty, then copied into place with the backup API, with no companion files. Against 230's head, only the `learner_text_gaps` and `learner_text_gap_jobs` definitions changed, and only `schema_migrations` gained a row (231). The companion files are byte-identical to main's, and the README gains a C5 section above data-relax 2's. Git records the rename `migration_head_230 -> migration_head_231`. The head paths, `SCHEMA_HEAD` (231), the chain lists (`[..., 229, 230, 231]`) and the altered-table sets (`C5_ALTERED_TABLES \| DR2_ALTERED_TABLES`) were composed in 59 test files, the sanitizer and the two reference scripts. DR2's and C5's migration tests now expect `[230, 231]` on the way to head. DR2's schema diff also expects `C5_ALTERED_TABLES`, and its head test reads `migration_head_231`, which holds 230. Those two test resolutions missed the merge commit's index and landed in `4000d5a73c`. `template.py`: 31 hunks, both notes kept, fingerprints recomputed, second pass 0. References: main's side, regenerated in `d3cff6ad89`. |
+
+After each merge:
+
+- `db_validate_reference`: errors [] (final: 1111 leaves, which is main's 1110 plus `notes.gaps_enabled`; 360 table
+  notes);
+- `desktop_validate`: reproducible byte for byte (303 TS / 6 Rust / ACTIVE 309);
+- `validate_vault`: passed (1375 notes);
+- all 31 defaults fingerprints equal `defaults_fingerprint_for_version`.
+
+The second merge needed manual Python resolution only in head paths, chain lists and altered-table sets, the data a
+migration rebuild needs, plus snapshot data.
+
+### Gate
+
+| Step | Tree | Result |
+|---|---|---|
+| `uv run lint-imports --no-cache` | step 0, `a8455f1b6e`, `d3cff6ad89` | 37 kept (step 0, before main's new contracts), then **40 kept, 0 broken** |
+| Targeted head-fixture and migration set (58 files: every test naming `migration_head_231` or an `*_ALTERED_TABLES` set, every `test_*migration*.py`, table roles, tracked fixture databases, coordinated migrations, public-tip guards, the C5 tests) | `20be0dd94c` | **757 passed, 3 skipped** |
+| Full pytest (`flock … systemd-run … -p MemoryMax=10G -p MemorySwapMax=2G -- <env -i> uv run --no-sync pytest -n 8 -p no:cacheprovider --dist worksteal --durations=50 -o faulthandler_timeout=600 --junitxml=…`) | `d3cff6ad89` | **23585 passed, 90 skipped, 47 xfailed, 0 failed** (39:47). A first run queued at `236a323c92` was stopped while it was still waiting for the lock, because main moved (data-relax 2). |
+| Durability lane (`pytest -m durability -n 6`, 5G) | `d3cff6ad89` | **181 passed, 1 skipped** |
+| Owner lane (`pytest -m owner_vaults -n 6`; `LEARNLOOP_OWNER_VAULTS` = fresh `copy_tree_with_databases` copies in the gitignored `fixtures-local/landing-c5/owner-lane`) | `d3cff6ad89` | **83 passed, 2 failed, 4 skipped**. Both failures are the known ones: `test_activity_backfill::test_backfill_logs_attempt_duration_interaction_events` and `test_placement_fixture_copies::…[arxiv_v2]`. 0 new receipts: probability keeps its 56 historical rows. |
+| Frontend: `npm install`, `npm run typecheck`, whole vitest (`--maxWorkers=4`), `npm run frontend:build` | `a8455f1b6e` (`apps/` unchanged since) | typecheck ok, **251 files, 2401 passed**, build ok |
+| `cargo check` (`src-tauri` differs from main by `notes_set_gaps`) | final | ok |
+
+### Smoke on fresh owner copies (`fixtures-local/landing-c5-smoke/`, driver `scripts/smoke.sh`)
+
+**Setup.** Fresh backup-API copies of the three mvp035 owner copies, neutralized under each side's own code
+(`neutralize3.py`: every AI route at the `127.0.0.1:9` blackhole, key variable unset; rewrite, rerank, dense and
+embeddings off). The code came from `git archive` of main `c0017b5740` and of the branch `d3cff6ad89`, each with
+`src/`, `migrations/` and `tests/`. Each copy ran under its own side's code: a bare `upgrade` (mvp-0.35 → mvp-0.40;
+head 230 on main, 231 on the branch), the primary desktop start, `migrate_vault`, then `rebuild-derived-state`. An
+audit hook logged every process start and refused non-loopback sockets and Codex starts.
+
+| | linear_algebra | probability | arxiv_v2 |
+|---|---|---|---|
+| Today (3 queue variants, frozen clock), branch vs main | **identical** (525,266 bytes) | identical (740,827) | identical (344,204) |
+| Daily plan dump, branch vs main | **identical** (84,696 bytes) | identical (124,021) | identical (32,433) |
+| `rebuild --shadow --json` (branch copy) | **0/0/0**, live unchanged | 0/0/0 | 0/0/0 |
+
+**Notes, on linear_algebra** (`scripts/c5_smoke.py`, a copy of the branch copy each):
+
+- The FAKE `tend` ran over one synthetic note, with `[learner_text_gaps] enabled = true` so that the notes switch
+  decides. The note was linked by hand (`notes.link`) to a real reading section of the copy.
+- **`notes.gaps_enabled` off (the default):** the gaps-only note readers (`note_gaps.linked_notes`,
+  `linked_note_ids`, `note_text`) were made to record and refuse for the whole run: the sidecar's open, the hand
+  link, hide and keep. Around the backlog sweep, `enqueue_learner_notes` and `learner_text`, the notes store's row
+  readers refused as well. The result:
+  - 0 violations;
+  - the sweep's keys are today's exactly;
+  - `enqueue_learner_notes` returned 0 and `learner_text` returned None;
+  - 0 `learner_note` jobs and 0 gap rows;
+  - the prompt contract is C2's, with no `gaps` key.
+- **On:** the hand link queued the note's gap job (`queued`, 0 attempts). One `process_next_gap_job` with the vault's
+  own clients ended `retry_later` / `waiting_for_plan`: the notes' route is the blackhole, not the ChatGPT plan. The
+  job went back to `queued` with 0 attempts and "waiting: your notes are read only by the ChatGPT plan, which isn't
+  available now". Nothing was sent, and 0 gap rows were written.
+- The shadow rebuild on both notes copies was **0/0/0**.
+
+**0 new `model_call_receipts`** across all 17 smoke databases: every probability copy holds exactly the source's 56
+historical rows (42 completed, 14 failed), and the rest hold none.
+
+**Audit:** 4 process starts, all of them the FAKE `tend` (`search` and `serve` for each notes copy); 0 socket
+connects; nothing refused.
+
+### Rulings (verbatim)
+
+- **R1:** "F3 closed structurally: note gap jobs never reuse a checkpointed reading or decision, and the plan's reading of a note is not persisted in the checkpoint; a retry always rebuilds from current links."
+- **R2:** "Hiding a link after its note was read leaves existing tier-2 gap rows (append-only); a retraction kind needs another FK-safe rebuild and is queued as a follow-up. Owner note."
+- **R3:** "Note-derived beliefs may only sight existing holding-pen entries, never create candidates. Accepted."
+- **R4:** "C5 keeps C2's personal-notes transport rules (plan only, no Decider, no embedding) pending the owner's notes decision and the planned vault-native notes redesign (C2b)."
+
+R1 settles open question 1's checkpoint part and the codex-review record's checkpoint open item. R2 answers open
+question 1, R3 answers question 2 (already the code since Codex review F1), and R4 answers question 3.
+
+### Owner items
+
+- **Migration 231** applies on the first open after the update (no successor, no algorithm version). It rebuilds the
+  two gap tables in place and keeps every row.
+- **The opt-in:** `[notes] gaps_enabled` (default `false`), or Settings → "let my linked notes steer suggestions".
+  With it on, a linked note is read only on the ChatGPT plan (`ai.routing.note_link_judge`). With the plan down the
+  reading waits and nothing is sent. Hiding a link stops future readings, and gaps already read stay (R2).
+- **R2 follow-up:** a fourth reversal kind ("you unlinked this note") would need another FK-safe rebuild of the
+  reversals table.
+
+### Open items
+
+- **C2's Reader surfaces do not refilter stored links when the allowlist narrows.** The `›` margin marks and path
+  lines check `notes.tend.paths` when a note is linked, not afterwards. C5's gaps input is filtered (F2); C2's own
+  surfaces are C2's scope.
+- **`text_gaps` has no `__init__.py`**, so grimp does not graph it and import-linter silently skips the whole
+  learner-text-gaps package. The notes exception is pinned statically in `tests/test_notes_never_read.py` instead.
+  Adding the package file belongs to a later architecture pass, because other contracts would start to apply.
+- **The plan's kind verdict still names a note's gap in `judgment_ledger`.** `judges.log_reading` writes the
+  `learner_gap_kind` verdict with `reading.named()` as its rationale for every kind, notes included. The gap row and
+  the job checkpoint keep none of those words for a note. A consumer of ledger rationales that sends them off the plan
+  would carry the plan's words for a note. None is known, but this is the one store left to audit.
+- R2's retraction kind (above), queued as a follow-up.
+
+After the gate, main was re-read: it was still `c0017b5740`, so no further merge was needed.
