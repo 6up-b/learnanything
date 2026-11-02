@@ -37,6 +37,27 @@ at S0's checkpoint (D6). Rebuilding the head for a new migration keeps the
 sanitized content: apply the migration to a backup-API copy of this fixture,
 as before.
 
+## Curriculum C2b (migration 233), branch `curriculum/c2b-vault-notes`, 2026-11-01
+
+Renamed from `migration_head_231` (`docs/reviews/curriculum-c2b-vault-notes.md`). Built from
+the base's tracked, sanitized `migration_head_231/state.sqlite` (main `6b9cb117ba`): a
+backup-API copy under `fixtures-local/` with only `233_learner_notes_vault_origin.sql`
+applied through `learnloop.db.migrate.apply_migrations` under the scratch-copy allowance
+(`UPGRADE_SCRATCH_COPY`), then `wal_checkpoint(TRUNCATE)` (0, 0, 0), `journal_mode=DELETE`
+(header bytes 1/1), `integrity_check` ok and `foreign_key_check` empty, and copied into place
+with the backup API, with no companion files. The head holds 229, 230, 231 and 233 (232 is
+RW5d P3's, landing in parallel; numbers are renumbered at landing if needed).
+
+* 233 adds no table: it rebuilds `learner_notes` in place (temp-then-rename under
+  `PRAGMA foreign_keys = OFF`, the precedent of 208, 212 and 231), whose `origin` CHECK gains
+  `vault`, whose `path` and `line` become nullable (a vault note has neither), and which gains
+  `vault_ref_kind` (`annotation` | `capture`) and `vault_ref_id`, with CHECKs that a `vault`
+  row carries its reference and any other row its path and line. The same index and
+  append-only triggers; every row and id kept (the fixture holds no note).
+
+Against the 231 head only that definition changed and only `schema_migrations` gained a row
+(233); the companion files are byte-identical.
+
 ## Curriculum C5 (migration 231), branch `curriculum/c5-notes-as-learner-text`, 2026-11-01
 
 Renamed from `migration_head_230` at C5's landing

@@ -1,9 +1,9 @@
 // Curriculum C5 (spec_deliverable_curriculum_v1 §10.2, §12 C5; owner Q9): the opt-in for
-// the learner's linked notes to steer suggestions. Off by default; on, LearnLoop's model on
-// the ChatGPT plan reads a note they linked (never one they hid) for gaps in their
-// understanding, as tier-2 learner text: it only ever steers what to suggest, never grades.
-// Shown only where the notes are (the Reader's prompt contract carries `notes`: notes.enabled
-// on and tend installed); absent otherwise (W11: no disabled control).
+// the learner's linked notes to steer suggestions. Off by default; on, LearnLoop's model reads a
+// note they linked (never one they hid) for gaps in their understanding, as tier-2 learner text
+// (C2b: like their other questions and answers): it only ever steers what to suggest, never
+// grades. Shown only where the notes are (the Reader's prompt contract carries `notes`:
+// notes.enabled on); absent otherwise (W11: no disabled control).
 import { useEffect, useState, type CSSProperties } from "react";
 import { api } from "../../api/client";
 import type { NotesContractDto } from "../../api/dto";
@@ -15,7 +15,7 @@ import { MeaningLabel } from "./voices";
 export const NOTES_GAPS_COPY = {
   label: "your notes",
   toggle: "let my linked notes steer suggestions",
-  line: "Off unless you turn it on. LearnLoop's model on your ChatGPT plan reads the notes you've linked (never one you hid) for gaps in your understanding. It only ever steers what to suggest, never grades you.",
+  line: "Off unless you turn it on. LearnLoop's model reads the notes you've linked (never one you hid) for gaps in your understanding. It only ever steers what to suggest, never grades you.",
   on: "your linked notes now steer suggestions",
   off: "your notes no longer steer suggestions",
 } as const;

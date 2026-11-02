@@ -1745,7 +1745,7 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # the composed defaults (defaults_fingerprint_for_version).
     # Curriculum C2 (notes in the learner's voice, linked; spec_deliverable_curriculum_v1 §10, §12 C2;
     # docs/reviews/curriculum-c2-notes-linked.md) adds [notes] enabled = true, max_candidates = 8 (keep)
-    # and [notes.tend] binary = "tend", paths (grove notes, Quicknote, the Obsidian vault, ~/org),
+    # and a [notes] tend table, binary = "tend", paths (grove notes, Quicknote, the Obsidian vault, ~/org),
     # pocket_notes_paths, lexical_only = false, timeout_seconds = 10.0 (keep) and k = 5 (keep)
     # (removed again in C2b, below) (modelled defaults, left out of the decision-only template) and the listwise route
     # ai.routing.note_link_judge (unset: the active provider, the ChatGPT plan under T1; the judge
@@ -1792,9 +1792,9 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # successor); every snapshot moves only because the effective config gains the key; all of them
     # were recomputed from the composed defaults (defaults_fingerprint_for_version).
     # Curriculum C2b (the vault's own notes; spec_deliverable_curriculum_v1 §10 as built;
-    # docs/reviews/curriculum-c2b-vault-notes.md) removes [notes.tend] (binary, paths,
+    # docs/reviews/curriculum-c2b-vault-notes.md) removes the [notes] tend table (binary, paths,
     # pocket_notes_paths, lexical_only, timeout_seconds, k: the tend adapter is gone; a legacy
-    # [notes.tend] table is ignored): "your notes" are the vault's own Reader notes and captures,
+    # tend table is ignored): "your notes" are the vault's own Reader notes and captures,
     # searched by exact words or, with embeddings on, by meaning; note_link_judge takes ordinary
     # quiet-route rules and a linked note's gap reading the pipeline's ordinary transport. Display
     # and learner-voice records at every version: no scoring, scheduling, projection or serving
@@ -1889,7 +1889,7 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Learner-blindness relax's four keys move it too (see mvp-0.9; model contexts only: no scoring, scheduling, projection or serving change).
     # Learner data-relax 2's [figures] author_learner_state moves it too (see mvp-0.9; context for the figure author, no successor).
     # Curriculum C5's [notes] gaps_enabled moves it too (see mvp-0.9; off by default: tier-2 learner text, no successor).
-    # Curriculum C2b's [notes] (the tend adapter's [notes.tend] removed) moves it too (see mvp-0.9; display and learner-voice records, no successor).
+    # Curriculum C2b's [notes] (the tend adapter's table removed) moves it too (see mvp-0.9; display and learner-voice records, no successor).
     "mvp-0.10": "fee0cb611e4abc34e3efd6f430b42b54ea8268152d25636bc7d5d0d0f574c95d",
     # mvp-0.11 (Slice A Phase 6, learner field F2): mvp-0.10's split plus
     # placement (the [placement] section, modelled defaults only, left out of
@@ -1987,7 +1987,7 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Learner-blindness relax's four keys move it too (see mvp-0.9; model contexts only: no scoring, scheduling, projection or serving change).
     # Learner data-relax 2's [figures] author_learner_state moves it too (see mvp-0.9; context for the figure author, no successor).
     # Curriculum C5's [notes] gaps_enabled moves it too (see mvp-0.9; off by default: tier-2 learner text, no successor).
-    # Curriculum C2b's [notes] (the tend adapter's [notes.tend] removed) moves it too (see mvp-0.9; display and learner-voice records, no successor).
+    # Curriculum C2b's [notes] (the tend adapter's table removed) moves it too (see mvp-0.9; display and learner-voice records, no successor).
     "mvp-0.11": "eee92e699ad06432318f699f3deda51d0e11f5ae811537eef3bbe0dbddbc6ed5",
     # mvp-0.12 (Slice 2 T1 / M3): mvp-0.11's split and placement plus
     # recurrence groups live (recurrence.enabled, the live same-cause judge
@@ -2079,7 +2079,7 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Learner-blindness relax's four keys move it too (see mvp-0.9; model contexts only: no scoring, scheduling, projection or serving change).
     # Learner data-relax 2's [figures] author_learner_state moves it too (see mvp-0.9; context for the figure author, no successor).
     # Curriculum C5's [notes] gaps_enabled moves it too (see mvp-0.9; off by default: tier-2 learner text, no successor).
-    # Curriculum C2b's [notes] (the tend adapter's [notes.tend] removed) moves it too (see mvp-0.9; display and learner-voice records, no successor).
+    # Curriculum C2b's [notes] (the tend adapter's table removed) moves it too (see mvp-0.9; display and learner-voice records, no successor).
     "mvp-0.12": "f5dab36c160429e60cb288a54aaebd735281b919c50efe1dbfae8b1638504a1f",
     # mvp-0.13 ("Write what you can" replaces "I don't know"): mvp-0.12's
     # split, placement and recurrence groups plus "I'm stuck" live
@@ -2166,7 +2166,7 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Learner-blindness relax's four keys move it too (see mvp-0.9; model contexts only: no scoring, scheduling, projection or serving change).
     # Learner data-relax 2's [figures] author_learner_state moves it too (see mvp-0.9; context for the figure author, no successor).
     # Curriculum C5's [notes] gaps_enabled moves it too (see mvp-0.9; off by default: tier-2 learner text, no successor).
-    # Curriculum C2b's [notes] (the tend adapter's [notes.tend] removed) moves it too (see mvp-0.9; display and learner-voice records, no successor).
+    # Curriculum C2b's [notes] (the tend adapter's table removed) moves it too (see mvp-0.9; display and learner-voice records, no successor).
     "mvp-0.13": "89eafca61e121c0567c86ecca3248b46e19316e3725391c1bf8d4b0a6be59ce9",
     # mvp-0.14 (daily-loop DL1, daily_plan_v1): mvp-0.13's split, placement,
     # recurrence groups and stuck prompt plus the finite daily plan ([plan],
@@ -2252,7 +2252,7 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Learner-blindness relax's four keys move it too (see mvp-0.9; model contexts only: no scoring, scheduling, projection or serving change).
     # Learner data-relax 2's [figures] author_learner_state moves it too (see mvp-0.9; context for the figure author, no successor).
     # Curriculum C5's [notes] gaps_enabled moves it too (see mvp-0.9; off by default: tier-2 learner text, no successor).
-    # Curriculum C2b's [notes] (the tend adapter's [notes.tend] removed) moves it too (see mvp-0.9; display and learner-voice records, no successor).
+    # Curriculum C2b's [notes] (the tend adapter's table removed) moves it too (see mvp-0.9; display and learner-voice records, no successor).
     "mvp-0.14": "5763c6531ad1288e54759457dcbd822569633afab7cc03d35427016e2164479f",
     # mvp-0.15 (router R1): mvp-0.14's split, placement, recurrence groups,
     # stuck prompt and plan plus probe near-ties (teach-back items included,
@@ -2336,7 +2336,7 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Learner-blindness relax's four keys move it too (see mvp-0.9; model contexts only: no scoring, scheduling, projection or serving change).
     # Learner data-relax 2's [figures] author_learner_state moves it too (see mvp-0.9; context for the figure author, no successor).
     # Curriculum C5's [notes] gaps_enabled moves it too (see mvp-0.9; off by default: tier-2 learner text, no successor).
-    # Curriculum C2b's [notes] (the tend adapter's [notes.tend] removed) moves it too (see mvp-0.9; display and learner-voice records, no successor).
+    # Curriculum C2b's [notes] (the tend adapter's table removed) moves it too (see mvp-0.9; display and learner-voice records, no successor).
     "mvp-0.15": "7e4400e9d3da2c57909f595270fc7b85f6f2392ef0833789bb8f01829c41f318",
     # mvp-0.16 (learner-text gaps, implementation_handoffs §4): mvp-0.15's
     # split, placement, recurrence groups, stuck prompt, plan and probe ties
@@ -2427,7 +2427,7 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Learner-blindness relax's four keys move it too (see mvp-0.9; model contexts only: no scoring, scheduling, projection or serving change).
     # Learner data-relax 2's [figures] author_learner_state moves it too (see mvp-0.9; context for the figure author, no successor).
     # Curriculum C5's [notes] gaps_enabled moves it too (see mvp-0.9; off by default: tier-2 learner text, no successor).
-    # Curriculum C2b's [notes] (the tend adapter's [notes.tend] removed) moves it too (see mvp-0.9; display and learner-voice records, no successor).
+    # Curriculum C2b's [notes] (the tend adapter's table removed) moves it too (see mvp-0.9; display and learner-voice records, no successor).
     "mvp-0.16": "ff27c37fcf4904ae0288aabb0729f572e1ec410f11140e6d34fe74110f4549d5",
     # mvp-0.17 (the proofs-and-explanations route check; built as mvp-0.15, a
     # placeholder tag, and relabelled at its merge): mvp-0.16's split,
@@ -2514,7 +2514,7 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Learner-blindness relax's four keys move it too (see mvp-0.9; model contexts only: no scoring, scheduling, projection or serving change).
     # Learner data-relax 2's [figures] author_learner_state moves it too (see mvp-0.9; context for the figure author, no successor).
     # Curriculum C5's [notes] gaps_enabled moves it too (see mvp-0.9; off by default: tier-2 learner text, no successor).
-    # Curriculum C2b's [notes] (the tend adapter's [notes.tend] removed) moves it too (see mvp-0.9; display and learner-voice records, no successor).
+    # Curriculum C2b's [notes] (the tend adapter's table removed) moves it too (see mvp-0.9; display and learner-voice records, no successor).
     "mvp-0.17": "12b334154248b6d76d7ea9d01cc59070c607d1f494e6254caef9d25c4bf2b490",
     # mvp-0.18 (canonical sources S1, the certification gate C3; built as
     # mvp-0.15, a placeholder tag, and relabelled at its merge): mvp-0.17
@@ -2594,7 +2594,7 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Learner-blindness relax's four keys move it too (see mvp-0.9; model contexts only: no scoring, scheduling, projection or serving change).
     # Learner data-relax 2's [figures] author_learner_state moves it too (see mvp-0.9; context for the figure author, no successor).
     # Curriculum C5's [notes] gaps_enabled moves it too (see mvp-0.9; off by default: tier-2 learner text, no successor).
-    # Curriculum C2b's [notes] (the tend adapter's [notes.tend] removed) moves it too (see mvp-0.9; display and learner-voice records, no successor).
+    # Curriculum C2b's [notes] (the tend adapter's table removed) moves it too (see mvp-0.9; display and learner-voice records, no successor).
     "mvp-0.18": "ad543abf74018b194e4299a728526c8bab919adc29e4000d8b5e236bdc524161",
     # mvp-0.19 (canonical sources S2b; built as mvp-0.16, a placeholder tag,
     # and relabelled at its merge): mvp-0.18 plus source-first fulfilment of
@@ -2674,7 +2674,7 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Learner-blindness relax's four keys move it too (see mvp-0.9; model contexts only: no scoring, scheduling, projection or serving change).
     # Learner data-relax 2's [figures] author_learner_state moves it too (see mvp-0.9; context for the figure author, no successor).
     # Curriculum C5's [notes] gaps_enabled moves it too (see mvp-0.9; off by default: tier-2 learner text, no successor).
-    # Curriculum C2b's [notes] (the tend adapter's [notes.tend] removed) moves it too (see mvp-0.9; display and learner-voice records, no successor).
+    # Curriculum C2b's [notes] (the tend adapter's table removed) moves it too (see mvp-0.9; display and learner-voice records, no successor).
     "mvp-0.19": "b83a279ec115912bf4f2ac6cd0968237c4146eb1999380ffbd6d853055e4df55",
     # mvp-0.20 (route rules in the grader, route-check-in-grader; built as
     # mvp-0.18, a placeholder tag, and relabelled at its merge after the
@@ -2750,7 +2750,7 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Learner-blindness relax's four keys move it too (see mvp-0.9; model contexts only: no scoring, scheduling, projection or serving change).
     # Learner data-relax 2's [figures] author_learner_state moves it too (see mvp-0.9; context for the figure author, no successor).
     # Curriculum C5's [notes] gaps_enabled moves it too (see mvp-0.9; off by default: tier-2 learner text, no successor).
-    # Curriculum C2b's [notes] (the tend adapter's [notes.tend] removed) moves it too (see mvp-0.9; display and learner-voice records, no successor).
+    # Curriculum C2b's [notes] (the tend adapter's table removed) moves it too (see mvp-0.9; display and learner-voice records, no successor).
     "mvp-0.20": "cfa4aeb74f8c8b98aa23374df461710c5505adfbc9f805a71120617d1bd6f206",
     # mvp-0.21 (value-of-information stopping, owner-directed 2026-10-12/13;
     # built as mvp-0.17, a placeholder tag, and relabelled at its merge after
@@ -2835,7 +2835,7 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Learner-blindness relax's four keys move it too (see mvp-0.9; model contexts only: no scoring, scheduling, projection or serving change).
     # Learner data-relax 2's [figures] author_learner_state moves it too (see mvp-0.9; context for the figure author, no successor).
     # Curriculum C5's [notes] gaps_enabled moves it too (see mvp-0.9; off by default: tier-2 learner text, no successor).
-    # Curriculum C2b's [notes] (the tend adapter's [notes.tend] removed) moves it too (see mvp-0.9; display and learner-voice records, no successor).
+    # Curriculum C2b's [notes] (the tend adapter's table removed) moves it too (see mvp-0.9; display and learner-voice records, no successor).
     "mvp-0.21": "20100a2ee1647d9f4c657afeea628981ab390a04a7179ff62e5dc6c2b165d10f",
     # mvp-0.22 (Tier 1, the Decider migration, owner decision 2026-10-13;
     # built as mvp-0.20, a placeholder tag, and relabelled at its merge after
@@ -2912,7 +2912,7 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Learner-blindness relax's four keys move it too (see mvp-0.9; model contexts only: no scoring, scheduling, projection or serving change).
     # Learner data-relax 2's [figures] author_learner_state moves it too (see mvp-0.9; context for the figure author, no successor).
     # Curriculum C5's [notes] gaps_enabled moves it too (see mvp-0.9; off by default: tier-2 learner text, no successor).
-    # Curriculum C2b's [notes] (the tend adapter's [notes.tend] removed) moves it too (see mvp-0.9; display and learner-voice records, no successor).
+    # Curriculum C2b's [notes] (the tend adapter's table removed) moves it too (see mvp-0.9; display and learner-voice records, no successor).
     "mvp-0.22": "66e4ad15eaf87fd9cb0a1c68ebdf5050d744655a207cf72385be8232047c6312",
     # mvp-0.23 (router R2a, owner-directed 2026-10-13; a placeholder tag that
     # kept its label at its merge, nothing on main having taken it): mvp-0.22
@@ -2984,7 +2984,7 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Learner-blindness relax's four keys move it too (see mvp-0.9; model contexts only: no scoring, scheduling, projection or serving change).
     # Learner data-relax 2's [figures] author_learner_state moves it too (see mvp-0.9; context for the figure author, no successor).
     # Curriculum C5's [notes] gaps_enabled moves it too (see mvp-0.9; off by default: tier-2 learner text, no successor).
-    # Curriculum C2b's [notes] (the tend adapter's [notes.tend] removed) moves it too (see mvp-0.9; display and learner-voice records, no successor).
+    # Curriculum C2b's [notes] (the tend adapter's table removed) moves it too (see mvp-0.9; display and learner-voice records, no successor).
     "mvp-0.23": "a0109d9482726380beead0162bfd3c3b2dab070488dd6dfb11c5b6624033adf4",
     # mvp-0.24 (router R2b + R2c, owner decisions 2026-10-13; a placeholder
     # tag that kept its label at its merge, nothing on main having taken it):
@@ -3053,7 +3053,7 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Learner-blindness relax's four keys move it too (see mvp-0.9; model contexts only: no scoring, scheduling, projection or serving change).
     # Learner data-relax 2's [figures] author_learner_state moves it too (see mvp-0.9; context for the figure author, no successor).
     # Curriculum C5's [notes] gaps_enabled moves it too (see mvp-0.9; off by default: tier-2 learner text, no successor).
-    # Curriculum C2b's [notes] (the tend adapter's [notes.tend] removed) moves it too (see mvp-0.9; display and learner-voice records, no successor).
+    # Curriculum C2b's [notes] (the tend adapter's table removed) moves it too (see mvp-0.9; display and learner-voice records, no successor).
     "mvp-0.24": "f1a7e249d4b6d53f0743e71aa9dbba8ea187606e209e2624a787e65af8d83a3b",
     # mvp-0.25 (method-explicit items, owner rule 2026-10-13; built as
     # mvp-0.22-placeholder, a placeholder tag, and relabelled at its merge
@@ -3120,7 +3120,7 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Learner-blindness relax's four keys move it too (see mvp-0.9; model contexts only: no scoring, scheduling, projection or serving change).
     # Learner data-relax 2's [figures] author_learner_state moves it too (see mvp-0.9; context for the figure author, no successor).
     # Curriculum C5's [notes] gaps_enabled moves it too (see mvp-0.9; off by default: tier-2 learner text, no successor).
-    # Curriculum C2b's [notes] (the tend adapter's [notes.tend] removed) moves it too (see mvp-0.9; display and learner-voice records, no successor).
+    # Curriculum C2b's [notes] (the tend adapter's table removed) moves it too (see mvp-0.9; display and learner-voice records, no successor).
     "mvp-0.25": "f305274b7c691224caa7ec33e868453147dde08fadbeb7d8a3fc74931e1614ab",
     # mvp-0.26 (regrade contracts, queued 2026-10-16;
     # docs/reviews/regrade-contract-replay.md): mvp-0.25 plus every regrade
@@ -3186,7 +3186,7 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Learner-blindness relax's four keys move it too (see mvp-0.9; model contexts only: no scoring, scheduling, projection or serving change).
     # Learner data-relax 2's [figures] author_learner_state moves it too (see mvp-0.9; context for the figure author, no successor).
     # Curriculum C5's [notes] gaps_enabled moves it too (see mvp-0.9; off by default: tier-2 learner text, no successor).
-    # Curriculum C2b's [notes] (the tend adapter's [notes.tend] removed) moves it too (see mvp-0.9; display and learner-voice records, no successor).
+    # Curriculum C2b's [notes] (the tend adapter's table removed) moves it too (see mvp-0.9; display and learner-voice records, no successor).
     "mvp-0.26": "a1601755926dfa685b743d3ba0daf502529efcaf8bdf04a67df8e581737c0840",
     # mvp-0.27 (one serve/administration eligibility decision, queued
     # 2026-10-16; docs/reviews/serve-eligibility-decision.md and its Codex
@@ -3252,7 +3252,7 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Learner-blindness relax's four keys move it too (see mvp-0.9; model contexts only: no scoring, scheduling, projection or serving change).
     # Learner data-relax 2's [figures] author_learner_state moves it too (see mvp-0.9; context for the figure author, no successor).
     # Curriculum C5's [notes] gaps_enabled moves it too (see mvp-0.9; off by default: tier-2 learner text, no successor).
-    # Curriculum C2b's [notes] (the tend adapter's [notes.tend] removed) moves it too (see mvp-0.9; display and learner-voice records, no successor).
+    # Curriculum C2b's [notes] (the tend adapter's table removed) moves it too (see mvp-0.9; display and learner-voice records, no successor).
     "mvp-0.27": "5a53cbf0c6b38e262450c2f7c9bb807610da2770a7d8c7d13f9e476974d8505c",
     # mvp-0.29 (daily-loop DL2, the learner's intent; docs/reviews/
     # daily-loop-dl2.md and its Codex re-review F2): the predecessor plus
@@ -3307,7 +3307,7 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Learner-blindness relax's four keys move it too (see mvp-0.9; model contexts only: no scoring, scheduling, projection or serving change).
     # Learner data-relax 2's [figures] author_learner_state moves it too (see mvp-0.9; context for the figure author, no successor).
     # Curriculum C5's [notes] gaps_enabled moves it too (see mvp-0.9; off by default: tier-2 learner text, no successor).
-    # Curriculum C2b's [notes] (the tend adapter's [notes.tend] removed) moves it too (see mvp-0.9; display and learner-voice records, no successor).
+    # Curriculum C2b's [notes] (the tend adapter's table removed) moves it too (see mvp-0.9; display and learner-voice records, no successor).
     "mvp-0.29": "5f814581e0888ac5dcb6e8fa5b07fa5bb2080569026c28046d82487536c25d7b",
     # mvp-0.30 (adaptive difficulty AD2+AD3, owner 2026-10-18;
     # docs/reviews/adaptive-difficulty-ad23.md): mvp-0.29 plus AD's draw at a
@@ -3356,7 +3356,7 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Learner-blindness relax's four keys move it too (see mvp-0.9; model contexts only: no scoring, scheduling, projection or serving change).
     # Learner data-relax 2's [figures] author_learner_state moves it too (see mvp-0.9; context for the figure author, no successor).
     # Curriculum C5's [notes] gaps_enabled moves it too (see mvp-0.9; off by default: tier-2 learner text, no successor).
-    # Curriculum C2b's [notes] (the tend adapter's [notes.tend] removed) moves it too (see mvp-0.9; display and learner-voice records, no successor).
+    # Curriculum C2b's [notes] (the tend adapter's table removed) moves it too (see mvp-0.9; display and learner-voice records, no successor).
     "mvp-0.30": "e34cf6504fd74eddd77feba9de77607db351ac5ee73903777611d8a1969bc6da",
     # mvp-0.31 (reader workbench RW2d, workbench signals in the learner
     # field; spec_reader_workbench_v1 §5.11, docs/reviews/
@@ -3399,7 +3399,7 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Learner-blindness relax's four keys move it too (see mvp-0.9; model contexts only: no scoring, scheduling, projection or serving change).
     # Learner data-relax 2's [figures] author_learner_state moves it too (see mvp-0.9; context for the figure author, no successor).
     # Curriculum C5's [notes] gaps_enabled moves it too (see mvp-0.9; off by default: tier-2 learner text, no successor).
-    # Curriculum C2b's [notes] (the tend adapter's [notes.tend] removed) moves it too (see mvp-0.9; display and learner-voice records, no successor).
+    # Curriculum C2b's [notes] (the tend adapter's table removed) moves it too (see mvp-0.9; display and learner-voice records, no successor).
     "mvp-0.31": "d6b529ff0dac4659629a993982236542e090a0bab308da7c7725882ca3097db2",
     # mvp-0.32 (reader workbench RW7b, the plan follows the reading path;
     # spec_reader_workbench_v1 §10.2, docs/reviews/reader-workbench-RW7b.md):
@@ -3439,7 +3439,7 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Learner-blindness relax's four keys move it too (see mvp-0.9; model contexts only: no scoring, scheduling, projection or serving change).
     # Learner data-relax 2's [figures] author_learner_state moves it too (see mvp-0.9; context for the figure author, no successor).
     # Curriculum C5's [notes] gaps_enabled moves it too (see mvp-0.9; off by default: tier-2 learner text, no successor).
-    # Curriculum C2b's [notes] (the tend adapter's [notes.tend] removed) moves it too (see mvp-0.9; display and learner-voice records, no successor).
+    # Curriculum C2b's [notes] (the tend adapter's table removed) moves it too (see mvp-0.9; display and learner-voice records, no successor).
     "mvp-0.32": "972ff9b229c6da39e7de479584e4922f90ae5c06d58a29e921a1c9454a4c160e",
     # mvp-0.33 (learned parameters LP-min (a), the four claim-defect fixes;
     # spec_learned_parameters_v1 §3.0b item 1, docs/reviews/lp-min-claim-fixes.md;
@@ -3477,7 +3477,7 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Learner-blindness relax's four keys move it too (see mvp-0.9; model contexts only: no scoring, scheduling, projection or serving change).
     # Learner data-relax 2's [figures] author_learner_state moves it too (see mvp-0.9; context for the figure author, no successor).
     # Curriculum C5's [notes] gaps_enabled moves it too (see mvp-0.9; off by default: tier-2 learner text, no successor).
-    # Curriculum C2b's [notes] (the tend adapter's [notes.tend] removed) moves it too (see mvp-0.9; display and learner-voice records, no successor).
+    # Curriculum C2b's [notes] (the tend adapter's table removed) moves it too (see mvp-0.9; display and learner-voice records, no successor).
     "mvp-0.33": "400d65c6079757696a796e7b10555e3eb1821220ce718ae80c41cec9442c4b1a",
     # mvp-0.34 (rebuild equivalence; docs/reviews/rebuild-equivalence-fix.md
     # and its Codex review F4; built on mvp-0.31 while RW7b and the LP claim
@@ -3514,7 +3514,7 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Learner-blindness relax's four keys move it too (see mvp-0.9; model contexts only: no scoring, scheduling, projection or serving change).
     # Learner data-relax 2's [figures] author_learner_state moves it too (see mvp-0.9; context for the figure author, no successor).
     # Curriculum C5's [notes] gaps_enabled moves it too (see mvp-0.9; off by default: tier-2 learner text, no successor).
-    # Curriculum C2b's [notes] (the tend adapter's [notes.tend] removed) moves it too (see mvp-0.9; display and learner-voice records, no successor).
+    # Curriculum C2b's [notes] (the tend adapter's table removed) moves it too (see mvp-0.9; display and learner-voice records, no successor).
     "mvp-0.34": "d7ec85bb673c7f6f349d33f239188eaa29bdc850d88c5913feaad29cb7279529",
     # mvp-0.35 (Reader CA2, one Ask; docs/specs/ux_reader_compare_ask_v1.md
     # §7.7, K10, §15 Q3-Q4; docs/reviews/reader-ca2-one-ask.md; built on
@@ -3550,7 +3550,7 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Learner-blindness relax's four keys move it too (see mvp-0.9; model contexts only: no scoring, scheduling, projection or serving change).
     # Learner data-relax 2's [figures] author_learner_state moves it too (see mvp-0.9; context for the figure author, no successor).
     # Curriculum C5's [notes] gaps_enabled moves it too (see mvp-0.9; off by default: tier-2 learner text, no successor).
-    # Curriculum C2b's [notes] (the tend adapter's [notes.tend] removed) moves it too (see mvp-0.9; display and learner-voice records, no successor).
+    # Curriculum C2b's [notes] (the tend adapter's table removed) moves it too (see mvp-0.9; display and learner-voice records, no successor).
     "mvp-0.35": "4c240f155a6f277bd8e015789ac2eb8fab846cc500ad43d7aa3007bef0ae6123",
     # mvp-0.36 (replaced learner claims kept;
     # docs/reviews/lp-learner-report-superseded.md; the Medium recorded at
@@ -3581,7 +3581,7 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Learner-blindness relax's four keys move it too (see mvp-0.9; model contexts only: no scoring, scheduling, projection or serving change).
     # Learner data-relax 2's [figures] author_learner_state moves it too (see mvp-0.9; context for the figure author, no successor).
     # Curriculum C5's [notes] gaps_enabled moves it too (see mvp-0.9; off by default: tier-2 learner text, no successor).
-    # Curriculum C2b's [notes] (the tend adapter's [notes.tend] removed) moves it too (see mvp-0.9; display and learner-voice records, no successor).
+    # Curriculum C2b's [notes] (the tend adapter's table removed) moves it too (see mvp-0.9; display and learner-voice records, no successor).
     "mvp-0.36": "1ecd9bb5ce6fe795f27ad01c4e81ff973305c22de0a49ef95193196cc06a69cc",
     # mvp-0.37 (mobile PR-4: a live attempt writes only its item row's
     # scheduling columns; docs/specs/spec_mobile_tailnet_v1.md §3.3, §9.3;
@@ -3615,7 +3615,7 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Learner-blindness relax's four keys move it too (see mvp-0.9; model contexts only: no scoring, scheduling, projection or serving change).
     # Learner data-relax 2's [figures] author_learner_state moves it too (see mvp-0.9; context for the figure author, no successor).
     # Curriculum C5's [notes] gaps_enabled moves it too (see mvp-0.9; off by default: tier-2 learner text, no successor).
-    # Curriculum C2b's [notes] (the tend adapter's [notes.tend] removed) moves it too (see mvp-0.9; display and learner-voice records, no successor).
+    # Curriculum C2b's [notes] (the tend adapter's table removed) moves it too (see mvp-0.9; display and learner-voice records, no successor).
     "mvp-0.37": "34fb9d6a0477c2705970e445274d64dcd2135e45305c6498c2cb2e515458c3f2",
     # mvp-0.38 (a fresh cold retry after help on a cold follow-up; owner
     # decision 2026-10-25, Reader CA2 follow-up Q4;
@@ -3646,7 +3646,7 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Learner-blindness relax's four keys move it too (see mvp-0.9; model contexts only: no scoring, scheduling, projection or serving change).
     # Learner data-relax 2's [figures] author_learner_state moves it too (see mvp-0.9; context for the figure author, no successor).
     # Curriculum C5's [notes] gaps_enabled moves it too (see mvp-0.9; off by default: tier-2 learner text, no successor).
-    # Curriculum C2b's [notes] (the tend adapter's [notes.tend] removed) moves it too (see mvp-0.9; display and learner-voice records, no successor).
+    # Curriculum C2b's [notes] (the tend adapter's table removed) moves it too (see mvp-0.9; display and learner-voice records, no successor).
     "mvp-0.38": "314fb709b5ec3f4cbe74f9560123d759a6c87c6c079e856faaff68c36fb50633",
     # mvp-0.39 (Reader RW6b part 1: cold follow-ups after a reader session;
     # spec_reader_workbench_v1 §9.3; docs/reviews/reader-rw6b-p1-followups.md
@@ -3675,7 +3675,7 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Learner-blindness relax's four keys move it too (see mvp-0.9; model contexts only: no scoring, scheduling, projection or serving change).
     # Learner data-relax 2's [figures] author_learner_state moves it too (see mvp-0.9; context for the figure author, no successor).
     # Curriculum C5's [notes] gaps_enabled is in it too (see mvp-0.9; off by default: tier-2 learner text, no successor).
-    # Curriculum C2b's [notes] (the tend adapter's [notes.tend] removed) moves it too (see mvp-0.9; display and learner-voice records, no successor).
+    # Curriculum C2b's [notes] (the tend adapter's table removed) moves it too (see mvp-0.9; display and learner-voice records, no successor).
     "mvp-0.39": "eed1e752511001643d3cca47a2814288f13bdaa941f8f3a222548ba1b768e88a",
     # mvp-0.40 (curriculum C1, the plan follows the deliverable;
     # spec_deliverable_curriculum_v1 §7.6, §8.1;
@@ -3697,7 +3697,7 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Learner-blindness relax's four keys move it too (see mvp-0.9; model contexts only: no scoring, scheduling, projection or serving change).
     # Learner data-relax 2's [figures] author_learner_state moves it too (see mvp-0.9; context for the figure author, no successor).
     # Curriculum C5's [notes] gaps_enabled is in it too (see mvp-0.9; off by default: tier-2 learner text, no successor).
-    # Curriculum C2b's [notes] (the tend adapter's [notes.tend] removed) moves it too (see mvp-0.9; display and learner-voice records, no successor).
+    # Curriculum C2b's [notes] (the tend adapter's table removed) moves it too (see mvp-0.9; display and learner-voice records, no successor).
     "mvp-0.40": "16e0316fe6513b101636c52b13b62033e2514e1d1f64de98ac123fe9e5dcdb9b",
 }
 

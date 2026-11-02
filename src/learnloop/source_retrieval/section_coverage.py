@@ -136,7 +136,9 @@ CORRECTION_VERSION = "section_coverage_correction.v1"
 ENVELOPE = "curriculum.max_daily_cost_usd"
 #: The routes that one daily cap counts: this judge and C0b's scope resolver and path judge
 #: (``source_retrieval.deliverables``), so the curriculum spends at most one cap a day.
-CURRICULUM_OWNER_KINDS: tuple[str, ...] = (ROUTE_TASK, "deliverable_scope_resolver", "deliverable_path_judge")
+#: C2b: the note link judge (ordinary quiet-route rules since then) counts toward the same cap.
+CURRICULUM_OWNER_KINDS: tuple[str, ...] = (ROUTE_TASK, "deliverable_scope_resolver", "deliverable_path_judge",
+                                           "note_link_judge")
 COVER_CAP_SETTING = "curriculum.cover_max_cost_usd"
 #: The retrieval consumers this module names to the space resolver.
 SEARCH_CONSUMER = "coverage"

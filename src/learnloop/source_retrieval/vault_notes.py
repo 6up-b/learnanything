@@ -537,9 +537,16 @@ def meaning_search(vault: Any, repository: Repository, corpus: Sequence[VaultNot
     if not covered:
         result.status, result.reason = "empty", "no note has a vector yet"
         return result
-    vectors, report = embed_query_texts(vault, repository, texts, embedder=embedder, owner_id=owner_id)
+    # One query per request, each inside the library retrieval's own query caps (cached by text).
+    vectors: dict[str, Any] = {}
+    reasons: list[str] = []
+    for key, text in texts.items():
+        found, report = embed_query_texts(vault, repository, {key: text}, embedder=embedder, owner_id=owner_id)
+        vectors.update(found)
+        if not found:
+            reasons.append(str(report.get("reason") or report.get("status") or ""))
     if not vectors:
-        result.status, result.reason = "unavailable", str(report.get("reason") or report.get("status") or "")
+        result.status, result.reason = "unavailable", "; ".join(dict.fromkeys(reasons)) or None
         return result
     by_key = {note.note_key: note for note in corpus}
     ordered: dict[str, VaultNote] = {}

@@ -350,7 +350,7 @@ _CLASSES: dict[str, tuple[str, str]] = {
         "authorship status how state_key ledger_id model prompt_version created_at",
         "how_line"),
     "learner_notes": (
-        "id note_key line content_hash captured_on origin truncated created_at",
+        "id note_key line content_hash captured_on origin truncated created_at vault_ref_kind vault_ref_id",
         "path heading_path title heading text_md"),
     "learner_text_gap_reversals": (
         "id gap_id reversal actor created_at",

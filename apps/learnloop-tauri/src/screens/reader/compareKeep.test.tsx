@@ -432,7 +432,7 @@ it("a take on a comparison another question keeps is sent as the question the le
 
 // -- curriculum C2: the learner's notes beside the passage (spec §10.3) ------------------------------
 
-const NOTES = { enabled: true, lexicalOnly: false, pocketNotesLabel: "handwritten · transcribed by Pocket Notes", takePrefix: "From your note" };
+const NOTES = { enabled: true, meaning: false, pocketNotesLabel: "handwritten · transcribed by Pocket Notes", takePrefix: "From your note" };
 
 it("C2: › marks a passage with a linked note (the learner's own mark) and the passage menu links one by hand", async () => {
   const span = view.blocks[1].spanId!;
@@ -469,7 +469,7 @@ it("C2: the library page's comparison with no book open offers the notes' your-t
     linkId: "nl_1", noteKey: "/n/a.org#Eigen", targetKind: "passage", learningObjectId: "lo", extractionId: "ext_symmetric",
     sectionId: "sec", spanId: "span_spectral_worked", goalId: "g", authorship: "ai", byLabel: "linked by LearnLoop's model",
     how: "restates", howWords: null, howLine: null, line: "your note from 3 Oct",
-    note: { title: "Linear algebra", heading: "Spectral", capturedOn: "2026-10-03", dateLabel: "3 Oct", origin: "tend",
+    note: { title: "Linear algebra", heading: "Spectral", capturedOn: "2026-10-03", dateLabel: "3 Oct", origin: "vault",
             originLabel: null, text: "Symmetric means real eigenvalues.", truncated: false },
     takeText: "From your note “Linear algebra › Spectral”, 3 Oct: “Symmetric means real eigenvalues.”" }] });
   render(<ReaderScreen onError={vi.fn()} />);

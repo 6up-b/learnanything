@@ -2,8 +2,8 @@
 (spec_deliverable_curriculum_v1 §9.3, §10.2, §12.3).
 
 * Statically: the only code that names the notes' tables or modules is the notes'
-  own (the adapter, the store, the linking service, the sidecar handler, the report's
-  CLI) and the two registries that classify the tables (rebuild roles, AD's guard,
+  own (the vault notes search, the store, the linking service, the sidecar handler, the
+  report's CLI) and the two registries that classify the tables (rebuild roles, AD's guard,
   which refuses them). So ``find_sources``, ``teaching_scope``, PF generation, the
   blind grader (S1), the tutor and teach-back (the teacher's item minting is not
   built; TE1 will live beside them) and adaptive difficulty never read
@@ -35,10 +35,10 @@ from tests.reading_path_fixtures import call
 from tests.section_coverage_fixtures import CoverageJudgeFake
 
 ROOT = Path(__file__).resolve().parents[1]
-NAMES = re.compile(r"\b(learner_notes|learner_note_links|note_links|notes_tend)\b")
+NAMES = re.compile(r"\b(learner_notes|learner_note_links|note_links|vault_notes)\b")
 #: Every source file that may name the notes' tables or modules, and why.
 ALLOWED = {
-    "src/learnloop/curriculum/notes_tend.py": "the one tend adapter",
+    "src/learnloop/source_retrieval/vault_notes.py": "C2b: the vault's own notes (search, read, embedding)",
     "src/learnloop/db/stores/learner_notes.py": "the tables' store",
     "src/learnloop/source_retrieval/note_links.py": "the linking service (display and learner-voice records)",
     "src/learnloop/source_retrieval/note_gaps.py": "curriculum C5: the gap pipeline's read-only way to linked notes",
@@ -65,7 +65,7 @@ NEVER = (
     "learnloop.hints",
     "learnloop.daily_plan",
 )
-NOTES_MODULES = ("learnloop.source_retrieval.note_links", "learnloop.curriculum.notes_tend",
+NOTES_MODULES = ("learnloop.source_retrieval.note_links", "learnloop.source_retrieval.vault_notes",
                  "learnloop.db.stores.learner_notes", "learnloop.source_retrieval.note_gaps")
 #: Curriculum C5's one declared exception: the only source files outside the sidecar and the
 #: CLI that import ``note_gaps`` (the gap pipeline's adapter, lazily, behind the opt-in).
@@ -120,12 +120,12 @@ def test_no_generation_grading_evidence_or_ad_module_reaches_the_notes_modules()
                 assert graph.find_shortest_chain(importer=member, imported=target) is None, (member, target)
 
 
-def test_a_linked_sentinel_note_never_reaches_coverage_scope_or_path_judges(tmp_path, monkeypatch):
+def test_a_linked_sentinel_note_never_reaches_coverage_scope_or_path_judges(tmp_path):
     from tests.test_notes_linked import _deliverable, _lines
 
     coverage = CoverageJudgeFake()
     deliverable = DeliverableFake(primaries={"Eigenvalues": "Chapter 5 Eigenvalues"})
-    paths, repository, ctx, goal_id, fake_tend, corpus, notes = _deliverable(tmp_path, monkeypatch)
+    paths, repository, ctx, goal_id, corpus, notes = _deliverable(tmp_path)
     ctx.coverage_judge_client = coverage
     ctx.deliverable_scope_client = deliverable
     ctx.deliverable_path_client = deliverable
@@ -143,5 +143,33 @@ def test_a_linked_sentinel_note_never_reaches_coverage_scope_or_path_judges(tmp_
     with repository.connection() as connection:
         sources = " ".join(" ".join(str(value) for value in row)
                            for row in connection.execute("SELECT * FROM source_artifacts"))
-    assert SENTINEL not in sources and str(fake_tend.notes) not in sources
+    assert SENTINEL not in sources
     assert vault.config.notes.enabled
+
+
+def test_the_tend_adapter_is_gone():
+    """C2b: the tend adapter, its config and its test scaffolding are removed; nothing in the
+    source, the tests' fixtures or the desktop app runs or names it (the word ``tend`` is
+    allowed only in history notes about C2's era)."""
+
+    pattern = re.compile(r"notes_tend|NOTES_TEND|notes\.tend|NotesTendConfig|install_fake_tend|FakeTend|TendSettings"
+                         r"|TendUnavailable|tend_settings|tend_unavailable")
+    roots = [ROOT / "src", ROOT / "apps/learnloop-tauri/src", ROOT / "apps/learnloop-tauri/src-tauri/src"]
+    found = []
+    for root in roots:
+        for path in sorted(root.rglob("*")):
+            if path.suffix not in {".py", ".ts", ".tsx", ".rs"} or not path.is_file():
+                continue
+            text = path.read_text(encoding="utf-8")
+            for match in pattern.finditer(text):
+                line = text.count("\n", 0, match.start()) + 1
+                found.append(f"{path.relative_to(ROOT)}:{line}:{match.group(0)}")
+    # The config's legacy-key tolerance names the table it ignores.
+    allowed = {"src/learnloop/config/schema.py"}
+    assert [entry for entry in found if entry.split(":", 1)[0] not in allowed] == []
+    assert not (ROOT / "src/learnloop/curriculum/notes_tend.py").exists()
+    for test in sorted((ROOT / "tests").glob("*.py")):
+        if test.name == "test_notes_never_read.py":
+            continue
+        text = test.read_text(encoding="utf-8")
+        assert "install_fake_tend" not in text and "LEARNLOOP_NOTES_TEND" not in text, test.name

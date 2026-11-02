@@ -171,7 +171,8 @@ ADMISSION_REASONS: frozenset[str] = frozenset({"models_off", "unrouted", "unpric
 
 
 def daily_envelope(vault: Any, repository: Repository, *, clock: Clock | None = None) -> SharedDailyEnvelope:
-    """The curriculum's one daily cap (``curriculum.max_daily_cost_usd``) over its three routes."""
+    """The curriculum's one daily cap (``curriculum.max_daily_cost_usd``) over its routes (C0a's
+    coverage judge, C0b's two and, since C2b, the note link judge)."""
 
     return SharedDailyEnvelope(vault, repository, day=midnight(clock),
                                cap=float(vault.config.curriculum.max_daily_cost_usd), clock=clock, name=SC.ENVELOPE,

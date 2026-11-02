@@ -116,7 +116,7 @@ def _upgrade(tmp_path: Path) -> Path:
     with upgrade_allowance(UPGRADE_TEST_HELPER):
         applied = apply_migrations(database)
     # Learner data-relax 2's 230 (help_assists.work_md, not a table read here) lands first.
-    assert [migration.version for migration in applied] == [230, 231]
+    assert [migration.version for migration in applied] == [230, 231, 233]
     assert {table: _rows(database, table) for table in TABLES} == before  # every row, id and value survives
     for table, shape in columns.items():
         assert _columns(database, table) == shape  # the same columns, types, defaults and keys
@@ -209,9 +209,9 @@ def test_231_adds_learner_note_and_nothing_else():
 
 
 def test_the_head_fixture_holds_231_in_rollback_mode_with_no_note_gap():
-    head = Path(__file__).resolve().parents[1] / "fixtures" / "migration_head_231" / "state.sqlite"
+    head = Path(__file__).resolve().parents[1] / "fixtures" / "migration_head_233" / "state.sqlite"
     assert head.read_bytes()[18:20] == b"\x01\x01"
-    assert max(applied_versions(head)) == max(m.version for m in discover_migrations()) == 231
+    assert max(applied_versions(head)) == max(m.version for m in discover_migrations()) == 233
     with closing(sqlite3.connect(f"file:{head}?mode=ro", uri=True)) as connection:
         assert connection.execute("PRAGMA journal_mode").fetchone()[0] == "delete"
         for table in ("learner_text_gaps", "learner_text_gap_jobs"):

@@ -3,7 +3,7 @@ import { invalidate, invalidateAll, setQueryData, type QueryTag } from "./queryC
 import { READER_PREFIX, TAG } from "./queryTags";
 import { noteFallbackOffer } from "../app/planFallback";
 import type {
-  NoteHitDto,
+  NoteSearchDto,
   NoteLinkDto,
   NoteMarksDto,
   NotesPathDto,
@@ -1678,12 +1678,10 @@ export const api = {
   notesMarks: (input: { extractionId: string }) => call<NoteMarksDto>("notes_marks", { input }),
   notesPassages: (input: { passages: Array<{ extractionId: string; spanId: string }> }) =>
     call<{ notes: NoteLinkDto[] }>("notes_passages", { input }),
-  notesSearch: (input: { query?: string; extractionId?: string; spanId?: string }) =>
-    call<{ query: string; hits: NoteHitDto[] }>("notes_search", { input }),
-  notesLink: (input: {
-    note: { path: string; line: number; headingPath: string; title: string; contentHash: string; mtime: number };
-    extractionId: string; spanId: string;
-  }) => call<{ linkId: string; marks: NoteMarksDto["marks"] }>("notes_link", { input }),
+  notesSearch: (input: { query?: string; extractionId?: string; spanId?: string; mode?: "words" | "meaning" }) =>
+    call<NoteSearchDto>("notes_search", { input }),
+  notesLink: (input: { note: { noteKey: string }; extractionId: string; spanId: string }) =>
+    call<{ linkId: string; marks: NoteMarksDto["marks"] }>("notes_link", { input }),
   notesDecide: (input: { linkId: string; choice: "hide" | "keep" }) =>
     call<{ linkId: string; status: string }>("notes_decide", { input }),
   // Curriculum C5: Settings' opt-in (notes.gaps_enabled, off by default).

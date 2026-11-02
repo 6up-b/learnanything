@@ -12,7 +12,7 @@ source_paths:
   - "apps/learnloop-tauri/src/screens/reader/ReaderNotes.tsx"
 source_commit: "1ff505191694b0c505027c4d768673042c708f36"
 source_commit_timestamp: "2026-11-01T17:58:28-05:00"
-source_worktree_state: "clean"
+source_worktree_state: "staged-or-mixed"
 activation_kind: "entry-reachable build graph"
 activation_evidence: "A static TypeScript import path reaches this file from the Vite entry src/main.tsx."
 generated: true
@@ -42,12 +42,12 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/screens/reader/ReaderNotes.tsx](../../../../../../../apps/learnloop-tauri/src/screens/reader/ReaderNotes.tsx) |
-| Source lines | 509 |
+| Source lines | 524 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/screens/reader/_area|TypeScript/screens/reader]] |
 | Refactor status | `ACTIVE` |
 | Activation kind | `entry-reachable build graph` |
-| Worktree state | `clean` |
+| Worktree state | `staged-or-mixed` |
 | Source commit | `1ff505191694b0c505027c4d768673042c708f36` |
 | Commit timestamp | `2026-11-01T17:58:28-05:00` |
 
@@ -60,89 +60,92 @@ The system-level behavior stays authoritative in the linked architecture, concep
 
 ## Public API
 
-- `export const NOTES_COPY =` — const, line 30
-- `export function noteLabel(link: NoteLinkDto): string` — function, line 59
-- `export const NOTES_POLL_MS =` — const, line 66
-- `export function retainHidden(previous: readonly NoteLinkDto[], next: readonly NoteLinkDto[], hidden: ReadonlyMap<string, HiddenNote>): NoteLinkDto[]` — function, line 70
-- `export function NoteCard(` — function, line 113
-- `export function NotesWhereThisGoes(` — function, line 148
-- `export type NoteMark = NoteMarksDto["marks"][number]` — type, line 180
-- `export function NoteMarkButton(` — function, line 182
-- `export function mergeMarks(previous: ReadonlyMap<string, NoteMark>, next: readonly NoteMark[], hidden: ReadonlyMap<string, HiddenNote>): Map<string, NoteMark>` — function, line 230
-- `export function useNoteMarks(` — function, line 242
-- `export function PathLineNotes(` — function, line 296
-- `export function usePathNotes(goalId: string | null, ready: boolean)` — function, line 317
-- `export function passagesOfKeys(keys: string[]): Array<` — function, line 361
-- `export type NoteTakeOutcome = "kept" | "drafted" | "failed"` — type, line 372
-- `export function NotesTakeBand(` — function, line 374
-- `export function NoteLinkPicker(` — function, line 426
+- `export const NOTES_COPY =` — const, line 32
+- `export function noteLabel(link: NoteLinkDto): string` — function, line 63
+- `export const NOTES_POLL_MS =` — const, line 70
+- `export function retainHidden(previous: readonly NoteLinkDto[], next: readonly NoteLinkDto[], hidden: ReadonlyMap<string, HiddenNote>): NoteLinkDto[]` — function, line 74
+- `export function NoteCard(` — function, line 117
+- `export function NotesWhereThisGoes(` — function, line 152
+- `export type NoteMark = NoteMarksDto["marks"][number]` — type, line 184
+- `export function NoteMarkButton(` — function, line 186
+- `export function mergeMarks(previous: ReadonlyMap<string, NoteMark>, next: readonly NoteMark[], hidden: ReadonlyMap<string, HiddenNote>): Map<string, NoteMark>` — function, line 234
+- `export function useNoteMarks(` — function, line 246
+- `export function PathLineNotes(` — function, line 300
+- `export function usePathNotes(goalId: string | null, ready: boolean)` — function, line 321
+- `export function passagesOfKeys(keys: string[]): Array<` — function, line 365
+- `export type NoteTakeOutcome = "kept" | "drafted" | "failed"` — type, line 376
+- `export function NotesTakeBand(` — function, line 378
+- `export function NoteLinkPicker(` — function, line 430
 
 ## Internal implementation anchors
 
-- `const linkStyle =` — const, line 51
-- `const quietStyle =` — const, line 55
-- `const headStyle =` — const, line 56
-- `const where = [link.note.title, link.note.heading].filter(Boolean).join(" › ")` — const, line 60
-- `const listed = new Set(next.map((link)` — const, line 72
-- `const out = [...next]` — const, line 73
-- `function useDecide(ctx: NotesContextValue | null)` — function, line 82
-- `const hiddenId = (link: NoteLinkDto)` — const, line 85
-- `const decide = async (link: NoteLinkDto, choice: "hide" | "keep")` — const, line 86
-- `const out = await api.notesDecide(` — const, line 90
-- `const id = hiddenId(link)` — const, line 94
-- `const next =` — const, line 99
-- `const gaps = Boolean(ctx?.settings.gaps)` — const, line 150
-- `function NoteList(` — function, line 164
-- `const ctx = useNotes()` — const, line 183
-- `const onPage = surface === "pdf"` — const, line 185
-- `const count = mark.notes.length` — const, line 186
-- `const label = count > 1 ? `$` — const, line 187
-- `const body = open ? ( <div data-note-mark-panel=` — const, line 189
-- `const button = ( <button type="button" data-note-mark=` — const, line 202
-- `const NO_MARKS: ReadonlyMap<string, NoteMark> = new Map()` — const, line 225
-- `const NO_HIDDEN: ReadonlyMap<string, HiddenNote> = new Map()` — const, line 226
-- `const out = new Map(next.map((mark)` — const, line 232
-- `const merged = retainHidden(mark.notes, out.get(spanId)?.notes ?? [], hidden)` — const, line 235
-- `const enabled = Boolean(settings?.enabled)` — const, line 247
-- `const hiddenRef = useRef(hidden)` — const, line 251
-- `const marksFor = useRef<string | null>(null)` — const, line 253
-- `let cancelled = false` — let, line 260
-- `const same = marksFor.current === extractionId` — const, line 265
-- `const onChanged = useCallback(()` — const, line 273
-- `const remember = useCallback((link: NoteLinkDto, hiddenId: string)` — const, line 274
-- `const forget = useCallback((linkId: string)` — const, line 277
-- `const next = new Map(current)` — const, line 280
-- `const settingsKey = settings ? JSON.stringify(settings) : ""` — const, line 285
-- `const context = useMemo<NotesContextValue | null>( ()` — const, line 286
-- `const ctx = useNotes()` — const, line 297
-- `const first = notes[0]` — const, line 300
-- `const ctx = useNotes()` — const, line 318
-- `const enabled = Boolean(ctx?.settings.enabled) && Boolean(goalId) && ready` — const, line 321
-- `const revision = ctx?.revision ?? 0` — const, line 322
-- `const ctxRef = useRef(ctx)` — const, line 323
-- `const linking = useRef<` — const, line 325
-- `let cancelled = false` — let, line 328
-- `let timer: ReturnType<typeof setTimeout> | undefined` — let, line 329
-- `const hidden = ctxRef.current?.hidden ?? NO_HIDDEN` — const, line 333
-- `const same = linking.current.goalId === goalId` — const, line 334
-- `const before = same ? linking.current.state : null` — const, line 335
-- `const next = new Map(out.lines.map((line)` — const, line 338
-- `const merged = retainHidden(list, next.get(lo) ?? [], hidden)` — const, line 341
-- `const wait = out.linking === "running" ? NOTES_POLL_MS.running : out.linking === "waiting" ? NOTES_POLL_MS.waiting : null` — const, line 348
-- `const out: Array<` — const, line 362
-- `const at = key.indexOf(":")` — const, line 364
-- `const ctx = useNotes()` — const, line 379
-- `const keysKey = keys.join("|")` — const, line 383
-- `const passages = useMemo(()` — const, line 384
-- `const enabled = Boolean(ctx?.settings.enabled) && passages.length > 0` — const, line 385
-- `const revision = ctx?.revision ?? 0` — const, line 386
-- `const use = async (link: NoteLinkDto)` — const, line 389
-- `let cancelled = false` — let, line 401
-- `const ctx = useNotes()` — const, line 432
-- `const search = useCallback(async (words: string)` — const, line 439
-- `const out = await api.notesSearch(words ?` — const, line 442
-- `const on = ctx !== null` — const, line 453
-- `const link = async (hit: NoteHitDto)` — const, line 456
+- `const linkStyle =` — const, line 55
+- `const quietStyle =` — const, line 59
+- `const headStyle =` — const, line 60
+- `const where = [link.note.title, link.note.heading].filter(Boolean).join(" › ")` — const, line 64
+- `const listed = new Set(next.map((link)` — const, line 76
+- `const out = [...next]` — const, line 77
+- `function useDecide(ctx: NotesContextValue | null)` — function, line 86
+- `const hiddenId = (link: NoteLinkDto)` — const, line 89
+- `const decide = async (link: NoteLinkDto, choice: "hide" | "keep")` — const, line 90
+- `const out = await api.notesDecide(` — const, line 94
+- `const id = hiddenId(link)` — const, line 98
+- `const next =` — const, line 103
+- `const gaps = Boolean(ctx?.settings.gaps)` — const, line 154
+- `function NoteList(` — function, line 168
+- `const ctx = useNotes()` — const, line 187
+- `const onPage = surface === "pdf"` — const, line 189
+- `const count = mark.notes.length` — const, line 190
+- `const label = count > 1 ? `$` — const, line 191
+- `const body = open ? ( <div data-note-mark-panel=` — const, line 193
+- `const button = ( <button type="button" data-note-mark=` — const, line 206
+- `const NO_MARKS: ReadonlyMap<string, NoteMark> = new Map()` — const, line 229
+- `const NO_HIDDEN: ReadonlyMap<string, HiddenNote> = new Map()` — const, line 230
+- `const out = new Map(next.map((mark)` — const, line 236
+- `const merged = retainHidden(mark.notes, out.get(spanId)?.notes ?? [], hidden)` — const, line 239
+- `const enabled = Boolean(settings?.enabled)` — const, line 251
+- `const hiddenRef = useRef(hidden)` — const, line 255
+- `const marksFor = useRef<string | null>(null)` — const, line 257
+- `let cancelled = false` — let, line 264
+- `const same = marksFor.current === extractionId` — const, line 269
+- `const onChanged = useCallback(()` — const, line 277
+- `const remember = useCallback((link: NoteLinkDto, hiddenId: string)` — const, line 278
+- `const forget = useCallback((linkId: string)` — const, line 281
+- `const next = new Map(current)` — const, line 284
+- `const settingsKey = settings ? JSON.stringify(settings) : ""` — const, line 289
+- `const context = useMemo<NotesContextValue | null>( ()` — const, line 290
+- `const ctx = useNotes()` — const, line 301
+- `const first = notes[0]` — const, line 304
+- `const ctx = useNotes()` — const, line 322
+- `const enabled = Boolean(ctx?.settings.enabled) && Boolean(goalId) && ready` — const, line 325
+- `const revision = ctx?.revision ?? 0` — const, line 326
+- `const ctxRef = useRef(ctx)` — const, line 327
+- `const linking = useRef<` — const, line 329
+- `let cancelled = false` — let, line 332
+- `let timer: ReturnType<typeof setTimeout> | undefined` — let, line 333
+- `const hidden = ctxRef.current?.hidden ?? NO_HIDDEN` — const, line 337
+- `const same = linking.current.goalId === goalId` — const, line 338
+- `const before = same ? linking.current.state : null` — const, line 339
+- `const next = new Map(out.lines.map((line)` — const, line 342
+- `const merged = retainHidden(list, next.get(lo) ?? [], hidden)` — const, line 345
+- `const wait = out.linking === "running" ? NOTES_POLL_MS.running : out.linking === "waiting" ? NOTES_POLL_MS.waiting : null` — const, line 352
+- `const out: Array<` — const, line 366
+- `const at = key.indexOf(":")` — const, line 368
+- `const ctx = useNotes()` — const, line 383
+- `const keysKey = keys.join("|")` — const, line 387
+- `const passages = useMemo(()` — const, line 388
+- `const enabled = Boolean(ctx?.settings.enabled) && passages.length > 0` — const, line 389
+- `const revision = ctx?.revision ?? 0` — const, line 390
+- `const use = async (link: NoteLinkDto)` — const, line 393
+- `let cancelled = false` — let, line 405
+- `const ctx = useNotes()` — const, line 436
+- `const meaningOffered = Boolean(ctx?.settings.meaning)` — const, line 444
+- `const mode: "words" | "meaning" = meaningOffered && byMeaning ? "meaning" : "words"` — const, line 446
+- `const search = useCallback(async (words: string, how: "words" | "meaning" = "words")` — const, line 448
+- `const where = words ?` — const, line 451
+- `const out = await api.notesSearch(how === "meaning" ?` — const, line 452
+- `const on = ctx !== null` — const, line 463
+- `const link = async (hit: NoteHitDto)` — const, line 466
 
 ## Who imports or calls it
 

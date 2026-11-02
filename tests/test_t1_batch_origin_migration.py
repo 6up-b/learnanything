@@ -31,7 +31,7 @@ from tests.test_reader_session_digests_migration import RW6B_ADDED_OBJECTS
 from tests.test_deliverable_curriculum_migration import C0B_ADDED_OBJECTS
 from tests.test_learner_notes_migration import C2_ADDED_OBJECTS
 
-HEAD = Path(__file__).resolve().parents[1] / "fixtures" / "migration_head_231" / "state.sqlite"
+HEAD = Path(__file__).resolve().parents[1] / "fixtures" / "migration_head_233" / "state.sqlite"
 #: What 218 alters: the earlier migrations' "nothing else changed" diffs on the way to head read this.
 T1_ALTERED_TABLES = frozenset({"ingest_batches"})
 
@@ -63,7 +63,7 @@ def test_218_adds_the_batch_origin_column_and_nothing_else(tmp_path):
     with upgrade_allowance(UPGRADE_TEST_HELPER):
         applied = apply_migrations(database)
     # RW2d's 219 (its receipt table, and a workbench_sessions column) and local retrieval P1's 220 (its three tables) follow on the way to head.
-    assert [migration.version for migration in applied] == [218, 219, 220, 221, 222, 223, 224, 225, 226, 227, 228, 229, 230, 231]
+    assert [migration.version for migration in applied] == [218, 219, 220, 221, 222, 223, 224, 225, 226, 227, 228, 229, 230, 231, 233]
     after = _schema(database)
     assert set(after) - RW2D_ADDED_OBJECTS - P1_ADDED_OBJECTS - C0A_ADDED_OBJECTS - RW5D_ADDED_OBJECTS - PR4_ADDED_OBJECTS - RW6B_ADDED_OBJECTS - C0B_ADDED_OBJECTS - C2_ADDED_OBJECTS == set(before)
     assert {name for name in before if before[name] != after[name]} == T1_ALTERED_TABLES | (RW2D_ALTERED_TABLES | CLAIM_POINT_ALTERED_TABLES | RW5D_ALTERED_TABLES | PR4_ALTERED_TABLES | C5_ALTERED_TABLES | DR2_ALTERED_TABLES)
@@ -76,7 +76,7 @@ def test_218_adds_the_batch_origin_column_and_nothing_else(tmp_path):
 
 def test_the_head_fixture_is_at_head_in_rollback_mode():
     # Curriculum C0a's 222 is the head now (tests/test_section_coverage_migration.py).
-    assert max(applied_versions(HEAD)) == max(m.version for m in discover_migrations()) == 231
+    assert max(applied_versions(HEAD)) == max(m.version for m in discover_migrations()) == 233
     assert HEAD.read_bytes()[18:20] == b"\x01\x01"
     with closing(sqlite3.connect(f"file:{HEAD}?mode=ro", uri=True)) as connection:
         assert "origin_method" in [row[1] for row in connection.execute("PRAGMA table_info(ingest_batches)")]

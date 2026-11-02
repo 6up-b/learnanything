@@ -1722,8 +1722,8 @@ _CONFIG_RULES: list[_ConfigRule] = [
     # new key has a rule) and one `keep` bound: the notes one judgment reads (a
     # prompt bound). None is a model or decision parameter: links are display
     # and learner-voice records, never evidence, and which note discusses what
-    # is the model's judgment. (C2's notes.tend.* keys are gone; a legacy
-    # [notes.tend] table is ignored.)
+    # is the model's judgment. (C2's tend adapter keys are gone; a legacy
+    # tend table under [notes] is ignored.)
     _ConfigRule(_exact(
         "notes.enabled",
     ), "structural", "operational",
