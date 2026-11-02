@@ -159,3 +159,44 @@ def test_an_unreadable_figure_store_offers_no_figure_and_keeps_the_correspondent
     view = call(ctx, "reader.correspondents", QUIET)
     assert view["status"] == "judged" and ("ext_lay", "lay_eigen") in _sections(view)
     assert _figure_ids(view) == {}
+
+
+def test_the_quiet_read_never_reverifies_an_outdated_sketch_or_writes(tmp_path, monkeypatch):
+    """Codex review F3: a sketch built under an older engine is re-verified
+    (and its verdict appended to ``judgment_ledger``) only when its own book's
+    figures are listed for showing, never by the correspondents read, which
+    stays a read: no verification run, no row written, in any section."""
+
+    import learnloop.figures.sketch_verify as SV
+    from learnloop.figures import sketch as K
+    from tests import sketch_fixtures as SF
+
+    _paths, repository, ctx, _judge = _judged(tmp_path)
+    for figure_id, span in (("fig_sketch_old", LAY_EIGEN_SPAN), ("fig_sketch_elsewhere", "s12")):
+        with repository.connection() as connection:
+            store.insert_figure(connection, {
+                "id": figure_id, "extraction_id": "ext_lay", "span_ids": [span], "input_span_ids": [span],
+                "origin": "selection", "spec_json": json.dumps(SF.walk()), "spec_version": K.SKETCH_VERSION,
+                "tier": "sketch", "kind": "illustrative", "verification": "illustrative",
+                "verification_report": {}, "engine_sha256": "an-older-engine", "model": "fake",
+                "prompt_version": "v1", "input_hash": f"hash_{figure_id}", "created_at": "2026-10-30T00:00:00Z",
+            })
+            connection.commit()
+    FS._RECHECKED.clear()
+    verified: list[object] = []
+    real = SV.verify_sketch
+
+    def counting(compiled, **kwargs):
+        verified.append(compiled)
+        return real(compiled, **kwargs)
+
+    monkeypatch.setattr(SV, "verify_sketch", counting)
+    before = table_counts(repository)
+    view = call(ctx, "reader.correspondents", QUIET)
+    assert verified == [] and table_counts(repository) == before
+    # Offered (whether it still runs is decided when it is opened).
+    assert _figure_ids(view) == {("ext_lay", "lay_eigen"): ["fig_sketch_old"]}
+    # Opening it (its own book's listing) re-verifies and records the verdict, as before.
+    listed = call(ctx, "reader.figures", {"extractionId": "ext_lay"})["figures"]
+    assert {figure["figureId"] for figure in listed} >= {"fig_sketch_old"}
+    assert verified and table_counts(repository)["judgment_ledger"] > before["judgment_ledger"]
