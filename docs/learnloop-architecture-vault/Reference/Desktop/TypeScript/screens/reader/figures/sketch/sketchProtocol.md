@@ -10,8 +10,8 @@ area: "TypeScript/screens/reader/figures/sketch"
 source_path: "apps/learnloop-tauri/src/screens/reader/figures/sketch/sketchProtocol.ts"
 source_paths:
   - "apps/learnloop-tauri/src/screens/reader/figures/sketch/sketchProtocol.ts"
-source_commit: "2c68e7375760f005bdfa58f82ce0603ab8459d40"
-source_commit_timestamp: "2026-10-31T19:32:36-04:00"
+source_commit: "d2afa824ceecb2f6e35f7c6ff51d9008a644e70d"
+source_commit_timestamp: "2026-11-01T14:49:03-05:00"
 source_worktree_state: "clean"
 activation_kind: "entry-reachable build graph"
 activation_evidence: "A static TypeScript import path reaches this file from the Vite entry src/main.tsx."
@@ -42,14 +42,14 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/screens/reader/figures/sketch/sketchProtocol.ts](../../../../../../../../../apps/learnloop-tauri/src/screens/reader/figures/sketch/sketchProtocol.ts) |
-| Source lines | 152 |
+| Source lines | 168 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/screens/reader/figures/sketch/_area|TypeScript/screens/reader/figures/sketch]] |
 | Refactor status | `ACTIVE` |
 | Activation kind | `entry-reachable build graph` |
 | Worktree state | `clean` |
-| Source commit | `2c68e7375760f005bdfa58f82ce0603ab8459d40` |
-| Commit timestamp | `2026-10-31T19:32:36-04:00` |
+| Source commit | `d2afa824ceecb2f6e35f7c6ff51d9008a644e70d` |
+| Commit timestamp | `2026-11-01T14:49:03-05:00` |
 
 ## Activation and status evidence
 
@@ -60,55 +60,59 @@ The system-level behavior stays authoritative in the linked architecture, concep
 
 ## Public API
 
-- `export const SKETCH_MAX_SOURCE_BYTES = 32_768` — const, line 16
-- `export const SKETCH_MAX_CLOCK_STEPS = 2_000` — const, line 18
-- `export const SKETCH_MAX_PARAMETERS = 4` — const, line 20
-- `export const REPLY_MESSAGE_MAX = 600` — const, line 22
-- `export const WORKER_OPS = ["load", "init", "step", "read"] as const` — const, line 24
-- `export type WorkerOp = (typeof WORKER_OPS)[number]` — type, line 25
-- `export type WorkerRequest =` — type, line 26
-- `export type SketchRead =` — type, line 27
-- `export type WorkerResponse = |` — type, line 28
-- `export function parseWorkerRequest(data: unknown):` — function, line 83
-- `export async function answerRequest(host: ()` — function, line 98
-- `export function parseWorkerReply(data: unknown, expected: (id: number)` — function, line 127
+- `export const SKETCH_MAX_SOURCE_BYTES = 32_768` — const, line 19
+- `export const SKETCH_MAX_CLOCK_STEPS = 2_000` — const, line 21
+- `export const SKETCH_MAX_PARAMETERS = 4` — const, line 23
+- `export const REPLY_MESSAGE_MAX = 600` — const, line 25
+- `export const SKETCH_MAX_OUTPUT_CHARS = 4 * 1024 * 1024` — const, line 28
+- `export const WORKER_OPS = ["load", "init", "step", "read"] as const` — const, line 30
+- `export type WorkerOp = (typeof WORKER_OPS)[number]` — type, line 31
+- `export type WorkerRequest =` — type, line 32
+- `export type SketchRead =` — type, line 33
+- `export type SketchReadText =` — type, line 35
+- `export type WorkerResponse = |` — type, line 36
+- `export function parseWorkerRequest(data: unknown):` — function, line 91
+- `export async function answerRequest(host: ()` — function, line 106
+- `export function parseWorkerReply(data: unknown, expected: (id: number)` — function, line 135
 
 ## Internal implementation anchors
 
-- `const PARAMETER_NAME = /^[A-Za-z][A-Za-z0-9_]` — const, line 32
-- `const DIGEST = /^[0-9a-f]` — const, line 33
-- `const KINDS = new Set<string>([...STATUS_NAMES, "trap", "scene", "probe", "paused"])` — const, line 34
-- `const ENTRY_POINTS = ["init", "step", "view", "probes"] as const` — const, line 35
-- `const isObject = (value: unknown): value is Record<string, unknown>` — const, line 37
-- `const isId = (value: unknown): value is number` — const, line 39
-- `const isIndex = (value: unknown): value is number` — const, line 40
-- `function paramsProblem(value: unknown): string | null` — function, line 43
-- `const names = Object.keys(value)` — const, line 45
-- `const item = value[name]` — const, line 49
-- `function argsProblem(op: WorkerOp, args: unknown[]): string | null` — function, line 55
-- `const seed = args[1]` — const, line 63
-- `const id = isId(data.id) ? data.id : 0` — const, line 85
-- `const op = data.op as WorkerOp` — const, line 91
-- `const problem = argsProblem(op, data.args)` — const, line 92
-- `const parsed = parseWorkerRequest(data)` — const, line 99
-- `const sketch = await host()` — const, line 103
-- `const params = args[0] as Record<string, number>` — const, line 104
-- `const read: SketchRead =` — const, line 115
-- `const error = caught instanceof SketchRunError ?` — const, line 118
-- `const id = data.id` — const, line 130
-- `const op = expected(id)` — const, line 131
-- `const malformed =` — const, line 133
-- `const kind = typeof data.error.kind === "string" && KINDS.has(data.error.kind) ? (data.error.kind as SketchErrorKind) : "error"` — const, line 136
-- `const message = typeof data.error.message === "string" ? data.error.message.slice(0, REPLY_MESSAGE_MAX) : "error"` — const, line 137
-- `const result = data.result` — const, line 141
+- `const PARAMETER_NAME = /^[A-Za-z][A-Za-z0-9_]` — const, line 40
+- `const DIGEST = /^[0-9a-f]` — const, line 41
+- `const KINDS = new Set<string>([...STATUS_NAMES, "trap", "scene", "probe", "paused"])` — const, line 42
+- `const ENTRY_POINTS = ["init", "step", "view", "probes"] as const` — const, line 43
+- `const isObject = (value: unknown): value is Record<string, unknown>` — const, line 45
+- `const isId = (value: unknown): value is number` — const, line 47
+- `const isIndex = (value: unknown): value is number` — const, line 48
+- `function paramsProblem(value: unknown): string | null` — function, line 51
+- `const names = Object.keys(value)` — const, line 53
+- `const item = value[name]` — const, line 57
+- `function argsProblem(op: WorkerOp, args: unknown[]): string | null` — function, line 63
+- `const seed = args[1]` — const, line 71
+- `const id = isId(data.id) ? data.id : 0` — const, line 93
+- `const op = data.op as WorkerOp` — const, line 99
+- `const problem = argsProblem(op, data.args)` — const, line 100
+- `const parsed = parseWorkerRequest(data)` — const, line 107
+- `const sketch = await host()` — const, line 111
+- `const params = args[0] as Record<string, number>` — const, line 112
+- `const read: SketchReadText =` — const, line 123
+- `const error = caught instanceof SketchRunError ?` — const, line 126
+- `const id = data.id` — const, line 138
+- `const op = expected(id)` — const, line 139
+- `const malformed =` — const, line 141
+- `const kind = typeof data.error.kind === "string" && KINDS.has(data.error.kind) ? (data.error.kind as SketchErrorKind) : "error"` — const, line 144
+- `const message = typeof data.error.message === "string" ? data.error.message.slice(0, REPLY_MESSAGE_MAX) : "error"` — const, line 145
+- `const result = data.result` — const, line 149
+- `const read: SketchRead =` — const, line 163
 
 ## Who imports or calls it
 
 > [!note] Static-evidence boundary
 > “Calls” here means an import/module edge plus a source reference to the imported name. React render callbacks, props, Tauri string dispatch, macro expansion, browser/Cargo entry points, and data-driven routing can add runtime consumers that static text cannot prove.
 
-- [[Reference/Desktop/TypeScript/screens/reader/figures/sketch/sketch.worker|src/screens/reader/figures/sketch/sketch.worker.ts]] — import-or-re-export: `WorkerResponse`, `answerRequest`; references `WorkerResponse`, `answerRequest`
-- [[Reference/Desktop/TypeScript/screens/reader/figures/sketch/sketchRunner|src/screens/reader/figures/sketch/sketchRunner.ts]] — import-or-re-export: `SketchRead`, `WorkerOp`, `WorkerRequest`, `WorkerResponse`, `parseWorkerReply`; references `SketchRead`, `WorkerOp`, `WorkerRequest`, `WorkerResponse`, `parseWorkerReply`
+- [[Reference/Desktop/TypeScript/screens/reader/figures/sketch/sketchCompartment|src/screens/reader/figures/sketch/sketchCompartment.ts]] — import-or-re-export: `REPLY_MESSAGE_MAX`, `WorkerRequest`, `WorkerResponse`, `parseWorkerRequest`; references `REPLY_MESSAGE_MAX`, `WorkerRequest`, `WorkerResponse`, `parseWorkerRequest`
+- [[Reference/Desktop/TypeScript/screens/reader/figures/sketch/sketchRunner|src/screens/reader/figures/sketch/sketchRunner.ts]] — import-or-re-export: `SketchRead`, `SketchReadText`, `WorkerOp`, `WorkerRequest`, `WorkerResponse`, `parseWorkerReply`; references `SketchRead`, `WorkerOp`, `WorkerRequest`, `WorkerResponse`, `parseWorkerReply`
+- [[Reference/Desktop/TypeScript/screens/reader/figures/sketch/sketchWorkerCore|src/screens/reader/figures/sketch/sketchWorkerCore.ts]] — import-or-re-export: `answerRequest`; references `answerRequest`
 
 ## Dependencies
 

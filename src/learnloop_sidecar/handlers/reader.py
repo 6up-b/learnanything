@@ -167,6 +167,9 @@ def reader_ask(ctx: SidecarContext, params: ReaderAskInput) -> dict[str, Any]:
     # During a cold administration -- the client's flag or the server's own
     # derivation -- every tool is refused (G48, Codex review F2).
     tools_allowed = not RTU.tools_refused(restricted)
+    # Learner-blindness relax: the learner's state on the passage's learning
+    # objects (None while reader_tutor.learner_state_enabled is off).
+    learner_state = RTU.learner_state(vault, repository, params, restricted)
     try:
         result = RD.ask(
             vault,
@@ -193,6 +196,7 @@ def reader_ask(ctx: SidecarContext, params: ReaderAskInput) -> dict[str, Any]:
             **({"reader_binding": binding} if binding is not None else {}),
             # Stored with the question, so nothing rebuilt from it reads wider.
             **({"reader_caller": restricted.stored()} if restricted.stored() else {}),
+            **({"learner_state": learner_state} if learner_state is not None else {}),
         )
     except QuestionLimitReached as exc:
         raise SidecarError(
@@ -466,7 +470,10 @@ def reader_routing_prior(ctx: SidecarContext, params: ReaderRoutingPriorInput) -
 def reader_prompt_contract(ctx: SidecarContext, _params: ParamsModel) -> dict[str, Any]:
     vault, _repository = ctx.require_vault()
     inquiry = RD.inquiry_enabled(vault)
-    contract = RD.reader_prompt_contract(branches=inquiry)
+    from learnloop_sidecar.handlers.reader_tutor import learner_state_enabled
+
+    # Learner-blindness relax: the contract names the learner state while its switch is on.
+    contract = RD.reader_prompt_contract(branches=inquiry, learner_state=learner_state_enabled(vault))
     contract["reader_enabled"] = RD.reader_enabled(vault)
     if inquiry:
         # RW1a's switch, read by the Reader (absent when off: the wire is unchanged).

@@ -493,6 +493,11 @@ def audit_activation(infos: dict[Path, SourceInfo]) -> None:
     rust_entry = (RUST_ROOT / "main.rs").resolve()
     ts_parents = entry_reachability(ts_entry, infos)
     rust_parents = entry_reachability(rust_entry, infos)
+    # RW5d P2 sketch compartment: vite.config.mjs bundles the sketch Worker into the
+    # `virtual:sketch-worker-source` module (imported by sketchCompartmentClient.ts), so
+    # its entry and the graph under it are an explicit build root, not an import edge.
+    sketch_worker = (TS_ROOT / "screens/reader/figures/sketch/sketch.worker.ts").resolve()
+    worker_parents = entry_reachability(sketch_worker, infos) if sketch_worker in infos else {}
     ambient = (TS_ROOT / "vite-env.d.ts").resolve()
     test_ambient = (TS_ROOT / "testNodeShims.d.ts").resolve()
     vitest_parents = vitest_reachability(infos)
@@ -507,6 +512,15 @@ def audit_activation(infos: dict[Path, SourceInfo]) -> None:
                 info.activation_evidence = "Imported through StartScreen's supported optional backdrop paths reachable from src/main.tsx."
             else:
                 info.activation_evidence = "A static TypeScript import path reaches this file from the Vite entry src/main.tsx."
+        elif source in worker_parents:
+            info.refactor_status = "ACTIVE"
+            info.activation_kind = "bundled worker entry"
+            info.activation_chain = reconstruct_chain(source, worker_parents)
+            info.activation_evidence = (
+                "vite.config.mjs bundles src/screens/reader/figures/sketch/sketch.worker.ts (and what it imports) into "
+                "the `virtual:sketch-worker-source` module, which sketchCompartmentClient.ts imports; the sketch "
+                "compartment's frame starts it as a blob Worker."
+            )
         elif source == ambient:
             info.refactor_status = "ACTIVE"
             info.activation_kind = "compiler-implicit"

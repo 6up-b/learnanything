@@ -2051,6 +2051,17 @@ class DiagnosisConfig(BaseModel):
     # calibration`. Logging only (no grading, scoring, scheduling or serving
     # change, so no successor); off writes nothing and reads stay possible.
     forecast_receipts: bool = True
+    # Learner-blindness relax (owner direction 2026-11-01: blindness only where
+    # it matters, the grader; docs/reviews/learner-blindness-relax.md): whether
+    # the history-aware diagnoser's context re-feeds each shown prior attempt's
+    # earlier diagnosis (its ``analysis_md``, bounded) and an earlier workbench
+    # attempt's step trace. Not a fixed preference (no-made-up-constants,
+    # 2026-10-24): ``randomized`` (the default) assigns each diagnosed attempt
+    # to one arm by a seeded equipoise draw recorded on its context receipt
+    # with the context hash, and ``learnloop diagnose m2-report`` reads E2's
+    # ``anchoring_suspect`` rate per arm; ``on`` / ``off`` fix the arm. The
+    # grader never reads any of it. ``off`` is today's context byte for byte.
+    history_includes_prior_analysis: Literal["randomized", "on", "off"] = "randomized"
 
 
 class RecurrenceBlockingCutoff(BaseModel):
@@ -2505,6 +2516,12 @@ class DigestConfig(BaseModel):
     narrative_enabled: bool = True
     price_per_million: float | None = Field(default=None, gt=0)
     max_daily_cost_usd: float = Field(default=0.25, ge=0.0)
+    #: Learner-blindness relax (owner direction 2026-11-01): the narrative's
+    #: prompt also carries the learner's own words of each inquiry root
+    #: question in the summary (bounded excerpts), which the narrative may
+    #: quote; the cited-id, 120-word and no-well-marker checks are unchanged.
+    #: Off: the typed summary only, today's prompt exactly.
+    narrative_quotes_inquiry: bool = True
 
 
 class ReaderIntentConfig(BaseModel):
@@ -2631,6 +2648,17 @@ class ReaderTutorConfig(BaseModel):
 
     retrieval_enabled: bool = True
     offers_enabled: bool = True
+    #: Learner-blindness relax (owner direction 2026-11-01: blindness only
+    #: where it matters, the grader): the Reader tutor's context also carries
+    #: the learner's state on the passage's learning objects -- readiness in
+    #: words (the Today headline's class), the learner's confidence events
+    #: (TE0's block), attempt outcomes and the learner's own questions from
+    #: recent practice and feedback exchanges (never a stored tutor answer),
+    #: all through ``learner_protection`` (exam, held-out, reserved,
+    #: cold-check and probe work never shows; a question asked during a cold
+    #: administration carries none). Context only: the tutor still writes no
+    #: attempt, claim or mastery. Off: today's prompt and manifest byte for byte.
+    learner_state_enabled: bool = True
 
 
 class LibraryExercisesConfig(BaseModel):
@@ -2704,11 +2732,13 @@ class FiguresConfig(BaseModel):
     checks against the claims it states. Labelled an AI-written simulation,
     never "checked against the book". Off: the author's contract is RW5b's
     byte for byte, and stored sketches list as "can't draw this yet".
-    Default **off** at landing (orchestrator decision 2026-10-31): it ships
-    off until the spec's merge gate G-SM14 (an IPC probe from inside the
-    sketch Worker in the real Tauri webview) passes; the owner turns it on
-    with ``figures.sketch_enabled = true`` after running the probe (recipe in
-    docs/reviews/reader-rw5d-p2-sketch.md, "Landing onto main").
+    Default **on** (Q5) since the sketch compartment (2026-11-01): the
+    engine's Worker runs from a blob inside a sandboxed, opaque-origin frame
+    whose CSP has ``connect-src 'none'``, and the spec's merge gate G-SM14 (an
+    IPC probe from inside it in the real Tauri webview) passed there
+    (docs/reviews/reader-rw5d-g-sm14-probe.md, "Rerun after the
+    compartment"). It had shipped off at the P2 landing (orchestrator decision
+    2026-10-31) because the first probe, from the URL-loaded Worker, failed.
 
     RW5d P2b (spec_reader_show_me_figures_v1 §8.4, §8.6, §9b): ``rich_tiers_enabled``:
     the rich tiers. When a rich tier is available on this machine the
@@ -2744,7 +2774,7 @@ class FiguresConfig(BaseModel):
     advanced_panels_enabled: bool = True
     offers_enabled: bool = True
     show_me_enabled: bool = True
-    sketch_enabled: bool = False
+    sketch_enabled: bool = True
     rich_tiers_enabled: bool = True
     manim_opt_in: Literal["standing", "declined"] | None = None
     manim_opt_in_at: str | None = None
@@ -4276,6 +4306,13 @@ class AdaptiveDifficultyConfig(BaseModel):
     calibrate_below: float = Field(default=0.25, ge=0.0, le=1.0)
     ready_threshold: float = Field(default=0.8, gt=0.0, lt=1.0)
     history_fallback: Literal["exclude", "current_content"] = "current_content"
+    #: Learner-blindness relax (owner direction 2026-11-01): the ``llm_v3``
+    #: forecasters' history card carries a bounded excerpt of each earlier
+    #: answer it lists (forecasts are reporting and scoring only, never an
+    #: offset prior; the material view still withholds exam and held-out
+    #: work). Its frozen state is ``ad-forecast-state-v2``. Off: the card and
+    #: state version of before, exactly.
+    history_answer_excerpts: bool = True
     priors: Literal["ad_priors_v1"] = "ad_priors_v1"
     hyper: Literal["ad_hyper_v1"] = "ad_hyper_v1"
     ladder: Literal["ad_ladder_v1"] = "ad_ladder_v1"

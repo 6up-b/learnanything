@@ -3,13 +3,13 @@ title: "facet_identity_actions"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "ad2c282a43b99042c49d31e5dec5b2e76e3a3958"
-source_commit_timestamp: "2026-11-01T17:33:11-05:00"
+source_commit: "6ab368e64e877d50f3d59b3c96cf96a3f13b4b8d"
+source_commit_timestamp: "2026-11-01T18:24:26-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite facet_identity_actions"
   - "table facet_identity_actions"
-schema_head: 231
+schema_head: 229
 table_name: "facet_identity_actions"
 table_role: "workflow"
 functionality_status: "active"

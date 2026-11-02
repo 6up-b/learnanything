@@ -17,5 +17,10 @@ tauri-plugin-dialog = "2"
 tauri-plugin-opener = "2"
 thiserror = "1"
 
+# RW5d P2 sketch compartment: the shell removes WebKit's script-message IPC
+# path (main.rs). The same version and features wry already builds.
+[target.'cfg(target_os = "linux")'.dependencies]
+webkit2gtk = { version = "=2.0.2", features = ["v2_38"] }
+
 [features]
 custom-protocol = ["tauri/custom-protocol"]

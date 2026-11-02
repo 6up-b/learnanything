@@ -826,6 +826,14 @@ def _diagnose(
     # other attempt's version is unchanged.
     prompt_version = (f"{DIAGNOSIS_PROMPT_VERSION}{WORKBENCH_TRACE_SUFFIX}"
                       if current is not None and current.workbench_trace else DIAGNOSIS_PROMPT_VERSION)
+    # Learner-blindness relax: the prior-analysis arm (randomized by default,
+    # recorded on the context receipt; the grader never reads it). Its ``on``
+    # arm reads under +prior-analysis-v1; the ``off`` arm is today's context.
+    from learnloop.diagnosis.split import prior_analysis as PA
+
+    prior = PA.for_attempt(vault, repository, attempt_id)
+    if prior.arm.on:
+        prompt_version = f"{prompt_version}{PA.SUFFIX}"
     base_values: dict[str, Any] = {
         "attempt_id": attempt_id,
         "diagnosis_prompt_version": prompt_version,
@@ -920,6 +928,7 @@ def _diagnose(
                 retriever=retriever,
                 guard=guard,
                 registry_retriever=registry_retriever,
+                prior_analysis=prior,
             )
     except AIInterrupted as exc:  # includes SpendCancelled
         reason = "cancelled" if not admitted["requests"] else "interrupted"
