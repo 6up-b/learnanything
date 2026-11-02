@@ -7,11 +7,11 @@ version: "1.0.0"
 source_path: "src/learnloop/content/authoring/ai_contracts.py"
 source_paths:
   - "src/learnloop/content/authoring/ai_contracts.py"
-source_commit: "6dfc42162e7125f567956ea6377b49f19af38621"
-source_commit_timestamp: "2026-09-02T21:39:34-07:00"
+source_commit: "532169fac4c1e5bfd1a638e251a1b713e9028f94"
+source_commit_timestamp: "2026-10-27T04:49:13-04:00"
 source_worktree_state: "clean"
 generated: true
-generated_at: "2026-09-23"
+generated_at: "2026-11-02"
 package: "learnloop.content.authoring"
 layer: "domain"
 concepts:
@@ -51,43 +51,46 @@ The authoritative system-level explanation remains in [[Learning System]], [[AI 
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/content/authoring/ai_contracts.py](../../../../../../../src/learnloop/content/authoring/ai_contracts.py) |
-| Source lines | 382 |
+| Source lines | 454 |
 | Owning package | [[Reference/Modules/learnloop/content/authoring/_package|learnloop.content.authoring]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `6dfc42162e7125f567956ea6377b49f19af38621` |
-| Commit timestamp | `2026-09-02T21:39:34-07:00` |
+| Source commit | `532169fac4c1e5bfd1a638e251a1b713e9028f94` |
+| Commit timestamp | `2026-10-27T04:49:13-04:00` |
 
 ## Public API
 
-- `class ExerciseAuthoredItem(WireModel)` ([source](../../../../../../../src/learnloop/content/authoring/ai_contracts.py), line 20) — One selected textbook exercise completed into a full PracticeItem contract (reader exercise import).
-- `class ExerciseAuthoringContext` ([source](../../../../../../../src/learnloop/content/authoring/ai_contracts.py), line 68)
-- `class ConceptAnimationContext` ([source](../../../../../../../src/learnloop/content/authoring/ai_contracts.py), line 80)
-- `class ExerciseAuthoring(WireModel)` ([source](../../../../../../../src/learnloop/content/authoring/ai_contracts.py), line 98)
-- `class ManimAnimation(WireModel)` ([source](../../../../../../../src/learnloop/content/authoring/ai_contracts.py), line 103)
-- `class VideoStoryboardContext` ([source](../../../../../../../src/learnloop/content/authoring/ai_contracts.py), line 111)
-- `class VideoShot(WireModel)` ([source](../../../../../../../src/learnloop/content/authoring/ai_contracts.py), line 128)
-- `class VideoStoryboard(WireModel)` ([source](../../../../../../../src/learnloop/content/authoring/ai_contracts.py), line 134)
-- `exercise_authoring_prompt(context: ExerciseAuthoringContext) -> str` ([source](../../../../../../../src/learnloop/content/authoring/ai_contracts.py), line 361)
-- `concept_animation_prompt(context: ConceptAnimationContext) -> str` ([source](../../../../../../../src/learnloop/content/authoring/ai_contracts.py), line 369)
-- `video_storyboard_prompt(context: VideoStoryboardContext) -> str` ([source](../../../../../../../src/learnloop/content/authoring/ai_contracts.py), line 377)
+- `class FigureRolePayload(WireModel)` ([source](../../../../../../../src/learnloop/content/authoring/ai_contracts.py), line 31)
+- `class ExerciseAuthoredItem(WireModel)` ([source](../../../../../../../src/learnloop/content/authoring/ai_contracts.py), line 36) — One selected textbook exercise completed into a full PracticeItem contract (reader exercise import).
+- `class ExerciseAuthoringContext` ([source](../../../../../../../src/learnloop/content/authoring/ai_contracts.py), line 99)
+- `class ConceptAnimationContext` ([source](../../../../../../../src/learnloop/content/authoring/ai_contracts.py), line 121)
+- `class ExerciseAuthoring(WireModel)` ([source](../../../../../../../src/learnloop/content/authoring/ai_contracts.py), line 139)
+- `class ManimAnimation(WireModel)` ([source](../../../../../../../src/learnloop/content/authoring/ai_contracts.py), line 144)
+- `class VideoStoryboardContext` ([source](../../../../../../../src/learnloop/content/authoring/ai_contracts.py), line 152)
+- `class VideoShot(WireModel)` ([source](../../../../../../../src/learnloop/content/authoring/ai_contracts.py), line 169)
+- `class VideoStoryboard(WireModel)` ([source](../../../../../../../src/learnloop/content/authoring/ai_contracts.py), line 175)
+- `exercise_authoring_prompt(context: ExerciseAuthoringContext) -> str` ([source](../../../../../../../src/learnloop/content/authoring/ai_contracts.py), line 425)
+- `concept_animation_prompt(context: ConceptAnimationContext) -> str` ([source](../../../../../../../src/learnloop/content/authoring/ai_contracts.py), line 441)
+- `video_storyboard_prompt(context: VideoStoryboardContext) -> str` ([source](../../../../../../../src/learnloop/content/authoring/ai_contracts.py), line 449)
 
 ### Module constants
 
-- `BANNED_RESPONSE_MODES` ([src/learnloop/content/authoring/ai_contracts.py](../../../../../../../src/learnloop/content/authoring/ai_contracts.py), line 55)
-- `LOW_MASTERY_RESPONSE_MODES` ([src/learnloop/content/authoring/ai_contracts.py](../../../../../../../src/learnloop/content/authoring/ai_contracts.py), line 60)
-- `EXERCISE_AUTHORING_PROMPT_VERSION` ([src/learnloop/content/authoring/ai_contracts.py](../../../../../../../src/learnloop/content/authoring/ai_contracts.py), line 140)
-- `CONCEPT_ANIMATION_PROMPT_VERSION` ([src/learnloop/content/authoring/ai_contracts.py](../../../../../../../src/learnloop/content/authoring/ai_contracts.py), line 141)
-- `VIDEO_STORYBOARD_PROMPT_VERSION` ([src/learnloop/content/authoring/ai_contracts.py](../../../../../../../src/learnloop/content/authoring/ai_contracts.py), line 142)
-- `EXERCISE_AUTHORING_PROMPT` ([src/learnloop/content/authoring/ai_contracts.py](../../../../../../../src/learnloop/content/authoring/ai_contracts.py), line 144)
-- `CONCEPT_ANIMATION_SCENE_SCAFFOLD` ([src/learnloop/content/authoring/ai_contracts.py](../../../../../../../src/learnloop/content/authoring/ai_contracts.py), line 193)
-- `CONCEPT_ANIMATION_PROMPT` ([src/learnloop/content/authoring/ai_contracts.py](../../../../../../../src/learnloop/content/authoring/ai_contracts.py), line 249)
-- `VIDEO_STORYBOARD_PROMPT` ([src/learnloop/content/authoring/ai_contracts.py](../../../../../../../src/learnloop/content/authoring/ai_contracts.py), line 316)
+- `BANNED_RESPONSE_MODES` ([src/learnloop/content/authoring/ai_contracts.py](../../../../../../../src/learnloop/content/authoring/ai_contracts.py), line 86)
+- `LOW_MASTERY_RESPONSE_MODES` ([src/learnloop/content/authoring/ai_contracts.py](../../../../../../../src/learnloop/content/authoring/ai_contracts.py), line 91)
+- `EXERCISE_AUTHORING_PROMPT_VERSION` ([src/learnloop/content/authoring/ai_contracts.py](../../../../../../../src/learnloop/content/authoring/ai_contracts.py), line 185)
+- `CONCEPT_ANIMATION_PROMPT_VERSION` ([src/learnloop/content/authoring/ai_contracts.py](../../../../../../../src/learnloop/content/authoring/ai_contracts.py), line 186)
+- `VIDEO_STORYBOARD_PROMPT_VERSION` ([src/learnloop/content/authoring/ai_contracts.py](../../../../../../../src/learnloop/content/authoring/ai_contracts.py), line 187)
+- `EXERCISE_AUTHORING_PROMPT` ([src/learnloop/content/authoring/ai_contracts.py](../../../../../../../src/learnloop/content/authoring/ai_contracts.py), line 189)
+- `EXERCISE_AUTHORING_PROMPT` ([src/learnloop/content/authoring/ai_contracts.py](../../../../../../../src/learnloop/content/authoring/ai_contracts.py), line 237)
+- `FIGURE_ROLE_INSTRUCTIONS` ([src/learnloop/content/authoring/ai_contracts.py](../../../../../../../src/learnloop/content/authoring/ai_contracts.py), line 243)
+- `CONCEPT_ANIMATION_SCENE_SCAFFOLD` ([src/learnloop/content/authoring/ai_contracts.py](../../../../../../../src/learnloop/content/authoring/ai_contracts.py), line 257)
+- `CONCEPT_ANIMATION_PROMPT` ([src/learnloop/content/authoring/ai_contracts.py](../../../../../../../src/learnloop/content/authoring/ai_contracts.py), line 313)
+- `VIDEO_STORYBOARD_PROMPT` ([src/learnloop/content/authoring/ai_contracts.py](../../../../../../../src/learnloop/content/authoring/ai_contracts.py), line 380)
 
 ## Internal implementation anchors
 
-No private top-level function or class definition is declared in this file.
+- `_exercise_context(context: ExerciseAuthoringContext) -> dict` ([source](../../../../../../../src/learnloop/content/authoring/ai_contracts.py), line 433)
 
 ## Who imports or calls it
 
@@ -96,7 +99,8 @@ No private top-level function or class definition is declared in this file.
 
 - [[Reference/Modules/learnloop/content/authoring/authoring_gates|learnloop.content.authoring.authoring_gates]] — imports `BANNED_RESPONSE_MODES`, `LOW_MASTERY_RESPONSE_MODES`
 - [[Reference/Modules/learnloop/content/authoring/concept_animation|learnloop.content.authoring.concept_animation]] — imports `CONCEPT_ANIMATION_PROMPT_VERSION`, `CONCEPT_ANIMATION_SCENE_SCAFFOLD`, `ConceptAnimationContext`, `ManimAnimation`, `VIDEO_STORYBOARD_PROMPT_VERSION`, `VideoStoryboard`, `VideoStoryboardContext`, `concept_animation_prompt`, `video_storyboard_prompt`; statically calls `ConceptAnimationContext`, `VideoStoryboardContext`, `concept_animation_prompt`, `video_storyboard_prompt`
-- [[Reference/Modules/learnloop/content/authoring/exercise_authoring|learnloop.content.authoring.exercise_authoring]] — imports `ExerciseAuthoring`, `ExerciseAuthoringContext`, `exercise_authoring_prompt`; statically calls `ExerciseAuthoringContext`, `exercise_authoring_prompt`
+- [[Reference/Modules/learnloop/content/authoring/exercise_authoring|learnloop.content.authoring.exercise_authoring]] — imports `ExerciseAuthoredItem`, `ExerciseAuthoring`, `ExerciseAuthoringContext`, `FIGURE_ROLE_INSTRUCTIONS`, `exercise_authoring_prompt`; statically calls `ExerciseAuthoringContext`, `exercise_authoring_prompt`
+- [[Reference/Modules/learnloop/figures/rich|learnloop.figures.rich]] — imports `CONCEPT_ANIMATION_PROMPT`, `CONCEPT_ANIMATION_SCENE_SCAFFOLD`, `ManimAnimation`
 - [[Reference/Modules/learnloop/tutor/ai_contracts|learnloop.tutor.ai_contracts]] — imports `BANNED_RESPONSE_MODES`, `LOW_MASTERY_RESPONSE_MODES`
 
 ## Dependencies
@@ -105,11 +109,12 @@ No private top-level function or class definition is declared in this file.
 
 - [[Reference/Modules/learnloop/ai/schemas|learnloop.ai.schemas]] — imports `WireModel`
 - [[Reference/Modules/learnloop/ai/transport|learnloop.ai.transport]] — imports `render_structured_prompt`; calls `render_structured_prompt`
-- [[Reference/Modules/learnloop/content/proposals/ai_contracts|learnloop.content.proposals.ai_contracts]] — imports `CriterionFacetWeightsPayload`, `FacetWeightPayload`, `RubricCriterionPayload`, `RubricPatchPayload`, `TaskFeaturesPayload`, `TraceContractPayload`
+- [[Reference/Modules/learnloop/content/proposals/ai_contracts|learnloop.content.proposals.ai_contracts]] — imports `CriterionFacetWeightsPayload`, `FacetWeightPayload`, `RequiredMethodPayload`, `RubricCriterionPayload`, `RubricPatchPayload`, `TaskFeaturesPayload`, `TraceContractPayload`
+- [[Reference/Modules/learnloop/vault/required_method|learnloop.vault.required_method]] — imports `CRITERIA_BY_FACT_GUIDANCE`
 
 ### Platform and third-party dependencies
 
-- Standard library: `__future__`, `dataclasses`
+- Standard library: `__future__`, `dataclasses`, `typing`
 - Third party: `pydantic`
 
 ## Larger workflow participation
@@ -119,12 +124,13 @@ Use this module in context through:
 - [[Import Canonical Sources]]
 - [[Build a Study Map]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/content/authoring/authoring_gates|learnloop.content.authoring.authoring_gates]], [[Reference/Modules/learnloop/content/authoring/concept_animation|learnloop.content.authoring.concept_animation]], [[Reference/Modules/learnloop/content/authoring/exercise_authoring|learnloop.content.authoring.exercise_authoring]], [[Reference/Modules/learnloop/tutor/ai_contracts|learnloop.tutor.ai_contracts]].
+Static participation evidence comes from [[Reference/Modules/learnloop/content/authoring/authoring_gates|learnloop.content.authoring.authoring_gates]], [[Reference/Modules/learnloop/content/authoring/concept_animation|learnloop.content.authoring.concept_animation]], [[Reference/Modules/learnloop/content/authoring/exercise_authoring|learnloop.content.authoring.exercise_authoring]], [[Reference/Modules/learnloop/figures/rich|learnloop.figures.rich]], [[Reference/Modules/learnloop/tutor/ai_contracts|learnloop.tutor.ai_contracts]].
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
 ## Tests that define behavior
 
+- [tests/source_service_fakes.py](../../../../../../../tests/source_service_fakes.py) — direct import
 - [tests/structured_ai.py](../../../../../../../tests/structured_ai.py) — direct import
 - [tests/test_authoring_contract.py](../../../../../../../tests/test_authoring_contract.py) — direct import
   - `test_ladder_and_ban_cannot_overlap`
@@ -145,8 +151,32 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_openai_chat_client.py](../../../../../../../tests/test_openai_chat_client.py) — direct import
 - [tests/test_openrouter_client.py](../../../../../../../tests/test_openrouter_client.py) — direct import
   - `test_openrouter_supports_exercise_authoring`
+- [tests/test_reader_ca1_astra_codex_review.py](../../../../../../../tests/test_reader_ca1_astra_codex_review.py) — direct import
+- [tests/test_reader_ca1_astra_fixes.py](../../../../../../../tests/test_reader_ca1_astra_fixes.py) — direct import
+  - `test_a_selection_level_edit_of_the_whole_passage_never_crops_the_solution`
+- [tests/test_reader_ca1_astra_redesign.py](../../../../../../../tests/test_reader_ca1_astra_redesign.py) — direct import
+  - `test_a_duplicate_answer_claim_is_never_lost`
+  - `test_a_selection_without_a_figure_sends_no_figure_context`
+  - `test_a_sibling_never_owns_a_figure_one_item_calls_its_answer_among_duplicates`
+  - `test_a_split_never_gives_one_item_a_figure_another_calls_its_answer`
+  - `test_the_author_sees_the_selections_figures_and_their_instructions`
+  - `test_two_claims_for_one_figure_resolve_away_from_stimulus`
+- [tests/test_reader_ca1_astra_rereview.py](../../../../../../../tests/test_reader_ca1_astra_rereview.py) — direct import
+- [tests/test_reader_ca1_codex_review.py](../../../../../../../tests/test_reader_ca1_codex_review.py) — direct import
+  - `test_a_split_over_disjoint_and_shared_blocks_withholds_only_the_sharing_items_crop`
+  - `test_a_split_with_an_unanchored_sibling_owns_nothing`
+  - `test_two_exercises_split_from_one_block_get_no_free_crop_and_keep_the_page`
+- [tests/test_reader_ca1_unicode_containment.py](../../../../../../../tests/test_reader_ca1_unicode_containment.py) — direct import
+- [tests/test_required_method_authority.py](../../../../../../../tests/test_required_method_authority.py) — direct import
+- [tests/test_required_method_items.py](../../../../../../../tests/test_required_method_items.py) — direct import
+  - `test_an_imported_exercise_keeps_a_required_method_only_by_its_one_time_judgment`
+  - `test_authoring_prompts_carry_the_rule_and_moved_their_versions`
+- [tests/test_required_method_rereview.py](../../../../../../../tests/test_required_method_rereview.py) — direct import
+  - `test_f14_the_generation_guidance_leaves_the_sentence_to_the_writer`
 - [tests/test_sidecar_animation.py](../../../../../../../tests/test_sidecar_animation.py) — direct import
   - `test_request_generates_and_status_reports_completed`
+- [tests/test_sources_merge_composition.py](../../../../../../../tests/test_sources_merge_composition.py) — direct import
+  - `test_authoring_runs_at_the_policy_budget_and_retries_a_truncation_once_at_double`
 - [tests/test_structured_transport_parity.py](../../../../../../../tests/test_structured_transport_parity.py) — direct import
 
 ## Modification guidance

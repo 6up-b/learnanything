@@ -7,17 +7,21 @@ version: "1.0.0"
 source_paths:
   - "src/learnloop_sidecar/__init__.py"
   - "src/learnloop_sidecar/__main__.py"
+  - "src/learnloop_sidecar/background_jobs.py"
   - "src/learnloop_sidecar/context.py"
   - "src/learnloop_sidecar/dto.py"
   - "src/learnloop_sidecar/errors.py"
   - "src/learnloop_sidecar/exam_grading.py"
   - "src/learnloop_sidecar/logging.py"
+  - "src/learnloop_sidecar/post_attempt_worker.py"
   - "src/learnloop_sidecar/registry.py"
   - "src/learnloop_sidecar/server.py"
+  - "src/learnloop_sidecar/serving.py"
+  - "src/learnloop_sidecar/source_identity.py"
 source_commit: "aggregate; see module notes"
-source_commit_timestamp: "2026-09-23T15:53:13-04:00"
+source_commit_timestamp: "2026-11-02T05:09:48-05:00"
 generated: true
-generated_at: "2026-09-23"
+generated_at: "2026-11-02"
 package: "learnloop_sidecar"
 layer: "adapter"
 concepts:
@@ -55,15 +59,19 @@ For system intent, use [[Architecture Overview]].
 
 | Module | Purpose | Status | Direct importers | Direct test files |
 |---|---|---:|---:|---:|
-| [[Reference/Modules/learnloop_sidecar/__init__|learnloop_sidecar]] | [[Reference/Modules/learnloop_sidecar/__init__#^module-purpose|purpose]] | `ACTIVE` | 1 | 0 |
+| [[Reference/Modules/learnloop_sidecar/__init__|learnloop_sidecar]] | [[Reference/Modules/learnloop_sidecar/__init__#^module-purpose|purpose]] | `ACTIVE` | 1 | 1 |
 | [[Reference/Modules/learnloop_sidecar/__main__|learnloop_sidecar.__main__]] | [[Reference/Modules/learnloop_sidecar/__main__#^module-purpose|purpose]] | `ACTIVE` | 0 | 0 |
-| [[Reference/Modules/learnloop_sidecar/context|learnloop_sidecar.context]] | [[Reference/Modules/learnloop_sidecar/context#^module-purpose|purpose]] | `ACTIVE` | 42 | 20 |
-| [[Reference/Modules/learnloop_sidecar/dto|learnloop_sidecar.dto]] | [[Reference/Modules/learnloop_sidecar/dto#^module-purpose|purpose]] | `ACTIVE` | 43 | 4 |
-| [[Reference/Modules/learnloop_sidecar/errors|learnloop_sidecar.errors]] | [[Reference/Modules/learnloop_sidecar/errors#^module-purpose|purpose]] | `ACTIVE` | 37 | 11 |
+| [[Reference/Modules/learnloop_sidecar/background_jobs|learnloop_sidecar.background_jobs]] | [[Reference/Modules/learnloop_sidecar/background_jobs#^module-purpose|purpose]] | `ACTIVE` | 10 | 4 |
+| [[Reference/Modules/learnloop_sidecar/context|learnloop_sidecar.context]] | [[Reference/Modules/learnloop_sidecar/context#^module-purpose|purpose]] | `ACTIVE` | 74 | 159 |
+| [[Reference/Modules/learnloop_sidecar/dto|learnloop_sidecar.dto]] | [[Reference/Modules/learnloop_sidecar/dto#^module-purpose|purpose]] | `ACTIVE` | 76 | 12 |
+| [[Reference/Modules/learnloop_sidecar/errors|learnloop_sidecar.errors]] | [[Reference/Modules/learnloop_sidecar/errors#^module-purpose|purpose]] | `ACTIVE` | 73 | 110 |
 | [[Reference/Modules/learnloop_sidecar/exam_grading|learnloop_sidecar.exam_grading]] | [[Reference/Modules/learnloop_sidecar/exam_grading#^module-purpose|purpose]] | `ACTIVE` | 1 | 1 |
-| [[Reference/Modules/learnloop_sidecar/logging|learnloop_sidecar.logging]] | [[Reference/Modules/learnloop_sidecar/logging#^module-purpose|purpose]] | `ACTIVE` | 6 | 0 |
-| [[Reference/Modules/learnloop_sidecar/registry|learnloop_sidecar.registry]] | [[Reference/Modules/learnloop_sidecar/registry#^module-purpose|purpose]] | `ACTIVE` | 41 | 14 |
-| [[Reference/Modules/learnloop_sidecar/server|learnloop_sidecar.server]] | [[Reference/Modules/learnloop_sidecar/server#^module-purpose|purpose]] | `ACTIVE` | 1 | 29 |
+| [[Reference/Modules/learnloop_sidecar/logging|learnloop_sidecar.logging]] | [[Reference/Modules/learnloop_sidecar/logging#^module-purpose|purpose]] | `ACTIVE` | 10 | 0 |
+| [[Reference/Modules/learnloop_sidecar/post_attempt_worker|learnloop_sidecar.post_attempt_worker]] | [[Reference/Modules/learnloop_sidecar/post_attempt_worker#^module-purpose|purpose]] | `ACTIVE` | 1 | 6 |
+| [[Reference/Modules/learnloop_sidecar/registry|learnloop_sidecar.registry]] | [[Reference/Modules/learnloop_sidecar/registry#^module-purpose|purpose]] | `ACTIVE` | 73 | 112 |
+| [[Reference/Modules/learnloop_sidecar/server|learnloop_sidecar.server]] | [[Reference/Modules/learnloop_sidecar/server#^module-purpose|purpose]] | `ACTIVE` | 1 | 45 |
+| [[Reference/Modules/learnloop_sidecar/serving|learnloop_sidecar.serving]] | [[Reference/Modules/learnloop_sidecar/serving#^module-purpose|purpose]] | `ACTIVE` | 4 | 0 |
+| [[Reference/Modules/learnloop_sidecar/source_identity|learnloop_sidecar.source_identity]] | [[Reference/Modules/learnloop_sidecar/source_identity#^module-purpose|purpose]] | `ACTIVE` | 5 | 0 |
 
 ## Child package maps
 
@@ -73,23 +81,33 @@ For system intent, use [[Architecture Overview]].
 
 ### This package imports
 
-- [[Reference/Modules/learnloop/vault/_package|learnloop.vault]] — 5 static module edges
-- [[Reference/Modules/learnloop/_package|learnloop]] — 2 static module edges
-- [[Reference/Modules/learnloop/ai/_package|learnloop.ai]] — 2 static module edges
-- [[Reference/Modules/learnloop/db/_package|learnloop.db]] — 2 static module edges
+- [[Reference/Modules/learnloop/_package|learnloop]] — 7 static module edges
+- [[Reference/Modules/learnloop/ai/_package|learnloop.ai]] — 7 static module edges
+- [[Reference/Modules/learnloop/vault/_package|learnloop.vault]] — 7 static module edges
+- [[Reference/Modules/learnloop/adaptive_difficulty/_package|learnloop.adaptive_difficulty]] — 3 static module edges
+- [[Reference/Modules/learnloop/daily_plan/_package|learnloop.daily_plan]] — 3 static module edges
+- [[Reference/Modules/learnloop/db/_package|learnloop.db]] — 3 static module edges
+- [[Reference/Modules/learnloop_sidecar/handlers/_package|learnloop_sidecar.handlers]] — 3 static module edges
+- [[Reference/Modules/learnloop/attempts/_package|learnloop.attempts]] — 2 static module edges
+- [[Reference/Modules/learnloop/config/_package|learnloop.config]] — 2 static module edges
+- [[Reference/Modules/learnloop/content/pipeline/_package|learnloop.content.pipeline]] — 2 static module edges
+- [[Reference/Modules/learnloop/diagnosis/text_gaps/_package|learnloop.diagnosis.text_gaps]] — 2 static module edges
+- [[Reference/Modules/learnloop/hints/_package|learnloop.hints]] — 2 static module edges
 - [[Reference/Modules/learnloop/learner/_package|learnloop.learner]] — 2 static module edges
+- [[Reference/Modules/learnloop/reader/_package|learnloop.reader]] — 2 static module edges
 - [[Reference/Modules/learnloop/substrate/_package|learnloop.substrate]] — 2 static module edges
-- [[Reference/Modules/learnloop_sidecar/handlers/_package|learnloop_sidecar.handlers]] — 2 static module edges
-- [[Reference/Modules/learnloop/attempts/_package|learnloop.attempts]] — 1 static module edge
-- [[Reference/Modules/learnloop/config/_package|learnloop.config]] — 1 static module edge
-- [[Reference/Modules/learnloop/content/pipeline/_package|learnloop.content.pipeline]] — 1 static module edge
+- [[Reference/Modules/learnloop/content/authoring/_package|learnloop.content.authoring]] — 1 static module edge
+- [[Reference/Modules/learnloop/content/facet_identity/_package|learnloop.content.facet_identity]] — 1 static module edge
+- [[Reference/Modules/learnloop/content/sources/_package|learnloop.content.sources]] — 1 static module edge
 - [[Reference/Modules/learnloop/diagnosis/_package|learnloop.diagnosis]] — 1 static module edge
+- [[Reference/Modules/learnloop/diagnosis/split/_package|learnloop.diagnosis.split]] — 1 static module edge
 - [[Reference/Modules/learnloop/goals/_package|learnloop.goals]] — 1 static module edge
 - [[Reference/Modules/learnloop/ops/_package|learnloop.ops]] — 1 static module edge
+- [[Reference/Modules/learnloop/teacher/_package|learnloop.teacher]] — 1 static module edge
 
 ### Packages that import this package
 
-- [[Reference/Modules/learnloop_sidecar/handlers/_package|learnloop_sidecar.handlers]] — 162 static module edges
+- [[Reference/Modules/learnloop_sidecar/handlers/_package|learnloop_sidecar.handlers]] — 314 static module edges
 
 ### Dependency neighborhood
 
@@ -99,26 +117,26 @@ This diagram compresses package-level static imports; edge labels are distinct m
 flowchart LR
     center["learnloop_sidecar"]
     n_learnloop_sidecar_handlers["learnloop_sidecar.handlers"]
-    n_learnloop_vault["learnloop.vault"]
     n_learnloop["learnloop"]
     n_learnloop_ai["learnloop.ai"]
+    n_learnloop_vault["learnloop.vault"]
+    n_learnloop_adaptive_difficulty["learnloop.adaptive_difficulty"]
+    n_learnloop_daily_plan["learnloop.daily_plan"]
     n_learnloop_db["learnloop.db"]
-    n_learnloop_learner["learnloop.learner"]
-    n_learnloop_substrate["learnloop.substrate"]
     n_learnloop_attempts["learnloop.attempts"]
     n_learnloop_config["learnloop.config"]
     n_learnloop_content_pipeline["learnloop.content.pipeline"]
-    n_learnloop_sidecar_handlers -->|162| center
-    center -->|2| n_learnloop_sidecar_handlers
-    center -->|5| n_learnloop_vault
-    center -->|2| n_learnloop
-    center -->|2| n_learnloop_ai
-    center -->|2| n_learnloop_db
-    center -->|2| n_learnloop_learner
-    center -->|2| n_learnloop_substrate
-    center -->|1| n_learnloop_attempts
-    center -->|1| n_learnloop_config
-    center -->|1| n_learnloop_content_pipeline
+    n_learnloop_sidecar_handlers -->|314| center
+    center -->|3| n_learnloop_sidecar_handlers
+    center -->|7| n_learnloop
+    center -->|7| n_learnloop_ai
+    center -->|7| n_learnloop_vault
+    center -->|3| n_learnloop_adaptive_difficulty
+    center -->|3| n_learnloop_daily_plan
+    center -->|3| n_learnloop_db
+    center -->|2| n_learnloop_attempts
+    center -->|2| n_learnloop_config
+    center -->|2| n_learnloop_content_pipeline
 ```
 
 Interpretation: arrow direction is static import direction and the label is the number of distinct module-to-module edges. It shows coupling pressure, not runtime call frequency or ownership permission.

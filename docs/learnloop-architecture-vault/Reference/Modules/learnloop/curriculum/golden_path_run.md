@@ -11,7 +11,7 @@ source_commit: "b322ef2e9b5cebc241b612e4963a5aaf1a37f99a"
 source_commit_timestamp: "2026-08-20T18:04:29-04:00"
 source_worktree_state: "clean"
 generated: true
-generated_at: "2026-09-23"
+generated_at: "2026-11-02"
 package: "learnloop.curriculum"
 layer: "domain"
 concepts:
@@ -136,6 +136,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_bridge_goes_live_and_is_decision_equivalent_when_owned`
   - `test_bridge_returns_canonical_when_not_staged_owned`
   - `test_full_live_walk_reproduces_canonical_sequence`
+- [tests/test_daily_loop_golden_path_lifecycle.py](../../../../../../tests/test_daily_loop_golden_path_lifecycle.py) — direct import
+  - `test_assess_open_refuses_a_parked_lo_without_burning_the_surface`
 - [tests/test_diagnostic_pack.py](../../../../../../tests/test_diagnostic_pack.py) — direct import
 - [tests/test_failure_triage.py](../../../../../../tests/test_failure_triage.py) — direct import
   - `test_concentrated_signature_distribution_stays_tier_one`
@@ -166,6 +168,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_kill_resume_rebuilds_state_and_next_action_from_events`
   - `test_never_reopens_a_closed_diagnostic_segment`
   - `test_optimistic_head_fence_rejects_stale_expected_head`
+- [tests/test_held_grade_evidence.py](../../../../../../tests/test_held_grade_evidence.py) — direct import
+  - `test_review_f3_diagnostic_observations_held_by_a_regrade_qualify_nothing`
 - [tests/test_p2_acceptance.py](../../../../../../tests/test_p2_acceptance.py) — direct import
   - `test_event_replay_equivalence_after_full_walk`
   - `test_fault_injection_diagnostic_baseline_boundary_yields_exactly_one`
@@ -179,6 +183,15 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_one_fail_per_rung_while_climbing_never_triggers_review`
   - `test_repeated_failure_counts_distinct_surfaces_only`
   - `test_repeated_varied_failures_terminate_into_needs_review`
+- [tests/test_router_p2_bridge.py](../../../../../../tests/test_router_p2_bridge.py) — direct import
+  - `test_a_requested_state_other_than_the_canonical_successor_is_the_learners_choice`
+  - `test_a_retried_constraint_vetoed_advance_stays_deferred`
+  - `test_a_staged_veto_defers_the_run_and_says_why_in_plain_words`
+  - `test_golden_path_advance_consults_the_staged_policy_through_the_bridge`
+  - `test_switched_off_the_rpc_advances_the_run_directly`
+  - `test_the_response_shape_is_unchanged_for_the_desktop`
+- [tests/test_router_staged_p2.py](../../../../../../tests/test_router_staged_p2.py) — direct import
+  - `test_a_live_staged_decision_logs_continue_the_ladder_and_its_choice`
 - [tests/test_sidecar_golden_path_assessment.py](../../../../../../tests/test_sidecar_golden_path_assessment.py) — direct import
 
 ## Modification guidance

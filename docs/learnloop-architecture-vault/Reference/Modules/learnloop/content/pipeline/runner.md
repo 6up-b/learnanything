@@ -7,11 +7,11 @@ version: "1.0.0"
 source_path: "src/learnloop/content/pipeline/runner.py"
 source_paths:
   - "src/learnloop/content/pipeline/runner.py"
-source_commit: "workspace/uncommitted @ HEAD df970cd96725b112447395846bb53a0164a5853c"
-source_commit_timestamp: "2026-09-23T20:46:40-04:00"
-source_worktree_state: "modified"
+source_commit: "cfc9317cc993573c0a0c1e92ab99675c4202842a"
+source_commit_timestamp: "2026-11-01T08:22:57-05:00"
+source_worktree_state: "clean"
 generated: true
-generated_at: "2026-09-23"
+generated_at: "2026-11-02"
 package: "learnloop.content.pipeline"
 layer: "domain"
 concepts:
@@ -51,95 +51,102 @@ The authoritative system-level explanation remains in [[Learning System]], [[AI 
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/content/pipeline/runner.py](../../../../../../../src/learnloop/content/pipeline/runner.py) |
-| Source lines | 1065 |
+| Source lines | 1261 |
 | Owning package | [[Reference/Modules/learnloop/content/pipeline/_package|learnloop.content.pipeline]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
-| Worktree state | `modified` |
-| Source commit | `workspace/uncommitted @ HEAD df970cd96725b112447395846bb53a0164a5853c` |
-| Commit timestamp | `2026-09-23T20:46:40-04:00` |
+| Worktree state | `clean` |
+| Source commit | `cfc9317cc993573c0a0c1e92ab99675c4202842a` |
+| Commit timestamp | `2026-11-01T08:22:57-05:00` |
 
 ## Public API
 
-- `effective_ingest_job_status(job: Mapping[str, Any]) -> str` ([source](../../../../../../../src/learnloop/content/pipeline/runner.py), line 84) — The status to present for a job, correcting contradictory rung rows.
-- `class IngestRunnerError(ValueError)` ([source](../../../../../../../src/learnloop/content/pipeline/runner.py), line 136) — A typed, user-actionable job failure persisted for the Activity UI.
-  - `__init__(self, message: str, *, code: str='invalid_job', details: Mapping[str, Any] | None=None, retryable: bool=False) -> None` (line 139; internal)
-- `class JobCancelled(Exception)` ([source](../../../../../../../src/learnloop/content/pipeline/runner.py), line 153) — Raised from ``report()`` when a cancellation was requested mid-stage.
-- `class WaitingForInput(Exception)` ([source](../../../../../../../src/learnloop/content/pipeline/runner.py), line 157) — A handler pauses the job pending user input (unit choice, consent, budget).
-  - `__init__(self, payload: Mapping[str, Any], *, message: str='Waiting for input') -> None` (line 163; internal)
-- `class FetchedBytes` ([source](../../../../../../../src/learnloop/content/pipeline/runner.py), line 170)
-- `class RunnerServices` ([source](../../../../../../../src/learnloop/content/pipeline/runner.py), line 184) — The side-effecting seams the M2 handlers need.
-  - `fetch_bytes(self, source: str, category: str, ctx: 'JobContext') -> FetchedBytes` (line 207; public)
-  - `extract_ir(self, fetched: FetchedBytes, category: str, ctx: 'JobContext') -> Any` (line 210; public)
-  - `extraction_identity(self, fetched: FetchedBytes, category: str, ctx: 'JobContext') -> Mapping[str, Any]` (line 213; public)
-  - `legacy_ingest(self, **kwargs: Any) -> Any` (line 220; public)
-  - `inventory_identity(self, ctx: 'JobContext') -> tuple[str, str] | None` (line 225; public) — Return cache identity without initializing a provider when possible.
-  - `inventory_client(self, ctx: 'JobContext', *, bind_interruptible: bool=True) -> Any` (line 234; public)
-  - `synthesis_client(self, ctx: 'JobContext') -> Any` (line 250; public)
-  - `quick_check_client(self, ctx: 'JobContext') -> Any` (line 257; public)
-  - `rung_variant_client(self, ctx: 'JobContext') -> Any` (line 265; public)
-  - `promotion_analysis_client(self, ctx: 'JobContext') -> Any` (line 273; public)
-  - `promotion_authoring_client(self, ctx: 'JobContext') -> Any` (line 281; public)
-  - `exercise_import_client(self, ctx: 'JobContext') -> Any` (line 289; public)
-  - `animation_client(self, ctx: 'JobContext') -> Any` (line 300; public)
-  - `video_client(self, ctx: 'JobContext') -> Any` (line 305; public) — The text-to-video client for [animation] renderer = "video_model".
-- `class JobContext` ([source](../../../../../../../src/learnloop/content/pipeline/runner.py), line 325) — What a handler is handed: repository, vault root, payload, and the checkpoint/usage/cancellation primitives the runner threads through.
-  - `payload(self) -> dict[str, Any]` (line 340; public)
-  - `job_id(self) -> str` (line 344; public)
-  - `owner(self) -> JobOwner` (line 348; public)
-  - `report(self, phase: str, *, message: str | None=None, current_window: int | None=None, total_windows: int | None=None) -> None` (line 351; public) — Advance the checkpoint ladder and refresh the lease heartbeat.
-  - `record_usage(self, usage: Mapping[str, Any]) -> None` (line 380; public) — Add one call's usage to the running per-attempt sum (§6.2).
-  - `cancelled(self) -> bool` (line 389; public)
-  - `bind_interruptible(self, client: Any) -> None` (line 392; public) — Expose a job-scoped provider's interrupt hook to the worker host.
-  - `_cancel_requested(self) -> bool` (line 398; internal)
-- `class JobSpec` ([source](../../../../../../../src/learnloop/content/pipeline/runner.py), line 410) — One job in an enqueued batch.
-- `class IngestRunner` ([source](../../../../../../../src/learnloop/content/pipeline/runner.py), line 464)
-  - `__init__(self, repo: Repository, *, vault_root: Path, worker_id: str, clock: Clock | None=None, handlers: Mapping[str, Handler] | None=None, services: RunnerServices | None=None, lease_ttl_seconds: int=120, heartbeat_interval_seconds: float=15) -> None` (line 465; internal)
-  - `active_interruptible_jobs(self) -> list[dict[str, Any]]` (line 499; public) — Return running jobs that currently own an interruptible AI client.
-  - `interrupt_job(self, job_id: str) -> bool` (line 515; public) — Cancel a batch and interrupt the selected job's active provider call.
-  - `_bind_job_interruptible(self, job_id: str, attempt_count: int, client: Any) -> None` (line 531; internal)
-  - `_clear_job_interruptible(self, job_id: str, attempt_count: int) -> None` (line 538; internal)
-  - `enqueue_batch(self, workflow_type: str, jobs: Sequence[JobSpec], *, subject_id: str | None=None, source_set_id: str | None=None, priority: int=0) -> str` (line 544; public)
-  - `recover_stale_leases(self) -> list[str]` (line 589; public) — Startup recovery (§6.2), run when a host opens the vault.
-  - `_expire_stale_leases(self, *, lock_timeout_s: float) -> list[str] | None` (line 610; internal) — Expire running leases older than the TTL, or return None if the vault lock stayed busy for ``lock_timeout_s``.
-  - `_expire_stale_leases_locked(self) -> list[str]` (line 622; internal)
-  - `_finalize_abandoned_synthesis_runs_locked(self) -> None` (line 648; internal) — Finalize non-terminal synthesis runs older than the lease cutoff.
-  - `_lease_expiry_due(self) -> bool` (line 667; internal)
-  - `run_next(self, *, eligible_job_types: Sequence[str] | None=None, compatible_running_job_types: Sequence[str]=(), allow_parallel: bool=False, max_parallel: int | None=None) -> bool` (line 673; public) — Claim and run one eligible job.
-  - `drain(self, *, max_jobs: int | None=None, eligible_job_types: Sequence[str] | None=None, compatible_running_job_types: Sequence[str]=(), allow_parallel: bool=False, max_parallel: int | None=None) -> int` (line 712; public) — Drain matching jobs until none remain (or ``max_jobs``).
-  - `cancel_batch(self, batch_id: str) -> None` (line 737; public) — Request cancellation.
-  - `resume_batch(self, batch_id: str) -> None` (line 755; public) — Resume a partially-complete or cancelled batch: only unfinished jobs (failed/blocked/cancelled) are re-queued; completed jobs are preserved, so a resume creates new attempts only for what did not finish (§6.2).
-  - `_run_claimed(self, job: dict[str, Any]) -> None` (line 790; internal)
-  - `_heartbeat_while_running(self, job_id: str, stop: threading.Event, owner: JobOwner) -> None` (line 930; internal) — Keep a blocking extractor/LLM stage's lease alive until it returns.
-  - `_propagate_blocks(self, batch_id: str) -> None` (line 957; internal) — Mark every downstream queued job blocked when a dependency failed, blocked, or was cancelled — to a fixpoint (§6.2).
-  - `_refresh_batch(self, batch_id: str) -> None` (line 985; internal)
-  - `_lease_cutoff_iso(self) -> str` (line 1001; internal)
-- `derive_batch_status(jobs: Sequence[Mapping[str, Any]], batch: Mapping[str, Any] | None) -> str` ([source](../../../../../../../src/learnloop/content/pipeline/runner.py), line 1014) — Batch status is derived from its member jobs and can represent partial completion (§6.2).
+- `effective_ingest_job_status(job: Mapping[str, Any]) -> str` ([source](../../../../../../../src/learnloop/content/pipeline/runner.py), line 85) — The status to present for a job, correcting contradictory rung rows.
+- `class IngestRunnerError(ValueError)` ([source](../../../../../../../src/learnloop/content/pipeline/runner.py), line 145) — A typed, user-actionable job failure persisted for the Activity UI.
+  - `__init__(self, message: str, *, code: str='invalid_job', details: Mapping[str, Any] | None=None, retryable: bool=False) -> None` (line 148; internal)
+- `class JobCancelled(Exception)` ([source](../../../../../../../src/learnloop/content/pipeline/runner.py), line 162) — Raised from ``report()`` when a cancellation was requested mid-stage.
+- `class WaitingForInput(Exception)` ([source](../../../../../../../src/learnloop/content/pipeline/runner.py), line 166) — A handler pauses the job pending user input (unit choice, consent, budget).
+  - `__init__(self, payload: Mapping[str, Any], *, message: str='Waiting for input') -> None` (line 172; internal)
+- `class FetchedBytes` ([source](../../../../../../../src/learnloop/content/pipeline/runner.py), line 179)
+- `class RunnerServices` ([source](../../../../../../../src/learnloop/content/pipeline/runner.py), line 193) — The side-effecting seams the M2 handlers need.
+  - `fetch_bytes(self, source: str, category: str, ctx: 'JobContext') -> FetchedBytes` (line 231; public)
+  - `extract_ir(self, fetched: FetchedBytes, category: str, ctx: 'JobContext') -> Any` (line 234; public)
+  - `extraction_identity(self, fetched: FetchedBytes, category: str, ctx: 'JobContext') -> Mapping[str, Any]` (line 237; public)
+  - `legacy_ingest(self, **kwargs: Any) -> Any` (line 244; public)
+  - `inventory_identity(self, ctx: 'JobContext') -> tuple[str, str] | None` (line 249; public) — Return cache identity without initializing a provider when possible.
+  - `inventory_client(self, ctx: 'JobContext', *, bind_interruptible: bool=True) -> Any` (line 258; public)
+  - `synthesis_client(self, ctx: 'JobContext') -> Any` (line 274; public)
+  - `quick_check_client(self, ctx: 'JobContext') -> Any` (line 281; public)
+  - `rung_variant_client(self, ctx: 'JobContext') -> Any` (line 289; public)
+  - `promotion_analysis_client(self, ctx: 'JobContext') -> Any` (line 297; public)
+  - `promotion_authoring_client(self, ctx: 'JobContext') -> Any` (line 305; public)
+  - `exercise_import_client(self, ctx: 'JobContext') -> Any` (line 313; public)
+  - `animation_client(self, ctx: 'JobContext') -> Any` (line 324; public)
+  - `video_client(self, ctx: 'JobContext') -> Any` (line 329; public) — The text-to-video client for [animation] renderer = "video_model".
+  - `authoring_route(self, ctx: 'JobContext') -> Any` (line 334; public) — The question-writing route an automatic build would use (no model call).
+- `class JobContext` ([source](../../../../../../../src/learnloop/content/pipeline/runner.py), line 376) — What a handler is handed: repository, vault root, payload, and the checkpoint/usage/cancellation primitives the runner threads through.
+  - `payload(self) -> dict[str, Any]` (line 396; public)
+  - `job_id(self) -> str` (line 400; public)
+  - `owner(self) -> JobOwner` (line 404; public)
+  - `report(self, phase: str, *, message: str | None=None, current_window: int | None=None, total_windows: int | None=None) -> None` (line 407; public) — Advance the checkpoint ladder and refresh the lease heartbeat.
+  - `record_usage(self, usage: Mapping[str, Any]) -> None` (line 436; public) — Add one call's usage to the running per-attempt sum (§6.2).
+  - `cancelled(self) -> bool` (line 445; public)
+  - `bind_interruptible(self, client: Any) -> None` (line 448; public) — Expose a job-scoped provider's interrupt hook to the worker host.
+  - `hold(self, scope: AbstractContextManager[Any]) -> Any` (line 454; public) — Enter ``scope`` for the rest of this attempt: the runner exits it when the handler returns or raises (in this thread, so context variables it sets are reset), before the outcome is recorded.
+  - `enqueue_batch(self, workflow_type: str, jobs: Sequence['JobSpec'], **kwargs: Any) -> str` (line 463; public) — Queue a follow-up batch through the runner that is running this job.
+  - `_cancel_requested(self) -> bool` (line 490; internal)
+- `class JobSpec` ([source](../../../../../../../src/learnloop/content/pipeline/runner.py), line 502) — One job in an enqueued batch.
+- `class IngestRunner` ([source](../../../../../../../src/learnloop/content/pipeline/runner.py), line 556)
+  - `__init__(self, repo: Repository, *, vault_root: Path, worker_id: str, clock: Clock | None=None, handlers: Mapping[str, Handler] | None=None, services: RunnerServices | None=None, lease_ttl_seconds: int=120, heartbeat_interval_seconds: float=15) -> None` (line 557; internal)
+  - `active_interruptible_jobs(self) -> list[dict[str, Any]]` (line 591; public) — Return running jobs that currently own an interruptible AI client.
+  - `interrupt_job(self, job_id: str, *, alongside: Callable[[], object] | None=None) -> bool` (line 607; public) — Cancel a batch and interrupt the selected job's active provider call.
+  - `_bind_job_interruptible(self, job_id: str, attempt_count: int, client: Any) -> None` (line 627; internal)
+  - `_clear_job_interruptible(self, job_id: str, attempt_count: int) -> None` (line 634; internal)
+  - `enqueue_batch(self, workflow_type: str, jobs: Sequence[JobSpec], *, subject_id: str | None=None, source_set_id: str | None=None, priority: int=0, batch_id: str | None=None, grant: 'plan_fallback.GrantToken | None'=None, origin: str | None=None) -> str` (line 640; public) — ``grant`` / ``origin``: a job's own child build (:meth:`JobContext.enqueue_batch` with ``inherit_grant``); otherwise the batch belongs to the request around this call (``plan_fallback.unit_origin``) and carries its token when that action is granted (``unit_token``).
+  - `_enqueue_batch(self, workflow_type: str, jobs: Sequence[JobSpec], *, subject_id: str | None, source_set_id: str | None, priority: int, batch_id: str | None, grant: 'plan_fallback.GrantToken | None'=None, origin: str | None=None) -> str` (line 668; internal)
+  - `batch_origin_method(self, batch_id: str) -> str | None` (line 720; public) — The batch's durable action (migration 218), for a batch from before a sidecar restart.
+  - `recover_stale_leases(self, *, sweep_abandoned_synthesis: bool=True) -> list[str]` (line 730; public) — Startup recovery (§6.2), run when a host opens the vault.
+  - `_expire_stale_leases(self, *, lock_timeout_s: float) -> list[str] | None` (line 759; internal) — Expire running leases older than the TTL, or return None if the vault lock stayed busy for ``lock_timeout_s``.
+  - `_expire_stale_leases_locked(self) -> list[str]` (line 771; internal)
+  - `_finalize_abandoned_synthesis_runs_locked(self) -> None` (line 797; internal) — Finalize non-terminal synthesis runs older than the lease cutoff.
+  - `_lease_expiry_due(self) -> bool` (line 816; internal)
+  - `run_next(self, *, eligible_job_types: Sequence[str] | None=None, compatible_running_job_types: Sequence[str]=(), allow_parallel: bool=False, max_parallel: int | None=None) -> bool` (line 822; public) — Claim and run one eligible job.
+  - `drain(self, *, max_jobs: int | None=None, eligible_job_types: Sequence[str] | None=None, compatible_running_job_types: Sequence[str]=(), allow_parallel: bool=False, max_parallel: int | None=None) -> int` (line 861; public) — Drain matching jobs until none remain (or ``max_jobs``).
+  - `cancel_batch(self, batch_id: str, *, alongside: Callable[[], object] | None=None) -> None` (line 886; public) — Request cancellation.
+  - `resume_batch(self, batch_id: str) -> None` (line 914; public) — Resume a partially-complete or cancelled batch: only unfinished jobs (failed/blocked/cancelled) are re-queued; completed jobs are preserved, so a resume creates new attempts only for what did not finish (§6.2).
+  - `requeue_failed_unless_cancelled(self, batch_id: str, *, error_code: str) -> bool` (line 950; public) — Requeue the batch's jobs that failed with ``error_code``, only while the batch is not cancelled.
+  - `_run_claimed(self, job: dict[str, Any]) -> None` (line 977; internal)
+  - `_heartbeat_while_running(self, job_id: str, stop: threading.Event, owner: JobOwner) -> None` (line 1126; internal) — Keep a blocking extractor/LLM stage's lease alive until it returns.
+  - `_propagate_blocks(self, batch_id: str) -> None` (line 1153; internal) — Mark every downstream queued job blocked when a dependency failed, blocked, or was cancelled — to a fixpoint (§6.2).
+  - `_refresh_batch(self, batch_id: str) -> None` (line 1181; internal)
+  - `_lease_cutoff_iso(self) -> str` (line 1197; internal)
+- `derive_batch_status(jobs: Sequence[Mapping[str, Any]], batch: Mapping[str, Any] | None) -> str` ([source](../../../../../../../src/learnloop/content/pipeline/runner.py), line 1210) — Batch status is derived from its member jobs and can represent partial completion (§6.2).
 
 ### Module constants
 
-- `CHECKPOINT_LADDER` ([src/learnloop/content/pipeline/runner.py](../../../../../../../src/learnloop/content/pipeline/runner.py), line 55)
-- `TERMINAL_STATUSES` ([src/learnloop/content/pipeline/runner.py](../../../../../../../src/learnloop/content/pipeline/runner.py), line 65)
-- `_UNFINISHED_STATUSES` ([src/learnloop/content/pipeline/runner.py](../../../../../../../src/learnloop/content/pipeline/runner.py), line 66)
-- `_LOG` ([src/learnloop/content/pipeline/runner.py](../../../../../../../src/learnloop/content/pipeline/runner.py), line 68)
-- `_HEARTBEAT_RETRY_SECONDS` ([src/learnloop/content/pipeline/runner.py](../../../../../../../src/learnloop/content/pipeline/runner.py), line 73)
-- `_LEASE_EXPIRY_INTERVAL_SECONDS` ([src/learnloop/content/pipeline/runner.py](../../../../../../../src/learnloop/content/pipeline/runner.py), line 76)
-- `_LEASE_LOCK_TIMEOUT_S` ([src/learnloop/content/pipeline/runner.py](../../../../../../../src/learnloop/content/pipeline/runner.py), line 80)
-- `_TICK_EXPIRY_LOCK_TIMEOUT_S` ([src/learnloop/content/pipeline/runner.py](../../../../../../../src/learnloop/content/pipeline/runner.py), line 81)
-- `KNOWN_WORKFLOW_TYPES` ([src/learnloop/content/pipeline/runner.py](../../../../../../../src/learnloop/content/pipeline/runner.py), line 105)
-- `KNOWN_JOB_TYPES` ([src/learnloop/content/pipeline/runner.py](../../../../../../../src/learnloop/content/pipeline/runner.py), line 108)
-- `_QUEUE_AFFECTING_JOB_TYPES` ([src/learnloop/content/pipeline/runner.py](../../../../../../../src/learnloop/content/pipeline/runner.py), line 125)
-- `_LIVE_ATTEMPTS` ([src/learnloop/content/pipeline/runner.py](../../../../../../../src/learnloop/content/pipeline/runner.py), line 456)
-- `_PHASE_MESSAGES` ([src/learnloop/content/pipeline/runner.py](../../../../../../../src/learnloop/content/pipeline/runner.py), line 1039)
+- `CHECKPOINT_LADDER` ([src/learnloop/content/pipeline/runner.py](../../../../../../../src/learnloop/content/pipeline/runner.py), line 56)
+- `TERMINAL_STATUSES` ([src/learnloop/content/pipeline/runner.py](../../../../../../../src/learnloop/content/pipeline/runner.py), line 66)
+- `_UNFINISHED_STATUSES` ([src/learnloop/content/pipeline/runner.py](../../../../../../../src/learnloop/content/pipeline/runner.py), line 67)
+- `_LOG` ([src/learnloop/content/pipeline/runner.py](../../../../../../../src/learnloop/content/pipeline/runner.py), line 69)
+- `_HEARTBEAT_RETRY_SECONDS` ([src/learnloop/content/pipeline/runner.py](../../../../../../../src/learnloop/content/pipeline/runner.py), line 74)
+- `_LEASE_EXPIRY_INTERVAL_SECONDS` ([src/learnloop/content/pipeline/runner.py](../../../../../../../src/learnloop/content/pipeline/runner.py), line 77)
+- `_LEASE_LOCK_TIMEOUT_S` ([src/learnloop/content/pipeline/runner.py](../../../../../../../src/learnloop/content/pipeline/runner.py), line 81)
+- `_TICK_EXPIRY_LOCK_TIMEOUT_S` ([src/learnloop/content/pipeline/runner.py](../../../../../../../src/learnloop/content/pipeline/runner.py), line 82)
+- `KNOWN_WORKFLOW_TYPES` ([src/learnloop/content/pipeline/runner.py](../../../../../../../src/learnloop/content/pipeline/runner.py), line 106)
+- `KNOWN_JOB_TYPES` ([src/learnloop/content/pipeline/runner.py](../../../../../../../src/learnloop/content/pipeline/runner.py), line 109)
+- `_QUEUE_AFFECTING_JOB_TYPES` ([src/learnloop/content/pipeline/runner.py](../../../../../../../src/learnloop/content/pipeline/runner.py), line 134)
+- `_LIVE_ATTEMPTS` ([src/learnloop/content/pipeline/runner.py](../../../../../../../src/learnloop/content/pipeline/runner.py), line 548)
+- `_PHASE_MESSAGES` ([src/learnloop/content/pipeline/runner.py](../../../../../../../src/learnloop/content/pipeline/runner.py), line 1235)
 
 ## Internal implementation anchors
 
-- `_job_defaults() -> Any` ([source](../../../../../../../src/learnloop/content/pipeline/runner.py), line 311) — Load concrete ingest jobs only when a default seam is actually used.
-- `class _LiveAttempts` ([source](../../../../../../../src/learnloop/content/pipeline/runner.py), line 419) — Job attempts whose handler is executing in this process.
-- `class _FixedClock` ([source](../../../../../../../src/learnloop/content/pipeline/runner.py), line 1007)
-- `_phase_message(phase: str) -> str` ([source](../../../../../../../src/learnloop/content/pipeline/runner.py), line 1050)
-- `_as_number(value: Any) -> float | int` ([source](../../../../../../../src/learnloop/content/pipeline/runner.py), line 1054)
-- `_error_code(exc: Exception) -> str` ([source](../../../../../../../src/learnloop/content/pipeline/runner.py), line 1060)
+- `_job_defaults() -> Any` ([source](../../../../../../../src/learnloop/content/pipeline/runner.py), line 344) — Load concrete ingest jobs only when a default seam is actually used.
+- `_batch_unit(runner: 'IngestRunner', batch_id: str) -> Iterator[None]` ([source](../../../../../../../src/learnloop/content/pipeline/runner.py), line 358) — Run one job of ``batch_id`` as its unit: its token, its action; it may ask only when it has an action (the offer is kept with the batch and relayed by a read that shows the batch).
+- `class _LiveAttempts` ([source](../../../../../../../src/learnloop/content/pipeline/runner.py), line 511) — Job attempts whose handler is executing in this process.
+- `class _FixedClock` ([source](../../../../../../../src/learnloop/content/pipeline/runner.py), line 1203)
+- `_phase_message(phase: str) -> str` ([source](../../../../../../../src/learnloop/content/pipeline/runner.py), line 1246)
+- `_as_number(value: Any) -> float | int` ([source](../../../../../../../src/learnloop/content/pipeline/runner.py), line 1250)
+- `_error_code(exc: Exception) -> str` ([source](../../../../../../../src/learnloop/content/pipeline/runner.py), line 1256)
 
 ## Who imports or calls it
 
@@ -148,15 +155,20 @@ The authoritative system-level explanation remains in [[Learning System]], [[AI 
 
 - [[Reference/Modules/learnloop/cli/app|learnloop.cli.app]] — imports `JobSpec`; statically calls `JobSpec`
 - [[Reference/Modules/learnloop/cli/runtime|learnloop.cli.runtime]] — imports `IngestRunner`; statically calls `IngestRunner`
+- [[Reference/Modules/learnloop/content/pipeline/add_source|learnloop.content.pipeline.add_source]] — imports `IngestRunnerError`, `JobCancelled`, `JobSpec`, `WaitingForInput`; statically calls `IngestRunnerError`, `JobCancelled`, `JobSpec`
 - [[Reference/Modules/learnloop/content/pipeline/jobs|learnloop.content.pipeline.jobs]] — imports `CHECKPOINT_LADDER`, `FetchedBytes`, `Handler`, `IngestRunner`, `IngestRunnerError`, `JobCancelled`, `JobContext`, `JobSpec`, `RunnerServices`, `WaitingForInput`, `derive_batch_status`, `effective_ingest_job_status`; statically calls `FetchedBytes`, `IngestRunner`, `IngestRunnerError`, `JobCancelled`, `JobSpec`, `derive_batch_status`, `effective_ingest_job_status`
+- [[Reference/Modules/learnloop/content/pipeline/reread|learnloop.content.pipeline.reread]] — imports `FetchedBytes`, `IngestRunnerError`; statically calls `FetchedBytes`, `IngestRunnerError`
+- [[Reference/Modules/learnloop_sidecar/handlers/first_run|learnloop_sidecar.handlers.first_run]] — imports `IngestRunnerError`
 
 ## Dependencies
 
 ### LearnLoop dependencies
 
 - [[Reference/Modules/learnloop/ai/execution|learnloop.ai.execution]] — imports `record_model_calls`; calls `record_model_calls`
+- [[Reference/Modules/learnloop/ai/plan_fallback|learnloop.ai.plan_fallback]] — imports `module`; calls `batch_grant`, `batch_origin`, `batch_stamp`, `keep_batch_offer`, `note_unit`, `remember_batch_grant`, `unit`, `unit_origin`, `unit_token`
 - [[Reference/Modules/learnloop/ai/transport|learnloop.ai.transport]] — imports `interrupt_callback`; calls `interrupt_callback`
 - [[Reference/Modules/learnloop/clock|learnloop.clock]] — imports `Clock`, `SystemClock`, `utc_now_iso`; calls `SystemClock`, `utc_now_iso`
+- [[Reference/Modules/learnloop/content/pipeline/add_source|learnloop.content.pipeline.add_source]] — imports `default_authoring_route`; calls `default_authoring_route`
 - [[Reference/Modules/learnloop/content/pipeline/jobs|learnloop.content.pipeline.jobs]] — imports `module`; calls `append`, `get`, `values`
 - [[Reference/Modules/learnloop/db/checkpoint|learnloop.db.checkpoint]] — imports `checkpoint_wal`; calls `checkpoint_wal`
 - [[Reference/Modules/learnloop/db/repositories|learnloop.db.repositories]] — imports `Repository`
@@ -177,14 +189,48 @@ Use this module in context through:
 - [[Import Canonical Sources]]
 - [[Build a Study Map]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/cli/app|learnloop.cli.app]], [[Reference/Modules/learnloop/cli/runtime|learnloop.cli.runtime]], [[Reference/Modules/learnloop/content/pipeline/jobs|learnloop.content.pipeline.jobs]].
+Static participation evidence comes from [[Reference/Modules/learnloop/cli/app|learnloop.cli.app]], [[Reference/Modules/learnloop/cli/runtime|learnloop.cli.runtime]], [[Reference/Modules/learnloop/content/pipeline/add_source|learnloop.content.pipeline.add_source]], [[Reference/Modules/learnloop/content/pipeline/jobs|learnloop.content.pipeline.jobs]], [[Reference/Modules/learnloop/content/pipeline/reread|learnloop.content.pipeline.reread]] and 1 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
 ## Tests that define behavior
 
+- [tests/test_ad23_contract.py](../../../../../../../tests/test_ad23_contract.py) — direct import
+- [tests/test_ad23_fix_r5.py](../../../../../../../tests/test_ad23_fix_r5.py) — direct import
+  - `test_a_generation_jobs_commission_expires_seven_days_after_the_job_finished`
+- [tests/test_ad23_fix_review.py](../../../../../../../tests/test_ad23_fix_review.py) — direct import
+  - `test_a_serve_commission_queues_its_generation_once_at_its_point`
+- [tests/test_ad23_owner_decisions.py](../../../../../../../tests/test_ad23_owner_decisions.py) — direct import
 - [tests/test_concept_animation_service.py](../../../../../../../tests/test_concept_animation_service.py) — direct import
   - `test_runner_handler_drives_generation_through_the_queue`
+- [tests/test_coverage_on_extract.py](../../../../../../../tests/test_coverage_on_extract.py) — direct import
+  - `test_the_handler_is_registered_and_known`
+- [tests/test_curriculum_c3_codex_review.py](../../../../../../../tests/test_curriculum_c3_codex_review.py) — direct import
+  - `test_the_reader_s_own_import_refuses_a_syllabus_before_any_model_call`
+- [tests/test_exam_protection.py](../../../../../../../tests/test_exam_protection.py) — direct import
+  - `test_a_reader_check_over_held_out_material_is_refused_before_any_model_call`
+  - `test_a_reader_import_of_held_out_material_is_refused_before_any_model_call`
+- [tests/test_exam_protection_review.py](../../../../../../../tests/test_exam_protection_review.py) — direct import
+  - `test_a_reader_import_of_a_held_out_signal_is_refused`
+- [tests/test_figure_rich_failed_correction_durable.py](../../../../../../../tests/test_figure_rich_failed_correction_durable.py) — direct import
+  - `test_codex_f4_a_newer_cancelled_correction_still_speaks_for_the_figure_after_500_newer_rich_jobs`
+- [tests/test_figure_rich_job.py](../../../../../../../tests/test_figure_rich_job.py) — direct import
+  - `test_a_restart_never_wedges_a_row`
+- [tests/test_figure_rich_review_fixes.py](../../../../../../../tests/test_figure_rich_review_fixes.py) — direct import
+- [tests/test_figure_rich_rpc.py](../../../../../../../tests/test_figure_rich_rpc.py) — direct import
+  - `test_an_interrupted_rich_only_build_reads_as_failed_and_rich_retry_requeues_it`
+- [tests/test_figures_help_codex_review.py](../../../../../../../tests/test_figures_help_codex_review.py) — direct import
+- [tests/test_followups_nov2_figure_provenance.py](../../../../../../../tests/test_followups_nov2_figure_provenance.py) — direct import
+  - `test_a_queued_rich_revision_stops_when_an_inherited_input_becomes_protected_while_it_runs`
+- [tests/test_glm_ocr.py](../../../../../../../tests/test_glm_ocr.py) — direct import
+  - `test_an_image_import_needs_glm_and_reads_with_it`
+  - `test_every_glm_ocr_reading_queues_the_source_block_backfill`
+  - `test_identity_hashes_the_choice_not_endpoints_prices_or_timeouts`
+  - `test_r2_f2_an_import_without_the_ok_reads_locally_and_offers_text_recognition`
+  - `test_r2_f2_the_card_reads_it_again_with_text_recognition_after_the_ok`
+  - `test_r3_f2_a_scan_or_image_imported_without_the_ok_asks_for_it_on_its_card`
+- [tests/test_import_split_parity.py](../../../../../../../tests/test_import_split_parity.py) — direct import
+  - `test_the_reader_job_records_an_import_row_and_leaves_the_item_unchanged`
 - [tests/test_ingest_jobs.py](../../../../../../../tests/test_ingest_jobs.py) — direct import
   - `test_batch_completion_triggers_one_vault_reload`
   - `test_bind_premarks_previously_completed_apply_jobs`
@@ -240,6 +286,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_import_handler_registers_revision_and_extraction`
   - `test_import_retry_replaces_ir_left_by_interrupted_run`
   - `test_import_retry_reuses_revision_and_extraction`
+  - `test_keyed_enqueue_is_atomic_and_recovers_after_restart`
   - `test_lease_expiry_marks_interrupted`
   - `test_legacy_ingest_handler_wraps_pipeline_with_stub_client`
   - `test_long_running_handler_emits_periodic_heartbeats`
@@ -288,14 +335,62 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_inventory_runner_mailbox.py](../../../../../../../tests/test_inventory_runner_mailbox.py) — direct import
   - `test_keyboard_interrupt_during_parallel_inventory_releases_waiting_workers`
   - `test_parallel_inventory_notices_cancellation_without_polling_the_database_constantly`
+- [tests/test_keep_local_retired.py](../../../../../../../tests/test_keep_local_retired.py) — direct import
+  - `test_an_import_the_retired_choice_refused_offers_to_get_it_ready`
+- [tests/test_learner_data_relax_2.py](../../../../../../../tests/test_learner_data_relax_2.py) — direct import
+- [tests/test_library_exercises.py](../../../../../../../tests/test_library_exercises.py) — direct import
+- [tests/test_local_index.py](../../../../../../../tests/test_local_index.py) — direct import
+  - `test_a_deferred_index_job_is_woken_at_its_retry_time`
+  - `test_a_queued_index_job_whose_worker_never_started_is_started_by_the_sweep`
+  - `test_an_index_obligation_that_cannot_be_queued_fails_the_extraction_retryably`
+- [tests/test_mobile_host_coexistence.py](../../../../../../../tests/test_mobile_host_coexistence.py) — direct import
+  - `test_capture_host_coexists_without_primary_startup_work`
 - [tests/test_model_work_checkpoints.py](../../../../../../../tests/test_model_work_checkpoints.py) — direct import
   - `test_ingest_job_and_direct_inventory_key_windows_identically`
+- [tests/test_plan_first_transport.py](../../../../../../../tests/test_plan_first_transport.py) — direct import
+  - `test_rr_f2_a_feature_that_needs_its_own_price_is_not_served_by_another_features_grant`
+- [tests/test_plan_first_transport_grant_scope.py](../../../../../../../tests/test_plan_first_transport_grant_scope.py) — direct import
+  - `test_an_ingest_batch_carries_the_grant_only_when_the_learner_enqueued_it`
+  - `test_the_reader_imports_background_key_check_never_uses_the_grant`
+- [tests/test_plan_first_transport_offer_grants.py](../../../../../../../tests/test_plan_first_transport_offer_grants.py) — direct import
+  - `test_p3_a_batch_asks_on_its_own_and_its_answer_tokens_it`
+  - `test_p3_units_get_the_answered_offers_token_and_every_resume_keeps_it`
+  - `test_the_hang_guard_cancels_a_blocked_job_and_leaves_no_worker`
+- [tests/test_plan_first_transport_offer_grants_r5.py](../../../../../../../tests/test_plan_first_transport_offer_grants_r5.py) — direct import
+  - `test_m1_every_relay_path_keeps_its_units_vault_and_epoch`
+  - `test_m2_a_batch_resumed_after_a_restart_asks_again_as_its_origin`
+  - `test_m3_any_response_that_reports_a_batch_shows_its_offer_once`
+- [tests/test_query_student.py](../../../../../../../tests/test_query_student.py) — direct import
+  - `test_a_due_replay_is_scheduled_for_a_fully_indexed_library`
 - [tests/test_question_promotion_jobs.py](../../../../../../../tests/test_question_promotion_jobs.py) — direct import
   - `test_queue_revision_advances_after_promotion_job_is_completed`
 - [tests/test_quick_add.py](../../../../../../../tests/test_quick_add.py) — direct import
   - `test_quick_add_batches_take_queue_priority`
+- [tests/test_reader_active_reading.py](../../../../../../../tests/test_reader_active_reading.py) — direct import
+  - `test_the_job_refuses_held_out_material_before_any_call`
+- [tests/test_reader_passage_check.py](../../../../../../../tests/test_reader_passage_check.py) — direct import
+  - `test_a_check_held_past_the_wait_fails_retryably_and_never_completes_without_a_question`
+  - `test_a_spend_refusal_says_whether_the_price_is_missing_or_the_check_is_over_its_cap`
+  - `test_the_job_fails_closed_with_a_named_reason_when_isolation_is_unavailable`
+  - `test_the_job_reports_a_refusal_as_its_error_code_and_sends_nothing`
+- [tests/test_reading_hardening_2_fixes.py](../../../../../../../tests/test_reading_hardening_2_fixes.py) — direct import
+  - `test_f1_a_foreground_host_starts_no_worker_of_its_own`
+  - `test_f1_the_start_and_the_sweep_leave_work_that_cannot_run_alone`
+- [tests/test_reading_hardening_landing.py](../../../../../../../tests/test_reading_hardening_landing.py) — direct import
+  - `test_the_section_check_job_still_refuses_held_out_material`
+- [tests/test_reading_hardening_verify_fixes.py](../../../../../../../tests/test_reading_hardening_verify_fixes.py) — direct import
+  - `test_f1_a_cancel_committing_while_a_finished_build_plans_its_follow_on_leaves_nothing_queued`
+- [tests/test_reading_request_sweep.py](../../../../../../../tests/test_reading_request_sweep.py) — direct import
+  - `test_d_work_the_cli_finishes_leaves_the_request_due_for_the_sweep`
+- [tests/test_reread_safety.py](../../../../../../../tests/test_reread_safety.py) — direct import
+  - `test_a_retried_import_reads_the_revision_it_registered_not_the_current_one`
+  - `test_e1_a_failed_import_of_new_bytes_leaves_the_previous_revision_current`
+  - `test_e1_bytes_that_match_nowhere_refuse_plainly_and_register_nothing`
+  - `test_f6_an_import_that_reuses_an_older_reading_never_moves_annotations_backward`
+- [tests/test_secondary_attach.py](../../../../../../../tests/test_secondary_attach.py) — direct import
 - [tests/test_sidecar_goals.py](../../../../../../../tests/test_sidecar_goals.py) — direct import
   - `test_create_goal_enqueues_durable_population_batch`
+- [tests/test_source_exercise_rpcs.py](../../../../../../../tests/test_source_exercise_rpcs.py) — direct import
 - [tests/test_source_ingestion_v2lite.py](../../../../../../../tests/test_source_ingestion_v2lite.py) — direct import
   - `test_legacy_path_without_ir_unchanged`
   - `test_v2lite_batch_persists_ir_and_synthesizes_over_its_rendering`
@@ -303,9 +398,29 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_source_inventory.py](../../../../../../../tests/test_source_inventory.py) — direct import
   - `test_inventory_job_blocks_when_extraction_dependency_fails`
   - `test_inventory_job_caches_zero_tokens_on_hit`
+- [tests/test_source_space_resolver.py](../../../../../../../tests/test_source_space_resolver.py) — direct import
+  - `test_ordinary_use_completes_the_loop_opens_ask_citations_and_the_background_refit`
+- [tests/test_source_vector_backfill.py](../../../../../../../tests/test_source_vector_backfill.py) — direct import
+  - `test_a_backfill_that_cannot_be_queued_fails_the_import_retryably_and_the_retry_queues_it`
+  - `test_a_job_queued_before_the_switch_went_off_sends_nothing`
+  - `test_an_interruption_right_after_extraction_completes_still_indexes_the_source_on_retry`
 - [tests/test_sqlite_wal_lifecycle.py](../../../../../../../tests/test_sqlite_wal_lifecycle.py) — direct import
   - `test_finished_ingest_batch_truncates_the_wal`
   - `test_ingest_batch_checkpoints_once_when_it_becomes_terminal`
+- [tests/test_synthesis_sweep_primary_only.py](../../../../../../../tests/test_synthesis_sweep_primary_only.py) — direct import
+  - `test_recover_stale_leases_skips_only_the_sweep_when_asked`
+- [tests/test_ux_phase1_auto_build.py](../../../../../../../tests/test_ux_phase1_auto_build.py) — direct import
+  - `test_a_failed_fetch_says_so_in_one_line`
+- [tests/test_ux_phase1_review_fixes.py](../../../../../../../tests/test_ux_phase1_review_fixes.py) — direct import
+  - `test_f10_a_books_history_survives_lots_of_other_work`
+  - `test_f10_connecting_releases_a_book_however_old_its_wait`
+  - `test_f1_sending_a_whole_recording_out_waits_for_its_own_ok`
+  - `test_f3_a_planner_that_dies_after_queuing_its_build_is_never_orphaned`
+  - `test_f3_rereview_a_link_planner_that_dies_after_queuing_its_build_is_found`
+  - `test_f6_failed_chapters_are_built_again_by_build_the_whole_book`
+- [tests/test_ux_phase1_usability_round1.py](../../../../../../../tests/test_ux_phase1_usability_round1.py) — direct import
+  - `test_a_link_being_fetched_has_a_readable_name`
+- [tests/ux_phase1_support.py](../../../../../../../tests/ux_phase1_support.py) — direct import
 
 ## Modification guidance
 

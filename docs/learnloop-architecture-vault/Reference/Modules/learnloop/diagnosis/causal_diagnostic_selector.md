@@ -7,11 +7,11 @@ version: "1.0.0"
 source_path: "src/learnloop/diagnosis/causal_diagnostic_selector.py"
 source_paths:
   - "src/learnloop/diagnosis/causal_diagnostic_selector.py"
-source_commit: "b322ef2e9b5cebc241b612e4963a5aaf1a37f99a"
-source_commit_timestamp: "2026-08-20T18:04:29-04:00"
+source_commit: "d0ed73fe5b70b267fab771a67b9eb99cdf2d5e21"
+source_commit_timestamp: "2026-10-13T00:39:06-04:00"
 source_worktree_state: "clean"
 generated: true
-generated_at: "2026-09-23"
+generated_at: "2026-11-02"
 package: "learnloop.diagnosis"
 layer: "domain"
 concepts:
@@ -49,35 +49,37 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/diagnosis/causal_diagnostic_selector.py](../../../../../../src/learnloop/diagnosis/causal_diagnostic_selector.py) |
-| Source lines | 593 |
+| Source lines | 671 |
 | Owning package | [[Reference/Modules/learnloop/diagnosis/_package|learnloop.diagnosis]] |
 | Architecture layer | `domain` |
 | Refactor status | `EVALUATION` |
 | Worktree state | `clean` |
-| Source commit | `b322ef2e9b5cebc241b612e4963a5aaf1a37f99a` |
-| Commit timestamp | `2026-08-20T18:04:29-04:00` |
+| Source commit | `d0ed73fe5b70b267fab771a67b9eb99cdf2d5e21` |
+| Commit timestamp | `2026-10-13T00:39:06-04:00` |
 
 > [!note] Evaluation-only authority
 > This module computes shadow, audit, or offline evidence. Its outputs do not directly choose learner-facing actions unless a governed promotion path says otherwise.
 
 ## Public API
 
-- `duration_estimates_for_repair_classes(repository: Repository, repair_class_ids: Sequence[str]) -> dict[str, dict[str, Any]]` ([source](../../../../../../src/learnloop/diagnosis/causal_diagnostic_selector.py), line 83) — Minutes per repair class with an honest source label.
-- `build_causal_loss_table(repository: Repository, *, repair_class_by_hypothesis: Mapping[str, str | None], duration_overrides: Mapping[str, float] | None=None) -> tuple[AL.LossTable | None, dict[str, Any]]` ([source](../../../../../../src/learnloop/diagnosis/causal_diagnostic_selector.py), line 130) — L(hypothesis, repair_class) for the factor's concrete hypotheses.
-- `likelihood_regime_for_candidate(repository: Repository, candidate: Mapping[str, Any] | None, *, concrete_hypothesis_ids: Sequence[str]) -> tuple[str, dict[str, Any], dict[str, dict[str, float]] | None]` ([source](../../../../../../src/learnloop/diagnosis/causal_diagnostic_selector.py), line 195) — Classify the §6.2 arm and, for arm B, build the noiseless member.
-- `record_shadow_selection(repository: Repository, *, decision_receipt: Mapping[str, Any], candidates: Sequence[Mapping[str, Any]]=(), chosen_candidate: Mapping[str, Any] | None=None, repair_class_by_hypothesis: Mapping[str, str | None] | None=None, common_repair_class_id: str | None=None, clock: Clock | None=None) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/diagnosis/causal_diagnostic_selector.py), line 300) — Compute + persist the §6.6 baselines for one live probe decision.
+- `duration_estimates_for_repair_classes(repository: Repository, repair_class_ids: Sequence[str]) -> dict[str, dict[str, Any]]` ([source](../../../../../../src/learnloop/diagnosis/causal_diagnostic_selector.py), line 91) — Minutes per repair class with an honest source label.
+- `build_causal_loss_table(repository: Repository, *, repair_class_by_hypothesis: Mapping[str, str | None], duration_overrides: Mapping[str, float] | None=None, unresolved_minutes: Mapping[str, Mapping[str, Any]] | None=None) -> tuple[AL.LossTable | None, dict[str, Any]]` ([source](../../../../../../src/learnloop/diagnosis/causal_diagnostic_selector.py), line 138) — L(hypothesis, repair_class) for the factor's concrete hypotheses.
+- `likelihood_regime_for_candidate(repository: Repository, candidate: Mapping[str, Any] | None, *, concrete_hypothesis_ids: Sequence[str]) -> tuple[str, dict[str, Any], dict[str, dict[str, float]] | None]` ([source](../../../../../../src/learnloop/diagnosis/causal_diagnostic_selector.py), line 207) — Classify the §6.2 arm and, for arm B, build the noiseless member.
+- `record_shadow_selection(repository: Repository, *, decision_receipt: Mapping[str, Any], candidates: Sequence[Mapping[str, Any]]=(), chosen_candidate: Mapping[str, Any] | None=None, repair_class_by_hypothesis: Mapping[str, str | None] | None=None, common_repair_class_id: str | None=None, vault: Any=None, clock: Clock | None=None) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/diagnosis/causal_diagnostic_selector.py), line 312) — Compute + persist the §6.6 baselines for one live probe decision.
 
 ### Module constants
 
-- `SHADOW_POLICY_VERSION` ([src/learnloop/diagnosis/causal_diagnostic_selector.py](../../../../../../src/learnloop/diagnosis/causal_diagnostic_selector.py), line 51)
-- `LIKELIHOOD_REGIMES` ([src/learnloop/diagnosis/causal_diagnostic_selector.py](../../../../../../src/learnloop/diagnosis/causal_diagnostic_selector.py), line 54)
-- `LOSS_TABLE_REGIME_SHADOW_V1` ([src/learnloop/diagnosis/causal_diagnostic_selector.py](../../../../../../src/learnloop/diagnosis/causal_diagnostic_selector.py), line 63)
+- `SHADOW_POLICY_VERSION` ([src/learnloop/diagnosis/causal_diagnostic_selector.py](../../../../../../src/learnloop/diagnosis/causal_diagnostic_selector.py), line 53)
+- `LIKELIHOOD_REGIMES` ([src/learnloop/diagnosis/causal_diagnostic_selector.py](../../../../../../src/learnloop/diagnosis/causal_diagnostic_selector.py), line 56)
+- `LOSS_TABLE_REGIME_SHADOW_V1` ([src/learnloop/diagnosis/causal_diagnostic_selector.py](../../../../../../src/learnloop/diagnosis/causal_diagnostic_selector.py), line 65)
+- `LOSS_TABLE_REGIME_MEASURED_V1` ([src/learnloop/diagnosis/causal_diagnostic_selector.py](../../../../../../src/learnloop/diagnosis/causal_diagnostic_selector.py), line 69)
+- `DEFAULT_PROBE_BURDEN_MINUTES` ([src/learnloop/diagnosis/causal_diagnostic_selector.py](../../../../../../src/learnloop/diagnosis/causal_diagnostic_selector.py), line 71)
 
 ## Internal implementation anchors
 
-- `_stable_emission_key(values: Mapping[str, Any]) -> str` ([source](../../../../../../src/learnloop/diagnosis/causal_diagnostic_selector.py), line 66)
-- `_unavailable(reason: str, detail: Sequence[str]=()) -> dict[str, Any]` ([source](../../../../../../src/learnloop/diagnosis/causal_diagnostic_selector.py), line 71)
-- `_conditional_concrete_prior(prior: Mapping[str, Any]) -> tuple[dict[str, float], dict[str, Any]]` ([source](../../../../../../src/learnloop/diagnosis/causal_diagnostic_selector.py), line 279) — Strip the open-set arm EXPLICITLY, recording the excluded mass.
+- `_stable_emission_key(values: Mapping[str, Any]) -> str` ([source](../../../../../../src/learnloop/diagnosis/causal_diagnostic_selector.py), line 74)
+- `_unavailable(reason: str, detail: Sequence[str]=()) -> dict[str, Any]` ([source](../../../../../../src/learnloop/diagnosis/causal_diagnostic_selector.py), line 79)
+- `_conditional_concrete_prior(prior: Mapping[str, Any]) -> tuple[dict[str, float], dict[str, Any]]` ([source](../../../../../../src/learnloop/diagnosis/causal_diagnostic_selector.py), line 291) — Strip the open-set arm EXPLICITLY, recording the excluded mass.
 
 ## Who imports or calls it
 
@@ -86,6 +88,7 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 
 - [[Reference/Modules/learnloop/diagnosis/causal_orchestrator|learnloop.diagnosis.causal_orchestrator]] — imports `module`; statically calls `record_shadow_selection`
 - [[Reference/Modules/learnloop/diagnosis/causal_selection_audit|learnloop.diagnosis.causal_selection_audit]] — imports `duration_estimates_for_repair_classes`, `likelihood_regime_for_candidate`; statically calls `duration_estimates_for_repair_classes`, `likelihood_regime_for_candidate`
+- [[Reference/Modules/learnloop/instructional/valuation|learnloop.instructional.valuation]] — imports `build_causal_loss_table`, `likelihood_regime_for_candidate`; statically calls `build_causal_loss_table`, `likelihood_regime_for_candidate`
 
 ## Dependencies
 
@@ -97,6 +100,8 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 - [[Reference/Modules/learnloop/diagnosis/probe_hypotheses|learnloop.diagnosis.probe_hypotheses]] — imports `H_OTHER`
 - [[Reference/Modules/learnloop/scheduling/action_loss|learnloop.scheduling.action_loss]] — imports `module`; calls `build_loss_table`
 - [[Reference/Modules/learnloop/scheduling/evsi|learnloop.scheduling.evsi]] — imports `module`; calls `DiagnosticCandidate`, `EVSIInputError`, `evsi_for_conditionals`, `rank_feasible`
+- [[Reference/Modules/learnloop/scheduling/unresolved_cost|learnloop.scheduling.unresolved_cost]] — imports `module`; calls `unresolved_minutes_for_hypotheses`
+- [[Reference/Modules/learnloop/scheduling/voi_forecasts|learnloop.scheduling.voi_forecasts]] — imports `module`; calls `parameter`, `record_rank_feasible_forecast`
 
 ### Platform and third-party dependencies
 
@@ -109,7 +114,7 @@ Use this module in context through:
 
 - [[Process Model Output]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/diagnosis/causal_orchestrator|learnloop.diagnosis.causal_orchestrator]], [[Reference/Modules/learnloop/diagnosis/causal_selection_audit|learnloop.diagnosis.causal_selection_audit]].
+Static participation evidence comes from [[Reference/Modules/learnloop/diagnosis/causal_orchestrator|learnloop.diagnosis.causal_orchestrator]], [[Reference/Modules/learnloop/diagnosis/causal_selection_audit|learnloop.diagnosis.causal_selection_audit]], [[Reference/Modules/learnloop/instructional/valuation|learnloop.instructional.valuation]].
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
@@ -120,6 +125,9 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_evpi_skip_bound_licenses_stop_under_a_skewed_supported_prior`
   - `test_no_action_mapping_is_a_typed_abstention_not_a_fabricated_route`
   - `test_stripping_the_h_other_disposition_demotes_arm_b`
+- [tests/test_voi_forecasts.py](../../../../../../tests/test_voi_forecasts.py) — direct import
+  - `test_causal_shadow_records_its_formal_evsi_forecast`
+  - `test_measured_loss_switch_charges_unresolved_minutes_in_the_shadow`
 
 ## Modification guidance
 

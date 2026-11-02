@@ -7,11 +7,11 @@ version: "1.0.0"
 source_path: "src/learnloop/vault/loader.py"
 source_paths:
   - "src/learnloop/vault/loader.py"
-source_commit: "07139e5b79e712debfc7983abd1f6a3995c534ee"
-source_commit_timestamp: "2026-09-23T12:22:50-04:00"
+source_commit: "ad1cc27ff6a5f3d41f516b7eb56f5503e8e7f15b"
+source_commit_timestamp: "2026-10-25T12:27:17-04:00"
 source_worktree_state: "clean"
 generated: true
-generated_at: "2026-09-23"
+generated_at: "2026-11-02"
 package: "learnloop.vault"
 layer: "infrastructure"
 concepts:
@@ -38,7 +38,7 @@ Up: [[Reference/Modules/learnloop/vault/_package|learnloop.vault]] · Root: [[Mo
 
 ## Why this module exists
 
-This module keeps loader behavior inside its owning package, [[Reference/Modules/learnloop/vault/_package|learnloop.vault]]. Its public surface centers on `load_vault`, `load_practice_item_file`, `init_vault`, `add_subject`, `add_note`.
+This module keeps loader behavior inside its owning package, [[Reference/Modules/learnloop/vault/_package|learnloop.vault]]. Its public surface centers on `vault_loads_forbidden`, `content_files`, `content_digest`, `vault_content_fingerprint`, `SettledLoad`, `settled_load_vault`, `load_vault`, `load_practice_item_file` and 4 more public symbols.
 
 The authoritative system-level explanation remains in [[State and Persistence]]; this note records where this source module participates rather than restating those concepts.
 
@@ -49,53 +49,107 @@ The authoritative system-level explanation remains in [[State and Persistence]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/vault/loader.py](../../../../../../src/learnloop/vault/loader.py) |
-| Source lines | 453 |
+| Source lines | 874 |
 | Owning package | [[Reference/Modules/learnloop/vault/_package|learnloop.vault]] |
 | Architecture layer | `infrastructure` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `07139e5b79e712debfc7983abd1f6a3995c534ee` |
-| Commit timestamp | `2026-09-23T12:22:50-04:00` |
+| Source commit | `ad1cc27ff6a5f3d41f516b7eb56f5503e8e7f15b` |
+| Commit timestamp | `2026-10-25T12:27:17-04:00` |
 
 ## Public API
 
-- `load_vault(root: Path | None=None, *, read_yaml_file: YamlFileReader=read_yaml_data) -> LoadedVault` ([source](../../../../../../src/learnloop/vault/loader.py), line 73) — Parse every vault file into a ``LoadedVault``; problems become ``issues``.
-- `load_practice_item_file(path: Path, loaded: LoadedVault, *, issues: list[DoctorIssue] | None=None, read_yaml_file: YamlFileReader=read_yaml_data) -> PracticeItem | None` ([source](../../../../../../src/learnloop/vault/loader.py), line 268) — Parse one Practice Item through the canonical full-loader path.
-- `init_vault(root: Path, clock: Clock | None=None) -> Path` ([source](../../../../../../src/learnloop/vault/loader.py), line 330)
-- `add_subject(root: Path, subject_id: str, title: str, clock: Clock | None=None) -> Path` ([source](../../../../../../src/learnloop/vault/loader.py), line 380)
-- `add_note(root: Path, subject_id: str, note_id: str, title: str, body: str, *, source_type: str='learner_note', related_los: list[str] | None=None, clock: Clock | None=None) -> Path` ([source](../../../../../../src/learnloop/vault/loader.py), line 420)
+- `vault_loads_forbidden(reason: str | None) -> Iterator[None]` ([source](../../../../../../src/learnloop/vault/loader.py), line 90) — Refuse :func:`load_vault` in this context (``reason``), or allow it again (None).
+- `content_files(root: Path) -> dict[str, tuple[int, int]]` ([source](../../../../../../src/learnloop/vault/loader.py), line 120) — ``{relative path: (size, mtime_ns)}`` for every file :func:`load_vault` can read.
+- `content_digest(files: dict[str, tuple[int, int]]) -> str` ([source](../../../../../../src/learnloop/vault/loader.py), line 182) — One digest over path, size and mtime of ``files`` (:func:`content_files`), and its link entries.
+- `vault_content_fingerprint(root: Path) -> str` ([source](../../../../../../src/learnloop/vault/loader.py), line 189) — The vault's content fingerprint: path, size and mtime of the files the loader reads.
+- `class SettledLoad` ([source](../../../../../../src/learnloop/vault/loader.py), line 211) — A vault load checked against the files it was read from.
+  - `settled(self) -> bool` (line 228; public)
+- `settled_load_vault(root: Path, *, load: Callable[[Path], LoadedVault] | None=None, fingerprint: str | None=None, attempts: int=SETTLE_ATTEMPTS, pause_seconds: float=SETTLE_PAUSE_SECONDS) -> SettledLoad` ([source](../../../../../../src/learnloop/vault/loader.py), line 232) — Load the vault while another process may be writing it (a secondary's read).
+- `load_vault(root: Path | None=None, *, read_yaml_file: YamlFileReader=read_yaml_data, load_environment: bool=True) -> LoadedVault` ([source](../../../../../../src/learnloop/vault/loader.py), line 292) — Parse every vault file into a ``LoadedVault``; problems become ``issues``.
+- `load_practice_item_file(path: Path, loaded: LoadedVault, *, issues: list[DoctorIssue] | None=None, read_yaml_file: YamlFileReader=read_yaml_data) -> PracticeItem | None` ([source](../../../../../../src/learnloop/vault/loader.py), line 665) — Parse one Practice Item through the canonical full-loader path.
+- `init_vault(root: Path, clock: Clock | None=None) -> Path` ([source](../../../../../../src/learnloop/vault/loader.py), line 727)
+- `add_subject(root: Path, subject_id: str, title: str, clock: Clock | None=None) -> Path` ([source](../../../../../../src/learnloop/vault/loader.py), line 777)
+- `add_note(root: Path, subject_id: str, note_id: str, title: str, body: str, *, source_type: str='learner_note', related_los: list[str] | None=None, clock: Clock | None=None) -> Path` ([source](../../../../../../src/learnloop/vault/loader.py), line 817)
+- `move_note(root: Path, note_id: str, subject_id: str, *, clock: Clock | None=None) -> Path` ([source](../../../../../../src/learnloop/vault/loader.py), line 853) — Make ``subject_id`` a note's only subject and file it in that subject's folder.
 
 ### Module constants
 
-- `T` ([src/learnloop/vault/loader.py](../../../../../../src/learnloop/vault/loader.py), line 39)
-- `DEFAULT_ERROR_TYPE_SEEDS` ([src/learnloop/vault/loader.py](../../../../../../src/learnloop/vault/loader.py), line 296)
+- `T` ([src/learnloop/vault/loader.py](../../../../../../src/learnloop/vault/loader.py), line 50)
+- `_LOADS_FORBIDDEN` ([src/learnloop/vault/loader.py](../../../../../../src/learnloop/vault/loader.py), line 86)
+- `CONTENT_FINGERPRINT_TTL_SECONDS` ([src/learnloop/vault/loader.py](../../../../../../src/learnloop/vault/loader.py), line 103)
+- `_CONTENT_SUFFIXES` ([src/learnloop/vault/loader.py](../../../../../../src/learnloop/vault/loader.py), line 106)
+- `_ROOT_SKIP_DIRS` ([src/learnloop/vault/loader.py](../../../../../../src/learnloop/vault/loader.py), line 112)
+- `LINK_ENTRY_SUFFIX` ([src/learnloop/vault/loader.py](../../../../../../src/learnloop/vault/loader.py), line 117)
+- `SETTLE_ATTEMPTS` ([src/learnloop/vault/loader.py](../../../../../../src/learnloop/vault/loader.py), line 206)
+- `SETTLE_PAUSE_SECONDS` ([src/learnloop/vault/loader.py](../../../../../../src/learnloop/vault/loader.py), line 207)
+- `_MODALITY_RANK` ([src/learnloop/vault/loader.py](../../../../../../src/learnloop/vault/loader.py), line 560)
+- `DEFAULT_ERROR_TYPE_SEEDS` ([src/learnloop/vault/loader.py](../../../../../../src/learnloop/vault/loader.py), line 693)
 
 ## Internal implementation anchors
 
-- `_load_yaml_model(path: Path, model: type[T], issues: list[DoctorIssue], read_yaml_file: YamlFileReader=read_yaml_data) -> T | None` ([source](../../../../../../src/learnloop/vault/loader.py), line 43)
-- `_load_markdown_model(path: Path, model: type[T], issues: list[DoctorIssue]) -> tuple[T | None, str]` ([source](../../../../../../src/learnloop/vault/loader.py), line 58)
-- `_load_subject_dir(subject_dir: Path, loaded: LoadedVault, read_yaml_file: YamlFileReader) -> None` ([source](../../../../../../src/learnloop/vault/loader.py), line 141)
-- `_load_note(path: Path, root: Path, folder_subject: str, issues: list[DoctorIssue]) -> Note | None` ([source](../../../../../../src/learnloop/vault/loader.py), line 185)
-- `_validate_loaded_vault(loaded: LoadedVault) -> None` ([source](../../../../../../src/learnloop/vault/loader.py), line 204)
-- `_facet_aliases(facets_file: EvidenceFacetsFile) -> dict[str, str]` ([source](../../../../../../src/learnloop/vault/loader.py), line 229)
-- `_canonicalized_practice_item_facets(loaded: LoadedVault, item: PracticeItem) -> PracticeItem` ([source](../../../../../../src/learnloop/vault/loader.py), line 238)
+- `_load_yaml_model(path: Path, model: type[T], issues: list[DoctorIssue], read_yaml_file: YamlFileReader=read_yaml_data) -> T | None` ([source](../../../../../../src/learnloop/vault/loader.py), line 54)
+- `_load_markdown_model(path: Path, model: type[T], issues: list[DoctorIssue]) -> tuple[T | None, str]` ([source](../../../../../../src/learnloop/vault/loader.py), line 69)
+- `_source_sets_caught_empty(root: Path, vault: LoadedVault, files: dict[str, tuple[int, int]]) -> bool` ([source](../../../../../../src/learnloop/vault/loader.py), line 271) — The source-sets file is empty: a writer truncated it to rewrite it.
+- `_load_subject_dir(subject_dir: Path, loaded: LoadedVault, read_yaml_file: YamlFileReader) -> None` ([source](../../../../../../src/learnloop/vault/loader.py), line 380)
+- `_load_note(path: Path, root: Path, folder_subject: str, issues: list[DoctorIssue]) -> Note | None` ([source](../../../../../../src/learnloop/vault/loader.py), line 432)
+- `_validate_loaded_vault(loaded: LoadedVault) -> None` ([source](../../../../../../src/learnloop/vault/loader.py), line 451)
+- `_facet_aliases(facets_file: EvidenceFacetsFile) -> dict[str, str]` ([source](../../../../../../src/learnloop/vault/loader.py), line 494)
+- `_canonicalized_practice_item_facets(loaded: LoadedVault, item: PracticeItem) -> PracticeItem` ([source](../../../../../../src/learnloop/vault/loader.py), line 503)
+- `_collapsed_alias_targets(targets: list[Any], canonical: Any) -> list[Any]` ([source](../../../../../../src/learnloop/vault/loader.py), line 563) — Criterion targets with aliases resolved, one per canonical (facet, capability).
+- `_collapsed_alias_components(values: list[Any], canonical: Any) -> list[Any]` ([source](../../../../../../src/learnloop/vault/loader.py), line 595) — Recipe components with aliases resolved, one per canonical (facet, capability).
+- `_canonicalized_learning_object_facets(loaded: LoadedVault, learning_object: LearningObject) -> LearningObject` ([source](../../../../../../src/learnloop/vault/loader.py), line 624) — Recipe components name canonical facets: an alias resolves at load.
 
 ## Who imports or calls it
 
 > [!note] Static evidence boundary
 > “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
 
+- [[Reference/Modules/learnloop/ad_successor_upgrade|learnloop.ad_successor_upgrade]] — imports `load_vault`; statically calls `load_vault`
+- [[Reference/Modules/learnloop/adaptive_difficulty/generation|learnloop.adaptive_difficulty.generation]] — imports `load_vault`; statically calls `load_vault`
+- [[Reference/Modules/learnloop/adaptive_difficulty/operation|learnloop.adaptive_difficulty.operation]] — imports `vault_loads_forbidden`; statically calls `vault_loads_forbidden`
+- [[Reference/Modules/learnloop/attempt_content_state_upgrade|learnloop.attempt_content_state_upgrade]] — imports `load_vault`; statically calls `load_vault`
 - [[Reference/Modules/learnloop/attempts/measurement_corrections|learnloop.attempts.measurement_corrections]] — imports `load_vault`; statically calls `load_vault`
 - [[Reference/Modules/learnloop/bootstrap|learnloop.bootstrap]] — imports `add_subject`, `init_vault`; statically calls `add_subject`, `init_vault`
+- [[Reference/Modules/learnloop/claim_fixes_upgrade|learnloop.claim_fixes_upgrade]] — imports `load_vault`; statically calls `load_vault`
+- [[Reference/Modules/learnloop/cli/ad|learnloop.cli.ad]] — imports `load_vault`; statically calls `load_vault`
+- [[Reference/Modules/learnloop/cli/ai|learnloop.cli.ai]] — imports `load_vault`; statically calls `load_vault`
+- [[Reference/Modules/learnloop/cli/contamination|learnloop.cli.contamination]] — imports `load_vault`; statically calls `load_vault`
+- [[Reference/Modules/learnloop/cli/curriculum|learnloop.cli.curriculum]] — imports `load_vault`; statically calls `load_vault`
+- [[Reference/Modules/learnloop/cli/decider|learnloop.cli.decider]] — imports `load_vault`; statically calls `load_vault`
+- [[Reference/Modules/learnloop/cli/diagnose|learnloop.cli.diagnose]] — imports `load_vault`; statically calls `load_vault`
+- [[Reference/Modules/learnloop/cli/embeddings|learnloop.cli.embeddings]] — imports `load_vault`; statically calls `load_vault`
+- [[Reference/Modules/learnloop/cli/evaluation|learnloop.cli.evaluation]] — imports `load_vault`; statically calls `load_vault`
+- [[Reference/Modules/learnloop/cli/evsi|learnloop.cli.evsi]] — imports `load_vault`; statically calls `load_vault`
+- [[Reference/Modules/learnloop/cli/facets|learnloop.cli.facets]] — imports `load_vault`; statically calls `load_vault`
+- [[Reference/Modules/learnloop/cli/families|learnloop.cli.families]] — imports `load_vault`; statically calls `load_vault`
+- [[Reference/Modules/learnloop/cli/field|learnloop.cli.field]] — imports `load_vault`; statically calls `load_vault`
+- [[Reference/Modules/learnloop/cli/field_classification|learnloop.cli.field_classification]] — imports `load_vault`; statically calls `load_vault`
+- [[Reference/Modules/learnloop/cli/gaps|learnloop.cli.gaps]] — imports `load_vault`; statically calls `load_vault`
 - [[Reference/Modules/learnloop/cli/grading|learnloop.cli.grading]] — imports `load_vault`; statically calls `load_vault`
+- [[Reference/Modules/learnloop/cli/hints|learnloop.cli.hints]] — imports `load_vault`; statically calls `load_vault`
+- [[Reference/Modules/learnloop/cli/pf|learnloop.cli.pf]] — imports `load_vault`; statically calls `load_vault`
+- [[Reference/Modules/learnloop/cli/placement|learnloop.cli.placement]] — imports `load_vault`; statically calls `load_vault`
+- [[Reference/Modules/learnloop/cli/plan|learnloop.cli.plan]] — imports `load_vault`; statically calls `load_vault`
+- [[Reference/Modules/learnloop/cli/practice_index|learnloop.cli.practice_index]] — imports `load_vault`; statically calls `load_vault`
+- [[Reference/Modules/learnloop/cli/reader|learnloop.cli.reader]] — imports `load_vault`; statically calls `load_vault`
 - [[Reference/Modules/learnloop/cli/receipts|learnloop.cli.receipts]] — imports `load_vault`; statically calls `load_vault`
+- [[Reference/Modules/learnloop/cli/recurrence|learnloop.cli.recurrence]] — imports `load_vault`; statically calls `load_vault`
+- [[Reference/Modules/learnloop/cli/router|learnloop.cli.router]] — imports `load_vault`; statically calls `load_vault`
 - [[Reference/Modules/learnloop/cli/runtime|learnloop.cli.runtime]] — imports `add_note`, `add_subject`, `load_vault`; statically calls `load_vault`
 - [[Reference/Modules/learnloop/cli/source_set|learnloop.cli.source_set]] — imports `load_vault`; statically calls `load_vault`
+- [[Reference/Modules/learnloop/cli/sources|learnloop.cli.sources]] — imports `load_vault`; statically calls `load_vault`
+- [[Reference/Modules/learnloop/cli/teacher|learnloop.cli.teacher]] — imports `load_vault`; statically calls `load_vault`
+- [[Reference/Modules/learnloop/cold_retry_reschedule_upgrade|learnloop.cold_retry_reschedule_upgrade]] — imports `load_vault`; statically calls `load_vault`
 - [[Reference/Modules/learnloop/content/authoring/concept_animation|learnloop.content.authoring.concept_animation]] — imports `load_vault`; statically calls `load_vault`
 - [[Reference/Modules/learnloop/content/authoring/exercise_authoring|learnloop.content.authoring.exercise_authoring]] — imports `load_vault`; statically calls `load_vault`
 - [[Reference/Modules/learnloop/content/authoring/item_authoring|learnloop.content.authoring.item_authoring]] — imports `load_vault`; statically calls `load_vault`
 - [[Reference/Modules/learnloop/content/authoring/practice_generation|learnloop.content.authoring.practice_generation]] — imports `load_vault`; statically calls `load_vault`
 - [[Reference/Modules/learnloop/content/authoring/rung_variants|learnloop.content.authoring.rung_variants]] — imports `load_vault`; statically calls `load_vault`
+- [[Reference/Modules/learnloop/content/authoring/source_exercise_import|learnloop.content.authoring.source_exercise_import]] — imports `load_vault`; statically calls `load_vault`
+- [[Reference/Modules/learnloop/content/facet_identity/actions|learnloop.content.facet_identity.actions]] — imports `load_vault`; statically calls `load_vault`
+- [[Reference/Modules/learnloop/content/facet_identity/dedupe|learnloop.content.facet_identity.dedupe]] — imports `load_vault`; statically calls `load_vault`
+- [[Reference/Modules/learnloop/content/pipeline/add_source|learnloop.content.pipeline.add_source]] — imports `add_subject`, `load_vault`; statically calls `add_subject`, `load_vault`
 - [[Reference/Modules/learnloop/content/pipeline/jobs|learnloop.content.pipeline.jobs]] — imports `load_vault`; statically calls `load_vault`
 - [[Reference/Modules/learnloop/content/pipeline/revision_refresh|learnloop.content.pipeline.revision_refresh]] — imports `load_vault`; statically calls `load_vault`
 - [[Reference/Modules/learnloop/content/pipeline/source_ingestion|learnloop.content.pipeline.source_ingestion]] — imports `add_subject`, `load_vault`; statically calls `add_subject`, `load_vault`
@@ -110,26 +164,75 @@ The authoritative system-level explanation remains in [[State and Persistence]];
 - [[Reference/Modules/learnloop/curriculum/graph_edit_proposals|learnloop.curriculum.graph_edit_proposals]] — imports `load_vault`; statically calls `load_vault`
 - [[Reference/Modules/learnloop/curriculum/integration_backfill|learnloop.curriculum.integration_backfill]] — imports `load_vault`; statically calls `load_vault`
 - [[Reference/Modules/learnloop/curriculum/rung_backfill|learnloop.curriculum.rung_backfill]] — imports `load_vault`; statically calls `load_vault`
+- [[Reference/Modules/learnloop/curriculum/subject_registry|learnloop.curriculum.subject_registry]] — imports `load_vault`; statically calls `load_vault`
+- [[Reference/Modules/learnloop/daily_plan_upgrade|learnloop.daily_plan_upgrade]] — imports `load_vault`; statically calls `load_vault`
+- [[Reference/Modules/learnloop/decider_upgrade|learnloop.decider_upgrade]] — imports `load_vault`; statically calls `load_vault`
+- [[Reference/Modules/learnloop/deliverable_plan_upgrade|learnloop.deliverable_plan_upgrade]] — imports `load_vault`; statically calls `load_vault`
 - [[Reference/Modules/learnloop/diagnosis/calibration_sessions|learnloop.diagnosis.calibration_sessions]] — imports `load_vault`; statically calls `load_vault`
 - [[Reference/Modules/learnloop/diagnosis/probe_dialogue|learnloop.diagnosis.probe_dialogue]] — imports `load_vault`; statically calls `load_vault`
 - [[Reference/Modules/learnloop/diagnosis/probe_instance_generation|learnloop.diagnosis.probe_instance_generation]] — imports `load_vault`; statically calls `load_vault`
+- [[Reference/Modules/learnloop/diagnosis/recurrence/upgrade|learnloop.diagnosis.recurrence.upgrade]] — imports `load_vault`; statically calls `load_vault`
+- [[Reference/Modules/learnloop/diagnosis/text_gaps/actions|learnloop.diagnosis.text_gaps.actions]] — imports `load_vault`; statically calls `load_vault`
+- [[Reference/Modules/learnloop/diagnosis/text_gaps/jobs|learnloop.diagnosis.text_gaps.jobs]] — imports `load_vault`; statically calls `load_vault`
+- [[Reference/Modules/learnloop/diagnosis/text_gaps/pipeline|learnloop.diagnosis.text_gaps.pipeline]] — imports `load_vault`; statically calls `load_vault`
+- [[Reference/Modules/learnloop/eligibility_decision_upgrade|learnloop.eligibility_decision_upgrade]] — imports `load_vault`; statically calls `load_vault`
+- [[Reference/Modules/learnloop/experiments/contextual_embeddings/corpus|learnloop.experiments.contextual_embeddings.corpus]] — imports `load_vault`; statically calls `load_vault`
+- [[Reference/Modules/learnloop/experiments/contextual_embeddings/records|learnloop.experiments.contextual_embeddings.records]] — imports `init_vault`, `load_vault`; statically calls `init_vault`, `load_vault`
+- [[Reference/Modules/learnloop/experiments/contextual_embeddings/system_arms|learnloop.experiments.contextual_embeddings.system_arms]] — imports `load_vault`; statically calls `load_vault`
+- [[Reference/Modules/learnloop/figure_admission|learnloop.figure_admission]] — imports `load_vault`; statically calls `load_vault`
+- [[Reference/Modules/learnloop/goals/goal_lo|learnloop.goals.goal_lo]] — imports `load_vault`; statically calls `load_vault`
+- [[Reference/Modules/learnloop/help_fold_attach_upgrade|learnloop.help_fold_attach_upgrade]] — imports `load_vault`; statically calls `load_vault`
+- [[Reference/Modules/learnloop/instructional/harvest|learnloop.instructional.harvest]] — imports `load_vault`; statically calls `load_vault`
+- [[Reference/Modules/learnloop/instructional/needs|learnloop.instructional.needs]] — imports `load_vault`; statically calls `load_vault`
+- [[Reference/Modules/learnloop/intent_upgrade|learnloop.intent_upgrade]] — imports `load_vault`; statically calls `load_vault`
 - [[Reference/Modules/learnloop/learner/recall_calibration|learnloop.learner.recall_calibration]] — imports `add_subject`, `init_vault`, `load_vault`; statically calls `add_subject`, `init_vault`, `load_vault`
+- [[Reference/Modules/learnloop/learner_text_gap_upgrade|learnloop.learner_text_gap_upgrade]] — imports `load_vault`; statically calls `load_vault`
+- [[Reference/Modules/learnloop/method_explicit_upgrade|learnloop.method_explicit_upgrade]] — imports `load_vault`; statically calls `load_vault`
+- [[Reference/Modules/learnloop/one_ask_upgrade|learnloop.one_ask_upgrade]] — imports `load_vault`; statically calls `load_vault`
 - [[Reference/Modules/learnloop/ops/debug_time|learnloop.ops.debug_time]] — imports `load_vault`; statically calls `load_vault`
 - [[Reference/Modules/learnloop/ops/doctor|learnloop.ops.doctor]] — imports `load_vault`; statically calls `load_vault`
+- [[Reference/Modules/learnloop/ops/pf_generation|learnloop.ops.pf_generation]] — imports `load_vault`; statically calls `load_vault`
+- [[Reference/Modules/learnloop/ops/pf_publish|learnloop.ops.pf_publish]] — imports `load_vault`; statically calls `load_vault`
 - [[Reference/Modules/learnloop/ops/vault_upgrade|learnloop.ops.vault_upgrade]] — imports `load_vault`; statically calls `load_vault`
+- [[Reference/Modules/learnloop/probe_tie_upgrade|learnloop.probe_tie_upgrade]] — imports `load_vault`; statically calls `load_vault`
+- [[Reference/Modules/learnloop/proof_check_upgrade|learnloop.proof_check_upgrade]] — imports `load_vault`; statically calls `load_vault`
+- [[Reference/Modules/learnloop/reader/reader_authoring|learnloop.reader.reader_authoring]] — imports `load_vault`; statically calls `load_vault`
 - [[Reference/Modules/learnloop/reader/reader_quick_check|learnloop.reader.reader_quick_check]] — imports `load_vault`; statically calls `load_vault`
+- [[Reference/Modules/learnloop/reader_followups_upgrade|learnloop.reader_followups_upgrade]] — imports `load_vault`; statically calls `load_vault`
+- [[Reference/Modules/learnloop/reading_path_plan_upgrade|learnloop.reading_path_plan_upgrade]] — imports `load_vault`; statically calls `load_vault`
+- [[Reference/Modules/learnloop/regrade_contract_upgrade|learnloop.regrade_contract_upgrade]] — imports `load_vault`; statically calls `load_vault`
+- [[Reference/Modules/learnloop/remote/runtime|learnloop.remote.runtime]] — imports `CONTENT_FINGERPRINT_TTL_SECONDS`, `SETTLE_ATTEMPTS`, `SETTLE_PAUSE_SECONDS`, `content_digest`, `content_files`, `load_vault`, `settled_load_vault`, `vault_content_fingerprint`; statically calls `content_digest`, `content_files`, `load_vault`, `settled_load_vault`
+- [[Reference/Modules/learnloop/replay_ledger_upgrade|learnloop.replay_ledger_upgrade]] — imports `load_vault`; statically calls `load_vault`
+- [[Reference/Modules/learnloop/route_rules_upgrade|learnloop.route_rules_upgrade]] — imports `load_vault`; statically calls `load_vault`
+- [[Reference/Modules/learnloop/router_mixture_upgrade|learnloop.router_mixture_upgrade]] — imports `load_vault`; statically calls `load_vault`
+- [[Reference/Modules/learnloop/router_staged_upgrade|learnloop.router_staged_upgrade]] — imports `load_vault`; statically calls `load_vault`
 - [[Reference/Modules/learnloop/sim/diagnostic_validation|learnloop.sim.diagnostic_validation]] — imports `load_vault`; statically calls `load_vault`
 - [[Reference/Modules/learnloop/sim/runner|learnloop.sim.runner]] — imports `load_vault`; statically calls `load_vault`
+- [[Reference/Modules/learnloop/source_retrieval/deliverables|learnloop.source_retrieval.deliverables]] — imports `load_vault`; statically calls `load_vault`
+- [[Reference/Modules/learnloop/source_retrieval/note_links|learnloop.source_retrieval.note_links]] — imports `load_vault`; statically calls `load_vault`
+- [[Reference/Modules/learnloop/source_retrieval/section_coverage|learnloop.source_retrieval.section_coverage]] — imports `settled_load_vault`; statically calls `settled_load_vault`
+- [[Reference/Modules/learnloop/source_retrieval/vault_notes|learnloop.source_retrieval.vault_notes]] — imports `load_vault`; statically calls `load_vault`
+- [[Reference/Modules/learnloop/sources_upgrade|learnloop.sources_upgrade]] — imports `load_vault`; statically calls `load_vault`
+- [[Reference/Modules/learnloop/stuck_prompt_upgrade|learnloop.stuck_prompt_upgrade]] — imports `load_vault`; statically calls `load_vault`
+- [[Reference/Modules/learnloop/substrate/families|learnloop.substrate.families]] — imports `load_vault`; statically calls `load_vault`
+- [[Reference/Modules/learnloop/superseded_claims_upgrade|learnloop.superseded_claims_upgrade]] — imports `load_vault`; statically calls `load_vault`
+- [[Reference/Modules/learnloop/teacher/service|learnloop.teacher.service]] — imports `load_vault`; statically calls `load_vault`
+- [[Reference/Modules/learnloop/teacher_upgrade|learnloop.teacher_upgrade]] — imports `load_vault`; statically calls `load_vault`
 - [[Reference/Modules/learnloop/tui/state|learnloop.tui.state]] — imports `load_vault`; statically calls `load_vault`
 - [[Reference/Modules/learnloop/tutor/promotions|learnloop.tutor.promotions]] — imports `load_vault`; statically calls `load_vault`
 - [[Reference/Modules/learnloop/tutor/tutor_qa|learnloop.tutor.tutor_qa]] — imports `add_note`; statically calls `add_note`
-- [[Reference/Modules/learnloop/vault/writer|learnloop.vault.writer]] — imports `load_vault`; statically calls `load_vault`
-- [[Reference/Modules/learnloop_sidecar/context|learnloop_sidecar.context]] — imports `load_practice_item_file`, `load_vault`; statically calls `load_practice_item_file`, `load_vault`
+- [[Reference/Modules/learnloop/vault/writer|learnloop.vault.writer]] — imports `load_practice_item_file`, `load_vault`; statically calls `load_practice_item_file`, `load_vault`
+- [[Reference/Modules/learnloop/voi_stopping_upgrade|learnloop.voi_stopping_upgrade]] — imports `load_vault`; statically calls `load_vault`
+- [[Reference/Modules/learnloop/workbench_field_signals_upgrade|learnloop.workbench_field_signals_upgrade]] — imports `load_vault`; statically calls `load_vault`
+- [[Reference/Modules/learnloop_sidecar/context|learnloop_sidecar.context]] — imports `CONTENT_FINGERPRINT_TTL_SECONDS`, `load_practice_item_file`, `load_vault`, `settled_load_vault`, `vault_content_fingerprint`; statically calls `load_practice_item_file`, `load_vault`, `settled_load_vault`, `vault_content_fingerprint`
+- [[Reference/Modules/learnloop_sidecar/handlers/capture|learnloop_sidecar.handlers.capture]] — imports `load_vault`; statically calls `load_vault`
+- [[Reference/Modules/learnloop_sidecar/handlers/tutor_qa|learnloop_sidecar.handlers.tutor_qa]] — imports `add_note`, `move_note`; statically calls `add_note`, `move_note`
 
 ### Repository tooling consumers
 
 - [scripts/benchmark_sqlite_concurrency.py](../../../../../../scripts/benchmark_sqlite_concurrency.py); calls `load_vault`
 - [scripts/gen_goldenpath_fixtures.py](../../../../../../scripts/gen_goldenpath_fixtures.py); calls `load_vault`
+- [scripts/voi_cap_report.py](../../../../../../scripts/voi_cap_report.py); calls `load_vault`
 
 ## Dependencies
 
@@ -140,13 +243,14 @@ The authoritative system-level explanation remains in [[State and Persistence]];
 - [[Reference/Modules/learnloop/ids|learnloop.ids]] — imports `kebab_case`, `snake_case`; calls `kebab_case`, `snake_case`
 - [[Reference/Modules/learnloop/migration_coordinator|learnloop.migration_coordinator]] — imports `migrate_vault`; calls `migrate_vault`
 - [[Reference/Modules/learnloop/vault/facet_fingerprint|learnloop.vault.facet_fingerprint]] — imports `semantic_fingerprint`; calls `semantic_fingerprint`
-- [[Reference/Modules/learnloop/vault/models|learnloop.vault.models]] — imports `ConceptGraph`, `ConceptsFile`, `DefaultRubric`, `DoctorIssue`, `ErrorTypesFile`, `EvidenceFacetsFile`, `GoalsFile`, `LearningObject`, `LoadedVault`, `Note`, `PracticeItem`, `RelationsFile`, `SourceSetsFile`, `Subject`, `SubjectMetadata`; calls `ConceptGraph`, `DoctorIssue`, `LoadedVault`, `Subject`
+- [[Reference/Modules/learnloop/vault/lifecycle|learnloop.vault.lifecycle]] — imports `learner_text_gap_creations`, `learner_text_gap_edge_in_effect`; calls `learner_text_gap_creations`, `learner_text_gap_edge_in_effect`
+- [[Reference/Modules/learnloop/vault/models|learnloop.vault.models]] — imports `ActivityFamily`, `ConceptGraph`, `ConceptsFile`, `DefaultRubric`, `DoctorIssue`, `ErrorTypesFile`, `EvidenceFacetsFile`, `GoalsFile`, `LearningObject`, `LoadedVault`, `Note`, `PracticeItem`, `RelationsFile`, `SourceSetsFile`, `Subject`, `SubjectMetadata`, `recipe_components`; calls `ConceptGraph`, `DoctorIssue`, `LoadedVault`, `Subject`, `recipe_components`
 - [[Reference/Modules/learnloop/vault/paths|learnloop.vault.paths]] — imports `VaultPaths`, `find_vault_root`; calls `VaultPaths`, `find_vault_root`
-- [[Reference/Modules/learnloop/vault/yaml_io|learnloop.vault.yaml_io]] — imports `read_markdown_frontmatter_data`, `read_yaml_data`, `write_markdown_with_frontmatter`, `write_yaml`; calls `read_markdown_frontmatter_data`, `write_markdown_with_frontmatter`, `write_yaml`
+- [[Reference/Modules/learnloop/vault/yaml_io|learnloop.vault.yaml_io]] — imports `read_markdown_frontmatter_data`, `read_markdown_with_frontmatter`, `read_yaml_data`, `write_markdown_with_frontmatter`, `write_yaml`; calls `read_markdown_frontmatter_data`, `read_markdown_with_frontmatter`, `write_markdown_with_frontmatter`, `write_yaml`
 
 ### Platform and third-party dependencies
 
-- Standard library: `__future__`, `collections`, `pathlib`, `typing`
+- Standard library: `__future__`, `collections`, `contextlib`, `contextvars`, `dataclasses`, `hashlib`, `os`, `pathlib`, `stat`, `time`, `typing`
 - Third party: `pydantic`, `ruamel`
 
 ## Larger workflow participation
@@ -155,13 +259,28 @@ Use this module in context through:
 
 - [[Initialize a Vault]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/attempts/measurement_corrections|learnloop.attempts.measurement_corrections]], [[Reference/Modules/learnloop/bootstrap|learnloop.bootstrap]], [[Reference/Modules/learnloop/cli/grading|learnloop.cli.grading]], [[Reference/Modules/learnloop/cli/receipts|learnloop.cli.receipts]], [[Reference/Modules/learnloop/cli/runtime|learnloop.cli.runtime]] and 35 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/ad_successor_upgrade|learnloop.ad_successor_upgrade]], [[Reference/Modules/learnloop/adaptive_difficulty/generation|learnloop.adaptive_difficulty.generation]], [[Reference/Modules/learnloop/adaptive_difficulty/operation|learnloop.adaptive_difficulty.operation]], [[Reference/Modules/learnloop/attempt_content_state_upgrade|learnloop.attempt_content_state_upgrade]], [[Reference/Modules/learnloop/attempts/measurement_corrections|learnloop.attempts.measurement_corrections]] and 117 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
 ## Tests that define behavior
 
+- [tests/ad23_fakes.py](../../../../../../tests/ad23_fakes.py) — direct import
+- [tests/approach_map_fakes.py](../../../../../../tests/approach_map_fakes.py) — direct import
+- [tests/daily_plan_fakes.py](../../../../../../tests/daily_plan_fakes.py) — direct import
+- [tests/deliverable_fixtures.py](../../../../../../tests/deliverable_fixtures.py) — direct import
+- [tests/diagnosis_split_helpers.py](../../../../../../tests/diagnosis_split_helpers.py) — direct import
+- [tests/e0_fakes.py](../../../../../../tests/e0_fakes.py) — direct import
 - [tests/helpers.py](../../../../../../tests/helpers.py) — direct import
+- [tests/hint_fakes.py](../../../../../../tests/hint_fakes.py) — direct import
+- [tests/intent_fakes.py](../../../../../../tests/intent_fakes.py) — direct import
+- [tests/mcp_world.py](../../../../../../tests/mcp_world.py) — direct import
+- [tests/passage_cue_fakes.py](../../../../../../tests/passage_cue_fakes.py) — direct import
+- [tests/pf_fakes.py](../../../../../../tests/pf_fakes.py) — direct import
+- [tests/source_retrieval_fakes.py](../../../../../../tests/source_retrieval_fakes.py) — direct import
+- [tests/source_service_fakes.py](../../../../../../tests/source_service_fakes.py) — direct import
+- [tests/split_live_helpers.py](../../../../../../tests/split_live_helpers.py) — direct import
+- [tests/teacher_fakes.py](../../../../../../tests/teacher_fakes.py) — direct import
 - [tests/test_activity_backfill.py](../../../../../../tests/test_activity_backfill.py) — direct import
   - `test_backfill_is_idempotent_on_fixture_copy`
   - `test_backfill_logs_attempt_duration_interaction_events`
@@ -169,8 +288,219 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_backfill_populates_substrate_from_fixture`
   - `test_backfill_render_once_per_shared_surface`
   - `test_diagnostic_probe_attempts_reuse_shared_surface_hash`
+- [tests/test_activity_families.py](../../../../../../tests/test_activity_families.py) — direct import
+  - `test_ensemble_source_kind_loads_and_round_trips`
+  - `test_family_schema_and_loader_relationships`
+  - `test_retire_from_a_stale_snapshot_keeps_family_membership`
+  - `test_stale_loaded_vault_cannot_regroup_an_accepted_member`
 - [tests/test_activity_substrate.py](../../../../../../tests/test_activity_substrate.py) — direct import
+- [tests/test_ad1_attempt_columns.py](../../../../../../tests/test_ad1_attempt_columns.py) — direct import
+  - `test_the_attempt_layer_validates_the_tap_and_the_marker`
+- [tests/test_ad1_codex_rereview_fixes.py](../../../../../../tests/test_ad1_codex_rereview_fixes.py) — direct import
+  - `test_the_worst_case_plans_the_permitted_truncation_retry`
+- [tests/test_ad1_codex_review_fixes.py](../../../../../../tests/test_ad1_codex_review_fixes.py) — direct import
+  - `test_a_claim_held_by_another_process_is_skipped`
+  - `test_a_presentation_without_frozen_inputs_is_never_forecast`
+  - `test_a_refused_forecast_appends_no_judgment`
+  - `test_a_revision_is_protected_by_its_own_source_even_under_an_ordinary_id`
+  - `test_a_vault_switch_fences_the_feature_audit`
+  - `test_a_vault_switch_fences_the_outside_forecasters`
+  - `test_accepted_outside_forecasts_append_one_judgment_each`
+  - `test_historical_snapshots_of_held_out_material_are_never_audited`
+  - `test_outside_forecasts_send_the_inputs_frozen_at_the_serve`
+  - `test_overlapping_preparations_audit_a_revision_once`
+  - `test_the_backfill_dry_run_plans_routes_through_the_spend_framework`
+- [tests/test_ad1_fix_round4.py](../../../../../../tests/test_ad1_fix_round4.py) — direct import
+  - `test_an_answer_after_a_vault_switch_writes_no_checkpoint_and_settles_its_spend`
+  - `test_another_vault_or_none_loaded_refuses`
+- [tests/test_ad1_fix_round5.py](../../../../../../tests/test_ad1_fix_round5.py) — direct import
+  - `test_an_admission_after_a_reload_since_its_check_is_refused`
+- [tests/test_ad1_fix_round6.py](../../../../../../tests/test_ad1_fix_round6.py) — direct import
+  - `test_a_harmless_reload_between_the_audits_check_and_its_record_is_retried`
+  - `test_a_publication_paused_between_assignment_and_bump_is_never_admitted`
+  - `test_a_stale_refusal_reports_stale_and_held_out_content_reports_protected`
+  - `test_four_interrupted_checks_are_stale_and_retried`
+  - `test_the_last_confirmation_runs_after_the_outer_gate_and_the_receipt`
+- [tests/test_ad1_fix_round7.py](../../../../../../tests/test_ad1_fix_round7.py) — direct import
+  - `test_a_refusal_at_the_deciders_start_receipt_stops_the_request`
+  - `test_a_refused_decider_record_labels_the_decider_status`
+- [tests/test_ad1_fix_round8.py](../../../../../../tests/test_ad1_fix_round8.py) — direct import
+  - `test_a_cleanup_failure_after_a_refusal_is_logged_and_the_refusal_stands`
+  - `test_any_failure_at_ads_start_receipt_stops_the_dispatch`
+  - `test_the_item_forecasts_start_receipt_fails_closed_with_the_right_status`
+- [tests/test_ad1_fix_round9.py](../../../../../../tests/test_ad1_fix_round9.py) — direct import
+  - `test_a_stopped_decider_request_stops_the_audit`
+  - `test_the_backfill_records_a_stopped_audit_as_failed`
+  - `test_the_queue_keeps_a_stopped_audit_for_a_retry`
+- [tests/test_ad1_migration.py](../../../../../../tests/test_ad1_migration.py) — direct import
+  - `test_a_served_revision_hashes_as_the_scheduler_snapshots_it`
+- [tests/test_ad1_outside_and_cli.py](../../../../../../tests/test_ad1_outside_and_cli.py) — direct import
+  - `test_a_metered_llm_route_without_a_price_is_refused_before_sending`
+  - `test_a_real_reading_backfill_sweeps_the_history_with_no_model`
+  - `test_ad_backfill_dry_run_plans_and_writes_nothing`
+  - `test_ad_data_check_is_read_only_and_reports_the_tables`
+  - `test_background_jobs_run_off_the_request_path_once_each`
+  - `test_the_daily_cap_refuses_a_metered_call_once_spent`
+  - `test_the_feature_audit_respects_the_cap_and_falls_back_honestly`
+  - `test_without_an_injected_client_the_test_suite_starts_no_ad_job`
+- [tests/test_ad1_reading_opportunities.py](../../../../../../tests/test_ad1_reading_opportunities.py) — direct import
+  - `test_the_vault_map_reads_the_readers_own_section_rule`
+- [tests/test_ad1_send_guard.py](../../../../../../tests/test_ad1_send_guard.py) — direct import
+  - `test_a_revision_held_out_during_the_decider_request_refuses_the_llm_fallback`
+  - `test_a_revision_held_out_inside_a_truncated_fallback_attempt_refuses_the_retry`
+  - `test_a_unit_held_out_while_the_backfill_runs_refuses_its_later_forecasts`
+- [tests/test_ad23_contract.py](../../../../../../tests/test_ad23_contract.py) — direct import
+  - `test_a_dose_draw_at_a_protected_origin_is_a_draw_never_made`
+  - `test_a_goal_over_a_facet_only_a_protected_item_measures_has_no_scope`
+  - `test_a_held_out_sources_canonical_note_never_reaches_a_commissioned_request`
+  - `test_a_protected_receipt_occupies_no_daily_cap_slot`
+  - `test_a_run_whose_quoted_revision_was_replaced_then_protected_is_not_used`
+  - `test_a_saved_run_proposed_before_its_subject_was_protected_is_not_used`
+  - `test_a_stale_run_never_answers_for_a_re_proposal`
+  - `test_a_tutor_exchange_on_a_protected_canonical_note_enters_no_prediction`
+  - `test_a_tutor_exchange_whose_recorded_context_quotes_a_protected_span_enters_no_prediction`
+  - `test_an_empty_support_draw_of_a_protected_slot_leaves_the_report_cohort`
+  - `test_feedback_dwell_skips_a_serve_withheld_with_its_presentation`
+  - `test_goal_focus_follows_the_live_decision_view_with_promoted_predictor_off`
+  - `test_the_background_scheduler_sees_a_run_whose_recorded_context_is_protected`
+  - `test_the_commissioned_generation_path_reads_no_incumbent_diagnosis_or_probe_counts`
+  - `test_the_replay_cache_never_serves_a_snapshot_across_a_protection_change`
+  - `test_with_no_protection_a_frozen_dose_on_an_absent_facet_stands`
+- [tests/test_ad23_fix_r5.py](../../../../../../tests/test_ad23_fix_r5.py) — direct import
+  - `test_an_item_that_landed_before_expiry_gets_its_receipt_at_a_later_serve`
+  - `test_an_item_that_lands_after_expiry_gets_a_marked_receipt_and_a_later_draw_owns_later_items`
+  - `test_the_report_forecasts_with_the_configured_coupling`
+- [tests/test_ad23_fix_r6.py](../../../../../../tests/test_ad23_fix_r6.py) — direct import
+  - `test_one_owner_at_equal_timestamps_and_the_first_attribution_is_final`
+- [tests/test_ad23_fix_r7.py](../../../../../../tests/test_ad23_fix_r7.py) — direct import
+  - `test_a_protected_item_never_steers_the_commissioned_cell_or_readiness`
+  - `test_features_match_reads_the_audited_features_the_receipt_records`
+- [tests/test_ad23_fix_r8.py](../../../../../../tests/test_ad23_fix_r8.py) — direct import
+  - `test_a_claim_moves_no_forecast_through_a_withheld_items_facet`
+  - `test_a_withheld_items_facet_never_enters_the_facet_maps_or_the_reading_map`
+  - `test_practice_minutes_come_from_the_visible_practice_cohort`
+  - `test_report_sensitivity_never_re_forecasts_a_withheld_item`
+  - `test_with_the_predicate_unavailable_the_report_discloses_zero_observations`
+  - `test_z_v1_calibration_never_reads_a_withheld_items_forecast`
+- [tests/test_ad23_fix_r9.py](../../../../../../tests/test_ad23_fix_r9.py) — direct import
+  - `test_a_commissioned_request_quoting_withheld_material_is_refused_before_it_is_sent`
+  - `test_an_attempt_on_a_held_out_answered_revision_is_filtered_at_the_source`
+  - `test_send_guard_refuses_an_unavailable_predicate_whatever_the_job_quotes`
+  - `test_with_the_predicate_unavailable_relatedness_prepares_nothing`
+- [tests/test_ad23_fix_review.py](../../../../../../tests/test_ad23_fix_review.py) — direct import
+  - `test_a_commission_queued_before_models_go_off_waits_and_resumes`
+  - `test_a_draw_reads_reading_recorded_since_the_last_serve`
+  - `test_a_serve_commission_queues_its_generation_once_at_its_point`
+  - `test_density_lowerings_join_offers_to_their_visits`
+  - `test_repeated_reports_fire_the_readiness_flag_through_build`
+  - `test_the_live_cache_follows_replacements_updates_and_other_connections`
+  - `test_the_offer_names_the_sections_other_question_and_its_answer_is_the_extra`
+- [tests/test_ad23_intent_compose.py](../../../../../../tests/test_ad23_intent_compose.py) — direct import
+  - `test_the_real_scheduler_lane_with_commitments`
+- [tests/test_ad23_inversion.py](../../../../../../tests/test_ad23_inversion.py) — direct import
+- [tests/test_ad23_owner_decisions.py](../../../../../../tests/test_ad23_owner_decisions.py) — direct import
+  - `test_a_cancelled_commission_stays_cancelled_when_models_come_back_on`
+  - `test_a_commission_waiting_on_models_stays_open_and_a_cancelled_one_expires`
+  - `test_ad_reads_history_through_its_own_fallback_and_field_keeps_its_own`
+  - `test_an_unlanded_commission_expires_seven_days_after_its_job_and_a_fresh_one_is_drawn`
+- [tests/test_ad23_successor.py](../../../../../../tests/test_ad23_successor.py) — direct import
+  - `test_below_the_tag_a_rebuild_writes_no_ad_state`
+  - `test_below_the_tag_every_switch_reads_off_whatever_the_config_says`
+  - `test_every_switch_false_serves_the_predecessor_on_fixture_copies`
+  - `test_new_vaults_start_at_the_successor_with_every_switch_on`
+  - `test_the_upgrade_takes_the_predecessor_or_the_chain_and_refuses_the_rest`
+- [tests/test_ad23_t1_routes.py](../../../../../../tests/test_ad23_t1_routes.py) — direct import
+  - `test_inside_an_ad_operation_no_route_asks_and_no_grant_serves`
+  - `test_under_code_defaults_each_ad_route_is_the_plan_and_codex_is_refused`
+- [tests/test_ad2_model.py](../../../../../../tests/test_ad2_model.py) — direct import
+  - `test_ad_never_writes_evidence`
+  - `test_pre_exposed_presentation_excluded_from_update_and_scoring`
+  - `test_rebuild_byte_identical`
+  - `test_zero_model_calls`
+- [tests/test_ad2_serving.py](../../../../../../tests/test_ad2_serving.py) — direct import
+  - `test_commission_result_appended_never_mutates_selection`
+  - `test_coordination_requires_envelope`
+  - `test_exam_reserved_and_retired_items_never_selected`
+  - `test_serve_propensity_is_over_existing_items`
+  - `test_why_this_item_names_the_draw_that_chose_it`
+- [tests/test_ad3_dose_arm.py](../../../../../../tests/test_ad3_dose_arm.py) — direct import
+- [tests/test_ad3_monitoring.py](../../../../../../tests/test_ad3_monitoring.py) — direct import
+  - `test_monitoring_applies_field_rule_as_monitor_never_gate`
+  - `test_no_flag_edits_the_vault_config`
+- [tests/test_ad3_reading.py](../../../../../../tests/test_ad3_reading.py) — direct import
+  - `test_reading_raises_prediction_never_evidence`
+  - `test_reading_self_check_switch_restores_d20_and_is_moot_without_reading`
+- [tests/test_ad3_relatedness.py](../../../../../../tests/test_ad3_relatedness.py) — direct import
+  - `test_a_later_coupling_version_needs_its_shadow_report`
+  - `test_each_loading_and_coupling_is_one_ledger_row_and_invalid_outputs_drop`
+  - `test_relatedness_proposal_reads_no_learner_or_held_out_data`
+  - `test_unchanged_input_makes_no_call_and_a_change_reproposes_only_what_it_touches`
+- [tests/test_ad3_subject_view.py](../../../../../../tests/test_ad3_subject_view.py) — direct import
+  - `test_coupling_is_prediction_only`
+  - `test_readiness_numbers_from_subject_view_with_untested_cells`
+  - `test_shadow_report_names_what_a_new_version_reinterprets`
+- [tests/test_ad_denial_log.py](../../../../../../tests/test_ad_denial_log.py) — direct import
+  - `test_a_successful_upgrade_archives_the_log_and_the_report_counts_from_zero`
+  - `test_v2_f1_an_unmarked_upgrade_leaves_the_log_live`
+- [tests/test_ad_epoch.py](../../../../../../tests/test_ad_epoch.py) — direct import
+  - `test_a_commission_drawn_under_other_protection_is_not_open`
+  - `test_a_protected_pending_proposal_never_holds_a_commission_open`
+  - `test_a_reading_receipt_recorded_under_other_protection_is_mapped_again`
+  - `test_any_change_to_the_protection_changes_the_epoch`
+  - `test_frozen_serve_signals_trained_on_a_newly_protected_answer_are_not_replayed`
+  - `test_the_epoch_changes_on_mark_unmark_reserve_and_release_and_not_on_unrelated_edits`
+  - `test_the_replay_cache_and_the_alias_memo_are_keyed_by_the_epoch`
+- [tests/test_ad_guard.py](../../../../../../tests/test_ad_guard.py) — direct import
+  - `test_incumbent_maintenance_and_vault_loads_never_run_inside_an_operation`
+- [tests/test_ad_guard_offer_receipts.py](../../../../../../tests/test_ad_guard_offer_receipts.py) — direct import
+  - `test_rebuild_derived_state_over_a_learner_pick_runs_with_zero_denials`
+  - `test_the_receipt_stays_refused_outside_the_rules`
+  - `test_the_serving_snapshot_and_the_report_run_with_zero_denials`
+  - `test_the_view_labels_the_pick_as_field_does_outside_ad`
+- [tests/test_ad_guard_reachable_reads.py](../../../../../../tests/test_ad_guard_reachable_reads.py) — direct import
+  - `test_a_legacy_grade_interpretation_reads_its_pooled_alphas_with_zero_denials`
+  - `test_every_serving_branch_runs_with_zero_denials_and_fields_labels`
+- [tests/test_ad_projection.py](../../../../../../tests/test_ad_projection.py) — direct import
+  - `test_a_mixed_reading_gives_no_reading_signal_as_if_deleted`
+  - `test_a_whole_extraction_held_out_reads_as_no_extraction`
+  - `test_every_protected_table_reads_as_in_the_absent_copy`
+- [tests/test_ad_protected_readings.py](../../../../../../tests/test_ad_protected_readings.py) — direct import
+  - `test_a_clean_reading_is_read_as_the_reader_and_the_incumbent_read_it`
+  - `test_a_mixed_reading_reads_exactly_as_if_deleted`
+  - `test_a_practice_interaction_event_is_not_a_reading_event`
+  - `test_a_reader_question_anchored_by_note_on_a_mixed_reading_is_withheld`
+  - `test_an_item_from_a_visible_span_of_a_mixed_reading_is_not_over_withheld`
+  - `test_attempt_evidence_from_a_visible_span_of_a_mixed_reading_is_unchanged`
+  - `test_marking_and_release_flip_the_epoch_and_the_reading_with_it`
+  - `test_probe_candidates_are_taken_in_reading_order_not_span_id_order`
+  - `test_probe_markdown_level_two_fallback`
+  - `test_probe_raw_section_membership_in_the_dose_arm`
+- [tests/test_adaptive_difficulty_ad1.py](../../../../../../tests/test_adaptive_difficulty_ad1.py) — direct import
+  - `test_a_failed_decider_hands_every_dimension_to_the_llm`
+  - `test_ad1_switches_restore_predecessor`
+  - `test_feature_audit_ledgered_with_fallback`
+  - `test_held_out_sentinel_never_reaches_ad_inputs`
+  - `test_item_only_forecast_enters_inputs_only_if_received_before_serve`
+  - `test_replay_reads_receipts_zero_model_calls`
+  - `test_serve_inputs_frozen_against_later_audit_and_edit`
+  - `test_the_decider_switch_off_audits_with_the_llm_only`
 - [tests/test_agent_run_tokens.py](../../../../../../tests/test_agent_run_tokens.py) — direct import
+- [tests/test_ai_compare.py](../../../../../../tests/test_ai_compare.py) — direct import
+  - `test_a_draft_the_tutor_would_reject_is_invalid`
+  - `test_a_dry_run_may_make_the_copy_and_copy_from_needs_a_new_directory`
+  - `test_a_json_repair_carries_the_budget_of_the_request_it_repairs`
+  - `test_a_live_vault_moved_out_of_git_is_still_refused_and_its_copy_is_compared`
+  - `test_a_run_on_a_copy_reports_agreement_validity_latency_tokens_and_allowance`
+  - `test_a_vault_whose_database_lies_outside_it_is_refused`
+  - `test_a_working_vault_is_refused`
+  - `test_an_unreadable_working_vault_mark_refuses`
+  - `test_copy_from_backs_up_a_wal_database_not_named_sqlite`
+  - `test_copy_from_backs_up_the_database_a_symlinked_path_opens`
+  - `test_copy_from_relocates_a_database_configured_outside_the_vault`
+  - `test_each_request_carries_the_output_budget_its_estimate_reports`
+  - `test_grading_reads_the_contract_the_answer_was_graded_under`
+  - `test_the_working_vault_check_fails_closed`
+  - `test_without_git_only_a_fresh_copy_is_compared`
 - [tests/test_ai_config.py](../../../../../../tests/test_ai_config.py) — direct import
   - `test_animation_config_and_routing_parity`
   - `test_codex_checkout_path_env_override_applies_to_codex_and_ai_provider`
@@ -184,6 +514,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_shell_env_wins_over_global_settings_file`
 - [tests/test_anchor_resolution.py](../../../../../../tests/test_anchor_resolution.py) — direct import
 - [tests/test_answer_calibration_duel.py](../../../../../../tests/test_answer_calibration_duel.py) — direct import
+- [tests/test_answer_signal_arms.py](../../../../../../tests/test_answer_signal_arms.py) — direct import
+  - `test_the_loader_reads_the_tap_and_the_graders_tone_reading`
 - [tests/test_anti_double_count.py](../../../../../../tests/test_anti_double_count.py) — direct import
 - [tests/test_apply_write_ahead.py](../../../../../../tests/test_apply_write_ahead.py) — direct import
   - `test_apply_writes_entity_source_links_and_marks_intent_applied`
@@ -193,6 +525,36 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_dependency_closure_reject_prereq_blocks_dependents`
   - `test_doctor_fix_recovers_mid_flight_intent`
   - `test_race_attempt_inserted_after_synthesis_refuses_under_lock`
+- [tests/test_approach_map_boundaries.py](../../../../../../tests/test_approach_map_boundaries.py) — direct import
+  - `test_grading_prompts_never_carry_or_read_a_stored_map`
+- [tests/test_approach_map_replay.py](../../../../../../tests/test_approach_map_replay.py) — direct import
+  - `test_rebuild_and_replay_call_no_model_and_never_read_approach_maps`
+- [tests/test_approach_maps.py](../../../../../../tests/test_approach_maps.py) — direct import
+  - `test_a_build_stores_one_validated_version_with_its_receipt_and_verdict`
+  - `test_a_merge_needs_a_map`
+  - `test_a_merge_that_misplaces_an_answer_is_reasked_then_not_stored`
+  - `test_a_metered_build_under_the_cap_reserves_and_settles_its_spend`
+  - `test_a_revised_item_or_changed_seeds_gets_a_new_row_never_an_update`
+  - `test_f3_a_lapsed_claim_of_a_dead_process_is_taken_over_and_fences_its_commit`
+  - `test_f3_a_stale_merge_never_supersedes_a_newer_map`
+  - `test_f3_the_durable_claim_keeps_a_second_worker_from_paying`
+  - `test_f4_a_seeded_but_unrouted_attempt_is_merged_later`
+  - `test_f4_every_seeded_solution_needs_exactly_one_route`
+  - `test_f5_an_inherited_rubric_change_is_a_new_revision`
+  - `test_l1_a_thread_start_failure_leaves_no_in_flight_mark`
+  - `test_m3_an_expired_claim_writes_no_judgment_and_stores_nothing`
+  - `test_m5_a_merge_after_a_revert_stores_a_new_version_of_that_revision`
+  - `test_new_correct_answers_gain_a_matching_route_or_open_a_learner_route`
+  - `test_r3_a_close_while_a_write_waits_for_the_lock_lands_nothing`
+  - `test_r4_launch_and_close_are_atomic`
+  - `test_the_backfill_builds_selected_items_and_skips_current_ones`
+  - `test_the_daily_cap_holds_on_metered_routes_and_says_so`
+  - `test_the_inline_build_builds_now_and_stores`
+  - `test_the_inline_build_waits_for_a_build_in_flight_and_never_builds_twice`
+  - `test_the_kill_switch_builds_nothing_and_reads_nothing`
+  - `test_the_route_falls_back_to_the_active_provider_and_an_override_keeps_the_cap`
+  - `test_without_an_injected_client_the_test_guard_starts_no_build`
+  - `test_worked_examples_come_from_t6_under_the_item_bound_policy`
 - [tests/test_assessment_contracts.py](../../../../../../tests/test_assessment_contracts.py) — direct import
   - `test_contract_hash_changes_when_targets_change`
   - `test_identical_item_versions_reuse_one_snapshot`
@@ -201,10 +563,23 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_snapshot_authoritative_after_live_rubric_change`
 - [tests/test_assessment_enforcement.py](../../../../../../tests/test_assessment_enforcement.py) — direct import
   - `test_detect_contract_drift_and_doctor_surface`
+- [tests/test_assumed_known.py](../../../../../../tests/test_assumed_known.py) — direct import
+  - `test_kill_switch_ignores_assumptions_made_while_on`
+  - `test_new_vaults_start_with_placement_on`
+  - `test_placement_receipts_survive_rebuild_with_zero_model_calls`
 - [tests/test_attempt_ai_flow.py](../../../../../../tests/test_attempt_ai_flow.py) — direct import
   - `test_attempt_ai_flow_records_provider_model_and_ai_source`
 - [tests/test_attempt_completion.py](../../../../../../tests/test_attempt_completion.py) — direct import
   - `test_block_closing_diagnostic_answer_keeps_grader_provenance`
+- [tests/test_attempt_content_state_race.py](../../../../../../tests/test_attempt_content_state_race.py) — direct import
+  - `test_a_probe_attempt_still_closes_its_single_use_surface`
+  - `test_a_retiring_sync_from_a_second_process_survives_an_attempt_graded_before_it`
+  - `test_an_attempt_graded_before_a_retiring_sync_keeps_the_item_closed`
+  - `test_an_attempt_graded_before_an_editing_sync_keeps_the_edited_hash`
+  - `test_an_attempt_on_an_item_with_no_row_inserts_the_whole_row`
+  - `test_below_the_tag_the_retiring_sync_is_still_undone_as_the_predecessor`
+- [tests/test_attempt_content_state_successor.py](../../../../../../tests/test_attempt_content_state_successor.py) — direct import
+  - `test_the_gate_is_the_tag_and_its_switch`
 - [tests/test_attempt_write_order.py](../../../../../../tests/test_attempt_write_order.py) — direct import
   - `test_canonical_attempt_write_order_is_receipt_grade_evidence_state_then_post`
 - [tests/test_attempts.py](../../../../../../tests/test_attempts.py) — direct import
@@ -220,12 +595,26 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_authoring_context_is_deterministic_and_hashable`
   - `test_authoring_context_stats_report_request_size`
 - [tests/test_authoring_contract.py](../../../../../../tests/test_authoring_contract.py) — direct import
+- [tests/test_auto_build_spend_report.py](../../../../../../tests/test_auto_build_spend_report.py) — direct import
+  - `test_a_build_still_running_is_held_back_by_the_guard`
+  - `test_the_report_shows_automatic_builds_daily_spend_under_their_guard`
+- [tests/test_batch3_landing.py](../../../../../../tests/test_batch3_landing.py) — direct import
+  - `test_i_a_figure_goal_from_the_ask_rail_or_the_tutor_never_spends_an_ask_question`
+  - `test_iii_a_figure_grant_never_meters_an_ask_and_an_ask_grant_meters_it_under_the_cap`
 - [tests/test_build_study_map_routing.py](../../../../../../tests/test_build_study_map_routing.py) — direct import
   - `test_omitted_ceilings_fall_back_to_the_vault_defaults`
 - [tests/test_calibration.py](../../../../../../tests/test_calibration.py) — direct import
 - [tests/test_calibration_sessions.py](../../../../../../tests/test_calibration_sessions.py) — direct import
+- [tests/test_canonical_projection_fold_skip.py](../../../../../../tests/test_canonical_projection_fold_skip.py) — direct import
+  - `test_a_noop_refresh_skips_the_fold_and_commits_nothing`
 - [tests/test_canonical_projection_rollout.py](../../../../../../tests/test_canonical_projection_rollout.py) — direct import
 - [tests/test_capability_residual.py](../../../../../../tests/test_capability_residual.py) — direct import
+- [tests/test_capture_desktop.py](../../../../../../tests/test_capture_desktop.py) — direct import
+  - `test_card_route_after_success_only`
+  - `test_tutor_route_after_answer_only_and_reference_anchor`
+- [tests/test_capture_route_recovery.py](../../../../../../tests/test_capture_route_recovery.py) — direct import
+  - `test_crash_before_destination_allows_choosing_another_route`
+  - `test_replacement_tutor_request_moves_the_partial_note_to_its_subject`
 - [tests/test_causal_activity_policy.py](../../../../../../tests/test_causal_activity_policy.py) — direct import
   - `test_explicit_near_clone_declaration_wins`
   - `test_near_clone_fails_closed_but_audibly_when_unresolvable`
@@ -311,6 +700,11 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_characterization_probe_regrade.py](../../../../../../tests/test_characterization_probe_regrade.py) — direct import
 - [tests/test_characterization_probe_replay.py](../../../../../../tests/test_characterization_probe_replay.py) — direct import
 - [tests/test_characterization_probe_submission.py](../../../../../../tests/test_characterization_probe_submission.py) — direct import
+- [tests/test_chat_total_transport_deadline.py](../../../../../../tests/test_chat_total_transport_deadline.py) — direct import
+  - `test_rw6b2_f3_a_dribbling_narration_request_ends_inside_its_lease_and_publishes_nothing`
+- [tests/test_chatgpt_plan_provider.py](../../../../../../tests/test_chatgpt_plan_provider.py) — direct import
+  - `test_billing_class_is_subscription`
+  - `test_t6_rewrite_runs_on_the_plan_with_receipts`
 - [tests/test_cli_attempt.py](../../../../../../tests/test_cli_attempt.py) — direct import
   - `test_cli_show_attempt_includes_evidence_and_surprise`
 - [tests/test_cli_commands.py](../../../../../../tests/test_cli_commands.py) — direct import
@@ -357,6 +751,9 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_valid_codex_grade_validates`
 - [tests/test_codex_runtime.py](../../../../../../tests/test_codex_runtime.py) — direct import
   - `test_doctor_only_checks_provider_health_when_explicitly_requested`
+- [tests/test_cold_retry_reschedule.py](../../../../../../tests/test_cold_retry_reschedule.py) — direct import
+  - `test_a_shadow_rebuild_is_zero_with_the_fresh_retries_present`
+  - `test_replay_schedules_nothing_and_leaves_the_lane_as_live_left_it`
 - [tests/test_coldness_receipt.py](../../../../../../tests/test_coldness_receipt.py) — direct import
 - [tests/test_collection_dataset.py](../../../../../../tests/test_collection_dataset.py) — direct import
   - `test_adjudication_accepts_evidence_keyed_by_a_non_id_primary_key`
@@ -377,10 +774,24 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_config_refactor.py](../../../../../../tests/test_config_refactor.py) — direct import
   - `test_config_effective_reports_full_model_and_explicit_overrides`
   - `test_legacy_codex_is_input_only_and_sidecar_does_not_reexport_it`
+  - `test_new_vaults_start_at_the_latest_algorithm_version`
 - [tests/test_conjunctive_instruments.py](../../../../../../tests/test_conjunctive_instruments.py) — direct import
   - `test_a_merged_facet_does_not_desynchronise_the_two_folds`
   - `test_item_components_without_authored_targets_is_unchanged`
   - `test_more_than_the_per_attempt_cap_is_truncated`
+- [tests/test_contamination_report.py](../../../../../../tests/test_contamination_report.py) — direct import
+  - `test_a_bound_tutor_pair_is_judged_however_many_items_share_its_answer`
+  - `test_a_live_debit_that_alone_primes_the_next_attempt_counts_as_the_floor`
+  - `test_a_reader_reveal_before_the_assessment_was_taken_stays_in_the_report`
+  - `test_a_reserve_already_burned_by_an_exposure_gets_no_burn_proposal`
+  - `test_a_subject_without_its_vector_is_counted_and_falls_back`
+  - `test_a_turn_from_before_the_reveal_ledger_was_never_debited`
+  - `test_embed_uses_the_phase_1_backfill_with_the_t4_registry`
+  - `test_exam_leakage_shortlists_nearest_held_out_spans_for_the_judge`
+  - `test_incidental_math_shortlists_but_never_decides_a_reveal`
+  - `test_no_judge_and_no_vectors_degrade_to_the_floor`
+  - `test_reader_reveal_proposes_a_burn_and_never_executes_it`
+  - `test_symbolic_verifier_decides_math_reveals_and_outranks_the_llm`
 - [tests/test_contract_commissioning.py](../../../../../../tests/test_contract_commissioning.py) — direct import
   - `test_authoring_at_the_contract_capability_makes_the_cell_reachable`
   - `test_contract_backed_lo_waives_the_completed_probe_gate`
@@ -443,18 +854,122 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_legacy_vault_hashes_the_empty_frontier`
   - `test_removing_a_cell_changes_the_version`
   - `test_version_is_semantics_plus_frontier_hash`
+- [tests/test_coverage_on_extract.py](../../../../../../tests/test_coverage_on_extract.py) — direct import
+  - `test_the_job_rejudges_covered_los_a_new_book_joins_and_a_fresh_state_pays_nothing`
+  - `test_the_job_runs_quiet_and_never_offers_openrouter`
 - [tests/test_coverage_rollup.py](../../../../../../tests/test_coverage_rollup.py) — direct import
 - [tests/test_cross_seam_exposure.py](../../../../../../tests/test_cross_seam_exposure.py) — direct import
+- [tests/test_curriculum_c0b_landing.py](../../../../../../tests/test_curriculum_c0b_landing.py) — direct import
+  - `test_i_a_dismissal_and_an_also_about_on_one_section_coexist_through_path_rejudgments`
+  - `test_ii_compare_scopes_cap_does_not_stop_the_resolver`
+  - `test_ii_curriculum_off_leaves_ca3_and_ca5a_as_with_no_deliverable`
+  - `test_ii_the_curriculum_cap_does_not_stop_compare_scope`
+  - `test_iii_a_shadow_rebuild_is_zero_with_the_checks_present`
+  - `test_iii_check_once_commitments_are_never_touched_by_the_cold_retry_reschedule`
+- [tests/test_curriculum_c1_codex_review_fixes.py](../../../../../../tests/test_curriculum_c1_codex_review_fixes.py) — direct import
+  - `test_f1_after_a_refresh_withdrew_the_staged_reading_the_switch_still_restores_rw7bs`
+  - `test_f2_c1_back_on_moves_the_unread_reading_back_to_c1s_choice`
+  - `test_f3_a_judgment_between_the_stale_read_and_the_plans_stamp_is_adopted`
+- [tests/test_curriculum_c1_fix_round2.py](../../../../../../tests/test_curriculum_c1_fix_round2.py) — direct import
+  - `test_l6_a_choice_made_while_a_read_failed_is_never_kept`
+  - `test_l6_a_memo_hit_returns_exactly_what_the_choice_computed`
+  - `test_l6_the_fingerprint_moves_with_a_judgment_a_switch_and_the_date`
+  - `test_m2_farther_refreshed_first_then_nearer_ends_on_the_nearer_step`
+  - `test_m3_a_k1_judgment_committed_between_the_builds_inputs_and_its_lookup_is_taken`
+- [tests/test_curriculum_c1_fix_round3.py](../../../../../../tests/test_curriculum_c1_fix_round3.py) — direct import
+  - `test_m3_k0_observed_k1_prepared_and_a_concurrent_guide_open_for_k1_send_one_call`
+  - `test_m3_the_guides_worker_moves_its_claim_to_the_inputs_it_prepared`
+- [tests/test_curriculum_c1_fix_round4.py](../../../../../../tests/test_curriculum_c1_fix_round4.py) — direct import
+- [tests/test_curriculum_c1_landing.py](../../../../../../tests/test_curriculum_c1_landing.py) — direct import
+- [tests/test_curriculum_c1_plan_follows_path.py](../../../../../../tests/test_curriculum_c1_plan_follows_path.py) — direct import
+  - `test_the_switch_is_on_by_default_classified_and_needs_the_curriculum_and_rw7b`
+- [tests/test_curriculum_c1_round5_followups.py](../../../../../../tests/test_curriculum_c1_round5_followups.py) — direct import
+  - `test_c1_r5_followup_a_a_guide_judgment_keeps_its_route_rules`
+  - `test_c1_r5_followup_b_a_reload_right_after_the_gates_read_cannot_slip_into_the_admission`
+- [tests/test_curriculum_c2b_past_papers.py](../../../../../../tests/test_curriculum_c2b_past_papers.py) — direct import
+  - `test_a_group_held_out_meanwhile_refuses_the_request`
+  - `test_a_known_subject_sends_only_its_own_ids_as_one_flat_list`
+  - `test_ambiguous_subject_sends_the_ids_grouped_by_subject_name_and_the_resolver_picks_its_group`
+  - `test_switched_off_the_prompt_is_c0bs_v1`
+- [tests/test_curriculum_c3_codex_review.py](../../../../../../tests/test_curriculum_c3_codex_review.py) — direct import
+  - `test_a_change_that_leaves_the_sent_ids_practice_available_publishes`
+  - `test_a_held_out_unit_cited_by_a_facet_contributes_nothing`
+  - `test_a_mapping_carried_by_a_canonical_facet_counts`
+  - `test_a_mapping_held_out_before_the_request_is_never_sent`
+  - `test_a_mapping_held_out_during_the_call_publishes_nothing`
+  - `test_a_paused_second_subject_keeps_the_only_active_subject_s_past_papers`
+  - `test_a_resolution_s_topics_name_the_subject_for_the_next_one`
+  - `test_a_second_active_subject_without_topics_sends_linear_algebras_papers_as_its_own_group`
+  - `test_a_syllabus_exercise_is_refused_before_any_model_call`
+  - `test_a_syllabus_made_during_the_import_writes_nothing`
+  - `test_a_syllabus_names_the_subject_and_another_subject_s_papers_stay_out`
+  - `test_a_unit_override_leaves_the_rest_of_the_book_practice`
+  - `test_a_vault_without_a_syllabus_keeps_c0b_s_view`
+  - `test_an_ambiguous_deliverable_reads_the_past_papers_grouped_by_subject`
+  - `test_past_papers_are_read_per_subject_never_vault_wide`
+  - `test_the_one_write_refuses_a_syllabus_draft`
+  - `test_the_reader_s_own_import_refuses_a_syllabus_before_any_model_call`
+  - `test_the_scope_view_offers_readable_syllabi_only`
+- [tests/test_curriculum_c3_exam_scoping.py](../../../../../../tests/test_curriculum_c3_exam_scoping.py) — direct import
+  - `test_a_syllabus_is_never_inventoried_for_a_study_map`
+  - `test_a_syllabus_made_exam_during_the_call_keeps_nothing`
+  - `test_a_syllabus_never_teaches_and_is_never_a_coverage_candidate`
+  - `test_a_syllabus_passage_is_a_scope_input_read_only_by_the_resolver`
+  - `test_an_unreadable_predicate_contributes_nothing`
+  - `test_gc1_no_request_correspondent_path_row_or_slice_names_exam_material`
+  - `test_gc1_note_link_judge_requests_carry_no_exam_material_from_sources`
+  - `test_gc2_a_syllabus_made_exam_after_it_was_added_is_never_sent`
+  - `test_gc3_readiness_checks_never_pick_exam_reserved_or_held_out_items`
+  - `test_off_is_c0b_byte_for_byte`
+  - `test_past_papers_contribute_their_lo_ids_only_and_held_out_units_nothing`
+  - `test_the_fixture_holds_every_kind_of_exam_material`
+  - `test_the_role_is_set_through_the_existing_role_surfaces`
+  - `test_the_scope_view_says_which_topics_your_past_papers_test`
 - [tests/test_curriculum_locks.py](../../../../../../tests/test_curriculum_locks.py) — direct import
-  - `test_deactivate_locked_learning_object_is_invalid`
-  - `test_goal_scope_locks_facet`
-  - `test_identity_locks_read_adapter`
-  - `test_locked_facet_refuses_merge_on_independent_mass`
-  - `test_locked_facet_refuses_merge_on_surface_groups`
-  - `test_locked_semantic_merge_is_invalid`
-  - `test_prelock_facet_with_single_surface_group_still_mergeable`
+  - `test_a_facet_merge_is_legal_with_review`
+  - `test_an_active_goal_scope_no_longer_locks_a_facet`
+  - `test_an_unpractised_learning_object_is_legal_with_review_whatever_its_facets_carry`
+  - `test_attempt_evidence_no_longer_locks_a_facet`
+  - `test_deactivating_a_practised_learning_object_is_still_invalid`
+  - `test_independent_surface_groups_and_mass_no_longer_lock_a_facet`
   - `test_rename_alias_is_always_sanctioned`
-  - `test_unlocked_facet_merge_is_legal_with_review`
+- [tests/test_daily_loop_golden_path_lifecycle.py](../../../../../../tests/test_daily_loop_golden_path_lifecycle.py) — direct import
+  - `test_assess_open_refuses_a_parked_lo_without_burning_the_surface`
+- [tests/test_daily_loop_lo_lifecycle_serving.py](../../../../../../tests/test_daily_loop_lo_lifecycle_serving.py) — direct import
+  - `test_exam_start_does_not_administer_items_of_an_lo_put_away_after_reservation`
+  - `test_follow_up_lanes_do_not_resurrect_items_of_an_inactive_lo`
+  - `test_probe_dialogue_block_refuses_an_inactive_lo`
+  - `test_probe_pool_is_empty_for_an_inactive_lo`
+  - `test_stale_uncertainty_reprobe_does_not_reopen_an_inactive_lo`
+- [tests/test_daily_loop_reader_authored_practice.py](../../../../../../tests/test_daily_loop_reader_authored_practice.py) — direct import
+  - `test_question_with_no_topic_to_file_under_is_kept_as_a_reference`
+  - `test_retry_with_the_same_key_adopts_one_card`
+  - `test_written_question_becomes_practice_the_scheduler_serves`
+  - `test_written_question_keeps_returning_after_it_is_answered`
+- [tests/test_daily_loop_reader_retire.py](../../../../../../tests/test_daily_loop_reader_retire.py) — direct import
+  - `test_retiring_a_reader_question_retires_its_practice_item`
+- [tests/test_daily_loop_reentry_break.py](../../../../../../tests/test_daily_loop_reentry_break.py) — direct import
+- [tests/test_daily_loop_reference_adoption.py](../../../../../../tests/test_daily_loop_reference_adoption.py) — direct import
+  - `test_a_parked_lo_citing_the_passage_does_not_adopt`
+  - `test_a_retired_reference_question_is_never_adopted`
+  - `test_adoption_kill_switch_restores_baseline_and_keeps_adopted_cards`
+  - `test_reference_question_becomes_practice_once_an_lo_cites_its_passage`
+  - `test_write_time_adoption_is_not_gated_by_the_sweep_switch`
+- [tests/test_daily_plan_composition.py](../../../../../../tests/test_daily_plan_composition.py) — direct import
+  - `test_an_empty_stuck_answer_on_a_plan_item_is_done_and_labelled_daily_plan`
+- [tests/test_daily_plan_replay.py](../../../../../../tests/test_daily_plan_replay.py) — direct import
+  - `test_rebuild_ignores_the_plan_and_calls_no_model`
+- [tests/test_daily_plan_review_regressions.py](../../../../../../tests/test_daily_plan_review_regressions.py) — direct import
+  - `test_f8_out_of_range_expected_minutes_reach_the_writer_bounded`
+  - `test_f9_reentry_panel_names_only_what_it_counts`
+- [tests/test_daily_plan_rpc.py](../../../../../../tests/test_daily_plan_rpc.py) — direct import
+  - `test_g3_every_shown_number_is_what_the_plan_serves`
+- [tests/test_decider_landing.py](../../../../../../tests/test_decider_landing.py) — direct import
+  - `test_a_book_carrying_the_retired_keep_local_is_asked_like_any_other`
+  - `test_a_tied_span_check_inside_an_automatic_build_waits_for_the_owner`
+  - `test_an_automatic_builds_apply_asks_the_span_check_before_the_vault_lock`
+  - `test_inside_an_automatic_builds_request_gate_the_span_check_is_admitted_and_settled`
+  - `test_the_one_ok_and_settings_name_perplexity_through_openrouter`
 - [tests/test_deferred_regrade.py](../../../../../../tests/test_deferred_regrade.py) — direct import
   - `test_deferred_ai_regrade_records_provider_and_ai_origin`
   - `test_deferred_regrade_failure_leaves_self_grade_current_and_agent_failed`
@@ -467,13 +982,81 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_deferred_regrade_supersedes_self_grade_and_updates_mastery`
   - `test_deferred_regrade_validates_repaired_trace_against_learner_answer`
   - `test_startup_maintenance_regrades_pending_self_grade_when_codex_ready`
+- [tests/test_deliverable_codex_review.py](../../../../../../tests/test_deliverable_codex_review.py) — direct import
+  - `test_f13_the_check_dates_follow_the_vaults_dl2_parameters`
+  - `test_f15_a_publication_already_on_disk_is_recognized_and_not_written_again`
+  - `test_f15_a_stop_before_goals_yaml_then_a_learner_edit_keeps_the_edit`
+  - `test_f15_recovery_keeps_a_learner_scope_edit_made_after_the_publication`
+  - `test_f16_an_ambiguous_subject_is_offered_and_the_chosen_one_creates_the_topic`
+  - `test_f1_reopened_a_superseded_answer_keeps_nothing_when_its_passage_was_protected_meanwhile`
+  - `test_f1_the_resolver_keeps_nothing_when_its_passage_is_held_out_during_the_call`
+  - `test_f2_a_resolution_overtaken_by_a_newer_input_is_kept_but_never_activated`
+  - `test_f3_a_switch_turned_off_after_queueing_stops_the_job`
+  - `test_f3_a_switch_turned_off_between_los_stops_the_rest`
+  - `test_f3_judge_itself_refuses_with_the_curriculum_off`
+  - `test_f5_a_changed_statement_owes_coverage_again`
+  - `test_f6_a_lifted_coverage_admission_refusal_starts_the_coverage_again`
+  - `test_f8_a_goal_whose_first_input_committed_is_recovered_by_the_next_rpc`
+  - `test_f8_a_stop_after_the_receipt_is_finished_forward`
+  - `test_f8_a_stop_before_the_receipt_publishes_nothing`
+  - `test_f9_a_topic_added_since_the_judgment_has_a_line_until_the_next`
+- [tests/test_deliverable_path.py](../../../../../../tests/test_deliverable_path.py) — direct import
+  - `test_ask_depth_and_no_scope_states`
+  - `test_check_due_is_bounded_by_tomorrow_fourteen_days_and_the_deadline`
+  - `test_no_deliverable_leaves_the_guide_to_rw7a`
+- [tests/test_deliverable_scope.py](../../../../../../tests/test_deliverable_scope.py) — direct import
+  - `test_a_book_passage_is_read_through_the_predicate_when_resolved`
+  - `test_a_correction_is_a_new_input_and_reresolves`
+  - `test_add_it_creates_the_lo_through_create_goal_lo_and_joins_the_scope`
+  - `test_also_about_is_resolved_by_the_same_resolver_and_kept_as_a_learner_row`
+  - `test_create_goal_lo_keeps_the_text_gap_cap_plus_one_and_undoes_to_dormant`
+  - `test_gc1_no_exam_or_held_out_text_reaches_the_resolver`
+  - `test_only_a_learner_goal_is_a_deliverable`
+  - `test_resolution_writes_the_scope_through_the_lock_and_a_repeat_pays_nothing`
+  - `test_scope_view_lists_topics_unmatched_and_the_receipt`
+  - `test_unmatched_phrases_never_create_an_lo_without_the_learners_yes`
+- [tests/test_diagnose_review.py](../../../../../../tests/test_diagnose_review.py) — direct import
 - [tests/test_diagnosis_adjudication.py](../../../../../../tests/test_diagnosis_adjudication.py) — direct import
+- [tests/test_diagnosis_async_router.py](../../../../../../tests/test_diagnosis_async_router.py) — direct import
+  - `test_the_lag_rate_is_over_every_serve_that_followed_a_diagnosed_answer`
+  - `test_the_open_factor_takes_the_diagnosis_causes_when_it_lands`
+- [tests/test_diagnosis_embeddings.py](../../../../../../tests/test_diagnosis_embeddings.py) — direct import
+- [tests/test_diagnosis_history_modes.py](../../../../../../tests/test_diagnosis_history_modes.py) — direct import
+  - `test_as_of_history_needs_each_record_written_before_the_cutoff`
+  - `test_repairs_before_filters_owners_and_cold_outcomes_by_the_cutoff`
+- [tests/test_diagnosis_input_provenance.py](../../../../../../tests/test_diagnosis_input_provenance.py) — direct import
+  - `test_a_regrade_keeps_the_ids_a_belief_lists_resolvable`
+  - `test_f2_a_diagnosis_folds_a_generated_topic_only_under_the_name_it_was_shown`
+  - `test_f2_the_drafter_folds_a_generated_topic_only_under_the_name_it_was_shown`
+  - `test_f3_a_grading_replaced_after_the_history_was_read_is_unaccountable`
+  - `test_f3_a_regrade_while_the_diagnoser_runs_never_certifies_what_it_was_shown`
+  - `test_f4_a_regrade_to_no_errors_keeps_the_retired_events_answer`
+  - `test_f5_replay_never_reads_the_switch_or_the_records`
+  - `test_rereview_f2_a_name_is_checked_although_a_text_read_already_folded_its_topic`
+  - `test_rereview_f2_a_prior_fold_never_exempts_a_name_from_the_check`
+  - `test_rereview_f2_the_drafter_checks_its_anchor_and_prerequisite_names`
+  - `test_rereview_f3_a_payload_its_caller_supplied_is_never_certified`
+  - `test_rereview_f3_a_regrade_after_the_job_captured_its_gradings_is_unaccountable`
+  - `test_rereview_f3_the_overlay_s_payload_is_validated_by_the_identity_captured_with_it`
+  - `test_the_tutor_records_the_contract_a_mid_attempt_question_is_about`
+- [tests/test_diagnosis_input_provenance_landing.py](../../../../../../tests/test_diagnosis_input_provenance_landing.py) — direct import
+  - `test_a_method_explicit_question_records_the_contract_it_was_presented_with`
+  - `test_q14_on_a_vault_the_coordinator_upgrades_the_receipt_commits_with_the_grade`
+  - `test_rule_4_and_identity_bound_marks_reach_rule_c_through_learner_protection`
+  - `test_the_release_switch_defaults_off_and_the_default_source_is_the_narrow_rule`
+- [tests/test_diagnosis_pipeline.py](../../../../../../tests/test_diagnosis_pipeline.py) — direct import
+  - `test_kill_switch_holds_queued_live_diagnoses`
+- [tests/test_diagnosis_replay.py](../../../../../../tests/test_diagnosis_replay.py) — direct import
+  - `test_joint_fixture_rebuild_is_identical_at_the_previous_version`
+  - `test_replay_makes_zero_model_and_embedding_calls`
+- [tests/test_diagnosis_reports.py](../../../../../../tests/test_diagnosis_reports.py) — direct import
 - [tests/test_diagnostic_augmentation.py](../../../../../../tests/test_diagnostic_augmentation.py) — direct import
+  - `test_a_committed_joint_grade_carries_its_receipt_and_grading_record`
+  - `test_a_receipt_that_cannot_be_written_commits_no_augmented_grade`
   - `test_b2_license_cannot_be_reused_for_a_different_b1_corpus`
   - `test_c3_k1_leaves_no_sample_support_on_the_stored_attribution`
   - `test_commissioning_rejects_same_family_before_persona_generation`
   - `test_licensed_b1_runs_blind_and_never_writes_a_learner_attempt`
-  - `test_post_commit_receipt_failure_never_records_a_fallback_attempt`
   - `test_same_model_family_invalidates_b1_without_running_diagnostician`
 - [tests/test_diagnostic_gate.py](../../../../../../tests/test_diagnostic_gate.py) — direct import
   - `test_backfill_creates_row_for_keyed_pair`
@@ -513,23 +1096,72 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_doctor_warns_when_attempt_log_needs_explicit_rebuild_marker`
 - [tests/test_dual_authority_administration.py](../../../../../../tests/test_dual_authority_administration.py) — direct import
 - [tests/test_durable_promotion_arms.py](../../../../../../tests/test_durable_promotion_arms.py) — direct import
+- [tests/test_duration_estimates.py](../../../../../../tests/test_duration_estimates.py) — direct import
+  - `test_vault_items_carry_expected_minutes_into_the_estimate`
+- [tests/test_e0_paid_fakes.py](../../../../../../tests/test_e0_paid_fakes.py) — direct import
+  - `test_r0_runs_find_sources_on_a_service_copy_and_the_frozen_copy_is_untouched`
 - [tests/test_e2e_codex_mock.py](../../../../../../tests/test_e2e_codex_mock.py) — direct import
   - `test_codex_mocked_end_to_end`
 - [tests/test_effective_observation.py](../../../../../../tests/test_effective_observation.py) — direct import
+- [tests/test_embedding_backfill.py](../../../../../../tests/test_embedding_backfill.py) — direct import
+- [tests/test_embedding_compare.py](../../../../../../tests/test_embedding_compare.py) — direct import
+  - `test_a_larger_dimension_sweep_never_reuses_narrower_cached_vectors`
+  - `test_b2_reports_views_and_recall_oriented_cutoffs_and_caches_vectors`
+- [tests/test_embedding_route_isolation.py](../../../../../../tests/test_embedding_route_isolation.py) — direct import
+- [tests/test_embedding_store.py](../../../../../../tests/test_embedding_store.py) — direct import
+  - `test_replay_preserves_paid_inputs_without_models`
 - [tests/test_error_hunt_items.py](../../../../../../tests/test_error_hunt_items.py) — direct import
 - [tests/test_evaluation.py](../../../../../../tests/test_evaluation.py) — direct import
+- [tests/test_evsi_router_composition.py](../../../../../../tests/test_evsi_router_composition.py) — direct import
 - [tests/test_exam_calibration.py](../../../../../../tests/test_exam_calibration.py) — direct import
   - `test_empty_calibration_is_defined`
   - `test_facet_projection_calibration`
   - `test_known_pairs_produce_known_brier_and_bins`
 - [tests/test_exam_pool.py](../../../../../../tests/test_exam_pool.py) — direct import
   - `test_uncovered_facets_reported_when_no_item_tests_a_facet`
+- [tests/test_exam_protection.py](../../../../../../tests/test_exam_protection.py) — direct import
+  - `test_a_held_out_textbook_unit_never_feeds_synthesis_as_teaching`
+  - `test_a_reader_import_of_held_out_material_is_refused_before_any_model_call`
+  - `test_an_exposed_import_never_becomes_a_certification_cold_probe`
+  - `test_an_exposed_import_never_becomes_an_exam_item`
+  - `test_the_exam_half_of_a_split_unit_is_exam_material_and_its_theory_half_still_teaches`
+- [tests/test_exam_protection_identity.py](../../../../../../tests/test_exam_protection_identity.py) — direct import
+  - `test_a_scope_edited_outside_the_writer_names_no_reading`
+  - `test_f3_final_a_cli_open_changes_nothing_else`
+  - `test_f3_final_a_cli_upgrade_records_what_membership_qualifies_before_a_hand_edit`
+  - `test_identity_rereview_f3_a_hand_edit_never_releases_a_signal_its_membership_qualified`
+  - `test_identity_rereview_f3_exam_membership_the_writer_adds_survives_a_hand_edit`
+  - `test_identity_review_a_signal_of_unknown_reading_is_named_plainly`
+  - `test_identity_review_f3_a_legacy_signal_survives_its_exam_membership_changing`
+  - `test_identity_review_f6_the_kill_switch_restores_the_predecessors_reading_step`
+  - `test_the_scopes_reading_round_trips_through_the_sidecar`
+  - `test_the_scopes_reading_round_trips_through_the_writers`
+- [tests/test_exam_protection_landing.py](../../../../../../tests/test_exam_protection_landing.py) — direct import
+  - `test_a_book_picked_as_an_exam_in_its_outline_builds_nothing`
+  - `test_the_automatic_build_scope_is_the_one_predicate`
+  - `test_the_reading_step_never_offers_a_held_out_section_of_a_book_in_no_source_set`
+- [tests/test_exam_protection_review.py](../../../../../../tests/test_exam_protection_review.py) — direct import
+  - `test_a_pool_every_item_of_which_was_exposed_is_reserved_afresh`
+  - `test_a_sitting_every_unanswered_item_of_which_was_exposed_is_closed_and_its_pool_released`
+  - `test_an_exam_answer_given_before_its_item_was_exposed_stands`
+  - `test_an_exam_item_exposed_after_its_reservation_is_withdrawn_before_the_exam_starts`
+  - `test_an_exam_item_exposed_during_the_exam_is_withdrawn_on_resume_and_its_answer_refused`
+  - `test_an_item_marked_held_out_after_its_import_leaves_routine_practice`
+  - `test_replay_never_reads_the_switch`
+  - `test_the_report_of_an_automatically_closed_sitting_is_its_closure_report`
+  - `test_with_the_switch_off_an_exposed_exam_item_is_administered_as_before`
+  - `test_with_the_switch_off_an_item_exposed_mid_exam_is_administered_as_before`
+  - `test_with_the_switch_off_picks_and_session_serves_are_not_refused`
+  - `test_with_the_switch_off_routine_practice_serves_held_out_material_as_before`
+  - `test_with_the_switch_off_shown_material_is_selected_as_before`
+  - `test_with_the_switch_off_the_cold_retry_is_the_predecessor_s`
 - [tests/test_exam_readiness_and_conflict.py](../../../../../../tests/test_exam_readiness_and_conflict.py) — direct import
   - `test_exam_readiness_predicted_score_distribution_is_analytic`
   - `test_exam_readiness_report_is_deterministic_and_labels_ready_vs_demonstrated`
 - [tests/test_exam_seeding.py](../../../../../../tests/test_exam_seeding.py) — direct import
   - `test_ingest_exam_instructions_reach_context_and_tags_apply`
 - [tests/test_exam_session.py](../../../../../../tests/test_exam_session.py) — direct import
+  - `test_an_exam_answer_is_stamped_with_its_graders_calibration_identity`
   - `test_exam_answers_certify_facet_evidence_on_canonical_vault`
 - [tests/test_exercise_authoring.py](../../../../../../tests/test_exercise_authoring.py) — direct import
   - `test_coordination_without_whole_task_is_left_unstamped`
@@ -541,6 +1173,38 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_selection_level_edited_text_overrides_combined_surface`
   - `test_single_item_paraphrase_falls_back_to_full_selection`
   - `test_unknown_facets_fall_back_and_unknown_lo_uses_hint`
+- [tests/test_facet_authority.py](../../../../../../tests/test_facet_authority.py) — direct import
+  - `test_a_bootstrap_candidate_carrying_a_registered_id_rewords_it_uncited_only_with_the_owners_confirm`
+  - `test_a_citations_locator_is_derived_from_its_validated_ids`
+  - `test_a_cited_bootstrap_candidate_carrying_a_registered_id_rewords_it_as_a_checked_update`
+  - `test_a_provenance_link_to_an_unselected_unit_is_dropped`
+  - `test_an_exam_and_notes_reword_hard_fails_exam_authority`
+  - `test_an_exam_override_inside_a_textbook_extraction_is_exam_material`
+  - `test_an_ingest_consolidation_keeps_exam_only_meaning_out_and_its_undo_cannot_mint_it`
+  - `test_an_uncited_append_facet_carrying_a_registered_id_never_rewrites_it`
+  - `test_an_unselected_span_never_corroborates_exam_material`
+  - `test_citations_take_the_units_role_override`
+  - `test_the_registry_writer_refuses_exam_only_meaning_whatever_the_caller_declares`
+  - `test_the_writer_judges_a_persisted_citation_by_the_span_its_locator_names`
+  - `test_the_writer_never_writes_a_reword_whose_only_support_is_unselected`
+  - `test_the_writer_refuses_a_new_facet_one_of_whose_contributions_is_exam_only`
+  - `test_the_writer_refuses_a_reword_citing_an_exam_override_only`
+  - `test_the_writer_refuses_a_reword_supported_by_exam_and_notes_only`
+- [tests/test_facet_authority_rereview.py](../../../../../../tests/test_facet_authority_rereview.py) — direct import
+  - `test_a_declared_citation_that_does_not_resolve_never_hides_the_writes_exam_ref`
+  - `test_a_write_declaring_both_halves_of_a_split_unit_under_their_own_units_applies`
+  - `test_recovery_keeps_the_verdict_of_a_save_killed_after_its_write`
+- [tests/test_facet_authority_review.py](../../../../../../tests/test_facet_authority_review.py) — direct import
+  - `test_a_citation_that_does_not_resolve_never_becomes_a_semantic_authority_link`
+  - `test_a_citation_the_write_records_but_its_meaning_support_leaves_out_is_judged_on_its_own`
+  - `test_a_library_save_that_never_lands_withdraws_its_authority_verdicts`
+  - `test_a_malformed_meaning_support_is_refused`
+  - `test_a_re_extraction_never_makes_an_exam_only_restoration_admissible`
+  - `test_a_write_whose_meaning_support_declares_its_exam_citation_with_textbook_support_applies`
+  - `test_an_empty_meaning_support_never_hides_a_writes_exam_citation`
+  - `test_an_undo_never_mints_a_candidate_whose_recorded_citations_no_longer_resolve`
+  - `test_recovery_settles_an_undo_intent_the_authority_rule_refuses`
+  - `test_the_writer_never_writes_a_reword_citing_the_unselected_half_of_a_split_unit`
 - [tests/test_facet_candidates.py](../../../../../../tests/test_facet_candidates.py) — direct import
   - `test_harvest_is_deterministic`
   - `test_harvests_candidates_from_multiple_sources`
@@ -558,23 +1222,239 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_subthreshold_noisy_item_creates_single_facet_generation_need_and_logs_slate`
   - `test_tiny_authored_facet_share_does_not_earn_per_facet_coverage`
   - `test_variance_floor_blocks_confidence_before_required_facet_breadth`
+- [tests/test_facet_identity.py](../../../../../../tests/test_facet_identity.py) — direct import
+  - `test_a_failing_judge_is_retried_within_the_cap_then_gives_up`
+  - `test_an_undone_in_run_merge_stays_apart_when_the_run_is_planned_again`
+  - `test_an_undone_merge_is_an_owner_verdict_and_dedupe_never_reapplies_it`
+  - `test_dedupe_regression_set_merges_the_agreed_pairs_and_keeps_the_distinct_ones`
+  - `test_in_run_consolidation_of_the_regression_set`
+  - `test_judge_writes_one_ledger_row_per_pair_and_never_pays_twice`
+  - `test_spend_caps_stop_the_judge_before_a_call`
+  - `test_the_plan_is_off_with_the_kill_switch`
+- [tests/test_facet_identity_actions.py](../../../../../../tests/test_facet_identity_actions.py) — direct import
+  - `test_a_criterion_graded_before_the_merge_keeps_its_two_facets_apart`
+  - `test_a_criterion_naming_the_two_facets_at_different_capabilities_does_not_hold_back`
+  - `test_a_facet_that_used_to_be_locked_merges_and_undoes_exactly`
+  - `test_a_held_back_retiree_stays_registered_while_the_rest_of_the_set_merges`
+  - `test_a_merge_interrupted_before_its_file_write_keeps_the_facets_evidence_apart`
+  - `test_a_merge_of_two_facets_one_criterion_targets_counts_like_one_target`
+  - `test_a_merge_rekeys_evidence_and_undo_restores_facets_and_evidence_exactly`
+  - `test_a_recipe_naming_both_merged_facets_keeps_one_component`
+  - `test_absorb_adds_the_special_case_as_an_example`
+  - `test_an_interrupted_merge_is_finished_by_recovery`
+  - `test_an_undo_interrupted_after_its_file_write_keeps_the_restored_facets_evidence_apart`
+  - `test_authored_duplicate_targets_without_an_alias_load_unchanged`
+  - `test_dedupe_applies_a_set_whose_facets_carry_evidence`
+  - `test_dedupe_reports_a_held_back_retiree_as_refused`
+  - `test_doctor_reports_an_interrupted_merge_and_fix_state_finishes_it`
+  - `test_recovery_withdraws_a_merge_that_a_criterion_graded_meanwhile_names_both_facets`
+  - `test_undo_refuses_to_overwrite_a_later_change`
+- [tests/test_facet_identity_composition.py](../../../../../../tests/test_facet_identity_composition.py) — direct import
+  - `test_a_configured_decider_route_builds_the_decider_judge_without_a_call`
+  - `test_dedupe_applies_a_set_with_evidence`
+  - `test_dedupe_through_a_decider_route_merges_and_writes_labelled_receipts`
+  - `test_facets_with_evidence_merge_whatever_the_retired_lock_key_says`
+  - `test_the_ledger_records_merged_pairs_and_shortlisted_different_pairs_only`
+- [tests/test_facet_identity_ingest.py](../../../../../../tests/test_facet_identity_ingest.py) — direct import
+  - `test_a_candidate_matching_a_registered_facet_becomes_its_alias`
+  - `test_a_duplicate_candidate_is_merged_before_the_gates_and_undo_re_mints_it`
+  - `test_an_unavailable_judge_keeps_the_candidates_and_says_so`
+  - `test_append_attaches_a_new_facet_to_the_registered_one_it_restates`
+  - `test_the_kill_switch_restores_the_prompt_and_never_calls_the_judge`
+  - `test_the_run_summary_names_its_run_and_each_action_its_evidence_and_undo_limits`
+  - `test_two_sets_on_one_in_run_survivor_are_one_action_that_undoes_both`
 - [tests/test_facet_mint_gate.py](../../../../../../tests/test_facet_mint_gate.py) — direct import
   - `test_ingest_aliases_a_collapsing_candidate_into_a_registered_facet`
 - [tests/test_facet_registry_v2.py](../../../../../../tests/test_facet_registry_v2.py) — direct import
   - `test_rename_alias_preserves_identity`
   - `test_v1_registry_loads_unchanged`
+- [tests/test_facet_reword_confirm.py](../../../../../../tests/test_facet_reword_confirm.py) — direct import
+  - `test_a_bootstrap_candidate_carrying_a_registered_id_uncited_is_kept_for_confirm`
+  - `test_a_bootstrap_reword_citing_exam_material_under_the_wrong_unit_is_dropped_not_held`
+  - `test_a_cited_reword_records_its_sources_on_the_facets_history`
+  - `test_a_confirm_whose_support_became_exam_material_is_refused`
+  - `test_a_held_out_evaluation_unit_is_exam_material_whatever_its_members_role`
+  - `test_a_title_change_needs_no_explanatory_citation_and_is_on_the_facets_history`
+  - `test_a_worked_example_change_applies_with_its_source_on_the_facets_history`
+  - `test_an_exam_only_bootstrap_candidate_carrying_a_registered_id_is_dropped_not_held`
+  - `test_an_exam_span_cited_under_the_wrong_unit_is_refused_not_held`
+  - `test_an_uncited_append_reword_reaches_the_owner_as_a_confirm`
+  - `test_an_uncited_reword_of_a_registered_facet_waits_for_the_owners_confirm`
+  - `test_confirming_a_reword_applies_it_as_the_owners_authority_with_an_undo`
+  - `test_keeping_the_current_wording_closes_the_confirm_and_changes_nothing`
+  - `test_registry_review_lists_a_pending_confirm_with_its_wording_and_sources`
+  - `test_the_registry_writer_refuses_exam_only_meaning_and_an_unconfirmed_reword`
+- [tests/test_facet_reword_confirm_review.py](../../../../../../tests/test_facet_reword_confirm_review.py) — direct import
+  - `test_a_confirmed_reword_installs_its_source_links`
+  - `test_a_pending_confirm_hides_a_sources_text_once_its_member_is_an_exam`
+  - `test_an_append_title_update_applies_without_a_new_version`
+  - `test_an_append_worked_example_update_applies_without_a_new_version`
+  - `test_an_attach_absorbing_an_exam_span_cited_under_the_wrong_unit_never_grows_the_facet`
+  - `test_an_interrupted_confirm_installs_its_source_links_on_recovery`
+- [tests/test_facet_reword_paths.py](../../../../../../tests/test_facet_reword_paths.py) — direct import
+  - `test_a_cited_facet_reword_records_its_spans_in_the_facets_provenance`
+  - `test_a_library_edit_that_only_grows_a_facet_is_written_as_typed_and_is_not_a_version`
+  - `test_an_append_facet_restructure_applies_as_a_facet_version_with_undo`
+  - `test_an_append_facet_restructure_refuses_when_the_facet_changed_since`
+  - `test_an_exam_only_facet_reword_hard_fails_the_exam_authority_gate`
+  - `test_an_uncited_facet_reword_waits_for_the_owners_confirm`
+- [tests/test_facet_rewords.py](../../../../../../tests/test_facet_rewords.py) — direct import
+  - `test_no_facet_arm_refuses_and_the_learning_object_arm_still_does`
+  - `test_rewording_an_evidenced_facet_records_a_version_and_its_undo_restores_the_old_wording`
+  - `test_the_gate_lets_a_facet_update_through_and_still_guards_a_practised_learning_object`
+- [tests/test_facet_span_support.py](../../../../../../tests/test_facet_span_support.py) — direct import
+  - `test_a_check_whose_input_changed_under_the_lock_waits_for_the_confirm`
+  - `test_a_confirm_finished_by_recovery_labels_the_check`
+  - `test_a_tie_between_supports_and_another_option_holds_the_reword`
+  - `test_exam_only_support_is_refused_before_the_decider_and_the_owner_edit_bypasses_it`
+  - `test_keeping_a_card_that_went_stale_is_no_label`
+  - `test_keeping_the_current_wording_labels_the_check_does_not_support`
+  - `test_only_a_registered_facets_meaning_is_checked`
+  - `test_span_support_applies_only_on_supports_else_the_card_shows_verdict_and_span`
+  - `test_the_check_reads_each_cited_span_once`
+  - `test_the_owners_confirm_and_undo_label_the_check`
+  - `test_the_span_check_is_asked_before_the_vault_lock_is_taken`
+  - `test_the_span_switch_restores_the_cited_reword_and_reword_confirm_off_skips_the_check`
+- [tests/test_facet_state_write_on_change.py](../../../../../../tests/test_facet_state_write_on_change.py) — direct import
 - [tests/test_failure_triage.py](../../../../../../tests/test_failure_triage.py) — direct import
   - `test_high_confidence_signature_takes_intended_route`
 - [tests/test_failure_triage_causal_gate.py](../../../../../../tests/test_failure_triage_causal_gate.py) — direct import
   - `test_real_receipt_from_apply_attempt_does_not_force_tier_two`
   - `test_triage_records_tier_one_basis_on_the_result_and_the_event`
+- [tests/test_family_memory_projection.py](../../../../../../tests/test_family_memory_projection.py) — direct import
+- [tests/test_family_proposals.py](../../../../../../tests/test_family_proposals.py) — direct import
+  - `test_fake_codex_run_succeeds_and_receipts_carry_estimated_only`
+  - `test_isomorph_is_preserved_in_authored_members`
+  - `test_reject_identity_excludes_unrelated_pairs`
+  - `test_two_agreeing_passes_apply_and_one_step_undo`
+- [tests/test_field_config.py](../../../../../../tests/test_field_config.py) — direct import
+  - `test_offline_vault_load_uses_only_explicit_vault_config`
+  - `test_retired_numeric_probability_route_loads_with_a_deprecation_note`
+- [tests/test_field_signal_production_paths.py](../../../../../../tests/test_field_signal_production_paths.py) — direct import
+  - `test_practice_screen_payload_marks_help_before_work`
+- [tests/test_field_workbench_signals.py](../../../../../../tests/test_field_workbench_signals.py) — direct import
+  - `test_upgrade_from_the_predecessor_and_through_the_chain`
+- [tests/test_figure_label_wording.py](../../../../../../tests/test_figure_label_wording.py) — direct import
+  - `test_f3_a_stored_label_like_sketch_is_presented_without_that_text`
+  - `test_f3_a_stored_label_like_spec_is_presented_without_that_text_listed_and_reused`
+- [tests/test_figure_offers.py](../../../../../../tests/test_figure_offers.py) — direct import
+  - `test_a_block_the_judgment_did_not_offer_is_refused_before_any_call`
+  - `test_a_build_stops_when_the_advanced_panels_are_switched_off_mid_build`
+  - `test_a_selection_build_does_not_stop_for_the_offers_switch`
+  - `test_a_stored_answer_with_offers_is_shown_without_them_once_offers_are_off`
+  - `test_an_offered_build_stops_when_offers_are_switched_off_before_its_request`
+  - `test_offers_off_the_contract_has_none_and_the_press_is_refused`
+  - `test_pressing_a_library_offer_builds_through_rw5a_with_origin_library`
+  - `test_the_gate_key_of_an_offered_build_includes_the_offers_switch`
+  - `test_the_tutor_buttons_are_make_explorable_on_this_books_equation_and_figure_blocks`
+  - `test_the_tutor_context_asks_for_explorable_only_with_a_block_to_judge`
+- [tests/test_figure_predictions.py](../../../../../../tests/test_figure_predictions.py) — direct import
+  - `test_the_backlog_sweep_queues_missed_predictions`
+  - `test_what_changed_is_kept_once_and_read_with_the_missed_prediction`
+- [tests/test_figure_rich_contract.py](../../../../../../tests/test_figure_rich_contract.py) — direct import
+- [tests/test_figure_rich_job.py](../../../../../../tests/test_figure_rich_job.py) — direct import
+- [tests/test_figure_rich_rpc.py](../../../../../../tests/test_figure_rich_rpc.py) — direct import
+  - `test_allowing_where_manim_cannot_run_is_refused`
+  - `test_the_standing_opt_in_is_written_once_with_its_date`
+- [tests/test_figures_codex_review.py](../../../../../../tests/test_figures_codex_review.py) — direct import
+  - `test_f5_an_explained_source_with_no_explanation_reads_nothing`
+  - `test_f7_a_paid_answer_survives_a_crash_before_the_row`
+  - `test_f7_a_stored_failure_is_a_new_generation_that_asks_afresh`
+  - `test_f7_identical_concurrent_builds_join_one_build`
+- [tests/test_figures_final_round.py](../../../../../../tests/test_figures_final_round.py) — direct import
+  - `test_a_provider_that_cannot_isolate_is_refused_before_any_request`
+- [tests/test_figures_fix_round2.py](../../../../../../tests/test_figures_fix_round2.py) — direct import
+  - `test_f1_a_held_out_neighbour_keeps_a_missed_prediction_from_the_gap_reader`
+  - `test_f5_a_prediction_never_read_is_swept_once_with_its_explanation`
+  - `test_f5_an_explanation_the_first_reading_read_is_not_swept_again`
+  - `test_f5_off_save_on_sweep_reads_the_explanation_once`
+  - `test_f7_a_build_committed_between_the_reads_is_reused_inside_the_lock`
+- [tests/test_figures_fix_round3.py](../../../../../../tests/test_figures_fix_round3.py) — direct import
+  - `test_f5_an_explanation_repeating_the_answer_is_still_read`
+  - `test_f5_the_reading_records_whether_it_read_the_explanation`
+- [tests/test_figures_fix_round4.py](../../../../../../tests/test_figures_fix_round4.py) — direct import
+  - `test_f5_an_explanation_after_a_checkpointed_reading_is_its_own_text`
+- [tests/test_figures_fix_round5.py](../../../../../../tests/test_figures_fix_round5.py) — direct import
+- [tests/test_figures_help.py](../../../../../../tests/test_figures_help.py) — direct import
+  - `test_a_figure_built_from_the_items_own_blocks_never_qualifies`
+  - `test_explore_figure_is_offered_only_with_a_qualifying_figure_and_its_propensity_is_logged`
+  - `test_help_outcomes_list_figure_deterministically_and_not_when_off`
+  - `test_take_step_availability_follows_the_hint_ladders_take_step`
+  - `test_the_diagnoser_reads_the_figure_trace_under_its_suffix_and_never_the_program`
+  - `test_the_sidecar_never_offers_a_figure_cold_or_switched_off`
+  - `test_with_no_provider_every_request_is_as_before`
+  - `test_without_a_qualifying_figure_the_option_is_absent_and_named`
+- [tests/test_figures_help_codex_review.py](../../../../../../tests/test_figures_help_codex_review.py) — direct import
+  - `test_f4_revising_a_reader_figure_opened_in_practice_is_recorded_and_reveal_checked_there`
+  - `test_f5_an_attempt_builds_admission_key_carries_the_switch`
+  - `test_f7_predictions_made_before_the_attempt_are_not_its_trace`
+  - `test_f7_the_trace_reads_only_what_this_attempt_wrote_as_it_stood_at_submit`
+- [tests/test_figures_rw5b_fix_round2.py](../../../../../../tests/test_figures_rw5b_fix_round2.py) — direct import
+  - `test_a_forked_ask_offers_and_builds_on_the_fork`
+  - `test_a_library_note_pointing_at_another_tasks_yes_row_is_refused`
+  - `test_the_same_question_asked_twice_offers_and_builds_on_the_second_ask`
+- [tests/test_figures_rw5b_review.py](../../../../../../tests/test_figures_rw5b_review.py) — direct import
+  - `test_a_library_note_edited_to_offer_without_its_ledger_yes_is_refused`
+- [tests/test_figures_scope_redesign.py](../../../../../../tests/test_figures_scope_redesign.py) — direct import
+  - `test_a_build_makes_no_request_after_its_configuration_changes`
+  - `test_the_build_control_makes_every_request`
+- [tests/test_figures_show_me.py](../../../../../../tests/test_figures_show_me.py) — direct import
+  - `test_a_missed_predictions_text_rechecks_the_retrieved_passages`
+- [tests/test_figures_show_me_codex_review.py](../../../../../../tests/test_figures_show_me_codex_review.py) — direct import
+  - `test_f1_a_reuse_after_show_me_is_switched_off_is_refused`
+  - `test_f1_switching_off_during_grounding_stops_its_calls_and_the_author`
+  - `test_f1_the_control_admits_every_grounding_call`
+  - `test_f4_a_home_held_out_after_construction_withholds_the_figure`
+  - `test_f5_a_goal_only_figures_prediction_is_read_with_its_grounding_passages`
+  - `test_f5_an_anchored_figures_text_is_unchanged`
+- [tests/test_figures_switch_off.py](../../../../../../tests/test_figures_switch_off.py) — direct import
+  - `test_figures_off_queues_and_reads_no_figure_text`
 - [tests/test_followup_diagnostic_selection.py](../../../../../../tests/test_followup_diagnostic_selection.py) — direct import
 - [tests/test_followups.py](../../../../../../tests/test_followups.py) — direct import
+- [tests/test_followups_batch5_c5_ledger.py](../../../../../../tests/test_followups_batch5_c5_ledger.py) — direct import
+  - `test_a_notes_ledger_verdicts_have_the_shared_shape_and_the_report_reads_them`
+- [tests/test_followups_batch5_lesson.py](../../../../../../tests/test_followups_batch5_lesson.py) — direct import
+  - `test_c_a_step_of_a_saved_lesson_whose_route_is_down_says_it_is_saved`
+  - `test_c_an_opening_whose_teacher_call_fails_after_the_save_says_it_is_saved_and_carries_its_id`
+  - `test_d_resume_after_a_help_action_with_a_read_follow_up_makes_no_call`
+  - `test_e_the_figures_daily_budget_refusing_a_visual_leaves_the_lesson_open`
+  - `test_e_the_lesson_envelope_refusing_a_visual_still_closes_the_lesson_with_budget`
+- [tests/test_followups_batch5_recap_protection.py](../../../../../../tests/test_followups_batch5_recap_protection.py) — direct import
+  - `test_a_lesson_with_no_recorded_protection_rechecks_its_passages`
+  - `test_unreadable_protection_drops_the_recap_only`
+- [tests/test_followups_nov2_figure_provenance.py](../../../../../../tests/test_followups_nov2_figure_provenance.py) — direct import
+  - `test_a_fresh_figure_for_a_marked_row_is_reused_after_the_panels_are_switched`
+  - `test_a_lesson_figure_keeps_its_record_and_is_rechecked_by_its_learner_inputs`
+  - `test_a_marked_quick_figure_with_no_record_is_withheld`
+  - `test_a_press_of_the_same_input_never_backfills_the_marked_row_and_builds_afresh`
+  - `test_a_quick_figure_whose_learner_inputs_became_protected_is_not_presented`
+  - `test_a_quick_figure_with_no_learner_state_keeps_its_report_as_before`
+  - `test_a_revision_inherits_its_bases_learner_state_protection`
+  - `test_an_unmarked_quick_figure_with_no_record_keeps_the_no_learner_state_reading`
+- [tests/test_followups_nov2_help_fold.py](../../../../../../tests/test_followups_nov2_help_fold.py) — direct import
+- [tests/test_followups_nov2_note_gap_unlinked.py](../../../../../../tests/test_followups_nov2_note_gap_unlinked.py) — direct import
+  - `test_a_note_changed_into_a_new_snapshot_sets_the_old_snapshots_gap_aside`
+  - `test_a_note_linked_while_the_retraction_runs_keeps_its_gap`
+  - `test_hiding_a_read_notes_link_sets_its_gaps_aside_and_only_its_own`
+  - `test_switched_off_nothing_is_read_and_nothing_is_set_aside`
+  - `test_the_retraction_is_idempotent_and_keep_does_not_reopen_the_gap`
+- [tests/test_forecast_receipts.py](../../../../../../tests/test_forecast_receipts.py) — direct import
+  - `test_f2_a_grade_that_cites_no_contract_is_never_read_against_todays_rubric`
+  - `test_f2_editing_todays_rubric_never_rewrites_a_regraded_self_grade`
+  - `test_f3_a_cold_success_whose_grade_is_now_held_is_not_measured`
+  - `test_the_kill_switch_writes_no_receipt`
+  - `test_the_report_reads_a_vault_without_receipts_as_empty`
 - [tests/test_gate_score.py](../../../../../../tests/test_gate_score.py) — direct import
 - [tests/test_generated_item_gate.py](../../../../../../tests/test_generated_item_gate.py) — direct import
   - `test_legacy_vault_allows_unregistered_facet`
   - `test_registered_facet_accepted`
   - `test_unregistered_facet_rejected`
+- [tests/test_glm_ocr.py](../../../../../../tests/test_glm_ocr.py) — direct import
+  - `test_a_book_carrying_the_retired_keep_local_choice_is_read_like_any_other`
+  - `test_an_add_asks_once_naming_z_ai_then_reads_and_records_the_spend`
+  - `test_r2_f2_an_import_without_the_ok_reads_locally_and_offers_text_recognition`
+  - `test_read_again_with_text_recognition_uses_glm_when_it_can`
+  - `test_the_preview_estimates_pages_and_names_the_upload`
 - [tests/test_goal_certification_any_of.py](../../../../../../tests/test_goal_certification_any_of.py) — direct import
 - [tests/test_goal_decay_projection.py](../../../../../../tests/test_goal_decay_projection.py) — direct import
   - `test_do_nothing_projection_is_monotone_non_increasing_for_decay_facets`
@@ -608,6 +1488,9 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_grading_context_is_deterministic_and_hashable`
   - `test_grading_context_uses_default_rubric_when_inline_rubric_is_omitted`
   - `test_legacy_evidence_coverage_wrapper_is_score_independent`
+- [tests/test_grading_hardcases.py](../../../../../../tests/test_grading_hardcases.py) — direct import
+- [tests/test_grading_support.py](../../../../../../tests/test_grading_support.py) — direct import
+  - `test_an_unverified_multi_target_criterion_opens_no_unresolved_cause_factor`
 - [tests/test_graph_correction.py](../../../../../../tests/test_graph_correction.py) — direct import
   - `test_calibration_ordering_reverts_to_plain_rate`
   - `test_non_prerequisite_edges_produce_zero_belief_change`
@@ -622,9 +1505,76 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_resolve_edge_direction_keep_resolves_without_filing`
   - `test_resolve_edge_direction_retire_removes_and_can_restore`
 - [tests/test_graph_editor_reads.py](../../../../../../tests/test_graph_editor_reads.py) — direct import
+- [tests/test_graph_nomination.py](../../../../../../tests/test_graph_nomination.py) — direct import
+- [tests/test_graph_nomination_ingest.py](../../../../../../tests/test_graph_nomination_ingest.py) — direct import
+  - `test_backfill_after_apply_reuses_the_vectors_paid_at_ingest`
+  - `test_kill_switch_never_reuses_a_nominated_bootstrap`
+  - `test_kill_switch_never_reuses_a_nominated_bootstrap_cached_before_the_fix`
+  - `test_registry_merge_is_declined_when_its_verdict_cannot_be_ledgered`
+  - `test_structuring_sees_registry_definitions_and_decides_a_registry_merge`
+- [tests/test_graph_nomination_report.py](../../../../../../tests/test_graph_nomination_report.py) — direct import
 - [tests/test_guided_redo.py](../../../../../../tests/test_guided_redo.py) — direct import
   - `test_rank_items_deprioritizes_recently_attempted_item`
   - `test_rank_items_prefers_checkpoint_covering_item`
+- [tests/test_held_grade_composition.py](../../../../../../tests/test_held_grade_composition.py) — direct import
+  - `test_router_never_scores_a_held_attempt_and_its_fold_applies_no_review`
+- [tests/test_held_grade_evidence.py](../../../../../../tests/test_held_grade_evidence.py) — direct import
+  - `test_review_f3_diagnostic_observations_held_by_a_regrade_qualify_nothing`
+- [tests/test_help_assist_work_md_migration.py](../../../../../../tests/test_help_assist_work_md_migration.py) — direct import
+  - `test_a_served_hint_keeps_the_draft_it_answered_and_the_grader_never_sees_it`
+  - `test_an_authored_reveal_keeps_the_draft`
+- [tests/test_help_fold_attach_successor.py](../../../../../../tests/test_help_fold_attach_successor.py) — direct import
+  - `test_a_rebuild_changes_no_attempt_and_a_shadow_rebuild_is_zero`
+  - `test_the_fold_is_gated_by_the_tag_and_the_switch`
+- [tests/test_help_outcomes.py](../../../../../../tests/test_help_outcomes.py) — direct import
+  - `test_f6_a_hold_released_after_as_of_still_held_then`
+  - `test_f6_a_later_regrade_never_changes_what_as_of_said`
+- [tests/test_hint_blind.py](../../../../../../tests/test_hint_blind.py) — direct import
+  - `test_the_blind_prompt_of_a_hinted_attempt_carries_no_hint_map_placement_or_state`
+- [tests/test_hint_contracts.py](../../../../../../tests/test_hint_contracts.py) — direct import
+  - `test_a_waypoint_that_misses_the_chosen_horizon_is_caught`
+  - `test_a_worked_parallel_never_uses_the_items_own_values_and_verifies_a_book_quote`
+- [tests/test_hint_discriminating.py](../../../../../../tests/test_hint_discriminating.py) — direct import
+- [tests/test_hint_evidence.py](../../../../../../tests/test_hint_evidence.py) — direct import
+  - `test_a_withheld_or_undelivered_hint_counts_nothing`
+- [tests/test_hint_feedback_texts.py](../../../../../../tests/test_hint_feedback_texts.py) — direct import
+  - `test_a_discriminating_answer_is_queued_with_its_role`
+  - `test_a_hint_row_without_reply_text_is_no_source`
+  - `test_either_switch_off_queues_nothing`
+  - `test_reading_it_writes_only_gap_rows_and_the_gap_joins_the_next_hints_rivals`
+  - `test_the_reader_sees_the_reply_its_hint_and_question_never_an_answer_key`
+- [tests/test_hint_h2a_review.py](../../../../../../tests/test_hint_h2a_review.py) — direct import
+- [tests/test_hint_h2a_review_round2.py](../../../../../../tests/test_hint_h2a_review_round2.py) — direct import
+- [tests/test_hint_h2a_review_round4.py](../../../../../../tests/test_hint_h2a_review_round4.py) — direct import
+  - `test_r4_the_reference_route_rule_for_every_kind_and_no_map_unchanged`
+- [tests/test_hint_h2b_fix4.py](../../../../../../tests/test_hint_h2b_fix4.py) — direct import
+  - `test_f14_a_hint_is_placed_on_its_own_map_when_a_newer_one_exists_for_another_revision`
+  - `test_f14_reconcile_after_a_revision_never_judges_a_hint_against_the_new_map`
+  - `test_f14_the_immediate_placement_follows_the_same_rule`
+- [tests/test_hint_h2b_rereview.py](../../../../../../tests/test_hint_h2b_rereview.py) — direct import
+  - `test_f8_the_bound_counts_placements_not_candidates`
+  - `test_f8_unplaceable_candidates_never_starve_a_placeable_one`
+- [tests/test_hint_h2b_review.py](../../../../../../tests/test_hint_h2b_review.py) — direct import
+  - `test_f4_a_reply_whose_job_never_committed_is_queued_by_the_sweep_and_at_open`
+  - `test_f4_nothing_is_reconciled_with_either_switch_off`
+  - `test_f5_a_placement_interrupted_after_its_answer_was_checkpointed_is_not_paid_again`
+  - `test_f5_reconciliation_keeps_the_switches`
+- [tests/test_hint_kill_switch.py](../../../../../../tests/test_hint_kill_switch.py) — direct import
+- [tests/test_hint_outcome.py](../../../../../../tests/test_hint_outcome.py) — direct import
+  - `test_a_closed_registry_starts_nothing_and_a_dead_fence_writes_nothing`
+  - `test_a_hinted_wrong_answer_is_placed_and_each_hint_judged_measurement_only`
+  - `test_a_metered_route_needs_a_price_and_joins_the_maps_envelope`
+  - `test_an_attempt_is_placed_once`
+  - `test_an_unusable_placement_is_reasked_once_then_recorded_unknown`
+  - `test_nothing_is_placed_when_none_is_due`
+- [tests/test_hint_replies.py](../../../../../../tests/test_hint_replies.py) — direct import
+- [tests/test_hint_report.py](../../../../../../tests/test_hint_report.py) — direct import
+- [tests/test_hint_service.py](../../../../../../tests/test_hint_service.py) — direct import
+  - `test_another_instance_in_the_family_offers_a_worked_parallel`
+- [tests/test_hint_telemetry.py](../../../../../../tests/test_hint_telemetry.py) — direct import
+  - `test_a_reveal_writes_one_authored_hint_row`
+  - `test_kill_switch_writes_nothing_and_the_rpc_is_a_no_op`
+  - `test_rebuild_with_help_assists_populated_calls_no_model_and_never_reads_it`
 - [tests/test_hot_path_eligibility_cutover.py](../../../../../../tests/test_hot_path_eligibility_cutover.py) — direct import
 - [tests/test_hypothesis_sets.py](../../../../../../tests/test_hypothesis_sets.py) — direct import
   - `test_hypothesis_set_adds_active_misconception`
@@ -634,6 +1584,10 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_graph_identifiability_report_and_probe_scheduling`
   - `test_pre_first_practice_doctor_watermark`
   - `test_registry_view_flags_missing_anchor`
+- [tests/test_import_split_parity.py](../../../../../../tests/test_import_split_parity.py) — direct import
+  - `test_author_then_write_writes_what_import_exercises_writes`
+  - `test_selection_for_region_spans_whole_blocks`
+  - `test_the_reader_job_records_an_import_row_and_leaves_the_item_unchanged`
 - [tests/test_inference_precheck.py](../../../../../../tests/test_inference_precheck.py) — direct import
   - `test_b1_counts_exactly_mismatch_above_and_combined_union_deduplicates`
   - `test_b3_requires_a_directly_reachable_downstream_anchor`
@@ -670,7 +1624,21 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_drop_removes_the_cell_without_moving_the_reachable_count`
   - `test_keep_and_flag_when_no_observable_rung_is_deeper_than_the_parts`
   - `test_learning_object_scope_is_the_pilot_seam`
+- [tests/test_integration_daily_loop_field.py](../../../../../../tests/test_integration_daily_loop_field.py) — direct import
+  - `test_retired_reader_card_is_never_a_family_candidate`
+- [tests/test_intent_codex_rereview.py](../../../../../../tests/test_intent_codex_rereview.py) — direct import
+  - `test_f2_new_vaults_start_at_the_successor_with_intent_live`
+  - `test_f2_the_upgrade_takes_the_predecessor_or_the_chain_and_refuses_the_rest`
+- [tests/test_intent_codex_review.py](../../../../../../tests/test_intent_codex_review.py) — direct import
+  - `test_f9_concurrent_writers_publish_one_goal_and_one_link`
+- [tests/test_intent_fix_round4.py](../../../../../../tests/test_intent_fix_round4.py) — direct import
+  - `test_f15_the_probe_contract_carries_the_diagnostic_variant`
+- [tests/test_intent_fix_round5.py](../../../../../../tests/test_intent_fix_round5.py) — direct import
+- [tests/test_intent_fix_round6.py](../../../../../../tests/test_intent_fix_round6.py) — direct import
+- [tests/test_intent_fix_round7.py](../../../../../../tests/test_intent_fix_round7.py) — direct import
+- [tests/test_intent_plan.py](../../../../../../tests/test_intent_plan.py) — direct import
 - [tests/test_intent_planner.py](../../../../../../tests/test_intent_planner.py) — direct import
+- [tests/test_intent_recall_targets.py](../../../../../../tests/test_intent_recall_targets.py) — direct import
 - [tests/test_inventory_merge_parallel.py](../../../../../../tests/test_inventory_merge_parallel.py) — direct import
   - `test_synthesis_gather_folds_merged_group_once_with_member_fallback`
 - [tests/test_irt_difficulty.py](../../../../../../tests/test_irt_difficulty.py) — direct import
@@ -683,7 +1651,15 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_retire_item_reuses_loaded_vault_and_clears_serving_backdoors`
   - `test_retire_item_stops_all_serving`
   - `test_split_item_retires_original_and_links_parts`
+- [tests/test_item_fingerprints.py](../../../../../../tests/test_item_fingerprints.py) — direct import
+  - `test_a_published_item_later_used_as_the_parent_rebuilds`
+  - `test_a_vault_without_families_has_no_fingerprint_rows`
+  - `test_generic_rotation_claims_never_take_pf_generation_jobs`
+  - `test_rebuild_recomputes_fingerprints_without_any_model_or_generator`
 - [tests/test_item_parameters.py](../../../../../../tests/test_item_parameters.py) — direct import
+- [tests/test_judge_routes.py](../../../../../../tests/test_judge_routes.py) — direct import
+- [tests/test_keep_local_retired.py](../../../../../../tests/test_keep_local_retired.py) — direct import
+  - `test_a_book_carrying_the_retired_choice_gets_its_questions_built`
 - [tests/test_kinship_feature.py](../../../../../../tests/test_kinship_feature.py) — direct import
 - [tests/test_km2_activation.py](../../../../../../tests/test_km2_activation.py) — direct import
   - `test_app_load_repairs_vault_activated_by_old_upgrade`
@@ -701,13 +1677,148 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_km5_sim_gates.py](../../../../../../tests/test_km5_sim_gates.py) — direct import
   - `test_residual_activation_improves_capability_mae_without_parent_inflation`
   - `test_shadow_intent_logs_practice_integration_at_the_right_moment`
+- [tests/test_knowledge_map_text_neighbors.py](../../../../../../tests/test_knowledge_map_text_neighbors.py) — direct import
+  - `test_a_previous_model_ranks_alone_and_is_named`
+  - `test_coverage_counts_an_embedded_singleton`
+  - `test_interrupted_replacement_backfill_keeps_the_activated_model`
+  - `test_item_text_ranks_like_the_store_and_leaves_the_map_geometry_alone`
+  - `test_kill_switch_restores_facet_graph_neighbors`
+  - `test_missing_and_stale_stems_degrade_per_item`
+  - `test_other_task_prefixes_are_ignored`
+  - `test_render_never_calls_a_model_or_writes`
 - [tests/test_laddered_stems.py](../../../../../../tests/test_laddered_stems.py) — direct import
 - [tests/test_large_practice_flow.py](../../../../../../tests/test_large_practice_flow.py) — direct import
   - `test_many_open_text_practice_items_schedule_and_record_attempt`
+- [tests/test_learner_blindness_relax.py](../../../../../../tests/test_learner_blindness_relax.py) — direct import
+  - `test_the_frozen_state_version_follows_the_switch`
+  - `test_the_history_card_carries_bounded_answer_excerpts_only_while_on`
+  - `test_the_state_carries_no_stored_answer_and_unreadable_protection_carries_nothing`
+- [tests/test_learner_blindness_relax_codex_review.py](../../../../../../tests/test_learner_blindness_relax_codex_review.py) — direct import
+  - `test_a_cross_item_feedback_chain_carries_no_answer`
+  - `test_a_later_turn_given_an_earlier_turn_from_a_passage_held_out_since_shows_no_answer`
+  - `test_a_stored_answer_retrieved_from_a_passage_held_out_since_is_never_shown`
+  - `test_a_stored_answer_whose_linked_passage_is_held_out_since_is_never_shown`
+  - `test_an_earlier_feedback_turn_of_the_attempt_carries_no_answer`
+- [tests/test_learner_data_relax_2.py](../../../../../../tests/test_learner_data_relax_2.py) — direct import
+  - `test_a_reading_derived_gap_is_checked_against_the_passage_it_was_written_beside`
+  - `test_a_stored_rich_figure_without_learner_state_is_checked_as_before`
+  - `test_no_state_keeps_todays_key_so_the_switch_reuses_todays_figure`
+  - `test_protection_unreadable_sends_no_answer_and_no_statement`
+  - `test_protection_unreadable_withholds_reading_derived_gaps_too`
+  - `test_switched_off_the_payload_prompt_and_key_are_the_predecessors_byte_for_byte`
+  - `test_the_learner_state_reaches_the_author_and_protected_work_never_does`
+  - `test_the_switch_is_in_the_build_and_rich_keys`
 - [tests/test_learner_read_model_pinning.py](../../../../../../tests/test_learner_read_model_pinning.py) — direct import
+- [tests/test_learner_report_superseded.py](../../../../../../tests/test_learner_report_superseded.py) — direct import
+  - `test_a_new_starting_level_keeps_the_old_one_for_an_lo_first_practised_under_it`
+  - `test_a_rung_variant_request_replaces_only_its_own_source_on_its_own_lo`
+  - `test_a_second_too_easy_report_keeps_the_first_as_a_replaced_row_that_no_live_reader_reads`
+  - `test_random_attempts_and_learner_reports_rebuild_to_live`
+  - `test_the_activation_derives_what_the_predecessor_derived`
 - [tests/test_learner_review_system_entries.py](../../../../../../tests/test_learner_review_system_entries.py) — direct import
+- [tests/test_learner_text_gaps.py](../../../../../../tests/test_learner_text_gaps.py) — direct import
+  - `test_a_library_question_is_anchored_by_its_notes_single_learning_object`
+  - `test_a_matched_target_is_the_questions_weak_signal_with_its_subject`
+  - `test_a_missing_prerequisite_is_drafted_created_live_seeded_and_committed`
+  - `test_a_second_question_matches_the_days_creation_instead_of_creating_again`
+  - `test_a_tutor_question_that_states_a_belief_reaches_the_holding_pen`
+  - `test_an_edge_that_would_close_a_cycle_is_refused`
+  - `test_an_undeclared_match_adds_an_edge_after_a_needed_yes_and_one_tap_undo_removes_it`
+  - `test_asking_never_lowers_the_record`
+  - `test_candidates_are_grounded_in_the_asking_subject`
+  - `test_slip_and_wording_are_signals_only_and_listed_for_batch_review`
+  - `test_switching_creation_off_stops_serving_created_los`
+  - `test_the_learning_object_recipe_is_canonical_and_active_only`
+  - `test_the_vault_wide_shortlist_ranks_stored_vectors_and_judges_decide`
+  - `test_undo_creation_puts_the_lo_away_and_removes_its_edge_and_commitment`
+  - `test_without_a_reading_nothing_is_targeted_and_the_grounded_rule_stays`
+- [tests/test_learner_text_gaps_composition.py](../../../../../../tests/test_learner_text_gaps_composition.py) — direct import
+  - `test_a_stuck_answer_keeps_its_confusion_signal_and_adds_one_gap_observation`
+  - `test_an_empty_stuck_answer_is_no_learner_text`
+  - `test_stuck_answer_reads_one_attempt_exactly_as_stuck_answers_does`
+  - `test_the_gap_signal_changes_serving_only_at_mvp016_with_its_switch`
+- [tests/test_learner_text_gaps_flow.py](../../../../../../tests/test_learner_text_gaps_flow.py) — direct import
+  - `test_a_diagnosis_is_read_from_its_causes_without_a_call`
+  - `test_a_gap_brings_an_assumed_los_check_forward_and_the_switch_restores_the_predecessor`
+  - `test_a_gap_on_a_maintenance_lo_brings_its_next_review_forward_until_answered`
+  - `test_a_job_that_keeps_failing_is_logged_as_failed_without_a_target`
+  - `test_diagnosis_kinds`
+  - `test_stuck_text_is_read_through_the_source_interface`
+  - `test_the_queue_runs_a_text_once_retries_failures_and_respects_the_switch`
+  - `test_the_report_counts_per_kind_and_chooser_and_its_dry_run_writes_nothing`
+  - `test_the_switch_off_queue_equals_the_predecessor_version`
+  - `test_upgrade_to_mvp016_from_its_predecessor`
+- [tests/test_learner_text_gaps_rereview.py](../../../../../../tests/test_learner_text_gaps_rereview.py) — direct import
+  - `test_rr_f1_a_job_stopped_after_a_write_logs_the_write_as_failed_and_undoable`
+  - `test_rr_f1_a_recorded_edge_is_finished_after_the_judges_the_chooser_and_the_switch_change`
+  - `test_rr_f1_a_stuck_retry_finishes_the_recorded_creation_whatever_the_second_reading`
+  - `test_rr_f3_the_sidecar_drain_goes_on_past_a_text_backing_off`
+  - `test_rr_f5_gaps_run_reads_on_a_command_budget`
+  - `test_rr_f7_an_edge_without_a_recorded_origin_follows_its_own_switch`
+- [tests/test_learner_text_gaps_review.py](../../../../../../tests/test_learner_text_gaps_review.py) — direct import
+  - `test_f10_a_creations_edge_follows_the_creation_switch`
+  - `test_f10_switching_edges_off_removes_their_effect_and_keeps_them_in_the_file`
+  - `test_f10_the_cycle_is_rechecked_on_the_file_inside_the_lock`
+  - `test_f11_first_checks_per_chooser_survive_the_creation_switch_and_since_windows_everything`
+  - `test_f11_pair_agreement_honours_since`
+  - `test_f12_the_seed_unit_is_admitted_on_a_metered_tutor_route`
+  - `test_f13_a_created_los_check_failed_goes_to_learning`
+  - `test_f13_a_created_los_check_passed_goes_to_maintenance`
+  - `test_f13_the_pipeline_switched_off_queues_exactly_as_the_predecessor_version`
+  - `test_f3_a_creation_retried_after_a_failed_sync_writes_once_and_is_logged`
+  - `test_f3_a_job_that_gives_up_after_writing_names_the_creation_and_the_owner_can_undo_it`
+  - `test_f3_a_matched_edge_retried_after_a_failed_sync_is_recorded_and_undoable`
+  - `test_f4_without_a_grounded_subject_only_the_anchors_are_judged_and_nothing_is_created`
+  - `test_f5_a_match_on_the_items_own_lo_is_no_prerequisite_target`
+  - `test_f6_a_question_retargeted_by_a_later_reading_is_observed_at_the_reading`
+  - `test_f8_a_diagnosis_no_longer_scans_stuck_answers`
+- [tests/test_library_ask_expand.py](../../../../../../tests/test_library_ask_expand.py) — direct import
+  - `test_a_similar_passage_never_becomes_an_expansion`
+  - `test_concept_edges_and_lo_ids_are_read_too`
+  - `test_no_anchor_los_means_no_expansion`
+  - `test_the_graph_is_read_as_it_is`
+  - `test_the_organizer_judges_the_union_once`
+  - `test_the_sources_specs_expand_lists_read_the_same_graph`
+- [tests/test_library_ask_review.py](../../../../../../tests/test_library_ask_review.py) — direct import
+  - `test_pinned_passages_are_held_to_the_tutors_context_budget`
+  - `test_the_pinned_tutor_burns_a_reserve_it_reproduces_and_joins_history_and_gaps`
+- [tests/test_library_exercises.py](../../../../../../tests/test_library_exercises.py) — direct import
+  - `test_a_fallback_pick_is_not_exposed_by_its_own_listing_and_its_request_reaches_the_import_unchanged`
+  - `test_admitted_the_problem_binds_to_the_written_item_and_becomes_a_learner_pick`
+  - `test_r4_the_statement_reader_fails_closed`
+  - `test_the_view_is_on_and_the_fallback_off_by_default_the_specs_rule_once_s1_is_live`
+- [tests/test_lp_claim_fixes.py](../../../../../../tests/test_lp_claim_fixes.py) — direct import
+  - `test_owner_copies_off_is_the_predecessor_and_on_reports_the_mastery_deltas`
+  - `test_upgrade_from_the_predecessor_replays_claimed_los_and_through_the_chain`
+- [tests/test_lp_claim_fixes_rereview.py](../../../../../../tests/test_lp_claim_fixes_rereview.py) — direct import
+  - `test_f2_every_opener_that_may_write_completes_the_activation_first`
+- [tests/test_lp_claim_fixes_review.py](../../../../../../tests/test_lp_claim_fixes_review.py) — direct import
+  - `test_f2_a_death_between_publication_and_commit_is_completed_from_the_journal`
+  - `test_f2_failures_before_or_after_the_rename_leave_the_predecessor_and_no_journal`
 - [tests/test_maintenance_feed.py](../../../../../../tests/test_maintenance_feed.py) — direct import
   - `test_dismiss_and_snooze_do_not_change_curriculum`
+- [tests/test_mcp_c1a_narrow.py](../../../../../../tests/test_mcp_c1a_narrow.py) — direct import
+  - `test_a_recorded_complete_provenance_with_safe_inputs_releases_a_derived_text`
+  - `test_a_recorded_input_answer_that_states_its_key_releases_nothing`
+  - `test_a_recorded_provenance_releases_a_generated_topic_s_name`
+  - `test_a_recorded_provenance_releases_nothing_unless_complete_and_safe`
+  - `test_aliases_are_keyed_per_vault`
+  - `test_every_text_field_is_authored_an_answer_or_withheld_without_a_record`
+- [tests/test_mcp_c1a_review.py](../../../../../../tests/test_mcp_c1a_review.py) — direct import
+  - `test_a_diagnosis_receipt_with_an_unreadable_member_releases_nothing`
+  - `test_a_joint_grader_s_cause_is_held_back_with_or_without_its_receipt`
+  - `test_a_provenance_cycle_releases_nothing`
+  - `test_a_provenance_list_with_an_unreadable_member_releases_nothing`
+  - `test_a_record_naming_what_a_diagnosis_read_releases_it_only_when_every_answer_is_pinned`
+  - `test_a_recurrence_group_rooted_in_a_protected_hypothesis_keeps_no_statement`
+  - `test_an_unpinned_answer_shows_no_text_even_when_no_key_change_is_recorded`
+  - `test_answers_and_diagnoses_are_filtered_against_the_key_they_were_graded_by`
+  - `test_open_hypotheses_share_one_limit_and_keep_unresolved_only_causes`
+  - `test_text_a_model_wrote_on_a_generated_topic_is_held_back`
+  - `test_text_whose_provenance_cannot_be_followed_is_withheld`
+  - `test_the_dry_run_bounds_the_live_verification`
+- [tests/test_mcp_tools.py](../../../../../../tests/test_mcp_tools.py) — direct import
+  - `test_shown_passages_are_exposure_for_the_items_built_on_them`
 - [tests/test_measurement_corrections.py](../../../../../../tests/test_measurement_corrections.py) — direct import
   - `test_attempted_item_correction_is_append_only_and_projection_versioned`
   - `test_historical_reinterpretation_rejects_a_changed_task`
@@ -718,6 +1829,41 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_rank_on_the_real_linear_algebra_fixture`
   - `test_registry_view_rank_counts_items_and_criteria`
 - [tests/test_measurement_state_labels.py](../../../../../../tests/test_measurement_state_labels.py) — direct import
+- [tests/test_method_explicit_landing.py](../../../../../../tests/test_method_explicit_landing.py) — direct import
+  - `test_a_plan_rows_preview_keeps_the_sentence_whole`
+  - `test_check_me_keeps_the_sentence_whole_when_it_clips`
+  - `test_switched_off_the_llm_judge_decides_the_statement`
+- [tests/test_method_explicit_upgrade.py](../../../../../../tests/test_method_explicit_upgrade.py) — direct import
+  - `test_an_earlier_vault_goes_through_mvp012s_guard_when_it_is_required`
+  - `test_by_default_the_chain_reports_the_advisory_guard_and_proceeds`
+  - `test_chained_notes_pass_through_an_upgrade_and_a_refusal`
+  - `test_each_version_activates_exactly_its_features`
+  - `test_head_fixture_predecessor_to_successor_path`
+  - `test_new_vaults_start_at_the_successor`
+  - `test_upgrade_command_defaults_to_the_successor`
+  - `test_upgrade_from_mvp024_flips_rebuilds_and_rewrites_nothing`
+  - `test_upgrade_refuses_older_versions_and_is_idempotent`
+- [tests/test_method_phrasing_report.py](../../../../../../tests/test_method_phrasing_report.py) — direct import
+  - `test_a_repair_adds_the_field_and_only_flags_a_statement_that_may_disagree`
+  - `test_a_repair_never_rewrites_a_source_statement_or_gives_a_teach_back_a_method`
+  - `test_auto_tries_the_decider_then_the_llm_judge_then_the_heuristic`
+  - `test_f11_an_explicit_chat_route_or_an_env_override_has_no_fallback_writer`
+  - `test_f11_an_unset_route_without_a_serving_provider_reaches_no_fallback`
+  - `test_f11_the_dry_run_prices_the_configured_fallback_writer`
+  - `test_f3_a_repair_refuses_a_rubric_edited_before_acceptance`
+  - `test_f3_an_accepted_repair_writes_no_proposal_only_key`
+  - `test_f4_a_decider_on_the_route_is_never_the_writer`
+  - `test_f4_a_failed_rewrite_keeps_the_deciders_paid_flags_with_labelled_drafts`
+  - `test_f5_an_incomplete_reading_is_a_failed_item_never_a_fact_verdict`
+  - `test_f5_the_required_methods_own_criteria_are_never_ledgered_as_verdicts`
+  - `test_f6_the_writers_verdicts_reach_the_ledger_linked_to_the_repair`
+  - `test_f7_the_dry_run_plans_rewrites_and_their_cost`
+  - `test_repairs_are_pending_proposals_applied_only_on_accept`
+  - `test_t1_a_plan_writer_never_falls_back_silently_to_a_metered_writer`
+  - `test_the_decider_flags_and_the_llm_route_writes_the_fact_phrasings`
+  - `test_the_dry_run_plans_and_builds_no_client`
+  - `test_the_heuristic_flags_explicit_method_phrasing_and_drafts_repairs`
+  - `test_the_llm_judge_reads_and_rewrites_and_its_verdicts_reach_the_ledger`
 - [tests/test_migrations.py](../../../../../../tests/test_migrations.py) — direct import
   - `test_head_163_database_upgrades_to_snapshots_and_fk_free_adjudications`
 - [tests/test_minimal_repair_selection_a1.py](../../../../../../tests/test_minimal_repair_selection_a1.py) — direct import
@@ -732,17 +1878,187 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_diagnostic_abstention_writes_a_note`
   - `test_note_capture_is_idempotent_across_rematerialization`
   - `test_report_surfaces_the_abstention_rate`
+- [tests/test_mobile_host_coexistence.py](../../../../../../tests/test_mobile_host_coexistence.py) — direct import
+  - `test_capture_host_coexists_without_primary_startup_work`
 - [tests/test_model_grade_lane.py](../../../../../../tests/test_model_grade_lane.py) — direct import
   - `test_ai_graded_practice_takes_the_soft_score_lane_on_the_init_version`
   - `test_rebuild_moves_only_learning_objects_with_model_graded_attempts`
+- [tests/test_mvp010_upgrade.py](../../../../../../tests/test_mvp010_upgrade.py) — direct import
+  - `test_head_fixture_predecessor_to_successor_path`
+  - `test_kill_switch_keeps_the_version_but_grades_joint`
+  - `test_upgrade_flips_rebuilds_and_preserves_raw_history`
+- [tests/test_mvp011_upgrade.py](../../../../../../tests/test_mvp011_upgrade.py) — direct import
+  - `test_existing_vaults_keep_their_version_until_the_owner_upgrades`
+  - `test_head_fixture_predecessor_to_successor_path`
+  - `test_new_vaults_start_at_the_latest_version`
+  - `test_split_and_placement_activate_at_the_right_versions`
+  - `test_upgrade_command_reaches_mvp011_explicitly_through_the_chain`
+  - `test_upgrade_from_mvp010_flips_rebuilds_and_preserves_history_and_open_episodes`
+  - `test_upgrade_from_mvp09_chains_through_the_split`
+  - `test_upgrade_refuses_older_versions_and_is_idempotent`
+- [tests/test_mvp013_upgrade.py](../../../../../../tests/test_mvp013_upgrade.py) — direct import
+  - `test_an_earlier_vault_goes_through_mvp012s_guard`
+  - `test_by_default_the_chain_reports_the_advisory_guard_and_proceeds`
+  - `test_head_fixture_predecessor_to_successor_path`
+  - `test_kill_switch_keeps_the_version_and_every_predecessor`
+  - `test_only_mvp013_offers_the_stuck_control`
+  - `test_upgrade_from_mvp012_flips_rebuilds_and_preserves_raw_history`
+  - `test_upgrade_refuses_older_and_repeated_targets`
+- [tests/test_mvp014_upgrade.py](../../../../../../tests/test_mvp014_upgrade.py) — direct import
+  - `test_an_earlier_vault_goes_through_mvp012s_guard`
+  - `test_head_fixture_predecessor_to_successor_path`
+  - `test_new_vaults_serve_the_plan`
+  - `test_the_plan_serves_only_at_the_successor_with_the_switch_on`
+  - `test_upgrade_from_mvp013_flips_rebuilds_and_rewrites_nothing`
+  - `test_upgrade_refuses_older_versions_and_is_idempotent`
+- [tests/test_mvp015_upgrade.py](../../../../../../tests/test_mvp015_upgrade.py) — direct import
+  - `test_an_earlier_vault_goes_through_mvp012s_guard_when_it_is_required`
+  - `test_each_version_activates_exactly_its_features`
+  - `test_head_fixture_predecessor_to_successor_path`
+  - `test_new_vaults_start_at_a_successor_that_admits_probe_ties`
+  - `test_upgrade_command_defaults_to_the_latest`
+  - `test_upgrade_from_mvp014_flips_rebuilds_and_rewrites_nothing`
+  - `test_upgrade_refuses_older_versions_and_is_idempotent`
+- [tests/test_mvp016_upgrade.py](../../../../../../tests/test_mvp016_upgrade.py) — direct import
+  - `test_an_earlier_vault_goes_through_mvp012s_guard_when_it_is_required`
+  - `test_each_version_activates_exactly_its_features`
+  - `test_head_fixture_predecessor_to_successor_path`
+  - `test_new_vaults_start_at_a_successor_with_sooner_checks`
+  - `test_upgrade_command_defaults_to_the_latest`
+  - `test_upgrade_from_mvp015_flips_rebuilds_and_rewrites_nothing`
+  - `test_upgrade_refuses_older_versions_and_is_idempotent`
+- [tests/test_mvp017_route_check_replay.py](../../../../../../tests/test_mvp017_route_check_replay.py) — direct import
+  - `test_upgrading_the_mvp017_copy_to_the_successor_rewrites_no_grade`
+- [tests/test_mvp017_upgrade.py](../../../../../../tests/test_mvp017_upgrade.py) — direct import
+  - `test_an_earlier_vault_goes_through_mvp012s_guard_when_it_is_required`
+  - `test_by_default_the_chain_reports_the_advisory_guard_and_proceeds`
+  - `test_each_version_activates_exactly_its_features`
+  - `test_head_fixture_predecessor_to_successor_path`
+  - `test_upgrade_from_mvp016_flips_rebuilds_and_rewrites_nothing`
+  - `test_upgrade_refuses_older_versions_and_is_idempotent`
+- [tests/test_mvp018_upgrade.py](../../../../../../tests/test_mvp018_upgrade.py) — direct import
+  - `test_an_earlier_vault_goes_through_mvp012s_guard_when_it_is_required`
+  - `test_by_default_the_chain_reports_the_advisory_guard_and_proceeds`
+  - `test_each_version_keeps_its_predecessors_and_grades_as_mvp016`
+  - `test_head_fixture_predecessor_to_successor_path`
+  - `test_upgrade_command_defaults_to_the_latest`
+  - `test_upgrade_from_mvp017_flips_rebuilds_and_rewrites_nothing`
+  - `test_upgrade_refuses_older_versions_and_is_idempotent`
+- [tests/test_mvp020_upgrade.py](../../../../../../tests/test_mvp020_upgrade.py) — direct import
+  - `test_an_earlier_vault_goes_through_mvp012s_guard_when_it_is_required`
+  - `test_by_default_the_chain_reports_the_advisory_guard_and_proceeds`
+  - `test_each_version_activates_exactly_its_features`
+  - `test_head_fixture_predecessor_to_successor_path`
+  - `test_new_vaults_start_at_a_successor_with_the_route_rules`
+  - `test_upgrade_command_defaults_to_the_latest`
+  - `test_upgrade_from_mvp019_flips_rebuilds_and_rewrites_nothing`
+  - `test_upgrade_refuses_older_versions_and_is_idempotent`
+- [tests/test_mvp021_upgrade.py](../../../../../../tests/test_mvp021_upgrade.py) — direct import
+  - `test_an_earlier_vault_goes_through_mvp012s_guard_when_it_is_required`
+  - `test_by_default_the_chain_passes_the_advisory_guard_notes_on`
+  - `test_each_version_activates_exactly_its_features`
+  - `test_head_fixture_predecessor_to_successor_path`
+  - `test_new_vaults_start_at_a_successor_with_voi_stopping`
+  - `test_the_successor_rebuild_equals_mvp020s_projection`
+  - `test_upgrade_command_defaults_to_the_latest`
+  - `test_upgrade_from_mvp020_flips_rebuilds_and_rewrites_nothing`
+  - `test_upgrade_refuses_older_versions_and_is_idempotent`
+- [tests/test_mvp022_upgrade.py](../../../../../../tests/test_mvp022_upgrade.py) — direct import
+  - `test_an_earlier_vault_goes_through_mvp012s_guard_when_it_is_required`
+  - `test_by_default_the_chain_reports_the_advisory_guard_and_proceeds`
+  - `test_chained_notes_pass_through_an_upgrade_and_a_refusal`
+  - `test_each_version_moves_the_judgments_only_at_the_successor`
+  - `test_head_fixture_predecessor_to_successor_path`
+  - `test_new_vaults_start_at_a_successor_with_the_deciders_judgments`
+  - `test_upgrade_command_defaults_to_the_latest`
+  - `test_upgrade_from_mvp021_flips_rebuilds_and_rewrites_nothing`
+  - `test_upgrade_refuses_older_versions_and_is_idempotent`
+- [tests/test_mvp023_upgrade.py](../../../../../../tests/test_mvp023_upgrade.py) — direct import
+  - `test_an_earlier_vault_goes_through_mvp012s_guard_when_it_is_required`
+  - `test_by_default_the_chain_reports_the_advisory_guard_and_proceeds`
+  - `test_chained_notes_pass_through_an_upgrade_and_a_refusal`
+  - `test_head_fixture_predecessor_to_successor_path`
+  - `test_new_vaults_start_at_the_router_successor`
+  - `test_the_router_serves_only_at_the_successor_with_its_switch_on`
+  - `test_the_routers_decider_route_is_never_a_tier1_judgment_at_the_successor`
+  - `test_upgrade_command_defaults_to_the_latest`
+  - `test_upgrade_from_mvp022_flips_rebuilds_and_rewrites_nothing`
+  - `test_upgrade_refuses_older_versions_and_is_idempotent`
+- [tests/test_mvp024_upgrade.py](../../../../../../tests/test_mvp024_upgrade.py) — direct import
+  - `test_an_earlier_vault_goes_through_mvp012s_guard_when_it_is_required`
+  - `test_chained_notes_pass_through_an_upgrade_and_a_refusal`
+  - `test_head_fixture_predecessor_to_successor_path`
+  - `test_new_vaults_start_at_the_mixture_successor`
+  - `test_the_mixture_serves_only_at_the_successor_in_mixture_mode`
+  - `test_the_restraint_has_its_own_switch`
+  - `test_upgrade_command_defaults_to_the_latest`
+  - `test_upgrade_from_mvp023_flips_rebuilds_and_rewrites_nothing`
 - [tests/test_mvp09_upgrade.py](../../../../../../tests/test_mvp09_upgrade.py) — direct import
-  - `test_upgrade_command_defaults_to_current_mvp09_target`
+  - `test_upgrade_command_reaches_mvp09_target`
   - `test_upgrade_to_mvp09_flips_rebuilds_and_preserves_raw_history`
+- [tests/test_notes_as_learner_text.py](../../../../../../tests/test_notes_as_learner_text.py) — direct import
+  - `test_a_changed_note_is_read_with_its_current_snapshot_and_the_old_one_is_not`
+  - `test_a_hidden_link_is_never_read_and_undo_queues_it_again`
+  - `test_a_note_is_read_on_the_ordinary_routes_with_the_decider`
+  - `test_an_unlinked_note_never_feeds_gaps`
+  - `test_c2b_a_note_and_an_ordinary_gap_share_the_gap_readers_route`
+  - `test_c2b_a_reader_note_written_beside_material_protected_since_is_never_read`
+  - `test_f3_rereview_a_payload_changed_after_preparation_is_not_sent`
+  - `test_f3_rereview_the_gate_is_bound_to_the_prepared_passages`
+  - `test_gc1_exam_sentinels_never_reach_the_gap_model_via_a_notes_context`
+  - `test_learner_note_is_a_readable_tier_2_kind_read_like_other_learner_text`
+  - `test_only_linked_notes_are_queued_with_their_snapshot_and_their_topics`
+  - `test_reading_a_note_is_tier_2_only_and_keeps_its_words_like_any_learner_text`
+  - `test_settings_opt_in_writes_the_switch_queues_the_linked_notes_and_off_reads_none`
+  - `test_step0_a_checkpointed_note_reading_is_never_reused_after_its_inputs_change`
+  - `test_step0_a_legacy_checkpointed_note_reading_is_cleared_on_requeue_and_ignored_on_retry`
+  - `test_switched_off_the_gaps_code_reads_no_note_row_and_queues_nothing`
+  - `test_switched_off_the_pipeline_and_the_reader_are_todays`
+- [tests/test_notes_c2b_review5.py](../../../../../../tests/test_notes_c2b_review5.py) — direct import
+  - `test_c2b_final_verify_f1_an_embedding_batch_drops_a_note_from_a_now_protected_older_anchor`
+  - `test_c2b_final_verify_f1_the_notes_guard_judges_a_candidate_by_every_anchor_it_ever_had`
+  - `test_c2b_r5_f1_a_linked_note_whose_anchor_became_protected_is_withheld_everywhere`
+  - `test_c2b_r5_f2_a_notes_reading_records_its_anchor_heading_and_every_section_span`
+  - `test_c2b_r5_f2_the_note_gate_refuses_once_a_bound_source_is_protected`
+  - `test_c2b_r5_rereview_f1_a_notes_reading_refuses_a_snapshot_from_a_now_protected_older_anchor`
+  - `test_c2b_r5_rereview_f1_a_snapshot_from_an_older_anchor_is_withheld_once_that_anchor_is_protected`
+- [tests/test_notes_linked.py](../../../../../../tests/test_notes_linked.py) — direct import
+  - `test_a_capture_is_a_note_and_a_dismissed_one_is_not`
+  - `test_a_metered_route_needs_its_price_and_a_route_down_waits_quietly`
+  - `test_f9_a_link_hidden_during_the_refresh_stays_hidden`
+  - `test_legacy_tend_snapshots_stay_readable`
+  - `test_r6_an_unchanged_read_fences_off_an_older_refresh_in_flight`
+  - `test_r6_review_f2_a_clock_correction_and_restart_never_blocks_later_refreshes`
+  - `test_r6_two_concurrent_refreshes_resolve_to_the_newest_read`
+  - `test_re_f13_a_note_linked_by_hand_changed_and_changed_back_shows_its_text_now`
+  - `test_re_f2_an_unchanged_reload_still_links`
+  - `test_refresh_reads_a_hand_linked_note_again_from_the_vault`
+- [tests/test_notes_never_read.py](../../../../../../tests/test_notes_never_read.py) — direct import
+  - `test_a_linked_sentinel_note_never_reaches_coverage_scope_or_path_judges`
+- [tests/test_notes_vault_search.py](../../../../../../tests/test_notes_vault_search.py) — direct import
+  - `test_a_legacy_tend_table_in_an_existing_config_is_ignored`
+  - `test_an_unreadable_protection_predicate_keeps_every_annotation_out`
+  - `test_c2b_f2_a_candidate_protected_before_the_request_refuses_it`
+  - `test_c2b_f3_a_restored_text_keeps_its_vector`
+  - `test_c2b_r3_f2_a_switch_turned_off_between_batches_stops_the_embedding`
+  - `test_c2b_r3_f3_one_money_cap_for_the_whole_run`
+  - `test_c2b_r3_f4_several_named_subjects_send_the_grouped_form_for_those`
+  - `test_c2b_re_f2_embedding_batches_drop_notes_protected_meanwhile`
+  - `test_c2b_re_f3_exact_words_search_the_whole_note`
+  - `test_captures_with_only_media_or_a_link_and_no_words_are_not_notes`
+  - `test_exact_words_rank_by_distinct_terms_and_ignore_stopwords`
+  - `test_meaning_search_embeds_notes_incrementally_and_finds_what_words_miss`
+  - `test_meaning_search_needs_the_vaults_embeddings`
+  - `test_the_corpus_is_the_learners_own_words_never_protected_or_deleted`
+  - `test_the_link_judges_candidates_come_from_the_same_vault_search`
 - [tests/test_observation_ledger_bulk.py](../../../../../../tests/test_observation_ledger_bulk.py) — direct import
 - [tests/test_observation_templates.py](../../../../../../tests/test_observation_templates.py) — direct import
   - `test_ambiguous_emitting_binding_lands_pending`
   - `test_emitting_template_creates_attempt_through_attempt_service`
 - [tests/test_open_world_gate.py](../../../../../../tests/test_open_world_gate.py) — direct import
+- [tests/test_output_budget.py](../../../../../../tests/test_output_budget.py) — direct import
+  - `test_the_compare_harness_uses_the_policy_budget_and_retries_a_truncation`
+  - `test_the_same_cause_judge_is_no_longer_held_to_600_tokens`
 - [tests/test_p0_cutover_mvp08.py](../../../../../../tests/test_p0_cutover_mvp08.py) — direct import
   - `test_mvp06_derived_output_is_byte_identical_across_p0_machinery`
   - `test_upgrade_freezes_legacy_manifests_immutably`
@@ -769,8 +2085,133 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_persona_gate.py](../../../../../../tests/test_persona_gate.py) — direct import
   - `test_b2_separable_corpus_invalidates_an_otherwise_passing_hard_gate`
   - `test_gate_precision_reports_no_data_before_any_prediction`
+- [tests/test_pf_cli.py](../../../../../../tests/test_pf_cli.py) — direct import
+  - `test_list_routes_resolve_in_order_and_fall_back_to_the_active_provider`
+- [tests/test_pf_generation.py](../../../../../../tests/test_pf_generation.py) — direct import
+  - `test_a_published_variant_of_a_textbook_exercise_keeps_its_own_verification`
+  - `test_a_quote_check_without_its_span_support_verdict_is_never_verified`
+  - `test_a_selection_whose_parent_contract_changed_is_never_published`
+  - `test_an_unparseable_parent_reference_gives_a_neutral_difficulty_basis`
+  - `test_an_unrelated_or_contradicted_quote_never_verifies_a_reference`
+  - `test_an_unverified_candidate_cannot_be_published`
+  - `test_declared_isomorph_without_a_passing_structure_check_is_never_published_as_isomorph`
+  - `test_enable_helper_round_trips_the_template_switch`
+  - `test_ensemble_publishes_verified_survivors_as_ordinary_family_items`
+  - `test_every_pf_request_reaches_its_transport_as_an_isolated_turn`
+  - `test_freshness_never_restores_isomorph_over_a_failed_structure_check`
+  - `test_generator_path_writes_a_tested_program_and_publishes_cas_verified_draws`
+  - `test_owner_seed_item_creates_an_authored_family_first`
+  - `test_panel_disagreement_is_never_published_even_by_an_eager_judge`
+  - `test_pilot_report_verdicts_come_from_the_ledger_not_workflow_json`
+  - `test_publication_reads_the_ledger_so_forged_workflow_state_cannot_publish`
+  - `test_publication_recovery_never_erases_scheduling_state`
+  - `test_publish_cap_holds_per_utc_day_and_the_backlog_publishes_next_day`
+  - `test_published_items_keep_scheduling_hashes_and_unfamilied_items_unchanged`
+  - `test_seeding_writes_nothing_until_the_plan_is_admitted`
+  - `test_source_anchored_items_need_a_quote_verified_span_and_must_not_be_closed_book`
+- [tests/test_pf_reports.py](../../../../../../tests/test_pf_reports.py) — direct import
+  - `test_a_judge_that_answers_nothing_earns_no_accuracy_credit`
+  - `test_each_scaling_tier_runs_its_own_program_writer_on_identical_inputs`
+  - `test_judge_accuracy_comes_from_labelled_pairs_judged_at_both_tiers`
+  - `test_pilot_compares_all_three_arms_and_the_blind_judge_is_two_pass`
+  - `test_pilot_recommends_only_from_agreed_comparisons_on_the_same_families`
+  - `test_report_dry_runs_price_and_admit_the_blind_judge`
+  - `test_scaling_check_reports_each_tier_and_component`
+  - `test_scaling_tier_without_routes_is_refused`
+  - `test_suspect_acceptance_is_descriptive_and_never_ranks_a_tier`
+  - `test_tiers_are_compared_only_on_identical_labelled_pairs`
+- [tests/test_pfc_unassessed_readers.py](../../../../../../tests/test_pfc_unassessed_readers.py) — direct import
+  - `test_a_cold_retry_with_nothing_assessed_neither_confirms_nor_fails_the_repair`
+  - `test_a_criterion_without_targets_shares_its_facets_with_the_assessed_one`
+- [tests/test_pfc_unverified_unassessed.py](../../../../../../tests/test_pfc_unverified_unassessed.py) — direct import
+  - `test_joint_fixture_replays_through_the_unchanged_path`
+  - `test_joint_grades_replay_untouched_beside_blind_unverified_ones`
+- [tests/test_placement_diagnosis_decides.py](../../../../../../tests/test_placement_diagnosis_decides.py) — direct import
+  - `test_no_diagnosis_can_arrive_falls_back_to_todays_rule`
+  - `test_the_kill_switch_ignores_diagnosis_decided_outcomes`
+- [tests/test_placement_fixture_copies.py](../../../../../../tests/test_placement_fixture_copies.py) — direct import
+- [tests/test_placement_opening_probes.py](../../../../../../tests/test_placement_opening_probes.py) — direct import
+  - `test_a_notice_raised_before_placement_is_held_not_resolved`
+  - `test_an_answer_on_an_ignored_episode_is_not_held_back_for_it`
+  - `test_an_ignored_opening_episode_commissions_no_instrument_generation`
+  - `test_an_in_progress_opening_episode_serves_no_probe_and_is_not_parked`
+  - `test_the_causal_quick_check_stops_the_episode_being_ignored`
+- [tests/test_plan_determinism.py](../../../../../../tests/test_plan_determinism.py) — direct import
+  - `test_a_greedy_scheduler_session_never_draws_and_logs_the_greedy_design`
+  - `test_dl1s_draw_is_seeded_from_logged_state_and_its_log_reproduces_the_pick`
+  - `test_replay_never_reads_the_switch`
+  - `test_the_per_session_draw_keeps_its_own_path`
+  - `test_the_plans_scheduler_session_is_greedy_only_where_the_router_composes_today`
+  - `test_the_switch_acts_only_where_the_router_composes_today`
+- [tests/test_plan_determinism_landing.py](../../../../../../tests/test_plan_determinism_landing.py) — direct import
+  - `test_different_seeds_still_draw_different_blocks_and_the_switch_leaves_the_draw_alone`
+  - `test_staged_plans_at_mvp024_are_the_same_in_every_session_and_at_start`
+  - `test_the_floor_binds_where_the_models_put_no_mass`
+  - `test_the_mixture_draws_over_the_same_candidates_in_every_session`
+  - `test_the_plans_scheduler_session_at_mvp024`
+- [tests/test_plan_first_transport.py](../../../../../../tests/test_plan_first_transport.py) — direct import
+  - `test_f1_a_configured_metered_fallback_provider_is_never_used_silently_for_a_plan_route`
+  - `test_f6_codex_is_never_a_fallback_through_the_direct_readers_opt_in_or_not`
+  - `test_f9_refused_codex_profiles_are_not_offered_as_grading_providers`
+- [tests/test_plan_first_transport_grant_scope.py](../../../../../../tests/test_plan_first_transport_grant_scope.py) — direct import
+  - `test_a_grant_counts_only_in_the_learners_request_or_a_job_carrying_it`
+  - `test_a_manual_fallback_is_never_replaced_by_a_grant`
+  - `test_the_background_build_launcher_never_uses_the_grant`
+- [tests/test_plan_first_transport_offer_grants.py](../../../../../../tests/test_plan_first_transport_offer_grants.py) — direct import
+  - `test_p7_rw5b_figures_ask_as_the_rpc_that_asked`
+- [tests/test_plan_first_transport_offer_grants_r5.py](../../../../../../tests/test_plan_first_transport_offer_grants_r5.py) — direct import
+- [tests/test_plan_first_transport_paid_roles.py](../../../../../../tests/test_plan_first_transport_paid_roles.py) — direct import
+  - `test_a_grant_routes_a_paid_role_to_openrouter_priced_as_metered_and_a_ready_plan_comes_first`
+  - `test_every_paid_role_resolves_to_the_plan_and_asks_before_openrouter`
+- [tests/test_plan_first_transport_today_quiet.py](../../../../../../tests/test_plan_first_transport_today_quiet.py) — direct import
+  - `test_the_probe_pool_sweep_asks_nothing_and_honours_no_grant`
+- [tests/test_plan_follows_path.py](../../../../../../tests/test_plan_follows_path.py) — direct import
+  - `test_a_stored_already_shown_that_no_longer_holds_leaves_the_stale_path_to_the_order`
+  - `test_an_exam_reading_plans_nothing_through_its_path`
+  - `test_enrichment_already_shown_and_assumed_are_never_planned_and_nothing_left_offers_no_reading`
+  - `test_g47_a_rebuild_shows_zero_projection_deltas_and_never_reads_a_path`
+  - `test_read_it_anyway_makes_a_section_core_and_skip_it_leaves_one_out`
+  - `test_the_path_never_opens_a_held_out_section_even_where_dl1s_exact_selection_would`
+  - `test_the_switch_is_on_by_default_classified_and_acts_only_at_the_tag_with_the_guide_on`
+  - `test_upgrade_from_the_predecessor_and_through_the_chain`
 - [tests/test_planted_misgrade.py](../../../../../../tests/test_planted_misgrade.py) — direct import
 - [tests/test_post_attempt_pipeline.py](../../../../../../tests/test_post_attempt_pipeline.py) — direct import
+- [tests/test_pr4_superseded_claims_landing.py](../../../../../../tests/test_pr4_superseded_claims_landing.py) — direct import
+  - `test_landing_i_a_too_easy_retirement_during_a_session`
+  - `test_landing_iii_a_refused_chained_upgrade_to_mvp037_leaves_the_log_in_place`
+  - `test_landing_iii_upgrade_to_mvp037_archives_the_denial_log_exactly_once`
+- [tests/test_practice_index_adapters.py](../../../../../../tests/test_practice_index_adapters.py) — direct import
+  - `test_batch_dry_runs_never_migrate_an_older_rollback_database`
+  - `test_cli_eval_dry_run_find_coverage_status_and_tool_spec`
+- [tests/test_practice_index_admission.py](../../../../../../tests/test_practice_index_admission.py) — direct import
+  - `test_parked_learning_objects_are_excluded`
+  - `test_shared_rules_exclude_exactly_what_the_scheduler_drops`
+- [tests/test_practice_index_dossiers.py](../../../../../../tests/test_practice_index_dossiers.py) — direct import
+  - `test_a_paid_answer_survives_a_failed_write_and_is_not_paid_again`
+  - `test_a_paid_answer_whose_checkpoint_failed_is_recovered_from_its_receipt`
+  - `test_a_receipt_for_another_request_or_an_invalid_answer_is_not_recovered`
+  - `test_an_unusable_answer_is_retried_then_reported_per_facet`
+  - `test_call_caps_still_bind_a_subscription_route`
+  - `test_dossier_fields_are_embedding_recipes`
+  - `test_dry_run_estimates_without_a_client_or_writes`
+  - `test_generation_is_capped_idempotent_and_receipted`
+  - `test_grounding_excludes_answers_diagnostic_surfaces_and_exam_reserves`
+  - `test_rebuild_preserves_dossiers_and_calls_no_model`
+  - `test_regenerated_only_when_the_facet_or_its_sources_change`
+  - `test_reverting_sources_selects_the_matching_earlier_dossier`
+  - `test_switch_off_and_unknown_metered_price_fail_closed`
+- [tests/test_practice_index_evaluation.py](../../../../../../tests/test_practice_index_evaluation.py) — direct import
+  - `test_blocked_states_make_no_calls`
+- [tests/test_practice_index_find.py](../../../../../../tests/test_practice_index_find.py) — direct import
+  - `test_a_forced_dossier_path_falls_back_while_dossiers_are_missing`
+  - `test_an_alternative_embedding_model_takes_an_explicit_price`
+  - `test_changed_index_content_voids_an_earlier_evaluation_approval`
+  - `test_item_skeleton_vectors_rank_items_only_once_they_cover_every_item`
+- [tests/test_practice_index_paid.py](../../../../../../tests/test_practice_index_paid.py) — direct import
+  - `test_a_metered_invalid_answer_gets_no_hidden_repair_request`
+  - `test_a_metered_timeout_sends_no_request_the_caps_did_not_admit`
+  - `test_a_metered_transport_that_cannot_bound_requests_fails_closed`
+  - `test_each_metered_retry_is_admitted_and_charged_separately`
 - [tests/test_practice_information.py](../../../../../../tests/test_practice_information.py) — direct import
 - [tests/test_practice_leakage.py](../../../../../../tests/test_practice_leakage.py) — direct import
   - `test_cross_source_context_is_bounded_and_authority_first`
@@ -778,7 +2219,11 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_screen_practice_payload_catches_expected_answer_leak`
 - [tests/test_predictive_eig.py](../../../../../../tests/test_predictive_eig.py) — direct import
   - `test_followup_slate_logs_predictive_fields_and_ranking_unchanged_at_weight_zero`
+- [tests/test_predictor_interface.py](../../../../../../tests/test_predictor_interface.py) — direct import
+  - `test_incumbent_uses_explicit_vault_config_without_reading_store`
 - [tests/test_prequential.py](../../../../../../tests/test_prequential.py) — direct import
+- [tests/test_probability_prep.py](../../../../../../tests/test_probability_prep.py) — direct import
+  - `test_only_target_overlap_is_evidence_and_other_same_lo_work_is_context`
 - [tests/test_probe_attempt_updates.py](../../../../../../tests/test_probe_attempt_updates.py) — direct import
   - `test_attempt_service_never_writes_legacy_probe_state`
   - `test_record_probe_attempt_completes_on_convergence`
@@ -854,6 +2299,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_embedded_evidence_suppresses_redundant_probe`
   - `test_incomplete_mapping_surfaces_as_a_machine_check_never_as_a_probe`
   - `test_integration_condition_probes_coordination_not_components`
+- [tests/test_project_hooks.py](../../../../../../tests/test_project_hooks.py) — direct import
+  - `test_startup_maintenance_runs_the_sweep_without_creating_anything`
 - [tests/test_projection_evidence_polarity.py](../../../../../../tests/test_projection_evidence_polarity.py) — direct import
   - `test_p0_timeline_matches_banked_ledger_including_a6_supporting_credit`
 - [tests/test_proposal_persistence.py](../../../../../../tests/test_proposal_persistence.py) — direct import
@@ -893,13 +2340,172 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_quick_add.py](../../../../../../tests/test_quick_add.py) — direct import
   - `test_narrow_adjunct_preset_uses_reference_role_and_small_upfront_brief`
   - `test_quick_add_one_url_one_confirmation_to_study_map`
+- [tests/test_rbeq_pr2_landing.py](../../../../../../tests/test_rbeq_pr2_landing.py) — direct import
+  - `test_a_claim_fixes_journal_is_handed_to_its_own_upgrade_then_the_tag_activates`
+  - `test_a_failure_after_the_rename_leaves_the_predecessor_and_no_journal`
+  - `test_a_real_death_after_the_publication_is_journalled_and_the_next_cli_command_completes_it`
+  - `test_a_torn_journal_at_the_predecessor_is_removed_and_nothing_replays`
+- [tests/test_reader_adoption_ownership.py](../../../../../../tests/test_reader_adoption_ownership.py) — direct import
+  - `test_crash_before_the_link_reuses_the_commitments_own_card`
+- [tests/test_reader_branches.py](../../../../../../tests/test_reader_branches.py) — direct import
+  - `test_branches_restore_after_restart_and_inherit_selection_without_siblings`
+  - `test_branches_work_on_a_transcript_and_on_text_notes`
+  - `test_with_the_switch_off_an_edited_capture_changes_nothing`
+- [tests/test_reader_ca1_as_printed.py](../../../../../../tests/test_reader_ca1_as_printed.py) — direct import
+  - `test_the_report_resolves_when_the_wording_changes_and_holds_until_then`
+- [tests/test_reader_ca1_astra_fixes.py](../../../../../../tests/test_reader_ca1_astra_fixes.py) — direct import
+- [tests/test_reader_ca1_codex_review.py](../../../../../../tests/test_reader_ca1_codex_review.py) — direct import
+  - `test_a_feed_refresh_reading_before_a_report_never_overwrites_it`
+  - `test_a_reworded_card_resolves_but_a_report_on_the_new_wording_meanwhile_is_kept`
+  - `test_an_import_written_before_ownership_was_kept_shows_only_the_page`
+  - `test_two_reports_on_two_connections_both_count`
+- [tests/test_reader_ca2_codex_review.py](../../../../../../tests/test_reader_ca2_codex_review.py) — direct import
+- [tests/test_reader_ca2_one_ask.py](../../../../../../tests/test_reader_ca2_one_ask.py) — direct import
+  - `test_the_upgrade_moves_the_predecessor_and_refuses_twice`
+- [tests/test_reader_ca5a_find_section.py](../../../../../../tests/test_reader_ca5a_find_section.py) — direct import
+  - `test_a_peeked_paragraph_that_is_the_replacement_surfaces_source_is_skipped_by_the_reschedule`
+  - `test_f2_a_peeked_paragraph_that_is_a_cold_items_source_makes_the_receipt_see_it`
+- [tests/test_reader_ca6_side_by_side.py](../../../../../../tests/test_reader_ca6_side_by_side.py) — direct import
+  - `test_a_side_by_side_read_holds_a_follow_up_on_a_shown_span_and_only_there`
+- [tests/test_reader_cues.py](../../../../../../tests/test_reader_cues.py) — direct import
+  - `test_a_transcript_passage_carries_a_cue_like_any_source`
+  - `test_check_me_never_offers_the_question_the_learner_answered`
+  - `test_exam_material_never_carries_a_cue`
 - [tests/test_reader_dialogue.py](../../../../../../tests/test_reader_dialogue.py) — direct import
   - `test_golden_path_completes_with_reader_never_invoked`
+- [tests/test_reader_digest_narrative.py](../../../../../../tests/test_reader_digest_narrative.py) — direct import
+  - `test_a_holder_that_stops_renewing_is_taken_over_only_after_its_request_timed_out`
+  - `test_a_lease_lost_during_the_call_never_publishes_and_the_answer_is_not_paid_twice`
+  - `test_a_metered_route_past_todays_cap_is_capped_and_sends_nothing`
+  - `test_a_successor_never_sends_while_the_holder_renews_past_its_original_lease`
+  - `test_overlapping_narrations_from_two_repositories_pay_once`
+  - `test_rebuild_shadow_is_zero_with_a_narrative_present`
+  - `test_switched_off_there_is_no_route_call_and_no_narrative_anywhere`
+  - `test_the_prompt_carries_the_typed_summary_and_never_the_learners_words`
+  - `test_with_follow_ups_off_an_ended_session_is_summarized_and_narrated`
+- [tests/test_reader_find_sources_callers.py](../../../../../../tests/test_reader_find_sources_callers.py) — direct import
+  - `test_a_workbench_session_asks_as_its_items_practice`
+- [tests/test_reader_followups.py](../../../../../../tests/test_reader_followups.py) — direct import
+  - `test_only_ended_sessions_wait_for_planning`
+  - `test_rebuild_shadow_is_zero_with_follow_ups_present`
+- [tests/test_reader_followups_review.py](../../../../../../tests/test_reader_followups_review.py) — direct import
+  - `test_f2_an_automatic_follow_up_never_lands_in_a_scope_the_learner_chose`
+  - `test_f5_with_the_source_switches_off_revaluation_values_nothing_and_keeps_the_check`
+- [tests/test_reader_followups_round4.py](../../../../../../tests/test_reader_followups_round4.py) — direct import
+- [tests/test_reader_followups_successor.py](../../../../../../tests/test_reader_followups_successor.py) — direct import
+  - `test_replay_plans_nothing_and_a_shadow_rebuild_is_zero`
+- [tests/test_reader_formative_texts.py](../../../../../../tests/test_reader_formative_texts.py) — direct import
+  - `test_either_switch_off_queues_nothing`
 - [tests/test_reader_guidance.py](../../../../../../tests/test_reader_guidance.py) — direct import
+- [tests/test_reader_inquiry_kill_switch.py](../../../../../../tests/test_reader_inquiry_kill_switch.py) — direct import
+  - `test_service_off_is_the_flat_same_span_thread`
+  - `test_service_off_refuses_a_parent_before_any_write`
+- [tests/test_reader_inquiry_status.py](../../../../../../tests/test_reader_inquiry_status.py) — direct import
+  - `test_inquiries_work_on_every_source_kind`
+- [tests/test_reader_intent.py](../../../../../../tests/test_reader_intent.py) — direct import
+  - `test_a_day_at_the_call_cap_routes_to_ask_without_a_call`
+  - `test_speculation_stops_at_eighty_percent_and_enter_still_routes`
+  - `test_speculation_switched_off_is_never_made`
+- [tests/test_reader_intentions.py](../../../../../../tests/test_reader_intentions.py) — direct import
+  - `test_the_box_routes_on_every_source_kind`
+- [tests/test_reader_observation_records.py](../../../../../../tests/test_reader_observation_records.py) — direct import
+  - `test_records_are_deterministic_and_only_of_the_spec_kinds`
 - [tests/test_reader_progression.py](../../../../../../tests/test_reader_progression.py) — direct import
   - `test_practice_plan_uses_blueprint_facets_before_first_item`
 - [tests/test_reader_quick_check.py](../../../../../../tests/test_reader_quick_check.py) — direct import
   - `test_escalate_mints_practice_item_with_span_provenance`
+- [tests/test_reader_recap.py](../../../../../../tests/test_reader_recap.py) — direct import
+  - `test_switched_off_opening_writes_nothing_and_the_recap_rpcs_refuse`
+  - `test_the_typed_summary_is_deterministic_from_the_ledgers`
+- [tests/test_reader_recap_review.py](../../../../../../tests/test_reader_recap_review.py) — direct import
+  - `test_f10_inquiry_off_refuses_every_recap_rpc_and_names_no_switch`
+- [tests/test_reader_recap_review_r2.py](../../../../../../tests/test_reader_recap_review_r2.py) — direct import
+  - `test_f1_r2_a_later_regrade_does_not_rewrite_the_credit_banked_before_the_cutoff`
+  - `test_f1_r2_the_as_of_curve_ignores_gradings_recorded_after_the_cutoff`
+  - `test_f3_r2_embedded_credit_that_banks_answers_the_claim`
+- [tests/test_reader_recap_review_r3.py](../../../../../../tests/test_reader_recap_review_r3.py) — direct import
+  - `test_f1_r3_the_as_of_hold_agrees_with_the_upgrade_on_every_shape`
+- [tests/test_reader_reconnect.py](../../../../../../tests/test_reader_reconnect.py) — direct import
+  - `test_a_landed_inquiry_check_names_its_model_and_prompt_version`
+  - `test_inquiry_question_action_rpc_records_the_self_check`
+  - `test_reconnect_and_its_check_on_every_source_kind`
+  - `test_the_quick_check_read_reports_its_durable_jobs_state`
+- [tests/test_reader_reconstruct.py](../../../../../../tests/test_reader_reconstruct.py) — direct import
+  - `test_reconstruct_makes_one_item_and_one_test_me_later_commitment`
+  - `test_undo_retires_the_commitment_and_the_item`
+- [tests/test_reader_report.py](../../../../../../tests/test_reader_report.py) — direct import
+  - `test_the_passage_quick_check_is_a_model_backed_action_in_the_funnel`
+- [tests/test_reader_rw1b_review.py](../../../../../../tests/test_reader_rw1b_review.py) — direct import
+  - `test_f1_a_formative_gap_brings_no_check_forward`
+  - `test_f1_a_formative_gap_is_not_a_weak_prerequisite_signal`
+- [tests/test_reader_rw2b_fix11.py](../../../../../../tests/test_reader_rw2b_fix11.py) — direct import
+  - `test_item1_the_diagnosers_trace_reads_a_stored_checked_verdict_as_the_models_when_off`
+- [tests/test_reader_rw2b_fix14.py](../../../../../../tests/test_reader_rw2b_fix14.py) — direct import
+  - `test_items_2_3_a_row_stored_checked_reads_as_the_models_everywhere_once_the_switch_is_off`
+- [tests/test_reader_rw2b_fix15.py](../../../../../../tests/test_reader_rw2b_fix15.py) — direct import
+  - `test_item2_a_switch_off_during_context_assembly_masks_the_rendered_trace`
+- [tests/test_reader_rw2b_review.py](../../../../../../tests/test_reader_rw2b_review.py) — direct import
+  - `test_f15_a_partly_correct_workbench_attempt_with_a_mapped_hint_starts_no_outcome_call`
+- [tests/test_reader_rw3a_landing.py](../../../../../../tests/test_reader_rw3a_landing.py) — direct import
+- [tests/test_reader_rw5d_p4b_teacher_visuals.py](../../../../../../tests/test_reader_rw5d_p4b_teacher_visuals.py) — direct import
+  - `test_a_lesson_figure_never_spawns_a_rich_job`
+  - `test_a_planned_visual_is_the_identical_request_and_hits_the_same_figure`
+  - `test_a_shown_figure_held_out_since_is_no_longer_shown`
+  - `test_a_shown_figures_words_count_as_the_lessons_displayed_text`
+  - `test_a_visual_turn_builds_a_teacher_figure_shown_inline_with_its_predictions_suppressed`
+  - `test_held_out_inputs_are_refused_before_any_call`
+  - `test_lesson_turn_builds_the_visual_through_the_figure_service`
+  - `test_lesson_view_never_builds_a_pending_figure`
+  - `test_review_f1_a_recovered_visual_is_never_built_after_protection_changed`
+  - `test_review_f1_a_visual_after_protection_changed_mid_action_is_not_built`
+  - `test_review_f2_a_suppressed_prediction_is_never_counted_as_shown`
+  - `test_review_f3_a_visuals_lesson_forecasts_under_its_own_family`
+  - `test_review_f4_a_budget_refusal_while_recovering_a_visual_closes_the_lesson`
+  - `test_switching_visuals_off_hides_a_lessons_figures_and_stops_a_pending_one`
+  - `test_the_figure_never_reaches_the_grader_and_is_never_a_help_row`
+  - `test_the_teacher_origin_is_the_lesson_services_only`
+- [tests/test_reader_rw6b_landing.py](../../../../../../tests/test_reader_rw6b_landing.py) — direct import
+  - `test_i_a_check_once_on_the_follow_ups_own_item_replaces_the_automatic_check`
+  - `test_i_check_once_commitments_and_follow_ups_coexist_and_the_gate_touches_only_follow_ups`
+- [tests/test_reader_rw6b_p2_landing.py](../../../../../../tests/test_reader_rw6b_p2_landing.py) — direct import
+- [tests/test_reader_source_identity_guard.py](../../../../../../tests/test_reader_source_identity_guard.py) — direct import
+- [tests/test_reader_workbench_rw2a.py](../../../../../../tests/test_reader_workbench_rw2a.py) — direct import
+  - `test_an_abandoned_session_writes_no_attempt_and_a_rebuild_leaves_the_workbench_alone`
+  - `test_round4_f2_held_assistance_on_an_independent_only_item_is_assisted_on_every_submit_path_and_after_replay`
+  - `test_the_kill_switch_and_open_session_days_default_on_and_30`
+- [tests/test_reader_wrap_up.py](../../../../../../tests/test_reader_wrap_up.py) — direct import
+  - `test_the_card_off_leaves_wrap_up_on_its_own_switch`
+- [tests/test_reading_paths.py](../../../../../../tests/test_reading_paths.py) — direct import
+  - `test_an_override_writes_one_learner_card_and_one_row_and_skip_marks_nothing_known`
+  - `test_dl2_intent_preselects_the_depth_and_the_newer_setting_wins_without_writing_dl2`
+  - `test_each_dl2_choice_maps_onto_a_depth_or_asks`
+  - `test_f1_a_learner_gap_commitment_is_never_assumed_known`
+  - `test_f4_a_budget_refusal_is_reconsidered_when_the_day_turns_or_the_cap_changes`
+  - `test_f5_a_role_proposal_the_role_switch_and_title_edits_rejudge_a_cached_path`
+  - `test_f6_two_sidecars_opening_one_uncached_path_pay_for_one_judgment`
+  - `test_section_roles_combine_role_hint_and_visible_rw4e_proposals`
+  - `test_the_goal_it_serves_is_named_and_otherwise_the_path_says_it_follows_the_depth`
+  - `test_the_state_key_hashes_depth_section_list_and_statuses_only`
+- [tests/test_reading_request_sweep.py](../../../../../../tests/test_reading_request_sweep.py) — direct import
+- [tests/test_reading_step_switch.py](../../../../../../tests/test_reading_step_switch.py) — direct import
+  - `test_new_vaults_read_on_from_the_furthest_section`
+  - `test_replay_never_reads_the_switch`
+  - `test_the_reading_step_acts_wherever_the_plan_acts_behind_its_switch`
+- [tests/test_rebuild_closed_row_answer.py](../../../../../../tests/test_rebuild_closed_row_answer.py) — direct import
+  - `test_a_sibling_retired_after_the_last_answer_rebuilds_to_live`
+  - `test_an_answer_after_a_sibling_was_retired_rebuilds_to_live`
+- [tests/test_rebuild_equivalence.py](../../../../../../tests/test_rebuild_equivalence.py) — direct import
+  - `test_a_full_sync_after_a_rebuild_keeps_retired_items_retired`
+  - `test_a_retired_item_stays_inactive_through_a_primary_load_and_a_rebuild`
+  - `test_a_second_learner_report_on_an_lo_after_an_attempt_rebuilds_to_live`
+  - `test_content_sync_nests_inside_a_rebuild_transaction_and_rolls_back_with_it`
+  - `test_random_attempt_histories_rebuild_to_live_state_exactly`
+  - `test_random_histories_with_claims_after_attempts_and_too_easy_retirements_rebuild_to_live`
+- [tests/test_rebuild_equivalence_review.py](../../../../../../tests/test_rebuild_equivalence_review.py) — direct import
+  - `test_a_failed_activation_leaves_the_predecessor_and_a_dead_one_resumes`
+  - `test_a_partial_rebuild_under_the_tag_does_not_complete_the_activation`
+  - `test_a_startup_receipt_after_a_died_activation_does_not_hide_it`
+  - `test_upgrade_from_the_predecessor_rebuilds_to_live_and_through_the_chain`
 - [tests/test_rebuild_orchestrator.py](../../../../../../tests/test_rebuild_orchestrator.py) — direct import
   - `test_content_recalibration_replay_cannot_lose_its_ingest_lease_midway`
   - `test_golden_projection_survives_one_umbrella_rebuild_exactly_and_stale_rows_clear`
@@ -928,8 +2534,62 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_receipt_derivation.py](../../../../../../tests/test_receipt_derivation.py) — direct import
   - `test_ready_derivation_none_on_legacy_vault`
 - [tests/test_receipt_exactness.py](../../../../../../tests/test_receipt_exactness.py) — direct import
+- [tests/test_recurrence_benchmarks.py](../../../../../../tests/test_recurrence_benchmarks.py) — direct import
+  - `test_b3_replays_the_vaults_labelled_pairs`
+  - `test_the_b1_dry_run_prices_a_metered_writer_with_its_tokens`
+- [tests/test_recurrence_commands.py](../../../../../../tests/test_recurrence_commands.py) — direct import
+  - `test_a_failing_guard_leaves_every_predecessor_where_it_was`
+  - `test_a_failure_after_preparation_leaves_no_group_in_force`
+  - `test_a_false_merge_blocks_the_switch_and_a_fixed_judge_reruns_through_the_guard`
+  - `test_require_guard_restores_the_refusal`
+  - `test_the_advisory_upgrade_chains_without_a_guard_run`
+  - `test_the_backlog_needs_embeddings`
+  - `test_the_guard_is_advisory_by_default`
+  - `test_the_head_fixture_predecessor_to_successor_path`
+  - `test_the_judge_producer_is_model_and_effort_so_codex_tiers_never_share_a_guard_pass`
+  - `test_the_kill_switch_takes_effect_at_vault_open_with_groups_already_populated`
+  - `test_the_upgrade_accepts_the_chain_and_refuses_older_versions`
+  - `test_the_upgrade_chains_from_each_predecessor`
+  - `test_the_upgrade_command_defaults_to_the_latest`
+  - `test_verdicts_split_across_two_models_do_not_pass_for_the_configured_one`
+- [tests/test_recurrence_deferral.py](../../../../../../tests/test_recurrence_deferral.py) — direct import
+- [tests/test_recurrence_groups.py](../../../../../../tests/test_recurrence_groups.py) — direct import
+  - `test_the_successor_and_its_kill_switch_gate_the_projection`
+- [tests/test_recurrence_live.py](../../../../../../tests/test_recurrence_live.py) — direct import
+  - `test_a_hidden_escalation_card_plans_no_escalated_repair`
+  - `test_the_escalation_card_switch_hides_the_block`
+- [tests/test_recurrence_merge_composition.py](../../../../../../tests/test_recurrence_merge_composition.py) — direct import
 - [tests/test_reentry_short_session.py](../../../../../../tests/test_reentry_short_session.py) — direct import
 - [tests/test_registry_audit.py](../../../../../../tests/test_registry_audit.py) — direct import
+- [tests/test_regrade_contract_replay.py](../../../../../../tests/test_regrade_contract_replay.py) — direct import
+  - `test_case1_a_model_grade_regraded_above_its_original_maximum_is_saved`
+  - `test_case2_a_model_grade_regraded_within_its_original_maximum_replays_its_own_maximum`
+  - `test_case3_a_lowered_rubric_that_still_fits_never_rescores_the_regrade`
+  - `test_case3_lowering_the_rubric_after_a_regrade_never_fails_the_rebuild`
+- [tests/test_regrade_contract_successor.py](../../../../../../tests/test_regrade_contract_successor.py) — direct import
+  - `test_a_first_grade_made_before_contracts_keeps_its_compatibility_reading`
+  - `test_a_held_unrecorded_grade_is_no_evidence`
+  - `test_a_method_explicit_regrade_cites_its_frozen_contract_under_a_new_revision`
+  - `test_a_regrade_in_its_pre_contract_grades_second_is_held_not_read_as_its_only_grade`
+  - `test_an_adjudication_allocates_its_revision_inside_its_own_transaction`
+  - `test_an_adjudication_of_a_regrade_revises_its_epoch_under_its_contract`
+  - `test_an_ordinary_regrade_cites_the_contract_it_read_and_supersedes_every_live_row`
+  - `test_an_unrecorded_joint_regrade_keeps_the_correctness_it_carries_and_never_fails_a_rebuild`
+  - `test_feedback_reads_a_reopened_regrade_from_the_contract_it_cites`
+  - `test_the_grade_channel_classifies_a_grade_out_of_the_maximum_it_was_computed_against`
+  - `test_the_regrade_snapshot_is_written_in_the_regrade_transaction`
+- [tests/test_regrade_contract_upgrade.py](../../../../../../tests/test_regrade_contract_upgrade.py) — direct import
+  - `test_a_failed_activation_leaves_the_predecessor_exactly_as_it_was`
+  - `test_a_failed_commit_after_publication_restores_the_predecessors_label`
+  - `test_a_failed_publication_fsync_leaves_the_predecessors_label`
+  - `test_after_the_upgrade_a_rebuild_settles_and_stays`
+  - `test_an_upgrade_interrupted_after_publication_is_resumed`
+  - `test_head_fixture_predecessor_to_successor_path`
+  - `test_the_upgrade_shadow_predicts_the_upgrade_exactly`
+  - `test_upgrade_command_reaches_the_successor`
+  - `test_upgrade_holds_exactly_the_unrecorded_epochs_and_rewrites_no_evidence`
+  - `test_upgrade_refuses_older_versions_and_is_idempotent`
+  - `test_upgrade_through_the_chain_from_earlier_successors`
 - [tests/test_remediation_cold_retry.py](../../../../../../tests/test_remediation_cold_retry.py) — direct import
 - [tests/test_repair_splice.py](../../../../../../tests/test_repair_splice.py) — direct import
 - [tests/test_replay.py](../../../../../../tests/test_replay.py) — direct import
@@ -940,6 +2600,59 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_rebuild_derived_state_replays_attempt_logs`
   - `test_replay_error_attributions_preserve_misconception_fields`
   - `test_replay_preserves_targeted_error_attribution_facets`
+- [tests/test_required_method_authority.py](../../../../../../tests/test_required_method_authority.py) — direct import
+  - `test_a_live_answer_its_regrade_and_replay_are_graded_under_the_frozen_field`
+  - `test_a_variant_with_no_verdict_or_an_edited_stem_is_not_published`
+  - `test_an_import_keeps_the_field_exactly_when_the_one_time_judgment_says_requires`
+  - `test_pf_judges_each_selected_variant_once_and_publication_reads_the_verdict`
+  - `test_the_cli_proposes_the_override_and_accept_applies_it`
+  - `test_the_override_refuses_unknown_criteria_and_a_clear_with_nothing_to_clear`
+  - `test_the_owner_override_on_a_generated_item_changes_only_the_field`
+  - `test_the_owner_overrides_a_source_decision_and_clears_it_through_proposals`
+- [tests/test_required_method_grading.py](../../../../../../tests/test_required_method_grading.py) — direct import
+  - `test_a_regrade_grades_the_statement_and_rubric_its_method_was_frozen_with`
+  - `test_a_regrade_never_acquires_a_required_method_added_after_the_answer`
+  - `test_a_snapshot_without_a_required_method_never_acquires_one`
+  - `test_a_submission_is_graded_under_the_presented_contracts_required_method`
+  - `test_every_other_regrade_still_reads_the_item_as_it_is_now`
+  - `test_grades_recorded_at_the_predecessor_replay_unchanged_after_the_upgrade`
+- [tests/test_required_method_items.py](../../../../../../tests/test_required_method_items.py) — direct import
+  - `test_a_target_is_a_method_by_its_concept_type_or_facet_kind`
+  - `test_an_authoring_proposal_keeps_a_required_method_only_on_a_method_target`
+  - `test_an_imported_exercise_keeps_a_required_method_only_by_its_one_time_judgment`
+  - `test_synthesis_keeps_a_required_method_only_on_a_procedure_target`
+  - `test_synthesis_publishes_a_required_method_presented_with_the_canonical_sentence`
+  - `test_the_authoring_context_names_method_targets_only_where_they_are`
+  - `test_the_writer_check_keeps_a_required_method_only_on_its_target`
+  - `test_the_writers_keep_the_field_and_never_touch_the_prompt`
+- [tests/test_required_method_reopened.py](../../../../../../tests/test_required_method_reopened.py) — direct import
+  - `test_f15_a_generated_items_new_prompt_is_stored_as_generated`
+  - `test_f15_a_generated_update_renaming_the_method_changes_only_the_field`
+  - `test_f15_a_generated_update_that_rewrites_a_judged_source_statement_is_refused`
+  - `test_f15_a_whitespace_only_restatement_keeps_the_verbatim_statement_and_applies`
+  - `test_f15_an_owner_edit_of_a_pending_update_cannot_rewrite_the_statement_either`
+  - `test_f16_a_generated_items_override_is_ledgered_and_the_write_is_idempotent`
+  - `test_f16_an_accepted_override_appends_the_owners_verdict_superseding_the_judgment`
+  - `test_f17_a_failed_judgment_leaves_the_job_retryable_and_a_rerun_resumes_without_regenerating`
+- [tests/test_required_method_round3.py](../../../../../../tests/test_required_method_round3.py) — direct import
+  - `test_a_published_pf_variant_is_presented_with_the_parents_instruction`
+  - `test_every_surface_renders_the_instruction_only_for_a_method_item`
+  - `test_f14_a_generated_update_quoting_the_sentence_is_stored_verbatim_and_the_block_rendered`
+  - `test_f14_the_grader_renders_the_instruction_the_frozen_contract_presented`
+  - `test_f21_clearing_or_renaming_never_edits_the_statement`
+- [tests/test_required_method_round3_review.py](../../../../../../tests/test_required_method_round3_review.py) — direct import
+  - `test_f1_the_reference_key_identity_carries_the_required_method`
+  - `test_f2_an_answer_carried_only_by_the_required_method_is_withheld`
+  - `test_f4_model_readers_and_review_exports_render_the_instruction`
+  - `test_f4_the_practice_index_result_presents_the_question`
+  - `test_f4_the_teach_back_author_reads_the_task_as_it_was_set`
+  - `test_f5_the_practice_tool_keeps_the_instruction_of_a_long_stem`
+  - `test_f7_a_resume_is_estimated_from_the_persisted_unfinished_stem`
+- [tests/test_reread_safety.py](../../../../../../tests/test_reread_safety.py) — direct import
+  - `test_redesign_a_refresh_keeps_an_exam_scoped_member_on_its_revision`
+  - `test_the_z_ai_ok_line_names_pages_and_cost_for_a_404_page_book`
+- [tests/test_reread_safety_landing.py](../../../../../../tests/test_reread_safety_landing.py) — direct import
+  - `test_an_unmarked_reading_of_a_protected_book_is_withheld_from_every_model_visible_path`
 - [tests/test_residual_diagnostics.py](../../../../../../tests/test_residual_diagnostics.py) — direct import
   - `test_positive_residual_dependence_flags_missing_factor`
 - [tests/test_reveal_ledger.py](../../../../../../tests/test_reveal_ledger.py) — direct import
@@ -947,6 +2660,51 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_a_revealed_cold_item_cannot_burn_its_cold_measurement`
 - [tests/test_review_log.py](../../../../../../tests/test_review_log.py) — direct import
 - [tests/test_revision_refresh.py](../../../../../../tests/test_revision_refresh.py) — direct import
+- [tests/test_route_rules_in_grader.py](../../../../../../tests/test_route_rules_in_grader.py) — direct import
+  - `test_a_retired_proof_check_route_is_ignored_and_reported`
+  - `test_f5_a_regrade_supersedes_an_mvp017_route_check_verdict`
+  - `test_f5_a_regrade_with_the_rule_switched_off_supersedes_the_held_verdict`
+- [tests/test_router_card.py](../../../../../../tests/test_router_card.py) — direct import
+- [tests/test_router_coldness_covariates.py](../../../../../../tests/test_router_coldness_covariates.py) — direct import
+  - `test_the_replayer_records_the_fsrs_predicted_retrievability`
+- [tests/test_router_g1_feasibility.py](../../../../../../tests/test_router_g1_feasibility.py) — direct import
+  - `test_a_reserved_assessment_surface_is_refused_on_today`
+- [tests/test_router_g4_restraint.py](../../../../../../tests/test_router_g4_restraint.py) — direct import
+  - `test_a_follow_up_a_hard_constraint_refuses_is_declined_by_name`
+- [tests/test_router_offer_log.py](../../../../../../tests/test_router_offer_log.py) — direct import
+  - `test_placement_components_and_exclusions_are_in_the_candidate_set`
+- [tests/test_router_outcomes.py](../../../../../../tests/test_router_outcomes.py) — direct import
+  - `test_router_tables_survive_rebuild_under_production_pragmas`
+  - `test_the_replayer_applies_the_vaults_servable_items`
+  - `test_the_replayer_rebuilds_router_outcomes_deterministically_with_no_model_call`
+- [tests/test_router_probe_ties.py](../../../../../../tests/test_router_probe_ties.py) — direct import
+  - `test_teach_back_items_are_probe_near_ties_at_the_successor`
+  - `test_without_probe_candidates_the_successor_serves_exactly_as_mvp014`
+- [tests/test_router_r1_composition.py](../../../../../../tests/test_router_r1_composition.py) — direct import
+  - `test_plan_block_decisions_get_router_decision_ids_end_to_end`
+  - `test_the_full_list_seam_reads_the_plan`
+- [tests/test_router_r2a_landing.py](../../../../../../tests/test_router_r2a_landing.py) — direct import
+  - `test_the_card_withholds_what_the_one_exam_predicate_names`
+  - `test_the_cards_exam_protection_is_not_behind_the_serving_switch`
+- [tests/test_router_r2a_serving.py](../../../../../../tests/test_router_r2a_serving.py) — direct import
+  - `test_presentations_and_cards_survive_production_pragmas`
+- [tests/test_router_r2b_serving.py](../../../../../../tests/test_router_r2b_serving.py) — direct import
+  - `test_the_deciders_route_never_resolves_to_a_chat_model`
+- [tests/test_router_r2bc_landing.py](../../../../../../tests/test_router_r2bc_landing.py) — direct import
+- [tests/test_router_r2c_retrieval.py](../../../../../../tests/test_router_r2c_retrieval.py) — direct import
+  - `test_the_backfill_dry_runs_and_then_embeds_what_is_missing`
+  - `test_the_backfill_is_held_to_its_money_cap`
+- [tests/test_router_reader_activity.py](../../../../../../tests/test_router_reader_activity.py) — direct import
+  - `test_narration_switched_off_after_a_narrative_was_saved_shows_it_nowhere`
+  - `test_the_section_is_absent_with_its_switches_off`
+- [tests/test_router_staged_p2.py](../../../../../../tests/test_router_staged_p2.py) — direct import
+- [tests/test_rw7b_codex_review_fixes.py](../../../../../../tests/test_rw7b_codex_review_fixes.py) — direct import
+  - `test_f1_a_staged_unstarted_path_reading_is_ended_unread_and_the_predecessors_is_served`
+  - `test_f1_switching_off_after_the_build_restores_the_predecessors_reading`
+  - `test_f2_a_goal_change_invalidates_an_enrichment_judgment`
+  - `test_f2_a_judgment_for_an_older_state_is_stale_and_the_plan_keeps_the_order`
+- [tests/test_rw7b_fix_round2.py](../../../../../../tests/test_rw7b_fix_round2.py) — direct import
+  - `test_a_withdrawn_path_reading_leaves_the_predecessors_reading_in_the_projection`
 - [tests/test_scheduler.py](../../../../../../tests/test_scheduler.py) — direct import
   - `test_inserted_followup_records_its_lane`
   - `test_ordinary_due_pick_carries_no_followup_kind`
@@ -974,6 +2732,63 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_scheduler_requested_floor.py](../../../../../../tests/test_scheduler_requested_floor.py) — direct import
   - `test_stateless_requested_item_survives_eligibility`
 - [tests/test_scoreboard.py](../../../../../../tests/test_scoreboard.py) — direct import
+- [tests/test_secondary_attach.py](../../../../../../tests/test_secondary_attach.py) — direct import
+  - `test_a_change_during_a_slow_load_is_in_the_snapshot_and_the_window_starts_after_it`
+  - `test_a_directory_alias_keeps_every_path_the_loader_sees`
+  - `test_a_failed_refresh_is_retried_by_every_later_request`
+  - `test_a_source_sets_file_that_stays_truncated_is_refused_not_published`
+  - `test_a_source_sets_rewrite_during_the_load_never_publishes_empty_protection`
+  - `test_content_fingerprint_reload_within_the_freshness_bound`
+  - `test_fingerprint_covers_every_file_the_loader_reads`
+  - `test_fingerprint_sees_renames_and_older_mtimes`
+  - `test_fingerprint_walks_a_link_cycle_once`
+  - `test_retargeting_a_directory_link_between_two_fingerprinted_directories_reloads`
+  - `test_retargeting_a_file_link_to_a_same_sized_file_changes_the_fingerprint`
+  - `test_the_empty_source_sets_check_does_not_trust_a_missing_entry`
+- [tests/test_section_coverage.py](../../../../../../tests/test_section_coverage.py) — direct import
+  - `test_a_big_book_never_crowds_out_a_small_one`
+  - `test_a_changed_section_drops_its_row`
+  - `test_a_changed_statement_makes_old_rows_stale_until_rejudged`
+  - `test_a_correction_on_protected_material_is_refused`
+  - `test_a_failed_judgment_writes_nothing`
+  - `test_a_protected_section_has_no_correspondents`
+  - `test_an_answer_that_skips_a_section_is_never_stored`
+  - `test_candidates_are_provenance_then_retrieval_per_source`
+  - `test_corrections_stand_over_the_judge_across_rejudgments`
+  - `test_correspondents_join_on_the_lo_and_are_symmetric`
+  - `test_models_off_and_an_unrouted_judge_make_no_call`
+  - `test_no_exam_or_held_out_text_reaches_the_judge`
+  - `test_one_listwise_judgment_writes_one_row_per_candidate_and_caches`
+  - `test_rw4e_proposals_are_written_by_the_coverage_judge`
+  - `test_the_library_leaves_out_exam_and_held_out_material`
+  - `test_the_search_fallback_is_labelled_unchecked_and_writes_nothing`
+  - `test_the_table_is_append_only`
+- [tests/test_section_coverage_review.py](../../../../../../tests/test_section_coverage_review.py) — direct import
+  - `test_f1_a_batch_reads_protection_again_before_each_lo`
+  - `test_f1_a_retry_after_protection_changed_is_never_sent`
+  - `test_f1_protection_marked_during_the_call_keeps_nothing`
+  - `test_f2_query_embeddings_are_held_to_the_curriculum_caps`
+  - `test_f2_the_dry_run_estimates_the_query_embeddings`
+  - `test_f3_a_failed_qwen_query_still_searches_deep`
+  - `test_f4_returning_to_a_judged_state_reads_its_rows_again`
+  - `test_f5_a_crash_before_the_proposals_is_recovered_without_a_call`
+  - `test_f6_kept_relations_join_only_their_own_endpoints`
+  - `test_f7_the_search_fallback_embeds_and_logs_nothing`
+  - `test_f9_a_subscription_run_reports_tokens_and_estimated_dollars`
+  - `test_landing_f1_a_reload_with_invalid_source_sets_is_never_admitted`
+  - `test_landing_f1_admission_refuses_a_vault_whose_source_sets_did_not_load`
+  - `test_landing_f1_cover_refuses_when_source_sets_turn_invalid_mid_batch`
+  - `test_landing_f1_source_sets_turning_invalid_during_a_cli_judgment_keep_nothing`
+  - `test_landing_f1_the_cli_batch_refuses_when_source_sets_turn_invalid_mid_batch`
+  - `test_landing_f1_the_corrupt_file_loads_as_no_source_sets`
+  - `test_rr_f10_a_crash_after_the_proposals_is_recovered_from_the_ledger`
+  - `test_rr_f1_a_reload_published_during_the_protection_read_is_never_admitted`
+  - `test_rr_f1_a_retry_after_a_role_changed_on_disk_is_never_sent`
+  - `test_rr_f1_a_role_changed_on_disk_during_a_cli_judgment_keeps_nothing`
+  - `test_rr_f1_the_cli_batch_reads_source_sets_from_disk_before_each_lo`
+- [tests/test_section_coverage_rpcs.py](../../../../../../tests/test_section_coverage_rpcs.py) — direct import
+  - `test_cover_source_judges_and_caps_a_metered_run`
+  - `test_cover_source_refuses_a_withheld_reading`
 - [tests/test_self_attributed_misconceptions.py](../../../../../../tests/test_self_attributed_misconceptions.py) — direct import
   - `test_brand_new_self_tag_does_not_touch_current_posterior_but_seeds_next_set`
   - `test_candidate_ranking_fuzzy_query_surfaces_match`
@@ -992,6 +2807,15 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_self_grade_uses_criterion_total_as_item_scale`
   - `test_self_grade_uses_default_rubric_when_inline_rubric_is_omitted`
 - [tests/test_sensitivity_certificates.py](../../../../../../tests/test_sensitivity_certificates.py) — direct import
+- [tests/test_serve_eligibility.py](../../../../../../tests/test_serve_eligibility.py) — direct import
+  - `test_no_probe_is_committed_for_an_item_submit_would_prime`
+  - `test_q33_an_exam_seeded_before_a_later_reveal_is_not_primed`
+- [tests/test_serve_eligibility_review.py](../../../../../../tests/test_serve_eligibility_review.py) — direct import
+  - `test_f4_a_probe_of_an_item_submit_would_prime_is_refused_only_at_the_successor`
+  - `test_f4_new_vaults_start_at_the_successor_with_the_switch_on`
+  - `test_f4_q33s_bounded_window_is_the_successors`
+  - `test_f4_the_gate_reads_the_version_and_the_switch`
+  - `test_f4_the_upgrade_takes_the_predecessor_or_the_chain_and_refuses_the_rest`
 - [tests/test_settings_store.py](../../../../../../tests/test_settings_store.py) — direct import
 - [tests/test_shadow_components.py](../../../../../../tests/test_shadow_components.py) — direct import
   - `test_state_sync_retires_expired_telemetry_horizon`
@@ -1004,6 +2828,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_sidecar_append.py](../../../../../../tests/test_sidecar_append.py) — direct import
   - `test_list_source_conflicts_enriches_extraction_ids`
 - [tests/test_sidecar_blueprint_picker.py](../../../../../../tests/test_sidecar_blueprint_picker.py) — direct import
+- [tests/test_sidecar_close_cancels_jobs.py](../../../../../../tests/test_sidecar_close_cancels_jobs.py) — direct import
+  - `test_shutting_down_the_gaps_slot_inside_a_request_sends_no_further_request`
 - [tests/test_sidecar_contract.py](../../../../../../tests/test_sidecar_contract.py) — direct import
   - `test_configured_manual_grading_is_ready`
   - `test_inspector_opens_probe_episode_drilldown`
@@ -1052,6 +2878,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_planted_full_map_resend_fails_scaling_gate`
   - `test_post_append_near_duplicate_is_aliased_at_mint_and_never_auto_merged`
   - `test_replay_identical_after_append_apply`
+- [tests/test_source_block_fts.py](../../../../../../tests/test_source_block_fts.py) — direct import
+  - `test_the_umbrella_rebuild_restores_the_index_without_any_model_or_embedding_call`
 - [tests/test_source_deletion.py](../../../../../../tests/test_source_deletion.py) — direct import
   - `test_delete_detaches_learner_records_instead_of_destroying_them`
   - `test_delete_drops_the_source_from_its_collections`
@@ -1075,7 +2903,10 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_source_outcome_analytics.py](../../../../../../tests/test_source_outcome_analytics.py) — direct import
   - `test_actionable_associations_flow_into_maintenance_feed`
   - `test_repeated_failure_despite_coverage_requires_exposure`
+- [tests/test_source_retrieval_search.py](../../../../../../tests/test_source_retrieval_search.py) — direct import
+  - `test_quick_add_with_retrieval_off_plans_exactly_as_before`
 - [tests/test_source_set_synthesis.py](../../../../../../tests/test_source_set_synthesis.py) — direct import
+  - `test_a_vault_whose_facets_used_to_be_locked_still_bootstraps`
   - `test_bootstrap_canonicalizes_prerequisite_and_confusable_concepts`
   - `test_bootstrap_end_to_end_applies_learnable_map`
   - `test_bootstrap_mints_concept_for_unanchored_learning_object`
@@ -1089,13 +2920,15 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_integration_without_capability_is_dropped_not_defaulted`
   - `test_legacy_vault_acceptance_refused`
   - `test_lo_prerequisites_derive_concept_edges_without_model_relations`
-  - `test_locked_subject_bootstrap_refusal`
   - `test_replay_identical_after_apply`
   - `test_revalidate_saved_candidate_completes_without_model`
   - `test_revalidation_creates_the_exam_goal_from_the_manifest_brief`
 - [tests/test_source_sets.py](../../../../../../tests/test_source_sets.py) — direct import
   - `test_one_source_two_sets_different_roles`
   - `test_source_coverage_readiness_report`
+- [tests/test_source_vector_backfill.py](../../../../../../tests/test_source_vector_backfill.py) — direct import
+  - `test_a_re_extraction_queues_the_backfill_of_the_new_current_extraction`
+  - `test_an_import_queues_the_source_block_backfill_and_its_source_becomes_dense`
 - [tests/test_sqlite_wal_lifecycle.py](../../../../../../tests/test_sqlite_wal_lifecycle.py) — direct import
   - `test_live_rebuild_truncates_the_wal_it_grew`
   - `test_wal_stays_bounded_across_twenty_queue_builds_on_a_fixture_copy`
@@ -1110,10 +2943,36 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_state_sync_no_probe_gap_for_item_less_goal_lo`
   - `test_state_sync_seeds_from_weak_learner_claim_below_probe_threshold`
   - `test_state_sync_uses_strong_learner_claim_for_initial_mastery`
+- [tests/test_state_sync_scheduling_race.py](../../../../../../tests/test_state_sync_scheduling_race.py) — direct import
+  - `test_a_measurement_correction_after_the_lifecycle_reads_keeps_the_original_retired`
+  - `test_a_probe_attempt_after_the_fallback_read_stays_retired`
+  - `test_an_attempt_from_a_second_process_survives_a_concurrent_content_sync`
+  - `test_content_change_sync_keeps_an_attempt_committed_after_its_snapshot`
+  - `test_creating_sync_keeps_a_row_an_attempt_inserted_after_its_snapshot`
+  - `test_deactivating_sync_keeps_an_attempt_committed_after_its_snapshot`
+  - `test_review_parking_after_the_lifecycle_reads_keeps_the_item_inactive`
+- [tests/test_stuck_prompt.py](../../../../../../tests/test_stuck_prompt.py) — direct import
+  - `test_an_empty_stuck_answer_is_a_bare_zero_with_no_error_tag`
+  - `test_kill_switch_restores_dont_know_exactly`
+  - `test_the_tui_worked_answer_is_recorded_as_a_reveal_and_primes_the_retry`
+- [tests/test_stuck_prompt_replay.py](../../../../../../tests/test_stuck_prompt_replay.py) — direct import
+  - `test_historical_dont_know_rows_replay_unchanged_under_the_successor`
+  - `test_the_kill_switch_never_changes_how_stuck_answers_replay`
 - [tests/test_subject_registry.py](../../../../../../tests/test_subject_registry.py) — direct import
-  - `test_propose_facet_merge_creates_review_item_never_auto_merges`
+  - `test_propose_facet_merge_applies_live_and_records_the_owners_verdict`
+  - `test_propose_facet_merge_still_holds_back_a_shared_graded_criterion`
+  - `test_the_owner_merges_a_facet_that_used_to_be_locked_and_can_undo_it`
+- [tests/test_success_head_cli.py](../../../../../../tests/test_success_head_cli.py) — direct import
+  - `test_loader_clears_ambiguous_identities_and_reads_skeletons_for_current_text`
+  - `test_loader_reads_phase_5a_skeletons_keyed_by_item_id`
+  - `test_loader_uses_the_seen_text_and_never_substitutes_current_vectors`
+  - `test_seen_stem_backfill_embeds_retired_and_earlier_texts_only_explicitly`
+  - `test_seen_stem_records_follow_the_seen_revision_and_scored_rows`
+  - `test_without_vectors_the_embedding_arms_abstain_and_say_so`
 - [tests/test_surface_pool.py](../../../../../../tests/test_surface_pool.py) — direct import
 - [tests/test_surfaced_belief_corrections.py](../../../../../../tests/test_surfaced_belief_corrections.py) — direct import
+- [tests/test_synthesis_criterion_dependencies.py](../../../../../../tests/test_synthesis_criterion_dependencies.py) — direct import
+  - `test_fix_content_skips_unparseable_items_and_reports_them`
 - [tests/test_synthesis_eval.py](../../../../../../tests/test_synthesis_eval.py) — direct import
   - `test_canned_synthesis_scores_perfect_against_matching_gold`
 - [tests/test_synthesis_manifests.py](../../../../../../tests/test_synthesis_manifests.py) — direct import
@@ -1124,10 +2983,76 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_finalize_stale_synthesis_runs_spares_recent_rows`
   - `test_synthesis_run_introducing_entity_lineage`
   - `test_synthesis_run_lifecycle`
+- [tests/test_synthesis_sweep_primary_only.py](../../../../../../tests/test_synthesis_sweep_primary_only.py) — direct import
+- [tests/test_t6_followup_composition.py](../../../../../../tests/test_t6_followup_composition.py) — direct import
+  - `test_a_truncated_facet_judgment_is_retried_once_at_double_the_budget`
+  - `test_b1_writer_budget_follows_the_policy_and_the_flag`
+  - `test_pf_caller_prices_a_truncation_retry_at_its_doubled_output_budget`
+  - `test_the_facet_judge_asks_for_and_reserves_the_policy_budget`
 - [tests/test_teach_back.py](../../../../../../tests/test_teach_back.py) — direct import
+  - `test_a_teach_back_regraded_blind_keeps_the_blind_identity_through_rebuilds`
   - `test_ensure_teach_back_item_authors_from_exact_source_and_active_quest`
   - `test_ensure_teach_back_item_mints_transfer_criterion`
   - `test_source_scoped_teach_back_does_not_reuse_lo_wide_card`
+- [tests/test_teacher_te0_confidence_events.py](../../../../../../tests/test_teacher_te0_confidence_events.py) — direct import
+- [tests/test_teacher_te1_curriculum_c4.py](../../../../../../tests/test_teacher_te1_curriculum_c4.py) — direct import
+  - `test_a_note_never_reaches_the_grader`
+  - `test_the_brief_reads_the_deliverable_its_path_and_the_learners_notes`
+  - `test_with_c4_off_the_brief_has_no_deliverable_no_notes_and_read_note_refuses`
+- [tests/test_teacher_te1_lesson.py](../../../../../../tests/test_teacher_te1_lesson.py) — direct import
+  - `test_a_reader_selection_of_protected_material_is_refused_in_one_line`
+  - `test_a_reader_selection_opens_on_its_sections_topics`
+  - `test_a_whole_lesson_opens_teaches_checks_and_closes_with_delayed_checks`
+  - `test_exam_and_held_out_sentinels_never_reach_the_teacher_or_a_screen`
+  - `test_forecasts_are_receipts_with_their_bindings`
+  - `test_help_that_gives_the_solution_away_withdraws_the_check_with_no_attempt`
+  - `test_off_or_below_the_tag_no_lesson_opens`
+  - `test_read_source_find_sources_find_practice_and_read_history_return_safe_results`
+  - `test_the_minted_check_item_is_held_to_its_lesson`
+  - `test_while_a_check_is_open_its_solution_is_never_shown`
+  - `test_with_the_learned_weight_off_a_check_enters_at_the_types_configured_mass`
+- [tests/test_teacher_te1_review_fixes.py](../../../../../../tests/test_teacher_te1_review_fixes.py) — direct import
+  - `test_f11_an_opening_failure_carries_the_saved_lesson_and_resume_runs_it`
+  - `test_f13_a_withdrawn_check_censors_its_forecast`
+  - `test_f13_lesson_forecasts_have_resolvers`
+  - `test_f2_a_held_cold_grade_resolves_nothing_until_released`
+  - `test_f5_the_pool_inverts_on_the_committed_cold_item_not_the_check`
+  - `test_f6_the_trajectory_at_the_recorded_mass_reproduces_the_outcomes_recorded_prior`
+  - `test_f8_a_downstream_edge_alone_is_not_transfer`
+  - `test_f8_a_downstream_item_whose_rubric_measures_a_taught_facet_is_transfer`
+  - `test_f9_an_accepted_check_turn_interrupted_before_its_effects_recovers_on_reload`
+  - `test_f9_an_interrupted_turns_reads_run_with_the_next_action_never_in_lesson_view`
+  - `test_f9_closing_is_one_transaction_and_an_interrupted_close_recovers`
+  - `test_r3_f4_a_lesson_whose_protection_changed_ends_without_another_call`
+  - `test_r3_f4_an_item_held_out_after_its_history_was_read_ends_the_lesson`
+  - `test_r3_f4_unreadable_protection_ends_the_lesson`
+- [tests/test_teacher_te1_successor.py](../../../../../../tests/test_teacher_te1_successor.py) — direct import
+  - `test_a_bare_upgrade_goes_through_mvp041_along_the_chain`
+  - `test_a_metered_lesson_turn_needs_its_price_and_cap`
+  - `test_a_shadow_rebuild_after_a_lesson_has_zero_projection_deltas`
+  - `test_the_upgrade_from_the_predecessor_and_its_refusals`
+  - `test_the_whole_rebuild_owns_the_lesson_weight_tables_and_reproduces_them`
+- [tests/test_teacher_te1_weight.py](../../../../../../tests/test_teacher_te1_weight.py) — direct import
+  - `test_a_later_cold_outcome_resolves_the_check_and_moves_the_weight`
+  - `test_a_lessonless_vault_rebuilds_to_empty_tables`
+  - `test_a_primed_or_hinted_or_seen_or_earlier_attempt_never_resolves_a_check`
+  - `test_the_attempt_step_reads_the_recorded_mass_live_and_in_replay`
+  - `test_the_derived_state_rebuild_reproduces_the_live_tables_exactly`
+  - `test_the_pool_mixes_in_the_teachers_forecast_and_learns_from_the_outcome`
+  - `test_the_report_lines`
+  - `test_the_tap_recalibration_learns_from_every_tapped_graded_answer`
+- [tests/test_tier1_decider.py](../../../../../../tests/test_tier1_decider.py) — direct import
+  - `test_a_decider_cancellation_in_misconception_matching_never_reaches_the_llm`
+  - `test_a_review_resume_refuses_a_changed_decider_profile`
+  - `test_contamination`
+  - `test_field_question_classification`
+  - `test_misconception_match`
+  - `test_misconception_match_without_a_model_asks_no_decider`
+  - `test_text_gap_kind_is_reused_never_paid_for_twice`
+- [tests/test_today_headline.py](../../../../../../tests/test_today_headline.py) — direct import
+  - `test_a_blueprint_lo_with_an_integration_gap_is_learning`
+  - `test_assumed_comes_first_and_is_omitted_before_placement`
+  - `test_expected_recall_is_a_labelled_model_estimate`
 - [tests/test_today_surfaces.py](../../../../../../tests/test_today_surfaces.py) — direct import
   - `test_overconfidence_probe_origin_survives_target_selection`
   - `test_overconfidence_probe_records_origin`
@@ -1138,6 +3063,9 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_tui_today.py](../../../../../../tests/test_tui_today.py) — direct import
   - `test_today_queue_matches_scheduler_and_opens_practice`
 - [tests/test_tutor_citations.py](../../../../../../tests/test_tutor_citations.py) — direct import
+- [tests/test_tutor_delivery_fixes.py](../../../../../../tests/test_tutor_delivery_fixes.py) — direct import
+  - `test_the_expanded_delivery_kill_switch_restores_the_predecessors_reader_window`
+  - `test_the_reader_manifest_records_what_the_tutor_was_given`
 - [tests/test_tutor_promotion_service.py](../../../../../../tests/test_tutor_promotion_service.py) — direct import
   - `test_attach_to_existing_with_grounding_auto_applies`
   - `test_reader_promotion_honors_persisted_learning_object_target`
@@ -1145,6 +3073,70 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_tutor_qa.py](../../../../../../tests/test_tutor_qa.py) — direct import
   - `test_ask_question_library_context_and_daily_limit`
 - [tests/test_unresolved_cause_gate.py](../../../../../../tests/test_unresolved_cause_gate.py) — direct import
+- [tests/test_ux_phase1_add_source.py](../../../../../../tests/test_ux_phase1_add_source.py) — direct import
+  - `test_the_whole_path_runs_with_the_queue_draining`
+- [tests/test_ux_phase1_auto_build.py](../../../../../../tests/test_ux_phase1_auto_build.py) — direct import
+  - `test_a_failed_fetch_says_so_in_one_line`
+  - `test_a_small_source_is_built_whole`
+  - `test_adding_a_book_builds_questions_for_the_first_chapter_and_the_next`
+  - `test_an_existing_subject_with_the_books_name_is_reused`
+  - `test_an_expensive_build_pauses_once_with_one_line`
+  - `test_auto_apply_off_leaves_the_build_waiting_for_a_look`
+  - `test_auto_build_off_leaves_the_book_readable_only`
+  - `test_missing_consent_waits_for_one_ok`
+  - `test_no_ai_waits_with_a_connect_line`
+  - `test_reading_into_the_next_chapter_builds_one_chapter_ahead`
+  - `test_undo_takes_the_books_questions_back_out`
+  - `test_while_the_next_build_is_planned_the_card_says_chapters_found`
+- [tests/test_ux_phase1_connect_ai.py](../../../../../../tests/test_ux_phase1_connect_ai.py) — direct import
+  - `test_an_openrouter_key_connects_every_use_case`
+  - `test_continue_with_chatgpt_routes_every_use_case_to_the_plan`
+  - `test_one_ok_records_consent_for_the_connected_provider`
+  - `test_quick_add_reads_the_recorded_ok_instead_of_asking_per_build`
+- [tests/test_ux_phase1_finish.py](../../../../../../tests/test_ux_phase1_finish.py) — direct import
+- [tests/test_ux_phase1_landing.py](../../../../../../tests/test_ux_phase1_landing.py) — direct import
+  - `test_an_automatic_build_never_takes_a_held_out_unit_as_teaching`
+- [tests/test_ux_phase1_review_fixes.py](../../../../../../tests/test_ux_phase1_review_fixes.py) — direct import
+  - `test_f10_a_books_history_survives_lots_of_other_work`
+  - `test_f1_sending_a_whole_recording_out_waits_for_its_own_ok`
+  - `test_f2_a_retry_is_admitted_against_what_the_build_already_spent`
+  - `test_f2_build_them_never_passes_the_daily_cap`
+  - `test_f2_each_paid_job_is_admitted_at_the_route_it_really_uses`
+  - `test_f2_no_per_build_cap_by_default`
+  - `test_f2_rereview_a_json_repair_is_admitted_like_any_paid_request`
+  - `test_f2_the_dry_run_makes_no_call_and_writes_nothing`
+  - `test_f2_todays_spending_is_what_model_calls_cost_not_planner_estimates`
+  - `test_f3_a_planner_that_dies_after_queuing_its_build_is_never_orphaned`
+  - `test_f3_rereview_a_link_planner_that_dies_after_queuing_its_build_is_found`
+  - `test_f4_turning_auto_apply_off_after_planning_keeps_the_build_unapplied`
+  - `test_f4_turning_auto_build_off_stops_queued_automatic_work`
+  - `test_f5_undo_while_a_chapter_builds_keeps_it_from_putting_content_back`
+- [tests/test_ux_phase1_round2_review.py](../../../../../../tests/test_ux_phase1_round2_review.py) — direct import
+  - `test_f1_keeping_a_chapter_ahead_reads_the_config_not_the_whole_vault`
+- [tests/test_ux_phase1_usability_round1.py](../../../../../../tests/test_ux_phase1_usability_round1.py) — direct import
+  - `test_a_link_being_fetched_has_a_readable_name`
+  - `test_u10_a_book_card_names_its_subject_by_title`
+  - `test_u10_the_practised_subject_comes_before_a_new_books_subject`
+  - `test_u1_a_new_books_questions_are_not_refused_for_another_subjects_locks`
+  - `test_u8_a_built_book_says_its_questions_come_as_you_read`
+- [tests/test_ux_phase1_usability_round2.py](../../../../../../tests/test_ux_phase1_usability_round2.py) — direct import
+  - `test_a_book_filed_in_a_collection_still_says_it_has_no_questions`
+  - `test_a_built_books_line_reads_its_text_at_most_once`
+  - `test_a_first_build_promises_no_minutes_it_cannot_know`
+- [tests/test_ux_phase2_error_type_proposals.py](../../../../../../tests/test_ux_phase2_error_type_proposals.py) — direct import
+- [tests/test_ux_phase2_shell.py](../../../../../../tests/test_ux_phase2_shell.py) — direct import
+  - `test_classic_keeps_the_old_shell_and_leaves_phase_4_alone`
+  - `test_the_shell_switch_defaults_to_simple_and_reaches_the_app`
+- [tests/test_ux_phase4_feedback.py](../../../../../../tests/test_ux_phase4_feedback.py) — direct import
+  - `test_f1l_the_scheduler_never_commits_or_serves_a_covered_probe`
+  - `test_f5_a_method_explicit_answer_keeps_its_question_key_and_rubric_together`
+  - `test_f5_historical_feedback_shows_the_frozen_question_answer_key_and_rubric`
+  - `test_f9f_a_blind_regrade_keeps_the_maximum_recorded_with_it_after_the_question_changed`
+  - `test_the_bundle_carries_the_question_as_it_was_given`
+  - `test_the_practice_feedback_switch_defaults_to_simple_and_reaches_the_app`
+- [tests/test_value_candidates.py](../../../../../../tests/test_value_candidates.py) — direct import
+  - `test_an_instrument_only_request_matches_robust_selection`
+  - `test_below_the_robust_cutover_instruments_are_ordinary_items`
 - [tests/test_vault_epigraphs.py](../../../../../../tests/test_vault_epigraphs.py) — direct import
 - [tests/test_vault_writer.py](../../../../../../tests/test_vault_writer.py) — direct import
   - `test_registry_writers_do_not_parse_the_whole_vault`
@@ -1152,6 +3144,29 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_writer_refuses_implicit_entity_moves`
   - `test_writer_updates_depth_rung_metadata_on_existing_practice_item`
   - `test_writer_upserts_graph_error_lo_and_practice_item`
+- [tests/test_voi_forecasts.py](../../../../../../tests/test_voi_forecasts.py) — direct import
+  - `test_followup_outcome_needs_the_frozen_facet_map`
+- [tests/test_voi_merge_composition.py](../../../../../../tests/test_voi_merge_composition.py) — direct import
+  - `test_the_report_scores_a_probe_continue_through_its_committed_presentation`
+- [tests/test_voi_stopping.py](../../../../../../tests/test_voi_stopping.py) — direct import
+  - `test_a_cheaper_follow_up_that_pays_is_queued_when_the_old_winner_does_not`
+  - `test_a_need_then_a_queue_on_one_attempt_keeps_both_decisions`
+  - `test_a_served_probe_records_its_probability_over_the_composed_queue`
+- [tests/test_voi_v2.py](../../../../../../tests/test_voi_v2.py) — direct import
+- [tests/test_workbench_assistance.py](../../../../../../tests/test_workbench_assistance.py) — direct import
+  - `test_an_abandoned_problem_writes_no_attempt_and_a_rebuild_leaves_the_evidence`
+- [tests/test_workbench_report.py](../../../../../../tests/test_workbench_report.py) — direct import
+  - `test_the_block_counts_checks_rungs_replies_and_questions_and_never_the_text`
+- [tests/test_workbench_text_gaps.py](../../../../../../tests/test_workbench_text_gaps.py) — direct import
+  - `test_a_reply_and_a_discriminating_answer_are_workbench_text_never_hint_feedback`
+  - `test_a_stuck_step_is_read_with_its_role_item_and_anchor`
+  - `test_reading_it_writes_only_gap_rows`
+  - `test_the_kind_is_readable_and_non_serving_and_the_switches_hold`
+- [tests/test_workbench_trace.py](../../../../../../tests/test_workbench_trace.py) — direct import
+  - `test_a_workbench_attempt_carries_its_trace_under_the_suffix_and_never_a_map`
+  - `test_every_other_attempt_renders_exactly_as_before`
+- [tests/ux_phase1_support.py](../../../../../../tests/ux_phase1_support.py) — direct import
+- [tests/voi_restore_scenarios.py](../../../../../../tests/voi_restore_scenarios.py) — direct import
 
 ## Modification guidance
 

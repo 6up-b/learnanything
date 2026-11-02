@@ -7,11 +7,11 @@ version: "1.0.0"
 source_path: "src/learnloop/diagnosis/calibration_sessions.py"
 source_paths:
   - "src/learnloop/diagnosis/calibration_sessions.py"
-source_commit: "b322ef2e9b5cebc241b612e4963a5aaf1a37f99a"
-source_commit_timestamp: "2026-08-20T18:04:29-04:00"
+source_commit: "113b2622f016de1263056e3ed0ece2833ad2d7fb"
+source_commit_timestamp: "2026-10-12T17:13:21-04:00"
 source_worktree_state: "clean"
 generated: true
-generated_at: "2026-09-23"
+generated_at: "2026-11-02"
 package: "learnloop.diagnosis"
 layer: "domain"
 concepts:
@@ -50,13 +50,13 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/diagnosis/calibration_sessions.py](../../../../../../src/learnloop/diagnosis/calibration_sessions.py) |
-| Source lines | 374 |
+| Source lines | 391 |
 | Owning package | [[Reference/Modules/learnloop/diagnosis/_package|learnloop.diagnosis]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `b322ef2e9b5cebc241b612e4963a5aaf1a37f99a` |
-| Commit timestamp | `2026-08-20T18:04:29-04:00` |
+| Source commit | `113b2622f016de1263056e3ed0ece2833ad2d7fb` |
+| Commit timestamp | `2026-10-12T17:13:21-04:00` |
 
 ## Public API
 
@@ -64,23 +64,26 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 - `graph_propagated_prior(vault: LoadedVault, repository: Repository, learning_object_id: str) -> float | None` ([source](../../../../../../src/learnloop/diagnosis/calibration_sessions.py), line 29) — Prerequisite-only, direction-respecting graph mastery prior (§8.3).
 - `episode_priority_disagreement(vault: LoadedVault, repository: Repository, learning_object_id: str) -> float` ([source](../../../../../../src/learnloop/diagnosis/calibration_sessions.py), line 81) — §5.9/§6.4 planner priority signal: disagreement among the graph-propagated prior, the learner's covering claim, and observed evidence — the spread of whichever of the three signals exist, in [0, 1].
 - `routine_planner_shadow(vault: LoadedVault, repository: Repository, episode_id: str) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/diagnosis/calibration_sessions.py), line 107) — §5.9 routine-session diagnostic planner, run in SHADOW mode (§13.3).
-- `start_calibration_session(vault: LoadedVault, repository: Repository, *, session_id: str, goal_id: str | None=None, learning_object_ids: list[str] | None=None, time_budget_minutes: int | None=None, generate_missing: bool=True, clock: Clock | None=None, ai_client: object | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/diagnosis/calibration_sessions.py), line 156) — Open a calibration session over a goal scope or an explicit LO list.
-- `calibration_session_progress(vault: LoadedVault, repository: Repository, calibration_id: str, *, clock: Clock | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/diagnosis/calibration_sessions.py), line 257) — Progress payload for the calibration UI: per-episode status, blocks completed, elapsed versus budget, and the next target item.
-- `stop_calibration_session(repository: Repository, calibration_id: str, *, clock: Clock | None=None) -> None` ([source](../../../../../../src/learnloop/diagnosis/calibration_sessions.py), line 332)
-- `calibration_cap_lifted(repository: Repository, session_id: str | None, *, clock: Clock | None=None) -> bool` ([source](../../../../../../src/learnloop/diagnosis/calibration_sessions.py), line 338) — Whether the per-session qualifying-observation cap is lifted for this client session (§5.9) — true only inside an active, in-budget calibration session.
+- `start_calibration_session(vault: LoadedVault, repository: Repository, *, session_id: str, goal_id: str | None=None, learning_object_ids: list[str] | None=None, time_budget_minutes: int | None=None, generate_missing: bool=True, open_episodes: bool=True, clock: Clock | None=None, ai_client: object | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/diagnosis/calibration_sessions.py), line 156) — Open a calibration session over a goal scope or an explicit LO list.
+- `calibration_session_progress(vault: LoadedVault, repository: Repository, calibration_id: str, *, clock: Clock | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/diagnosis/calibration_sessions.py), line 274) — Progress payload for the calibration UI: per-episode status, blocks completed, elapsed versus budget, and the next target item.
+- `stop_calibration_session(repository: Repository, calibration_id: str, *, clock: Clock | None=None) -> None` ([source](../../../../../../src/learnloop/diagnosis/calibration_sessions.py), line 349)
+- `calibration_cap_lifted(repository: Repository, session_id: str | None, *, clock: Clock | None=None) -> bool` ([source](../../../../../../src/learnloop/diagnosis/calibration_sessions.py), line 355) — Whether the per-session qualifying-observation cap is lifted for this client session (§5.9) — true only inside an active, in-budget calibration session.
 
 ## Internal implementation anchors
 
-- `_elapsed_minutes(record: ProbeCalibrationSessionRecord, *, clock: Clock | None) -> float` ([source](../../../../../../src/learnloop/diagnosis/calibration_sessions.py), line 354)
-- `_expire_if_over_budget(repository: Repository, record: ProbeCalibrationSessionRecord, *, clock: Clock | None) -> ProbeCalibrationSessionRecord` ([source](../../../../../../src/learnloop/diagnosis/calibration_sessions.py), line 362)
+- `_elapsed_minutes(record: ProbeCalibrationSessionRecord, *, clock: Clock | None) -> float` ([source](../../../../../../src/learnloop/diagnosis/calibration_sessions.py), line 371)
+- `_expire_if_over_budget(repository: Repository, record: ProbeCalibrationSessionRecord, *, clock: Clock | None) -> ProbeCalibrationSessionRecord` ([source](../../../../../../src/learnloop/diagnosis/calibration_sessions.py), line 379)
 
 ## Who imports or calls it
 
 > [!note] Static evidence boundary
 > “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
 
+- [[Reference/Modules/learnloop/diagnosis/probe_blocks|learnloop.diagnosis.probe_blocks]] — imports `calibration_cap_lifted`; statically calls `calibration_cap_lifted`
+- [[Reference/Modules/learnloop/diagnosis/probe_episodes|learnloop.diagnosis.probe_episodes]] — imports `calibration_cap_lifted`; statically calls `calibration_cap_lifted`
+- [[Reference/Modules/learnloop/diagnosis/quick_check|learnloop.diagnosis.quick_check]] — imports `CalibrationSessionError`, `calibration_session_progress`, `start_calibration_session`; statically calls `calibration_session_progress`, `start_calibration_session`
 - [[Reference/Modules/learnloop/scheduling/scheduler|learnloop.scheduling.scheduler]] — imports `calibration_cap_lifted`, `routine_planner_shadow`; statically calls `calibration_cap_lifted`, `routine_planner_shadow`
-- [[Reference/Modules/learnloop_sidecar/handlers/calibration|learnloop_sidecar.handlers.calibration]] — imports `CalibrationSessionError`, `calibration_session_progress`, `start_calibration_session`, `stop_calibration_session`; statically calls `calibration_session_progress`, `start_calibration_session`, `stop_calibration_session`
+- [[Reference/Modules/learnloop_sidecar/handlers/calibration|learnloop_sidecar.handlers.calibration]] — imports `CalibrationSessionError`, `start_calibration_session`, `stop_calibration_session`; statically calls `start_calibration_session`, `stop_calibration_session`
 - [[Reference/Modules/learnloop_sidecar/handlers/practice|learnloop_sidecar.handlers.practice]] — imports `calibration_cap_lifted`, `routine_planner_shadow`; statically calls `calibration_cap_lifted`, `routine_planner_shadow`
 
 ## Dependencies
@@ -93,6 +96,7 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 - [[Reference/Modules/learnloop/diagnosis/probe_instance_generation|learnloop.diagnosis.probe_instance_generation]] — imports `generate_instances_for_episode`; calls `generate_instances_for_episode`
 - [[Reference/Modules/learnloop/goals/goal_projection|learnloop.goals.goal_projection]] — imports `resolve_goal_scope`; calls `resolve_goal_scope`
 - [[Reference/Modules/learnloop/learner/mastery|learnloop.learner.mastery]] — imports `covering_learner_claim`, `display_mastery`; calls `covering_learner_claim`, `display_mastery`
+- [[Reference/Modules/learnloop/placement/state|learnloop.placement.state]] — imports `servable_open_episode`, `servable_open_episodes`; calls `servable_open_episode`, `servable_open_episodes`
 - [[Reference/Modules/learnloop/vault/loader|learnloop.vault.loader]] — imports `load_vault`; calls `load_vault`
 - [[Reference/Modules/learnloop/vault/models|learnloop.vault.models]] — imports `LoadedVault`
 
@@ -108,7 +112,7 @@ Use this module in context through:
 - [[Start a Learning Cycle]]
 - [[Continue a Learning Cycle]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/scheduling/scheduler|learnloop.scheduling.scheduler]], [[Reference/Modules/learnloop_sidecar/handlers/calibration|learnloop_sidecar.handlers.calibration]], [[Reference/Modules/learnloop_sidecar/handlers/practice|learnloop_sidecar.handlers.practice]].
+Static participation evidence comes from [[Reference/Modules/learnloop/diagnosis/probe_blocks|learnloop.diagnosis.probe_blocks]], [[Reference/Modules/learnloop/diagnosis/probe_episodes|learnloop.diagnosis.probe_episodes]], [[Reference/Modules/learnloop/diagnosis/quick_check|learnloop.diagnosis.quick_check]], [[Reference/Modules/learnloop/scheduling/scheduler|learnloop.scheduling.scheduler]], [[Reference/Modules/learnloop_sidecar/handlers/calibration|learnloop_sidecar.handlers.calibration]] and 1 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
@@ -116,6 +120,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 - [tests/test_anti_double_count.py](../../../../../../tests/test_anti_double_count.py) — direct import
   - `test_anti_double_count_direct_evidence_not_refed_via_graph_prior`
+- [tests/test_assumed_known.py](../../../../../../tests/test_assumed_known.py) — direct import
+  - `test_placement_receipts_survive_rebuild_with_zero_model_calls`
 - [tests/test_calibration_sessions.py](../../../../../../tests/test_calibration_sessions.py) — direct import
   - `test_calibration_session_plans_episodes_and_reports_progress`
   - `test_calibration_session_requires_scope`
@@ -124,10 +130,19 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_calibration_ordering_reverts_to_plain_rate`
   - `test_non_prerequisite_edges_produce_zero_belief_change`
   - `test_prerequisite_prior_respects_direction`
+- [tests/test_placement_opening_probes.py](../../../../../../tests/test_placement_opening_probes.py) — direct import
+  - `test_a_named_calibration_adopts_an_ignored_episode`
+  - `test_an_ignored_opening_episode_commissions_no_instrument_generation`
 - [tests/test_probe_orchestration_remainder.py](../../../../../../tests/test_probe_orchestration_remainder.py) — direct import
   - `test_disagreement_between_claim_and_observed_evidence`
   - `test_graph_prior_absent_without_evidence_bearing_neighbors`
   - `test_routine_planner_shadow_ranks_open_episodes`
+- [tests/test_quick_check.py](../../../../../../tests/test_quick_check.py) — direct import
+  - `test_stop_still_feeds_the_split`
+- [tests/test_voi_stopping.py](../../../../../../tests/test_voi_stopping.py) — direct import
+  - `test_a_calibration_session_keeps_the_episode_maximum`
+- [tests/test_voi_v2.py](../../../../../../tests/test_voi_v2.py) — direct import
+  - `test_a_calibration_session_keeps_the_robust_gate`
 
 ## Modification guidance
 

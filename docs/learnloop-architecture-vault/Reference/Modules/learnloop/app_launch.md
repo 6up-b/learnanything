@@ -7,11 +7,11 @@ version: "1.0.0"
 source_path: "src/learnloop/app_launch.py"
 source_paths:
   - "src/learnloop/app_launch.py"
-source_commit: "b322ef2e9b5cebc241b612e4963a5aaf1a37f99a"
-source_commit_timestamp: "2026-08-20T18:04:29-04:00"
+source_commit: "6a9fce28abaab76d47533e670901025fe3b2ffe5"
+source_commit_timestamp: "2026-10-14T00:35:47-04:00"
 source_worktree_state: "clean"
 generated: true
-generated_at: "2026-09-23"
+generated_at: "2026-11-02"
 package: "learnloop"
 layer: "coordination"
 concepts:
@@ -50,23 +50,25 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/app_launch.py](../../../../../src/learnloop/app_launch.py) |
-| Source lines | 16 |
+| Source lines | 29 |
 | Owning package | [[Reference/Modules/learnloop/_package|learnloop]] |
 | Architecture layer | `coordination` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `b322ef2e9b5cebc241b612e4963a5aaf1a37f99a` |
-| Commit timestamp | `2026-08-20T18:04:29-04:00` |
+| Source commit | `6a9fce28abaab76d47533e670901025fe3b2ffe5` |
+| Commit timestamp | `2026-10-14T00:35:47-04:00` |
 
 ## Public API
 
 - `launch_tui(vault_root: Path) -> None` ([source](../../../../../src/learnloop/app_launch.py), line 8) — Launch the Textual frontend without coupling another adapter to it.
+- `serve_mcp(vault_root: Path, **options) -> None` ([source](../../../../../src/learnloop/app_launch.py), line 16) — Serve the vault to chat hosts over MCP (spec_mcp_frontend_c1).
 
 ### Explicit exports
 
 `__all__` declares:
 
 - `launch_tui`
+- `serve_mcp`
 
 ## Internal implementation anchors
 
@@ -78,6 +80,7 @@ No private top-level function or class definition is declared in this file.
 > “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
 
 - [[Reference/Modules/learnloop/cli/app|learnloop.cli.app]] — imports `launch_tui`; statically calls `launch_tui`
+- [[Reference/Modules/learnloop/cli/mcp|learnloop.cli.mcp]] — imports `serve_mcp`; statically calls `serve_mcp`
 
 ## Dependencies
 
@@ -88,7 +91,7 @@ No private top-level function or class definition is declared in this file.
 ### Platform and third-party dependencies
 
 - Standard library: `__future__`, `pathlib`
-- Third party: none imported directly
+- Third party: `learnloop_mcp`
 
 ## Larger workflow participation
 
@@ -97,26 +100,14 @@ Use this module in context through:
 - [[Initialize a Vault]]
 - [[Start a Learning Cycle]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/cli/app|learnloop.cli.app]].
+Static participation evidence comes from [[Reference/Modules/learnloop/cli/app|learnloop.cli.app]], [[Reference/Modules/learnloop/cli/mcp|learnloop.cli.mcp]].
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
 ## Tests that define behavior
 
-No test imports this module directly. These tests exercise a direct production consumer:
-
-- [tests/test_causal_attribution_p1.py](../../../../../tests/test_causal_attribution_p1.py) — imports consumer [[Reference/Modules/learnloop/cli/app|learnloop.cli.app]]
-- [tests/test_causal_trace_consistency_p2.py](../../../../../tests/test_causal_trace_consistency_p2.py) — imports consumer [[Reference/Modules/learnloop/cli/app|learnloop.cli.app]]
-- [tests/test_certification_cold_probe.py](../../../../../tests/test_certification_cold_probe.py) — imports consumer [[Reference/Modules/learnloop/cli/app|learnloop.cli.app]]
-- [tests/test_cli_attempt.py](../../../../../tests/test_cli_attempt.py) — imports consumer [[Reference/Modules/learnloop/cli/app|learnloop.cli.app]]
-- [tests/test_cli_commands.py](../../../../../tests/test_cli_commands.py) — imports consumer [[Reference/Modules/learnloop/cli/app|learnloop.cli.app]]
-- [tests/test_cli_entrypoint.py](../../../../../tests/test_cli_entrypoint.py) — imports consumer [[Reference/Modules/learnloop/cli/app|learnloop.cli.app]]
-- [tests/test_cli_fit.py](../../../../../tests/test_cli_fit.py) — imports consumer [[Reference/Modules/learnloop/cli/app|learnloop.cli.app]]
-- [tests/test_cli_generate_practice.py](../../../../../tests/test_cli_generate_practice.py) — imports consumer [[Reference/Modules/learnloop/cli/app|learnloop.cli.app]]
-- [tests/test_cli_help_snapshot.py](../../../../../tests/test_cli_help_snapshot.py) — imports consumer [[Reference/Modules/learnloop/cli/app|learnloop.cli.app]]
-- [tests/test_cli_ingest.py](../../../../../tests/test_cli_ingest.py) — imports consumer [[Reference/Modules/learnloop/cli/app|learnloop.cli.app]]
-- [tests/test_cli_json.py](../../../../../tests/test_cli_json.py) — imports consumer [[Reference/Modules/learnloop/cli/app|learnloop.cli.app]]
-- [tests/test_cli_observations.py](../../../../../tests/test_cli_observations.py) — imports consumer [[Reference/Modules/learnloop/cli/app|learnloop.cli.app]]
+- [tests/test_mcp_cli.py](../../../../../tests/test_mcp_cli.py) — direct import
+  - `test_serve_binds_loopback_only_and_names_the_missing_extra`
 
 ## Modification guidance
 

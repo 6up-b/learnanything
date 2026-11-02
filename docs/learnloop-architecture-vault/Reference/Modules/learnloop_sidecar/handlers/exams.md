@@ -7,11 +7,11 @@ version: "1.0.0"
 source_path: "src/learnloop_sidecar/handlers/exams.py"
 source_paths:
   - "src/learnloop_sidecar/handlers/exams.py"
-source_commit: "b322ef2e9b5cebc241b612e4963a5aaf1a37f99a"
-source_commit_timestamp: "2026-08-20T18:04:29-04:00"
+source_commit: "ddbdb51df610516f4ebd27b64b60505c8a0190ab"
+source_commit_timestamp: "2026-10-15T02:25:24-04:00"
 source_worktree_state: "clean"
 generated: true
-generated_at: "2026-09-23"
+generated_at: "2026-11-02"
 package: "learnloop_sidecar.handlers"
 layer: "adapter"
 concepts:
@@ -49,39 +49,39 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop_sidecar/handlers/exams.py](../../../../../../src/learnloop_sidecar/handlers/exams.py) |
-| Source lines | 509 |
+| Source lines | 565 |
 | Owning package | [[Reference/Modules/learnloop_sidecar/handlers/_package|learnloop_sidecar.handlers]] |
 | Architecture layer | `adapter` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `b322ef2e9b5cebc241b612e4963a5aaf1a37f99a` |
-| Commit timestamp | `2026-08-20T18:04:29-04:00` |
+| Source commit | `ddbdb51df610516f4ebd27b64b60505c8a0190ab` |
+| Commit timestamp | `2026-10-15T02:25:24-04:00` |
 
 ## Public API
 
-- `class StartExamInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/exams.py), line 43)
-- `class SubmitExamAnswerInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/exams.py), line 47)
-- `class FinishExamInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/exams.py), line 53)
-- `get_answer_calibration(ctx: SidecarContext, _params: EmptyParams) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/exams.py), line 58)
-- `get_exam_status(ctx: SidecarContext, params: GoalIdInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/exams.py), line 68)
-- `start_exam_handler(ctx: SidecarContext, params: StartExamInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/exams.py), line 275)
-- `submit_exam_answer(ctx: SidecarContext, params: SubmitExamAnswerInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/exams.py), line 291)
-- `finish_exam_handler(ctx: SidecarContext, params: FinishExamInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/exams.py), line 338)
+- `class StartExamInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/exams.py), line 48)
+- `class SubmitExamAnswerInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/exams.py), line 52)
+- `class FinishExamInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/exams.py), line 58)
+- `get_answer_calibration(ctx: SidecarContext, _params: EmptyParams) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/exams.py), line 63)
+- `get_exam_status(ctx: SidecarContext, params: GoalIdInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/exams.py), line 73)
+- `start_exam_handler(ctx: SidecarContext, params: StartExamInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/exams.py), line 293)
+- `submit_exam_answer(ctx: SidecarContext, params: SubmitExamAnswerInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/exams.py), line 316)
+- `finish_exam_handler(ctx: SidecarContext, params: FinishExamInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/exams.py), line 371)
 
 ### Module constants
 
-- `_LEARNER_TRACE_FIELDS` ([src/learnloop_sidecar/handlers/exams.py](../../../../../../src/learnloop_sidecar/handlers/exams.py), line 390)
+- `_LEARNER_TRACE_FIELDS` ([src/learnloop_sidecar/handlers/exams.py](../../../../../../src/learnloop_sidecar/handlers/exams.py), line 423)
 
 ## Internal implementation anchors
 
-- `_session_snapshot(ctx: SidecarContext, view: dict[str, Any]) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/exams.py), line 105)
-- `_grade_and_record_exam_answer(vault, repository, client, *, session_id: str, practice_item_id: str, answer_md: str) -> None` ([source](../../../../../../src/learnloop_sidecar/handlers/exams.py), line 160) — Resolve one persisted answer and attach its grade idempotently.
-- `_schedule_exam_answer_grading(ctx: SidecarContext, *, vault, repository, session_id: str, practice_item_id: str, answer_md: str) -> None` ([source](../../../../../../src/learnloop_sidecar/handlers/exams.py), line 203)
-- `_schedule_pending_exam_grading(ctx: SidecarContext, session_id: str) -> None` ([source](../../../../../../src/learnloop_sidecar/handlers/exams.py), line 236) — Resume durable ungraded rows without delaying the exam snapshot.
-- `_raise_exam_grading_error(exc: Exception) -> None` ([source](../../../../../../src/learnloop_sidecar/handlers/exams.py), line 255)
-- `_learner_repair_dto(suggestion: Any) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop_sidecar/handlers/exams.py), line 399) — The learner-facing subset of one validated repair suggestion.
-- `_item_review_fields(vault, answer: dict[str, Any] | None, practice_item_id: str) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/exams.py), line 426) — Post-sitting review payload for one exam item.
-- `_report_dto(vault, repository, report: dict[str, Any]) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/exams.py), line 460)
+- `_session_snapshot(ctx: SidecarContext, view: dict[str, Any]) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/exams.py), line 121)
+- `_grade_and_record_exam_answer(vault, repository, client, *, session_id: str, practice_item_id: str, answer_md: str) -> None` ([source](../../../../../../src/learnloop_sidecar/handlers/exams.py), line 176) — Resolve one persisted answer and attach its grade idempotently.
+- `_schedule_exam_answer_grading(ctx: SidecarContext, *, vault, repository, session_id: str, practice_item_id: str, answer_md: str) -> None` ([source](../../../../../../src/learnloop_sidecar/handlers/exams.py), line 221)
+- `_schedule_pending_exam_grading(ctx: SidecarContext, session_id: str) -> None` ([source](../../../../../../src/learnloop_sidecar/handlers/exams.py), line 254) — Resume durable ungraded rows without delaying the exam snapshot.
+- `_raise_exam_grading_error(exc: Exception) -> None` ([source](../../../../../../src/learnloop_sidecar/handlers/exams.py), line 273)
+- `_learner_repair_dto(suggestion: Any) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop_sidecar/handlers/exams.py), line 432) — The learner-facing subset of one validated repair suggestion.
+- `_item_review_fields(vault, answer: dict[str, Any] | None, practice_item_id: str, *, contract: dict[str, Any] | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/exams.py), line 459) — Post-sitting review payload for one exam item.
+- `_report_dto(vault, repository, report: dict[str, Any]) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/exams.py), line 504)
 
 ## Who imports or calls it
 
@@ -95,18 +95,20 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 ### LearnLoop dependencies
 
 - [[Reference/Modules/learnloop/attempts/attempts|learnloop.attempts.attempts]] — imports `resolved_codex_grade`; calls `resolved_codex_grade`
-- [[Reference/Modules/learnloop/attempts/grading|learnloop.attempts.grading]] — imports `GradingValidationError`, `build_grading_context`, `request_grading_proposal`, `validate_codex_grading_proposal`; calls `build_grading_context`, `request_grading_proposal`, `validate_codex_grading_proposal`
+- [[Reference/Modules/learnloop/attempts/grading|learnloop.attempts.grading]] — imports `GradingValidationError`, `build_grading_context`, `request_vault_grading_proposal`, `validate_codex_grading_proposal`, `vault_grading_calibration_identity`; calls `build_grading_context`, `request_vault_grading_proposal`, `validate_codex_grading_proposal`, `vault_grading_calibration_identity`
+- [[Reference/Modules/learnloop/db/stores/answered_contracts|learnloop.db.stores.answered_contracts]] — imports `answered_contracts`; calls `answered_contracts`
 - [[Reference/Modules/learnloop/goals/exam_calibration|learnloop.goals.exam_calibration]] — imports `calibration_report`; calls `calibration_report`
-- [[Reference/Modules/learnloop/goals/exam_pool|learnloop.goals.exam_pool]] — imports `reserve_exam_pool`; calls `reserve_exam_pool`
-- [[Reference/Modules/learnloop/goals/exam_session|learnloop.goals.exam_session]] — imports `ExamSessionError`, `exam_availability`, `exam_report`, `finish_exam`, `queue_exam_answer`, `record_exam_answer`, `start_exam`; calls `ExamSessionError`, `exam_availability`, `finish_exam`, `queue_exam_answer`, `record_exam_answer`, `start_exam`
+- [[Reference/Modules/learnloop/goals/exam_pool|learnloop.goals.exam_pool]] — imports `reserve_exam_pool`, `withdrawn_note`; calls `reserve_exam_pool`, `withdrawn_note`
+- [[Reference/Modules/learnloop/goals/exam_session|learnloop.goals.exam_session]] — imports `ExamItemWithdrawnError`, `ExamSessionError`, `exam_availability`, `exam_report`, `finish_exam`, `queue_exam_answer`, `record_exam_answer`, `session_withdrawn_items`, `start_exam`; calls `ExamSessionError`, `exam_availability`, `finish_exam`, `queue_exam_answer`, `record_exam_answer`, `session_withdrawn_items`, `start_exam`
 - [[Reference/Modules/learnloop/goals/goal_projection|learnloop.goals.goal_projection]] — imports `resolve_goal_scope`; calls `resolve_goal_scope`
 - [[Reference/Modules/learnloop/ids|learnloop.ids]] — imports `new_ulid`; calls `new_ulid`
+- [[Reference/Modules/learnloop/vault/required_method|learnloop.vault.required_method]] — imports `answered_prompt`; calls `answered_prompt`
 - [[Reference/Modules/learnloop_sidecar/context|learnloop_sidecar.context]] — imports `SidecarContext`
-- [[Reference/Modules/learnloop_sidecar/dto|learnloop_sidecar.dto]] — imports `EmptyParams`, `ParamsModel`, `versioned`; calls `versioned`
+- [[Reference/Modules/learnloop_sidecar/dto|learnloop_sidecar.dto]] — imports `EmptyParams`, `ParamsModel`, `to_camel`, `versioned`; calls `to_camel`, `versioned`
 - [[Reference/Modules/learnloop_sidecar/errors|learnloop_sidecar.errors]] — imports `SidecarError`; calls `SidecarError`
 - [[Reference/Modules/learnloop_sidecar/handlers/ai_providers|learnloop_sidecar.handlers.ai_providers]] — imports `ready_grading_provider`; calls `ready_grading_provider`
 - [[Reference/Modules/learnloop_sidecar/handlers/goals|learnloop_sidecar.handlers.goals]] — imports `GoalIdInput`, `_find_goal`; calls `_find_goal`
-- [[Reference/Modules/learnloop_sidecar/handlers/serializers|learnloop_sidecar.handlers.serializers]] — imports `item_presentation`; calls `item_presentation`
+- [[Reference/Modules/learnloop_sidecar/handlers/serializers|learnloop_sidecar.handlers.serializers]] — imports `answered_presentation`, `item_presentation`; calls `answered_presentation`, `item_presentation`
 - [[Reference/Modules/learnloop_sidecar/registry|learnloop_sidecar.registry]] — imports `method`; calls `method`
 
 ### Platform and third-party dependencies
@@ -126,6 +128,12 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
+- [tests/test_exam_session.py](../../../../../../tests/test_exam_session.py) — direct import
+  - `test_an_exam_answer_is_stamped_with_its_graders_calibration_identity`
+- [tests/test_required_method_round3.py](../../../../../../tests/test_required_method_round3.py) — direct import
+  - `test_every_surface_renders_the_instruction_only_for_a_method_item`
+- [tests/test_required_method_round3_review.py](../../../../../../tests/test_required_method_round3_review.py) — direct import
+  - `test_f3_exam_review_shows_the_question_the_answer_was_given`
 - [tests/test_sidecar_exams.py](../../../../../../tests/test_sidecar_exams.py) — direct import
   - `test_exam_submit_advances_before_background_grade_finishes`
 - [tests/test_sidecar_item_presentation.py](../../../../../../tests/test_sidecar_item_presentation.py) — direct import

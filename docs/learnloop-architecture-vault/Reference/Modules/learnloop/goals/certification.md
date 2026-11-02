@@ -11,7 +11,7 @@ source_commit: "b322ef2e9b5cebc241b612e4963a5aaf1a37f99a"
 source_commit_timestamp: "2026-08-20T18:04:29-04:00"
 source_worktree_state: "clean"
 generated: true
-generated_at: "2026-09-23"
+generated_at: "2026-11-02"
 package: "learnloop.goals"
 layer: "domain"
 concepts:
@@ -74,9 +74,11 @@ No private top-level function or class definition is declared in this file.
 > [!note] Static evidence boundary
 > “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
 
+- [[Reference/Modules/learnloop/daily_plan/headline|learnloop.daily_plan.headline]] — imports `is_demonstrated_credit`; statically calls `is_demonstrated_credit`
 - [[Reference/Modules/learnloop/goals/exam_readiness|learnloop.goals.exam_readiness]] — imports `is_demonstrated_credit`; statically calls `is_demonstrated_credit`
 - [[Reference/Modules/learnloop/goals/goal_certification|learnloop.goals.goal_certification]] — imports `is_demonstrated_credit`; statically calls `is_demonstrated_credit`
 - [[Reference/Modules/learnloop/learner/capability_grid|learnloop.learner.capability_grid]] — imports `is_demonstrated_credit`; statically calls `is_demonstrated_credit`
+- [[Reference/Modules/learnloop/reader/recap|learnloop.reader.recap]] — imports `is_demonstrated_credit`; statically calls `is_demonstrated_credit`
 - [[Reference/Modules/learnloop_sidecar/handlers/facet_detail|learnloop_sidecar.handlers.facet_detail]] — imports `is_demonstrated_credit`; statically calls `is_demonstrated_credit`
 - [[Reference/Modules/learnloop_sidecar/handlers/knowledge_map|learnloop_sidecar.handlers.knowledge_map]] — imports `is_demonstrated_credit`; statically calls `is_demonstrated_credit`
 
@@ -97,21 +99,13 @@ Use this module in context through:
 
 - [[Goals Exams and Certification Workflow]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/goals/exam_readiness|learnloop.goals.exam_readiness]], [[Reference/Modules/learnloop/goals/goal_certification|learnloop.goals.goal_certification]], [[Reference/Modules/learnloop/learner/capability_grid|learnloop.learner.capability_grid]], [[Reference/Modules/learnloop_sidecar/handlers/facet_detail|learnloop_sidecar.handlers.facet_detail]], [[Reference/Modules/learnloop_sidecar/handlers/knowledge_map|learnloop_sidecar.handlers.knowledge_map]].
+Static participation evidence comes from [[Reference/Modules/learnloop/daily_plan/headline|learnloop.daily_plan.headline]], [[Reference/Modules/learnloop/goals/exam_readiness|learnloop.goals.exam_readiness]], [[Reference/Modules/learnloop/goals/goal_certification|learnloop.goals.goal_certification]], [[Reference/Modules/learnloop/learner/capability_grid|learnloop.learner.capability_grid]], [[Reference/Modules/learnloop/reader/recap|learnloop.reader.recap]] and 2 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
 ## Tests that define behavior
 
-No test imports this module directly. These tests exercise a direct production consumer:
-
-- [tests/test_exam_readiness_and_conflict.py](../../../../../../tests/test_exam_readiness_and_conflict.py) — imports consumer [[Reference/Modules/learnloop/goals/exam_readiness|learnloop.goals.exam_readiness]]
-- [tests/test_goal_certification_any_of.py](../../../../../../tests/test_goal_certification_any_of.py) — imports consumer [[Reference/Modules/learnloop/goals/goal_certification|learnloop.goals.goal_certification]]
-- [tests/test_km3_projections.py](../../../../../../tests/test_km3_projections.py) — imports consumer [[Reference/Modules/learnloop/goals/goal_certification|learnloop.goals.goal_certification]]
-- [tests/test_learner_read_model_pinning.py](../../../../../../tests/test_learner_read_model_pinning.py) — imports consumer [[Reference/Modules/learnloop/learner/capability_grid|learnloop.learner.capability_grid]]
-- [tests/test_measurement_state_labels.py](../../../../../../tests/test_measurement_state_labels.py) — imports consumer [[Reference/Modules/learnloop/learner/capability_grid|learnloop.learner.capability_grid]]
-- [tests/test_graph_editor_reads.py](../../../../../../tests/test_graph_editor_reads.py) — imports consumer [[Reference/Modules/learnloop_sidecar/handlers/knowledge_map|learnloop_sidecar.handlers.knowledge_map]]
-- [tests/test_sidecar_remediation_surfaces.py](../../../../../../tests/test_sidecar_remediation_surfaces.py) — imports consumer [[Reference/Modules/learnloop_sidecar/handlers/knowledge_map|learnloop_sidecar.handlers.knowledge_map]]
+- [tests/test_today_headline.py](../../../../../../tests/test_today_headline.py) — direct import
 
 ## Modification guidance
 

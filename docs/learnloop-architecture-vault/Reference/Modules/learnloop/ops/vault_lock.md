@@ -11,7 +11,7 @@ source_commit: "b322ef2e9b5cebc241b612e4963a5aaf1a37f99a"
 source_commit_timestamp: "2026-08-20T18:04:29-04:00"
 source_worktree_state: "clean"
 generated: true
-generated_at: "2026-09-23"
+generated_at: "2026-11-02"
 package: "learnloop.ops"
 layer: "domain"
 concepts:
@@ -73,7 +73,6 @@ No private top-level function or class definition is declared in this file.
 
 - [[Reference/Modules/learnloop/content/proposals/patches|learnloop.content.proposals.patches]] — imports `vault_mutation_lock`; statically calls `vault_mutation_lock`
 - [[Reference/Modules/learnloop/ops/doctor|learnloop.ops.doctor]] — imports `vault_mutation_lock`; statically calls `vault_mutation_lock`
-- [[Reference/Modules/learnloop/substrate/canonical_projection_rollout|learnloop.substrate.canonical_projection_rollout]] — imports `vault_mutation_lock`; statically calls `vault_mutation_lock`
 
 ## Dependencies
 
@@ -92,7 +91,7 @@ Use this module in context through:
 
 - [[Doctor Migrations and Recovery]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/content/proposals/patches|learnloop.content.proposals.patches]], [[Reference/Modules/learnloop/ops/doctor|learnloop.ops.doctor]], [[Reference/Modules/learnloop/substrate/canonical_projection_rollout|learnloop.substrate.canonical_projection_rollout]].
+Static participation evidence comes from [[Reference/Modules/learnloop/content/proposals/patches|learnloop.content.proposals.patches]], [[Reference/Modules/learnloop/ops/doctor|learnloop.ops.doctor]].
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 

@@ -7,11 +7,11 @@ version: "1.0.0"
 source_path: "src/learnloop/content/authoring/rung_variants.py"
 source_paths:
   - "src/learnloop/content/authoring/rung_variants.py"
-source_commit: "cc67c31a673873b42177915389e1e11d90c97e03"
-source_commit_timestamp: "2026-09-23T12:30:18-04:00"
+source_commit: "a1cf03b45c78e073558cc5568f0a245c2d6a57f0"
+source_commit_timestamp: "2026-10-27T12:58:49-04:00"
 source_worktree_state: "clean"
 generated: true
-generated_at: "2026-09-23"
+generated_at: "2026-11-02"
 package: "learnloop.content.authoring"
 layer: "domain"
 concepts:
@@ -51,38 +51,38 @@ The authoritative system-level explanation remains in [[Learning System]], [[AI 
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/content/authoring/rung_variants.py](../../../../../../../src/learnloop/content/authoring/rung_variants.py) |
-| Source lines | 890 |
+| Source lines | 892 |
 | Owning package | [[Reference/Modules/learnloop/content/authoring/_package|learnloop.content.authoring]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `cc67c31a673873b42177915389e1e11d90c97e03` |
-| Commit timestamp | `2026-09-23T12:30:18-04:00` |
+| Source commit | `a1cf03b45c78e073558cc5568f0a245c2d6a57f0` |
+| Commit timestamp | `2026-10-27T12:58:49-04:00` |
 
 ## Public API
 
-- `class RungVariantError(ValueError)` ([source](../../../../../../../src/learnloop/content/authoring/rung_variants.py), line 49)
-  - `__init__(self, code: str, message: str)` (line 50; internal)
-- `audit_variant_direction(source_item: PracticeItem, payload: dict[str, Any], direction: str) -> list[str]` ([source](../../../../../../../src/learnloop/content/authoring/rung_variants.py), line 89) — Direction-symmetric structural audit for sibling variants.
-- `audit_variant_manipulation_contract(repository: Repository, source_item: PracticeItem, candidate_payload: dict[str, Any], *, adversarial_review: dict[str, Any] | None, generation_agent_run_id: str | None=None, reviewer_agent_run_id: str | None=None, clock: Clock | None=None) -> dict[str, Any]` ([source](../../../../../../../src/learnloop/content/authoring/rung_variants.py), line 235) — P2 shared diff audit for harder/easier/rung-shift siblings.
-- `resolve_item_waypoint(vault: LoadedVault, repository: Repository, item: PracticeItem) -> str` ([source](../../../../../../../src/learnloop/content/authoring/rung_variants.py), line 293) — The default-trajectory waypoint this item most plausibly sits at.
-- `request_rung_variant(vault: LoadedVault, repository: Repository, *, practice_item_id: str, direction: str, session_id: str | None=None, clock: Clock | None=None) -> dict[str, Any]` ([source](../../../../../../../src/learnloop/content/authoring/rung_variants.py), line 357) — Record a re-rung request and write its evidence package.
-- `generate_rung_variant(root, client: Any, *, request_id: str, repository: Repository | None=None, clock: Clock | None=None) -> dict[str, Any]` ([source](../../../../../../../src/learnloop/content/authoring/rung_variants.py), line 565) — Author the requested variant: one grounded sibling item at the target waypoint, rung-gated, with deterministic facet/fingerprint/capability stamping.
+- `class RungVariantError(ValueError)` ([source](../../../../../../../src/learnloop/content/authoring/rung_variants.py), line 50)
+  - `__init__(self, code: str, message: str)` (line 51; internal)
+- `audit_variant_direction(source_item: PracticeItem, payload: dict[str, Any], direction: str) -> list[str]` ([source](../../../../../../../src/learnloop/content/authoring/rung_variants.py), line 90) — Direction-symmetric structural audit for sibling variants.
+- `audit_variant_manipulation_contract(repository: Repository, source_item: PracticeItem, candidate_payload: dict[str, Any], *, adversarial_review: dict[str, Any] | None, generation_agent_run_id: str | None=None, reviewer_agent_run_id: str | None=None, clock: Clock | None=None) -> dict[str, Any]` ([source](../../../../../../../src/learnloop/content/authoring/rung_variants.py), line 236) — P2 shared diff audit for harder/easier/rung-shift siblings.
+- `resolve_item_waypoint(vault: LoadedVault, repository: Repository, item: PracticeItem) -> str` ([source](../../../../../../../src/learnloop/content/authoring/rung_variants.py), line 294) — The default-trajectory waypoint this item most plausibly sits at.
+- `request_rung_variant(vault: LoadedVault, repository: Repository, *, practice_item_id: str, direction: str, session_id: str | None=None, clock: Clock | None=None) -> dict[str, Any]` ([source](../../../../../../../src/learnloop/content/authoring/rung_variants.py), line 358) — Record a re-rung request and write its evidence package.
+- `generate_rung_variant(root, client: Any, *, request_id: str, repository: Repository | None=None, clock: Clock | None=None) -> dict[str, Any]` ([source](../../../../../../../src/learnloop/content/authoring/rung_variants.py), line 560) — Author the requested variant: one grounded sibling item at the target waypoint, rung-gated, with deterministic facet/fingerprint/capability stamping.
 
 ### Module constants
 
-- `DIRECTIONS` ([src/learnloop/content/authoring/rung_variants.py](../../../../../../../src/learnloop/content/authoring/rung_variants.py), line 55)
-- `CLAIM_SOURCE` ([src/learnloop/content/authoring/rung_variants.py](../../../../../../../src/learnloop/content/authoring/rung_variants.py), line 57)
-- `BEYOND_TRAJECTORY` ([src/learnloop/content/authoring/rung_variants.py](../../../../../../../src/learnloop/content/authoring/rung_variants.py), line 62)
-- `_ORDERED_TASK_AXES` ([src/learnloop/content/authoring/rung_variants.py](../../../../../../../src/learnloop/content/authoring/rung_variants.py), line 64)
+- `DIRECTIONS` ([src/learnloop/content/authoring/rung_variants.py](../../../../../../../src/learnloop/content/authoring/rung_variants.py), line 56)
+- `CLAIM_SOURCE` ([src/learnloop/content/authoring/rung_variants.py](../../../../../../../src/learnloop/content/authoring/rung_variants.py), line 58)
+- `BEYOND_TRAJECTORY` ([src/learnloop/content/authoring/rung_variants.py](../../../../../../../src/learnloop/content/authoring/rung_variants.py), line 63)
+- `_ORDERED_TASK_AXES` ([src/learnloop/content/authoring/rung_variants.py](../../../../../../../src/learnloop/content/authoring/rung_variants.py), line 65)
 
 ## Internal implementation anchors
 
-- `_variant_kind(source_item: PracticeItem, rung: RungTarget, direction: str) -> str` ([source](../../../../../../../src/learnloop/content/authoring/rung_variants.py), line 268) — A rung whose demanded point moves against direction is a trajectory shift.
-- `_target_rung(vault: LoadedVault, repository: Repository, item: PracticeItem, source_slug: str, direction: str) -> RungTarget` ([source](../../../../../../../src/learnloop/content/authoring/rung_variants.py), line 512)
-- `_rebuild_rung(repository: Repository, request: dict[str, Any]) -> RungTarget` ([source](../../../../../../../src/learnloop/content/authoring/rung_variants.py), line 798)
-- `_variant_instructions(plan: Any, source_item: PracticeItem, rung: RungTarget, request: dict[str, Any], extra: str | None) -> str` ([source](../../../../../../../src/learnloop/content/authoring/rung_variants.py), line 820)
-- `_created_item_row(repository: Repository, patch_id: str) -> tuple[str, str] | None` ([source](../../../../../../../src/learnloop/content/authoring/rung_variants.py), line 881) — (proposal_row_id, practice_item_id) of the created variant, or None.
+- `_variant_kind(source_item: PracticeItem, rung: RungTarget, direction: str) -> str` ([source](../../../../../../../src/learnloop/content/authoring/rung_variants.py), line 269) — A rung whose demanded point moves against direction is a trajectory shift.
+- `_target_rung(vault: LoadedVault, repository: Repository, item: PracticeItem, source_slug: str, direction: str) -> RungTarget` ([source](../../../../../../../src/learnloop/content/authoring/rung_variants.py), line 507)
+- `_rebuild_rung(repository: Repository, request: dict[str, Any]) -> RungTarget` ([source](../../../../../../../src/learnloop/content/authoring/rung_variants.py), line 793)
+- `_variant_instructions(plan: Any, source_item: PracticeItem, rung: RungTarget, request: dict[str, Any], extra: str | None) -> str` ([source](../../../../../../../src/learnloop/content/authoring/rung_variants.py), line 815)
+- `_created_item_row(repository: Repository, patch_id: str) -> tuple[str, str] | None` ([source](../../../../../../../src/learnloop/content/authoring/rung_variants.py), line 883) — (proposal_row_id, practice_item_id) of the created variant, or None.
 
 ## Who imports or calls it
 
@@ -103,16 +103,17 @@ The authoritative system-level explanation remains in [[Learning System]], [[AI 
 - [[Reference/Modules/learnloop/content/authoring/practice_generation|learnloop.content.authoring.practice_generation]] — imports `PracticeExpansionError`, `PracticeExpansionPlan`, `_RungGate`, `build_practice_expansion_plan`; calls `PracticeExpansionPlan`, `_RungGate`, `build_practice_expansion_plan`
 - [[Reference/Modules/learnloop/content/proposals/proposals|learnloop.content.proposals.proposals]] — imports `accept_items`, `generate_authoring_proposal`; calls `accept_items`, `generate_authoring_proposal`
 - [[Reference/Modules/learnloop/curriculum/depth_rungs|learnloop.curriculum.depth_rungs]] — imports `RungTarget`, `adjacent_slug`, `rung_float_proxies`, `select_rung`, `trajectory_slugs`, `waypoint_rung`; calls `RungTarget`, `adjacent_slug`, `rung_float_proxies`, `select_rung`, `trajectory_slugs`, `waypoint_rung`
-- [[Reference/Modules/learnloop/db/repositories|learnloop.db.repositories]] — imports `Repository`; calls `Repository`
+- [[Reference/Modules/learnloop/db/repositories|learnloop.db.repositories]] — imports `Repository`
 - [[Reference/Modules/learnloop/diagnosis/causal_probe_coherence|learnloop.diagnosis.causal_probe_coherence]] — imports `audit_manipulation_contract`; calls `audit_manipulation_contract`
 - [[Reference/Modules/learnloop/ids|learnloop.ids]] — imports `new_ulid`
 - [[Reference/Modules/learnloop/learner/capability_mapping|learnloop.learner.capability_mapping]] — imports `default_capability_for`; calls `default_capability_for`
-- [[Reference/Modules/learnloop/learner/mastery|learnloop.learner.mastery]] — imports `display_mastery`, `reanchor_mastery_from_claim`; calls `display_mastery`, `reanchor_mastery_from_claim`
+- [[Reference/Modules/learnloop/learner/mastery|learnloop.learner.mastery]] — imports `display_mastery`, `replace_claim_and_reanchor`; calls `display_mastery`, `replace_claim_and_reanchor`
 - [[Reference/Modules/learnloop/substrate/canonical_projection|learnloop.substrate.canonical_projection]] — imports `surface_group_id`; calls `surface_group_id`
 - [[Reference/Modules/learnloop/substrate/state_sync|learnloop.substrate.state_sync]] — imports `sync_vault_state`; calls `sync_vault_state`
 - [[Reference/Modules/learnloop/vault/loader|learnloop.vault.loader]] — imports `load_vault`; calls `load_vault`
 - [[Reference/Modules/learnloop/vault/models|learnloop.vault.models]] — imports `LoadedVault`, `PracticeItem`
 - [[Reference/Modules/learnloop/vault/paths|learnloop.vault.paths]] — imports `VaultPaths`; calls `VaultPaths`
+- [[Reference/Modules/learnloop/vault/repository|learnloop.vault.repository]] — imports `vault_repository`; calls `vault_repository`
 
 ### Platform and third-party dependencies
 
@@ -138,6 +139,11 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_variant_direction_audit_is_symmetric`
 - [tests/test_ingest_runner.py](../../../../../../../tests/test_ingest_runner.py) — direct import
   - `test_rung_variant_failed_result_fails_the_durable_job`
+- [tests/test_learner_report_superseded.py](../../../../../../../tests/test_learner_report_superseded.py) — direct import
+  - `test_a_rung_variant_request_replaces_only_its_own_source_on_its_own_lo`
+  - `test_two_rung_requests_on_a_cold_lo_then_an_attempt_rebuild_to_live`
+- [tests/test_lp_claim_fixes_rereview.py](../../../../../../../tests/test_lp_claim_fixes_rereview.py) — direct import
+  - `test_f7_every_reanchoring_writer_records_its_point`
 
 ## Modification guidance
 

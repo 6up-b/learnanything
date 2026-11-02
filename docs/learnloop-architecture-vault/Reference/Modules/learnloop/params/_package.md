@@ -10,9 +10,9 @@ source_paths:
   - "src/learnloop/params/parameter_registry.py"
   - "src/learnloop/params/sensitivity_certificates.py"
 source_commit: "aggregate; see module notes"
-source_commit_timestamp: "2026-09-23T12:47:57-04:00"
+source_commit_timestamp: "2026-11-02T07:49:16-05:00"
 generated: true
-generated_at: "2026-09-23"
+generated_at: "2026-11-02"
 package: "learnloop.params"
 layer: "domain"
 concepts:
@@ -48,8 +48,8 @@ For system intent, use [[Learning System]], [[Configuration]].
 | Module | Purpose | Status | Direct importers | Direct test files |
 |---|---|---:|---:|---:|
 | [[Reference/Modules/learnloop/params/__init__|learnloop.params]] | [[Reference/Modules/learnloop/params/__init__#^module-purpose|purpose]] | `ACTIVE` | 0 | 0 |
-| [[Reference/Modules/learnloop/params/fitted_params|learnloop.params.fitted_params]] | [[Reference/Modules/learnloop/params/fitted_params#^module-purpose|purpose]] | `ACTIVE` | 12 | 2 |
-| [[Reference/Modules/learnloop/params/parameter_registry|learnloop.params.parameter_registry]] | [[Reference/Modules/learnloop/params/parameter_registry#^module-purpose|purpose]] | `ACTIVE` | 6 | 8 |
+| [[Reference/Modules/learnloop/params/fitted_params|learnloop.params.fitted_params]] | [[Reference/Modules/learnloop/params/fitted_params#^module-purpose|purpose]] | `ACTIVE` | 22 | 5 |
+| [[Reference/Modules/learnloop/params/parameter_registry|learnloop.params.parameter_registry]] | [[Reference/Modules/learnloop/params/parameter_registry#^module-purpose|purpose]] | `ACTIVE` | 35 | 32 |
 | [[Reference/Modules/learnloop/params/sensitivity_certificates|learnloop.params.sensitivity_certificates]] | [[Reference/Modules/learnloop/params/sensitivity_certificates#^module-purpose|purpose]] | `ACTIVE` | 3 | 1 |
 
 ## Cross-package dependencies
@@ -66,12 +66,20 @@ For system intent, use [[Learning System]], [[Configuration]].
 
 ### Packages that import this package
 
+- [[Reference/Modules/learnloop/_package|learnloop]] — 29 static module edges
 - [[Reference/Modules/learnloop/scheduling/_package|learnloop.scheduling]] — 7 static module edges
 - [[Reference/Modules/learnloop/attempts/_package|learnloop.attempts]] — 4 static module edges
-- [[Reference/Modules/learnloop/cli/_package|learnloop.cli]] — 3 static module edges
+- [[Reference/Modules/learnloop/cli/_package|learnloop.cli]] — 4 static module edges
+- [[Reference/Modules/learnloop/daily_plan/_package|learnloop.daily_plan]] — 3 static module edges
 - [[Reference/Modules/learnloop/diagnosis/_package|learnloop.diagnosis]] — 2 static module edges
 - [[Reference/Modules/learnloop/goals/_package|learnloop.goals]] — 2 static module edges
+- [[Reference/Modules/learnloop/diagnosis/recurrence/_package|learnloop.diagnosis.recurrence]] — 1 static module edge
+- [[Reference/Modules/learnloop/field/_package|learnloop.field]] — 1 static module edge
+- [[Reference/Modules/learnloop/instructional/_package|learnloop.instructional]] — 1 static module edge
 - [[Reference/Modules/learnloop/ops/_package|learnloop.ops]] — 1 static module edge
+- [[Reference/Modules/learnloop/scheduling/intent/_package|learnloop.scheduling.intent]] — 1 static module edge
+- [[Reference/Modules/learnloop/source_retrieval/_package|learnloop.source_retrieval]] — 1 static module edge
+- [[Reference/Modules/learnloop/substrate/_package|learnloop.substrate]] — 1 static module edge
 - [[Reference/Modules/learnloop_sidecar/handlers/_package|learnloop_sidecar.handlers]] — 1 static module edge
 
 ### Dependency neighborhood
@@ -81,27 +89,29 @@ This diagram compresses package-level static imports; edge labels are distinct m
 ```mermaid
 flowchart LR
     center["learnloop.params"]
+    n_learnloop["learnloop"]
     n_learnloop_scheduling["learnloop.scheduling"]
     n_learnloop_attempts["learnloop.attempts"]
     n_learnloop_cli["learnloop.cli"]
+    n_learnloop_daily_plan["learnloop.daily_plan"]
     n_learnloop_db["learnloop.db"]
-    n_learnloop["learnloop"]
+    n_learnloop_substrate["learnloop.substrate"]
     n_learnloop_diagnosis["learnloop.diagnosis"]
     n_learnloop_goals["learnloop.goals"]
-    n_learnloop_substrate["learnloop.substrate"]
     n_learnloop_config["learnloop.config"]
-    n_learnloop_ops["learnloop.ops"]
+    n_learnloop -->|29| center
+    center -->|2| n_learnloop
     n_learnloop_scheduling -->|7| center
     center -->|1| n_learnloop_scheduling
     n_learnloop_attempts -->|4| center
-    n_learnloop_cli -->|3| center
+    n_learnloop_cli -->|4| center
+    n_learnloop_daily_plan -->|3| center
     center -->|3| n_learnloop_db
-    center -->|2| n_learnloop
+    n_learnloop_substrate -->|1| center
+    center -->|2| n_learnloop_substrate
     n_learnloop_diagnosis -->|2| center
     n_learnloop_goals -->|2| center
-    center -->|2| n_learnloop_substrate
     center -->|1| n_learnloop_config
-    n_learnloop_ops -->|1| center
 ```
 
 Interpretation: arrow direction is static import direction and the label is the number of distinct module-to-module edges. It shows coupling pressure, not runtime call frequency or ownership permission.

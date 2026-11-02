@@ -11,7 +11,7 @@ source_commit: "b322ef2e9b5cebc241b612e4963a5aaf1a37f99a"
 source_commit_timestamp: "2026-08-20T18:04:29-04:00"
 source_worktree_state: "clean"
 generated: true
-generated_at: "2026-09-23"
+generated_at: "2026-11-02"
 package: "learnloop.learner"
 layer: "domain"
 concepts:
@@ -88,6 +88,7 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 
 - [[Reference/Modules/learnloop/cli/runtime|learnloop.cli.runtime]] — imports `export_claim_events`, `purge_claim_events`
 - [[Reference/Modules/learnloop_sidecar/handlers/claims|learnloop_sidecar.handlers.claims]] — imports `HypothesisClaimError`, `dismiss_claim`, `export_claim_events`, `present_claims`, `purge_claim_events`, `record_response`; statically calls `dismiss_claim`, `export_claim_events`, `present_claims`, `purge_claim_events`, `record_response`
+- [[Reference/Modules/learnloop_sidecar/handlers/feedback|learnloop_sidecar.handlers.feedback]] — imports `present_claims`, `record_response`; statically calls `present_claims`, `record_response`
 
 ## Dependencies
 
@@ -109,7 +110,7 @@ Use this module in context through:
 - [[Inspect Persistent State]]
 - [[Start a Learning Cycle]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/cli/runtime|learnloop.cli.runtime]], [[Reference/Modules/learnloop_sidecar/handlers/claims|learnloop_sidecar.handlers.claims]].
+Static participation evidence comes from [[Reference/Modules/learnloop/cli/runtime|learnloop.cli.runtime]], [[Reference/Modules/learnloop_sidecar/handlers/claims|learnloop_sidecar.handlers.claims]], [[Reference/Modules/learnloop_sidecar/handlers/feedback|learnloop_sidecar.handlers.feedback]].
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
@@ -126,6 +127,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_surfaced_belief_corrections.py](../../../../../../tests/test_surfaced_belief_corrections.py) — direct import
   - `test_non_belief_claims_never_record_a_belief_reference`
   - `test_suppressed_card_was_authored_not_shown`
+- [tests/test_ux_phase4_feedback.py](../../../../../../tests/test_ux_phase4_feedback.py) — direct import
+  - `test_f7_a_contest_that_fails_before_any_write_reports_not_recorded`
 
 ## Modification guidance
 

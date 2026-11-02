@@ -7,11 +7,11 @@ version: "1.0.0"
 source_path: "src/learnloop/curriculum/golden_path_compose.py"
 source_paths:
   - "src/learnloop/curriculum/golden_path_compose.py"
-source_commit: "b322ef2e9b5cebc241b612e4963a5aaf1a37f99a"
-source_commit_timestamp: "2026-08-20T18:04:29-04:00"
+source_commit: "2d7c4948399efdc96c3c60d7379da37bc90a9e3d"
+source_commit_timestamp: "2026-10-14T20:18:37-04:00"
 source_worktree_state: "clean"
 generated: true
-generated_at: "2026-09-23"
+generated_at: "2026-11-02"
 package: "learnloop.curriculum"
 layer: "domain"
 concepts:
@@ -49,27 +49,27 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/curriculum/golden_path_compose.py](../../../../../../src/learnloop/curriculum/golden_path_compose.py) |
-| Source lines | 214 |
+| Source lines | 216 |
 | Owning package | [[Reference/Modules/learnloop/curriculum/_package|learnloop.curriculum]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `b322ef2e9b5cebc241b612e4963a5aaf1a37f99a` |
-| Commit timestamp | `2026-08-20T18:04:29-04:00` |
+| Source commit | `2d7c4948399efdc96c3c60d7379da37bc90a9e3d` |
+| Commit timestamp | `2026-10-14T20:18:37-04:00` |
 
 ## Public API
 
-- `class ComposeError(ValueError)` ([source](../../../../../../src/learnloop/curriculum/golden_path_compose.py), line 25) — The picker selection cannot compose into a valid single-unit blueprint.
-- `discover_exemplar_pool(vault: LoadedVault, repository: Repository, *, learning_object_id: str | None=None) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/curriculum/golden_path_compose.py), line 29) — The picker data: learning objects with their active items and freshness.
-- `compose_blueprint_draft(vault: LoadedVault, repository: Repository, *, learning_object_id: str, anchor_item_ids: Sequence[str], held_out_item_id: str, title: str | None=None, source_rev: str | None=None, unit_id: str | None=None, family_key: str | None=None, clock: Clock | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/curriculum/golden_path_compose.py), line 73) — Project a picker selection into ``{spec, contract_body, ...}`` ready for ``register_blueprint_version`` + ``confirm_exemplar_and_start``.
+- `class ComposeError(ValueError)` ([source](../../../../../../src/learnloop/curriculum/golden_path_compose.py), line 26) — The picker selection cannot compose into a valid single-unit blueprint.
+- `discover_exemplar_pool(vault: LoadedVault, repository: Repository, *, learning_object_id: str | None=None) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/curriculum/golden_path_compose.py), line 30) — The picker data: learning objects with their active items and freshness.
+- `compose_blueprint_draft(vault: LoadedVault, repository: Repository, *, learning_object_id: str, anchor_item_ids: Sequence[str], held_out_item_id: str, title: str | None=None, source_rev: str | None=None, unit_id: str | None=None, family_key: str | None=None, clock: Clock | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/curriculum/golden_path_compose.py), line 75) — Project a picker selection into ``{spec, contract_body, ...}`` ready for ``register_blueprint_version`` + ``confirm_exemplar_and_start``.
 
 ### Module constants
 
-- `DEFAULT_ADMINISTRATION` ([src/learnloop/curriculum/golden_path_compose.py](../../../../../../src/learnloop/curriculum/golden_path_compose.py), line 22)
+- `DEFAULT_ADMINISTRATION` ([src/learnloop/curriculum/golden_path_compose.py](../../../../../../src/learnloop/curriculum/golden_path_compose.py), line 23)
 
 ## Internal implementation anchors
 
-- `_rubric_for(item: PracticeItem) -> dict[str, Any]` ([source](../../../../../../src/learnloop/curriculum/golden_path_compose.py), line 207)
+- `_rubric_for(item: PracticeItem) -> dict[str, Any]` ([source](../../../../../../src/learnloop/curriculum/golden_path_compose.py), line 209)
 
 ## Who imports or calls it
 
@@ -85,6 +85,7 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 - [[Reference/Modules/learnloop/clock|learnloop.clock]] — imports `Clock`
 - [[Reference/Modules/learnloop/db/repositories|learnloop.db.repositories]] — imports `Repository`
 - [[Reference/Modules/learnloop/vault/models|learnloop.vault.models]] — imports `LoadedVault`, `PracticeItem`
+- [[Reference/Modules/learnloop/vault/required_method|learnloop.vault.required_method]] — imports `presented_prompt`; calls `presented_prompt`
 
 ### Platform and third-party dependencies
 

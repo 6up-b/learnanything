@@ -7,11 +7,11 @@ version: "1.0.0"
 source_path: "src/learnloop/tutor/durable_promotion.py"
 source_paths:
   - "src/learnloop/tutor/durable_promotion.py"
-source_commit: "b322ef2e9b5cebc241b612e4963a5aaf1a37f99a"
-source_commit_timestamp: "2026-08-20T18:04:29-04:00"
+source_commit: "c5ae36a289cdc1d3e99b3005be768f6ec07032c2"
+source_commit_timestamp: "2026-10-12T14:54:46-04:00"
 source_worktree_state: "clean"
 generated: true
-generated_at: "2026-09-23"
+generated_at: "2026-11-02"
 package: "learnloop.tutor"
 layer: "domain"
 concepts:
@@ -50,40 +50,40 @@ The authoritative system-level explanation remains in [[Learning System]], [[AI 
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/tutor/durable_promotion.py](../../../../../../src/learnloop/tutor/durable_promotion.py) |
-| Source lines | 674 |
+| Source lines | 682 |
 | Owning package | [[Reference/Modules/learnloop/tutor/_package|learnloop.tutor]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `b322ef2e9b5cebc241b612e4963a5aaf1a37f99a` |
-| Commit timestamp | `2026-08-20T18:04:29-04:00` |
+| Source commit | `c5ae36a289cdc1d3e99b3005be768f6ec07032c2` |
+| Commit timestamp | `2026-10-12T14:54:46-04:00` |
 
 ## Public API
 
-- `class BeliefEffect` ([source](../../../../../../src/learnloop/tutor/durable_promotion.py), line 119) — What one late-evidence arm did to durable belief state.
-  - `changed(self) -> bool` (line 135; public)
-  - `as_dict(self) -> dict[str, Any]` (line 138; public)
-- `apply_adjudicated_belief_effects(vault: LoadedVault, repository: Repository, *, attempt_id: str, clock: Clock | None=None) -> BeliefEffect` ([source](../../../../../../src/learnloop/tutor/durable_promotion.py), line 322) — §5.6 arm (d): route the active verdict on ``attempt_id`` into belief state.
-- `apply_proved_and_confirmed_promotion(vault: LoadedVault, repository: Repository, *, attempt_id: str, clock: Clock | None=None) -> BeliefEffect` ([source](../../../../../../src/learnloop/tutor/durable_promotion.py), line 516) — §5.6 arm (c): deterministic proof AND learner confirmation, conjunctively.
-- `apply_late_promotion_evidence(vault: LoadedVault, repository: Repository, *, attempt_id: str, clock: Clock | None=None) -> list[BeliefEffect]` ([source](../../../../../../src/learnloop/tutor/durable_promotion.py), line 594) — Run both late arms for one attempt.
-- `sweep_late_promotion_evidence(vault: LoadedVault, repository: Repository, *, learning_object_id: str, clock: Clock | None=None) -> list[BeliefEffect]` ([source](../../../../../../src/learnloop/tutor/durable_promotion.py), line 620) — Catch up on late evidence for one learning object.
+- `class BeliefEffect` ([source](../../../../../../src/learnloop/tutor/durable_promotion.py), line 121) — What one late-evidence arm did to durable belief state.
+  - `changed(self) -> bool` (line 137; public)
+  - `as_dict(self) -> dict[str, Any]` (line 140; public)
+- `apply_adjudicated_belief_effects(vault: LoadedVault, repository: Repository, *, attempt_id: str, clock: Clock | None=None) -> BeliefEffect` ([source](../../../../../../src/learnloop/tutor/durable_promotion.py), line 329) — §5.6 arm (d): route the active verdict on ``attempt_id`` into belief state.
+- `apply_proved_and_confirmed_promotion(vault: LoadedVault, repository: Repository, *, attempt_id: str, clock: Clock | None=None) -> BeliefEffect` ([source](../../../../../../src/learnloop/tutor/durable_promotion.py), line 524) — §5.6 arm (c): deterministic proof AND learner confirmation, conjunctively.
+- `apply_late_promotion_evidence(vault: LoadedVault, repository: Repository, *, attempt_id: str, clock: Clock | None=None) -> list[BeliefEffect]` ([source](../../../../../../src/learnloop/tutor/durable_promotion.py), line 602) — Run both late arms for one attempt.
+- `sweep_late_promotion_evidence(vault: LoadedVault, repository: Repository, *, learning_object_id: str, clock: Clock | None=None) -> list[BeliefEffect]` ([source](../../../../../../src/learnloop/tutor/durable_promotion.py), line 628) — Catch up on late evidence for one learning object.
 
 ### Module constants
 
-- `PROMOTION_REASON_ADJUDICATED` ([src/learnloop/tutor/durable_promotion.py](../../../../../../src/learnloop/tutor/durable_promotion.py), line 67)
-- `PROMOTION_REASON_PROVED_AND_CONFIRMED` ([src/learnloop/tutor/durable_promotion.py](../../../../../../src/learnloop/tutor/durable_promotion.py), line 68)
-- `AFFIRMING_VERDICTS` ([src/learnloop/tutor/durable_promotion.py](../../../../../../src/learnloop/tutor/durable_promotion.py), line 77)
-- `OVERTURNING_VERDICTS` ([src/learnloop/tutor/durable_promotion.py](../../../../../../src/learnloop/tutor/durable_promotion.py), line 89)
-- `NEUTRAL_VERDICTS` ([src/learnloop/tutor/durable_promotion.py](../../../../../../src/learnloop/tutor/durable_promotion.py), line 105)
-- `ANY_BELIEF_STATUS` ([src/learnloop/tutor/durable_promotion.py](../../../../../../src/learnloop/tutor/durable_promotion.py), line 115)
+- `PROMOTION_REASON_ADJUDICATED` ([src/learnloop/tutor/durable_promotion.py](../../../../../../src/learnloop/tutor/durable_promotion.py), line 69)
+- `PROMOTION_REASON_PROVED_AND_CONFIRMED` ([src/learnloop/tutor/durable_promotion.py](../../../../../../src/learnloop/tutor/durable_promotion.py), line 70)
+- `AFFIRMING_VERDICTS` ([src/learnloop/tutor/durable_promotion.py](../../../../../../src/learnloop/tutor/durable_promotion.py), line 79)
+- `OVERTURNING_VERDICTS` ([src/learnloop/tutor/durable_promotion.py](../../../../../../src/learnloop/tutor/durable_promotion.py), line 91)
+- `NEUTRAL_VERDICTS` ([src/learnloop/tutor/durable_promotion.py](../../../../../../src/learnloop/tutor/durable_promotion.py), line 107)
+- `ANY_BELIEF_STATUS` ([src/learnloop/tutor/durable_promotion.py](../../../../../../src/learnloop/tutor/durable_promotion.py), line 117)
 
 ## Internal implementation anchors
 
-- `_asserted_hypotheses(repository: Repository, adjudication: Mapping[str, Any]) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/tutor/durable_promotion.py), line 154) — The concrete causes the adjudicated diagnosis actually asserted.
-- `_promote_hypothesis(vault: LoadedVault, repository: Repository, hypothesis: Mapping[str, Any], *, reason: str, attempt_id: str, clock: Clock | None) -> tuple[str | None, str | None]` ([source](../../../../../../src/learnloop/tutor/durable_promotion.py), line 191) — Promote the holding-pen candidate behind ``hypothesis``.
-- `_withdraw_hypothesis(repository: Repository, hypothesis: Mapping[str, Any], *, clock: Clock | None) -> tuple[str | None, str | None]` ([source](../../../../../../src/learnloop/tutor/durable_promotion.py), line 276) — Retract the durable belief this hypothesis was promoted into.
-- `_verified_repair_class_ids(repository: Repository, attempt_id: str) -> set[str]` ([source](../../../../../../src/learnloop/tutor/durable_promotion.py), line 416) — Repair classes this attempt's diagnosis DETERMINISTICALLY proved.
-- `_confirmed_hypotheses(repository: Repository, attempt_id: str) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/tutor/durable_promotion.py), line 477) — Hypotheses the learner said "I believed this" about, on this attempt.
+- `_asserted_hypotheses(repository: Repository, adjudication: Mapping[str, Any]) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/tutor/durable_promotion.py), line 156) — The concrete causes the adjudicated diagnosis actually asserted.
+- `_promote_hypothesis(vault: LoadedVault, repository: Repository, hypothesis: Mapping[str, Any], *, reason: str, attempt_id: str, clock: Clock | None) -> tuple[str | None, str | None]` ([source](../../../../../../src/learnloop/tutor/durable_promotion.py), line 194) — Promote the holding-pen candidate behind ``hypothesis``.
+- `_withdraw_hypothesis(repository: Repository, hypothesis: Mapping[str, Any], *, clock: Clock | None) -> tuple[str | None, str | None]` ([source](../../../../../../src/learnloop/tutor/durable_promotion.py), line 282) — Retract the durable belief this hypothesis was promoted into.
+- `_verified_repair_class_ids(repository: Repository, attempt_id: str) -> set[str]` ([source](../../../../../../src/learnloop/tutor/durable_promotion.py), line 423) — Repair classes this attempt's diagnosis DETERMINISTICALLY proved.
+- `_confirmed_hypotheses(repository: Repository, attempt_id: str) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/tutor/durable_promotion.py), line 484) — Hypotheses the learner said "I believed this" about, on this attempt.
 
 ## Who imports or calls it
 
@@ -105,6 +105,8 @@ The authoritative system-level explanation remains in [[Learning System]], [[AI 
 - [[Reference/Modules/learnloop/diagnosis/causal_attribution|learnloop.diagnosis.causal_attribution]] — imports `OPEN_SET_CAUSE_ID`, `causal_episode_for_attempt`, `trace_consistent`; calls `causal_episode_for_attempt`, `trace_consistent`
 - [[Reference/Modules/learnloop/diagnosis/misconceptions|learnloop.diagnosis.misconceptions]] — imports `normalize_text`, `promote_candidate`; calls `normalize_text`, `promote_candidate`
 - [[Reference/Modules/learnloop/learner/surfaced_beliefs|learnloop.learner.surfaced_beliefs]] — imports `record_belief_withdrawal`; calls `record_belief_withdrawal`
+- [[Reference/Modules/learnloop/recurrence|learnloop.recurrence]] — imports `key_for_statement`, `recurrence_key`; calls `key_for_statement`, `recurrence_key`
+- [[Reference/Modules/learnloop/substrate/recurrence_groups|learnloop.substrate.recurrence_groups]] — imports `active_group_map`; calls `active_group_map`
 - [[Reference/Modules/learnloop/vault/models|learnloop.vault.models]] — imports `LoadedVault`
 
 ### Platform and third-party dependencies

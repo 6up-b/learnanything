@@ -7,11 +7,11 @@ version: "1.0.0"
 source_path: "src/learnloop_sidecar/handlers/knowledge_map.py"
 source_paths:
   - "src/learnloop_sidecar/handlers/knowledge_map.py"
-source_commit: "c1619d0275bfe61eabe180738165ec480c6dc4fb"
-source_commit_timestamp: "2026-09-23T13:02:20-04:00"
+source_commit: "3fa780b50a46ea4a95ff64fad57ff6e27e904dbd"
+source_commit_timestamp: "2026-10-13T02:46:02-04:00"
 source_worktree_state: "clean"
 generated: true
-generated_at: "2026-09-23"
+generated_at: "2026-11-02"
 package: "learnloop_sidecar.handlers"
 layer: "adapter"
 concepts:
@@ -53,21 +53,21 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop_sidecar/handlers/knowledge_map.py](../../../../../../src/learnloop_sidecar/handlers/knowledge_map.py) |
-| Source lines | 961 |
+| Source lines | 1022 |
 | Owning package | [[Reference/Modules/learnloop_sidecar/handlers/_package|learnloop_sidecar.handlers]] |
 | Architecture layer | `adapter` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `c1619d0275bfe61eabe180738165ec480c6dc4fb` |
-| Commit timestamp | `2026-09-23T13:02:20-04:00` |
+| Source commit | `3fa780b50a46ea4a95ff64fad57ff6e27e904dbd` |
+| Commit timestamp | `2026-10-13T02:46:02-04:00` |
 
 ## Public API
 
-- `get_knowledge_map(ctx: SidecarContext, _params) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/knowledge_map.py), line 47) — Deterministic 2D embedding of every practice item (the knowledge map).
-- `get_knowledge_map_history(ctx: SidecarContext, _params) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/knowledge_map.py), line 164) — Attempt events + reconstructed mastery trajectories for the chronicle.
-- `class PreviewEdge(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/knowledge_map.py), line 727)
-- `class PreviewKnowledgeMapParams(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/knowledge_map.py), line 733)
-- `preview_knowledge_map(ctx: SidecarContext, params: PreviewKnowledgeMapParams) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/knowledge_map.py), line 739) — Item-map MDS against a hypothetical semantic edge set (§8 layer honesty).
+- `get_knowledge_map(ctx: SidecarContext, _params) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/knowledge_map.py), line 48) — Deterministic 2D embedding of every practice item (the knowledge map).
+- `get_knowledge_map_history(ctx: SidecarContext, _params) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/knowledge_map.py), line 229) — Attempt events + reconstructed mastery trajectories for the chronicle.
+- `class PreviewEdge(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/knowledge_map.py), line 788)
+- `class PreviewKnowledgeMapParams(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/knowledge_map.py), line 794)
+- `preview_knowledge_map(ctx: SidecarContext, params: PreviewKnowledgeMapParams) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/knowledge_map.py), line 800) — Item-map MDS against a hypothetical semantic edge set (§8 layer honesty).
 
 ### Module constants
 
@@ -76,28 +76,29 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `_GRAPH_RELATIONS` ([src/learnloop_sidecar/handlers/knowledge_map.py](../../../../../../src/learnloop_sidecar/handlers/knowledge_map.py), line 36)
 - `_TOP_FACETS` ([src/learnloop_sidecar/handlers/knowledge_map.py](../../../../../../src/learnloop_sidecar/handlers/knowledge_map.py), line 38)
 - `_TITLE_MAX` ([src/learnloop_sidecar/handlers/knowledge_map.py](../../../../../../src/learnloop_sidecar/handlers/knowledge_map.py), line 39)
-- `_NEIGHBOR_COUNT` ([src/learnloop_sidecar/handlers/knowledge_map.py](../../../../../../src/learnloop_sidecar/handlers/knowledge_map.py), line 43)
+- `_NEIGHBOR_COUNT` ([src/learnloop_sidecar/handlers/knowledge_map.py](../../../../../../src/learnloop_sidecar/handlers/knowledge_map.py), line 44)
 
 ## Internal implementation anchors
 
-- `_facet_field(vault, repository) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/knowledge_map.py), line 224) — Facet topology + dual evidence/prediction axes for the gravity field.
-- `_cold_check_pending_learning_objects(vault, repository) -> set[str]` ([source](../../../../../../src/learnloop_sidecar/handlers/knowledge_map.py), line 452) — Learning objects carrying a live, unspent repair cold check.
-- `_facet_current_retentions(vault, repository) -> dict[str, float]` ([source](../../../../../../src/learnloop_sidecar/handlers/knowledge_map.py), line 480) — Evidence-weighted present-day FSRS retention by facet item family.
-- `_weighted_adjacency(nodes, edge_weights) -> dict[str, dict[str, float]]` ([source](../../../../../../src/learnloop_sidecar/handlers/knowledge_map.py), line 519)
-- `_shortest_paths(start: str, adjacency) -> tuple[dict[str, float], dict[str, str]]` ([source](../../../../../../src/learnloop_sidecar/handlers/knowledge_map.py), line 529)
-- `_facet_graph_distances(facets: list[str], adjacency) -> list[list[float]]` ([source](../../../../../../src/learnloop_sidecar/handlers/knowledge_map.py), line 546)
-- `_next_gap(vault, repository, points, adjacency) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop_sidecar/handlers/knowledge_map.py), line 561) — One model-selected gap pin, routed to its native drill-down.
-- `_diagnostic_target(repository, attempt_id: str) -> tuple[str, str]` ([source](../../../../../../src/learnloop_sidecar/handlers/knowledge_map.py), line 652) — Route ambiguity to its probe episode when one owns the observation.
-- `_item_title(prompt: str) -> str` ([source](../../../../../../src/learnloop_sidecar/handlers/knowledge_map.py), line 665)
-- `_facet_vector(item) -> dict[str, float]` ([source](../../../../../../src/learnloop_sidecar/handlers/knowledge_map.py), line 672) — L2-normalized facet weights (missing declared weights default to 1.0).
-- `_cosine_distance(u: dict[str, float], v: dict[str, float]) -> float` ([source](../../../../../../src/learnloop_sidecar/handlers/knowledge_map.py), line 688)
-- `_vault_edge_tuples(vault) -> list[tuple[str, str, str]]` ([source](../../../../../../src/learnloop_sidecar/handlers/knowledge_map.py), line 695) — The loaded vault's semantic edges as ``(source, target, relation_type)``.
-- `_item_map_geometry(vault, edges: list[tuple[str, str, str]]) -> tuple[list, dict[str, str | None], list[list[float]], list[tuple[float, float]], float]` ([source](../../../../../../src/learnloop_sidecar/handlers/knowledge_map.py), line 701) — Pure item-map geometry against an explicit semantic edge set.
-- `_concept_geodesics(edges: list[tuple[str, str, str]], concepts: set[str]) -> dict[tuple[str, str], int | None]` ([source](../../../../../../src/learnloop_sidecar/handlers/knowledge_map.py), line 789) — BFS hop counts between concepts over undirected structural edges.
-- `_blended_distances(items: list, vectors: list[dict[str, float]], concept_of: dict[str, str | None], hops: dict[tuple[str, str], int | None]) -> list[list[float]]` ([source](../../../../../../src/learnloop_sidecar/handlers/knowledge_map.py), line 820)
-- `_classical_mds(distances: list[list[float]]) -> tuple[list[tuple[float, float]], float]` ([source](../../../../../../src/learnloop_sidecar/handlers/knowledge_map.py), line 853) — Cached exact MDS keyed by the deterministic distance matrix.
-- `_classical_mds_cached(distances: tuple[tuple[float, ...], ...]) -> tuple[tuple[tuple[float, float], ...], float]` ([source](../../../../../../src/learnloop_sidecar/handlers/knowledge_map.py), line 864) — Torgerson classical MDS to 2D, plus Kruskal stress-1.
-- `_jacobi_eigh(matrix: list[list[float]]) -> tuple[list[float], list[list[float]]]` ([source](../../../../../../src/learnloop_sidecar/handlers/knowledge_map.py), line 924) — Cyclic Jacobi eigendecomposition for a small symmetric matrix.
+- `_placement_map(vault, repository) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/knowledge_map.py), line 194) — Learner field F2: LOs assumed known (not tested), for honest labels (G4).
+- `_facet_field(vault, repository, *, assumed_los: set[str] | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/knowledge_map.py), line 289) — Facet topology + dual evidence/prediction axes for the gravity field.
+- `_cold_check_pending_learning_objects(vault, repository) -> set[str]` ([source](../../../../../../src/learnloop_sidecar/handlers/knowledge_map.py), line 513) — Learning objects carrying a live, unspent repair cold check.
+- `_facet_current_retentions(vault, repository) -> dict[str, float]` ([source](../../../../../../src/learnloop_sidecar/handlers/knowledge_map.py), line 541) — Evidence-weighted present-day FSRS retention by facet item family.
+- `_weighted_adjacency(nodes, edge_weights) -> dict[str, dict[str, float]]` ([source](../../../../../../src/learnloop_sidecar/handlers/knowledge_map.py), line 580)
+- `_shortest_paths(start: str, adjacency) -> tuple[dict[str, float], dict[str, str]]` ([source](../../../../../../src/learnloop_sidecar/handlers/knowledge_map.py), line 590)
+- `_facet_graph_distances(facets: list[str], adjacency) -> list[list[float]]` ([source](../../../../../../src/learnloop_sidecar/handlers/knowledge_map.py), line 607)
+- `_next_gap(vault, repository, points, adjacency) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop_sidecar/handlers/knowledge_map.py), line 622) — One model-selected gap pin, routed to its native drill-down.
+- `_diagnostic_target(repository, attempt_id: str) -> tuple[str, str]` ([source](../../../../../../src/learnloop_sidecar/handlers/knowledge_map.py), line 713) — Route ambiguity to its probe episode when one owns the observation.
+- `_item_title(prompt: str) -> str` ([source](../../../../../../src/learnloop_sidecar/handlers/knowledge_map.py), line 726)
+- `_facet_vector(item) -> dict[str, float]` ([source](../../../../../../src/learnloop_sidecar/handlers/knowledge_map.py), line 733) — L2-normalized facet weights (missing declared weights default to 1.0).
+- `_cosine_distance(u: dict[str, float], v: dict[str, float]) -> float` ([source](../../../../../../src/learnloop_sidecar/handlers/knowledge_map.py), line 749)
+- `_vault_edge_tuples(vault) -> list[tuple[str, str, str]]` ([source](../../../../../../src/learnloop_sidecar/handlers/knowledge_map.py), line 756) — The loaded vault's semantic edges as ``(source, target, relation_type)``.
+- `_item_map_geometry(vault, edges: list[tuple[str, str, str]]) -> tuple[list, dict[str, str | None], list[list[float]], list[tuple[float, float]], float]` ([source](../../../../../../src/learnloop_sidecar/handlers/knowledge_map.py), line 762) — Pure item-map geometry against an explicit semantic edge set.
+- `_concept_geodesics(edges: list[tuple[str, str, str]], concepts: set[str]) -> dict[tuple[str, str], int | None]` ([source](../../../../../../src/learnloop_sidecar/handlers/knowledge_map.py), line 850) — BFS hop counts between concepts over undirected structural edges.
+- `_blended_distances(items: list, vectors: list[dict[str, float]], concept_of: dict[str, str | None], hops: dict[tuple[str, str], int | None]) -> list[list[float]]` ([source](../../../../../../src/learnloop_sidecar/handlers/knowledge_map.py), line 881)
+- `_classical_mds(distances: list[list[float]]) -> tuple[list[tuple[float, float]], float]` ([source](../../../../../../src/learnloop_sidecar/handlers/knowledge_map.py), line 914) — Cached exact MDS keyed by the deterministic distance matrix.
+- `_classical_mds_cached(distances: tuple[tuple[float, ...], ...]) -> tuple[tuple[tuple[float, float], ...], float]` ([source](../../../../../../src/learnloop_sidecar/handlers/knowledge_map.py), line 925) — Torgerson classical MDS to 2D, plus Kruskal stress-1.
+- `_jacobi_eigh(matrix: list[list[float]]) -> tuple[list[float], list[list[float]]]` ([source](../../../../../../src/learnloop_sidecar/handlers/knowledge_map.py), line 985) — Cyclic Jacobi eigendecomposition for a small symmetric matrix.
 
 ## Who imports or calls it
 
@@ -111,7 +112,6 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 ### LearnLoop dependencies
 
 - [[Reference/Modules/learnloop/clock|learnloop.clock]] — imports `parse_utc`; calls `parse_utc`
-- [[Reference/Modules/learnloop/curriculum/curriculum_locks|learnloop.curriculum.curriculum_locks]] — imports `identity_locks`; calls `identity_locks`
 - [[Reference/Modules/learnloop/diagnosis/probes|learnloop.diagnosis.probes]] — imports `resolve_item_irt`; calls `resolve_item_irt`
 - [[Reference/Modules/learnloop/goals/certification|learnloop.goals.certification]] — imports `is_demonstrated_credit`; calls `is_demonstrated_credit`
 - [[Reference/Modules/learnloop/goals/goal_certification|learnloop.goals.goal_certification]] — imports `lo_certification`; calls `lo_certification`
@@ -122,11 +122,13 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop/learner/mastery|learnloop.learner.mastery]] — imports `display_mastery`, `sigmoid`; calls `display_mastery`, `sigmoid`
 - [[Reference/Modules/learnloop/learner/recall_coverage|learnloop.learner.recall_coverage]] — imports `predicted_correctness`; calls `predicted_correctness`
 - [[Reference/Modules/learnloop/params/fitted_params|learnloop.params.fitted_params]] — imports `resolve_fsrs_weights`; calls `resolve_fsrs_weights`
+- [[Reference/Modules/learnloop/placement/state|learnloop.placement.state]] — imports `LEARNER_TEXT_GAP_SOURCE`, `load_placement_state`, `placement_active`; calls `load_placement_state`, `placement_active`
 - [[Reference/Modules/learnloop/scheduling/fsrs|learnloop.scheduling.fsrs]] — imports `forgetting_curve`; calls `forgetting_curve`
 - [[Reference/Modules/learnloop/scheduling/scheduler|learnloop.scheduling.scheduler]] — imports `build_due_queue`; calls `build_due_queue`
 - [[Reference/Modules/learnloop_sidecar/context|learnloop_sidecar.context]] — imports `SidecarContext`
 - [[Reference/Modules/learnloop_sidecar/dto|learnloop_sidecar.dto]] — imports `ParamsModel`, `versioned`; calls `versioned`
 - [[Reference/Modules/learnloop_sidecar/errors|learnloop_sidecar.errors]] — imports `SidecarError`; calls `SidecarError`
+- [[Reference/Modules/learnloop_sidecar/handlers/item_text_neighbors|learnloop_sidecar.handlers.item_text_neighbors]] — imports `item_text_neighbors`; calls `item_text_neighbors`
 - [[Reference/Modules/learnloop_sidecar/registry|learnloop_sidecar.registry]] — imports `method`; calls `method`
 
 ### Platform and third-party dependencies
@@ -152,6 +154,12 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 - [tests/test_graph_editor_reads.py](../../../../../../tests/test_graph_editor_reads.py) — direct import
   - `test_classical_mds_reuses_exact_cached_layout`
+- [tests/test_knowledge_map_text_neighbors.py](../../../../../../tests/test_knowledge_map_text_neighbors.py) — direct import
+  - `test_item_text_ranks_like_the_store_and_leaves_the_map_geometry_alone`
+  - `test_render_never_calls_a_model_or_writes`
+- [tests/test_map_untested.py](../../../../../../tests/test_map_untested.py) — direct import
+  - `test_map_untested_rpc_and_demonstrated_readiness`
+  - `test_zero_independent_mass_is_not_tested_even_with_prior_or_warm_rows`
 - [tests/test_sidecar_remediation_surfaces.py](../../../../../../tests/test_sidecar_remediation_surfaces.py) — direct import
   - `test_cold_check_pending_learning_objects_clear_once_the_check_is_answered`
   - `test_facet_points_carry_cold_check_pending_without_touching_demonstrated`

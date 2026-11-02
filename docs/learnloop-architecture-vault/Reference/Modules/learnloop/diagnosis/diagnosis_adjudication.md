@@ -11,7 +11,7 @@ source_commit: "b322ef2e9b5cebc241b612e4963a5aaf1a37f99a"
 source_commit_timestamp: "2026-08-20T18:04:29-04:00"
 source_worktree_state: "clean"
 generated: true
-generated_at: "2026-09-23"
+generated_at: "2026-11-02"
 package: "learnloop.diagnosis"
 layer: "domain"
 concepts:
@@ -102,6 +102,7 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 
 - [[Reference/Modules/learnloop/cli/diagnosis|learnloop.cli.diagnosis]] — imports `adjudication_queue`, `append_diagnosis_adjudication`, `diagnosis_adjudication_scoreboard`; statically calls `adjudication_queue`, `append_diagnosis_adjudication`, `diagnosis_adjudication_scoreboard`
 - [[Reference/Modules/learnloop/diagnosis/diagnostic_augmentation|learnloop.diagnosis.diagnostic_augmentation]] — imports `anchor_key`; statically calls `anchor_key`
+- [[Reference/Modules/learnloop/diagnosis/offline_review/spot_check|learnloop.diagnosis.offline_review.spot_check]] — imports `append_diagnosis_adjudication`, `diagnosis_snapshot`; statically calls `append_diagnosis_adjudication`, `diagnosis_snapshot`
 - [[Reference/Modules/learnloop/diagnosis/scoreboard|learnloop.diagnosis.scoreboard]] — imports `FILLED_VERDICTS`, `adjudicated_ground_truth`, `diagnosis_adjudication_scoreboard`; statically calls `adjudicated_ground_truth`, `diagnosis_adjudication_scoreboard`
 - [[Reference/Modules/learnloop_sidecar/handlers/adjudication|learnloop_sidecar.handlers.adjudication]] — imports `ABSTENTION_VERDICTS`, `ADJUDICATOR_SOURCES`, `ANCHOR_KINDS`, `FILLED_VERDICTS`, `QUEUE_REASONS`, `VERDICTS`, `adjudication_queue`, `append_diagnosis_adjudication`, `diagnosis_adjudication_scoreboard`, `diagnosis_snapshot`; statically calls `adjudication_queue`, `append_diagnosis_adjudication`, `diagnosis_adjudication_scoreboard`, `diagnosis_snapshot`
 
@@ -127,7 +128,7 @@ Use this module in context through:
 - [[Process Model Output]]
 - [[Start a Learning Cycle]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/cli/diagnosis|learnloop.cli.diagnosis]], [[Reference/Modules/learnloop/diagnosis/diagnostic_augmentation|learnloop.diagnosis.diagnostic_augmentation]], [[Reference/Modules/learnloop/diagnosis/scoreboard|learnloop.diagnosis.scoreboard]], [[Reference/Modules/learnloop_sidecar/handlers/adjudication|learnloop_sidecar.handlers.adjudication]].
+Static participation evidence comes from [[Reference/Modules/learnloop/cli/diagnosis|learnloop.cli.diagnosis]], [[Reference/Modules/learnloop/diagnosis/diagnostic_augmentation|learnloop.diagnosis.diagnostic_augmentation]], [[Reference/Modules/learnloop/diagnosis/offline_review/spot_check|learnloop.diagnosis.offline_review.spot_check]], [[Reference/Modules/learnloop/diagnosis/scoreboard|learnloop.diagnosis.scoreboard]], [[Reference/Modules/learnloop_sidecar/handlers/adjudication|learnloop_sidecar.handlers.adjudication]].
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 

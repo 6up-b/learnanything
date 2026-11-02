@@ -11,7 +11,7 @@ source_commit: "ee2e43120c2b814eb8b6a849efaa1ac08260ad69"
 source_commit_timestamp: "2026-09-03T21:40:18-07:00"
 source_worktree_state: "clean"
 generated: true
-generated_at: "2026-09-23"
+generated_at: "2026-11-02"
 package: "learnloop.content.synthesis"
 layer: "domain"
 concepts:

@@ -7,11 +7,11 @@ version: "1.0.0"
 source_path: "src/learnloop_sidecar/handlers/golden_path_assessment.py"
 source_paths:
   - "src/learnloop_sidecar/handlers/golden_path_assessment.py"
-source_commit: "b322ef2e9b5cebc241b612e4963a5aaf1a37f99a"
-source_commit_timestamp: "2026-08-20T18:04:29-04:00"
+source_commit: "9712306281763762b834b0297e2bb602a72b663e"
+source_commit_timestamp: "2026-10-12T11:11:55-04:00"
 source_worktree_state: "clean"
 generated: true
-generated_at: "2026-09-23"
+generated_at: "2026-11-02"
 package: "learnloop_sidecar.handlers"
 layer: "adapter"
 concepts:
@@ -53,27 +53,27 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop_sidecar/handlers/golden_path_assessment.py](../../../../../../src/learnloop_sidecar/handlers/golden_path_assessment.py) |
-| Source lines | 177 |
+| Source lines | 190 |
 | Owning package | [[Reference/Modules/learnloop_sidecar/handlers/_package|learnloop_sidecar.handlers]] |
 | Architecture layer | `adapter` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `b322ef2e9b5cebc241b612e4963a5aaf1a37f99a` |
-| Commit timestamp | `2026-08-20T18:04:29-04:00` |
+| Source commit | `9712306281763762b834b0297e2bb602a72b663e` |
+| Commit timestamp | `2026-10-12T11:11:55-04:00` |
 
 ## Public API
 
-- `class RunIdInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/golden_path_assessment.py), line 27)
-- `assess_open(ctx: SidecarContext, params: RunIdInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/golden_path_assessment.py), line 32)
-- `class AssessSubmitInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/golden_path_assessment.py), line 66)
-- `assess_submit(ctx: SidecarContext, params: AssessSubmitInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/golden_path_assessment.py), line 81)
-- `assess_result(ctx: SidecarContext, params: RunIdInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/golden_path_assessment.py), line 110)
-- `restore(ctx: SidecarContext, params: RunIdInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/golden_path_assessment.py), line 119)
-- `boundary_diff(ctx: SidecarContext, params: RunIdInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/golden_path_assessment.py), line 131)
-- `depth_invitation(ctx: SidecarContext, params: RunIdInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/golden_path_assessment.py), line 142)
-- `accept_edge(ctx: SidecarContext, params: RunIdInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/golden_path_assessment.py), line 155)
-- `class DeclineInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/golden_path_assessment.py), line 166)
-- `decline_edge(ctx: SidecarContext, params: DeclineInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/golden_path_assessment.py), line 172)
+- `class RunIdInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/golden_path_assessment.py), line 28)
+- `assess_open(ctx: SidecarContext, params: RunIdInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/golden_path_assessment.py), line 33)
+- `class AssessSubmitInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/golden_path_assessment.py), line 79)
+- `assess_submit(ctx: SidecarContext, params: AssessSubmitInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/golden_path_assessment.py), line 94)
+- `assess_result(ctx: SidecarContext, params: RunIdInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/golden_path_assessment.py), line 123)
+- `restore(ctx: SidecarContext, params: RunIdInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/golden_path_assessment.py), line 132)
+- `boundary_diff(ctx: SidecarContext, params: RunIdInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/golden_path_assessment.py), line 144)
+- `depth_invitation(ctx: SidecarContext, params: RunIdInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/golden_path_assessment.py), line 155)
+- `accept_edge(ctx: SidecarContext, params: RunIdInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/golden_path_assessment.py), line 168)
+- `class DeclineInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/golden_path_assessment.py), line 179)
+- `decline_edge(ctx: SidecarContext, params: DeclineInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/golden_path_assessment.py), line 185)
 
 ## Internal implementation anchors
 
@@ -97,6 +97,7 @@ No private top-level function or class definition is declared in this file.
 - [[Reference/Modules/learnloop_sidecar/errors|learnloop_sidecar.errors]] — imports `SidecarError`; calls `SidecarError`
 - [[Reference/Modules/learnloop_sidecar/handlers/serializers|learnloop_sidecar.handlers.serializers]] — imports `item_presentation`; calls `item_presentation`
 - [[Reference/Modules/learnloop_sidecar/registry|learnloop_sidecar.registry]] — imports `method`; calls `method`
+- [[Reference/Modules/learnloop_sidecar/serving|learnloop_sidecar.serving]] — imports `refuse_unservable_item`; calls `refuse_unservable_item`
 
 ### Platform and third-party dependencies
 
@@ -121,17 +122,18 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 No test imports this module directly. These tests exercise a direct production consumer:
 
-- [tests/test_desktop_rpc_contract.py](../../../../../../tests/test_desktop_rpc_contract.py) — imports consumer [[Reference/Modules/learnloop_sidecar/handlers/__init__|learnloop_sidecar.handlers]]
-- [tests/test_dialogue_causal_join.py](../../../../../../tests/test_dialogue_causal_join.py) — imports consumer [[Reference/Modules/learnloop_sidecar/handlers/__init__|learnloop_sidecar.handlers]]
-- [tests/test_goal_scope_material.py](../../../../../../tests/test_goal_scope_material.py) — imports consumer [[Reference/Modules/learnloop_sidecar/handlers/__init__|learnloop_sidecar.handlers]]
-- [tests/test_graph_editor_reads.py](../../../../../../tests/test_graph_editor_reads.py) — imports consumer [[Reference/Modules/learnloop_sidecar/handlers/__init__|learnloop_sidecar.handlers]]
-- [tests/test_instrument_servability_journeys.py](../../../../../../tests/test_instrument_servability_journeys.py) — imports consumer [[Reference/Modules/learnloop_sidecar/handlers/__init__|learnloop_sidecar.handlers]]
-- [tests/test_sidecar_adjudication.py](../../../../../../tests/test_sidecar_adjudication.py) — imports consumer [[Reference/Modules/learnloop_sidecar/handlers/__init__|learnloop_sidecar.handlers]]
-- [tests/test_sidecar_exams.py](../../../../../../tests/test_sidecar_exams.py) — imports consumer [[Reference/Modules/learnloop_sidecar/handlers/__init__|learnloop_sidecar.handlers]]
-- [tests/test_sidecar_goals.py](../../../../../../tests/test_sidecar_goals.py) — imports consumer [[Reference/Modules/learnloop_sidecar/handlers/__init__|learnloop_sidecar.handlers]]
-- [tests/test_sidecar_item_presentation.py](../../../../../../tests/test_sidecar_item_presentation.py) — imports consumer [[Reference/Modules/learnloop_sidecar/handlers/__init__|learnloop_sidecar.handlers]]
-- [tests/test_sidecar_measurement.py](../../../../../../tests/test_sidecar_measurement.py) — imports consumer [[Reference/Modules/learnloop_sidecar/handlers/__init__|learnloop_sidecar.handlers]]
-- [tests/test_sidecar_trace_and_clarification.py](../../../../../../tests/test_sidecar_trace_and_clarification.py) — imports consumer [[Reference/Modules/learnloop_sidecar/handlers/__init__|learnloop_sidecar.handlers]]
+- [tests/reading_path_fixtures.py](../../../../../../tests/reading_path_fixtures.py) — imports consumer [[Reference/Modules/learnloop_sidecar/handlers/__init__|learnloop_sidecar.handlers]]
+- [tests/recap_fixtures.py](../../../../../../tests/recap_fixtures.py) — imports consumer [[Reference/Modules/learnloop_sidecar/handlers/__init__|learnloop_sidecar.handlers]]
+- [tests/rw2b_fix10_base_sequence.py](../../../../../../tests/rw2b_fix10_base_sequence.py) — imports consumer [[Reference/Modules/learnloop_sidecar/handlers/__init__|learnloop_sidecar.handlers]]
+- [tests/rw2b_fix11_base_sequence.py](../../../../../../tests/rw2b_fix11_base_sequence.py) — imports consumer [[Reference/Modules/learnloop_sidecar/handlers/__init__|learnloop_sidecar.handlers]]
+- [tests/rw2c_base_sequence.py](../../../../../../tests/rw2c_base_sequence.py) — imports consumer [[Reference/Modules/learnloop_sidecar/handlers/__init__|learnloop_sidecar.handlers]]
+- [tests/rw2c_state_parity.py](../../../../../../tests/rw2c_state_parity.py) — imports consumer [[Reference/Modules/learnloop_sidecar/handlers/__init__|learnloop_sidecar.handlers]]
+- [tests/test_ad1_attempt_columns.py](../../../../../../tests/test_ad1_attempt_columns.py) — imports consumer [[Reference/Modules/learnloop_sidecar/handlers/__init__|learnloop_sidecar.handlers]]
+- [tests/test_ad23_contract.py](../../../../../../tests/test_ad23_contract.py) — imports consumer [[Reference/Modules/learnloop_sidecar/handlers/__init__|learnloop_sidecar.handlers]]
+- [tests/test_ad23_fix_review.py](../../../../../../tests/test_ad23_fix_review.py) — imports consumer [[Reference/Modules/learnloop_sidecar/handlers/__init__|learnloop_sidecar.handlers]]
+- [tests/test_ad23_intent_compose.py](../../../../../../tests/test_ad23_intent_compose.py) — imports consumer [[Reference/Modules/learnloop_sidecar/handlers/__init__|learnloop_sidecar.handlers]]
+- [tests/test_ad23_successor.py](../../../../../../tests/test_ad23_successor.py) — imports consumer [[Reference/Modules/learnloop_sidecar/handlers/__init__|learnloop_sidecar.handlers]]
+- [tests/test_ad2_serving.py](../../../../../../tests/test_ad2_serving.py) — imports consumer [[Reference/Modules/learnloop_sidecar/handlers/__init__|learnloop_sidecar.handlers]]
 
 ## Modification guidance
 

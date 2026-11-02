@@ -11,7 +11,7 @@ source_commit: "b322ef2e9b5cebc241b612e4963a5aaf1a37f99a"
 source_commit_timestamp: "2026-08-20T18:04:29-04:00"
 source_worktree_state: "clean"
 generated: true
-generated_at: "2026-09-23"
+generated_at: "2026-11-02"
 package: "learnloop.substrate"
 layer: "domain"
 concepts:
@@ -153,16 +153,24 @@ The authoritative system-level explanation remains in [[Learning System]], [[Sta
 - [[Reference/Modules/learnloop/diagnosis/robust_composition|learnloop.diagnosis.robust_composition]] — imports `canonical_hash`; statically calls `canonical_hash`
 - [[Reference/Modules/learnloop/goals/exam_pool|learnloop.goals.exam_pool]] — imports `SurfaceAlreadyReserved`, `reserve_surface`, `resolve_legacy_item`; statically calls `reserve_surface`, `resolve_legacy_item`
 - [[Reference/Modules/learnloop/goals/goal_contracts|learnloop.goals.goal_contracts]] — imports `canonical_hash`, `canonical_json`; statically calls `canonical_hash`, `canonical_json`
+- [[Reference/Modules/learnloop/ops/contamination/detectors|learnloop.ops.contamination.detectors]] — imports `evaluate_held_out_eligibility`; statically calls `evaluate_held_out_eligibility`
+- [[Reference/Modules/learnloop/ops/pf_generation|learnloop.ops.pf_generation]] — imports `resolve_legacy_item`; statically calls `resolve_legacy_item`
+- [[Reference/Modules/learnloop/ops/pf_publish|learnloop.ops.pf_publish]] — imports `resolve_legacy_item`; statically calls `resolve_legacy_item`
 - [[Reference/Modules/learnloop/params/parameter_registry|learnloop.params.parameter_registry]] — imports `canonical_hash`; statically calls `canonical_hash`
 - [[Reference/Modules/learnloop/params/sensitivity_certificates|learnloop.params.sensitivity_certificates]] — imports `canonical_hash`; statically calls `canonical_hash`
 - [[Reference/Modules/learnloop/reader/reader_authoring|learnloop.reader.reader_authoring]] — imports `canonical_hash`, `canonical_json`, `log_interaction_event`; statically calls `canonical_hash`, `canonical_json`, `log_interaction_event`
+- [[Reference/Modules/learnloop/reader/reader_cues|learnloop.reader.reader_cues]] — imports `log_interaction_event`; statically calls `log_interaction_event`
 - [[Reference/Modules/learnloop/reader/reader_dialogue|learnloop.reader.reader_dialogue]] — imports `append_exposure`, `log_interaction_event`, `open_administration`, `reserve_surface`, `resolve_legacy_item`; statically calls `append_exposure`, `log_interaction_event`, `open_administration`, `reserve_surface`, `resolve_legacy_item`
+- [[Reference/Modules/learnloop/reader/reader_inquiry|learnloop.reader.reader_inquiry]] — imports `log_interaction_event`; statically calls `log_interaction_event`
 - [[Reference/Modules/learnloop/reader/reader_restoration|learnloop.reader.reader_restoration]] — imports `log_interaction_event`; statically calls `log_interaction_event`
+- [[Reference/Modules/learnloop/reader/recap|learnloop.reader.recap]] — imports `log_interaction_event`; statically calls `log_interaction_event`
+- [[Reference/Modules/learnloop/reader/workbench|learnloop.reader.workbench]] — imports `log_interaction_event`; statically calls `log_interaction_event`
 - [[Reference/Modules/learnloop/scheduling/action_loss|learnloop.scheduling.action_loss]] — imports `canonical_hash`; statically calls `canonical_hash`
 - [[Reference/Modules/learnloop/scheduling/constraint_engine|learnloop.scheduling.constraint_engine]] — imports `canonical_hash`; statically calls `canonical_hash`
 - [[Reference/Modules/learnloop/scheduling/controller_ownership|learnloop.scheduling.controller_ownership]] — imports `canonical_json`; statically calls `canonical_json`
 - [[Reference/Modules/learnloop/scheduling/controller_snapshot|learnloop.scheduling.controller_snapshot]] — imports `canonical_hash`; statically calls `canonical_hash`
 - [[Reference/Modules/learnloop/scheduling/controller_store|learnloop.scheduling.controller_store]] — imports `canonical_json`; statically calls `canonical_json`
+- [[Reference/Modules/learnloop/scheduling/frame_constraints|learnloop.scheduling.frame_constraints]] — imports `fingerprint_of`, `surface_hash`; statically calls `fingerprint_of`, `surface_hash`
 - [[Reference/Modules/learnloop/scheduling/kinship_feature|learnloop.scheduling.kinship_feature]] — imports `canonical_hash`; statically calls `canonical_hash`
 - [[Reference/Modules/learnloop/scheduling/predictive_targets|learnloop.scheduling.predictive_targets]] — imports `canonical_hash`; statically calls `canonical_hash`
 - [[Reference/Modules/learnloop/scheduling/prequential|learnloop.scheduling.prequential]] — imports `canonical_hash`; statically calls `canonical_hash`
@@ -170,13 +178,19 @@ The authoritative system-level explanation remains in [[Learning System]], [[Sta
 - [[Reference/Modules/learnloop/scheduling/progression_policy|learnloop.scheduling.progression_policy]] — imports `canonical_hash`, `canonical_json`; statically calls `canonical_hash`, `canonical_json`
 - [[Reference/Modules/learnloop/scheduling/shadow_components|learnloop.scheduling.shadow_components]] — imports `canonical_hash`; statically calls `canonical_hash`
 - [[Reference/Modules/learnloop/scheduling/staged_policy|learnloop.scheduling.staged_policy]] — imports `canonical_hash`; statically calls `canonical_hash`
+- [[Reference/Modules/learnloop/source_retrieval/kept_comparisons|learnloop.source_retrieval.kept_comparisons]] — imports `log_interaction_event`; statically calls `log_interaction_event`
+- [[Reference/Modules/learnloop/source_retrieval/library_ask|learnloop.source_retrieval.library_ask]] — imports `log_interaction_event`; statically calls `log_interaction_event`
 - [[Reference/Modules/learnloop/substrate/activity_patterns|learnloop.substrate.activity_patterns]] — imports `canonical_hash`, `canonical_json`; statically calls `canonical_hash`, `canonical_json`
 - [[Reference/Modules/learnloop/substrate/compat/activity_backfill|learnloop.substrate.compat.activity_backfill]] — imports `_CONSUMING_PURPOSES`, `_PURPOSE_TO_LEGACY_KIND`, `administration_snapshot_hash`, `canonical_hash`, `canonical_json`, `card_contract_hash`, `card_semantic_payload`, `fingerprint_of`, `resolve_legacy_item`, `surface_hash`, `surface_payload`; statically calls `administration_snapshot_hash`, `canonical_hash`, `canonical_json`, `card_contract_hash`, `card_semantic_payload`, `fingerprint_of`, `resolve_legacy_item`, `surface_hash`, `surface_payload`
 - [[Reference/Modules/learnloop/substrate/compat/substrate_cutover|learnloop.substrate.compat.substrate_cutover]] — imports `module`; statically calls `canonical_hash`, `canonical_json`, `evidence_eligibility_for`
+- [[Reference/Modules/learnloop/substrate/families|learnloop.substrate.families]] — imports `canonical_hash`, `canonical_json`, `resolve_legacy_item`; statically calls `canonical_hash`, `canonical_json`, `resolve_legacy_item`
+- [[Reference/Modules/learnloop/substrate/family_memory|learnloop.substrate.family_memory]] — imports `canonical_json`; statically calls `canonical_json`
 - [[Reference/Modules/learnloop/substrate/surface_mint|learnloop.substrate.surface_mint]] — imports `canonical_json`; statically calls `canonical_json`
 - [[Reference/Modules/learnloop/substrate/surface_pool|learnloop.substrate.surface_pool]] — imports `Administration`, `ResolvedActivity`, `canonical_hash`, `canonical_json`, `open_administration`, `reserve_surface`; statically calls `canonical_hash`, `canonical_json`, `open_administration`, `reserve_surface`
+- [[Reference/Modules/learnloop_sidecar/handlers/figures|learnloop_sidecar.handlers.figures]] — imports `log_interaction_event`; statically calls `log_interaction_event`
 - [[Reference/Modules/learnloop_sidecar/handlers/golden_path|learnloop_sidecar.handlers.golden_path]] — imports `resolve_legacy_item`; statically calls `resolve_legacy_item`
 - [[Reference/Modules/learnloop_sidecar/handlers/ladder|learnloop_sidecar.handlers.ladder]] — imports `resolve_legacy_item`; statically calls `resolve_legacy_item`
+- [[Reference/Modules/learnloop_sidecar/handlers/reader_intent|learnloop_sidecar.handlers.reader_intent]] — imports `log_interaction_event`; statically calls `log_interaction_event`
 
 ### Repository tooling consumers
 
@@ -205,12 +219,13 @@ Use this module in context through:
 - [[Inspect Persistent State]]
 - [[Rebuild and Shadow Compare]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/attempts/attempts|learnloop.attempts.attempts]], [[Reference/Modules/learnloop/attempts/calibration_streams|learnloop.attempts.calibration_streams]], [[Reference/Modules/learnloop/attempts/grade_resolution|learnloop.attempts.grade_resolution]], [[Reference/Modules/learnloop/attempts/grader_calibration|learnloop.attempts.grader_calibration]], [[Reference/Modules/learnloop/attempts/outcome_schemas|learnloop.attempts.outcome_schemas]] and 42 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/attempts/attempts|learnloop.attempts.attempts]], [[Reference/Modules/learnloop/attempts/calibration_streams|learnloop.attempts.calibration_streams]], [[Reference/Modules/learnloop/attempts/grade_resolution|learnloop.attempts.grade_resolution]], [[Reference/Modules/learnloop/attempts/grader_calibration|learnloop.attempts.grader_calibration]], [[Reference/Modules/learnloop/attempts/outcome_schemas|learnloop.attempts.outcome_schemas]] and 56 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
 ## Tests that define behavior
 
+- [tests/mcp_world.py](../../../../../../tests/mcp_world.py) — direct import
 - [tests/test_action_loss.py](../../../../../../tests/test_action_loss.py) — direct import
   - `test_durations_fall_back_to_logged_pooled_then_heuristic`
 - [tests/test_activity_contract_extensions.py](../../../../../../tests/test_activity_contract_extensions.py) — direct import
@@ -221,6 +236,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_inspect_angle_coverage`
   - `test_pin_card_authoring`
   - `test_resolve_progression_policy`
+- [tests/test_activity_families.py](../../../../../../tests/test_activity_families.py) — direct import
+  - `test_apply_undo_preserves_cards_and_owner_edits`
 - [tests/test_activity_substrate.py](../../../../../../tests/test_activity_substrate.py) — direct import
   - `test_cancel_after_render_does_not_restore_pristine`
   - `test_cancel_after_render_emits_no_release_unseen_lifecycle`
@@ -233,6 +250,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_resolve_legacy_item_is_deterministic_and_idempotent`
   - `test_retire_with_reason_records_and_preserves_evidence`
   - `test_second_live_reservation_is_rejected`
+- [tests/test_ad1_reading_opportunities.py](../../../../../../tests/test_ad1_reading_opportunities.py) — direct import
+  - `test_reading_opportunities_frozen_and_ordered_by_source_time`
 - [tests/test_administration_adapters.py](../../../../../../tests/test_administration_adapters.py) — direct import
 - [tests/test_assessment_enforcement.py](../../../../../../tests/test_assessment_enforcement.py) — direct import
   - `test_exposure_collision_at_render_refuses`
@@ -244,12 +263,19 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_two_concurrent_renders_expose_once`
 - [tests/test_card_lineage.py](../../../../../../tests/test_card_lineage.py) — direct import
 - [tests/test_commitment_arcs.py](../../../../../../tests/test_commitment_arcs.py) — direct import
+- [tests/test_contamination_report.py](../../../../../../tests/test_contamination_report.py) — direct import
+  - `test_a_reader_reveal_before_the_assessment_was_taken_stays_in_the_report`
+  - `test_a_reserve_already_burned_by_an_exposure_gets_no_burn_proposal`
+  - `test_reader_reveal_proposes_a_burn_and_never_executes_it`
 - [tests/test_controller_cutover.py](../../../../../../tests/test_controller_cutover.py) — direct import
   - `test_all_six_cutover_gates_pass_in_order`
 - [tests/test_cross_seam_exposure.py](../../../../../../tests/test_cross_seam_exposure.py) — direct import
   - `test_near_clone_collision_loser_is_refused_not_double_exposed`
   - `test_same_surface_exactly_one_wins_via_shared_ledger`
   - `test_stale_ownership_still_prevents_double_administration`
+- [tests/test_deliverable_codex_review.py](../../../../../../tests/test_deliverable_codex_review.py) — direct import
+  - `test_f11_didnt_help_kept_comparisons_and_minutes_reach_the_judge`
+  - `test_f14_the_time_row_counts_each_section_once_and_minutes_read_are_recorded`
 - [tests/test_depth_transition.py](../../../../../../tests/test_depth_transition.py) — direct import
 - [tests/test_event_sufficiency.py](../../../../../../tests/test_event_sufficiency.py) — direct import
 - [tests/test_familiarity.py](../../../../../../tests/test_familiarity.py) — direct import
@@ -262,23 +288,40 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_hot_path_eligibility_cutover.py](../../../../../../tests/test_hot_path_eligibility_cutover.py) — direct import
   - `test_first_ever_ineligible_observation_creates_no_memory_state`
   - `test_ineligible_observation_leaves_mvp08_scheduling_untouched_but_legacy_writes`
+- [tests/test_intent_fix_round5.py](../../../../../../tests/test_intent_fix_round5.py) — direct import
+- [tests/test_intent_fix_round6.py](../../../../../../tests/test_intent_fix_round6.py) — direct import
+  - `test_f19_a_check_on_a_seen_probe_surface_is_refused_under_every_policy`
+  - `test_f19_dl1_pair_plans_are_otherwise_unchanged`
 - [tests/test_journey6.py](../../../../../../tests/test_journey6.py) — direct import
   - `test_journey6_end_to_end_on_fresh_mvp08_vault`
 - [tests/test_kinship_feature.py](../../../../../../tests/test_kinship_feature.py) — direct import
 - [tests/test_laddered_stems.py](../../../../../../tests/test_laddered_stems.py) — direct import
+- [tests/test_library_ask_review.py](../../../../../../tests/test_library_ask_review.py) — direct import
+  - `test_the_pinned_tutor_burns_a_reserve_it_reproduces_and_joins_history_and_gaps`
 - [tests/test_p2_acceptance.py](../../../../../../tests/test_p2_acceptance.py) — direct import
   - `test_golden_path_ten_step_fixture_journey`
 - [tests/test_p2_leakage_suite.py](../../../../../../tests/test_p2_leakage_suite.py) — direct import
   - `test_diagnostic_exposure_consumes_cold_eligibility`
 - [tests/test_p3_journeys.py](../../../../../../tests/test_p3_journeys.py) — direct import
   - `test_arc_and_salience_heads_rebuild_deterministically`
+- [tests/test_pf_generation.py](../../../../../../tests/test_pf_generation.py) — direct import
+  - `test_ensemble_publishes_verified_survivors_as_ordinary_family_items`
 - [tests/test_progression.py](../../../../../../tests/test_progression.py) — direct import
 - [tests/test_reader_authoring.py](../../../../../../tests/test_reader_authoring.py) — direct import
+- [tests/test_reader_branches.py](../../../../../../tests/test_reader_branches.py) — direct import
+  - `test_deep_branch_bounds_prompt_history_without_losing_saved_links`
+  - `test_legacy_flat_exchange_remains_root_and_can_be_followed`
 - [tests/test_reader_dialogue.py](../../../../../../tests/test_reader_dialogue.py) — direct import
   - `test_answer_not_quoting_reserve_leaves_it_eligible`
   - `test_answer_quoting_reserved_surface_burns_it_without_caller_id`
   - `test_ask_warms_and_invalidates_a_revealed_reserve`
   - `test_restore_source_during_cold_burns_eligibility`
+- [tests/test_router_card.py](../../../../../../tests/test_router_card.py) — direct import
+- [tests/test_router_g1_feasibility.py](../../../../../../tests/test_router_g1_feasibility.py) — direct import
+  - `test_a_reserved_assessment_surface_is_refused_on_today`
+- [tests/test_router_g4_restraint.py](../../../../../../tests/test_router_g4_restraint.py) — direct import
+  - `test_a_follow_up_a_hard_constraint_refuses_is_declined_by_name`
+- [tests/test_router_staged_p2.py](../../../../../../tests/test_router_staged_p2.py) — direct import
 - [tests/test_sidecar_golden_path_assessment.py](../../../../../../tests/test_sidecar_golden_path_assessment.py) — direct import
 - [tests/test_sidecar_reader.py](../../../../../../tests/test_sidecar_reader.py) — direct import
   - `test_reader_ask_history_rpc_returns_durable_exchanges`

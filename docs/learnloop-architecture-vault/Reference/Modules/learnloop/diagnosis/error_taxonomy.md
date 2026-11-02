@@ -7,11 +7,11 @@ version: "1.0.0"
 source_path: "src/learnloop/diagnosis/error_taxonomy.py"
 source_paths:
   - "src/learnloop/diagnosis/error_taxonomy.py"
-source_commit: "b322ef2e9b5cebc241b612e4963a5aaf1a37f99a"
-source_commit_timestamp: "2026-08-20T18:04:29-04:00"
+source_commit: "579d0512bb4ef99aa0c62a1e8e08e50eb2562e2e"
+source_commit_timestamp: "2026-10-21T11:34:13-04:00"
 source_worktree_state: "clean"
 generated: true
-generated_at: "2026-09-23"
+generated_at: "2026-11-02"
 package: "learnloop.diagnosis"
 layer: "domain"
 concepts:
@@ -50,17 +50,17 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/diagnosis/error_taxonomy.py](../../../../../../src/learnloop/diagnosis/error_taxonomy.py) |
-| Source lines | 99 |
+| Source lines | 107 |
 | Owning package | [[Reference/Modules/learnloop/diagnosis/_package|learnloop.diagnosis]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `b322ef2e9b5cebc241b612e4963a5aaf1a37f99a` |
-| Commit timestamp | `2026-08-20T18:04:29-04:00` |
+| Source commit | `579d0512bb4ef99aa0c62a1e8e08e50eb2562e2e` |
+| Commit timestamp | `2026-10-21T11:34:13-04:00` |
 
 ## Public API
 
-- `persist_unknown_error_type_proposals(vault: LoadedVault, repository: Repository, *, attributions: Iterable[ValidatedErrorAttribution], attempt_id: str, agent_run_id: str | None, related_concept_id: str | None=None, clock: Clock | None=None) -> str | None` ([source](../../../../../../src/learnloop/diagnosis/error_taxonomy.py), line 22)
+- `persist_unknown_error_type_proposals(vault: LoadedVault, repository: Repository, *, attributions: Iterable[ValidatedErrorAttribution], attempt_id: str, agent_run_id: str | None, related_concept_id: str | None=None, clock: Clock | None=None) -> str | None` ([source](../../../../../../src/learnloop/diagnosis/error_taxonomy.py), line 22) — Propose the error types a grading named that the vault doesn't know.
 
 ### Module constants
 
@@ -68,8 +68,8 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 
 ## Internal implementation anchors
 
-- `_error_type_payload(attribution: ValidatedErrorAttribution, related_concept_id: str | None) -> dict[str, object]` ([source](../../../../../../src/learnloop/diagnosis/error_taxonomy.py), line 82)
-- `_title_from_id(error_type: str) -> str` ([source](../../../../../../src/learnloop/diagnosis/error_taxonomy.py), line 97)
+- `_error_type_payload(attribution: ValidatedErrorAttribution, related_concept_id: str | None) -> dict[str, object]` ([source](../../../../../../src/learnloop/diagnosis/error_taxonomy.py), line 90)
+- `_title_from_id(error_type: str) -> str` ([source](../../../../../../src/learnloop/diagnosis/error_taxonomy.py), line 105)
 
 ## Who imports or calls it
 
@@ -107,20 +107,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
-No test imports this module directly. These tests exercise a direct production consumer:
-
-- [tests/test_agent_run_tokens.py](../../../../../../tests/test_agent_run_tokens.py) — imports consumer [[Reference/Modules/learnloop/attempts/attempts|learnloop.attempts.attempts]]
-- [tests/test_answer_calibration_duel.py](../../../../../../tests/test_answer_calibration_duel.py) — imports consumer [[Reference/Modules/learnloop/attempts/attempts|learnloop.attempts.attempts]]
-- [tests/test_anti_double_count.py](../../../../../../tests/test_anti_double_count.py) — imports consumer [[Reference/Modules/learnloop/attempts/attempts|learnloop.attempts.attempts]]
-- [tests/test_assessment_contracts.py](../../../../../../tests/test_assessment_contracts.py) — imports consumer [[Reference/Modules/learnloop/attempts/attempts|learnloop.attempts.attempts]]
-- [tests/test_attempt_ai_flow.py](../../../../../../tests/test_attempt_ai_flow.py) — imports consumer [[Reference/Modules/learnloop/attempts/attempts|learnloop.attempts.attempts]]
-- [tests/test_attempt_completion.py](../../../../../../tests/test_attempt_completion.py) — imports consumer [[Reference/Modules/learnloop/attempts/attempts|learnloop.attempts.attempts]]
-- [tests/test_attempt_write_order.py](../../../../../../tests/test_attempt_write_order.py) — imports consumer [[Reference/Modules/learnloop/attempts/attempts|learnloop.attempts.attempts]]
-- [tests/test_attempts.py](../../../../../../tests/test_attempts.py) — imports consumer [[Reference/Modules/learnloop/attempts/attempts|learnloop.attempts.attempts]]
-- [tests/test_calibration.py](../../../../../../tests/test_calibration.py) — imports consumer [[Reference/Modules/learnloop/attempts/attempts|learnloop.attempts.attempts]]
-- [tests/test_canonical_projection_rollout.py](../../../../../../tests/test_canonical_projection_rollout.py) — imports consumer [[Reference/Modules/learnloop/attempts/attempts|learnloop.attempts.attempts]]
-- [tests/test_causal_attribution_exhibit.py](../../../../../../tests/test_causal_attribution_exhibit.py) — imports consumer [[Reference/Modules/learnloop/attempts/attempts|learnloop.attempts.attempts]]
-- [tests/test_causal_attribution_p0.py](../../../../../../tests/test_causal_attribution_p0.py) — imports consumer [[Reference/Modules/learnloop/attempts/attempts|learnloop.attempts.attempts]]
+- [tests/test_ux_phase2_error_type_proposals.py](../../../../../../tests/test_ux_phase2_error_type_proposals.py) — direct import
 
 ## Modification guidance
 

@@ -7,11 +7,11 @@ version: "1.0.0"
 source_path: "src/learnloop/content/sources/source_library.py"
 source_paths:
   - "src/learnloop/content/sources/source_library.py"
-source_commit: "b322ef2e9b5cebc241b612e4963a5aaf1a37f99a"
-source_commit_timestamp: "2026-08-20T18:04:29-04:00"
+source_commit: "376c6835ae9c3aa1b63584584d4e63e51e79f6dd"
+source_commit_timestamp: "2026-10-14T16:06:13-04:00"
 source_worktree_state: "clean"
 generated: true
-generated_at: "2026-09-23"
+generated_at: "2026-11-02"
 package: "learnloop.content.sources"
 layer: "domain"
 concepts:
@@ -51,29 +51,30 @@ The authoritative system-level explanation remains in [[Learning System]], [[AI 
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/content/sources/source_library.py](../../../../../../../src/learnloop/content/sources/source_library.py) |
-| Source lines | 154 |
+| Source lines | 174 |
 | Owning package | [[Reference/Modules/learnloop/content/sources/_package|learnloop.content.sources]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `b322ef2e9b5cebc241b612e4963a5aaf1a37f99a` |
-| Commit timestamp | `2026-08-20T18:04:29-04:00` |
+| Source commit | `376c6835ae9c3aa1b63584584d4e63e51e79f6dd` |
+| Commit timestamp | `2026-10-14T16:06:13-04:00` |
 
 ## Public API
 
 - `class RegisteredRevision` ([source](../../../../../../../src/learnloop/content/sources/source_library.py), line 25)
 - `register_source_revision(repo: Repository, *, acquisition_kind: str, canonical_uri: str | None, raw_bytes: bytes, note_id: str | None=None, original_uri: str | None=None, retrieved_at: str | None=None, work_id: str | None=None, display_title: str | None=None, reader_enabled: bool | None=None, vault_root: Path | None=None, clock: Clock | None=None) -> RegisteredRevision` ([source](../../../../../../../src/learnloop/content/sources/source_library.py), line 33) — Register (or reuse) the artifact/revision rows for one acquisition.
-- `index_legacy_note(repo: Repository, *, note_id: str, acquisition_kind: str, canonical_uri: str | None, raw_bytes: bytes, note_path: str | None=None, retrieved_at: str | None=None, clock: Clock | None=None) -> RegisteredRevision` ([source](../../../../../../../src/learnloop/content/sources/source_library.py), line 127) — Index one legacy subject-scoped source note into artifact/revision rows.
+- `index_legacy_note(repo: Repository, *, note_id: str, acquisition_kind: str, canonical_uri: str | None, raw_bytes: bytes, note_path: str | None=None, retrieved_at: str | None=None, clock: Clock | None=None) -> RegisteredRevision` ([source](../../../../../../../src/learnloop/content/sources/source_library.py), line 147) — Index one legacy subject-scoped source note into artifact/revision rows.
 
 ## Internal implementation anchors
 
-No private top-level function or class definition is declared in this file.
+- `_has_completed_reading(repo: Repository, source_id: str) -> bool` ([source](../../../../../../../src/learnloop/content/sources/source_library.py), line 139)
 
 ## Who imports or calls it
 
 > [!note] Static evidence boundary
 > “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
 
+- [[Reference/Modules/learnloop/content/pipeline/add_source|learnloop.content.pipeline.add_source]] — imports `register_source_revision`; statically calls `register_source_revision`
 - [[Reference/Modules/learnloop/content/pipeline/jobs|learnloop.content.pipeline.jobs]] — imports `register_source_revision`; statically calls `register_source_revision`
 
 ## Dependencies
@@ -98,12 +99,17 @@ Use this module in context through:
 - [[Import Canonical Sources]]
 - [[Build a Study Map]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/content/pipeline/jobs|learnloop.content.pipeline.jobs]].
+Static participation evidence comes from [[Reference/Modules/learnloop/content/pipeline/add_source|learnloop.content.pipeline.add_source]], [[Reference/Modules/learnloop/content/pipeline/jobs|learnloop.content.pipeline.jobs]].
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
 ## Tests that define behavior
 
+- [tests/test_capture_domain.py](../../../../../../../tests/test_capture_domain.py) — direct import
+  - `test_purge_retains_canonical_source_original`
+- [tests/test_capture_originals_race.py](../../../../../../../tests/test_capture_originals_race.py) — direct import
+  - `test_source_publication_and_capture_purge_share_writer_reservation`
+- [tests/test_daily_plan_reading.py](../../../../../../../tests/test_daily_plan_reading.py) — direct import
 - [tests/test_ingest_m3.py](../../../../../../../tests/test_ingest_m3.py) — direct import
   - `test_acquisition_preview_reports_recognition_dupes_and_existing`
 - [tests/test_ingest_runner.py](../../../../../../../tests/test_ingest_runner.py) — direct import
@@ -133,6 +139,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_youtube_source_ref_uses_title_captured_during_ingest`
 - [tests/test_span_reanchor.py](../../../../../../../tests/test_span_reanchor.py) — direct import
   - `test_reanchor_aliases_persist`
+- [tests/test_ux_phase1_round2_review.py](../../../../../../../tests/test_ux_phase1_round2_review.py) — direct import
 
 ## Modification guidance
 

@@ -11,7 +11,7 @@ source_commit: "023c920a5462774e45ae8b91031dc310dea10409"
 source_commit_timestamp: "2026-05-28T14:47:32-04:00"
 source_worktree_state: "clean"
 generated: true
-generated_at: "2026-09-23"
+generated_at: "2026-11-02"
 package: "learnloop.ingest"
 layer: "infrastructure"
 concepts:
@@ -78,6 +78,7 @@ No private top-level function or class definition is declared in this file.
 > “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
 
 - [[Reference/Modules/learnloop/content/pipeline/acquisition_preview|learnloop.content.pipeline.acquisition_preview]] — imports `UnsupportedSourceError`
+- [[Reference/Modules/learnloop/content/pipeline/add_source|learnloop.content.pipeline.add_source]] — imports `UnsupportedSourceError`
 - [[Reference/Modules/learnloop/content/pipeline/source_ingestion|learnloop.content.pipeline.source_ingestion]] — imports `UnsupportedSourceError`
 - [[Reference/Modules/learnloop/ingest/__init__|learnloop.ingest]] — imports `FetchedSource`, `IngestDependencyMissing`, `IngestError`, `IngestResult`, `SourceFetchError`, `UnsupportedSourceError`
 - [[Reference/Modules/learnloop/ingest/fetchers|learnloop.ingest.fetchers]] — imports `FetchedSource`, `IngestDependencyMissing`, `SourceFetchError`, `UnsupportedSourceError`; statically calls `FetchedSource`, `IngestDependencyMissing`, `SourceFetchError`, `UnsupportedSourceError`
@@ -102,7 +103,7 @@ Use this module in context through:
 
 - [[Import Canonical Sources]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/content/pipeline/acquisition_preview|learnloop.content.pipeline.acquisition_preview]], [[Reference/Modules/learnloop/content/pipeline/source_ingestion|learnloop.content.pipeline.source_ingestion]], [[Reference/Modules/learnloop/ingest/__init__|learnloop.ingest]], [[Reference/Modules/learnloop/ingest/fetchers|learnloop.ingest.fetchers]], [[Reference/Modules/learnloop/ingest/resolution|learnloop.ingest.resolution]] and 2 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/content/pipeline/acquisition_preview|learnloop.content.pipeline.acquisition_preview]], [[Reference/Modules/learnloop/content/pipeline/add_source|learnloop.content.pipeline.add_source]], [[Reference/Modules/learnloop/content/pipeline/source_ingestion|learnloop.content.pipeline.source_ingestion]], [[Reference/Modules/learnloop/ingest/__init__|learnloop.ingest]], [[Reference/Modules/learnloop/ingest/fetchers|learnloop.ingest.fetchers]] and 3 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 

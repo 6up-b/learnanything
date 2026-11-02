@@ -11,7 +11,7 @@ source_commit: "b322ef2e9b5cebc241b612e4963a5aaf1a37f99a"
 source_commit_timestamp: "2026-08-20T18:04:29-04:00"
 source_worktree_state: "clean"
 generated: true
-generated_at: "2026-09-23"
+generated_at: "2026-11-02"
 package: "learnloop_sidecar.handlers"
 layer: "adapter"
 concepts:
@@ -84,8 +84,11 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop_sidecar/handlers/exams|learnloop_sidecar.handlers.exams]] — imports `ready_grading_provider`; statically calls `ready_grading_provider`
 - [[Reference/Modules/learnloop_sidecar/handlers/feedback|learnloop_sidecar.handlers.feedback]] — imports `client_for_provider`, `grading_source_for_provider`, `provider_label`, `ready_grading_provider`; statically calls `client_for_provider`, `grading_source_for_provider`, `provider_label`, `ready_grading_provider`
 - [[Reference/Modules/learnloop_sidecar/handlers/ingest|learnloop_sidecar.handlers.ingest]] — imports `ready_canonical_ingest_provider`; statically calls `ready_canonical_ingest_provider`
+- [[Reference/Modules/learnloop_sidecar/handlers/lesson|learnloop_sidecar.handlers.lesson]] — imports `MANUAL_PROVIDER`, `grading_source_for_provider`, `provider_label`, `ready_grading_provider`; statically calls `grading_source_for_provider`, `provider_label`, `ready_grading_provider`
+- [[Reference/Modules/learnloop_sidecar/handlers/library_ask|learnloop_sidecar.handlers.library_ask]] — imports `provider_label`, `ready_tutor_qa_provider`; statically calls `provider_label`, `ready_tutor_qa_provider`
 - [[Reference/Modules/learnloop_sidecar/handlers/practice|learnloop_sidecar.handlers.practice]] — imports `ready_grading_provider`; statically calls `ready_grading_provider`
 - [[Reference/Modules/learnloop_sidecar/handlers/reader|learnloop_sidecar.handlers.reader]] — imports `provider_label`, `ready_canonical_ingest_provider`, `ready_tutor_qa_provider`; statically calls `provider_label`, `ready_canonical_ingest_provider`, `ready_tutor_qa_provider`
+- [[Reference/Modules/learnloop_sidecar/handlers/reader_intent|learnloop_sidecar.handlers.reader_intent]] — imports `ready_canonical_ingest_provider`; statically calls `ready_canonical_ingest_provider`
 - [[Reference/Modules/learnloop_sidecar/handlers/teach_back|learnloop_sidecar.handlers.teach_back]] — imports `MANUAL_PROVIDER`, `grading_source_for_provider`, `provider_label`, `ready_grading_provider`, `ready_teach_back_provider`; statically calls `grading_source_for_provider`, `provider_label`, `ready_grading_provider`, `ready_teach_back_provider`
 - [[Reference/Modules/learnloop_sidecar/handlers/tutor_qa|learnloop_sidecar.handlers.tutor_qa]] — imports `provider_label`, `ready_tutor_qa_provider`; statically calls `provider_label`, `ready_tutor_qa_provider`
 
@@ -112,14 +115,40 @@ Use this module in context through:
 
 - [[Configure AI Providers]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop_sidecar/handlers/__init__|learnloop_sidecar.handlers]], [[Reference/Modules/learnloop_sidecar/handlers/calibration|learnloop_sidecar.handlers.calibration]], [[Reference/Modules/learnloop_sidecar/handlers/exams|learnloop_sidecar.handlers.exams]], [[Reference/Modules/learnloop_sidecar/handlers/feedback|learnloop_sidecar.handlers.feedback]], [[Reference/Modules/learnloop_sidecar/handlers/ingest|learnloop_sidecar.handlers.ingest]] and 4 more.
+Static participation evidence comes from [[Reference/Modules/learnloop_sidecar/handlers/__init__|learnloop_sidecar.handlers]], [[Reference/Modules/learnloop_sidecar/handlers/calibration|learnloop_sidecar.handlers.calibration]], [[Reference/Modules/learnloop_sidecar/handlers/exams|learnloop_sidecar.handlers.exams]], [[Reference/Modules/learnloop_sidecar/handlers/feedback|learnloop_sidecar.handlers.feedback]], [[Reference/Modules/learnloop_sidecar/handlers/ingest|learnloop_sidecar.handlers.ingest]] and 7 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
 ## Tests that define behavior
 
+- [tests/test_keep_local_retired.py](../../../../../../tests/test_keep_local_retired.py) — direct import
+  - `test_the_reader_asks_about_a_book_carrying_the_retired_choice`
+- [tests/test_library_ask.py](../../../../../../tests/test_library_ask.py) — direct import
+  - `test_every_rw4a_event_is_salience_only_refused_as_evidence_and_never_client_recorded`
+  - `test_the_tutor_answers_only_from_the_pinned_passages`
+- [tests/test_library_ask_review.py](../../../../../../tests/test_library_ask_review.py) — direct import
+- [tests/test_library_exercises.py](../../../../../../tests/test_library_exercises.py) — direct import
+  - `test_a_fallback_pick_is_not_exposed_by_its_own_listing_and_its_request_reaches_the_import_unchanged`
+  - `test_use_this_one_on_a_fallback_exercise_runs_the_readers_import_unchanged`
 - [tests/test_provider_resolution_parity.py](../../../../../../tests/test_provider_resolution_parity.py) — direct import
   - `test_config_matrix_executes_all_six_production_resolution_paths`
+- [tests/test_reader_ca3_codex_rereview.py](../../../../../../tests/test_reader_ca3_codex_rereview.py) — direct import
+- [tests/test_reader_ca3_codex_round3.py](../../../../../../tests/test_reader_ca3_codex_round3.py) — direct import
+- [tests/test_reader_ca4_landing.py](../../../../../../tests/test_reader_ca4_landing.py) — direct import
+- [tests/test_reader_reconstruct.py](../../../../../../tests/test_reader_reconstruct.py) — direct import
+  - `test_every_rw1b_event_is_salience_only_refused_as_evidence_and_never_client_recorded`
+- [tests/test_reader_workbench_rw2a.py](../../../../../../tests/test_reader_workbench_rw2a.py) — direct import
+  - `test_round4_f2_held_assistance_on_an_independent_only_item_is_assisted_on_every_submit_path_and_after_replay`
+- [tests/test_reading_hardening_landing.py](../../../../../../tests/test_reading_hardening_landing.py) — direct import
+  - `test_asking_for_a_held_out_sections_check_is_refused_before_anything_is_queued`
+- [tests/test_regrade_contract_replay.py](../../../../../../tests/test_regrade_contract_replay.py) — direct import
+  - `test_case1_a_contest_of_a_model_grade_above_its_original_maximum_looks_again`
+- [tests/test_regrade_contract_successor.py](../../../../../../tests/test_regrade_contract_successor.py) — direct import
+- [tests/test_ux_phase4_feedback.py](../../../../../../tests/test_ux_phase4_feedback.py) — direct import
+  - `test_f3_a_contest_the_regrade_does_not_uphold_is_queued`
+  - `test_f3_a_contest_the_regrade_upholds_needs_no_review`
+  - `test_i_think_i_was_right_regrades_in_place_and_never_hands_the_reason_to_the_grader`
+- [tests/test_ux_phase4_landing.py](../../../../../../tests/test_ux_phase4_landing.py) — direct import
 
 ## Modification guidance
 

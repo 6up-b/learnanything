@@ -7,11 +7,11 @@ version: "1.0.0"
 source_path: "src/learnloop/attempts/coldness_receipt.py"
 source_paths:
   - "src/learnloop/attempts/coldness_receipt.py"
-source_commit: "b322ef2e9b5cebc241b612e4963a5aaf1a37f99a"
-source_commit_timestamp: "2026-08-20T18:04:29-04:00"
+source_commit: "09be911f9dcb62f26cf73bc0610472b186f8b588"
+source_commit_timestamp: "2026-10-27T18:29:41-04:00"
 source_worktree_state: "clean"
 generated: true
-generated_at: "2026-09-23"
+generated_at: "2026-11-02"
 package: "learnloop.attempts"
 layer: "domain"
 concepts:
@@ -50,22 +50,23 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/attempts/coldness_receipt.py](../../../../../../src/learnloop/attempts/coldness_receipt.py) |
-| Source lines | 2035 |
+| Source lines | 2144 |
 | Owning package | [[Reference/Modules/learnloop/attempts/_package|learnloop.attempts]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `b322ef2e9b5cebc241b612e4963a5aaf1a37f99a` |
-| Commit timestamp | `2026-08-20T18:04:29-04:00` |
+| Source commit | `09be911f9dcb62f26cf73bc0610472b186f8b588` |
+| Commit timestamp | `2026-10-27T18:29:41-04:00` |
 
 ## Public API
 
-- `class ColdnessEvaluation` ([source](../../../../../../src/learnloop/attempts/coldness_receipt.py), line 1433) — One computed set of dimensions, ready to store or to gate on.
-- `evaluate_final_coldness(vault: LoadedVault, repository: Repository, *, task: Mapping[str, Any], cold_attempt_id: str | None, clock: Clock | None=None) -> ColdnessEvaluation` ([source](../../../../../../src/learnloop/attempts/coldness_receipt.py), line 1692) — Compute the final-stage dimensions.
-- `record_administration_snapshot(vault: LoadedVault, repository: Repository, *, task: Mapping[str, Any], clock: Clock | None=None) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/attempts/coldness_receipt.py), line 1789) — Stage 1: the serving-time snapshot, idempotent per follow-up task.
-- `record_certification_administration_snapshot(vault: LoadedVault, repository: Repository, *, task: Mapping[str, Any], clock: Clock | None=None) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/attempts/coldness_receipt.py), line 1867) — Named certification-lane adapter for callers that require lane clarity.
-- `record_final_receipt(repository: Repository, *, task: Mapping[str, Any], evaluation: ColdnessEvaluation, outcome: str, cold_attempt_id: str | None=None, cold_verification_id: str | None=None, lane: str=LANE_REPAIR_COLD_RETRY, clock: Clock | None=None) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/attempts/coldness_receipt.py), line 1883) — Stage 2: the terminal receipt — measured verifications AND refusals.
-- `record_schedule_refusal_receipt(repository: Repository, *, opportunity: Mapping[str, Any], decision: str, reason: str, candidate_summary: Mapping[str, Any] | None=None, clock: Clock | None=None) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/attempts/coldness_receipt.py), line 1944) — Record a terminal receipt when no task could be scheduled.
+- `class ColdnessEvaluation` ([source](../../../../../../src/learnloop/attempts/coldness_receipt.py), line 1503) — One computed set of dimensions, ready to store or to gate on.
+- `repair_surface_hard_contamination(vault: LoadedVault, repository: Repository, *, source_attempt: Mapping[str, Any] | None, cold_item_id: str, case_ref: str | None, until: str) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/attempts/coldness_receipt.py), line 1588) — The hard contamination a repair cold retry on ``cold_item_id`` would already carry if it were scheduled now: the final receipt's own scan (:func:`_scan_exposures`, repair lane) from the primed ``source_attempt`` to ``until``, read through :func:`_hard_contamination` (the item's…
+- `evaluate_final_coldness(vault: LoadedVault, repository: Repository, *, task: Mapping[str, Any], cold_attempt_id: str | None, clock: Clock | None=None) -> ColdnessEvaluation` ([source](../../../../../../src/learnloop/attempts/coldness_receipt.py), line 1800) — Compute the final-stage dimensions.
+- `record_administration_snapshot(vault: LoadedVault, repository: Repository, *, task: Mapping[str, Any], clock: Clock | None=None) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/attempts/coldness_receipt.py), line 1897) — Stage 1: the serving-time snapshot, idempotent per follow-up task.
+- `record_certification_administration_snapshot(vault: LoadedVault, repository: Repository, *, task: Mapping[str, Any], clock: Clock | None=None) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/attempts/coldness_receipt.py), line 1975) — Named certification-lane adapter for callers that require lane clarity.
+- `record_final_receipt(repository: Repository, *, task: Mapping[str, Any], evaluation: ColdnessEvaluation, outcome: str, cold_attempt_id: str | None=None, cold_verification_id: str | None=None, lane: str=LANE_REPAIR_COLD_RETRY, clock: Clock | None=None) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/attempts/coldness_receipt.py), line 1991) — Stage 2: the terminal receipt — measured verifications AND refusals.
+- `record_schedule_refusal_receipt(repository: Repository, *, opportunity: Mapping[str, Any], decision: str, reason: str, candidate_summary: Mapping[str, Any] | None=None, clock: Clock | None=None) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/attempts/coldness_receipt.py), line 2052) — Record a terminal receipt when no task could be scheduled.
 
 ### Module constants
 
@@ -105,6 +106,7 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 - `record_certification_administration_snapshot`
 - `record_final_receipt`
 - `record_schedule_refusal_receipt`
+- `repair_surface_hard_contamination`
 
 ## Internal implementation anchors
 
@@ -127,13 +129,15 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 - `_window_integrity(*, task: Mapping[str, Any], open_at: str | None, submit_at: str | None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/attempts/coldness_receipt.py), line 1115)
 - `_grading_identity(repository: Repository, attempt_id: str | None) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/attempts/coldness_receipt.py), line 1155) — Who graded one attempt: channel, tiers, and the agent run behind it.
 - `_run_separation(source: Mapping[str, Any] | None, cold: Mapping[str, Any] | None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/attempts/coldness_receipt.py), line 1211) — Half one: did a DIFFERENT run grade the cold attempt?
-- `_context_blinding(repository: Repository, *, source_attempt_id: str | None, cold_attempt_id: str | None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/attempts/coldness_receipt.py), line 1244) — Half two: was the cold grading call given repair/diagnosis context?
-- `_verification_blinding(repository: Repository, *, source_attempt_id: str | None, cold_attempt_id: str | None, cold_attempt: Mapping[str, Any] | None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/attempts/coldness_receipt.py), line 1308) — Two independent halves, recorded separately and reported separately.
-- `_unassisted(cold_attempt: Mapping[str, Any] | None, scan: Mapping[str, Any] | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/attempts/coldness_receipt.py), line 1387) — Was the cold attempt taken without assistance — flags AND ledger.
-- `_derive(dimensions: Mapping[str, Any], scan: Mapping[str, Any] | None, *, stage: str, lane: str=LANE_REPAIR_COLD_RETRY) -> dict[str, Any]` ([source](../../../../../../src/learnloop/attempts/coldness_receipt.py), line 1446)
-- `_hard_contamination(scan: Mapping[str, Any]) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/attempts/coldness_receipt.py), line 1502)
-- `_evaluate(vault: LoadedVault, repository: Repository, *, task: Mapping[str, Any], stage: str, cold_attempt_id: str | None, open_at: str | None, now_iso: str) -> ColdnessEvaluation` ([source](../../../../../../src/learnloop/attempts/coldness_receipt.py), line 1518)
-- `_apply_episode_reveal_budget(derived: dict[str, Any], task: Mapping[str, Any]) -> None` ([source](../../../../../../src/learnloop/attempts/coldness_receipt.py), line 1742) — Downgrade the repair-effect CLAIM when the episode overspent its reveals.
+- `_diagnosis_run_ids(repository: Repository, attempt_id: str | None) -> list[str]` ([source](../../../../../../src/learnloop/attempts/coldness_receipt.py), line 1244)
+- `_diagnoser_saw_source(repository: Repository, *, source_attempt_id: str | None, cold_attempt_id: str | None) -> bool | None` ([source](../../../../../../src/learnloop/attempts/coldness_receipt.py), line 1259) — Informational (§10): did the cold attempt's diagnosis context include the repair chain's source attempt?
+- `_context_blinding(repository: Repository, *, source_attempt_id: str | None, cold_attempt_id: str | None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/attempts/coldness_receipt.py), line 1286) — Half two: was the cold grading call given repair/diagnosis context?
+- `_verification_blinding(repository: Repository, *, source_attempt_id: str | None, cold_attempt_id: str | None, cold_attempt: Mapping[str, Any] | None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/attempts/coldness_receipt.py), line 1367) — Two independent halves, recorded separately and reported separately.
+- `_unassisted(cold_attempt: Mapping[str, Any] | None, scan: Mapping[str, Any] | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/attempts/coldness_receipt.py), line 1457) — Was the cold attempt taken without assistance — flags AND ledger.
+- `_derive(dimensions: Mapping[str, Any], scan: Mapping[str, Any] | None, *, stage: str, lane: str=LANE_REPAIR_COLD_RETRY) -> dict[str, Any]` ([source](../../../../../../src/learnloop/attempts/coldness_receipt.py), line 1516)
+- `_hard_contamination(scan: Mapping[str, Any]) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/attempts/coldness_receipt.py), line 1572)
+- `_evaluate(vault: LoadedVault, repository: Repository, *, task: Mapping[str, Any], stage: str, cold_attempt_id: str | None, open_at: str | None, now_iso: str) -> ColdnessEvaluation` ([source](../../../../../../src/learnloop/attempts/coldness_receipt.py), line 1626)
+- `_apply_episode_reveal_budget(derived: dict[str, Any], task: Mapping[str, Any]) -> None` ([source](../../../../../../src/learnloop/attempts/coldness_receipt.py), line 1850) — Downgrade the repair-effect CLAIM when the episode overspent its reveals.
 
 ## Who imports or calls it
 
@@ -141,7 +145,7 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 > “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
 
 - [[Reference/Modules/learnloop/diagnosis/causal_orchestrator|learnloop.diagnosis.causal_orchestrator]] — imports `evaluate_final_coldness`, `record_final_receipt`; statically calls `evaluate_final_coldness`, `record_final_receipt`
-- [[Reference/Modules/learnloop/diagnosis/remediation|learnloop.diagnosis.remediation]] — imports `LANE_REPAIR_COLD_RETRY`, `record_schedule_refusal_receipt`; statically calls `record_schedule_refusal_receipt`
+- [[Reference/Modules/learnloop/diagnosis/remediation|learnloop.diagnosis.remediation]] — imports `LANE_REPAIR_COLD_RETRY`, `evaluate_final_coldness`, `record_final_receipt`, `record_schedule_refusal_receipt`, `repair_surface_hard_contamination`; statically calls `evaluate_final_coldness`, `record_final_receipt`, `record_schedule_refusal_receipt`, `repair_surface_hard_contamination`
 - [[Reference/Modules/learnloop/goals/certification_cold_probe|learnloop.goals.certification_cold_probe]] — imports `LANE_CERTIFICATION_COLD_PROBE`, `evaluate_final_coldness`, `record_final_receipt`, `record_schedule_refusal_receipt`; statically calls `evaluate_final_coldness`, `record_final_receipt`, `record_schedule_refusal_receipt`
 - [[Reference/Modules/learnloop_sidecar/handlers/serializers|learnloop_sidecar.handlers.serializers]] — imports `record_administration_snapshot`, `record_certification_administration_snapshot`; statically calls `record_administration_snapshot`, `record_certification_administration_snapshot`
 
@@ -175,18 +179,28 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 - [tests/test_certification_cold_probe.py](../../../../../../tests/test_certification_cold_probe.py) — direct import
   - `test_probe_records_a_durable_versioned_label`
+- [tests/test_cold_retry_reschedule.py](../../../../../../tests/test_cold_retry_reschedule.py) — direct import
+  - `test_the_fresh_retry_is_invisible_until_due_then_measures_the_repair_cold`
 - [tests/test_coldness_receipt.py](../../../../../../tests/test_coldness_receipt.py) — direct import
+  - `test_blind_cold_grade_passes_context_blinding_and_reports_the_diagnoser_view`
   - `test_coldness_receipts_are_append_only`
   - `test_delivered_passages_in_interval_are_typed_exposure_not_indeterminate`
   - `test_feedback_reopen_on_the_source_attempt_is_a_soft_exposure`
   - `test_happy_path_snapshot_verification_and_final_receipt`
   - `test_min_cold_delay_mirrors_the_lane_scheduling_constant`
+  - `test_null_grader_mode_reads_as_joint_and_keeps_the_joint_receipt_shape`
   - `test_over_budget_episode_downgrades_the_repair_effect_claim`
   - `test_prescription_without_a_delivery_record_is_unknown_not_pass`
   - `test_retrieval_cointervention_demotes_attribution_not_the_verification`
   - `test_reveal_on_the_cold_item_fails_leakage_and_unassisted`
+  - `test_run_separation_fails_when_the_cold_grader_shares_a_diagnosis_run`
   - `test_verification_blinding_is_unknown_without_a_grading_context_receipt`
   - `test_within_budget_episode_records_the_spend_without_downgrading`
+- [tests/test_held_grade_evidence.py](../../../../../../tests/test_held_grade_evidence.py) — direct import
+  - `test_f3_a_held_cold_probe_abstains_from_certification_validation`
+  - `test_review_f2_a_scored_cold_probe_regraded_into_a_hold_abstains`
+- [tests/test_reader_ca5a_find_section.py](../../../../../../tests/test_reader_ca5a_find_section.py) — direct import
+  - `test_f2_a_peeked_paragraph_that_is_a_cold_items_source_makes_the_receipt_see_it`
 
 ## Modification guidance
 

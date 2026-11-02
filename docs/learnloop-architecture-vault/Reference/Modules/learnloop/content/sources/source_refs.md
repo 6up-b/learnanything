@@ -7,11 +7,11 @@ version: "1.0.0"
 source_path: "src/learnloop/content/sources/source_refs.py"
 source_paths:
   - "src/learnloop/content/sources/source_refs.py"
-source_commit: "b322ef2e9b5cebc241b612e4963a5aaf1a37f99a"
-source_commit_timestamp: "2026-08-20T18:04:29-04:00"
+source_commit: "c040c980318012a2f941bd79741d340857125fad"
+source_commit_timestamp: "2026-10-13T22:15:42-04:00"
 source_worktree_state: "clean"
 generated: true
-generated_at: "2026-09-23"
+generated_at: "2026-11-02"
 package: "learnloop.content.sources"
 layer: "domain"
 concepts:
@@ -56,8 +56,8 @@ The authoritative system-level explanation remains in [[Learning System]], [[AI 
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `b322ef2e9b5cebc241b612e4963a5aaf1a37f99a` |
-| Commit timestamp | `2026-08-20T18:04:29-04:00` |
+| Source commit | `c040c980318012a2f941bd79741d340857125fad` |
+| Commit timestamp | `2026-10-13T22:15:42-04:00` |
 
 ## Public API
 

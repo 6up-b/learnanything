@@ -11,7 +11,7 @@ source_commit: "b322ef2e9b5cebc241b612e4963a5aaf1a37f99a"
 source_commit_timestamp: "2026-08-20T18:04:29-04:00"
 source_worktree_state: "clean"
 generated: true
-generated_at: "2026-09-23"
+generated_at: "2026-11-02"
 package: "learnloop.ai"
 layer: "infrastructure"
 concepts:
@@ -88,6 +88,7 @@ The authoritative system-level explanation remains in [[AI Architecture]], [[Arc
 > [!note] Static evidence boundary
 > “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
 
+- [[Reference/Modules/learnloop/ai/providers/chatgpt_plan|learnloop.ai.providers.chatgpt_plan]] — imports `strict_output_schema`; statically calls `strict_output_schema`
 - [[Reference/Modules/learnloop/ai/providers/codex|learnloop.ai.providers.codex]] — imports `strict_output_schema`; statically calls `strict_output_schema`
 - [[Reference/Modules/learnloop/ai/providers/openai_chat|learnloop.ai.providers.openai_chat]] — imports `strict_output_schema`; statically calls `strict_output_schema`
 - [[Reference/Modules/learnloop/ai/providers/structured_output|learnloop.ai.providers.structured_output]] — imports `strict_output_schema`; statically calls `strict_output_schema`
@@ -111,12 +112,17 @@ Use this module in context through:
 - [[Configure AI Providers]]
 - [[Process Model Output]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/ai/providers/codex|learnloop.ai.providers.codex]], [[Reference/Modules/learnloop/ai/providers/openai_chat|learnloop.ai.providers.openai_chat]], [[Reference/Modules/learnloop/ai/providers/structured_output|learnloop.ai.providers.structured_output]], [[Reference/Modules/learnloop/content/proposals/proposals|learnloop.content.proposals.proposals]].
+Static participation evidence comes from [[Reference/Modules/learnloop/ai/providers/chatgpt_plan|learnloop.ai.providers.chatgpt_plan]], [[Reference/Modules/learnloop/ai/providers/codex|learnloop.ai.providers.codex]], [[Reference/Modules/learnloop/ai/providers/openai_chat|learnloop.ai.providers.openai_chat]], [[Reference/Modules/learnloop/ai/providers/structured_output|learnloop.ai.providers.structured_output]], [[Reference/Modules/learnloop/content/proposals/proposals|learnloop.content.proposals.proposals]].
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
 ## Tests that define behavior
 
+- [tests/router_model_fakes.py](../../../../../../tests/router_model_fakes.py) — direct import
+- [tests/test_approach_maps.py](../../../../../../tests/test_approach_maps.py) — direct import
+  - `test_r1_the_builders_output_schema_requires_the_structured_fields`
+- [tests/test_blind_grading_contract.py](../../../../../../tests/test_blind_grading_contract.py) — direct import
+  - `test_generation_order_is_local_analysis_then_traces_then_facets_last`
 - [tests/test_causal_attribution_p0.py](../../../../../../tests/test_causal_attribution_p0.py) — direct import
   - `test_grading_schema_is_prose_first`
 - [tests/test_codex_output_schema.py](../../../../../../tests/test_codex_output_schema.py) — direct import
@@ -126,6 +132,18 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_no_new_open_keyed_map_fields_are_introduced`
   - `test_output_schema_refuses_a_model_outside_the_wire_hierarchy`
   - `test_strict_schema_preserves_a_field_named_title`
+- [tests/test_diagnosis_contract.py](../../../../../../tests/test_diagnosis_contract.py) — direct import
+  - `test_generation_order_differs_by_mode_and_normalizes`
+- [tests/test_facet_reword_confirm_review.py](../../../../../../tests/test_facet_reword_confirm_review.py) — direct import
+  - `test_the_append_schema_lets_a_provider_send_a_title_and_worked_examples`
+- [tests/test_facet_reword_paths.py](../../../../../../tests/test_facet_reword_paths.py) — direct import
+  - `test_the_append_schema_lets_a_facet_reword_cite_its_spans`
+  - `test_the_append_schema_lets_a_provider_reword_a_facet`
+- [tests/test_practice_index_text.py](../../../../../../tests/test_practice_index_text.py) — direct import
+  - `test_wire_contracts_are_strict`
+- [tests/test_reader_rw5d_p4b_teacher_visuals.py](../../../../../../tests/test_reader_rw5d_p4b_teacher_visuals.py) — direct import
+- [tests/test_router_r2b_requests.py](../../../../../../tests/test_router_r2b_requests.py) — direct import
+  - `test_every_router_answer_model_has_the_strict_schema_the_transports_send`
 
 ## Modification guidance
 

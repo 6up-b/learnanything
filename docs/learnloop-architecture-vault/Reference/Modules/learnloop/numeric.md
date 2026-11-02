@@ -7,11 +7,11 @@ version: "1.0.0"
 source_path: "src/learnloop/numeric.py"
 source_paths:
   - "src/learnloop/numeric.py"
-source_commit: "49f8dc415492edd91c09d47c911fc1530c675242"
-source_commit_timestamp: "2026-07-27T02:40:21-04:00"
+source_commit: "3f204eec779cc629049675a72041e50efe7d977c"
+source_commit_timestamp: "2026-10-13T00:45:41-04:00"
 source_worktree_state: "clean"
 generated: true
-generated_at: "2026-09-23"
+generated_at: "2026-11-02"
 package: "learnloop"
 layer: "primitive"
 concepts:
@@ -39,7 +39,7 @@ Up: [[Reference/Modules/learnloop/_package|learnloop]] · Root: [[Module Catalog
 
 ## Why this module exists
 
-This module keeps numeric behavior inside its owning package, [[Reference/Modules/learnloop/_package|learnloop]]. Its public surface centers on `clamp`, `sigmoid`, `empirical_quantile`, `percentiles`, `beta_mean`, `regularized_incomplete_beta`, `beta_quantile`, `binomial_two_sided_p`.
+This module keeps numeric behavior inside its owning package, [[Reference/Modules/learnloop/_package|learnloop]]. Its public surface centers on `clamp`, `sigmoid`, `empirical_quantile`, `percentiles`, `beta_mean`, `regularized_incomplete_beta`, `beta_quantile`, `student_t_quantile` and 2 more public symbols.
 
 The authoritative system-level explanation remains in [[Architecture Overview]]; this note records where this source module participates rather than restating those concepts.
 
@@ -50,13 +50,13 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/numeric.py](../../../../../src/learnloop/numeric.py) |
-| Source lines | 169 |
+| Source lines | 241 |
 | Owning package | [[Reference/Modules/learnloop/_package|learnloop]] |
 | Architecture layer | `primitive` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `49f8dc415492edd91c09d47c911fc1530c675242` |
-| Commit timestamp | `2026-07-27T02:40:21-04:00` |
+| Source commit | `3f204eec779cc629049675a72041e50efe7d977c` |
+| Commit timestamp | `2026-10-13T00:45:41-04:00` |
 
 ## Public API
 
@@ -67,7 +67,13 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `beta_mean(alpha: float, beta: float) -> float` ([source](../../../../../src/learnloop/numeric.py), line 43) — Mean of a Beta(alpha, beta) distribution.
 - `regularized_incomplete_beta(x: float, a: float, b: float) -> float` ([source](../../../../../src/learnloop/numeric.py), line 51) — Regularized incomplete beta function I_x(a, b) = Beta CDF at x.
 - `beta_quantile(q: float, alpha: float, beta: float) -> float` ([source](../../../../../src/learnloop/numeric.py), line 115) — Inverse Beta CDF (ppf) by bisection on the monotone regularized I_x.
-- `binomial_two_sided_p(successes: int, trials: int, p: float=0.5) -> float` ([source](../../../../../src/learnloop/numeric.py), line 142) — Exact two-sided binomial tail probability under ``p`` (small ``trials``).
+- `student_t_quantile(p: float, df: float) -> float` ([source](../../../../../src/learnloop/numeric.py), line 143) — Inverse CDF of Student's t with ``df`` degrees of freedom.
+- `binomial_two_sided_p(successes: int, trials: int, p: float=0.5) -> float` ([source](../../../../../src/learnloop/numeric.py), line 162) — Exact two-sided binomial tail probability under ``p`` (small ``trials``).
+- `brier_decomposition(outcomes: Sequence[float], forecasts: Sequence[float], *, bins: int=10) -> dict` ([source](../../../../../src/learnloop/numeric.py), line 195) — Murphy's split of the Brier score: reliability, resolution, uncertainty.
+
+### Module constants
+
+- `BRIER_DECOMPOSITION_METHOD` ([src/learnloop/numeric.py](../../../../../src/learnloop/numeric.py), line 192)
 
 ## Internal implementation anchors
 
@@ -87,6 +93,8 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop/diagnosis/gate_fit|learnloop.diagnosis.gate_fit]] — imports `sigmoid`; statically calls `sigmoid`
 - [[Reference/Modules/learnloop/diagnosis/gate_score|learnloop.diagnosis.gate_score]] — imports `sigmoid`; statically calls `sigmoid`
 - [[Reference/Modules/learnloop/diagnosis/signal_quantiles|learnloop.diagnosis.signal_quantiles]] — imports `empirical_quantile`; statically calls `empirical_quantile`
+- [[Reference/Modules/learnloop/field/evaluation|learnloop.field.evaluation]] — imports `brier_decomposition`, `student_t_quantile`; statically calls `brier_decomposition`, `student_t_quantile`
+- [[Reference/Modules/learnloop/goals/exam_calibration|learnloop.goals.exam_calibration]] — imports `brier_decomposition`; statically calls `brier_decomposition`
 - [[Reference/Modules/learnloop/goals/goal_projection|learnloop.goals.goal_projection]] — imports `clamp`; statically calls `clamp`
 - [[Reference/Modules/learnloop/learner/blueprint_projection|learnloop.learner.blueprint_projection]] — imports `clamp`; statically calls `clamp`
 - [[Reference/Modules/learnloop/learner/facet_diagnostics|learnloop.learner.facet_diagnostics]] — imports `clamp`; statically calls `clamp`
@@ -115,7 +123,7 @@ Use this module in context through:
 - [[Initialize a Vault]]
 - [[Start a Learning Cycle]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/attempts/ability_transition|learnloop.attempts.ability_transition]], [[Reference/Modules/learnloop/attempts/surprise|learnloop.attempts.surprise]], [[Reference/Modules/learnloop/content/authoring/conjunctive_items|learnloop.content.authoring.conjunctive_items]], [[Reference/Modules/learnloop/db/repositories|learnloop.db.repositories]], [[Reference/Modules/learnloop/diagnosis/contrast_pairs|learnloop.diagnosis.contrast_pairs]] and 13 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/attempts/ability_transition|learnloop.attempts.ability_transition]], [[Reference/Modules/learnloop/attempts/surprise|learnloop.attempts.surprise]], [[Reference/Modules/learnloop/content/authoring/conjunctive_items|learnloop.content.authoring.conjunctive_items]], [[Reference/Modules/learnloop/db/repositories|learnloop.db.repositories]], [[Reference/Modules/learnloop/diagnosis/contrast_pairs|learnloop.diagnosis.contrast_pairs]] and 15 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
@@ -136,6 +144,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_percentiles_defaults_and_empty`
   - `test_regularized_incomplete_beta_matches_uniform_cdf`
   - `test_sigmoid_symmetry_and_bounds`
+  - `test_student_t_quantile_approaches_the_normal_and_rejects_bad_inputs`
+  - `test_student_t_quantile_matches_tables`
 - [tests/test_signal_quantiles.py](../../../../../tests/test_signal_quantiles.py) — direct import
   - `test_quantile_resolution_with_enough_samples`
   - `test_severity_quantile_reads_gate_diagnostics`

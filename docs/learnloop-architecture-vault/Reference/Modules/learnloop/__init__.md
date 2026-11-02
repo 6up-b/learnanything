@@ -11,7 +11,7 @@ source_commit: "4b62bc29c46b5f2b8cabe5ac49c9959429cc3ab7"
 source_commit_timestamp: "2026-05-19T19:15:00-04:00"
 source_worktree_state: "clean"
 generated: true
-generated_at: "2026-09-23"
+generated_at: "2026-11-02"
 package: "learnloop"
 layer: "coordination"
 concepts:
@@ -95,10 +95,17 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
-No direct or one-hop consumer test was found by static import analysis.
-
-> [!caution] Test gap signal
-> Treat this as a navigation signal, not proof that behavior is untested: dynamic and higher-level coverage is outside this static map. Add focused coverage when changing isolated behavior here.
+- [tests/test_e0_review_round5.py](../../../../../tests/test_e0_review_round5.py) — direct import
+  - `test_production_never_imports_the_messages_api_transport`
+- [tests/test_facet_authority.py](../../../../../tests/test_facet_authority.py) — direct import
+- [tests/test_reader_rw2b_fix10.py](../../../../../tests/test_reader_rw2b_fix10.py) — direct import
+  - `test_item4_with_help_off_and_no_rw2b_assist_the_counts_equal_the_base_codes`
+- [tests/test_reader_rw2b_fix11.py](../../../../../tests/test_reader_rw2b_fix11.py) — direct import
+  - `test_item3_a_book_opened_during_grading_leaves_the_count_and_type_as_the_base_stores_them`
+- [tests/test_rw2c_fix_round2.py](../../../../../tests/test_rw2c_fix_round2.py) — direct import
+  - `test_fr2_3_with_every_switch_off_a_problem_with_rw2c_history_restores_the_base_payload`
+- [tests/test_rw2c_switch_off.py](../../../../../tests/test_rw2c_switch_off.py) — direct import
+  - `test_with_all_four_switches_off_the_sequence_equals_the_base_codes`
 
 ## Modification guidance
 

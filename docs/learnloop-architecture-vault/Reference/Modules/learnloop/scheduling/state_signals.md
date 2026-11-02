@@ -7,11 +7,11 @@ version: "1.0.0"
 source_path: "src/learnloop/scheduling/state_signals.py"
 source_paths:
   - "src/learnloop/scheduling/state_signals.py"
-source_commit: "b322ef2e9b5cebc241b612e4963a5aaf1a37f99a"
-source_commit_timestamp: "2026-08-20T18:04:29-04:00"
+source_commit: "113b2622f016de1263056e3ed0ece2833ad2d7fb"
+source_commit_timestamp: "2026-10-12T17:13:21-04:00"
 source_worktree_state: "clean"
 generated: true
-generated_at: "2026-09-23"
+generated_at: "2026-11-02"
 package: "learnloop.scheduling"
 layer: "domain"
 concepts:
@@ -50,22 +50,22 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/scheduling/state_signals.py](../../../../../../src/learnloop/scheduling/state_signals.py) |
-| Source lines | 209 |
+| Source lines | 217 |
 | Owning package | [[Reference/Modules/learnloop/scheduling/_package|learnloop.scheduling]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `b322ef2e9b5cebc241b612e4963a5aaf1a37f99a` |
-| Commit timestamp | `2026-08-20T18:04:29-04:00` |
+| Source commit | `113b2622f016de1263056e3ed0ece2833ad2d7fb` |
+| Commit timestamp | `2026-10-12T17:13:21-04:00` |
 
 ## Public API
 
 - `misspecification(repository: Repository, snapshot: cs.ControllerSnapshot, commitment_id: str | None) -> bool` ([source](../../../../../../src/learnloop/scheduling/state_signals.py), line 85) — True when an unresolved open-set / ``other_or_unknown`` alarm exists on any commitment learning object (§4.2 rung 2).
-- `decision_relevant_robust_value(repository: Repository, snapshot: cs.ControllerSnapshot, commitment_id: str | None) -> float` ([source](../../../../../../src/learnloop/scheduling/state_signals.py), line 102) — Positive when an ``in_progress`` open diagnostic episode on a commitment learning object carries unresolved decision-relevant uncertainty (§4.2 rung 3).
-- `target_acquired(snapshot: cs.ControllerSnapshot, commitment_id: str | None) -> bool` ([source](../../../../../../src/learnloop/scheduling/state_signals.py), line 122) — True when the commitment has reached at least one depth milestone (§4.2 rung 4 negation).
-- `retention_near_limit(snapshot: cs.ControllerSnapshot, *, clock: Clock | None=None) -> bool` ([source](../../../../../../src/learnloop/scheduling/state_signals.py), line 135) — True when a commitment card is at or over its due boundary (§4.2 rung 9).
-- `terminal_signals(repository: Repository, snapshot: cs.ControllerSnapshot, commitment_id: str | None, *, run_mode: str | None=None, terminal_shown: bool=False) -> tuple[bool, bool]` ([source](../../../../../../src/learnloop/scheduling/state_signals.py), line 150) — (``terminal_required_unshown``, ``terminal_reserve_valid``) for §4.2 rung 7.
-- `derive_signals(repository: Repository, snapshot: cs.ControllerSnapshot, *, commitment_id: str | None, run_mode: str | None=None, terminal_shown: bool=False, pending_triage_route: dict[str, Any] | None=None, milestone_reached: str | None=None, milestone_evidence_receipt: dict[str, Any] | None=None, capability_fragile: bool=False, integration_failing: bool=False, goal_satisfied: bool=False, clock: Clock | None=None) -> sp.StateSignals` ([source](../../../../../../src/learnloop/scheduling/state_signals.py), line 171) — Assemble a live :class:`StateSignals` from real vault state (the five deterministic adapters above) plus the run-supplied stage material (triage route / milestone / capability-fragility / integration / goal-satisfaction), which the P2 orchestration knows directly from its stage.
+- `decision_relevant_robust_value(repository: Repository, snapshot: cs.ControllerSnapshot, commitment_id: str | None, *, ignored_episode_ids: frozenset[str]=frozenset()) -> float` ([source](../../../../../../src/learnloop/scheduling/state_signals.py), line 102) — Positive when an ``in_progress`` open diagnostic episode on a commitment learning object carries unresolved decision-relevant uncertainty (§4.2 rung 3).
+- `target_acquired(snapshot: cs.ControllerSnapshot, commitment_id: str | None) -> bool` ([source](../../../../../../src/learnloop/scheduling/state_signals.py), line 129) — True when the commitment has reached at least one depth milestone (§4.2 rung 4 negation).
+- `retention_near_limit(snapshot: cs.ControllerSnapshot, *, clock: Clock | None=None) -> bool` ([source](../../../../../../src/learnloop/scheduling/state_signals.py), line 142) — True when a commitment card is at or over its due boundary (§4.2 rung 9).
+- `terminal_signals(repository: Repository, snapshot: cs.ControllerSnapshot, commitment_id: str | None, *, run_mode: str | None=None, terminal_shown: bool=False) -> tuple[bool, bool]` ([source](../../../../../../src/learnloop/scheduling/state_signals.py), line 157) — (``terminal_required_unshown``, ``terminal_reserve_valid``) for §4.2 rung 7.
+- `derive_signals(repository: Repository, snapshot: cs.ControllerSnapshot, *, commitment_id: str | None, run_mode: str | None=None, terminal_shown: bool=False, pending_triage_route: dict[str, Any] | None=None, milestone_reached: str | None=None, milestone_evidence_receipt: dict[str, Any] | None=None, capability_fragile: bool=False, integration_failing: bool=False, goal_satisfied: bool=False, ignored_episode_ids: frozenset[str]=frozenset(), clock: Clock | None=None) -> sp.StateSignals` ([source](../../../../../../src/learnloop/scheduling/state_signals.py), line 178) — Assemble a live :class:`StateSignals` from real vault state (the five deterministic adapters above) plus the run-supplied stage material (triage route / milestone / capability-fragility / integration / goal-satisfaction), which the P2 orchestration knows directly from its stage.
 
 ### Module constants
 
@@ -111,6 +111,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
+- [tests/test_placement_opening_probes.py](../../../../../../tests/test_placement_opening_probes.py) — direct import
+  - `test_an_ignored_episode_feeds_no_reader_that_scores_it`
 - [tests/test_state_signals.py](../../../../../../tests/test_state_signals.py) — direct import
   - `test_derive_signals_composes_all_five`
   - `test_misspecification_false_when_alarm_resolved`

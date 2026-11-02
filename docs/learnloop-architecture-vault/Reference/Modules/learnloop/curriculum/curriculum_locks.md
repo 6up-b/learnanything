@@ -7,11 +7,11 @@ version: "1.0.0"
 source_path: "src/learnloop/curriculum/curriculum_locks.py"
 source_paths:
   - "src/learnloop/curriculum/curriculum_locks.py"
-source_commit: "b322ef2e9b5cebc241b612e4963a5aaf1a37f99a"
-source_commit_timestamp: "2026-08-20T18:04:29-04:00"
+source_commit: "3fa780b50a46ea4a95ff64fad57ff6e27e904dbd"
+source_commit_timestamp: "2026-10-13T02:46:02-04:00"
 source_worktree_state: "clean"
 generated: true
-generated_at: "2026-09-23"
+generated_at: "2026-11-02"
 package: "learnloop.curriculum"
 layer: "domain"
 concepts:
@@ -38,7 +38,7 @@ Up: [[Reference/Modules/learnloop/curriculum/_package|learnloop.curriculum]] · 
 
 ## Why this module exists
 
-`learnloop.curriculum.curriculum_locks` exists within [[Reference/Modules/learnloop/curriculum/_package|learnloop.curriculum]] to own the behavior summarized by its module contract: The single curriculum-layer lock API (knowledge-model §12.1, §3.4).
+`learnloop.curriculum.curriculum_locks` exists within [[Reference/Modules/learnloop/curriculum/_package|learnloop.curriculum]] to own the behavior summarized by its module contract: The curriculum-layer legality check for destructive operations (knowledge-model §12.1).
 
 The authoritative system-level explanation remains in [[Learning System]]; this note records where this source module participates rather than restating those concepts.
 
@@ -49,36 +49,29 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/curriculum/curriculum_locks.py](../../../../../../src/learnloop/curriculum/curriculum_locks.py) |
-| Source lines | 337 |
+| Source lines | 121 |
 | Owning package | [[Reference/Modules/learnloop/curriculum/_package|learnloop.curriculum]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `b322ef2e9b5cebc241b612e4963a5aaf1a37f99a` |
-| Commit timestamp | `2026-08-20T18:04:29-04:00` |
+| Source commit | `3fa780b50a46ea4a95ff64fad57ff6e27e904dbd` |
+| Commit timestamp | `2026-10-13T02:46:02-04:00` |
 
 ## Public API
 
-- `class Operation` ([source](../../../../../../src/learnloop/curriculum/curriculum_locks.py), line 61) — A proposed curriculum mutation to be checked against the lock closure.
-- `class LockReason` ([source](../../../../../../src/learnloop/curriculum/curriculum_locks.py), line 74)
-- `class CanApplyResult` ([source](../../../../../../src/learnloop/curriculum/curriculum_locks.py), line 82)
-- `can_apply(vault: LoadedVault, repository: Repository, operation: Operation) -> CanApplyResult` ([source](../../../../../../src/learnloop/curriculum/curriculum_locks.py), line 245) — Compute lock legality for a destructive curriculum operation (§12.1).
-- `identity_locks(vault: LoadedVault, repository: Repository, subject_id: str | None=None) -> dict[str, list[LockReason]]` ([source](../../../../../../src/learnloop/curriculum/curriculum_locks.py), line 316) — Read adapter over ``can_apply``: locked facet ids -> their lock reasons.
+- `class Operation` ([source](../../../../../../src/learnloop/curriculum/curriculum_locks.py), line 60) — A proposed curriculum mutation to be checked.
+- `class LockReason` ([source](../../../../../../src/learnloop/curriculum/curriculum_locks.py), line 72)
+- `class CanApplyResult` ([source](../../../../../../src/learnloop/curriculum/curriculum_locks.py), line 80)
+- `can_apply(vault: LoadedVault, repository: Repository, operation: Operation) -> CanApplyResult` ([source](../../../../../../src/learnloop/curriculum/curriculum_locks.py), line 97) — Legality of a destructive curriculum operation (§12.1).
 
 ### Module constants
 
-- `DESTRUCTIVE_OPERATIONS` ([src/learnloop/curriculum/curriculum_locks.py](../../../../../../src/learnloop/curriculum/curriculum_locks.py), line 33)
-- `FACET_RESTRUCTURE_OPERATIONS` ([src/learnloop/curriculum/curriculum_locks.py](../../../../../../src/learnloop/curriculum/curriculum_locks.py), line 52)
-- `SANCTIONED_OPERATIONS` ([src/learnloop/curriculum/curriculum_locks.py](../../../../../../src/learnloop/curriculum/curriculum_locks.py), line 54)
+- `DESTRUCTIVE_OPERATIONS` ([src/learnloop/curriculum/curriculum_locks.py](../../../../../../src/learnloop/curriculum/curriculum_locks.py), line 35)
+- `SANCTIONED_OPERATIONS` ([src/learnloop/curriculum/curriculum_locks.py](../../../../../../src/learnloop/curriculum/curriculum_locks.py), line 53)
 
 ## Internal implementation anchors
 
-- `_learning_objects_for_facet(vault: LoadedVault, facet_id: str) -> list[LearningObject]` ([source](../../../../../../src/learnloop/curriculum/curriculum_locks.py), line 90)
-- `_goal_scoped_facets(vault: LoadedVault) -> set[str]` ([source](../../../../../../src/learnloop/curriculum/curriculum_locks.py), line 103) — Facet ids in any active goal's certified scope (§3.4 lock arm).
-- `_facet_independence_locked(vault: LoadedVault, repository: Repository, facet_id: str, *, goal_scoped: set[str]) -> LockReason | None` ([source](../../../../../../src/learnloop/curriculum/curriculum_locks.py), line 128) — Independence-gated facet lock trigger (§3.4).
-- `_facet_lock_reasons(vault: LoadedVault, repository: Repository, facet_id: str, *, evidence_facets: set[str], misconception_facets: set[str], goal_scoped: set[str]) -> list[LockReason]` ([source](../../../../../../src/learnloop/curriculum/curriculum_locks.py), line 178)
-- `_entity_facet_closure(vault: LoadedVault, operation: Operation) -> set[str]` ([source](../../../../../../src/learnloop/curriculum/curriculum_locks.py), line 225)
-- `_dedupe_reasons(reasons: list[LockReason]) -> list[LockReason]` ([source](../../../../../../src/learnloop/curriculum/curriculum_locks.py), line 308)
+- `_learning_object_for(vault: LoadedVault, operation: Operation) -> str | None` ([source](../../../../../../src/learnloop/curriculum/curriculum_locks.py), line 88)
 
 ## Who imports or calls it
 
@@ -86,21 +79,14 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 > “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
 
 - [[Reference/Modules/learnloop/content/proposals/patches|learnloop.content.proposals.patches]] — imports `Operation`, `can_apply`; statically calls `Operation`, `can_apply`
-- [[Reference/Modules/learnloop/content/synthesis/append_neighborhood|learnloop.content.synthesis.append_neighborhood]] — imports `identity_locks`; statically calls `identity_locks`
-- [[Reference/Modules/learnloop/content/synthesis/source_set_synthesis|learnloop.content.synthesis.source_set_synthesis]] — imports `identity_locks`; statically calls `identity_locks`
 - [[Reference/Modules/learnloop/content/synthesis/synthesis_gates|learnloop.content.synthesis.synthesis_gates]] — imports `Operation`, `can_apply`; statically calls `Operation`, `can_apply`
-- [[Reference/Modules/learnloop/curriculum/graph_edit_proposals|learnloop.curriculum.graph_edit_proposals]] — imports `Operation`, `can_apply`; statically calls `Operation`, `can_apply`
-- [[Reference/Modules/learnloop/curriculum/subject_registry|learnloop.curriculum.subject_registry]] — imports `Operation`, `can_apply`; statically calls `Operation`, `can_apply`
-- [[Reference/Modules/learnloop_sidecar/handlers/facet_detail|learnloop_sidecar.handlers.facet_detail]] — imports `Operation`, `can_apply`, `identity_locks`; statically calls `Operation`, `can_apply`, `identity_locks`
-- [[Reference/Modules/learnloop_sidecar/handlers/knowledge_map|learnloop_sidecar.handlers.knowledge_map]] — imports `identity_locks`; statically calls `identity_locks`
 
 ## Dependencies
 
 ### LearnLoop dependencies
 
 - [[Reference/Modules/learnloop/db/repositories|learnloop.db.repositories]] — imports `Repository`
-- [[Reference/Modules/learnloop/learner/facet_state_reader|learnloop.learner.facet_state_reader]] — imports `is_canonical_state_vault`, `resolve_canonical_facet`; calls `is_canonical_state_vault`, `resolve_canonical_facet`
-- [[Reference/Modules/learnloop/vault/models|learnloop.vault.models]] — imports `LearningObject`, `LoadedVault`, `learning_object_facet_union`; calls `learning_object_facet_union`
+- [[Reference/Modules/learnloop/vault/models|learnloop.vault.models]] — imports `LoadedVault`
 
 ### Platform and third-party dependencies
 
@@ -113,26 +99,20 @@ Use this module in context through:
 
 - [[Build a Study Map]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/content/proposals/patches|learnloop.content.proposals.patches]], [[Reference/Modules/learnloop/content/synthesis/append_neighborhood|learnloop.content.synthesis.append_neighborhood]], [[Reference/Modules/learnloop/content/synthesis/source_set_synthesis|learnloop.content.synthesis.source_set_synthesis]], [[Reference/Modules/learnloop/content/synthesis/synthesis_gates|learnloop.content.synthesis.synthesis_gates]], [[Reference/Modules/learnloop/curriculum/graph_edit_proposals|learnloop.curriculum.graph_edit_proposals]] and 3 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/content/proposals/patches|learnloop.content.proposals.patches]], [[Reference/Modules/learnloop/content/synthesis/synthesis_gates|learnloop.content.synthesis.synthesis_gates]].
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
 ## Tests that define behavior
 
 - [tests/test_curriculum_locks.py](../../../../../../tests/test_curriculum_locks.py) — direct import
-  - `test_deactivate_locked_learning_object_is_invalid`
-  - `test_goal_scope_locks_facet`
-  - `test_identity_locks_read_adapter`
-  - `test_locked_facet_refuses_merge_on_independent_mass`
-  - `test_locked_facet_refuses_merge_on_surface_groups`
-  - `test_locked_semantic_merge_is_invalid`
-  - `test_prelock_facet_with_single_surface_group_still_mergeable`
+  - `test_an_unpractised_learning_object_is_legal_with_review_whatever_its_facets_carry`
+  - `test_deactivating_a_practised_learning_object_is_still_invalid`
   - `test_rename_alias_is_always_sanctioned`
-  - `test_unlocked_facet_merge_is_legal_with_review`
-- [tests/test_graph_editor_reads.py](../../../../../../tests/test_graph_editor_reads.py) — direct import
-  - `test_facet_field_reflects_fixture_locks`
-- [tests/test_source_set_synthesis.py](../../../../../../tests/test_source_set_synthesis.py) — direct import
-  - `test_locked_subject_bootstrap_refusal`
+- [tests/test_facet_rewords.py](../../../../../../tests/test_facet_rewords.py) — direct import
+  - `test_no_facet_arm_refuses_and_the_learning_object_arm_still_does`
+- [tests/test_ux_phase1_usability_round1.py](../../../../../../tests/test_ux_phase1_usability_round1.py) — direct import
+  - `test_u1_there_is_no_identity_lock_to_read_any_more`
 
 ## Modification guidance
 

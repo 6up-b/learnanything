@@ -11,7 +11,7 @@ source_commit: "b322ef2e9b5cebc241b612e4963a5aaf1a37f99a"
 source_commit_timestamp: "2026-08-20T18:04:29-04:00"
 source_worktree_state: "clean"
 generated: true
-generated_at: "2026-09-23"
+generated_at: "2026-11-02"
 package: "learnloop.diagnosis"
 layer: "domain"
 concepts:
@@ -145,7 +145,16 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 - [[Reference/Modules/learnloop/diagnosis/probe_lifecycle|learnloop.diagnosis.probe_lifecycle]] — imports `ProbeFamilyTemplate`
 - [[Reference/Modules/learnloop/diagnosis/probe_outcome_mapping|learnloop.diagnosis.probe_outcome_mapping]] — imports `CompiledInstrument`
 - [[Reference/Modules/learnloop/diagnosis/probe_robust|learnloop.diagnosis.probe_robust]] — imports `CompiledInstrument`
+- [[Reference/Modules/learnloop/diagnosis/voi_forecasting|learnloop.diagnosis.voi_forecasting]] — imports `CompiledInstrument`, `GRADER_CHANNEL_RELIABILITY`, `ORDINAL_VOCABULARY`, `SELECTION_POLICY_VERSION`, `instrument_conditionals`; statically calls `instrument_conditionals`
+- [[Reference/Modules/learnloop/diagnosis/voi_stopping|learnloop.diagnosis.voi_stopping]] — imports `instrument_conditionals`; statically calls `instrument_conditionals`
+- [[Reference/Modules/learnloop/evsi_calibration/multifamily|learnloop.evsi_calibration.multifamily]] — imports `CONTRAST_CONFUSABLE_DEFAULT_ROWS`, `DEFAULT_CONDITIONAL_PSEUDO_COUNT`, `ORDINAL_VOCABULARY`
+- [[Reference/Modules/learnloop/evsi_calibration/world|learnloop.evsi_calibration.world]] — imports `CONTRAST_CONFUSABLE_DEFAULT_ROWS`, `ORDINAL_VOCABULARY`
+- [[Reference/Modules/learnloop/hints/discriminating|learnloop.hints.discriminating]] — imports `CompiledInstrument`, `instrument_expected_information_gain`; statically calls `CompiledInstrument`, `instrument_expected_information_gain`
 - [[Reference/Modules/learnloop/sim/diagnostic_validation|learnloop.sim.diagnostic_validation]] — imports `CompiledInstrument`, `DEFAULT_INSTRUCTIONAL_ACTIONS`, `builtin_family_templates`; statically calls `builtin_family_templates`
+
+### Repository tooling consumers
+
+- [scripts/voi_cap_report.py](../../../../../../scripts/voi_cap_report.py); calls `InstrumentCard`, `instrument_conditionals`, `map_episode_labels_to_slots`, `validate_and_compile_card`
 
 ## Dependencies
 
@@ -167,7 +176,7 @@ Use this module in context through:
 - [[Process Model Output]]
 - [[Start a Learning Cycle]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/attempts/grader_calibration|learnloop.attempts.grader_calibration]], [[Reference/Modules/learnloop/diagnosis/probe_audit|learnloop.diagnosis.probe_audit]], [[Reference/Modules/learnloop/diagnosis/probe_coverage|learnloop.diagnosis.probe_coverage]], [[Reference/Modules/learnloop/diagnosis/probe_dialogue|learnloop.diagnosis.probe_dialogue]], [[Reference/Modules/learnloop/diagnosis/probe_episodes|learnloop.diagnosis.probe_episodes]] and 6 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/attempts/grader_calibration|learnloop.attempts.grader_calibration]], [[Reference/Modules/learnloop/diagnosis/probe_audit|learnloop.diagnosis.probe_audit]], [[Reference/Modules/learnloop/diagnosis/probe_coverage|learnloop.diagnosis.probe_coverage]], [[Reference/Modules/learnloop/diagnosis/probe_dialogue|learnloop.diagnosis.probe_dialogue]], [[Reference/Modules/learnloop/diagnosis/probe_episodes|learnloop.diagnosis.probe_episodes]] and 11 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
@@ -207,6 +216,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_posterior_delta_identical_across_grader_confidence_values`
 - [tests/test_graph_correction.py](../../../../../../tests/test_graph_correction.py) — direct import
   - `test_calibration_ordering_reverts_to_plain_rate`
+- [tests/test_hint_discriminating.py](../../../../../../tests/test_hint_discriminating.py) — direct import
+  - `test_candidates_are_ranked_by_the_existing_instrument_eig`
 - [tests/test_km4_taxonomy.py](../../../../../../tests/test_km4_taxonomy.py) — direct import
   - `test_compositional_record_parameterizes_contrast_probe`
 - [tests/test_p2_acceptance.py](../../../../../../tests/test_p2_acceptance.py) — direct import
@@ -248,6 +259,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_probe_robust_cutover.py](../../../../../../tests/test_probe_robust_cutover.py) — direct import
   - `test_robust_selection_abstains_on_indistinguishable_candidates`
 - [tests/test_probe_surface_mint.py](../../../../../../tests/test_probe_surface_mint.py) — direct import
+- [tests/test_workbench_discriminate.py](../../../../../../tests/test_workbench_discriminate.py) — direct import
+  - `test_candidates_are_ranked_by_the_instrument_eig`
 
 ## Modification guidance
 

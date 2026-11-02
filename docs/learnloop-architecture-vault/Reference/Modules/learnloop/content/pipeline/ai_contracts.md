@@ -7,11 +7,11 @@ version: "1.0.0"
 source_path: "src/learnloop/content/pipeline/ai_contracts.py"
 source_paths:
   - "src/learnloop/content/pipeline/ai_contracts.py"
-source_commit: "b322ef2e9b5cebc241b612e4963a5aaf1a37f99a"
-source_commit_timestamp: "2026-08-20T18:04:29-04:00"
+source_commit: "82566269e06342b849e6538ae6c477bad94f025b"
+source_commit_timestamp: "2026-10-14T10:23:13-04:00"
 source_worktree_state: "clean"
 generated: true
-generated_at: "2026-09-23"
+generated_at: "2026-11-02"
 package: "learnloop.content.pipeline"
 layer: "domain"
 concepts:
@@ -51,24 +51,24 @@ The authoritative system-level explanation remains in [[Learning System]], [[AI 
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/content/pipeline/ai_contracts.py](../../../../../../../src/learnloop/content/pipeline/ai_contracts.py) |
-| Source lines | 85 |
+| Source lines | 88 |
 | Owning package | [[Reference/Modules/learnloop/content/pipeline/_package|learnloop.content.pipeline]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `b322ef2e9b5cebc241b612e4963a5aaf1a37f99a` |
-| Commit timestamp | `2026-08-20T18:04:29-04:00` |
+| Source commit | `82566269e06342b849e6538ae6c477bad94f025b` |
+| Commit timestamp | `2026-10-14T10:23:13-04:00` |
 
 ## Public API
 
 - `class SourceChunk` ([source](../../../../../../../src/learnloop/content/pipeline/ai_contracts.py), line 20)
 - `class ExtractionPlan` ([source](../../../../../../../src/learnloop/content/pipeline/ai_contracts.py), line 30)
 - `class CanonicalIngestContext` ([source](../../../../../../../src/learnloop/content/pipeline/ai_contracts.py), line 41)
-- `canonical_ingest_prompt(context: CanonicalIngestContext) -> str` ([source](../../../../../../../src/learnloop/content/pipeline/ai_contracts.py), line 57)
+- `canonical_ingest_prompt(context: CanonicalIngestContext) -> str` ([source](../../../../../../../src/learnloop/content/pipeline/ai_contracts.py), line 60)
 
 ### Module constants
 
-- `CANONICAL_INGEST_PROMPT_VERSION` ([src/learnloop/content/pipeline/ai_contracts.py](../../../../../../../src/learnloop/content/pipeline/ai_contracts.py), line 54)
+- `CANONICAL_INGEST_PROMPT_VERSION` ([src/learnloop/content/pipeline/ai_contracts.py](../../../../../../../src/learnloop/content/pipeline/ai_contracts.py), line 57)
 
 ### Explicit exports
 
@@ -122,6 +122,10 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_codex_output_schema.py](../../../../../../../tests/test_codex_output_schema.py) — direct import
 - [tests/test_exam_seeding.py](../../../../../../../tests/test_exam_seeding.py) — direct import
 - [tests/test_ingest_instrument_gates.py](../../../../../../../tests/test_ingest_instrument_gates.py) — direct import
+- [tests/test_required_method_items.py](../../../../../../../tests/test_required_method_items.py) — direct import
+  - `test_authoring_prompts_carry_the_rule_and_moved_their_versions`
+- [tests/test_required_method_rereview.py](../../../../../../../tests/test_required_method_rereview.py) — direct import
+  - `test_f14_the_generation_guidance_leaves_the_sentence_to_the_writer`
 - [tests/test_source_ingestion.py](../../../../../../../tests/test_source_ingestion.py) — direct import
 - [tests/test_source_ingestion_adapters.py](../../../../../../../tests/test_source_ingestion_adapters.py) — direct import
 - [tests/test_source_layer.py](../../../../../../../tests/test_source_layer.py) — direct import

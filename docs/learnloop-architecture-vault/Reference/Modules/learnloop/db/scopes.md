@@ -7,11 +7,11 @@ version: "1.0.0"
 source_path: "src/learnloop/db/scopes.py"
 source_paths:
   - "src/learnloop/db/scopes.py"
-source_commit: "c1619d0275bfe61eabe180738165ec480c6dc4fb"
-source_commit_timestamp: "2026-09-23T13:02:20-04:00"
+source_commit: "07ac808ab30e8970f57c1905e3d2364ed2ccb404"
+source_commit_timestamp: "2026-10-20T20:49:36-04:00"
 source_worktree_state: "clean"
 generated: true
-generated_at: "2026-09-23"
+generated_at: "2026-11-02"
 package: "learnloop.db"
 layer: "infrastructure"
 concepts:
@@ -51,42 +51,45 @@ The authoritative system-level explanation remains in [[State and Persistence]],
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/db/scopes.py](../../../../../../src/learnloop/db/scopes.py) |
-| Source lines | 354 |
+| Source lines | 392 |
 | Owning package | [[Reference/Modules/learnloop/db/_package|learnloop.db]] |
 | Architecture layer | `infrastructure` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `c1619d0275bfe61eabe180738165ec480c6dc4fb` |
-| Commit timestamp | `2026-09-23T13:02:20-04:00` |
+| Source commit | `07ac808ab30e8970f57c1905e3d2364ed2ccb404` |
+| Commit timestamp | `2026-10-20T20:49:36-04:00` |
 
 ## Public API
 
 - `class JobOwnershipLost(RuntimeError)` ([source](../../../../../../src/learnloop/db/scopes.py), line 17) — An expired or superseded job attempted to publish more state.
 - `allow_late_model_records()` ([source](../../../../../../src/learnloop/db/scopes.py), line 64) — Let the model-call store record paid work after its job lost ownership.
 - `guard_ingest_writes(path, job_id, worker_id, attempt_count)` ([source](../../../../../../src/learnloop/db/scopes.py), line 82) — Fence all repositories for this database on the current worker thread.
-- `guarded_connection(connection, path)` ([source](../../../../../../src/learnloop/db/scopes.py), line 105)
-- `class OwnedConnection` ([source](../../../../../../src/learnloop/db/scopes.py), line 199) — Close a borrowed repository connection at the end of its with block.
-  - `__init__(self, connection: sqlite3.Connection)` (line 202; internal)
-  - `__getattr__(self, name: str) -> Any` (line 205; internal)
-  - `__setattr__(self, name: str, value: Any) -> None` (line 208; internal)
-  - `__enter__(self)` (line 211; internal)
-  - `__exit__(self, *exc)` (line 214; internal)
-- `class AtomicConnection` ([source](../../../../../../src/learnloop/db/scopes.py), line 221) — Keep store methods' own commits inside an owning transaction.
-  - `__init__(self, connection: sqlite3.Connection)` (line 230; internal)
-  - `__getattr__(self, name: str) -> Any` (line 236; internal)
-  - `isolation_level(self)` (line 240; public)
-  - `isolation_level(self, value)` (line 244; public)
-  - `_savepoint(self) -> str` (line 248; internal)
-  - `__enter__(self)` (line 254; internal)
-  - `__exit__(self, exc_type, exc, traceback)` (line 258; internal)
-  - `execute(self, sql, parameters=())` (line 266; public)
-  - `executescript(self, _script)` (line 279; public)
-  - `cursor(self, *args, **kwargs)` (line 282; public)
-  - `commit(self)` (line 285; public)
-  - `rollback(self)` (line 290; public)
-  - `close(self)` (line 300; public)
-- `pinned_repository_call(function)` ([source](../../../../../../src/learnloop/db/scopes.py), line 325) — Reuse a connection for short local work, preserving each write commit.
-- `atomic_repository_call(function)` ([source](../../../../../../src/learnloop/db/scopes.py), line 338) — Wrap a local operation with a named repository argument atomically.
+- `current_ingest_job_id(path) -> str | None` ([source](../../../../../../src/learnloop/db/scopes.py), line 105) — The durable job running on this thread for the database at ``path``, if any.
+- `connection_hook(hook)` ([source](../../../../../../src/learnloop/db/scopes.py), line 124) — Pass every connection opened in this context (``connect()``, read-only or writable) to ``hook(connection, path)`` before it is returned.
+- `apply_connection_hook(connection, path)` ([source](../../../../../../src/learnloop/db/scopes.py), line 135)
+- `guarded_connection(connection, path)` ([source](../../../../../../src/learnloop/db/scopes.py), line 142)
+- `class OwnedConnection` ([source](../../../../../../src/learnloop/db/scopes.py), line 237) — Close a borrowed repository connection at the end of its with block.
+  - `__init__(self, connection: sqlite3.Connection)` (line 240; internal)
+  - `__getattr__(self, name: str) -> Any` (line 243; internal)
+  - `__setattr__(self, name: str, value: Any) -> None` (line 246; internal)
+  - `__enter__(self)` (line 249; internal)
+  - `__exit__(self, *exc)` (line 252; internal)
+- `class AtomicConnection` ([source](../../../../../../src/learnloop/db/scopes.py), line 259) — Keep store methods' own commits inside an owning transaction.
+  - `__init__(self, connection: sqlite3.Connection)` (line 268; internal)
+  - `__getattr__(self, name: str) -> Any` (line 274; internal)
+  - `isolation_level(self)` (line 278; public)
+  - `isolation_level(self, value)` (line 282; public)
+  - `_savepoint(self) -> str` (line 286; internal)
+  - `__enter__(self)` (line 292; internal)
+  - `__exit__(self, exc_type, exc, traceback)` (line 296; internal)
+  - `execute(self, sql, parameters=())` (line 304; public)
+  - `executescript(self, _script)` (line 317; public)
+  - `cursor(self, *args, **kwargs)` (line 320; public)
+  - `commit(self)` (line 323; public)
+  - `rollback(self)` (line 328; public)
+  - `close(self)` (line 338; public)
+- `pinned_repository_call(function)` ([source](../../../../../../src/learnloop/db/scopes.py), line 363) — Reuse a connection for short local work, preserving each write commit.
+- `atomic_repository_call(function)` ([source](../../../../../../src/learnloop/db/scopes.py), line 376) — Wrap a local operation with a named repository argument atomically.
 
 ### Module constants
 
@@ -99,17 +102,20 @@ The authoritative system-level explanation remains in [[State and Persistence]],
 
 - `class _JobGuard` ([source](../../../../../../src/learnloop/db/scopes.py), line 22)
 - `_is_write_statement(sql: str) -> bool` ([source](../../../../../../src/learnloop/db/scopes.py), line 49) — Whether a statement can modify the database.
-- `class _GuardedConnection` ([source](../../../../../../src/learnloop/db/scopes.py), line 112)
-- `class _GuardedCursor` ([source](../../../../../../src/learnloop/db/scopes.py), line 180)
-- `class _AtomicCursor` ([source](../../../../../../src/learnloop/db/scopes.py), line 304) — Cursor transaction statements must obey the same borrowing rules.
+- `class _GuardedConnection` ([source](../../../../../../src/learnloop/db/scopes.py), line 150)
+- `class _GuardedCursor` ([source](../../../../../../src/learnloop/db/scopes.py), line 218)
+- `class _AtomicCursor` ([source](../../../../../../src/learnloop/db/scopes.py), line 342) — Cursor transaction statements must obey the same borrowing rules.
 
 ## Who imports or calls it
 
 > [!note] Static evidence boundary
 > “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
 
+- [[Reference/Modules/learnloop/adaptive_difficulty/generation|learnloop.adaptive_difficulty.generation]] — imports `current_ingest_job_id`; statically calls `current_ingest_job_id`
+- [[Reference/Modules/learnloop/adaptive_difficulty/operation|learnloop.adaptive_difficulty.operation]] — imports `connection_hook`; statically calls `connection_hook`
+- [[Reference/Modules/learnloop/content/pipeline/add_source|learnloop.content.pipeline.add_source]] — imports `JobOwnershipLost`
 - [[Reference/Modules/learnloop/content/pipeline/runner|learnloop.content.pipeline.runner]] — imports `JobOwnershipLost`, `guard_ingest_writes`; statically calls `JobOwnershipLost`, `guard_ingest_writes`
-- [[Reference/Modules/learnloop/db/connection|learnloop.db.connection]] — imports `guarded_connection`; statically calls `guarded_connection`
+- [[Reference/Modules/learnloop/db/connection|learnloop.db.connection]] — imports `apply_connection_hook`, `guarded_connection`; statically calls `apply_connection_hook`, `guarded_connection`
 - [[Reference/Modules/learnloop/db/repositories|learnloop.db.repositories]] — imports `AtomicConnection`, `OwnedConnection`; statically calls `AtomicConnection`, `OwnedConnection`
 - [[Reference/Modules/learnloop/db/stores/model_calls|learnloop.db.stores.model_calls]] — imports `allow_late_model_records`; statically calls `allow_late_model_records`
 - [[Reference/Modules/learnloop/learner/capability_grid|learnloop.learner.capability_grid]] — imports `pinned_repository_call`
@@ -118,6 +124,7 @@ The authoritative system-level explanation remains in [[State and Persistence]],
 - [[Reference/Modules/learnloop/learner/learner_review_feed|learnloop.learner.learner_review_feed]] — imports `pinned_repository_call`
 - [[Reference/Modules/learnloop/learner/recall_coverage|learnloop.learner.recall_coverage]] — imports `pinned_repository_call`
 - [[Reference/Modules/learnloop/scheduling/scheduler|learnloop.scheduling.scheduler]] — imports `pinned_repository_call`
+- [[Reference/Modules/learnloop/substrate/family_memory|learnloop.substrate.family_memory]] — imports `atomic_repository_call`
 - [[Reference/Modules/learnloop/substrate/rebuild_orchestrator|learnloop.substrate.rebuild_orchestrator]] — imports `atomic_repository_call`
 - [[Reference/Modules/learnloop_sidecar/handlers/serializers|learnloop_sidecar.handlers.serializers]] — imports `pinned_repository_call`
 
@@ -141,7 +148,7 @@ Use this module in context through:
 - [[Inspect Persistent State]]
 - [[Doctor Migrations and Recovery]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/content/pipeline/runner|learnloop.content.pipeline.runner]], [[Reference/Modules/learnloop/db/connection|learnloop.db.connection]], [[Reference/Modules/learnloop/db/repositories|learnloop.db.repositories]], [[Reference/Modules/learnloop/db/stores/model_calls|learnloop.db.stores.model_calls]], [[Reference/Modules/learnloop/learner/capability_grid|learnloop.learner.capability_grid]] and 7 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/adaptive_difficulty/generation|learnloop.adaptive_difficulty.generation]], [[Reference/Modules/learnloop/adaptive_difficulty/operation|learnloop.adaptive_difficulty.operation]], [[Reference/Modules/learnloop/content/pipeline/add_source|learnloop.content.pipeline.add_source]], [[Reference/Modules/learnloop/content/pipeline/runner|learnloop.content.pipeline.runner]], [[Reference/Modules/learnloop/db/connection|learnloop.db.connection]] and 11 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
@@ -158,6 +165,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_observer_control_exceptions_propagate_unchanged`
 - [tests/test_rebuild_orchestrator.py](../../../../../../tests/test_rebuild_orchestrator.py) — direct import
   - `test_content_recalibration_replay_cannot_lose_its_ingest_lease_midway`
+- [tests/test_secondary_attach.py](../../../../../../tests/test_secondary_attach.py) — direct import
 
 ## Modification guidance
 

@@ -11,7 +11,7 @@ source_commit: "4a28c9635f24945d78366fa26212db7488d82545"
 source_commit_timestamp: "2026-05-28T11:36:12-04:00"
 source_worktree_state: "clean"
 generated: true
-generated_at: "2026-09-23"
+generated_at: "2026-11-02"
 package: "learnloop_sidecar"
 layer: "adapter"
 concepts:
@@ -95,10 +95,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
-No direct or one-hop consumer test was found by static import analysis.
-
-> [!caution] Test gap signal
-> Treat this as a navigation signal, not proof that behavior is untested: dynamic and higher-level coverage is outside this static map. Add focused coverage when changing isolated behavior here.
+- [tests/test_compare_sources_keep.py](../../../../../tests/test_compare_sources_keep.py) — direct import
 
 ## Modification guidance
 

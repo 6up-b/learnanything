@@ -7,11 +7,11 @@ version: "1.0.0"
 source_path: "src/learnloop/learner/calibration.py"
 source_paths:
   - "src/learnloop/learner/calibration.py"
-source_commit: "b322ef2e9b5cebc241b612e4963a5aaf1a37f99a"
-source_commit_timestamp: "2026-08-20T18:04:29-04:00"
+source_commit: "171ae5a5ed15b7627add8b2e512d0c0e91c5f3da"
+source_commit_timestamp: "2026-10-13T09:11:59-04:00"
 source_worktree_state: "clean"
 generated: true
-generated_at: "2026-09-23"
+generated_at: "2026-11-02"
 package: "learnloop.learner"
 layer: "domain"
 concepts:
@@ -50,13 +50,13 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/learner/calibration.py](../../../../../../src/learnloop/learner/calibration.py) |
-| Source lines | 102 |
+| Source lines | 110 |
 | Owning package | [[Reference/Modules/learnloop/learner/_package|learnloop.learner]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `b322ef2e9b5cebc241b612e4963a5aaf1a37f99a` |
-| Commit timestamp | `2026-08-20T18:04:29-04:00` |
+| Source commit | `171ae5a5ed15b7627add8b2e512d0c0e91c5f3da` |
+| Commit timestamp | `2026-10-13T09:11:59-04:00` |
 
 ## Public API
 
@@ -71,7 +71,7 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 
 ## Internal implementation anchors
 
-- `_expected_correctness(predicted_score_dist_json: str | None) -> float | None` ([source](../../../../../../src/learnloop/learner/calibration.py), line 94)
+- `_expected_correctness(predicted_score_dist_json: str | None) -> float | None` ([source](../../../../../../src/learnloop/learner/calibration.py), line 102)
 
 ## Who imports or calls it
 
@@ -84,6 +84,7 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 
 ### LearnLoop dependencies
 
+- [[Reference/Modules/learnloop/held_grades|learnloop.held_grades]] — imports `held_attempt_ids`; calls `held_attempt_ids`
 - [[Reference/Modules/learnloop/vault/models|learnloop.vault.models]] — imports `LoadedVault`
 
 ### Platform and third-party dependencies
@@ -113,6 +114,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_samples_without_expected_correctness_are_skipped`
   - `test_threshold_and_min_attempts_are_configurable`
   - `test_unknown_items_are_ignored`
+- [tests/test_held_grade_evidence.py](../../../../../../tests/test_held_grade_evidence.py) — direct import
 
 ## Modification guidance
 

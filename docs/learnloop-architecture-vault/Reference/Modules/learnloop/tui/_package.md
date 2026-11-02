@@ -7,13 +7,14 @@ version: "1.0.0"
 source_paths:
   - "src/learnloop/tui/__init__.py"
   - "src/learnloop/tui/app.py"
+  - "src/learnloop/tui/minutes_memory.py"
   - "src/learnloop/tui/state.py"
   - "src/learnloop/tui/theme.py"
   - "src/learnloop/tui/widgets.py"
 source_commit: "aggregate; see module notes"
-source_commit_timestamp: "2026-09-23T15:53:13-04:00"
+source_commit_timestamp: "2026-10-12T22:35:10-04:00"
 generated: true
-generated_at: "2026-09-23"
+generated_at: "2026-11-02"
 package: "learnloop.tui"
 layer: "adapter"
 concepts:
@@ -49,7 +50,8 @@ For system intent, use [[Architecture Overview]].
 | Module | Purpose | Status | Direct importers | Direct test files |
 |---|---|---:|---:|---:|
 | [[Reference/Modules/learnloop/tui/__init__|learnloop.tui]] | [[Reference/Modules/learnloop/tui/__init__#^module-purpose|purpose]] | `ACTIVE` | 0 | 0 |
-| [[Reference/Modules/learnloop/tui/app|learnloop.tui.app]] | [[Reference/Modules/learnloop/tui/app#^module-purpose|purpose]] | `ACTIVE` | 1 | 7 |
+| [[Reference/Modules/learnloop/tui/app|learnloop.tui.app]] | [[Reference/Modules/learnloop/tui/app#^module-purpose|purpose]] | `ACTIVE` | 1 | 12 |
+| [[Reference/Modules/learnloop/tui/minutes_memory|learnloop.tui.minutes_memory]] | [[Reference/Modules/learnloop/tui/minutes_memory#^module-purpose|purpose]] | `ACTIVE` | 1 | 1 |
 | [[Reference/Modules/learnloop/tui/state|learnloop.tui.state]] | [[Reference/Modules/learnloop/tui/state#^module-purpose|purpose]] | `ACTIVE` | 5 | 0 |
 | [[Reference/Modules/learnloop/tui/theme|learnloop.tui.theme]] | [[Reference/Modules/learnloop/tui/theme#^module-purpose|purpose]] | `ACTIVE` | 1 | 0 |
 | [[Reference/Modules/learnloop/tui/widgets|learnloop.tui.widgets]] | [[Reference/Modules/learnloop/tui/widgets#^module-purpose|purpose]] | `ACTIVE` | 5 | 2 |
@@ -63,17 +65,18 @@ For system intent, use [[Architecture Overview]].
 ### This package imports
 
 - [[Reference/Modules/learnloop/vault/_package|learnloop.vault]] — 4 static module edges
-- [[Reference/Modules/learnloop/_package|learnloop]] — 1 static module edge
+- [[Reference/Modules/learnloop/_package|learnloop]] — 2 static module edges
+- [[Reference/Modules/learnloop/scheduling/_package|learnloop.scheduling]] — 2 static module edges
 - [[Reference/Modules/learnloop/ai/_package|learnloop.ai]] — 1 static module edge
+- [[Reference/Modules/learnloop/config/_package|learnloop.config]] — 1 static module edge
 - [[Reference/Modules/learnloop/db/_package|learnloop.db]] — 1 static module edge
 - [[Reference/Modules/learnloop/ops/_package|learnloop.ops]] — 1 static module edge
-- [[Reference/Modules/learnloop/scheduling/_package|learnloop.scheduling]] — 1 static module edge
 - [[Reference/Modules/learnloop/substrate/_package|learnloop.substrate]] — 1 static module edge
 - [[Reference/Modules/learnloop/tui/screens/_package|learnloop.tui.screens]] — 1 static module edge
 
 ### Packages that import this package
 
-- [[Reference/Modules/learnloop/tui/screens/_package|learnloop.tui.screens]] — 8 static module edges
+- [[Reference/Modules/learnloop/tui/screens/_package|learnloop.tui.screens]] — 9 static module edges
 - [[Reference/Modules/learnloop/_package|learnloop]] — 1 static module edge
 
 ### Dependency neighborhood
@@ -86,20 +89,22 @@ flowchart LR
     n_learnloop_tui_screens["learnloop.tui.screens"]
     n_learnloop_vault["learnloop.vault"]
     n_learnloop["learnloop"]
+    n_learnloop_scheduling["learnloop.scheduling"]
     n_learnloop_ai["learnloop.ai"]
+    n_learnloop_config["learnloop.config"]
     n_learnloop_db["learnloop.db"]
     n_learnloop_ops["learnloop.ops"]
-    n_learnloop_scheduling["learnloop.scheduling"]
     n_learnloop_substrate["learnloop.substrate"]
-    n_learnloop_tui_screens -->|8| center
+    n_learnloop_tui_screens -->|9| center
     center -->|1| n_learnloop_tui_screens
     center -->|4| n_learnloop_vault
     n_learnloop -->|1| center
-    center -->|1| n_learnloop
+    center -->|2| n_learnloop
+    center -->|2| n_learnloop_scheduling
     center -->|1| n_learnloop_ai
+    center -->|1| n_learnloop_config
     center -->|1| n_learnloop_db
     center -->|1| n_learnloop_ops
-    center -->|1| n_learnloop_scheduling
     center -->|1| n_learnloop_substrate
 ```
 

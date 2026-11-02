@@ -7,11 +7,11 @@ version: "1.0.0"
 source_path: "src/learnloop/cli/source_set.py"
 source_paths:
   - "src/learnloop/cli/source_set.py"
-source_commit: "b322ef2e9b5cebc241b612e4963a5aaf1a37f99a"
-source_commit_timestamp: "2026-08-20T18:04:29-04:00"
+source_commit: "e63a81c0807f929ac4cc5b77e209a5beace229a1"
+source_commit_timestamp: "2026-11-01T13:52:05-05:00"
 source_worktree_state: "clean"
 generated: true
-generated_at: "2026-09-23"
+generated_at: "2026-11-02"
 package: "learnloop.cli"
 layer: "adapter"
 concepts:
@@ -50,21 +50,21 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/cli/source_set.py](../../../../../../src/learnloop/cli/source_set.py) |
-| Source lines | 110 |
+| Source lines | 116 |
 | Owning package | [[Reference/Modules/learnloop/cli/_package|learnloop.cli]] |
 | Architecture layer | `adapter` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `b322ef2e9b5cebc241b612e4963a5aaf1a37f99a` |
-| Commit timestamp | `2026-08-20T18:04:29-04:00` |
+| Source commit | `e63a81c0807f929ac4cc5b77e209a5beace229a1` |
+| Commit timestamp | `2026-11-01T13:52:05-05:00` |
 
 ## Public API
 
 - `source_set_create(set_id: Annotated[str, typer.Argument(help='Source-set id.')], subject_id: Annotated[str, typer.Option('--subject', help='Subject id the set belongs to.')], title: Annotated[str, typer.Option('--title', help='Human title.')]='', json_output: Annotated[bool, typer.Option('--json')]=False, vault: Annotated[Path | None, typer.Option('--vault')]=None) -> None` ([source](../../../../../../src/learnloop/cli/source_set.py), line 8) — Create an empty source collection (§4.3).
-- `source_set_add(set_id: Annotated[str, typer.Argument(help='Source-set id.')], source_id: Annotated[str, typer.Option('--source', help='Library source id.')], revision_id: Annotated[str, typer.Option('--revision', help='Pinned revision id (required, §4.3).')], role: Annotated[str, typer.Option('--role', help='Membership role (open string).')]='reference', units: Annotated[list[str] | None, typer.Option('--unit', help='Scope unit id (repeatable). Empty = whole artifact.')]=None, priority: Annotated[int, typer.Option('--priority')]=1, json_output: Annotated[bool, typer.Option('--json')]=False, vault: Annotated[Path | None, typer.Option('--vault')]=None) -> None` ([source](../../../../../../src/learnloop/cli/source_set.py), line 24) — Add a pinned source to a collection (membership owns role/scope, §4.3).
-- `source_set_update(set_id: Annotated[str, typer.Argument(help='Source-set id.')], title: Annotated[str | None, typer.Option('--title')]=None, json_output: Annotated[bool, typer.Option('--json')]=False, vault: Annotated[Path | None, typer.Option('--vault')]=None) -> None` ([source](../../../../../../src/learnloop/cli/source_set.py), line 63) — Update a collection's title (membership edits use add).
-- `source_set_list(json_output: Annotated[bool, typer.Option('--json')]=False, vault: Annotated[Path | None, typer.Option('--vault')]=None) -> None` ([source](../../../../../../src/learnloop/cli/source_set.py), line 81) — List source collections.
-- `source_set_show(set_id: Annotated[str, typer.Argument(help='Source-set id.')], json_output: Annotated[bool, typer.Option('--json')]=False, vault: Annotated[Path | None, typer.Option('--vault')]=None) -> None` ([source](../../../../../../src/learnloop/cli/source_set.py), line 101) — Show a collection's members, roles, and scopes.
+- `source_set_add(set_id: Annotated[str, typer.Argument(help='Source-set id.')], source_id: Annotated[str, typer.Option('--source', help='Library source id.')], revision_id: Annotated[str, typer.Option('--revision', help='Pinned revision id (required, §4.3).')], role: Annotated[str, typer.Option('--role', help='Membership role (open string; known: primary_textbook, lecture, paper, reference, alternate_explanation, problem_set, exam, notes, syllabus). A syllabus only scopes your deliverables: never taught from, never practice, never protected (an exam role hides it whole).')]='reference', units: Annotated[list[str] | None, typer.Option('--unit', help='Scope unit id (repeatable). Empty = whole artifact.')]=None, reading: Annotated[str | None, typer.Option('--reading', help='Extraction id of the reading the --unit ids were chosen on (recorded with the scope).')]=None, priority: Annotated[int, typer.Option('--priority')]=1, json_output: Annotated[bool, typer.Option('--json')]=False, vault: Annotated[Path | None, typer.Option('--vault')]=None) -> None` ([source](../../../../../../src/learnloop/cli/source_set.py), line 24) — Add a pinned source to a collection (membership owns role/scope, §4.3).
+- `source_set_update(set_id: Annotated[str, typer.Argument(help='Source-set id.')], title: Annotated[str | None, typer.Option('--title')]=None, json_output: Annotated[bool, typer.Option('--json')]=False, vault: Annotated[Path | None, typer.Option('--vault')]=None) -> None` ([source](../../../../../../src/learnloop/cli/source_set.py), line 69) — Update a collection's title (membership edits use add).
+- `source_set_list(json_output: Annotated[bool, typer.Option('--json')]=False, vault: Annotated[Path | None, typer.Option('--vault')]=None) -> None` ([source](../../../../../../src/learnloop/cli/source_set.py), line 87) — List source collections.
+- `source_set_show(set_id: Annotated[str, typer.Argument(help='Source-set id.')], json_output: Annotated[bool, typer.Option('--json')]=False, vault: Annotated[Path | None, typer.Option('--vault')]=None) -> None` ([source](../../../../../../src/learnloop/cli/source_set.py), line 107) — Show a collection's members, roles, and scopes.
 
 ## Internal implementation anchors
 
@@ -107,7 +107,11 @@ No test imports this module directly. These tests exercise a direct production c
 
 - [tests/test_cli_generate_practice.py](../../../../../../tests/test_cli_generate_practice.py) — imports consumer [[Reference/Modules/learnloop/cli/__init__|learnloop.cli]]
 - [tests/test_cli_ingest.py](../../../../../../tests/test_cli_ingest.py) — imports consumer [[Reference/Modules/learnloop/cli/__init__|learnloop.cli]]
+- [tests/test_facet_identity_ingest.py](../../../../../../tests/test_facet_identity_ingest.py) — imports consumer [[Reference/Modules/learnloop/cli/__init__|learnloop.cli]]
+- [tests/test_graph_nomination_ingest.py](../../../../../../tests/test_graph_nomination_ingest.py) — imports consumer [[Reference/Modules/learnloop/cli/__init__|learnloop.cli]]
 - [tests/test_model_call_receipt_owners.py](../../../../../../tests/test_model_call_receipt_owners.py) — imports consumer [[Reference/Modules/learnloop/cli/__init__|learnloop.cli]]
+- [tests/test_route_rules_in_grader.py](../../../../../../tests/test_route_rules_in_grader.py) — imports consumer [[Reference/Modules/learnloop/cli/__init__|learnloop.cli]]
+- [tests/test_stuck_prompt.py](../../../../../../tests/test_stuck_prompt.py) — imports consumer [[Reference/Modules/learnloop/cli/__init__|learnloop.cli]]
 - [tests/test_teach_back_generation.py](../../../../../../tests/test_teach_back_generation.py) — imports consumer [[Reference/Modules/learnloop/cli/__init__|learnloop.cli]]
 
 ## Modification guidance

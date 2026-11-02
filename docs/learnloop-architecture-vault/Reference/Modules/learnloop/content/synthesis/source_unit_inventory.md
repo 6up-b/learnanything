@@ -7,11 +7,11 @@ version: "1.0.0"
 source_path: "src/learnloop/content/synthesis/source_unit_inventory.py"
 source_paths:
   - "src/learnloop/content/synthesis/source_unit_inventory.py"
-source_commit: "5f7340aaf0366e30dca27f6cfc233dae3e37c850"
-source_commit_timestamp: "2026-09-23T12:54:18-04:00"
+source_commit: "542adc8869b3c2d17c359f79a489c4b4b8519192"
+source_commit_timestamp: "2026-10-15T06:29:40-04:00"
 source_worktree_state: "clean"
 generated: true
-generated_at: "2026-09-23"
+generated_at: "2026-11-02"
 package: "learnloop.content.synthesis"
 layer: "domain"
 concepts:
@@ -51,13 +51,13 @@ The authoritative system-level explanation remains in [[Learning System]], [[AI 
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/content/synthesis/source_unit_inventory.py](../../../../../../../src/learnloop/content/synthesis/source_unit_inventory.py) |
-| Source lines | 930 |
+| Source lines | 935 |
 | Owning package | [[Reference/Modules/learnloop/content/synthesis/_package|learnloop.content.synthesis]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `5f7340aaf0366e30dca27f6cfc233dae3e37c850` |
-| Commit timestamp | `2026-09-23T12:54:18-04:00` |
+| Source commit | `542adc8869b3c2d17c359f79a489c4b4b8519192` |
+| Commit timestamp | `2026-10-15T06:29:40-04:00` |
 
 ## Public API
 
@@ -74,11 +74,11 @@ The authoritative system-level explanation remains in [[Learning System]], [[AI 
 - `class PreparedInventory` ([source](../../../../../../../src/learnloop/content/synthesis/source_unit_inventory.py), line 502) — Cache-missed inventory work with every database read already resolved.
 - `class InventoryExecution` ([source](../../../../../../../src/learnloop/content/synthesis/source_unit_inventory.py), line 528) — Fresh provider output awaiting runner-thread persistence.
 - `prepare_unit_inventory(repo: Repository, extraction_id: str, unit_id: str, *, unit_ids: list[str] | None=None, role: str, profile: str | None=None, client: Any=None, provider: str | None=None, model: str | None=None, input_budget_tokens: int=20000, output_budget_tokens: int | None=3000, clock: Clock | None=None, prompt_version: str=SOURCE_UNIT_INVENTORY_PROMPT_VERSION, schema_version: int=INVENTORY_SCHEMA_VERSION) -> InventoryResult | PreparedInventory` ([source](../../../../../../../src/learnloop/content/synthesis/source_unit_inventory.py), line 535) — Resolve one inventory from cache or return provider-only work.
-- `inventory_window_key(context: SourceUnitInventoryContext, settings: dict[str, Any], *, schema_version: int) -> str` ([source](../../../../../../../src/learnloop/content/synthesis/source_unit_inventory.py), line 721) — Checkpoint identity of one inventory window.
-- `execute_prepared_inventory(prepared: PreparedInventory, client: Any, *, progress: Callable[[int, int], None] | None=None, checkpoint: Callable[[str, SourceUnitInventory, dict[str, Any]], None] | None=None) -> InventoryExecution` ([source](../../../../../../../src/learnloop/content/synthesis/source_unit_inventory.py), line 739) — Run provider windows without touching SQLite.
-- `persist_prepared_inventory(repo: Repository, prepared: PreparedInventory, execution: InventoryExecution, *, clock: Clock | None=None) -> InventoryResult` ([source](../../../../../../../src/learnloop/content/synthesis/source_unit_inventory.py), line 811) — Persist fresh provider output on the runner thread.
-- `run_unit_inventory(repo: Repository, extraction_id: str, unit_id: str, *, unit_ids: list[str] | None=None, role: str, profile: str | None=None, client: Any=None, provider: str | None=None, model: str | None=None, input_budget_tokens: int=20000, output_budget_tokens: int | None=3000, clock: Clock | None=None, prompt_version: str=SOURCE_UNIT_INVENTORY_PROMPT_VERSION, schema_version: int=INVENTORY_SCHEMA_VERSION, progress: Callable[[int, int], None] | None=None) -> InventoryResult` ([source](../../../../../../../src/learnloop/content/synthesis/source_unit_inventory.py), line 845) — Produce or reuse one effective unit inventory under a role/profile (§7).
-- `inventory_marker(repo: Repository, extraction_id: str, unit_id: str) -> dict[str, Any]` ([source](../../../../../../../src/learnloop/content/synthesis/source_unit_inventory.py), line 896) — Whether a unit already has a cached inventory (wires the M3 outline seam).
+- `inventory_window_key(context: SourceUnitInventoryContext, settings: dict[str, Any], *, schema_version: int) -> str` ([source](../../../../../../../src/learnloop/content/synthesis/source_unit_inventory.py), line 725) — Checkpoint identity of one inventory window.
+- `execute_prepared_inventory(prepared: PreparedInventory, client: Any, *, progress: Callable[[int, int], None] | None=None, checkpoint: Callable[[str, SourceUnitInventory, dict[str, Any]], None] | None=None) -> InventoryExecution` ([source](../../../../../../../src/learnloop/content/synthesis/source_unit_inventory.py), line 743) — Run provider windows without touching SQLite.
+- `persist_prepared_inventory(repo: Repository, prepared: PreparedInventory, execution: InventoryExecution, *, clock: Clock | None=None) -> InventoryResult` ([source](../../../../../../../src/learnloop/content/synthesis/source_unit_inventory.py), line 815) — Persist fresh provider output on the runner thread.
+- `run_unit_inventory(repo: Repository, extraction_id: str, unit_id: str, *, unit_ids: list[str] | None=None, role: str, profile: str | None=None, client: Any=None, provider: str | None=None, model: str | None=None, input_budget_tokens: int=20000, output_budget_tokens: int | None=3000, clock: Clock | None=None, prompt_version: str=SOURCE_UNIT_INVENTORY_PROMPT_VERSION, schema_version: int=INVENTORY_SCHEMA_VERSION, progress: Callable[[int, int], None] | None=None) -> InventoryResult` ([source](../../../../../../../src/learnloop/content/synthesis/source_unit_inventory.py), line 850) — Produce or reuse one effective unit inventory under a role/profile (§7).
+- `inventory_marker(repo: Repository, extraction_id: str, unit_id: str) -> dict[str, Any]` ([source](../../../../../../../src/learnloop/content/synthesis/source_unit_inventory.py), line 901) — Whether a unit already has a cached inventory (wires the M3 outline seam).
 
 ### Module constants
 
@@ -105,7 +105,7 @@ The authoritative system-level explanation remains in [[Learning System]], [[AI 
 - `_cited_span_ids(inventory: SourceUnitInventory) -> set[str]` ([source](../../../../../../../src/learnloop/content/synthesis/source_unit_inventory.py), line 411)
 - `_rebind_inventory_spans(inventory: SourceUnitInventory, *, span_aliases: Mapping[str, str], unit_id: str, semantic_hash: str) -> SourceUnitInventory` ([source](../../../../../../../src/learnloop/content/synthesis/source_unit_inventory.py), line 420) — Return the same semantic artifact bound to a new extraction's span ids.
 - `_reusable_inventory_for_extraction(repo: Repository, candidate: Mapping[str, Any], *, current_ir: DocumentIR, current_extraction_id: str, current_unit_id: str, current_semantic_hash: str, valid_span_ids: set[str]) -> SourceUnitInventory | None` ([source](../../../../../../../src/learnloop/content/synthesis/source_unit_inventory.py), line 440) — Safely bind a cached semantic artifact to the current extraction.
-- `_reusable_window_checkpoint(repo: Repository, key: str, valid_span_ids: frozenset[str]) -> dict[str, Any] | None` ([source](../../../../../../../src/learnloop/content/synthesis/source_unit_inventory.py), line 700) — Return a saved inventory window, discarding one that no longer validates.
+- `_reusable_window_checkpoint(repo: Repository, key: str, valid_span_ids: frozenset[str]) -> dict[str, Any] | None` ([source](../../../../../../../src/learnloop/content/synthesis/source_unit_inventory.py), line 704) — Return a saved inventory window, discarding one that no longer validates.
 
 ## Who imports or calls it
 
@@ -154,6 +154,11 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 ## Tests that define behavior
 
 - [tests/test_build_study_map_routing.py](../../../../../../../tests/test_build_study_map_routing.py) — direct import
+- [tests/test_exam_protection_identity.py](../../../../../../../tests/test_exam_protection_identity.py) — direct import
+  - `test_f2_a_reused_inventory_never_releases_duplicate_or_fragment_copies`
+  - `test_f2_reuse_never_erases_the_origins_signal`
+  - `test_identity_review_f2_an_unbound_signal_never_lets_a_known_one_mark_its_origin`
+- [tests/test_facet_authority.py](../../../../../../../tests/test_facet_authority.py) — direct import
 - [tests/test_facet_candidates.py](../../../../../../../tests/test_facet_candidates.py) — direct import
   - `test_harvests_candidates_from_unit_inventories`
 - [tests/test_ingestion_checkpoints.py](../../../../../../../tests/test_ingestion_checkpoints.py) — direct import
@@ -187,6 +192,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_one_source_two_sets_different_roles`
   - `test_source_coverage_readiness_report`
 - [tests/test_structured_transport_parity.py](../../../../../../../tests/test_structured_transport_parity.py) — direct import
+- [tests/test_ux_phase1_usability_round1.py](../../../../../../../tests/test_ux_phase1_usability_round1.py) — direct import
 
 ## Modification guidance
 

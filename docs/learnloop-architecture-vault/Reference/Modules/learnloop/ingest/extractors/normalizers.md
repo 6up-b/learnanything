@@ -11,7 +11,7 @@ source_commit: "02c3e6e10f5ca37e16cef05657ee693b33502fb7"
 source_commit_timestamp: "2026-07-21T13:26:14-04:00"
 source_worktree_state: "clean"
 generated: true
-generated_at: "2026-09-23"
+generated_at: "2026-11-02"
 package: "learnloop.ingest.extractors"
 layer: "infrastructure"
 concepts:
@@ -110,6 +110,9 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
+- [tests/ad_ingest_fakes.py](../../../../../../../tests/ad_ingest_fakes.py) — direct import
+- [tests/reader_fixtures.py](../../../../../../../tests/reader_fixtures.py) — direct import
+- [tests/test_daily_plan_reading.py](../../../../../../../tests/test_daily_plan_reading.py) — direct import
 - [tests/test_ingest_m3.py](../../../../../../../tests/test_ingest_m3.py) — direct import
   - `test_import_snapshots_build_plan_estimate_into_payload`
   - `test_plain_import_performs_no_external_egress`
@@ -125,6 +128,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_sidecar_quick_add.py](../../../../../../../tests/test_sidecar_quick_add.py) — direct import
 - [tests/test_sidecar_span_view.py](../../../../../../../tests/test_sidecar_span_view.py) — direct import
 - [tests/test_source_ingestion_v2lite.py](../../../../../../../tests/test_source_ingestion_v2lite.py) — direct import
+- [tests/test_tutor_delivery_fixes.py](../../../../../../../tests/test_tutor_delivery_fixes.py) — direct import
+- [tests/test_ux_phase1_round2_review.py](../../../../../../../tests/test_ux_phase1_round2_review.py) — direct import
 
 ## Modification guidance
 

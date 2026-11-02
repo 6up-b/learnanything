@@ -11,7 +11,7 @@ source_commit: "b322ef2e9b5cebc241b612e4963a5aaf1a37f99a"
 source_commit_timestamp: "2026-08-20T18:04:29-04:00"
 source_worktree_state: "clean"
 generated: true
-generated_at: "2026-09-23"
+generated_at: "2026-11-02"
 package: "learnloop.content.synthesis"
 layer: "domain"
 concepts:
@@ -104,7 +104,9 @@ The authoritative system-level explanation remains in [[Learning System]], [[AI 
 > “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
 
 - [[Reference/Modules/learnloop/cli/app|learnloop.cli.app]] — imports `MintDisposition`, `judge_facet_mints`; statically calls `judge_facet_mints`
+- [[Reference/Modules/learnloop/content/synthesis/graph_nomination|learnloop.content.synthesis.graph_nomination]] — imports `distinct_repair`; statically calls `distinct_repair`
 - [[Reference/Modules/learnloop/content/synthesis/source_set_synthesis|learnloop.content.synthesis.source_set_synthesis]] — imports `MintDisposition`, `judge_facet_mints`, `mint_diagnostic`; statically calls `judge_facet_mints`, `mint_diagnostic`
+- [[Reference/Modules/learnloop/ops/graph_nomination_report|learnloop.ops.graph_nomination_report]] — imports `MintDisposition`, `judge_facet_mints`; statically calls `judge_facet_mints`
 - [[Reference/Modules/learnloop_sidecar/handlers/measurement|learnloop_sidecar.handlers.measurement]] — imports `judge_facet_mints`; statically calls `judge_facet_mints`
 
 ## Dependencies
@@ -126,7 +128,7 @@ Use this module in context through:
 - [[Import Canonical Sources]]
 - [[Build a Study Map]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/cli/app|learnloop.cli.app]], [[Reference/Modules/learnloop/content/synthesis/source_set_synthesis|learnloop.content.synthesis.source_set_synthesis]], [[Reference/Modules/learnloop_sidecar/handlers/measurement|learnloop_sidecar.handlers.measurement]].
+Static participation evidence comes from [[Reference/Modules/learnloop/cli/app|learnloop.cli.app]], [[Reference/Modules/learnloop/content/synthesis/graph_nomination|learnloop.content.synthesis.graph_nomination]], [[Reference/Modules/learnloop/content/synthesis/source_set_synthesis|learnloop.content.synthesis.source_set_synthesis]], [[Reference/Modules/learnloop/ops/graph_nomination_report|learnloop.ops.graph_nomination_report]], [[Reference/Modules/learnloop_sidecar/handlers/measurement|learnloop_sidecar.handlers.measurement]].
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
@@ -144,6 +146,9 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_same_repair_class_aliases_even_when_signatures_differ`
   - `test_separability_is_symmetric_so_a_subset_facet_is_a_collapse`
   - `test_untestable_candidate_abstains_and_is_not_born_reviewed`
+- [tests/test_graph_nomination.py](../../../../../../../tests/test_graph_nomination.py) — direct import
+  - `test_mint_shadow_never_changes_a_disposition`
+  - `test_repair_shadow_reports_the_text_verdict_and_embedding_view`
 
 ## Modification guidance
 

@@ -7,11 +7,11 @@ version: "1.0.0"
 source_path: "src/learnloop/curriculum/commitments.py"
 source_paths:
   - "src/learnloop/curriculum/commitments.py"
-source_commit: "b322ef2e9b5cebc241b612e4963a5aaf1a37f99a"
-source_commit_timestamp: "2026-08-20T18:04:29-04:00"
+source_commit: "e1177a2cec7911e14818746221c91926be6d5bda"
+source_commit_timestamp: "2026-11-01T02:06:37-05:00"
 source_worktree_state: "clean"
 generated: true
-generated_at: "2026-09-23"
+generated_at: "2026-11-02"
 package: "learnloop.curriculum"
 layer: "domain"
 concepts:
@@ -49,13 +49,13 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/curriculum/commitments.py](../../../../../../src/learnloop/curriculum/commitments.py) |
-| Source lines | 920 |
+| Source lines | 938 |
 | Owning package | [[Reference/Modules/learnloop/curriculum/_package|learnloop.curriculum]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `b322ef2e9b5cebc241b612e4963a5aaf1a37f99a` |
-| Commit timestamp | `2026-08-20T18:04:29-04:00` |
+| Source commit | `e1177a2cec7911e14818746221c91926be6d5bda` |
+| Commit timestamp | `2026-11-01T02:06:37-05:00` |
 
 ## Public API
 
@@ -83,11 +83,11 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 - `change_disposition(repository: Repository, *, commitment_id: str, disposition: str, clock: Clock | None=None) -> str` ([source](../../../../../../src/learnloop/curriculum/commitments.py), line 667) — Append a ``disposition_changed`` event only; disposition is a projection over events (§3.1), so no version bump.
 - `pause(repository: Repository, *, commitment_id: str, clock: Clock | None=None) -> str` ([source](../../../../../../src/learnloop/curriculum/commitments.py), line 690)
 - `resume(repository: Repository, *, commitment_id: str, clock: Clock | None=None) -> str` ([source](../../../../../../src/learnloop/curriculum/commitments.py), line 699)
-- `retire(repository: Repository, *, commitment_id: str, clock: Clock | None=None) -> str` ([source](../../../../../../src/learnloop/curriculum/commitments.py), line 708)
-- `satisfy_single_check(repository: Repository, *, commitment_id: str, administration_id: str | None=None, clock: Clock | None=None) -> str` ([source](../../../../../../src/learnloop/curriculum/commitments.py), line 717) — One eligible delayed cold administration satisfies a ``test_me_later`` commitment (§3.1): ``one_check_pending`` -> ``satisfied``, never an open-ended review obligation.
-- `record_milestone_reached(repository: Repository, *, commitment_id: str, milestone_slug: str, detail: Mapping[str, Any] | None=None, clock: Clock | None=None) -> None` ([source](../../../../../../src/learnloop/curriculum/commitments.py), line 738) — Append ``depth_milestone_reached``: an achievement fact over the existing authored envelope.
-- `resolve_disposition(repository: Repository, commitment_id: str) -> str` ([source](../../../../../../src/learnloop/curriculum/commitments.py), line 809) — Fold ``commitment_events`` to one disposition (§3.1).
-- `resolve_head(repository: Repository, commitment_id: str) -> CommitmentVersion` ([source](../../../../../../src/learnloop/curriculum/commitments.py), line 836)
+- `retire(repository: Repository, *, commitment_id: str, detail: Mapping[str, Any] | None=None, clock: Clock | None=None) -> str` ([source](../../../../../../src/learnloop/curriculum/commitments.py), line 708) — Append a ``retired`` event.
+- `satisfy_single_check(repository: Repository, *, commitment_id: str, administration_id: str | None=None, clock: Clock | None=None) -> str` ([source](../../../../../../src/learnloop/curriculum/commitments.py), line 727) — One eligible delayed cold administration satisfies a ``test_me_later`` commitment (§3.1): ``one_check_pending`` -> ``satisfied``, never an open-ended review obligation.
+- `record_milestone_reached(repository: Repository, *, commitment_id: str, milestone_slug: str, detail: Mapping[str, Any] | None=None, clock: Clock | None=None) -> None` ([source](../../../../../../src/learnloop/curriculum/commitments.py), line 748) — Append ``depth_milestone_reached``: an achievement fact over the existing authored envelope.
+- `resolve_disposition(repository: Repository, commitment_id: str, *, before: str | None=None) -> str` ([source](../../../../../../src/learnloop/curriculum/commitments.py), line 819) — Fold ``commitment_events`` to one disposition (§3.1).
+- `resolve_head(repository: Repository, commitment_id: str) -> CommitmentVersion` ([source](../../../../../../src/learnloop/curriculum/commitments.py), line 854)
 
 ### Module constants
 
@@ -108,11 +108,11 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 - `_default_envelope_body(preset: str) -> dict[str, Any]` ([source](../../../../../../src/learnloop/curriculum/commitments.py), line 284)
 - `_target_row(t: CommitmentTarget) -> dict[str, Any]` ([source](../../../../../../src/learnloop/curriculum/commitments.py), line 400)
 - `_append_depth_version(repository: Repository, *, head: CommitmentVersion, depth_policy_version_id: str | None, depth_envelope_version_id: str | None, event_kind: str, detail: Mapping[str, Any], change_reason: str, author: str, clock: Clock | None) -> CommitmentVersion` ([source](../../../../../../src/learnloop/curriculum/commitments.py), line 616)
-- `_loads(value: str | None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/curriculum/commitments.py), line 848)
-- `_current_envelope_bounds(repository: Repository, envelope_version_id: str | None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/curriculum/commitments.py), line 856) — Bounds of the head's active depth envelope (empty when unset).
-- `_version_from_row(row: Mapping[str, Any], targets: Sequence[Mapping[str, Any]]) -> CommitmentVersion` ([source](../../../../../../src/learnloop/curriculum/commitments.py), line 868)
-- `_require_head(repository: Repository, commitment_id: str) -> CommitmentVersion` ([source](../../../../../../src/learnloop/curriculum/commitments.py), line 897)
-- `_load_commitment(repository: Repository, commitment_id: str, *, created: bool, merge_candidate: bool=False) -> Commitment` ([source](../../../../../../src/learnloop/curriculum/commitments.py), line 905)
+- `_loads(value: str | None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/curriculum/commitments.py), line 866)
+- `_current_envelope_bounds(repository: Repository, envelope_version_id: str | None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/curriculum/commitments.py), line 874) — Bounds of the head's active depth envelope (empty when unset).
+- `_version_from_row(row: Mapping[str, Any], targets: Sequence[Mapping[str, Any]]) -> CommitmentVersion` ([source](../../../../../../src/learnloop/curriculum/commitments.py), line 886)
+- `_require_head(repository: Repository, commitment_id: str) -> CommitmentVersion` ([source](../../../../../../src/learnloop/curriculum/commitments.py), line 915)
+- `_load_commitment(repository: Repository, commitment_id: str, *, created: bool, merge_candidate: bool=False) -> Commitment` ([source](../../../../../../src/learnloop/curriculum/commitments.py), line 923)
 
 ## Who imports or calls it
 
@@ -125,20 +125,31 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 - [[Reference/Modules/learnloop/curriculum/depth_transition|learnloop.curriculum.depth_transition]] — imports `module`; statically calls `resolve_head`
 - [[Reference/Modules/learnloop/curriculum/golden_path_confirm|learnloop.curriculum.golden_path_confirm]] — imports `module`; statically calls `_coerce_targets`, `_default_depth_body`, `_default_envelope_body`, `_target_row`, `_version_hash`, `target_set_hash`
 - [[Reference/Modules/learnloop/curriculum/golden_path_restoration|learnloop.curriculum.golden_path_restoration]] — imports `module`; statically calls `record_milestone_reached`
-- [[Reference/Modules/learnloop/reader/reader_authoring|learnloop.reader.reader_authoring]] — imports `module`; statically calls `change_depth_envelope`, `change_depth_policy`, `create_commitment`, `retire`
+- [[Reference/Modules/learnloop/daily_plan/router_reader|learnloop.daily_plan.router_reader]] — imports `module`; statically calls `resolve_disposition`
+- [[Reference/Modules/learnloop/instructional/reader_followups|learnloop.instructional.reader_followups]] — imports `module`; statically calls `create_commitment`, `resolve_disposition`, `retire`
+- [[Reference/Modules/learnloop/intent/checks|learnloop.intent.checks]] — imports `module`; statically calls `resolve_disposition`, `satisfy_single_check`
+- [[Reference/Modules/learnloop/intent/control|learnloop.intent.control]] — imports `module`; statically calls `append_commitment_version`, `change_disposition`, `create_commitment`, `resolve_head`
+- [[Reference/Modules/learnloop/intent/deadline|learnloop.intent.deadline]] — imports `module`; statically calls `append_commitment_version`
+- [[Reference/Modules/learnloop/reader/active_reading|learnloop.reader.active_reading]] — imports `module`; statically calls `create_commitment`, `resolve_disposition`, `retire`
+- [[Reference/Modules/learnloop/reader/reader_authoring|learnloop.reader.reader_authoring]] — imports `module`; statically calls `add_target`, `change_depth_envelope`, `change_depth_policy`, `create_commitment`, `resolve_head`, `retire`
 - [[Reference/Modules/learnloop/reader/reader_capture|learnloop.reader.reader_capture]] — imports `module`; statically calls `create_commitment`
 - [[Reference/Modules/learnloop/reader/reader_dialogue|learnloop.reader.reader_dialogue]] — imports `module`; statically calls `create_commitment`
+- [[Reference/Modules/learnloop/reader/reader_intent|learnloop.reader.reader_intent]] — imports `module`; statically calls `resolve_disposition`, `retire`
+- [[Reference/Modules/learnloop/reader/reader_requests|learnloop.reader.reader_requests]] — imports `module`; statically calls `resolve_disposition`
 - [[Reference/Modules/learnloop/scheduling/controller_cutover|learnloop.scheduling.controller_cutover]] — imports `module`; statically calls `resolve_head`
 - [[Reference/Modules/learnloop/scheduling/controller_ownership|learnloop.scheduling.controller_ownership]] — imports `module`; statically calls `resolve_head`
 - [[Reference/Modules/learnloop/scheduling/controller_snapshot|learnloop.scheduling.controller_snapshot]] — imports `module`; statically calls `resolve_disposition`, `resolve_head`
 - [[Reference/Modules/learnloop/scheduling/state_signals|learnloop.scheduling.state_signals]] — imports `module`; statically calls `resolve_head`
+- [[Reference/Modules/learnloop/source_retrieval/deliverable_path|learnloop.source_retrieval.deliverable_path]] — imports `module`; statically calls `create_commitment`, `resolve_disposition`
+- [[Reference/Modules/learnloop/teacher/delayed|learnloop.teacher.delayed]] — imports `module`; statically calls `create_commitment`
 - [[Reference/Modules/learnloop_sidecar/handlers/reader|learnloop_sidecar.handlers.reader]] — imports `module`
+- [[Reference/Modules/learnloop_sidecar/handlers/reader_intent|learnloop_sidecar.handlers.reader_intent]] — imports `module`; statically calls `resolve_disposition`
 
 ## Dependencies
 
 ### LearnLoop dependencies
 
-- [[Reference/Modules/learnloop/clock|learnloop.clock]] — imports `Clock`
+- [[Reference/Modules/learnloop/clock|learnloop.clock]] — imports `Clock`, `parse_utc`; calls `parse_utc`
 - [[Reference/Modules/learnloop/db/repositories|learnloop.db.repositories]] — imports `Repository`
 - [[Reference/Modules/learnloop/substrate/activities|learnloop.substrate.activities]] — imports `canonical_hash`, `canonical_json`; calls `canonical_hash`, `canonical_json`
 
@@ -153,7 +164,7 @@ Use this module in context through:
 
 - [[Build a Study Map]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/curriculum/commitment_arcs|learnloop.curriculum.commitment_arcs]], [[Reference/Modules/learnloop/curriculum/depth_edge_authoring|learnloop.curriculum.depth_edge_authoring]], [[Reference/Modules/learnloop/curriculum/depth_rungs|learnloop.curriculum.depth_rungs]], [[Reference/Modules/learnloop/curriculum/depth_transition|learnloop.curriculum.depth_transition]], [[Reference/Modules/learnloop/curriculum/golden_path_confirm|learnloop.curriculum.golden_path_confirm]] and 9 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/curriculum/commitment_arcs|learnloop.curriculum.commitment_arcs]], [[Reference/Modules/learnloop/curriculum/depth_edge_authoring|learnloop.curriculum.depth_edge_authoring]], [[Reference/Modules/learnloop/curriculum/depth_rungs|learnloop.curriculum.depth_rungs]], [[Reference/Modules/learnloop/curriculum/depth_transition|learnloop.curriculum.depth_transition]], [[Reference/Modules/learnloop/curriculum/golden_path_confirm|learnloop.curriculum.golden_path_confirm]] and 20 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
@@ -180,15 +191,98 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_rollback_is_all_or_nothing_on_mid_failure`
 - [tests/test_cross_seam_exposure.py](../../../../../../tests/test_cross_seam_exposure.py) — direct import
   - `test_stale_ownership_still_prevents_double_administration`
+- [tests/test_curriculum_c1_landing.py](../../../../../../tests/test_curriculum_c1_landing.py) — direct import
+- [tests/test_daily_loop_reader_authored_practice.py](../../../../../../tests/test_daily_loop_reader_authored_practice.py) — direct import
+  - `test_written_question_becomes_practice_the_scheduler_serves`
+- [tests/test_daily_loop_reference_adoption.py](../../../../../../tests/test_daily_loop_reference_adoption.py) — direct import
+  - `test_a_retired_reference_question_is_never_adopted`
+  - `test_adoption_kill_switch_restores_baseline_and_keeps_adopted_cards`
+  - `test_reference_question_becomes_practice_once_an_lo_cites_its_passage`
+- [tests/test_deliverable_path.py](../../../../../../tests/test_deliverable_path.py) — direct import
+  - `test_overrides_use_instead_skip_and_check_later`
 - [tests/test_depth_transition.py](../../../../../../tests/test_depth_transition.py) — direct import
+- [tests/test_dl2_rw4b_keyed_pick_check.py](../../../../../../tests/test_dl2_rw4b_keyed_pick_check.py) — direct import
+  - `test_a_keyed_pick_of_a_due_check_the_plan_does_not_hold_is_a_one_item_block_and_answers_it`
+  - `test_a_keyed_pick_of_a_planned_due_check_serves_the_check_once_and_its_answer_satisfies_it`
+  - `test_a_keyed_pick_of_an_item_a_waiting_check_holds_is_served_and_answers_nothing`
 - [tests/test_dual_authority_administration.py](../../../../../../tests/test_dual_authority_administration.py) — direct import
 - [tests/test_golden_path_assessment.py](../../../../../../tests/test_golden_path_assessment.py) — direct import
   - `test_harness_activation_activates_exactly_one_edge`
+- [tests/test_intent_checks.py](../../../../../../tests/test_intent_checks.py) — direct import
+  - `test_an_attempt_before_the_date_does_not_answer_the_check`
+  - `test_settling_writes_the_satisfaction_once_and_only_for_answered_checks`
+- [tests/test_intent_codex_rereview.py](../../../../../../tests/test_intent_codex_rereview.py) — direct import
+  - `test_f3_a_cold_attempt_still_answers_the_check_its_own_feedback_notwithstanding`
+  - `test_f3_an_attempt_under_a_siblings_hold_is_practice_not_the_check`
+- [tests/test_intent_codex_review.py](../../../../../../tests/test_intent_codex_review.py) — direct import
+  - `test_f3_a_hinted_attempt_does_not_use_up_the_check`
+  - `test_f9_a_crash_between_publishing_and_linking_is_recovered_without_an_orphan`
+- [tests/test_intent_exclusion.py](../../../../../../tests/test_intent_exclusion.py) — direct import
+  - `test_an_excluded_request_is_not_a_request`
+- [tests/test_intent_fix_round4.py](../../../../../../tests/test_intent_fix_round4.py) — direct import
+  - `test_f13_an_assisted_reconstruction_leaves_the_check_pending_and_dates_it_again`
+- [tests/test_intent_goal_deadline.py](../../../../../../tests/test_intent_goal_deadline.py) — direct import
+  - `test_a_deadline_creates_a_learner_goal_linked_by_goal_id`
+- [tests/test_intent_orchestrator_rulings.py](../../../../../../tests/test_intent_orchestrator_rulings.py) — direct import
+  - `test_f12_a_frozen_self_grade_answers_the_check`
+  - `test_f12_a_repeated_self_grade_never_postpones`
+  - `test_f12_an_unrelated_disclosure_still_holds`
+- [tests/test_intent_resolution.py](../../../../../../tests/test_intent_resolution.py) — direct import
+  - `test_a_satisfied_check_still_decides_over_an_older_lo_master`
+  - `test_a_source_locator_only_commitment_covers_no_item`
+  - `test_retired_commitments_drop_out`
+  - `test_satisfying_a_check_does_not_move_its_choice_time`
 - [tests/test_journey6.py](../../../../../../tests/test_journey6.py) — direct import
   - `test_journey6_end_to_end_on_fresh_mvp08_vault`
   - `test_journey6_passive_action_cannot_create_commitment`
+- [tests/test_reader_adoption_ownership.py](../../../../../../tests/test_reader_adoption_ownership.py) — direct import
+  - `test_crash_before_the_link_reuses_the_commitments_own_card`
+  - `test_retiring_a_question_keeps_a_card_another_commitment_still_requests`
 - [tests/test_reader_authoring.py](../../../../../../tests/test_reader_authoring.py) — direct import
   - `test_retirement_preserves_commitment_and_evidence`
+- [tests/test_reader_ca1_as_printed.py](../../../../../../tests/test_reader_ca1_as_printed.py) — direct import
+  - `test_a_due_check_on_your_own_is_read_on_the_server`
+- [tests/test_reader_followups.py](../../../../../../tests/test_reader_followups.py) — direct import
+  - `test_an_abstention_an_exclusion_or_an_unknown_keeps_the_check`
+  - `test_each_follow_up_is_a_test_me_later_commitment_with_its_provenance`
+  - `test_only_reader_follow_ups_can_be_undone_here`
+  - `test_rebuild_shadow_is_zero_with_follow_ups_present`
+  - `test_revaluation_retires_a_follow_up_answered_since_with_its_reason`
+  - `test_the_cards_good_news_names_how_the_question_was_answered_and_drops_a_restored_check`
+  - `test_undo_leaves_an_answered_check_answered`
+- [tests/test_reader_followups_rereview.py](../../../../../../tests/test_reader_followups_rereview.py) — direct import
+  - `test_f13_a_failure_after_the_exposure_retirement_loses_neither_the_check_nor_the_re_ask`
+  - `test_f14_a_resumed_search_conditions_on_the_live_check_and_retires_nothing`
+  - `test_f14_a_resumed_search_that_still_selects_the_earlier_check_keeps_it`
+- [tests/test_reader_followups_review.py](../../../../../../tests/test_reader_followups_review.py) — direct import
+  - `test_f1_an_impression_since_valuation_holds_the_check_and_revaluation_retires_and_re_asks`
+- [tests/test_reader_followups_round3.py](../../../../../../tests/test_reader_followups_round3.py) — direct import
+  - `test_an_item_whose_check_was_retired_is_scheduled_again_as_a_fresh_generation`
+  - `test_f15_revaluation_keeps_a_shared_check_while_any_licensing_question_needs_it`
+- [tests/test_reader_followups_round4.py](../../../../../../tests/test_reader_followups_round4.py) — direct import
+  - `test_f16_a_shared_check_is_held_and_retired_by_retentions_rule`
+- [tests/test_reader_followups_round5.py](../../../../../../tests/test_reader_followups_round5.py) — direct import
+  - `test_f17_revaluation_retires_an_unreadable_check_and_re_asks_what_it_can_name`
+- [tests/test_reader_followups_round6.py](../../../../../../tests/test_reader_followups_round6.py) — direct import
+  - `test_f18_re_planning_that_drops_a_question_keeps_the_shared_check_live_and_served`
+- [tests/test_reader_followups_round7.py](../../../../../../tests/test_reader_followups_round7.py) — direct import
+  - `test_f19_a_question_still_absent_from_the_fresh_receipt_is_pruned`
+- [tests/test_reader_followups_round8.py](../../../../../../tests/test_reader_followups_round8.py) — direct import
+  - `test_round8_a_changed_row_is_recomputed_and_the_second_pass_commits`
+  - `test_round8_a_row_that_keeps_changing_is_left_for_the_next_pass`
+  - `test_round8_a_scalar_licensing_is_unreadable_not_a_crash`
+  - `test_round8_sols_interleaving_keeps_the_shared_check_live`
+- [tests/test_reader_reconstruct.py](../../../../../../tests/test_reader_reconstruct.py) — direct import
+  - `test_reconstruct_makes_one_item_and_one_test_me_later_commitment`
+  - `test_undo_retires_the_commitment_and_the_item`
+- [tests/test_reader_rw1b_fix_round4.py](../../../../../../tests/test_reader_rw1b_fix_round4.py) — direct import
+- [tests/test_reader_rw1b_review.py](../../../../../../tests/test_reader_rw1b_review.py) — direct import
+  - `test_f4_change_reverts_the_routed_capture_its_commitment_and_its_request`
+  - `test_f5_a_crash_before_the_commitment_leaves_one_item_and_one_commitment`
+- [tests/test_reader_rw6b_landing.py](../../../../../../tests/test_reader_rw6b_landing.py) — direct import
+  - `test_i_check_once_commitments_and_follow_ups_coexist_and_the_gate_touches_only_follow_ups`
+- [tests/test_router_p2_bridge.py](../../../../../../tests/test_router_p2_bridge.py) — direct import
+  - `test_a_retried_constraint_vetoed_advance_stays_deferred`
 - [tests/test_staged_policy.py](../../../../../../tests/test_staged_policy.py) — direct import
 - [tests/test_state_signals.py](../../../../../../tests/test_state_signals.py) — direct import
   - `test_misspecification_scoped_to_commitment_head_targets`

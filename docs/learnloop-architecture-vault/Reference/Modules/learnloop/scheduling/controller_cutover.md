@@ -7,11 +7,11 @@ version: "1.0.0"
 source_path: "src/learnloop/scheduling/controller_cutover.py"
 source_paths:
   - "src/learnloop/scheduling/controller_cutover.py"
-source_commit: "b322ef2e9b5cebc241b612e4963a5aaf1a37f99a"
-source_commit_timestamp: "2026-08-20T18:04:29-04:00"
+source_commit: "dcd4eea315fde05e9651fafdf189c3ac8b82b2c4"
+source_commit_timestamp: "2026-10-13T22:20:27-04:00"
 source_worktree_state: "clean"
 generated: true
-generated_at: "2026-09-23"
+generated_at: "2026-11-02"
 package: "learnloop.scheduling"
 layer: "domain"
 concepts:
@@ -50,29 +50,29 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/scheduling/controller_cutover.py](../../../../../../src/learnloop/scheduling/controller_cutover.py) |
-| Source lines | 499 |
+| Source lines | 632 |
 | Owning package | [[Reference/Modules/learnloop/scheduling/_package|learnloop.scheduling]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `b322ef2e9b5cebc241b612e4963a5aaf1a37f99a` |
-| Commit timestamp | `2026-08-20T18:04:29-04:00` |
+| Source commit | `dcd4eea315fde05e9651fafdf189c3ac8b82b2c4` |
+| Commit timestamp | `2026-10-13T22:20:27-04:00` |
 
 ## Public API
 
 - `class LiveNextAction` ([source](../../../../../../src/learnloop/scheduling/controller_cutover.py), line 56) — The next action for a P2 run under the cutover.
   - `as_dict(self) -> dict[str, Any]` (line 71; public)
-- `staged_next_action(repository: Repository, run_id: str, *, vault: Any, session: Any | None=None, live: bool | None=None, receipt_key: str | None=None, clock: Clock | None=None) -> LiveNextAction` ([source](../../../../../../src/learnloop/scheduling/controller_cutover.py), line 134) — Consult the staged policy LIVE for a P2 run's next action (design §C step 3).
-- `advance_live(repository: Repository, run_id: str, *, vault: Any, session: Any | None=None, idempotency_key: str, live: bool | None=None, clock: Clock | None=None, **extra: Any) -> tuple[GPR.AdvanceResult | None, LiveNextAction]` ([source](../../../../../../src/learnloop/scheduling/controller_cutover.py), line 196) — The LIVE P2 next-action path: consult the staged policy, then advance the run to the resolved successor.
-- `rollback(repository: Repository, *, reason: str='cutover_rollback', clock: Clock | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/scheduling/controller_cutover.py), line 252) — Return every staged-owned commitment to legacy atomically under one receipt.
-- `cross_seam_exposure_probe(repo_factory: Callable[[], Repository], *, open_administration: Callable[[Repository], Any]) -> dict[str, Any]` ([source](../../../../../../src/learnloop/scheduling/controller_cutover.py), line 271) — Drive two concurrent administrations at the SAME surface through two independent connections (the two controllers), and report the serialization outcome.
-- `class GateOutcome` ([source](../../../../../../src/learnloop/scheduling/controller_cutover.py), line 320)
-  - `cleared(self) -> bool` (line 328; public)
-  - `as_dict(self) -> dict[str, Any]` (line 331; public)
-- `class CutoverGateReport` ([source](../../../../../../src/learnloop/scheduling/controller_cutover.py), line 337)
-  - `all_cleared(self) -> bool` (line 342; public)
-  - `as_dict(self) -> dict[str, Any]` (line 345; public)
-- `run_cutover_gates(repository: Repository, *, vault: Any, session: Any, run_id: str, commitment_id: str, exposure_probe: Callable[[], dict[str, Any]] | None=None, clock: Clock | None=None) -> CutoverGateReport` ([source](../../../../../../src/learnloop/scheduling/controller_cutover.py), line 445) — Evaluate the six §14.2 step-3 gates (design §C) as a hard sequential barrier: a gate is evaluated only if every prior gate cleared.
+- `staged_next_action(repository: Repository, run_id: str, *, vault: Any, session: Any | None=None, live: bool | None=None, receipt_key: str | None=None, clock: Clock | None=None, requested_to_state: str | None=None, requested_reason: str | None=None) -> LiveNextAction` ([source](../../../../../../src/learnloop/scheduling/controller_cutover.py), line 162) — Consult the staged policy LIVE for a P2 run's next action (design §C step 3).
+- `advance_live(repository: Repository, run_id: str, *, vault: Any, session: Any | None=None, idempotency_key: str, live: bool | None=None, clock: Clock | None=None, requested_to_state: str | None=None, requested_reason: str | None=None, **extra: Any) -> tuple[GPR.AdvanceResult | None, LiveNextAction]` ([source](../../../../../../src/learnloop/scheduling/controller_cutover.py), line 320) — The LIVE P2 next-action path: consult the staged policy, then advance the run to the resolved successor.
+- `rollback(repository: Repository, *, reason: str='cutover_rollback', clock: Clock | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/scheduling/controller_cutover.py), line 385) — Return every staged-owned commitment to legacy atomically under one receipt.
+- `cross_seam_exposure_probe(repo_factory: Callable[[], Repository], *, open_administration: Callable[[Repository], Any]) -> dict[str, Any]` ([source](../../../../../../src/learnloop/scheduling/controller_cutover.py), line 404) — Drive two concurrent administrations at the SAME surface through two independent connections (the two controllers), and report the serialization outcome.
+- `class GateOutcome` ([source](../../../../../../src/learnloop/scheduling/controller_cutover.py), line 453)
+  - `cleared(self) -> bool` (line 461; public)
+  - `as_dict(self) -> dict[str, Any]` (line 464; public)
+- `class CutoverGateReport` ([source](../../../../../../src/learnloop/scheduling/controller_cutover.py), line 470)
+  - `all_cleared(self) -> bool` (line 475; public)
+  - `as_dict(self) -> dict[str, Any]` (line 478; public)
+- `run_cutover_gates(repository: Repository, *, vault: Any, session: Any, run_id: str, commitment_id: str, exposure_probe: Callable[[], dict[str, Any]] | None=None, clock: Clock | None=None) -> CutoverGateReport` ([source](../../../../../../src/learnloop/scheduling/controller_cutover.py), line 578) — Evaluate the six §14.2 step-3 gates (design §C) as a hard sequential barrier: a gate is evaluated only if every prior gate cleared.
 
 ### Module constants
 
@@ -83,38 +83,42 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 
 - `_commitment_item_refs(vault: Any, repository: Repository, commitment_id: str) -> set[str]` ([source](../../../../../../src/learnloop/scheduling/controller_cutover.py), line 80) — The practice items a commitment owns (its head ``learning_object`` / ``legacy_practice_item`` targets, resolved down to vault item ids).
 - `_constraint_or_evsi_veto(result: sp.DecisionResult) -> str | None` ([source](../../../../../../src/learnloop/scheduling/controller_cutover.py), line 101) — Return the named constraint/EVSI reason iff the staged decision legitimately vetoes the canonical successor, else None.
-- `_run_signal_hints(run: Mapping[str, Any], state: GPR.RunState) -> dict[str, Any]` ([source](../../../../../../src/learnloop/scheduling/controller_cutover.py), line 119) — Stage material the P2 run knows directly (§4.2 rungs the golden-path machine owns): mode, whether a terminal assessment has been shown, and goal satisfaction.
-- `_gate_shadow_parity(repository: Repository, vault: Any, session: Any, clock: Clock | None) -> tuple[str, str]` ([source](../../../../../../src/learnloop/scheduling/controller_cutover.py), line 350) — (a) Shadow parity baseline: a staged decision is logged alongside the legacy comparator with ZERO authority; assert the comparator log is complete.
-- `_gate_ownership_assignment(repository: Repository, commitment_id: str, clock: Clock | None) -> tuple[str, str]` ([source](../../../../../../src/learnloop/scheduling/controller_cutover.py), line 365) — (b) Ownership assignment for P2 runs: the P2 commitment is assigned to staged and a non-P2 commitment is refused.
-- `_gate_staged_live(repository: Repository, run_id: str, vault: Any, session: Any, clock: Clock | None) -> tuple[str, str]` ([source](../../../../../../src/learnloop/scheduling/controller_cutover.py), line 379) — (c) Staged policy LIVE for owned commitments: the bridge drives the run and is decision-equivalent to the canonical successor (no spurious veto), persisting a ``mode='live'`` decision.
-- `_gate_affect_one_edge(repository: Repository, vault: Any, session: Any, clock: Clock | None) -> tuple[str, str]` ([source](../../../../../../src/learnloop/scheduling/controller_cutover.py), line 406) — (e) Affect check + one-edge discipline preserved under live mode: the affect step precedes the (at most one) depth edge and U-018 stays inert (activates nothing).
-- `_gate_rollback(repository: Repository, commitment_id: str, clock: Clock | None) -> tuple[str, str]` ([source](../../../../../../src/learnloop/scheduling/controller_cutover.py), line 431) — (f) Rollback: the single registered switch returns owned commitments to legacy atomically with a receipt; legacy ownership is restored exactly.
+- `_excluded_by_candidate(result: sp.DecisionResult) -> list[tuple[str, list[tuple[str, str]]]]` ([source](../../../../../../src/learnloop/scheduling/controller_cutover.py), line 119) — The decision's excluded candidates with their (constraint, reason) pairs, in candidate-ref order (each candidate's own reasons in the engine's order).
+- `_run_signal_hints(run: Mapping[str, Any], state: GPR.RunState) -> dict[str, Any]` ([source](../../../../../../src/learnloop/scheduling/controller_cutover.py), line 147) — Stage material the P2 run knows directly (§4.2 rungs the golden-path machine owns): mode, whether a terminal assessment has been shown, and goal satisfaction.
+- `_log_staged_decision(vault: Any, repository: Repository, result: sp.DecisionResult, *, snapshot: cs.ControllerSnapshot, signals: sp.StateSignals, canonical: Any, action: LiveNextAction, run_id: str, commitment_id: str | None, clock: Clock | None) -> None` ([source](../../../../../../src/learnloop/scheduling/controller_cutover.py), line 261) — Router R1: one ``router_decisions`` row per live staged P2 decision.
+- `_gate_shadow_parity(repository: Repository, vault: Any, session: Any, clock: Clock | None) -> tuple[str, str]` ([source](../../../../../../src/learnloop/scheduling/controller_cutover.py), line 483) — (a) Shadow parity baseline: a staged decision is logged alongside the legacy comparator with ZERO authority; assert the comparator log is complete.
+- `_gate_ownership_assignment(repository: Repository, commitment_id: str, clock: Clock | None) -> tuple[str, str]` ([source](../../../../../../src/learnloop/scheduling/controller_cutover.py), line 498) — (b) Ownership assignment for P2 runs: the P2 commitment is assigned to staged and a non-P2 commitment is refused.
+- `_gate_staged_live(repository: Repository, run_id: str, vault: Any, session: Any, clock: Clock | None) -> tuple[str, str]` ([source](../../../../../../src/learnloop/scheduling/controller_cutover.py), line 512) — (c) Staged policy LIVE for owned commitments: the bridge drives the run and is decision-equivalent to the canonical successor (no spurious veto), persisting a ``mode='live'`` decision.
+- `_gate_affect_one_edge(repository: Repository, vault: Any, session: Any, clock: Clock | None) -> tuple[str, str]` ([source](../../../../../../src/learnloop/scheduling/controller_cutover.py), line 539) — (e) Affect check + one-edge discipline preserved under live mode: the affect step precedes the (at most one) depth edge and U-018 stays inert (activates nothing).
+- `_gate_rollback(repository: Repository, commitment_id: str, clock: Clock | None) -> tuple[str, str]` ([source](../../../../../../src/learnloop/scheduling/controller_cutover.py), line 564) — (f) Rollback: the single registered switch returns owned commitments to legacy atomically with a receipt; legacy ownership is restored exactly.
 
 ## Who imports or calls it
 
 > [!note] Static evidence boundary
 > “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
 
-No live LearnLoop module directly imports this module in the static graph.
+- [[Reference/Modules/learnloop_sidecar/handlers/golden_path|learnloop_sidecar.handlers.golden_path]] — imports `module`; statically calls `advance_live`
 
 ## Dependencies
 
 ### LearnLoop dependencies
 
-- [[Reference/Modules/learnloop/clock|learnloop.clock]] — imports `Clock`
+- [[Reference/Modules/learnloop/clock|learnloop.clock]] — imports `Clock`, `utc_now_iso`; calls `utc_now_iso`
 - [[Reference/Modules/learnloop/curriculum/commitments|learnloop.curriculum.commitments]] — imports `module`; calls `resolve_head`
 - [[Reference/Modules/learnloop/curriculum/golden_path_run|learnloop.curriculum.golden_path_run]] — imports `module`; calls `advance`, `project_run`
 - [[Reference/Modules/learnloop/db/repositories|learnloop.db.repositories]] — imports `Repository`
+- [[Reference/Modules/learnloop/placement/state|learnloop.placement.state]] — imports `ignored_opening_episode_ids`; calls `ignored_opening_episode_ids`
+- [[Reference/Modules/learnloop/router/decisions|learnloop.router.decisions]] — imports `module`; calls `build_staged_p2_decision`, `logging_enabled`, `record_decision`
 - [[Reference/Modules/learnloop/scheduling/controller_actions|learnloop.scheduling.controller_actions]] — imports `module`
 - [[Reference/Modules/learnloop/scheduling/controller_ownership|learnloop.scheduling.controller_ownership]] — imports `module`; calls `assign_p2_run`, `is_staged_owned`, `ownership_events`, `resolve_owner`, `rollback_to_legacy`
 - [[Reference/Modules/learnloop/scheduling/controller_snapshot|learnloop.scheduling.controller_snapshot]] — imports `module`; calls `build_snapshot`
 - [[Reference/Modules/learnloop/scheduling/controller_store|learnloop.scheduling.controller_store]] — imports `module`; calls `decision_row`
-- [[Reference/Modules/learnloop/scheduling/staged_policy|learnloop.scheduling.staged_policy]] — imports `module`; calls `StateSignals`, `decide`
+- [[Reference/Modules/learnloop/scheduling/staged_policy|learnloop.scheduling.staged_policy]] — imports `module`; calls `StateSignals`, `decide`, `ladder_eligibility`
 - [[Reference/Modules/learnloop/scheduling/state_signals|learnloop.scheduling.state_signals]] — imports `module`; calls `derive_signals`
 
 ### Platform and third-party dependencies
 
-- Standard library: `__future__`, `dataclasses`, `json`, `threading`, `typing`
+- Standard library: `__future__`, `dataclasses`, `json`, `logging`, `threading`, `typing`
 - Third party: none imported directly
 
 ## Larger workflow participation
@@ -124,7 +128,7 @@ Use this module in context through:
 - [[Start a Learning Cycle]]
 - [[Continue a Learning Cycle]]
 
-No live LearnLoop module imports it directly; its current reach is tests, repository tooling, dynamic registration, or explicit manual invocation where documented above.
+Static participation evidence comes from [[Reference/Modules/learnloop_sidecar/handlers/golden_path|learnloop_sidecar.handlers.golden_path]].
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
@@ -144,6 +148,17 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_rollback_switch_returns_owned_to_legacy`
 - [tests/test_cross_seam_exposure.py](../../../../../../tests/test_cross_seam_exposure.py) — direct import
   - `test_same_surface_exactly_one_wins_via_shared_ledger`
+- [tests/test_router_p2_bridge.py](../../../../../../tests/test_router_p2_bridge.py) — direct import
+  - `test_a_staged_veto_defers_the_run_and_says_why_in_plain_words`
+  - `test_a_standing_decisions_persisted_trace_names_the_same_veto`
+- [tests/test_router_staged_p2.py](../../../../../../tests/test_router_staged_p2.py) — direct import
+  - `test_a_live_staged_decision_logs_continue_the_ladder_and_its_choice`
+  - `test_a_logging_failure_never_changes_the_staged_decision`
+  - `test_a_retried_bridge_call_logs_its_decision_once`
+  - `test_a_veto_is_logged_as_the_stop_it_served`
+  - `test_legacy_authority_writes_no_staged_row`
+  - `test_logging_switch_off_writes_no_staged_row`
+  - `test_the_live_bridge_logs_no_unserved_item_on_its_continue_row`
 
 ## Modification guidance
 

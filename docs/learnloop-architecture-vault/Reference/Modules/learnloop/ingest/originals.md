@@ -11,7 +11,7 @@ source_commit: "f570736fc6f820fb44181195ebd5da63f883905a"
 source_commit_timestamp: "2026-09-23T12:40:16-04:00"
 source_worktree_state: "clean"
 generated: true
-generated_at: "2026-09-23"
+generated_at: "2026-11-02"
 package: "learnloop.ingest"
 layer: "infrastructure"
 concepts:
@@ -79,10 +79,14 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 > [!note] Static evidence boundary
 > “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
 
+- [[Reference/Modules/learnloop/capture/inbox|learnloop.capture.inbox]] — imports `canonical_source_raw_path`, `store_original_bytes`; statically calls `canonical_source_raw_path`, `store_original_bytes`
 - [[Reference/Modules/learnloop/cli/app|learnloop.cli.app]] — imports `backfill_original`; statically calls `backfill_original`
+- [[Reference/Modules/learnloop/content/pipeline/reread|learnloop.content.pipeline.reread]] — imports `stored_original_path`; statically calls `stored_original_path`
 - [[Reference/Modules/learnloop/content/pipeline/source_ingestion|learnloop.content.pipeline.source_ingestion]] — imports `stored_original_path`; statically calls `stored_original_path`
 - [[Reference/Modules/learnloop/content/sources/source_library|learnloop.content.sources.source_library]] — imports `store_original_bytes`; statically calls `store_original_bytes`
+- [[Reference/Modules/learnloop/projects/capture|learnloop.projects.capture]] — imports `canonical_source_raw_path`, `store_original_bytes`; statically calls `canonical_source_raw_path`, `store_original_bytes`
 - [[Reference/Modules/learnloop/reader/span_view|learnloop.reader.span_view]] — imports `is_pdf_file`, `resolve_original_file`; statically calls `is_pdf_file`, `resolve_original_file`
+- [[Reference/Modules/learnloop/source_retrieval/b4|learnloop.source_retrieval.b4]] — imports `is_pdf_file`, `resolve_original_file`; statically calls `is_pdf_file`, `resolve_original_file`
 - [[Reference/Modules/learnloop/vault/paths|learnloop.vault.paths]] — imports `canonical_source_raw_path`; statically calls `canonical_source_raw_path`
 - [[Reference/Modules/learnloop_sidecar/handlers/reader|learnloop_sidecar.handlers.reader]] — imports `backfill_original`, `is_pdf_file`, `stored_original_path`; statically calls `backfill_original`, `is_pdf_file`, `stored_original_path`
 
@@ -103,12 +107,19 @@ Use this module in context through:
 
 - [[Import Canonical Sources]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/cli/app|learnloop.cli.app]], [[Reference/Modules/learnloop/content/pipeline/source_ingestion|learnloop.content.pipeline.source_ingestion]], [[Reference/Modules/learnloop/content/sources/source_library|learnloop.content.sources.source_library]], [[Reference/Modules/learnloop/reader/span_view|learnloop.reader.span_view]], [[Reference/Modules/learnloop/vault/paths|learnloop.vault.paths]] and 1 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/capture/inbox|learnloop.capture.inbox]], [[Reference/Modules/learnloop/cli/app|learnloop.cli.app]], [[Reference/Modules/learnloop/content/pipeline/reread|learnloop.content.pipeline.reread]], [[Reference/Modules/learnloop/content/pipeline/source_ingestion|learnloop.content.pipeline.source_ingestion]], [[Reference/Modules/learnloop/content/sources/source_library|learnloop.content.sources.source_library]] and 5 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
 ## Tests that define behavior
 
+- [tests/test_capture_domain.py](../../../../../../tests/test_capture_domain.py) — direct import
+  - `test_image_sanitization_and_raw_fingerprint`
+  - `test_photo_preview_refuses_tampered_hashes_missing_files_and_purge`
+  - `test_purge_retains_canonical_source_original`
+  - `test_purge_shared_original_and_retry_never_resurrects`
+- [tests/test_capture_originals_race.py](../../../../../../tests/test_capture_originals_race.py) — direct import
+  - `test_source_publication_and_capture_purge_share_writer_reservation`
 - [tests/test_ingestion_checkpoints.py](../../../../../../tests/test_ingestion_checkpoints.py) — direct import
   - `test_concurrent_original_writers_use_independent_temporary_files`
 - [tests/test_originals_store.py](../../../../../../tests/test_originals_store.py) — direct import
@@ -119,9 +130,26 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_register_with_vault_root_retains_bytes`
   - `test_resolve_prefers_store_then_original_uri`
   - `test_stored_original_is_world_readable_under_the_default_umask`
+- [tests/test_project_redaction.py](../../../../../../tests/test_project_redaction.py) — direct import
+  - `test_capture_never_stores_secret_files_or_lines`
+  - `test_hunk_header_secrets_never_reach_the_store`
+- [tests/test_reader_ca1_as_printed.py](../../../../../../tests/test_reader_ca1_as_printed.py) — direct import
+- [tests/test_reader_ca1_astra_codex_review.py](../../../../../../tests/test_reader_ca1_astra_codex_review.py) — direct import
+- [tests/test_reader_ca1_astra_fixes.py](../../../../../../tests/test_reader_ca1_astra_fixes.py) — direct import
+- [tests/test_reader_ca1_astra_redesign.py](../../../../../../tests/test_reader_ca1_astra_redesign.py) — direct import
+- [tests/test_reader_ca1_astra_rereview.py](../../../../../../tests/test_reader_ca1_astra_rereview.py) — direct import
+- [tests/test_reader_ca1_codex_review.py](../../../../../../tests/test_reader_ca1_codex_review.py) — direct import
+- [tests/test_reader_ca1_unicode_containment.py](../../../../../../tests/test_reader_ca1_unicode_containment.py) — direct import
+- [tests/test_reread_safety.py](../../../../../../tests/test_reread_safety.py) — direct import
+  - `test_e1_bytes_that_match_nowhere_refuse_plainly_and_register_nothing`
+  - `test_e1_the_reread_hands_the_import_the_stored_bytes_never_a_store_path`
+  - `test_e1_the_reread_reads_the_stored_original_and_reuses_the_revision`
 - [tests/test_sidecar_reader_pdf_view.py](../../../../../../tests/test_sidecar_reader_pdf_view.py) — direct import
   - `test_pdf_view_manifest_from_originals_store`
   - `test_pdf_view_resolves_source_ref_like_render_view`
+- [tests/test_source_retrieval_suites.py](../../../../../../tests/test_source_retrieval_suites.py) — direct import
+- [tests/test_ux_phase1_usability_round1.py](../../../../../../tests/test_ux_phase1_usability_round1.py) — direct import
+  - `test_u2_pdf_view_lists_each_passages_page_for_a_text_only_extraction`
 
 ## Modification guidance
 

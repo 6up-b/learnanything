@@ -11,7 +11,7 @@ source_commit: "4a28c9635f24945d78366fa26212db7488d82545"
 source_commit_timestamp: "2026-05-28T11:36:12-04:00"
 source_worktree_state: "clean"
 generated: true
-generated_at: "2026-09-23"
+generated_at: "2026-11-02"
 package: "learnloop.tui"
 layer: "adapter"
 concepts:
@@ -104,13 +104,18 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 No test imports this module directly. These tests exercise a direct production consumer:
 
+- [tests/test_daily_loop_start_minutes.py](../../../../../../tests/test_daily_loop_start_minutes.py) — imports consumer [[Reference/Modules/learnloop/tui/app|learnloop.tui.app]]
+- [tests/test_daily_loop_start_postpone.py](../../../../../../tests/test_daily_loop_start_postpone.py) — imports consumer [[Reference/Modules/learnloop/tui/app|learnloop.tui.app]]
 - [tests/test_e2e_tui.py](../../../../../../tests/test_e2e_tui.py) — imports consumer [[Reference/Modules/learnloop/tui/app|learnloop.tui.app]]
 - [tests/test_model_call_receipt_owners.py](../../../../../../tests/test_model_call_receipt_owners.py) — imports consumer [[Reference/Modules/learnloop/tui/app|learnloop.tui.app]]
+- [tests/test_serve_eligibility.py](../../../../../../tests/test_serve_eligibility.py) — imports consumer [[Reference/Modules/learnloop/tui/app|learnloop.tui.app]]
+- [tests/test_stuck_prompt.py](../../../../../../tests/test_stuck_prompt.py) — imports consumer [[Reference/Modules/learnloop/tui/app|learnloop.tui.app]]
 - [tests/test_tui_app.py](../../../../../../tests/test_tui_app.py) — imports consumer [[Reference/Modules/learnloop/tui/app|learnloop.tui.app]]
 - [tests/test_tui_feedback.py](../../../../../../tests/test_tui_feedback.py) — imports consumer [[Reference/Modules/learnloop/tui/app|learnloop.tui.app]]
 - [tests/test_tui_practice.py](../../../../../../tests/test_tui_practice.py) — imports consumer [[Reference/Modules/learnloop/tui/app|learnloop.tui.app]]
 - [tests/test_tui_theme.py](../../../../../../tests/test_tui_theme.py) — imports consumer [[Reference/Modules/learnloop/tui/app|learnloop.tui.app]]
 - [tests/test_tui_today.py](../../../../../../tests/test_tui_today.py) — imports consumer [[Reference/Modules/learnloop/tui/app|learnloop.tui.app]]
+- [tests/test_ux_phase4_feedback.py](../../../../../../tests/test_ux_phase4_feedback.py) — imports consumer [[Reference/Modules/learnloop/tui/app|learnloop.tui.app]]
 
 ## Modification guidance
 

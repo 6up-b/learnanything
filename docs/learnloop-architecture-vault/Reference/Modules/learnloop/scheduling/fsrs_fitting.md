@@ -7,11 +7,11 @@ version: "1.0.0"
 source_path: "src/learnloop/scheduling/fsrs_fitting.py"
 source_paths:
   - "src/learnloop/scheduling/fsrs_fitting.py"
-source_commit: "b322ef2e9b5cebc241b612e4963a5aaf1a37f99a"
-source_commit_timestamp: "2026-08-20T18:04:29-04:00"
+source_commit: "171ae5a5ed15b7627add8b2e512d0c0e91c5f3da"
+source_commit_timestamp: "2026-10-13T09:11:59-04:00"
 source_worktree_state: "clean"
 generated: true
-generated_at: "2026-09-23"
+generated_at: "2026-11-02"
 package: "learnloop.scheduling"
 layer: "domain"
 concepts:
@@ -50,20 +50,20 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/scheduling/fsrs_fitting.py](../../../../../../src/learnloop/scheduling/fsrs_fitting.py) |
-| Source lines | 210 |
+| Source lines | 214 |
 | Owning package | [[Reference/Modules/learnloop/scheduling/_package|learnloop.scheduling]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `b322ef2e9b5cebc241b612e4963a5aaf1a37f99a` |
-| Commit timestamp | `2026-08-20T18:04:29-04:00` |
+| Source commit | `171ae5a5ed15b7627add8b2e512d0c0e91c5f3da` |
+| Commit timestamp | `2026-10-13T09:11:59-04:00` |
 
 ## Public API
 
 - `class FsrsFittingError(ValueError)` ([source](../../../../../../src/learnloop/scheduling/fsrs_fitting.py), line 43) — Raised when the review log cannot support a fit.
 - `class FsrsFitResult` ([source](../../../../../../src/learnloop/scheduling/fsrs_fitting.py), line 48)
 - `review_log_loss(review_log: ReviewLog, weights: tuple[float, ...], *, min_elapsed_days: float) -> tuple[float, int]` ([source](../../../../../../src/learnloop/scheduling/fsrs_fitting.py), line 62) — Weighted mean binary cross-entropy of recall predictions, and its N.
-- `fit_fsrs_weights(review_log: ReviewLog, *, config: FsrsFittingConfig, initial: tuple[float, ...]=FSRS6_DEFAULT_WEIGHTS) -> FsrsFitResult` ([source](../../../../../../src/learnloop/scheduling/fsrs_fitting.py), line 100)
+- `fit_fsrs_weights(review_log: ReviewLog, *, config: FsrsFittingConfig, initial: tuple[float, ...]=FSRS6_DEFAULT_WEIGHTS) -> FsrsFitResult` ([source](../../../../../../src/learnloop/scheduling/fsrs_fitting.py), line 104)
 
 ### Module constants
 
@@ -73,8 +73,8 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 
 ## Internal implementation anchors
 
-- `_clamp_relative(relative: list[float], defaults: list[float]) -> list[float]` ([source](../../../../../../src/learnloop/scheduling/fsrs_fitting.py), line 194)
-- `_project(weights: list[float]) -> tuple[float, ...]` ([source](../../../../../../src/learnloop/scheduling/fsrs_fitting.py), line 202) — Bounds + w0<=w1<=w2<=w3 ordering (initial stability must be monotone in rating).
+- `_clamp_relative(relative: list[float], defaults: list[float]) -> list[float]` ([source](../../../../../../src/learnloop/scheduling/fsrs_fitting.py), line 198)
+- `_project(weights: list[float]) -> tuple[float, ...]` ([source](../../../../../../src/learnloop/scheduling/fsrs_fitting.py), line 206) — Bounds + w0<=w1<=w2<=w3 ordering (initial stability must be monotone in rating).
 
 ## Who imports or calls it
 
@@ -116,6 +116,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_refuses_below_min_reviews`
   - `test_review_log_loss_skips_short_gaps_and_zero_weight`
   - `test_shrinkage_dominates_at_tiny_n`
+- [tests/test_held_grade_evidence.py](../../../../../../tests/test_held_grade_evidence.py) — direct import
+  - `test_f8_the_fsrs_fitter_never_fits_a_review_that_never_happened`
 
 ## Modification guidance
 

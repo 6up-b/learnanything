@@ -7,11 +7,11 @@ version: "1.0.0"
 source_path: "src/learnloop/cli/__init__.py"
 source_paths:
   - "src/learnloop/cli/__init__.py"
-source_commit: "0395ae32f9e2e40d1cb98b38402631299a94003f"
-source_commit_timestamp: "2026-09-07T12:49:13-04:00"
+source_commit: "cedf6a2c3aad3ce9b6c134bc57940b0c6e1d732c"
+source_commit_timestamp: "2026-11-01T19:02:30-05:00"
 source_worktree_state: "clean"
 generated: true
-generated_at: "2026-09-23"
+generated_at: "2026-11-02"
 package: "learnloop.cli"
 layer: "adapter"
 concepts:
@@ -49,13 +49,13 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/cli/__init__.py](../../../../../../src/learnloop/cli/__init__.py) |
-| Source lines | 54 |
+| Source lines | 108 |
 | Owning package | [[Reference/Modules/learnloop/cli/_package|learnloop.cli]] |
 | Architecture layer | `adapter` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `0395ae32f9e2e40d1cb98b38402631299a94003f` |
-| Commit timestamp | `2026-09-07T12:49:13-04:00` |
+| Source commit | `cedf6a2c3aad3ce9b6c134bc57940b0c6e1d732c` |
+| Commit timestamp | `2026-11-01T19:02:30-05:00` |
 
 ## Public API
 
@@ -79,27 +79,54 @@ No live LearnLoop module directly imports this module in the static graph.
 
 ### LearnLoop dependencies
 
+- [[Reference/Modules/learnloop/cli/ad|learnloop.cli.ad]] — imports `ad_app`
+- [[Reference/Modules/learnloop/cli/ai|learnloop.cli.ai]] — imports `ai_app`
 - [[Reference/Modules/learnloop/cli/app|learnloop.cli.app]] — imports `_AsciiSpinner`, `_client_for_provider`, `_parse_mode_mix`, `_ready_provider_for_task`, `_runtime_for_provider`, `module`
 - [[Reference/Modules/learnloop/cli/calibration|learnloop.cli.calibration]] — imports `module`
 - [[Reference/Modules/learnloop/cli/card|learnloop.cli.card]] — imports `module`
 - [[Reference/Modules/learnloop/cli/claims|learnloop.cli.claims]] — imports `module`
 - [[Reference/Modules/learnloop/cli/clarification|learnloop.cli.clarification]] — imports `module`
 - [[Reference/Modules/learnloop/cli/config|learnloop.cli.config]] — imports `module`
+- [[Reference/Modules/learnloop/cli/contamination|learnloop.cli.contamination]] — imports `contamination_app`
 - [[Reference/Modules/learnloop/cli/contracts|learnloop.cli.contracts]] — imports `module`
 - [[Reference/Modules/learnloop/cli/controller|learnloop.cli.controller]] — imports `module`
+- [[Reference/Modules/learnloop/cli/curriculum|learnloop.cli.curriculum]] — imports `curriculum_app`
 - [[Reference/Modules/learnloop/cli/data|learnloop.cli.data]] — imports `module`
+- [[Reference/Modules/learnloop/cli/decider|learnloop.cli.decider]] — imports `decider_app`
 - [[Reference/Modules/learnloop/cli/depth|learnloop.cli.depth]] — imports `module`
+- [[Reference/Modules/learnloop/cli/diagnose|learnloop.cli.diagnose]] — imports `diagnose_app`
 - [[Reference/Modules/learnloop/cli/diagnosis|learnloop.cli.diagnosis]] — imports `module`
+- [[Reference/Modules/learnloop/cli/embeddings|learnloop.cli.embeddings]] — imports `embeddings_app`
+- [[Reference/Modules/learnloop/cli/evaluation|learnloop.cli.evaluation]] — imports `eval_app`
+- [[Reference/Modules/learnloop/cli/evsi|learnloop.cli.evsi]] — imports `evsi_app`
 - [[Reference/Modules/learnloop/cli/exam|learnloop.cli.exam]] — imports `module`
+- [[Reference/Modules/learnloop/cli/experiments|learnloop.cli.experiments]] — imports `experiments_app`
+- [[Reference/Modules/learnloop/cli/facets|learnloop.cli.facets]] — imports `facets_app`
+- [[Reference/Modules/learnloop/cli/families|learnloop.cli.families]] — imports `families_app`
+- [[Reference/Modules/learnloop/cli/field|learnloop.cli.field]] — imports `field_app`
 - [[Reference/Modules/learnloop/cli/fit|learnloop.cli.fit]] — imports `module`
+- [[Reference/Modules/learnloop/cli/gaps|learnloop.cli.gaps]] — imports `gaps_app`
 - [[Reference/Modules/learnloop/cli/goldenpath|learnloop.cli.goldenpath]] — imports `module`
 - [[Reference/Modules/learnloop/cli/grading|learnloop.cli.grading]] — imports `module`
+- [[Reference/Modules/learnloop/cli/hints|learnloop.cli.hints]] — imports `hints_app`
+- [[Reference/Modules/learnloop/cli/inbox|learnloop.cli.inbox]] — imports `inbox_app`
 - [[Reference/Modules/learnloop/cli/ingest_batches|learnloop.cli.ingest_batches]] — imports `module`
+- [[Reference/Modules/learnloop/cli/mcp|learnloop.cli.mcp]] — imports `mcp_app`
+- [[Reference/Modules/learnloop/cli/pf|learnloop.cli.pf]] — imports `pf_app`
+- [[Reference/Modules/learnloop/cli/placement|learnloop.cli.placement]] — imports `placement_app`
+- [[Reference/Modules/learnloop/cli/plan|learnloop.cli.plan]] — imports `plan_app`
+- [[Reference/Modules/learnloop/cli/practice_index|learnloop.cli.practice_index]] — imports `practice_index_app`
+- [[Reference/Modules/learnloop/cli/project|learnloop.cli.project]] — imports `project_app`
 - [[Reference/Modules/learnloop/cli/questions|learnloop.cli.questions]] — imports `module`
+- [[Reference/Modules/learnloop/cli/reader|learnloop.cli.reader]] — imports `reader_app`
+- [[Reference/Modules/learnloop/cli/recurrence|learnloop.cli.recurrence]] — imports `recurrence_app`
 - [[Reference/Modules/learnloop/cli/registry|learnloop.cli.registry]] — imports `module`
+- [[Reference/Modules/learnloop/cli/router|learnloop.cli.router]] — imports `router_app`
 - [[Reference/Modules/learnloop/cli/sim|learnloop.cli.sim]] — imports `module`
 - [[Reference/Modules/learnloop/cli/source_set|learnloop.cli.source_set]] — imports `module`
+- [[Reference/Modules/learnloop/cli/sources|learnloop.cli.sources]] — imports `sources_app`
 - [[Reference/Modules/learnloop/cli/surfaces|learnloop.cli.surfaces]] — imports `module`
+- [[Reference/Modules/learnloop/cli/teacher|learnloop.cli.teacher]] — imports `teacher_app`
 
 ### Platform and third-party dependencies
 
@@ -123,8 +150,15 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_provider_timeout_override_reaches_codex_sdk_client`
 - [tests/test_cli_ingest.py](../../../../../../tests/test_cli_ingest.py) — direct import
   - `test_ascii_spinner_writes_elapsed_status_for_tty`
+- [tests/test_facet_identity_ingest.py](../../../../../../tests/test_facet_identity_ingest.py) — direct import
+  - `test_the_synthesize_dry_run_plans_the_ingest_judge`
+- [tests/test_graph_nomination_ingest.py](../../../../../../tests/test_graph_nomination_ingest.py) — direct import
+  - `test_synthesize_dry_run_cli_prints_the_plan_and_resolves_no_provider`
 - [tests/test_model_call_receipt_owners.py](../../../../../../tests/test_model_call_receipt_owners.py) — direct import
   - `test_cli_synthesize_records_receipts_with_usage_and_budgets`
+- [tests/test_route_rules_in_grader.py](../../../../../../tests/test_route_rules_in_grader.py) — direct import
+  - `test_cli_dry_run_plans_one_grading_call`
+- [tests/test_stuck_prompt.py](../../../../../../tests/test_stuck_prompt.py) — direct import
 - [tests/test_teach_back_generation.py](../../../../../../tests/test_teach_back_generation.py) — direct import
   - `test_parse_mode_mix_rejects_malformed`
   - `test_parse_mode_mix_valid`

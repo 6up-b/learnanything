@@ -27,7 +27,7 @@ CATALOG_ROOT = VAULT_ROOT / "Reference" / "Modules"
 SOURCE_ROOTS = (REPO_ROOT / "src" / "learnloop", REPO_ROOT / "src" / "learnloop_sidecar")
 DESKTOP_ROOT = REPO_ROOT / "apps" / "learnloop-tauri"
 DOC_VERSION = "1.0.0"
-GENERATED_DATE = "2026-09-23"
+GENERATED_DATE = "2026-11-02"
 
 CANONICAL_CONCEPTS = {
     "Architecture Overview",
@@ -78,6 +78,36 @@ PACKAGE_DESCRIPTIONS = {
     "learnloop.vault": "Filesystem layout, Markdown/YAML I/O, hashes, models, loading, and writing.",
     "learnloop_sidecar": "Desktop sidecar process, RPC registry, transport context, DTOs, and server lifecycle.",
     "learnloop_sidecar.handlers": "RPC adapters that validate requests and delegate to domain and infrastructure APIs.",
+    "learnloop.adaptive_difficulty": "Adaptive difficulty: logged reading opportunities and outside forecasters, the readiness model, guarded selection near the target band, and its receipts.",
+    "learnloop.ai.chatgpt_plan": "Sign in with ChatGPT for the chatgpt_plan provider: the machine-local sign-in store, the PKCE flow, access tokens and plan-usage state, and its requests.",
+    "learnloop.capture": "The shared capture domain (the capture inbox); importing it never attaches or migrates.",
+    "learnloop.content.facet_identity": "Facet identity at mint time and the dedupe command: embedding shortlists, a judge over each neighbourhood, live merges with exact undo.",
+    "learnloop.daily_plan": "The finite daily plan: remembered minutes split across repair, maintain, new and push, chosen block by block, and the router card.",
+    "learnloop.diagnosis.offline_review": "The offline review of blind grading and history-aware diagnosis, run on backup copies with synthetic learners; never changes a live vault.",
+    "learnloop.diagnosis.recurrence": "Recurrence with authority: the same_cause match kind over causal hypotheses, its shortlist and judge, the live step and the backlog.",
+    "learnloop.diagnosis.split": "History-aware diagnosis split from the learner-blind grader: history modes, the diagnoser's inputs, jobs and traces.",
+    "learnloop.diagnosis.text_gaps": "Learner-text gaps: what a learner's own words show they lack or hold, read in tiers, judged in pairs, acted on with undo, and reported.",
+    "learnloop.evsi_calibration": "EVSI/EIG calibration: read-only measurement of the numbers value-of-information runs on, labelled honestly where they cannot be measured.",
+    "learnloop.experiments": "Research experiments on backup copies of vaults; never part of production serving (no production package imports it).",
+    "learnloop.experiments.contextual_embeddings": "Experiment E0: hosted contextual source embeddings, its bank, labels, arms and report.",
+    "learnloop.experiments.contextual_embeddings.e1": "Experiment E1: the local pplx v2-context-9b batch pilot over E0's bank and finalists.",
+    "learnloop.field": "Replay-only learner-field contracts (the LearnerPredictor contract, signals, outcomes); no serving policy or evidence writes.",
+    "learnloop.figures": "Explorable figures: declarative specs and sketches, their authoring routes, verification, labels, help records and the figure service.",
+    "learnloop.hints": "Adaptive hints: telemetry and report, approach maps, the hint service and its outcomes.",
+    "learnloop.instructional": "Canonical sources as a shared instructional service: a composition layer for the tutor's offers, source exercises, exposure and the tools.",
+    "learnloop.intent": "The single intent control: commitments carrying intent, optional deadlines and settled checks.",
+    "learnloop.local_embeddings": "Local contextual source retrieval: the local document space's pins, capped batch worker, GPU meter, locks and owner-run commands.",
+    "learnloop.matching": "The one 'same or different?' step: registered match kinds, embedding shortlists and LLM judges, recorded in the judgment ledger.",
+    "learnloop.ops.contamination": "Contamination detectors as shadow flags, run offline on the owner's command beside the live lexical floor.",
+    "learnloop.placement": "Placement for new material through the LearnerPredictor contract; writes only its own receipts, never evidence.",
+    "learnloop.practice_index": "The practice index: facet dossiers and find_practice (recall by search, an LLM decides, the scheduler admits).",
+    "learnloop.projects": "Project understanding: captured agent-written diffs and delayed comprehension probes on them.",
+    "learnloop.remote": "Application services for frontends outside the desktop (the MCP chat adapter's only door); no learning policy of its own.",
+    "learnloop.router": "The action router: decisions logged on today's serving paths and their derived outcomes; a leaf that chooses nothing yet.",
+    "learnloop.scheduling.intent": "Intent at serving time: the vocabulary, the most-recent-choice resolution, per-intent recall targets and the per-build view.",
+    "learnloop.source_retrieval": "Source retrieval and the Reader's sources side: keyword and dense search, section coverage, deliverables and paths, and the learner's notes.",
+    "learnloop.teacher": "Lessons on the latent learner state: the brief, the teacher's turn contract and actions, guards, checks, delayed checks and receipts.",
+    "learnloop.workbench": "The Reader workbench's checks and the help ladder's Reader side: Check my work, declared symbolic checks and the ladder.",
 }
 
 PRIMITIVE_MODULES = {

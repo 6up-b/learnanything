@@ -11,7 +11,7 @@ source_commit: "b322ef2e9b5cebc241b612e4963a5aaf1a37f99a"
 source_commit_timestamp: "2026-08-20T18:04:29-04:00"
 source_worktree_state: "clean"
 generated: true
-generated_at: "2026-09-23"
+generated_at: "2026-11-02"
 package: "learnloop.diagnosis"
 layer: "domain"
 concepts:
@@ -85,6 +85,14 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 > “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
 
 - [[Reference/Modules/learnloop/diagnosis/probe_episodes|learnloop.diagnosis.probe_episodes]] — imports `RobustCandidate`, `instrument_ensemble`, `load_pinned_channel`, `pinned_decision_posterior`, `resolve_episode_channel`, `robust_selection`, `use_robust_probe`; statically calls `RobustCandidate`, `instrument_ensemble`, `load_pinned_channel`, `pinned_decision_posterior`, `resolve_episode_channel`, `robust_selection`, `use_robust_probe`
+- [[Reference/Modules/learnloop/diagnosis/voi_stopping|learnloop.diagnosis.voi_stopping]] — imports `instrument_ensemble`, `load_pinned_channel`; statically calls `instrument_ensemble`, `load_pinned_channel`
+- [[Reference/Modules/learnloop/instructional/reader_followups|learnloop.instructional.reader_followups]] — imports `resolve_episode_channel`
+- [[Reference/Modules/learnloop/instructional/valuation|learnloop.instructional.valuation]] — imports `instrument_ensemble`, `load_pinned_channel`, `use_robust_probe`; statically calls `instrument_ensemble`, `load_pinned_channel`, `use_robust_probe`
+- [[Reference/Modules/learnloop/instructional/wiring|learnloop.instructional.wiring]] — imports `resolve_episode_channel`
+
+### Repository tooling consumers
+
+- [scripts/voi_cap_report.py](../../../../../../scripts/voi_cap_report.py); calls `instrument_ensemble`, `resolve_episode_channel`
 
 ## Dependencies
 
@@ -113,14 +121,22 @@ Use this module in context through:
 - [[Process Model Output]]
 - [[Start a Learning Cycle]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/diagnosis/probe_episodes|learnloop.diagnosis.probe_episodes]].
+Static participation evidence comes from [[Reference/Modules/learnloop/diagnosis/probe_episodes|learnloop.diagnosis.probe_episodes]], [[Reference/Modules/learnloop/diagnosis/voi_stopping|learnloop.diagnosis.voi_stopping]], [[Reference/Modules/learnloop/instructional/reader_followups|learnloop.instructional.reader_followups]], [[Reference/Modules/learnloop/instructional/valuation|learnloop.instructional.valuation]], [[Reference/Modules/learnloop/instructional/wiring|learnloop.instructional.wiring]].
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
 ## Tests that define behavior
 
+- [tests/test_placement_opening_probes.py](../../../../../../tests/test_placement_opening_probes.py) — direct import
+  - `test_an_adopted_reprobe_is_held_to_the_reprobe_contract`
 - [tests/test_probe_robust_cutover.py](../../../../../../tests/test_probe_robust_cutover.py) — direct import
   - `test_robust_selection_abstains_on_indistinguishable_candidates`
+- [tests/test_value_candidates.py](../../../../../../tests/test_value_candidates.py) — direct import
+  - `test_an_instrument_only_request_matches_robust_selection`
+- [tests/test_voi_forecasts.py](../../../../../../tests/test_voi_forecasts.py) — direct import
+  - `test_robust_gate_forecast_records_the_eig_paths_minutes`
+- [tests/test_voi_v2.py](../../../../../../tests/test_voi_v2.py) — direct import
+  - `test_the_batch_value_equals_the_product_tables_evsi_on_the_real_credible_sets`
 
 ## Modification guidance
 

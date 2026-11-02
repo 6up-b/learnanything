@@ -7,11 +7,11 @@ version: "1.0.0"
 source_path: "src/learnloop/content/pipeline/quick_add.py"
 source_paths:
   - "src/learnloop/content/pipeline/quick_add.py"
-source_commit: "b322ef2e9b5cebc241b612e4963a5aaf1a37f99a"
-source_commit_timestamp: "2026-08-20T18:04:29-04:00"
+source_commit: "542adc8869b3c2d17c359f79a489c4b4b8519192"
+source_commit_timestamp: "2026-10-15T06:29:40-04:00"
 source_worktree_state: "clean"
 generated: true
-generated_at: "2026-09-23"
+generated_at: "2026-11-02"
 package: "learnloop.content.pipeline"
 layer: "domain"
 concepts:
@@ -51,25 +51,26 @@ The authoritative system-level explanation remains in [[Learning System]], [[AI 
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/content/pipeline/quick_add.py](../../../../../../../src/learnloop/content/pipeline/quick_add.py) |
-| Source lines | 395 |
+| Source lines | 490 |
 | Owning package | [[Reference/Modules/learnloop/content/pipeline/_package|learnloop.content.pipeline]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `b322ef2e9b5cebc241b612e4963a5aaf1a37f99a` |
-| Commit timestamp | `2026-08-20T18:04:29-04:00` |
+| Source commit | `542adc8869b3c2d17c359f79a489c4b4b8519192` |
+| Commit timestamp | `2026-10-15T06:29:40-04:00` |
 
 ## Public API
 
 - `class QuickAddError(ValueError)` ([source](../../../../../../../src/learnloop/content/pipeline/quick_add.py), line 52) — Typed failure for the Quick-add plan/enqueue flow.
   - `__init__(self, code: str, message: str, *, details: dict[str, Any] | None=None) -> None` (line 55; internal)
 - `class QuickAddPlan` ([source](../../../../../../../src/learnloop/content/pipeline/quick_add.py), line 62)
-  - `source_set_id(self) -> str` (line 83; public)
-  - `confirmation(self) -> dict[str, Any]` (line 86; public) — THE single confirmation checkpoint (§1): what will be imported, the selected-unit summary, the suggested role, the token estimate, and any external-AI consent.
-  - `as_dict(self) -> dict[str, Any]` (line 110; public)
-- `select_relevant_units(outline, *, keywords: set[str], cap_tokens: int) -> tuple[list[str], list[str], int, bool]` ([source](../../../../../../../src/learnloop/content/pipeline/quick_add.py), line 155) — Deterministic ToC-guided relevant-scope selection (§1).
-- `plan_quick_add(repo, config, vault, source: str, *, subject_id: str | None=None, brief_overrides: dict[str, Any] | None=None) -> QuickAddPlan` ([source](../../../../../../../src/learnloop/content/pipeline/quick_add.py), line 242) — Build the single-confirmation Quick-add plan for an already-extracted source.
-- `enqueue_quick_add(vault, ingest_jobs, plan: QuickAddPlan, *, role_override: str | None=None, output_budget_tokens: int | None=None, unlimited_token_budget: bool=False) -> dict[str, Any]` ([source](../../../../../../../src/learnloop/content/pipeline/quick_add.py), line 341) — Post-confirmation step: create the source set from the plan and enqueue the priority [inventory(selected) -> bootstrap_synthesis] build batch (§1).
+  - `source_set_id(self) -> str` (line 87; public)
+  - `confirmation(self) -> dict[str, Any]` (line 90; public) — THE single confirmation checkpoint (§1): what will be imported, the selected-unit summary, the suggested role, the token estimate, and any external-AI consent.
+  - `as_dict(self) -> dict[str, Any]` (line 114; public)
+- `select_relevant_units(outline, *, keywords: set[str], cap_tokens: int, ranked_unit_ids: list[str] | None=None) -> tuple[list[str], list[str], int, bool]` ([source](../../../../../../../src/learnloop/content/pipeline/quick_add.py), line 160) — Deterministic ToC-guided relevant-scope selection (§1).
+- `rank_units_by_text(repo, outline, extraction_id: str, *, query_text: str, keywords: set[str], rrf_k: int=60) -> list[str]` ([source](../../../../../../../src/learnloop/content/pipeline/quick_add.py), line 207) — Slice 2 T6: units ranked by relevance to the brief, best first; unmatched omitted.
+- `plan_quick_add(repo, config, vault, source: str, *, subject_id: str | None=None, brief_overrides: dict[str, Any] | None=None) -> QuickAddPlan` ([source](../../../../../../../src/learnloop/content/pipeline/quick_add.py), line 310) — Build the single-confirmation Quick-add plan for an already-extracted source.
+- `enqueue_quick_add(vault, ingest_jobs, plan: QuickAddPlan, *, role_override: str | None=None, output_budget_tokens: int | None=None, unlimited_token_budget: bool=False, batch_id: str | None=None) -> dict[str, Any]` ([source](../../../../../../../src/learnloop/content/pipeline/quick_add.py), line 430) — Post-confirmation step: create the source set from the plan and enqueue the priority [inventory(selected) -> bootstrap_synthesis] build batch (§1).
 
 ### Module constants
 
@@ -79,9 +80,10 @@ The authoritative system-level explanation remains in [[Learning System]], [[AI 
 
 ## Internal implementation anchors
 
-- `_keywords(brief: dict[str, Any], vault, subject_id: str | None) -> set[str]` ([source](../../../../../../../src/learnloop/content/pipeline/quick_add.py), line 136)
-- `_resolve_extraction(repo, source_id: str) -> tuple[str, str] | None` ([source](../../../../../../../src/learnloop/content/pipeline/quick_add.py), line 194) — Return ``(revision_id, extraction_id)`` for the latest completed extraction of ``source_id`` (its current revision preferred), or None.
-- `_default_brief(brief_overrides: dict[str, Any] | None, title: str, subject_id: str | None, vault=None) -> dict[str, Any]` ([source](../../../../../../../src/learnloop/content/pipeline/quick_add.py), line 212)
+- `_keywords(brief: dict[str, Any], vault, subject_id: str | None) -> set[str]` ([source](../../../../../../../src/learnloop/content/pipeline/quick_add.py), line 141)
+- `_query_text(brief: dict[str, Any], vault, subject_id: str | None) -> str` ([source](../../../../../../../src/learnloop/content/pipeline/quick_add.py), line 249)
+- `_resolve_extraction(repo, source_id: str) -> tuple[str, str] | None` ([source](../../../../../../../src/learnloop/content/pipeline/quick_add.py), line 262) — Return ``(revision_id, extraction_id)`` for the latest completed extraction of ``source_id`` (its current revision preferred), or None.
+- `_default_brief(brief_overrides: dict[str, Any] | None, title: str, subject_id: str | None, vault=None) -> dict[str, Any]` ([source](../../../../../../../src/learnloop/content/pipeline/quick_add.py), line 280)
 
 ## Who imports or calls it
 
@@ -89,23 +91,29 @@ The authoritative system-level explanation remains in [[Learning System]], [[AI 
 > “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
 
 - [[Reference/Modules/learnloop/cli/app|learnloop.cli.app]] — imports `QuickAddError`, `enqueue_quick_add`, `plan_quick_add`; statically calls `enqueue_quick_add`, `plan_quick_add`
+- [[Reference/Modules/learnloop/content/pipeline/add_source|learnloop.content.pipeline.add_source]] — imports `_default_brief`, `_resolve_extraction`; statically calls `_default_brief`, `_resolve_extraction`
 - [[Reference/Modules/learnloop_sidecar/handlers/ingest|learnloop_sidecar.handlers.ingest]] — imports `QuickAddError`, `enqueue_quick_add`, `plan_quick_add`; statically calls `enqueue_quick_add`, `plan_quick_add`
 
 ## Dependencies
 
 ### LearnLoop dependencies
 
+- [[Reference/Modules/learnloop/ai/routing|learnloop.ai.routing]] — imports `provider_for_task`; calls `provider_for_task`
 - [[Reference/Modules/learnloop/content/pipeline/acquisition_preview|learnloop.content.pipeline.acquisition_preview]] — imports `build_acquisition_preview`; calls `build_acquisition_preview`
+- [[Reference/Modules/learnloop/content/pipeline/add_source|learnloop.content.pipeline.add_source]] — imports `consent_key`; calls `consent_key`
 - [[Reference/Modules/learnloop/content/pipeline/build_plan|learnloop.content.pipeline.build_plan]] — imports `build_build_plan`; calls `build_build_plan`
 - [[Reference/Modules/learnloop/content/sources/source_outline|learnloop.content.sources.source_outline]] — imports `OutlineNotFound`, `build_source_outline`; calls `build_source_outline`
 - [[Reference/Modules/learnloop/content/synthesis/brief|learnloop.content.synthesis.brief]] — imports `validate_brief`; calls `validate_brief`
+- [[Reference/Modules/learnloop/db/connection|learnloop.db.connection]] — imports `connect`; calls `connect`
+- [[Reference/Modules/learnloop/db/stores/source_block_fts|learnloop.db.stores.source_block_fts]] — imports `search_blocks`; calls `search_blocks`
 - [[Reference/Modules/learnloop/learner/learner_profile|learnloop.learner.learner_profile]] — imports `read_learner_profile`; calls `read_learner_profile`
+- [[Reference/Modules/learnloop/practice_index/text|learnloop.practice_index.text]] — imports `reciprocal_rank_fusion`; calls `reciprocal_rank_fusion`
 - [[Reference/Modules/learnloop/vault/paths|learnloop.vault.paths]] — imports `VaultPaths`; calls `VaultPaths`
 - [[Reference/Modules/learnloop/vault/writer|learnloop.vault.writer]] — imports `upsert_source_set`; calls `upsert_source_set`
 
 ### Platform and third-party dependencies
 
-- Standard library: `__future__`, `dataclasses`, `re`, `typing`
+- Standard library: `__future__`, `contextlib`, `dataclasses`, `re`, `typing`
 - Third party: none imported directly
 
 ## Larger workflow participation
@@ -115,17 +123,23 @@ Use this module in context through:
 - [[Import Canonical Sources]]
 - [[Build a Study Map]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/cli/app|learnloop.cli.app]], [[Reference/Modules/learnloop_sidecar/handlers/ingest|learnloop_sidecar.handlers.ingest]].
+Static participation evidence comes from [[Reference/Modules/learnloop/cli/app|learnloop.cli.app]], [[Reference/Modules/learnloop/content/pipeline/add_source|learnloop.content.pipeline.add_source]], [[Reference/Modules/learnloop_sidecar/handlers/ingest|learnloop_sidecar.handlers.ingest]].
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
 ## Tests that define behavior
 
+- [tests/test_capture_route_recovery.py](../../../../../../../tests/test_capture_route_recovery.py) — direct import
 - [tests/test_quick_add.py](../../../../../../../tests/test_quick_add.py) — direct import
   - `test_narrow_adjunct_preset_uses_reference_role_and_small_upfront_brief`
   - `test_quick_add_one_url_one_confirmation_to_study_map`
   - `test_select_relevant_units_keyword_subset_under_cap`
   - `test_select_relevant_units_whole_source_when_small`
+- [tests/test_source_retrieval_search.py](../../../../../../../tests/test_source_retrieval_search.py) — direct import
+  - `test_quick_add_ranks_units_by_their_text_not_only_their_labels`
+  - `test_quick_add_with_retrieval_off_plans_exactly_as_before`
+- [tests/test_ux_phase1_connect_ai.py](../../../../../../../tests/test_ux_phase1_connect_ai.py) — direct import
+  - `test_quick_add_reads_the_recorded_ok_instead_of_asking_per_build`
 
 ## Modification guidance
 

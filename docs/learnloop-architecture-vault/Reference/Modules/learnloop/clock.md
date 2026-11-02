@@ -11,7 +11,7 @@ source_commit: "4b62bc29c46b5f2b8cabe5ac49c9959429cc3ab7"
 source_commit_timestamp: "2026-05-19T19:15:00-04:00"
 source_worktree_state: "clean"
 generated: true
-generated_at: "2026-09-23"
+generated_at: "2026-11-02"
 package: "learnloop"
 layer: "primitive"
 concepts:
@@ -78,7 +78,22 @@ No private top-level function or class definition is declared in this file.
 > [!note] Static evidence boundary
 > “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
 
+- [[Reference/Modules/learnloop/ad_successor_upgrade|learnloop.ad_successor_upgrade]] — imports `Clock`
+- [[Reference/Modules/learnloop/adaptive_difficulty/backfill|learnloop.adaptive_difficulty.backfill]] — imports `Clock`, `utc_now_iso`; statically calls `utc_now_iso`
+- [[Reference/Modules/learnloop/adaptive_difficulty/claims|learnloop.adaptive_difficulty.claims]] — imports `utc_now_iso`; statically calls `utc_now_iso`
+- [[Reference/Modules/learnloop/adaptive_difficulty/dose|learnloop.adaptive_difficulty.dose]] — imports `Clock`, `parse_utc`, `utc_now_iso`; statically calls `parse_utc`, `utc_now_iso`
+- [[Reference/Modules/learnloop/adaptive_difficulty/feature_audit|learnloop.adaptive_difficulty.feature_audit]] — imports `Clock`, `parse_utc`, `utc_now_iso`; statically calls `parse_utc`, `utc_now_iso`
+- [[Reference/Modules/learnloop/adaptive_difficulty/monitoring|learnloop.adaptive_difficulty.monitoring]] — imports `parse_utc`; statically calls `parse_utc`
+- [[Reference/Modules/learnloop/adaptive_difficulty/outside|learnloop.adaptive_difficulty.outside]] — imports `Clock`, `parse_utc`, `utc_now_iso`; statically calls `parse_utc`, `utc_now_iso`
+- [[Reference/Modules/learnloop/adaptive_difficulty/reading|learnloop.adaptive_difficulty.reading]] — imports `Clock`, `parse_utc`, `utc_now_iso`; statically calls `parse_utc`, `utc_now_iso`
+- [[Reference/Modules/learnloop/adaptive_difficulty/relatedness|learnloop.adaptive_difficulty.relatedness]] — imports `Clock`, `parse_utc`, `utc_now_iso`; statically calls `parse_utc`, `utc_now_iso`
+- [[Reference/Modules/learnloop/adaptive_difficulty/replay|learnloop.adaptive_difficulty.replay]] — imports `parse_utc`; statically calls `parse_utc`
+- [[Reference/Modules/learnloop/adaptive_difficulty/report|learnloop.adaptive_difficulty.report]] — imports `parse_utc`, `utc_now_iso`; statically calls `parse_utc`, `utc_now_iso`
+- [[Reference/Modules/learnloop/adaptive_difficulty/serve_inputs|learnloop.adaptive_difficulty.serve_inputs]] — imports `parse_utc`; statically calls `parse_utc`
+- [[Reference/Modules/learnloop/adaptive_difficulty/serving|learnloop.adaptive_difficulty.serving]] — imports `parse_utc`
+- [[Reference/Modules/learnloop/adaptive_difficulty/spend|learnloop.adaptive_difficulty.spend]] — imports `Clock`
 - [[Reference/Modules/learnloop/ai/runs|learnloop.ai.runs]] — imports `Clock`
+- [[Reference/Modules/learnloop/attempt_content_state_upgrade|learnloop.attempt_content_state_upgrade]] — imports `Clock`
 - [[Reference/Modules/learnloop/attempts/attempts|learnloop.attempts.attempts]] — imports `Clock`, `SystemClock`, `parse_utc`, `utc_now_iso`; statically calls `SystemClock`, `parse_utc`, `utc_now_iso`
 - [[Reference/Modules/learnloop/attempts/calibration_streams|learnloop.attempts.calibration_streams]] — imports `Clock`
 - [[Reference/Modules/learnloop/attempts/clarification|learnloop.attempts.clarification]] — imports `Clock`, `parse_utc`, `utc_now_iso`; statically calls `parse_utc`, `utc_now_iso`
@@ -90,28 +105,42 @@ No private top-level function or class definition is declared in this file.
 - [[Reference/Modules/learnloop/attempts/outcome_schemas|learnloop.attempts.outcome_schemas]] — imports `Clock`
 - [[Reference/Modules/learnloop/attempts/post_attempt|learnloop.attempts.post_attempt]] — imports `Clock`
 - [[Reference/Modules/learnloop/attempts/regrade|learnloop.attempts.regrade]] — imports `Clock`, `utc_now_iso`; statically calls `utc_now_iso`
-- [[Reference/Modules/learnloop/attempts/reveal_ledger|learnloop.attempts.reveal_ledger]] — imports `Clock`
+- [[Reference/Modules/learnloop/attempts/reveal_ledger|learnloop.attempts.reveal_ledger]] — imports `Clock`, `parse_utc`, `utc_now_iso`; statically calls `utc_now_iso`
 - [[Reference/Modules/learnloop/attempts/surprise|learnloop.attempts.surprise]] — imports `parse_utc`; statically calls `parse_utc`
 - [[Reference/Modules/learnloop/bootstrap|learnloop.bootstrap]] — imports `Clock`
+- [[Reference/Modules/learnloop/claim_fixes_upgrade|learnloop.claim_fixes_upgrade]] — imports `Clock`
 - [[Reference/Modules/learnloop/cli/clarification|learnloop.cli.clarification]] — imports `utc_now_iso`; statically calls `utc_now_iso`
 - [[Reference/Modules/learnloop/cli/data|learnloop.cli.data]] — imports `parse_utc`; statically calls `parse_utc`
+- [[Reference/Modules/learnloop/cli/placement|learnloop.cli.placement]] — imports `utc_now_iso`; statically calls `utc_now_iso`
+- [[Reference/Modules/learnloop/cli/project|learnloop.cli.project]] — imports `Clock`, `SystemClock`, `utc_now_iso`; statically calls `SystemClock`, `utc_now_iso`
 - [[Reference/Modules/learnloop/cli/runtime|learnloop.cli.runtime]] — imports `utc_now_iso`
+- [[Reference/Modules/learnloop/cold_retry_reschedule_upgrade|learnloop.cold_retry_reschedule_upgrade]] — imports `Clock`
 - [[Reference/Modules/learnloop/content/authoring/concept_animation|learnloop.content.authoring.concept_animation]] — imports `utc_now_iso`; statically calls `utc_now_iso`
 - [[Reference/Modules/learnloop/content/authoring/exercise_authoring|learnloop.content.authoring.exercise_authoring]] — imports `Clock`, `utc_now_iso`; statically calls `utc_now_iso`
 - [[Reference/Modules/learnloop/content/authoring/item_authoring|learnloop.content.authoring.item_authoring]] — imports `Clock`, `utc_now_iso`; statically calls `utc_now_iso`
 - [[Reference/Modules/learnloop/content/authoring/persona_realism|learnloop.content.authoring.persona_realism]] — imports `Clock`
-- [[Reference/Modules/learnloop/content/authoring/practice_generation|learnloop.content.authoring.practice_generation]] — imports `Clock`, `SystemClock`, `parse_utc`; statically calls `SystemClock`, `parse_utc`
+- [[Reference/Modules/learnloop/content/authoring/practice_generation|learnloop.content.authoring.practice_generation]] — imports `Clock`, `SystemClock`, `parse_utc`, `utc_now_iso`; statically calls `SystemClock`, `parse_utc`, `utc_now_iso`
 - [[Reference/Modules/learnloop/content/authoring/rung_variants|learnloop.content.authoring.rung_variants]] — imports `Clock`, `utc_now_iso`; statically calls `utc_now_iso`
-- [[Reference/Modules/learnloop/content/pipeline/jobs|learnloop.content.pipeline.jobs]] — imports `Clock`, `utc_now_iso`; statically calls `utc_now_iso`
+- [[Reference/Modules/learnloop/content/authoring/source_exercise_import|learnloop.content.authoring.source_exercise_import]] — imports `Clock`, `parse_utc`, `utc_now_iso`; statically calls `parse_utc`, `utc_now_iso`
+- [[Reference/Modules/learnloop/content/facet_identity/actions|learnloop.content.facet_identity.actions]] — imports `Clock`, `utc_now_iso`; statically calls `utc_now_iso`
+- [[Reference/Modules/learnloop/content/facet_identity/dedupe|learnloop.content.facet_identity.dedupe]] — imports `Clock`
+- [[Reference/Modules/learnloop/content/pipeline/add_source|learnloop.content.pipeline.add_source]] — imports `Clock`, `FrozenClock`, `SystemClock`, `utc_now_iso`; statically calls `FrozenClock`, `SystemClock`, `utc_now_iso`
+- [[Reference/Modules/learnloop/content/pipeline/exam_marking|learnloop.content.pipeline.exam_marking]] — imports `Clock`, `utc_now_iso`; statically calls `utc_now_iso`
+- [[Reference/Modules/learnloop/content/pipeline/jobs|learnloop.content.pipeline.jobs]] — imports `Clock`, `FrozenClock`, `SystemClock`, `parse_utc`, `utc_now_iso`; statically calls `FrozenClock`, `SystemClock`, `parse_utc`, `utc_now_iso`
+- [[Reference/Modules/learnloop/content/pipeline/reread|learnloop.content.pipeline.reread]] — imports `Clock`, `utc_now_iso`; statically calls `utc_now_iso`
 - [[Reference/Modules/learnloop/content/pipeline/revision_refresh|learnloop.content.pipeline.revision_refresh]] — imports `Clock`, `utc_now_iso`; statically calls `utc_now_iso`
 - [[Reference/Modules/learnloop/content/pipeline/runner|learnloop.content.pipeline.runner]] — imports `Clock`, `SystemClock`, `utc_now_iso`; statically calls `SystemClock`, `utc_now_iso`
 - [[Reference/Modules/learnloop/content/pipeline/source_ingestion|learnloop.content.pipeline.source_ingestion]] — imports `Clock`, `utc_now_iso`; statically calls `utc_now_iso`
 - [[Reference/Modules/learnloop/content/proposals/apply_protocol|learnloop.content.proposals.apply_protocol]] — imports `Clock`, `utc_now_iso`; statically calls `utc_now_iso`
 - [[Reference/Modules/learnloop/content/proposals/conflict_resolution|learnloop.content.proposals.conflict_resolution]] — imports `Clock`
+- [[Reference/Modules/learnloop/content/proposals/method_phrasing|learnloop.content.proposals.method_phrasing]] — imports `Clock`, `utc_now_iso`; statically calls `utc_now_iso`
+- [[Reference/Modules/learnloop/content/proposals/method_statement_judge|learnloop.content.proposals.method_statement_judge]] — imports `Clock`, `utc_now_iso`; statically calls `utc_now_iso`
 - [[Reference/Modules/learnloop/content/proposals/patches|learnloop.content.proposals.patches]] — imports `Clock`, `utc_now_iso`; statically calls `utc_now_iso`
 - [[Reference/Modules/learnloop/content/proposals/proposals|learnloop.content.proposals.proposals]] — imports `Clock`, `utc_now_iso`; statically calls `utc_now_iso`
+- [[Reference/Modules/learnloop/content/proposals/required_method_override|learnloop.content.proposals.required_method_override]] — imports `Clock`, `utc_now_iso`; statically calls `utc_now_iso`
 - [[Reference/Modules/learnloop/content/sources/source_deletion|learnloop.content.sources.source_deletion]] — imports `Clock`
 - [[Reference/Modules/learnloop/content/sources/source_library|learnloop.content.sources.source_library]] — imports `Clock`
+- [[Reference/Modules/learnloop/content/sources/span_aliases|learnloop.content.sources.span_aliases]] — imports `Clock`
 - [[Reference/Modules/learnloop/content/synthesis/source_append|learnloop.content.synthesis.source_append]] — imports `Clock`, `utc_now_iso`; statically calls `utc_now_iso`
 - [[Reference/Modules/learnloop/content/synthesis/source_set_synthesis|learnloop.content.synthesis.source_set_synthesis]] — imports `Clock`, `utc_now_iso`; statically calls `utc_now_iso`
 - [[Reference/Modules/learnloop/content/synthesis/source_unit_inventory|learnloop.content.synthesis.source_unit_inventory]] — imports `Clock`
@@ -119,7 +148,7 @@ No private top-level function or class definition is declared in this file.
 - [[Reference/Modules/learnloop/content/synthesis/synthesis_manifests|learnloop.content.synthesis.synthesis_manifests]] — imports `Clock`, `utc_now_iso`; statically calls `utc_now_iso`
 - [[Reference/Modules/learnloop/content/synthesis/vault_epigraphs|learnloop.content.synthesis.vault_epigraphs]] — imports `Clock`
 - [[Reference/Modules/learnloop/curriculum/commitment_arcs|learnloop.curriculum.commitment_arcs]] — imports `Clock`
-- [[Reference/Modules/learnloop/curriculum/commitments|learnloop.curriculum.commitments]] — imports `Clock`
+- [[Reference/Modules/learnloop/curriculum/commitments|learnloop.curriculum.commitments]] — imports `Clock`, `parse_utc`; statically calls `parse_utc`
 - [[Reference/Modules/learnloop/curriculum/concepts|learnloop.curriculum.concepts]] — imports `Clock`, `utc_now_iso`; statically calls `utc_now_iso`
 - [[Reference/Modules/learnloop/curriculum/depth_edge_authoring|learnloop.curriculum.depth_edge_authoring]] — imports `Clock`, `utc_now_iso`
 - [[Reference/Modules/learnloop/curriculum/depth_transition|learnloop.curriculum.depth_transition]] — imports `Clock`
@@ -135,11 +164,34 @@ No private top-level function or class definition is declared in this file.
 - [[Reference/Modules/learnloop/curriculum/rung_backfill|learnloop.curriculum.rung_backfill]] — imports `Clock`
 - [[Reference/Modules/learnloop/curriculum/subject_registry|learnloop.curriculum.subject_registry]] — imports `Clock`, `utc_now_iso`; statically calls `utc_now_iso`
 - [[Reference/Modules/learnloop/curriculum/task_blueprints|learnloop.curriculum.task_blueprints]] — imports `Clock`
+- [[Reference/Modules/learnloop/daily_plan/admission|learnloop.daily_plan.admission]] — imports `parse_utc`; statically calls `parse_utc`
+- [[Reference/Modules/learnloop/daily_plan/engine|learnloop.daily_plan.engine]] — imports `Clock`, `SystemClock`, `parse_utc`, `utc_now_iso`; statically calls `SystemClock`, `parse_utc`, `utc_now_iso`
+- [[Reference/Modules/learnloop/daily_plan/estimates|learnloop.daily_plan.estimates]] — imports `parse_utc`; statically calls `parse_utc`
+- [[Reference/Modules/learnloop/daily_plan/intent_cost|learnloop.daily_plan.intent_cost]] — imports `Clock`, `SystemClock`; statically calls `SystemClock`
+- [[Reference/Modules/learnloop/daily_plan/lanes|learnloop.daily_plan.lanes]] — imports `parse_utc`; statically calls `parse_utc`
+- [[Reference/Modules/learnloop/daily_plan/reentry|learnloop.daily_plan.reentry]] — imports `parse_utc`; statically calls `parse_utc`
+- [[Reference/Modules/learnloop/daily_plan/report|learnloop.daily_plan.report]] — imports `parse_utc`; statically calls `parse_utc`
+- [[Reference/Modules/learnloop/daily_plan/router_card|learnloop.daily_plan.router_card]] — imports `parse_utc`, `utc_now_iso`; statically calls `parse_utc`, `utc_now_iso`
+- [[Reference/Modules/learnloop/daily_plan/router_chooser|learnloop.daily_plan.router_chooser]] — imports `utc_now_iso`; statically calls `utc_now_iso`
+- [[Reference/Modules/learnloop/daily_plan/router_reader|learnloop.daily_plan.router_reader]] — imports `parse_utc`; statically calls `parse_utc`
+- [[Reference/Modules/learnloop/daily_plan/router_runtime|learnloop.daily_plan.router_runtime]] — imports `utc_now_iso`; statically calls `utc_now_iso`
+- [[Reference/Modules/learnloop/daily_plan/view|learnloop.daily_plan.view]] — imports `parse_utc`; statically calls `parse_utc`
+- [[Reference/Modules/learnloop/daily_plan_upgrade|learnloop.daily_plan_upgrade]] — imports `Clock`
 - [[Reference/Modules/learnloop/db/migrate|learnloop.db.migrate]] — imports `Clock`, `utc_now_iso`; statically calls `utc_now_iso`
 - [[Reference/Modules/learnloop/db/repositories|learnloop.db.repositories]] — imports `Clock`, `SystemClock`, `parse_utc`, `utc_now_iso`; statically calls `SystemClock`, `parse_utc`, `utc_now_iso`
+- [[Reference/Modules/learnloop/db/stores/ad_serving|learnloop.db.stores.ad_serving]] — imports `utc_now_iso`; statically calls `utc_now_iso`
 - [[Reference/Modules/learnloop/db/stores/collection|learnloop.db.stores.collection]] — imports `utc_now_iso`; statically calls `utc_now_iso`
 - [[Reference/Modules/learnloop/db/stores/completion|learnloop.db.stores.completion]] — imports `utc_now_iso`; statically calls `utc_now_iso`
+- [[Reference/Modules/learnloop/db/stores/diagnoses|learnloop.db.stores.diagnoses]] — imports `Clock`, `parse_utc`, `utc_now_iso`; statically calls `parse_utc`, `utc_now_iso`
 - [[Reference/Modules/learnloop/db/stores/ingest_queue|learnloop.db.stores.ingest_queue]] — imports `Clock`, `utc_now_iso`; statically calls `utc_now_iso`
+- [[Reference/Modules/learnloop/db/stores/judgment_claims|learnloop.db.stores.judgment_claims]] — imports `parse_utc`; statically calls `parse_utc`
+- [[Reference/Modules/learnloop/db/stores/learner_gaps|learnloop.db.stores.learner_gaps]] — imports `parse_utc`; statically calls `parse_utc`
+- [[Reference/Modules/learnloop/db/stores/recurrence|learnloop.db.stores.recurrence]] — imports `Clock`, `utc_now_iso`; statically calls `utc_now_iso`
+- [[Reference/Modules/learnloop/db/stores/session_ownership|learnloop.db.stores.session_ownership]] — imports `Clock`, `utc_now_iso`; statically calls `utc_now_iso`
+- [[Reference/Modules/learnloop/db/stores/voi_forecasts|learnloop.db.stores.voi_forecasts]] — imports `Clock`, `utc_now_iso`; statically calls `utc_now_iso`
+- [[Reference/Modules/learnloop/db/stores/write_provenance|learnloop.db.stores.write_provenance]] — imports `Clock`, `utc_now_iso`; statically calls `utc_now_iso`
+- [[Reference/Modules/learnloop/decider_upgrade|learnloop.decider_upgrade]] — imports `Clock`
+- [[Reference/Modules/learnloop/deliverable_plan_upgrade|learnloop.deliverable_plan_upgrade]] — imports `Clock`
 - [[Reference/Modules/learnloop/diagnosis/calibration_sessions|learnloop.diagnosis.calibration_sessions]] — imports `Clock`, `parse_utc`, `utc_now_iso`; statically calls `parse_utc`, `utc_now_iso`
 - [[Reference/Modules/learnloop/diagnosis/causal_attribution|learnloop.diagnosis.causal_attribution]] — imports `Clock`, `utc_now_iso`; statically calls `utc_now_iso`
 - [[Reference/Modules/learnloop/diagnosis/causal_diagnostic_selector|learnloop.diagnosis.causal_diagnostic_selector]] — imports `Clock`
@@ -157,7 +209,8 @@ No private top-level function or class definition is declared in this file.
 - [[Reference/Modules/learnloop/diagnosis/error_hunt|learnloop.diagnosis.error_hunt]] — imports `Clock`
 - [[Reference/Modules/learnloop/diagnosis/error_taxonomy|learnloop.diagnosis.error_taxonomy]] — imports `Clock`, `utc_now_iso`; statically calls `utc_now_iso`
 - [[Reference/Modules/learnloop/diagnosis/failure_triage|learnloop.diagnosis.failure_triage]] — imports `Clock`
-- [[Reference/Modules/learnloop/diagnosis/followups|learnloop.diagnosis.followups]] — imports `Clock`, `parse_utc`; statically calls `parse_utc`
+- [[Reference/Modules/learnloop/diagnosis/followups|learnloop.diagnosis.followups]] — imports `Clock`, `SystemClock`, `parse_utc`; statically calls `SystemClock`, `parse_utc`
+- [[Reference/Modules/learnloop/diagnosis/forecast_receipts|learnloop.diagnosis.forecast_receipts]] — imports `Clock`, `utc_now_iso`; statically calls `utc_now_iso`
 - [[Reference/Modules/learnloop/diagnosis/guided_redo|learnloop.diagnosis.guided_redo]] — imports `Clock`
 - [[Reference/Modules/learnloop/diagnosis/misconceptions|learnloop.diagnosis.misconceptions]] — imports `Clock`, `parse_utc`; statically calls `parse_utc`
 - [[Reference/Modules/learnloop/diagnosis/missing_vocabulary|learnloop.diagnosis.missing_vocabulary]] — imports `Clock`
@@ -172,17 +225,65 @@ No private top-level function or class definition is declared in this file.
 - [[Reference/Modules/learnloop/diagnosis/probe_remint|learnloop.diagnosis.probe_remint]] — imports `Clock`, `utc_now_iso`; statically calls `utc_now_iso`
 - [[Reference/Modules/learnloop/diagnosis/probe_robust|learnloop.diagnosis.probe_robust]] — imports `Clock`
 - [[Reference/Modules/learnloop/diagnosis/probes|learnloop.diagnosis.probes]] — imports `Clock`, `SystemClock`, `parse_utc`, `utc_now_iso`; statically calls `SystemClock`, `parse_utc`, `utc_now_iso`
+- [[Reference/Modules/learnloop/diagnosis/quick_check|learnloop.diagnosis.quick_check]] — imports `Clock`, `utc_now_iso`; statically calls `utc_now_iso`
+- [[Reference/Modules/learnloop/diagnosis/recurrence/live|learnloop.diagnosis.recurrence.live]] — imports `Clock`
+- [[Reference/Modules/learnloop/diagnosis/recurrence/upgrade|learnloop.diagnosis.recurrence.upgrade]] — imports `Clock`
 - [[Reference/Modules/learnloop/diagnosis/remediation|learnloop.diagnosis.remediation]] — imports `Clock`, `SystemClock`, `parse_utc`; statically calls `SystemClock`, `parse_utc`
 - [[Reference/Modules/learnloop/diagnosis/scoreboard|learnloop.diagnosis.scoreboard]] — imports `Clock`, `FrozenClock`, `parse_utc`; statically calls `FrozenClock`, `parse_utc`
+- [[Reference/Modules/learnloop/diagnosis/split/card|learnloop.diagnosis.split.card]] — imports `Clock`, `parse_utc`; statically calls `parse_utc`
+- [[Reference/Modules/learnloop/diagnosis/split/history|learnloop.diagnosis.split.history]] — imports `parse_utc`; statically calls `parse_utc`
+- [[Reference/Modules/learnloop/diagnosis/split/jobs|learnloop.diagnosis.split.jobs]] — imports `Clock`, `SystemClock`, `parse_utc`, `utc_now_iso`; statically calls `SystemClock`, `parse_utc`, `utc_now_iso`
+- [[Reference/Modules/learnloop/diagnosis/split/reports|learnloop.diagnosis.split.reports]] — imports `parse_utc`; statically calls `parse_utc`
+- [[Reference/Modules/learnloop/diagnosis/text_gaps/actions|learnloop.diagnosis.text_gaps.actions]] — imports `Clock`, `parse_utc`, `utc_now_iso`; statically calls `parse_utc`, `utc_now_iso`
+- [[Reference/Modules/learnloop/diagnosis/text_gaps/jobs|learnloop.diagnosis.text_gaps.jobs]] — imports `Clock`, `parse_utc`, `utc_now_iso`; statically calls `parse_utc`, `utc_now_iso`
+- [[Reference/Modules/learnloop/diagnosis/text_gaps/pipeline|learnloop.diagnosis.text_gaps.pipeline]] — imports `Clock`, `utc_now_iso`; statically calls `utc_now_iso`
+- [[Reference/Modules/learnloop/diagnosis/text_gaps/report|learnloop.diagnosis.text_gaps.report]] — imports `utc_now_iso`; statically calls `utc_now_iso`
+- [[Reference/Modules/learnloop/diagnosis/voi_forecasting|learnloop.diagnosis.voi_forecasting]] — imports `Clock`
+- [[Reference/Modules/learnloop/diagnosis/voi_stopping|learnloop.diagnosis.voi_stopping]] — imports `utc_now_iso`; statically calls `utc_now_iso`
+- [[Reference/Modules/learnloop/eligibility_decision_upgrade|learnloop.eligibility_decision_upgrade]] — imports `Clock`
+- [[Reference/Modules/learnloop/field/evaluation|learnloop.field.evaluation]] — imports `parse_utc`; statically calls `parse_utc`
+- [[Reference/Modules/learnloop/field/outcomes|learnloop.field.outcomes]] — imports `parse_utc`; statically calls `parse_utc`
+- [[Reference/Modules/learnloop/field/predictors|learnloop.field.predictors]] — imports `parse_utc`; statically calls `parse_utc`
+- [[Reference/Modules/learnloop/field/priors|learnloop.field.priors]] — imports `parse_utc`; statically calls `parse_utc`
+- [[Reference/Modules/learnloop/field/probability_prep|learnloop.field.probability_prep]] — imports `parse_utc`; statically calls `parse_utc`
+- [[Reference/Modules/learnloop/field/probability_states|learnloop.field.probability_states]] — imports `parse_utc`; statically calls `parse_utc`
+- [[Reference/Modules/learnloop/field/success_head|learnloop.field.success_head]] — imports `parse_utc`; statically calls `parse_utc`
+- [[Reference/Modules/learnloop/figures/rich|learnloop.figures.rich]] — imports `Clock`, `utc_now_iso`; statically calls `utc_now_iso`
+- [[Reference/Modules/learnloop/figures/routes|learnloop.figures.routes]] — imports `Clock`
+- [[Reference/Modules/learnloop/figures/service|learnloop.figures.service]] — imports `Clock`, `utc_now_iso`; statically calls `utc_now_iso`
 - [[Reference/Modules/learnloop/goals/certification_cold_probe|learnloop.goals.certification_cold_probe]] — imports `Clock`, `SystemClock`, `parse_utc`, `utc_now_iso`; statically calls `SystemClock`, `parse_utc`, `utc_now_iso`
 - [[Reference/Modules/learnloop/goals/exam_pool|learnloop.goals.exam_pool]] — imports `Clock`, `SystemClock`, `utc_now_iso`; statically calls `SystemClock`, `utc_now_iso`
 - [[Reference/Modules/learnloop/goals/exam_seeding|learnloop.goals.exam_seeding]] — imports `FrozenClock`; statically calls `FrozenClock`
 - [[Reference/Modules/learnloop/goals/exam_session|learnloop.goals.exam_session]] — imports `Clock`, `FrozenClock`, `SystemClock`, `parse_utc`, `utc_now_iso`; statically calls `FrozenClock`, `SystemClock`, `parse_utc`, `utc_now_iso`
 - [[Reference/Modules/learnloop/goals/forecast_ledger|learnloop.goals.forecast_ledger]] — imports `Clock`, `SystemClock`, `parse_utc`, `utc_now_iso`; statically calls `SystemClock`, `parse_utc`, `utc_now_iso`
 - [[Reference/Modules/learnloop/goals/goal_contracts|learnloop.goals.goal_contracts]] — imports `Clock`
+- [[Reference/Modules/learnloop/goals/goal_lo|learnloop.goals.goal_lo]] — imports `Clock`, `utc_now_iso`; statically calls `utc_now_iso`
 - [[Reference/Modules/learnloop/goals/goal_pace|learnloop.goals.goal_pace]] — imports `Clock`, `SystemClock`, `parse_utc`; statically calls `SystemClock`, `parse_utc`
 - [[Reference/Modules/learnloop/goals/goal_projection|learnloop.goals.goal_projection]] — imports `Clock`, `SystemClock`, `parse_utc`; statically calls `SystemClock`, `parse_utc`
 - [[Reference/Modules/learnloop/goals/goal_series|learnloop.goals.goal_series]] — imports `Clock`, `FrozenClock`, `SystemClock`, `parse_utc`; statically calls `FrozenClock`, `SystemClock`, `parse_utc`
+- [[Reference/Modules/learnloop/help_fold_attach_upgrade|learnloop.help_fold_attach_upgrade]] — imports `Clock`
+- [[Reference/Modules/learnloop/hints/chooser|learnloop.hints.chooser]] — imports `utc_now_iso`; statically calls `utc_now_iso`
+- [[Reference/Modules/learnloop/hints/map_builder|learnloop.hints.map_builder]] — imports `Clock`, `utc_now_iso`; statically calls `utc_now_iso`
+- [[Reference/Modules/learnloop/hints/map_report|learnloop.hints.map_report]] — imports `Clock`
+- [[Reference/Modules/learnloop/hints/outcome|learnloop.hints.outcome]] — imports `Clock`, `parse_utc`, `utc_now_iso`; statically calls `parse_utc`, `utc_now_iso`
+- [[Reference/Modules/learnloop/hints/report|learnloop.hints.report]] — imports `parse_utc`; statically calls `parse_utc`
+- [[Reference/Modules/learnloop/hints/service|learnloop.hints.service]] — imports `Clock`, `utc_now_iso`; statically calls `utc_now_iso`
+- [[Reference/Modules/learnloop/hints/state|learnloop.hints.state]] — imports `parse_utc`, `utc_now_iso`; statically calls `parse_utc`, `utc_now_iso`
+- [[Reference/Modules/learnloop/hints/telemetry|learnloop.hints.telemetry]] — imports `SystemClock`, `parse_utc`; statically calls `SystemClock`, `parse_utc`
+- [[Reference/Modules/learnloop/instructional/exposure|learnloop.instructional.exposure]] — imports `Clock`, `SystemClock`, `parse_utc`; statically calls `SystemClock`, `parse_utc`
+- [[Reference/Modules/learnloop/instructional/harvest|learnloop.instructional.harvest]] — imports `Clock`, `utc_now_iso`; statically calls `utc_now_iso`
+- [[Reference/Modules/learnloop/instructional/interventions|learnloop.instructional.interventions]] — imports `Clock`, `FrozenClock`, `parse_utc`, `utc_now_iso`; statically calls `FrozenClock`, `parse_utc`, `utc_now_iso`
+- [[Reference/Modules/learnloop/instructional/needs|learnloop.instructional.needs]] — imports `Clock`, `utc_now_iso`; statically calls `utc_now_iso`
+- [[Reference/Modules/learnloop/instructional/practice|learnloop.instructional.practice]] — imports `Clock`, `utc_now_iso`; statically calls `utc_now_iso`
+- [[Reference/Modules/learnloop/instructional/reader_digest|learnloop.instructional.reader_digest]] — imports `Clock`, `parse_utc`, `utc_now_iso`; statically calls `parse_utc`, `utc_now_iso`
+- [[Reference/Modules/learnloop/instructional/reader_followups|learnloop.instructional.reader_followups]] — imports `Clock`, `SystemClock`, `parse_utc`, `utc_now_iso`; statically calls `SystemClock`, `parse_utc`, `utc_now_iso`
+- [[Reference/Modules/learnloop/instructional/screen|learnloop.instructional.screen]] — imports `Clock`, `utc_now_iso`; statically calls `utc_now_iso`
+- [[Reference/Modules/learnloop/instructional/tools|learnloop.instructional.tools]] — imports `Clock`, `utc_now_iso`; statically calls `utc_now_iso`
+- [[Reference/Modules/learnloop/instructional/valuation|learnloop.instructional.valuation]] — imports `utc_now_iso`; statically calls `utc_now_iso`
+- [[Reference/Modules/learnloop/intent/checks|learnloop.intent.checks]] — imports `Clock`, `SystemClock`; statically calls `SystemClock`
+- [[Reference/Modules/learnloop/intent/control|learnloop.intent.control]] — imports `Clock`, `SystemClock`, `utc_now_iso`; statically calls `utc_now_iso`
+- [[Reference/Modules/learnloop/intent/deadline|learnloop.intent.deadline]] — imports `Clock`, `parse_utc`, `utc_now_iso`; statically calls `parse_utc`, `utc_now_iso`
+- [[Reference/Modules/learnloop/intent_upgrade|learnloop.intent_upgrade]] — imports `Clock`
 - [[Reference/Modules/learnloop/learner/assessment_contracts|learnloop.learner.assessment_contracts]] — imports `Clock`
 - [[Reference/Modules/learnloop/learner/facet_diagnostics|learnloop.learner.facet_diagnostics]] — imports `Clock`, `parse_utc`, `utc_now_iso`; statically calls `parse_utc`, `utc_now_iso`
 - [[Reference/Modules/learnloop/learner/facet_evidence_timeline|learnloop.learner.facet_evidence_timeline]] — imports `Clock`, `SystemClock`, `parse_utc`; statically calls `SystemClock`, `parse_utc`
@@ -190,34 +291,88 @@ No private top-level function or class definition is declared in this file.
 - [[Reference/Modules/learnloop/learner/hypothesis_claims|learnloop.learner.hypothesis_claims]] — imports `Clock`, `SystemClock`, `parse_utc`; statically calls `SystemClock`, `parse_utc`
 - [[Reference/Modules/learnloop/learner/independence_audit|learnloop.learner.independence_audit]] — imports `Clock`
 - [[Reference/Modules/learnloop/learner/learner_profile|learnloop.learner.learner_profile]] — imports `Clock`, `utc_now_iso`; statically calls `utc_now_iso`
-- [[Reference/Modules/learnloop/learner/mastery|learnloop.learner.mastery]] — imports `parse_utc`; statically calls `parse_utc`
+- [[Reference/Modules/learnloop/learner/lesson_weight|learnloop.learner.lesson_weight]] — imports `parse_utc`; statically calls `parse_utc`
+- [[Reference/Modules/learnloop/learner/mastery|learnloop.learner.mastery]] — imports `parse_utc`, `utc_now_iso`; statically calls `parse_utc`, `utc_now_iso`
 - [[Reference/Modules/learnloop/learner/overconfidence|learnloop.learner.overconfidence]] — imports `Clock`
 - [[Reference/Modules/learnloop/learner/recall_calibration|learnloop.learner.recall_calibration]] — imports `FrozenClock`; statically calls `FrozenClock`
 - [[Reference/Modules/learnloop/learner/session_learning_diff|learnloop.learner.session_learning_diff]] — imports `parse_utc`; statically calls `parse_utc`
 - [[Reference/Modules/learnloop/learner/surfaced_beliefs|learnloop.learner.surfaced_beliefs]] — imports `Clock`
-- [[Reference/Modules/learnloop/migration_coordinator|learnloop.migration_coordinator]] — imports `Clock`
-- [[Reference/Modules/learnloop/ops/maintenance_feed|learnloop.ops.maintenance_feed]] — imports `Clock`
+- [[Reference/Modules/learnloop/learner_context|learnloop.learner_context]] — imports `parse_utc`, `utc_now_iso`; statically calls `parse_utc`, `utc_now_iso`
+- [[Reference/Modules/learnloop/learner_text_gap_upgrade|learnloop.learner_text_gap_upgrade]] — imports `Clock`
+- [[Reference/Modules/learnloop/matching/judge|learnloop.matching.judge]] — imports `utc_now_iso`
+- [[Reference/Modules/learnloop/method_explicit_upgrade|learnloop.method_explicit_upgrade]] — imports `Clock`
+- [[Reference/Modules/learnloop/migration_coordinator|learnloop.migration_coordinator]] — imports `Clock`, `utc_now_iso`; statically calls `utc_now_iso`
+- [[Reference/Modules/learnloop/one_ask_upgrade|learnloop.one_ask_upgrade]] — imports `Clock`
+- [[Reference/Modules/learnloop/ops/doctor|learnloop.ops.doctor]] — imports `parse_utc`; statically calls `parse_utc`
+- [[Reference/Modules/learnloop/ops/family_proposals|learnloop.ops.family_proposals]] — imports `utc_now_iso`; statically calls `utc_now_iso`
+- [[Reference/Modules/learnloop/ops/maintenance_feed|learnloop.ops.maintenance_feed]] — imports `Clock`, `utc_now_iso`; statically calls `utc_now_iso`
+- [[Reference/Modules/learnloop/ops/pf_generation|learnloop.ops.pf_generation]] — imports `Clock`, `utc_now_iso`; statically calls `utc_now_iso`
+- [[Reference/Modules/learnloop/ops/pf_publish|learnloop.ops.pf_publish]] — imports `Clock`, `utc_now_iso`; statically calls `utc_now_iso`
 - [[Reference/Modules/learnloop/ops/startup|learnloop.ops.startup]] — imports `Clock`
 - [[Reference/Modules/learnloop/ops/vault_upgrade|learnloop.ops.vault_upgrade]] — imports `Clock`
 - [[Reference/Modules/learnloop/params/parameter_registry|learnloop.params.parameter_registry]] — imports `Clock`
 - [[Reference/Modules/learnloop/params/sensitivity_certificates|learnloop.params.sensitivity_certificates]] — imports `Clock`
+- [[Reference/Modules/learnloop/placement/decisions|learnloop.placement.decisions]] — imports `Clock`, `parse_utc`, `utc_now_iso`; statically calls `parse_utc`, `utc_now_iso`
+- [[Reference/Modules/learnloop/placement/report|learnloop.placement.report]] — imports `utc_now_iso`; statically calls `utc_now_iso`
+- [[Reference/Modules/learnloop/placement/state|learnloop.placement.state]] — imports `FrozenClock`, `parse_utc`, `utc_now_iso`; statically calls `FrozenClock`, `parse_utc`, `utc_now_iso`
+- [[Reference/Modules/learnloop/practice_index/admission|learnloop.practice_index.admission]] — imports `Clock`
+- [[Reference/Modules/learnloop/practice_index/coverage|learnloop.practice_index.coverage]] — imports `Clock`
+- [[Reference/Modules/learnloop/practice_index/dossiers|learnloop.practice_index.dossiers]] — imports `Clock`, `utc_now_iso`; statically calls `utc_now_iso`
+- [[Reference/Modules/learnloop/practice_index/evaluation|learnloop.practice_index.evaluation]] — imports `Clock`, `utc_now_iso`; statically calls `utc_now_iso`
+- [[Reference/Modules/learnloop/practice_index/listwise|learnloop.practice_index.listwise]] — imports `Clock`, `utc_now_iso`; statically calls `utc_now_iso`
+- [[Reference/Modules/learnloop/practice_index/retrieval|learnloop.practice_index.retrieval]] — imports `Clock`, `SystemClock`, `utc_now_iso`; statically calls `SystemClock`, `utc_now_iso`
+- [[Reference/Modules/learnloop/practice_index/usage|learnloop.practice_index.usage]] — imports `Clock`, `SystemClock`, `parse_utc`, `utc_now_iso`; statically calls `SystemClock`, `parse_utc`, `utc_now_iso`
+- [[Reference/Modules/learnloop/probe_tie_upgrade|learnloop.probe_tie_upgrade]] — imports `Clock`
+- [[Reference/Modules/learnloop/projects/capture|learnloop.projects.capture]] — imports `Clock`, `FrozenClock`, `SystemClock`, `parse_utc`, `utc_now_iso`; statically calls `FrozenClock`, `SystemClock`, `parse_utc`, `utc_now_iso`
+- [[Reference/Modules/learnloop/projects/probes|learnloop.projects.probes]] — imports `Clock`, `FrozenClock`, `parse_utc`, `utc_now_iso`; statically calls `FrozenClock`, `parse_utc`, `utc_now_iso`
+- [[Reference/Modules/learnloop/projects/report|learnloop.projects.report]] — imports `Clock`, `utc_now_iso`; statically calls `utc_now_iso`
+- [[Reference/Modules/learnloop/proof_check_upgrade|learnloop.proof_check_upgrade]] — imports `Clock`
+- [[Reference/Modules/learnloop/reader/active_reading|learnloop.reader.active_reading]] — imports `Clock`, `parse_utc`, `utc_now_iso`; statically calls `parse_utc`, `utc_now_iso`
 - [[Reference/Modules/learnloop/reader/annotations|learnloop.reader.annotations]] — imports `Clock`
 - [[Reference/Modules/learnloop/reader/reader_authoring|learnloop.reader.reader_authoring]] — imports `Clock`
 - [[Reference/Modules/learnloop/reader/reader_capture|learnloop.reader.reader_capture]] — imports `Clock`
+- [[Reference/Modules/learnloop/reader/reader_cues|learnloop.reader.reader_cues]] — imports `Clock`, `parse_utc`, `utc_now_iso`; statically calls `parse_utc`, `utc_now_iso`
 - [[Reference/Modules/learnloop/reader/reader_dialogue|learnloop.reader.reader_dialogue]] — imports `Clock`, `parse_utc`, `utc_now_iso`; statically calls `parse_utc`, `utc_now_iso`
-- [[Reference/Modules/learnloop/reader/reader_quick_check|learnloop.reader.reader_quick_check]] — imports `Clock`, `utc_now_iso`; statically calls `utc_now_iso`
+- [[Reference/Modules/learnloop/reader/reader_inquiry|learnloop.reader.reader_inquiry]] — imports `Clock`
+- [[Reference/Modules/learnloop/reader/reader_intent|learnloop.reader.reader_intent]] — imports `Clock`, `parse_utc`, `utc_now_iso`; statically calls `parse_utc`, `utc_now_iso`
+- [[Reference/Modules/learnloop/reader/reader_quick_check|learnloop.reader.reader_quick_check]] — imports `Clock`, `parse_utc`, `utc_now_iso`; statically calls `parse_utc`, `utc_now_iso`
+- [[Reference/Modules/learnloop/reader/reader_report|learnloop.reader.reader_report]] — imports `parse_utc`; statically calls `parse_utc`
 - [[Reference/Modules/learnloop/reader/reader_requests|learnloop.reader.reader_requests]] — imports `Clock`, `parse_utc`, `utc_now_iso`; statically calls `parse_utc`, `utc_now_iso`
 - [[Reference/Modules/learnloop/reader/reader_restoration|learnloop.reader.reader_restoration]] — imports `Clock`
+- [[Reference/Modules/learnloop/reader/reader_sessions|learnloop.reader.reader_sessions]] — imports `parse_utc`; statically calls `parse_utc`
+- [[Reference/Modules/learnloop/reader/recap|learnloop.reader.recap]] — imports `Clock`, `parse_utc`; statically calls `parse_utc`
 - [[Reference/Modules/learnloop/reader/source_objects|learnloop.reader.source_objects]] — imports `Clock`
 - [[Reference/Modules/learnloop/reader/source_render_views|learnloop.reader.source_render_views]] — imports `Clock`
+- [[Reference/Modules/learnloop/reader/source_roles|learnloop.reader.source_roles]] — imports `Clock`
 - [[Reference/Modules/learnloop/reader/span_view|learnloop.reader.span_view]] — imports `Clock`
+- [[Reference/Modules/learnloop/reader/workbench|learnloop.reader.workbench]] — imports `Clock`, `parse_utc`, `utc_now_iso`; statically calls `parse_utc`, `utc_now_iso`
+- [[Reference/Modules/learnloop/reader_followups_upgrade|learnloop.reader_followups_upgrade]] — imports `Clock`
+- [[Reference/Modules/learnloop/reader_learner_state|learnloop.reader_learner_state]] — imports `parse_utc`; statically calls `parse_utc`
+- [[Reference/Modules/learnloop/reading_path_plan_upgrade|learnloop.reading_path_plan_upgrade]] — imports `Clock`
+- [[Reference/Modules/learnloop/regrade_contract_upgrade|learnloop.regrade_contract_upgrade]] — imports `Clock`
+- [[Reference/Modules/learnloop/remote/sources|learnloop.remote.sources]] — imports `Clock`
+- [[Reference/Modules/learnloop/remote/telemetry|learnloop.remote.telemetry]] — imports `Clock`, `utc_now_iso`; statically calls `utc_now_iso`
+- [[Reference/Modules/learnloop/remote/views|learnloop.remote.views]] — imports `Clock`, `SystemClock`, `parse_utc`; statically calls `SystemClock`, `parse_utc`
+- [[Reference/Modules/learnloop/replay_ledger_upgrade|learnloop.replay_ledger_upgrade]] — imports `Clock`
+- [[Reference/Modules/learnloop/route_rules_upgrade|learnloop.route_rules_upgrade]] — imports `Clock`
+- [[Reference/Modules/learnloop/router/decisions|learnloop.router.decisions]] — imports `utc_now_iso`; statically calls `utc_now_iso`
+- [[Reference/Modules/learnloop/router/outcomes|learnloop.router.outcomes]] — imports `parse_utc`; statically calls `parse_utc`
+- [[Reference/Modules/learnloop/router/plan_log|learnloop.router.plan_log]] — imports `parse_utc`, `utc_now_iso`; statically calls `parse_utc`, `utc_now_iso`
+- [[Reference/Modules/learnloop/router_mixture_upgrade|learnloop.router_mixture_upgrade]] — imports `Clock`
+- [[Reference/Modules/learnloop/router_staged_upgrade|learnloop.router_staged_upgrade]] — imports `Clock`
 - [[Reference/Modules/learnloop/scheduling/constraint_engine|learnloop.scheduling.constraint_engine]] — imports `Clock`
-- [[Reference/Modules/learnloop/scheduling/controller_cutover|learnloop.scheduling.controller_cutover]] — imports `Clock`
+- [[Reference/Modules/learnloop/scheduling/controller_cutover|learnloop.scheduling.controller_cutover]] — imports `Clock`, `utc_now_iso`; statically calls `utc_now_iso`
 - [[Reference/Modules/learnloop/scheduling/controller_ownership|learnloop.scheduling.controller_ownership]] — imports `Clock`, `utc_now_iso`; statically calls `utc_now_iso`
 - [[Reference/Modules/learnloop/scheduling/controller_snapshot|learnloop.scheduling.controller_snapshot]] — imports `Clock`
 - [[Reference/Modules/learnloop/scheduling/controller_store|learnloop.scheduling.controller_store]] — imports `Clock`, `utc_now_iso`; statically calls `utc_now_iso`
 - [[Reference/Modules/learnloop/scheduling/decay_pressure|learnloop.scheduling.decay_pressure]] — imports `Clock`, `SystemClock`; statically calls `SystemClock`
 - [[Reference/Modules/learnloop/scheduling/evaluation|learnloop.scheduling.evaluation]] — imports `parse_utc`; statically calls `parse_utc`
+- [[Reference/Modules/learnloop/scheduling/family_memory_model|learnloop.scheduling.family_memory_model]] — imports `parse_utc`; statically calls `parse_utc`
+- [[Reference/Modules/learnloop/scheduling/forecast_receipts|learnloop.scheduling.forecast_receipts]] — imports `Clock`, `parse_utc`, `utc_now_iso`; statically calls `parse_utc`, `utc_now_iso`
+- [[Reference/Modules/learnloop/scheduling/intent/feasibility|learnloop.scheduling.intent.feasibility]] — imports `FrozenClock`; statically calls `FrozenClock`
+- [[Reference/Modules/learnloop/scheduling/intent/followup_gate|learnloop.scheduling.intent.followup_gate]] — imports `parse_utc`; statically calls `parse_utc`
+- [[Reference/Modules/learnloop/scheduling/intent/recall_targets|learnloop.scheduling.intent.recall_targets]] — imports `parse_utc`; statically calls `parse_utc`
+- [[Reference/Modules/learnloop/scheduling/intent/serving|learnloop.scheduling.intent.serving]] — imports `parse_utc`; statically calls `parse_utc`
 - [[Reference/Modules/learnloop/scheduling/kinship_feature|learnloop.scheduling.kinship_feature]] — imports `Clock`, `utc_now_iso`; statically calls `utc_now_iso`
 - [[Reference/Modules/learnloop/scheduling/prequential|learnloop.scheduling.prequential]] — imports `Clock`, `utc_now_iso`; statically calls `utc_now_iso`
 - [[Reference/Modules/learnloop/scheduling/progression|learnloop.scheduling.progression]] — imports `Clock`, `utc_now_iso`; statically calls `utc_now_iso`
@@ -226,14 +381,35 @@ No private top-level function or class definition is declared in this file.
 - [[Reference/Modules/learnloop/scheduling/reentry_adapter|learnloop.scheduling.reentry_adapter]] — imports `Clock`, `SystemClock`, `parse_utc`; statically calls `SystemClock`, `parse_utc`
 - [[Reference/Modules/learnloop/scheduling/reentry_summary|learnloop.scheduling.reentry_summary]] — imports `Clock`, `SystemClock`, `parse_utc`; statically calls `SystemClock`, `parse_utc`
 - [[Reference/Modules/learnloop/scheduling/review_log|learnloop.scheduling.review_log]] — imports `parse_utc`; statically calls `parse_utc`
-- [[Reference/Modules/learnloop/scheduling/scheduler|learnloop.scheduling.scheduler]] — imports `Clock`, `SystemClock`, `parse_utc`, `utc_now_iso`; statically calls `SystemClock`, `parse_utc`, `utc_now_iso`
+- [[Reference/Modules/learnloop/scheduling/scheduler|learnloop.scheduling.scheduler]] — imports `Clock`, `FrozenClock`, `SystemClock`, `parse_utc`, `utc_now_iso`; statically calls `FrozenClock`, `SystemClock`, `parse_utc`, `utc_now_iso`
+- [[Reference/Modules/learnloop/scheduling/serving_exclusions|learnloop.scheduling.serving_exclusions]] — imports `Clock`, `SystemClock`; statically calls `SystemClock`
+- [[Reference/Modules/learnloop/scheduling/session_minutes|learnloop.scheduling.session_minutes]] — imports `parse_utc`; statically calls `parse_utc`
 - [[Reference/Modules/learnloop/scheduling/shadow_components|learnloop.scheduling.shadow_components]] — imports `Clock`, `utc_now_iso`; statically calls `utc_now_iso`
 - [[Reference/Modules/learnloop/scheduling/short_session|learnloop.scheduling.short_session]] — imports `Clock`
 - [[Reference/Modules/learnloop/scheduling/staged_policy|learnloop.scheduling.staged_policy]] — imports `Clock`
 - [[Reference/Modules/learnloop/scheduling/state_signals|learnloop.scheduling.state_signals]] — imports `Clock`, `utc_now_iso`; statically calls `utc_now_iso`
+- [[Reference/Modules/learnloop/scheduling/unresolved_cost|learnloop.scheduling.unresolved_cost]] — imports `parse_utc`; statically calls `parse_utc`
+- [[Reference/Modules/learnloop/scheduling/voi_forecasts|learnloop.scheduling.voi_forecasts]] — imports `Clock`
 - [[Reference/Modules/learnloop/sim/diagnostic_validation|learnloop.sim.diagnostic_validation]] — imports `FrozenClock`; statically calls `FrozenClock`
 - [[Reference/Modules/learnloop/sim/offline_benchmarks|learnloop.sim.offline_benchmarks]] — imports `parse_utc`; statically calls `parse_utc`
 - [[Reference/Modules/learnloop/sim/runner|learnloop.sim.runner]] — imports `FrozenClock`, `parse_utc`; statically calls `FrozenClock`, `parse_utc`
+- [[Reference/Modules/learnloop/source_retrieval/compare|learnloop.source_retrieval.compare]] — imports `Clock`, `utc_now_iso`; statically calls `utc_now_iso`
+- [[Reference/Modules/learnloop/source_retrieval/compare_scope|learnloop.source_retrieval.compare_scope]] — imports `Clock`, `parse_utc`, `utc_now_iso`; statically calls `parse_utc`, `utc_now_iso`
+- [[Reference/Modules/learnloop/source_retrieval/deliverable_path|learnloop.source_retrieval.deliverable_path]] — imports `Clock`, `parse_utc`, `utc_now_iso`; statically calls `parse_utc`, `utc_now_iso`
+- [[Reference/Modules/learnloop/source_retrieval/deliverables|learnloop.source_retrieval.deliverables]] — imports `Clock`, `parse_utc`, `utc_now_iso`; statically calls `parse_utc`, `utc_now_iso`
+- [[Reference/Modules/learnloop/source_retrieval/find_sources|learnloop.source_retrieval.find_sources]] — imports `Clock`
+- [[Reference/Modules/learnloop/source_retrieval/kept_comparisons|learnloop.source_retrieval.kept_comparisons]] — imports `Clock`, `parse_utc`, `utc_now_iso`; statically calls `parse_utc`, `utc_now_iso`
+- [[Reference/Modules/learnloop/source_retrieval/library_ask|learnloop.source_retrieval.library_ask]] — imports `Clock`, `utc_now_iso`; statically calls `utc_now_iso`
+- [[Reference/Modules/learnloop/source_retrieval/note_links|learnloop.source_retrieval.note_links]] — imports `Clock`, `utc_now_iso`; statically calls `utc_now_iso`
+- [[Reference/Modules/learnloop/source_retrieval/passage_cues|learnloop.source_retrieval.passage_cues]] — imports `Clock`, `SystemClock`, `utc_now_iso`; statically calls `SystemClock`, `utc_now_iso`
+- [[Reference/Modules/learnloop/source_retrieval/reading_paths|learnloop.source_retrieval.reading_paths]] — imports `Clock`, `utc_now_iso`; statically calls `utc_now_iso`
+- [[Reference/Modules/learnloop/source_retrieval/role_labeller|learnloop.source_retrieval.role_labeller]] — imports `Clock`
+- [[Reference/Modules/learnloop/source_retrieval/section_coverage|learnloop.source_retrieval.section_coverage]] — imports `Clock`, `utc_now_iso`; statically calls `utc_now_iso`
+- [[Reference/Modules/learnloop/source_retrieval/service_spend|learnloop.source_retrieval.service_spend]] — imports `Clock`, `SystemClock`, `utc_now_iso`; statically calls `utc_now_iso`
+- [[Reference/Modules/learnloop/source_retrieval/tutor|learnloop.source_retrieval.tutor]] — imports `Clock`
+- [[Reference/Modules/learnloop/source_retrieval/verify|learnloop.source_retrieval.verify]] — imports `Clock`
+- [[Reference/Modules/learnloop/sources_upgrade|learnloop.sources_upgrade]] — imports `Clock`
+- [[Reference/Modules/learnloop/stuck_prompt_upgrade|learnloop.stuck_prompt_upgrade]] — imports `Clock`
 - [[Reference/Modules/learnloop/substrate/activities|learnloop.substrate.activities]] — imports `Clock`
 - [[Reference/Modules/learnloop/substrate/activity_patterns|learnloop.substrate.activity_patterns]] — imports `Clock`
 - [[Reference/Modules/learnloop/substrate/administration_adapters|learnloop.substrate.administration_adapters]] — imports `Clock`
@@ -244,6 +420,7 @@ No private top-level function or class definition is declared in this file.
 - [[Reference/Modules/learnloop/substrate/compat/substrate_cutover|learnloop.substrate.compat.substrate_cutover]] — imports `Clock`
 - [[Reference/Modules/learnloop/substrate/data_quality|learnloop.substrate.data_quality]] — imports `utc_now_iso`; statically calls `utc_now_iso`
 - [[Reference/Modules/learnloop/substrate/dataset|learnloop.substrate.dataset]] — imports `parse_utc`; statically calls `parse_utc`
+- [[Reference/Modules/learnloop/substrate/families|learnloop.substrate.families]] — imports `Clock`, `utc_now_iso`; statically calls `utc_now_iso`
 - [[Reference/Modules/learnloop/substrate/model_usage|learnloop.substrate.model_usage]] — imports `parse_utc`, `utc_now_iso`; statically calls `parse_utc`, `utc_now_iso`
 - [[Reference/Modules/learnloop/substrate/p0_projection|learnloop.substrate.p0_projection]] — imports `Clock`
 - [[Reference/Modules/learnloop/substrate/rebuild_orchestrator|learnloop.substrate.rebuild_orchestrator]] — imports `Clock`
@@ -251,6 +428,13 @@ No private top-level function or class definition is declared in this file.
 - [[Reference/Modules/learnloop/substrate/state_sync|learnloop.substrate.state_sync]] — imports `Clock`, `utc_now_iso`; statically calls `utc_now_iso`
 - [[Reference/Modules/learnloop/substrate/surface_mint|learnloop.substrate.surface_mint]] — imports `Clock`, `utc_now_iso`; statically calls `utc_now_iso`
 - [[Reference/Modules/learnloop/substrate/surface_pool|learnloop.substrate.surface_pool]] — imports `Clock`
+- [[Reference/Modules/learnloop/superseded_claims_upgrade|learnloop.superseded_claims_upgrade]] — imports `Clock`
+- [[Reference/Modules/learnloop/teacher/brief|learnloop.teacher.brief]] — imports `utc_now_iso`; statically calls `utc_now_iso`
+- [[Reference/Modules/learnloop/teacher/checks|learnloop.teacher.checks]] — imports `Clock`, `utc_now_iso`; statically calls `utc_now_iso`
+- [[Reference/Modules/learnloop/teacher/delayed|learnloop.teacher.delayed]] — imports `Clock`, `parse_utc`, `utc_now_iso`; statically calls `parse_utc`, `utc_now_iso`
+- [[Reference/Modules/learnloop/teacher/service|learnloop.teacher.service]] — imports `Clock`, `utc_now_iso`; statically calls `utc_now_iso`
+- [[Reference/Modules/learnloop/teacher_upgrade|learnloop.teacher_upgrade]] — imports `Clock`
+- [[Reference/Modules/learnloop/tui/minutes_memory|learnloop.tui.minutes_memory]] — imports `Clock`, `parse_utc`, `utc_now_iso`; statically calls `parse_utc`, `utc_now_iso`
 - [[Reference/Modules/learnloop/tutor/durable_promotion|learnloop.tutor.durable_promotion]] — imports `Clock`
 - [[Reference/Modules/learnloop/tutor/promotions|learnloop.tutor.promotions]] — imports `Clock`, `utc_now_iso`; statically calls `utc_now_iso`
 - [[Reference/Modules/learnloop/tutor/question_signal|learnloop.tutor.question_signal]] — imports `Clock`, `parse_utc`, `utc_now_iso`; statically calls `parse_utc`, `utc_now_iso`
@@ -259,13 +443,35 @@ No private top-level function or class definition is declared in this file.
 - [[Reference/Modules/learnloop/vault/loader|learnloop.vault.loader]] — imports `Clock`, `utc_now_iso`; statically calls `utc_now_iso`
 - [[Reference/Modules/learnloop/vault/repository|learnloop.vault.repository]] — imports `Clock`
 - [[Reference/Modules/learnloop/vault/writer|learnloop.vault.writer]] — imports `Clock`, `utc_now_iso`; statically calls `utc_now_iso`
+- [[Reference/Modules/learnloop/voi_stopping_upgrade|learnloop.voi_stopping_upgrade]] — imports `Clock`
+- [[Reference/Modules/learnloop/workbench/bridge|learnloop.workbench.bridge]] — imports `utc_now_iso`; statically calls `utc_now_iso`
+- [[Reference/Modules/learnloop/workbench/check|learnloop.workbench.check]] — imports `Clock`, `utc_now_iso`; statically calls `utc_now_iso`
+- [[Reference/Modules/learnloop/workbench/compare_methods|learnloop.workbench.compare_methods]] — imports `Clock`, `parse_utc`, `utc_now_iso`; statically calls `parse_utc`, `utc_now_iso`
+- [[Reference/Modules/learnloop/workbench/ladder|learnloop.workbench.ladder]] — imports `utc_now_iso`; statically calls `utc_now_iso`
+- [[Reference/Modules/learnloop/workbench/route_example|learnloop.workbench.route_example]] — imports `utc_now_iso`; statically calls `utc_now_iso`
+- [[Reference/Modules/learnloop/workbench_field_signals_upgrade|learnloop.workbench_field_signals_upgrade]] — imports `Clock`
 - [[Reference/Modules/learnloop_sidecar/context|learnloop_sidecar.context]] — imports `utc_now_iso`; statically calls `utc_now_iso`
+- [[Reference/Modules/learnloop_sidecar/handlers/as_printed|learnloop_sidecar.handlers.as_printed]] — imports `SystemClock`; statically calls `SystemClock`
 - [[Reference/Modules/learnloop_sidecar/handlers/feedback|learnloop_sidecar.handlers.feedback]] — imports `SystemClock`, `parse_utc`, `utc_now_iso`; statically calls `SystemClock`, `parse_utc`, `utc_now_iso`
+- [[Reference/Modules/learnloop_sidecar/handlers/figures|learnloop_sidecar.handlers.figures]] — imports `SystemClock`, `utc_now_iso`; statically calls `SystemClock`, `utc_now_iso`
+- [[Reference/Modules/learnloop_sidecar/handlers/first_run|learnloop_sidecar.handlers.first_run]] — imports `utc_now_iso`; statically calls `utc_now_iso`
 - [[Reference/Modules/learnloop_sidecar/handlers/goals|learnloop_sidecar.handlers.goals]] — imports `parse_utc`, `utc_now_iso`; statically calls `parse_utc`, `utc_now_iso`
 - [[Reference/Modules/learnloop_sidecar/handlers/knowledge_map|learnloop_sidecar.handlers.knowledge_map]] — imports `parse_utc`; statically calls `parse_utc`
-- [[Reference/Modules/learnloop_sidecar/handlers/practice|learnloop_sidecar.handlers.practice]] — imports `utc_now_iso`; statically calls `utc_now_iso`
-- [[Reference/Modules/learnloop_sidecar/handlers/queue|learnloop_sidecar.handlers.queue]] — imports `utc_now_iso`; statically calls `utc_now_iso`
+- [[Reference/Modules/learnloop_sidecar/handlers/placement|learnloop_sidecar.handlers.placement]] — imports `utc_now_iso`; statically calls `utc_now_iso`
+- [[Reference/Modules/learnloop_sidecar/handlers/practice|learnloop_sidecar.handlers.practice]] — imports `SystemClock`, `utc_now_iso`; statically calls `SystemClock`, `utc_now_iso`
+- [[Reference/Modules/learnloop_sidecar/handlers/queue|learnloop_sidecar.handlers.queue]] — imports `SystemClock`, `utc_now_iso`; statically calls `SystemClock`, `utc_now_iso`
+- [[Reference/Modules/learnloop_sidecar/handlers/reader_cue_discovery|learnloop_sidecar.handlers.reader_cue_discovery]] — imports `utc_now_iso`; statically calls `utc_now_iso`
+- [[Reference/Modules/learnloop_sidecar/handlers/reader_tutor|learnloop_sidecar.handlers.reader_tutor]] — imports `utc_now_iso`; statically calls `utc_now_iso`
 - [[Reference/Modules/learnloop_sidecar/handlers/serializers|learnloop_sidecar.handlers.serializers]] — imports `SystemClock`, `parse_utc`; statically calls `SystemClock`, `parse_utc`
+- [[Reference/Modules/learnloop_sidecar/handlers/source_service|learnloop_sidecar.handlers.source_service]] — imports `utc_now_iso`; statically calls `utc_now_iso`
+- [[Reference/Modules/learnloop_sidecar/handlers/tutor_qa|learnloop_sidecar.handlers.tutor_qa]] — imports `SystemClock`; statically calls `SystemClock`
+- [[Reference/Modules/learnloop_sidecar/handlers/workbench|learnloop_sidecar.handlers.workbench]] — imports `utc_now_iso`; statically calls `utc_now_iso`
+- [[Reference/Modules/learnloop_sidecar/handlers/workbench_help|learnloop_sidecar.handlers.workbench_help]] — imports `utc_now_iso`; statically calls `utc_now_iso`
+- [[Reference/Modules/learnloop_sidecar/handlers/workbench_rw2c|learnloop_sidecar.handlers.workbench_rw2c]] — imports `utc_now_iso`; statically calls `utc_now_iso`
+
+### Repository tooling consumers
+
+- [scripts/voi_cap_report.py](../../../../../scripts/voi_cap_report.py); calls `SystemClock`
 
 ## Dependencies
 
@@ -285,18 +491,53 @@ Use this module in context through:
 - [[Initialize a Vault]]
 - [[Start a Learning Cycle]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/ai/runs|learnloop.ai.runs]], [[Reference/Modules/learnloop/attempts/attempts|learnloop.attempts.attempts]], [[Reference/Modules/learnloop/attempts/calibration_streams|learnloop.attempts.calibration_streams]], [[Reference/Modules/learnloop/attempts/clarification|learnloop.attempts.clarification]], [[Reference/Modules/learnloop/attempts/coldness_receipt|learnloop.attempts.coldness_receipt]] and 183 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/ad_successor_upgrade|learnloop.ad_successor_upgrade]], [[Reference/Modules/learnloop/adaptive_difficulty/backfill|learnloop.adaptive_difficulty.backfill]], [[Reference/Modules/learnloop/adaptive_difficulty/claims|learnloop.adaptive_difficulty.claims]], [[Reference/Modules/learnloop/adaptive_difficulty/dose|learnloop.adaptive_difficulty.dose]], [[Reference/Modules/learnloop/adaptive_difficulty/feature_audit|learnloop.adaptive_difficulty.feature_audit]] and 385 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
 ## Tests that define behavior
 
+- [tests/diagnosis_split_helpers.py](../../../../../tests/diagnosis_split_helpers.py) — direct import
+- [tests/exam_scope_fixtures.py](../../../../../tests/exam_scope_fixtures.py) — direct import
 - [tests/helpers.py](../../../../../tests/helpers.py) — direct import
+- [tests/intent_fakes.py](../../../../../tests/intent_fakes.py) — direct import
+- [tests/passage_cue_fakes.py](../../../../../tests/passage_cue_fakes.py) — direct import
+- [tests/project_support.py](../../../../../tests/project_support.py) — direct import
+- [tests/reader_fixtures.py](../../../../../tests/reader_fixtures.py) — direct import
+- [tests/reading_path_fixtures.py](../../../../../tests/reading_path_fixtures.py) — direct import
+- [tests/recap_fixtures.py](../../../../../tests/recap_fixtures.py) — direct import
+- [tests/split_live_helpers.py](../../../../../tests/split_live_helpers.py) — direct import
 - [tests/test_action_loss.py](../../../../../tests/test_action_loss.py) — direct import
 - [tests/test_activity_backfill.py](../../../../../tests/test_activity_backfill.py) — direct import
 - [tests/test_activity_contract_extensions.py](../../../../../tests/test_activity_contract_extensions.py) — direct import
 - [tests/test_activity_patterns.py](../../../../../tests/test_activity_patterns.py) — direct import
 - [tests/test_activity_substrate.py](../../../../../tests/test_activity_substrate.py) — direct import
+- [tests/test_ad1_codex_review_fixes.py](../../../../../tests/test_ad1_codex_review_fixes.py) — direct import
+  - `test_a_claim_held_by_another_process_is_skipped`
+  - `test_outside_forecasts_send_the_inputs_frozen_at_the_serve`
+  - `test_the_tutor_turn_stamps_its_answer_on_its_own_clock`
+- [tests/test_ad1_outside_and_cli.py](../../../../../tests/test_ad1_outside_and_cli.py) — direct import
+  - `test_a_real_reading_backfill_sweeps_the_history_with_no_model`
+- [tests/test_ad1_reading_opportunities.py](../../../../../tests/test_ad1_reading_opportunities.py) — direct import
+- [tests/test_ad23_contract.py](../../../../../tests/test_ad23_contract.py) — direct import
+  - `test_a_commissioned_repair_after_protection_changed_mid_call_is_refused`
+- [tests/test_ad23_fix_r8.py](../../../../../tests/test_ad23_fix_r8.py) — direct import
+- [tests/test_ad23_fix_review.py](../../../../../tests/test_ad23_fix_review.py) — direct import
+  - `test_a_draw_reads_reading_recorded_since_the_last_serve`
+  - `test_the_sidecar_queues_a_serve_commission_after_the_serve`
+- [tests/test_ad23_intent_compose.py](../../../../../tests/test_ad23_intent_compose.py) — direct import
+  - `test_the_real_scheduler_lane_with_commitments`
+- [tests/test_ad23_successor.py](../../../../../tests/test_ad23_successor.py) — direct import
+  - `test_every_switch_false_serves_the_predecessor_on_fixture_copies`
+  - `test_new_vaults_start_at_the_successor_with_every_switch_on`
+  - `test_the_upgrade_takes_the_predecessor_or_the_chain_and_refuses_the_rest`
+- [tests/test_adaptive_difficulty_ad1.py](../../../../../tests/test_adaptive_difficulty_ad1.py) — direct import
+  - `test_feature_audit_ledgered_with_fallback`
+  - `test_forecast_receipt_written_in_serve_transaction`
+  - `test_item_only_forecast_enters_inputs_only_if_received_before_serve`
+  - `test_late_outside_forecast_is_valid_if_inputs_predate_serve`
+  - `test_replay_reads_receipts_zero_model_calls`
+  - `test_serve_inputs_frozen_against_later_audit_and_edit`
 - [tests/test_administration_adapters.py](../../../../../tests/test_administration_adapters.py) — direct import
 - [tests/test_agent_run_tokens.py](../../../../../tests/test_agent_run_tokens.py) — direct import
   - `test_complete_agent_run_records_actual_usage`
@@ -308,16 +549,23 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_answer_calibration_duel.py](../../../../../tests/test_answer_calibration_duel.py) — direct import
   - `test_answer_confidence_must_be_a_1_to_5_committed_tap`
   - `test_post_reveal_confidence_tap_cannot_land_on_a_graded_attempt`
+- [tests/test_answer_signal_arms.py](../../../../../tests/test_answer_signal_arms.py) — direct import
+  - `test_the_loader_reads_the_tap_and_the_graders_tone_reading`
 - [tests/test_anti_double_count.py](../../../../../tests/test_anti_double_count.py) — direct import
   - `test_anti_double_count_claim_seeds_prior_but_earns_no_mass`
   - `test_anti_double_count_projection_signal_earns_zero_certification`
   - `test_anti_double_count_replay_reproduces_identical_state`
+- [tests/test_approach_maps.py](../../../../../tests/test_approach_maps.py) — direct import
 - [tests/test_assessment_contracts.py](../../../../../tests/test_assessment_contracts.py) — direct import
   - `test_legacy_attempt_records_no_observation_lineage`
   - `test_mvp07_attempt_stamps_observation_lineage`
 - [tests/test_assessment_enforcement.py](../../../../../tests/test_assessment_enforcement.py) — direct import
+- [tests/test_assumed_known.py](../../../../../tests/test_assumed_known.py) — direct import
+  - `test_new_vaults_start_with_placement_on`
 - [tests/test_attempt_ai_flow.py](../../../../../tests/test_attempt_ai_flow.py) — direct import
   - `test_attempt_ai_flow_records_provider_model_and_ai_source`
+- [tests/test_attempt_content_state_race.py](../../../../../tests/test_attempt_content_state_race.py) — direct import
+- [tests/test_attempt_content_state_successor.py](../../../../../tests/test_attempt_content_state_successor.py) — direct import
 - [tests/test_attempt_write_order.py](../../../../../tests/test_attempt_write_order.py) — direct import
   - `test_canonical_attempt_write_order_is_receipt_grade_evidence_state_then_post`
 - [tests/test_attempts.py](../../../../../tests/test_attempts.py) — direct import
@@ -332,6 +580,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_calibration.py](../../../../../tests/test_calibration.py) — direct import
 - [tests/test_calibration_sessions.py](../../../../../tests/test_calibration_sessions.py) — direct import
   - `test_calibration_session_stop_and_budget_expiry`
+- [tests/test_canonical_projection_fold_skip.py](../../../../../tests/test_canonical_projection_fold_skip.py) — direct import
 - [tests/test_canonical_projection_rollout.py](../../../../../tests/test_canonical_projection_rollout.py) — direct import
   - `test_projection_upgrade_stays_silent_while_vault_has_no_attempts`
   - `test_startup_records_one_recalibration_for_an_unstamped_practised_vault`
@@ -442,6 +691,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_characterization_probe_regrade.py](../../../../../tests/test_characterization_probe_regrade.py) — direct import
 - [tests/test_characterization_probe_replay.py](../../../../../tests/test_characterization_probe_replay.py) — direct import
 - [tests/test_characterization_probe_submission.py](../../../../../tests/test_characterization_probe_submission.py) — direct import
+- [tests/test_chatgpt_plan_landing.py](../../../../../tests/test_chatgpt_plan_landing.py) — direct import
+  - `test_a_snapshot_diagnosis_on_the_plan_records_what_it_served_with_its_row_and_forecasts`
 - [tests/test_cli_generate_practice.py](../../../../../tests/test_cli_generate_practice.py) — direct import
   - `test_accepting_diagnostic_proposal_queues_today_followup`
 - [tests/test_codex_attempt_flow.py](../../../../../tests/test_codex_attempt_flow.py) — direct import
@@ -453,7 +704,14 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_codex_graded_attempt_proposes_unknown_error_type`
   - `test_codex_graded_attempt_uses_same_update_path_with_tier_three_evidence`
   - `test_codex_recall_wording_uses_recall_failure_not_new_error_type`
+- [tests/test_cold_retry_reschedule.py](../../../../../tests/test_cold_retry_reschedule.py) — direct import
+  - `test_an_assisted_certification_probe_is_left_as_the_predecessor_leaves_it`
+  - `test_off_or_below_the_tag_the_assisted_retry_is_left_open_exactly_as_the_predecessor`
+  - `test_replay_schedules_nothing_and_leaves_the_lane_as_live_left_it`
+  - `test_the_fresh_retry_is_invisible_until_due_then_measures_the_repair_cold`
+  - `test_the_fresh_retry_records_its_own_repair_forecast_which_resolves_when_it_is_measured`
 - [tests/test_coldness_receipt.py](../../../../../tests/test_coldness_receipt.py) — direct import
+  - `test_blind_cold_grade_passes_context_blinding_and_reports_the_diagnoser_view`
   - `test_coldness_receipts_are_append_only`
   - `test_delivered_passage_on_the_cold_items_own_source_span_is_hard`
   - `test_delivered_passages_in_interval_are_typed_exposure_not_indeterminate`
@@ -485,6 +743,13 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_commitment_arcs.py](../../../../../tests/test_commitment_arcs.py) — direct import
 - [tests/test_commitments.py](../../../../../tests/test_commitments.py) — direct import
 - [tests/test_common_repair_delivery.py](../../../../../tests/test_common_repair_delivery.py) — direct import
+- [tests/test_compare_methods.py](../../../../../tests/test_compare_methods.py) — direct import
+  - `test_f7_only_the_claims_holder_settles_and_a_stale_claim_can_be_taken_over`
+  - `test_the_reference_is_read_by_id_and_a_reveal_on_the_item_comes_first`
+  - `test_the_reveal_makes_the_cold_lane_treat_the_family_as_revealed_and_primes_the_next_attempt`
+- [tests/test_compare_sources_keep.py](../../../../../tests/test_compare_sources_keep.py) — direct import
+  - `test_the_card_omits_a_comparison_held_out_now_at_every_as_of`
+  - `test_the_card_reads_keeps_takes_and_removals_as_of`
 - [tests/test_concept_animation_service.py](../../../../../tests/test_concept_animation_service.py) — direct import
   - `test_runner_handler_drives_generation_through_the_queue`
 - [tests/test_concept_animation_store.py](../../../../../tests/test_concept_animation_store.py) — direct import
@@ -504,6 +769,11 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_trace_evidence_report_surfaces_unexercised_cells_and_abstains_on_concentration`
   - `test_trace_evidence_turns_the_supporting_target_into_embedded_credit`
 - [tests/test_constraint_engine.py](../../../../../tests/test_constraint_engine.py) — direct import
+- [tests/test_contamination_report.py](../../../../../tests/test_contamination_report.py) — direct import
+  - `test_a_reader_reveal_before_the_assessment_was_taken_stays_in_the_report`
+  - `test_a_reserve_already_burned_by_an_exposure_gets_no_burn_proposal`
+  - `test_exam_leakage_shortlists_nearest_held_out_spans_for_the_judge`
+  - `test_reader_reveal_proposes_a_burn_and_never_executes_it`
 - [tests/test_contract_frontier_coverage.py](../../../../../tests/test_contract_frontier_coverage.py) — direct import
   - `test_capability_axis_distinguishes_the_cells`
   - `test_the_denominator_change_is_narrated_as_one_recalibration`
@@ -516,9 +786,44 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_apply_writes_one_boundary_and_a_rerun_writes_none`
   - `test_dry_run_writes_no_boundary`
 - [tests/test_cross_seam_exposure.py](../../../../../tests/test_cross_seam_exposure.py) — direct import
+- [tests/test_curriculum_c0b_landing.py](../../../../../tests/test_curriculum_c0b_landing.py) — direct import
+- [tests/test_curriculum_c1_fix_round3.py](../../../../../tests/test_curriculum_c1_fix_round3.py) — direct import
+  - `test_m2_a_diagnosis_wait_running_out_invalidates_with_no_write`
+- [tests/test_curriculum_c1_fix_round4.py](../../../../../tests/test_curriculum_c1_fix_round4.py) — direct import
+- [tests/test_curriculum_c1_plan_follows_path.py](../../../../../tests/test_curriculum_c1_plan_follows_path.py) — direct import
+  - `test_gc4_on_the_head_fixture_copy_on_and_off_are_rw7bs`
+- [tests/test_curriculum_c3_codex_review.py](../../../../../tests/test_curriculum_c3_codex_review.py) — direct import
+  - `test_the_reader_s_own_import_refuses_a_syllabus_before_any_model_call`
 - [tests/test_curriculum_locks.py](../../../../../tests/test_curriculum_locks.py) — direct import
-  - `test_deactivate_locked_learning_object_is_invalid`
-  - `test_locked_semantic_merge_is_invalid`
+- [tests/test_daily_loop_lo_lifecycle_serving.py](../../../../../tests/test_daily_loop_lo_lifecycle_serving.py) — direct import
+- [tests/test_daily_loop_reader_authored_practice.py](../../../../../tests/test_daily_loop_reader_authored_practice.py) — direct import
+  - `test_written_question_keeps_returning_after_it_is_answered`
+- [tests/test_daily_loop_reentry_break.py](../../../../../tests/test_daily_loop_reentry_break.py) — direct import
+- [tests/test_daily_loop_start_minutes.py](../../../../../tests/test_daily_loop_start_minutes.py) — direct import
+  - `test_remembered_minutes_follow_session_start_order`
+  - `test_the_streak_count_is_unchanged_on_fixture_copies`
+  - `test_the_streak_counts_any_clients_started_sessions`
+  - `test_today_queue_serves_the_same_queue_without_energy_on_fixture_copies`
+  - `test_tui_minutes_are_the_newer_of_its_own_begin_and_the_last_session`
+- [tests/test_daily_plan_composition.py](../../../../../tests/test_daily_plan_composition.py) — direct import
+  - `test_a_check_miss_awaiting_its_diagnosis_stays_assumed_and_is_not_rechecked`
+  - `test_a_tutor_reveal_during_a_plan_item_leaves_the_item_flow_alone`
+  - `test_an_empty_stuck_answer_on_a_plan_item_is_done_and_labelled_daily_plan`
+- [tests/test_daily_plan_kill_switch.py](../../../../../tests/test_daily_plan_kill_switch.py) — direct import
+  - `test_headline_switch_hides_only_the_headline`
+  - `test_plan_off_is_dl0_on_fixture_copies`
+  - `test_plan_off_rows_serve_the_open_queue_whatever_the_router`
+  - `test_the_plan_needs_the_successor_version`
+- [tests/test_daily_plan_reading.py](../../../../../tests/test_daily_plan_reading.py) — direct import
+- [tests/test_daily_plan_reentry.py](../../../../../tests/test_daily_plan_reentry.py) — direct import
+  - `test_the_reentry_panel_is_survival_first_with_no_overdue_count_or_streak`
+  - `test_with_the_plan_off_the_dl0_queue_cap_still_applies_and_with_it_on_the_list_is_whole`
+- [tests/test_daily_plan_replay.py](../../../../../tests/test_daily_plan_replay.py) — direct import
+  - `test_rebuild_ignores_the_plan_and_calls_no_model`
+- [tests/test_daily_plan_review_regressions.py](../../../../../tests/test_daily_plan_review_regressions.py) — direct import
+  - `test_f13_a_pick_ignores_a_used_or_unshown_offer`
+  - `test_f5_plan_rpcs_finalize_no_offer_and_picks_keep_the_list_offer`
+- [tests/test_daily_plan_rpc.py](../../../../../tests/test_daily_plan_rpc.py) — direct import
 - [tests/test_debug_advance.py](../../../../../tests/test_debug_advance.py) — direct import
   - `test_debug_advance_shifts_practice_item_state_timestamps`
 - [tests/test_deferred_regrade.py](../../../../../tests/test_deferred_regrade.py) — direct import
@@ -533,10 +838,34 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_deferred_regrade_supersedes_self_grade_and_updates_mastery`
   - `test_deferred_regrade_validates_repaired_trace_against_learner_answer`
   - `test_startup_maintenance_regrades_pending_self_grade_when_codex_ready`
+- [tests/test_deliverable_codex_review.py](../../../../../tests/test_deliverable_codex_review.py) — direct import
+  - `test_f11_didnt_help_kept_comparisons_and_minutes_reach_the_judge`
+  - `test_f11_minutes_available_are_dl1s_daily_budget_times_the_days_left`
+  - `test_f13_the_check_dates_follow_the_vaults_dl2_parameters`
+- [tests/test_deliverable_path.py](../../../../../tests/test_deliverable_path.py) — direct import
+  - `test_check_due_is_bounded_by_tomorrow_fourteen_days_and_the_deadline`
 - [tests/test_depth_transition.py](../../../../../tests/test_depth_transition.py) — direct import
 - [tests/test_diagnosis_adjudication.py](../../../../../tests/test_diagnosis_adjudication.py) — direct import
   - `test_contest_leads_the_queue_and_is_provenance_never_the_verdict`
   - `test_queue_reason_is_persisted_so_selection_bias_is_auditable`
+- [tests/test_diagnosis_async_router.py](../../../../../tests/test_diagnosis_async_router.py) — direct import
+  - `test_as_of_cutoff_excludes_attempts_completed_after_the_diagnosed_one`
+- [tests/test_diagnosis_embeddings.py](../../../../../tests/test_diagnosis_embeddings.py) — direct import
+  - `test_embed_on_write_is_idempotent_and_logs_would_merge_against_earlier_hypotheses`
+  - `test_hybrid_mode_uses_knn_and_degrades_to_exact_without_embeddings`
+  - `test_the_diagnoser_may_match_a_shortlisted_belief_from_outside_the_neighborhood`
+  - `test_the_registry_shortlist_reaches_the_diagnosis_context_as_of_the_attempt`
+- [tests/test_diagnosis_input_provenance.py](../../../../../tests/test_diagnosis_input_provenance.py) — direct import
+  - `test_f5_replay_never_reads_the_switch_or_the_records`
+  - `test_rereview_f2_a_name_is_checked_although_a_text_read_already_folded_its_topic`
+- [tests/test_diagnosis_pipeline.py](../../../../../tests/test_diagnosis_pipeline.py) — direct import
+  - `test_failed_calls_count_toward_the_daily_cap_at_admission`
+  - `test_failed_diagnosis_backs_off_then_fails_and_leaves_the_grade`
+  - `test_registry_match_links_a_durable_belief_without_misconception_match`
+  - `test_resume_after_a_crash_between_diagnosis_and_settle_makes_no_second_call`
+- [tests/test_diagnosis_replay.py](../../../../../tests/test_diagnosis_replay.py) — direct import
+- [tests/test_diagnosis_reports.py](../../../../../tests/test_diagnosis_reports.py) — direct import
+  - `test_m2_report_aggregates_without_learner_text`
 - [tests/test_diagnostic_gate.py](../../../../../tests/test_diagnostic_gate.py) — direct import
 - [tests/test_diagnostic_probe_freshness.py](../../../../../tests/test_diagnostic_probe_freshness.py) — direct import
 - [tests/test_diagnostic_probe_single_use.py](../../../../../tests/test_diagnostic_probe_single_use.py) — direct import
@@ -550,6 +879,10 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_embedded_prediction_is_idempotent_per_question`
   - `test_submit_eliciting_response_records_a_factor_response`
 - [tests/test_discrimination_profiles.py](../../../../../tests/test_discrimination_profiles.py) — direct import
+- [tests/test_dl2_rw4b_keyed_pick_check.py](../../../../../tests/test_dl2_rw4b_keyed_pick_check.py) — direct import
+  - `test_a_keyed_pick_of_a_due_check_the_plan_does_not_hold_is_a_one_item_block_and_answers_it`
+  - `test_a_keyed_pick_of_a_planned_due_check_serves_the_check_once_and_its_answer_satisfies_it`
+  - `test_a_keyed_pick_of_an_item_a_waiting_check_holds_is_served_and_answers_nothing`
 - [tests/test_doctor.py](../../../../../tests/test_doctor.py) — direct import
   - `test_doctor_warns_on_duplicate_diagnostic_practice_proposals`
   - `test_doctor_warns_when_attempt_log_needs_explicit_rebuild_marker`
@@ -564,6 +897,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_propensity_report_marks_composed_offers_unavailable_not_degenerate`
   - `test_report_on_real_session_flow`
 - [tests/test_event_sufficiency.py](../../../../../tests/test_event_sufficiency.py) — direct import
+- [tests/test_evsi_router_composition.py](../../../../../tests/test_evsi_router_composition.py) — direct import
 - [tests/test_exam_pool.py](../../../../../tests/test_exam_pool.py) — direct import
   - `test_item_in_at_most_one_unreleased_pool`
   - `test_only_never_attempted_items_are_reservable`
@@ -572,11 +906,32 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_reservation_is_idempotent_per_goal`
   - `test_scheduler_skips_reserved_items`
   - `test_uncovered_facets_reported_when_no_item_tests_a_facet`
+- [tests/test_exam_protection.py](../../../../../tests/test_exam_protection.py) — direct import
+  - `test_a_reader_check_over_held_out_material_is_refused_before_any_model_call`
+  - `test_a_reader_import_of_held_out_material_is_refused_before_any_model_call`
+  - `test_a_reader_question_about_held_out_material_is_refused_before_anything_is_sent`
+  - `test_a_revealed_item_is_never_the_cold_retry`
+  - `test_an_exposed_import_never_becomes_an_exam_item`
+  - `test_the_daily_envelope_stamps_its_rows_with_the_injected_clock`
+- [tests/test_exam_protection_identity.py](../../../../../tests/test_exam_protection_identity.py) — direct import
+  - `test_f15_the_plans_reading_step_never_offers_held_out_material_in_either_order`
+- [tests/test_exam_protection_review.py](../../../../../tests/test_exam_protection_review.py) — direct import
+  - `test_a_pool_every_item_of_which_was_exposed_is_reserved_afresh`
+  - `test_a_sitting_every_unanswered_item_of_which_was_exposed_is_closed_and_its_pool_released`
+  - `test_an_exam_answer_given_before_its_item_was_exposed_stands`
+  - `test_an_exam_item_exposed_after_its_reservation_is_withdrawn_before_the_exam_starts`
+  - `test_an_exam_item_exposed_during_the_exam_is_withdrawn_on_resume_and_its_answer_refused`
+  - `test_the_report_of_an_automatically_closed_sitting_is_its_closure_report`
+  - `test_with_the_switch_off_an_exposed_exam_item_is_administered_as_before`
+  - `test_with_the_switch_off_an_item_exposed_mid_exam_is_administered_as_before`
+  - `test_with_the_switch_off_shown_material_is_selected_as_before`
+  - `test_with_the_switch_off_the_cold_retry_is_the_predecessor_s`
 - [tests/test_exam_readiness_and_conflict.py](../../../../../tests/test_exam_readiness_and_conflict.py) — direct import
 - [tests/test_exam_seeding.py](../../../../../tests/test_exam_seeding.py) — direct import
   - `test_ingest_exam_instructions_reach_context_and_tags_apply`
   - `test_seeded_exam_interleaves_before_later_live_attempt`
 - [tests/test_exam_session.py](../../../../../tests/test_exam_session.py) — direct import
+  - `test_an_exam_answer_is_stamped_with_its_graders_calibration_identity`
   - `test_availability_in_window_near_due_date`
   - `test_availability_open_ended_goal_never_in_window_but_startable`
   - `test_exam_answers_certify_facet_evidence_on_canonical_vault`
@@ -586,6 +941,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_report_has_per_facet_predicted_vs_actual`
   - `test_start_is_idempotent`
   - `test_ungraded_answer_is_durable_and_blocks_finish`
+- [tests/test_facet_authority.py](../../../../../tests/test_facet_authority.py) — direct import
 - [tests/test_facet_diagnostics_v03.py](../../../../../tests/test_facet_diagnostics_v03.py) — direct import
   - `test_facet_uncertainty_rebuilds_from_attempts_and_grading_evidence`
   - `test_hedged_learner_confidence_opens_uncertainty_even_with_partial_credit`
@@ -593,9 +949,38 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_tiny_authored_facet_share_does_not_earn_per_facet_coverage`
   - `test_variance_floor_blocks_confidence_before_required_facet_breadth`
 - [tests/test_facet_evidence_timeline.py](../../../../../tests/test_facet_evidence_timeline.py) — direct import
+- [tests/test_facet_identity.py](../../../../../tests/test_facet_identity.py) — direct import
+- [tests/test_facet_identity_actions.py](../../../../../tests/test_facet_identity_actions.py) — direct import
+  - `test_a_criterion_graded_before_the_merge_keeps_its_two_facets_apart`
+  - `test_a_criterion_naming_the_two_facets_at_different_capabilities_does_not_hold_back`
+  - `test_a_held_back_retiree_stays_registered_while_the_rest_of_the_set_merges`
+  - `test_a_merge_of_two_facets_one_criterion_targets_counts_like_one_target`
+  - `test_a_merge_rekeys_evidence_and_undo_restores_facets_and_evidence_exactly`
+  - `test_dedupe_reports_a_held_back_retiree_as_refused`
+  - `test_recovery_withdraws_a_merge_that_a_criterion_graded_meanwhile_names_both_facets`
+- [tests/test_facet_identity_composition.py](../../../../../tests/test_facet_identity_composition.py) — direct import
+- [tests/test_facet_reword_confirm.py](../../../../../tests/test_facet_reword_confirm.py) — direct import
+- [tests/test_facet_reword_confirm_review.py](../../../../../tests/test_facet_reword_confirm_review.py) — direct import
+- [tests/test_facet_reword_paths.py](../../../../../tests/test_facet_reword_paths.py) — direct import
+- [tests/test_facet_rewords.py](../../../../../tests/test_facet_rewords.py) — direct import
+- [tests/test_facet_state_write_on_change.py](../../../../../tests/test_facet_state_write_on_change.py) — direct import
+  - `test_a_new_attempt_moves_updated_at_only_on_the_cells_it_changed`
+  - `test_a_projected_recall_created_at_is_still_written_when_it_moves`
+  - `test_a_writer_committing_between_the_two_comparisons_is_reconciled_not_clobbered`
+  - `test_an_algorithm_version_change_rewrites_the_rows_it_stamps`
+  - `test_the_residual_writer_writes_nothing_when_nothing_changed`
+  - `test_the_writer_deletes_vanished_cells_inserts_new_ones_and_updates_only_changed_ones`
 - [tests/test_failure_triage_causal_gate.py](../../../../../tests/test_failure_triage_causal_gate.py) — direct import
   - `test_real_receipt_from_apply_attempt_does_not_force_tier_two`
 - [tests/test_familiarity.py](../../../../../tests/test_familiarity.py) — direct import
+- [tests/test_field_signal_production_paths.py](../../../../../tests/test_field_signal_production_paths.py) — direct import
+  - `test_library_question_targets_only_its_notes_learning_objects`
+- [tests/test_field_workbench_signals.py](../../../../../tests/test_field_workbench_signals.py) — direct import
+  - `test_g41_off_is_the_predecessor_on_fixture_copies`
+- [tests/test_figures_fix_round4.py](../../../../../tests/test_figures_fix_round4.py) — direct import
+  - `test_f5_an_explanation_after_a_checkpointed_reading_is_its_own_text`
+- [tests/test_figures_help_codex_review.py](../../../../../tests/test_figures_help_codex_review.py) — direct import
+  - `test_f7_the_trace_reads_only_what_this_attempt_wrote_as_it_stood_at_submit`
 - [tests/test_followup_diagnostic_selection.py](../../../../../tests/test_followup_diagnostic_selection.py) — direct import
 - [tests/test_followups.py](../../../../../tests/test_followups.py) — direct import
   - `test_manual_override_forces_followup_when_gate_silent`
@@ -605,6 +990,24 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_do_nothing_forecast_is_censored_when_scope_was_practiced`
   - `test_pace_forecast_resolves_on_first_pass_beyond_horizon`
   - `test_unpracticed_decay_forecast_resolves_against_cold_outcomes_only`
+- [tests/test_forecast_receipts.py](../../../../../tests/test_forecast_receipts.py) — direct import
+  - `test_a_completed_diagnosis_writes_its_forecast_in_its_own_transaction`
+  - `test_a_held_grade_resolves_nothing_until_a_regrade_releases_it`
+  - `test_a_regrade_re_resolves_the_forecast`
+  - `test_a_repair_without_an_independent_surface_is_censored_at_birth`
+  - `test_a_scheduled_cold_check_records_its_repair_forecast_and_resolves_on_its_task`
+  - `test_an_unclassed_cause_states_no_expectation`
+  - `test_attempts_visible_when_the_receipt_was_written_are_never_its_observation`
+  - `test_f2_a_grade_that_cites_no_contract_is_never_read_against_todays_rubric`
+  - `test_f2_editing_todays_rubric_never_rewrites_a_regraded_self_grade`
+  - `test_f3_a_cold_success_regraded_to_failure_is_measured_as_a_failure`
+  - `test_f3_a_cold_success_whose_grade_is_now_held_is_not_measured`
+  - `test_replay_neither_reads_nor_writes_forecast_receipts`
+  - `test_the_calibration_report_on_a_seeded_vault`
+  - `test_the_kill_switch_writes_no_receipt`
+- [tests/test_forecast_receipts_landing.py](../../../../../tests/test_forecast_receipts_landing.py) — direct import
+  - `test_the_provenance_record_the_diagnosis_and_its_forecasts_commit_as_one_transaction`
+  - `test_the_resolver_reads_the_regraded_events_the_lineage_names_never_a_retired_one`
 - [tests/test_gate_score.py](../../../../../tests/test_gate_score.py) — direct import
 - [tests/test_goal_certification_any_of.py](../../../../../tests/test_goal_certification_any_of.py) — direct import
 - [tests/test_goal_contracts.py](../../../../../tests/test_goal_contracts.py) — direct import
@@ -671,6 +1074,21 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_guided_redo_requires_a_repair_selection`
   - `test_rank_items_deprioritizes_recently_attempted_item`
   - `test_rank_items_prefers_checkpoint_covering_item`
+- [tests/test_held_grade_composition.py](../../../../../tests/test_held_grade_composition.py) — direct import
+  - `test_router_never_scores_a_held_attempt_and_its_fold_applies_no_review`
+- [tests/test_held_grade_evidence.py](../../../../../tests/test_held_grade_evidence.py) — direct import
+  - `test_f2_a_regrade_that_validates_nothing_keeps_the_hold`
+  - `test_f3_a_held_cold_probe_abstains_from_certification_validation`
+  - `test_f4_a_validating_regrade_leaves_no_stale_unassessed_row`
+  - `test_f5_an_adjudication_releases_the_follow_up_suppression`
+  - `test_review_f1_a_regrade_into_a_hold_supersedes_the_assessed_grade_it_replaces`
+  - `test_review_f1_the_ledger_reads_the_evidence_as_the_attempt_step_does`
+  - `test_review_f2_a_scored_cold_probe_regraded_into_a_hold_abstains`
+- [tests/test_hint_h2b_rereview.py](../../../../../tests/test_hint_h2b_rereview.py) — direct import
+  - `test_f9_window_rows_are_stamped_at_the_workbench_submit`
+- [tests/test_hint_telemetry.py](../../../../../tests/test_hint_telemetry.py) — direct import
+  - `test_an_unbound_problem_open_in_the_window_is_workbench_state_unknown`
+  - `test_rebinding_an_imported_problem_to_another_item_never_flips_the_attempt`
 - [tests/test_hot_path_eligibility_cutover.py](../../../../../tests/test_hot_path_eligibility_cutover.py) — direct import
   - `test_ineligible_observation_leaves_mvp08_scheduling_untouched_but_legacy_writes`
 - [tests/test_hypothesis_claim_dispatcher.py](../../../../../tests/test_hypothesis_claim_dispatcher.py) — direct import
@@ -688,6 +1106,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_identifiability_doctor.py](../../../../../tests/test_identifiability_doctor.py) — direct import
   - `test_graph_identifiability_report_and_probe_scheduling`
   - `test_pre_first_practice_doctor_watermark`
+- [tests/test_import_split_parity.py](../../../../../tests/test_import_split_parity.py) — direct import
 - [tests/test_ingest_instrument_gates.py](../../../../../tests/test_ingest_instrument_gates.py) — direct import
   - `test_apply_stamps_coverage_boundary_and_later_rebuilds_add_nothing`
   - `test_canonical_lane_does_not_auto_apply_gated_items`
@@ -700,7 +1119,69 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_goal_population_handler_generates_and_applies_practice`
 - [tests/test_init.py](../../../../../tests/test_init.py) — direct import
 - [tests/test_instrument_servability_journeys.py](../../../../../tests/test_instrument_servability_journeys.py) — direct import
+- [tests/test_intent_checks.py](../../../../../tests/test_intent_checks.py) — direct import
+  - `test_an_attempt_before_the_date_does_not_answer_the_check`
+  - `test_settling_writes_the_satisfaction_once_and_only_for_answered_checks`
+  - `test_the_way_back_is_rendered_only_when_the_provenance_carries_it`
+- [tests/test_intent_codex_rereview.py](../../../../../tests/test_intent_codex_rereview.py) — direct import
+  - `test_f2_below_the_tag_commitments_change_nothing_with_the_switch_on`
+  - `test_f2_new_vaults_start_at_the_successor_with_intent_live`
+  - `test_f2_the_upgrade_takes_the_predecessor_or_the_chain_and_refuses_the_rest`
+  - `test_f3_a_cold_attempt_still_answers_the_check_its_own_feedback_notwithstanding`
+  - `test_f3_an_attempt_under_a_siblings_hold_is_practice_not_the_check`
+- [tests/test_intent_codex_review.py](../../../../../tests/test_intent_codex_review.py) — direct import
+  - `test_f1_a_follow_up_never_serves_an_item_a_check_once_still_holds`
+  - `test_f1_a_pending_follow_up_never_resurrects_a_paused_item`
+  - `test_f2_with_intent_off_commitments_change_nothing_in_the_ranked_list_or_the_plan`
+  - `test_f3_a_check_whose_answer_the_tutor_revealed_is_not_served_as_a_check_on_your_own`
+  - `test_f3_a_hinted_attempt_does_not_use_up_the_check`
+  - `test_f5_a_primed_retry_changes_neither_the_cost_preview_nor_the_review_load`
+  - `test_f7_a_pause_after_the_plan_drops_its_pending_reading`
+  - `test_f7_a_source_reads_only_under_learn_or_master`
+  - `test_f8_a_deadline_covers_its_own_los_not_others_on_the_same_concept`
+  - `test_f9_a_crash_between_publishing_and_linking_is_recovered_without_an_orphan`
+  - `test_f9_concurrent_writers_publish_one_goal_and_one_link`
+- [tests/test_intent_exclusion.py](../../../../../tests/test_intent_exclusion.py) — direct import
+  - `test_an_excluded_request_is_not_a_request`
+- [tests/test_intent_fix_round4.py](../../../../../tests/test_intent_fix_round4.py) — direct import
+  - `test_f13_an_assisted_reconstruction_leaves_the_check_pending_and_dates_it_again`
+  - `test_f13_an_independent_attempt_still_answers`
+  - `test_f15_a_pure_diagnostic_answer_satisfies_the_check`
+  - `test_f15_the_probe_contract_carries_the_diagnostic_variant`
+  - `test_f15_the_serve_chooses_the_variant_server_side_and_one_completion_satisfies_both`
+- [tests/test_intent_fix_round5.py](../../../../../tests/test_intent_fix_round5.py) — direct import
+  - `test_f17_moving_a_deadline_after_a_depth_change_updates_the_goal_target`
+  - `test_f17_moving_a_deadline_at_the_same_depth_keeps_its_target`
+- [tests/test_intent_fix_round6.py](../../../../../tests/test_intent_fix_round6.py) — direct import
+- [tests/test_intent_fix_round7.py](../../../../../tests/test_intent_fix_round7.py) — direct import
+- [tests/test_intent_goal_deadline.py](../../../../../tests/test_intent_goal_deadline.py) — direct import
+  - `test_a_deadline_creates_a_learner_goal_linked_by_goal_id`
+  - `test_linking_a_deadline_does_not_move_the_choice_time`
+  - `test_moving_the_deadline_updates_the_same_goal`
+- [tests/test_intent_orchestrator_rulings.py](../../../../../tests/test_intent_orchestrator_rulings.py) — direct import
+  - `test_f12_a_frozen_self_grade_answers_the_check`
+  - `test_f12_a_repeated_self_grade_never_postpones`
+  - `test_f12_an_unrelated_disclosure_still_holds`
+- [tests/test_intent_plan.py](../../../../../tests/test_intent_plan.py) — direct import
+  - `test_admission_takes_learn_first_and_keep_adds_no_new_material`
 - [tests/test_intent_planner.py](../../../../../tests/test_intent_planner.py) — direct import
+- [tests/test_intent_recall_targets.py](../../../../../tests/test_intent_recall_targets.py) — direct import
+  - `test_a_primed_retry_and_a_diagnostic_between_reviews_leave_the_effective_due_unchanged`
+  - `test_effective_due_scales_the_interval_from_the_anchor`
+  - `test_fallbacks_no_state_null_due_no_anchor_and_anchor_not_before_due`
+  - `test_identity_at_090_uncommitted_items_are_served_exactly_as_with_intent_off`
+  - `test_the_anchor_reproduces_every_stored_due_at_on_fixture_copies`
+- [tests/test_intent_resolution.py](../../../../../tests/test_intent_resolution.py) — direct import
+  - `test_a_satisfied_check_still_decides_over_an_older_lo_master`
+  - `test_a_source_locator_only_commitment_covers_no_item`
+  - `test_retired_commitments_drop_out`
+  - `test_satisfying_a_check_does_not_move_its_choice_time`
+  - `test_the_consequence_line_equals_the_resolved_result`
+  - `test_the_consequence_line_names_what_it_replaces`
+  - `test_the_projected_cost_follows_the_recall_target`
+- [tests/test_intent_rpc.py](../../../../../tests/test_intent_rpc.py) — direct import
+- [tests/test_intervention_outcomes_replayer.py](../../../../../tests/test_intervention_outcomes_replayer.py) — direct import
+  - `test_the_replayer_reads_persisted_exposure`
 - [tests/test_irt_difficulty.py](../../../../../tests/test_irt_difficulty.py) — direct import
   - `test_difficulty_source_round_trips_through_the_writer`
 - [tests/test_irt_end_to_end.py](../../../../../tests/test_irt_end_to_end.py) — direct import
@@ -746,9 +1227,12 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_km5_sim_gates.py](../../../../../tests/test_km5_sim_gates.py) — direct import
   - `test_residual_activation_improves_capability_mae_without_parent_inflation`
   - `test_shadow_intent_logs_practice_integration_at_the_right_moment`
+- [tests/test_knowledge_map_text_neighbors.py](../../../../../tests/test_knowledge_map_text_neighbors.py) — direct import
 - [tests/test_laddered_stems.py](../../../../../tests/test_laddered_stems.py) — direct import
 - [tests/test_large_practice_flow.py](../../../../../tests/test_large_practice_flow.py) — direct import
   - `test_many_open_text_practice_items_schedule_and_record_attempt`
+- [tests/test_learner_blindness_relax.py](../../../../../tests/test_learner_blindness_relax.py) — direct import
+- [tests/test_learner_pick_proposal.py](../../../../../tests/test_learner_pick_proposal.py) — direct import
 - [tests/test_learner_read_model_pinning.py](../../../../../tests/test_learner_read_model_pinning.py) — direct import
 - [tests/test_learner_review_system_entries.py](../../../../../tests/test_learner_review_system_entries.py) — direct import
   - `test_algorithm_version_bump_yields_exactly_one_recalibration_entry`
@@ -756,6 +1240,26 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_in_session_regrade_is_not_double_listed`
   - `test_no_recalibration_without_version_change`
   - `test_review_feed_bulk_loads_timeline_history_once`
+- [tests/test_learner_text_gaps.py](../../../../../tests/test_learner_text_gaps.py) — direct import
+  - `test_a_library_question_is_anchored_by_its_notes_single_learning_object`
+  - `test_candidates_are_grounded_in_the_asking_subject`
+  - `test_the_vault_wide_shortlist_ranks_stored_vectors_and_judges_decide`
+- [tests/test_learner_text_gaps_composition.py](../../../../../tests/test_learner_text_gaps_composition.py) — direct import
+  - `test_the_gap_signal_changes_serving_only_at_mvp016_with_its_switch`
+- [tests/test_learner_text_gaps_flow.py](../../../../../tests/test_learner_text_gaps_flow.py) — direct import
+- [tests/test_learner_text_gaps_review.py](../../../../../tests/test_learner_text_gaps_review.py) — direct import
+  - `test_f13_the_pipeline_switched_off_queues_exactly_as_the_predecessor_version`
+  - `test_f4_without_a_grounded_subject_only_the_anchors_are_judged_and_nothing_is_created`
+- [tests/test_library_ask_review.py](../../../../../tests/test_library_ask_review.py) — direct import
+  - `test_the_pinned_tutor_burns_a_reserve_it_reproduces_and_joins_history_and_gaps`
+- [tests/test_lp_claim_fixes.py](../../../../../tests/test_lp_claim_fixes.py) — direct import
+  - `test_off_is_the_predecessor_on_a_tracked_fixture_copy`
+  - `test_owner_copies_off_is_the_predecessor_and_on_reports_the_mastery_deltas`
+- [tests/test_lp_claim_fixes_rereview.py](../../../../../tests/test_lp_claim_fixes_rereview.py) — direct import
+  - `test_f7_every_reanchoring_writer_records_its_point`
+  - `test_f9_a_miss_the_diagnosis_timeout_decides_carries_its_line_reopened_after_the_deadline`
+- [tests/test_lp_claim_fixes_review.py](../../../../../tests/test_lp_claim_fixes_review.py) — direct import
+  - `test_f6_get_feedback_attaches_the_line_to_the_resolving_review_only`
 - [tests/test_maintenance_feed.py](../../../../../tests/test_maintenance_feed.py) — direct import
 - [tests/test_measurement_corrections.py](../../../../../tests/test_measurement_corrections.py) — direct import
   - `test_attempted_item_correction_is_append_only_and_projection_versioned`
@@ -770,6 +1274,13 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_pooled_prediction_that_rendered_unlabelled_now_carries_inferred`
   - `test_sub_threshold_direct_mass_is_inferred_not_measured`
   - `test_unknown_label_when_there_is_nothing_at_all`
+- [tests/test_method_explicit_landing.py](../../../../../tests/test_method_explicit_landing.py) — direct import
+  - `test_a_check_recorded_on_main_still_verifies_and_the_fresh_check_label_needs_a_change`
+  - `test_check_me_keeps_the_sentence_whole_when_it_clips`
+- [tests/test_method_explicit_upgrade.py](../../../../../tests/test_method_explicit_upgrade.py) — direct import
+  - `test_new_vaults_start_at_the_successor`
+  - `test_upgrade_from_mvp024_flips_rebuilds_and_rewrites_nothing`
+- [tests/test_method_phrasing_report.py](../../../../../tests/test_method_phrasing_report.py) — direct import
 - [tests/test_migrations.py](../../../../../tests/test_migrations.py) — direct import
   - `test_head_163_database_upgrades_to_snapshots_and_fk_free_adjudications`
 - [tests/test_minimal_repair_selection_a1.py](../../../../../tests/test_minimal_repair_selection_a1.py) — direct import
@@ -799,10 +1310,53 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_a_resolved_diagnosis_writes_no_note`
   - `test_note_capture_is_idempotent_across_rematerialization`
   - `test_notes_are_append_only_and_reject_untyped_refusals`
+- [tests/test_mobile_host_coexistence.py](../../../../../tests/test_mobile_host_coexistence.py) — direct import
+  - `test_capture_host_coexists_without_primary_startup_work`
 - [tests/test_model_grade_lane.py](../../../../../tests/test_model_grade_lane.py) — direct import
+- [tests/test_mvp010_upgrade.py](../../../../../tests/test_mvp010_upgrade.py) — direct import
+  - `test_upgrade_flips_rebuilds_and_preserves_raw_history`
+  - `test_upgrade_is_immediate_successor_only`
+- [tests/test_mvp011_upgrade.py](../../../../../tests/test_mvp011_upgrade.py) — direct import
+  - `test_existing_vaults_keep_their_version_until_the_owner_upgrades`
+  - `test_new_vaults_start_at_the_latest_version`
+  - `test_upgrade_from_mvp010_flips_rebuilds_and_preserves_history_and_open_episodes`
+  - `test_upgrade_from_mvp09_chains_through_the_split`
+  - `test_upgrade_refuses_older_versions_and_is_idempotent`
+- [tests/test_mvp013_upgrade.py](../../../../../tests/test_mvp013_upgrade.py) — direct import
+  - `test_upgrade_from_mvp012_flips_rebuilds_and_preserves_raw_history`
+  - `test_upgrade_refuses_older_and_repeated_targets`
+- [tests/test_mvp014_upgrade.py](../../../../../tests/test_mvp014_upgrade.py) — direct import
+  - `test_new_vaults_serve_the_plan`
+- [tests/test_mvp015_upgrade.py](../../../../../tests/test_mvp015_upgrade.py) — direct import
+  - `test_new_vaults_start_at_a_successor_that_admits_probe_ties`
+  - `test_upgrade_from_mvp014_flips_rebuilds_and_rewrites_nothing`
+- [tests/test_mvp016_upgrade.py](../../../../../tests/test_mvp016_upgrade.py) — direct import
+  - `test_new_vaults_start_at_a_successor_with_sooner_checks`
+  - `test_upgrade_from_mvp015_flips_rebuilds_and_rewrites_nothing`
+- [tests/test_mvp017_route_check_replay.py](../../../../../tests/test_mvp017_route_check_replay.py) — direct import
+- [tests/test_mvp017_upgrade.py](../../../../../tests/test_mvp017_upgrade.py) — direct import
+  - `test_upgrade_from_mvp016_flips_rebuilds_and_rewrites_nothing`
+- [tests/test_mvp018_upgrade.py](../../../../../tests/test_mvp018_upgrade.py) — direct import
+  - `test_upgrade_from_mvp017_flips_rebuilds_and_rewrites_nothing`
+- [tests/test_mvp020_upgrade.py](../../../../../tests/test_mvp020_upgrade.py) — direct import
+  - `test_new_vaults_start_at_a_successor_with_the_route_rules`
+  - `test_upgrade_from_mvp019_flips_rebuilds_and_rewrites_nothing`
+- [tests/test_mvp021_upgrade.py](../../../../../tests/test_mvp021_upgrade.py) — direct import
+  - `test_new_vaults_start_at_a_successor_with_voi_stopping`
+  - `test_upgrade_from_mvp020_flips_rebuilds_and_rewrites_nothing`
+- [tests/test_mvp022_upgrade.py](../../../../../tests/test_mvp022_upgrade.py) — direct import
+  - `test_new_vaults_start_at_a_successor_with_the_deciders_judgments`
+  - `test_upgrade_from_mvp021_flips_rebuilds_and_rewrites_nothing`
+- [tests/test_mvp023_upgrade.py](../../../../../tests/test_mvp023_upgrade.py) — direct import
+  - `test_new_vaults_start_at_the_router_successor`
+  - `test_upgrade_from_mvp022_flips_rebuilds_and_rewrites_nothing`
+- [tests/test_mvp024_upgrade.py](../../../../../tests/test_mvp024_upgrade.py) — direct import
+  - `test_new_vaults_start_at_the_mixture_successor`
+  - `test_upgrade_from_mvp023_flips_rebuilds_and_rewrites_nothing`
 - [tests/test_mvp09_upgrade.py](../../../../../tests/test_mvp09_upgrade.py) — direct import
   - `test_upgrade_to_mvp09_flips_rebuilds_and_preserves_raw_history`
   - `test_upgrade_to_mvp09_is_immediate_successor_only`
+- [tests/test_notes_as_learner_text.py](../../../../../tests/test_notes_as_learner_text.py) — direct import
 - [tests/test_observation_ledger_bulk.py](../../../../../tests/test_observation_ledger_bulk.py) — direct import
   - `test_canonical_projection_bulk_loads_historical_contracts_once`
   - `test_p0_replays_bulk_load_calibration_references_once`
@@ -816,15 +1370,57 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_valid_template_registers_and_loads`
 - [tests/test_open_world_gate.py](../../../../../tests/test_open_world_gate.py) — direct import
 - [tests/test_originals_store.py](../../../../../tests/test_originals_store.py) — direct import
+- [tests/test_owner_capture_1025.py](../../../../../tests/test_owner_capture_1025.py) — direct import
 - [tests/test_p0_cutover_mvp08.py](../../../../../tests/test_p0_cutover_mvp08.py) — direct import
 - [tests/test_p0_projection_cutover.py](../../../../../tests/test_p0_projection_cutover.py) — direct import
 - [tests/test_p2_acceptance.py](../../../../../tests/test_p2_acceptance.py) — direct import
 - [tests/test_p2_leakage_suite.py](../../../../../tests/test_p2_leakage_suite.py) — direct import
 - [tests/test_p3_journeys.py](../../../../../tests/test_p3_journeys.py) — direct import
+- [tests/test_pf_generation.py](../../../../../tests/test_pf_generation.py) — direct import
+- [tests/test_pfc_unassessed_readers.py](../../../../../tests/test_pfc_unassessed_readers.py) — direct import
+  - `test_a_cold_retry_with_nothing_assessed_neither_confirms_nor_fails_the_repair`
+- [tests/test_pfc_unverified_unassessed.py](../../../../../tests/test_pfc_unverified_unassessed.py) — direct import
+- [tests/test_placement_diagnosis_decides.py](../../../../../tests/test_placement_diagnosis_decides.py) — direct import
+  - `test_a_decided_miss_is_not_reopened_by_a_regrade`
+  - `test_a_decided_miss_is_not_reopened_by_a_retry`
+  - `test_a_diagnosis_that_never_lands_stops_holding_the_check`
+  - `test_a_miss_decided_before_the_hold_keeps_its_diagnosis`
+  - `test_a_miss_the_diagnosis_does_not_call_a_gap_keeps_the_topic_in_maintenance`
+  - `test_i_dont_know_this_does_not_wait_on_a_pending_diagnosis`
+  - `test_lapses_in_maintenance_are_decided_by_the_diagnosis`
+  - `test_learner_side_help_does_not_wait_on_an_earlier_pending_miss`
+  - `test_the_decision_waits_while_the_diagnosis_is_pending`
+  - `test_the_first_serving_build_with_the_split_off_records_the_hold`
+  - `test_the_kill_switch_ignores_diagnosis_decided_outcomes`
+  - `test_turning_the_split_back_on_does_not_reopen_held_misses`
+- [tests/test_placement_fixture_copies.py](../../../../../tests/test_placement_fixture_copies.py) — direct import
+- [tests/test_placement_opening_probes.py](../../../../../tests/test_placement_opening_probes.py) — direct import
+- [tests/test_placement_split_grades.py](../../../../../tests/test_placement_split_grades.py) — direct import
+  - `test_a_located_error_is_decided_by_its_diagnosis`
+  - `test_a_regrade_to_unverified_keeps_the_topic_in_maintenance`
+  - `test_the_check_follows_a_regrade_that_requeues_the_diagnosis`
+- [tests/test_plan_determinism.py](../../../../../tests/test_plan_determinism.py) — direct import
+  - `test_replay_never_reads_the_switch`
+- [tests/test_plan_first_transport_grant_scope.py](../../../../../tests/test_plan_first_transport_grant_scope.py) — direct import
+  - `test_the_reader_imports_background_key_check_never_uses_the_grant`
+- [tests/test_plan_first_transport_today_quiet.py](../../../../../tests/test_plan_first_transport_today_quiet.py) — direct import
+- [tests/test_plan_follows_path.py](../../../../../tests/test_plan_follows_path.py) — direct import
+  - `test_g47_a_rebuild_shows_zero_projection_deltas_and_never_reads_a_path`
 - [tests/test_post_attempt_pipeline.py](../../../../../tests/test_post_attempt_pipeline.py) — direct import
   - `test_finish_exam_failure_reaches_needs_metadata_and_hypotheses`
   - `test_finish_exam_passing_answers_do_not_mint_followup_noise`
   - `test_finish_exam_remains_idempotent_with_pipeline`
+- [tests/test_post_attempt_worker.py](../../../../../tests/test_post_attempt_worker.py) — direct import
+  - `test_an_older_job_queued_during_a_live_lease_is_never_leased_concurrently`
+  - `test_lease_expiry_reclaims_and_fences_the_stale_worker`
+- [tests/test_pr4_superseded_claims_landing.py](../../../../../tests/test_pr4_superseded_claims_landing.py) — direct import
+- [tests/test_practice_index_admission.py](../../../../../tests/test_practice_index_admission.py) — direct import
+  - `test_admission_never_writes`
+  - `test_everything_the_scheduler_would_serve_is_admitted`
+  - `test_reserved_cold_checks_and_recent_reveals_are_excluded`
+  - `test_shared_rules_exclude_exactly_what_the_scheduler_drops`
+- [tests/test_practice_index_find.py](../../../../../tests/test_practice_index_find.py) — direct import
+  - `test_usage_signals_are_ledgered_and_joined_to_attempts`
 - [tests/test_practice_leakage.py](../../../../../tests/test_practice_leakage.py) — direct import
 - [tests/test_predictive_eig.py](../../../../../tests/test_predictive_eig.py) — direct import
   - `test_followup_slate_logs_predictive_fields_and_ranking_unchanged_at_weight_zero`
@@ -927,8 +1523,69 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_virtual_open_state_for_questioned_facet_without_row`
 - [tests/test_quick_add.py](../../../../../tests/test_quick_add.py) — direct import
 - [tests/test_randomization_layer.py](../../../../../tests/test_randomization_layer.py) — direct import
+- [tests/test_reader_active_reading.py](../../../../../tests/test_reader_active_reading.py) — direct import
 - [tests/test_reader_authoring.py](../../../../../tests/test_reader_authoring.py) — direct import
+- [tests/test_reader_ca1_as_printed.py](../../../../../tests/test_reader_ca1_as_printed.py) — direct import
+  - `test_a_due_check_on_your_own_is_read_on_the_server`
+- [tests/test_reader_ca2_codex_review.py](../../../../../tests/test_reader_ca2_codex_review.py) — direct import
+  - `test_a_subscription_route_has_no_request_bound_and_a_metered_route_keeps_the_per_attempt_cap`
+  - `test_panel_off_the_answer_is_delivered_as_before`
+- [tests/test_reader_ca2_one_ask.py](../../../../../tests/test_reader_ca2_one_ask.py) — direct import
+  - `test_a_hinted_cold_retry_is_practice_with_help_and_never_consumes_the_measurement`
+  - `test_a_practice_answer_mode_reaches_the_prompt_and_the_row`
+  - `test_nothing_earlier_enters_the_tutors_context`
+  - `test_panel_off_the_thread_and_budget_are_b3s`
+  - `test_switched_off_a_hinted_cold_retry_is_refused_as_before`
+  - `test_the_practice_thread_and_its_budget_are_keyed_by_the_attempt`
+  - `test_without_a_mode_the_practice_prompt_is_todays`
+- [tests/test_reader_ca5a_find_section.py](../../../../../tests/test_reader_ca5a_find_section.py) — direct import
+  - `test_a_peeked_paragraph_that_is_the_replacement_surfaces_source_is_skipped_by_the_reschedule`
+- [tests/test_reader_cue_value.py](../../../../../tests/test_reader_cue_value.py) — direct import
+- [tests/test_reader_cues.py](../../../../../tests/test_reader_cues.py) — direct import
 - [tests/test_reader_dialogue.py](../../../../../tests/test_reader_dialogue.py) — direct import
+- [tests/test_reader_digest_narrative.py](../../../../../tests/test_reader_digest_narrative.py) — direct import
+- [tests/test_reader_followups_review.py](../../../../../tests/test_reader_followups_review.py) — direct import
+- [tests/test_reader_formative_texts.py](../../../../../tests/test_reader_formative_texts.py) — direct import
+- [tests/test_reader_intent.py](../../../../../tests/test_reader_intent.py) — direct import
+  - `test_a_later_day_counts_its_own_calls`
+- [tests/test_reader_intentions.py](../../../../../tests/test_reader_intentions.py) — direct import
+  - `test_active_reading_works_on_a_transcript`
+  - `test_the_box_routes_on_every_source_kind`
+- [tests/test_reader_passage_check.py](../../../../../tests/test_reader_passage_check.py) — direct import
+  - `test_a_claim_left_by_a_crashed_job_is_taken_over_by_the_next_job_at_once`
+  - `test_a_crashed_claim_from_another_job_is_taken_over_after_its_lease`
+  - `test_a_late_completion_never_replaces_the_check_the_learner_saw`
+- [tests/test_reader_recap.py](../../../../../tests/test_reader_recap.py) — direct import
+  - `test_claims_needing_an_independent_check_are_assisted_only_facets`
+- [tests/test_reader_recap_review.py](../../../../../tests/test_reader_recap_review.py) — direct import
+- [tests/test_reader_recap_review_r2.py](../../../../../tests/test_reader_recap_review_r2.py) — direct import
+  - `test_f1_r2_a_later_regrade_does_not_rewrite_the_credit_banked_before_the_cutoff`
+  - `test_f1_r2_the_as_of_curve_ignores_gradings_recorded_after_the_cutoff`
+- [tests/test_reader_recap_review_r3.py](../../../../../tests/test_reader_recap_review_r3.py) — direct import
+- [tests/test_reader_reconstruct.py](../../../../../tests/test_reader_reconstruct.py) — direct import
+- [tests/test_reader_report.py](../../../../../tests/test_reader_report.py) — direct import
+- [tests/test_reader_rw1b_review.py](../../../../../tests/test_reader_rw1b_review.py) — direct import
+- [tests/test_reader_rw3a_landing.py](../../../../../tests/test_reader_rw3a_landing.py) — direct import
+- [tests/test_reader_rw3b_fix_round6.py](../../../../../tests/test_reader_rw3b_fix_round6.py) — direct import
+  - `test_a_receipt_24_hours_and_a_second_old_drops_out_of_the_window`
+- [tests/test_reader_rw4b_fix6.py](../../../../../tests/test_reader_rw4b_fix6.py) — direct import
+- [tests/test_reader_rw5d_p4b_teacher_visuals.py](../../../../../tests/test_reader_rw5d_p4b_teacher_visuals.py) — direct import
+  - `test_review_f3_a_visuals_lesson_forecasts_under_its_own_family`
+- [tests/test_reader_source_identity_guard.py](../../../../../tests/test_reader_source_identity_guard.py) — direct import
+- [tests/test_reader_workbench_rw2a.py](../../../../../tests/test_reader_workbench_rw2a.py) — direct import
+  - `test_an_abandoned_session_writes_no_attempt_and_a_rebuild_leaves_the_workbench_alone`
+  - `test_an_open_session_past_open_session_days_is_unfinished_and_never_closed`
+  - `test_round4_f2_held_assistance_on_an_independent_only_item_is_assisted_on_every_submit_path_and_after_replay`
+- [tests/test_reading_hardening_landing.py](../../../../../tests/test_reading_hardening_landing.py) — direct import
+  - `test_the_section_check_job_still_refuses_held_out_material`
+- [tests/test_reading_paths.py](../../../../../tests/test_reading_paths.py) — direct import
+  - `test_dl2_intent_preselects_the_depth_and_the_newer_setting_wins_without_writing_dl2`
+  - `test_each_dl2_choice_maps_onto_a_depth_or_asks`
+- [tests/test_reading_step_switch.py](../../../../../tests/test_reading_step_switch.py) — direct import
+  - `test_new_vaults_read_on_from_the_furthest_section`
+- [tests/test_rebuild_equivalence.py](../../../../../tests/test_rebuild_equivalence.py) — direct import
+- [tests/test_rebuild_equivalence_review.py](../../../../../tests/test_rebuild_equivalence_review.py) — direct import
+  - `test_an_interrupted_integration_backfill_replay_publishes_nothing`
 - [tests/test_rebuild_orchestrator.py](../../../../../tests/test_rebuild_orchestrator.py) — direct import
   - `test_content_recalibration_replay_cannot_lose_its_ingest_lease_midway`
 - [tests/test_recall_coverage_interventions.py](../../../../../tests/test_recall_coverage_interventions.py) — direct import
@@ -952,8 +1609,29 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_zero_score_independent_attempt_uses_rubric_coverage_and_confidence_as_reliability`
 - [tests/test_receipt_derivation.py](../../../../../tests/test_receipt_derivation.py) — direct import
   - `test_ready_derivation_matches_canonical_recall_slices`
+- [tests/test_recurrence_benchmarks.py](../../../../../tests/test_recurrence_benchmarks.py) — direct import
+  - `test_b3_replays_the_vaults_labelled_pairs`
+- [tests/test_recurrence_commands.py](../../../../../tests/test_recurrence_commands.py) — direct import
+- [tests/test_recurrence_deferral.py](../../../../../tests/test_recurrence_deferral.py) — direct import
+- [tests/test_recurrence_live.py](../../../../../tests/test_recurrence_live.py) — direct import
+  - `test_a_verdict_after_a_promotion_moves_only_the_group_projection_and_rebuild_matches_live`
+- [tests/test_recurrence_merge_composition.py](../../../../../tests/test_recurrence_merge_composition.py) — direct import
 - [tests/test_reentry_short_session.py](../../../../../tests/test_reentry_short_session.py) — direct import
 - [tests/test_registry_audit.py](../../../../../tests/test_registry_audit.py) — direct import
+- [tests/test_regrade_contract_replay.py](../../../../../tests/test_regrade_contract_replay.py) — direct import
+  - `test_case1_a_model_grade_regraded_above_its_original_maximum_is_saved`
+  - `test_case2_a_model_grade_regraded_within_its_original_maximum_replays_its_own_maximum`
+  - `test_case3_a_lowered_rubric_that_still_fits_never_rescores_the_regrade`
+  - `test_case3_lowering_the_rubric_after_a_regrade_never_fails_the_rebuild`
+- [tests/test_regrade_contract_successor.py](../../../../../tests/test_regrade_contract_successor.py) — direct import
+  - `test_a_clarification_regrade_cites_its_contract`
+  - `test_a_deferred_regrade_of_a_self_grade_cites_its_contract`
+  - `test_a_method_explicit_regrade_cites_its_frozen_contract_under_a_new_revision`
+  - `test_an_adjudication_allocates_its_revision_inside_its_own_transaction`
+  - `test_an_adjudication_of_a_regrade_revises_its_epoch_under_its_contract`
+  - `test_an_adjudication_releases_an_unrecorded_hold_under_the_contract_it_cites`
+  - `test_rebuild_converges_after_an_adjudication_as_it_did_before`
+- [tests/test_regrade_contract_upgrade.py](../../../../../tests/test_regrade_contract_upgrade.py) — direct import
 - [tests/test_remediation_cold_retry.py](../../../../../tests/test_remediation_cold_retry.py) — direct import
   - `test_a_deferred_cold_retry_still_expires_on_its_original_window`
   - `test_an_attempt_during_the_deferral_cannot_burn_the_measurement`
@@ -983,6 +1661,15 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_misconception_registry_round_trip_and_status_transitions`
   - `test_session_checkpoint_round_trip`
   - `test_session_day_streak_counts_active_and_alive_streaks`
+- [tests/test_required_method_authority.py](../../../../../tests/test_required_method_authority.py) — direct import
+  - `test_a_generated_proposal_never_changes_a_source_items_field`
+- [tests/test_required_method_grading.py](../../../../../tests/test_required_method_grading.py) — direct import
+- [tests/test_required_method_items.py](../../../../../tests/test_required_method_items.py) — direct import
+  - `test_an_authoring_proposal_keeps_a_required_method_only_on_a_method_target`
+- [tests/test_required_method_reopened.py](../../../../../tests/test_required_method_reopened.py) — direct import
+- [tests/test_required_method_round3.py](../../../../../tests/test_required_method_round3.py) — direct import
+- [tests/test_reread_safety.py](../../../../../tests/test_reread_safety.py) — direct import
+  - `test_redesign_a_refresh_keeps_an_exam_scoped_member_on_its_revision`
 - [tests/test_residual_diagnostics.py](../../../../../tests/test_residual_diagnostics.py) — direct import
   - `test_positive_residual_dependence_flags_missing_factor`
 - [tests/test_reveal_ledger.py](../../../../../tests/test_reveal_ledger.py) — direct import
@@ -1001,6 +1688,41 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_reveals_before_the_last_attempt_do_not_prime_the_next_one`
 - [tests/test_review_log.py](../../../../../tests/test_review_log.py) — direct import
 - [tests/test_revision_refresh.py](../../../../../tests/test_revision_refresh.py) — direct import
+- [tests/test_route_rules_in_grader.py](../../../../../tests/test_route_rules_in_grader.py) — direct import
+  - `test_f1_live_an_incomplete_regrade_keeps_an_existing_hold`
+  - `test_f3_live_a_clarification_regrade_keeps_an_error_the_reply_reveals`
+  - `test_f5_a_regrade_supersedes_an_mvp017_route_check_verdict`
+  - `test_f5_a_regrade_with_the_rule_switched_off_supersedes_the_held_verdict`
+  - `test_live_a_regrade_keeps_a_hold_until_the_grader_validates_the_route`
+  - `test_live_an_adjudication_releases_a_hold_on_replay`
+- [tests/test_router_coldness_covariates.py](../../../../../tests/test_router_coldness_covariates.py) — direct import
+  - `test_the_replayer_records_the_fsrs_predicted_retrievability`
+- [tests/test_router_offer_log.py](../../../../../tests/test_router_offer_log.py) — direct import
+  - `test_every_counterfactual_outcome_reproduces_the_build_that_draw_would_make`
+  - `test_placement_components_and_exclusions_are_in_the_candidate_set`
+  - `test_teach_back_readiness_is_probed_once_per_offer`
+- [tests/test_router_outcomes.py](../../../../../tests/test_router_outcomes.py) — direct import
+  - `test_router_tables_survive_rebuild_under_production_pragmas`
+- [tests/test_router_probe_ties.py](../../../../../tests/test_router_probe_ties.py) — direct import
+  - `test_a_greedy_probe_presentation_carries_no_exploration_mark`
+  - `test_an_explored_probe_presentation_is_marked_as_drawn_not_as_the_eig_choice`
+  - `test_kill_switch_serves_the_predecessors_probe_offer_exactly`
+  - `test_teach_back_items_are_probe_near_ties_at_the_successor`
+  - `test_without_probe_candidates_the_successor_serves_exactly_as_mvp014`
+- [tests/test_router_r1_composition.py](../../../../../tests/test_router_r1_composition.py) — direct import
+- [tests/test_router_r2a_landing.py](../../../../../tests/test_router_r2a_landing.py) — direct import
+- [tests/test_router_r2a_serving.py](../../../../../tests/test_router_r2a_serving.py) — direct import
+  - `test_switch_off_at_the_successor_serves_the_predecessors_plan_on_fixture_copies`
+- [tests/test_router_r2b_serving.py](../../../../../tests/test_router_r2b_serving.py) — direct import
+  - `test_a_json_repair_is_admitted_as_its_own_request`
+  - `test_a_read_leaves_the_decision_open_and_a_serve_decides_it`
+  - `test_the_daily_guard_counts_todays_router_receipts`
+  - `test_the_switches_at_the_successor_serve_their_predecessors_on_fixture_copies`
+- [tests/test_router_r2c_retrieval.py](../../../../../tests/test_router_r2c_retrieval.py) — direct import
+  - `test_the_query_embedding_is_admitted_by_the_daily_guard`
+- [tests/test_router_staged_p2.py](../../../../../tests/test_router_staged_p2.py) — direct import
+- [tests/test_rw7b_codex_review_fixes.py](../../../../../tests/test_rw7b_codex_review_fixes.py) — direct import
+  - `test_f4_the_report_counts_misses_after_a_core_skip_only`
 - [tests/test_scheduler.py](../../../../../tests/test_scheduler.py) — direct import
   - `test_a_clean_cold_task_is_served_as_the_cold_lane`
   - `test_a_revealed_cold_task_is_withheld_and_says_so_in_the_slate`
@@ -1035,6 +1757,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_certification_replay_prunes_past_an_adjudicated_attempt`
   - `test_harmful_write_rate_counts_a_surfaced_then_withdrawn_belief`
   - `test_supersession_is_not_harm_and_is_reported_separately`
+- [tests/test_secondary_attach.py](../../../../../tests/test_secondary_attach.py) — direct import
 - [tests/test_self_attributed_misconceptions.py](../../../../../tests/test_self_attributed_misconceptions.py) — direct import
   - `test_brand_new_self_tag_does_not_touch_current_posterior_but_seeds_next_set`
   - `test_no_promotion_when_label_already_rubric_fatal`
@@ -1047,12 +1770,39 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_self_grade_uses_criterion_total_as_item_scale`
   - `test_self_grade_uses_default_rubric_when_inline_rubric_is_omitted`
 - [tests/test_sensitivity_certificates.py](../../../../../tests/test_sensitivity_certificates.py) — direct import
+- [tests/test_serve_eligibility.py](../../../../../tests/test_serve_eligibility.py) — direct import
+  - `test_a_refused_cli_attempt_writes_nothing`
+  - `test_no_probe_is_committed_for_an_item_submit_would_prime`
+  - `test_q33_an_exam_seeded_before_a_later_reveal_is_not_primed`
+  - `test_q33_the_bounded_window_also_bounds_the_last_attempt`
+  - `test_submit_exposure_is_the_sql_total_row_for_row`
+  - `test_submit_refusal_names_the_change_since_the_serve`
+  - `test_the_cli_attempt_records_a_primed_cold_check_as_practice`
+  - `test_the_cli_attempt_refuses_an_assisted_cold_check_without_prompting`
+  - `test_the_queue_serves_a_cold_retry_submit_would_prime_as_practice_and_ends_it_honestly`
+  - `test_the_real_serve_paths_agree_with_submit`
+  - `test_the_tui_open_serves_a_cold_check_submit_would_prime_as_practice`
+- [tests/test_serve_eligibility_review.py](../../../../../tests/test_serve_eligibility_review.py) — direct import
+  - `test_f1_an_auto_primed_draft_is_refused_when_its_cold_task_falls_due_during_grading`
+  - `test_f2_a_certification_probe_whose_answer_was_shown_expires_unmeasured`
+  - `test_f2_a_non_persisting_read_withdraws_nothing`
+  - `test_f3_a_cold_check_is_never_served_on_an_item_practised_since_it_was_set`
+  - `test_f3_a_cold_check_served_unpractised_is_still_served`
+  - `test_f3_a_delayed_open_and_submit_after_a_withdrawing_build_are_plain_practice`
+  - `test_f4_a_probe_of_an_item_submit_would_prime_is_refused_only_at_the_successor`
+  - `test_f4_below_the_tag_or_switched_off_a_practised_cold_check_is_served`
+  - `test_f4_below_the_tag_or_switched_off_the_12_9_case_is_served_as_on_mvp_026`
+  - `test_f4_new_vaults_start_at_the_successor_with_the_switch_on`
+  - `test_f4_q33s_bounded_window_is_the_successors`
+  - `test_f4_the_upgrade_takes_the_predecessor_or_the_chain_and_refuses_the_rest`
+  - `test_f5_a_withdrawal_racing_a_consume_leaves_the_consume_time_disposition_free`
 - [tests/test_shadow_components.py](../../../../../tests/test_shadow_components.py) — direct import
 - [tests/test_show.py](../../../../../tests/test_show.py) — direct import
   - `test_show_attempt_includes_grading_and_surprise`
   - `test_show_inspects_every_deterministic_id`
 - [tests/test_sidecar_append.py](../../../../../tests/test_sidecar_append.py) — direct import
   - `test_list_source_conflicts_enriches_extraction_ids`
+- [tests/test_sidecar_close_cancels_jobs.py](../../../../../tests/test_sidecar_close_cancels_jobs.py) — direct import
 - [tests/test_sidecar_contract.py](../../../../../tests/test_sidecar_contract.py) — direct import
   - `test_inspector_opens_probe_episode_drilldown`
   - `test_knowledge_field_is_recipe_topological_and_uses_pooled_ready`
@@ -1116,8 +1866,15 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_source_inventory.py](../../../../../tests/test_source_inventory.py) — direct import
 - [tests/test_source_layer.py](../../../../../tests/test_source_layer.py) — direct import
 - [tests/test_source_outcome_analytics.py](../../../../../tests/test_source_outcome_analytics.py) — direct import
+- [tests/test_source_retrieval_guards.py](../../../../../tests/test_source_retrieval_guards.py) — direct import
+- [tests/test_source_retrieval_rereview.py](../../../../../tests/test_source_retrieval_rereview.py) — direct import
+- [tests/test_source_retrieval_rereview_cost.py](../../../../../tests/test_source_retrieval_rereview_cost.py) — direct import
+- [tests/test_source_retrieval_tutor.py](../../../../../tests/test_source_retrieval_tutor.py) — direct import
+- [tests/test_source_service_spend_envelopes.py](../../../../../tests/test_source_service_spend_envelopes.py) — direct import
+  - `test_the_sources_report_shows_actual_spend_reserved_vs_settled_and_the_largest_operations`
 - [tests/test_source_set_synthesis.py](../../../../../tests/test_source_set_synthesis.py) — direct import
 - [tests/test_source_sets.py](../../../../../tests/test_source_sets.py) — direct import
+- [tests/test_source_vector_backfill.py](../../../../../tests/test_source_vector_backfill.py) — direct import
 - [tests/test_span_reanchor.py](../../../../../tests/test_span_reanchor.py) — direct import
 - [tests/test_span_view.py](../../../../../tests/test_span_view.py) — direct import
 - [tests/test_sqlite_wal_lifecycle.py](../../../../../tests/test_sqlite_wal_lifecycle.py) — direct import
@@ -1135,8 +1892,24 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_state_sync_no_probe_gap_for_item_less_goal_lo`
   - `test_state_sync_seeds_from_weak_learner_claim_below_probe_threshold`
   - `test_state_sync_uses_strong_learner_claim_for_initial_mastery`
+- [tests/test_state_sync_scheduling_race.py](../../../../../tests/test_state_sync_scheduling_race.py) — direct import
+- [tests/test_stuck_prompt.py](../../../../../tests/test_stuck_prompt.py) — direct import
+  - `test_a_worked_answer_shown_in_the_attempts_own_second_still_primes_the_retry`
+  - `test_an_empty_stuck_answer_is_a_bare_zero_with_no_error_tag`
+  - `test_only_post_attempt_displays_cross_the_same_second_boundary`
+- [tests/test_stuck_prompt_composition.py](../../../../../tests/test_stuck_prompt_composition.py) — direct import
+  - `test_an_empty_stuck_answer_is_a_miss_not_learner_side_help`
+  - `test_stuck_answers_hypotheses_join_recurrence_groups_and_count_toward_k`
+- [tests/test_stuck_prompt_replay.py](../../../../../tests/test_stuck_prompt_replay.py) — direct import
+  - `test_a_stuck_vault_rebuilds_to_a_fixed_point_with_no_model_call`
+  - `test_historical_dont_know_rows_replay_unchanged_under_the_successor`
 - [tests/test_subject_registry.py](../../../../../tests/test_subject_registry.py) — direct import
 - [tests/test_substrate_cutover.py](../../../../../tests/test_substrate_cutover.py) — direct import
+- [tests/test_success_head.py](../../../../../tests/test_success_head.py) — direct import
+  - `test_recency_running_sum_equals_the_full_weighted_sum`
+- [tests/test_success_head_cli.py](../../../../../tests/test_success_head_cli.py) — direct import
+  - `test_seen_stem_backfill_embeds_retired_and_earlier_texts_only_explicitly`
+  - `test_without_vectors_the_embedding_arms_abstain_and_say_so`
 - [tests/test_surface_mint.py](../../../../../tests/test_surface_mint.py) — direct import
 - [tests/test_surfaced_belief_corrections.py](../../../../../tests/test_surfaced_belief_corrections.py) — direct import
   - `test_a_second_disposition_is_a_second_fact_not_a_re_narration`
@@ -1156,10 +1929,14 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_surfacing_after_the_withdrawal_does_not_retroactively_owe_an_apology`
   - `test_withdrawal_drops_the_belief_from_working_hypotheses`
   - `test_withdrawals_interleave_reverse_chronologically`
+- [tests/test_synthesis_criterion_dependencies.py](../../../../../tests/test_synthesis_criterion_dependencies.py) — direct import
 - [tests/test_synthesis_runs_repo.py](../../../../../tests/test_synthesis_runs_repo.py) — direct import
   - `test_finalize_stale_synthesis_runs_spares_recent_rows`
+- [tests/test_synthesis_sweep_primary_only.py](../../../../../tests/test_synthesis_sweep_primary_only.py) — direct import
 - [tests/test_task_blueprints.py](../../../../../tests/test_task_blueprints.py) — direct import
 - [tests/test_teach_back.py](../../../../../tests/test_teach_back.py) — direct import
+  - `test_a_teach_back_grade_is_calibrated_and_replayed_under_its_graders_identity`
+  - `test_a_teach_back_regraded_blind_keeps_the_blind_identity_through_rebuilds`
   - `test_ai_question_control_sequences_are_removed_from_live_and_restored_state`
   - `test_ensure_teach_back_item_authors_from_exact_source_and_active_quest`
   - `test_ensure_teach_back_item_mints_transfer_criterion`
@@ -1190,12 +1967,27 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_teach_back_item_with_unmapped_criterion_is_invalid`
   - `test_teach_back_item_without_rubric_is_invalid_despite_default_rubrics`
   - `test_well_formed_teach_back_item_is_valid`
+- [tests/test_teacher_te1_lesson.py](../../../../../tests/test_teacher_te1_lesson.py) — direct import
+  - `test_read_source_find_sources_find_practice_and_read_history_return_safe_results`
+- [tests/test_teacher_te1_review_fixes.py](../../../../../tests/test_teacher_te1_review_fixes.py) — direct import
+  - `test_f2_a_held_cold_grade_resolves_nothing_until_released`
+  - `test_f8_a_downstream_edge_alone_is_not_transfer`
+  - `test_f8_a_downstream_item_whose_rubric_measures_a_taught_facet_is_transfer`
+  - `test_r3_f4_an_item_held_out_after_its_history_was_read_ends_the_lesson`
+- [tests/test_teacher_te1_successor.py](../../../../../tests/test_teacher_te1_successor.py) — direct import
+  - `test_a_shadow_rebuild_after_a_lesson_has_zero_projection_deltas`
+- [tests/test_teacher_te1_weight.py](../../../../../tests/test_teacher_te1_weight.py) — direct import
+  - `test_a_primed_or_hinted_or_seen_or_earlier_attempt_never_resolves_a_check`
+  - `test_the_tap_recalibration_learns_from_every_tapped_graded_answer`
+- [tests/test_today_headline.py](../../../../../tests/test_today_headline.py) — direct import
+  - `test_a_blueprint_lo_with_an_integration_gap_is_learning`
 - [tests/test_today_surfaces.py](../../../../../tests/test_today_surfaces.py) — direct import
   - `test_decay_pressure_already_below_target_crosses_at_zero`
   - `test_decay_pressure_crossing_day_math`
   - `test_reentry_below_threshold_does_not_show`
   - `test_reentry_splits_solid_slipped_and_excludes_held_flat`
 - [tests/test_tutor_citations.py](../../../../../tests/test_tutor_citations.py) — direct import
+- [tests/test_tutor_delivery_fixes.py](../../../../../tests/test_tutor_delivery_fixes.py) — direct import
 - [tests/test_tutor_promotion_service.py](../../../../../tests/test_tutor_promotion_service.py) — direct import
 - [tests/test_tutor_promotion_w2.py](../../../../../tests/test_tutor_promotion_w2.py) — direct import
   - `test_core_recall_gap_on_solid_facet_still_applies`
@@ -1219,6 +2011,45 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_question_event_repository_round_trip`
   - `test_question_raises_diagnostic_uncertainty_read_side`
 - [tests/test_unresolved_cause_gate.py](../../../../../tests/test_unresolved_cause_gate.py) — direct import
+- [tests/test_ux_phase1_landing.py](../../../../../tests/test_ux_phase1_landing.py) — direct import
+  - `test_todays_plan_reads_mains_exam_predicate_for_the_reading_step`
+- [tests/test_ux_phase1_review_fixes.py](../../../../../tests/test_ux_phase1_review_fixes.py) — direct import
+  - `test_f10_a_books_history_survives_lots_of_other_work`
+  - `test_f10_connecting_releases_a_book_however_old_its_wait`
+  - `test_f3_a_planner_that_dies_after_queuing_its_build_is_never_orphaned`
+- [tests/test_ux_phase1_round2_rereview.py](../../../../../tests/test_ux_phase1_round2_rereview.py) — direct import
+- [tests/test_ux_phase1_round2_review.py](../../../../../tests/test_ux_phase1_round2_review.py) — direct import
+  - `test_f2_todays_plan_follows_the_switch`
+- [tests/test_ux_phase1_usability_round1.py](../../../../../tests/test_ux_phase1_usability_round1.py) — direct import
+- [tests/test_ux_phase2_error_type_proposals.py](../../../../../tests/test_ux_phase2_error_type_proposals.py) — direct import
+- [tests/test_ux_phase4_feedback.py](../../../../../tests/test_ux_phase4_feedback.py) — direct import
+  - `test_a_regrade_shows_one_rubric_row_per_criterion`
+  - `test_f1_a_review_after_the_cold_delay_is_recorded_unprimed_a_retry_before_it_primed`
+  - `test_f1g_every_committed_display_row_counts_until_its_coverage_ends`
+  - `test_f1g_reading_until_a_crash_is_covered_until_the_delay_after_the_last_look`
+  - `test_f1i_the_scheduler_never_serves_a_cold_retry_that_submit_would_refuse`
+  - `test_f1j_every_reader_agrees_at_the_exact_boundary_second`
+  - `test_f1j_no_serve_path_serves_a_cold_check_submit_would_prime`
+  - `test_f1k_a_non_routine_reveal_never_starves_the_plan`
+  - `test_f1k_no_probe_is_committed_for_an_item_inside_routine_display_coverage`
+  - `test_f1k_the_tui_open_defers_a_cold_check_a_routine_display_covers`
+  - `test_f1l_a_hold_that_lifts_today_waits_instead_of_finishing_the_plan`
+  - `test_f1l_a_precommitted_block_stamps_its_surviving_members_size_and_indices`
+  - `test_f1l_a_presentation_committed_before_a_display_is_not_served_inside_its_coverage`
+  - `test_f1l_a_refused_causal_offer_leaves_the_episode_and_its_presentation_unchanged`
+  - `test_f1l_the_quick_check_never_presents_an_item_inside_routine_display_coverage`
+  - `test_f1r_feedback_reopened_after_the_cold_delay_is_a_fresh_exposure`
+  - `test_f6_an_ordinary_regrade_history_was_not_held`
+  - `test_f6_the_regrade_history_says_the_grade_it_replaced_was_held`
+  - `test_f9_a_regrade_outside_the_screen_is_the_current_grade_and_unrecorded`
+  - `test_f9f_a_blind_regrade_keeps_the_maximum_recorded_with_it_after_the_question_changed`
+- [tests/test_ux_phase4_landing.py](../../../../../tests/test_ux_phase4_landing.py) — direct import
+  - `test_a_routine_display_marks_a_later_question_solution_seen_beyond_its_coverage`
+- [tests/test_valuation_calibration_fields.py](../../../../../tests/test_valuation_calibration_fields.py) — direct import
+  - `test_exposure_age_is_measured_at_delivery_not_at_valuation`
+- [tests/test_value_candidates.py](../../../../../tests/test_value_candidates.py) — direct import
+  - `test_an_instrument_only_request_matches_robust_selection`
+  - `test_below_the_robust_cutover_instruments_are_ordinary_items`
 - [tests/test_vault_epigraphs.py](../../../../../tests/test_vault_epigraphs.py) — direct import
 - [tests/test_vault_writer.py](../../../../../tests/test_vault_writer.py) — direct import
   - `test_registry_writers_do_not_parse_the_whole_vault`
@@ -1226,6 +2057,12 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_writer_refuses_implicit_entity_moves`
   - `test_writer_updates_depth_rung_metadata_on_existing_practice_item`
   - `test_writer_upserts_graph_error_lo_and_practice_item`
+- [tests/test_voi_forecasts.py](../../../../../tests/test_voi_forecasts.py) — direct import
+- [tests/test_voi_merge_composition.py](../../../../../tests/test_voi_merge_composition.py) — direct import
+- [tests/test_voi_stopping.py](../../../../../tests/test_voi_stopping.py) — direct import
+- [tests/test_workbench_assistance.py](../../../../../tests/test_workbench_assistance.py) — direct import
+  - `test_an_abandoned_problem_writes_no_attempt_and_a_rebuild_leaves_the_evidence`
+- [tests/ux_phase1_support.py](../../../../../tests/ux_phase1_support.py) — direct import
 
 ## Modification guidance
 

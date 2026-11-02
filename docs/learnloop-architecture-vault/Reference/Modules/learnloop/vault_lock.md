@@ -7,11 +7,11 @@ version: "1.0.0"
 source_path: "src/learnloop/vault_lock.py"
 source_paths:
   - "src/learnloop/vault_lock.py"
-source_commit: "0395ae32f9e2e40d1cb98b38402631299a94003f"
-source_commit_timestamp: "2026-09-07T12:49:13-04:00"
+source_commit: "f0612d25dbad96abafc1e14b650198c9c27aa87b"
+source_commit_timestamp: "2026-10-12T01:20:09-04:00"
 source_worktree_state: "clean"
 generated: true
-generated_at: "2026-09-23"
+generated_at: "2026-11-02"
 package: "learnloop"
 layer: "domain"
 concepts:
@@ -49,51 +49,77 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/vault_lock.py](../../../../../src/learnloop/vault_lock.py) |
-| Source lines | 201 |
+| Source lines | 236 |
 | Owning package | [[Reference/Modules/learnloop/_package|learnloop]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `0395ae32f9e2e40d1cb98b38402631299a94003f` |
-| Commit timestamp | `2026-09-07T12:49:13-04:00` |
+| Source commit | `f0612d25dbad96abafc1e14b650198c9c27aa87b` |
+| Commit timestamp | `2026-10-12T01:20:09-04:00` |
 
 ## Public API
 
-- `guard_vault_mutations(check: Callable[[Path], None])` ([source](../../../../../src/learnloop/vault_lock.py), line 34) — Install an owner's check, evaluated inside the publication lock.
-- `class VaultLockError(RuntimeError)` ([source](../../../../../src/learnloop/vault_lock.py), line 61) — Base class for vault mutation lock failures.
-- `class VaultLockTimeout(VaultLockError)` ([source](../../../../../src/learnloop/vault_lock.py), line 65) — Raised when the lock could not be acquired within the timeout.
-- `class LockHolder` ([source](../../../../../src/learnloop/vault_lock.py), line 70)
-- `vault_lock_path(root: Path) -> Path` ([source](../../../../../src/learnloop/vault_lock.py), line 75)
-- `read_lock_holder(root: Path) -> LockHolder | None` ([source](../../../../../src/learnloop/vault_lock.py), line 79) — Best-effort diagnostic read of the current holder metadata.
-- `vault_mutation_lock(root: Path, *, purpose: str, timeout_s: float=DEFAULT_TIMEOUT_S) -> Iterator[LockHolder]` ([source](../../../../../src/learnloop/vault_lock.py), line 106) — Acquire the exclusive vault mutation lock for the critical section.
+- `guard_vault_mutations(check: Callable[[Path], None])` ([source](../../../../../src/learnloop/vault_lock.py), line 40) — Install an owner's check, evaluated inside the publication lock.
+- `class VaultLockError(RuntimeError)` ([source](../../../../../src/learnloop/vault_lock.py), line 80) — Base class for vault mutation lock failures.
+- `class VaultLockTimeout(VaultLockError)` ([source](../../../../../src/learnloop/vault_lock.py), line 84) — Raised when the lock could not be acquired within the timeout.
+- `class LockHolder` ([source](../../../../../src/learnloop/vault_lock.py), line 89)
+- `vault_lock_path(root: Path) -> Path` ([source](../../../../../src/learnloop/vault_lock.py), line 94)
+- `read_lock_holder(root: Path) -> LockHolder | None` ([source](../../../../../src/learnloop/vault_lock.py), line 98) — Best-effort diagnostic read of the current holder metadata.
+- `vault_mutation_lock(root: Path, *, purpose: str, timeout_s: float=DEFAULT_TIMEOUT_S) -> Iterator[LockHolder]` ([source](../../../../../src/learnloop/vault_lock.py), line 125) — Acquire the exclusive vault mutation lock for the critical section.
 
 ### Module constants
 
-- `DEFAULT_TIMEOUT_S` ([src/learnloop/vault_lock.py](../../../../../src/learnloop/vault_lock.py), line 57)
-- `_POLL_INTERVAL_S` ([src/learnloop/vault_lock.py](../../../../../src/learnloop/vault_lock.py), line 58)
+- `DEFAULT_TIMEOUT_S` ([src/learnloop/vault_lock.py](../../../../../src/learnloop/vault_lock.py), line 63)
+- `_POLL_INTERVAL_S` ([src/learnloop/vault_lock.py](../../../../../src/learnloop/vault_lock.py), line 64)
 
 ## Internal implementation anchors
 
-- `_check_mutation_owner(root: Path) -> None` ([source](../../../../../src/learnloop/vault_lock.py), line 43)
-- `_read_lock_holder_path(path: Path) -> LockHolder | None` ([source](../../../../../src/learnloop/vault_lock.py), line 90)
-- `_acquire_with_timeout(fd: int, path: Path, timeout_s: float) -> None` ([source](../../../../../src/learnloop/vault_lock.py), line 163)
-- `_write_holder_fd(fd: int, holder: LockHolder) -> None` ([source](../../../../../src/learnloop/vault_lock.py), line 186)
-- `_write_holder(path: Path, holder: LockHolder) -> None` ([source](../../../../../src/learnloop/vault_lock.py), line 193)
-- `_clear_holder(path: Path) -> None` ([source](../../../../../src/learnloop/vault_lock.py), line 197)
+- `_check_mutation_owner(root: Path) -> None` ([source](../../../../../src/learnloop/vault_lock.py), line 49)
+- `_held_depths() -> dict[tuple[int, str], int]` ([source](../../../../../src/learnloop/vault_lock.py), line 73)
+- `_read_lock_holder_path(path: Path) -> LockHolder | None` ([source](../../../../../src/learnloop/vault_lock.py), line 109)
+- `_acquire_with_timeout(fd: int, path: Path, timeout_s: float) -> None` ([source](../../../../../src/learnloop/vault_lock.py), line 198)
+- `_write_holder_fd(fd: int, holder: LockHolder) -> None` ([source](../../../../../src/learnloop/vault_lock.py), line 221)
+- `_write_holder(path: Path, holder: LockHolder) -> None` ([source](../../../../../src/learnloop/vault_lock.py), line 228)
+- `_clear_holder(path: Path) -> None` ([source](../../../../../src/learnloop/vault_lock.py), line 232)
 
 ## Who imports or calls it
 
 > [!note] Static evidence boundary
 > “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
 
+- [[Reference/Modules/learnloop/attempt_content_state_upgrade|learnloop.attempt_content_state_upgrade]] — imports `vault_mutation_lock`; statically calls `vault_mutation_lock`
+- [[Reference/Modules/learnloop/claim_fixes_upgrade|learnloop.claim_fixes_upgrade]] — imports `vault_mutation_lock`; statically calls `vault_mutation_lock`
 - [[Reference/Modules/learnloop/cli/data|learnloop.cli.data]] — imports `VaultLockError`
+- [[Reference/Modules/learnloop/cold_retry_reschedule_upgrade|learnloop.cold_retry_reschedule_upgrade]] — imports `vault_mutation_lock`; statically calls `vault_mutation_lock`
+- [[Reference/Modules/learnloop/content/authoring/item_authoring|learnloop.content.authoring.item_authoring]] — imports `vault_mutation_lock`; statically calls `vault_mutation_lock`
+- [[Reference/Modules/learnloop/content/facet_identity/actions|learnloop.content.facet_identity.actions]] — imports `vault_mutation_lock`; statically calls `vault_mutation_lock`
+- [[Reference/Modules/learnloop/content/pipeline/add_source|learnloop.content.pipeline.add_source]] — imports `vault_mutation_lock`; statically calls `vault_mutation_lock`
 - [[Reference/Modules/learnloop/content/pipeline/runner|learnloop.content.pipeline.runner]] — imports `DEFAULT_TIMEOUT_S`, `VaultLockTimeout`, `vault_mutation_lock`; statically calls `vault_mutation_lock`
 - [[Reference/Modules/learnloop/content/pipeline/source_ingestion|learnloop.content.pipeline.source_ingestion]] — imports `vault_mutation_lock`; statically calls `vault_mutation_lock`
 - [[Reference/Modules/learnloop/content/synthesis/source_set_synthesis|learnloop.content.synthesis.source_set_synthesis]] — imports `vault_mutation_lock`; statically calls `vault_mutation_lock`
 - [[Reference/Modules/learnloop/db/scopes|learnloop.db.scopes]] — imports `guard_vault_mutations`; statically calls `guard_vault_mutations`
+- [[Reference/Modules/learnloop/deliverable_plan_upgrade|learnloop.deliverable_plan_upgrade]] — imports `vault_mutation_lock`; statically calls `vault_mutation_lock`
+- [[Reference/Modules/learnloop/diagnosis/text_gaps/actions|learnloop.diagnosis.text_gaps.actions]] — imports `vault_mutation_lock`; statically calls `vault_mutation_lock`
+- [[Reference/Modules/learnloop/goals/goal_lo|learnloop.goals.goal_lo]] — imports `vault_mutation_lock`; statically calls `vault_mutation_lock`
+- [[Reference/Modules/learnloop/help_fold_attach_upgrade|learnloop.help_fold_attach_upgrade]] — imports `vault_mutation_lock`; statically calls `vault_mutation_lock`
+- [[Reference/Modules/learnloop/intent/deadline|learnloop.intent.deadline]] — imports `vault_mutation_lock`; statically calls `vault_mutation_lock`
 - [[Reference/Modules/learnloop/migration_coordinator|learnloop.migration_coordinator]] — imports `DEFAULT_TIMEOUT_S`, `vault_mutation_lock`; statically calls `vault_mutation_lock`
+- [[Reference/Modules/learnloop/one_ask_upgrade|learnloop.one_ask_upgrade]] — imports `vault_mutation_lock`; statically calls `vault_mutation_lock`
+- [[Reference/Modules/learnloop/ops/content_fixes|learnloop.ops.content_fixes]] — imports `vault_mutation_lock`; statically calls `vault_mutation_lock`
+- [[Reference/Modules/learnloop/ops/pf_publish|learnloop.ops.pf_publish]] — imports `vault_mutation_lock`; statically calls `vault_mutation_lock`
 - [[Reference/Modules/learnloop/ops/vault_lock|learnloop.ops.vault_lock]] — imports `module`
+- [[Reference/Modules/learnloop/reader_followups_upgrade|learnloop.reader_followups_upgrade]] — imports `vault_mutation_lock`; statically calls `vault_mutation_lock`
+- [[Reference/Modules/learnloop/regrade_contract_upgrade|learnloop.regrade_contract_upgrade]] — imports `vault_mutation_lock`; statically calls `vault_mutation_lock`
+- [[Reference/Modules/learnloop/replay_ledger_upgrade|learnloop.replay_ledger_upgrade]] — imports `vault_mutation_lock`; statically calls `vault_mutation_lock`
+- [[Reference/Modules/learnloop/source_retrieval/deliverables|learnloop.source_retrieval.deliverables]] — imports `vault_mutation_lock`; statically calls `vault_mutation_lock`
+- [[Reference/Modules/learnloop/substrate/canonical_projection_rollout|learnloop.substrate.canonical_projection_rollout]] — imports `vault_mutation_lock`; statically calls `vault_mutation_lock`
+- [[Reference/Modules/learnloop/substrate/families|learnloop.substrate.families]] — imports `vault_mutation_lock`; statically calls `vault_mutation_lock`
+- [[Reference/Modules/learnloop/superseded_claims_upgrade|learnloop.superseded_claims_upgrade]] — imports `vault_mutation_lock`; statically calls `vault_mutation_lock`
+- [[Reference/Modules/learnloop/teacher_upgrade|learnloop.teacher_upgrade]] — imports `vault_mutation_lock`; statically calls `vault_mutation_lock`
 - [[Reference/Modules/learnloop/vault/repository|learnloop.vault.repository]] — imports `DEFAULT_TIMEOUT_S`
+- [[Reference/Modules/learnloop/vault/writer|learnloop.vault.writer]] — imports `vault_mutation_lock`; statically calls `vault_mutation_lock`
+- [[Reference/Modules/learnloop_sidecar/handlers/correspondents|learnloop_sidecar.handlers.correspondents]] — imports `VaultLockError`, `vault_mutation_lock`; statically calls `vault_mutation_lock`
+- [[Reference/Modules/learnloop_sidecar/handlers/workbench|learnloop_sidecar.handlers.workbench]] — imports `vault_mutation_lock`; statically calls `vault_mutation_lock`
 
 ## Dependencies
 
@@ -103,7 +129,7 @@ No internal Python dependency was found by static analysis.
 
 ### Platform and third-party dependencies
 
-- Standard library: `__future__`, `contextlib`, `contextvars`, `dataclasses`, `errno`, `fcntl`, `os`, `pathlib`, `time`, `typing`
+- Standard library: `__future__`, `contextlib`, `contextvars`, `dataclasses`, `errno`, `fcntl`, `os`, `pathlib`, `threading`, `time`, `typing`
 - Third party: none imported directly
 
 ## Larger workflow participation
@@ -112,15 +138,21 @@ Use this module in context through:
 
 - [[Doctor Migrations and Recovery]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/cli/data|learnloop.cli.data]], [[Reference/Modules/learnloop/content/pipeline/runner|learnloop.content.pipeline.runner]], [[Reference/Modules/learnloop/content/pipeline/source_ingestion|learnloop.content.pipeline.source_ingestion]], [[Reference/Modules/learnloop/content/synthesis/source_set_synthesis|learnloop.content.synthesis.source_set_synthesis]], [[Reference/Modules/learnloop/db/scopes|learnloop.db.scopes]] and 3 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/attempt_content_state_upgrade|learnloop.attempt_content_state_upgrade]], [[Reference/Modules/learnloop/claim_fixes_upgrade|learnloop.claim_fixes_upgrade]], [[Reference/Modules/learnloop/cli/data|learnloop.cli.data]], [[Reference/Modules/learnloop/cold_retry_reschedule_upgrade|learnloop.cold_retry_reschedule_upgrade]], [[Reference/Modules/learnloop/content/authoring/item_authoring|learnloop.content.authoring.item_authoring]] and 28 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
 ## Tests that define behavior
 
+- [tests/test_activity_families.py](../../../../../tests/test_activity_families.py) — direct import
+  - `test_vault_mutation_lock_is_reentrant_per_thread_only`
+- [tests/test_facet_span_support.py](../../../../../tests/test_facet_span_support.py) — direct import
 - [tests/test_ingest_ownership.py](../../../../../tests/test_ingest_ownership.py) — direct import
   - `test_a_busy_vault_lock_defers_lease_work_instead_of_failing`
   - `test_stale_worker_cannot_finish_or_publish_after_replacement`
+- [tests/test_plan_first_transport_offer_grants.py](../../../../../tests/test_plan_first_transport_offer_grants.py) — direct import
+- [tests/test_regrade_contract_upgrade.py](../../../../../tests/test_regrade_contract_upgrade.py) — direct import
+  - `test_no_writer_interleaves_between_the_scan_and_the_publication`
 - [tests/test_source_ingestion.py](../../../../../tests/test_source_ingestion.py) — direct import
   - `test_ingest_creates_a_new_subject_while_holding_the_vault_lock`
 

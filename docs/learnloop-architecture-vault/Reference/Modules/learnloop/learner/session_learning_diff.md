@@ -7,11 +7,11 @@ version: "1.0.0"
 source_path: "src/learnloop/learner/session_learning_diff.py"
 source_paths:
   - "src/learnloop/learner/session_learning_diff.py"
-source_commit: "b322ef2e9b5cebc241b612e4963a5aaf1a37f99a"
-source_commit_timestamp: "2026-08-20T18:04:29-04:00"
+source_commit: "6b908901e92a14e07ad3d2129b7dc1c74330a364"
+source_commit_timestamp: "2026-10-15T21:13:09-04:00"
 source_worktree_state: "clean"
 generated: true
-generated_at: "2026-09-23"
+generated_at: "2026-11-02"
 package: "learnloop.learner"
 layer: "domain"
 concepts:
@@ -50,13 +50,13 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/learner/session_learning_diff.py](../../../../../../src/learnloop/learner/session_learning_diff.py) |
-| Source lines | 132 |
+| Source lines | 159 |
 | Owning package | [[Reference/Modules/learnloop/learner/_package|learnloop.learner]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `b322ef2e9b5cebc241b612e4963a5aaf1a37f99a` |
-| Commit timestamp | `2026-08-20T18:04:29-04:00` |
+| Source commit | `6b908901e92a14e07ad3d2129b7dc1c74330a364` |
+| Commit timestamp | `2026-10-15T21:13:09-04:00` |
 
 ## Public API
 
@@ -65,7 +65,7 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 
 ## Internal implementation anchors
 
-- `_empty_diff() -> dict[str, object]` ([source](../../../../../../src/learnloop/learner/session_learning_diff.py), line 126)
+- `_empty_diff() -> dict[str, object]` ([source](../../../../../../src/learnloop/learner/session_learning_diff.py), line 151)
 
 ## Who imports or calls it
 
@@ -102,17 +102,11 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
-No test imports this module directly. These tests exercise a direct production consumer:
-
-- [tests/test_causal_p2_acceptance.py](../../../../../../tests/test_causal_p2_acceptance.py) — imports consumer [[Reference/Modules/learnloop/learner/learner_review_feed|learnloop.learner.learner_review_feed]]
-- [tests/test_contract_frontier_coverage.py](../../../../../../tests/test_contract_frontier_coverage.py) — imports consumer [[Reference/Modules/learnloop/learner/learner_review_feed|learnloop.learner.learner_review_feed]]
-- [tests/test_coverage_denominator_boundary.py](../../../../../../tests/test_coverage_denominator_boundary.py) — imports consumer [[Reference/Modules/learnloop/learner/learner_review_feed|learnloop.learner.learner_review_feed]]
-- [tests/test_durable_promotion_arms.py](../../../../../../tests/test_durable_promotion_arms.py) — imports consumer [[Reference/Modules/learnloop/learner/learner_review_feed|learnloop.learner.learner_review_feed]]
-- [tests/test_learner_read_model_pinning.py](../../../../../../tests/test_learner_read_model_pinning.py) — imports consumer [[Reference/Modules/learnloop/learner/learner_review_feed|learnloop.learner.learner_review_feed]]
-- [tests/test_learner_review_system_entries.py](../../../../../../tests/test_learner_review_system_entries.py) — imports consumer [[Reference/Modules/learnloop/learner/learner_review_feed|learnloop.learner.learner_review_feed]]
-- [tests/test_surfaced_belief_corrections.py](../../../../../../tests/test_surfaced_belief_corrections.py) — imports consumer [[Reference/Modules/learnloop/learner/learner_review_feed|learnloop.learner.learner_review_feed]]
-- [tests/test_sidecar_remediation_surfaces.py](../../../../../../tests/test_sidecar_remediation_surfaces.py) — imports consumer [[Reference/Modules/learnloop_sidecar/handlers/sessions|learnloop_sidecar.handlers.sessions]]
-- [tests/test_sidecar_teach_back.py](../../../../../../tests/test_sidecar_teach_back.py) — imports consumer [[Reference/Modules/learnloop_sidecar/handlers/sessions|learnloop_sidecar.handlers.sessions]]
+- [tests/test_ux_phase4_feedback.py](../../../../../../tests/test_ux_phase4_feedback.py) — direct import
+  - `test_f4_a_shared_facet_credits_only_the_topic_whose_answer_earned_it`
+  - `test_f4_the_learning_diff_names_the_attempts_whose_points_raised_a_demonstrated_facet`
+  - `test_the_learning_diff_names_the_facets_it_counts`
+  - `test_the_session_finish_names_a_topic_shown_on_your_own`
 
 ## Modification guidance
 

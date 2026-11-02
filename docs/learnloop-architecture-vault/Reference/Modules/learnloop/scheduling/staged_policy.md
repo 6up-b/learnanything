@@ -7,11 +7,11 @@ version: "1.0.0"
 source_path: "src/learnloop/scheduling/staged_policy.py"
 source_paths:
   - "src/learnloop/scheduling/staged_policy.py"
-source_commit: "b322ef2e9b5cebc241b612e4963a5aaf1a37f99a"
-source_commit_timestamp: "2026-08-20T18:04:29-04:00"
+source_commit: "eb44a9009e4e43320e0072e3e7a4e84cd102ec6c"
+source_commit_timestamp: "2026-10-13T02:54:15-04:00"
 source_worktree_state: "clean"
 generated: true
-generated_at: "2026-09-23"
+generated_at: "2026-11-02"
 package: "learnloop.scheduling"
 layer: "domain"
 concepts:
@@ -50,63 +50,69 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/scheduling/staged_policy.py](../../../../../../src/learnloop/scheduling/staged_policy.py) |
-| Source lines | 895 |
+| Source lines | 1048 |
 | Owning package | [[Reference/Modules/learnloop/scheduling/_package|learnloop.scheduling]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `b322ef2e9b5cebc241b612e4963a5aaf1a37f99a` |
-| Commit timestamp | `2026-08-20T18:04:29-04:00` |
+| Source commit | `eb44a9009e4e43320e0072e3e7a4e84cd102ec6c` |
+| Commit timestamp | `2026-10-13T02:54:15-04:00` |
 
 ## Public API
 
-- `class AttentionBlock` ([source](../../../../../../src/learnloop/scheduling/staged_policy.py), line 88) — One coherent 5-15 minute block (§4.1).
-  - `content_hash(self) -> str` (line 103; public)
-- `class StagedIntent` ([source](../../../../../../src/learnloop/scheduling/staged_policy.py), line 118) — The one canonical action the §4.2 ladder produced, and which rung fired.
-- `class StateSignals` ([source](../../../../../../src/learnloop/scheduling/staged_policy.py), line 130) — Decision-relevant state signals feeding the §4.2 ladder.
-- `is_short_session(snapshot: cs.ControllerSnapshot) -> bool` ([source](../../../../../../src/learnloop/scheduling/staged_policy.py), line 149) — A short session (§12.2): available minutes are known and below the 5-min lower bound of the coherent attention block.
-- `evaluate_staged_rule(snapshot: cs.ControllerSnapshot, signals: StateSignals) -> StagedIntent` ([source](../../../../../../src/learnloop/scheduling/staged_policy.py), line 214) — The §4.2 global staged rule as an explicit if/elif ladder.
-- `choose_block(snapshot: cs.ControllerSnapshot, signals: StateSignals, *, continuation: Mapping[str, Any] | None=None, explicit_choice: Mapping[str, Any] | None=None, served_administration: Mapping[str, Any] | None=None) -> tuple[AttentionBlock, StagedIntent]` ([source](../../../../../../src/learnloop/scheduling/staged_policy.py), line 286) — Level one (§4.1).
-- `class DiagnosticSelector` ([source](../../../../../../src/learnloop/scheduling/staged_policy.py), line 351) — P4 step 3 within-block ranking context (§6.4).
-- `class DecisionResult` ([source](../../../../../../src/learnloop/scheduling/staged_policy.py), line 585)
-- `decide(vault: LoadedVault, repository: Repository, session: Any | None=None, *, signals: StateSignals | None=None, candidates: Sequence[cs.Candidate] | None=None, continuation: Mapping[str, Any] | None=None, explicit_choice: Mapping[str, Any] | None=None, served_administration: Mapping[str, Any] | None=None, receipt_key: str | None=None, shadow_scorers: Sequence[Callable[[cs.ControllerSnapshot, cs.Candidate | None], Any]] | None=None, record_comparator: bool=True, diagnostic: DiagnosticSelector | None=None, mode: str='shadow', owned_item_refs: set[str] | None=None, clock: Clock | None=None) -> DecisionResult` ([source](../../../../../../src/learnloop/scheduling/staged_policy.py), line 600) — Run one staged decision end to end and persist its full trace (shadow mode).
+- `class AttentionBlock` ([source](../../../../../../src/learnloop/scheduling/staged_policy.py), line 90) — One coherent 5-15 minute block (§4.1).
+  - `content_hash(self) -> str` (line 105; public)
+- `class StagedIntent` ([source](../../../../../../src/learnloop/scheduling/staged_policy.py), line 120) — The one canonical action the §4.2 ladder produced, and which rung fired.
+- `class StateSignals` ([source](../../../../../../src/learnloop/scheduling/staged_policy.py), line 132) — Decision-relevant state signals feeding the §4.2 ladder.
+- `is_short_session(snapshot: cs.ControllerSnapshot) -> bool` ([source](../../../../../../src/learnloop/scheduling/staged_policy.py), line 151) — A short session (§12.2): available minutes are known and below the 5-min lower bound of the coherent attention block.
+- `evaluate_staged_rule(snapshot: cs.ControllerSnapshot, signals: StateSignals) -> StagedIntent` ([source](../../../../../../src/learnloop/scheduling/staged_policy.py), line 216) — The §4.2 global staged rule as an explicit if/elif ladder.
+- `ladder_eligibility(snapshot: cs.ControllerSnapshot, signals: StateSignals, *, short_circuited: bool=False) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/scheduling/staged_policy.py), line 294) — Every §4.2 rung with whether its condition holds (router R1's staged eligibility).
+- `choose_block(snapshot: cs.ControllerSnapshot, signals: StateSignals, *, continuation: Mapping[str, Any] | None=None, explicit_choice: Mapping[str, Any] | None=None, served_administration: Mapping[str, Any] | None=None) -> tuple[AttentionBlock, StagedIntent]` ([source](../../../../../../src/learnloop/scheduling/staged_policy.py), line 370) — Level one (§4.1).
+- `class DiagnosticSelector` ([source](../../../../../../src/learnloop/scheduling/staged_policy.py), line 435) — P4 step 3 within-block ranking context (§6.4).
+- `class DecisionResult` ([source](../../../../../../src/learnloop/scheduling/staged_policy.py), line 732)
+- `decide(vault: LoadedVault, repository: Repository, session: Any | None=None, *, signals: StateSignals | None=None, candidates: Sequence[cs.Candidate] | None=None, continuation: Mapping[str, Any] | None=None, explicit_choice: Mapping[str, Any] | None=None, served_administration: Mapping[str, Any] | None=None, receipt_key: str | None=None, shadow_scorers: Sequence[Callable[[cs.ControllerSnapshot, cs.Candidate | None], Any]] | None=None, record_comparator: bool=True, diagnostic: DiagnosticSelector | None=None, mode: str='shadow', owned_item_refs: set[str] | None=None, clock: Clock | None=None) -> DecisionResult` ([source](../../../../../../src/learnloop/scheduling/staged_policy.py), line 747) — Run one staged decision end to end and persist its full trace (shadow mode).
 
 ### Module constants
 
-- `STAGED_POLICY_VERSION` ([src/learnloop/scheduling/staged_policy.py](../../../../../../src/learnloop/scheduling/staged_policy.py), line 47)
-- `ATTENTION_BLOCK_MIN_MINUTES` ([src/learnloop/scheduling/staged_policy.py](../../../../../../src/learnloop/scheduling/staged_policy.py), line 51)
-- `ATTENTION_BLOCK_MAX_MINUTES` ([src/learnloop/scheduling/staged_policy.py](../../../../../../src/learnloop/scheduling/staged_policy.py), line 52)
-- `DEFAULT_BLOCK_BUDGET_MINUTES` ([src/learnloop/scheduling/staged_policy.py](../../../../../../src/learnloop/scheduling/staged_policy.py), line 53)
-- `CONTEXT_SWITCH_COST_MINUTES` ([src/learnloop/scheduling/staged_policy.py](../../../../../../src/learnloop/scheduling/staged_policy.py), line 54)
-- `NEGATIVE_AFFECT_DOWNGRADE_THRESHOLD` ([src/learnloop/scheduling/staged_policy.py](../../../../../../src/learnloop/scheduling/staged_policy.py), line 58)
-- `SHORT_SESSION_MAX_MINUTES` ([src/learnloop/scheduling/staged_policy.py](../../../../../../src/learnloop/scheduling/staged_policy.py), line 66)
-- `SHORT_SESSION_PREFERRED_PATTERNS` ([src/learnloop/scheduling/staged_policy.py](../../../../../../src/learnloop/scheduling/staged_policy.py), line 71)
-- `_ACTION_PURPOSES` ([src/learnloop/scheduling/staged_policy.py](../../../../../../src/learnloop/scheduling/staged_policy.py), line 76)
-- `OWNERSHIP_REFUSAL_KEY` ([src/learnloop/scheduling/staged_policy.py](../../../../../../src/learnloop/scheduling/staged_policy.py), line 483)
+- `STAGED_POLICY_VERSION` ([src/learnloop/scheduling/staged_policy.py](../../../../../../src/learnloop/scheduling/staged_policy.py), line 49)
+- `ATTENTION_BLOCK_MIN_MINUTES` ([src/learnloop/scheduling/staged_policy.py](../../../../../../src/learnloop/scheduling/staged_policy.py), line 53)
+- `ATTENTION_BLOCK_MAX_MINUTES` ([src/learnloop/scheduling/staged_policy.py](../../../../../../src/learnloop/scheduling/staged_policy.py), line 54)
+- `DEFAULT_BLOCK_BUDGET_MINUTES` ([src/learnloop/scheduling/staged_policy.py](../../../../../../src/learnloop/scheduling/staged_policy.py), line 55)
+- `CONTEXT_SWITCH_COST_MINUTES` ([src/learnloop/scheduling/staged_policy.py](../../../../../../src/learnloop/scheduling/staged_policy.py), line 56)
+- `NEGATIVE_AFFECT_DOWNGRADE_THRESHOLD` ([src/learnloop/scheduling/staged_policy.py](../../../../../../src/learnloop/scheduling/staged_policy.py), line 60)
+- `SHORT_SESSION_MAX_MINUTES` ([src/learnloop/scheduling/staged_policy.py](../../../../../../src/learnloop/scheduling/staged_policy.py), line 68)
+- `SHORT_SESSION_PREFERRED_PATTERNS` ([src/learnloop/scheduling/staged_policy.py](../../../../../../src/learnloop/scheduling/staged_policy.py), line 73)
+- `_ACTION_PURPOSES` ([src/learnloop/scheduling/staged_policy.py](../../../../../../src/learnloop/scheduling/staged_policy.py), line 78)
+- `IRREVERSIBLE_RUNGS` ([src/learnloop/scheduling/staged_policy.py](../../../../../../src/learnloop/scheduling/staged_policy.py), line 289)
+- `OWNERSHIP_REFUSAL_KEY` ([src/learnloop/scheduling/staged_policy.py](../../../../../../src/learnloop/scheduling/staged_policy.py), line 630)
 
 ## Internal implementation anchors
 
-- `_block_budget(snapshot: cs.ControllerSnapshot) -> float` ([source](../../../../../../src/learnloop/scheduling/staged_policy.py), line 157)
-- `_as_short_block(block: AttentionBlock, snapshot: cs.ControllerSnapshot) -> AttentionBlock` ([source](../../../../../../src/learnloop/scheduling/staged_policy.py), line 171) — Mark a block as a short-session completing block (§12.2): one completed activity ends the session, so its single exit rule is ``session_complete_on_one_activity`` and its neighborhood records the short-session budget.
-- `_pick_commitment(snapshot: cs.ControllerSnapshot, *, want_auto: bool=False) -> cs.CommitmentSummary | None` ([source](../../../../../../src/learnloop/scheduling/staged_policy.py), line 189)
-- `_feasible_reviewed_edge(commitment: cs.CommitmentSummary, milestone: str) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/scheduling/staged_policy.py), line 199) — A reviewed edge originating at the reached milestone, wholly inside the envelope (§5 depth constraints, structural).
-- `_select_within_block(block: AttentionBlock, report: ce.FeasibilityReport, snapshot: cs.ControllerSnapshot | None=None) -> tuple[cs.Candidate | None, str, list[tuple[cs.Candidate, int]]]` ([source](../../../../../../src/learnloop/scheduling/staged_policy.py), line 366) — Level two (§4.4): apply the block-specific TRANSPARENT selector over the feasible set.
-- `_tiebreak_seed(snapshot_hash: str, experiment_id: str, refs: Sequence[str]) -> str` ([source](../../../../../../src/learnloop/scheduling/staged_policy.py), line 403) — The decision-specific ε tie-break seed (audit M2/F4): derived from the snapshot hash + experiment id + the tied candidate refs so two DIFFERENT decisions draw differently while the SAME decision replays to the same draw.
-- `_select_diagnostic(report: ce.FeasibilityReport, diagnostic: DiagnosticSelector, *, repository: Repository | None, clock: Clock | None, snapshot_hash: str | None=None, decision_id: str | None=None) -> tuple[cs.Candidate | None, str, list[tuple[cs.Candidate, int]], EV.RankResult, dict[str, Any] | None]` ([source](../../../../../../src/learnloop/scheduling/staged_policy.py), line 412) — Robust-EVSI-per-minute selection over the feasible set (§6.4).
-- `_apply_ownership(report: ce.FeasibilityReport, owned_item_refs: set[str]) -> tuple[ce.FeasibilityReport, list[str]]` ([source](../../../../../../src/learnloop/scheduling/staged_policy.py), line 486) — Refuse every feasible candidate the staged controller does not own (§14.2 step 3).
-- `_affect_downgrade(snapshot: cs.ControllerSnapshot, commitment_id: str | None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/scheduling/staged_policy.py), line 518) — U-011 affect check, evaluated BEFORE any depth edge is considered.
-- `_comparator(vault: LoadedVault, repository: Repository, session: Any | None, feasible_refs: set[str]) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/scheduling/staged_policy.py), line 535) — Run the LEGACY scheduler weighted sum in shadow and record its outputs for comparison only (design §B4).
-- `_run_shadow_scorers(scorers: Sequence[Callable[[cs.ControllerSnapshot, cs.Candidate | None], Any]] | None, snapshot: cs.ControllerSnapshot, chosen: cs.Candidate | None) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/scheduling/staged_policy.py), line 564) — Evaluate injected shadow scorers with ZERO authority (invariant 3).
-- `_why_copy(intent: StagedIntent, block: AttentionBlock, chosen: cs.Candidate | None) -> str` ([source](../../../../../../src/learnloop/scheduling/staged_policy.py), line 887) — Learner-facing 'why' comes from the staged reason + commitment, never the largest opaque score term (§3.3).
+- `_block_budget(snapshot: cs.ControllerSnapshot) -> float` ([source](../../../../../../src/learnloop/scheduling/staged_policy.py), line 159)
+- `_as_short_block(block: AttentionBlock, snapshot: cs.ControllerSnapshot) -> AttentionBlock` ([source](../../../../../../src/learnloop/scheduling/staged_policy.py), line 173) — Mark a block as a short-session completing block (§12.2): one completed activity ends the session, so its single exit rule is ``session_complete_on_one_activity`` and its neighborhood records the short-session budget.
+- `_pick_commitment(snapshot: cs.ControllerSnapshot, *, want_auto: bool=False) -> cs.CommitmentSummary | None` ([source](../../../../../../src/learnloop/scheduling/staged_policy.py), line 191)
+- `_feasible_reviewed_edge(commitment: cs.CommitmentSummary, milestone: str) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/scheduling/staged_policy.py), line 201) — A reviewed edge originating at the reached milestone, wholly inside the envelope (§5 depth constraints, structural).
+- `_select_within_block(block: AttentionBlock, report: ce.FeasibilityReport, snapshot: cs.ControllerSnapshot | None=None) -> tuple[cs.Candidate | None, str, list[tuple[cs.Candidate, int]]]` ([source](../../../../../../src/learnloop/scheduling/staged_policy.py), line 450) — Level two (§4.4): apply the block-specific TRANSPARENT selector over the feasible set.
+- `_tiebreak_seed(snapshot_hash: str, experiment_id: str, refs: Sequence[str]) -> str` ([source](../../../../../../src/learnloop/scheduling/staged_policy.py), line 487) — The decision-specific ε tie-break seed (audit M2/F4): derived from the snapshot hash + experiment id + the tied candidate refs so two DIFFERENT decisions draw differently while the SAME decision replays to the same draw.
+- `_diagnostic_candidates(report: ce.FeasibilityReport, diagnostic: DiagnosticSelector) -> tuple[dict[str, cs.Candidate], list[EV.DiagnosticCandidate]]` ([source](../../../../../../src/learnloop/scheduling/staged_policy.py), line 496) — The feasible candidates that carry diagnostic material, as EVSI candidates.
+- `_record_diagnostic_forecast(vault: LoadedVault, repository: Repository, *, decision_id: str, mode: str, report: ce.FeasibilityReport, diagnostic: DiagnosticSelector, result: EV.RankResult, chosen: cs.Candidate | None, assignment: Mapping[str, Any] | None, clock: Clock | None) -> None` ([source](../../../../../../src/learnloop/scheduling/staged_policy.py), line 519) — EVSI calibration Part B: the committed staged diagnostic decision's forecast.
+- `_select_diagnostic(report: ce.FeasibilityReport, diagnostic: DiagnosticSelector, *, repository: Repository | None, clock: Clock | None, snapshot_hash: str | None=None, decision_id: str | None=None) -> tuple[cs.Candidate | None, str, list[tuple[cs.Candidate, int]], EV.RankResult, dict[str, Any] | None]` ([source](../../../../../../src/learnloop/scheduling/staged_policy.py), line 573) — Robust-EVSI-per-minute selection over the feasible set (§6.4).
+- `_apply_ownership(report: ce.FeasibilityReport, owned_item_refs: set[str]) -> tuple[ce.FeasibilityReport, list[str]]` ([source](../../../../../../src/learnloop/scheduling/staged_policy.py), line 633) — Refuse every feasible candidate the staged controller does not own (§14.2 step 3).
+- `_affect_downgrade(snapshot: cs.ControllerSnapshot, commitment_id: str | None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/scheduling/staged_policy.py), line 665) — U-011 affect check, evaluated BEFORE any depth edge is considered.
+- `_comparator(vault: LoadedVault, repository: Repository, session: Any | None, feasible_refs: set[str]) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/scheduling/staged_policy.py), line 682) — Run the LEGACY scheduler weighted sum in shadow and record its outputs for comparison only (design §B4).
+- `_run_shadow_scorers(scorers: Sequence[Callable[[cs.ControllerSnapshot, cs.Candidate | None], Any]] | None, snapshot: cs.ControllerSnapshot, chosen: cs.Candidate | None) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/scheduling/staged_policy.py), line 711) — Evaluate injected shadow scorers with ZERO authority (invariant 3).
+- `_why_copy(intent: StagedIntent, block: AttentionBlock, chosen: cs.Candidate | None) -> str` ([source](../../../../../../src/learnloop/scheduling/staged_policy.py), line 1040) — Learner-facing 'why' comes from the staged reason + commitment, never the largest opaque score term (§3.3).
 
 ## Who imports or calls it
 
 > [!note] Static evidence boundary
 > “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
 
+- [[Reference/Modules/learnloop/daily_plan/staged_frame|learnloop.daily_plan.staged_frame]] — imports `module`; statically calls `StateSignals`, `ladder_eligibility`
 - [[Reference/Modules/learnloop/scheduling/constraint_engine|learnloop.scheduling.constraint_engine]] — imports `AttentionBlock`
-- [[Reference/Modules/learnloop/scheduling/controller_cutover|learnloop.scheduling.controller_cutover]] — imports `module`; statically calls `StateSignals`, `decide`
+- [[Reference/Modules/learnloop/scheduling/controller_cutover|learnloop.scheduling.controller_cutover]] — imports `module`; statically calls `StateSignals`, `decide`, `ladder_eligibility`
 - [[Reference/Modules/learnloop/scheduling/dispersion|learnloop.scheduling.dispersion]] — imports `AttentionBlock`
+- [[Reference/Modules/learnloop/scheduling/frame_constraints|learnloop.scheduling.frame_constraints]] — imports `module`; statically calls `AttentionBlock`
 - [[Reference/Modules/learnloop/scheduling/interleaving|learnloop.scheduling.interleaving]] — imports `AttentionBlock`
 - [[Reference/Modules/learnloop/scheduling/reentry_adapter|learnloop.scheduling.reentry_adapter]] — imports `module`; statically calls `StateSignals`, `decide`
 - [[Reference/Modules/learnloop/scheduling/short_session|learnloop.scheduling.short_session]] — imports `module`; statically calls `decide`
@@ -127,12 +133,13 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 - [[Reference/Modules/learnloop/scheduling/evsi|learnloop.scheduling.evsi]] — imports `module`; calls `DiagnosticCandidate`, `rank_feasible`
 - [[Reference/Modules/learnloop/scheduling/randomization_layer|learnloop.scheduling.randomization_layer]] — imports `module`; calls `epsilon_tiebreak`
 - [[Reference/Modules/learnloop/scheduling/scheduler|learnloop.scheduling.scheduler]] — imports `build_due_queue`; calls `build_due_queue`
+- [[Reference/Modules/learnloop/scheduling/voi_forecasts|learnloop.scheduling.voi_forecasts]] — imports `module`; calls `forecast_enabled`, `record_rank_feasible_forecast`
 - [[Reference/Modules/learnloop/substrate/activities|learnloop.substrate.activities]] — imports `canonical_hash`; calls `canonical_hash`
 - [[Reference/Modules/learnloop/vault/models|learnloop.vault.models]] — imports `LoadedVault`
 
 ### Platform and third-party dependencies
 
-- Standard library: `__future__`, `dataclasses`, `json`, `typing`
+- Standard library: `__future__`, `dataclasses`, `json`, `logging`, `typing`
 - Third party: none imported directly
 
 ## Larger workflow participation
@@ -142,12 +149,14 @@ Use this module in context through:
 - [[Start a Learning Cycle]]
 - [[Continue a Learning Cycle]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/scheduling/constraint_engine|learnloop.scheduling.constraint_engine]], [[Reference/Modules/learnloop/scheduling/controller_cutover|learnloop.scheduling.controller_cutover]], [[Reference/Modules/learnloop/scheduling/dispersion|learnloop.scheduling.dispersion]], [[Reference/Modules/learnloop/scheduling/interleaving|learnloop.scheduling.interleaving]], [[Reference/Modules/learnloop/scheduling/reentry_adapter|learnloop.scheduling.reentry_adapter]] and 2 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/daily_plan/staged_frame|learnloop.daily_plan.staged_frame]], [[Reference/Modules/learnloop/scheduling/constraint_engine|learnloop.scheduling.constraint_engine]], [[Reference/Modules/learnloop/scheduling/controller_cutover|learnloop.scheduling.controller_cutover]], [[Reference/Modules/learnloop/scheduling/dispersion|learnloop.scheduling.dispersion]], [[Reference/Modules/learnloop/scheduling/frame_constraints|learnloop.scheduling.frame_constraints]] and 4 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
 ## Tests that define behavior
 
+- [tests/test_ad23_inversion.py](../../../../../../tests/test_ad23_inversion.py) — direct import
+  - `test_the_codes_vocabulary_covers_the_incumbents_reasons`
 - [tests/test_constraint_engine.py](../../../../../../tests/test_constraint_engine.py) — direct import
 - [tests/test_controller_cutover.py](../../../../../../tests/test_controller_cutover.py) — direct import
   - `test_constraint_emptied_feasible_set_is_a_veto`
@@ -157,12 +166,21 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_cross_seam_exposure.py](../../../../../../tests/test_cross_seam_exposure.py) — direct import
   - `test_assessment_reserve_not_poached_by_practice_at_plan_time`
 - [tests/test_dispersion.py](../../../../../../tests/test_dispersion.py) — direct import
+- [tests/test_evsi_staged_binding.py](../../../../../../tests/test_evsi_staged_binding.py) — direct import
 - [tests/test_reentry_short_session.py](../../../../../../tests/test_reentry_short_session.py) — direct import
   - `test_short_session_depth_edge_stops_if_it_cannot_fit`
   - `test_short_session_prefers_admitted_short_p1_patterns`
   - `test_short_session_retry_after_commit_is_idempotent`
   - `test_short_session_stops_honestly_when_nothing_fits`
   - `test_three_minute_activity_completes_a_session`
+- [tests/test_router_ladder_parity.py](../../../../../../tests/test_router_ladder_parity.py) — direct import
+  - `test_a_short_circuited_block_fires_no_rung`
+  - `test_the_fired_rung_is_the_rule_the_staged_policy_applies`
+- [tests/test_router_p2_bridge.py](../../../../../../tests/test_router_p2_bridge.py) — direct import
+  - `test_a_standing_decisions_persisted_trace_names_the_same_veto`
+- [tests/test_router_staged_p2.py](../../../../../../tests/test_router_staged_p2.py) — direct import
+  - `test_a_randomized_within_block_choice_logs_its_assignment_propensity`
+  - `test_short_circuited_blocks_are_logged_as_the_learner_pick_or_the_continuation`
 - [tests/test_staged_policy.py](../../../../../../tests/test_staged_policy.py) — direct import
   - `test_affect_check_precedes_depth_edge`
   - `test_decision_persists_snapshot_decision_candidates_and_block`
@@ -180,6 +198,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_evsi_selector_ranks_only_within_feasible_set`
   - `test_evsi_stop_is_a_typed_stop_not_no_feasible_activity`
   - `test_randomize_refuses_static_fallback_seed_without_snapshot`
+- [tests/test_voi_forecasts.py](../../../../../../tests/test_voi_forecasts.py) — direct import
 
 ## Modification guidance
 

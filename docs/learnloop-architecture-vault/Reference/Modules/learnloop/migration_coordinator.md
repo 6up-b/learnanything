@@ -7,11 +7,11 @@ version: "1.0.0"
 source_path: "src/learnloop/migration_coordinator.py"
 source_paths:
   - "src/learnloop/migration_coordinator.py"
-source_commit: "b322ef2e9b5cebc241b612e4963a5aaf1a37f99a"
-source_commit_timestamp: "2026-08-20T18:04:29-04:00"
+source_commit: "0057eca47af68505f44d91c57d3aef2a28f7ed18"
+source_commit_timestamp: "2026-10-15T13:33:13-04:00"
 source_worktree_state: "clean"
 generated: true
-generated_at: "2026-09-23"
+generated_at: "2026-11-02"
 package: "learnloop"
 layer: "coordination"
 concepts:
@@ -49,21 +49,35 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/migration_coordinator.py](../../../../../src/learnloop/migration_coordinator.py) |
-| Source lines | 36 |
+| Source lines | 107 |
 | Owning package | [[Reference/Modules/learnloop/_package|learnloop]] |
 | Architecture layer | `coordination` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `b322ef2e9b5cebc241b612e4963a5aaf1a37f99a` |
-| Commit timestamp | `2026-08-20T18:04:29-04:00` |
+| Source commit | `0057eca47af68505f44d91c57d3aef2a28f7ed18` |
+| Commit timestamp | `2026-10-15T13:33:13-04:00` |
 
 ## Public API
 
-- `migrate_vault(vault_root: Path, sqlite_path: Path, *, migrations_dir: Path | None=None, clock: Clock | None=None, timeout_s: float=DEFAULT_TIMEOUT_S) -> list[Migration]` ([source](../../../../../src/learnloop/migration_coordinator.py), line 12) — Apply migrations while holding the vault's cross-process mutation lock.
+- `migrate_vault(vault_root: Path, sqlite_path: Path, *, migrations_dir: Path | None=None, clock: Clock | None=None, timeout_s: float=DEFAULT_TIMEOUT_S) -> list[Migration]` ([source](../../../../../src/learnloop/migration_coordinator.py), line 29) — Apply migrations while holding the vault's cross-process mutation lock.
+- `record_member_exam_signals(vault_root: Path, sqlite_path: Path, *, clock: Clock | None=None) -> int` ([source](../../../../../src/learnloop/migration_coordinator.py), line 64) — Record as exam material the held-out signals whose role was not recorded (migration 204's backfill) on books ``source_sets.yaml`` makes exam material now (``db.stores.held_out_signals``; Codex re-review of exam protection by extraction identity, F3); the number of rows appended.
+
+### Module constants
+
+- `_LOG` ([src/learnloop/migration_coordinator.py](../../../../../src/learnloop/migration_coordinator.py), line 21)
+- `SOURCE_SETS_PATH` ([src/learnloop/migration_coordinator.py](../../../../../src/learnloop/migration_coordinator.py), line 26)
+
+### Explicit exports
+
+`__all__` declares:
+
+- `SOURCE_SETS_PATH`
+- `migrate_vault`
+- `record_member_exam_signals`
 
 ## Internal implementation anchors
 
-No private top-level function or class definition is declared in this file.
+- `_exam_member_sources(path: Path) -> set[str]` ([source](../../../../../src/learnloop/migration_coordinator.py), line 91)
 
 ## Who imports or calls it
 
@@ -82,14 +96,16 @@ No private top-level function or class definition is declared in this file.
 
 ### LearnLoop dependencies
 
-- [[Reference/Modules/learnloop/clock|learnloop.clock]] — imports `Clock`
-- [[Reference/Modules/learnloop/db/migrate|learnloop.db.migrate]] — imports `Migration`, `apply_migrations`; calls `apply_migrations`
+- [[Reference/Modules/learnloop/clock|learnloop.clock]] — imports `Clock`, `utc_now_iso`; calls `utc_now_iso`
+- [[Reference/Modules/learnloop/db/connection|learnloop.db.connection]] — imports `connect`; calls `connect`
+- [[Reference/Modules/learnloop/db/migrate|learnloop.db.migrate]] — imports `Migration`, `UPGRADE_BY_COORDINATOR`, `apply_migrations`, `upgrade_allowance`; calls `apply_migrations`, `upgrade_allowance`
+- [[Reference/Modules/learnloop/db/stores/held_out_signals|learnloop.db.stores.held_out_signals]] — imports `exam_member_sources`, `pending_unrecorded_sources`, `qualify_unrecorded_signals`; calls `exam_member_sources`, `pending_unrecorded_sources`, `qualify_unrecorded_signals`
 - [[Reference/Modules/learnloop/vault_lock|learnloop.vault_lock]] — imports `DEFAULT_TIMEOUT_S`, `vault_mutation_lock`; calls `vault_mutation_lock`
 
 ### Platform and third-party dependencies
 
-- Standard library: `__future__`, `pathlib`
-- Third party: none imported directly
+- Standard library: `__future__`, `contextlib`, `logging`, `pathlib`
+- Third party: `yaml`
 
 ## Larger workflow participation
 
@@ -103,6 +119,14 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
+- [tests/test_coordinated_migrations.py](../../../../../tests/test_coordinated_migrations.py) — direct import
+  - `test_f8_the_coordinator_upgrades_under_its_allowance_and_qualifies`
+- [tests/test_exam_protection_identity.py](../../../../../tests/test_exam_protection_identity.py) — direct import
+  - `test_f3_final_a_cli_open_changes_nothing_else`
+  - `test_identity_rereview_f3_a_hand_edit_never_releases_a_signal_its_membership_qualified`
+  - `test_identity_rereview_f3_exam_membership_the_writer_adds_survives_a_hand_edit`
+  - `test_identity_rereview_f3_opening_records_only_what_membership_qualifies`
+  - `test_the_ledgers_exam_roles_are_the_role_authoritys`
 - [tests/test_migration_coordinator.py](../../../../../tests/test_migration_coordinator.py) — direct import
   - `test_coordinator_locks_the_vault_for_a_relocated_database`
   - `test_process_death_mid_migration_leaves_body_and_receipt_fully_absent`
@@ -114,6 +138,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 - Make changes here when the responsibility remains migration coordinator within learnloop; otherwise move the behavior to its owning boundary.
 - Run the directly importing tests below, then the architecture/import-linter checks when imports or public ownership change.
+- Treat `__all__` as an intentional compatibility surface and update consumers and documentation when it changes.
 
 ### Regeneration and review checklist
 

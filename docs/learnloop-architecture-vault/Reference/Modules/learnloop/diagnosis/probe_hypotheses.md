@@ -11,7 +11,7 @@ source_commit: "b322ef2e9b5cebc241b612e4963a5aaf1a37f99a"
 source_commit_timestamp: "2026-08-20T18:04:29-04:00"
 source_worktree_state: "clean"
 generated: true
-generated_at: "2026-09-23"
+generated_at: "2026-11-02"
 package: "learnloop.diagnosis"
 layer: "domain"
 concepts:
@@ -101,6 +101,9 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 - [[Reference/Modules/learnloop/diagnosis/probe_episodes|learnloop.diagnosis.probe_episodes]] — imports `H_OTHER`, `build_episode_hypothesis_set`, `generic_bucket_marginals`, `item_observation_context`, `strong_prior_claim`, `triage_reason_for_label`; statically calls `build_episode_hypothesis_set`, `generic_bucket_marginals`, `item_observation_context`, `strong_prior_claim`, `triage_reason_for_label`
 - [[Reference/Modules/learnloop/diagnosis/probe_families|learnloop.diagnosis.probe_families]] — imports `CONFUSES_PREFIX`, `MISCONCEPTION_PREFIX`
 - [[Reference/Modules/learnloop/diagnosis/probe_targeting|learnloop.diagnosis.probe_targeting]] — imports `triage_reason_for_label`; statically calls `triage_reason_for_label`
+- [[Reference/Modules/learnloop/diagnosis/voi_forecasting|learnloop.diagnosis.voi_forecasting]] — imports `triage_reason_for_label`; statically calls `triage_reason_for_label`
+- [[Reference/Modules/learnloop/diagnosis/voi_stopping|learnloop.diagnosis.voi_stopping]] — imports `triage_reason_for_label`; statically calls `triage_reason_for_label`
+- [[Reference/Modules/learnloop/instructional/valuation|learnloop.instructional.valuation]] — imports `H_OTHER`
 - [[Reference/Modules/learnloop/sim/diagnostic_validation|learnloop.sim.diagnostic_validation]] — imports `CONFUSES_PREFIX`
 
 ## Dependencies
@@ -127,7 +130,7 @@ Use this module in context through:
 - [[Process Model Output]]
 - [[Start a Learning Cycle]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/curriculum/confusable_concepts|learnloop.curriculum.confusable_concepts]], [[Reference/Modules/learnloop/diagnosis/causal_diagnostic_selector|learnloop.diagnosis.causal_diagnostic_selector]], [[Reference/Modules/learnloop/diagnosis/causal_probe_coherence|learnloop.diagnosis.causal_probe_coherence]], [[Reference/Modules/learnloop/diagnosis/causal_selection_audit|learnloop.diagnosis.causal_selection_audit]], [[Reference/Modules/learnloop/diagnosis/followups|learnloop.diagnosis.followups]] and 6 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/curriculum/confusable_concepts|learnloop.curriculum.confusable_concepts]], [[Reference/Modules/learnloop/diagnosis/causal_diagnostic_selector|learnloop.diagnosis.causal_diagnostic_selector]], [[Reference/Modules/learnloop/diagnosis/causal_probe_coherence|learnloop.diagnosis.causal_probe_coherence]], [[Reference/Modules/learnloop/diagnosis/causal_selection_audit|learnloop.diagnosis.causal_selection_audit]], [[Reference/Modules/learnloop/diagnosis/followups|learnloop.diagnosis.followups]] and 9 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
@@ -141,6 +144,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_open_set_cause_id_and_probe_label_are_distinct_namespaces`
 - [tests/test_cold_start_revision.py](../../../../../../tests/test_cold_start_revision.py) — direct import
   - `test_template_labels_route`
+- [tests/test_discriminating_search.py](../../../../../../tests/test_discriminating_search.py) — direct import
+  - `test_causal_space_excludes_h_other_explicitly`
 - [tests/test_km2_write_path.py](../../../../../../tests/test_km2_write_path.py) — direct import
   - `test_open_set_arm_survives_apply_attempt_into_the_probe_path`
 - [tests/test_probe_block_end.py](../../../../../../tests/test_probe_block_end.py) — direct import
@@ -151,6 +156,10 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_unmatched_systematic_signature_raises_open_set_probability`
 - [tests/test_probe_longform_families.py](../../../../../../tests/test_probe_longform_families.py) — direct import
   - `test_derivation_separates_procedure_without_selection`
+- [tests/test_source_first_needs.py](../../../../../../tests/test_source_first_needs.py) — direct import
+  - `test_a_value_stop_makes_the_need_stale_without_writing_or_generating`
+- [tests/test_voi_merge_composition.py](../../../../../../tests/test_voi_merge_composition.py) — direct import
+  - `test_rank_four_reads_each_label_class_by_part_cs_definition`
 
 ## Modification guidance
 

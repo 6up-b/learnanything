@@ -7,11 +7,11 @@ version: "1.0.0"
 source_path: "src/learnloop/diagnosis/gate_fit.py"
 source_paths:
   - "src/learnloop/diagnosis/gate_fit.py"
-source_commit: "b322ef2e9b5cebc241b612e4963a5aaf1a37f99a"
-source_commit_timestamp: "2026-08-20T18:04:29-04:00"
+source_commit: "cbd26b3e715642d45c0df27013a6ab9c1f29e5d5"
+source_commit_timestamp: "2026-10-13T17:56:23-04:00"
 source_worktree_state: "clean"
 generated: true
-generated_at: "2026-09-23"
+generated_at: "2026-11-02"
 package: "learnloop.diagnosis"
 layer: "domain"
 concepts:
@@ -50,31 +50,32 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/diagnosis/gate_fit.py](../../../../../../src/learnloop/diagnosis/gate_fit.py) |
-| Source lines | 187 |
+| Source lines | 206 |
 | Owning package | [[Reference/Modules/learnloop/diagnosis/_package|learnloop.diagnosis]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `b322ef2e9b5cebc241b612e4963a5aaf1a37f99a` |
-| Commit timestamp | `2026-08-20T18:04:29-04:00` |
+| Source commit | `cbd26b3e715642d45c0df27013a6ab9c1f29e5d5` |
+| Commit timestamp | `2026-10-13T17:56:23-04:00` |
 
 ## Public API
 
-- `class GateExample` ([source](../../../../../../src/learnloop/diagnosis/gate_fit.py), line 30)
-- `class GateFitResult` ([source](../../../../../../src/learnloop/diagnosis/gate_fit.py), line 39)
-- `class GateFitError(ValueError)` ([source](../../../../../../src/learnloop/diagnosis/gate_fit.py), line 52) — Raised when the label stream cannot support a fit.
-- `assemble_gate_training_set(repository: Repository, config: LearnLoopConfig) -> list[GateExample]` ([source](../../../../../../src/learnloop/diagnosis/gate_fit.py), line 56)
-- `fit_gate_weights(examples: list[GateExample], *, l2: float=0.1, epochs: int=500, learning_rate: float=0.5) -> GateFitResult` ([source](../../../../../../src/learnloop/diagnosis/gate_fit.py), line 98)
+- `class GateExample` ([source](../../../../../../src/learnloop/diagnosis/gate_fit.py), line 34)
+- `class GateFitResult` ([source](../../../../../../src/learnloop/diagnosis/gate_fit.py), line 43)
+- `class GateFitError(ValueError)` ([source](../../../../../../src/learnloop/diagnosis/gate_fit.py), line 56) — Raised when the label stream cannot support a fit.
+- `assemble_gate_training_set(repository: Repository, config: LearnLoopConfig) -> list[GateExample]` ([source](../../../../../../src/learnloop/diagnosis/gate_fit.py), line 60)
+- `fit_gate_weights(examples: list[GateExample], *, l2: float=0.1, epochs: int=500, learning_rate: float=0.5) -> GateFitResult` ([source](../../../../../../src/learnloop/diagnosis/gate_fit.py), line 117)
 
 ### Module constants
 
-- `_UNINFORMATIVE_SILENT_REASONS` ([src/learnloop/diagnosis/gate_fit.py](../../../../../../src/learnloop/diagnosis/gate_fit.py), line 23)
-- `_SILENT_NEGATIVE_WEIGHT` ([src/learnloop/diagnosis/gate_fit.py](../../../../../../src/learnloop/diagnosis/gate_fit.py), line 24)
-- `STRONG_LABEL_SOURCES` ([src/learnloop/diagnosis/gate_fit.py](../../../../../../src/learnloop/diagnosis/gate_fit.py), line 26)
+- `_UNINFORMATIVE_SILENT_REASONS` ([src/learnloop/diagnosis/gate_fit.py](../../../../../../src/learnloop/diagnosis/gate_fit.py), line 25)
+- `_SILENT_NEGATIVE_WEIGHT` ([src/learnloop/diagnosis/gate_fit.py](../../../../../../src/learnloop/diagnosis/gate_fit.py), line 28)
+- `STRONG_LABEL_SOURCES` ([src/learnloop/diagnosis/gate_fit.py](../../../../../../src/learnloop/diagnosis/gate_fit.py), line 30)
 
 ## Internal implementation anchors
 
-- `_rank_auc(predictions: list[tuple[float, GateExample]]) -> float` ([source](../../../../../../src/learnloop/diagnosis/gate_fit.py), line 166) — Exact Mann-Whitney AUC with midrank tie handling.
+- `_only_valuation_would_suppress(gate: dict) -> bool` ([source](../../../../../../src/learnloop/diagnosis/gate_fit.py), line 105) — The trigger fired naturally and only a value-of-information stop would have kept the automatic follow-up silent.
+- `_rank_auc(predictions: list[tuple[float, GateExample]]) -> float` ([source](../../../../../../src/learnloop/diagnosis/gate_fit.py), line 185) — Exact Mann-Whitney AUC with midrank tie handling.
 
 ## Who imports or calls it
 
@@ -90,6 +91,7 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 - [[Reference/Modules/learnloop/config/__init__|learnloop.config]] — imports `LearnLoopConfig`
 - [[Reference/Modules/learnloop/db/repositories|learnloop.db.repositories]] — imports `Repository`
 - [[Reference/Modules/learnloop/diagnosis/gate_score|learnloop.diagnosis.gate_score]] — imports `GATE_FEATURES`, `GATE_FEATURE_VERSION`, `subscores_from_diagnostics`; calls `subscores_from_diagnostics`
+- [[Reference/Modules/learnloop/diagnosis/voi_stopping|learnloop.diagnosis.voi_stopping]] — imports `VALUATION_SUPPRESSION_REASONS`
 - [[Reference/Modules/learnloop/numeric|learnloop.numeric]] — imports `sigmoid`; calls `sigmoid`
 
 ### Platform and third-party dependencies
@@ -117,6 +119,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_l2_shrinks_weights`
   - `test_label_assembly`
   - `test_label_assembly_excludes_old_feature_semantics`
+- [tests/test_voi_stopping.py](../../../../../../tests/test_voi_stopping.py) — direct import
+  - `test_value_suppressions_never_label_the_trigger`
 
 ## Modification guidance
 

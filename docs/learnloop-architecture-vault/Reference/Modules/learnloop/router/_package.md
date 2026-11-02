@@ -1,0 +1,121 @@
+---
+title: "learnloop.router — Package Map"
+type: "package-map"
+status: "current"
+refactor_status: "ACTIVE"
+version: "1.0.0"
+source_paths:
+  - "src/learnloop/router/__init__.py"
+  - "src/learnloop/router/agreement.py"
+  - "src/learnloop/router/card.py"
+  - "src/learnloop/router/decisions.py"
+  - "src/learnloop/router/mixture.py"
+  - "src/learnloop/router/outcomes.py"
+  - "src/learnloop/router/plan_log.py"
+  - "src/learnloop/router/requests.py"
+  - "src/learnloop/router/why.py"
+source_commit: "aggregate; see module notes"
+source_commit_timestamp: "2026-11-01T02:58:57-05:00"
+generated: true
+generated_at: "2026-11-02"
+package: "learnloop.router"
+layer: "domain"
+concepts:
+  - "Architecture Overview"
+workflows:
+  - "Initialize a Vault"
+  - "Start a Learning Cycle"
+tags:
+  - "docs/package-map"
+  - "architecture/reference"
+  - "refactor/active"
+  - "layer/domain"
+  - "package/learnloop-router"
+---
+
+# `learnloop.router` package map
+
+> [!info] Generated package map
+> This map is generated from live modules and their static imports. Follow module links for source-level facts and canonical concept/workflow links for system behavior.
+
+Up: [[Module Catalog]]
+
+## Responsibility
+
+The action router: decisions logged on today's serving paths and their derived outcomes; a leaf that chooses nothing yet.
+
+For system intent, use [[Architecture Overview]].
+
+^package-purpose
+
+## Module index
+
+| Module | Purpose | Status | Direct importers | Direct test files |
+|---|---|---:|---:|---:|
+| [[Reference/Modules/learnloop/router/__init__|learnloop.router]] | [[Reference/Modules/learnloop/router/__init__#^module-purpose|purpose]] | `ACTIVE` | 0 | 0 |
+| [[Reference/Modules/learnloop/router/agreement|learnloop.router.agreement]] | [[Reference/Modules/learnloop/router/agreement#^module-purpose|purpose]] | `ACTIVE` | 1 | 1 |
+| [[Reference/Modules/learnloop/router/card|learnloop.router.card]] | [[Reference/Modules/learnloop/router/card#^module-purpose|purpose]] | `ACTIVE` | 1 | 8 |
+| [[Reference/Modules/learnloop/router/decisions|learnloop.router.decisions]] | [[Reference/Modules/learnloop/router/decisions#^module-purpose|purpose]] | `ACTIVE` | 2 | 2 |
+| [[Reference/Modules/learnloop/router/mixture|learnloop.router.mixture]] | [[Reference/Modules/learnloop/router/mixture#^module-purpose|purpose]] | `ACTIVE` | 4 | 4 |
+| [[Reference/Modules/learnloop/router/outcomes|learnloop.router.outcomes]] | [[Reference/Modules/learnloop/router/outcomes#^module-purpose|purpose]] | `ACTIVE` | 3 | 9 |
+| [[Reference/Modules/learnloop/router/plan_log|learnloop.router.plan_log]] | [[Reference/Modules/learnloop/router/plan_log#^module-purpose|purpose]] | `ACTIVE` | 2 | 1 |
+| [[Reference/Modules/learnloop/router/requests|learnloop.router.requests]] | [[Reference/Modules/learnloop/router/requests#^module-purpose|purpose]] | `ACTIVE` | 2 | 3 |
+| [[Reference/Modules/learnloop/router/why|learnloop.router.why]] | [[Reference/Modules/learnloop/router/why#^module-purpose|purpose]] | `ACTIVE` | 4 | 4 |
+
+## Cross-package dependencies
+
+### This package imports
+
+- [[Reference/Modules/learnloop/_package|learnloop]] — 6 static module edges
+- [[Reference/Modules/learnloop/db/stores/_package|learnloop.db.stores]] — 5 static module edges
+- [[Reference/Modules/learnloop/ai/_package|learnloop.ai]] — 2 static module edges
+
+### Packages that import this package
+
+- [[Reference/Modules/learnloop/daily_plan/_package|learnloop.daily_plan]] — 12 static module edges
+- [[Reference/Modules/learnloop/cli/_package|learnloop.cli]] — 2 static module edges
+- [[Reference/Modules/learnloop/scheduling/_package|learnloop.scheduling]] — 2 static module edges
+- [[Reference/Modules/learnloop_sidecar/handlers/_package|learnloop_sidecar.handlers]] — 2 static module edges
+- [[Reference/Modules/learnloop/substrate/_package|learnloop.substrate]] — 1 static module edge
+
+### Dependency neighborhood
+
+This diagram compresses package-level static imports; edge labels are distinct module-to-module import counts.
+
+```mermaid
+flowchart LR
+    center["learnloop.router"]
+    n_learnloop_daily_plan["learnloop.daily_plan"]
+    n_learnloop["learnloop"]
+    n_learnloop_db_stores["learnloop.db.stores"]
+    n_learnloop_ai["learnloop.ai"]
+    n_learnloop_cli["learnloop.cli"]
+    n_learnloop_scheduling["learnloop.scheduling"]
+    n_learnloop_sidecar_handlers["learnloop_sidecar.handlers"]
+    n_learnloop_substrate["learnloop.substrate"]
+    n_learnloop_daily_plan -->|12| center
+    center -->|6| n_learnloop
+    center -->|5| n_learnloop_db_stores
+    center -->|2| n_learnloop_ai
+    n_learnloop_cli -->|2| center
+    n_learnloop_scheduling -->|2| center
+    n_learnloop_sidecar_handlers -->|2| center
+    n_learnloop_substrate -->|1| center
+```
+
+Interpretation: arrow direction is static import direction and the label is the number of distinct module-to-module edges. It shows coupling pressure, not runtime call frequency or ownership permission.
+
+## Workflow entry points
+
+- [[Initialize a Vault]]
+- [[Start a Learning Cycle]]
+
+## Find and filter
+
+Use Obsidian's native search:
+
+```query
+path:"Reference/Modules/learnloop/router" tag:#docs/module
+```
+
+To change this package, start with a module's [[#Module index|purpose link]], then follow its callers, tests, and modification guidance. Re-run the generator after source changes.

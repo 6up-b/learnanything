@@ -7,11 +7,11 @@ version: "1.0.0"
 source_path: "src/learnloop/db/stores/model_calls.py"
 source_paths:
   - "src/learnloop/db/stores/model_calls.py"
-source_commit: "922f2d187b5839289a7de8ea6d73ce679998e7e8"
-source_commit_timestamp: "2026-09-23T15:53:48-04:00"
+source_commit: "07b0dcdec98f2698d10011595c38b28e9a39ba68"
+source_commit_timestamp: "2026-10-18T03:49:21-04:00"
 source_worktree_state: "clean"
 generated: true
-generated_at: "2026-09-23"
+generated_at: "2026-11-02"
 package: "learnloop.db.stores"
 layer: "infrastructure"
 concepts:
@@ -51,21 +51,31 @@ The authoritative system-level explanation remains in [[State and Persistence]],
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/db/stores/model_calls.py](../../../../../../../src/learnloop/db/stores/model_calls.py) |
-| Source lines | 60 |
+| Source lines | 142 |
 | Owning package | [[Reference/Modules/learnloop/db/stores/_package|learnloop.db.stores]] |
 | Architecture layer | `infrastructure` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `922f2d187b5839289a7de8ea6d73ce679998e7e8` |
-| Commit timestamp | `2026-09-23T15:53:48-04:00` |
+| Source commit | `07b0dcdec98f2698d10011595c38b28e9a39ba68` |
+| Commit timestamp | `2026-10-18T03:49:21-04:00` |
 
 ## Public API
 
-- `class ModelCallStoreMixin` ([source](../../../../../../../src/learnloop/db/stores/model_calls.py), line 13)
-  - `record_model_event(self, action: str, event: dict[str, Any], *, owner_kind: str, owner_id: str) -> None` (line 14; public)
-  - `model_checkpoint(self, cache_key: str) -> dict[str, Any] | None` (line 37; public)
-  - `save_model_checkpoint(self, cache_key: str, *, purpose: str, result: dict[str, Any], usage: dict[str, Any] | None=None) -> None` (line 42; public)
-  - `discard_model_checkpoint(self, cache_key: str) -> None` (line 52; public) — Delete a checkpoint whose stored result no longer validates.
+- `finish_receipt(connection: Any, event: dict[str, Any], *, owner_kind: str, owner_id: str) -> None` ([source](../../../../../../../src/learnloop/db/stores/model_calls.py), line 20) — Finalize a started receipt on the caller's connection (the caller owns the transaction).
+- `insert_checkpoint(connection: Any, cache_key: str, *, purpose: str, result: dict[str, Any], usage: dict[str, Any] | None=None) -> None` ([source](../../../../../../../src/learnloop/db/stores/model_calls.py), line 29) — Write a checkpoint once on the caller's connection (the caller owns the transaction).
+- `delete_checkpoint(connection: Any, cache_key: str) -> None` ([source](../../../../../../../src/learnloop/db/stores/model_calls.py), line 38) — Delete one checkpoint on the caller's connection (the caller owns the transaction).
+- `class ModelCallStoreMixin` ([source](../../../../../../../src/learnloop/db/stores/model_calls.py), line 44)
+  - `record_model_event(self, action: str, event: dict[str, Any], *, owner_kind: str, owner_id: str) -> None` (line 45; public)
+  - `model_call_roots_since(self, *, owner_kind: str, since: str) -> int` (line 78; public) — Logical model calls (root receipts) of one owner kind started at or after ``since`` -- failed and unfinished calls included, since a receipt is written before its request is sent.
+  - `model_call_spend_rows(self, *, started_since: str | None=None, owner_kind: str | None=None, owner_ids: Any=None) -> list[dict[str, Any]]` (line 91; public) — Usage rows for spend accounting: every receipt (usage lands on the innermost one), optionally since an ISO time and for some owners.
+  - `model_checkpoint(self, cache_key: str) -> dict[str, Any] | None` (line 122; public)
+  - `save_model_checkpoint(self, cache_key: str, *, purpose: str, result: dict[str, Any], usage: dict[str, Any] | None=None) -> None` (line 127; public)
+  - `discard_model_checkpoint(self, cache_key: str) -> None` (line 134; public) — Delete a checkpoint whose stored result no longer validates.
+
+### Module constants
+
+- `LABEL_FIELDS` ([src/learnloop/db/stores/model_calls.py](../../../../../../../src/learnloop/db/stores/model_calls.py), line 14)
+- `_FINISH_FIELDS` ([src/learnloop/db/stores/model_calls.py](../../../../../../../src/learnloop/db/stores/model_calls.py), line 17)
 
 ## Internal implementation anchors
 
@@ -76,7 +86,9 @@ No private top-level function or class definition is declared in this file.
 > [!note] Static evidence boundary
 > “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
 
+- [[Reference/Modules/learnloop/adaptive_difficulty/claims|learnloop.adaptive_difficulty.claims]] — imports `delete_checkpoint`, `insert_checkpoint`; statically calls `delete_checkpoint`, `insert_checkpoint`
 - [[Reference/Modules/learnloop/db/repositories|learnloop.db.repositories]] — imports `ModelCallStoreMixin`
+- [[Reference/Modules/learnloop/hints/map_builder|learnloop.hints.map_builder]] — imports `delete_checkpoint`, `finish_receipt`, `insert_checkpoint`; statically calls `delete_checkpoint`, `finish_receipt`, `insert_checkpoint`
 
 ## Dependencies
 
@@ -84,6 +96,7 @@ No private top-level function or class definition is declared in this file.
 
 - [[Reference/Modules/learnloop/db/connection|learnloop.db.connection]] — imports `connect`; calls `connect`
 - [[Reference/Modules/learnloop/db/scopes|learnloop.db.scopes]] — imports `allow_late_model_records`; calls `allow_late_model_records`
+- [[Reference/Modules/learnloop/db/stores/source_service|learnloop.db.stores.source_service]] — imports `ReservationReleased`, `released_reservations`; calls `ReservationReleased`, `released_reservations`
 
 ### Platform and third-party dependencies
 
@@ -97,26 +110,20 @@ Use this module in context through:
 - [[Inspect Persistent State]]
 - [[Doctor Migrations and Recovery]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/db/repositories|learnloop.db.repositories]].
+Static participation evidence comes from [[Reference/Modules/learnloop/adaptive_difficulty/claims|learnloop.adaptive_difficulty.claims]], [[Reference/Modules/learnloop/db/repositories|learnloop.db.repositories]], [[Reference/Modules/learnloop/hints/map_builder|learnloop.hints.map_builder]].
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
 ## Tests that define behavior
 
-No test imports this module directly. These tests exercise a direct production consumer:
-
-- [tests/helpers.py](../../../../../../../tests/helpers.py) — imports consumer [[Reference/Modules/learnloop/db/repositories|learnloop.db.repositories]]
-- [tests/test_action_loss.py](../../../../../../../tests/test_action_loss.py) — imports consumer [[Reference/Modules/learnloop/db/repositories|learnloop.db.repositories]]
-- [tests/test_activity_backfill.py](../../../../../../../tests/test_activity_backfill.py) — imports consumer [[Reference/Modules/learnloop/db/repositories|learnloop.db.repositories]]
-- [tests/test_activity_contract_extensions.py](../../../../../../../tests/test_activity_contract_extensions.py) — imports consumer [[Reference/Modules/learnloop/db/repositories|learnloop.db.repositories]]
-- [tests/test_activity_patterns.py](../../../../../../../tests/test_activity_patterns.py) — imports consumer [[Reference/Modules/learnloop/db/repositories|learnloop.db.repositories]]
-- [tests/test_activity_substrate.py](../../../../../../../tests/test_activity_substrate.py) — imports consumer [[Reference/Modules/learnloop/db/repositories|learnloop.db.repositories]]
-- [tests/test_administration_adapters.py](../../../../../../../tests/test_administration_adapters.py) — imports consumer [[Reference/Modules/learnloop/db/repositories|learnloop.db.repositories]]
-- [tests/test_agent_run_tokens.py](../../../../../../../tests/test_agent_run_tokens.py) — imports consumer [[Reference/Modules/learnloop/db/repositories|learnloop.db.repositories]]
-- [tests/test_agent_runs.py](../../../../../../../tests/test_agent_runs.py) — imports consumer [[Reference/Modules/learnloop/db/repositories|learnloop.db.repositories]]
-- [tests/test_annotations.py](../../../../../../../tests/test_annotations.py) — imports consumer [[Reference/Modules/learnloop/db/repositories|learnloop.db.repositories]]
-- [tests/test_answer_calibration_duel.py](../../../../../../../tests/test_answer_calibration_duel.py) — imports consumer [[Reference/Modules/learnloop/db/repositories|learnloop.db.repositories]]
-- [tests/test_anti_double_count.py](../../../../../../../tests/test_anti_double_count.py) — imports consumer [[Reference/Modules/learnloop/db/repositories|learnloop.db.repositories]]
+- [tests/test_ad23_contract.py](../../../../../../../tests/test_ad23_contract.py) — direct import
+- [tests/test_practice_index_dossiers.py](../../../../../../../tests/test_practice_index_dossiers.py) — direct import
+  - `test_a_paid_answer_whose_checkpoint_failed_is_recovered_from_its_receipt`
+  - `test_a_receipt_for_another_request_or_an_invalid_answer_is_not_recovered`
+- [tests/test_practice_index_evaluation.py](../../../../../../../tests/test_practice_index_evaluation.py) — direct import
+  - `test_paid_labels_and_queries_whose_checkpoint_failed_are_recovered_from_receipts`
+- [tests/test_practice_index_find.py](../../../../../../../tests/test_practice_index_find.py) — direct import
+  - `test_a_rerank_whose_checkpoint_failed_is_recovered_from_its_receipt`
 
 ## Modification guidance
 

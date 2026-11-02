@@ -11,7 +11,7 @@ source_commit: "c8380692deed1903626f67efd5804067a25db401"
 source_commit_timestamp: "2026-09-23T12:25:12-04:00"
 source_worktree_state: "clean"
 generated: true
-generated_at: "2026-09-23"
+generated_at: "2026-11-02"
 package: "learnloop.ai"
 layer: "infrastructure"
 concepts:
@@ -97,11 +97,14 @@ The authoritative system-level explanation remains in [[AI Architecture]], [[Arc
 > [!note] Static evidence boundary
 > “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
 
+- [[Reference/Modules/learnloop/ai/providers/chatgpt_plan|learnloop.ai.providers.chatgpt_plan]] — imports `TokenUsageAccounting`
 - [[Reference/Modules/learnloop/ai/providers/codex|learnloop.ai.providers.codex]] — imports `TokenUsageAccounting`, `UsageMeter`, `receipt_fields_from_codex_turn`, `usage_from_codex_turn`; statically calls `UsageMeter`, `receipt_fields_from_codex_turn`, `usage_from_codex_turn`
 - [[Reference/Modules/learnloop/ai/providers/codex_http|learnloop.ai.providers.codex_http]] — imports `TokenUsageAccounting`, `receipt_fields_from_chat_response`, `usage_from_chat_response`; statically calls `receipt_fields_from_chat_response`, `usage_from_chat_response`
 - [[Reference/Modules/learnloop/ai/providers/openai_chat|learnloop.ai.providers.openai_chat]] — imports `TokenUsageAccounting`, `receipt_fields_from_chat_response`, `usage_from_chat_response`; statically calls `receipt_fields_from_chat_response`, `usage_from_chat_response`
+- [[Reference/Modules/learnloop/ai/providers/openai_embedding|learnloop.ai.providers.openai_embedding]] — imports `receipt_fields_from_chat_response`; statically calls `receipt_fields_from_chat_response`
 - [[Reference/Modules/learnloop/ai/runs|learnloop.ai.runs]] — imports `TokenUsage`, `consume_client_usage`; statically calls `consume_client_usage`
 - [[Reference/Modules/learnloop/ai/transport|learnloop.ai.transport]] — imports `TokenUsage`
+- [[Reference/Modules/learnloop/cli/ai|learnloop.cli.ai]] — imports `consume_client_usage`; statically calls `consume_client_usage`
 - [[Reference/Modules/learnloop/content/proposals/proposals|learnloop.content.proposals.proposals]] — imports `consume_client_usage`; statically calls `consume_client_usage`
 - [[Reference/Modules/learnloop/content/synthesis/source_set_synthesis|learnloop.content.synthesis.source_set_synthesis]] — imports `TokenUsage`, `UsageMeter`, `consume_client_usage`; statically calls `TokenUsage`, `UsageMeter`, `consume_client_usage`
 - [[Reference/Modules/learnloop/content/synthesis/source_unit_inventory|learnloop.content.synthesis.source_unit_inventory]] — imports `UsageMeter`; statically calls `UsageMeter`
@@ -126,12 +129,13 @@ Use this module in context through:
 - [[Configure AI Providers]]
 - [[Process Model Output]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/ai/providers/codex|learnloop.ai.providers.codex]], [[Reference/Modules/learnloop/ai/providers/codex_http|learnloop.ai.providers.codex_http]], [[Reference/Modules/learnloop/ai/providers/openai_chat|learnloop.ai.providers.openai_chat]], [[Reference/Modules/learnloop/ai/runs|learnloop.ai.runs]], [[Reference/Modules/learnloop/ai/transport|learnloop.ai.transport]] and 5 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/ai/providers/chatgpt_plan|learnloop.ai.providers.chatgpt_plan]], [[Reference/Modules/learnloop/ai/providers/codex|learnloop.ai.providers.codex]], [[Reference/Modules/learnloop/ai/providers/codex_http|learnloop.ai.providers.codex_http]], [[Reference/Modules/learnloop/ai/providers/openai_chat|learnloop.ai.providers.openai_chat]], [[Reference/Modules/learnloop/ai/providers/openai_embedding|learnloop.ai.providers.openai_embedding]] and 8 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
 ## Tests that define behavior
 
+- [tests/facet_identity_fakes.py](../../../../../../tests/facet_identity_fakes.py) — direct import
 - [tests/structured_ai.py](../../../../../../tests/structured_ai.py) — direct import
 - [tests/test_agent_run_tokens.py](../../../../../../tests/test_agent_run_tokens.py) — direct import
   - `test_accounting_state_is_per_instance`
@@ -146,9 +150,12 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_usage_from_chat_response_never_raises`
   - `test_usage_from_codex_turn_prefers_the_thread_total`
   - `test_usage_readers_leave_the_open_receipt_alone`
+- [tests/test_chatgpt_plan_cli.py](../../../../../../tests/test_chatgpt_plan_cli.py) — direct import
+  - `test_latency_stops_a_later_metered_provider_once_the_shared_cap_is_spent`
 - [tests/test_scoreboard.py](../../../../../../tests/test_scoreboard.py) — direct import
   - `test_tokens_metric_reports_the_ratio_over_metered_episodes`
 - [tests/test_vault_epigraphs.py](../../../../../../tests/test_vault_epigraphs.py) — direct import
+- [tests/text_gap_fakes.py](../../../../../../tests/text_gap_fakes.py) — direct import
 
 ## Modification guidance
 

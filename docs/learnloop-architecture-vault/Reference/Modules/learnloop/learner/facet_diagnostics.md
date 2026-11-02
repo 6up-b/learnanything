@@ -7,11 +7,11 @@ version: "1.0.0"
 source_path: "src/learnloop/learner/facet_diagnostics.py"
 source_paths:
   - "src/learnloop/learner/facet_diagnostics.py"
-source_commit: "2f1331ce04afea51266eaa93ae26b8c5ef72517a"
-source_commit_timestamp: "2026-09-23T12:47:57-04:00"
+source_commit: "8012c46b312cda1dd767a7039a531df31816674a"
+source_commit_timestamp: "2026-10-13T01:25:14-04:00"
 source_worktree_state: "clean"
 generated: true
-generated_at: "2026-09-23"
+generated_at: "2026-11-02"
 package: "learnloop.learner"
 layer: "domain"
 concepts:
@@ -39,7 +39,7 @@ Up: [[Reference/Modules/learnloop/learner/_package|learnloop.learner]] · Root: 
 
 ## Why this module exists
 
-This module keeps facet diagnostics behavior inside its owning package, [[Reference/Modules/learnloop/learner/_package|learnloop.learner]]. Its public surface centers on `entropy`, `normalize_distribution`, `candidate_facet_support`, `required_facets`, `scope_facets`, `coverage_denominator_version`, `contract_frontier`, `lo_relative_coverage` and 7 more public symbols.
+This module keeps facet diagnostics behavior inside its owning package, [[Reference/Modules/learnloop/learner/_package|learnloop.learner]]. Its public surface centers on `entropy`, `normalize_distribution`, `candidate_facet_support`, `required_facets`, `scope_facets`, `coverage_denominator_version`, `contract_frontier`, `lo_relative_coverage` and 8 more public symbols.
 
 The authoritative system-level explanation remains in [[Learning System]]; this note records where this source module participates rather than restating those concepts.
 
@@ -50,13 +50,13 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/learner/facet_diagnostics.py](../../../../../../src/learnloop/learner/facet_diagnostics.py) |
-| Source lines | 839 |
+| Source lines | 849 |
 | Owning package | [[Reference/Modules/learnloop/learner/_package|learnloop.learner]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `2f1331ce04afea51266eaa93ae26b8c5ef72517a` |
-| Commit timestamp | `2026-09-23T12:47:57-04:00` |
+| Source commit | `8012c46b312cda1dd767a7039a531df31816674a` |
+| Commit timestamp | `2026-10-13T01:25:14-04:00` |
 
 ## Public API
 
@@ -75,6 +75,7 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 - `facet_state_label(facet_id: str, uncertainty: FacetUncertaintyState | None, recall: FacetRecallState | None, min_evidence_mass: float) -> str` ([source](../../../../../../src/learnloop/learner/facet_diagnostics.py), line 570) — Diagnostic bucket for one required facet.
 - `unresolved_question_facet_counts(vault: LoadedVault, repository: Repository, learning_object_id: str, *, recall_states: Mapping[str, FacetRecallState] | None=None, clock: Clock | None=None) -> dict[str, int]` ([source](../../../../../../src/learnloop/learner/facet_diagnostics.py), line 608) — Recent unresolved tutor questions per facet for one LO.
 - `mastery_diagnostic_view(vault: LoadedVault, repository: Repository, learning_object_id: str, *, clock: Clock | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/learner/facet_diagnostics.py), line 659)
+- `facet_outcome_bucket(outcome: float) -> str` ([source](../../../../../../src/learnloop/learner/facet_diagnostics.py), line 826) — The score bucket the facet updater observes for one facet's outcome.
 
 ### Module constants
 
@@ -94,7 +95,7 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 - `_hedged_facets(evidence_rows: Iterable[Mapping[str, Any] | Any], criterion_facets: Mapping[str, Mapping[str, float]], item_facets: Iterable[str]) -> set[str]` ([source](../../../../../../src/learnloop/learner/facet_diagnostics.py), line 793)
 - `_row_value(row: Mapping[str, Any] | Any, key: str) -> Any` ([source](../../../../../../src/learnloop/learner/facet_diagnostics.py), line 812)
 - `_facet_outcome_bucket(outcome: float) -> str` ([source](../../../../../../src/learnloop/learner/facet_diagnostics.py), line 818)
-- `_raise_entropy_floor(distribution: Mapping[str, float], floor: float) -> dict[str, float]` ([source](../../../../../../src/learnloop/learner/facet_diagnostics.py), line 826)
+- `_raise_entropy_floor(distribution: Mapping[str, float], floor: float) -> dict[str, float]` ([source](../../../../../../src/learnloop/learner/facet_diagnostics.py), line 836)
 
 ## Who imports or calls it
 
@@ -104,20 +105,26 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 - [[Reference/Modules/learnloop/attempts/attempts|learnloop.attempts.attempts]] — imports `apply_mastery_variance_floor`, `build_facet_uncertainty_updates`, `covered_required_fraction`, `lo_relative_coverage`; statically calls `apply_mastery_variance_floor`, `build_facet_uncertainty_updates`, `covered_required_fraction`, `lo_relative_coverage`
 - [[Reference/Modules/learnloop/attempts/measurement_corrections|learnloop.attempts.measurement_corrections]] — imports `coverage_denominator_version`; statically calls `coverage_denominator_version`
 - [[Reference/Modules/learnloop/curriculum/integration_backfill|learnloop.curriculum.integration_backfill]] — imports `coverage_denominator_version`; statically calls `coverage_denominator_version`
+- [[Reference/Modules/learnloop/daily_plan/headline|learnloop.daily_plan.headline]] — imports `scope_facets`; statically calls `scope_facets`
 - [[Reference/Modules/learnloop/diagnosis/followups|learnloop.diagnosis.followups]] — imports `candidate_facet_support`; statically calls `candidate_facet_support`
 - [[Reference/Modules/learnloop/diagnosis/predictive_eig|learnloop.diagnosis.predictive_eig]] — imports `candidate_facet_support`; statically calls `candidate_facet_support`
 - [[Reference/Modules/learnloop/diagnosis/probe_episodes|learnloop.diagnosis.probe_episodes]] — imports `required_facets`; statically calls `required_facets`
+- [[Reference/Modules/learnloop/diagnosis/voi_forecasting|learnloop.diagnosis.voi_forecasting]] — imports `candidate_facet_support`; statically calls `candidate_facet_support`
+- [[Reference/Modules/learnloop/evsi_calibration/forecast_report|learnloop.evsi_calibration.forecast_report]] — imports `facet_outcome_bucket`; statically calls `facet_outcome_bucket`
+- [[Reference/Modules/learnloop/evsi_calibration/live_report|learnloop.evsi_calibration.live_report]] — imports `facet_outcome_bucket`; statically calls `facet_outcome_bucket`
 - [[Reference/Modules/learnloop/goals/goal_projection|learnloop.goals.goal_projection]] — imports `facet_state_label`, `scope_facets`; statically calls `facet_state_label`, `scope_facets`
+- [[Reference/Modules/learnloop/intent/deadline|learnloop.intent.deadline]] — imports `scope_facets`; statically calls `scope_facets`
 - [[Reference/Modules/learnloop/learner/capability_grid|learnloop.learner.capability_grid]] — imports `required_facets`; statically calls `required_facets`
 - [[Reference/Modules/learnloop/sim/metrics|learnloop.sim.metrics]] — imports `mastery_diagnostic_view`; statically calls `mastery_diagnostic_view`
 - [[Reference/Modules/learnloop/sim/runner|learnloop.sim.runner]] — imports `mastery_diagnostic_view`; statically calls `mastery_diagnostic_view`
+- [[Reference/Modules/learnloop/source_retrieval/deliverables|learnloop.source_retrieval.deliverables]] — imports `scope_facets`; statically calls `scope_facets`
 - [[Reference/Modules/learnloop/substrate/canonical_projection_rollout|learnloop.substrate.canonical_projection_rollout]] — imports `coverage_denominator_version`; statically calls `coverage_denominator_version`
 - [[Reference/Modules/learnloop/substrate/p0_projection|learnloop.substrate.p0_projection]] — imports `coverage_denominator_version`; statically calls `coverage_denominator_version`
 - [[Reference/Modules/learnloop/substrate/rebuild_orchestrator|learnloop.substrate.rebuild_orchestrator]] — imports `coverage_denominator_version`; statically calls `coverage_denominator_version`
 - [[Reference/Modules/learnloop/substrate/replay|learnloop.substrate.replay]] — imports `coverage_denominator_version`; statically calls `coverage_denominator_version`
 - [[Reference/Modules/learnloop/tutor/question_signal|learnloop.tutor.question_signal]] — imports `entropy`, `facet_state_label`, `normalize_distribution`; statically calls `entropy`, `facet_state_label`, `normalize_distribution`
 - [[Reference/Modules/learnloop/tutor/teach_back|learnloop.tutor.teach_back]] — imports `mastery_diagnostic_view`, `required_facets`; statically calls `mastery_diagnostic_view`, `required_facets`
-- [[Reference/Modules/learnloop/tutor/tutor_qa|learnloop.tutor.tutor_qa]] — imports `required_facets`; statically calls `required_facets`
+- [[Reference/Modules/learnloop/tutor/tutor_qa|learnloop.tutor.tutor_qa]] — imports `required_facets`, `scope_facets`; statically calls `required_facets`, `scope_facets`
 - [[Reference/Modules/learnloop_sidecar/context|learnloop_sidecar.context]] — imports `mastery_diagnostic_view`; statically calls `mastery_diagnostic_view`
 - [[Reference/Modules/learnloop_sidecar/handlers/facets|learnloop_sidecar.handlers.facets]] — imports `mastery_diagnostic_view`; statically calls `mastery_diagnostic_view`
 
@@ -149,7 +156,7 @@ Use this module in context through:
 - [[Inspect Persistent State]]
 - [[Start a Learning Cycle]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/attempts/attempts|learnloop.attempts.attempts]], [[Reference/Modules/learnloop/attempts/measurement_corrections|learnloop.attempts.measurement_corrections]], [[Reference/Modules/learnloop/curriculum/integration_backfill|learnloop.curriculum.integration_backfill]], [[Reference/Modules/learnloop/diagnosis/followups|learnloop.diagnosis.followups]], [[Reference/Modules/learnloop/diagnosis/predictive_eig|learnloop.diagnosis.predictive_eig]] and 14 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/attempts/attempts|learnloop.attempts.attempts]], [[Reference/Modules/learnloop/attempts/measurement_corrections|learnloop.attempts.measurement_corrections]], [[Reference/Modules/learnloop/curriculum/integration_backfill|learnloop.curriculum.integration_backfill]], [[Reference/Modules/learnloop/daily_plan/headline|learnloop.daily_plan.headline]], [[Reference/Modules/learnloop/diagnosis/followups|learnloop.diagnosis.followups]] and 20 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 

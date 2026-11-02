@@ -11,7 +11,7 @@ source_commit: "b322ef2e9b5cebc241b612e4963a5aaf1a37f99a"
 source_commit_timestamp: "2026-08-20T18:04:29-04:00"
 source_worktree_state: "clean"
 generated: true
-generated_at: "2026-09-23"
+generated_at: "2026-11-02"
 package: "learnloop.attempts"
 layer: "domain"
 concepts:
@@ -112,6 +112,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_measurement_corrections.py](../../../../../../tests/test_measurement_corrections.py) — direct import
   - `test_attempted_item_correction_is_append_only_and_projection_versioned`
   - `test_historical_reinterpretation_rejects_a_changed_task`
+- [tests/test_state_sync_scheduling_race.py](../../../../../../tests/test_state_sync_scheduling_race.py) — direct import
+  - `test_a_measurement_correction_after_the_lifecycle_reads_keeps_the_original_retired`
 
 ## Modification guidance
 

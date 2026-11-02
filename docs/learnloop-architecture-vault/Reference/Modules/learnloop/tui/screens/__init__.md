@@ -11,7 +11,7 @@ source_commit: "4b62bc29c46b5f2b8cabe5ac49c9959429cc3ab7"
 source_commit_timestamp: "2026-05-19T19:15:00-04:00"
 source_worktree_state: "clean"
 generated: true
-generated_at: "2026-09-23"
+generated_at: "2026-11-02"
 package: "learnloop.tui.screens"
 layer: "adapter"
 concepts:
@@ -95,10 +95,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
-No direct or one-hop consumer test was found by static import analysis.
-
-> [!caution] Test gap signal
-> Treat this as a navigation signal, not proof that behavior is untested: dynamic and higher-level coverage is outside this static map. Add focused coverage when changing isolated behavior here.
+- [tests/test_daily_loop_start_minutes.py](../../../../../../../tests/test_daily_loop_start_minutes.py) — direct import
+  - `test_tui_start_asks_for_minutes_only_and_starts_on_the_remembered_minutes`
 
 ## Modification guidance
 

@@ -6,17 +6,22 @@ refactor_status: "ACTIVE"
 version: "1.0.0"
 source_paths:
   - "src/learnloop/ai/providers/__init__.py"
+  - "src/learnloop/ai/providers/chatgpt_plan.py"
   - "src/learnloop/ai/providers/codex.py"
   - "src/learnloop/ai/providers/codex_http.py"
+  - "src/learnloop/ai/providers/codex_lockdown.py"
+  - "src/learnloop/ai/providers/decider.py"
   - "src/learnloop/ai/providers/openai_chat.py"
+  - "src/learnloop/ai/providers/openai_embedding.py"
   - "src/learnloop/ai/providers/openrouter.py"
   - "src/learnloop/ai/providers/openrouter_catalog.py"
   - "src/learnloop/ai/providers/openrouter_video.py"
   - "src/learnloop/ai/providers/structured_output.py"
+  - "src/learnloop/ai/providers/voyage_contextual.py"
 source_commit: "aggregate; see module notes"
-source_commit_timestamp: "2026-09-23T12:25:12-04:00"
+source_commit_timestamp: "2026-11-01T13:49:42-05:00"
 generated: true
-generated_at: "2026-09-23"
+generated_at: "2026-11-02"
 package: "learnloop.ai.providers"
 layer: "infrastructure"
 concepts:
@@ -52,28 +57,43 @@ For system intent, use [[AI Architecture]], [[Architecture Overview]].
 | Module | Purpose | Status | Direct importers | Direct test files |
 |---|---|---:|---:|---:|
 | [[Reference/Modules/learnloop/ai/providers/__init__|learnloop.ai.providers]] | [[Reference/Modules/learnloop/ai/providers/__init__#^module-purpose|purpose]] | `ACTIVE` | 0 | 0 |
-| [[Reference/Modules/learnloop/ai/providers/codex|learnloop.ai.providers.codex]] | [[Reference/Modules/learnloop/ai/providers/codex#^module-purpose|purpose]] | `ACTIVE` | 6 | 13 |
-| [[Reference/Modules/learnloop/ai/providers/codex_http|learnloop.ai.providers.codex_http]] | [[Reference/Modules/learnloop/ai/providers/codex_http#^module-purpose|purpose]] | `ACTIVE` | 2 | 4 |
-| [[Reference/Modules/learnloop/ai/providers/openai_chat|learnloop.ai.providers.openai_chat]] | [[Reference/Modules/learnloop/ai/providers/openai_chat#^module-purpose|purpose]] | `ACTIVE` | 2 | 7 |
-| [[Reference/Modules/learnloop/ai/providers/openrouter|learnloop.ai.providers.openrouter]] | [[Reference/Modules/learnloop/ai/providers/openrouter#^module-purpose|purpose]] | `ACTIVE` | 2 | 2 |
+| [[Reference/Modules/learnloop/ai/providers/chatgpt_plan|learnloop.ai.providers.chatgpt_plan]] | [[Reference/Modules/learnloop/ai/providers/chatgpt_plan#^module-purpose|purpose]] | `ACTIVE` | 3 | 4 |
+| [[Reference/Modules/learnloop/ai/providers/codex|learnloop.ai.providers.codex]] | [[Reference/Modules/learnloop/ai/providers/codex#^module-purpose|purpose]] | `ACTIVE` | 7 | 31 |
+| [[Reference/Modules/learnloop/ai/providers/codex_http|learnloop.ai.providers.codex_http]] | [[Reference/Modules/learnloop/ai/providers/codex_http#^module-purpose|purpose]] | `ACTIVE` | 2 | 6 |
+| [[Reference/Modules/learnloop/ai/providers/codex_lockdown|learnloop.ai.providers.codex_lockdown]] | [[Reference/Modules/learnloop/ai/providers/codex_lockdown#^module-purpose|purpose]] | `ACTIVE` | 4 | 8 |
+| [[Reference/Modules/learnloop/ai/providers/decider|learnloop.ai.providers.decider]] | [[Reference/Modules/learnloop/ai/providers/decider#^module-purpose|purpose]] | `ACTIVE` | 6 | 5 |
+| [[Reference/Modules/learnloop/ai/providers/openai_chat|learnloop.ai.providers.openai_chat]] | [[Reference/Modules/learnloop/ai/providers/openai_chat#^module-purpose|purpose]] | `ACTIVE` | 3 | 16 |
+| [[Reference/Modules/learnloop/ai/providers/openai_embedding|learnloop.ai.providers.openai_embedding]] | [[Reference/Modules/learnloop/ai/providers/openai_embedding#^module-purpose|purpose]] | `ACTIVE` | 6 | 11 |
+| [[Reference/Modules/learnloop/ai/providers/openrouter|learnloop.ai.providers.openrouter]] | [[Reference/Modules/learnloop/ai/providers/openrouter#^module-purpose|purpose]] | `ACTIVE` | 2 | 7 |
 | [[Reference/Modules/learnloop/ai/providers/openrouter_catalog|learnloop.ai.providers.openrouter_catalog]] | [[Reference/Modules/learnloop/ai/providers/openrouter_catalog#^module-purpose|purpose]] | `ACTIVE` | 1 | 2 |
 | [[Reference/Modules/learnloop/ai/providers/openrouter_video|learnloop.ai.providers.openrouter_video]] | [[Reference/Modules/learnloop/ai/providers/openrouter_video#^module-purpose|purpose]] | `ACTIVE` | 2 | 2 |
 | [[Reference/Modules/learnloop/ai/providers/structured_output|learnloop.ai.providers.structured_output]] | [[Reference/Modules/learnloop/ai/providers/structured_output#^module-purpose|purpose]] | `ACTIVE` | 1 | 0 |
+| [[Reference/Modules/learnloop/ai/providers/voyage_contextual|learnloop.ai.providers.voyage_contextual]] | [[Reference/Modules/learnloop/ai/providers/voyage_contextual#^module-purpose|purpose]] | `ACTIVE` | 2 | 1 |
 
 ## Cross-package dependencies
 
 ### This package imports
 
-- [[Reference/Modules/learnloop/ai/_package|learnloop.ai]] — 20 static module edges
-- [[Reference/Modules/learnloop/config/_package|learnloop.config]] — 6 static module edges
+- [[Reference/Modules/learnloop/ai/_package|learnloop.ai]] — 43 static module edges
+- [[Reference/Modules/learnloop/config/_package|learnloop.config]] — 12 static module edges
+- [[Reference/Modules/learnloop/ai/chatgpt_plan/_package|learnloop.ai.chatgpt_plan]] — 5 static module edges
 
 ### Packages that import this package
 
-- [[Reference/Modules/learnloop/ai/_package|learnloop.ai]] — 6 static module edges
+- [[Reference/Modules/learnloop/ai/_package|learnloop.ai]] — 12 static module edges
+- [[Reference/Modules/learnloop/experiments/contextual_embeddings/_package|learnloop.experiments.contextual_embeddings]] — 3 static module edges
 - [[Reference/Modules/learnloop/attempts/_package|learnloop.attempts]] — 2 static module edges
+- [[Reference/Modules/learnloop/cli/_package|learnloop.cli]] — 2 static module edges
+- [[Reference/Modules/learnloop/ops/_package|learnloop.ops]] — 2 static module edges
+- [[Reference/Modules/learnloop/source_retrieval/_package|learnloop.source_retrieval]] — 2 static module edges
+- [[Reference/Modules/learnloop_sidecar/handlers/_package|learnloop_sidecar.handlers]] — 2 static module edges
+- [[Reference/Modules/learnloop/adaptive_difficulty/_package|learnloop.adaptive_difficulty]] — 1 static module edge
 - [[Reference/Modules/learnloop/content/authoring/_package|learnloop.content.authoring]] — 1 static module edge
-- [[Reference/Modules/learnloop/ops/_package|learnloop.ops]] — 1 static module edge
-- [[Reference/Modules/learnloop_sidecar/handlers/_package|learnloop_sidecar.handlers]] — 1 static module edge
+- [[Reference/Modules/learnloop/daily_plan/_package|learnloop.daily_plan]] — 1 static module edge
+- [[Reference/Modules/learnloop/diagnosis/offline_review/_package|learnloop.diagnosis.offline_review]] — 1 static module edge
+- [[Reference/Modules/learnloop/diagnosis/recurrence/_package|learnloop.diagnosis.recurrence]] — 1 static module edge
+- [[Reference/Modules/learnloop/experiments/contextual_embeddings/e1/_package|learnloop.experiments.contextual_embeddings.e1]] — 1 static module edge
+- [[Reference/Modules/learnloop/instructional/_package|learnloop.instructional]] — 1 static module edge
 
 ### Dependency neighborhood
 
@@ -84,17 +104,25 @@ flowchart LR
     center["learnloop.ai.providers"]
     n_learnloop_ai["learnloop.ai"]
     n_learnloop_config["learnloop.config"]
+    n_learnloop_ai_chatgpt_plan["learnloop.ai.chatgpt_plan"]
+    n_learnloop_experiments_contextual_embeddings["learnloop.experiments.contextual_embeddings"]
     n_learnloop_attempts["learnloop.attempts"]
-    n_learnloop_content_authoring["learnloop.content.authoring"]
+    n_learnloop_cli["learnloop.cli"]
     n_learnloop_ops["learnloop.ops"]
+    n_learnloop_source_retrieval["learnloop.source_retrieval"]
     n_learnloop_sidecar_handlers["learnloop_sidecar.handlers"]
-    n_learnloop_ai -->|6| center
-    center -->|20| n_learnloop_ai
-    center -->|6| n_learnloop_config
+    n_learnloop_adaptive_difficulty["learnloop.adaptive_difficulty"]
+    n_learnloop_ai -->|12| center
+    center -->|43| n_learnloop_ai
+    center -->|12| n_learnloop_config
+    center -->|5| n_learnloop_ai_chatgpt_plan
+    n_learnloop_experiments_contextual_embeddings -->|3| center
     n_learnloop_attempts -->|2| center
-    n_learnloop_content_authoring -->|1| center
-    n_learnloop_ops -->|1| center
-    n_learnloop_sidecar_handlers -->|1| center
+    n_learnloop_cli -->|2| center
+    n_learnloop_ops -->|2| center
+    n_learnloop_source_retrieval -->|2| center
+    n_learnloop_sidecar_handlers -->|2| center
+    n_learnloop_adaptive_difficulty -->|1| center
 ```
 
 Interpretation: arrow direction is static import direction and the label is the number of distinct module-to-module edges. It shows coupling pressure, not runtime call frequency or ownership permission.

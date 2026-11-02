@@ -297,11 +297,15 @@ def main() -> int:
             test_section = body.partition("## Tests that define behavior")[2].partition(
                 "## Modification guidance"
             )[0]
-            test_cases = re.findall(r"^  - `([^`]+)`\s*$", test_section, re.MULTILINE)
-            if len(test_cases) != len(set(test_cases)):
-                errors.append(
-                    f"{path.relative_to(REPO_ROOT)}: duplicate test-case anchors in test section"
-                )
+            # Test cases are listed under their test file's bullet: a name repeated within one file's
+            # list is a duplicate; the same name in two test files is two tests (followups batch 5, J).
+            for test_file_block in re.split(r"^- ", test_section, flags=re.MULTILINE)[1:]:
+                test_cases = re.findall(r"^  - `([^`]+)`\s*$", test_file_block, re.MULTILINE)
+                if len(test_cases) != len(set(test_cases)):
+                    errors.append(
+                        f"{path.relative_to(REPO_ROOT)}: duplicate test-case anchors in test section"
+                    )
+                    break
             if (
                 frontmatter.get("refactor_status") == "DORMANT"
                 and frontmatter.get("workflows")

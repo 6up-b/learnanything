@@ -7,11 +7,11 @@ version: "1.0.0"
 source_path: "src/learnloop/content/synthesis/append_neighborhood.py"
 source_paths:
   - "src/learnloop/content/synthesis/append_neighborhood.py"
-source_commit: "b322ef2e9b5cebc241b612e4963a5aaf1a37f99a"
-source_commit_timestamp: "2026-08-20T18:04:29-04:00"
+source_commit: "3fa780b50a46ea4a95ff64fad57ff6e27e904dbd"
+source_commit_timestamp: "2026-10-13T02:46:02-04:00"
 source_worktree_state: "clean"
 generated: true
-generated_at: "2026-09-23"
+generated_at: "2026-11-02"
 package: "learnloop.content.synthesis"
 layer: "domain"
 concepts:
@@ -51,40 +51,41 @@ The authoritative system-level explanation remains in [[Learning System]], [[AI 
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/content/synthesis/append_neighborhood.py](../../../../../../../src/learnloop/content/synthesis/append_neighborhood.py) |
-| Source lines | 472 |
+| Source lines | 542 |
 | Owning package | [[Reference/Modules/learnloop/content/synthesis/_package|learnloop.content.synthesis]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `b322ef2e9b5cebc241b612e4963a5aaf1a37f99a` |
-| Commit timestamp | `2026-08-20T18:04:29-04:00` |
+| Source commit | `3fa780b50a46ea4a95ff64fad57ff6e27e904dbd` |
+| Commit timestamp | `2026-10-13T02:46:02-04:00` |
 
 ## Public API
 
-- `class MatchReason` ([source](../../../../../../../src/learnloop/content/synthesis/append_neighborhood.py), line 65)
-- `class Neighborhood` ([source](../../../../../../../src/learnloop/content/synthesis/append_neighborhood.py), line 72) — The bounded existing-map neighborhood sent to append reconciliation.
-  - `as_context(self) -> dict[str, Any]` (line 94; public) — The compact dict placed in the reconciliation prompt context.
-  - `as_manifest_record(self) -> dict[str, Any]` (line 110; public)
-  - `entity_refs(self) -> set[str]` (line 120; public)
-- `extract_new_signals(new_inventories: list[dict[str, Any]], *, source_ids: Iterable[str]=(), revision_ids: Iterable[str]=()) -> _NewSignals` ([source](../../../../../../../src/learnloop/content/synthesis/append_neighborhood.py), line 143) — Pull the deterministic match signals out of the new/changed inventories.
-- `select_neighborhood(vault: LoadedVault, repository: Repository, new_inventories: list[dict[str, Any]], *, budget_tokens: int, source_ids: Iterable[str]=(), revision_ids: Iterable[str]=(), fingerprint_threshold: float=0.25, loose_threshold: float=0.12) -> Neighborhood` ([source](../../../../../../../src/learnloop/content/synthesis/append_neighborhood.py), line 195) — Select the bounded affected-map neighborhood (deterministic, §10.1/§3.2).
+- `class MatchReason` ([source](../../../../../../../src/learnloop/content/synthesis/append_neighborhood.py), line 72)
+- `class Neighborhood` ([source](../../../../../../../src/learnloop/content/synthesis/append_neighborhood.py), line 79) — The bounded existing-map neighborhood sent to append reconciliation.
+  - `as_context(self) -> dict[str, Any]` (line 105; public) — The compact dict placed in the reconciliation prompt context.
+  - `as_manifest_record(self) -> dict[str, Any]` (line 120; public)
+  - `entity_refs(self) -> set[str]` (line 133; public)
+- `extract_new_signals(new_inventories: list[dict[str, Any]], *, source_ids: Iterable[str]=(), revision_ids: Iterable[str]=()) -> _NewSignals` ([source](../../../../../../../src/learnloop/content/synthesis/append_neighborhood.py), line 156) — Pull the deterministic match signals out of the new/changed inventories.
+- `select_neighborhood(vault: LoadedVault, repository: Repository, new_inventories: list[dict[str, Any]], *, budget_tokens: int, source_ids: Iterable[str]=(), revision_ids: Iterable[str]=(), fingerprint_threshold: float=0.25, loose_threshold: float=0.12, nominator: Any=None) -> Neighborhood` ([source](../../../../../../../src/learnloop/content/synthesis/append_neighborhood.py), line 208) — Select the bounded affected-map neighborhood (deterministic, §10.1/§3.2).
 
 ### Module constants
 
-- `_TOKEN_RE` ([src/learnloop/content/synthesis/append_neighborhood.py](../../../../../../../src/learnloop/content/synthesis/append_neighborhood.py), line 36)
-- `_STOPWORDS` ([src/learnloop/content/synthesis/append_neighborhood.py](../../../../../../../src/learnloop/content/synthesis/append_neighborhood.py), line 37)
+- `_TOKEN_RE` ([src/learnloop/content/synthesis/append_neighborhood.py](../../../../../../../src/learnloop/content/synthesis/append_neighborhood.py), line 43)
+- `_STOPWORDS` ([src/learnloop/content/synthesis/append_neighborhood.py](../../../../../../../src/learnloop/content/synthesis/append_neighborhood.py), line 44)
 
 ## Internal implementation anchors
 
-- `_tokens(text: str) -> set[str]` ([source](../../../../../../../src/learnloop/content/synthesis/append_neighborhood.py), line 46)
-- `_jaccard(left: set[str], right: set[str]) -> float` ([source](../../../../../../../src/learnloop/content/synthesis/append_neighborhood.py), line 50)
-- `_estimate_tokens(obj: Any) -> int` ([source](../../../../../../../src/learnloop/content/synthesis/append_neighborhood.py), line 57)
-- `class _NewSignals` ([source](../../../../../../../src/learnloop/content/synthesis/append_neighborhood.py), line 128)
-- `_hash_entity(payload: dict[str, Any]) -> str` ([source](../../../../../../../src/learnloop/content/synthesis/append_neighborhood.py), line 190)
-- `_provenance_matched_entities(repository: Repository, signals: _NewSignals) -> dict[str, MatchReason]` ([source](../../../../../../../src/learnloop/content/synthesis/append_neighborhood.py), line 274)
-- `_unresolved_candidates(signals: _NewSignals, scored: dict[str, tuple[float, list[MatchReason]]]) -> list[str]` ([source](../../../../../../../src/learnloop/content/synthesis/append_neighborhood.py), line 294) — Concept names in the new inventory that matched no existing entity yet.
-- `_materialize(vault: LoadedVault, repository: Repository, ordered: list[tuple[str, tuple[float, list[MatchReason]]]], *, budget_tokens: int, rounds: int) -> Neighborhood` ([source](../../../../../../../src/learnloop/content/synthesis/append_neighborhood.py), line 304)
-- `_facet_contract(facet: Any) -> dict[str, Any]` ([source](../../../../../../../src/learnloop/content/synthesis/append_neighborhood.py), line 460)
+- `_tokens(text: str) -> set[str]` ([source](../../../../../../../src/learnloop/content/synthesis/append_neighborhood.py), line 53)
+- `_jaccard(left: set[str], right: set[str]) -> float` ([source](../../../../../../../src/learnloop/content/synthesis/append_neighborhood.py), line 57)
+- `_estimate_tokens(obj: Any) -> int` ([source](../../../../../../../src/learnloop/content/synthesis/append_neighborhood.py), line 64)
+- `class _NewSignals` ([source](../../../../../../../src/learnloop/content/synthesis/append_neighborhood.py), line 141)
+- `_hash_entity(payload: dict[str, Any]) -> str` ([source](../../../../../../../src/learnloop/content/synthesis/append_neighborhood.py), line 203)
+- `_embedding_reasons(nominator: Any, new_inventories: list[dict[str, Any]]) -> dict[str, MatchReason]` ([source](../../../../../../../src/learnloop/content/synthesis/append_neighborhood.py), line 306) — The top-k definition-embedding neighbours of the new material (T5).
+- `_provenance_matched_entities(repository: Repository, signals: _NewSignals) -> dict[str, MatchReason]` ([source](../../../../../../../src/learnloop/content/synthesis/append_neighborhood.py), line 351)
+- `_unresolved_candidates(signals: _NewSignals, scored: dict[str, tuple[float, list[MatchReason]]]) -> list[str]` ([source](../../../../../../../src/learnloop/content/synthesis/append_neighborhood.py), line 371) — Concept names in the new inventory that matched no existing entity yet.
+- `_materialize(vault: LoadedVault, repository: Repository, ordered: list[tuple[str, tuple[float, list[MatchReason]]]], *, budget_tokens: int, rounds: int) -> Neighborhood` ([source](../../../../../../../src/learnloop/content/synthesis/append_neighborhood.py), line 381)
+- `_facet_contract(facet: Any) -> dict[str, Any]` ([source](../../../../../../../src/learnloop/content/synthesis/append_neighborhood.py), line 530)
 
 ## Who imports or calls it
 
@@ -97,7 +98,7 @@ The authoritative system-level explanation remains in [[Learning System]], [[AI 
 
 ### LearnLoop dependencies
 
-- [[Reference/Modules/learnloop/curriculum/curriculum_locks|learnloop.curriculum.curriculum_locks]] — imports `identity_locks`; calls `identity_locks`
+- [[Reference/Modules/learnloop/content/synthesis/graph_nomination|learnloop.content.synthesis.graph_nomination]] — imports `CONCEPT_RECIPE`, `FACET_RECIPE`, `inventory_queries`, `undefined_concept_mentions`; calls `inventory_queries`, `undefined_concept_mentions`
 - [[Reference/Modules/learnloop/db/repositories|learnloop.db.repositories]] — imports `Repository`
 - [[Reference/Modules/learnloop/vault/models|learnloop.vault.models]] — imports `LoadedVault`
 
@@ -119,6 +120,11 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
+- [tests/test_graph_nomination.py](../../../../../../../tests/test_graph_nomination.py) — direct import
+  - `test_append_neighbourhood_unions_embedding_nominations_after_lexical`
+  - `test_append_neighbourhood_without_vectors_is_the_lexical_selection`
+  - `test_concept_queries_carry_their_linked_definitions`
+  - `test_dry_run_counts_the_calls_each_query_group_sends`
 - [tests/test_source_append.py](../../../../../../../tests/test_source_append.py) — direct import
   - `test_append_context_bounded_by_neighborhood`
   - `test_planted_full_map_resend_fails_scaling_gate`

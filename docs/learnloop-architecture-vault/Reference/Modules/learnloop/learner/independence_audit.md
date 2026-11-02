@@ -11,7 +11,7 @@ source_commit: "b322ef2e9b5cebc241b612e4963a5aaf1a37f99a"
 source_commit_timestamp: "2026-08-20T18:04:29-04:00"
 source_worktree_state: "clean"
 generated: true
-generated_at: "2026-09-23"
+generated_at: "2026-11-02"
 package: "learnloop.learner"
 layer: "domain"
 concepts:
@@ -116,18 +116,18 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 No test imports this module directly. These tests exercise a direct production consumer:
 
-- [tests/test_causal_attribution_p1.py](../../../../../../tests/test_causal_attribution_p1.py) — imports consumer [[Reference/Modules/learnloop/cli/app|learnloop.cli.app]]
-- [tests/test_causal_trace_consistency_p2.py](../../../../../../tests/test_causal_trace_consistency_p2.py) — imports consumer [[Reference/Modules/learnloop/cli/app|learnloop.cli.app]]
-- [tests/test_certification_cold_probe.py](../../../../../../tests/test_certification_cold_probe.py) — imports consumer [[Reference/Modules/learnloop/cli/app|learnloop.cli.app]]
-- [tests/test_cli_attempt.py](../../../../../../tests/test_cli_attempt.py) — imports consumer [[Reference/Modules/learnloop/cli/app|learnloop.cli.app]]
-- [tests/test_cli_commands.py](../../../../../../tests/test_cli_commands.py) — imports consumer [[Reference/Modules/learnloop/cli/app|learnloop.cli.app]]
-- [tests/test_cli_entrypoint.py](../../../../../../tests/test_cli_entrypoint.py) — imports consumer [[Reference/Modules/learnloop/cli/app|learnloop.cli.app]]
-- [tests/test_cli_fit.py](../../../../../../tests/test_cli_fit.py) — imports consumer [[Reference/Modules/learnloop/cli/app|learnloop.cli.app]]
-- [tests/test_cli_generate_practice.py](../../../../../../tests/test_cli_generate_practice.py) — imports consumer [[Reference/Modules/learnloop/cli/app|learnloop.cli.app]]
-- [tests/test_cli_help_snapshot.py](../../../../../../tests/test_cli_help_snapshot.py) — imports consumer [[Reference/Modules/learnloop/cli/app|learnloop.cli.app]]
-- [tests/test_cli_ingest.py](../../../../../../tests/test_cli_ingest.py) — imports consumer [[Reference/Modules/learnloop/cli/app|learnloop.cli.app]]
-- [tests/test_cli_json.py](../../../../../../tests/test_cli_json.py) — imports consumer [[Reference/Modules/learnloop/cli/app|learnloop.cli.app]]
-- [tests/test_cli_observations.py](../../../../../../tests/test_cli_observations.py) — imports consumer [[Reference/Modules/learnloop/cli/app|learnloop.cli.app]]
+- [tests/test_ad1_outside_and_cli.py](../../../../../../tests/test_ad1_outside_and_cli.py) — imports consumer [[Reference/Modules/learnloop/cli/app|learnloop.cli.app]]
+- [tests/test_ad23_contract.py](../../../../../../tests/test_ad23_contract.py) — imports consumer [[Reference/Modules/learnloop/cli/app|learnloop.cli.app]]
+- [tests/test_ad23_successor.py](../../../../../../tests/test_ad23_successor.py) — imports consumer [[Reference/Modules/learnloop/cli/app|learnloop.cli.app]]
+- [tests/test_ad3_monitoring.py](../../../../../../tests/test_ad3_monitoring.py) — imports consumer [[Reference/Modules/learnloop/cli/app|learnloop.cli.app]]
+- [tests/test_ad3_relatedness.py](../../../../../../tests/test_ad3_relatedness.py) — imports consumer [[Reference/Modules/learnloop/cli/app|learnloop.cli.app]]
+- [tests/test_ad_denial_log.py](../../../../../../tests/test_ad_denial_log.py) — imports consumer [[Reference/Modules/learnloop/cli/app|learnloop.cli.app]]
+- [tests/test_ai_compare.py](../../../../../../tests/test_ai_compare.py) — imports consumer [[Reference/Modules/learnloop/cli/app|learnloop.cli.app]]
+- [tests/test_approach_maps.py](../../../../../../tests/test_approach_maps.py) — imports consumer [[Reference/Modules/learnloop/cli/app|learnloop.cli.app]]
+- [tests/test_attempt_content_state_successor.py](../../../../../../tests/test_attempt_content_state_successor.py) — imports consumer [[Reference/Modules/learnloop/cli/app|learnloop.cli.app]]
+- [tests/test_auto_build_spend_report.py](../../../../../../tests/test_auto_build_spend_report.py) — imports consumer [[Reference/Modules/learnloop/cli/app|learnloop.cli.app]]
+- [tests/test_batch3_landing.py](../../../../../../tests/test_batch3_landing.py) — imports consumer [[Reference/Modules/learnloop/cli/app|learnloop.cli.app]]
+- [tests/test_capture_desktop.py](../../../../../../tests/test_capture_desktop.py) — imports consumer [[Reference/Modules/learnloop/cli/app|learnloop.cli.app]]
 
 ## Modification guidance
 

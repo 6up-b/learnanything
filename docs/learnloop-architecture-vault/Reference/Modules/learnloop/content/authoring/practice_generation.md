@@ -7,11 +7,11 @@ version: "1.0.0"
 source_path: "src/learnloop/content/authoring/practice_generation.py"
 source_paths:
   - "src/learnloop/content/authoring/practice_generation.py"
-source_commit: "b322ef2e9b5cebc241b612e4963a5aaf1a37f99a"
-source_commit_timestamp: "2026-08-20T18:04:29-04:00"
+source_commit: "7216efcfa19a120d877b7922dbc4fd17850251d7"
+source_commit_timestamp: "2026-10-23T18:07:12-04:00"
 source_worktree_state: "clean"
 generated: true
-generated_at: "2026-09-23"
+generated_at: "2026-11-02"
 package: "learnloop.content.authoring"
 layer: "domain"
 concepts:
@@ -51,87 +51,99 @@ The authoritative system-level explanation remains in [[Learning System]], [[AI 
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/content/authoring/practice_generation.py](../../../../../../../src/learnloop/content/authoring/practice_generation.py) |
-| Source lines | 2202 |
+| Source lines | 2438 |
 | Owning package | [[Reference/Modules/learnloop/content/authoring/_package|learnloop.content.authoring]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `b322ef2e9b5cebc241b612e4963a5aaf1a37f99a` |
-| Commit timestamp | `2026-08-20T18:04:29-04:00` |
+| Source commit | `7216efcfa19a120d877b7922dbc4fd17850251d7` |
+| Commit timestamp | `2026-10-23T18:07:12-04:00` |
 
 ## Public API
 
-- `class PracticeExpansionTarget` ([source](../../../../../../../src/learnloop/content/authoring/practice_generation.py), line 46)
-  - `as_dict(self) -> dict[str, Any]` (line 93; public)
-- `class PracticeExpansionPlan` ([source](../../../../../../../src/learnloop/content/authoring/practice_generation.py), line 129)
-  - `requested_new_items(self) -> int` (line 133; public)
-  - `as_dict(self) -> dict[str, Any]` (line 136; public)
-- `class PracticeExpansionResult` ([source](../../../../../../../src/learnloop/content/authoring/practice_generation.py), line 156)
-  - `as_dict(self) -> dict[str, Any]` (line 169; public)
-- `class PracticeExpansionError(ValueError)` ([source](../../../../../../../src/learnloop/content/authoring/practice_generation.py), line 180)
-- `class DiagnosticPracticeTarget` ([source](../../../../../../../src/learnloop/content/authoring/practice_generation.py), line 185)
-  - `as_dict(self) -> dict[str, Any]` (line 205; public)
-- `class DiagnosticPracticePlan` ([source](../../../../../../../src/learnloop/content/authoring/practice_generation.py), line 229)
-  - `requested_new_items(self) -> int` (line 233; public)
-  - `as_dict(self) -> dict[str, Any]` (line 236; public)
-- `class DiagnosticPracticeResult` ([source](../../../../../../../src/learnloop/content/authoring/practice_generation.py), line 244)
-  - `as_dict(self) -> dict[str, Any]` (line 256; public)
-- `build_practice_expansion_plan(vault: LoadedVault, repository: Repository, *, subjects: list[str] | None=None, target_items_per_lo: int=5, max_new_per_lo: int=3, max_los: int | None=None, focus_concepts: list[str] | None=None, learning_object_ids: list[str] | None=None, mode_mix: dict[str, int] | None=None, require_completed_probe: bool=True, exclude_item_ids: set[str] | None=None, force_named_targets: bool=True) -> PracticeExpansionPlan` ([source](../../../../../../../src/learnloop/content/authoring/practice_generation.py), line 271)
-- `build_diagnostic_practice_plan(vault: LoadedVault, repository: Repository, *, learning_object_id: str | None=None, max_needs: int=3, clock: Clock | None=None) -> DiagnosticPracticePlan` ([source](../../../../../../../src/learnloop/content/authoring/practice_generation.py), line 441)
-- `generate_diagnostic_practice_proposal(root: Path, codex_client: AIProviderClient, *, learning_object_id: str | None=None, max_needs: int=3, extra_instructions: str | None=None, codex_revision: str | None=None) -> DiagnosticPracticeResult` ([source](../../../../../../../src/learnloop/content/authoring/practice_generation.py), line 646)
-- `generate_post_probe_practice_proposal(root: Path, codex_client: AIProviderClient, *, subjects: list[str] | None=None, target_items_per_lo: int=5, max_new_per_lo: int=3, max_los: int | None=None, focus_concepts: list[str] | None=None, focus_facets: list[str] | None=None, extra_instructions: str | None=None, codex_revision: str | None=None, learning_object_ids: list[str] | None=None, mode_mix: dict[str, int] | None=None, require_completed_probe: bool=True, source_refs: list[dict[str, Any]] | None=None) -> PracticeExpansionResult` ([source](../../../../../../../src/learnloop/content/authoring/practice_generation.py), line 755)
-- `build_goal_practice_plan(vault: LoadedVault, repository: Repository, goal, *, target_items_per_lo: int=5, max_new_per_lo: int=3) -> tuple[PracticeExpansionPlan, list[str]]` ([source](../../../../../../../src/learnloop/content/authoring/practice_generation.py), line 848) — Expansion plan covering a goal's scope, sized by *practicable* supply.
-- `generate_goal_practice_proposal(root: Path, codex_client: AIProviderClient, *, goal_id: str, target_items_per_lo: int=5, max_new_per_lo: int=3, extra_instructions: str | None=None, codex_revision: str | None=None) -> PracticeExpansionResult` ([source](../../../../../../../src/learnloop/content/authoring/practice_generation.py), line 887) — Generate Practice Items that populate an active goal's scope.
-- `class LeakageBlock` ([source](../../../../../../../src/learnloop/content/authoring/practice_generation.py), line 979) — One generated practice item blocked by the held-out leakage gate (§8.5).
-  - `as_dict(self) -> dict[str, Any]` (line 986; public)
-- `class CrossSourcePracticeResult` ([source](../../../../../../../src/learnloop/content/authoring/practice_generation.py), line 995)
-  - `as_dict(self) -> dict[str, Any]` (line 1002; public)
-- `generate_cross_source_practice_proposal(root: Path, codex_client: AIProviderClient, *, subjects: list[str] | None=None, target_items_per_lo: int=5, max_new_per_lo: int=3, max_los: int | None=None, focus_concepts: list[str] | None=None, focus_facets: list[str] | None=None, learning_object_ids: list[str] | None=None, max_spans_per_item: int=4, extra_instructions: str | None=None, codex_revision: str | None=None) -> CrossSourcePracticeResult` ([source](../../../../../../../src/learnloop/content/authoring/practice_generation.py), line 1100) — Assessment-blueprint-driven, multi-source practice generation with HARD leakage controls (spec §8.5, ING M8).
-- `ability_logit(ability: float | None) -> float` ([source](../../../../../../../src/learnloop/content/authoring/practice_generation.py), line 2120)
-- `success_band_difficulty(ability_logit: float, success_band: tuple[float, float], *, discrimination: float, difficulty_scale: float, difficulty_floor: float=0.0, min_band_width: float=0.0) -> tuple[float, float]` ([source](../../../../../../../src/learnloop/content/authoring/practice_generation.py), line 2148) — ``(easier, harder)`` authored-difficulty band spanning a target success interval.
+- `class PracticeExpansionTarget` ([source](../../../../../../../src/learnloop/content/authoring/practice_generation.py), line 47)
+  - `as_dict(self) -> dict[str, Any]` (line 98; public)
+- `class PracticeExpansionPlan` ([source](../../../../../../../src/learnloop/content/authoring/practice_generation.py), line 146)
+  - `requested_new_items(self) -> int` (line 154; public)
+  - `as_dict(self) -> dict[str, Any]` (line 157; public)
+- `class PracticeExpansionResult` ([source](../../../../../../../src/learnloop/content/authoring/practice_generation.py), line 177)
+  - `as_dict(self) -> dict[str, Any]` (line 190; public)
+- `class PracticeExpansionError(ValueError)` ([source](../../../../../../../src/learnloop/content/authoring/practice_generation.py), line 201)
+- `class DiagnosticPracticeTarget` ([source](../../../../../../../src/learnloop/content/authoring/practice_generation.py), line 206)
+  - `as_dict(self) -> dict[str, Any]` (line 226; public)
+- `class DiagnosticPracticePlan` ([source](../../../../../../../src/learnloop/content/authoring/practice_generation.py), line 250)
+  - `requested_new_items(self) -> int` (line 254; public)
+  - `as_dict(self) -> dict[str, Any]` (line 257; public)
+- `class DiagnosticPracticeResult` ([source](../../../../../../../src/learnloop/content/authoring/practice_generation.py), line 265)
+  - `as_dict(self) -> dict[str, Any]` (line 277; public)
+- `build_practice_expansion_plan(vault: LoadedVault, repository: Repository, *, subjects: list[str] | None=None, target_items_per_lo: int=5, max_new_per_lo: int=3, max_los: int | None=None, focus_concepts: list[str] | None=None, learning_object_ids: list[str] | None=None, mode_mix: dict[str, int] | None=None, require_completed_probe: bool=True, exclude_item_ids: set[str] | None=None, force_named_targets: bool=True, ad_commission_id: str | None=None) -> PracticeExpansionPlan` ([source](../../../../../../../src/learnloop/content/authoring/practice_generation.py), line 292) — ``ad_commission_id``: a serve-time adaptive difficulty commission this plan generates for (its LO's target is written at that commission's point, §6.1, §7.1).
+- `build_diagnostic_practice_plan(vault: LoadedVault, repository: Repository, *, learning_object_id: str | None=None, max_needs: int=3, clock: Clock | None=None) -> DiagnosticPracticePlan` ([source](../../../../../../../src/learnloop/content/authoring/practice_generation.py), line 584)
+- `generate_diagnostic_practice_proposal(root: Path, codex_client: AIProviderClient, *, learning_object_id: str | None=None, max_needs: int=3, extra_instructions: str | None=None, codex_revision: str | None=None) -> DiagnosticPracticeResult` ([source](../../../../../../../src/learnloop/content/authoring/practice_generation.py), line 789)
+- `generate_post_probe_practice_proposal(root: Path, codex_client: AIProviderClient, *, subjects: list[str] | None=None, target_items_per_lo: int=5, max_new_per_lo: int=3, max_los: int | None=None, focus_concepts: list[str] | None=None, focus_facets: list[str] | None=None, extra_instructions: str | None=None, codex_revision: str | None=None, learning_object_ids: list[str] | None=None, mode_mix: dict[str, int] | None=None, require_completed_probe: bool=True, source_refs: list[dict[str, Any]] | None=None, ad_commission_id: str | None=None) -> PracticeExpansionResult` ([source](../../../../../../../src/learnloop/content/authoring/practice_generation.py), line 898)
+- `build_goal_practice_plan(vault: LoadedVault, repository: Repository, goal, *, target_items_per_lo: int=5, max_new_per_lo: int=3) -> tuple[PracticeExpansionPlan, list[str]]` ([source](../../../../../../../src/learnloop/content/authoring/practice_generation.py), line 994) — Expansion plan covering a goal's scope, sized by *practicable* supply.
+- `generate_goal_practice_proposal(root: Path, codex_client: AIProviderClient, *, goal_id: str, target_items_per_lo: int=5, max_new_per_lo: int=3, extra_instructions: str | None=None, codex_revision: str | None=None) -> PracticeExpansionResult` ([source](../../../../../../../src/learnloop/content/authoring/practice_generation.py), line 1044) — Generate Practice Items that populate an active goal's scope.
+- `class LeakageBlock` ([source](../../../../../../../src/learnloop/content/authoring/practice_generation.py), line 1137) — One generated practice item blocked by the held-out leakage gate (§8.5).
+  - `as_dict(self) -> dict[str, Any]` (line 1144; public)
+- `class CrossSourcePracticeResult` ([source](../../../../../../../src/learnloop/content/authoring/practice_generation.py), line 1153)
+  - `as_dict(self) -> dict[str, Any]` (line 1160; public)
+- `generate_cross_source_practice_proposal(root: Path, codex_client: AIProviderClient, *, subjects: list[str] | None=None, target_items_per_lo: int=5, max_new_per_lo: int=3, max_los: int | None=None, focus_concepts: list[str] | None=None, focus_facets: list[str] | None=None, learning_object_ids: list[str] | None=None, max_spans_per_item: int=4, extra_instructions: str | None=None, codex_revision: str | None=None) -> CrossSourcePracticeResult` ([source](../../../../../../../src/learnloop/content/authoring/practice_generation.py), line 1273) — Assessment-blueprint-driven, multi-source practice generation with HARD leakage controls (spec §8.5, ING M8).
+- `ability_logit(ability: float | None) -> float` ([source](../../../../../../../src/learnloop/content/authoring/practice_generation.py), line 2356)
+- `success_band_difficulty(ability_logit: float, success_band: tuple[float, float], *, discrimination: float, difficulty_scale: float, difficulty_floor: float=0.0, min_band_width: float=0.0) -> tuple[float, float]` ([source](../../../../../../../src/learnloop/content/authoring/practice_generation.py), line 2384) — ``(easier, harder)`` authored-difficulty band spanning a target success interval.
 
 ### Module constants
 
-- `_CONSTRUCTED_RESPONSE_RULE` ([src/learnloop/content/authoring/practice_generation.py](../../../../../../../src/learnloop/content/authoring/practice_generation.py), line 1688)
-- `_BLUEPRINT_SPREAD_RULE` ([src/learnloop/content/authoring/practice_generation.py](../../../../../../../src/learnloop/content/authoring/practice_generation.py), line 1704)
-- `_CONJUNCTIVE_ITEM_RULE` ([src/learnloop/content/authoring/practice_generation.py](../../../../../../../src/learnloop/content/authoring/practice_generation.py), line 1731)
-- `_DISCRIMINATION_PROFILE_RULE` ([src/learnloop/content/authoring/practice_generation.py](../../../../../../../src/learnloop/content/authoring/practice_generation.py), line 1759)
-- `_LADDERED_STEM_RULE` ([src/learnloop/content/authoring/practice_generation.py](../../../../../../../src/learnloop/content/authoring/practice_generation.py), line 1780)
-- `_ERROR_HUNT_RULE` ([src/learnloop/content/authoring/practice_generation.py](../../../../../../../src/learnloop/content/authoring/practice_generation.py), line 1799)
-- `_CONTRAST_PAIR_RULE` ([src/learnloop/content/authoring/practice_generation.py](../../../../../../../src/learnloop/content/authoring/practice_generation.py), line 1819)
-- `_CONTRACT_CELL_RULE` ([src/learnloop/content/authoring/practice_generation.py](../../../../../../../src/learnloop/content/authoring/practice_generation.py), line 1848)
-- `_TEACH_BACK_GENERATION_GUIDANCE` ([src/learnloop/content/authoring/practice_generation.py](../../../../../../../src/learnloop/content/authoring/practice_generation.py), line 1864)
+- `_CONSTRUCTED_RESPONSE_RULE` ([src/learnloop/content/authoring/practice_generation.py](../../../../../../../src/learnloop/content/authoring/practice_generation.py), line 1875)
+- `_BLUEPRINT_SPREAD_RULE` ([src/learnloop/content/authoring/practice_generation.py](../../../../../../../src/learnloop/content/authoring/practice_generation.py), line 1891)
+- `_CONJUNCTIVE_ITEM_RULE` ([src/learnloop/content/authoring/practice_generation.py](../../../../../../../src/learnloop/content/authoring/practice_generation.py), line 1918)
+- `_DISCRIMINATION_PROFILE_RULE` ([src/learnloop/content/authoring/practice_generation.py](../../../../../../../src/learnloop/content/authoring/practice_generation.py), line 1946)
+- `_LADDERED_STEM_RULE` ([src/learnloop/content/authoring/practice_generation.py](../../../../../../../src/learnloop/content/authoring/practice_generation.py), line 1967)
+- `_ERROR_HUNT_RULE` ([src/learnloop/content/authoring/practice_generation.py](../../../../../../../src/learnloop/content/authoring/practice_generation.py), line 1986)
+- `_CONTRAST_PAIR_RULE` ([src/learnloop/content/authoring/practice_generation.py](../../../../../../../src/learnloop/content/authoring/practice_generation.py), line 2006)
+- `_CONTRACT_CELL_RULE` ([src/learnloop/content/authoring/practice_generation.py](../../../../../../../src/learnloop/content/authoring/practice_generation.py), line 2035)
+- `_TEACH_BACK_GENERATION_GUIDANCE` ([src/learnloop/content/authoring/practice_generation.py](../../../../../../../src/learnloop/content/authoring/practice_generation.py), line 2051)
+- `_BAND_LINES` ([src/learnloop/content/authoring/practice_generation.py](../../../../../../../src/learnloop/content/authoring/practice_generation.py), line 2088)
+- `_BAND_WAYPOINT_LINE` ([src/learnloop/content/authoring/practice_generation.py](../../../../../../../src/learnloop/content/authoring/practice_generation.py), line 2092)
 
 ## Internal implementation anchors
 
-- `_stale_repeat_failure_need(vault: LoadedVault, repository: Repository, need: dict[str, Any]) -> bool` ([source](../../../../../../../src/learnloop/content/authoring/practice_generation.py), line 530) — Lazily retire repeat-failure needs whose streak has since resolved.
-- `_stale_tutor_gap_need(vault: LoadedVault, repository: Repository, need: dict[str, Any], *, now: datetime) -> bool` ([source](../../../../../../../src/learnloop/content/authoring/practice_generation.py), line 577) — Lazily retire tutor_gap_declaration needs (spec §3 G3).
-- `_attempt_failed(attempt: dict[str, Any]) -> bool` ([source](../../../../../../../src/learnloop/content/authoring/practice_generation.py), line 632) — Failure predicate mirroring ``question_signal._attempt_failed`` (§3 G3).
-- `_blueprint_shaping(vault: LoadedVault, learning_object) -> list[dict[str, Any]]` ([source](../../../../../../../src/learnloop/content/authoring/practice_generation.py), line 1011) — Task-family / capability distribution from the LO's assessment blueprints.
-- `_cross_source_instructions(plan: PracticeExpansionPlan, context_by_lo: dict[str, list[dict[str, Any]]], shaping_by_lo: dict[str, list[dict[str, Any]]], *, extra_instructions: str | None, focus_facets: list[str] | None) -> str` ([source](../../../../../../../src/learnloop/content/authoring/practice_generation.py), line 1038)
-- `_validate_mode_mix(mode_mix: dict[str, int] | None) -> None` ([source](../../../../../../../src/learnloop/content/authoring/practice_generation.py), line 1229)
-- `_validate_named_learning_objects(vault: LoadedVault, repository: Repository, learning_object_ids: list[str], *, require_completed_probe: bool=True, contract_backed: set[str] | None=None) -> None` ([source](../../../../../../../src/learnloop/content/authoring/practice_generation.py), line 1239) — Named --los targets must exist, be active, and have a completed probe.
-- `_contrast_pair_requests_by_facet(vault: LoadedVault, repository: Repository) -> dict[str, list[dict[str, Any]]]` ([source](../../../../../../../src/learnloop/content/authoring/practice_generation.py), line 1281) — Canonical facet id -> the A4 authoring requests that name it (Meas §3.A4).
-- `_contrast_pair_requests_for(by_facet: Mapping[str, list[dict[str, Any]]], learning_object: Any) -> list[dict[str, Any]]` ([source](../../../../../../../src/learnloop/content/authoring/practice_generation.py), line 1318) — The requests this LO can discharge: those naming a facet its blueprints use.
-- `class _RungGate` ([source](../../../../../../../src/learnloop/content/authoring/practice_generation.py), line 1340) — Deterministic rung admission over persisted proposal rows (row_transform seam): a generated item that overshoots or contradicts its target waypoint is forced off the auto-apply route; the diagnostics surface on the result.
-- `_mode_mix_compliance(plan: PracticeExpansionPlan, mode_mix: dict[str, int], proposal_items: list[dict[str, Any]]) -> tuple[list[str], list[str]]` ([source](../../../../../../../src/learnloop/content/authoring/practice_generation.py), line 1537) — Check the persisted proposal against the requested per-LO mode counts.
-- `_active_practice_item_counts(vault: LoadedVault, repository: Repository, *, exclude_item_ids: set[str] | None=None) -> dict[str, int]` ([source](../../../../../../../src/learnloop/content/authoring/practice_generation.py), line 1577)
-- `_blueprint_components(learning_object) -> list[dict[str, Any]]` ([source](../../../../../../../src/learnloop/content/authoring/practice_generation.py), line 1596) — The distinct (facet, capability, role) requirements of an LO's blueprints.
-- `_active_surface_families(vault: LoadedVault, repository: Repository) -> dict[str, list[str]]` ([source](../../../../../../../src/learnloop/content/authoring/practice_generation.py), line 1636) — Surface families already in use per LO, so a batch cannot re-run them.
-- `_active_evidence_facet_unions(vault: LoadedVault, repository: Repository) -> dict[str, list[str]]` ([source](../../../../../../../src/learnloop/content/authoring/practice_generation.py), line 1652) — Canonical facet vocabulary available to each Learning Object.
-- `_target_subjects(plan: PracticeExpansionPlan, subjects: list[str] | None) -> list[str]` ([source](../../../../../../../src/learnloop/content/authoring/practice_generation.py), line 1680)
-- `_ladder_capabilities(target: 'PracticeExpansionTarget') -> int` ([source](../../../../../../../src/learnloop/content/authoring/practice_generation.py), line 1880) — How many distinct capabilities this target's contract spans (Meas §3.A2).
-- `_practice_expansion_instructions(plan: PracticeExpansionPlan, *, extra_instructions: str | None, focus_facets: list[str] | None=None, mode_mix: dict[str, int] | None=None) -> str` ([source](../../../../../../../src/learnloop/content/authoring/practice_generation.py), line 1901)
-- `_diagnostic_practice_instructions(plan: DiagnosticPracticePlan, *, extra_instructions: str | None) -> str` ([source](../../../../../../../src/learnloop/content/authoring/practice_generation.py), line 1965)
-- `_diagnostic_item_ids_by_need(plan: DiagnosticPracticePlan, proposal_items: list[dict[str, Any]]) -> dict[str, str]` ([source](../../../../../../../src/learnloop/content/authoring/practice_generation.py), line 1993)
-- `_is_diagnostic_practice_item_row(item: dict[str, Any]) -> bool` ([source](../../../../../../../src/learnloop/content/authoring/practice_generation.py), line 2019)
-- `_repair_rationales_from_focus(diagnostic_focus: dict[str, Any] | None) -> list[dict[str, Any]]` ([source](../../../../../../../src/learnloop/content/authoring/practice_generation.py), line 2031)
-- `_repair_rationales(repository: Repository, attempt_id: str | None) -> list[dict[str, Any]]` ([source](../../../../../../../src/learnloop/content/authoring/practice_generation.py), line 2055) — Pull the grader's repair-suggestion rationales for the source attempt.
-- `_diagnostic_source_refs(plan: DiagnosticPracticePlan) -> list[dict[str, str]]` ([source](../../../../../../../src/learnloop/content/authoring/practice_generation.py), line 2087)
-- `_ability_estimate(facet_means: dict[str, float], mastery_mean: float | None) -> float` ([source](../../../../../../../src/learnloop/content/authoring/practice_generation.py), line 2107) — Best available ability estimate (probability scale) for difficulty targeting.
-- `_logit(probability: float) -> float` ([source](../../../../../../../src/learnloop/content/authoring/practice_generation.py), line 2124)
-- `_difficulty_for_success(ability_logit: float, target_success: float, *, discrimination: float, difficulty_scale: float) -> float` ([source](../../../../../../../src/learnloop/content/authoring/practice_generation.py), line 2129) — Authored difficulty in [0,1] whose IRT ``b`` yields ``target_success`` at ``ability_logit``.
-- `_guard_degenerate_band(band: tuple[float, float], *, min_band_width: float) -> tuple[float, float]` ([source](../../../../../../../src/learnloop/content/authoring/practice_generation.py), line 2181) — Restore width to a band that clamped to ``[x, x]``; never re-centre it.
+- `_ad_gate_vault(plan: Any, vault: LoadedVault) -> LoadedVault` ([source](../../../../../../../src/learnloop/content/authoring/practice_generation.py), line 500) — The vault the post-generation gates compare a commissioned batch against: AD's material view of it (fix round 10), so a withheld item's surface family or facet never decides whether a commissioned item is kept.
+- `_ad_request_options(plan: Any, *, grounding: Sequence[tuple[Any, Any]]=()) -> dict[str, Any]` ([source](../../../../../../../src/learnloop/content/authoring/practice_generation.py), line 509) — The authoring call's AD options (fix round 9, R2): with a plan built through AD's material view, the authoring context is built from the vault that view sees (re-read at send time), and the serialized request is revalidated before it is sent; a request quoting withheld material…
+- `_ad_material_view(vault: LoadedVault, repository: Repository) -> Any` ([source](../../../../../../../src/learnloop/content/authoring/practice_generation.py), line 526) — AD's material view for this plan (computed once), or None when the generation contract is off or the held-out predicate is unavailable: then the predecessor's target path runs.
+- `_ad_commissioned_rung(vault: LoadedVault, repository: Repository, learning_object_id: str, rung: RungTarget | None, *, commission_id: str | None=None, view: Any=None) -> tuple[RungTarget | None, str | None]` ([source](../../../../../../../src/learnloop/content/authoring/practice_generation.py), line 542) — The generation contract's waypoint (adaptive difficulty §7.1): with the contract off, nothing commissioned, or no material view (the predicate unavailable), the incumbent's rung exactly.
+- `_stale_repeat_failure_need(vault: LoadedVault, repository: Repository, need: dict[str, Any]) -> bool` ([source](../../../../../../../src/learnloop/content/authoring/practice_generation.py), line 673) — Lazily retire repeat-failure needs whose streak has since resolved.
+- `_stale_tutor_gap_need(vault: LoadedVault, repository: Repository, need: dict[str, Any], *, now: datetime) -> bool` ([source](../../../../../../../src/learnloop/content/authoring/practice_generation.py), line 720) — Lazily retire tutor_gap_declaration needs (spec §3 G3).
+- `_attempt_failed(attempt: dict[str, Any]) -> bool` ([source](../../../../../../../src/learnloop/content/authoring/practice_generation.py), line 775) — Failure predicate mirroring ``question_signal._attempt_failed`` (§3 G3).
+- `_blueprint_shaping(vault: LoadedVault, learning_object) -> list[dict[str, Any]]` ([source](../../../../../../../src/learnloop/content/authoring/practice_generation.py), line 1169) — Task-family / capability distribution from the LO's assessment blueprints.
+- `_cross_source_difficulty_lines(plan: Any) -> tuple[str, ...]` ([source](../../../../../../../src/learnloop/content/authoring/practice_generation.py), line 1196)
+- `_cross_source_instructions(plan: PracticeExpansionPlan, context_by_lo: dict[str, list[dict[str, Any]]], shaping_by_lo: dict[str, list[dict[str, Any]]], *, extra_instructions: str | None, focus_facets: list[str] | None) -> str` ([source](../../../../../../../src/learnloop/content/authoring/practice_generation.py), line 1217)
+- `_validate_mode_mix(mode_mix: dict[str, int] | None) -> None` ([source](../../../../../../../src/learnloop/content/authoring/practice_generation.py), line 1407)
+- `_validate_named_learning_objects(vault: LoadedVault, repository: Repository, learning_object_ids: list[str], *, require_completed_probe: bool=True, contract_backed: set[str] | None=None) -> None` ([source](../../../../../../../src/learnloop/content/authoring/practice_generation.py), line 1417) — Named --los targets must exist, be active, and have a completed probe.
+- `_contrast_pair_requests_by_facet(vault: LoadedVault, repository: Repository) -> dict[str, list[dict[str, Any]]]` ([source](../../../../../../../src/learnloop/content/authoring/practice_generation.py), line 1459) — Canonical facet id -> the A4 authoring requests that name it (Meas §3.A4).
+- `_contrast_pair_requests_for(by_facet: Mapping[str, list[dict[str, Any]]], learning_object: Any) -> list[dict[str, Any]]` ([source](../../../../../../../src/learnloop/content/authoring/practice_generation.py), line 1496) — The requests this LO can discharge: those naming a facet its blueprints use.
+- `class _RungGate` ([source](../../../../../../../src/learnloop/content/authoring/practice_generation.py), line 1518) — Deterministic rung admission over persisted proposal rows (row_transform seam): a generated item that overshoots or contradicts its target waypoint is forced off the auto-apply route; the diagnostics surface on the result.
+- `_mode_mix_compliance(plan: PracticeExpansionPlan, mode_mix: dict[str, int], proposal_items: list[dict[str, Any]]) -> tuple[list[str], list[str]]` ([source](../../../../../../../src/learnloop/content/authoring/practice_generation.py), line 1717) — Check the persisted proposal against the requested per-LO mode counts.
+- `_active_practice_item_counts(vault: LoadedVault, repository: Repository, *, exclude_item_ids: set[str] | None=None, items: Any=None, states: Any=None) -> dict[str, int]` ([source](../../../../../../../src/learnloop/content/authoring/practice_generation.py), line 1757) — ``items``/``states``: AD's material view's items and item states under the generation contract (fix round 12); None reads the vault and the repository.
+- `_blueprint_components(learning_object) -> list[dict[str, Any]]` ([source](../../../../../../../src/learnloop/content/authoring/practice_generation.py), line 1780) — The distinct (facet, capability, role) requirements of an LO's blueprints.
+- `_active_surface_families(vault: LoadedVault, repository: Repository, *, items: Any=None, states: Any=None) -> dict[str, list[str]]` ([source](../../../../../../../src/learnloop/content/authoring/practice_generation.py), line 1820) — Surface families already in use per LO, so a batch cannot re-run them.
+- `_active_evidence_facet_unions(vault: LoadedVault, repository: Repository, *, items: Any=None, states: Any=None) -> dict[str, list[str]]` ([source](../../../../../../../src/learnloop/content/authoring/practice_generation.py), line 1837) — Canonical facet vocabulary available to each Learning Object.
+- `_target_subjects(plan: PracticeExpansionPlan, subjects: list[str] | None) -> list[str]` ([source](../../../../../../../src/learnloop/content/authoring/practice_generation.py), line 1867)
+- `_ladder_capabilities(target: 'PracticeExpansionTarget') -> int` ([source](../../../../../../../src/learnloop/content/authoring/practice_generation.py), line 2067) — How many distinct capabilities this target's contract spans (Meas §3.A2).
+- `_ad_contract_lines() -> tuple[str, ...]` ([source](../../../../../../../src/learnloop/content/authoring/practice_generation.py), line 2095)
+- `_ad_waypoint_line() -> str` ([source](../../../../../../../src/learnloop/content/authoring/practice_generation.py), line 2104)
+- `_contract(plan: Any) -> tuple[bool, bool]` ([source](../../../../../../../src/learnloop/content/authoring/practice_generation.py), line 2110) — Adaptive difficulty §7.1: ``(some target is written to the contract, some carries a band)``.
+- `_difficulty_lines(plan: Any) -> tuple[str, ...]` ([source](../../../../../../../src/learnloop/content/authoring/practice_generation.py), line 2119)
+- `_waypoint_line(plan: Any) -> str` ([source](../../../../../../../src/learnloop/content/authoring/practice_generation.py), line 2130)
+- `_practice_expansion_instructions(plan: PracticeExpansionPlan, *, extra_instructions: str | None, focus_facets: list[str] | None=None, mode_mix: dict[str, int] | None=None) -> str` ([source](../../../../../../../src/learnloop/content/authoring/practice_generation.py), line 2137)
+- `_diagnostic_practice_instructions(plan: DiagnosticPracticePlan, *, extra_instructions: str | None) -> str` ([source](../../../../../../../src/learnloop/content/authoring/practice_generation.py), line 2201)
+- `_diagnostic_item_ids_by_need(plan: DiagnosticPracticePlan, proposal_items: list[dict[str, Any]]) -> dict[str, str]` ([source](../../../../../../../src/learnloop/content/authoring/practice_generation.py), line 2229)
+- `_is_diagnostic_practice_item_row(item: dict[str, Any]) -> bool` ([source](../../../../../../../src/learnloop/content/authoring/practice_generation.py), line 2255)
+- `_repair_rationales_from_focus(diagnostic_focus: dict[str, Any] | None) -> list[dict[str, Any]]` ([source](../../../../../../../src/learnloop/content/authoring/practice_generation.py), line 2267)
+- `_repair_rationales(repository: Repository, attempt_id: str | None) -> list[dict[str, Any]]` ([source](../../../../../../../src/learnloop/content/authoring/practice_generation.py), line 2291) — Pull the grader's repair-suggestion rationales for the source attempt.
+- `_diagnostic_source_refs(plan: DiagnosticPracticePlan) -> list[dict[str, str]]` ([source](../../../../../../../src/learnloop/content/authoring/practice_generation.py), line 2323)
+- `_ability_estimate(facet_means: dict[str, float], mastery_mean: float | None) -> float` ([source](../../../../../../../src/learnloop/content/authoring/practice_generation.py), line 2343) — Best available ability estimate (probability scale) for difficulty targeting.
+- `_logit(probability: float) -> float` ([source](../../../../../../../src/learnloop/content/authoring/practice_generation.py), line 2360)
+- `_difficulty_for_success(ability_logit: float, target_success: float, *, discrimination: float, difficulty_scale: float) -> float` ([source](../../../../../../../src/learnloop/content/authoring/practice_generation.py), line 2365) — Authored difficulty in [0,1] whose IRT ``b`` yields ``target_success`` at ``ability_logit``.
+- `_guard_degenerate_band(band: tuple[float, float], *, min_band_width: float) -> tuple[float, float]` ([source](../../../../../../../src/learnloop/content/authoring/practice_generation.py), line 2417) — Restore width to a band that clamped to ``[x, x]``; never re-centre it.
 
 ## Who imports or calls it
 
@@ -150,16 +162,20 @@ The authoritative system-level explanation remains in [[Learning System]], [[AI 
 
 ### LearnLoop dependencies
 
+- [[Reference/Modules/learnloop/adaptive_difficulty/generation|learnloop.adaptive_difficulty.generation]] — imports `CONTRACT_TEXT`, `CommissionedRequestGuard`, `WAYPOINT_CLAUSE`, `goal_focus_facets`, `module`; calls `CommissionedRequestGuard`, `commission_point`, `contract_on`, `goal_focus_facets`
+- [[Reference/Modules/learnloop/adaptive_difficulty/material_view|learnloop.adaptive_difficulty.material_view]] — imports `detached_view`; calls `detached_view`
+- [[Reference/Modules/learnloop/adaptive_difficulty/operation|learnloop.adaptive_difficulty.operation]] — imports `is_denial`; calls `is_denial`
 - [[Reference/Modules/learnloop/ai/client|learnloop.ai.client]] — imports `AIProviderClient`
-- [[Reference/Modules/learnloop/clock|learnloop.clock]] — imports `Clock`, `SystemClock`, `parse_utc`; calls `SystemClock`, `parse_utc`
+- [[Reference/Modules/learnloop/clock|learnloop.clock]] — imports `Clock`, `SystemClock`, `parse_utc`, `utc_now_iso`; calls `SystemClock`, `parse_utc`, `utc_now_iso`
 - [[Reference/Modules/learnloop/content/authoring/authoring_gates|learnloop.content.authoring.authoring_gates]] — imports `SELECTED_RESPONSE_PATTERNS`, `SelectedResponseGate`, `build_instrument_gates`, `chain_gates`; calls `build_instrument_gates`
 - [[Reference/Modules/learnloop/content/authoring/contract_commissioning|learnloop.content.authoring.contract_commissioning]] — imports `commission_plan`; calls `commission_plan`
 - [[Reference/Modules/learnloop/content/authoring/practice_leakage|learnloop.content.authoring.practice_leakage]] — imports `build_cross_source_spans`, `build_held_out_inventory`, `screen_practice_payload`; calls `build_cross_source_spans`, `build_held_out_inventory`, `screen_practice_payload`
 - [[Reference/Modules/learnloop/content/proposals/ai_contracts|learnloop.content.proposals.ai_contracts]] — imports `PRACTICE_GENERATION_PROMPT_VERSION`
 - [[Reference/Modules/learnloop/content/proposals/proposals|learnloop.content.proposals.proposals]] — imports `generate_authoring_proposal`; calls `generate_authoring_proposal`
+- [[Reference/Modules/learnloop/content/sources/exam_material|learnloop.content.sources.exam_material]] — imports `exam_material`; calls `exam_material`
 - [[Reference/Modules/learnloop/content/synthesis/synthesis_gates|learnloop.content.synthesis.synthesis_gates]] — imports `GateDiagnostic`; calls `GateDiagnostic`
-- [[Reference/Modules/learnloop/curriculum/depth_rungs|learnloop.curriculum.depth_rungs]] — imports `RungTarget`, `TASK_FEATURE_SCHEMA_SLUG`, `capability_rung`, `rung_float_proxies`, `select_rung`, `validate_item_against_rung`; calls `capability_rung`, `rung_float_proxies`, `select_rung`, `validate_item_against_rung`
-- [[Reference/Modules/learnloop/db/repositories|learnloop.db.repositories]] — imports `Repository`; calls `Repository`
+- [[Reference/Modules/learnloop/curriculum/depth_rungs|learnloop.curriculum.depth_rungs]] — imports `RungTarget`, `TASK_FEATURE_SCHEMA_SLUG`, `capability_rung`, `rung_float_proxies`, `select_rung`, `validate_item_against_rung`; calls `RungTarget`, `capability_rung`, `rung_float_proxies`, `select_rung`, `validate_item_against_rung`
+- [[Reference/Modules/learnloop/db/repositories|learnloop.db.repositories]] — imports `Repository`
 - [[Reference/Modules/learnloop/diagnosis/contrast_pairs|learnloop.diagnosis.contrast_pairs]] — imports `commission_contrast_pairs`; calls `commission_contrast_pairs`
 - [[Reference/Modules/learnloop/diagnosis/followups|learnloop.diagnosis.followups]] — imports `current_same_facet_failure_streak`, `current_same_item_failure_streak`; calls `current_same_facet_failure_streak`, `current_same_item_failure_streak`
 - [[Reference/Modules/learnloop/goals/goal_projection|learnloop.goals.goal_projection]] — imports `goal_report`, `resolve_goal_scope`; calls `goal_report`, `resolve_goal_scope`
@@ -171,6 +187,7 @@ The authoritative system-level explanation remains in [[Learning System]], [[AI 
 - [[Reference/Modules/learnloop/vault/loader|learnloop.vault.loader]] — imports `load_vault`; calls `load_vault`
 - [[Reference/Modules/learnloop/vault/models|learnloop.vault.models]] — imports `LoadedVault`, `learning_object_facet_union`; calls `learning_object_facet_union`
 - [[Reference/Modules/learnloop/vault/paths|learnloop.vault.paths]] — imports `VaultPaths`; calls `VaultPaths`
+- [[Reference/Modules/learnloop/vault/repository|learnloop.vault.repository]] — imports `vault_repository`; calls `vault_repository`
 
 ### Platform and third-party dependencies
 
@@ -190,6 +207,11 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
+- [tests/test_ad23_contract.py](../../../../../../../tests/test_ad23_contract.py) — direct import
+  - `test_a_goal_over_a_facet_only_a_protected_item_measures_has_no_scope`
+  - `test_the_commissioned_generation_path_reads_no_incumbent_diagnosis_or_probe_counts`
+- [tests/test_ad23_fix_r8.py](../../../../../../../tests/test_ad23_fix_r8.py) — direct import
+- [tests/test_ad2_serving.py](../../../../../../../tests/test_ad2_serving.py) — direct import
 - [tests/test_contract_commissioning.py](../../../../../../../tests/test_contract_commissioning.py) — direct import
   - `test_contract_backed_lo_waives_the_completed_probe_gate`
   - `test_deferred_cells_ride_on_the_plan_not_the_prompt`

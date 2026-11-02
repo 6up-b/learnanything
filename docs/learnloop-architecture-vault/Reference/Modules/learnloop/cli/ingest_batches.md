@@ -7,11 +7,11 @@ version: "1.0.0"
 source_path: "src/learnloop/cli/ingest_batches.py"
 source_paths:
   - "src/learnloop/cli/ingest_batches.py"
-source_commit: "b322ef2e9b5cebc241b612e4963a5aaf1a37f99a"
-source_commit_timestamp: "2026-08-20T18:04:29-04:00"
+source_commit: "5a7880e8fa3db7136b79cebf3abaca87fc38b30c"
+source_commit_timestamp: "2026-10-13T18:55:17-04:00"
 source_worktree_state: "clean"
 generated: true
-generated_at: "2026-09-23"
+generated_at: "2026-11-02"
 package: "learnloop.cli"
 layer: "adapter"
 concepts:
@@ -50,20 +50,20 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/cli/ingest_batches.py](../../../../../../src/learnloop/cli/ingest_batches.py) |
-| Source lines | 85 |
+| Source lines | 90 |
 | Owning package | [[Reference/Modules/learnloop/cli/_package|learnloop.cli]] |
 | Architecture layer | `adapter` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `b322ef2e9b5cebc241b612e4963a5aaf1a37f99a` |
-| Commit timestamp | `2026-08-20T18:04:29-04:00` |
+| Source commit | `5a7880e8fa3db7136b79cebf3abaca87fc38b30c` |
+| Commit timestamp | `2026-10-13T18:55:17-04:00` |
 
 ## Public API
 
 - `ingest_batches_list(limit: Annotated[int, typer.Option('--limit', help='Max batches to list.')]=30, json_output: Annotated[bool, typer.Option('--json', help='Emit JSON.')]=False, vault: Annotated[Path | None, typer.Option('--vault', help='Vault root.')]=None) -> None` ([source](../../../../../../src/learnloop/cli/ingest_batches.py), line 8)
 - `ingest_batches_show(batch_id: Annotated[str, typer.Argument(help='Batch id.')], json_output: Annotated[bool, typer.Option('--json', help='Emit JSON.')]=False, vault: Annotated[Path | None, typer.Option('--vault', help='Vault root.')]=None) -> None` ([source](../../../../../../src/learnloop/cli/ingest_batches.py), line 38)
 - `ingest_batches_cancel(batch_id: Annotated[str, typer.Argument(help='Batch id.')], json_output: Annotated[bool, typer.Option('--json', help='Emit JSON.')]=False, vault: Annotated[Path | None, typer.Option('--vault', help='Vault root.')]=None) -> None` ([source](../../../../../../src/learnloop/cli/ingest_batches.py), line 56)
-- `ingest_batches_resume(batch_id: Annotated[str, typer.Argument(help='Batch id.')], json_output: Annotated[bool, typer.Option('--json', help='Emit JSON.')]=False, vault: Annotated[Path | None, typer.Option('--vault', help='Vault root.')]=None) -> None` ([source](../../../../../../src/learnloop/cli/ingest_batches.py), line 70)
+- `ingest_batches_resume(batch_id: Annotated[str, typer.Argument(help='Batch id.')], json_output: Annotated[bool, typer.Option('--json', help='Emit JSON.')]=False, vault: Annotated[Path | None, typer.Option('--vault', help='Vault root.')]=None) -> None` ([source](../../../../../../src/learnloop/cli/ingest_batches.py), line 75)
 
 ## Internal implementation anchors
 
@@ -81,6 +81,7 @@ No private top-level function or class definition is declared in this file.
 ### LearnLoop dependencies
 
 - [[Reference/Modules/learnloop/cli/runtime|learnloop.cli.runtime]] — imports `module`
+- [[Reference/Modules/learnloop/content/pipeline/add_source|learnloop.content.pipeline.add_source]] — imports `settle_reading_for_cancelled_batch`; calls `settle_reading_for_cancelled_batch`
 
 ### Platform and third-party dependencies
 
@@ -104,7 +105,11 @@ No test imports this module directly. These tests exercise a direct production c
 
 - [tests/test_cli_generate_practice.py](../../../../../../tests/test_cli_generate_practice.py) — imports consumer [[Reference/Modules/learnloop/cli/__init__|learnloop.cli]]
 - [tests/test_cli_ingest.py](../../../../../../tests/test_cli_ingest.py) — imports consumer [[Reference/Modules/learnloop/cli/__init__|learnloop.cli]]
+- [tests/test_facet_identity_ingest.py](../../../../../../tests/test_facet_identity_ingest.py) — imports consumer [[Reference/Modules/learnloop/cli/__init__|learnloop.cli]]
+- [tests/test_graph_nomination_ingest.py](../../../../../../tests/test_graph_nomination_ingest.py) — imports consumer [[Reference/Modules/learnloop/cli/__init__|learnloop.cli]]
 - [tests/test_model_call_receipt_owners.py](../../../../../../tests/test_model_call_receipt_owners.py) — imports consumer [[Reference/Modules/learnloop/cli/__init__|learnloop.cli]]
+- [tests/test_route_rules_in_grader.py](../../../../../../tests/test_route_rules_in_grader.py) — imports consumer [[Reference/Modules/learnloop/cli/__init__|learnloop.cli]]
+- [tests/test_stuck_prompt.py](../../../../../../tests/test_stuck_prompt.py) — imports consumer [[Reference/Modules/learnloop/cli/__init__|learnloop.cli]]
 - [tests/test_teach_back_generation.py](../../../../../../tests/test_teach_back_generation.py) — imports consumer [[Reference/Modules/learnloop/cli/__init__|learnloop.cli]]
 
 ## Modification guidance

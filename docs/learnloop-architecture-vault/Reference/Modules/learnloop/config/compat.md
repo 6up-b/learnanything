@@ -7,11 +7,11 @@ version: "1.0.0"
 source_path: "src/learnloop/config/compat.py"
 source_paths:
   - "src/learnloop/config/compat.py"
-source_commit: "df36567be6701733d162bffc27ac2a72c43d872a"
-source_commit_timestamp: "2026-09-03T10:49:58-07:00"
+source_commit: "42ab0bc90d513d76d7b0eea692d52330b51a8385"
+source_commit_timestamp: "2026-10-23T10:49:09-04:00"
 source_worktree_state: "clean"
 generated: true
-generated_at: "2026-09-23"
+generated_at: "2026-11-02"
 package: "learnloop.config"
 layer: "infrastructure"
 concepts:
@@ -55,8 +55,8 @@ The authoritative system-level explanation remains in [[Configuration]], [[Archi
 | Architecture layer | `infrastructure` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `df36567be6701733d162bffc27ac2a72c43d872a` |
-| Commit timestamp | `2026-09-03T10:49:58-07:00` |
+| Source commit | `42ab0bc90d513d76d7b0eea692d52330b51a8385` |
+| Commit timestamp | `2026-10-23T10:49:09-04:00` |
 
 ## Public API
 
@@ -99,11 +99,15 @@ The authoritative system-level explanation remains in [[Configuration]], [[Archi
 - [[Reference/Modules/learnloop/config/loader|learnloop.config.loader]] — imports `normalize_config_input`; statically calls `normalize_config_input`
 - [[Reference/Modules/learnloop/config/schema|learnloop.config.schema]] — imports `CodexConfig`, `codex_config_view`, `discard_retired_provider_settings`, `normalize_ai_input`, `normalize_config_input`; statically calls `codex_config_view`, `discard_retired_provider_settings`, `normalize_ai_input`, `normalize_config_input`
 
+### Repository tooling consumers
+
+- [scripts/benchmark_chatgpt_plan_latency.py](../../../../../../scripts/benchmark_chatgpt_plan_latency.py); calls `CodexConfig`
+
 ## Dependencies
 
 ### LearnLoop dependencies
 
-- [[Reference/Modules/learnloop/config/schema|learnloop.config.schema]] — imports `AIProviderConfig`, `AudioIngestConfig`, `CodexHTTPProviderConfig`, `CodexSDKProviderConfig`, `DEFAULT_CODEX_MODEL`, `DEFAULT_CODEX_REASONING_EFFORT`, `DEFAULT_CODEX_TASK_ROUTES`, `LEGACY_CODEX_MODEL`, `LearnLoopConfig`, `OPENROUTER_TRANSCRIPTION_PROVIDER`, `openrouter_provider`; calls `AudioIngestConfig`, `openrouter_provider`
+- [[Reference/Modules/learnloop/config/schema|learnloop.config.schema]] — imports `AIProviderConfig`, `AudioIngestConfig`, `CodexHTTPProviderConfig`, `CodexSDKProviderConfig`, `DEFAULT_CODEX_MODEL`, `DEFAULT_CODEX_REASONING_EFFORT`, `LEGACY_CODEX_MODEL`, `LEGACY_CODEX_TASK_ROUTES`, `LearnLoopConfig`, `OPENROUTER_TRANSCRIPTION_PROVIDER`, `openrouter_provider`; calls `AudioIngestConfig`, `openrouter_provider`
 
 ### Platform and third-party dependencies
 

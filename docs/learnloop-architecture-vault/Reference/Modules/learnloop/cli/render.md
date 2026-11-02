@@ -7,11 +7,11 @@ version: "1.0.0"
 source_path: "src/learnloop/cli/render.py"
 source_paths:
   - "src/learnloop/cli/render.py"
-source_commit: "b322ef2e9b5cebc241b612e4963a5aaf1a37f99a"
-source_commit_timestamp: "2026-08-20T18:04:29-04:00"
+source_commit: "42ab0bc90d513d76d7b0eea692d52330b51a8385"
+source_commit_timestamp: "2026-10-23T10:49:09-04:00"
 source_worktree_state: "clean"
 generated: true
-generated_at: "2026-09-23"
+generated_at: "2026-11-02"
 package: "learnloop.cli"
 layer: "adapter"
 concepts:
@@ -52,13 +52,13 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/cli/render.py](../../../../../../src/learnloop/cli/render.py) |
-| Source lines | 171 |
+| Source lines | 180 |
 | Owning package | [[Reference/Modules/learnloop/cli/_package|learnloop.cli]] |
 | Architecture layer | `adapter` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `b322ef2e9b5cebc241b612e4963a5aaf1a37f99a` |
-| Commit timestamp | `2026-08-20T18:04:29-04:00` |
+| Source commit | `42ab0bc90d513d76d7b0eea692d52330b51a8385` |
+| Commit timestamp | `2026-10-23T10:49:09-04:00` |
 
 ## Public API
 
@@ -76,26 +76,28 @@ No public top-level function or class definition is declared in this file.
 - `_json_ingest_progress(phase: str, details: dict[str, Any]) -> None` ([source](../../../../../../src/learnloop/cli/render.py), line 28)
 - `class _AsciiSpinner` ([source](../../../../../../src/learnloop/cli/render.py), line 32)
 - `_dump(value: object) -> str` ([source](../../../../../../src/learnloop/cli/render.py), line 100)
-- `_plain(value: object) -> object` ([source](../../../../../../src/learnloop/cli/render.py), line 104)
-- `_echo_practice_generation_plan(plan) -> None` ([source](../../../../../../src/learnloop/cli/render.py), line 117)
-- `_echo_diagnostic_generation_plan(plan: DiagnosticPracticePlan) -> None` ([source](../../../../../../src/learnloop/cli/render.py), line 128)
-- `_echo_ingest_summary(result) -> None` ([source](../../../../../../src/learnloop/cli/render.py), line 139)
-- `_wrap_text(text: str, *, indent: str='  ') -> list[str]` ([source](../../../../../../src/learnloop/cli/render.py), line 147)
-- `_dim(text: object) -> str` ([source](../../../../../../src/learnloop/cli/render.py), line 157)
-- `_echo_section(title: str) -> None` ([source](../../../../../../src/learnloop/cli/render.py), line 160)
-- `_echo_kv(label: str, value: object) -> None` ([source](../../../../../../src/learnloop/cli/render.py), line 164)
+- `_plain(value: object) -> object` ([source](../../../../../../src/learnloop/cli/render.py), line 113)
+- `_echo_practice_generation_plan(plan) -> None` ([source](../../../../../../src/learnloop/cli/render.py), line 126)
+- `_echo_diagnostic_generation_plan(plan: DiagnosticPracticePlan) -> None` ([source](../../../../../../src/learnloop/cli/render.py), line 137)
+- `_echo_ingest_summary(result) -> None` ([source](../../../../../../src/learnloop/cli/render.py), line 148)
+- `_wrap_text(text: str, *, indent: str='  ') -> list[str]` ([source](../../../../../../src/learnloop/cli/render.py), line 156)
+- `_dim(text: object) -> str` ([source](../../../../../../src/learnloop/cli/render.py), line 166)
+- `_echo_section(title: str) -> None` ([source](../../../../../../src/learnloop/cli/render.py), line 169)
+- `_echo_kv(label: str, value: object) -> None` ([source](../../../../../../src/learnloop/cli/render.py), line 173)
 
 ## Who imports or calls it
 
 > [!note] Static evidence boundary
 > “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
 
+- [[Reference/Modules/learnloop/cli/ai|learnloop.cli.ai]] — imports `_dump`; statically calls `_dump`
 - [[Reference/Modules/learnloop/cli/runtime|learnloop.cli.runtime]] — imports `module`
 
 ## Dependencies
 
 ### LearnLoop dependencies
 
+- [[Reference/Modules/learnloop/ai/plan_fallback|learnloop.ai.plan_fallback]] — imports `current_hint`; calls `current_hint`
 - [[Reference/Modules/learnloop/content/authoring/practice_generation|learnloop.content.authoring.practice_generation]] — imports `DiagnosticPracticePlan`
 
 ### Platform and third-party dependencies
@@ -112,16 +114,14 @@ Use this module in context through:
 - [[Import Canonical Sources]]
 - [[Inspect Persistent State]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/cli/runtime|learnloop.cli.runtime]].
+Static participation evidence comes from [[Reference/Modules/learnloop/cli/ai|learnloop.cli.ai]], [[Reference/Modules/learnloop/cli/runtime|learnloop.cli.runtime]].
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
 ## Tests that define behavior
 
-No test imports this module directly. These tests exercise a direct production consumer:
-
-- [tests/test_model_call_receipt_owners.py](../../../../../../tests/test_model_call_receipt_owners.py) — imports consumer [[Reference/Modules/learnloop/cli/runtime|learnloop.cli.runtime]]
-- [tests/test_provider_resolution_parity.py](../../../../../../tests/test_provider_resolution_parity.py) — imports consumer [[Reference/Modules/learnloop/cli/runtime|learnloop.cli.runtime]]
+- [tests/test_plan_first_transport.py](../../../../../../tests/test_plan_first_transport.py) — direct import
+  - `test_the_cli_json_carries_the_hint`
 
 ## Modification guidance
 

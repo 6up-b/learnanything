@@ -7,11 +7,11 @@ version: "1.0.0"
 source_path: "src/learnloop/tui/app.py"
 source_paths:
   - "src/learnloop/tui/app.py"
-source_commit: "4a28c9635f24945d78366fa26212db7488d82545"
-source_commit_timestamp: "2026-05-28T11:36:12-04:00"
+source_commit: "a5ba091fb41892a7d117a17b3d31c0bd7259b903"
+source_commit_timestamp: "2026-10-12T01:59:41-04:00"
 source_worktree_state: "clean"
 generated: true
-generated_at: "2026-09-23"
+generated_at: "2026-11-02"
 package: "learnloop.tui"
 layer: "adapter"
 concepts:
@@ -50,13 +50,13 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/tui/app.py](../../../../../../src/learnloop/tui/app.py) |
-| Source lines | 55 |
+| Source lines | 59 |
 | Owning package | [[Reference/Modules/learnloop/tui/_package|learnloop.tui]] |
 | Architecture layer | `adapter` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `4a28c9635f24945d78366fa26212db7488d82545` |
-| Commit timestamp | `2026-05-28T11:36:12-04:00` |
+| Source commit | `a5ba091fb41892a7d117a17b3d31c0bd7259b903` |
+| Commit timestamp | `2026-10-12T01:59:41-04:00` |
 
 ## Public API
 
@@ -64,11 +64,11 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
   - `__init__(self, message: str)` (line 14; internal)
   - `compose(self) -> ComposeResult` (line 18; public)
 - `class LearnLoopApp(App)` ([source](../../../../../../src/learnloop/tui/app.py), line 23)
-  - `__init__(self, vault_root: Path)` (line 30; internal)
-  - `get_theme_variable_defaults(self) -> dict[str, str]` (line 36; public)
-  - `on_mount(self) -> None` (line 42; public)
-  - `get_default_screen(self) -> Screen` (line 46; public)
-- `run(vault_root: Path) -> None` ([source](../../../../../../src/learnloop/tui/app.py), line 54)
+  - `__init__(self, vault_root: Path)` (line 34; internal)
+  - `get_theme_variable_defaults(self) -> dict[str, str]` (line 40; public)
+  - `on_mount(self) -> None` (line 46; public)
+  - `get_default_screen(self) -> Screen` (line 50; public)
+- `run(vault_root: Path) -> None` ([source](../../../../../../src/learnloop/tui/app.py), line 58)
 
 ## Internal implementation anchors
 
@@ -108,10 +108,24 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
+- [tests/test_daily_loop_start_minutes.py](../../../../../../tests/test_daily_loop_start_minutes.py) — direct import
+  - `test_tui_esc_keeps_the_list_and_an_ungraded_next_returns_to_it`
+  - `test_tui_next_opens_the_head_of_the_live_queue`
+  - `test_tui_start_asks_for_minutes_only_and_starts_on_the_remembered_minutes`
+  - `test_tui_start_lays_the_minute_chips_out_on_screen`
+  - `test_tui_start_uses_25_minutes_on_a_fresh_vault_and_keeps_an_old_budget`
+- [tests/test_daily_loop_start_postpone.py](../../../../../../tests/test_daily_loop_start_postpone.py) — direct import
+  - `test_tui_start_screen_offers_no_postpone_it_cannot_honour`
 - [tests/test_e2e_tui.py](../../../../../../tests/test_e2e_tui.py) — direct import
   - `test_tui_end_to_end_self_graded_practice`
 - [tests/test_model_call_receipt_owners.py](../../../../../../tests/test_model_call_receipt_owners.py) — direct import
   - `test_tui_grading_records_receipts_with_usage`
+- [tests/test_serve_eligibility.py](../../../../../../tests/test_serve_eligibility.py) — direct import
+  - `test_the_tui_open_serves_a_cold_check_submit_would_prime_as_practice`
+- [tests/test_stuck_prompt.py](../../../../../../tests/test_stuck_prompt.py) — direct import
+  - `test_tui_ctrl_d_opens_the_stuck_prompt_and_an_empty_submit_records_it`
+  - `test_tui_empty_stuck_probe_answer_keeps_feedback_deferred`
+  - `test_tui_empty_stuck_submit_shows_the_result_and_the_worked_answer`
 - [tests/test_tui_app.py](../../../../../../tests/test_tui_app.py) — direct import
   - `test_tui_app_launches_start_screen_and_syncs_state`
   - `test_tui_app_shows_error_screen_for_missing_vault`
@@ -133,6 +147,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_app_registers_and_activates_learnloop_theme`
 - [tests/test_tui_today.py](../../../../../../tests/test_tui_today.py) — direct import
   - `test_today_queue_matches_scheduler_and_opens_practice`
+- [tests/test_ux_phase4_feedback.py](../../../../../../tests/test_ux_phase4_feedback.py) — direct import
+  - `test_f1k_the_tui_open_defers_a_cold_check_a_routine_display_covers`
 
 ## Modification guidance
 

@@ -7,11 +7,11 @@ version: "1.0.0"
 source_path: "src/learnloop_sidecar/handlers/item_authoring.py"
 source_paths:
   - "src/learnloop_sidecar/handlers/item_authoring.py"
-source_commit: "b322ef2e9b5cebc241b612e4963a5aaf1a37f99a"
-source_commit_timestamp: "2026-08-20T18:04:29-04:00"
+source_commit: "9cbc0eacaa318a539f26621ed675698b7cafb1de"
+source_commit_timestamp: "2026-10-13T01:42:51-04:00"
 source_worktree_state: "clean"
 generated: true
-generated_at: "2026-09-23"
+generated_at: "2026-11-02"
 package: "learnloop_sidecar.handlers"
 layer: "adapter"
 concepts:
@@ -50,36 +50,37 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop_sidecar/handlers/item_authoring.py](../../../../../../src/learnloop_sidecar/handlers/item_authoring.py) |
-| Source lines | 247 |
+| Source lines | 298 |
 | Owning package | [[Reference/Modules/learnloop_sidecar/handlers/_package|learnloop_sidecar.handlers]] |
 | Architecture layer | `adapter` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `b322ef2e9b5cebc241b612e4963a5aaf1a37f99a` |
-| Commit timestamp | `2026-08-20T18:04:29-04:00` |
+| Source commit | `9cbc0eacaa318a539f26621ed675698b7cafb1de` |
+| Commit timestamp | `2026-10-13T01:42:51-04:00` |
 
 ## Public API
 
-- `class AuthorPracticeItemInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/item_authoring.py), line 28)
-- `class EditPracticeItemInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/item_authoring.py), line 36)
-- `class RetirePracticeItemInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/item_authoring.py), line 44)
-- `class SplitPracticeItemPart(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/item_authoring.py), line 50)
-- `class SplitPracticeItemInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/item_authoring.py), line 55)
-- `class RequestRungVariantInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/item_authoring.py), line 61)
-- `class RungVariantStatusInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/item_authoring.py), line 67)
-- `class RemintDiagnosticProbeInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/item_authoring.py), line 71)
-- `request_rung_variant_rpc(ctx: SidecarContext, params: RequestRungVariantInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/item_authoring.py), line 97) — Learner-initiated re-runging: record the request + evidence package synchronously, then enqueue the variant authoring job (interactive band).
-- `get_rung_variant_status(ctx: SidecarContext, params: RungVariantStatusInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/item_authoring.py), line 129)
-- `remint_diagnostic_probe(ctx: SidecarContext, params: RemintDiagnosticProbeInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/item_authoring.py), line 145) — Keep an administered diagnostic probe as an ordinary practice item.
-- `author_practice_item(ctx: SidecarContext, params: AuthorPracticeItemInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/item_authoring.py), line 168)
-- `edit_practice_item(ctx: SidecarContext, params: EditPracticeItemInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/item_authoring.py), line 187)
-- `retire_practice_item(ctx: SidecarContext, params: RetirePracticeItemInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/item_authoring.py), line 206)
-- `split_practice_item(ctx: SidecarContext, params: SplitPracticeItemInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/item_authoring.py), line 234)
+- `class AuthorPracticeItemInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/item_authoring.py), line 30)
+- `class EditPracticeItemInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/item_authoring.py), line 39)
+- `class RetirePracticeItemInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/item_authoring.py), line 47)
+- `class SplitPracticeItemPart(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/item_authoring.py), line 53)
+- `class SplitPracticeItemInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/item_authoring.py), line 58)
+- `class RequestRungVariantInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/item_authoring.py), line 64)
+- `class RungVariantStatusInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/item_authoring.py), line 70)
+- `class RemintDiagnosticProbeInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/item_authoring.py), line 74)
+- `request_rung_variant_rpc(ctx: SidecarContext, params: RequestRungVariantInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/item_authoring.py), line 100) — Learner-initiated re-runging: record the request + evidence package synchronously, then enqueue the variant authoring job (interactive band).
+- `get_rung_variant_status(ctx: SidecarContext, params: RungVariantStatusInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/item_authoring.py), line 132)
+- `remint_diagnostic_probe(ctx: SidecarContext, params: RemintDiagnosticProbeInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/item_authoring.py), line 148) — Keep an administered diagnostic probe as an ordinary practice item.
+- `author_practice_item(ctx: SidecarContext, params: AuthorPracticeItemInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/item_authoring.py), line 171)
+- `edit_practice_item(ctx: SidecarContext, params: EditPracticeItemInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/item_authoring.py), line 201)
+- `retire_practice_item(ctx: SidecarContext, params: RetirePracticeItemInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/item_authoring.py), line 257)
+- `split_practice_item(ctx: SidecarContext, params: SplitPracticeItemInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/item_authoring.py), line 285)
 
 ## Internal implementation anchors
 
-- `_root(ctx: SidecarContext)` ([source](../../../../../../src/learnloop_sidecar/handlers/item_authoring.py), line 75)
-- `_variant_request_payload(row: dict[str, Any]) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/item_authoring.py), line 80)
+- `_root(ctx: SidecarContext)` ([source](../../../../../../src/learnloop_sidecar/handlers/item_authoring.py), line 78)
+- `_variant_request_payload(row: dict[str, Any]) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/item_authoring.py), line 83)
+- `_queue_key_recheck(ctx: SidecarContext, practice_item_id: str) -> str | None` ([source](../../../../../../src/learnloop_sidecar/handlers/item_authoring.py), line 223) — Canonical sources S1 (§7.3a, D20): an edited exercise import is unverified until a check of its NEW prompt, key and rubric passes; with ``exercise_verification`` on, that check is queued here (in the background).
 
 ## Who imports or calls it
 
@@ -87,22 +88,27 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 > “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
 
 - [[Reference/Modules/learnloop_sidecar/handlers/__init__|learnloop_sidecar.handlers]] — imports `module`
+- [[Reference/Modules/learnloop_sidecar/handlers/capture|learnloop_sidecar.handlers.capture]] — imports `module`
 
 ## Dependencies
 
 ### LearnLoop dependencies
 
-- [[Reference/Modules/learnloop/content/authoring/item_authoring|learnloop.content.authoring.item_authoring]] — imports `ItemAuthoringError`, `author_item`, `edit_item`, `retire_item`, `split_item`; calls `author_item`, `edit_item`, `retire_item`, `split_item`
+- [[Reference/Modules/learnloop/content/authoring/item_authoring|learnloop.content.authoring.item_authoring]] — imports `ItemAuthoringError`, `author_item`, `edit_item`, `retire_item`, `split_item`, `validate_author_item`; calls `author_item`, `edit_item`, `retire_item`, `split_item`, `validate_author_item`
 - [[Reference/Modules/learnloop/content/authoring/rung_variants|learnloop.content.authoring.rung_variants]] — imports `RungVariantError`, `request_rung_variant`; calls `request_rung_variant`
+- [[Reference/Modules/learnloop/content/authoring/source_exercise_import|learnloop.content.authoring.source_exercise_import]] — imports `verify_item_key`; calls `verify_item_key`
+- [[Reference/Modules/learnloop/db/connection|learnloop.db.connection]] — imports `connect`; calls `connect`
+- [[Reference/Modules/learnloop/db/stores/source_service|learnloop.db.stores.source_service]] — imports `effective_key_status`; calls `effective_key_status`
 - [[Reference/Modules/learnloop/diagnosis/probe_remint|learnloop.diagnosis.probe_remint]] — imports `ProbeRemintError`, `remint_probe_as_practice_item`; calls `remint_probe_as_practice_item`
 - [[Reference/Modules/learnloop_sidecar/context|learnloop_sidecar.context]] — imports `SidecarContext`
 - [[Reference/Modules/learnloop_sidecar/dto|learnloop_sidecar.dto]] — imports `ParamsModel`, `versioned`; calls `versioned`
 - [[Reference/Modules/learnloop_sidecar/errors|learnloop_sidecar.errors]] — imports `SidecarError`; calls `SidecarError`
+- [[Reference/Modules/learnloop_sidecar/handlers/capture|learnloop_sidecar.handlers.capture]] — imports `finish_route`, `route_intent`; calls `finish_route`, `route_intent`
 - [[Reference/Modules/learnloop_sidecar/registry|learnloop_sidecar.registry]] — imports `method`; calls `method`
 
 ### Platform and third-party dependencies
 
-- Standard library: `__future__`, `typing`
+- Standard library: `__future__`, `contextlib`, `threading`, `typing`
 - Third party: `pydantic`
 
 ## Larger workflow participation
@@ -112,25 +118,18 @@ Use this module in context through:
 - [[Import Canonical Sources]]
 - [[Build a Study Map]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop_sidecar/handlers/__init__|learnloop_sidecar.handlers]].
+Static participation evidence comes from [[Reference/Modules/learnloop_sidecar/handlers/__init__|learnloop_sidecar.handlers]], [[Reference/Modules/learnloop_sidecar/handlers/capture|learnloop_sidecar.handlers.capture]].
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
 ## Tests that define behavior
 
-No test imports this module directly. These tests exercise a direct production consumer:
-
-- [tests/test_desktop_rpc_contract.py](../../../../../../tests/test_desktop_rpc_contract.py) — imports consumer [[Reference/Modules/learnloop_sidecar/handlers/__init__|learnloop_sidecar.handlers]]
-- [tests/test_dialogue_causal_join.py](../../../../../../tests/test_dialogue_causal_join.py) — imports consumer [[Reference/Modules/learnloop_sidecar/handlers/__init__|learnloop_sidecar.handlers]]
-- [tests/test_goal_scope_material.py](../../../../../../tests/test_goal_scope_material.py) — imports consumer [[Reference/Modules/learnloop_sidecar/handlers/__init__|learnloop_sidecar.handlers]]
-- [tests/test_graph_editor_reads.py](../../../../../../tests/test_graph_editor_reads.py) — imports consumer [[Reference/Modules/learnloop_sidecar/handlers/__init__|learnloop_sidecar.handlers]]
-- [tests/test_instrument_servability_journeys.py](../../../../../../tests/test_instrument_servability_journeys.py) — imports consumer [[Reference/Modules/learnloop_sidecar/handlers/__init__|learnloop_sidecar.handlers]]
-- [tests/test_sidecar_adjudication.py](../../../../../../tests/test_sidecar_adjudication.py) — imports consumer [[Reference/Modules/learnloop_sidecar/handlers/__init__|learnloop_sidecar.handlers]]
-- [tests/test_sidecar_exams.py](../../../../../../tests/test_sidecar_exams.py) — imports consumer [[Reference/Modules/learnloop_sidecar/handlers/__init__|learnloop_sidecar.handlers]]
-- [tests/test_sidecar_goals.py](../../../../../../tests/test_sidecar_goals.py) — imports consumer [[Reference/Modules/learnloop_sidecar/handlers/__init__|learnloop_sidecar.handlers]]
-- [tests/test_sidecar_item_presentation.py](../../../../../../tests/test_sidecar_item_presentation.py) — imports consumer [[Reference/Modules/learnloop_sidecar/handlers/__init__|learnloop_sidecar.handlers]]
-- [tests/test_sidecar_measurement.py](../../../../../../tests/test_sidecar_measurement.py) — imports consumer [[Reference/Modules/learnloop_sidecar/handlers/__init__|learnloop_sidecar.handlers]]
-- [tests/test_sidecar_trace_and_clarification.py](../../../../../../tests/test_sidecar_trace_and_clarification.py) — imports consumer [[Reference/Modules/learnloop_sidecar/handlers/__init__|learnloop_sidecar.handlers]]
+- [tests/test_capture_desktop.py](../../../../../../tests/test_capture_desktop.py) — direct import
+  - `test_card_route_after_success_only`
+- [tests/test_capture_route_recovery.py](../../../../../../tests/test_capture_route_recovery.py) — direct import
+  - `test_crash_before_destination_allows_choosing_another_route`
+- [tests/test_plan_first_transport_grant_scope.py](../../../../../../tests/test_plan_first_transport_grant_scope.py) — direct import
+  - `test_the_edit_recheck_never_uses_the_grant`
 
 ## Modification guidance
 

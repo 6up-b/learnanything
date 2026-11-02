@@ -7,11 +7,11 @@ version: "1.0.0"
 source_path: "src/learnloop/diagnosis/error_hunt.py"
 source_paths:
   - "src/learnloop/diagnosis/error_hunt.py"
-source_commit: "b322ef2e9b5cebc241b612e4963a5aaf1a37f99a"
-source_commit_timestamp: "2026-08-20T18:04:29-04:00"
+source_commit: "1e36c399c45e551e585038a4fdabcecc6d12561a"
+source_commit_timestamp: "2026-10-15T08:59:58-04:00"
 source_worktree_state: "clean"
 generated: true
-generated_at: "2026-09-23"
+generated_at: "2026-11-02"
 package: "learnloop.diagnosis"
 layer: "domain"
 concepts:
@@ -50,46 +50,47 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/diagnosis/error_hunt.py](../../../../../../src/learnloop/diagnosis/error_hunt.py) |
-| Source lines | 699 |
+| Source lines | 728 |
 | Owning package | [[Reference/Modules/learnloop/diagnosis/_package|learnloop.diagnosis]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `b322ef2e9b5cebc241b612e4963a5aaf1a37f99a` |
-| Commit timestamp | `2026-08-20T18:04:29-04:00` |
+| Source commit | `1e36c399c45e551e585038a4fdabcecc6d12561a` |
+| Commit timestamp | `2026-10-15T08:59:58-04:00` |
 
 ## Public API
 
-- `class PlantOutcome(StrEnum)` ([source](../../../../../../src/learnloop/diagnosis/error_hunt.py), line 85) — What became of one planted error on one attempt.
-- `class PlantResult` ([source](../../../../../../src/learnloop/diagnosis/error_hunt.py), line 106) — One plant's outcome, with the report that decided it.
-  - `as_dict(self) -> dict[str, Any]` (line 116; public)
-- `class FalsePositiveReport` ([source](../../../../../../src/learnloop/diagnosis/error_hunt.py), line 127) — An error the learner reported that corresponds to no plant.
-  - `as_dict(self) -> dict[str, Any]` (line 139; public)
-- `class ValidatedErrorHunt` ([source](../../../../../../src/learnloop/diagnosis/error_hunt.py), line 149) — One attempt's A3 outcome, as the grading validator resolved it.
-  - `planted_total(self) -> int` (line 164; public)
-  - `count(self, outcome: PlantOutcome) -> int` (line 167; public)
-  - `reported_error_on_clean_solution(self) -> bool` (line 171; public) — The §10 case: correct work, and the learner says something is wrong.
-  - `as_dict(self) -> dict[str, Any]` (line 176; public)
-- `validate_error_hunt_report(item: PracticeItem, proposal: Any) -> ValidatedErrorHunt | None` ([source](../../../../../../src/learnloop/diagnosis/error_hunt.py), line 263) — Resolve the grader's A3 report against the item's plants.
-- `suppress_facet_failures_on_clean_solution(hunt: ValidatedErrorHunt | None, error_attributions: list[Any], repair_suggestions: list[dict[str, Any]]) -> tuple[list[Any], list[dict[str, Any]], ValidatedErrorHunt | None]` ([source](../../../../../../src/learnloop/diagnosis/error_hunt.py), line 339) — Strip facet targets from a clean-solution error hunt's attributions.
-- `record_error_hunt_outcome(repository: Repository, hunt: ValidatedErrorHunt, *, attempt_id: str, learning_object_id: str, grading_prompt_version: str | None=None, vault: Any=None, clock: Clock | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/diagnosis/error_hunt.py), line 432) — Persist the outcome and, on the §10 path, mint the misconception candidate.
-- `proofreading_signal(vault: LoadedVault, repository: Repository, *, since: str | None=None) -> Metric` ([source](../../../../../../src/learnloop/diagnosis/error_hunt.py), line 552) — ``error_hunt_constructed_response_agreement``: A3's revert producer.
-- `error_hunt_outcome_summary(repository: Repository, *, since: str | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/diagnosis/error_hunt.py), line 667) — Descriptive counts over recorded A3 outcomes, including the clean rotation.
+- `class PlantOutcome(StrEnum)` ([source](../../../../../../src/learnloop/diagnosis/error_hunt.py), line 86) — What became of one planted error on one attempt.
+- `class PlantResult` ([source](../../../../../../src/learnloop/diagnosis/error_hunt.py), line 107) — One plant's outcome, with the report that decided it.
+  - `as_dict(self) -> dict[str, Any]` (line 117; public)
+- `class FalsePositiveReport` ([source](../../../../../../src/learnloop/diagnosis/error_hunt.py), line 128) — An error the learner reported that corresponds to no plant.
+  - `as_dict(self) -> dict[str, Any]` (line 140; public)
+- `class ValidatedErrorHunt` ([source](../../../../../../src/learnloop/diagnosis/error_hunt.py), line 150) — One attempt's A3 outcome, as the grading validator resolved it.
+  - `planted_total(self) -> int` (line 165; public)
+  - `count(self, outcome: PlantOutcome) -> int` (line 168; public)
+  - `reported_error_on_clean_solution(self) -> bool` (line 172; public) — The §10 case: correct work, and the learner says something is wrong.
+  - `as_dict(self) -> dict[str, Any]` (line 177; public)
+- `validate_error_hunt_report(item: PracticeItem, proposal: Any) -> ValidatedErrorHunt | None` ([source](../../../../../../src/learnloop/diagnosis/error_hunt.py), line 264) — Resolve the grader's A3 report against the item's plants.
+- `suppress_facet_failures_on_clean_solution(hunt: ValidatedErrorHunt | None, error_attributions: list[Any], repair_suggestions: list[dict[str, Any]]) -> tuple[list[Any], list[dict[str, Any]], ValidatedErrorHunt | None]` ([source](../../../../../../src/learnloop/diagnosis/error_hunt.py), line 340) — Strip facet targets from a clean-solution error hunt's attributions.
+- `record_error_hunt_outcome(repository: Repository, hunt: ValidatedErrorHunt, *, attempt_id: str, learning_object_id: str, grading_prompt_version: str | None=None, vault: Any=None, clock: Clock | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/diagnosis/error_hunt.py), line 433) — Persist the outcome and, on the §10 path, mint the misconception candidate.
+- `proofreading_signal(vault: LoadedVault, repository: Repository, *, since: str | None=None) -> Metric` ([source](../../../../../../src/learnloop/diagnosis/error_hunt.py), line 574) — ``error_hunt_constructed_response_agreement``: A3's revert producer.
+- `error_hunt_outcome_summary(repository: Repository, *, since: str | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/diagnosis/error_hunt.py), line 696) — Descriptive counts over recorded A3 outcomes, including the clean rotation.
 
 ### Module constants
 
-- `ERROR_HUNT_VERSION` ([src/learnloop/diagnosis/error_hunt.py](../../../../../../src/learnloop/diagnosis/error_hunt.py), line 82)
-- `CLEAN_SOLUTION_FALSE_POSITIVE` ([src/learnloop/diagnosis/error_hunt.py](../../../../../../src/learnloop/diagnosis/error_hunt.py), line 336)
-- `PROOFREADING_SIGNAL_METRIC` ([src/learnloop/diagnosis/error_hunt.py](../../../../../../src/learnloop/diagnosis/error_hunt.py), line 540)
-- `MIN_PAIRED_FACETS` ([src/learnloop/diagnosis/error_hunt.py](../../../../../../src/learnloop/diagnosis/error_hunt.py), line 544)
-- `AGREEMENT_FLOOR` ([src/learnloop/diagnosis/error_hunt.py](../../../../../../src/learnloop/diagnosis/error_hunt.py), line 549)
+- `ERROR_HUNT_VERSION` ([src/learnloop/diagnosis/error_hunt.py](../../../../../../src/learnloop/diagnosis/error_hunt.py), line 83)
+- `CLEAN_SOLUTION_FALSE_POSITIVE` ([src/learnloop/diagnosis/error_hunt.py](../../../../../../src/learnloop/diagnosis/error_hunt.py), line 337)
+- `PROOFREADING_SIGNAL_METRIC` ([src/learnloop/diagnosis/error_hunt.py](../../../../../../src/learnloop/diagnosis/error_hunt.py), line 562)
+- `MIN_PAIRED_FACETS` ([src/learnloop/diagnosis/error_hunt.py](../../../../../../src/learnloop/diagnosis/error_hunt.py), line 566)
+- `AGREEMENT_FLOOR` ([src/learnloop/diagnosis/error_hunt.py](../../../../../../src/learnloop/diagnosis/error_hunt.py), line 571)
 
 ## Internal implementation anchors
 
-- `_mentions(haystack: str, needle: str) -> bool` ([source](../../../../../../src/learnloop/diagnosis/error_hunt.py), line 197) — Normalized containment under the shared answer normalizer.
-- `_match_plant(report: Any, plants: Sequence[PlantedError], claimed: set[str]) -> PlantedError | None` ([source](../../../../../../src/learnloop/diagnosis/error_hunt.py), line 211) — Which plant, if any, this report is about.
-- `_plant_outcome(report: Any, plant: PlantedError) -> PlantOutcome` ([source](../../../../../../src/learnloop/diagnosis/error_hunt.py), line 249) — Repaired, or merely found.
-- `_candidate_statement(report: FalsePositiveReport) -> str` ([source](../../../../../../src/learnloop/diagnosis/error_hunt.py), line 519) — The belief, phrased as a belief, from a false-positive report.
+- `_mentions(haystack: str, needle: str) -> bool` ([source](../../../../../../src/learnloop/diagnosis/error_hunt.py), line 198) — Normalized containment under the shared answer normalizer.
+- `_match_plant(report: Any, plants: Sequence[PlantedError], claimed: set[str]) -> PlantedError | None` ([source](../../../../../../src/learnloop/diagnosis/error_hunt.py), line 212) — Which plant, if any, this report is about.
+- `_plant_outcome(report: Any, plant: PlantedError) -> PlantOutcome` ([source](../../../../../../src/learnloop/diagnosis/error_hunt.py), line 250) — Repaired, or merely found.
+- `_hunt_provenance(repository: Repository, attempt_id: str) -> Any` ([source](../../../../../../src/learnloop/diagnosis/error_hunt.py), line 534)
+- `_candidate_statement(report: FalsePositiveReport) -> str` ([source](../../../../../../src/learnloop/diagnosis/error_hunt.py), line 541) — The belief, phrased as a belief, from a false-positive report.
 
 ## Who imports or calls it
 
@@ -107,9 +108,14 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 
 - [[Reference/Modules/learnloop/clock|learnloop.clock]] — imports `Clock`
 - [[Reference/Modules/learnloop/db/repositories|learnloop.db.repositories]] — imports `Repository`
+- [[Reference/Modules/learnloop/db/stores/write_provenance|learnloop.db.stores.write_provenance]] — imports `GRADING`, `closure`; calls `closure`
 - [[Reference/Modules/learnloop/diagnosis/diagnostic_gate|learnloop.diagnosis.diagnostic_gate]] — imports `normalize_answer`; calls `normalize_answer`
 - [[Reference/Modules/learnloop/diagnosis/misconceptions|learnloop.diagnosis.misconceptions]] — imports `promote_candidate_if_independent`; calls `promote_candidate_if_independent`
 - [[Reference/Modules/learnloop/diagnosis/scoreboard|learnloop.diagnosis.scoreboard]] — imports `Metric`; calls `Metric`
+- [[Reference/Modules/learnloop/held_grades|learnloop.held_grades]] — imports `mark_held_attempts`; calls `mark_held_attempts`
+- [[Reference/Modules/learnloop/outcome_contract|learnloop.outcome_contract]] — imports `HELD_ROW_KEY`
+- [[Reference/Modules/learnloop/recurrence|learnloop.recurrence]] — imports `recurrence_key`; calls `recurrence_key`
+- [[Reference/Modules/learnloop/substrate/recurrence_groups|learnloop.substrate.recurrence_groups]] — imports `active_group_map`; calls `active_group_map`
 - [[Reference/Modules/learnloop/vault/models|learnloop.vault.models]] — imports `LoadedVault`, `PlantedError`, `PracticeItem`
 
 ### Platform and third-party dependencies

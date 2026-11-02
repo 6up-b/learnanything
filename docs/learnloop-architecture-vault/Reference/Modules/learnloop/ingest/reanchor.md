@@ -11,7 +11,7 @@ source_commit: "02c3e6e10f5ca37e16cef05657ee693b33502fb7"
 source_commit_timestamp: "2026-07-21T13:26:14-04:00"
 source_worktree_state: "clean"
 generated: true
-generated_at: "2026-09-23"
+generated_at: "2026-11-02"
 package: "learnloop.ingest"
 layer: "infrastructure"
 concepts:
@@ -85,7 +85,9 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 > [!note] Static evidence boundary
 > “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
 
+- [[Reference/Modules/learnloop/adaptive_difficulty/material_view|learnloop.adaptive_difficulty.material_view]] — imports `MANUAL`
 - [[Reference/Modules/learnloop/content/pipeline/revision_refresh|learnloop.content.pipeline.revision_refresh]] — imports `EXACT_HASH`, `reanchor_spans`; statically calls `reanchor_spans`
+- [[Reference/Modules/learnloop/content/sources/span_aliases|learnloop.content.sources.span_aliases]] — imports `EXACT_HASH`, `MANUAL`, `reanchor_spans`; statically calls `reanchor_spans`
 - [[Reference/Modules/learnloop/content/synthesis/source_unit_inventory|learnloop.content.synthesis.source_unit_inventory]] — imports `EXACT_HASH`, `reanchor_spans`; statically calls `reanchor_spans`
 - [[Reference/Modules/learnloop/content/synthesis/source_unit_selection|learnloop.content.synthesis.source_unit_selection]] — imports `reanchor_spans`; statically calls `reanchor_spans`
 - [[Reference/Modules/learnloop/reader/annotations|learnloop.reader.annotations]] — imports `reanchor_spans`, `reanchor_subblock`; statically calls `reanchor_spans`, `reanchor_subblock`
@@ -107,7 +109,7 @@ Use this module in context through:
 
 - [[Import Canonical Sources]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/content/pipeline/revision_refresh|learnloop.content.pipeline.revision_refresh]], [[Reference/Modules/learnloop/content/synthesis/source_unit_inventory|learnloop.content.synthesis.source_unit_inventory]], [[Reference/Modules/learnloop/content/synthesis/source_unit_selection|learnloop.content.synthesis.source_unit_selection]], [[Reference/Modules/learnloop/reader/annotations|learnloop.reader.annotations]].
+Static participation evidence comes from [[Reference/Modules/learnloop/adaptive_difficulty/material_view|learnloop.adaptive_difficulty.material_view]], [[Reference/Modules/learnloop/content/pipeline/revision_refresh|learnloop.content.pipeline.revision_refresh]], [[Reference/Modules/learnloop/content/sources/span_aliases|learnloop.content.sources.span_aliases]], [[Reference/Modules/learnloop/content/synthesis/source_unit_inventory|learnloop.content.synthesis.source_unit_inventory]], [[Reference/Modules/learnloop/content/synthesis/source_unit_selection|learnloop.content.synthesis.source_unit_selection]] and 1 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 

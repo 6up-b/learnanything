@@ -7,11 +7,11 @@ version: "1.0.0"
 source_path: "src/learnloop_sidecar/handlers/ingest.py"
 source_paths:
   - "src/learnloop_sidecar/handlers/ingest.py"
-source_commit: "df36567be6701733d162bffc27ac2a72c43d872a"
-source_commit_timestamp: "2026-09-03T10:49:58-07:00"
+source_commit: "e63a81c0807f929ac4cc5b77e209a5beace229a1"
+source_commit_timestamp: "2026-11-01T13:52:05-05:00"
 source_worktree_state: "clean"
 generated: true
-generated_at: "2026-09-23"
+generated_at: "2026-11-02"
 package: "learnloop_sidecar.handlers"
 layer: "adapter"
 concepts:
@@ -50,114 +50,115 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop_sidecar/handlers/ingest.py](../../../../../../src/learnloop_sidecar/handlers/ingest.py) |
-| Source lines | 1489 |
+| Source lines | 1598 |
 | Owning package | [[Reference/Modules/learnloop_sidecar/handlers/_package|learnloop_sidecar.handlers]] |
 | Architecture layer | `adapter` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `df36567be6701733d162bffc27ac2a72c43d872a` |
-| Commit timestamp | `2026-09-03T10:49:58-07:00` |
+| Source commit | `e63a81c0807f929ac4cc5b77e209a5beace229a1` |
+| Commit timestamp | `2026-11-01T13:52:05-05:00` |
 
 ## Public API
 
-- `validate_budget(field: str, value: int | None) -> None` ([source](../../../../../../src/learnloop_sidecar/handlers/ingest.py), line 53) — Raise a typed error when a ceiling falls outside its accepted range.
-- `validated_budget_overrides(overrides: dict[str, int] | None) -> dict[str, int]` ([source](../../../../../../src/learnloop_sidecar/handlers/ingest.py), line 73) — Accept only the plan-charted ceilings, each within its bounds.
-- `class ClassifyIngestSourceInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/ingest.py), line 93)
-- `class StartIngestInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/ingest.py), line 97)
-- `class IngestJobInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/ingest.py), line 106)
-- `class SourcePageRangeInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/ingest.py), line 110)
-- `class StartImportBatchInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/ingest.py), line 118)
-- `class IngestBatchInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/ingest.py), line 140)
-- `class ListIngestBatchesInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/ingest.py), line 144)
-- `class RetrySynthesisInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/ingest.py), line 148)
-- `classify_ingest_source(_ctx: SidecarContext, params: ClassifyIngestSourceInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/ingest.py), line 164)
-- `start_ingest(ctx: SidecarContext, params: StartIngestInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/ingest.py), line 209)
-- `get_ingest_job(ctx: SidecarContext, params: IngestJobInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/ingest.py), line 236)
-- `get_ingest_jobs(ctx: SidecarContext, _params) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/ingest.py), line 245)
-- `cancel_ingest(ctx: SidecarContext, params: IngestJobInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/ingest.py), line 252)
-- `start_import_batch(ctx: SidecarContext, params: StartImportBatchInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/ingest.py), line 265)
-- `get_ingest_batch(ctx: SidecarContext, params: IngestBatchInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/ingest.py), line 364)
-- `list_ingest_batches(ctx: SidecarContext, params: ListIngestBatchesInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/ingest.py), line 373)
-- `cancel_ingest_batch(ctx: SidecarContext, params: IngestBatchInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/ingest.py), line 404)
-- `resume_ingest_batch(ctx: SidecarContext, params: IngestBatchInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/ingest.py), line 412)
-- `retry_synthesis(ctx: SidecarContext, params: RetrySynthesisInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/ingest.py), line 420) — Requeue only a failed synthesis job with revised execution ceilings.
-- `get_synthesis_candidate(ctx: SidecarContext, params: IngestBatchInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/ingest.py), line 458) — Summarize the preserved synthesis candidate behind a failed batch (§8).
-- `get_source_library(ctx: SidecarContext, _params) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/ingest.py), line 508) — The Source library card grid (§5.7): one card per artifact fed by the M1 artifact/revision/extraction tables — title, readiness/health line, suggested role, and an update-available placeholder.
-- `class SourceDeletionInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/ingest.py), line 553)
-- `preview_source_deletion(ctx: SidecarContext, params: SourceDeletionInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/ingest.py), line 558) — What deleting this source would remove, cost, and currently block (§4.1).
-- `delete_source(ctx: SidecarContext, params: SourceDeletionInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/ingest.py), line 576) — Delete an imported source and everything derived from it (§4.1).
-- `class SourceOutlineInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/ingest.py), line 602)
-- `class SaveUnitSelectionInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/ingest.py), line 606)
-- `class AcquisitionPreviewInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/ingest.py), line 613)
-- `class BuildPlanSelection(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/ingest.py), line 617)
-- `class BuildPlanInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/ingest.py), line 622)
-- `class StartExtractionRepairInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/ingest.py), line 630)
-- `get_source_outline(ctx: SidecarContext, params: SourceOutlineInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/ingest.py), line 640) — Deterministic outline of a source's extraction (zero agent runs, §3/§5.7).
-- `class SelectionPreviewInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/ingest.py), line 662)
-- `get_selection_preview(ctx: SidecarContext, params: SelectionPreviewInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/ingest.py), line 668) — Byte-exact display markdown for a unit selection — the same ``render_ir_markdown`` output synthesis feeds the model (§2.3), so the learner can inspect what the LLM will see before starting a batch.
-- `class EffectiveOutlineInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/ingest.py), line 699)
-- `get_effective_outline(ctx: SidecarContext, params: EffectiveOutlineInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/ingest.py), line 705) — Deterministic effective-unit shape after boundary overrides (§5.3).
-- `save_unit_selection_rpc(ctx: SidecarContext, params: SaveUnitSelectionInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/ingest.py), line 725) — Persist per-extraction unit selection + boundary overrides (§5.3).
-- `get_acquisition_preview(ctx: SidecarContext, params: AcquisitionPreviewInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/ingest.py), line 751) — Deterministic acquisition preview — no downloads/extraction/LLM (§8.6.1).
-- `get_build_plan(ctx: SidecarContext, params: BuildPlanInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/ingest.py), line 760) — Deterministic build plan with per-stage token estimates (§8.6.2).
-- `start_extraction_repair(ctx: SidecarContext, params: StartExtractionRepairInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/ingest.py), line 782) — Enqueue a consent-gated extraction-repair batch (§2.5).
-- `class ListSourceSetsInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/ingest.py), line 806)
-- `class SourceSetRefInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/ingest.py), line 810)
-- `class SourceSetScopeParams(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/ingest.py), line 814)
-- `class SourceSetMemberParams(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/ingest.py), line 819)
-- `class UpsertSourceSetInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/ingest.py), line 827)
-- `class StartInventoryInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/ingest.py), line 834)
-- `list_source_sets(ctx: SidecarContext, _params: ListSourceSetsInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/ingest.py), line 851) — List source collections (§4.3).
-- `get_source_set(ctx: SidecarContext, params: SourceSetRefInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/ingest.py), line 866) — Show a collection's members, roles, and scopes (§4.3).
-- `upsert_source_set_rpc(ctx: SidecarContext, params: UpsertSourceSetInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/ingest.py), line 875) — Create or update a collection; membership owns role/scope/priority (§4.3).
-- `get_source_coverage(ctx: SidecarContext, params: SourceSetRefInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/ingest.py), line 894) — Deterministic coverage + readiness preview for a collection (§9.3).
-- `class CreateStudyMapInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/ingest.py), line 918)
-- `create_study_map(ctx: SidecarContext, params: CreateStudyMapInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/ingest.py), line 928) — Bootstrap synthesis: brief -> gated dependency-closed study map (§8, M6).
-- `class BuildStudyMapInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/ingest.py), line 966)
-- `build_study_map_rpc(ctx: SidecarContext, params: BuildStudyMapInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/ingest.py), line 978) — Enqueue a mode-aware study-map build batch for a collection (§1/§8/§10), surfaced as a durable Activity batch.
-- `class AppendSourceInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/ingest.py), line 1083)
-- `append_source_rpc(ctx: SidecarContext, params: AppendSourceInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/ingest.py), line 1093) — Update study map: bounded affected-neighborhood append reconciliation (§10).
-- `class RefreshRevisionInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/ingest.py), line 1123)
-- `refresh_revision_rpc(ctx: SidecarContext, params: RefreshRevisionInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/ingest.py), line 1133) — Adopt a new source revision (§10.4).
-- `class ExamReadinessInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/ingest.py), line 1161)
-- `exam_readiness_rpc(ctx: SidecarContext, params: ExamReadinessInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/ingest.py), line 1166) — Lightweight deterministic exam-readiness-by-task-family report (§15).
-- `class SourceOutcomesInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/ingest.py), line 1176)
-- `source_outcomes_rpc(ctx: SidecarContext, params: SourceOutcomesInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/ingest.py), line 1181) — Provenance-outcome associations (§11) — report-only, additive suggestions.
-- `class MaintenanceFeedInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/ingest.py), line 1191)
-- `maintenance_feed_rpc(ctx: SidecarContext, params: MaintenanceFeedInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/ingest.py), line 1196) — Generate + return the maintenance feed (§11), deterministic from state.
-- `class MaintenanceNoticeActionInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/ingest.py), line 1211)
-- `maintenance_notice_action_rpc(ctx: SidecarContext, params: MaintenanceNoticeActionInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/ingest.py), line 1218) — Dismiss or snooze a notice WITHOUT changing source or curriculum state (§11).
-- `class ListConflictsInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/ingest.py), line 1231)
-- `list_source_conflicts_rpc(ctx: SidecarContext, params: ListConflictsInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/ingest.py), line 1236) — List source conflicts by status (§10.2) for the conflict review surface.
-- `class ResolveConflictInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/ingest.py), line 1262)
-- `resolve_source_conflict_rpc(ctx: SidecarContext, params: ResolveConflictInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/ingest.py), line 1270) — Resolve an open conflict (§10.2) — never applies either competing side.
-- `class PlanQuickAddInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/ingest.py), line 1284)
-- `class ConfirmQuickAddInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/ingest.py), line 1290)
-- `plan_quick_add_rpc(ctx: SidecarContext, params: PlanQuickAddInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/ingest.py), line 1303) — Quick add step 1 (§1): the single-confirmation plan for an imported source.
-- `confirm_quick_add_rpc(ctx: SidecarContext, params: ConfirmQuickAddInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/ingest.py), line 1335) — Quick add step 2 (§1): the post-confirmation step.
-- `start_inventory(ctx: SidecarContext, params: StartInventoryInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/ingest.py), line 1387) — Enqueue a role-aware unit-inventory batch (§7).
-- `get_recent_ingests(ctx: SidecarContext, _params) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/ingest.py), line 1443) — Canonical-source notes staged by `learnloop ingest` / `ingest-exam`.
+- `validate_budget(field: str, value: int | None) -> None` ([source](../../../../../../src/learnloop_sidecar/handlers/ingest.py), line 54) — Raise a typed error when a ceiling falls outside its accepted range.
+- `validated_budget_overrides(overrides: dict[str, int] | None) -> dict[str, int]` ([source](../../../../../../src/learnloop_sidecar/handlers/ingest.py), line 74) — Accept only the plan-charted ceilings, each within its bounds.
+- `class ClassifyIngestSourceInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/ingest.py), line 94)
+- `class StartIngestInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/ingest.py), line 98)
+- `class IngestJobInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/ingest.py), line 107)
+- `class SourcePageRangeInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/ingest.py), line 111)
+- `class StartImportBatchInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/ingest.py), line 119)
+- `class IngestBatchInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/ingest.py), line 141)
+- `class ListIngestBatchesInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/ingest.py), line 145)
+- `class RetrySynthesisInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/ingest.py), line 149)
+- `classify_ingest_source(_ctx: SidecarContext, params: ClassifyIngestSourceInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/ingest.py), line 165)
+- `start_ingest(ctx: SidecarContext, params: StartIngestInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/ingest.py), line 210)
+- `get_ingest_job(ctx: SidecarContext, params: IngestJobInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/ingest.py), line 237)
+- `get_ingest_jobs(ctx: SidecarContext, _params) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/ingest.py), line 246)
+- `cancel_ingest(ctx: SidecarContext, params: IngestJobInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/ingest.py), line 253)
+- `start_import_batch(ctx: SidecarContext, params: StartImportBatchInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/ingest.py), line 266)
+- `get_ingest_batch(ctx: SidecarContext, params: IngestBatchInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/ingest.py), line 365)
+- `list_ingest_batches(ctx: SidecarContext, params: ListIngestBatchesInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/ingest.py), line 378)
+- `cancel_ingest_batch(ctx: SidecarContext, params: IngestBatchInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/ingest.py), line 409)
+- `resume_ingest_batch(ctx: SidecarContext, params: IngestBatchInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/ingest.py), line 417)
+- `retry_synthesis(ctx: SidecarContext, params: RetrySynthesisInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/ingest.py), line 425) — Requeue only a failed synthesis job with revised execution ceilings.
+- `get_synthesis_candidate(ctx: SidecarContext, params: IngestBatchInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/ingest.py), line 463) — Summarize the preserved synthesis candidate behind a failed batch (§8).
+- `get_source_library(ctx: SidecarContext, _params) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/ingest.py), line 513) — The Source library card grid (§5.7): one card per artifact fed by the M1 artifact/revision/extraction tables — title, readiness/health line, suggested role, and an update-available placeholder.
+- `class SourceDeletionInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/ingest.py), line 603)
+- `preview_source_deletion(ctx: SidecarContext, params: SourceDeletionInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/ingest.py), line 608) — What deleting this source would remove, cost, and currently block (§4.1).
+- `delete_source(ctx: SidecarContext, params: SourceDeletionInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/ingest.py), line 626) — Delete an imported source and everything derived from it (§4.1).
+- `class SourceOutlineInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/ingest.py), line 652)
+- `class SaveUnitSelectionInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/ingest.py), line 656)
+- `class AcquisitionPreviewInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/ingest.py), line 663)
+- `class BuildPlanSelection(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/ingest.py), line 667)
+- `class BuildPlanInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/ingest.py), line 672)
+- `class StartExtractionRepairInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/ingest.py), line 680)
+- `get_source_outline(ctx: SidecarContext, params: SourceOutlineInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/ingest.py), line 690) — Deterministic outline of a source's extraction (zero agent runs, §3/§5.7).
+- `class SelectionPreviewInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/ingest.py), line 712)
+- `get_selection_preview(ctx: SidecarContext, params: SelectionPreviewInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/ingest.py), line 718) — Byte-exact display markdown for a unit selection — the same ``render_ir_markdown`` output synthesis feeds the model (§2.3), so the learner can inspect what the LLM will see before starting a batch.
+- `class EffectiveOutlineInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/ingest.py), line 749)
+- `get_effective_outline(ctx: SidecarContext, params: EffectiveOutlineInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/ingest.py), line 755) — Deterministic effective-unit shape after boundary overrides (§5.3).
+- `save_unit_selection_rpc(ctx: SidecarContext, params: SaveUnitSelectionInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/ingest.py), line 775) — Persist per-extraction unit selection + boundary overrides (§5.3).
+- `get_acquisition_preview(ctx: SidecarContext, params: AcquisitionPreviewInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/ingest.py), line 801) — Deterministic acquisition preview — no downloads/extraction/LLM (§8.6.1).
+- `get_build_plan(ctx: SidecarContext, params: BuildPlanInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/ingest.py), line 810) — Deterministic build plan with per-stage token estimates (§8.6.2).
+- `start_extraction_repair(ctx: SidecarContext, params: StartExtractionRepairInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/ingest.py), line 832) — Enqueue a consent-gated extraction-repair batch (§2.5).
+- `class ListSourceSetsInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/ingest.py), line 856)
+- `class SourceSetRefInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/ingest.py), line 860)
+- `class SourceSetScopeParams(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/ingest.py), line 864)
+- `class SourceSetMemberParams(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/ingest.py), line 869)
+- `class UpsertSourceSetInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/ingest.py), line 883)
+- `class StartInventoryInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/ingest.py), line 890)
+- `list_source_sets(ctx: SidecarContext, _params: ListSourceSetsInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/ingest.py), line 907) — List source collections (§4.3).
+- `get_source_set(ctx: SidecarContext, params: SourceSetRefInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/ingest.py), line 922) — Show a collection's members, roles, and scopes (§4.3).
+- `upsert_source_set_rpc(ctx: SidecarContext, params: UpsertSourceSetInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/ingest.py), line 931) — Create or update a collection; membership owns role/scope/priority (§4.3).
+- `get_source_coverage(ctx: SidecarContext, params: SourceSetRefInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/ingest.py), line 950) — Deterministic coverage + readiness preview for a collection (§9.3).
+- `class CreateStudyMapInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/ingest.py), line 974)
+- `create_study_map(ctx: SidecarContext, params: CreateStudyMapInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/ingest.py), line 984) — Bootstrap synthesis: brief -> gated dependency-closed study map (§8, M6).
+- `class BuildStudyMapInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/ingest.py), line 1022)
+- `build_study_map_rpc(ctx: SidecarContext, params: BuildStudyMapInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/ingest.py), line 1034) — Enqueue a mode-aware study-map build batch for a collection (§1/§8/§10), surfaced as a durable Activity batch.
+- `class AppendSourceInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/ingest.py), line 1144)
+- `append_source_rpc(ctx: SidecarContext, params: AppendSourceInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/ingest.py), line 1154) — Update study map: bounded affected-neighborhood append reconciliation (§10).
+- `class RefreshRevisionInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/ingest.py), line 1184)
+- `refresh_revision_rpc(ctx: SidecarContext, params: RefreshRevisionInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/ingest.py), line 1194) — Adopt a new source revision (§10.4).
+- `class ExamReadinessInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/ingest.py), line 1222)
+- `exam_readiness_rpc(ctx: SidecarContext, params: ExamReadinessInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/ingest.py), line 1227) — Lightweight deterministic exam-readiness-by-task-family report (§15).
+- `class SourceOutcomesInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/ingest.py), line 1237)
+- `source_outcomes_rpc(ctx: SidecarContext, params: SourceOutcomesInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/ingest.py), line 1242) — Provenance-outcome associations (§11) — report-only, additive suggestions.
+- `class MaintenanceFeedInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/ingest.py), line 1252)
+- `maintenance_feed_rpc(ctx: SidecarContext, params: MaintenanceFeedInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/ingest.py), line 1257) — Generate + return the maintenance feed (§11), deterministic from state.
+- `class MaintenanceNoticeActionInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/ingest.py), line 1272)
+- `maintenance_notice_action_rpc(ctx: SidecarContext, params: MaintenanceNoticeActionInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/ingest.py), line 1279) — Dismiss or snooze a notice WITHOUT changing source or curriculum state (§11).
+- `class ListConflictsInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/ingest.py), line 1292)
+- `list_source_conflicts_rpc(ctx: SidecarContext, params: ListConflictsInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/ingest.py), line 1297) — List source conflicts by status (§10.2) for the conflict review surface.
+- `class ResolveConflictInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/ingest.py), line 1339)
+- `resolve_source_conflict_rpc(ctx: SidecarContext, params: ResolveConflictInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/ingest.py), line 1347) — Resolve an open conflict (§10.2) — never applies either competing side.
+- `class PlanQuickAddInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/ingest.py), line 1361)
+- `class ConfirmQuickAddInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/ingest.py), line 1367)
+- `plan_quick_add_rpc(ctx: SidecarContext, params: PlanQuickAddInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/ingest.py), line 1381) — Quick add step 1 (§1): the single-confirmation plan for an imported source.
+- `confirm_quick_add_rpc(ctx: SidecarContext, params: ConfirmQuickAddInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/ingest.py), line 1413) — Quick add step 2 (§1): the post-confirmation step.
+- `start_inventory(ctx: SidecarContext, params: StartInventoryInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/ingest.py), line 1491) — Enqueue a role-aware unit-inventory batch (§7).
+- `get_recent_ingests(ctx: SidecarContext, _params) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/ingest.py), line 1547) — Canonical-source notes staged by `learnloop ingest` / `ingest-exam`.
 
 ### Module constants
 
-- `_RECENT_LIMIT` ([src/learnloop_sidecar/handlers/ingest.py](../../../../../../src/learnloop_sidecar/handlers/ingest.py), line 26)
-- `BUDGET_BOUNDS` ([src/learnloop_sidecar/handlers/ingest.py](../../../../../../src/learnloop_sidecar/handlers/ingest.py), line 33)
-- `PLAN_BUDGET_FIELDS` ([src/learnloop_sidecar/handlers/ingest.py](../../../../../../src/learnloop_sidecar/handlers/ingest.py), line 44)
-- `_BUDGET_FIELD_BY_ALIAS` ([src/learnloop_sidecar/handlers/ingest.py](../../../../../../src/learnloop_sidecar/handlers/ingest.py), line 66)
+- `_RECENT_LIMIT` ([src/learnloop_sidecar/handlers/ingest.py](../../../../../../src/learnloop_sidecar/handlers/ingest.py), line 27)
+- `BUDGET_BOUNDS` ([src/learnloop_sidecar/handlers/ingest.py](../../../../../../src/learnloop_sidecar/handlers/ingest.py), line 34)
+- `PLAN_BUDGET_FIELDS` ([src/learnloop_sidecar/handlers/ingest.py](../../../../../../src/learnloop_sidecar/handlers/ingest.py), line 45)
+- `_BUDGET_FIELD_BY_ALIAS` ([src/learnloop_sidecar/handlers/ingest.py](../../../../../../src/learnloop_sidecar/handlers/ingest.py), line 67)
 
 ## Internal implementation anchors
 
-- `_is_pdf_source(source: str) -> bool` ([source](../../../../../../src/learnloop_sidecar/handlers/ingest.py), line 172)
-- `_native_pdf_preflight(vault, pdf_engine: str, sources: list[str], *, has_page_ranges: bool) -> None` ([source](../../../../../../src/learnloop_sidecar/handlers/ingest.py), line 179) — Refuse at enqueue time what the import would reject anyway.
-- `_contiguous_page_selection(start: int, end: int) -> list[int]` ([source](../../../../../../src/learnloop_sidecar/handlers/ingest.py), line 329)
-- `_parse_page_selection(raw: str) -> list[int]` ([source](../../../../../../src/learnloop_sidecar/handlers/ingest.py), line 337)
-- `_reload_applied_batches(ctx: SidecarContext, batches: list[dict[str, Any]]) -> None` ([source](../../../../../../src/learnloop_sidecar/handlers/ingest.py), line 379) — Refresh the in-memory vault once after a content-applying job completes.
-- `_source_set_or_error(vault, set_id: str)` ([source](../../../../../../src/learnloop_sidecar/handlers/ingest.py), line 843)
-- `_validated_brief(raw: dict[str, Any] | None) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/ingest.py), line 907) — Strict brief validation at the RPC boundary (typed error, camel→snake).
-- `_validate_inventory_output_budget(value: int | None) -> None` ([source](../../../../../../src/learnloop_sidecar/handlers/ingest.py), line 1410)
-- `_artifact_title(artifact: dict[str, Any], revision: dict[str, Any] | None) -> str` ([source](../../../../../../src/learnloop_sidecar/handlers/ingest.py), line 1414)
-- `_reload_completed_jobs(ctx: SidecarContext, jobs: list[dict[str, Any]]) -> None` ([source](../../../../../../src/learnloop_sidecar/handlers/ingest.py), line 1423)
-- `_note_path_from_ref(ref: Any) -> str | None` ([source](../../../../../../src/learnloop_sidecar/handlers/ingest.py), line 1432)
+- `_is_pdf_source(source: str) -> bool` ([source](../../../../../../src/learnloop_sidecar/handlers/ingest.py), line 173)
+- `_native_pdf_preflight(vault, pdf_engine: str, sources: list[str], *, has_page_ranges: bool) -> None` ([source](../../../../../../src/learnloop_sidecar/handlers/ingest.py), line 180) — Refuse at enqueue time what the import would reject anyway.
+- `_contiguous_page_selection(start: int, end: int) -> list[int]` ([source](../../../../../../src/learnloop_sidecar/handlers/ingest.py), line 330)
+- `_parse_page_selection(raw: str) -> list[int]` ([source](../../../../../../src/learnloop_sidecar/handlers/ingest.py), line 338)
+- `_reload_applied_batches(ctx: SidecarContext, batches: list[dict[str, Any]]) -> None` ([source](../../../../../../src/learnloop_sidecar/handlers/ingest.py), line 384) — Refresh the in-memory vault once after a content-applying job completes.
+- `_source_set_or_error(vault, set_id: str)` ([source](../../../../../../src/learnloop_sidecar/handlers/ingest.py), line 899)
+- `_validated_brief(raw: dict[str, Any] | None) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/ingest.py), line 963) — Strict brief validation at the RPC boundary (typed error, camel→snake).
+- `_validate_inventory_output_budget(value: int | None) -> None` ([source](../../../../../../src/learnloop_sidecar/handlers/ingest.py), line 1514)
+- `_artifact_title(artifact: dict[str, Any], revision: dict[str, Any] | None) -> str` ([source](../../../../../../src/learnloop_sidecar/handlers/ingest.py), line 1518) — The card and Reader title.
+- `_reload_completed_jobs(ctx: SidecarContext, jobs: list[dict[str, Any]]) -> None` ([source](../../../../../../src/learnloop_sidecar/handlers/ingest.py), line 1527)
+- `_note_path_from_ref(ref: Any) -> str | None` ([source](../../../../../../src/learnloop_sidecar/handlers/ingest.py), line 1536)
+- `_subject_title(vault, subject_id: str | None) -> str | None` ([source](../../../../../../src/learnloop_sidecar/handlers/ingest.py), line 1596)
 
 ## Who imports or calls it
 
@@ -165,6 +166,8 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 > “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
 
 - [[Reference/Modules/learnloop_sidecar/handlers/__init__|learnloop_sidecar.handlers]] — imports `module`
+- [[Reference/Modules/learnloop_sidecar/handlers/capture|learnloop_sidecar.handlers.capture]] — imports `module`
+- [[Reference/Modules/learnloop_sidecar/handlers/first_run|learnloop_sidecar.handlers.first_run]] — imports `_parse_page_selection`; statically calls `_parse_page_selection`
 - [[Reference/Modules/learnloop_sidecar/handlers/settings|learnloop_sidecar.handlers.settings]] — imports `BUDGET_BOUNDS`, `PLAN_BUDGET_FIELDS`, `validated_budget_overrides`; statically calls `validated_budget_overrides`
 
 ## Dependencies
@@ -172,15 +175,20 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 ### LearnLoop dependencies
 
 - [[Reference/Modules/learnloop/ai/native_media|learnloop.ai.native_media]] — imports `native_modality_readiness`; calls `native_modality_readiness`
+- [[Reference/Modules/learnloop/ai/plan_fallback|learnloop.ai.plan_fallback]] — imports `module`; calls `relay_batch_offer`, `relay_batch_offers`
+- [[Reference/Modules/learnloop/capture/routing|learnloop.capture.routing]] — imports `update_route_intent`
 - [[Reference/Modules/learnloop/content/pipeline/acquisition_preview|learnloop.content.pipeline.acquisition_preview]] — imports `build_acquisition_preview`; calls `build_acquisition_preview`
+- [[Reference/Modules/learnloop/content/pipeline/add_source|learnloop.content.pipeline.add_source]] — imports `learner_title`, `module`; calls `latest_add_batch`, `latest_build_batch`, `latest_planner`, `learner_title`, `pending_adds`, `source_kind_noun`, `source_status_line`, `text_recognition_available`
 - [[Reference/Modules/learnloop/content/pipeline/build_plan|learnloop.content.pipeline.build_plan]] — imports `build_build_plan`; calls `build_build_plan`
 - [[Reference/Modules/learnloop/content/pipeline/jobs|learnloop.content.pipeline.jobs]] — imports `APPLYING_JOB_TYPES`, `ActiveIngestJobError`
 - [[Reference/Modules/learnloop/content/pipeline/quick_add|learnloop.content.pipeline.quick_add]] — imports `QuickAddError`, `enqueue_quick_add`, `plan_quick_add`; calls `enqueue_quick_add`, `plan_quick_add`
 - [[Reference/Modules/learnloop/content/pipeline/revision_refresh|learnloop.content.pipeline.revision_refresh]] — imports `refresh_revision`; calls `refresh_revision`
 - [[Reference/Modules/learnloop/content/proposals/conflict_resolution|learnloop.content.proposals.conflict_resolution]] — imports `ConflictResolutionError`, `conflict_with_audit`, `resolve_conflict`; calls `conflict_with_audit`, `resolve_conflict`
+- [[Reference/Modules/learnloop/content/sources/role_authority|learnloop.content.sources.role_authority]] — imports `is_scope_only_role`; calls `is_scope_only_role`
 - [[Reference/Modules/learnloop/content/sources/source_deletion|learnloop.content.sources.source_deletion]] — imports `SourceDeletionError`, `delete_source`, `plan_source_deletion`; calls `delete_source`, `plan_source_deletion`
 - [[Reference/Modules/learnloop/content/sources/source_outcome_analytics|learnloop.content.sources.source_outcome_analytics]] — imports `analyze_source_outcomes`; calls `analyze_source_outcomes`
 - [[Reference/Modules/learnloop/content/sources/source_outline|learnloop.content.sources.source_outline]] — imports `OutlineNotFound`, `build_source_outline`, `resolve_extraction_id`; calls `build_source_outline`, `resolve_extraction_id`
+- [[Reference/Modules/learnloop/content/sources/span_aliases|learnloop.content.sources.span_aliases]] — imports `is_span_locator`, `locator_key`; calls `is_span_locator`, `locator_key`
 - [[Reference/Modules/learnloop/content/synthesis/brief|learnloop.content.synthesis.brief]] — imports `BriefValidationError`, `validate_brief`; calls `validate_brief`
 - [[Reference/Modules/learnloop/content/synthesis/coverage_rollup|learnloop.content.synthesis.coverage_rollup]] — imports `coverage_rollup`; calls `coverage_rollup`
 - [[Reference/Modules/learnloop/content/synthesis/source_append|learnloop.content.synthesis.source_append]] — imports `append_source`, `subject_has_applied_study_map`; calls `append_source`, `subject_has_applied_study_map`
@@ -198,6 +206,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop_sidecar/dto|learnloop_sidecar.dto]] — imports `ParamsModel`, `camel_name`, `versioned`; calls `camel_name`, `versioned`
 - [[Reference/Modules/learnloop_sidecar/errors|learnloop_sidecar.errors]] — imports `SidecarError`; calls `SidecarError`
 - [[Reference/Modules/learnloop_sidecar/handlers/ai_providers|learnloop_sidecar.handlers.ai_providers]] — imports `ready_canonical_ingest_provider`; calls `ready_canonical_ingest_provider`
+- [[Reference/Modules/learnloop_sidecar/handlers/capture|learnloop_sidecar.handlers.capture]] — imports `capture_call`, `finish_route`, `route_intent`; calls `capture_call`, `finish_route`, `route_intent`
 - [[Reference/Modules/learnloop_sidecar/registry|learnloop_sidecar.registry]] — imports `method`; calls `method`
 
 ### Platform and third-party dependencies
@@ -212,7 +221,7 @@ Use this module in context through:
 - [[Import Canonical Sources]]
 - [[Build a Study Map]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop_sidecar/handlers/__init__|learnloop_sidecar.handlers]], [[Reference/Modules/learnloop_sidecar/handlers/settings|learnloop_sidecar.handlers.settings]].
+Static participation evidence comes from [[Reference/Modules/learnloop_sidecar/handlers/__init__|learnloop_sidecar.handlers]], [[Reference/Modules/learnloop_sidecar/handlers/capture|learnloop_sidecar.handlers.capture]], [[Reference/Modules/learnloop_sidecar/handlers/first_run|learnloop_sidecar.handlers.first_run]], [[Reference/Modules/learnloop_sidecar/handlers/settings|learnloop_sidecar.handlers.settings]].
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
@@ -225,6 +234,11 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_out_of_range_or_unknown_ceilings_are_refused`
   - `test_per_run_ceilings_split_between_inventory_args_and_synthesis_budgets`
   - `test_unlimited_budget_is_forwarded_to_every_build_stage`
+- [tests/test_capture_desktop.py](../../../../../../tests/test_capture_desktop.py) — direct import
+  - `test_quick_add_route_after_durable_enqueue_only`
+- [tests/test_capture_route_recovery.py](../../../../../../tests/test_capture_route_recovery.py) — direct import
+- [tests/test_exam_protection_identity.py](../../../../../../tests/test_exam_protection_identity.py) — direct import
+  - `test_the_scopes_reading_round_trips_through_the_sidecar`
 - [tests/test_ingest_jobs.py](../../../../../../tests/test_ingest_jobs.py) — direct import
   - `test_batch_completion_triggers_one_vault_reload`
 - [tests/test_ingest_latency_journey.py](../../../../../../tests/test_ingest_latency_journey.py) — direct import

@@ -11,7 +11,7 @@ source_commit: "b322ef2e9b5cebc241b612e4963a5aaf1a37f99a"
 source_commit_timestamp: "2026-08-20T18:04:29-04:00"
 source_worktree_state: "clean"
 generated: true
-generated_at: "2026-09-23"
+generated_at: "2026-11-02"
 package: "learnloop.ai"
 layer: "infrastructure"
 concepts:
@@ -88,19 +88,81 @@ No private top-level function or class definition is declared in this file.
 > [!note] Static evidence boundary
 > “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
 
+- [[Reference/Modules/learnloop/adaptive_difficulty/feature_audit|learnloop.adaptive_difficulty.feature_audit]] — imports `WireModel`
+- [[Reference/Modules/learnloop/adaptive_difficulty/outside|learnloop.adaptive_difficulty.outside]] — imports `WireModel`
+- [[Reference/Modules/learnloop/adaptive_difficulty/relatedness|learnloop.adaptive_difficulty.relatedness]] — imports `WireModel`
 - [[Reference/Modules/learnloop/ai/providers/codex|learnloop.ai.providers.codex]] — imports `describe_wire_validation_error`; statically calls `describe_wire_validation_error`
 - [[Reference/Modules/learnloop/ai/providers/codex_http|learnloop.ai.providers.codex_http]] — imports `describe_wire_validation_error`; statically calls `describe_wire_validation_error`
 - [[Reference/Modules/learnloop/ai/strict_schema|learnloop.ai.strict_schema]] — imports `WireModel`
+- [[Reference/Modules/learnloop/ai/tool_requests|learnloop.ai.tool_requests]] — imports `WireModel`
 - [[Reference/Modules/learnloop/ai/transport|learnloop.ai.transport]] — imports `WireModel`
 - [[Reference/Modules/learnloop/attempts/ai_contracts|learnloop.attempts.ai_contracts]] — imports `AttributionTargetRef`, `CandidateCause`, `WireModel`
+- [[Reference/Modules/learnloop/attempts/blind_grading|learnloop.attempts.blind_grading]] — imports `AttributionTargetRef`, `WireModel`
+- [[Reference/Modules/learnloop/attempts/grading_support|learnloop.attempts.grading_support]] — imports `WireModel`
+- [[Reference/Modules/learnloop/attempts/stuck|learnloop.attempts.stuck]] — imports `WireModel`
+- [[Reference/Modules/learnloop/cli/ai|learnloop.cli.ai]] — imports `WireModel`
+- [[Reference/Modules/learnloop/cli/field_classification|learnloop.cli.field_classification]] — imports `WireModel`
 - [[Reference/Modules/learnloop/content/authoring/ai_contracts|learnloop.content.authoring.ai_contracts]] — imports `WireModel`
+- [[Reference/Modules/learnloop/content/authoring/pf_contracts|learnloop.content.authoring.pf_contracts]] — imports `WireModel`
+- [[Reference/Modules/learnloop/content/authoring/source_exercise_import|learnloop.content.authoring.source_exercise_import]] — imports `WireModel`
+- [[Reference/Modules/learnloop/content/facet_identity/judge|learnloop.content.facet_identity.judge]] — imports `WireModel`
 - [[Reference/Modules/learnloop/content/proposals/ai_contracts|learnloop.content.proposals.ai_contracts]] — imports `WireModel`, `describe_wire_validation_error`; statically calls `describe_wire_validation_error`
+- [[Reference/Modules/learnloop/content/proposals/method_phrasing|learnloop.content.proposals.method_phrasing]] — imports `WireModel`
+- [[Reference/Modules/learnloop/content/proposals/method_statement_judge|learnloop.content.proposals.method_statement_judge]] — imports `WireModel`
 - [[Reference/Modules/learnloop/content/synthesis/ai_contracts|learnloop.content.synthesis.ai_contracts]] — imports `WireModel`
 - [[Reference/Modules/learnloop/curriculum/ai_contracts|learnloop.curriculum.ai_contracts]] — imports `WireModel`
+- [[Reference/Modules/learnloop/daily_plan/router_teach_back|learnloop.daily_plan.router_teach_back]] — imports `WireModel`
 - [[Reference/Modules/learnloop/diagnosis/ai_contracts|learnloop.diagnosis.ai_contracts]] — imports `WireModel`
 - [[Reference/Modules/learnloop/diagnosis/diagnostic_augmentation|learnloop.diagnosis.diagnostic_augmentation]] — imports `CandidateCause`; statically calls `CandidateCause`
+- [[Reference/Modules/learnloop/diagnosis/offline_review/judge|learnloop.diagnosis.offline_review.judge]] — imports `WireModel`
+- [[Reference/Modules/learnloop/diagnosis/offline_review/planted|learnloop.diagnosis.offline_review.planted]] — imports `WireModel`
+- [[Reference/Modules/learnloop/diagnosis/offline_review/probes|learnloop.diagnosis.offline_review.probes]] — imports `WireModel`
+- [[Reference/Modules/learnloop/diagnosis/recurrence/benchmarks|learnloop.diagnosis.recurrence.benchmarks]] — imports `WireModel`
+- [[Reference/Modules/learnloop/diagnosis/recurrence/escalation|learnloop.diagnosis.recurrence.escalation]] — imports `WireModel`
+- [[Reference/Modules/learnloop/diagnosis/split/contract|learnloop.diagnosis.split.contract]] — imports `AttributionTargetRef`, `CandidateCause`, `WireModel`
+- [[Reference/Modules/learnloop/diagnosis/text_gaps/contract|learnloop.diagnosis.text_gaps.contract]] — imports `WireModel`
+- [[Reference/Modules/learnloop/experiments/contextual_embeddings/answers|learnloop.experiments.contextual_embeddings.answers]] — imports `WireModel`
+- [[Reference/Modules/learnloop/experiments/contextual_embeddings/bank|learnloop.experiments.contextual_embeddings.bank]] — imports `WireModel`
+- [[Reference/Modules/learnloop/experiments/contextual_embeddings/e1/supplement|learnloop.experiments.contextual_embeddings.e1.supplement]] — imports `WireModel`
+- [[Reference/Modules/learnloop/experiments/contextual_embeddings/retrieval|learnloop.experiments.contextual_embeddings.retrieval]] — imports `WireModel`
+- [[Reference/Modules/learnloop/field/probability_prep|learnloop.field.probability_prep]] — imports `WireModel`
+- [[Reference/Modules/learnloop/figures/rich|learnloop.figures.rich]] — imports `WireModel`
+- [[Reference/Modules/learnloop/figures/routes|learnloop.figures.routes]] — imports `WireModel`
+- [[Reference/Modules/learnloop/hints/maps|learnloop.hints.maps]] — imports `WireModel`
+- [[Reference/Modules/learnloop/hints/outcome|learnloop.hints.outcome]] — imports `WireModel`
+- [[Reference/Modules/learnloop/hints/workbench|learnloop.hints.workbench]] — imports `WireModel`
+- [[Reference/Modules/learnloop/hints/writer|learnloop.hints.writer]] — imports `WireModel`
+- [[Reference/Modules/learnloop/instructional/exposure|learnloop.instructional.exposure]] — imports `WireModel`
+- [[Reference/Modules/learnloop/instructional/reader_digest|learnloop.instructional.reader_digest]] — imports `WireModel`
+- [[Reference/Modules/learnloop/instructional/screen|learnloop.instructional.screen]] — imports `WireModel`
+- [[Reference/Modules/learnloop/matching/judge|learnloop.matching.judge]] — imports `WireModel`
+- [[Reference/Modules/learnloop/ops/contamination/judge|learnloop.ops.contamination.judge]] — imports `WireModel`
+- [[Reference/Modules/learnloop/ops/family_proposals|learnloop.ops.family_proposals]] — imports `WireModel`
+- [[Reference/Modules/learnloop/practice_index/contracts|learnloop.practice_index.contracts]] — imports `WireModel`
+- [[Reference/Modules/learnloop/projects/ai_contracts|learnloop.projects.ai_contracts]] — imports `WireModel`
 - [[Reference/Modules/learnloop/reader/ai_contracts|learnloop.reader.ai_contracts]] — imports `WireModel`
+- [[Reference/Modules/learnloop/reader/source_roles|learnloop.reader.source_roles]] — imports `WireModel`
+- [[Reference/Modules/learnloop/router/requests|learnloop.router.requests]] — imports `WireModel`
+- [[Reference/Modules/learnloop/source_retrieval/compare|learnloop.source_retrieval.compare]] — imports `WireModel`
+- [[Reference/Modules/learnloop/source_retrieval/contracts|learnloop.source_retrieval.contracts]] — imports `WireModel`
+- [[Reference/Modules/learnloop/source_retrieval/deliverable_path|learnloop.source_retrieval.deliverable_path]] — imports `WireModel`
+- [[Reference/Modules/learnloop/source_retrieval/deliverables|learnloop.source_retrieval.deliverables]] — imports `WireModel`
+- [[Reference/Modules/learnloop/source_retrieval/find_sources|learnloop.source_retrieval.find_sources]] — imports `WireModel`
+- [[Reference/Modules/learnloop/source_retrieval/library_ask|learnloop.source_retrieval.library_ask]] — imports `WireModel`
+- [[Reference/Modules/learnloop/source_retrieval/note_links|learnloop.source_retrieval.note_links]] — imports `WireModel`
+- [[Reference/Modules/learnloop/source_retrieval/passage_cues|learnloop.source_retrieval.passage_cues]] — imports `WireModel`
+- [[Reference/Modules/learnloop/source_retrieval/reading_paths|learnloop.source_retrieval.reading_paths]] — imports `WireModel`
+- [[Reference/Modules/learnloop/source_retrieval/role_labeller|learnloop.source_retrieval.role_labeller]] — imports `WireModel`
+- [[Reference/Modules/learnloop/source_retrieval/section_coverage|learnloop.source_retrieval.section_coverage]] — imports `WireModel`
+- [[Reference/Modules/learnloop/source_retrieval/student_data|learnloop.source_retrieval.student_data]] — imports `WireModel`
+- [[Reference/Modules/learnloop/teacher/contracts|learnloop.teacher.contracts]] — imports `WireModel`
 - [[Reference/Modules/learnloop/tutor/ai_contracts|learnloop.tutor.ai_contracts]] — imports `CandidateCause`, `WireModel`
+- [[Reference/Modules/learnloop/workbench/check|learnloop.workbench.check]] — imports `WireModel`
+- [[Reference/Modules/learnloop/workbench/compare_methods|learnloop.workbench.compare_methods]] — imports `WireModel`
+
+### Repository tooling consumers
+
+- [scripts/benchmark_chatgpt_plan_latency.py](../../../../../../scripts/benchmark_chatgpt_plan_latency.py)
 
 ## Dependencies
 
@@ -120,12 +182,17 @@ Use this module in context through:
 - [[Configure AI Providers]]
 - [[Process Model Output]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/ai/providers/codex|learnloop.ai.providers.codex]], [[Reference/Modules/learnloop/ai/providers/codex_http|learnloop.ai.providers.codex_http]], [[Reference/Modules/learnloop/ai/strict_schema|learnloop.ai.strict_schema]], [[Reference/Modules/learnloop/ai/transport|learnloop.ai.transport]], [[Reference/Modules/learnloop/attempts/ai_contracts|learnloop.attempts.ai_contracts]] and 8 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/adaptive_difficulty/feature_audit|learnloop.adaptive_difficulty.feature_audit]], [[Reference/Modules/learnloop/adaptive_difficulty/outside|learnloop.adaptive_difficulty.outside]], [[Reference/Modules/learnloop/adaptive_difficulty/relatedness|learnloop.adaptive_difficulty.relatedness]], [[Reference/Modules/learnloop/ai/providers/codex|learnloop.ai.providers.codex]], [[Reference/Modules/learnloop/ai/providers/codex_http|learnloop.ai.providers.codex_http]] and 66 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
 ## Tests that define behavior
 
+- [tests/recurrence_fakes.py](../../../../../../tests/recurrence_fakes.py) — direct import
+- [tests/test_ai_single_request.py](../../../../../../tests/test_ai_single_request.py) — direct import
+- [tests/test_chat_total_transport_deadline.py](../../../../../../tests/test_chat_total_transport_deadline.py) — direct import
+- [tests/test_chatgpt_plan_provider.py](../../../../../../tests/test_chatgpt_plan_provider.py) — direct import
+- [tests/test_chatgpt_plan_workspace.py](../../../../../../tests/test_chatgpt_plan_workspace.py) — direct import
 - [tests/test_codex_output_schema.py](../../../../../../tests/test_codex_output_schema.py) — direct import
   - `test_runtime_validation_and_strict_schema_agree_on_what_is_admissible`
   - `test_undeclared_wire_field_is_rejected_by_name`
@@ -133,6 +200,10 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_model_call_receipt_owners.py](../../../../../../tests/test_model_call_receipt_owners.py) — direct import
   - `test_a_database_below_the_receipt_schema_lets_the_model_call_run_unrecorded`
 - [tests/test_model_usage_report.py](../../../../../../tests/test_model_usage_report.py) — direct import
+- [tests/test_output_budget.py](../../../../../../tests/test_output_budget.py) — direct import
+  - `test_codex_turns_take_the_routes_effort_for_that_turn_only`
+- [tests/test_plan_first_transport.py](../../../../../../tests/test_plan_first_transport.py) — direct import
+- [tests/test_recurrence_live.py](../../../../../../tests/test_recurrence_live.py) — direct import
 - [tests/test_structured_transport_parity.py](../../../../../../tests/test_structured_transport_parity.py) — direct import
 
 ## Modification guidance

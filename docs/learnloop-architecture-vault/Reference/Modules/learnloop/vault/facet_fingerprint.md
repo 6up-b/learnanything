@@ -11,7 +11,7 @@ source_commit: "b322ef2e9b5cebc241b612e4963a5aaf1a37f99a"
 source_commit_timestamp: "2026-08-20T18:04:29-04:00"
 source_worktree_state: "clean"
 generated: true
-generated_at: "2026-09-23"
+generated_at: "2026-11-02"
 package: "learnloop.vault"
 layer: "infrastructure"
 concepts:
@@ -79,6 +79,7 @@ The authoritative system-level explanation remains in [[State and Persistence]];
 > [!note] Static evidence boundary
 > “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
 
+- [[Reference/Modules/learnloop/content/facet_identity/actions|learnloop.content.facet_identity.actions]] — imports `semantic_fingerprint`; statically calls `semantic_fingerprint`
 - [[Reference/Modules/learnloop/content/synthesis/synthesis_eval|learnloop.content.synthesis.synthesis_eval]] — imports `semantic_fingerprint`; statically calls `semantic_fingerprint`
 - [[Reference/Modules/learnloop/vault/loader|learnloop.vault.loader]] — imports `semantic_fingerprint`; statically calls `semantic_fingerprint`
 - [[Reference/Modules/learnloop/vault/writer|learnloop.vault.writer]] — imports `semantic_fingerprint`; statically calls `semantic_fingerprint`
@@ -100,7 +101,7 @@ Use this module in context through:
 
 - [[Initialize a Vault]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/content/synthesis/synthesis_eval|learnloop.content.synthesis.synthesis_eval]], [[Reference/Modules/learnloop/vault/loader|learnloop.vault.loader]], [[Reference/Modules/learnloop/vault/writer|learnloop.vault.writer]].
+Static participation evidence comes from [[Reference/Modules/learnloop/content/facet_identity/actions|learnloop.content.facet_identity.actions]], [[Reference/Modules/learnloop/content/synthesis/synthesis_eval|learnloop.content.synthesis.synthesis_eval]], [[Reference/Modules/learnloop/vault/loader|learnloop.vault.loader]], [[Reference/Modules/learnloop/vault/writer|learnloop.vault.writer]].
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 

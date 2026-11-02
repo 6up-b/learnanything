@@ -7,11 +7,11 @@ version: "1.0.0"
 source_path: "src/learnloop/scheduling/reentry_summary.py"
 source_paths:
   - "src/learnloop/scheduling/reentry_summary.py"
-source_commit: "b322ef2e9b5cebc241b612e4963a5aaf1a37f99a"
-source_commit_timestamp: "2026-08-20T18:04:29-04:00"
+source_commit: "eb4b8f642f1723b9cf054f625b06ac588bf7ccd2"
+source_commit_timestamp: "2026-10-11T23:04:32-04:00"
 source_worktree_state: "clean"
 generated: true
-generated_at: "2026-09-23"
+generated_at: "2026-11-02"
 package: "learnloop.scheduling"
 layer: "domain"
 concepts:
@@ -50,21 +50,22 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/scheduling/reentry_summary.py](../../../../../../src/learnloop/scheduling/reentry_summary.py) |
-| Source lines | 146 |
+| Source lines | 174 |
 | Owning package | [[Reference/Modules/learnloop/scheduling/_package|learnloop.scheduling]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `b322ef2e9b5cebc241b612e4963a5aaf1a37f99a` |
-| Commit timestamp | `2026-08-20T18:04:29-04:00` |
+| Source commit | `eb4b8f642f1723b9cf054f625b06ac588bf7ccd2` |
+| Commit timestamp | `2026-10-11T23:04:32-04:00` |
 
 ## Public API
 
-- `class SlippedFacet` ([source](../../../../../../src/learnloop/scheduling/reentry_summary.py), line 29)
-  - `as_dict(self) -> dict[str, Any]` (line 35; public)
-- `class ReentrySummary` ([source](../../../../../../src/learnloop/scheduling/reentry_summary.py), line 45)
-  - `as_dict(self) -> dict[str, Any]` (line 55; public)
-- `reentry_summary(vault: LoadedVault, repository: Repository, goal: Goal, *, clock: Clock | None=None, gap_days: int | None=None, top_n: int=3) -> ReentrySummary` ([source](../../../../../../src/learnloop/scheduling/reentry_summary.py), line 68) — Welcome-back diff for ``goal`` (§4.4).
+- `class SlippedFacet` ([source](../../../../../../src/learnloop/scheduling/reentry_summary.py), line 34)
+  - `as_dict(self) -> dict[str, Any]` (line 40; public)
+- `class ReentrySummary` ([source](../../../../../../src/learnloop/scheduling/reentry_summary.py), line 50)
+  - `as_dict(self) -> dict[str, Any]` (line 60; public)
+- `reentry_session_cap(vault: LoadedVault, repository: Repository, goal: Goal | None, *, clock: Clock | None=None) -> int | None` ([source](../../../../../../src/learnloop/scheduling/reentry_summary.py), line 73) — How many items the re-entry session serves, or ``None`` for no cap.
+- `reentry_summary(vault: LoadedVault, repository: Repository, goal: Goal, *, clock: Clock | None=None, gap_days: int | None=None, top_n: int=3) -> ReentrySummary` ([source](../../../../../../src/learnloop/scheduling/reentry_summary.py), line 96) — Welcome-back diff for ``goal`` (§4.4).
 
 ## Internal implementation anchors
 
@@ -76,8 +77,10 @@ No private top-level function or class definition is declared in this file.
 > “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
 
 - [[Reference/Modules/learnloop/cli/app|learnloop.cli.app]] — imports `reentry_summary`; statically calls `reentry_summary`
+- [[Reference/Modules/learnloop/daily_plan/reentry|learnloop.daily_plan.reentry]] — imports `reentry_summary`; statically calls `reentry_summary`
 - [[Reference/Modules/learnloop/scheduling/reentry_adapter|learnloop.scheduling.reentry_adapter]] — imports `ReentrySummary`, `reentry_summary`; statically calls `reentry_summary`
 - [[Reference/Modules/learnloop_sidecar/handlers/goals|learnloop_sidecar.handlers.goals]] — imports `reentry_summary`; statically calls `reentry_summary`
+- [[Reference/Modules/learnloop_sidecar/handlers/queue|learnloop_sidecar.handlers.queue]] — imports `reentry_session_cap`; statically calls `reentry_session_cap`
 
 ## Dependencies
 
@@ -101,12 +104,15 @@ Use this module in context through:
 - [[Start a Learning Cycle]]
 - [[Continue a Learning Cycle]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/cli/app|learnloop.cli.app]], [[Reference/Modules/learnloop/scheduling/reentry_adapter|learnloop.scheduling.reentry_adapter]], [[Reference/Modules/learnloop_sidecar/handlers/goals|learnloop_sidecar.handlers.goals]].
+Static participation evidence comes from [[Reference/Modules/learnloop/cli/app|learnloop.cli.app]], [[Reference/Modules/learnloop/daily_plan/reentry|learnloop.daily_plan.reentry]], [[Reference/Modules/learnloop/scheduling/reentry_adapter|learnloop.scheduling.reentry_adapter]], [[Reference/Modules/learnloop_sidecar/handlers/goals|learnloop_sidecar.handlers.goals]], [[Reference/Modules/learnloop_sidecar/handlers/queue|learnloop_sidecar.handlers.queue]].
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
 ## Tests that define behavior
 
+- [tests/test_daily_loop_reentry_cap.py](../../../../../../tests/test_daily_loop_reentry_cap.py) — direct import
+- [tests/test_daily_plan_review_regressions.py](../../../../../../tests/test_daily_plan_review_regressions.py) — direct import
+  - `test_f9_reentry_panel_names_only_what_it_counts`
 - [tests/test_today_surfaces.py](../../../../../../tests/test_today_surfaces.py) — direct import
   - `test_reentry_below_threshold_does_not_show`
   - `test_reentry_splits_solid_slipped_and_excludes_held_flat`

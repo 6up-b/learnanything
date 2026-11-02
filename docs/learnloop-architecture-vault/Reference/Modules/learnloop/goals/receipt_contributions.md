@@ -11,7 +11,7 @@ source_commit: "b322ef2e9b5cebc241b612e4963a5aaf1a37f99a"
 source_commit_timestamp: "2026-08-20T18:04:29-04:00"
 source_worktree_state: "clean"
 generated: true
-generated_at: "2026-09-23"
+generated_at: "2026-11-02"
 package: "learnloop.goals"
 layer: "domain"
 concepts:
@@ -105,13 +105,13 @@ No test imports this module directly. These tests exercise a direct production c
 - [tests/test_learner_read_model_pinning.py](../../../../../../tests/test_learner_read_model_pinning.py) — imports consumer [[Reference/Modules/learnloop/learner/facet_evidence_timeline|learnloop.learner.facet_evidence_timeline]]
 - [tests/test_observation_ledger_bulk.py](../../../../../../tests/test_observation_ledger_bulk.py) — imports consumer [[Reference/Modules/learnloop/learner/facet_evidence_timeline|learnloop.learner.facet_evidence_timeline]]
 - [tests/test_p0_projection_cutover.py](../../../../../../tests/test_p0_projection_cutover.py) — imports consumer [[Reference/Modules/learnloop/learner/facet_evidence_timeline|learnloop.learner.facet_evidence_timeline]]
+- [tests/test_pfc_unverified_unassessed.py](../../../../../../tests/test_pfc_unverified_unassessed.py) — imports consumer [[Reference/Modules/learnloop/learner/facet_evidence_timeline|learnloop.learner.facet_evidence_timeline]]
 - [tests/test_projection_evidence_polarity.py](../../../../../../tests/test_projection_evidence_polarity.py) — imports consumer [[Reference/Modules/learnloop/learner/facet_evidence_timeline|learnloop.learner.facet_evidence_timeline]]
+- [tests/test_reader_recap_review.py](../../../../../../tests/test_reader_recap_review.py) — imports consumer [[Reference/Modules/learnloop/learner/facet_evidence_timeline|learnloop.learner.facet_evidence_timeline]]
+- [tests/test_reader_recap_review_r2.py](../../../../../../tests/test_reader_recap_review_r2.py) — imports consumer [[Reference/Modules/learnloop/learner/facet_evidence_timeline|learnloop.learner.facet_evidence_timeline]]
+- [tests/test_reader_recap_review_r3.py](../../../../../../tests/test_reader_recap_review_r3.py) — imports consumer [[Reference/Modules/learnloop/learner/facet_evidence_timeline|learnloop.learner.facet_evidence_timeline]]
+- [tests/test_reader_workbench_rw2a.py](../../../../../../tests/test_reader_workbench_rw2a.py) — imports consumer [[Reference/Modules/learnloop/learner/facet_evidence_timeline|learnloop.learner.facet_evidence_timeline]]
 - [tests/test_receipt_derivation.py](../../../../../../tests/test_receipt_derivation.py) — imports consumer [[Reference/Modules/learnloop/learner/facet_evidence_timeline|learnloop.learner.facet_evidence_timeline]]
-- [tests/test_receipt_exactness.py](../../../../../../tests/test_receipt_exactness.py) — imports consumer [[Reference/Modules/learnloop/learner/facet_evidence_timeline|learnloop.learner.facet_evidence_timeline]]
-- [tests/test_anti_double_count.py](../../../../../../tests/test_anti_double_count.py) — imports consumer [[Reference/Modules/learnloop/substrate/canonical_projection|learnloop.substrate.canonical_projection]]
-- [tests/test_canonical_projection_rollout.py](../../../../../../tests/test_canonical_projection_rollout.py) — imports consumer [[Reference/Modules/learnloop/substrate/canonical_projection|learnloop.substrate.canonical_projection]]
-- [tests/test_causal_activity_policy.py](../../../../../../tests/test_causal_activity_policy.py) — imports consumer [[Reference/Modules/learnloop/substrate/canonical_projection|learnloop.substrate.canonical_projection]]
-- [tests/test_causal_factor_deferral.py](../../../../../../tests/test_causal_factor_deferral.py) — imports consumer [[Reference/Modules/learnloop/substrate/canonical_projection|learnloop.substrate.canonical_projection]]
 
 ## Modification guidance
 

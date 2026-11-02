@@ -7,11 +7,11 @@ version: "1.0.0"
 source_path: "src/learnloop/cli/receipts.py"
 source_paths:
   - "src/learnloop/cli/receipts.py"
-source_commit: "5b1184a8a7c8932f6468766c2f59599d01f1b8cc"
-source_commit_timestamp: "2026-09-23T16:08:23-04:00"
+source_commit: "f45f737a65729be21d0e4e4b826e4e896972917c"
+source_commit_timestamp: "2026-10-12T13:49:19-04:00"
 source_worktree_state: "clean"
 generated: true
-generated_at: "2026-09-23"
+generated_at: "2026-11-02"
 package: "learnloop.cli"
 layer: "adapter"
 concepts:
@@ -52,13 +52,13 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/cli/receipts.py](../../../../../../src/learnloop/cli/receipts.py) |
-| Source lines | 134 |
+| Source lines | 145 |
 | Owning package | [[Reference/Modules/learnloop/cli/_package|learnloop.cli]] |
 | Architecture layer | `adapter` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `5b1184a8a7c8932f6468766c2f59599d01f1b8cc` |
-| Commit timestamp | `2026-09-23T16:08:23-04:00` |
+| Source commit | `f45f737a65729be21d0e4e4b826e4e896972917c` |
+| Commit timestamp | `2026-10-12T13:49:19-04:00` |
 
 ## Public API
 
@@ -70,8 +70,9 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
   - `record(self, action: str, event: dict[str, Any]) -> None` (line 70; public)
   - `_store(self) -> Repository | None` (line 76; internal) — The repository to record into, or None when receipts cannot be kept.
 - `command_receipts(fallback_label: str) -> Iterator[CommandReceipts]` ([source](../../../../../../src/learnloop/cli/receipts.py), line 106)
-- `bind_command_vault(vault_root: Path) -> None` ([source](../../../../../../src/learnloop/cli/receipts.py), line 116)
-- `bind_command_repository(repository: Repository) -> None` ([source](../../../../../../src/learnloop/cli/receipts.py), line 122)
+- `current_command_recorder()` ([source](../../../../../../src/learnloop/cli/receipts.py), line 116) — The running command's receipt recorder, or None outside a command.
+- `bind_command_vault(vault_root: Path) -> None` ([source](../../../../../../src/learnloop/cli/receipts.py), line 127)
+- `bind_command_repository(repository: Repository) -> None` ([source](../../../../../../src/learnloop/cli/receipts.py), line 133)
 
 ### Module constants
 
@@ -80,14 +81,21 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 
 ## Internal implementation anchors
 
-- `_command_path() -> str | None` ([source](../../../../../../src/learnloop/cli/receipts.py), line 128) — The running subcommand's path below the program name, e.g.
+- `_command_path() -> str | None` ([source](../../../../../../src/learnloop/cli/receipts.py), line 139) — The running subcommand's path below the program name, e.g.
 
 ## Who imports or calls it
 
 > [!note] Static evidence boundary
 > “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
 
-- [[Reference/Modules/learnloop/cli/app|learnloop.cli.app]] — imports `command_receipts`; statically calls `command_receipts`
+- [[Reference/Modules/learnloop/cli/ai|learnloop.cli.ai]] — imports `bind_command_vault`; statically calls `bind_command_vault`
+- [[Reference/Modules/learnloop/cli/app|learnloop.cli.app]] — imports `command_receipts`, `current_command_recorder`; statically calls `command_receipts`, `current_command_recorder`
+- [[Reference/Modules/learnloop/cli/diagnose|learnloop.cli.diagnose]] — imports `bind_command_repository`, `bind_command_vault`; statically calls `bind_command_repository`, `bind_command_vault`
+- [[Reference/Modules/learnloop/cli/embeddings|learnloop.cli.embeddings]] — imports `bind_command_repository`, `bind_command_vault`; statically calls `bind_command_repository`, `bind_command_vault`
+- [[Reference/Modules/learnloop/cli/experiments|learnloop.cli.experiments]] — imports `bind_command_repository`
+- [[Reference/Modules/learnloop/cli/gaps|learnloop.cli.gaps]] — imports `bind_command_repository`, `bind_command_vault`; statically calls `bind_command_repository`, `bind_command_vault`
+- [[Reference/Modules/learnloop/cli/mcp|learnloop.cli.mcp]] — imports `bind_command_vault`; statically calls `bind_command_vault`
+- [[Reference/Modules/learnloop/cli/recurrence|learnloop.cli.recurrence]] — imports `bind_command_repository`, `bind_command_vault`; statically calls `bind_command_repository`, `bind_command_vault`
 - [[Reference/Modules/learnloop/cli/runtime|learnloop.cli.runtime]] — imports `bind_command_repository`, `bind_command_vault`; statically calls `bind_command_repository`, `bind_command_vault`
 
 ## Dependencies
@@ -115,7 +123,7 @@ Use this module in context through:
 - [[Import Canonical Sources]]
 - [[Inspect Persistent State]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/cli/app|learnloop.cli.app]], [[Reference/Modules/learnloop/cli/runtime|learnloop.cli.runtime]].
+Static participation evidence comes from [[Reference/Modules/learnloop/cli/ai|learnloop.cli.ai]], [[Reference/Modules/learnloop/cli/app|learnloop.cli.app]], [[Reference/Modules/learnloop/cli/diagnose|learnloop.cli.diagnose]], [[Reference/Modules/learnloop/cli/embeddings|learnloop.cli.embeddings]], [[Reference/Modules/learnloop/cli/experiments|learnloop.cli.experiments]] and 4 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
@@ -123,18 +131,18 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 No test imports this module directly. These tests exercise a direct production consumer:
 
-- [tests/test_causal_attribution_p1.py](../../../../../../tests/test_causal_attribution_p1.py) — imports consumer [[Reference/Modules/learnloop/cli/app|learnloop.cli.app]]
-- [tests/test_causal_trace_consistency_p2.py](../../../../../../tests/test_causal_trace_consistency_p2.py) — imports consumer [[Reference/Modules/learnloop/cli/app|learnloop.cli.app]]
-- [tests/test_certification_cold_probe.py](../../../../../../tests/test_certification_cold_probe.py) — imports consumer [[Reference/Modules/learnloop/cli/app|learnloop.cli.app]]
-- [tests/test_cli_attempt.py](../../../../../../tests/test_cli_attempt.py) — imports consumer [[Reference/Modules/learnloop/cli/app|learnloop.cli.app]]
-- [tests/test_cli_commands.py](../../../../../../tests/test_cli_commands.py) — imports consumer [[Reference/Modules/learnloop/cli/app|learnloop.cli.app]]
-- [tests/test_cli_entrypoint.py](../../../../../../tests/test_cli_entrypoint.py) — imports consumer [[Reference/Modules/learnloop/cli/app|learnloop.cli.app]]
-- [tests/test_cli_fit.py](../../../../../../tests/test_cli_fit.py) — imports consumer [[Reference/Modules/learnloop/cli/app|learnloop.cli.app]]
-- [tests/test_cli_generate_practice.py](../../../../../../tests/test_cli_generate_practice.py) — imports consumer [[Reference/Modules/learnloop/cli/app|learnloop.cli.app]]
-- [tests/test_cli_help_snapshot.py](../../../../../../tests/test_cli_help_snapshot.py) — imports consumer [[Reference/Modules/learnloop/cli/app|learnloop.cli.app]]
-- [tests/test_cli_ingest.py](../../../../../../tests/test_cli_ingest.py) — imports consumer [[Reference/Modules/learnloop/cli/app|learnloop.cli.app]]
-- [tests/test_cli_json.py](../../../../../../tests/test_cli_json.py) — imports consumer [[Reference/Modules/learnloop/cli/app|learnloop.cli.app]]
-- [tests/test_cli_observations.py](../../../../../../tests/test_cli_observations.py) — imports consumer [[Reference/Modules/learnloop/cli/app|learnloop.cli.app]]
+- [tests/test_ad1_outside_and_cli.py](../../../../../../tests/test_ad1_outside_and_cli.py) — imports consumer [[Reference/Modules/learnloop/cli/app|learnloop.cli.app]]
+- [tests/test_ad23_contract.py](../../../../../../tests/test_ad23_contract.py) — imports consumer [[Reference/Modules/learnloop/cli/app|learnloop.cli.app]]
+- [tests/test_ad23_successor.py](../../../../../../tests/test_ad23_successor.py) — imports consumer [[Reference/Modules/learnloop/cli/app|learnloop.cli.app]]
+- [tests/test_ad3_monitoring.py](../../../../../../tests/test_ad3_monitoring.py) — imports consumer [[Reference/Modules/learnloop/cli/app|learnloop.cli.app]]
+- [tests/test_ad3_relatedness.py](../../../../../../tests/test_ad3_relatedness.py) — imports consumer [[Reference/Modules/learnloop/cli/app|learnloop.cli.app]]
+- [tests/test_ad_denial_log.py](../../../../../../tests/test_ad_denial_log.py) — imports consumer [[Reference/Modules/learnloop/cli/app|learnloop.cli.app]]
+- [tests/test_ai_compare.py](../../../../../../tests/test_ai_compare.py) — imports consumer [[Reference/Modules/learnloop/cli/app|learnloop.cli.app]]
+- [tests/test_approach_maps.py](../../../../../../tests/test_approach_maps.py) — imports consumer [[Reference/Modules/learnloop/cli/app|learnloop.cli.app]]
+- [tests/test_attempt_content_state_successor.py](../../../../../../tests/test_attempt_content_state_successor.py) — imports consumer [[Reference/Modules/learnloop/cli/app|learnloop.cli.app]]
+- [tests/test_auto_build_spend_report.py](../../../../../../tests/test_auto_build_spend_report.py) — imports consumer [[Reference/Modules/learnloop/cli/app|learnloop.cli.app]]
+- [tests/test_batch3_landing.py](../../../../../../tests/test_batch3_landing.py) — imports consumer [[Reference/Modules/learnloop/cli/app|learnloop.cli.app]]
+- [tests/test_capture_desktop.py](../../../../../../tests/test_capture_desktop.py) — imports consumer [[Reference/Modules/learnloop/cli/app|learnloop.cli.app]]
 
 ## Modification guidance
 

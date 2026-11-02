@@ -11,7 +11,7 @@ source_commit: "b322ef2e9b5cebc241b612e4963a5aaf1a37f99a"
 source_commit_timestamp: "2026-08-20T18:04:29-04:00"
 source_worktree_state: "clean"
 generated: true
-generated_at: "2026-09-23"
+generated_at: "2026-11-02"
 package: "learnloop.attempts"
 layer: "domain"
 concepts:
@@ -88,6 +88,7 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 > “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
 
 - [[Reference/Modules/learnloop/attempts/grade_resolution|learnloop.attempts.grade_resolution]] — imports `module`; statically calls `shared_certainty_lcb`
+- [[Reference/Modules/learnloop/field/outcomes|learnloop.field.outcomes]] — imports `build_effective_observation`, `effective_observation_from_posterior`, `load_effective_observation_references`; statically calls `build_effective_observation`, `effective_observation_from_posterior`, `load_effective_observation_references`
 - [[Reference/Modules/learnloop/learner/facet_evidence_timeline|learnloop.learner.facet_evidence_timeline]] — imports `load_effective_observation_references`; statically calls `load_effective_observation_references`
 - [[Reference/Modules/learnloop/substrate/canonical_projection|learnloop.substrate.canonical_projection]] — imports `EffectiveObservationReferences`, `build_effective_observation`, `load_effective_observation_references`; statically calls `build_effective_observation`, `load_effective_observation_references`
 
@@ -112,7 +113,7 @@ Use this module in context through:
 - [[Process Model Output]]
 - [[Inspect Persistent State]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/attempts/grade_resolution|learnloop.attempts.grade_resolution]], [[Reference/Modules/learnloop/learner/facet_evidence_timeline|learnloop.learner.facet_evidence_timeline]], [[Reference/Modules/learnloop/substrate/canonical_projection|learnloop.substrate.canonical_projection]].
+Static participation evidence comes from [[Reference/Modules/learnloop/attempts/grade_resolution|learnloop.attempts.grade_resolution]], [[Reference/Modules/learnloop/field/outcomes|learnloop.field.outcomes]], [[Reference/Modules/learnloop/learner/facet_evidence_timeline|learnloop.learner.facet_evidence_timeline]], [[Reference/Modules/learnloop/substrate/canonical_projection|learnloop.substrate.canonical_projection]].
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 

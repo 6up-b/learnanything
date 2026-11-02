@@ -7,11 +7,11 @@ version: "1.0.0"
 source_path: "src/learnloop/scheduling/evsi.py"
 source_paths:
   - "src/learnloop/scheduling/evsi.py"
-source_commit: "b322ef2e9b5cebc241b612e4963a5aaf1a37f99a"
-source_commit_timestamp: "2026-08-20T18:04:29-04:00"
+source_commit: "17819ec036799efb2af42eaeed1ea47b1066052b"
+source_commit_timestamp: "2026-10-13T14:05:58-04:00"
 source_worktree_state: "clean"
 generated: true
-generated_at: "2026-09-23"
+generated_at: "2026-11-02"
 package: "learnloop.scheduling"
 layer: "domain"
 concepts:
@@ -50,13 +50,13 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/scheduling/evsi.py](../../../../../../src/learnloop/scheduling/evsi.py) |
-| Source lines | 504 |
+| Source lines | 672 |
 | Owning package | [[Reference/Modules/learnloop/scheduling/_package|learnloop.scheduling]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `b322ef2e9b5cebc241b612e4963a5aaf1a37f99a` |
-| Commit timestamp | `2026-08-20T18:04:29-04:00` |
+| Source commit | `17819ec036799efb2af42eaeed1ea47b1066052b` |
+| Commit timestamp | `2026-10-13T14:05:58-04:00` |
 
 ## Public API
 
@@ -74,6 +74,12 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 - `class RankResult` ([source](../../../../../../src/learnloop/scheduling/evsi.py), line 320)
   - `as_dict(self) -> dict[str, Any]` (line 334; public)
 - `rank_feasible(candidates: Sequence[DiagnosticCandidate], loss_table: AL.LossTable, *, quantile: float=ROBUST_QUANTILE, lambda_time: float=LAMBDA_TIME, burden_cost: float=BURDEN_COST, perturbation_delta: float=PERTURBATION_DELTA) -> RankResult` ([source](../../../../../../src/learnloop/scheduling/evsi.py), line 366) — Rank feasible diagnostic questions by robust EVSI per minute and apply the LCB stop rule (spec §6.4).
+- `joint_conditionals(tables: Sequence[Mapping[str, Mapping[Any, float]]], hypotheses: Sequence[str]) -> dict[str, dict[tuple[Any, ...], float]]` ([source](../../../../../../src/learnloop/scheduling/evsi.py), line 512) — ``P(e_1, ..., e_k | h)`` for checks conditionally independent given the hypothesis: the product of their ``P(E | H)`` rows.
+- `class BatchEVSI` ([source](../../../../../../src/learnloop/scheduling/evsi.py), line 535) — The robust EVSI of k checks asked together (minutes), persistable.
+  - `k(self) -> int` (line 556; public)
+  - `pays(self) -> bool` (line 560; public)
+  - `as_dict(self) -> dict[str, Any]` (line 563; public)
+- `robust_batch_evsi(candidates: Sequence[DiagnosticCandidate], loss_table: AL.LossTable, *, k: int, quantile: float=ROBUST_QUANTILE, lambda_time: float=LAMBDA_TIME, burden_cost: float=BURDEN_COST) -> BatchEVSI` ([source](../../../../../../src/learnloop/scheduling/evsi.py), line 580) — Robust EVSI of the first ``k`` candidates asked together.
 
 ### Module constants
 
@@ -96,7 +102,14 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 > “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
 
 - [[Reference/Modules/learnloop/diagnosis/causal_diagnostic_selector|learnloop.diagnosis.causal_diagnostic_selector]] — imports `module`; statically calls `DiagnosticCandidate`, `EVSIInputError`, `evsi_for_conditionals`, `rank_feasible`
+- [[Reference/Modules/learnloop/diagnosis/voi_stopping|learnloop.diagnosis.voi_stopping]] — imports `module`; statically calls `DiagnosticCandidate`, `rank_feasible`, `robust_batch_evsi`
+- [[Reference/Modules/learnloop/evsi_calibration/experiments|learnloop.evsi_calibration.experiments]] — imports `module`
+- [[Reference/Modules/learnloop/evsi_calibration/multisim|learnloop.evsi_calibration.multisim]] — imports `module`; statically calls `evsi_for_conditionals`
+- [[Reference/Modules/learnloop/evsi_calibration/policies|learnloop.evsi_calibration.policies]] — imports `module`; statically calls `DiagnosticCandidate`, `evsi_for_conditionals`, `rank_feasible`
+- [[Reference/Modules/learnloop/evsi_calibration/simulate|learnloop.evsi_calibration.simulate]] — imports `module`; statically calls `evsi_for_conditionals`
+- [[Reference/Modules/learnloop/instructional/valuation|learnloop.instructional.valuation]] — imports `module`; statically calls `DiagnosticCandidate`, `EVSIInputError`, `evsi_for_conditionals`, `rank_feasible`, `shared_optimal_action`, `stress_matrices`
 - [[Reference/Modules/learnloop/scheduling/staged_policy|learnloop.scheduling.staged_policy]] — imports `module`; statically calls `DiagnosticCandidate`, `rank_feasible`
+- [[Reference/Modules/learnloop/scheduling/voi_forecasts|learnloop.scheduling.voi_forecasts]] — imports `module`
 - [[Reference/Modules/learnloop/sim/interval_width_viability|learnloop.sim.interval_width_viability]] — imports `module`; statically calls `DiagnosticCandidate`, `rank_feasible`
 
 ## Dependencies
@@ -109,7 +122,7 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 ### Platform and third-party dependencies
 
 - Standard library: `__future__`, `dataclasses`, `typing`
-- Third party: none imported directly
+- Third party: `numpy`
 
 ## Larger workflow participation
 
@@ -118,7 +131,7 @@ Use this module in context through:
 - [[Start a Learning Cycle]]
 - [[Continue a Learning Cycle]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/diagnosis/causal_diagnostic_selector|learnloop.diagnosis.causal_diagnostic_selector]], [[Reference/Modules/learnloop/scheduling/staged_policy|learnloop.scheduling.staged_policy]], [[Reference/Modules/learnloop/sim/interval_width_viability|learnloop.sim.interval_width_viability]].
+Static participation evidence comes from [[Reference/Modules/learnloop/diagnosis/causal_diagnostic_selector|learnloop.diagnosis.causal_diagnostic_selector]], [[Reference/Modules/learnloop/diagnosis/voi_stopping|learnloop.diagnosis.voi_stopping]], [[Reference/Modules/learnloop/evsi_calibration/experiments|learnloop.evsi_calibration.experiments]], [[Reference/Modules/learnloop/evsi_calibration/multisim|learnloop.evsi_calibration.multisim]], [[Reference/Modules/learnloop/evsi_calibration/policies|learnloop.evsi_calibration.policies]] and 5 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
@@ -136,6 +149,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_ranking_uses_per_minute_while_stop_uses_absolute_value`
   - `test_stop_rule_uses_per_candidate_burden`
   - `test_stress_that_reverses_recommended_action_abstains`
+- [tests/test_evsi_calibration_sim.py](../../../../../../tests/test_evsi_calibration_sim.py) — direct import
+  - `test_simulation_runs_every_policy_on_common_random_numbers`
 - [tests/test_evsi_fail_closed.py](../../../../../../tests/test_evsi_fail_closed.py) — direct import
   - `test_all_candidates_excluded_is_an_abstention_never_a_confident_stop`
   - `test_incomplete_candidate_is_excluded_and_the_rest_still_rank`
@@ -144,6 +159,10 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_uniform_fallback_prior_is_excluded_from_live_value_ranking`
   - `test_zero_mass_hypothesis_may_be_absent_without_aborting`
   - `test_zero_mass_prior_is_refused_not_replaced_with_a_uniform`
+- [tests/test_voi_v2.py](../../../../../../tests/test_voi_v2.py) — direct import
+  - `test_rank_feasible_values_the_episode_at_the_configured_quantile`
+  - `test_robust_batch_evsi_is_the_robust_quantile_of_the_joint_evsi_per_member`
+  - `test_the_batch_value_equals_the_product_tables_evsi_on_the_real_credible_sets`
 
 ## Modification guidance
 

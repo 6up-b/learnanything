@@ -6,22 +6,33 @@ refactor_status: "ACTIVE"
 version: "1.0.0"
 source_paths:
   - "src/learnloop/ai/__init__.py"
+  - "src/learnloop/ai/agent_harness.py"
+  - "src/learnloop/ai/agreement.py"
   - "src/learnloop/ai/client.py"
+  - "src/learnloop/ai/decisions.py"
+  - "src/learnloop/ai/disclosures.py"
+  - "src/learnloop/ai/embedding.py"
   - "src/learnloop/ai/errors.py"
   - "src/learnloop/ai/execution.py"
+  - "src/learnloop/ai/isolation.py"
   - "src/learnloop/ai/multimodal.py"
   - "src/learnloop/ai/native_media.py"
+  - "src/learnloop/ai/output_budget.py"
+  - "src/learnloop/ai/plan_fallback.py"
+  - "src/learnloop/ai/review_spend.py"
   - "src/learnloop/ai/routing.py"
   - "src/learnloop/ai/runs.py"
   - "src/learnloop/ai/runtime.py"
   - "src/learnloop/ai/schemas.py"
+  - "src/learnloop/ai/spend.py"
   - "src/learnloop/ai/strict_schema.py"
+  - "src/learnloop/ai/tool_requests.py"
   - "src/learnloop/ai/transport.py"
   - "src/learnloop/ai/usage.py"
 source_commit: "aggregate; see module notes"
-source_commit_timestamp: "2026-09-23T15:53:48-04:00"
+source_commit_timestamp: "2026-11-02T03:56:28-05:00"
 generated: true
-generated_at: "2026-09-23"
+generated_at: "2026-11-02"
 package: "learnloop.ai"
 layer: "infrastructure"
 concepts:
@@ -57,51 +68,90 @@ For system intent, use [[AI Architecture]], [[Architecture Overview]].
 | Module | Purpose | Status | Direct importers | Direct test files |
 |---|---|---:|---:|---:|
 | [[Reference/Modules/learnloop/ai/__init__|learnloop.ai]] | [[Reference/Modules/learnloop/ai/__init__#^module-purpose|purpose]] | `ACTIVE` | 0 | 0 |
-| [[Reference/Modules/learnloop/ai/client|learnloop.ai.client]] | [[Reference/Modules/learnloop/ai/client#^module-purpose|purpose]] | `ACTIVE` | 7 | 4 |
-| [[Reference/Modules/learnloop/ai/errors|learnloop.ai.errors]] | [[Reference/Modules/learnloop/ai/errors#^module-purpose|purpose]] | `ACTIVE` | 22 | 18 |
-| [[Reference/Modules/learnloop/ai/execution|learnloop.ai.execution]] | [[Reference/Modules/learnloop/ai/execution#^module-purpose|purpose]] | `ACTIVE` | 13 | 6 |
+| [[Reference/Modules/learnloop/ai/agent_harness|learnloop.ai.agent_harness]] | [[Reference/Modules/learnloop/ai/agent_harness#^module-purpose|purpose]] | `ACTIVE` | 5 | 2 |
+| [[Reference/Modules/learnloop/ai/agreement|learnloop.ai.agreement]] | [[Reference/Modules/learnloop/ai/agreement#^module-purpose|purpose]] | `ACTIVE` | 1 | 3 |
+| [[Reference/Modules/learnloop/ai/client|learnloop.ai.client]] | [[Reference/Modules/learnloop/ai/client#^module-purpose|purpose]] | `ACTIVE` | 8 | 17 |
+| [[Reference/Modules/learnloop/ai/decisions|learnloop.ai.decisions]] | [[Reference/Modules/learnloop/ai/decisions#^module-purpose|purpose]] | `ACTIVE` | 22 | 15 |
+| [[Reference/Modules/learnloop/ai/disclosures|learnloop.ai.disclosures]] | [[Reference/Modules/learnloop/ai/disclosures#^module-purpose|purpose]] | `ACTIVE` | 3 | 7 |
+| [[Reference/Modules/learnloop/ai/embedding|learnloop.ai.embedding]] | [[Reference/Modules/learnloop/ai/embedding#^module-purpose|purpose]] | `ACTIVE` | 10 | 3 |
+| [[Reference/Modules/learnloop/ai/errors|learnloop.ai.errors]] | [[Reference/Modules/learnloop/ai/errors#^module-purpose|purpose]] | `ACTIVE` | 110 | 88 |
+| [[Reference/Modules/learnloop/ai/execution|learnloop.ai.execution]] | [[Reference/Modules/learnloop/ai/execution#^module-purpose|purpose]] | `ACTIVE` | 126 | 90 |
+| [[Reference/Modules/learnloop/ai/isolation|learnloop.ai.isolation]] | [[Reference/Modules/learnloop/ai/isolation#^module-purpose|purpose]] | `ACTIVE` | 4 | 21 |
 | [[Reference/Modules/learnloop/ai/multimodal|learnloop.ai.multimodal]] | [[Reference/Modules/learnloop/ai/multimodal#^module-purpose|purpose]] | `ACTIVE` | 2 | 1 |
 | [[Reference/Modules/learnloop/ai/native_media|learnloop.ai.native_media]] | [[Reference/Modules/learnloop/ai/native_media#^module-purpose|purpose]] | `ACTIVE` | 4 | 1 |
-| [[Reference/Modules/learnloop/ai/routing|learnloop.ai.routing]] | [[Reference/Modules/learnloop/ai/routing#^module-purpose|purpose]] | `ACTIVE` | 11 | 2 |
-| [[Reference/Modules/learnloop/ai/runs|learnloop.ai.runs]] | [[Reference/Modules/learnloop/ai/runs#^module-purpose|purpose]] | `ACTIVE` | 8 | 1 |
-| [[Reference/Modules/learnloop/ai/runtime|learnloop.ai.runtime]] | [[Reference/Modules/learnloop/ai/runtime#^module-purpose|purpose]] | `ACTIVE` | 8 | 8 |
-| [[Reference/Modules/learnloop/ai/schemas|learnloop.ai.schemas]] | [[Reference/Modules/learnloop/ai/schemas#^module-purpose|purpose]] | `ACTIVE` | 13 | 5 |
-| [[Reference/Modules/learnloop/ai/strict_schema|learnloop.ai.strict_schema]] | [[Reference/Modules/learnloop/ai/strict_schema#^module-purpose|purpose]] | `ACTIVE` | 4 | 2 |
-| [[Reference/Modules/learnloop/ai/transport|learnloop.ai.transport]] | [[Reference/Modules/learnloop/ai/transport#^module-purpose|purpose]] | `ACTIVE` | 40 | 12 |
-| [[Reference/Modules/learnloop/ai/usage|learnloop.ai.usage]] | [[Reference/Modules/learnloop/ai/usage#^module-purpose|purpose]] | `ACTIVE` | 10 | 4 |
+| [[Reference/Modules/learnloop/ai/output_budget|learnloop.ai.output_budget]] | [[Reference/Modules/learnloop/ai/output_budget#^module-purpose|purpose]] | `ACTIVE` | 25 | 5 |
+| [[Reference/Modules/learnloop/ai/plan_fallback|learnloop.ai.plan_fallback]] | [[Reference/Modules/learnloop/ai/plan_fallback#^module-purpose|purpose]] | `ACTIVE` | 32 | 18 |
+| [[Reference/Modules/learnloop/ai/review_spend|learnloop.ai.review_spend]] | [[Reference/Modules/learnloop/ai/review_spend#^module-purpose|purpose]] | `ACTIVE` | 5 | 2 |
+| [[Reference/Modules/learnloop/ai/routing|learnloop.ai.routing]] | [[Reference/Modules/learnloop/ai/routing#^module-purpose|purpose]] | `ACTIVE` | 58 | 34 |
+| [[Reference/Modules/learnloop/ai/runs|learnloop.ai.runs]] | [[Reference/Modules/learnloop/ai/runs#^module-purpose|purpose]] | `ACTIVE` | 10 | 1 |
+| [[Reference/Modules/learnloop/ai/runtime|learnloop.ai.runtime]] | [[Reference/Modules/learnloop/ai/runtime#^module-purpose|purpose]] | `ACTIVE` | 9 | 15 |
+| [[Reference/Modules/learnloop/ai/schemas|learnloop.ai.schemas]] | [[Reference/Modules/learnloop/ai/schemas#^module-purpose|purpose]] | `ACTIVE` | 71 | 13 |
+| [[Reference/Modules/learnloop/ai/spend|learnloop.ai.spend]] | [[Reference/Modules/learnloop/ai/spend#^module-purpose|purpose]] | `ACTIVE` | 120 | 83 |
+| [[Reference/Modules/learnloop/ai/strict_schema|learnloop.ai.strict_schema]] | [[Reference/Modules/learnloop/ai/strict_schema#^module-purpose|purpose]] | `ACTIVE` | 5 | 11 |
+| [[Reference/Modules/learnloop/ai/tool_requests|learnloop.ai.tool_requests]] | [[Reference/Modules/learnloop/ai/tool_requests#^module-purpose|purpose]] | `ACTIVE` | 1 | 0 |
+| [[Reference/Modules/learnloop/ai/transport|learnloop.ai.transport]] | [[Reference/Modules/learnloop/ai/transport#^module-purpose|purpose]] | `ACTIVE` | 111 | 67 |
+| [[Reference/Modules/learnloop/ai/usage|learnloop.ai.usage]] | [[Reference/Modules/learnloop/ai/usage#^module-purpose|purpose]] | `ACTIVE` | 13 | 7 |
 
 ## Child package maps
 
+- [[Reference/Modules/learnloop/ai/chatgpt_plan/_package|learnloop.ai.chatgpt_plan]] — Sign in with ChatGPT for the chatgpt_plan provider: the machine-local sign-in store, the PKCE flow, access tokens and plan-usage state, and its requests.
 - [[Reference/Modules/learnloop/ai/providers/_package|learnloop.ai.providers]] — Concrete AI transport adapters behind the provider-neutral contract.
 
 ## Cross-package dependencies
 
 ### This package imports
 
-- [[Reference/Modules/learnloop/ai/providers/_package|learnloop.ai.providers]] — 6 static module edges
-- [[Reference/Modules/learnloop/config/_package|learnloop.config]] — 5 static module edges
+- [[Reference/Modules/learnloop/ai/providers/_package|learnloop.ai.providers]] — 12 static module edges
+- [[Reference/Modules/learnloop/config/_package|learnloop.config]] — 11 static module edges
 - [[Reference/Modules/learnloop/_package|learnloop]] — 1 static module edge
+- [[Reference/Modules/learnloop/ai/chatgpt_plan/_package|learnloop.ai.chatgpt_plan]] — 1 static module edge
 - [[Reference/Modules/learnloop/db/_package|learnloop.db]] — 1 static module edge
 
 ### Packages that import this package
 
-- [[Reference/Modules/learnloop/ai/providers/_package|learnloop.ai.providers]] — 20 static module edges
-- [[Reference/Modules/learnloop/content/pipeline/_package|learnloop.content.pipeline]] — 15 static module edges
-- [[Reference/Modules/learnloop/content/synthesis/_package|learnloop.content.synthesis]] — 13 static module edges
-- [[Reference/Modules/learnloop/attempts/_package|learnloop.attempts]] — 11 static module edges
-- [[Reference/Modules/learnloop/diagnosis/_package|learnloop.diagnosis]] — 11 static module edges
-- [[Reference/Modules/learnloop_sidecar/handlers/_package|learnloop_sidecar.handlers]] — 11 static module edges
-- [[Reference/Modules/learnloop/content/authoring/_package|learnloop.content.authoring]] — 8 static module edges
-- [[Reference/Modules/learnloop/content/proposals/_package|learnloop.content.proposals]] — 8 static module edges
-- [[Reference/Modules/learnloop/tutor/_package|learnloop.tutor]] — 8 static module edges
-- [[Reference/Modules/learnloop/reader/_package|learnloop.reader]] — 6 static module edges
-- [[Reference/Modules/learnloop/curriculum/_package|learnloop.curriculum]] — 4 static module edges
-- [[Reference/Modules/learnloop/ops/_package|learnloop.ops]] — 4 static module edges
-- [[Reference/Modules/learnloop/cli/_package|learnloop.cli]] — 3 static module edges
+- [[Reference/Modules/learnloop/source_retrieval/_package|learnloop.source_retrieval]] — 84 static module edges
+- [[Reference/Modules/learnloop/cli/_package|learnloop.cli]] — 55 static module edges
+- [[Reference/Modules/learnloop/ai/providers/_package|learnloop.ai.providers]] — 43 static module edges
+- [[Reference/Modules/learnloop/ops/_package|learnloop.ops]] — 41 static module edges
+- [[Reference/Modules/learnloop_sidecar/handlers/_package|learnloop_sidecar.handlers]] — 39 static module edges
+- [[Reference/Modules/learnloop/practice_index/_package|learnloop.practice_index]] — 30 static module edges
+- [[Reference/Modules/learnloop/adaptive_difficulty/_package|learnloop.adaptive_difficulty]] — 25 static module edges
+- [[Reference/Modules/learnloop/hints/_package|learnloop.hints]] — 24 static module edges
+- [[Reference/Modules/learnloop/content/pipeline/_package|learnloop.content.pipeline]] — 23 static module edges
+- [[Reference/Modules/learnloop/diagnosis/recurrence/_package|learnloop.diagnosis.recurrence]] — 23 static module edges
+- [[Reference/Modules/learnloop/instructional/_package|learnloop.instructional]] — 21 static module edges
+- [[Reference/Modules/learnloop/content/authoring/_package|learnloop.content.authoring]] — 19 static module edges
+- [[Reference/Modules/learnloop/content/proposals/_package|learnloop.content.proposals]] — 19 static module edges
+- [[Reference/Modules/learnloop/experiments/contextual_embeddings/_package|learnloop.experiments.contextual_embeddings]] — 19 static module edges
+- [[Reference/Modules/learnloop/attempts/_package|learnloop.attempts]] — 17 static module edges
+- [[Reference/Modules/learnloop/content/synthesis/_package|learnloop.content.synthesis]] — 17 static module edges
+- [[Reference/Modules/learnloop/diagnosis/_package|learnloop.diagnosis]] — 17 static module edges
+- [[Reference/Modules/learnloop/diagnosis/split/_package|learnloop.diagnosis.split]] — 17 static module edges
+- [[Reference/Modules/learnloop/diagnosis/text_gaps/_package|learnloop.diagnosis.text_gaps]] — 17 static module edges
+- [[Reference/Modules/learnloop/reader/_package|learnloop.reader]] — 16 static module edges
+- [[Reference/Modules/learnloop/content/facet_identity/_package|learnloop.content.facet_identity]] — 14 static module edges
+- [[Reference/Modules/learnloop/diagnosis/offline_review/_package|learnloop.diagnosis.offline_review]] — 14 static module edges
+- [[Reference/Modules/learnloop/ops/contamination/_package|learnloop.ops.contamination]] — 14 static module edges
+- [[Reference/Modules/learnloop/field/_package|learnloop.field]] — 12 static module edges
+- [[Reference/Modules/learnloop/projects/_package|learnloop.projects]] — 12 static module edges
+- [[Reference/Modules/learnloop/workbench/_package|learnloop.workbench]] — 12 static module edges
+- [[Reference/Modules/learnloop/daily_plan/_package|learnloop.daily_plan]] — 11 static module edges
+- [[Reference/Modules/learnloop/figures/_package|learnloop.figures]] — 11 static module edges
+- [[Reference/Modules/learnloop/tutor/_package|learnloop.tutor]] — 11 static module edges
+- [[Reference/Modules/learnloop/teacher/_package|learnloop.teacher]] — 9 static module edges
+- [[Reference/Modules/learnloop/_package|learnloop]] — 8 static module edges
+- [[Reference/Modules/learnloop_sidecar/_package|learnloop_sidecar]] — 7 static module edges
+- [[Reference/Modules/learnloop/curriculum/_package|learnloop.curriculum]] — 5 static module edges
+- [[Reference/Modules/learnloop/matching/_package|learnloop.matching]] — 5 static module edges
+- [[Reference/Modules/learnloop/ingest/extractors/_package|learnloop.ingest.extractors]] — 3 static module edges
+- [[Reference/Modules/learnloop/ai/chatgpt_plan/_package|learnloop.ai.chatgpt_plan]] — 2 static module edges
+- [[Reference/Modules/learnloop/experiments/contextual_embeddings/e1/_package|learnloop.experiments.contextual_embeddings.e1]] — 2 static module edges
+- [[Reference/Modules/learnloop/remote/_package|learnloop.remote]] — 2 static module edges
+- [[Reference/Modules/learnloop/router/_package|learnloop.router]] — 2 static module edges
 - [[Reference/Modules/learnloop/tui/screens/_package|learnloop.tui.screens]] — 2 static module edges
-- [[Reference/Modules/learnloop_sidecar/_package|learnloop_sidecar]] — 2 static module edges
 - [[Reference/Modules/learnloop/db/_package|learnloop.db]] — 1 static module edge
 - [[Reference/Modules/learnloop/sim/_package|learnloop.sim]] — 1 static module edge
+- [[Reference/Modules/learnloop/substrate/_package|learnloop.substrate]] — 1 static module edge
 - [[Reference/Modules/learnloop/tui/_package|learnloop.tui]] — 1 static module edge
 
 ### Dependency neighborhood
@@ -111,27 +161,27 @@ This diagram compresses package-level static imports; edge labels are distinct m
 ```mermaid
 flowchart LR
     center["learnloop.ai"]
+    n_learnloop_source_retrieval["learnloop.source_retrieval"]
     n_learnloop_ai_providers["learnloop.ai.providers"]
-    n_learnloop_content_pipeline["learnloop.content.pipeline"]
-    n_learnloop_content_synthesis["learnloop.content.synthesis"]
-    n_learnloop_attempts["learnloop.attempts"]
-    n_learnloop_diagnosis["learnloop.diagnosis"]
+    n_learnloop_cli["learnloop.cli"]
+    n_learnloop_ops["learnloop.ops"]
     n_learnloop_sidecar_handlers["learnloop_sidecar.handlers"]
-    n_learnloop_content_authoring["learnloop.content.authoring"]
-    n_learnloop_content_proposals["learnloop.content.proposals"]
-    n_learnloop_tutor["learnloop.tutor"]
-    n_learnloop_reader["learnloop.reader"]
-    n_learnloop_ai_providers -->|20| center
-    center -->|6| n_learnloop_ai_providers
-    n_learnloop_content_pipeline -->|15| center
-    n_learnloop_content_synthesis -->|13| center
-    n_learnloop_attempts -->|11| center
-    n_learnloop_diagnosis -->|11| center
-    n_learnloop_sidecar_handlers -->|11| center
-    n_learnloop_content_authoring -->|8| center
-    n_learnloop_content_proposals -->|8| center
-    n_learnloop_tutor -->|8| center
-    n_learnloop_reader -->|6| center
+    n_learnloop_practice_index["learnloop.practice_index"]
+    n_learnloop_adaptive_difficulty["learnloop.adaptive_difficulty"]
+    n_learnloop_hints["learnloop.hints"]
+    n_learnloop_content_pipeline["learnloop.content.pipeline"]
+    n_learnloop_diagnosis_recurrence["learnloop.diagnosis.recurrence"]
+    n_learnloop_source_retrieval -->|84| center
+    n_learnloop_ai_providers -->|43| center
+    center -->|12| n_learnloop_ai_providers
+    n_learnloop_cli -->|55| center
+    n_learnloop_ops -->|41| center
+    n_learnloop_sidecar_handlers -->|39| center
+    n_learnloop_practice_index -->|30| center
+    n_learnloop_adaptive_difficulty -->|25| center
+    n_learnloop_hints -->|24| center
+    n_learnloop_content_pipeline -->|23| center
+    n_learnloop_diagnosis_recurrence -->|23| center
 ```
 
 Interpretation: arrow direction is static import direction and the label is the number of distinct module-to-module edges. It shows coupling pressure, not runtime call frequency or ownership permission.

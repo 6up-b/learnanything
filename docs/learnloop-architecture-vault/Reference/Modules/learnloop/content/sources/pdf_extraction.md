@@ -7,11 +7,11 @@ version: "1.0.0"
 source_path: "src/learnloop/content/sources/pdf_extraction.py"
 source_paths:
   - "src/learnloop/content/sources/pdf_extraction.py"
-source_commit: "16a65f509f6d2167529fa5cc82464351c2dffc30"
-source_commit_timestamp: "2026-09-03T10:49:04-07:00"
+source_commit: "9ad76b0f488043f6d2190d08fc282e173589471c"
+source_commit_timestamp: "2026-10-15T06:33:04-04:00"
 source_worktree_state: "clean"
 generated: true
-generated_at: "2026-09-23"
+generated_at: "2026-11-02"
 package: "learnloop.content.sources"
 layer: "domain"
 concepts:
@@ -51,35 +51,32 @@ The authoritative system-level explanation remains in [[Learning System]], [[AI 
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/content/sources/pdf_extraction.py](../../../../../../../src/learnloop/content/sources/pdf_extraction.py) |
-| Source lines | 238 |
+| Source lines | 273 |
 | Owning package | [[Reference/Modules/learnloop/content/sources/_package|learnloop.content.sources]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `16a65f509f6d2167529fa5cc82464351c2dffc30` |
-| Commit timestamp | `2026-09-03T10:49:04-07:00` |
+| Source commit | `9ad76b0f488043f6d2190d08fc282e173589471c` |
+| Commit timestamp | `2026-10-15T06:33:04-04:00` |
 
 ## Public API
 
-- `class PdfExtractionError(ValueError)` ([source](../../../../../../../src/learnloop/content/sources/pdf_extraction.py), line 36)
-- `class PdfExtraction` ([source](../../../../../../../src/learnloop/content/sources/pdf_extraction.py), line 41)
-- `extract_pdf_markdown(raw_bytes: bytes, *, config: PdfIngestConfig | None=None, cache_dir: Path | None=None) -> PdfExtraction` ([source](../../../../../../../src/learnloop/content/sources/pdf_extraction.py), line 52)
-
-### Module constants
-
-- `_MARKER_CONVERTERS` ([src/learnloop/content/sources/pdf_extraction.py](../../../../../../../src/learnloop/content/sources/pdf_extraction.py), line 49)
+- `class PdfExtractionError(ValueError)` ([source](../../../../../../../src/learnloop/content/sources/pdf_extraction.py), line 44)
+- `class PdfExtraction` ([source](../../../../../../../src/learnloop/content/sources/pdf_extraction.py), line 49)
+- `extract_pdf_markdown(raw_bytes: bytes, *, config: PdfIngestConfig | None=None, cache_dir: Path | None=None, whole_file_upload_allowed: bool=False) -> PdfExtraction` ([source](../../../../../../../src/learnloop/content/sources/pdf_extraction.py), line 58) — ``whole_file_upload_allowed``: the learner's one-time whole-file OK.
 
 ## Internal implementation anchors
 
-- `_resolve_engine(config: PdfIngestConfig) -> str` ([source](../../../../../../../src/learnloop/content/sources/pdf_extraction.py), line 72)
-- `_marker_options(config: PdfIngestConfig) -> dict[str, Any]` ([source](../../../../../../../src/learnloop/content/sources/pdf_extraction.py), line 93)
-- `_extract_with_marker(raw_bytes: bytes, config: PdfIngestConfig, options: dict[str, Any]) -> PdfExtraction` ([source](../../../../../../../src/learnloop/content/sources/pdf_extraction.py), line 116)
-- `_marker_converter(options: dict[str, Any]) -> Any` ([source](../../../../../../../src/learnloop/content/sources/pdf_extraction.py), line 139)
-- `_extract_with_pypdf(raw_bytes: bytes) -> PdfExtraction` ([source](../../../../../../../src/learnloop/content/sources/pdf_extraction.py), line 160)
-- `_marker_cache_fingerprint() -> str` ([source](../../../../../../../src/learnloop/content/sources/pdf_extraction.py), line 180) — Version fingerprint mixed into the extraction cache key (ING §2.2/§2.5).
-- `_cache_key(raw_bytes: bytes, options: dict[str, Any], version_fingerprint: str='') -> str` ([source](../../../../../../../src/learnloop/content/sources/pdf_extraction.py), line 200)
-- `_read_cache(cache_dir: Path | None, key: str) -> PdfExtraction | None` ([source](../../../../../../../src/learnloop/content/sources/pdf_extraction.py), line 214)
-- `_write_cache(cache_dir: Path | None, key: str, extraction: PdfExtraction) -> None` ([source](../../../../../../../src/learnloop/content/sources/pdf_extraction.py), line 230)
+- `_extract_with_glm_ocr(raw_bytes: bytes, config: PdfIngestConfig, cache_dir: Path | None) -> PdfExtraction` ([source](../../../../../../../src/learnloop/content/sources/pdf_extraction.py), line 91) — GLM-OCR's IR rendered as Markdown, cached by file bytes and extractor version (backend, models, mapping); endpoint, timeout and price settings never change what is read.
+- `_local_engine(config: PdfIngestConfig) -> str` ([source](../../../../../../../src/learnloop/content/sources/pdf_extraction.py), line 118)
+- `_resolve_engine(config: PdfIngestConfig, *, whole_file_upload_allowed: bool=False) -> tuple[str, str | None]` ([source](../../../../../../../src/learnloop/content/sources/pdf_extraction.py), line 122) — (engine, why it was chosen when ``auto`` passed over GLM-OCR).
+- `_marker_options(config: PdfIngestConfig) -> dict[str, Any]` ([source](../../../../../../../src/learnloop/content/sources/pdf_extraction.py), line 155)
+- `_extract_with_marker(raw_bytes: bytes, config: PdfIngestConfig, options: dict[str, Any]) -> PdfExtraction` ([source](../../../../../../../src/learnloop/content/sources/pdf_extraction.py), line 178)
+- `_extract_with_pypdf(raw_bytes: bytes) -> PdfExtraction` ([source](../../../../../../../src/learnloop/content/sources/pdf_extraction.py), line 195)
+- `_marker_cache_fingerprint() -> str` ([source](../../../../../../../src/learnloop/content/sources/pdf_extraction.py), line 215) — Version fingerprint mixed into the extraction cache key (ING §2.2/§2.5).
+- `_cache_key(raw_bytes: bytes, options: dict[str, Any], version_fingerprint: str='') -> str` ([source](../../../../../../../src/learnloop/content/sources/pdf_extraction.py), line 235)
+- `_read_cache(cache_dir: Path | None, key: str) -> PdfExtraction | None` ([source](../../../../../../../src/learnloop/content/sources/pdf_extraction.py), line 249)
+- `_write_cache(cache_dir: Path | None, key: str, extraction: PdfExtraction) -> None` ([source](../../../../../../../src/learnloop/content/sources/pdf_extraction.py), line 265)
 
 ## Who imports or calls it
 
@@ -93,12 +90,15 @@ The authoritative system-level explanation remains in [[Learning System]], [[AI 
 ### LearnLoop dependencies
 
 - [[Reference/Modules/learnloop/config/__init__|learnloop.config]] — imports `PdfIngestConfig`; calls `PdfIngestConfig`
-- [[Reference/Modules/learnloop/ingest/ir|learnloop.ingest.ir]] — imports `IR_SCHEMA_VERSION`
+- [[Reference/Modules/learnloop/ingest/extractors/__init__|learnloop.ingest.extractors]] — imports `ExtractionContext`, `pdf_extractor_for`; calls `ExtractionContext`, `pdf_extractor_for`
+- [[Reference/Modules/learnloop/ingest/extractors/glm_ocr|learnloop.ingest.extractors.glm_ocr]] — imports `CONSENT_MESSAGE`, `GlmOcrConsentRequired`, `GlmOcrExtractionError`, `UNAVAILABLE_MESSAGE`, `selected_backend`; calls `selected_backend`
+- [[Reference/Modules/learnloop/ingest/extractors/marker_worker|learnloop.ingest.extractors.marker_worker]] — imports `MarkerWorkerError`, `run_marker`; calls `run_marker`
+- [[Reference/Modules/learnloop/ingest/ir|learnloop.ingest.ir]] — imports `IR_SCHEMA_VERSION`, `render_ir_markdown`; calls `render_ir_markdown`
 
 ### Platform and third-party dependencies
 
-- Standard library: `__future__`, `dataclasses`, `hashlib`, `importlib`, `io`, `json`, `os`, `pathlib`, `tempfile`, `typing`
-- Third party: `marker`, `pypdf`
+- Standard library: `__future__`, `dataclasses`, `hashlib`, `importlib`, `io`, `json`, `os`, `pathlib`, `typing`
+- Third party: `pypdf`
 
 ## Larger workflow participation
 
@@ -113,6 +113,11 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
+- [tests/test_glm_ocr.py](../../../../../../../tests/test_glm_ocr.py) — direct import
+  - `test_the_legacy_path_uploads_only_with_the_ok_and_caches_by_backend`
+- [tests/test_marker_pdfium_worker.py](../../../../../../../tests/test_marker_pdfium_worker.py) — direct import
+  - `test_marker_never_enters_pdfium_in_this_process_while_the_reader_renders`
+  - `test_the_legacy_one_shot_path_reports_a_marker_worker_crash_as_its_error`
 - [tests/test_pdf_extraction.py](../../../../../../../tests/test_pdf_extraction.py) — direct import
   - `test_auto_engine_falls_back_to_pypdf_when_marker_missing`
   - `test_cache_key_excludes_api_key`

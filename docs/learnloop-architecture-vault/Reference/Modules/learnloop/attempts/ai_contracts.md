@@ -7,11 +7,11 @@ version: "1.0.0"
 source_path: "src/learnloop/attempts/ai_contracts.py"
 source_paths:
   - "src/learnloop/attempts/ai_contracts.py"
-source_commit: "b322ef2e9b5cebc241b612e4963a5aaf1a37f99a"
-source_commit_timestamp: "2026-08-20T18:04:29-04:00"
+source_commit: "9c65556d0416de254556729a74434c386c55903c"
+source_commit_timestamp: "2026-10-12T21:17:59-04:00"
 source_worktree_state: "clean"
 generated: true
-generated_at: "2026-09-23"
+generated_at: "2026-11-02"
 package: "learnloop.attempts"
 layer: "domain"
 concepts:
@@ -50,43 +50,48 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/attempts/ai_contracts.py](../../../../../../src/learnloop/attempts/ai_contracts.py) |
-| Source lines | 577 |
+| Source lines | 637 |
 | Owning package | [[Reference/Modules/learnloop/attempts/_package|learnloop.attempts]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `b322ef2e9b5cebc241b612e4963a5aaf1a37f99a` |
-| Commit timestamp | `2026-08-20T18:04:29-04:00` |
+| Source commit | `9c65556d0416de254556729a74434c386c55903c` |
+| Commit timestamp | `2026-10-12T21:17:59-04:00` |
 
 ## Public API
 
-- `class CriterionEvidence(WireModel)` ([source](../../../../../../src/learnloop/attempts/ai_contracts.py), line 13)
-- `class FirstDivergence(WireModel)` ([source](../../../../../../src/learnloop/attempts/ai_contracts.py), line 23)
-  - `validate_offsets(self) -> 'FirstDivergence'` (line 34; public)
-- `class FacetContrast(WireModel)` ([source](../../../../../../src/learnloop/attempts/ai_contracts.py), line 50)
-  - `validate_contrast(self) -> 'FacetContrast'` (line 56; public)
-- `class PostdictiveClaim(WireModel)` ([source](../../../../../../src/learnloop/attempts/ai_contracts.py), line 66)
-- `class RepairedTrace(WireModel)` ([source](../../../../../../src/learnloop/attempts/ai_contracts.py), line 71) — A minimal, auditable edit of the learner's displayed reasoning.
-  - `validate_minimal_edit(self) -> 'RepairedTrace'` (line 83; public)
-- `class RepairVerificationRequest(WireModel)` ([source](../../../../../../src/learnloop/attempts/ai_contracts.py), line 91) — A request for a backend verifier, never a model-supplied verdict.
-- `class ErrorAttribution(WireModel)` ([source](../../../../../../src/learnloop/attempts/ai_contracts.py), line 105)
-  - `validate_abstention(self) -> 'ErrorAttribution'` (line 142; public)
-- `class RepairSuggestion(WireModel)` ([source](../../../../../../src/learnloop/attempts/ai_contracts.py), line 154)
-  - `validate_eliciting(self) -> 'RepairSuggestion'` (line 183; public) — Structural only.
-- `class ExercisedFacetObservation(WireModel)` ([source](../../../../../../src/learnloop/attempts/ai_contracts.py), line 207) — One facet the grader saw *exercised* in the trace (Meas §3.A6).
-- `class ClarificationRequest(WireModel)` ([source](../../../../../../src/learnloop/attempts/ai_contracts.py), line 235) — One question to the learner that would resolve a hedged grade (Meas §3.A8).
-- `class DiscriminationProfileMatch(WireModel)` ([source](../../../../../../src/learnloop/attempts/ai_contracts.py), line 265) — Which authored candidate profile the trace matches -- or none (Meas §3.A5).
-  - `validate_match(self) -> 'DiscriminationProfileMatch'` (line 296; public)
-- `class ReportedError(WireModel)` ([source](../../../../../../src/learnloop/attempts/ai_contracts.py), line 302) — One error the learner claims to have found in an A3 worked solution.
-- `class ErrorHuntReport(WireModel)` ([source](../../../../../../src/learnloop/attempts/ai_contracts.py), line 334) — What the learner found and repaired in an A3 item (Meas §3.A3).
-- `class GradingContext` ([source](../../../../../../src/learnloop/attempts/ai_contracts.py), line 347)
-- `class GradingProposal(WireModel)` ([source](../../../../../../src/learnloop/attempts/ai_contracts.py), line 367)
-- `grading_prompt(context: GradingContext) -> str` ([source](../../../../../../src/learnloop/attempts/ai_contracts.py), line 390) — Render the grading request owned by the attempts domain.
+- `class CriterionEvidence(WireModel)` ([source](../../../../../../src/learnloop/attempts/ai_contracts.py), line 18)
+- `class FirstDivergence(WireModel)` ([source](../../../../../../src/learnloop/attempts/ai_contracts.py), line 28)
+  - `validate_offsets(self) -> 'FirstDivergence'` (line 39; public)
+- `class FacetContrast(WireModel)` ([source](../../../../../../src/learnloop/attempts/ai_contracts.py), line 55)
+  - `validate_contrast(self) -> 'FacetContrast'` (line 61; public)
+- `class PostdictiveClaim(WireModel)` ([source](../../../../../../src/learnloop/attempts/ai_contracts.py), line 71)
+- `class RepairedTrace(WireModel)` ([source](../../../../../../src/learnloop/attempts/ai_contracts.py), line 76) — A minimal, auditable edit of the learner's displayed reasoning.
+  - `validate_minimal_edit(self) -> 'RepairedTrace'` (line 88; public)
+- `class RepairVerificationRequest(WireModel)` ([source](../../../../../../src/learnloop/attempts/ai_contracts.py), line 96) — A request for a backend verifier, never a model-supplied verdict.
+- `class ErrorAttribution(WireModel)` ([source](../../../../../../src/learnloop/attempts/ai_contracts.py), line 110)
+  - `validate_abstention(self) -> 'ErrorAttribution'` (line 147; public)
+- `class RepairSuggestion(WireModel)` ([source](../../../../../../src/learnloop/attempts/ai_contracts.py), line 159)
+  - `validate_eliciting(self) -> 'RepairSuggestion'` (line 188; public) — Structural only.
+- `class ExercisedFacetObservation(WireModel)` ([source](../../../../../../src/learnloop/attempts/ai_contracts.py), line 212) — One facet the grader saw *exercised* in the trace (Meas §3.A6).
+- `class ClarificationRequest(WireModel)` ([source](../../../../../../src/learnloop/attempts/ai_contracts.py), line 240) — One question to the learner that would resolve a hedged grade (Meas §3.A8).
+- `class DiscriminationProfileMatch(WireModel)` ([source](../../../../../../src/learnloop/attempts/ai_contracts.py), line 270) — Which authored candidate profile the trace matches -- or none (Meas §3.A5).
+  - `validate_match(self) -> 'DiscriminationProfileMatch'` (line 301; public)
+- `class ReportedError(WireModel)` ([source](../../../../../../src/learnloop/attempts/ai_contracts.py), line 307) — One error the learner claims to have found in an A3 worked solution.
+- `class ErrorHuntReport(WireModel)` ([source](../../../../../../src/learnloop/attempts/ai_contracts.py), line 339) — What the learner found and repaired in an A3 item (Meas §3.A3).
+- `class GradingContext` ([source](../../../../../../src/learnloop/attempts/ai_contracts.py), line 352)
+- `class GradingProposal(WireModel)` ([source](../../../../../../src/learnloop/attempts/ai_contracts.py), line 377)
+- `class StuckGradingProposal(GradingProposal)` ([source](../../../../../../src/learnloop/attempts/ai_contracts.py), line 395) — The joint wire model for a stuck answer (``mvp-0.13``): the shared fields, then the grader's :class:`StuckReading` LAST (it never moves a criterion).
+  - `as_grading_proposal(self) -> GradingProposal` (line 402; public)
+- `grading_prompt_version(context: GradingContext) -> str` ([source](../../../../../../src/learnloop/attempts/ai_contracts.py), line 413) — The joint prompt version; ``+stuck-v1`` when the answer came from "I'm stuck" (the stuck rules are in the task).
+- `grading_context_payload(context: GradingContext) -> dict[str, Any]` ([source](../../../../../../src/learnloop/attempts/ai_contracts.py), line 422) — The context as rendered; an absent answer prompt is omitted.
+- `grading_prompt(context: GradingContext) -> str` ([source](../../../../../../src/learnloop/attempts/ai_contracts.py), line 610) — Render the grading request owned by the attempts domain.
 
 ### Module constants
 
-- `ELICITING_REVEAL_BUDGET_DEFAULT` ([src/learnloop/attempts/ai_contracts.py](../../../../../../src/learnloop/attempts/ai_contracts.py), line 151)
-- `GRADING_PROMPT_VERSION` ([src/learnloop/attempts/ai_contracts.py](../../../../../../src/learnloop/attempts/ai_contracts.py), line 385)
+- `ELICITING_REVEAL_BUDGET_DEFAULT` ([src/learnloop/attempts/ai_contracts.py](../../../../../../src/learnloop/attempts/ai_contracts.py), line 156)
+- `GRADING_PROMPT_VERSION` ([src/learnloop/attempts/ai_contracts.py](../../../../../../src/learnloop/attempts/ai_contracts.py), line 408)
+- `_JOINT_TASK` ([src/learnloop/attempts/ai_contracts.py](../../../../../../src/learnloop/attempts/ai_contracts.py), line 433)
 
 ### Explicit exports
 
@@ -95,7 +100,10 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 - `GRADING_PROMPT_VERSION`
 - `GradingContext`
 - `GradingProposal`
+- `StuckGradingProposal`
+- `grading_context_payload`
 - `grading_prompt`
+- `grading_prompt_version`
 
 ## Internal implementation anchors
 
@@ -106,12 +114,17 @@ No private top-level function or class definition is declared in this file.
 > [!note] Static evidence boundary
 > “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
 
-- [[Reference/Modules/learnloop/attempts/attempts|learnloop.attempts.attempts]] — imports `GRADING_PROMPT_VERSION`, `GradingProposal`
-- [[Reference/Modules/learnloop/attempts/grading|learnloop.attempts.grading]] — imports `CriterionEvidence`, `GradingContext`, `GradingProposal`, `grading_prompt`; statically calls `CriterionEvidence`, `GradingContext`, `GradingProposal`, `grading_prompt`
-- [[Reference/Modules/learnloop/attempts/regrade|learnloop.attempts.regrade]] — imports `GRADING_PROMPT_VERSION`
+- [[Reference/Modules/learnloop/attempts/attempts|learnloop.attempts.attempts]] — imports `GRADING_PROMPT_VERSION`, `GradingProposal`, `StuckGradingProposal`, `grading_prompt_version`; statically calls `grading_prompt_version`
+- [[Reference/Modules/learnloop/attempts/blind_grading|learnloop.attempts.blind_grading]] — imports `ClarificationRequest`, `CriterionEvidence`, `DiscriminationProfileMatch`, `ErrorAttribution`, `ErrorHuntReport`, `ExercisedFacetObservation`, `FacetContrast`, `FirstDivergence`, `GradingContext`, `GradingProposal`, `RepairSuggestion`, `RepairVerificationRequest`, `RepairedTrace`; statically calls `ErrorAttribution`, `GradingProposal`, `RepairSuggestion`, `RepairedTrace`
+- [[Reference/Modules/learnloop/attempts/grading|learnloop.attempts.grading]] — imports `CriterionEvidence`, `GradingContext`, `GradingProposal`, `StuckGradingProposal`, `grading_prompt`, `grading_prompt_version`; statically calls `CriterionEvidence`, `GradingContext`, `GradingProposal`, `grading_prompt`, `grading_prompt_version`
+- [[Reference/Modules/learnloop/attempts/grading_support|learnloop.attempts.grading_support]] — imports `ClarificationRequest`, `CriterionEvidence`, `DiscriminationProfileMatch`, `ErrorHuntReport`, `ExercisedFacetObservation`
+- [[Reference/Modules/learnloop/attempts/regrade|learnloop.attempts.regrade]] — imports `GRADING_PROMPT_VERSION`, `StuckGradingProposal`, `grading_prompt_version`; statically calls `grading_prompt_version`
 - [[Reference/Modules/learnloop/diagnosis/ai_contracts|learnloop.diagnosis.ai_contracts]] — imports `GRADING_PROMPT_VERSION`
-- [[Reference/Modules/learnloop/diagnosis/diagnostic_augmentation|learnloop.diagnosis.diagnostic_augmentation]] — imports `GRADING_PROMPT_VERSION`, `GradingContext`, `GradingProposal`
+- [[Reference/Modules/learnloop/diagnosis/diagnostic_augmentation|learnloop.diagnosis.diagnostic_augmentation]] — imports `GRADING_PROMPT_VERSION`, `GradingContext`, `GradingProposal`, `grading_prompt_version`; statically calls `grading_prompt_version`
 - [[Reference/Modules/learnloop/diagnosis/missing_vocabulary|learnloop.diagnosis.missing_vocabulary]] — imports `GRADING_PROMPT_VERSION`
+- [[Reference/Modules/learnloop/diagnosis/offline_review/runner|learnloop.diagnosis.offline_review.runner]] — imports `GRADING_PROMPT_VERSION`, `GradingContext`, `GradingProposal`, `grading_prompt`; statically calls `grading_prompt`
+- [[Reference/Modules/learnloop/diagnosis/split/contract|learnloop.diagnosis.split.contract]] — imports `ELICITING_REVEAL_BUDGET_DEFAULT`, `PostdictiveClaim`, `RepairVerificationRequest`
+- [[Reference/Modules/learnloop/diagnosis/split/legacy_view|learnloop.diagnosis.split.legacy_view]] — imports `GradingProposal`
 - [[Reference/Modules/learnloop/diagnosis/taxonomy_regrade|learnloop.diagnosis.taxonomy_regrade]] — imports `GRADING_PROMPT_VERSION`
 - [[Reference/Modules/learnloop/sim/runner|learnloop.sim.runner]] — imports `CriterionEvidence`, `GradingContext`, `GradingProposal`; statically calls `CriterionEvidence`, `GradingContext`, `GradingProposal`
 
@@ -121,6 +134,7 @@ No private top-level function or class definition is declared in this file.
 
 - [[Reference/Modules/learnloop/ai/schemas|learnloop.ai.schemas]] — imports `AttributionTargetRef`, `CandidateCause`, `WireModel`
 - [[Reference/Modules/learnloop/ai/transport|learnloop.ai.transport]] — imports `render_structured_prompt`; calls `render_structured_prompt`
+- [[Reference/Modules/learnloop/attempts/stuck|learnloop.attempts.stuck]] — imports `STUCK_PROMPT_RULES`, `STUCK_PROMPT_VERSION_SUFFIX`, `StuckReading`
 
 ### Platform and third-party dependencies
 
@@ -134,16 +148,21 @@ Use this module in context through:
 - [[Process Model Output]]
 - [[Inspect Persistent State]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/attempts/attempts|learnloop.attempts.attempts]], [[Reference/Modules/learnloop/attempts/grading|learnloop.attempts.grading]], [[Reference/Modules/learnloop/attempts/regrade|learnloop.attempts.regrade]], [[Reference/Modules/learnloop/diagnosis/ai_contracts|learnloop.diagnosis.ai_contracts]], [[Reference/Modules/learnloop/diagnosis/diagnostic_augmentation|learnloop.diagnosis.diagnostic_augmentation]] and 3 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/attempts/attempts|learnloop.attempts.attempts]], [[Reference/Modules/learnloop/attempts/blind_grading|learnloop.attempts.blind_grading]], [[Reference/Modules/learnloop/attempts/grading|learnloop.attempts.grading]], [[Reference/Modules/learnloop/attempts/grading_support|learnloop.attempts.grading_support]], [[Reference/Modules/learnloop/attempts/regrade|learnloop.attempts.regrade]] and 8 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
 ## Tests that define behavior
 
+- [tests/diagnosis_fakes.py](../../../../../../tests/diagnosis_fakes.py) — direct import
 - [tests/structured_ai.py](../../../../../../tests/structured_ai.py) — direct import
+- [tests/teacher_fakes.py](../../../../../../tests/teacher_fakes.py) — direct import
+- [tests/test_adaptive_difficulty_ad1.py](../../../../../../tests/test_adaptive_difficulty_ad1.py) — direct import
 - [tests/test_agent_run_tokens.py](../../../../../../tests/test_agent_run_tokens.py) — direct import
 - [tests/test_anchor_resolution.py](../../../../../../tests/test_anchor_resolution.py) — direct import
 - [tests/test_attempt_ai_flow.py](../../../../../../tests/test_attempt_ai_flow.py) — direct import
+- [tests/test_blind_grading_contract.py](../../../../../../tests/test_blind_grading_contract.py) — direct import
+  - `test_blind_context_has_no_history_capable_field`
 - [tests/test_causal_attribution_p0.py](../../../../../../tests/test_causal_attribution_p0.py) — direct import
   - `test_grading_schema_is_prose_first`
   - `test_missing_step_divergence_must_reference_authored_checkpoint`
@@ -196,7 +215,11 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_openrouter_client.py](../../../../../../tests/test_openrouter_client.py) — direct import
 - [tests/test_probe_audit.py](../../../../../../tests/test_probe_audit.py) — direct import
 - [tests/test_repair_splice.py](../../../../../../tests/test_repair_splice.py) — direct import
+- [tests/test_required_method_grading.py](../../../../../../tests/test_required_method_grading.py) — direct import
+- [tests/test_route_rules_in_grader.py](../../../../../../tests/test_route_rules_in_grader.py) — direct import
 - [tests/test_structured_transport_parity.py](../../../../../../tests/test_structured_transport_parity.py) — direct import
+- [tests/test_stuck_prompt.py](../../../../../../tests/test_stuck_prompt.py) — direct import
+  - `test_an_ordinary_joint_answer_keeps_its_prompt_and_hash_exactly`
 - [tests/test_teach_back.py](../../../../../../tests/test_teach_back.py) — direct import
   - `test_repaired_answer_is_composed_from_verbatim_prefix_and_regenerated_work`
   - `test_repaired_answer_without_regenerated_work_still_requires_exact_prefix`

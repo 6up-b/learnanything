@@ -7,11 +7,11 @@ version: "1.0.0"
 source_path: "src/learnloop/reader/annotations.py"
 source_paths:
   - "src/learnloop/reader/annotations.py"
-source_commit: "b322ef2e9b5cebc241b612e4963a5aaf1a37f99a"
-source_commit_timestamp: "2026-08-20T18:04:29-04:00"
+source_commit: "01b8cd17f41eaf0b388fa9e27aa70bee101c5b11"
+source_commit_timestamp: "2026-10-15T20:38:45-04:00"
 source_worktree_state: "clean"
 generated: true
-generated_at: "2026-09-23"
+generated_at: "2026-11-02"
 package: "learnloop.reader"
 layer: "domain"
 concepts:
@@ -49,46 +49,54 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/reader/annotations.py](../../../../../../src/learnloop/reader/annotations.py) |
-| Source lines | 585 |
+| Source lines | 693 |
 | Owning package | [[Reference/Modules/learnloop/reader/_package|learnloop.reader]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `b322ef2e9b5cebc241b612e4963a5aaf1a37f99a` |
-| Commit timestamp | `2026-08-20T18:04:29-04:00` |
+| Source commit | `01b8cd17f41eaf0b388fa9e27aa70bee101c5b11` |
+| Commit timestamp | `2026-10-15T20:38:45-04:00` |
 
 ## Public API
 
-- `class AnnotationError(ValueError)` ([source](../../../../../../src/learnloop/reader/annotations.py), line 35) — Domain error for the annotation service.
-- `translate_selection(repository: Repository, *, extraction_id: str, raw_selection: Mapping[str, Any], render_view_id: str | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/reader/annotations.py), line 217) — Translate a raw display-coordinate selection through the crosswalk into ordered source-block anchor segments.
-- `append_annotation(repository: Repository, *, source_id: str, revision_id: str, extraction_id: str, annotation_type: str, learner_text: str='', what_i_think_is_going_on: str | None=None, translation: Mapping[str, Any], render_view_id: str | None=None, privacy_locality: str='local_private', client_idempotency_key: str | None=None, clock: Clock | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/reader/annotations.py), line 315) — Create a new annotation (version 1) + its anchor + a ``create`` event.
-- `edit_annotation(repository: Repository, *, annotation_id: str, learner_text: str | None=None, what_i_think_is_going_on: str | None=None, annotation_type: str | None=None, clock: Clock | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/reader/annotations.py), line 355) — Append an edited version, carrying the existing anchor forward unchanged.
-- `delete_intent_annotation(repository: Repository, *, annotation_id: str, reason: str | None=None, clock: Clock | None=None) -> str` ([source](../../../../../../src/learnloop/reader/annotations.py), line 414) — Deletion is a tombstone disposition event -- never a hard delete (§4.1).
-- `reanchor_annotation(repository: Repository, *, annotation_id: str, new_extraction_id: str, clock: Clock | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/reader/annotations.py), line 425) — Re-anchor an annotation's segments onto a new extraction.
-- `reanchor_annotations_for_source(repository: Repository, *, source_id: str, new_extraction_id: str, review_batch: int=MANUAL_REVIEW_BATCH, clock: Clock | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/reader/annotations.py), line 513) — Re-anchor every annotation on a source onto a new extraction, honoring the review-volume budget (§A.3.5).
-- `manual_anchor(repository: Repository, *, annotation_id: str, source_id: str, revision_id: str, extraction_id: str, segments: list[Mapping[str, Any]], clock: Clock | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/reader/annotations.py), line 547) — Append a learner-supplied manual anchor successor (§4.4 step 6).
+- `class AnnotationError(ValueError)` ([source](../../../../../../src/learnloop/reader/annotations.py), line 36) — Domain error for the annotation service.
+- `translate_selection(repository: Repository, *, extraction_id: str, raw_selection: Mapping[str, Any], render_view_id: str | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/reader/annotations.py), line 218) — Translate a raw display-coordinate selection through the crosswalk into ordered source-block anchor segments.
+- `append_annotation(repository: Repository, *, source_id: str, revision_id: str, extraction_id: str, annotation_type: str, learner_text: str='', what_i_think_is_going_on: str | None=None, translation: Mapping[str, Any], render_view_id: str | None=None, privacy_locality: str='local_private', client_idempotency_key: str | None=None, clock: Clock | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/reader/annotations.py), line 316) — Create a new annotation (version 1) + its anchor + a ``create`` event.
+- `edit_annotation(repository: Repository, *, annotation_id: str, learner_text: str | None=None, what_i_think_is_going_on: str | None=None, annotation_type: str | None=None, clock: Clock | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/reader/annotations.py), line 356) — Append an edited version, carrying the existing anchor forward unchanged.
+- `delete_intent_annotation(repository: Repository, *, annotation_id: str, reason: str | None=None, clock: Clock | None=None) -> str` ([source](../../../../../../src/learnloop/reader/annotations.py), line 415) — Deletion is a tombstone disposition event -- never a hard delete (§4.1).
+- `restore_annotation(repository: Repository, *, annotation_id: str, delete_event_id: str, clock: Clock | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/reader/annotations.py), line 426) — Undo a delete (reader-pdf-selection): a disposition event that withdraws the one delete intent ``delete_event_id`` names (the event id the delete returned), so the annotation is listed again with its anchor, versions and history untouched, unless another delete of it stands (one…
+- `reanchor_annotation(repository: Repository, *, annotation_id: str, new_extraction_id: str, clock: Clock | None=None, block_results: dict[str, Any] | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/reader/annotations.py), line 450) — Re-anchor an annotation's segments onto a new extraction.
+- `reanchor_annotations_for_source(repository: Repository, *, source_id: str, new_extraction_id: str, review_batch: int=MANUAL_REVIEW_BATCH, clock: Clock | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/reader/annotations.py), line 545) — Re-anchor every annotation on a source onto a new extraction, honoring the review-volume budget (§A.3.5).
+- `manual_anchor(repository: Repository, *, annotation_id: str, source_id: str, revision_id: str, extraction_id: str, segments: list[Mapping[str, Any]], clock: Clock | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/reader/annotations.py), line 579) — Append a learner-supplied manual anchor successor (§4.4 step 6).
+- `annotation_placements(repository: Repository, heads: list[Mapping[str, Any] | None], extraction_id: str) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/reader/annotations.py), line 683) — Where each annotation head lands on ``extraction_id`` (one per head, in order): ``here``/``moved`` with its segments on that reading (span id and code-point offsets into that block's own text), ``flagged`` with the span of the passage that took its place, or ``elsewhere``.
 
 ### Module constants
 
-- `ALGO_VERSION` ([src/learnloop/reader/annotations.py](../../../../../../src/learnloop/reader/annotations.py), line 25)
-- `SUBBLOCK_CONFIDENCE_MIN` ([src/learnloop/reader/annotations.py](../../../../../../src/learnloop/reader/annotations.py), line 29)
-- `MANUAL_REVIEW_BATCH` ([src/learnloop/reader/annotations.py](../../../../../../src/learnloop/reader/annotations.py), line 30)
-- `ANNOTATION_TYPES` ([src/learnloop/reader/annotations.py](../../../../../../src/learnloop/reader/annotations.py), line 32)
-- `FUZZY_COVERAGE_MIN` ([src/learnloop/reader/annotations.py](../../../../../../src/learnloop/reader/annotations.py), line 56)
-- `FUZZY_WINDOW_SLACK` ([src/learnloop/reader/annotations.py](../../../../../../src/learnloop/reader/annotations.py), line 57)
-- `CONTEXT_SCORE_MIN` ([src/learnloop/reader/annotations.py](../../../../../../src/learnloop/reader/annotations.py), line 99)
-- `CONTEXT_MARGIN_MIN` ([src/learnloop/reader/annotations.py](../../../../../../src/learnloop/reader/annotations.py), line 100)
+- `ALGO_VERSION` ([src/learnloop/reader/annotations.py](../../../../../../src/learnloop/reader/annotations.py), line 26)
+- `SUBBLOCK_CONFIDENCE_MIN` ([src/learnloop/reader/annotations.py](../../../../../../src/learnloop/reader/annotations.py), line 30)
+- `MANUAL_REVIEW_BATCH` ([src/learnloop/reader/annotations.py](../../../../../../src/learnloop/reader/annotations.py), line 31)
+- `ANNOTATION_TYPES` ([src/learnloop/reader/annotations.py](../../../../../../src/learnloop/reader/annotations.py), line 33)
+- `FUZZY_COVERAGE_MIN` ([src/learnloop/reader/annotations.py](../../../../../../src/learnloop/reader/annotations.py), line 57)
+- `FUZZY_WINDOW_SLACK` ([src/learnloop/reader/annotations.py](../../../../../../src/learnloop/reader/annotations.py), line 58)
+- `CONTEXT_SCORE_MIN` ([src/learnloop/reader/annotations.py](../../../../../../src/learnloop/reader/annotations.py), line 100)
+- `CONTEXT_MARGIN_MIN` ([src/learnloop/reader/annotations.py](../../../../../../src/learnloop/reader/annotations.py), line 101)
+- `PLACEMENT_HERE` ([src/learnloop/reader/annotations.py](../../../../../../src/learnloop/reader/annotations.py), line 629)
+- `PLACEMENT_MOVED` ([src/learnloop/reader/annotations.py](../../../../../../src/learnloop/reader/annotations.py), line 632)
+- `PLACEMENT_FLAGGED` ([src/learnloop/reader/annotations.py](../../../../../../src/learnloop/reader/annotations.py), line 636)
+- `PLACEMENT_ELSEWHERE` ([src/learnloop/reader/annotations.py](../../../../../../src/learnloop/reader/annotations.py), line 638)
 
 ## Internal implementation anchors
 
-- `_hash(text: str) -> str` ([source](../../../../../../src/learnloop/reader/annotations.py), line 39)
-- `_neighbor_hashes(ir: Any, span_id: str) -> list[str]` ([source](../../../../../../src/learnloop/reader/annotations.py), line 43)
-- `_fuzzy_locate(text: str, quote: str) -> tuple[int, int] | None` ([source](../../../../../../src/learnloop/reader/annotations.py), line 60) — Tolerant alignment for quotes captured off a *rendered* surface (pdf.js text layer, rendered MathML): rendered glyphs and extraction text disagree wherever the extractor dropped math or stored it as LaTeX, so exact and whitespace-normalized matching both fail.
-- `_context_score(text: str, start: int, end: int, prefix: str | None, suffix: str | None) -> float` ([source](../../../../../../src/learnloop/reader/annotations.py), line 103) — Similarity between the extraction text around an occurrence and the rendered-surface context the capture arrived with (0..1).
-- `_disambiguate(text: str, candidates: list[tuple[int, int]], prefix: str | None, suffix: str | None) -> tuple[int, int] | None` ([source](../../../../../../src/learnloop/reader/annotations.py), line 122) — Pick among several occurrences of the same quote using surrounding context — only on a clear win; otherwise refuse (§3.2).
-- `_locate_quote(text: str, quote: str | None, *, prefix: str | None=None, suffix: str | None=None) -> tuple[int, int] | None` ([source](../../../../../../src/learnloop/reader/annotations.py), line 143) — Locate a quote in source-block text: exact unique match first, else a unique whitespace-normalized match, else a fuzzy token alignment.
-- `_segment_from_block(block: Any, ir: Any, start: int, end: int) -> dict[str, Any]` ([source](../../../../../../src/learnloop/reader/annotations.py), line 192)
-- `_anchor_payload(*, source_id: str, revision_id: str, extraction_id: str, render_view_id: str | None, translation: Mapping[str, Any], status: str | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/reader/annotations.py), line 298)
+- `_hash(text: str) -> str` ([source](../../../../../../src/learnloop/reader/annotations.py), line 40)
+- `_neighbor_hashes(ir: Any, span_id: str) -> list[str]` ([source](../../../../../../src/learnloop/reader/annotations.py), line 44)
+- `_fuzzy_locate(text: str, quote: str) -> tuple[int, int] | None` ([source](../../../../../../src/learnloop/reader/annotations.py), line 61) — Tolerant alignment for quotes captured off a *rendered* surface (pdf.js text layer, rendered MathML): rendered glyphs and extraction text disagree wherever the extractor dropped math or stored it as LaTeX, so exact and whitespace-normalized matching both fail.
+- `_context_score(text: str, start: int, end: int, prefix: str | None, suffix: str | None) -> float` ([source](../../../../../../src/learnloop/reader/annotations.py), line 104) — Similarity between the extraction text around an occurrence and the rendered-surface context the capture arrived with (0..1).
+- `_disambiguate(text: str, candidates: list[tuple[int, int]], prefix: str | None, suffix: str | None) -> tuple[int, int] | None` ([source](../../../../../../src/learnloop/reader/annotations.py), line 123) — Pick among several occurrences of the same quote using surrounding context — only on a clear win; otherwise refuse (§3.2).
+- `_locate_quote(text: str, quote: str | None, *, prefix: str | None=None, suffix: str | None=None) -> tuple[int, int] | None` ([source](../../../../../../src/learnloop/reader/annotations.py), line 144) — Locate a quote in source-block text: exact unique match first, else a unique whitespace-normalized match, else a fuzzy token alignment.
+- `_segment_from_block(block: Any, ir: Any, start: int, end: int) -> dict[str, Any]` ([source](../../../../../../src/learnloop/reader/annotations.py), line 193)
+- `_anchor_payload(*, source_id: str, revision_id: str, extraction_id: str, render_view_id: str | None, translation: Mapping[str, Any], status: str | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/reader/annotations.py), line 299)
+- `_placed_segment(segment: Mapping[str, Any], span_id: str) -> dict[str, Any]` ([source](../../../../../../src/learnloop/reader/annotations.py), line 641)
+- `_placement(head: Mapping[str, Any] | None, extraction_id: str, hashes: Mapping[str, str], translator: SpanTranslator) -> dict[str, Any]` ([source](../../../../../../src/learnloop/reader/annotations.py), line 650)
 
 ## Who imports or calls it
 
@@ -96,8 +104,10 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 > “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
 
 - [[Reference/Modules/learnloop/content/authoring/exercise_authoring|learnloop.content.authoring.exercise_authoring]] — imports `translate_selection`; statically calls `translate_selection`
+- [[Reference/Modules/learnloop/content/pipeline/reread|learnloop.content.pipeline.reread]] — imports `AnnotationError`, `reanchor_annotation`; statically calls `reanchor_annotation`
 - [[Reference/Modules/learnloop/reader/reader_capture|learnloop.reader.reader_capture]] — imports `module`; statically calls `translate_selection`
-- [[Reference/Modules/learnloop_sidecar/handlers/reader|learnloop_sidecar.handlers.reader]] — imports `module`; statically calls `append_annotation`, `delete_intent_annotation`, `edit_annotation`, `manual_anchor`, `reanchor_annotation`, `translate_selection`
+- [[Reference/Modules/learnloop/reader/reader_intent|learnloop.reader.reader_intent]] — imports `delete_intent_annotation`; statically calls `delete_intent_annotation`
+- [[Reference/Modules/learnloop_sidecar/handlers/reader|learnloop_sidecar.handlers.reader]] — imports `module`; statically calls `annotation_placements`, `append_annotation`, `delete_intent_annotation`, `edit_annotation`, `manual_anchor`, `reanchor_annotation`, `restore_annotation`, `translate_selection`
 
 ## Dependencies
 
@@ -105,6 +115,7 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 
 - [[Reference/Modules/learnloop/clock|learnloop.clock]] — imports `Clock`
 - [[Reference/Modules/learnloop/content/sources/math_text|learnloop.content.sources.math_text]] — imports `locate_by_canonical`; calls `locate_by_canonical`
+- [[Reference/Modules/learnloop/content/sources/span_aliases|learnloop.content.sources.span_aliases]] — imports `SpanTranslator`; calls `SpanTranslator`
 - [[Reference/Modules/learnloop/db/repositories|learnloop.db.repositories]] — imports `Repository`
 - [[Reference/Modules/learnloop/ingest/reanchor|learnloop.ingest.reanchor]] — imports `reanchor_spans`, `reanchor_subblock`; calls `reanchor_spans`, `reanchor_subblock`
 
@@ -119,12 +130,13 @@ Use this module in context through:
 
 - [[Reader to Practice Workflow]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/content/authoring/exercise_authoring|learnloop.content.authoring.exercise_authoring]], [[Reference/Modules/learnloop/reader/reader_capture|learnloop.reader.reader_capture]], [[Reference/Modules/learnloop_sidecar/handlers/reader|learnloop_sidecar.handlers.reader]].
+Static participation evidence comes from [[Reference/Modules/learnloop/content/authoring/exercise_authoring|learnloop.content.authoring.exercise_authoring]], [[Reference/Modules/learnloop/content/pipeline/reread|learnloop.content.pipeline.reread]], [[Reference/Modules/learnloop/reader/reader_capture|learnloop.reader.reader_capture]], [[Reference/Modules/learnloop/reader/reader_intent|learnloop.reader.reader_intent]], [[Reference/Modules/learnloop_sidecar/handlers/reader|learnloop_sidecar.handlers.reader]].
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
 ## Tests that define behavior
 
+- [tests/notes_fixtures.py](../../../../../../tests/notes_fixtures.py) — direct import
 - [tests/test_annotations.py](../../../../../../tests/test_annotations.py) — direct import
   - `test_ambiguous_selection_becomes_needs_reanchor_and_keeps_text`
   - `test_duplicate_quote_uses_context_or_needs_reanchor`
@@ -140,13 +152,27 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_single_block_roundtrip_exact_source_text`
   - `test_whitespace_normalized_match_still_requires_uniqueness`
   - `test_whitespace_normalized_quote_still_anchors_exact`
+- [tests/test_import_split_parity.py](../../../../../../tests/test_import_split_parity.py) — direct import
+  - `test_selection_for_region_spans_whole_blocks`
 - [tests/test_math_text.py](../../../../../../tests/test_math_text.py) — direct import
   - `test_locate_quote_anchors_unicode_math_onto_latex`
   - `test_locate_quote_exact_match_unaffected`
+- [tests/test_notes_c2b_review5.py](../../../../../../tests/test_notes_c2b_review5.py) — direct import
 - [tests/test_p3_journeys.py](../../../../../../tests/test_p3_journeys.py) — direct import
   - `test_annotation_survival_across_reextraction`
+- [tests/test_reader_pdf_selection.py](../../../../../../tests/test_reader_pdf_selection.py) — direct import
+  - `test_a_capture_that_never_anchored_is_not_drawn`
+  - `test_a_node_whose_offsets_drifted_from_its_quote_is_relocated_by_its_quote`
+  - `test_a_restore_racing_a_second_delete_leaves_it_hidden`
+  - `test_a_second_delete_after_an_undo_hides_it_again`
+  - `test_a_segment_naming_a_block_whose_text_changed_is_flagged_not_drawn`
+  - `test_an_undo_must_name_a_delete_of_that_annotation`
+  - `test_an_undo_withdraws_only_the_delete_it_names_never_a_concurrent_one`
+  - `test_every_pdf_selection_anchors_exactly_with_its_own_offsets`
 - [tests/test_reader_restoration.py](../../../../../../tests/test_reader_restoration.py) — direct import
   - `test_orphaned_annotation_shows_quote_without_false_attachment`
+- [tests/test_reader_rw1b_final_verify.py](../../../../../../tests/test_reader_rw1b_final_verify.py) — direct import
+- [tests/test_reread_safety.py](../../../../../../tests/test_reread_safety.py) — direct import
 
 ## Modification guidance
 

@@ -7,11 +7,11 @@ version: "1.0.0"
 source_path: "src/learnloop/goals/exam_seeding.py"
 source_paths:
   - "src/learnloop/goals/exam_seeding.py"
-source_commit: "e60a0e7483883c54f90a66010ede37deb0b11513"
-source_commit_timestamp: "2026-09-23T12:27:35-04:00"
+source_commit: "3c5f0cbca89cb041f04a3cb38c3c023783cd4bda"
+source_commit_timestamp: "2026-10-17T00:14:05-04:00"
 source_worktree_state: "clean"
 generated: true
-generated_at: "2026-09-23"
+generated_at: "2026-11-02"
 package: "learnloop.goals"
 layer: "domain"
 concepts:
@@ -49,13 +49,13 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/goals/exam_seeding.py](../../../../../../src/learnloop/goals/exam_seeding.py) |
-| Source lines | 456 |
+| Source lines | 458 |
 | Owning package | [[Reference/Modules/learnloop/goals/_package|learnloop.goals]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `e60a0e7483883c54f90a66010ede37deb0b11513` |
-| Commit timestamp | `2026-09-23T12:27:35-04:00` |
+| Source commit | `3c5f0cbca89cb041f04a3cb38c3c023783cd4bda` |
+| Commit timestamp | `2026-10-17T00:14:05-04:00` |
 
 ## Public API
 
@@ -135,6 +135,10 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_seeded_exam_interleaves_before_later_live_attempt`
   - `test_subject_scoping_excludes_other_subjects`
   - `test_unmatched_outcome_key_errors`
+- [tests/test_serve_eligibility.py](../../../../../../tests/test_serve_eligibility.py) — direct import
+  - `test_q33_an_exam_seeded_before_a_later_reveal_is_not_primed`
+- [tests/test_serve_eligibility_review.py](../../../../../../tests/test_serve_eligibility_review.py) — direct import
+  - `test_f4_q33s_bounded_window_is_the_successors`
 
 ## Modification guidance
 

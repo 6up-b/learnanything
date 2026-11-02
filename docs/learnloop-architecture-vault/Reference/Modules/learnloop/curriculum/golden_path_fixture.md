@@ -7,11 +7,11 @@ version: "1.0.0"
 source_path: "src/learnloop/curriculum/golden_path_fixture.py"
 source_paths:
   - "src/learnloop/curriculum/golden_path_fixture.py"
-source_commit: "b322ef2e9b5cebc241b612e4963a5aaf1a37f99a"
-source_commit_timestamp: "2026-08-20T18:04:29-04:00"
+source_commit: "86f17850ae44f63d89602534064feb6c21c5f776"
+source_commit_timestamp: "2026-10-15T12:20:59-04:00"
 source_worktree_state: "clean"
 generated: true
-generated_at: "2026-09-23"
+generated_at: "2026-11-02"
 package: "learnloop.curriculum"
 layer: "domain"
 concepts:
@@ -54,8 +54,8 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `b322ef2e9b5cebc241b612e4963a5aaf1a37f99a` |
-| Commit timestamp | `2026-08-20T18:04:29-04:00` |
+| Source commit | `86f17850ae44f63d89602534064feb6c21c5f776` |
+| Commit timestamp | `2026-10-15T12:20:59-04:00` |
 
 ## Public API
 
@@ -111,10 +111,10 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 - [[Reference/Modules/learnloop/clock|learnloop.clock]] — imports `Clock`, `FrozenClock`, `utc_now_iso`; calls `FrozenClock`, `utc_now_iso`
 - [[Reference/Modules/learnloop/curriculum/golden_path_confirm|learnloop.curriculum.golden_path_confirm]] — imports `module`; calls `confirm_exemplar_and_start`
 - [[Reference/Modules/learnloop/curriculum/task_blueprints|learnloop.curriculum.task_blueprints]] — imports `module`; calls `place_reading_question`, `register_blueprint_version`, `review_blueprint_version`
-- [[Reference/Modules/learnloop/db/repositories|learnloop.db.repositories]] — imports `Repository`; calls `Repository`
 - [[Reference/Modules/learnloop/substrate/activities|learnloop.substrate.activities]] — imports `resolve_legacy_item`; calls `resolve_legacy_item`
 - [[Reference/Modules/learnloop/vault/loader|learnloop.vault.loader]] — imports `add_subject`, `init_vault`, `load_vault`; calls `add_subject`, `init_vault`, `load_vault`
 - [[Reference/Modules/learnloop/vault/paths|learnloop.vault.paths]] — imports `VaultPaths`; calls `VaultPaths`
+- [[Reference/Modules/learnloop/vault/repository|learnloop.vault.repository]] — imports `vault_repository`; calls `vault_repository`
 - [[Reference/Modules/learnloop/vault/yaml_io|learnloop.vault.yaml_io]] — imports `write_yaml`; calls `write_yaml`
 
 ### Platform and third-party dependencies
@@ -147,6 +147,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_fixture_bootstrap_confirms_a_certifying_run`
   - `test_fixture_is_deterministic_across_two_builds`
   - `test_fixture_vault_is_mvp_0_8`
+- [tests/test_held_grade_evidence.py](../../../../../../tests/test_held_grade_evidence.py) — direct import
+  - `test_review_f3_diagnostic_observations_held_by_a_regrade_qualify_nothing`
 - [tests/test_p2_acceptance.py](../../../../../../tests/test_p2_acceptance.py) — direct import
   - `test_event_replay_equivalence_after_full_walk`
   - `test_fault_injection_diagnostic_baseline_boundary_yields_exactly_one`

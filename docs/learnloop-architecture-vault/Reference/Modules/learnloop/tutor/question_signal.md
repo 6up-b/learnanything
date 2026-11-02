@@ -7,11 +7,11 @@ version: "1.0.0"
 source_path: "src/learnloop/tutor/question_signal.py"
 source_paths:
   - "src/learnloop/tutor/question_signal.py"
-source_commit: "b322ef2e9b5cebc241b612e4963a5aaf1a37f99a"
-source_commit_timestamp: "2026-08-20T18:04:29-04:00"
+source_commit: "171ae5a5ed15b7627add8b2e512d0c0e91c5f3da"
+source_commit_timestamp: "2026-10-13T09:11:59-04:00"
 source_worktree_state: "clean"
 generated: true
-generated_at: "2026-09-23"
+generated_at: "2026-11-02"
 package: "learnloop.tutor"
 layer: "domain"
 concepts:
@@ -50,13 +50,13 @@ The authoritative system-level explanation remains in [[Learning System]], [[AI 
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/tutor/question_signal.py](../../../../../../src/learnloop/tutor/question_signal.py) |
-| Source lines | 597 |
+| Source lines | 611 |
 | Owning package | [[Reference/Modules/learnloop/tutor/_package|learnloop.tutor]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `b322ef2e9b5cebc241b612e4963a5aaf1a37f99a` |
-| Commit timestamp | `2026-08-20T18:04:29-04:00` |
+| Source commit | `171ae5a5ed15b7627add8b2e512d0c0e91c5f3da` |
+| Commit timestamp | `2026-10-13T09:11:59-04:00` |
 
 ## Public API
 
@@ -90,9 +90,10 @@ The authoritative system-level explanation remains in [[Learning System]], [[AI 
 - `_empty_signal(config: TutorQAConfig) -> QuestionSignal` ([source](../../../../../../src/learnloop/tutor/question_signal.py), line 520)
 - `_clamped_rate(successes: float, total: float) -> float` ([source](../../../../../../src/learnloop/tutor/question_signal.py), line 536)
 - `_first_attempt_at_or_after(repository: Repository, practice_item_id: str, created_at: str) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/tutor/question_signal.py), line 543)
-- `_attempt_failed(attempt: dict[str, Any]) -> bool` ([source](../../../../../../src/learnloop/tutor/question_signal.py), line 554)
-- `_facet_success_times(vault: LoadedVault, repository: Repository, learning_object_id: str, *, exclude_attempt_id: str | None) -> dict[str, str]` ([source](../../../../../../src/learnloop/tutor/question_signal.py), line 563) — Latest *successful* attempt time per canonical facet (the resolution signal).
-- `_event_maps_to_lo(vault: LoadedVault, event: dict[str, Any], learning_object_id: str) -> bool` ([source](../../../../../../src/learnloop/tutor/question_signal.py), line 588)
+- `_scored(repository: Repository, attempts: list[dict[str, Any]]) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/tutor/question_signal.py), line 556) — ``attempts`` without the grades held for review (THE predicate, held-grade-evidence): a held grade is neither a failure nor a success.
+- `_attempt_failed(attempt: dict[str, Any]) -> bool` ([source](../../../../../../src/learnloop/tutor/question_signal.py), line 566)
+- `_facet_success_times(vault: LoadedVault, repository: Repository, learning_object_id: str, *, exclude_attempt_id: str | None) -> dict[str, str]` ([source](../../../../../../src/learnloop/tutor/question_signal.py), line 575) — Latest *successful* attempt time per canonical facet (the resolution signal).
+- `_event_maps_to_lo(vault: LoadedVault, event: dict[str, Any], learning_object_id: str) -> bool` ([source](../../../../../../src/learnloop/tutor/question_signal.py), line 602)
 
 ## Who imports or calls it
 
@@ -108,6 +109,7 @@ The authoritative system-level explanation remains in [[Learning System]], [[AI 
 - [[Reference/Modules/learnloop/clock|learnloop.clock]] — imports `Clock`, `parse_utc`, `utc_now_iso`; calls `parse_utc`, `utc_now_iso`
 - [[Reference/Modules/learnloop/config/__init__|learnloop.config]] — imports `TutorPromotionConfig`, `TutorQAConfig`
 - [[Reference/Modules/learnloop/db/repositories|learnloop.db.repositories]] — imports `FacetUncertaintyState`, `Repository`; calls `FacetUncertaintyState`
+- [[Reference/Modules/learnloop/held_grades|learnloop.held_grades]] — imports `held_attempt_ids`; calls `held_attempt_ids`
 - [[Reference/Modules/learnloop/learner/facet_diagnostics|learnloop.learner.facet_diagnostics]] — imports `entropy`, `facet_state_label`, `normalize_distribution`; calls `entropy`, `facet_state_label`, `normalize_distribution`
 - [[Reference/Modules/learnloop/learner/facet_state_reader|learnloop.learner.facet_state_reader]] — imports `facet_recall_states_for_lo`, `facet_uncertainty_states_for_lo`; calls `facet_recall_states_for_lo`, `facet_uncertainty_states_for_lo`
 - [[Reference/Modules/learnloop/vault/models|learnloop.vault.models]] — imports `LoadedVault`
@@ -129,6 +131,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
+- [tests/test_held_grade_evidence.py](../../../../../../tests/test_held_grade_evidence.py) — direct import
 - [tests/test_question_context.py](../../../../../../tests/test_question_context.py) — direct import
   - `test_preference_channel_gets_damped_mastery_likelihood`
   - `test_unclassified_events_keep_full_likelihood`

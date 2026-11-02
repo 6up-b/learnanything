@@ -11,7 +11,7 @@ source_commit: "b322ef2e9b5cebc241b612e4963a5aaf1a37f99a"
 source_commit_timestamp: "2026-08-20T18:04:29-04:00"
 source_worktree_state: "clean"
 generated: true
-generated_at: "2026-09-23"
+generated_at: "2026-11-02"
 package: "learnloop.curriculum"
 layer: "domain"
 concepts:
@@ -121,6 +121,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_unreviewed_blueprint_refused`
 - [tests/test_golden_path_run.py](../../../../../../tests/test_golden_path_run.py) — direct import
 - [tests/test_reader_guidance.py](../../../../../../tests/test_reader_guidance.py) — direct import
+- [tests/test_router_staged_p2.py](../../../../../../tests/test_router_staged_p2.py) — direct import
 - [tests/test_sidecar_golden_path_assessment.py](../../../../../../tests/test_sidecar_golden_path_assessment.py) — direct import
   - `test_practice_only_assess_open_returns_stable_error`
 - [tests/test_task_blueprints.py](../../../../../../tests/test_task_blueprints.py) — direct import

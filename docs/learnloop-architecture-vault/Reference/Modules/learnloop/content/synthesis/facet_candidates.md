@@ -7,11 +7,11 @@ version: "1.0.0"
 source_path: "src/learnloop/content/synthesis/facet_candidates.py"
 source_paths:
   - "src/learnloop/content/synthesis/facet_candidates.py"
-source_commit: "b322ef2e9b5cebc241b612e4963a5aaf1a37f99a"
-source_commit_timestamp: "2026-08-20T18:04:29-04:00"
+source_commit: "6c6416d3ca89094d26835f12605096415eb44ed9"
+source_commit_timestamp: "2026-10-12T12:11:15-04:00"
 source_worktree_state: "clean"
 generated: true
-generated_at: "2026-09-23"
+generated_at: "2026-11-02"
 package: "learnloop.content.synthesis"
 layer: "domain"
 concepts:
@@ -51,34 +51,35 @@ The authoritative system-level explanation remains in [[Learning System]], [[AI 
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/content/synthesis/facet_candidates.py](../../../../../../../src/learnloop/content/synthesis/facet_candidates.py) |
-| Source lines | 169 |
+| Source lines | 188 |
 | Owning package | [[Reference/Modules/learnloop/content/synthesis/_package|learnloop.content.synthesis]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `b322ef2e9b5cebc241b612e4963a5aaf1a37f99a` |
-| Commit timestamp | `2026-08-20T18:04:29-04:00` |
+| Source commit | `6c6416d3ca89094d26835f12605096415eb44ed9` |
+| Commit timestamp | `2026-10-12T12:11:15-04:00` |
 
 ## Public API
 
-- `class FacetCandidate` ([source](../../../../../../../src/learnloop/content/synthesis/facet_candidates.py), line 27)
-- `class ReviewPair` ([source](../../../../../../../src/learnloop/content/synthesis/facet_candidates.py), line 36)
-- `harvest_facet_candidates(vault: LoadedVault, repository=None) -> dict[str, object]` ([source](../../../../../../../src/learnloop/content/synthesis/facet_candidates.py), line 156) — Harvest candidates and lexical review pairs (§3.3).
+- `class FacetCandidate` ([source](../../../../../../../src/learnloop/content/synthesis/facet_candidates.py), line 31)
+- `class ReviewPair` ([source](../../../../../../../src/learnloop/content/synthesis/facet_candidates.py), line 40)
+- `harvest_facet_candidates(vault: LoadedVault, repository=None, *, nominator=None) -> dict[str, object]` ([source](../../../../../../../src/learnloop/content/synthesis/facet_candidates.py), line 174) — Harvest candidates and lexical review pairs (§3.3).
 
 ### Module constants
 
-- `_TOKEN` ([src/learnloop/content/synthesis/facet_candidates.py](../../../../../../../src/learnloop/content/synthesis/facet_candidates.py), line 20)
-- `REVIEW_THRESHOLD` ([src/learnloop/content/synthesis/facet_candidates.py](../../../../../../../src/learnloop/content/synthesis/facet_candidates.py), line 22)
-- `_MINHASH_PERMUTATIONS` ([src/learnloop/content/synthesis/facet_candidates.py](../../../../../../../src/learnloop/content/synthesis/facet_candidates.py), line 23)
+- `_TOKEN` ([src/learnloop/content/synthesis/facet_candidates.py](../../../../../../../src/learnloop/content/synthesis/facet_candidates.py), line 24)
+- `REVIEW_THRESHOLD` ([src/learnloop/content/synthesis/facet_candidates.py](../../../../../../../src/learnloop/content/synthesis/facet_candidates.py), line 26)
+- `_MINHASH_PERMUTATIONS` ([src/learnloop/content/synthesis/facet_candidates.py](../../../../../../../src/learnloop/content/synthesis/facet_candidates.py), line 27)
 
 ## Internal implementation anchors
 
-- `_tokens(text: str) -> set[str]` ([source](../../../../../../../src/learnloop/content/synthesis/facet_candidates.py), line 43)
-- `_suggest_id(text: str) -> str` ([source](../../../../../../../src/learnloop/content/synthesis/facet_candidates.py), line 47)
-- `_minhash_signature(tokens: set[str]) -> tuple[int, ...]` ([source](../../../../../../../src/learnloop/content/synthesis/facet_candidates.py), line 52) — Deterministic MinHash signature of a token set (no external deps).
-- `_minhash_similarity(left: tuple[int, ...], right: tuple[int, ...]) -> float` ([source](../../../../../../../src/learnloop/content/synthesis/facet_candidates.py), line 72)
-- `_harvest(vault: LoadedVault, repository=None) -> list[FacetCandidate]` ([source](../../../../../../../src/learnloop/content/synthesis/facet_candidates.py), line 79)
-- `_review_pairs(candidates: list[FacetCandidate]) -> list[ReviewPair]` ([source](../../../../../../../src/learnloop/content/synthesis/facet_candidates.py), line 136)
+- `_tokens(text: str) -> set[str]` ([source](../../../../../../../src/learnloop/content/synthesis/facet_candidates.py), line 47)
+- `_suggest_id(text: str) -> str` ([source](../../../../../../../src/learnloop/content/synthesis/facet_candidates.py), line 51)
+- `_minhash_signature(tokens: set[str]) -> tuple[int, ...]` ([source](../../../../../../../src/learnloop/content/synthesis/facet_candidates.py), line 56) — Deterministic MinHash signature of a token set (no external deps).
+- `_minhash_similarity(left: tuple[int, ...], right: tuple[int, ...]) -> float` ([source](../../../../../../../src/learnloop/content/synthesis/facet_candidates.py), line 76)
+- `_harvest(vault: LoadedVault, repository=None) -> list[FacetCandidate]` ([source](../../../../../../../src/learnloop/content/synthesis/facet_candidates.py), line 83)
+- `_review_pairs(candidates: list[FacetCandidate]) -> list[ReviewPair]` ([source](../../../../../../../src/learnloop/content/synthesis/facet_candidates.py), line 140)
+- `_with_cosine(pair: ReviewPair, by_id: dict[str, FacetCandidate], nominator) -> dict[str, object]` ([source](../../../../../../../src/learnloop/content/synthesis/facet_candidates.py), line 160)
 
 ## Who imports or calls it
 
@@ -91,6 +92,7 @@ The authoritative system-level explanation remains in [[Learning System]], [[AI 
 
 ### LearnLoop dependencies
 
+- [[Reference/Modules/learnloop/content/synthesis/graph_nomination|learnloop.content.synthesis.graph_nomination]] — imports `FACET_RECIPE`
 - [[Reference/Modules/learnloop/ids|learnloop.ids]] — imports `snake_case`; calls `snake_case`
 - [[Reference/Modules/learnloop/vault/models|learnloop.vault.models]] — imports `LoadedVault`
 
@@ -117,6 +119,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_harvests_candidates_from_multiple_sources`
   - `test_harvests_candidates_from_unit_inventories`
   - `test_similarity_pair_is_review_proposal_only`
+- [tests/test_graph_nomination.py](../../../../../../../tests/test_graph_nomination.py) — direct import
+  - `test_synthesis_gate_and_facet_candidates_show_cosine_beside_jaccard`
 
 ## Modification guidance
 

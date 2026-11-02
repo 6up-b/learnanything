@@ -11,9 +11,9 @@ source_paths:
   - "src/learnloop/tui/screens/start.py"
   - "src/learnloop/tui/screens/today.py"
 source_commit: "aggregate; see module notes"
-source_commit_timestamp: "2026-09-23T15:53:13-04:00"
+source_commit_timestamp: "2026-10-17T00:14:05-04:00"
 generated: true
-generated_at: "2026-09-23"
+generated_at: "2026-11-02"
 package: "learnloop.tui.screens"
 layer: "adapter"
 concepts:
@@ -48,24 +48,28 @@ For system intent, use [[Architecture Overview]].
 
 | Module | Purpose | Status | Direct importers | Direct test files |
 |---|---|---:|---:|---:|
-| [[Reference/Modules/learnloop/tui/screens/__init__|learnloop.tui.screens]] | [[Reference/Modules/learnloop/tui/screens/__init__#^module-purpose|purpose]] | `ACTIVE` | 0 | 0 |
-| [[Reference/Modules/learnloop/tui/screens/feedback|learnloop.tui.screens.feedback]] | [[Reference/Modules/learnloop/tui/screens/feedback#^module-purpose|purpose]] | `ACTIVE` | 1 | 4 |
-| [[Reference/Modules/learnloop/tui/screens/practice|learnloop.tui.screens.practice]] | [[Reference/Modules/learnloop/tui/screens/practice#^module-purpose|purpose]] | `ACTIVE` | 1 | 3 |
-| [[Reference/Modules/learnloop/tui/screens/start|learnloop.tui.screens.start]] | [[Reference/Modules/learnloop/tui/screens/start#^module-purpose|purpose]] | `ACTIVE` | 1 | 2 |
-| [[Reference/Modules/learnloop/tui/screens/today|learnloop.tui.screens.today]] | [[Reference/Modules/learnloop/tui/screens/today#^module-purpose|purpose]] | `ACTIVE` | 2 | 3 |
+| [[Reference/Modules/learnloop/tui/screens/__init__|learnloop.tui.screens]] | [[Reference/Modules/learnloop/tui/screens/__init__#^module-purpose|purpose]] | `ACTIVE` | 0 | 1 |
+| [[Reference/Modules/learnloop/tui/screens/feedback|learnloop.tui.screens.feedback]] | [[Reference/Modules/learnloop/tui/screens/feedback#^module-purpose|purpose]] | `ACTIVE` | 1 | 8 |
+| [[Reference/Modules/learnloop/tui/screens/practice|learnloop.tui.screens.practice]] | [[Reference/Modules/learnloop/tui/screens/practice#^module-purpose|purpose]] | `ACTIVE` | 1 | 7 |
+| [[Reference/Modules/learnloop/tui/screens/start|learnloop.tui.screens.start]] | [[Reference/Modules/learnloop/tui/screens/start#^module-purpose|purpose]] | `ACTIVE` | 1 | 4 |
+| [[Reference/Modules/learnloop/tui/screens/today|learnloop.tui.screens.today]] | [[Reference/Modules/learnloop/tui/screens/today#^module-purpose|purpose]] | `ACTIVE` | 2 | 4 |
 
 ## Cross-package dependencies
 
 ### This package imports
 
-- [[Reference/Modules/learnloop/tui/_package|learnloop.tui]] — 8 static module edges
-- [[Reference/Modules/learnloop/attempts/_package|learnloop.attempts]] — 4 static module edges
-- [[Reference/Modules/learnloop/scheduling/_package|learnloop.scheduling]] — 4 static module edges
+- [[Reference/Modules/learnloop/tui/_package|learnloop.tui]] — 9 static module edges
+- [[Reference/Modules/learnloop/attempts/_package|learnloop.attempts]] — 7 static module edges
+- [[Reference/Modules/learnloop/scheduling/_package|learnloop.scheduling]] — 5 static module edges
 - [[Reference/Modules/learnloop/diagnosis/_package|learnloop.diagnosis]] — 3 static module edges
 - [[Reference/Modules/learnloop/learner/_package|learnloop.learner]] — 3 static module edges
 - [[Reference/Modules/learnloop/_package|learnloop]] — 2 static module edges
 - [[Reference/Modules/learnloop/ai/_package|learnloop.ai]] — 2 static module edges
+- [[Reference/Modules/learnloop/vault/_package|learnloop.vault]] — 2 static module edges
 - [[Reference/Modules/learnloop/config/_package|learnloop.config]] — 1 static module edge
+- [[Reference/Modules/learnloop/diagnosis/split/_package|learnloop.diagnosis.split]] — 1 static module edge
+- [[Reference/Modules/learnloop/placement/_package|learnloop.placement]] — 1 static module edge
+- [[Reference/Modules/learnloop/substrate/_package|learnloop.substrate]] — 1 static module edge
 
 ### Packages that import this package
 
@@ -85,16 +89,20 @@ flowchart LR
     n_learnloop_learner["learnloop.learner"]
     n_learnloop["learnloop"]
     n_learnloop_ai["learnloop.ai"]
+    n_learnloop_vault["learnloop.vault"]
     n_learnloop_config["learnloop.config"]
+    n_learnloop_diagnosis_split["learnloop.diagnosis.split"]
     n_learnloop_tui -->|1| center
-    center -->|8| n_learnloop_tui
-    center -->|4| n_learnloop_attempts
-    center -->|4| n_learnloop_scheduling
+    center -->|9| n_learnloop_tui
+    center -->|7| n_learnloop_attempts
+    center -->|5| n_learnloop_scheduling
     center -->|3| n_learnloop_diagnosis
     center -->|3| n_learnloop_learner
     center -->|2| n_learnloop
     center -->|2| n_learnloop_ai
+    center -->|2| n_learnloop_vault
     center -->|1| n_learnloop_config
+    center -->|1| n_learnloop_diagnosis_split
 ```
 
 Interpretation: arrow direction is static import direction and the label is the number of distinct module-to-module edges. It shows coupling pressure, not runtime call frequency or ownership permission.
