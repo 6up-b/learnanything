@@ -234,16 +234,19 @@ _WHEN = {
         "material held out for an exam. It never grades you and is never evidence."
     ),
     "notes": (
-        "While notes.enabled is on and tend is installed, in the background for each topic on a deliverable's "
-        "path: the topic's title and statement, the opening of its chosen passage, and the text of the notes of "
-        "yours tend found for it (only from the folders in notes.tend.paths), so LearnLoop's model can say which "
-        "notes discuss it. Only on the ChatGPT plan: never OpenRouter, and with the plan down it waits. Only the "
-        "notes it links are kept, in your vault. A note is never a source, never used to write questions and "
-        "never evidence. It never grades you. Only if you turn on notes.gaps_enabled (off unless you opt in, in "
-        "Settings): also, in the background, one note you linked with the titles and statements of the topics "
-        "it is linked to and the opening of those passages, so LearnLoop's model can name a gap in your "
-        "understanding the note shows; that only steers what LearnLoop suggests, never grades you, and a note "
-        "you hid is never sent."
+        "While notes.enabled is on, in the background for each topic on a deliverable's path: the topic's title "
+        "and statement, the opening of its chosen passage, and the text of the notes of yours in this vault "
+        "(notes and highlights you wrote in the Reader, and your captured notes) found for it, so LearnLoop's "
+        "model can say which notes discuss it. It runs quietly on the note link route as configured (the "
+        "ChatGPT plan by default; a metered route only when priced and inside the curriculum's daily cap), "
+        "and never asks. A note written beside protected exam material is never sent. Only the notes it links "
+        "are kept, in your vault. A note is never a source, never used to write questions and never evidence. "
+        "It never grades you. While embeddings are on, your notes are embedded like your books (the embedding "
+        "route), so you can search them by meaning. Only if you turn on notes.gaps_enabled (off unless you opt "
+        "in, in Settings): also, in the background, one note you linked with the titles and statements of the "
+        "topics it is linked to and the opening of those passages, read like your other questions and answers "
+        "for a gap in your understanding; that only steers what LearnLoop suggests, never grades you, and a "
+        "note you hid is never sent."
     ),
 }
 

@@ -45,6 +45,11 @@ resolver, without a new route, and written as C0a's ``is_about`` correction.
   hold out; :func:`past_paper_learning_objects`). Held-out units, readings held back and
   exam-reserved items contribute nothing. Off, or with nothing to contribute, the prompt
   is C0b's byte for byte (no key, ``deliverable_scope_resolver.v1``).
+* *Past papers, option A* (C2b, §5.3 as built). When the deliverable's subject is known
+  (:func:`deliverable_subjects`) only that subject's ids are sent (v2, a code filter). When it
+  is ambiguous, every active subject's ids are sent grouped by subject name, and the resolver
+  is told to use only the group of the deliverable's own subject (``past_papers_by_subject``,
+  ``deliverable_scope_resolver.v3``; :func:`past_paper_groups`). Off, v1 byte for byte.
 
 Nothing here is evidence, mastery or a plan. Kill switch ``curriculum.enabled``.
 """
@@ -85,6 +90,11 @@ SCOPE_PROMPT_VERSION = "deliverable_scope_resolver.v1"
 #: C3 (§9.2): v1 plus the ids of the topics the learner's past papers test. Used only when
 #: that list is non-empty; otherwise the prompt is v1's byte for byte.
 SCOPE_PAST_PAPERS_PROMPT_VERSION = "deliverable_scope_resolver.v2"
+#: C2b (past papers option A, §5.3 as built): when the deliverable's subject is ambiguous
+#: (:func:`deliverable_subjects` names none), the past-papers ids grouped by subject name,
+#: with an instruction to use only the group of the deliverable's own subject. Used only
+#: when at least one group is non-empty; a known subject keeps v2 (its own ids only).
+SCOPE_PAST_PAPERS_GROUPED_PROMPT_VERSION = "deliverable_scope_resolver.v3"
 #: The roles a scope input may read beyond the teaching library (C3, §9.1): a syllabus.
 SCOPE_READABLE_ROLES: frozenset[str] = SCOPE_ONLY_ROLES
 #: The roles whose practice-available units contribute their LO mapping (§9.2). Exam
@@ -772,6 +782,14 @@ _PAST_PAPERS = (
     "leave the extent open (\"everything on the midterm\"), these topics are in it; never add one their words "
     "exclude."
 )
+_PAST_PAPERS_GROUPED = (
+    " past_papers_by_subject lists, per subject (course) of the learner's vault, the ids of the topics that "
+    "subject's past papers and problem sets test (ids only: their questions are never shown). Use ONLY the group "
+    "whose subject is this deliverable's subject (read it from the learner's words and the topics you choose) and "
+    "ignore every other group; when no group's subject is clearly this deliverable's, use none. Read the group you "
+    "use as what the learner's course examines: where their words leave the extent open (\"everything on the "
+    "midterm\"), these topics are in it; never add one their words exclude."
+)
 _ALSO_ABOUT = (
     "A learner says a section of their book is also about something, in their own words. Choose the ONE "
     "vault topic their words name, as the only entry of needs, with their phrase; if none fits, leave needs "
@@ -812,6 +830,9 @@ class ScopePrompt:
     #: guard reads them again before every request and the publication (Codex review F4).
     past_papers: tuple[str, ...] = ()
     subjects: frozenset[str] = frozenset()
+    #: C2b (option A): with the subject ambiguous, the groups sent, ``(subject id, ids)`` each;
+    #: the guard reads every group again for its own subject.
+    past_paper_groups: tuple[tuple[str, tuple[str, ...]], ...] = ()
 
 
 def _bounded_topics(vault: Any, budget_chars: int) -> list[dict[str, Any]]:
@@ -908,6 +929,28 @@ def deliverable_subjects(vault: Any, repository: Repository, goal_id: str,
     return frozenset(str(subject_id) for subject_id in active) if len(active) == 1 else frozenset()
 
 
+def _subject_name(vault: Any, subject_id: str) -> str:
+    subject = (getattr(vault, "subjects", None) or {}).get(subject_id)
+    title = getattr(getattr(subject, "metadata", None), "title", None)
+    return _one_line(title or subject_id, 120)
+
+
+def past_paper_groups(vault: Any, repository: Repository) -> list[tuple[str, list[str]]]:
+    """C2b (past papers option A, §5.3 as built): with the deliverable's subject ambiguous,
+    each active subject's past-papers ids (:func:`past_paper_learning_objects` for that
+    subject alone, so a unit counts only for its own subject), empty groups left out, in
+    subject-id order. Ids only, as ever; an unreadable predicate contributes nothing."""
+
+    subjects = sorted(str(subject_id) for subject_id, subject in (getattr(vault, "subjects", None) or {}).items()
+                      if getattr(getattr(subject, "metadata", None), "status", None) == "active")
+    groups: list[tuple[str, list[str]]] = []
+    for subject_id in subjects:
+        ids = past_paper_learning_objects(vault, repository, (subject_id,))
+        if ids:
+            groups.append((subject_id, ids))
+    return groups
+
+
 def _learning_object_refs(vault: Any, learning_object: Any) -> list[Any]:
     """The LO's own source refs and its canonical facets' (Reader's mapping,
     ``reader_progression.learning_objects_for_section``; Codex review F2)."""
@@ -994,10 +1037,18 @@ def build_scope_prompt(vault: Any, repository: Repository, goal: Any,
     # nothing to add) leaves v1 exactly.
     subjects: frozenset[str] = frozenset()
     past: list[str] = []
+    groups: list[tuple[str, list[str]]] = []
     if exam_units_in_scope(vault):
         subjects = deliverable_subjects(vault, repository, goal.id, inputs)
-        past = past_paper_learning_objects(vault, repository, subjects)
-    used = len(json.dumps(sent)) + (len(json.dumps(past)) if past else 0)
+        if subjects:
+            # A known subject: only its own ids (the code filters; v2, unchanged).
+            past = past_paper_learning_objects(vault, repository, subjects)
+        else:
+            # Ambiguous (C2b, option A): every subject's ids, grouped by its name; the
+            # resolver is told to use only the group of this deliverable's subject.
+            groups = past_paper_groups(vault, repository)
+    grouped = [{"subject": _subject_name(vault, subject_id), "topics": ids} for subject_id, ids in groups]
+    used = len(json.dumps(sent)) + (len(json.dumps(past)) if past else 0) + (len(json.dumps(grouped)) if grouped else 0)
     topics = _bounded_topics(vault, max(0, budget - used))
     context: dict[str, Any] = {
         "deliverable": {"sentence": goal.intent_sentence or goal.title, "deadline": (goal.due_at or "")[:10],
@@ -1008,11 +1059,16 @@ def build_scope_prompt(vault: Any, repository: Repository, goal: Any,
     if past:
         context["past_papers_test"] = past
         version, instructions = SCOPE_PAST_PAPERS_PROMPT_VERSION, _INSTRUCTIONS + _PAST_PAPERS
+    elif grouped:
+        context["past_papers_by_subject"] = grouped
+        version, instructions = SCOPE_PAST_PAPERS_GROUPED_PROMPT_VERSION, _INSTRUCTIONS + _PAST_PAPERS_GROUPED
     text = render_structured_prompt("Deliverable scope", version,
                                     {"instructions": instructions, "context": context})
+    sent_ids = tuple(past) if past else tuple(dict.fromkeys(lo for _subject, ids in groups for lo in ids))
     return ScopePrompt(text=text, input_ids=tuple(str(row["id"]) for row in inputs),
                        state_key=content_key({"prompt_version": version, "prompt": text}), version=version,
-                       past_papers=tuple(past), subjects=subjects if past else frozenset())
+                       past_papers=sent_ids, subjects=subjects if past else frozenset(),
+                       past_paper_groups=tuple((subject_id, tuple(ids)) for subject_id, ids in groups))
 
 
 def validate_resolution(vault: Any, output: ScopeResolutionV1) -> tuple[list[dict[str, str]], list[dict[str, Any]]]:
@@ -1116,8 +1172,13 @@ def passage_guard(vault: Any, repository: Repository, inputs: Sequence[Mapping[s
     gate = None
     if sent:
         subjects = prompt.subjects if prompt is not None else frozenset()
+        groups = prompt.past_paper_groups if prompt is not None else ()
 
         def gate(now: Any) -> bool:
+            if groups:
+                # C2b (option A): each group read again for its own subject.
+                return all(set(ids) <= set(past_paper_learning_objects(now, repository, (subject_id,)))
+                           for subject_id, ids in groups)
             return set(sent) <= set(past_paper_learning_objects(now, repository, subjects))
 
     return SC.CoverageGuard(library, keys, live_vault=live_vault, gate=gate)
@@ -1434,6 +1495,7 @@ __all__ = [
     "PAST_PAPER_ROLES",
     "PATH_ROUTE",
     "RouteUnavailable",
+    "SCOPE_PAST_PAPERS_GROUPED_PROMPT_VERSION",
     "SCOPE_PAST_PAPERS_PROMPT_VERSION",
     "SCOPE_READABLE_ROLES",
     "SCOPE_ROUTE",
@@ -1455,6 +1517,7 @@ __all__ = [
     "needed_learning_objects",
     "passage_guard",
     "passage_texts",
+    "past_paper_groups",
     "past_paper_learning_objects",
     "recover_publications",
     "resolve",

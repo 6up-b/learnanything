@@ -60,26 +60,19 @@ READABLE_SOURCE_KINDS = ("tutor_question", "stuck_answer", "diagnosis", "reader_
 #: ``learner_note`` (curriculum C5) joins them: a note "only ever steers what
 #: to suggest, never grades you" (owner Q9; spec §12 C5, no successor).
 NON_SERVING_SOURCE_KINDS = ("reader_formative", "workbench_text", "hint_feedback", "learner_note")
-#: The kinds whose text is the learner's own NOTES (curriculum C5, spec §10.4):
-#: read by a model only on the ChatGPT plan (the notes' route,
-#: ``ai.routing.note_link_judge``; with the plan down the reading waits),
-#: never by the Decider (an OpenRouter model), never embedded (the named gap
-#: is matched by the plan's judge over the structural candidates only) and
-#: never drafted into a new topic (a note is never a generation input,
-#: §10.2): an unmatched prerequisite named from a note stays unmatched. The
-#: gap row stores no note text (``learner_text`` is empty: the note stays in
-#: its snapshot) and none of the model's words for the gap (``named_json``
-#: keeps the keys, empty: Codex review F1), and a belief named from a note
-#: never becomes a new holding-pen candidate (only a sighting of one that
-#: stands), so no reader of the gap table or the holding pen sends anything
-#: derived from a note off the plan. Its requests are admitted on the notes'
-#: route (``NOTE_ROUTE``) under a request gate that reads consent, the link,
-#: the allowlist and protection again before each request and the write.
+#: The kinds whose text is the learner's own NOTES (curriculum C5): read like
+#: any other learner text (C2b, owner 2026-11-01: the pipeline's ordinary
+#: routes, the Decider and the embedding shortlist, and the row keeps the
+#: words). What stays particular: an unmatched prerequisite named from a note
+#: is never drafted into a new topic (a note is never a generation input,
+#: §10.2), its reading and decision are never checkpointed, and every request
+#: and the write run under a gate that reads consent, the link and protection
+#: again (``pipeline.NoteGate``).
 NOTE_SOURCE_KINDS = ("learner_note",)
 #: The job-checkpoint fields a note's job never keeps and never reuses (curriculum C5
 #: landing step 0): the plan's reading of the note (its named words may echo the note
 #: or a passage it was linked to) and the decision made on it. A note's retry always
-#: prepares the text again from its current links and reads it again on the plan, so
+#: prepares the text again from its current links and reads it again, so
 #: a reading made from inputs that have since changed is never acted on, and the note's
 #: words never persist in the checkpoint.
 NOTE_UNCHECKPOINTED_FIELDS = ("reading", "decided")
@@ -116,12 +109,6 @@ READER_ROUTE = "learner_gap_reader"
 DECIDER_ROUTE = "learner_gap_decider"
 DRAFT_ROUTE = "authoring"
 EMBEDDING_ROUTE = "embedding"
-#: Curriculum C5 (Codex review F4): a note's reading and its pair verdicts are
-#: admitted on the notes' own route (``ai.routing.note_link_judge``, the
-#: ChatGPT plan), never under the gap reader's or judge's route: one budget
-#: shared across a queue (``learnloop gaps run``) keeps each route's billing
-#: class, so a metered gap route is never admitted as the plan's.
-NOTE_ROUTE = "note_link_judge"
 
 
 @dataclass(frozen=True)
@@ -399,7 +386,6 @@ __all__ = [
     "READER_FORMATIVE_PROMPT_VERSION",
     "READER_FORMATIVE_TASK",
     "NON_SERVING_SOURCE_KINDS",
-    "NOTE_ROUTE",
     "NOTE_SOURCE_KINDS",
     "NOTE_UNCHECKPOINTED_FIELDS",
     "READER_NOTE_PROMPT_VERSION",

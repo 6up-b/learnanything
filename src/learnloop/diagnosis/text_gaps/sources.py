@@ -31,7 +31,7 @@
   linked (C2's links: a standing proposal or their own link, never a hidden
   one), with the learner's opt-in (``notes.gaps_enabled``). Read through
   :mod:`learnloop.source_retrieval.note_gaps`, the declared exception to the
-  notes import contract; read by the gap reader on the ChatGPT plan only.
+  notes import contract; read by the gap reader like any other learner text (C2b).
 """
 
 from __future__ import annotations
@@ -1030,7 +1030,7 @@ def workbench_text_ids(repository: Repository) -> list[str]:
 
 def learner_notes_enabled(vault: LoadedVault) -> bool:
     """Curriculum C5's switches (``notes.gaps_enabled``, the learner's opt-in, default
-    off; ``notes.enabled``; tend present; ``learner_text_gaps.enabled``). Read from the
+    off; ``notes.enabled``; ``learner_text_gaps.enabled``). Read from the
     config alone first: switched off, no notes code runs and no note row is read."""
 
     notes = getattr(vault.config, "notes", None)
@@ -1056,7 +1056,7 @@ def learner_note_ids(vault: LoadedVault, repository: Repository) -> list[str]:
 
 def learner_note_text(vault: LoadedVault, repository: Repository, note_id: str) -> LearnerText | None:
     """Curriculum C5 (spec §10.2, §12 C5): a note the learner linked, read by the gap
-    reader on the ChatGPT plan only, tier 2 (``NON_SERVING_SOURCE_KINDS``).
+    reader like any other learner text (C2b), tier 2 (``NON_SERVING_SOURCE_KINDS``).
 
     The text is the linked snapshot's (the note as it is linked now); its topics are the
     LOs it is linked to (and those its hand-linked passages are provenance-linked to);
@@ -1100,7 +1100,7 @@ def learner_note_refusal(vault: LoadedVault, repository: Repository, note_id: st
     what it sends must still be what the note's links build now."""
 
     if not learner_notes_enabled(vault):
-        return "your notes, or reading them for gaps, are switched off (or tend is gone)"
+        return "your notes, or reading them for gaps, are switched off"
     from learnloop.source_retrieval import note_gaps
 
     if prepared is None:
