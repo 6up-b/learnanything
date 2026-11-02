@@ -30,9 +30,15 @@
 // back), leaving nothing behind. Shown in skim mode: a table of contents is
 // what skimming across books needs. Never in the working posture (the Reader
 // does not mount it there). Nothing here calls a model.
+//
+// RW5d P4a (figures follow the section): a line whose section holds a figure
+// the learner kept there (the read lists it only while CA5's switch and
+// figures are on) offers "◇▸ interactive version from Lay §5.1" under it;
+// pressing it shows the figure under the passage being read here, its home
+// named (the Reader's onOpenFigure; absent: no offer).
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type KeyboardEvent } from "react";
 import { api } from "../../api/client";
-import type { CorrespondentKeptDto, CorrespondentPeekDto, CorrespondentSectionDto, CorrespondentsDto } from "../../api/dto";
+import type { CorrespondentFigureDto, CorrespondentKeptDto, CorrespondentPeekDto, CorrespondentSectionDto, CorrespondentsDto } from "../../api/dto";
 import { COLOR, FONT_MONO } from "../../components/term";
 import { errorMessage } from "../../errors";
 import { logCorrespondentAct } from "./correspondenceEvents";
@@ -69,6 +75,10 @@ export const ALSO_COPY = {
   compare: "compare",
   sideBySide: "side by side",
   closePeek: "esc close",
+  /** RW5d P4a: a kept figure of the line's section ("◇▸ interactive version from Lay §5.1"). */
+  figureFrom: "interactive version from",
+  /** RW5d P4a: a followed figure its own book no longer lists (held out, switched off, gone). */
+  figureGone: "That figure isn't shown now: its own book no longer lists it.",
   keys: { peek: "space peek", go: "↵ go there", side: "s side by side", compare: "c compare", fix: "⋯ not about this" },
 } as const;
 
@@ -138,6 +148,11 @@ export function notAboutAct(line: AlsoLine): string {
   return `not_about:${[...new Set(line.learningObjectIds)].sort().join(",")}`;
 }
 
+/** RW5d P4a: a followed figure's offer, naming its home (book and section). */
+export function figureOfferWords(hit: Pick<CorrespondentSectionDto, "sourceTitle" | "title">): string {
+  return `◇▸ ${ALSO_COPY.figureFrom} ${bookShort(hit.sourceTitle)} §${sectionShort(hit.title)}`;
+}
+
 /** The collapsed line's names and whether some did not fit ("and others"). */
 export function lineNames(lines: AlsoLine[]): { names: string[]; more: boolean } {
   const names: string[] = [];
@@ -168,6 +183,8 @@ export interface AlsoInBooksProps {
   onCompare: ((hit: CorrespondentSectionDto) => void) | null;
   /** Reader CA6's entry (absent until CA6 wires it: `s` does nothing and is not offered). */
   onSideBySide?: ((hit: CorrespondentSectionDto) => void) | null;
+  /** RW5d P4a: show a kept figure of the line's section here (absent or null: figures are off, no offer). */
+  onOpenFigure?: ((figure: CorrespondentFigureDto, hit: CorrespondentSectionDto) => void) | null;
   /** The detour strip's `› peek Axler §5.A` (null when no peek is open). */
   onPeekChange?: (crumb: AlsoPeekCrumb | null) => void;
   /** Whether the line is on screen (the Reader offers `x` only then). */
@@ -205,7 +222,7 @@ const DIM_LINE: CSSProperties = {
 const HEAD: CSSProperties = { fontFamily: FONT_MONO, fontSize: 10, letterSpacing: "0.12em", color: COLOR.textDim, textTransform: "uppercase" };
 
 export function AlsoInBooks({
-  extractionId, section, hidden, onHide, onGoThere, onCompare, onSideBySide = null, onPeekChange, onAvailableChange,
+  extractionId, section, hidden, onHide, onGoThere, onCompare, onSideBySide = null, onOpenFigure = null, onPeekChange, onAvailableChange,
   onCoverageChanged, onError, expandToken = 0, closePeekToken = 0,
 }: AlsoInBooksProps) {
   const sectionId = section?.id ?? null;
@@ -630,6 +647,19 @@ export function AlsoInBooks({
                   <MeaningLabel>
                     {[treatment, kept, hit.read ? ALSO_COPY.read : null].filter(Boolean).join(" · ")}
                   </MeaningLabel>
+                  {onOpenFigure && hit.figures?.length ? hit.figures.map((figure, index, all) => (
+                    // RW5d P4a: the learner's own figure from that section, named by its home.
+                    <button
+                      key={figure.figureId}
+                      type="button"
+                      data-also-figure={figure.figureId}
+                      onClick={() => onOpenFigure(figure, hit)}
+                      title={`${ALSO_COPY.figureFrom} ${hit.sourceTitle} · ${hit.title}`}
+                      style={{ ...LINK, textDecoration: "none", textAlign: "left" }}
+                    >
+                      {figureOfferWords(hit)}{all.length > 1 ? ` · ${index + 1}` : ""}
+                    </button>
+                  )) : null}
                   {hit.notation ? (
                     // The coverage judge's line: LearnLoop's voice (◇ when focused), labelled as its note.
                     <span data-also-notation="" data-voice="model" title={hit.notationLabel ?? undefined} style={{ fontFamily: FONT_MONO, fontSize: 10, color: COLOR.purpleText }}>

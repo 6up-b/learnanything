@@ -3,8 +3,8 @@ title: "source_objects"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "63f2337c4d6837df7b3f647fd1d90d0afd7f7561"
-source_commit_timestamp: "2026-11-01T23:15:09-05:00"
+source_commit: "26c97cbcb92a0912ded996ec5763b5a18fab939e"
+source_commit_timestamp: "2026-11-01T23:44:34-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite source_objects"
@@ -21,11 +21,11 @@ source_paths:
   - "migrations/094_source_objects.sql"
   - "src/learnloop/config/schema.py"
   - "src/learnloop/db/repositories.py"
+  - "src/learnloop/figures/service.py"
   - "src/learnloop/instructional/sources.py"
   - "src/learnloop/reader/reader_report.py"
   - "src/learnloop/reader/reader_requests.py"
   - "src/learnloop/reader/source_roles.py"
-  - "src/learnloop/source_retrieval/find_sources.py"
   - "src/learnloop/content/sources/source_deletion.py"
   - "src/learnloop/reader/source_objects.py"
   - "src/learnloop_sidecar/handlers/reader.py"
@@ -113,6 +113,7 @@ Indexes and uniqueness:
 - `tests/test_reader_ca4_table_by_point.py`
 - `tests/test_reader_compare_table.py`
 - `tests/test_reader_rw3b_protection.py`
+- `tests/test_reader_rw5d_p4a_figures_follow.py`
 - `tests/test_reread_safety.py`
 - `tests/test_roles_concurrency.py`
 - `tests/test_roles_switch_off.py`
@@ -125,7 +126,6 @@ Indexes and uniqueness:
 - `tests/test_whole_comparison_reuse_provenance.py`
 - `tests/test_ad1_reading_opportunities.py`
 - `tests/test_ingest_jobs.py`
-- `tests/test_reader_requests.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

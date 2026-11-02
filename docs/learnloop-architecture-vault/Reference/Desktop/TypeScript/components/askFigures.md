@@ -12,7 +12,7 @@ source_paths:
   - "apps/learnloop-tauri/src/components/askFigures.tsx"
 source_commit: "63f2337c4d6837df7b3f647fd1d90d0afd7f7561"
 source_commit_timestamp: "2026-11-01T23:15:09-05:00"
-source_worktree_state: "clean"
+source_worktree_state: "staged-or-mixed"
 activation_kind: "entry-reachable build graph"
 activation_evidence: "A static TypeScript import path reaches this file from the Vite entry src/main.tsx."
 generated: true
@@ -42,12 +42,12 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/components/askFigures.tsx](../../../../../../apps/learnloop-tauri/src/components/askFigures.tsx) |
-| Source lines | 275 |
+| Source lines | 278 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/components/_area|TypeScript/components]] |
 | Refactor status | `ACTIVE` |
 | Activation kind | `entry-reachable build graph` |
-| Worktree state | `clean` |
+| Worktree state | `staged-or-mixed` |
 | Source commit | `63f2337c4d6837df7b3f647fd1d90d0afd7f7561` |
 | Commit timestamp | `2026-11-01T23:15:09-05:00` |
 
@@ -67,8 +67,8 @@ The system-level behavior stays authoritative in the linked architecture, concep
 - `export interface PanelFigureLine` — interface, line 71
 - `export interface PanelFigureEvent` — interface, line 86
 - `export function usePanelFigures(target: AskTarget | null,` — function, line 109
-- `export type PanelFigures = ReturnType<typeof usePanelFigures>` — type, line 241
-- `export function PanelFigureThreadLine(` — function, line 246
+- `export type PanelFigures = ReturnType<typeof usePanelFigures>` — type, line 244
+- `export function PanelFigureThreadLine(` — function, line 249
 
 ## Internal implementation anchors
 
@@ -104,9 +104,9 @@ The system-level behavior stays authoritative in the linked architecture, concep
 - `const takeStepToken = token.current?.key === attemptKey ? token.current.token : null` — const, line 211
 - `const found = await api.readerFigurePredict(` — const, line 217
 - `const found = await api.readerFigureExplain(` — const, line 223
-- `const dismiss = (key: string)` — const, line 237
-- `const link =` — const, line 243
-- `const counted = line.help?.countsAsHint === true` — const, line 248
+- `const dismiss = (key: string)` — const, line 240
+- `const link =` — const, line 246
+- `const counted = line.help?.countsAsHint === true` — const, line 251
 
 ## Who imports or calls it
 

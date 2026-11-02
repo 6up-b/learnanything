@@ -38,6 +38,7 @@ from learnloop.db.stores.write_provenance import (
     fold_topic_records,
     source_ref,
 )
+from learnloop.ingest.locators import parse_block_span
 
 #: Why what a tutor question's reading named is held back.
 TUTOR_UNRECORDED = "the tutor's reading of a question does not record what the tutor read"
@@ -49,9 +50,10 @@ def _question_row(connection: Any, event_id: str) -> dict[str, Any] | None:
         return None
     contract = "assessment_contract_version_id" if "assessment_contract_version_id" in columns else "NULL"
     source = "source_context_json" if "source_context_json" in columns else "NULL"
+    note = "note_id" if "note_id" in columns else "NULL"
     row = connection.execute(
-        f"SELECT practice_item_id, attempt_id, context, created_at, {contract}, {source} FROM question_events "
-        "WHERE id = ?", (str(event_id),),
+        f"SELECT practice_item_id, attempt_id, context, created_at, {contract}, {source}, {note} "
+        "FROM question_events WHERE id = ?", (str(event_id),),
     ).fetchone()
     if row is None:
         return None
@@ -63,7 +65,10 @@ def _question_row(connection: Any, event_id: str) -> dict[str, Any] | None:
     # :func:`reading_sources` fails closed on it (Codex review F1).
     readable = isinstance(source_context, Mapping)
     return {"item": row[0], "attempt": row[1], "context": row[2], "created_at": row[3], "contract": row[4],
-            "source_context": source_context if readable else {}, "source_context_readable": readable}
+            "source_context": source_context if readable else {}, "source_context_readable": readable,
+            # None: no source context was recorded (a Reader question from before
+            # migration 117 kept only its ``note_id`` span key).
+            "source_context_recorded": row[5] is not None, "note_id": row[6]}
 
 
 def _revealed_before(connection: Any, item_id: str, at: Any) -> bool:
@@ -188,6 +193,16 @@ def _located_without_extraction(value: Mapping[str, Any]) -> dict[str, Any] | No
     return None
 
 
+def _reader_span_key(note_id: Any) -> dict[str, Any] | None:
+    """The passage a Reader question's ``note_id`` names (``span:<extraction>/<span>``,
+    ``tutor_qa.reader_span_key``), else None (no key, a note id, no block)."""
+
+    placed = parse_block_span(str(note_id or ""))
+    if placed is None or not placed[0].strip() or not placed[1].strip():
+        return None
+    return {"extraction_id": placed[0], "span_ids": [placed[1]]}
+
+
 def reading_sources(connection: Any, source_kind: str, source_id: str) -> tuple[tuple[Mapping[str, Any], ...], bool]:
     """The passages a learner text was written on, for a reading-derived source
     (:data:`READING_SOURCE_KINDS`), and whether they could all be read: a Reader
@@ -196,7 +211,8 @@ def reading_sources(connection: Any, source_kind: str, source_id: str) -> tuple[
     passages (:func:`formative_record`). Any other source reads no passage: ``((), True)``.
     A question or formative record that is gone answers ``((), False)``, as does a
     question whose recorded source context is unreadable, a Reader question that names
-    no passage, or a passage that cannot be placed (:func:`_question_passages`; an
+    no passage (one with no recorded source context is placed from its ``note_id``
+    span key when it has one), or a passage that cannot be placed (:func:`_question_passages`; an
     extraction named without a block is checked whole): the caller fails closed (the
     router card's provenance check, exam material only)."""
 
@@ -207,8 +223,14 @@ def reading_sources(connection: Any, source_kind: str, source_id: str) -> tuple[
         refs, complete = _question_passages(row["source_context"])
         if str(row["context"] or "") == READER_QUESTION_CONTEXT and not refs:
             # A Reader question is always asked on a passage (tutor_qa records its
-            # extraction and span): one that names none cannot be placed.
-            return (), False
+            # extraction and span). One recorded with no source context at all is
+            # placed from its ``note_id`` span key, which names that passage
+            # (``tutor_qa.reader_span_key``); one that names none either way cannot
+            # be placed.
+            placed = None if row["source_context_recorded"] else _reader_span_key(row["note_id"])
+            if placed is None:
+                return (), False
+            return tuple(Inputs.of(sources=[placed]).sources), True
         return tuple(Inputs.of(sources=refs).sources), complete
     if source_kind == "reader_formative":
         record = formative_record(connection, str(source_id))

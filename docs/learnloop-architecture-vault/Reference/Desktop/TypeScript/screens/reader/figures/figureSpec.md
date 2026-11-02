@@ -314,13 +314,13 @@ The workflow note owns end-to-end sequencing; this module note describes only it
 ## Tests that define behavior
 
 - [apps/learnloop-tauri/src/screens/reader/figures/richFigure.test.tsx](../../../../../../../../apps/learnloop-tauri/src/screens/reader/figures/richFigure.test.tsx) — vitest test: imports and executes this module under jsdom (`npm test`).
+- [apps/learnloop-tauri/src/screens/reader/figures/figuresFollowSection.test.tsx](../../../../../../../../apps/learnloop-tauri/src/screens/reader/figures/figuresFollowSection.test.tsx) — vitest test: imports and executes this module under jsdom (`npm test`).
 - [apps/learnloop-tauri/src/screens/reader/figures/figurePanels.test.ts](../../../../../../../../apps/learnloop-tauri/src/screens/reader/figures/figurePanels.test.ts) — vitest test: imports and executes this module under jsdom (`npm test`).
 - [apps/learnloop-tauri/src/screens/reader/figures/figureGrammar.test.ts](../../../../../../../../apps/learnloop-tauri/src/screens/reader/figures/figureGrammar.test.ts) — vitest test: imports and executes this module under jsdom (`npm test`).
 - [apps/learnloop-tauri/src/screens/reader/figures/advancedPanels.test.tsx](../../../../../../../../apps/learnloop-tauri/src/screens/reader/figures/advancedPanels.test.tsx) — vitest test: imports and executes this module under jsdom (`npm test`).
 - [apps/learnloop-tauri/src/screens/reader/figures/FigureInline.test.tsx](../../../../../../../../apps/learnloop-tauri/src/screens/reader/figures/FigureInline.test.tsx) — vitest test: imports and executes this module under jsdom (`npm test`).
 - [tests/test_figure_panels.py](../../../../../../../../tests/test_figure_panels.py) — cross-boundary name contract: references uniquely owned exported names `ADVANCED_KINDS`, `MAX_FIELD_CELLS`, `MAX_HEATMAP_CELLS`, `MAX_ITERATIONS`; it does **not** directly execute this source module.
 - [tests/test_figure_rich_rereview_fixes.py](../../../../../../../../tests/test_figure_rich_rereview_fixes.py) — cross-boundary name contract: references uniquely owned exported name `SPEC_VERSION`; it does **not** directly execute this source module.
-- [tests/test_figures_fix_round2.py](../../../../../../../../tests/test_figures_fix_round2.py) — cross-boundary name contract: references uniquely owned exported name `MAX_BARS`; it does **not** directly execute this source module.
 - [tests/test_sidecar_reader.py](../../../../../../../../tests/test_sidecar_reader.py) — related cross-boundary behavior contract; it does **not** directly execute this source module.
 - [tests/test_sidecar_reader_pdf_view.py](../../../../../../../../tests/test_sidecar_reader_pdf_view.py) — related cross-boundary behavior contract; it does **not** directly execute this source module.
 - [tests/test_reader_render_views.py](../../../../../../../../tests/test_reader_render_views.py) — related cross-boundary behavior contract; it does **not** directly execute this source module.

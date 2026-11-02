@@ -1087,6 +1087,18 @@ def _prediction_view(found: Mapping[str, Any] | None) -> dict[str, Any] | None:
             "explanation_text": found.get("explanation_text")}
 
 
+def _anchor_span(row: Mapping[str, Any], asked: Mapping[str, Any] | None,
+                 home: Mapping[str, Any] | None) -> str | None:
+    """Where a figure shows: under the selection's last block; a region's
+    figure (no selected text) under the region's block (Codex review F2);
+    RW5d: a figure with no passage under the passage the learner was reading
+    (``home``, else its own request's reading position)."""
+
+    region = row.get("region") or {}
+    home = home or (asked or {}).get("reading_at") or {}
+    return (list(row.get("span_ids") or ()) or [region.get("span_id") or home.get("span_id")])[-1]
+
+
 def figure_view(vault: Any, repository: Repository, row: Mapping[str, Any], *, versions: int = 1,
                 home: Mapping[str, Any] | None = None) -> dict[str, Any]:
     """A figure as the Reader shows it. The spec goes out as JSON text (its
@@ -1104,15 +1116,10 @@ def figure_view(vault: Any, repository: Repository, row: Mapping[str, Any], *, v
     # After the re-verification (it reads the stored program): the free-text
     # label rule as presented (spec §9b.4, Codex review F3, Nov 1b).
     row = worded_row(row)
-    region = row.get("region") or {}
     asked = _figure_request(repository, row)
-    home = home or (asked or {}).get("reading_at") or {}
     view: dict[str, Any] = {
         "figure_id": row["id"], "extraction_id": row["extraction_id"], "span_ids": list(row.get("span_ids") or ()),
-        # Under the selection's last block; a region's figure (no selected
-        # text) under the region's block (Codex review F2); RW5d: a figure
-        # with no passage under the passage the learner was reading.
-        "anchor_span_id": (list(row.get("span_ids") or ()) or [region.get("span_id") or home.get("span_id")])[-1],
+        "anchor_span_id": _anchor_span(row, asked, home),
         "region": row.get("region"),
         "origin": row["origin"], "verification": row["verification"], "kind": row.get("kind"),
         "label": _label(row), "reason": (row.get("verification_report") or {}).get("reason") or None,
@@ -2564,10 +2571,11 @@ def _root(rows_by_id: Mapping[str, Mapping[str, Any]], row: Mapping[str, Any]) -
     return str(current["id"])
 
 
-def list_figures(vault: Any, repository: Repository, extraction_id: str) -> list[dict[str, Any]]:
-    """The figures of one source as the Reader shows them: per version chain,
-    the newest shown version (else the newest failed or unsupported one), of
-    the current spec version, and never one whose passage is held out now."""
+def _listed(vault: Any, repository: Repository,
+            extraction_id: str) -> list[tuple[Mapping[str, Any], int, list[dict[str, Any] | None]]]:
+    """The rows :func:`list_figures` presents, with no presentation (RW5d P4a,
+    Codex review F3): per version chain, the pick, the chain's length and its
+    placements in this source. Read-only: nothing is verified or written."""
 
     if not enabled(vault):
         return []
@@ -2585,7 +2593,7 @@ def list_figures(vault: Any, repository: Repository, extraction_id: str) -> list
     chains: dict[str, list[dict[str, Any]]] = {}
     for row in rows:
         chains.setdefault(_root(by_id, row), []).append(row)
-    views = []
+    picks: list[tuple[Mapping[str, Any], int, list[dict[str, Any] | None]]] = []
     for chain in chains.values():
         shown = [row for row in chain if row["verification"] in store.SHOWN]
         # Codex review F5: with the panels off, the newest version that can
@@ -2597,13 +2605,78 @@ def list_figures(vault: Any, repository: Repository, extraction_id: str) -> list
         # RW5d (Codex review F3): a figure with no passage is listed at every
         # paragraph of this source it was asked at (one view per placement),
         # each opening where that request was made.
-        homes = [{"extraction_id": key[0], "span_id": key[1]} for key in figure_homes(repository, pick) or ()
-                 if key[0] == extraction_id] or [None]
+        homes: list[dict[str, Any] | None] = [
+            {"extraction_id": key[0], "span_id": key[1]} for key in figure_homes(repository, pick) or ()
+            if key[0] == extraction_id] or [None]
+        picks.append((pick, len(chain), homes))
+    return picks
+
+
+def list_figures(vault: Any, repository: Repository, extraction_id: str) -> list[dict[str, Any]]:
+    """The figures of one source as the Reader shows them: per version chain,
+    the newest shown version (else the newest failed or unsupported one), of
+    the current spec version, and never one whose passage is held out now."""
+
+    views = []
+    for pick, versions, homes in _listed(vault, repository, extraction_id):
         try:
-            views.extend(figure_view(vault, repository, pick, versions=len(chain), home=home) for home in homes)
+            views.extend(figure_view(vault, repository, pick, versions=versions, home=home) for home in homes)
         except (S.SpecError, K.SketchError):
             continue
     return sorted(views, key=lambda view: view["created_at"])
+
+
+def section_figures(vault: Any, repository: Repository, extraction_id: str,
+                    section_of: Callable[[str], str | None]) -> dict[str, list[dict[str, Any]]]:
+    """RW5d P4a (spec §10.2): the kept figures of one reading by the section
+    their anchor is in, for the correspondents read (figures follow the
+    section). A read of what :func:`list_figures` lists (no copy, no
+    ``source_objects`` row, Q8): only what the Reader would list on that
+    reading now, held-out figures and figures switched off left out, and of
+    those only the shown ones (verified or an illustration; never a failed or
+    unsupported line). Read-only (Codex review F3): the rows are presented as
+    the list presents them except that a sketch built under another engine is
+    not re-verified here (opening it does that, and a figure that fails then
+    is not shown). ``section_of`` maps an anchor span to its section (the
+    caller's protected library: a withheld section maps to none). Each entry
+    is the figure's id, its home (reading and anchor span), its label and kind;
+    one entry per figure and section."""
+
+    out: dict[str, list[dict[str, Any]]] = {}
+    seen: set[tuple[str, str]] = set()
+    picks = sorted(_listed(vault, repository, extraction_id), key=lambda found: str(found[0]["created_at"]))
+    for pick, _versions, homes in picks:
+        # Codex review F3: the list's own presentation, minus the sketch
+        # re-verification (it runs the engine and appends to judgment_ledger):
+        # that happens when the figure is opened, through its own book's
+        # listing. A verdict this process already reached is honoured.
+        row = rich_off_row(vault, sketch_off_row(vault, advanced_off_row(vault, shown_row(pick))))
+        if sketch_row(row) and row.get("verification") in store.SHOWN:
+            from learnloop.figures import sketch_verify as SV
+            from learnloop.figures.sketch_engine import ENGINE_SHA256
+
+            with _RECHECKED_GUARD:
+                cached = _RECHECKED.get((str(row["id"]), ENGINE_SHA256, SV.VERIFIER_REPORT_VERSION))
+            if cached is not None and cached["outcome"] != V.ILLUSTRATIVE:
+                continue
+        row = worded_row(row)
+        if row.get("verification") not in store.SHOWN:
+            continue
+        asked = _figure_request(repository, row)
+        for home in homes:
+            anchor = _anchor_span(row, asked, home)
+            if not anchor:
+                continue
+            section_id = section_of(str(anchor))
+            if section_id is None or (section_id, str(row["id"])) in seen:
+                continue
+            seen.add((section_id, str(row["id"])))
+            out.setdefault(section_id, []).append({
+                "figure_id": row["id"], "extraction_id": row["extraction_id"], "anchor_span_id": anchor,
+                "label": _label(row), "kind": row.get("kind"), "verification": row["verification"],
+                "created_at": row["created_at"],
+            })
+    return out
 
 
 def rich_pending(vault: Any, repository: Repository, extraction_id: str) -> list[dict[str, Any]]:
@@ -2925,6 +2998,7 @@ __all__ = [
     "record_prediction",
     "region_enabled",
     "revisions_enabled",
+    "section_figures",
     "shown_figure",
     "withheld_message",
 ]

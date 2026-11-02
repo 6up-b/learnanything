@@ -224,7 +224,10 @@ export function usePanelFigures(target: AskTarget | null, { cold, onEvent, choos
         patch(found);
         return found;
       },
-      under: () => ({ figures: [], pending: [], richPending: [] }),
+      under: () => ({ figures: [], pending: [], richPending: [], followed: [] }),
+      // RW5d P4a: no figure is followed into an attempt host (the Reader's section follow only).
+      followed: [],
+      follow: async () => false,
       richPending: [],
       cancelRich: () => undefined,
       retryRich: () => undefined,
