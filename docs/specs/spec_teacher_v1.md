@@ -515,7 +515,8 @@ on, the turn is `TeacherTurnVisualsV1` with `visual = {goal, anchors, planned_no
 delivered aliases), and `write_plan` nodes may carry a planned `visual = {goal, anchors}`. The figure service builds
 it inside `lesson.turn` (grammar and sketch tiers, origin `teacher`), the figure's own predictions off, and the
 doctrine gains the versioned paragraph `teacher/doctrine/visuals/v1.md` with prompt version
-`teacher_turn.v1+visuals-v1`. Off: this section's turn and prompt exactly. See `spec_reader_show_me_figures_v1.md`
+`teacher_turn.v1+visuals-v1`; its forecasts carry their own §12.2 family (`teacher_doctrine_v1+teacher_visuals_v1:<model>`),
+so the paragraph's λ posterior starts apart from TE1's. Off: this section's turn and prompt exactly. See `spec_reader_show_me_figures_v1.md`
 §10.4's as-built note.
 - **`requests`:** zero or more actions from §9.
 
