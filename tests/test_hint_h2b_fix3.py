@@ -149,21 +149,22 @@ def test_r1_f10_an_interrupted_answer_box_attach_never_lets_a_problem_take_the_h
     second = _open(ctx, session, "k1")["sessionId"]
     _call(ctx, "workbench.leave", {"sessionId": second})
     # The answer box's attempt commits; the process ends before H0's keyed
-    # attach. Follow-ups Nov 2 (b): the keyed attempt took the row it counted
-    # in its own transaction, so it is attached even so.
+    # attach (the row keeps attempt_id NULL). This vault is below mvp-0.41
+    # (follow-ups Nov 2, Codex review F1): the predecessor's keyed fold, with
+    # no keyed attach in the attempt's own transaction.
     with monkeypatch.context() as interrupted:
         interrupted.setattr(practice, "_attach_hint_reveals", lambda *args, **kwargs: None)
         submitted = _answer_box(ctx, session, "k1")
     assert _attempt(paths, submitted["attemptId"])["hints_used"] == 1
     [row] = assists(paths.sqlite_path)
-    assert row["attempt_id"] == submitted["attemptId"]
+    assert row["attempt_id"] is None
     # The committed attempt started the next window: the problem folds 0 rows.
     _open(ctx, session, "k1", wb=second)
     assert _record_hints(ctx, second) == 0
     attempt = _attempt(paths, _wb_submit(ctx, second, session)["attemptId"])
     assert attempt["hints_used"] == 0
     [row] = assists(paths.sqlite_path)
-    assert row["attempt_id"] == submitted["attemptId"]
+    assert row["attempt_id"] is None
     # The answer box's recovery (a retry of its key) attaches it to its own attempt.
     assert _answer_box(ctx, session, "k1")["attemptId"] == submitted["attemptId"]
     [row] = assists(paths.sqlite_path)

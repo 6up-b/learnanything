@@ -184,9 +184,10 @@ def test_the_successor_is_one_constant_after_rw6bs_followups():
     from learnloop.config.template import DEFAULTS_SNAPSHOT_BY_ALGORITHM, defaults_fingerprint_for_version
     from learnloop.deliverable_plan_upgrade import PREDECESSOR as UPGRADE_PREDECESSOR
 
-    assert SUCCESSOR_CHAIN[-2:] == (PREDECESSOR, TAG) == ("mvp-0.39", "mvp-0.40")
-    assert TAG == LATEST_ALGORITHM_VERSION and UPGRADE_PREDECESSOR == PREDECESSOR
-    assert DELIVERABLE_PLAN_VERSIONS == frozenset({TAG})
+    assert SUCCESSOR_CHAIN[-3:-1] == (PREDECESSOR, TAG) == ("mvp-0.39", "mvp-0.40")
+    # Follow-ups Nov 2's mvp-0.41 follows it as the latest (and keeps it).
+    assert SUCCESSOR_CHAIN[-1] == LATEST_ALGORITHM_VERSION == "mvp-0.41" and UPGRADE_PREDECESSOR == PREDECESSOR
+    assert DELIVERABLE_PLAN_VERSIONS == frozenset({TAG, "mvp-0.41"})
     for version in SUCCESSOR_CHAIN:
         assert DEFAULTS_SNAPSHOT_BY_ALGORITHM[version] == defaults_fingerprint_for_version(version), version
     assert DEFAULTS_SNAPSHOT_BY_ALGORITHM[TAG] != DEFAULTS_SNAPSHOT_BY_ALGORITHM[PREDECESSOR]
@@ -634,7 +635,11 @@ def test_a_bare_upgrade_targets_mvp040_and_refuses_twice(tmp_path, _cli_process)
     paths = create_placement_vault(tmp_path / "v", version=PREDECESSOR)
     result = CliRunner().invoke(app, ["upgrade", "--vault", str(paths.root)])
     assert result.exit_code == 0, result.output
-    assert f"{PREDECESSOR} -> {TAG}" in result.output and _version(paths) == TAG
+    # The latest is follow-ups Nov 2's mvp-0.41, chained through this tag.
+    assert f"{PREDECESSOR} -> {LATEST_ALGORITHM_VERSION}" in result.output
+    assert _version(paths) == LATEST_ALGORITHM_VERSION and _activated(paths)
+    paths = create_placement_vault(tmp_path / "w", version=PREDECESSOR)
+    assert upgrade_to_deliverable_plan(paths.root).upgraded and _version(paths) == TAG
     again = upgrade_to_deliverable_plan(paths.root)
     assert not again.upgraded and again.problems == [f"vault is already {TAG}"]
 
