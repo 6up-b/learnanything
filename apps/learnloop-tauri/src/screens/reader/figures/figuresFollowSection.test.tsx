@@ -112,8 +112,8 @@ it("offers nothing with no figure in the read or with figures off", async () => 
 
 let ctlRef: FiguresCtl | null = null;
 
-function Harness({ spans }: { spans: string[] }) {
-  const ctl = useFigures({ extractionId: "ext_strang", contract: CONTRACT });
+function Harness({ spans, followOn = true }: { spans: string[]; followOn?: boolean }) {
+  const ctl = useFigures({ extractionId: "ext_strang", contract: CONTRACT, followEnabled: followOn });
   ctlRef = ctl;
   return <div>{spans.map((span) => <div key={span} data-span={span}><FiguresUnder ctl={ctl} spanId={span} /></div>)}</div>;
 }
@@ -161,4 +161,78 @@ it("shows nothing when its own book no longer lists it (held out, switched off, 
   });
   expect(shown).toBe(false);
   expect(document.querySelector("[data-figure]")).toBeNull();
+});
+
+// -- revocation after display (Codex review F1, F2) ------------------------------------------------
+
+const HOME = { sourceTitle: "Lay", sectionTitle: "5.1 Eigenvectors and eigenvalues" };
+
+async function followNow(): Promise<boolean> {
+  let shown = false;
+  await act(async () => { shown = await ctlRef!.follow(REF, HOME, "s5"); });
+  return shown;
+}
+
+it("a followed figure its own book stops listing leaves on the next press (held out after it was shown)", async () => {
+  api.readerFigures.mockImplementation(async ({ extractionId }: { extractionId: string }) => (
+    extractionId === "ext_lay" ? { extractionId, figures: [layFigure()] } : { extractionId, figures: [] }));
+  render(<Harness spans={["s5"]} />);
+  await flush();
+  expect(await followNow()).toBe(true);
+  expect(document.querySelector('[data-span="s5"] [data-figure="fig_lay"] [data-figure-body]')).not.toBeNull();
+  // Its passage is held out now: the listing omits it, and the same offer pressed again removes it here.
+  api.readerFigures.mockImplementation(async ({ extractionId }: { extractionId: string }) => ({ extractionId, figures: [] }));
+  expect(await followNow()).toBe(false);
+  expect(document.querySelector("[data-figure]")).toBeNull();
+  expect(ctlRef!.followed).toEqual([]);
+  expect(ctlRef!.expandedKey).toBeNull();
+  // An unreadable listing after a success removes it too.
+  api.readerFigures.mockImplementation(async ({ extractionId }: { extractionId: string }) => (
+    extractionId === "ext_lay" ? { extractionId, figures: [layFigure()] } : { extractionId, figures: [] }));
+  expect(await followNow()).toBe(true);
+  api.readerFigures.mockRejectedValue(new Error("the sidecar went away"));
+  expect(await followNow()).toBe(false);
+  expect(document.querySelector("[data-figure]")).toBeNull();
+  expect(ctlRef!.expandedKey).toBeNull();
+});
+
+it("switching correspondence off clears a followed figure, and a follow still in flight never lands", async () => {
+  api.readerFigures.mockImplementation(async ({ extractionId }: { extractionId: string }) => (
+    extractionId === "ext_lay" ? { extractionId, figures: [layFigure()] } : { extractionId, figures: [] }));
+  const view = render(<Harness spans={["s5"]} />);
+  await flush();
+  expect(await followNow()).toBe(true);
+  expect(document.querySelector('[data-figure="fig_lay"]')).not.toBeNull();
+  // reader.correspondence.enabled off (the contract refreshed, the same book open).
+  view.rerender(<Harness spans={["s5"]} followOn={false} />);
+  await flush();
+  expect(document.querySelector("[data-figure]")).toBeNull();
+  expect(ctlRef!.followed).toEqual([]);
+  expect(ctlRef!.expandedKey).toBeNull();
+  // Off, a press does nothing (no read of the other book).
+  api.readerFigures.mockClear();
+  expect(await followNow()).toBe(false);
+  expect(api.readerFigures).not.toHaveBeenCalled();
+  // Back on, nothing returns by itself (it was cleared, not hidden).
+  view.rerender(<Harness spans={["s5"]} />);
+  await flush();
+  expect(document.querySelector("[data-figure]")).toBeNull();
+  // A follow whose listing is still in flight when the switch goes off never lands.
+  let release: (value: unknown) => void = () => undefined;
+  api.readerFigures.mockImplementation(({ extractionId }: { extractionId: string }) => (
+    extractionId === "ext_lay" ? new Promise((resolve) => { release = resolve; }) : Promise.resolve({ extractionId, figures: [] })));
+  let pending: Promise<boolean> = Promise.resolve(true);
+  act(() => { pending = ctlRef!.follow(REF, HOME, "s5"); });
+  view.rerender(<Harness spans={["s5"]} followOn={false} />);
+  await flush();
+  let shown = true;
+  await act(async () => {
+    release({ extractionId: "ext_lay", figures: [layFigure()] });
+    shown = await pending;
+  });
+  expect(shown).toBe(false);
+  view.rerender(<Harness spans={["s5"]} />);
+  await flush();
+  expect(document.querySelector("[data-figure]")).toBeNull();
+  expect(ctlRef!.followed).toEqual([]);
 });

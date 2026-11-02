@@ -473,7 +473,9 @@ export function ReaderScreen({
   const intentContract = inquiry && !offline ? contract?.intent ?? null : null;
   const activeReadingOn = inquiry && !offline && Boolean(contract?.activeReading);
   // RW5a: explorable figures (the contract names them only while figures.enabled is on).
-  const figuresCtl = useFigures({ extractionId: render && !offline ? render.extractionId : null, contract: contract?.figures ?? null });
+  // RW5d P4a (Codex review F2): following figures from other books lives under CA5's switch.
+  const figuresCtl = useFigures({ extractionId: render && !offline ? render.extractionId : null, contract: contract?.figures ?? null,
+    followEnabled: Boolean(contract?.correspondence?.alsoInBooks) });
   // RW5b: "make this explorable" pressed on an offer (the library organizer's
   // or the tutor's own judgment; the contract names offers only while
   // figures.offers_enabled is on). The build runs where its passage is: in

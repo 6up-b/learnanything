@@ -139,23 +139,34 @@ export function useFigures({
   extractionId,
   contract,
   onBuilt,
+  followEnabled = false,
 }: {
   extractionId: string | null | undefined;
   contract: FiguresContract | null | undefined;
   onBuilt?: (figure: FigureViewDto) => void;
+  /** RW5d P4a (Codex review F2): CA5's correspondence switch as the prompt contract
+   *  names it. Off (or absent): no figure is followed here, a followed one is
+   *  cleared and a follow still in flight never lands. */
+  followEnabled?: boolean;
 }): FiguresCtl {
   const enabled = Boolean(contract && extractionId);
+  const followOn = enabled && followEnabled;
   const [figures, setFigures] = useState<FigureViewDto[]>([]);
   const [pending, setPending] = useState<FigurePending[]>([]);
   const [expandedKey, setExpandedKey] = useState<string | null>(null);
   const [richPending, setRichPending] = useState<FigureRichPendingDto[]>([]);
   const [followed, setFollowed] = useState<FollowedFigure[]>([]);
+  const followedRef = useRef(followed);
+  followedRef.current = followed;
   const [manimOptIn, setManimOptIn] = useState<FiguresCtl["manimOptIn"]>(contract?.rich?.manimOptIn ?? null);
   const [optInSpanId, setOptInSpanId] = useState<string | null>(null);
   useEffect(() => { setManimOptIn(contract?.rich?.manimOptIn ?? null); }, [contract?.rich?.manimOptIn]);
   const setExpanded = useCallback((figure: FigureViewDto | null) => setExpandedKey(figure ? figurePlacementKey(figure) : null), []);
   // A build that lands after the source changed never shows on the new one.
   const generation = useRef(0);
+  // RW5d P4a (Codex review F2): bumped when following switches off, so a
+  // follow whose listing is still in flight is dropped when it lands.
+  const followGeneration = useRef(0);
   const runs = useRef(new Map<string, object>());
   const onBuiltRef = useRef(onBuilt);
   onBuiltRef.current = onBuilt;
@@ -178,6 +189,17 @@ export function useFigures({
       })
       .catch(() => undefined);
   }, [enabled, extractionId]);
+
+  // RW5d P4a (Codex review F2): correspondence switched off with the same book
+  // open clears every followed figure (and its open state) here.
+  useEffect(() => {
+    if (followOn) return;
+    followGeneration.current += 1;
+    const keys = new Set(followedRef.current.map((entry) => figurePlacementKey(entry.figure)));
+    if (!keys.size) return;
+    setFollowed([]);
+    setExpandedKey((key) => (key && keys.has(key) ? null : key));
+  }, [followOn]);
 
   // RW5d P2b: while a rich build runs (a fuller line pending or waiting, or a
   // rich-only pending line), the source's figures are read again, paced; the
@@ -373,8 +395,21 @@ export function useFigures({
 
   const follow = useCallback(
     async (ref: CorrespondentFigureDto, home: FigureHome, at: string): Promise<boolean> => {
-      if (!enabled || !extractionId || !at || ref.extractionId === extractionId) return false;
+      if (!followOn || !extractionId || !at || ref.extractionId === extractionId) return false;
       const mine = generation.current;
+      const mineFollow = followGeneration.current;
+      const current = () => generation.current === mine && followGeneration.current === mineFollow;
+      // Codex review F1: refused now (held out, switched off, gone, unreadable),
+      // a copy already shown here from an earlier press leaves with it.
+      const refuse = () => {
+        if (current()) {
+          const keys = new Set(followedRef.current.filter((entry) => entry.figure.figureId === ref.figureId)
+            .map((entry) => figurePlacementKey(entry.figure)));
+          setFollowed((list) => list.filter((entry) => entry.figure.figureId !== ref.figureId));
+          setExpandedKey((key) => (key && keys.has(key) ? null : key));
+        }
+        return false;
+      };
       let found: FigureViewDto | undefined;
       try {
         // Its own book's listing, read now: protection and the switches are checked again there.
@@ -382,10 +417,10 @@ export function useFigures({
         found = (listed?.figures ?? []).find((figure) => figure.figureId === ref.figureId && figure.anchorSpanId === ref.anchorSpanId)
           ?? (listed?.figures ?? []).find((figure) => figure.figureId === ref.figureId);
       } catch {
-        return false;
+        return refuse();
       }
-      if (generation.current !== mine || !found) return false;
-      if (found.verification !== "verified" && found.verification !== "illustrative") return false;
+      if (!current()) return false;
+      if (!found || (found.verification !== "verified" && found.verification !== "illustrative")) return refuse();
       // Shown here, under the passage the learner is reading; a fuller version still
       // being built stays with its own book (only a ready one comes along).
       const figure: FigureViewDto = { ...found, anchorSpanId: at,
@@ -394,7 +429,7 @@ export function useFigures({
       setExpandedKey(figurePlacementKey(figure));
       return true;
     },
-    [enabled, extractionId],
+    [followOn, extractionId],
   );
 
   const predict = useCallback(
@@ -417,6 +452,9 @@ export function useFigures({
     [contract, patchPrediction],
   );
 
+  // Gated as it renders (Codex review F2): nothing followed shows once the switch is off.
+  const shownFollowed = useMemo(() => (followOn ? followed : []), [followOn, followed]);
+
   const under = useCallback(
     (spanId: string | null | undefined) => {
       if (!spanId) return { figures: [], pending: [], richPending: [], followed: [] };
@@ -424,10 +462,10 @@ export function useFigures({
         figures: figures.filter((figure) => figure.anchorSpanId === spanId),
         pending: pending.filter((item) => item.anchorSpanId === spanId),
         richPending: richPending.filter((line) => line.anchorSpanId === spanId),
-        followed: followed.filter((entry) => entry.figure.anchorSpanId === spanId),
+        followed: shownFollowed.filter((entry) => entry.figure.anchorSpanId === spanId),
       };
     },
-    [figures, pending, richPending, followed],
+    [figures, pending, richPending, shownFollowed],
   );
 
   return useMemo(
@@ -443,7 +481,7 @@ export function useFigures({
       predict,
       explain,
       under,
-      followed,
+      followed: shownFollowed,
       follow,
       richPending,
       cancelRich,
@@ -453,6 +491,6 @@ export function useFigures({
       answerManimOptIn,
     }),
     [enabled, contract, figures, pending, expandedKey, setExpanded, request, revise, predict, explain, under,
-     followed, follow, richPending, cancelRich, retryRich, manimOptIn, optInSpanId, answerManimOptIn],
+     shownFollowed, follow, richPending, cancelRich, retryRich, manimOptIn, optInSpanId, answerManimOptIn],
   );
 }
