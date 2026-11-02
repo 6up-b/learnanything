@@ -576,6 +576,27 @@ class PastWork:
             return WITHHELD_UNREADABLE
         return None
 
+    def reading_reason(self, source_kind: Any, source_id: Any) -> str | None:
+        """Why a learner text written on a reading may not leave LearnLoop
+        (followups-nov1c E: exam-material protection, not privacy): the passage it
+        was written on (a Reader question's, an active-reading answer's, a figure
+        prediction's) is or may be exam or held-out material (:meth:`source_reason`),
+        or that passage could not be established (fail closed). None for a text
+        written on no reading."""
+
+        from learnloop.diagnosis.text_gaps.provenance import READING_SOURCE_KINDS, reading_sources
+
+        if str(source_kind or "") not in READING_SOURCE_KINDS:
+            return None
+        try:
+            sources, complete = reading_sources(self.connection, str(source_kind), str(source_id or ""))
+        except Exception:  # noqa: BLE001 - fail closed
+            _LOG.warning("learner protection: a reading's passage could not be read", exc_info=True)
+            return WITHHELD_UNREADABLE
+        if not complete:
+            return WITHHELD_UNREADABLE
+        return self.source_reason(sources)
+
     def question(self, event_id: Any) -> dict[str, Any] | None:
         """A learner question as recorded (``item``, ``attempt``, ``context``,
         ``contract``: the item contract it was asked about, Q10), or None."""

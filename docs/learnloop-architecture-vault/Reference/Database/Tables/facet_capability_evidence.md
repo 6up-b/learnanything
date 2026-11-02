@@ -3,8 +3,8 @@ title: "facet_capability_evidence"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "c131a916c3fc8c3b5a47ecacb69315ace4d38b82"
-source_commit_timestamp: "2026-11-01T21:15:04-05:00"
+source_commit: "63f2337c4d6837df7b3f647fd1d90d0afd7f7561"
+source_commit_timestamp: "2026-11-01T23:15:09-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite facet_capability_evidence"
@@ -135,6 +135,7 @@ None found by exact static reference scan.
 - `tests/test_ad3_subject_view.py`
 - `tests/test_anti_double_count.py`
 - `tests/test_assumed_known.py`
+- `tests/test_canonical_projection_fold_skip.py`
 - `tests/test_coverage_rollup.py`
 - `tests/test_diagnosis_pipeline.py`
 - `tests/test_facet_outcome_view.py`
@@ -144,10 +145,9 @@ None found by exact static reference scan.
 - `tests/test_km2_write_path.py`
 - `tests/test_learner_text_gaps.py`
 - `tests/test_migrations.py`
+- `tests/test_notes_as_learner_text.py`
 - `tests/test_post_attempt_worker.py`
 - `tests/test_reader_active_reading.py`
-- `tests/test_reader_recap_review_r3.py`
-- `tests/test_rebuild_equivalence_review.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

@@ -140,6 +140,9 @@ export interface NotesRailProps {
   protectionMessage?: string | null;
   /** RW1b: active reading's card, at the head of Notes while one is open. */
   header?: ReactNode;
+  /** followups-nov1c D: "scope my deliverable from this passage" (a model action: shown
+   *  only where the selection offers model actions). */
+  scopeAction?: ReactNode;
 }
 
 /** The palette groups that send the selection to a model (background
@@ -161,7 +164,7 @@ export function NotesRail(props: NotesRailProps) {
     arc, pauseArc, setArcPolicy,
     annotations, jumpToAnnotation, reanchorAnnotation, manualAnchorToSelection, reanchorNotes,
     editingAnnotationId, setEditingAnnotationId, editingAnnotationText, setEditingAnnotationText,
-    saveAnnotationEdit, deleteAnnotation, protectionMessage = null, header,
+    saveAnnotationEdit, deleteAnnotation, protectionMessage = null, header, scopeAction,
   } = props;
   return (
     <div style={{ display: visible ? "block" : "none" }}>
@@ -268,6 +271,7 @@ export function NotesRail(props: NotesRailProps) {
               </MeaningLabel>
             </div>
           ) : null}
+          {!offline && !protectionMessage ? scopeAction ?? null : null}
           {PALETTE.filter((grp) => !protectionMessage || !MODEL_GROUPS.has(grp.group)).map((grp) => (
             <div key={grp.group} style={{ display: "flex", flexDirection: "column", gap: 4 }}>
               <Faint style={{ fontSize: 10, letterSpacing: "0.14em" }}>{grp.group.toUpperCase()}</Faint>

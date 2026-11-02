@@ -55,6 +55,43 @@ def new_ulid() -> str:
     return _encode_crockford(timestamp_ms, 10) + _encode_crockford(randomness, 16)
 
 
+def _decode_ulid(value: str) -> tuple[int, int] | None:
+    """A ULID's (timestamp ms, randomness), or None for anything that is not one."""
+
+    text = str(value or "").upper()
+    if len(text) != 26 or any(char not in _CROCKFORD for char in text):
+        return None
+    number = 0
+    for char in text:
+        number = (number << 5) | _CROCKFORD.index(char)
+    if number >> 128:
+        return None
+    return number >> _RANDOMNESS_BITS, number & _RANDOMNESS_MAX
+
+
+#: How far past a stored floor a ULID's randomness may land (``keep``: spacing only, so two
+#: processes lifted to the same floor do not mint the same id; any width short of the 80
+#: random bits keeps the order).
+_FLOOR_JITTER_BITS = 32
+
+
+def new_ulid_after(floor: str | None) -> str:
+    """A ULID that sorts after every ULID this process generated before it and after
+    ``floor``, a ULID read from storage (Codex review F2 of followups-nov1c): process-local
+    monotonicity cannot order an id against one a process with a clock running ahead
+    persisted before a restart, so a caller that needs that order reads the newest stored
+    id and passes it here. Anything that is not a ULID (``""``, None) is no floor."""
+
+    global _last_timestamp_ms, _last_randomness
+    parsed = _decode_ulid(floor) if floor else None
+    if parsed is not None:
+        with _ulid_lock:
+            if parsed >= (_last_timestamp_ms, _last_randomness):
+                _last_timestamp_ms = parsed[0]
+                _last_randomness = min(parsed[1] + secrets.randbits(_FLOOR_JITTER_BITS), _RANDOMNESS_MAX)
+    return new_ulid()
+
+
 def kebab_case(value: str) -> str:
     chars: list[str] = []
     previous_dash = False

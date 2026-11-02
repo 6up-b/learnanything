@@ -21,7 +21,8 @@ from tests.notes_fixtures import (SENTINEL, MeteredNoteLinkFake, NoteLinkFake, e
 from tests.reading_path_fixtures import call, context, normalized
 from tests.section_coverage_fixtures import CoverageJudgeFake, table_counts
 
-RPCS = ("notes.path", "notes.marks", "notes.passages", "notes.search", "notes.link", "notes.decide")
+RPCS = ("notes.path", "notes.marks", "notes.passages", "notes.search", "notes.link", "notes.decide",
+        "notes.hidden", "notes.set_gaps")  # followups-nov1c C; curriculum C5's opt-in
 
 
 def _ctx(paths, **attrs):
@@ -283,7 +284,8 @@ def test_switched_off_every_rpc_refuses_nothing_is_called_and_the_reader_is_toda
               "notes.search": {"query": "eigen"},
               "notes.link": {"note": {"path": str(fake_tend.notes / "linear.org"), "line": 2},
                              "extraction_id": "ext_book", "span_id": "s2"},
-              "notes.decide": {"link_id": "nl_x", "choice": "hide"}}
+              "notes.decide": {"link_id": "nl_x", "choice": "hide"}, "notes.hidden": {},
+              "notes.set_gaps": {"enabled": True}}
     for name in RPCS:
         with pytest.raises(SidecarError) as caught:
             call(ctx, name, params[name])
@@ -895,6 +897,175 @@ def test_re3_f13_a_refresh_whose_marker_was_advanced_meanwhile_writes_nothing(tm
     with repository.connection() as connection:
         stored = [row[0] for row in connection.execute("SELECT text_md FROM learner_notes")]
     assert not any("Version B" in text for text in stored)  # the obsolete read stored nothing
+
+
+# -- C2 ruling R6 (followups-nov1c A): monotonic read tokens, published by token order ------------
+
+def test_r6_two_concurrent_refreshes_resolve_to_the_newest_read(tmp_path, monkeypatch):
+    """C2 ruling R6, the round-3 verify's first ordering: two refreshes of the same hand-linked
+    note run concurrently; the older one (started first, it reads B) writes first and the
+    newer one (started after the note changed to C, it reads C) writes second. Before R6 the
+    newer refresh's compare-and-set failed and B stayed shown; each read now takes a
+    monotonic token when it starts and publishes by token order, so C (the newest read)
+    shows, whichever writes first."""
+
+    import threading
+
+    from learnloop.db.repositories import Repository
+
+    paths, repository, ctx, goal_id, fake_tend, corpus, notes = _deliverable(tmp_path, monkeypatch)
+    _link_pocket_by_hand(ctx, fake_tend)
+    entry = _corpus_entry(fake_tend, "Eigen page")
+    entry["words"] = ["eigenvalues", "eigen page"]
+    _set_note(fake_tend, entry, "# Eigen page\nVersion B of the page.\n", "h-b")
+    vault = load_vault(paths.root)
+    settings = NL.tend_settings(vault)
+    real_read = NT.read_sections
+    older_read, newer_read, older_done = threading.Event(), threading.Event(), threading.Event()
+
+    def read(settings_, hits):
+        result = real_read(settings_, hits)
+        if threading.current_thread().name == "r6-older":
+            older_read.set()
+            assert newer_read.wait(20)  # the newer refresh started (and read) before this one writes
+        elif threading.current_thread().name == "r6-newer":
+            newer_read.set()
+            assert older_done.wait(20)  # ... and writes only after this one wrote
+        return result
+
+    monkeypatch.setattr(NL.NT, "read_sections", read)
+    results: dict[str, int] = {}
+
+    def run(name: str) -> None:
+        try:
+            results[name] = NL.refresh_learner_links(vault, Repository.attach(repository.sqlite_path),
+                                                     settings=settings)
+        finally:
+            if name == "r6-older":
+                older_done.set()
+
+    older = threading.Thread(target=run, args=("r6-older",), name="r6-older")
+    older.start()
+    assert older_read.wait(20)
+    _set_note(fake_tend, entry, "# Eigen page\nVersion C of the page.\n", "h-c")
+    newer = threading.Thread(target=run, args=("r6-newer",), name="r6-newer")
+    newer.start()
+    older.join(30)
+    newer.join(30)
+    assert not older.is_alive() and not newer.is_alive()
+    monkeypatch.setattr(NL.NT, "read_sections", real_read)
+    assert results == {"r6-older": 1, "r6-newer": 1}  # both published, in token order
+    texts = _hand_texts(ctx)
+    assert texts and all("Version C" in text for text in texts)  # the newest read shows
+
+
+def test_r6_an_unchanged_read_fences_off_an_older_refresh_in_flight(tmp_path, monkeypatch):
+    """C2 ruling R6, the round-3 verify's second ordering: the note shows A; a refresh reads B
+    slowly; meanwhile the note changes back to A and a newer refresh reads A, unchanged.
+    Before R6 the unchanged read wrote nothing (the equality shortcut), so the older refresh
+    then published B over the note's real text. The unchanged read now advances the fence
+    (a marker naming the snapshot already shown), so the older refresh writes nothing and A
+    (the newest read) stays shown."""
+
+    paths, repository, ctx, goal_id, fake_tend, corpus, notes = _deliverable(tmp_path, monkeypatch)
+    _link_pocket_by_hand(ctx, fake_tend)
+    entry = _corpus_entry(fake_tend, "Eigen page")
+    entry["words"] = ["eigenvalues", "eigen page"]
+    text_a, hash_a = Path(entry["hit"]["path"]).read_text(encoding="utf-8"), entry["hit"]["hash"]
+    _set_note(fake_tend, entry, "# Eigen page\nVersion B of the page.\n", "h-b")
+    vault = load_vault(paths.root)
+    refresh = lambda: NL.refresh_learner_links(vault, repository, settings=NL.tend_settings(vault))  # noqa: E731
+    real_read = NT.read_sections
+    inner: list[int] = []
+
+    def slow_read(settings, hits):
+        result = real_read(settings, hits)  # B, read before the note changed back
+        monkeypatch.setattr(NL.NT, "read_sections", real_read)
+        _set_note(fake_tend, entry, text_a, hash_a)
+        inner.append(refresh())  # reads A: unchanged, nothing to refresh, but it fences
+        return result
+
+    monkeypatch.setattr(NL.NT, "read_sections", slow_read)
+    assert refresh() == 0 and inner == [0]
+    texts = _hand_texts(ctx)
+    assert texts and all("Worked the 2x2 eigen example" in text and "Version B" not in text for text in texts)
+    with repository.connection() as connection:
+        stored = [row[0] for row in connection.execute("SELECT text_md FROM learner_notes")]
+    assert not any("Version B" in text for text in stored)  # the older read stored nothing
+    assert _count(repository, "learner_note_links") == 1  # and no link row: refreshing is never an acceptance
+
+
+# -- C2 ruling R5 (followups-nov1c C): Settings' hidden notes, with show again ------------------
+
+def test_r5_settings_lists_the_hidden_notes_and_show_again_unhides_through_decide(tmp_path, monkeypatch):
+    """C2 ruling R5 / open question 4: there was no list of hidden notes to bring one back
+    after the reading changed. ``notes.hidden`` lists the learner's standing hides, newest
+    first, naming each note (title, heading, date; never its text or where it lives), where
+    it was linked and who linked it; *show again* is the existing ``notes.decide keep`` (a
+    ``learner_card`` verdict reversing the hide). No tend call and no model call."""
+
+    paths, repository, ctx, goal_id, fake_tend, corpus, notes = _deliverable(tmp_path, monkeypatch)
+    model_link = next(line for line in _lines(call(ctx, "notes.path", {"goal_id": goal_id}))
+                      if line["note"]["heading"] == "Eigen stuff")
+    hand = _link_pocket_by_hand(ctx, fake_tend)
+    assert call(ctx, "notes.hidden", {})["hidden"] == []
+    call(ctx, "notes.decide", {"link_id": model_link["linkId"], "choice": "hide"})
+    call(ctx, "notes.decide", {"link_id": hand["linkId"], "choice": "hide"})
+    tend_calls, model_calls = len(fake_tend.calls()), notes.calls
+    listed = call(ctx, "notes.hidden", {})["hidden"]
+    assert len(fake_tend.calls()) == tend_calls and notes.calls == model_calls  # no tend, no model
+    assert [entry["note"]["heading"] for entry in listed] == ["Eigen page", "Eigen stuff"]  # newest first
+    by_hand, by_model = listed
+    assert by_hand["byLabel"] == NL.BY_YOU_LABEL and by_hand["targetKind"] == "passage"
+    assert by_hand["note"]["originLabel"] == NL.POCKET_NOTES_LABEL and by_hand["note"]["dateLabel"]
+    assert by_model["byLabel"] == NL.BY_MODEL_LABEL and by_model["where"] == "the topic “Eigenvalues”"
+    assert by_model["learningObjectId"] == "lo_eigen"
+    text = json.dumps(listed)
+    assert "Worked the 2x2 eigen example" not in text and str(fake_tend.notes) not in text  # no text, no path
+    assert str(fake_tend.pocket) not in text and "text" not in by_hand["note"]
+    # Show again: the existing decide path (keep), a learner_card verdict reversing the hide.
+    call(ctx, "notes.decide", {"link_id": by_hand["linkId"], "choice": "keep"})
+    assert [entry["linkId"] for entry in call(ctx, "notes.hidden", {})["hidden"]] == [by_model["linkId"]]
+    assert _hand_texts(ctx)  # the hand link shows again beside its passage
+    call(ctx, "notes.decide", {"link_id": by_model["linkId"], "choice": "keep"})
+    assert call(ctx, "notes.hidden", {})["hidden"] == []
+    shown = {line["note"]["heading"] for line in _lines(call(ctx, "notes.path", {"goal_id": goal_id, "link": False}))}
+    assert "Eigen stuff" in shown  # the model's link shows again: still the topic's current proposal
+    with repository.connection() as connection:
+        verdicts = [row[0] for row in connection.execute(
+            "SELECT verdict FROM judgment_ledger WHERE task = 'note_link' AND judge = 'learner_card' "
+            "ORDER BY rowid")]
+    assert verdicts[-4:] == ["rejected", "rejected", "accepted", "accepted"]
+
+
+def test_r6_review_f2_a_clock_correction_and_restart_never_blocks_later_refreshes(tmp_path, monkeypatch):
+    """Codex review F2: a note published a token while the machine clock ran an hour ahead;
+    the clock is then corrected and LearnLoop restarts (a fresh process: its ULID state
+    starts over), so the wall clock now mints ULIDs that sort below the persisted fence.
+    Every later refresh used to be rejected until wall time caught up. A read's token now
+    sorts after the newest token already published (read from the database when the read
+    starts), so each refresh after the restart publishes its changed text."""
+
+    from learnloop import ids
+
+    paths, repository, ctx, goal_id, fake_tend, corpus, notes = _deliverable(tmp_path, monkeypatch)
+    now_ms = ids._wall_clock_ms()
+    monkeypatch.setattr(ids, "_last_timestamp_ms", -1)
+    monkeypatch.setattr(ids, "_last_randomness", 0)
+    monkeypatch.setattr(ids, "_wall_clock_ms", lambda: now_ms + 3_600_000)  # an hour ahead
+    _link_pocket_by_hand(ctx, fake_tend)  # publishes the first snapshot with a future token
+    entry = _corpus_entry(fake_tend, "Eigen page")
+    entry["words"] = ["eigenvalues", "eigen page"]
+    vault = load_vault(paths.root)
+    # The clock is corrected and LearnLoop restarts: the generator's in-process floor is gone.
+    monkeypatch.setattr(ids, "_last_timestamp_ms", -1)
+    monkeypatch.setattr(ids, "_last_randomness", 0)
+    monkeypatch.setattr(ids, "_wall_clock_ms", lambda: now_ms)
+    for version in ("B", "C", "D"):
+        _set_note(fake_tend, entry, f"# Eigen page\nVersion {version} of the page.\n", f"h-{version.lower()}")
+        assert NL.refresh_learner_links(vault, repository, settings=NL.tend_settings(vault)) == 1
+        texts = _hand_texts(ctx)
+        assert texts and all(f"Version {version}" in text for text in texts)
 
 
 # -- Landing: CoverageGuard's two hooks (C1's gate, C2's also) on one guard -----------------------

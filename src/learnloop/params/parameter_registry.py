@@ -232,7 +232,7 @@ MODULE_INVENTORY: dict[str, str] = {
     # `keep` (no learner-model weight, margin or threshold).
     "figure_learner_state": "src/learnloop/figures/learner_state.py",
     # Reader RW5d P3 (spec §11.2, §11.4): figures as a help kind; a structural
-    # ladder level and scan bounds, every one a `keep` (no weight or margin).
+    # ladder level and a read bound, every one a `keep` (no weight or margin).
     "figure_help": "src/learnloop/figures/help.py",
     "concept_animation": "src/learnloop/content/authoring/concept_animation.py",
     # Local contextual retrieval P2 (spec §7.1, §9.3, §9.6): the query student's pins and
@@ -1761,6 +1761,17 @@ _CONFIG_RULES: list[_ConfigRule] = [
         "keep: a tend call's time bound (a stalled subprocess never holds a job), the sections one search asks "
         "for and the notes one note link judgment reads (prompt bounds); size and time bounds, never a "
         "threshold on any score."),
+    # Deliverable curriculum C5 (spec §10.2, §12 C5): notes as learner text. One
+    # boolean, the learner's opt-in (owner Q9: off by default): a linked note is
+    # then a tier-2 learner-text-gaps input, read on the ChatGPT plan only. No
+    # number: which gap a note names is the model's judgment.
+    _ConfigRule(_exact(
+        "notes.gaps_enabled",
+    ), "structural", "operational",
+        "the learner's opt-in (default off) for curriculum C5: a linked note (a standing proposal or the "
+        "learner's own link, never a hidden one) is read for gaps on the ChatGPT plan only, as tier-2 learner "
+        "text that steers hypotheses and suggestions; never mastery, evidence or grading (no algorithm "
+        "successor)."),
     # Reader CA6 (ux_reader_compare_ask_v1 §6.4, §13): side by side. A boolean
     # (classified so every new key has a rule): two panes, follow along at
     # section crossings to the first judged correspondent in the API's order;

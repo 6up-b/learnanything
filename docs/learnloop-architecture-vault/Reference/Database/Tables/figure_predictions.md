@@ -3,8 +3,8 @@ title: "figure_predictions"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "c131a916c3fc8c3b5a47ecacb69315ace4d38b82"
-source_commit_timestamp: "2026-11-01T21:15:04-05:00"
+source_commit: "63f2337c4d6837df7b3f647fd1d90d0afd7f7561"
+source_commit_timestamp: "2026-11-01T23:15:09-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite figure_predictions"
@@ -128,6 +128,7 @@ None found by exact static reference scan.
 - `tests/test_figures_rpc.py`
 - `tests/test_figures_switch_off.py`
 - `tests/test_help_assist_figures_migration.py`
+- `tests/test_learner_note_source_kind_migration.py`
 - `tests/test_router_reader_activity.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.

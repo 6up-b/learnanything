@@ -1441,6 +1441,9 @@ sidecar_passthrough!(notes_passages, "notes.passages");
 sidecar_passthrough!(notes_search, "notes.search");
 sidecar_passthrough!(notes_link, "notes.link");
 sidecar_passthrough!(notes_decide, "notes.decide");
+sidecar_passthrough!(notes_hidden, "notes.hidden");
+// Curriculum C5: the opt-in for your linked notes to steer suggestions (Settings; desktop only).
+sidecar_passthrough!(notes_set_gaps, "notes.set_gaps");
 // Reader CA6 (side by side: one section of the other book for the second pane): desktop only.
 sidecar_passthrough!(reader_side_by_side_section, "reader.side_by_side_section");
 // Reader workbench RW5a (explorable figures: build, "not right?", the source's

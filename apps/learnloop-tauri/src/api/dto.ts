@@ -6794,6 +6794,25 @@ export interface NotesContractDto {
   lexicalOnly: boolean;
   pocketNotesLabel: string;
   takePrefix: string;
+  /** Curriculum C5: present (true) only with the learner's opt-in (notes.gaps_enabled): a linked
+   *  note may then be read for gaps in their understanding (it only steers suggestions). */
+  gaps?: boolean;
+}
+
+/** followups-nov1c C (C2 ruling R5): a note link the learner hid, as Settings lists it
+ *  (never the note's text or where it lives). Show again = notes.decide keep on linkId. */
+export interface HiddenNoteDto {
+  linkId: string;
+  hiddenAt: string;
+  /** passage | learning_object */
+  targetKind: string;
+  learningObjectId: string | null;
+  extractionId: string | null;
+  /** the topic “Eigenvalues” | Book › Section | a passage */
+  where: string;
+  /** "linked by LearnLoop's model" | "linked by you" */
+  byLabel: string;
+  note: { title: string; heading: string; dateLabel: string | null; originLabel: string | null };
 }
 
 /** One linked note as the learner sees it: always in their own voice (›). */

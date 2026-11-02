@@ -117,6 +117,46 @@ def test_set_scope_refuses_an_exam_passage_and_writes_nothing(tmp_path):
     assert table_counts(repository) == before
 
 
+def test_the_reader_selection_action_scopes_from_the_selected_passage_only(tmp_path):
+    """followups-nov1c D: the Reader's "scope my deliverable from this passage" sends the
+    selection to the existing scope input (kind passage, the selection's spans, its
+    context). A teaching passage is read (only its selected spans) and recorded; an
+    exam-role reading and a held-out unit inside a teaching book are refused by the
+    existing guard, in its words, and nothing is written."""
+
+    from tests.section_coverage_fixtures import HELD_OUT_SENTINEL
+
+    paths, repository = build_deliverable_vault(tmp_path / "vault")
+    fake = DeliverableFake()
+    ctx = _ctx(paths, fake=fake)
+    goal_id = call(ctx, "curriculum.create_deliverable", {"sentence": "my project"})["goalId"]
+    out = call(ctx, "curriculum.set_scope", {"goal_id": goal_id, "kind": "passage", "extraction_id": "ext_book",
+                                             "span_ids": ["s2"], "context": {"from": "reader_selection"}})
+    assert out["status"] in ("ready", "fresh")
+    with repository.connection() as connection:
+        row = connection.execute("SELECT extraction_id, span_ids_json, context_json, text_md FROM deliverable_scope_inputs "
+                                 "WHERE goal_id = ? AND kind = 'passage'", (goal_id,)).fetchone()
+        selected = connection.execute("SELECT text FROM source_document_blocks WHERE extraction_id = 'ext_book' "
+                                      "AND span_id = 's2'").fetchone()[0]
+        others = [r[0] for r in connection.execute("SELECT text FROM source_document_blocks WHERE extraction_id = "
+                                                    "'ext_book' AND span_id != 's2'")]
+        held_span = connection.execute("SELECT extraction_id, span_id FROM source_document_blocks WHERE text = ?",
+                                       (HELD_OUT_SENTINEL,)).fetchone()
+    assert row[0] == "ext_book" and json.loads(row[1]) == ["s2"] and row[3] is None
+    assert json.loads(row[2]) == {"from": "reader_selection"}
+    scope_prompt = [prompt for prompt, purpose in zip(fake.prompts, fake.purposes) if purpose == "scope"][-1]
+    assert selected in scope_prompt  # the selected passage, and only it, is read
+    assert not any(text in scope_prompt for text in others if text and text != selected)
+    before = table_counts(repository)
+    calls = fake.calls
+    for extraction_id, span_id in (("ext_exam", "s2"), tuple(held_span)):
+        with pytest.raises(SidecarError) as caught:
+            call(ctx, "curriculum.set_scope", {"goal_id": goal_id, "kind": "passage", "extraction_id": extraction_id,
+                                               "span_ids": [span_id], "context": {"from": "reader_selection"}})
+        assert caught.value.code == "exam_material" and str(caught.value) == DL.EXAM_REFUSAL
+    assert table_counts(repository) == before and fake.calls == calls
+
+
 def test_a_correction_through_set_scope_and_a_decision_on_a_phrase(tmp_path):
     paths, repository = build_deliverable_vault(tmp_path / "vault")
     ctx = _ctx(paths, fake=DeliverableFake(unmatched=("jordan form",)))

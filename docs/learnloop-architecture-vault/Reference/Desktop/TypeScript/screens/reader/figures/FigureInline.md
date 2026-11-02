@@ -10,8 +10,8 @@ area: "TypeScript/screens/reader/figures"
 source_path: "apps/learnloop-tauri/src/screens/reader/figures/FigureInline.tsx"
 source_paths:
   - "apps/learnloop-tauri/src/screens/reader/figures/FigureInline.tsx"
-source_commit: "c131a916c3fc8c3b5a47ecacb69315ace4d38b82"
-source_commit_timestamp: "2026-11-01T21:15:04-05:00"
+source_commit: "63f2337c4d6837df7b3f647fd1d90d0afd7f7561"
+source_commit_timestamp: "2026-11-01T23:15:09-05:00"
 source_worktree_state: "clean"
 activation_kind: "entry-reachable build graph"
 activation_evidence: "A static TypeScript import path reaches this file from the Vite entry src/main.tsx."
@@ -42,14 +42,14 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/screens/reader/figures/FigureInline.tsx](../../../../../../../../apps/learnloop-tauri/src/screens/reader/figures/FigureInline.tsx) |
-| Source lines | 587 |
+| Source lines | 582 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/screens/reader/figures/_area|TypeScript/screens/reader/figures]] |
 | Refactor status | `ACTIVE` |
 | Activation kind | `entry-reachable build graph` |
 | Worktree state | `clean` |
-| Source commit | `c131a916c3fc8c3b5a47ecacb69315ace4d38b82` |
-| Commit timestamp | `2026-11-01T21:15:04-05:00` |
+| Source commit | `63f2337c4d6837df7b3f647fd1d90d0afd7f7561` |
+| Commit timestamp | `2026-11-01T23:15:09-05:00` |
 
 ## Activation and status evidence
 
@@ -73,7 +73,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 - `export function PredictionBlock(` — function, line 181
 - `export function PredictionResult(` — function, line 237
 - `export function FigureInline(` — function, line 471
-- `export function FiguresUnder(` — function, line 574
+- `export function FiguresUnder(` — function, line 569
 
 ## Internal implementation anchors
 
@@ -122,10 +122,10 @@ The system-level behavior stays authoritative in the linked architecture, concep
 - `const checks = isManim ? (figure.manim?.checks.length ? [`$` — const, line 515
 - `const toggle = ()` — const, line 520
 - `const openFuller = ()` — const, line 524
-- `const openQuick = ()` — const, line 534
-- `const notRightOn = (target: FigureViewDto)` — const, line 539
-- `const body = showingFuller && fullerReady ? <ManimFigureBody figure=` — const, line 541
-- `const askOptIn = ctl.optInSpanId === spanId && ctl.manimOptIn === "ask"` — const, line 577
+- `const openQuick = ()` — const, line 529
+- `const notRightOn = (target: FigureViewDto)` — const, line 534
+- `const body = showingFuller && fullerReady ? <ManimFigureBody figure=` — const, line 536
+- `const askOptIn = ctl.optInSpanId === spanId && ctl.manimOptIn === "ask"` — const, line 572
 
 ## Who imports or calls it
 

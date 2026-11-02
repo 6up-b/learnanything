@@ -43,3 +43,30 @@ def test_a_new_millisecond_restarts_from_fresh_randomness(wall_clock, monkeypatc
     monkeypatch.setattr(ids.secrets, "randbits", lambda bits: 7)
     following = ids.new_ulid()
     assert following == ids._encode_crockford(wall_clock["ms"], 10) + ids._encode_crockford(7, 16)
+
+
+def test_new_ulid_after_sorts_after_a_floor_persisted_by_a_process_whose_clock_ran_ahead(wall_clock, monkeypatch):
+    """Codex review F2 (followups-nov1c): process A mints an id an hour ahead and stores it;
+    process B (fresh generator state, the corrected clock) must still mint above it, and two
+    processes lifted to the same floor never mint the same id."""
+
+    wall_clock["ms"] += 3_600_000
+    stored = ids.new_ulid()  # process A, clock ahead
+    wall_clock["ms"] -= 3_600_000
+    minted = []
+    for _process in range(2):  # two fresh processes reading the same stored floor
+        monkeypatch.setattr(ids, "_last_timestamp_ms", -1)
+        monkeypatch.setattr(ids, "_last_randomness", 0)
+        assert ids.new_ulid() < stored  # plain process-local monotonicity cannot order them
+        first = ids.new_ulid_after(stored)
+        assert first > stored and ids.new_ulid() > first  # and later ids stay above it
+        minted.append(first)
+    assert minted[0] != minted[1]
+
+
+def test_new_ulid_after_ignores_a_floor_that_is_not_a_ulid_or_is_behind(wall_clock):
+    behind = ids.new_ulid()
+    latest = ids.new_ulid()
+    assert ids.new_ulid_after(behind) > latest
+    for floor in ("", None, "not-a-ulid", "Z" * 26):
+        assert ids.new_ulid_after(floor) > latest

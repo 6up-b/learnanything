@@ -239,7 +239,11 @@ _WHEN = {
         "yours tend found for it (only from the folders in notes.tend.paths), so LearnLoop's model can say which "
         "notes discuss it. Only on the ChatGPT plan: never OpenRouter, and with the plan down it waits. Only the "
         "notes it links are kept, in your vault. A note is never a source, never used to write questions and "
-        "never evidence. It never grades you."
+        "never evidence. It never grades you. Only if you turn on notes.gaps_enabled (off unless you opt in, in "
+        "Settings): also, in the background, one note you linked with the titles and statements of the topics "
+        "it is linked to and the opening of those passages, so LearnLoop's model can name a gap in your "
+        "understanding the note shows; that only steers what LearnLoop suggests, never grades you, and a note "
+        "you hid is never sent."
     ),
 }
 

@@ -10,8 +10,8 @@ area: "TypeScript/components"
 source_path: "apps/learnloop-tauri/src/components/askFigures.tsx"
 source_paths:
   - "apps/learnloop-tauri/src/components/askFigures.tsx"
-source_commit: "51200ac32e9d62fdbf9d0a3315ebe9460ed9f347"
-source_commit_timestamp: "2026-11-01T22:26:30-05:00"
+source_commit: "63f2337c4d6837df7b3f647fd1d90d0afd7f7561"
+source_commit_timestamp: "2026-11-01T23:15:09-05:00"
 source_worktree_state: "clean"
 activation_kind: "entry-reachable build graph"
 activation_evidence: "A static TypeScript import path reaches this file from the Vite entry src/main.tsx."
@@ -42,14 +42,14 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/components/askFigures.tsx](../../../../../../apps/learnloop-tauri/src/components/askFigures.tsx) |
-| Source lines | 405 |
+| Source lines | 275 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/components/_area|TypeScript/components]] |
 | Refactor status | `ACTIVE` |
 | Activation kind | `entry-reachable build graph` |
 | Worktree state | `clean` |
-| Source commit | `51200ac32e9d62fdbf9d0a3315ebe9460ed9f347` |
-| Commit timestamp | `2026-11-01T22:26:30-05:00` |
+| Source commit | `63f2337c4d6837df7b3f647fd1d90d0afd7f7561` |
+| Commit timestamp | `2026-11-01T23:15:09-05:00` |
 
 ## Activation and status evidence
 
@@ -60,76 +60,53 @@ The system-level behavior stays authoritative in the linked architecture, concep
 
 ## Public API
 
-- `export const PANEL_FIGURE_COPY =` — const, line 24
-- `export function panelFiguresOn(target: AskTarget | null): boolean` — function, line 52
-- `export function figureHostRef(target: AskTarget): FigureHostRef | null` — function, line 59
-- `export function figureHostIdentity(target: AskTarget | null): string` — function, line 68
-- `export function figureCostLine(target: AskTarget, cold: boolean, converted: boolean): string` — function, line 74
-- `export interface PanelFigureLine` — interface, line 79
-- `export interface PanelFigureEvent` — interface, line 97
-- `export function usePanelFigures(target: AskTarget | null,` — function, line 120
-- `export type PanelFigures = ReturnType<typeof usePanelFigures>` — type, line 364
-- `export function PanelFigureThreadLine(` — function, line 369
+- `export const PANEL_FIGURE_COPY =` — const, line 27
+- `export function panelFiguresOn(target: AskTarget | null): boolean` — function, line 50
+- `export function figureHostRef(target: AskTarget): FigureHostRef | null` — function, line 57
+- `export function figureCostLine(target: AskTarget, cold: boolean, converted: boolean): string` — function, line 66
+- `export interface PanelFigureLine` — interface, line 71
+- `export interface PanelFigureEvent` — interface, line 86
+- `export function usePanelFigures(target: AskTarget | null,` — function, line 109
+- `export type PanelFigures = ReturnType<typeof usePanelFigures>` — type, line 241
+- `export function PanelFigureThreadLine(` — function, line 246
 
 ## Internal implementation anchors
 
 - `const FIGURE_POLL_MS = 400` — const, line 47
-- `const RICH_POLL_MS = 2000` — const, line 49
-- `const hostRef = target ? figureHostRef(target) : null` — const, line 69
-- `function richRunning(state: string | null | undefined): boolean` — function, line 92
-- `function sleep(ms: number): Promise<void>` — function, line 105
-- `async function settle(start: ()` — function, line 109
-- `let job = await start()` — let, line 110
-- `const enabled = chooser ? Boolean(target?.practiceItemId) : panelFiguresOn(target)` — const, line 127
-- `const token = useRef<` — const, line 131
-- `const onEventRef = useRef(onEvent)` — const, line 132
-- `const attemptKey = target ? `$` — const, line 134
-- `const targetRef = useRef(target)` — const, line 136
-- `const attemptKeyRef = useRef(attemptKey)` — const, line 138
-- `const polling = useRef(new Set<string>())` — const, line 140
-- `const lineHosts = useRef(new Map<string, string>())` — const, line 143
-- `const alive = useRef(true)` — const, line 144
-- `const hostNow = ()` — const, line 151
-- `const now = targetRef.current` — const, line 152
-- `const hostRef = now ? figureHostRef(now) : null` — const, line 153
-- `const takeStepToken = token.current?.key === attemptKeyRef.current ? token.current.token : null` — const, line 154
-- `const land = useCallback((key: string, result: FigureBuildResultDto | null)` — const, line 158
-- `const figure = result?.figure ?? null` — const, line 159
-- `const help = result?.help ?? null` — const, line 160
-- `const rich = figure ? null : result?.rich ?? null` — const, line 161
-- `const shown = figure !== null && (figure.verification === "verified" || figure.verification === "illustrative")` — const, line 162
-- `const waiting = rich !== null && richRunning(rich.state)` — const, line 163
-- `const watch = waiting && rich?.richJobId ?` — const, line 176
-- `const stillHere = ()` — const, line 183
-- `const read = await api.figureOpen(` — const, line 198
-- `const next = read.figure` — const, line 200
-- `const send = useCallback(async (goal: string)` — const, line 220
-- `const words = goal.trim()` — const, line 221
-- `const hostRef = figureHostRef(target)` — const, line 223
-- `const key = `fig:$` — const, line 225
-- `let takeStepToken: string | null = null` — let, line 229
-- `const step = await api.figureTakeStep(` — const, line 235
-- `const result = await settle(()` — const, line 247
-- `const open = useCallback(async (figureId: string, label: string)` — const, line 255
-- `const hostRef = figureHostRef(target)` — const, line 257
-- `const key = `open:$` — const, line 259
-- `const opened = await api.figureOpen(` — const, line 264
-- `const openHere = useCallback(async (key: string)` — const, line 272
-- `const line = lines.find((entry)` — const, line 273
-- `const richJobId = line?.rich?.richJobId` — const, line 274
-- `const read = await api.figureOpen(` — const, line 280
-- `const contract: FiguresContract = useMemo(()` — const, line 287
-- `const ctl: FiguresCtl = useMemo(()` — const, line 288
-- `const patch = (found:` — const, line 289
-- `const key = lines.find((line)` — const, line 305
-- `const hostRef = target ? figureHostRef(target) : null` — const, line 312
-- `const takeStepToken = token.current?.key === attemptKey ? token.current.token : null` — const, line 313
-- `const found = await api.readerFigurePredict(` — const, line 319
-- `const found = await api.readerFigureExplain(` — const, line 325
-- `const opened = await api.figureOpen(` — const, line 343
-- `const dismiss = (key: string)` — const, line 357
-- `const link =` — const, line 366
-- `const counted = line.help?.countsAsHint === true` — const, line 371
+- `function quickOnly(figure: FigureViewDto | null): FigureViewDto | null` — function, line 81
+- `function sleep(ms: number): Promise<void>` — function, line 94
+- `async function settle(start: ()` — function, line 98
+- `let job = await start()` — let, line 99
+- `const enabled = chooser ? Boolean(target?.practiceItemId) : panelFiguresOn(target)` — const, line 116
+- `const token = useRef<` — const, line 120
+- `const onEventRef = useRef(onEvent)` — const, line 121
+- `const attemptKey = target ? `$` — const, line 123
+- `const land = useCallback((key: string, result: FigureBuildResultDto | null)` — const, line 125
+- `const figure = quickOnly(result?.figure ?? null)` — const, line 126
+- `const help = result?.help ?? null` — const, line 127
+- `const shown = figure !== null && (figure.verification === "verified" || figure.verification === "illustrative")` — const, line 128
+- `const send = useCallback(async (goal: string)` — const, line 140
+- `const words = goal.trim()` — const, line 141
+- `const hostRef = figureHostRef(target)` — const, line 143
+- `const key = `fig:$` — const, line 145
+- `let takeStepToken: string | null = null` — let, line 148
+- `const step = await api.figureTakeStep(` — const, line 154
+- `const result = await settle(()` — const, line 166
+- `const open = useCallback(async (figureId: string, label: string)` — const, line 174
+- `const hostRef = figureHostRef(target)` — const, line 176
+- `const key = `open:$` — const, line 178
+- `const opened = await api.figureOpen(` — const, line 182
+- `const contract: FiguresContract = useMemo(()` — const, line 189
+- `const ctl: FiguresCtl = useMemo(()` — const, line 190
+- `const patch = (found:` — const, line 191
+- `const key = lines.find((line)` — const, line 205
+- `const hostRef = target ? figureHostRef(target) : null` — const, line 210
+- `const takeStepToken = token.current?.key === attemptKey ? token.current.token : null` — const, line 211
+- `const found = await api.readerFigurePredict(` — const, line 217
+- `const found = await api.readerFigureExplain(` — const, line 223
+- `const dismiss = (key: string)` — const, line 237
+- `const link =` — const, line 243
+- `const counted = line.help?.countsAsHint === true` — const, line 248
 
 ## Who imports or calls it
 
@@ -145,13 +122,12 @@ The system-level behavior stays authoritative in the linked architecture, concep
 ### Desktop source modules
 
 - [[Reference/Desktop/TypeScript/api/client|src/api/client.ts]] — import-or-re-export; imports `api`
-- [[Reference/Desktop/TypeScript/api/dto|src/api/dto.ts]] — import-or-re-export; imports `FigureBuildResultDto`, `FigureHelpDto`, `FigureHostRef`, `FigureRichPendingDto`, `FigureViewDto`, `LibraryJobDto`
+- [[Reference/Desktop/TypeScript/api/dto|src/api/dto.ts]] — import-or-re-export; imports `FigureBuildResultDto`, `FigureHelpDto`, `FigureHostRef`, `FigureViewDto`, `LibraryJobDto`
 - [[Reference/Desktop/TypeScript/app/algoConfig|src/app/algoConfig.ts]] — import-or-re-export; imports `algoConfig`
 - [[Reference/Desktop/TypeScript/components/AskOverlay|src/components/AskOverlay.tsx]] — import-or-re-export; imports `AskTarget`
 - [[Reference/Desktop/TypeScript/components/term|src/components/term.tsx]] — import-or-re-export; imports `COLOR`, `FONT_MONO`
 - [[Reference/Desktop/TypeScript/errors|src/errors.ts]] — import-or-re-export; imports `errorMessage`
 - [[Reference/Desktop/TypeScript/screens/reader/figures/FigureInline|src/screens/reader/figures/FigureInline.tsx]] — import-or-re-export; imports `FigureInline`
-- [[Reference/Desktop/TypeScript/screens/reader/figures/RichFigure|src/screens/reader/figures/RichFigure.tsx]] — import-or-re-export; imports `RichPendingLine`
 - [[Reference/Desktop/TypeScript/screens/reader/figures/showMe|src/screens/reader/figures/showMe.ts]] — import-or-re-export; imports `showMeSourceLine`
 - [[Reference/Desktop/TypeScript/screens/reader/figures/useFigures|src/screens/reader/figures/useFigures.ts]] — import-or-re-export; imports `FiguresContract`, `FiguresCtl`, `figurePlacementKey`
 

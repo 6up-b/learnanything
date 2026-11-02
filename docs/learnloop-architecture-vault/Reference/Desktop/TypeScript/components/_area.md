@@ -6,8 +6,8 @@ refactor_status: "ACTIVE"
 version: "1.0.0"
 source_paths:
   - "apps/learnloop-tauri/src/components"
-source_commit: "51200ac32e9d62fdbf9d0a3315ebe9460ed9f347"
-source_commit_timestamp: "2026-11-01T22:26:30-05:00"
+source_commit: "63f2337c4d6837df7b3f647fd1d90d0afd7f7561"
+source_commit_timestamp: "2026-11-01T23:15:09-05:00"
 generated: true
 generated_at: "2026-08-18"
 tags:
@@ -105,7 +105,7 @@ Reusable learner-facing controls and composite interaction surfaces.
 | [[Reference/Desktop/TypeScript/components/TrackRecordView|TrackRecordView.tsx]] | `ACTIVE` | Provides the reusable `TrackRecordView` interaction surface used by one or more desktop workflows. | 3 | 1 |
 | [[Reference/Desktop/TypeScript/components/WhyDiagnosisOverlay|WhyDiagnosisOverlay.tsx]] | `ACTIVE` | Provides the reusable `WhyDiagnosisOverlay` interaction surface used by one or more desktop workflows. | 4 | 1 |
 | [[Reference/Desktop/TypeScript/components/WriteCardDialog|WriteCardDialog.tsx]] | `ACTIVE` | Provides the reusable `WriteCardDialog` interaction surface used by one or more desktop workflows. | 5 | 2 |
-| [[Reference/Desktop/TypeScript/components/askFigures|askFigures.tsx]] | `ACTIVE` | Provides the reusable `askFigures` interaction surface used by one or more desktop workflows. | 10 | 3 |
+| [[Reference/Desktop/TypeScript/components/askFigures|askFigures.tsx]] | `ACTIVE` | Provides the reusable `askFigures` interaction surface used by one or more desktop workflows. | 9 | 3 |
 | [[Reference/Desktop/TypeScript/components/askPanel|askPanel.tsx]] | `ACTIVE` | Provides the reusable `askPanel` interaction surface used by one or more desktop workflows. | 5 | 3 |
 | [[Reference/Desktop/TypeScript/components/askSuggestions|askSuggestions.ts]] | `ACTIVE` | Provides shared `askSuggestions` state or utility behavior for desktop components. | 1 | 1 |
 | [[Reference/Desktop/TypeScript/components/frameFocus|frameFocus.ts]] | `ACTIVE` | Provides shared `frameFocus` state or utility behavior for desktop components. | 0 | 2 |
@@ -114,7 +114,7 @@ Reusable learner-facing controls and composite interaction surfaces.
 | [[Reference/Desktop/TypeScript/components/pdfPages|pdfPages.ts]] | `ACTIVE` | Provides shared `pdfPages` state or utility behavior for desktop components. | 0 | 1 |
 | [[Reference/Desktop/TypeScript/components/quickAddConsent|quickAddConsent.ts]] | `ACTIVE` | Provides shared `quickAddConsent` state or utility behavior for desktop components. | 1 | 1 |
 | [[Reference/Desktop/TypeScript/components/sourceTail|sourceTail.ts]] | `ACTIVE` | Provides shared `sourceTail` state or utility behavior for desktop components. | 0 | 3 |
-| [[Reference/Desktop/TypeScript/components/term|term.tsx]] | `ACTIVE` | Provides the reusable `term` interaction surface used by one or more desktop workflows. | 0 | 155 |
+| [[Reference/Desktop/TypeScript/components/term|term.tsx]] | `ACTIVE` | Provides the reusable `term` interaction surface used by one or more desktop workflows. | 0 | 158 |
 | [[Reference/Desktop/TypeScript/components/ui|ui.tsx]] | `ACTIVE` | Provides the reusable `ui` interaction surface used by one or more desktop workflows. | 3 | 23 |
 | [[Reference/Desktop/TypeScript/components/useSourceFileDrop|useSourceFileDrop.ts]] | `ACTIVE` | Provides shared `useSourceFileDrop` state or utility behavior for desktop components. | 0 | 5 |
 

@@ -18,6 +18,7 @@ from learnloop.db.migrate import applied_versions, discover_migrations, schema_i
 from learnloop.db.repositories import Repository
 from learnloop.hints.map_builder import BackgroundBuilds
 from learnloop.substrate.canonical_projection_rollout import (
+    forget_fold_memo,
     refresh_canonical_projection_on_startup,
 )
 from learnloop.learner.facet_diagnostics import mastery_diagnostic_view
@@ -149,6 +150,8 @@ class SidecarContext:
         if self.vault_root is not None and target != self.vault_root:
             # A switch: the previous vault's map builds stop before anything of the new one opens.
             self.map_builds.close()
+            # followups-nov1c B: the previous vault's fold memo and its watcher go too.
+            forget_fold_memo()
             # Plan-first transport T1 (review F4): "Use OpenRouter instead" was
             # the previous vault's; the new one is asked again.
             from learnloop.ai import plan_fallback
@@ -359,6 +362,14 @@ class SidecarContext:
         except Exception:  # noqa: BLE001 - never block opening the vault
             _LOGGER.warning("could not queue unread replies to hints", exc_info=True)
         try:
+            # Curriculum C5: the linked notes' snapshots with no reading yet (with the
+            # learner's opt-in only; switched off no note row is read).
+            from learnloop.diagnosis.text_gaps.jobs import enqueue_learner_notes
+
+            enqueue_learner_notes(self.vault, self.repository)
+        except Exception:  # noqa: BLE001 - never block opening the vault
+            _LOGGER.warning("could not queue linked notes for gaps", exc_info=True)
+        try:
             from learnloop.hints.outcome import reconcile_outcome_placements
 
             reconcile_outcome_placements(self.vault, self.repository.sqlite_path,
@@ -438,6 +449,8 @@ class SidecarContext:
         self.close_background_builds()
         self.background_jobs.close()
         _forget_reading_choice()
+        # followups-nov1c B: the canonical fold's memo and its database watcher.
+        forget_fold_memo()
 
     def _worker_target(self) -> tuple[LoadedVault, Path] | None:
         if self.vault is None or self.repository is None:

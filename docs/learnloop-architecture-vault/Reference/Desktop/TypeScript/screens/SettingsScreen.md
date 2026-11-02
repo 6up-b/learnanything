@@ -12,7 +12,7 @@ source_paths:
   - "apps/learnloop-tauri/src/screens/SettingsScreen.tsx"
 source_commit: "c1642215eb413a66183f89ba6991707422043f6c"
 source_commit_timestamp: "2026-10-31T18:28:19-04:00"
-source_worktree_state: "clean"
+source_worktree_state: "staged-or-mixed"
 activation_kind: "entry-reachable build graph"
 activation_evidence: "A static TypeScript import path reaches this file from the Vite entry src/main.tsx."
 generated: true
@@ -42,12 +42,12 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/screens/SettingsScreen.tsx](../../../../../../apps/learnloop-tauri/src/screens/SettingsScreen.tsx) |
-| Source lines | 1025 |
+| Source lines | 1029 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/screens/_area|TypeScript/screens]] |
 | Refactor status | `ACTIVE` |
 | Activation kind | `entry-reachable build graph` |
-| Worktree state | `clean` |
+| Worktree state | `staged-or-mixed` |
 | Source commit | `c1642215eb413a66183f89ba6991707422043f6c` |
 | Commit timestamp | `2026-10-31T18:28:19-04:00` |
 
@@ -60,68 +60,68 @@ The system-level behavior stays authoritative in the linked architecture, concep
 
 ## Public API
 
-- `export const PALETTE_STORAGE_KEY = "learnloop.palette"` — const, line 70
-- `export function SettingsOverlay(` — function, line 99
-- `export function SettingsScreen(` — function, line 142
+- `export const PALETTE_STORAGE_KEY = "learnloop.palette"` — const, line 72
+- `export function SettingsOverlay(` — function, line 101
+- `export function SettingsScreen(` — function, line 144
 
 ## Internal implementation anchors
 
-- `const USE_CASES: Array<` — const, line 25
-- `const TRANSCRIPTION_PROVIDERS = [` — const, line 38
-- `const OPENROUTER_TRANSCRIPTION_MODEL_SUGGESTION = "google/gemini-2.5-flash"` — const, line 42
-- `const OPENROUTER_VIDEO_MODEL_SUGGESTION = "google/veo-3.1"` — const, line 44
-- `function isNewInteger(draft: number | null, current: number): draft is number` — function, line 47
-- `const ANIMATION_RENDERER_OPTIONS = [` — const, line 50
-- `const ANIMATION_QUALITY_OPTIONS = [` — const, line 54
-- `const BUDGET_ROWS: Array<` — const, line 62
-- `const PALETTES = [` — const, line 71
-- `function applyPalette(palette: string)` — function, line 79
-- `type UseCaseDraft =` — type, line 89
-- `type SettingsScreenProps =` — type, line 91
-- `const settingsQuery = useCachedQuery(["get_settings"], ()` — const, line 152
-- `const settings: SettingsDto | null = settingsQuery.data ?? null` — const, line 156
-- `const acceptSettings = useCallback((next: SettingsDto)` — const, line 177
-- `const providerByName = useMemo(()` — const, line 185
-- `const map = new Map<string,` — const, line 186
-- `const providerOptions = useMemo( ()` — const, line 193
-- `const currentForUseCase = useCallback( (useCase: (typeof USE_CASES)[number]): UseCaseDraft` — const, line 203
-- `const routed = settings?.ai.routing[useCase.primaryRoute] ?? (useCase.fallbackRoute ? settings?.ai.routing[useCase.fallbackRoute] : undefined) ?? settings?.ai.activeProvider ?? "codex"` — const, line 205
-- `const model = providerByName.get(routed)?.model ?? providerByName.get("openrouter")?.model ?? ""` — const, line 211
-- `const draftFor = (useCase: (typeof USE_CASES)[number]): UseCaseDraft` — const, line 219
-- `const applyUseCase = async (useCase: (typeof USE_CASES)[number])` — const, line 222
-- `const draft = draftFor(useCase)` — const, line 223
-- `const choice: UseCaseChoiceInput =` — const, line 229
-- `const result = await api.updateAiSettings(` — const, line 233
-- `const next =` — const, line 236
-- `const saveKey = async (value: string)` — const, line 248
-- `const result = await api.setOpenrouterApiKey(value)` — const, line 253
-- `const saveBudgets = async ()` — const, line 267
-- `const budgets: Partial<IngestBudgetsDto> =` — const, line 269
-- `const result = await api.updateIngestSettings(` — const, line 275
-- `const rowStyle =` — const, line 292
-- `const labelStyle =` — const, line 301
-- `const hintStyle =` — const, line 302
-- `const inputStyle =` — const, line 303
-- `const buttonStyle = (enabled: boolean)` — const, line 312
-- `const envOverride = settings.ai.envProviderOverride` — const, line 332
-- `const budgetsDirty = BUDGET_ROWS.some((` — const, line 333
-- `const draft = budgetDrafts[field]` — const, line 335
-- `const budgetsInvalid = BUDGET_ROWS.some((` — const, line 340
-- `const draft = budgetDrafts[field]` — const, line 342
-- `const transcriptionProvider = transcriptionProviderDraft ?? settings.ingest.transcriptionProvider` — const, line 349
-- `const transcriptionDirty = (transcriptionProviderDraft !== null && transcriptionProviderDraft !== settings.ingest.transcriptionProvider) || (transcriptionModelDraft !== null && transcriptionModelDraft !== settings.ingest.transcriptionModel) || (transcriptionU…` — const, line 350
-- `const draft = draftFor(useCase)` — const, line 385
-- `const current = currentForUseCase(useCase)` — const, line 386
-- `const isManual = useCase.id === "grading" && manualGrading && !drafts[useCase.id]` — const, line 387
-- `const dirty = !isManual && (draft.provider !== current.provider || (draft.provider === "openrouter" && draft.model !== current.model))` — const, line 388
-- `const canApply = dirty && busy === null && (draft.provider !== "openrouter" || draft.model.trim().length > 0)` — const, line 390
-- `const options = useCase.id === "grading" ? [...providerOptions, "manual"] : providerOptions` — const, line 392
-- `const model = transcriptionModelDraft ?? settings.ingest.transcriptionModel` — const, line 619
-- `const slug = videoModelDraft.trim()` — const, line 792
-- `const saved = settings.ingest.budgets[field]` — const, line 918
-- `const draft = budgetDrafts[field]` — const, line 920
-- `const value = draft ?? saved` — const, line 921
-- `const invalid = !Number.isFinite(value) || value < min || value > max` — const, line 922
+- `const USE_CASES: Array<` — const, line 27
+- `const TRANSCRIPTION_PROVIDERS = [` — const, line 40
+- `const OPENROUTER_TRANSCRIPTION_MODEL_SUGGESTION = "google/gemini-2.5-flash"` — const, line 44
+- `const OPENROUTER_VIDEO_MODEL_SUGGESTION = "google/veo-3.1"` — const, line 46
+- `function isNewInteger(draft: number | null, current: number): draft is number` — function, line 49
+- `const ANIMATION_RENDERER_OPTIONS = [` — const, line 52
+- `const ANIMATION_QUALITY_OPTIONS = [` — const, line 56
+- `const BUDGET_ROWS: Array<` — const, line 64
+- `const PALETTES = [` — const, line 73
+- `function applyPalette(palette: string)` — function, line 81
+- `type UseCaseDraft =` — type, line 91
+- `type SettingsScreenProps =` — type, line 93
+- `const settingsQuery = useCachedQuery(["get_settings"], ()` — const, line 154
+- `const settings: SettingsDto | null = settingsQuery.data ?? null` — const, line 158
+- `const acceptSettings = useCallback((next: SettingsDto)` — const, line 179
+- `const providerByName = useMemo(()` — const, line 187
+- `const map = new Map<string,` — const, line 188
+- `const providerOptions = useMemo( ()` — const, line 195
+- `const currentForUseCase = useCallback( (useCase: (typeof USE_CASES)[number]): UseCaseDraft` — const, line 205
+- `const routed = settings?.ai.routing[useCase.primaryRoute] ?? (useCase.fallbackRoute ? settings?.ai.routing[useCase.fallbackRoute] : undefined) ?? settings?.ai.activeProvider ?? "codex"` — const, line 207
+- `const model = providerByName.get(routed)?.model ?? providerByName.get("openrouter")?.model ?? ""` — const, line 213
+- `const draftFor = (useCase: (typeof USE_CASES)[number]): UseCaseDraft` — const, line 221
+- `const applyUseCase = async (useCase: (typeof USE_CASES)[number])` — const, line 224
+- `const draft = draftFor(useCase)` — const, line 225
+- `const choice: UseCaseChoiceInput =` — const, line 231
+- `const result = await api.updateAiSettings(` — const, line 235
+- `const next =` — const, line 238
+- `const saveKey = async (value: string)` — const, line 250
+- `const result = await api.setOpenrouterApiKey(value)` — const, line 255
+- `const saveBudgets = async ()` — const, line 269
+- `const budgets: Partial<IngestBudgetsDto> =` — const, line 271
+- `const result = await api.updateIngestSettings(` — const, line 277
+- `const rowStyle =` — const, line 294
+- `const labelStyle =` — const, line 303
+- `const hintStyle =` — const, line 304
+- `const inputStyle =` — const, line 305
+- `const buttonStyle = (enabled: boolean)` — const, line 314
+- `const envOverride = settings.ai.envProviderOverride` — const, line 334
+- `const budgetsDirty = BUDGET_ROWS.some((` — const, line 335
+- `const draft = budgetDrafts[field]` — const, line 337
+- `const budgetsInvalid = BUDGET_ROWS.some((` — const, line 342
+- `const draft = budgetDrafts[field]` — const, line 344
+- `const transcriptionProvider = transcriptionProviderDraft ?? settings.ingest.transcriptionProvider` — const, line 351
+- `const transcriptionDirty = (transcriptionProviderDraft !== null && transcriptionProviderDraft !== settings.ingest.transcriptionProvider) || (transcriptionModelDraft !== null && transcriptionModelDraft !== settings.ingest.transcriptionModel) || (transcriptionU…` — const, line 352
+- `const draft = draftFor(useCase)` — const, line 387
+- `const current = currentForUseCase(useCase)` — const, line 388
+- `const isManual = useCase.id === "grading" && manualGrading && !drafts[useCase.id]` — const, line 389
+- `const dirty = !isManual && (draft.provider !== current.provider || (draft.provider === "openrouter" && draft.model !== current.model))` — const, line 390
+- `const canApply = dirty && busy === null && (draft.provider !== "openrouter" || draft.model.trim().length > 0)` — const, line 392
+- `const options = useCase.id === "grading" ? [...providerOptions, "manual"] : providerOptions` — const, line 394
+- `const model = transcriptionModelDraft ?? settings.ingest.transcriptionModel` — const, line 621
+- `const slug = videoModelDraft.trim()` — const, line 794
+- `const saved = settings.ingest.budgets[field]` — const, line 920
+- `const draft = budgetDrafts[field]` — const, line 922
+- `const value = draft ?? saved` — const, line 923
+- `const invalid = !Number.isFinite(value) || value < min || value > max` — const, line 924
 
 ## Who imports or calls it
 
@@ -144,6 +144,8 @@ The system-level behavior stays authoritative in the linked architecture, concep
 - [[Reference/Desktop/TypeScript/components/term|src/components/term.tsx]] — import-or-re-export; imports `COLOR`, `FONT_MONO`, `TermCheckbox`, `TermSelect`
 - [[Reference/Desktop/TypeScript/components/ui|src/components/ui.tsx]] — import-or-re-export; imports `SectionHeader`
 - [[Reference/Desktop/TypeScript/screens/practice/HelpStyleSettings|src/screens/practice/HelpStyleSettings.tsx]] — import-or-re-export; imports `HelpStyleSettings`
+- [[Reference/Desktop/TypeScript/screens/reader/HiddenNotesSettings|src/screens/reader/HiddenNotesSettings.tsx]] — import-or-re-export; imports `HiddenNotesSettings`
+- [[Reference/Desktop/TypeScript/screens/reader/NotesGapsSettings|src/screens/reader/NotesGapsSettings.tsx]] — import-or-re-export; imports `NotesGapsSettings`
 - [[Reference/Desktop/TypeScript/screens/reader/ReaderCorrespondenceSettings|src/screens/reader/ReaderCorrespondenceSettings.tsx]] — import-or-re-export; imports `ReaderCorrespondenceSettings`
 - [[Reference/Desktop/TypeScript/screens/reader/ReaderCueSettings|src/screens/reader/ReaderCueSettings.tsx]] — import-or-re-export; imports `ReaderCueSettings`
 
