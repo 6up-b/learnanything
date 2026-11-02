@@ -185,3 +185,147 @@ def test_with_the_rich_tiers_off_a_kept_view_goes_out_exactly_as_kept(tmp_path, 
     world, ctx, _author, job = _quick_world(tmp_path, monkeypatch)
     assert "fuller" not in job["result"]["figure"]
     assert call(ctx, "reader.figure_job", {"jobId": job["jobId"]})["result"] == job["result"]
+
+
+# ---------------------------------------------------------------------------
+# Codex review F3: a marked row with no record fails closed
+# ---------------------------------------------------------------------------
+
+def _strip_record(repository, figure_id: str) -> None:
+    """The row as a quick figure built before quick rows kept the record."""
+
+    with repository.connection() as connection:
+        connection.execute("UPDATE interactive_figures SET verification_report_json = "
+                           "json_remove(verification_report_json, '$.learner_state_inputs') WHERE id = ?",
+                           (figure_id,))
+        connection.commit()
+
+
+def test_a_marked_quick_figure_with_no_record_is_withheld(tmp_path, monkeypatch):
+    """F3: before the fix a ``+learner-v1`` quick row with no record and no rich
+    intent was listed and delivered whatever its inputs had become."""
+
+    world, ctx, _author, job = _quick_world(tmp_path, monkeypatch)
+    figure_id = job["result"]["figure"]["figureId"]
+    _strip_record(world.repository, figure_id)
+    row = _quick_row(world.repository)
+    assert "+learner-v1" in row["prompt_version"] and RICH.LEARNER_STATE_INPUTS_KEY not in row["verification_report"]
+    vault = load_vault(world.root)
+    assert FS.learner_state_withheld(vault, world.repository, row) == FS.LEARNER_STATE_UNRECORDED
+    assert FS.figure_withheld(vault, world.repository, figure_id)
+    assert FS.list_figures(vault, world.repository, EXTRACTION) == []
+
+
+def test_an_unmarked_quick_figure_with_no_record_keeps_the_no_learner_state_reading(tmp_path):
+    """F3: a row whose prompt version carries no ``+learner-v1`` was sent no
+    learner state; with no record it has nothing to check, as before."""
+
+    paths, repository = _plain_vault(tmp_path, switch=False)
+    ctx = context(paths.root, author=AuthorFake([flagship(kind="illustrative")]))
+    build(ctx)
+    row = _quick_row(repository)
+    assert "+learner-v1" not in row["prompt_version"]
+    vault = load_vault(paths.root)
+    assert FS.learner_state_withheld(vault, repository, row) is None
+    assert not FS.figure_withheld(vault, repository, row["id"])
+
+
+def test_a_press_of_the_same_input_records_the_marked_rows_dependencies(tmp_path, monkeypatch):
+    """F3, "unless dependencies can be established": the press's own read of
+    the learner state matches the row's (the input hash names the state's
+    hash), so it records what that read came from on the row; the figure goes
+    out again, with no author call, and is withheld once those are protected."""
+
+    world, ctx, author, job = _quick_world(tmp_path, monkeypatch)
+    figure_id = job["result"]["figure"]["figureId"]
+    recorded = _quick_row(world.repository)["verification_report"][RICH.LEARNER_STATE_INPUTS_KEY]
+    _strip_record(world.repository, figure_id)
+    calls = author.calls
+    again = call(ctx, "reader.figure_request", {"extractionId": EXTRACTION, "spanIds": ["p3"]})
+    assert again["state"] == "done" and again["result"]["figure"]["figureId"] == figure_id, again
+    assert author.calls == calls  # reused, never rebuilt
+    assert _quick_row(world.repository)["verification_report"][RICH.LEARNER_STATE_INPUTS_KEY] == recorded
+    vault = load_vault(world.root)
+    assert not FS.figure_withheld(vault, world.repository, figure_id)
+    _make_exam_material(SimpleNamespace(paths=world.paths))
+    assert FS.figure_withheld(load_vault(world.root), world.repository, figure_id)
+
+
+# ---------------------------------------------------------------------------
+# Codex review F4: a queued rich revision checks what it inherits
+# ---------------------------------------------------------------------------
+
+def _rich_revision_queued(tmp_path, monkeypatch):
+    """A rich figure written from the learner's state, then "not right?" on it
+    queued with the switch off (the revision sends no state of its own)."""
+
+    from tests import rich_fixtures as RF
+
+    rig = _rich_history_rig(tmp_path, monkeypatch)
+    rig.rich_author = RF.RichAuthorFake([RF.scene_output(), RF.scene_output(
+        scene=RF.SCENE.replace("color=BLUE", "color=RED"))])
+    rig.build()
+    rig.ingest.drain()
+    rich = _rich_row(rig.repository)
+    assert rich["verification_report"][RICH.LEARNER_STATE_INPUTS_KEY]
+    _switch_off(rig.paths)
+    outcome = rig.build(FS.revision_request(rig.repository, rich, "red please"))
+    assert outcome.rich["state"] == "pending"
+    payload = rig.job()["payload"]
+    assert "learner_state" not in payload["author_context"]  # nothing of its own
+    assert payload[RICH.INHERITED_LEARNER_INPUTS_KEY]
+    return rig
+
+
+def test_a_queued_rich_revision_never_sends_a_program_whose_learner_inputs_became_protected(tmp_path, monkeypatch):
+    """F4: before the fix the queued revision checked only its own (absent)
+    learner state and sent the earlier program to the rich author."""
+
+    rig = _rich_revision_queued(tmp_path, monkeypatch)
+    _make_exam_material(rig)
+    rig.ingest.drain()
+    job = rig.job()
+    assert rig.rich_author.calls == 1  # only the first version's
+    assert job["status"] == "failed" and job["error"]["code"] == "exam_material", job
+    assert len([row for row in rows(rig.repository, "interactive_figures") if row["tier"] == "manim"]) == 1
+
+
+def test_a_queued_rich_revision_stops_when_an_inherited_input_becomes_protected_while_it_runs(tmp_path, monkeypatch):
+    """F4: the inherited inputs are the gate's hold too (before the store)."""
+
+    from tests import rich_fixtures as RF
+
+    rig = _rich_revision_queued(tmp_path, monkeypatch)
+
+    class ProtectingRenders(RF.Renders):
+        def __call__(self, scene_code, scene_class, **kwargs):
+            _make_exam_material(rig)
+            return super().__call__(scene_code, scene_class, **kwargs)
+
+    from learnloop.content.pipeline.runner import IngestRunner, RunnerServices
+
+    rig.renders = ProtectingRenders()
+    rig.ingest = IngestRunner(rig.repository, vault_root=rig.paths.root, worker_id="w2", services=RunnerServices(
+        figure_rich_client_factory=lambda ctx: rig.rich_author, figure_rich_renderer=rig.renders,
+        figure_function_runner=rig.functions))
+    rig.ingest.drain()
+    job = rig.job()
+    assert job["status"] == "failed" and job["error"]["code"] == "exam_material", job
+    assert len([row for row in rows(rig.repository, "interactive_figures") if row["tier"] == "manim"]) == 1
+
+
+def test_a_rich_revision_with_nothing_inherited_carries_no_record(tmp_path, monkeypatch):
+    """F4's switch-off pin: no earlier version was written from a learner state,
+    so the revision's payload is exactly as before (no key)."""
+
+    from tests import rich_fixtures as RF
+    from tests.test_figure_rich_job import WHY, _Rig
+
+    rig = _Rig(tmp_path, monkeypatch, [("rich", "manim", RF.brief(), WHY)], [RF.scene_output(), RF.scene_output()])
+    rig.build()
+    rig.ingest.drain()
+    (first,) = rig.listed()
+    with rig.repository.connection() as connection:
+        base = store.figure(connection, first["figure_id"])
+    rig.build(FS.revision_request(rig.repository, base, "red"))
+    assert RICH.INHERITED_LEARNER_INPUTS_KEY not in rig.job()["payload"]

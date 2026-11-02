@@ -516,8 +516,59 @@ def learner_state_withheld(vault: Any, repository: Repository, row: Mapping[str,
     each row's own record (quick and rich rows alike keep
     ``learner_state_inputs`` in their report) and a quick figure's rich intent
     (the job's payload, so a fuller version stored with no record of its own
-    is checked by what its job carried). A figure no author of which was sent
-    a learner state has nothing to check here, exactly as before."""
+    is checked by what its job carried). A row whose prompt version says its
+    author was sent a learner state (``+learner-v1``) but that keeps no record
+    and no intent carrying one (a quick figure built before quick rows kept
+    the record) has dependencies nobody can name: it is withheld (Codex review
+    F3) until a press of the same input records them
+    (:func:`_establish_learner_inputs`). A figure no author of which was sent a
+    learner state has nothing to check here, exactly as before."""
+
+    lineage = _lineage(repository, row)
+    if lineage is None:
+        return None
+    for found in lineage:
+        message = RICH.stored_learner_state_withheld(vault, repository, found)
+        intent = _rich_intent(found)
+        if message is None:
+            message = RICH.intent_learner_state_withheld(vault, repository, intent)
+        if message is None and _learner_inputs_unrecorded(found):
+            message = LEARNER_STATE_UNRECORDED
+        if message is not None:
+            return message
+    return None
+
+
+#: Codex review F3: a figure whose author was sent the learner's state (its
+#: prompt version says so) but whose row keeps no record of what that state
+#: was read from.
+LEARNER_STATE_UNRECORDED = ("That figure was made from what LearnLoop knew about your work then, and what that was "
+                            "read from wasn't kept, so it isn't shown; ask for it again.")
+
+
+def _rich_intent(row: Mapping[str, Any]) -> Any:
+    report = row.get("verification_report") or {}
+    return report.get(RICH_INTENT_KEY) if isinstance(report, Mapping) else None
+
+
+def _learner_inputs_unrecorded(row: Mapping[str, Any]) -> bool:
+    """Codex review F3: the row's author was sent a learner state (the prompt
+    version's ``+learner-v1``) and neither its report nor its rich intent
+    keeps what that state was read from. An unmarked row (no learner state
+    sent) is never unrecorded."""
+
+    if R.LEARNER_SUFFIX not in str(row.get("prompt_version") or ""):
+        return False
+    report = row.get("verification_report") or {}
+    if isinstance(report, Mapping) and RICH.LEARNER_STATE_INPUTS_KEY in report:
+        return False
+    intent = _rich_intent(row)
+    return not (isinstance(intent, Mapping) and RICH.LEARNER_STATE_INPUTS_KEY in intent)
+
+
+def _lineage(repository: Repository, row: Mapping[str, Any]) -> list[Mapping[str, Any]] | None:
+    """The figure and every figure it was made from (``supersedes_id``,
+    ``fuller_of_id``), read from the current rows; None without the tables."""
 
     lineage = [row]
     seen = {str(row.get("id") or "")}
@@ -534,15 +585,48 @@ def learner_state_withheld(vault: Any, repository: Repository, row: Mapping[str,
                     parent = store.figure(connection, str(parent_id))
                     if parent is not None:
                         lineage.append(parent)
-    for found in lineage:
-        message = RICH.stored_learner_state_withheld(vault, repository, found)
-        if message is None:
-            report = found.get("verification_report") or {}
-            intent = report.get(RICH_INTENT_KEY) if isinstance(report, Mapping) else None
-            message = RICH.intent_learner_state_withheld(vault, repository, intent)
-        if message is not None:
-            return message
-    return None
+    return lineage
+
+
+def inherited_learner_inputs(repository: Repository, row: Mapping[str, Any]) -> list[Any]:
+    """What every learner state the authors of ``row`` and of the figures it
+    was made from were sent was read from (Codex review F4): a revision's rich
+    job carries it, so the job checks it at admission, before every request
+    and before it stores, though the revision sends no learner state of its
+    own (it sends the earlier program). A marked row with no record gives
+    ``None``, which the check fails closed on. Empty when none was sent."""
+
+    inherited: list[Any] = []
+    for found in _lineage(repository, row) or ():
+        report = found.get("verification_report") or {}
+        if isinstance(report, Mapping) and RICH.LEARNER_STATE_INPUTS_KEY in report:
+            inherited.append(report[RICH.LEARNER_STATE_INPUTS_KEY])
+        intent = _rich_intent(found)
+        if isinstance(intent, Mapping) and RICH.LEARNER_STATE_INPUTS_KEY in intent:
+            inherited.append(intent[RICH.LEARNER_STATE_INPUTS_KEY])
+        if _learner_inputs_unrecorded(found):
+            inherited.append(None)
+    return inherited
+
+
+def _establish_learner_inputs(repository: Repository, row: Mapping[str, Any] | None,
+                              request: "FigureRequest") -> Mapping[str, Any] | None:
+    """Codex review F3: a press reusing a marked row that keeps no record
+    records what ITS OWN read of the learner state was read from on that row.
+    The reuse matched the input hash, which names the state's hash, so the
+    state this press read is the state the row's author was sent; from then
+    on the row is checked like any other (and withheld if any of it is
+    protected now). Only where the row still has no record; otherwise the row
+    as it is."""
+
+    if row is None or not request.learner_state or request.learner_state_inputs is None:
+        return row
+    if not _learner_inputs_unrecorded(row):
+        return row
+    with repository.atomic():
+        store.record_learner_inputs(repository.connection(), str(row["id"]), request.learner_state_inputs)
+    with closing(connect(repository.sqlite_path, read_only=True)) as connection:
+        return store.figure(connection, str(row["id"])) or row
 
 
 def _with_learner_inputs(report: Mapping[str, Any], request: "FigureRequest") -> dict[str, Any]:
@@ -1722,6 +1806,7 @@ def _build(vault: Any, repository: Repository, request: FigureRequest, *, gate: 
         reused = _reusable(vault, repository, connection, input_hash, other_hash)
         seen = store.latest_for_input(connection, input_hash, SPEC_VERSIONS)
     if reused is not None:
+        reused = _establish_learner_inputs(repository, reused, request)
         return _reused(vault, repository, reused, request=request, grounding=grounding, clock=clock, gate=gate)
     pending = _rich_pending(vault, repository, request, input_hash)
     if pending is not None:
@@ -1751,6 +1836,7 @@ def _build(vault: Any, repository: Repository, request: FigureRequest, *, gate: 
             # again" asks the author, and then the rich author, afresh.
             generation = store.builds_for_input(connection, input_hash, ALL_SPEC_VERSIONS)
         if reused is not None:
+            reused = _establish_learner_inputs(repository, reused, request)
             return _reused(vault, repository, reused, request=request, grounding=grounding, clock=clock, gate=gate)
         if latest is not None and (seen is None or latest["id"] != seen["id"]):
             return _reused(vault, repository, latest, request=request, grounding=grounding, clock=clock, gate=gate)
@@ -2416,8 +2502,18 @@ def _rich_revision(vault: Any, repository: Repository, request: FigureRequest, c
     spawn = _RichSpawn(repository, spawn_rich, brief, request, context, grounding, digest, input_hash, asset_id, None, None,
                        RICH.RICH_PROMPT_VERSION, generation, previous, request_id, None,
                        extra={"supersedes_id": previous["id"], "fuller_of_id": previous.get("fuller_of_id"),
-                              "revision": revision})
+                              "revision": revision, **_inherited_extra(repository, previous)})
     return spawn.only(vault, repository, asked, gate=gate, clock=clock)
+
+
+def _inherited_extra(repository: Repository, previous: Mapping[str, Any]) -> dict[str, Any]:
+    """Codex review F4: a rich revision's job payload carries what the learner
+    states its earlier versions' authors were sent were read from
+    (:func:`inherited_learner_inputs`); absent when none was sent, so every
+    other revision's payload is exactly as before."""
+
+    inherited = inherited_learner_inputs(repository, previous)
+    return {RICH.INHERITED_LEARNER_INPUTS_KEY: inherited} if inherited else {}
 
 
 def _append_tier(connection: Any, figure_id: str, input_hash: str, verdict: tuple[str, str], author: R.FigureRoute,

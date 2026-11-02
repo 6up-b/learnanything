@@ -455,6 +455,18 @@ def run_rich_job(vault: Any, repository: Repository, payload: Mapping[str, Any],
     if message is not None:
         raise RichJobStopped("exam_material", message)
     key, hold = rich_build_key, None
+    if _inherits_learner_state(payload):
+        # Codex review F4: a revision sends its earlier versions' program,
+        # written from the learner states their authors were sent; what those
+        # were read from is checked now, before every request and before the
+        # store, though the revision sends no learner state of its own.
+        message = _inherited_withheld(vault, repository, payload)
+        if message is not None:
+            raise RichJobStopped("exam_material", message)
+
+        def hold(current: Any) -> str | None:
+            return _inherited_withheld(current, repository, payload)
+
     if _carries_learner_state(payload):
         # Learner data-relax 2 (Codex review F2): the saved context carries
         # the learner's state. Switched off since it was saved, it is never
@@ -471,7 +483,8 @@ def run_rich_job(vault: Any, repository: Repository, payload: Mapping[str, Any],
             return (*rich_build_key(current), author_learner_state_enabled(current))
 
         def hold(current: Any) -> str | None:
-            return _learner_state_withheld(current, repository, payload)
+            return _learner_state_withheld(current, repository, payload) or _inherited_withheld(
+                current, repository, payload)
 
     gate = FiguresGate(vault, key, live_vault=live_vault, hold=hold)
     try:
@@ -502,6 +515,29 @@ LEARNER_STATE_INPUTS_KEY = "learner_state_inputs"
 
 def _carries_learner_state(payload: Mapping[str, Any]) -> bool:
     return bool((payload.get("author_context") or {}).get("learner_state"))
+
+
+#: Codex review F4: a rich revision job's record of what the learner states
+#: its earlier versions' authors were sent were read from (a list; ``None``
+#: for a version with no record, which fails closed). Absent when none was.
+INHERITED_LEARNER_INPUTS_KEY = "inherited_learner_state_inputs"
+
+
+def _inherits_learner_state(payload: Mapping[str, Any]) -> bool:
+    return bool(payload.get(INHERITED_LEARNER_INPUTS_KEY))
+
+
+def _inherited_withheld(vault: Any, repository: Repository, payload: Mapping[str, Any]) -> str | None:
+    """Why a revision job's inherited learner states may not be built on now,
+    or None (each against the protection as it is now; no record: fail closed)."""
+
+    from learnloop.figures.learner_state import inputs_withheld
+
+    for inputs in payload.get(INHERITED_LEARNER_INPUTS_KEY) or ():
+        reason = inputs_withheld(vault, repository, inputs)
+        if reason is not None:
+            return LEARNER_STATE_PROTECTED.format(reason=reason)
+    return None
 
 
 def stored_learner_state_withheld(vault: Any, repository: Repository, row: Mapping[str, Any]) -> str | None:
@@ -539,6 +575,8 @@ def _recovered(vault: Any, repository: Repository, payload: Mapping[str, Any],
     message = stored_learner_state_withheld(vault, repository, found)
     if message is None and _carries_learner_state(payload):
         message = _learner_state_withheld(vault, repository, payload)
+    if message is None and _inherits_learner_state(payload):
+        message = _inherited_withheld(vault, repository, payload)  # Codex review F4
     if message is not None:
         raise RichJobStopped("exam_material", message)
     return {"figure_id": found["id"], "verification": found["verification"], "reused": True}
