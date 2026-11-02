@@ -10310,7 +10310,8 @@ export interface WorkbenchRequestHelpInput {
 
 /** lesson.turn's input: open a lesson ("Teach me this") or take one step in it. */
 export interface LessonTurnInput {
-  action: "open" | "reply" | "answer_prediction" | "answer_check" | "stop";
+  /** `resume`: run the teacher's turn an outage interrupted (nothing new from the learner). */
+  action: "open" | "reply" | "answer_prediction" | "answer_check" | "stop" | "resume";
   lessonId?: string;
   entry?: "learning_object" | "reader_selection" | "new_topic";
   learningObjectIds?: string[];

@@ -96,3 +96,46 @@ it("a plan outage shows a plain line, not an error", async () => {
   expect(screen.getByTestId("lesson-unavailable").textContent).toContain("isn't available");
   expect(onError).not.toHaveBeenCalled();
 });
+
+it("an opening that failed after the lesson was saved is resumed, never opened twice (review F11)", async () => {
+  api.lessonTurn.mockRejectedValueOnce({ code: "plan_unavailable", message: "The teacher isn't available right now.",
+                                         details: { lesson_id: "les1" } });
+  api.lessonView.mockResolvedValueOnce(lesson({ feed: [] }));
+  await act(async () => {
+    render(<LessonScreen entry={{ kind: "open", entry: "learning_object", learningObjectIds: ["lo_eigen"] }}
+                         onClose={vi.fn()} onError={vi.fn()} />);
+  });
+  expect(api.lessonView).toHaveBeenCalledWith({ lessonId: "les1" });
+  api.lessonTurn.mockResolvedValueOnce(lesson());
+  await act(async () => { fireEvent.click(screen.getByTestId("lesson-retry")); });
+  expect(api.lessonTurn).toHaveBeenLastCalledWith({ action: "resume", lessonId: "les1" });
+  expect(api.lessonTurn).toHaveBeenCalledTimes(2);
+  expect(screen.getByText("Here is the map.")).toBeTruthy();
+  expect(screen.queryByTestId("lesson-retry")).toBeNull();
+});
+
+it("an opening that saved nothing is repeated by Try again", async () => {
+  api.lessonTurn.mockRejectedValueOnce({ code: "plan_unavailable", message: "The plan is unavailable." });
+  await act(async () => {
+    render(<LessonScreen entry={{ kind: "open", entry: "learning_object", learningObjectIds: ["lo_eigen"] }}
+                         onClose={vi.fn()} onError={vi.fn()} />);
+  });
+  api.lessonTurn.mockResolvedValueOnce(lesson());
+  await act(async () => { fireEvent.click(screen.getByTestId("lesson-retry")); });
+  expect(api.lessonTurn).toHaveBeenLastCalledWith({ action: "open", entry: "learning_object",
+                                                    learningObjectIds: ["lo_eigen"] });
+  expect(screen.getByText("Here is the map.")).toBeTruthy();
+});
+
+it("a reply that hit an outage resumes the saved lesson", async () => {
+  await open(lesson());
+  api.lessonTurn.mockRejectedValueOnce({ code: "plan_unavailable", message: "The teacher isn't available right now." });
+  api.lessonView.mockResolvedValueOnce(lesson({ feed: [{ kind: "message", text: "Here is the map.", choices: [] },
+                                                       { kind: "learner", text: "Go ahead.", checkRef: null }] }));
+  fireEvent.change(screen.getByLabelText("Reply to the teacher"), { target: { value: "Go ahead." } });
+  await act(async () => { fireEvent.click(screen.getByText("Send")); });
+  expect(screen.getByText("Go ahead.")).toBeTruthy();
+  api.lessonTurn.mockResolvedValueOnce(lesson());
+  await act(async () => { fireEvent.click(screen.getByTestId("lesson-retry")); });
+  expect(api.lessonTurn).toHaveBeenLastCalledWith({ action: "resume", lessonId: "les1" });
+});

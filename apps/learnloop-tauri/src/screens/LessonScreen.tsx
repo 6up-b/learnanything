@@ -9,6 +9,12 @@
 // draft exists. The close card promises only the checks that were actually
 // set. "Check what I already know first" is offered at open and never
 // prompted. Forecasts, receipts and routes stay in the inspector strip.
+//
+// Outages (review F11): when the teacher is unavailable the step that failed
+// stays retryable. "Try again" resumes the saved lesson (an opening that failed
+// after the lesson was saved carries its id, so it is resumed, never opened
+// twice) or repeats an opening that saved nothing; after choosing "Use
+// OpenRouter instead" the learner presses it to continue.
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { api } from "../api/client";
@@ -59,10 +65,13 @@ export function LessonScreen({
   const [tap, setTap] = useState<number | null>(null);
   const [checkOpen, setCheckOpen] = useState(false);
   const [predictionAnswer, setPredictionAnswer] = useState("");
+  /** What "Try again" sends after an outage (null: nothing to retry). */
+  const [retry, setRetry] = useState<LessonTurnInput | null>(null);
 
   const run = useCallback(async (input: LessonTurnInput) => {
     setBusy(true);
     setUnavailable(null);
+    setRetry(null);
     try {
       const next = await api.lessonTurn(input);
       setView(next);
@@ -73,6 +82,17 @@ export function LessonScreen({
       const message = err?.message ?? String(error);
       if (code === "plan_unavailable" || code === "teacher_unavailable" || code === "provider_unavailable") {
         setUnavailable(message);
+        const details = (err?.details ?? {}) as Record<string, unknown>;
+        const saved = details.lesson_id ?? details.lessonId;
+        const lessonId = typeof saved === "string" && saved ? saved : input.lessonId;
+        if (lessonId) {
+          // The step was saved: resume it, and show what the lesson holds so far.
+          setRetry({ action: "resume", lessonId });
+          void api.lessonView({ lessonId }).then(setView).catch(() => undefined);
+        } else {
+          // Nothing was saved (the opening never reached the teacher): repeat it.
+          setRetry(input);
+        }
       } else {
         onError(message);
       }
@@ -161,6 +181,13 @@ export function LessonScreen({
           {unavailable ? (
             <div role="status" data-testid="lesson-unavailable" style={{ color: COLOR.textDim }}>
               {unavailable}
+              {retry ? (
+                <div style={{ marginTop: 6 }}>
+                  <button type="button" data-testid="lesson-retry" disabled={busy} onClick={() => void run(retry)}>
+                    Try again
+                  </button>
+                </div>
+              ) : null}
             </div>
           ) : null}
           {view && !view.closed && openCheck && checkOpen ? (
