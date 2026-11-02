@@ -14,6 +14,7 @@ from learnloop.algorithm_versions import (
     READING_PATH_PLAN_ALGORITHM_VERSION,
     REPLAY_LEDGER_ALGORITHM_VERSION,
     SUPERSEDED_CLAIMS_ALGORITHM_VERSION,
+    TEACHER_ALGORITHM_VERSION,
     WORKBENCH_FIELD_SIGNALS_ALGORITHM_VERSION,
 )
 from learnloop.cli.receipts import command_receipts
@@ -106,8 +107,8 @@ def upgrade(
                 f"{CLAIM_FIXES_ALGORITHM_VERSION}, {REPLAY_LEDGER_ALGORITHM_VERSION}, "
                 f"{ONE_ASK_ALGORITHM_VERSION}, {SUPERSEDED_CLAIMS_ALGORITHM_VERSION}, "
                 f"{ATTEMPT_CONTENT_STATE_ALGORITHM_VERSION}, {COLD_RETRY_RESCHEDULE_ALGORITHM_VERSION}, "
-                f"{READER_FOLLOWUPS_ALGORITHM_VERSION}, {DELIVERABLE_PLAN_ALGORITHM_VERSION} or "
-                f"{HELP_FOLD_ATTACH_ALGORITHM_VERSION}); default: the latest."
+                f"{READER_FOLLOWUPS_ALGORITHM_VERSION}, {DELIVERABLE_PLAN_ALGORITHM_VERSION}, "
+                f"{TEACHER_ALGORITHM_VERSION} or {HELP_FOLD_ATTACH_ALGORITHM_VERSION}); default: the latest."
             ),
         ),
     ] = LATEST_ALGORITHM_VERSION,
@@ -256,12 +257,17 @@ def upgrade(
     C1) has the day's reading follow your deliverable's path across your
     books: the next section on it you haven't finished, in its order, in
     whichever book it is, over an mvp-0.39 vault (or an mvp-0.9 to mvp-0.38
-    vault through the chain; kill switch:
-    ``curriculum.plan_uses_path = false``). ``--to mvp-0.41`` (default, the
-    latest successor) counts a hint you were shown on an answer even when you
-    sent it in a later practice session, so the answer is marked as helped,
-    over an mvp-0.40 vault (or an mvp-0.9 to mvp-0.39 vault through the
-    chain; kill switch: ``hints.fold_follows_attach = false``)."""
+    vault through the chain; kill switch: ``curriculum.plan_uses_path =
+    false``). ``--to mvp-0.41`` (teacher TE1) lets you start a lesson on a
+    topic ("Teach me this"): its checks count a little toward the topic, by
+    an amount learned from your later checks on your own, and it ends by
+    setting one later check on your own per topic taught, over an mvp-0.40
+    vault (or an mvp-0.9 to mvp-0.39 vault through the chain; kill switch:
+    ``teacher.enabled = false``). ``--to mvp-0.42`` (default, the latest
+    successor) counts a hint you were shown on an answer even when you sent
+    it in a later practice session, so the answer is marked as helped, over
+    an mvp-0.41 vault (or an mvp-0.9 to mvp-0.40 vault through the chain;
+    kill switch: ``hints.fold_follows_attach = false``)."""
 
     from learnloop.ops.vault_upgrade import (
         upgrade_to_mvp07,
@@ -396,6 +402,10 @@ def upgrade(
         from learnloop.deliverable_plan_upgrade import upgrade_to_deliverable_plan
 
         result = upgrade_to_deliverable_plan(_root(vault))
+    elif to == TEACHER_ALGORITHM_VERSION:
+        from learnloop.teacher_upgrade import upgrade_to_teacher
+
+        result = upgrade_to_teacher(_root(vault))
     elif to == HELP_FOLD_ATTACH_ALGORITHM_VERSION:
         from learnloop.help_fold_attach_upgrade import upgrade_to_help_fold_attach
 
@@ -410,7 +420,8 @@ def upgrade(
             f"{REPLAY_LEDGER_ALGORITHM_VERSION}, {ONE_ASK_ALGORITHM_VERSION}, "
             f"{SUPERSEDED_CLAIMS_ALGORITHM_VERSION}, {ATTEMPT_CONTENT_STATE_ALGORITHM_VERSION}, "
             f"{COLD_RETRY_RESCHEDULE_ALGORITHM_VERSION}, {READER_FOLLOWUPS_ALGORITHM_VERSION}, "
-            f"{DELIVERABLE_PLAN_ALGORITHM_VERSION} or {HELP_FOLD_ATTACH_ALGORITHM_VERSION}."
+            f"{DELIVERABLE_PLAN_ALGORITHM_VERSION}, {TEACHER_ALGORITHM_VERSION} or "
+            f"{HELP_FOLD_ATTACH_ALGORITHM_VERSION}."
         )
         raise typer.Exit(code=2)
     if result.upgraded:

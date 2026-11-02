@@ -18,6 +18,7 @@ from tests.test_help_assist_figures_migration import P3_ADDED_OBJECTS, P3_ALTERE
 from tests.test_reader_session_digests_migration import RW6B_ADDED_OBJECTS
 from tests.test_deliverable_curriculum_migration import C0B_ADDED_OBJECTS
 from tests.test_learner_notes_migration import C2_ADDED_OBJECTS
+from tests.test_teacher_te1_migration import TE1_ADDED_OBJECTS, TE1_ALTERED_TABLES
 from tests.test_reader_ca2_fix_orchestrator import CA2_ALTERED_TABLES
 from tests.test_learner_claim_superseded_migration import SUPERSEDED_ALTERED_TABLES
 
@@ -54,15 +55,15 @@ def test_222_adds_one_table_and_alters_nothing(tmp_path):
     before = _schema(database)
     with upgrade_allowance(UPGRADE_TEST_HELPER):
         applied = apply_migrations(database)
-    assert [migration.version for migration in applied] == [222, 223, 224, 225, 226, 227, 228, 229, 230, 231, 232, 233, 235]
+    assert [migration.version for migration in applied] == [222, 223, 224, 225, 226, 227, 228, 229, 230, 231, 232, 233, 234, 235]
     after = _schema(database)
     # Reader CA2's 223 (one workbench_sessions column) and RW5d P1's 224 (its table, and
     # interactive_figures rebuilt) follow on the way to head.
     # The successor mvp-0.36's 225 (one learner_claims column) and mobile PR-4's 226 too.
     assert {name for name in before if before[name] != after.get(name)} == (
-        CA2_ALTERED_TABLES | RW5D_ALTERED_TABLES | SUPERSEDED_ALTERED_TABLES | PR4_ALTERED_TABLES | DR2_ALTERED_TABLES | C5_ALTERED_TABLES | P3_ALTERED_TABLES | UNLINKED_ALTERED_TABLES
+        CA2_ALTERED_TABLES | RW5D_ALTERED_TABLES | SUPERSEDED_ALTERED_TABLES | PR4_ALTERED_TABLES | DR2_ALTERED_TABLES | C5_ALTERED_TABLES | P3_ALTERED_TABLES | UNLINKED_ALTERED_TABLES | TE1_ALTERED_TABLES
     )
-    assert set(after) - set(before) - RW5D_ADDED_OBJECTS - PR4_ADDED_OBJECTS - RW6B_ADDED_OBJECTS - C0B_ADDED_OBJECTS - C2_ADDED_OBJECTS - P3_ADDED_OBJECTS == C0A_ADDED_OBJECTS
+    assert set(after) - set(before) - RW5D_ADDED_OBJECTS - PR4_ADDED_OBJECTS - RW6B_ADDED_OBJECTS - C0B_ADDED_OBJECTS - C2_ADDED_OBJECTS - P3_ADDED_OBJECTS - TE1_ADDED_OBJECTS == C0A_ADDED_OBJECTS
 
 
 def test_the_head_fixture_is_at_222_in_rollback_mode():
@@ -130,7 +131,7 @@ def test_222_on_the_durability_lane(tmp_path):
 
     database = _database_at(tmp_path, 221)
     with upgrade_allowance(UPGRADE_TEST_HELPER):
-        assert [migration.version for migration in apply_migrations(database)] == [222, 223, 224, 225, 226, 227, 228, 229, 230, 231, 232, 233, 235]
+        assert [migration.version for migration in apply_migrations(database)] == [222, 223, 224, 225, 226, 227, 228, 229, 230, 231, 232, 233, 234, 235]
     with closing(sqlite3.connect(database)) as connection:
         assert connection.execute("PRAGMA journal_mode").fetchone()[0] == "wal"
     with closing(connect(database)) as connection:

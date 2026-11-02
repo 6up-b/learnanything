@@ -16,7 +16,7 @@ a counted row between the commit and H0's attach.
 
 Replay re-applies the stored ``hints_used`` and never refolds
 (``attempts._refold_server_hints``); only new attempts change. It changes which
-new attempts are primed, so it is the successor mvp-0.41 with the kill switch
+new attempts are primed, so it is the successor mvp-0.42 (built as mvp-0.41) with the kill switch
 ``hints.fold_follows_attach`` (Codex review F1; the gate and the upgrade are
 pinned in ``tests/test_help_fold_attach_successor.py``): these tests run at the
 tag. Fakes only.
@@ -38,7 +38,7 @@ from tests.test_hint_h2a_review_round2 import ARGMAX, SELF_GRADE, _attempt, _cal
 
 def hint_vault(tmp_path, *, version: str | None = None, **kwargs):
     """The hint vault at the successor's tag (Codex review F1: the fold below is
-    mvp-0.41's, behind ``hints.fold_follows_attach``), or at ``version``."""
+    mvp-0.42's, behind ``hints.fold_follows_attach``), or at ``version``."""
 
     from learnloop.algorithm_versions import HELP_FOLD_ATTACH_ALGORITHM_VERSION
     from learnloop.ops.vault_upgrade import rewrite_algorithm_version

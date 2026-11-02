@@ -25,6 +25,7 @@ from learnloop.db.table_roles import TableRole, tables_for_role
 from learnloop.learner.assessment_contracts import CANONICAL_STATE_VERSIONS
 from learnloop.learner.facet_diagnostics import coverage_denominator_version
 from learnloop.learner.identifiability import graph_identifiability_report
+from learnloop.learner.lesson_weight import rebuild_lesson_weight_state
 from learnloop.learner.mastery import initial_mastery_state_for_learning_object
 from learnloop.vault.models import LoadedVault
 
@@ -204,6 +205,17 @@ DERIVED_STATE_REPLAYERS: tuple[DerivedStateReplayer, ...] = (
     # order (deterministic: no random step, fitted_at from the inputs). It
     # reads receipts only, never learner state, and changes no evidence.
     DerivedStateReplayer("retrieval_fusion_posteriors", frozenset({"retrieval_fusion_posteriors"})),
+    # Teacher TE1 (migration 234; spec_teacher_v1 §12.1, §12.2, §18.1): the
+    # learned lesson-check weight, the forecast pool and the tap/hedge
+    # recalibration, recomputed in order from the lesson receipts, the
+    # forecast receipts and the attempt ledger (zero model calls). Mastery
+    # replay reads each check's recorded mass, never this state, so the order
+    # after learning_state is for the report, not for correctness.
+    DerivedStateReplayer(
+        "lesson_weight",
+        frozenset({"lesson_weight_state", "lesson_weight_trace", "confidence_calibration_state"}),
+        ("learning_state",),
+    ),
 )
 
 # A shorter public alias is useful to introspection/CI without obscuring the
@@ -603,6 +615,14 @@ def _run_retrieval_fusion_posteriors(
                           rows_processed=report["written"], details=report)
 
 
+def _run_lesson_weight(
+    spec: DerivedStateReplayer, context: _ReplayContext
+) -> ReplayerResult:
+    report = rebuild_lesson_weight_state(context.vault, context.repository)
+    return ReplayerResult(spec.name, tuple(sorted(spec.owned_tables)), rows_processed=report.get("rows", 0),
+                          details=report)
+
+
 _RUNNERS = {
     "activity_substrate": _run_activity_substrate,
     "recurrence_groups": _run_recurrence_groups,
@@ -618,6 +638,7 @@ _RUNNERS = {
     "adaptive_difficulty": _run_adaptive_difficulty,
     "item_forecast_scores": _run_item_forecast_scores,
     "retrieval_fusion_posteriors": _run_retrieval_fusion_posteriors,
+    "lesson_weight": _run_lesson_weight,
 }
 
 

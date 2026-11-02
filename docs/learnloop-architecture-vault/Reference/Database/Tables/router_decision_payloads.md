@@ -3,13 +3,13 @@ title: "router_decision_payloads"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "47f2ffc037e55db12ce419711e1d4920cae4fad7"
-source_commit_timestamp: "2026-11-02T04:33:30-05:00"
+source_commit: "95dd20a1d45901033891f11b5a598581ca884e63"
+source_commit_timestamp: "2026-11-02T02:34:21-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite router_decision_payloads"
   - "table router_decision_payloads"
-schema_head: 235
+schema_head: 234
 table_name: "router_decision_payloads"
 table_role: "workflow"
 functionality_status: "active"
@@ -49,7 +49,7 @@ It belongs to the **scheduling** navigation family. The family context lives in 
 - **Role:** `workflow` — Mutable queue, session, lease, or other in-flight workflow state. It is preserved across rebuilds.
 - **Functionality status:** `active`.
 - **Introduced by:** `migrations/202_router_staged_frame.sql`.
-- **Schema touched by:** `202_router_staged_frame.sql`, `213_adaptive_difficulty_receipts.sql`.
+- **Schema touched by:** `202_router_staged_frame.sql`, `213_adaptive_difficulty_receipts.sql`, `234_teacher_lessons.sql`.
 - **Rebuild owner:** none; this table is preserved by the rebuild umbrella.
 
 For the distinction between SQLite state and human-authored vault files, see [[State and Persistence]]. For whole-vault creation and opening behavior, see [[Vault Lifecycle]]. ^table-lifecycle

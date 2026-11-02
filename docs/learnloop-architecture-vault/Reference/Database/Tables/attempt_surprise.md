@@ -3,13 +3,13 @@ title: "attempt_surprise"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "47f2ffc037e55db12ce419711e1d4920cae4fad7"
-source_commit_timestamp: "2026-11-02T04:33:30-05:00"
+source_commit: "95dd20a1d45901033891f11b5a598581ca884e63"
+source_commit_timestamp: "2026-11-02T02:34:21-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite attempt_surprise"
   - "table attempt_surprise"
-schema_head: 235
+schema_head: 234
 table_name: "attempt_surprise"
 table_role: "derived"
 functionality_status: "active"
@@ -25,7 +25,7 @@ source_paths:
   - "src/learnloop/diagnosis/signal_quantiles.py"
   - "src/learnloop/diagnosis/voi_stopping.py"
   - "src/learnloop/evsi_calibration/live_report.py"
-  - "src/learnloop/ops/debug_time.py"
+  - "src/learnloop/learner/lesson_weight.py"
   - "src/learnloop/attempts/attempts.py"
   - "src/learnloop/cli/app.py"
   - "src/learnloop/content/proposals/proposals.py"
@@ -112,6 +112,8 @@ Indexes and uniqueness:
 - `src/learnloop/db/repositories.py`
 - `src/learnloop/db/stores/intent_reads.py`
 - `src/learnloop/evsi_calibration/live_report.py`
+- `src/learnloop/learner/lesson_weight.py`
+- `src/learnloop/teacher/service.py`
 - `src/learnloop_sidecar/handlers/sessions.py`
 
 ### Direct SQL writers

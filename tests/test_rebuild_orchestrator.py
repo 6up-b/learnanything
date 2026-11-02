@@ -385,6 +385,18 @@ def _inject_one_stale_row_per_derived_table(repository: Repository) -> None:
             "input_digest": "stale",
             "fitted_at": at,
         },
+        # Teacher TE1 (migration 230): the learned lesson-check weight's state and trace and the
+        # tap/hedge recalibration, for a vault where no lesson check was ever recorded (cleared).
+        "lesson_weight_state": {
+            "family": "stale", "state_json": "{}", "updates": 0, "through_at": at, "priors_version": "stale",
+        },
+        "lesson_weight_trace": {
+            "id": "stale_trace", "seq": 1, "kind": "mass", "lesson_check_id": "stale", "resolving_attempt_id": None,
+            "learning_object_id": "stale_lo", "at": at, "detail_json": "{}",
+        },
+        "confidence_calibration_state": {
+            "family": "tap", "state_json": "{}", "updates": 0, "through_at": at, "priors_version": "stale",
+        },
     }
     assert set(rows) == set(tables_for_role(TableRole.DERIVED))
     with connect(repository.sqlite_path) as connection:

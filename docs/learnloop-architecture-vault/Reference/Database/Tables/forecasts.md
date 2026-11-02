@@ -3,13 +3,13 @@ title: "forecasts"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "47f2ffc037e55db12ce419711e1d4920cae4fad7"
-source_commit_timestamp: "2026-11-02T04:33:30-05:00"
+source_commit: "95dd20a1d45901033891f11b5a598581ca884e63"
+source_commit_timestamp: "2026-11-02T02:34:21-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite forecasts"
   - "table forecasts"
-schema_head: 235
+schema_head: 234
 table_name: "forecasts"
 table_role: "workflow"
 functionality_status: "active"
@@ -58,7 +58,7 @@ It belongs to the **goals and exams** navigation family. The family context live
 - **Role:** `workflow` — Mutable queue, session, lease, or other in-flight workflow state. It is preserved across rebuilds.
 - **Functionality status:** `active`.
 - **Introduced by:** `migrations/057_forecast_ledger.sql`.
-- **Schema touched by:** `057_forecast_ledger.sql`, `198_add_book_state.sql`, `201_followup_value_decisions.sql`, `206_forecast_receipts.sql`, `213_adaptive_difficulty_receipts.sql`, `214_adaptive_difficulty_serving.sql`.
+- **Schema touched by:** `057_forecast_ledger.sql`, `198_add_book_state.sql`, `201_followup_value_decisions.sql`, `206_forecast_receipts.sql`, `213_adaptive_difficulty_receipts.sql`, `214_adaptive_difficulty_serving.sql`, `234_teacher_lessons.sql`.
 - **Rebuild owner:** none; this table is preserved by the rebuild umbrella.
 
 For the distinction between SQLite state and human-authored vault files, see [[State and Persistence]]. For whole-vault creation and opening behavior, see [[Vault Lifecycle]]. ^table-lifecycle
@@ -145,7 +145,7 @@ Indexes and uniqueness:
 - `tests/test_forecast_receipts.py`
 - `tests/test_forecast_receipts_landing.py`
 - `tests/test_regrade_contract_successor.py`
-- `tests/test_ux_phase4_landing.py`
+- `tests/test_teacher_te1_lesson.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

@@ -213,10 +213,16 @@ def resolve_reliability(
     hints_used: int,
     grader_confidence: float,
     evidence: EvidenceConfig | None = None,
+    attempt_type_mass: float | None = None,
 ) -> ReliabilityResult:
+    """``attempt_type_mass``: this attempt's own mass when one was recorded for it (a lesson check's
+    learned mass, teacher TE1 §12.1); None uses the type's configured mass."""
+
     grader_confidence_factor = clamp(grader_confidence)
     hint_mastery_factor = _hint_policy_product(item.hint_policy.mastery_alpha_dampening_by_hint, hints_used, default=1.0)
-    attempt_type_mastery_factor = attempt_evidence_mass(attempt_type, evidence)
+    attempt_type_mastery_factor = (
+        float(attempt_type_mass) if attempt_type_mass is not None else attempt_evidence_mass(attempt_type, evidence)
+    )
     reliability = clamp(grader_confidence_factor * hint_mastery_factor * attempt_type_mastery_factor)
     trace = {
         "grader_confidence_factor": grader_confidence_factor,

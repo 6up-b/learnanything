@@ -246,6 +246,38 @@ ignore_imports = [
 allow_indirect_imports = true
 
 [[tool.importlinter.contracts]]
+id = "teacher-writes-evidence-only-through-the-attempts-path"
+name = "The teacher writes attempts only through the attempts path, never mastery, FSRS or evidence directly, and reads AD only through its read-only entries (spec_teacher_v1 §6)"
+type = "forbidden"
+source_modules = ["learnloop.teacher"]
+# The evidence writers and replay (mastery, FSRS, certification, placement,
+# the field, the projection) and adaptive difficulty's internals. A lesson's
+# check reaches evidence only as one attempt through attempts.attempts'
+# shared step (apply_attempt) at the mass learner.lesson_weight records; its
+# teaching text only as reveal rows (attempts.reveal_ledger.record_reveal);
+# AD only through adaptive_difficulty.readiness's read-only @entry functions.
+forbidden_modules = [
+    "learnloop.substrate",
+    "learnloop.goals",
+    "learnloop.placement",
+    "learnloop.field",
+    "learnloop.router",
+    "learnloop.daily_plan",
+    "learnloop.scheduling.scheduler",
+    "learnloop.adaptive_difficulty.generation",
+    "learnloop.adaptive_difficulty.replay",
+    "learnloop.adaptive_difficulty.model",
+    "learnloop.adaptive_difficulty.selection",
+    "learnloop.adaptive_difficulty.serve",
+    "learnloop.adaptive_difficulty.serving",
+    "learnloop.adaptive_difficulty.scoring",
+    "learnloop.adaptive_difficulty.operation",
+    "learnloop.cli",
+    "learnloop_sidecar",
+]
+allow_indirect_imports = true
+
+[[tool.importlinter.contracts]]
 id = "adaptive-difficulty-never-writes-evidence"
 name = "Adaptive difficulty is a predictor, never evidence: learnloop.adaptive_difficulty imports no evidence writer (spec A2, A12, §11.3)"
 type = "forbidden"
@@ -417,7 +449,7 @@ allow_indirect_imports = false
 
 [[tool.importlinter.contracts]]
 id = "notes-are-never-a-source-or-evidence"
-name = "A learner's note is never a source, a generation input or evidence: only the sidecar and the CLI reach the notes' code (curriculum C2, spec §10.2)"
+name = "A learner's note is never a source, a generation input or evidence: only the sidecar, the CLI and the teacher's notes door reach the notes' code (curriculum C2, C4, spec §10.2)"
 type = "forbidden"
 source_modules = [
     "learnloop.attempts",
@@ -437,6 +469,12 @@ source_modules = [
     "learnloop.source_retrieval.corpus",
     "learnloop.source_retrieval.deliverable_path",
     "learnloop.source_retrieval.section_coverage",
+    # Teacher TE1 + curriculum C4: the check minting, the brief (notes by injection only), the guards and
+    # the delayed checks never reach a note; only teacher.notes (the brief's headers, read_note) does.
+    "learnloop.teacher.checks",
+    "learnloop.teacher.brief",
+    "learnloop.teacher.guards",
+    "learnloop.teacher.delayed",
 ]
 forbidden_modules = [
     "learnloop.source_retrieval.note_links",
@@ -516,7 +554,10 @@ source_modules = [
     "learnloop.cold_retry_reschedule_upgrade",
     "learnloop.reader_followups_upgrade",
     "learnloop.deliverable_plan_upgrade",
+    "learnloop.teacher_upgrade",
     "learnloop.help_fold_attach_upgrade",
+    "learnloop.teacher",
+    "learnloop.adf_numeric",
     "learnloop.clock",
     "learnloop.confidence_events",
     "learnloop.config",

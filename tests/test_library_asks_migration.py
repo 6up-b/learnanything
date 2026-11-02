@@ -42,6 +42,7 @@ from tests.test_help_assist_figures_migration import P3_ADDED_OBJECTS, P3_ALTERE
 from tests.test_reader_session_digests_migration import RW6B_ADDED_OBJECTS
 from tests.test_deliverable_curriculum_migration import C0B_ADDED_OBJECTS
 from tests.test_learner_notes_migration import C2_ADDED_OBJECTS
+from tests.test_teacher_te1_migration import TE1_ADDED_OBJECTS, TE1_ALTERED_TABLES
 
 NOW = "2026-10-17T10:00:00Z"
 SECTION_7_5 = {
@@ -79,15 +80,15 @@ def _upgrade(tmp_path: Path) -> Path:
     # Later migrations (adaptive hints H0's 210, help_assists, and H1's 211,
     # approach_maps) follow 209 on the way to head.
     added = {name for name in set(after) - set(before)
-             if "help_assists" not in name and "approach_maps" not in name and name not in AD1_ADDED_OBJECTS | AD23_ADDED_OBJECTS | RW3B_ADDED_OBJECTS | RW5A_ADDED_OBJECTS | RW7A_ADDED_OBJECTS | RW2D_ADDED_OBJECTS | P1_ADDED_OBJECTS | C0A_ADDED_OBJECTS | RW5D_ADDED_OBJECTS | PR4_ADDED_OBJECTS | RW6B_ADDED_OBJECTS | C0B_ADDED_OBJECTS | C2_ADDED_OBJECTS | P3_ADDED_OBJECTS}
+             if "help_assists" not in name and "approach_maps" not in name and name not in AD1_ADDED_OBJECTS | AD23_ADDED_OBJECTS | RW3B_ADDED_OBJECTS | RW5A_ADDED_OBJECTS | RW7A_ADDED_OBJECTS | RW2D_ADDED_OBJECTS | P1_ADDED_OBJECTS | C0A_ADDED_OBJECTS | RW5D_ADDED_OBJECTS | PR4_ADDED_OBJECTS | RW6B_ADDED_OBJECTS | C0B_ADDED_OBJECTS | C2_ADDED_OBJECTS | P3_ADDED_OBJECTS | TE1_ADDED_OBJECTS}
     assert added == {"library_asks", "idx_library_asks_created", "idx_library_asks_extraction"}
     # Adaptive hints H2b's 212 rebuilds the two learner-text tables on the way
     # (their source_kind CHECK only; tests/test_hint_feedback_widening.py).
     # Adaptive difficulty AD1's 213 adds two practice_attempts columns on the way.
     assert {name: sql for name, sql in after.items()
-            if name in before and not name.startswith("learner_text_gap") and name not in AD1_ALTERED_TABLES | T1_ALTERED_TABLES | (RW2D_ALTERED_TABLES | CLAIM_POINT_ALTERED_TABLES | PR4_ALTERED_TABLES | DR2_ALTERED_TABLES | P3_ALTERED_TABLES)} \
+            if name in before and not name.startswith("learner_text_gap") and name not in AD1_ALTERED_TABLES | T1_ALTERED_TABLES | (RW2D_ALTERED_TABLES | CLAIM_POINT_ALTERED_TABLES | PR4_ALTERED_TABLES | DR2_ALTERED_TABLES | P3_ALTERED_TABLES | TE1_ALTERED_TABLES)} \
         == {name: sql for name, sql in before.items()
-            if not name.startswith("learner_text_gap") and name not in AD1_ALTERED_TABLES | T1_ALTERED_TABLES | (RW2D_ALTERED_TABLES | CLAIM_POINT_ALTERED_TABLES | PR4_ALTERED_TABLES | DR2_ALTERED_TABLES | P3_ALTERED_TABLES)}  # nothing else changed
+            if not name.startswith("learner_text_gap") and name not in AD1_ALTERED_TABLES | T1_ALTERED_TABLES | (RW2D_ALTERED_TABLES | CLAIM_POINT_ALTERED_TABLES | PR4_ALTERED_TABLES | DR2_ALTERED_TABLES | P3_ALTERED_TABLES | TE1_ALTERED_TABLES)}  # nothing else changed
     return database
 
 

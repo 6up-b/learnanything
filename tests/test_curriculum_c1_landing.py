@@ -23,7 +23,6 @@ from typer.testing import CliRunner
 from learnloop.algorithm_versions import (
     COLD_RETRY_RESCHEDULE_ALGORITHM_VERSION,
     DELIVERABLE_PLAN_ALGORITHM_VERSION,
-    LATEST_ALGORITHM_VERSION,
     READER_FOLLOWUPS_ALGORITHM_VERSION,
     SUCCESSOR_CHAIN,
 )
@@ -121,10 +120,11 @@ def test_ii_a_bare_upgrade_from_mvp038_activates_mvp039_then_mvp040(tmp_path, _c
     from learnloop.cli import app
 
     paths = create_placement_vault(tmp_path / "v", version=COLD)
-    result = CliRunner().invoke(app, ["upgrade", "--vault", str(paths.root)])
+    # Teacher TE1 (mvp-0.41) and follow-ups Nov 2 (mvp-0.42, the bare upgrade's target now) follow;
+    # C1's own link is --to mvp-0.40.
+    result = CliRunner().invoke(app, ["upgrade", "--vault", str(paths.root), "--to", C1])
     assert result.exit_code == 0, result.output
-    # Follow-ups Nov 2's mvp-0.41 is the latest now: the bare upgrade goes through both links to it.
-    assert f"{COLD} -> {LATEST_ALGORITHM_VERSION}" in result.output and _version(paths) == LATEST_ALGORITHM_VERSION
+    assert f"{COLD} -> {C1}" in result.output and _version(paths) == C1
     assert _activated(paths, RW6B) and _activated(paths, C1) and not _journal(paths).exists()
 
 

@@ -296,6 +296,7 @@ export function ReaderScreen({
   shelf,
   onCheckMe,
   onUseExercise,
+  onTeachMe,
   workbench,
   onSkimmingChange,
   askRequest,
@@ -320,6 +321,8 @@ export function ReaderScreen({
   /** RW4b: "use this one" on a textbook exercise, a learner pick the shell
    *  opens in the working posture; absent, the cards offer only the book. */
   onUseExercise?: (request: ReaderExerciseRequest) => void;
+  /** Teacher TE1: "Teach me this" on the selection (its reading and spans); absent while lessons are off. */
+  onTeachMe?: (request: { extractionId: string; spanIds: string[] }) => void;
   /** RW2a: the workbench's shell wiring (the practice session, the submit's
    *  hand-off to feedback, back from feedback to the problem). The workbench
    *  itself shows only while workbench.enabled is on. */
@@ -4299,6 +4302,8 @@ export function ReaderScreen({
             invokePreset={async (preset) => { await invokePreset(preset); }}
             importExercise={async () => { await importExercise(); }}
             onWorkThrough={wbCtl.enabled && selection ? workThroughSelection : undefined}
+            onTeachMe={onTeachMe && render && selectionSpanIds.length
+              ? () => onTeachMe({ extractionId: render.extractionId, spanIds: selectionSpanIds }) : undefined}
             onWorkThroughItem={wbCtl.enabled ? workThroughImported : undefined}
             exerciseImport={exerciseImport}
             setExerciseImport={setExerciseImport}

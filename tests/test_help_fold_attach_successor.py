@@ -1,9 +1,10 @@
-"""Follow-ups Nov 2 (b) as the successor mvp-0.41 (Codex review F1;
+"""Follow-ups Nov 2 (b) as the successor mvp-0.42 (Codex review F1; built as mvp-0.41 and renumbered
+at its landing after teacher TE1's mvp-0.41, ruling R4;
 docs/reviews/followups-nov2-codex-review.md; docs/algorithm-change-playbook.md,
 the 2026-10-17 rule: a change to which new attempts are primed is a successor
 with a kill switch even when replay is unchanged).
 
-* the tag is ONE constant after mvp-0.40 and the latest; its defaults
+* the tag is ONE constant after mvp-0.41 and the latest; its defaults
   snapshot is recorded; ``hints.fold_follows_attach`` is its kill switch;
 * below the tag, or switched off, a keyed submit folds exactly as the
   predecessor (the key's rows in the submit's own session only; no keyed
@@ -11,8 +12,8 @@ with a kill switch even when replay is unchanged).
   session rollover case records ``hints_used`` 0 and ``primed`` 0 as before;
 * replay re-applies the stored counts (a rebuild changes no attempt) and a
   shadow rebuild is 0/0/0 at the tag with the switch on and off;
-* the upgrade is the chain's next journalled link (from mvp-0.40, or mvp-0.9
-  onwards through the chain), and the next command completes an interrupted
+* the upgrade is the chain's next journalled link (from its predecessor, or mvp-0.9
+  onwards through the chain; from mvp-0.41 now), and the next command completes an interrupted
   activation.
 
 Fakes only; no model call.
@@ -28,11 +29,11 @@ import pytest
 from typer.testing import CliRunner
 
 from learnloop.algorithm_versions import (
-    DELIVERABLE_PLAN_ALGORITHM_VERSION,
     HELP_FOLD_ATTACH_ALGORITHM_VERSION,
     HELP_FOLD_ATTACH_VERSIONS,
     LATEST_ALGORITHM_VERSION,
     SUCCESSOR_CHAIN,
+    TEACHER_ALGORITHM_VERSION,
 )
 from learnloop.ops.vault_upgrade import rewrite_algorithm_version
 from learnloop.vault.loader import load_vault
@@ -42,22 +43,22 @@ from tests.test_followups_nov2_help_fold import _rollover, _submit
 from tests.test_hint_h2a_review_round2 import ARGMAX, _attempt
 
 TAG = HELP_FOLD_ATTACH_ALGORITHM_VERSION
-PREDECESSOR = DELIVERABLE_PLAN_ALGORITHM_VERSION
+PREDECESSOR = TEACHER_ALGORITHM_VERSION
 OFF = ARGMAX + "fold_follows_attach = false\n"
 
 
-def test_mvp041_is_one_constant_after_mvp040_and_the_latest():
+def test_mvp042_is_one_constant_after_mvp041_and_the_latest():
     from learnloop.config.schema import HintsConfig
     from learnloop.config.template import DEFAULTS_SNAPSHOT_BY_ALGORITHM, defaults_fingerprint_for_version
     from learnloop.help_fold_attach_upgrade import PREDECESSOR as UPGRADE_PREDECESSOR
     from learnloop.params.parameter_registry import classify_config_path
 
-    assert SUCCESSOR_CHAIN[-2:] == (PREDECESSOR, TAG) == ("mvp-0.40", "mvp-0.41")
+    assert SUCCESSOR_CHAIN[-2:] == (PREDECESSOR, TAG) == ("mvp-0.41", "mvp-0.42")
     assert LATEST_ALGORITHM_VERSION == TAG and UPGRADE_PREDECESSOR == PREDECESSOR
     assert HELP_FOLD_ATTACH_VERSIONS == frozenset({TAG})
     assert HintsConfig().fold_follows_attach is True
     rule = classify_config_path("hints.fold_follows_attach")
-    assert rule is not None and rule.kind == "structural" and "mvp-0.41" in rule.rationale
+    assert rule is not None and rule.kind == "structural" and "mvp-0.42" in rule.rationale
     for version in SUCCESSOR_CHAIN:
         assert DEFAULTS_SNAPSHOT_BY_ALGORITHM[version] == defaults_fingerprint_for_version(version), version
     assert DEFAULTS_SNAPSHOT_BY_ALGORITHM[TAG] != DEFAULTS_SNAPSHOT_BY_ALGORITHM[PREDECESSOR]
@@ -144,7 +145,7 @@ def test_a_rebuild_changes_no_attempt_and_a_shadow_rebuild_is_zero(tmp_path, ver
         # The predecessor's state (below the tag, or switched off): the
         # unprimed attempt's live due time and its replay differ by under a
         # second (the hint vault is a relabelled basic vault, not a
-        # rebuild-equivalent one), identically at mvp-0.40 and at the tag
+        # rebuild-equivalent one), identically at mvp-0.41 and at the tag
         # switched off; nothing else moves.
         assert summary["mastery"] == summary["facet"] == 0
         for change in shadow.learner_state_diff["schedule"]["changes"]:
@@ -193,8 +194,8 @@ def _activated(paths, version=TAG) -> bool:
         ).fetchone() is not None
 
 
-@pytest.mark.parametrize("start", ["mvp-0.9", "mvp-0.30", "mvp-0.39", "mvp-0.40"])
-def test_upgrade_to_mvp041_works_from_supported_versions(tmp_path, _cli_process, start):
+@pytest.mark.parametrize("start", ["mvp-0.9", "mvp-0.30", "mvp-0.39", "mvp-0.40", "mvp-0.41"])
+def test_upgrade_to_mvp042_works_from_supported_versions(tmp_path, _cli_process, start):
     from learnloop.cli import app
 
     paths = _vault_at(tmp_path, "v", start)
@@ -206,7 +207,7 @@ def test_upgrade_to_mvp041_works_from_supported_versions(tmp_path, _cli_process,
         assert _activated(paths, PREDECESSOR)
 
 
-def test_a_bare_upgrade_targets_mvp041_and_it_refuses_twice(tmp_path, _cli_process):
+def test_a_bare_upgrade_targets_mvp042_and_it_refuses_twice(tmp_path, _cli_process):
     from learnloop.cli import app
     from learnloop.help_fold_attach_upgrade import upgrade_to_help_fold_attach
 
@@ -237,7 +238,7 @@ def _interrupted(tmp_path, name, predecessor=PREDECESSOR, target=TAG):
     return paths
 
 
-def test_the_next_cli_command_completes_an_interrupted_mvp041_activation(tmp_path, _cli_process):
+def test_the_next_cli_command_completes_an_interrupted_mvp042_activation(tmp_path, _cli_process):
     from learnloop.cli import app
     from learnloop.help_fold_attach_upgrade import upgrade_to_help_fold_attach
 
@@ -252,7 +253,7 @@ def test_the_next_cli_command_completes_an_interrupted_mvp041_activation(tmp_pat
 def test_an_earlier_links_interrupted_activation_is_handed_down_the_chain(tmp_path, _cli_process):
     from learnloop.cli import app
 
-    paths = _interrupted(tmp_path, "earlier", predecessor="mvp-0.39", target=PREDECESSOR)
+    paths = _interrupted(tmp_path, "earlier", predecessor="mvp-0.40", target=PREDECESSOR)
     result = CliRunner().invoke(app, ["backfill-originals", "--vault", str(paths.root)])
     assert result.exit_code == 0, result.output
     assert not _journal(paths).exists() and _activated(paths, PREDECESSOR) and _version(paths) == PREDECESSOR

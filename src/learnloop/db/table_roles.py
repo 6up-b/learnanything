@@ -337,6 +337,23 @@ _TABLE_ROLE_ITEMS: tuple[tuple[str, TableRole], ...] = (
     ("placement_quick_check_items", TableRole.WORKFLOW),
     ("lapse_episodes", TableRole.WORKFLOW),
     ("learner_claims", TableRole.RAW_LEDGER),
+    # Teacher TE1 (migration 234; spec_teacher_v1 §18.1): the lesson ledger
+    # (lessons, their turns and plans: append-only, a lesson closes once), the
+    # raw turn text (workflow, as router_decision_payloads), the check and
+    # lesson receipts (append-only; replay reads each check's recorded mass),
+    # and the learned weight's, the forecast pool's and the tap/hedge
+    # recalibration's state with its trace (DERIVED: one replayer,
+    # learner.lesson_weight, recomputes them in order from the receipts and
+    # the attempt ledger).
+    ("lessons", TableRole.RAW_LEDGER),
+    ("lesson_turns", TableRole.RAW_LEDGER),
+    ("lesson_turn_payloads", TableRole.WORKFLOW),
+    ("lesson_plans", TableRole.RAW_LEDGER),
+    ("lesson_checks", TableRole.RECEIPT),
+    ("lesson_receipts", TableRole.RECEIPT),
+    ("lesson_weight_state", TableRole.DERIVED),
+    ("lesson_weight_trace", TableRole.DERIVED),
+    ("confidence_calibration_state", TableRole.DERIVED),
     # Deliverable curriculum C2 (migration 229): snapshots of the learner's
     # notes taken only when linked, and the link decisions (the model's
     # proposals, the learner's links and hides). Learner-voice records, never

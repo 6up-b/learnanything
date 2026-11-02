@@ -25,6 +25,7 @@ from learnloop.db.table_roles import TableRole, role_for_table
 from tests.test_learner_note_source_kind_migration import C5_ALTERED_TABLES
 from tests.test_learner_gap_unlinked_migration import UNLINKED_ALTERED_TABLES
 from tests.test_learner_notes_vault_origin_migration import C2B_ALTERED_TABLES
+from tests.test_teacher_te1_migration import TE1_ADDED_OBJECTS, TE1_ALTERED_TABLES
 
 MIGRATIONS = Path(__file__).resolve().parents[1] / "migrations"
 HEAD = Path(__file__).resolve().parents[1] / "fixtures" / "migration_head_235" / "state.sqlite"
@@ -35,10 +36,12 @@ DR2_ADDED_OBJECTS: frozenset[str] = frozenset()
 
 
 def _later():
-    # RW5d P3's migration 232 also applies on the way to head.
+    # RW5d P3's migration 232 and teacher TE1's 234 also apply on the way to head (C2b's 233 is composed below).
     from tests.test_help_assist_figures_migration import P3_ADDED_OBJECTS, P3_ALTERED_TABLES
 
-    return P3_ADDED_OBJECTS, P3_ALTERED_TABLES
+    # _schema reads objects with SQL only: TE1's autoindexes are not among them.
+    te1_added = {name for name in TE1_ADDED_OBJECTS if not name.startswith("sqlite_autoindex")}
+    return P3_ADDED_OBJECTS | te1_added, P3_ALTERED_TABLES | TE1_ALTERED_TABLES
 
 
 def test_230_is_the_work_md_migration_and_help_assists_stays_a_raw_ledger():
@@ -83,9 +86,9 @@ def test_230_adds_only_the_nullable_column_and_keeps_every_row(tmp_path):
     before = _schema(database)
     with upgrade_allowance(UPGRADE_TEST_HELPER):
         # Curriculum C5's 231 (the two gap tables' source kinds), RW5d P3's 232, curriculum C2b's
-        # 233 (learner_notes' vault origin) and follow-ups Nov 2's 235 (the reversal kind 'unlinked')
-        # follow on the way to head.
-        assert [migration.version for migration in apply_migrations(database)] == [230, 231, 232, 233, 235]
+        # 233 (learner_notes' vault origin) and teacher TE1's 234 follow on the way to head.
+        # Follow-ups Nov 2's 235 (learner_text_gap_reversals, not read here) follows too.
+        assert [migration.version for migration in apply_migrations(database)] == [230, 231, 232, 233, 234, 235]
     after = _schema(database)
     later_added, later_altered = _later()
     assert set(after) - set(before) == set(DR2_ADDED_OBJECTS) | set(later_added)
@@ -105,7 +108,7 @@ def test_230_adds_only_the_nullable_column_and_keeps_every_row(tmp_path):
 
 def test_the_head_fixture_holds_230_in_rollback_mode():
     assert HEAD.read_bytes()[18:20] == b"\x01\x01"
-    # The head is 235 (follow-ups Nov 2, rebuilt from 233's head with only 235 applied); it holds 230,
+    # The head is 235 (follow-ups Nov 2, rebuilt from TE1's 234 head with only 235 applied); it holds 230,
     # 231, 232 and 233.
     assert {230, 231, 232, 233} <= set(applied_versions(HEAD))
     assert max(applied_versions(HEAD)) == max(m.version for m in discover_migrations()) == 235
@@ -122,7 +125,7 @@ def test_230_on_the_durability_lane(tmp_path):
 
     database = _at_229(tmp_path)
     with upgrade_allowance(UPGRADE_TEST_HELPER):
-        assert [migration.version for migration in apply_migrations(database)] == [230, 231, 232, 233, 235]
+        assert [migration.version for migration in apply_migrations(database)] == [230, 231, 232, 233, 234, 235]
     with closing(sqlite3.connect(database)) as connection:
         assert connection.execute("PRAGMA journal_mode").fetchone()[0] == "wal"
         store.insert_assist(connection, {"id": "ha_d", "surface": "practice", "assist_kind": "hint",

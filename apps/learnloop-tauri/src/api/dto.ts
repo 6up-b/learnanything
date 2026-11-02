@@ -10393,3 +10393,57 @@ export interface WorkbenchRequestHelpInput {
   feedbackStepId?: string | null;
   secondsOnItem?: number;
 }
+
+// ── Teacher TE1: a lesson (spec_teacher_v1 §19) ──────────────────────────────
+
+/** lesson.turn's input: open a lesson ("Teach me this") or take one step in it. */
+export interface LessonTurnInput {
+  /** `resume`: run the teacher's turn an outage interrupted (nothing new from the learner). */
+  action: "open" | "reply" | "answer_prediction" | "answer_check" | "stop" | "resume";
+  lessonId?: string;
+  entry?: "learning_object" | "reader_selection" | "new_topic";
+  learningObjectIds?: string[];
+  selection?: { extractionId: string; spanIds: string[] };
+  goalText?: string;
+  text?: string;
+  answer?: string;
+  checkRef?: string;
+  /** The confidence tap (1-5), shown once a draft exists. */
+  tap?: number;
+  /** "Your thinking": goes to the teacher, never to the grader. */
+  thinking?: string;
+}
+
+/** One entry of the lesson's document, in order. */
+export type LessonFeedEntryDto =
+  | { kind: "message"; text: string; choices: string[] }
+  | { kind: "prediction"; node: string; prompt: string; choices: string[] }
+  | { kind: "check"; checkRef: string; node: string; question: string; form: "choices" | "free"; choices: string[];
+      unanchored: boolean }
+  | { kind: "learner"; text: string; checkRef?: string | null }
+  | { kind: "check_result"; checkRef: string; result: string; graderFeedback?: string | null; unanchored?: boolean;
+      answerLabel?: string | null }
+  | { kind: "notice"; text: string }
+  | { kind: "close"; reason: string; recap?: string | null;
+      delayedChecks: Array<{ learningObjectId: string; title?: string | null; purpose: string; due: string }> };
+
+/** lesson.turn / lesson.view: the lesson as the screen shows it (never a check's solution). */
+export interface LessonViewDto {
+  version?: number;
+  lessonId: string;
+  goal: string | null;
+  learningObjectIds: string[];
+  closed: boolean;
+  closeReason: string | null;
+  feed: LessonFeedEntryDto[];
+  /** Position, never completion. */
+  plan: Array<{ id: string; statement: string | null; position: "current" | "visited" | "upcoming" }>;
+  openCheck: { checkRef: string; question: string; form: "choices" | "free"; choices: string[] } | null;
+  openPrediction: { node: string; prompt: string; choices: string[] } | null;
+  quickCheck: { learningObjectIds: string[] };
+  /** Forecasts, receipts and routes: the inspector overlay only. */
+  inspector: { doctrine: string | null; route: string | null; model: string | null; forecasts: string[] };
+  shownNow?: unknown[];
+  notices?: string[];
+  vaultChanged?: boolean;
+}

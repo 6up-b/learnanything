@@ -41,6 +41,7 @@ from learnloop_sidecar.handlers import (  # noqa: F401
     knowledge_model,
     ladder,
     learner_gaps,
+    lesson,
     library,
     library_ask,
     library_exercises,

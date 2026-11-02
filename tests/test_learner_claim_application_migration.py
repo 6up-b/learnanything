@@ -31,6 +31,7 @@ from tests.test_help_assist_figures_migration import P3_ADDED_OBJECTS, P3_ALTERE
 from tests.test_reader_session_digests_migration import RW6B_ADDED_OBJECTS
 from tests.test_deliverable_curriculum_migration import C0B_ADDED_OBJECTS
 from tests.test_learner_notes_migration import C2_ADDED_OBJECTS
+from tests.test_teacher_te1_migration import TE1_ADDED_OBJECTS, TE1_ALTERED_TABLES
 from tests.test_reader_ca2_fix_orchestrator import CA2_ALTERED_TABLES
 
 HEAD = Path(__file__).resolve().parents[1] / "fixtures" / "migration_head_235" / "state.sqlite"
@@ -73,10 +74,10 @@ def test_221_adds_the_claim_point_column_and_nothing_else(tmp_path):
     with upgrade_allowance(UPGRADE_TEST_HELPER):
         applied = apply_migrations(database)
     # Curriculum C0a's 222 (its one table, altering nothing) follows on the way to head.
-    assert [migration.version for migration in applied] == [221, 222, 223, 224, 225, 226, 227, 228, 229, 230, 231, 232, 233, 235]
+    assert [migration.version for migration in applied] == [221, 222, 223, 224, 225, 226, 227, 228, 229, 230, 231, 232, 233, 234, 235]
     after = _schema(database)
-    assert set(after) - C0A_ADDED_OBJECTS - RW5D_ADDED_OBJECTS - PR4_ADDED_OBJECTS - RW6B_ADDED_OBJECTS - C0B_ADDED_OBJECTS - C2_ADDED_OBJECTS - P3_ADDED_OBJECTS == set(before)
-    assert {name for name in before if before[name] != after[name]} == CLAIM_POINT_ALTERED_TABLES | CA2_ALTERED_TABLES | RW5D_ALTERED_TABLES | PR4_ALTERED_TABLES | DR2_ALTERED_TABLES | C5_ALTERED_TABLES | P3_ALTERED_TABLES | UNLINKED_ALTERED_TABLES
+    assert set(after) - C0A_ADDED_OBJECTS - RW5D_ADDED_OBJECTS - PR4_ADDED_OBJECTS - RW6B_ADDED_OBJECTS - C0B_ADDED_OBJECTS - C2_ADDED_OBJECTS - P3_ADDED_OBJECTS - TE1_ADDED_OBJECTS == set(before)
+    assert {name for name in before if before[name] != after[name]} == CLAIM_POINT_ALTERED_TABLES | CA2_ALTERED_TABLES | RW5D_ALTERED_TABLES | PR4_ALTERED_TABLES | DR2_ALTERED_TABLES | C5_ALTERED_TABLES | P3_ALTERED_TABLES | UNLINKED_ALTERED_TABLES | TE1_ALTERED_TABLES
     with closing(sqlite3.connect(database)) as connection:
         # The successor mvp-0.36's 225 adds superseded_by after it on the way to head.
         assert [row[1] for row in connection.execute("PRAGMA table_info(learner_claims)")][-2:] == [
@@ -106,7 +107,7 @@ def test_221_on_the_durability_lane(tmp_path):
     with closing(sqlite3.connect(database)) as connection:
         _old_claim(connection)
     with upgrade_allowance(UPGRADE_TEST_HELPER):
-        assert [migration.version for migration in apply_migrations(database)] == [221, 222, 223, 224, 225, 226, 227, 228, 229, 230, 231, 232, 233, 235]
+        assert [migration.version for migration in apply_migrations(database)] == [221, 222, 223, 224, 225, 226, 227, 228, 229, 230, 231, 232, 233, 234, 235]
     with closing(sqlite3.connect(database)) as connection:
         assert connection.execute("PRAGMA journal_mode").fetchone()[0] == "wal"
         connection.execute("UPDATE learner_claims SET applied_after_attempts = 2 WHERE id = 'c_old'")

@@ -84,8 +84,9 @@ def _upgrade(tmp_path: Path) -> Path:
     objects = _objects(database, "learner_notes")
     with upgrade_allowance(UPGRADE_TEST_HELPER):
         applied = apply_migrations(database)
-    # Follow-ups Nov 2's 235 (learner_text_gap_reversals, not a table read here) follows.
-    assert [migration.version for migration in applied] == [233, 235]
+    # Teacher TE1's 234 (its own tables and source_tool_calls, none read here) and follow-ups Nov 2's
+    # 235 (learner_text_gap_reversals, not a table read here) follow on the way to head.
+    assert [migration.version for migration in applied] == [233, 234, 235]
     # Every row survives (two new columns, NULL for the C2-era rows).
     assert [row[:13] for row in _rows(database, "learner_notes")] == notes
     assert all(row[13:] == (None, None) for row in _rows(database, "learner_notes"))
@@ -160,6 +161,7 @@ def test_233_classifies_nothing_new():
 
 
 def test_the_head_fixture_holds_233_in_rollback_mode():
+    # The head is teacher TE1's 234 (rebuilt from this 233 head with only 234 applied); it holds 233.
     assert 233 in applied_versions(HEAD)
     with open(HEAD, "rb") as handle:
         header = handle.read(20)

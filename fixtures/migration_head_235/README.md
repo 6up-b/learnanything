@@ -39,19 +39,18 @@ as before.
 
 ## Follow-ups Nov 2 (migration 235), landing of `fix/followups-nov2`, 2026-11-02
 
-Renamed from `migration_head_233` at the follow-ups' landing onto main
+Renamed from `migration_head_234` at the follow-ups' landing onto main
 (`docs/reviews/followups-nov2.md`, "Landing onto main"). The branch built 235
-on main's 231 head (`67c05ed37c`); RW5d P3's 232 and curriculum C2b's 233
-landed first, so 235 keeps its number (234 is claimed by teacher TE1 + C4,
-landing in parallel; the runner is set-based) and the branch's own rebuild is
-replaced. Rebuilt from main's tracked, sanitized
-`migration_head_233/state.sqlite` (main `19c72752b3`): a backup-API copy under
+on main's 231 head (`67c05ed37c`); RW5d P3's 232, curriculum C2b's 233 and
+teacher TE1's 234 landed first, so 235 keeps its number and the branch's own
+rebuilds are replaced. Rebuilt from main's tracked, sanitized
+`migration_head_234/state.sqlite` (main `1a33bb5db3`): a backup-API copy under
 `fixtures-local/` with only `235_learner_gap_unlinked_reversal.sql` applied
 through `learnloop.db.migrate.apply_migrations` under the scratch-copy
 allowance (`UPGRADE_SCRATCH_COPY`), then `wal_checkpoint(TRUNCATE)` (0, 0, 0),
 `journal_mode=DELETE` (header bytes 1/1), `integrity_check` ok and
 `foreign_key_check` empty, and copied into place with the backup API, with no
-companion files. The head holds 229, 230, 231, 232, 233 and 235.
+companion files. The head holds 229 through 235.
 
 * 235 adds no object: it rebuilds `learner_text_gap_reversals` in place
   (temp-then-rename under `PRAGMA foreign_keys = OFF`, the FK-safe precedent of
@@ -60,10 +59,39 @@ companion files. The head holds 229, 230, 231, 232, 233 and 235.
   columns, key, foreign key and append-only triggers, every row and id kept
   (this fixture holds no reversal).
 
-Against main's 233 head only that definition changed and only
+Against main's 234 head only that definition changed and only
 `schema_migrations` gained a row (235); every other table's rows are
 identical, so the sanitized content carries over (every companion file is
 byte-identical to main's).
+
+## Teacher TE1 (migration 234), branch `teacher/te1-first-lesson`, 2026-11-02
+
+Renamed from `migration_head_233` at TE1's landing
+(`docs/reviews/teacher-te1-first-lesson.md`, "Landing onto main"; TE1's
+migration was 230 on its branch and is renumbered 234 after learner
+data-relax 2's 230, curriculum C5's 231, Reader RW5d P3's 232 and curriculum
+C2b's 233). Rebuilt from main's tracked, sanitized
+`migration_head_233/state.sqlite` (main `19c72752b3`): a backup-API copy under
+`fixtures-local/` with only `234_teacher_lessons.sql` applied through
+`learnloop.db.migrate.apply_migrations` under the scratch-copy allowance
+(`UPGRADE_SCRATCH_COPY`), then `wal_checkpoint(TRUNCATE)` (0, 0, 0),
+`journal_mode=DELETE` (header bytes 1/1), `integrity_check` ok and
+`foreign_key_check` empty, and copied into place with the backup API, with no
+companion files. The head holds 229 through 234.
+
+* 234 adds exactly its objects: `lessons`, `lesson_turns`, `lesson_plans`
+  (RAW_LEDGER), `lesson_turn_payloads` (WORKFLOW), `lesson_checks` and
+  `lesson_receipts` (RECEIPT), `lesson_weight_state`, `lesson_weight_trace` and
+  `confidence_calibration_state` (DERIVED, one replayer), their autoindexes,
+  indexes and the ledger triggers, with no row (no lesson is in this fixture);
+  and rebuilds `source_tool_calls` (its `caller_kind` CHECK gains `teacher`;
+  the same columns, indexes and append-only triggers, every row kept: it has
+  none here).
+
+Against main's 233 head no other object changed definition and only
+`schema_migrations` gained a row (234); every other table's rows are identical,
+so the sanitized content carries over (every companion file is byte-identical
+to main's).
 
 ## Curriculum C2b (migration 233), landing of `curriculum/c2b-vault-notes`, 2026-11-02
 

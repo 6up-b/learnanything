@@ -10,8 +10,8 @@ area: "TypeScript/components"
 source_path: "apps/learnloop-tauri/src/components/InspectorOverlay.tsx"
 source_paths:
   - "apps/learnloop-tauri/src/components/InspectorOverlay.tsx"
-source_commit: "bf930ea08e1644f3acecb9d331a6fcedbf0fec19"
-source_commit_timestamp: "2026-10-23T18:05:56-04:00"
+source_commit: "490ad6751fd50ca0f45661618dc6cd11cd8507b8"
+source_commit_timestamp: "2026-11-01T19:33:59-05:00"
 source_worktree_state: "clean"
 activation_kind: "entry-reachable build graph"
 activation_evidence: "A static TypeScript import path reaches this file from the Vite entry src/main.tsx."
@@ -42,14 +42,14 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/components/InspectorOverlay.tsx](../../../../../../apps/learnloop-tauri/src/components/InspectorOverlay.tsx) |
-| Source lines | 1677 |
+| Source lines | 1699 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/components/_area|TypeScript/components]] |
 | Refactor status | `ACTIVE` |
 | Activation kind | `entry-reachable build graph` |
 | Worktree state | `clean` |
-| Source commit | `bf930ea08e1644f3acecb9d331a6fcedbf0fec19` |
-| Commit timestamp | `2026-10-23T18:05:56-04:00` |
+| Source commit | `490ad6751fd50ca0f45661618dc6cd11cd8507b8` |
+| Commit timestamp | `2026-11-01T19:33:59-05:00` |
 
 ## Activation and status evidence
 
@@ -66,107 +66,107 @@ The system-level behavior stays authoritative in the linked architecture, concep
 
 - `const KIND_PILL: Record<string,` — const, line 51
 - `function masteryColor(mastery: number): string` — function, line 61
-- `const loadedIdRef = useRef<string | null>(null)` — const, line 87
-- `const backNavRef = useRef(false)` — const, line 88
-- `function go(id: string)` — function, line 92
-- `const trimmed = id.trim()` — const, line 93
-- `function back()` — function, line 97
-- `const prev = loadedIdRef.current` — const, line 114
-- `const onKey = (event: KeyboardEvent)` — const, line 126
-- `const tag = (event.target as HTMLElement | null)?.tagName?.toLowerCase()` — const, line 128
-- `const isInput = tag === "input" || tag === "textarea"` — const, line 129
-- `async function fetchEntity(id: string)` — function, line 156
-- `const previous = entity` — const, line 158
-- `const result = await api.inspectEntity(id)` — const, line 159
-- `const pill = entity && entity.kind in KIND_PILL ? KIND_PILL[entity.kind] : null` — const, line 174
-- `function InspectorEntityView(` — function, line 246
-- `const title = entity.kind === "practice_item" ? entity.detail.learningObjectTitle : entity.kind === "learning_object" ? entity.detail.title : entity.kind === "concept" ? entity.detail.title : entity.kind === "error_event" ? entity.detail.errorTitle ?? entity.…` — const, line 268
-- `function ProbeEpisodeBody(` — function, line 326
-- `function PracticeItemBody(` — function, line 354
-- `const state = detail.state` — const, line 368
-- `const mastery = detail.mastery` — const, line 369
-- `const answered = detail.attempts.some((attempt)` — const, line 374
-- `const withholdAnswer = simplePracticeFeedback() && (answering || !answered)` — const, line 375
-- `function LearningObjectBody(` — function, line 579
-- `function ConceptBody(` — function, line 672
-- `const presentation = conceptRelationPresentation(relation)` — const, line 725
-- `function conceptRelationPresentation( relation: ConceptInspectorDetail["relations"][number] ):` — function, line 763
-- `function LoCapabilitySection(` — function, line 785
-- `let alive = true` — let, line 792
-- `function ErrorEventBody(` — function, line 821
-- `function P0AttributionInspector(` — function, line 857
-- `const text = (key: string): string | null` — const, line 858
-- `const number = (key: string): number | null` — const, line 860
-- `const object = (key: string): Record<string, unknown> | null` — const, line 862
-- `const list = (key: string): unknown[]` — const, line 866
-- `const target = object("targetRef") as Parameters<typeof formatCausalTarget>[0]` — const, line 867
-- `const divergence = object("firstDivergence") as Parameters<typeof formatDivergenceAnchor>[0]` — const, line 868
-- `const resolution = text("resolutionStatus")` — const, line 869
-- `const causeScope = text("causeScope")` — const, line 870
-- `const operation = text("operation")` — const, line 871
-- `const localization = number("modelReportedLocalizationConfidence")` — const, line 872
-- `const causal = number("modelReportedCausalConfidence")` — const, line 873
-- `const contrast = object("facetContrast")` — const, line 874
-- `const candidates = list("candidateCauses")` — const, line 875
-- `const claims = list("postdictiveClaims")` — const, line 876
-- `const candidate = raw && typeof raw === "object" && !Array.isArray(raw) ? raw as Record<string, unknown> :` — const, line 925
-- `const candidateTarget = candidate.targetRef && typeof candidate.targetRef === "object" && !Array.isArray(candidate.targetRef) ? candidate.targetRef as Parameters<typeof formatCausalTarget>[0] : null` — const, line 929
-- `const claim = raw && typeof raw === "object" && !Array.isArray(raw) ? raw as Record<string, unknown> :` — const, line 957
-- `function NoteBody(` — function, line 976
-- `function AttemptBody(` — function, line 1046
-- `const feedback = detail.feedback ?? null` — const, line 1047
-- `const surprise = feedback?.surprise ?? null` — const, line 1048
-- `const evidence = feedback?.criterionEvidence ?? []` — const, line 1049
-- `const attributions = feedback?.errorAttributions ?? []` — const, line 1050
-- `const repairs = feedback?.repairSuggestions ?? []` — const, line 1051
-- `const assessed = criterionAssessed(row)` — const, line 1121
-- `const earned = row.pointsAwarded > 0` — const, line 1122
-- `const tone = !assessed ? COLOR.textDim : earned ? COLOR.green : COLOR.red` — const, line 1123
-- `function AttemptAttributionRow(` — function, line 1219
-- `const plan = event.repairPlan` — const, line 1226
-- `const resolution = typeof plan?.resolutionStatus === "string" ? plan.resolutionStatus : null` — const, line 1227
-- `const scope = typeof plan?.causeScope === "string" ? plan.causeScope : null` — const, line 1229
-- `const operation = typeof plan?.operation === "string" ? plan.operation : null` — const, line 1230
-- `const abstention = typeof plan?.abstentionReason === "string" ? plan.abstentionReason : null` — const, line 1231
-- `const target = plan?.targetRef && typeof plan.targetRef === "object" && !Array.isArray(plan.targetRef) ? plan.targetRef as Parameters<typeof formatCausalTarget>[0] : null` — const, line 1233
-- `const divergence = plan?.firstDivergence && typeof plan.firstDivergence === "object" && !Array.isArray(plan.firstDivergence) ? plan.firstDivergence as Parameters<typeof formatDivergenceAnchor>[0] : null` — const, line 1237
-- `function NotFoundBody(` — function, line 1284
-- `const WHY_ROWS: Array<` — const, line 1334
-- `function SchedulerWhy(` — function, line 1342
-- `const comps = scheduler.components` — const, line 1343
-- `const normalizedComps =` — const, line 1344
-- `const rows = WHY_ROWS.filter((row)` — const, line 1348
-- `const maxVal = Math.max(0.001, ...rows.map((row)` — const, line 1349
-- `const value = normalizedComps[row.key] ?? 0` — const, line 1363
-- `const pct = (value / maxVal) * 100` — const, line 1364
-- `function MasteryPosteriorBar(` — function, line 1414
-- `const mean = Math.max(0, Math.min(1, mastery.mean))` — const, line 1415
-- `const fallbackSd = Math.sqrt(Math.max(0, mastery.variance))` — const, line 1416
-- `const lower = Math.max(0, Math.min(mean, mastery.plausibleLower ?? mean - fallbackSd))` — const, line 1417
-- `const upper = Math.min(1, Math.max(mean, mastery.plausibleUpper ?? mean + fallbackSd))` — const, line 1418
-- `const mass = mastery.plausibleMass ?? 0.8` — const, line 1419
-- `const tone = masteryColor(mean)` — const, line 1420
-- `const intervalLabel = `$` — const, line 1421
-- `function InspectorRow(` — function, line 1463
-- `function Stat(` — function, line 1474
-- `function LearningObjectRelations(` — function, line 1483
-- `function ConceptReferenceLinks(` — function, line 1537
-- `function fallbackConceptRefs(values: string[]): ConceptReferenceDto[]` — function, line 1564
-- `function IdLink(` — function, line 1568
-- `function attemptTypePillColor(attemptType: string): PillColor` — function, line 1598
-- `function attemptRowStyle(index: number): CSSProperties` — function, line 1613
-- `function rubricRowStyle(index: number): CSSProperties` — function, line 1625
-- `function relTime(iso: string | null | undefined): string` — function, line 1637
-- `const then = Date.parse(iso)` — const, line 1639
-- `const diff = Date.now() - then` — const, line 1641
-- `const abs = Math.abs(diff)` — const, line 1642
-- `const minute = 60_000` — const, line 1643
-- `const hour = 3_600_000` — const, line 1644
-- `const day = 86_400_000` — const, line 1645
-- `const label = abs < hour ? `$` — const, line 1647
-- `function formatUnknown(value: unknown): string` — function, line 1651
-- `const searchInputStyle: CSSProperties =` — const, line 1659
-- `const panelStyle: CSSProperties =` — const, line 1670
+- `const loadedIdRef = useRef<string | null>(null)` — const, line 90
+- `const backNavRef = useRef(false)` — const, line 91
+- `function go(id: string)` — function, line 95
+- `const trimmed = id.trim()` — const, line 96
+- `function back()` — function, line 100
+- `const prev = loadedIdRef.current` — const, line 117
+- `const onKey = (event: KeyboardEvent)` — const, line 129
+- `const tag = (event.target as HTMLElement | null)?.tagName?.toLowerCase()` — const, line 131
+- `const isInput = tag === "input" || tag === "textarea"` — const, line 132
+- `async function fetchEntity(id: string)` — function, line 159
+- `const previous = entity` — const, line 161
+- `const result = await api.inspectEntity(id)` — const, line 162
+- `const pill = entity && entity.kind in KIND_PILL ? KIND_PILL[entity.kind] : null` — const, line 177
+- `function InspectorEntityView(` — function, line 250
+- `const title = entity.kind === "practice_item" ? entity.detail.learningObjectTitle : entity.kind === "learning_object" ? entity.detail.title : entity.kind === "concept" ? entity.detail.title : entity.kind === "error_event" ? entity.detail.errorTitle ?? entity.…` — const, line 274
+- `function ProbeEpisodeBody(` — function, line 333
+- `function PracticeItemBody(` — function, line 361
+- `const state = detail.state` — const, line 375
+- `const mastery = detail.mastery` — const, line 376
+- `const answered = detail.attempts.some((attempt)` — const, line 381
+- `const withholdAnswer = simplePracticeFeedback() && (answering || !answered)` — const, line 382
+- `function LearningObjectBody(` — function, line 586
+- `function ConceptBody(` — function, line 694
+- `const presentation = conceptRelationPresentation(relation)` — const, line 747
+- `function conceptRelationPresentation( relation: ConceptInspectorDetail["relations"][number] ):` — function, line 785
+- `function LoCapabilitySection(` — function, line 807
+- `let alive = true` — let, line 814
+- `function ErrorEventBody(` — function, line 843
+- `function P0AttributionInspector(` — function, line 879
+- `const text = (key: string): string | null` — const, line 880
+- `const number = (key: string): number | null` — const, line 882
+- `const object = (key: string): Record<string, unknown> | null` — const, line 884
+- `const list = (key: string): unknown[]` — const, line 888
+- `const target = object("targetRef") as Parameters<typeof formatCausalTarget>[0]` — const, line 889
+- `const divergence = object("firstDivergence") as Parameters<typeof formatDivergenceAnchor>[0]` — const, line 890
+- `const resolution = text("resolutionStatus")` — const, line 891
+- `const causeScope = text("causeScope")` — const, line 892
+- `const operation = text("operation")` — const, line 893
+- `const localization = number("modelReportedLocalizationConfidence")` — const, line 894
+- `const causal = number("modelReportedCausalConfidence")` — const, line 895
+- `const contrast = object("facetContrast")` — const, line 896
+- `const candidates = list("candidateCauses")` — const, line 897
+- `const claims = list("postdictiveClaims")` — const, line 898
+- `const candidate = raw && typeof raw === "object" && !Array.isArray(raw) ? raw as Record<string, unknown> :` — const, line 947
+- `const candidateTarget = candidate.targetRef && typeof candidate.targetRef === "object" && !Array.isArray(candidate.targetRef) ? candidate.targetRef as Parameters<typeof formatCausalTarget>[0] : null` — const, line 951
+- `const claim = raw && typeof raw === "object" && !Array.isArray(raw) ? raw as Record<string, unknown> :` — const, line 979
+- `function NoteBody(` — function, line 998
+- `function AttemptBody(` — function, line 1068
+- `const feedback = detail.feedback ?? null` — const, line 1069
+- `const surprise = feedback?.surprise ?? null` — const, line 1070
+- `const evidence = feedback?.criterionEvidence ?? []` — const, line 1071
+- `const attributions = feedback?.errorAttributions ?? []` — const, line 1072
+- `const repairs = feedback?.repairSuggestions ?? []` — const, line 1073
+- `const assessed = criterionAssessed(row)` — const, line 1143
+- `const earned = row.pointsAwarded > 0` — const, line 1144
+- `const tone = !assessed ? COLOR.textDim : earned ? COLOR.green : COLOR.red` — const, line 1145
+- `function AttemptAttributionRow(` — function, line 1241
+- `const plan = event.repairPlan` — const, line 1248
+- `const resolution = typeof plan?.resolutionStatus === "string" ? plan.resolutionStatus : null` — const, line 1249
+- `const scope = typeof plan?.causeScope === "string" ? plan.causeScope : null` — const, line 1251
+- `const operation = typeof plan?.operation === "string" ? plan.operation : null` — const, line 1252
+- `const abstention = typeof plan?.abstentionReason === "string" ? plan.abstentionReason : null` — const, line 1253
+- `const target = plan?.targetRef && typeof plan.targetRef === "object" && !Array.isArray(plan.targetRef) ? plan.targetRef as Parameters<typeof formatCausalTarget>[0] : null` — const, line 1255
+- `const divergence = plan?.firstDivergence && typeof plan.firstDivergence === "object" && !Array.isArray(plan.firstDivergence) ? plan.firstDivergence as Parameters<typeof formatDivergenceAnchor>[0] : null` — const, line 1259
+- `function NotFoundBody(` — function, line 1306
+- `const WHY_ROWS: Array<` — const, line 1356
+- `function SchedulerWhy(` — function, line 1364
+- `const comps = scheduler.components` — const, line 1365
+- `const normalizedComps =` — const, line 1366
+- `const rows = WHY_ROWS.filter((row)` — const, line 1370
+- `const maxVal = Math.max(0.001, ...rows.map((row)` — const, line 1371
+- `const value = normalizedComps[row.key] ?? 0` — const, line 1385
+- `const pct = (value / maxVal) * 100` — const, line 1386
+- `function MasteryPosteriorBar(` — function, line 1436
+- `const mean = Math.max(0, Math.min(1, mastery.mean))` — const, line 1437
+- `const fallbackSd = Math.sqrt(Math.max(0, mastery.variance))` — const, line 1438
+- `const lower = Math.max(0, Math.min(mean, mastery.plausibleLower ?? mean - fallbackSd))` — const, line 1439
+- `const upper = Math.min(1, Math.max(mean, mastery.plausibleUpper ?? mean + fallbackSd))` — const, line 1440
+- `const mass = mastery.plausibleMass ?? 0.8` — const, line 1441
+- `const tone = masteryColor(mean)` — const, line 1442
+- `const intervalLabel = `$` — const, line 1443
+- `function InspectorRow(` — function, line 1485
+- `function Stat(` — function, line 1496
+- `function LearningObjectRelations(` — function, line 1505
+- `function ConceptReferenceLinks(` — function, line 1559
+- `function fallbackConceptRefs(values: string[]): ConceptReferenceDto[]` — function, line 1586
+- `function IdLink(` — function, line 1590
+- `function attemptTypePillColor(attemptType: string): PillColor` — function, line 1620
+- `function attemptRowStyle(index: number): CSSProperties` — function, line 1635
+- `function rubricRowStyle(index: number): CSSProperties` — function, line 1647
+- `function relTime(iso: string | null | undefined): string` — function, line 1659
+- `const then = Date.parse(iso)` — const, line 1661
+- `const diff = Date.now() - then` — const, line 1663
+- `const abs = Math.abs(diff)` — const, line 1664
+- `const minute = 60_000` — const, line 1665
+- `const hour = 3_600_000` — const, line 1666
+- `const day = 86_400_000` — const, line 1667
+- `const label = abs < hour ? `$` — const, line 1669
+- `function formatUnknown(value: unknown): string` — function, line 1673
+- `const searchInputStyle: CSSProperties =` — const, line 1681
+- `const panelStyle: CSSProperties =` — const, line 1692
 
 ## Who imports or calls it
 

@@ -69,9 +69,17 @@ CHECK_OUTCOME = "check_outcome"
 #: revision's first presentation for an item-only forecaster. This family is
 #: the spec's ``item_forecasts`` (no table of its own).
 ITEM_UNASSISTED_SUCCESS = "item_unassisted_success"
-FORECAST_KINDS = (DIAGNOSIS_NEXT_OBSERVATION, REPAIR_COLD_OUTCOME, ITEM_UNASSISTED_SUCCESS)
+#: Teacher TE1 (spec_teacher_v1 §8.3, §12.2): the teacher's forecast that the
+#: learner answers a lesson check right (made when the check opens; bound to
+#: the check's own attempt), and that a node that landed is retained (made
+#: when it lands; bound to the first qualifying cold outcome on its LO, the
+#: outcome that also resolves the learned lesson-check weight).
+LESSON_CHECK_CORRECT = "lesson_check_correct"
+LESSON_STEP_RETAINED = "lesson_step_retained"
+FORECAST_KINDS = (DIAGNOSIS_NEXT_OBSERVATION, REPAIR_COLD_OUTCOME, ITEM_UNASSISTED_SUCCESS,
+                  LESSON_CHECK_CORRECT, LESSON_STEP_RETAINED)
 
-SCOPES = ("next_observation", "followup_task", "presentation", "item")
+SCOPES = ("next_observation", "followup_task", "presentation", "item", "lesson_check", "lesson_node")
 
 #: The exact chains a resolver may follow; ``none`` is censored at birth.
 PRESENTED_ATTEMPT_ON_FACET = "presented_attempt_on_facet"
@@ -79,14 +87,18 @@ FOLLOWUP_TASK = "followup_task"
 #: AD1's item-scoped forecast: scored against the first bound presentation of
 #: the revision it names (``item_content_hash``).
 FIRST_PRESENTATION = "first_presentation"
+#: Teacher TE1: a lesson check's own attempt; the first qualifying cold outcome on the node's LO
+#: (``learner.lesson_weight.qualifying_outcomes``).
+LESSON_CHECK_ATTEMPT = "lesson_check_attempt"
+LESSON_COLD_OUTCOME = "lesson_cold_outcome"
 NO_BINDING = "none"
 BINDING_KINDS = (PRESENTED_ATTEMPT_ON_FACET, FOLLOWUP_TASK, "plan_presentation", "probe_presentation",
-                 FIRST_PRESENTATION, NO_BINDING)
+                 FIRST_PRESENTATION, LESSON_CHECK_ATTEMPT, LESSON_COLD_OUTCOME, NO_BINDING)
 
 #: ``serve`` (AD1): a presentation's forecasts, in-process in the serve
 #: transaction or from an outside forecaster after it; ``item_prepare`` (AD1):
 #: an item-only forecast made when the revision is prepared for the pool.
-DECISION_KINDS = ("diagnosis", "cold_retry_schedule", "serve", "item_prepare")
+DECISION_KINDS = ("diagnosis", "cold_retry_schedule", "serve", "item_prepare", "lesson")
 
 
 @dataclass(frozen=True)
@@ -271,6 +283,10 @@ __all__ = [
     "FOLLOWUP_TASK",
     "FORECAST_KINDS",
     "ITEM_UNASSISTED_SUCCESS",
+    "LESSON_CHECK_ATTEMPT",
+    "LESSON_CHECK_CORRECT",
+    "LESSON_COLD_OUTCOME",
+    "LESSON_STEP_RETAINED",
     "ForecastReceipt",
     "NO_BINDING",
     "PRESENTED_ATTEMPT_ON_FACET",

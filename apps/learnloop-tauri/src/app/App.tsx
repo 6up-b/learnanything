@@ -60,6 +60,7 @@ import type { ReaderCheckMeRequest, ReaderExerciseRequest, ReaderOpenSource } fr
 import { keepReaderReturn, readerCheckOffer, returnsToReader, type ReaderReturn } from "./readerCheck";
 import { consumeShown, readerTargetBack, readerWorkbenchCheck, sessionAfterWorkbenchSubmit, workbenchReturn } from "./readerWorkbench";
 import { algoConfig, setRenderedShell } from "./algoConfig";
+import type { LessonEntry } from "../screens/LessonScreen";
 import type { ReaderWorkbenchCheck, ReaderWorkbenchProps, ReaderWorkbenchResume } from "../screens/reader/useReaderWorkbench";
 import { ExemplarConfirmDialog } from "../components/ExemplarConfirmDialog";
 import { WhyDiagnosisOverlay } from "../components/WhyDiagnosisOverlay";
@@ -100,6 +101,7 @@ type OpenSourceTarget = {
 };
 
 const ReaderScreen = lazy(() => import("../screens/ReaderScreen").then((module) => ({ default: module.ReaderScreen })));
+const LessonScreen = lazy(() => import("../screens/LessonScreen").then((module) => ({ default: module.LessonScreen })));
 const GraphScreen = lazy(() => import("../screens/GraphScreen").then((module) => ({ default: module.GraphScreen })));
 const IngestScreen = lazy(() => import("../screens/IngestScreen").then((module) => ({ default: module.IngestScreen })));
 const ExamScreen = lazy(() => import("../screens/ExamScreen").then((module) => ({ default: module.ExamScreen })));
@@ -222,6 +224,8 @@ export function App() {
   // for its next target is in flight — coming back from that round remounts the
   // screen, which refreshes progress. Entered from the command palette.
   const [calibrationSessionId, setCalibrationSessionId] = useState<string | null>(null);
+  // Teacher TE1: the open lesson ("Teach me this" on a topic or a Reader selection), shown over the shell.
+  const [lessonEntry, setLessonEntry] = useState<LessonEntry | null>(null);
   // Learner field F2: the overlay is a "Check what I already know" quick check.
   // Its answers return straight to the check (results are revealed at the end),
   // instead of opening feedback after each one.
@@ -1268,6 +1272,11 @@ export function App() {
     setTodayStage("feedback");
   }
 
+  // Teacher TE1: "Teach me this" on a Reader selection opens a lesson on its section's topics.
+  function teachMeFromReader(request: { extractionId: string; spanIds: string[] }) {
+    setLessonEntry({ kind: "open", entry: "reader_selection", selection: request });
+  }
+
   // Learner field F2: "Check what I already know" from the LO inspector.
   async function startQuickCheck(learningObjectIds: string[]) {
     // F1: after an implicit start, the vault this check was asked on; the
@@ -2209,11 +2218,11 @@ export function App() {
               }}
               onError={onError}
             />
-            <ReaderScreen key={readerOpenSeq} onError={onError} {...(simple ? { askRequest: readerAskRequest } : {})} initialSource={readerSource} onSourceChange={setReaderSource} onOpenLibrary={openLibraryShelf} shelf={libraryPlace(true)} onCheckMe={checkMeFromReader} onUseExercise={exerciseFromReader} onSkimmingChange={noteReaderSkimming} {...(readerWorkbench ? { workbench: readerWorkbench } : {})} />
+            <ReaderScreen key={readerOpenSeq} onError={onError} {...(simple ? { askRequest: readerAskRequest } : {})} initialSource={readerSource} onSourceChange={setReaderSource} onOpenLibrary={openLibraryShelf} shelf={libraryPlace(true)} onCheckMe={checkMeFromReader} onUseExercise={exerciseFromReader} {...(algoConfig().lessons ? { onTeachMe: teachMeFromReader } : {})} onSkimmingChange={noteReaderSkimming} {...(readerWorkbench ? { workbench: readerWorkbench } : {})} />
           </div>
         );
       }
-      return <ReaderScreen key={readerOpenSeq} onError={onError} {...(simple ? { askRequest: readerAskRequest } : {})} initialSource={readerSource} onSourceChange={setReaderSource} onOpenLibrary={openLibraryShelf} shelf={libraryPlace(true)} onCheckMe={checkMeFromReader} onUseExercise={exerciseFromReader} onSkimmingChange={noteReaderSkimming} {...(readerWorkbench ? { workbench: readerWorkbench } : {})} />;
+      return <ReaderScreen key={readerOpenSeq} onError={onError} {...(simple ? { askRequest: readerAskRequest } : {})} initialSource={readerSource} onSourceChange={setReaderSource} onOpenLibrary={openLibraryShelf} shelf={libraryPlace(true)} onCheckMe={checkMeFromReader} onUseExercise={exerciseFromReader} {...(algoConfig().lessons ? { onTeachMe: teachMeFromReader } : {})} onSkimmingChange={noteReaderSkimming} {...(readerWorkbench ? { workbench: readerWorkbench } : {})} />;
     }
     if (tab === "maintain") {
       return renderMaintain();
@@ -2291,7 +2300,21 @@ export function App() {
         onInspect={setInspectorId}
         onError={onError}
         onQuickCheck={(ids) => void startQuickCheck(ids)}
+        {...(algoConfig().lessons ? { onTeachMe: (learningObjectId: string, title: string) => {
+          setInspectorId(null);
+          setLessonEntry({ kind: "open", entry: "learning_object", learningObjectIds: [learningObjectId], title });
+        } } : {})}
       />
+      {lessonEntry ? (
+        <Suspense fallback={<div role="status">Loading…</div>}>
+          <LessonScreen
+            entry={lessonEntry}
+            onClose={() => setLessonEntry(null)}
+            onQuickCheck={(ids) => { setLessonEntry(null); void startQuickCheck(ids); }}
+            onError={onError}
+          />
+        </Suspense>
+      ) : null}
       <AskOverlay
         // Reader CA2: a feedback Ask docks beside feedback instead (above).
         target={algoConfig().ask !== null && askTarget?.context === "feedback" && tab === "today" && todayStage === "feedback"

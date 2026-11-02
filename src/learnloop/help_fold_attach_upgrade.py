@@ -4,7 +4,7 @@ Follow-ups Nov 2 (b) and its Codex review F1 (``docs/reviews/followups-nov2.md``
 ``docs/algorithm-change-playbook.md``, the 2026-10-17 eligibility rule: a change
 to which new attempts are primed is a successor with a kill switch even when
 replay is unchanged). It is the next link of the linear chain: everything the
-predecessor (curriculum C1's ``mvp-0.40``) means PLUS this:
+predecessor (teacher TE1 + C4's ``mvp-0.41``) means PLUS this:
 
 * a keyed submit's fold counts the key's shown, server-counted hint rows of
   the item in any practice session (H0's attach rule), not only the submit's
@@ -14,9 +14,9 @@ predecessor (curriculum C1's ``mvp-0.40``) means PLUS this:
   (``hint_fold.attach_keyed``), so the rows attached are exactly the rows
   counted; H0's attach after the commit binds the key's other rows as before.
 
-The tag is ONE constant (``HELP_FOLD_ATTACH_ALGORITHM_VERSION``, ``mvp-0.41``),
-built while teacher TE1 + C4 was landing as ``mvp-0.41`` too: renumbered at
-whichever landing is second.
+The tag is ONE constant (``HELP_FOLD_ATTACH_ALGORITHM_VERSION``, ``mvp-0.42``):
+built as ``mvp-0.41`` while teacher TE1 + C4 was landing as ``mvp-0.41`` too,
+renumbered at this branch's landing (TE1 landed first; ruling R4).
 
 The upgrade:
 
@@ -51,26 +51,26 @@ from pathlib import Path
 
 from learnloop import activation_journal
 from learnloop.algorithm_versions import (
-    DELIVERABLE_PLAN_ALGORITHM_VERSION,
     HELP_FOLD_ATTACH_ALGORITHM_VERSION,
     SUCCESSOR_CHAIN,
+    TEACHER_ALGORITHM_VERSION,
 )
 from learnloop.claim_fixes_upgrade import write_activation_journal as _write_journal
 from learnloop.clock import Clock
 from learnloop.ops.vault_upgrade import UpgradeResult
 from learnloop.params import parameter_registry as registry_service
 from learnloop.regrade_contract_upgrade import publish_algorithm_version as _publish_algorithm_version
-from learnloop.deliverable_plan_upgrade import complete_interrupted_activation as _complete_predecessor_activation
-from learnloop.deliverable_plan_upgrade import upgrade_to_deliverable_plan
 from learnloop.substrate.p0_projection import activate_p0_projection
+from learnloop.teacher_upgrade import complete_interrupted_activation as _complete_predecessor_activation
+from learnloop.teacher_upgrade import upgrade_to_teacher
 from learnloop.vault.loader import load_vault
 from learnloop.vault.paths import VaultPaths
 from learnloop.vault.repository import open_vault_repository
 from learnloop.vault_lock import vault_mutation_lock
 
 #: The immediate predecessor and its upgrade.
-PREDECESSOR = DELIVERABLE_PLAN_ALGORITHM_VERSION
-_upgrade_to_predecessor = upgrade_to_deliverable_plan
+PREDECESSOR = TEACHER_ALGORITHM_VERSION
+_upgrade_to_predecessor = upgrade_to_teacher
 
 #: Versions the upgrade accepts through the existing chain: mvp-0.9 up to the predecessor's own predecessor.
 _CHAINED_PREDECESSORS = SUCCESSOR_CHAIN[:SUCCESSOR_CHAIN.index(PREDECESSOR)]

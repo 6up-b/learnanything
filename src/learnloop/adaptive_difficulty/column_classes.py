@@ -153,6 +153,9 @@ _CLASSES: dict[str, tuple[str, str]] = {
     "commitments": (
         "id learner_id idempotency_key created_at",
         "created_action"),
+    "confidence_calibration_state": (
+        "family updates through_at priors_version",
+        "state_json"),
     "composed_selector_telemetry_horizons": (
         "id horizon_days opened_at retires_at retired_at status",
         "detail_json"),
@@ -353,6 +356,34 @@ _CLASSES: dict[str, tuple[str, str]] = {
     "learner_notes": (
         "id note_key line content_hash captured_on origin truncated created_at vault_ref_kind vault_ref_id",
         "path heading_path title heading text_md"),
+    # Teacher TE1 (migration 234): every lesson table (DENIED); its text is content.
+    "lesson_checks": (
+        "id lesson_id node_id check_ref learning_object_id minted_item_id status attempt_id correctness tap hedge "
+        "predicted_success predicted_source mass_learned mass_applied forecast_correct_key forecast_retained_key "
+        "created_at",
+        "weight_inputs_json"),
+    "lesson_plans": (
+        "id lesson_id version created_at",
+        "outline_json"),
+    "lesson_receipts": (
+        "lesson_id receipt_version close_reason created_at",
+        "receipt_json"),
+    "lesson_turn_payloads": (
+        "turn_id lesson_id created_at",
+        "payload_json"),
+    "lesson_turns": (
+        "id lesson_id seq actor action validation payload_hash created_at",
+        "refs_json"),
+    "lesson_weight_state": (
+        "family updates through_at priors_version",
+        "state_json"),
+    "lesson_weight_trace": (
+        "id seq kind lesson_check_id resolving_attempt_id learning_object_id at",
+        "detail_json"),
+    "lessons": (
+        "id driver origin origin_ref entry learning_object_ids_json doctrine_version brief_version route model "
+        "algorithm_version opened_at closed_at close_reason",
+        "goal_text goal_json"),
     "learner_text_gap_reversals": (
         "id gap_id reversal actor created_at",
         "detail_json"),

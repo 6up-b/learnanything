@@ -908,7 +908,7 @@ CONFIG_SECTION_FUNCTIONS: dict[str, str] = {
     "notes": "deliverable curriculum C2 (spec_deliverable_curriculum_v1 §10): the learner's notes in their own voice, linked through the owner's tend (the one adapter: tend search and tend serve's read op, inside the notes.tend.paths allowlist; tend absent hides them): candidates per topic of a deliverable path without a model, one listwise call per topic (ai.routing.note_link_judge, the ChatGPT plan only, quiet, never offered OpenRouter) proposing which notes discuss its passage or the topic, snapshots of linked notes only, the margin mark, the path line and Compare's use as my take; the kill switch, the words-only switch, the executable, the allowlist, the Pocket Notes folders, the tend call's timeout and the prompt bounds (display and learner-voice records: never a source, a generation input or evidence; no successor)",
     "reader": "reader CA5a and CA5 (ux_reader_compare_ask_v1 §6.2, §6.3): find this section in my other books (the Guide footer's pressed action over reader.correspondents' unchecked search hits by book) and also in your books (the Guide's one line and its list by LO over judged coverage; peek, go there, compare, not about this, also about), with the presentation's kill switch respecting curriculum.enabled and the learner's hide preferences for the line (hide everywhere, hidden books); navigation and display only, no successor",
     "replay": "rebuild equivalence (mvp-0.34): the kill switch of replay reading the ledger as each live write saw it (the recent-attempt windows and the canonical facet cache bounded at the replayed attempt), so a rebuild reproduces live state; live writes never read it",
-    "teacher": "teacher TE0 (spec_teacher_v1 §15.2): the kill switch of the learner's confidence events (the tap and the grader's hedge read, each with the outcome, never a raw scalar or a count) in the router card (learner_state_card_v2), the history-aware diagnoser (live and offline), the hint writer and the tutor, never the grader; context only, off every context is its predecessor's (no successor)",
+    "teacher": "teacher (spec_teacher_v1): TE0's confidence events (the tap and the grader's hedge read with the outcome) in the router card, the history-aware diagnoser, the hint writer and the tutor, never the grader (context only, no successor); TE1's lessons (mvp-0.41): the successor's kill switches, the learned lesson-check weight's switches, the brief's budgets and curriculum C4's switch, the delayed checks' seeded dating priors and the metered lesson's price and cap",
 }
 
 
@@ -1384,13 +1384,33 @@ CONFIG_FUNCTION_OVERRIDES: dict[str, str] = {
         "successor; replay never reads it (replay schedules nothing)."
     ),
     "hints.fold_follows_attach": (
-        "Kill switch for follow-ups Nov 2's successor (mvp-0.41; learnloop.help_fold_attach_upgrade; Codex "
+        "Kill switch for follow-ups Nov 2's successor (mvp-0.42; learnloop.help_fold_attach_upgrade; Codex "
         "review F1 of docs/reviews/followups-nov2.md). On, a keyed submit's fold counts the key's shown "
         "server hint rows in any practice session (H0's attach rule) and the attempt takes the rows it counted "
         "in its own write transaction, so a hint shown before the session rolled over raises hints_used "
         "(levels 1-3) or primes (levels 4-5) the attempt it attaches to. Off, the fold reads the submit's own "
-        "session only and H0's attach takes the key's rows after the commit, exactly as mvp-0.40. Dormant "
+        "session only and H0's attach takes the key's rows after the commit, exactly as mvp-0.41. Dormant "
         "below the successor; replay never reads it (replay never folds)."
+    ),
+    "teacher.enabled": (
+        "Kill switch for teacher TE1's successor (mvp-0.41; learnloop.teacher_upgrade; spec_teacher_v1 §18.3). "
+        "On, a lesson the learner starts may open (lesson.turn); its checks enter mastery at the learned mass "
+        "recorded on lesson_checks, its teaching text writes lesson reveal rows and its close commits delayed "
+        "checks. Off, or below the tag, no lesson opens and every path is mvp-0.40's byte for byte."
+    ),
+    "teacher.weight.learned": (
+        "Operational switch of the learned lesson-check weight (spec_teacher_v1 §12.1): on, a lesson check enters "
+        "mastery at the posterior mean of sigma(eta) as of the check; off, at the type's configured 0.5. Replay "
+        "reads each check's recorded mass, never this switch."
+    ),
+    "teacher.weight.source": (
+        "pool: the learned pool weight mixes the teacher's lesson_step_retained forecast into the mass (spec §12.2); "
+        "parametric: §12.1's mass alone. Operational only; replay reads the recorded mass."
+    ),
+    "teacher.brief.use_deliverable": (
+        "Curriculum C4's switch (spec_deliverable_curriculum_v1 §8.2): the brief's goal and sources from the "
+        "nearest deliverable naming the lesson's topics and its path (primaries whole, alternates as outline), "
+        "and the learner's linked notes as headers with read_note. Off: the brief has none of it."
     ),
     "curriculum.plan_uses_path": (
         "Kill switch for curriculum C1's successor (mvp-0.40; learnloop.deliverable_plan_upgrade; "

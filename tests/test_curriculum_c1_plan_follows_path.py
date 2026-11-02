@@ -184,10 +184,11 @@ def test_the_successor_is_one_constant_after_rw6bs_followups():
     from learnloop.config.template import DEFAULTS_SNAPSHOT_BY_ALGORITHM, defaults_fingerprint_for_version
     from learnloop.deliverable_plan_upgrade import PREDECESSOR as UPGRADE_PREDECESSOR
 
-    assert SUCCESSOR_CHAIN[-3:-1] == (PREDECESSOR, TAG) == ("mvp-0.39", "mvp-0.40")
-    # Follow-ups Nov 2's mvp-0.41 follows it as the latest (and keeps it).
-    assert SUCCESSOR_CHAIN[-1] == LATEST_ALGORITHM_VERSION == "mvp-0.41" and UPGRADE_PREDECESSOR == PREDECESSOR
-    assert DELIVERABLE_PLAN_VERSIONS == frozenset({TAG, "mvp-0.41"})
+    assert SUCCESSOR_CHAIN[SUCCESSOR_CHAIN.index(TAG) - 1:SUCCESSOR_CHAIN.index(TAG) + 1] == (PREDECESSOR, TAG) == ("mvp-0.39", "mvp-0.40")
+    # Teacher TE1's mvp-0.41 and follow-ups Nov 2's mvp-0.42 follow it (and keep it).
+    assert SUCCESSOR_CHAIN[SUCCESSOR_CHAIN.index(TAG) + 1:] == ("mvp-0.41", "mvp-0.42")
+    assert UPGRADE_PREDECESSOR == PREDECESSOR
+    assert DELIVERABLE_PLAN_VERSIONS == frozenset({TAG, "mvp-0.41", "mvp-0.42"})
     for version in SUCCESSOR_CHAIN:
         assert DEFAULTS_SNAPSHOT_BY_ALGORITHM[version] == defaults_fingerprint_for_version(version), version
     assert DEFAULTS_SNAPSHOT_BY_ALGORITHM[TAG] != DEFAULTS_SNAPSHOT_BY_ALGORITHM[PREDECESSOR]
@@ -633,9 +634,10 @@ def test_a_bare_upgrade_targets_mvp040_and_refuses_twice(tmp_path, _cli_process)
     from learnloop.deliverable_plan_upgrade import upgrade_to_deliverable_plan
 
     paths = create_placement_vault(tmp_path / "v", version=PREDECESSOR)
-    result = CliRunner().invoke(app, ["upgrade", "--vault", str(paths.root)])
+    # Teacher TE1 (mvp-0.41) is the bare upgrade's target now; C1's own link is --to mvp-0.40.
+    result = CliRunner().invoke(app, ["upgrade", "--vault", str(paths.root), "--to", TAG])
     assert result.exit_code == 0, result.output
-    # The latest is follow-ups Nov 2's mvp-0.41, chained through this tag.
+    # The latest is follow-ups Nov 2's mvp-0.42 (after TE1's mvp-0.41), chained through this tag.
     assert f"{PREDECESSOR} -> {LATEST_ALGORITHM_VERSION}" in result.output
     assert _version(paths) == LATEST_ALGORITHM_VERSION and _activated(paths)
     paths = create_placement_vault(tmp_path / "w", version=PREDECESSOR)

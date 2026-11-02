@@ -3,13 +3,13 @@ title: "facet_dossiers"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "47f2ffc037e55db12ce419711e1d4920cae4fad7"
-source_commit_timestamp: "2026-11-02T04:33:30-05:00"
+source_commit: "95dd20a1d45901033891f11b5a598581ca884e63"
+source_commit_timestamp: "2026-11-02T02:34:21-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite facet_dossiers"
   - "table facet_dossiers"
-schema_head: 235
+schema_head: 234
 table_name: "facet_dossiers"
 table_role: "workflow"
 functionality_status: "active"

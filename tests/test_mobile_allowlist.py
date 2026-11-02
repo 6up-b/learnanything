@@ -505,6 +505,20 @@ def test_the_pinned_c2_rpcs_are_all_of_them():
     assert set(CURRICULUM_C2_RPCS) == set(NOTES_RPCS)
 
 
+# Teacher TE1 (spec_teacher_v1 §17, §19): a lesson (lesson.turn is every
+# model-calling step, lesson.view resumes one). Desktop only: never on the phone.
+TEACHER_TE1_RPCS = (
+    "lesson.turn",
+    "lesson.view",
+)
+
+
+def test_the_pinned_teacher_rpcs_are_all_of_them():
+    from learnloop_sidecar.handlers.lesson import LESSON_RPCS
+
+    assert set(TEACHER_TE1_RPCS) == set(LESSON_RPCS)
+
+
 # Reader CA6 (ux_reader_compare_ask_v1 §6.4): one section of the other book
 # for side by side's second pane. Desktop only.
 READER_CA6_RPCS = (
@@ -841,7 +855,7 @@ def test_r2a_params_are_the_plan_presentation_on_the_three_answer_rpcs():
     + HINTS_H0_RPCS + HINTS_H0_EXTENDED_RPCS + HINTS_H2A_RPCS + HINTS_H2A_EXTENDED_RPCS
     + HINTS_H2B_RPCS + READER_RW2B_RPCS + READER_RW2B_EXTENDED_RPCS + READER_RW2B_FIX5_EXTENDED_RPCS
     + INTENT_RPCS + INTENT_EXTENDED_RPCS + READER_RW5A_RPCS + READER_RW2C_RPCS + READER_RW2C_EXTENDED_RPCS + AD23_RPCS
-    + UX_PHASE3_RPCS + CURRICULUM_C0A_RPCS + CURRICULUM_C0B_RPCS + CURRICULUM_C2_RPCS + READER_CA5A_RPCS + READER_CA5_RPCS + READER_CA6_RPCS + READER_CA1_RPCS + READER_CA3_RPCS + READER_RW5D_RPCS,
+    + UX_PHASE3_RPCS + CURRICULUM_C0A_RPCS + CURRICULUM_C0B_RPCS + CURRICULUM_C2_RPCS + READER_CA5A_RPCS + READER_CA5_RPCS + READER_CA6_RPCS + READER_CA1_RPCS + READER_CA3_RPCS + READER_RW5D_RPCS + TEACHER_TE1_RPCS,
 )
 def test_desktop_and_main_rpcs_are_registered_but_never_phone_allowed(method):
     from learnloop_sidecar import handlers  # noqa: F401 — populates the registry

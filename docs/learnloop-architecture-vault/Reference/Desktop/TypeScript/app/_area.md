@@ -6,8 +6,8 @@ refactor_status: "ACTIVE"
 version: "1.0.0"
 source_paths:
   - "apps/learnloop-tauri/src/app"
-source_commit: "afb17672c627b4f4422c149ac63dd2addef98a9b"
-source_commit_timestamp: "2026-11-01T20:23:43-05:00"
+source_commit: "e74f3156e03e164ac0619116dd099c4bafc70580"
+source_commit_timestamp: "2026-11-02T02:07:01-05:00"
 generated: true
 generated_at: "2026-08-18"
 tags:
@@ -36,7 +36,7 @@ No nested ownership area.
 
 | Module | Status | Purpose | Imports | Imported by |
 |---|---|---|---:|---:|
-| [[Reference/Desktop/TypeScript/app/App|App.tsx]] | `ACTIVE` | Owns desktop navigation and cross-screen state, connecting startup, sessions, overlays, vault refresh, and route handoffs. | 71 | 1 |
+| [[Reference/Desktop/TypeScript/app/App|App.tsx]] | `ACTIVE` | Owns desktop navigation and cross-screen state, connecting startup, sessions, overlays, vault refresh, and route handoffs. | 72 | 1 |
 | [[Reference/Desktop/TypeScript/app/ScreenErrorBoundary|ScreenErrorBoundary.tsx]] | `ACTIVE` | Provides `ScreenErrorBoundary` within the desktop's TypeScript/app ownership area. | 1 | 1 |
 | [[Reference/Desktop/TypeScript/app/ShellChromeRoot|ShellChromeRoot.tsx]] | `ACTIVE` | Provides `SHELL_CHROME_ATTRIBUTE`, `inShellChrome`, `ShellChromeRoot` within the desktop's TypeScript/app ownership area. | 1 | 1 |
 | [[Reference/Desktop/TypeScript/app/algoConfig|algoConfig.ts]] | `ACTIVE` | Normalizes and exposes algorithm configuration values needed by presentation code. | 0 | 26 |

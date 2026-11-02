@@ -96,6 +96,8 @@ METERED_PRICE_SETTINGS: dict[str, str] = {
     "source_compare": "source_service.llm_price_per_million",
     "exercise_discrimination": "source_service.llm_price_per_million",
     "worked_example_equivalence": "source_service.llm_price_per_million",
+    # Teacher TE1 (spec_teacher_v1 §17): no lesson is offered OpenRouter until its price exists.
+    "teacher": "teacher.metered_price_per_million",
 }
 
 
