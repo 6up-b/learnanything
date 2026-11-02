@@ -8,6 +8,9 @@ Desktop only (pinned in tests/test_mobile_allowlist.py).
   call, no write); with none judged and ``search_fallback`` on, the live
   search hits per book labelled "found by search, not checked" (CA5a's
   pressed action reads them; the Guide's quiet line passes it off).
+  RW5d P4a: while ``reader.correspondence.enabled`` and ``figures.enabled``
+  are on, a judged correspondent section lists the kept figures anchored in
+  it (``figures``; absent when it has none), so a figure follows the section.
 * ``curriculum.cover``: the learner's pressed "check where my other books
   treat this": the section's LOs are judged (one listwise call per LO, route
   ``section_coverage_judge``) in a background job. Plan-first (T1): the job
@@ -48,6 +51,7 @@ import threading
 from pathlib import Path
 from typing import Any
 
+from learnloop.figures import service as FS
 from learnloop.source_retrieval import section_coverage as SC
 from learnloop.ids import new_ulid
 from learnloop.reader import reader_dialogue as RD
@@ -88,6 +92,13 @@ def find_section_enabled(vault: Any) -> bool:
     reader = getattr(vault.config, "reader", None)
     correspondence = getattr(reader, "correspondence", None)
     return bool(getattr(correspondence, "enabled", False)) and SC.enabled(vault) and RD.reader_enabled(vault)
+
+
+def figures_follow_enabled(vault: Any) -> bool:
+    """RW5d P4a (figures follow the section): CA5's ``reader.correspondence.enabled``
+    (respecting ``curriculum.enabled`` and the Reader) with ``figures.enabled``."""
+
+    return find_section_enabled(vault) and FS.enabled(vault)
 
 
 def hidden_everywhere(vault: Any) -> bool:
@@ -170,8 +181,56 @@ def reader_correspondents(ctx: SidecarContext, params: CorrespondentsInput) -> d
                                  embedder=getattr(ctx, "coverage_embedder", None), cache=_library_cache(ctx))
     except SC.CoverageError as exc:
         raise _sidecar_error(exc) from exc
+    if view.get("status") == "judged" and figures_follow_enabled(vault):
+        _with_figures(ctx, vault, repository, view)
     view["job"] = _job_for(ctx, resolved, params.section_id)
     return versioned(view)
+
+
+def _with_figures(ctx: SidecarContext, vault: Any, repository: Any, view: dict[str, Any]) -> None:
+    """RW5d P4a (spec §10.2): each judged correspondent section lists the kept
+    figures anchored in it (``figures``, present only when there is one): a
+    figure the learner built reading Strang §6.4 is offered from the section
+    of another book that corresponds to it. A read joined through the
+    figure's anchor section (nothing is copied, Q8). Protected on both sides:
+    the open section has judged correspondents only when it is not protected,
+    a correspondent section is in the protected library only when none of its
+    spans is withheld, and a figure is listed only while nothing it was built
+    from (or lands on) is held out now (:func:`FS.section_figures`). Anything
+    unreadable lists no figure; the rest of the read stands."""
+
+    wanted: dict[str, set[str]] = {}
+    for group in view.get("learning_objects") or ():
+        for source in group.get("sources") or ():
+            for section in source.get("sections") or ():
+                wanted.setdefault(str(section["extraction_id"]), set()).add(str(section["section_id"]))
+    if not wanted:
+        return
+    found: dict[tuple[str, str], list[dict[str, Any]]] = {}
+    try:
+        library = _library_cache(ctx).get(vault, repository)
+        for extraction_id, section_ids in wanted.items():
+            reading = library.reading(extraction_id)
+            if reading is None:
+                continue
+
+            def section_of(span_id: str, reading: Any = reading) -> str | None:
+                # A withheld section (any withheld span) is not one of the reading's sections.
+                section_id = reading.all_spans.get(span_id)
+                return section_id if section_id in reading.sections else None
+
+            for section_id, refs in FS.section_figures(vault, repository, extraction_id, section_of).items():
+                if section_id in section_ids:
+                    found[(extraction_id, section_id)] = refs
+    except Exception:  # noqa: BLE001 - fail closed and quiet: no figure rather than no correspondents
+        LOG.warning("figures follow the section: the figures could not be read", exc_info=True)
+        return
+    for group in view.get("learning_objects") or ():
+        for source in group.get("sources") or ():
+            for section in source.get("sections") or ():
+                refs = found.get((str(section["extraction_id"]), str(section["section_id"])))
+                if refs:
+                    section["figures"] = [dict(ref) for ref in refs]
 
 
 # -- curriculum.cover: the background judgment -----------------------------------------------------
@@ -581,5 +640,5 @@ def _on_disk_preferences(config_path: Any) -> tuple[list[str], bool]:
     return list(dict.fromkeys(listed)), bool(section.get("hide_everywhere", False))
 
 
-__all__ = ["ALSO_IN_BOOKS_RPCS", "CORRESPONDENT_RPCS", "FIND_SECTION_RPCS", "find_section_enabled",
-           "prompt_contract_fields"]
+__all__ = ["ALSO_IN_BOOKS_RPCS", "CORRESPONDENT_RPCS", "FIND_SECTION_RPCS", "figures_follow_enabled",
+           "find_section_enabled", "prompt_contract_fields"]

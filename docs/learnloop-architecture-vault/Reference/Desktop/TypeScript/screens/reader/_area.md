@@ -6,8 +6,8 @@ refactor_status: "ACTIVE"
 version: "1.0.0"
 source_paths:
   - "apps/learnloop-tauri/src/screens/reader"
-source_commit: "workspace/uncommitted @ 9543d8c96d152c822106fe37bff6b8255b118dad"
-source_commit_timestamp: "2026-11-01T23:10:14-05:00"
+source_commit: "4ac280e348c29e2872137563d9d03ac531e416e6"
+source_commit_timestamp: "2026-11-01T23:21:52-05:00"
 generated: true
 generated_at: "2026-08-18"
 tags:
