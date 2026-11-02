@@ -177,7 +177,7 @@ def test_a_held_out_passage_or_a_closed_decision_is_not_retried(tmp_path, monkey
 def test_a_pass_retries_at_most_the_daily_build_cap(tmp_path, monkeypatch):
     paths, repository, _ctx_, job = _waiting_prebuild(tmp_path, monkeypatch)
     set_config(paths, "figures.prefetch", max_daily_builds=1)
-    monkeypatch.setattr(FS, "prefetch_plan_waits", lambda vault, repo, extraction_id, request_ids=None:
+    monkeypatch.setattr(FS, "prefetch_plan_waits", lambda vault, repo, extraction_id, **kwargs:
                         [job["id"], "job_two", "job_three"] if extraction_id is None else [])
     retried: list[str] = []
     PF.retry_plan_waits(_env(paths, repository, retried), PF.PassResult("ok", "offer"))

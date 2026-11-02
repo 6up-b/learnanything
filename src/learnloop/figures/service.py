@@ -136,7 +136,7 @@ import json
 import logging
 import sqlite3
 import threading
-from collections.abc import Callable, Collection, Iterator, Mapping, Sequence
+from collections.abc import Callable, Collection, Iterable, Iterator, Mapping, Sequence
 from contextlib import closing, contextmanager
 from contextvars import ContextVar
 from dataclasses import dataclass, field
@@ -3104,8 +3104,89 @@ def prefetch_pending(vault: Any, repository: Repository, extraction_id: str, *,
     return False
 
 
+#: ``learner_protection.withheld_items`` reasons naming an item under a live administration (an
+#: open cold check or a repair's cold retry, an assessment reservation, a diagnostic probe). Exam
+#: and held-out material is the span filter's (``withheld_message``), on every span.
+LIVE_ADMINISTRATION_REASONS: tuple[str, ...] = ("WITHHELD_COLD", "WITHHELD_RESERVED", "WITHHELD_PROBE")
+
+
+def item_passages(vault: Any, repository: Repository, *,
+                  extra_item_ids: Iterable[str] = ()) -> tuple[frozenset[tuple[str, str]], frozenset[str]] | None:
+    """RW5d P5 (spec §10b.2, G-SM29): the passages no prebuild may send or show now: every passage
+    (``corpus.item_exclusions``: its exercise, solution or worked answer, whatever the relation) of
+    an item under a live administration (:data:`LIVE_ADMINISTRATION_REASONS`) and of
+    ``extra_item_ids`` (the prefetch pass adds the stored plan's open items). Returns ``(spans,
+    whole extractions)``, read fresh on every call; None when the protection could not be read
+    (the caller fails closed). The one core of ``prefetch.item_protection`` and of a prebuild's
+    rich job's checks (follow-ups batch 6, Codex review F1)."""
+
+    from learnloop import learner_protection as LP
+    from learnloop.source_retrieval import corpus
+
+    withheld = LP.withheld_items(vault, repository)
+    if not withheld.available:
+        return None
+    live = {getattr(LP, name) for name in LIVE_ADMINISTRATION_REASONS}
+    ids = {item_id for item_id, reason in withheld.reasons.items() if reason in live}
+    ids |= {str(item_id) for item_id in extra_item_ids}
+    spans: set[tuple[str, str]] = set()
+    whole: set[str] = set()
+    for item_id in sorted(ids):
+        item = vault.practice_items.get(item_id)
+        if item is None:
+            continue  # an item the vault can't read links to no passage it can name
+        try:
+            own = corpus.item_exclusions(repository, item)
+        except Exception:  # noqa: BLE001 - an item whose passages can't be read: fail closed
+            _LOG.warning("figures: the passages of item %s could not be read", item_id, exc_info=True)
+            return None
+        spans |= {(str(key[0]), str(key[1])) for key in own.spans}
+        whole |= {str(extraction) for extraction in own.extractions}
+    return frozenset(spans), frozenset(whole)
+
+
+#: Why a prebuild's rich job is not asked again, or stops before its next request and before its
+#: store (follow-ups batch 6, Codex review F1).
+ITEM_PASSAGE_PROTECTED = ("Not built ahead of need: something this animation was to be told about belongs to a "
+                          "question being checked or served now.")
+
+
+def rich_base_keys(base: Mapping[str, Any]) -> list[tuple[str, str]]:
+    """Every ``(extraction_id, span_id)`` a rich job's saved context names: its passage, the
+    paragraphs around it the author was sent, its region, its retrieved passages and its home
+    (the spans ``rich._withheld`` checks)."""
+
+    keys: list[tuple[str, str]] = []
+    extraction_id = str(base.get("extraction_id") or "")
+    if extraction_id:
+        spans = [*list(base.get("span_ids") or ()), *list(base.get("input_span_ids") or ())]
+        if (base.get("region") or {}).get("span_id"):
+            spans.append(str(base["region"]["span_id"]))
+        keys += [(extraction_id, str(span)) for span in spans]
+    keys += [(str(key[0]), str(key[1])) for key in base.get("input_span_keys") or () if len(key) == 2 and key[0]]
+    home = base.get("home") or {}
+    if home.get("extraction_id") and home.get("span_id"):
+        keys.append((str(home["extraction_id"]), str(home["span_id"])))
+    return keys
+
+
+def rich_base_item_protected(vault: Any, repository: Repository, base: Mapping[str, Any], *,
+                             extra_item_ids: Iterable[str] = ()) -> str | None:
+    """:data:`ITEM_PASSAGE_PROTECTED` when a rich job's saved context touches a passage
+    :func:`item_passages` protects now, or the protection can't be read (fail closed); else None."""
+
+    found = item_passages(vault, repository, extra_item_ids=extra_item_ids)
+    if found is None:
+        return ITEM_PASSAGE_PROTECTED
+    spans, whole = found
+    if any(key[0] in whole or key in spans for key in rich_base_keys(base)):
+        return ITEM_PASSAGE_PROTECTED
+    return None
+
+
 def prefetch_plan_waits(vault: Any, repository: Repository, extraction_id: str | None,
-                        *, request_ids: Collection[str] | None = None) -> list[str]:
+                        *, request_ids: Collection[str] | None = None,
+                        extra_item_ids: Iterable[str] = ()) -> list[str]:
     """RW5d P5 (Codex re-review F17): this source's speculative prebuild rich jobs waiting for
     the plan, newest per input, whose retry is admissible now: figures ahead of need on, this
     machine on mains, and the passage not held out. They list no line (Codex review F10), so the
@@ -3116,14 +3197,19 @@ def prefetch_plan_waits(vault: Any, repository: Repository, extraction_id: str |
     Follow-ups batch 6 (D, P5 F17): ``extraction_id`` None reads every source (the prefetch
     pass's own retries: its ``retry_plan_waits``), and
     ``request_ids``, when given, keeps only the jobs of those figure requests (the pass passes
-    the requests of its decisions whose horizon is still open)."""
+    the requests of its decisions whose horizon is still open).
+
+    Follow-ups batch 6 Codex review F1: a job whose saved context touches an item's own passage
+    now (:func:`rich_base_item_protected`: an item under a live administration, such as a cold
+    check started after the job first met the limit, and ``extra_item_ids``: the pass adds the
+    stored plan's open items) is not asked again; unreadable protection asks none."""
 
     from learnloop.figures.power import power_state, prefetch_switch
     from learnloop.figures.rich import _withheld
 
     if not rich_enabled(vault) or not prefetch_switch(vault) or not power_state().on_mains:
         return []
-    found: list[str] = []
+    candidates: list[tuple[str, dict[str, Any]]] = []
     seen: set[str] = set()
     for job in RICH.rich_jobs(repository):
         payload = job.get("payload") or {}
@@ -3140,8 +3226,15 @@ def prefetch_plan_waits(vault: Any, repository: Repository, extraction_id: str |
             continue
         if _withheld(vault, repository, base) is not None:
             continue
-        found.append(str(job["id"]))
-    return found
+        candidates.append((str(job["id"]), base))
+    if not candidates:
+        return []
+    found = item_passages(vault, repository, extra_item_ids=extra_item_ids)
+    if found is None:
+        return []  # fail closed
+    spans, whole = found
+    return [job_id for job_id, base in candidates
+            if not any(key[0] in whole or key in spans for key in rich_base_keys(base))]
 
 
 def build_prefetch_figure(vault: Any, repository: Repository, request: FigureRequest, *,
@@ -3523,8 +3616,10 @@ __all__ = [
     "FigureRequest",
     "GROUNDING_PASSAGES",
     "Grounding",
+    "ITEM_PASSAGE_PROTECTED",
     "LABELS",
     "LESSON_TIERS",
+    "LIVE_ADMINISTRATION_REASONS",
     "NOT_FROM_BOOKS_LABEL",
     "SERVICE_ORIGINS",
     "anchored",
@@ -3535,6 +3630,7 @@ __all__ = [
     "figure_homes",
     "figure_withheld",
     "ground",
+    "item_passages",
     "keys_withheld",
     "lesson_hosted",
     "revision_request",
@@ -3550,6 +3646,8 @@ __all__ = [
     "rich_enabled",
     "rich_off_row",
     "rich_pending",
+    "rich_base_item_protected",
+    "rich_base_keys",
     "rich_row",
     "sketch_enabled",
     "sketch_off_row",

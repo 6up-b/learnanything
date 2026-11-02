@@ -437,6 +437,16 @@ def _withheld(vault: Any, repository: Repository, base: Mapping[str, Any]) -> st
     return message or (keys_withheld(vault, repository, keys) if keys else None)
 
 
+def _item_protected(vault: Any, repository: Repository, base: Mapping[str, Any]) -> str | None:
+    """A prebuild's saved context touches the own passage of an item under a live administration
+    now (``service.rich_base_item_protected``; unreadable protection fails closed). The stored
+    plan's open items are the prefetch pass's to add (it reads the plan; this worker does not)."""
+
+    from learnloop.figures.service import rich_base_item_protected
+
+    return rich_base_item_protected(vault, repository, base)
+
+
 def _existing(repository: Repository, input_hash: str) -> dict[str, Any] | None:
     with closing(connect(repository.sqlite_path, read_only=True)) as connection:
         return store.reusable(connection, input_hash, (M.MANIM_FIG_VERSION,))
@@ -522,6 +532,13 @@ def run_rich_job(vault: Any, repository: Repository, payload: Mapping[str, Any],
 
     prefetch = payload.get("build_mode") == "prefetch"
     if prefetch:
+        # Follow-ups batch 6 (Codex review F1): a prebuild never sends an item's own passage while
+        # that item is under a live administration (spec §10b.2, G-SM29), which may have started
+        # after the job was queued or first met the plan's limit: checked now, and again before
+        # every request and before the store (the hold below).
+        message = _item_protected(vault, repository, base)
+        if message is not None:
+            raise RichJobStopped("exam_material", message)
         # RW5d P5 (spec §10b.4): a prebuild's rich job stops before its next
         # request (and before it stores) when figures ahead of need are switched
         # off or this computer leaves mains power; a render already running
@@ -537,7 +554,8 @@ def run_rich_job(vault: Any, repository: Repository, payload: Mapping[str, Any],
         own_hold = hold
 
         def hold(current: Any) -> str | None:  # noqa: F811 - the prebuild's hold wraps the learner-state one
-            return held(current) or (own_hold(current) if own_hold is not None else None)
+            return held(current) or _item_protected(current, repository, base) or (
+                own_hold(current) if own_hold is not None else None)
 
     gate = FiguresGate(vault, key, live_vault=live_vault, hold=hold, wait=_prefetch_wait if prefetch else None)
     try:
@@ -1099,6 +1117,15 @@ def due_for_plan_retry(job_id: str, *, now: float | None = None) -> bool:
     return True
 
 
+def plan_retry_order(job_id: str) -> float:
+    """A sort key: the job's last plan retry in this process (``-inf``: never asked), so a scan
+    asks the least recently asked job first (follow-ups batch 6, Codex review F2)."""
+
+    with _REQUEUE_GUARD:
+        last = _LAST_REQUEUE.get(job_id)
+    return float("-inf") if last is None else last
+
+
 def payload_digest(payload: Mapping[str, Any]) -> str:
     return hashlib.sha256(json.dumps(payload, sort_keys=True, default=str).encode("utf-8")).hexdigest()
 
@@ -1125,6 +1152,7 @@ __all__ = [
     "manim_runtime_state",
     "manim_tier_ready",
     "parse_brief",
+    "plan_retry_order",
     "rich_build_key",
     "rich_context",
     "rich_job_for",

@@ -284,39 +284,23 @@ class ItemProtection:
         return any((str(extraction_id), str(span)) in self.spans for span in span_ids)
 
 
-#: ``withheld_items`` reasons naming an item under a live administration (exam and held-out
-#: material is the span filter's, ``withheld_message``, on every span).
-_LIVE_REASONS = ("WITHHELD_COLD", "WITHHELD_RESERVED", "WITHHELD_PROBE")
-
-
 def item_protection(env: PrefetchEnv) -> ItemProtection:
     """What :class:`ItemProtection` covers now (read fresh on every call: before judging, on
-    the author's whole context, and again before each build)."""
+    the author's whole context, and again before each build): ``service.item_passages`` (the one
+    core a prebuild's rich job checks too) with the stored plan's open items."""
 
-    from learnloop import learner_protection as LP
-    from learnloop.source_retrieval.corpus import item_exclusions
+    from learnloop.figures import service as FS
 
-    vault = env.vault
-    withheld = LP.withheld_items(vault, env.repository)
-    if not withheld.available:
+    found = FS.item_passages(env.vault, env.repository, extra_item_ids=held_plan_item_ids(env))
+    if found is None:
         return ItemProtection(available=False)
-    live = {getattr(LP, name) for name in _LIVE_REASONS}
-    ids = {item_id for item_id, reason in withheld.reasons.items() if reason in live}
-    ids |= {str(item.practice_item_id) for item in _held_plan_items(env)}
-    spans: set[tuple[str, str]] = set()
-    whole: set[str] = set()
-    for item_id in sorted(ids):
-        item = vault.practice_items.get(item_id)
-        if item is None:
-            continue  # an item the vault can't read links to no passage it can name
-        try:
-            own = item_exclusions(env.repository, item)
-        except Exception:  # noqa: BLE001 - an item whose passages can't be read: fail closed
-            _LOG.warning("figure prefetch: the passages of item %s could not be read", item_id, exc_info=True)
-            return ItemProtection(available=False)
-        spans |= {(str(key[0]), str(key[1])) for key in own.spans}
-        whole |= {str(extraction) for extraction in own.extractions}
-    return ItemProtection(frozenset(spans), frozenset(whole))
+    return ItemProtection(*found)
+
+
+def held_plan_item_ids(env: PrefetchEnv) -> list[str]:
+    """The ids of the stored plan's (today's latest) items not yet resolved."""
+
+    return [str(item.practice_item_id) for item in _held_plan_items(env)]
 
 
 def context_spans(env: PrefetchEnv, candidate: "Candidate") -> list[str]:
@@ -1494,12 +1478,17 @@ def retry_plan_waits(env: PrefetchEnv, result: PassResult) -> None:
     ``service.prefetch_plan_waits`` on the vault as configured now (the switch, the rich tiers,
     mains, the passage not held out). Bounded: only jobs built for a decision whose horizon is
     still open (a closed decision's prebuild is no longer ahead of need), at most
-    ``[figures.prefetch] max_daily_builds`` per pass, and paced by the same per-job interval the
-    Reader's retries use (one process-wide clock, so the two never double a request). The
-    requeued job's own gate checks everything again before any request."""
+    ``[figures.prefetch] max_daily_builds`` requeues per pass (a paced job is passed over, not
+    counted: Codex review F2), least recently asked first, and paced by the same per-job interval
+    the Reader's retries use (one process-wide clock, so the two never double a request). A job
+    whose saved context touches an item's own passage now (a live administration or the stored
+    plan's open items: ``item_protection``'s rule) is not asked (Codex review F1); the requeued
+    job's own gate checks the switch, the power, the route, held-out material and live
+    administrations again before every request and before it stores."""
 
     if env.retry_plan_wait is None or env.is_cancelled():
         return
+    from learnloop.figures import rich as RICH
     from learnloop.figures import service as FS
 
     current = env.loaded_now()
@@ -1513,9 +1502,17 @@ def retry_plan_waits(env: PrefetchEnv, result: PassResult) -> None:
     if not open_requests:
         return
     bound = max(0, int(current.vault.config.figures.prefetch.max_daily_builds))
-    waiting = FS.prefetch_plan_waits(current.vault, env.repository, None, request_ids=open_requests)
-    for job_id in waiting[:bound]:
-        if env.is_cancelled():
+    if bound == 0:
+        return
+    # Codex review F1: every saved context is checked against the items' own passages now (a live
+    # administration, and the stored plan's open items, as ``run_builds`` checks a new build).
+    waiting = FS.prefetch_plan_waits(current.vault, env.repository, None, request_ids=open_requests,
+                                     extra_item_ids=held_plan_item_ids(current))
+    # Codex review F2: the bound counts requeues, not candidates. A job inside its retry interval
+    # declines without a request, so the scan goes on to the next; the least recently asked first,
+    # so a job that keeps meeting the limit never holds the slot ahead of one not asked yet.
+    for job_id in sorted(waiting, key=RICH.plan_retry_order):
+        if env.is_cancelled() or len(result.plan_wait_retries) >= bound:
             return
         try:
             if env.retry_plan_wait(job_id):
@@ -1592,6 +1589,7 @@ __all__ = [
     "candidates",
     "context_spans",
     "horizon_at",
+    "held_plan_item_ids",
     "item_protection",
     "planned_visual",
     "protected",
