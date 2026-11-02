@@ -2630,7 +2630,7 @@ export interface TutorTranscriptInput {
  *  Submit will fold it, in order, from stored state. */
 export interface HelpRecordDto {
   items: Array<{
-    kind: "question" | "hint" | "check" | "worked" | "earlier";
+    kind: "question" | "hint" | "check" | "worked" | "earlier" | "figure";
     at: string | null;
     counts: boolean;
     level?: number | null;
@@ -9839,14 +9839,50 @@ export interface FigurePassageDto {
 }
 
 /** RW5d P1: FigureRequestV1 (spec §7.1). goalAuthor, the policy and the tiers are the server's, never sent. */
+/** Reader RW5d P3: an attempt host's references (each verified on the server). */
+export interface FigureHostRef {
+  questionEventId?: string | null;
+  /** The practice answer box: the item, its submission key and practice session. */
+  itemId?: string | null;
+  submissionId?: string | null;
+  sessionId?: string | null;
+  /** A workbench problem bound to the item. */
+  workbenchSessionId?: string | null;
+  /** Feedback: the committed attempt (show me is free there). */
+  attemptId?: string | null;
+}
+
 export interface FigureRequestV1Input {
   goalText?: string | null;
   anchor?: { extractionId: string; spanIds: string[]; region?: { spanId: string; bbox: number[] } | null; spanKeys?: string[] } | null;
-  origin: "selection" | "library" | "tutor" | "show_me";
-  hostRef?: { questionEventId?: string | null } | null;
+  /** RW5d P3: "ask" is the CA2 panel's show me on practice, feedback and the workbench. */
+  origin: "selection" | "library" | "tutor" | "show_me" | "ask";
+  hostRef?: FigureHostRef | null;
   readingAt?: { extractionId: string; spanId: string } | null;
   offerRef?: string | null;
   coldActive?: boolean;
+  /** RW5d P3: a check on your own's take-step token (figure.take_step). */
+  takeStepToken?: string | null;
+}
+
+/** Reader RW5d P3: what a figure on an attempt host did to the attempt (§6.4). */
+export interface FigureHelpDto {
+  host: "practice" | "workbench" | "feedback";
+  line?: string;
+  countsAsHint?: boolean;
+  /** counted (one hint-equivalent, once per figure per attempt), free, or not_recorded (not shown). */
+  status?: "counted" | "free" | "not_recorded";
+  message?: string;
+  assistId?: string;
+  /** This delivery added the hint-equivalent (false: the same figure again). */
+  new?: boolean;
+}
+
+export interface FigureTakeStepDto {
+  needed: boolean;
+  token: string | null;
+  banner?: string;
+  line?: string;
 }
 
 export interface FigureBuildResultDto {
@@ -9856,6 +9892,8 @@ export interface FigureBuildResultDto {
   withheld?: boolean;
   /** RW5d P2b: only a rich figure is being built (no quick one): its pending line. */
   rich?: FigureRichPendingDto | null;
+  /** RW5d P3: on an attempt host, what the figure did to the attempt. */
+  help?: FigureHelpDto;
 }
 
 export interface FiguresDto {
@@ -9947,6 +9985,8 @@ export interface HintResultDto {
   picks?: HintPickDto[];
   /** Set by the job read: true only on the read that delivered (showed) it. */
   shown?: boolean;
+  /** Reader RW5d P3 (§11.4): an explore_figure hint's figure: one line that opens it. */
+  figure?: { figureId: string; label: string; goalText?: string | null; kind?: string | null; tier?: string } | null;
 }
 
 export interface HintJobDto {

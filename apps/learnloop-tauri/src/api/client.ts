@@ -1753,6 +1753,13 @@ export const api = {
     call<{ richJobId: string; state: "cancelled" }>("figure_rich_cancel", { input }),
   figureRichRetry: (input: { richJobId: string }) =>
     call<{ richJobId: string; state: "pending" }>("figure_rich_retry", { input }),
+  // Reader RW5d P3: a check on your own's take step (converts the attempt, answers its token),
+  // and opening a stored figure on an attempt host (the chooser's explore_figure line).
+  figureTakeStep: (input: { itemId: string; submissionId?: string | null; sessionId?: string | null;
+    workbenchSessionId?: string | null }) =>
+    call<import("./dto").FigureTakeStepDto>("figure_take_step", { input }),
+  figureOpen: (input: { figureId: string; hostRef: import("./dto").FigureHostRef; takeStepToken?: string | null }) =>
+    call<{ figure: import("./dto").FigureViewDto | null; help: import("./dto").FigureHelpDto }>("figure_open", { input }),
   figureManimOptIn: (input: { choice: "allow" | "decline" }) =>
     call<{ manimOptIn: "standing" | "declined" | "ask" | "unavailable" }>("figure_manim_opt_in", { input }),
   readerFigurePredict: (input: { figureId: string; predictionIndex: number; answer: string }) =>

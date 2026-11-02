@@ -676,6 +676,8 @@ fn main() {
                 figure_rich_cancel,
                 figure_rich_retry,
                 figure_manim_opt_in,
+                figure_take_step,
+                figure_open,
                 reader_figure_revise,
                 reader_figure_job,
                 reader_figure_job_cancel,
