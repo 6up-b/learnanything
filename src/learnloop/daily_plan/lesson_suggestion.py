@@ -8,12 +8,16 @@ acceptance model and the draw). Three steps, each its own call:
   builds the ``instruct(lesson)`` candidates (LOs new on an active goal, failing
   their two latest cold checks, or predicted by adaptive difficulty's posterior
   well below its practice band; never one with an open lesson or taught since
-  its last attempt), replays the response ledger into the acceptance model, draws, and
-  writes ONE ``lesson_suggestion`` router decision for the day (shown or not,
-  with its exact propensity; receipt key ``lesson_suggestion:<date>``, so at most
-  one a day). Later calls read that decision back: the card while it is shown
-  and unanswered (or its Start's lesson while that never opened), else nothing.
-  No candidate: nothing is written (a later open may draw).
+  its last attempt), replays the response ledger into the acceptance model, draws the
+  target the router's way (``router.mode``: the router's ``model_mixture`` with the
+  configured weights and floor, or ``epsilon_tiebreak`` in ``staged`` mode; spec
+  §15.1, codex re-review F5), and writes ONE ``lesson_suggestion`` router decision
+  for the day (shown or not, with its exact propensity; receipt key
+  ``lesson_suggestion:<date>``, so at most one a day). Later calls read that
+  decision back: the card while it is shown and unanswered (or its Start's lesson
+  while that never opened), else nothing. A Start from an earlier day whose lesson
+  never opened takes the card instead of a new draw, whatever day it is (codex
+  re-review F2). No candidate: nothing is written (a later open may draw).
 * :func:`respond`: the learner's one response (Start = ``accepted``, an
   alternative = ``chose_alternative``, "Not now" = ``declined``), appended to
   ``router_suggestion_responses``. A Start names the lesson id the lesson will
@@ -33,12 +37,13 @@ nothing, so Today and the plan are the predecessor's byte for byte.
 from __future__ import annotations
 
 import json
+import math
 from collections.abc import Mapping, Sequence
 from dataclasses import replace
 from datetime import datetime
 from typing import Any
 
-from learnloop.algorithm_versions import LESSON_SUGGESTIONS_VERSIONS, TEACHER_VERSIONS
+from learnloop.algorithm_versions import LESSON_SUGGESTIONS_VERSIONS, ROUTER_MIXTURE_VERSIONS, TEACHER_VERSIONS
 from learnloop.clock import Clock, parse_utc
 from learnloop.daily_plan.engine import PlanEnv, latest_today
 from learnloop.db.stores import router_suggestions as store
@@ -249,7 +254,8 @@ def card_view(connection: Any, decision: Mapping[str, Any] | None) -> dict[str, 
 
     A Start (or an alternative) whose lesson never opened (the teacher was unavailable, or the app
     stopped between the response and the opening) stays on the card as that one lesson to open, with
-    the lesson id its response recorded (codex review F2): ``pending_lesson``, no alternatives."""
+    the lesson id its response recorded (codex review F2): ``pending_lesson``, no alternatives. It is
+    gone once a lesson on its LOs opens (its own, or one the learner started with "Teach me")."""
 
     if decision is None or not _shown(decision):
         return None
@@ -265,9 +271,50 @@ def card_view(connection: Any, decision: Mapping[str, Any] | None) -> dict[str, 
     if (response["response"] not in ("accepted", "chose_alternative") or not lesson_id
             or store.lesson_exists(connection, str(lesson_id))):
         return None
+    opened = store.last_lesson_opened_by_learning_object(connection)
+    reserved = json.loads(response.get("learning_object_ids_json") or "[]")
+    if any(opened.get(str(lo), "") >= str(response["responded_at"]) for lo in reserved):
+        return None
     chosen = next((entry for entry in entries if entry["ref"] == response["candidate_ref"]), entries[0])
     return {**base, "suggestion": _card_entry(chosen), "alternatives": [],
             "pending_lesson": _response_view(response, chosen)["lesson"]}
+
+
+def _pending_from_earlier_day(connection: Any, decisions: Sequence[Mapping[str, Any]], *,
+                              today: str) -> dict[str, Any] | None:
+    """The newest earlier day's Start whose lesson never opened, as its card (codex re-review F2).
+
+    It takes Today's card slot until the lesson opens: one card in Today (spec §15.1), and no new
+    draw is logged while the learner is shown this one instead."""
+
+    for decision in reversed(decisions):
+        if decision["day"] >= today:
+            continue
+        view = card_view(connection, decision)
+        if view is not None and view.get("pending_lesson") is not None:
+            return view
+    return None
+
+
+def _target(vault: Any, scored: Sequence[LS.ScoredCandidate], seed: str) -> LS.Target:
+    """The day's target, drawn the router's way (spec §15.1, codex re-review F5).
+
+    ``router.mode = "mixture"`` (at the router's mixture successor): the router's ``model_mixture`` with
+    the configured ``router.weights`` and the ``router.epsilon_min`` floor (:func:`LS.mixture_target`;
+    the models are not asked about lesson candidates, so their weight is the staged rule's, G7).
+    ``staged``: the randomization layer's ``epsilon_tiebreak`` among the near-tied top values, its
+    value per lesson ``P(accept) · room`` (every card is the same length)."""
+
+    config = vault.config.router
+    if config.mode == "mixture" and vault.config.algorithms.algorithm_version in ROUTER_MIXTURE_VERSIONS:
+        return LS.mixture_target(scored, weights=config.weights.model_dump(), epsilon=config.epsilon_min, seed=seed)
+    from learnloop.scheduling import randomization_layer as RL
+
+    refs = [s.candidate.ref for s in scored]
+    values = [math.exp(s.value) for s in scored]
+    assignment = RL.epsilon_tiebreak(None, experiment_id=LS.DECISION_KIND, refs=refs, values=values, seed=seed)
+    tied = RL.tied_set(refs, values) if assignment.near_equivalent else [assignment.variant]
+    return LS.tiebreak_target(scored, chosen_ref=assignment.variant, tied=tied, margin=RL.EPSILON_TIE_MARGIN)
 
 
 def today_suggestion(vault: Any, repository: Any, *, clock: Clock | None = None,
@@ -286,6 +333,9 @@ def today_suggestion(vault: Any, repository: Any, *, clock: Clock | None = None,
         existing = store.decision_for_day(connection, today)
         if existing is not None:
             return card_view(connection, existing)
+        pending = _pending_from_earlier_day(connection, store.decisions(connection), today=today)
+        if pending is not None:
+            return pending
     candidates, excluded = build_candidates(vault, repository, now_iso=now_iso)
     if not candidates:
         return None
@@ -295,6 +345,9 @@ def today_suggestion(vault: Any, repository: Any, *, clock: Clock | None = None,
         if existing is not None:
             return card_view(connection, existing)
         state, decisions, responses = _model(connection)
+        pending = _pending_from_earlier_day(connection, decisions, today=today)
+        if pending is not None:
+            return pending
         context = _context(env, decisions)
         details = {str(d["id"]): d["detail"] for d in decisions}
         declined = LS.declines_by_learning_object(details, responses)
@@ -310,10 +363,12 @@ def today_suggestion(vault: Any, repository: Any, *, clock: Clock | None = None,
         inputs = {"version": LS.SUGGESTION_VERSION, "priors_version": LS.PRIORS_VERSION,
                   "context": context.as_dict(), "candidates": [s.candidate.as_dict() for s in scored],
                   "updates": state.updates, "epsilon": config.epsilon_min, "k": config.k, "ceiling": ceiling,
+                  "mode": config.mode, "weights": config.weights.model_dump(),
                   "algorithm_version": vault.config.algorithms.algorithm_version}
         snapshot = LS.canonical_hash(inputs)
         seed = LS.seed_for(today, snapshot)
-        result = LS.draw(scored, epsilon=config.epsilon_min, seed=seed, ceiling_bound=shown_today >= ceiling)
+        target = _target(vault, scored, seed)
+        result = LS.draw(scored, target=target, seed=seed, ceiling_bound=shown_today >= ceiling)
         card = [result.drawn, *result.alternatives] if result.shown else []
         card_payload = {"candidates": [entry.as_dict() for entry in card]}
         detail = {
@@ -324,6 +379,9 @@ def today_suggestion(vault: Any, repository: Any, *, clock: Clock | None = None,
             # is P(target) · P(arm | target); both factors are here, P(target) for policy evaluation.
             "pi_drawn": round(result.drawn.pi, 12), "arm_propensity": round(result.arm_propensity, 12),
             "propensity_basis": "joint_target_arm",
+            # The target's design and its record (codex re-review F5): the router's mixture (weights,
+            # components, the floor, the models' status) or the staged tie-break (the tied set).
+            "target_design": target.design, "target": dict(target.record),
             # The predeclared outcome scope (codex review F4): the target, then the candidates the card
             # offers (or would offer) beside it, fixed before the arm.
             "target_scope": [{"ref": entry.candidate.ref,
@@ -345,6 +403,8 @@ def today_suggestion(vault: Any, repository: Any, *, clock: Clock | None = None,
             "chosen_practice_item_id": None,
             "chosen_learning_object_id": result.drawn.candidate.learning_object_ids[0] if result.shown else None,
             "chosen_scheduler_candidate_id": None, "propensity": result.propensity,
+            "mixture_weights_json": (json.dumps(target.record["effective_weights"], sort_keys=True)
+                                     if target.design == LS.TARGET_MIXTURE else None),
             "propensity_kind": result.propensity_kind, "learner_pick": 0,
             "card_hash": LS.canonical_hash(card_payload) if result.shown else None,
             "detail_json": json.dumps(detail, sort_keys=True), "created_at": now_iso,

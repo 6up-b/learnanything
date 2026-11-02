@@ -113,6 +113,13 @@ def test_a_provider_failure_before_the_lesson_is_saved_leaves_an_idempotent_open
 # --- F3: the propensity of the target-specific outcome -------------------------------------------------
 
 
+def _half_and_half(seed: str) -> LS.Target:
+    """A target drawn half and half between ``lesson:a`` and ``lesson:b`` (the seed's first uniform)."""
+
+    chosen = "lesson:a" if LS._uniforms(seed)[0] < 0.5 else "lesson:b"
+    return LS.Target("test", chosen, {"lesson:a": 0.5, "lesson:b": 0.5}, {})
+
+
 def test_logged_propensities_give_no_effect_when_targets_differ_and_the_card_does_nothing():
     """Two candidates drawn half and half, shown at 0.9 and 0.1; the outcome is 1 on A and 0 on B whatever
     the arm (no lesson effect). Inverse-propensity means of each arm over the drawn target's outcome, with
@@ -125,7 +132,8 @@ def test_logged_propensities_give_no_effect_when_targets_differ_and_the_card_doe
     n = 6000
     shown_sum = unshown_sum = aggregate_sum = 0.0
     for index in range(n):
-        result = LS.draw([a, b], epsilon=0.0, seed=LS.seed_for(f"day{index}", "snapshot"))
+        seed = LS.seed_for(f"day{index}", "snapshot")
+        result = LS.draw([a, b], target=_half_and_half(seed), seed=seed)
         y = outcome[result.drawn.candidate.ref]
         # Horvitz-Thompson over the target distribution: weight π(target) / logged propensity.
         weight = result.drawn.pi / result.propensity
@@ -144,7 +152,9 @@ def test_the_draw_logs_the_joint_target_and_arm_probability():
     a = LS.ScoredCandidate(LS.Candidate("lesson:a", ("a",), "new_goal", 0.5), 0.7, 1.0, 0.0)
     b = LS.ScoredCandidate(LS.Candidate("lesson:b", ("b",), "new_goal", 0.5), 0.2, 1.0, -1.0)
     for index in range(40):
-        result = LS.draw([a, b], epsilon=0.02, seed=LS.seed_for(f"d{index}", "s"))
+        seed = LS.seed_for(f"d{index}", "s")
+        result = LS.draw([a, b], target=LS.mixture_target([a, b], weights={"staged": 1.0}, epsilon=0.02, seed=seed),
+                         seed=seed)
         arm = result.drawn.p_accept if result.shown else 1.0 - result.drawn.p_accept
         assert result.arm_propensity == pytest.approx(arm)
         assert result.propensity == pytest.approx(result.drawn.pi * arm)
@@ -182,7 +192,7 @@ def test_an_accepted_alternatives_delayed_check_reaches_its_decision(tmp_path, s
 
 
 def test_an_unshown_decision_has_its_itt_outcome_over_the_same_scope(tmp_path, monkeypatch):
-    monkeypatch.setattr(LS, "_uniforms", lambda seed: (0.0, 0.999999))
+    monkeypatch.setattr(LS, "_uniforms", lambda seed: (0.5, 0.0, 0.999999))
     paths, repository = _vault(tmp_path)
     assert _suggestion(paths, repository, _clock()) is None
     (row,) = _decisions(repository)

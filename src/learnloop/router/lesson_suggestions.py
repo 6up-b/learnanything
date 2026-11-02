@@ -32,9 +32,16 @@ after a decline is what teaches ``D`` and the grid.
 **The draw** (one a day, at Today's open): each candidate's value is
 ``log P(accept) + log(1 − p)``, ``p`` its predicted success (room to learn;
 structural, no weight), so suggestions come as often as they are predicted to
-be taken. The card's suggestion is drawn from ``π ∝ exp(value)`` with the
-router's own floor ``router.epsilon_min`` on each of the top ``router.k``
-candidates, then shown with probability ``P(accept)`` of the drawn candidate:
+be taken. The staged rule's pick is the top value. The card's target is drawn
+the router's way (spec §15.1, codex re-review F5): in ``router.mode =
+"mixture"`` by the router's own ``model_mixture`` over the top ``router.k``
+(:func:`mixture_target`: :mod:`learnloop.router.mixture`, the configured
+``router.weights`` and the ``router.epsilon_min`` floor each; the Decider and
+the router LLM are not asked about lesson candidates, so their weight goes to
+the staged rule as for any model not set up, G7, and the record says so), and
+in ``staged`` mode by ``epsilon_tiebreak`` among the near-tied top values
+(:func:`tiebreak_target`; the shell runs the randomization layer's tie-break).
+The target is then shown with probability ``P(accept)`` of the drawn candidate:
 shown and not-shown days are both logged, each with the exact joint
 probability of its drawn target and its arm (``π(c) · P(c)`` shown,
 ``π(c) · (1 − P(c))`` not shown: the outcome is the drawn target's, so the
@@ -61,14 +68,22 @@ from typing import Any
 import numpy as np
 
 from learnloop.adf_numeric import adf_update, gaussian_sigmoid_mean, normalized_log_weights, sigmoid
+from learnloop.router import mixture as mx
 
 #: The decision row's shape (its candidates and detail JSON).
 SUGGESTION_VERSION = "lesson_suggestion_v1"
 #: The prior set's identity: a changed prior is a successor (the playbook).
 PRIORS_VERSION = "suggestion_priors_v1"
 DECISION_KIND = "lesson_suggestion"
-#: The assignment mechanism (registered in ``db.stores.router.ROUTER_DESIGNS``).
+#: The assignment mechanism (registered in ``db.stores.router.ROUTER_DESIGNS``): the target by the
+#: router's design (:data:`TARGET_DESIGNS`), then the show coin.
 DESIGN = "lesson_suggestion_draw"
+#: The target's design per ``router.mode`` (spec §15.1): the router's mixture, or the staged tie-break.
+TARGET_MIXTURE = mx.DESIGN
+TARGET_TIEBREAK = "epsilon_tiebreak"
+TARGET_DESIGNS: tuple[str, ...] = (TARGET_MIXTURE, TARGET_TIEBREAK)
+#: The router's models are not asked about lesson candidates (their status on the target's record).
+MODELS_NOT_ASKED = "not_asked"
 POLICY = "lesson_suggestion_v1"
 SURFACE = "today_card"
 CANDIDATE_KIND = "instruct_lesson"
@@ -395,10 +410,71 @@ class ScoredCandidate:
 
 
 @dataclass(frozen=True)
+class Target:
+    """The drawn target: the router's design, its exact distribution over the scored candidates (0 off
+    the support) and what it logs (``record``: enough to recompute ``pi``)."""
+
+    design: str
+    chosen_ref: str
+    pi: Mapping[str, float]
+    record: Mapping[str, Any]
+
+
+def mixture_target(scored: Sequence[ScoredCandidate], *, weights: Mapping[str, float], epsilon: float,
+                   seed: str) -> Target:
+    """``router.mode = "mixture"``: the router's ``model_mixture`` over ``scored`` (the top ``k``).
+
+    The staged component puts its mass on the staged rule's pick (the top value); the Decider and the
+    router LLM are not asked about lesson candidates, so each gives its configured weight to the staged
+    rule (``mixture.effective_weights``, G7), and ``epsilon`` floors every candidate. The two-stage draw
+    and ``pi`` are :mod:`learnloop.router.mixture`'s; ``mixture.recompute(record)`` gives the target's
+    propensity back."""
+
+    if not scored:
+        raise ValueError("a draw needs a candidate")
+    support = [s.candidate.ref for s in scored]
+    staged_ref = support[0]
+    distributions: dict[str, Mapping[str, float] | None] = {name: None for name in mx.MODEL_COMPONENTS}
+    effective = mx.effective_weights(weights, set(mx.MODEL_COMPONENTS))
+    components = mx.component_distributions(support, staged_ref, distributions)
+    u1, u2, _ = _uniforms(seed)
+    result = mx.draw_with_uniforms(support, components, effective, float(epsilon), u1, u2)
+    record = {
+        "design": TARGET_MIXTURE, "support": support, "staged_ref": staged_ref, "chosen": result.chosen,
+        "epsilon": float(epsilon),
+        "configured_weights": {name: float(weights.get(name, 0.0) or 0.0) for name in mx.COMPONENTS},
+        "effective_weights": dict(effective), "distributions": {},
+        "models": {name: {"status": MODELS_NOT_ASKED} for name in mx.MODEL_COMPONENTS},
+        "component": result.component, "u1": round(u1, 12), "u2": round(u2, 12),
+    }
+    return Target(TARGET_MIXTURE, result.chosen, dict(result.pi), record)
+
+
+def tiebreak_target(scored: Sequence[ScoredCandidate], *, chosen_ref: str, tied: Sequence[str],
+                    margin: float) -> Target:
+    """``router.mode = "staged"``: the randomization layer's ``epsilon_tiebreak`` (the shell runs it).
+
+    Near-tied top values (within ``margin`` of the top, the layer's own rule): uniform over the tied
+    set; otherwise the staged rule's pick with probability 1."""
+
+    if not scored:
+        raise ValueError("a draw needs a candidate")
+    refs = [s.candidate.ref for s in scored]
+    support = [ref for ref in tied if ref in refs] if len(tied) > 1 else [chosen_ref]
+    if chosen_ref not in support:
+        raise ValueError("the tie-break chose outside its tied set")
+    pi = {ref: (1.0 / len(support) if ref in support else 0.0) for ref in refs}
+    record = {"design": TARGET_TIEBREAK, "support": refs, "staged_ref": refs[0], "chosen": chosen_ref,
+              "tied": sorted(support), "near_equivalent": len(support) > 1, "margin": float(margin),
+              "values": {s.candidate.ref: round(math.exp(s.value), 12) for s in scored}}
+    return Target(TARGET_TIEBREAK, chosen_ref, pi, record)
+
+
+@dataclass(frozen=True)
 class Draw:
-    """The day's draw. The target is drawn first (``π``), then the arm (the show coin at the target's
-    ``P(accept)``); ``propensity`` is the joint probability of that target and that arm, so a shown
-    and an unshown day are weighted on the same target-specific outcome (codex review F3).
+    """The day's draw. The target is drawn first (``π``, :class:`Target`), then the arm (the show coin at
+    the target's ``P(accept)``); ``propensity`` is the joint probability of that target and that arm, so a
+    shown and an unshown day are weighted on the same target-specific outcome (codex review F3).
 
     ``scope`` is the predeclared outcome scope, fixed before the arm: the target and the up-to-two
     candidates the card would offer beside it (the alternatives when shown), so an accepted
@@ -414,6 +490,7 @@ class Draw:
     seed: str
     ceiling_bound: bool = False
     scope: tuple[ScoredCandidate, ...] = ()
+    target: Target | None = None
 
     @property
     def arm_propensity(self) -> float:
@@ -445,8 +522,10 @@ def seed_for(day: str, snapshot_hash: str) -> str:
     return hashlib.sha256(f"{SUGGESTION_VERSION}|{day}|{snapshot_hash}".encode("utf-8")).hexdigest()
 
 
-def _uniforms(seed: str) -> tuple[float, float]:
-    return int(seed[:16], 16) / float(1 << 64), int(seed[16:32], 16) / float(1 << 64)
+def _uniforms(seed: str) -> tuple[float, float, float]:
+    """The draw's three uniforms from its seed: the mixture's two stages, then the show coin."""
+
+    return mx.uniform(seed, "component"), mx.uniform(seed, "candidate"), mx.uniform(seed, "show")
 
 
 def _propensity(p: float) -> tuple[float, str]:
@@ -455,34 +534,30 @@ def _propensity(p: float) -> tuple[float, str]:
     return p, "exact"
 
 
-def draw(scored: Sequence[ScoredCandidate], *, epsilon: float, seed: str, ceiling_bound: bool = False) -> Draw:
-    """The day's draw over ``scored`` (non-empty): ``π`` with the router's floor, then the show coin.
+def draw(scored: Sequence[ScoredCandidate], *, target: Target, seed: str, ceiling_bound: bool = False) -> Draw:
+    """The day's draw over ``scored`` (non-empty): the drawn ``target`` (its ``π``), then the show coin.
 
     ``ceiling_bound``: the anti-nagging ceiling binds (``keep``), so no card is
-    shown whatever the draw (logged with a deterministic propensity)."""
+    shown whatever the draw (logged with a deterministic arm)."""
 
     if not scored:
         raise ValueError("a draw needs a candidate")
-    n = len(scored)
-    top = max(s.value for s in scored)
-    w = np.array([math.exp(s.value - top) for s in scored], dtype=np.float64)
-    floor = float(epsilon) if n * float(epsilon) < 1.0 else 1.0 / n
-    pi = (1.0 - n * floor) * w / w.sum() + floor
-    pi = pi / pi.sum()
-    with_pi = tuple(ScoredCandidate(s.candidate, s.p_accept, s.room, s.value, float(p)) for s, p in zip(scored, pi))
-    u_draw, u_show = _uniforms(seed)
-    index = int(np.searchsorted(np.cumsum(pi), u_draw, side="right"))
-    index = min(index, n - 1)
-    drawn = with_pi[index]
+    pi = {ref: float(target.pi.get(ref, 0.0)) for ref in (s.candidate.ref for s in scored)}
+    if abs(sum(pi.values()) - 1.0) > 1e-9 or pi.get(target.chosen_ref, 0.0) <= 0.0:
+        raise ValueError("the target's distribution must sum to one and support its pick")
+    with_pi = tuple(ScoredCandidate(s.candidate, s.p_accept, s.room, s.value, pi[s.candidate.ref]) for s in scored)
+    drawn = next(s for s in with_pi if s.candidate.ref == target.chosen_ref)
+    u_show = _uniforms(seed)[2]
     # The aggregate chance of no card (any target), kept for the report; never the row's propensity.
     p_no_card = float(sum(s.pi * (1.0 - s.p_accept) for s in with_pi))
     others = sorted((s for s in with_pi if s.candidate.ref != drawn.candidate.ref),
-                    key=lambda s: (-s.pi, s.candidate.ref))
+                    key=lambda s: (-s.pi, -s.value, s.candidate.ref))
     scope = (drawn, *others[:MAX_ALTERNATIVES])
     if ceiling_bound:
         # The ceiling decides the arm, but the target was still drawn: P(target) · 1.
         propensity, kind = _propensity(drawn.pi)
-        return Draw(with_pi, drawn, False, (), propensity, kind, 1.0, seed, ceiling_bound=True, scope=scope)
+        return Draw(with_pi, drawn, False, (), propensity, kind, 1.0, seed, ceiling_bound=True, scope=scope,
+                    target=target)
     shown = u_show < drawn.p_accept
     if shown:
         propensity, kind = _propensity(drawn.pi * drawn.p_accept)
@@ -490,7 +565,7 @@ def draw(scored: Sequence[ScoredCandidate], *, epsilon: float, seed: str, ceilin
     else:
         propensity, kind = _propensity(drawn.pi * (1.0 - drawn.p_accept))
         alternatives = ()
-    return Draw(with_pi, drawn, shown, alternatives, propensity, kind, p_no_card, seed, scope=scope)
+    return Draw(with_pi, drawn, shown, alternatives, propensity, kind, p_no_card, seed, scope=scope, target=target)
 
 
 def canonical_hash(value: Any) -> str:
@@ -514,6 +589,7 @@ __all__ = [
     "DESIGN",
     "Draw",
     "MAX_ALTERNATIVES",
+    "MODELS_NOT_ASKED",
     "NO_SUGGESTION",
     "Observation",
     "POLICY",
@@ -524,6 +600,10 @@ __all__ = [
     "SURFACE",
     "SUGGESTION_VERSION",
     "ScoredCandidate",
+    "TARGET_DESIGNS",
+    "TARGET_MIXTURE",
+    "TARGET_TIEBREAK",
+    "Target",
     "canonical_hash",
     "days_between",
     "decline_shape",
@@ -531,9 +611,11 @@ __all__ = [
     "design_vector",
     "draw",
     "lesson_ref",
+    "mixture_target",
     "observations",
     "replay",
     "score",
     "seed_for",
     "spacing_feature",
+    "tiebreak_target",
 ]

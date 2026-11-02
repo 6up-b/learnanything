@@ -192,9 +192,23 @@ def draw(
 ) -> Draw:
     """The two-stage draw; its marginal is :func:`mixture`."""
 
+    return draw_with_uniforms(support, components, weights, epsilon,
+                              uniform(seed, "component"), uniform(seed, "candidate"))
+
+
+def draw_with_uniforms(
+    support: Sequence[str],
+    components: Mapping[str, Mapping[str, float]],
+    weights: Mapping[str, float],
+    epsilon: float,
+    u1: float,
+    u2: float,
+) -> Draw:
+    """:func:`draw` with its two uniforms given (a caller that derives its own from its seed, such as
+    teacher TE1b's day draw, which needs a third for its show coin)."""
+
     pi = mixture(support, components, weights, epsilon)
     k = len(support)
-    u1, u2 = uniform(seed, "component"), uniform(seed, "candidate")
     floor = k * epsilon
     if u1 < floor:
         component = UNIFORM
@@ -232,6 +246,7 @@ __all__ = [
     "UNIFORM",
     "component_distributions",
     "draw",
+    "draw_with_uniforms",
     "effective_weights",
     "fallback_label",
     "mixture",

@@ -65,9 +65,10 @@ def _vault(tmp_path, *, version: str = TAG, goal: bool = True, name: str = "vaul
 
 @pytest.fixture
 def shown(monkeypatch):
-    """The draw's two uniforms at 0: the highest-valued candidate, shown (a card to act on)."""
+    """The draw's uniforms: the mixture's staged component (above the floor), its pick (the highest-valued
+    candidate), and the show coin at 0 (a card to act on)."""
 
-    monkeypatch.setattr(LS, "_uniforms", lambda seed: (0.0, 0.0))
+    monkeypatch.setattr(LS, "_uniforms", lambda seed: (0.5, 0.0, 0.0))
 
 
 @pytest.fixture
@@ -137,7 +138,7 @@ def test_a_day_with_no_card_is_logged_too(tmp_path, monkeypatch):
     """Not shown (the show coin above P(accept)): the decision is still written, chosen_ref no_suggestion, with
     the exact probability of no card (intention-to-treat needs both arms)."""
 
-    monkeypatch.setattr(LS, "_uniforms", lambda seed: (0.0, 0.999999))
+    monkeypatch.setattr(LS, "_uniforms", lambda seed: (0.5, 0.0, 0.999999))
     paths, repository = _vault(tmp_path)
     assert _suggestion(paths, repository, _clock()) is None
     (row,) = _decisions(repository)
@@ -224,7 +225,11 @@ def test_responses_move_the_acceptance_model(tmp_path, shown):
     paths, repository = _vault(tmp_path)
     vault = load_vault(paths.root)
     card = _suggestion(paths, repository, _clock())
-    SG.respond(vault, repository, decision_id=card["decision_id"], response="accepted", clock=_clock(hours=1))
+    started = SG.respond(vault, repository, decision_id=card["decision_id"], response="accepted", clock=_clock(hours=1))
+    # The Start's lesson opens (an unopened one would hold the next day's card: codex re-review F2).
+    S.open_lesson(load_vault(paths.root), repository, entry="learning_object", clients=clients(TeacherFake([plan_turn])),
+                  origin="router", origin_ref=card["decision_id"], lesson_id=started["lesson"]["lesson_id"],
+                  clock=_clock(hours=1))
     _suggestion(paths, repository, _clock(days=1))
     second = json.loads(_decisions(repository)[1]["detail_json"])["model"]
     first = json.loads(_decisions(repository)[0]["detail_json"])["model"]
