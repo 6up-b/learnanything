@@ -1499,14 +1499,14 @@ class AIRoutingConfig(BaseModel):
     # digest.max_daily_cost_usd at digest.price_per_million (unset: refused
     # before sending).
     reader_digest: str | None = None
-    # Deliverable curriculum C2 (spec_deliverable_curriculum_v1 §10.3, §10.4):
+    # Deliverable curriculum C2 (spec_deliverable_curriculum_v1 §10.3; C2b):
     # the note link judge, one listwise call per learning object in the
-    # background over the candidate notes tend found (the LO, its primary
-    # passage's lead and the notes' text). Note text is read by the ChatGPT
-    # plan only: a route that does not resolve to the plan is refused before
-    # anything is sent, the job is quiet (never an OpenRouter offer, never a
-    # grant) and, with the plan down, it waits. Empty = ai.active_provider
-    # (the ChatGPT plan under T1; estimated_only).
+    # background over the candidate notes the vault notes search found (the LO,
+    # its primary passage's lead and the notes' text). Ordinary quiet-route
+    # rules: never an OpenRouter offer or a grant from background work; a
+    # metered route needs source_retrieval.llm_price_per_million and stays
+    # inside curriculum's daily cap. Empty = ai.active_provider (the ChatGPT
+    # plan under T1; estimated_only).
     note_link_judge: str | None = None
 
     @model_validator(mode="before")
@@ -2785,6 +2785,19 @@ class FiguresConfig(BaseModel):
     author's payload, prompt and keys are the predecessor's byte for byte.
     Figures stay help, never evidence.
 
+    RW5d P3 (spec_reader_show_me_figures_v1 §6.4, §11.2-§11.4): ``help_kind_enabled``:
+    figures inside an open attempt. The practice screen's and feedback's Ask
+    panel and the Reader workbench gain *show me* with its cost line
+    (feedback: free; an open attempt: one hint-equivalent, once per figure per
+    attempt, folded at Submit as hints are, with the reveal check on its
+    text; a check on your own: the take step converts the attempt first), the
+    hint chooser may offer ``explore_figure`` (level 2) when a shown figure
+    for the item's topic already exists (never one built from the item's own
+    blocks, never on a cold check), and the help outcomes and hints report
+    list ``figure``. Off: no figure in attempts, no chooser kind, and the
+    help outcomes are unchanged. Figures are help, never certification, and
+    never reach the grader.
+
     Caps (money, W4): two author attempts per request; ``max_daily_cost_usd``
     meters the author route's metered spend a UTC day at
     ``price_per_million`` (unset: a metered route is refused before sending;
@@ -2803,6 +2816,7 @@ class FiguresConfig(BaseModel):
     sketch_enabled: bool = True
     rich_tiers_enabled: bool = True
     author_learner_state: bool = True
+    help_kind_enabled: bool = True
     manim_opt_in: Literal["standing", "declined"] | None = None
     manim_opt_in_at: str | None = None
     max_daily_cost_usd: float = Field(default=1.0, ge=0)
@@ -3055,52 +3069,32 @@ class CurriculumConfig(BaseModel):
     exam_units_in_scope: bool = True
 
 
-class NotesTendConfig(BaseModel):
-    """Curriculum C2's one adapter, the owner's ``tend`` (spec §10.1, §10.4).
-
-    ``binary`` is the executable (absent: the notes features are hidden;
-    ``LEARNLOOP_NOTES_TEND`` overrides it, ``off`` meaning absent). ``paths``
-    is the allowlist: the folders of tend's corpus LearnLoop may use (grove
-    notes, Quicknote, the Obsidian vault and ``~/org``, owner Q5); project
-    repositories stay excluded, and a hit outside the list is dropped before
-    anything is stored or sent. ``pocket_notes_paths`` marks a 3DS page
-    Pocket Notes transcribed ("handwritten · transcribed by Pocket Notes").
-    ``lexical_only`` asks tend for words only (``--words``), so no query
-    leaves the machine (owner Q7). ``timeout_seconds`` bounds each tend call
-    and ``k`` the sections one query asks for (both ``keep``: a stalled
-    subprocess never holds a job; a prompt bound).
-    """
-
-    binary: str = "tend"
-    paths: list[str] = Field(default_factory=lambda: [
-        "~/Documents/thinking/notes", "~/Documents/Quicknote", "~/Documents/Obsidian Vault", "~/org"])
-    pocket_notes_paths: list[str] = Field(default_factory=lambda: [
-        "~/Documents/Quicknote/Pocket Notes", "~/org/pocket-inbox.org"])
-    lexical_only: bool = False
-    timeout_seconds: float = Field(default=10.0, ge=1.0, le=120.0)
-    k: int = Field(default=5, ge=1, le=20)
-
-
 class NotesConfig(BaseModel):
     """Deliverable curriculum C2: notes in the learner's voice, linked
-    (spec_deliverable_curriculum_v1 §10, §12 C2).
+    (spec_deliverable_curriculum_v1 §10, §12 C2; C2b: the vault's own notes).
 
-    Through ``tend`` (``[notes.tend]``), the learner's notes are searched for
-    each topic on a deliverable path (the topic's and its sections' titles; no
-    model), and one background call per topic (``ai.routing.note_link_judge``,
-    the ChatGPT plan only: never offered OpenRouter; with the plan down it
-    waits) proposes which notes discuss its passage or the topic, with one
-    line on how. Proposals show as "from your notes" (a ``›`` mark beside the
-    passage, the path line, Compare's *your take* band with *use as my take*);
-    one tap hides one; the learner can link a note by hand from the Reader.
-    Only a linked note is stored (a bounded snapshot, refreshed when tend
-    reports a new content hash); a note is never written to. A note is never a
-    source, a generation input or evidence. ``enabled`` is the kill switch
-    (off: no tend call, no model call, every notes RPC refuses and the Reader,
-    the path and Compare are today's exactly). ``max_candidates`` bounds the
-    notes one judgment reads (``keep``: a prompt bound). Display and
+    "Your notes" are the vault's own (C2b): the learner's Reader notes and
+    highlights with their own words, and their capture-inbox items; nothing
+    outside the vault is read, and a note beside protected material is no note.
+    For each topic on a deliverable path the notes are searched (the topic's and
+    its sections' titles; by meaning while the vault's embeddings are on, with the
+    same model and route as the tutor's library retrieval, then by exact words; no
+    chat model), and one background call per topic
+    (``ai.routing.note_link_judge``, ordinary quiet-route rules: the route as
+    configured, metered only when priced and inside the curriculum's daily cap;
+    unavailable, it waits) proposes which notes discuss its passage or the topic,
+    with one line on how. Proposals show as "from your notes" (a ``›`` mark beside
+    the passage, the path line, Compare's *your take* band with *use as my take*);
+    one tap hides one; the learner can link a note by hand from the Reader, by
+    exact words or (embeddings on) by meaning. Only a linked note is stored (a
+    bounded snapshot, refreshed when its text changes); a note is never written to.
+    A note is never a source, a generation input or evidence. ``enabled`` is the
+    kill switch (off: no search, no model call, every notes RPC refuses and the
+    Reader, the path and Compare are today's exactly). ``max_candidates`` bounds
+    the notes one judgment reads (``keep``: a prompt bound). Display and
     learner-voice records only: nothing in scoring, scheduling, projection or
-    serving reads a note, so no algorithm successor.
+    serving reads a note, so no algorithm successor. A legacy ``[notes.tend]``
+    table (C2's tend adapter, removed in C2b) is ignored.
 
     ``gaps_enabled`` (curriculum C5, spec §10.2, §12 C5; owner Q9: off by
     default, the learner's opt-in in Settings): a LINKED note (a standing
@@ -3108,16 +3102,23 @@ class NotesConfig(BaseModel):
     note) is also a learner-text-gaps input (``source_kind = 'learner_note'``,
     the snapshot's current text, keyed to the topics and passages it is linked
     to), tier 2 only: it steers hypotheses and suggestions, never mastery,
-    evidence or grading. Read on the ChatGPT plan only (``note_link_judge``'s
-    route; with the plan down it waits), never by the Decider, never embedded,
-    never drafted into a new topic. Off (or ``enabled`` off, or
-    ``learner_text_gaps.enabled`` off): the gaps code reads no note row.
+    evidence or grading. Read like any other learner text (C2b: the pipeline's
+    ordinary routes, the Decider and the embedding shortlist), never drafted into
+    a new topic. Off (or ``enabled`` off, or ``learner_text_gaps.enabled`` off):
+    the gaps code reads no note row.
     """
 
     enabled: bool = True
     max_candidates: int = Field(default=8, ge=1, le=20)
     gaps_enabled: bool = False
-    tend: NotesTendConfig = Field(default_factory=NotesTendConfig)
+
+    @model_validator(mode="before")
+    @classmethod
+    def _drop_legacy_tend(cls, data: Any) -> Any:
+        # C2b removed the tend adapter: an existing config's [notes.tend] is ignored, never an error.
+        if isinstance(data, dict) and "tend" in data:
+            return {key: value for key, value in data.items() if key != "tend"}
+        return data
 
 
 class ReaderCorrespondenceConfig(BaseModel):

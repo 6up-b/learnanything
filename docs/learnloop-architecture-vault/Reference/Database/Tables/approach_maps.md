@@ -3,13 +3,13 @@ title: "approach_maps"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "8a939d438bd36039361356286398fb43a2cd796d"
-source_commit_timestamp: "2026-11-02T03:03:51-05:00"
+source_commit: "f3d6aba0ae47c99d0d4344e00c87287e27318f1c"
+source_commit_timestamp: "2026-11-02T02:00:30-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite approach_maps"
   - "table approach_maps"
-schema_head: 235
+schema_head: 233
 table_name: "approach_maps"
 table_role: "workflow"
 functionality_status: "active"
@@ -49,7 +49,7 @@ It belongs to the **operations** navigation family. The family context lives in 
 - **Role:** `workflow` — Mutable queue, session, lease, or other in-flight workflow state. It is preserved across rebuilds.
 - **Functionality status:** `active`.
 - **Introduced by:** `migrations/211_approach_maps.sql`.
-- **Schema touched by:** `210_help_assists.sql`, `211_approach_maps.sql`.
+- **Schema touched by:** `210_help_assists.sql`, `211_approach_maps.sql`, `232_help_assist_figures.sql`.
 - **Rebuild owner:** none; this table is preserved by the rebuild umbrella.
 
 For the distinction between SQLite state and human-authored vault files, see [[State and Persistence]]. For whole-vault creation and opening behavior, see [[Vault Lifecycle]]. ^table-lifecycle

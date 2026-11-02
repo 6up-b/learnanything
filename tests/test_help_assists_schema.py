@@ -43,6 +43,7 @@ from tests.test_section_coverage_migration import C0A_ADDED_OBJECTS
 from tests.test_figure_requests_migration import RW5D_ADDED_OBJECTS, RW5D_ALTERED_TABLES
 from tests.test_session_ownership_migration import PR4_ADDED_OBJECTS, PR4_ALTERED_TABLES
 from tests.test_help_assist_work_md_migration import DR2_ALTERED_TABLES
+from tests.test_help_assist_figures_migration import P3_ADDED_OBJECTS, P3_ALTERED_TABLES
 from tests.test_reader_session_digests_migration import RW6B_ADDED_OBJECTS
 from tests.test_deliverable_curriculum_migration import C0B_ADDED_OBJECTS
 from tests.test_learner_notes_migration import C2_ADDED_OBJECTS
@@ -78,16 +79,20 @@ SUBMISSION_COLUMNS = {"submission_id", "submitted_at", "submit_latency_seconds"}
 #: Learner data-relax 2 (migration 230; tests/test_help_assist_work_md_migration.py):
 #: the learner's draft itself, beside its hash and length.
 DRAFT_COLUMNS = {"work_md"}
+#: Reader RW5d P3 (migration 232): the figure a figure row opened.
+FIGURE_COLUMNS = {"figure_id"}
 
 CHECKED_VALUES = {
     "surface": ("practice", "workbench", "guided_redo", "tutor"),
-    "assist_kind": ("hint", "check", "discriminate_answer", "bridge", "example", "compare_methods", "feedback"),
+    "assist_kind": ("hint", "check", "discriminate_answer", "bridge", "example", "compare_methods", "feedback",
+                    "figure"),
     "hint_kind": (
         "approach_question", "discriminating", "localize", "waypoint", "subgoal_plan", "next_step",
         "error_specific", "worked_parallel", "authored", "continuation", "worked_chunk", "walkthrough",
+        "explore_figure",
     ),
     "chooser": ("decider", "fallback", "learner_pick", "none"),
-    "request": ("more", "feedback", "book_way", "smaller_step"),
+    "request": ("more", "feedback", "book_way", "smaller_step", "take_step"),
     "feedback_shortcut": ("not_where_stuck", "too_big", "learner_route", "notation"),
     "level_source": ("offered", "learner_pick"),
     "counted_by": ("client", "server"),
@@ -152,7 +157,7 @@ def _upgrade(tmp_path: Path) -> Path:
     # Later migrations (adaptive hints H1's 211, approach_maps) follow 210 on the way to head.
     # ... and adaptive difficulty AD1's 213 (its receipts).
     assert {name for name in set(after) - set(before)
-            if "approach_maps" not in name and name not in AD1_ADDED_OBJECTS | AD23_ADDED_OBJECTS | RW3B_ADDED_OBJECTS | RW5A_ADDED_OBJECTS | RW7A_ADDED_OBJECTS | RW2D_ADDED_OBJECTS | P1_ADDED_OBJECTS | C0A_ADDED_OBJECTS | RW5D_ADDED_OBJECTS | PR4_ADDED_OBJECTS | RW6B_ADDED_OBJECTS | C0B_ADDED_OBJECTS | C2_ADDED_OBJECTS} == {
+            if "approach_maps" not in name and name not in AD1_ADDED_OBJECTS | AD23_ADDED_OBJECTS | RW3B_ADDED_OBJECTS | RW5A_ADDED_OBJECTS | RW7A_ADDED_OBJECTS | RW2D_ADDED_OBJECTS | P1_ADDED_OBJECTS | C0A_ADDED_OBJECTS | RW5D_ADDED_OBJECTS | PR4_ADDED_OBJECTS | RW6B_ADDED_OBJECTS | C0B_ADDED_OBJECTS | C2_ADDED_OBJECTS | P3_ADDED_OBJECTS} == {
         "help_assists", "idx_help_assists_session_item", "idx_help_assists_attempt", "idx_help_assists_submission",
         "idx_help_assists_workbench",
         "idx_help_assists_requested", "help_assists_no_delete", "help_assists_identity_fixed",
@@ -161,9 +166,9 @@ def _upgrade(tmp_path: Path) -> Path:
     # (their source_kind CHECK only; tests/test_hint_feedback_widening.py).
     # Adaptive difficulty AD1's 213 adds two practice_attempts columns on the way.
     assert {name: sql for name, sql in after.items()
-            if name in before and not name.startswith("learner_text_gap") and name not in AD1_ALTERED_TABLES | T1_ALTERED_TABLES | (RW2D_ALTERED_TABLES | CLAIM_POINT_ALTERED_TABLES | PR4_ALTERED_TABLES | DR2_ALTERED_TABLES)} \
+            if name in before and not name.startswith("learner_text_gap") and name not in AD1_ALTERED_TABLES | T1_ALTERED_TABLES | (RW2D_ALTERED_TABLES | CLAIM_POINT_ALTERED_TABLES | PR4_ALTERED_TABLES | DR2_ALTERED_TABLES | P3_ALTERED_TABLES)} \
         == {name: sql for name, sql in before.items()
-            if not name.startswith("learner_text_gap") and name not in AD1_ALTERED_TABLES | T1_ALTERED_TABLES | (RW2D_ALTERED_TABLES | CLAIM_POINT_ALTERED_TABLES | PR4_ALTERED_TABLES | DR2_ALTERED_TABLES)}  # nothing else changed
+            if not name.startswith("learner_text_gap") and name not in AD1_ALTERED_TABLES | T1_ALTERED_TABLES | (RW2D_ALTERED_TABLES | CLAIM_POINT_ALTERED_TABLES | PR4_ALTERED_TABLES | DR2_ALTERED_TABLES | P3_ALTERED_TABLES)}  # nothing else changed
     return database
 
 
@@ -205,7 +210,8 @@ def _check_constraints(database: Path) -> None:
 def test_every_column_both_specs_write_is_created_once():
     columns = _columns(HEAD)
     assert len(columns) == len(set(columns))
-    assert set(columns) == HINTS_SPEC_COLUMNS | READER_COLUMNS | LOGGED_COLUMNS | SUBMISSION_COLUMNS | DRAFT_COLUMNS
+    assert set(columns) == HINTS_SPEC_COLUMNS | READER_COLUMNS | LOGGED_COLUMNS | SUBMISSION_COLUMNS | DRAFT_COLUMNS \
+        | FIGURE_COLUMNS
     assert tuple(columns) == store.COLUMNS
 
 

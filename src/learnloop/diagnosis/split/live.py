@@ -174,6 +174,7 @@ def current_attempt_for(
     contract = None
     trace = None
     confidence = None
+    figures = None
     if repository is not None:
         from learnloop.db.stores.answered_contracts import answered_contracts
         from learnloop.diagnosis.split.workbench_trace import trace_for_attempt
@@ -187,6 +188,10 @@ def current_attempt_for(
         # live config file per job (a drain's captured vault may be stale).
         trace = trace_for_attempt(repository, attempt, symbolic_enabled=symbolic_switch_now(vault))
         confidence = current_confidence(repository, attempt, record, vault=vault)
+        # RW5d P3: the figures the attempt used (None for every other attempt).
+        from learnloop.diagnosis.split.figure_trace import figure_trace_for_attempt
+
+        figures = figure_trace_for_attempt(vault, repository, attempt)
     return current_attempt_from(
         vault,
         item,
@@ -197,6 +202,7 @@ def current_attempt_for(
         contract=contract,
         workbench_trace=trace,
         confidence=confidence,
+        figure_trace=figures,
     )
 
 

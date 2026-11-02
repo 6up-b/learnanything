@@ -85,7 +85,7 @@ from learnloop.hints.kinds import (
     labels_for,
     worked_help_picks,
 )
-from learnloop.hints.options import OptionSet, build_options
+from learnloop.hints.options import FIGURE_KIND, OptionSet, build_options
 from learnloop.hints.state import EarlierHint, HintState, assemble_state, rivals_payload
 from learnloop.hints.writer import (
     PROMPT_VERSION as WRITER_PROMPT_VERSION,
@@ -186,9 +186,15 @@ class HintResultV1:
     replies: list[str] = field(default_factory=list)
     picks: list[dict[str, Any]] = field(default_factory=list)
     version: str = RESULT_VERSION
+    #: Reader RW5d P3 (§11.4): an ``explore_figure`` hint's figure (its id and
+    #: line); absent from the wire otherwise, so every other result is as before.
+    figure: dict[str, Any] | None = None
 
     def as_dict(self) -> dict[str, Any]:
-        return asdict(self)
+        payload = asdict(self)
+        if payload.get("figure") is None:
+            payload.pop("figure", None)
+        return payload
 
 
 def adaptive_enabled(config: Any) -> bool:
@@ -346,6 +352,8 @@ class _Served:
     latency_ms: int | None = None
     #: H3 (fix round 1, F14): the served hint's claims, as checked.
     claims: list[dict[str, Any]] | None = None
+    #: Reader RW5d P3: the figure an ``explore_figure`` hint opens (its offer view).
+    figure: dict[str, Any] | None = None
 
 
 def _check_round(output: HintWriterOutputV1, target: Target, state: HintState, item: PracticeItem
@@ -653,12 +661,18 @@ def request_hint(
     clock: Clock | None = None,
     cancelled: Callable[[], bool] | None = None,
     claim_verifier: Any | None = None,
+    figure_provider: Callable[[HintState], Mapping[str, Any] | None] | None = None,
 ) -> HintResultV1:
     """One hint request (§4.1). The row is written prepared (``shown = 0``);
     :func:`deliver` shows it. Raises :class:`HintRequestError` on a malformed
     request; a model failure never raises (the fallback serves).
     ``claim_verifier``: the workbench's check path for a hint's own claims
-    (H3, :func:`learnloop.hints.workbench.verify_claims`); unused elsewhere."""
+    (H3, :func:`learnloop.hints.workbench.verify_claims`); unused elsewhere.
+    ``figure_provider`` (Reader RW5d P3, §11.4): the caller's read of a figure
+    that qualifies for ``explore_figure`` (given only while
+    ``figures.help_kind_enabled`` is on, on the practice screen, never on a
+    check on your own: the hint package never reads figures itself); None:
+    the option is never considered and every request is as before."""
 
     if not adaptive_enabled(vault.config):
         return HintResultV1(status=DISABLED, reason="adaptive_disabled",
@@ -681,6 +695,15 @@ def request_hint(
                            map_record=map_record, map_loaded=True)
     if request.workbench is not None:
         workbench_module.apply_context(state, request.workbench)
+    elif figure_provider is not None and request.request == "more" and request.taken_level is None:
+        state.figure_kind_on = True
+        try:
+            offer = figure_provider(state)
+        except Exception:  # noqa: BLE001 - no figure read: the option is absent
+            LOG.debug("figure offer read failed", exc_info=True)
+            state.unread.append("figure_offer")
+            offer = None
+        state.figure_offer = dict(offer) if offer else None
     answered = _answered(state, request)
     if request.request == "smaller_step" and (answered is None or answered.hint_kind != "waypoint"):
         raise HintRequestError("validation_error", "A smaller step answers a goal to aim for (a waypoint).",
@@ -717,6 +740,15 @@ def request_hint(
             served = _Served(outcome="failed", reason="no_option")
         elif choice.kind == "authored":
             served = _authored(item, state, index=choice.authored_index)
+        elif choice.kind == FIGURE_KIND:
+            # RW5d P3 (§11.4): no figure is built for a hint and no writer
+            # runs: the served hint is one line that opens the figure.
+            offer = dict(state.figure_offer or {})
+            served = _Served(outcome="served", kind=FIGURE_KIND, level=choice.level,
+                             text=f"{KINDS[FIGURE_KIND].label}: {offer.get('goal_text') or 'open it'}"[:300],
+                             figure=offer or None)
+            if not offer:
+                served = _Served(outcome="failed", reason="no_option")
         else:
             target = Target(choice.kind, choice.level, choice.horizon_index,
                             target_node_id=option_set.target_node_id if choice.level == 3 else None,
@@ -890,7 +922,9 @@ def _row(vault: LoadedVault, item: PracticeItem, state: HintState, request: Hint
             served_claims = claims_view(served.claims, enabled=False) if served.claims else served.claims
             rounds = rounds_view(served.rounds, enabled=False)
     row: dict[str, Any] = {
-        "id": assist_id, "surface": request.surface, "assist_kind": "hint", "practice_item_id": item.id,
+        "id": assist_id, "surface": request.surface,
+        # RW5d P3: a served figure is a figure row (§11.2), its kind explore_figure.
+        "assist_kind": "figure" if served.kind == FIGURE_KIND else "hint", "practice_item_id": item.id,
         "practice_item_hash": practice_item_hash(item), "practice_session_id": request.session_id,
         "submission_id": request.submission_id.strip(),
         "hint_kind": served.kind if served.kind in KINDS else None,
@@ -948,6 +982,8 @@ def _row(vault: LoadedVault, item: PracticeItem, state: HintState, request: Hint
         "latency_ms": served.latency_ms,
         "requested_at": requested_at,
     }
+    if served.kind == FIGURE_KIND and served.figure:
+        row["figure_id"] = served.figure.get("figure_id")
     if discriminating is not None:
         row["rivals_json"] = _json({"rivals": discriminating.get("rivals"), "weights": discriminating.get("weights"),
                                     "weights_basis": discriminating.get("weights_basis")})
@@ -991,10 +1027,15 @@ def _result(item: PracticeItem, state: HintState, option_set: OptionSet, choice:
                              source_origin=output.source_origin if output is not None else None)
     base.evidence = {"counts_as_hint": level not in WORKED_LEVELS, "primed": level in WORKED_LEVELS,
                      "level": level}
+    if kind == FIGURE_KIND:
+        base.figure = dict(served.figure or {})
     base.authored_index = served.authored_index
     replies = ["doesnt_connect", "book_way"]
     if kind == "waypoint":
         replies.insert(0, "smaller_step")
+    if kind == FIGURE_KIND:
+        # A figure is opened, not answered: no reply lines under it.
+        replies = []
     base.replies = replies
     if served.discriminating is not None and kind == "discriminating":
         base.discriminating = {

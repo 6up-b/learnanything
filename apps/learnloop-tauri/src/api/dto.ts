@@ -2630,7 +2630,7 @@ export interface TutorTranscriptInput {
  *  Submit will fold it, in order, from stored state. */
 export interface HelpRecordDto {
   items: Array<{
-    kind: "question" | "hint" | "check" | "worked" | "earlier";
+    kind: "question" | "hint" | "check" | "worked" | "earlier" | "figure";
     at: string | null;
     counts: boolean;
     level?: number | null;
@@ -6784,14 +6784,15 @@ export interface ReaderPromptContractDto {
   };
   /** Reader CA6: side by side (present only while reader.side_by_side.enabled and curriculum.enabled are on). */
   sideBySide?: { enabled: boolean };
-  /** Curriculum C2: your notes, linked (present only while notes.enabled is on and tend is installed). */
+  /** Curriculum C2: your notes, linked (present only while notes.enabled is on; C2b: the vault's own notes, in every vault). */
   notes?: NotesContractDto;
 }
 
 /** Curriculum C2 (spec §10): the notes part of the Reader's prompt contract. */
 export interface NotesContractDto {
   enabled: boolean;
-  lexicalOnly: boolean;
+  /** C2b: *link one of your notes* may search by meaning (the vault's embeddings are on); false hides the toggle. */
+  meaning: boolean;
   pocketNotesLabel: string;
   takePrefix: string;
   /** Curriculum C5: present (true) only with the learner's opt-in (notes.gaps_enabled): a linked
@@ -6838,7 +6839,7 @@ export interface NoteLinkDto {
     heading: string;
     capturedOn: string | null;
     dateLabel: string | null;
-    /** tend | pocket_notes */
+    /** vault (C2b: a Reader note or a capture) | tend | pocket_notes (C2's history) */
     origin: string;
     /** "handwritten · transcribed by Pocket Notes" for a Pocket Notes page, else null. */
     originLabel: string | null;
@@ -6867,19 +6868,30 @@ export interface NoteMarksDto {
   marks: Array<{ spanId: string; notes: NoteLinkDto[] }>;
 }
 
-/** notes.search: a note section tend found (inside the allowlist). */
+/** notes.search: one of the learner's notes in this vault (C2b: a Reader note or highlight with their words,
+ *  or a capture-inbox item). */
 export interface NoteHitDto {
+  /** annotation:<id> | capture:<id> */
   noteKey: string;
-  path: string;
+  /** annotation | capture */
+  refKind: string;
+  refId: string;
   title: string;
   heading: string;
-  headingPath: string;
-  line: number;
   snippet: string;
   capturedOn: string | null;
+  /** vault */
   origin: string;
   contentHash: string;
-  mtime: number;
+}
+
+/** notes.search's answer: the hits, the search's mode (words | meaning) and its basis. */
+export interface NoteSearchDto {
+  query: string;
+  mode: "words" | "meaning";
+  /** words | meaning:ready | meaning:partial | meaning:empty | meaning:unavailable */
+  basis?: string;
+  hits: NoteHitDto[];
 }
 
 /** Reader CA5: the line's hide preferences (Settings brings it back). */
@@ -9874,14 +9886,51 @@ export interface FigurePassageDto {
 }
 
 /** RW5d P1: FigureRequestV1 (spec §7.1). goalAuthor, the policy and the tiers are the server's, never sent. */
+/** Reader RW5d P3: an attempt host's references (each verified on the server). */
+export interface FigureHostRef {
+  questionEventId?: string | null;
+  /** The practice answer box: the item, its submission key and practice session. */
+  itemId?: string | null;
+  submissionId?: string | null;
+  sessionId?: string | null;
+  /** A workbench problem bound to the item. */
+  workbenchSessionId?: string | null;
+  /** Feedback: the committed attempt (show me is free there). */
+  attemptId?: string | null;
+}
+
 export interface FigureRequestV1Input {
   goalText?: string | null;
   anchor?: { extractionId: string; spanIds: string[]; region?: { spanId: string; bbox: number[] } | null; spanKeys?: string[] } | null;
-  origin: "selection" | "library" | "tutor" | "show_me";
-  hostRef?: { questionEventId?: string | null } | null;
+  /** RW5d P3: "ask" is the CA2 panel's show me on practice, feedback and the workbench. */
+  origin: "selection" | "library" | "tutor" | "show_me" | "ask";
+  hostRef?: FigureHostRef | null;
   readingAt?: { extractionId: string; spanId: string } | null;
   offerRef?: string | null;
   coldActive?: boolean;
+  /** RW5d P3: a check on your own's take-step token (figure.take_step). */
+  takeStepToken?: string | null;
+}
+
+/** Reader RW5d P3: what a figure on an attempt host did to the attempt (§6.4). */
+export interface FigureHelpDto {
+  host: "practice" | "workbench" | "feedback";
+  line?: string;
+  countsAsHint?: boolean;
+  /** counted (one hint-equivalent, once per figure per attempt), free, not_recorded (not shown),
+   *  or disabled (figures in attempts switched off since: not shown). */
+  status?: "counted" | "free" | "not_recorded" | "disabled";
+  message?: string;
+  assistId?: string;
+  /** This delivery added the hint-equivalent (false: the same figure again). */
+  new?: boolean;
+}
+
+export interface FigureTakeStepDto {
+  needed: boolean;
+  token: string | null;
+  banner?: string;
+  line?: string;
 }
 
 export interface FigureBuildResultDto {
@@ -9891,6 +9940,8 @@ export interface FigureBuildResultDto {
   withheld?: boolean;
   /** RW5d P2b: only a rich figure is being built (no quick one): its pending line. */
   rich?: FigureRichPendingDto | null;
+  /** RW5d P3: on an attempt host, what the figure did to the attempt. */
+  help?: FigureHelpDto;
 }
 
 export interface FiguresDto {
@@ -9982,6 +10033,8 @@ export interface HintResultDto {
   picks?: HintPickDto[];
   /** Set by the job read: true only on the read that delivered (showed) it. */
   shown?: boolean;
+  /** Reader RW5d P3 (§11.4): an explore_figure hint's figure: one line that opens it. */
+  figure?: { figureId: string; label: string; goalText?: string | null; kind?: string | null; tier?: string } | null;
 }
 
 export interface HintJobDto {

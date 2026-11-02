@@ -125,6 +125,12 @@ class HintState:
     seconds_on_item: float | None = None
     seconds_since_last_hint: float | None = None
     unread: list[str] = field(default_factory=list)
+    #: Reader RW5d P3 (§11.4): the chooser may offer ``explore_figure`` here
+    #: (``figures.help_kind_enabled`` on, the practice screen, not cold), and
+    #: the figure that qualifies, if one does (set by the request's caller:
+    #: the hint package never reads figures).
+    figure_kind_on: bool = False
+    figure_offer: dict[str, Any] | None = None
 
     @property
     def has_work(self) -> bool:
@@ -185,6 +191,11 @@ class HintState:
             "route_preference": self.route_preference,
             "help_style": self.help_style,
             "unread": self.unread,
+            # RW5d P3: present only once a figure was opened in this attempt
+            # (no figure row exists before migration 232: every earlier state
+            # hashes as before).
+            **({"figures_this_attempt": figures} if (figures := len(
+                [row for row in self.earlier if row.assist_kind == "figure" and row.shown])) else {}),
         }
 
     def state_hash(self) -> str:
@@ -194,6 +205,10 @@ class HintState:
         payload = asdict(self)
         payload.pop("work_md", None)
         payload.pop("map_record", None)
+        if not self.figure_kind_on:
+            # RW5d P3's fields are absent while the kind is off (a record as before).
+            payload.pop("figure_kind_on", None)
+            payload.pop("figure_offer", None)
         return payload
 
 

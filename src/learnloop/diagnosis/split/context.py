@@ -113,6 +113,10 @@ class CurrentAttempt:
     #: limit on the taps so far); None without a tap or a hedge read, and the
     #: context then renders and hashes exactly as before.
     confidence: Mapping[str, Any] | None = None
+    #: Reader RW5d P3: the figures this attempt used
+    #: (``figure_trace.figure_trace_for_attempt``); None for every other
+    #: attempt, whose context renders and hashes exactly as before.
+    figure_trace: Mapping[str, Any] | None = None
 
     def ref(self) -> AttemptRef:
         return AttemptRef(self.attempt_id, self.completed_at)
@@ -150,6 +154,10 @@ class CurrentAttempt:
         if self.confidence:
             # TE0: the tap and the grader's hedge read, as an event.
             rendered["confidence"] = dict(self.confidence)
+        if self.figure_trace:
+            # RW5d P3: the figures this attempt used (help, never evidence),
+            # under the prompt suffix +figures-v1.
+            rendered["figure_trace"] = dict(self.figure_trace)
         return rendered
 
     def _render(self, grade: Mapping[str, Any]) -> dict[str, Any]:
@@ -217,6 +225,7 @@ def current_attempt_from(
     contract: Mapping[str, Any] | None = None,
     workbench_trace: Mapping[str, Any] | None = None,
     confidence: Mapping[str, Any] | None = None,
+    figure_trace: Mapping[str, Any] | None = None,
 ) -> CurrentAttempt:
     """The attempt being diagnosed. ``contract`` (method-explicit-3 review
     F3) is the assessment contract its answer was graded under: a
@@ -254,6 +263,7 @@ def current_attempt_from(
         item_facets=tuple(vault.canonical_facet_id(str(facet)) for facet in item.evidence_facets),
         workbench_trace=dict(workbench_trace) if workbench_trace else None,
         confidence=dict(confidence) if confidence else None,
+        figure_trace=dict(figure_trace) if figure_trace else None,
     )
 
 

@@ -274,6 +274,11 @@ def diagnosis_prompt_version(assembled: AssembledContext) -> str:
     version = DIAGNOSIS_PROMPT_VERSION
     if isinstance(assembled.current, Mapping) and assembled.current.get("workbench_trace"):
         version = f"{DIAGNOSIS_PROMPT_VERSION}{WORKBENCH_TRACE_SUFFIX}"
+    if isinstance(assembled.current, Mapping) and assembled.current.get("figure_trace"):
+        # Reader RW5d P3: the figures the attempt used.
+        from learnloop.diagnosis.split.figure_trace import SUFFIX as FIGURE_TRACE_SUFFIX
+
+        version = f"{version}{FIGURE_TRACE_SUFFIX}"
     arm = (assembled.receipt or {}).get("prior_analysis") if isinstance(assembled.receipt, Mapping) else None
     if isinstance(arm, Mapping) and arm.get("arm") == PRIOR_ANALYSIS_ON:
         # Learner-blindness relax: the prior-analysis arm's ``on`` arm.

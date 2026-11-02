@@ -116,8 +116,10 @@ def _upgrade(tmp_path: Path) -> Path:
     with upgrade_allowance(UPGRADE_TEST_HELPER):
         applied = apply_migrations(database)
     # Learner data-relax 2's 230 (help_assists.work_md, not a table read here) lands first;
-    # follow-ups Nov 2's 235 (the reversal kind 'unlinked', every row kept) after.
-    assert [migration.version for migration in applied] == [230, 231, 235]
+    # RW5d P3's 232 (help_assists and figure_predictions, not tables read here), curriculum
+    # C2b's 233 (learner_notes, not a table read here) and follow-ups Nov 2's 235 (the reversal
+    # kind 'unlinked', every row kept) follow.
+    assert [migration.version for migration in applied] == [230, 231, 232, 233, 235]
     assert {table: _rows(database, table) for table in TABLES} == before  # every row, id and value survives
     for table, shape in columns.items():
         assert _columns(database, table) == shape  # the same columns, types, defaults and keys
@@ -210,9 +212,10 @@ def test_231_adds_learner_note_and_nothing_else():
 
 
 def test_the_head_fixture_holds_231_in_rollback_mode_with_no_note_gap():
-    # Follow-ups Nov 2: the head is 235 now (it holds 231).
+    # Follow-ups Nov 2: the head is 235 now (rebuilt from 233's head with only 235 applied); it holds 231.
     head = Path(__file__).resolve().parents[1] / "fixtures" / "migration_head_235" / "state.sqlite"
     assert head.read_bytes()[18:20] == b"\x01\x01"
+    assert 231 in applied_versions(head)
     assert max(applied_versions(head)) == max(m.version for m in discover_migrations()) == 235
     with closing(sqlite3.connect(f"file:{head}?mode=ro", uri=True)) as connection:
         assert connection.execute("PRAGMA journal_mode").fetchone()[0] == "delete"

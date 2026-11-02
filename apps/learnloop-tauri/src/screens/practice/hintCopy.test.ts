@@ -46,7 +46,8 @@ it("G-H12: the panel's files carry no other learner-facing literal that judges",
 it("G-H12: the sidecar's kind labels and picks pass the same lint, and worked help is marked", () => {
   const kinds = readFileSync(join(ROOT, "src", "learnloop", "hints", "kinds.py"), "utf8");
   const labels = [...kinds.matchAll(/Kind\("[a-z_]+", \([0-9, ]+\), "([^"]+)"/g)].map((match) => match[1]);
-  expect(labels).toHaveLength(12);
+  // Reader RW5d P3 adds the thirteenth: explore_figure ("a figure to explore").
+  expect(labels).toHaveLength(13);
   for (const label of labels) expect(banned(label), label).toBeUndefined();
   expect(kinds).toContain('WORKED_HELP_MARK = "worked help ◌"');
 });

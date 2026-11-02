@@ -2,6 +2,11 @@
 the learner's notes, taken only when linked) and ``learner_note_links`` (the model's
 proposals and the learner's links and hides). Both RAW_LEDGER, append-only by trigger.
 
+Curriculum C2b (migration 233): a snapshot of a vault note (a Reader note or highlight
+with text, or a capture-inbox item) has origin ``vault`` and a vault reference
+(``vault_ref_kind`` ``annotation`` | ``capture``, ``vault_ref_id``) instead of a file path
+and line; C2's ``tend`` and ``pocket_notes`` rows stay readable as history.
+
 Every function takes the caller's connection (and its transaction). Nothing that
 scores, schedules, projects, grades, serves, generates or replays reads these tables:
 the only reader is ``source_retrieval.note_links`` (display and learner-voice records).
@@ -16,7 +21,7 @@ from typing import Any
 
 NOTE_COLUMNS = (
     "id", "note_key", "path", "heading_path", "line", "content_hash", "title", "heading", "captured_on", "origin",
-    "text_md", "truncated", "created_at",
+    "text_md", "truncated", "created_at", "vault_ref_kind", "vault_ref_id",
 )
 LINK_COLUMNS = (
     "id", "note_id", "note_key", "target_kind", "target_key", "learning_object_id", "extraction_id", "section_id",

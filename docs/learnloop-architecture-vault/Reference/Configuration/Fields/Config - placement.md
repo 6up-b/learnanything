@@ -3,8 +3,8 @@ title: "Config - placement"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "8a939d438bd36039361356286398fb43a2cd796d"
-source_commit_timestamp: "2026-11-02T03:03:51-05:00"
+source_commit: "f3d6aba0ae47c99d0d4344e00c87287e27318f1c"
+source_commit_timestamp: "2026-11-02T02:00:30-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "learnloop.toml placement"
@@ -24,6 +24,7 @@ source_paths:
   - "src/learnloop/diagnosis/quick_check.py"
   - "tests/codex_cli_fakes.py"
   - "tests/local_embeddings_fakes.py"
+  - "tests/notes_fixtures.py"
   - "tests/pf_fakes.py"
   - "tests/practice_index_fakes.py"
   - "tests/router_model_fakes.py"
@@ -33,7 +34,6 @@ source_paths:
   - "tests/test_ad2_model.py"
   - "tests/test_ai_config.py"
   - "tests/test_approach_maps.py"
-  - "tests/test_assumed_known.py"
 tags:
   - "learnloop/configuration/fields"
   - "learnloop/configuration/section/placement"
@@ -54,14 +54,14 @@ The main configuration contract, precedence rules, and safe-edit workflow live i
 
 | Dotted path | Effective value | Shape | Origin | Function | Runtime/refactor status | Consumer/source anchors |
 |---|---|---|---|---|---|---|
-| `placement.enabled` | `true` | boolean | modeled default or validator seed | Kill switch for F2 placement at mvp-0.11 and later; off restores the predecessor's opening probes, serving and ordering and ignores recorded assumptions. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:3774`; `src/learnloop/ai/plan_fallback.py:135`; `src/learnloop/placement/state.py:135` |
-| `placement.initial_probes` | `false` | boolean | modeled default or validator seed | Opens the predecessor's opening diagnostic episode per new LO while placement stays on (D11 default off). | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:3777`; `src/learnloop/ai/plan_fallback.py:135`; `src/learnloop/placement/state.py:162` |
-| `placement.assumed_first_interval_days` | `14` | integer | modeled default or validator seed | Days from an assumed-known decision to its first review, which is the check (D6). | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:3779`; `src/learnloop/ai/plan_fallback.py:135`; `src/learnloop/placement/decisions.py:125` |
-| `placement.fast_track_min_correct` | `2` | integer | modeled default or validator seed | Clean full-marks first answers fast-track needs before the probability test (D6, at least 2). | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:3781`; `src/learnloop/ai/plan_fallback.py:135`; `src/learnloop/placement/decisions.py:361` |
-| `placement.fast_track_q` | `0.8` | number | modeled default or validator seed | Probability the active predictor must give that the LO's ability exceeds the known threshold (D6). | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:3783`; `src/learnloop/ai/plan_fallback.py:135`; `src/learnloop/placement/decisions.py:121` |
-| `placement.known_probability` | `0.75` | number | modeled default or validator seed | Success probability whose logit is the known threshold theta_known (D6: logit(0.75)). | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:3784`; `src/learnloop/ai/plan_fallback.py:135`; `src/learnloop/placement/decisions.py:111` |
-| `placement.quick_check_k` | `4` | integer | modeled default or validator seed | Most answers one optional quick check serves (D4). | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:3786`; `src/learnloop/ai/plan_fallback.py:135`; `src/learnloop/diagnosis/quick_check.py:159` |
-| `placement.quick_check_budget_minutes` | `8` | integer | modeled default or validator seed | Time budget of one optional quick check (D4). | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:3787`; `src/learnloop/ai/plan_fallback.py:135`; `src/learnloop/diagnosis/quick_check.py:149` |
+| `placement.enabled` | `true` | boolean | modeled default or validator seed | Kill switch for F2 placement at mvp-0.11 and later; off restores the predecessor's opening probes, serving and ordering and ignores recorded assumptions. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:3761`; `src/learnloop/ai/plan_fallback.py:136`; `src/learnloop/placement/state.py:135` |
+| `placement.initial_probes` | `false` | boolean | modeled default or validator seed | Opens the predecessor's opening diagnostic episode per new LO while placement stays on (D11 default off). | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:3764`; `src/learnloop/ai/plan_fallback.py:136`; `src/learnloop/placement/state.py:162` |
+| `placement.assumed_first_interval_days` | `14` | integer | modeled default or validator seed | Days from an assumed-known decision to its first review, which is the check (D6). | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:3766`; `src/learnloop/ai/plan_fallback.py:136`; `src/learnloop/placement/decisions.py:125` |
+| `placement.fast_track_min_correct` | `2` | integer | modeled default or validator seed | Clean full-marks first answers fast-track needs before the probability test (D6, at least 2). | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:3768`; `src/learnloop/ai/plan_fallback.py:136`; `src/learnloop/placement/decisions.py:361` |
+| `placement.fast_track_q` | `0.8` | number | modeled default or validator seed | Probability the active predictor must give that the LO's ability exceeds the known threshold (D6). | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:3770`; `src/learnloop/ai/plan_fallback.py:136`; `src/learnloop/placement/decisions.py:121` |
+| `placement.known_probability` | `0.75` | number | modeled default or validator seed | Success probability whose logit is the known threshold theta_known (D6: logit(0.75)). | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:3771`; `src/learnloop/ai/plan_fallback.py:136`; `src/learnloop/placement/decisions.py:111` |
+| `placement.quick_check_k` | `4` | integer | modeled default or validator seed | Most answers one optional quick check serves (D4). | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:3773`; `src/learnloop/ai/plan_fallback.py:136`; `src/learnloop/diagnosis/quick_check.py:159` |
+| `placement.quick_check_budget_minutes` | `8` | integer | modeled default or validator seed | Time budget of one optional quick check (D4). | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:3774`; `src/learnloop/ai/plan_fallback.py:136`; `src/learnloop/diagnosis/quick_check.py:149` |
 
 > [!warning] Omitted does not mean frozen in the file
 > Most values are intentionally absent from `learnloop.toml`. Their reproducibility is protected by the defaults fingerprint keyed to `algorithms.algorithm_version`, not by dumping every default into each vault.
@@ -72,6 +72,7 @@ Every row cites the exact Pydantic field declaration (or typed dynamic-key conta
 
 - `tests/codex_cli_fakes.py`
 - `tests/local_embeddings_fakes.py`
+- `tests/notes_fixtures.py`
 - `tests/pf_fakes.py`
 - `tests/practice_index_fakes.py`
 - `tests/router_model_fakes.py`
@@ -81,7 +82,6 @@ Every row cites the exact Pydantic field declaration (or typed dynamic-key conta
 - `tests/test_ad2_model.py`
 - `tests/test_ai_config.py`
 - `tests/test_approach_maps.py`
-- `tests/test_assumed_known.py`
 
 ## Extension and modification guidance
 

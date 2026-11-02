@@ -541,6 +541,10 @@ READER_RW5D_RPCS = (
     "figure.rich_cancel",
     "figure.rich_retry",
     "figure.manim_opt_in",
+    # Reader RW5d P3: a check on your own's take step; opening a stored figure
+    # on an attempt host (the chooser's explore_figure). Desktop only.
+    "figure.take_step",
+    "figure.open",
 )
 
 

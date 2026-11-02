@@ -363,6 +363,36 @@ def rich_build_key(vault: Any) -> tuple[Any, ...]:
             admission_manim_opt_in(vault))
 
 
+#: The host references that name an attempt (``figures.service.ATTEMPT_HOST_REFS``).
+_ATTEMPT_HOST_REFS = ("item_id", "submission_id", "workbench_session_id", "attempt_id")
+#: An attempt host's rich job (RW5d P3 ruling R1: attempt hosts are grammar
+#: and sketch only; rich figures stay Reader-side).
+ATTEMPT_HOST_READER_ONLY = ("Not built: animations are made in the Reader only, never on practice, feedback "
+                            "or the workbench.")
+
+
+def attempt_hosted_job(repository: Repository, payload: Mapping[str, Any]) -> bool:
+    """RW5d P3 (orchestrator ruling R1): a rich job for a figure asked on an
+    attempt host (practice, feedback or the workbench). Its payload's flag
+    says so, or, for a job queued before the flag existed, its stored
+    request's verified host does (``figure_requests.host_ref_json``). Such a
+    job is never built: attempt hosts are grammar and sketch only."""
+
+    if (payload.get("base") or {}).get("attempt_hosted"):
+        return True
+    request_id = str(payload.get("request_id") or "")
+    if not request_id:
+        return False
+    try:
+        with closing(connect(repository.sqlite_path, read_only=True)) as connection:
+            asked = store.request(connection, request_id) if store.has_tables(connection) else None
+    except sqlite3.Error:
+        # Unreadable: refused (fail closed: never a model request on a guess).
+        return True
+    host_ref = (asked or {}).get("host_ref") or {}
+    return any(host_ref.get(name) for name in _ATTEMPT_HOST_REFS)
+
+
 class RichJobStopped(Exception):
     """The rich job ends without a row (``code``: ``figures_changed``,
     ``rich_disabled``, ``manim_unavailable``, ``exam_material``,
@@ -438,6 +468,10 @@ def run_rich_job(vault: Any, repository: Repository, payload: Mapping[str, Any],
 
     from learnloop.ai.execution import gate_model_requests
 
+    if attempt_hosted_job(repository, payload):
+        # RW5d P3 ruling R1: before anything else, and so before any model
+        # request (a legacy payload's host is resolved from its stored request).
+        raise RichJobStopped("figures_changed", ATTEMPT_HOST_READER_ONLY)
     if payload.get("tier") != "manim":
         raise RichJobStopped("rich_disabled", "Only the manim tier is built in this version.")
     if not rich_tiers_switch(vault):

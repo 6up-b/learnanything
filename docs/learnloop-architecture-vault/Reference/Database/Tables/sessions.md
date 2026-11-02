@@ -3,13 +3,13 @@ title: "sessions"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "8a939d438bd36039361356286398fb43a2cd796d"
-source_commit_timestamp: "2026-11-02T03:03:51-05:00"
+source_commit: "f3d6aba0ae47c99d0d4344e00c87287e27318f1c"
+source_commit_timestamp: "2026-11-02T02:00:30-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite sessions"
   - "table sessions"
-schema_head: 235
+schema_head: 233
 table_name: "sessions"
 table_role: "workflow"
 functionality_status: "active"
@@ -105,6 +105,7 @@ Indexes and uniqueness:
 - `src/learnloop/db/repositories.py`
 - `src/learnloop/db/stores/session_ownership.py`
 - `src/learnloop/router/outcomes.py`
+- `src/learnloop_sidecar/handlers/figures.py`
 
 ### Direct SQL writers
 
@@ -155,7 +156,7 @@ Indexes and uniqueness:
 - `tests/test_evsi_staged_binding.py`
 - `tests/test_facet_outcome_view.py`
 - `tests/test_field_workbench_signals.py`
-- `tests/test_followups_nov2_help_fold.py`
+- `tests/test_figures_help_codex_review.py`
 - `tests/test_forecast_receipts.py`
 - `tests/test_glm_ocr.py`
 - `tests/test_hint_telemetry.py`

@@ -2,8 +2,9 @@
 // the › margin mark opens the note(s) with "linked by LearnLoop's model" and a one-tap
 // hide (with undo); a Pocket Notes page says so; the path line says "your note from
 // 3 Oct"; Compare's band offers *use as my take* with the note's quote; *link one of your
-// notes…* searches tend (the section title first, then the learner's words) and links by
-// hand. Without the notes context (notes.enabled off or no tend) nothing renders.
+// notes…* searches the vault's own notes (the section title first, then the learner's words; by
+// meaning only while the contract offers it) and links by hand. Without the notes context
+// (notes.enabled off) nothing renders.
 import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { useState, type ReactNode } from "react";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
@@ -19,14 +20,14 @@ const { api } = vi.hoisted(() => ({
 }));
 vi.mock("../../api/client", () => ({ api }));
 
-const SETTINGS = { enabled: true, lexicalOnly: false, pocketNotesLabel: "handwritten · transcribed by Pocket Notes", takePrefix: "From your note" };
+const SETTINGS = { enabled: true, meaning: false, pocketNotesLabel: "handwritten · transcribed by Pocket Notes", takePrefix: "From your note" };
 
 function link(overrides: Partial<NoteLinkDto> = {}, note: Partial<NoteLinkDto["note"]> = {}): NoteLinkDto {
   return {
     linkId: "nl_1", noteKey: "/n/a.org#Eigen", targetKind: "passage", learningObjectId: "lo_eigen", extractionId: "ext_book",
     sectionId: "ch_eigen", spanId: "s1", goalId: "g", authorship: "ai", byLabel: "linked by LearnLoop's model",
     how: "restates", howWords: "puts it in your words", howLine: "your note restates it", line: "your note from 3 Oct",
-    note: { title: "Linear algebra", heading: "Eigen stuff", capturedOn: "2026-10-03", dateLabel: "3 Oct", origin: "tend",
+    note: { title: "Linear algebra", heading: "Eigen stuff", capturedOn: "2026-10-03", dateLabel: "3 Oct", origin: "vault",
             originLabel: null, text: "Eigenvalues: Av = lv.", truncated: false, ...note },
     ...overrides,
   };
@@ -199,24 +200,42 @@ it("a waiting linking is asked again later, quietly (F4)", async () => {
 
 it("link one of your notes searches the section first, then the learner's words, and links by hand", async () => {
   const onChanged = vi.fn();
-  const hit = { noteKey: "/n/p.md#Eigen page", path: "/n/p.md", title: "2026-10-03", heading: "Eigen page", headingPath: "Eigen page",
-                line: 1, snippet: "Worked the 2x2 eigen example", capturedOn: "2026-10-03", origin: "pocket_notes", contentHash: "h", mtime: 1 };
-  api.notesSearch.mockResolvedValueOnce({ query: "Chapter 5 Eigenvalues", hits: [hit] }).mockResolvedValueOnce({ query: "my page", hits: [] });
+  const hit = { noteKey: "capture:c1", refKind: "capture", refId: "c1", title: "captured note", heading: "",
+                snippet: "Worked the 2x2 eigen example", capturedOn: "2026-10-03", origin: "vault", contentHash: "h" };
+  api.notesSearch.mockResolvedValueOnce({ query: "Chapter 5 Eigenvalues", mode: "words", hits: [hit] })
+    .mockResolvedValueOnce({ query: "my page", mode: "words", hits: [] });
   api.notesLink.mockResolvedValue({ linkId: "nl_9", marks: [] });
   render(withNotes(<NoteLinkPicker extractionId="ext_book" spanId="s2" onClose={vi.fn()} onError={vi.fn()} />, onChanged));
   await screen.findByText(/your notes for this section: Chapter 5 Eigenvalues/);
   expect(api.notesSearch).toHaveBeenNthCalledWith(1, { extractionId: "ext_book", spanId: "s2" });
-  expect(screen.getByText(SETTINGS.pocketNotesLabel)).toBeTruthy();
+  expect(screen.getByText("Worked the 2x2 eigen example")).toBeTruthy();
+  // Embeddings off (meaning: false): no meaning toggle at all.
+  expect(screen.queryByRole("button", { name: NOTES_COPY.byMeaning })).toBeNull();
   fireEvent.click(screen.getByRole("button", { name: NOTES_COPY.linkHere }));
   await waitFor(() => expect(api.notesLink).toHaveBeenCalledWith({
-    note: { path: "/n/p.md", line: 1, headingPath: "Eigen page", title: "2026-10-03", contentHash: "h", mtime: 1 },
-    extractionId: "ext_book", spanId: "s2" }));
+    note: { noteKey: "capture:c1" }, extractionId: "ext_book", spanId: "s2" }));
   await screen.findByText(`${NOTES_COPY.linked} ✓`);
   expect(onChanged).toHaveBeenCalled();
   fireEvent.change(screen.getByRole("textbox", { name: NOTES_COPY.searchPlaceholder }), { target: { value: "my page" } });
   fireEvent.submit(screen.getByRole("textbox", { name: NOTES_COPY.searchPlaceholder }).closest("form")!);
   await screen.findByText(NOTES_COPY.nothingFound);
   expect(api.notesSearch).toHaveBeenLastCalledWith({ query: "my page" });
+});
+
+it("with the vault's embeddings on, the picker offers a search by meaning", async () => {
+  api.notesSearch.mockResolvedValue({ query: "spectrum", mode: "meaning", basis: "meaning:ready", hits: [] });
+  render(<NotesContext.Provider value={{ settings: { ...SETTINGS, meaning: true }, onChanged: vi.fn(), revision: 0,
+    hidden: new Map(), remember: vi.fn(), forget: vi.fn() }}>
+    <NoteLinkPicker extractionId="ext_book" spanId="s2" onClose={vi.fn()} onError={vi.fn()} />
+  </NotesContext.Provider>);
+  await waitFor(() => expect(api.notesSearch).toHaveBeenCalledTimes(1));
+  fireEvent.click(screen.getByRole("button", { name: NOTES_COPY.byMeaning }));
+  fireEvent.change(screen.getByRole("textbox", { name: NOTES_COPY.searchPlaceholder }), { target: { value: "spectrum" } });
+  fireEvent.submit(screen.getByRole("textbox", { name: NOTES_COPY.searchPlaceholder }).closest("form")!);
+  await waitFor(() => expect(api.notesSearch).toHaveBeenLastCalledWith({ query: "spectrum", mode: "meaning" }));
+  fireEvent.click(screen.getByRole("button", { name: NOTES_COPY.byWords }));
+  fireEvent.submit(screen.getByRole("textbox", { name: NOTES_COPY.searchPlaceholder }).closest("form")!);
+  await waitFor(() => expect(api.notesSearch).toHaveBeenLastCalledWith({ query: "spectrum" }));
 });
 
 it("without the notes context nothing renders and nothing is read", () => {

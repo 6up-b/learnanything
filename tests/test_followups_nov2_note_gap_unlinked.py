@@ -8,8 +8,9 @@ snapshot is no longer linked (the learner hid the link, or it is unlinked
 otherwise), each gap read from it gets one ``unlinked`` reversal, written by
 the gap pipeline (``jobs.retract_unlinked_notes``), and every reader that
 leaves out a reversed gap leaves it out. The gap row stays (append-only).
-Switched off (the opt-in, the notes, tend), nothing is read and nothing is
-written. Fakes only: C2's fake ``tend`` over synthetic notes; no model.
+Switched off (the opt-in, the notes or the pipeline), nothing is read and
+nothing is written. Fakes only: C2b's vault notes (a typed Reader note and a
+capture) in the deliverable vault; no model.
 """
 
 from __future__ import annotations
@@ -21,7 +22,9 @@ from learnloop.learner_context import learning_context
 from learnloop.tutor.ai_contracts import LearnerGap
 from learnloop.vault.loader import load_vault
 from tests.reading_path_fixtures import call
-from tests.test_notes_as_learner_text import CLOCK, PlanGapFake, _clients, _gaps, _linked, _run, _snapshots
+from tests.notes_fixtures import edit_annotation
+from tests.test_notes_as_learner_text import CAPTURED, CLOCK, TYPED, PlanGapFake, _clients, _gaps, _linked, _run, \
+    _snapshots, _typed_line
 from tests.text_gap_fakes import word_match
 
 
@@ -38,11 +41,11 @@ def _read_both(paths, repository) -> dict[str, dict]:
     llm = PlanGapFake(reading=LearnerGap(kind="prerequisite", prerequisite_name="the determinant of a matrix",
                                          prerequisite_line="Uses det(A - lI) without knowing determinants."),
                       decide=word_match("determinant"))
-    for heading in ("Eigen stuff", "Eigen page"):
+    for heading in (TYPED, CAPTURED):
         outcome = _run(paths, repository, _clients(llm), source=("learner_note", snapshots[heading]))
         assert outcome.state == "done" and outcome.action == "matched_prerequisite", outcome
     return {heading: next(gap for gap in _gaps(repository) if gap["source_id"] == snapshots[heading])
-            for heading in ("Eigen stuff", "Eigen page")}
+            for heading in (TYPED, CAPTURED)}
 
 
 def _open_gap_ids(paths, repository) -> set[str]:
@@ -53,11 +56,11 @@ def _open_gap_ids(paths, repository) -> set[str]:
 def test_hiding_a_read_notes_link_sets_its_gaps_aside_and_only_its_own(tmp_path, monkeypatch):
     """C5 R2: before the fix the hidden note's gap stayed open in every reader."""
 
-    paths, repository, ctx, goal_id, fake_tend, lines = _linked(tmp_path, monkeypatch)
+    paths, repository, ctx, goal_id, corpus, lines = _linked(tmp_path, monkeypatch)
     gaps = _read_both(paths, repository)
-    typed, page = gaps["Eigen stuff"], gaps["Eigen page"]
+    typed, page = gaps[TYPED], gaps[CAPTURED]
     assert _open_gap_ids(paths, repository) >= {typed["id"], page["id"]}
-    line = next(line for line in lines if line["note"]["heading"] == "Eigen stuff")
+    line = _typed_line(lines)
     call(ctx, "notes.decide", {"link_id": line["linkId"], "choice": "hide"})
     [reversal] = _reversals(repository)
     assert (reversal["gap_id"], reversal["reversal"], reversal["actor"]) == (typed["id"], "unlinked", "learner")
@@ -74,9 +77,9 @@ def test_hiding_a_read_notes_link_sets_its_gaps_aside_and_only_its_own(tmp_path,
 
 
 def test_the_retraction_is_idempotent_and_keep_does_not_reopen_the_gap(tmp_path, monkeypatch):
-    paths, repository, ctx, goal_id, fake_tend, lines = _linked(tmp_path, monkeypatch)
-    typed = _read_both(paths, repository)["Eigen stuff"]
-    line = next(line for line in lines if line["note"]["heading"] == "Eigen stuff")
+    paths, repository, ctx, goal_id, corpus, lines = _linked(tmp_path, monkeypatch)
+    typed = _read_both(paths, repository)[TYPED]
+    line = _typed_line(lines)
     hidden = call(ctx, "notes.decide", {"link_id": line["linkId"], "choice": "hide"})
     vault = load_vault(paths.root)
     assert J.retract_unlinked_notes(vault, repository, clock=CLOCK) == 0  # once per gap
@@ -86,27 +89,21 @@ def test_the_retraction_is_idempotent_and_keep_does_not_reopen_the_gap(tmp_path,
 
 
 def test_a_note_changed_into_a_new_snapshot_sets_the_old_snapshots_gap_aside(tmp_path, monkeypatch):
-    from pathlib import Path
-
-    paths, repository, ctx, goal_id, fake_tend, lines = _linked(tmp_path, monkeypatch)
-    typed = _read_both(paths, repository)["Eigen stuff"]
-    entry = next(e for e in fake_tend.entries if e["hit"]["heading"] == "Eigen stuff")
-    Path(entry["hit"]["path"]).write_text("* Eigen stuff\nEigenvalues again: Av = lv, now with a picture.\n",
-                                          encoding="utf-8")
-    entry["hit"].update(hash="h-new", line=1)
-    fake_tend.save()
+    paths, repository, ctx, goal_id, corpus, lines = _linked(tmp_path, monkeypatch)
+    typed = _read_both(paths, repository)[TYPED]
+    edit_annotation(repository, corpus[TYPED].split(":", 1)[1], "Eigenvalues again: Av = lv, now with a picture.")
     call(ctx, "notes.path", {"goal_id": goal_id, "retry": True})
     J.enqueue_learner_notes(load_vault(paths.root), repository, clock=CLOCK)
     assert [(row["gap_id"], row["reversal"]) for row in _reversals(repository)] == [(typed["id"], "unlinked")]
 
 
 def test_switched_off_nothing_is_read_and_nothing_is_set_aside(tmp_path, monkeypatch):
-    """The opt-in off (or tend gone): no note row is read, so a note gap is never
+    """The opt-in off (or the notes switched off): no note row is read, so a note gap is never
     set aside because the notes cannot be seen."""
 
     from learnloop.diagnosis.text_gaps import sources
 
-    paths, repository, ctx, goal_id, fake_tend, lines = _linked(tmp_path, monkeypatch)
+    paths, repository, ctx, goal_id, corpus, lines = _linked(tmp_path, monkeypatch)
     _read_both(paths, repository)
     vault = load_vault(paths.root)
     monkeypatch.setattr(sources, "learner_notes_enabled", lambda _vault: False)
@@ -128,8 +125,8 @@ def test_unlinked_is_never_a_learners_manual_reversal(tmp_path, monkeypatch):
 
     from learnloop.diagnosis.text_gaps.actions import REVERSALS, UndoError, reverse_gap
 
-    paths, repository, ctx, goal_id, fake_tend, lines = _linked(tmp_path, monkeypatch)
-    typed = _read_both(paths, repository)["Eigen stuff"]
+    paths, repository, ctx, goal_id, corpus, lines = _linked(tmp_path, monkeypatch)
+    typed = _read_both(paths, repository)[TYPED]
     assert "unlinked" not in REVERSALS
     with pytest.raises(UndoError):
         reverse_gap(paths.root, repository, typed["id"], "unlinked")
@@ -146,8 +143,8 @@ def test_a_note_linked_while_the_retraction_runs_keeps_its_gap(tmp_path, monkeyp
     import sqlite3
     from contextlib import closing
 
-    paths, repository, ctx, goal_id, fake_tend, lines = _linked(tmp_path, monkeypatch)
-    page = _snapshots(repository)["Eigen page"]
+    paths, repository, ctx, goal_id, corpus, lines = _linked(tmp_path, monkeypatch)
+    page = _snapshots(repository)[CAPTURED]
     real = J.learner_note_ids
     seen: dict[str, bool] = {}
 

@@ -1,62 +1,59 @@
 """Deliverable curriculum C2: notes in the learner's voice, linked
-(spec_deliverable_curriculum_v1 §10, §12 C2).
+(spec_deliverable_curriculum_v1 §10, §12 C2; C2b: the vault's own notes).
 
-The learner's notes (grove/Org, Obsidian, Quicknote and the Pocket Notes pages
-transcribed from the 3DS, ``~/org``) are indexed by the owner's ``tend``; LearnLoop
-reaches them only through :mod:`learnloop.curriculum.notes_tend` and only inside the
-allowlist (``notes.tend.paths``).
+"Your notes" are the vault's own (C2b, :mod:`learnloop.source_retrieval.vault_notes`): the
+learner's Reader notes and highlights with their own words, and their capture-inbox items.
+Nothing outside the vault is read; a note beside protected material is no note here.
 
 **Candidates (no model).** For each topic a deliverable needs (a ``needed`` line of its
-current path, :func:`deliverable_path.path_view`), ``tend search`` with the topic's
+current path, :func:`deliverable_path.path_view`), the vault notes search with the topic's
 title and with the title of each section the path names for it (the primary and the
-alternates): heading sections inside the allowlist, one per section, at most
-``notes.max_candidates`` (a prompt bound), in tend's own order.
+alternates): by meaning first while the vault's hosted embeddings are on (``embedding.model``,
+the tutor's hosted query path), then by exact words, each note once, at most
+``notes.max_candidates`` (a prompt bound).
 
-**One listwise judgment per topic** (route ``note_link_judge``): the topic's title and
-statement, its primary passage's lead (read through C0a's protection, :func:`SC.peek`),
-and the candidate notes' text (tend's ``read`` op). Per note: ``discusses`` (the passage
-or the topic, and one line on how: restates, questions, disagrees, applies, worked it)
-or ``unrelated``. **The ChatGPT plan only** (§10.4, owner Q6): a route that does not
-resolve to the plan is refused before anything is sent; the work is quiet (no
-OpenRouter offer, no grant); with the plan down it waits (``unavailable``) and nothing
-asks. Cached by its state (the topic, the passage's lead, each candidate's tend content
-hash and text): the same state is never judged twice, and a note tend reports with a new
-content hash is a new state, so its snapshot is refreshed and the link judged again.
-Each deliverable's topic shows the proposals of its *current* candidate state (Codex
-review F7): a shown-state marker (``judgment_ledger`` task ``note_link_shown``, judge
-``exact_key``) is appended whenever that state changes, including a state judged before
-(reused, never paid again) and no candidates at all (nothing shows).
+**One listwise judgment per topic** (route ``note_link_judge``, background): the topic's
+title and statement, its primary passage's lead (read through C0a's protection,
+:func:`SC.peek`), and the candidate notes' text. Per note: ``discusses`` (the passage or the
+topic, and one line on how: restates, questions, disagrees, applies, worked it) or
+``unrelated``. Ordinary quiet-route rules (T1): the route as configured (the active
+provider, the ChatGPT plan by default), run quietly (no OpenRouter offer, no grant), a
+metered route only when priced and inside the curriculum's daily cap
+(``DL.daily_envelope``); unavailable, the run waits. Cached by its state (the topic, the
+passage's lead, each candidate's content hash and text): the same state is never judged
+twice, and a note whose text changed is a new state, so its snapshot is refreshed and the
+link judged again. Each deliverable's topic shows the proposals of its *current* candidate
+state (Codex review F7): a shown-state marker (``judgment_ledger`` task
+``note_link_shown``, judge ``exact_key``) is appended whenever that state changes,
+including a state judged before (reused, never paid again) and no candidates at all
+(nothing shows).
 
-The answer must give exactly one verdict per candidate, and ``how`` and ``about`` for
-each ``discusses`` (Codex review F12); anything else is retried and never recorded. The
-receipts of these calls keep no prompt text (Codex review F3: most candidates are never
-linked; only linked sections are stored): hashes, usage, the request identity and the
-verdicts only. Notes authorization (``notes.enabled``, tend present, the allowlist and
-``lexical_only`` as the run started) is read again from the vault as it is now before
-each request and before each record (Codex review F2).
+The answer must give exactly one verdict per candidate, and ``how`` and ``about`` for each
+``discusses`` (Codex review F12); anything else is retried and never recorded. Note text is
+learner text (owner, 2026-11-01): the receipts keep the prompt like any other learner
+text's. ``notes.enabled`` is read again from the vault as it is now before each request and
+before each record (Codex review F2).
 
 **Stored as proposals** (``learner_note_links``: ``authorship = 'ai'``, ``status =
-'proposed'``) with a snapshot of the linked note only (``learner_notes``, bounded). A
-proposal shows as "from your notes", labelled "linked by LearnLoop's model". Keeping it
-needs no tap; one tap hides it (``rejected``, a ``learner_card`` verdict), and the
-learner's newest row per (note, topic or passage) stands across re-judgments, so a
-hidden link stays hidden. On a model's proposal the learner's word is a decision only
-(Codex review F6): a hide hides the note for that topic, and *undo* (``keep``) shows the
-topic's current proposal again, never the proposal the hide was made on. The learner can
-link a note by hand from the Reader (``authorship = 'learner'``, ``accepted``); such a
-link shows its note's current snapshot (its text when last read: a current-snapshot
-marker, Codex re-review F13, so a note changed back shows its earlier text again), and
-the background run refreshes it (the heading found again through tend first, Codex
-review F8) without writing a link row, and only while the learner's link still stands
-(Codex review F9).
+'proposed'``) with a snapshot of the linked note only (``learner_notes``, bounded, origin
+``vault`` with its vault reference). A proposal shows as "from your notes", labelled
+"linked by LearnLoop's model". Keeping it needs no tap; one tap hides it (``rejected``, a
+``learner_card`` verdict), and the learner's newest row per (note, topic or passage) stands
+across re-judgments, so a hidden link stays hidden. On a model's proposal the learner's word
+is a decision only (Codex review F6): a hide hides the note for that topic, and *undo*
+(``keep``) shows the topic's current proposal again, never the proposal the hide was made
+on. The learner can link a note by hand from the Reader (``authorship = 'learner'``,
+``accepted``); such a link shows its note's current snapshot (its text when last read: a
+current-snapshot marker, Codex re-review F13, so a note changed back shows its earlier text
+again), and the background run refreshes it from the vault without writing a link row, and
+only while the learner's link still stands (Codex review F9).
 
-**A note is never a source, a generation input or evidence**: nothing here writes a
-source artifact, an item, an attempt, a claim, a self-report or a reading opportunity,
-and no generation, grading, diagnosis, scheduling, projection, serving or AD path reads
-these tables (``tests/test_notes_never_read.py``). Notes are never written to.
+**A note is never a source, a generation input or evidence**: nothing here writes a source
+artifact, an item, an attempt, a claim, a self-report or a reading opportunity, and no
+generation, grading, diagnosis, scheduling, projection, serving or AD path reads these
+tables (``tests/test_notes_never_read.py``). Notes are never written to.
 
-Kill switches ``notes.enabled`` (off: no tend call, no model call, nothing written)
-and ``notes.tend.lexical_only`` (``--words``: no query leaves the machine).
+Kill switch ``notes.enabled`` (off: no search, no model call, nothing written).
 """
 
 from __future__ import annotations
@@ -66,7 +63,7 @@ import json
 import os
 import threading
 from collections.abc import Callable, Iterable, Mapping, Sequence
-from dataclasses import dataclass, replace
+from dataclasses import dataclass
 from datetime import date
 from pathlib import Path
 from typing import Any, Literal
@@ -74,11 +71,10 @@ from typing import Any, Literal
 from pydantic import Field
 
 from learnloop.ai.errors import AIInvalidOutput
-from learnloop.ai.execution import active_request_gate, content_key, withhold_receipt_input
+from learnloop.ai.execution import active_request_gate, content_key
 from learnloop.ai.schemas import WireModel
 from learnloop.ai.transport import render_structured_prompt
 from learnloop.clock import Clock, utc_now_iso
-from learnloop.curriculum import notes_tend as NT
 from learnloop.db.repositories import Repository
 from learnloop.db.stores import learner_notes as store
 from learnloop.db.stores.judgments import append_judgment
@@ -86,9 +82,11 @@ from learnloop.ids import new_ulid, new_ulid_after
 from learnloop.source_retrieval import deliverable_path as DP
 from learnloop.source_retrieval import deliverables as DL
 from learnloop.source_retrieval import section_coverage as SC
+from learnloop.source_retrieval import vault_notes as VN
 
 ROUTE = "note_link_judge"
-PROMPT_VERSION = "note_link_judge.v1"
+#: C2b: v2 reads the vault's own notes (Reader notes and captures).
+PROMPT_VERSION = "note_link_judge.v2"
 HIDE_VERSION = "note_link_hide.v1"
 LEDGER_TASK = "note_link"
 LEDGER_LEFT = "learning_object"
@@ -104,12 +102,12 @@ CURRENT_VERSION = "note_snapshot_current.v1"
 CURRENT_LEFT = "learner_note"
 CURRENT_RIGHT = "learner_note_snapshot"
 #: ``keep`` (a guardrail, not a model parameter: a bound on how often a run that waits for
-#: the plan or tend searches tend again; Codex re-review F14): a run that waited is
-#: started again by a read of the path only once this long has passed since it stopped
-#: (the learner asking again, ``retry``, starts it at once). The Reader's waiting poll
+#: its model searches the notes again; Codex re-review F14): a run that waited is started
+#: again by a read of the path only once this long has passed since it stopped (the
+#: learner asking again, ``retry``, starts it at once). The Reader's waiting poll
 #: (``NOTES_POLL_MS.waiting``) is the same minute.
 WAITING_RETRY_SECONDS = 60.0
-#: The state of a topic tend found no readable candidate for: nothing shows.
+#: The state of a topic the notes search found no candidate for: nothing shows.
 NO_CANDIDATES_STATE = "none"
 #: ``LEARNLOOP_NOTE_LINK_MODELS=off``: no real client is resolved (the test suite sets
 #: it); an injected client still answers.
@@ -120,6 +118,7 @@ HOW_WORDS: dict[str, str] = {
     "restates": "puts it in your words", "questions": "asks about it", "disagrees": "pushes back on it",
     "applies": "uses it", "worked_it": "works it through",
 }
+#: C2's Pocket Notes snapshots (tend era, kept readable as history) still say so.
 POCKET_NOTES_LABEL = "handwritten · transcribed by Pocket Notes"
 BY_MODEL_LABEL = "linked by LearnLoop's model"
 BY_YOU_LABEL = "linked by you"
@@ -136,9 +135,6 @@ STATEMENT_CHARS = 600
 HOW_LINE_CHARS = 160
 #: A learner's search box at most.
 QUERY_CHARS = 200
-#: ``keep`` (a structural bound): how many of tend's words-only hits are scanned to find
-#: a note linked by hand again (Codex review F8), searched by its own title and heading.
-RESOLVE_K = 25
 
 
 class NotesError(ValueError):
@@ -151,9 +147,9 @@ class NotesError(ValueError):
 
 class NotesSwitchedOff(BaseException):
     """The notes' authorization changed while work was under way (``notes.enabled`` off,
-    tend gone, the allowlist or ``lexical_only`` changed, another vault open): nothing
-    more is sent or recorded. A ``BaseException``, as :class:`SC.ProtectionChanged`, so
-    no retry, transport or spend layer retries it or relabels it as a provider failure."""
+    another vault open): nothing more is sent or recorded. A ``BaseException``, as
+    :class:`SC.ProtectionChanged`, so no retry, transport or spend layer retries it or
+    relabels it as a provider failure."""
 
 
 def enabled(vault: Any) -> bool:
@@ -164,32 +160,31 @@ def models_off() -> bool:
     return os.environ.get(MODELS_ENV, "").strip().lower() == "off"
 
 
-def tend_settings(vault: Any) -> NT.TendSettings | None:
-    """The adapter's settings, or None while the notes are off or tend is absent."""
+@dataclass(frozen=True)
+class NotesSettings:
+    """The notes as a run reads them: whether the vault's embeddings offer a meaning search."""
+
+    meaning: bool
+
+
+def notes_settings(vault: Any) -> NotesSettings | None:
+    """The notes' settings, or None while the notes are off (C2b: notes are in every vault)."""
 
     if not enabled(vault):
         return None
-    return NT.settings(vault.config)
+    return NotesSettings(meaning=VN.meaning_available(vault))
 
 
 def available(vault: Any) -> bool:
-    return tend_settings(vault) is not None
-
-
-def _authorization(settings: NT.TendSettings) -> tuple[Any, ...]:
-    """What a run's notes authorization is: which folders, which Pocket Notes folders, and
-    whether tend may search by meaning."""
-
-    return (settings.roots, settings.pocket_roots, settings.lexical_only)
+    return notes_settings(vault) is not None
 
 
 class NotesGuard:
     """Codex review F2: the notes' authorization, read afresh from the vault as it is now
     (the sidecar's loaded vault, else the files), at every model request's admission
     (a request gate, composed with C0a's :class:`SC.CoverageGuard` when given) and before
-    every record. It admits only while ``notes.enabled`` is on, tend is present, and the
-    allowlist, Pocket Notes folders and ``lexical_only`` are the ones the run started
-    with. The first refusal refuses every later request and record of the run.
+    every record. It admits only while ``notes.enabled`` is on in the vault the run started
+    in. The first refusal refuses every later request and record of the run.
 
     Generation-bound (Codex re-review F2), as the coverage guard: the provider's published
     snapshot is read once and admitted only if it is still the published one when the
@@ -198,23 +193,31 @@ class NotesGuard:
     (:meth:`with_coverage`), the notes' authorization and the protection are judged on
     that *one* snapshot, at each request's final admission and before each record."""
 
-    def __init__(self, vault: Any, settings: NT.TendSettings, *, live_vault: Callable[[], Any] | None = None) -> None:
+    def __init__(self, vault: Any, *, live_vault: Callable[[], Any] | None = None) -> None:
         self._root = Path(vault.root).resolve()
-        self._authorized = _authorization(settings)
         self._live = live_vault
         self._coverage: SC.CoverageGuard | None = None
         self._outer = active_request_gate()
         self._lock = threading.Lock()
+        #: The candidate notes one judgment sends (:meth:`with_coverage`), checked for protection.
+        self._notes: tuple[str, ...] = ()
+        self._repository: Repository | None = None
         #: Why the run may send or record nothing more (None: it may).
         self.changed: str | None = None
 
-    def with_coverage(self, library: SC.Library, keys: Iterable[tuple[str, str]]) -> "NotesGuard":
+    def with_coverage(self, library: SC.Library, keys: Iterable[tuple[str, str]], *,
+                      notes: Sequence[str] = ()) -> "NotesGuard":
         """The same authorization composed with one judgment's protection check over
-        ``keys``: both judged on one published snapshot (Codex re-review F2)."""
+        ``keys``: both judged on one published snapshot (Codex re-review F2). ``notes``: the
+        candidate notes the request carries; one written beside material protected on that
+        snapshot refuses the request (Codex review C2b F2)."""
 
         guard = NotesGuard.__new__(NotesGuard)
         guard.__dict__.update(self.__dict__)
-        guard._coverage = SC.CoverageGuard(library, keys, live_vault=self._live, also=self._refusal_in,
+        guard._notes = tuple(notes)
+        guard._repository = library.repository
+        # The composed guard's own refusal (Codex re-review C2b F1: it carries the candidates).
+        guard._coverage = SC.CoverageGuard(library, keys, live_vault=self._live, also=guard._refusal_in,
                                            also_refusal=NotesSwitchedOff)
         guard._outer = None  # the coverage guard composes with the outer gate itself
         guard._lock = threading.Lock()
@@ -227,13 +230,21 @@ class NotesGuard:
         if vault is None or Path(vault.root).resolve() != self._root:
             return "another vault is open"
         try:
-            current = tend_settings(vault)
+            on = enabled(vault)
         except Exception:  # noqa: BLE001 - unreadable settings authorize nothing
             return "the notes settings could not be read"
-        if current is None:
-            return "your notes are switched off (or tend is gone)"
-        if _authorization(current) != self._authorized:
-            return "the notes settings changed (the folders LearnLoop may read, or words-only search)"
+        if not on:
+            return "your notes are switched off"
+        notes = self._notes
+        if notes and self._repository is not None:
+            try:
+                # Every anchor the note ever had (final verify F1, landing ruling R2): a candidate
+                # prepared beside an older anchor carries that anchor's heading.
+                protected = VN.snapshot_protected_keys(vault, self._repository, notes)
+            except Exception:  # noqa: BLE001 - undecidable protection authorizes nothing
+                return "whether your notes sit beside protected material could not be read"
+            if protected:
+                return "a note it would send now sits beside protected material"
         return None
 
     def _refusal(self) -> str | None:
@@ -355,7 +366,7 @@ class Target:
     span_id: str
     section_title: str
     book: str
-    #: The titles tend is searched with: the topic's, then each section's the path names.
+    #: The titles the notes are searched with: the topic's, then each section's the path names.
     queries: tuple[str, ...]
 
 
@@ -387,17 +398,34 @@ def path_targets(vault: Any, repository: Repository, goal_id: str) -> list[Targe
     return out
 
 
-def candidates(settings: NT.TendSettings, target: Target, *, limit: int) -> list[NT.NoteHit]:
-    """tend's hits for the topic's and its sections' titles, inside the allowlist, one per
-    heading section, in tend's order (the topic's query first), at most ``limit``."""
+def candidates(vault: Any, repository: Repository, target: Target, *, limit: int,
+               corpus: Sequence[VN.VaultNote] | None = None, embedder: Any | None = None,
+               settings: NotesSettings | None = None) -> list[VN.VaultNote]:
+    """The vault notes search for the topic's and its sections' titles: by meaning first
+    while the vault's embeddings are on (each query in order, the topic's first), then by
+    exact words, each note once, at most ``limit`` (C2b)."""
 
-    seen: dict[str, NT.NoteHit] = {}
+    corpus = list(corpus) if corpus is not None else VN.notes(vault, repository)
+    if not corpus or limit <= 0:
+        return []
+    settings = settings or notes_settings(vault) or NotesSettings(meaning=False)
+    seen: dict[str, VN.VaultNote] = {}
+    if settings.meaning:
+        try:
+            found = VN.meaning_search(vault, repository, corpus, target.queries, limit=limit, embedder=embedder,
+                                      owner_id=f"notes:{target.learning_object_id}")
+        except VN.MeaningUnavailable:
+            found = None
+        for note in (found.notes if found is not None else ()):
+            seen.setdefault(note.note_key, note)
     for query in target.queries:
-        for hit in NT.search(settings, query):
-            seen.setdefault(hit.note_key, hit)
+        if len(seen) >= limit:
+            break
+        for note in VN.words_search(corpus, query, limit=limit):
+            seen.setdefault(note.note_key, note)
             if len(seen) >= limit:
-                return list(seen.values())
-    return list(seen.values())
+                break
+    return list(seen.values())[:limit]
 
 
 def _lead(vault: Any, repository: Repository, target: Target) -> str:
@@ -410,24 +438,22 @@ def _text_hash(text: str) -> str:
     return hashlib.sha256(text.encode("utf-8")).hexdigest()
 
 
-def _content_hash(note: NT.NoteText) -> str:
-    """tend's content hash when it reported one, else a digest of the text read."""
-
-    return note.hit.content_hash or ("text:" + _text_hash(note.text)[:40])
+def _content_hash(note: VN.VaultNote) -> str:
+    return note.content_hash
 
 
-def state_key(target: Target, lead: str, notes: Sequence[NT.NoteText]) -> str:
+def state_key(target: Target, lead: str, notes: Sequence[VN.VaultNote]) -> str:
     payload = {
         "prompt_version": PROMPT_VERSION, "lo": target.learning_object_id, "title": target.title,
         "statement": target.statement, "passage": [target.extraction_id, target.section_id],
         "lead": _text_hash(lead),
-        "notes": [[note.hit.note_key, _content_hash(note), _text_hash(note.text)] for note in notes],
+        "notes": [[note.note_key, _content_hash(note), _text_hash(note.text)] for note in notes],
     }
     return hashlib.sha256(json.dumps(payload, sort_keys=True).encode("utf-8")).hexdigest()
 
 
 # ---------------------------------------------------------------------------
-# The judgment (one listwise call per topic; the ChatGPT plan only)
+# The judgment (one listwise call per topic; ordinary quiet-route rules)
 # ---------------------------------------------------------------------------
 
 class NoteVerdict(WireModel):
@@ -447,8 +473,8 @@ class NoteLinkOutputV1(WireModel):
 
 _INSTRUCTIONS = (
     "A learner is studying one topic for a deliverable. Below are the topic, the opening of the passage of their "
-    "book chosen for it, and some of the learner's OWN notes (handwritten pages transcribed, typed notes, planning "
-    "notes). For EACH note, say whether it discusses this passage or this topic ('discusses') or not "
+    "book chosen for it, and some of the learner's OWN notes (notes they wrote beside their books while reading, "
+    "and notes they captured). For EACH note, say whether it discusses this passage or this topic ('discusses') or not "
     "('unrelated'). Only a note that is genuinely about the same idea discusses it; sharing a word is not enough. "
     "For a note that discusses it, say whether it is about the passage shown or the topic in general, and how: "
     "restates (says it in the learner's words), questions (asks about it or is confused by it), disagrees (pushes "
@@ -459,13 +485,13 @@ _INSTRUCTIONS = (
 )
 
 
-def build_prompt(target: Target, lead: str, notes: Sequence[NT.NoteText]) -> str:
+def build_prompt(target: Target, lead: str, notes: Sequence[VN.VaultNote]) -> str:
     context = {
         "topic": {"title": target.title, "statement": target.statement},
         "passage": {"book": target.book, "section": target.section_title, "opening": lead},
         "notes": [
-            {"id": f"n{index}", "title": note.hit.title, "heading": note.hit.heading,
-             "date": note.hit.captured_on or "", "text": note.text}
+            {"id": f"n{index}", "title": note.title, "heading": note.heading,
+             "date": note.captured_on or "", "text": note.text}
             for index, note in enumerate(notes, start=1)
         ],
     }
@@ -475,29 +501,14 @@ def build_prompt(target: Target, lead: str, notes: Sequence[NT.NoteText]) -> str
 @dataclass(frozen=True)
 class JudgeResult:
     #: linked | fresh (judged already) | no_candidates | unavailable | stale (protection
-    #: changed: nothing kept) | plan_only (the route is not the plan: nothing sent) |
-    #: switched_off (the notes' authorization changed: nothing more sent or kept)
+    #: changed: nothing kept) | switched_off (the notes' authorization changed: nothing
+    #: more sent or kept)
     status: str
     learning_object_id: str
     state_key: str | None = None
     linked: int = 0
     reason: str | None = None
     message: str | None = None
-
-
-#: The one provider type that may read note text (§10.4, owner Q6).
-PLAN_PROFILE_TYPE = "chatgpt_plan"
-
-
-def plan_route_is_plan(route: DL.ChatRoute) -> bool:
-    """Whether the judge's route is the ChatGPT plan itself (not another subscription, not
-    a metered provider, not a grant): the only route that may read the learner's notes."""
-
-    return route.subscription and (route.route.profile_type or "").strip().lower() == PLAN_PROFILE_TYPE
-
-
-PLAN_ONLY_MESSAGE = ("Your notes are read only by LearnLoop's model on your ChatGPT plan, and the note link route "
-                     "is set to another provider (ai.routing.note_link_judge), so nothing was sent.")
 
 
 def verdict_problem(output: NoteLinkOutputV1, expected: Sequence[str]) -> str | None:
@@ -549,32 +560,53 @@ def _record_shown(repository: Repository, target: Target, state: str, guard: Not
         _mark_shown(connection, target, state, utc_now_iso(clock))
 
 
-def judge_target(vault: Any, repository: Repository, target: Target, *, settings: NT.TendSettings,
+def judge_target(vault: Any, repository: Repository, target: Target, *, settings: NotesSettings | None = None,
                  client: Any | None = None, clock: Clock | None = None,
-                 live_vault: Callable[[], Any] | None = None, guard: NotesGuard | None = None) -> JudgeResult:
+                 live_vault: Callable[[], Any] | None = None, guard: NotesGuard | None = None,
+                 corpus: Sequence[VN.VaultNote] | None = None, embedder: Any | None = None) -> JudgeResult:
     """Find the topic's candidate notes, and (unless this state was judged) ask once which
     discuss it; store the proposals with snapshots of the linked notes only, and mark the
-    state the topic shows. Never raises for a model failure; :class:`NT.TendUnavailable`
-    (tend could not answer) propagates."""
+    state the topic shows. Never raises for a model failure."""
 
     lo = target.learning_object_id
-    notes_guard = guard or NotesGuard(vault, settings, live_vault=live_vault)
+    notes_guard = guard or NotesGuard(vault, live_vault=live_vault)
     try:
         return _judge_target(vault, repository, target, settings=settings, client=client, clock=clock,
-                             live_vault=live_vault, notes_guard=notes_guard)
+                             notes_guard=notes_guard, corpus=corpus, embedder=embedder)
     except NotesSwitchedOff as exc:
         return JudgeResult("switched_off", lo, reason="notes_changed", message=str(exc))
 
 
-def _judge_target(vault: Any, repository: Repository, target: Target, *, settings: NT.TendSettings,
-                  client: Any | None, clock: Clock | None, live_vault: Callable[[], Any] | None,
-                  notes_guard: NotesGuard) -> JudgeResult:
+def _judge_target(vault: Any, repository: Repository, target: Target, *, settings: NotesSettings | None,
+                  client: Any | None, clock: Clock | None, notes_guard: NotesGuard,
+                  corpus: Sequence[VN.VaultNote] | None, embedder: Any | None) -> JudgeResult:
     lo = target.learning_object_id
-    hits = candidates(settings, target, limit=int(vault.config.notes.max_candidates))
-    texts = NT.read_sections(settings, hits) if hits else {}
-    notes = [texts[hit.note_key] for hit in hits if hit.note_key in texts]
+    if corpus is None:
+        # The notes found with the vault as its files say now (Codex re-review C2b R3 F1: an
+        # earlier topic's judgment may have outlasted a protection or switch change).
+        from learnloop.vault.loader import load_vault
+
+        try:
+            found_in = load_vault(vault.root)
+        except Exception:  # noqa: BLE001 - an unreadable vault finds no note
+            found_in = None
+        if found_in is None or not enabled(found_in):
+            _record_shown(repository, target, NO_CANDIDATES_STATE, notes_guard, clock)
+            return JudgeResult("no_candidates", lo)
+        # The topic's queries from its path as it is now (Codex re-review C2b R4 F1: a section
+        # protected meanwhile drops out of the path, so its title is never searched with).
+        current = next((entry for entry in path_targets(found_in, repository, target.goal_id)
+                        if entry.learning_object_id == lo), None)
+        if current is None:
+            _record_shown(repository, target, NO_CANDIDATES_STATE, notes_guard, clock)
+            return JudgeResult("no_candidates", lo)
+        searched = current
+    else:
+        found_in, searched = vault, target
+    notes = candidates(found_in, repository, searched, limit=int(vault.config.notes.max_candidates), corpus=corpus,
+                       embedder=embedder, settings=None if corpus is None else settings)
     if not notes:
-        # Nothing readable: the topic's older proposals give way (Codex review F7).
+        # Nothing found: the topic's older proposals give way (Codex review F7).
         _record_shown(repository, target, NO_CANDIDATES_STATE, notes_guard, clock)
         return JudgeResult("no_candidates", lo)
     library = SC.Library(vault, repository)
@@ -592,20 +624,20 @@ def _judge_target(vault: Any, repository: Repository, target: Target, *, setting
     if client is None and models_off():
         return JudgeResult("unavailable", lo, state_key=key, reason="models_off",
                            message=f"{MODELS_ENV}=off: no note link model is reached.")
-    route = DL.ChatRoute(vault, repository, ROUTE, client=client, envelope=None, label="linking your notes")
-    if not plan_route_is_plan(route):
-        return JudgeResult("plan_only", lo, state_key=key, reason="plan_only", message=PLAN_ONLY_MESSAGE)
+    # Ordinary quiet-route rules (C2b): the route as configured, metered only when priced and
+    # inside the curriculum's daily cap.
+    route = DL.ChatRoute(vault, repository, ROUTE, client=client,
+                         envelope=DL.daily_envelope(vault, repository, clock=clock), label="linking your notes")
     problem = route.problem()
     if problem is not None:
         return JudgeResult("unavailable", lo, state_key=key, reason=problem.reason, message=problem.message)
-    guard = notes_guard.with_coverage(library, [(target.extraction_id, target.section_id)])
+    guard = notes_guard.with_coverage(library, [(target.extraction_id, target.section_id)],
+                                      notes=[note.note_key for note in notes])
     prompt = build_prompt(target, lead, notes)
     by_id = {f"n{index}": note for index, note in enumerate(notes, start=1)}
     try:
-        # Codex review F3: the receipt keeps no prompt text (the candidates, most never linked).
-        with withhold_receipt_input():
-            output = route.ask(prompt, NoteLinkOutputV1, owner_id=f"{lo}:{key[:16]}", prompt_version=PROMPT_VERSION,
-                               guard=guard, validate=_validator(list(by_id)))  # type: ignore[arg-type]
+        output = route.ask(prompt, NoteLinkOutputV1, owner_id=f"{lo}:{key[:16]}", prompt_version=PROMPT_VERSION,
+                           guard=guard, validate=_validator(list(by_id)))  # type: ignore[arg-type]
     except DL.RouteUnavailable as exc:
         return JudgeResult("unavailable", lo, state_key=key, reason=exc.reason, message=exc.message)
     except SC.ProtectionChanged:
@@ -628,7 +660,7 @@ def _judge_target(vault: Any, repository: Repository, target: Target, *, setting
                 about = verdict.about if discusses else None
                 ledger_id = append_judgment(
                     connection, task=LEDGER_TASK, left_kind=LEDGER_LEFT, left_id=lo, right_kind=LEDGER_RIGHT,
-                    right_id=opaque(note.hit.note_key), judge="llm", judge_model=model,
+                    right_id=opaque(note.note_key), judge="llm", judge_model=model,
                     prompt_version=PROMPT_VERSION, input_hash=key,
                     verdict="discusses" if discusses else "unrelated",
                     rationale=json.dumps({"about": about, "how": verdict.how if discusses else None,
@@ -639,7 +671,7 @@ def _judge_target(vault: Any, repository: Repository, target: Target, *, setting
                 note_row_id = _store_snapshot(connection, note, now)  # never the note's current one
                 passage = about == "passage"
                 store.insert_link(connection, {
-                    "id": "nl_" + new_ulid(), "note_id": note_row_id, "note_key": note.hit.note_key,
+                    "id": "nl_" + new_ulid(), "note_id": note_row_id, "note_key": note.note_key,
                     "target_kind": "passage" if passage else "learning_object",
                     "target_key": (passage_key(target.extraction_id, target.section_id, target.span_id)
                                    if passage else f"lo:{lo}"),
@@ -655,22 +687,23 @@ def _judge_target(vault: Any, repository: Repository, target: Target, *, setting
     return JudgeResult("linked", lo, state_key=key, linked=linked)
 
 
-def _store_snapshot(connection: Any, note: NT.NoteText, now: str) -> str:
-    """The note's snapshot (stored once per content hash; only ever for a linked note).
-    Storing it never changes which snapshot the note shows (Codex round 3, F13): a model's
-    proposal keeps the snapshot it judged through its link row's ``note_id``."""
+def _store_snapshot(connection: Any, note: VN.VaultNote, now: str) -> str:
+    """The note's snapshot (stored once per content hash; only ever for a linked note):
+    origin ``vault`` and its vault reference (C2b, migration 233). Storing it never changes
+    which snapshot the note shows (Codex round 3, F13): a model's proposal keeps the
+    snapshot it judged through its link row's ``note_id``."""
 
     return store.insert_note(connection, {
-        "id": "ln_" + new_ulid(), "note_key": note.hit.note_key, "path": note.hit.path,
-        "heading_path": note.hit.heading_path, "line": note.hit.line, "content_hash": _content_hash(note),
-        "title": note.hit.title, "heading": note.hit.heading, "captured_on": note.hit.captured_on,
-        "origin": note.hit.origin if note.hit.origin in NT.ORIGINS else "tend", "text_md": note.text,
-        "truncated": 1 if note.truncated else 0, "created_at": now})
+        "id": "ln_" + new_ulid(), "note_key": note.note_key, "path": None, "heading_path": note.heading,
+        "line": None, "content_hash": _content_hash(note), "title": note.title, "heading": note.heading,
+        "captured_on": note.captured_on, "origin": VN.ORIGIN, "text_md": note.text,
+        "truncated": 1 if note.truncated else 0, "created_at": now, "vault_ref_kind": note.ref_kind,
+        "vault_ref_id": note.ref_id})
 
 
 def _read_token(repository: Repository) -> str:
-    """A read's monotonic token (C2 ruling R6), taken when the read starts, before tend is
-    asked: a ULID that sorts after every ULID this process minted before it and after the
+    """A read's monotonic token (C2 ruling R6), taken when the read starts, before the note
+    is read from the vault: a ULID that sorts after every ULID this process minted before it and after the
     newest token any read has published (read from the database now: Codex review F2, a
     token persisted while the clock ran ahead, before a restart, would otherwise fence off
     every later read until wall time caught up). The read publishes by token order
@@ -682,7 +715,7 @@ def _read_token(repository: Repository) -> str:
     return new_ulid_after(floor)
 
 
-def _show_read(connection: Any, note: NT.NoteText, token: str, now: str) -> str | None:
+def _show_read(connection: Any, note: VN.VaultNote, token: str, now: str) -> str | None:
     """Inside the caller's write transaction: a read of the note made to show it (a link by
     hand, a refresh) makes its text the snapshot the note shows (Codex re-review F13), a
     text the note had before included (that snapshot again) — but only if it started
@@ -693,7 +726,7 @@ def _show_read(connection: Any, note: NT.NoteText, token: str, now: str) -> str 
     this read, or None when a read that started later already published (nothing is
     stored). Recording a model's proposal never calls this."""
 
-    note_key = note.hit.note_key
+    note_key = note.note_key
     fence = store.current_fences(connection, CURRENT_TASK, [note_key])[note_key]
     if token <= fence:
         return None  # a read that started after this one has published: it stands
@@ -717,32 +750,32 @@ class LinkRun:
 
 def link_goal(vault: Any, repository: Repository, goal_id: str, *, client: Any | None = None,
               clock: Clock | None = None, live_vault: Callable[[], Any] | None = None,
-              still_wanted: Callable[[], bool] | None = None) -> LinkRun:
+              still_wanted: Callable[[], bool] | None = None, embedder: Any | None = None) -> LinkRun:
     """Link the deliverable's topics to the learner's notes (the background job's body),
     then refresh the snapshots of the notes the learner linked by hand. Stops at the
-    first topic the plan cannot judge (it waits; nothing asks), and as soon as the notes'
+    first topic its model cannot judge (it waits; nothing asks), and as soon as the notes'
     authorization changes (Codex review F2)."""
 
-    settings = tend_settings(vault)
+    settings = notes_settings(vault)
     if settings is None:
-        return LinkRun("off", reason="notes_unavailable")
-    guard = NotesGuard(vault, settings, live_vault=live_vault)
+        return LinkRun("off", reason="notes_off")
+    guard = NotesGuard(vault, live_vault=live_vault)
     results: list[JudgeResult] = []
     try:
         for target in path_targets(vault, repository, goal_id):
             if still_wanted is not None and not still_wanted():
                 return LinkRun("switched_off", tuple(results))
             guard.check_notes("linking your notes")
+            # The notes as they are now, per topic (Codex review C2b F2: never a corpus read
+            # before an earlier topic's judgment, when protection may since have changed).
             result = judge_target(vault, repository, target, settings=settings, client=client, clock=clock,
-                                  live_vault=live_vault, guard=guard)
+                                  live_vault=live_vault, guard=guard, embedder=embedder)
             results.append(result)
             if result.status == "switched_off":
                 return LinkRun("switched_off", tuple(results), reason=result.reason, message=result.message)
-            if result.status in ("unavailable", "plan_only"):
+            if result.status == "unavailable":
                 return LinkRun("waiting", tuple(results), reason=result.reason, message=result.message)
-        refreshed = refresh_learner_links(vault, repository, settings=settings, clock=clock, guard=guard)
-    except NT.TendUnavailable as exc:
-        return LinkRun("tend_unavailable", tuple(results), reason=exc.reason, message=str(exc))
+        refreshed = refresh_learner_links(vault, repository, clock=clock, guard=guard)
     except NotesSwitchedOff as exc:
         return LinkRun("switched_off", tuple(results), reason="notes_changed", message=str(exc))
     return LinkRun("done", tuple(results), refreshed=refreshed)
@@ -757,54 +790,31 @@ def _standing(rows: Iterable[Mapping[str, Any]]) -> dict[tuple[str, str], Mappin
     return word
 
 
-def _resolve(settings: NT.TendSettings, note: Mapping[str, Any]) -> NT.NoteHit | None:
-    """The note's heading section where tend finds it now (Codex review F8): a words-only
-    search (the title and heading are the learner's text, which never leaves the
-    machine) for the same file and heading path. None when tend no longer finds it: the
-    link keeps its last snapshot, never another section's text."""
+def refresh_learner_links(vault: Any, repository: Repository, *, clock: Clock | None = None,
+                          guard: NotesGuard | None = None) -> int:
+    """Read again, from the vault, each note the learner linked by hand (and still keeps):
+    a changed text is a new snapshot, or the earlier snapshot of the same text made current
+    again (Codex re-review F13), which the link shows (its note's current snapshot). A note
+    gone from the vault (deleted, dismissed) keeps its last snapshot. No link row is written
+    (refreshing is never a new acceptance), and a note the learner hid meanwhile is not
+    refreshed: the learner's word is read again inside the write (Codex review F9). Returns
+    how many were refreshed."""
 
-    query = " ".join(part for part in (str(note.get("title") or ""), str(note.get("heading") or "")) if part)
-    for hit in NT.search(replace(settings, lexical_only=True), query, k=RESOLVE_K):
-        if hit.path == str(note["path"]) and hit.heading_path == str(note["heading_path"]):
-            return hit
-    return None
-
-
-def refresh_learner_links(vault: Any, repository: Repository, *, settings: NT.TendSettings,
-                          clock: Clock | None = None, guard: NotesGuard | None = None) -> int:
-    """Read again each note the learner linked by hand (and still keeps), found again
-    through tend first (Codex review F8): a changed text is a new snapshot, or the
-    earlier snapshot of the same text made current again (Codex re-review F13), which the
-    link shows (its note's current snapshot). No link row is written (refreshing is never
-    a new acceptance), and a note the learner hid meanwhile is not refreshed: the
-    learner's word is read again inside the write (Codex review F9). Returns how many
-    were refreshed."""
-
-    guard = guard or NotesGuard(vault, settings)
+    guard = guard or NotesGuard(vault)
     with repository.connection() as connection:
         word = _standing(row for row in store.links(connection) if row["authorship"] == "learner")
     kept = [row for row in word.values() if row["status"] == "accepted" and not row.get("learning_object_id")]
     if not kept:
         return 0
-    # Taken when this read starts, before tend is asked (C2 ruling R6): the read publishes
-    # only if no read that started after it has published meanwhile.
+    # Taken when this read starts, before the notes are read from the vault (C2 ruling R6):
+    # the read publishes only if no read that started after it has published meanwhile.
     token = _read_token(repository)
     with repository.connection() as connection:
         latest = store.current_notes(connection, CURRENT_TASK, (row["note_key"] for row in kept))
-    resolved: dict[str, NT.NoteHit] = {}
-    for note_key, note in latest.items():
-        hit = _resolve(settings, note)
-        if hit is not None:
-            resolved[note_key] = replace(hit, origin=str(note["origin"]) if note["origin"] in NT.ORIGINS else hit.origin)
-    if not resolved:
-        return 0
-    texts = NT.read_sections(settings, list(resolved.values()))
+    reads = VN.read_many(vault, repository, (key for key, note in latest.items() if note.get("origin") == VN.ORIGIN))
     now = utc_now_iso(clock)
     refreshed = 0
-    for note_key, hit in resolved.items():
-        read = texts.get(hit.note_key)
-        if read is None:
-            continue
+    for note_key, read in reads.items():
         with repository.atomic():
             connection = repository.connection()
             standing = _standing(store.learner_rows_for(connection, [note_key]))
@@ -843,7 +853,7 @@ def _shown_ai_rows(connection: Any, rows: Sequence[Mapping[str, Any]], *,
             and row["state_key"] in current.get(str(row["learning_object_id"]), ())]
 
 
-def effective(repository: Repository, rows: Sequence[Mapping[str, Any]], *,
+def effective(repository: Repository, rows: Sequence[Mapping[str, Any]], *, vault: Any,
               goal_id: str | None = None) -> list[dict[str, Any]]:
     """The links shown among ``rows``: the current state's proposals per topic and the
     learner's own links, minus everything the learner hid. The learner's newest row per
@@ -851,15 +861,37 @@ def effective(repository: Repository, rows: Sequence[Mapping[str, Any]], *,
     hidden link stays hidden. On a proposal that word is a decision only (Codex review
     F6): a kept one shows the topic's *current* proposal (its snapshot, how and anchor),
     never the proposal the learner's row was copied from. A link made by hand shows its
-    note's current snapshot (Codex re-review F13)."""
+    note's current snapshot (Codex re-review F13). A snapshot of a Reader note any of whose
+    anchors sits beside protected material now is withheld (C2b review 5 F1, re-review F1)."""
 
-    return [link_view(row, note) for row, note in effective_rows(repository, rows, goal_id=goal_id)]
+    return [link_view(row, note) for row, note in effective_rows(repository, rows, vault=vault, goal_id=goal_id)]
 
 
-def effective_rows(repository: Repository, rows: Sequence[Mapping[str, Any]], *,
-                   goal_id: str | None = None) -> list[tuple[Mapping[str, Any], Mapping[str, Any]]]:
+def withhold_protected(vault: Any, repository: Repository,
+                       pairs: Sequence[tuple[Mapping[str, Any], Mapping[str, Any]]],
+                       ) -> list[tuple[Mapping[str, Any], Mapping[str, Any]]]:
+    """``pairs`` minus every snapshot of a Reader note any of whose anchors (or their
+    sections' headers) sits beside protected material now (C0a's predicate read now;
+    unreadable: every Reader note is withheld, fail closed). Codex review C2b round 5 F1: a
+    note linked before its anchor became protected keeps its ledger rows, but its text and
+    its source-derived heading are never delivered again. Codex re-review F1: a snapshot
+    may come from an anchor older than the note's newest (re-anchored since), so every
+    anchor the note ever had is checked (:func:`VN.snapshot_protected_keys`). Captures and
+    tend-era snapshots carry no anchor and stay."""
+
+    keys = {str(note["note_key"]) for _row, note in pairs}
+    protected = VN.snapshot_protected_keys(vault, repository, keys) if keys else set()
+    return [(row, note) for row, note in pairs if str(note["note_key"]) not in protected]
+
+
+def effective_rows(repository: Repository, rows: Sequence[Mapping[str, Any]], *, vault: Any,
+                   goal_id: str | None = None,
+                   withhold: bool = True) -> list[tuple[Mapping[str, Any], Mapping[str, Any]]]:
     """:func:`effective`'s links as (link row, the snapshot it shows), oldest first: the
-    one rule for which links stand (curriculum C5's gap reading reads the same pairs)."""
+    one rule for which links stand (curriculum C5's gap reading reads the same pairs).
+    ``withhold`` (the default): a snapshot beside protected material now is left out
+    (:func:`withhold_protected`); only a caller that refuses such a note itself, by name,
+    passes False (C5's gap reading: ``note_gaps.NoteWithheld``)."""
 
     if not rows:
         return []
@@ -885,7 +917,7 @@ def effective_rows(repository: Repository, rows: Sequence[Mapping[str, Any]], *,
         note = notes.get(str(row["note_id"])) if row["authorship"] == "ai" else newest.get(str(row["note_key"]))
         if note is not None:
             pairs.append((row, note))
-    return pairs
+    return withhold_protected(vault, repository, pairs) if withhold else pairs
 
 
 def date_label(captured_on: str | None) -> str | None:
@@ -933,7 +965,7 @@ def for_goal(vault: Any, repository: Repository, goal_id: str, *,
     with repository.connection() as connection:
         rows = store.links(connection, learning_object_ids=by_lo)
     out: dict[str, list[dict[str, Any]]] = {}
-    for view in effective(repository, rows, goal_id=goal_id):
+    for view in effective(repository, rows, vault=vault, goal_id=goal_id):
         lo = str(view.get("learning_object_id") or "")
         if lo in by_lo:
             out.setdefault(lo, []).append(view)
@@ -945,7 +977,7 @@ def for_goal(vault: Any, repository: Repository, goal_id: str, *,
                     and row.get("section_id") == target.section_id]
             if not hand:
                 continue
-            for view in effective(repository, hand):
+            for view in effective(repository, hand, vault=vault):
                 if all(existing["link_id"] != view["link_id"] for existing in out.get(target.learning_object_id, [])):
                     out.setdefault(target.learning_object_id, []).append(view)
     return out
@@ -962,7 +994,7 @@ def marks(vault: Any, repository: Repository, extraction_id: str) -> list[dict[s
         reading = None
     starts = {section.section_id: section.start_span_id for section in (reading.sections.values() if reading else ())}
     by_span: dict[str, list[dict[str, Any]]] = {}
-    for view in effective(repository, rows):
+    for view in effective(repository, rows, vault=vault):
         span = view.get("span_id") or starts.get(str(view.get("section_id") or ""))
         if span:
             by_span.setdefault(str(span), []).append(view)
@@ -988,7 +1020,7 @@ def for_passages(vault: Any, repository: Repository, passages: Sequence[Mapping[
         with repository.connection() as connection:
             rows = [row for row in store.links(connection, extraction_id=extraction_id)
                     if (section_id is not None and row.get("section_id") == section_id) or row.get("span_id") == span_id]
-        for view in effective(repository, rows):
+        for view in effective(repository, rows, vault=vault):
             seen.setdefault(str(view["link_id"]), view)
     return list(seen.values())
 
@@ -1073,7 +1105,8 @@ def hidden(vault: Any, repository: Repository) -> list[dict[str, Any]]:
     linked and who linked it. *show again* is :func:`decide`'s ``keep`` on its ``link_id``
     (the learner's own word again, a ``learner_card`` verdict): a link made by hand shows
     again at once; a model's link shows again where the topic's current proposals still
-    name the note (F6: a keep is a decision only). No tend call and no model call."""
+    name the note (F6: a keep is a decision only). No model call; a note beside protected
+    material now is not listed (C2b)."""
 
     with repository.connection() as connection:
         if not store.tables_present(connection):
@@ -1087,12 +1120,16 @@ def hidden(vault: Any, repository: Repository) -> list[dict[str, Any]]:
         library: SC.Library | None = SC.Library(vault, repository)
     except SC.CoverageError:
         library = None
-    out: list[dict[str, Any]] = []
+    pairs: list[tuple[Mapping[str, Any], Mapping[str, Any]]] = []
     for row in sorted(rows, key=lambda r: (str(r["created_at"]), str(r["id"])), reverse=True):
         note = (current.get(str(row["note_key"])) if not row.get("learning_object_id") else None) \
             or snapshots.get(str(row["note_id"]))
-        if note is None:
-            continue
+        if note is not None:
+            pairs.append((row, note))
+    out: list[dict[str, Any]] = []
+    # A note beside protected material now is never listed (C2b: every delivery boundary
+    # withholds it, its title and its source-derived heading; the hide row stays).
+    for row, note in withhold_protected(vault, repository, pairs):
         by_model = bool(row.get("learning_object_id"))
         out.append({
             "link_id": row["id"], "hidden_at": row["created_at"], "target_kind": row["target_kind"],
@@ -1105,14 +1142,20 @@ def hidden(vault: Any, repository: Repository) -> list[dict[str, Any]]:
 
 
 def search(vault: Any, repository: Repository, *, query: str | None = None, extraction_id: str | None = None,
-           span_id: str | None = None) -> dict[str, Any]:
-    """The Reader's *link one of your notes*: with no words, tend's hits for the passage's
-    section title (as the candidates are searched); with the learner's words, a words-only
-    search (``--words``: the learner's own text never leaves the machine)."""
+           span_id: str | None = None, mode: str = "words", embedder: Any | None = None) -> dict[str, Any]:
+    """The Reader's *link one of your notes* (C2b: the vault's own notes): with no words, the
+    notes for the passage's section title; with the learner's words, those words. ``mode``
+    ``words`` (exact words, always) or ``meaning`` (only while the vault's embeddings are on;
+    otherwise refused, and the contract hides the toggle)."""
 
-    settings = tend_settings(vault)
+    settings = notes_settings(vault)
     if settings is None:
-        raise NotesError("notes_unavailable", "Your notes aren't available here (notes.enabled, or tend isn't installed).")
+        raise NotesError("notes_disabled", "Your notes are switched off (notes.enabled = false).")
+    if mode not in VN.MODES:
+        raise NotesError("validation_error", f"Unknown search mode {mode!r}.")
+    if mode == "meaning" and not settings.meaning:
+        raise NotesError("meaning_unavailable", "Searching your notes by meaning needs this vault's embeddings "
+                                                f"({VN.meaning_unavailable(vault)}).")
     words = _one_line(query or "", QUERY_CHARS)
     asked = words
     if not words:
@@ -1124,48 +1167,35 @@ def search(vault: Any, repository: Repository, *, query: str | None = None, extr
                 section = reading.sections.get(reading.span_section.get(span_id, ""))
                 section_title = section.title if section is not None else None
         if not section_title:
-            return {"query": "", "hits": []}
+            return {"query": "", "mode": mode, "hits": []}
         asked = section_title
-        hits = NT.search(settings, section_title)
+    corpus = VN.notes(vault, repository)
+    basis = mode
+    if mode == "meaning":
+        found = VN.meaning_search(vault, repository, corpus, [asked], limit=VN.SEARCH_LIMIT, embedder=embedder,
+                                  owner_id="notes.search")
+        hits = found.notes
+        basis = f"meaning:{found.status}"
     else:
-        hits = NT.search(replace(settings, lexical_only=True), words)
-    return {"query": asked, "hits": [hit.view() | {"content_hash": hit.content_hash, "mtime": hit.mtime}
-                                     for hit in hits]}
+        hits = VN.words_search(corpus, asked, limit=VN.SEARCH_LIMIT)
+    return {"query": asked, "mode": mode, "basis": basis, "hits": [hit.view() for hit in hits]}
 
 
 def link_by_hand(vault: Any, repository: Repository, *, hit: Mapping[str, Any], extraction_id: str, span_id: str,
                  clock: Clock | None = None) -> dict[str, Any]:
     """The learner links a note to a passage from the Reader (``authorship = 'learner'``,
-    ``accepted``): the note's section is read again through tend (inside the allowlist)
-    and snapshotted."""
+    ``accepted``): the note is read again from the vault (by its key) and snapshotted."""
 
-    settings = tend_settings(vault)
-    if settings is None:
-        raise NotesError("notes_unavailable", "Your notes aren't available here (notes.enabled, or tend isn't installed).")
-    path = str(hit.get("path") or "")
-    if not NT.allowed(path, settings.roots):
-        raise NotesError("not_allowed", "That note is outside the folders LearnLoop may read (notes.tend.paths).")
-    try:
-        line = int(hit.get("line") or 0)
-        mtime = float(hit.get("mtime") or 0.0)
-    except (TypeError, ValueError) as exc:
-        raise NotesError("validation_error", "That note reference is incomplete.") from exc
-    if line < 1:
+    if notes_settings(vault) is None:
+        raise NotesError("notes_disabled", "Your notes are switched off (notes.enabled = false).")
+    key = str(hit.get("note_key") or "")
+    if VN.split_key(key) is None:
         raise NotesError("validation_error", "That note reference is incomplete.")
-    resolved = os.path.realpath(path)
-    note_hit = NT.NoteHit(path=resolved, heading_path=" ".join(str(hit.get("heading_path") or "").split()),
-                          title=" ".join(str(hit.get("title") or "").split()) or os.path.basename(resolved),
-                          line=line, snippet="", content_hash=str(hit.get("content_hash") or ""), mtime=mtime, via="",
-                          origin=NT.origin_of(resolved, settings.pocket_roots))
-    token = _read_token(repository)  # when the read starts, before tend is asked (C2 ruling R6)
-    try:
-        texts = NT.read_sections(settings, [note_hit])
-    except NT.TendUnavailable as exc:
-        raise NotesError("tend_unavailable", str(exc)) from exc
-    read = texts.get(note_hit.note_key)
+    token = _read_token(repository)  # when the read starts, before the vault is read (C2 ruling R6)
+    read = VN.read(vault, repository, key)
     if read is None:
-        raise NotesError("unreadable", "LearnLoop couldn't read that note just now (tend refused it, or it moved: "
-                                       "search for it again).")
+        raise NotesError("unreadable", "That note isn't in your notes any more (it was deleted or changed): "
+                                       "search for it again.")
     library = SC.Library(vault, repository)
     reading = library.reading(extraction_id)
     if reading is None:
@@ -1180,12 +1210,12 @@ def link_by_hand(vault: Any, repository: Repository, *, hit: Mapping[str, Any], 
         ledger_id = append_judgment(
             connection, task=LEDGER_TASK, left_kind="reader_passage",
             left_id=passage_key(extraction_id, section_id, span_id), right_kind=LEDGER_RIGHT,
-            right_id=opaque(note_hit.note_key), judge="learner_card", prompt_version=HIDE_VERSION,
-            input_hash=content_key({"note": note_hit.note_key, "span": span_id}), verdict="accepted",
+            right_id=opaque(key), judge="learner_card", prompt_version=HIDE_VERSION,
+            input_hash=content_key({"note": key, "span": span_id}), verdict="accepted",
             rationale="{}", created_at=now)
         link_id = "nl_" + new_ulid()
         store.insert_link(connection, {
-            "id": link_id, "note_id": note_id, "note_key": note_hit.note_key, "target_kind": "passage",
+            "id": link_id, "note_id": note_id, "note_key": key, "target_kind": "passage",
             "target_key": passage_key(extraction_id, section_id, span_id), "learning_object_id": None,
             "extraction_id": extraction_id, "section_id": section_id, "span_id": span_id, "goal_id": None,
             "authorship": "learner", "status": "accepted", "how": None, "how_line": None, "state_key": None,
@@ -1223,6 +1253,7 @@ __all__ = [
     "LEDGER_TASK",
     "NotesError",
     "NotesGuard",
+    "NotesSettings",
     "NotesSwitchedOff",
     "POCKET_NOTES_LABEL",
     "PROMPT_VERSION",
@@ -1241,11 +1272,12 @@ __all__ = [
     "link_by_hand",
     "link_goal",
     "marks",
+    "notes_settings",
     "path_targets",
     "report_row",
     "search",
     "state_key",
     "verdict_problem",
     "take_text",
-    "tend_settings",
+    "withhold_protected",
 ]

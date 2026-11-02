@@ -402,29 +402,27 @@ def test_gc3_readiness_checks_never_pick_exam_reserved_or_held_out_items(tmp_pat
 
 # --- G-C1 for note_link_judge (curriculum C2's judge, swept at the C3 landing) ---------------
 
-def test_gc1_note_link_judge_requests_carry_no_exam_material_from_sources(tmp_path, monkeypatch):
-    """C2's ``note_link_judge`` over the exam-scope fixture, with C2's FAKE tend over synthetic notes
-    (never the owner's tend or notes). A note's text is the learner's own words and is sent as such,
-    so the one synthetic note that quotes an exam sentinel (copied from the fixture) reaches the judge
-    in its own ``notes[].text`` only. Everything else in every request (the topic, the passage's
-    book, section and opening, the other notes) and every tend query names no exam material from
-    the sources, no held-out section and not the syllabus: candidates and LO/passage leads come
-    from the path, which never holds them."""
+def test_gc1_note_link_judge_requests_carry_no_exam_material_from_sources(tmp_path):
+    """C2's ``note_link_judge`` over the exam-scope fixture, with C2b's vault notes (synthetic
+    captures and Reader notes). A note's text is the learner's own words and is sent as such, so
+    the one synthetic capture that quotes an exam sentinel (copied from the fixture) reaches the
+    judge in its own ``notes[].text`` only. A Reader note written beside the exam unit inside the
+    mixed textbook is never a note (never searched or sent). Everything else in every request (the
+    topic, the passage's book, section and opening, the other notes) names no exam material from
+    the sources, no held-out section and not the syllabus."""
 
     from learnloop.source_retrieval import note_links as NL
-    from tests.notes_fixtures import NoteLinkFake, install_fake_tend
+    from tests.notes_fixtures import NoteLinkFake, add_annotation, add_capture
     from tests.notes_fixtures import prompt_context as note_prompt_context
 
-    fake_tend = install_fake_tend(tmp_path / "tend", monkeypatch)
     quoted = PAPER["paper_q1"][1][0][0]  # the fixture's practice-available past-paper question, verbatim
-    fake_tend.add(fake_tend.notes / "eigen.org", "* Eigen notes\nEigenvalues: det(A - lI) = 0, worked by hand.\n",
-                  words=["eigenvalues"], heading="Eigen notes", line=1, title="eigen")
-    fake_tend.add(fake_tend.notes / "det.org", "* Determinant notes\nDeterminants flip sign when rows swap.\n",
-                  words=["determinants"], heading="Determinant notes", line=1, title="det")
-    fake_tend.add(fake_tend.pocket / "2026-10-05.md", f"# Copied from the midterm\nI copied this: {quoted}\n",
-                  words=["determinants", "eigenvalues", "matrix"], heading="Copied from the midterm", line=1,
-                  title="2026-10-05")
-    paths, repository = build_exam_scope_vault(tmp_path / "vault", config=fake_tend.config())
+    paths, repository = build_exam_scope_vault(tmp_path / "vault")
+    add_capture(repository, "Eigenvalues: det(A - lI) = 0, worked by hand.")
+    add_capture(repository, "Determinants flip sign when rows swap.")
+    add_capture(repository, f"Copied from the midterm (determinants, eigenvalues, matrix): I copied this: {quoted}")
+    beside_exam = "BESIDE-EXAM-NOTE eigenvalues determinants matrix: my answer to the exam practice."
+    add_annotation(repository, beside_exam, extraction_id="ext_mixed", span_id=SPANS["mixed_exam"],
+                   source_id="src_mixed", revision_id="rev_mixed")
     vault = load_vault(paths.root)
     judge = CoverageJudgeFake()
     for lo_id in ALL_LOS:
@@ -463,10 +461,8 @@ def test_gc1_note_link_judge_requests_carry_no_exam_material_from_sources(tmp_pa
             if quoted not in text:
                 _clean(text)
     assert copied_sent >= 1  # the copied note was a candidate, and only its own text carries the quote
-    # tend was searched only with path topics' and sections' titles: no exam text, no syllabus.
-    for argv in fake_tend.calls():
-        _clean(" ".join(argv))
-        assert SYLLABUS_MARKER not in " ".join(argv)
+    # The note written beside the exam unit was never a candidate.
+    assert all("BESIDE-EXAM-NOTE" not in prompt for prompt in notes.prompts)
     # Every stored link points at a path section, never at exam material or a held-out section.
     links = _rows(repository, "SELECT extraction_id, section_id FROM learner_note_links")
     path_rows = set(_rows(repository, "SELECT extraction_id, section_id FROM deliverable_path_sections"))

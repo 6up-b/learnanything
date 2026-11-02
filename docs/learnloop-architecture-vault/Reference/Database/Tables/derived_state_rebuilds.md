@@ -3,13 +3,13 @@ title: "derived_state_rebuilds"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "8a939d438bd36039361356286398fb43a2cd796d"
-source_commit_timestamp: "2026-11-02T03:03:51-05:00"
+source_commit: "f3d6aba0ae47c99d0d4344e00c87287e27318f1c"
+source_commit_timestamp: "2026-11-02T02:00:30-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite derived_state_rebuilds"
   - "table derived_state_rebuilds"
-schema_head: 235
+schema_head: 233
 table_name: "derived_state_rebuilds"
 table_role: "receipt"
 functionality_status: "active"
@@ -100,7 +100,6 @@ Indexes and uniqueness:
 - `src/learnloop/db/repositories.py`
 - `src/learnloop/deliverable_plan_upgrade.py`
 - `src/learnloop/diagnosis/recurrence/report.py`
-- `src/learnloop/help_fold_attach_upgrade.py`
 - `src/learnloop/one_ask_upgrade.py`
 - `src/learnloop/placement/report.py`
 - `src/learnloop/reader_followups_upgrade.py`
@@ -136,7 +135,6 @@ Indexes and uniqueness:
 - `tests/test_causal_p2_acceptance.py`
 - `tests/test_cold_retry_reschedule.py`
 - `tests/test_curriculum_c1_plan_follows_path.py`
-- `tests/test_help_fold_attach_successor.py`
 - `tests/test_ingest_instrument_gates.py`
 - `tests/test_learner_report_superseded.py`
 - `tests/test_method_explicit_upgrade.py`
@@ -149,6 +147,7 @@ Indexes and uniqueness:
 - `tests/test_mvp017_upgrade.py`
 - `tests/test_mvp018_upgrade.py`
 - `tests/test_mvp020_upgrade.py`
+- `tests/test_mvp021_upgrade.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

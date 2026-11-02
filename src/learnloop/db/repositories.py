@@ -13055,6 +13055,17 @@ class Repository(
             ).fetchall()
         return [self.annotation_head(row["id"]) for row in rows]
 
+    def standing_annotation_ids(self) -> set[str]:
+        """Every annotation the Reader lists (no standing delete intent): curriculum C2b's
+        vault notes read the learner's annotations by this rule."""
+
+        with self.connection() as connection:
+            if connection.execute(
+                    "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'source_annotations'").fetchone() is None:
+                return set()
+            return {str(row[0]) for row in connection.execute(
+                "SELECT a.id FROM source_annotations a WHERE NOT " + _STANDING_DELETE.format(annotation="a.id"))}
+
     def withdraw_annotation_delete(
         self, *, annotation_id: str, delete_event_id: str, clock: Clock | None = None
     ) -> tuple[str, str | None, bool]:
