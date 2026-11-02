@@ -309,3 +309,23 @@ def test_f3_the_cli_labels_the_r_cold_comparison_with_observed_cold_outcomes(tmp
     assert text.exit_code == 0
     assert "+1.00" in text.output and "not an intention-to-treat estimate" in text.output
     assert "ITT difference" not in text.output
+
+
+# --- F4: a card carrying the released line says so in its version ------------------------------------
+
+
+def test_f4_a_card_with_a_released_line_moves_its_version_and_te1bs_card_keeps_its_own(tmp_path, shown,
+                                                                                         no_network):
+    from learnloop.daily_plan import lesson_suggestion as SG
+    from learnloop.router.card import CARD_VERSION, SUGGESTION_CARD_SUFFIX, SUGGESTION_RELEASE_CARD_SUFFIX
+    from tests.test_teacher_te1b_review_fixes import _card
+
+    paths, repository = _vault(tmp_path)
+    card, _lesson = _start(paths, repository)
+    before = _card(paths, repository, "2026-11-03T09:00:00Z")
+    assert before.card_version == CARD_VERSION + SUGGESTION_CARD_SUFFIX  # TE1b's card, unchanged
+    SG.respond(load_vault(paths.root), repository, decision_id=card["decision_id"], response="released",
+               clock=_clock(hours=3))
+    after = _card(paths, repository, "2026-11-03T09:00:00Z")
+    assert after.card_version == CARD_VERSION + SUGGESTION_CARD_SUFFIX + SUGGESTION_RELEASE_CARD_SUFFIX
+    assert after.json["card_version"] == after.card_version

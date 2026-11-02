@@ -384,6 +384,10 @@ AD_CARD_VERSION = CARD_VERSION + "+ad23"
 #: The suffix the card's version takes while it carries the lesson suggestion answers (teacher TE1b:
 #: the version moves with the section, as with AD's fields; without it the card is unchanged).
 SUGGESTION_CARD_SUFFIX = "+te1b"
+#: Follow-ups batch 6 (G1; its Codex review F4): the further suffix while that section carries a
+#: pending card's "Not now" (``released``) line, an input TE1b's card never had, so a stored card
+#: says which model input it was (without such a line the card and its version are TE1b's).
+SUGGESTION_RELEASE_CARD_SUFFIX = "+released"
 
 
 def _card_version(inputs: CardInputs, evidence_sections: Mapping[str, Any] | None = None) -> str:
@@ -391,7 +395,13 @@ def _card_version(inputs: CardInputs, evidence_sections: Mapping[str, Any] | Non
     version = base + "+ad23" if any(
         "adaptive_difficulty" in row for row in (inputs.learning_objects or {}).values()) else base
     sections = inputs.evidence_sections if evidence_sections is None else evidence_sections
-    return version + SUGGESTION_CARD_SUFFIX if (sections or {}).get(SUGGESTION_SECTION) else version
+    suggestions = (sections or {}).get(SUGGESTION_SECTION)
+    if not suggestions:
+        return version
+    version += SUGGESTION_CARD_SUFFIX
+    if any(isinstance(entry, Mapping) and entry.get("response") == "released" for entry in suggestions):
+        version += SUGGESTION_RELEASE_CARD_SUFFIX
+    return version
 
 
 #: The builder's record that the budget dropped the confidence section's
@@ -593,6 +603,7 @@ __all__ = [
     "AD_CARD_VERSION",
     "CARD_VERSION",
     "SUGGESTION_CARD_SUFFIX",
+    "SUGGESTION_RELEASE_CARD_SUFFIX",
     "SUGGESTION_SECTION",
     "PREDECESSOR_CARD_VERSION",
     "CardInputs",
