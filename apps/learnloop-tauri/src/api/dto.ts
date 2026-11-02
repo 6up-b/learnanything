@@ -10436,6 +10436,9 @@ export interface LessonSuggestionDto {
   suggestion: LessonSuggestionEntryDto;
   alternatives: LessonSuggestionEntryDto[];
   whyLabel: string;
+  /** A Start (or alternative) whose lesson never opened (codex review F2): open this one, under the id its
+   *  response recorded; the card then offers nothing else. */
+  pendingLesson?: { lessonId: string; decisionId: string; learningObjectIds: string[]; title: string } | null;
 }
 
 /** lesson.suggestion_respond: Start or an alternative returns the lesson to open. */

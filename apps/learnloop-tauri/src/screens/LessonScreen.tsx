@@ -93,7 +93,10 @@ export function LessonScreen({
         setUnavailable(message);
         const details = (err?.details ?? {}) as Record<string, unknown>;
         const saved = details.lesson_id ?? details.lessonId;
-        const lessonId = typeof saved === "string" && saved ? saved : input.lessonId;
+        // Only the sidecar's own word that the lesson was saved makes a resume possible. An opening's
+        // `lessonId` is the id a suggestion's Start reserved, which names no lesson until the open
+        // succeeds (codex review F2): its retry repeats the (idempotent) open.
+        const lessonId = typeof saved === "string" && saved ? saved : input.action === "open" ? undefined : input.lessonId;
         if (lessonId) {
           // The step was saved: resume it, and show what the lesson holds so far.
           setRetry({ action: "resume", lessonId });

@@ -59,6 +59,31 @@ export function LessonSuggestionCard({
     }
   }
 
+  const pending = card.pendingLesson ?? null;
+  if (pending) {
+    // Codex review F2: the learner already said Start, but the lesson never opened (the teacher was
+    // unavailable, or the app closed in between). Opening it again uses the id the Start recorded.
+    return (
+      <section aria-label="Suggested lesson" data-testid="lesson-suggestion-card"
+               style={{ margin: "0 18px 10px", padding: "10px 12px", border: `1px solid ${COLOR.border}`,
+                        background: COLOR.bgElev, fontFamily: FONT_MONO, fontSize: 13 }}>
+        <div style={{ color: COLOR.text }}>
+          Your lesson on <strong>{pending.title || card.suggestion.title}</strong> hasn't opened yet.
+        </div>
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginTop: 8 }}>
+          <button type="button" onClick={() => {
+            setCard(null);
+            onStartLesson({
+              kind: "open", entry: "learning_object", learningObjectIds: pending.learningObjectIds,
+              title: pending.title || card.suggestion.title,
+              suggestion: { decisionId: pending.decisionId, lessonId: pending.lessonId }
+            });
+          }}>Open the lesson</button>
+        </div>
+      </section>
+    );
+  }
+
   const { suggestion, alternatives } = card;
   return (
     <section aria-label="Suggested lesson" data-testid="lesson-suggestion-card"
