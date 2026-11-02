@@ -192,11 +192,12 @@ def displayed(turn_obj: TeacherTurnV1) -> list[tuple[str, str]]:
 # --- building it ---------------------------------------------------------------------------------
 
 
-def figure_request(state: Any, resolved: Mapping[str, Any]) -> Any:
-    """The ``FigureRequestV1`` code completes from the teacher's words (module docstring)."""
+def figure_request(state: Any, resolved: Mapping[str, Any], *, caller: Any) -> Any:
+    """The ``FigureRequestV1`` code completes from the teacher's words (module docstring). ``caller``:
+    the lesson's caller context (:func:`learnloop.teacher.actions.caller_for`, passed in by the service,
+    so this module never imports the read actions, which reach the notes' code)."""
 
     from learnloop.figures.service import FigureRequest
-    from learnloop.teacher.actions import caller_for
 
     keys = []
     for alias in resolved["anchors"]:
@@ -204,7 +205,7 @@ def figure_request(state: Any, resolved: Mapping[str, Any]) -> Any:
         keys.append((str(passage["extraction_id"]), str(passage["span_id"])))
     host_ref = {"lesson_id": state.lesson_id, **({"node_id": str(resolved["node"])} if resolved.get("node") else {})}
     return FigureRequest(extraction_id=None, span_ids=[], origin="teacher", goal_text=str(resolved["goal"]),
-                         goal_author="teacher", reading_at=None, host_ref=host_ref, caller=caller_for(state),
+                         goal_author="teacher", reading_at=None, host_ref=host_ref, caller=caller,
                          grounding_keys=keys)
 
 
@@ -239,7 +240,8 @@ def not_built_for_protection(resolved: Mapping[str, Any]) -> dict[str, Any]:
             "reason": "some of what this lesson relied on is now kept for your exam, so the figure isn't built"}
 
 
-def build(vault: Any, repository: Any, state: Any, resolved: Mapping[str, Any], builder: Builder) -> dict[str, Any]:
+def build(vault: Any, repository: Any, state: Any, resolved: Mapping[str, Any], builder: Builder, *,
+          caller: Any) -> dict[str, Any]:
     """Build the step's figure: ``{status, figure_id?, reason?, code?}`` (never raises a refusal; a spend
     refusal of the lesson's envelope propagates, so the lesson closes with ``budget``)."""
 
@@ -247,7 +249,7 @@ def build(vault: Any, repository: Any, state: Any, resolved: Mapping[str, Any], 
 
     base = _base(resolved)
     try:
-        outcome = builder(figure_request(state, resolved))
+        outcome = builder(figure_request(state, resolved, caller=caller))
     except FS.FigureRefused as exc:
         if _budget_refused(state, exc):
             raise

@@ -300,8 +300,10 @@ def test_switching_visuals_off_hides_a_lessons_figures_and_stops_a_pending_one(t
     view = S.view_lesson(load_vault(paths.root), repository, view["lesson_id"])
     assert not [e for e in view["feed"] if e["kind"] == "figure"]
     # The figure service refuses a lesson's figure with the switch off, before any call.
-    request = V.figure_request(S.load_state(repository, view["lesson_id"]),
-                               {"goal": GOAL, "anchors": ["S1"], "node": None})
+    from learnloop.teacher.actions import caller_for
+
+    state = S.load_state(repository, view["lesson_id"])
+    request = V.figure_request(state, {"goal": GOAL, "anchors": ["S1"], "node": None}, caller=caller_for(state))
     with pytest.raises(FS.FigureRefused) as refused:
         FS.build_figure(load_vault(paths.root), repository, request, author_client=author)
     assert refused.value.code == "teacher_visuals_disabled" and author.calls == 1

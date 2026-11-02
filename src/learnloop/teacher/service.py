@@ -1269,7 +1269,9 @@ def _visual(vault: Any, repository: Any, state: LessonState, turn_obj: TeacherTu
         record = V.not_built_for_protection(resolved)
         outcome.protection_changed = True
     else:
-        record = V.build(vault, repository, state, resolved, builder)
+        from learnloop.teacher.actions import caller_for
+
+        record = V.build(vault, repository, state, resolved, builder, caller=caller_for(state))
     text = ""
     if record["status"] == V.SHOWN:
         row = V.figure_row(repository, str(record["figure_id"]))
