@@ -133,11 +133,20 @@ function events(): Array<{ event?: string; payload: Record<string, unknown> }> {
     .filter((e: { kind: string }) => e.kind === "reader_action_invoked");
 }
 const named = (name: string) => events().filter((e) => e.event === name);
+// The Reader's key bar offers `x` from the same state its `x` handler reads (the also line's
+// availability reaches the Reader through an effect, one React task after the line is drawn).
+const xOffered = () => [...document.querySelectorAll("span")]
+  .some((span) => span.textContent === "x" && span.nextElementSibling?.textContent === "also in your books");
 
 async function openAlso() {
   api.readerCorrespondents.mockResolvedValue(ALSO);
   render(<ReaderScreen initialSource={source} onError={vi.fn()} />);
   await waitFor(() => expect(alsoLine()).toBeTruthy());
+  // Follow-ups batch 6 (B): pressing `x` as soon as the line was drawn raced that effect. When
+  // React's scheduler yields between the commit and its effects (a loaded machine: a whole vitest
+  // run beside other work), the press landed before the Reader knew the line was there and was
+  // dropped, so the focus wait below timed out. Wait for the Reader's own readiness instead.
+  await waitFor(() => expect(xOffered()).toBe(true));
   fireEvent.keyDown(document.body, { key: "x" });
   await waitFor(() => expect(document.activeElement?.hasAttribute("data-also-title")).toBe(true));
   return document.activeElement as HTMLElement;
@@ -270,7 +279,7 @@ it("(iii) all off: no also line, no find action, no side by side, Ctrl+\\ and x 
 
 // -- (iv) one record per action ----------------------------------------------------------------------
 
-it("(iv) peek, side by side and go there each record once, with CA5's payload keys", async () => {
+async function peekThenSideBySideRecordOnce() {
   await openAlso();
   fireEvent.click(await screen.findByTitle("Axler · 7.A Self-adjoint operators"));
   await waitFor(() => expect(peekCrumb()).toBeTruthy());
@@ -281,6 +290,24 @@ it("(iv) peek, side by side and go there each record once, with CA5's payload ke
   expect(named("corresponding_section_opened")).toHaveLength(0);
   const peeked = named("corresponding_section_peeked")[0].payload;
   expect(Object.keys(peeked).sort()).toEqual(["by", "extraction_id", "section_id", "target_extraction_id", "target_section_id", "target_source_id", "target_span_id", "via"]);
+}
+
+it("(iv) peek, side by side and go there each record once, with CA5's payload keys", async () => {
+  await peekThenSideBySideRecordOnce();
+});
+
+it("(iv) the same on a loaded machine: React's scheduler yields after every task (follow-ups batch 6 B)", async () => {
+  // Every clock read is 10 ms later than the last, so the scheduler's 5 ms slice is always spent
+  // and a commit's effects run in a later task: what a whole vitest run beside other work did.
+  // Before the fix openAlso pressed `x` in that gap and this failed every run.
+  const real = performance.now.bind(performance);
+  let skew = 0;
+  const clock = vi.spyOn(performance, "now").mockImplementation(() => { skew += 10; return real() + skew; });
+  try {
+    await peekThenSideBySideRecordOnce();
+  } finally {
+    clock.mockRestore();
+  }
 });
 
 it("(iv) the narrow window's sheet records corresponding_section_peeked once, with CA5's keys (plus the visit)", async () => {

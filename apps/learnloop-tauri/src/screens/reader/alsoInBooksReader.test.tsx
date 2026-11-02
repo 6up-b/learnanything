@@ -128,6 +128,9 @@ it("the line sits under the section's progress, from one shared quiet read; CA5a
 it("x opens the list at its first line; the key bar offers it while the line is there", async () => {
   render(<ReaderScreen initialSource={source} onError={vi.fn()} />);
   await waitFor(() => expect(line()).toBeTruthy());
+  // Follow-ups batch 6 (B): the Reader learns the line is there one React task after it is drawn
+  // (an effect); press only once it offers `x`, or a loaded run drops the press.
+  await waitFor(() => expect(keyBarOffersX()).toBe(true));
   fireEvent.keyDown(document.body, { key: "x" });
   await waitFor(() => expect(document.querySelector("[data-also-expanded]")).toBeTruthy());
   await waitFor(() => expect(document.activeElement?.hasAttribute("data-also-title")).toBe(true));
