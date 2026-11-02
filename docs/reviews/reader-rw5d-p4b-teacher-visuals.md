@@ -159,3 +159,94 @@ It sits outside `doctrine/v1/`, so TE1's doctrine text and hash (`ecec5db5…96e
    - `figures/service.py` is also touched by followups-nov2 (learner-state provenance) and by P5.
    - The defaults snapshots (all 32) and the "moves it too" comment lines will need recomputing after whichever lands first.
    - TE1b (`learnanything-astrafix`) may touch `teacher/service.py` and `teacher_fakes.py`. The fake now validates with the requested `result_model`.
+
+## Landing onto main
+
+The branch is `reader/rw5d-p4b-teacher-visuals` (tip `ef5c183623` before this record) in `learnanything-merge2`. The orchestrator does the fast-forward and push.
+
+### Codex re-review (job `20261102-055647-VOyp5J`): CLEAN
+
+> "F1-F4 CONFIRMED-FIXED. No new defects found."
+
+### Merges and conflicts
+
+- **None needed.** Main `1a33bb5db3` (TE1 + C4 landing record) was already an ancestor of the branch, and main did not move during the landing. It was checked before the full gate and again before this commit.
+- followups-nov2 had not landed. So `figures/service.py`, the 32 defaults snapshots and the generated references needed no merge, recompute or regeneration.
+- **No migration and no schema change.** `migration_head_234` is untouched. There is no successor (§1): the vault version stays `mvp-0.41`.
+
+### Gate (tree `ef5c183623`, on main `1a33bb5db3`)
+
+| Step | Result |
+|---|---|
+| `uv run lint-imports --no-cache` | **42 kept, 0 broken** |
+| Targeted (`pytest -n 6`, 5G): the P4b file, `test_teacher_te1_*`, `test_teacher_te0_*`, `test_figure*`, `test_figures*`, `test_hint_*`, `test_help_*`, `test_notes_never_read`, `test_architecture`, `test_import_split_parity`, `test_public_tip_guards`, `test_config_refactor`, `test_registry_audit`, `test_sidecar_registry`, `test_sidecar_contract`, `test_sidecar_serializer_snapshot`, `test_desktop_rpc_contract`, `test_cli_help_snapshot`, `test_vault_template` (79 files) | **1351 passed, 6 skipped** |
+| Targeted vitest (`LessonScreen`, `FigureInline`, `showMe`, `askFigures`) | **48 passed** (4 files) |
+| Full pytest (`flock /tmp/learnloop-fullsuite.lock systemd-run --user --scope -p MemoryMax=10G -p MemorySwapMax=2G -- <env -i> uv run --no-sync pytest -n 8 -p no:cacheprovider --dist worksteal --durations=50 -o faulthandler_timeout=600 --junitxml=…`) | **23815 passed, 90 skipped, 47 xfailed, 0 failed** (44:18) |
+| Durability lane (`pytest -m durability -n 6`, 5G) | **185 passed, 1 skipped** |
+| Owner lane (`pytest -m owner_vaults -n 6`). `LEARNLOOP_OWNER_VAULTS` is a fresh `copy_tree_with_databases` copy of the mvp035 owner copies in the gitignored `fixtures-local/landing-p4b/owner-lane`. | **83 passed, 2 failed, 4 skipped.** Both failures are the known ones: `test_activity_backfill::test_backfill_logs_attempt_duration_interaction_events` and `test_placement_fixture_copies::…[arxiv_v2]` |
+| Frontend: `npm install`, `npm run typecheck`, whole vitest (`--maxWorkers=4`, 5G), `npm run frontend:build` | install ok, typecheck ok. Vitest: **257 files, 2447 passed, 1 failed** (see below). Build ok (the existing chunk-size warning only). |
+| `cargo check` | not run: nothing under `src-tauri` differs from main |
+
+**Unexpected failure, rerun alone.** One vitest test failed in the whole run: `sketchSandboxReview.test.tsx` › "keeps the checks when every tested read on the page matches the verifier's, played to t_max at the defaults". It failed with `expected 't = 0 / 100' to contain 't = 100 / 100'` after 12 s, a playback timing race under the full 4-worker load. P4b does not touch that file or the sketch sandbox. It passed **3 of 3** when rerun alone.
+
+### Smoke on fresh owner copies (`fixtures-local/landing-p4b-smoke/`, drivers `scripts/smoke.sh` and `scripts/capture.sh`)
+
+**Setup.**
+
+- **Copies.** Fresh backup-API copies of the three mvp035 owner copies.
+- **Routes.** Each copy was neutralized under its own side's code (`neutralize3.py`): every AI route at the `127.0.0.1:9` blackhole with the key variable unset, the teacher route included; rewrite, rerank, dense and embeddings off.
+- **Environment.** `env -i` with an empty `HOME`, `CODEX_HOME` and config, and `LEARNLOOP_NOTES_TEND=off`.
+- **Audit hook.** `run.py` logs every process start and refuses Codex starts and non-loopback sockets. A self-test confirmed it refuses a `1.1.1.1:443` connect and a `codex` start.
+- **Code.** `git archive` of main `1a33bb5db3` and of the branch `ef5c183623`, each with `src/`, `migrations/` and `tests/`.
+
+Each copy, under its side's code, ran a bare `upgrade` (mvp-0.35 → mvp-0.41 on both sides, head 234), the primary desktop start, `migrate_vault` (0 applied) and `rebuild-derived-state`.
+
+**The prompt capture (`prompt_capture.py`).**
+
+- It opens a lesson through the sidecar's own `lesson.turn` at a frozen clock with deterministic ids.
+- The teacher service's `execute_structured_operation` is replaced by a capture. The capture writes the rendered prompt and the strict result model's JSON schema, then raises, so no transport is ever reached.
+- `teacher.enabled = true` on every capture copy.
+- "Off" means `teacher.visuals = false`. "On" is the default.
+
+| Check | linear_algebra | probability | arxiv_v2 |
+|---|---|---|---|
+| Today, branch (defaults: `teacher.visuals` on) vs main | byte-identical (525266 B) | byte-identical (740827 B) | byte-identical (344204 B) |
+| Plan dump, branch vs main | byte-identical (84699 B) | byte-identical (124024 B) | byte-identical (32436 B) |
+| Teacher prompt, visuals off vs main | byte-identical (20916 B) | byte-identical (22465 B) | byte-identical (18351 B) |
+| Turn schema, visuals off vs main | byte-identical (`TeacherTurnV1`, 6760 B) | byte-identical | byte-identical |
+| Visuals on (default) | `prompt_version: teacher_turn.v1+visuals-v1`, schema `TeacherTurnVisualsV1` with `visual` | same | same |
+| Lesson start (`lesson.turn` open), routes blackholed | refused `plan_unavailable` before any call; lessons/turns/receipts (0,0,0) → (0,0,0) | refused; (0,0,56) → (0,0,56) | refused; (0,0,0) → (0,0,0) |
+| `rebuild --shadow` (branch) | 0/0/0, live unchanged | 0/0/0, live unchanged | 0/0/0, live unchanged |
+
+- **What changes with visuals on.** Against visuals off, the visuals-on prompt differs in exactly two lines: the version line, and the instructions with the visuals paragraph appended. The context is identical. The capture runs left `interactive_figures` and `model_call_receipts` unchanged.
+- **Model calls.** 0 new model-call receipts across the 18 compared databases. Probability keeps its 56 historical rows.
+- **Audit log.** It is empty after the smoke and the capture runs: no process start, no socket and no Codex process.
+- **The first capture pass.** It refused with `plan_unavailable` before capturing, because the stub did not pass `_require_metered_settings`. The stub was then marked as an in-process fake, and the captures above are from the corrected script (`capture.sh` reran linear_algebra).
+- **No real lesson** and no real figure were run.
+
+### Rulings (verbatim)
+
+- **R1:** "Lesson figures are grammar and sketch only (the turn waits on its figure), following the teacher spec and P3's R1. Accepted."
+- **R2:** "teacher.visuals ships on by default (frictionless defaults); the owner may override at the first real-lesson checkpoint. Off restores TE1's prompt and schema byte for byte."
+- **R3:** "D8: P3's chooser may offer a lesson figure as explore_figure help on a qualifying practice item; it is counted and reveal-checked like any P3 figure, help never certification. Accepted as built."
+- **R4:** "'Not right?' inside a lesson is out of scope for P4b; queued as a follow-up only if the owner wants it after the checkpoint."
+
+### Owner items
+
+1. **A real lesson with a visual** on a `fixtures-local` backup copy, on the plan (§5 item 1). Check that the teacher uses visuals sparingly and well, and that the figure is the manipulative the goal asked for. Edit the doctrine paragraph if needed. It was not run here.
+2. **The `teacher.visuals` default** (R2). It ships on. The owner may turn it off at that checkpoint; off restores TE1's prompt and schema byte for byte, as the smoke confirms on all three vaults.
+
+### Open items
+
+- **P5 prebuilds of planned visuals** must send exactly `teacher.visuals.figure_request`'s request, or they miss the turn's input hash and the figure is built twice.
+- **"Not right?" inside a lesson** (R4). It is queued only if the owner wants it after the checkpoint.
+- **followups-nov2 and P5 still to merge.** followups-nov2 (learner-state provenance, recorded-input reuse keys, mvp-0.42, migration 235) and P5 both touch `figures/service.py` and will merge on top of this. Lesson figures (teacher origin, fixed grounding, no rich spawner) must carry nov2's learner-state provenance rules where they apply.
+- **`V._budget_refused` is too broad** (from the Codex fix record). A figure refused by the figures' *own* daily envelope (`FigureRefused("capped")` from `SpendLimitExceeded`) would close the lesson `budget` instead of recording the figure `unavailable`. Narrowing it to the lesson gate's refusal is a small follow-up.
+- **The sketch-sandbox vitest timing race** above (`sketchSandboxReview.test.tsx`, t_max playback under full load). It is pre-existing and outside P4b.
+
+### Checks
+
+- **Ancestry.** Main `1a33bb5db3` is an ancestor of the tip.
+- **Tracked databases and binaries.** None added or changed against main.
+- **Untouched files.** `.gitignore` and `README.md` are unchanged.
+- **`fixtures-local`.** Nothing from it is tracked.
