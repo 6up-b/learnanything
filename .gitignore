@@ -280,3 +280,4 @@ settings.env
 
 # The phone PWA build, served by the host at /app/ (apps/learnloop-mobile: npm run build).
 src/learnloop_mobile/static/app/
+apps/learnloop-mobile/node_modules/

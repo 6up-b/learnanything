@@ -14,9 +14,17 @@ import { normalizeMathDelimiters, REMARK_PLUGINS } from "./markdownPipeline";
 type MarkdownProps = ComponentProps<typeof ReactMarkdown>;
 const REHYPE_PLUGINS: MarkdownProps["rehypePlugins"] = [rehypeKatex];
 
-export const MarkdownMath = memo(function MarkdownMath({ value }: { value: string }) {
+// `components`: the phone renders a remote image as a link (mobile spec §3.4, its CSP has none).
+// Keep it a module-level constant, for the same reason as the plugin list. The desktop passes none.
+export const MarkdownMath = memo(function MarkdownMath({
+  value,
+  components
+}: {
+  value: string;
+  components?: MarkdownProps["components"];
+}) {
   return (
-    <ReactMarkdown remarkPlugins={REMARK_PLUGINS} rehypePlugins={REHYPE_PLUGINS}>
+    <ReactMarkdown remarkPlugins={REMARK_PLUGINS} rehypePlugins={REHYPE_PLUGINS} components={components}>
       {normalizeMathDelimiters(value || "")}
     </ReactMarkdown>
   );
