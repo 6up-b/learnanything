@@ -105,17 +105,72 @@ beforeEach(() => {
 afterEach(() => { cleanup(); vi.unstubAllGlobals(); setAlgoConfig(undefined); });
 
 it("another book's equation opens that book, on the cited reading's span", async () => {
+  api.readerSavedPlace.mockResolvedValue({ extractionId: "ext_axler", spanId: view.blocks[2].spanId, status: "exact" });
   api.readerFigures.mockResolvedValue({ extractionId: view.extractionId, figures: [figure("ext_axler", "a7")] });
   const { before, onError } = await pressOpenThePage();
-  await waitFor(() => expect(api.readerRenderView.mock.calls.slice(before).map((call) => call[0].extractionId)).toContain("src_axler"));
-  expect(api.readerGetProgress).toHaveBeenCalledWith({ extractionId: "ext_axler" });
+  await waitFor(() => expect(api.readerGetProgress).toHaveBeenCalledWith({ extractionId: "ext_axler" }));
+  expect(api.readerRenderView.mock.calls.slice(before).map((call) => call[0].extractionId)).toContain("ext_axler");
   expect(onError).not.toHaveBeenCalled();
 });
 
-it("an earlier reading of the open book reopens it and translates the span, never peeking it as this reading's", async () => {
+it("an earlier reading of the open book translates the span and peeks it here, never as this reading's own span", async () => {
+  const translated = view.blocks[2].spanId as string;
+  api.readerSavedPlace.mockResolvedValue({ extractionId: view.extractionId, spanId: translated, status: "exact" });
+  api.readerFigures.mockResolvedValue({ extractionId: view.extractionId, figures: [figure("ext_old", "old_span")] });
+  const { onError } = await pressOpenThePage();
+  await screen.findByRole("navigation", { name: "Detour" });
+  expect(api.readerSavedPlace).toHaveBeenCalledWith(expect.objectContaining({ sourceId: view.sourceId, spanId: "old_span", extractionId: "ext_old", toExtractionId: view.extractionId }));
+  expect(onError).not.toHaveBeenCalled();
+});
+
+// Sol verify V3: three readings. A is open, C completed since, the figure cites B. Whatever was
+// validated is what opens, so a stale translation or a running head on C can't get past the guard.
+it("an earlier reading is validated on the reading that stays open: a newer one is never opened", async () => {
+  const translated = view.blocks[2].spanId as string;
+  const C = { ...view, extractionId: "ext_c", blocks: [{ ...view.blocks[0], spanId: translated, blockType: "PageHeader" }] };
+  api.readerRenderView.mockImplementation(async (input: { extractionId: string }) => (
+    input.extractionId === "ext_b" ? { ...view, extractionId: "ext_b" } : view));
+  api.readerSavedPlace.mockResolvedValue({ extractionId: view.extractionId, spanId: translated, status: "exact" });
+  api.readerFigures.mockResolvedValue({ extractionId: view.extractionId, figures: [figure("ext_b", "b_span")] });
+  const { before, onError } = await pressOpenThePage();
+  // From here the sidecar would resolve the book to C: the press must not ask it to.
+  api.readerRenderView.mockImplementation(async (input: { extractionId: string }) => (
+    input.extractionId === "ext_b" ? { ...view, extractionId: "ext_b" } : C));
+  await screen.findByRole("navigation", { name: "Detour" });
+  expect(api.readerRenderView.mock.calls.slice(before).map((call) => call[0].extractionId)).toEqual(["ext_b"]);
+  expect(api.readerGetProgress).not.toHaveBeenCalledWith({ extractionId: "ext_c" });
+  expect(onError).not.toHaveBeenCalled();
+});
+
+it("a translation the sidecar puts on any other reading opens nothing", async () => {
+  api.readerSavedPlace.mockResolvedValue({ extractionId: "ext_c", spanId: view.blocks[2].spanId, status: "exact" });
+  api.readerFigures.mockResolvedValue({ extractionId: view.extractionId, figures: [figure("ext_old", "old_span")] });
+  const { before, onError } = await pressOpenThePage();
+  await waitFor(() => expect(onError).toHaveBeenCalledWith(expect.stringContaining("couldn't be opened")));
+  expect(api.readerRenderView.mock.calls.slice(before).map((call) => call[0].extractionId)).toEqual(["ext_old"]);
+  expect(screen.queryByRole("navigation", { name: "Detour" })).toBeNull();
+});
+
+it("a translated place whose words changed says so, as a search hit's does", async () => {
+  api.readerSavedPlace.mockResolvedValue({ extractionId: view.extractionId, spanId: view.blocks[2].spanId, status: "needs_reanchor" });
   api.readerFigures.mockResolvedValue({ extractionId: view.extractionId, figures: [figure("ext_old", "old_span")] });
   await pressOpenThePage();
-  await waitFor(() => expect(api.readerSavedPlace).toHaveBeenCalledWith(expect.objectContaining({ sourceId: view.sourceId, spanId: "old_span", extractionId: "ext_old" })));
+  await screen.findByText(/This book was read again: you're near the passage you found/);
+});
+
+it("another book opens on the reading validated, not one a source id resolves to later", async () => {
+  const validated = { ...AXLER_VIEW, extractionId: "ext_axler_y" };
+  const newer = { ...AXLER_VIEW, extractionId: "ext_axler_z", blocks: [{ ...view.blocks[0], spanId: "a7", blockType: "PageHeader" }] };
+  api.readerRenderView.mockImplementation(async (input: { extractionId: string }) => (
+    input.extractionId === "ext_axler_x" ? { ...AXLER_VIEW, extractionId: "ext_axler_x" }
+      : input.extractionId === "ext_axler_y" ? validated
+        : input.extractionId === "src_axler" ? newer : view));
+  api.readerSavedPlace.mockResolvedValue({ extractionId: "ext_axler_y", spanId: view.blocks[2].spanId, status: "exact" });
+  api.readerFigures.mockResolvedValue({ extractionId: view.extractionId, figures: [figure("ext_axler_x", "a7")] });
+  const { before, onError } = await pressOpenThePage();
+  await waitFor(() => expect(api.readerGetProgress).toHaveBeenCalledWith({ extractionId: "ext_axler_y" }));
+  expect(api.readerRenderView.mock.calls.slice(before).map((call) => call[0].extractionId)).not.toContain("src_axler");
+  expect(onError).not.toHaveBeenCalled();
 });
 
 // Sol verify V2: an already-mounted original where another passage has a box and the cited one doesn't.

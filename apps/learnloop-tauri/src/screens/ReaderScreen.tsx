@@ -1009,7 +1009,8 @@ export function ReaderScreen({
       // jumpReading: the reading jumpSpan was found on (a search hit, a
       // return); another reading's span is translated, never opened as a span
       // of the reading the book opens on now (Codex review F8).
-      options: { via?: "search" | "restore"; handoff?: ReadingPosition | null; jumpReading?: string | null } = {},
+      // view: a reading already read and checked by the caller, opened as it is.
+      options: { via?: "search" | "restore"; handoff?: ReadingPosition | null; jumpReading?: string | null; view?: ReaderRenderViewDto } = {},
     ): Promise<OpenOutcome> => {
       const handoff = options.handoff ?? null;
       progress.handoffRef.current = handoff;
@@ -1029,7 +1030,7 @@ export function ReaderScreen({
       setOpeningTitle(card.title);
       try {
         // reader.render_view resolves a source id to its latest completed extraction.
-        const view = await cachedSourceRead(card.sourceId, ["reader_render_view", card.sourceId], () =>
+        const view = options.view ?? await cachedSourceRead(card.sourceId, ["reader_render_view", card.sourceId], () =>
           api.readerRenderView({ extractionId: card.sourceId })
         );
         resetSourceState();
@@ -2687,7 +2688,8 @@ export function ReaderScreen({
   // before every early return: the library page (no book open) uses it too,
   // through the exercise cards' actions (RW4b, Codex review F1).
   // It resolves to how the open ended (an offer's press settles on it, F9).
-  const openLibraryHit = (hit: Pick<LibraryHitDto, "sourceId" | "extractionId" | "spanId">): Promise<OpenOutcome> => {
+  // ``pinned``: the reading to open, already read and checked; otherwise the source id resolves one.
+  const openLibraryHit = (hit: Pick<LibraryHitDto, "sourceId" | "extractionId" | "spanId">, pinned?: ReaderRenderViewDto): Promise<OpenOutcome> => {
     if (render && hit.sourceId === render.sourceId) {
       peekPassage(hit.spanId);
       return Promise.resolve("opened");
@@ -2702,7 +2704,7 @@ export function ReaderScreen({
         label: sourceTitle ?? "where I was", openedAt: Date.now(),
       });
     }
-    return openSource(card, hit.spanId, { via: "search", jumpReading: hit.extractionId });
+    return openSource(card, hit.spanId, { via: "search", jumpReading: hit.extractionId, ...(pinned ? { view: pinned } : {}) });
   };
   openBesideRef.current = openLibraryHit;
   // RW5d P4a (figures follow the section): a figure the learner kept in another
@@ -2712,10 +2714,13 @@ export function ReaderScreen({
   // now (protection and switches checked there); nothing is copied.
   // RW5c "open the page": the page a checked equation cites may be on another
   // book, or an earlier reading of this one, whose span ids are not this
-  // reading's (Codex review F4): that one opens as a search hit would, with its
-  // span translated, and a page that cannot be opened says so. It must land on
-  // a block the page shows (Astra review A1): a re-read may have made the same
-  // words a running head, and a jump to a dropped block would move nothing.
+  // reading's (Codex review F4). It must land on a block the page shows (Astra
+  // review A1): a re-read may have made the same words a running head, and a
+  // jump to a dropped block would move nothing. One reading is pinned, and what
+  // was validated is what opens (Sol verify V3): the open book stays on the
+  // reading it is on; another book opens on the reading its span was translated
+  // to, never one its source id resolves to later. A page that cannot be opened
+  // says so.
   openFigureSource.current = (extractionId, spanId) => {
     if (render && extractionId === render.extractionId) {
       const onOriginal = pdfView && surface === "pdf" && !offline;
@@ -2731,19 +2736,37 @@ export function ReaderScreen({
       } else peekPassage(spanId);
       return;
     }
+    const epoch = sourceEpochRef.current;
     void (async () => {
       const { sourceId } = await api.readerRenderView({ extractionId });
+      const sameBook = Boolean(render && sourceId === render.sourceId);
       const card = (library ?? []).find((candidate) => candidate.sourceId === sourceId);
-      if (!card || opening !== null) {
+      if (opening !== null || (!sameBook && !card)) {
         onError(FIGURE_PAGE_NOT_OPENED);
         return;
       }
-      const sameBook = Boolean(render && sourceId === render.sourceId);
       const landed = await api.readerSavedPlace({ sourceId, spanId, extractionId, toExtractionId: sameBook && render ? render.extractionId : null });
-      const landing = landed.spanId && landed.status !== "stale" ? await api.readerRenderView({ extractionId: landed.extractionId }) : null;
-      if (!landing?.blocks.some((block) => block.spanId === landed.spanId && readerDisplaysBlock(block.blockType))) onError(FIGURE_PAGE_NOT_OPENED);
-      else if (sameBook) await openSource(card, spanId, { via: "search", jumpReading: extractionId });
-      else await openLibraryHit({ sourceId, extractionId, spanId });
+      // The learner has gone on to another book: this press no longer speaks for the page in front of them.
+      if (sourceEpochRef.current !== epoch) return;
+      if (!landed.spanId || landed.status === "stale") {
+        onError(FIGURE_PAGE_NOT_OPENED);
+      } else if (sameBook) {
+        if (landed.extractionId !== render?.extractionId) {
+          onError(FIGURE_PAGE_NOT_OPENED);
+          return;
+        }
+        // This same callback's newest copy: it validates against the open reading and sees the page as it is now.
+        progress.noteFoundApproximate(landed.status === "needs_reanchor");
+        openFigureSource.current?.(landed.extractionId, landed.spanId);
+      } else {
+        const landing = await api.readerRenderView({ extractionId: landed.extractionId });
+        if (sourceEpochRef.current !== epoch) return;
+        if (landing.extractionId !== landed.extractionId || !landing.blocks.some((block) => block.spanId === landed.spanId && readerDisplaysBlock(block.blockType))) {
+          onError(FIGURE_PAGE_NOT_OPENED);
+        } else {
+          await openLibraryHit({ sourceId, extractionId: landed.extractionId, spanId: landed.spanId }, landing);
+        }
+      }
     })().catch((error) => onError(errorMessage(error)));
   };
   const openFollowedFigure = (figure: CorrespondentFigureDto, hit: CorrespondentSectionDto) => {

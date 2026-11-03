@@ -285,6 +285,8 @@ export interface ReadingProgress {
    *  was translated onto a reading whose text changed there (re-read safety):
    *  the Reader says the place is approximate. False: it is exact. */
   placeApproximate: false | "saved" | "found";
+  /** A found passage was translated onto the open reading, with no new open: whether its words changed there. */
+  noteFoundApproximate: (approximate: boolean) => void;
   /** Hydrate durable reading progress so reveal/completion survive restarts. */
   hydrateProgress: (extractionId: string, progress: ReaderProgressListDto) => void;
   /** Per-source reset; leaving a book saves what was read in it first. */
@@ -993,6 +995,8 @@ export function useReadingProgress(input: ReadingProgressInput): ReadingProgress
     [pdfView, surface, offline, pageBySpan, revealSegment, setActiveSpan, watchRef, paneRef, bodyRef],
   );
 
+  const noteFoundApproximate = useCallback((approximate: boolean) => setPlaceApproximate(approximate ? "found" : false), []);
+
   const notePlacement = useCallback(() => {
     jumpGuardRef.current = Date.now() + 1200;
     settleUntilRef.current = Date.now() + SEEN_SETTLE_MS;
@@ -1123,6 +1127,6 @@ export function useReadingProgress(input: ReadingProgressInput): ReadingProgress
     offeredCheckSections, openQuestionSections, pendingQuickCheckCount, currentQuestionOpen, pdfOfferSection,
     readingProgress, retryQuickCheck, openQuickCheck, revealSection, completeSection, jumpToSpan, notePlacement, revealSegment,
     onReadingScroll, noteUserScroll, onPlaybackSpan, onPlaybackSeek, settleUntilRef, handoffRef, jumpGuardRef,
-    settleOpening, placeAtOpen, placeApproximate, hydrateProgress, resetProgress,
+    settleOpening, placeAtOpen, placeApproximate, noteFoundApproximate, hydrateProgress, resetProgress,
   };
 }
