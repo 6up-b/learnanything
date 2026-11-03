@@ -175,7 +175,6 @@ def test_a_lessons_own_held_check_stays_in_its_lesson(item):
     ("![remote](https://example.org/t.png)", EMBEDS_IMAGE),
     ('Look: <img src="x.png">', EMBEDS_IMAGE),
     ("See [page 3](llpdf://source/abc#page=3).", LINKS_LLPDF),
-    ("Bare llpdf://source/abc", LINKS_LLPDF),
     ("See [the sheet](assets/sheet.pdf).", REFERENCES_ITEM_ASSET),
     ("See [the sheet](sheet.csv).", REFERENCES_ITEM_ASSET),
     ("See [the sheet](file:///tmp/sheet.csv).", REFERENCES_ITEM_ASSET),
@@ -460,6 +459,57 @@ def test_reference_forms_resolve_as_the_renderer_resolves_them(item, prompt, rea
     "Is a <img b true?",
 ])
 def test_brackets_the_renderer_shows_as_text_stay_eligible(item, prompt):
+    assert ineligibility_reason(None, item.model_copy(update={"prompt": prompt}), PHONE) is None
+
+
+# -- Sol verify V2 (ruling R3): the four cases where the scan and the renderer disagreed
+
+
+@pytest.mark.parametrize("prompt", [
+    # A protocol-relative link is a page a phone can follow, not a file.
+    "Read [the definition](//en.wikipedia.org/wiki/Derivative) first.",
+    "Read [the definition][d] first.\n\n[d]: //en.wikipedia.org/wiki/Derivative",
+    # A GFM footnote renders as text, and CommonMark alone reads it as a reference.
+    "Explain this result.[^1]\n\n[^1]: arxiv.org/abs/1234.5678",
+    "Explain this result.[^note] And this.[^2]\n\n[^note]: figures/old.png\n  [^2]: notes/a.md\n",
+    # llpdf:// as text: code stays code, prose mentioning it is prose.
+    "What does this print?\n\n    llpdf://source/abc\n",
+    "What scheme is `llpdf://source/abc`?",
+    "The desktop's links start with llpdf:// and open a page.",
+    "Bare llpdf://source/abc",
+])
+def test_what_the_renderer_shows_as_text_or_a_web_link_stays_eligible(item, prompt):
+    assert ineligibility_reason(None, item.model_copy(update={"prompt": prompt}), PHONE) is None
+
+
+@pytest.mark.parametrize("prompt, reason", [
+    # An escaped dollar opens no math, so the image between two of them is an image.
+    ("Budget \\$5. Use ![the graph](graph.png). Budget \\$10.", EMBEDS_IMAGE),
+    # llpdf:// as a rendered target, however it is written.
+    ("See [page 3](llpdf://source/abc#page=3).", LINKS_LLPDF),
+    ("See <llpdf://source/abc>.", LINKS_LLPDF),
+    ("See [page 3][p].\n\n[p]: llpdf://source/abc", LINKS_LLPDF),
+    ("![page](llpdf://source/abc)", LINKS_LLPDF),
+    ('See <a href="llpdf://source/abc">page 3</a>.', LINKS_LLPDF),
+    ("LLPDF in capitals: [page 3](LLPDF://source/abc).", LINKS_LLPDF),
+    # A link's reason outranks an image's, as it always did.
+    ("![g](g.png) and [page 3](llpdf://source/abc)", LINKS_LLPDF),
+    # A footnote beside a real image or asset leaves them what they are.
+    ("Name it.[^1]\n\n![g](g.png)\n\n[^1]: a note", EMBEDS_IMAGE),
+    ("Name it.[^1] See [data](assets/a.csv).\n\n[^1]: a note", REFERENCES_ITEM_ASSET),
+    # An image whose alt text starts with a caret is an image.
+    ("![^1](g.png)", EMBEDS_IMAGE),
+])
+def test_what_the_renderer_resolves_is_still_kept_for_the_desktop(item, prompt, reason):
+    assert ineligibility_reason(None, item.model_copy(update={"prompt": prompt}), PHONE) == reason
+
+
+@pytest.mark.parametrize("prompt", [
+    "Compute $n![k](x)$ and then \\$5.",
+    "Two backslashes are one: \\\\$n![k](x)$ is math.",
+    "Show that \\(a![b](c.png)\\) holds, for \\$5.",
+])
+def test_an_escape_changes_only_the_delimiter_it_escapes(item, prompt):
     assert ineligibility_reason(None, item.model_copy(update={"prompt": prompt}), PHONE) is None
 
 

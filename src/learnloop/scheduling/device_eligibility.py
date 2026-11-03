@@ -66,17 +66,25 @@ DEVICE_POLICY = "device_eligibility_v1"
 DEVICE_POLICY_OFF = "off"
 
 #: What Markdown shows as text: fenced and inline code, and display and inline
-#: math, where ``n![k](x)`` is a formula and ``llpdf://`` an example.
+#: math, where ``n![k](x)`` is a formula. A backslash escape is matched last and
+#: kept, so ``\$5`` opens no math (Sol verify V2) and ``\\$x$`` still does.
 _LITERAL_TEXT = re.compile(
     r"^(?P<fence>`{3,}|~{3,})[^\n]*\n.*?^(?P=fence)\s*$"
     r"|`[^`\n]*`"
     r"|\$\$.*?\$\$"
     r"|\$[^$\n]*\$"
     r"|\\\(.*?\\\)"
-    r"|\\\[.*?\\\]",
+    r"|\\\[.*?\\\]"
+    r"|(?P<escape>\\.)",
     re.MULTILINE | re.DOTALL,
 )
+#: GFM footnotes, which the renderer shows as text and CommonMark alone reads as a
+#: reference and its definition. They go before the parse. A definition holding a
+#: real image is not seen (ruling R3: Low).
+_FOOTNOTE_DEFINITION = re.compile(r"^ {0,3}\[\^[^\]\s]+\]:.*$", re.MULTILINE)
+_FOOTNOTE_REFERENCE = re.compile(r"(?<!!)\[\^[^\]\s]+\](?![(\[:])")
 _HTML_IMAGE = re.compile(r"<img\b", re.IGNORECASE)
+_LLPDF = "llpdf:"
 _URL_SCHEME = re.compile(r"^[A-Za-z][A-Za-z0-9+.-]*:")
 #: Schemes that name a file on this machine rather than a page anywhere.
 _LOCAL_SCHEMES = ("file:", "asset:")
@@ -84,8 +92,8 @@ _FILE_SUFFIX = re.compile(r"\.[A-Za-z0-9]{1,8}$")
 
 #: CommonMark, as the renderer's remark parser reads it (Codex review F3): only a
 #: parser knows that ``![graph]`` is an image when ``[graph]: figures/graph.png``
-#: is defined further down and bracketed text when it is not. Math has no meaning
-#: to it, so ``_LITERAL_TEXT`` still goes first. ``validateLink`` is opened because
+#: is defined further down and bracketed text when it is not. Math and footnotes
+#: have no meaning to it, so they still go first. ``validateLink`` is opened because
 #: the default drops ``file:`` links, the very thing asked about here.
 _MARKDOWN = MarkdownIt("commonmark")
 _MARKDOWN.validateLink = lambda _url: True
@@ -93,11 +101,12 @@ _MARKDOWN.validateLink = lambda _url: True
 
 def _is_item_asset(target: str) -> bool:
     """A link to a file: a local scheme, or a relative target that is a path.
-    ``[0,1](x)`` is an interval and a function, not a link to anything."""
+    ``[0,1](x)`` is an interval and a function, not a link to anything, and
+    ``//host/page`` is a page on the web."""
 
     if target.lower().startswith(_LOCAL_SCHEMES):
         return True
-    if _URL_SCHEME.match(target) or target.startswith("#"):
+    if _URL_SCHEME.match(target) or target.startswith(("#", "//")):
         return False
     return "/" in target or _FILE_SUFFIX.search(target) is not None
 
@@ -113,17 +122,29 @@ def _rendered_tokens(tokens: Iterable[Token]) -> Iterator[Token]:
 def _prompt_reason(prompt: str) -> str | None:
     """Read per candidate on every phone build, and a prompt's parse never changes."""
 
-    text = _LITERAL_TEXT.sub(" ", prompt or "")
-    if "llpdf://" in text.lower():
-        return LINKS_LLPDF
+    text = _LITERAL_TEXT.sub(lambda match: match.group("escape") or " ", prompt or "")
     if "[" not in text and "<" not in text:
         return None
-    links_asset = False
+    text = _FOOTNOTE_REFERENCE.sub("", _FOOTNOTE_DEFINITION.sub("", text))
+    embeds_image = links_asset = False
     for token in _rendered_tokens(_MARKDOWN.parse(text)):
-        if token.type == "image" or (token.type in ("html_inline", "html_block") and _HTML_IMAGE.search(token.content)):
-            return EMBEDS_IMAGE
-        if token.type == "link_open" and _is_item_asset(str(token.attrGet("href") or "")):
-            links_asset = True
+        # ``llpdf:`` counts where the renderer would follow it, a link's or an
+        # image's target or raw HTML: as text it is code or prose (Sol verify V2).
+        if token.type == "image":
+            if str(token.attrGet("src") or "").lower().startswith(_LLPDF):
+                return LINKS_LLPDF
+            embeds_image = True
+        elif token.type == "link_open":
+            target = str(token.attrGet("href") or "")
+            if target.lower().startswith(_LLPDF):
+                return LINKS_LLPDF
+            links_asset = links_asset or _is_item_asset(target)
+        elif token.type in ("html_inline", "html_block"):
+            if _LLPDF in token.content.lower():
+                return LINKS_LLPDF
+            embeds_image = embeds_image or _HTML_IMAGE.search(token.content) is not None
+    if embeds_image:
+        return EMBEDS_IMAGE
     return REFERENCES_ITEM_ASSET if links_asset else None
 
 
