@@ -236,3 +236,125 @@ For the owner:
 5. **`\dfrac` and `\tfrac`** are refused as outside the table. `unsupported_command`'s 26 refusals were not broken down (counts only); a later instrument could name the commands.
 
 For the landing: main is merged through `9c594465a8`. A later main needs the switch-off golden re-recorded if it moves a view, the report or a prompt (`tests/rw5c_golden_source.py`, on an export of that main), and the reference notes regenerated.
+
+## Landing onto main
+
+Base: main `9c594465a8`, unmoved through the landing. Gate at `9868ed5a84`; only this record follows it. No model call and no spend.
+
+### Rulings (orchestrator)
+
+- R1: "apps/learnloop-tauri/sketch-engine/book-math-engine.wasm is a new tracked binary. It is an application asset that G8 allows, rebuilt from pinned sources by build.py --check, so it does not break the landing rule against added binaries."
+- R2: "The book-math engine's 512 interrupt ticks per call are accepted as a keep bound (KT.BOOK_MATH_TICKS_PER_CALL): it runs pinned programs over book text, never a model's program, and a sketch stays at 16."
+- R3: "V1, V2 and V3 show no false checked. They are Medium, are fixed at landing with tests, and get no further Codex round. There is no third Astra round; any later contrived case is Low."
+- R4: "Q2-Q18 of the spec took their recommended defaults and are not owner-confirmed. The orchestrator lists them for the owner at landing."
+
+### Step 0: Sol verify V1, V2, V3
+
+All three fixed, each in its own commit: `ddda73b843`, `85b5278eac`, `ba61eaba73`. `reader-rw5c-p1-katex-codex-review.md` has the record. `CERTIFICATION_VERSION` is 6 and `READER_VERSION` is `book-math-v5`.
+
+### Gate
+
+| Check | Result |
+|---|---|
+| `lint-imports --no-cache` | 42 kept, 0 broken |
+| Full pytest (`-n 8`, 10G scope) | **24949 passed**, 90 skipped, 47 xfailed, 0 failed, 43:42 |
+| Durability lane | 189 passed, 1 skipped |
+| Owner lane, fresh backup-API copies under `fixtures-local/landing-rw5c/` | 83 passed, 4 skipped, and the 2 known failures only (`test_activity_backfill…duration`, `placement_fixture_copies[arxiv_v2]`) |
+| `npm install`, `npm run typecheck` | clean |
+| Whole vitest (`--maxWorkers=4`, 5G scope) | 264 files, **2649 passed** |
+| `npm run frontend:build` | built |
+| `cargo check` (`src-tauri` differs by `reader_figure_recheck`'s two lines) | passes; finished at once, so this worktree's earlier build already held those lines |
+| `db_generate_reference`, `db_validate_reference` | 373 table notes; `errors: []` |
+| `desktop_generate`, `desktop_validate` | 312 TS/TSX and 6 Rust modules; passed, reproducible |
+| `module_generate`, `module_validate`, `validate_vault` | 1154 module notes; passed |
+| `sketch-engine/build.py --check` | both engines reproduce; the sketch engine's digest is unchanged (`7fc7671506ec…`), book-math `880bf1c86af1…` |
+| `markdown/build.mjs --check` | reproduces `29fd5be75b4e…` |
+| Config fingerprints | no default changed at landing, so not touched |
+
+No unexpected failure, so nothing needed the three-time rerun.
+
+### Smoke
+
+Fresh backup-API copies of the three mvp-0.35 owner copies under gitignored `fixtures-local/landing-rw5c-smoke/`, each neutralized under its own side's code (every AI route at `127.0.0.1:9`, key variable unset). `env -i` with empty `HOME`, `CODEX_HOME` and config directory. An audit hook logged process starts and refused non-loopback sockets and Codex starts; its self-test refused both. Code: `git archive` of main `9c594465a8` and the branch `9868ed5a84`, each with `migrations/`. It ran alongside the full suite. Book text is left out of this record on purpose.
+
+| Check | `linear_algebra` | `probability` | `arxiv_v2` |
+|---|---|---|---|
+| Upgrade mvp-0.35 to mvp-0.43, main / branch | ok / ok | ok / ok | ok / ok |
+| Migration head, main / branch | 237 / **238** | 237 / **238** | 237 / **238** |
+| Primary load, `rebuild-derived-state` | ok, same counts | ok, same counts | ok, same counts |
+| Today, branch vs main | byte-identical (525266 B) | byte-identical (740827 B) | byte-identical (344204 B) |
+| Plan dump, branch vs main | byte-identical (84727 B) | byte-identical (124052 B) | byte-identical (32464 B) |
+| `rebuild --shadow` | 0/0/0, live unchanged | 0/0/0, live unchanged | 0/0/0, live unchanged |
+
+**Switch on.** One grammar figure through the real `reader.figure_request` with a stubbed author, against a real readable equation in a Text block of each copy:
+
+| Check | `linear_algebra` | `probability` | `arxiv_v2` |
+|---|---|---|---|
+| The matching figure | `checked` | `checked` | `checked` |
+| Roles | 1 book, 1 derived, 2 symbol | 1 book, 1 derived, 1 symbol | 1 book, 1 derived, 2 symbol |
+| The stub's model labels in the delivered spec or elements | none | none | none |
+| Ledger row and judgment | both, same verdict | both, same verdict | both, same verdict |
+| Check's cost at build | 538 ms | 355 ms | 477 ms |
+| Changed so it differs | not `checked` (`undecided`, `no_proof`) | same | same |
+| Same equation with its block made a `PageHeader` on a copy | not `checked` (`not_checkable`, `block_not_shown`) | same | same (also `names`) |
+| A Reader read of the checked figure | 0 engine opens, 0 checks, 173 ms | 0, 0, 121 ms | 0, 0, 122 ms |
+
+The changed figure reads `undecided` and not `differs` because the stub states no claim: nothing it quoted was proved different, and the rule in §6.6 applies. It is not `checked`, which is what this step asks.
+
+**Switch off** (`figures.checked_labels_enabled = false`). `reader.figures` is identical to main's for the same figure on all three copies (1646, 1507 and 1641 B), with ids and times normalized.
+
+**`learnloop reader figure-checks --recheck --dry-run --json`.** It works and reports the one stored figure. `state.sqlite` is byte-identical before and after on all three, and a digest of every table's rows matches. It writes nothing to the database. On a copy with no side files, the read-only open leaves SQLite's empty `-wal` and its `-shm` beside the file. The smoke driver's first hash covered those files and read as a change; a second run per file gave this result.
+
+**§12 coverage, counts only.**
+
+| Vault | Segments | Read |
+|---|---|---|
+| `linear_algebra` | 398 | 46 |
+| `probability` | 253 | 25 |
+| `arxiv_v2` | 235 | 16 |
+| **Total** | **886** | **87** |
+
+No fall: the same numbers vault by vault as the record. Blocks with math read 412 here against 415 there, because that count also took blocks only the retired regex found; segments and reads are what the page holds. Of the 87 read labels, 4 hold a fraction or slash, none holds TeX marks in its plain text, and **3 fall back to *the book's expression*, all three because of `\cdots`** (see open items).
+
+**Isolation.** The only new `model_call_receipts` are the stub's, one per build on the figure copies (15, all `figure_author`, `fake_figures`, `completed`), and none on the upgrade or dump copies. The only non-loopback connection and the only Codex start in the audit log are the self-test's, both refused. Processes started: `bwrap` for the check's sandbox, `powerprofilesctl` and the self-test's `true`.
+
+### Spec questions Q2-Q18: the defaults taken, not owner-confirmed
+
+Q1 is the owner's own answer: option B. Each of these took the spec's recommendation:
+
+- **Q2, default of `figures.checked_labels_enabled`: on.** The claim shows live, behind a kill switch.
+- **Q3, where the book's equation comes from: code reads every readable equation in the figure's input spans.** The author's quote only points at one and states a claim; it can't supply the equation.
+- **Q4, a stated claim proved different after the second attempt: not shown.** The learner sees *couldn't build a reliable version of this*; a stored figure becomes the same state, with *rebuild*.
+- **Q5, which blocks may be read: health `ok` only.** A `suspect` block holds no candidate, so an OCR-damaged equation can't be certified.
+- **Q6, storage: an append-only table, `figure_source_checks`.** The spec's "migration 227" landed as 238. A recheck adds a row and never edits the figure.
+- **Q7, recheck stored figures by code on first open and through the CLI: yes.** Old figures can gain the claim with no model call.
+- **Q8, display agreement: kept.** The curve must also match to the digits shown on the grid, not only the definition.
+- **Q9, free model text under B keeps its numbers and symbols: yes.** Prompts, annotations and "what it shows" stay in the model's voice outside the panels, because stripping them would be a deny-list.
+- **Q10, figure literals must be exact binary64: yes.** A book's `0.3` is never `checked`, a rare false negative accepted in place of made-up tolerances.
+- **Q11, a condition comparing two bare names (`x < theta`): allowed.** Parametric breakpoints stay `undecided` until P2 decides them.
+- **Q12, `\log`: unreadable in P1.** Books differ on its base; the report decides P2.
+- **Q13, an element of a figure marked `illustrative` can be `book` when it matches exactly: yes.** An exact equality is true whatever the author called the figure.
+- **Q14, checking RW5d tiers' claims against the book: later, as P3, designed first.** Sketch, animation and Manim figures keep *not checked against the book*.
+- **Q15, "checked" as a hint-chooser feature: not now.** Only through the chooser's own logged outcomes later; `checked` changes no help weight or evidence.
+- **Q16, macOS and Windows (no bubblewrap) never show "checked" in P1: accepted.** It fails closed, as RW2b does.
+- **Q17, P1b's author-prompt addition: the owner decides from the P1 report.** It didn't ship with P1.
+- **Q18, the label's wording: the short line.** *matches the book's equation (checked)*, with the ⓘ saying *as LearnLoop read it from p. N*.
+
+### Open items
+
+- **First real `names` and `not_bare` numbers need a vault with figures.** The mvp-0.35 copies hold none; run `learnloop reader figure-checks --recheck --dry-run --json` on one after the upgrade. Those numbers decide P1b and P2's order.
+- **`\mathbf` and `\hat` are the largest refused commands** for P2 to take up.
+- **The Ask rail's line** still reads as an illustration on a checked figure (`frameBadge`). It errs on the honest side.
+- **Followed figures** show as illustrations until followed again after their recheck.
+- **Lesson and attempt-host figures built before this landing** have no recheck control.
+- **New at this landing: `\cdots` has no plain words.** KaTeX's `\@cdots` isn't in `_PLAIN_ATOMS` although `\ldots` is, so all 3 fallbacks on the owner's books come from it. Those labels read *the book's expression* in `aria-label`s and prediction choices, which is honest but less useful. It is a one-line addition with a certification bump, found after the gate had started, so it was left for a follow-up.
+- **Low: two fallback labels over the same bounds** would read alike in a prediction's radio buttons, with distinct values.
+
+### Runs outside the isolation rule
+
+Every gate, generator and smoke run was under `env -i` with empty homes. These were not:
+
+- stdlib `python3` scripts that patched source, tests and docs in the worktree, or read fixture JSON;
+- during the fixes, `vitest` and `npm run typecheck` runs, which set only `TMPDIR` inside their memory scope.
+
+None of them read a vault, a config directory or a credential file. The smoke's helper scripts were adapted from batch 7's copies, read from `learnanything-dl2/fixtures-local/`, and nothing there was changed. `build.py --check` fetched its pinned QuickJS and WASI sources from GitHub to verify them, with digests checked.

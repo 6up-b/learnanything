@@ -237,7 +237,7 @@ Decisions the tree leaves to the writer:
 - an accent outside the table: `\check`, `\breve`, `\mathring`;
 - a root with an index, `\sqrt[3]{x}`;
 - a fraction with other delimiters or no bar outside `\binom`, such as `\genfrac` forms;
-- a symbol, delimiter or big operator outside the tables: `\aleph`, `\hbar`, `\langle`, `\lfloor`, `\otimes`, `\oint`;
+- a symbol, delimiter or big operator outside the tables: `\aleph`, `\hbar`, `\langle`, `\lfloor`, `\otimes`, `\oint`, and `\cdots` (the one the owner's books hit, 3 of 87; an open item in `reader-rw5c-p1.md`);
 - a script on a bare brace group of more than one thing: `{a+b}^2` shows `a+b²` and TeX means the group, so neither reading is safe;
 - a prime mixed with an exponent inside one script, `f'^2`;
 - an empty group where words are required, `\sqrt{}`, `\frac{}{b}`;
