@@ -10,9 +10,9 @@ area: "TypeScript/render"
 source_path: "apps/learnloop-tauri/src/render/MarkdownMath.tsx"
 source_paths:
   - "apps/learnloop-tauri/src/render/MarkdownMath.tsx"
-source_commit: "677db664814feb3446ee0469b65cf4eb5c278b16"
-source_commit_timestamp: "2026-11-02T23:12:42-05:00"
-source_worktree_state: "staged-or-mixed"
+source_commit: "47e8b002ea4bb9e37e276d97d7acaf4d8e474c37"
+source_commit_timestamp: "2026-11-02T23:24:23-05:00"
+source_worktree_state: "clean"
 activation_kind: "entry-reachable build graph"
 activation_evidence: "A static TypeScript import path reaches this file from the Vite entry src/main.tsx."
 generated: true
@@ -47,9 +47,9 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Area | [[Reference/Desktop/TypeScript/render/_area|TypeScript/render]] |
 | Refactor status | `ACTIVE` |
 | Activation kind | `entry-reachable build graph` |
-| Worktree state | `staged-or-mixed` |
-| Source commit | `677db664814feb3446ee0469b65cf4eb5c278b16` |
-| Commit timestamp | `2026-11-02T23:12:42-05:00` |
+| Worktree state | `clean` |
+| Source commit | `47e8b002ea4bb9e37e276d97d7acaf4d8e474c37` |
+| Commit timestamp | `2026-11-02T23:24:23-05:00` |
 
 ## Activation and status evidence
 
