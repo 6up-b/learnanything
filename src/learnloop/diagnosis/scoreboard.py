@@ -61,7 +61,6 @@ from learnloop.clock import Clock, FrozenClock, parse_utc
 from learnloop.db.copies import backup_database
 from learnloop.db.repositories import Repository
 from learnloop.vault.models import LoadedVault
-from learnloop.substrate.canonical_projection import pfc_assessments
 
 
 # v2 (data capture A3): ``learner_minutes_to_cold_success`` never required delay, so it is named for what it
@@ -494,7 +493,7 @@ def first_delayed_success_metrics(
 
     from learnloop.clock import utc_now_iso
     from learnloop.diagnosis.causal_probe_coherence import resolve_causal_probe_parameters
-    from learnloop.held_grades import held_for_review_attempts
+    from learnloop.held_grades import held_for_review_attempts, pfc_assessments
     from learnloop.router.first_delayed_success import LABEL, summary, trajectories
 
     threshold = (

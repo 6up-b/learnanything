@@ -16,7 +16,7 @@ from typing import Any
 
 from learnloop.data_capture.gates import receipts_on, serving_on
 from learnloop.db.stores import data_capture as store
-from learnloop.substrate.canonical_projection import pfc_assessments
+from learnloop.held_grades import held_for_review_attempts, pfc_assessments
 
 REPORT_VERSION = "data_capture_report_v1"
 #: Decisions that share another's receipt: a learner's pick from an offer reads its parent's.
@@ -115,7 +115,6 @@ def measurement_section(connection: sqlite3.Connection) -> dict[str, Any]:
 def outcome_section(connection: sqlite3.Connection, vault: Any) -> dict[str, Any]:
     """A2, A4: the derived outcomes by arm under the vault's outcome version, and A4's skip reasons."""
 
-    from learnloop.held_grades import held_for_review_attempts
     from learnloop.router.outcomes import derive_router_outcomes, outcome_version_for, servable_items_by_learning_object
 
     attempt_ids = [row[0] for row in connection.execute("SELECT id FROM practice_attempts")]
@@ -148,7 +147,6 @@ def outcome_section(connection: sqlite3.Connection, vault: Any) -> dict[str, Any
 def time_section(connection: sqlite3.Connection, vault: Any, *, as_of: str, success_correctness: float) -> dict[str, Any]:
     """A3: the first-delayed-success proxy."""
 
-    from learnloop.held_grades import held_for_review_attempts
     from learnloop.router.first_delayed_success import summary, trajectories
 
     attempt_ids = [row[0] for row in connection.execute("SELECT id FROM practice_attempts")]

@@ -139,7 +139,7 @@ def test_a_thin_support_logs_the_true_propensity_and_is_flagged(tmp_path):
 def test_the_tie_break_above_twenty_candidates_logs_one_over_n(tmp_path):
     repo = _repo(tmp_path)
     refs = [f"r{i}" for i in range(25)]
-    a = RL.epsilon_tiebreak(repo, experiment_id="tie", refs=refs, values=[1.0] * 25, seed="s", decision_id="d",
+    a = RL.epsilon_tiebreak(repo, experiment_id="tie", refs=refs, values=[1.0] * 25, seed="s",
                             clock=CLOCK)
     assert a.randomized and a.propensity == pytest.approx(1.0 / 25) and a.thin_support is True
 

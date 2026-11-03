@@ -94,12 +94,30 @@ def test_the_upgrade_from_te1b_and_through_the_chain_and_its_refusals(tmp_path):
     assert not refused.upgraded and refused.problems
 
 
-def test_the_upgrade_rebuilds_outcomes_under_v3(tmp_path):
+def test_the_outcomes_cache_is_rebuilt_under_the_vaults_version(tmp_path):
+    """The one replayer reads the vault's outcome version: v2 below the tag, v3 from it."""
+
+    from learnloop.db.stores.router import ROUTER_LOG_VERSION, insert_router_decision
+    from learnloop.substrate.rebuild_orchestrator import rebuild_all_derived_state
+
     direct, repository = build_teacher_vault(tmp_path / "vault", version=OLD, reserved=False)
+    with repository.atomic(), repository.connection() as connection:
+        insert_router_decision(connection, {
+            "id": "d1", "receipt_key": "plan_block:b1", "decision_kind": "plan_block", "surface": "daily_plan", "mode": "mixture",
+            "policy": "staged_v1", "algorithm_version": OLD, "log_version": ROUTER_LOG_VERSION, "snapshot_hash": "h",
+            "candidates_json": "[]", "exclusions_json": "{}", "candidate_count": 0, "chosen_ref": "stop_for_today",
+            "propensity": 1.0, "propensity_kind": "deterministic", "learner_pick": 0, "detail_json": "{}",
+            "created_at": "2026-11-01T00:00:00Z",
+        })
+
+    def versions():
+        rebuild_all_derived_state(load_vault(direct.root), repository)
+        with repository.connection() as connection:
+            return {row[0] for row in connection.execute("SELECT outcome_version FROM router_outcomes")}
+
+    assert versions() == {"router_outcomes_v2"}
     upgrade_to_data_capture(direct.root)
-    with repository.connection() as connection:
-        versions = {row[0] for row in connection.execute("SELECT DISTINCT outcome_version FROM router_outcomes")}
-    assert versions <= {"router_outcomes_v3"}
+    assert versions() == {"router_outcomes_v3"}
 
 
 def test_the_openers_install_this_links_completion():

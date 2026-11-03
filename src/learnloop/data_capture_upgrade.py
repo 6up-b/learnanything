@@ -21,9 +21,10 @@ The upgrade:
   refusal's included). If the chained steps succeed and this step then fails,
   the vault is left at the valid predecessor. Anything older is refused;
 * changes nothing already recorded: the receipts of migration 239 are additive.
-  Its activation is the idempotent rebuild of the same projection namespace (which
-  rebuilds ``router_outcomes`` under v3), the registry refresh and the config's
-  publication.
+  Its activation is the idempotent rebuild of the same projection namespace, the
+  registry refresh and the config's publication. Readers derive outcomes under v3
+  from the tag on; the ``router_outcomes`` cache follows at the next
+  ``learnloop rebuild-derived-state``, as any derived table.
 
 **Activation is journalled like its predecessors'.** One ``BEGIN
 IMMEDIATE`` transaction under the vault mutation lock with the config's

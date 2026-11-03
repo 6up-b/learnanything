@@ -2885,11 +2885,18 @@ def _boundary(
         est = forced_minutes
         reading = None
         los = list(dict.fromkeys(item.learning_object_id for item in forced))
-        chosen_by = "learner_pick" if forced_origin == ORIGIN_REQUESTED else "lane_quota"
+        # Data capture A2: a measurement check is no request of the learner's: the rules placed it,
+        # so it is no learner pick, and it says so.
+        measured = {str(row.get("practice_item_id")) for row in
+                    (record.split.get("measurement_slots") or {}).get("checks") or ()}
+        only_measured = bool(measured) and forced_ids <= measured
+        chosen_by = "learner_pick" if forced_origin == ORIGIN_REQUESTED and not only_measured else "lane_quota"
         decision_ref = None
         detail["why"] = (
             "a follow-up from this session's answer"
             if forced_origin != ORIGIN_REQUESTED
+            else "a short check on something you studied comes first"
+            if only_measured
             else "the delayed check you asked for comes first"
             if all(getattr(item, "check_kind", None) == "check_once" for item in forced)
             else "your requested item comes first"

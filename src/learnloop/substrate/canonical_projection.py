@@ -85,7 +85,9 @@ DEFAULT_REPEAT_SURFACE_DISCOUNT = 0.25
 # The stamp and its two row tests are defined in the dependency-free
 # ``learnloop.outcome_contract`` (held-grade-evidence: the held-grade predicate,
 # ``learnloop.held_grades``, reads them, and learner and placement code read it
-# without an edge into this package); they are re-exported here unchanged.
+# without an edge into this package); they are re-exported here unchanged. The
+# attempt-level PF-c read (``pfc_assessment``, ``pfc_assessments``) lives in that
+# leaf too (data capture A3: the board reads it), re-exported below.
 from learnloop.outcome_contract import (  # noqa: E402 - re-exported beside their rule
     UNASSESSED_INTERPRETATION,
     UNVERIFIED_CRITERION_BLOCK,
@@ -94,40 +96,6 @@ from learnloop.outcome_contract import (  # noqa: E402 - re-exported beside thei
     unverified_evidence_row,
 )
 
-
-def pfc_assessment(attributions: Iterable[Any]) -> str | None:
-    """One attempt's PF-c assessment state from its current evidence rows'
-    ``attribution_json`` values: ``None`` unless a row was written under the
-    unassessed rule, else partially or nothing assessed (``outcome_contract``)."""
-
-    from learnloop.outcome_contract import PFC_NOTHING_ASSESSED, PFC_PARTIALLY_ASSESSED
-
-    flags = [unassessed_evidence_row(value) for value in attributions]
-    if not any(flags):
-        return None
-    return PFC_NOTHING_ASSESSED if all(flags) else PFC_PARTIALLY_ASSESSED
-
-
-def pfc_assessments(connection: Any, attempt_ids: Iterable[str]) -> dict[str, str]:
-    """``pfc_assessment`` for each of ``attempt_ids`` that has one, read from
-    the current (non-superseded) grading evidence on ``connection``."""
-
-    ids = sorted({str(value) for value in attempt_ids if value})
-    values: dict[str, list[Any]] = defaultdict(list)
-    for start in range(0, len(ids), 500):
-        chunk = ids[start : start + 500]
-        placeholders = ",".join("?" for _ in chunk)
-        for attempt_id, attribution in connection.execute(
-            "SELECT attempt_id, attribution_json FROM grading_evidence "
-            f"WHERE superseded_at IS NULL AND attempt_id IN ({placeholders})",
-            chunk,
-        ):
-            values[str(attempt_id)].append(attribution)
-    return {
-        attempt_id: state
-        for attempt_id, rows in values.items()
-        if (state := pfc_assessment(rows)) is not None
-    }
 
 # held-grade-evidence: THE held-grade predicate over the ledger, defined in the
 # leaf ``learnloop.held_grades`` (readers in learner and placement code import
@@ -138,6 +106,8 @@ from learnloop.held_grades import (  # noqa: E402 - re-exported beside PF-c's st
     held_attempt_ids,
     held_for_review_attempts,
     mark_held_attempts,
+    pfc_assessment,
+    pfc_assessments,
 )
 
 

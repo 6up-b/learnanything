@@ -391,6 +391,27 @@ def test_the_plan_charges_a_measurement_to_the_maintain_lane(tmp_path):
     assert measured_lanes["new"]["minutes"] >= ordinary_lanes["new"]["minutes"]
 
 
+def test_a_block_of_only_measurement_checks_is_no_learner_pick_and_says_so(tmp_path):
+    from learnloop.curriculum import commitments as C
+    from tests.daily_plan_fakes import MovableClock, make_env
+    from tests.test_daily_plan_build import _seed_wide, _wide_vault
+
+    paths = _wide_vault(tmp_path, version=TAG)
+    env = make_env(paths.root, [scheduled("pi_diag_mid", "lo_diag", new_material=1.0)], clock=MovableClock(), session_id="s1")
+    _seed_wide(env.repository)
+    C.create_commitment(env.repository, action="test_me_later", intent_text="x",
+                        targets=[{"target_kind": "legacy_practice_item", "target_ref": "pi_diag_mid", "role": "required"}],
+                        depth_preset="keep_in_touch", client_idempotency_key="k", due_hint="2020-01-01", reason="r",
+                        provenance={"via": M.VIA, "decision_id": "d"})
+    record = build_plan(env, kind="normal", budget=25.0, remembered=25, minutes_source="chip")
+    block = record.blocks[0]
+    assert [item.practice_item_id for item in block.items] == ["pi_diag_mid"]
+    assert block.chosen_by != "learner_pick"
+    assert "you asked" not in block.chosen.get("why", "") and block.chosen.get("why") == "a short check on something you studied comes first"
+    (row,) = rows(env)
+    assert row["learner_pick"] == 0
+
+
 def test_plan_slots_counts_only_measurements_and_never_more_than_the_load():
     class Check:
         def __init__(self, commitment_id, via):
