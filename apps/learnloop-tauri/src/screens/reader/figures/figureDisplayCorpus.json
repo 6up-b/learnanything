@@ -1,0 +1,712 @@
+{
+ "values": [
+  {
+   "value": 0,
+   "number": "0",
+   "percent": "0.0%",
+   "string": "0"
+  },
+  {
+   "value": 1,
+   "number": "1",
+   "percent": "100.0%",
+   "string": "1"
+  },
+  {
+   "value": -1,
+   "number": "-1",
+   "percent": "-100.0%",
+   "string": "-1"
+  },
+  {
+   "value": 0.5,
+   "number": "0.5",
+   "percent": "50.0%",
+   "string": "0.5"
+  },
+  {
+   "value": 0.25,
+   "number": "0.25",
+   "percent": "25.0%",
+   "string": "0.25"
+  },
+  {
+   "value": 0.1,
+   "number": "0.1",
+   "percent": "10.0%",
+   "string": "0.1"
+  },
+  {
+   "value": 0.30000000000000004,
+   "number": "0.3",
+   "percent": "30.0%",
+   "string": "0.30000000000000004"
+  },
+  {
+   "value": 1e-07,
+   "number": "1.000e-7",
+   "percent": "0.0%",
+   "string": "1e-7"
+  },
+  {
+   "value": 1e+21,
+   "number": "1.000e+21",
+   "percent": "1e+23%",
+   "string": "1e+21"
+  },
+  {
+   "value": 1.5e+21,
+   "number": "1.500e+21",
+   "percent": "1.5e+23%",
+   "string": "1.5e+21"
+  },
+  {
+   "value": 123456.789,
+   "number": "1.235e+5",
+   "percent": "12345678.9%",
+   "string": "123456.789"
+  },
+  {
+   "value": 99999.5,
+   "number": "100000",
+   "percent": "9999950.0%",
+   "string": "99999.5"
+  },
+  {
+   "value": 99999.4,
+   "number": "99999",
+   "percent": "9999940.0%",
+   "string": "99999.4"
+  },
+  {
+   "value": 0.001,
+   "number": "0.001",
+   "percent": "0.1%",
+   "string": "0.001"
+  },
+  {
+   "value": 0.0009999,
+   "number": "9.999e-4",
+   "percent": "0.1%",
+   "string": "0.0009999"
+  },
+  {
+   "value": 0.00123456,
+   "number": "0.0012346",
+   "percent": "0.1%",
+   "string": "0.00123456"
+  },
+  {
+   "value": 12344.5,
+   "number": "12345",
+   "percent": "1234450.0%",
+   "string": "12344.5"
+  },
+  {
+   "value": 12345.5,
+   "number": "12346",
+   "percent": "1234550.0%",
+   "string": "12345.5"
+  },
+  {
+   "value": 1.00005,
+   "number": "1.0001",
+   "percent": "100.0%",
+   "string": "1.00005"
+  },
+  {
+   "value": 100000,
+   "number": "1.000e+5",
+   "percent": "10000000.0%",
+   "string": "100000"
+  },
+  {
+   "value": 100000,
+   "number": "1.000e+5",
+   "percent": "10000000.0%",
+   "string": "100000"
+  },
+  {
+   "value": 100001,
+   "number": "1.000e+5",
+   "percent": "10000100.0%",
+   "string": "100001"
+  },
+  {
+   "value": 1.5,
+   "number": "1.5",
+   "percent": "150.0%",
+   "string": "1.5"
+  },
+  {
+   "value": 1234.5678,
+   "number": "1234.6",
+   "percent": "123456.8%",
+   "string": "1234.5678"
+  },
+  {
+   "value": 0.1234565,
+   "number": "0.12346",
+   "percent": "12.3%",
+   "string": "0.1234565"
+  },
+  {
+   "value": 0.123456,
+   "number": "0.12346",
+   "percent": "12.3%",
+   "string": "0.123456"
+  },
+  {
+   "value": 0.123457,
+   "number": "0.12346",
+   "percent": "12.3%",
+   "string": "0.123457"
+  },
+  {
+   "value": 2.5e-07,
+   "number": "2.500e-7",
+   "percent": "0.0%",
+   "string": "2.5e-7"
+  },
+  {
+   "value": 3.141592653589793,
+   "number": "3.1416",
+   "percent": "314.2%",
+   "string": "3.141592653589793"
+  },
+  {
+   "value": -0.04,
+   "number": "-0.04",
+   "percent": "-4.0%",
+   "string": "-0.04"
+  },
+  {
+   "value": 100000000000000000000,
+   "number": "1.000e+20",
+   "percent": "1e+22%",
+   "string": "100000000000000000000"
+  },
+  {
+   "value": 123456789012345680000,
+   "number": "1.235e+20",
+   "percent": "1.2345678901234568e+22%",
+   "string": "123456789012345680000"
+  },
+  {
+   "value": 9007199254740991,
+   "number": "9.007e+15",
+   "percent": "900719925474099072.0%",
+   "string": "9007199254740991"
+  },
+  {
+   "value": -2.5,
+   "number": "-2.5",
+   "percent": "-250.0%",
+   "string": "-2.5"
+  },
+  {
+   "value": 0.75,
+   "number": "0.75",
+   "percent": "75.0%",
+   "string": "0.75"
+  },
+  {
+   "value": 30.05,
+   "number": "30.05",
+   "percent": "3005.0%",
+   "string": "30.05"
+  },
+  {
+   "value": -1e-07,
+   "number": "-1.000e-7",
+   "percent": "-0.0%",
+   "string": "-1e-7"
+  },
+  {
+   "value": 0.001,
+   "number": "0.001",
+   "percent": "0.1%",
+   "string": "0.001"
+  }
+ ],
+ "bounds": [
+  {
+   "name": "shade clipped",
+   "spec": {
+    "spec_version": "ifs-v1",
+    "kind": "illustrative",
+    "demonstrates": "d",
+    "definitions": [
+     {
+      "name": "f",
+      "expr": "x + 0.25"
+     }
+    ],
+    "panels": [
+     {
+      "kind": "function_plot",
+      "x": {
+       "var": "x",
+       "min": 0,
+       "max": 1
+      },
+      "series": [
+       {
+        "expr": "f",
+        "label": "m"
+       }
+      ],
+      "shade": [
+       {
+        "series": "m",
+        "from": "-1",
+        "to": "2",
+        "label": "s"
+       }
+      ]
+     }
+    ]
+   },
+   "panel": 0,
+   "kind": "shade",
+   "index": 0,
+   "expected": {
+    "from": 0.0,
+    "to": 1.0,
+    "clipped": true,
+    "integers": null
+   }
+  },
+  {
+   "name": "shade inside",
+   "spec": {
+    "spec_version": "ifs-v1",
+    "kind": "illustrative",
+    "demonstrates": "d",
+    "definitions": [
+     {
+      "name": "f",
+      "expr": "x + 0.25"
+     }
+    ],
+    "panels": [
+     {
+      "kind": "function_plot",
+      "x": {
+       "var": "x",
+       "min": 0,
+       "max": 1
+      },
+      "series": [
+       {
+        "expr": "f",
+        "label": "m"
+       }
+      ],
+      "shade": [
+       {
+        "series": "m",
+        "from": "0.125",
+        "to": "0.5",
+        "label": "s"
+       }
+      ]
+     }
+    ]
+   },
+   "panel": 0,
+   "kind": "shade",
+   "index": 0,
+   "expected": {
+    "from": 0.125,
+    "to": 0.5,
+    "clipped": false,
+    "integers": null
+   }
+  },
+  {
+   "name": "shade close bounds",
+   "spec": {
+    "spec_version": "ifs-v1",
+    "kind": "illustrative",
+    "demonstrates": "d",
+    "definitions": [
+     {
+      "name": "f",
+      "expr": "x + 0.25"
+     }
+    ],
+    "panels": [
+     {
+      "kind": "function_plot",
+      "x": {
+       "var": "x",
+       "min": 0,
+       "max": 1
+      },
+      "series": [
+       {
+        "expr": "f",
+        "label": "m"
+       }
+      ],
+      "shade": [
+       {
+        "series": "m",
+        "from": "0.123456",
+        "to": "0.123457",
+        "label": "s"
+       }
+      ]
+     }
+    ]
+   },
+   "panel": 0,
+   "kind": "shade",
+   "index": 0,
+   "expected": {
+    "from": 0.123456,
+    "to": 0.123457,
+    "clipped": false,
+    "integers": null
+   }
+  },
+  {
+   "name": "shade slider",
+   "spec": {
+    "spec_version": "ifs-v1",
+    "kind": "illustrative",
+    "demonstrates": "d",
+    "definitions": [
+     {
+      "name": "f",
+      "expr": "x + 0.25"
+     }
+    ],
+    "parameters": [
+     {
+      "name": "a",
+      "label": "a",
+      "min": 0.25,
+      "max": 1.0,
+      "step": 0.25,
+      "default": 0.5
+     }
+    ],
+    "panels": [
+     {
+      "kind": "function_plot",
+      "x": {
+       "var": "x",
+       "min": 0,
+       "max": 1
+      },
+      "series": [
+       {
+        "expr": "f",
+        "label": "m"
+       }
+      ],
+      "shade": [
+       {
+        "series": "m",
+        "from": "0",
+        "to": "a",
+        "label": "s"
+       }
+      ]
+     }
+    ]
+   },
+   "panel": 0,
+   "kind": "shade",
+   "index": 0,
+   "params": {
+    "a": 0.75
+   },
+   "expected": {
+    "from": 0.0,
+    "to": 0.75,
+    "clipped": false,
+    "integers": null
+   }
+  },
+  {
+   "name": "highlight clipped",
+   "spec": {
+    "spec_version": "ifs-v1",
+    "kind": "illustrative",
+    "demonstrates": "d",
+    "definitions": [
+     {
+      "name": "f",
+      "expr": "1/(k+1)"
+     }
+    ],
+    "panels": [
+     {
+      "kind": "pmf_bars",
+      "k": {
+       "var": "k",
+       "min": 0,
+       "max": 3
+      },
+      "series": [
+       {
+        "expr": "f",
+        "label": "m"
+       }
+      ],
+      "highlight": {
+       "from": "1.5",
+       "to": "4.2",
+       "label": "h"
+      }
+     }
+    ]
+   },
+   "panel": 0,
+   "kind": "highlight",
+   "index": 0,
+   "expected": {
+    "from": 1.5,
+    "to": 3.0,
+    "clipped": true,
+    "integers": [
+     2,
+     3
+    ]
+   }
+  },
+  {
+   "name": "highlight empty",
+   "spec": {
+    "spec_version": "ifs-v1",
+    "kind": "illustrative",
+    "demonstrates": "d",
+    "definitions": [
+     {
+      "name": "f",
+      "expr": "1/(k+1)"
+     }
+    ],
+    "panels": [
+     {
+      "kind": "pmf_bars",
+      "k": {
+       "var": "k",
+       "min": 0,
+       "max": 3
+      },
+      "series": [
+       {
+        "expr": "f",
+        "label": "m"
+       }
+      ],
+      "highlight": {
+       "from": "2.2",
+       "to": "2.8",
+       "label": "h"
+      }
+     }
+    ]
+   },
+   "panel": 0,
+   "kind": "highlight",
+   "index": 0,
+   "expected": {
+    "from": 2.2,
+    "to": 2.8,
+    "clipped": false,
+    "integers": [
+     3,
+     2
+    ]
+   }
+  },
+  {
+   "name": "highlight lossless",
+   "spec": {
+    "spec_version": "ifs-v1",
+    "kind": "illustrative",
+    "demonstrates": "d",
+    "definitions": [
+     {
+      "name": "f",
+      "expr": "1/(k+1)"
+     }
+    ],
+    "panels": [
+     {
+      "kind": "pmf_bars",
+      "k": {
+       "var": "k",
+       "min": 99990,
+       "max": 100010
+      },
+      "series": [
+       {
+        "expr": "f",
+        "label": "m"
+       }
+      ],
+      "highlight": {
+       "from": "100000",
+       "to": "100001",
+       "label": "h"
+      }
+     }
+    ]
+   },
+   "panel": 0,
+   "kind": "highlight",
+   "index": 0,
+   "expected": {
+    "from": 100000.0,
+    "to": 100001.0,
+    "clipped": false,
+    "integers": [
+     100000,
+     100001
+    ]
+   }
+  },
+  {
+   "name": "integral readout",
+   "spec": {
+    "spec_version": "ifs-v1",
+    "kind": "illustrative",
+    "demonstrates": "d",
+    "definitions": [
+     {
+      "name": "f",
+      "expr": "x + 0.25"
+     }
+    ],
+    "panels": [
+     {
+      "kind": "readout",
+      "label": "r",
+      "expr": "integral(f, x, 0, 0.5)"
+     }
+    ]
+   },
+   "panel": 0,
+   "kind": "integral",
+   "index": 0,
+   "expected": {
+    "from": 0.0,
+    "to": 0.5,
+    "clipped": false,
+    "integers": null
+   }
+  },
+  {
+   "name": "integral computed bound",
+   "spec": {
+    "spec_version": "ifs-v1",
+    "kind": "illustrative",
+    "demonstrates": "d",
+    "definitions": [
+     {
+      "name": "f",
+      "expr": "x + 0.25"
+     }
+    ],
+    "panels": [
+     {
+      "kind": "readout",
+      "label": "r",
+      "expr": "integral(f, x, 0, a/4)"
+     }
+    ],
+    "parameters": [
+     {
+      "name": "a",
+      "label": "a",
+      "min": 0.25,
+      "max": 1.0,
+      "step": 0.25,
+      "default": 0.5
+     }
+    ]
+   },
+   "panel": 0,
+   "kind": "integral",
+   "index": 0,
+   "expected": {
+    "from": 0.0,
+    "to": 0.125,
+    "clipped": false,
+    "integers": null
+   }
+  },
+  {
+   "name": "sum readout",
+   "spec": {
+    "spec_version": "ifs-v1",
+    "kind": "illustrative",
+    "demonstrates": "d",
+    "definitions": [
+     {
+      "name": "f",
+      "expr": "1/(k+1)"
+     }
+    ],
+    "panels": [
+     {
+      "kind": "readout",
+      "label": "r",
+      "expr": "sum(f, k, 100000, 100001)"
+     }
+    ]
+   },
+   "panel": 0,
+   "kind": "sum",
+   "index": 0,
+   "expected": {
+    "from": 100000.0,
+    "to": 100001.0,
+    "clipped": false,
+    "integers": [
+     100000,
+     100001
+    ]
+   }
+  },
+  {
+   "name": "sum fractional",
+   "spec": {
+    "spec_version": "ifs-v1",
+    "kind": "illustrative",
+    "demonstrates": "d",
+    "definitions": [
+     {
+      "name": "f",
+      "expr": "1/(k+1)"
+     }
+    ],
+    "panels": [
+     {
+      "kind": "readout",
+      "label": "r",
+      "expr": "sum(f, k, 0.5, 2.5)"
+     }
+    ]
+   },
+   "panel": 0,
+   "kind": "sum",
+   "index": 0,
+   "expected": {
+    "from": 0.5,
+    "to": 2.5,
+    "clipped": false,
+    "integers": [
+     1,
+     2
+    ]
+   }
+  }
+ ]
+}

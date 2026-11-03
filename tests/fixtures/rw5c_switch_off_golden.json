@@ -1,0 +1,1134 @@
+{
+ "after": {
+  "extractionId": "ext_prob",
+  "figures": [
+   {
+    "anchorSpanId": "p3",
+    "assumptions": [
+     {
+      "quote": "0 < p < 1 and \\lambda > 0",
+      "spanId": "p2",
+      "text": "λ > 0 and 0 < p < 1"
+     },
+     {
+      "quote": null,
+      "spanId": null,
+      "text": "the book says this elsewhere"
+     }
+    ],
+    "createdAt": "WHEN",
+    "demonstrates": "P(X ≤ 0) is p however λ changes: λ squeezes both sides toward 0, p sets the split.",
+    "extractionId": "ext_prob",
+    "figureId": "fig_ID",
+    "goalAuthor": null,
+    "goalText": null,
+    "grounding": "anchor",
+    "kind": "reconstructed",
+    "label": "AI-built illustration of an interpretation · not checked against the book",
+    "origin": "selection",
+    "passages": [],
+    "predictions": [
+     {
+      "answered": {
+       "after": 0.3000000000025953,
+       "answer": "same",
+       "before": 0.30000000000332916,
+       "explanationText": null,
+       "extractionId": "ext_prob",
+       "figureId": "fig_ID",
+       "learnerAnswer": "rises",
+       "matched": false,
+       "predictionId": "fpr_ID",
+       "predictionIndex": 0
+      },
+      "choices": [
+       {
+        "label": "it rises",
+        "value": "rises"
+       },
+       {
+        "label": "it falls",
+        "value": "falls"
+       },
+       {
+        "label": "it stays the same",
+        "value": "same"
+       }
+      ],
+      "index": 0,
+      "kind": "direction",
+      "prompt": "If λ doubles, what happens to P(X ≤ 0)?"
+     },
+     {
+      "answered": null,
+      "choices": [
+       {
+        "label": "P(X ≤ 0)",
+        "value": "P(X ≤ 0)"
+       },
+       {
+        "label": "P(X > 0)",
+        "value": "P(X > 0)"
+       }
+      ],
+      "index": 1,
+      "kind": "area",
+      "prompt": "Which shaded area is P(X < 0)?"
+     }
+    ],
+    "propertyChecks": [
+     "values_finite",
+     "integrates_to_one",
+     "nonnegative",
+     "shaded_areas"
+    ],
+    "reason": "the book check comes in a later version",
+    "region": null,
+    "revisionNote": null,
+    "spanIds": [
+     "p3"
+    ],
+    "specJson": "{\"annotations\":[{\"target\":\"density\",\"text\":\"the jump at 0 is p\\u00b7\\u03bb on the left, (1\\u2212p)\\u00b7\\u03bb on the right\"}],\"assumptions\":[{\"quote\":\"0 < p < 1 and \\\\lambda > 0\",\"span_id\":\"p2\",\"text\":\"\\u03bb > 0 and 0 < p < 1\"},{\"quote\":\"not in the book\",\"span_id\":\"p2\",\"text\":\"the book says this elsewhere\"}],\"definitions\":[{\"expr\":\"piecewise((x < 0, p*lam*exp(lam*x)), (1 - p)*lam*exp(-lam*x))\",\"name\":\"f\"}],\"demonstrates\":\"P(X \\u2264 0) is p however \\u03bb changes: \\u03bb squeezes both sides toward 0, p sets the split.\",\"invariants\":[{\"expr\":\"f\",\"from\":-40.0,\"kind\":\"nonnegative\",\"to\":40.0,\"var\":\"x\"},{\"expr\":\"f\",\"from\":-40.0,\"kind\":\"integrates_to_one\",\"to\":40.0,\"var\":\"x\"},{\"expr\":\"\",\"kind\":\"equals_source\",\"name\":\"f\"}],\"kind\":\"reconstructed\",\"panels\":[{\"kind\":\"function_plot\",\"markers\":[{\"label\":\"0\",\"x\":\"0\"}],\"series\":[{\"expr\":\"f\",\"label\":\"density\"}],\"shade\":[{\"from\":\"-40\",\"label\":\"P(X \\u2264 0)\",\"series\":\"density\",\"to\":\"0\"},{\"from\":\"0\",\"label\":\"P(X > 0)\",\"series\":\"density\",\"to\":\"40\"}],\"x\":{\"max\":40.0,\"min\":-40.0,\"var\":\"x\"}},{\"expr\":\"integral(f, x, -40, 0)\",\"format\":\"percent\",\"kind\":\"readout\",\"label\":\"P(X \\u2264 0)\"}],\"parameters\":[{\"animate\":false,\"default\":0.3,\"label\":\"p\",\"max\":0.95,\"min\":0.05,\"name\":\"p\",\"step\":0.05},{\"animate\":true,\"default\":1.0,\"label\":\"\\u03bb\",\"max\":4.0,\"min\":0.5,\"name\":\"lam\",\"step\":0.1}],\"predictions\":[{\"change\":{\"lam\":2.0},\"observe\":{\"expr\":\"integral(f, x, -40, 0)\",\"kind\":\"direction\"},\"prompt\":\"If \\u03bb doubles, what happens to P(X \\u2264 0)?\"},{\"change\":{},\"observe\":{\"expr\":\"p\",\"kind\":\"area\"},\"prompt\":\"Which shaded area is P(X < 0)?\"}],\"source_claims\":[{\"quote\":\"f_X(x) = p\\\\lambda e^{\\\\lambda x} for x < 0\",\"span_id\":\"p3\"}],\"spec_version\":\"ifs-v1\"}",
+    "supersedesId": null,
+    "unsupportedKind": null,
+    "verification": "illustrative",
+    "versions": 1
+   }
+  ],
+  "version": 1
+ },
+ "author_calls": 1,
+ "author_prompt_sha256": "87763438cc0ace5e2cd6ab5d82cdfbd2ca68993a15530391671d90e224b62350",
+ "built": {
+  "figure": {
+   "anchorSpanId": "p3",
+   "assumptions": [
+    {
+     "quote": "0 < p < 1 and \\lambda > 0",
+     "spanId": "p2",
+     "text": "λ > 0 and 0 < p < 1"
+    },
+    {
+     "quote": null,
+     "spanId": null,
+     "text": "the book says this elsewhere"
+    }
+   ],
+   "createdAt": "WHEN",
+   "demonstrates": "P(X ≤ 0) is p however λ changes: λ squeezes both sides toward 0, p sets the split.",
+   "extractionId": "ext_prob",
+   "figureId": "fig_ID",
+   "goalAuthor": null,
+   "goalText": null,
+   "grounding": "anchor",
+   "kind": "reconstructed",
+   "label": "AI-built illustration of an interpretation · not checked against the book",
+   "origin": "selection",
+   "passages": [],
+   "predictions": [
+    {
+     "answered": null,
+     "choices": [
+      {
+       "label": "it rises",
+       "value": "rises"
+      },
+      {
+       "label": "it falls",
+       "value": "falls"
+      },
+      {
+       "label": "it stays the same",
+       "value": "same"
+      }
+     ],
+     "index": 0,
+     "kind": "direction",
+     "prompt": "If λ doubles, what happens to P(X ≤ 0)?"
+    },
+    {
+     "answered": null,
+     "choices": [
+      {
+       "label": "P(X ≤ 0)",
+       "value": "P(X ≤ 0)"
+      },
+      {
+       "label": "P(X > 0)",
+       "value": "P(X > 0)"
+      }
+     ],
+     "index": 1,
+     "kind": "area",
+     "prompt": "Which shaded area is P(X < 0)?"
+    }
+   ],
+   "propertyChecks": [
+    "values_finite",
+    "integrates_to_one",
+    "nonnegative",
+    "shaded_areas"
+   ],
+   "reason": "the book check comes in a later version",
+   "region": null,
+   "revisionNote": null,
+   "spanIds": [
+    "p3"
+   ],
+   "specJson": "{\"annotations\":[{\"target\":\"density\",\"text\":\"the jump at 0 is p\\u00b7\\u03bb on the left, (1\\u2212p)\\u00b7\\u03bb on the right\"}],\"assumptions\":[{\"quote\":\"0 < p < 1 and \\\\lambda > 0\",\"span_id\":\"p2\",\"text\":\"\\u03bb > 0 and 0 < p < 1\"},{\"quote\":\"not in the book\",\"span_id\":\"p2\",\"text\":\"the book says this elsewhere\"}],\"definitions\":[{\"expr\":\"piecewise((x < 0, p*lam*exp(lam*x)), (1 - p)*lam*exp(-lam*x))\",\"name\":\"f\"}],\"demonstrates\":\"P(X \\u2264 0) is p however \\u03bb changes: \\u03bb squeezes both sides toward 0, p sets the split.\",\"invariants\":[{\"expr\":\"f\",\"from\":-40.0,\"kind\":\"nonnegative\",\"to\":40.0,\"var\":\"x\"},{\"expr\":\"f\",\"from\":-40.0,\"kind\":\"integrates_to_one\",\"to\":40.0,\"var\":\"x\"},{\"expr\":\"\",\"kind\":\"equals_source\",\"name\":\"f\"}],\"kind\":\"reconstructed\",\"panels\":[{\"kind\":\"function_plot\",\"markers\":[{\"label\":\"0\",\"x\":\"0\"}],\"series\":[{\"expr\":\"f\",\"label\":\"density\"}],\"shade\":[{\"from\":\"-40\",\"label\":\"P(X \\u2264 0)\",\"series\":\"density\",\"to\":\"0\"},{\"from\":\"0\",\"label\":\"P(X > 0)\",\"series\":\"density\",\"to\":\"40\"}],\"x\":{\"max\":40.0,\"min\":-40.0,\"var\":\"x\"}},{\"expr\":\"integral(f, x, -40, 0)\",\"format\":\"percent\",\"kind\":\"readout\",\"label\":\"P(X \\u2264 0)\"}],\"parameters\":[{\"animate\":false,\"default\":0.3,\"label\":\"p\",\"max\":0.95,\"min\":0.05,\"name\":\"p\",\"step\":0.05},{\"animate\":true,\"default\":1.0,\"label\":\"\\u03bb\",\"max\":4.0,\"min\":0.5,\"name\":\"lam\",\"step\":0.1}],\"predictions\":[{\"change\":{\"lam\":2.0},\"observe\":{\"expr\":\"integral(f, x, -40, 0)\",\"kind\":\"direction\"},\"prompt\":\"If \\u03bb doubles, what happens to P(X \\u2264 0)?\"},{\"change\":{},\"observe\":{\"expr\":\"p\",\"kind\":\"area\"},\"prompt\":\"Which shaded area is P(X < 0)?\"}],\"source_claims\":[{\"quote\":\"f_X(x) = p\\\\lambda e^{\\\\lambda x} for x < 0\",\"span_id\":\"p3\"}],\"spec_version\":\"ifs-v1\"}",
+   "supersedesId": null,
+   "unsupportedKind": null,
+   "verification": "illustrative",
+   "versions": 1
+  },
+  "reused": false
+ },
+ "cli_exit": 0,
+ "cli_report": {
+  "active_reading": {
+   "answered": 0,
+   "formative_texts_queued": 1,
+   "questions": {
+    "assumptions": 0,
+    "next_step": 0,
+    "reconstruct": 0,
+    "why_step": 0
+   },
+   "self_check": {
+    "assumptions": {
+     "matches": 0,
+     "no": 0,
+     "partly": 0
+    },
+    "next_step": {
+     "matches": 0,
+     "no": 0,
+     "partly": 0
+    },
+    "why_step": {
+     "matches": 0,
+     "no": 0,
+     "partly": 0
+    }
+   }
+  },
+  "comparisons": {
+   "by_caller": {},
+   "kept": 0,
+   "relations_by_label": {},
+   "relations_by_type": {},
+   "removed": 0,
+   "takes": 0
+  },
+  "cues": {
+   "books_switched_off": 0,
+   "books_switched_on": 0,
+   "check_me": {
+    "count": 0,
+    "of": 0,
+    "share": null
+   },
+   "density_changes": {},
+   "not_relevant": {
+    "count": 0,
+    "of": 0,
+    "share": null
+   },
+   "not_relevant_undone": 0,
+   "opened": {
+    "count": 0,
+    "of": 0,
+    "share": null
+   },
+   "per_reading_hour": null,
+   "shown": 0
+  },
+  "detours": {
+   "by_kind": {},
+   "cost_minutes": {
+    "n": 0,
+    "p50": null,
+    "p95": null
+   },
+   "model_wait_ms": {
+    "n": 0,
+    "p50": null,
+    "p95": null
+   },
+   "opened": 0,
+   "return_rate": {
+    "count": 0,
+    "of": 0,
+    "share": null
+   },
+   "returned_to_origin": 0
+  },
+  "figures": {
+   "built": {
+    "illustrative": 1
+   },
+   "offered": {
+    "library": {},
+    "tutor": {}
+   },
+   "predictions": 1,
+   "predictions_missed": 1,
+   "prefetch": {
+    "blocked_minutes_per_pause": null,
+    "decisions_by_trigger": {
+     "gap": {
+      "asked": 0,
+      "built": 0,
+      "decisions": {},
+      "open": 0,
+      "opened": 0,
+      "outcomes": {}
+     },
+     "lesson": {
+      "asked": 0,
+      "built": 0,
+      "decisions": {},
+      "open": 0,
+      "opened": 0,
+      "outcomes": {}
+     },
+     "offer": {
+      "asked": 0,
+      "built": 0,
+      "decisions": {},
+      "open": 0,
+      "opened": 0,
+      "outcomes": {}
+     },
+     "plan": {
+      "asked": 0,
+      "built": 0,
+      "decisions": {},
+      "open": 0,
+      "opened": 0,
+      "outcomes": {}
+     },
+     "section": {
+      "asked": 0,
+      "built": 0,
+      "decisions": {},
+      "open": 0,
+      "opened": 0,
+      "outcomes": {}
+     }
+    },
+    "measured_wait": {
+     "measured_builds_by_tier": {
+      "grammar": 1,
+      "sketch": 1
+     },
+     "minutes_by_tier": {
+      "grammar": 0.0,
+      "sketch": 0.0
+     },
+     "pressed_tier_mix": {
+      "grammar": 1.0
+     },
+     "tier_mix_by_trigger": {}
+    },
+    "pauses": {
+     "count": 0,
+     "with_prebuilds_earlier_that_day": 0,
+     "without_prebuilds": 0
+    },
+    "posterior": {
+     "model_version": "prefetch_decision_v1",
+     "opening": {
+      "alpha": {
+       "posterior": {
+        "mean": 1.0,
+        "sd": 1.0
+       },
+       "prior": {
+        "mean": 1.0,
+        "sd": 1.0
+       }
+      },
+      "beta_kind": {
+       "gap": {
+        "posterior": {
+         "mean": 0.0,
+         "sd": 1.9397
+        },
+        "prior": {
+         "mean": 0.0,
+         "sd": 1.9397
+        }
+       },
+       "lesson": {
+        "posterior": {
+         "mean": 0.0,
+         "sd": 1.9397
+        },
+        "prior": {
+         "mean": 0.0,
+         "sd": 1.9397
+        }
+       },
+       "offer": {
+        "posterior": {
+         "mean": 0.0,
+         "sd": 1.9397
+        },
+        "prior": {
+         "mean": 0.0,
+         "sd": 1.9397
+        }
+       },
+       "plan": {
+        "posterior": {
+         "mean": 0.0,
+         "sd": 1.9397
+        },
+        "prior": {
+         "mean": 0.0,
+         "sd": 1.9397
+        }
+       },
+       "section": {
+        "posterior": {
+         "mean": 0.0,
+         "sd": 1.9397
+        },
+        "prior": {
+         "mean": 0.0,
+         "sd": 1.9397
+        }
+       }
+      },
+      "observations": 0,
+      "pooling_grid": [
+       {
+        "sigma": 0.25,
+        "tau": 0.25,
+        "weight": 0.04
+       },
+       {
+        "sigma": 0.5,
+        "tau": 0.25,
+        "weight": 0.04
+       },
+       {
+        "sigma": 1.0,
+        "tau": 0.25,
+        "weight": 0.04
+       },
+       {
+        "sigma": 1.5,
+        "tau": 0.25,
+        "weight": 0.04
+       },
+       {
+        "sigma": 2.0,
+        "tau": 0.25,
+        "weight": 0.04
+       },
+       {
+        "sigma": 0.25,
+        "tau": 0.5,
+        "weight": 0.04
+       },
+       {
+        "sigma": 0.5,
+        "tau": 0.5,
+        "weight": 0.04
+       },
+       {
+        "sigma": 1.0,
+        "tau": 0.5,
+        "weight": 0.04
+       },
+       {
+        "sigma": 1.5,
+        "tau": 0.5,
+        "weight": 0.04
+       },
+       {
+        "sigma": 2.0,
+        "tau": 0.5,
+        "weight": 0.04
+       },
+       {
+        "sigma": 0.25,
+        "tau": 1.0,
+        "weight": 0.04
+       },
+       {
+        "sigma": 0.5,
+        "tau": 1.0,
+        "weight": 0.04
+       },
+       {
+        "sigma": 1.0,
+        "tau": 1.0,
+        "weight": 0.04
+       },
+       {
+        "sigma": 1.5,
+        "tau": 1.0,
+        "weight": 0.04
+       },
+       {
+        "sigma": 2.0,
+        "tau": 1.0,
+        "weight": 0.04
+       },
+       {
+        "sigma": 0.25,
+        "tau": 1.5,
+        "weight": 0.04
+       },
+       {
+        "sigma": 0.5,
+        "tau": 1.5,
+        "weight": 0.04
+       },
+       {
+        "sigma": 1.0,
+        "tau": 1.5,
+        "weight": 0.04
+       },
+       {
+        "sigma": 1.5,
+        "tau": 1.5,
+        "weight": 0.04
+       },
+       {
+        "sigma": 2.0,
+        "tau": 1.5,
+        "weight": 0.04
+       },
+       {
+        "sigma": 0.25,
+        "tau": 2.0,
+        "weight": 0.04
+       },
+       {
+        "sigma": 0.5,
+        "tau": 2.0,
+        "weight": 0.04
+       },
+       {
+        "sigma": 1.0,
+        "tau": 2.0,
+        "weight": 0.04
+       },
+       {
+        "sigma": 1.5,
+        "tau": 2.0,
+        "weight": 0.04
+       },
+       {
+        "sigma": 2.0,
+        "tau": 2.0,
+        "weight": 0.04
+       }
+      ]
+     },
+     "pause": {
+      "days": 0,
+      "intercept": {
+       "posterior": {
+        "mean": -3.0,
+        "sd": 2.0
+       },
+       "prior": {
+        "mean": -3.0,
+        "sd": 2.0
+       }
+      },
+      "pauses": 0,
+      "slope": {
+       "posterior": {
+        "mean": 1.5,
+        "sd": 2.0
+       },
+       "prior": {
+        "mean": 1.5,
+        "sd": 2.0
+       }
+      }
+     }
+    },
+    "propensity_mean": null,
+    "skipped": {
+     "caps": 0,
+     "plan": 0,
+     "power": 0
+    }
+   },
+   "regions": 0,
+   "revisions": 0,
+   "show_me": {
+    "abstentions": 0,
+    "built": {},
+    "by_origin": {},
+    "goal_by": {},
+    "grounding": {},
+    "joint": 0,
+    "not_right": 0,
+    "not_right_rate": null,
+    "requests": 0,
+    "unsupported_by_kind": {}
+   },
+   "unsupported_by_kind": {},
+   "what_changed": 0
+  },
+  "inquiry": {
+   "branches": 0,
+   "breadth": {
+    "max": 0,
+    "mean": null
+   },
+   "depth": {
+    "max": 0,
+    "mean": null
+   },
+   "dismissed": 0,
+   "now": {},
+   "open_after_7_days": 0,
+   "opened": 0,
+   "quick_checks": {
+    "answered": 0,
+    "authored": 0,
+    "self_check": {
+     "matches": 0,
+     "no": 0,
+     "partly": 0
+    }
+   },
+   "reconnect_answers": {
+    "quick_check": 0,
+    "still_unclear": 0,
+    "yes": 0
+   },
+   "reopened": 0,
+   "resolved": 0
+  },
+  "intent": {
+   "actions_by_intention": {},
+   "corrected": {
+    "count": 0,
+    "of": 0,
+    "share": null
+   },
+   "discarded": 0,
+   "fallbacks": {},
+   "routings": 0,
+   "speculative": 0,
+   "used": 0,
+   "used_speculative": 0
+  },
+  "learner_text": false,
+  "library": {
+   "asks": 0,
+   "by_entry": {},
+   "compared": {
+    "count": 0,
+    "of": 0,
+    "share": null
+   },
+   "lines_dropped": 0,
+   "notes": {},
+   "personalized": {
+    "count": 0,
+    "of": 0,
+    "share": null
+   },
+   "tutor_asked": {
+    "count": 0,
+    "of": 0,
+    "share": null
+   }
+  },
+  "proactive_load": {
+   "by_element": {},
+   "per_reading_hour": null,
+   "reading_hours": 0.0,
+   "shown": 0
+  },
+  "reader_inquiry": {
+   "enabled": true,
+   "max_checks_per_day": 100,
+   "max_usd_per_check": 0.5,
+   "metered_price_per_million": null
+  },
+  "reading_paths": {
+   "depth_choices": {},
+   "judged_sections": 0,
+   "labels": {},
+   "overrides": {},
+   "skipped_core": {
+    "assessed": 0,
+    "assessments": 0,
+    "by_label": {},
+    "learning_objects_missed": 0,
+    "miss_rule": "unaided graded attempt after the skip, below intervention_outcomes.SUCCESS_CORRECTNESS",
+    "misses": 0,
+    "pending": 0,
+    "skips": 0,
+    "with_learning_objects": 0,
+    "with_miss": 0
+   }
+  },
+  "roles": {
+   "agreed": 0,
+   "by_confidence": {},
+   "by_role": {},
+   "proposals": 0,
+   "reviewed": {},
+   "versions_by_judge": {}
+  },
+  "routes": [],
+  "selection_to_reading": {
+   "actions": {
+    "by_kind": {},
+    "total": 0
+   },
+   "back_to_reading": {
+    "count": 0,
+    "of": 0,
+    "share": null
+   },
+   "model_backed": {},
+   "selections": 0
+  },
+  "tutor": {
+   "abstained": 0,
+   "another_way": {
+    "count": 0,
+    "of": 0,
+    "share": null
+   },
+   "answers": 0,
+   "by_mode": {
+    "bridge": 0,
+    "excerpt": 0,
+    "grounded": 0
+   },
+   "didnt_help": {
+    "count": 0,
+    "of": 0,
+    "share": null
+   },
+   "excerpts_dropped": 0,
+   "offers": {
+    "press_results": {},
+    "pressed": {},
+    "shown": {}
+   },
+   "resolved_after": {
+    "another_way": {
+     "count": 0,
+     "of": 0,
+     "share": null
+    },
+    "didnt_help": {
+     "count": 0,
+     "of": 0,
+     "share": null
+    }
+   },
+   "retrieval": {}
+  },
+  "version": "reader-report-v1",
+  "visits": {
+   "active_minutes": 0.0,
+   "time_to_first_action_seconds": {
+    "n": 0,
+    "p50": null,
+    "p95": null
+   },
+   "visits": 0
+  },
+  "waiting": {
+   "count": 0,
+   "of": 0,
+   "share": null
+  },
+  "window": {
+   "since": null,
+   "until": "WHEN"
+  }
+ },
+ "listed": {
+  "extractionId": "ext_prob",
+  "figures": [
+   {
+    "anchorSpanId": "p3",
+    "assumptions": [
+     {
+      "quote": "0 < p < 1 and \\lambda > 0",
+      "spanId": "p2",
+      "text": "λ > 0 and 0 < p < 1"
+     },
+     {
+      "quote": null,
+      "spanId": null,
+      "text": "the book says this elsewhere"
+     }
+    ],
+    "createdAt": "WHEN",
+    "demonstrates": "P(X ≤ 0) is p however λ changes: λ squeezes both sides toward 0, p sets the split.",
+    "extractionId": "ext_prob",
+    "figureId": "fig_ID",
+    "goalAuthor": null,
+    "goalText": null,
+    "grounding": "anchor",
+    "kind": "reconstructed",
+    "label": "AI-built illustration of an interpretation · not checked against the book",
+    "origin": "selection",
+    "passages": [],
+    "predictions": [
+     {
+      "answered": null,
+      "choices": [
+       {
+        "label": "it rises",
+        "value": "rises"
+       },
+       {
+        "label": "it falls",
+        "value": "falls"
+       },
+       {
+        "label": "it stays the same",
+        "value": "same"
+       }
+      ],
+      "index": 0,
+      "kind": "direction",
+      "prompt": "If λ doubles, what happens to P(X ≤ 0)?"
+     },
+     {
+      "answered": null,
+      "choices": [
+       {
+        "label": "P(X ≤ 0)",
+        "value": "P(X ≤ 0)"
+       },
+       {
+        "label": "P(X > 0)",
+        "value": "P(X > 0)"
+       }
+      ],
+      "index": 1,
+      "kind": "area",
+      "prompt": "Which shaded area is P(X < 0)?"
+     }
+    ],
+    "propertyChecks": [
+     "values_finite",
+     "integrates_to_one",
+     "nonnegative",
+     "shaded_areas"
+    ],
+    "reason": "the book check comes in a later version",
+    "region": null,
+    "revisionNote": null,
+    "spanIds": [
+     "p3"
+    ],
+    "specJson": "{\"annotations\":[{\"target\":\"density\",\"text\":\"the jump at 0 is p\\u00b7\\u03bb on the left, (1\\u2212p)\\u00b7\\u03bb on the right\"}],\"assumptions\":[{\"quote\":\"0 < p < 1 and \\\\lambda > 0\",\"span_id\":\"p2\",\"text\":\"\\u03bb > 0 and 0 < p < 1\"},{\"quote\":\"not in the book\",\"span_id\":\"p2\",\"text\":\"the book says this elsewhere\"}],\"definitions\":[{\"expr\":\"piecewise((x < 0, p*lam*exp(lam*x)), (1 - p)*lam*exp(-lam*x))\",\"name\":\"f\"}],\"demonstrates\":\"P(X \\u2264 0) is p however \\u03bb changes: \\u03bb squeezes both sides toward 0, p sets the split.\",\"invariants\":[{\"expr\":\"f\",\"from\":-40.0,\"kind\":\"nonnegative\",\"to\":40.0,\"var\":\"x\"},{\"expr\":\"f\",\"from\":-40.0,\"kind\":\"integrates_to_one\",\"to\":40.0,\"var\":\"x\"},{\"expr\":\"\",\"kind\":\"equals_source\",\"name\":\"f\"}],\"kind\":\"reconstructed\",\"panels\":[{\"kind\":\"function_plot\",\"markers\":[{\"label\":\"0\",\"x\":\"0\"}],\"series\":[{\"expr\":\"f\",\"label\":\"density\"}],\"shade\":[{\"from\":\"-40\",\"label\":\"P(X \\u2264 0)\",\"series\":\"density\",\"to\":\"0\"},{\"from\":\"0\",\"label\":\"P(X > 0)\",\"series\":\"density\",\"to\":\"40\"}],\"x\":{\"max\":40.0,\"min\":-40.0,\"var\":\"x\"}},{\"expr\":\"integral(f, x, -40, 0)\",\"format\":\"percent\",\"kind\":\"readout\",\"label\":\"P(X \\u2264 0)\"}],\"parameters\":[{\"animate\":false,\"default\":0.3,\"label\":\"p\",\"max\":0.95,\"min\":0.05,\"name\":\"p\",\"step\":0.05},{\"animate\":true,\"default\":1.0,\"label\":\"\\u03bb\",\"max\":4.0,\"min\":0.5,\"name\":\"lam\",\"step\":0.1}],\"predictions\":[{\"change\":{\"lam\":2.0},\"observe\":{\"expr\":\"integral(f, x, -40, 0)\",\"kind\":\"direction\"},\"prompt\":\"If \\u03bb doubles, what happens to P(X \\u2264 0)?\"},{\"change\":{},\"observe\":{\"expr\":\"p\",\"kind\":\"area\"},\"prompt\":\"Which shaded area is P(X < 0)?\"}],\"source_claims\":[{\"quote\":\"f_X(x) = p\\\\lambda e^{\\\\lambda x} for x < 0\",\"span_id\":\"p3\"}],\"spec_version\":\"ifs-v1\"}",
+    "supersedesId": null,
+    "unsupportedKind": null,
+    "verification": "illustrative",
+    "versions": 1
+   }
+  ],
+  "version": 1
+ },
+ "predicted": {
+  "after": 0.3000000000025953,
+  "answer": "same",
+  "before": 0.30000000000332916,
+  "explanationText": null,
+  "extractionId": "ext_prob",
+  "figureId": "fig_ID",
+  "learnerAnswer": "rises",
+  "matched": false,
+  "predictionId": "fpr_ID",
+  "predictionIndex": 0,
+  "version": 1
+ },
+ "report": {
+  "active_reading": {
+   "answered": 0,
+   "formative_texts_queued": 1,
+   "questions": {
+    "assumptions": 0,
+    "next_step": 0,
+    "reconstruct": 0,
+    "why_step": 0
+   },
+   "self_check": {
+    "assumptions": {
+     "matches": 0,
+     "no": 0,
+     "partly": 0
+    },
+    "next_step": {
+     "matches": 0,
+     "no": 0,
+     "partly": 0
+    },
+    "why_step": {
+     "matches": 0,
+     "no": 0,
+     "partly": 0
+    }
+   }
+  },
+  "comparisons": {
+   "by_caller": {},
+   "kept": 0,
+   "relations_by_label": {},
+   "relations_by_type": {},
+   "removed": 0,
+   "takes": 0
+  },
+  "cues": {
+   "books_switched_off": 0,
+   "books_switched_on": 0,
+   "check_me": {
+    "count": 0,
+    "of": 0,
+    "share": null
+   },
+   "density_changes": {},
+   "not_relevant": {
+    "count": 0,
+    "of": 0,
+    "share": null
+   },
+   "not_relevant_undone": 0,
+   "opened": {
+    "count": 0,
+    "of": 0,
+    "share": null
+   },
+   "per_reading_hour": null,
+   "shown": 0
+  },
+  "detours": {
+   "by_kind": {},
+   "cost_minutes": {
+    "n": 0,
+    "p50": null,
+    "p95": null
+   },
+   "model_wait_ms": {
+    "n": 0,
+    "p50": null,
+    "p95": null
+   },
+   "opened": 0,
+   "return_rate": {
+    "count": 0,
+    "of": 0,
+    "share": null
+   },
+   "returned_to_origin": 0
+  },
+  "figures": {
+   "built": {
+    "illustrative": 1
+   },
+   "offered": {
+    "library": {},
+    "tutor": {}
+   },
+   "predictions": 1,
+   "predictions_missed": 1,
+   "regions": 0,
+   "revisions": 0,
+   "show_me": {
+    "abstentions": 0,
+    "built": {},
+    "by_origin": {},
+    "goal_by": {},
+    "grounding": {},
+    "joint": 0,
+    "not_right": 0,
+    "not_right_rate": null,
+    "requests": 0,
+    "unsupported_by_kind": {}
+   },
+   "unsupported_by_kind": {},
+   "what_changed": 0
+  },
+  "inquiry": {
+   "branches": 0,
+   "breadth": {
+    "max": 0,
+    "mean": null
+   },
+   "depth": {
+    "max": 0,
+    "mean": null
+   },
+   "dismissed": 0,
+   "now": {},
+   "open_after_7_days": 0,
+   "opened": 0,
+   "quick_checks": {
+    "answered": 0,
+    "authored": 0,
+    "self_check": {
+     "matches": 0,
+     "no": 0,
+     "partly": 0
+    }
+   },
+   "reconnect_answers": {
+    "quick_check": 0,
+    "still_unclear": 0,
+    "yes": 0
+   },
+   "reopened": 0,
+   "resolved": 0
+  },
+  "intent": {
+   "actions_by_intention": {},
+   "corrected": {
+    "count": 0,
+    "of": 0,
+    "share": null
+   },
+   "discarded": 0,
+   "fallbacks": {},
+   "routings": 0,
+   "speculative": 0,
+   "used": 0,
+   "used_speculative": 0
+  },
+  "learner_text": false,
+  "library": {
+   "asks": 0,
+   "by_entry": {},
+   "compared": {
+    "count": 0,
+    "of": 0,
+    "share": null
+   },
+   "lines_dropped": 0,
+   "notes": {},
+   "personalized": {
+    "count": 0,
+    "of": 0,
+    "share": null
+   },
+   "tutor_asked": {
+    "count": 0,
+    "of": 0,
+    "share": null
+   }
+  },
+  "proactive_load": {
+   "by_element": {},
+   "per_reading_hour": null,
+   "reading_hours": 0.0,
+   "shown": 0
+  },
+  "reading_paths": {
+   "depth_choices": {},
+   "judged_sections": 0,
+   "labels": {},
+   "overrides": {}
+  },
+  "roles": {
+   "agreed": 0,
+   "by_confidence": {},
+   "by_role": {},
+   "proposals": 0,
+   "reviewed": {},
+   "versions_by_judge": {}
+  },
+  "routes": [],
+  "selection_to_reading": {
+   "actions": {
+    "by_kind": {},
+    "total": 0
+   },
+   "back_to_reading": {
+    "count": 0,
+    "of": 0,
+    "share": null
+   },
+   "model_backed": {},
+   "selections": 0
+  },
+  "tutor": {
+   "abstained": 0,
+   "another_way": {
+    "count": 0,
+    "of": 0,
+    "share": null
+   },
+   "answers": 0,
+   "by_mode": {
+    "bridge": 0,
+    "excerpt": 0,
+    "grounded": 0
+   },
+   "didnt_help": {
+    "count": 0,
+    "of": 0,
+    "share": null
+   },
+   "excerpts_dropped": 0,
+   "offers": {
+    "press_results": {},
+    "pressed": {},
+    "shown": {}
+   },
+   "resolved_after": {
+    "another_way": {
+     "count": 0,
+     "of": 0,
+     "share": null
+    },
+    "didnt_help": {
+     "count": 0,
+     "of": 0,
+     "share": null
+    }
+   },
+   "retrieval": {}
+  },
+  "version": "reader-report-v1",
+  "visits": {
+   "active_minutes": 0.0,
+   "time_to_first_action_seconds": {
+    "n": 0,
+    "p50": null,
+    "p95": null
+   },
+   "visits": 0
+  },
+  "waiting": {
+   "count": 0,
+   "of": 0,
+   "share": null
+  },
+  "window": {
+   "since": null,
+   "until": "WHEN"
+  }
+ },
+ "request_hash": {
+  "advanced": "a1ed457e40b58b4098e61819e72880a80ae67165aaec0bf2086e3658321df758",
+  "plain": "b91b771ba3c26193f344b0e837e1396bea99a0f78a81d7d03f2929491a714db5",
+  "revision": "8fa45b9a10f2475d0382ae50e4086add2d3db1eea9d76875fe92593a3c462c33"
+ },
+ "tables": [
+  "figure_predictions",
+  "figure_prefetch_decisions",
+  "figure_requests"
+ ]
+}
