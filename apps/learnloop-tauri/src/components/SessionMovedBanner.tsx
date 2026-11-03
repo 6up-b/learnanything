@@ -19,11 +19,14 @@ const button: CSSProperties = {
 export function SessionMovedBanner({
   moved,
   onAdoptBack,
-  onStartFresh
+  onStartFresh,
+  onLetGo
 }: {
   moved: SessionMoved | null;
   onAdoptBack: (moved: SessionMoved) => Promise<void>;
   onStartFresh: (moved: SessionMoved) => Promise<void>;
+  /** A session that ended elsewhere: this desktop stops holding it, and starts nothing. */
+  onLetGo: () => void;
 }) {
   const [busy, setBusy] = useState(false);
   if (!moved) return null;
@@ -71,7 +74,9 @@ export function SessionMovedBanner({
           <button type="button" style={{ ...button, color: COLOR.amberLink }} disabled={busy} onClick={() => run(onAdoptBack)}>
             Take it back
           </button>
-        ) : null}
+        ) : (
+          <button type="button" style={{ ...button, color: COLOR.amberLink }} disabled={busy} onClick={onLetGo}>OK</button>
+        )}
       </div>
     </div>
   );

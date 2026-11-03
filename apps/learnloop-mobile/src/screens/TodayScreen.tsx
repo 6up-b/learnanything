@@ -47,7 +47,7 @@ export function TodayScreen({
   const sessionId = session?.sessionId ?? null;
   const query = useCachedQuery<QueueSnapshot>(
     sessionId ? queueKey(sessionId) : null,
-    () => phone.getTodayQueue(sessionId as string, PHONE_QUEUE_LIMIT),
+    () => phone.getTodayQueue(sessionId as string, PHONE_QUEUE_LIMIT, session?.availableMinutes),
     { tags: [TAG.queue] }
   );
   useEffect(() => {
@@ -79,7 +79,7 @@ export function TodayScreen({
 
   const rows = queueRows(query.data, held);
   const [head, ...rest] = rows;
-  const waiting = waitingLine((query.data?.deviceDeferredCount ?? 0) + held.size);
+  const waiting = waitingLine(query.data?.deviceDeferredCount ?? 0);
   return (
     <div className="main">
       <h1>Today</h1>

@@ -1,5 +1,6 @@
 # Install as $LEARNLOOP_CONFIG_DIR/mobile.toml (default ~/.config/learnloop).
-# Keep disabled until the vault is migrated and Serve/policy have been checked.
+# Keep disabled until the vault is migrated, Serve is checked and the phone app is built
+# (npm install && npm run build in apps/learnloop-mobile).
 enabled = false
 vault = "/ABSOLUTE/PATH/TO/VAULT"
 hostname = "desktop.example-tailnet.ts.net"

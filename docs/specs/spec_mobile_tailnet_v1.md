@@ -4,7 +4,8 @@
 - **M1 is built** on branch `mobile/m1` (9c3e431f), with automated checks green.
 - **Phone acceptance A1–A3 is pending.**
 - **M2's prerequisites PR-1 to PR-7 are built** (§9.2–§9.8).
-- **M2 and later are not built.**
+- **M2a is built** on branch `mobile/m2a` (§9.9, 2026-11-03). The owner waived M1's two weeks of captures and runs A1–A4 later.
+- **M2b and M3 are not built.**
 
 **Revision 4 (2026-10-12, owner): the spec follows the M1 build.** M1 was implemented with revision 2's pairing exchange and token scopes, and the owner chose to keep them. So:
 - §4.2 and §4.3 are restored to pairing plus scopes.
@@ -258,6 +259,7 @@ Verified against Tailscale documentation on 2026-10-11; see the References.
   - **Amended 2026-11-03 (orchestrator ruling R1, `docs/reviews/mobile-pr5-pr7-codex-review.md`):** a window return does not rebuild the queue or the plan. It reads the token and any owed session read; a refetch needs a revision change or a reload. "Adds a refetch when the window regains focus" above is replaced by this, because a rebuild per alt-tab can start background model work and writes offer and decision rows for lists nobody looked at, on a desktop with no phone.
   - **Amended 2026-11-03 (orchestrator ruling R2, same record):** the poll's refetches and reloads run only on Today's list: `todayStage` queue, with no practice, feedback, block review, lesson, exam, calibration or golden-path run open, on the classic Today and on the simple shell's Today and Start. Anywhere else a change is remembered and paid on return, and the session read still runs. M2 widens this if the phone needs it.
   - **Ruling R5, same date:** one desktop difference from before this stage is kept on purpose. Today's old poll ran only on the classic Today screen, so the default simple shell's Today never refreshed from this token. Now it does, on a real revision change or a completed reload job, and an idle token rebuilds nothing.
+  - **M2a, 2026-11-03 (open item 6):** R2 is not widened; §9.9 says why.
   - Desktop-originated writes keep today's behaviour.
 
 **Gate ordering.** M1 already runs a second process against the vault, so G6a (host coexistence, §10) gates M1. The full two-process gate G6b gates M2.
@@ -372,7 +374,7 @@ The allowlist is a frozen mapping in `learnloop_mobile/allowlist.py`. Each entry
 **Parameter constraints (enforced in the adapter, before dispatch):**
 - `start_session`: `notes_md_path` is rejected. The phone sends `available_minutes`, plus `energy` and `sleep_quality` once Q14 decides the readiness form.
 - `get_today_queue`, `skip_practice_item`, `open_queue_item`, `get_practice_item`: device eligibility comes from the request origin, never from a parameter (§6.4, §6.8).
-- `submit_attempt`: `submission_id` must be present and non-blank. `self_grade` is rejected in M2, because the phone has no self-grading UI. `answer_md` must be absent when `answer_transcription_id` is present, or else equal the bound revision's text (§6.6).
+- `submit_attempt`: `submission_id` must be present and non-blank. `self_grade` is rejected in M2, because the phone has no self-grading UI. `answer_md` must be absent when `answer_transcription_id` is present, or else equal the bound revision's text (§6.6). *As built (M2a): `submit_dont_know` takes the same constraints, and `probe_presentation_id` is rejected on both, because a diagnostic probe is never answered on the phone in M2 (§1, §6.4). `get_practice_item` also refuses `proposal_id` and `source_exercise_import_id`, which belong to Find practice.*
 - `ask_tutor_question` (M3): only the contexts the phone's screens originate (practice, feedback, standalone ask); `subject_id` must name an existing subject.
 - `promote_tutor_question` (M3): `subject_id` and `learning_object_id` must exist; the intent comes from the handler's existing set.
 - Any parameter naming a vault path, file or directory is rejected for every method.
@@ -505,6 +507,7 @@ The app shell and service worker are identity-gated but have no bearer token, be
   - The host canonicalizes `params` (sorted-key JSON after constraint checks), hashes it, and in one transaction inserts a `mobile_jobs` row in state `accepted`, or finds the existing one.
     - **Same id and same hash:** return the existing job's current state. Identical retries are coalesced, with no second provider call from the host.
     - **Same id and a different hash:** `409 submission_conflict`.
+    - *As built (M2a): a job that failed with a retryable error (grading down, a busy database) wrote nothing to repeat, so the same id and hash runs it again under the same row. That is what "retry later" means on one submission id. The hash is over the validated params, so a retry's spelling cannot conflict; the PWA resends the first request's fields exactly, and an answer edited after a failure takes a new id.*
   - For photo and voice answers, the same transaction marks the bound transcription consumed (§6.6).
   - The host returns the job only after this commit.
 - **Execution.** The job worker owns a copy of the accepted params and runs the handler through `_handle` to completion, whether or not the HTTP client is still connected.
@@ -549,6 +552,8 @@ Text cues such as "see the figure below" are logged as `suspected_figure` in the
 - **Implementation check before M2:** confirm that a committed, unanswered probe presentation resumes correctly on the desktop, as it does after the app closes mid-item. If it does not, `ineligibility_reason` must exclude probe-capable items at queue time instead.
 
 **Mixed devices** (D6): ineligible items are filtered, and the phone shows "N items waiting for the desktop".
+
+*As built (M2a): a diagnostic check the phone committed and did not render stays the session's assignment, and is what "moves to the next queue item" moves past: the phone's next build holds it back and counts it, so the next item is that offer's head, not a learner pick.*
 
 **Desktop requests** take the `desktop` class and stay byte-identical to today (G9).
 
@@ -826,6 +831,22 @@ The full record is `docs/reviews/mobile-pr5-pr7.md`, with the file-and-line cita
 - **`get_queue_revision`** reads its jobs directly (`completed_jobs_awaiting_reload`), not through the batch views, because it now runs on every screen. It answers `reloaded: true` when it reloaded the vault, which replaces Today's "refetch on the first poll": an idle start refetches nothing. Its one field, `holdReload` (default false), reads the token without reloading now: a completed job stays owed for the first read without it, and the token is the same either way (R2). The simple shell's Today refreshing from this token at all is new (R5).
 - **`session_moved` detection, not its UI.** A session's snapshot gains `ownerDeviceId`, `ownerLabel` and `ownerGeneration` once it has left the desktop (absent reads as the desktop at generation 0, so a desktop session's reply is byte-identical). A re-read session another device holds, or one ended elsewhere, is noted in `useSessionMoved()`. The banner, the adopt / start fresh prompts and a `replace` parameter are M2's (§6.5).
 
+### 9.9 As built (M2a, typed practice on the phone, 2026-11-03)
+
+The full record is `docs/reviews/mobile-m2a.md`, with the citations that moved and the commands for A1–A4. Migration **240** (`240_mobile_jobs.sql`, built beside the data-capture stage's 239 and renumbered at landing if need be); head fixture `migration_head_240`. No algorithm successor.
+- **The host.** `learnloop_mobile/allowlist.py` (the M2 row), `adapter.py` (§6.2, pure) and `runtime.py` (the two workers, each one thread and one `load_secondary` context). A host that only takes captures still imports no sidecar: the first `/rpc` starts both workers, and a start with open jobs starts the job worker. The `mobile-is-independent` contract allows `learnloop_sidecar`, as §3.1 says.
+- **Beyond §3.1:** the host drains the durable post-attempt queue from its job context, through one `PostAttemptWorker` shared by both contexts. PR-1 left that queue to the primary, and a phone answer's diagnosis would wait for as long as the desktop app stayed closed (D2), with each queue build waiting out its bounded wait on a worker with nothing to run. The queue is lease-fenced and strict in attempt order across processes, so a desktop beside it runs nothing twice. Flagged for the owner.
+- **Jobs.** `capture/jobs.py`, one transaction with session ownership and admission (§6.3, §6.5). A job's origin carries `accepted_session_id`, so a handoff after acceptance does not refuse it. A session ended since is still refused, as any write to one is.
+- **A start bumps once** (§9.8's debt): `MobileHost.on_start`, then the recovery of jobs another run left open. A desktop spends one refetch per host start.
+- **Phone Today is the queue, never the plan.** §4.5 lists no plan RPC and the plan's stored record is shared. The daily-loop spec's three lines saying otherwise are amended with dated notes. A phone's answers count toward the desktop's plan, which marks an item done by any attempt recorded after it was planned.
+- **What a phone offer logs.** The phone shows every row it asks for (`limit`), its head first, and "Next" opens that head, so under a serving plan too its head is served: surface `phone_queue`, exact propensity, a row below it a learner pick on `phone_practice`. The desktop's offer under a plan is still `full_list`. The router's inputs name `device_eligibility_v1`, or `off` under the kill switch.
+- **`suspected_figure` is report-only**, a word pattern in `capture/report.py`, read by `learnloop-mobile report` and nothing that decides serving.
+- **R2's hold is not widened.** A phone's change reaches Today's list on the next 3 s tick there, and otherwise once, on the return to it, with no rebuild per return; a move is seen on every screen, a refused write notes it at once, and a session a phone holds at load is a move with no read of its own.
+- **The handoff.** `start_session` takes `replace`; `adopt_session` is a Tauri command. All three desktop starts go through `app/sessionHandoff.ts`; the banner and the prompt are `SessionMovedBanner` and `SessionElsewherePrompt`; the practice screen stops writing while moved, and taking the session back reopens it on the checkpoint.
+- **G10's cap boundary** holds by construction for the host's workers: no phone answer can name a presentation, so neither adds a qualifying observation.
+- **The PWA.** `apps/learnloop-mobile`, built into the gitignored `src/learnloop_mobile/static/app/`. An app on the iOS home screen keeps storage apart from Safari's, so it pairs with the manual code. The phone offers no hints, no self-grade and no contest.
+- **Not built here:** M2b (photo answers), M3 (tutor, voice, the capture processor), the Reader.
+
 ## 10. Evaluation
 
 **Correctness gates (pass/fail):**
@@ -877,6 +898,7 @@ That last question is the one that matters for the daily loop.
 - `test_session_ownership.py`: interleaved exclusive starts; replace and adopt compare-and-swap; `session_moved` on every session-scoped write; draft preservation; the cap boundary under concurrency. (G10)
 - As built (PR-3, PR-4): `test_synthesis_sweep_primary_only.py` (G6a's synthesis clause), `test_session_ownership.py` (without the cap boundary), `test_session_ownership_migration.py` (226), `test_attempt_content_state_race.py` (PR-2's reverse race, G6b).
 - `test_request_origin.py`: `entry_surface` and offer surfaces from the origin; parameters cannot set them. (G11)
+- As built (M2a): `test_mobile_rpc.py` (G2, G3, G9, G11, G12), `test_mobile_jobs.py` (G7), `test_mobile_handoff.py` (G10), `test_mobile_two_process.py` (G6b), `test_mobile_jobs_migration.py` (240); vitest in `apps/learnloop-mobile` (the HTTP call, 202, the retry policy, the outbox, the fragment token, the service worker, each screen through a fake host), `app/sessionHandoff.test.tsx` and `App.queueRevision.test.tsx` on the desktop.
 - As built (PR-5..PR-7): `test_request_origin.py`, `test_device_eligibility.py` (G9, with §6.4's probe-resume check; a None origin's reply pinned), `test_host_queue_revision.py` (G12's bump, a real second process, the desktop's read of a moved session), and vitest `useQueueRevisionPoll.test.tsx` and `App.queueRevision.test.tsx` (G12's poll and its cost).
 - Mobile app (vitest): the HTTP `call()` maps commands to `/rpc` and errors to `CommandError`; `202` handling; the retry policy; outbox persistence, response classification and flush; token pickup from the URL fragment; a photo or voice answer submits without a confirm step and shows its transcript beside the grade.
 - Fakes: a fake identity-header injector and a fake transcription provider. No automated test calls Tailscale; A1–A4 cover the real deployment.

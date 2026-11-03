@@ -86,7 +86,8 @@ function Phone({ credential }: { credential: Credential }) {
   const [busy, setBusy] = useState(false);
   const [finished, setFinished] = useState<SessionEndSummary | null>(null);
   const [outboxWaiting, setOutboxWaiting] = useState(0);
-  // Diagnostic checks this session left for the desktop: not offered again from this list (§6.4).
+  // Diagnostic checks this session left for the desktop. The next build holds them back and counts
+  // them; this covers a list read before that build (§6.4).
   const [held, setHeld] = useState<ReadonlySet<string>>(() => new Set());
   const sessionRef = useRef(session);
   sessionRef.current = session;
@@ -302,7 +303,7 @@ function Phone({ credential }: { credential: Credential }) {
       return;
     }
     try {
-      const queue = await phone.getTodayQueue(open.sessionId, PHONE_QUEUE_LIMIT);
+      const queue = await phone.getTodayQueue(open.sessionId, PHONE_QUEUE_LIMIT, open.availableMinutes);
       setQueryData(queueKey(open.sessionId), queue, [TAG.queue]);
       const rows = queueRows(queue, practiceItemId ? new Set([...held, practiceItemId]) : held);
       const head = rows[0];

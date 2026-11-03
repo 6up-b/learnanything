@@ -393,6 +393,9 @@ class MobileHost:
                     job = await asyncio.wait_for(asyncio.shield(asyncio.wrap_future(waiter)), JOB_WAIT_SECONDS)
                 except (TimeoutError, asyncio.TimeoutError):
                     pass  # A disconnect or a slow grade: the job runs on either way.
+            else:
+                # Finished between the acceptance and this line, or a stopping host's: the row knows.
+                job = await self.work(self.runtime.job_status, job.id) or job
         return self._job_response(job)
 
     @staticmethod

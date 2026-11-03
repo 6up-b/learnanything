@@ -1,5 +1,5 @@
 [Unit]
-Description=LearnLoop tailnet capture host (M1)
+Description=LearnLoop tailnet host (capture and the phone app)
 After=network.target
 
 [Service]

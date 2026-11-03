@@ -160,7 +160,7 @@ def get_today_queue(ctx: SidecarContext, params: QueueInput) -> dict[str, Any]:
     if reentry_cap is not None:
         limit = reentry_cap if limit is None else min(limit, reentry_cap)
     trace = offer_trace_for(vault, params.session_id)
-    held_for_device = device_filter(ctx.request_origin, vault)
+    held_for_device = device_filter(ctx.request_origin, vault, repository, params.session_id)
     queue = build_due_queue(
         vault,
         repository,

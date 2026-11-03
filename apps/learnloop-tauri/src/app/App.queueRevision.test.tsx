@@ -273,6 +273,10 @@ describe("M2a (§6.5): the session moved to the phone", () => {
     await wait(REVISION_POLL_MS * 2);
     expect(screen.getByRole("status", { name: "Session moved" }).textContent).toContain("ended on another device");
     expect(screen.queryByRole("button", { name: "Take it back" })).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "OK" }));
+    await wait(0);
+    expect(screen.queryByRole("status", { name: "Session moved" })).toBeNull();
+    expect(screen.queryByTestId("practice-stub")).toBeNull();
   });
 
   it("open item 6: a phone's change on Today refetches once, and a focus at the same token nothing", async () => {

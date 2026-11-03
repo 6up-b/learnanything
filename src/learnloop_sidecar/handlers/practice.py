@@ -1926,7 +1926,7 @@ def skip_practice_item(ctx: SidecarContext, params: SkipInput) -> dict[str, Any]
     session = require_owned_session(ctx, repository, params.session_id)
     generation = int(session.get("owner_generation") or 0)
     trace = offer_trace_for(vault, params.session_id)
-    held_for_device = device_filter(ctx.request_origin, vault)
+    held_for_device = device_filter(ctx.request_origin, vault, repository, params.session_id)
     queue = build_due_queue(
         vault,
         repository,

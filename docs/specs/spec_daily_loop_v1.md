@@ -27,7 +27,7 @@
 | `spec_action_router_v1.md` | This spec defines the plan container: minutes, lanes, block boundaries, "keep going", re-entry, the streak and what the learner sees. The router chooses blocks through the interface in §6.8. Before R2 a deterministic chooser fills it |
 | `spec_learner_field_v1.md` §5.2 (Slice A Phase 6) | Phase 6 decides *which* new material starts and how "assumed known" works. This spec decides *how much* new material a day admits (Q11) and maps "assumed known" onto intent (§5.6) |
 | `spec_embedding_consumers_v1.md` §5.3, §5.9 | Capture solving reuses PF's verified-reference rules. `find_practice` powers the "Practice on…" box and recalls filing candidates |
-| `spec_mobile_tailnet_v1.md` §6.7 | Its M3 "background capture processor" is §4.3 here. The phone shows this plan from M2a |
+| `spec_mobile_tailnet_v1.md` §6.7 | Its M3 "background capture processor" is §4.3 here. ~~The phone shows this plan from M2a.~~ *Amended 2026-11-03 (mobile M2a, `docs/reviews/mobile-m2a.md`): the phone shows the allowlisted queue. The mobile spec's §4.5 lists no plan RPC, and a plan's stored record is shared between devices* |
 | `spec_project_understanding_v1.md` | Due delayed probes enter the plan's maintain lane from project M2 (§6.9) |
 
 **Citation convention.** Every `file:line` below was checked on this branch (base `16db5ac5`). Python paths are relative to `src/` (`learnloop/…`, `learnloop_sidecar/…`), frontend paths to `apps/learnloop-tauri/src/` (`screens/…`, `components/…`, `app/…`), and `migrations/…` to the repo root. Work on unmerged branches is named by branch, without line numbers.
@@ -770,7 +770,7 @@ The daily-loop implementation is Wave 2 of `implementation_goal.md` §3. Every p
 | **DL3: capture** | `capture.create` and the box (Alt+C, text, URL, image paste and drop stored); the Captures strip replacing M1's Inbox strip; the processor (§4.3) for text and URL captures (images wait for DL4); purge of processed content and of the adopted item's stored revisions (§4.7); `capture_processing`, `capture_inbox.source_anchor_json`, `practice_attempts.reference_status` and the `redacted_at` columns with the snapshot trigger (one migration); the attempt-time certification gate (§4.4); Practice this (§4.4); Move and undo; spend controls and `learnloop capture add \| list \| process [--dry-run]`; the "Practice on…" box (§6.9) | DL1 (the "Practice on…" block); mobile M1 merged; Slice A Phase 5a merged for verification (otherwise answers stay `unverified`, §4.3); Phase 3 for the one-member family; Phase 5b for `find_practice` (text search until then) | `capture_reference_v1` (projection; otherwise content) | G5–G9, G15; shadow rebuild with zero projection deltas. **Owner checkpoint:** capture report (captures per week by channel, filing confidence, Moves, verification rate, adoption rate) |
 | **DL4: images, reader presets, pre-questions** | Image transcription in the processor (the `image_transcription` route, added here if the image drop-in spec hasn't landed); image drop-in on the Ingest screen into `capture_inbox`; reader presets through adoption (§4.5); pre-questions in reading blocks (§6.10) | DL3 | None | G5–G9 and G15 for images; G14 |
 | *Router R2 (router spec)* | The staged-frame source and the router chooser through §6.8 | DL1; R1 | The router's successor | Router G1–G9 |
-| *Mobile M2a (mobile spec)* | The phone shows the plan through allowlisted plan RPCs | DL1; mobile M2 prerequisites | — | Mobile gates |
+| *Mobile M2a (mobile spec)* | ~~The phone shows the plan through allowlisted plan RPCs.~~ *Amended 2026-11-03 (`docs/reviews/mobile-m2a.md`): the phone shows the allowlisted queue (mobile §4.5); its answers count toward the plan, which marks an item done by any attempt recorded after it was planned* | DL1; mobile M2 prerequisites | — | Mobile gates |
 | *Mobile M3 (mobile spec)* | Processor results and Practice this on the phone | DL3 | — | Mobile gates |
 | *Project M2 (project spec)* | Due probes in the maintain lane | DL1; project M2 | — | Project gates |
 
@@ -882,7 +882,7 @@ The daily-loop implementation is Wave 2 of `implementation_goal.md` §3. Every p
   - §6.7's background processor is §4.3. T6 is met when DL3 lands; the phone's part is M3.
   - `purge_capture` extends to processed content, receipts, checkpoints, embeddings, adopted items and their stored revisions (§4.7); M1's own purge and its manual-route destinations are unchanged.
   - Q14 is answered (minutes only), so §6.5's readiness note and the header's "Depends on … Q0–Q18 … unanswered" can be updated.
-  - M2a's allowlist adds the DL1 plan RPCs.
+  - ~~M2a's allowlist adds the DL1 plan RPCs.~~ *Amended 2026-11-03 (`docs/reviews/mobile-m2a.md`): it does not; §4.5 stands, and the phone shows the queue.*
 - **Project understanding.** From M2, due probes enter the maintain lane (§6.9).
 - **Slice A.** Phase 6's new-material ordering feeds §6.3's admission. Phase 5a's verifier is reused by §4.3.
 - **Handoffs.** The "Daily-loop implementation" row in `implementation_handoffs.md` §1 uses the template below, once per phase.

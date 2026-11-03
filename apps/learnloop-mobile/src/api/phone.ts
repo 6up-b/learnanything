@@ -42,7 +42,8 @@ export const phone = {
   getSession: (sessionId: string) => call<SessionSnapshot>("get_session", { sessionId }),
   endSession: (sessionId: string) => call<SessionEndSummary>("end_session", { sessionId }),
   // `limit`: the phone shows every row it is given, so the offer's receipt is what it showed (§6.4).
-  getTodayQueue: (sessionId: string, limit: number) => call<QueueSnapshot>("get_today_queue", { sessionId, limit }),
+  getTodayQueue: (sessionId: string, limit: number, availableMinutes?: number | null) =>
+    call<QueueSnapshot>("get_today_queue", { sessionId, limit, availableMinutes: availableMinutes ?? null }),
   getPracticeItem: (practiceItemId: string, sessionId: string) =>
     call<PracticeItemDetail>("get_practice_item", { practiceItemId, sessionId }),
   getProbeContract: (practiceItemId: string, sessionId: string) =>

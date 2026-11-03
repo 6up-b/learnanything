@@ -13,7 +13,6 @@ from pathlib import Path
 
 import pytest
 
-from learnloop.adaptive_difficulty import protected_tables as PT
 from learnloop.db.migrate import UPGRADE_TEST_HELPER, apply_migrations, applied_versions, discover_migrations, upgrade_allowance
 from learnloop.db.table_roles import TableRole, role_for_table
 

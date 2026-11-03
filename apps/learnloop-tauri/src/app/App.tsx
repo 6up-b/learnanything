@@ -1395,6 +1395,18 @@ export function App() {
     }
   }
 
+  function letGoOfEndedSession() {
+    sessionRef.current = null;
+    setLocalDraft(null);
+    setPracticeOffer(null);
+    setPracticeItemId(null);
+    setAttemptId(null);
+    setTodayStage("queue");
+    setSession(null);
+    setSessionMoved(null);
+    notifyQueueChanged();
+  }
+
   function clearLocalCheckpoint(identity?: { practiceItemId: string; submissionId: string }) {
     setSession((current) => {
       if (!current) return current;
@@ -2528,6 +2540,7 @@ export function App() {
         moved={sessionMoved}
         onAdoptBack={adoptSessionBack}
         onStartFresh={startFreshOverMoved}
+        onLetGo={letGoOfEndedSession}
       />
       <SessionElsewherePrompt />
       {fileDragging ? <DropOverlay /> : null}
