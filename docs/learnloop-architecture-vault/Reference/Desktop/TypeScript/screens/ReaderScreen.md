@@ -10,8 +10,8 @@ area: "TypeScript/screens"
 source_path: "apps/learnloop-tauri/src/screens/ReaderScreen.tsx"
 source_paths:
   - "apps/learnloop-tauri/src/screens/ReaderScreen.tsx"
-source_commit: "d16ae726e14498e51cf3777e08ea9cf4b7741c51"
-source_commit_timestamp: "2026-11-02T23:57:40-05:00"
+source_commit: "ba61eaba73983313966810ab22f788d2ea6d946a"
+source_commit_timestamp: "2026-11-03T00:32:22-05:00"
 source_worktree_state: "clean"
 activation_kind: "entry-reachable build graph"
 activation_evidence: "A static TypeScript import path reaches this file from the Vite entry src/main.tsx."
@@ -42,14 +42,14 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/screens/ReaderScreen.tsx](../../../../../../apps/learnloop-tauri/src/screens/ReaderScreen.tsx) |
-| Source lines | 4664 |
+| Source lines | 4696 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/screens/_area|TypeScript/screens]] |
 | Refactor status | `ACTIVE` |
 | Activation kind | `entry-reachable build graph` |
 | Worktree state | `clean` |
-| Source commit | `d16ae726e14498e51cf3777e08ea9cf4b7741c51` |
-| Commit timestamp | `2026-11-02T23:57:40-05:00` |
+| Source commit | `ba61eaba73983313966810ab22f788d2ea6d946a` |
+| Commit timestamp | `2026-11-03T00:32:22-05:00` |
 
 ## Activation and status evidence
 
@@ -186,374 +186,376 @@ The system-level behavior stays authoritative in the linked architecture, concep
 - `const timer = window.setTimeout(()` — const, line 933
 - `const resetSourceState = useCallback(()` — const, line 956
 - `const openSource = useCallback( async ( card: SourceLibraryCard, jumpSpan?: string, // jumpReading: the reading jumpSpan was found on (a search hit, a // return)` — const, line 1005
-- `const handoff = options.handoff ?? null` — const, line 1014
-- `const view = await cachedSourceRead(card.sourceId, ["reader_render_view", card.sourceId], ()` — const, line 1032
-- `const pdfRequest = ++pdfViewRequestRef.current` — const, line 1079
-- `const current = ()` — const, line 1080
-- `const openFixture = useCallback(()` — const, line 1115
-- `const backToLibrary = useCallback(()` — const, line 1123
-- `const spanId = readingSpan ?? activeSpan` — const, line 1127
-- `const section = guidePlan?.sections.find((candidate)` — const, line 1128
-- `const resumedRef = useRef(false)` — const, line 1146
-- `const trail = initialSource.besideTrail ?? null` — const, line 1150
-- `const activeBlock = useMemo(()` — const, line 1164
-- `const pdfHighlights: PdfHighlight[] = useMemo(()` — const, line 1173
-- `const list: PdfHighlight[] = []` — const, line 1174
-- `const base =` — const, line 1177
-- `const placed = highlightFromPlacement(base, a.placement)` — const, line 1179
-- `const segments = a.segments.flatMap((s)` — const, line 1184
-- `const annotatedSpans = useMemo( ()` — const, line 1191
-- `const boundaryBlock = useMemo(()` — const, line 1195
-- `const revealedPassages = useMemo(()` — const, line 1197
-- `const revealed = new Set(revealedSections)` — const, line 1198
-- `const map = new Map<string,` — const, line 1199
-- `const revealedGuidanceSpans = useMemo(()` — const, line 1208
-- `const protection = (pdfView && pdfView.extractionId === render?.extractionId ? pdfView.protection : null) ?? render?.protection ?? null` — const, line 1213
-- `const protectedSelection = selectionProtected(protection, selection)` — const, line 1214
-- `const protectionMessage = protectedSelection ? protection?.message ?? "This passage is held out of LearnLoop's models." : null` — const, line 1215
-- `const askProtected = groundingProtected(protection, askGroundingSpans(inquiry ? parentExchange : null, selection, activeSpan))` — const, line 1219
-- `const askProtectionMessage = askProtected ? protection?.message ?? "This passage is held out of LearnLoop's models." : null` — const, line 1220
-- `const editCaptureText = useCallback((text: string)` — const, line 1225
-- `const resetCaptureText = useCallback(()` — const, line 1228
-- `const saveAnnotationEdit = useCallback(async ()` — const, line 1240
-- `const reanchorAnnotation = useCallback(async (annotationId: string)` — const, line 1262
-- `const result = await api.readerReanchor(` — const, line 1266
-- `const manualAnchorToSelection = useCallback(async (annotationId: string)` — const, line 1283
-- `const deleteAnnotation = useCallback(async (annotationId: string)` — const, line 1306
-- `const target = annotations.find((a)` — const, line 1307
-- `const reading = render ?` — const, line 1308
-- `const epoch = sourceEpochRef.current` — const, line 1309
-- `const undoRemove = useCallback(async ()` — const, line 1324
-- `const last = removed` — const, line 1325
-- `const epoch = sourceEpochRef.current` — const, line 1331
-- `const result = await api.readerRestoreAnnotation(` — const, line 1333
-- `const timer = window.setTimeout(()` — const, line 1346
-- `const onKey = (event: KeyboardEvent)` — const, line 1352
-- `const target = event.target` — const, line 1355
-- `const openAnnotationNote = useCallback((annotationId: string)` — const, line 1364
-- `const target = annotations.find((a)` — const, line 1365
-- `const collectSelectionNodes = useCallback((): Array<` — const, line 1377
-- `const sel = window.getSelection()` — const, line 1378
-- `const container = bodyRef.current` — const, line 1379
-- `const range = sel.getRangeAt(0)` — const, line 1381
-- `const nodes: Array<` — const, line 1382
-- `const seen = new Set<string>()` — const, line 1383
-- `const spanId = el.dataset.spanId` — const, line 1385
-- `let intersects = false` — let, line 1387
-- `const sub = document.createRange()` — const, line 1394
-- `const quote = sub.toString().replace(/\s+/g, " ").trim()` — const, line 1402
-- `const block = renderBlocksBySpan.get(spanId)` — const, line 1407
-- `const runIntentRef = useRef<(action: ReaderIntentActionDto, text: string, how: IntentRunHow)` — const, line 1417
-- `const cancelIntentRunRef = useRef<(cancel: IntentCancel)` — const, line 1418
-- `const selectionSpanIds = useMemo( ()` — const, line 1419
-- `const intentBox = useIntentBox(` — const, line 1423
-- `const openActiveRail = useCallback(()` — const, line 1437
-- `const activeCtl = useActiveReading(` — const, line 1441
-- `const libraryCtl = useLibraryAsk(` — const, line 1450
-- `const keptCtl = useKeptComparisons(` — const, line 1452
-- `const notesCtl = useNoteMarks(` — const, line 1454
-- `const pdfMarks = (): ReadonlyMap<string, ReactNode> | null` — const, line 1459
-- `const cues = cueMarksFor("pdf")` — const, line 1460
-- `const merged = new Map<string, ReactNode>(cues ?? [])` — const, line 1462
-- `const cue = merged.get(spanId)` — const, line 1464
-- `const before = merged.get(spanId)` — const, line 1469
-- `const comparing = Boolean(render) && !offline && !working && (libraryCtl.open || libraryCompose !== null)` — const, line 1475
-- `const comparingStacked = useComparingStacked(comparing && libraryCtl.byPoint)` — const, line 1477
-- `const sbs = useSideBySide(` — const, line 1479
-- `const node = bodyRef.current?.querySelector(`[data-span-id="$` — const, line 1487
-- `const sbsPanes = sbs.panes && !comparing` — const, line 1500
-- `const sbsPanesRef = useRef(false)` — const, line 1501
-- `const sbsShownRef = useRef(false)` — const, line 1506
-- `const sbsRef = useRef(sbs)` — const, line 1508
-- `const sbsEscBusyRef = useRef(false)` — const, line 1511
-- `const sbsPaneRef = useRef<HTMLDivElement | null>(null)` — const, line 1513
-- `const runSideIntentRef = useRef<(action: ReaderIntentActionDto, text: string, how: IntentRunHow)` — const, line 1518
-- `const cancelSideIntentRunRef = useRef<(cancel: IntentCancel)` — const, line 1519
-- `const sbsSection = sbs.section && sbs.target && sbs.section.sectionId === sbs.target.sectionId ? sbs.section : null` — const, line 1520
-- `type BesideRun = |` — type, line 1535
-- `const besideSeq = useRef(0)` — const, line 1544
-- `const besideRunRef = useRef<(run: BesideRun)` — const, line 1547
-- `const besideDroppedRef = useRef<(run: BesideRun)` — const, line 1548
-- `const openBesideRef = useRef<(hit:` — const, line 1549
-- `const snapshotBesideRef = useRef<(spanId: string)` — const, line 1556
-- `const shown = sbsRef.current.target` — const, line 1558
-- `const takeBesideBook = useCallback((book: SourceIdentity, spanId: string, run: BesideRun)` — const, line 1562
-- `const id = ++besideSeq.current` — const, line 1564
-- `const sideExtractionRef = useRef<string | null>(null)` — const, line 1576
-- `const checkMeFromSideCue = useCallback((request: CueCheckMeRequest, origin: CueRequestOrigin)` — const, line 1577
-- `const side = useSidePane(` — const, line 1582
-- `const besideRanRef = useRef(0)` — const, line 1611
-- `const handoff = besideHandoff` — const, line 1613
-- `const card = openCardRef.current` — const, line 1628
-- `const trail = besideTrail(returnStackRef.current)` — const, line 1630
-- `const work = handoff.run` — const, line 1639
-- `const openComposer = useCallback((anchor: AskAnchor | null)` — const, line 1653
-- `const sbsRowRef = useRef<HTMLDivElement | null>(null)` — const, line 1671
-- `const startSbsResize = (event: ReactPointerEvent<HTMLDivElement>)` — const, line 1672
-- `const row = sbsRowRef.current` — const, line 1673
-- `const rect = row.getBoundingClientRect()` — const, line 1676
-- `const move = (moved: PointerEvent)` — const, line 1677
-- `const up = ()` — const, line 1680
-- `const touchMain = ()` — const, line 1692
-- `const onKey = (event: KeyboardEvent)` — const, line 1701
-- `const target = event.target` — const, line 1703
-- `const ctl = sbsRef.current` — const, line 1705
-- `const open = ctl.panes || ctl.sheet` — const, line 1706
-- `const shown = sbsShownRef.current` — const, line 1707
-- `const mod = event.ctrlKey || event.metaKey` — const, line 1708
-- `const side = sbsPaneRef.current` — const, line 1718
-- `const inSide = target instanceof Element && Boolean(target.closest("[data-side-by-side-pane]"))` — const, line 1719
-- `const inMain = target instanceof Node && Boolean(bodyRef.current?.contains(target))` — const, line 1725
-- `const askLibraryHere = useCallback((query: string, entry: LibraryAskEntry, spanIds: string[], box = false, anchor?: SourceIdentity)` — const, line 1735
-- `const identity = anchor ?? identityOf(render)` — const, line 1742
-- `const request =` — const, line 1743
-- `const closeLibrary = useCallback(()` — const, line 1748
-- `const onKey = (event: KeyboardEvent)` — const, line 1755
-- `const onMouseUp = useCallback(()` — const, line 1766
-- `const sel = window.getSelection()` — const, line 1767
-- `const quote = sel.toString().replace(/\s+/g, " ").trim()` — const, line 1769
-- `const nodes = collectSelectionNodes()` — const, line 1771
-- `const domBoxesRef = useRef<number[][]>([])` — const, line 1800
-- `const domDragRef = useRef<` — const, line 1801
-- `const domPointFromClient = useCallback((clientX: number, clientY: number): [number, number] | null` — const, line 1803
-- `const host = bodyRef.current` — const, line 1804
-- `const rect = host.getBoundingClientRect()` — const, line 1806
-- `const onBodyMouseDown = useCallback( (event: React.MouseEvent)` — const, line 1810
-- `const target = event.target as Node` — const, line 1814
-- `const point = domPointFromClient(event.clientX, event.clientY)` — const, line 1816
-- `const domDrafting = domDraft !== null` — const, line 1828
-- `const rectFrom = (drag:` — const, line 1831
-- `const onMove = (event: MouseEvent)` — const, line 1837
-- `const drag = domDragRef.current` — const, line 1838
-- `const point = domPointFromClient(event.clientX, event.clientY)` — const, line 1840
-- `const onUp = (event: MouseEvent)` — const, line 1843
-- `const drag = domDragRef.current` — const, line 1844
-- `const point = domPointFromClient(event.clientX, event.clientY)` — const, line 1848
-- `const rect = rectFrom(drag, point)` — const, line 1850
-- `const next = [...domBoxesRef.current, rect]` — const, line 1853
-- `const resolveDomBoxes = useCallback((boxes: number[][]): Array<` — const, line 1870
-- `const host = bodyRef.current` — const, line 1871
-- `const hostRect = host.getBoundingClientRect()` — const, line 1873
-- `const clientBoxes = boxes.map((b)` — const, line 1874
-- `const nodes: Array<` — const, line 1880
-- `const seen = new Set<string>()` — const, line 1881
-- `const spanId = el.dataset.spanId` — const, line 1883
-- `const elRect = el.getBoundingClientRect()` — const, line 1885
-- `const touches = clientBoxes.some( (b)` — const, line 1886
-- `const words: string[] = []` — const, line 1890
-- `const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT)` — const, line 1891
-- `const text = node as Text` — const, line 1893
-- `const wordPattern = /\S+/g` — const, line 1894
-- `let match: RegExpExecArray | null` — let, line 1895
-- `const range = document.createRange()` — const, line 1897
-- `const rects = Array.from(range.getClientRects()).filter((r)` — const, line 1900
-- `const cx = (Math.min(...rects.map((r)` — const, line 1902
-- `const cy = (Math.min(...rects.map((r)` — const, line 1903
-- `const quote = words.join(" ").replace(/\s+/g, " ").trim()` — const, line 1907
-- `const commitDomBoxes = useCallback(()` — const, line 1916
-- `const boxes = domBoxesRef.current` — const, line 1917
-- `const nodes = resolveDomBoxes(boxes)` — const, line 1919
-- `const quote = nodes.map((n)` — const, line 1925
-- `const commitDomBoxesRef = useRef(commitDomBoxes)` — const, line 1934
-- `const clearDomBoxes = ()` — const, line 1942
-- `const onKeyDown = (event: KeyboardEvent)` — const, line 1948
-- `const onKeyUp = (event: KeyboardEvent)` — const, line 1953
-- `const onBlur = ()` — const, line 1959
-- `const openDomTagMenu = useCallback( (request: TagMenuRequest)` — const, line 1981
-- `const point = domPointFromClient(request.x, request.y)` — const, line 1983
-- `const insideCommittedBox = point !== null && domBoxesRef.current.some( (box)` — const, line 1984
-- `const decideProposal = useCallback(async (proposalId: string, decision: "accept" | "reject")` — const, line 2005
-- `const retryRequest = useCallback(async (requestId: string)` — const, line 2018
-- `const optimisticSegments = useCallback( (nodes: string | Array<string |` — const, line 2032
-- `const list = Array.isArray(nodes) ? nodes : [nodes]` — const, line 2034
-- `const spanId = typeof node === "string" ? node : node.spanId` — const, line 2036
-- `const geometry = pdfView?.blocks.find((b)` — const, line 2037
-- `const offsets = typeof node === "string" || typeof node.start !== "number" || typeof node.end !== "number" ?` — const, line 2038
-- `const tagCapture = useCallback( async (action: string, target: TagMenuRequest)` — const, line 2050
-- `const displayQuote = target.quote ?? WHOLE_BLOCK_QUOTE` — const, line 2054
-- `const quotedNodes = (()` — const, line 2059
-- `const multi = collectSelectionNodes()` — const, line 2062
-- `const optimisticIds = quotedNodes ?? [target.spanId]` — const, line 2065
-- `const nodes = quotedNodes ?? [` — const, line 2075
-- `const receipt = await api.readerCapture(` — const, line 2076
-- `const handler = (event: KeyboardEvent)` — const, line 2103
-- `const clearSelection = useCallback(()` — const, line 2115
-- `const jumpToAnnotation = useCallback( (a: MarginAnnotation)` — const, line 2127
-- `const segment = a.segments.find((s)` — const, line 2129
-- `const el = bodyRef.current?.querySelector(`[data-span-id="$` — const, line 2136
-- `const alsoKeyRef = useRef<()` — const, line 2146
-- `const onKey = (event: KeyboardEvent)` — const, line 2154
-- `const target = event.target` — const, line 2157
-- `const tabs: ReaderRailTab[] = ["guide", "ask", "notes"]` — const, line 2159
-- `const askRequestSeen = useRef(askRequest)` — const, line 2197
-- `const revealAskRef = useRef<()` — const, line 2199
-- `const startCompareRef = useRef<(request: CompareRequest)` — const, line 2224
-- `const sideAnchor = Boolean(side.extractionId) && side.extractionId === request.extractionId` — const, line 2227
-- `const request = compareWaitsForWork` — const, line 2234
-- `const sideMarksChanged = side.marksChanged` — const, line 2244
-- `const captureIn = useCallback(async (target: PaneCaptureTarget, what:` — const, line 2245
-- `const common =` — const, line 2250
-- `const receipt: ReaderPresetReceiptDto = "preset" in what ? await api.readerInvokePreset(` — const, line 2255
-- `const drained = await api.readerDrainOutbox()` — const, line 2266
-- `const invokePreset = useCallback( // RW1b: the intent box passes its own words as the annotation's learner // text, and names the intention and entry in the funnel event. // Reader CA6b: `target` is side by side's second pane (its book, revision, // reading a…` — const, line 2287
-- `const note_ = learnerTextOverride ?? note` — const, line 2295
-- `const nodes = selectionNodes(selection)` — const, line 2296
-- `const editedText = selection.editedText?.trim()` — const, line 2297
-- `const receipt = await api.readerInvokePreset(` — const, line 2309
-- `const drained = await api.readerDrainOutbox()` — const, line 2333
-- `const captureHighlight = useCallback(async (learnerTextOverride?: string, meta?: Record<string, unknown>, target?: PaneCaptureTarget): Promise<string | null>` — const, line 2356
-- `const note_ = learnerTextOverride ?? note` — const, line 2360
-- `const nodes = selectionNodes(selection)` — const, line 2361
-- `const receipt = await api.readerCapture(` — const, line 2373
-- `const pauseArc = useCallback(async ()` — const, line 2401
-- `const next = await api.readerArc(` — const, line 2405
-- `const setArcPolicy = useCallback( async (policy: string)` — const, line 2412
-- `const next = await api.readerArc(` — const, line 2417
-- `const importJobRef = useRef<` — const, line 2429
-- `const importExercise = useCallback(async (target?: PaneCaptureTarget): Promise<string | null>` — const, line 2432
-- `const nodes = target ? target.nodes : selectionNodes(selection!)` — const, line 2434
-- `const editedText = target ? undefined : selection!.editedText?.trim()` — const, line 2435
-- `const receipt = await api.readerImportExercise(target ?` — const, line 2438
-- `const exerciseImportBatchId = exerciseImport?.batchId ?? null` — const, line 2486
-- `const exerciseImportActive = exerciseImport != null && ["queued", "running", "blocked"].includes(exerciseImport.status)` — const, line 2487
-- `const timer = setInterval(async ()` — const, line 2491
-- `const status = await api.readerExerciseImportStatus(` — const, line 2493
-- `const job = importJobRef.current` — const, line 2494
-- `const waited = Date.now() - job.startedAt` — const, line 2497
-- `const saveOwnQuestion = useCallback(async ()` — const, line 2524
-- `const saved = await api.readerAuthorQA(` — const, line 2532
-- `const runCoach = useCallback(async ()` — const, line 2553
-- `const lint = await api.readerCoachLint(` — const, line 2556
-- `const changeMode = useCallback( async (next: string)` — const, line 2567
-- `const previous = mode` — const, line 2569
-- `const version = ++modeSaveVersionRef.current` — const, line 2572
-- `const changeAnswerMode = useCallback( async (next: string)` — const, line 2583
-- `const answerModeNext = next as ReaderAnswerMode` — const, line 2585
-- `const previous = answerMode` — const, line 2586
-- `const version = ++answerModeSaveVersionRef.current` — const, line 2589
-- `const sendQuestionControl = useCallback( async (control: string)` — const, line 2605
-- `const renderInquiryTop = useCallback((root: ReaderExchange)` — const, line 2620
-- `const line = reconnect && reconnect.rootId === root.id && !muted ? ( <ReconnectLine placement="rail" question=` — const, line 2623
-- `const check = inquiryChecks[root.id]` — const, line 2633
-- `const inlineReconnect = reconnect && reconnect.inline && !muted ? ( <ReconnectLine placement="inline" question=` — const, line 2661
-- `const chooseDisposition = useCallback( async (d: ReaderDisposition)` — const, line 2672
-- `const openLibraryHit = (hit: Pick<LibraryHitDto, "sourceId" | "extractionId" | "spanId">): Promise<OpenOutcome>` — const, line 2690
-- `const card = (library ?? []).find((candidate)` — const, line 2695
-- `const spanId = readingSpan ?? activeSpan` — const, line 2698
-- `const card = (library ?? []).find((candidate)` — const, line 2727
-- `const sameBook = Boolean(render && sourceId === render.sourceId)` — const, line 2732
-- `const landed = await api.readerSavedPlace(` — const, line 2733
-- `const landing = landed.spanId && landed.status !== "stale" ? await api.readerRenderView(` — const, line 2734
-- `const openFollowedFigure = (figure: CorrespondentFigureDto, hit: CorrespondentSectionDto)` — const, line 2740
-- `const here = readingSpan && currentGuideSection.spanIds.includes(readingSpan) ? readingSpan : currentGuideSection.startSpanId` — const, line 2742
-- `const compareFoundSection = (hit: CorrespondentSectionDto)` — const, line 2757
-- `const here = readingSpan && currentGuideSection.spanIds.includes(readingSpan) ? readingSpan : currentGuideSection.startSpanId` — const, line 2759
-- `const hideAlsoInBooks = (scope: "book" | "everywhere")` — const, line 2782
-- `const before = alsoPrefs ??` — const, line 2784
-- `const base = contract` — const, line 2791
-- `const makeExplorable = (target: Pick<LibraryHitDto, "sourceId" | "extractionId" | "spanId">, origin: "library" | "tutor", offerRef: string): Promise<ExplorableOutcome>` — const, line 2808
-- `let settle: (outcome: ExplorableOutcome)` — let, line 2815
-- `const settled = new Promise<ExplorableOutcome>((resolve)` — const, line 2816
-- `const press: OfferedPress =` — const, line 2817
-- `const peekWorkbenchPassage = (spanId: string, target?: PassageTarget)` — const, line 2836
-- `const exerciseSettings = libraryCtl.enabled ? contract?.libraryExercises ?? null : null` — const, line 2847
-- `const exerciseCard = (sourceId: string | null)` — const, line 2848
-- `const useExercise = (candidate: ExerciseCandidate)` — const, line 2852
-- `const card = exerciseCard(candidate.sourceId ?? render?.sourceId ?? null)` — const, line 2853
-- `const openExerciseInBook = (candidate: ExerciseCandidate)` — const, line 2862
-- `const sourceId = candidate.sourceId ?? render?.sourceId ?? null` — const, line 2863
-- `const exerciseProps: LibraryExercisesProps | null = exerciseSettings ?` — const, line 2866
-- `const pickLibraryPagePractice = (item: ProposedItemDto, proposalId: string | null)` — const, line 2880
-- `const hit = libraryCtl.state?.ask.value?.hits[0]` — const, line 2881
-- `const card = hit ? (library ?? []).find((candidate)` — const, line 2882
-- `const readySources = library ?? []` — const, line 2925
-- `const useShelf = Boolean(shelf) && !sidecarDown` — const, line 2927
-- `const card = (library ?? []).find((candidate)` — const, line 2985
-- `const card = (library ?? []).find((c)` — const, line 3006
-- `const receiptId = searchResults.retrievalReceiptId` — const, line 3012
-- `const cardOpenable = enabled && card.readerEnabled !== false` — const, line 3057
-- `const isVideo = youtubeVideoId(card.canonicalUri ?? "") !== null` — const, line 3058
-- `const wbActive = wbCtl.active` — const, line 3101
-- `const wbStacked = working && wbCtl.narrow` — const, line 3102
-- `const wbBookHidden = Boolean(wbActive && !wbActive.session.sourceVisible)` — const, line 3105
-- `const wbSourceShown = !wbStacked || wbCtl.sheetOpen` — const, line 3106
-- `const wbOpenSessions = wbCtl.enabled ? wbCtl.sessions.filter((entry)` — const, line 3107
-- `const wbResumeBySpan = new Map<string, (typeof wbOpenSessions)[number]>()` — const, line 3108
-- `const first = entry.spanIds[0]` — const, line 3110
-- `const wbLabel = (stem: string)` — const, line 3113
-- `const title = problemTitle(stem)` — const, line 3114
-- `const tryPathExercise = (exercise: ReadingPathExerciseDto)` — const, line 3119
-- `const workThroughSelection = ()` — const, line 3127
-- `const nodes = selectionNodes(selection)` — const, line 3129
-- `const editedText = selection.editedText?.trim()` — const, line 3130
-- `const foldBlocks = contract?.activeReading?.foldBlocks ?? 3` — const, line 3147
-- `const localFold = (spanIds: string[]): string[]` — const, line 3148
-- `const positions = spanIds.map((spanId)` — const, line 3149
-- `const last = Math.max(...positions)` — const, line 3151
-- `const mainPane: IntentPane =` — const, line 3160
-- `const sidePane: IntentPane | null = side.extractionId ?` — const, line 3169
-- `const sideMeta = (pane: IntentPane): Record<string, string>` — const, line 3179
-- `const runIntentIn = (pane: IntentPane, action: ReaderIntentActionDto, text: string, how: IntentRunHow): Promise<IntentRunHandle | null> | void` — const, line 3181
-- `const meta =` — const, line 3182
-- `const effect = action.effect` — const, line 3183
-- `const sideSection = pane.side?.section ?? null` — const, line 3184
-- `const anchor: AskAnchor =` — const, line 3190
-- `const target = pane.side.target` — const, line 3231
-- `const target = pane.side.target` — const, line 3237
-- `const target = pane.side.target` — const, line 3243
-- `const target = pane.side.target` — const, line 3253
-- `const bound = wbCtl.active?.session.practiceItemId ? wbCtl.active.session.sessionId : null` — const, line 3298
-- `const request: CompareRequest =` — const, line 3299
-- `const region = pane.region` — const, line 3331
-- `const words = text?.trim()` — const, line 3332
-- `const sideShows = (extractionId: string, spanId: string): boolean` — const, line 3353
-- `const checkBeside = (book: SourceIdentity, spanId: string, practiceItemId: string, proposalId: string | null)` — const, line 3356
-- `const workThroughImported = (item:` — const, line 3361
-- `const imported = exerciseImport` — const, line 3362
-- `const spanIds = imported?.spanIds ?? (activeSpan ? [activeSpan] : [])` — const, line 3363
-- `const settleShowMeLine = (key: string, patch: Partial<ShowMeLine>)` — const, line 3371
-- `const requestShowMe = (ctl: FiguresCtl, run: Extract<BesideRun,` — const, line 3374
-- `const key = run.lineKey` — const, line 3375
-- `const runOnBook = (about: AskAbout, run: Extract<BesideRun,` — const, line 3387
-- `const showMeFromAsk = ()` — const, line 3412
-- `const goal = question.trim()` — const, line 3413
-- `const about = parentExchange ? parentExchange.about ?? null : askComposerAnchor?.about ?? null` — const, line 3414
-- `const home = parentExchange?.spanId ?? (about ? askComposerAnchor?.spanId : undefined) ?? selectionSpanIds[selectionSpanIds.length - 1] ?? readingSpan ?? activeSpan` — const, line 3415
-- `const key = `show_me:$` — const, line 3418
-- `const run =` — const, line 3421
-- `const cancelIntentIn = (pane: IntentPane, cancel: IntentCancel)` — const, line 3430
-- `const kind = cancel.action.effect.kind` — const, line 3431
-- `const annotationId = handle.annotationId` — const, line 3438
-- `const batchId = handle.importBatchId` — const, line 3455
-- `const leaveWorkbench = (session: Parameters<typeof wbCtl.close>[0], abandonedNow = false, generation?: number)` — const, line 3469
-- `const spanId = wbCtl.close(session,` — const, line 3471
-- `const pickLibraryPractice = (item: ProposedItemDto, proposalId: string | null)` — const, line 3477
-- `const card = openCardRef.current` — const, line 3478
-- `const asked = libraryCtl.state?.request` — const, line 3482
-- `const resumeMark = (spanId: string | null | undefined)` — const, line 3490
-- `const entry = spanId ? wbResumeBySpan.get(spanId) : undefined` — const, line 3491
-- `const verb = entry.status === "abandoned" ? "Reopen" : "Resume"` — const, line 3493
-- `const target = event.target` — const, line 3617
-- `const isSection = (block.blockType ?? "") === "Section"` — const, line 3792
-- `const active = activeSpan === block.spanId` — const, line 3793
-- `const guidePassage = block.spanId ? revealedPassages.get(block.spanId) : undefined` — const, line 3794
-- `const cueMark = block.spanId ? cueCtl.markOn(block.spanId) : null` — const, line 3795
-- `const endSection = block.spanId ? guideSectionByEnd.get(block.spanId) : undefined` — const, line 3796
-- `const endQuestionAvailable = Boolean(endSection && endSection.question?.readingPhase === "after_section" && offeredCheckSections.has(endSection.id))` — const, line 3798
-- `const folded = Boolean(block.spanId && activeCtl.folded.has(block.spanId))` — const, line 3802
-- `const firstFolded = folded && !(i > 0 && blocks[i - 1].spanId && activeCtl.folded.has(blocks[i - 1].spanId ?? ""))` — const, line 3803
-- `const offerSection = endSection && !muted && !dismissedSections.includes(endSection.id) && !completedSections.includes(endSection.id) && ((endQuestionAvailable && endSection.question !== null) || endSection.suggestedPassages.length > 0)` — const, line 3804
-- `const sel = window.getSelection()` — const, line 3823
-- `const quote = sel && !sel.isCollapsed ? sel.toString().replace(/\s+/g, " ").trim() : ""` — const, line 3824
-- `const cue = side.cues.markOn(spanId)` — const, line 3914
-- `const node = sbsPaneRef.current?.querySelector(`[data-sbs-span="$` — const, line 3942
-- `const node = sbsPaneRef.current?.querySelector(`[data-sbs-span="$` — const, line 3965
-- `const active = railTab === tab` — const, line 4078
-- `const waiting = tab === "guide" && pendingQuickCheckCount > 0` — const, line 4082
-- `const marked = tab === "ask" && askTabMarked && !active` — const, line 4083
-- `const params = (action.params ??` — const, line 4230
-- `const run =` — const, line 4502
-- `const book = exchange?.about ?? render` — const, line 4511
+- `const handoff = options.handoff ?? null` — const, line 1015
+- `const view = options.view ?? await cachedSourceRead(card.sourceId, ["reader_render_view", card.sourceId], ()` — const, line 1033
+- `const pdfRequest = ++pdfViewRequestRef.current` — const, line 1080
+- `const current = ()` — const, line 1081
+- `const openFixture = useCallback(()` — const, line 1116
+- `const backToLibrary = useCallback(()` — const, line 1124
+- `const spanId = readingSpan ?? activeSpan` — const, line 1128
+- `const section = guidePlan?.sections.find((candidate)` — const, line 1129
+- `const resumedRef = useRef(false)` — const, line 1147
+- `const trail = initialSource.besideTrail ?? null` — const, line 1151
+- `const activeBlock = useMemo(()` — const, line 1165
+- `const pdfHighlights: PdfHighlight[] = useMemo(()` — const, line 1174
+- `const list: PdfHighlight[] = []` — const, line 1175
+- `const base =` — const, line 1178
+- `const placed = highlightFromPlacement(base, a.placement)` — const, line 1180
+- `const segments = a.segments.flatMap((s)` — const, line 1185
+- `const annotatedSpans = useMemo( ()` — const, line 1192
+- `const boundaryBlock = useMemo(()` — const, line 1196
+- `const revealedPassages = useMemo(()` — const, line 1198
+- `const revealed = new Set(revealedSections)` — const, line 1199
+- `const map = new Map<string,` — const, line 1200
+- `const revealedGuidanceSpans = useMemo(()` — const, line 1209
+- `const protection = (pdfView && pdfView.extractionId === render?.extractionId ? pdfView.protection : null) ?? render?.protection ?? null` — const, line 1214
+- `const protectedSelection = selectionProtected(protection, selection)` — const, line 1215
+- `const protectionMessage = protectedSelection ? protection?.message ?? "This passage is held out of LearnLoop's models." : null` — const, line 1216
+- `const askProtected = groundingProtected(protection, askGroundingSpans(inquiry ? parentExchange : null, selection, activeSpan))` — const, line 1220
+- `const askProtectionMessage = askProtected ? protection?.message ?? "This passage is held out of LearnLoop's models." : null` — const, line 1221
+- `const editCaptureText = useCallback((text: string)` — const, line 1226
+- `const resetCaptureText = useCallback(()` — const, line 1229
+- `const saveAnnotationEdit = useCallback(async ()` — const, line 1241
+- `const reanchorAnnotation = useCallback(async (annotationId: string)` — const, line 1263
+- `const result = await api.readerReanchor(` — const, line 1267
+- `const manualAnchorToSelection = useCallback(async (annotationId: string)` — const, line 1284
+- `const deleteAnnotation = useCallback(async (annotationId: string)` — const, line 1307
+- `const target = annotations.find((a)` — const, line 1308
+- `const reading = render ?` — const, line 1309
+- `const epoch = sourceEpochRef.current` — const, line 1310
+- `const undoRemove = useCallback(async ()` — const, line 1325
+- `const last = removed` — const, line 1326
+- `const epoch = sourceEpochRef.current` — const, line 1332
+- `const result = await api.readerRestoreAnnotation(` — const, line 1334
+- `const timer = window.setTimeout(()` — const, line 1347
+- `const onKey = (event: KeyboardEvent)` — const, line 1353
+- `const target = event.target` — const, line 1356
+- `const openAnnotationNote = useCallback((annotationId: string)` — const, line 1365
+- `const target = annotations.find((a)` — const, line 1366
+- `const collectSelectionNodes = useCallback((): Array<` — const, line 1378
+- `const sel = window.getSelection()` — const, line 1379
+- `const container = bodyRef.current` — const, line 1380
+- `const range = sel.getRangeAt(0)` — const, line 1382
+- `const nodes: Array<` — const, line 1383
+- `const seen = new Set<string>()` — const, line 1384
+- `const spanId = el.dataset.spanId` — const, line 1386
+- `let intersects = false` — let, line 1388
+- `const sub = document.createRange()` — const, line 1395
+- `const quote = sub.toString().replace(/\s+/g, " ").trim()` — const, line 1403
+- `const block = renderBlocksBySpan.get(spanId)` — const, line 1408
+- `const runIntentRef = useRef<(action: ReaderIntentActionDto, text: string, how: IntentRunHow)` — const, line 1418
+- `const cancelIntentRunRef = useRef<(cancel: IntentCancel)` — const, line 1419
+- `const selectionSpanIds = useMemo( ()` — const, line 1420
+- `const intentBox = useIntentBox(` — const, line 1424
+- `const openActiveRail = useCallback(()` — const, line 1438
+- `const activeCtl = useActiveReading(` — const, line 1442
+- `const libraryCtl = useLibraryAsk(` — const, line 1451
+- `const keptCtl = useKeptComparisons(` — const, line 1453
+- `const notesCtl = useNoteMarks(` — const, line 1455
+- `const pdfMarks = (): ReadonlyMap<string, ReactNode> | null` — const, line 1460
+- `const cues = cueMarksFor("pdf")` — const, line 1461
+- `const merged = new Map<string, ReactNode>(cues ?? [])` — const, line 1463
+- `const cue = merged.get(spanId)` — const, line 1465
+- `const before = merged.get(spanId)` — const, line 1470
+- `const comparing = Boolean(render) && !offline && !working && (libraryCtl.open || libraryCompose !== null)` — const, line 1476
+- `const comparingStacked = useComparingStacked(comparing && libraryCtl.byPoint)` — const, line 1478
+- `const sbs = useSideBySide(` — const, line 1480
+- `const node = bodyRef.current?.querySelector(`[data-span-id="$` — const, line 1488
+- `const sbsPanes = sbs.panes && !comparing` — const, line 1501
+- `const sbsPanesRef = useRef(false)` — const, line 1502
+- `const sbsShownRef = useRef(false)` — const, line 1507
+- `const sbsRef = useRef(sbs)` — const, line 1509
+- `const sbsEscBusyRef = useRef(false)` — const, line 1512
+- `const sbsPaneRef = useRef<HTMLDivElement | null>(null)` — const, line 1514
+- `const runSideIntentRef = useRef<(action: ReaderIntentActionDto, text: string, how: IntentRunHow)` — const, line 1519
+- `const cancelSideIntentRunRef = useRef<(cancel: IntentCancel)` — const, line 1520
+- `const sbsSection = sbs.section && sbs.target && sbs.section.sectionId === sbs.target.sectionId ? sbs.section : null` — const, line 1521
+- `type BesideRun = |` — type, line 1536
+- `const besideSeq = useRef(0)` — const, line 1545
+- `const besideRunRef = useRef<(run: BesideRun)` — const, line 1548
+- `const besideDroppedRef = useRef<(run: BesideRun)` — const, line 1549
+- `const openBesideRef = useRef<(hit:` — const, line 1550
+- `const snapshotBesideRef = useRef<(spanId: string)` — const, line 1557
+- `const shown = sbsRef.current.target` — const, line 1559
+- `const takeBesideBook = useCallback((book: SourceIdentity, spanId: string, run: BesideRun)` — const, line 1563
+- `const id = ++besideSeq.current` — const, line 1565
+- `const sideExtractionRef = useRef<string | null>(null)` — const, line 1577
+- `const checkMeFromSideCue = useCallback((request: CueCheckMeRequest, origin: CueRequestOrigin)` — const, line 1578
+- `const side = useSidePane(` — const, line 1583
+- `const besideRanRef = useRef(0)` — const, line 1612
+- `const handoff = besideHandoff` — const, line 1614
+- `const card = openCardRef.current` — const, line 1629
+- `const trail = besideTrail(returnStackRef.current)` — const, line 1631
+- `const work = handoff.run` — const, line 1640
+- `const openComposer = useCallback((anchor: AskAnchor | null)` — const, line 1654
+- `const sbsRowRef = useRef<HTMLDivElement | null>(null)` — const, line 1672
+- `const startSbsResize = (event: ReactPointerEvent<HTMLDivElement>)` — const, line 1673
+- `const row = sbsRowRef.current` — const, line 1674
+- `const rect = row.getBoundingClientRect()` — const, line 1677
+- `const move = (moved: PointerEvent)` — const, line 1678
+- `const up = ()` — const, line 1681
+- `const touchMain = ()` — const, line 1693
+- `const onKey = (event: KeyboardEvent)` — const, line 1702
+- `const target = event.target` — const, line 1704
+- `const ctl = sbsRef.current` — const, line 1706
+- `const open = ctl.panes || ctl.sheet` — const, line 1707
+- `const shown = sbsShownRef.current` — const, line 1708
+- `const mod = event.ctrlKey || event.metaKey` — const, line 1709
+- `const side = sbsPaneRef.current` — const, line 1719
+- `const inSide = target instanceof Element && Boolean(target.closest("[data-side-by-side-pane]"))` — const, line 1720
+- `const inMain = target instanceof Node && Boolean(bodyRef.current?.contains(target))` — const, line 1726
+- `const askLibraryHere = useCallback((query: string, entry: LibraryAskEntry, spanIds: string[], box = false, anchor?: SourceIdentity)` — const, line 1736
+- `const identity = anchor ?? identityOf(render)` — const, line 1743
+- `const request =` — const, line 1744
+- `const closeLibrary = useCallback(()` — const, line 1749
+- `const onKey = (event: KeyboardEvent)` — const, line 1756
+- `const onMouseUp = useCallback(()` — const, line 1767
+- `const sel = window.getSelection()` — const, line 1768
+- `const quote = sel.toString().replace(/\s+/g, " ").trim()` — const, line 1770
+- `const nodes = collectSelectionNodes()` — const, line 1772
+- `const domBoxesRef = useRef<number[][]>([])` — const, line 1801
+- `const domDragRef = useRef<` — const, line 1802
+- `const domPointFromClient = useCallback((clientX: number, clientY: number): [number, number] | null` — const, line 1804
+- `const host = bodyRef.current` — const, line 1805
+- `const rect = host.getBoundingClientRect()` — const, line 1807
+- `const onBodyMouseDown = useCallback( (event: React.MouseEvent)` — const, line 1811
+- `const target = event.target as Node` — const, line 1815
+- `const point = domPointFromClient(event.clientX, event.clientY)` — const, line 1817
+- `const domDrafting = domDraft !== null` — const, line 1829
+- `const rectFrom = (drag:` — const, line 1832
+- `const onMove = (event: MouseEvent)` — const, line 1838
+- `const drag = domDragRef.current` — const, line 1839
+- `const point = domPointFromClient(event.clientX, event.clientY)` — const, line 1841
+- `const onUp = (event: MouseEvent)` — const, line 1844
+- `const drag = domDragRef.current` — const, line 1845
+- `const point = domPointFromClient(event.clientX, event.clientY)` — const, line 1849
+- `const rect = rectFrom(drag, point)` — const, line 1851
+- `const next = [...domBoxesRef.current, rect]` — const, line 1854
+- `const resolveDomBoxes = useCallback((boxes: number[][]): Array<` — const, line 1871
+- `const host = bodyRef.current` — const, line 1872
+- `const hostRect = host.getBoundingClientRect()` — const, line 1874
+- `const clientBoxes = boxes.map((b)` — const, line 1875
+- `const nodes: Array<` — const, line 1881
+- `const seen = new Set<string>()` — const, line 1882
+- `const spanId = el.dataset.spanId` — const, line 1884
+- `const elRect = el.getBoundingClientRect()` — const, line 1886
+- `const touches = clientBoxes.some( (b)` — const, line 1887
+- `const words: string[] = []` — const, line 1891
+- `const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT)` — const, line 1892
+- `const text = node as Text` — const, line 1894
+- `const wordPattern = /\S+/g` — const, line 1895
+- `let match: RegExpExecArray | null` — let, line 1896
+- `const range = document.createRange()` — const, line 1898
+- `const rects = Array.from(range.getClientRects()).filter((r)` — const, line 1901
+- `const cx = (Math.min(...rects.map((r)` — const, line 1903
+- `const cy = (Math.min(...rects.map((r)` — const, line 1904
+- `const quote = words.join(" ").replace(/\s+/g, " ").trim()` — const, line 1908
+- `const commitDomBoxes = useCallback(()` — const, line 1917
+- `const boxes = domBoxesRef.current` — const, line 1918
+- `const nodes = resolveDomBoxes(boxes)` — const, line 1920
+- `const quote = nodes.map((n)` — const, line 1926
+- `const commitDomBoxesRef = useRef(commitDomBoxes)` — const, line 1935
+- `const clearDomBoxes = ()` — const, line 1943
+- `const onKeyDown = (event: KeyboardEvent)` — const, line 1949
+- `const onKeyUp = (event: KeyboardEvent)` — const, line 1954
+- `const onBlur = ()` — const, line 1960
+- `const openDomTagMenu = useCallback( (request: TagMenuRequest)` — const, line 1982
+- `const point = domPointFromClient(request.x, request.y)` — const, line 1984
+- `const insideCommittedBox = point !== null && domBoxesRef.current.some( (box)` — const, line 1985
+- `const decideProposal = useCallback(async (proposalId: string, decision: "accept" | "reject")` — const, line 2006
+- `const retryRequest = useCallback(async (requestId: string)` — const, line 2019
+- `const optimisticSegments = useCallback( (nodes: string | Array<string |` — const, line 2033
+- `const list = Array.isArray(nodes) ? nodes : [nodes]` — const, line 2035
+- `const spanId = typeof node === "string" ? node : node.spanId` — const, line 2037
+- `const geometry = pdfView?.blocks.find((b)` — const, line 2038
+- `const offsets = typeof node === "string" || typeof node.start !== "number" || typeof node.end !== "number" ?` — const, line 2039
+- `const tagCapture = useCallback( async (action: string, target: TagMenuRequest)` — const, line 2051
+- `const displayQuote = target.quote ?? WHOLE_BLOCK_QUOTE` — const, line 2055
+- `const quotedNodes = (()` — const, line 2060
+- `const multi = collectSelectionNodes()` — const, line 2063
+- `const optimisticIds = quotedNodes ?? [target.spanId]` — const, line 2066
+- `const nodes = quotedNodes ?? [` — const, line 2076
+- `const receipt = await api.readerCapture(` — const, line 2077
+- `const handler = (event: KeyboardEvent)` — const, line 2104
+- `const clearSelection = useCallback(()` — const, line 2116
+- `const jumpToAnnotation = useCallback( (a: MarginAnnotation)` — const, line 2128
+- `const segment = a.segments.find((s)` — const, line 2130
+- `const el = bodyRef.current?.querySelector(`[data-span-id="$` — const, line 2137
+- `const alsoKeyRef = useRef<()` — const, line 2147
+- `const onKey = (event: KeyboardEvent)` — const, line 2155
+- `const target = event.target` — const, line 2158
+- `const tabs: ReaderRailTab[] = ["guide", "ask", "notes"]` — const, line 2160
+- `const askRequestSeen = useRef(askRequest)` — const, line 2198
+- `const revealAskRef = useRef<()` — const, line 2200
+- `const startCompareRef = useRef<(request: CompareRequest)` — const, line 2225
+- `const sideAnchor = Boolean(side.extractionId) && side.extractionId === request.extractionId` — const, line 2228
+- `const request = compareWaitsForWork` — const, line 2235
+- `const sideMarksChanged = side.marksChanged` — const, line 2245
+- `const captureIn = useCallback(async (target: PaneCaptureTarget, what:` — const, line 2246
+- `const common =` — const, line 2251
+- `const receipt: ReaderPresetReceiptDto = "preset" in what ? await api.readerInvokePreset(` — const, line 2256
+- `const drained = await api.readerDrainOutbox()` — const, line 2267
+- `const invokePreset = useCallback( // RW1b: the intent box passes its own words as the annotation's learner // text, and names the intention and entry in the funnel event. // Reader CA6b: `target` is side by side's second pane (its book, revision, // reading a…` — const, line 2288
+- `const note_ = learnerTextOverride ?? note` — const, line 2296
+- `const nodes = selectionNodes(selection)` — const, line 2297
+- `const editedText = selection.editedText?.trim()` — const, line 2298
+- `const receipt = await api.readerInvokePreset(` — const, line 2310
+- `const drained = await api.readerDrainOutbox()` — const, line 2334
+- `const captureHighlight = useCallback(async (learnerTextOverride?: string, meta?: Record<string, unknown>, target?: PaneCaptureTarget): Promise<string | null>` — const, line 2357
+- `const note_ = learnerTextOverride ?? note` — const, line 2361
+- `const nodes = selectionNodes(selection)` — const, line 2362
+- `const receipt = await api.readerCapture(` — const, line 2374
+- `const pauseArc = useCallback(async ()` — const, line 2402
+- `const next = await api.readerArc(` — const, line 2406
+- `const setArcPolicy = useCallback( async (policy: string)` — const, line 2413
+- `const next = await api.readerArc(` — const, line 2418
+- `const importJobRef = useRef<` — const, line 2430
+- `const importExercise = useCallback(async (target?: PaneCaptureTarget): Promise<string | null>` — const, line 2433
+- `const nodes = target ? target.nodes : selectionNodes(selection!)` — const, line 2435
+- `const editedText = target ? undefined : selection!.editedText?.trim()` — const, line 2436
+- `const receipt = await api.readerImportExercise(target ?` — const, line 2439
+- `const exerciseImportBatchId = exerciseImport?.batchId ?? null` — const, line 2487
+- `const exerciseImportActive = exerciseImport != null && ["queued", "running", "blocked"].includes(exerciseImport.status)` — const, line 2488
+- `const timer = setInterval(async ()` — const, line 2492
+- `const status = await api.readerExerciseImportStatus(` — const, line 2494
+- `const job = importJobRef.current` — const, line 2495
+- `const waited = Date.now() - job.startedAt` — const, line 2498
+- `const saveOwnQuestion = useCallback(async ()` — const, line 2525
+- `const saved = await api.readerAuthorQA(` — const, line 2533
+- `const runCoach = useCallback(async ()` — const, line 2554
+- `const lint = await api.readerCoachLint(` — const, line 2557
+- `const changeMode = useCallback( async (next: string)` — const, line 2568
+- `const previous = mode` — const, line 2570
+- `const version = ++modeSaveVersionRef.current` — const, line 2573
+- `const changeAnswerMode = useCallback( async (next: string)` — const, line 2584
+- `const answerModeNext = next as ReaderAnswerMode` — const, line 2586
+- `const previous = answerMode` — const, line 2587
+- `const version = ++answerModeSaveVersionRef.current` — const, line 2590
+- `const sendQuestionControl = useCallback( async (control: string)` — const, line 2606
+- `const renderInquiryTop = useCallback((root: ReaderExchange)` — const, line 2621
+- `const line = reconnect && reconnect.rootId === root.id && !muted ? ( <ReconnectLine placement="rail" question=` — const, line 2624
+- `const check = inquiryChecks[root.id]` — const, line 2634
+- `const inlineReconnect = reconnect && reconnect.inline && !muted ? ( <ReconnectLine placement="inline" question=` — const, line 2662
+- `const chooseDisposition = useCallback( async (d: ReaderDisposition)` — const, line 2673
+- `const openLibraryHit = (hit: Pick<LibraryHitDto, "sourceId" | "extractionId" | "spanId">, pinned?: ReaderRenderViewDto): Promise<OpenOutcome>` — const, line 2692
+- `const card = (library ?? []).find((candidate)` — const, line 2697
+- `const spanId = readingSpan ?? activeSpan` — const, line 2700
+- `const onOriginal = pdfView && surface === "pdf" && !offline` — const, line 2726
+- `const epoch = sourceEpochRef.current` — const, line 2739
+- `const sameBook = Boolean(render && sourceId === render.sourceId)` — const, line 2742
+- `const card = (library ?? []).find((candidate)` — const, line 2743
+- `const landed = await api.readerSavedPlace(` — const, line 2748
+- `const landing = await api.readerRenderView(` — const, line 2762
+- `const openFollowedFigure = (figure: CorrespondentFigureDto, hit: CorrespondentSectionDto)` — const, line 2772
+- `const here = readingSpan && currentGuideSection.spanIds.includes(readingSpan) ? readingSpan : currentGuideSection.startSpanId` — const, line 2774
+- `const compareFoundSection = (hit: CorrespondentSectionDto)` — const, line 2789
+- `const here = readingSpan && currentGuideSection.spanIds.includes(readingSpan) ? readingSpan : currentGuideSection.startSpanId` — const, line 2791
+- `const hideAlsoInBooks = (scope: "book" | "everywhere")` — const, line 2814
+- `const before = alsoPrefs ??` — const, line 2816
+- `const base = contract` — const, line 2823
+- `const makeExplorable = (target: Pick<LibraryHitDto, "sourceId" | "extractionId" | "spanId">, origin: "library" | "tutor", offerRef: string): Promise<ExplorableOutcome>` — const, line 2840
+- `let settle: (outcome: ExplorableOutcome)` — let, line 2847
+- `const settled = new Promise<ExplorableOutcome>((resolve)` — const, line 2848
+- `const press: OfferedPress =` — const, line 2849
+- `const peekWorkbenchPassage = (spanId: string, target?: PassageTarget)` — const, line 2868
+- `const exerciseSettings = libraryCtl.enabled ? contract?.libraryExercises ?? null : null` — const, line 2879
+- `const exerciseCard = (sourceId: string | null)` — const, line 2880
+- `const useExercise = (candidate: ExerciseCandidate)` — const, line 2884
+- `const card = exerciseCard(candidate.sourceId ?? render?.sourceId ?? null)` — const, line 2885
+- `const openExerciseInBook = (candidate: ExerciseCandidate)` — const, line 2894
+- `const sourceId = candidate.sourceId ?? render?.sourceId ?? null` — const, line 2895
+- `const exerciseProps: LibraryExercisesProps | null = exerciseSettings ?` — const, line 2898
+- `const pickLibraryPagePractice = (item: ProposedItemDto, proposalId: string | null)` — const, line 2912
+- `const hit = libraryCtl.state?.ask.value?.hits[0]` — const, line 2913
+- `const card = hit ? (library ?? []).find((candidate)` — const, line 2914
+- `const readySources = library ?? []` — const, line 2957
+- `const useShelf = Boolean(shelf) && !sidecarDown` — const, line 2959
+- `const card = (library ?? []).find((candidate)` — const, line 3017
+- `const card = (library ?? []).find((c)` — const, line 3038
+- `const receiptId = searchResults.retrievalReceiptId` — const, line 3044
+- `const cardOpenable = enabled && card.readerEnabled !== false` — const, line 3089
+- `const isVideo = youtubeVideoId(card.canonicalUri ?? "") !== null` — const, line 3090
+- `const wbActive = wbCtl.active` — const, line 3133
+- `const wbStacked = working && wbCtl.narrow` — const, line 3134
+- `const wbBookHidden = Boolean(wbActive && !wbActive.session.sourceVisible)` — const, line 3137
+- `const wbSourceShown = !wbStacked || wbCtl.sheetOpen` — const, line 3138
+- `const wbOpenSessions = wbCtl.enabled ? wbCtl.sessions.filter((entry)` — const, line 3139
+- `const wbResumeBySpan = new Map<string, (typeof wbOpenSessions)[number]>()` — const, line 3140
+- `const first = entry.spanIds[0]` — const, line 3142
+- `const wbLabel = (stem: string)` — const, line 3145
+- `const title = problemTitle(stem)` — const, line 3146
+- `const tryPathExercise = (exercise: ReadingPathExerciseDto)` — const, line 3151
+- `const workThroughSelection = ()` — const, line 3159
+- `const nodes = selectionNodes(selection)` — const, line 3161
+- `const editedText = selection.editedText?.trim()` — const, line 3162
+- `const foldBlocks = contract?.activeReading?.foldBlocks ?? 3` — const, line 3179
+- `const localFold = (spanIds: string[]): string[]` — const, line 3180
+- `const positions = spanIds.map((spanId)` — const, line 3181
+- `const last = Math.max(...positions)` — const, line 3183
+- `const mainPane: IntentPane =` — const, line 3192
+- `const sidePane: IntentPane | null = side.extractionId ?` — const, line 3201
+- `const sideMeta = (pane: IntentPane): Record<string, string>` — const, line 3211
+- `const runIntentIn = (pane: IntentPane, action: ReaderIntentActionDto, text: string, how: IntentRunHow): Promise<IntentRunHandle | null> | void` — const, line 3213
+- `const meta =` — const, line 3214
+- `const effect = action.effect` — const, line 3215
+- `const sideSection = pane.side?.section ?? null` — const, line 3216
+- `const anchor: AskAnchor =` — const, line 3222
+- `const target = pane.side.target` — const, line 3263
+- `const target = pane.side.target` — const, line 3269
+- `const target = pane.side.target` — const, line 3275
+- `const target = pane.side.target` — const, line 3285
+- `const bound = wbCtl.active?.session.practiceItemId ? wbCtl.active.session.sessionId : null` — const, line 3330
+- `const request: CompareRequest =` — const, line 3331
+- `const region = pane.region` — const, line 3363
+- `const words = text?.trim()` — const, line 3364
+- `const sideShows = (extractionId: string, spanId: string): boolean` — const, line 3385
+- `const checkBeside = (book: SourceIdentity, spanId: string, practiceItemId: string, proposalId: string | null)` — const, line 3388
+- `const workThroughImported = (item:` — const, line 3393
+- `const imported = exerciseImport` — const, line 3394
+- `const spanIds = imported?.spanIds ?? (activeSpan ? [activeSpan] : [])` — const, line 3395
+- `const settleShowMeLine = (key: string, patch: Partial<ShowMeLine>)` — const, line 3403
+- `const requestShowMe = (ctl: FiguresCtl, run: Extract<BesideRun,` — const, line 3406
+- `const key = run.lineKey` — const, line 3407
+- `const runOnBook = (about: AskAbout, run: Extract<BesideRun,` — const, line 3419
+- `const showMeFromAsk = ()` — const, line 3444
+- `const goal = question.trim()` — const, line 3445
+- `const about = parentExchange ? parentExchange.about ?? null : askComposerAnchor?.about ?? null` — const, line 3446
+- `const home = parentExchange?.spanId ?? (about ? askComposerAnchor?.spanId : undefined) ?? selectionSpanIds[selectionSpanIds.length - 1] ?? readingSpan ?? activeSpan` — const, line 3447
+- `const key = `show_me:$` — const, line 3450
+- `const run =` — const, line 3453
+- `const cancelIntentIn = (pane: IntentPane, cancel: IntentCancel)` — const, line 3462
+- `const kind = cancel.action.effect.kind` — const, line 3463
+- `const annotationId = handle.annotationId` — const, line 3470
+- `const batchId = handle.importBatchId` — const, line 3487
+- `const leaveWorkbench = (session: Parameters<typeof wbCtl.close>[0], abandonedNow = false, generation?: number)` — const, line 3501
+- `const spanId = wbCtl.close(session,` — const, line 3503
+- `const pickLibraryPractice = (item: ProposedItemDto, proposalId: string | null)` — const, line 3509
+- `const card = openCardRef.current` — const, line 3510
+- `const asked = libraryCtl.state?.request` — const, line 3514
+- `const resumeMark = (spanId: string | null | undefined)` — const, line 3522
+- `const entry = spanId ? wbResumeBySpan.get(spanId) : undefined` — const, line 3523
+- `const verb = entry.status === "abandoned" ? "Reopen" : "Resume"` — const, line 3525
+- `const target = event.target` — const, line 3649
+- `const isSection = (block.blockType ?? "") === "Section"` — const, line 3824
+- `const active = activeSpan === block.spanId` — const, line 3825
+- `const guidePassage = block.spanId ? revealedPassages.get(block.spanId) : undefined` — const, line 3826
+- `const cueMark = block.spanId ? cueCtl.markOn(block.spanId) : null` — const, line 3827
+- `const endSection = block.spanId ? guideSectionByEnd.get(block.spanId) : undefined` — const, line 3828
+- `const endQuestionAvailable = Boolean(endSection && endSection.question?.readingPhase === "after_section" && offeredCheckSections.has(endSection.id))` — const, line 3830
+- `const folded = Boolean(block.spanId && activeCtl.folded.has(block.spanId))` — const, line 3834
+- `const firstFolded = folded && !(i > 0 && blocks[i - 1].spanId && activeCtl.folded.has(blocks[i - 1].spanId ?? ""))` — const, line 3835
+- `const offerSection = endSection && !muted && !dismissedSections.includes(endSection.id) && !completedSections.includes(endSection.id) && ((endQuestionAvailable && endSection.question !== null) || endSection.suggestedPassages.length > 0)` — const, line 3836
+- `const sel = window.getSelection()` — const, line 3855
+- `const quote = sel && !sel.isCollapsed ? sel.toString().replace(/\s+/g, " ").trim() : ""` — const, line 3856
+- `const cue = side.cues.markOn(spanId)` — const, line 3946
+- `const node = sbsPaneRef.current?.querySelector(`[data-sbs-span="$` — const, line 3974
+- `const node = sbsPaneRef.current?.querySelector(`[data-sbs-span="$` — const, line 3997
+- `const active = railTab === tab` — const, line 4110
+- `const waiting = tab === "guide" && pendingQuickCheckCount > 0` — const, line 4114
+- `const marked = tab === "ask" && askTabMarked && !active` — const, line 4115
+- `const params = (action.params ??` — const, line 4262
+- `const run =` — const, line 4534
+- `const book = exchange?.about ?? render` — const, line 4543
 
 ## Who imports or calls it
 

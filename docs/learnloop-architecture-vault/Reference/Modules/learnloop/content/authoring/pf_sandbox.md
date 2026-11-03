@@ -211,6 +211,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_rw5c_block_policy.py](../../../../../../../tests/test_rw5c_block_policy.py) — direct import
 - [tests/test_rw5c_labels.py](../../../../../../../tests/test_rw5c_labels.py) — direct import
   - `test_a_figure_with_no_book_element_is_drawn_exactly_as_before`
+- [tests/test_rw5c_plain_words.py](../../../../../../../tests/test_rw5c_plain_words.py) — direct import
 - [tests/test_rw5c_recheck.py](../../../../../../../tests/test_rw5c_recheck.py) — direct import
   - `test_a_certification_bump_rechecks_at_no_paid_cost`
   - `test_a_recheck_with_the_switch_off_or_turned_off_before_its_write_writes_nothing`

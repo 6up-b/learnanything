@@ -7,8 +7,8 @@ version: "1.0.0"
 source_path: "src/learnloop/figures/source_check.py"
 source_paths:
   - "src/learnloop/figures/source_check.py"
-source_commit: "3da9041670d761302c8f41993f6f9f98413a9a3d"
-source_commit_timestamp: "2026-11-03T00:02:23-05:00"
+source_commit: "ddda73b843d2383ec920b205be7bfccd11240279"
+source_commit_timestamp: "2026-11-03T00:29:56-05:00"
 source_worktree_state: "clean"
 generated: true
 generated_at: "2026-11-02"
@@ -50,58 +50,58 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/figures/source_check.py](../../../../../../src/learnloop/figures/source_check.py) |
-| Source lines | 1090 |
+| Source lines | 1091 |
 | Owning package | [[Reference/Modules/learnloop/figures/_package|learnloop.figures]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `3da9041670d761302c8f41993f6f9f98413a9a3d` |
-| Commit timestamp | `2026-11-03T00:02:23-05:00` |
+| Source commit | `ddda73b843d2383ec920b205be7bfccd11240279` |
+| Commit timestamp | `2026-11-03T00:29:56-05:00` |
 
 ## Public API
 
-- `enabled(vault: Any) -> bool` ([source](../../../../../../src/learnloop/figures/source_check.py), line 96) — ``figures.checked_labels_enabled`` under ``figures.enabled``, as configured now.
-- `recheck_key(vault: Any) -> tuple[Any, ...]` ([source](../../../../../../src/learnloop/figures/source_check.py), line 102) — A recheck's gate key (§6.7): it makes no model request, but stops at any switch change.
-- `class Candidate` ([source](../../../../../../src/learnloop/figures/source_check.py), line 109) — One readable equation of an input span.
-  - `key(self) -> str` (line 124; public)
-- `class Check` ([source](../../../../../../src/learnloop/figures/source_check.py), line 129) — The result of one run of steps 3a-3e.
-  - `book_elements(self) -> list[dict[str, Any]]` (line 144; public)
-- `input_spans(row: Mapping[str, Any]) -> list[tuple[str, str, str]]` ([source](../../../../../../src/learnloop/figures/source_check.py), line 152) — ``(extraction_id, span_id, claim_key)`` of a figure's own input spans: the spans that were sent to the author, as stored for every held-out recheck.
-- `read_candidates(vault: Any, repository: Any, spans: Sequence[tuple[str, str, str]], *, persist: bool=True) -> tuple[list[Candidate], dict[str, int]]` ([source](../../../../../../src/learnloop/figures/source_check.py), line 190) — The readable equations of the input spans in reading order, and how many were refused by each reason.
-- `class Drawn` ([source](../../../../../../src/learnloop/figures/source_check.py), line 265) — A bare reference to a definition: an element that draws it, whole.
-- `expand(node: G.Node, definitions: Mapping[str, G.Node], _seen: tuple[str, ...]=()) -> G.Node` ([source](../../../../../../src/learnloop/figures/source_check.py), line 275) — ``node`` with definitions written out (the compiler caps the result).
-- `drawn_by_reference(compiled: S.CompiledFigure) -> dict[str, list[Drawn]]` ([source](../../../../../../src/learnloop/figures/source_check.py), line 286) — Each definition's elements that draw it by bare reference: the expression is exactly ``Node(kind="name", text=d)``.
-- `binding_problem(node: G.Node) -> str | None` ([source](../../../../../../src/learnloop/figures/source_check.py), line 322) — Why a definition's expansion cannot be checked (§6.1), as a closed reason.
-- `to_json(node: G.Node) -> dict[str, Any]` ([source](../../../../../../src/learnloop/figures/source_check.py), line 349)
-- `controls(node: G.Node, symbols: Sequence[str]) -> list[G.Node]` ([source](../../../../../../src/learnloop/figures/source_check.py), line 369) — §6.5: ``d + 1``, ``2·d`` and ``d`` with each free symbol ``s`` replaced by ``s + 1``: exact transformations, structural, tuning nothing.
-- `quote_overlaps(quote: str, candidate: Candidate) -> bool` ([source](../../../../../../src/learnloop/figures/source_check.py), line 470) — Whether a quote ``quote_in`` verifies in this block overlaps this segment.
-- `check_figure(vault: Any, repository: Any, compiled: S.CompiledFigure, *, spans: Sequence[tuple[str, str, str]], grounding: str | None, persist: bool=True, sandbox: Sandbox | None=None, sandbox_ready: Callable[[], bool] | None=None) -> Check` ([source](../../../../../../src/learnloop/figures/source_check.py), line 521) — Steps 3a-3e on one compiled grammar spec.
-- `record(connection: Any, figure_id: str, check: Check, *, trigger: str, created_at: str) -> str` ([source](../../../../../../src/learnloop/figures/source_check.py), line 804) — One ``figure_source_checks`` row and its ``judgment_ledger`` verdict, in the caller's transaction (F6, G23i): either both commit or neither.
-- `failed_check(compiled: S.CompiledFigure) -> Check` ([source](../../../../../../src/learnloop/figures/source_check.py), line 825) — A check that could not run: an honest row, certifying nothing (G23f).
-- `stored_problems(found: Mapping[str, Any]) -> list[str]` ([source](../../../../../../src/learnloop/figures/source_check.py), line 831) — The difference a check row records, in code's words, for *rebuild*'s first attempt (§6.6).
-- `grammar_row(row: Mapping[str, Any]) -> bool` ([source](../../../../../../src/learnloop/figures/source_check.py), line 838) — Only grammar-tier figures are checked (§11.1, N-a): sketch, ``js_animation`` and ``manim`` keep *not checked against the book*.
-- `current_row(repository: Any, figure_id: str) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/figures/source_check.py), line 845) — The newest check of a figure at the current certification version (the one shown).
-- `recheck_due(found: Mapping[str, Any] | None) -> bool` ([source](../../../../../../src/learnloop/figures/source_check.py), line 852) — No check at the current certification version; or the last found no sandbox (a machine that has one now can decide what that one could not).
-- `recheck(vault: Any, repository: Any, row: Mapping[str, Any], *, live_vault: Callable[[], Any] | None=None, clock: Clock | None=None, dry_run: bool=False, sandbox: Sandbox | None=None, sandbox_ready: Callable[[], bool] | None=None) -> Check | None` ([source](../../../../../../src/learnloop/figures/source_check.py), line 865) — A stored grammar figure rechecked by code, with no model client (§10.4), admitted against the switch as it is now before the sandbox and before the write (§6.7).
-- `coverage(vault: Any, repository: Any, *, dry_run: bool, withheld: Callable[[Mapping[str, Any]], bool], sandbox: Sandbox | None=None, clock: Clock | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/figures/source_check.py), line 913) — ``reader figure-checks --recheck``: every stored grammar figure rechecked by code, with no model client; ``dry_run`` writes nothing.
-- `audit(repository: Any, *, withheld: Callable[[Mapping[str, Any]], bool]) -> dict[str, Any]` ([source](../../../../../../src/learnloop/figures/source_check.py), line 988) — ``reader figure-checks`` with no ``--recheck``: each element carrying the claim, from the ledger.
-- `report_block(connection: Any, *, since: str | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/figures/source_check.py), line 1011) — The reader report's ``source_checks``: outcomes, reasons, elements, latency, and opens and "not right?" notes for figures with a ``book`` element and without (§12 item 4).
-- `add_report_block(report: dict[str, Any], sqlite_path: Any, *, since: str | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/figures/source_check.py), line 1050) — Put :func:`report_block` under the reader report's ``figures`` (``learnloop reader report`` calls it only with the switch on, so off the report is as before: G23g).
+- `enabled(vault: Any) -> bool` ([source](../../../../../../src/learnloop/figures/source_check.py), line 97) — ``figures.checked_labels_enabled`` under ``figures.enabled``, as configured now.
+- `recheck_key(vault: Any) -> tuple[Any, ...]` ([source](../../../../../../src/learnloop/figures/source_check.py), line 103) — A recheck's gate key (§6.7): it makes no model request, but stops at any switch change.
+- `class Candidate` ([source](../../../../../../src/learnloop/figures/source_check.py), line 110) — One readable equation of an input span.
+  - `key(self) -> str` (line 125; public)
+- `class Check` ([source](../../../../../../src/learnloop/figures/source_check.py), line 130) — The result of one run of steps 3a-3e.
+  - `book_elements(self) -> list[dict[str, Any]]` (line 145; public)
+- `input_spans(row: Mapping[str, Any]) -> list[tuple[str, str, str]]` ([source](../../../../../../src/learnloop/figures/source_check.py), line 153) — ``(extraction_id, span_id, claim_key)`` of a figure's own input spans: the spans that were sent to the author, as stored for every held-out recheck.
+- `read_candidates(vault: Any, repository: Any, spans: Sequence[tuple[str, str, str]], *, persist: bool=True) -> tuple[list[Candidate], dict[str, int]]` ([source](../../../../../../src/learnloop/figures/source_check.py), line 191) — The readable equations of the input spans in reading order, and how many were refused by each reason.
+- `class Drawn` ([source](../../../../../../src/learnloop/figures/source_check.py), line 266) — A bare reference to a definition: an element that draws it, whole.
+- `expand(node: G.Node, definitions: Mapping[str, G.Node], _seen: tuple[str, ...]=()) -> G.Node` ([source](../../../../../../src/learnloop/figures/source_check.py), line 276) — ``node`` with definitions written out (the compiler caps the result).
+- `drawn_by_reference(compiled: S.CompiledFigure) -> dict[str, list[Drawn]]` ([source](../../../../../../src/learnloop/figures/source_check.py), line 287) — Each definition's elements that draw it by bare reference: the expression is exactly ``Node(kind="name", text=d)``.
+- `binding_problem(node: G.Node) -> str | None` ([source](../../../../../../src/learnloop/figures/source_check.py), line 323) — Why a definition's expansion cannot be checked (§6.1), as a closed reason.
+- `to_json(node: G.Node) -> dict[str, Any]` ([source](../../../../../../src/learnloop/figures/source_check.py), line 350)
+- `controls(node: G.Node, symbols: Sequence[str]) -> list[G.Node]` ([source](../../../../../../src/learnloop/figures/source_check.py), line 370) — §6.5: ``d + 1``, ``2·d`` and ``d`` with each free symbol ``s`` replaced by ``s + 1``: exact transformations, structural, tuning nothing.
+- `quote_overlaps(quote: str, candidate: Candidate) -> bool` ([source](../../../../../../src/learnloop/figures/source_check.py), line 471) — Whether a quote ``quote_in`` verifies in this block overlaps this segment.
+- `check_figure(vault: Any, repository: Any, compiled: S.CompiledFigure, *, spans: Sequence[tuple[str, str, str]], grounding: str | None, persist: bool=True, sandbox: Sandbox | None=None, sandbox_ready: Callable[[], bool] | None=None) -> Check` ([source](../../../../../../src/learnloop/figures/source_check.py), line 522) — Steps 3a-3e on one compiled grammar spec.
+- `record(connection: Any, figure_id: str, check: Check, *, trigger: str, created_at: str) -> str` ([source](../../../../../../src/learnloop/figures/source_check.py), line 805) — One ``figure_source_checks`` row and its ``judgment_ledger`` verdict, in the caller's transaction (F6, G23i): either both commit or neither.
+- `failed_check(compiled: S.CompiledFigure) -> Check` ([source](../../../../../../src/learnloop/figures/source_check.py), line 826) — A check that could not run: an honest row, certifying nothing (G23f).
+- `stored_problems(found: Mapping[str, Any]) -> list[str]` ([source](../../../../../../src/learnloop/figures/source_check.py), line 832) — The difference a check row records, in code's words, for *rebuild*'s first attempt (§6.6).
+- `grammar_row(row: Mapping[str, Any]) -> bool` ([source](../../../../../../src/learnloop/figures/source_check.py), line 839) — Only grammar-tier figures are checked (§11.1, N-a): sketch, ``js_animation`` and ``manim`` keep *not checked against the book*.
+- `current_row(repository: Any, figure_id: str) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/figures/source_check.py), line 846) — The newest check of a figure at the current certification version (the one shown).
+- `recheck_due(found: Mapping[str, Any] | None) -> bool` ([source](../../../../../../src/learnloop/figures/source_check.py), line 853) — No check at the current certification version; or the last found no sandbox (a machine that has one now can decide what that one could not).
+- `recheck(vault: Any, repository: Any, row: Mapping[str, Any], *, live_vault: Callable[[], Any] | None=None, clock: Clock | None=None, dry_run: bool=False, sandbox: Sandbox | None=None, sandbox_ready: Callable[[], bool] | None=None) -> Check | None` ([source](../../../../../../src/learnloop/figures/source_check.py), line 866) — A stored grammar figure rechecked by code, with no model client (§10.4), admitted against the switch as it is now before the sandbox and before the write (§6.7).
+- `coverage(vault: Any, repository: Any, *, dry_run: bool, withheld: Callable[[Mapping[str, Any]], bool], sandbox: Sandbox | None=None, clock: Clock | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/figures/source_check.py), line 914) — ``reader figure-checks --recheck``: every stored grammar figure rechecked by code, with no model client; ``dry_run`` writes nothing.
+- `audit(repository: Any, *, withheld: Callable[[Mapping[str, Any]], bool]) -> dict[str, Any]` ([source](../../../../../../src/learnloop/figures/source_check.py), line 989) — ``reader figure-checks`` with no ``--recheck``: each element carrying the claim, from the ledger.
+- `report_block(connection: Any, *, since: str | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/figures/source_check.py), line 1012) — The reader report's ``source_checks``: outcomes, reasons, elements, latency, and opens and "not right?" notes for figures with a ``book`` element and without (§12 item 4).
+- `add_report_block(report: dict[str, Any], sqlite_path: Any, *, since: str | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/figures/source_check.py), line 1051) — Put :func:`report_block` under the reader report's ``figures`` (``learnloop reader report`` calls it only with the switch on, so off the report is as before: G23g).
 
 ### Module constants
 
-- `CERTIFICATION_VERSION` ([src/learnloop/figures/source_check.py](../../../../../../src/learnloop/figures/source_check.py), line 67)
-- `LEDGER_TASK` ([src/learnloop/figures/source_check.py](../../../../../../src/learnloop/figures/source_check.py), line 68)
-- `OUTCOMES` ([src/learnloop/figures/source_check.py](../../../../../../src/learnloop/figures/source_check.py), line 70)
-- `REASONS` ([src/learnloop/figures/source_check.py](../../../../../../src/learnloop/figures/source_check.py), line 73)
-- `SANDBOX_LIMITS` ([src/learnloop/figures/source_check.py](../../../../../../src/learnloop/figures/source_check.py), line 78)
-- `PER_CHECK_SECONDS` ([src/learnloop/figures/source_check.py](../../../../../../src/learnloop/figures/source_check.py), line 79)
-- `REJECTED_REASON` ([src/learnloop/figures/source_check.py](../../../../../../src/learnloop/figures/source_check.py), line 81)
-- `_UNICODE_MATH` ([src/learnloop/figures/source_check.py](../../../../../../src/learnloop/figures/source_check.py), line 82)
-- `_RESULTS` ([src/learnloop/figures/source_check.py](../../../../../../src/learnloop/figures/source_check.py), line 83)
-- `HARNESS_SHA256` ([src/learnloop/figures/source_check.py](../../../../../../src/learnloop/figures/source_check.py), line 93)
-- `_RECHECKING` ([src/learnloop/figures/source_check.py](../../../../../../src/learnloop/figures/source_check.py), line 861)
-- `_RECHECKING_GUARD` ([src/learnloop/figures/source_check.py](../../../../../../src/learnloop/figures/source_check.py), line 862)
+- `CERTIFICATION_VERSION` ([src/learnloop/figures/source_check.py](../../../../../../src/learnloop/figures/source_check.py), line 68)
+- `LEDGER_TASK` ([src/learnloop/figures/source_check.py](../../../../../../src/learnloop/figures/source_check.py), line 69)
+- `OUTCOMES` ([src/learnloop/figures/source_check.py](../../../../../../src/learnloop/figures/source_check.py), line 71)
+- `REASONS` ([src/learnloop/figures/source_check.py](../../../../../../src/learnloop/figures/source_check.py), line 74)
+- `SANDBOX_LIMITS` ([src/learnloop/figures/source_check.py](../../../../../../src/learnloop/figures/source_check.py), line 79)
+- `PER_CHECK_SECONDS` ([src/learnloop/figures/source_check.py](../../../../../../src/learnloop/figures/source_check.py), line 80)
+- `REJECTED_REASON` ([src/learnloop/figures/source_check.py](../../../../../../src/learnloop/figures/source_check.py), line 82)
+- `_UNICODE_MATH` ([src/learnloop/figures/source_check.py](../../../../../../src/learnloop/figures/source_check.py), line 83)
+- `_RESULTS` ([src/learnloop/figures/source_check.py](../../../../../../src/learnloop/figures/source_check.py), line 84)
+- `HARNESS_SHA256` ([src/learnloop/figures/source_check.py](../../../../../../src/learnloop/figures/source_check.py), line 94)
+- `_RECHECKING` ([src/learnloop/figures/source_check.py](../../../../../../src/learnloop/figures/source_check.py), line 862)
+- `_RECHECKING_GUARD` ([src/learnloop/figures/source_check.py](../../../../../../src/learnloop/figures/source_check.py), line 863)
 
 ### Explicit exports
 
@@ -139,33 +139,33 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 
 ## Internal implementation anchors
 
-- `_harness_files() -> tuple[str, str]` ([source](../../../../../../src/learnloop/figures/source_check.py), line 86)
-- `_health(repository: Any, extraction_id: str, block: Any, ir: Any, *, persist: bool) -> dict[str, Any]` ([source](../../../../../../src/learnloop/figures/source_check.py), line 165) — The block's health as ``reader.block_health`` computes it: stored when computed, never assumed ok (``unknown`` is not ``ok``, §5.2).
-- `_page_shows_markdown(repository: Any, extraction_id: str) -> bool` ([source](../../../../../../src/learnloop/figures/source_check.py), line 181) — Whether the reading's source opens on a markdown page; a source that can't be found is not known to.
-- `_bare_exact(side: G.Node) -> bool` ([source](../../../../../../src/learnloop/figures/source_check.py), line 313)
-- `_bare_name(side: G.Node) -> bool` ([source](../../../../../../src/learnloop/figures/source_check.py), line 318)
-- `_substitute(node: G.Node, name: str, replacement: G.Node) -> G.Node` ([source](../../../../../../src/learnloop/figures/source_check.py), line 360)
-- `_exact(value: float) -> str` ([source](../../../../../../src/learnloop/figures/source_check.py), line 381)
-- `_assumptions(compiled: S.CompiledFigure, names: set[str], variable: str | None) -> dict[str, str]` ([source](../../../../../../src/learnloop/figures/source_check.py), line 386) — §6.3 step 1: sign assumptions the sliders' ranges imply, so a proof holds across them.
-- `_projected_grid(compiled: S.CompiledFigure, names: set[str]) -> list[dict[str, float]]` ([source](../../../../../../src/learnloop/figures/source_check.py), line 404) — The parameter grid on the parameters a definition reads (the others cannot move it).
-- `_samples(compiled: S.CompiledFigure, drawn: Drawn) -> list[float]` ([source](../../../../../../src/learnloop/figures/source_check.py), line 414)
-- `_display_payload(compiled: S.CompiledFigure, name: str, drawn: Drawn, grid: Sequence[Mapping[str, float]]) -> dict[str, Any]` ([source](../../../../../../src/learnloop/figures/source_check.py), line 423) — What the figure shows at every displayed sample of every grid point: the evaluator's double formatted by the twin of ``formatValue`` (§6.4).
-- `_squashed_map(text: str) -> tuple[str, list[int]]` ([source](../../../../../../src/learnloop/figures/source_check.py), line 451) — ``verify.quote_in``'s whitespace-collapsed text, with each character's place in ``text``.
-- `_point_words(value: Any) -> str` ([source](../../../../../../src/learnloop/figures/source_check.py), line 486) — An exact witness coordinate as its shortest decimal when it is one, else the exact fraction.
-- `_witness_words(name: str, witness: Mapping[str, Any]) -> str` ([source](../../../../../../src/learnloop/figures/source_check.py), line 498) — The difference, in code's words, for the second attempt and the ledger (§6.6).
-- `_count(reasons: dict[str, int], reason: str, amount: int=1) -> None` ([source](../../../../../../src/learnloop/figures/source_check.py), line 509)
-- `_run_sandbox(payload: Mapping[str, Any], sandbox: Sandbox | None) -> pf_sandbox.SandboxResult` ([source](../../../../../../src/learnloop/figures/source_check.py), line 516)
-- `_check(vault: Any, repository: Any, compiled: S.CompiledFigure, *, spans: Sequence[tuple[str, str, str]], grounding: str | None, persist: bool, sandbox: Sandbox | None, sandbox_ready: Callable[[], bool] | None) -> Check` ([source](../../../../../../src/learnloop/figures/source_check.py), line 534)
-- `_across_blocks(quote: str, spans: Sequence[tuple[str, str, str]], repository: Any) -> bool` ([source](../../../../../../src/learnloop/figures/source_check.py), line 651) — §5.3: a quote that spans two blocks is never one candidate's pointer.
-- `_difference_points(grid: Sequence[Mapping[str, float]], drawn: Drawn, compiled: S.CompiledFigure) -> list[dict[str, str]]` ([source](../../../../../../src/learnloop/figures/source_check.py), line 663) — The exact points a difference is looked for at (§6.3 step 5): the grid crossed with the variable's displayed samples.
-- `_decide_definition(entry: dict[str, Any], name: str, pairs: Sequence[tuple[Candidate, bool]], results: Mapping[tuple[str, str], Mapping[str, Any]], failure: str | None, drawn: Sequence[Drawn], book: dict[str, E.BookLabel], book_elements: dict[str, str], problems: list[str]) -> None` ([source](../../../../../../src/learnloop/figures/source_check.py), line 679) — §6.6's precedence over this definition's pairs.
-- `_controls_verdict(answers: Any) -> str | None` ([source](../../../../../../src/learnloop/figures/source_check.py), line 746) — §6.5: None when every control was refused.
-- `_provenance(candidate: Candidate) -> dict[str, Any]` ([source](../../../../../../src/learnloop/figures/source_check.py), line 759)
-- `_finished(compiled: S.CompiledFigure, definitions: list[dict[str, Any]], candidates: Sequence[Candidate], reasons: Mapping[str, int], outcome: str, sympy_version: str, *, book: Mapping[str, E.BookLabel] | None=None, book_elements: Mapping[str, str] | None=None, problems: Sequence[str]=()) -> Check` ([source](../../../../../../src/learnloop/figures/source_check.py), line 764)
-- `_rationale(definitions: Sequence[Mapping[str, Any]], reasons: Mapping[str, int]) -> str` ([source](../../../../../../src/learnloop/figures/source_check.py), line 782) — Code text only, for the ledger: per definition its name, outcome, closed reason and a difference's witness.
-- `_shown_rows(connection: Any) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/figures/source_check.py), line 908)
-- `_latency(durations: Sequence[int]) -> dict[str, int | None]` ([source](../../../../../../src/learnloop/figures/source_check.py), line 956)
-- `_audit_entries(row: Mapping[str, Any], definitions: Sequence[Mapping[str, Any]], elements: Sequence[Mapping[str, Any]]) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/figures/source_check.py), line 961) — Each element carrying the claim, for the owner's audit (§12 item 2): the book's equation as read, its page and the figure's definition, rendered.
+- `_harness_files() -> tuple[str, str]` ([source](../../../../../../src/learnloop/figures/source_check.py), line 87)
+- `_health(repository: Any, extraction_id: str, block: Any, ir: Any, *, persist: bool) -> dict[str, Any]` ([source](../../../../../../src/learnloop/figures/source_check.py), line 166) — The block's health as ``reader.block_health`` computes it: stored when computed, never assumed ok (``unknown`` is not ``ok``, §5.2).
+- `_page_shows_markdown(repository: Any, extraction_id: str) -> bool` ([source](../../../../../../src/learnloop/figures/source_check.py), line 182) — Whether the reading's source opens on a markdown page; a source that can't be found is not known to.
+- `_bare_exact(side: G.Node) -> bool` ([source](../../../../../../src/learnloop/figures/source_check.py), line 314)
+- `_bare_name(side: G.Node) -> bool` ([source](../../../../../../src/learnloop/figures/source_check.py), line 319)
+- `_substitute(node: G.Node, name: str, replacement: G.Node) -> G.Node` ([source](../../../../../../src/learnloop/figures/source_check.py), line 361)
+- `_exact(value: float) -> str` ([source](../../../../../../src/learnloop/figures/source_check.py), line 382)
+- `_assumptions(compiled: S.CompiledFigure, names: set[str], variable: str | None) -> dict[str, str]` ([source](../../../../../../src/learnloop/figures/source_check.py), line 387) — §6.3 step 1: sign assumptions the sliders' ranges imply, so a proof holds across them.
+- `_projected_grid(compiled: S.CompiledFigure, names: set[str]) -> list[dict[str, float]]` ([source](../../../../../../src/learnloop/figures/source_check.py), line 405) — The parameter grid on the parameters a definition reads (the others cannot move it).
+- `_samples(compiled: S.CompiledFigure, drawn: Drawn) -> list[float]` ([source](../../../../../../src/learnloop/figures/source_check.py), line 415)
+- `_display_payload(compiled: S.CompiledFigure, name: str, drawn: Drawn, grid: Sequence[Mapping[str, float]]) -> dict[str, Any]` ([source](../../../../../../src/learnloop/figures/source_check.py), line 424) — What the figure shows at every displayed sample of every grid point: the evaluator's double formatted by the twin of ``formatValue`` (§6.4).
+- `_squashed_map(text: str) -> tuple[str, list[int]]` ([source](../../../../../../src/learnloop/figures/source_check.py), line 452) — ``verify.quote_in``'s whitespace-collapsed text, with each character's place in ``text``.
+- `_point_words(value: Any) -> str` ([source](../../../../../../src/learnloop/figures/source_check.py), line 487) — An exact witness coordinate as its shortest decimal when it is one, else the exact fraction.
+- `_witness_words(name: str, witness: Mapping[str, Any]) -> str` ([source](../../../../../../src/learnloop/figures/source_check.py), line 499) — The difference, in code's words, for the second attempt and the ledger (§6.6).
+- `_count(reasons: dict[str, int], reason: str, amount: int=1) -> None` ([source](../../../../../../src/learnloop/figures/source_check.py), line 510)
+- `_run_sandbox(payload: Mapping[str, Any], sandbox: Sandbox | None) -> pf_sandbox.SandboxResult` ([source](../../../../../../src/learnloop/figures/source_check.py), line 517)
+- `_check(vault: Any, repository: Any, compiled: S.CompiledFigure, *, spans: Sequence[tuple[str, str, str]], grounding: str | None, persist: bool, sandbox: Sandbox | None, sandbox_ready: Callable[[], bool] | None) -> Check` ([source](../../../../../../src/learnloop/figures/source_check.py), line 535)
+- `_across_blocks(quote: str, spans: Sequence[tuple[str, str, str]], repository: Any) -> bool` ([source](../../../../../../src/learnloop/figures/source_check.py), line 652) — §5.3: a quote that spans two blocks is never one candidate's pointer.
+- `_difference_points(grid: Sequence[Mapping[str, float]], drawn: Drawn, compiled: S.CompiledFigure) -> list[dict[str, str]]` ([source](../../../../../../src/learnloop/figures/source_check.py), line 664) — The exact points a difference is looked for at (§6.3 step 5): the grid crossed with the variable's displayed samples.
+- `_decide_definition(entry: dict[str, Any], name: str, pairs: Sequence[tuple[Candidate, bool]], results: Mapping[tuple[str, str], Mapping[str, Any]], failure: str | None, drawn: Sequence[Drawn], book: dict[str, E.BookLabel], book_elements: dict[str, str], problems: list[str]) -> None` ([source](../../../../../../src/learnloop/figures/source_check.py), line 680) — §6.6's precedence over this definition's pairs.
+- `_controls_verdict(answers: Any) -> str | None` ([source](../../../../../../src/learnloop/figures/source_check.py), line 747) — §6.5: None when every control was refused.
+- `_provenance(candidate: Candidate) -> dict[str, Any]` ([source](../../../../../../src/learnloop/figures/source_check.py), line 760)
+- `_finished(compiled: S.CompiledFigure, definitions: list[dict[str, Any]], candidates: Sequence[Candidate], reasons: Mapping[str, int], outcome: str, sympy_version: str, *, book: Mapping[str, E.BookLabel] | None=None, book_elements: Mapping[str, str] | None=None, problems: Sequence[str]=()) -> Check` ([source](../../../../../../src/learnloop/figures/source_check.py), line 765)
+- `_rationale(definitions: Sequence[Mapping[str, Any]], reasons: Mapping[str, int]) -> str` ([source](../../../../../../src/learnloop/figures/source_check.py), line 783) — Code text only, for the ledger: per definition its name, outcome, closed reason and a difference's witness.
+- `_shown_rows(connection: Any) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/figures/source_check.py), line 909)
+- `_latency(durations: Sequence[int]) -> dict[str, int | None]` ([source](../../../../../../src/learnloop/figures/source_check.py), line 957)
+- `_audit_entries(row: Mapping[str, Any], definitions: Sequence[Mapping[str, Any]], elements: Sequence[Mapping[str, Any]]) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/figures/source_check.py), line 962) — Each element carrying the claim, for the owner's audit (§12 item 2): the book's equation as read, its page and the figure's definition, rendered.
 
 ## Who imports or calls it
 
@@ -231,6 +231,9 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_rw5c_labels.py](../../../../../../tests/test_rw5c_labels.py) — direct import
   - `test_a2_a_derived_sum_keeps_a_compound_left_hand_side_whole`
   - `test_a_sketch_view_has_no_elements_or_source_check`
+- [tests/test_rw5c_plain_words.py](../../../../../../tests/test_rw5c_plain_words.py) — direct import
+  - `test_stored_labels_regenerate`
+  - `test_v1_a_bar_series_grouped_label_through_the_real_check`
 - [tests/test_rw5c_recheck.py](../../../../../../tests/test_rw5c_recheck.py) — direct import
   - `test_a_certification_bump_rechecks_at_no_paid_cost`
   - `test_a_certification_the_old_reader_stored_no_longer_delivers_checked`

@@ -234,6 +234,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_codes_own_rendering_of_an_expression`
   - `test_every_other_code_owned_label_template_renders_in_katex`
   - `test_the_plain_writer_parses_back_to_the_same_value_and_the_tex_writer_means_it_in_katex`
+- [tests/test_rw5c_plain_words.py](../../../../../../tests/test_rw5c_plain_words.py) — direct import
+  - `test_generated_words_read_back_to_the_value_katex_s_own_mathml_means`
 - [tests/test_sketch_verify.py](../../../../../../tests/test_sketch_verify.py) — direct import
   - `test_a_pairs_claim_is_charged_for_its_probes_own_x`
   - `test_the_meter_stops_one_evaluation_at_the_cap_and_at_the_clock`

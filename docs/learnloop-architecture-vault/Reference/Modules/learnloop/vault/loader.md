@@ -2782,6 +2782,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_at_build_a_failure_leaves_no_figure_row_and_no_verdict`
 - [tests/test_rw5c_labels.py](../../../../../../tests/test_rw5c_labels.py) — direct import
   - `test_a2_a_derived_sum_keeps_a_compound_left_hand_side_whole`
+- [tests/test_rw5c_plain_words.py](../../../../../../tests/test_rw5c_plain_words.py) — direct import
+  - `test_v1_a_bar_series_grouped_label_through_the_real_check`
 - [tests/test_rw5c_recheck.py](../../../../../../tests/test_rw5c_recheck.py) — direct import
   - `test_a_certification_bump_rechecks_at_no_paid_cost`
   - `test_a_difference_found_at_recheck_gives_the_failed_state_with_rebuild`

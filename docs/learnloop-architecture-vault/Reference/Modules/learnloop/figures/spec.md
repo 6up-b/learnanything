@@ -302,6 +302,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_f9_endpoints_are_lossless_never_format_value`
   - `test_the_element_map_gives_every_label_a_closed_role_and_no_model_text`
   - `test_under_b_the_delivered_spec_holds_no_model_label_string`
+- [tests/test_rw5c_plain_words.py](../../../../../../tests/test_rw5c_plain_words.py) — direct import
+  - `test_v1_a_bar_series_grouped_label_through_the_real_check`
 - [tests/test_rw5c_source_check.py](../../../../../../tests/test_rw5c_source_check.py) — direct import
   - `test_a_block_that_is_not_ok_is_refused_with_its_reason`
   - `test_a_fake_author_sending_sympy_text_or_a_verified_field_changes_nothing`

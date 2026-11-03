@@ -165,6 +165,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_a_generated_left_hand_side_is_whole_in_every_template_in_katexs_own_mathml`
   - `test_every_other_code_owned_label_template_renders_in_katex`
   - `test_the_plain_writer_parses_back_to_the_same_value_and_the_tex_writer_means_it_in_katex`
+- [tests/test_rw5c_plain_words.py](../../../../../../tests/test_rw5c_plain_words.py) — direct import
+  - `test_generated_words_read_back_to_the_value_katex_s_own_mathml_means`
 - [tests/test_rw5c_recheck.py](../../../../../../tests/test_rw5c_recheck.py) — direct import
   - `test_reading_a_figure_never_opens_the_katex_engine`
 - [tests/test_rw5c_source_check.py](../../../../../../tests/test_rw5c_source_check.py) — direct import

@@ -3,8 +3,8 @@ title: "source_render_views"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "9a4aaf6a01c0a130282a4d2315921cb166ba3f3a"
-source_commit_timestamp: "2026-11-02T20:59:20-05:00"
+source_commit: "18935b1960ed4ca92b19909b347a57c5571b6035"
+source_commit_timestamp: "2026-11-03T00:34:13-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite source_render_views"
@@ -20,6 +20,7 @@ source_paths:
   - "src/learnloop/db/table_roles.py"
   - "migrations/088_source_render_views.sql"
   - "src/learnloop/db/repositories.py"
+  - "src/learnloop/figures/source_check.py"
   - "src/learnloop/source_retrieval/section_coverage.py"
   - "src/learnloop_sidecar/handlers/reader.py"
   - "src/learnloop/content/sources/source_deletion.py"
@@ -125,6 +126,7 @@ Indexes and uniqueness:
 
 - `tests/test_p3_journeys.py`
 - `tests/test_reader_render_views.py`
+- `tests/test_rw5c_block_policy.py`
 - `tests/test_ad1_reading_opportunities.py`
 - `tests/test_reader_source_identity_guard.py`
 
