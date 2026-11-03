@@ -181,6 +181,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_resume_finishes_an_unfinished_route_without_any_inputs`
 - [tests/test_mobile_handoff.py](../../../../../../tests/test_mobile_handoff.py) — direct import
   - `test_suspected_figure_is_a_word_pattern_and_only_a_report`
+  - `test_the_report_counts_a_failed_submit_in_the_share_of_202`
   - `test_the_report_counts_the_phone_apart_and_never_touches_serving`
 - [tests/test_mobile_host_auth.py](../../../../../../tests/test_mobile_host_auth.py) — direct import
   - `test_desktop_only_and_main_rpcs_are_http_denied_for_every_phone_scope`
@@ -193,6 +194,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_capture_host_coexists_without_primary_startup_work`
 - [tests/test_mobile_jobs.py](../../../../../../tests/test_mobile_jobs.py) — direct import
   - `test_a_job_of_this_run_is_never_recovered_by_itself`
+  - `test_a_terminal_failure_that_cannot_be_written_is_read_as_failed`
+  - `test_a_terminal_write_that_keeps_failing_is_paid_without_a_restart`
 - [tests/test_mobile_pairing.py](../../../../../../tests/test_mobile_pairing.py) — direct import
   - `test_authentication_and_device_listing_are_read_only`
   - `test_exchange_failure_rolls_back_consumption`

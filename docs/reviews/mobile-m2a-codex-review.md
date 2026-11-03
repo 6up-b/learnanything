@@ -1,0 +1,82 @@
+# Mobile M2a: Codex review
+
+Stage `mobile-m2a`, branch `mobile/m2a`. Review job `20261103-133433-p2VrYU` (gpt-6.1-sol): 2 High, 6 Medium, 1 Low. Each was reproduced with a failing test first; F8 was then rejected on its reasoning. The record of the stage is `mobile-m2a.md`.
+
+## Findings
+
+| Id | Severity | Title | Verdict | Commit | Test or reason |
+|---|---|---|---|---|---|
+| F1 | High | Adopting a desktop draft drops its assistance count | Fixed | `6b3460744c`, `ebeb12e297` | `App.test.tsx` "F1" (3), `attemptType.test.ts`; `test_mobile_handoff.py::test_a_desktop_hinted_draft_adopted_by_the_phone_stays_assisted_evidence` (recorded count, type and `eligible_for_certification` false) and `::test_a_draft_whose_count_is_dropped_certifies…` (the harm, on the server's side) |
+| F2 | High | A lost response is treated as permission to create another attempt | Fixed | `6b3460744c` | `App.test.tsx` "F2" (8): running, recorded, never received, failed, status unreachable, the transport's own failure, the request stored before it is sent |
+| F3 | Medium | Reopening the app makes a saved submission conflict with itself | Fixed | `6b3460744c` | `App.test.tsx` "F3" (2): latency 42 and the candidate survive a reopen, `toEqual` on the whole request; with the phone's copy gone a failed key is not reused |
+| F4 | Medium | Taking a session back retains the phone's stale editor and key | Fixed | `6b3460744c` | `App.test.tsx` "F4": a new editor on the checkpoint's answer, key and count; no write from the old one |
+| F5 | Medium | Ordinary navigation discards the current draft | Fixed | `6b3460744c` | `App.test.tsx` "F5" (7): Capture and back, Back and reopen, a failed flush resent, the checkpoint read when the phone has no copy, another item's checkpoint, a skip, a grading outage read while waiting |
+| F6 | Medium | Gateway errors bypass the cached app shell | Fixed | `6b3460744c` | `sw.test.ts`: 502, 503 and 504 open the cached shell; 401, 403 and 404 stand; no shell cached keeps the gateway's answer |
+| F7 | Medium | Exhausted terminal-write retries leave a job running forever | Fixed | `ebeb12e297`, `dce9dd1fdc` | `test_mobile_jobs.py::test_a_terminal_write_that_keeps_failing_is_paid_without_a_restart`, `::test_a_terminal_failure_that_cannot_be_written_is_read_as_failed` |
+| F8 | Medium | Phone serving changes have no algorithm successor | **Rejected** | `dce9dd1fdc` (pin and wording) | Below |
+| F9 | Low | The reported 202 share excludes failed submits | Fixed | `ebeb12e297` | `test_mobile_handoff.py::test_the_report_counts_a_failed_submit_in_the_share_of_202` |
+
+Run against the sources from before the fixes, 21 of the 98 PWA tests fail, and the two runtime tests and the report test failed before their fix (`running` where `completed` belongs; 0.5 where 1/11 belongs).
+
+## What changed
+
+- **The phone's copy of a question (F2, F3, F5).** `store/sessionCache.ts` holds the answer, the key, the draft's help, the request as sent and what is known of how it ended. It is written on every change, and the request is written before it is sent.
+- **One rule for a key (F2).** The outcome of a request is `none`, `failed` (the host said so) or `unknown`. An unknown outcome is settled with `GET /api/v1/submissions/{id}` before anything else goes: completed opens the feedback, accepted or running waits, and an unreachable host sends nothing. A key is replaced at the submit, and only when the job is known to have failed and the answer changed, or its request is gone. A key the host never saw keeps serving, so a late copy of the old request meets a typed conflict and not a second grade. `edit` no longer mints anything.
+- **Which errors say how it ended.** Anything typed except `desktop_offline` and `internal`. `internal` is what an unreadable response becomes, so it is treated as unknown; reading the status costs one GET.
+- **Help on an adopted draft (F1).** `DraftAssist` carries the checkpoint's authored count, `pageSeen`, `hintSeen`, the first-hint marker and the plan presentation. A save sends the count, because each save replaces it, and the flags, because they live under the key. A submit sends the desktop's `answerHints`, `authoredHints` and `bookCounted`, and `phoneAttemptType` takes the desktop's hint branch. Help with no answer yet also reopens the question.
+- **Taking back (F4).** The next view is worked out first, then the session and the view are set in one step, so the old question never renders under the new owner. An adoption drops the phone's copies, and the owner generation is in the question's React key.
+- **Navigation (F5).** A question flushes on unmount, except after a skip or a settled submit, and a failed save stays dirty. Today restores from the phone's copy, then the checkpoint's draft for that item. Capture now sits over the practice side instead of replacing it, so an open question keeps its editor, its serve and a submit under way.
+- **The service worker (F6).** Any 5xx from Serve opens the cached shell. A 4xx stands.
+- **Owed terminal writes (F7).** A job whose row could not be written after its retries stays in memory; `job_status`, `submission_status` and `/rpc`'s read of a coalesced retry answer from there, and a background thread retries every 5 s until it is paid. A last try runs at stop, and whatever is left the next start recovers from the row, as before.
+- **The report (F9).** The denominator is every logged submit response. `submit_responses` gives the total, the 200s, the 202s and the failures, so the share cannot hide them.
+- **Beyond a finding, because F2 leads there more often.** The waiting view keeps waiting through a lost desktop instead of dropping to Today, and a grading outage read from afar shows the phone's own message, not "Grade your answer". The symbol bar is disabled while the question is frozen.
+
+## F8, rejected
+
+The finding asks for a successor with version gates covering the phone's filter and head policy. It does not hold, for three reasons.
+
+1. **`head_served` is not a serving policy.** `publish_offer` passes it only to `build_today_offer_decision`, which writes the decision row. It reorders nothing and filters nothing. The finding's "phone-specific head policy" is the log's account of a list the phone shows head first.
+2. **Gating it on the switch would damage logged decision data.** With the filter off the phone still shows its head first and "Next" still opens it. Logging `full_list` and `not_served` for that would record a list the learner picked from when it served one. `test_mobile_rpc.py::test_the_kill_switch_takes_the_filter_off_and_the_log_still_says_what_the_phone_showed` pins the switch-off row.
+3. **The filter has no predecessor code path to keep.** The 2026-10-17 playbook rule asks that below a tag, or with the switch off, every serve path keeps the predecessor's code. The only new serve path here is a phone's: below this stage's host no origin exists, so no phone was ever served, and the desktop's path takes no new branch at a None origin. A tag below which a phone goes unfiltered would describe a state no vault was in. This is R4's question, decided at M2's landing as R4 asks (`mobile-m2a.md` §1 item 7), and the filter already has its kill switch.
+
+What the finding did get right is the wording: `mobile-m2a.md` §1 item 7 and the spec's §9.9 read as if the switch covered everything, and they now say it governs the filter only. **The successor decision is flagged for the owner**, since it was the stage's reading of R4 and the owner may overrule it at the checkpoint.
+
+## Claims that did not hold
+
+| Claim | Now |
+|---|---|
+| "The PWA resends the first request's fields exactly" | True across a reopen too (F3) |
+| An edit follows a terminal failure that "wrote nothing" | A key is freed only by a known failure (F2) |
+| "The handoff carries the draft and submission ID" | True on the same item, and the help comes too (F1, F4) |
+| The cached shell covers backend unavailability | Covers a 5xx from Serve (F6) |
+| `practice.device_eligibility_enabled` supplies the serving rollback | Reworded: it is the filter's switch, and the log is not a serving change (F8) |
+
+The spec's §6.3 note and §9.9 and the record's §1 item 7, §2 and §3 are amended to match.
+
+## Limits left
+
+- An adopted draft's *earlier on this question* opening counts only under its own key; the phone is never told of it (`mobile-m2a.md` §3 item 7).
+- All of this is jsdom against a fake host. A4 (a real phone, Safari, a killed app) remains the owner's and unverified, including `localStorage` surviving on iOS. If it does not survive, a reopened draft falls back to the checkpoint and a failed key is replaced rather than retried.
+- F7's debt lives in memory, so a host that dies owing it relies on restart recovery, as before.
+
+## Gate
+
+No full suite, by the owner's rule of 2026-10-17; the landing gate runs it. Tree at `dce9dd1fdc` plus the regenerated catalog committed with this record.
+
+| Step | Result |
+|---|---|
+| `uv sync --extra dev --extra mobile`, `uv pip install pypdfium2` | Done |
+| `uv run lint-imports --no-cache` (isolated env) | 42 kept, 0 broken |
+| Targeted pytest, `-n 6`, memory-capped | **881 passed** |
+| Durability: `-m durability --durable-sqlite` on `test_mobile_jobs.py`, `test_mobile_two_process.py`, `test_mobile_handoff.py`; then `--durable-sqlite` on all of `test_mobile_jobs.py`, `test_mobile_handoff.py` | 1 passed; 49 passed |
+| `apps/learnloop-mobile`: `npm install`, `npm run typecheck` | Pass |
+| `apps/learnloop-mobile`: vitest (all 6 files), `--maxWorkers=4` | **98 passed** |
+| `apps/learnloop-mobile`: `npm run build` | Built |
+| `apps/learnloop-tauri` (not changed; the phone imports from it): `npm install`, `npm run typecheck`, `npm run frontend:build` | Pass, built |
+| `module_generate.py`, `module_validate.py` | 1158 notes; PASS, links 38211/38211 |
+
+Not run, because nothing under them changed: `cargo check` (no `src-tauri` change), the DB reference scripts (no schema change), desktop vitest (no desktop file changed).
+
+Targeted pytest files: `test_architecture`, `test_capture_desktop`, `test_capture_domain`, `test_capture_originals_race`, `test_capture_route_recovery`, `test_codex_lockdown_round2`, `test_codex_lockdown_round3`, `test_compare_sources_keep`, `test_deliverable_rpcs`, `test_e0_isolation`, `test_lp_claim_fixes_rereview`, `test_mobile_allowlist`, `test_mobile_doctor`, `test_mobile_handoff`, `test_mobile_host_auth`, `test_mobile_host_coexistence`, `test_mobile_jobs`, `test_mobile_pairing`, `test_mobile_rpc`, `test_mobile_two_process`, `test_notes_linked`, `test_public_tip_guards`, `test_reader_ca1_as_printed`, `test_reader_ca5_also_in_books`, `test_section_coverage_rpcs`.
+
+No model or paid calls; synthetic vaults only.

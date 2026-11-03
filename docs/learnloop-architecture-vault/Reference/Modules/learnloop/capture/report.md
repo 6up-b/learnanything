@@ -7,8 +7,8 @@ version: "1.0.0"
 source_path: "src/learnloop/capture/report.py"
 source_paths:
   - "src/learnloop/capture/report.py"
-source_commit: "cdd578ba62529223b963e848b1ee6c8f98799ae9"
-source_commit_timestamp: "2026-11-03T12:14:06-05:00"
+source_commit: "ebeb12e2970c51fdd8a276f7295d52327bf89a41"
+source_commit_timestamp: "2026-11-03T13:50:57-05:00"
 source_worktree_state: "clean"
 generated: true
 generated_at: "2026-11-02"
@@ -50,13 +50,13 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/capture/report.py](../../../../../../src/learnloop/capture/report.py) |
-| Source lines | 128 |
+| Source lines | 134 |
 | Owning package | [[Reference/Modules/learnloop/capture/_package|learnloop.capture]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `cdd578ba62529223b963e848b1ee6c8f98799ae9` |
-| Commit timestamp | `2026-11-03T12:14:06-05:00` |
+| Source commit | `ebeb12e2970c51fdd8a276f7295d52327bf89a41` |
+| Commit timestamp | `2026-11-03T13:50:57-05:00` |
 
 ## Public API
 

@@ -152,6 +152,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_worked_help_sets_primed_and_adds_no_count`
 - [tests/test_intent_fix_round4.py](../../../../../../tests/test_intent_fix_round4.py) — direct import
   - `test_f13_on_your_own_is_the_activity_policys_classification`
+- [tests/test_mobile_handoff.py](../../../../../../tests/test_mobile_handoff.py) — direct import
 - [tests/test_reader_workbench_rw2a.py](../../../../../../tests/test_reader_workbench_rw2a.py) — direct import
 - [tests/test_receipt_exactness.py](../../../../../../tests/test_receipt_exactness.py) — direct import
   - `test_timeline_final_credit_equals_banked_ledger_credit`
