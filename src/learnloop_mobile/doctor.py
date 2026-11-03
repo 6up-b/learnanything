@@ -83,16 +83,17 @@ def _serve_configs(data: dict[str, Any], label: str = "background"):
         yield from _serve_configs(nested, f"service:{name}")
 
 
-def serve_checks(data: dict[str, Any], hostname: str, port: int) -> tuple[bool, bool]:
-    """Require exactly one route to the backend: background HTTPS Serve on :443.
+def serve_checks(data: dict[str, Any], hostname: str, port: int, *, https_port: int = 443) -> tuple[bool, bool]:
+    """Require exactly one route to the backend on the configured HTTPS port.
 
     Every mapping is inspected, including foreground sessions and Services. A
     raw TCP forward (with or without TLS termination) would bypass Serve's
     identity headers, and a second web route widens exposure, so any other route
-    to the backend port fails. Funnel must be off on :443 and on every port that
-    carries a route to the backend.
+    to the backend port fails. Funnel must be off on the configured HTTPS port
+    and on every port that carries a route to the backend. Unrelated routes and
+    their Funnel settings are allowed.
     """
-    expected_route = ("background", "web", f"{hostname}:443", "/")
+    expected_route = ("background", "web", f"{hostname}:{https_port}", "/")
     routes: list[tuple[str, str, str, str]] = []
     funnels: list[str] = []
     for label, config in _serve_configs(data):
@@ -105,14 +106,14 @@ def serve_checks(data: dict[str, Any], hostname: str, port: int) -> tuple[bool, 
                     routes.append((label, "web", str(host_port), str(path)))
         funnels += [str(address) for address, enabled in (config.get("AllowFunnel") or {}).items()
                     if enabled]
-    tcp = (data.get("TCP") or {}).get("443") or {}
-    handlers = ((data.get("Web") or {}).get(f"{hostname}:443") or {}).get("Handlers") or {}
+    tcp = (data.get("TCP") or {}).get(str(https_port)) or {}
+    handlers = ((data.get("Web") or {}).get(f"{hostname}:{https_port}") or {}).get("Handlers") or {}
     serve = (
         tcp == {"HTTPS": True}
-        and handlers == {"/": {"Proxy": f"http://127.0.0.1:{port}"}}
+        and handlers.get("/") == {"Proxy": f"http://127.0.0.1:{port}"}
         and routes == [expected_route]
     )
-    exposed_ports = {"443"} | {route[2].rsplit(":", 1)[-1] for route in routes}
+    exposed_ports = {str(https_port)} | {route[2].rsplit(":", 1)[-1] for route in routes}
     no_funnel = not any(address.rsplit(":", 1)[-1] in exposed_ports for address in funnels)
     return serve, no_funnel
 
@@ -142,7 +143,7 @@ def _unit_readiness(vault: Path, values: dict[str, str]) -> dict[str, Any]:
     return json.loads(result)
 
 
-def policy_example() -> dict[str, Any]:
+def policy_example(https_port: int = 443) -> dict[str, Any]:
     """An optional narrowing recipe (D12: not required). Placeholders only;
     never discover or alter an owner's access policy."""
     return {
@@ -154,11 +155,11 @@ def policy_example() -> dict[str, Any]:
         "grants": [{
             "src": ["learnloop-phone"],
             "dst": ["learnloop-desktop"],
-            "ip": ["tcp:443"],
+            "ip": [f"tcp:{https_port}"],
         }],
         "tests": [
-            {"src": "learnloop-phone", "accept": ["learnloop-desktop:443"]},
-            {"src": "learnloop-other", "deny": ["learnloop-desktop:443"]},
+            {"src": "learnloop-phone", "accept": [f"learnloop-desktop:{https_port}"]},
+            {"src": "learnloop-other", "deny": [f"learnloop-desktop:{https_port}"]},
         ],
     }
 
@@ -196,11 +197,11 @@ def doctor(config: Any, *, env_file: Path | None = None) -> dict[str, Any]:
         check("loopback", False, "Could not inspect listeners with ss.")
     try:
         data = json.loads(_command(["tailscale", "serve", "status", "--json"]))
-        serve, private = serve_checks(data, config.hostname, config.port)
+        serve, private = serve_checks(data, config.hostname, config.port, https_port=config.https_port)
         check("serve", serve,
-              f"Require HTTPS :443 / → http://127.0.0.1:{config.port} as the only Serve route "
+              f"Require HTTPS :{config.https_port} / → http://127.0.0.1:{config.port} as the only Serve route "
               f"(background, foreground or Service) to port {config.port}; no TCP forwards.")
-        check("funnel", private, f"Funnel must be off on :443 and on any route to port {config.port}.")
+        check("funnel", private, f"Funnel must be off on :{config.https_port} and on any route to port {config.port}.")
     except (OSError, subprocess.SubprocessError, ValueError, TypeError, AttributeError):
         check("serve", False, "Could not verify tailscale serve status --json.")
         check("funnel", False, "Funnel exposure is unverified.")
@@ -265,7 +266,7 @@ def doctor(config: Any, *, env_file: Path | None = None) -> dict[str, Any]:
         "optional_policy_example": {
             "note": "Optional and not needed for acceptance (D12). LearnLoop never checks or edits "
                     "tailnet policy. Use only if you want to narrow access to this port yourself.",
-            "policy": policy_example(),
+            "policy": policy_example(config.https_port),
         },
     }
 

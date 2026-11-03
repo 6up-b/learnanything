@@ -213,6 +213,19 @@ desktop app (Tauri) ── its own sidecar process (stdio JSON-RPC), the primary
   - the 60 s body read deadline is enforced in the middleware.
 - **Static assets** are served with Starlette's `StaticFiles` from the packaged app directory, with `follow_symlink=False` and no directory listing.
 
+**External HTTPS port (2026-11-03).** The diagram's 443 is the default, not a
+requirement. Machine-local `mobile.toml` accepts `https_port = 8445` (or another
+unused HTTPS port), independently of the loopback listener's `port = 8765`.
+`MobileConfig.https_authority` supplies the exact Host value;
+`MobileConfig.base_url` supplies the HTTPS origin and pairing/phone URL prefix
+(no trailing slash; the default 443 is omitted). Configure Serve with the same
+`--https` port. Doctor requires exactly one Serve route to LearnLoop's backend,
+on that port at `/`, and no Funnel on that port or any alias to the backend.
+Unrelated services' routes and Funnel settings are allowed and never changed.
+Shortcuts accept an explicit HTTPS port. M2a must use these configuration
+properties for its origin checks and displayed URLs. A1–A3 apply to the
+configured endpoint; A2 does not require removing unrelated services.
+
 ### 3.2 Network path: Tailscale facts this design relies on
 
 Verified against Tailscale documentation on 2026-10-11; see the References.

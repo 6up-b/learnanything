@@ -3,6 +3,10 @@
 enabled = false
 vault = "/ABSOLUTE/PATH/TO/VAULT"
 hostname = "desktop.example-tailnet.ts.net"
+# Local loopback listener; this is independent of the external HTTPS port.
 port = 8765
+# Tailscale Serve HTTPS port. Use an unused port (e.g. 8445) if 443 is occupied.
+# Pairing URLs, Host/Origin checks and doctor all use this setting.
+https_port = 443
 owner_login = "owner@example.com"
 max_upload_mb = 20

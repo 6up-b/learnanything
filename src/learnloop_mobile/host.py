@@ -282,9 +282,9 @@ class MobileHost:
                 if name in headers:
                     raise HostError(400, "duplicate_header")
                 headers[name] = value.decode("latin1")
-            if headers.get("host") != self.config.hostname:
+            if headers.get("host") != self.config.https_authority:
                 raise HostError(403, "invalid_host")
-            if "origin" in headers and headers["origin"] != f"https://{self.config.hostname}":
+            if "origin" in headers and headers["origin"] != self.config.base_url:
                 raise HostError(403, "invalid_origin")
             health = (scope["method"], path) == ("GET", "/healthz")
             if not health and headers.get("tailscale-user-login") != self.config.owner_login:

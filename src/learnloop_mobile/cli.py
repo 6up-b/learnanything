@@ -65,7 +65,7 @@ def pair(config: ConfigOption = None, label: str = "Phone", scope: str = "captur
     except CaptureError as exc:
         typer.echo(exc.message, err=True)
         raise typer.Exit(1) from None
-    url = f"https://{settings.hostname}/pair#s={result['secret']}"
+    url = f"{settings.base_url}/pair#s={result['secret']}"
     qr = qrcode.QRCode()
     qr.add_data(url)
     qr.print_ascii(invert=True)
