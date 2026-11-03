@@ -26,6 +26,9 @@ class SessionStartInput(ParamsModel):
     sleep_quality: float | None = None
     available_minutes: int | None = None
     notes_md_path: str | None = None
+    #: §6.5's "start fresh": the id of the open session another device owns, read from
+    #: its ``session_open_elsewhere`` snapshot. A stale id gets that refusal again.
+    replace: str | None = None
 
 
 class SessionIdInput(ParamsModel):
@@ -74,6 +77,7 @@ def start_session(ctx: SidecarContext, params: SessionStartInput) -> dict[str, A
                 "notes_md_path": params.notes_md_path,
             },
             ctx.origin_device_id,
+            params.replace,
             settle_checkpoint=lambda stale: settle_self_grade_disclosure(repository, stale),
         )
     snapshot = session_snapshot(repository, session_id)
@@ -422,6 +426,13 @@ def require_owned_session(
     ``SessionOwnershipStoreMixin.require_session_owner``.
     """
 
+    origin = ctx.request_origin
+    if origin is not None and origin.accepted_session_id == session_id:
+        # A job's acceptance is where its ownership was checked (the host, §6.3, §6.5). A
+        # session that has ended since is still refused below, as any write to one is.
+        session = repository.fetch_session(session_id)
+        owner = session.get("owner_device_id") if session is not None else None
+        return _require_owned(repository, session_id, owner)
     return _require_owned(repository, session_id, ctx.origin_device_id, expected_generation=expected_generation)
 
 

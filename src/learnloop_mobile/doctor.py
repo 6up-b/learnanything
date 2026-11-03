@@ -234,6 +234,14 @@ def doctor(config: Any, *, env_file: Path | None = None) -> dict[str, Any]:
         except Exception:
             check("capture_storage", False, "Could not inspect devices and originals read-only.")
 
+    # The phone's app is built on this machine and is not in git (§3.4). Not fatal: the Shortcut
+    # and capture work without it.
+    from learnloop_mobile.config import APP_DIR
+
+    if not (APP_DIR / "index.html").is_file():
+        checks.append({"name": "phone_app", "status": "warning",
+                       "detail": "The phone app isn't built: npm install && npm run build in apps/learnloop-mobile."})
+
     tailnet_devices = []
     try:
         status = json.loads(_command(["tailscale", "status", "--json"]))

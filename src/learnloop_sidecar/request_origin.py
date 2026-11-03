@@ -43,6 +43,10 @@ class RequestOrigin:
 
     device_id: str
     surface: str = PHONE
+    #: A job the host accepted for this session: its acceptance checked the owner, in the
+    #: transaction that committed the job, and a handoff since does not refuse it (§6.5).
+    #: Only the host's job worker sets it, from the accepted row; never a parameter.
+    accepted_session_id: str | None = None
 
     def __post_init__(self) -> None:
         if not self.device_id or not self.device_id.strip():

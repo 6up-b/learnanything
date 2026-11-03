@@ -127,9 +127,8 @@ def test_a_phone_request_records_its_surfaces_from_the_origin(tmp_path):
     picks = _rows(repository, "SELECT surface FROM router_decisions WHERE decision_kind = 'learner_pick'")
     offers = _rows(repository, "SELECT surface FROM router_decisions WHERE decision_kind = 'today_offer'")
     assert picks == [{"surface": "phone_practice"}]
-    # Under a serving plan the offer is the full list's, as on the desktop; the
-    # receipt above says which device published it either way.
-    assert offers and {row["surface"] for row in offers} <= {"phone_queue", "full_list"}
+    # M2a (open item 3): under a serving plan too, a phone's offer is its own surface.
+    assert offers and {row["surface"] for row in offers} == {"phone_queue"}
 
 
 def test_a_submit_on_the_phone_binds_its_own_surface_without_a_draft_first(tmp_path):

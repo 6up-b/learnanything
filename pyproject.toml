@@ -72,6 +72,8 @@ learnloop-mobile = "learnloop_mobile.cli:app"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/learnloop", "src/learnloop_sidecar", "src/learnloop_mobile", "src/learnloop_mcp"]
+# The phone's PWA build (npm run build in apps/learnloop-mobile) is gitignored and still ships.
+artifacts = ["src/learnloop_mobile/static/app/**"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
@@ -671,10 +673,10 @@ allow_indirect_imports = true
 
 [[tool.importlinter.contracts]]
 id = "mobile-is-independent"
-name = "Mobile is a secondary capture adapter, not a desktop runtime"
+name = "Mobile is an independent entry point: it may call the sidecar's handlers (spec_mobile_tailnet_v1 §3.1), and nothing imports it"
 type = "forbidden"
 source_modules = ["learnloop_mobile"]
-forbidden_modules = ["learnloop.cli", "learnloop.tui", "learnloop_sidecar", "learnloop_mcp"]
+forbidden_modules = ["learnloop.cli", "learnloop.tui", "learnloop_mcp"]
 allow_indirect_imports = true
 
 [[tool.importlinter.contracts]]

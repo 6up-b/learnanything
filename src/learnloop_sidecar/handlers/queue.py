@@ -582,7 +582,9 @@ def publish_offer(
     decision = None
     if trace is not None and trace.slate_id is not None:
         try:
-            head_served = today_head_served(vault)
+            # M2a (open item 3): a phone has no plan. It shows this list and "Next" opens its
+            # head, so its head is served under any plan, and a bind to another row is a pick.
+            head_served = ctx.request_origin is not None or today_head_served(vault)
             head_rule = _OfferHeadRule(
                 vault, limit=trace.limit, removed_ids=removed_ids, now=now, states=states,
                 teach_back_ready=teach_back_ready,

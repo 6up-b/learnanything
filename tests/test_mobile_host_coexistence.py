@@ -112,7 +112,9 @@ def test_capture_host_coexists_without_primary_startup_work(tmp_path):
     child.close()
     try:
         assert _receive(parent) == ("started", 200)
-        assert _snapshot(paths.sqlite_path) == before
+        # A start writes one thing: one queue_revision bump (M2a, a lost debt moves the token).
+        started = _snapshot(paths.sqlite_path)
+        assert {table for table in before if started[table] != before[table]} <= {"queue_state"}
         revision = repository.queue_revision()["revision"]
         for index in range(10):
             # Each primary write is in flight alongside a secondary HTTP receipt.

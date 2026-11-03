@@ -277,3 +277,6 @@ new_textbooks/
 settings.env
 *.env
 .codex-relay-tmp/
+
+# The phone PWA build, served by the host at /app/ (apps/learnloop-mobile: npm run build).
+src/learnloop_mobile/static/app/

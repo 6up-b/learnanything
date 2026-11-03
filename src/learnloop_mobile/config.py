@@ -8,6 +8,10 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator
 from learnloop.config.loader import global_settings_path
 
 
+#: The static PWA, built by ``npm run build`` in apps/learnloop-mobile (gitignored).
+APP_DIR = Path(__file__).with_name("static") / "app"
+
+
 class MobileConfig(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
 

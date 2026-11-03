@@ -95,6 +95,17 @@ def inbox_list(config: ConfigOption = None, limit: int = 100, offset: int = 0):
 
 
 @app.command()
+def report(config: ConfigOption = None):
+    """The M2 usage report (spec §9, §10), read-only, with no thresholds."""
+    from learnloop.capture import mobile_report
+    from learnloop.vault.loader import load_vault
+    settings = _config(config)
+    # The vault's files, for the suspected-figure list, which is report-only (§6.4).
+    prompts = {item.id: item.prompt for item in load_vault(settings.vault).practice_items.values()}
+    _print(mobile_report(_repo(settings, read_only=True), prompts=prompts))
+
+
+@app.command()
 def doctor(
     config: ConfigOption = None,
     env_file: Annotated[Path | None, typer.Option("--env-file")] = None,

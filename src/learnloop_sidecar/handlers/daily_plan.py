@@ -5,8 +5,9 @@
 ``plan_learner_pick`` and ``get_today_headline``. While the plan is off (a
 pre-``mvp-0.14`` vault or ``plan.enabled = false``) every one of them answers
 ``enabled: false`` without building a queue or writing a row, and Today, Start
-and ``get_today_queue`` are mvp-0.13's (G1). Never phone-allowed (mobile M2a adds
-them to its allowlist later).
+and ``get_today_queue`` are mvp-0.13's (G1). Never phone-allowed. Mobile M2a planned to add them and
+settled the other way (2026-11-03, docs/reviews/mobile-m2a.md): the plan's stored record is
+shared between devices, so the phone shows the allowlisted queue.
 """
 
 from __future__ import annotations

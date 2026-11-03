@@ -1,4 +1,8 @@
-"""Bounded M1 ASGI capture host; never constructs a desktop runtime."""
+"""The bounded ASGI host: capture (M1) and the phone's practice surface (M2a).
+
+The event loop runs no handler code. Capture never loads a vault; the first RPC starts
+the practice runtime's two secondary workers (:mod:`learnloop_mobile.runtime`).
+"""
 from __future__ import annotations
 
 import asyncio
@@ -7,6 +11,7 @@ from concurrent.futures import ThreadPoolExecutor
 from contextlib import asynccontextmanager
 from functools import partial
 import json
+import logging
 from pathlib import Path
 import sqlite3
 import time
@@ -17,23 +22,44 @@ from starlette.datastructures import UploadFile
 from starlette.exceptions import HTTPException
 from starlette.formparsers import MultiPartException
 from starlette.requests import Request
-from starlette.responses import JSONResponse, Response
+from starlette.responses import JSONResponse, RedirectResponse, Response
+from starlette.staticfiles import StaticFiles
 
 from learnloop import activation_journal, capture
 from learnloop.db.migrate import applied_versions, discover_migrations
 from learnloop.db.repositories import Repository
-from learnloop_mobile.allowlist import ALLOWLIST, validate_envelope
-from learnloop_mobile.config import MobileConfig, sqlite_path
+from learnloop.db.stores.session_ownership import SessionOwnershipError
+from learnloop_mobile.adapter import error_body, status_for, translate
+from learnloop_mobile.allowlist import ALLOWLIST, ParamRejected, check_parameters, validate_envelope
+from learnloop_mobile.config import APP_DIR, MobileConfig, sqlite_path
+from learnloop_mobile.runtime import HostBusy, HostRuntime, JobView, ParamsInvalid, _status_body
 
 HEADER_LIMIT = 16 * 1024
 JSON_LIMIT = 256 * 1024
 BODY_DEADLINE = 60
 PAIR_ATTEMPTS_PER_MINUTE = 30
+#: §6.3: how long ``/rpc`` waits on a long job before it answers 202.
+JOB_WAIT_SECONDS = 15
+#: Requests in flight per lane. ``rpc`` holds the two queues of §4.6 plus what is
+#: running on each worker and a request being read, so the queues are what answer
+#: ``host_busy``. Status polls use ``short``, so waiting RPCs never starve them.
+LANE_LIMITS = {"capture": 2, "short": 16, "rpc": 32}
+_LOG = logging.getLogger(__name__)
 ENDPOINT_SCOPES = {
     ("GET", "/api/v1/status"): "capture",
     ("POST", "/api/v1/capture"): "capture",
     ("GET", "/api/v1/capture/{capture_id}"): "capture",
     ("POST", "/rpc"): "app",
+    ("GET", "/api/v1/queue-revision"): "app",
+    ("GET", "/api/v1/jobs/{job_id}"): "app",
+    ("GET", "/api/v1/submissions/{submission_id}"): "app",
+}
+#: The pollable status reads with an id in their path: their route template, and how many
+#: path separators a well-formed one has.
+_ID_ROUTES = {
+    "/api/v1/capture/": "/api/v1/capture/{capture_id}",
+    "/api/v1/jobs/": "/api/v1/jobs/{job_id}",
+    "/api/v1/submissions/": "/api/v1/submissions/{submission_id}",
 }
 CSP = ("default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; "
        "img-src 'self' blob: data:; connect-src 'self'; frame-ancestors 'none'; base-uri 'none'")
@@ -42,6 +68,20 @@ SECURITY_HEADERS = {
     "Referrer-Policy": "no-referrer", "X-Content-Type-Options": "nosniff",
     "X-Frame-Options": "DENY",
 }
+
+
+def _is_app_path(path: str) -> bool:
+    return path == "/app" or path.startswith("/app/")
+
+
+def _route_of(method: str, path: str) -> tuple[str, str]:
+    """The endpoint's template, for a GET with an id in its path."""
+
+    if method == "GET":
+        for prefix, template in _ID_ROUTES.items():
+            if path.startswith(prefix) and path.count("/") == 4 and len(path) > len(prefix):
+                return ("GET", template)
+    return (method, path)
 
 
 class HostError(Exception):
@@ -136,7 +176,9 @@ class MobileHost:
         self.read_repo = Repository.attach(self.repo.sqlite_path, read_only=True)
         self.executor = ThreadPoolExecutor(max_workers=2, thread_name_prefix="mobile-auth")
         self.capture_executor = ThreadPoolExecutor(max_workers=1, thread_name_prefix="mobile-capture")
-        self.active = {"short": 0, "capture": 0, "media": 0}
+        self.active = {"short": 0, "capture": 0, "media": 0, "rpc": 0}
+        self.runtime = HostRuntime(config.vault, self.repo, self.read_repo)
+        self.app_dir = APP_DIR
         # Spec §4.6: no per-device/token rate limits (bounded admission covers
         # work). Only pairing attempts share an in-memory budget, on top of the
         # durable per-record and global exchange locks.
@@ -148,6 +190,20 @@ class MobileHost:
             if path.is_symlink() or not path.resolve().is_relative_to(Path(__file__).parent.resolve()):
                 raise SchemaMismatch("Packaged assets must not be symlinks")
             self.assets[name] = path.read_bytes()
+
+    def on_start(self) -> None:
+        """What a starting host owes the desktop and the phone (§3.3, §6.3).
+
+        One bump, unconditionally: a bump that failed in a host that then died is lost with
+        that process, and this moves the token anyway. A desktop's poll spends one refetch
+        per host start. Then the jobs another run left open.
+        """
+
+        try:
+            self.repo.bump_queue_revision()
+        except sqlite3.Error:
+            _LOG.warning("queue revision not bumped at start", exc_info=True)
+        self.runtime.recover()
 
     async def work(self, function, *args, **kwargs):
         return await self._work(self.executor, function, *args, **kwargs)
@@ -212,12 +268,26 @@ class MobileHost:
             return Response(self.assets["pair.js"], media_type="text/javascript")
         if (method, path) == ("GET", "/api/v1/status"):
             return JSONResponse({"vault_loaded": True, "schema_ok": True,
-                                 "grading_ready": False, "host_version": "0.1.0"})
-        if method == "GET" and path.startswith("/api/v1/capture/") and path.count("/") == 4:
+                                 "grading_ready": self.runtime.grading_ready(), "host_version": "0.1.0"})
+        if (method, path) == ("GET", "/api/v1/queue-revision"):
+            # Read-only, never the sidecar's get_queue_revision, which can reload (§3.1).
+            value = await self.work(self.read_repo.queue_revision)
+            return JSONResponse({"revision": value["revision"]})
+        route = _route_of(method, path)[1]
+        if route == "/api/v1/capture/{capture_id}":
             value = await self.work(capture.get_capture, self.read_repo, path.rsplit("/", 1)[1])
             # Status-only API, not a payload or media export.
             return JSONResponse({key: value[key] for key in ("capture_id", "status", "routed_to")
                                  if key in value})
+        if route == "/api/v1/jobs/{job_id}":
+            job = await self.work(self.runtime.job_status, path.rsplit("/", 1)[1])
+            if job is None:
+                raise HostError(404, "not_found")
+            return JSONResponse(_status_body(job))
+        if route == "/api/v1/submissions/{submission_id}":
+            return JSONResponse(await self.work(self.runtime.submission_status, path.rsplit("/", 1)[1]))
+        if method in {"GET", "HEAD"} and _is_app_path(path):
+            return await self.static_app(scope, path)
         if method != "POST" or path not in {"/pair", "/rpc", "/api/v1/capture"}:
             raise HostError(404, "not_found")
         content_type = headers.get("content-type", "").split(";", 1)[0].strip().lower()
@@ -237,9 +307,7 @@ class MobileHost:
                 envelope = validate_envelope(data)
             except ValueError:
                 raise HostError(400, "invalid_request") from None
-            if envelope["method"] not in ALLOWLIST:
-                raise HostError(403, "method_not_allowed")
-            raise HostError(403, "method_not_allowed")  # No dispatch exists in M1.
+            return await self.rpc(scope, envelope, device)
         if path == "/pair":
             if set(data) - {"secret", "code", "device_label"}:
                 raise HostError(400, "invalid_request")
@@ -264,13 +332,92 @@ class MobileHost:
         created = result.pop("created")
         return JSONResponse(result, status_code=201 if created else 200)
 
+    async def static_app(self, scope, path: str) -> Response:
+        """The PWA's shell: identity-gated, no bearer, no vault data (§6.1). Never a fallback
+        to anything outside the packaged directory (§4.6)."""
+
+        if path == "/app":
+            return RedirectResponse("/app/", status_code=307)
+        files = StaticFiles(directory=self.app_dir, html=True, check_dir=False, follow_symlink=False)
+        try:
+            response = await files.get_response(path[len("/app/"):] or ".", scope)
+        except (HTTPException, RuntimeError):
+            raise HostError(404, "not_found") from None
+        scope["learnloop.static"] = True
+        return response
+
+    async def rpc(self, scope, envelope: dict, device: dict) -> JSONResponse:
+        """§6.2: allowlist, constraints, then a worker; the body the desktop client normalizes."""
+
+        name, params = envelope["method"], envelope.get("params", {})
+        method = ALLOWLIST.get(name)
+        if method is None:
+            raise HostError(403, "method_not_allowed")
+        scope["learnloop.log_endpoint"] = f"rpc:{name}"
+        try:
+            check_parameters(method, params)
+        except ParamRejected as rejected:
+            return self._rpc_error("validation_error", rejected.message, details={"field": rejected.field})
+        try:
+            validated = await self.work(self.runtime.validate, method, params)
+            if method.kind == "long":
+                return await self._rpc_long(method, params, validated, envelope, device)
+            future = self.runtime.call_short(method, params, device["device_id"])
+            status, body = translate(await asyncio.wrap_future(future))
+            return JSONResponse(body, status_code=status)
+        except ParamsInvalid as invalid:
+            return self._rpc_error("validation_error", "Invalid params.", details=invalid.details)
+        except HostBusy:
+            return self._rpc_error("host_busy", "The desktop is busy; try again in a moment.")
+        except SessionOwnershipError as refused:
+            return self._rpc_error(refused.code, refused.message, details=refused.details)
+
+    async def _rpc_long(self, method, params, validated, envelope, device) -> JSONResponse:
+        """§6.3: commit the job, wait up to 15 s, then the final answer or 202."""
+
+        request_id = envelope.get("request_id")
+        if not request_id:
+            return self._rpc_error("validation_error", "A long request needs a request_id.")
+        if method.name in {"submit_attempt", "submit_dont_know"} and request_id != str(validated["submission_id"]).strip():
+            return self._rpc_error("validation_error", "A submit's request_id is its submission id.")
+        try:
+            job = await self.work(
+                self.runtime.accept, method, params, validated, request_id=request_id, device_id=device["device_id"]
+            )
+        except capture.CaptureError as refused:
+            return self._rpc_error(refused.code, refused.message)
+        if not job.terminal:
+            waiter = self.runtime.waiter(job.id)
+            if waiter is not None:
+                try:
+                    job = await asyncio.wait_for(asyncio.shield(asyncio.wrap_future(waiter)), JOB_WAIT_SECONDS)
+                except (TimeoutError, asyncio.TimeoutError):
+                    pass  # A disconnect or a slow grade: the job runs on either way.
+        return self._job_response(job)
+
+    @staticmethod
+    def _job_response(job: JobView) -> JSONResponse:
+        if job.state == capture.COMPLETED:
+            return JSONResponse({"ok": True, "result": job.result})
+        if job.state == capture.FAILED:
+            error = job.error or {}
+            return JSONResponse({"ok": False, "error": error}, status_code=status_for(str(error.get("code"))))
+        return JSONResponse(
+            {"ok": True, "accepted": {"job_id": job.id, "request_id": job.request_id, "state": job.state}},
+            status_code=202,
+        )
+
+    @staticmethod
+    def _rpc_error(code: str, message: str, *, details: dict | None = None) -> JSONResponse:
+        return JSONResponse(error_body(code, message, details=details), status_code=status_for(code))
+
     async def __call__(self, scope, receive, send):
         if scope["type"] != "http":
             return
         started = time.monotonic()
         path = scope["path"]
         endpoint = (scope["method"], path)
-        lane = "capture" if endpoint == ("POST", "/api/v1/capture") else "short"
+        lane = "capture" if endpoint == ("POST", "/api/v1/capture") else "rpc" if endpoint == ("POST", "/rpc") else "short"
         admitted, log_admitted, media_admitted, device = False, False, False, None
         try:
             raw = scope.get("headers", [])
@@ -289,7 +436,7 @@ class MobileHost:
             health = (scope["method"], path) == ("GET", "/healthz")
             if not health and headers.get("tailscale-user-login") != self.config.owner_login:
                 raise HostError(403, "invalid_identity")
-            if self.active[lane] >= (2 if lane == "capture" else 16):
+            if self.active[lane] >= LANE_LIMITS[lane]:
                 raise HostError(503, "host_busy")
             is_media = lane == "capture" and headers.get(
                 "content-type", "").split(";", 1)[0].strip().lower() == "multipart/form-data"
@@ -301,15 +448,13 @@ class MobileHost:
                 self.active["media"] += 1
                 media_admitted = True
             public = health or (path == "/pair" and scope["method"] in {"GET", "POST"}) or (
-                path == "/pair.js" and scope["method"] == "GET")
+                path == "/pair.js" and scope["method"] == "GET") or (
+                _is_app_path(path) and scope["method"] in {"GET", "HEAD"})
             if not public:
                 auth = headers.get("authorization", "")
                 if not auth.startswith("Bearer ") or not auth[7:] or " " in auth[7:]:
                     raise HostError(401, "unauthorized")
-                route = endpoint
-                if scope["method"] == "GET" and path.startswith("/api/v1/capture/") and path.count("/") == 4:
-                    route = ("GET", "/api/v1/capture/{capture_id}")
-                required = ENDPOINT_SCOPES.get(route)
+                required = ENDPOINT_SCOPES.get(_route_of(scope["method"], path))
                 if required is None:
                     raise HostError(404, "not_found")
                 device = await self.work(capture.authenticate_device, self.read_repo, auth[7:], scope=required)
@@ -345,12 +490,15 @@ class MobileHost:
                     if time.monotonic() - self.last_prune >= 86400:
                         await self.work(capture.prune_request_log, self.repo)
                         self.last_prune = time.monotonic()
-                    await self.work(capture.log_request, self.repo, endpoint=path,
+                    await self.work(capture.log_request, self.repo, endpoint=scope.get("learnloop.log_endpoint", path),
                                     status=response.status_code, duration_ms=int((time.monotonic()-started)*1000),
                                     device_id=device["device_id"] if device else None)
                 except Exception:
                     pass  # A log failure must not invalidate a committed receipt.
             response.headers.update(SECURITY_HEADERS)
+            if scope.get("learnloop.static"):
+                # The shell revalidates by its ETag; the service worker caches it (§4.6).
+                response.headers["Cache-Control"] = "no-cache"
             await response(scope, receive, send)
         finally:
             if admitted:
@@ -364,9 +512,11 @@ def create_app(config: MobileConfig):
 
     @asynccontextmanager
     async def lifespan(app):
+        await asyncio.to_thread(host.on_start)
         try:
             yield
         finally:
+            await asyncio.to_thread(host.runtime.stop)
             host.executor.shutdown(wait=True)
             host.capture_executor.shutdown(wait=True)
 
