@@ -725,6 +725,9 @@ class _Reader:
             ops.append(_CONDITION_OPS[token.text])
             chain.append(self.condition_side())
         if len(chain) not in (2, 3):
+            following = self.peek()
+            if following is not None and following.kind == "command" and following.text[1:] in _REFUSED_COMMANDS:
+                raise Unreadable(_REFUSED_COMMANDS[following.text[1:]])
             raise Unreadable("cases_condition")
         pairs: list[tuple[str, Fraction]]
         if len(chain) == 3:

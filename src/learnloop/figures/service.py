@@ -1898,7 +1898,9 @@ def _validated_request(vault: Any, repository: Repository, request: FigureReques
                          goal_text=goal, goal_author=goal_author, reading_at=reading_at,
                          host_ref=dict(request.host_ref or {}), caller=request.caller, grounding_keys=keys,
                          grounding_fixed=request.grounding_fixed if request.grounding_fixed in GROUNDINGS else None,
-                         different_kind=bool(request.different_kind and request.supersedes_id is not None))
+                         different_kind=bool(request.different_kind and request.supersedes_id is not None),
+                         source_check_id=request.source_check_id if request.supersedes_id is not None else None,
+                         initial_problems=list(request.initial_problems) if request.supersedes_id is not None else [])
 
 
 def _validated_prefetch(vault: Any, request: FigureRequest) -> FigureRequest:

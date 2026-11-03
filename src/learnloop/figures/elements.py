@@ -30,6 +30,7 @@ prompts) stays where RW5a puts it, in the model's voice outside the panels
 from __future__ import annotations
 
 import json
+import sys
 import typing
 from collections.abc import Iterator, Mapping, Sequence
 from dataclasses import dataclass
@@ -78,7 +79,8 @@ def _field_kind(hint: Any) -> str | None:
 
 
 def _hints(model: type[BaseModel]) -> dict[str, Any]:
-    return typing.get_type_hints(model, globalns=vars(S), include_extras=True)
+    module = sys.modules.get(model.__module__)
+    return typing.get_type_hints(model, globalns={**vars(S), **(vars(module) if module else {})}, include_extras=True)
 
 
 def label_slots(model: BaseModel, path: tuple[Any, ...] = ()) -> Iterator[Slot]:

@@ -35,7 +35,7 @@ def test_238_is_the_head_and_the_table_is_classified():
     assert names[238] == "238_figure_source_checks.sql"
     assert role_for_table("figure_source_checks") == TableRole.RAW_LEDGER
     assert PT.role("figure_source_checks") == PT.PROTECTED
-    assert "figure_source_checks" in CC.COLUMN_CLASSES
+    assert "figure_source_checks" in CC.CLASSES
 
 
 def test_the_head_fixture_is_at_238_in_rollback_mode_with_an_empty_table():
