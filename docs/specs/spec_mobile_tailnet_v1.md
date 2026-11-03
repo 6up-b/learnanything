@@ -140,9 +140,9 @@ Inherited unchanged: plan invariants, the authority model of `spec_causal_attrib
 
 ```
 phone (iOS Shortcut / PWA)
-   │  HTTPS  https://<desktop>.<tailnet>.ts.net/        (tailnet only; WireGuard)
+   │  HTTPS  https://<desktop>.<tailnet>.ts.net[:<https_port>]/   (tailnet only; WireGuard)
    ▼
-tailscaled on the desktop ── tailscale serve --bg --https=443 http://127.0.0.1:<port>
+tailscaled on the desktop ── tailscale serve --bg --https=<https_port> http://127.0.0.1:<port>
    │  adds Tailscale-User-Login / -Name / -Profile-Pic; strips client-sent copies
    ▼
 learnloop-mobile serve  (127.0.0.1:<port>; systemd --user service; package learnloop_mobile)
@@ -214,8 +214,8 @@ desktop app (Tauri) ── its own sidecar process (stdio JSON-RPC), the primary
   - the 60 s body read deadline is enforced in the middleware.
 - **Static assets** are served with Starlette's `StaticFiles` from the packaged app directory, with `follow_symlink=False` and no directory listing.
 
-**External HTTPS port (2026-11-03).** The diagram's 443 is the default, not a
-requirement. Machine-local `mobile.toml` accepts `https_port = 8445` (or another
+**External HTTPS port (2026-11-03).** `<https_port>` in the diagram defaults to
+443, which the URL omits. Machine-local `mobile.toml` accepts `https_port = 8445` (or another
 unused HTTPS port), independently of the loopback listener's `port = 8765`.
 `MobileConfig.https_authority` supplies the exact Host value;
 `MobileConfig.base_url` supplies the HTTPS origin and pairing/phone URL prefix
@@ -325,7 +325,7 @@ The identity check is always on, and tests inject the header with a fake.
 ### 4.2 Pairing
 
 1. **Start on the desktop.** `learnloop-mobile pair --label "phone" --scope app|capture` creates a pairing record, which expires after 5 minutes. It prints two things:
-   - **A QR code** for `https://<desktop>.<tailnet>.ts.net/pair#s=<secret>`. The secret is 256-bit and base64url-encoded. It sits in the URL **fragment**, so it never reaches the server's request line, access logs or `Referer`.
+   - **A QR code** for `<base_url>/pair#s=<secret>`. The secret is 256-bit and base64url-encoded. It sits in the URL **fragment**, so it never reaches the server's request line, access logs or `Referer`.
    - **A manual code** of 10 Crockford base32 characters (about 50 bits), for when scanning isn't possible.
 2. **Open the pairing page.** `GET /pair` is a static page. It is identity-gated (§6.1), consumes nothing, and needs no bearer token. Its script reads the fragment, or asks for the manual code, and then posts.
 3. **Exchange.** `POST /pair {secret | code, device_label}` requires the identity header. In **one transaction**, it checks the record (unexpired, unconsumed, and under its attempt limit), marks it consumed, creates the `mobile_devices` row, and stores the token **hash**. It then returns `{device_id, scope, token}` once.
@@ -426,7 +426,7 @@ A test enumerates the registry so this list cannot drift (G3). A method-name all
 Run by the owner; it reads local state only. It reports each check as **verified**, **failed** or **owner must confirm**:
 - **Verified:**
   - the host is bound to loopback;
-  - `tailscale serve status --json` shows 443 → `http://127.0.0.1:<port>`;
+  - `tailscale serve status --json` shows the configured HTTPS port → `http://127.0.0.1:<port>`;
   - no Funnel is configured for that port;
   - the schema is at the expected version;
   - the configured vault exists;
@@ -459,7 +459,7 @@ Run by the owner; it reads local state only. It reports each check as **verified
 
 ### 6.1 Endpoints and authentication
 
-All are under `https://<desktop>.<tailnet>.ts.net`. **Identity** means the Host check plus `Tailscale-User-Login == owner_login`. **Token(s)** means identity plus a valid bearer token whose scope is `s` (§4.2–4.3); `app` tokens can reach everything a `capture` token can.
+All are under `MobileConfig.base_url` (`https://<desktop>.<tailnet>.ts.net`, with `:<https_port>` when it is not 443). **Identity** means the Host check plus `Tailscale-User-Login == owner_login`. **Token(s)** means identity plus a valid bearer token whose scope is `s` (§4.2–4.3); `app` tokens can reach everything a `capture` token can.
 
 | Method and path | Auth | Milestone | Payload | Response | Idempotency |
 |---|---|---|---|---|---|
@@ -743,7 +743,8 @@ M1's tables land in one migration; M2's in a second; M2b's and M3's in their own
 - `enabled = false` (the host refuses to start otherwise);
 - `vault` (absolute path);
 - `hostname` (`<desktop>.<tailnet>.ts.net`);
-- `port = 8765`;
+- `port = 8765` (the loopback listener);
+- `https_port = 443` (Serve's external port, §3.1);
 - `owner_login`;
 - `max_upload_mb = 20`.
 
@@ -883,7 +884,7 @@ The full record is `docs/reviews/mobile-m2a.md`, with the citations that moved a
 
 **Acceptance checks on real devices (manual, recorded in the milestone report):**
 - **A1.** `tailscale serve` strips a client-sent `Tailscale-User-Login`, and the host sees the real login.
-- **A2.** `tailscale serve status --json` shows only the expected 443 → loopback mapping, and the URL does not resolve or connect from a device off the tailnet.
+- **A2.** `tailscale serve status --json` shows the configured HTTPS port → loopback mapping and no other route to that backend, and the URL does not resolve or connect from a device off the tailnet.
 - **A3.** The iOS Shortcut captures with Tailscale disconnected beforehand (VPN On Demand), and its outbox flushes after the desktop wakes.
 - **A4.** The PWA installs to the home screen. A capture made in the PWA while the desktop sleeps arrives later. A submit backgrounded mid-grade shows feedback on return.
 

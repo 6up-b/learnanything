@@ -146,12 +146,12 @@ cp deploy/mobile.toml.example ~/.config/learnloop/mobile.toml   # set enabled = 
 cp deploy/mobile.env.example ~/.config/learnloop/mobile.env && chmod 600 ~/.config/learnloop/mobile.env   # the grading keys
 cp deploy/learnloop-mobile.service ~/.config/systemd/user/      # set ExecStart to this checkout's .venv
 systemctl --user daemon-reload && systemctl --user enable --now learnloop-mobile
-# Main's 42aeeec9ec added https_port to mobile.toml: use the same port here if 443 is taken.
-tailscale serve --bg --https=443 http://127.0.0.1:8765
+# HTTPS_PORT is https_port in mobile.toml: 443 by default, another unused one (8445, say) if 443 is taken. It changes no route of another project.
+tailscale serve --bg --https=HTTPS_PORT http://127.0.0.1:8765
 .venv/bin/learnloop-mobile doctor
 ```
 
-Below, `HOST` is the hostname in `mobile.toml`, with `:port` when `https_port` is not 443.
+Below, `HOST` is what `config.https_authority` says: the hostname in `mobile.toml`, with `:HTTPS_PORT` when `https_port` is not 443. So every URL below is `config.base_url`, the one the pairing command prints.
 
 - **A1. Serve strips a forged identity, and the host sees the real login.** From the phone or another tailnet device:
   ```bash

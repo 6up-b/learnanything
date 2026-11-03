@@ -103,7 +103,7 @@ app/export. Store the token in its private secret variable; exclude it from
 exports. Configure:
 
 ```text
-POST https://<desktop>.<tailnet>.ts.net/api/v1/capture
+POST https://<desktop>.<tailnet>.ts.net[:<https_port>]/api/v1/capture
 Authorization: Bearer <private token>
 Content-Type: application/json
 ```

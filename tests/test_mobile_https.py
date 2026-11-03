@@ -105,3 +105,45 @@ def test_https_port_does_not_change_loopback_binding(deployment, monkeypatch):
     assert result.exit_code == 0, result.output
     assert calls[0]["host"] == "127.0.0.1"
     assert calls[0]["port"] == deployment.port == 8765
+
+
+def _paired_app(deployment, tmp_path):
+    """The host with a built shell and a paired app, at the deployment's external origin."""
+
+    from learnloop.capture import create_pairing, exchange_pairing
+
+    built = tmp_path / "built"
+    built.mkdir()
+    (built / "index.html").write_text("<!doctype html>shell")
+    pending = create_pairing(cli._repo(deployment), label="Phone", scope="app")
+    device = exchange_pairing(cli._repo(deployment), secret=pending["secret"], device_label="Phone")
+    app = create_app(deployment)
+    app.state.host.app_dir = built
+    return app, {"Tailscale-User-Login": deployment.owner_login, "Authorization": f"Bearer {device['token']}"}
+
+
+def test_rpc_and_the_app_shell_answer_at_the_configured_origin(deployment, tmp_path):
+    """M2a's own routes go through the same exact check as the owner's patch pinned for /pair."""
+
+    app, headers = _paired_app(deployment, tmp_path)
+    with TestClient(app, base_url=deployment.base_url) as client:
+        same_origin = {**headers, "Origin": deployment.base_url}
+        page = client.get("/app/", headers=same_origin)
+        assert page.status_code == 200 and "shell" in page.text
+        answer = client.post("/rpc", json={"method": "get_session", "params": {"sessionId": "none"}}, headers=same_origin)
+        # Past Host and Origin: the handler's own answer about a session that isn't there.
+        assert answer.json()["error"]["code"] not in ("invalid_host", "invalid_origin"), answer.text
+        assert answer.status_code != 403, answer.text
+
+
+@pytest.mark.parametrize("path,verb", [("/rpc", "post"), ("/app/", "get"), ("/app/index.html", "get")])
+def test_rpc_and_the_app_shell_refuse_another_port(deployment, tmp_path, path, verb):
+    other = deployment.hostname if deployment.https_port != 443 else f"{deployment.hostname}:8445"
+    app, headers = _paired_app(deployment, tmp_path)
+    with TestClient(app, base_url=deployment.base_url) as client:
+        send = getattr(client, verb)
+        kwargs = {"json": {"method": "get_session", "params": {"sessionId": "none"}}} if verb == "post" else {}
+        for header, value, code in (("Host", other, "invalid_host"), ("Origin", f"https://{other}", "invalid_origin")):
+            response = send(path, headers={**headers, header: value}, **kwargs)
+            assert response.status_code == 403, response.text
+            assert response.json()["error"]["code"] == code
