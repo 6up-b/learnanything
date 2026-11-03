@@ -396,6 +396,7 @@ _TABLE_ROLE_ITEMS: tuple[tuple[str, TableRole], ...] = (
     ("misconception_transition_events", TableRole.RECEIPT),
     ("misconceptions", TableRole.WORKFLOW),
     ("mobile_devices", TableRole.WORKFLOW),
+    ("mobile_jobs", TableRole.WORKFLOW),
     ("mobile_pairing_attempts", TableRole.WORKFLOW),
     ("mobile_pairing_guard", TableRole.WORKFLOW),
     ("mobile_pairings", TableRole.WORKFLOW),

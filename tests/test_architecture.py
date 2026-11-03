@@ -90,6 +90,8 @@ REGISTERED_SQL_OWNERS = frozenset(
         # Shared capture domain owns only the M1 mobile/inbox workflow tables.
         "src/learnloop/capture/devices.py",
         "src/learnloop/capture/inbox.py",
+        "src/learnloop/capture/jobs.py",
+        "src/learnloop/capture/report.py",
         "src/learnloop/capture/maintenance.py",
         "src/learnloop/capture/routing.py",
         # Learner field F2 placement receipts and quick-check queue state.

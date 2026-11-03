@@ -18,7 +18,7 @@ from learnloop.adaptive_difficulty import protected_tables as PT
 from learnloop.db.migrate import UPGRADE_TEST_HELPER, apply_migrations, applied_versions, discover_migrations, upgrade_allowance
 from learnloop.db.table_roles import TableRole, role_for_table
 
-HEAD = Path(__file__).resolve().parents[1] / "fixtures" / "migration_head_238" / "state.sqlite"
+HEAD = Path(__file__).resolve().parents[1] / "fixtures" / "migration_head_240" / "state.sqlite"
 #: What 238 adds (its table, its autoindex, its index and triggers).
 RW5C_ADDED_OBJECTS = frozenset({
     "figure_source_checks", "sqlite_autoindex_figure_source_checks_1", "idx_figure_source_checks_figure",
@@ -40,7 +40,7 @@ def test_238_is_the_head_and_the_table_is_classified():
 
 def test_the_head_fixture_is_at_238_in_rollback_mode_with_an_empty_table():
     assert HEAD.read_bytes()[18:20] == b"\x01\x01"
-    assert max(applied_versions(HEAD)) == max(migration.version for migration in discover_migrations()) == 238
+    assert max(applied_versions(HEAD)) == max(migration.version for migration in discover_migrations()) == 240
     with closing(sqlite3.connect(HEAD)) as connection:
         assert RW5C_ADDED_OBJECTS <= _names(connection)
         assert connection.execute("SELECT COUNT(*) FROM figure_source_checks").fetchone()[0] == 0
@@ -102,7 +102,7 @@ def test_238_upgrades_a_copy_of_237_under_the_durable_pragmas(tmp_path: Path):
         connection.commit()
     with upgrade_allowance(UPGRADE_TEST_HELPER):
         applied = apply_migrations(database)
-    assert [migration.version for migration in applied] == [238]
+    assert [migration.version for migration in applied] == [238, 240]
     with closing(sqlite3.connect(database)) as connection:
         assert RW5C_ADDED_OBJECTS <= _names(connection)
         assert connection.execute("PRAGMA integrity_check").fetchone()[0] == "ok"
