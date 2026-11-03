@@ -182,3 +182,76 @@ test_teacher_te1_migration.py
 test_teacher_te1_successor.py
 test_tracked_fixture_databases.py
 ```
+
+# Final verify (job 20261103-154719-CtSvk6): F1 reopened, F11
+
+The verify confirmed F2-F10 fixed, reopened F1 and found F11. Orchestrator ruling R1 (recorded verbatim under "Landing onto
+main" in `data-capture-a1-a6.md`) replaced F1's fix: the timing dependence goes. This supersedes two lines of the re-review's
+"calls for the landing" above: the report no longer waits for the next prepare, and a section with no LO when swept is retried.
+
+## F1 [High]: one read of Reader exposures
+
+**Reproduced first**, AD off and data capture on, no sweep: Monday's practice, Wednesday 10:00's completed section, 10:30's correct
+answer read `observed`, 1.0, skip reasons `{insufficient_delay: 1}`, and a first delayed success. After a sweep the same data read
+`pending`, `{insufficient_delay: 2}`, and no success. The re-review's own helper had hidden this: it answered in one session, so
+`same_session` rejected the answer before any exposure mattered. The new tests answer in a second session, and a control test with
+no section read shows the same answer is the cold success.
+
+**The fix.** `data_capture.reading_exposures.read(connection, vault, repository)` is the one read: the stored receipts (data
+capture's and AD's) plus the source activity not yet swept, through the sweep's collectors, mapping and source time. Router v3's
+derivation, the time metric, the report, the scoreboard, similar decisions, `router log` and `router report`, `settle` and a rebuild
+all pass it (`reader_exposures=`). `sweep` writes exactly the list `read` adds, so it only freezes. The window is gone from the sweep
+too: a row stamped before an earlier sweep but committed after it, or a section whose LOs appear later, would otherwise be read and
+never frozen. A test derives everything before and after a sweep and compares whole results.
+
+**Without a vault** a derivation can't map, so `reader_exposures=None` means the stored receipts alone. A test walks `src/` and fails
+on any production call that doesn't name it.
+
+**If the read itself fails in `settle`,** an answer waits for the next pass rather than being judged on less. The sweep's failure
+still never stops the states.
+
+**The module moved** from `daily_plan/` to `data_capture/`: the scoreboard and the rebuild must read it, and `diagnosis` importing
+`daily_plan` breaks the TUI's contract. `reading_learning_objects` moved with it (the objective's freeze imports it), and
+`OUTCOME_VERSION_V3` moved to `data_capture.gates` (`router.outcomes` still exports it), since `data_capture -> router` would cycle.
+Two function-local edges join the frozen-cycles ignore list, with the reason: to `adaptive_difficulty.reading` and
+`reader.reader_progression`.
+
+**Cost**, measured with the read on copies of the owner's mvp-0.43 vaults: 300 to 430 ms with nothing swept (`linear_algebra` 79
+exposures, `probability` 75), 2 to 70 ms after a sweep, 25 ms on `arxiv_v2` with no activity. One indexed lookup per Reader source row,
+plus a document load and an LO scan (about 20 ms) per distinct section or span not on record, cached for the call. The database hash
+was unchanged after the read under a read-only repository. Today's path reads it only at version 3 with similar decisions on.
+
+**What stays, Low under R1.** A row on record is never mapped again, which is what freezing means. So if a section's LOs change
+between its sweep and a later answer, the LO added reads differently with and without that sweep. Reaching a warm answer with a cold
+label needs an existing LO with older practice, newly named on a section (a coverage row) read under 24 hours before the answer, with a
+sweep in between. An LO created from the section cannot reach it: it has no older exposure, and an unobserved delay never qualifies.
+
+## F11 [Medium]: a shared check measures its frozen objective
+
+**Reproduced first:** a broad check on A's item and B's item was shared with A's warm measurement, and B's delayed answer wrote
+`answered` on A, with A's outcome still pending and no duty left.
+
+**The fix.** A check is shared only when all its candidates are on the objective's LO, for a new decision and a replacement alike. A
+broader one keeps its own decision and its items stay held, since a new commitment on them would replace it. `settle` also validates
+the satisfying attempt's LO before `answered`, because a check's candidates can widen after it was shared: another LO's answer reads
+`answer_other_objective` (the answered LO in the detail), and the duty stays. It takes the same one replacement a warm answer takes
+(R4's reasoning: each one costs a question), and a second one ends it as `replacement:answer_other_objective`.
+
+## Rename
+
+`problems_to_cold_success` is `problems_to_first_unassisted_success`, in `b5_scoreboard_v2` with its companion. B5's order is
+unchanged. Specs keep the name they were written with. The two frontend comments are comments only; `npm run typecheck` exits 0.
+
+## Gate for this step
+
+Memory-capped scope, `-n 6`. Full suite not run (landing gate only).
+
+* `lint-imports --no-cache`: **42 kept, 0 broken**.
+* Targeted `pytest` (12 `test_data_capture_*` files, `test_router_outcomes`, `test_scoreboard`, `test_table_roles`,
+  `test_coordinated_migrations`, `test_architecture`, and the other derivation callers: `test_router_r2c_retrieval`,
+  `test_router_r2b_agreement`, `test_router_r2bc_landing`, `test_router_coldness_covariates`, `test_router_presentations`,
+  `test_router_g4_restraint`, `test_rebuild_orchestrator`, `test_shadow_rebuild`, `test_held_grade_composition`,
+  `test_teacher_te1b_suggestions`, `test_teacher_te1b_review_fixes`, `test_followups_batch6_review_fixes`, `test_reader_rw3a_landing`,
+  `test_daily_plan_replay`, `test_voi_forecasts`, `test_mvp015_upgrade`): **441 passed, 0 failed**.
+* `--durable-sqlite` on the 12 `test_data_capture_*` files: **190 passed, 0 failed**.
+* Frontend: `npm run typecheck` in `apps/learnloop-tauri`: exit 0.

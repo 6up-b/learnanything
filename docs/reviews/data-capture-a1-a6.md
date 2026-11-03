@@ -182,10 +182,10 @@ its coverage; the not_ready floor's draws, the delayed picks' ties, thin support
 3. **A6 reaches a lesson check's recorded mass.** `teacher.checks.cold_reference` asks the picker for the item the retention
    check would commit (its forecast's IRT parameters), sharing the check's seed so they agree. At the tag a new lesson
    check's mass can differ because the reference is now the real pick. Replay reads the recorded mass, so nothing past moves.
-4. **`problems_to_cold_success` has the same flaw as the minutes metric** (no delay required). The brief named only the
-   minutes one, so it stays, with this note. Renaming it is one line.
-5. **Stale names left on purpose:** two comments in `apps/learnloop-tauri` (`DialogueProbe.tsx`, `PracticeScreen.tsx`) still
-   say `learner_minutes_to_cold_success`. No frontend file changed in this stage; they belong to the docs stage.
+4. **`problems_to_cold_success` had the same flaw as the minutes metric** (no delay required). The landing renamed it
+   `problems_to_first_unassisted_success`, in the same `b5_scoreboard_v2`.
+5. **Stale names:** two comments in `apps/learnloop-tauri` (`DialogueProbe.tsx`, `PracticeScreen.tsx`) said
+   `learner_minutes_to_cold_success`. The landing fixed them (comments only).
 6. **The `router_outcomes` cache follows at `learnloop rebuild-derived-state`.** Every live reader (the router log and report,
    similar decisions, this report) derives under the vault's version; the upgrade itself does not rebuild the table.
 7. **A check-only block is no learner pick.** A block holding only measurement checks is logged as the rules' placement
