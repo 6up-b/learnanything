@@ -89,8 +89,13 @@ export interface QuestionDraft {
   readonly assist: DraftAssist;
   readonly sentInput: SubmitInput | null;
   readonly outcome: SubmitOutcome;
-  /** A skip went out and no reply came: nothing is written until the checkpoint has been read (F11). */
-  readonly skipUnknown?: boolean;
+  /** How many times the learner has changed this draft. */
+  readonly revision?: number;
+  /**
+   * A skip went out at this revision and no reply came: nothing is written until the checkpoint has
+   * been read (F11). If it landed it discarded this revision, and nothing written after it.
+   */
+  readonly skipRevision?: number | null;
 }
 
 const draftId = (sessionId: string, practiceItemId: string) => `${sessionId}:${practiceItemId}`;

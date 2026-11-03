@@ -408,7 +408,7 @@ function Phone({ credential }: { credential: Credential }) {
   }
 
   /** A skip with no reply: it clears the checkpoint, so what the checkpoint holds says if it landed. */
-  async function settleSkip(practiceItemId: string): Promise<SkipSettled> {
+  async function settleSkip(practiceItemId: string, writtenSince: () => boolean): Promise<SkipSettled> {
     const open = sessionRef.current;
     if (!open) return "unreachable";
     let snapshot: SessionSnapshot;
@@ -421,8 +421,10 @@ function Phone({ credential }: { credential: Credential }) {
     const away = movedFrom(snapshot, deviceId);
     if (away) setMoved(away);
     if (snapshot.checkpoint?.currentPracticeItemId === practiceItemId) return "not_landed";
-    clearQuestionDraft(open.sessionId, practiceItemId);
     invalidate({ tags: [TAG.queue] });
+    // Asked only now: the editor stays open during a read that an edit started.
+    if (writtenSince()) return "landed_written_since";
+    clearQuestionDraft(open.sessionId, practiceItemId);
     setView({ name: "today" });
     return "landed";
   }

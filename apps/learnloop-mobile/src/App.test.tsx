@@ -1028,7 +1028,7 @@ describe("a question through what can go wrong (Codex review of M2a)", () => {
     const HELD = (answer = "Half an answer") => session({ checkpoint: { currentPracticeItemId: "i1", currentAnswer: answer, submissionId: "k9" } });
     const READ_REFUSED = { status: 409, body: { ok: false, error: { code: "database_locked", message: "Can't read it now.", retryable: false } } };
     const settle = () => act(async () => { await new Promise((resolve) => setTimeout(resolve, 1000)); });
-    const heldCopy = () => Object.values(JSON.parse(localStorage.getItem("learnloop.questionDrafts") ?? "{}")) as Array<{ answer: string; skipUnknown?: boolean }>;
+    const heldCopy = () => Object.values(JSON.parse(localStorage.getItem("learnloop.questionDrafts") ?? "{}")) as Array<{ answer: string; outcome: string; skipRevision?: number | null }>;
 
     /** The skip goes out, the host may or may not have done it, and its reply never comes. */
     async function lostSkip(read: unknown = session()) {
@@ -1090,7 +1090,7 @@ describe("a question through what can go wrong (Codex review of M2a)", () => {
       expect((screen.getByRole("button", { name: "Skip" }) as HTMLButtonElement).disabled).toBe(false);
       await settle();
       expect(called("save_practice_draft")).toHaveLength(1);
-      expect(heldCopy()[0].skipUnknown).toBeFalsy();
+      expect(heldCopy()[0].skipRevision ?? null).toBeNull();
     });
 
     describe("and the read fails too", () => {
@@ -1101,7 +1101,8 @@ describe("a question through what can go wrong (Codex review of M2a)", () => {
         await waitFor(() => expect((screen.getByRole("button", { name: "Skip" }) as HTMLButtonElement).disabled).toBe(false));
         await settle();
         expect(called("save_practice_draft")).toEqual([]);
-        expect(heldCopy()[0]).toMatchObject({ answer: "Half an answer", skipUnknown: true });
+        expect(heldCopy()[0].answer).toBe("Half an answer");
+        expect(typeof heldCopy()[0].skipRevision).toBe("number");
       });
 
       it("the desktop gone altogether says so, on the shell too", async () => {
@@ -1128,17 +1129,6 @@ describe("a question through what can go wrong (Codex review of M2a)", () => {
         await screen.findByRole("button", { name: /^Next: Topic i1/ });
       });
 
-      it("an edit waits for the read: landed, nothing is saved", async () => {
-        await lostSkip(READ_REFUSED);
-        await screen.findByText(/desktop can't be reached/);
-        await waitFor(() => expect((screen.getByRole("button", { name: "Skip" }) as HTMLButtonElement).disabled).toBe(false));
-        answers.get_session = session();
-        typeInto("Half an answer, and more");
-        await screen.findByRole("button", { name: /^Next: Topic i1/ }, { timeout: 3000 });
-        await settle();
-        expect(called("save_practice_draft")).toEqual([]);
-      });
-
       it("an edit waits for the read: not landed, that edit is saved", async () => {
         await lostSkip(READ_REFUSED);
         await screen.findByText(/desktop can't be reached/);
@@ -1147,6 +1137,77 @@ describe("a question through what can go wrong (Codex review of M2a)", () => {
         typeInto("Half an answer, and more");
         await waitFor(() => expect(called("save_practice_draft")).toHaveLength(1), { timeout: 3000 });
         expect(called("save_practice_draft")[0].params.answerMd).toBe("Half an answer, and more");
+      });
+
+      it("what is written after the skip outlives it: kept on the phone and saved under a fresh draft", async () => {
+        await lostSkip(READ_REFUSED);
+        await screen.findByText(/desktop can't be reached/);
+        await waitFor(() => expect((screen.getByRole("button", { name: "Skip" }) as HTMLButtonElement).disabled).toBe(false));
+        const oldKey = (Object.values(JSON.parse(localStorage.getItem("learnloop.questionDrafts") ?? "{}"))[0] as { submissionId: string }).submissionId;
+        typeInto("Half an answer, and more");
+        // Still no read: the new text is on the phone and nothing has gone out.
+        await settle();
+        expect(called("save_practice_draft")).toEqual([]);
+        expect(heldCopy()[0].answer).toBe("Half an answer, and more");
+        // Connectivity returns with no checkpoint: the skip landed.
+        answers.get_session = session();
+        typeInto("Half an answer, and more still");
+        await waitFor(() => expect(called("save_practice_draft")).toHaveLength(1), { timeout: 3000 });
+        const saved = called("save_practice_draft")[0].params;
+        expect(saved.answerMd).toBe("Half an answer, and more still");
+        expect(saved.submissionId).not.toBe(oldKey);
+        // That serve's offer went with the skip.
+        expect(saved.schedulerCandidateId ?? null).toBeNull();
+        expect(screen.getByRole("textbox", { name: "Your answer" }).textContent).toContain("and more still");
+        expect(await screen.findByText(/what you wrote since is kept/)).toBeTruthy();
+        expect(heldCopy()[0]).toMatchObject({ answer: "Half an answer, and more still", outcome: "none" });
+        expect(heldCopy()[0].skipRevision ?? null).toBeNull();
+        expect(called("skip_practice_item")).toHaveLength(1);
+      });
+
+      it("that text is submitted under the fresh key, with no read of the old one", async () => {
+        await lostSkip(READ_REFUSED);
+        await screen.findByText(/desktop can't be reached/);
+        await waitFor(() => expect((screen.getByRole("button", { name: "Submit" }) as HTMLButtonElement).disabled).toBe(false));
+        const oldKey = (Object.values(JSON.parse(localStorage.getItem("learnloop.questionDrafts") ?? "{}"))[0] as { submissionId: string }).submissionId;
+        answers.get_session = READ_REFUSED;
+        typeInto("A real answer now");
+        answers.get_session = session();
+        fireEvent.click(screen.getByRole("button", { name: /Submit/ }));
+        await screen.findByText("3 / 4");
+        const submit = called("submit_attempt")[0].params;
+        expect(submit.answerMd).toBe("A real answer now");
+        expect(submit.submissionId).not.toBe(oldKey);
+        expect(submit.schedulerCandidateId ?? null).toBeNull();
+        expect(called("save_practice_draft")[0].params.submissionId).toBe(submit.submissionId);
+      });
+
+      it("the new text survives a closed app too", async () => {
+        await lostSkip(READ_REFUSED);
+        await screen.findByText(/desktop can't be reached/);
+        await waitFor(() => expect((screen.getByRole("button", { name: "Back" }) as HTMLButtonElement).disabled).toBe(false));
+        typeInto("Half an answer, and more");
+        fireEvent.click(screen.getByRole("button", { name: "Back" }));
+        await screen.findByRole("button", { name: /^Next: Topic i1/ });
+        expect(called("save_practice_draft")).toEqual([]);
+        answers.get_session = session();
+        fireEvent.click(screen.getByRole("button", { name: /^Next: Topic i1/ }));
+        await waitFor(() => expect(called("save_practice_draft")).toHaveLength(1), { timeout: 3000 });
+        expect(called("save_practice_draft")[0].params.answerMd).toBe("Half an answer, and more");
+      });
+
+      it("Skip again covers what was written since: it landed, and all of it goes", async () => {
+        await lostSkip(READ_REFUSED);
+        await screen.findByText(/desktop can't be reached/);
+        await waitFor(() => expect((screen.getByRole("button", { name: "Skip" }) as HTMLButtonElement).disabled).toBe(false));
+        typeInto("Half an answer, and more");
+        answers.get_session = session();
+        fireEvent.click(screen.getByRole("button", { name: "Skip" }));
+        await screen.findByRole("button", { name: /^Next: Topic i1/ });
+        await settle();
+        expect(called("save_practice_draft")).toEqual([]);
+        expect(called("skip_practice_item")).toHaveLength(1);
+        expect(heldCopy()).toEqual([]);
       });
 
       it("Skip again reads first: landed, no second skip", async () => {
