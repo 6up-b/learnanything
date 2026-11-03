@@ -701,6 +701,25 @@ HELP_FOLD_ATTACH_ALGORITHM_VERSION = "mvp-0.42"
 # byte).
 LESSON_SUGGESTIONS_ALGORITHM_VERSION = "mvp-0.43"
 
+# mvp-0.44 (data capture, the long-horizon objective's dataset; owner decisions
+# 2026-11-02 and 2026-11-03; docs/reviews/data-capture-a1-a6.md), on top of
+# mvp-0.43 (the chain stays linear: mvp-0.44 means everything mvp-0.43 means
+# PLUS this). Three serving changes: a decision whose arms have no action of
+# their own (a reading block, a follow-up that waits, a stop) has its objective
+# frozen before the draw and, where a real choice was made, a "Check once"
+# measures it, charged to the maintain lane so it replaces an ordinary slot; the
+# router's ``not_ready`` branch keeps the existing fallback distribution and its
+# existing epsilon floor (no model is asked); the teacher's delayed-check picker
+# reads each item's own predicted success and draws uniformly over exact ties,
+# with probability 1/n logged. The outcome changes with them
+# (``router_outcomes_v3``, the shared ``delayed_completion_v1``), never
+# certification, mastery, grading, FSRS or the projection. Kill switch:
+# ``data_capture.serving`` (off, or below the tag: Today and the plan are
+# mvp-0.43's byte for byte and outcomes stay ``router_outcomes_v2``). The
+# prefilter receipts are additive and act at every version
+# (``data_capture.receipts``).
+DATA_CAPTURE_ALGORITHM_VERSION = "mvp-0.44"
+
 # The linear successor chain on the mvp-0.8 projection namespace, oldest
 # first. Each successor means its predecessor's semantics PLUS its own, so
 # every gate below is "this tag or any later one". A successor merge appends
@@ -743,6 +762,7 @@ SUCCESSOR_CHAIN: tuple[str, ...] = (
     TEACHER_ALGORITHM_VERSION,
     HELP_FOLD_ATTACH_ALGORITHM_VERSION,
     LESSON_SUGGESTIONS_ALGORITHM_VERSION,
+    DATA_CAPTURE_ALGORITHM_VERSION,
 )
 
 
@@ -937,6 +957,12 @@ HELP_FOLD_ATTACH_VERSIONS: frozenset[str] = successors_from(HELP_FOLD_ATTACH_ALG
 # ``router.lesson_suggestions.enabled``). Every later successor keeps it; gates
 # must use this set, never equality.
 LESSON_SUGGESTIONS_VERSIONS: frozenset[str] = successors_from(LESSON_SUGGESTIONS_ALGORITHM_VERSION)
+
+# Versions whose serving arranges measurements, keeps the not_ready floor and
+# picks delayed checks by item, and whose outcomes are ``router_outcomes_v3``
+# (behind ``data_capture.serving``). Every later successor keeps them; gates
+# must use this set, never equality.
+DATA_CAPTURE_VERSIONS: frozenset[str] = successors_from(DATA_CAPTURE_ALGORITHM_VERSION)
 
 # The newest successor: the last tag in the chain. ``learnloop upgrade`` with
 # no ``--to`` targets it, and new vaults start at it

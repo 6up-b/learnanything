@@ -1,7 +1,7 @@
 """Reader RW5c P1: migration 238, ``figure_source_checks`` (spec_reader_rw5c_checked_labels_v1 §10.2).
 
 An append-only ledger (RAW_LEDGER, no replayer), classified for rebuild and for AD (PROTECTED and
-unread). The head fixture is at 238 in rollback mode with an empty table. Earlier migrations'
+unread). The head fixture is at 239 in rollback mode with an empty table. Earlier migrations'
 "nothing else changed" diffs on the way to head read ``RW5C_ADDED_OBJECTS``.
 """
 
@@ -18,7 +18,7 @@ from learnloop.adaptive_difficulty import protected_tables as PT
 from learnloop.db.migrate import UPGRADE_TEST_HELPER, apply_migrations, applied_versions, discover_migrations, upgrade_allowance
 from learnloop.db.table_roles import TableRole, role_for_table
 
-HEAD = Path(__file__).resolve().parents[1] / "fixtures" / "migration_head_238" / "state.sqlite"
+HEAD = Path(__file__).resolve().parents[1] / "fixtures" / "migration_head_239" / "state.sqlite"
 #: What 238 adds (its table, its autoindex, its index and triggers).
 RW5C_ADDED_OBJECTS = frozenset({
     "figure_source_checks", "sqlite_autoindex_figure_source_checks_1", "idx_figure_source_checks_figure",
@@ -30,7 +30,7 @@ def _names(connection: sqlite3.Connection) -> set[str]:
     return {row[0] for row in connection.execute("SELECT name FROM sqlite_master")}
 
 
-def test_238_is_the_head_and_the_table_is_classified():
+def test_238_is_applied_and_the_table_is_classified():
     names = {migration.version: migration.path.name for migration in discover_migrations()}
     assert names[238] == "238_figure_source_checks.sql"
     assert role_for_table("figure_source_checks") == TableRole.RAW_LEDGER
@@ -38,9 +38,9 @@ def test_238_is_the_head_and_the_table_is_classified():
     assert "figure_source_checks" in CC.CLASSES
 
 
-def test_the_head_fixture_is_at_238_in_rollback_mode_with_an_empty_table():
+def test_the_head_fixture_is_past_238_in_rollback_mode_with_an_empty_table():
     assert HEAD.read_bytes()[18:20] == b"\x01\x01"
-    assert max(applied_versions(HEAD)) == max(migration.version for migration in discover_migrations()) == 238
+    assert max(applied_versions(HEAD)) == max(migration.version for migration in discover_migrations()) == 239
     with closing(sqlite3.connect(HEAD)) as connection:
         assert RW5C_ADDED_OBJECTS <= _names(connection)
         assert connection.execute("SELECT COUNT(*) FROM figure_source_checks").fetchone()[0] == 0

@@ -168,6 +168,10 @@ _TABLE_ROLE_ITEMS: tuple[tuple[str, TableRole], ...] = (
     # decisions are attention_block_events receipts). Replay never reads it.
     ("daily_plans", TableRole.WORKFLOW),
     ("decision_features", TableRole.RECEIPT),
+    # Data capture A2 (migration 239): the objective frozen before a decision's
+    # draw, and the states of the check that measures it (append-only).
+    ("decision_measurement_events", TableRole.RECEIPT),
+    ("decision_objectives", TableRole.RECEIPT),
     # Deliverable curriculum C0b (migration 228): the learner's scope inputs
     # (their own words, append-only), the resolver's resolutions and the
     # curated path's rows with the learner's verdicts (paid outputs, never
@@ -449,6 +453,10 @@ _TABLE_ROLE_ITEMS: tuple[tuple[str, TableRole], ...] = (
     ("practice_pool_events", TableRole.RECEIPT),
     ("practice_pool_surfaces", TableRole.RAW_LEDGER),
     ("practice_pools", TableRole.RAW_LEDGER),
+    # Data capture A1 (migration 239): what was decided before the router saw
+    # candidates, linked into each committed decision; parts stored once by hash.
+    ("prefilter_payloads", TableRole.RECEIPT),
+    ("prefilter_receipts", TableRole.RECEIPT),
     ("probe_calibration_sessions", TableRole.WORKFLOW),
     ("probe_episodes", TableRole.WORKFLOW),
     # Includes reviewed-human evidence and empirical posteriors, neither of

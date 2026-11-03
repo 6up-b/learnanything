@@ -131,8 +131,8 @@ def _complete_interrupted_activation(vault_root: Path) -> None:
     # mvp-0.35 at the batch landing; the kept replaced claims' mvp-0.36;
     # mobile PR-4's mvp-0.37; the cold-retry reschedule's mvp-0.38; Reader
     # RW6b's mvp-0.39; curriculum C1's mvp-0.40; teacher TE1's mvp-0.41; follow-ups Nov 2's mvp-0.42;
-    # teacher TE1b's mvp-0.43).
-    from learnloop.lesson_suggestions_upgrade import complete_interrupted_activation
+    # teacher TE1b's mvp-0.43; data capture's mvp-0.44).
+    from learnloop.data_capture_upgrade import complete_interrupted_activation
 
     complete_interrupted_activation(vault_root)
 

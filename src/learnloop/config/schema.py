@@ -4127,6 +4127,24 @@ class RouterConfig(BaseModel):
         return self
 
 
+class DataCaptureConfig(BaseModel):
+    """What later offline evaluation needs, recorded now (owner, 2026-11-02;
+    docs/reviews/data-capture-a1-a6.md). It adds no policy and no constant.
+
+    * ``receipts``: the prefilter receipts (``prefilter_receipts``), linked into
+      each committed decision. Additive: they act at every algorithm version and
+      never change what is served; off stops the rows and nothing else.
+    * ``serving``: the kill switch of the successor mvp-0.44 (``DATA_CAPTURE_VERSIONS``):
+      measurement slots for reading, wait and stop arms, the exploration floor on
+      the router's ``not_ready`` branch, the teacher's item-specific delayed-check
+      picker with its logged tie draw, and ``router_outcomes_v3``. Off, or below
+      the tag, serving and outcomes are mvp-0.43's exactly.
+    """
+
+    receipts: bool = True
+    serving: bool = True
+
+
 class VoiStoppingConfig(BaseModel):
     """mvp-0.21 Part 1: four count caps lifted onto value of information.
 
@@ -4578,6 +4596,7 @@ class LearnLoopConfig(BaseModel):
     source_service: SourceServiceConfig = Field(default_factory=SourceServiceConfig)
     placement: PlacementConfig = Field(default_factory=PlacementConfig)
     router: RouterConfig = Field(default_factory=RouterConfig)
+    data_capture: DataCaptureConfig = Field(default_factory=DataCaptureConfig)
     pf: PFConfig = Field(default_factory=PFConfig)
     plan: PlanConfig = Field(default_factory=PlanConfig)
     intent: IntentConfig = Field(default_factory=IntentConfig)
