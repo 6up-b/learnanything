@@ -7,8 +7,8 @@ version: "1.0.0"
 source_path: "src/learnloop/content/sources/source_outline.py"
 source_paths:
   - "src/learnloop/content/sources/source_outline.py"
-source_commit: "376c6835ae9c3aa1b63584584d4e63e51e79f6dd"
-source_commit_timestamp: "2026-10-14T16:06:13-04:00"
+source_commit: "5f53bffc256a57e12c2fcb53eed3cd0666c5c260"
+source_commit_timestamp: "2026-11-02T18:35:07-05:00"
 source_worktree_state: "clean"
 generated: true
 generated_at: "2026-11-02"
@@ -51,38 +51,40 @@ The authoritative system-level explanation remains in [[Learning System]], [[AI 
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/content/sources/source_outline.py](../../../../../../../src/learnloop/content/sources/source_outline.py) |
-| Source lines | 269 |
+| Source lines | 292 |
 | Owning package | [[Reference/Modules/learnloop/content/sources/_package|learnloop.content.sources]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `376c6835ae9c3aa1b63584584d4e63e51e79f6dd` |
-| Commit timestamp | `2026-10-14T16:06:13-04:00` |
+| Source commit | `5f53bffc256a57e12c2fcb53eed3cd0666c5c260` |
+| Commit timestamp | `2026-11-02T18:35:07-05:00` |
 
 ## Public API
 
-- `approx_token_count(text: str) -> int` ([source](../../../../../../../src/learnloop/content/sources/source_outline.py), line 31) — Deterministic approximate token count for a string (chars / 4, §3.1).
-- `unit_inventory_marker(repo: Repository, extraction_id: str, unit_id: str) -> dict[str, object]` ([source](../../../../../../../src/learnloop/content/sources/source_outline.py), line 54) — Whether a unit already has a cached inventory (ING M4).
-- `class OutlineUnit(BaseModel)` ([source](../../../../../../../src/learnloop/content/sources/source_outline.py), line 66)
-- `class SourceOutline(BaseModel)` ([source](../../../../../../../src/learnloop/content/sources/source_outline.py), line 85)
-- `build_source_outline(repo: Repository, extraction_id: str) -> SourceOutline` ([source](../../../../../../../src/learnloop/content/sources/source_outline.py), line 103) — Build the deterministic outline for one completed extraction run.
-- `resolve_extraction_id(repo: Repository, ref: str) -> str | None` ([source](../../../../../../../src/learnloop/content/sources/source_outline.py), line 216) — Resolve an extraction / revision / artifact reference to an extraction id.
-- `class OutlineNotFound(ValueError)` ([source](../../../../../../../src/learnloop/content/sources/source_outline.py), line 268) — The requested extraction run has no persisted IR to outline.
+- `approx_token_count(text: str) -> int` ([source](../../../../../../../src/learnloop/content/sources/source_outline.py), line 34) — Deterministic approximate token count for a string (chars / 4, §3.1).
+- `unit_inventory_marker(repo: Repository, extraction_id: str, unit_id: str) -> dict[str, object]` ([source](../../../../../../../src/learnloop/content/sources/source_outline.py), line 57) — Whether a unit already has a cached inventory (ING M4).
+- `class OutlineUnit(BaseModel)` ([source](../../../../../../../src/learnloop/content/sources/source_outline.py), line 69)
+- `class SourceOutline(BaseModel)` ([source](../../../../../../../src/learnloop/content/sources/source_outline.py), line 88)
+- `build_source_outline(repo: Repository, extraction_id: str) -> SourceOutline` ([source](../../../../../../../src/learnloop/content/sources/source_outline.py), line 106) — Build the deterministic outline for one completed extraction run.
+- `title_from_file_name(name: str) -> str` ([source](../../../../../../../src/learnloop/content/sources/source_outline.py), line 211)
+- `title_from_local_uri(value: str) -> str | None` ([source](../../../../../../../src/learnloop/content/sources/source_outline.py), line 221) — A ``file:`` URI as its file name in words, decoded (a source with no display title carries one, from ``Path.as_uri``), or None for anything else: a title, or a web address.
+- `resolve_extraction_id(repo: Repository, ref: str) -> str | None` ([source](../../../../../../../src/learnloop/content/sources/source_outline.py), line 239) — Resolve an extraction / revision / artifact reference to an extraction id.
+- `class OutlineNotFound(ValueError)` ([source](../../../../../../../src/learnloop/content/sources/source_outline.py), line 291) — The requested extraction run has no persisted IR to outline.
 
 ### Module constants
 
-- `_CHARS_PER_TOKEN` ([src/learnloop/content/sources/source_outline.py](../../../../../../../src/learnloop/content/sources/source_outline.py), line 28)
-- `_SIGNAL_ROLES` ([src/learnloop/content/sources/source_outline.py](../../../../../../../src/learnloop/content/sources/source_outline.py), line 43)
+- `_CHARS_PER_TOKEN` ([src/learnloop/content/sources/source_outline.py](../../../../../../../src/learnloop/content/sources/source_outline.py), line 31)
+- `_SIGNAL_ROLES` ([src/learnloop/content/sources/source_outline.py](../../../../../../../src/learnloop/content/sources/source_outline.py), line 46)
 
 ## Internal implementation anchors
 
-- `_structural_signals(blocks) -> dict[str, int]` ([source](../../../../../../../src/learnloop/content/sources/source_outline.py), line 163)
-- `_unit_health_flags(page_start: int | None, page_end: int | None, health) -> list[str]` ([source](../../../../../../../src/learnloop/content/sources/source_outline.py), line 168)
-- `_derive_title(artifact, revision, ir: DocumentIR) -> str` ([source](../../../../../../../src/learnloop/content/sources/source_outline.py), line 180) — Deterministic display title from artifact metadata, never an LLM guess.
-- `_derive_authors(artifact, revision) -> list[str]` ([source](../../../../../../../src/learnloop/content/sources/source_outline.py), line 201) — Authors from artifact metadata.
-- `_basename(uri: object) -> str | None` ([source](../../../../../../../src/learnloop/content/sources/source_outline.py), line 208)
-- `_completed_top_level(repo: Repository, revision_id: str) -> str | None` ([source](../../../../../../../src/learnloop/content/sources/source_outline.py), line 247)
-- `_latest_completed(repo: Repository, revision_id: str) -> str | None` ([source](../../../../../../../src/learnloop/content/sources/source_outline.py), line 256)
+- `_structural_signals(blocks) -> dict[str, int]` ([source](../../../../../../../src/learnloop/content/sources/source_outline.py), line 166)
+- `_unit_health_flags(page_start: int | None, page_end: int | None, health) -> list[str]` ([source](../../../../../../../src/learnloop/content/sources/source_outline.py), line 171)
+- `_derive_title(artifact, revision, ir: DocumentIR) -> str` ([source](../../../../../../../src/learnloop/content/sources/source_outline.py), line 183) — Deterministic display title from artifact metadata, never an LLM guess.
+- `_derive_authors(artifact, revision) -> list[str]` ([source](../../../../../../../src/learnloop/content/sources/source_outline.py), line 204) — Authors from artifact metadata.
+- `_basename(uri: object) -> str | None` ([source](../../../../../../../src/learnloop/content/sources/source_outline.py), line 231)
+- `_completed_top_level(repo: Repository, revision_id: str) -> str | None` ([source](../../../../../../../src/learnloop/content/sources/source_outline.py), line 270)
+- `_latest_completed(repo: Repository, revision_id: str) -> str | None` ([source](../../../../../../../src/learnloop/content/sources/source_outline.py), line 279)
 
 ## Who imports or calls it
 
@@ -93,7 +95,7 @@ The authoritative system-level explanation remains in [[Learning System]], [[AI 
 - [[Reference/Modules/learnloop/cli/curriculum|learnloop.cli.curriculum]] — imports `resolve_extraction_id`; statically calls `resolve_extraction_id`
 - [[Reference/Modules/learnloop/cli/reader|learnloop.cli.reader]] — imports `resolve_extraction_id`; statically calls `resolve_extraction_id`
 - [[Reference/Modules/learnloop/content/facet_identity/authority|learnloop.content.facet_identity.authority]] — imports `resolve_extraction_id`; statically calls `resolve_extraction_id`
-- [[Reference/Modules/learnloop/content/pipeline/add_source|learnloop.content.pipeline.add_source]] — imports `build_source_outline`; statically calls `build_source_outline`
+- [[Reference/Modules/learnloop/content/pipeline/add_source|learnloop.content.pipeline.add_source]] — imports `build_source_outline`, `title_from_file_name`, `title_from_local_uri`; statically calls `build_source_outline`, `title_from_file_name`, `title_from_local_uri`
 - [[Reference/Modules/learnloop/content/pipeline/build_plan|learnloop.content.pipeline.build_plan]] — imports `OutlineUnit`, `build_source_outline`; statically calls `build_source_outline`
 - [[Reference/Modules/learnloop/content/pipeline/quick_add|learnloop.content.pipeline.quick_add]] — imports `OutlineNotFound`, `build_source_outline`; statically calls `build_source_outline`
 - [[Reference/Modules/learnloop/content/pipeline/revision_refresh|learnloop.content.pipeline.revision_refresh]] — imports `resolve_extraction_id`; statically calls `resolve_extraction_id`
@@ -104,7 +106,9 @@ The authoritative system-level explanation remains in [[Learning System]], [[AI 
 - [[Reference/Modules/learnloop/reader/source_search|learnloop.reader.source_search]] — imports `resolve_extraction_id`; statically calls `resolve_extraction_id`
 - [[Reference/Modules/learnloop/source_retrieval/corpus|learnloop.source_retrieval.corpus]] — imports `resolve_extraction_id`; statically calls `resolve_extraction_id`
 - [[Reference/Modules/learnloop/source_retrieval/find_sources|learnloop.source_retrieval.find_sources]] — imports `resolve_extraction_id`; statically calls `resolve_extraction_id`
+- [[Reference/Modules/learnloop/source_retrieval/note_links|learnloop.source_retrieval.note_links]] — imports `title_from_local_uri`; statically calls `title_from_local_uri`
 - [[Reference/Modules/learnloop/source_retrieval/source_vectors|learnloop.source_retrieval.source_vectors]] — imports `resolve_extraction_id`; statically calls `resolve_extraction_id`
+- [[Reference/Modules/learnloop/source_retrieval/vault_notes|learnloop.source_retrieval.vault_notes]] — imports `title_from_local_uri`; statically calls `title_from_local_uri`
 - [[Reference/Modules/learnloop_sidecar/handlers/compare_scope|learnloop_sidecar.handlers.compare_scope]] — imports `resolve_extraction_id`; statically calls `resolve_extraction_id`
 - [[Reference/Modules/learnloop_sidecar/handlers/correspondents|learnloop_sidecar.handlers.correspondents]] — imports `resolve_extraction_id`; statically calls `resolve_extraction_id`
 - [[Reference/Modules/learnloop_sidecar/handlers/deliverables|learnloop_sidecar.handlers.deliverables]] — imports `resolve_extraction_id`; statically calls `resolve_extraction_id`
@@ -134,7 +138,7 @@ The authoritative system-level explanation remains in [[Learning System]], [[AI 
 
 ### Platform and third-party dependencies
 
-- Standard library: `__future__`, `collections`
+- Standard library: `__future__`, `collections`, `pathlib`, `re`, `urllib`
 - Third party: `pydantic`
 
 ## Larger workflow participation
@@ -144,7 +148,7 @@ Use this module in context through:
 - [[Import Canonical Sources]]
 - [[Build a Study Map]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/cli/app|learnloop.cli.app]], [[Reference/Modules/learnloop/cli/curriculum|learnloop.cli.curriculum]], [[Reference/Modules/learnloop/cli/reader|learnloop.cli.reader]], [[Reference/Modules/learnloop/content/facet_identity/authority|learnloop.content.facet_identity.authority]], [[Reference/Modules/learnloop/content/pipeline/add_source|learnloop.content.pipeline.add_source]] and 27 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/cli/app|learnloop.cli.app]], [[Reference/Modules/learnloop/cli/curriculum|learnloop.cli.curriculum]], [[Reference/Modules/learnloop/cli/reader|learnloop.cli.reader]], [[Reference/Modules/learnloop/content/facet_identity/authority|learnloop.content.facet_identity.authority]], [[Reference/Modules/learnloop/content/pipeline/add_source|learnloop.content.pipeline.add_source]] and 29 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
@@ -154,6 +158,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_a_book_picked_as_an_exam_in_its_outline_builds_nothing`
   - `test_the_reading_step_never_offers_a_held_out_section_of_a_book_in_no_source_set`
 - [tests/test_facet_authority_review.py](../../../../../../../tests/test_facet_authority_review.py) — direct import
+- [tests/test_followups_batch7_note_titles.py](../../../../../../../tests/test_followups_batch7_note_titles.py) — direct import
+  - `test_a_local_uri_reads_as_its_file_name_in_words`
 - [tests/test_ingest_m3.py](../../../../../../../tests/test_ingest_m3.py) — direct import
   - `test_approx_token_count_is_chars_over_four`
   - `test_boundary_override_camelcase_keys_are_normalized`

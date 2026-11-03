@@ -184,6 +184,11 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_followups_batch6_review_fixes.py](../../../../../../tests/test_followups_batch6_review_fixes.py) — direct import
 - [tests/test_followups_batch6_verify_fixes.py](../../../../../../tests/test_followups_batch6_verify_fixes.py) — direct import
   - `test_v2_characterization_a_worker_origin_pass_still_runs_ordinary_builds`
+- [tests/test_followups_batch7_prefetch_capped_resume.py](../../../../../../tests/test_followups_batch7_prefetch_capped_resume.py) — direct import
+  - `test_a_resumed_planned_visual_is_the_lesson_steps_own_request`
+  - `test_a_stored_request_is_linked_whatever_holds_new_builds_and_its_opening_is_observed`
+  - `test_every_background_guard_a_power_deferred_resume_rechecks_holds_a_capped_one`
+- [tests/test_followups_batch7_prefetch_link_served.py](../../../../../../tests/test_followups_batch7_prefetch_link_served.py) — direct import
 
 ## Modification guidance
 

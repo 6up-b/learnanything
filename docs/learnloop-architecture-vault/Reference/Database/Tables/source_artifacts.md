@@ -3,8 +3,8 @@ title: "source_artifacts"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "856ce60f74f6074a19363758ab69d21dcfecc54d"
-source_commit_timestamp: "2026-11-02T16:19:09-05:00"
+source_commit: "9b983234725d0afeda2ad1fc375bd05473a49e0a"
+source_commit_timestamp: "2026-11-02T19:07:15-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite source_artifacts"
@@ -102,6 +102,7 @@ Indexes and uniqueness:
 
 - `src/learnloop/db/repositories.py`
 - `src/learnloop/source_retrieval/role_labeller.py`
+- `src/learnloop/source_retrieval/vault_notes.py`
 - `src/learnloop_sidecar/handlers/as_printed.py`
 - `src/learnloop_sidecar/handlers/serializers.py`
 
@@ -149,6 +150,7 @@ Indexes and uniqueness:
 - `tests/test_decider_landing.py`
 - `tests/test_figures_prefetch.py`
 - `tests/test_followups_batch6_prefetch_next_section.py`
+- `tests/test_followups_batch7_note_titles.py`
 - `tests/test_glm_ocr.py`
 - `tests/test_ingest_runner.py`
 - `tests/test_keep_local_retired.py`
@@ -156,7 +158,6 @@ Indexes and uniqueness:
 - `tests/test_notes_never_read.py`
 - `tests/test_quick_add.py`
 - `tests/test_reader_ca1_as_printed.py`
-- `tests/test_reader_ca1_astra_codex_review.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

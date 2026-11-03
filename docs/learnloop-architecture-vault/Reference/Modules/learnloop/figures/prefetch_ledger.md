@@ -7,8 +7,8 @@ version: "1.0.0"
 source_path: "src/learnloop/figures/prefetch_ledger.py"
 source_paths:
   - "src/learnloop/figures/prefetch_ledger.py"
-source_commit: "24d941ce27f7cea1059a78c7f7c337fb1e95ac92"
-source_commit_timestamp: "2026-11-02T12:23:06-05:00"
+source_commit: "99ceb6b6448836a77249be6a1e00b5ba4036a260"
+source_commit_timestamp: "2026-11-02T18:27:27-05:00"
 source_worktree_state: "clean"
 generated: true
 generated_at: "2026-11-02"
@@ -50,42 +50,44 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/figures/prefetch_ledger.py](../../../../../../src/learnloop/figures/prefetch_ledger.py) |
-| Source lines | 430 |
+| Source lines | 465 |
 | Owning package | [[Reference/Modules/learnloop/figures/_package|learnloop.figures]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `24d941ce27f7cea1059a78c7f7c337fb1e95ac92` |
-| Commit timestamp | `2026-11-02T12:23:06-05:00` |
+| Source commit | `99ceb6b6448836a77249be6a1e00b5ba4036a260` |
+| Commit timestamp | `2026-11-02T18:27:27-05:00` |
 
 ## Public API
 
-- `plan_providers(vault: Any) -> set[str]` ([source](../../../../../../src/learnloop/figures/prefetch_ledger.py), line 42) — The vault's plan profiles (subscription billing): whose receipts are the plan's load.
-- `has_tables(connection: Any) -> bool` ([source](../../../../../../src/learnloop/figures/prefetch_ledger.py), line 51)
-- `decisions(connection: Any) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/figures/prefetch_ledger.py), line 84)
-- `observations(rows: Iterable[Mapping[str, Any]]) -> list[PM.Observation]` ([source](../../../../../../src/learnloop/figures/prefetch_ledger.py), line 90) — The opening model's data: built rows closed ``opened`` or ``neither`` (time order).
-- `plan_receipts(connection: Any, plan_providers: Iterable[str]) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/figures/prefetch_ledger.py), line 107)
-- `day_load(connection: Any, plan_providers: Iterable[str], day: str, *, offset: timedelta=timedelta(0)) -> tuple[int, int]` ([source](../../../../../../src/learnloop/figures/prefetch_ledger.py), line 125) — ``(requests, known tokens)`` on a plan provider during one local day.
-- `plan_day(connection: Any, plan_providers: Iterable[str], day: str, *, offset: timedelta=timedelta(0), paused: bool=False) -> PM.PlanDay` ([source](../../../../../../src/learnloop/figures/prefetch_ledger.py), line 133) — One local day's plan load: its requests, its known tokens and how many requests reported them.
-- `pauses(connection: Any) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/figures/prefetch_ledger.py), line 147)
-- `plan_days(connection: Any, plan_providers: Iterable[str], *, today: str, offset: timedelta=timedelta(0)) -> list[PM.PlanDay]` ([source](../../../../../../src/learnloop/figures/prefetch_ledger.py), line 153) — Each past local day with plan activity (today excluded: it is still open).
-- `blocked_minutes(connection: Any, plan_providers: Iterable[str]) -> float | None` ([source](../../../../../../src/learnloop/figures/prefetch_ledger.py), line 173) — Measured foreground minutes a pause blocked, per pause: the pressed (non-background) plan calls that failed inside a pause's window, times the mean measured plan call latency.
-- `waits(connection: Any) -> PM.Waits` ([source](../../../../../../src/learnloop/figures/prefetch_ledger.py), line 223)
-- `incremental(connection: Any) -> PM.Incremental` ([source](../../../../../../src/learnloop/figures/prefetch_ledger.py), line 254) — The measured calls a build makes (Codex review F14): the figure author's calls per authored request (its receipts per ``figure:<request>`` owner) and the rich author's per rich job (per ``figure_rich:<request>`` owner).
-- `load_model(connection: Any, plan_providers: Iterable[str], *, now: datetime, offset: timedelta=timedelta(0)) -> PM.Model` ([source](../../../../../../src/learnloop/figures/prefetch_ledger.py), line 271)
-- `started_today(connection: Any, *, today: str, offset: timedelta=timedelta(0)) -> set[str]` ([source](../../../../../../src/learnloop/figures/prefetch_ledger.py), line 289) — The decisions whose build started today (Codex review F6: the cap counts work when it starts, a resumed decision of an earlier day included): their prefetch requests stored today.
-- `builds_today(connection: Any, *, today: str, offset: timedelta=timedelta(0)) -> int` ([source](../../../../../../src/learnloop/figures/prefetch_ledger.py), line 301)
-- `render_minutes_left(vault: Any, sqlite_path: Any, *, now: datetime | None=None) -> float` ([source](../../../../../../src/learnloop/figures/prefetch_ledger.py), line 305) — ``figures.prefetch.max_daily_render_minutes`` less today's background render minutes (Codex review F6: the rich worker checks it when a prebuild's rich job starts and before each of its requests).
-- `render_minutes_today(connection: Any, *, today: str, offset: timedelta=timedelta(0)) -> float` ([source](../../../../../../src/learnloop/figures/prefetch_ledger.py), line 322) — Wall-clock minutes of today's background rich builds (a prebuild's rich figure: its request to its row).
-- `report_block(connection: Any, *, since: datetime | None=None, plan_providers: Iterable[str]=(), now: datetime | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/figures/prefetch_ledger.py), line 337) — ``learnloop reader report``'s ``prefetch`` block (spec §10b.6).
-- `add_report_block(report: dict[str, Any], sqlite_path: Any, *, since: str | None=None, plan_providers: Iterable[str]=(), now: datetime | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/figures/prefetch_ledger.py), line 382) — Put :func:`report_block` under the reader report's ``figures`` (``learnloop reader report`` calls it only with ``figures.prefetch_enabled`` on, so off the report is P2b's).
-- `anchor_of(row: Mapping[str, Any]) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/figures/prefetch_ledger.py), line 398)
+- `plan_providers(vault: Any) -> set[str]` ([source](../../../../../../src/learnloop/figures/prefetch_ledger.py), line 46) — The vault's plan profiles (subscription billing): whose receipts are the plan's load.
+- `has_tables(connection: Any) -> bool` ([source](../../../../../../src/learnloop/figures/prefetch_ledger.py), line 55)
+- `decisions(connection: Any) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/figures/prefetch_ledger.py), line 88)
+- `observations(rows: Iterable[Mapping[str, Any]]) -> list[PM.Observation]` ([source](../../../../../../src/learnloop/figures/prefetch_ledger.py), line 94) — The opening model's data: built rows closed ``opened`` or ``neither`` (time order).
+- `plan_receipts(connection: Any, plan_providers: Iterable[str]) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/figures/prefetch_ledger.py), line 111)
+- `day_load(connection: Any, plan_providers: Iterable[str], day: str, *, offset: timedelta=timedelta(0)) -> tuple[int, int]` ([source](../../../../../../src/learnloop/figures/prefetch_ledger.py), line 129) — ``(requests, known tokens)`` on a plan provider during one local day.
+- `plan_day(connection: Any, plan_providers: Iterable[str], day: str, *, offset: timedelta=timedelta(0), paused: bool=False) -> PM.PlanDay` ([source](../../../../../../src/learnloop/figures/prefetch_ledger.py), line 137) — One local day's plan load: its requests, its known tokens and how many requests reported them.
+- `pauses(connection: Any) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/figures/prefetch_ledger.py), line 151)
+- `plan_days(connection: Any, plan_providers: Iterable[str], *, today: str, offset: timedelta=timedelta(0)) -> list[PM.PlanDay]` ([source](../../../../../../src/learnloop/figures/prefetch_ledger.py), line 157) — Each past local day with plan activity (today excluded: it is still open).
+- `blocked_minutes(connection: Any, plan_providers: Iterable[str]) -> float | None` ([source](../../../../../../src/learnloop/figures/prefetch_ledger.py), line 177) — Measured foreground minutes a pause blocked, per pause: the pressed (non-background) plan calls that failed inside a pause's window, times the mean measured plan call latency.
+- `waits(connection: Any) -> PM.Waits` ([source](../../../../../../src/learnloop/figures/prefetch_ledger.py), line 227)
+- `incremental(connection: Any) -> PM.Incremental` ([source](../../../../../../src/learnloop/figures/prefetch_ledger.py), line 258) — The measured calls a build makes (Codex review F14): the figure author's calls per authored request (its receipts per ``figure:<request>`` owner) and the rich author's per rich job (per ``figure_rich:<request>`` owner).
+- `load_model(connection: Any, plan_providers: Iterable[str], *, now: datetime, offset: timedelta=timedelta(0)) -> PM.Model` ([source](../../../../../../src/learnloop/figures/prefetch_ledger.py), line 275)
+- `started_today(connection: Any, *, today: str, offset: timedelta=timedelta(0)) -> set[str]` ([source](../../../../../../src/learnloop/figures/prefetch_ledger.py), line 293) — The decisions whose build started today (Codex review F6: the cap counts work when it starts, a resumed decision of an earlier day included): their prefetch requests stored today.
+- `builds_today(connection: Any, *, today: str, offset: timedelta=timedelta(0)) -> int` ([source](../../../../../../src/learnloop/figures/prefetch_ledger.py), line 305)
+- `render_minutes_left(vault: Any, sqlite_path: Any, *, now: datetime | None=None) -> float` ([source](../../../../../../src/learnloop/figures/prefetch_ledger.py), line 309) — ``figures.prefetch.max_daily_render_minutes`` less today's background render minutes (Codex review F6: the rich worker checks it when a prebuild's rich job starts and before each of its requests).
+- `capacity_left(vault: Any, sqlite_path: Any, *, now: datetime | None=None) -> bool` ([source](../../../../../../src/learnloop/figures/prefetch_ledger.py), line 326) — Today's ``figures.prefetch`` caps both have room (the durable count of started builds): what a pass would admit before it reserves a build.
+- `render_minutes_today(connection: Any, *, today: str, offset: timedelta=timedelta(0)) -> float` ([source](../../../../../../src/learnloop/figures/prefetch_ledger.py), line 343) — Wall-clock minutes of today's background rich builds (a prebuild's rich figure: its request to its row).
+- `report_block(connection: Any, *, since: datetime | None=None, plan_providers: Iterable[str]=(), now: datetime | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/figures/prefetch_ledger.py), line 367) — ``learnloop reader report``'s ``prefetch`` block (spec §10b.6).
+- `add_report_block(report: dict[str, Any], sqlite_path: Any, *, since: str | None=None, plan_providers: Iterable[str]=(), now: datetime | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/figures/prefetch_ledger.py), line 415) — Put :func:`report_block` under the reader report's ``figures`` (``learnloop reader report`` calls it only with ``figures.prefetch_enabled`` on, so off the report is P2b's).
+- `anchor_of(row: Mapping[str, Any]) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/figures/prefetch_ledger.py), line 431)
 
 ### Module constants
 
-- `DECISIONS_TABLE` ([src/learnloop/figures/prefetch_ledger.py](../../../../../../src/learnloop/figures/prefetch_ledger.py), line 34)
-- `PAUSES_TABLE` ([src/learnloop/figures/prefetch_ledger.py](../../../../../../src/learnloop/figures/prefetch_ledger.py), line 35)
-- `BUILD_DECISIONS` ([src/learnloop/figures/prefetch_ledger.py](../../../../../../src/learnloop/figures/prefetch_ledger.py), line 39)
+- `DECISIONS_TABLE` ([src/learnloop/figures/prefetch_ledger.py](../../../../../../src/learnloop/figures/prefetch_ledger.py), line 35)
+- `PAUSES_TABLE` ([src/learnloop/figures/prefetch_ledger.py](../../../../../../src/learnloop/figures/prefetch_ledger.py), line 36)
+- `BUILD_DECISIONS` ([src/learnloop/figures/prefetch_ledger.py](../../../../../../src/learnloop/figures/prefetch_ledger.py), line 41)
+- `DEFERRALS` ([src/learnloop/figures/prefetch_ledger.py](../../../../../../src/learnloop/figures/prefetch_ledger.py), line 43)
 
 ### Explicit exports
 
@@ -93,11 +95,13 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 
 - `BUILD_DECISIONS`
 - `DECISIONS_TABLE`
+- `DEFERRALS`
 - `add_report_block`
 - `PAUSES_TABLE`
 - `anchor_of`
 - `blocked_minutes`
 - `builds_today`
+- `capacity_left`
 - `day_load`
 - `decisions`
 - `has_tables`
@@ -117,14 +121,15 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 
 ## Internal implementation anchors
 
-- `_table(connection: Any, name: str) -> bool` ([source](../../../../../../src/learnloop/figures/prefetch_ledger.py), line 57)
-- `_when(value: Any) -> datetime | None` ([source](../../../../../../src/learnloop/figures/prefetch_ledger.py), line 62)
-- `_minutes(start: Any, end: Any) -> float | None` ([source](../../../../../../src/learnloop/figures/prefetch_ledger.py), line 72)
-- `_dicts(cursor: Any) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/figures/prefetch_ledger.py), line 79)
-- `_local_day(value: Any, offset: timedelta) -> str | None` ([source](../../../../../../src/learnloop/figures/prefetch_ledger.py), line 102)
-- `_tokens(row: Mapping[str, Any]) -> int | None` ([source](../../../../../../src/learnloop/figures/prefetch_ledger.py), line 117) — A receipt's reported tokens, or None when the provider reported none (missing, not zero).
-- `_figures_by_request(connection: Any) -> dict[str, list[dict[str, Any]]]` ([source](../../../../../../src/learnloop/figures/prefetch_ledger.py), line 200)
-- `_waited_tier(rows: list[dict[str, Any]]) -> str | None` ([source](../../../../../../src/learnloop/figures/prefetch_ledger.py), line 213) — The tier a request's learner waited for: its rich figure's when one followed, else its own.
+- `_table(connection: Any, name: str) -> bool` ([source](../../../../../../src/learnloop/figures/prefetch_ledger.py), line 61)
+- `_when(value: Any) -> datetime | None` ([source](../../../../../../src/learnloop/figures/prefetch_ledger.py), line 66)
+- `_minutes(start: Any, end: Any) -> float | None` ([source](../../../../../../src/learnloop/figures/prefetch_ledger.py), line 76)
+- `_dicts(cursor: Any) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/figures/prefetch_ledger.py), line 83)
+- `_local_day(value: Any, offset: timedelta) -> str | None` ([source](../../../../../../src/learnloop/figures/prefetch_ledger.py), line 106)
+- `_tokens(row: Mapping[str, Any]) -> int | None` ([source](../../../../../../src/learnloop/figures/prefetch_ledger.py), line 121) — A receipt's reported tokens, or None when the provider reported none (missing, not zero).
+- `_figures_by_request(connection: Any) -> dict[str, list[dict[str, Any]]]` ([source](../../../../../../src/learnloop/figures/prefetch_ledger.py), line 204)
+- `_waited_tier(rows: list[dict[str, Any]]) -> str | None` ([source](../../../../../../src/learnloop/figures/prefetch_ledger.py), line 217) — The tier a request's learner waited for: its rich figure's when one followed, else its own.
+- `_built_at(connection: Any, row: Mapping[str, Any]) -> datetime | None` ([source](../../../../../../src/learnloop/figures/prefetch_ledger.py), line 358) — When a decision's build started (its request row), a resumed decision's later than its own row; the decision's time when that request can't be read.
 
 ## Who imports or calls it
 
@@ -132,8 +137,9 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 > “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
 
 - [[Reference/Modules/learnloop/cli/reader|learnloop.cli.reader]] — imports `add_report_block`, `plan_providers`; statically calls `add_report_block`, `plan_providers`
-- [[Reference/Modules/learnloop/figures/prefetch|learnloop.figures.prefetch]] — imports `module`; statically calls `_when`, `anchor_of`, `day_load`, `decisions`, `has_tables`, `load_model`, `render_minutes_today`, `started_today`
+- [[Reference/Modules/learnloop/figures/prefetch|learnloop.figures.prefetch]] — imports `module`; statically calls `_when`, `anchor_of`, `day_load`, `decisions`, `has_tables`, `load_model`, `render_minutes_left`, `render_minutes_today`, `started_today`
 - [[Reference/Modules/learnloop/figures/rich|learnloop.figures.rich]] — imports `render_minutes_left`; statically calls `render_minutes_left`
+- [[Reference/Modules/learnloop/figures/service|learnloop.figures.service]] — imports `module`; statically calls `capacity_left`
 
 ## Dependencies
 
@@ -155,7 +161,7 @@ Use this module in context through:
 - [[Initialize a Vault]]
 - [[Start a Learning Cycle]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/cli/reader|learnloop.cli.reader]], [[Reference/Modules/learnloop/figures/prefetch|learnloop.figures.prefetch]], [[Reference/Modules/learnloop/figures/rich|learnloop.figures.rich]].
+Static participation evidence comes from [[Reference/Modules/learnloop/cli/reader|learnloop.cli.reader]], [[Reference/Modules/learnloop/figures/prefetch|learnloop.figures.prefetch]], [[Reference/Modules/learnloop/figures/rich|learnloop.figures.rich]], [[Reference/Modules/learnloop/figures/service|learnloop.figures.service]].
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
@@ -168,6 +174,14 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_f14_a_builds_expected_requests_are_measured`
   - `test_f5_a_deferred_decision_is_built_once_the_condition_clears`
   - `test_f6_a_resumed_build_spends_todays_cap`
+- [tests/test_followups_batch7_prefetch_capped_resume.py](../../../../../../tests/test_followups_batch7_prefetch_capped_resume.py) — direct import
+  - `test_a_capped_decision_is_built_the_next_day_with_no_new_draw_and_its_row_stays_the_record`
+  - `test_a_capped_decision_that_never_built_is_no_observation`
+  - `test_a_figure_the_learner_pressed_for_meanwhile_is_not_counted_as_the_prebuilds`
+  - `test_a_stored_request_is_linked_whatever_holds_new_builds_and_its_opening_is_observed`
+  - `test_close_horizons_itself_links_first`
+  - `test_the_report_and_the_model_count_a_resumed_build`
+- [tests/test_followups_batch7_prefetch_link_served.py](../../../../../../tests/test_followups_batch7_prefetch_link_served.py) — direct import
 
 ## Modification guidance
 

@@ -3,8 +3,8 @@ title: "learner_notes"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "856ce60f74f6074a19363758ab69d21dcfecc54d"
-source_commit_timestamp: "2026-11-02T16:19:09-05:00"
+source_commit: "9b983234725d0afeda2ad1fc375bd05473a49e0a"
+source_commit_timestamp: "2026-11-02T19:07:15-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite learner_notes"
@@ -113,6 +113,7 @@ None found by exact static reference scan.
 
 - `tests/test_architecture.py`
 - `tests/test_followups_batch5_recap_dependencies.py`
+- `tests/test_followups_batch7_note_titles.py`
 - `tests/test_help_assist_figures_migration.py`
 - `tests/test_help_assist_work_md_migration.py`
 - `tests/test_learner_note_source_kind_migration.py`

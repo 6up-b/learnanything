@@ -3,8 +3,8 @@ title: "figure_requests"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "856ce60f74f6074a19363758ab69d21dcfecc54d"
-source_commit_timestamp: "2026-11-02T16:19:09-05:00"
+source_commit: "9b983234725d0afeda2ad1fc375bd05473a49e0a"
+source_commit_timestamp: "2026-11-02T19:07:15-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite figure_requests"
@@ -135,6 +135,8 @@ None found by exact static reference scan.
 - `tests/test_figures_prefetch_review_fixes.py`
 - `tests/test_figures_show_me.py`
 - `tests/test_figures_show_me_codex_review.py`
+- `tests/test_followups_batch7_prefetch_capped_resume.py`
+- `tests/test_followups_batch7_prefetch_link_served.py`
 - `tests/test_reader_rw5d_p4b_teacher_visuals.py`
 - `tests/test_sketch_service.py`
 

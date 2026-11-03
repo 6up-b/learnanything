@@ -135,6 +135,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_f7_a_prebuilds_rich_job_yields_to_foreground_work`
   - `test_f7_a_quick_prebuild_stops_before_its_request_while_the_learner_works`
   - `test_f7_the_judge_waits_for_foreground_work`
+- [tests/test_followups_batch7_prefetch_capped_resume.py](../../../../../../tests/test_followups_batch7_prefetch_capped_resume.py) — direct import
+  - `test_every_background_guard_a_power_deferred_resume_rechecks_holds_a_capped_one`
 
 ## Modification guidance
 

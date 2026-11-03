@@ -193,6 +193,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_f14_a_builds_expected_requests_are_measured`
   - `test_f14_known_tokens_move_the_load_and_missing_tokens_count_as_an_average_request`
 - [tests/test_followups_batch6_prefetch_decided_once.py](../../../../../../tests/test_followups_batch6_prefetch_decided_once.py) — direct import
+- [tests/test_followups_batch7_prefetch_capped_resume.py](../../../../../../tests/test_followups_batch7_prefetch_capped_resume.py) — direct import
 
 ## Modification guidance
 

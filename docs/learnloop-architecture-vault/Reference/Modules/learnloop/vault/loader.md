@@ -1484,6 +1484,17 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_v1_the_worker_rechecks_the_plan_before_the_store`
   - `test_v1_the_worker_stops_a_requeued_prebuild_a_later_plan_holds_before_any_request`
   - `test_v2_todays_read_never_retries_a_plan_wait`
+- [tests/test_followups_batch7_note_titles.py](../../../../../../tests/test_followups_batch7_note_titles.py) — direct import
+  - `test_a_row_stored_with_the_uri_is_shown_readable_and_stays_as_it_was`
+  - `test_the_notes_content_hash_is_unchanged_so_nothing_reads_as_changed`
+- [tests/test_followups_batch7_prefetch_capped_resume.py](../../../../../../tests/test_followups_batch7_prefetch_capped_resume.py) — direct import
+  - `test_a_capped_decision_is_coming_only_while_the_budget_has_room`
+  - `test_a_planned_visual_the_lesson_no_longer_plans_is_not_built`
+  - `test_a_resumed_planned_visual_is_the_lesson_steps_own_request`
+  - `test_a_stored_request_is_linked_whatever_holds_new_builds_and_its_opening_is_observed`
+  - `test_every_background_guard_a_power_deferred_resume_rechecks_holds_a_capped_one`
+  - `test_exhausted_render_minutes_fire_no_request_and_the_next_budget_builds_it`
+  - `test_the_highest_sampled_eu_of_a_capped_batch_goes_first`
 - [tests/test_followups_nov2_figure_provenance.py](../../../../../../tests/test_followups_nov2_figure_provenance.py) — direct import
   - `test_a_fresh_figure_for_a_marked_row_is_reused_after_the_panels_are_switched`
   - `test_a_lesson_figure_keeps_its_record_and_is_rechecked_by_its_learner_inputs`
