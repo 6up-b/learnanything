@@ -7,8 +7,8 @@ version: "1.0.0"
 source_path: "src/learnloop/scheduling/device_eligibility.py"
 source_paths:
   - "src/learnloop/scheduling/device_eligibility.py"
-source_commit: "14bb2c615356cfabd9cf1c0e631e48b1ef153fd8"
-source_commit_timestamp: "2026-11-03T03:24:48-05:00"
+source_commit: "2bdb6dfd81c59fe1d9302498ee64f66d7ed02719"
+source_commit_timestamp: "2026-11-03T04:38:37-05:00"
 source_worktree_state: "clean"
 generated: true
 generated_at: "2026-11-02"
@@ -50,20 +50,20 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/scheduling/device_eligibility.py](../../../../../../src/learnloop/scheduling/device_eligibility.py) |
-| Source lines | 184 |
+| Source lines | 205 |
 | Owning package | [[Reference/Modules/learnloop/scheduling/_package|learnloop.scheduling]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `14bb2c615356cfabd9cf1c0e631e48b1ef153fd8` |
-| Commit timestamp | `2026-11-03T03:24:48-05:00` |
+| Source commit | `2bdb6dfd81c59fe1d9302498ee64f66d7ed02719` |
+| Commit timestamp | `2026-11-03T04:38:37-05:00` |
 
 ## Public API
 
-- `class DeviceFilter` ([source](../../../../../../src/learnloop/scheduling/device_eligibility.py), line 131) — One queue build's device, and what it held back.
-  - `refuses(self, item: Any) -> bool` (line 148; public)
-  - `holds_back(self, item: Any) -> bool` (line 151; public) — ``refuses``, for an item the build would otherwise serve.
-- `ineligibility_reason(vault: Any, item: Any, device_class: str) -> str | None` ([source](../../../../../../src/learnloop/scheduling/device_eligibility.py), line 160) — Why ``device_class`` cannot answer ``item``, or None when it can.
+- `class DeviceFilter` ([source](../../../../../../src/learnloop/scheduling/device_eligibility.py), line 152) — One queue build's device, and what it held back.
+  - `refuses(self, item: Any) -> bool` (line 169; public)
+  - `holds_back(self, item: Any) -> bool` (line 172; public) — ``refuses``, for an item the build would otherwise serve.
+- `ineligibility_reason(vault: Any, item: Any, device_class: str) -> str | None` ([source](../../../../../../src/learnloop/scheduling/device_eligibility.py), line 181) — Why ``device_class`` cannot answer ``item``, or None when it can.
 
 ### Module constants
 
@@ -81,18 +81,21 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 - `REFERENCES_ITEM_ASSET` ([src/learnloop/scheduling/device_eligibility.py](../../../../../../src/learnloop/scheduling/device_eligibility.py), line 60)
 - `DEVICE_POLICY` ([src/learnloop/scheduling/device_eligibility.py](../../../../../../src/learnloop/scheduling/device_eligibility.py), line 65)
 - `DEVICE_POLICY_OFF` ([src/learnloop/scheduling/device_eligibility.py](../../../../../../src/learnloop/scheduling/device_eligibility.py), line 66)
-- `_LITERAL_TEXT` ([src/learnloop/scheduling/device_eligibility.py](../../../../../../src/learnloop/scheduling/device_eligibility.py), line 70)
-- `_HTML_IMAGE` ([src/learnloop/scheduling/device_eligibility.py](../../../../../../src/learnloop/scheduling/device_eligibility.py), line 79)
-- `_URL_SCHEME` ([src/learnloop/scheduling/device_eligibility.py](../../../../../../src/learnloop/scheduling/device_eligibility.py), line 80)
-- `_LOCAL_SCHEMES` ([src/learnloop/scheduling/device_eligibility.py](../../../../../../src/learnloop/scheduling/device_eligibility.py), line 82)
-- `_FILE_SUFFIX` ([src/learnloop/scheduling/device_eligibility.py](../../../../../../src/learnloop/scheduling/device_eligibility.py), line 83)
-- `_MARKDOWN` ([src/learnloop/scheduling/device_eligibility.py](../../../../../../src/learnloop/scheduling/device_eligibility.py), line 90)
+- `_LITERAL_TEXT` ([src/learnloop/scheduling/device_eligibility.py](../../../../../../src/learnloop/scheduling/device_eligibility.py), line 71)
+- `_FOOTNOTE_DEFINITION` ([src/learnloop/scheduling/device_eligibility.py](../../../../../../src/learnloop/scheduling/device_eligibility.py), line 84)
+- `_FOOTNOTE_REFERENCE` ([src/learnloop/scheduling/device_eligibility.py](../../../../../../src/learnloop/scheduling/device_eligibility.py), line 85)
+- `_HTML_IMAGE` ([src/learnloop/scheduling/device_eligibility.py](../../../../../../src/learnloop/scheduling/device_eligibility.py), line 86)
+- `_LLPDF` ([src/learnloop/scheduling/device_eligibility.py](../../../../../../src/learnloop/scheduling/device_eligibility.py), line 87)
+- `_URL_SCHEME` ([src/learnloop/scheduling/device_eligibility.py](../../../../../../src/learnloop/scheduling/device_eligibility.py), line 88)
+- `_LOCAL_SCHEMES` ([src/learnloop/scheduling/device_eligibility.py](../../../../../../src/learnloop/scheduling/device_eligibility.py), line 90)
+- `_FILE_SUFFIX` ([src/learnloop/scheduling/device_eligibility.py](../../../../../../src/learnloop/scheduling/device_eligibility.py), line 91)
+- `_MARKDOWN` ([src/learnloop/scheduling/device_eligibility.py](../../../../../../src/learnloop/scheduling/device_eligibility.py), line 98)
 
 ## Internal implementation anchors
 
-- `_is_item_asset(target: str) -> bool` ([source](../../../../../../src/learnloop/scheduling/device_eligibility.py), line 94) — A link to a file: a local scheme, or a relative target that is a path.
-- `_rendered_tokens(tokens: Iterable[Token]) -> Iterator[Token]` ([source](../../../../../../src/learnloop/scheduling/device_eligibility.py), line 105)
-- `_prompt_reason(prompt: str) -> str | None` ([source](../../../../../../src/learnloop/scheduling/device_eligibility.py), line 113) — Read per candidate on every phone build, and a prompt's parse never changes.
+- `_is_item_asset(target: str) -> bool` ([source](../../../../../../src/learnloop/scheduling/device_eligibility.py), line 102) — A link to a file: a local scheme, or a relative target that is a path.
+- `_rendered_tokens(tokens: Iterable[Token]) -> Iterator[Token]` ([source](../../../../../../src/learnloop/scheduling/device_eligibility.py), line 114)
+- `_prompt_reason(prompt: str) -> str | None` ([source](../../../../../../src/learnloop/scheduling/device_eligibility.py), line 122) — Read per candidate on every phone build, and a prompt's parse never changes.
 
 ## Who imports or calls it
 
@@ -133,12 +136,15 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_a_presentation_on_an_item_the_phone_cannot_show_survives_the_phone_queue`
   - `test_a_prompt_that_needs_more_than_text_is_kept_for_the_desktop`
   - `test_a_teach_back_source_on_any_mode_is_the_multi_turn_reason`
+  - `test_an_escape_changes_only_the_delimiter_it_escapes`
   - `test_brackets_the_renderer_shows_as_text_stay_eligible`
   - `test_each_contract_reason_is_returned_for_the_phone_and_never_for_the_desktop`
   - `test_item_kinds_landed_since_the_spec_keep_the_ordinary_answer`
   - `test_plain_text_mathematics_and_text_cues_stay_eligible`
   - `test_reference_forms_resolve_as_the_renderer_resolves_them`
   - `test_the_phones_decision_names_the_rules_and_the_desktops_does_not`
+  - `test_what_the_renderer_resolves_is_still_kept_for_the_desktop`
+  - `test_what_the_renderer_shows_as_text_or_a_web_link_stays_eligible`
 
 ## Modification guidance
 

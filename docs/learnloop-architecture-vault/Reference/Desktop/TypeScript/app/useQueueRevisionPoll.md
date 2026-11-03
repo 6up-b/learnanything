@@ -10,9 +10,9 @@ area: "TypeScript/app"
 source_path: "apps/learnloop-tauri/src/app/useQueueRevisionPoll.ts"
 source_paths:
   - "apps/learnloop-tauri/src/app/useQueueRevisionPoll.ts"
-source_commit: "25fde8c546c1ce5c9f32f19296fe204bf8fb7cc1"
-source_commit_timestamp: "2026-11-03T02:25:46-05:00"
-source_worktree_state: "clean"
+source_commit: "da3182176a0bb372a0759299ba54df0c4ab145ef"
+source_commit_timestamp: "2026-11-03T04:42:27-05:00"
+source_worktree_state: "staged-or-mixed"
 activation_kind: "entry-reachable build graph"
 activation_evidence: "A static TypeScript import path reaches this file from the Vite entry src/main.tsx."
 generated: true
@@ -42,14 +42,14 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/app/useQueueRevisionPoll.ts](../../../../../../apps/learnloop-tauri/src/app/useQueueRevisionPoll.ts) |
-| Source lines | 169 |
+| Source lines | 211 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/app/_area|TypeScript/app]] |
 | Refactor status | `ACTIVE` |
 | Activation kind | `entry-reachable build graph` |
-| Worktree state | `clean` |
-| Source commit | `25fde8c546c1ce5c9f32f19296fe204bf8fb7cc1` |
-| Commit timestamp | `2026-11-03T02:25:46-05:00` |
+| Worktree state | `staged-or-mixed` |
+| Source commit | `da3182176a0bb372a0759299ba54df0c4ab145ef` |
+| Commit timestamp | `2026-11-03T04:42:27-05:00` |
 
 ## Activation and status evidence
 
@@ -60,45 +60,53 @@ The system-level behavior stays authoritative in the linked architecture, concep
 
 ## Public API
 
-- `export const REVISION_POLL_MS = 3000` — const, line 29
-- `export interface SessionMoved` — interface, line 31
-- `export function sessionMovedFrom(snapshot: SessionSnapshot): SessionMoved | null` — function, line 40
-- `export function useSessionMoved(): SessionMoved | null` — function, line 62
-- `export interface QueueRevisionPollOptions` — interface, line 66
-- `export function useQueueRevisionPoll(` — function, line 75
+- `export const REVISION_POLL_MS = 3000` — const, line 38
+- `export interface SessionMoved` — interface, line 40
+- `export function sessionMovedFrom(snapshot: SessionSnapshot): SessionMoved | null` — function, line 49
+- `export function useSessionMoved(): SessionMoved | null` — function, line 71
+- `export interface RevisionPollView` — interface, line 76
+- `export function revisionPollHeld(view: RevisionPollView): boolean` — function, line 92
+- `export interface QueueRevisionPollOptions` — interface, line 98
+- `export function useQueueRevisionPoll(` — function, line 107
 
 ## Internal implementation anchors
 
-- `const ownership =` — const, line 41
-- `let moved: SessionMoved | null = null` — let, line 47
-- `const movedListeners = new Set<()` — const, line 48
-- `function setSessionMoved(next: SessionMoved | null): void` — function, line 50
-- `function subscribeSessionMoved(listener: ()` — function, line 56
-- `const sessionIdRef = useRef(sessionId)` — const, line 76
-- `const quietRef = useRef(quiet)` — const, line 78
-- `const pendingRef = useRef(false)` — const, line 80
-- `let disposed = false` — let, line 89
-- `let inFlight = false` — let, line 90
-- `let seen: number | null = null` — let, line 91
-- `let windowBack = false` — let, line 93
-- `let sessionReadOwed = false` — let, line 96
-- `const readOpenSession = async (): Promise<boolean>` — const, line 99
-- `const id = sessionIdRef.current` — const, line 100
-- `const snapshot = await api.getSession(id)` — const, line 103
-- `const tick = async ()` — const, line 113
-- `let answered = false` — let, line 118
-- `const snapshot = await api.getQueueRevision()` — const, line 120
-- `const back = windowBack` — const, line 125
-- `const changed = seen !== null && seen !== snapshot.revision` — const, line 127
-- `const onWindowBack = ()` — const, line 143
-- `const interval = window.setInterval(()` — const, line 150
+- `const ownership =` — const, line 50
+- `let moved: SessionMoved | null = null` — let, line 56
+- `const movedListeners = new Set<()` — const, line 57
+- `function setSessionMoved(next: SessionMoved | null): void` — function, line 59
+- `function subscribeSessionMoved(listener: ()` — function, line 65
+- `const onToday = view.tab === "today" || (view.simple && view.tab === "start")` — const, line 93
+- `const overToday = view.examOpen || view.calibrationOpen || view.lessonOpen || view.goldenRunOpen` — const, line 94
+- `const sessionIdRef = useRef(sessionId)` — const, line 108
+- `const quietRef = useRef(quiet)` — const, line 110
+- `const pendingRef = useRef(false)` — const, line 112
+- `const tickRef = useRef<(()` — const, line 113
+- `let disposed = false` — let, line 122
+- `let inFlight = false` — let, line 123
+- `let seen: number | null = null` — let, line 124
+- `let windowBack = false` — let, line 126
+- `let sessionReadOwed = false` — let, line 129
+- `const readOpenSession = async (): Promise<boolean>` — const, line 132
+- `const id = sessionIdRef.current` — const, line 133
+- `const snapshot = await api.getSession(id)` — const, line 136
+- `const tick = async ()` — const, line 146
+- `let answered = false` — let, line 151
+- `const heldRead = quietRef.current` — const, line 152
+- `const snapshot = await api.getQueueRevision(heldRead ?` — const, line 154
+- `const back = windowBack` — const, line 159
+- `const changed = seen !== null && seen !== snapshot.revision` — const, line 161
+- `const onWindowBack = ()` — const, line 182
+- `const interval = window.setInterval(()` — const, line 189
+- `const wasQuietRef = useRef(quiet)` — const, line 205
+- `const wasQuiet = wasQuietRef.current` — const, line 207
 
 ## Who imports or calls it
 
 > [!note] Static-evidence boundary
 > “Calls” here means an import/module edge plus a source reference to the imported name. React render callbacks, props, Tauri string dispatch, macro expansion, browser/Cargo entry points, and data-driven routing can add runtime consumers that static text cannot prove.
 
-- [[Reference/Desktop/TypeScript/app/App|src/app/App.tsx]] — import-or-re-export: `useQueueRevisionPoll`; references `useQueueRevisionPoll`
+- [[Reference/Desktop/TypeScript/app/App|src/app/App.tsx]] — import-or-re-export: `revisionPollHeld`, `useQueueRevisionPoll`; references `revisionPollHeld`, `useQueueRevisionPoll`
 
 ## Dependencies
 

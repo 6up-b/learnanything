@@ -226,6 +226,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_the_rpcs_are_registered_and_desktop_only`
 - [tests/test_desktop_rpc_contract.py](../../../../../tests/test_desktop_rpc_contract.py) — direct import
   - `test_every_decorated_handler_is_loaded_once`
+  - `test_the_revision_read_carries_its_hold_through_every_layer`
 - [tests/test_device_eligibility.py](../../../../../tests/test_device_eligibility.py) — direct import
 - [tests/test_dialogue_causal_join.py](../../../../../tests/test_dialogue_causal_join.py) — direct import
 - [tests/test_evsi_router_composition.py](../../../../../tests/test_evsi_router_composition.py) — direct import
