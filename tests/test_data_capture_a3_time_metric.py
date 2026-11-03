@@ -1,7 +1,8 @@
 """Data capture A3: calendar time and recorded minutes to a first delayed success.
 
 A first-delayed-success proxy, not goal attainment; unfinished trajectories and coverage visible; active never
-blended with elapsed; the goal contract pinned; ``learner_minutes_to_cold_success`` renamed for what it measures.
+blended with elapsed; the goal contract pinned; ``learner_minutes_to_cold_success`` and ``problems_to_cold_success``
+renamed for what they measure.
 """
 
 from __future__ import annotations
@@ -207,9 +208,11 @@ def test_the_board_carries_the_proxies_as_companions_and_says_so(world):
     days, minutes = SB.first_delayed_success_metrics(vault, repository, success_correctness=0.8)
     assert days.name == "calendar_days_to_first_delayed_success_proxy" and days.value == 3.0
     assert minutes.name == "learner_minutes_to_first_delayed_success_proxy" and minutes.value == 2.5
-    assert "not goal attainment" in days.note and days.companion_of == "problems_to_cold_success"
+    assert "not goal attainment" in days.note and days.companion_of == "problems_to_first_unassisted_success"
     assert SB.SCOREBOARD_VERSION == "b5_scoreboard_v2"
     assert "learner_minutes_to_cold_success" not in SB.B5_ORDER
+    assert "problems_to_cold_success" not in SB.B5_ORDER and SB.B5_ORDER[0] == "problems_to_first_unassisted_success"
+    assert SB.SCOREBOARD_VERSION == "b5_scoreboard_v2", "both renames are this one version"
 
 
 def test_an_empty_board_reports_no_data_never_zero(world):

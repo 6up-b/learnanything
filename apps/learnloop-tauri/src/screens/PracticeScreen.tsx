@@ -389,7 +389,7 @@ export function PracticeScreen({
   // Wall-clock seconds from presentation to submission. Deliberately NOT
   // idle-adjusted: subtracting time the learner "wasn't really working" would be
   // a fabrication, and the metric that consumes this (B5's
-  // `learner_minutes_to_cold_success`) is denominated in the learner's actual
+  // `learner_minutes_to_first_unassisted_success`) is denominated in the learner's actual
   // elapsed experience.
   const elapsedSeconds = () =>
     Math.max(0, Math.round((Date.now() - openedAtMs.current) / 1000));

@@ -220,7 +220,7 @@ def test_board_is_the_frozen_b5_list_in_b5_order(tmp_path):
     # B5's ordering argument: the two learner-denominated metrics lead, because a
     # system can raise anchor accuracy while becoming slower and more
     # interrogative and every other row would report success.
-    assert B5_ORDER[0] == "problems_to_cold_success"
+    assert B5_ORDER[0] == "problems_to_first_unassisted_success"
     # The time companions (scoreboard v2) ride with the primary; harm comes next.
     assert B5_ORDER[4] == "harmful_write_rate"
     assert B5_ORDER.index("false_certification_rate") < B5_ORDER.index(
@@ -232,7 +232,7 @@ def test_board_is_the_frozen_b5_list_in_b5_order(tmp_path):
         for metric in report["metrics"]
         if metric["name"] == "learner_minutes_to_first_unassisted_success"
     )
-    assert minutes["companion_of"] == "problems_to_cold_success"
+    assert minutes["companion_of"] == "problems_to_first_unassisted_success"
 
 
 #: The one B5 metric that is a property of the ITEM POOL rather than of learner
@@ -307,11 +307,11 @@ def test_a_metric_may_not_carry_a_value_on_an_unavailable_arm():
 
 
 # ---------------------------------------------------------------------------
-# 4.1 — problems_to_cold_success + minutes companion
+# 4.1 — problems_to_first_unassisted_success + minutes companion
 # ---------------------------------------------------------------------------
 
 
-def test_problems_to_cold_success_counts_problems_until_the_first_cold_success(tmp_path):
+def test_problems_to_first_unassisted_success_counts_problems_until_the_first_cold_success(tmp_path):
     vault, repository, _paths = _vault(tmp_path)
     # Two failures, then a full-credit unassisted attempt: three problems served.
     _attempt(vault, repository, "att_1", correctness_points=0, latency_seconds=30)
@@ -329,7 +329,7 @@ def test_problems_to_cold_success_counts_problems_until_the_first_cold_success(t
     # 30 + 60 + 90 = 180s = 3 minutes; the post-success 120s is excluded.
     assert minutes.availability == "available"
     assert minutes.value == 3.0
-    assert minutes.companion_of == "problems_to_cold_success"
+    assert minutes.companion_of == "problems_to_first_unassisted_success"
 
 
 def test_an_assisted_success_is_not_a_cold_success(tmp_path):
@@ -396,7 +396,7 @@ def test_censored_learning_objects_are_reported_and_excluded_from_the_mean(tmp_p
     A learning object that never reaches a cold success is dropped from the mean
     — so the mean would IMPROVE as the system got worse unless the censored count
     rides alongside it. This is precisely what B5 means by
-    `problems_to_cold_success` being "the only one that fails when the system gets
+    `problems_to_first_unassisted_success` being "the only one that fails when the system gets
     more accurate *and* more annoying": without the censored count it would not
     fail either.
     """
@@ -1425,7 +1425,7 @@ def test_cli_json_carries_denominators_and_the_ordering_rationale(tmp_path):
     assert result.exit_code == 0, result.output
     payload = json.loads(result.output)
     assert payload["order"] == list(B5_ORDER)
-    assert "problems_to_cold_success" in payload["order_rationale"]
+    assert "problems_to_first_unassisted_success" in payload["order_rationale"]
     for metric in payload["metrics"]:
         assert "denominator" in metric
         assert "denominator_label" in metric

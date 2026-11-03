@@ -4323,7 +4323,7 @@ def scoreboard_command(
 ) -> None:
     """The frozen §3 B5 scoreboard (spec_diagnostic_augmentation_v1 §3 B5, Meas §5.7).
 
-    Printed in B5's frozen order, `problems_to_cold_success` and
+    Printed in B5's frozen order, `problems_to_first_unassisted_success` and
     `harmful_write_rate` first — B5: "a system can raise anchor accuracy while
     becoming slower and more interrogative, and every remaining metric on this
     list would report success."

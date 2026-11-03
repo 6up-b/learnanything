@@ -102,7 +102,7 @@ export function DialogueProbePanel({
       setStuck(false);
       // Each dialogue turn is its own committed attempt, so latency is timed per
       // TURN, not per block — a block-scoped timer would bill every turn for the
-      // ones before it (B5's `learner_minutes_to_cold_success`).
+      // ones before it (B5's `learner_minutes_to_first_unassisted_success`).
       turnOpenedAtMs.current = Date.now();
       setPhase("asking");
     } catch (error) {

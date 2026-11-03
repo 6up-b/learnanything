@@ -15,7 +15,7 @@ goes wrong:
   trace to read. This costs learner time, and standing constraint 10 makes that
   a first-class regression: an instrument that raises information per question
   but raises annoyance faster is a regression, and
-  ``problems_to_cold_success`` is the metric that catches it.
+  ``problems_to_first_unassisted_success`` is the metric that catches it.
 
 This module owns the second half's bounds, and the reports that watch the
 first's revert criterion.
@@ -274,7 +274,7 @@ def trace_evidence_report(repository) -> dict[str, Any]:
     """Concentration + volume of A6 observations, and unexercised supporting mass.
 
     A6's revert criterion has two arms and this report measures the second:
-    "``problems_to_cold_success`` rises" is the scoreboard's job, and
+    "``problems_to_first_unassisted_success`` rises" is the scoreboard's job, and
     "opportunistic credit concentrates on a few facets, which indicates the
     grader is pattern-matching the vocabulary rather than reading the work" is
     this one.

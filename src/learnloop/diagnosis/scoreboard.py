@@ -43,8 +43,9 @@ ORDERING IS LOAD-BEARING
 B5: "The first two are ordered deliberately. Diagnostic accuracy and learner
 outcome correlate but do not track: a system can raise anchor accuracy while
 becoming slower and more interrogative, and every remaining metric on this list
-would report success. `problems_to_cold_success` is the only one that fails when
-the system gets more accurate *and* more annoying." `B5_ORDER` encodes that, and
+would report success. `problems_to_cold_success` [`problems_to_first_unassisted_success` since
+scoreboard v2] is the only one that fails when the system gets more accurate *and* more annoying."
+`B5_ORDER` encodes that, and
 the CLI prints in it. Do not sort the board alphabetically or by availability.
 """
 
@@ -63,8 +64,9 @@ from learnloop.db.repositories import Repository
 from learnloop.vault.models import LoadedVault
 
 
-# v2 (data capture A3): ``learner_minutes_to_cold_success`` never required delay, so it is named for what it
-# measures (``learner_minutes_to_first_unassisted_success``), and the two first-delayed-success proxies join it.
+# v2 (data capture A3): ``learner_minutes_to_cold_success`` and ``problems_to_cold_success`` never required delay, so
+# they are named for what they measure (``learner_minutes_to_first_unassisted_success``,
+# ``problems_to_first_unassisted_success``), and the two first-delayed-success proxies join them.
 SCOREBOARD_VERSION = "b5_scoreboard_v2"
 
 
@@ -97,12 +99,13 @@ AVAILABILITY: tuple[str, ...] = (
 UNAVAILABLE: frozenset[str] = frozenset(AVAILABILITY) - {"available"}
 
 #: The frozen B5 order (§3 B5, extended by Meas §5.7 before the freeze).
-#: `learner_minutes_to_first_unassisted_success` (`learner_minutes_to_cold_success` before scoreboard v2:
-#: it stops at the first unassisted success and requires no delay) is B5's named *companion* to the primary,
+#: `problems_to_first_unassisted_success` and `learner_minutes_to_first_unassisted_success`
+#: (`problems_to_cold_success` and `learner_minutes_to_cold_success` before scoreboard v2: they stop at the first
+#: unassisted success and require no delay) are B5's primary and its named *companion*,
 #: not a fifteenth independent metric — see `Metric.companion_of`. The two
 #: first-delayed-success proxies (data capture A3) are companions too: the honest time to the target.
 B5_ORDER: tuple[str, ...] = (
-    "problems_to_cold_success",
+    "problems_to_first_unassisted_success",
     "learner_minutes_to_first_unassisted_success",
     "calendar_days_to_first_delayed_success_proxy",
     "learner_minutes_to_first_delayed_success_proxy",
@@ -251,7 +254,7 @@ def _unavailable(
 
 
 # ---------------------------------------------------------------------------
-# 4.1 — problems_to_cold_success (PRIMARY) and its minutes companion
+# 4.1 — problems_to_first_unassisted_success (PRIMARY) and its minutes companion
 # ---------------------------------------------------------------------------
 #
 # WHAT "COLD" ALREADY MEANS HERE, and why nothing new is invented.
@@ -381,7 +384,7 @@ def cold_success_trajectories(
 def cold_success_metrics(
     repository: Repository, *, success_correctness: float | None = None
 ) -> tuple[Metric, Metric]:
-    """`problems_to_cold_success` (B5's PRIMARY) and its minutes companion.
+    """`problems_to_first_unassisted_success` (B5's PRIMARY) and its minutes companion.
 
     Returned as a pair because B5 requires both — "learner minutes to cold
     success as its companion" — and a caller that could take one without the
@@ -417,7 +420,7 @@ def cold_success_metrics(
     }
 
     problems = _rate(
-        "problems_to_cold_success",
+        "problems_to_first_unassisted_success",
         numerator=sum(row.problems_served for row in reached),
         denominator=len(reached),
         unit="questions",
@@ -460,7 +463,7 @@ def cold_success_metrics(
             ),
             numerator=None,
             denominator=0,
-            companion_of="problems_to_cold_success",
+            companion_of="problems_to_first_unassisted_success",
             detail=minutes_detail,
         )
     else:
@@ -477,7 +480,7 @@ def cold_success_metrics(
                 "missing latency"
             ),
             empty_note="no learning object has reached a cold success yet",
-            companion_of="problems_to_cold_success",
+            companion_of="problems_to_first_unassisted_success",
             detail=minutes_detail,
         )
     return problems, minutes
@@ -520,7 +523,7 @@ def first_delayed_success_metrics(
         denominator_label="learning objects reaching a first delayed success",
         note=f"{LABEL}: enrollment to the first delayed success; {len(rows) - len(reached)} unfinished",
         empty_note=empty,
-        companion_of="problems_to_cold_success",
+        companion_of="problems_to_first_unassisted_success",
         detail=detail,
     )
     minutes = _rate(
@@ -532,7 +535,7 @@ def first_delayed_success_metrics(
         note=(f"{LABEL}: observed active minutes only (elapsed is in the detail, never blended); "
               f"{len(reached) - len(timed)} excluded for missing latency"),
         empty_note=empty,
-        companion_of="problems_to_cold_success",
+        companion_of="problems_to_first_unassisted_success",
         detail=detail,
     )
     return days, minutes
@@ -1519,7 +1522,7 @@ def planted_vs_adjudicated_agreement(repository: Repository) -> Metric:
 # +2-3 weeks ... in a single-learner vault the only external validity check
 # available"). Reimplementing it here would produce a second, weaker definition
 # of the one number §5.7 says licenses every speed claim — and §5.7 orders it
-# first for the same reason B5 orders `problems_to_cold_success` first.
+# first for the same reason B5 orders `problems_to_first_unassisted_success` first.
 #
 # So this is a seam, not a producer. Until 4.2 lands the metric reports
 # `no_producer`: for a *false*-certification rate, a 0.0 would read as "no
@@ -1809,7 +1812,7 @@ def scoreboard(
         # The ordering argument, carried in the payload so a consumer that
         # re-sorts the board has to do it against a stated reason.
         "order_rationale": (
-            "Aug §3 B5: problems_to_cold_success and harmful_write_rate lead "
+            "Aug §3 B5: problems_to_first_unassisted_success and harmful_write_rate lead "
             "because a system can raise anchor accuracy while becoming slower "
             "and more interrogative, and every other metric would report "
             "success. Meas §5.7 orders false_certification_rate ahead of the "
