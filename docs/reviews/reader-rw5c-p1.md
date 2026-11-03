@@ -10,7 +10,7 @@
 
 | Part | Where |
 |---|---|
-| The closed book-math reader (§5.3) | `src/learnloop/figures/book_math.py` (new, pure) |
+| The closed book-math reader (§5.3) | `src/learnloop/figures/book_math.py` (new, a translator over KaTeX's tree since `reader-rw5c-p1-katex.md`), `src/learnloop/figures/katex_tree.py` (KaTeX in the sealed engine) |
 | The Python twins of `formatValue` and `String(v)` (§6.4, §7.2, G22) | `src/learnloop/figures/display_format.py` (new; standard library only, sent into the sandbox) |
 | The one fixed harness (§6.2-§6.5) | `src/learnloop/figures/source_check_harness.py` (new; a program sent to `pf_sandbox`, never imported) |
 | Candidates, binding, outcomes, recording, recheck, the n=1 instruments (§5, §6, §10, §12) | `src/learnloop/figures/source_check.py` (new) |
@@ -105,7 +105,7 @@ The design's code truth was `dbc1559e7`. Every §2 row was re-read at the base. 
 
 ## Deviations from the letter of the spec
 
-Each is additive or stricter; none lets anything more carry the claim.
+Each is additive or stricter; none lets anything more carry the claim. **Items 3, 4, 5 and 9 are superseded by `reader-rw5c-p1-katex.md`**: the reader no longer tokenizes TeX, it reads KaTeX's own tree, §5.3 now says so, and `\dfrac`, `\tfrac`, `\sqrt x`, `x^a_1` and `2 3` read as the page shows them.
 
 1. **A fourth role, `symbol`.** §8.2 draws a slider of a checked definition's symbol as the book's token (`§ λ`). It is no `book` element (G23a: only a `book` element carries the claim words), so it has its own closed role rather than overloading `book`.
 2. **`plain` on every element, and `reasons_json` and `duration_ms` on the row.** `aria-label`s and SVG `<text>` cannot hold KaTeX, so each element also carries a code-written plain string (the left-hand side's markup dropped for `book`). The two columns serve the report (§12 asks for reason counts and latency).
@@ -130,6 +130,8 @@ Each is additive or stricter; none lets anything more carry the claim.
 **Known and left:** `view.label` (the server's string) stays RW5a's illustration text on a checked figure. The Reader draws its own badge, and the Ask rail's line uses `frameBadge`, so a checked figure can read "not checked against the book" there: it errs on the honest side, and is an open question below.
 
 ## Coverage on the owner's material (§12 item 1)
+
+**Re-measured at the KaTeX reader: `reader-rw5c-p1-katex.md` has the current numbers (91 of 320, every one with the page's meaning).** The table below is the first reader's, kept as the record.
 
 Code only, under `env -i` with empty `HOME`, `CODEX_HOME` and `LEARNLOOP_CONFIG_DIR`, on fresh `learnloop.db.copies.copy_tree_with_databases` backups of `learnanything-ad1/fixtures-local/owner-copies-mvp035` under the gitignored `fixtures-local/rw5c-coverage/` (schema upgraded on the copies under `UPGRADE_SCRATCH_COPY`). No model client, no write beyond the copies, no socket, $0.
 
