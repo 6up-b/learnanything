@@ -3,22 +3,22 @@ title: "mobile_jobs"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "01fa9698ae962d7b0977b90915e12e269c3b8db5"
-source_commit_timestamp: "2026-11-03T12:40:09-05:00"
+source_commit: "d2de54b4e148637154ed1322a7241b74bba04bcf"
+source_commit_timestamp: "2026-11-03T15:00:46-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite mobile_jobs"
   - "table mobile_jobs"
-schema_head: 240
+schema_head: 239
 table_name: "mobile_jobs"
 table_role: "workflow"
 functionality_status: "active"
 domain_family: "operations"
-introduced_in: "240_mobile_jobs.sql"
+introduced_in: "239_mobile_jobs.sql"
 generated: true
 source_paths:
   - "src/learnloop/db/table_roles.py"
-  - "migrations/240_mobile_jobs.sql"
+  - "migrations/239_mobile_jobs.sql"
   - "src/learnloop/capture/jobs.py"
   - "src/learnloop/capture/report.py"
 tags:
@@ -43,8 +43,8 @@ It belongs to the **operations** navigation family. The family context lives in 
 
 - **Role:** `workflow` — Mutable queue, session, lease, or other in-flight workflow state. It is preserved across rebuilds.
 - **Functionality status:** `active`.
-- **Introduced by:** `migrations/240_mobile_jobs.sql`.
-- **Schema touched by:** `240_mobile_jobs.sql`.
+- **Introduced by:** `migrations/239_mobile_jobs.sql`.
+- **Schema touched by:** `239_mobile_jobs.sql`.
 - **Rebuild owner:** none; this table is preserved by the rebuild umbrella.
 
 For the distinction between SQLite state and human-authored vault files, see [[State and Persistence]]. For whole-vault creation and opening behavior, see [[Vault Lifecycle]]. ^table-lifecycle
@@ -129,7 +129,7 @@ CREATE TABLE mobile_jobs (
   method TEXT NOT NULL,
   params_json TEXT NOT NULL,
   params_sha256 TEXT NOT NULL,
-  state TEXT NOT NULL CHECK (state IN ('accepted', 'running', 'completed', 'failed')),
+  state TEXT NOT NULL CHECK (state IN ('accepted', 'running', 'completed', 'failed', 'recorded')),
   result_json TEXT,
   error_json TEXT,
   host_boot_id TEXT NOT NULL,

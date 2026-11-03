@@ -7,8 +7,8 @@ version: "1.0.0"
 source_path: "src/learnloop/capture/report.py"
 source_paths:
   - "src/learnloop/capture/report.py"
-source_commit: "ebeb12e2970c51fdd8a276f7295d52327bf89a41"
-source_commit_timestamp: "2026-11-03T13:50:57-05:00"
+source_commit: "cc6654de6bbb022870d630437d7b0b8dc15eb6a3"
+source_commit_timestamp: "2026-11-03T14:57:32-05:00"
 source_worktree_state: "clean"
 generated: true
 generated_at: "2026-11-02"
@@ -50,33 +50,34 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/capture/report.py](../../../../../../src/learnloop/capture/report.py) |
-| Source lines | 134 |
+| Source lines | 138 |
 | Owning package | [[Reference/Modules/learnloop/capture/_package|learnloop.capture]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `ebeb12e2970c51fdd8a276f7295d52327bf89a41` |
-| Commit timestamp | `2026-11-03T13:50:57-05:00` |
+| Source commit | `cc6654de6bbb022870d630437d7b0b8dc15eb6a3` |
+| Commit timestamp | `2026-11-03T14:57:32-05:00` |
 
 ## Public API
 
-- `suspected_figure(prompt: str) -> str | None` ([source](../../../../../../src/learnloop/capture/report.py), line 32) — The phrase that reads like a missing figure, or None.
-- `mobile_report(repo: Repository, *, prompts: Mapping[str, str] | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/capture/report.py), line 59) — §9's M2a report, §10's device split and §6.4's suspected figures.
+- `suspected_figure(prompt: str) -> str | None` ([source](../../../../../../src/learnloop/capture/report.py), line 35) — The phrase that reads like a missing figure, or None.
+- `mobile_report(repo: Repository, *, prompts: Mapping[str, str] | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/capture/report.py), line 62) — §9's M2a report, §10's device split and §6.4's suspected figures.
 
 ### Module constants
 
 - `SUBMIT_ENDPOINTS` ([src/learnloop/capture/report.py](../../../../../../src/learnloop/capture/report.py), line 21)
 - `GRADE_CONTEST` ([src/learnloop/capture/report.py](../../../../../../src/learnloop/capture/report.py), line 22)
-- `_NOUN` ([src/learnloop/capture/report.py](../../../../../../src/learnloop/capture/report.py), line 23)
-- `_LOCATOR` ([src/learnloop/capture/report.py](../../../../../../src/learnloop/capture/report.py), line 24)
-- `_SUSPECTED_FIGURE` ([src/learnloop/capture/report.py](../../../../../../src/learnloop/capture/report.py), line 27)
+- `CONTEST_NOTE` ([src/learnloop/capture/report.py](../../../../../../src/learnloop/capture/report.py), line 25)
+- `_NOUN` ([src/learnloop/capture/report.py](../../../../../../src/learnloop/capture/report.py), line 26)
+- `_LOCATOR` ([src/learnloop/capture/report.py](../../../../../../src/learnloop/capture/report.py), line 27)
+- `_SUSPECTED_FIGURE` ([src/learnloop/capture/report.py](../../../../../../src/learnloop/capture/report.py), line 30)
 
 ## Internal implementation anchors
 
-- `_percentile(values: list[float], fraction: float) -> float | None` ([source](../../../../../../src/learnloop/capture/report.py), line 39)
-- `_week(stamp: str) -> str` ([source](../../../../../../src/learnloop/capture/report.py), line 46)
-- `_seconds(start: str, end: str) -> float` ([source](../../../../../../src/learnloop/capture/report.py), line 51)
-- `_rate(part: int, whole: int) -> float | None` ([source](../../../../../../src/learnloop/capture/report.py), line 55)
+- `_percentile(values: list[float], fraction: float) -> float | None` ([source](../../../../../../src/learnloop/capture/report.py), line 42)
+- `_week(stamp: str) -> str` ([source](../../../../../../src/learnloop/capture/report.py), line 49)
+- `_seconds(start: str, end: str) -> float` ([source](../../../../../../src/learnloop/capture/report.py), line 54)
+- `_rate(part: int, whole: int) -> float | None` ([source](../../../../../../src/learnloop/capture/report.py), line 58)
 
 ## Who imports or calls it
 
@@ -119,6 +120,7 @@ No test imports this module directly. These tests exercise a direct production c
 - [tests/test_mobile_handoff.py](../../../../../../tests/test_mobile_handoff.py) — imports consumer [[Reference/Modules/learnloop/capture/__init__|learnloop.capture]]
 - [tests/test_mobile_host_auth.py](../../../../../../tests/test_mobile_host_auth.py) — imports consumer [[Reference/Modules/learnloop/capture/__init__|learnloop.capture]]
 - [tests/test_mobile_host_coexistence.py](../../../../../../tests/test_mobile_host_coexistence.py) — imports consumer [[Reference/Modules/learnloop/capture/__init__|learnloop.capture]]
+- [tests/test_mobile_https.py](../../../../../../tests/test_mobile_https.py) — imports consumer [[Reference/Modules/learnloop/capture/__init__|learnloop.capture]]
 - [tests/test_mobile_jobs.py](../../../../../../tests/test_mobile_jobs.py) — imports consumer [[Reference/Modules/learnloop/capture/__init__|learnloop.capture]]
 - [tests/test_mobile_pairing.py](../../../../../../tests/test_mobile_pairing.py) — imports consumer [[Reference/Modules/learnloop/capture/__init__|learnloop.capture]]
 - [tests/test_reader_ca1_as_printed.py](../../../../../../tests/test_reader_ca1_as_printed.py) — imports consumer [[Reference/Modules/learnloop/capture/__init__|learnloop.capture]]

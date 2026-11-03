@@ -9,7 +9,7 @@ source_paths:
   - "src/learnloop_sidecar"
   - "apps/learnloop-tauri"
 source_commit: "aggregate; see module notes"
-source_commit_timestamp: "2026-11-03T13:50:57-05:00"
+source_commit_timestamp: "2026-11-03T14:57:32-05:00"
 generated: true
 generated_at: "2026-11-02"
 tags:
@@ -159,4 +159,4 @@ SORT file.name ASC
 .venv/bin/python docs/learnloop-architecture-vault/_scripts/module_validate.py
 ```
 
-The current generation discovered 1305 Python test files. Each module note lists direct importing tests or, when absent, one-hop consumer tests.
+The current generation discovered 1306 Python test files. Each module note lists direct importing tests or, when absent, one-hop consumer tests.

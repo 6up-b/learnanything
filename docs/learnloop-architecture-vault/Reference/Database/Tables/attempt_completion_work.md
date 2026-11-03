@@ -3,13 +3,13 @@ title: "attempt_completion_work"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "01fa9698ae962d7b0977b90915e12e269c3b8db5"
-source_commit_timestamp: "2026-11-03T12:40:09-05:00"
+source_commit: "d2de54b4e148637154ed1322a7241b74bba04bcf"
+source_commit_timestamp: "2026-11-03T15:00:46-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite attempt_completion_work"
   - "table attempt_completion_work"
-schema_head: 240
+schema_head: 239
 table_name: "attempt_completion_work"
 table_role: "workflow"
 functionality_status: "active"
@@ -105,6 +105,7 @@ None found by exact static reference scan.
 
 - `tests/test_ad23_contract.py`
 - `tests/test_attempt_completion.py`
+- `tests/test_mobile_jobs.py`
 - `tests/test_sidecar_contract.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.

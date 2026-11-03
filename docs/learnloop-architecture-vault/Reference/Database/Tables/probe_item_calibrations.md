@@ -3,13 +3,13 @@ title: "probe_item_calibrations"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "01fa9698ae962d7b0977b90915e12e269c3b8db5"
-source_commit_timestamp: "2026-11-03T12:40:09-05:00"
+source_commit: "d2de54b4e148637154ed1322a7241b74bba04bcf"
+source_commit_timestamp: "2026-11-03T15:00:46-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite probe_item_calibrations"
   - "table probe_item_calibrations"
-schema_head: 240
+schema_head: 239
 table_name: "probe_item_calibrations"
 table_role: "raw_ledger"
 functionality_status: "active"

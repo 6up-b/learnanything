@@ -7,8 +7,8 @@ version: "1.0.0"
 source_path: "src/learnloop/capture/jobs.py"
 source_paths:
   - "src/learnloop/capture/jobs.py"
-source_commit: "cdd578ba62529223b963e848b1ee6c8f98799ae9"
-source_commit_timestamp: "2026-11-03T12:14:06-05:00"
+source_commit: "cf6a6b0afb12d56a8d5211a920dacac4b1969743"
+source_commit_timestamp: "2026-11-03T14:38:28-05:00"
 source_worktree_state: "clean"
 generated: true
 generated_at: "2026-11-02"
@@ -50,39 +50,43 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/capture/jobs.py](../../../../../../src/learnloop/capture/jobs.py) |
-| Source lines | 183 |
+| Source lines | 208 |
 | Owning package | [[Reference/Modules/learnloop/capture/_package|learnloop.capture]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `cdd578ba62529223b963e848b1ee6c8f98799ae9` |
-| Commit timestamp | `2026-11-03T12:14:06-05:00` |
+| Source commit | `cf6a6b0afb12d56a8d5211a920dacac4b1969743` |
+| Commit timestamp | `2026-11-03T14:38:28-05:00` |
 
 ## Public API
 
-- `get_job(repo: Repository, job_id: str) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/capture/jobs.py), line 38)
-- `job_for_request(repo: Repository, request_id: str) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/capture/jobs.py), line 44) — The newest job for a request id, whichever device made it (reads are unrestricted, §6.5).
-- `accept_job(repo: Repository, *, device_id: str, request_id: str, method: str, params: dict[str, Any], params_sha256: str, boot_id: str, check_new: Callable[[], None] | None=None, now: datetime | None=None) -> tuple[dict[str, Any], bool]` ([source](../../../../../../src/learnloop/capture/jobs.py), line 55) — ``(job, enqueue)``, committed before the host answers (§6.3).
-- `start_job(repo: Repository, job_id: str, *, now: datetime | None=None) -> None` ([source](../../../../../../src/learnloop/capture/jobs.py), line 112)
-- `finish_job(repo: Repository, job_id: str, *, result: Any=None, error: dict[str, Any] | None=None, now: datetime | None=None) -> None` ([source](../../../../../../src/learnloop/capture/jobs.py), line 120)
-- `recover_jobs(repo: Repository, boot_id: str, *, now: datetime | None=None) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/capture/jobs.py), line 138) — What a starting host owes (§6.3): the jobs another run left open, to run again.
+- `recorded_error(attempt: dict[str, Any]) -> dict[str, Any]` ([source](../../../../../../src/learnloop/capture/jobs.py), line 44) — What a recorded submit says, in ``CommandError``'s four fields.
+- `get_job(repo: Repository, job_id: str) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/capture/jobs.py), line 54)
+- `job_for_request(repo: Repository, request_id: str) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/capture/jobs.py), line 60) — The newest job for a request id, whichever device made it (reads are unrestricted, §6.5).
+- `accept_job(repo: Repository, *, device_id: str, request_id: str, method: str, params: dict[str, Any], params_sha256: str, boot_id: str, check_new: Callable[[], None] | None=None, now: datetime | None=None) -> tuple[dict[str, Any], bool]` ([source](../../../../../../src/learnloop/capture/jobs.py), line 71) — ``(job, enqueue)``, committed before the host answers (§6.3).
+- `start_job(repo: Repository, job_id: str, *, now: datetime | None=None) -> None` ([source](../../../../../../src/learnloop/capture/jobs.py), line 128)
+- `finish_job(repo: Repository, job_id: str, *, result: Any=None, error: dict[str, Any] | None=None, state: str | None=None, now: datetime | None=None) -> None` ([source](../../../../../../src/learnloop/capture/jobs.py), line 136) — ``state`` is only for :data:`RECORDED`, which carries an error and is no failure.
+- `recover_jobs(repo: Repository, boot_id: str, *, now: datetime | None=None) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/capture/jobs.py), line 156) — What a starting host owes (§6.3): the jobs another run left open, to run again.
 
 ### Module constants
 
-- `OPEN_STATES` ([src/learnloop/capture/jobs.py](../../../../../../src/learnloop/capture/jobs.py), line 23)
-- `MAX_BOOTS` ([src/learnloop/capture/jobs.py](../../../../../../src/learnloop/capture/jobs.py), line 25)
-- `HOST_RESTART_EXHAUSTED` ([src/learnloop/capture/jobs.py](../../../../../../src/learnloop/capture/jobs.py), line 26)
+- `RECORDED` ([src/learnloop/capture/jobs.py](../../../../../../src/learnloop/capture/jobs.py), line 25)
+- `OPEN_STATES` ([src/learnloop/capture/jobs.py](../../../../../../src/learnloop/capture/jobs.py), line 26)
+- `SUBMIT_METHODS` ([src/learnloop/capture/jobs.py](../../../../../../src/learnloop/capture/jobs.py), line 27)
+- `SUBMISSION_COMMITTED` ([src/learnloop/capture/jobs.py](../../../../../../src/learnloop/capture/jobs.py), line 29)
+- `MAX_BOOTS` ([src/learnloop/capture/jobs.py](../../../../../../src/learnloop/capture/jobs.py), line 31)
+- `HOST_RESTART_EXHAUSTED` ([src/learnloop/capture/jobs.py](../../../../../../src/learnloop/capture/jobs.py), line 32)
 
 ## Internal implementation anchors
 
-- `_row(row: Any) -> dict[str, Any]` ([source](../../../../../../src/learnloop/capture/jobs.py), line 29)
+- `_row(row: Any) -> dict[str, Any]` ([source](../../../../../../src/learnloop/capture/jobs.py), line 35)
 
 ## Who imports or calls it
 
 > [!note] Static evidence boundary
 > “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
 
-- [[Reference/Modules/learnloop/capture/__init__|learnloop.capture]] — imports `ACCEPTED`, `COMPLETED`, `FAILED`, `RUNNING`, `accept_job`, `finish_job`, `get_job`, `job_for_request`, `recover_jobs`, `start_job`
+- [[Reference/Modules/learnloop/capture/__init__|learnloop.capture]] — imports `ACCEPTED`, `COMPLETED`, `FAILED`, `MAX_BOOTS`, `RECORDED`, `RUNNING`, `SUBMISSION_COMMITTED`, `SUBMIT_METHODS`, `accept_job`, `finish_job`, `get_job`, `job_for_request`, `recorded_error`, `recover_jobs`, `start_job`
 
 ## Dependencies
 
@@ -121,6 +125,7 @@ No test imports this module directly. These tests exercise a direct production c
 - [tests/test_mobile_handoff.py](../../../../../../tests/test_mobile_handoff.py) — imports consumer [[Reference/Modules/learnloop/capture/__init__|learnloop.capture]]
 - [tests/test_mobile_host_auth.py](../../../../../../tests/test_mobile_host_auth.py) — imports consumer [[Reference/Modules/learnloop/capture/__init__|learnloop.capture]]
 - [tests/test_mobile_host_coexistence.py](../../../../../../tests/test_mobile_host_coexistence.py) — imports consumer [[Reference/Modules/learnloop/capture/__init__|learnloop.capture]]
+- [tests/test_mobile_https.py](../../../../../../tests/test_mobile_https.py) — imports consumer [[Reference/Modules/learnloop/capture/__init__|learnloop.capture]]
 - [tests/test_mobile_jobs.py](../../../../../../tests/test_mobile_jobs.py) — imports consumer [[Reference/Modules/learnloop/capture/__init__|learnloop.capture]]
 - [tests/test_mobile_pairing.py](../../../../../../tests/test_mobile_pairing.py) — imports consumer [[Reference/Modules/learnloop/capture/__init__|learnloop.capture]]
 - [tests/test_reader_ca1_as_printed.py](../../../../../../tests/test_reader_ca1_as_printed.py) — imports consumer [[Reference/Modules/learnloop/capture/__init__|learnloop.capture]]
