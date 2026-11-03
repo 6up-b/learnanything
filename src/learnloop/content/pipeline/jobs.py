@@ -4646,6 +4646,26 @@ class DurableIngestJobs:
     def mark_reloaded(self, job_id: str) -> None:
         self._reloaded.add(job_id)
 
+    def completed_jobs_awaiting_reload(self, job_types: frozenset[str], *, limit: int) -> list[str]:
+        """Recent completed jobs of ``job_types`` this process has not reloaded for.
+
+        The queue-revision poll's question (mobile PR-7): it runs every few
+        seconds on every screen, so it reads the jobs of the recent batches and
+        nothing else, never the views ``list_batches`` builds for the batch screens.
+        """
+
+        repository = self._require_runner().repo
+        batches = repository.list_ingest_batches(limit=limit)
+        jobs_by_batch = repository.ingest_jobs_for_batches(batch["id"] for batch in batches)
+        return [
+            job["id"]
+            for jobs in jobs_by_batch.values()
+            for job in jobs
+            if job.get("job_type") in job_types
+            and job["id"] not in self._reloaded
+            and effective_ingest_job_status(job) == "completed"
+        ]
+
     def shutdown(self) -> None:
         self._stop.set()
         # Wake idle workers so shutdown never waits for the poll timeout.

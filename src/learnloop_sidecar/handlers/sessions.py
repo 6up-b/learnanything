@@ -15,6 +15,7 @@ from learnloop_sidecar.context import SidecarContext, session_snapshot
 from learnloop_sidecar.dto import EmptyParams, ParamsModel, versioned
 from learnloop_sidecar.errors import SidecarError
 from learnloop_sidecar.registry import method
+from learnloop_sidecar.request_origin import host_mutation
 from learnloop_sidecar.serving import origin_ineligibility
 
 
@@ -52,6 +53,7 @@ class SessionCheckpointInput(ParamsModel):
 
 
 @method("start_session", SessionStartInput)
+@host_mutation
 def start_session(ctx: SidecarContext, params: SessionStartInput) -> dict[str, Any]:
     vault, repository = ctx.require_vault()
     from learnloop.goals.forecast_ledger import issue_goal_forecasts, resolve_due_forecasts
@@ -81,6 +83,7 @@ def start_session(ctx: SidecarContext, params: SessionStartInput) -> dict[str, A
 
 
 @method("adopt_session", AdoptSessionInput)
+@host_mutation
 def adopt_session(ctx: SidecarContext, params: AdoptSessionInput) -> dict[str, Any]:
     """Move the open session to the request's device (§6.5), keeping its id, its
     checkpoint, its caps and its offer binding.
@@ -157,6 +160,7 @@ def clear_session_checkpoint(ctx: SidecarContext, params: SessionIdInput) -> dic
 
 
 @method("end_session", SessionIdInput)
+@host_mutation
 def end_session(ctx: SidecarContext, params: SessionIdInput) -> dict[str, Any]:
     vault, repository = ctx.require_vault()
     # Mobile PR-4: the owner check, the end and the checkpoint clear are one

@@ -178,6 +178,22 @@ def test_durable_ingest_job_completes(tmp_path):
     assert jobs.needs_reload(started["id"]) is False
 
 
+def test_the_revision_poll_finds_a_completed_job_once_and_only_of_its_types(tmp_path):
+    """Mobile PR-7: the poll's own read, cheaper than the batch views, same answer."""
+
+    def run_legacy(*, vault_root, source, subject_id, mode, progress, clock, **_):
+        return _FakeResult()
+
+    jobs = _bind(tmp_path, run_legacy)
+    started = jobs.start(tmp_path, "notes.md", "linear-algebra", "canonical")
+    job_type = jobs._require_runner().repo.get_ingest_job(started["id"])["job_type"]
+
+    assert jobs.completed_jobs_awaiting_reload(frozenset({"some_other_type"}), limit=8) == []
+    assert jobs.completed_jobs_awaiting_reload(frozenset({job_type}), limit=8) == [started["id"]]
+    jobs.mark_reloaded(started["id"])
+    assert jobs.completed_jobs_awaiting_reload(frozenset({job_type}), limit=8) == []
+
+
 def test_job_failure_is_recorded(tmp_path):
     def run_legacy(*, vault_root, source, subject_id, mode, progress, clock, **_):
         raise RuntimeError("network unavailable")

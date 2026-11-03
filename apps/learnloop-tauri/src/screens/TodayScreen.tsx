@@ -25,7 +25,6 @@ import { GoalWizard } from "../components/GoalWizard";
 import { GoalReviewCard, type ReviewReason } from "../components/GoalReviewCard";
 import { FacetEvidenceDrawer } from "../components/KnowledgeModel";
 import { QuestionQueuePanel } from "../components/QuestionQueue";
-import { notifyQueueChanged } from "../queueEvents";
 import { WriteCardDialog } from "../components/WriteCardDialog";
 import { InboxStrip } from "../components/InboxStrip";
 import { algoConfig, masteryTone } from "../app/algoConfig";
@@ -419,34 +418,8 @@ export function TodayScreen({
   // reach the cached queue through notifyQueueChanged -> invalidate(queue),
   // which refetches the mounted query without a subscription here.
 
-  // Background authoring may complete without a React action. Poll only the
-  // cheap revision token, then rebuild the scheduler queue once on change.
-  const seenQueueRevisionRef = useRef<number | null>(null);
-  useEffect(() => {
-    let cancelled = false;
-    const poll = async () => {
-      try {
-        const snapshot = await api.getQueueRevision();
-        if (cancelled) return;
-        const previous = seenQueueRevisionRef.current;
-        seenQueueRevisionRef.current = snapshot.revision;
-        // The first call may itself reload content written while Today was
-        // mounting. Refetch once on that initial snapshot as well as on later
-        // revision changes, so a just-completed item cannot miss the edge.
-        if (previous === null || previous !== snapshot.revision) {
-          notifyQueueChanged();
-        }
-      } catch {
-        /* transient poll failure — try again next tick */
-      }
-    };
-    void poll();
-    const interval = window.setInterval(() => void poll(), 3000);
-    return () => {
-      cancelled = true;
-      window.clearInterval(interval);
-    };
-  }, []);
+  // Background authoring and the phone reach the cached queue the same way: the
+  // app-level queue-revision poll (useQueueRevisionPoll) invalidates it on a change.
 
   // Background-applied content (rung variants, reader-driven practice
   // expansion, synthesis) lands via durable batches, not user actions on this

@@ -13,14 +13,21 @@ Three things read it:
   ``owner_device_id`` changes on handoff, so it never says which device made an
   attempt: the request does;
 * **session ownership:** ``SidecarContext.origin_device_id`` (§6.5);
-* **device eligibility:** :func:`device_class` (§6.4).
+* **device eligibility:** :func:`device_class` (§6.4);
+* **desktop freshness:** :func:`host_mutation` (PR-7, §3.3).
 """
 
 from __future__ import annotations
 
+import logging
+import sqlite3
+from collections.abc import Callable
 from dataclasses import dataclass
+from functools import wraps
+from typing import Any
 
 from learnloop.scheduling.device_eligibility import DESKTOP, PHONE
+from learnloop_sidecar.errors import SidecarError
 
 #: The surfaces the desktop has always recorded (the stores' own defaults).
 DESKTOP_PRACTICE = "desktop_practice"
@@ -60,3 +67,52 @@ def offer_surface(origin: RequestOrigin | None) -> str:
     """``entry_surface`` of a published scheduler offer."""
 
     return DESKTOP_QUEUE if origin is None else PHONE_QUEUE
+
+
+#: A refusal whose mutation committed all the same: the attempt is in, and only
+#: the completion's receipt is missing (``practice._submission_committed``).
+_COMMITTED_REFUSALS = frozenset({"submission_committed"})
+
+
+def bump_for_host(ctx: Any) -> None:
+    """Tell the desktop a host request changed what it shows (PR-7, §3.3).
+
+    Attempts and session rows carry no revision of their own, so ``queue_revision``
+    is what the desktop's poll sees. The mutation has committed by now: a failed
+    bump is logged, never raised, because the learner's write stands and the
+    desktop's next focus or next bump catches up. The desktop's own writes keep
+    today's behaviour (no origin, no bump): its mutation wrappers invalidate.
+    """
+
+    if ctx.request_origin is None:
+        return
+    _vault, repository = ctx.require_vault()
+    try:
+        repository.bump_queue_revision()
+    except sqlite3.Error:
+        logging.getLogger(__name__).warning("host mutation committed; queue revision not bumped", exc_info=True)
+
+
+def host_mutation(handler: Callable[[Any, Any], Any]) -> Callable[[Any, Any], Any]:
+    """A handler whose committed work changes what the desktop shows (PR-7, §3.3).
+
+    The shared operation is the one place the host and the desktop both go, so the
+    bump is here and the M2 host has nothing to remember: its job completions
+    (``submit_*``, a clarification's regrade), a skip, a session start, an adopt or
+    an end each bump once, after the handler's commit. A typed refusal changed
+    nothing and does not bump. A long job with no RPC of its own (M2b's
+    transcription) calls :func:`bump_for_host` when it completes.
+    """
+
+    @wraps(handler)
+    def wrapped(ctx: Any, params: Any) -> Any:
+        try:
+            result = handler(ctx, params)
+        except SidecarError as error:
+            if error.code in _COMMITTED_REFUSALS:
+                bump_for_host(ctx)
+            raise
+        bump_for_host(ctx)
+        return result
+
+    return wrapped

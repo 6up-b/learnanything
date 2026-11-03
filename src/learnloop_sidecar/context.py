@@ -1194,6 +1194,17 @@ def session_snapshot(repository: Repository, session_id: str) -> dict[str, Any] 
     if row is None:
         return None
     checkpoint = repository.fetch_session_checkpoint(session_id)
+    # Mobile PR-7 (§3.3, §6.5): who holds the session, for the desktop's
+    # session_moved detection and the phone's adopt. Present only once a session
+    # has left the desktop, so a desktop session's reply is what it always was;
+    # absent reads as the desktop at generation 0.
+    owner = row.get("owner_device_id")
+    generation = int(row.get("owner_generation") or 0)
+    ownership = (
+        {"owner_device_id": owner, "owner_label": repository.device_label(owner), "owner_generation": generation}
+        if owner is not None or generation > 0
+        else {}
+    )
     return versioned(
         {
             "session_id": row["id"],
@@ -1204,6 +1215,7 @@ def session_snapshot(repository: Repository, session_id: str) -> dict[str, Any] 
             "available_minutes": row["available_minutes"],
             "notes_md_path": row["notes_md_path"],
             "checkpoint": checkpoint_dto(checkpoint) if checkpoint is not None else None,
+            **ownership,
         }
     )
 

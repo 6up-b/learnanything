@@ -19,6 +19,7 @@ from learnloop_sidecar.handlers.serializers import (
 )
 from learnloop_sidecar.logging import log_event
 from learnloop_sidecar.registry import method
+from learnloop_sidecar.request_origin import host_mutation
 
 
 class AttemptInput(ParamsModel):
@@ -311,6 +312,7 @@ def get_grading_clarification(ctx: SidecarContext, params: AttemptInput) -> dict
 
 
 @method("answer_grading_clarification", AnswerClarificationInput)
+@host_mutation
 def answer_grading_clarification(
     ctx: SidecarContext, params: AnswerClarificationInput
 ) -> dict[str, Any]:

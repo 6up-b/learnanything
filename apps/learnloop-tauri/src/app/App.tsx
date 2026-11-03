@@ -69,6 +69,7 @@ import type { TriageResultDto } from "../api/dto";
 import { setAlgoConfig } from "./algoConfig";
 import { isTypingTarget } from "./keyboard";
 import { notifyQueueChanged, subscribeQueueChanged } from "../queueEvents";
+import { useQueueRevisionPoll } from "./useQueueRevisionPoll";
 import { clear as clearQueryCache, invalidateAll as invalidateAllQueries } from "../api/queryCache";
 import { clearPdfDocuments } from "../components/pdfDocumentCache";
 import { selectWithDraftFlush } from "./vaultTransition";
@@ -600,6 +601,14 @@ export function App() {
   // is a handful of indexed COUNTs, which is what makes hanging it off tab
   // changes affordable.
   const vaultRoot = snapshot?.vault?.root ?? null;
+  // Mobile PR-7 (§3.3): the queue-revision poll lives here so a phone's change, or
+  // background work landing, reaches whichever screen is open. It holds its refetch
+  // while an answer is being written or a book is open.
+  useQueueRevisionPoll({
+    vaultRoot,
+    sessionId: session?.sessionId ?? null,
+    quiet: tab === "reader" || (tab === "today" && todayStage === "practice"),
+  });
   useEffect(() => {
     if (!vaultRoot) {
       setReviewCounts(null);

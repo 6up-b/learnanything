@@ -696,6 +696,11 @@ export interface SessionSnapshot {
   availableMinutes: number | null;
   notesMdPath: string | null;
   checkpoint: SessionCheckpoint | null;
+  /** Mobile PR-7: who holds the session. Present only once it has left the
+   *  desktop; absent reads as the desktop at generation 0. */
+  ownerDeviceId?: string | null;
+  ownerLabel?: string;
+  ownerGeneration?: number;
 }
 
 export interface SessionEndSummary {
@@ -2592,6 +2597,8 @@ export interface QueueRevisionDto {
   version: number;
   revision: number;
   updatedAt: IsoTimestamp | null;
+  /** This read reloaded the vault (a job applied content); absent otherwise. */
+  reloaded?: boolean;
 }
 
 // ── Learner item authoring (services.item_authoring) ───────────────────────

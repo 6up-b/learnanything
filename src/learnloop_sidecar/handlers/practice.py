@@ -84,7 +84,7 @@ from learnloop_sidecar.handlers.sessions import (
 )
 from learnloop_sidecar.logging import debug_enabled, log_event
 from learnloop_sidecar.registry import method
-from learnloop_sidecar.request_origin import DESKTOP_PRACTICE, practice_surface
+from learnloop_sidecar.request_origin import DESKTOP_PRACTICE, host_mutation, practice_surface
 from learnloop_sidecar.serving import (
     refuse_device_ineligible_item,
     refuse_held_out_item,
@@ -1271,6 +1271,7 @@ def acknowledge_practice_submission(
 
 
 @method("submit_attempt", SubmitAttemptInput)
+@host_mutation
 def submit_attempt(ctx: SidecarContext, params: SubmitAttemptInput) -> dict[str, Any]:
     return submit_attempt_on(ctx, params, entry_surface=practice_surface(ctx.request_origin))
 
@@ -1515,6 +1516,7 @@ def _schedule_hint_outcome(ctx: SidecarContext, vault, repository, attempt_id: s
 
 
 @method("submit_dont_know", DontKnowInput)
+@host_mutation
 def submit_dont_know(ctx: SidecarContext, params: DontKnowInput) -> dict[str, Any]:
     return submit_dont_know_on(ctx, params, entry_surface=practice_surface(ctx.request_origin))
 
@@ -1912,6 +1914,7 @@ def _store_submission_receipt(
 
 
 @method("skip_practice_item", SkipInput)
+@host_mutation
 def skip_practice_item(ctx: SidecarContext, params: SkipInput) -> dict[str, Any]:
     vault, repository = ctx.require_vault()
     # Mobile PR-4: refused early, before the queue is built, when the session
