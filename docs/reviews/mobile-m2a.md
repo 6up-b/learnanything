@@ -176,3 +176,110 @@ Reports for §9's row: `.venv/bin/learnloop-mobile report`, read-only.
 3. The phone has no contest button (§2); its attempts are contested on the desktop. Is a phone contest wanted before M3?
 4. Main's `42aeeec9ec` is not merged here (§6). The landing merges it, and that merged tree is what the gate has to test.
 5. Settled by R5: M2a lands first with 239, and data capture renumbers to 240 at its landing, renaming the head fixture and rerunning `db_generate_reference` (about 4 minutes). The rename touches about 59 files.
+
+## Landing onto main
+
+Merged main's `42aeeec9ec`, then `2381b798ba` (the Shortcut repair, which moved main during the gate), never rebasing. Migration **239**, head fixture `migration_head_239`, rebuilt once from main's `migration_head_238` plus 239 only, with the `recorded` state in its CHECK. No algorithm successor: the vaults stay at mvp-0.43. Findings since the record above are in `mobile-m2a-codex-review.md`, "Final verify, and landing step 0" and "Scoped verify of step 0, and landing step 0b".
+
+### Gate
+
+Tree `e7e1b785d4`, before main's `2381b798ba` was merged, run with the isolated environment, memory-capped. That merge touches only `integrations/ios/`, `docs/mobile-shortcuts.md`, its review record and `test_mobile_shortcuts`, so it had the targeted lanes and not a second full suite: every `test_mobile_*`, `test_public_tip_guards`, `test_architecture`, `test_host_queue_revision` **669 passed**; the four two-process, coexistence, jobs and handoff files under `--durable-sqlite` **70 passed**; lint 42 kept; `module_generate` no change, and module, desktop, database and vault validation pass.
+
+| Lane | Result |
+|---|---|
+| `lint-imports --no-cache` | 42 kept, 0 broken |
+| Full pytest, `-n 8`, 10 G scope | **25366 passed**, 90 skipped, 47 xfailed, 0 failed, 44:34 |
+| Durability, `-m durability` | **391 passed**, 1 skipped |
+| Owner lane on fresh backup-API copies of `owner-copies-mvp035` | 83 passed, 4 skipped, 2 failed: the known `test_activity_backfill…duration` and `placement_fixture_copies[arxiv_v2]` |
+| `apps/learnloop-mobile`: install, typecheck, vitest, build | Pass; **145 passed** |
+| `apps/learnloop-tauri`: install, typecheck, vitest, build | Pass; **2720 passed** |
+| `cargo check` | Pass |
+| `db_generate_reference`, `db_validate_reference` | errors `[]`, 374 table notes, head 239 |
+| `desktop_generate`, `desktop_validate` | 317 TS and 6 Rust notes; pass |
+| `module_generate`, `module_validate`, `validate_vault` | 1158 notes; pass; 2117 notes, all reachable |
+
+### Smoke
+
+Fresh backup-API copies of `~/learnloop-backups/mvp043-20261103-copy` (the owner's vaults at mvp-0.43, migration 238), every AI route at `127.0.0.1:9`, on code archived from `42aeeec9ec` and from the gate tip, each with `migrations/`. An audit hook refused non-loopback sockets and Codex starts (self-test passed).
+
+| Check | `linear_algebra` | `probability` | `arxiv_v2` |
+|---|---|---|---|
+| Primary load on the branch applies; algorithm version | 239 only; mvp-0.43 | 239 only; mvp-0.43 | 239 only; mvp-0.43 |
+| Primary load on main applies | nothing | nothing | nothing |
+| Today, desktop session replies and the rows they write (slates, candidates, offer receipts, router decisions, payloads), main vs branch | identical, 859,974 bytes | identical, 1,193,669 bytes | identical, 559,848 bytes |
+| Plan dump, main vs branch | identical, 84,728 bytes | identical, 126,007 bytes | identical, 32,177 bytes |
+| `rebuild --shadow` facet, mastery, schedule; live database unchanged | 0/0/0; yes | 0/0/0; yes | 0/0/0; yes |
+
+**A real host process** from the branch, `127.0.0.1`, `https_port = 8445`, driven by plain HTTP with a fake identity header. One seam, in the smoke's own wrapper around the real `learnloop-mobile serve`: the grading provider resolves to the tests' fake, which first makes a real loopback call to a stub, so a grade or a completion can be counted, held and killed. So this exercises the host and its handlers for real, and no real provider client.
+
+| Step | Result |
+|---|---|
+| Pair | The printed URL is `https://desktop.example-tailnet.ts.net:8445/pair`; the manual code pairs |
+| `/app/` | 200, the shell. Host `…:443`, bare host, `Origin` without the port, and `/rpc` at `…:9445`: 403 each |
+| Today | 40 rows, with "3 waiting for the desktop" |
+| Save a draft; submit with the grade held 17 s; poll | 200; then 202, job `running`, `completed` |
+| Feedback | 200, the same attempt |
+| Rows | The attempt says `phone_practice`, the offer `phone_queue` |
+| Token | 38, 39 after the start, 40 after the submit |
+| A desktop context on the same copy | Reads the phone's owner; its write is refused `session_moved`; adopts back (generation 1). The phone's next write: `409 session_moved` |
+| SIGKILL mid-grade, then restart | Status `running`, `completed`, never `failed`; job `completed` at boot 1; 1 attempt. 2 grade requests, of which 1 was answered: the first died with its host |
+| SIGKILL after the attempt commits, before the receipt, then restart | 1 attempt and 0 receipts before the kill. Status `running` (5 reads, with the completion held), then `completed`, never `failed`; the same key and attempt; 1 receipt; **1 grade request**; job `completed` at boot 1 |
+| Schema mismatch (a copy at 238) | Exit 78, naming the fix |
+| `doctor` at 8445, with a fake `tailscale` on `PATH` and another project's Funnel on 443 | `serve` and `funnel` verified, the other project's route not counted. `grading` fails, correctly: `mobile.env` was empty. It is the only failed check, so exit 1. The fake was called with `serve status --json` and `status --json` |
+| `learnloop-mobile report` | 1 phone session, 1 attempt, 202 share 1.0, 1 submit, 17.5 s to feedback; `phone_practice` contest rate 0.0 with the note; older attempts counted as `unknown` (70). Counts only |
+| Receipts | 0 new in the 6 parity databases. Host copies: only the fake's, 2, 4 and 2 (the 4 includes one left `started` by the kill) |
+| Sockets and processes | 13 connects, all `127.0.0.1`, plus the self-test's refusal; no Codex start but the self-test's refused one; `powerprofilesctl` on main and branch alike. Every process started was stopped by PID; nothing left on the port |
+
+**What surprised us.**
+
+- **`rebuild --shadow` isn't 0/0/0 after an attempt at a real clock, and that isn't M2a.** Copies with a phone attempt read 0/1/1 or 0/1/0: a logit mean about 6e-9 apart and a due date a second apart. The same desktop attempt on main's code, with no delay and with delays, reads 0/1/1. The attempt's stored stamp is whole seconds and the live update had the sub-second, so it's sub-second rounding, older than this stage. Left alone; worth a line in the next follow-up batch.
+- **A desktop adopting a session doesn't move the token** (40 before and after), by PR-7's rule that the desktop's own writes don't bump. The phone hears at its next write, as the typed refusal shows, or its next read of the session. Its Today list stays on screen until then.
+- The vault's own `[ai.providers.codex]` carries `base_url = "http://127.0.0.1:8765"`, the host's default `port`. Nothing in this smoke reached it. Noted only.
+
+What these checks can't show: Serve itself, a real phone, iOS storage and a real grader. That is A1-A4.
+
+### Rulings
+
+- R1: "Finding F8 stays rejected: no algorithm successor at M2a. The desktop's serving takes no new branch at a None origin, and no vault has a phone predecessor state. practice.device_eligibility_enabled governs the filter; the phone's decision log keeps saying what the phone showed. The owner is told at landing."
+- R2: "F2 has now reopened twice on the client, so under the stuck-loop rule the fix moves to the server: the host's submission status tells the truth from what committed, and only a failure with no attempt committed frees a key. After this, a further settling case is Low unless it realistically produces a second grade or a second attempt."
+- R3: "The host draining the durable post-attempt queue, beyond the spec, is kept: without it a phone diagnosis stays pending while the desktop is closed and queue builds wait out their bounded wait. It is the same work under the same routes and budgets. The owner is told at landing and can remove it."
+- R4: "PR-4's remaining session-keyed writes (workbench, tutor and Ask, daily plan) on a session a phone holds are Low and go to the next follow-up batch. The phone can't call them, and the desktop's moved-session prompt covers the ordinary case."
+- R5: "M2a lands before data capture, so it takes migration 239 and head fixture migration_head_239; data capture renumbers to 240 at its own landing."
+- R6: "M2a's ignore rules move from the root .gitignore into nested .gitignore files under apps/learnloop-mobile/ and src/learnloop_mobile/static/, as AD23 did for fixtures: the root file carries the owner's local edits, and a landing must not touch it."
+- R7: "Scoped verify job 20261103-144839-1ikqpG found F2 closed. Its two Medium findings, new text lost after an unresolved Skip and the report hiding a desktop contest of a phone attempt, are fixed at landing with tests and get no further Codex round. Its Low (the latency report omitting a successor-key completion whose row says failed) is recorded, not fixed."
+
+R1 and R3 are for the owner: no algorithm successor at M2a, and the host drains the post-attempt queue, which can be removed.
+
+### What the owner runs (A1-A4)
+
+Nothing below has been run on this branch. Land first, then close and reopen the desktop app once, which applies 239 to the vault. **A host already running from main's M1 code will refuse the vault after that: run `systemctl --user restart learnloop-mobile` once this checkout has the new code and the vault has 239,** and skip any setup line already done. `HTTPS_PORT` is an unused port on this tailnet node: 8445 if 443 is taken, and then `HOST` is `<hostname>:8445`. With 443, `HOST` is `<hostname>` alone. These commands add a route and change no other project's.
+
+```bash
+cd ~/Documents/thinking/learnanything
+uv sync --extra dev --extra mobile && uv pip install pypdfium2==5.14.0
+(cd apps/learnloop-mobile && npm install && npm run build)   # the app is not in git; /app/ answers 404 without this
+
+mkdir -p ~/.config/learnloop ~/.config/systemd/user
+cp deploy/mobile.toml.example ~/.config/learnloop/mobile.toml   # set enabled = true, vault, hostname, owner_login, and https_port = HTTPS_PORT
+cp deploy/mobile.env.example ~/.config/learnloop/mobile.env && chmod 600 ~/.config/learnloop/mobile.env   # the grading keys
+cp deploy/learnloop-mobile.service ~/.config/systemd/user/      # set ExecStart to this checkout's .venv
+systemctl --user daemon-reload && systemctl --user enable --now learnloop-mobile
+tailscale serve --bg --https=HTTPS_PORT http://127.0.0.1:8765
+.venv/bin/learnloop-mobile doctor                               # every check verified; grading fails until mobile.env holds the keys
+```
+
+- **A1. Serve strips a forged identity.** From another tailnet device:
+  ```bash
+  curl -s -o /dev/null -w '%{http_code}\n' -H 'Tailscale-User-Login: someone@else.example' https://HOST/pair   # 200: Serve replaced it with yours
+  curl -s -o /dev/null -w '%{http_code}\n' https://HOST/api/v1/status                                           # 401: no token
+  ```
+- **A2. The expected mapping, and nothing off the tailnet.** `tailscale serve status --json` shows `HTTPS_PORT` to `http://127.0.0.1:8765` and no other route to 8765; `.venv/bin/learnloop-mobile doctor` says `serve` and `funnel` verified. Other projects' routes may stay. With Tailscale off on the phone, on cellular, `https://HOST/healthz` must not connect.
+- **A3. The Shortcut (M1's).** `.venv/bin/learnloop-mobile pair --label "Shortcut" --scope capture`. Import the Shortcuts from `integrations/ios/` as repaired in `2381b798ba`, and give their setup `https://HOST` and the token. Disconnect Tailscale and share something to the Shortcut (VPN On Demand should connect). `systemctl suspend`, capture again (the outbox holds it), wake carson, run "Flush LearnLoop outbox", then `.venv/bin/learnloop-mobile inbox list`.
+- **A4. The app.**
+  1. `.venv/bin/learnloop-mobile pair --label "iPhone" --scope app`, and note the manual code.
+  2. In Safari open `https://HOST/app/`, then Share, Add to Home Screen. Open it from the home screen and enter the code.
+  3. **Offline capture:** `systemctl suspend`. In the app, Capture, save a note and a photo: "Desktop offline" and the count. Wake carson, reopen the app, `.venv/bin/learnloop-mobile inbox list`.
+  4. **A submit backgrounded mid-grade:** Today, 10 min, Next, type an answer (try the symbol bar and `$x^2$`), Submit, and leave the app at once for over 20 s. On return the feedback is there. `.venv/bin/learnloop-mobile report` shows the submit.
+  5. **Handoff, with the desktop app open:** start a session on the desktop, then Begin on the phone: it asks; "Continue it here". The desktop shows "This session continued on iPhone" within about 3 s; "Take it back" returns it with the phone's draft. Then the other way round.
+
+Reports for §9's row: `.venv/bin/learnloop-mobile report`, read-only.
