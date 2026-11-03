@@ -7,8 +7,8 @@ version: "1.0.0"
 source_path: "src/learnloop/figures/katex_tree.py"
 source_paths:
   - "src/learnloop/figures/katex_tree.py"
-source_commit: "f68fbfe1b5e4292fde7b79d509762d1e935df8d1"
-source_commit_timestamp: "2026-11-02T22:41:07-05:00"
+source_commit: "a126b6bea5b3498d0ed30d949340f2ccc9a35ff6"
+source_commit_timestamp: "2026-11-02T22:44:18-05:00"
 source_worktree_state: "clean"
 generated: true
 generated_at: "2026-11-02"
@@ -55,13 +55,13 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `f68fbfe1b5e4292fde7b79d509762d1e935df8d1` |
-| Commit timestamp | `2026-11-02T22:41:07-05:00` |
+| Source commit | `a126b6bea5b3498d0ed30d949340f2ccc9a35ff6` |
+| Commit timestamp | `2026-11-02T22:44:18-05:00` |
 
 ## Public API
 
-- `class TreeRefused(Exception)` ([source](../../../../../../src/learnloop/figures/katex_tree.py), line 72) — No tree: ``kind`` is ``not_rendered`` (KaTeX refuses; the page shows an error), ``macro`` (the segment defined one), ``cap`` (over a cap) or ``unavailable`` (no engine here).
-  - `__init__(self, kind: str) -> None` (line 76; internal)
+- `class TreeRefused(Exception)` ([source](../../../../../../src/learnloop/figures/katex_tree.py), line 72) — No tree, and why as the reader's closed key: ``not_rendered`` (KaTeX refuses; the page shows an error), ``macro_definition``, ``too_long`` (over a cap) or ``engine_unavailable`` (no engine here).
+  - `__init__(self, reason: str) -> None` (line 76; internal)
 - `class Trees` ([source](../../../../../../src/learnloop/figures/katex_tree.py), line 81) — One loaded engine for one check (not thread-safe, as :class:`.sketch_engine.SketchEngine`).
   - `__init__(self, *, path: Path=KATEX_ENGINE_PATH, expected: str=KATEX_ENGINE_SHA256, source: Path=KATEX_PATH, source_sha256: str=KATEX_SHA256) -> None` (line 85; internal)
   - `_open(self) -> Any` (line 91; internal)
