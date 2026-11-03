@@ -267,7 +267,7 @@ def decision_row_material(row: Mapping[str, Any], *, versions: Mapping[str, Any]
     candidates = json.loads(row.get("candidates_json") or "[]")
     exclusions = json.loads(row.get("exclusions_json") or "{}")
     named = (exclusions.get("named") or {}) if isinstance(exclusions, Mapping) else {}
-    counted = (exclusions.get("counted") or {}) if isinstance(exclusions, Mapping) else {}
+    counted = (exclusions.get("counts") or {}) if isinstance(exclusions, Mapping) else {}
     refs = [str(entry.get("ref")) for entry in candidates if isinstance(entry, Mapping)]
     feasible = [str(entry.get("ref")) for entry in candidates if isinstance(entry, Mapping) and entry.get("feasible", True)]
     built = {"gates": {"exclusions": named, "counted": counted, "trace": "decision_row"},

@@ -76,6 +76,7 @@ NO_QUESTION = "no_question"
 CHECKS_OFF = "check_once_off"
 ARRANGE_FAILED = "arrange_failed"
 COMMITMENT_CLOSED = "commitment_closed"
+CHECK_REPLACED = "check_replaced"
 
 
 @dataclass(frozen=True)
@@ -365,6 +366,10 @@ def settle(vault: Any, repository: Any, *, clock: Clock | None = None) -> int:
                     written += _event(connection, decision_id, "unavailable", reason=COMMITMENT_CLOSED, at=at)
                     continue
             if check is None and answered_by is None:
+                continue
+            if check is not None and check.replaced and answered_by is None:
+                # Another commitment decides every item it covered: this check will not be served.
+                written += _event(connection, decision_id, "unavailable", reason=CHECK_REPLACED, at=at)
                 continue
             due = bool(check.due) if check is not None else True
             if due:

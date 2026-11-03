@@ -419,12 +419,6 @@ class RouterChooser:
         if not ready and not serving_on(config):
             return deterministic("not_ready", models={name: {"status": NOT_READY, "error": readiness.get(name)}
                                                       for name in (DECIDER, LLM)})
-        if serving_on(config):
-            # Data capture A2: the objective the arms are evaluated on, frozen before the draw.
-            record["objective"] = objectives.freeze(
-                self.vault, self.repository, staged_ref=staged.candidate_id, candidates=feasible, support=support,
-                stop_ref=STOP_FOR_TODAY,
-            ).as_dict()
         key = _hash({
             "v": KEY_VERSION, "kind": "plan_block", "plan_id": state.plan_id,
             "state": {"minutes_left": round(state.minutes_left, 3), "items_left": state.items_left,
@@ -441,13 +435,26 @@ class RouterChooser:
             card = _build_card(self.card_builder, state, feasible)
             material = {"card": card, "evidence": list(rq.evidence_from_card(card.json)),
                         "decided_at": self._now_iso()}
+            self._freeze_objective(record, staged, feasible, support)
             return self._decide(_NoModels(key, material, self.runtime.clock()), state, staged, record, support, by_id,
                                 readiness, settings, decided_by="not_ready")
         entry = self.runtime.lookup(self.scope, key)
         if entry is None:
             entry = self._start(key, state, feasible, support, by_id, ready)
         _await(self.runtime, entry, may_defer=self.may_defer, timeout=float(config.router.timeout_seconds))
+        self._freeze_objective(record, staged, feasible, support)
         return self._decide(entry, state, staged, record, support, by_id, readiness, settings)
+
+    def _freeze_objective(self, record: dict[str, Any], staged: BlockChoice, feasible: Sequence[BlockCandidate],
+                          support: Sequence[str]) -> None:
+        """Data capture A2: the objective the arms are evaluated on, frozen from pre-draw inputs only, just
+        before the draw (a read whose models are still out reaches neither)."""
+
+        if serving_on(self.vault.config):
+            record["objective"] = objectives.freeze(
+                self.vault, self.repository, staged_ref=staged.candidate_id, candidates=feasible, support=support,
+                stop_ref=STOP_FOR_TODAY,
+            ).as_dict()
 
     def _start(self, key: str, state: PlanState, feasible: Sequence[BlockCandidate], support: Sequence[str],
                by_id: Mapping[str, BlockCandidate], ready: tuple[str, ...]) -> Prefetch:

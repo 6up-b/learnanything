@@ -350,6 +350,36 @@ def test_a_due_check_the_plan_could_not_hold_is_unavailable_with_its_reason(tmp_
     assert {"plan_minutes_exhausted"} == {event["reason"] for event in events if event["state"] == "unavailable"}
 
 
+def test_a_check_another_commitment_replaced_is_unavailable_with_why(tmp_path):
+    from learnloop.curriculum import commitments as C
+
+    env, decision_id, objective = _due_measurement(tmp_path)
+    C.create_commitment(env.repository, action="help_me_remember", intent_text="keep it",
+                        targets=[{"target_kind": "legacy_practice_item", "target_ref": objective["practice_item_id"],
+                                  "role": "required"}],
+                        depth_preset="keep_in_touch", client_idempotency_key="own", reason="r", clock=env.clock)
+    M.settle(env.vault, env.repository, clock=env.clock)
+    events = _events(env)[decision_id]
+    assert [(event["state"], event["reason"]) for event in events] == [("unavailable", M.CHECK_REPLACED)]
+
+
+def test_a_read_whose_models_are_still_out_freezes_nothing_and_draws_nothing(tmp_path, monkeypatch):
+    """The freeze reads the section's document, so a polling read never pays for it."""
+
+    calls: list[str] = []
+    real = M.freeze
+    monkeypatch.setattr(M, "freeze", lambda *a, **k: (calls.append("freeze"), real(*a, **k))[1])
+    import threading
+
+    gate = threading.Event()
+    env = mixture_env(tmp_path, fake_runtime(decider=FakeDecider(gate=gate), inline=False), version=TAG, serve=False)
+    try:
+        build_plan(env, kind="normal", budget=25.0, remembered=25, minutes_source="chip")
+        assert calls == [] and rows(env) == []
+    finally:
+        gate.set()
+
+
 def test_settle_is_a_no_op_with_the_switch_off(tmp_path):
     env, decision_id, _objective = _due_measurement(tmp_path)
     env.vault.config.data_capture.serving = False
