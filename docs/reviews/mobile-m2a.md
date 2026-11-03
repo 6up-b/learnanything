@@ -67,7 +67,7 @@ Re-checked at `6cf7a91ba8`. `docs/reviews/mobile-pr5-pr7.md` §0 has PR-5..7's t
 - **`grading_ready` is null until the first RPC** (it was a hard false in M1). A capture-only host has not checked; null says so. It is read off the request path and cached for 60 s, because a route's readiness can start a provider's runtime.
 - **The PWA's build is gitignored**, in `src/learnloop_mobile/static/app/`, because KaTeX's fonts and the bundle are build output. `pyproject.toml` lists it as a wheel artifact, `doctor` warns when it is missing, and `/app/` answers 404 until it is built.
 - **On iOS an installed app keeps its own storage,** apart from Safari's, so the app pairs itself with the manual code. The pairing page's link (`/app/#token=…`) is for a browser tab. Whether iOS behaves this way on this phone is part of A4.
-- **Not on the phone in M2a:** hints, a self-grade, the contest, the A6 explanation line, and `open_queue_item`'s preview (allowlisted, unused). So the report says "no contest on the phone" for phone attempts rather than a rate, which would be 0 by construction, until M3 or later.
+- **Not on the phone in M2a:** hints, a self-grade, the contest, the A6 explanation line, and `open_queue_item`'s preview (allowlisted, unused). The report gives the observed contest rate by attempt surface, phone attempts included, since one can be contested on the desktop, with a separate note that the phone has no button.
 
 ## 3. Known limits
 
@@ -173,6 +173,6 @@ Reports for §9's row: `.venv/bin/learnloop-mobile report`, read-only.
 
 1. Should the host keep draining the post-attempt queue (§2)? It is the one thing here beyond the spec that spends money from a new process.
 2. §3 item 7: should PR-4's remaining session-keyed writes be closed before the owner uses a phone daily, or left as Low?
-3. The report says "no contest on the phone" until the phone has one (§2). Is a phone contest wanted before M3?
+3. The phone has no contest button (§2); its attempts are contested on the desktop. Is a phone contest wanted before M3?
 4. Main's `42aeeec9ec` is not merged here (§6). The landing merges it, and that merged tree is what the gate has to test.
 5. Landing: 239 and 240. Whichever lands second renames the head fixture and reruns `db_generate_reference`, which takes about 4 minutes. A mechanical rename across 59 files is what moved 238 to 240 here.

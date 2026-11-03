@@ -20,9 +20,9 @@ from learnloop.db.repositories import Repository
 
 SUBMIT_ENDPOINTS = ("rpc:submit_attempt", "rpc:submit_dont_know")
 GRADE_CONTEST = "grade_contest"
-#: M2a's phone offers no contest (spec §9.9), so a rate there would be 0 by construction.
-PHONE_PRACTICE = "phone_practice"
-NO_PHONE_CONTEST = "no contest on the phone"
+#: A contest counts for the attempt's surface, wherever it was made (R7): M2a's phone has no
+#: button for it (spec §9.9), and a phone attempt can still be contested on the desktop.
+CONTEST_NOTE = "The phone has no contest button; a phone attempt is contested on the desktop."
 _NOUN = r"(?:figure|fig\.|diagram|picture|image|graph|plot|chart|table|illustration)"
 _LOCATOR = r"(?:above|below|shown|pictured|following|attached|see|given in)"
 #: A locator and a figure's noun in one sentence: "see the figure", "the graph below".
@@ -131,10 +131,8 @@ def mobile_report(repo: Repository, *, prompts: Mapping[str, str] | None = None)
             "total": submits, "returned_200": logged[200], "returned_202": logged[202], "failed": submits - succeeded,
         },
         "attempts_by_surface": dict(sorted(split.items())),
-        "contest_rate_by_surface": {
-            surface: NO_PHONE_CONTEST if surface == PHONE_PRACTICE else _rate(contest_by_surface[surface], count)
-            for surface, count in sorted(split.items())
-        },
+        "contest_rate_by_surface": {surface: _rate(contest_by_surface[surface], count) for surface, count in sorted(split.items())},
+        "contest_note": CONTEST_NOTE,
         "suspected_figure": figures,
         "suspected_figure_note": "Report-only: a word pattern. Nothing that decides serving reads it (spec §6.4).",
     }

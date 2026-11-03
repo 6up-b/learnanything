@@ -216,11 +216,27 @@ def test_the_report_counts_the_phone_apart_and_never_touches_serving(world):
     assert report["attempts_by_surface"] == {"phone_practice": 1}
     assert report["submit_to_feedback_seconds"]["count"] == 1
     assert report["share_of_submits_returning_202"] == 0.0
-    # The phone has no contest, so a 0 there would read as a measurement.
-    assert report["contest_rate_by_surface"] == {"phone_practice": "no contest on the phone"}
+    assert report["contest_rate_by_surface"] == {"phone_practice": 0.0}
+    assert report["contest_note"] == "The phone has no contest button; a phone attempt is contested on the desktop."
     assert list(report["weeks"].values())[0] == {"sessions": 1, "attempts": 1, "items": 1}
     assert report["suspected_figure"] == [{"practice_item_id": ITEM, "phrase": "graph below"}]
     assert mobile_report(repository)["suspected_figure"] is None
+
+
+def test_the_report_counts_a_desktop_contest_of_a_phone_attempt(world):
+    """Verify finding 2: the phone has no button, and its attempts can still be contested."""
+
+    from learnloop.capture import mobile_report
+
+    phone, desktop, repository, _paths, _host = world
+    session = phone.start()
+    attempt = phone.submit(session["sessionId"], "sub1").json()["result"]["attemptId"]
+    second = phone.submit(session["sessionId"], "sub2", item=SECOND_ITEM).json()["result"]["attemptId"]
+    assert attempt != second
+    _desktop(desktop, "trigger_regrade", {"attemptId": attempt, "learnerReason": "I did use the SVD"})
+    report = mobile_report(repository)
+    assert report["contest_rate_by_surface"] == {"phone_practice": 0.5}
+    assert "no contest button" in report["contest_note"]
 
 
 @pytest.mark.parametrize("prompt,hit", [
