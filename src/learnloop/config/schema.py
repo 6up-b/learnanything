@@ -2986,11 +2986,20 @@ class PracticeConfig(BaseModel):
     assisted spawns none. Off, or below the tag: the assisted retry is left to
     the next serve's withdrawal, exactly as the predecessor. Replay never
     reads it (replay schedules nothing).
+
+    ``device_eligibility_enabled`` is the kill switch of the phone's device
+    rules (mobile PR-6, ``spec_mobile_tailnet_v1`` §6.4; Codex review F6),
+    which name no algorithm tag: only a request with a phone origin reads it,
+    and no such request exists below the mobile host. Off: a phone request
+    gets what the desktop gets, with no queue exclusion, no ``desktop_only``
+    refusal at a by-id door or a probe contract, and no refusal to adopt
+    around a draft. A desktop request and replay never read it.
     """
 
     as_printed: AsPrintedConfig = Field(default_factory=AsPrintedConfig)
     attempt_keeps_content_state: bool = True
     reschedule_cold_after_assist: bool = True
+    device_eligibility_enabled: bool = True
 
 
 class RolesConfig(BaseModel):

@@ -21,13 +21,13 @@ exam's question in front of the learner (``refuse_held_out_item``; kill switch
 ``goals.held_out_selection``).
 
 A by-id door also refuses an item the requesting device cannot answer (mobile
-PR-6, ``desktop_only``), and :func:`device_deferred_ids` is what the queue filters
-for the same device. With no request origin, the desktop, neither does anything.
+PR-6, ``desktop_only``), and :func:`device_filter` is what a queue build holds back
+for the same device. With no request origin, the desktop, neither does anything;
+``practice.device_eligibility_enabled`` off turns off both, for the phone too.
 """
 
 from __future__ import annotations
 
-from collections.abc import Iterable
 from typing import Any
 
 from learnloop.content.sources.exam_material import (
@@ -36,7 +36,7 @@ from learnloop.content.sources.exam_material import (
     held_out_material,
     held_out_selection_active,
 )
-from learnloop.scheduling.device_eligibility import ineligibility_reason
+from learnloop.scheduling.device_eligibility import DEVICE_POLICY, DEVICE_POLICY_OFF, DeviceFilter, ineligibility_reason
 from learnloop.vault.lifecycle import (
     LEARNER_TEXT_GAP_DISABLED,
     REFERENCE_ADOPTION_DISABLED,
@@ -52,22 +52,31 @@ INACTIVE_LEARNING_OBJECT_ERROR_CODE = "learning_object_inactive"
 HELD_OUT_MATERIAL_ERROR_CODE = "held_out_material"
 
 
+def _device_rules_on(vault: Any) -> bool:
+    return bool(vault.config.practice.device_eligibility_enabled)
+
+
+def device_policy(vault: Any) -> str:
+    """The rules a phone request is served under, for the router's inputs."""
+
+    return DEVICE_POLICY if _device_rules_on(vault) else DEVICE_POLICY_OFF
+
+
 def origin_ineligibility(origin: RequestOrigin | None, vault: Any, item: Any) -> str | None:
     """Why the request's device cannot answer ``item``; never asked for the desktop."""
 
-    return None if origin is None else ineligibility_reason(vault, item, device_class(origin))
+    if origin is None or not _device_rules_on(vault):
+        return None
+    return ineligibility_reason(vault, item, device_class(origin))
 
 
-def device_deferred_ids(origin: RequestOrigin | None, vault: Any, practice_item_ids: Iterable[str]) -> frozenset[str]:
-    """The items of a queue that wait for the desktop (§6.4, D6). Empty for the desktop."""
+def device_filter(origin: RequestOrigin | None, vault: Any) -> DeviceFilter | None:
+    """What a queue build holds back for the request's device (§6.4, D6). None for
+    the desktop, and with the switch off: the build is then the desktop's."""
 
-    if origin is None:
-        return frozenset()
-    items = ((item_id, vault.practice_items.get(item_id)) for item_id in practice_item_ids)
-    return frozenset(
-        item_id for item_id, item in items
-        if item is not None and origin_ineligibility(origin, vault, item) is not None
-    )
+    if origin is None or not _device_rules_on(vault):
+        return None
+    return DeviceFilter(vault, device_class(origin))
 
 
 def refuse_device_ineligible_item(origin: RequestOrigin | None, vault: Any, item: Any) -> None:

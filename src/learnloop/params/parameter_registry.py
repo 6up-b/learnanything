@@ -1582,6 +1582,15 @@ _CONFIG_RULES: list[_ConfigRule] = [
         "kill switch for mobile PR-4's successor: a live attempt writes only its item row's scheduling columns "
         "(active only closes, content_hash is content sync's), so it never reopens a row a content sync closed; "
         "off, the attempt upserts the whole row as the predecessor did. Never read by replay."),
+    # Mobile PR-6 (Codex review F6): the kill switch of the phone's device rules.
+    # A boolean; which items need a desktop is structural (their contract and
+    # their parsed Markdown), never a weight.
+    _ConfigRule(_exact(
+        "practice.device_eligibility_enabled",
+    ), "structural", "operational",
+        "kill switch for the phone's device rules (mobile PR-6): off, a phone request is served as the desktop is, "
+        "with no queue exclusion, no desktop_only refusal and no refusal to adopt around a draft. Never read by "
+        "a desktop request or by replay."),
     # The cold-retry reschedule (mvp-0.38, owner decision 2026-10-25, CA2
     # follow-up Q4; docs/reviews/cold-retry-after-assist.md): the kill switch
     # of the successor that schedules one fresh repair cold retry after help

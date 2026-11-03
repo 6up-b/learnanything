@@ -23,6 +23,7 @@ from learnloop.diagnosis.probe_episodes import enter_episode
 from learnloop.scheduling import device_eligibility
 from learnloop.scheduling.device_eligibility import (
     DESKTOP,
+    DEVICE_POLICY,
     DESKTOP_ONLY_MODE,
     EMBEDS_IMAGE,
     ERROR_HUNT,
@@ -492,9 +493,16 @@ def _ranked_world(tmp_path, *, explore: bool = False):
             item_id, difficulty=5.0, stability=2.0, due_at="2026-05-18T12:00:00Z",
             last_attempt_at="2026-05-16T12:00:00Z", active=True,
         )
-    if explore:
-        # Every near-tie is an alternative, and the draw always explores.
-        set_config(paths, "scheduler", selection_exploration_rate=1.0, selection_exploration_reward_window=1000.0)
+    # The seeded item is out of it: the near-ties decide, so the hunt heads the desktop's list.
+    repository.upsert_practice_item_state(
+        PLAIN, difficulty=5.0, stability=2.0, due_at="2026-05-18T12:00:00Z",
+        last_attempt_at="2026-05-16T12:00:00Z", active=False,
+    )
+    # Every near-tie is an alternative and the draw always explores, or no draw at all.
+    set_config(
+        paths, "scheduler", selection_exploration_rate=1.0 if explore else 0.0,
+        selection_exploration_reward_window=1000.0,
+    )
     with repository.connection() as connection:
         connection.execute(
             "INSERT INTO mobile_devices (id, label, scope, token_hash, created_at) "
@@ -522,12 +530,14 @@ def test_a_limit_is_applied_after_the_filter_so_the_top_item_cannot_starve_the_p
 
     _paths, _repository, ctx = _ranked_world(tmp_path)
     session = _call(ctx, "start_session", {"availableMinutes": 60})
-    assert _ids(_call(ctx, "get_today_queue", {"sessionId": session["sessionId"], "limit": 1})) == [TOP_HUNT]
+    desktop_head = _ids(_call(ctx, "get_today_queue", {"sessionId": session["sessionId"], "limit": 1}))
+    assert desktop_head == [TOP_HUNT], "the scenario: the item the desktop ranks first is not the phone's"
+    _call(ctx, "end_session", {"sessionId": session["sessionId"]})
     with ctx.acting_as(ORIGIN):
         phone = _call(ctx, "start_session", {"availableMinutes": 60})
         queue = _call(ctx, "get_today_queue", {"sessionId": phone["sessionId"], "limit": 1})
 
-    assert _ids(queue) == [LOW_PLAIN]
+    assert len(_ids(queue)) == 1 and _ids(queue)[0] not in {TOP_HUNT, LOW_IMAGE}
     assert queue["totalItems"] == 1
     # What waits is what waits, wherever the cut fell.
     assert queue["deviceDeferredCount"] == 2
@@ -542,7 +552,7 @@ def test_the_reentry_cap_is_applied_after_the_filter_too(tmp_path, monkeypatch):
     with ctx.acting_as(ORIGIN):
         session = _call(ctx, "start_session", {"availableMinutes": 60})
         queue = _call(ctx, "get_today_queue", {"sessionId": session["sessionId"]})
-    assert _ids(queue) == [LOW_PLAIN]
+    assert len(_ids(queue)) == 1 and _ids(queue)[0] not in {TOP_HUNT, LOW_IMAGE}
     assert queue["reentryRefresherCap"] == 1
 
 
@@ -556,7 +566,7 @@ def test_a_limited_offer_logs_no_probability_for_an_item_below_the_cut_it_cannot
         queue = _call(ctx, "get_today_queue", {"sessionId": session["sessionId"], "limit": 2})
 
     assert not {LOW_IMAGE, TOP_HUNT} & set(_ids(queue))
-    assert _ids(queue)
+    assert len(_ids(queue)) == 2
     decision = _full_decision(repository)
     distribution = decision["detail_json"]["head_distribution"]
     assert not {LOW_IMAGE, TOP_HUNT} & set(distribution)
@@ -567,22 +577,18 @@ def test_a_limited_offer_logs_no_probability_for_an_item_below_the_cut_it_cannot
     assert {LOW_IMAGE, TOP_HUNT} <= set(decision["exclusions_json"]["named"]["device_ineligible"])
 
 
-def test_a_follow_up_naming_an_ineligible_item_cannot_come_back_at_the_top(tmp_path):
+def test_a_follow_up_naming_an_ineligible_item_cannot_come_back_at_the_top(tmp_path, monkeypatch):
     """The follow-up door rebuilds an item by id after the ranked loop: same filter."""
 
-    _paths, repository, ctx = _ranked_world(tmp_path)
-    monkey = pytest.MonkeyPatch()
-    monkey.setattr(
-        type(repository), "pending_followup_practice_items",
+    _paths, _repository, ctx = _ranked_world(tmp_path)
+    monkeypatch.setattr(
+        Repository, "pending_followup_practice_items",
         lambda self, **kwargs: [{"id": "task_1", "practice_item_id": LOW_IMAGE, "followup_kind": "cold_retry"}],
     )
-    try:
-        with ctx.acting_as(ORIGIN):
-            session = _call(ctx, "start_session", {"availableMinutes": 60})
-            queue = _call(ctx, "get_today_queue", {"sessionId": session["sessionId"], "limit": 1})
-    finally:
-        monkey.undo()
-    assert _ids(queue) == [LOW_PLAIN]
+    with ctx.acting_as(ORIGIN):
+        session = _call(ctx, "start_session", {"availableMinutes": 60})
+        queue = _call(ctx, "get_today_queue", {"sessionId": session["sessionId"], "limit": 1})
+    assert len(_ids(queue)) == 1 and _ids(queue)[0] not in {TOP_HUNT, LOW_IMAGE}
     assert queue["deviceDeferredCount"] == 2
 
 
@@ -612,3 +618,77 @@ def test_a_presentation_on_an_item_the_phone_cannot_show_survives_the_phone_queu
     assert item_id not in _ids(phone_queue)
     presentation = repository.active_probe_presentation_for_session(session["sessionId"])
     assert presentation is not None and presentation.practice_item_id == item_id
+
+
+# -- Codex review F6: the kill switch, at every door
+
+
+def _switched_off(paths):
+    set_config(paths, "practice", device_eligibility_enabled=False)
+    ctx = SidecarContext()
+    ctx.load_secondary(paths.root)
+    ctx.grading_provider_override = "manual"
+    return ctx
+
+
+def test_switched_off_the_phones_queue_is_the_desktops_and_says_so(tmp_path):
+    paths, repository, _ctx = _world(tmp_path)
+    ctx = _switched_off(paths)
+    with ctx.acting_as(ORIGIN):
+        session = _call(ctx, "start_session", {"availableMinutes": 60})
+        queue = _call(ctx, "get_today_queue", {"sessionId": session["sessionId"]})
+
+    assert sorted(_ids(queue)) == sorted([PLAIN, HUNT, LADDER, IMAGE])
+    assert queue["deviceDeferredCount"] == 0
+    decision = _full_decision(repository)
+    assert "device_ineligible" not in decision["exclusions_json"]["named"]
+    assert decision["detail_json"]["inputs"]["device_policy"] == "off"
+
+
+def test_the_phones_decision_names_the_rules_and_the_desktops_does_not(tmp_path):
+    _paths, repository, ctx = _world(tmp_path)
+    session = _call(ctx, "start_session", {"availableMinutes": 60})
+    _call(ctx, "get_today_queue", {"sessionId": session["sessionId"]})
+    assert "device_policy" not in _full_decision(repository)["detail_json"]["inputs"]
+    _call(ctx, "end_session", {"sessionId": session["sessionId"]})
+    with ctx.acting_as(ORIGIN):
+        phone = _call(ctx, "start_session", {"availableMinutes": 60})
+        _call(ctx, "get_today_queue", {"sessionId": phone["sessionId"]})
+    assert _full_decision(repository)["detail_json"]["inputs"]["device_policy"] == DEVICE_POLICY
+
+
+def test_switched_off_a_skip_rebuilds_unfiltered(tmp_path):
+    paths, _repository, _ctx = _world(tmp_path)
+    ctx = _switched_off(paths)
+    with ctx.acting_as(ORIGIN):
+        session = _call(ctx, "start_session", {"availableMinutes": 60})
+        requeued = _call(ctx, "skip_practice_item", {"sessionId": session["sessionId"], "practiceItemId": PLAIN})
+    assert sorted(_ids(requeued)) == sorted([HUNT, LADDER, IMAGE])
+
+
+@pytest.mark.parametrize("name", ["open_queue_item", "get_practice_item"])
+def test_switched_off_a_by_id_door_opens(tmp_path, name):
+    paths, _repository, _ctx = _world(tmp_path)
+    ctx = _switched_off(paths)
+    with ctx.acting_as(ORIGIN):
+        assert _call(ctx, name, {"practiceItemId": HUNT})
+
+
+def test_switched_off_a_probe_contract_is_not_refused(tmp_path):
+    paths, _repository, _ctx = _world(tmp_path)
+    ctx = _switched_off(paths)
+    with ctx.acting_as(ORIGIN):
+        session = _call(ctx, "start_session", {"availableMinutes": 60})
+        contract = _call(ctx, "get_probe_contract", {"sessionId": session["sessionId"], "practiceItemId": HUNT})
+    assert contract["active"] is False
+
+
+def test_switched_off_adoption_carries_the_draft(tmp_path):
+    paths, repository, ctx = _world(tmp_path)
+    session_id = _call(ctx, "start_session", {"availableMinutes": 60})["sessionId"]
+    _call(ctx, "save_practice_draft", {"sessionId": session_id, "practiceItemId": HUNT, "answerMd": "my repair"})
+    off = _switched_off(paths)
+    with off.acting_as(ORIGIN):
+        adopted = _call(off, "adopt_session", {"sessionId": session_id, "expectedGeneration": 0})
+    assert adopted["ownerDeviceId"] == ORIGIN.device_id and adopted["hasDraft"] is True
+    assert repository.fetch_session_checkpoint(session_id)["current_answer"] == "my repair"

@@ -59,6 +59,7 @@ from learnloop.scheduling.selection_rewards import (
     item_demand_vector,
     score_selection_reward,
 )
+from learnloop.scheduling.device_eligibility import DEVICE_INELIGIBLE, DeviceFilter
 from learnloop.vault.lifecycle import practice_item_servable
 from learnloop.vault.models import LoadedVault, PracticeItem
 
@@ -187,6 +188,7 @@ def build_due_queue(
     limit: int | None = None,
     persist_explanations: bool = True,
     offer_trace: OfferTrace | None = None,
+    device_filter: DeviceFilter | None = None,
 ) -> list[ScheduledItem]:
     now = (clock or SystemClock()).now().astimezone(UTC)
     session = session or SchedulerSession()
@@ -416,6 +418,13 @@ def build_due_queue(
             for pending in pending_followups
             if intent_view.withhold_reason(str(pending["practice_item_id"])) is None
         ]
+    if device_filter is not None:
+        # Mobile PR-6: the follow-up door again; the task stays pending for the desktop.
+        pending_followups = [
+            pending
+            for pending in pending_followups
+            if not _held_for_device(vault, device_filter, str(pending["practice_item_id"]), withheld)
+        ]
     requested_id_set = set(requested_item_ids)
     for item in vault.practice_items.values():
         state = item_states.get(item.id)
@@ -517,6 +526,11 @@ def build_due_queue(
             priority = max(priority, _REQUESTED_PRIORITY_FLOOR)
         if priority <= 0:
             withheld("zero_priority", item.id)
+            continue
+        if device_filter is not None and device_filter.holds_back(item):
+            # Mobile PR-6 (§6.4): due, and not this device's to answer. Here, so
+            # the draw, the composition and the limit only ever see what it can.
+            withheld(DEVICE_INELIGIBLE, item.id)
             continue
         plain_english = _plain_english(item, components)
         if evaluated_head_ids and goal_frontier_component > 0:
@@ -642,6 +656,12 @@ def build_due_queue(
         )
         if assigned is not None:
             queue = [assigned] + [item for item in queue if item is not assigned]
+        elif device_filter is not None and _held_for_device(
+            vault, device_filter, active_session_presentation.practice_item_id, withheld
+        ):
+            # Not this device's to show, and still the session's assignment: the
+            # desktop resumes it, so this build neither pins nor ends it.
+            active_session_presentation = None
         else:
             repository.end_probe_presentation(
                 active_session_presentation.id,
@@ -1040,6 +1060,19 @@ def _exploration_draws(
         "choice", str(session.session_id), now, [item.practice_item_id for item in alternatives]
     )
     return roll, choice
+
+
+def _held_for_device(vault: LoadedVault, device_filter: DeviceFilter, practice_item_id: str, withheld: Any) -> bool:
+    """The by-id ways into a build: a follow-up task, a committed presentation. A
+    task naming a retired card is not an item waiting for the desktop."""
+
+    item = vault.practice_items.get(practice_item_id)
+    if item is None or item.status != "active" or not practice_item_servable(vault, item):
+        return False
+    if not device_filter.holds_back(item):
+        return False
+    withheld(DEVICE_INELIGIBLE, practice_item_id)
+    return True
 
 
 def _fill_offer_trace(

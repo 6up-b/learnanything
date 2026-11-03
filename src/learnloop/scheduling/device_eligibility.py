@@ -1,8 +1,8 @@
 """Mobile PR-6: which items a device can answer (``spec_mobile_tailnet_v1`` §6.4).
 
 A phone renders text. An item whose stimulus needs a page, a picture or a long
-conversation is kept for the desktop (D6): it is filtered from the phone's queue
-before the offer is logged, the phone shows how many wait, and a by-id open is
+conversation is kept for the desktop (D6): it never becomes a candidate of a phone
+build (:class:`DeviceFilter`), the phone shows how many wait, and a by-id open is
 refused with ``desktop_only``. :func:`ineligibility_reason` is the one decision;
 the sidecar asks it at every door (``learnloop_sidecar.serving``), with the device
 class from the request origin (§6.8), never from a parameter.
@@ -32,6 +32,7 @@ from __future__ import annotations
 
 import re
 from collections.abc import Iterable, Iterator
+from dataclasses import dataclass, field
 from functools import lru_cache
 from typing import Any
 
@@ -57,6 +58,14 @@ LESSON_CHECK = "lesson_check"
 EMBEDS_IMAGE = "embeds_image"
 LINKS_LLPDF = "links_llpdf"
 REFERENCES_ITEM_ASSET = "references_item_asset"
+
+#: What the rules are, named in the router's inputs of a phone offer so an offer's
+#: filter can be read later. A new rule set is a new name. ``OFF`` is the kill
+#: switch (``practice.device_eligibility_enabled``).
+DEVICE_POLICY = "device_eligibility_v1"
+DEVICE_POLICY_OFF = "off"
+#: The exclusion a queue build logs for an item it held back for its device.
+DEVICE_INELIGIBLE = "device_ineligible"
 
 #: What Markdown shows as text: fenced and inline code, and display and inline
 #: math, where ``n![k](x)`` is a formula and ``llpdf://`` an example.
@@ -118,6 +127,29 @@ def _prompt_reason(prompt: str) -> str | None:
         if token.type == "link_open" and _is_item_asset(str(token.attrGet("href") or "")):
             links_asset = True
     return REFERENCES_ITEM_ASSET if links_asset else None
+
+
+@dataclass
+class DeviceFilter:
+    """One queue build's device, and what it held back.
+
+    Passed to ``build_due_queue``, which asks before an item becomes a candidate.
+    So it runs before the exploration's support and before ``limit`` (Codex review
+    F1, F2): every counterfactual the router logs is an order the phone could have
+    been shown, and the cut, a client's or the re-entry cap, falls among items the
+    phone can answer. ``deferred`` is what waits for the desktop, wherever the cut
+    fell.
+    """
+
+    vault: Any
+    device_class: str
+    deferred: set[str] = field(default_factory=set)
+
+    def holds_back(self, item: Any) -> bool:
+        if ineligibility_reason(self.vault, item, self.device_class) is None:
+            return False
+        self.deferred.add(item.id)
+        return True
 
 
 def ineligibility_reason(vault: Any, item: Any, device_class: str) -> str | None:

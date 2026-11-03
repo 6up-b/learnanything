@@ -86,6 +86,7 @@ from learnloop_sidecar.logging import debug_enabled, log_event
 from learnloop_sidecar.registry import method
 from learnloop_sidecar.request_origin import DESKTOP_PRACTICE, host_mutation, practice_surface
 from learnloop_sidecar.serving import (
+    device_filter,
     refuse_device_ineligible_item,
     refuse_held_out_item,
     refuse_inactive_learning_object,
@@ -1934,13 +1935,14 @@ def skip_practice_item(ctx: SidecarContext, params: SkipInput) -> dict[str, Any]
             energy=session.get("energy"),
         ),
         offer_trace=trace,
+        device_filter=device_filter(ctx.request_origin, vault),
     )
 
     def clear_owned_checkpoint() -> None:
         require_owned_session(ctx, repository, params.session_id, expected_generation=generation)
         clear_checkpoint(repository, params.session_id)
 
-    queue, dtos, _device_deferred = publish_offer(
+    queue, dtos = publish_offer(
         ctx, vault, repository, queue, trace=trace, surface="skip_requeue",
         removed_ids=frozenset({params.practice_item_id}),
         alongside=clear_owned_checkpoint,
