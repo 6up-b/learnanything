@@ -379,10 +379,15 @@ class HostRuntime:
         with self._owed_lock:
             return len(self._owed)
 
-    def _owed_view(self, job_id: str) -> JobView | None:
+    def _view_of(self, job: Mapping[str, Any]) -> JobView:
+        """The row, unless this run has finished the job and owes the row its end."""
+
+        view = JobView.of(job)
+        if view.terminal:
+            return view
         with self._owed_lock:
-            owed = self._owed.get(job_id)
-        return owed[0] if owed is not None else None
+            owed = self._owed.get(view.id)
+        return owed[0] if owed is not None else view
 
     def waiter(self, job_id: str) -> Future | None:
         with self._waiters_lock:
@@ -400,9 +405,7 @@ class HostRuntime:
 
     def job_status(self, job_id: str) -> JobView | None:
         job = capture.get_job(self._read_repo, job_id)
-        if job is None:
-            return None
-        return (None if job["state"] in (capture.COMPLETED, capture.FAILED) else self._owed_view(job_id)) or JobView.of(job)
+        return self._view_of(job) if job is not None else None
 
     def submission_status(self, submission_id: str) -> dict[str, Any]:
         """§6.1: covers a desktop's submissions through their receipts. An attempt without a
@@ -411,8 +414,7 @@ class HostRuntime:
 
         job = capture.job_for_request(self._read_repo, submission_id)
         if job is not None:
-            view = self.job_status(job["id"])
-            return _status_body(view if view is not None else JobView.of(job))
+            return _status_body(self._view_of(job))
         receipt = self._read_repo.attempt_submission_receipt(submission_id)
         if receipt is not None:
             return {"state": capture.COMPLETED, "result": receipt["result"]}

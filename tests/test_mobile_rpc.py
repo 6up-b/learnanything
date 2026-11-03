@@ -421,6 +421,23 @@ def test_under_a_serving_plan_the_phones_head_is_served_and_its_surface_is_phone
     assert offer["propensity_kind"] != "not_served"
 
 
+def test_the_kill_switch_takes_the_filter_off_and_the_log_still_says_what_the_phone_showed(world, plan_serves):
+    """Codex review F8, rejected. ``head_served`` orders nothing: it is the decision log's account of
+    a list the phone shows head first, and that stays true with the filter off. Logging the phone's
+    head as a list it never showed would be the wrong row in the data this log exists for."""
+
+    from tests.source_service_fakes import set_config
+
+    phone, _host, repository, paths, _grader = world
+    set_config(paths, "practice", device_eligibility_enabled=False)
+    session = phone.start()
+    head = phone.queue_items(session["sessionId"])[0]
+    offer = rows(repository, "SELECT surface, chosen_scheduler_candidate_id, detail_json FROM router_decisions "
+                             "WHERE decision_kind='today_offer' ORDER BY rowid DESC LIMIT 1")[0]
+    assert json.loads(offer["detail_json"])["inputs"]["device_policy"] == "off"
+    assert (offer["surface"], offer["chosen_scheduler_candidate_id"]) == ("phone_queue", head["schedulerCandidateId"])
+
+
 def test_taking_the_head_is_no_pick(world, plan_serves):
     phone, *_rest = world
     repository = world[2]
