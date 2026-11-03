@@ -39,14 +39,6 @@ function insertSymbol(symbol: string, append: (text: string) => void): void {
 
 export const GRADING_DOWN = "AI grading is unavailable; your answer is saved. Retry later or finish on the desktop.";
 
-/**
- * An error that says how the request ended. Anything else (a transport failure, a response that was
- * lost or unreadable, an untyped server error) says nothing about a job the host may have accepted.
- */
-function saysHowItEnded(error: CommandError): boolean {
-  return typeof error?.code === "string" && error.code !== "desktop_offline" && error.code !== "internal";
-}
-
 /** What this screen opens on: its own copy if it has one, else the checkpoint's draft, else nothing. */
 function openedDraft(sessionId: string, target: QuestionTarget) {
   const own = readQuestionDraft(sessionId, target.practiceItemId);
@@ -84,7 +76,8 @@ export function QuestionScreen({
   /** The host is already working on this key: wait for it there, not here. */
   onWaiting: (submissionId: string, practiceItemId: string) => void;
   onDesktopOnly: (practiceItemId: string) => void;
-  onSkipped: (practiceItemId: string) => void;
+  /** True once the host has recorded it. A refusal is the App's to report. */
+  onSkipped: (practiceItemId: string) => Promise<boolean>;
   onBack: () => void;
   onError: (error: unknown) => void;
 }) {
@@ -99,10 +92,13 @@ export function QuestionScreen({
   const [answer, setAnswer] = useState(opened.answer);
   const [stuck, setStuck] = useState(opened.stuck);
   const [submitting, setSubmitting] = useState(false);
+  const [skipping, setSkipping] = useState(false);
   const [failure, setFailure] = useState<CommandError | null>(null);
   const submissionId = useRef(opened.submissionId);
   const sentInput = useRef<SubmitInput | null>(opened.sentInput);
   const outcome = useRef<SubmitOutcome>(opened.outcome);
+  // A skip on its way ends this draft if it lands: no save may put the draft back meanwhile (F10).
+  const skipInFlight = useRef(false);
   const shownAt = useRef(Date.now());
   // Its own copy may hold what never reached the checkpoint, or the checkpoint may have moved on to
   // another item since. A request already sent settles that at the submit.
@@ -154,7 +150,7 @@ export function QuestionScreen({
   }, [practiceItemId, sessionId, loadRevision]);
 
   const saveDraft = useCallback(async () => {
-    if (!dirty.current || latest.current.frozen || !latest.current.ready) return;
+    if (!dirty.current || skipInFlight.current || latest.current.frozen || !latest.current.ready) return;
     dirty.current = false;
     try {
       await phone.saveDraft({
@@ -207,8 +203,10 @@ export function QuestionScreen({
 
   /**
    * The key's last request may have reached the host. Ask before sending anything under it or
-   * under another: true means the host had it, and the screen has moved on (F2). An error here
-   * sends nothing, and the question stays as it is.
+   * under another: true means the host had it, and the screen has moved on (F2). This read is the
+   * only thing that settles a key: a submit's own error may be the job's end or a refusal that never
+   * reached it, and the two look the same from here (a lost response, then host_busy on each retry).
+   * An error here sends nothing, and the question stays as it is.
    */
   async function settledByTheHost(): Promise<boolean> {
     const key = submissionId.current;
@@ -290,8 +288,10 @@ export function QuestionScreen({
     } catch (error) {
       rememberPendingSubmit(null);
       const command = error as CommandError;
-      if (sending) {
-        outcome.current = saysHowItEnded(command) ? "failed" : "unknown";
+      // The outcome stays `unknown`, whatever the error says. A conflict does say one thing: the key
+      // belongs to some other request, so resending this one could only conflict again.
+      if (sending && command.code === "submission_conflict") {
+        sentInput.current = null;
         remember();
       }
       if (command.code === "submission_committed") {
@@ -318,13 +318,22 @@ export function QuestionScreen({
   }
 
   async function skip() {
+    if (skipInFlight.current) return;
+    skipInFlight.current = true;
+    setSkipping(true);
+    // A skip forgets the key, and reopening would then mint another over a job that may still land.
+    let skipped = false;
     try {
-      // The skip ends this draft; a flush on the way out would put it back.
-      dirty.current = false;
-      onSkipped(practiceItemId);
+      skipped = (outcome.current === "unknown" && (await settledByTheHost())) || (await onSkipped(practiceItemId));
     } catch (error) {
       onError(error);
     }
+    // Landed, it stays set: the skip ended this draft, and a flush on the way out would put it back.
+    if (skipped) return;
+    skipInFlight.current = false;
+    setSkipping(false);
+    // The question stays open, so what the skip held back is due now.
+    void saveDraft().catch(onError);
   }
 
   if (loadError) {
@@ -369,7 +378,7 @@ export function QuestionScreen({
           <button
             key={symbol}
             type="button"
-            disabled={submitting || frozen}
+            disabled={submitting || skipping || frozen}
             // Keep the caret in the editor.
             onPointerDown={(event) => event.preventDefault()}
             onMouseDown={(event) => event.preventDefault()}
@@ -382,7 +391,7 @@ export function QuestionScreen({
       <MathLiveEditor
         value={answer}
         onChange={edit}
-        disabled={submitting || frozen}
+        disabled={submitting || skipping || frozen}
         ariaLabel="Your answer"
         placeholder={stuck ? "Write what you can, or what's confusing you." : "Your answer. $…$ for math."}
       />
@@ -391,14 +400,14 @@ export function QuestionScreen({
       ) : null}
       {submitting ? <p className="dim" role="status">Grading. You can leave; the result will be here when you come back.</p> : null}
       <div className="row">
-        <button className="primary" type="button" disabled={submitting || frozen || (!stuck && !answer.trim())} onClick={() => void submit()}>
+        <button className="primary" type="button" disabled={submitting || skipping || frozen || (!stuck && !answer.trim())} onClick={() => void submit()}>
           {failure?.retryable ? "Try again" : "Submit"}
         </button>
         {stuck ? null : (
-          <button className="plain" type="button" disabled={submitting || frozen} onClick={() => { dirty.current = true; setStuck(true); remember({ stuck: true }); }}>I'm stuck</button>
+          <button className="plain" type="button" disabled={submitting || skipping || frozen} onClick={() => { dirty.current = true; setStuck(true); remember({ stuck: true }); }}>I'm stuck</button>
         )}
-        <button className="plain" type="button" disabled={submitting || frozen} onClick={() => void skip()}>Skip</button>
-        <button className="plain" type="button" disabled={submitting} onClick={onBack}>Back</button>
+        <button className="plain" type="button" disabled={submitting || skipping || frozen} onClick={() => void skip()}>Skip</button>
+        <button className="plain" type="button" disabled={submitting || skipping} onClick={onBack}>Back</button>
       </div>
     </div>
   );

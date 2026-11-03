@@ -178,6 +178,7 @@ describe("a question", () => {
     expect(screen.queryByText(/Grade your answer/)).toBeNull();
     const first = called("submit_attempt")[0].params.submissionId;
     answers.submit_attempt = { attemptId: "a1", practiceItemId: "i1" };
+    getAnswers[`/api/v1/submissions/${String(first)}`] = { state: "failed", error: { code: "grading_fallback_required", message: "m", retryable: true } };
     fireEvent.click(screen.getByRole("button", { name: "Try again" }));
     await screen.findByText("3 / 4");
     // The same request, field for field: the host compares a retry's params (§6.3).
@@ -196,6 +197,7 @@ describe("a question", () => {
     fireEvent.click(screen.getByRole("button", { name: "Submit" }));
     await screen.findByText(/AI grading is unavailable/);
     const first = called("submit_attempt")[0].params.submissionId;
+    getAnswers[`/api/v1/submissions/${String(first)}`] = { state: "failed", error: { code: "grading_fallback_required", message: "m", retryable: true } };
     editor.textContent = "My better answer";
     fireEvent.input(editor);
     answers.submit_attempt = { attemptId: "a1", practiceItemId: "i1" };
@@ -547,6 +549,168 @@ describe("a question through what can go wrong (Codex review of M2a)", () => {
     });
   });
 
+  describe("F2, re-review: only the host's status frees a key", () => {
+    const typed = (status: number, code: string, retryable = false, details: Record<string, unknown> = {}) =>
+      ({ status, body: { ok: false, error: { code, message: `said ${code}`, retryable, details } } });
+    const statusOf = (key: string) => `/api/v1/submissions/${key}`;
+    const asked = (key: string) => gets.filter((url) => url === statusOf(key)).length;
+
+    /** The first submit ends in `answer`, and from here the host would take another. */
+    async function submitRefused(answer: unknown, shown: RegExp, timeout = 1000) {
+      answers.submit_attempt = answer;
+      await openAndType();
+      fireEvent.click(screen.getByRole("button", { name: "Submit" }));
+      await screen.findByText(shown, undefined, { timeout });
+      const sent = called("submit_attempt").length;
+      answers.submit_attempt = { attemptId: "a2", practiceItemId: "i1" };
+      return { key: String(called("submit_attempt")[0].params.submissionId), sent };
+    }
+
+    it("an accepted submit whose response was lost and whose retries met host_busy: an edit waits for the job", async () => {
+      const { key, sent } = await submitRefused(typed(503, "host_busy", true), /said host_busy/, 6000);
+      expect(sent).toBe(4);
+      expect(new Set(called("submit_attempt").map((call) => call.params.submissionId)).size).toBe(1);
+      getAnswers[statusOf(key)] = { state: "running" };
+      typeInto("Something else");
+      fireEvent.click(screen.getByRole("button", { name: "Submit" }));
+      await screen.findByText(/being graded/);
+      expect(asked(key)).toBeGreaterThan(0);
+      expect(called("submit_attempt")).toHaveLength(sent);
+    }, 10000);
+
+    it("the same, when the job has finished: its attempt opens, and no second one", async () => {
+      const { key, sent } = await submitRefused(typed(503, "host_busy", true), /said host_busy/, 6000);
+      getAnswers[statusOf(key)] = { state: "completed", result: { attemptId: "a1", practiceItemId: "i1" } };
+      typeInto("Something else");
+      fireEvent.click(screen.getByRole("button", { name: "Submit" }));
+      await screen.findByText("3 / 4");
+      expect(called("get_feedback")[0].params.attemptId).toBe("a1");
+      expect(called("submit_attempt")).toHaveLength(sent);
+    }, 10000);
+
+    it.each([
+      ["validation_error", 400],
+      ["database_locked", 409],
+      ["session_ended", 409],
+      ["not_found", 404],
+      ["submission_committed", 409]
+    ])("%s says nothing of the job either", async (code, status) => {
+      const { key } = await submitRefused(typed(status, code), new RegExp(`said ${code}`));
+      getAnswers[statusOf(key)] = { state: "running" };
+      typeInto("Something else");
+      fireEvent.click(screen.getByRole("button", { name: "Submit" }));
+      await screen.findByText(/being graded/);
+      expect(asked(key)).toBeGreaterThan(0);
+      expect(called("submit_attempt")).toHaveLength(1);
+    });
+
+    it("a typed error the host never took a job for: the edit keeps the key", async () => {
+      const { key } = await submitRefused(typed(400, "validation_error"), /said validation_error/);
+      getAnswers[statusOf(key)] = { state: "unknown" };
+      typeInto("Something else");
+      fireEvent.click(screen.getByRole("button", { name: "Submit" }));
+      await screen.findByText("3 / 4");
+      expect(called("submit_attempt")[1].params).toMatchObject({ submissionId: key, answerMd: "Something else" });
+    });
+
+    it("a grading outage in the response is read back before an edit takes a new key", async () => {
+      const { key } = await submitRefused(GRADING_FAILED, /AI grading is unavailable/);
+      getAnswers[statusOf(key)] = { state: "failed", error: { code: "grading_fallback_required", message: "m", retryable: true } };
+      typeInto("Something else");
+      fireEvent.click(screen.getByRole("button", { name: "Submit" }));
+      await screen.findByText("3 / 4");
+      expect(asked(key)).toBe(1);
+      expect(called("submit_attempt")[1].params.submissionId).not.toBe(key);
+    });
+
+    describe("submission_conflict: the key is another request's", () => {
+      const CONFLICT = typed(409, "submission_conflict");
+
+      it("that request still running is waited for", async () => {
+        const { key } = await submitRefused(CONFLICT, /said submission_conflict/);
+        getAnswers[statusOf(key)] = { state: "running" };
+        typeInto("Something else");
+        fireEvent.click(screen.getByRole("button", { name: "Submit" }));
+        await screen.findByText(/being graded/);
+        expect(called("submit_attempt")).toHaveLength(1);
+      });
+
+      it("that request finished: its attempt opens", async () => {
+        const { key } = await submitRefused(CONFLICT, /said submission_conflict/);
+        getAnswers[statusOf(key)] = { state: "completed", result: { attemptId: "a1", practiceItemId: "i1" } };
+        fireEvent.click(screen.getByRole("button", { name: "Submit" }));
+        await screen.findByText("3 / 4");
+        expect(called("submit_attempt")).toHaveLength(1);
+      });
+
+      it("that request failed: a new key, even for the same answer, since the same key would only conflict again", async () => {
+        const { key } = await submitRefused(CONFLICT, /said submission_conflict/);
+        getAnswers[statusOf(key)] = { state: "failed", error: { code: "grading_fallback_required", message: "m", retryable: true } };
+        fireEvent.click(screen.getByRole("button", { name: "Submit" }));
+        await screen.findByText("3 / 4");
+        expect(asked(key)).toBe(1);
+        expect(called("submit_attempt")[1].params.submissionId).not.toBe(key);
+        expect(called("submit_attempt")[1].params.answerMd).toBe("My answer");
+      });
+    });
+
+    it("a status read that is itself refused sends nothing, under either key", async () => {
+      const { key } = await submitRefused(typed(503, "host_busy", true), /said host_busy/, 6000);
+      const sent = called("submit_attempt").length;
+      const realFetch = globalThis.fetch;
+      vi.stubGlobal("fetch", vi.fn((input: RequestInfo | URL, init?: RequestInit) =>
+        String(input) === statusOf(key)
+          ? Promise.resolve(new Response(JSON.stringify(typed(503, "host_busy", true).body), { status: 503 }))
+          : realFetch(input, init)));
+      typeInto("Something else");
+      fireEvent.click(screen.getByRole("button", { name: "Submit" }));
+      await screen.findByText(/said host_busy/);
+      expect(called("submit_attempt")).toHaveLength(sent);
+      expect(screen.getByRole("textbox", { name: "Your answer" }).textContent).toContain("Something else");
+    }, 10000);
+
+    describe("a skip after a submit nothing has settled", () => {
+      async function refusedThenSkip(state: unknown) {
+        answers.skip_practice_item = queue([row("i2")]);
+        const { key } = await submitRefused(typed(400, "validation_error"), /said validation_error/);
+        if (state) getAnswers[statusOf(key)] = state;
+        fireEvent.click(screen.getByRole("button", { name: "Skip" }));
+        return key;
+      }
+
+      it("a job still running is waited for, and nothing is skipped", async () => {
+        await refusedThenSkip({ state: "running" });
+        await screen.findByText(/being graded/);
+        expect(called("skip_practice_item")).toEqual([]);
+      });
+
+      it("a recorded attempt opens, and nothing is skipped", async () => {
+        await refusedThenSkip({ state: "completed", result: { attemptId: "a1", practiceItemId: "i1" } });
+        await screen.findByText("3 / 4");
+        expect(called("skip_practice_item")).toEqual([]);
+      });
+
+      it("a job the host never took: the skip goes through", async () => {
+        await refusedThenSkip({ state: "unknown" });
+        await screen.findByRole("button", { name: /^Next: Topic i2/ });
+        expect(called("skip_practice_item")).toHaveLength(1);
+      });
+
+      it("a status it cannot read: no skip, and the question stays", async () => {
+        await refusedThenSkip(null);
+        await screen.findByText("no fake");
+        expect(called("skip_practice_item")).toEqual([]);
+        await waitFor(() => expect((screen.getByRole("button", { name: "Skip" }) as HTMLButtonElement).disabled).toBe(false));
+      });
+    });
+
+    it("a reopened app holds the question as unsettled too", async () => {
+      const { key } = await submitRefused(typed(400, "validation_error"), /said validation_error/);
+      const held = Object.values(JSON.parse(localStorage.getItem("learnloop.questionDrafts") ?? "{}")) as Array<{ outcome: string; submissionId: string }>;
+      expect(held[0]).toMatchObject({ outcome: "unknown", submissionId: key });
+    });
+  });
+
   describe("F3: a reopened app retries the same request", () => {
     it("resends the first request's fields, candidate and latency included, under its key", async () => {
       answers.submit_attempt = GRADING_FAILED;
@@ -688,6 +852,70 @@ describe("a question through what can go wrong (Codex review of M2a)", () => {
       render(<App />);
       expect(await screen.findByText(/AI grading is unavailable/)).toBeTruthy();
       expect(screen.queryByText(/Grade your answer/)).toBeNull();
+    });
+  });
+
+  describe("F10: a skip that fails leaves the draft unsaved no longer", () => {
+    const SKIP_REFUSED = { status: 409, body: { ok: false, error: { code: "database_locked", message: "Could not skip this.", retryable: false } } };
+
+    it("the answer typed just before it reaches the checkpoint, and stays on screen", async () => {
+      answers.skip_practice_item = SKIP_REFUSED;
+      await openAndType("Half an answer");
+      fireEvent.click(screen.getByRole("button", { name: "Skip" }));
+      await screen.findByText("Could not skip this.");
+      await waitFor(() => expect(called("save_practice_draft")).toHaveLength(1));
+      expect(called("save_practice_draft")[0].params.answerMd).toBe("Half an answer");
+      expect(screen.getByRole("textbox", { name: "Your answer" }).textContent).toContain("Half an answer");
+      expect((screen.getByRole("button", { name: "Skip" }) as HTMLButtonElement).disabled).toBe(false);
+    });
+
+    it("once: leaving afterwards has nothing more to save", async () => {
+      answers.skip_practice_item = SKIP_REFUSED;
+      await openAndType("Half an answer");
+      fireEvent.click(screen.getByRole("button", { name: "Skip" }));
+      await waitFor(() => expect(called("save_practice_draft")).toHaveLength(1));
+      fireEvent.click(screen.getByRole("button", { name: "Back" }));
+      await screen.findByRole("button", { name: /^Next: Topic i1/ });
+      expect(called("save_practice_draft")).toHaveLength(1);
+    });
+
+    it("if that save fails too, leaving sends it", async () => {
+      answers.skip_practice_item = SKIP_REFUSED;
+      answers.save_practice_draft = { status: 409, body: { ok: false, error: { code: "database_locked", message: "Try again.", retryable: false } } };
+      await openAndType("Half an answer");
+      fireEvent.click(screen.getByRole("button", { name: "Skip" }));
+      await waitFor(() => expect(called("save_practice_draft")).toHaveLength(1));
+      answers.save_practice_draft = { ok: true };
+      fireEvent.click(screen.getByRole("button", { name: "Back" }));
+      await waitFor(() => expect(called("save_practice_draft")).toHaveLength(2));
+      expect(called("save_practice_draft")[1].params.answerMd).toBe("Half an answer");
+    });
+
+    it("while a skip is in flight nothing saves, and a skip that succeeds puts nothing back", async () => {
+      let release = () => undefined as void;
+      const held = new Promise<void>((resolve) => { release = resolve; });
+      const realFetch = globalThis.fetch;
+      let skips = 0;
+      vi.stubGlobal("fetch", vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+        if (String(input) === "/rpc" && JSON.parse(init?.body as string).method === "skip_practice_item") {
+          skips += 1;
+          await held;
+          return new Response(JSON.stringify({ ok: true, result: queue([row("i2")]) }), { status: 200 });
+        }
+        return realFetch(input, init);
+      }));
+      await openAndType("Half an answer");
+      fireEvent.click(screen.getByRole("button", { name: "Skip" }));
+      await waitFor(() => expect((screen.getByRole("button", { name: "Submit" }) as HTMLButtonElement).disabled).toBe(true));
+      fireEvent.click(screen.getByRole("button", { name: "Skip" }));
+      // Past the draft's debounce.
+      await act(async () => { await new Promise((resolve) => setTimeout(resolve, 1000)); });
+      expect(called("save_practice_draft")).toEqual([]);
+      expect(skips).toBe(1);
+      release();
+      await screen.findByRole("button", { name: /^Next: Topic i2/ });
+      await act(async () => { await new Promise((resolve) => setTimeout(resolve, 20)); });
+      expect(called("save_practice_draft")).toEqual([]);
     });
   });
 });

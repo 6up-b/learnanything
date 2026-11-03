@@ -374,16 +374,19 @@ function Phone({ credential }: { credential: Credential }) {
     }
   }
 
-  async function skip(practiceItemId: string) {
+  /** True once the host has it. Short of that the question stays open and its draft is still live. */
+  async function skip(practiceItemId: string): Promise<boolean> {
     const open = sessionRef.current;
-    if (!open) return;
+    if (!open) return false;
     try {
       const queue = await phone.skipItem(open.sessionId, practiceItemId);
       clearQuestionDraft(open.sessionId, practiceItemId);
       setQueryData(queueKey(open.sessionId), queue, [TAG.queue]);
       setView({ name: "today" });
+      return true;
     } catch (error) {
       reportError(error);
+      return false;
     }
   }
 
@@ -463,7 +466,7 @@ function Phone({ credential }: { credential: Credential }) {
           onFeedback={(attemptId, practiceItemId) => setView({ name: "feedback", attemptId, practiceItemId })}
           onWaiting={(submissionId, practiceItemId) => setView({ name: "waiting", submissionId, practiceItemId })}
           onDesktopOnly={leftForDesktop}
-          onSkipped={(practiceItemId) => void skip(practiceItemId)}
+          onSkipped={skip}
           onBack={() => setView({ name: "today" })}
           onError={reportError}
         />

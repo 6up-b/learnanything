@@ -66,9 +66,10 @@ export function assistOf(checkpoint: SessionCheckpoint): DraftAssist {
 }
 
 /**
- * What is known of the request last sent under a draft's key. `unknown`: it may have reached the
- * host and nothing said how it ended, so the host is asked before anything else is sent (F2).
- * `failed`: the host said it ended without an attempt. `none`: nothing of it is on the host.
+ * What is known of the request last sent under a draft's key, as `GET /api/v1/submissions/{id}` last
+ * said. `unknown`: it may have reached the host, so the host is asked before anything else is sent;
+ * every send starts here and a send's own error leaves it here (F2). `failed`: the job ended without
+ * an attempt. `none`: nothing of it is on the host.
  */
 export type SubmitOutcome = "none" | "unknown" | "failed";
 
