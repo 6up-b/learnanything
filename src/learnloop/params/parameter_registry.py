@@ -1334,10 +1334,10 @@ _reg_const("randomization_layer:EPSILON_TIE_MARGIN", "threshold", owner="randomi
 # assignment probability too thin (bind-logged, not swept, U-022).
 _reg_const("randomization_layer:PROPENSITY_FLOOR", "constraint", owner="randomization_layer",
            lifecycle="dormant",
-           rationale="§9.3 minimum true assignment probability a randomization variant may carry, so "
-           "off-policy support does not collapse; a guardrail that only fires when a design has too "
-           "many variants for the floor.",
-           bind_site="randomization_layer._clamped_uniform_propensity (propensity floor clamp)")
+           rationale="§9.3 the true assignment probability below which a randomization variant's "
+           "off-policy support is flagged thin; a guardrail that only fires when a design has too "
+           "many variants for the floor, and never changes the logged 1/n (data capture A8).",
+           bind_site="randomization_layer._uniform_propensity (thin-support flag)")
 
 # P4 §14.2 step 3 -- dual-controller cutover switches (design §A/§C). Structural version
 # pins + the live-cutover gate; the gate is a bool (excluded from the numeric scan) and is

@@ -59,9 +59,11 @@ RANDOMIZATION_LAYER_VERSION = 1
 # deterministic and randomization is inert. Heuristic decision parameter (design §E).
 EPSILON_TIE_MARGIN = 0.05
 
-# Propensity floor guardrail (§9.3): a variant may not be assigned below this true
-# probability, or off-policy support collapses. Dormant -- only binds when a design
-# would spread propensity mass too thin (bind-logged, not swept, U-022).
+# Propensity floor guardrail (§9.3): a variant below this true probability has thin
+# off-policy support. Dormant -- only fires when a design spreads its mass that thin.
+# It names the case (bind-logged, not swept, U-022; ``Assignment.thin_support``) and
+# never changes the number (data capture A8): the draws are uniform over all n, so the
+# logged propensity is 1/n, the true one.
 PROPENSITY_FLOOR = 0.05
 
 _GRADES = ("experimental", "hypothesis_grade")
@@ -92,6 +94,8 @@ class Assignment:
     near_equivalent: bool
     grade: str
     randomized: bool  # False = inert (deterministic top; no random draw)
+    #: Data capture A8: the true propensity is below :data:`PROPENSITY_FLOOR`.
+    thin_support: bool = False
 
     def as_dict(self) -> dict[str, Any]:
         return {
@@ -107,6 +111,7 @@ class Assignment:
             "near_equivalent": self.near_equivalent,
             "grade": self.grade,
             "randomized": self.randomized,
+            **({"thin_support": True} if self.thin_support else {}),
         }
 
 
@@ -158,11 +163,12 @@ def tied_set(refs: Sequence[str], values: Sequence[float], margin: float = EPSIL
     return _tied_set(refs, values, margin)
 
 
-def _clamped_uniform_propensity(
+def _uniform_propensity(
     repository: Repository | None, n: int, *, floor: float, clock: Clock | None
-) -> float:
-    """Uniform propensity 1/n, guarded by the dormant propensity floor. When the floor
-    would bind (too many variants), bind-log it (U-022) and clamp to the floor."""
+) -> tuple[float, bool]:
+    """The uniform draw's true propensity 1/n, and whether it is below the dormant
+    propensity floor: a thin support, bind-logged (U-022), never clamped (data capture
+    A8: every design here draws uniformly over all n, so a clamped number would be false)."""
 
     p = 1.0 / max(n, 1)
     if p < floor:
@@ -171,8 +177,12 @@ def _clamped_uniform_propensity(
                 repository, "randomization_layer:PROPENSITY_FLOOR",
                 {"variants": n, "uniform_propensity": p, "floor": floor}, clock=clock,
             )
-        return floor
-    return p
+        return p, True
+    return p, False
+
+
+def _thin(detail: dict[str, Any], thin_support: bool) -> dict[str, Any]:
+    return {**detail, "thin_support": True} if thin_support else detail
 
 
 def epsilon_tiebreak(
@@ -207,7 +217,7 @@ def epsilon_tiebreak(
                                     carryover_modeled=False), False)
 
     tied = _tied_set(refs, values, margin)
-    propensity = _clamped_uniform_propensity(repository, len(tied), floor=PROPENSITY_FLOOR, clock=clock)
+    propensity, thin = _uniform_propensity(repository, len(tied), floor=PROPENSITY_FLOOR, clock=clock)
     rng = random.Random(_seed_int(seed))
     draw = rng.random()
     chosen = tied[min(int(draw * len(tied)), len(tied) - 1)]
@@ -220,10 +230,10 @@ def epsilon_tiebreak(
             unit_kind="decision", unit_id=decision_id, variant=chosen, propensity=propensity,
             seed=seed, draw=draw, epsilon_margin=margin, near_equivalent=True,
             design="epsilon_tiebreak", grade=grade, candidate_refs=tied,
-            detail={"tied": tied, "deterministic_top": deterministic_top}, clock=clock,
+            detail=_thin({"tied": tied, "deterministic_top": deterministic_top}, thin), clock=clock,
         )
     return Assignment(assignment_id, experiment_id, "epsilon_tiebreak", "decision",
-                      decision_id, chosen, propensity, seed, draw, True, grade, True)
+                      decision_id, chosen, propensity, seed, draw, True, grade, True, thin)
 
 
 def micro_randomize(
@@ -250,7 +260,7 @@ def micro_randomize(
         return Assignment(None, experiment_id, "mrt_reversible", "decision", decision_id,
                           variants[0], 1.0, seed, None, False, "hypothesis_grade", False)
 
-    propensity = _clamped_uniform_propensity(repository, len(variants), floor=PROPENSITY_FLOOR, clock=clock)
+    propensity, thin = _uniform_propensity(repository, len(variants), floor=PROPENSITY_FLOOR, clock=clock)
     rng = random.Random(_seed_int(seed))
     draw = rng.random()
     chosen = variants[min(int(draw * len(variants)), len(variants) - 1)]
@@ -261,10 +271,10 @@ def micro_randomize(
             unit_kind="decision", unit_id=decision_id, variant=chosen, propensity=propensity,
             seed=seed, draw=draw, epsilon_margin=None, near_equivalent=True,
             design="mrt_reversible", grade="experimental", candidate_refs=variants,
-            detail={"variants": variants}, clock=clock,
+            detail=_thin({"variants": variants}, thin), clock=clock,
         )
     return Assignment(assignment_id, experiment_id, "mrt_reversible", "decision", decision_id,
-                      chosen, propensity, seed, draw, True, "experimental", True)
+                      chosen, propensity, seed, draw, True, "experimental", True, thin)
 
 
 def commitment_parallel_assign(
@@ -287,7 +297,7 @@ def commitment_parallel_assign(
     if not variants:
         return Assignment(None, experiment_id, "commitment_parallel", "commitment",
                           commitment_id, "", 0.0, seed, None, False, grade, False)
-    propensity = _clamped_uniform_propensity(repository, len(variants), floor=PROPENSITY_FLOOR, clock=clock)
+    propensity, thin = _uniform_propensity(repository, len(variants), floor=PROPENSITY_FLOOR, clock=clock)
     rng = random.Random(_seed_int(seed))
     draw = rng.random()
     chosen = variants[min(int(draw * len(variants)), len(variants) - 1)]
@@ -299,10 +309,10 @@ def commitment_parallel_assign(
             propensity=propensity, seed=seed, draw=draw, epsilon_margin=None,
             near_equivalent=False, design="commitment_parallel", grade=grade,
             candidate_refs=variants,
-            detail={"variants": variants, "carryover_modeled": carryover_modeled}, clock=clock,
+            detail=_thin({"variants": variants, "carryover_modeled": carryover_modeled}, thin), clock=clock,
         )
     return Assignment(assignment_id, experiment_id, "commitment_parallel", "commitment",
-                      commitment_id, chosen, propensity, seed, draw, True, grade, True)
+                      commitment_id, chosen, propensity, seed, draw, True, grade, True, thin)
 
 
 def model_mixture(

@@ -4,10 +4,15 @@ Covers: randomization is inert unless genuinely near-equivalent (the ε margin);
 draw logs seed + true propensity BEFORE selection; MRT only on reversible candidates;
 commitment-level parallel randomization for durable interventions; hypothesis-grade
 labelling for unmodeled carryover; outcome windows anchored to the next spaced cold
-review; the dormant propensity floor bind-logs when it binds.
+review; the dormant propensity floor bind-logs a thin support, and the logged propensity
+is the true 1/n (data capture A8).
 """
 
 from __future__ import annotations
+
+import json
+
+import pytest
 
 from learnloop.clock import FrozenClock
 from learnloop.db.repositories import Repository
@@ -111,15 +116,39 @@ def test_outcome_window_anchored_to_next_spaced_cold_review(tmp_path):
     assert resolved["status"] == "resolved"
 
 
-def test_propensity_floor_binds_and_is_logged(tmp_path):
+def test_a_thin_support_logs_the_true_propensity_and_is_flagged(tmp_path):
+    """Data capture A8: the draw is uniform over all n, so its propensity is 1/n, never the floor."""
+
     repo = _repo(tmp_path)
-    # Many variants -> uniform propensity below the floor -> bind-logged + clamped.
     variants = [f"v{i}" for i in range(50)]
     a = RL.micro_randomize(repo, experiment_id="floor", variants=variants, seed="s",
                            reversible=True, clock=CLOCK)
-    assert a.propensity == RL.PROPENSITY_FLOOR
+    assert a.propensity == pytest.approx(1.0 / 50)
+    assert a.thin_support is True and a.as_dict()["thin_support"] is True
+    with repo.connection() as connection:
+        row = connection.execute(
+            "SELECT propensity, detail_json FROM policy_experiment_assignments WHERE id = ?", (a.assignment_id,)
+        ).fetchone()
+    assert row[0] == pytest.approx(1.0 / 50)
+    assert json.loads(row[1])["thin_support"] is True
+    # The floor still bind-logs: it names the thin support, it no longer changes the number.
     events = repo.parameter_bind_events_for_path("randomization_layer:PROPENSITY_FLOOR")
     assert len(events) >= 1
+
+
+def test_the_tie_break_above_twenty_candidates_logs_one_over_n(tmp_path):
+    repo = _repo(tmp_path)
+    refs = [f"r{i}" for i in range(25)]
+    a = RL.epsilon_tiebreak(repo, experiment_id="tie", refs=refs, values=[1.0] * 25, seed="s", decision_id="d",
+                            clock=CLOCK)
+    assert a.randomized and a.propensity == pytest.approx(1.0 / 25) and a.thin_support is True
+
+
+def test_an_ordinary_support_is_not_flagged_and_its_receipt_is_unchanged(tmp_path):
+    repo = _repo(tmp_path)
+    a = RL.micro_randomize(repo, experiment_id="two", variants=["a", "b"], seed="s", reversible=True, clock=CLOCK)
+    assert a.propensity == 0.5 and a.thin_support is False and "thin_support" not in a.as_dict()
+    assert repo.parameter_bind_events_for_path("randomization_layer:PROPENSITY_FLOOR") == []
 
 
 def test_is_near_equivalent_margin():
