@@ -13,7 +13,7 @@ from __future__ import annotations
 
 from collections import deque
 from concurrent.futures import Future
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 import logging
 from pathlib import Path
 import sqlite3
@@ -44,6 +44,10 @@ _FINISH_BACKOFF_SECONDS = 0.5
 #: Past those, how often this run tries a terminal write it still owes. A `keep` bound: a slow
 #: try costs nothing a phone sees, since the status reads already answer from the debt.
 _FINISH_DEBT_RETRY_SECONDS = 5.0
+#: How many times a committed attempt's completion may fail before the status says its feedback
+#: is delayed and lets the phone open it. A `keep` bound: past it the reads go on trying, so it
+#: only decides how long a phone waits on the grading screen.
+_REDRIVES_BEFORE_DELAYED = 3
 
 
 class HostBusy(Exception):
@@ -138,7 +142,7 @@ class _Worker:
 class JobView:
     """A job's state as the status endpoints and ``/rpc`` answer it."""
 
-    id: str
+    id: str | None
     request_id: str
     state: str
     result: Any = None
@@ -146,7 +150,7 @@ class JobView:
 
     @property
     def terminal(self) -> bool:
-        return self.state in (capture.COMPLETED, capture.FAILED)
+        return self.state in (capture.COMPLETED, capture.FAILED, capture.RECORDED)
 
     @classmethod
     def of(cls, job: Mapping[str, Any]) -> "JobView":
@@ -156,7 +160,7 @@ class JobView:
 
 #: Long methods whose ``request_id`` is the submission id (§6.3) and whose acceptance
 #: checks the session's owner (§6.5). A clarification names an attempt, not a session.
-SUBMIT_METHODS = frozenset({"submit_attempt", "submit_dont_know"})
+SUBMIT_METHODS = frozenset(capture.SUBMIT_METHODS)
 
 
 class HostRuntime:
@@ -179,10 +183,15 @@ class HostRuntime:
         self._readiness_refreshing = False
         # Terminal writes this run still owes (job id -> what the row should say). The handler's
         # commit stands, so the status reads answer from here until the row catches up.
-        self._owed: dict[str, tuple[JobView, Any]] = {}
+        self._owed: dict[str, tuple[JobView, Mapping[str, Any]]] = {}
         self._owed_lock = threading.Lock()
         self._owed_thread: threading.Thread | None = None
         self._owed_stop = threading.Event()
+        # Committed attempts this run is re-driving, and how their completions have gone: the
+        # count of failed tries, or None once the handler has said it can't finish. All under
+        # _waiters_lock, so a status poll starts one recovery at most.
+        self._redriving: set[str] = set()
+        self._redrive_failures: dict[str, int | None] = {}
 
     # -- contexts (each on its worker's own thread) ----------------------------
 
@@ -298,7 +307,8 @@ class HostRuntime:
         )
         if enqueue:
             self._enqueue(job)
-        return JobView.of(job)
+            return JobView.of(job)
+        return self._current_view(job)
 
     def _enqueue(self, job: Mapping[str, Any]) -> None:
         with self._waiters_lock:
@@ -327,30 +337,55 @@ class HostRuntime:
         view = JobView(id=job_id, request_id=job["request_id"],
                        state=capture.FAILED if error is not None else capture.COMPLETED,
                        result=None if error is not None else response.get("result"), error=error)
-        self._finish(view, result=response.get("result"))
+        view = self._finish(view, job)
         with self._waiters_lock:
             waiter = self._waiters.pop(job_id, None)
         if waiter is not None:
             waiter.set_result(view)
 
-    def _finish(self, view: JobView, *, result: Any) -> None:
+    def _ending(self, view: JobView, job: Mapping[str, Any]) -> JobView:
+        """How a job really ended (R2): a submit fails only if no attempt committed under it.
+
+        The handler's error may be its completion's: then the job isn't over, and the status
+        reads re-drive the completion. ``submission_committed`` says it can't finish: recorded.
+        """
+
+        if view.state != capture.FAILED or job["method"] not in SUBMIT_METHODS:
+            return view
+        receipt, attempt = self._committed(self._repo, job, job["request_id"])
+        if receipt is not None:
+            return replace(view, state=capture.COMPLETED, result=receipt["result"], error=None)
+        if attempt is None:
+            return view
+        if (view.error or {}).get("code") == capture.SUBMISSION_COMMITTED:
+            return replace(view, state=capture.RECORDED, error=capture.recorded_error(attempt))
+        return replace(view, state=capture.RUNNING, error=None)
+
+    def _finish(self, view: JobView, job: Mapping[str, Any]) -> JobView:
+        """Write the job's end, and return it as its waiters should hear it."""
+
+        ending: JobView | None = None
         for attempt in range(_FINISH_RETRIES + 1):
             try:
-                capture.finish_job(self._repo, view.id, result=result, error=view.error)
-                return
+                ending = self._ending(view, job)
+                if ending.terminal:
+                    capture.finish_job(self._repo, ending.id, result=ending.result, error=ending.error, state=ending.state)
+                return ending
             except sqlite3.OperationalError:
                 if attempt == _FINISH_RETRIES:
                     # Busy past the retries, or a full disk: the row stays behind while this run
                     # answers for it and keeps trying. Dying here, a restart finds the row open
                     # and the handler's receipt beside it.
                     LOG.exception("job %s finished but its row was not written; retrying in the background", view.id)
-                    self._owe(view, result)
-                    return
+                    self._owe(view, job)
+                    # A failure not yet checked against the attempts isn't known to be one.
+                    return ending if ending is not None else replace(view, state=capture.RUNNING, error=None)
                 time.sleep(_FINISH_BACKOFF_SECONDS * (2 ** attempt))
+        raise AssertionError("the loop returns on its last pass")
 
-    def _owe(self, view: JobView, result: Any) -> None:
+    def _owe(self, view: JobView, job: Mapping[str, Any]) -> None:
         with self._owed_lock:
-            self._owed[view.id] = (view, result)
+            self._owed[view.id] = (view, job)
             if self._owed_thread is None:
                 self._owed_thread = threading.Thread(target=self._pay_owed, name="mobile-job-finish", daemon=True)
                 self._owed_thread.start()
@@ -358,9 +393,11 @@ class HostRuntime:
     def _pay_owed_once(self) -> None:
         with self._owed_lock:
             owed = list(self._owed.values())
-        for view, result in owed:
+        for view, job in owed:
             try:
-                capture.finish_job(self._repo, view.id, result=result, error=view.error)
+                ending = self._ending(view, job)
+                if ending.terminal:
+                    capture.finish_job(self._repo, ending.id, result=ending.result, error=ending.error, state=ending.state)
             except sqlite3.OperationalError:
                 LOG.warning("job %s: its terminal write is still owed", view.id)
                 continue
@@ -405,22 +442,121 @@ class HostRuntime:
 
     def job_status(self, job_id: str) -> JobView | None:
         job = capture.get_job(self._read_repo, job_id)
-        return self._view_of(job) if job is not None else None
+        return self._current_view(job) if job is not None else None
 
-    def submission_status(self, submission_id: str) -> dict[str, Any]:
-        """§6.1: covers a desktop's submissions through their receipts. An attempt without a
-        receipt is a completion under way; no attempt and no job is ``unknown``, which is
-        the client's cue to treat the checkpoint as a draft (§6.5)."""
+    def submission_status(self, submission_id: str, device_id: str | None = None) -> dict[str, Any]:
+        """§6.1: what committed decides (R2), before anything a job's row says. A receipt is
+        ``completed``; an attempt without one is a completion under way, or ``recorded`` once
+        it has stopped trying to be, and either way its key is spent. So ``failed`` means no
+        attempt committed. No attempt and no job is ``unknown``, which is the client's cue to
+        treat the checkpoint as a draft (§6.5). Covers a desktop's submissions too."""
 
         job = capture.job_for_request(self._read_repo, submission_id)
         if job is not None:
-            return _status_body(self._view_of(job))
-        receipt = self._read_repo.attempt_submission_receipt(submission_id)
+            return _status_body(self._current_view(job))
+        view = self._what_committed(None, submission_id, device_id)
+        return _status_body(view) if view is not None else {"state": "unknown"}
+
+    def _current_view(self, job: Mapping[str, Any]) -> JobView:
+        if job["method"] in SUBMIT_METHODS and job["state"] != capture.COMPLETED:
+            view = self._what_committed(job, job["request_id"], job["device_id"])
+            if view is not None:
+                return view
+        return self._view_of(job)
+
+    @staticmethod
+    def _committed(repo: Repository, job: Mapping[str, Any] | None, submission_id: str) -> tuple[Any, Any]:
+        """``(receipt, attempt)`` of this submission; for a job, under the key its handler answers
+        with (B4's successor), and only for its item, since a key reused for another is refused."""
+
+        key, item = submission_id, None
+        if job is not None:
+            from learnloop_sidecar.handlers.practice import answering_key
+
+            params = job["params"]
+            session_id = params.get("sessionId") or params.get("session_id")
+            item = params.get("practiceItemId") or params.get("practice_item_id")
+            if session_id and item:
+                key = answering_key(repo, submission_id, str(session_id), str(item))[0] or submission_id
+        receipt = repo.attempt_submission_receipt(key)
+        if receipt is not None and item in (None, receipt["practice_item_id"]):
+            return receipt, None
+        attempt = repo.practice_attempt_by_submission_id(key)
+        return None, attempt if attempt is not None and item in (None, attempt["practice_item_id"]) else None
+
+    def _what_committed(self, job: Mapping[str, Any] | None, submission_id: str, device_id: str | None) -> JobView | None:
+        """The view from the attempts' side; None if nothing committed under this submission."""
+
+        job_id = job["id"] if job is not None else None
+        receipt, attempt = self._committed(self._read_repo, job, submission_id)
         if receipt is not None:
-            return {"state": capture.COMPLETED, "result": receipt["result"]}
-        if self._read_repo.practice_attempt_by_submission_id(submission_id) is not None:
-            return {"state": capture.RUNNING}
-        return {"state": "unknown"}
+            return JobView(id=job_id, request_id=submission_id, state=capture.COMPLETED, result=receipt["result"])
+        if attempt is None:
+            return None
+        self._redrive(job, submission_id, attempt, device_id)
+        with self._waiters_lock:
+            failures = self._redrive_failures.get(submission_id, 0)
+        delayed = failures is None or failures >= _REDRIVES_BEFORE_DELAYED
+        if delayed or (job is not None and job["state"] == capture.RECORDED):
+            return JobView(id=job_id, request_id=submission_id, state=capture.RECORDED,
+                           error=capture.recorded_error(attempt))
+        return JobView(id=job_id, request_id=submission_id, state=capture.RUNNING)
+
+    # -- re-driving a committed attempt's completion (R2) -----------------------
+
+    def _redrive(self, job: Mapping[str, Any] | None, submission_id: str, attempt: Mapping[str, Any],
+                 device_id: str | None) -> None:
+        """Queue one recovery under the same key, from a status poll: the read itself stays a
+        read. Never beside the job that is completing it or another recovery, so at most one
+        per poll and nothing at all with nobody polling."""
+
+        session_id = attempt.get("session_id")
+        with self._waiters_lock:
+            if not session_id:
+                # Recovery names a session, and this attempt has none to name.
+                self._redrive_failures[submission_id] = None
+                return
+            if submission_id in self._redriving or (job is not None and job["id"] in self._waiters):
+                return
+            self._redriving.add(submission_id)
+        params = {"sessionId": str(session_id), "practiceItemId": str(attempt["practice_item_id"]),
+                  "submissionId": submission_id}
+        origin = self._origin(device_id) if device_id else None
+        try:
+            self.ensure_started()
+            self.job_worker.submit(lambda worker: self._run_redrive(worker, job, submission_id, params, origin))
+        except HostBusy:
+            # Full or stopping: the next poll, or the next start.
+            with self._waiters_lock:
+                self._redriving.discard(submission_id)
+
+    def _run_redrive(self, worker: _Worker, job: Mapping[str, Any] | None, submission_id: str,
+                     params: Mapping[str, Any], origin: Any) -> None:
+        try:
+            response = self._dispatch(worker, "recover_practice_submission", params, origin)
+        except Exception:
+            LOG.exception("recovery of submission %s stopped", submission_id)
+            response = {"error": {"message": "This request stopped unexpectedly.", "data": {"code": "internal"}}}
+        error = flat_error(response)
+        with self._waiters_lock:
+            if error is None:
+                self._redrive_failures.pop(submission_id, None)
+            elif error.get("code") == capture.SUBMISSION_COMMITTED:
+                self._redrive_failures[submission_id] = None
+            elif self._redrive_failures.get(submission_id, 0) is not None:
+                self._redrive_failures[submission_id] = self._redrive_failures.get(submission_id, 0) + 1
+            failures = self._redrive_failures.get(submission_id, 0)
+            self._redriving.discard(submission_id)
+        if job is None:
+            return
+        if error is None:
+            view = JobView(id=job["id"], request_id=submission_id, state=capture.COMPLETED,
+                           result=response["result"].get("result"))
+        elif failures is None or failures >= _REDRIVES_BEFORE_DELAYED:
+            view = JobView(id=job["id"], request_id=submission_id, state=capture.FAILED, error={"code": capture.SUBMISSION_COMMITTED})
+        else:
+            return
+        self._finish(view, job)
 
     def grading_ready(self) -> bool | None:
         """Last known grading readiness; None until the first RPC has loaded the vault.
@@ -465,9 +601,12 @@ class HostRuntime:
 
 
 def _status_body(view: JobView) -> dict[str, Any]:
-    body: dict[str, Any] = {"job_id": view.id, "state": view.state}
+    body: dict[str, Any] = {"state": view.state} if view.id is None else {"job_id": view.id, "state": view.state}
     if view.state == capture.COMPLETED:
         body["result"] = view.result
     elif view.state == capture.FAILED:
         body["error"] = view.error
+    elif view.state == capture.RECORDED:
+        body["error"] = view.error
+        body["attempt_id"] = (view.error or {}).get("details", {}).get("attempt_id")
     return body

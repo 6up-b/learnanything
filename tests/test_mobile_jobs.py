@@ -22,7 +22,8 @@ from learnloop_mobile import host as host_module
 from learnloop_mobile.host import create_app
 
 from tests.mobile_host_helpers import (
-    HOSTNAME, ITEM, CountingGrader, Phone, config_for, install_grader, install_grading_outage, pair, poll_job, rows,
+    HOSTNAME, ITEM, SECOND_ITEM, CountingGrader, Phone, config_for, install_grader, install_grading_outage, pair, poll_job,
+    rows,
     seeded_vault,
 )
 
@@ -432,7 +433,7 @@ def test_a_restart_with_an_attempt_and_no_receipt_resumes_without_grading_again(
         done = poll_job(Phone(client, device), job_id)
     assert grader.grades == grades
     assert len(_attempts(repository, "sub1")) == 1
-    assert done["state"] in ("completed", "failed")
+    assert done["state"] in ("completed", "recorded")
     if done["state"] == "completed":
         assert done["result"]["attemptId"] == result["attemptId"]
     else:
@@ -527,3 +528,419 @@ def test_a_terminal_failure_that_cannot_be_written_is_read_as_failed(world, monk
     assert rows(repository, "SELECT state FROM mobile_jobs WHERE request_id='owed2'")[0]["state"] == "running"
     status = phone.get("/api/v1/submissions/owed2").json()
     assert status["state"] == "failed" and status["error"]["code"] == "grading_fallback_required"
+
+
+# -- orchestrator ruling R2: "failed" means no attempt committed ----------------
+
+
+def _break_completion(monkeypatch, *, times=None, gate=None):
+    """The attempt commits, then its completion raises, as a process dying between the two would.
+
+    ``times=None`` is a completion that can't ever finish. ``gate`` holds a call open.
+    """
+
+    import learnloop_sidecar.handlers.practice as practice
+
+    real = practice.run_post_attempt_pipeline
+    calls = []
+
+    def broken(*args, **kwargs):
+        calls.append(1)
+        if gate is not None:
+            assert gate.wait(30), "the test never released the completion"
+        if times is None or len(calls) <= times:
+            raise RuntimeError("the completion stopped after the attempt committed")
+        return real(*args, **kwargs)
+
+    monkeypatch.setattr(practice, "run_post_attempt_pipeline", broken)
+    return calls
+
+
+def _heal_completion(monkeypatch, real):
+    import learnloop_sidecar.handlers.practice as practice
+
+    monkeypatch.setattr(practice, "run_post_attempt_pipeline", real)
+
+
+def _status(phone, key):
+    return phone.get(f"/api/v1/submissions/{key}").json()
+
+
+def _poll_until(phone, key, *states, timeout=20.0):
+    """Poll as the phone does; what each poll read, the last one in ``states``."""
+
+    seen = []
+    deadline = time.monotonic() + timeout
+    while time.monotonic() < deadline:
+        seen.append(_status(phone, key))
+        if seen[-1]["state"] in states:
+            return seen
+        time.sleep(0.02)
+    pytest.fail(f"{key} stayed at {seen[-1]}")
+
+
+def test_a_completion_that_stops_after_the_attempt_finishes_under_the_same_key(world, monkeypatch):
+    """Sol's F2 reproduction: never `failed`, one grade, one attempt, and the host re-drives it."""
+
+    phone, _host, repository, _paths, grader = world
+    calls = _break_completion(monkeypatch, times=1)
+    session = phone.start()
+    response = phone.submit(session["sessionId"], "k1")
+    # The handler's error is not this job's end: the attempt is in, so the phone keeps polling.
+    assert response.status_code == 202, response.text
+    assert rows(repository, "SELECT state FROM mobile_jobs WHERE request_id='k1'")[0]["state"] == "running"
+    seen = _poll_until(phone, "k1", "completed")
+    assert {body["state"] for body in seen} <= {"running", "completed"}
+    attempt = _attempts(repository, "k1")
+    assert len(attempt) == 1 and grader.grades == 1 and len(calls) == 2
+    assert seen[-1]["result"]["attemptId"] == attempt[0]["id"]
+    assert repository.attempt_submission_receipt("k1") is not None
+    # The row catches up, and a retry of the request reads the same answer.
+    deadline = time.monotonic() + 10
+    while rows(repository, "SELECT state FROM mobile_jobs WHERE request_id='k1'")[0]["state"] != "completed":
+        assert time.monotonic() < deadline
+        time.sleep(0.01)
+    again = phone.submit(session["sessionId"], "k1")
+    assert again.status_code == 200 and again.json()["result"]["attemptId"] == attempt[0]["id"]
+    assert grader.grades == 1 and len(_attempts(repository, "k1")) == 1
+
+
+def test_the_job_endpoint_says_the_same_as_the_submission_endpoint(world, monkeypatch):
+    phone, _host, repository, _paths, grader = world
+    _break_completion(monkeypatch, times=1)
+    session = phone.start()
+    accepted = phone.submit(session["sessionId"], "k1").json()["accepted"]
+    deadline = time.monotonic() + 20
+    while True:
+        body = phone.get(f"/api/v1/jobs/{accepted['job_id']}").json()
+        assert body["state"] != "failed", body
+        if body["state"] == "completed":
+            break
+        assert time.monotonic() < deadline
+        time.sleep(0.02)
+    assert body["result"]["attemptId"] == _attempts(repository, "k1")[0]["id"] and grader.grades == 1
+
+
+def test_the_recovery_runs_once_per_poll_at_most_and_never_on_its_own(world, monkeypatch):
+    from learnloop_mobile import runtime as runtime_module
+
+    phone, _host, _repository, _paths, _grader = world
+    monkeypatch.setattr(runtime_module, "_REDRIVES_BEFORE_DELAYED", 10_000)
+    calls = _break_completion(monkeypatch)
+    session = phone.start()
+    assert phone.submit(session["sessionId"], "k1").status_code == 202
+    assert len(calls) == 1
+    # Nobody polling: nothing runs, whatever the time.
+    time.sleep(0.2)
+    assert len(calls) == 1
+    # One poll, one recovery.
+    assert _status(phone, "k1")["state"] == "running"
+    deadline = time.monotonic() + 10
+    while len(calls) < 2:
+        assert time.monotonic() < deadline
+        time.sleep(0.005)
+    time.sleep(0.1)
+    assert len(calls) == 2
+
+
+def test_polls_during_a_recovery_do_not_stack_another(world, monkeypatch):
+    phone, _host, _repository, _paths, grader = world
+    release = threading.Event()
+    release.set()
+    calls = _break_completion(monkeypatch, gate=release)
+    session = phone.start()
+    assert phone.submit(session["sessionId"], "k1").status_code == 202
+    assert len(calls) == 1
+    release.clear()
+    for _ in range(5):
+        assert _status(phone, "k1")["state"] == "running"
+        time.sleep(0.02)
+    deadline = time.monotonic() + 10
+    while len(calls) < 2:
+        assert time.monotonic() < deadline
+        time.sleep(0.005)
+    time.sleep(0.1)
+    assert len(calls) == 2  # the first of the five, and the other four found it under way
+    release.set()
+    assert grader.grades == 1
+
+
+def test_a_job_still_running_is_not_recovered_beside_itself(world, monkeypatch):
+    """The attempt can commit while its own job is completing it: that job is the completion."""
+
+    phone, _host, repository, _paths, grader = world
+    monkeypatch.setattr(host_module, "JOB_WAIT_SECONDS", 0.05)
+    release = threading.Event()
+    calls = _break_completion(monkeypatch, times=0, gate=release)
+    session = phone.start()
+    assert phone.submit(session["sessionId"], "k1").status_code == 202
+    deadline = time.monotonic() + 10
+    while not calls:
+        assert time.monotonic() < deadline
+        time.sleep(0.005)
+    for _ in range(5):
+        assert _status(phone, "k1")["state"] == "running"
+    release.set()
+    assert _poll_until(phone, "k1", "completed")[-1]["result"]["attemptId"]
+    assert len(calls) == 1 and grader.grades == 1 and len(_attempts(repository, "k1")) == 1
+
+
+def test_a_completion_that_can_never_finish_says_recorded_and_never_failed(world, monkeypatch):
+    """The phone opens the feedback; it never takes a new key. A later read can still finish it."""
+
+    import learnloop_sidecar.handlers.practice as practice
+
+    phone, _host, repository, _paths, grader = world
+    real = practice.run_post_attempt_pipeline
+    _break_completion(monkeypatch)
+    session = phone.start()
+    assert phone.submit(session["sessionId"], "k1").status_code == 202
+    seen = _poll_until(phone, "k1", "recorded")
+    assert {body["state"] for body in seen} <= {"running", "recorded"}
+    attempt = _attempts(repository, "k1")[0]["id"]
+    assert seen[-1]["attempt_id"] == attempt
+    assert seen[-1]["error"]["code"] == "submission_committed"
+    deadline = time.monotonic() + 10
+    while rows(repository, "SELECT state FROM mobile_jobs WHERE request_id='k1'")[0]["state"] != "recorded":
+        assert time.monotonic() < deadline
+        time.sleep(0.01)
+    job_id = rows(repository, "SELECT id FROM mobile_jobs WHERE request_id='k1'")[0]["id"]
+    job = phone.get(f"/api/v1/jobs/{job_id}").json()
+    assert job["state"] == "recorded" and job["attempt_id"] == attempt
+    # A retry says the same in the /rpc shape the phone already reads, and grades nothing.
+    again = phone.submit(session["sessionId"], "k1")
+    assert again.status_code == 409 and again.json()["error"]["code"] == "submission_committed"
+    assert again.json()["error"]["details"]["attempt_id"] == attempt
+    assert grader.grades == 1 and len(_attempts(repository, "k1")) == 1
+    # Its feedback opens without the completion.
+    assert phone.rpc("get_feedback", {"attemptId": attempt})["attemptId"] == attempt
+    # And it isn't over: healed, the next read finishes it under the same key.
+    _heal_completion(monkeypatch, real)
+    done = _poll_until(phone, "k1", "completed")[-1]
+    assert done["result"]["attemptId"] == attempt and grader.grades == 1
+
+
+def test_a_committed_attempt_with_no_saved_completion_is_recorded_at_once(world, monkeypatch):
+    """`submission_committed`, the typed refusal for this, is not a job's failure either."""
+
+    phone, _host, repository, _paths, grader = world
+    calls = _break_completion(monkeypatch)
+    session = phone.start()
+    assert phone.submit(session["sessionId"], "k1").status_code == 202
+    assert len(calls) == 1
+    with repository.connection() as connection:
+        connection.execute("DELETE FROM attempt_completion_work")
+        connection.commit()
+    seen = _poll_until(phone, "k1", "recorded")
+    assert len(calls) == 1  # refused before any completion ran
+    assert seen[-1]["attempt_id"] == _attempts(repository, "k1")[0]["id"]
+    assert grader.grades == 1
+
+
+def test_a_refusal_that_committed_nothing_is_still_failed(world, monkeypatch):
+    phone, _host, repository, *_ = world
+    install_grading_outage(monkeypatch)
+    session = phone.start()
+    assert phone.submit(session["sessionId"], "k1").status_code == 409
+    assert _attempts(repository, "k1") == []
+    assert _status(phone, "k1")["state"] == "failed"
+
+
+def test_another_items_attempt_under_the_key_does_not_rewrite_this_requests_refusal(world):
+    """A second device reusing a key for another item is refused; that refusal is its own."""
+
+    phone, host, repository, _paths, _grader = world
+    session = phone.start()
+    assert phone.submit(session["sessionId"], "k1").status_code == 200
+    other = Phone(phone.client, pair(repository, label="Other"))
+    adopted = other.post("adopt_session", {"sessionId": session["sessionId"], "expectedGeneration": 0})
+    assert adopted.status_code == 200, adopted.text
+    refused = other.submit(session["sessionId"], "k1", item=SECOND_ITEM)
+    assert refused.status_code == 422 and refused.json()["error"]["code"] == "validation_error"
+    job = rows(repository, "SELECT id, state FROM mobile_jobs WHERE request_id='k1' AND device_id=?",
+               other.device["device_id"])[0]
+    assert job["state"] == "failed"
+    assert other.get(f"/api/v1/jobs/{job['id']}").json()["state"] == "failed"
+
+
+def test_the_attempt_of_a_successor_key_counts_for_its_job(world, monkeypatch):
+    """§B4's answering key: the attempt is under a successor of the request's key."""
+
+    import learnloop_sidecar.handlers.practice as practice
+
+    phone, _host, repository, _paths, grader = world
+    monkeypatch.setattr(practice, "answering_key",
+                        lambda _repo, key, _session, _item: (f"{key}~after~a0", True) if key else (None, False))
+    _break_completion(monkeypatch, times=1)
+    session = phone.start()
+    assert phone.submit(session["sessionId"], "k1").status_code == 202
+    done = _poll_until(phone, "k1", "completed")[-1]
+    assert done["result"]["attemptId"] == _attempts(repository, "k1~after~a0")[0]["id"]
+    assert grader.grades == 1
+
+
+def test_a_desktops_attempt_with_no_receipt_is_finished_by_the_status_read(world, monkeypatch):
+    """No job: the desktop died after its attempt, and the phone adopted the session."""
+
+    phone, _host, repository, _paths, grader = world
+    _break_completion(monkeypatch, times=1)
+    session = phone.start()
+    assert phone.submit(session["sessionId"], "k1").status_code == 202
+    with repository.connection() as connection:
+        connection.execute("DELETE FROM mobile_jobs WHERE request_id='k1'")
+        connection.commit()
+    seen = _poll_until(phone, "k1", "completed")
+    assert seen[0]["state"] == "running"
+    assert seen[-1]["result"]["attemptId"] == _attempts(repository, "k1")[0]["id"]
+    assert "job_id" not in seen[-1] and grader.grades == 1
+
+
+def test_finishing_it_moves_the_queue_token_for_the_desktop(world, monkeypatch):
+    phone, _host, repository, _paths, _grader = world
+    _break_completion(monkeypatch, times=1)
+    session = phone.start()
+    assert phone.submit(session["sessionId"], "k1").status_code == 202
+    before = repository.queue_revision()["revision"]
+    _poll_until(phone, "k1", "completed")
+    deadline = time.monotonic() + 10
+    while repository.queue_revision()["revision"] == before:
+        assert time.monotonic() < deadline, "the desktop would never see the completion"
+        time.sleep(0.01)
+
+
+def test_a_terminal_write_a_recovery_owes_is_paid_like_any_other(world, monkeypatch):
+    """F7's debt: the row is behind, and what the phone reads is not."""
+
+    import sqlite3
+
+    from learnloop_mobile import runtime as runtime_module
+
+    phone, host, repository, _paths, grader = world
+    monkeypatch.setattr(runtime_module, "_FINISH_RETRIES", 0)
+    monkeypatch.setattr(runtime_module, "_FINISH_DEBT_RETRY_SECONDS", 0.02)
+    real_finish = capture.finish_job
+    healed = threading.Event()
+
+    def stuck_until_healed(*args, **kwargs):
+        if not healed.is_set():
+            raise sqlite3.OperationalError("database or disk is full")
+        return real_finish(*args, **kwargs)
+
+    _break_completion(monkeypatch, times=1)
+    monkeypatch.setattr(capture, "finish_job", stuck_until_healed)
+    session = phone.start()
+    assert phone.submit(session["sessionId"], "k1").status_code == 202
+    assert _poll_until(phone, "k1", "completed")[-1]["result"]["attemptId"]
+    assert rows(repository, "SELECT state FROM mobile_jobs WHERE request_id='k1'")[0]["state"] == "running"
+    deadline = time.monotonic() + 10
+    while host.runtime.owed_finishes() == 0:
+        assert time.monotonic() < deadline
+        time.sleep(0.005)
+    healed.set()
+    deadline = time.monotonic() + 10
+    while rows(repository, "SELECT state FROM mobile_jobs WHERE request_id='k1'")[0]["state"] != "completed":
+        assert time.monotonic() < deadline, "the terminal write was never paid"
+        time.sleep(0.01)
+    assert grader.grades == 1
+
+
+def test_a_failure_the_runtime_can_not_check_is_not_reported_failed(world, monkeypatch):
+    """The read that would say whether the attempt committed fails too: the job stays open."""
+
+    import sqlite3
+
+    from learnloop_mobile import runtime as runtime_module
+
+    phone, _host, repository, _paths, grader = world
+    monkeypatch.setattr(runtime_module, "_FINISH_RETRIES", 0)
+    monkeypatch.setattr(runtime_module, "_FINISH_DEBT_RETRY_SECONDS", 0.02)
+    healed = threading.Event()
+    real_attempt = type(repository).practice_attempt_by_submission_id
+
+    def unreadable(self, key):
+        if threading.current_thread().name == "mobile-job" and not healed.is_set() and failing.is_set():
+            raise sqlite3.OperationalError("disk I/O error")
+        return real_attempt(self, key)
+
+    failing = threading.Event()
+    import learnloop_sidecar.handlers.practice as practice
+
+    real_pipeline = practice.run_post_attempt_pipeline
+
+    def broken(*args, **kwargs):
+        failing.set()
+        raise RuntimeError("the completion stopped after the attempt committed")
+
+    monkeypatch.setattr(practice, "run_post_attempt_pipeline", broken)
+    monkeypatch.setattr(type(repository), "practice_attempt_by_submission_id", unreadable)
+    session = phone.start()
+    assert phone.submit(session["sessionId"], "k1").status_code == 202
+    assert rows(repository, "SELECT state FROM mobile_jobs WHERE request_id='k1'")[0]["state"] != "failed"
+    monkeypatch.setattr(practice, "run_post_attempt_pipeline", real_pipeline)
+    healed.set()
+    assert _poll_until(phone, "k1", "completed")[-1]["result"]["attemptId"]
+    assert grader.grades == 1
+
+
+def test_three_boots_of_a_committed_attempt_say_recorded_not_failed(tmp_path, monkeypatch):
+    paths, repository = seeded_vault(tmp_path / "vault")
+    grader = CountingGrader()
+    install_grader(monkeypatch, grader)
+    device = pair(repository)
+    with _restart(paths) as client:
+        phone = Phone(client, device)
+        session = phone.start()["sessionId"]
+        attempt = phone.submit(session, "k1").json()["result"]["attemptId"]
+    with repository.connection() as connection:
+        connection.execute("DELETE FROM attempt_submission_receipts WHERE submission_id='k1'")
+        connection.execute(
+            "UPDATE mobile_jobs SET state='running',result_json=NULL,finished_at=NULL,host_boot_id='dead-boot',boot_attempts=2"
+        )
+        connection.commit()
+    _break_completion(monkeypatch)
+    grades = grader.grades
+    with _restart(paths) as client:
+        phone = Phone(client, device)
+        job_id = rows(repository, "SELECT id FROM mobile_jobs")[0]["id"]
+        body = phone.get(f"/api/v1/jobs/{job_id}").json()
+        assert body["state"] in ("running", "recorded") and body["state"] != "failed"
+        assert rows(repository, "SELECT state FROM mobile_jobs")[0]["state"] == "recorded"
+        assert _poll_until(phone, "k1", "recorded")[-1]["attempt_id"] == attempt
+    assert grader.grades == grades
+
+
+def test_a_recorded_job_is_tried_again_by_a_later_host_and_only_so_many_times(tmp_path, monkeypatch):
+    """A recorded completion that nobody reads again still gets a try on a restart, boundedly."""
+
+    paths, repository = seeded_vault(tmp_path / "vault")
+    grader = CountingGrader()
+    install_grader(monkeypatch, grader)
+    device = pair(repository)
+    with _restart(paths) as client:
+        phone = Phone(client, device)
+        session = phone.start()["sessionId"]
+        attempt = phone.submit(session, "k1").json()["result"]["attemptId"]
+    with repository.connection() as connection:
+        connection.execute("DELETE FROM attempt_submission_receipts WHERE submission_id='k1'")
+        connection.execute(
+            "UPDATE mobile_jobs SET state='recorded',result_json=NULL,error_json='{}',host_boot_id='dead-boot',boot_attempts=0"
+        )
+        connection.commit()
+    assert capture.recover_jobs(repository, "boot-1") != []
+    job = rows(repository, "SELECT state, boot_attempts FROM mobile_jobs")[0]
+    assert job == {"state": "accepted", "boot_attempts": 1}
+    with repository.connection() as connection:
+        connection.execute(
+            "UPDATE mobile_jobs SET state='recorded',host_boot_id='dead-boot',boot_attempts=?", (capture.MAX_BOOTS,)
+        )
+        connection.commit()
+    assert capture.recover_jobs(repository, "boot-2") == []
+    assert rows(repository, "SELECT state FROM mobile_jobs")[0]["state"] == "recorded"
+    assert attempt
+
+
+def test_the_recorded_state_is_in_the_jobs_schema(world):
+    _phone, _host, repository, *_ = world
+    with repository.connection() as connection:
+        ddl = connection.execute("SELECT sql FROM sqlite_master WHERE name='mobile_jobs'").fetchone()[0]
+    assert "'recorded'" in ddl

@@ -285,7 +285,7 @@ class MobileHost:
                 raise HostError(404, "not_found")
             return JSONResponse(_status_body(job))
         if route == "/api/v1/submissions/{submission_id}":
-            return JSONResponse(await self.work(self.runtime.submission_status, path.rsplit("/", 1)[1]))
+            return JSONResponse(await self.work(self.runtime.submission_status, path.rsplit("/", 1)[1], device["device_id"]))
         if method in {"GET", "HEAD"} and _is_app_path(path):
             return await self.static_app(scope, path)
         if method != "POST" or path not in {"/pair", "/rpc", "/api/v1/capture"}:
@@ -402,7 +402,7 @@ class MobileHost:
     def _job_response(job: JobView) -> JSONResponse:
         if job.state == capture.COMPLETED:
             return JSONResponse({"ok": True, "result": job.result})
-        if job.state == capture.FAILED:
+        if job.state in (capture.FAILED, capture.RECORDED):
             error = job.error or {}
             return JSONResponse({"ok": False, "error": error}, status_code=status_for(str(error.get("code"))))
         return JSONResponse(

@@ -10,6 +10,9 @@
 -- what tells an identical retry (coalesced) from a conflicting one (409).
 -- host_boot_id says which run of the host holds the row, and boot_attempts how many
 -- runs have tried it (three, then failed: host_restart_exhausted).
+-- failed means no attempt committed under the request. recorded is a submit whose
+-- attempt did commit and whose completion has not finished: its feedback is delayed,
+-- its key is spent, and a later read or host start may still finish it.
 --
 -- Never evidence: the attempt and its receipt are written by the ordinary handlers,
 -- and nothing in scoring, scheduling, projection or replay reads this table.
@@ -21,7 +24,7 @@ CREATE TABLE mobile_jobs (
   method TEXT NOT NULL,
   params_json TEXT NOT NULL,
   params_sha256 TEXT NOT NULL,
-  state TEXT NOT NULL CHECK (state IN ('accepted', 'running', 'completed', 'failed')),
+  state TEXT NOT NULL CHECK (state IN ('accepted', 'running', 'completed', 'failed', 'recorded')),
   result_json TEXT,
   error_json TEXT,
   host_boot_id TEXT NOT NULL,

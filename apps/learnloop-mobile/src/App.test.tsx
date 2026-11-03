@@ -711,6 +711,111 @@ describe("a question through what can go wrong (Codex review of M2a)", () => {
     });
   });
 
+  describe("F2, final: the host's status says what committed (R2)", () => {
+    const statusOf = (key: string) => `/api/v1/submissions/${key}`;
+    const RECORDED = (attempt = "a1") => ({
+      state: "recorded", attempt_id: attempt,
+      error: { code: "submission_committed", message: "Your answer is recorded. Its feedback is delayed.", retryable: false, details: { attempt_id: attempt } }
+    });
+    const keysSent = () => new Set(called("submit_attempt").map((call) => call.params.submissionId));
+    const accepted = (jobId: string, key: string) =>
+      ({ status: 202, body: { ok: true, accepted: { job_id: jobId, request_id: key, state: "running" } } });
+
+    async function lostSubmit() {
+      answers.submit_attempt = NOT_OURS;
+      await openAndType();
+      fireEvent.click(screen.getByRole("button", { name: "Submit" }));
+      await screen.findByText(/answered with something unexpected/);
+      answers.submit_attempt = { attemptId: "a2", practiceItemId: "i1" };
+      return String(called("submit_attempt")[0].params.submissionId);
+    }
+
+    it("a job whose completion stopped reads running, then its feedback, under one key", async () => {
+      answers.submit_attempt = (call: Call) => accepted("j1", String(call.requestId));
+      getAnswers["/api/v1/jobs/j1"] = { job_id: "j1", state: "running" };
+      await openAndType();
+      fireEvent.click(screen.getByRole("button", { name: "Submit" }));
+      await waitFor(() => expect(gets).toContain("/api/v1/jobs/j1"));
+      getAnswers["/api/v1/jobs/j1"] = { job_id: "j1", state: "completed", result: { attemptId: "a1", practiceItemId: "i1" } };
+      await screen.findByText("3 / 4", undefined, { timeout: 4000 });
+      expect(called("submit_attempt")).toHaveLength(1);
+      expect(keysSent().size).toBe(1);
+    });
+
+    it("a job that can't finish opens its feedback and acknowledges, with no second submit", async () => {
+      answers.submit_attempt = (call: Call) => accepted("j1", String(call.requestId));
+      getAnswers["/api/v1/jobs/j1"] = { job_id: "j1", ...RECORDED() };
+      await openAndType();
+      fireEvent.click(screen.getByRole("button", { name: "Submit" }));
+      await screen.findByText("3 / 4");
+      expect(called("get_feedback")[0].params.attemptId).toBe("a1");
+      expect(called("submit_attempt")).toHaveLength(1);
+      expect(called("acknowledge_practice_submission")).toHaveLength(1);
+      expect(localStorage.getItem("learnloop.questionDrafts")).toBe("{}");
+    });
+
+    it("an edit after a lost response reads recorded: its feedback, and never a new key", async () => {
+      const key = await lostSubmit();
+      getAnswers[statusOf(key)] = RECORDED();
+      typeInto("Something else");
+      const saves = called("save_practice_draft").length;
+      fireEvent.click(screen.getByRole("button", { name: "Submit" }));
+      await screen.findByText("3 / 4");
+      expect(called("submit_attempt")).toHaveLength(1);
+      expect(called("save_practice_draft")).toHaveLength(saves);
+      expect(called("acknowledge_practice_submission")[0].params.submissionId).toBe(key);
+    });
+
+    it("the /rpc answer for a recorded key opens the same feedback", async () => {
+      answers.submit_attempt = { status: 409, body: { ok: false, error: { code: "submission_committed", message: "m", retryable: false, details: { attempt_id: "a1" } } } };
+      await openAndType();
+      fireEvent.click(screen.getByRole("button", { name: "Submit" }));
+      await screen.findByText("3 / 4");
+      expect(called("get_feedback")[0].params.attemptId).toBe("a1");
+      expect(called("acknowledge_practice_submission")).toHaveLength(1);
+    });
+
+    it("a skip over a recorded key opens the feedback and skips nothing", async () => {
+      const key = await lostSubmit();
+      answers.skip_practice_item = queue([row("i2")]);
+      getAnswers[statusOf(key)] = RECORDED();
+      fireEvent.click(screen.getByRole("button", { name: "Skip" }));
+      await screen.findByText("3 / 4");
+      expect(called("skip_practice_item")).toEqual([]);
+    });
+
+    it("a reopened app waiting on a job that comes back recorded opens the feedback", async () => {
+      cacheSessionId("s1");
+      rememberPendingSubmit({ jobId: "j9", submissionId: "k9", sessionId: "s1", practiceItemId: "i1" });
+      getAnswers["/api/v1/jobs/j9"] = { job_id: "j9", ...RECORDED() };
+      render(<App />);
+      await screen.findByText("3 / 4");
+      expect(called("acknowledge_practice_submission")[0].params.submissionId).toBe("k9");
+      expect(called("submit_attempt")).toEqual([]);
+    });
+
+    it("a reopened app reading the checkpoint's recorded key opens the feedback", async () => {
+      cacheSessionId("s1");
+      answers.get_session = session({ checkpoint: { currentPracticeItemId: "i1", currentAnswer: "Draft", submissionId: "k9" } });
+      getAnswers[statusOf("k9")] = RECORDED();
+      render(<App />);
+      await screen.findByText("3 / 4");
+      expect(called("submit_attempt")).toEqual([]);
+      expect(screen.queryByRole("textbox")).toBeNull();
+    });
+
+    it("waiting on a key with no job here ends at recorded too", async () => {
+      const key = await lostSubmit();
+      getAnswers[statusOf(key)] = { state: "running" };
+      typeInto("Something else");
+      fireEvent.click(screen.getByRole("button", { name: "Submit" }));
+      await screen.findByText(/being graded/);
+      getAnswers[statusOf(key)] = RECORDED();
+      await screen.findByText("3 / 4", undefined, { timeout: 4000 });
+      expect(called("submit_attempt")).toHaveLength(1);
+    });
+  });
+
   describe("F3: a reopened app retries the same request", () => {
     it("resends the first request's fields, candidate and latency included, under its key", async () => {
       answers.submit_attempt = GRADING_FAILED;

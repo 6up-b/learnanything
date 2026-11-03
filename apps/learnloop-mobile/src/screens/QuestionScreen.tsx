@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import type { AttemptResultDto, CommandError, PracticeItemDetail, SessionSnapshot } from "@desktop/api/dto";
 import { MarkdownMath } from "@desktop/render/MarkdownMath";
 import { MathLiveEditor } from "@desktop/render/MathLiveEditor";
+import { committedAttempt } from "../api/http";
 import { phone, type SubmitInput } from "../api/phone";
 import { phoneAttemptType } from "../util/attemptType";
 import { newUlid } from "../util/ulid";
@@ -215,6 +216,10 @@ export function QuestionScreen({
       await finish((status.result as AttemptResultDto).attemptId, key);
       return true;
     }
+    if (status.state === "recorded" && status.attempt_id) {
+      await finish(status.attempt_id, key);
+      return true;
+    }
     if (status.state === "accepted" || status.state === "running") {
       dirty.current = false;
       onWaiting(key, practiceItemId);
@@ -294,15 +299,11 @@ export function QuestionScreen({
         sentInput.current = null;
         remember();
       }
-      if (command.code === "submission_committed") {
-        // The attempt is in; only its completion's receipt is missing.
-        const attemptId = (command.details as { attempt_id?: string; attemptId?: string } | undefined);
-        const committed = attemptId?.attempt_id ?? attemptId?.attemptId;
-        if (committed) {
-          clearQuestionDraft(sessionId, practiceItemId);
-          onFeedback(committed, practiceItemId);
-          return;
-        }
+      // The attempt is in; only its completion's receipt is missing, and the host goes on trying.
+      const committed = committedAttempt(error);
+      if (committed) {
+        await finish(committed, submissionId.current);
+        return;
       }
       // The App's banner says where the session went; this screen has nothing to add.
       if (command.code === "session_moved") {

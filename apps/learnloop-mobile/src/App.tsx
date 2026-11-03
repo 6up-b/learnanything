@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import type { AttemptResultDto, CommandError, ScheduledItemDto, SessionEndSummary, SessionSnapshot } from "@desktop/api/dto";
 import { invalidate, setQueryData, clear as clearQueries } from "@desktop/api/queryCache";
 import { TAG } from "@desktop/api/queryTags";
-import { pollJob } from "./api/http";
+import { committedAttempt, pollJob } from "./api/http";
 import { phone, type OwnerSnapshot } from "./api/phone";
 import { useVisibleInterval } from "./util/useVisibleInterval";
 import { CaptureScreen } from "./screens/CaptureScreen";
@@ -165,6 +165,11 @@ function Phone({ credential }: { credential: Credential }) {
         await phone.acknowledge(next.sessionId, itemId, checkpoint.submissionId).catch(() => undefined);
         return { name: "feedback", attemptId: result.attemptId, practiceItemId: itemId };
       }
+      if (status?.state === "recorded" && status.attempt_id) {
+        clearQuestionDraft(next.sessionId, itemId);
+        await phone.acknowledge(next.sessionId, itemId, checkpoint.submissionId).catch(() => undefined);
+        return { name: "feedback", attemptId: status.attempt_id, practiceItemId: itemId };
+      }
       if (status?.state === "accepted" || status?.state === "running") {
         return { name: "waiting", submissionId: checkpoint.submissionId, practiceItemId: itemId };
       }
@@ -218,9 +223,16 @@ function Phone({ credential }: { credential: Credential }) {
     const sessionId = sessionRef.current?.sessionId ?? "";
     const pending = pendingSubmit();
     (async () => {
-      let result: AttemptResultDto | null = null;
+      let attemptId: string | null = null;
       if (pending?.submissionId === submissionId) {
-        result = await pollJob<AttemptResultDto>(pending.jobId, () => cancelled);
+        attemptId = await pollJob<AttemptResultDto>(pending.jobId, () => cancelled).then(
+          (result) => result.attemptId,
+          (error) => {
+            const committed = committedAttempt(error);
+            if (committed) return committed;
+            throw error;
+          }
+        );
       } else {
         for (;;) {
           // A lost desktop is no end to the wait: the job runs on, and this finds it after (A4).
@@ -229,7 +241,11 @@ function Phone({ credential }: { credential: Credential }) {
             throw error;
           });
           if (status.state === "completed") {
-            result = status.result as AttemptResultDto;
+            attemptId = (status.result as AttemptResultDto).attemptId;
+            break;
+          }
+          if (status.state === "recorded" && status.attempt_id) {
+            attemptId = status.attempt_id;
             break;
           }
           if (status.state === "failed") throw status.error;
@@ -240,10 +256,10 @@ function Phone({ credential }: { credential: Credential }) {
       }
       if (cancelled) return;
       rememberPendingSubmit(null);
-      if (result) {
+      if (attemptId) {
         clearQuestionDraft(sessionId, practiceItemId);
         await phone.acknowledge(sessionId, practiceItemId, submissionId).catch(() => undefined);
-        setView({ name: "feedback", attemptId: result.attemptId, practiceItemId });
+        setView({ name: "feedback", attemptId, practiceItemId });
       } else {
         setView({ name: "today" });
       }

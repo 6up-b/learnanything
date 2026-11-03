@@ -1194,6 +1194,7 @@ def _bind_offer(repository, params, submission_id, *, entry_surface: str | None 
 
 
 @method("recover_practice_submission", PracticeSubmissionRecoveryInput)
+@host_mutation
 def recover_practice_submission(
     ctx: SidecarContext,
     params: PracticeSubmissionRecoveryInput,

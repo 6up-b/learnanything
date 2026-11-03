@@ -20,7 +20,13 @@ from .devices import _now
 from .errors import CaptureError
 
 ACCEPTED, RUNNING, COMPLETED, FAILED = "accepted", "running", "completed", "failed"
+#: A submit whose attempt committed and whose completion has not finished (orchestrator ruling
+#: R2). Not a failure: the attempt stands, its key is spent, and only its feedback is delayed.
+RECORDED = "recorded"
 OPEN_STATES = (ACCEPTED, RUNNING)
+SUBMIT_METHODS = ("submit_attempt", "submit_dont_know")
+#: The error a recorded submit answers /rpc with, the sidecar's own refusal for this.
+SUBMISSION_COMMITTED = "submission_committed"
 #: A job a restarted host has picked up this many times has failed for good (§6.3).
 MAX_BOOTS = 3
 HOST_RESTART_EXHAUSTED = "host_restart_exhausted"
@@ -33,6 +39,16 @@ def _row(row: Any) -> dict[str, Any]:
     job["result"] = json.loads(result) if result is not None else None
     job["error"] = json.loads(error) if error is not None else None
     return job
+
+
+def recorded_error(attempt: dict[str, Any]) -> dict[str, Any]:
+    """What a recorded submit says, in ``CommandError``'s four fields."""
+
+    return {
+        "code": SUBMISSION_COMMITTED, "retryable": False,
+        "message": "Your answer is recorded. Its feedback is delayed.",
+        "details": {"attempt_id": attempt["id"], "attempt_type": attempt.get("attempt_type"), "route_status": "unknown"},
+    }
 
 
 def get_job(repo: Repository, job_id: str) -> dict[str, Any] | None:
@@ -119,9 +135,11 @@ def start_job(repo: Repository, job_id: str, *, now: datetime | None = None) -> 
 
 def finish_job(
     repo: Repository, job_id: str, *, result: Any = None, error: dict[str, Any] | None = None,
-    now: datetime | None = None,
+    state: str | None = None, now: datetime | None = None,
 ) -> None:
-    state = FAILED if error is not None else COMPLETED
+    """``state`` is only for :data:`RECORDED`, which carries an error and is no failure."""
+
+    state = state or (FAILED if error is not None else COMPLETED)
     with repo.atomic(), repo.connection() as conn:
         conn.execute(
             "UPDATE mobile_jobs SET state=?,result_json=?,error_json=?,finished_at=? WHERE id=?",
@@ -143,31 +161,38 @@ def recover_jobs(repo: Repository, boot_id: str, *, now: datetime | None = None)
     means: ``_cached_submission`` resumes a committed attempt's saved completion
     without grading again, and no attempt means no evidence was written, so it grades
     again. After :data:`MAX_BOOTS` runs it fails with ``host_restart_exhausted``, and
-    the draft is still in the checkpoint.
+    the draft is still in the checkpoint; unless the attempt committed, which makes it
+    :data:`RECORDED` (R2). A recorded job is one more completion owed, so it gets the
+    same bounded tries.
     """
 
     at = _now(now).isoformat()
     requeued: list[dict[str, Any]] = []
     with repo.atomic(), repo.connection() as conn:
         rows = conn.execute(
-            "SELECT * FROM mobile_jobs WHERE state IN ('accepted','running') AND host_boot_id<>? ORDER BY accepted_at, id",
-            (boot_id,),
+            """SELECT * FROM mobile_jobs WHERE host_boot_id<>? AND
+               (state IN ('accepted','running') OR (state=? AND boot_attempts<?)) ORDER BY accepted_at, id""",
+            (boot_id, RECORDED, MAX_BOOTS),
         ).fetchall()
         for row in rows:
             job = _row(row)
-            receipt = (
-                repo.attempt_submission_receipt(job["request_id"])
-                if job["method"] in ("submit_attempt", "submit_dont_know")
-                else None
-            )
+            submit = job["method"] in SUBMIT_METHODS
+            receipt = repo.attempt_submission_receipt(job["request_id"]) if submit else None
             if receipt is not None:
                 conn.execute(
-                    "UPDATE mobile_jobs SET state=?,result_json=?,finished_at=? WHERE id=?",
+                    "UPDATE mobile_jobs SET state=?,result_json=?,error_json=NULL,finished_at=? WHERE id=?",
                     (COMPLETED, json.dumps(receipt["result"], sort_keys=True), at, job["id"]),
                 )
                 continue
             attempts = int(job["boot_attempts"]) + 1
             if attempts >= MAX_BOOTS:
+                attempt = repo.practice_attempt_by_submission_id(job["request_id"]) if submit else None
+                if attempt is not None:
+                    conn.execute(
+                        "UPDATE mobile_jobs SET state=?,error_json=?,boot_attempts=?,finished_at=? WHERE id=?",
+                        (RECORDED, json.dumps(recorded_error(attempt), sort_keys=True), attempts, at, job["id"]),
+                    )
+                    continue
                 error = {"code": HOST_RESTART_EXHAUSTED, "retryable": False, "details": {},
                          "message": "The desktop restarted too many times during this request; your draft is saved."}
                 conn.execute(
@@ -176,7 +201,7 @@ def recover_jobs(repo: Repository, boot_id: str, *, now: datetime | None = None)
                 )
                 continue
             conn.execute(
-                "UPDATE mobile_jobs SET state=?,host_boot_id=?,boot_attempts=?,started_at=NULL WHERE id=?",
+                "UPDATE mobile_jobs SET state=?,host_boot_id=?,boot_attempts=?,error_json=NULL,started_at=NULL,finished_at=NULL WHERE id=?",
                 (ACCEPTED, boot_id, attempts, job["id"]),
             )
             requeued.append({**job, "state": ACCEPTED, "host_boot_id": boot_id, "boot_attempts": attempts})

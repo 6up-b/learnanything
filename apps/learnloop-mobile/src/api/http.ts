@@ -116,13 +116,24 @@ export async function getJson<T>(path: string): Promise<T> {
 /** §6.3's polling interval, and a terminal state ends it. */
 export const JOB_POLL_MS = 2000;
 
+/**
+ * `failed`: no attempt committed under this key, so it may be replaced. `recorded`: the attempt
+ * committed and its completion hasn't finished, so its key is spent and `attempt_id` opens its feedback.
+ */
 export interface JobState<T> {
-  readonly state: "accepted" | "running" | "completed" | "failed" | "unknown";
+  readonly state: "accepted" | "running" | "completed" | "failed" | "recorded" | "unknown";
   readonly result?: T;
   readonly error?: CommandError;
+  readonly attempt_id?: string;
 }
 
-export const terminalJob = (state: JobState<unknown>["state"]) => state === "completed" || state === "failed";
+/** The attempt a `submission_committed` refusal names: `/rpc`'s word, and a polled job's, for `recorded`. */
+export function committedAttempt(error: unknown): string | null {
+  const command = error as CommandError | undefined;
+  if (command?.code !== "submission_committed") return null;
+  const attempt = (command.details as { attempt_id?: unknown } | undefined)?.attempt_id;
+  return typeof attempt === "string" ? attempt : null;
+}
 
 /**
  * Poll one job to its end. A phone that loses the desktop keeps polling: a backgrounded or offline
@@ -135,7 +146,7 @@ export async function pollJob<T>(jobId: string, isCancelled: () => boolean = () 
     try {
       const job = await getJson<JobState<T>>(`/api/v1/jobs/${encodeURIComponent(jobId)}`);
       if (job.state === "completed") return job.result as T;
-      if (job.state === "failed") throw job.error ?? ({ code: "internal", message: "The request failed.", retryable: false } satisfies CommandError);
+      if (job.state === "failed" || job.state === "recorded") throw job.error ?? ({ code: "internal", message: "The request failed.", retryable: false } satisfies CommandError);
     } catch (error) {
       const code = (error as CommandError).code;
       if (code !== "desktop_offline" && code !== "database_busy" && code !== "host_busy") throw error;

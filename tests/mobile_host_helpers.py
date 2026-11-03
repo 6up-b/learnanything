@@ -153,7 +153,7 @@ def poll_job(phone: Phone, job_id: str, *, timeout: float = 30.0) -> dict[str, A
     deadline = time.monotonic() + timeout
     while time.monotonic() < deadline:
         body = phone.get(f"/api/v1/jobs/{job_id}").json()
-        if body["state"] in ("completed", "failed"):
+        if body["state"] in ("completed", "failed", "recorded"):
             return body
         time.sleep(0.02)
     pytest.fail(f"job {job_id} never finished")

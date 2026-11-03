@@ -27,11 +27,16 @@ from .jobs import (
     ACCEPTED,
     COMPLETED,
     FAILED,
+    MAX_BOOTS,
+    RECORDED,
     RUNNING,
+    SUBMISSION_COMMITTED,
+    SUBMIT_METHODS,
     accept_job,
     finish_job,
     get_job,
     job_for_request,
+    recorded_error,
     recover_jobs,
     start_job,
 )
@@ -39,7 +44,7 @@ from .report import mobile_report, suspected_figure
 from .maintenance import log_request, pinned_vault_info, prune_request_log
 
 __all__ = [
-    "mobile_report", "suspected_figure", "ACCEPTED", "COMPLETED", "FAILED", "RUNNING", "CaptureError", "accept_job", "finish_job", "get_job", "job_for_request", "recover_jobs", "start_job",
+    "mobile_report", "suspected_figure", "ACCEPTED", "COMPLETED", "FAILED", "MAX_BOOTS", "RECORDED", "RUNNING", "SUBMISSION_COMMITTED", "SUBMIT_METHODS", "recorded_error", "CaptureError", "accept_job", "finish_job", "get_job", "job_for_request", "recover_jobs", "start_job",
     "authenticate_device", "create_pairing", "exchange_pairing",
     "list_devices", "revoke_device", "touch_device", "capture_media_preview", "create_capture",
     "dismiss_capture",
