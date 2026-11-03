@@ -336,3 +336,24 @@ def test_a_figure_with_no_book_element_is_drawn_exactly_as_before(tmp_path, monk
 def test_a_sketch_view_has_no_elements_or_source_check():
     assert not SC.grammar_row({"tier": "sketch", "spec_version": "sketch-v1"})
     assert FS.sketch_row({"tier": "sketch"})
+
+
+# -- every code-owned label's writers (Astra A3, A4): plain parses back to the same value, TeX renders ------
+
+def test_a_power_of_a_power_keeps_its_grouping_in_plain_text():
+    """Astra A3: a marker at (2^3)^2 sits at 64; its SVG label said 2^3^2, which is 512."""
+
+    from learnloop.figures import grammar as G
+
+    node = G.parse("(2^3)^2")
+    assert G.evaluate(G.parse(E.to_plain(node)), {}, {}) == G.evaluate(node, {}, {}) == 64.0
+
+
+def test_a_scientific_literal_as_a_base_is_grouped_in_both_writers():
+    """Astra A4: 1 \\times 10^{-3}^{2} is a KaTeX error, shown as red raw TeX."""
+
+    from learnloop.figures import grammar as G
+
+    node = G.parse("(1e-3)^2")
+    assert E.to_tex(node, {}) == r"\left(1 \times 10^{-3}\right)^{2}"
+    assert E.to_plain(node) == "(1e-3)^2"

@@ -272,7 +272,11 @@ SK_EXPORT(sk_load) int32_t sk_load(uint32_t len)
     JS_SetInterruptHandler(sk_rt, sk_interrupt, NULL);
     sk_ctx = JS_NewContextRaw(sk_rt);
     if (!sk_ctx || JS_AddIntrinsicBaseObjects(sk_ctx) || JS_AddIntrinsicEval(sk_ctx) ||
-        JS_AddIntrinsicJSON(sk_ctx) || JS_AddIntrinsicMapSet(sk_ctx) || JS_AddIntrinsicTypedArrays(sk_ctx)) {
+        JS_AddIntrinsicJSON(sk_ctx) || JS_AddIntrinsicMapSet(sk_ctx) || JS_AddIntrinsicTypedArrays(sk_ctx)
+#ifdef SK_WITH_REGEXP /* the book-math variant only: KaTeX's lexer is a regular expression. A sketch never has one. */
+        || JS_AddIntrinsicRegExp(sk_ctx)
+#endif
+        ) {
         unload();
         out_message("load: the engine could not start");
         return SK_MEMORY;

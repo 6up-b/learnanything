@@ -185,13 +185,20 @@ def _number_tex(text: str) -> str:
     return f"{mantissa or '1'} \\times 10^{{{int(exponent)}}}"
 
 
+#: The ``_outer`` of a power's base: tighter than every operator. A sum or an integral takes everything
+#: after it, so anything tighter than a sum needs it grouped; a scientific literal is a product in TeX;
+#: a fraction and a ``cases`` group themselves except as a base.
+_BASE = _PRECEDENCE["^"] + 1
+
+
 def to_tex(node: G.Node, definitions: Mapping[str, Any], _outer: int = 0) -> str:
     """The expression as TeX: code's words from a closed alphabet (names are
     ASCII, grammar.py's ``_NAME``), one frame per level of a capped tree."""
 
     kind = node.kind
     if kind == "num":
-        return _number_tex(node.text)
+        text = _number_tex(node.text)
+        return f"\\left({text}\\right)" if "e" in node.text.lower() and _outer > _PRECEDENCE["*"] else text
     if kind == "name":
         return symbol_tex(node.text, definition=node.text in definitions)
     if kind == "neg":
@@ -203,9 +210,9 @@ def to_tex(node: G.Node, definitions: Mapping[str, Any], _outer: int = 0) -> str
         level = _PRECEDENCE[op]
         if op == "/":
             text = r"\frac{" + to_tex(left, definitions) + "}{" + to_tex(right, definitions) + "}"
-            return text
+            return f"\\left({text}\\right)" if _outer >= _BASE else text
         if op == "^":
-            text = to_tex(left, definitions, 5) + "^{" + to_tex(right, definitions) + "}"
+            text = to_tex(left, definitions, _BASE) + "^{" + to_tex(right, definitions) + "}"
         elif op == "*":
             text = to_tex(left, definitions, level) + r" \cdot " + to_tex(right, definitions, level + 1)
         else:
@@ -223,7 +230,8 @@ def to_tex(node: G.Node, definitions: Mapping[str, Any], _outer: int = 0) -> str
         rows = [to_tex(args[i + 1], definitions) + " & " + to_tex(args[i], definitions)
                 for i in range(0, len(args) - 1, 2)]
         rows.append(to_tex(args[-1], definitions) + r" & \text{otherwise}")
-        return r"\begin{cases} " + r" \\ ".join(rows) + r" \end{cases}"
+        text = r"\begin{cases} " + r" \\ ".join(rows) + r" \end{cases}"
+        return f"\\left({text}\\right)" if _outer >= _BASE else text
     if kind == "cmp":
         return to_tex(node.args[0], definitions) + f" {_TEX_OPS[node.op]} " + to_tex(node.args[1], definitions)
     if kind in ("and", "or"):
@@ -233,10 +241,12 @@ def to_tex(node: G.Node, definitions: Mapping[str, Any], _outer: int = 0) -> str
         body, lower, upper = node.args
         variable = symbol_tex(node.text)
         if kind == "integral":
-            return (r"\int_{" + to_tex(lower, definitions) + "}^{" + to_tex(upper, definitions) + "} "
+            text = (r"\int_{" + to_tex(lower, definitions) + "}^{" + to_tex(upper, definitions) + "} "
                     + to_tex(body, definitions, 2) + r"\,d" + variable)
-        return (r"\sum_{" + variable + "=" + to_tex(lower, definitions) + "}^{" + to_tex(upper, definitions) + "} "
-                + to_tex(body, definitions, 2))
+        else:
+            text = (r"\sum_{" + variable + "=" + to_tex(lower, definitions) + "}^{" + to_tex(upper, definitions) + "} "
+                    + to_tex(body, definitions, 2))
+        return f"\\left({text}\\right)" if _outer > _PRECEDENCE["+"] else text
     raise G.GrammarError(f"cannot render a {kind!r} node")
 
 
@@ -246,7 +256,8 @@ def to_plain(node: G.Node, _outer: int = 0) -> str:
 
     kind = node.kind
     if kind == "num":
-        return node.text
+        # 1e-3^2 parses right and reads wrong: a scientific literal as a base is grouped.
+        return f"({node.text})" if "e" in node.text.lower() and _outer >= _BASE else node.text
     if kind == "name":
         return node.text
     if kind == "neg":
@@ -255,14 +266,17 @@ def to_plain(node: G.Node, _outer: int = 0) -> str:
     if kind == "bin":
         level = _PRECEDENCE[node.op]
         spaced = f" {node.op} " if node.op in "+-" else node.op
-        text = to_plain(node.args[0], level) + spaced + to_plain(node.args[1], level + 1)
+        # The grammar's ^ groups to the right: a power on the left needs its parentheses, on the right never.
+        left, right = (_BASE, level) if node.op == "^" else (level, level + 1)
+        text = to_plain(node.args[0], left) + spaced + to_plain(node.args[1], right)
         return f"({text})" if level < _outer else text
     if kind == "call":
         return node.text + "(" + ", ".join(to_plain(child) for child in node.args) + ")"
     if kind == "piecewise":
+        # The grammar's own form: "a if b; c otherwise" inside a product could not say where it ends.
         args = node.args
-        rows = [f"{to_plain(args[i + 1])} if {to_plain(args[i])}" for i in range(0, len(args) - 1, 2)]
-        return "; ".join([*rows, f"{to_plain(args[-1])} otherwise"])
+        rows = [f"({to_plain(args[i])}, {to_plain(args[i + 1])})" for i in range(0, len(args) - 1, 2)]
+        return "piecewise(" + ", ".join([*rows, to_plain(args[-1])]) + ")"
     if kind == "cmp":
         return f"{to_plain(node.args[0])} {node.op} {to_plain(node.args[1])}"
     if kind in ("and", "or"):
@@ -466,7 +480,8 @@ def element_map(compiled: S.CompiledFigure, book: Mapping[str, BookLabel],
                     label = book[str(name)]
                     body_tex, body_plain = label.lhs, detex(label.lhs)
                 else:
-                    body_tex, body_plain = to_tex(body, definitions), to_plain(body)
+                    # The template writes what follows the integral or sum sign: a sum in it is grouped, as in to_tex.
+                    body_tex, body_plain = to_tex(body, definitions, 2), to_plain(body, 2)
                 elements[element_id(path)] = _template(
                     path, bound.kind, panel_index, 0, body_tex=body_tex, body_plain=body_plain, variable=bound.text,
                     role="derived" if carries else "ai", voice="frame" if carries else "model", compiled=compiled,

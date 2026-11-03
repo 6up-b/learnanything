@@ -48,5 +48,25 @@
     "path": "src/screens/reader/figures/sketch/sketch-engine.wasm",
     "sha256": "7fc7671506ec276c1c4e338afafb86b0d1ff3b397f901813b62715d7e274cbfe",
     "bytes": 869392
+  },
+  "variants": {
+    "book-math": {
+      "note": "RW5c: KaTeX reads a book's equation in the sidecar (learnloop.figures.katex_tree). KaTeX's lexer is a regular expression, so this variant has the RegExp intrinsic; a sketch never does. Same harness, sources and caps.",
+      "defines": [
+        "-DSK_WITH_REGEXP"
+      ],
+      "output": {
+        "path": "sketch-engine/book-math-engine.wasm",
+        "sha256": "f2b6894c68f7c8eebbecaecc869a5cac83a1de724494c1ccf1aa50bf3364ff8a",
+        "bytes": 965463
+      },
+      "katex": {
+        "version": "0.16.47",
+        "path": "sketch-engine/katex/katex.min.js",
+        "license": "MIT",
+        "npm_integrity": "sha512-Eeo8Ys1doU1z+x8AZsPpQu+p/QcZBI5PeOo7QGQdy2x2m0MU/hYagBbGOmXwr5KVbEfVuWv9LpnQWeehogurjg==",
+        "sha256": "a29d2961d3146de5949d78ac7c1a9d93ae54955bad22a6db4fbe836e88e8bf48"
+      }
+    }
   }
 }

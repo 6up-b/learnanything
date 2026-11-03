@@ -1,11 +1,15 @@
-Third-party notices for sketch-engine.wasm
-==========================================
+Third-party notices for sketch-engine.wasm and book-math-engine.wasm
+====================================================================
 
 apps/learnloop-tauri/src/screens/reader/figures/sketch/sketch-engine.wasm is
 built by build.py (this directory) from LearnLoop's own sketch_engine.c and the
 pinned sources in engine.lock.json. The binary contains code from the projects
 below, under the licences named. LearnLoop's own code is under the
 repository's licence.
+
+book-math-engine.wasm (this directory) is the same build with the RegExp
+intrinsic, so it holds the same projects. The KaTeX it runs is not in the binary:
+katex/katex.min.js is tracked as text, under its own MIT licence in katex/LICENSE.
 
 
 1. QuickJS-ng 0.17.0 (quickjs-amalgam.c), MIT License
@@ -83,3 +87,10 @@ Apache License 2.0 WITH LLVM-exception, Copyright the LLVM Project
 contributors (https://llvm.org/LICENSE.txt). Under the LLVM exception, the
 portions of compiler-rt embedded in this object code may be redistributed
 without complying with Sections 4(a), 4(b) and 4(d) of the Apache License.
+
+
+4. KaTeX 0.16.47 (katex/katex.min.js, run by book-math-engine.wasm), MIT License
+--------------------------------------------------------------------------------
+
+The whole notice is katex/LICENSE, beside the file: Copyright (c) 2013-2020 Khan
+Academy and other contributors.

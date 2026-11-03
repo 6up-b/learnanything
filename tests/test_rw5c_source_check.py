@@ -591,3 +591,23 @@ def test_a_held_out_block_later_withholds_the_figure_and_its_check(tmp_path, mon
         {"source_id": "src_math", "revision_id": "rev_math", "default_role": "exam"}]})
     ctx = context(paths.root, author=AuthorFake())
     assert call(ctx, "reader.figures", {"extractionId": EXTRACTION})["figures"] == []
+
+
+# -- Astra's two: what the page shows, read from KaTeX's own tree (structural fix) ----------------------
+
+def test_a_macro_definition_in_the_segment_is_never_checked(tmp_path):
+    """Astra: the page shows \\cos here; a TeX reader that skips the definition reads \\sin."""
+
+    paths, repository = build_check_vault(tmp_path / "vault", [("a", "Text", r"$\def\sin{\cos}f(x)=\sin(x)$")])
+    result = check((load_vault(paths.root), repository), plot("sin(x)", low=0.0, high=1.0), "a")
+    assert not result.book_elements and result.outcome == SC.NOT_CHECKABLE
+    assert result.reasons.get("macro_definition") == 1
+
+
+def test_a_double_superscript_the_page_shows_as_an_error_is_never_checked(tmp_path):
+    """Astra: KaTeX refuses e^x^2 (the page shows red raw TeX); it was read as exp(x)^2."""
+
+    paths, repository = build_check_vault(tmp_path / "vault", [("a", "Text", r"$f(x)=e^x^2$")])
+    result = check((load_vault(paths.root), repository), plot("exp(x)^2", low=0.0, high=1.0), "a")
+    assert not result.book_elements and result.outcome == SC.NOT_CHECKABLE
+    assert result.reasons.get("not_rendered") == 1

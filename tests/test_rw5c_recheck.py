@@ -330,3 +330,66 @@ def test_a_kept_build_result_read_after_the_switch_turns_off_shows_no_label(tmp_
         "figure_id": fresh["figureId"], "elements": [{"id": "x"}], "source_check": {"status": "checked"}, "spec_json": "stale",
         "versions": 1})
     assert "elements" not in view and "source_check" not in view and "the model's name" in view["spec_json"]
+
+
+# -- the report's opens and notes go by their own dates (Astra A5) --------------------------------------
+
+def _opened(repository: Any, figure_id: str, at: str, event_id: str) -> None:
+    with repository.connection() as connection:
+        connection.execute(
+            "INSERT INTO interaction_events (id, kind, payload_json, origin, created_at, occurred_at, received_at) "
+            "VALUES (?, 'reader_action_invoked', ?, 'test', ?, ?, ?)",
+            (event_id, json.dumps({"event": "figure_opened", "figure_id": figure_id}), at, at, at))
+        connection.commit()
+
+
+def _revised(repository: Any, figure_id: str, at: str, new_id: str) -> None:
+    with repository.connection() as connection:
+        connection.execute("PRAGMA foreign_keys = OFF")
+        connection.execute(
+            "INSERT INTO interactive_figures (id, extraction_id, span_ids_json, input_span_ids_json, origin, supersedes_id, "
+            "revision_note, spec_json, spec_version, kind, verification, verification_report_json, model, prompt_version, "
+            "input_hash, created_at) SELECT ?, extraction_id, span_ids_json, input_span_ids_json, origin, id, 'not right', spec_json, "
+            "spec_version, kind, verification, verification_report_json, model, prompt_version, input_hash || 'x', ? "
+            "FROM interactive_figures WHERE id = ?", (new_id, at, figure_id))
+        connection.commit()
+
+
+def _report(repository: Any, since: str) -> dict[str, Any]:
+    from contextlib import closing
+
+    from learnloop.db.connection import connect
+
+    with closing(connect(repository.sqlite_path, read_only=True)) as connection:
+        return SC.report_block(connection, since=since)
+
+
+@sandboxed
+def test_since_counts_a_figure_checked_before_it_and_opened_after(tmp_path):
+    paths, repository, _author, ctx = _vault(tmp_path, [plot("x")])
+    figure_id = build(ctx, REQUEST)["figure"]["figureId"]
+    with repository.connection() as connection:
+        connection.execute("UPDATE figure_source_checks SET created_at = '2026-10-01T00:00:00Z'")
+        connection.commit()
+    _opened(repository, figure_id, "2026-11-02T00:00:00Z", "ev_new")
+    _revised(repository, figure_id, "2026-11-02T00:00:00Z", "fig_new")
+    block = _report(repository, "2026-11-01T00:00:00Z")
+    assert block["opened"] == {"with_book": 1, "without": 0}
+    assert block["not_right_notes"] == {"with_book": 1, "without": 0}
+    # The check's own counts still go by the check's date.
+    assert block["figures"] == 0 and block["outcomes"] == {}
+
+
+@sandboxed
+def test_since_drops_an_open_before_it_of_a_figure_checked_after(tmp_path):
+    paths, repository, _author, ctx = _vault(tmp_path, [plot("x")])
+    figure_id = build(ctx, REQUEST)["figure"]["figureId"]
+    with repository.connection() as connection:
+        connection.execute("UPDATE figure_source_checks SET created_at = '2026-11-02T00:00:00Z'")
+        connection.commit()
+    _opened(repository, figure_id, "2026-10-01T00:00:00Z", "ev_old")
+    _revised(repository, figure_id, "2026-10-01T00:00:00Z", "fig_old")
+    block = _report(repository, "2026-11-01T00:00:00Z")
+    assert block["opened"] == {"with_book": 0, "without": 0}
+    assert block["not_right_notes"] == {"with_book": 0, "without": 0}
+    assert block["figures"] == 1

@@ -1,80 +1,75 @@
 """Reader RW5c: code reads the book's equation (spec_reader_rw5c_checked_labels_v1 §5.3).
 
-The closed reader of the "matches the book's equation (checked)" claim: one
-math segment of a source block becomes one relation, and its right-hand side
-becomes the figure grammar's :class:`~learnloop.figures.grammar.Node` values.
-Nothing else is ever read: every construct outside the table below makes the
-candidate unreadable with a closed reason key (:data:`REASONS`), which the
-coverage report counts (§12). No model writes any part of this reading: the
-figure author's quote can only point at a segment.
+The closed reader of the "matches the book's equation (checked)" claim. One math
+segment of a source block becomes one relation, and its right-hand side the figure
+grammar's :class:`~learnloop.figures.grammar.Node` values, in two steps:
 
-This module is pure: no I/O, and nothing is evaluated (a hand-written
-tokenizer and a parser held to the grammar's caps, one Python frame per
-nesting level bounded by :data:`~learnloop.figures.grammar.MAX_DEPTH`, as the
-grammar's own parser). It is not sympy's lark parser: that reads ``e`` as a
-free symbol and refuses common spacing and ``\\begin{cases}`` (§2's probe).
+1. **KaTeX parses the whole segment** (:mod:`.katex_tree`), the same KaTeX under the
+   same settings as the page. If it refuses, or no engine runs, or a cap is hit, the
+   segment is unreadable: what code reads is what the page shows, or nothing. No TeX is
+   tokenized here. So TeX's grouping needs no rule of ours: ``x^a_1`` is ``x₁`` to the
+   ``a``, ``\\sqrt16`` the root of 1 then a 6, ``2 3`` the numeral 23, and ``e^x^2`` an error.
+2. **A closed translator** turns KaTeX's tree into the grammar: an allowlist of tree
+   node kinds and exact symbols; anything else is unreadable with a closed reason key
+   (:data:`REASONS`), which the coverage report counts (§12). No model writes any part
+   of this: the figure author's quote can only point at a segment.
 
-The table (§5.3), each row with an exact translation:
+What remains here are the readings KaTeX cannot decide, because they are mathematics
+and not TeX, each failing closed under its own key:
 
-* integers and decimals read exactly (``Fraction(text)``: the harness's rule);
-* a Latin letter, or a Greek command under its own canonical name
-  (``\\lambda`` is ``lambda``), with one subscript letter or digit
-  (``\\mu_1``, ``x_{0}`` are ``mu1``, ``x0``); two book symbols sharing one
-  canonical name are unreadable, and so is a name the grammar reserves;
-* ``+ - \\cdot \\times``, juxtaposition, unary minus; ``\\frac{a}{b}`` and
-  ``a/b``; ``a^{b}`` and ``a^b`` with a one-token exponent;
-* ``e^{u}``, ``\\mathrm{e}^{u}``, ``\\exp(u)``; ``e`` is Euler's number only as
-  the base of a power or as ``\\mathrm{e}``;
-* ``\\sqrt{u}``, ``\\ln(u)``, ``\\sin \\cos \\tan \\arctan``, ``erf`` as
-  ``\\operatorname{erf}`` or ``\\mathrm{erf}``, ``|u|`` in its spellings,
-  ``\\min``, ``\\max``, ``\\pi``, grouping;
-* ``\\begin{cases} u & c \\\\ ... \\end{cases}``: each condition sets one
-  symbol against a literal that is exactly a binary64 value, chained
-  ``0 \\le x < 1`` included, and the rows are proved to cover the real line
-  unless the last says ``\\text{otherwise}``;
-* a symbol directly before a bracket is a product only when the same symbol
-  also appears elsewhere without one, or is an argument of the left-hand side
-  (names are never resolved: RW2b's rule).
+* ``e`` is Euler's number only as the base of a power or as ``\\mathrm{e}`` (``ambiguous_e``);
+* a symbol directly before a bracket is a product only when the same symbol also
+  appears elsewhere without one, or is an argument of the left-hand side
+  (``application``; names are never resolved: RW2b's rule);
+* ``n!`` (``factorial``), ``\\frac{d}{dx}`` and a prime (``derivative``), ``\\sin^2 x``
+  (``function_power``), ``\\log`` and ``\\ln_2`` (``log_base``), ``\\sin 2x`` (``function_arg``);
+* ``3\\frac{1}{2}`` is a mixed number on a page (``syntax``); ``a / b c`` and ``a / b / c``
+  part books on the grouping (``ambiguous_slash``); a numeral directly after a factor (``x^10``,
+  ``\\sqrt16 x``, ``x 2``) is what the page shows and rarely what its author meant (``syntax``);
+* ``{a+b}c``: braces group for TeX and show nothing, so a bare brace group is not a
+  grouping (``syntax``). A bracket, a fraction, a radical or an exponent shows its group;
+* the rows of ``cases`` are proved to cover the real line unless the last says
+  ``\\text{otherwise}``, and each condition sets one symbol against a literal that is exactly a binary64 value.
 
-Three readings are refused beyond the spec's list because they would be
-guesses, each failing closed under its own key: ``a / b c`` and ``a / b / c``
-(``ambiguous_slash``; books part on the grouping), ``x^10`` (LaTeX would
-superscript only the 1) and ``\\frac{d}{dx}`` (``derivative``: read as a
-product it would cancel the ``d``).
+Any macro definition anywhere in the segment is unreadable (``macro_definition``), before
+KaTeX is asked: KaTeX's tree would show the expansion, but no label may rest on a
+definition. A definition in another segment or block cannot reach this one: the page
+calls KaTeX once per math element with fresh settings (``test_rw5c_katex_tree.py`` pins it).
 
-The tokens here are the expression's, not TeX's: a numeral is one token here and
-one digit per token to TeX, and TeX ignores the spaces this tokenizer parts
-digits on. So the forms where the two disagree are refused, whatever they
-would parse as, and bookMathRenderCorpus.json pins each against KaTeX: an
-unbraced ``\\sqrt16 x`` (the page shows the root of 1, then 6x), a numeral beside
-a numeral (``2 3`` is the page's 23, ``1\\,000`` its thousand), and a subscript
-after an unbraced exponent (``x^a_1`` is x sub 1 to the a). So is a numeral before
-a numeric fraction: ``3\\frac{1}{2}`` is a mixed number, never a product.
+The left-hand side is the book's own substring, kept only when KaTeX reads that
+substring alone as exactly the left of the same parse, and only from the label allowlist.
+
+Nothing is evaluated. The translator is pure over the tree and held to the grammar's
+caps (one Python frame per nesting level, bounded by :data:`~learnloop.figures.grammar.MAX_DEPTH`).
 """
 
 from __future__ import annotations
 
 import re
+from collections.abc import Iterator, Mapping, Sequence
 from dataclasses import dataclass, field
 from fractions import Fraction
+from typing import Any
 
 from learnloop.figures import grammar as G
+from learnloop.figures import katex_tree as KT
 
-#: The version of this table, recorded on every check row.
-READER_VERSION = "book-math-v2"
+#: The version of this table and of the KaTeX behind it, recorded on every check row.
+READER_VERSION = f"book-math-v3+katex-{KT.KATEX_VERSION}"
 
 #: Every reason a candidate is unreadable, as a closed key (§5.3, §12).
 REASONS = (
     "ambiguous_e", "ambiguous_slash", "application", "binom", "cases_condition", "cases_cover", "derivative",
-    "factorial", "function_arg", "function_power", "gamma", "indicator", "inexact_literal", "integral", "limit",
-    "log_base", "matrix", "multiple_relations", "name_collision", "not_equation", "nth_root", "phi", "product",
-    "relation", "reserved_name", "set", "subscript", "sum", "syntax", "text", "too_long", "unicode_math",
-    "unsupported_command", "unsupported_environment", "unsupported_function",
+    "engine_unavailable", "factorial", "function_arg", "function_power", "gamma", "indicator", "inexact_literal",
+    "integral", "limit", "log_base", "macro_definition", "matrix", "multiple_relations", "name_collision",
+    "not_equation", "not_rendered", "nth_root", "phi", "product", "relation", "reserved_name", "set", "subscript",
+    "sum", "syntax", "text", "too_long", "unicode_math", "unsupported_command", "unsupported_environment",
+    "unsupported_function",
 )
 
-#: Greek commands, under the canonical names ``math_text`` gives them (its
-#: GREEK table): a variant is the same canonical name as its letter, which is
-#: what makes ``\epsilon`` beside ``\varepsilon`` a collision.
+#: Greek commands, under the canonical names ``math_text`` gives them (its GREEK
+#: table): a variant is the same canonical name as its letter, which is what makes
+#: ``\epsilon`` beside ``\varepsilon`` a collision.
 _GREEK = {
     "alpha": "alpha", "beta": "beta", "gamma": "gamma", "delta": "delta", "epsilon": "epsilon",
     "varepsilon": "epsilon", "zeta": "zeta", "eta": "eta", "theta": "theta", "vartheta": "theta", "iota": "iota",
@@ -84,29 +79,35 @@ _GREEK = {
     "Delta": "Delta", "Theta": "Theta", "Lambda": "Lambda", "Xi": "Xi", "Pi": "Pi", "Sigma": "Sigma",
     "Upsilon": "Upsilon", "Psi": "Psi", "Omega": "Omega",
 }
-_FUNCTIONS = {"exp": "exp", "ln": "log", "sin": "sin", "cos": "cos", "tan": "tan", "arctan": "atan"}
-_EXTREMES = {"min": "min", "max": "max"}
-#: Unreadable commands, each with its own key (§5.3's list).
-_REFUSED_COMMANDS = {
-    "Phi": "phi", "binom": "binom", "choose": "binom", "Gamma": "gamma", "int": "integral", "iint": "integral",
-    "oint": "integral", "sum": "sum", "prod": "product", "lim": "limit", "limsup": "limit", "liminf": "limit",
-    "partial": "derivative", "nabla": "derivative", "log": "log_base", "lg": "log_base", "mathbb": "indicator",
-    "mathbbm": "indicator", "bm": "unsupported_command", "in": "set", "notin": "set", "cup": "set", "cap": "set",
-    "subset": "set", "subseteq": "set", "mid": "set", "setminus": "set", "emptyset": "set", "approx": "relation",
-    "propto": "relation", "sim": "relation", "equiv": "relation", "neq": "relation", "ne": "relation",
-    "le": "relation", "leq": "relation", "ge": "relation", "geq": "relation", "ll": "relation", "gg": "relation",
-    "to": "limit", "rightarrow": "limit", "mapsto": "limit", "text": "text", "textrm": "text", "mbox": "text",
+_FUNCTIONS = {r"\exp": "exp", r"\ln": "log", r"\sin": "sin", r"\cos": "cos", r"\tan": "tan", r"\arctan": "atan"}
+_EXTREMES = {r"\min": "min", r"\max": "max"}
+#: What each outside-the-table symbol is called in the report. Only a label: what is
+#: readable is decided by the allowlists; anything else falls to ``unsupported_command``.
+_LABELS = {
+    r"\Phi": "phi", r"\Gamma": "gamma", r"\int": "integral", r"\iint": "integral", r"\iiint": "integral",
+    r"\oint": "integral", r"\sum": "sum", r"\prod": "product", r"\lim": "limit", r"\to": "limit", r"\rightarrow": "limit",
+    r"\mapsto": "limit", r"\partial": "derivative", r"\nabla": "derivative", r"\prime": "derivative",
+    r"\log": "log_base", r"\lg": "log_base", r"\in": "set", r"\notin": "set", r"\cup": "set", r"\cap": "set",
+    r"\subset": "set", r"\subseteq": "set", r"\mid": "set", r"\setminus": "set", r"\emptyset": "set",
+    r"\approx": "relation", r"\propto": "relation", r"\sim": "relation", r"\equiv": "relation", r"\le": "relation",
+    r"\leq": "relation", r"\ge": "relation", r"\geq": "relation", r"\ll": "relation", r"\gg": "relation",
+    "<": "relation", ">": "relation",
 }
-_IGNORED = {",", ";", "!", "quad", " "}
-_RELATION_TOKENS = {"<", ">"}
-_OPENERS = {"(": ")", "[": "]", "\\{": "\\}"}
-_ENVIRONMENTS_MATRIX = {"matrix", "pmatrix", "bmatrix", "vmatrix", "Vmatrix", "Bmatrix", "array"}
-_CONDITION_OPS = {"<": "<", ">": ">", "\\le": "<=", "\\leq": "<=", "\\ge": ">=", "\\geq": ">=",
-                  "\\leqslant": "<=", "\\geqslant": ">="}
+_OPENERS = {"(": ")", "[": "]", r"\{": r"\}"}
+_CONDITION_OPS = {"<": "<", ">": ">", r"\le": "<=", r"\leq": "<=", r"\ge": ">=", r"\geq": ">=",
+                  r"\leqslant": "<=", r"\geqslant": ">="}
 _CASE_WORDS = {"if", "for"}
 _NUMBER = re.compile(r"[0-9]+(?:\.[0-9]+)?|\.[0-9]+")
-_COMMAND = re.compile(r"\\(?:[A-Za-z]+|.)", re.DOTALL)
-_TEXT_ARG = re.compile(r"\\(?:text|textrm|mbox)\s*\{([^{}]*)\}")
+#: ``\,  \:  \;  \!  \quad  \qquad``; any other kern is outside the table.
+_KERNS = {(3, "mu"), (4, "mu"), (5, "mu"), (-3, "mu"), (1, "em"), (2, "em")}
+_SPACES = {r"\ ", r"\nobreakspace", r"\space"}
+#: Every way TeX defines a macro; a control word ends at anything but a letter or ``@``, as in KaTeX's lexer.
+_MACRO_DEFINITION = re.compile(
+    r"\\(?:def|gdef|edef|xdef|let|futurelet|global|long|newcommand|renewcommand|providecommand)(?![A-Za-z@])")
+_BLANK_LINE = re.compile(r"\n[ \t\r]*\n")
+#: What a left-hand side may hold: it becomes a label, and must not paint, hide, link or move anything.
+_LABEL_NODES = frozenset({"accent", "atom", "font", "genfrac", "kern", "leftright", "mathord", "op", "operatorname",
+                          "ordgroup", "spacing", "sqrt", "supsub", "text", "textord"})
 #: The block types whose whole text is the equation when it has no delimiters.
 EQUATION_BLOCK_TYPES = frozenset({"equation", "formula", "math"})
 
@@ -121,19 +122,20 @@ class Unreadable(ValueError):
 
 @dataclass(frozen=True)
 class Segment:
-    """One math segment of a block's text; ``start``/``end`` delimit ``latex``'s place in it."""
+    """One math segment of a block's text; ``start``/``end`` delimit ``latex``'s place
+    in it; ``display`` is how the page parses it (``$$`` and ``\\[`` against ``$``)."""
 
     latex: str
     start: int
     end: int
+    display: bool = False
 
 
 @dataclass(frozen=True)
 class Relation:
     """A read equation. ``lhs`` is the book's own left-hand side as a substring
     of the segment; ``args`` the symbols of a ``name(args)`` left-hand side
-    (empty otherwise); ``tokens`` each canonical symbol's LaTeX as the book
-    writes it."""
+    (empty otherwise); ``tokens`` each canonical symbol's LaTeX."""
 
     latex: str
     lhs: str
@@ -160,68 +162,230 @@ def segments(text: str, block_type: str = "") -> list[Segment]:
     found = []
     for match in _DELIMITED.finditer(source):
         name = match.lastgroup or "inline"
-        found.append(Segment(match.group(name), match.start(name), match.end(name)))
+        found.append(Segment(match.group(name), match.start(name), match.end(name), name != "inline"))
     if not found and str(block_type or "").lower() in EQUATION_BLOCK_TYPES and source.strip():
         begin = len(source) - len(source.lstrip())
-        found.append(Segment(source.strip(), begin, begin + len(source.strip())))
+        found.append(Segment(source.strip(), begin, begin + len(source.strip()), True))
     return found
 
 
 # ---------------------------------------------------------------------------
-# Tokens
+# KaTeX's tree as a flat run of items
 # ---------------------------------------------------------------------------
 
+Tree = Mapping[str, Any]
+
+
 @dataclass(frozen=True)
-class _Token:
-    kind: str  # number | letter | command | op | text
-    text: str
-    start: int
-    end: int
+class _Item:
+    """One thing in reading order. KaTeX's list is flat where the source was, and a
+    script belongs to the node before it: ``(x)^2`` is ``(``, ``x``, ``)`` with a
+    superscript, and ``12^x`` is ``1``, then ``2`` with one. So numerals are joined here,
+    and a script stays on its item for the factor it closes."""
+
+    kind: str  # num | sym | op | rel | open | close | bar | func | extreme | frac | sqrt | const | cases | text | punct | bang
+    text: str = ""
+    node: Tree | None = None
+    sup: Tree | None = None
+    sub: Tree | None = None
+    absolute: bool = False
 
 
-def _tokenize(source: str) -> list[_Token]:
-    if len(source) > G.MAX_EXPR_CHARS:
-        raise Unreadable("too_long")
-    tokens: list[_Token] = []
-    position = 0
-    while position < len(source):
-        char = source[position]
-        if char in " \t\r\n~":
-            position += 1
+def _body(node: Tree) -> Sequence[Tree]:
+    return node.get("body") or () if node.get("type") == "ordgroup" else (node,)
+
+
+def _word(nodes: Sequence[Tree]) -> str | None:
+    """The letters of ``\\mathrm{...}`` or ``\\operatorname{...}``, if letters are all it holds."""
+
+    kept = [node for node in nodes if node.get("type") != "kern"]
+    if any(node.get("type") not in ("mathord", "textord") for node in kept):
+        return None
+    return "".join(str(node.get("text")) for node in kept)
+
+
+def _refuse_symbol(text: str) -> Unreadable:
+    return Unreadable(_LABELS.get(text, "unsupported_command"))
+
+
+def _items(nodes: Sequence[Tree]) -> list[_Item]:
+    out: list[_Item] = []
+    gap = False
+    for node in nodes:
+        kind = node.get("type")
+        if kind == "kern":
+            dimension = node.get("dimension") or {}
+            if (dimension.get("number"), dimension.get("unit")) not in _KERNS:
+                raise Unreadable("unsupported_command")
+            gap = True
             continue
-        if not char.isascii():
-            raise Unreadable("unicode_math")
-        if char == "%":
-            raise Unreadable("syntax")
-        if char.isdigit() or (char == "." and position + 1 < len(source) and source[position + 1].isdigit()):
-            match = _NUMBER.match(source, position)
-            assert match is not None
-            tokens.append(_Token("number", match.group(0), position, match.end()))
-            position = match.end()
+        if kind == "spacing":
+            if node.get("text") not in _SPACES:
+                raise Unreadable("unsupported_command")
+            gap = True
             continue
-        if char.isalpha():
-            tokens.append(_Token("letter", char, position, position + 1))
-            position += 1
-            continue
-        if char == "\\":
-            text_arg = _TEXT_ARG.match(source, position)
-            if text_arg is not None:
-                tokens.append(_Token("text", " ".join(text_arg.group(1).split()), position, text_arg.end()))
-                position = text_arg.end()
-                continue
-            match = _COMMAND.match(source, position)
-            if match is None:
+        base, sup, sub = node, None, None
+        if kind == "supsub":
+            base, sup, sub = node.get("base"), node.get("sup"), node.get("sub")
+            if base is None:
                 raise Unreadable("syntax")
-            tokens.append(_Token("command", match.group(0), position, match.end()))
-            position = match.end()
-            continue
-        tokens.append(_Token("op", char, position, position + 1))
-        position += 1
-    kept = [token for token in tokens if not (token.kind == "command" and token.text[1:] in _IGNORED)]
-    # TeX joins digits across a space (2 3 is 23) and \\, spaces a numeral's groups (1\\,000): never a product.
-    if any(left.kind == "number" and right.kind == "number" for left, right in zip(kept, kept[1:])):
+        made = _base_items(base, sup, sub)
+        if (sup is not None or sub is not None) and made[-1].kind in ("op", "rel", "punct", "bang", "text"):
+            raise Unreadable("syntax")  # a script on +, =, a comma or \text: the page shows it, and no reading has a place for it
+        if len(made) == 1 and made[0].kind == "num" and not gap and out and out[-1].kind == "num" and out[-1].sup is None and out[-1].sub is None:
+            # TeX's digits are one token each; the page's numeral is the run (and a script is on its last digit).
+            out[-1] = _Item("num", out[-1].text + made[0].text, sup=made[0].sup, sub=made[0].sub)
+        else:
+            out.extend(made)
+        gap = False
+    for item in out:
+        if item.kind == "num" and not _NUMBER.fullmatch(item.text):
+            raise Unreadable("syntax")
+    return out
+
+
+def _base_items(base: Tree, sup: Tree | None, sub: Tree | None) -> list[_Item]:
+    kind = base.get("type")
+    text = str(base.get("text") or "")
+    if kind == "textord":
+        if text.isdigit() or text == ".":
+            return [_Item("num", text, sup=sup, sub=sub)]
+        if text == "/":
+            return [_Item("op", "/")]
+        if text == "|":
+            return [_Item("bar", "|", sup=sup, sub=sub)]
+        if text[1:] in _GREEK:
+            return [_Item("sym", text, sup=sup, sub=sub)]
+        raise _refuse_symbol(text)
+    if kind == "mathord":
+        if (len(text) == 1 and text.isascii() and text.isalpha()) or text[1:] in _GREEK:
+            return [_Item("sym", text, sup=sup, sub=sub)]
+        raise _refuse_symbol(text)
+    if kind == "atom":
+        return [_atom_item(base, text, sup, sub)]
+    if kind == "leftright":
+        return _leftright_items(base, sup, sub)
+    if kind == "op":
+        return [_op_item(base, sup, sub)]
+    if kind == "operatorname":
+        word = _word(base.get("body") or ())
+        if word in ("limsup", "liminf"):
+            raise Unreadable("limit")
+        if word != "erf":
+            raise Unreadable("unsupported_function")
+        return [_function_item("erf", sup, sub)]
+    if kind == "font":
+        return [_font_item(base, sup, sub)]
+    if kind == "genfrac":
+        if not base.get("hasBarLine"):
+            raise Unreadable("binom" if base.get("leftDelim") else "unsupported_command")
+        if base.get("leftDelim") or base.get("rightDelim"):
+            raise Unreadable("unsupported_command")
+        return [_Item("frac", node=base, sup=sup, sub=sub)]
+    if kind == "sqrt":
+        if base.get("index") is not None:
+            raise Unreadable("nth_root")
+        return [_Item("sqrt", node=base, sup=sup, sub=sub)]
+    if kind == "text":
+        return [_Item("text", node=base)]
+    if kind == "array":
+        raise Unreadable("unsupported_environment" if base.get("colSeparationType") or base.get("addJot") else "matrix")
+    if kind == "ordgroup":
         raise Unreadable("syntax")
-    return kept
+    if kind == "cr":
+        raise Unreadable("syntax")
+    if kind == "htmlmathml":  # \neq and its kin: KaTeX builds them, and none is an equality
+        raise Unreadable("relation")
+    raise Unreadable("unsupported_command")
+
+
+def _atom_item(base: Tree, text: str, sup: Tree | None, sub: Tree | None) -> _Item:
+    family = base.get("family")
+    if family == "bin" and text in ("+", "-"):
+        return _Item("op", text)
+    if family == "bin" and text in ("*", r"\cdot", r"\times"):
+        return _Item("op", "*")
+    if family == "rel" and text in _CONDITION_OPS:
+        return _Item("rel", text)
+    if family == "open" and text in _OPENERS:
+        return _Item("open", _OPENERS[text], sup=sup, sub=sub)
+    if family == "open" and text == r"\lvert":
+        return _Item("open", r"\rvert", absolute=True, sup=sup, sub=sub)
+    if family == "close" and text in (")", "]", r"\}", r"\rvert"):
+        return _Item("close", text, sup=sup, sub=sub)
+    if family == "close" and text == "!":
+        return _Item("bang", "!")
+    if family == "punct" and text == ",":
+        return _Item("punct", ",")
+    raise _refuse_symbol(text) if text in _LABELS else Unreadable("syntax" if family in ("punct", "rel") else "unsupported_command")
+
+
+def _leftright_items(base: Tree, sup: Tree | None, sub: Tree | None) -> list[_Item]:
+    left, right = base.get("left"), base.get("right")
+    body = base.get("body") or ()
+    arrays = [node for node in body if node.get("type") == "array"]
+    if arrays:
+        if left != r"\{" or right != "." or len(body) != 1:
+            raise Unreadable("matrix" if left in ("(", "[", "|", r"\|") else "unsupported_environment")
+        columns = arrays[0].get("cols") or ()
+        if arrays[0].get("colSeparationType") or [column.get("align") for column in columns] != ["l", "l"]:
+            raise Unreadable("unsupported_environment")
+        return [_Item("cases", node=arrays[0], sup=sup, sub=sub)]
+    closers = {"(": ")", "[": "]", r"\{": r"\}", "|": "|", r"\lvert": r"\rvert"}
+    if closers.get(str(left)) != right:
+        raise Unreadable("syntax")
+    return [_Item("open", str(right), absolute=left in ("|", r"\lvert")), *_items(body),
+            _Item("close", str(right), sup=sup, sub=sub)]
+
+
+def _op_item(base: Tree, sup: Tree | None, sub: Tree | None) -> _Item:
+    name = str(base.get("name") or "")
+    if name in _LABELS:
+        raise _refuse_symbol(name)
+    if name in _FUNCTIONS:
+        return _function_item(_FUNCTIONS[name], sup, sub)
+    if name in _EXTREMES:
+        if sup is not None or sub is not None:
+            raise Unreadable("syntax")
+        return _Item("extreme", _EXTREMES[name])
+    raise Unreadable("unsupported_command")
+
+
+def _function_item(name: str, sup: Tree | None, sub: Tree | None) -> _Item:
+    if sup is not None:
+        raise Unreadable("function_power")
+    if sub is not None:
+        raise Unreadable("log_base")
+    return _Item("func", name)
+
+
+def _font_item(base: Tree, sup: Tree | None, sub: Tree | None) -> _Item:
+    font, body = base.get("font"), base.get("body") or {}
+    if font == "mathbb":
+        raise Unreadable("indicator")
+    if font != "mathrm":
+        raise Unreadable("unsupported_command")
+    word = _word(_body(body))
+    if word == "e" and sub is None:
+        return _Item("const", "e", sup=sup)
+    if word == "erf":
+        return _function_item("erf", sup, sub)
+    if word == "d":
+        raise Unreadable("derivative")
+    raise Unreadable("unsupported_command")
+
+
+def _starts_with_d(node: Tree) -> bool:
+    """Whether a fraction's side begins with a differential's ``d``."""
+
+    first = next(iter(_body(node)), None)
+    if first is None:
+        return False
+    if first.get("type") == "supsub" and first.get("base") is not None:
+        first = first["base"]
+    if first.get("type") == "font":
+        return _word(_body(first.get("body") or {})) == "d"
+    return first.get("type") == "mathord" and first.get("text") == "d"
 
 
 # ---------------------------------------------------------------------------
@@ -256,10 +420,18 @@ def binary64_exact(text: str) -> bool:
         return False
 
 
+def _exact_numeral(item: _Item, sign: int) -> Fraction:
+    if not binary64_exact(item.text):
+        raise Unreadable("inexact_literal")
+    return sign * Fraction(item.text)
+
+
+Rows = list[tuple[G.Node, G.Node | None, tuple[str, list[tuple[str, Fraction]]] | None]]
+
+
 class _Reader:
-    def __init__(self, tokens: list[_Token], source: str, *, args: tuple[str, ...] = ()) -> None:
-        self.tokens = tokens
-        self.source = source
+    def __init__(self, items: list[_Item], *, args: tuple[str, ...] = ()) -> None:
+        self.items = items
         self.position = 0
         self.nodes = 0
         self.bars = 0
@@ -271,25 +443,22 @@ class _Reader:
         self.plain: set[str] = set()
 
     # -- helpers ---------------------------------------------------------------
-    def peek(self, offset: int = 0) -> _Token | None:
+    def peek(self, offset: int = 0) -> _Item | None:
         index = self.position + offset
-        return self.tokens[index] if index < len(self.tokens) else None
+        return self.items[index] if index < len(self.items) else None
 
-    def take(self) -> _Token:
-        token = self.peek()
-        if token is None:
+    def take(self) -> _Item:
+        item = self.peek()
+        if item is None:
             raise Unreadable("syntax")
         self.position += 1
-        return token
+        return item
 
-    def at(self, text: str, kind: str | None = None) -> bool:
-        token = self.peek()
-        return token is not None and token.text == text and (kind is None or token.kind == kind)
-
-    def expect(self, text: str) -> None:
-        token = self.take()
-        if token.text != text or token.kind in ("letter", "number", "text"):
-            raise Unreadable("syntax")
+    def closes(self, kind: str, text: str) -> _Item:
+        item = self.take()
+        if item.kind != kind or item.text != text:
+            raise self.leftover(item)
+        return item
 
     def node(self, kind: str, depth: int, **values: object) -> G.Node:
         self.nodes += 1
@@ -297,524 +466,327 @@ class _Reader:
             raise Unreadable("too_long")
         return G.Node(kind, **values)  # type: ignore[arg-type]
 
+    @staticmethod
+    def leftover(item: _Item | None) -> Unreadable:
+        """What stopped a read: an item the grammar has no place for here."""
+
+        if item is not None and item.kind == "text":
+            return Unreadable("text")
+        if item is not None and item.kind == "bang":
+            return Unreadable("factorial")
+        return Unreadable("syntax")
+
+    def inner(self, node: Tree | Sequence[Tree], depth: int) -> G.Node:
+        """A group the page shows as one (an exponent, a fraction's side, a radicand, a row's cell)."""
+
+        if depth > G.MAX_DEPTH:
+            raise Unreadable("too_long")
+        items = _items(_body(node) if isinstance(node, Mapping) else node)
+        saved = self.items, self.position, self.bars
+        self.items, self.position, self.bars = items, 0, 0
+        value = self.expression(depth + 1)
+        if self.position != len(self.items):
+            raise self.leftover(self.peek())
+        self.items, self.position, self.bars = saved
+        return value
+
     # -- expressions ------------------------------------------------------------
     def expression(self, depth: int) -> G.Node:
         if depth > G.MAX_DEPTH:
             raise Unreadable("too_long")
-        if self.at("-", "op"):
+        following = self.peek()
+        if following is not None and following.kind == "op" and following.text == "-":
             self.take()
             node = self.node("neg", depth, args=(self.term(depth + 1),))
         else:
             node = self.term(depth + 1)
-        while self.peek() is not None and self.peek().kind == "op" and self.peek().text in "+-":  # type: ignore[union-attr]
-            op = self.take().text
-            node = self.node("bin", depth, op=op, args=(node, self.term(depth + 1)))
+        while (following := self.peek()) is not None and following.kind == "op" and following.text in "+-":
+            self.take()
+            node = self.node("bin", depth, op=following.text, args=(node, self.term(depth + 1)))
         return node
 
     def term(self, depth: int) -> G.Node:
         node = self.factor(depth + 1)
-        while True:
-            token = self.peek()
-            if token is None:
-                return node
-            if (token.kind == "op" and token.text == "*") or token.text in ("\\cdot", "\\times"):
+        while (item := self.peek()) is not None:
+            if item.kind == "op" and item.text == "*":
                 self.take()
                 node = self.node("bin", depth, op="*", args=(node, self.factor(depth + 1)))
-            elif token.kind == "op" and token.text == "/":
+            elif item.kind == "op" and item.text == "/":
                 self.take()
                 node = self.node("bin", depth, op="/", args=(node, self.factor(depth + 1)))
                 following = self.peek()
                 # a / b c and a / b / c: books part on the grouping, so neither is read.
-                if following is not None and (self.starts_factor(following) or following.text == "/"):
+                if following is not None and (self.starts_factor(following) or (following.kind == "op" and following.text == "/")):
                     raise Unreadable("ambiguous_slash")
-            elif self.starts_factor(token):
+            elif self.starts_factor(item):
+                # x^10, \sqrt16 x, x 2, 1\,000: what the page shows, and rarely what its author meant.
+                if item.kind == "num":
+                    raise Unreadable("syntax")
+                # 3\frac{1}{2} on a page is a mixed number, 3.5; the product it would parse as is 1.5.
+                if item.kind == "frac" and self.items[self.position - 1].kind == "num" and _numeric_fraction(item):
+                    raise Unreadable("syntax")
                 node = self.node("bin", depth, op="*", args=(node, self.factor(depth + 1)))
             else:
                 return node
+        return node
 
-    def starts_factor(self, token: _Token) -> bool:
-        if token.kind in ("number", "letter"):
-            return True
-        if token.kind == "text":
+    def starts_factor(self, item: _Item) -> bool:
+        if item.kind == "text":
             raise Unreadable("text")
-        if token.kind == "op":
-            if token.text == "|":
-                return self.bars == 0
-            return token.text in ("(", "[")
-        if token.kind != "command":
-            return False
-        name = token.text[1:]
-        if name in _REFUSED_COMMANDS:
-            raise Unreadable(_REFUSED_COMMANDS[name])
-        return (name in _GREEK or name in _FUNCTIONS or name in _EXTREMES or name in (
-            "frac", "sqrt", "mathrm", "operatorname", "lvert", "left", "begin", "{"))
+        if item.kind == "bang":
+            raise Unreadable("factorial")
+        if item.kind == "bar":
+            return self.bars == 0
+        return item.kind in ("num", "sym", "open", "func", "extreme", "frac", "sqrt", "const", "cases")
 
     def factor(self, depth: int) -> G.Node:
         if depth > G.MAX_DEPTH:
             raise Unreadable("too_long")
-        base = self.atom(depth + 1)
-        if self.at("^", "op"):
-            self.take()
-            base = self.node("bin", depth, op="^", args=(base, self.exponent(depth + 1)))
-            if self.at("^", "op"):
-                raise Unreadable("syntax")
+        base, sup = self.atom(depth + 1)
+        if sup is not None:
+            base = self.node("bin", depth, op="^", args=(base, self.inner(sup, depth + 1)))
         return base
 
-    def exponent(self, depth: int) -> G.Node:
-        token = self.peek()
-        if token is None:
-            raise Unreadable("syntax")
-        if token.kind == "op" and token.text == "{":
-            self.take()
-            saved, self.bars = self.bars, 0
-            node = self.expression(depth + 1)
-            self.bars = saved
-            self.expect("}")
-            return node
-        if token.kind == "number":
-            # x^10 superscripts only the 1 in LaTeX: refused, never guessed.
-            if len(token.text) != 1:
-                raise Unreadable("syntax")
-            self.take()
-            return self.node("num", depth, text=token.text, value=float(token.text))
-        if token.kind == "letter" or (token.kind == "command" and token.text[1:] in _GREEK):
-            # x^a_1 subscripts the base in TeX: x sub 1 to the a, never x to the a1.
-            if self.at_offset(1, "_"):
-                raise Unreadable("subscript")
-            return self.symbol(depth + 1, in_exponent=True)
-        raise Unreadable("syntax")
+    def atom(self, depth: int) -> tuple[G.Node, Tree | None]:
+        """A factor before its power, and the superscript KaTeX put on its last node."""
 
-    def atom(self, depth: int) -> G.Node:
-        token = self.peek()
-        if token is None:
-            raise Unreadable("syntax")
-        if token.kind == "number":
-            self.take()
-            following = self.peek()
-            if following is not None and following.kind == "op" and following.text == "!":
-                raise Unreadable("factorial")
-            if float(token.text) == float("inf"):
+        item = self.take()
+        kind = item.kind
+        if kind == "num":
+            if item.sub is not None:
+                raise Unreadable("subscript")
+            if float(item.text) == float("inf"):
                 raise Unreadable("too_long")
-            return self.node("num", depth, text=token.text, value=float(token.text))
-        if token.kind == "letter":
-            return self.symbol(depth)
-        if token.kind == "text":
-            raise Unreadable("text")
-        if token.kind == "op":
-            if token.text in _OPENERS:
-                return self.group(depth, _OPENERS[token.text])
-            if token.text == "|":
-                if self.bars:
-                    raise Unreadable("syntax")
-                return self.bar_group(depth, "|")
-            if token.text == "!":
-                raise Unreadable("factorial")
-            if token.text == "'":
-                raise Unreadable("derivative")
-            raise Unreadable("syntax")
-        name = token.text[1:]
-        if name in _REFUSED_COMMANDS:
-            raise Unreadable(_REFUSED_COMMANDS[name])
-        if name in _GREEK:
-            return self.symbol(depth)
-        if name == "{":
-            return self.group(depth, "\\}")
-        if name == "left":
-            return self.left_group(depth)
-        if name == "lvert":
-            return self.bar_group(depth, "\\rvert")
-        if name == "frac":
-            return self.fraction(depth)
-        if name == "sqrt":
-            return self.square_root(depth)
-        if name == "mathrm":
-            return self.mathrm(depth)
-        if name == "operatorname":
-            return self.operatorname(depth)
-        if name == "begin":
-            return self.environment(depth)
-        if name in _FUNCTIONS:
-            self.take()
-            return self.node("call", depth, text=_FUNCTIONS[name], args=(self.function_argument(depth + 1),))
-        if name in _EXTREMES:
-            return self.extreme(depth, _EXTREMES[name])
-        raise Unreadable("unsupported_command")
+            return self.node("num", depth, text=item.text, value=float(item.text)), item.sup
+        if kind == "sym":
+            return self.symbol(item, depth)
+        if kind == "const":
+            if item.sup is not None:
+                return self.node("call", depth, text="exp", args=(self.inner(item.sup, depth + 1),)), None
+            return self.node("name", depth, text="e"), None
+        if kind == "open":
+            return self.group(item, depth)
+        if kind == "bar":
+            if self.bars or item.sup is not None or item.sub is not None:
+                raise Unreadable("syntax")
+            self.bars += 1
+            inner = self.expression(depth + 1)
+            self.bars -= 1
+            closing = self.closes("bar", "|")
+            if closing.sub is not None:
+                raise Unreadable("subscript")
+            return self.node("call", depth, text="abs", args=(inner,)), closing.sup
+        if kind == "frac":
+            return self.fraction(item, depth), self.plain_script(item)
+        if kind == "sqrt":
+            assert item.node is not None
+            return self.node("call", depth, text="sqrt", args=(self.inner(item.node["body"], depth + 1),)), self.plain_script(item)
+        if kind == "func":
+            return self.function(item, depth)
+        if kind == "extreme":
+            return self.extreme(item, depth)
+        if kind == "cases":
+            return self.cases(item, depth), self.plain_script(item)
+        raise self.leftover(item)
 
-    def symbol(self, depth: int, *, in_exponent: bool = False) -> G.Node:
-        token = self.take()
-        raw = token.text
-        canonical = _GREEK[raw[1:]] if token.kind == "command" else raw
-        end = token.end
-        subscript = False
-        if self.at("_", "op"):
-            self.take()
-            sub = self.peek()
-            if sub is None:
+    @staticmethod
+    def plain_script(item: _Item) -> Tree | None:
+        if item.sub is not None:
+            raise Unreadable("subscript")
+        return item.sup
+
+    def symbol(self, item: _Item, depth: int) -> tuple[G.Node, Tree | None]:
+        raw = item.text
+        canonical = _GREEK[raw[1:]] if raw.startswith("\\") else raw
+        latex = raw
+        if item.sub is not None:
+            sub = _body(item.sub)
+            first = sub[0] if len(sub) == 1 else {}
+            letter = str(first.get("text") or "")
+            if first.get("type") not in ("mathord", "textord") or len(letter) != 1 or not (letter.isascii() and letter.isalnum()):
                 raise Unreadable("subscript")
-            if sub.kind == "op" and sub.text == "{":
-                inner = self.peek(1)
-                if inner is None or inner.kind not in ("letter", "number") or len(inner.text) != 1 \
-                        or not self.at_offset(2, "}"):
-                    raise Unreadable("subscript")
-                self.position += 3
-                canonical += inner.text
-                end = self.tokens[self.position - 1].end
-            elif sub.kind in ("letter", "number") and len(sub.text) == 1:
-                self.position += 1
-                canonical += sub.text
-                end = sub.end
-            else:
-                raise Unreadable("subscript")
-            subscript = True
-        latex = self.source[token.start:end]
-        if token.kind == "letter" and raw == "e" and not subscript:
-            if not in_exponent and self.at("^", "op"):
-                self.take()
-                return self.node("call", depth, text="exp", args=(self.exponent(depth + 1),))
-            raise Unreadable("ambiguous_e")
-        if canonical == "pi" and raw == "\\pi":
-            self.note_use(canonical)
-            return self.node("name", depth, text="pi")
+            canonical += letter
+            latex = f"{raw}_{{{letter}}}"
+        elif raw == "e":
+            if item.sup is None:
+                raise Unreadable("ambiguous_e")
+            return self.node("call", depth, text="exp", args=(self.inner(item.sup, depth + 1),)), None
+        following = self.peek()
+        applied = following is not None and following.kind == "open" and not following.absolute
+        if canonical == "pi" and raw == r"\pi":
+            (self.applied if applied else self.plain).add(canonical)
+            return self.node("name", depth, text="pi"), item.sup
         if canonical in G.RESERVED or not G.is_name(canonical):
             raise Unreadable("reserved_name")
         self.record(canonical, latex)
-        self.note_use(canonical)
-        return self.node("name", depth, text=canonical)
-
-    def at_offset(self, offset: int, text: str) -> bool:
-        token = self.peek(offset)
-        return token is not None and token.text == text
-
-    def note_use(self, canonical: str) -> None:
-        following = self.peek()
-        applied = following is not None and ((following.kind == "op" and following.text in _OPENERS)
-                                             or following.text == "\\{"
-                                             or (following.text == "\\left" and not self.left_bar(1)))
         (self.applied if applied else self.plain).add(canonical)
-
-    def left_bar(self, offset: int) -> bool:
-        token = self.peek(offset)
-        return token is not None and token.text in ("|", "\\lvert")
+        return self.node("name", depth, text=canonical), item.sup
 
     def record(self, canonical: str, latex: str) -> None:
-        spelled = "".join(latex.split()).replace("{", "").replace("}", "")
         known = self.spellings.setdefault(canonical, set())
-        known.add(spelled)
+        known.add(latex)
         if len(known) > 1:
             raise Unreadable("name_collision")
         self.first.setdefault(canonical, latex)
 
-    def group(self, depth: int, closer: str) -> G.Node:
-        self.take()
-        saved, self.bars = self.bars, 0
-        node = self.expression(depth + 1)
-        self.bars = saved
-        self.expect(closer)
-        return node
-
-    def left_group(self, depth: int) -> G.Node:
-        self.take()
-        opener = self.peek()
-        if opener is None:
+    def group(self, opening: _Item, depth: int) -> tuple[G.Node, Tree | None]:
+        if opening.sup is not None or opening.sub is not None:
             raise Unreadable("syntax")
-        closers = {"(": ")", "[": "]", "\\{": "\\}", "|": "|", "\\lvert": "\\rvert"}
-        if opener.text not in closers:
-            raise Unreadable("syntax")
-        self.take()
         saved, self.bars = self.bars, 0
         inner = self.expression(depth + 1)
         self.bars = saved
-        self.expect("\\right")
-        self.expect(closers[opener.text])
-        if opener.text in ("|", "\\lvert"):
-            return self.node("call", depth, text="abs", args=(inner,))
-        return inner
+        closing = self.closes("close", opening.text)
+        if closing.sub is not None:
+            raise Unreadable("subscript")
+        if opening.absolute:
+            inner = self.node("call", depth, text="abs", args=(inner,))
+        return inner, closing.sup
 
-    def bar_group(self, depth: int, closer: str) -> G.Node:
-        self.take()
-        self.bars += 1
-        inner = self.expression(depth + 1)
-        self.bars -= 1
-        self.expect(closer)
-        return self.node("call", depth, text="abs", args=(inner,))
-
-    def braced(self, depth: int) -> G.Node:
-        if not self.at("{", "op"):
-            raise Unreadable("syntax")
-        self.take()
-        saved, self.bars = self.bars, 0
-        node = self.expression(depth + 1)
-        self.bars = saved
-        self.expect("}")
-        return node
-
-    def fraction(self, depth: int) -> G.Node:
-        before = self.tokens[self.position - 1] if self.position else None
-        self.take()
-        numerator_start = self.peek(1)
-        numerator = self.braced(depth + 1)
-        following = self.peek(1)
+    def fraction(self, item: _Item, depth: int) -> G.Node:
+        assert item.node is not None
+        numerator, denominator = item.node["numer"], item.node["denom"]
         # \frac{d}{dx}, \frac{dy}{dx}: a derivative, never the product it would parse as.
-        if numerator_start is not None and numerator_start.text == "d" \
-                and following is not None and following.text == "d":
+        if _starts_with_d(numerator) and _starts_with_d(denominator):
             raise Unreadable("derivative")
-        denominator = self.braced(depth + 1)
-        # 3\\frac{1}{2} on a page is a mixed number, 3.5; the product it would parse as is 1.5.
-        if before is not None and before.kind == "number" and numerator.kind == denominator.kind == "num":
-            raise Unreadable("syntax")
-        return self.node("bin", depth, op="/", args=(numerator, denominator))
+        return self.node("bin", depth, op="/", args=(self.inner(numerator, depth + 1), self.inner(denominator, depth + 1)))
 
-    def square_root(self, depth: int) -> G.Node:
-        self.take()
-        if self.at("[", "op"):
-            raise Unreadable("nth_root")
-        # Only \\sqrt{u} (§5.3): TeX takes one token, the 1 of \\sqrt16, where this tokenizer has a numeral.
-        if not self.at("{", "op"):
-            raise Unreadable("function_arg")
-        return self.node("call", depth, text="sqrt", args=(self.braced(depth + 1),))
-
-    def word(self) -> str:
-        """The letters of a ``{word}`` argument."""
-
-        self.expect("{")
-        letters = []
-        while not self.at("}", "op"):
-            token = self.take()
-            if token.kind != "letter":
-                raise Unreadable("unsupported_command")
-            letters.append(token.text)
-        self.take()
-        return "".join(letters)
-
-    def mathrm(self, depth: int) -> G.Node:
-        self.take()
-        word = self.word()
-        if word == "e":
-            if self.at("^", "op"):
-                self.take()
-                return self.node("call", depth, text="exp", args=(self.exponent(depth + 1),))
-            return self.node("name", depth, text="e")
-        if word == "erf":
-            return self.node("call", depth, text="erf", args=(self.function_argument(depth + 1),))
-        if word == "d":
-            raise Unreadable("derivative")
-        raise Unreadable("unsupported_command")
-
-    def operatorname(self, depth: int) -> G.Node:
-        self.take()
-        word = self.word()
-        if word != "erf":
-            raise Unreadable("unsupported_function")
-        return self.node("call", depth, text="erf", args=(self.function_argument(depth + 1),))
-
-    def function_argument(self, depth: int) -> G.Node:
+    def function(self, item: _Item, depth: int) -> tuple[G.Node, Tree | None]:
         """``\\sin(u)``, or a bare one-token argument with nothing juxtaposed after it."""
 
-        if self.at("^", "op"):
-            raise Unreadable("function_power")
-        token = self.peek()
-        if token is None:
+        argument = self.peek()
+        if argument is None:
             raise Unreadable("function_arg")
-        if token.kind == "op" and token.text in _OPENERS:
-            return self.group(depth, _OPENERS[token.text])
-        if token.text == "\\{":
-            return self.group(depth, "\\}")
-        if token.text == "\\left":
-            return self.left_group(depth)
-        inner = self.bare_argument(depth)
-        if self.at("^", "op"):
+        if argument.kind == "open" and not argument.absolute:
+            self.take()
+            inner, sup = self.group(argument, depth + 1)
+            return self.node("call", depth, text=item.text, args=(inner,)), sup
+        if argument.kind not in ("num", "sym") or argument.sup is not None or argument.sub is not None and argument.kind == "num":
             raise Unreadable("function_arg")
+        self.take()
+        if argument.kind == "num":
+            inner = self.node("num", depth + 1, text=argument.text, value=float(argument.text))
+        else:
+            inner = self.symbol(argument, depth + 1)[0]
         following = self.peek()
-        if following is not None and self.starts_factor(following) and not (
-                following.kind == "command" and following.text[1:] in _FUNCTIONS):
+        if following is not None and self.starts_factor(following) and following.kind != "func":
             raise Unreadable("function_arg")
-        return inner
+        return self.node("call", depth, text=item.text, args=(inner,)), None
 
-    def bare_argument(self, depth: int) -> G.Node:
-        token = self.peek()
-        if token is None:
-            raise Unreadable("function_arg")
-        if token.kind == "number":
-            self.take()
-            return self.node("num", depth, text=token.text, value=float(token.text))
-        if token.kind == "letter" or (token.kind == "command" and token.text[1:] in _GREEK):
-            return self.symbol(depth)
-        raise Unreadable("function_arg")
-
-    def extreme(self, depth: int, name: str) -> G.Node:
-        self.take()
-        token = self.peek()
-        if token is None:
+    def extreme(self, item: _Item, depth: int) -> tuple[G.Node, Tree | None]:
+        opening = self.take()
+        if opening.kind != "open" or opening.absolute:
             raise Unreadable("syntax")
-        left = token.text == "\\left"
-        if left:
-            self.take()
-            token = self.peek()
-            if token is None:
-                raise Unreadable("syntax")
-        closers = {"(": ")", "[": "]", "\\{": "\\}"}
-        if token.text not in closers:
-            raise Unreadable("syntax")
-        closer = closers[token.text]
-        self.take()
         saved, self.bars = self.bars, 0
         args = [self.expression(depth + 1)]
-        while self.at(",", "op"):
+        while (following := self.peek()) is not None and following.kind == "punct":
             self.take()
             args.append(self.expression(depth + 1))
         self.bars = saved
-        if left:
-            self.expect("\\right")
-        self.expect(closer)
-        low, high = G.FUNCTIONS[name]
+        closing = self.closes("close", opening.text)
+        low, high = G.FUNCTIONS[item.text]
         if len(args) < low or (high is not None and len(args) > high):
             raise Unreadable("syntax")
-        return self.node("call", depth, text=name, args=tuple(args))
+        return self.node("call", depth, text=item.text, args=tuple(args)), closing.sup
 
     # -- cases -----------------------------------------------------------------
-    def environment(self, depth: int) -> G.Node:
-        self.take()
-        name = self.word_environment()
-        if name in _ENVIRONMENTS_MATRIX:
-            raise Unreadable("matrix")
-        if name != "cases":
-            raise Unreadable("unsupported_environment")
-        rows: list[tuple[G.Node, G.Node | None, tuple[str, list[tuple[str, Fraction]]] | None]] = []
-        while True:
-            if self.at("\\end"):
-                break
-            value = self.expression(depth + 1)
-            self.row_end_punctuation()
+    def cases(self, item: _Item, depth: int) -> G.Node:
+        assert item.node is not None
+        rows: Rows = []
+        for row in item.node.get("body") or ():
             # A row with no condition column names no condition: only the word
             # "otherwise" may stand for the rest of the line.
-            if not self.at("&", "op"):
+            if len(row) < 2:
                 raise Unreadable("cases_cover")
-            self.take()
-            condition, shape = self.condition(depth + 1)
-            self.row_end_punctuation()
+            if len(row) > 2:
+                raise Unreadable("unsupported_environment")
+            value = self.inner(_without_end_punctuation(_cell(row[0])), depth + 1)
+            condition, shape = self.condition(_cell(row[1]), depth + 1)
             rows.append((value, condition, shape))
-            if self.at("\\\\"):
-                self.take()
-                continue
-            break
-        self.expect("\\end")
-        if self.word_environment() != "cases":
-            raise Unreadable("syntax")
         if not rows:
             raise Unreadable("cases_cover")
         return self.cases_node(rows, depth)
 
-    def word_environment(self) -> str:
-        self.expect("{")
-        letters = []
-        while not self.at("}", "op"):
-            token = self.take()
-            if token.kind != "letter":
-                if token.text == "*":
-                    letters.append("*")
-                    continue
-                raise Unreadable("unsupported_environment")
-            letters.append(token.text)
-        self.take()
-        return "".join(letters)
-
-    def row_end_punctuation(self) -> None:
-        while self.peek() is not None and self.peek().kind == "op" and self.peek().text in ",.":  # type: ignore[union-attr]
-            self.take()
-
-    def condition(self, depth: int) -> tuple[G.Node | None, tuple[str, list[tuple[str, Fraction]]] | None]:
+    def condition(self, nodes: Sequence[Tree], depth: int) -> tuple[G.Node | None, tuple[str, list[tuple[str, Fraction]]] | None]:
         """A condition column: ``\\text{otherwise}`` (None), or one symbol
         against exact literals, an optional ``\\text{if }`` before it."""
 
-        token = self.peek()
-        if token is not None and token.kind == "text":
-            self.take()
-            words = token.text.strip().rstrip(",.:").strip()
-            if words == "otherwise":
-                return None, None
-            if words not in _CASE_WORDS:
-                raise Unreadable("text")
-        chain: list[object] = [self.condition_side()]
-        ops: list[str] = []
-        while True:
-            token = self.peek()
-            if token is None or token.text not in _CONDITION_OPS:
-                break
-            self.take()
-            ops.append(_CONDITION_OPS[token.text])
-            chain.append(self.condition_side())
-        if len(chain) not in (2, 3):
-            following = self.peek()
-            if following is not None and following.kind == "command" and following.text[1:] in _REFUSED_COMMANDS:
-                raise Unreadable(_REFUSED_COMMANDS[following.text[1:]])
-            raise Unreadable("cases_condition")
-        pairs: list[tuple[str, Fraction]]
-        if len(chain) == 3:
-            low, symbol, high = chain
-            if not (isinstance(symbol, str) and isinstance(low, Fraction) and isinstance(high, Fraction)):
+        saved = self.items, self.position
+        self.items, self.position = _items(_without_end_punctuation(nodes)), 0
+        try:
+            first = self.peek()
+            if first is not None and first.kind == "text":
+                assert first.node is not None
+                self.take()
+                words = _text_words(first.node)
+                if words == "otherwise" and self.peek() is None:
+                    return None, None
+                if words not in _CASE_WORDS:
+                    raise Unreadable("text")
+            chain: list[object] = [self.condition_side()]
+            ops: list[str] = []
+            while (item := self.peek()) is not None and item.kind == "rel":
+                self.take()
+                ops.append(_CONDITION_OPS[item.text])
+                chain.append(self.condition_side())
+            if self.peek() is not None:
+                raise self.leftover(self.peek()) if self.peek().kind in ("text", "bang") else Unreadable("cases_condition")  # type: ignore[union-attr]
+            if len(chain) not in (2, 3):
                 raise Unreadable("cases_condition")
-            if ops[0] not in ("<", "<=") or ops[1] not in ("<", "<="):
-                raise Unreadable("cases_condition")
-            pairs = [(_flip(ops[0]), low), (ops[1], high)]
-        else:
-            left, right = chain
-            if isinstance(left, str) and isinstance(right, Fraction):
-                symbol, pairs = left, [(ops[0], right)]
-            elif isinstance(left, Fraction) and isinstance(right, str):
-                symbol, pairs = right, [(_flip(ops[0]), left)]
+            pairs: list[tuple[str, Fraction]]
+            if len(chain) == 3:
+                low, symbol, high = chain
+                if not (isinstance(symbol, str) and isinstance(low, Fraction) and isinstance(high, Fraction)):
+                    raise Unreadable("cases_condition")
+                if ops[0] not in ("<", "<=") or ops[1] not in ("<", "<="):
+                    raise Unreadable("cases_condition")
+                pairs = [(_flip(ops[0]), low), (ops[1], high)]
             else:
-                raise Unreadable("cases_condition")
-        compared = [self.node("cmp", depth, op=op, args=(self.node("name", depth, text=symbol),
-                                                         self.literal_node(value, depth))) for op, value in pairs]
-        node = compared[0] if len(compared) == 1 else self.node("and", depth, args=tuple(compared))
-        return node, (symbol, pairs)
+                left, right = chain
+                if isinstance(left, str) and isinstance(right, Fraction):
+                    symbol, pairs = left, [(ops[0], right)]
+                elif isinstance(left, Fraction) and isinstance(right, str):
+                    symbol, pairs = right, [(_flip(ops[0]), left)]
+                else:
+                    raise Unreadable("cases_condition")
+            compared = [self.node("cmp", depth, op=op, args=(self.node("name", depth, text=symbol),
+                                                             self.literal_node(value, depth))) for op, value in pairs]
+            node = compared[0] if len(compared) == 1 else self.node("and", depth, args=tuple(compared))
+            return node, (symbol, pairs)
+        finally:
+            self.items, self.position = saved
 
     def condition_side(self) -> object:
-        token = self.peek()
-        if token is None:
+        item = self.take() if self.peek() is not None else None
+        if item is None:
             raise Unreadable("cases_condition")
         sign = 1
-        if token.kind == "op" and token.text == "-":
-            self.take()
+        if item.kind == "op" and item.text == "-":
             sign = -1
-            token = self.peek()
-            if token is None:
+            item = self.take() if self.peek() is not None else None
+            if item is None:
                 raise Unreadable("cases_condition")
-        if token.kind == "number":
-            self.take()
-            if not binary64_exact(token.text):
-                raise Unreadable("inexact_literal")
-            return sign * Fraction(token.text)
-        if token.text == "\\frac":
-            self.take()
-            self.expect("{")
-            top = self.take()
-            self.expect("}")
-            self.expect("{")
-            bottom = self.take()
-            self.expect("}")
-            if top.kind != "number" or bottom.kind != "number" or not Fraction(bottom.text):
+        if item.sup is not None or (item.sub is not None and item.kind != "sym"):
+            raise Unreadable("cases_condition")
+        if item.kind == "num":
+            return _exact_numeral(item, sign)
+        if item.kind == "frac":
+            top, bottom = _numeric_sides(item)
+            if top is None or bottom is None or not bottom:
                 raise Unreadable("cases_condition")
-            value = Fraction(top.text) / Fraction(bottom.text)
+            value = top / bottom
             if Fraction(float(value)) != value:
                 raise Unreadable("inexact_literal")
             return sign * value
-        if sign < 0:
+        if sign < 0 or item.kind != "sym":
             raise Unreadable("cases_condition")
-        if token.kind == "letter" or (token.kind == "command" and token.text[1:] in _GREEK):
-            node = self.symbol(0)
-            return node.text
-        if token.kind == "command" and token.text[1:] in _REFUSED_COMMANDS:
-            raise Unreadable(_REFUSED_COMMANDS[token.text[1:]])
-        raise Unreadable("cases_condition")
+        return self.symbol(item, 0)[0].text
 
     def literal_node(self, value: Fraction, depth: int) -> G.Node:
         text = _dyadic_text(abs(value))
         literal = self.node("num", depth, text=text, value=float(abs(value)))
         return self.node("neg", depth, args=(literal,)) if value < 0 else literal
 
-    def cases_node(self, rows: list[tuple[G.Node, G.Node | None, tuple[str, list[tuple[str, Fraction]]] | None]],
-                   depth: int) -> G.Node:
+    def cases_node(self, rows: Rows, depth: int) -> G.Node:
         """``piecewise``: the rows proved not to overlap, and to cover the real
         line unless an "otherwise" row ends them (§5.3; the interval method of §6.3)."""
 
@@ -840,6 +812,57 @@ class _Reader:
         return self.node("piecewise", depth, args=tuple(args))
 
 
+def _numeric_sides(item: _Item) -> tuple[Fraction | None, Fraction | None]:
+    """A fraction's two sides as numbers, each when it is one numeral."""
+
+    def side(node: Tree) -> Fraction | None:
+        try:
+            found = _items(_body(node))
+        except Unreadable:
+            return None
+        if len(found) == 1 and found[0].kind == "num" and found[0].sup is None and found[0].sub is None:
+            return Fraction(found[0].text)
+        return None
+
+    assert item.node is not None
+    return side(item.node["numer"]), side(item.node["denom"])
+
+
+def _numeric_fraction(item: _Item) -> bool:
+    return None not in _numeric_sides(item)
+
+
+def _cell(cell: Tree) -> Sequence[Tree]:
+    """A cell of an array: KaTeX wraps its contents in a style and a group."""
+
+    inner = cell.get("body") or ()
+    if cell.get("type") != "styling" or len(inner) != 1 or inner[0].get("type") != "ordgroup":
+        raise Unreadable("syntax")
+    return inner[0].get("body") or ()
+
+
+def _text_words(node: Tree) -> str:
+    """A ``\\text{...}``'s words: its characters as KaTeX lists them."""
+
+    letters = []
+    for child in node.get("body") or ():
+        if child.get("type") == "spacing":
+            letters.append(" ")
+        elif child.get("type") in ("textord", "mathord"):
+            letters.append(str(child.get("text")))
+        else:
+            return "?"
+    return " ".join("".join(letters).split()).rstrip(",.:").strip()
+
+
+def _without_end_punctuation(nodes: Sequence[Tree]) -> Sequence[Tree]:
+    """Without the ``,`` or ``.`` a sentence or a row ends on."""
+
+    while nodes and (_is_atom(nodes[-1], "punct", ",") or (nodes[-1].get("type") == "textord" and nodes[-1].get("text") == ".")):
+        nodes = nodes[:-1]
+    return nodes
+
+
 def _flip(op: str) -> str:
     return {"<": ">", "<=": ">=", ">": "<", ">=": "<="}[op]
 
@@ -852,34 +875,35 @@ def _compare(point: Fraction, op: str, value: Fraction) -> bool:
 # One relation
 # ---------------------------------------------------------------------------
 
-_LHS_APPLICATION = re.compile(r"\A\s*(?:\\?[A-Za-z]+)(?:_\{?[A-Za-z0-9]\}?)?\s*(?:\\left\s*)?\((?P<args>.*)(?:\\right\s*)?\)\s*\Z", re.DOTALL)
+def _is_atom(node: Tree, family: str, text: str | None = None) -> bool:
+    return node.get("type") == "atom" and node.get("family") == family and (text is None or node.get("text") == text)
 
 
-def _split_relation(tokens: list[_Token]) -> tuple[int, int]:
-    """Where the one top-level ``=`` or ``:=`` is, as ``(lhs_end, rhs_start)``
-    token indices: a segment must hold exactly one."""
+def _split_relation(nodes: Sequence[Tree]) -> tuple[int, int]:
+    """Where the one top-level ``=`` or ``:=`` of KaTeX's list is, as ``(lhs_end,
+    rhs_start)`` indices: a segment must hold exactly one. A bracket's contents are
+    in the same list, so its ``=`` (``P(X = k)``) is counted out by depth."""
 
     depth = 0
     found: list[tuple[int, int]] = []
-    other = False
-    for index, token in enumerate(tokens):
-        text = token.text
-        if token.kind == "op" and text in "([{":
+    other: str | None = None
+    for index, node in enumerate(nodes):
+        current = node.get("base") if node.get("type") == "supsub" else node
+        if current is None:
+            continue
+        if _is_atom(current, "open"):
             depth += 1
-        elif token.kind == "op" and text in ")]}":
+        elif _is_atom(current, "close") and current.get("text") not in ("!", "?"):
             depth -= 1
-        elif text in ("\\{", "\\left", "\\begin"):
-            depth += 1
-        elif text in ("\\}", "\\right", "\\end"):
-            depth -= 1
-        elif depth == 0 and token.kind == "op" and text == "=":
-            start = index - 1 if index and tokens[index - 1].text == ":" else index
-            found.append((start, index + 1))
-        elif depth == 0 and (text in _RELATION_TOKENS or text[1:] in (
-                "approx", "propto", "sim", "equiv", "le", "leq", "ge", "geq", "neq", "ne", "ll", "gg")):
-            other = True
-    if other:
-        raise Unreadable("relation")
+        elif depth == 0 and _is_atom(current, "rel", "="):
+            colon = index > 0 and _is_atom(nodes[index - 1], "rel", ":")
+            found.append((index - 1 if colon else index, index + 1))
+        elif depth == 0 and _is_atom(current, "rel") and current.get("text") != ":":
+            other = other or _LABELS.get(str(current.get("text")), "relation")
+        elif depth == 0 and current.get("type") == "htmlmathml":
+            other = other or "relation"
+    if other is not None:
+        raise Unreadable(other)
     if not found:
         raise Unreadable("not_equation")
     if len(found) > 1:
@@ -887,72 +911,146 @@ def _split_relation(tokens: list[_Token]) -> tuple[int, int]:
     return found[0]
 
 
-def _lhs_args(lhs: str) -> tuple[tuple[str, ...], dict[str, set[str]], dict[str, str]]:
+def _lhs_args(nodes: Sequence[Tree]) -> tuple[tuple[str, ...], dict[str, set[str]], dict[str, str]]:
     """The symbols of a ``name(args)`` left-hand side, with how the book spells
     them; empty for ``P(X = k)``, ``E[X]`` or a bare name."""
 
     nothing: tuple[tuple[str, ...], dict[str, set[str]], dict[str, str]] = ((), {}, {})
-    match = _LHS_APPLICATION.match(lhs)
-    if match is None:
+    kept = [node for node in nodes if node.get("type") not in ("kern", "spacing")]
+    if not kept:
         return nothing
-    inner = re.sub(r"\\right\s*\Z", "", match.group("args").strip())
+    if kept[-1].get("type") == "leftright" and kept[-1].get("left") == "(" and kept[-1].get("right") == ")":
+        head, inner = kept[:-1], kept[-1].get("body") or ()
+    else:
+        opening = next((index for index, node in enumerate(kept) if _is_atom(node, "open", "(")), None)
+        if opening is None or not _is_atom(kept[-1], "close", ")"):
+            return nothing
+        head, inner = kept[:opening], kept[opening + 1:-1]
+    if not head or not all(_is_name_part(node, index == len(head) - 1) for index, node in enumerate(head)):
+        return nothing
+    parts: list[list[Tree]] = [[]]
+    for node in inner:
+        if _is_atom(node, "punct", ","):
+            parts.append([])
+        elif node.get("type") not in ("kern", "spacing"):
+            parts[-1].append(node)
     args: list[str] = []
     spellings: dict[str, set[str]] = {}
     first: dict[str, str] = {}
-    for part in inner.split(","):
+    for part in parts:
         try:
-            tokens = _tokenize(part.strip())
+            items = _items(part)
+            if len(items) != 1 or items[0].kind != "sym" or items[0].sup is not None:
+                return nothing
+            reader = _Reader(items)
+            value = reader.symbol(reader.take(), 0)[0]
         except Unreadable:
             return nothing
-        if not tokens:
+        if value.kind != "name":
             return nothing
-        reader = _Reader(tokens, part.strip())
-        token = tokens[0]
-        if not (token.kind == "letter" or (token.kind == "command" and token.text[1:] in _GREEK)):
-            return nothing
-        try:
-            node = reader.symbol(0, in_exponent=True)
-        except Unreadable:
-            return nothing
-        if reader.position != len(tokens) or node.kind != "name":
-            return nothing
-        args.append(node.text)
+        args.append(value.text)
         for name, spelled in reader.spellings.items():
             spellings.setdefault(name, set()).update(spelled)
         first.update(reader.first)
     return tuple(args), spellings, first
 
 
-def read_relation(latex: str) -> Relation:
-    """One math segment read as one relation, or :class:`Unreadable`."""
+def _is_name_part(node: Tree, last: bool) -> bool:
+    """A function's name on the left: letters, a named operator, or a subscript on the last letter."""
 
+    kind = node.get("type")
+    if kind == "supsub":
+        return last and node.get("sup") is None and (node.get("base") or {}).get("type") in ("mathord", "textord")
+    if kind == "textord":
+        return str(node.get("text"))[1:] in _GREEK or str(node.get("text")) in (r"\Phi", r"\Gamma")
+    return kind in ("mathord", "op")
+
+
+def _walk(value: Any) -> Iterator[Tree]:
+    """Every node under ``value``, whatever field holds it."""
+
+    if isinstance(value, Mapping):
+        if "type" in value:
+            yield value
+        for child in value.values():
+            yield from _walk(child)
+    elif isinstance(value, list):
+        for child in value:
+            yield from _walk(child)
+
+
+def _without_places(value: Any) -> Any:
+    if isinstance(value, Mapping):
+        return {key: _without_places(child) for key, child in value.items() if key != "at"}
+    if isinstance(value, list):
+        return [_without_places(child) for child in value]
+    return value
+
+
+def _parse(trees: KT.Trees, source: str, display: bool) -> list[Tree]:
+    try:
+        return trees.parse(source, display=display)
+    except KT.TreeRefused as refused:
+        raise Unreadable({"not_rendered": "not_rendered", "macro": "macro_definition", "cap": "too_long",
+                          "unavailable": "engine_unavailable"}[refused.kind]) from refused
+
+
+def _left_hand_side(source: str, tree: Sequence[Tree], lhs_end: int, *, trees: KT.Trees, display: bool) -> str:
+    """The book's own substring, kept only when KaTeX reads it alone as the left of this parse."""
+
+    start = (tree[lhs_end].get("at") or (None,))[0]
+    if start is None:
+        raise Unreadable("syntax")
+    lhs = source[:start].strip()
+    left = tree[:lhs_end]
+    for node in _walk(list(left)):
+        dimension = node.get("dimension") or {}
+        if node.get("type") not in _LABEL_NODES or (node.get("type") == "kern" and (dimension.get("number"), dimension.get("unit")) not in _KERNS):
+            raise Unreadable("unsupported_command")
+    if _without_places(_parse(trees, lhs, display)) != _without_places(list(left)):
+        raise Unreadable("syntax")
+    return lhs
+
+
+def read_relation(latex: str, *, display: bool = False, trees: KT.Trees | None = None) -> Relation:
+    """One math segment read as one relation, or :class:`Unreadable`. ``trees``: the
+    check's loaded engine (one is opened for this call without it)."""
+
+    if trees is None:
+        with KT.Trees() as own:
+            return read_relation(latex, display=display, trees=own)
     source = str(latex or "")
-    tokens = _tokenize(source)
-    while tokens and tokens[-1].kind == "op" and tokens[-1].text in ",.":
-        tokens = tokens[:-1]
-    if not tokens:
+    if len(source) > G.MAX_EXPR_CHARS:
+        raise Unreadable("too_long")
+    if not source.isascii():
+        raise Unreadable("unicode_math")
+    # A comment ends at a newline, and the page's markdown may have made that a space.
+    if "%" in source or _BLANK_LINE.search(source):
+        raise Unreadable("syntax")
+    if _MACRO_DEFINITION.search(source):
+        raise Unreadable("macro_definition")
+    try:
+        return _translate(source, _parse(trees, source, display), trees=trees, display=display)
+    except RecursionError as exc:
+        raise Unreadable("too_long") from exc
+
+
+def _translate(source: str, tree: Sequence[Tree], *, trees: KT.Trees, display: bool) -> Relation:
+    nodes = _without_end_punctuation(tree)
+    if not nodes:
         raise Unreadable("not_equation")
-    lhs_end, rhs_start = _split_relation(tokens)
-    if lhs_end == 0 or rhs_start >= len(tokens):
+    lhs_end, rhs_start = _split_relation(nodes)
+    if lhs_end == 0 or rhs_start >= len(nodes):
         raise Unreadable("not_equation")
-    lhs = source[tokens[0].start:tokens[lhs_end - 1].end].strip()
-    args, spellings, first = _lhs_args(lhs)
-    reader = _Reader(tokens[rhs_start:], source, args=args)
-    # \\varepsilon on the left and \\epsilon on the right are two book symbols sharing one name.
+    lhs = _left_hand_side(source, nodes, lhs_end, trees=trees, display=display)
+    args, spellings, first = _lhs_args(nodes[:lhs_end])
+    reader = _Reader(_items(nodes[rhs_start:]), args=args)
+    # \varepsilon on the left and \epsilon on the right are two book symbols sharing one name.
     reader.spellings = {name: set(spelled) for name, spelled in spellings.items()}
     reader.first = dict(first)
     rhs = reader.expression(1)
-    if reader.position != len(reader.tokens):
-        token = reader.peek()
-        if token is not None and token.kind == "command" and token.text[1:] in _REFUSED_COMMANDS:
-            raise Unreadable(_REFUSED_COMMANDS[token.text[1:]])
-        if token is not None and token.kind == "text":
-            raise Unreadable("text")
-        if token is not None and token.text == "!":
-            raise Unreadable("factorial")
-        if token is not None and token.text == "'":
-            raise Unreadable("derivative")
-        raise Unreadable("syntax")
+    if reader.position != len(reader.items):
+        raise reader.leftover(reader.peek())
     # Names are never resolved: g(1-p) is a product only when g also stands alone.
     if any(name not in reader.plain and name not in reader.args for name in reader.applied):
         raise Unreadable("application")

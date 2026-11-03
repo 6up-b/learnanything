@@ -49,15 +49,18 @@ from learnloop.figures import book_math as BM
 from learnloop.figures import display_format as DF
 from learnloop.figures import elements as E
 from learnloop.figures import grammar as G
+from learnloop.figures import katex_tree as KT
 from learnloop.figures import spec as S
 from learnloop.figures import verify as V
 from learnloop.ids import new_ulid
+from learnloop.reader.source_render_views import sanitize_source_text
 
 #: The rules a check ran under (the reader's table, the harness, the display
 #: format). Bumping it rechecks stored figures, by code, at no paid cost (§10.4).
 #: 2: the reader refuses forms the page shows otherwise (\sqrt16 x and its class),
 #: so a "checked" stored under 1 is not delivered until code has read it again.
-CERTIFICATION_VERSION = 2
+#: 3: the reader reads KaTeX's own tree (\def and e^x^2 and their class).
+CERTIFICATION_VERSION = 3
 LEDGER_TASK = "figure_source_check"
 CHECKED, DIFFERS, UNDECIDED, NOT_CHECKABLE = "checked", "differs", "undecided", "not_checkable"
 OUTCOMES = (CHECKED, DIFFERS, UNDECIDED, NOT_CHECKABLE)
@@ -187,36 +190,42 @@ def read_candidates(vault: Any, repository: Any, spans: Sequence[tuple[str, str,
     def refuse(reason: str) -> None:
         reasons[reason] = reasons.get(reason, 0) + 1
 
-    for extraction_id, span_id, claim_key in spans:
-        if extraction_id not in documents:
-            documents[extraction_id] = repository.load_document_ir(extraction_id)
-            orders[extraction_id] = len(orders)
-        ir = documents[extraction_id]
-        block = ir.block_by_span(span_id) if ir is not None else None
-        if block is None:
-            continue
-        if material.covers(extraction_id, span_id):
-            refuse("block_withheld")
-            continue
-        text = block.text or ""
-        found = BM.segments(text, block.block_type)
-        if not found:
-            if _UNICODE_MATH.search(text):
-                refuse("unicode_math")
-            continue
-        health = _health(repository, extraction_id, block, ir, persist=persist)
-        if health.get("status") != "ok":
-            refuse("block_health")
-            continue
-        position = next((index for index, item in enumerate(ir.blocks) if item.span_id == span_id), 0)
-        for segment in found:
-            try:
-                relation = BM.read_relation(segment.latex)
-            except BM.Unreadable as refused:
-                refuse(refused.reason)
+    # One loaded KaTeX for the whole check; it opens only if a segment needs reading.
+    with KT.Trees() as trees:
+        for extraction_id, span_id, claim_key in spans:
+            if extraction_id not in documents:
+                documents[extraction_id] = repository.load_document_ir(extraction_id)
+                orders[extraction_id] = len(orders)
+            ir = documents[extraction_id]
+            block = ir.block_by_span(span_id) if ir is not None else None
+            if block is None:
                 continue
-            placed.append((orders[extraction_id], position, Candidate(
-                extraction_id, span_id, claim_key, block.page, segment.start, segment.end, text, relation, health)))
+            if material.covers(extraction_id, span_id):
+                refuse("block_withheld")
+                continue
+            text = block.text or ""
+            found = BM.segments(text, block.block_type)
+            if not found:
+                if _UNICODE_MATH.search(text):
+                    refuse("unicode_math")
+                continue
+            health = _health(repository, extraction_id, block, ir, persist=persist)
+            if health.get("status") != "ok":
+                refuse("block_health")
+                continue
+            # The page shows a sanitized block otherwise (source_render_views): not this text.
+            if sanitize_source_text(text)[1]:
+                refuse("block_health")
+                continue
+            position = next((index for index, item in enumerate(ir.blocks) if item.span_id == span_id), 0)
+            for segment in found:
+                try:
+                    relation = BM.read_relation(segment.latex, display=segment.display, trees=trees)
+                except BM.Unreadable as refused:
+                    refuse(refused.reason)
+                    continue
+                placed.append((orders[extraction_id], position, Candidate(
+                    extraction_id, span_id, claim_key, block.page, segment.start, segment.end, text, relation, health)))
     placed.sort(key=lambda item: (item[0], item[1], item[2].start))
     return [item[2] for item in placed], reasons
 
@@ -976,12 +985,11 @@ def report_block(connection: Any, *, since: str | None = None) -> dict[str, Any]
     """The reader report's ``source_checks``: outcomes, reasons, elements, latency, and
     opens and "not right?" notes for figures with a ``book`` element and without (§12 item 4)."""
 
-    checks = [found for found in store.latest_source_checks(connection, CERTIFICATION_VERSION)
-              if since is None or str(found["created_at"]) >= since]
+    latest = store.latest_source_checks(connection, CERTIFICATION_VERSION)
+    checks = [found for found in latest if since is None or str(found["created_at"]) >= since]
     outcomes: dict[str, int] = {}
     reasons: dict[str, int] = {}
     elements: dict[str, int] = {}
-    with_book: set[str] = set()
     for found in checks:
         outcomes[found["outcome"]] = outcomes.get(found["outcome"], 0) + 1
         for key, count in (found.get("reasons") or {}).items():
@@ -989,20 +997,22 @@ def report_block(connection: Any, *, since: str | None = None) -> dict[str, Any]
         for element in found.get("elements") or ():
             role = str(element.get("role"))
             elements[role] = elements.get(role, 0) + 1
-            if role == "book":
-                with_book.add(str(found["figure_id"]))
+    # Activity goes by its own date, whenever its figure was last checked: a figure
+    # checked Oct 1 and opened Nov 2 was opened since Nov 1, and the reverse was not.
+    with_book = {str(found["figure_id"]) for found in latest
+                 if any(element.get("role") == "book" for element in found.get("elements") or ())}
     opened = {"with_book": 0, "without": 0}
     notes = {"with_book": 0, "without": 0}
-    checked_figures = {str(found["figure_id"]) for found in checks}
-    for (figure_id,) in connection.execute(
-            "SELECT json_extract(payload_json, '$.figure_id') FROM interaction_events "
+    checked_figures = {str(found["figure_id"]) for found in latest}
+    for (figure_id, created_at) in connection.execute(
+            "SELECT json_extract(payload_json, '$.figure_id'), created_at FROM interaction_events "
             "WHERE kind = 'reader_action_invoked' AND json_extract(payload_json, '$.event') = 'figure_opened'"):
-        if str(figure_id) in checked_figures:
+        if str(figure_id) in checked_figures and (since is None or str(created_at) >= since):
             opened["with_book" if str(figure_id) in with_book else "without"] += 1
-    for (supersedes_id,) in connection.execute(
-            "SELECT supersedes_id FROM interactive_figures WHERE supersedes_id IS NOT NULL "
+    for (supersedes_id, created_at) in connection.execute(
+            "SELECT supersedes_id, created_at FROM interactive_figures WHERE supersedes_id IS NOT NULL "
             "AND COALESCE(revision_note, '') != ''"):
-        if str(supersedes_id) in checked_figures:
+        if str(supersedes_id) in checked_figures and (since is None or str(created_at) >= since):
             notes["with_book" if str(supersedes_id) in with_book else "without"] += 1
     return {"certification_version": CERTIFICATION_VERSION, "figures": sum(outcomes.values()), "outcomes": outcomes,
             "reasons": dict(sorted(reasons.items())), "elements": elements,

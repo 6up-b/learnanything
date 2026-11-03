@@ -56,11 +56,14 @@ MEDIA_SUFFIXES = {
 DATABASE_SUFFIXES = {".sqlite", ".sqlite3", ".db", ".db3"}
 DOCS_IMAGE_SUFFIXES = {".png", ".jpg", ".jpeg", ".gif", ".webp", ".svg"}
 APP_ASSET_SUFFIXES = {".png", ".ico", ".icns", ".jpg", ".jpeg", ".gif", ".webp", ".svg", ".woff", ".woff2", ".ttf", ".otf"}
-#: RW5d P2: the sketch engine, the one WebAssembly asset (spec_reader_show_me_figures_v1
-#: §9.3, "Packaging"): built from pinned sources by its checked-in script, with
-#: its third-party notices beside the script. Each entry names that notice.
+#: RW5d P2: the sketch engine, and RW5c's book-math variant of it (spec_reader_show_me_figures_v1
+#: §9.3, "Packaging"; spec_reader_rw5c_checked_labels_v1 §5.3): the WebAssembly assets, each built
+#: from pinned sources by the one checked-in script, with its third-party notices beside the
+#: script. Each entry names that notice.
 APP_WASM = {
     "apps/learnloop-tauri/src/screens/reader/figures/sketch/sketch-engine.wasm":
+        "apps/learnloop-tauri/sketch-engine/LICENSES.txt",
+    "apps/learnloop-tauri/sketch-engine/book-math-engine.wasm":
         "apps/learnloop-tauri/sketch-engine/LICENSES.txt",
 }
 HISTORICAL_FIXTURE = re.compile(r"^fixtures/(migration_head_\d+|mvp017_route_check_replay)/")

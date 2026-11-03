@@ -22,6 +22,13 @@ rewrites the pin after an intended change (then update
 ``learnloop.figures.sketch_engine.ENGINE_SHA256`` and ``sketchEngine.ts``'s
 ``ENGINE_SHA256`` to match; a test keeps the three equal).
 
+**Variants** (``variants`` in the lock file): the same harness and the same pinned
+sources under extra ``defines``, each with its own output and pin. RW5c's
+``book-math-engine.wasm`` is the one: KaTeX's lexer needs the RegExp intrinsic, which a
+sketch never gets, so the sketch engine's bytes and caps are untouched (``--check``
+proves it, rebuilding both).
+The sidecar alone runs it (``learnloop.figures.katex_tree``; pin in ``KATEX_ENGINE_SHA256``).
+
 Usage::
 
     python apps/learnloop-tauri/sketch-engine/build.py            # build, refuse a digest change
@@ -110,7 +117,7 @@ def clang_major(clang: str) -> int:
     return int(found.group(1))
 
 
-def build(lock: dict, cache: Path, output: Path, *, clang: str, wasm_ld: str) -> None:
+def build(lock: dict, cache: Path, output: Path, *, clang: str, wasm_ld: str, defines: tuple[str, ...] = ()) -> None:
     flags = lock["flags"]
     major = clang_major(clang)
     if major != lock["toolchain"]["clang_major"]:
@@ -126,7 +133,7 @@ def build(lock: dict, cache: Path, output: Path, *, clang: str, wasm_ld: str) ->
         for name in ("quickjs-amalgam.c", "quickjs.h"):
             shutil.copy(paths["quickjs"] / name, build_dir / name)
         obj = build_dir / "sketch_engine.o"
-        subprocess.run([clang, "--target=wasm32-wasip1", f"--sysroot={paths['sysroot']}", *flags["cflags"],
+        subprocess.run([clang, "--target=wasm32-wasip1", f"--sysroot={paths['sysroot']}", *flags["cflags"], *defines,
                         f"-ffile-prefix-map={build_dir}=/build", f"-ffile-prefix-map={work}=/work",
                         "-c", str(build_dir / "sketch_engine.c"), "-o", str(obj)], check=True, cwd=build_dir)
         lib = paths["sysroot"] / "lib" / "wasm32-wasip1"
@@ -148,32 +155,36 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--wasm-ld", default=os.environ.get("WASM_LD", "wasm-ld"))
     args = parser.parse_args(argv)
     lock = json.loads(LOCK.read_text())
-    target = APP / lock["output"]["path"]
-    if args.check:
-        with tempfile.TemporaryDirectory(prefix="sketch-engine-check-") as temp:
-            out = Path(temp) / "sketch-engine.wasm"
-            build(lock, args.cache, out, clang=args.clang, wasm_ld=args.wasm_ld)
+    # The sketch engine, then each variant: one pin and one output apiece.
+    targets = [("", lock["output"], ()),
+               *((name, variant["output"], tuple(variant["defines"])) for name, variant in lock.get("variants", {}).items())]
+    failed = False
+    for name, pin, defines in targets:
+        target = APP / pin["path"]
+        with tempfile.TemporaryDirectory(prefix="sketch-engine-out-") as temp:
+            out = Path(temp) / target.name
+            build(lock, args.cache, out, clang=args.clang, wasm_ld=args.wasm_ld, defines=defines)
             got = sha256(out)
-        ok = got == lock["output"]["sha256"]
-        print(f"{'reproduced' if ok else 'DIFFERENT'}: {got}")
-        return 0 if ok else 1
-    with tempfile.TemporaryDirectory(prefix="sketch-engine-out-") as temp:
-        out = Path(temp) / "sketch-engine.wasm"
-        build(lock, args.cache, out, clang=args.clang, wasm_ld=args.wasm_ld)
-        got = sha256(out)
-        if got != lock["output"]["sha256"] and not args.update_pin:
-            print(f"the build gave {got}, not the pinned {lock['output']['sha256']}; "
-                  "nothing written (--update-pin to accept)", file=sys.stderr)
-            return 1
-        target.parent.mkdir(parents=True, exist_ok=True)
-        shutil.copyfile(out, target)
-        target.chmod(0o644)
+            if args.check:
+                same = got == pin["sha256"]
+                print(f"{'reproduced' if same else 'DIFFERENT'} {name or 'sketch-engine'}: {got}")
+                failed = failed or not same
+                continue
+            if got != pin["sha256"] and not args.update_pin:
+                print(f"{name or 'sketch-engine'}: the build gave {got}, not the pinned {pin['sha256']}; "
+                      "nothing written (--update-pin to accept)", file=sys.stderr)
+                failed = True
+                continue
+            target.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copyfile(out, target)
+            target.chmod(0o644)
+        if args.update_pin:
+            pin["sha256"] = got
+            pin["bytes"] = target.stat().st_size
+        print(f"{target.relative_to(APP)}: {got}")
     if args.update_pin:
-        lock["output"]["sha256"] = got
-        lock["output"]["bytes"] = target.stat().st_size
         LOCK.write_text(json.dumps(lock, indent=2) + "\n")
-    print(f"{target.relative_to(APP)}: {got}")
-    return 0
+    return 1 if failed else 0
 
 
 if __name__ == "__main__":
