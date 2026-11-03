@@ -216,7 +216,8 @@ def test_the_report_counts_the_phone_apart_and_never_touches_serving(world):
     assert report["attempts_by_surface"] == {"phone_practice": 1}
     assert report["submit_to_feedback_seconds"]["count"] == 1
     assert report["share_of_submits_returning_202"] == 0.0
-    assert report["contest_rate_by_surface"] == {"phone_practice": 0.0}
+    # The phone has no contest, so a 0 there would read as a measurement.
+    assert report["contest_rate_by_surface"] == {"phone_practice": "no contest on the phone"}
     assert list(report["weeks"].values())[0] == {"sessions": 1, "attempts": 1, "items": 1}
     assert report["suspected_figure"] == [{"practice_item_id": ITEM, "phrase": "graph below"}]
     assert mobile_report(repository)["suspected_figure"] is None
