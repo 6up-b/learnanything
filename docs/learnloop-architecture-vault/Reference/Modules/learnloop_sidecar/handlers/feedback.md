@@ -7,8 +7,8 @@ version: "1.0.0"
 source_path: "src/learnloop_sidecar/handlers/feedback.py"
 source_paths:
   - "src/learnloop_sidecar/handlers/feedback.py"
-source_commit: "0a3288aa453d7ae2afb8142a7acf2c641d163333"
-source_commit_timestamp: "2026-10-25T12:56:29-04:00"
+source_commit: "a500c7fab899f7060bd00510419477e514bb07c8"
+source_commit_timestamp: "2026-11-03T01:49:39-05:00"
 source_worktree_state: "clean"
 generated: true
 generated_at: "2026-11-02"
@@ -50,64 +50,64 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop_sidecar/handlers/feedback.py](../../../../../../src/learnloop_sidecar/handlers/feedback.py) |
-| Source lines | 1173 |
+| Source lines | 1175 |
 | Owning package | [[Reference/Modules/learnloop_sidecar/handlers/_package|learnloop_sidecar.handlers]] |
 | Architecture layer | `adapter` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `0a3288aa453d7ae2afb8142a7acf2c641d163333` |
-| Commit timestamp | `2026-10-25T12:56:29-04:00` |
+| Source commit | `a500c7fab899f7060bd00510419477e514bb07c8` |
+| Commit timestamp | `2026-11-03T01:49:39-05:00` |
 
 ## Public API
 
-- `class AttemptInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/feedback.py), line 24)
-- `class FeedbackInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/feedback.py), line 28)
-- `class AnswerClarificationInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/feedback.py), line 35)
-- `class TriggerRegradeInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/feedback.py), line 40)
-- `class AnswerDisplayInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/feedback.py), line 55)
-- `class AddErrorEventInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/feedback.py), line 64)
-- `class TriggerFollowupInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/feedback.py), line 70)
-- `class RateFollowupInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/feedback.py), line 74)
-- `class ReportUnresolvedCauseInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/feedback.py), line 79)
-- `class ContestCausalDiagnosisInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/feedback.py), line 85)
-- `class SubmitElicitingResponseInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/feedback.py), line 90)
-- `get_feedback(ctx: SidecarContext, params: FeedbackInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/feedback.py), line 186)
-- `get_attempt(ctx: SidecarContext, params: AttemptInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/feedback.py), line 230)
-- `get_attempt_trace_evidence(ctx: SidecarContext, params: AttemptInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/feedback.py), line 236) — A6 trace observations on one attempt, plus the sentence they earned.
-- `get_grading_clarification(ctx: SidecarContext, params: AttemptInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/feedback.py), line 286) — The one A8 question this attempt is waiting on, or ``None``.
-- `answer_grading_clarification(ctx: SidecarContext, params: AnswerClarificationInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/feedback.py), line 314) — Record the learner's answer and re-grade the attempt with it in hand.
-- `report_unresolved_cause(ctx: SidecarContext, params: ReportUnresolvedCauseInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/feedback.py), line 397)
-- `submit_eliciting_response(ctx: SidecarContext, params: SubmitElicitingResponseInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/feedback.py), line 436) — The learner's unaided answer to an eliciting repair's question.
-- `contest_causal_diagnosis(ctx: SidecarContext, params: ContestCausalDiagnosisInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/feedback.py), line 485)
-- `trigger_regrade(ctx: SidecarContext, params: TriggerRegradeInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/feedback.py), line 505)
-- `record_answer_display(ctx: SidecarContext, params: AnswerDisplayInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/feedback.py), line 717) — Feedback's plain surface is about to show, or keeps showing, the full answer (UX Phase 4, Codex review F1, round 3): one routine display row.
-- `trigger_followup(ctx: SidecarContext, params: TriggerFollowupInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/feedback.py), line 756) — Manually force a diagnostic follow-up for one attempt.
-- `class StartPrimedRetryInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/feedback.py), line 827)
-- `start_primed_retry(ctx: SidecarContext, params: StartPrimedRetryInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/feedback.py), line 832) — Serve a sibling item for a primed retry from the source-review panel.
-- `class StartGuidedRedoInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/feedback.py), line 1077)
-- `start_guided_redo_handler(ctx: SidecarContext, params: StartGuidedRedoInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/feedback.py), line 1082) — Guided partial redo (Fix 3): serve the preserved-prefix redo context.
-- `rate_followup(ctx: SidecarContext, params: RateFollowupInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/feedback.py), line 1121) — One-tap "was this follow-up useful?" label from the feedback screen.
-- `add_error_event(ctx: SidecarContext, params: AddErrorEventInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/feedback.py), line 1152)
+- `class AttemptInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/feedback.py), line 25)
+- `class FeedbackInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/feedback.py), line 29)
+- `class AnswerClarificationInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/feedback.py), line 36)
+- `class TriggerRegradeInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/feedback.py), line 41)
+- `class AnswerDisplayInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/feedback.py), line 56)
+- `class AddErrorEventInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/feedback.py), line 65)
+- `class TriggerFollowupInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/feedback.py), line 71)
+- `class RateFollowupInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/feedback.py), line 75)
+- `class ReportUnresolvedCauseInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/feedback.py), line 80)
+- `class ContestCausalDiagnosisInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/feedback.py), line 86)
+- `class SubmitElicitingResponseInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/feedback.py), line 91)
+- `get_feedback(ctx: SidecarContext, params: FeedbackInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/feedback.py), line 187)
+- `get_attempt(ctx: SidecarContext, params: AttemptInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/feedback.py), line 231)
+- `get_attempt_trace_evidence(ctx: SidecarContext, params: AttemptInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/feedback.py), line 237) — A6 trace observations on one attempt, plus the sentence they earned.
+- `get_grading_clarification(ctx: SidecarContext, params: AttemptInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/feedback.py), line 287) — The one A8 question this attempt is waiting on, or ``None``.
+- `answer_grading_clarification(ctx: SidecarContext, params: AnswerClarificationInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/feedback.py), line 316) — Record the learner's answer and re-grade the attempt with it in hand.
+- `report_unresolved_cause(ctx: SidecarContext, params: ReportUnresolvedCauseInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/feedback.py), line 399)
+- `submit_eliciting_response(ctx: SidecarContext, params: SubmitElicitingResponseInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/feedback.py), line 438) — The learner's unaided answer to an eliciting repair's question.
+- `contest_causal_diagnosis(ctx: SidecarContext, params: ContestCausalDiagnosisInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/feedback.py), line 487)
+- `trigger_regrade(ctx: SidecarContext, params: TriggerRegradeInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/feedback.py), line 507)
+- `record_answer_display(ctx: SidecarContext, params: AnswerDisplayInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/feedback.py), line 719) — Feedback's plain surface is about to show, or keeps showing, the full answer (UX Phase 4, Codex review F1, round 3): one routine display row.
+- `trigger_followup(ctx: SidecarContext, params: TriggerFollowupInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/feedback.py), line 758) — Manually force a diagnostic follow-up for one attempt.
+- `class StartPrimedRetryInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/feedback.py), line 829)
+- `start_primed_retry(ctx: SidecarContext, params: StartPrimedRetryInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/feedback.py), line 834) — Serve a sibling item for a primed retry from the source-review panel.
+- `class StartGuidedRedoInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/feedback.py), line 1079)
+- `start_guided_redo_handler(ctx: SidecarContext, params: StartGuidedRedoInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/feedback.py), line 1084) — Guided partial redo (Fix 3): serve the preserved-prefix redo context.
+- `rate_followup(ctx: SidecarContext, params: RateFollowupInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/feedback.py), line 1123) — One-tap "was this follow-up useful?" label from the feedback screen.
+- `add_error_event(ctx: SidecarContext, params: AddErrorEventInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/feedback.py), line 1154)
 
 ### Module constants
 
-- `GRADE_CONTEST_CLAIM_TYPE` ([src/learnloop_sidecar/handlers/feedback.py](../../../../../../src/learnloop_sidecar/handlers/feedback.py), line 647)
+- `GRADE_CONTEST_CLAIM_TYPE` ([src/learnloop_sidecar/handlers/feedback.py](../../../../../../src/learnloop_sidecar/handlers/feedback.py), line 649)
 
 ## Internal implementation anchors
 
-- `_attach_common_repair(repository: Any, attempt_id: str, bundle: dict[str, Any]) -> None` ([source](../../../../../../src/learnloop_sidecar/handlers/feedback.py), line 96) — Journey B: surface the already-decided common-repair recommendation.
-- `_debit_repair_display_reveals(vault: Any, repository: Any, attempt: dict[str, Any], stored_feedback: dict[str, Any]) -> None` ([source](../../../../../../src/learnloop_sidecar/handlers/feedback.py), line 129) — Charge the reveal ledger for the repair suggestions this screen shows.
-- `_run_regrade(ctx: SidecarContext, vault, repository, attempt: dict[str, Any]) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/feedback.py), line 516) — The existing regrade (learner-blind), or ``ai_unavailable``.
-- `_contest_grade(ctx: SidecarContext, vault, repository, attempt: dict[str, Any], params: TriggerRegradeInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/feedback.py), line 552) — "I think I was right" (spec §7.5): keep the learner's reason, look again in place, and send what the look did not settle to the owner's review.
-- `_contest_upheld(bundle: dict[str, Any]) -> bool` ([source](../../../../../../src/learnloop_sidecar/handlers/feedback.py), line 618) — The answer now reads right (the learner's claim holds): full marks and not held for review.
-- `_request_grade_review(repository, attempt_id: str, contest_id: str, presentation_id: str) -> bool` ([source](../../../../../../src/learnloop_sidecar/handlers/feedback.py), line 629) — Queue the contested grade in the existing grade-review intake.
-- `_record_grade_contest(repository, attempt_id: str, reason: str, *, contest_id: str, session_id: str | None) -> str` ([source](../../../../../../src/learnloop_sidecar/handlers/feedback.py), line 650) — Keep a learner's grade contest in the claim ledger (presented, then answered); returns the presentation id.
-- `class _ContestKeyConflict(Exception)` ([source](../../../../../../src/learnloop_sidecar/handlers/feedback.py), line 703) — A contest key already keeps another reason.
-- `_kept_contest_reason(payload: Any) -> str | None` ([source](../../../../../../src/learnloop_sidecar/handlers/feedback.py), line 707)
-- `_source_first(ctx: SidecarContext, vault: Any, repository: Any, need: dict[str, Any]) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop_sidecar/handlers/feedback.py), line 934) — S2b's step in the primed-retry adapter; None when it is not active.
-- `_record_need_served(vault: Any, repository: Any, need: dict[str, Any], outcome: dict[str, Any], attempt: dict[str, Any]) -> None` ([source](../../../../../../src/learnloop_sidecar/handlers/feedback.py), line 947) — S5: a need fulfilled from the sources and served (best effort).
-- `_pick_primed_sibling(vault, repository, attempt: dict[str, Any], need: dict[str, Any] | None) -> tuple[Any | None, list[dict[str, Any]]]` ([source](../../../../../../src/learnloop_sidecar/handlers/feedback.py), line 962) — Sibling items on the same LO, best-first.
-- `_primed_retry_unavailable(params: StartPrimedRetryInput, attempt: dict[str, Any], reason: str, *, unservable_skips: list[dict[str, Any]] | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/feedback.py), line 1046)
+- `_attach_common_repair(repository: Any, attempt_id: str, bundle: dict[str, Any]) -> None` ([source](../../../../../../src/learnloop_sidecar/handlers/feedback.py), line 97) — Journey B: surface the already-decided common-repair recommendation.
+- `_debit_repair_display_reveals(vault: Any, repository: Any, attempt: dict[str, Any], stored_feedback: dict[str, Any]) -> None` ([source](../../../../../../src/learnloop_sidecar/handlers/feedback.py), line 130) — Charge the reveal ledger for the repair suggestions this screen shows.
+- `_run_regrade(ctx: SidecarContext, vault, repository, attempt: dict[str, Any]) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/feedback.py), line 518) — The existing regrade (learner-blind), or ``ai_unavailable``.
+- `_contest_grade(ctx: SidecarContext, vault, repository, attempt: dict[str, Any], params: TriggerRegradeInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/feedback.py), line 554) — "I think I was right" (spec §7.5): keep the learner's reason, look again in place, and send what the look did not settle to the owner's review.
+- `_contest_upheld(bundle: dict[str, Any]) -> bool` ([source](../../../../../../src/learnloop_sidecar/handlers/feedback.py), line 620) — The answer now reads right (the learner's claim holds): full marks and not held for review.
+- `_request_grade_review(repository, attempt_id: str, contest_id: str, presentation_id: str) -> bool` ([source](../../../../../../src/learnloop_sidecar/handlers/feedback.py), line 631) — Queue the contested grade in the existing grade-review intake.
+- `_record_grade_contest(repository, attempt_id: str, reason: str, *, contest_id: str, session_id: str | None) -> str` ([source](../../../../../../src/learnloop_sidecar/handlers/feedback.py), line 652) — Keep a learner's grade contest in the claim ledger (presented, then answered); returns the presentation id.
+- `class _ContestKeyConflict(Exception)` ([source](../../../../../../src/learnloop_sidecar/handlers/feedback.py), line 705) — A contest key already keeps another reason.
+- `_kept_contest_reason(payload: Any) -> str | None` ([source](../../../../../../src/learnloop_sidecar/handlers/feedback.py), line 709)
+- `_source_first(ctx: SidecarContext, vault: Any, repository: Any, need: dict[str, Any]) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop_sidecar/handlers/feedback.py), line 936) — S2b's step in the primed-retry adapter; None when it is not active.
+- `_record_need_served(vault: Any, repository: Any, need: dict[str, Any], outcome: dict[str, Any], attempt: dict[str, Any]) -> None` ([source](../../../../../../src/learnloop_sidecar/handlers/feedback.py), line 949) — S5: a need fulfilled from the sources and served (best effort).
+- `_pick_primed_sibling(vault, repository, attempt: dict[str, Any], need: dict[str, Any] | None) -> tuple[Any | None, list[dict[str, Any]]]` ([source](../../../../../../src/learnloop_sidecar/handlers/feedback.py), line 964) — Sibling items on the same LO, best-first.
+- `_primed_retry_unavailable(params: StartPrimedRetryInput, attempt: dict[str, Any], reason: str, *, unservable_skips: list[dict[str, Any]] | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/feedback.py), line 1048)
 
 ## Who imports or calls it
 
@@ -151,6 +151,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop_sidecar/handlers/serializers|learnloop_sidecar.handlers.serializers]] — imports `attempt_detail`, `feedback_bundle`, `live_grading_record`, `practice_item_detail`; calls `attempt_detail`, `feedback_bundle`, `live_grading_record`, `practice_item_detail`
 - [[Reference/Modules/learnloop_sidecar/logging|learnloop_sidecar.logging]] — imports `log_event`; calls `log_event`
 - [[Reference/Modules/learnloop_sidecar/registry|learnloop_sidecar.registry]] — imports `method`; calls `method`
+- [[Reference/Modules/learnloop_sidecar/request_origin|learnloop_sidecar.request_origin]] — imports `host_mutation`
 
 ### Platform and third-party dependencies
 

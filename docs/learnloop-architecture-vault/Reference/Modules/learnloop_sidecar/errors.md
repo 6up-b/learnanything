@@ -151,6 +151,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop_sidecar/handlers/workbench|learnloop_sidecar.handlers.workbench]] — imports `SidecarError`; statically calls `SidecarError`
 - [[Reference/Modules/learnloop_sidecar/handlers/workbench_help|learnloop_sidecar.handlers.workbench_help]] — imports `SidecarError`; statically calls `SidecarError`
 - [[Reference/Modules/learnloop_sidecar/handlers/workbench_rw2c|learnloop_sidecar.handlers.workbench_rw2c]] — imports `SidecarError`; statically calls `SidecarError`
+- [[Reference/Modules/learnloop_sidecar/request_origin|learnloop_sidecar.request_origin]] — imports `SidecarError`
 - [[Reference/Modules/learnloop_sidecar/server|learnloop_sidecar.server]] — imports `SidecarError`, `json_rpc_error`, `sidecar_error`; statically calls `SidecarError`, `json_rpc_error`, `sidecar_error`
 - [[Reference/Modules/learnloop_sidecar/serving|learnloop_sidecar.serving]] — imports `SidecarError`; statically calls `SidecarError`
 - [[Reference/Modules/learnloop_sidecar/source_identity|learnloop_sidecar.source_identity]] — imports `SidecarError`; statically calls `SidecarError`
@@ -176,7 +177,7 @@ Use this module in context through:
 - [[Process Model Output]]
 - [[Inspect Persistent State]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop_sidecar/context|learnloop_sidecar.context]], [[Reference/Modules/learnloop_sidecar/handlers/adaptive_difficulty|learnloop_sidecar.handlers.adaptive_difficulty]], [[Reference/Modules/learnloop_sidecar/handlers/adjudication|learnloop_sidecar.handlers.adjudication]], [[Reference/Modules/learnloop_sidecar/handlers/ai_providers|learnloop_sidecar.handlers.ai_providers]], [[Reference/Modules/learnloop_sidecar/handlers/animation|learnloop_sidecar.handlers.animation]] and 68 more.
+Static participation evidence comes from [[Reference/Modules/learnloop_sidecar/context|learnloop_sidecar.context]], [[Reference/Modules/learnloop_sidecar/handlers/adaptive_difficulty|learnloop_sidecar.handlers.adaptive_difficulty]], [[Reference/Modules/learnloop_sidecar/handlers/adjudication|learnloop_sidecar.handlers.adjudication]], [[Reference/Modules/learnloop_sidecar/handlers/ai_providers|learnloop_sidecar.handlers.ai_providers]], [[Reference/Modules/learnloop_sidecar/handlers/animation|learnloop_sidecar.handlers.animation]] and 69 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
@@ -233,6 +234,13 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_set_scope_refuses_an_exam_passage_and_writes_nothing`
   - `test_switched_off_every_rpc_refuses_and_nothing_is_called_or_written`
   - `test_the_reader_selection_action_scopes_from_the_selected_passage_only`
+- [tests/test_device_eligibility.py](../../../../../tests/test_device_eligibility.py) — direct import
+  - `test_a_by_id_door_refuses_what_the_phone_cannot_answer`
+  - `test_a_session_serve_on_the_phone_is_refused_too`
+  - `test_adopting_a_draft_on_an_item_the_phone_cannot_answer_is_refused`
+  - `test_adopting_an_eligible_draft_carries_it_and_a_stale_generation_is_refused`
+  - `test_adopting_with_no_draft_proceeds_and_the_item_is_what_is_refused`
+  - `test_an_unknown_item_keeps_its_not_found`
 - [tests/test_dialogue_causal_join.py](../../../../../tests/test_dialogue_causal_join.py) — direct import
   - `test_submit_eliciting_response_sidecar_method`
 - [tests/test_exam_protection_review.py](../../../../../tests/test_exam_protection_review.py) — direct import
@@ -335,6 +343,11 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_seconds_into_the_attempt_after_a_grading_fallback_is_the_first_submits`
   - `test_seconds_into_the_attempt_is_unknown_without_the_submits_latency`
   - `test_the_rpc_validates_the_item_and_the_index`
+- [tests/test_host_queue_revision.py](../../../../../tests/test_host_queue_revision.py) — direct import
+  - `test_a_clarification_job_completing_on_the_phone_bumps`
+  - `test_a_committed_refusal_bumps_and_any_other_refusal_does_not`
+  - `test_a_refused_mutation_does_not_bump`
+  - `test_a_second_process_loses_no_bump_and_the_desktop_sees_the_session_move`
 - [tests/test_instrument_servability_journeys.py](../../../../../tests/test_instrument_servability_journeys.py) — direct import
   - `test_a_stem_part_with_no_stimulus_is_still_refused`
   - `test_an_error_hunt_with_a_blank_worked_solution_is_still_refused`
@@ -504,6 +517,9 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_reading_paths.py](../../../../../tests/test_reading_paths.py) — direct import
   - `test_an_unknown_depth_or_choice_is_refused`
   - `test_switched_off_the_guide_contract_and_palette_are_a76c8358a_and_every_rpc_refuses`
+- [tests/test_request_origin.py](../../../../../tests/test_request_origin.py) — direct import
+  - `test_another_paired_device_is_refused_on_the_phones_session`
+  - `test_session_ownership_follows_the_origin_device`
 - [tests/test_reread_safety.py](../../../../../tests/test_reread_safety.py) — direct import
   - `test_e1_bytes_that_match_nowhere_refuse_plainly_and_register_nothing`
   - `test_rereview_f10_a_place_is_translated_onto_the_reading_the_reader_has_open`

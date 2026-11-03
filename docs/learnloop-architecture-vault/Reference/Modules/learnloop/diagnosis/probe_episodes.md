@@ -257,6 +257,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_probe_dialogue_block_refuses_an_inactive_lo`
   - `test_probe_pool_is_empty_for_an_inactive_lo`
   - `test_stale_uncertainty_reprobe_does_not_reopen_an_inactive_lo`
+- [tests/test_device_eligibility.py](../../../../../../tests/test_device_eligibility.py) — direct import
 - [tests/test_diagnostic_probe_freshness.py](../../../../../../tests/test_diagnostic_probe_freshness.py) — direct import
   - `test_fresh_diagnostic_probe_is_selectable_in_the_probe_episode_branch`
   - `test_probe_selection_hard_excludes_an_already_seen_surface_group`

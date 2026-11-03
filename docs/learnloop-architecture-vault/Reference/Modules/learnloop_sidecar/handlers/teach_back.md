@@ -7,8 +7,8 @@ version: "1.0.0"
 source_path: "src/learnloop_sidecar/handlers/teach_back.py"
 source_paths:
   - "src/learnloop_sidecar/handlers/teach_back.py"
-source_commit: "2fe25984eeda77fc26f76725c647cb08e9ffc311"
-source_commit_timestamp: "2026-10-27T12:50:39-04:00"
+source_commit: "c66dde3be071bc5893968e3610824a4e0a74166b"
+source_commit_timestamp: "2026-11-03T01:41:14-05:00"
 source_worktree_state: "clean"
 generated: true
 generated_at: "2026-11-02"
@@ -49,34 +49,34 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop_sidecar/handlers/teach_back.py](../../../../../../src/learnloop_sidecar/handlers/teach_back.py) |
-| Source lines | 561 |
+| Source lines | 560 |
 | Owning package | [[Reference/Modules/learnloop_sidecar/handlers/_package|learnloop_sidecar.handlers]] |
 | Architecture layer | `adapter` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `2fe25984eeda77fc26f76725c647cb08e9ffc311` |
-| Commit timestamp | `2026-10-27T12:50:39-04:00` |
+| Source commit | `c66dde3be071bc5893968e3610824a4e0a74166b` |
+| Commit timestamp | `2026-11-03T01:41:14-05:00` |
 
 ## Public API
 
-- `class RequestTeachBackInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/teach_back.py), line 59)
-- `request_teach_back(ctx: SidecarContext, params: RequestTeachBackInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/teach_back.py), line 67) — Learner opt-in to a source-item teach-back: find or author the card.
-- `class StartTeachBackInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/teach_back.py), line 117)
-- `class SubmitTeachBackTurnInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/teach_back.py), line 124)
-- `start_teach_back(ctx: SidecarContext, params: StartTeachBackInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/teach_back.py), line 135) — Plan the conversation and persist an empty state into the checkpoint.
-- `submit_teach_back_turn(ctx: SidecarContext, params: SubmitTeachBackTurnInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/teach_back.py), line 187) — Record a learner turn, then either ask the next question or finish.
-- `filter_unready_teach_back_items(vault, queue: list, *, grading_provider_override: str | None=None, offerable: Callable[[], bool] | None=None) -> list` ([source](../../../../../../src/learnloop_sidecar/handlers/teach_back.py), line 273) — Drop teach_back items from a built queue when AI is unavailable for them.
-- `teach_back_offerable(vault, *, grading_provider_override: str | None=None) -> bool` ([source](../../../../../../src/learnloop_sidecar/handlers/teach_back.py), line 307) — Both halves of a teach-back are available: the naive student and an AI grader.
+- `class RequestTeachBackInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/teach_back.py), line 58)
+- `request_teach_back(ctx: SidecarContext, params: RequestTeachBackInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/teach_back.py), line 66) — Learner opt-in to a source-item teach-back: find or author the card.
+- `class StartTeachBackInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/teach_back.py), line 116)
+- `class SubmitTeachBackTurnInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/teach_back.py), line 123)
+- `start_teach_back(ctx: SidecarContext, params: StartTeachBackInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/teach_back.py), line 134) — Plan the conversation and persist an empty state into the checkpoint.
+- `submit_teach_back_turn(ctx: SidecarContext, params: SubmitTeachBackTurnInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/teach_back.py), line 186) — Record a learner turn, then either ask the next question or finish.
+- `filter_unready_teach_back_items(vault, queue: list, *, grading_provider_override: str | None=None, offerable: Callable[[], bool] | None=None) -> list` ([source](../../../../../../src/learnloop_sidecar/handlers/teach_back.py), line 272) — Drop teach_back items from a built queue when AI is unavailable for them.
+- `teach_back_offerable(vault, *, grading_provider_override: str | None=None) -> bool` ([source](../../../../../../src/learnloop_sidecar/handlers/teach_back.py), line 306) — Both halves of a teach-back are available: the naive student and an AI grader.
 
 ## Internal implementation anchors
 
-- `_finish(ctx: SidecarContext, vault, repository, params: SubmitTeachBackTurnInput, state: TeachBackState) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/teach_back.py), line 332)
-- `_schedule_router_summary(vault, repository, attempt_id: str) -> None` ([source](../../../../../../src/learnloop_sidecar/handlers/teach_back.py), line 439)
-- `_existing_attempt_payload(vault, repository, state: TeachBackState, attempt_id: str) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/teach_back.py), line 445) — Response for a finish retry whose attempt was already recorded.
-- `_conversation_offer(repository, params, bound_offer: str | None) -> str | None` ([source](../../../../../../src/learnloop_sidecar/handlers/teach_back.py), line 494) — The scheduler offer this conversation answers, validating a new one.
-- `_require_teach_back_item(vault, practice_item_id: str)` ([source](../../../../../../src/learnloop_sidecar/handlers/teach_back.py), line 527)
-- `_load_state(repository, session_id: str, practice_item_id: str) -> TeachBackState | None` ([source](../../../../../../src/learnloop_sidecar/handlers/teach_back.py), line 539)
-- `_persist_state(ctx: SidecarContext, repository, session_id: str, state: TeachBackState) -> None` ([source](../../../../../../src/learnloop_sidecar/handlers/teach_back.py), line 550)
+- `_finish(ctx: SidecarContext, vault, repository, params: SubmitTeachBackTurnInput, state: TeachBackState) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/teach_back.py), line 331)
+- `_schedule_router_summary(vault, repository, attempt_id: str) -> None` ([source](../../../../../../src/learnloop_sidecar/handlers/teach_back.py), line 438)
+- `_existing_attempt_payload(vault, repository, state: TeachBackState, attempt_id: str) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/teach_back.py), line 444) — Response for a finish retry whose attempt was already recorded.
+- `_conversation_offer(repository, params, bound_offer: str | None) -> str | None` ([source](../../../../../../src/learnloop_sidecar/handlers/teach_back.py), line 493) — The scheduler offer this conversation answers, validating a new one.
+- `_require_teach_back_item(vault, practice_item_id: str)` ([source](../../../../../../src/learnloop_sidecar/handlers/teach_back.py), line 526)
+- `_load_state(repository, session_id: str, practice_item_id: str) -> TeachBackState | None` ([source](../../../../../../src/learnloop_sidecar/handlers/teach_back.py), line 538)
+- `_persist_state(ctx: SidecarContext, repository, session_id: str, state: TeachBackState) -> None` ([source](../../../../../../src/learnloop_sidecar/handlers/teach_back.py), line 549)
 
 ## Who imports or calls it
 
@@ -103,7 +103,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop_sidecar/errors|learnloop_sidecar.errors]] — imports `SidecarError`; calls `SidecarError`
 - [[Reference/Modules/learnloop_sidecar/handlers/ai_providers|learnloop_sidecar.handlers.ai_providers]] — imports `MANUAL_PROVIDER`, `grading_source_for_provider`, `provider_label`, `ready_grading_provider`, `ready_teach_back_provider`; calls `grading_source_for_provider`, `provider_label`, `ready_grading_provider`, `ready_teach_back_provider`
 - [[Reference/Modules/learnloop_sidecar/handlers/practice|learnloop_sidecar.handlers.practice]] — imports `_log_attempt_recorded`; calls `_log_attempt_recorded`
-- [[Reference/Modules/learnloop_sidecar/handlers/sessions|learnloop_sidecar.handlers.sessions]] — imports `SessionCheckpointInput`, `patch_checkpoint`, `request_device_id`, `require_owned_session`; calls `SessionCheckpointInput`, `patch_checkpoint`, `request_device_id`, `require_owned_session`
+- [[Reference/Modules/learnloop_sidecar/handlers/sessions|learnloop_sidecar.handlers.sessions]] — imports `SessionCheckpointInput`, `patch_checkpoint`, `require_owned_session`; calls `SessionCheckpointInput`, `patch_checkpoint`, `require_owned_session`
 - [[Reference/Modules/learnloop_sidecar/logging|learnloop_sidecar.logging]] — imports `log_event`; calls `log_event`
 - [[Reference/Modules/learnloop_sidecar/registry|learnloop_sidecar.registry]] — imports `method`; calls `method`
 - [[Reference/Modules/learnloop_sidecar/serving|learnloop_sidecar.serving]] — imports `refuse_held_out_item`, `refuse_unservable_item`; calls `refuse_held_out_item`, `refuse_unservable_item`

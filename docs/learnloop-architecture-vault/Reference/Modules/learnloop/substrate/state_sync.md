@@ -210,6 +210,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_deferred_regrade_supersedes_self_grade_and_updates_mastery`
   - `test_deferred_regrade_validates_repaired_trace_against_learner_answer`
   - `test_startup_maintenance_regrades_pending_self_grade_when_codex_ready`
+- [tests/test_device_eligibility.py](../../../../../../tests/test_device_eligibility.py) — direct import
 - [tests/test_diagnosis_async_router.py](../../../../../../tests/test_diagnosis_async_router.py) — direct import
   - `test_the_open_factor_takes_the_diagnosis_causes_when_it_lands`
 - [tests/test_diagnosis_input_provenance_landing.py](../../../../../../tests/test_diagnosis_input_provenance_landing.py) — direct import

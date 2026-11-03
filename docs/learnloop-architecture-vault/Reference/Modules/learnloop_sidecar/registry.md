@@ -226,6 +226,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_the_rpcs_are_registered_and_desktop_only`
 - [tests/test_desktop_rpc_contract.py](../../../../../tests/test_desktop_rpc_contract.py) — direct import
   - `test_every_decorated_handler_is_loaded_once`
+- [tests/test_device_eligibility.py](../../../../../tests/test_device_eligibility.py) — direct import
 - [tests/test_dialogue_causal_join.py](../../../../../tests/test_dialogue_causal_join.py) — direct import
 - [tests/test_evsi_router_composition.py](../../../../../tests/test_evsi_router_composition.py) — direct import
 - [tests/test_exam_protection_review.py](../../../../../tests/test_exam_protection_review.py) — direct import
@@ -255,6 +256,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_the_request_is_a_job_and_the_read_that_returns_it_shows_it`
   - `test_with_no_draft_in_the_request_the_session_checkpoints_draft_is_read`
 - [tests/test_hint_telemetry.py](../../../../../tests/test_hint_telemetry.py) — direct import
+- [tests/test_host_queue_revision.py](../../../../../tests/test_host_queue_revision.py) — direct import
 - [tests/test_instrument_servability_journeys.py](../../../../../tests/test_instrument_servability_journeys.py) — direct import
 - [tests/test_integration_daily_loop_field.py](../../../../../tests/test_integration_daily_loop_field.py) — direct import
 - [tests/test_intent_fix_round4.py](../../../../../tests/test_intent_fix_round4.py) — direct import
@@ -300,6 +302,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_regrade_contract_replay.py](../../../../../tests/test_regrade_contract_replay.py) — direct import
   - `test_case1_a_contest_of_a_model_grade_above_its_original_maximum_looks_again`
 - [tests/test_regrade_contract_successor.py](../../../../../tests/test_regrade_contract_successor.py) — direct import
+- [tests/test_request_origin.py](../../../../../tests/test_request_origin.py) — direct import
+  - `test_no_parameter_can_set_the_surface_or_the_device`
 - [tests/test_required_method_round3_review.py](../../../../../tests/test_required_method_round3_review.py) — direct import
   - `test_f3_adjudication_shows_the_question_the_answer_was_given`
 - [tests/test_reread_safety.py](../../../../../tests/test_reread_safety.py) — direct import

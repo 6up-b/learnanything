@@ -1017,6 +1017,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_resolution_writes_the_scope_through_the_lock_and_a_repeat_pays_nothing`
   - `test_scope_view_lists_topics_unmatched_and_the_receipt`
   - `test_unmatched_phrases_never_create_an_lo_without_the_learners_yes`
+- [tests/test_device_eligibility.py](../../../../../../tests/test_device_eligibility.py) — direct import
 - [tests/test_diagnose_review.py](../../../../../../tests/test_diagnose_review.py) — direct import
 - [tests/test_diagnosis_adjudication.py](../../../../../../tests/test_diagnosis_adjudication.py) — direct import
 - [tests/test_diagnosis_async_router.py](../../../../../../tests/test_diagnosis_async_router.py) — direct import

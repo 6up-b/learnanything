@@ -526,6 +526,10 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_coverage_rollup.py](../../../../../../tests/test_coverage_rollup.py) — direct import
 - [tests/test_daily_plan_review_regressions.py](../../../../../../tests/test_daily_plan_review_regressions.py) — direct import
   - `test_f8_out_of_range_expected_minutes_reach_the_writer_bounded`
+- [tests/test_device_eligibility.py](../../../../../../tests/test_device_eligibility.py) — direct import
+  - `test_a_teach_back_source_on_any_mode_is_the_multi_turn_reason`
+  - `test_each_contract_reason_is_returned_for_the_phone_and_never_for_the_desktop`
+  - `test_item_kinds_landed_since_the_spec_keep_the_ordinary_answer`
 - [tests/test_duration_estimates.py](../../../../../../tests/test_duration_estimates.py) — direct import
   - `test_expected_minutes_is_optional_omitted_when_null_and_outside_the_hash`
 - [tests/test_embedding_backfill.py](../../../../../../tests/test_embedding_backfill.py) — direct import

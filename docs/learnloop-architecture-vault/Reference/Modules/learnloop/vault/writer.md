@@ -214,6 +214,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_gc2_a_syllabus_made_exam_after_it_was_added_is_never_sent`
 - [tests/test_daily_plan_review_regressions.py](../../../../../../tests/test_daily_plan_review_regressions.py) — direct import
   - `test_f8_out_of_range_expected_minutes_reach_the_writer_bounded`
+- [tests/test_device_eligibility.py](../../../../../../tests/test_device_eligibility.py) — direct import
+  - `test_a_skip_on_the_phone_rebuilds_with_the_same_filter`
 - [tests/test_diagnostic_gate.py](../../../../../../tests/test_diagnostic_gate.py) — direct import
 - [tests/test_diagnostic_probe_freshness.py](../../../../../../tests/test_diagnostic_probe_freshness.py) — direct import
 - [tests/test_dual_authority_administration.py](../../../../../../tests/test_dual_authority_administration.py) — direct import

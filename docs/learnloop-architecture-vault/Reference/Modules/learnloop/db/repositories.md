@@ -2154,6 +2154,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_deferred_regrade_validates_repaired_trace_against_learner_answer`
   - `test_startup_maintenance_regrades_pending_self_grade_when_codex_ready`
 - [tests/test_depth_transition.py](../../../../../../tests/test_depth_transition.py) — direct import
+- [tests/test_device_eligibility.py](../../../../../../tests/test_device_eligibility.py) — direct import
 - [tests/test_diagnose_review.py](../../../../../../tests/test_diagnose_review.py) — direct import
   - `test_an_owner_verdict_never_lands_on_a_receipt_the_owner_did_not_see`
   - `test_import_links_appends_real_links_once`
@@ -2447,6 +2448,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_submit_attaches_its_submissions_rows_and_keeps_the_clients_count`
   - `test_the_attempts_own_feedback_display_in_its_second_is_not_help_before_it`
   - `test_unaided_progress_is_reached_only_when_the_uncapped_records_show_no_other_help`
+- [tests/test_host_queue_revision.py](../../../../../../tests/test_host_queue_revision.py) — direct import
+  - `test_each_committed_phone_mutation_bumps_once_and_is_visible_with_it`
 - [tests/test_hot_path_eligibility_cutover.py](../../../../../../tests/test_hot_path_eligibility_cutover.py) — direct import
 - [tests/test_hypothesis_claim_dispatcher.py](../../../../../../tests/test_hypothesis_claim_dispatcher.py) — direct import
 - [tests/test_hypothesis_sets.py](../../../../../../tests/test_hypothesis_sets.py) — direct import
@@ -3057,6 +3060,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_repository_scopes.py](../../../../../../tests/test_repository_scopes.py) — direct import
   - `test_atomic_scope_rolls_back_nested_commits_and_serializes_writers`
   - `test_unpinned_repository_connection_closes_after_context`
+- [tests/test_request_origin.py](../../../../../../tests/test_request_origin.py) — direct import
+  - `test_a_submit_accepted_before_a_handoff_keeps_the_phones_surface`
 - [tests/test_required_method_authority.py](../../../../../../tests/test_required_method_authority.py) — direct import
   - `test_the_owner_override_on_a_generated_item_changes_only_the_field`
 - [tests/test_required_method_items.py](../../../../../../tests/test_required_method_items.py) — direct import

@@ -196,6 +196,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_daily_plan_rpc.py](../../../../../../tests/test_daily_plan_rpc.py) — direct import
 - [tests/test_decider_landing.py](../../../../../../tests/test_decider_landing.py) — direct import
 - [tests/test_desktop_rpc_contract.py](../../../../../../tests/test_desktop_rpc_contract.py) — direct import
+- [tests/test_device_eligibility.py](../../../../../../tests/test_device_eligibility.py) — direct import
 - [tests/test_dialogue_causal_join.py](../../../../../../tests/test_dialogue_causal_join.py) — direct import
 - [tests/test_evsi_router_composition.py](../../../../../../tests/test_evsi_router_composition.py) — direct import
 - [tests/test_exam_protection_identity.py](../../../../../../tests/test_exam_protection_identity.py) — direct import
@@ -223,6 +224,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_hint_report.py](../../../../../../tests/test_hint_report.py) — direct import
 - [tests/test_hint_service.py](../../../../../../tests/test_hint_service.py) — direct import
 - [tests/test_hint_telemetry.py](../../../../../../tests/test_hint_telemetry.py) — direct import
+- [tests/test_host_queue_revision.py](../../../../../../tests/test_host_queue_revision.py) — direct import
 - [tests/test_instrument_servability_journeys.py](../../../../../../tests/test_instrument_servability_journeys.py) — direct import
 - [tests/test_integration_daily_loop_field.py](../../../../../../tests/test_integration_daily_loop_field.py) — direct import
 - [tests/test_intent_fix_round4.py](../../../../../../tests/test_intent_fix_round4.py) — direct import
@@ -263,6 +265,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_reader_wrap_up.py](../../../../../../tests/test_reader_wrap_up.py) — direct import
 - [tests/test_regrade_contract_replay.py](../../../../../../tests/test_regrade_contract_replay.py) — direct import
 - [tests/test_regrade_contract_successor.py](../../../../../../tests/test_regrade_contract_successor.py) — direct import
+- [tests/test_request_origin.py](../../../../../../tests/test_request_origin.py) — direct import
 - [tests/test_required_method_round3_review.py](../../../../../../tests/test_required_method_round3_review.py) — direct import
 - [tests/test_reread_safety.py](../../../../../../tests/test_reread_safety.py) — direct import
 - [tests/test_reread_safety_landing.py](../../../../../../tests/test_reread_safety_landing.py) — direct import

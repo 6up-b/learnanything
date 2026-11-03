@@ -6,8 +6,8 @@ refactor_status: "ACTIVE"
 version: "1.0.0"
 source_paths:
   - "apps/learnloop-tauri/src/app"
-source_commit: "64a492ab8f1b7b6ad460eeaca30b51a9212e2b96"
-source_commit_timestamp: "2026-11-02T07:09:51-05:00"
+source_commit: "a500c7fab899f7060bd00510419477e514bb07c8"
+source_commit_timestamp: "2026-11-03T01:49:39-05:00"
 generated: true
 generated_at: "2026-08-18"
 tags:
@@ -36,7 +36,7 @@ No nested ownership area.
 
 | Module | Status | Purpose | Imports | Imported by |
 |---|---|---|---:|---:|
-| [[Reference/Desktop/TypeScript/app/App|App.tsx]] | `ACTIVE` | Owns desktop navigation and cross-screen state, connecting startup, sessions, overlays, vault refresh, and route handoffs. | 72 | 1 |
+| [[Reference/Desktop/TypeScript/app/App|App.tsx]] | `ACTIVE` | Owns desktop navigation and cross-screen state, connecting startup, sessions, overlays, vault refresh, and route handoffs. | 73 | 1 |
 | [[Reference/Desktop/TypeScript/app/ScreenErrorBoundary|ScreenErrorBoundary.tsx]] | `ACTIVE` | Provides `ScreenErrorBoundary` within the desktop's TypeScript/app ownership area. | 1 | 1 |
 | [[Reference/Desktop/TypeScript/app/ShellChromeRoot|ShellChromeRoot.tsx]] | `ACTIVE` | Provides `SHELL_CHROME_ATTRIBUTE`, `inShellChrome`, `ShellChromeRoot` within the desktop's TypeScript/app ownership area. | 1 | 1 |
 | [[Reference/Desktop/TypeScript/app/algoConfig|algoConfig.ts]] | `ACTIVE` | Normalizes and exposes algorithm configuration values needed by presentation code. | 0 | 27 |
@@ -58,6 +58,7 @@ No nested ownership area.
 | [[Reference/Desktop/TypeScript/app/todayPlan|todayPlan.ts]] | `ACTIVE` | Provides `dayPhrase`, `TodayRow`, `onYourOwnItem`, `todayRows` and related exports within the desktop's TypeScript/app ownership area. | 3 | 2 |
 | [[Reference/Desktop/TypeScript/app/useCloseWithFlush|useCloseWithFlush.ts]] | `ACTIVE` | Provides `CLOSE_HELD_NOTE`, `useCloseWithFlush` within the desktop's TypeScript/app ownership area. | 1 | 2 |
 | [[Reference/Desktop/TypeScript/app/useGlobalAdd|useGlobalAdd.ts]] | `ACTIVE` | Provides `looksLikeSource`, `useGlobalAdd` within the desktop's TypeScript/app ownership area. | 2 | 1 |
+| [[Reference/Desktop/TypeScript/app/useQueueRevisionPoll|useQueueRevisionPoll.ts]] | `ACTIVE` | Provides `REVISION_POLL_MS`, `SessionMoved`, `sessionMovedFrom`, `useSessionMoved` and related exports within the desktop's TypeScript/app ownership area. | 3 | 1 |
 | [[Reference/Desktop/TypeScript/app/vaultTransition|vaultTransition.ts]] | `ACTIVE` | Provides `registerVaultDraft`, `selectWithDraftFlush` within the desktop's TypeScript/app ownership area. | 0 | 3 |
 | [[Reference/Desktop/TypeScript/app/wrapUpOffer|wrapUpOffer.ts]] | `ACTIVE` | Provides `WrapUpLanding`, `wrapUpOfferArmed` within the desktop's TypeScript/app ownership area. | 0 | 1 |
 

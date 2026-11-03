@@ -849,6 +849,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_deliverable_path.py](../../../../../tests/test_deliverable_path.py) — direct import
   - `test_check_due_is_bounded_by_tomorrow_fourteen_days_and_the_deadline`
 - [tests/test_depth_transition.py](../../../../../tests/test_depth_transition.py) — direct import
+- [tests/test_device_eligibility.py](../../../../../tests/test_device_eligibility.py) — direct import
 - [tests/test_diagnosis_adjudication.py](../../../../../tests/test_diagnosis_adjudication.py) — direct import
   - `test_contest_leads_the_queue_and_is_provenance_never_the_verdict`
   - `test_queue_reason_is_persisted_so_selection_bias_is_auditable`
