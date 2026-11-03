@@ -225,3 +225,77 @@ at most, one at a time; `lint-imports` and the catalog scripts under `env -i` wi
    check on each path.
 5. **Focus events under WebKitGTK and Hyprland** were not exercised (no GUI runs here): `focus` and `visibilitychange` are DOM events, and the 3 s tick
    covers a window that reports neither, so the worst case is a 3 s delay.
+
+## Landing onto main
+
+Base `dac6ed96de`, unmoved, so no merge. Gate code at `93194251f7`; only this record follows it. No migration, no successor, no new tracked binary. New direct dependency `markdown-it-py`, already installed through `rich`.
+
+### Rulings (verbatim)
+
+- R1: "A window return does not rebuild the queue or the plan. It reads the token and any owed session read; a refetch needs a revision change or a reload. §3.3's 'adds a refetch when the window regains focus' is amended to this by the orchestrator, because a rebuild per alt-tab can start background model work and writes offer and decision rows for lists nobody looked at, on a desktop with no phone. F4's concern is met by the session read on return and by the owed bump. The owner is told at landing."
+- R2 (as amended after step 0): "The poll's refetches and reloads run only on Today's list: todayStage queue, with no practice, feedback, block review, lesson, exam, calibration or golden-path run open, on the classic Today and on the simple shell's Today and Start. Anywhere else a change is remembered and paid on return, and the session read still runs. M2 widens this if the phone needs it."
+- R3: "The prompt scan's agreement with the renderer has now had two rounds, so under the stuck-loop rule this is the last one: the four named cases are fixed and any further disagreement is Low. A wrong refusal sends an item to the desktop; a wrong admission shows a missing image the learner can skip."
+- R4 (as amended after step 0): "No successor at this stage. The desktop admits the same items in the same order as main, and no production origin exists (ALLOWLIST is empty, nothing in src/ calls acting_as). M2, which opens the door, decides the successor at its own landing."
+- R5: "One desktop difference is kept on purpose. Main's only poller was the classic Today screen, so the default simple shell's Today never refreshed from this token. Now it does, on a real revision change or a completed reload job, and an idle token rebuilds nothing. Scoped verify job 20261103-044532-744Tsp found no self-sustaining loop and recommended keeping it as a freshness correction: database-only changes such as a Reader follow-up's new check were stale on main's simple Today until something else refreshed. A rebuild on such a change can start the existing background work under its existing switches and budgets. The owner is told at landing."
+- R6: "Finding 1 of job 20261103-044532-744Tsp (an older no-input Tauri caller of get_queue_revision) is Low and not fixed: the frontend and the shell ship together in one app and the one caller sends input."
+
+### Gate
+
+Under `env -i` with empty `HOME`, `CODEX_HOME` and `LEARNLOOP_CONFIG_DIR`: pytest, `lint-imports`, the catalog scripts, vitest, npm and cargo. Memory scopes as the stage rule says. Two of them need a real cache: `uv` got `UV_CACHE_DIR` and cargo got `CARGO_HOME`.
+
+| Check | Result |
+|---|---|
+| `uv sync --extra dev --extra mobile`, `uv pip install pypdfium2` | ok |
+| `db_generate_reference`, `db_validate_reference` | errors `[]` |
+| `desktop_generate`, `desktop_validate` | 313 TypeScript and 6 Rust notes; valid |
+| `module_generate`, `module_validate`, `validate_vault` | 1,156 module notes; 2,110 notes; valid |
+| `lint-imports --no-cache` | **42 kept, 0 broken** |
+| Full pytest (`-n 8`, 10G scope) | **25,151 passed**, 90 skipped, 47 xfailed, **0 failed**, 43:54 |
+| Durability lane (`-m durability`) | **389 passed**, 1 skipped |
+| Owner lane on fresh backup-API copies of `owner-copies-mvp035` | 83 passed, 4 skipped, 2 known failures (`test_activity_backfill` duration, `placement_fixture_copies[arxiv_v2]`) |
+| `npm install`, `npm run typecheck` | clean |
+| Whole vitest (`--maxWorkers=4`, 5G scope) | **2,708 passed**, 266 files |
+| `npm run frontend:build` | ok |
+| `cargo check` | clean (`commands.rs` changed) |
+
+**The first full run does not count.** It had 51 failed, 25,091 passed and 99 skipped, because the `uv sync` removed `pypdfium2`, which is not in the `dev` or `mobile` extras and which every earlier gate reinstalled. The failures were all in the PDF test files (Marker worker, span view, CA1 crops, PDF extraction). With it reinstalled the whole suite ran again, as did the durability and owner lanes, which gave the same numbers both times. No test failed in the second run, so nothing needed a rerun on its own.
+
+### Smoke
+
+Fresh backup-API copies of the three mvp-0.35 owner copies, every AI route at `127.0.0.1:9`, each upgraded to mvp-0.43 (migration head 238), primary load, `rebuild-derived-state`, on code archived from `dac6ed96de` and from the gate tip, each with `migrations/`. An audit hook refused non-loopback sockets and Codex starts (self-test passed).
+
+| Check | `linear_algebra` | `probability` | `arxiv_v2` |
+|---|---|---|---|
+| Today, session replies and the rows they write (slates, candidates, offer receipts, router decisions, payloads), main vs branch | identical, 860,188 bytes | identical, 1,193,461 bytes | identical, 559,824 bytes |
+| Plan dump, main vs branch | identical | identical | identical |
+| Items in Today's queue, main and branch | 40 | 67 | 31 |
+| Held reads and plain reads: same token | yes | yes | yes |
+| A completed job: 3 held reads, 0 reloads; next plain read reloads once and answers `reloaded`; later reads, none | yes | yes | yes |
+| Phone: items in the vault, refused | 99, 3 | 77, 0 | 32, 0 |
+| Phone queue: items, ineligible among them, deferred | 40, 0, 3 | 67, 0, 0 | 31, 0, 0 |
+| `device_eligibility_enabled=false`: phone queue vs desktop queue | identical | identical | identical |
+| Bumps: `start_session`, `skip_practice_item`, `end_session`; `get_today_queue` and a refused open | 1, 1, 1; 0 and 0 | 1, 1, 1; 0 (no refused item to open) | 1, 1, 1; 0 (no refused item to open) |
+| `rebuild --shadow` facet, mastery, schedule; live database unchanged | 0/0/0; yes | 0/0/0; yes | 0/0/0; yes |
+
+Across the copies: 0 new `model_call_receipts` in 6 databases; no non-loopback socket and no Codex process outside the audit hook's own self-test; the only process started by the vault code was `powerprofilesctl`, on main and branch alike.
+
+**Refusals on the real prompts: 3 of 208, all `multi_turn_teach_back`.** The prompt scan refused none: no prompt on these copies holds an image, a Markdown link, raw `<img>`, `llpdf`, a footnote or an escaped dollar, and 7 hold any bracket at all. So the brief's sample of 10 refused prompts could only be these 3, all teach-back items refused by their mode, and they are correct under §6.4. Two prompts carry a figure-like word and stay eligible as §6.4 says; both read as text a phone can answer. These copies are mvp-0.35 snapshots, so the scan's behaviour on real figures is known from its tests, not from them.
+
+What these checks cannot show:
+
+1. **The `linear_algebra` switch-off check does not separate the filter from the desktop's own rule.** With every route unreachable, teach-back's provider reads as unready, so the desktop drops the same 3 items from its offer and the two lists match with the filter on too. Only `deviceDeferredCount` moves (3 on, 0 off). `test_switched_off_*` pins the switch itself.
+2. **"Identical" is main against branch, not one read against the next.** Two reads in one run share their order and differ in `schedulerCandidateId` and `schedulerSlateId`, on main as on the branch.
+3. **The completed job was synthetic.** No copy had an applying job in its 8 newest batches, so the script added a completed `practice_expansion` row to each copy.
+
+### Open items for M2
+
+1. The successor decision (R4).
+2. The host bumps once at start, so a debt lost with the process moves the token.
+3. Plan RPCs and the shared stored plan need device-aware handling.
+4. Widen R2's hold if the phone needs it.
+5. How `suspected_figure` is reported.
+6. A phone offer under a serving plan logging `full_list`.
+7. The "N items waiting" UI.
+8. The §6.5 banner and prompts.
+
+The owner is told at landing about R1 and R5.
