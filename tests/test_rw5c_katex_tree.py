@@ -55,7 +55,7 @@ def test_a_katex_or_markdown_bump_moves_the_reader_version_and_needs_a_certifica
 
     assert KT.KATEX_VERSION in B.READER_VERSION and KT.MARKDOWN_SHA256[:12] in B.READER_VERSION
     # A new KaTeX or markdown can read a stored equation otherwise: bump CERTIFICATION_VERSION with it, then this tuple.
-    assert (SC.CERTIFICATION_VERSION, KT.KATEX_VERSION, KT.MARKDOWN_SHA256[:12]) == (5, "0.16.47", "29fd5be75b4e")
+    assert (SC.CERTIFICATION_VERSION, KT.KATEX_VERSION, KT.MARKDOWN_SHA256[:12]) == (6, "0.16.47", "29fd5be75b4e")
 
 
 def test_the_vendored_markdown_is_the_page_pipeline_the_reader_locks():

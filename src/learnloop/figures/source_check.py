@@ -64,7 +64,8 @@ from learnloop.reader.source_render_views import page_renders_block_type, page_r
 #: a code span could certify an equation the page never shows; and their class).
 #: 5: only a block the page displays holds candidates (a running head could certify an equation the
 #: page drops), and a derived label groups a compound left-hand side.
-CERTIFICATION_VERSION = 5
+#: 6: a label's plain text comes from KaTeX's tree (the words "fracdF(x)dx" stood in a stored label's plain field).
+CERTIFICATION_VERSION = 6
 LEDGER_TASK = "figure_source_check"
 CHECKED, DIFFERS, UNDECIDED, NOT_CHECKABLE = "checked", "differs", "undecided", "not_checkable"
 OUTCOMES = (CHECKED, DIFFERS, UNDECIDED, NOT_CHECKABLE)
@@ -726,7 +727,7 @@ def _decide_definition(entry: dict[str, Any], name: str, pairs: Sequence[tuple[C
         entry["display"] = shown
         if failures:
             entry["display_failures"] = failures
-        book[name] = E.BookLabel(compound=relation.lhs_compound, lhs=relation.lhs, latex=relation.latex, variable=drawn[0].variable,
+        book[name] = E.BookLabel(compound=relation.lhs_compound, plain=relation.lhs_plain, lhs=relation.lhs, latex=relation.latex, variable=drawn[0].variable,
                                  tokens=dict(relation.tokens), extraction_id=candidate.extraction_id,
                                  span_id=candidate.span_id, page=candidate.page)
         return

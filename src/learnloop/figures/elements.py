@@ -38,6 +38,7 @@ from typing import Any
 
 from pydantic import BaseModel
 
+from learnloop.figures import book_math as BM
 from learnloop.figures import grammar as G
 from learnloop.figures import spec as S
 
@@ -287,11 +288,11 @@ def to_plain(node: G.Node, _outer: int = 0) -> str:
     raise G.GrammarError(f"cannot render a {kind!r} node")
 
 
-def detex(latex: str) -> str:
-    """A left-hand side as plain text for ``aria-label``s (source text, its markup dropped)."""
+def _token_plain(token: str) -> str:
+    """A book symbol's token as plain text. The reader writes only ``x``, ``\\alpha``, ``x_{1}`` or ``\\alpha_{i}``
+    (:attr:`.book_math.Relation.tokens`), so this is that closed form with its marks dropped: ``alpha_i``."""
 
-    return " ".join(str(latex).replace("\\left", "").replace("\\right", "").replace("\\", "")
-                    .replace("{", "").replace("}", "").split())
+    return token.replace("\\", "").replace("{", "").replace("}", "")
 
 
 # ---------------------------------------------------------------------------
@@ -311,14 +312,18 @@ class BookLabel:
     page: int | None
     #: KaTeX's reading of ``lhs`` (:attr:`.book_math.Relation.lhs_compound`): required, so no path can forget it.
     compound: bool
+    #: ``lhs`` as plain text from the same tree (:attr:`.book_math.Relation.lhs_plain`): required for the same reason.
+    plain: str
 
     @property
     def operand(self) -> tuple[str, str]:
         """``lhs`` where a template writes an operator or words before it, as TeX and plain text: a
         compound one is visibly whole (Astra A2: \\sum 1-F(k) beside the sum of all of 1-F(k))."""
 
-        plain = detex(self.lhs)
-        return (r"\left(" + self.lhs + r"\right)", f"({plain})") if self.compound else (self.lhs, plain)
+        if not self.compound:
+            return self.lhs, self.plain
+        # The fallback is words, not a term: it needs no brackets to be read whole.
+        return r"\left(" + self.lhs + r"\right)", self.plain if self.plain == BM.PLAIN_FALLBACK else f"({self.plain})"
 
 
 def _element(path: Sequence[Any], role: str, tex: str, plain: str, voice: str, **extra: Any) -> dict[str, Any]:
@@ -343,7 +348,7 @@ def _curve(path: Sequence[Any], node: G.Node | None, axis: str | None, compiled:
     identity = element_id(path)
     if name is not None and book_elements.get(identity) == name:
         label = book[name]
-        return _element(path, "book", label.lhs, detex(label.lhs), "source", definition=name, source=_source(label),
+        return _element(path, "book", label.lhs, label.plain, "source", definition=name, source=_source(label),
                         equation=label.latex)
     if name is not None:
         # AI-defined, rendered as its grammar name behind the model's glyph:
@@ -452,7 +457,7 @@ def element_map(compiled: S.CompiledFigure, book: Mapping[str, BookLabel],
         path = ("parameters", index)
         token = book_tokens.get(parameter.name)
         if token is not None:
-            elements[element_id(path)] = _element(path, "symbol", token, detex(token), "source")
+            elements[element_id(path)] = _element(path, "symbol", token, _token_plain(token), "source")
         else:
             elements[element_id(path)] = _element(path, "ai", symbol_tex(parameter.name), parameter.name, "model")
     for panel_index, panel in enumerate(compiled.panels):
@@ -586,7 +591,6 @@ __all__ = [
     "Slot",
     "TEXT_FIELDS",
     "VOICES",
-    "detex",
     "element_id",
     "element_map",
     "label_slots",

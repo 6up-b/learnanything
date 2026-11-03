@@ -59,7 +59,7 @@ from learnloop.figures import grammar as G
 from learnloop.figures import katex_tree as KT
 
 #: The version of this table and of the KaTeX and markdown behind it, recorded on every check row.
-READER_VERSION = f"book-math-v4+katex-{KT.KATEX_VERSION}+markdown-{KT.MARKDOWN_SHA256[:12]}"
+READER_VERSION = f"book-math-v5+katex-{KT.KATEX_VERSION}+markdown-{KT.MARKDOWN_SHA256[:12]}"
 
 #: Every reason a candidate is unreadable, as a closed key (§5.3, §12).
 REASONS = (
@@ -114,6 +114,10 @@ _LABEL_NODES = frozenset({"accent", "atom", "font", "genfrac", "kern", "leftrigh
 _ONE_TERM_NODES = frozenset({"accent", "genfrac", "kern", "leftright", "mathord", "op", "operatorname", "spacing", "sqrt"})
 
 
+#: A label's plain text when KaTeX's tree holds something :func:`plain_words` has no faithful words for.
+PLAIN_FALLBACK = "the book's expression"
+
+
 class Unreadable(ValueError):
     """A segment outside the table; ``reason`` is one key of :data:`REASONS`."""
 
@@ -148,6 +152,8 @@ class Relation:
     tokens: dict[str, str] = field(default_factory=dict)
     #: Whether ``lhs`` needs grouping as an operand (:func:`_compound`). Grouped unless read otherwise.
     lhs_compound: bool = True
+    #: ``lhs`` as plain text, from the same tree (:func:`plain_words`).
+    lhs_plain: str = PLAIN_FALLBACK
 
 
 # ---------------------------------------------------------------------------
@@ -920,6 +926,237 @@ def _compound(nodes: Sequence[Tree]) -> bool:
     return depth != 0
 
 
+# ---------------------------------------------------------------------------
+# The left-hand side as plain text
+# ---------------------------------------------------------------------------
+
+#: Symbols with words, by KaTeX's family and exact symbol. Anything else has none: :data:`PLAIN_FALLBACK`.
+_PLAIN_ATOMS = {
+    ("bin", "+"): "+", ("bin", "-"): "-", ("bin", "*"): "*", ("bin", r"\cdot"): "*", ("bin", r"\times"): "*",
+    ("bin", r"\pm"): "±", ("bin", r"\cup"): " union ", ("bin", r"\cap"): " intersect ",
+    ("rel", "="): "=", ("rel", ":"): ":", ("rel", "<"): "<", ("rel", ">"): ">", ("rel", r"\le"): "<=", ("rel", r"\leq"): "<=",
+    ("rel", r"\ge"): ">=", ("rel", r"\geq"): ">=", ("rel", r"\ne"): "!=", ("rel", r"\neq"): "!=", ("rel", r"\mid"): " | ",
+    ("rel", r"\in"): " in ", ("rel", r"\to"): " -> ", ("rel", r"\sim"): " ~ ",
+    ("open", "("): "(", ("open", "["): "[", ("open", r"\{"): "{", ("open", r"\lvert"): "|",
+    ("close", ")"): ")", ("close", "]"): "]", ("close", r"\}"): "}", ("close", r"\rvert"): "|", ("close", "!"): "!",
+    ("punct", ","): ", ", ("punct", ";"): "; ", ("inner", r"\ldots"): "...",
+}
+_PLAIN_ORDS = {"/": "/", "|": "|", r"\|": "||", ".": ".", r"\infty": "infinity", r"\partial": "∂", r"\nabla": "∇", r"\ell": "ell",
+               r"\Gamma": "Gamma", r"\Phi": "Phi"}
+_PLAIN_DELIMITERS = {"(": "(", ")": ")", "[": "[", "]": "]", r"\{": "{", r"\}": "}", "|": "|", r"\|": "||", r"\lvert": "|",
+                     r"\rvert": "|", ".": ""}
+_PLAIN_OPERATORS = {r"\sum": "sum", r"\prod": "product", r"\int": "integral"}
+#: A font that says nothing beyond its letters, or the word for one that does.
+_PLAIN_FONTS: dict[str, str | None] = {"mathrm": None, "mathit": None, "mathnormal": None, "mathbf": "bold", "boldsymbol": "bold",
+                                       "mathbb": "bb", "mathcal": "cal"}
+_PLAIN_ACCENTS = {r"\hat": "hat", r"\widehat": "hat", r"\bar": "bar", r"\tilde": "tilde", r"\widetilde": "tilde", r"\vec": "vec",
+                  r"\dot": "dot", r"\ddot": "ddot"}
+_PLAIN_TEXT_PUNCTUATION = frozenset("-.,:'")
+
+
+class _NoWords(Exception):
+    """The tree holds something the plain writer has no faithful words for."""
+
+
+def plain_words(nodes: Sequence[Tree]) -> str:
+    """KaTeX's list as plain text for ``aria-label``s, SVG text and a prediction's choices, in the reader's
+    vocabulary, with a fraction's and a script's grouping written out: ``dF(x)/dx``, ``(1-a)/k``, ``e^(-k)``.
+    Anything else is :data:`PLAIN_FALLBACK`, never a guess (Sol verify V1: ``frac1-ak``); the kinds are in
+    ``docs/reviews/reader-rw5c-p1-katex-codex-review.md``."""
+
+    try:
+        return _plain_list(nodes).strip() or PLAIN_FALLBACK
+    except _NoWords:
+        return PLAIN_FALLBACK
+
+
+def _drawn(nodes: Sequence[Tree]) -> list[Tree]:
+    """What a list draws: braces draw nothing and gaps have no words of their own."""
+
+    out: list[Tree] = []
+    for node in nodes:
+        if node.get("type") == "ordgroup":
+            out.extend(_drawn(node.get("body") or ()))
+        elif node.get("type") not in ("kern", "spacing"):
+            out.append(node)
+    return out
+
+
+def _plain_list(nodes: Sequence[Tree]) -> str:
+    """The pieces in order: only a word, or a gap the page shows, parts two letters or digits."""
+
+    drawn = [node for node in nodes if node.get("type") not in ("kern", "spacing")]
+    position = -1
+    out, previous, gap = "", "", False
+    for node in nodes:
+        if node.get("type") in ("kern", "spacing"):
+            gap = True
+            continue
+        position += 1
+        text = _plain_node(node)
+        if node.get("type") == "genfrac" and node.get("hasBarLine"):
+            before = drawn[position - 1] if position else None
+            after = drawn[position + 1] if position + 1 < len(drawn) else None
+            if not _ends_a_term(before, ("bin", "rel", "punct", "open")) or not _ends_a_term(after, ("bin", "rel", "punct", "close")):
+                text = f"({text})"  # 2\frac{a}{b}, \frac{a}{b}c or \frac{a}{b}!: a slash would reach too far
+        leading = re.match(r"[A-Za-z0-9]*", text)
+        word = leading is not None and len(leading.group()) > 1
+        if out and text and out[-1].isalnum() and text[0].isalnum() and (gap or len(previous) > 1 or word):
+            out += " "
+        out += text
+        previous, gap = text, False
+    return out
+
+
+def _ends_a_term(node: Tree | None, families: tuple[str, ...]) -> bool:
+    return node is None or (node.get("type") == "atom" and node.get("family") in families and node.get("text") != "!")
+
+
+def _plain_node(node: Tree) -> str:
+    kind = node.get("type")
+    text = str(node.get("text") or "")
+    if kind == "mathord" or kind == "textord":
+        if (len(text) == 1 and text.isascii() and text.isalnum()) or text[1:] in _GREEK:
+            return text[1:] if text.startswith("\\") else text
+        if text in _PLAIN_ORDS:
+            return _PLAIN_ORDS[text]
+    elif kind == "atom":
+        found = _PLAIN_ATOMS.get((str(node.get("family")), text))
+        if found is not None:
+            return found
+    elif kind == "ordgroup":
+        return _plain_list(node.get("body") or ())
+    elif kind == "supsub":
+        return _plain_script(node)
+    elif kind == "genfrac":
+        return _plain_fraction(node)
+    elif kind == "sqrt" and node.get("index") is None:
+        return f"sqrt({_plain_whole(node.get('body'))})"
+    elif kind == "leftright":
+        left, right = _PLAIN_DELIMITERS.get(str(node.get("left"))), _PLAIN_DELIMITERS.get(str(node.get("right")))
+        if left is not None and right is not None:
+            return left + _plain_list(node.get("body") or ()) + right
+    elif kind == "font" and str(node.get("font")) in _PLAIN_FONTS:
+        word, inner = _PLAIN_FONTS[str(node.get("font"))], _plain_whole(node.get("body"))
+        return f"{word}({inner})" if word else inner
+    elif kind == "accent" and str(node.get("label")) in _PLAIN_ACCENTS:
+        return f"{_PLAIN_ACCENTS[str(node.get('label'))]}({_plain_whole(node.get('base'))})"
+    elif kind == "op" and node.get("body") is None:
+        name = str(node.get("name") or "")
+        if node.get("symbol"):
+            if name in _PLAIN_OPERATORS:
+                return _PLAIN_OPERATORS[name]
+        elif re.fullmatch(r"\\[A-Za-z]+", name):
+            return name[1:]
+    elif kind == "operatorname":
+        word = _word(node.get("body") or ())
+        if word and word.isascii() and word.isalnum():
+            return word
+    elif kind == "text":
+        return _plain_text(node.get("body") or ())
+    raise _NoWords
+
+
+def _plain_whole(node: Tree | None) -> str:
+    """Something that must have words: an empty group (``\\sqrt{}``) says nothing to write."""
+
+    text = _plain_node(node).strip() if node is not None else ""
+    if not text:
+        raise _NoWords
+    return text
+
+
+def _plain_text(body: Sequence[Tree]) -> str:
+    out = ""
+    for node in body:
+        text = str(node.get("text") or "")
+        if node.get("type") == "spacing":
+            out += " "
+        elif node.get("type") == "textord" and len(text) == 1 and text.isascii() and (text.isalnum() or text in _PLAIN_TEXT_PUNCTUATION):
+            out += text
+        else:
+            raise _NoWords
+    return out
+
+
+def _one_symbol(text: str) -> bool:
+    return bool(re.fullmatch(r"[0-9.]+", text)) or (text.isascii() and text.isalpha() and (len(text) == 1 or text in _GREEK))
+
+
+def _plain_script(node: Tree) -> str:
+    base, sub, sup = node.get("base"), node.get("sub"), node.get("sup")
+    if base is None:
+        raise _NoWords
+    if base.get("type") == "ordgroup" and len(_drawn(base.get("body") or ())) != 1:
+        # {a+b}^2: braces show nothing, so the page's script looks like b's and TeX's is the group's. Neither is a safe reading.
+        raise _NoWords
+    text = _plain_whole(base)
+    if base.get("type") == "genfrac" and base.get("hasBarLine"):
+        text = f"({text})"
+    if sub is not None:
+        text += "_" + _plain_script_part(sub)
+    if sup is not None:
+        primes = _drawn(_body(sup))
+        if primes and all(prime.get("type") == "textord" and prime.get("text") == r"\prime" for prime in primes):
+            text += "'" * len(primes)
+        else:
+            text += "^" + _plain_script_part(sup)
+    return text
+
+
+def _plain_script_part(node: Tree) -> str:
+    text = _plain_whole(node)
+    return text if _one_symbol(text) else f"({text})"
+
+
+def _is_differential(node: Tree) -> bool:
+    current = node.get("base") if node.get("type") == "supsub" else node
+    return current is not None and current.get("type") in ("mathord", "textord") and current.get("text") in ("d", r"\partial")
+
+
+def _one_factor(drawn: Sequence[Tree]) -> bool:
+    """Whether a denominator reads whole after a slash with no brackets: ``a/bc`` parts books (``ambiguous_slash``)."""
+
+    if drawn and all(node.get("type") == "textord" and (str(node.get("text")).isdigit() or node.get("text") == ".") for node in drawn):
+        return True
+    if len(drawn) == 1:
+        return not _compound(drawn) and not (drawn[0].get("type") == "genfrac" and drawn[0].get("hasBarLine"))
+    if len(drawn) < 3 or drawn[0].get("type") not in ("mathord", "text", "operatorname") or not _is_atom(drawn[1], "open", "("):
+        return False
+    # A name and its one bracket, f(x): the bracket opened after the name closes only at the end.
+    depth = 0
+    for index, node in enumerate(drawn[1:], start=1):
+        current = node.get("base") if node.get("type") == "supsub" else node
+        if current is not None and _is_atom(current, "open"):
+            depth += 1
+        elif current is not None and _is_atom(current, "close") and current.get("text") not in ("!", "?"):
+            depth -= 1
+            if depth == 0 and index != len(drawn) - 1:
+                return False
+    return depth == 0
+
+
+def _plain_fraction(node: Tree) -> str:
+    numerator, denominator = node.get("numer"), node.get("denom")
+    if numerator is None or denominator is None:
+        raise _NoWords
+    upper, lower = _plain_whole(numerator), _plain_whole(denominator)
+    if not node.get("hasBarLine"):
+        if node.get("leftDelim") == "(" and node.get("rightDelim") == ")":
+            return f"binom({upper}, {lower})"
+        raise _NoWords
+    if node.get("leftDelim") or node.get("rightDelim"):
+        raise _NoWords
+    above, below = _drawn(_body(numerator)), _drawn(_body(denominator))
+    # dF(x)/dx: a derivative's two differentials are read as one ratio; a stray d in a denominator is not one.
+    leibniz = bool(above) and len(below) == 2 and _is_differential(above[0]) and _is_differential(below[0])
+    if _compound(above) or (len(above) == 1 and above[0].get("type") == "genfrac" and above[0].get("hasBarLine")):
+        upper = f"({upper})"
+    if not leibniz and not _one_factor(below):
+        lower = f"({lower})"
+    return f"{upper}/{lower}"
+
+
 def _lhs_args(nodes: Sequence[Tree]) -> tuple[tuple[str, ...], dict[str, set[str]], dict[str, str]]:
     """The symbols of a ``name(args)`` left-hand side, with how the book spells
     them; empty for ``P(X = k)``, ``E[X]`` or a bare name."""
@@ -1044,16 +1281,19 @@ def _translate(source: str, tree: Sequence[Tree], *, trees: KT.Trees, display: b
     if G.node_count(rhs, {}) > G.MAX_EXPANDED_NODES:
         raise Unreadable("too_long")
     return Relation(latex=source, lhs=lhs, rhs=rhs, args=args, symbols=frozenset(G.free_names(rhs)),
-                    tokens=dict(reader.first), lhs_compound=_compound(nodes[:lhs_end]))
+                    tokens=dict(reader.first), lhs_compound=_compound(nodes[:lhs_end]),
+                    lhs_plain=plain_words(nodes[:lhs_end]))
 
 
 __all__ = [
+    "PLAIN_FALLBACK",
     "READER_VERSION",
     "REASONS",
     "Relation",
     "Segment",
     "Unreadable",
     "binary64_exact",
+    "plain_words",
     "read_relation",
     "segments",
 ]

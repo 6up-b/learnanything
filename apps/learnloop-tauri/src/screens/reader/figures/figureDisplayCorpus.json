@@ -985,9 +985,9 @@
     "integers": null
    },
    "body_tex": "\\left(\\mathrm{1-F}(k)\\right)",
-   "body_plain": "(mathrm1-F(k))",
+   "body_plain": "(1-F(k))",
    "tex": "\\text{area under } \\left(\\mathrm{1-F}(k)\\right) \\text{ from } 0.5 \\text{ to } 2",
-   "plain": "area under (mathrm1-F(k)) from 0.5 to 2 · limited to the plotted range"
+   "plain": "area under (1-F(k)) from 0.5 to 2 · limited to the plotted range"
   },
   {
    "lhs": "\\mathrm{1-F}(k)",
@@ -1000,9 +1000,9 @@
     "integers": null
    },
    "body_tex": "\\left(\\mathrm{1-F}(k)\\right)",
-   "body_plain": "(mathrm1-F(k))",
+   "body_plain": "(1-F(k))",
    "tex": "\\int_{0}^{1 \\times 10^{-7}} \\left(\\mathrm{1-F}(k)\\right)\\,dk",
-   "plain": "integral from 0 to 1e-7 of (mathrm1-F(k)) dk"
+   "plain": "integral from 0 to 1e-7 of (1-F(k)) dk"
   },
   {
    "lhs": "\\mathrm{1-F}(k)",
@@ -1018,9 +1018,9 @@
     ]
    },
    "body_tex": "\\left(\\mathrm{1-F}(k)\\right)",
-   "body_plain": "(mathrm1-F(k))",
+   "body_plain": "(1-F(k))",
    "tex": "\\sum_{k=0}^{2} \\left(\\mathrm{1-F}(k)\\right)",
-   "plain": "sum for k from 0 to 2 of (mathrm1-F(k)) · limited to the plotted range"
+   "plain": "sum for k from 0 to 2 of (1-F(k)) · limited to the plotted range"
   },
   {
    "lhs": "\\mathrm{1-F}(k)",
@@ -1036,9 +1036,9 @@
     ]
    },
    "body_tex": "\\left(\\mathrm{1-F}(k)\\right)",
-   "body_plain": "(mathrm1-F(k))",
+   "body_plain": "(1-F(k))",
    "tex": "\\sum_{k=0}^{2} \\left(\\mathrm{1-F}(k)\\right)",
-   "plain": "sum for k from 0 to 2 of (mathrm1-F(k))"
+   "plain": "sum for k from 0 to 2 of (1-F(k))"
   },
   {
    "lhs": "F(k)\\cdot 2",
@@ -1051,9 +1051,9 @@
     "integers": null
    },
    "body_tex": "\\left(F(k)\\cdot 2\\right)",
-   "body_plain": "(F(k)cdot 2)",
+   "body_plain": "(F(k)*2)",
    "tex": "\\text{area under } \\left(F(k)\\cdot 2\\right) \\text{ from } 0.5 \\text{ to } 2",
-   "plain": "area under (F(k)cdot 2) from 0.5 to 2 · limited to the plotted range"
+   "plain": "area under (F(k)*2) from 0.5 to 2 · limited to the plotted range"
   },
   {
    "lhs": "F(k)\\cdot 2",
@@ -1066,9 +1066,9 @@
     "integers": null
    },
    "body_tex": "\\left(F(k)\\cdot 2\\right)",
-   "body_plain": "(F(k)cdot 2)",
+   "body_plain": "(F(k)*2)",
    "tex": "\\int_{0}^{1 \\times 10^{-7}} \\left(F(k)\\cdot 2\\right)\\,dk",
-   "plain": "integral from 0 to 1e-7 of (F(k)cdot 2) dk"
+   "plain": "integral from 0 to 1e-7 of (F(k)*2) dk"
   },
   {
    "lhs": "F(k)\\cdot 2",
@@ -1084,9 +1084,9 @@
     ]
    },
    "body_tex": "\\left(F(k)\\cdot 2\\right)",
-   "body_plain": "(F(k)cdot 2)",
+   "body_plain": "(F(k)*2)",
    "tex": "\\sum_{k=0}^{2} \\left(F(k)\\cdot 2\\right)",
-   "plain": "sum for k from 0 to 2 of (F(k)cdot 2) · limited to the plotted range"
+   "plain": "sum for k from 0 to 2 of (F(k)*2) · limited to the plotted range"
   },
   {
    "lhs": "F(k)\\cdot 2",
@@ -1102,9 +1102,9 @@
     ]
    },
    "body_tex": "\\left(F(k)\\cdot 2\\right)",
-   "body_plain": "(F(k)cdot 2)",
+   "body_plain": "(F(k)*2)",
    "tex": "\\sum_{k=0}^{2} \\left(F(k)\\cdot 2\\right)",
-   "plain": "sum for k from 0 to 2 of (F(k)cdot 2)"
+   "plain": "sum for k from 0 to 2 of (F(k)*2)"
   },
   {
    "lhs": "a/b",
@@ -1183,9 +1183,9 @@
     "integers": null
    },
    "body_tex": "\\left(F(k)\\pm 1\\right)",
-   "body_plain": "(F(k)pm 1)",
+   "body_plain": "(F(k)±1)",
    "tex": "\\text{area under } \\left(F(k)\\pm 1\\right) \\text{ from } 0.5 \\text{ to } 2",
-   "plain": "area under (F(k)pm 1) from 0.5 to 2 · limited to the plotted range"
+   "plain": "area under (F(k)±1) from 0.5 to 2 · limited to the plotted range"
   },
   {
    "lhs": "F(k)\\pm 1",
@@ -1198,9 +1198,9 @@
     "integers": null
    },
    "body_tex": "\\left(F(k)\\pm 1\\right)",
-   "body_plain": "(F(k)pm 1)",
+   "body_plain": "(F(k)±1)",
    "tex": "\\int_{0}^{1 \\times 10^{-7}} \\left(F(k)\\pm 1\\right)\\,dk",
-   "plain": "integral from 0 to 1e-7 of (F(k)pm 1) dk"
+   "plain": "integral from 0 to 1e-7 of (F(k)±1) dk"
   },
   {
    "lhs": "F(k)\\pm 1",
@@ -1216,9 +1216,9 @@
     ]
    },
    "body_tex": "\\left(F(k)\\pm 1\\right)",
-   "body_plain": "(F(k)pm 1)",
+   "body_plain": "(F(k)±1)",
    "tex": "\\sum_{k=0}^{2} \\left(F(k)\\pm 1\\right)",
-   "plain": "sum for k from 0 to 2 of (F(k)pm 1) · limited to the plotted range"
+   "plain": "sum for k from 0 to 2 of (F(k)±1) · limited to the plotted range"
   },
   {
    "lhs": "F(k)\\pm 1",
@@ -1234,9 +1234,9 @@
     ]
    },
    "body_tex": "\\left(F(k)\\pm 1\\right)",
-   "body_plain": "(F(k)pm 1)",
+   "body_plain": "(F(k)±1)",
    "tex": "\\sum_{k=0}^{2} \\left(F(k)\\pm 1\\right)",
-   "plain": "sum for k from 0 to 2 of (F(k)pm 1)"
+   "plain": "sum for k from 0 to 2 of (F(k)±1)"
   },
   {
    "lhs": "(1-a)-(1-b)",
@@ -1315,9 +1315,9 @@
     "integers": null
    },
    "body_tex": "\\left(\\text{a or b}\\right)",
-   "body_plain": "(texta or b)",
+   "body_plain": "(a or b)",
    "tex": "\\text{area under } \\left(\\text{a or b}\\right) \\text{ from } 0.5 \\text{ to } 2",
-   "plain": "area under (texta or b) from 0.5 to 2 · limited to the plotted range"
+   "plain": "area under (a or b) from 0.5 to 2 · limited to the plotted range"
   },
   {
    "lhs": "\\text{a or b}",
@@ -1330,9 +1330,9 @@
     "integers": null
    },
    "body_tex": "\\left(\\text{a or b}\\right)",
-   "body_plain": "(texta or b)",
+   "body_plain": "(a or b)",
    "tex": "\\int_{0}^{1 \\times 10^{-7}} \\left(\\text{a or b}\\right)\\,dk",
-   "plain": "integral from 0 to 1e-7 of (texta or b) dk"
+   "plain": "integral from 0 to 1e-7 of (a or b) dk"
   },
   {
    "lhs": "\\text{a or b}",
@@ -1348,9 +1348,9 @@
     ]
    },
    "body_tex": "\\left(\\text{a or b}\\right)",
-   "body_plain": "(texta or b)",
+   "body_plain": "(a or b)",
    "tex": "\\sum_{k=0}^{2} \\left(\\text{a or b}\\right)",
-   "plain": "sum for k from 0 to 2 of (texta or b) · limited to the plotted range"
+   "plain": "sum for k from 0 to 2 of (a or b) · limited to the plotted range"
   },
   {
    "lhs": "\\text{a or b}",
@@ -1366,9 +1366,9 @@
     ]
    },
    "body_tex": "\\left(\\text{a or b}\\right)",
-   "body_plain": "(texta or b)",
+   "body_plain": "(a or b)",
    "tex": "\\sum_{k=0}^{2} \\left(\\text{a or b}\\right)",
-   "plain": "sum for k from 0 to 2 of (texta or b)"
+   "plain": "sum for k from 0 to 2 of (a or b)"
   },
   {
    "lhs": "F(k)",
@@ -1645,9 +1645,9 @@
     "integers": null
    },
    "body_tex": "\\frac{1-a}{k}",
-   "body_plain": "frac1-ak",
+   "body_plain": "(1-a)/k",
    "tex": "\\text{area under } \\frac{1-a}{k} \\text{ from } 0.5 \\text{ to } 2",
-   "plain": "area under frac1-ak from 0.5 to 2 · limited to the plotted range"
+   "plain": "area under (1-a)/k from 0.5 to 2 · limited to the plotted range"
   },
   {
    "lhs": "\\frac{1-a}{k}",
@@ -1660,9 +1660,9 @@
     "integers": null
    },
    "body_tex": "\\frac{1-a}{k}",
-   "body_plain": "frac1-ak",
+   "body_plain": "(1-a)/k",
    "tex": "\\int_{0}^{1 \\times 10^{-7}} \\frac{1-a}{k}\\,dk",
-   "plain": "integral from 0 to 1e-7 of frac1-ak dk"
+   "plain": "integral from 0 to 1e-7 of (1-a)/k dk"
   },
   {
    "lhs": "\\frac{1-a}{k}",
@@ -1678,9 +1678,9 @@
     ]
    },
    "body_tex": "\\frac{1-a}{k}",
-   "body_plain": "frac1-ak",
+   "body_plain": "(1-a)/k",
    "tex": "\\sum_{k=0}^{2} \\frac{1-a}{k}",
-   "plain": "sum for k from 0 to 2 of frac1-ak · limited to the plotted range"
+   "plain": "sum for k from 0 to 2 of (1-a)/k · limited to the plotted range"
   },
   {
    "lhs": "\\frac{1-a}{k}",
@@ -1696,9 +1696,9 @@
     ]
    },
    "body_tex": "\\frac{1-a}{k}",
-   "body_plain": "frac1-ak",
+   "body_plain": "(1-a)/k",
    "tex": "\\sum_{k=0}^{2} \\frac{1-a}{k}",
-   "plain": "sum for k from 0 to 2 of frac1-ak"
+   "plain": "sum for k from 0 to 2 of (1-a)/k"
   },
   {
    "lhs": "f_{X}(k)",
@@ -1777,9 +1777,9 @@
     "integers": null
    },
    "body_tex": "e^{-k}",
-   "body_plain": "e^-k",
+   "body_plain": "e^(-k)",
    "tex": "\\text{area under } e^{-k} \\text{ from } 0.5 \\text{ to } 2",
-   "plain": "area under e^-k from 0.5 to 2 · limited to the plotted range"
+   "plain": "area under e^(-k) from 0.5 to 2 · limited to the plotted range"
   },
   {
    "lhs": "e^{-k}",
@@ -1792,9 +1792,9 @@
     "integers": null
    },
    "body_tex": "e^{-k}",
-   "body_plain": "e^-k",
+   "body_plain": "e^(-k)",
    "tex": "\\int_{0}^{1 \\times 10^{-7}} e^{-k}\\,dk",
-   "plain": "integral from 0 to 1e-7 of e^-k dk"
+   "plain": "integral from 0 to 1e-7 of e^(-k) dk"
   },
   {
    "lhs": "e^{-k}",
@@ -1810,9 +1810,9 @@
     ]
    },
    "body_tex": "e^{-k}",
-   "body_plain": "e^-k",
+   "body_plain": "e^(-k)",
    "tex": "\\sum_{k=0}^{2} e^{-k}",
-   "plain": "sum for k from 0 to 2 of e^-k · limited to the plotted range"
+   "plain": "sum for k from 0 to 2 of e^(-k) · limited to the plotted range"
   },
   {
    "lhs": "e^{-k}",
@@ -1828,9 +1828,9 @@
     ]
    },
    "body_tex": "e^{-k}",
-   "body_plain": "e^-k",
+   "body_plain": "e^(-k)",
    "tex": "\\sum_{k=0}^{2} e^{-k}",
-   "plain": "sum for k from 0 to 2 of e^-k"
+   "plain": "sum for k from 0 to 2 of e^(-k)"
   },
   {
    "lhs": "\\sqrt{1-k}",
@@ -1843,9 +1843,9 @@
     "integers": null
    },
    "body_tex": "\\sqrt{1-k}",
-   "body_plain": "sqrt1-k",
+   "body_plain": "sqrt(1-k)",
    "tex": "\\text{area under } \\sqrt{1-k} \\text{ from } 0.5 \\text{ to } 2",
-   "plain": "area under sqrt1-k from 0.5 to 2 · limited to the plotted range"
+   "plain": "area under sqrt(1-k) from 0.5 to 2 · limited to the plotted range"
   },
   {
    "lhs": "\\sqrt{1-k}",
@@ -1858,9 +1858,9 @@
     "integers": null
    },
    "body_tex": "\\sqrt{1-k}",
-   "body_plain": "sqrt1-k",
+   "body_plain": "sqrt(1-k)",
    "tex": "\\int_{0}^{1 \\times 10^{-7}} \\sqrt{1-k}\\,dk",
-   "plain": "integral from 0 to 1e-7 of sqrt1-k dk"
+   "plain": "integral from 0 to 1e-7 of sqrt(1-k) dk"
   },
   {
    "lhs": "\\sqrt{1-k}",
@@ -1876,9 +1876,9 @@
     ]
    },
    "body_tex": "\\sqrt{1-k}",
-   "body_plain": "sqrt1-k",
+   "body_plain": "sqrt(1-k)",
    "tex": "\\sum_{k=0}^{2} \\sqrt{1-k}",
-   "plain": "sum for k from 0 to 2 of sqrt1-k · limited to the plotted range"
+   "plain": "sum for k from 0 to 2 of sqrt(1-k) · limited to the plotted range"
   },
   {
    "lhs": "\\sqrt{1-k}",
@@ -1894,9 +1894,9 @@
     ]
    },
    "body_tex": "\\sqrt{1-k}",
-   "body_plain": "sqrt1-k",
+   "body_plain": "sqrt(1-k)",
    "tex": "\\sum_{k=0}^{2} \\sqrt{1-k}",
-   "plain": "sum for k from 0 to 2 of sqrt1-k"
+   "plain": "sum for k from 0 to 2 of sqrt(1-k)"
   },
   {
    "lhs": "P(X=k)",
@@ -1975,9 +1975,9 @@
     "integers": null
    },
    "body_tex": "\\text{Var}(k)",
-   "body_plain": "textVar(k)",
+   "body_plain": "Var(k)",
    "tex": "\\text{area under } \\text{Var}(k) \\text{ from } 0.5 \\text{ to } 2",
-   "plain": "area under textVar(k) from 0.5 to 2 · limited to the plotted range"
+   "plain": "area under Var(k) from 0.5 to 2 · limited to the plotted range"
   },
   {
    "lhs": "\\text{Var}(k)",
@@ -1990,9 +1990,9 @@
     "integers": null
    },
    "body_tex": "\\text{Var}(k)",
-   "body_plain": "textVar(k)",
+   "body_plain": "Var(k)",
    "tex": "\\int_{0}^{1 \\times 10^{-7}} \\text{Var}(k)\\,dk",
-   "plain": "integral from 0 to 1e-7 of textVar(k) dk"
+   "plain": "integral from 0 to 1e-7 of Var(k) dk"
   },
   {
    "lhs": "\\text{Var}(k)",
@@ -2008,9 +2008,9 @@
     ]
    },
    "body_tex": "\\text{Var}(k)",
-   "body_plain": "textVar(k)",
+   "body_plain": "Var(k)",
    "tex": "\\sum_{k=0}^{2} \\text{Var}(k)",
-   "plain": "sum for k from 0 to 2 of textVar(k) · limited to the plotted range"
+   "plain": "sum for k from 0 to 2 of Var(k) · limited to the plotted range"
   },
   {
    "lhs": "\\text{Var}(k)",
@@ -2026,9 +2026,9 @@
     ]
    },
    "body_tex": "\\text{Var}(k)",
-   "body_plain": "textVar(k)",
+   "body_plain": "Var(k)",
    "tex": "\\sum_{k=0}^{2} \\text{Var}(k)",
-   "plain": "sum for k from 0 to 2 of textVar(k)"
+   "plain": "sum for k from 0 to 2 of Var(k)"
   },
   {
    "lhs": "n!",

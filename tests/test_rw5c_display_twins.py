@@ -46,7 +46,7 @@ def test_the_derived_words_are_the_corpus_s_from_the_book_s_left_hand_side(case)
 
     relation = B.read_relation(case["lhs"] + "=x")
     assert relation.lhs_compound is case["compound"]
-    label = E.BookLabel(relation.lhs, relation.latex, "k", {}, "e", "s", 1, relation.lhs_compound)
+    label = E.BookLabel(relation.lhs, relation.latex, "k", {}, "e", "s", 1, relation.lhs_compound, relation.lhs_plain)
     assert label.operand == (case["body_tex"], case["body_plain"])
     template = {"kind": case["kind"], "body_tex": case["body_tex"], "body_plain": case["body_plain"], "variable": "k"}
     assert E.template_words(template, case["bounds"], js_string) == (case["tex"], case["plain"])

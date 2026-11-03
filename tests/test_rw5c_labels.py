@@ -82,7 +82,7 @@ def _every_panel() -> dict[str, Any]:
 
 def _book_labels(compiled: S.CompiledFigure) -> tuple[dict[str, E.BookLabel], dict[str, str]]:
     label = E.BookLabel(lhs="f(x)", latex="f(x)=ax", variable="x", tokens={"a": "a", "x": "x"}, extraction_id="e",
-                        span_id="s", page=3, compound=False)
+                        span_id="s", page=3, compound=False, plain="f(x)")
     return {"f": label}, {"panels.0.series.0": "f"}
 
 
@@ -145,7 +145,7 @@ def test_a_book_elements_label_is_the_books_left_hand_side_and_its_provenance():
 
 def test_an_unchecked_definition_renders_as_its_grammar_name_marked_ai_defined():
     compiled = S.parse_spec(plot("x", name="F"))
-    entry = E.element_map(compiled, {"G": E.BookLabel("g", "g=1", None, {}, "e", "s", 1, False)}, {})[0]
+    entry = E.element_map(compiled, {"G": E.BookLabel("g", "g=1", None, {}, "e", "s", 1, False, "g")}, {})[0]
     assert entry["tag"] == "ai_defined" and entry["role"] == "ai" and entry["tex"] == r"\mathrm{F}(x)"
     assert entry["plain"] == "F(x)"
 
@@ -153,7 +153,7 @@ def test_an_unchecked_definition_renders_as_its_grammar_name_marked_ai_defined()
 def _derived(spec: dict[str, Any], element_id: str, params: dict[str, float] | None = None) -> tuple[str, dict[str, Any]]:
     compiled = S.parse_spec(spec)
     elements = {element["id"]: element for element in E.element_map(compiled, {"f": E.BookLabel(
-        "f(x)", "f(x)=x", "x", {"x": "x"}, "e", "s", 1, False)}, {"panels.0.series.0": "f"})}
+        "f(x)", "f(x)=x", "x", {"x": "x"}, "e", "s", 1, False, "f(x)")}, {"panels.0.series.0": "f"})}
     element = elements[element_id]
     env = {**compiled.defaults, **(params or {})}
     bounds = S.derived_bounds(compiled, element["template"]["panel"], element["template"]["kind"],
@@ -207,7 +207,7 @@ def _readout(expr: str, variable: str = "x") -> dict[str, Any]:
 def test_f2_an_integral_readout_states_its_evaluated_bounds():
     spec = _readout("integral(f, x, 0, 0.5)")
     compiled = S.parse_spec(spec)
-    book = {"f": E.BookLabel("f(x)", "f(x)=x", "x", {}, "e", "s", 1, False)}
+    book = {"f": E.BookLabel("f(x)", "f(x)=x", "x", {}, "e", "s", 1, False, "f(x)")}
     element = {item["id"]: item for item in E.element_map(compiled, book, {"panels.0.series.0": "f"})}["panels.1"]
     assert element["role"] == "derived" and element["plain"] == "integral from 0 to 0.5 of f(x) dx"
     assert r"\int_{0}^{0.5} f(x)\,dx" == element["tex"]
@@ -216,7 +216,7 @@ def test_f2_an_integral_readout_states_its_evaluated_bounds():
 def test_a_readout_whose_body_is_not_the_bare_reference_is_not_derived():
     spec = _readout("integral(2*f, x, 0, 0.5)")
     compiled = S.parse_spec(spec)
-    book = {"f": E.BookLabel("f(x)", "f(x)=x", "x", {}, "e", "s", 1, False)}
+    book = {"f": E.BookLabel("f(x)", "f(x)=x", "x", {}, "e", "s", 1, False, "f(x)")}
     element = {item["id"]: item for item in E.element_map(compiled, book, {"panels.0.series.0": "f"})}["panels.1"]
     assert element["role"] == "ai" and element["voice"] == "model"
 
@@ -225,7 +225,7 @@ def test_f9_endpoints_are_lossless_never_format_value():
     spec = _readout("sum(f, k, 100000, 100001)", "k")
     spec["panels"][0] = {"kind": "pmf_bars", "k": {"var": "k", "min": 0, "max": 3}, "series": [{"expr": "f", "label": "m"}]}
     compiled = S.parse_spec(spec)
-    book = {"f": E.BookLabel("f(k)", "f(k)=1/(k+1)", "k", {}, "e", "s", 1, False)}
+    book = {"f": E.BookLabel("f(k)", "f(k)=1/(k+1)", "k", {}, "e", "s", 1, False, "f(k)")}
     element = {item["id"]: item for item in E.element_map(compiled, book, {"panels.0.series.0": "f"})}["panels.1"]
     assert r"\sum_{k=100000}^{100001}" in element["tex"] and "1.000e+5" not in element["tex"]
     plain, bounds = _derived(_bars("100000", "100001", (99990, 100010)), "panels.0.highlight")
@@ -535,14 +535,14 @@ def test_a_generated_left_hand_side_is_whole_in_every_template_in_katexs_own_mat
                 continue
             assert relation.lhs_compound or not compound, lhs
             read[compound] += 1
-            body_tex, body_plain = E.BookLabel(relation.lhs, relation.latex, "k", {}, "e", "s", 1, relation.lhs_compound).operand
+            body_tex, body_plain = E.BookLabel(relation.lhs, relation.latex, "k", {}, "e", "s", 1, relation.lhs_compound, relation.lhs_plain).operand
             alone = renderer.mathml(lhs)
             for kind, bounds in (("sum", {"from": 0, "to": 2, "integers": (0, 2)}), ("highlight", {"from": 0, "to": 2, "integers": (0, 2)}),
                                  ("integral", {"from": 0, "to": 1}), ("shade", {"from": 0, "to": 1})):
                 template = {"kind": kind, "body_tex": body_tex, "body_plain": body_plain, "variable": "k"}
                 words, plain = E.template_words(template, bounds, str)
                 assert M.whole_in_scope(renderer.mathml(words), alone, kind), (kind, words)
-                assert not compound or f"({E.detex(lhs)})" in plain, (kind, plain)
+                assert not compound or f"({relation.lhs_plain})" in plain, (kind, plain)
     assert read[True] > 200 and read[False] > 50
 
 
