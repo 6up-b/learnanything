@@ -6,7 +6,7 @@ on the handler context, and never from request parameters. The phone host sets
 (:meth:`SidecarContext.acting_as`); the desktop sidecar leaves it ``None``, which
 means the desktop, so every desktop write and response stays as it was.
 
-Three things read it:
+Four things read it:
 
 * **provenance:** an attempt's ``entry_surface`` and an offer's or a binding's
   surface (:func:`practice_surface`, :func:`offer_surface`). A session's
