@@ -226,6 +226,7 @@ import type {
   PromoteTutorQuestionResult,
   QuestionQueueSnapshot,
   QueueRevisionDto,
+  QueueRevisionInput,
   QuestionResolution,
   ResolveQuestionEventResult,
   RetirementReason,
@@ -560,7 +561,7 @@ export const api = {
   clearSessionCheckpoint: (sessionId: string) => call<{ cleared: boolean }>("clear_session_checkpoint", { sessionId }),
   endSession: (sessionId: string) => mutating([TAG.queue], call<SessionEndSummary>("end_session", { sessionId })),
   getTodayQueue: (input: QueueInput) => call<QueueSnapshot>("get_today_queue", { input }),
-  getQueueRevision: () => call<QueueRevisionDto>("get_queue_revision"),
+  getQueueRevision: (input: QueueRevisionInput = {}) => call<QueueRevisionDto>("get_queue_revision", { input }),
   explainPracticeItem: (practiceItemId: string) =>
     call<SchedulerExplanationDto>("explain_practice_item", { practiceItemId }),
   openQueueItem: (practiceItemId: string) => call<PracticeItemDetail>("open_queue_item", { practiceItemId }),

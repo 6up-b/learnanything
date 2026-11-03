@@ -18,6 +18,7 @@ import traceback
 from pathlib import Path
 
 import pytest
+from pydantic import ValidationError
 
 import learnloop_sidecar.handlers  # noqa: F401 -- populate METHOD_REGISTRY
 from learnloop.db.repositories import Repository
@@ -398,6 +399,43 @@ def test_the_revision_poll_says_when_it_reloaded_and_only_then(tmp_path, monkeyp
     assert first["reloaded"] is True and "reloaded" not in second
     assert set(second) == {"version", "revision", "updatedAt"}
     assert reloads == [True] and marked == ["job_1"]
+
+
+def test_a_held_read_leaves_a_completed_job_for_the_read_that_may_reload(tmp_path, monkeypatch):
+    """Ruling R2: while the desktop holds, the token is read and nothing reloads. The
+    first plain read after the hold reloads once and says so, and the token is the
+    same either way."""
+
+    _paths, _repository, ctx = _world(tmp_path)
+    awaiting = ["job_1"]
+    marked: list[str] = []
+    reloads: list[bool] = []
+
+    monkeypatch.setattr(
+        ctx.ingest_jobs, "completed_jobs_awaiting_reload",
+        lambda job_types, *, limit: [job for job in awaiting if job not in marked],
+    )
+    monkeypatch.setattr(ctx.ingest_jobs, "mark_reloaded", marked.append)
+    monkeypatch.setattr(ctx, "reload", lambda **kwargs: reloads.append(True))
+
+    held = [_call(ctx, "get_queue_revision", {"holdReload": True}) for _ in range(3)]
+    assert reloads == [] and marked == []
+    assert all(set(reply) == {"version", "revision", "updatedAt"} for reply in held)
+
+    plain = _call(ctx, "get_queue_revision", {})
+    assert plain["reloaded"] is True and plain["revision"] == held[0]["revision"]
+    assert reloads == [True] and marked == ["job_1"]
+
+    # Nothing is owed now, held or not, and the field defaults to the plain read.
+    assert "reloaded" not in _call(ctx, "get_queue_revision", {"holdReload": False})
+    assert "reloaded" not in _call(ctx, "get_queue_revision", {"holdReload": True})
+    assert reloads == [True]
+
+
+def test_the_revision_read_declares_its_one_field(tmp_path):
+    _paths, _repository, ctx = _world(tmp_path)
+    with pytest.raises(ValidationError):
+        _call(ctx, "get_queue_revision", {"reload": False})
 
 
 def _phone_process(root: str, session_id: str, rounds: int, queue) -> None:

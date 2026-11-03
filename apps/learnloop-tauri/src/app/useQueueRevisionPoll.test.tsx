@@ -7,7 +7,14 @@
 import { act, cleanup, renderHook } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { subscribeQueueChanged } from "../queueEvents";
-import { REVISION_POLL_MS, sessionMovedFrom, useQueueRevisionPoll, useSessionMoved, type QueueRevisionPollOptions } from "./useQueueRevisionPoll";
+import {
+  REVISION_POLL_MS,
+  revisionPollHeld,
+  sessionMovedFrom,
+  useQueueRevisionPoll,
+  useSessionMoved,
+  type QueueRevisionPollOptions
+} from "./useQueueRevisionPoll";
 
 const stubs = vi.hoisted(() => ({
   getQueueRevision: vi.fn(),
@@ -321,6 +328,126 @@ describe("an open practice answer or Reader", () => {
 
     expect(seen.result.current?.reason).toBe("adopted");
     expect(refetches).toBe(0);
+  });
+});
+
+describe("while held (ruling R2)", () => {
+  it("asks the read not to reload, and the first read after the hold may", async () => {
+    const { rerender } = mount({ ...OPEN, quiet: true });
+    await settle();
+    await tick(2);
+    expect(stubs.getQueueRevision.mock.calls).toEqual([[{ holdReload: true }], [{ holdReload: true }], [{ holdReload: true }]]);
+
+    rerender({ ...OPEN, quiet: false });
+    await settle();
+    expect(stubs.getQueueRevision).toHaveBeenCalledTimes(4);
+    expect(stubs.getQueueRevision).toHaveBeenLastCalledWith({});
+  });
+
+  it("a held change and the reload the hold kept back are one refetch, after the reload", async () => {
+    const { rerender } = mount({ ...OPEN, quiet: true });
+    await settle();
+    stubs.getQueueRevision.mockResolvedValue(revision(6));
+    await tick(2);
+    expect(refetches).toBe(0);
+
+    let refetchesAtReload = -1;
+    stubs.getQueueRevision.mockImplementation(async () => {
+      refetchesAtReload = refetches;
+      return revision(6, true);
+    });
+    rerender({ ...OPEN, quiet: false });
+    await settle();
+    expect(refetchesAtReload).toBe(0);
+    expect(refetches).toBe(1);
+
+    stubs.getQueueRevision.mockResolvedValue(revision(6));
+    await tick(3);
+    expect(refetches).toBe(1);
+  });
+
+  it("a read in flight when the hold lifts is followed by one that may reload", async () => {
+    let release: (value: unknown) => void = () => undefined;
+    const { rerender } = mount({ ...OPEN, quiet: true });
+    await settle();
+    stubs.getQueueRevision.mockImplementationOnce(() => new Promise((resolve) => { release = resolve; }));
+    await tick();
+    expect(stubs.getQueueRevision).toHaveBeenLastCalledWith({ holdReload: true });
+
+    rerender({ ...OPEN, quiet: false });
+    await settle();
+    expect(stubs.getQueueRevision).toHaveBeenCalledTimes(2);
+
+    stubs.getQueueRevision.mockResolvedValueOnce(revision(5, true));
+    await act(async () => {
+      release(revision(5));
+      await vi.advanceTimersByTimeAsync(0);
+    });
+    expect(stubs.getQueueRevision).toHaveBeenCalledTimes(3);
+    expect(stubs.getQueueRevision).toHaveBeenLastCalledWith({});
+    expect(refetches).toBe(1);
+  });
+
+  it("a failed read on leaving keeps the held refetch for the next tick", async () => {
+    const { rerender } = mount({ ...OPEN, quiet: true });
+    await settle();
+    stubs.getQueueRevision.mockResolvedValue(revision(6));
+    await tick();
+    stubs.getQueueRevision.mockRejectedValueOnce({ code: "database_busy", message: "busy", retryable: true });
+    rerender({ ...OPEN, quiet: false });
+    await settle();
+    expect(refetches).toBe(0);
+
+    await tick();
+    expect(refetches).toBe(1);
+  });
+
+  it("a hold that begins during a plain read keeps that read's reload for the leaving", async () => {
+    let release: (value: unknown) => void = () => undefined;
+    const { rerender } = mount();
+    await settle();
+    stubs.getQueueRevision.mockImplementationOnce(() => new Promise((resolve) => { release = resolve; }));
+    await tick();
+    rerender({ ...OPEN, quiet: true });
+    await act(async () => {
+      release(revision(5, true));
+      await vi.advanceTimersByTimeAsync(0);
+    });
+    expect(refetches).toBe(0);
+
+    rerender({ ...OPEN, quiet: false });
+    await settle();
+    expect(refetches).toBe(1);
+  });
+});
+
+describe("where the hold lifts: where Today's own poll ran (ruling R2)", () => {
+  const TODAY = {
+    tab: "today", todayStage: "queue", simple: false,
+    examOpen: false, calibrationOpen: false, lessonOpen: false, goldenRunOpen: false
+  };
+
+  it("lifts on Today's list", () => {
+    expect(revisionPollHeld(TODAY)).toBe(false);
+    expect(revisionPollHeld({ ...TODAY, simple: true })).toBe(false);
+  });
+
+  it("the simple shell's Start is Today with no session; the classic shell's is its own screen", () => {
+    expect(revisionPollHeld({ ...TODAY, tab: "start", simple: true })).toBe(false);
+    expect(revisionPollHeld({ ...TODAY, tab: "start", simple: false })).toBe(true);
+  });
+
+  it.each(["reader", "library", "graph", "ingest", "proposals", "registry", "maintain", "golden"])("holds on %s", (tab) => {
+    expect(revisionPollHeld({ ...TODAY, tab })).toBe(true);
+    expect(revisionPollHeld({ ...TODAY, tab, simple: true })).toBe(true);
+  });
+
+  it.each(["practice", "feedback", "blockReview"])("holds on Today's %s stage, which replaces the list", (todayStage) => {
+    expect(revisionPollHeld({ ...TODAY, todayStage })).toBe(true);
+  });
+
+  it.each(["examOpen", "calibrationOpen", "lessonOpen", "goldenRunOpen"])("holds with %s over Today", (overlay) => {
+    expect(revisionPollHeld({ ...TODAY, [overlay]: true })).toBe(true);
   });
 });
 

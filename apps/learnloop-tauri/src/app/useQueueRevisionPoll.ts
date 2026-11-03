@@ -14,13 +14,16 @@
 // revision change or a reload. A bump that never landed stays owed in the host, whose
 // next request pays it.
 //
-// What it leaves alone: an open practice answer and an open Reader. While the screen
-// is `quiet` a change is remembered and the queue is invalidated once when the learner
-// leaves; the App-level plan read would otherwise rebuild on the pipe under their
-// typing. Reading the session never touches the App's session or the screen.
+// Where it refetches and reloads (ruling R2): only where Today's own poll used to run,
+// Today's list with nothing over it (`revisionPollHeld`). Everywhere else the screen is
+// `quiet`: the token is still read, asking the sidecar not to reload now, a change is
+// remembered, and on the return to Today one read reloads whatever is owed and one
+// refetch pays for it all. The App-level plan read would otherwise rebuild on the pipe
+// under an answer being typed, and start work for a list nobody is looking at. Reading
+// the session never touches the App's session or the screen.
 //
-// session_moved: on a change, and when the window comes back, the open session is
-// re-read until a read answers, and a session that left this desktop is noted here. The banner and the
+// session_moved: on a change, and when the window comes back, on every screen, the open
+// session is re-read until a read answers, and a session that left this desktop is noted here. The banner and the
 // adopt / start fresh prompts that act on it are M2's (§6.5); a write the desktop
 // makes meanwhile is refused by the sidecar with `session_moved`.
 import { useEffect, useRef, useSyncExternalStore } from "react";
@@ -66,12 +69,36 @@ export function useSessionMoved(): SessionMoved | null {
   return useSyncExternalStore(subscribeSessionMoved, () => moved);
 }
 
+/** What decides whether a refetch or a reload may run now (ruling R2). */
+export interface RevisionPollView {
+  readonly tab: string;
+  readonly todayStage: string;
+  /** The simple shell, whose Start is Today with no session. */
+  readonly simple: boolean;
+  readonly examOpen: boolean;
+  readonly calibrationOpen: boolean;
+  readonly lessonOpen: boolean;
+  readonly goldenRunOpen: boolean;
+}
+
+/**
+ * Whether the poll holds its refetches and reloads: anywhere but Today's list. Feedback
+ * and block review replace the list on the Today tab, so Today's own poll did not run
+ * under them either. A command overlay (Ask, Settings, the inspector) sits over a list
+ * that stays mounted, so it does not hold.
+ */
+export function revisionPollHeld(view: RevisionPollView): boolean {
+  const onToday = view.tab === "today" || (view.simple && view.tab === "start");
+  const overToday = view.examOpen || view.calibrationOpen || view.lessonOpen || view.goldenRunOpen;
+  return !onToday || view.todayStage !== "queue" || overToday;
+}
+
 export interface QueueRevisionPollOptions {
   /** The open vault; null polls nothing, and a new one starts from a fresh token. */
   readonly vaultRoot: string | null;
   /** The session this desktop has open. */
   readonly sessionId: string | null;
-  /** A practice answer or the Reader is open: remember changes, refetch on leaving. */
+  /** `revisionPollHeld`: no reload and no refetch now; both are paid when this lifts. */
   readonly quiet: boolean;
 }
 
@@ -81,6 +108,7 @@ export function useQueueRevisionPoll({ vaultRoot, sessionId, quiet }: QueueRevis
   const quietRef = useRef(quiet);
   quietRef.current = quiet;
   const pendingRef = useRef(false);
+  const tickRef = useRef<(() => void) | null>(null);
 
   useEffect(() => {
     // A move belongs to the session it was seen on.
@@ -119,8 +147,9 @@ export function useQueueRevisionPoll({ vaultRoot, sessionId, quiet }: QueueRevis
       if (inFlight || disposed) return;
       inFlight = true;
       let answered = false;
+      const heldRead = quietRef.current;
       try {
-        const snapshot = await api.getQueueRevision();
+        const snapshot = await api.getQueueRevision(heldRead ? { holdReload: true } : {});
         if (disposed) return;
         answered = true;
         // Read after the await, so a focus and a visibilitychange that arrive
@@ -129,9 +158,12 @@ export function useQueueRevisionPoll({ vaultRoot, sessionId, quiet }: QueueRevis
         windowBack = false;
         const changed = seen !== null && seen !== snapshot.revision;
         seen = snapshot.revision;
-        if (changed || snapshot.reloaded) {
-          if (quietRef.current) pendingRef.current = true;
-          else notifyQueueChanged();
+        if (changed || snapshot.reloaded) pendingRef.current = true;
+        // Only a read that was free to reload pays: otherwise the refetch would run on a
+        // vault still owing a reload, and that reload would ask for a second one.
+        if (pendingRef.current && !heldRead && !quietRef.current) {
+          pendingRef.current = false;
+          notifyQueueChanged();
         }
         if (changed || back) sessionReadOwed = true;
         if (sessionReadOwed && (await readOpenSession())) sessionReadOwed = false;
@@ -140,8 +172,10 @@ export function useQueueRevisionPoll({ vaultRoot, sessionId, quiet }: QueueRevis
       } finally {
         inFlight = false;
       }
-      if (answered && windowBack && !disposed) void tick();
+      // A return during this read, or a hold that lifted during a read that was held.
+      if (answered && !disposed && (windowBack || (heldRead && !quietRef.current))) void tick();
     };
+    tickRef.current = () => void tick();
 
     const onWindowBack = () => {
       if (document.visibilityState === "hidden") return;
@@ -157,6 +191,7 @@ export function useQueueRevisionPoll({ vaultRoot, sessionId, quiet }: QueueRevis
     document.addEventListener("visibilitychange", onWindowBack);
     return () => {
       disposed = true;
+      tickRef.current = null;
       pendingRef.current = false;
       window.clearInterval(interval);
       window.removeEventListener("focus", onWindowBack);
@@ -164,9 +199,11 @@ export function useQueueRevisionPoll({ vaultRoot, sessionId, quiet }: QueueRevis
     };
   }, [vaultRoot]);
 
+  // The hold lifted: read now, free to reload, and pay what was remembered once.
+  const wasQuietRef = useRef(quiet);
   useEffect(() => {
-    if (quiet || !pendingRef.current) return;
-    pendingRef.current = false;
-    notifyQueueChanged();
+    const wasQuiet = wasQuietRef.current;
+    wasQuietRef.current = quiet;
+    if (wasQuiet && !quiet) tickRef.current?.();
   }, [quiet]);
 }

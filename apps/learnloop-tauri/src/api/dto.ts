@@ -2593,6 +2593,11 @@ export interface ResolveQuestionEventResult {
   openCount: number;
 }
 
+export interface QueueRevisionInput {
+  /** Read the token without reloading now: a completed job stays owed for the first read without this (ruling R2). */
+  holdReload?: boolean;
+}
+
 export interface QueueRevisionDto {
   version: number;
   revision: number;

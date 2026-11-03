@@ -84,14 +84,25 @@ _QUEUE_RELOAD_JOB_TYPES = frozenset(APPLYING_JOB_TYPES)
 _RELOAD_BATCH_WINDOW = 8
 
 
-@method("get_queue_revision", ParamsModel)
-def get_queue_revision(ctx: SidecarContext, _params: ParamsModel) -> dict[str, Any]:
+class QueueRevisionInput(ParamsModel):
+    # Mobile PR-7, ruling R2: the desktop reads the token on every screen and reloads
+    # only where Today's poll ran. While it holds, a completed job stays owed for the
+    # first read without this, which reloads and answers ``reloaded``.
+    hold_reload: bool = False
+
+
+@method("get_queue_revision", QueueRevisionInput)
+def get_queue_revision(ctx: SidecarContext, params: QueueRevisionInput) -> dict[str, Any]:
     """Cheap durable high-water mark for asynchronous Today invalidation."""
 
     # A promotion job can write vault YAML between UI ticks. Reload exactly
     # once when its durable job completes so the subsequent Today refetch sees
     # the new item, rather than the pre-authoring in-memory vault snapshot.
-    completed = ctx.ingest_jobs.completed_jobs_awaiting_reload(_QUEUE_RELOAD_JOB_TYPES, limit=_RELOAD_BATCH_WINDOW)
+    completed = (
+        []
+        if params.hold_reload
+        else ctx.ingest_jobs.completed_jobs_awaiting_reload(_QUEUE_RELOAD_JOB_TYPES, limit=_RELOAD_BATCH_WINDOW)
+    )
     if completed:
         ctx.reload(maintenance=False)
         for job_id in completed:

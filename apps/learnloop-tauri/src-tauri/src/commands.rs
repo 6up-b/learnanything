@@ -163,10 +163,7 @@ pub async fn end_session(
 
 sidecar_passthrough!(get_today_queue, "get_today_queue");
 
-#[tauri::command]
-pub async fn get_queue_revision(sidecar: State<'_, SidecarManager>) -> Result<Value, CommandError> {
-    blocking_sidecar_call(sidecar, "get_queue_revision", json!({})).await
-}
+sidecar_passthrough!(get_queue_revision, "get_queue_revision");
 
 #[tauri::command]
 pub async fn explain_practice_item(

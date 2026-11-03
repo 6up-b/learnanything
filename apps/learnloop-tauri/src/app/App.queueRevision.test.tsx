@@ -1,8 +1,9 @@
 // Mobile PR-7 (spec_mobile_tailnet_v1 §3.3): the revision poll runs at app level, in the App.
 // With an answer open, a phone's change re-reads the session (session_moved) and holds the
 // plan's refetch until the learner leaves the question; the answer's screen is not remounted.
-// On Today, an idle tick costs the token alone.
-import { act, cleanup, render, screen } from "@testing-library/react";
+// On Today, an idle tick costs the token alone. Ruling R2: refetches and reloads run only on
+// Today's list; everywhere else a change waits for the return to it and the session is still read.
+import { act, cleanup, fireEvent, render, renderHook, screen, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { clear } from "../api/queryCache";
 
@@ -11,7 +12,10 @@ const stubs = vi.hoisted(() => ({
   session: null as Record<string, unknown> | null,
   api: {} as Record<string, (...args: unknown[]) => unknown>,
   practiceMounts: 0,
-  practiceProps: null as Record<string, unknown> | null
+  practiceProps: null as Record<string, unknown> | null,
+  todayProps: null as Record<string, unknown> | null,
+  lessonProps: null as Record<string, unknown> | null,
+  examProps: null as Record<string, unknown> | null
 }));
 
 vi.mock("@tauri-apps/api/event", () => ({ listen: vi.fn(async () => () => undefined) }));
@@ -47,6 +51,24 @@ vi.mock("../screens/ReaderScreen", () => ({ ReaderScreen: stub("reader-stub") })
 vi.mock("../screens/LibraryPlace", () => ({ LibraryPlace: stub("library-stub") }));
 vi.mock("../screens/StartScreen", () => ({ StartScreen: stub("start-stub") }));
 vi.mock("../screens/TodayScreen", () => ({ TodayScreen: stub("today-stub") }));
+vi.mock("../screens/today/TodayPlace", () => ({
+  TodayPlace: (props: Record<string, unknown>) => {
+    stubs.todayProps = props;
+    return <div data-testid="today-place-stub">today</div>;
+  }
+}));
+vi.mock("../screens/LessonScreen", () => ({
+  LessonScreen: (props: Record<string, unknown>) => {
+    stubs.lessonProps = props;
+    return <div data-testid="lesson-stub">lesson</div>;
+  }
+}));
+vi.mock("../screens/ExamScreen", () => ({
+  ExamScreen: (props: Record<string, unknown>) => {
+    stubs.examProps = props;
+    return <div data-testid="exam-stub">exam</div>;
+  }
+}));
 vi.mock("../screens/PracticeScreen", async () => {
   const { useEffect } = await import("react");
   return {
@@ -69,7 +91,7 @@ vi.mock("../screens/SettingsScreen", () => ({ SettingsOverlay: stub("settings-st
 vi.mock("../screens/reader/WrapUpOffer", () => ({ WrapUpOffer: () => null }));
 
 import { App } from "./App";
-import { REVISION_POLL_MS } from "./useQueueRevisionPoll";
+import { REVISION_POLL_MS, useSessionMoved } from "./useQueueRevisionPoll";
 
 const SESSION = {
   version: 1, sessionId: "ses_1", startedAt: "2026-11-03T00:00:00Z", endedAt: null, energy: null, sleepQuality: null,
@@ -173,5 +195,151 @@ describe("the app-level revision poll", () => {
     expect(vi.mocked(stubs.api.getQueueRevision).mock.calls.length).toBe(reads.getQueueRevision + 5);
     expect(stubs.api.getDailyPlan).toHaveBeenCalledTimes(reads.getDailyPlan);
     expect(stubs.api.getReviewCounts).toHaveBeenCalledTimes(reads.getReviewCounts);
+  });
+});
+
+describe("ruling R2: reloads and refetches only where Today's poll ran", () => {
+  const OPEN_SESSION = { ...SESSION, checkpoint: null };
+  /** A sidecar that holds one completed job and reloads for it on the first read that may. */
+  function sidecarWithAJob() {
+    const job = { awaiting: false, reloads: 0, revision: 1 };
+    stubs.api.getQueueRevision = vi.fn(async (input?: unknown) => {
+      const hold = (input as { holdReload?: boolean } | undefined)?.holdReload === true;
+      if (job.awaiting && !hold) {
+        job.awaiting = false;
+        job.reloads += 1;
+        return { version: 1, revision: job.revision, updatedAt: null, reloaded: true };
+      }
+      return { version: 1, revision: job.revision, updatedAt: null };
+    });
+    return job;
+  }
+  function planReads() {
+    return vi.mocked(stubs.api.getDailyPlan).mock.calls.length;
+  }
+  async function goto(place: string) {
+    fireEvent.click(within(screen.getByRole("navigation", { name: "Places" })).getByRole("button", { name: place }));
+    await wait(0);
+    await wait(0);
+  }
+  async function openToday() {
+    stubs.session = OPEN_SESSION;
+    stubs.config = { shell: "simple", teacher: { lessons: true } };
+    render(<App />);
+    await wait(0);
+    await wait(0);
+    expect(screen.getByTestId("today-place-stub")).toBeTruthy();
+  }
+
+  it.each(["Library", "Reader"])("a job completed on %s makes no reload; back on Today, one reload and one refetch", async (place) => {
+    await openToday();
+    const job = sidecarWithAJob();
+    await goto(place);
+    const before = planReads();
+    job.awaiting = true;
+    await wait(REVISION_POLL_MS * 4);
+    expect(job.reloads).toBe(0);
+    expect(planReads()).toBe(before);
+
+    await goto("Today");
+    expect(job.reloads).toBe(1);
+    expect(planReads()).toBe(before + 1);
+
+    await wait(REVISION_POLL_MS * 3);
+    expect(job.reloads).toBe(1);
+    expect(planReads()).toBe(before + 1);
+  });
+
+  it("a job completed in a lesson makes no reload; closing it, one reload and one refetch", async () => {
+    await openToday();
+    const job = sidecarWithAJob();
+    await act(async () => {
+      (stubs.todayProps?.onStartLesson as (entry: unknown) => void)({ kind: "open", entry: "learning_object", learningObjectIds: ["lo_1"], title: "A lesson" });
+      await vi.advanceTimersByTimeAsync(0);
+    });
+    await wait(0);
+    expect(screen.getByTestId("lesson-stub")).toBeTruthy();
+    const before = planReads();
+    job.awaiting = true;
+    await wait(REVISION_POLL_MS * 4);
+    expect(job.reloads).toBe(0);
+    expect(planReads()).toBe(before);
+
+    await act(async () => {
+      (stubs.lessonProps?.onClose as () => void)();
+      await vi.advanceTimersByTimeAsync(0);
+    });
+    await wait(0);
+    expect(job.reloads).toBe(1);
+    expect(planReads()).toBe(before + 1);
+  });
+
+  it("a job completed during an exam makes no reload; leaving it, one reload and one refetch", async () => {
+    await openToday();
+    const job = sidecarWithAJob();
+    await act(async () => {
+      (stubs.todayProps?.onTakeExam as (goalId: string) => void)("goal_1");
+      await vi.advanceTimersByTimeAsync(0);
+    });
+    await wait(0);
+    expect(screen.getByTestId("exam-stub")).toBeTruthy();
+    const before = planReads();
+    job.awaiting = true;
+    await wait(REVISION_POLL_MS * 4);
+    expect(job.reloads).toBe(0);
+    expect(planReads()).toBe(before);
+
+    await act(async () => {
+      (stubs.examProps?.onExit as () => void)();
+      await vi.advanceTimersByTimeAsync(0);
+    });
+    await wait(0);
+    expect(job.reloads).toBe(1);
+    expect(planReads()).toBe(before + 1);
+  });
+
+  it("a phone's revision change on Library refetches nothing, and is paid once on Today", async () => {
+    await openToday();
+    const job = sidecarWithAJob();
+    await goto("Library");
+    await wait(REVISION_POLL_MS);
+    const before = planReads();
+    job.revision = 2;
+    await wait(REVISION_POLL_MS * 3);
+    expect(planReads()).toBe(before);
+
+    await goto("Today");
+    expect(planReads()).toBe(before + 1);
+    await wait(REVISION_POLL_MS * 2);
+    expect(planReads()).toBe(before + 1);
+  });
+
+  it("session_moved is still detected on Library", async () => {
+    const seen = renderHook(() => useSessionMoved());
+    await openToday();
+    const job = sidecarWithAJob();
+    await goto("Library");
+    await wait(REVISION_POLL_MS);
+    job.revision = 2;
+    stubs.api.getSession = vi.fn(async () => ({ ...OPEN_SESSION, ownerDeviceId: "dev_phone", ownerLabel: "Phone", ownerGeneration: 1 }));
+    await wait(REVISION_POLL_MS);
+    expect(stubs.api.getSession).toHaveBeenCalledWith("ses_1");
+    expect(seen.result.current?.reason).toBe("adopted");
+  });
+
+  it("session_moved is still detected in a lesson", async () => {
+    const seen = renderHook(() => useSessionMoved());
+    await openToday();
+    const job = sidecarWithAJob();
+    await act(async () => {
+      (stubs.todayProps?.onStartLesson as (entry: unknown) => void)({ kind: "open", entry: "learning_object", learningObjectIds: ["lo_1"], title: "A lesson" });
+      await vi.advanceTimersByTimeAsync(0);
+    });
+    await wait(0);
+    await wait(REVISION_POLL_MS);
+    job.revision = 2;
+    stubs.api.getSession = vi.fn(async () => ({ ...OPEN_SESSION, ownerDeviceId: "dev_phone", ownerLabel: "Phone", ownerGeneration: 1 }));
+    await wait(REVISION_POLL_MS);
+    expect(seen.result.current?.reason).toBe("adopted");
   });
 });

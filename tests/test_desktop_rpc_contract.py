@@ -148,3 +148,15 @@ def test_every_decorated_handler_is_loaded_once() -> None:
         "handler_module_not_loaded": sorted(decorated - set(METHOD_REGISTRY)),
         "runtime_only_registration": sorted(set(METHOD_REGISTRY) - decorated),
     }
+
+
+def test_the_revision_read_carries_its_hold_through_every_layer() -> None:
+    """Ruling R2: the poll's "don't reload now" reaches the handler, so the Rust layer
+    forwards the input rather than sending a fixed empty object."""
+
+    _commands, passthroughs = _rust_commands(COMMANDS.read_text(encoding="utf-8"))
+    assert passthroughs["get_queue_revision"] == "get_queue_revision"
+    assert 'call<QueueRevisionDto>("get_queue_revision", { input })' in CLIENT.read_text(encoding="utf-8")
+    model = METHOD_REGISTRY["get_queue_revision"].params_model
+    assert model.model_validate({}).hold_reload is False
+    assert model.model_validate({"holdReload": True}).hold_reload is True

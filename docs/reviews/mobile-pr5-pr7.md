@@ -169,15 +169,13 @@ swallowed: the learner's write stands, the bump stays owed, on its own vault, fo
   RPC now says so (`reloaded: true`), which also closes a missed edge: a reload on any later tick used to change nothing the client
   could see. An idle start refetches nothing.
 
-**Not disturbing an open answer or Reader.** A revision change does two things, and only one is held. `notifyQueueChanged` invalidates
-`TAG.queue`, and the App always mounts `get_daily_plan` under it, so an invalidation would rebuild the plan on the pipe under the
-learner's typing. While `tab === "reader"` or a question is open it is remembered and runs once on leaving. Reading the session is
-held for nothing, and its result goes to a separate store, never `setSession`, so the question's `key` and its draft cannot change.
-`App.queueRevision.test.tsx` pins that the question screen is not remounted. The feedback stage is not held: its Next already re-reads
-on an invalidation (`query.refreshing`).
-
-The sidecar reload inside `get_queue_revision` is not held: it now can run while a question is open. That is what the Rust watcher's
-`refresh_vault_files` already does on any file change, and a job applying content has written files, so it adds no new state.
+**Holding, as amended by ruling R2 (Sol verify V1b).** A revision change does two things, and only one is held. `notifyQueueChanged`
+invalidates `TAG.queue`, and the App always mounts `get_daily_plan` under it, so an invalidation rebuilds the plan on the pipe, which can
+start work and writes rows for a list nobody is looking at. `revisionPollHeld` lifts the hold only on Today's list: every other tab, Today's
+practice, feedback and block review stages, and an exam, calibration session, lesson or golden-path run hold it. While held, a change is
+remembered and the read asks for no reload (`holdReload`); on the return to Today one read reloads what is owed and one refetch pays for it
+all. Reading the session is held for nothing, and its result goes to a separate store, never `setSession`, so the question's `key` and its
+draft cannot change. `App.queueRevision.test.tsx` pins that the question screen is not remounted.
 
 **Detection.** `session_snapshot` adds `ownerDeviceId`, `ownerLabel` and `ownerGeneration` once a session has left the desktop (owner set
 or generation above 0). Absent reads as the desktop at generation 0, so a desktop session's reply is byte-identical and the serializer
@@ -190,7 +188,7 @@ the host exists.
 
 No successor and no migration. With no origin: `publish_offer` drops nothing and adds no key; the surfaces are the same strings; the session
 reply is unchanged; no bump runs. `get_queue_revision` is the one desktop RPC whose work changed, and only by what it reads, plus an optional
-key when it reloaded. Removing Today's first-tick refetch changes when a refetch runs, not what is served. No config key, parameter or
+key when it reloaded and an optional `holdReload` field (ruling R2). Removing Today's first-tick refetch changes when a refetch runs, not what is served. No config key, parameter or
 model constant was added; `REVISION_POLL_MS` is the old poll's interval, and `DRAFT_PREVIEW_CHARS` is PR-4's.
 
 ## 5. Gate (this step; the full suite runs once in the landing gate)
