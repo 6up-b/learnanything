@@ -153,10 +153,10 @@ def test_an_unchanged_part_is_referenced_not_copied(tmp_path):
         parts = {row[0]: row[1] for row in connection.execute("SELECT content_hash, part FROM prefilter_payloads")}
         distinct = {row[n] for row in receipts for n in ("gates_hash", "classification_hash", "upstream_hash", "inputs_hash",
                                                           "config_payload_hash")}
-        total = connection.execute("SELECT SUM(size_bytes) FROM prefilter_payloads").fetchone()[0]
+        stored, raw = connection.execute("SELECT SUM(stored_bytes), SUM(raw_bytes) FROM prefilter_payloads").fetchone()
     assert set(parts) == distinct, "every stored part is referenced, and each once"
     assert len(parts) < 5 * len(receipts)
-    assert total > 0
+    assert 0 < stored < raw
 
 
 def test_every_mixture_and_interrupt_decision_has_its_receipt(tmp_path):

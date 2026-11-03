@@ -50,10 +50,12 @@ def prefilter_section(connection: sqlite3.Connection) -> dict[str, Any]:
     if first is not None:
         since = Counter(str(row[0]) for row in connection.execute(
             "SELECT decision_kind FROM router_decisions WHERE created_at >= ?", (first,)))
-    payloads = connection.execute("SELECT COUNT(*), COALESCE(SUM(size_bytes), 0) FROM prefilter_payloads").fetchone()
+    payloads = connection.execute(
+        "SELECT COUNT(*), COALESCE(SUM(stored_bytes), 0), COALESCE(SUM(raw_bytes), 0) FROM prefilter_payloads").fetchone()
     days = _active_days([row["created_at"] for row in receipts])
     rows_total = len(receipts) + int(payloads[0])
     stored_bytes = int(payloads[1])
+    # Each receipt references its five parts; rows include the receipt rows themselves.
     referenced = 5 * len(receipts)
     return {
         "available": True,
@@ -78,6 +80,7 @@ def prefilter_section(connection: sqlite3.Connection) -> dict[str, Any]:
             "parts_stored": int(payloads[0]),
             "parts_referenced": referenced,
             "bytes_stored": stored_bytes,
+            "bytes_uncompressed": int(payloads[2]),
             "active_days": days,
             "rows_per_active_day": _per_day(rows_total, days),
             "bytes_per_active_day": _per_day(stored_bytes, days),

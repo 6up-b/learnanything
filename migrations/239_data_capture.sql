@@ -8,7 +8,8 @@
 -- 1. prefilter_payloads (RECEIPT, content-addressed): one part of a prefilter
 --    receipt (scheduler gates, the plan's classification, the upstream probe
 --    and teach-back trace, the inputs, the configuration), stored once by its
---    own hash, so an unchanged part is referenced and never copied.
+--    own hash, so an unchanged part is referenced and never copied. The canonical
+--    JSON is zlib-compressed (content_z); the hash is over the JSON text.
 --
 -- 2. prefilter_receipts (RECEIPT): what was decided before the router saw
 --    candidates, one row per committed decision: the considered, admitted and
@@ -28,8 +29,9 @@
 CREATE TABLE prefilter_payloads (
   content_hash TEXT PRIMARY KEY,
   part TEXT NOT NULL CHECK (part IN ('gates', 'classification', 'upstream', 'inputs', 'config')),
-  content_json TEXT NOT NULL,
-  size_bytes INTEGER NOT NULL,
+  content_z BLOB NOT NULL,
+  raw_bytes INTEGER NOT NULL,
+  stored_bytes INTEGER NOT NULL,
   first_seen_at TEXT NOT NULL
 );
 CREATE TRIGGER prefilter_payloads_no_update

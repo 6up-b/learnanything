@@ -89,8 +89,8 @@ def test_239_on_the_durability_lane(tmp_path):
 
 
 @pytest.mark.parametrize("table, values, statement", [
-    ("prefilter_payloads", ("h", "gates", "{}", 2, "t"), "UPDATE prefilter_payloads SET size_bytes = 3"),
-    ("prefilter_payloads", ("h", "gates", "{}", 2, "t"), "DELETE FROM prefilter_payloads"),
+    ("prefilter_payloads", ("h", "gates", b"{}", 2, 2, "t"), "UPDATE prefilter_payloads SET raw_bytes = 3"),
+    ("prefilter_payloads", ("h", "gates", b"{}", 2, 2, "t"), "DELETE FROM prefilter_payloads"),
 ])
 def test_the_receipts_are_append_only(tmp_path, table, values, statement):
     database = tmp_path / "state.sqlite"

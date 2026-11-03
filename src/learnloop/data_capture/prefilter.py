@@ -21,10 +21,10 @@ configuration they read, and the code that ran. Its parts:
   minutes, requests.
 * ``config``: the configuration that shaped the build.
 
-**Size.** A part is stored once by its own hash (``prefilter_payloads``); a receipt
-holds counts and hashes only, so unchanged gates and configuration are referenced and
-never copied. ``inputs`` changes with each build, as the priorities do, so it is kept
-compact. ``learnloop data-capture report`` states the rows and bytes actually written.
+**Size.** A part is stored once by its own hash (``prefilter_payloads``), compressed; a
+receipt holds counts and hashes only, so unchanged gates and configuration are referenced
+and never copied. ``inputs`` changes with each build, as the priorities do. ``learnloop
+data-capture report`` states the rows and bytes actually written.
 
 A receipt never blocks the learner's plan or changes what is served: every writer
 fails soft, and a vault below the migration simply writes none.

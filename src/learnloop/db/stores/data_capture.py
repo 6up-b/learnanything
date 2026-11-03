@@ -12,6 +12,7 @@ import json
 import logging
 import sqlite3
 from typing import Any
+import zlib
 
 from learnloop.ids import new_ulid
 
@@ -64,10 +65,12 @@ def insert_prefilter_receipt(
     connection.execute("SAVEPOINT prefilter_receipt_append")
     try:
         for content_hash, (part, content) in parts.items():
+            raw = content.encode("utf-8")
+            packed = zlib.compress(raw)
             connection.execute(
-                "INSERT OR IGNORE INTO prefilter_payloads(content_hash, part, content_json, size_bytes, first_seen_at) "
-                "VALUES (?, ?, ?, ?, ?)",
-                (content_hash, part, content, len(content.encode("utf-8")), row["created_at"]),
+                "INSERT OR IGNORE INTO prefilter_payloads(content_hash, part, content_z, raw_bytes, stored_bytes, first_seen_at) "
+                "VALUES (?, ?, ?, ?, ?, ?)",
+                (content_hash, part, packed, len(raw), len(packed), row["created_at"]),
             )
         cursor = connection.execute(
             f"INSERT OR IGNORE INTO prefilter_receipts ({','.join(RECEIPT_COLUMNS)}) "
@@ -90,9 +93,9 @@ def prefilter_receipt(connection: sqlite3.Connection, decision_id: str) -> dict[
 
 def prefilter_part(connection: sqlite3.Connection, content_hash: str) -> Any:
     row = connection.execute(
-        "SELECT content_json FROM prefilter_payloads WHERE content_hash = ?", (content_hash,)
+        "SELECT content_z FROM prefilter_payloads WHERE content_hash = ?", (content_hash,)
     ).fetchone()
-    return json.loads(row[0]) if row is not None else None
+    return json.loads(zlib.decompress(row[0]).decode("utf-8")) if row is not None else None
 
 
 def insert_objective(connection: sqlite3.Connection, row: Mapping[str, Any]) -> bool:
