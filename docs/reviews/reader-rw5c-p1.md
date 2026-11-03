@@ -130,7 +130,38 @@ Each is additive or stricter; none lets anything more carry the claim.
 
 ## Coverage on the owner's material (§12 item 1)
 
-COVERAGE_PLACEHOLDER
+Code only, under `env -i` with empty `HOME`, `CODEX_HOME` and `LEARNLOOP_CONFIG_DIR`, on fresh `learnloop.db.copies.copy_tree_with_databases` backups of `learnanything-ad1/fixtures-local/owner-copies-mvp035` under the gitignored `fixtures-local/rw5c-coverage/` (schema upgraded on the copies under `UPGRADE_SCRATCH_COPY`). No model client, no write beyond the copies, no socket, $0.
+
+**`learnloop reader figure-checks --recheck --dry-run --json`:** `figures: 0` on all three copies (`interactive_figures` is empty in `owner-copies-mvp035`: figures postdate it). So the instrument the spec names has nothing to report on these copies, and the question "is RW5c vacuous on the owner's material" cannot be answered from stored figures.
+
+**So the same reader and health gate were run over every block of the copies' readings** (counts only; no text was printed or kept). This answers how much of the books the table can read at all, which is what P2's order needs:
+
+| Vault | Readings | Blocks | Blocks with LaTeX | Health ok / suspect | Segments | Readable (and healthy) |
+|---|---|---|---|---|---|---|
+| `linear_algebra` | 4 | 1074 | 194 | 194 / 0 | 402 | 51 |
+| `probability` | 4 | 579 | 164 | 163 / 1 | 259 | 25 |
+| `arxiv_v2` | 12 | 4717 | 57 | 57 / 0 | 235 | 16 |
+| **Total** | 20 | 6370 | 415 | 414 / 1 | 896 | **92** |
+
+Refusals by reason key (all three vaults):
+
+| Reason | Count | What it mostly is |
+|---|---|---|
+| `not_equation` | 577 | inline math with no `=`, such as `$x$`: not a miss |
+| `syntax` | 69 | LaTeX outside the grammar's shapes |
+| `multiple_relations` | 43 | chained `a = b = c` |
+| `relation` | 32 | an inequality, `\approx` or `\propto` as the relation |
+| `unsupported_command` | 26 | a command outside the table (which ones was not recorded: counts only) |
+| `application` | 16 | a name applied like a function |
+| `binom` | 11 | |
+| `set` | 10 | |
+| `sum` | 7 | |
+| `subscript` | 5 | |
+| `factorial` | 3 | |
+| `derivative`, `limit` | 2 each | |
+| `too_long` | 1 | |
+
+Of the 319 segments that state a relation (896 minus `not_equation`), the table reads **92 (29%)**. **The honest reading: not vacuous on the books, but narrow, and unmeasured on real figures.** A figure also has to pass the binding (the author's names, exact literals, a bare reference), and `names` and `not_bare` cannot be measured until figures exist. The first real numbers come from the owner's report after landing (`learnloop reader report`, `figures.source_checks`, or the dry run above). That report is P1b's input: the author prompt was not changed, so a stored figure's names are whatever the author chose.
 
 ## Gate
 

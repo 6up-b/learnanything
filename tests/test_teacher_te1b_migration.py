@@ -137,7 +137,7 @@ def test_236_keeps_every_router_decision_row(tmp_path):
         connection.commit()
     with upgrade_allowance(UPGRADE_TEST_HELPER):
         applied = apply_migrations(database)
-    assert [migration.version for migration in applied] == [236, 237]
+    assert [migration.version for migration in applied] == [236, 237, 238]
     with closing(sqlite3.connect(database)) as connection:
         assert connection.execute("SELECT id, decision_kind, chosen_ref FROM router_decisions").fetchall() == [
             ("d_keep", "plan_block", "pi_1")]
