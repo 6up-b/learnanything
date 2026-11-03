@@ -171,7 +171,7 @@ Owner rule 2026-10-17: the full suite, the whole durability lane and the whole v
 |---|---|
 | `uv sync --extra dev --extra mobile`, `uv pip install pypdfium2` | ok |
 | `lint-imports --no-cache` | **42 kept, 0 broken** |
-| pytest, every test file naming figures or the check (133 files, list below) | 3272 passed, 6 skipped, 36 xfailed; 7 failed, each fixed and rerun in the next row |
+| pytest, every test file naming figures or the check (131 files, list below) | 3272 passed, 6 skipped, 36 xfailed; 7 failed, each fixed and rerun in the next row |
 | pytest, every contract file for what moved (config defaults, CLI help, table roles, AD classes, migration chain, head paths, mobile allowlist) plus the files changed (133 files, list below) | 8060 passed, 12 skipped, 3 xfailed; 2 failed, each fixed and rerun in the next row |
 | pytest, the RW5c files plus the two fixed (`test_rw5c_*`, `test_cli_help_snapshot.py`, `test_teacher_te1b_migration.py`) | **297 passed** |
 | `pytest -m durability` on `test_rw5c_migration.py`, `test_figure_prefetch_migration.py`, `test_tracked_fixture_databases.py`, `test_public_tip_guards.py` | **2 passed**, 24 deselected |
