@@ -36,28 +36,28 @@ self.addEventListener("activate", (event) => {
   );
 });
 
-// Network first, so a new build is what a reachable desktop serves; the cache answers only
-// when the desktop is asleep or the tailnet is down.
+async function cachedShell(request) {
+  const cached = await caches.match(request);
+  if (cached) return cached;
+  return request.mode === "navigate" ? caches.match("/app/") : undefined;
+}
+
+// Network first, so a new build is what a reachable desktop serves; the cache answers only when
+// the desktop is asleep, the tailnet is down, or Serve is up and answers 5xx for a host behind it
+// that is stopped or restarting. A 4xx is the host's own answer (a refused token, say) and stands.
 self.addEventListener("fetch", (event) => {
   const request = event.request;
   if (request.method !== "GET" || !isShell(new URL(request.url))) return;
   event.respondWith(
     fetch(request)
-      .then((response) => {
+      .then(async (response) => {
         if (response.ok) {
           const copy = response.clone();
           event.waitUntil(caches.open(SHELL_CACHE).then((cache) => cache.put(request, copy)));
         }
+        if (response.status >= 500) return (await cachedShell(request)) ?? response;
         return response;
       })
-      .catch(async () => {
-        const cached = await caches.match(request);
-        if (cached) return cached;
-        if (request.mode === "navigate") {
-          const shell = await caches.match("/app/");
-          if (shell) return shell;
-        }
-        return Response.error();
-      }),
+      .catch(async () => (await cachedShell(request)) ?? Response.error()),
   );
 });

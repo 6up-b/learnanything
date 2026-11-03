@@ -5,6 +5,7 @@ import type {
   AttemptType,
   DiagnosisStatusValue,
   FeedbackBundle,
+  FirstHintProgress,
   GradingClarificationResultDto,
   PracticeItemDetail,
   ProbeContractDto,
@@ -32,6 +33,11 @@ export interface SubmitInput {
   readonly schedulerCandidateId?: string | null;
   readonly assessmentContractVersionId?: string | null;
   readonly declaredStuck?: boolean;
+  readonly hintsUsed?: number;
+  readonly authoredHints?: number;
+  readonly bookCounted?: boolean;
+  readonly planPresentationId?: string | null;
+  readonly firstHintProgress?: FirstHintProgress | null;
 }
 
 export const phone = {
@@ -55,6 +61,11 @@ export const phone = {
     submissionId: string;
     schedulerCandidateId?: string | null;
     declaredStuck?: boolean;
+    hintsUsed?: number;
+    planPresentationId?: string | null;
+    firstHintProgress?: FirstHintProgress | null;
+    hintSeen?: boolean;
+    pageSeen?: boolean;
   }) => call<{ ok: boolean }>("save_practice_draft", input),
   skipItem: (sessionId: string, practiceItemId: string) =>
     call<QueueSnapshot>("skip_practice_item", { sessionId, practiceItemId }),

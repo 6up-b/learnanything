@@ -8,11 +8,20 @@ import { useVisibleInterval } from "./util/useVisibleInterval";
 import { CaptureScreen } from "./screens/CaptureScreen";
 import { FeedbackScreen } from "./screens/FeedbackScreen";
 import { PairScreen } from "./screens/PairScreen";
-import { QuestionScreen, type QuestionTarget } from "./screens/QuestionScreen";
+import { GRADING_DOWN, QuestionScreen, type QuestionTarget } from "./screens/QuestionScreen";
 import { PHONE_QUEUE_LIMIT, queueKey, queueRows, TodayScreen } from "./screens/TodayScreen";
 import { readCredential, subscribeCredential, type Credential } from "./store/credential";
 import { flushOutbox, listOutbox, type FlushStop } from "./store/outbox";
-import { cachedSessionId, cacheSessionId, pendingSubmit, rememberPendingSubmit } from "./store/sessionCache";
+import {
+  assistOf,
+  cachedSessionId,
+  cacheSessionId,
+  clearQuestionDraft,
+  clearQuestionDrafts,
+  pendingSubmit,
+  readQuestionDraft,
+  rememberPendingSubmit
+} from "./store/sessionCache";
 
 /** A `keep` bound: the desktop's own token poll (`REVISION_POLL_MS`), while Today is on screen. */
 const REVISION_POLL_MS = 3000;
@@ -75,6 +84,18 @@ function movedFrom(snapshot: SessionSnapshot, deviceId: string | null): Moved | 
   return null;
 }
 
+/** The draft a checkpoint holds for this item, with the help it has already had. */
+function restoredFrom(snapshot: SessionSnapshot, practiceItemId: string): NonNullable<QuestionTarget["restored"]> | null {
+  const checkpoint = snapshot.checkpoint;
+  if (!checkpoint || checkpoint.currentPracticeItemId !== practiceItemId) return null;
+  return {
+    answer: checkpoint.currentAnswer ?? "",
+    submissionId: checkpoint.submissionId,
+    stuck: checkpoint.declaredStuck === true,
+    assist: assistOf(checkpoint)
+  };
+}
+
 function Phone({ credential }: { credential: Credential }) {
   const [tab, setTab] = useState<"today" | "capture">("today");
   const [view, setView] = useState<View>({ name: "today" });
@@ -110,6 +131,11 @@ function Phone({ credential }: { credential: Credential }) {
       return;
     }
     if (command?.code === "not_paired" || command?.code === "unauthorized") return;
+    // A job's end read from afar: the phone has no self-grade to offer, whatever the message says.
+    if (command?.code === "grading_fallback_required") {
+      setNotice(GRADING_DOWN);
+      return;
+    }
     setNotice(command?.message ?? "Something went wrong.");
   }, []);
 
@@ -117,6 +143,7 @@ function Phone({ credential }: { credential: Credential }) {
     sessionRef.current = next;
     setSession(next);
     cacheSessionId(next ? next.sessionId : null);
+    clearQuestionDrafts();
     setMoved(null);
     setElsewhere(null);
     setHeld(new Set());
@@ -124,29 +151,29 @@ function Phone({ credential }: { credential: Credential }) {
   }, []);
 
   /** §6.5, a checkpoint that carries a submission id: finished, under way, or a draft. */
-  const resumeCheckpoint = useCallback(async (next: SessionSnapshot) => {
+  const viewOfCheckpoint = useCallback(async (next: SessionSnapshot): Promise<View> => {
     const checkpoint = next.checkpoint;
     const itemId = checkpoint?.currentPracticeItemId ?? null;
-    if (!checkpoint || !itemId) {
-      setView({ name: "today" });
-      return;
-    }
-    const restored = { answer: checkpoint.currentAnswer ?? "", submissionId: checkpoint.submissionId, stuck: checkpoint.declaredStuck === true };
+    const restored = itemId ? restoredFrom(next, itemId) : null;
+    if (!checkpoint || !itemId || !restored) return { name: "today" };
     if (checkpoint.submissionId) {
-      const status = await phone.submissionStatus(checkpoint.submissionId);
-      if (status.state === "completed") {
+      // Out of reach, it is a draft for now: its submit asks again before it sends.
+      const status = await phone.submissionStatus(checkpoint.submissionId).catch(() => null);
+      if (status?.state === "completed") {
         const result = status.result as AttemptResultDto;
+        clearQuestionDraft(next.sessionId, itemId);
         await phone.acknowledge(next.sessionId, itemId, checkpoint.submissionId).catch(() => undefined);
-        setView({ name: "feedback", attemptId: result.attemptId, practiceItemId: itemId });
-        return;
+        return { name: "feedback", attemptId: result.attemptId, practiceItemId: itemId };
       }
-      if (status.state === "accepted" || status.state === "running") {
-        setView({ name: "waiting", submissionId: checkpoint.submissionId, practiceItemId: itemId });
-        return;
+      if (status?.state === "accepted" || status?.state === "running") {
+        return { name: "waiting", submissionId: checkpoint.submissionId, practiceItemId: itemId };
       }
     }
-    if (restored.answer.trim()) setView({ name: "question", target: { practiceItemId: itemId, schedulerCandidateId: null, restored } });
-    else setView({ name: "today" });
+    // Help already had is worth reopening for too: it counts on whatever is answered next.
+    if (restored.answer.trim() || restored.assist.hintsUsed > 0 || restored.assist.pageSeen) {
+      return { name: "question", target: { practiceItemId: itemId, schedulerCandidateId: null, restored } };
+    }
+    return { name: "today" };
   }, []);
 
   // Opening the app: the session this phone was in, and a submit it left mid-grade (A4).
@@ -173,7 +200,8 @@ function Phone({ credential }: { credential: Credential }) {
         setView({ name: "waiting", submissionId: pending.submissionId, practiceItemId: pending.practiceItemId });
         return;
       }
-      await resumeCheckpoint(snapshot);
+      const next = await viewOfCheckpoint(snapshot);
+      if (!cancelled) setView(next);
     })().catch(reportError);
     return () => {
       cancelled = true;
@@ -195,7 +223,11 @@ function Phone({ credential }: { credential: Credential }) {
         result = await pollJob<AttemptResultDto>(pending.jobId, () => cancelled);
       } else {
         for (;;) {
-          const status = await phone.submissionStatus(submissionId);
+          // A lost desktop is no end to the wait: the job runs on, and this finds it after (A4).
+          const status = await phone.submissionStatus(submissionId).catch((error: CommandError) => {
+            if (error.code === "desktop_offline") return { state: "running" } as const;
+            throw error;
+          });
           if (status.state === "completed") {
             result = status.result as AttemptResultDto;
             break;
@@ -209,6 +241,7 @@ function Phone({ credential }: { credential: Credential }) {
       if (cancelled) return;
       rememberPendingSubmit(null);
       if (result) {
+        clearQuestionDraft(sessionId, practiceItemId);
         await phone.acknowledge(sessionId, practiceItemId, submissionId).catch(() => undefined);
         setView({ name: "feedback", attemptId: result.attemptId, practiceItemId });
       } else {
@@ -281,8 +314,11 @@ function Phone({ credential }: { credential: Credential }) {
     try {
       await phone.adoptSession(sessionId, generation);
       const next = await phone.getSession(sessionId);
+      // In one step, so a question open before this never renders under the new owner: the
+      // generation in its key remounts it on the checkpoint just read (F4).
+      const nextView = await viewOfCheckpoint(next);
       installSession(next);
-      await resumeCheckpoint(next);
+      setView(nextView);
     } catch (error) {
       const command = error as CommandError;
       if (command.code === "current_item_desktop_only") {
@@ -294,6 +330,29 @@ function Phone({ credential }: { credential: Credential }) {
     } finally {
       setBusy(false);
     }
+  }
+
+  /** A row of Today: its draft, if this phone or the checkpoint has one (F5). */
+  async function openRow(row: ScheduledItemDto) {
+    const open = sessionRef.current;
+    const target = targetOf(row);
+    if (!open || readQuestionDraft(open.sessionId, row.practiceItemId)) {
+      setView({ name: "question", target });
+      return;
+    }
+    let restored: QuestionTarget["restored"] = null;
+    try {
+      const snapshot = await phone.getSession(open.sessionId);
+      const away = movedFrom(snapshot, deviceId);
+      if (away) {
+        setMoved(away);
+        return;
+      }
+      restored = restoredFrom(snapshot, row.practiceItemId);
+    } catch {
+      // The question's own load will say what is wrong.
+    }
+    setView({ name: "question", target: { ...target, restored } });
   }
 
   async function nextAfter(practiceItemId: string | null) {
@@ -320,6 +379,7 @@ function Phone({ credential }: { credential: Credential }) {
     if (!open) return;
     try {
       const queue = await phone.skipItem(open.sessionId, practiceItemId);
+      clearQuestionDraft(open.sessionId, practiceItemId);
       setQueryData(queueKey(open.sessionId), queue, [TAG.queue]);
       setView({ name: "today" });
     } catch (error) {
@@ -390,15 +450,18 @@ function Phone({ credential }: { credential: Credential }) {
         </div>
       ) : null}
       {notice ? <div className="banner bad" role="alert" onClick={() => setNotice(null)}>{notice}</div> : null}
-      {tab === "capture" ? (
-        <CaptureScreen onSaved={flush} />
-      ) : view.name === "question" && session ? (
+      {tab === "capture" ? <CaptureScreen onSaved={flush} /> : null}
+      {/* Capture sits over the practice side, which stays mounted: an open question keeps its
+          editor, its serve and a submit under way. */}
+      <div style={{ display: tab === "capture" ? "none" : "contents" }}>
+      {view.name === "question" && session ? (
         <QuestionScreen
-          key={`${session.sessionId}:${view.target.practiceItemId}`}
+          key={`${session.sessionId}:${session.ownerGeneration ?? 0}:${view.target.practiceItemId}`}
           session={session}
           target={view.target}
           frozen={frozen}
           onFeedback={(attemptId, practiceItemId) => setView({ name: "feedback", attemptId, practiceItemId })}
+          onWaiting={(submissionId, practiceItemId) => setView({ name: "waiting", submissionId, practiceItemId })}
           onDesktopOnly={leftForDesktop}
           onSkipped={(practiceItemId) => void skip(practiceItemId)}
           onBack={() => setView({ name: "today" })}
@@ -420,11 +483,12 @@ function Phone({ credential }: { credential: Credential }) {
           finished={finished}
           busy={busy}
           onBegin={(minutes) => void begin(minutes)}
-          onOpen={(row: ScheduledItemDto) => setView({ name: "question", target: targetOf(row) })}
+          onOpen={(row: ScheduledItemDto) => void openRow(row)}
           onEnd={() => void endSession()}
           onError={reportError}
         />
       )}
+      </div>
       <nav className="tabs">
         <button type="button" aria-current={tab === "today" ? "page" : undefined} onClick={() => setTab("today")}>Today</button>
         <button type="button" aria-current={tab === "capture" ? "page" : undefined} onClick={() => setTab("capture")}>Capture</button>

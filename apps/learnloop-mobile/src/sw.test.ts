@@ -1,4 +1,4 @@
-import { beforeEach, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import source from "../public/sw.js?raw";
 
 // The real service worker, run with its globals faked (§4.6): only the shell is ever cached.
@@ -48,4 +48,52 @@ it("a first visit caches the shell and what it names, and a failure stays quiet"
   await Promise.all(waits);
   expect(added.sort()).toEqual(["/app/assets/index-a.js", "/app/assets/index-b.css", "/app/manifest.webmanifest"]);
   expect(put).toHaveBeenCalledWith("/app/", expect.anything());
+});
+
+describe("a host that is down behind a reachable Serve (Codex review F6)", () => {
+  function workerWith(status: number) {
+    const shell = new Response("cached shell", { status: 200 });
+    const reads: unknown[] = [];
+    const self = { location: { origin: "https://desktop.tail.ts.net" }, addEventListener: (name: string, handler: (event: unknown) => void) => { handlers[name] = handler; }, skipWaiting: vi.fn(), clients: { claim: vi.fn() } };
+    const caches = {
+      open: async () => ({ put }),
+      match: async (request: unknown) => {
+        reads.push(request);
+        return request === "/app/" ? shell : undefined;
+      },
+      keys: async () => [],
+      delete: async () => true
+    };
+    new Function("self", "caches", "fetch", "Response", source)(self, caches, async () => new Response("from the gateway", { status }), Response);
+    return { shell, reads };
+  }
+
+  async function navigate() {
+    let answered: Promise<Response> | undefined;
+    handlers.fetch({
+      request: { url: "https://desktop.tail.ts.net/app/", method: "GET", mode: "navigate" },
+      respondWith: (response: Promise<Response>) => { answered = response; },
+      waitUntil: vi.fn()
+    });
+    return answered as Promise<Response>;
+  }
+
+  it.each([502, 503, 504])("a %i opens the cached shell", async (status) => {
+    const { shell } = workerWith(status);
+    expect(await navigate()).toBe(shell);
+    expect(put).not.toHaveBeenCalled();
+  });
+
+  it.each([401, 403, 404])("a %i is an answer, never replaced by the cache", async (status) => {
+    const { reads } = workerWith(status);
+    expect((await navigate()).status).toBe(status);
+    expect(reads).toEqual([]);
+  });
+
+  it("with no shell cached the gateway's own answer stands", async () => {
+    const self = { location: { origin: "https://desktop.tail.ts.net" }, addEventListener: (name: string, handler: (event: unknown) => void) => { handlers[name] = handler; }, skipWaiting: vi.fn(), clients: { claim: vi.fn() } };
+    const caches = { open: async () => ({ put }), match: async () => undefined, keys: async () => [], delete: async () => true };
+    new Function("self", "caches", "fetch", "Response", source)(self, caches, async () => new Response("down", { status: 502 }), Response);
+    expect((await navigate()).status).toBe(502);
+  });
 });
