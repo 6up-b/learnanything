@@ -53,6 +53,7 @@ import time
 from typing import Any
 
 from learnloop.daily_plan.chooser import LaneQuotaChooser, unspent_share
+from learnloop.data_capture.gates import serving_on
 from learnloop.daily_plan.staged_frame import CardBuilder, StagedChooser
 from learnloop.daily_plan.types import (
     CONTINUE_CURRENT,
@@ -352,6 +353,20 @@ def _card_fields(card: _Card) -> dict[str, Any]:
 
 
 @dataclass
+class _NoModels:
+    """A decision no model is asked about: the prefetch's shape with no job (data capture A5)."""
+
+    key: str
+    material: dict[str, Any]
+    started: float
+    similar: dict[str, Any] | None = None
+    request: Any = None
+
+    def results(self) -> dict[str, ComponentResult]:
+        return {}
+
+
+@dataclass
 class RouterChooser:
     """``router_mixture_v1``: the logged model mixture over the staged frame's candidates."""
 
@@ -400,7 +415,7 @@ class RouterChooser:
             return deterministic("single_option")
         readiness = self.runtime.readiness(self.vault)
         ready = tuple(name for name in (DECIDER, LLM) if readiness.get(name) is None)
-        if not ready:
+        if not ready and not serving_on(config):
             return deterministic("not_ready", models={name: {"status": NOT_READY, "error": readiness.get(name)}
                                                       for name in (DECIDER, LLM)})
         key = _hash({
@@ -412,6 +427,15 @@ class RouterChooser:
             "staged": staged.candidate_id, "as_of": _latest_attempt(self.repository),
             "version": config.algorithms.algorithm_version, "settings": settings, "ready": ready,
         })
+        if not ready:
+            # Data capture A5 (mvp-0.44, ``data_capture.serving``): no model is set up, so none is
+            # asked; the decision is the full fallback's own distribution (every model's weight on
+            # the staged rule, owner Q7's floor kept), with its logged draw and exact propensity.
+            card = _build_card(self.card_builder, state, feasible)
+            material = {"card": card, "evidence": list(rq.evidence_from_card(card.json)),
+                        "decided_at": self._now_iso()}
+            return self._decide(_NoModels(key, material, self.runtime.clock()), state, staged, record, support, by_id,
+                                readiness, settings, decided_by="not_ready")
         entry = self.runtime.lookup(self.scope, key)
         if entry is None:
             entry = self._start(key, state, feasible, support, by_id, ready)
@@ -449,7 +473,7 @@ class RouterChooser:
 
     def _decide(self, entry: Prefetch, state: PlanState, staged: BlockChoice, record: dict[str, Any],
                 support: Sequence[str], by_id: Mapping[str, BlockCandidate], readiness: Mapping[str, str | None],
-                settings: Mapping[str, Any]) -> BlockChoice:
+                settings: Mapping[str, Any], *, decided_by: str = "mixture") -> BlockChoice:
         config = self.vault.config
         material = entry.material
         card: _Card = material["card"]
@@ -493,7 +517,7 @@ class RouterChooser:
         request = entry.request
         record.update(
             policy=mx.POLICY,
-            decided_by="mixture",
+            decided_by=decided_by,
             decision_id=decision_id,
             design=mx.DESIGN,
             seed=seed,
@@ -641,7 +665,7 @@ class RestraintGate:
             return RestraintOutcome(INSERT_NOW, 1.0, base, why="", wait_feasible=False)
         readiness = self.runtime.readiness(self.vault)
         ready = tuple(name for name in (DECIDER, LLM) if readiness.get(name) is None)
-        if not ready:
+        if not ready and not serving_on(config):
             card = _build_card(self.card_builder, state, candidates)
             base.update(policy=mx.STAGED_POLICY, decided_by="not_ready", **_card_fields(card))
             return RestraintOutcome(INSERT_NOW, 1.0, base, why="")
@@ -650,10 +674,15 @@ class RestraintGate:
             "item": item.practice_item_id, "as_of": _latest_attempt(self.repository),
             "version": config.algorithms.algorithm_version, "settings": settings, "ready": ready,
         })
-        entry = self.runtime.lookup(self.scope, key)
-        if entry is None:
-            entry = self._start(key, state, candidates, item, ready)
-        _await(self.runtime, entry, may_defer=self.may_defer, timeout=float(config.router.timeout_seconds))
+        if ready:
+            entry = self.runtime.lookup(self.scope, key)
+            if entry is None:
+                entry = self._start(key, state, candidates, item, ready)
+            _await(self.runtime, entry, may_defer=self.may_defer, timeout=float(config.router.timeout_seconds))
+        else:
+            # Data capture A5: the same not_ready branch as a block's: no model is asked, and the
+            # fallback's own floor keeps waiting in the support.
+            entry = _NoModels(key, {"card": _build_card(self.card_builder, state, candidates)}, self.runtime.clock())
         results = _results(entry, readiness)
         support = [INSERT_NOW, CONTINUE_CURRENT]
         distributions = {
@@ -674,7 +703,7 @@ class RestraintGate:
         costs = [result.cost_usd for result in results.values() if result.cost_usd is not None]
         base.update(
             policy=mx.POLICY,
-            decided_by="mixture",
+            decided_by="mixture" if ready else "not_ready",
             decision_id=decision_id,
             design=mx.DESIGN,
             seed=seed,
