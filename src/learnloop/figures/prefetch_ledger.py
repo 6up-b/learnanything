@@ -17,7 +17,8 @@ decision time; this module reads what it needs, by SQL, from a connection:
 :func:`report_block` is ``learnloop reader report``'s ``prefetch`` block:
 decisions and outcomes by trigger, the posteriors' contraction, the measured
 waits, the pauses with and without prebuilds before them, and the builds
-skipped for power and caps. Counts and posteriors only, never learner text.
+skipped for power and caps and those resumed after waiting. Counts and
+posteriors only, never learner text.
 Read-only; a vault before migration 237 reads as empty.
 """
 
@@ -33,10 +34,13 @@ from learnloop.figures import prefetch_model as PM
 
 DECISIONS_TABLE = "figure_prefetch_decisions"
 PAUSES_TABLE = "plan_usage_pauses"
-#: Decisions whose Thompson draw said build: ``build``, and the two temporary deferrals (the power,
-#: the plan), retried while their horizon is open (Codex review F5). Once built, any of them is an
-#: observation of opening (the draw built it and the cue was there).
-BUILD_DECISIONS = ("build", "deferred_power", "deferred_plan")
+#: Decisions whose Thompson draw said build: ``build``, and the temporary deferrals (the power, the
+#: plan, today's caps), retried while their horizon is open (Codex review F5; a cap since follow-ups
+#: batch 7 (A), rechecked before any request). Once built, any of them is an observation of opening
+#: (the draw built it and the cue was there).
+BUILD_DECISIONS = ("build", "deferred_power", "deferred_plan", "capped")
+#: The report's names for the deferrals, a decision's verdict to its key under ``skipped``/``resumed``.
+DEFERRALS = {"deferred_power": "power", "deferred_plan": "plan", "capped": "caps"}
 
 
 def plan_providers(vault: Any) -> set[str]:
@@ -319,6 +323,23 @@ def render_minutes_left(vault: Any, sqlite_path: Any, *, now: datetime | None = 
     return float(vault.config.figures.prefetch.max_daily_render_minutes) - used
 
 
+def capacity_left(vault: Any, sqlite_path: Any, *, now: datetime | None = None) -> bool:
+    """Today's ``figures.prefetch`` caps both have room (the durable count of started builds): what
+    a pass would admit before it reserves a build. The Reader's "a prebuild is coming" reads this."""
+
+    from contextlib import closing
+
+    from learnloop.db.connection import connect
+
+    moment = (now or datetime.now(UTC)).astimezone()
+    offset = moment.utcoffset() or timedelta(0)
+    today = (moment.astimezone(UTC) + offset).date().isoformat()
+    section = vault.config.figures.prefetch
+    with closing(connect(sqlite_path, read_only=True)) as connection:
+        return (builds_today(connection, today=today, offset=offset) < int(section.max_daily_builds)
+                and render_minutes_today(connection, today=today, offset=offset) < float(section.max_daily_render_minutes))
+
+
 def render_minutes_today(connection: Any, *, today: str, offset: timedelta = timedelta(0)) -> float:
     """Wall-clock minutes of today's background rich builds (a prebuild's rich figure: its request to its row)."""
 
@@ -333,6 +354,15 @@ def render_minutes_today(connection: Any, *, today: str, offset: timedelta = tim
 
 
 # -- the report block ----------------------------------------------------------------------------------
+
+def _built_at(connection: Any, row: Mapping[str, Any]) -> datetime | None:
+    """When a decision's build started (its request row), a resumed decision's later than its own
+    row; the decision's time when that request can't be read."""
+
+    found = connection.execute("SELECT created_at FROM figure_requests WHERE id = ?",
+                               (str(row["request_id"]),)).fetchone() if _table(connection, "figure_requests") else None
+    return _when(found[0] if found else None) or _when(row["created_at"])
+
 
 def report_block(connection: Any, *, since: datetime | None = None,
                  plan_providers: Iterable[str] = (), now: datetime | None = None) -> dict[str, Any]:
@@ -357,7 +387,7 @@ def report_block(connection: Any, *, since: datetime | None = None,
     pause_rows = [row for row in pauses(connection)
                   if since is None or ((when := _when(row["hit_at"])) is not None and when >= since)]
     built_times = [when for row in decisions(connection) if row["decision"] in BUILD_DECISIONS and row.get("request_id")
-                   and (when := _when(row["created_at"])) is not None]
+                   and (when := _built_at(connection, row)) is not None]
     with_prebuilds = 0
     for row in pause_rows:
         hit = _when(row["hit_at"])
@@ -371,9 +401,12 @@ def report_block(connection: Any, *, since: datetime | None = None,
         "blocked_minutes_per_pause": model.blocked_minutes,
         "pauses": {"count": len(pause_rows), "with_prebuilds_earlier_that_day": with_prebuilds,
                    "without_prebuilds": len(pause_rows) - with_prebuilds},
-        "skipped": {"power": sum(1 for row in rows if row["decision"] == "deferred_power"),
-                    "plan": sum(1 for row in rows if row["decision"] == "deferred_plan"),
-                    "caps": sum(1 for row in rows if row["decision"] == "capped")},
+        # Follow-ups batch 7 (A): a deferred decision is built later or not at all, so it is one or
+        # the other, never both: ``skipped`` has no build (yet), ``resumed`` was built after it waited.
+        "skipped": {name: sum(1 for row in rows if row["decision"] == verdict and not row.get("request_id"))
+                    for verdict, name in DEFERRALS.items()},
+        "resumed": {name: sum(1 for row in rows if row["decision"] == verdict and row.get("request_id"))
+                    for verdict, name in DEFERRALS.items()},
         "propensity_mean": (round(sum(float(row["propensity"] or 0) for row in rows) / len(rows), 4)
                             if rows else None),
     }
@@ -406,11 +439,13 @@ def anchor_of(row: Mapping[str, Any]) -> dict[str, Any] | None:
 __all__ = [
     "BUILD_DECISIONS",
     "DECISIONS_TABLE",
+    "DEFERRALS",
     "add_report_block",
     "PAUSES_TABLE",
     "anchor_of",
     "blocked_minutes",
     "builds_today",
+    "capacity_left",
     "day_load",
     "decisions",
     "has_tables",

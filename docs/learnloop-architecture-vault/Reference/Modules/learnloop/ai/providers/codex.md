@@ -226,6 +226,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_codex_cli_0164_lockdown.py](../../../../../../../tests/test_codex_cli_0164_lockdown.py) — direct import
 - [tests/test_codex_cli_0165_lockdown.py](../../../../../../../tests/test_codex_cli_0165_lockdown.py) — direct import
   - `test_every_launch_sends_both_switches_and_the_bundled_skills_switch`
+- [tests/test_codex_cli_0166_lockdown.py](../../../../../../../tests/test_codex_cli_0166_lockdown.py) — direct import
+  - `test_every_launch_sends_all_eight_switches`
 - [tests/test_codex_http_client.py](../../../../../../../tests/test_codex_http_client.py) — direct import
   - `test_http_codex_client_health_and_grading_round_trip`
 - [tests/test_codex_isolation_mcp_check.py](../../../../../../../tests/test_codex_isolation_mcp_check.py) — direct import

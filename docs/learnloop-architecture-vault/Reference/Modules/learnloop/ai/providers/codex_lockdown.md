@@ -7,9 +7,9 @@ version: "1.0.0"
 source_path: "src/learnloop/ai/providers/codex_lockdown.py"
 source_paths:
   - "src/learnloop/ai/providers/codex_lockdown.py"
-source_commit: "7fe5b88ca5747d74c3f7a04fd22d20294a42dd12"
-source_commit_timestamp: "2026-10-31T15:39:48-04:00"
-source_worktree_state: "clean"
+source_commit: "workspace/uncommitted @ HEAD 9a4aaf6a01c0a130282a4d2315921cb166ba3f3a"
+source_commit_timestamp: "2026-11-02T20:59:20-05:00"
+source_worktree_state: "modified"
 generated: true
 generated_at: "2026-11-02"
 package: "learnloop.ai.providers"
@@ -51,92 +51,92 @@ The authoritative system-level explanation remains in [[AI Architecture]], [[Arc
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/ai/providers/codex_lockdown.py](../../../../../../../src/learnloop/ai/providers/codex_lockdown.py) |
-| Source lines | 1295 |
+| Source lines | 1325 |
 | Owning package | [[Reference/Modules/learnloop/ai/providers/_package|learnloop.ai.providers]] |
 | Architecture layer | `infrastructure` |
 | Refactor status | `ACTIVE` |
-| Worktree state | `clean` |
-| Source commit | `7fe5b88ca5747d74c3f7a04fd22d20294a42dd12` |
-| Commit timestamp | `2026-10-31T15:39:48-04:00` |
+| Worktree state | `modified` |
+| Source commit | `workspace/uncommitted @ HEAD 9a4aaf6a01c0a130282a4d2315921cb166ba3f3a` |
+| Commit timestamp | `2026-11-02T20:59:20-05:00` |
 
 ## Public API
 
-- `lockdown_config_overrides() -> list[str]` ([source](../../../../../../../src/learnloop/ai/providers/codex_lockdown.py), line 230) — ``-c`` keys (beyond features) that remove tools from every locked-down turn.
-- `shell_environment_overrides() -> list[str]` ([source](../../../../../../../src/learnloop/ai/providers/codex_lockdown.py), line 256) — ``-c`` keys that give a command only :data:`SHELL_ENVIRONMENT_ALLOWLIST` (Codex review F1).
-- `disabled_features(*, shell: bool) -> tuple[str, ...]` ([source](../../../../../../../src/learnloop/ai/providers/codex_lockdown.py), line 281)
-- `permitted_features(*, shell: bool) -> frozenset[str]` ([source](../../../../../../../src/learnloop/ai/providers/codex_lockdown.py), line 285)
-- `retired_features_permitted(stages: Mapping[str, str]) -> frozenset[str]` ([source](../../../../../../../src/learnloop/ai/providers/codex_lockdown.py), line 289) — The reviewed retired features (:data:`REVIEWED_RETIRED_FEATURES`) ``stages`` lists as ``removed``.
-- `feature_violations(states: Mapping[str, bool], *, shell: bool, stages: Mapping[str, str] | None=None) -> list[str]` ([source](../../../../../../../src/learnloop/ai/providers/codex_lockdown.py), line 295) — Features ``states`` (``features list``) shows on that a locked-down turn may not have.
-- `feature_refusal(left_on: Iterable[str], stages: Mapping[str, str], cli_version: str | None) -> str` ([source](../../../../../../../src/learnloop/ai/providers/codex_lockdown.py), line 315) — The launch check's refusal for features that stay on, naming what the owner has to review.
-- `cli_version_text(stdout: str) -> str | None` ([source](../../../../../../../src/learnloop/ai/providers/codex_lockdown.py), line 345) — ``codex --version``'s first line (``codex-cli 0.164.0``) when it looks like one, else ``None``.
-- `unclassified_features_on(states: Mapping[str, bool], *, shell: bool) -> list[str]` ([source](../../../../../../../src/learnloop/ai/providers/codex_lockdown.py), line 353) — Features on that this module neither switches off nor permits (a newer CLI's).
-- `model_metadata_violations(catalog: Any, model: str | None) -> list[str]` ([source](../../../../../../../src/learnloop/ai/providers/codex_lockdown.py), line 407) — What the bundled catalog advertises for ``model`` that no override removes or neutralizes.
-- `catalog_pin_override(path: Path | str) -> str` ([source](../../../../../../../src/learnloop/ai/providers/codex_lockdown.py), line 463)
-- `catalog_pin_path(overrides: Iterable[str]) -> str | None` ([source](../../../../../../../src/learnloop/ai/providers/codex_lockdown.py), line 467) — The catalog file a turn's overrides pin (the last ``model_catalog_json``), if any.
-- `catalog_violations(validated: Any, effective_stdout: str) -> list[str]` ([source](../../../../../../../src/learnloop/ai/providers/codex_lockdown.py), line 481) — Why the catalog the turn would use is not the validated bundled one (empty: it is).
-- `tool_free_catalog(bundled_text: str) -> str` ([source](../../../../../../../src/learnloop/ai/providers/codex_lockdown.py), line 532) — The bundled catalog (``debug models --bundled``) with every tool removed from every entry.
-- `tool_free_violations(catalog: Any, model: str | None) -> list[str]` ([source](../../../../../../../src/learnloop/ai/providers/codex_lockdown.py), line 550) — Tool metadata of ``model``'s entry (every entry when empty) that is not :data:`TOOL_FREE_METADATA`.
-- `readback_overrides(model: str | None) -> list[str]` ([source](../../../../../../../src/learnloop/ai/providers/codex_lockdown.py), line 576)
-- `advertised_tool_violations(prompt_input_stdout: str, catalog: Any, model: str | None) -> list[str]` ([source](../../../../../../../src/learnloop/ai/providers/codex_lockdown.py), line 591) — Every tool the turn would offer, read back from ``debug prompt-input`` (empty: none).
-- `rendered_skills(prompt_input_stdout: str) -> list[tuple[str, str]] | None` ([source](../../../../../../../src/learnloop/ai/providers/codex_lockdown.py), line 648) — The skills the turn's context lists, as ``(name, absolute SKILL.md path)``; None when unreadable.
-- `skill_disable_overrides(skills: Iterable[tuple[str, str]]) -> list[str]` ([source](../../../../../../../src/learnloop/ai/providers/codex_lockdown.py), line 673) — ``-c`` keys that leave a turn no skill: bundled skills off, and every listed skill disabled by name and by path (a later ``-c`` layer's rule beats every config file's, codex-cli 0.163.0 ``skill_config_rules_from_stack``), so no ``$name`` or ``SKILL.md`` link in a prompt can expa…
-- `permission_profile_violations(prompt_input_stdout: str, *, root: Path, codex_home: Path) -> list[str]` ([source](../../../../../../../src/learnloop/ai/providers/codex_lockdown.py), line 735) — What the turn's effective permission profile allows beyond the lockdown's (empty: nothing).
-- `resolve_codex_home(environ: Mapping[str, str], cwd: Path) -> tuple[Path, bool]` ([source](../../../../../../../src/learnloop/ai/providers/codex_lockdown.py), line 793) — ``$CODEX_HOME`` as a Codex process started in ``cwd`` with ``environ`` resolves it.
-- `resolve_executable(program: str, environ: Mapping[str, str], cwd: Path) -> str` ([source](../../../../../../../src/learnloop/ai/providers/codex_lockdown.py), line 824) — The absolute file ``subprocess`` would execute for ``program`` started in ``cwd``.
-- `item_kind(item: Any) -> str` ([source](../../../../../../../src/learnloop/ai/providers/codex_lockdown.py), line 856) — An SDK turn item's type, lower-cased without ``_``/``-`` (``agentMessage`` -> ``agentmessage``).
-- `item_violations(items: Iterable[Any] | None, *, workspace: bool) -> list[str]` ([source](../../../../../../../src/learnloop/ai/providers/codex_lockdown.py), line 871) — Kinds of ``items`` a locked-down turn may not produce (fix 4).
-- `class CodexLockdownUnavailable(AIProviderUnavailable)` ([source](../../../../../../../src/learnloop/ai/providers/codex_lockdown.py), line 897) — The locked-down profile cannot be put in force, so the turn is refused before it starts.
-- `class CodexToolUseRefused(AIProviderUnavailable)` ([source](../../../../../../../src/learnloop/ai/providers/codex_lockdown.py), line 901) — A locked-down turn used a tool, a sub-agent or an extra request: its answer is refused.
-  - `__init__(self, message: str, violations: list[str])` (line 904; internal)
-- `class CodexHttpTransportRefused(CodexLockdownUnavailable)` ([source](../../../../../../../src/learnloop/ai/providers/codex_lockdown.py), line 909) — The legacy Codex HTTP adapter is refused by the tool lockdown, for every operation (H3).
-- `refuse_legacy_http_transport(where: str) -> NoReturn` ([source](../../../../../../../src/learnloop/ai/providers/codex_lockdown.py), line 913) — Refuse the legacy endpoint-per-operation Codex HTTP transport (hardening round 2, H3).
-- `class TurnLockdown` ([source](../../../../../../../src/learnloop/ai/providers/codex_lockdown.py), line 953) — What one locked-down turn did, seen from every app-server message.
-  - `_violate(self, what: str) -> None` (line 979; internal)
-  - `handle_server_request(self, method: str, params: dict[str, Any] | None) -> dict[str, Any]` (line 992; public) — The SDK approval handler: decline everything the model asks for.
-  - `observe(self, notification: Any) -> None` (line 1002; public) — One app-server notification (called on the SDK's reader thread).
-  - `model_requests(self) -> int` (line 1060; public) — Model requests the SDK reported across every thread (at least 1 once usage arrived).
-  - `reported_usage(self) -> bool` (line 1066; public) — Whether the SDK reported any thread's usage during the turn.
-  - `child_usage(self) -> list[Any]` (line 1072; public) — The latest cumulative usage of every thread other than the turn's own.
-  - `parent_usage(self) -> Any` (line 1078; public)
-  - `summary(self) -> dict[str, Any]` (line 1082; public)
-- `install_on_sdk(codex: Any, lockdown: TurnLockdown) -> None` ([source](../../../../../../../src/learnloop/ai/providers/codex_lockdown.py), line 1094) — Put ``lockdown`` between the SDK client and the app server, or refuse.
-- `check_fingerprint(*, command: Iterable[str], root: Path, shell: bool, model: str | None, sandbox_workdir: str | None, environ: Mapping[str, str] | None=None, codex_home: Path | None=None) -> str` ([source](../../../../../../../src/learnloop/ai/providers/codex_lockdown.py), line 1151) — What the launch check's verdict depends on, as one key.
-- `cached_check(key: str) -> tuple[tuple[str, ...], tuple[str, ...], str, tuple[tuple[str, str], ...]] | None` ([source](../../../../../../../src/learnloop/ai/providers/codex_lockdown.py), line 1227) — A passed launch check under ``key``: (servers pinned off, extra features off, pinned catalog, skills off).
-- `remember_check(key: str, pinned_servers: Iterable[str], extra_features: Iterable[str], catalog: str, skills: Iterable[tuple[str, str]]=()) -> None` ([source](../../../../../../../src/learnloop/ai/providers/codex_lockdown.py), line 1234) — Remember a launch check that passed (a refusal is never cached).
-- `clear_check_cache() -> None` ([source](../../../../../../../src/learnloop/ai/providers/codex_lockdown.py), line 1242) — Forget every cached launch check (tests; a config change the fingerprint misses).
+- `lockdown_config_overrides() -> list[str]` ([source](../../../../../../../src/learnloop/ai/providers/codex_lockdown.py), line 260) — ``-c`` keys (beyond features) that remove tools from every locked-down turn.
+- `shell_environment_overrides() -> list[str]` ([source](../../../../../../../src/learnloop/ai/providers/codex_lockdown.py), line 286) — ``-c`` keys that give a command only :data:`SHELL_ENVIRONMENT_ALLOWLIST` (Codex review F1).
+- `disabled_features(*, shell: bool) -> tuple[str, ...]` ([source](../../../../../../../src/learnloop/ai/providers/codex_lockdown.py), line 311)
+- `permitted_features(*, shell: bool) -> frozenset[str]` ([source](../../../../../../../src/learnloop/ai/providers/codex_lockdown.py), line 315)
+- `retired_features_permitted(stages: Mapping[str, str]) -> frozenset[str]` ([source](../../../../../../../src/learnloop/ai/providers/codex_lockdown.py), line 319) — The reviewed retired features (:data:`REVIEWED_RETIRED_FEATURES`) ``stages`` lists as ``removed``.
+- `feature_violations(states: Mapping[str, bool], *, shell: bool, stages: Mapping[str, str] | None=None) -> list[str]` ([source](../../../../../../../src/learnloop/ai/providers/codex_lockdown.py), line 325) — Features ``states`` (``features list``) shows on that a locked-down turn may not have.
+- `feature_refusal(left_on: Iterable[str], stages: Mapping[str, str], cli_version: str | None) -> str` ([source](../../../../../../../src/learnloop/ai/providers/codex_lockdown.py), line 345) — The launch check's refusal for features that stay on, naming what the owner has to review.
+- `cli_version_text(stdout: str) -> str | None` ([source](../../../../../../../src/learnloop/ai/providers/codex_lockdown.py), line 375) — ``codex --version``'s first line (``codex-cli 0.164.0``) when it looks like one, else ``None``.
+- `unclassified_features_on(states: Mapping[str, bool], *, shell: bool) -> list[str]` ([source](../../../../../../../src/learnloop/ai/providers/codex_lockdown.py), line 383) — Features on that this module neither switches off nor permits (a newer CLI's).
+- `model_metadata_violations(catalog: Any, model: str | None) -> list[str]` ([source](../../../../../../../src/learnloop/ai/providers/codex_lockdown.py), line 437) — What the bundled catalog advertises for ``model`` that no override removes or neutralizes.
+- `catalog_pin_override(path: Path | str) -> str` ([source](../../../../../../../src/learnloop/ai/providers/codex_lockdown.py), line 493)
+- `catalog_pin_path(overrides: Iterable[str]) -> str | None` ([source](../../../../../../../src/learnloop/ai/providers/codex_lockdown.py), line 497) — The catalog file a turn's overrides pin (the last ``model_catalog_json``), if any.
+- `catalog_violations(validated: Any, effective_stdout: str) -> list[str]` ([source](../../../../../../../src/learnloop/ai/providers/codex_lockdown.py), line 511) — Why the catalog the turn would use is not the validated bundled one (empty: it is).
+- `tool_free_catalog(bundled_text: str) -> str` ([source](../../../../../../../src/learnloop/ai/providers/codex_lockdown.py), line 562) — The bundled catalog (``debug models --bundled``) with every tool removed from every entry.
+- `tool_free_violations(catalog: Any, model: str | None) -> list[str]` ([source](../../../../../../../src/learnloop/ai/providers/codex_lockdown.py), line 580) — Tool metadata of ``model``'s entry (every entry when empty) that is not :data:`TOOL_FREE_METADATA`.
+- `readback_overrides(model: str | None) -> list[str]` ([source](../../../../../../../src/learnloop/ai/providers/codex_lockdown.py), line 606)
+- `advertised_tool_violations(prompt_input_stdout: str, catalog: Any, model: str | None) -> list[str]` ([source](../../../../../../../src/learnloop/ai/providers/codex_lockdown.py), line 621) — Every tool the turn would offer, read back from ``debug prompt-input`` (empty: none).
+- `rendered_skills(prompt_input_stdout: str) -> list[tuple[str, str]] | None` ([source](../../../../../../../src/learnloop/ai/providers/codex_lockdown.py), line 678) — The skills the turn's context lists, as ``(name, absolute SKILL.md path)``; None when unreadable.
+- `skill_disable_overrides(skills: Iterable[tuple[str, str]]) -> list[str]` ([source](../../../../../../../src/learnloop/ai/providers/codex_lockdown.py), line 703) — ``-c`` keys that leave a turn no skill: bundled skills off, and every listed skill disabled by name and by path (a later ``-c`` layer's rule beats every config file's, codex-cli 0.163.0 ``skill_config_rules_from_stack``), so no ``$name`` or ``SKILL.md`` link in a prompt can expa…
+- `permission_profile_violations(prompt_input_stdout: str, *, root: Path, codex_home: Path) -> list[str]` ([source](../../../../../../../src/learnloop/ai/providers/codex_lockdown.py), line 765) — What the turn's effective permission profile allows beyond the lockdown's (empty: nothing).
+- `resolve_codex_home(environ: Mapping[str, str], cwd: Path) -> tuple[Path, bool]` ([source](../../../../../../../src/learnloop/ai/providers/codex_lockdown.py), line 823) — ``$CODEX_HOME`` as a Codex process started in ``cwd`` with ``environ`` resolves it.
+- `resolve_executable(program: str, environ: Mapping[str, str], cwd: Path) -> str` ([source](../../../../../../../src/learnloop/ai/providers/codex_lockdown.py), line 854) — The absolute file ``subprocess`` would execute for ``program`` started in ``cwd``.
+- `item_kind(item: Any) -> str` ([source](../../../../../../../src/learnloop/ai/providers/codex_lockdown.py), line 886) — An SDK turn item's type, lower-cased without ``_``/``-`` (``agentMessage`` -> ``agentmessage``).
+- `item_violations(items: Iterable[Any] | None, *, workspace: bool) -> list[str]` ([source](../../../../../../../src/learnloop/ai/providers/codex_lockdown.py), line 901) — Kinds of ``items`` a locked-down turn may not produce (fix 4).
+- `class CodexLockdownUnavailable(AIProviderUnavailable)` ([source](../../../../../../../src/learnloop/ai/providers/codex_lockdown.py), line 927) — The locked-down profile cannot be put in force, so the turn is refused before it starts.
+- `class CodexToolUseRefused(AIProviderUnavailable)` ([source](../../../../../../../src/learnloop/ai/providers/codex_lockdown.py), line 931) — A locked-down turn used a tool, a sub-agent or an extra request: its answer is refused.
+  - `__init__(self, message: str, violations: list[str])` (line 934; internal)
+- `class CodexHttpTransportRefused(CodexLockdownUnavailable)` ([source](../../../../../../../src/learnloop/ai/providers/codex_lockdown.py), line 939) — The legacy Codex HTTP adapter is refused by the tool lockdown, for every operation (H3).
+- `refuse_legacy_http_transport(where: str) -> NoReturn` ([source](../../../../../../../src/learnloop/ai/providers/codex_lockdown.py), line 943) — Refuse the legacy endpoint-per-operation Codex HTTP transport (hardening round 2, H3).
+- `class TurnLockdown` ([source](../../../../../../../src/learnloop/ai/providers/codex_lockdown.py), line 983) — What one locked-down turn did, seen from every app-server message.
+  - `_violate(self, what: str) -> None` (line 1009; internal)
+  - `handle_server_request(self, method: str, params: dict[str, Any] | None) -> dict[str, Any]` (line 1022; public) — The SDK approval handler: decline everything the model asks for.
+  - `observe(self, notification: Any) -> None` (line 1032; public) — One app-server notification (called on the SDK's reader thread).
+  - `model_requests(self) -> int` (line 1090; public) — Model requests the SDK reported across every thread (at least 1 once usage arrived).
+  - `reported_usage(self) -> bool` (line 1096; public) — Whether the SDK reported any thread's usage during the turn.
+  - `child_usage(self) -> list[Any]` (line 1102; public) — The latest cumulative usage of every thread other than the turn's own.
+  - `parent_usage(self) -> Any` (line 1108; public)
+  - `summary(self) -> dict[str, Any]` (line 1112; public)
+- `install_on_sdk(codex: Any, lockdown: TurnLockdown) -> None` ([source](../../../../../../../src/learnloop/ai/providers/codex_lockdown.py), line 1124) — Put ``lockdown`` between the SDK client and the app server, or refuse.
+- `check_fingerprint(*, command: Iterable[str], root: Path, shell: bool, model: str | None, sandbox_workdir: str | None, environ: Mapping[str, str] | None=None, codex_home: Path | None=None) -> str` ([source](../../../../../../../src/learnloop/ai/providers/codex_lockdown.py), line 1181) — What the launch check's verdict depends on, as one key.
+- `cached_check(key: str) -> tuple[tuple[str, ...], tuple[str, ...], str, tuple[tuple[str, str], ...]] | None` ([source](../../../../../../../src/learnloop/ai/providers/codex_lockdown.py), line 1257) — A passed launch check under ``key``: (servers pinned off, extra features off, pinned catalog, skills off).
+- `remember_check(key: str, pinned_servers: Iterable[str], extra_features: Iterable[str], catalog: str, skills: Iterable[tuple[str, str]]=()) -> None` ([source](../../../../../../../src/learnloop/ai/providers/codex_lockdown.py), line 1264) — Remember a launch check that passed (a refusal is never cached).
+- `clear_check_cache() -> None` ([source](../../../../../../../src/learnloop/ai/providers/codex_lockdown.py), line 1272) — Forget every cached launch check (tests; a config change the fingerprint misses).
 
 ### Module constants
 
 - `ISOLATED_PROFILE` ([src/learnloop/ai/providers/codex_lockdown.py](../../../../../../../src/learnloop/ai/providers/codex_lockdown.py), line 71)
-- `LOCKDOWN_DISABLED_FEATURES` ([src/learnloop/ai/providers/codex_lockdown.py](../../../../../../../src/learnloop/ai/providers/codex_lockdown.py), line 80)
-- `SHELL_FEATURES` ([src/learnloop/ai/providers/codex_lockdown.py](../../../../../../../src/learnloop/ai/providers/codex_lockdown.py), line 153)
-- `SHELL_ENVIRONMENT_ALLOWLIST` ([src/learnloop/ai/providers/codex_lockdown.py](../../../../../../../src/learnloop/ai/providers/codex_lockdown.py), line 160)
-- `REQUIRED_OFF_FEATURES` ([src/learnloop/ai/providers/codex_lockdown.py](../../../../../../../src/learnloop/ai/providers/codex_lockdown.py), line 165)
-- `PERMITTED_FEATURES` ([src/learnloop/ai/providers/codex_lockdown.py](../../../../../../../src/learnloop/ai/providers/codex_lockdown.py), line 171)
-- `REMOVED_STAGE` ([src/learnloop/ai/providers/codex_lockdown.py](../../../../../../../src/learnloop/ai/providers/codex_lockdown.py), line 200)
-- `REVIEWED_RETIRED_FEATURES` ([src/learnloop/ai/providers/codex_lockdown.py](../../../../../../../src/learnloop/ai/providers/codex_lockdown.py), line 216)
-- `_NEUTRALIZED_METADATA` ([src/learnloop/ai/providers/codex_lockdown.py](../../../../../../../src/learnloop/ai/providers/codex_lockdown.py), line 364)
-- `NEUTRALIZED_EXPERIMENTAL_TOOLS` ([src/learnloop/ai/providers/codex_lockdown.py](../../../../../../../src/learnloop/ai/providers/codex_lockdown.py), line 391)
-- `_INERT_METADATA` ([src/learnloop/ai/providers/codex_lockdown.py](../../../../../../../src/learnloop/ai/providers/codex_lockdown.py), line 393)
-- `_TOOLISH_FIELD` ([src/learnloop/ai/providers/codex_lockdown.py](../../../../../../../src/learnloop/ai/providers/codex_lockdown.py), line 404)
-- `CATALOG_PIN_KEY` ([src/learnloop/ai/providers/codex_lockdown.py](../../../../../../../src/learnloop/ai/providers/codex_lockdown.py), line 460)
-- `TOOL_FREE_METADATA` ([src/learnloop/ai/providers/codex_lockdown.py](../../../../../../../src/learnloop/ai/providers/codex_lockdown.py), line 517)
-- `READBACK_OVERRIDES` ([src/learnloop/ai/providers/codex_lockdown.py](../../../../../../../src/learnloop/ai/providers/codex_lockdown.py), line 573)
-- `_SKILLS_BLOCK` ([src/learnloop/ai/providers/codex_lockdown.py](../../../../../../../src/learnloop/ai/providers/codex_lockdown.py), line 643)
-- `_SKILL_ROOT` ([src/learnloop/ai/providers/codex_lockdown.py](../../../../../../../src/learnloop/ai/providers/codex_lockdown.py), line 644)
-- `_SKILL_ENTRY` ([src/learnloop/ai/providers/codex_lockdown.py](../../../../../../../src/learnloop/ai/providers/codex_lockdown.py), line 645)
-- `_PERMISSION_PROFILE` ([src/learnloop/ai/providers/codex_lockdown.py](../../../../../../../src/learnloop/ai/providers/codex_lockdown.py), line 696)
-- `_FILE_SYSTEM` ([src/learnloop/ai/providers/codex_lockdown.py](../../../../../../../src/learnloop/ai/providers/codex_lockdown.py), line 697)
-- `_ENTRY` ([src/learnloop/ai/providers/codex_lockdown.py](../../../../../../../src/learnloop/ai/providers/codex_lockdown.py), line 698)
-- `_NETWORK_RESTRICTED` ([src/learnloop/ai/providers/codex_lockdown.py](../../../../../../../src/learnloop/ai/providers/codex_lockdown.py), line 703)
-- `TEXT_ITEMS` ([src/learnloop/ai/providers/codex_lockdown.py](../../../../../../../src/learnloop/ai/providers/codex_lockdown.py), line 851)
-- `WORKSPACE_ITEMS` ([src/learnloop/ai/providers/codex_lockdown.py](../../../../../../../src/learnloop/ai/providers/codex_lockdown.py), line 853)
-- `_DECLINES` ([src/learnloop/ai/providers/codex_lockdown.py](../../../../../../../src/learnloop/ai/providers/codex_lockdown.py), line 882)
-- `_CLIENT_REQUESTS` ([src/learnloop/ai/providers/codex_lockdown.py](../../../../../../../src/learnloop/ai/providers/codex_lockdown.py), line 894)
-- `_CHECK_CACHE` ([src/learnloop/ai/providers/codex_lockdown.py](../../../../../../../src/learnloop/ai/providers/codex_lockdown.py), line 1131)
-- `_CHECK_CACHE_LOCK` ([src/learnloop/ai/providers/codex_lockdown.py](../../../../../../../src/learnloop/ai/providers/codex_lockdown.py), line 1132)
-- `_SYSTEM_LAYERS` ([src/learnloop/ai/providers/codex_lockdown.py](../../../../../../../src/learnloop/ai/providers/codex_lockdown.py), line 1134)
-- `_HOME_LAYERS` ([src/learnloop/ai/providers/codex_lockdown.py](../../../../../../../src/learnloop/ai/providers/codex_lockdown.py), line 1135)
+- `LOCKDOWN_DISABLED_FEATURES` ([src/learnloop/ai/providers/codex_lockdown.py](../../../../../../../src/learnloop/ai/providers/codex_lockdown.py), line 81)
+- `SHELL_FEATURES` ([src/learnloop/ai/providers/codex_lockdown.py](../../../../../../../src/learnloop/ai/providers/codex_lockdown.py), line 183)
+- `SHELL_ENVIRONMENT_ALLOWLIST` ([src/learnloop/ai/providers/codex_lockdown.py](../../../../../../../src/learnloop/ai/providers/codex_lockdown.py), line 190)
+- `REQUIRED_OFF_FEATURES` ([src/learnloop/ai/providers/codex_lockdown.py](../../../../../../../src/learnloop/ai/providers/codex_lockdown.py), line 195)
+- `PERMITTED_FEATURES` ([src/learnloop/ai/providers/codex_lockdown.py](../../../../../../../src/learnloop/ai/providers/codex_lockdown.py), line 201)
+- `REMOVED_STAGE` ([src/learnloop/ai/providers/codex_lockdown.py](../../../../../../../src/learnloop/ai/providers/codex_lockdown.py), line 230)
+- `REVIEWED_RETIRED_FEATURES` ([src/learnloop/ai/providers/codex_lockdown.py](../../../../../../../src/learnloop/ai/providers/codex_lockdown.py), line 246)
+- `_NEUTRALIZED_METADATA` ([src/learnloop/ai/providers/codex_lockdown.py](../../../../../../../src/learnloop/ai/providers/codex_lockdown.py), line 394)
+- `NEUTRALIZED_EXPERIMENTAL_TOOLS` ([src/learnloop/ai/providers/codex_lockdown.py](../../../../../../../src/learnloop/ai/providers/codex_lockdown.py), line 421)
+- `_INERT_METADATA` ([src/learnloop/ai/providers/codex_lockdown.py](../../../../../../../src/learnloop/ai/providers/codex_lockdown.py), line 423)
+- `_TOOLISH_FIELD` ([src/learnloop/ai/providers/codex_lockdown.py](../../../../../../../src/learnloop/ai/providers/codex_lockdown.py), line 434)
+- `CATALOG_PIN_KEY` ([src/learnloop/ai/providers/codex_lockdown.py](../../../../../../../src/learnloop/ai/providers/codex_lockdown.py), line 490)
+- `TOOL_FREE_METADATA` ([src/learnloop/ai/providers/codex_lockdown.py](../../../../../../../src/learnloop/ai/providers/codex_lockdown.py), line 547)
+- `READBACK_OVERRIDES` ([src/learnloop/ai/providers/codex_lockdown.py](../../../../../../../src/learnloop/ai/providers/codex_lockdown.py), line 603)
+- `_SKILLS_BLOCK` ([src/learnloop/ai/providers/codex_lockdown.py](../../../../../../../src/learnloop/ai/providers/codex_lockdown.py), line 673)
+- `_SKILL_ROOT` ([src/learnloop/ai/providers/codex_lockdown.py](../../../../../../../src/learnloop/ai/providers/codex_lockdown.py), line 674)
+- `_SKILL_ENTRY` ([src/learnloop/ai/providers/codex_lockdown.py](../../../../../../../src/learnloop/ai/providers/codex_lockdown.py), line 675)
+- `_PERMISSION_PROFILE` ([src/learnloop/ai/providers/codex_lockdown.py](../../../../../../../src/learnloop/ai/providers/codex_lockdown.py), line 726)
+- `_FILE_SYSTEM` ([src/learnloop/ai/providers/codex_lockdown.py](../../../../../../../src/learnloop/ai/providers/codex_lockdown.py), line 727)
+- `_ENTRY` ([src/learnloop/ai/providers/codex_lockdown.py](../../../../../../../src/learnloop/ai/providers/codex_lockdown.py), line 728)
+- `_NETWORK_RESTRICTED` ([src/learnloop/ai/providers/codex_lockdown.py](../../../../../../../src/learnloop/ai/providers/codex_lockdown.py), line 733)
+- `TEXT_ITEMS` ([src/learnloop/ai/providers/codex_lockdown.py](../../../../../../../src/learnloop/ai/providers/codex_lockdown.py), line 881)
+- `WORKSPACE_ITEMS` ([src/learnloop/ai/providers/codex_lockdown.py](../../../../../../../src/learnloop/ai/providers/codex_lockdown.py), line 883)
+- `_DECLINES` ([src/learnloop/ai/providers/codex_lockdown.py](../../../../../../../src/learnloop/ai/providers/codex_lockdown.py), line 912)
+- `_CLIENT_REQUESTS` ([src/learnloop/ai/providers/codex_lockdown.py](../../../../../../../src/learnloop/ai/providers/codex_lockdown.py), line 924)
+- `_CHECK_CACHE` ([src/learnloop/ai/providers/codex_lockdown.py](../../../../../../../src/learnloop/ai/providers/codex_lockdown.py), line 1161)
+- `_CHECK_CACHE_LOCK` ([src/learnloop/ai/providers/codex_lockdown.py](../../../../../../../src/learnloop/ai/providers/codex_lockdown.py), line 1162)
+- `_SYSTEM_LAYERS` ([src/learnloop/ai/providers/codex_lockdown.py](../../../../../../../src/learnloop/ai/providers/codex_lockdown.py), line 1164)
+- `_HOME_LAYERS` ([src/learnloop/ai/providers/codex_lockdown.py](../../../../../../../src/learnloop/ai/providers/codex_lockdown.py), line 1165)
 
 ### Explicit exports
 
@@ -190,16 +190,16 @@ The authoritative system-level explanation remains in [[AI Architecture]], [[Arc
 
 ## Internal implementation anchors
 
-- `_hashable(value: Any) -> bool` ([source](../../../../../../../src/learnloop/ai/providers/codex_lockdown.py), line 440)
-- `_prompt_items(prompt_input_stdout: str) -> list[Any] | None` ([source](../../../../../../../src/learnloop/ai/providers/codex_lockdown.py), line 583)
-- `_tool_names(tools: Any) -> list[str]` ([source](../../../../../../../src/learnloop/ai/providers/codex_lockdown.py), line 629)
-- `_message_texts(prompt_input: Any) -> list[str]` ([source](../../../../../../../src/learnloop/ai/providers/codex_lockdown.py), line 706)
-- `_attribute(attributes: str, name: str) -> str | None` ([source](../../../../../../../src/learnloop/ai/providers/codex_lockdown.py), line 716)
-- `_is_codex_helper(path: Path, codex_homes: Iterable[Path]) -> bool` ([source](../../../../../../../src/learnloop/ai/providers/codex_lockdown.py), line 721) — Codex's own read root for its re-exec helpers: ``$CODEX_HOME/tmp/arg0*/codex-arg0*``.
-- `_field(payload: Any, *names: str) -> Any` ([source](../../../../../../../src/learnloop/ai/providers/codex_lockdown.py), line 932)
-- `_tokens(breakdown: Any, *names: str) -> int` ([source](../../../../../../../src/learnloop/ai/providers/codex_lockdown.py), line 945)
-- `_stat_signature(path: Path) -> tuple[Any, ...]` ([source](../../../../../../../src/learnloop/ai/providers/codex_lockdown.py), line 1138) — Identity of a file or directory without opening it (it may hold credentials).
-- `_skill_roots(environ: Mapping[str, str]) -> list[Path]` ([source](../../../../../../../src/learnloop/ai/providers/codex_lockdown.py), line 1217) — Skill roots outside ``$CODEX_HOME`` that codex-cli 0.163.0 discovers (``ext/skills`` ``host_roots``).
+- `_hashable(value: Any) -> bool` ([source](../../../../../../../src/learnloop/ai/providers/codex_lockdown.py), line 470)
+- `_prompt_items(prompt_input_stdout: str) -> list[Any] | None` ([source](../../../../../../../src/learnloop/ai/providers/codex_lockdown.py), line 613)
+- `_tool_names(tools: Any) -> list[str]` ([source](../../../../../../../src/learnloop/ai/providers/codex_lockdown.py), line 659)
+- `_message_texts(prompt_input: Any) -> list[str]` ([source](../../../../../../../src/learnloop/ai/providers/codex_lockdown.py), line 736)
+- `_attribute(attributes: str, name: str) -> str | None` ([source](../../../../../../../src/learnloop/ai/providers/codex_lockdown.py), line 746)
+- `_is_codex_helper(path: Path, codex_homes: Iterable[Path]) -> bool` ([source](../../../../../../../src/learnloop/ai/providers/codex_lockdown.py), line 751) — Codex's own read root for its re-exec helpers: ``$CODEX_HOME/tmp/arg0*/codex-arg0*``.
+- `_field(payload: Any, *names: str) -> Any` ([source](../../../../../../../src/learnloop/ai/providers/codex_lockdown.py), line 962)
+- `_tokens(breakdown: Any, *names: str) -> int` ([source](../../../../../../../src/learnloop/ai/providers/codex_lockdown.py), line 975)
+- `_stat_signature(path: Path) -> tuple[Any, ...]` ([source](../../../../../../../src/learnloop/ai/providers/codex_lockdown.py), line 1168) — Identity of a file or directory without opening it (it may hold credentials).
+- `_skill_roots(environ: Mapping[str, str]) -> list[Path]` ([source](../../../../../../../src/learnloop/ai/providers/codex_lockdown.py), line 1247) — Skill roots outside ``$CODEX_HOME`` that codex-cli 0.163.0 discovers (``ext/skills`` ``host_roots``).
 
 ## Who imports or calls it
 
@@ -252,6 +252,15 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_bundled_skills_no_switch_removes_refuse_the_turn`
   - `test_every_launch_sends_both_switches_and_the_bundled_skills_switch`
   - `test_the_0165_defaults_are_switched_off_and_never_tolerated`
+- [tests/test_codex_cli_0166_lockdown.py](../../../../../../../tests/test_codex_cli_0166_lockdown.py) — direct import
+  - `test_a_0166_cli_with_an_unknown_new_feature_left_on_still_refuses`
+  - `test_a_0166_feature_whose_switch_is_ignored_refuses_the_turn`
+  - `test_a_cli_that_keeps_plugins_on_refuses_the_turn_whatever_the_prefetch_says`
+  - `test_the_0166_features_are_switched_off_and_never_tolerated`
+  - `test_the_flag_0166_retired_is_not_classified_and_a_layer_cannot_leave_it_on`
+  - `test_the_flag_0166_retired_left_on_with_its_switch_ignored_refuses`
+  - `test_the_prefetch_retired_later_with_its_switch_ignored_still_refuses`
+  - `test_the_real_lock_on_plugin_startup_stays_required`
 - [tests/test_codex_isolation_mcp_check.py](../../../../../../../tests/test_codex_isolation_mcp_check.py) — direct import
   - `test_a_read_only_workspace_turn_is_checked_under_its_own_overrides`
   - `test_a_turn_that_did_not_ask_for_isolation_is_checked_and_locked_down_too`

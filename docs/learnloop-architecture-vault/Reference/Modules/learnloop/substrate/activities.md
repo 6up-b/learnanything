@@ -283,6 +283,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_outcomes_close_once_at_the_structural_horizon`
 - [tests/test_figures_prefetch_review_fixes.py](../../../../../../tests/test_figures_prefetch_review_fixes.py) — direct import
   - `test_f9_an_open_after_the_horizon_is_not_an_outcome`
+- [tests/test_followups_batch7_prefetch_capped_resume.py](../../../../../../tests/test_followups_batch7_prefetch_capped_resume.py) — direct import
+- [tests/test_followups_batch7_prefetch_link_served.py](../../../../../../tests/test_followups_batch7_prefetch_link_served.py) — direct import
 - [tests/test_goal_contracts.py](../../../../../../tests/test_goal_contracts.py) — direct import
   - `test_certification_non_terminal_when_feedback_before_response`
 - [tests/test_golden_path_assessment.py](../../../../../../tests/test_golden_path_assessment.py) — direct import

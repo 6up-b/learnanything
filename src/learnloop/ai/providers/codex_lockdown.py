@@ -74,9 +74,10 @@ ISOLATED_PROFILE = f"learnloop_isolated_turn_{secrets.token_hex(8)}"
 #: context, or offer the model a tool, all off in every locked-down turn
 #: (codex-cli 0.163.0 ``features list``; each key checked to take effect under
 #: ``-c features.<key>=false``; 0.164.0's three new defaults checked the same
-#: way, 2026-10-27, and 0.165.0's two, 2026-10-31,
-#: docs/reviews/codex-cli-0165-lockdown.md). Unknown keys are ignored by Codex,
-#: and so are retired ones (:data:`REVIEWED_RETIRED_FEATURES`).
+#: way, 2026-10-27, 0.165.0's two, 2026-10-31,
+#: docs/reviews/codex-cli-0165-lockdown.md, and 0.166.0's eight new keys,
+#: 2026-11-02, docs/reviews/codex-cli-0166-lockdown.md). Unknown keys are
+#: ignored by Codex, and so are retired ones (:data:`REVIEWED_RETIRED_FEATURES`).
 LOCKDOWN_DISABLED_FEATURES = (
     "apps",
     "auth_elicitation",
@@ -93,11 +94,17 @@ LOCKDOWN_DISABLED_FEATURES = (
     "code_mode",
     "code_mode_only",
     "computer_use",
+    # codex-cli 0.166.0, off by default: records internal tool-timing paths for
+    # turn attribution. No tool; nothing a turn needs, so it stays off.
+    "critical_path_timing",
     "default_mode_request_user_input",
     "enable_mcp_apps",
     "exec_permission_approvals",
     "goals",
     "guardian_approval",
+    # codex-cli 0.166.0, off by default: Guardian reviews state-changing
+    # multi-agent calls. Off with Guardian and sub-agents.
+    "guardian_native_multi_agent_history",
     "guardianv2",
     "hooks",
     "image_generation",
@@ -111,6 +118,9 @@ LOCKDOWN_DISABLED_FEATURES = (
     # context updates. Off keeps the turn's tool declaration as on 0.163.0;
     # the readback still renders it on (READBACK_OVERRIDES), to list every tool.
     "incremental_tools",
+    # codex-cli 0.166.0, off by default: discovers and shares local stdio MCP
+    # connections across chats. An isolated turn has no MCP server to share.
+    "mcp_connection_sharing",
     # codex-cli 0.164.0, on by default: OAuth refresh for MCP servers, none of
     # which an isolated turn has.
     "mcp_oauth_refresh_coordination",
@@ -119,6 +129,15 @@ LOCKDOWN_DISABLED_FEATURES = (
     "multi_agent_v2",
     "multi_agent_v2_dynamic_tools",
     "network_proxy",
+    # codex-cli 0.166.0, off by default: a changed shape for the skill catalog
+    # the launch check reads back (it must keep listing none, in today's shape).
+    "omit_skill_descriptions",
+    # codex-cli 0.166.0, on by default (2026-11-02): the app server fetches the
+    # plugin directory, featured plugins and recommendations at startup. The
+    # traffic was already there in 0.165.0; this is its new switch. Off alone
+    # does not stop plugin startup traffic: `plugins` (required off below) gates
+    # all of it, and this is a second lock on the discovery part.
+    "plugin_discovery_prefetch",
     "plugin_sharing",
     "plugins",
     # codex-cli 0.165.0, on by default (2026-10-31): a prediction fork or
@@ -138,12 +157,23 @@ LOCKDOWN_DISABLED_FEATURES = (
     # Off in workspace turns too (Codex review F1, 2026-10-21): a snapshot
     # replays the user's login-shell environment into every command.
     "shell_snapshot",
+    # codex-cli 0.166.0, off by default: a shorter developer hint when a client
+    # selects a plugin. Off with plugins.
+    "simplified_selection_hints",
+    # codex-cli 0.166.0, off by default: skill additions and edits reach the
+    # context as deltas, a second place a skill could appear beyond the catalog
+    # the launch check reads back.
+    "skill_catalog_deltas",
     "skill_mcp_dependency_install",
     "skill_search",
     "sleep_tool",
     "standalone_web_search",
     "tool_call_mcp_elicitation",
     "tool_suggest",
+    # codex-cli 0.166.0, off by default: client-supplied untrusted context is
+    # rendered as named tool outputs. A tool-free turn's input keeps no such
+    # item (LearnLoop sends no additional context; off pins the message form).
+    "untrusted_as_tool_output",
     "view_image",
     "workspace_dependencies",
     "worktrees",

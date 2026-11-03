@@ -55,7 +55,7 @@ For system intent, use [[Learning System]].
 |---|---|---:|---:|---:|
 | [[Reference/Modules/learnloop/diagnosis/offline_review/__init__|learnloop.diagnosis.offline_review]] | [[Reference/Modules/learnloop/diagnosis/offline_review/__init__#^module-purpose|purpose]] | `ACTIVE` | 0 | 0 |
 | [[Reference/Modules/learnloop/diagnosis/offline_review/decider_links|learnloop.diagnosis.offline_review.decider_links]] | [[Reference/Modules/learnloop/diagnosis/offline_review/decider_links#^module-purpose|purpose]] | `ACTIVE` | 1 | 1 |
-| [[Reference/Modules/learnloop/diagnosis/offline_review/judge|learnloop.diagnosis.offline_review.judge]] | [[Reference/Modules/learnloop/diagnosis/offline_review/judge#^module-purpose|purpose]] | `ACTIVE` | 5 | 11 |
+| [[Reference/Modules/learnloop/diagnosis/offline_review/judge|learnloop.diagnosis.offline_review.judge]] | [[Reference/Modules/learnloop/diagnosis/offline_review/judge#^module-purpose|purpose]] | `ACTIVE` | 5 | 12 |
 | [[Reference/Modules/learnloop/diagnosis/offline_review/links|learnloop.diagnosis.offline_review.links]] | [[Reference/Modules/learnloop/diagnosis/offline_review/links#^module-purpose|purpose]] | `ACTIVE` | 1 | 1 |
 | [[Reference/Modules/learnloop/diagnosis/offline_review/planted|learnloop.diagnosis.offline_review.planted]] | [[Reference/Modules/learnloop/diagnosis/offline_review/planted#^module-purpose|purpose]] | `ACTIVE` | 1 | 2 |
 | [[Reference/Modules/learnloop/diagnosis/offline_review/probes|learnloop.diagnosis.offline_review.probes]] | [[Reference/Modules/learnloop/diagnosis/offline_review/probes#^module-purpose|purpose]] | `ACTIVE` | 2 | 2 |

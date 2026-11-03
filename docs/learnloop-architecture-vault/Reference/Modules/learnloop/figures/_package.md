@@ -30,7 +30,7 @@ source_paths:
   - "src/learnloop/figures/spec.py"
   - "src/learnloop/figures/verify.py"
 source_commit: "aggregate; see module notes"
-source_commit_timestamp: "2026-11-02T20:15:17-05:00"
+source_commit_timestamp: "2026-11-02T20:59:20-05:00"
 generated: true
 generated_at: "2026-11-02"
 package: "learnloop.figures"
@@ -71,19 +71,19 @@ For system intent, use [[Architecture Overview]].
 | [[Reference/Modules/learnloop/figures/book_math|learnloop.figures.book_math]] | [[Reference/Modules/learnloop/figures/book_math#^module-purpose|purpose]] | `ACTIVE` | 1 | 1 |
 | [[Reference/Modules/learnloop/figures/display_format|learnloop.figures.display_format]] | [[Reference/Modules/learnloop/figures/display_format#^module-purpose|purpose]] | `ACTIVE` | 3 | 2 |
 | [[Reference/Modules/learnloop/figures/elements|learnloop.figures.elements]] | [[Reference/Modules/learnloop/figures/elements#^module-purpose|purpose]] | `ACTIVE` | 2 | 1 |
-| [[Reference/Modules/learnloop/figures/foreground|learnloop.figures.foreground]] | [[Reference/Modules/learnloop/figures/foreground#^module-purpose|purpose]] | `ACTIVE` | 5 | 2 |
+| [[Reference/Modules/learnloop/figures/foreground|learnloop.figures.foreground]] | [[Reference/Modules/learnloop/figures/foreground#^module-purpose|purpose]] | `ACTIVE` | 5 | 3 |
 | [[Reference/Modules/learnloop/figures/grammar|learnloop.figures.grammar]] | [[Reference/Modules/learnloop/figures/grammar#^module-purpose|purpose]] | `ACTIVE` | 9 | 10 |
 | [[Reference/Modules/learnloop/figures/help|learnloop.figures.help]] | [[Reference/Modules/learnloop/figures/help#^module-purpose|purpose]] | `ACTIVE` | 3 | 2 |
 | [[Reference/Modules/learnloop/figures/labels|learnloop.figures.labels]] | [[Reference/Modules/learnloop/figures/labels#^module-purpose|purpose]] | `ACTIVE` | 3 | 2 |
 | [[Reference/Modules/learnloop/figures/learner_state|learnloop.figures.learner_state]] | [[Reference/Modules/learnloop/figures/learner_state#^module-purpose|purpose]] | `ACTIVE` | 3 | 4 |
 | [[Reference/Modules/learnloop/figures/manim_figure|learnloop.figures.manim_figure]] | [[Reference/Modules/learnloop/figures/manim_figure#^module-purpose|purpose]] | `ACTIVE` | 2 | 4 |
-| [[Reference/Modules/learnloop/figures/power|learnloop.figures.power]] | [[Reference/Modules/learnloop/figures/power#^module-purpose|purpose]] | `ACTIVE` | 5 | 7 |
-| [[Reference/Modules/learnloop/figures/prefetch|learnloop.figures.prefetch]] | [[Reference/Modules/learnloop/figures/prefetch#^module-purpose|purpose]] | `ACTIVE` | 1 | 7 |
-| [[Reference/Modules/learnloop/figures/prefetch_ledger|learnloop.figures.prefetch_ledger]] | [[Reference/Modules/learnloop/figures/prefetch_ledger#^module-purpose|purpose]] | `ACTIVE` | 3 | 2 |
-| [[Reference/Modules/learnloop/figures/prefetch_model|learnloop.figures.prefetch_model]] | [[Reference/Modules/learnloop/figures/prefetch_model#^module-purpose|purpose]] | `ACTIVE` | 2 | 3 |
-| [[Reference/Modules/learnloop/figures/rich|learnloop.figures.rich]] | [[Reference/Modules/learnloop/figures/rich#^module-purpose|purpose]] | `ACTIVE` | 5 | 14 |
+| [[Reference/Modules/learnloop/figures/power|learnloop.figures.power]] | [[Reference/Modules/learnloop/figures/power#^module-purpose|purpose]] | `ACTIVE` | 5 | 9 |
+| [[Reference/Modules/learnloop/figures/prefetch|learnloop.figures.prefetch]] | [[Reference/Modules/learnloop/figures/prefetch#^module-purpose|purpose]] | `ACTIVE` | 1 | 9 |
+| [[Reference/Modules/learnloop/figures/prefetch_ledger|learnloop.figures.prefetch_ledger]] | [[Reference/Modules/learnloop/figures/prefetch_ledger#^module-purpose|purpose]] | `ACTIVE` | 4 | 4 |
+| [[Reference/Modules/learnloop/figures/prefetch_model|learnloop.figures.prefetch_model]] | [[Reference/Modules/learnloop/figures/prefetch_model#^module-purpose|purpose]] | `ACTIVE` | 2 | 4 |
+| [[Reference/Modules/learnloop/figures/rich|learnloop.figures.rich]] | [[Reference/Modules/learnloop/figures/rich#^module-purpose|purpose]] | `ACTIVE` | 5 | 16 |
 | [[Reference/Modules/learnloop/figures/routes|learnloop.figures.routes]] | [[Reference/Modules/learnloop/figures/routes#^module-purpose|purpose]] | `ACTIVE` | 3 | 12 |
-| [[Reference/Modules/learnloop/figures/service|learnloop.figures.service]] | [[Reference/Modules/learnloop/figures/service#^module-purpose|purpose]] | `ACTIVE` | 10 | 38 |
+| [[Reference/Modules/learnloop/figures/service|learnloop.figures.service]] | [[Reference/Modules/learnloop/figures/service#^module-purpose|purpose]] | `ACTIVE` | 10 | 39 |
 | [[Reference/Modules/learnloop/figures/sketch|learnloop.figures.sketch]] | [[Reference/Modules/learnloop/figures/sketch#^module-purpose|purpose]] | `ACTIVE` | 4 | 7 |
 | [[Reference/Modules/learnloop/figures/sketch_engine|learnloop.figures.sketch_engine]] | [[Reference/Modules/learnloop/figures/sketch_engine#^module-purpose|purpose]] | `ACTIVE` | 2 | 7 |
 | [[Reference/Modules/learnloop/figures/sketch_verify|learnloop.figures.sketch_verify]] | [[Reference/Modules/learnloop/figures/sketch_verify#^module-purpose|purpose]] | `ACTIVE` | 1 | 6 |

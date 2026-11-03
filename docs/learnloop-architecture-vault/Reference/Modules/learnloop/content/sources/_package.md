@@ -22,7 +22,7 @@ source_paths:
   - "src/learnloop/content/sources/source_refs.py"
   - "src/learnloop/content/sources/span_aliases.py"
 source_commit: "aggregate; see module notes"
-source_commit_timestamp: "2026-11-01T14:48:10-05:00"
+source_commit_timestamp: "2026-11-02T20:59:20-05:00"
 generated: true
 generated_at: "2026-11-02"
 package: "learnloop.content.sources"
@@ -73,7 +73,7 @@ For system intent, use [[Learning System]], [[AI Architecture]].
 | [[Reference/Modules/learnloop/content/sources/source_deletion|learnloop.content.sources.source_deletion]] | [[Reference/Modules/learnloop/content/sources/source_deletion#^module-purpose|purpose]] | `ACTIVE` | 1 | 1 |
 | [[Reference/Modules/learnloop/content/sources/source_library|learnloop.content.sources.source_library]] | [[Reference/Modules/learnloop/content/sources/source_library#^module-purpose|purpose]] | `ACTIVE` | 2 | 16 |
 | [[Reference/Modules/learnloop/content/sources/source_outcome_analytics|learnloop.content.sources.source_outcome_analytics]] | [[Reference/Modules/learnloop/content/sources/source_outcome_analytics#^module-purpose|purpose]] | `ACTIVE` | 3 | 1 |
-| [[Reference/Modules/learnloop/content/sources/source_outline|learnloop.content.sources.source_outline]] | [[Reference/Modules/learnloop/content/sources/source_outline#^module-purpose|purpose]] | `ACTIVE` | 32 | 16 |
+| [[Reference/Modules/learnloop/content/sources/source_outline|learnloop.content.sources.source_outline]] | [[Reference/Modules/learnloop/content/sources/source_outline#^module-purpose|purpose]] | `ACTIVE` | 34 | 17 |
 | [[Reference/Modules/learnloop/content/sources/source_refs|learnloop.content.sources.source_refs]] | [[Reference/Modules/learnloop/content/sources/source_refs#^module-purpose|purpose]] | `ACTIVE` | 3 | 1 |
 | [[Reference/Modules/learnloop/content/sources/span_aliases|learnloop.content.sources.span_aliases]] | [[Reference/Modules/learnloop/content/sources/span_aliases#^module-purpose|purpose]] | `ACTIVE` | 13 | 4 |
 
@@ -94,7 +94,7 @@ For system intent, use [[Learning System]], [[AI Architecture]].
 ### Packages that import this package
 
 - [[Reference/Modules/learnloop_sidecar/handlers/_package|learnloop_sidecar.handlers]] — 27 static module edges
-- [[Reference/Modules/learnloop/source_retrieval/_package|learnloop.source_retrieval]] — 21 static module edges
+- [[Reference/Modules/learnloop/source_retrieval/_package|learnloop.source_retrieval]] — 23 static module edges
 - [[Reference/Modules/learnloop/reader/_package|learnloop.reader]] — 17 static module edges
 - [[Reference/Modules/learnloop/content/pipeline/_package|learnloop.content.pipeline]] — 15 static module edges
 - [[Reference/Modules/learnloop/content/synthesis/_package|learnloop.content.synthesis]] — 9 static module edges
@@ -136,7 +136,7 @@ flowchart LR
     n_learnloop["learnloop"]
     n_learnloop_adaptive_difficulty["learnloop.adaptive_difficulty"]
     n_learnloop_sidecar_handlers -->|27| center
-    n_learnloop_source_retrieval -->|21| center
+    n_learnloop_source_retrieval -->|23| center
     center -->|1| n_learnloop_source_retrieval
     n_learnloop_reader -->|17| center
     n_learnloop_content_pipeline -->|15| center

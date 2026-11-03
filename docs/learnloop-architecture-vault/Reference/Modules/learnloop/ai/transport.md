@@ -301,6 +301,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_the_plan_serves_a_workspace_and_takes_the_callers_deadline`
 - [tests/test_codex_cli_0164_lockdown.py](../../../../../../tests/test_codex_cli_0164_lockdown.py) — direct import
 - [tests/test_codex_cli_0165_lockdown.py](../../../../../../tests/test_codex_cli_0165_lockdown.py) — direct import
+- [tests/test_codex_cli_0166_lockdown.py](../../../../../../tests/test_codex_cli_0166_lockdown.py) — direct import
 - [tests/test_codex_isolation_mcp_check.py](../../../../../../tests/test_codex_isolation_mcp_check.py) — direct import
   - `test_a_turn_that_did_not_ask_for_isolation_is_checked_and_locked_down_too`
   - `test_the_check_runs_inside_the_request_deadline`

@@ -29,8 +29,12 @@ parts the check reads (found 2026-10-15, docs/reviews/codex-isolation-app-server
   merged over a lower layer's table of the same name (``permission_layers``:
   name -> ``{"extends": ":read-only", "filesystem": {...}}``; ``extends``
   read-only adds ``:root``), plus ``forced_permissions`` whatever the name;
-* ``app-server`` prints what it would load: the MCP servers left on and the
-  features left on.
+* ``app-server`` prints what it would load: the MCP servers left on, the
+  features left on, and the plugin tasks it would start at startup
+  (``plugin_startup_tasks``, codex-cli 0.166.0 ``core-plugins/src/manager.rs``
+  ``maybe_start_plugin_startup_tasks_for_config``: all of them behind
+  ``features.plugins``, the discovery ones also behind
+  ``features.plugin_discovery_prefetch``; every one reaches the network).
 
 ``stub_isolation_probe`` is the same model in process, for tests that only
 need the check to pass. ``FakeSdkClient`` and ``FakeApprovalMode`` are the SDK
@@ -261,8 +265,16 @@ elif command == "debug prompt-input":
                                          bundled_skills=[tuple(pair) for pair in spec.get("bundled_skills") or ()],
                                          ignored_skill_overrides=spec.get("ignored_skill_overrides") or ())))
 elif args[:1] == ["app-server"]:
+    features_on = sorted(f for f in spec["features"] if f not in off)
+    plugin_tasks = []
+    if "plugins" in features_on:
+        plugin_tasks = ["curated_repo_sync", "marketplace_auto_upgrade", "installed_plugins_refresh",
+                        "installed_bundle_sync"]
+        if "plugin_discovery_prefetch" in features_on:
+            plugin_tasks += ["recommended_plugins", "remote_catalog_refresh", "featured_plugin_ids"]
     print(json.dumps({"launched": True, "servers_on": sorted(name for name, on in servers.items() if on),
-                      "features_on": sorted(f for f in spec["features"] if f not in off),
+                      "features_on": features_on,
+                      "plugin_startup_tasks": plugin_tasks,
                       "experimental_tools": {entry.get("slug"): entry.get("experimental_supported_tools")
                                              for entry in effective_catalog().get("models", [])},
                       "codex_home": _os.environ.get("CODEX_HOME")}))

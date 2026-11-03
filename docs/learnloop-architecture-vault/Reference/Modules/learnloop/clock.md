@@ -1003,6 +1003,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_followups_batch6_verify_fixes.py](../../../../../tests/test_followups_batch6_verify_fixes.py) — direct import
   - `test_v1_only_todays_plan_holds_an_item`
   - `test_v1_the_open_items_are_the_plan_records_own`
+- [tests/test_followups_batch7_prefetch_capped_resume.py](../../../../../tests/test_followups_batch7_prefetch_capped_resume.py) — direct import
+- [tests/test_followups_batch7_prefetch_link_served.py](../../../../../tests/test_followups_batch7_prefetch_link_served.py) — direct import
 - [tests/test_forecast_ledger.py](../../../../../tests/test_forecast_ledger.py) — direct import
   - `test_do_nothing_forecast_is_censored_when_scope_was_practiced`
   - `test_pace_forecast_resolves_on_first_pass_beyond_horizon`

@@ -54,6 +54,7 @@ from typing import Any, Iterable, Mapping, Sequence
 
 from learnloop.clock import Clock, FrozenClock, utc_now_iso
 from learnloop.content.sources.front_matter import FRONT_MATTER
+from learnloop.content.sources.source_outline import title_from_file_name, title_from_local_uri
 from learnloop.ids import kebab_case
 from learnloop.ingest.models import UnsupportedSourceError
 from learnloop.ingest.resolution import resolve_source
@@ -303,23 +304,15 @@ def pdf_metadata_title(raw_bytes: bytes) -> str | None:
     return None
 
 
-def title_from_file_name(name: str) -> str:
-    stem = re.sub(r"\.[A-Za-z0-9]{1,5}$", "", name)
-    words = re.sub(r"[_\-.]+", " ", stem).split()
-    if not words:
-        return name
-    if all(word == word.lower() for word in words):
-        return " ".join(word.capitalize() for word in words)
-    return " ".join(words)
-
-
 def _display_title(artifact: Mapping[str, Any], revision: Mapping[str, Any] | None) -> str:
     title = artifact.get("display_title")
     if isinstance(title, str) and title.strip():
         return title
     uri = str((revision or {}).get("original_uri") or artifact.get("canonical_uri") or artifact.get("id") or "")
-    if uri.startswith("file://") or (uri and not uri.startswith(("http://", "https://"))):
-        return title_from_file_name(Path(uri.removeprefix("file://")).name) or uri
+    if local := title_from_local_uri(uri):
+        return local
+    if uri and not uri.startswith(("http://", "https://")):
+        return title_from_file_name(Path(uri).name) or uri
     return uri
 
 

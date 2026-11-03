@@ -115,11 +115,11 @@ No test imports this module directly. These tests exercise a direct production c
 - [tests/test_codex_attempt_flow.py](../../../../../../../tests/test_codex_attempt_flow.py) — imports consumer [[Reference/Modules/learnloop/ai/providers/codex|learnloop.ai.providers.codex]]
 - [tests/test_codex_cli_0164_lockdown.py](../../../../../../../tests/test_codex_cli_0164_lockdown.py) — imports consumer [[Reference/Modules/learnloop/ai/providers/codex|learnloop.ai.providers.codex]]
 - [tests/test_codex_cli_0165_lockdown.py](../../../../../../../tests/test_codex_cli_0165_lockdown.py) — imports consumer [[Reference/Modules/learnloop/ai/providers/codex|learnloop.ai.providers.codex]]
+- [tests/test_codex_cli_0166_lockdown.py](../../../../../../../tests/test_codex_cli_0166_lockdown.py) — imports consumer [[Reference/Modules/learnloop/ai/providers/codex|learnloop.ai.providers.codex]]
 - [tests/test_codex_http_client.py](../../../../../../../tests/test_codex_http_client.py) — imports consumer [[Reference/Modules/learnloop/ai/providers/codex|learnloop.ai.providers.codex]]
 - [tests/test_codex_isolation_mcp_check.py](../../../../../../../tests/test_codex_isolation_mcp_check.py) — imports consumer [[Reference/Modules/learnloop/ai/providers/codex|learnloop.ai.providers.codex]]
 - [tests/test_codex_lockdown_frozen.py](../../../../../../../tests/test_codex_lockdown_frozen.py) — imports consumer [[Reference/Modules/learnloop/ai/providers/codex|learnloop.ai.providers.codex]]
 - [tests/test_codex_lockdown_round2.py](../../../../../../../tests/test_codex_lockdown_round2.py) — imports consumer [[Reference/Modules/learnloop/ai/providers/codex|learnloop.ai.providers.codex]]
-- [tests/test_codex_lockdown_round3.py](../../../../../../../tests/test_codex_lockdown_round3.py) — imports consumer [[Reference/Modules/learnloop/ai/providers/codex|learnloop.ai.providers.codex]]
 
 ## Modification guidance
 

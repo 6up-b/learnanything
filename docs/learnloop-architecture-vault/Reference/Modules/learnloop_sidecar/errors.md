@@ -516,8 +516,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_rw5c_recheck.py](../../../../../tests/test_rw5c_recheck.py) — direct import
   - `test_rebuild_is_not_offered_with_revisions_off`
   - `test_rebuild_of_a_figure_with_no_difference_is_refused`
-- [tests/test_rw5c_source_check.py](../../../../../tests/test_rw5c_source_check.py) — direct import
-  - `test_the_switch_off_between_the_sandbox_and_the_second_attempt_stops_the_build`
 - [tests/test_secondary_attach.py](../../../../../tests/test_secondary_attach.py) — direct import
   - `test_a_directory_alias_does_not_hide_a_truncated_source_sets_file_from_the_sidecar`
   - `test_a_source_sets_file_that_stays_truncated_is_refused_not_published`

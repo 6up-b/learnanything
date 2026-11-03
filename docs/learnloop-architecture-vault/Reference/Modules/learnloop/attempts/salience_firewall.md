@@ -154,6 +154,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_server_events_are_salience_only`
 - [tests/test_figures_show_me.py](../../../../../../tests/test_figures_show_me.py) — direct import
   - `test_show_me_requested_is_a_salience_only_event_without_the_words`
+- [tests/test_followups_batch7_prefetch_capped_resume.py](../../../../../../tests/test_followups_batch7_prefetch_capped_resume.py) — direct import
+- [tests/test_followups_batch7_prefetch_link_served.py](../../../../../../tests/test_followups_batch7_prefetch_link_served.py) — direct import
 - [tests/test_library_ask.py](../../../../../../tests/test_library_ask.py) — direct import
   - `test_every_rw4a_event_is_salience_only_refused_as_evidence_and_never_client_recorded`
 - [tests/test_library_exercises.py](../../../../../../tests/test_library_exercises.py) — direct import

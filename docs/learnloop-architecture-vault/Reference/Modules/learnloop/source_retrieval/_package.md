@@ -48,7 +48,7 @@ source_paths:
   - "src/learnloop/source_retrieval/verify.py"
   - "src/learnloop/source_retrieval/windows.py"
 source_commit: "aggregate; see module notes"
-source_commit_timestamp: "2026-11-02T09:47:49-05:00"
+source_commit_timestamp: "2026-11-02T20:59:20-05:00"
 generated: true
 generated_at: "2026-11-02"
 package: "learnloop.source_retrieval"
@@ -104,7 +104,7 @@ For system intent, use [[Architecture Overview]].
 | [[Reference/Modules/learnloop/source_retrieval/library_ask|learnloop.source_retrieval.library_ask]] | [[Reference/Modules/learnloop/source_retrieval/library_ask#^module-purpose|purpose]] | `ACTIVE` | 8 | 13 |
 | [[Reference/Modules/learnloop/source_retrieval/local_index|learnloop.source_retrieval.local_index]] | [[Reference/Modules/learnloop/source_retrieval/local_index#^module-purpose|purpose]] | `ACTIVE` | 6 | 4 |
 | [[Reference/Modules/learnloop/source_retrieval/note_gaps|learnloop.source_retrieval.note_gaps]] | [[Reference/Modules/learnloop/source_retrieval/note_gaps#^module-purpose|purpose]] | `ACTIVE` | 1 | 2 |
-| [[Reference/Modules/learnloop/source_retrieval/note_links|learnloop.source_retrieval.note_links]] | [[Reference/Modules/learnloop/source_retrieval/note_links#^module-purpose|purpose]] | `ACTIVE` | 4 | 5 |
+| [[Reference/Modules/learnloop/source_retrieval/note_links|learnloop.source_retrieval.note_links]] | [[Reference/Modules/learnloop/source_retrieval/note_links#^module-purpose|purpose]] | `ACTIVE` | 4 | 6 |
 | [[Reference/Modules/learnloop/source_retrieval/passage_cues|learnloop.source_retrieval.passage_cues]] | [[Reference/Modules/learnloop/source_retrieval/passage_cues#^module-purpose|purpose]] | `ACTIVE` | 4 | 14 |
 | [[Reference/Modules/learnloop/source_retrieval/policy|learnloop.source_retrieval.policy]] | [[Reference/Modules/learnloop/source_retrieval/policy#^module-purpose|purpose]] | `ACTIVE` | 23 | 20 |
 | [[Reference/Modules/learnloop/source_retrieval/queries|learnloop.source_retrieval.queries]] | [[Reference/Modules/learnloop/source_retrieval/queries#^module-purpose|purpose]] | `ACTIVE` | 13 | 5 |
@@ -124,7 +124,7 @@ For system intent, use [[Architecture Overview]].
 | [[Reference/Modules/learnloop/source_retrieval/suites|learnloop.source_retrieval.suites]] | [[Reference/Modules/learnloop/source_retrieval/suites#^module-purpose|purpose]] | `ACTIVE` | 1 | 6 |
 | [[Reference/Modules/learnloop/source_retrieval/timing|learnloop.source_retrieval.timing]] | [[Reference/Modules/learnloop/source_retrieval/timing#^module-purpose|purpose]] | `ACTIVE` | 1 | 1 |
 | [[Reference/Modules/learnloop/source_retrieval/tutor|learnloop.source_retrieval.tutor]] | [[Reference/Modules/learnloop/source_retrieval/tutor#^module-purpose|purpose]] | `ACTIVE` | 7 | 14 |
-| [[Reference/Modules/learnloop/source_retrieval/vault_notes|learnloop.source_retrieval.vault_notes]] | [[Reference/Modules/learnloop/source_retrieval/vault_notes#^module-purpose|purpose]] | `ACTIVE` | 3 | 4 |
+| [[Reference/Modules/learnloop/source_retrieval/vault_notes|learnloop.source_retrieval.vault_notes]] | [[Reference/Modules/learnloop/source_retrieval/vault_notes#^module-purpose|purpose]] | `ACTIVE` | 3 | 5 |
 | [[Reference/Modules/learnloop/source_retrieval/verify|learnloop.source_retrieval.verify]] | [[Reference/Modules/learnloop/source_retrieval/verify#^module-purpose|purpose]] | `ACTIVE` | 7 | 3 |
 | [[Reference/Modules/learnloop/source_retrieval/windows|learnloop.source_retrieval.windows]] | [[Reference/Modules/learnloop/source_retrieval/windows#^module-purpose|purpose]] | `ACTIVE` | 6 | 4 |
 
@@ -140,7 +140,7 @@ For system intent, use [[Architecture Overview]].
 - [[Reference/Modules/learnloop/practice_index/_package|learnloop.practice_index]] — 32 static module edges
 - [[Reference/Modules/learnloop/local_embeddings/_package|learnloop.local_embeddings]] — 28 static module edges
 - [[Reference/Modules/learnloop/reader/_package|learnloop.reader]] — 27 static module edges
-- [[Reference/Modules/learnloop/content/sources/_package|learnloop.content.sources]] — 21 static module edges
+- [[Reference/Modules/learnloop/content/sources/_package|learnloop.content.sources]] — 23 static module edges
 - [[Reference/Modules/learnloop/ingest/_package|learnloop.ingest]] — 8 static module edges
 - [[Reference/Modules/learnloop/ops/_package|learnloop.ops]] — 8 static module edges
 - [[Reference/Modules/learnloop/tutor/_package|learnloop.tutor]] — 6 static module edges
@@ -194,7 +194,7 @@ flowchart LR
     n_learnloop_practice_index["learnloop.practice_index"]
     n_learnloop_local_embeddings["learnloop.local_embeddings"]
     n_learnloop_reader["learnloop.reader"]
-    n_learnloop_instructional["learnloop.instructional"]
+    n_learnloop_content_sources["learnloop.content.sources"]
     center -->|84| n_learnloop_ai
     center -->|65| n_learnloop_db
     center -->|54| n_learnloop_db_stores
@@ -204,7 +204,8 @@ flowchart LR
     center -->|32| n_learnloop_practice_index
     center -->|28| n_learnloop_local_embeddings
     center -->|27| n_learnloop_reader
-    n_learnloop_instructional -->|23| center
+    n_learnloop_content_sources -->|1| center
+    center -->|23| n_learnloop_content_sources
 ```
 
 Interpretation: arrow direction is static import direction and the label is the number of distinct module-to-module edges. It shows coupling pressure, not runtime call frequency or ownership permission.

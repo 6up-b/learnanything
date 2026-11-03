@@ -995,6 +995,7 @@ EU_i = P(open_i | built, cue) · W_tier(i) · u.minute  −  C_i
   - `figures.prefetch.max_daily_builds` (10): plan headroom spent on speculation per day; a lesson alone is 15–25 calls;
   - `figures.prefetch.max_daily_render_minutes` (30): wall-clock of background Manim renders per day;
   - `PREFETCH_CONCURRENT_BUILDS` (1) and `RENDER_CONCURRENCY` (1, pressed and background together): one at a time, given the oomd history.
+  - *As built (follow-ups batch 7):* a cap defers a decision, it does not end it. A `capped` decision waits while its horizon is open, as a power-deferred one does: a later pass builds it once both caps have room, under every guard here, with no new draw (the original row and its propensity stay the record). No request goes out while a cap stays used up. One the learner pressed for meanwhile needs no build, and its horizon closes it `asked`.
 - **Plan only, quiet.** All background work runs inside `plan_fallback.quiet()`: the judge, the author, the rich author, the gap passage search. No offer is made and no grant is honoured; plan down means wait. Nothing is metered, so `figures.max_daily_cost_usd` is untouched.
 - **Never** for exam or held-out material (A8), never during a check on your own's administration window for the item concerned, and never when `figures.prefetch_enabled = false` (recommended default **on**, Q21).
 
@@ -1013,6 +1014,8 @@ The outcome is one of:
 - `neither`;
 - `void` (the input became withheld, or the switch went off).
 
+*As built (follow-ups batch 7, Codex review F1):* before any horizon closes, an open decision whose build stored its request but never linked it (the pass died in between) is linked. This is bookkeeping, with no model call and no budget, so no build guard applies, and an opening of that figure stays an `opened` observation. A request with no figure and no rich job built nothing: it stays unlinked and its build is retried.
+
 Only built rows inform `P(open | built, cue)`. `asked` rows on unbuilt candidates are logged as evidence about demand without the cue; they are a separate quantity, reported but not used in the decision (R11). A prebuild nobody opened before its horizon is kept as an ordinary figure. It is reused whenever its input recurs, and costs nothing more.
 
 ### 10b.6 What the report shows
@@ -1023,7 +1026,7 @@ Only built rows inform `P(open | built, cue)`. `asked` rows on unbuilt candidate
 - the posterior of `α` and `β_kind` (prior → posterior contraction, LP §3.3);
 - the measured `W` by tier;
 - usage-limit pauses with and without prebuilds in the preceding window;
-- builds skipped by the power condition and by caps.
+- builds skipped by the power condition and by caps; *as built (follow-ups batch 7):* `skipped` counts deferred decisions with no build (yet) and `resumed` the ones built after they waited, each decision in one of the two.
 
 These are glass-box details on demand. The learner never sees counts (UX U12).
 

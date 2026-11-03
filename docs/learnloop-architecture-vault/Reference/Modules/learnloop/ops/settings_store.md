@@ -120,6 +120,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_concept_animation_service.py](../../../../../../tests/test_concept_animation_service.py) — direct import
   - `test_request_video_model_requires_a_ready_route`
   - `test_storyboard_total_is_checked_on_the_clamped_durations`
+- [tests/test_followups_batch7_prefetch_capped_resume.py](../../../../../../tests/test_followups_batch7_prefetch_capped_resume.py) — direct import
 - [tests/test_ingest_runner.py](../../../../../../tests/test_ingest_runner.py) — direct import
   - `test_audio_transcription_mode_uses_endpoint_without_native_route`
   - `test_default_synthesis_client_resolves_openrouter_in_inherited_new_vault`

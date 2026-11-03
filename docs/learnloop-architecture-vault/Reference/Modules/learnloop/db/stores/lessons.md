@@ -146,7 +146,7 @@ No test imports this module directly. These tests exercise a direct production c
 - [tests/test_followups_batch5_lesson.py](../../../../../../../tests/test_followups_batch5_lesson.py) — imports consumer [[Reference/Modules/learnloop/teacher/service|learnloop.teacher.service]]
 - [tests/test_followups_batch6_review_fixes.py](../../../../../../../tests/test_followups_batch6_review_fixes.py) — imports consumer [[Reference/Modules/learnloop/teacher/service|learnloop.teacher.service]]
 - [tests/test_followups_batch6_router_report.py](../../../../../../../tests/test_followups_batch6_router_report.py) — imports consumer [[Reference/Modules/learnloop/teacher/service|learnloop.teacher.service]]
-- [tests/test_followups_nov2_figure_provenance.py](../../../../../../../tests/test_followups_nov2_figure_provenance.py) — imports consumer [[Reference/Modules/learnloop/teacher/service|learnloop.teacher.service]]
+- [tests/test_followups_batch7_prefetch_capped_resume.py](../../../../../../../tests/test_followups_batch7_prefetch_capped_resume.py) — imports consumer [[Reference/Modules/learnloop/teacher/service|learnloop.teacher.service]]
 
 ## Modification guidance
 

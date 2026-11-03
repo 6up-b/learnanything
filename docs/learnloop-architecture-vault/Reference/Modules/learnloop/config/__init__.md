@@ -228,6 +228,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_provider_timeout_override_reaches_codex_sdk_client`
 - [tests/test_codex_cli_0164_lockdown.py](../../../../../../tests/test_codex_cli_0164_lockdown.py) — direct import
 - [tests/test_codex_cli_0165_lockdown.py](../../../../../../tests/test_codex_cli_0165_lockdown.py) — direct import
+- [tests/test_codex_cli_0166_lockdown.py](../../../../../../tests/test_codex_cli_0166_lockdown.py) — direct import
 - [tests/test_codex_http_client.py](../../../../../../tests/test_codex_http_client.py) — direct import
   - `test_http_codex_client_health_and_grading_round_trip`
   - `test_http_codex_client_misconception_match_bare_payload`

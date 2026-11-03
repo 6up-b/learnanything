@@ -18,7 +18,7 @@ source_paths:
   - "src/learnloop/content/pipeline/runner.py"
   - "src/learnloop/content/pipeline/source_ingestion.py"
 source_commit: "aggregate; see module notes"
-source_commit_timestamp: "2026-11-02T07:07:21-05:00"
+source_commit_timestamp: "2026-11-02T20:59:20-05:00"
 generated: true
 generated_at: "2026-11-02"
 package: "learnloop.content.pipeline"
@@ -58,7 +58,7 @@ For system intent, use [[Learning System]], [[AI Architecture]].
 |---|---|---:|---:|---:|
 | [[Reference/Modules/learnloop/content/pipeline/__init__|learnloop.content.pipeline]] | [[Reference/Modules/learnloop/content/pipeline/__init__#^module-purpose|purpose]] | `ACTIVE` | 0 | 0 |
 | [[Reference/Modules/learnloop/content/pipeline/acquisition_preview|learnloop.content.pipeline.acquisition_preview]] | [[Reference/Modules/learnloop/content/pipeline/acquisition_preview#^module-purpose|purpose]] | `ACTIVE` | 2 | 2 |
-| [[Reference/Modules/learnloop/content/pipeline/add_source|learnloop.content.pipeline.add_source]] | [[Reference/Modules/learnloop/content/pipeline/add_source#^module-purpose|purpose]] | `ACTIVE` | 15 | 23 |
+| [[Reference/Modules/learnloop/content/pipeline/add_source|learnloop.content.pipeline.add_source]] | [[Reference/Modules/learnloop/content/pipeline/add_source#^module-purpose|purpose]] | `ACTIVE` | 15 | 24 |
 | [[Reference/Modules/learnloop/content/pipeline/ai_contracts|learnloop.content.pipeline.ai_contracts]] | [[Reference/Modules/learnloop/content/pipeline/ai_contracts#^module-purpose|purpose]] | `ACTIVE` | 1 | 10 |
 | [[Reference/Modules/learnloop/content/pipeline/build_plan|learnloop.content.pipeline.build_plan]] | [[Reference/Modules/learnloop/content/pipeline/build_plan#^module-purpose|purpose]] | `ACTIVE` | 4 | 1 |
 | [[Reference/Modules/learnloop/content/pipeline/exam_marking|learnloop.content.pipeline.exam_marking]] | [[Reference/Modules/learnloop/content/pipeline/exam_marking#^module-purpose|purpose]] | `ACTIVE` | 3 | 2 |

@@ -200,7 +200,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 > “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
 
 - [[Reference/Modules/learnloop/content/pipeline/jobs|learnloop.content.pipeline.jobs]] — imports `RichJobStopped`, `run_rich_job`; statically calls `run_rich_job`
-- [[Reference/Modules/learnloop/figures/prefetch|learnloop.figures.prefetch]] — imports `RICH_TASK`, `module`; statically calls `job_state`, `rich_jobs`
+- [[Reference/Modules/learnloop/figures/prefetch|learnloop.figures.prefetch]] — imports `RICH_TASK`, `module`; statically calls `job_state`, `rich_job_for_request`, `rich_jobs`
 - [[Reference/Modules/learnloop/figures/routes|learnloop.figures.routes]] — imports `RICH_BRIEF_MAX`
 - [[Reference/Modules/learnloop/figures/service|learnloop.figures.service]] — imports `_withheld`, `module`; statically calls `RichBrief`, `_withheld`, `intent_learner_state_withheld`, `job_state`, `manim_tier_ready`, `parse_brief`, `rich_job_for`, `rich_job_for_figure`, `rich_job_for_quick`, `rich_job_for_request`, `rich_job_id_for_quick`, `rich_jobs`, `rich_tiers_switch`, `runtime_digest`, `stored_learner_state_withheld`, `tiers_allowed`
 - [[Reference/Modules/learnloop_sidecar/handlers/figures|learnloop_sidecar.handlers.figures]] — imports `module`; statically calls `attempt_hosted_job`, `due_for_plan_retry`, `manim_opt_in_needed`, `manim_runtime_state`
@@ -290,6 +290,9 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_v1_an_unreadable_stored_plan_fails_closed_everywhere`
   - `test_v1_the_worker_rechecks_the_plan_before_the_store`
   - `test_v1_the_worker_stops_a_requeued_prebuild_a_later_plan_holds_before_any_request`
+- [tests/test_followups_batch7_prefetch_capped_resume.py](../../../../../../tests/test_followups_batch7_prefetch_capped_resume.py) — direct import
+  - `test_a_rich_only_request_whose_job_exists_is_linked_with_no_figure_yet`
+- [tests/test_followups_batch7_prefetch_link_served.py](../../../../../../tests/test_followups_batch7_prefetch_link_served.py) — direct import
 - [tests/test_followups_nov2_figure_provenance.py](../../../../../../tests/test_followups_nov2_figure_provenance.py) — direct import
   - `test_a_fuller_version_with_no_record_of_its_own_is_checked_by_its_jobs_payload`
   - `test_a_lesson_figure_keeps_its_record_and_is_rechecked_by_its_learner_inputs`
