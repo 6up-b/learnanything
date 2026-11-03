@@ -34,6 +34,7 @@ from learnloop.cli.recurrence import recurrence_app
 from learnloop.cli.sources import sources_app
 from learnloop.cli.ai import ai_app
 from learnloop.cli.plan import plan_app
+from learnloop.cli.data_capture import data_capture_app
 from learnloop.cli.router import router_app
 from learnloop.cli.reader import reader_app
 from learnloop.cli.curriculum import curriculum_app
@@ -82,6 +83,7 @@ app.add_typer(sources_app, name="sources")
 app.add_typer(plan_app, name="plan")
 app.add_typer(ai_app, name="ai")
 app.add_typer(router_app, name="router")
+app.add_typer(data_capture_app, name="data-capture")
 app.add_typer(reader_app, name="reader")
 app.add_typer(curriculum_app, name="curriculum")
 app.add_typer(teacher_app, name="teacher")

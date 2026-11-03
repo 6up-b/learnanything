@@ -169,7 +169,7 @@ _DELAY_REASONS = frozenset({"insufficient_delay", "same_session", "intervening_p
 _ATTEMPT_COLUMNS = (
     "id, practice_item_id, learning_object_id, session_id, created_at, "
     "scheduler_candidate_id, attempt_type, hints_used, primed, correctness, "
-    "manual_review, manual_review_reason, evidence_origin, evidence_facets_json"
+    "manual_review, manual_review_reason, evidence_origin, evidence_facets_json, latency_seconds"
 )
 #: Columns later migrations added, read when present (202: the presentation
 #: an attempt answers; 188: its answer-key status).

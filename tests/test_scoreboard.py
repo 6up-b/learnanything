@@ -221,7 +221,8 @@ def test_board_is_the_frozen_b5_list_in_b5_order(tmp_path):
     # system can raise anchor accuracy while becoming slower and more
     # interrogative and every other row would report success.
     assert B5_ORDER[0] == "problems_to_cold_success"
-    assert B5_ORDER[2] == "harmful_write_rate"
+    # The time companions (scoreboard v2) ride with the primary; harm comes next.
+    assert B5_ORDER[4] == "harmful_write_rate"
     assert B5_ORDER.index("false_certification_rate") < B5_ORDER.index(
         "questions_to_certification"
     )
@@ -229,7 +230,7 @@ def test_board_is_the_frozen_b5_list_in_b5_order(tmp_path):
     minutes = next(
         metric
         for metric in report["metrics"]
-        if metric["name"] == "learner_minutes_to_cold_success"
+        if metric["name"] == "learner_minutes_to_first_unassisted_success"
     )
     assert minutes["companion_of"] == "problems_to_cold_success"
 

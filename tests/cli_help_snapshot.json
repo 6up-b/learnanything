@@ -1,7 +1,7 @@
 {
   "<root>": {
-    "bytes": 25712,
-    "sha256": "86a75ffbf626763477586fe0512c1f46a6ed1ae784b24339858e63d7ccac20b7"
+    "bytes": 25967,
+    "sha256": "f95c3dc84ace8036bda88a214fd94e3e4c2900b554be86a05c370e60b074db82"
   },
   "accept": {
     "bytes": 1593,
@@ -242,6 +242,14 @@
   "curriculum report": {
     "bytes": 2097,
     "sha256": "9436e900093ef24c23ec3d3d68cb83808acc0551c1ebafb5599883e1d9fb7989"
+  },
+  "data-capture": {
+    "bytes": 1923,
+    "sha256": "8ca6c66ac1305f6014e4622a2dc41e94c87627660e7eae768cba3df7e5a316fc"
+  },
+  "data-capture report": {
+    "bytes": 1368,
+    "sha256": "9809be60af7189d6668248452fd56263710547921eee45d3ff975bf85fbd947d"
   },
   "data-quality": {
     "bytes": 1040,
@@ -1372,8 +1380,8 @@
     "sha256": "a07b81bb87d512abc37e080c985c0d5087e51241f04a64d1462f20116e169976"
   },
   "upgrade": {
-    "bytes": 14361,
-    "sha256": "ca00a69ddd0b0984e8848c1c0ad944b45fbcd002c7a04af8576421a6cfb174c2"
+    "bytes": 14446,
+    "sha256": "4780cd789dc64ec73a9b1c06581c3bdebfc300eb913b25aced2ddd9cd7dfd1d2"
   },
   "usage": {
     "bytes": 1546,

@@ -263,6 +263,10 @@ MODULE_INVENTORY: dict[str, str] = {
     # Teacher TE1b (spec_teacher_v1 §15.1, §18.4): the acceptance model's and the decline
     # recovery's seeded priors (basis legacy, labelled), the card's presentation bounds.
     "lesson_suggestions": "src/learnloop/router/lesson_suggestions.py",
+    # Data capture (docs/reviews/data-capture-a1-a6.md): no decision parameter of its own. The delay is
+    # the outcome contract's, the floor the router's, the pitch and dates the teacher's.
+    "data_capture_prefilter": "src/learnloop/data_capture/prefilter.py",
+    "delayed_checks": "src/learnloop/delayed_checks.py",
 }
 
 # Runtime imports are derived from the same source inventory so a module move
@@ -425,6 +429,12 @@ _reg_const("teacher_actions:_HISTORY_TEXT_CHARS", "display", kind="structural", 
 # Teacher TE1b module constants (spec_teacher_v1 §15.1, §18.4): seeded priors (basis legacy:
 # revision 3's defaults, 1.0 logit per effect, the recovery rate on a grid), learned from every
 # shown suggestion's response; presentation bounds kept.
+_reg_const("data_capture_prefilter:_ROUND_DIGITS", "numerical", kind="structural", owner="data_capture_prefilter",
+           rationale="decimal places of a priority or minutes in a prefilter receipt's inputs, so float "
+           "noise does not defeat the content-addressed dedupe; receipt size only, never a decision.")
+_reg_const("delayed_checks:_EXACT_TIE", "numerical", kind="structural", owner="delayed_checks",
+           rationale="floating-point resolution of an exact tie between two items' predicted success; "
+           "numerical resolution, not a margin: a real difference is never a tie.")
 _reg_const("lesson_suggestions:LEGACY_DAILY_SHOW", "prior", owner="lesson_suggestions",
            rationale="seeded prior, basis legacy (revision 3's about-one-suggestion-a-day): the acceptance "
                      "intercept's centre, logit(0.9), so with no data a card shows on about nine days in ten; "

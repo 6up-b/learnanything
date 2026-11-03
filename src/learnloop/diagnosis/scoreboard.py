@@ -61,9 +61,12 @@ from learnloop.clock import Clock, FrozenClock, parse_utc
 from learnloop.db.copies import backup_database
 from learnloop.db.repositories import Repository
 from learnloop.vault.models import LoadedVault
+from learnloop.substrate.canonical_projection import pfc_assessments
 
 
-SCOREBOARD_VERSION = "b5_scoreboard_v1"
+# v2 (data capture A3): ``learner_minutes_to_cold_success`` never required delay, so it is named for what it
+# measures (``learner_minutes_to_first_unassisted_success``), and the two first-delayed-success proxies join it.
+SCOREBOARD_VERSION = "b5_scoreboard_v2"
 
 
 # ---------------------------------------------------------------------------
@@ -95,11 +98,15 @@ AVAILABILITY: tuple[str, ...] = (
 UNAVAILABLE: frozenset[str] = frozenset(AVAILABILITY) - {"available"}
 
 #: The frozen B5 order (§3 B5, extended by Meas §5.7 before the freeze).
-#: `learner_minutes_to_cold_success` is B5's named *companion* to the primary,
-#: not a fifteenth independent metric — see `Metric.companion_of`.
+#: `learner_minutes_to_first_unassisted_success` (`learner_minutes_to_cold_success` before scoreboard v2:
+#: it stops at the first unassisted success and requires no delay) is B5's named *companion* to the primary,
+#: not a fifteenth independent metric — see `Metric.companion_of`. The two
+#: first-delayed-success proxies (data capture A3) are companions too: the honest time to the target.
 B5_ORDER: tuple[str, ...] = (
     "problems_to_cold_success",
-    "learner_minutes_to_cold_success",
+    "learner_minutes_to_first_unassisted_success",
+    "calendar_days_to_first_delayed_success_proxy",
+    "learner_minutes_to_first_delayed_success_proxy",
     "harmful_write_rate",
     "first_divergence_anchor_accuracy",
     "repair_class_match_rate",
@@ -443,7 +450,7 @@ def cold_success_metrics(
     }
     if reached and not timed:
         minutes = _unavailable(
-            "learner_minutes_to_cold_success",
+            "learner_minutes_to_first_unassisted_success",
             availability="unmeasured",
             unit="minutes",
             denominator_label="learning objects reaching a cold success with full latency capture",
@@ -459,13 +466,14 @@ def cold_success_metrics(
         )
     else:
         minutes = _rate(
-            "learner_minutes_to_cold_success",
+            "learner_minutes_to_first_unassisted_success",
             numerator=round(sum(row.seconds or 0.0 for row in timed) / 60.0, 6),
             denominator=len(timed),
             unit="minutes",
             denominator_label="learning objects reaching a cold success with full latency capture",
             note=(
-                "mean learner minutes until the first unassisted success; "
+                "mean learner minutes until the first unassisted success (no delay "
+                "required: see the first-delayed-success proxies); "
                 f"{len(reached) - len(timed)} trajectory(ies) excluded for "
                 "missing latency"
             ),
@@ -474,6 +482,59 @@ def cold_success_metrics(
             detail=minutes_detail,
         )
     return problems, minutes
+
+
+def first_delayed_success_metrics(
+    vault: LoadedVault, repository: Repository, *, clock: Clock | None = None, success_correctness: float | None = None
+) -> tuple[Metric, Metric]:
+    """Calendar days and active learner minutes from enrollment to a first delayed success (A3).
+
+    A proxy, not goal attainment (``router.first_delayed_success``): unfinished trajectories and
+    timing coverage ride in the detail, and an unfinished one is never counted as reached."""
+
+    from learnloop.clock import utc_now_iso
+    from learnloop.diagnosis.causal_probe_coherence import resolve_causal_probe_parameters
+    from learnloop.held_grades import held_for_review_attempts
+    from learnloop.router.first_delayed_success import LABEL, summary, trajectories
+
+    threshold = (
+        float(success_correctness) if success_correctness is not None
+        else float(resolve_causal_probe_parameters(repository)["cold_verification_success_correctness"])
+    )
+    with repository.connection() as connection:
+        attempt_ids = [row[0] for row in connection.execute("SELECT id FROM practice_attempts")]
+        rows, facts = trajectories(
+            connection, vault, success_correctness=threshold, as_of=utc_now_iso(clock),
+            pfc_states=pfc_assessments(connection, attempt_ids), held_attempt_ids=held_for_review_attempts(connection),
+        )
+    detail = summary(rows, facts)
+    reached = [row for row in rows if row.reached]
+    timed = [row for row in reached if row.complete_latency]
+    empty = f"no learning object has reached a first delayed success yet; {len(rows)} unfinished"
+    days = _rate(
+        "calendar_days_to_first_delayed_success_proxy",
+        numerator=round(sum(float(row.calendar_days or 0.0) for row in reached), 6),
+        denominator=len(reached),
+        unit="days",
+        denominator_label="learning objects reaching a first delayed success",
+        note=f"{LABEL}: enrollment to the first delayed success; {len(rows) - len(reached)} unfinished",
+        empty_note=empty,
+        companion_of="problems_to_cold_success",
+        detail=detail,
+    )
+    minutes = _rate(
+        "learner_minutes_to_first_delayed_success_proxy",
+        numerator=round(sum(row.active_minutes for row in timed), 6),
+        denominator=len(timed),
+        unit="minutes",
+        denominator_label="learning objects reaching a first delayed success with full latency capture",
+        note=(f"{LABEL}: observed active minutes only (elapsed is in the detail, never blended); "
+              f"{len(reached) - len(timed)} excluded for missing latency"),
+        empty_note=empty,
+        companion_of="problems_to_cold_success",
+        detail=detail,
+    )
+    return days, minutes
 
 
 # ---------------------------------------------------------------------------
@@ -1708,6 +1769,7 @@ def scoreboard(
     """
 
     problems, minutes = cold_success_metrics(repository)
+    first_days, first_minutes = first_delayed_success_metrics(vault, repository, clock=clock)
     questions, regret = certification_efficiency_metrics(
         vault, repository, replay=replay, budget=replay_budget
     )
@@ -1718,6 +1780,8 @@ def scoreboard(
         for metric in [
             problems,
             minutes,
+            first_days,
+            first_minutes,
             harmful_write_rate(repository),
             *adjudication,
             probe_action_change_rate(repository),

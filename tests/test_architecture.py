@@ -51,6 +51,7 @@ REGISTERED_SQL_OWNERS = frozenset(
         "src/learnloop/learner/lesson_weight.py",
         # Teacher TE1b (migration 236): the lesson suggestions' responses (the decisions go through stores.router).
         "src/learnloop/db/stores/router_suggestions.py",
+        "src/learnloop/db/stores/data_capture.py",
         "src/learnloop/db/stores/completion.py",
         "src/learnloop/db/stores/model_calls.py",
         "src/learnloop/db/stores/collection.py",
