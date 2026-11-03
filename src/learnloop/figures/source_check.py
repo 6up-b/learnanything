@@ -445,10 +445,22 @@ def quote_overlaps(quote: str, candidate: Candidate) -> bool:
     return False
 
 
+def _point_words(value: Any) -> str:
+    """An exact witness coordinate as its shortest decimal when it is one, else the exact fraction."""
+
+    try:
+        exact = Fraction(str(value))
+    except (ValueError, ZeroDivisionError):
+        return str(value)
+    if Fraction(float(exact)) == exact:
+        return DF.js_string(float(exact)) if exact.denominator > 1 << 20 or exact.denominator == 1 else str(exact)
+    return str(exact)
+
+
 def _witness_words(name: str, witness: Mapping[str, Any]) -> str:
     """The difference, in code's words, for the second attempt and the ledger (§6.6)."""
 
-    at = ", ".join(f"{key} = {value}" for key, value in sorted((witness.get("at") or {}).items()))
+    at = ", ".join(f"{key} = {_point_words(value)}" for key, value in sorted((witness.get("at") or {}).items()))
     if witness.get("kind") == "domain":
         if witness.get("defined") == "figure":
             return f"your definition {name} has a value at {at}, where the quoted equation has none"
@@ -772,6 +784,19 @@ def record(connection: Any, figure_id: str, check: Check, *, trigger: str, creat
     return row_id
 
 
+def failed_check(compiled: S.CompiledFigure) -> Check:
+    """A check that could not run: an honest row, certifying nothing (G23f)."""
+
+    return _finished(compiled, [], [], {"sandbox_failed": 1}, UNDECIDED, "")
+
+
+def stored_problems(found: Mapping[str, Any]) -> list[str]:
+    """The difference a check row records, in code's words, for *rebuild*'s first attempt (§6.6)."""
+
+    return [_witness_words(str(entry.get("name")), entry.get("witness") or {})
+            for entry in found.get("definitions") or () if entry.get("outcome") == DIFFERS]
+
+
 def grammar_row(row: Mapping[str, Any]) -> bool:
     """Only grammar-tier figures are checked (§11.1, N-a): sketch, ``js_animation``
     and ``manim`` keep *not checked against the book*."""
@@ -838,7 +863,156 @@ def recheck(vault: Any, repository: Any, row: Mapping[str, Any], *, live_vault: 
             _RECHECKING.discard(figure_id)
 
 
+# ---------------------------------------------------------------------------
+# The n=1 instruments (§12): descriptive, never a decision rule
+# ---------------------------------------------------------------------------
+
+def _shown_rows(connection: Any) -> list[dict[str, Any]]:
+    rows = store.shown_figures(connection, (S.SPEC_VERSION,), limit=-1)
+    return [row for row in rows if grammar_row(row)]
+
+
+def coverage(vault: Any, repository: Any, *, dry_run: bool, withheld: Callable[[Mapping[str, Any]], bool],
+             sandbox: Sandbox | None = None, clock: Clock | None = None) -> dict[str, Any]:
+    """``reader figure-checks --recheck``: every stored grammar figure rechecked
+    by code, with no model client; ``dry_run`` writes nothing. By outcome and
+    closed reason key, with what was checked (§12 item 1). Written rechecks only
+    run for figures due one; a dry run looks at all of them."""
+
+    with closing(connect(repository.sqlite_path, read_only=True)) as connection:
+        rows = _shown_rows(connection)
+    outcomes: dict[str, int] = {}
+    reasons: dict[str, int] = {}
+    elements: dict[str, int] = {}
+    checked: list[dict[str, Any]] = []
+    durations: list[int] = []
+    skipped = {"withheld": 0, "not_due": 0, "unreadable": 0}
+    for row in rows:
+        if withheld(row):
+            skipped["withheld"] += 1
+            continue
+        if not dry_run and not recheck_due(current_row(repository, str(row["id"]))):
+            skipped["not_due"] += 1
+            continue
+        result = recheck(vault, repository, row, dry_run=dry_run, sandbox=sandbox, clock=clock)
+        if result is None:
+            skipped["unreadable"] += 1
+            continue
+        outcomes[result.outcome] = outcomes.get(result.outcome, 0) + 1
+        durations.append(result.duration_ms)
+        for key, count in result.reasons.items():
+            reasons[key] = reasons.get(key, 0) + count
+        for element in result.elements:
+            role = str(element.get("role"))
+            elements[role] = elements.get(role, 0) + 1
+        checked.extend(_audit_entries(row, result.definitions, result.elements))
+    return {"figures": sum(outcomes.values()), "outcomes": outcomes, "reasons": dict(sorted(reasons.items())),
+            "elements": elements, "skipped": skipped, "latency_ms": _latency(durations), "checked": checked,
+            "certification_version": CERTIFICATION_VERSION, "reader_version": BM.READER_VERSION,
+            "harness_sha256": HARNESS_SHA256, "model_calls": 0}
+
+
+def _latency(durations: Sequence[int]) -> dict[str, int | None]:
+    ordered = sorted(durations)
+    return {"median": ordered[len(ordered) // 2] if ordered else None, "max": ordered[-1] if ordered else None}
+
+
+def _audit_entries(row: Mapping[str, Any], definitions: Sequence[Mapping[str, Any]],
+                   elements: Sequence[Mapping[str, Any]]) -> list[dict[str, Any]]:
+    """Each element carrying the claim, for the owner's audit (§12 item 2): the
+    book's equation as read, its page and the figure's definition, rendered."""
+
+    try:
+        compiled = S.parse_spec(row["spec_json"])
+    except S.SpecError:
+        return []
+    by_name = {entry.get("name"): entry for entry in definitions}
+    found = []
+    for element in elements:
+        if element.get("role") != "book":
+            continue
+        name = str(element.get("definition"))
+        node = compiled.definitions.get(name)
+        provenance = (by_name.get(name) or {}).get("candidate") or {}
+        found.append({
+            "figure_id": row["id"], "element": element.get("id"), "definition": name,
+            "definition_tex": E.to_tex(expand(node, compiled.definitions), {}) if node is not None else "",
+            "book_equation": element.get("equation"), "lhs": element.get("tex"),
+            "extraction_id": provenance.get("extraction_id"), "span_id": provenance.get("span_id"),
+            "page": provenance.get("page"), "block_health": provenance.get("block_health"),
+        })
+    return found
+
+
+def audit(repository: Any) -> dict[str, Any]:
+    """``reader figure-checks`` with no ``--recheck``: each element carrying the claim, from the ledger."""
+
+    with closing(connect(repository.sqlite_path, read_only=True)) as connection:
+        checks = store.latest_source_checks(connection, CERTIFICATION_VERSION)
+        rows = {str(row["id"]): row for row in _shown_rows(connection)}
+    checked: list[dict[str, Any]] = []
+    outcomes: dict[str, int] = {}
+    for found in checks:
+        outcomes[found["outcome"]] = outcomes.get(found["outcome"], 0) + 1
+        row = rows.get(str(found["figure_id"]))
+        if row is not None:
+            checked.extend(_audit_entries(row, found["definitions"], found["elements"]))
+    return {"figures": sum(outcomes.values()), "outcomes": outcomes, "checked": checked,
+            "certification_version": CERTIFICATION_VERSION}
+
+
+def report_block(connection: Any, *, since: str | None = None) -> dict[str, Any]:
+    """The reader report's ``source_checks``: outcomes, reasons, elements, latency, and
+    opens and "not right?" notes for figures with a ``book`` element and without (§12 item 4)."""
+
+    checks = [found for found in store.latest_source_checks(connection, CERTIFICATION_VERSION)
+              if since is None or str(found["created_at"]) >= since]
+    outcomes: dict[str, int] = {}
+    reasons: dict[str, int] = {}
+    elements: dict[str, int] = {}
+    with_book: set[str] = set()
+    for found in checks:
+        outcomes[found["outcome"]] = outcomes.get(found["outcome"], 0) + 1
+        for key, count in (found.get("reasons") or {}).items():
+            reasons[key] = reasons.get(key, 0) + int(count)
+        for element in found.get("elements") or ():
+            role = str(element.get("role"))
+            elements[role] = elements.get(role, 0) + 1
+            if role == "book":
+                with_book.add(str(found["figure_id"]))
+    opened = {"with_book": 0, "without": 0}
+    notes = {"with_book": 0, "without": 0}
+    checked_figures = {str(found["figure_id"]) for found in checks}
+    for (figure_id,) in connection.execute(
+            "SELECT json_extract(payload_json, '$.figure_id') FROM interaction_events "
+            "WHERE kind = 'reader_action_invoked' AND json_extract(payload_json, '$.event') = 'figure_opened'"):
+        if str(figure_id) in checked_figures:
+            opened["with_book" if str(figure_id) in with_book else "without"] += 1
+    for (supersedes_id,) in connection.execute(
+            "SELECT supersedes_id FROM interactive_figures WHERE supersedes_id IS NOT NULL "
+            "AND COALESCE(revision_note, '') != ''"):
+        if str(supersedes_id) in checked_figures:
+            notes["with_book" if str(supersedes_id) in with_book else "without"] += 1
+    return {"certification_version": CERTIFICATION_VERSION, "figures": sum(outcomes.values()), "outcomes": outcomes,
+            "reasons": dict(sorted(reasons.items())), "elements": elements,
+            "latency_ms": _latency([int(found.get("duration_ms") or 0) for found in checks]),
+            "opened": opened, "not_right_notes": notes}
+
+
+def add_report_block(report: dict[str, Any], sqlite_path: Any, *, since: str | None = None) -> dict[str, Any]:
+    """Put :func:`report_block` under the reader report's ``figures`` (``learnloop reader
+    report`` calls it only with the switch on, so off the report is as before: G23g)."""
+
+    with closing(connect(sqlite_path, read_only=True)) as connection:
+        if store.has_source_checks(connection):
+            report.setdefault("figures", {})["source_checks"] = report_block(connection, since=since)
+    return report
+
+
 __all__ = [
+    "add_report_block",
+    "audit",
+    "coverage",
     "CERTIFICATION_VERSION",
     "CHECKED",
     "Check",
@@ -856,6 +1030,7 @@ __all__ = [
     "current_row",
     "drawn_by_reference",
     "enabled",
+    "failed_check",
     "grammar_row",
     "input_spans",
     "read_candidates",
@@ -863,4 +1038,5 @@ __all__ = [
     "recheck_due",
     "recheck_key",
     "record",
+    "stored_problems",
 ]

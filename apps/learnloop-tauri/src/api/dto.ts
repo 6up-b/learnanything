@@ -9790,6 +9790,40 @@ export interface FigureViewDto {
   fuller?: FigureFullerDto | null;
   /** RW5d P4b: "lesson" when a lesson shows it (its own predictions suppressed, no fuller version). */
   host?: "lesson";
+  /** RW5c (present only for a grammar figure while figures.checked_labels_enabled is on): every label
+   *  of a figure with a checked element, by the element id its specJson carries in that label's place. */
+  elements?: FigureElementDto[];
+  sourceCheck?: FigureSourceCheckDto;
+}
+
+/** RW5c §7.4: one element's code-written label. ``role`` and ``voice`` are closed values; ``tex`` is the
+ *  book's own text (``book``, ``symbol``) or LearnLoop's rendering, never a model's label. */
+export interface FigureElementDto {
+  id: string;
+  path: string;
+  role: "book" | "derived" | "symbol" | "ai";
+  tex: string;
+  plain: string;
+  voice: "source" | "frame" | "model";
+  definition?: string;
+  /** "ai_defined": a reference to a definition that is not checked. */
+  tag?: "ai_defined";
+  /** ``book``: the book's equation as LearnLoop read it. */
+  equation?: string;
+  source?: { extractionId: string; spanId: string; page: number | null };
+  /** A derived label's closed template, rebuilt from the evaluation at every slider change. */
+  template?: { kind: "shade" | "highlight" | "integral" | "sum"; panel: number; index: number; bodyTex: string; bodyPlain: string; variable: string };
+}
+
+export interface FigureSourceCheckDto {
+  status: "checked" | "none" | "differs";
+  certificationVersion: number;
+  /** Closed keys; the Reader words them (SOURCE_CHECK_COPY) and drops any it does not know. */
+  reasons: string[];
+  /** No check at the current certification version: opening the figure rechecks it, by code. */
+  recheckDue: boolean;
+  /** ``differs``, with revisions on: *rebuild* asks for a new version. */
+  rebuild: boolean;
 }
 
 /** RW5d P2b: one check code ran on a Manim figure's declared function (spec §9b.4). */

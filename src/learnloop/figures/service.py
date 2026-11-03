@@ -108,6 +108,19 @@ versions). With no quick figure the request's pending line shows
 Off: no rich menu entry, no rich keys in a view, and a stored rich figure
 lists as "can't show this kind here" (:func:`rich_off_row`).
 
+**RW5c P1: "matches the book's equation (checked)"** (spec_reader_rw5c_checked_labels_v1).
+With ``figures.checked_labels_enabled`` on, a grammar figure that passed steps
+1-2 goes through step 3 (:mod:`.source_check`, code only, in the sandbox) inside
+the attempt loop: a stated claim proved different is one more problem for the
+second attempt, inside the existing cap, and if it still differs the figure is
+stored but not shown. Each check row commits with its ``figure_source_check``
+judgment. On a figure with a ``book`` element every label is code's
+(:mod:`.elements`, option B): the delivered spec carries element ids and the
+view the element map. Off: nothing reads the ledger and the view, reuse keys
+and prompts are RW5a/RW5d's. A stored figure is rechecked by code when opened
+(:func:`learnloop.figures.source_check.recheck`). The check is not in the reuse
+key, so a prebuilt figure (RW5d P5) keeps its key and arrives checked.
+
 **RW5d P5: figures ahead of need** (spec_reader_show_me_figures_v1 §10b).
 Origin ``prefetch`` is refused from every request except the in-process
 prefetch service's (:func:`build_prefetch_figure`, under ``quiet()``): the
@@ -155,6 +168,7 @@ from learnloop.figure_admission import (
     FiguresGate,
     advanced_panels_enabled,
     author_learner_state_enabled,
+    checked_labels_enabled,
     figure_home_keys,
     figures_enabled,
     offers_enabled,
@@ -162,12 +176,14 @@ from learnloop.figure_admission import (
 from learnloop.figure_admission import sketch_enabled as admission_sketch_enabled
 from learnloop.figure_admission import GROUNDING_PASSAGES as ADMISSION_GROUNDING_PASSAGES
 from learnloop.figure_admission import show_me_enabled as admission_show_me_enabled
+from learnloop.figures import elements as E
 from learnloop.figures import grammar as G
 from learnloop.figures import labels as L
 from learnloop.figures import manim_figure as M
 from learnloop.figures import rich as RICH
 from learnloop.figures import routes as R
 from learnloop.figures import sketch as K
+from learnloop.figures import source_check as SC
 from learnloop.figures import spec as S
 from learnloop.figures import verify as V
 from learnloop.ids import new_ulid
@@ -301,6 +317,12 @@ class FigureRequest:
     #: RW5d P5: the prefetch decision this build serves (set only by the
     #: in-process prefetch service, :func:`build_prefetch_figure`).
     prefetch_decision_id: str | None = None
+    #: RW5c (Codex review F3): *rebuild* of a figure whose stated claim differs:
+    #: the check row it answers (in the reuse key only when set, so every other
+    #: hash is unchanged) and that row's difference, in code's words, as the
+    #: first attempt's problems. Set only by :func:`rebuild_request`.
+    source_check_id: str | None = None
+    initial_problems: list[str] = field(default_factory=list)
 
 
 @dataclass
@@ -386,7 +408,9 @@ def build_key(vault: Any) -> tuple[Any, ...]:
     the author route as configured, the day's cap and the price, and (RW5b)
     whether the advanced panels are on (the author's prompt depends on it);
     likewise (learner data-relax 2, Codex review F2) whether the author is
-    sent the learner's state (``figures.author_learner_state``)."""
+    sent the learner's state (``figures.author_learner_state``); RW5c (F5):
+    whether step 3 runs, so a switch change between the sandbox's result and the
+    second attempt stops it. Admission only: never in the reuse key."""
 
     from learnloop.practice_index.paid import plan_route
 
@@ -394,7 +418,7 @@ def build_key(vault: Any) -> tuple[Any, ...]:
     return (str(vault.root), figures_enabled(vault), plan_route(vault, R.AUTHOR_TASK, None),
             getattr(section, "max_daily_cost_usd", None), getattr(section, "price_per_million", None),
             advanced_panels_enabled(vault), sketch_switch(vault), RICH.rich_tiers_switch(vault),
-            RICH.manim_tier_ready(vault), author_learner_state_enabled(vault))
+            RICH.manim_tier_ready(vault), author_learner_state_enabled(vault), checked_labels_enabled(vault))
 
 
 def offer_build_key(vault: Any) -> tuple[Any, ...]:
@@ -1342,6 +1366,11 @@ def figure_view(vault: Any, repository: Repository, row: Mapping[str, Any], *, v
         view["tier"] = "manim" if rich_row(row) else ("sketch" if sketch_row(row) else "grammar")
         view["manim"] = None
         view["fuller"] = None if rich_row(row) else fuller_state(vault, repository, row)
+    if (row.get("verification_report") or {}).get("source_check_rejected"):
+        # RW5c (§6.6): the frame's failed state, with *rebuild* while revisions are on.
+        view["elements"] = []
+        view["source_check"] = {"status": "differs", "certification_version": SC.CERTIFICATION_VERSION,
+                                "reasons": ["differs"], "recheck_due": False, "rebuild": revisions_enabled(vault)}
     if row["verification"] not in store.SHOWN or not row.get("spec_json"):
         return view
     if rich_row(row):
@@ -1374,6 +1403,7 @@ def figure_view(vault: Any, repository: Repository, row: Mapping[str, Any], *, v
                 "index": index, "prompt": prediction.prompt, "kind": prediction.observe.kind, "choices": choices,
                 "answered": _prediction_view(answered.get(index)),
             })
+    _source_check_view(vault, repository, row, compiled, view)
     return view
 
 
@@ -1453,12 +1483,100 @@ def _manim_view(row: Mapping[str, Any], view: dict[str, Any]) -> dict[str, Any]:
     return view
 
 
+def source_rejected(vault: Any, repository: Repository, row: Mapping[str, Any]) -> bool:
+    """RW5c (§6.6): the figure's newest check, at the current certification
+    version and with the switch on, proved a stated claim different. Nothing
+    reads the ledger with the switch off (G23g)."""
+
+    if not SC.enabled(vault) or not SC.grammar_row(row) or row.get("verification") not in store.SHOWN:
+        return False
+    found = SC.current_row(repository, str(row["id"]))
+    return found is not None and found["outcome"] == SC.DIFFERS
+
+
+def _source_rejected_row(vault: Any, repository: Repository, row: Mapping[str, Any]) -> Mapping[str, Any]:
+    if not source_rejected(vault, repository, row):
+        return row
+    report = dict(row.get("verification_report") or {})
+    return {**row, "verification": V.FAILED, "spec_json": None,
+            "verification_report": {**report, "reason": SC.REJECTED_REASON, "source_check_rejected": True}}
+
+
+def _source_check_view(vault: Any, repository: Repository, row: Mapping[str, Any], compiled: S.CompiledFigure,
+                       view: dict[str, Any]) -> None:
+    """RW5c (§7.4): a shown grammar figure's ``elements`` and ``source_check``,
+    read from the ledger as the switch is now (absent with it off: the view is
+    RW5a/RW5d's key for key). With a ``book`` element every label in the spec
+    goes out as its element id (option B); with none the figure is drawn exactly
+    as before, with the closed reasons for the frame."""
+
+    if not SC.enabled(vault) or not SC.grammar_row(row):
+        return
+    found = SC.current_row(repository, str(row["id"]))
+    reasons = [key for key in (found.get("reasons") or {}) if key in SC.REASONS] if found else []
+    view["elements"] = []
+    view["source_check"] = {"status": "none", "certification_version": SC.CERTIFICATION_VERSION, "reasons": reasons,
+                            "recheck_due": SC.recheck_due(found), "rebuild": False}
+    if found is None or not any(element.get("role") == "book" for element in found.get("elements") or ()):
+        return
+    view["spec_json"], by_label = E.rewrite_spec(row["spec_json"], compiled)
+    view["elements"] = found["elements"]
+    view["source_check"]["status"] = "checked"
+    plain = {str(element["id"]): str(element.get("plain") or "") for element in found["elements"]}
+    for prediction in view["predictions"]:
+        if prediction.get("kind") != "area":
+            continue
+        prediction["choices"] = [{"value": by_label.get(choice["value"], ""),
+                                  "label": plain.get(by_label.get(choice["value"], ""), "")}
+                                 for choice in prediction["choices"]]
+        if prediction.get("answered"):
+            prediction["answered"] = _coded_answer(prediction["answered"], by_label)
+
+
+def _coded_answer(answered: Mapping[str, Any], by_label: Mapping[str, str]) -> dict[str, Any]:
+    """An answered area prediction under code-owned labels: its stored answers
+    (shade labels, kept as they were) go out as the shades' element ids."""
+
+    return {**answered, "learner_answer": by_label.get(str(answered.get("learner_answer")), ""),
+            "answer": by_label.get(str(answered.get("answer")), "")}
+
+
+def _code_owned_labels(vault: Any, repository: Repository, row: Mapping[str, Any],
+                       compiled: S.CompiledFigure) -> dict[str, str] | None:
+    """Model label -> element id while this figure's labels are code-owned, else None."""
+
+    if not SC.enabled(vault) or not SC.grammar_row(row):
+        return None
+    found = SC.current_row(repository, str(row["id"]))
+    if found is None or not any(element.get("role") == "book" for element in found.get("elements") or ()):
+        return None
+    return E.rewrite_spec(row["spec_json"], compiled)[1]
+
+
+def rebuild_request(vault: Any, repository: Repository, base: Mapping[str, Any]) -> FigureRequest:
+    """*Rebuild* of a figure whose stated claim differs (§6.6, Codex review F3):
+    a new version through the revision path, never a reuse of the rejected row.
+    No note from the learner; the difference is code's text, sent as the first
+    attempt's problems, and the check row it answers joins the reuse key."""
+
+    found = SC.current_row(repository, str(base["id"])) if SC.enabled(vault) and SC.grammar_row(base) else None
+    if found is None or found["outcome"] != SC.DIFFERS:
+        raise FigureRefused("validation_error", "That figure has no difference from the book to rebuild.")
+    request = revision_request(repository, base, "")
+    request.source_check_id = str(found["id"])
+    request.initial_problems = SC.stored_problems(found)
+    return request
+
+
 def _presented_row(vault: Any, repository: Repository, row: Mapping[str, Any]) -> dict[str, Any]:
     """A stored row as :func:`figure_view` presents it under the switches now."""
 
     row = rich_off_row(vault, sketch_off_row(vault, advanced_off_row(vault, shown_row(row))))
     if sketch_enabled(vault):
         row = sketch_rechecked(row, repository)
+    # RW5c: a stated claim proved different is not shown (§6.6, Q4); the row
+    # keeps steps 1-2's result, and this state comes from the ledger.
+    row = _source_rejected_row(vault, repository, row)
     # After the re-verification (it reads the stored program): the free-text
     # label rule as presented (spec §9b.4, Codex review F3, Nov 1b).
     return worded_row(row)
@@ -1474,14 +1592,28 @@ def redelivered_view(vault: Any, repository: Repository, view: Mapping[str, Any]
     (:func:`figure_withheld`). A view with no fuller line (the rich tiers off,
     or a rich figure) is returned as it is."""
 
-    if "fuller" not in view or not view.get("figure_id"):
+    if ("fuller" not in view and "source_check" not in view and not SC.enabled(vault)) or not view.get("figure_id"):
         return dict(view)
     with closing(connect(repository.sqlite_path, read_only=True)) as connection:
         row = store.figure(connection, str(view["figure_id"])) if store.has_tables(connection) else None
     if row is None:
         return dict(view)
     presented = _presented_row(vault, repository, row)
-    return {**view, "fuller": None if rich_row(presented) else fuller_state(vault, repository, presented)}
+    fresh = dict(view)
+    if "fuller" in view:
+        fresh["fuller"] = None if rich_row(presented) else fuller_state(vault, repository, presented)
+    if SC.grammar_row(row) and ("source_check" in view or SC.enabled(vault)):
+        # RW5c: the labels and the claim as the switch and the ledger are now,
+        # never as they were when the build finished (§10.1).
+        current = figure_view(vault, repository, row, versions=int(view.get("versions") or 1))
+        keep = {key: current[key] for key in ("verification", "label", "reason", "spec_json", "predictions",
+                                              "demonstrates", "assumptions", "property_checks") if key in current}
+        fresh.update(keep)
+        for key in ("elements", "source_check"):
+            fresh.pop(key, None)
+            if key in current:
+                fresh[key] = current[key]
+    return fresh
 
 
 def fuller_state(vault: Any, repository: Repository, row: Mapping[str, Any]) -> dict[str, Any] | None:
@@ -1613,6 +1745,10 @@ def request_hash(request: FigureRequest, context: SourceContext, image_digest: s
         "passage": context.passage, "around": context.around, "image_sha256": image_digest,
         "supersedes_id": request.supersedes_id, "revision_note": request.revision_note,
     }
+    if request.source_check_id:
+        # RW5c (Codex review F3): a rebuild asks afresh, even after a certification
+        # bump. Absent otherwise: every other key is unchanged.
+        key["source_check_id"] = request.source_check_id
     if request.different_kind:
         # Codex re-review F13: "try a different kind of figure" is routed (and
         # prompted) apart from the ordinary correction with the same note, so
@@ -1665,6 +1801,7 @@ def _reusable(vault: Any, repository: Repository, connection: Any, input_hash: s
     for other_key in ([other_hash] if isinstance(other_hash, str) else list(other_hash)):
         other = store.reusable(connection, other_key, SPEC_VERSIONS)
         if (other is not None and other["verification"] in store.SHOWN and drawable_now(vault, other)
+                and not source_rejected(vault, repository, other)
                 and not _learner_inputs_unrecorded(other)):  # Codex re-review F5: withheld, never reused
             return other
     return None
@@ -2300,6 +2437,28 @@ def _without_label_text(output: Any) -> Any:
     return SimpleNamespace(**{**vars(output), **update})
 
 
+def _step_three(vault: Any, repository: Repository, compiled: S.CompiledFigure, context: SourceContext,
+                request: FigureRequest, grounding: Grounding | None, gate: FiguresGate) -> SC.Check | None:
+    """RW5c's check of a spec that passed steps 1-2, or None with the switch off.
+    Whatever goes wrong in it is a closed reason, never ``checked`` and never a
+    failed build (G23f); a switch change stops the build as at every other step."""
+
+    if not SC.enabled(vault):
+        return None
+    gate.check("source_check")
+    spans = ([(key[0], key[1], f"{key[0]}:{key[1]}") for key in dict.fromkeys(context.keys)] if context.keys else
+             [(str(request.extraction_id), str(span), str(span)) for span in context.span_texts]
+             if request.extraction_id else [])
+    try:
+        return SC.check_figure(vault, repository, compiled, spans=spans,
+                               grounding=(grounding or Grounding("anchor")).mode)
+    except FiguresChanged:
+        raise
+    except Exception:  # noqa: BLE001 - a check that cannot run certifies nothing, and costs the figure nothing
+        _LOG.warning("figures: the source check could not run", exc_info=True)
+        return SC.failed_check(compiled)
+
+
 def _author_and_store(vault: Any, repository: Repository, request: FigureRequest, context: SourceContext,
                       author: R.FigureRoute, *, previous: Mapping[str, Any] | None, versions: int,
                       image: tuple[str, bytes] | None, asset_id: str | None, digest: str | None, input_hash: str,
@@ -2321,8 +2480,10 @@ def _author_and_store(vault: Any, repository: Repository, request: FigureRequest
     request.tiers_allowed = tuple(tiers) if v3 else (("grammar", "sketch") if sketch else ("grammar",))
     brief: RICH.RichBrief | None = None
     quick_dropped: str | None = None
-    problems: list[str] = []
+    # RW5c: a rebuild's first attempt is told the difference (empty otherwise).
+    problems: list[str] = list(request.initial_problems)
     compiled: S.CompiledFigure | None = None
+    source_check: SC.Check | None = None
     report = V.Report()
     output: Any = None
     unsupported: tuple[str, str] | None = None
@@ -2394,7 +2555,14 @@ def _author_and_store(vault: Any, repository: Repository, request: FigureRequest
                         if report.outcome == V.FAILED:
                             quick_dropped = report.reason
                         else:
-                            compiled = candidate
+                            # RW5c: a quick figure whose stated claim differs is
+                            # dropped like any that fails (the rich half carries on).
+                            source_check = _step_three(vault, repository, candidate, context, request, grounding, gate)
+                            if source_check is not None and source_check.outcome == SC.DIFFERS:
+                                quick_dropped = (source_check.problems or [SC.REJECTED_REASON])[0]
+                                source_check = None
+                            else:
+                                compiled = candidate
                     except S.SpecError as exc:
                         quick_dropped = exc.problems[0] if exc.problems else "the quick figure is invalid"
                 elif sketch and str(getattr(output, "sketch_json", "") or "").strip():
@@ -2460,6 +2628,13 @@ def _author_and_store(vault: Any, repository: Repository, request: FigureRequest
         if report.outcome == V.FAILED:
             problems = [report.reason, *report.structural[1:], *report.invariant_problems[1:]]
             compiled = None
+            continue
+        # RW5c: step 3, inside the loop (§6.6): a stated claim proved different is
+        # one more problem for the second attempt. Its only spend is that attempt,
+        # admitted by this gate, whose key holds the switch (§6.7, F5).
+        source_check = _step_three(vault, repository, compiled, context, request, grounding, gate)
+        if source_check is not None and source_check.outcome == SC.DIFFERS and attempt < R.MAX_AUTHOR_ATTEMPTS - 1:
+            problems = source_check.problems or [SC.REJECTED_REASON]
             continue
         break
     figure_id = FIGURE_PREFIX + new_ulid()
@@ -2531,6 +2706,9 @@ def _author_and_store(vault: Any, repository: Repository, request: FigureRequest
                             rationale=(report.reason or "")[:400], created_at=row["created_at"])
             if (sketch or v3) and verdict is not None:
                 _append_tier(connection, figure_id, input_hash, verdict, author, prompt_version, row["created_at"])
+            if source_check is not None and row["verification"] in store.SHOWN:
+                # RW5c (F6, G23i): the check row and its verdict, in this transaction.
+                SC.record(connection, figure_id, source_check, trigger="build", created_at=row["created_at"])
     except sqlite3.IntegrityError:
         # Another process stored this input's figure first (the reuse index):
         # that one is the figure; this build's paid calls keep their receipts.
@@ -2987,7 +3165,8 @@ def _listed(vault: Any, repository: Repository,
         shown = [row for row in chain if row["verification"] in store.SHOWN]
         # Codex review F5: with the panels off, the newest version that can
         # still be drawn, before one that would list as "can't draw this yet".
-        drawable = [row for row in shown if drawable_now(vault, row)]
+        # RW5c: a version whose stated claim differs is not shown (the failed line only when nothing else is).
+        drawable = [row for row in shown if drawable_now(vault, row) and not source_rejected(vault, repository, row)]
         pick = (drawable or shown or chain)[-1]
         if row_withheld(vault, repository, pick) is not None:
             continue
@@ -3054,7 +3233,8 @@ def _prebuilt_listed(vault: Any, repository: Repository, row: Mapping[str, Any])
         return True
     # Codex review F10: unpressed, only a completed (shown) prebuild lists,
     # never a failed or unsupported one (speculation is invisible until useful).
-    return prefetch_switch(vault) and row.get("verification") in store.SHOWN
+    # RW5c: nor one rejected by its source check, whose only state is a failed line.
+    return prefetch_switch(vault) and row.get("verification") in store.SHOWN and not source_rejected(vault, repository, row)
 
 
 def _prebuilt_pressed(repository: Repository, row: Mapping[str, Any]) -> bool:
@@ -3331,7 +3511,7 @@ def section_figures(vault: Any, repository: Repository, extraction_id: str,
                 cached = _RECHECKED.get((str(row["id"]), ENGINE_SHA256, SV.VERIFIER_REPORT_VERSION))
             if cached is not None and cached["outcome"] != V.ILLUSTRATIVE:
                 continue
-        row = worded_row(row)
+        row = worded_row(_source_rejected_row(vault, repository, row))
         if row.get("verification") not in store.SHOWN:
             continue
         asked = _figure_request(repository, row)
@@ -3529,6 +3709,8 @@ def shown_figure(vault: Any, repository: Repository, figure_id: str) -> tuple[di
                                                 "(figures.show_me_enabled).")
     if row_withheld(vault, repository, row) is not None:
         raise FigureRefused("exam_material", "That figure's passage is held out now.")
+    if source_rejected(vault, repository, row):
+        raise FigureRefused("not_found", "That figure is not shown.")
     if sketch_row(row):
         return row, K.parse_sketch(row["spec_json"])
     return row, S.parse_spec(row["spec_json"])
@@ -3564,12 +3746,23 @@ def record_prediction(vault: Any, repository: Repository, figure_id: str, index:
     if outcome.get("answer") is None:
         raise FigureRefused("validation_error", "That prediction can't be decided.")
     answer = " ".join(str(answer or "").split())[:ANSWER_CHARS]
+    # RW5c: under code-owned labels an area prediction's choices go out as the
+    # shades' element ids; the stored answer stays the shade's own label.
+    coded = _code_owned_labels(vault, repository, row, compiled) if outcome.get("kind") == "area" and isinstance(
+        compiled, S.CompiledFigure) else None
+    if coded is not None:
+        answer = next((label for label, element in coded.items() if element == answer), "")
+
+    def delivered(found: Mapping[str, Any] | None) -> dict[str, Any]:
+        view = _prediction_view(found) or {}
+        return _coded_answer(view, coded) if coded is not None and view else view
+
     if answer not in outcome["choices"]:
         raise FigureRefused("validation_error", "Pick one of the prediction's answers.")
     with closing(connect(repository.sqlite_path, read_only=True)) as connection:
         existing = store.prediction_for(connection, figure_id, int(index))
     if existing is not None:
-        return _prediction_view(existing) or {}
+        return delivered(existing)
     prediction = {
         "id": PREDICTION_PREFIX + new_ulid(), "figure_id": figure_id, "extraction_id": home,
         "prediction_index": int(index), "learner_answer": answer,
@@ -3582,7 +3775,7 @@ def record_prediction(vault: Any, repository: Repository, figure_id: str, index:
         store.insert_prediction(repository.connection(), prediction)
     if not prediction["matched"]:
         _queued(_queue_formative(vault, repository, prediction["id"], clock=clock), on_queued)
-    return _prediction_view({**prediction, "matched": prediction["matched"]}) or {}
+    return delivered({**prediction, "matched": prediction["matched"]})
 
 
 def _sketch_outcome(compiled: K.CompiledSketch, index: int) -> dict[str, Any]:
@@ -3615,7 +3808,10 @@ def record_explanation(vault: Any, repository: Repository, prediction_id: str, t
         found = store.prediction(connection, prediction_id) if store.has_tables(connection) else None
     if found is None:
         raise FigureRefused("not_found", "That prediction is no longer kept.")
-    shown_figure(vault, repository, str(found["figure_id"]))
+    row, compiled = shown_figure(vault, repository, str(found["figure_id"]))
+    observed = found.get("observed") or {}
+    coded = _code_owned_labels(vault, repository, row, compiled) if observed.get("kind") == "area" and isinstance(
+        compiled, S.CompiledFigure) else None
     with repository.atomic():
         set_now = store.set_explanation(repository.connection(), prediction_id, text, at=utc_now_iso(clock))
     if set_now and not found["matched"]:
@@ -3623,7 +3819,8 @@ def record_explanation(vault: Any, repository: Repository, prediction_id: str, t
 
         _queued(enqueue_figure_explanation(vault, repository, prediction_id=prediction_id, clock=clock), on_queued)
     with closing(connect(repository.sqlite_path, read_only=True)) as connection:
-        return _prediction_view(store.prediction(connection, prediction_id)) or {}
+        view = _prediction_view(store.prediction(connection, prediction_id)) or {}
+    return _coded_answer(view, coded) if coded is not None and view else view
 
 
 def _queue_formative(vault: Any, repository: Repository, prediction_id: str, *, clock: Clock | None) -> str | None:
@@ -3651,6 +3848,8 @@ __all__ = [
     "SERVICE_ORIGINS",
     "anchored",
     "build_figure",
+    "rebuild_request",
+    "source_rejected",
     "check_request",
     "enabled",
     "figure_view",

@@ -79,8 +79,55 @@ def reader_report(
             from learnloop.figures.prefetch_ledger import add_report_block
 
             add_report_block(report, path, since=_since(since, now), plan_providers=_plan_providers(loaded), now=now)
+        if loaded.config.figures.enabled and loaded.config.figures.checked_labels_enabled:
+            # RW5c (spec §12): the source-check block (absent with the switch off: G23g).
+            from learnloop.figures.source_check import add_report_block as add_source_checks
+
+            add_source_checks(report, path, since=_since(since, now))
         report["reader_inquiry"] = loaded.config.reader_inquiry.model_dump(mode="json")
         typer.echo(json.dumps(report, sort_keys=True, indent=None if json_output else 2))
+    except (ValueError, OSError, sqlite3.Error) as exc:
+        typer.echo(json.dumps({"status": "invalid", "reason": str(exc)}, sort_keys=True))
+        raise typer.Exit(code=1) from exc
+
+
+@reader_app.command("figure-checks")
+def figure_checks(
+    vault: Annotated[Path, typer.Option("--vault", help="Vault root.")],
+    recheck: Annotated[
+        bool, typer.Option("--recheck", help="Recheck stored grammar figures by code (no model client): those with no "
+                                             "check at the current certification version.")
+    ] = False,
+    dry_run: Annotated[
+        bool, typer.Option("--dry-run", help="With --recheck: look at every stored grammar figure and report by "
+                                             "reason key; write nothing.")
+    ] = False,
+    json_output: Annotated[bool, typer.Option("--json")] = False,
+) -> None:
+    """Reader RW5c: what "matches the book's equation (checked)" covers (spec §12). Without
+    --recheck, each element carrying the claim, for your audit: the book's equation as
+    LearnLoop read it, its page and the figure's definition. Never calls a model."""
+
+    from learnloop.db.repositories import Repository
+    from learnloop.figures import service as FS
+    from learnloop.figures import source_check as SC
+
+    try:
+        if not (vault / "learnloop.toml").is_file():
+            raise ValueError("--vault must contain learnloop.toml")
+        if dry_run and not recheck:
+            raise ValueError("--dry-run goes with --recheck")
+        loaded = load_vault(vault, load_environment=False)
+        path = VaultPaths(loaded.root, loaded.config).sqlite_path
+        repository = Repository.attach(path, read_only=dry_run or not recheck)
+        enabled = SC.enabled(loaded)
+        payload: dict[str, object] = {"status": "ok", "enabled": enabled, "dry_run": dry_run}
+        if not recheck:
+            payload.update(SC.audit(repository) if enabled else {})
+        elif enabled:
+            payload.update(SC.coverage(loaded, repository, dry_run=dry_run,
+                                       withheld=lambda row: FS.row_withheld(loaded, repository, row) is not None))
+        typer.echo(json.dumps(payload, sort_keys=True, indent=None if json_output else 2, default=str))
     except (ValueError, OSError, sqlite3.Error) as exc:
         typer.echo(json.dumps({"status": "invalid", "reason": str(exc)}, sort_keys=True))
         raise typer.Exit(code=1) from exc

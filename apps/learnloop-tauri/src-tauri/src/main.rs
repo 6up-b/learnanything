@@ -685,6 +685,7 @@ fn main() {
                 figure_take_step,
                 figure_open,
                 reader_figure_revise,
+                reader_figure_recheck,
                 reader_figure_job,
                 reader_figure_job_cancel,
                 reader_figures,

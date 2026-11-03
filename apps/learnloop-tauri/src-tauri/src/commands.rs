@@ -1467,6 +1467,7 @@ sidecar_passthrough!(figure_manim_opt_in, "figure.manim_opt_in");
 sidecar_passthrough!(figure_take_step, "figure.take_step");
 sidecar_passthrough!(figure_open, "figure.open");
 sidecar_passthrough!(reader_figure_revise, "reader.figure_revise");
+sidecar_passthrough!(reader_figure_recheck, "reader.figure_recheck");
 sidecar_passthrough!(reader_figure_job, "reader.figure_job");
 sidecar_passthrough!(reader_figure_job_cancel, "reader.figure_job_cancel");
 sidecar_passthrough!(reader_figures, "reader.figures");

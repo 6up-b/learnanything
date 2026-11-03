@@ -693,6 +693,42 @@ function evaluateAdvanced(panel: CompiledPanel, env: Env, defs: Definitions): Pa
   return pathData(model, nodes, env, defs);
 }
 
+/** RW5c (§7.2, Codex review F2): the bounds a derived label states: the ones the evaluator used,
+ *  whatever the author's bound expressions say. ``integers`` is what a highlight or a sum runs over
+ *  (exactSum's own rule and slack); ``clipped`` says a clamp moved a bound. Twin of the Python
+ *  evaluator's derived_bounds; G22's extension pins the pair. */
+export interface DerivedBounds { from: number | null; to: number | null; clipped: boolean; integers: [number, number] | null }
+
+function sumIntegers(low: number, high: number): [number, number] | null {
+  if (!Number.isFinite(low) || !Number.isFinite(high)) return null;
+  return [Math.ceil(low - 1e-9), Math.floor(high + 1e-9)];
+}
+
+export function derivedBounds(compiled: CompiledFigure, panelIndex: number, kind: "shade" | "highlight" | "integral" | "sum", index: number, env: Env): DerivedBounds {
+  const panel = compiled.panels[panelIndex];
+  const defs = compiled.definitions;
+  if (kind === "shade") {
+    const [lowerNode, upperNode] = (panel.nodes.shades as Array<[FigureNode | null, FigureNode | null]>)[index];
+    const low = value(lowerNode, env, defs);
+    const high = value(upperNode, env, defs);
+    const [clampedLow, clampedHigh] = shadeValue(compiled, panel, index, env);
+    const clipped = (Number.isFinite(low) && low !== clampedLow) || (Number.isFinite(high) && high !== clampedHigh);
+    return { from: num(clampedLow), to: num(clampedHigh), clipped, integers: null };
+  }
+  if (kind === "highlight") {
+    const [lowerNode, upperNode] = panel.nodes.highlight as [FigureNode | null, FigureNode | null];
+    const low = value(lowerNode, env, defs);
+    const high = value(upperNode, env, defs);
+    const [clampedLow, clampedHigh] = highlightValue(compiled, panel, env);
+    const clipped = (Number.isFinite(low) && low !== clampedLow) || (Number.isFinite(high) && high !== clampedHigh);
+    return { from: num(clampedLow), to: num(clampedHigh), clipped, integers: sumIntegers(clampedLow, clampedHigh) };
+  }
+  const node = panel.nodes.expr as FigureNode;
+  const low = value(node.args[1], env, defs);
+  const high = value(node.args[2], env, defs);
+  return { from: num(low), to: num(high), clipped: false, integers: kind === "sum" ? sumIntegers(low, high) : null };
+}
+
 export function evaluatePanel(compiled: CompiledFigure, panel: CompiledPanel, env: Env): PanelData {
   const defs = compiled.definitions;
   if (isAdvancedKind(panel.kind)) return evaluateAdvanced(panel, env, defs);

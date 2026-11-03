@@ -317,7 +317,8 @@ def _curve(path: Sequence[Any], node: G.Node | None, axis: str | None, compiled:
     identity = element_id(path)
     if name is not None and book_elements.get(identity) == name:
         label = book[name]
-        return _element(path, "book", label.lhs, detex(label.lhs), "source", definition=name, source=_source(label))
+        return _element(path, "book", label.lhs, detex(label.lhs), "source", definition=name, source=_source(label),
+                        equation=label.latex)
     if name is not None:
         # AI-defined, rendered as its grammar name behind the model's glyph:
         # never readable as the book's own F.

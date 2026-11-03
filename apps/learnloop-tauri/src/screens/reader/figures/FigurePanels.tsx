@@ -11,6 +11,7 @@
 import type { CSSProperties } from "react";
 import { COLOR, FONT_MONO } from "../../../components/term";
 import { HeatmapPanelView, PathPanelView, VectorFieldPanelView } from "./AdvancedPanels";
+import { LabelSuffix, LabelText, useFigureLabels } from "./figureLabels";
 import type { FigurePanel as FigurePanelModel, FunctionPlotData, LinearMapData, PanelData, PmfBarsData, ReadoutData } from "./figureSpec";
 
 const W = 600;
@@ -70,6 +71,9 @@ function Axes({ x, y, xDomain, yDomain }: { x: (v: number) => number; y: (v: num
 }
 
 function FunctionPlot({ data, showTable }: { data: FunctionPlotData; showTable: boolean }) {
+  // RW5c: the label slots read from the figure's elements when it has any (otherwise, the label itself).
+  const labels = useFigureLabels();
+  const plain = (id: string) => (labels ? labels.plain(id) : id);
   const xDomain: [number, number] = [data.x[0], data.x[data.x.length - 1]];
   const yDomain = extent(data.series.flatMap((series) => series.y), [0]);
   const x = scaler(xDomain, [PAD.left, W - PAD.right]);
@@ -105,7 +109,7 @@ function FunctionPlot({ data, showTable }: { data: FunctionPlotData; showTable: 
   return (
     <div data-figure-panel="function_plot">
       <svg viewBox={`0 0 ${W} ${H}`} style={svgStyle} role="img"
-        aria-label={`plot of ${data.series.map((series) => series.label).join(", ")}${data.shades.length ? `; shaded: ${data.shades.map((shade) => `${shade.label} ${formatValue(shade.value)}`).join(", ")}` : ""}`}>
+        aria-label={`plot of ${data.series.map((series) => plain(series.label)).join(", ")}${data.shades.length ? `; shaded: ${data.shades.map((shade) => `${plain(shade.label)} ${formatValue(shade.value)}`).join(", ")}` : ""}`}>
         <defs>
           <pattern id="figure-hatch" width="6" height="6" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
             <line x1="0" y1="0" x2="0" y2="6" stroke={COLOR.textDim} strokeWidth="1" />
@@ -119,7 +123,7 @@ function FunctionPlot({ data, showTable }: { data: FunctionPlotData; showTable: 
         {data.markers.map((marker) => marker.x === null ? null : (
           <g key={`marker-${marker.label}`}>
             <line x1={x(marker.x)} x2={x(marker.x)} y1={PAD.top} y2={H - PAD.bottom} stroke={COLOR.textDim} strokeDasharray="2 3" />
-            <text x={x(marker.x) + 3} y={PAD.top + 9} fill={COLOR.textDim}>{marker.label}</text>
+            <text x={x(marker.x) + 3} y={PAD.top + 9} fill={COLOR.textDim}>{plain(marker.label)}</text>
           </g>
         ))}
         {data.series.map((series, index) => (
@@ -129,11 +133,11 @@ function FunctionPlot({ data, showTable }: { data: FunctionPlotData; showTable: 
       </svg>
       <div style={{ display: "flex", gap: 14, flexWrap: "wrap", fontFamily: FONT_MONO, fontSize: 10, color: COLOR.textDim }}>
         {data.series.map((series, index) => (
-          <span key={series.label}>{["──", "- -", "···", "-·-"][index % 4]} {series.label}</span>
+          <span key={series.label}>{["──", "- -", "···", "-·-"][index % 4]} <LabelText id={series.label} legendIndex={index} /></span>
         ))}
         {data.shades.map((shade) => (
           <span key={shade.label} data-figure-readout={shade.label} style={{ color: COLOR.text }}>
-            {shade.label}: {formatValue(shade.value)}
+            <LabelText id={shade.label} />: {formatValue(shade.value)}<LabelSuffix id={shade.label} />
           </span>
         ))}
       </div>
@@ -147,7 +151,7 @@ function FunctionTable({ data }: { data: FunctionPlotData }) {
   return (
     <table style={tableStyle} aria-label="values as a table">
       <thead>
-        <tr><th style={cellStyle}>x</th>{data.series.map((series) => <th key={series.label} style={cellStyle}>{series.label}</th>)}</tr>
+        <tr><th style={cellStyle}>x</th>{data.series.map((series) => <th key={series.label} style={cellStyle}><LabelText id={series.label} /></th>)}</tr>
       </thead>
       <tbody>
         {rows.map(({ xv, index }) => (
@@ -158,7 +162,7 @@ function FunctionTable({ data }: { data: FunctionPlotData }) {
         ))}
         {data.shades.map((shade) => (
           <tr key={`shade-${shade.label}`}>
-            <td style={cellStyle}>{shade.label}</td>
+            <td style={cellStyle}><LabelText id={shade.label} /></td>
             <td style={cellStyle} colSpan={data.series.length}>
               {formatValue(shade.value)} (from {formatValue(shade.from)} to {formatValue(shade.to)})
             </td>
@@ -170,6 +174,8 @@ function FunctionTable({ data }: { data: FunctionPlotData }) {
 }
 
 function PmfBars({ data, showTable }: { data: PmfBarsData; showTable: boolean }) {
+  const labels = useFigureLabels();
+  const plain = (id: string) => (labels ? labels.plain(id) : id);
   const ks = data.k;
   const yDomain = extent(data.series.flatMap((series) => series.p), [0]);
   const x = scaler([ks[0] - 0.5, ks[ks.length - 1] + 0.5], [PAD.left, W - PAD.right]);
@@ -180,7 +186,7 @@ function PmfBars({ data, showTable }: { data: PmfBarsData; showTable: boolean })
   return (
     <div data-figure-panel="pmf_bars">
       <svg viewBox={`0 0 ${W} ${H}`} style={svgStyle} role="img"
-        aria-label={`bars of ${data.series.map((series) => series.label).join(", ")}${data.highlight ? `; ${data.highlight.label} ${formatValue(data.highlight.value)}` : ""}`}>
+        aria-label={`bars of ${data.series.map((series) => plain(series.label)).join(", ")}${data.highlight ? `; ${plain(data.highlight.label)} ${formatValue(data.highlight.value)}` : ""}`}>
         <Axes x={x} y={y} xDomain={[ks[0], ks[ks.length - 1]]} yDomain={yDomain} />
         {data.series.map((series, s) => series.p.map((value, index) => value === null ? null : (
           <rect key={`${series.label}-${ks[index]}`} x={x(ks[index]) - (width * data.series.length) / 2 + s * width} width={width}
@@ -192,12 +198,12 @@ function PmfBars({ data, showTable }: { data: PmfBarsData; showTable: boolean })
       </svg>
       {data.highlight ? (
         <div data-figure-readout={data.highlight.label} style={{ fontFamily: FONT_MONO, fontSize: 10, color: COLOR.text }}>
-          {data.highlight.label}: {formatValue(data.highlight.value)} (filled bars)
+          <LabelText id={data.highlight.label} />: {formatValue(data.highlight.value)} (filled bars)<LabelSuffix id={data.highlight.label} />
         </div>
       ) : null}
       {showTable ? (
         <table style={tableStyle} aria-label="values as a table">
-          <thead><tr><th style={cellStyle}>k</th>{data.series.map((series) => <th key={series.label} style={cellStyle}>{series.label}</th>)}</tr></thead>
+          <thead><tr><th style={cellStyle}>k</th>{data.series.map((series) => <th key={series.label} style={cellStyle}><LabelText id={series.label} /></th>)}</tr></thead>
           <tbody>
             {ks.map((k, index) => (
               <tr key={k}><td style={cellStyle}>{k}</td>{data.series.map((series) => <td key={series.label} style={cellStyle}>{formatValue(series.p[index])}</td>)}</tr>
@@ -210,6 +216,8 @@ function PmfBars({ data, showTable }: { data: PmfBarsData; showTable: boolean })
 }
 
 function LinearMap({ data, label, showTable }: { data: LinearMapData; label: string; showTable: boolean }) {
+  const labels = useFigureLabels();
+  const spoken = labels && label ? labels.plain(label) : label;
   const points = data.square.filter((point): point is [number, number] => point[0] !== null && point[1] !== null);
   const all = [...points, [0, 0], [1, 0], [1, 1], [0, 1]] as Array<[number, number]>;
   const reach = Math.max(1.2, ...all.map(([px, py]) => Math.max(Math.abs(px), Math.abs(py)))) * 1.1;
@@ -221,14 +229,14 @@ function LinearMap({ data, label, showTable }: { data: LinearMapData; label: str
   return (
     <div data-figure-panel="linear_map_2d">
       <svg viewBox={`0 0 ${W} ${H}`} style={svgStyle} role="img"
-        aria-label={`the unit square and its image under ${label || "the matrix"}, determinant ${formatValue(data.determinant)}`}>
+        aria-label={`the unit square and its image under ${spoken || "the matrix"}, determinant ${formatValue(data.determinant)}`}>
         <line x1={x(-reach)} x2={x(reach)} y1={y(0)} y2={y(0)} stroke={COLOR.border} />
         <line x1={x(0)} x2={x(0)} y1={y(-reach)} y2={y(reach)} stroke={COLOR.border} />
         <polygon points={polygon([[0, 0], [1, 0], [1, 1], [0, 1]])} fill="none" stroke={COLOR.textDim} strokeDasharray="2 3" />
         {points.length === 4 ? <polygon points={polygon(points)} fill="var(--wash-amber)" stroke={COLOR.amber} data-figure-image="" /> : null}
       </svg>
       <div style={{ fontFamily: FONT_MONO, fontSize: 10, color: COLOR.text }} data-figure-readout="determinant">
-        {label ? `${label} · ` : ""}determinant {formatValue(data.determinant)} (area of the image)
+        {label ? <><LabelText id={label} /> · </> : null}determinant {formatValue(data.determinant)} (area of the image)
       </div>
       {showTable ? (
         <table style={tableStyle} aria-label="values as a table">
@@ -249,7 +257,7 @@ function LinearMap({ data, label, showTable }: { data: LinearMapData; label: str
 function Readout({ data }: { data: ReadoutData }) {
   return (
     <div data-figure-panel="readout" data-figure-readout={data.label} style={{ fontFamily: FONT_MONO, fontSize: 12, color: COLOR.text }}>
-      {data.label}: <strong>{formatValue(data.value, data.format)}</strong>
+      <LabelText id={data.label} />: <strong>{formatValue(data.value, data.format)}</strong><LabelSuffix id={data.label} />
     </div>
   );
 }

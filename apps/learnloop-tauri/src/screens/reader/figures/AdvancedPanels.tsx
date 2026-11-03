@@ -14,6 +14,7 @@ import type { CSSProperties } from "react";
 import { COLOR, FONT_MONO } from "../../../components/term";
 import { ESCAPE_MARGIN, type HeatmapGridData, type IterateData, type TrajectoryData, type VectorFieldData } from "./figureSpec";
 import { formatValue } from "./FigurePanels";
+import { LabelText, useFigureLabels } from "./figureLabels";
 
 const W = 600;
 const H = 300;
@@ -143,7 +144,7 @@ function HeatLegend({ grid }: { grid: HeatmapGridData }) {
   const range = finiteRange(grid.z.flat());
   return (
     <div style={{ ...noteStyle, display: "flex", gap: 14, flexWrap: "wrap" }}>
-      {grid.label ? <span style={{ color: COLOR.text }}>{grid.label}</span> : null}
+      {grid.label ? <span style={{ color: COLOR.text }}><LabelText id={grid.label} /></span> : null}
       {range ? <span>lighter {formatValue(range[0])} → darker {formatValue(range[1])}</span> : null}
       {grid.contours.length ? <span>contours at {grid.contours.map((contour) => formatValue(contour.level)).join(", ")}</span> : null}
     </div>
@@ -169,9 +170,11 @@ function ValuesGrid({ xs, ys, cell, label }: { xs: number[]; ys: number[]; cell:
 
 export function HeatmapPanelView({ data, showTable }: { data: HeatmapGridData & { kind: "heatmap_2d" }; showTable: boolean }) {
   const { x, y, xDomain, yDomain } = frame(data.x, data.y);
+  const labels = useFigureLabels();
+  const plain = (id: string) => (labels && id ? labels.plain(id) : id);
   return (
     <div data-figure-panel="heatmap_2d">
-      <svg viewBox={`0 0 ${W} ${H}`} style={svgStyle} role="img" aria-label={`heat map${data.label ? ` of ${data.label}` : ""}${data.contours.length ? ` with ${data.contours.length} contour lines` : ""}`}>
+      <svg viewBox={`0 0 ${W} ${H}`} style={svgStyle} role="img" aria-label={`heat map${data.label ? ` of ${plain(data.label)}` : ""}${data.contours.length ? ` with ${data.contours.length} contour lines` : ""}`}>
         <HeatCells grid={data} x={x} y={y} />
         <GridAxes x={x} y={y} xDomain={xDomain} yDomain={yDomain} />
       </svg>
@@ -191,9 +194,11 @@ export function VectorFieldPanelView({ data, showTable }: { data: VectorFieldDat
   const stepX = data.x.length > 1 ? Math.abs(x(data.x[1]) - x(data.x[0])) : W;
   const stepY = data.y.length > 1 ? Math.abs(y(data.y[1]) - y(data.y[0])) : H;
   const reach = 0.85 * Math.min(stepX, stepY);
+  const labels = useFigureLabels();
+  const plain = (id: string) => (labels && id ? labels.plain(id) : id);
   return (
     <div data-figure-panel="vector_field_2d">
-      <svg viewBox={`0 0 ${W} ${H}`} style={svgStyle} role="img" aria-label={`vector field${data.label ? ` of ${data.label}` : ""}${data.heatmap ? `, over a heat map${data.heatmap.label ? ` of ${data.heatmap.label}` : ""}` : ""}`}>
+      <svg viewBox={`0 0 ${W} ${H}`} style={svgStyle} role="img" aria-label={`vector field${data.label ? ` of ${plain(data.label)}` : ""}${data.heatmap ? `, over a heat map${data.heatmap.label ? ` of ${plain(data.heatmap.label)}` : ""}` : ""}`}>
         <defs>
           <marker id="figure-arrow" viewBox="0 0 6 6" refX="5" refY="3" markerWidth="5" markerHeight="5" orient="auto">
             <path d="M0,0L6,3L0,6Z" fill={COLOR.cyan} />
@@ -215,7 +220,7 @@ export function VectorFieldPanelView({ data, showTable }: { data: VectorFieldDat
           }))}
         </g>
       </svg>
-      <div style={noteStyle}>{data.label ? `${data.label} · ` : ""}arrows scaled to the longest ({formatValue(longest)})</div>
+      <div style={noteStyle}>{data.label ? <><LabelText id={data.label} /> · </> : null}arrows scaled to the longest ({formatValue(longest)})</div>
       {data.heatmap ? <HeatLegend grid={data.heatmap} /> : null}
       {showTable ? (
         <ValuesGrid xs={data.x} ys={data.y} label="values as a table"
@@ -243,10 +248,12 @@ export function PathPanelView({ data, axes, showTable }: { data: TrajectoryData 
     : data.stopped === "not_finite" ? ADVANCED_COPY.notFinite
       : data.stopped === "starts_outside" ? ADVANCED_COPY.startsOutside : null;
   const last = data.x.length - 1;
+  const labels = useFigureLabels();
+  const plain = (id: string) => (labels && id ? labels.plain(id) : id);
   return (
     <div data-figure-panel={data.kind}>
       <svg viewBox={`0 0 ${W} ${H}`} style={svgStyle} role="img"
-        aria-label={`${trajectory ? "trajectory" : "iterates"}${data.label ? ` (${data.label})` : ""}: ${data.x.length} points${stoppedLine ? `; ${stoppedLine}` : ""}`}>
+        aria-label={`${trajectory ? "trajectory" : "iterates"}${data.label ? ` (${plain(data.label)})` : ""}: ${data.x.length} points${stoppedLine ? `; ${stoppedLine}` : ""}`}>
         {axes ? (
           <rect x={x(axes.x.min)} y={y(axes.y.max)} width={x(axes.x.max) - x(axes.x.min)} height={y(axes.y.min) - y(axes.y.max)}
             fill="none" stroke={COLOR.border} strokeDasharray="2 3" />
@@ -265,7 +272,7 @@ export function PathPanelView({ data, axes, showTable }: { data: TrajectoryData 
         {data.stopped && last >= 0 ? <circle cx={x(data.x[last])} cy={y(data.y[last])} r={3} fill={COLOR.red} data-figure-stop={data.stopped} /> : null}
       </svg>
       <div style={noteStyle}>
-        {data.label ? `${data.label} · ` : ""}{trajectory ? `fixed-step RK4, t up to ${formatValue(steps[last] ?? null)}` : `${Math.max(0, last)} iterations`}
+        {data.label ? <><LabelText id={data.label} /> · </> : null}{trajectory ? `fixed-step RK4, t up to ${formatValue(steps[last] ?? null)}` : `${Math.max(0, last)} iterations`}
         {stoppedLine ? <span data-figure-stopped={data.stopped ?? ""} style={{ color: COLOR.text }}> · {stoppedLine}</span> : null}
       </div>
       {showTable ? (

@@ -588,8 +588,6 @@ def decide(figure, book, payload, symbols, deadline, *, control=False):
     whether it would be accepted, so no proof of difference is spent on it."""
 
     variable = payload["variable"]
-    if canonical(figure) == canonical(book):
-        return {"result": "equal"}
     try:
         cuts = sorted(breakpoints(figure, variable) | breakpoints(book, variable)) if (
             has_piecewise(figure) or has_piecewise(book)) else []
@@ -616,6 +614,8 @@ def decide(figure, book, payload, symbols, deadline, *, control=False):
         for domain, interior in pieces:
             a_branch = resolve(figure, variable, interior) if cuts else figure
             b_branch = resolve(book, variable, interior) if cuts else book
+            # Structural equality spares sympy the proof (step 4), never the domain rule:
+            # a power whose domain code cannot state exactly stays undecided (F8).
             domains_agree(a_branch, b_branch, symbols, variable, domain, point_text)
             if canonical(a_branch) == canonical(b_branch):
                 continue

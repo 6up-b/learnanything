@@ -12,6 +12,8 @@
   build's FiguresGate against the vault loaded now.
 * ``reader.figure_revise``: "not right?" with the learner's note, a new
   version superseding the shown one (the earlier one is kept).
+* ``reader.figure_recheck`` (RW5c §10.4): a code-only recheck of a stored
+  figure when it is opened, read back with ``reader.figure_job``.
 * ``reader.figure_job`` / ``reader.figure_job_cancel``: read a build at once
   (never a wait), or cancel it (a cancelled build never answers; a paid call
   already sent finishes and its receipt and row are kept).
@@ -88,6 +90,7 @@ FIGURE_RPCS: tuple[str, ...] = (
     "figure.manim_opt_in",
     "reader.figure_request",
     "reader.figure_revise",
+    "reader.figure_recheck",
     "reader.figure_job",
     "reader.figure_job_cancel",
     "reader.figures",
@@ -596,6 +599,9 @@ class FigureReviseInput(ParamsModel):
     #: absent: the host the figure was asked on, as it stands now.
     host_ref: HostRefInput | None = None
     take_step_token: str | None = Field(default=None, max_length=200)
+    #: RW5c (§6.6, Codex review F3): *rebuild* a figure whose stated claim differs
+    #: from the book: a new version told the difference in code's words (no note).
+    rebuild: bool = False
 
 
 @method("reader.figure_revise", FigureReviseInput)
@@ -618,7 +624,8 @@ def reader_figure_revise(ctx: SidecarContext, params: FigureReviseInput) -> dict
                                                "workbench).")
     try:
         # RW5d: a show-me figure keeps its goal, home and grounding.
-        revision = FS.revision_request(repository, base, params.note)
+        revision = FS.rebuild_request(vault, repository, base) if params.rebuild else \
+            FS.revision_request(repository, base, params.note)
         revision.different_kind = bool(params.different_kind)
         if current or FS.attempt_hosted(revision):
             # RW5d P3: a figure open on an attempt host is revised there, under
@@ -648,6 +655,37 @@ def reader_figure_revise(ctx: SidecarContext, params: FigureReviseInput) -> dict
     _event(repository, "figure_revision_requested", {"extraction_id": base["extraction_id"],
                                                      "figure_id": base["id"]}, extraction_id=base["extraction_id"])
     return _start(ctx, request, attempt=attempt)
+
+
+class FigureRecheckInput(ParamsModel):
+    figure_id: str
+
+
+@method("reader.figure_recheck", FigureRecheckInput)
+def reader_figure_recheck(ctx: SidecarContext, params: FigureRecheckInput) -> dict[str, Any]:
+    """RW5c (§10.4): a stored grammar figure opened with no check at the current
+    certification version: code rechecks it off the request path, with no model
+    client, admitted against the switch before its sandbox run and before its
+    write. Read with ``reader.figure_job``; ``{"state": "none"}`` when none is due."""
+
+    from learnloop.db.connection import connect
+    from learnloop.db.stores import figures as store
+    from learnloop.figures import source_check as SC
+    from learnloop_sidecar.handlers.library_ask import _job_payload
+
+    vault, repository = _require(ctx)
+    with closing(connect(repository.sqlite_path, read_only=True)) as connection:
+        row = store.figure(connection, params.figure_id) if store.has_tables(connection) else None
+    if (row is None or not SC.enabled(vault) or not SC.grammar_row(row) or row.get("verification") not in store.SHOWN
+            or FS.figure_withheld(vault, repository, params.figure_id)
+            or not SC.recheck_due(SC.current_row(repository, params.figure_id))):
+        return versioned({"job_id": None, "state": "none"})
+
+    def work(worker_repo: Any) -> dict[str, Any]:
+        check = SC.recheck(vault, worker_repo, row, live_vault=ctx.loaded_vault)
+        return {"outcome": check.outcome if check is not None else None}
+
+    return _job_payload(_jobs(ctx).start(ctx, "figure_recheck", None, work))
 
 
 class FigureJobInput(ParamsModel):

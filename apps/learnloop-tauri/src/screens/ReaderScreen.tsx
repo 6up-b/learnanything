@@ -477,8 +477,11 @@ export function ReaderScreen({
   const activeReadingOn = inquiry && !offline && Boolean(contract?.activeReading);
   // RW5a: explorable figures (the contract names them only while figures.enabled is on).
   // RW5d P4a (Codex review F2): following figures from other books lives under CA5's switch.
+  // RW5c: "open the page" of a checked element's equation, in this book (set below, once the passage peek exists).
+  const openFigureSource = useRef<((extractionId: string, spanId: string) => void) | null>(null);
+  const figureOpenSource = useCallback((extractionId: string, spanId: string) => openFigureSource.current?.(extractionId, spanId), []);
   const figuresCtl = useFigures({ extractionId: render && !offline ? render.extractionId : null, contract: contract?.figures ?? null,
-    followEnabled: Boolean(contract?.correspondence?.alsoInBooks) });
+    followEnabled: Boolean(contract?.correspondence?.alsoInBooks), openSource: figureOpenSource });
   // RW5b: "make this explorable" pressed on an offer (the library organizer's
   // or the tutor's own judgment; the contract names offers only while
   // figures.offers_enabled is on). The build runs where its passage is: in
@@ -2707,6 +2710,9 @@ export function ReaderScreen({
   // under the passage in view (when it is in this section, else the section's
   // first passage), expanded, its home named. Its own book's listing is read
   // now (protection and switches checked there); nothing is copied.
+  openFigureSource.current = (extractionId, spanId) => {
+    if (render && extractionId === render.extractionId) peekPassage(spanId);
+  };
   const openFollowedFigure = (figure: CorrespondentFigureDto, hit: CorrespondentSectionDto) => {
     if (!render || offline || !currentGuideSection) return;
     const here = readingSpan && currentGuideSection.spanIds.includes(readingSpan) ? readingSpan : currentGuideSection.startSpanId;

@@ -1760,9 +1760,12 @@ export const api = {
     call<LibraryJobDto<FigureBuildResultDto>>("figure_request", { input }),
   // Reader RW5d P3 (Codex review F4): on an attempt host, the host the figure is open on now
   // (verified on the server) and the take step's token on a check on your own.
-  readerFigureRevise: (input: { figureId: string; note: string; differentKind?: boolean;
+  readerFigureRevise: (input: { figureId: string; note: string; differentKind?: boolean; rebuild?: boolean;
     hostRef?: import("./dto").FigureHostRef | null; takeStepToken?: string | null }) =>
     call<LibraryJobDto<FigureBuildResultDto>>("reader_figure_revise", { input }),
+  // Reader RW5c (§10.4): a stored figure opened with no check yet: code rechecks it, read with readerFigureJob.
+  readerFigureRecheck: (input: { figureId: string }) =>
+    call<{ jobId: string | null; state: string }>("reader_figure_recheck", { input }),
   readerFigureJob: (input: { jobId: string }) =>
     call<LibraryJobDto<FigureBuildResultDto>>("reader_figure_job", { input }),
   readerFigureJobCancel: (input: { jobId: string }) =>

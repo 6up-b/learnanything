@@ -15,6 +15,7 @@ import { COLOR, FONT_MONO } from "../../../components/term";
 import { errorMessage } from "../../../errors";
 import { logReaderAction } from "../activity";
 import { LearnerQuote, MeaningLabel, ModelVoice, SourceVoice } from "../voices";
+import { CheckedBadge, CheckedLines, FigureLabelsProvider, FigureSourceInfo, labelElements, LabelText, useFigureLabels } from "./figureLabels";
 import { FigurePanel, formatValue } from "./FigurePanels";
 import { compileSpec, evaluateFigure, type CompiledFigure, type FigureParameter } from "./figureSpec";
 
@@ -32,7 +33,81 @@ export const FIGURE_FRAME = {
   failed: "couldn't build a reliable version of this",
   unsupported: "can't draw this yet · noted",
   checksLead: "checked by LearnLoop:",
+  // RW5c (spec §7.3): drawn only from an element's closed role, beside the book's own left-hand side.
+  bookChecked: "matches the book's equation (checked)",
+  restIllustration: "the rest is an illustration",
+  derivedFrom: "computed by LearnLoop from it",
+  limitedToPlot: "limited to the plotted range",
+  noTerms: "no terms in this range",
+  aiElement: "AI-built · not checked against the book",
+  aiDefined: "AI-defined",
+  aiBuilt: "AI-built",
 } as const;
+
+// RW5c (spec §7.3): why nothing on a figure carries the claim, one phrase per closed reason key.
+// An unknown key is dropped, as PROPERTY_CHECK_COPY drops one.
+const UNREADABLE = "LearnLoop couldn't read the book's equation exactly";
+export const SOURCE_CHECK_COPY: Readonly<Record<string, string>> = Object.freeze({
+  phi: `${UNREADABLE}: it uses Φ`,
+  binom: `${UNREADABLE}: it uses a binomial coefficient`,
+  factorial: `${UNREADABLE}: it uses a factorial`,
+  gamma: `${UNREADABLE}: it uses Γ`,
+  integral: `${UNREADABLE}: it uses an integral`,
+  sum: `${UNREADABLE}: it uses a sum`,
+  product: `${UNREADABLE}: it uses a product`,
+  limit: `${UNREADABLE}: it uses a limit`,
+  derivative: `${UNREADABLE}: it uses a derivative`,
+  matrix: `${UNREADABLE}: it uses a matrix`,
+  indicator: `${UNREADABLE}: it uses indicator notation`,
+  set: `${UNREADABLE}: it uses set notation`,
+  log_base: `${UNREADABLE}: log's base differs between books`,
+  text: `${UNREADABLE}: it has words in it`,
+  unicode_math: `${UNREADABLE}: the page's math isn't in LaTeX here`,
+  not_equation: "the passage has no equation LearnLoop can read",
+  relation: `${UNREADABLE}: it is not an equality`,
+  multiple_relations: `${UNREADABLE}: it has more than one equals sign`,
+  application: `${UNREADABLE}: a name is applied like a function`,
+  ambiguous_e: `${UNREADABLE}: e may not be Euler's number there`,
+  ambiguous_slash: `${UNREADABLE}: a slash could group two ways`,
+  name_collision: `${UNREADABLE}: two symbols share one name`,
+  reserved_name: `${UNREADABLE}: a symbol's name is taken`,
+  nth_root: `${UNREADABLE}: it uses an n-th root`,
+  subscript: `${UNREADABLE}: it uses a long subscript`,
+  function_arg: `${UNREADABLE}: a function's argument is unclear`,
+  function_power: `${UNREADABLE}: it uses a function's power`,
+  cases_condition: `${UNREADABLE}: a case's condition is out of reach`,
+  cases_cover: `${UNREADABLE}: its cases don't cover the line`,
+  inexact_literal: "a number isn't exact in floating point, so nothing can be proved about it",
+  too_long: `${UNREADABLE}: it is too long`,
+  syntax: `${UNREADABLE}: its LaTeX is out of reach`,
+  unsupported_command: `${UNREADABLE}: it uses a command outside the table`,
+  unsupported_environment: `${UNREADABLE}: it uses a layout outside the table`,
+  unsupported_function: `${UNREADABLE}: it uses a function outside the table`,
+  block_health: "the page this equation is on may be misread",
+  block_withheld: "that passage is held out",
+  no_book_source: "this figure isn't from your books",
+  no_readable_candidate: "the figure's passages have no equation LearnLoop can read",
+  not_bare: "no curve draws a definition as it stands",
+  names: "the figure's names aren't the book's",
+  inexact_condition: "a branch's condition isn't exact",
+  inexact_construct: "the figure uses something exact math can't reproduce",
+  no_proof: "LearnLoop could neither prove nor disprove a match",
+  domain: "LearnLoop couldn't prove the two are defined at the same points",
+  parametric_breakpoint: "the branches move with a slider, which this version doesn't decide",
+  control_accepted: "the check's own controls failed, so it decided nothing",
+  control_inconclusive: "the check's own controls failed, so it decided nothing",
+  display_disagrees: "what's shown doesn't match the equation to the digits shown",
+  sandbox_unavailable: "checks need the sandbox, which this computer doesn't have",
+  sandbox_failed: "the check couldn't run",
+  timeout: "the check ran out of time",
+  quote_across_blocks: "the quoted passage runs across two blocks",
+});
+
+/** The reasons' words, for the closed keys only (anything else is dropped). */
+export function sourceCheckReasons(keys: readonly string[] | null | undefined): string[] {
+  return [...new Set((keys ?? []).filter((key) => Object.prototype.hasOwnProperty.call(SOURCE_CHECK_COPY, key))
+    .map((key) => SOURCE_CHECK_COPY[key]))];
+}
 
 export const PROPERTY_CHECK_COPY: Readonly<Record<string, string>> = Object.freeze({
   values_finite: "every value finite on the parameter grid",
@@ -102,6 +177,8 @@ export const FIGURE_COPY = {
   collapsed: "interactive version",
   pending: "◐ building an interactive version — keep reading",
   tryAgain: "try again",
+  /** RW5c (§6.6). */
+  rebuild: "rebuild",
   cancel: "cancel",
   close: "✕ close",
   predictionLead: "Before you move anything:",
@@ -300,15 +377,17 @@ function ParameterControl({
   onPlay: () => void;
 }) {
   const step = (parameter.max - parameter.min) / REDUCED_STEPS;
+  const labels = useFigureLabels();
+  const spoken = labels ? labels.plain(parameter.label) : parameter.label;
   return (
     <span style={{ display: "inline-flex", gap: 6, alignItems: "center", fontFamily: FONT_MONO, fontSize: 11, color: COLOR.text }}>
       <label style={{ display: "inline-flex", gap: 6, alignItems: "center" }}>
-        {parameter.label}
+        <LabelText id={parameter.label} />
         <input type="range" min={parameter.min} max={parameter.max} step={parameter.step} value={value} disabled={disabled}
-          aria-label={parameter.label} onChange={(event) => onChange(Number(event.target.value))} />
+          aria-label={spoken} onChange={(event) => onChange(Number(event.target.value))} />
       </label>
       <input type="number" min={parameter.min} max={parameter.max} step={parameter.step} value={Number(value.toPrecision(6))}
-        disabled={disabled} aria-label={`${parameter.label} value`} onChange={(event) => onChange(Number(event.target.value))}
+        disabled={disabled} aria-label={`${spoken} value`} onChange={(event) => onChange(Number(event.target.value))}
         style={{ width: 70, fontFamily: FONT_MONO, fontSize: 11, background: COLOR.bgInput, color: COLOR.text, border: `1px solid ${COLOR.border}` }} />
       {parameter.animate ? (
         reduced ? (
@@ -421,26 +500,31 @@ function FigureBody({ figure, ctl, compiled }: { figure: FigureViewDto; ctl: Fig
       {answeredPrediction && !openPrediction ? (
         <PredictionResult figure={figure} prediction={answeredPrediction} ctl={ctl} format={readoutFormat} />
       ) : null}
-      {data.panels.map((panel, index) => (
-        <FigurePanel key={index} data={panel} showTable={showTable} model={compiled.spec.panels[index]}
-          label={compiled.spec.panels[index]?.kind === "linear_map_2d" ? (compiled.spec.panels[index] as { label?: string }).label : undefined} />
-      ))}
-      {compiled.parameters.length ? (
-        <div data-figure-controls="" style={{ display: "flex", gap: 16, flexWrap: "wrap", alignItems: "center" }}>
-          {compiled.parameters.map((parameter) => (
-            <ParameterControl key={parameter.name} parameter={parameter} value={params[parameter.name] ?? parameter.default}
-              disabled={controlsLocked} playing={playing === parameter.name} reduced={reduced}
-              onChange={(value) => setParam(parameter.name, value)} onPlay={() => play(parameter)} />
-          ))}
-        </div>
-      ) : null}
-      {compiled.spec.annotations?.length ? (
-        <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
-          {compiled.spec.annotations.map((annotation, index) => (
-            <MeaningLabel key={index} style={{ fontSize: 11 }}>◇ {annotation.target}: {annotation.text}</MeaningLabel>
-          ))}
-        </div>
-      ) : null}
+      <FigureSourceInfo figure={figure} ctl={ctl} />
+      <FigureLabelsProvider figure={figure} compiled={compiled} params={params}>
+        {data.panels.map((panel, index) => (
+          <FigurePanel key={index} data={panel} showTable={showTable} model={compiled.spec.panels[index]}
+            label={compiled.spec.panels[index]?.kind === "linear_map_2d" ? (compiled.spec.panels[index] as { label?: string }).label : undefined} />
+        ))}
+        {compiled.parameters.length ? (
+          <div data-figure-controls="" style={{ display: "flex", gap: 16, flexWrap: "wrap", alignItems: "center" }}>
+            {compiled.parameters.map((parameter) => (
+              <ParameterControl key={parameter.name} parameter={parameter} value={params[parameter.name] ?? parameter.default}
+                disabled={controlsLocked} playing={playing === parameter.name} reduced={reduced}
+                onChange={(value) => setParam(parameter.name, value)} onPlay={() => play(parameter)} />
+            ))}
+          </div>
+        ) : null}
+        {compiled.spec.annotations?.length ? (
+          <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+            {compiled.spec.annotations.map((annotation, index) => (
+              <MeaningLabel key={index} style={{ fontSize: 11 }}>
+                {labelElements(figure).length ? (annotation.target ? <><LabelText id={annotation.target} />: </> : <>◇ </>) : <>◇ {annotation.target}: </>}{annotation.text}
+              </MeaningLabel>
+            ))}
+          </div>
+        ) : null}
+      </FigureLabelsProvider>
       <div style={{ display: "flex", gap: 14, flexWrap: "wrap", alignItems: "baseline" }}>
         <button type="button" style={linkStyle} aria-pressed={showTable} onClick={() => setShowTable((value) => !value)}>{FIGURE_COPY.table}</button>
         {ctl.contract?.revisions ? (
@@ -508,7 +592,12 @@ export function FigureInline({ figure, ctl, home = null }: { figure: FigureViewD
           <span data-figure-detail="">needs {figure.unsupportedKind}</span>
         ) : null}
         {figure.verification === "failed" && figure.reason ? <span data-figure-detail="">({figure.reason})</span> : null}
-        {figure.verification === "failed" ? (
+        {figure.sourceCheck?.status === "differs" ? (
+          // RW5c (§6.6): asking again would reuse this figure; a rebuild is a new version, told the difference.
+          figure.sourceCheck.rebuild && ctl.rebuild ? (
+            <button type="button" style={linkStyle} data-figure-rebuild="" onClick={() => ctl.rebuild?.(figure)}>{FIGURE_COPY.rebuild}</button>
+          ) : null
+        ) : figure.verification === "failed" ? (
           <button type="button" style={linkStyle} onClick={() => ctl.request(figure.goalText && figure.origin !== "tutor"
             // RW5d: a show-me figure asks again with its words (a tutor's goal is pressed from its answer).
             ? { spanIds: figure.spanIds, region: figure.region, goalText: figure.goalText, origin: "show_me",
@@ -527,6 +616,8 @@ export function FigureInline({ figure, ctl, home = null }: { figure: FigureViewD
     : frameChecks(figure.propertyChecks);
   const toggle = () => {
     if (!expanded) logReaderAction("figure_opened", { figure_id: figure.figureId, extraction_id: figure.extractionId });
+    // RW5c (§10.4): no check at the current certification version: code rechecks it, and it upgrades in place.
+    if (!expanded && figure.sourceCheck?.recheckDue) ctl.recheck?.(figure);
     ctl.setExpanded(expanded ? null : figure);
   };
   const openFuller = () => {
@@ -555,7 +646,8 @@ export function FigureInline({ figure, ctl, home = null }: { figure: FigureViewD
           style={{ ...linkStyle, fontSize: 11, color: COLOR.text, textDecoration: "none" }}>
           <span aria-hidden="true">{expanded ? "▾" : "▸"}</span> {isManim ? RICH_FRAME.collapsed : FIGURE_COPY.collapsed} ·{" "}
           {figure.goalText ? <><FigureGoal figure={figure} /> ·{" "}</> : null}
-          <span data-figure-badge="">{isManim ? manimBadge(figure) : isSketch ? sketchBadge(figure, withdrawn) : frameBadge(figure.verification, figure.grounding)}</span>
+          <span data-figure-badge="">{isManim ? manimBadge(figure) : isSketch ? sketchBadge(figure, withdrawn)
+            : labelElements(figure).length ? <CheckedBadge figure={figure} /> : frameBadge(figure.verification, figure.grounding)}</span>
           {!expanded && fullerReady ? <span data-fuller-collapsed=""> · {RICH_FRAME.collapsedReady}</span> : null}
         </button>
         {home ? (
@@ -566,6 +658,7 @@ export function FigureInline({ figure, ctl, home = null }: { figure: FigureViewD
         {checks.length ? (
           <span data-figure-checks=""><MeaningLabel style={{ fontSize: 11 }}>{isSketch ? SKETCH_FRAME.checksLead : FIGURE_FRAME.checksLead} {checks.join("; ")}</MeaningLabel></span>
         ) : null}
+        {labelElements(figure).length ? <span data-figure-source-checks=""><MeaningLabel style={{ fontSize: 11 }}>{FIGURE_FRAME.checksLead} <CheckedLines figure={figure} /></MeaningLabel></span> : null}
         {expanded ? <button type="button" style={linkStyle} onClick={() => ctl.setExpanded(null)}>{FIGURE_COPY.close}</button> : null}
       </div>
       {expanded ? body : null}

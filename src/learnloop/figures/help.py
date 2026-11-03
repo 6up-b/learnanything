@@ -418,6 +418,8 @@ def qualifying_figure(vault: Any, repository: Repository, item: Any, *,
         if not FS.drawable_now(vault, row) or FS.advanced_off_row(vault, row) is not row \
                 or FS.sketch_off_row(vault, row) is not row:
             continue
+        if FS.source_rejected(vault, repository, row):
+            continue  # RW5c: a stated claim proved different is not shown
         placed = _placed_keys(repository, row)
         if not any(item.learning_object_id in topics.treats(key[0], key[1]) for key in placed):
             continue

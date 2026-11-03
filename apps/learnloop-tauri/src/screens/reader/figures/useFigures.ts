@@ -120,6 +120,12 @@ export interface FiguresCtl {
    *  `at` here, expanded, its home named. Resolves false when it may not be shown now
    *  (its own book no longer lists it: held out, switched off, gone). */
   follow: (ref: CorrespondentFigureDto, home: FigureHome, at: string) => Promise<boolean>;
+  /** RW5c (§10.4): a stored figure opened with no check yet: code rechecks it, and the row upgrades it in place. */
+  recheck?: (figure: FigureViewDto) => void;
+  /** RW5c (§6.6): *rebuild* a figure whose stated claim differs from the book (a new version, told the difference). */
+  rebuild?: (figure: FigureViewDto) => void;
+  /** RW5c (§7.2): "open the page" of a checked element's equation, where the host can. */
+  openSource?: (extractionId: string, spanId: string) => void;
   /** RW5d P2b: rich builds with no quick figure (pending lines). */
   richPending: FigureRichPendingDto[];
   /** RW5d P2b: cancel a rich build (only it: a quick figure stays). */
@@ -147,6 +153,7 @@ export function useFigures({
   contract,
   onBuilt,
   followEnabled = false,
+  openSource,
 }: {
   extractionId: string | null | undefined;
   contract: FiguresContract | null | undefined;
@@ -155,6 +162,8 @@ export function useFigures({
    *  names it. Off (or absent): no figure is followed here, a followed one is
    *  cleared and a follow still in flight never lands. */
   followEnabled?: boolean;
+  /** RW5c: "open the page" of a checked element's equation, where this host can open it. */
+  openSource?: (extractionId: string, spanId: string) => void;
 }): FiguresCtl {
   const enabled = Boolean(contract && extractionId);
   const followOn = enabled && followEnabled;
@@ -421,6 +430,36 @@ export function useFigures({
     [enabled, contract, run],
   );
 
+  // RW5c (§6.6): a new version told the difference in code's words (no note from the learner).
+  const rebuild = useCallback(
+    (figure: FigureViewDto) => {
+      if (!enabled) return;
+      void run(`rev:${figure.figureId}`, figure.anchorSpanId ?? "", () => api.readerFigureRevise({ figureId: figure.figureId, note: "", rebuild: true }));
+    },
+    [enabled, run],
+  );
+
+  // RW5c (§10.4): opened with no check at the current certification version. One recheck
+  // per figure per open source, by code; the list read after it upgrades the figure in place.
+  const rechecking = useRef(new Set<string>());
+  const recheck = useCallback(
+    (figure: FigureViewDto) => {
+      if (!enabled || rechecking.current.has(figure.figureId)) return;
+      rechecking.current.add(figure.figureId);
+      void (async () => {
+        const started = await Promise.resolve(api.readerFigureRecheck({ figureId: figure.figureId }));
+        let state = started?.state;
+        const jobId = started?.jobId;
+        while (jobId && state === "pending") {
+          await sleep(FIGURE_POLL_MS);
+          state = (await api.readerFigureJob({ jobId })).state;
+        }
+        if (jobId) refresh();
+      })().catch(() => undefined);
+    },
+    [enabled, refresh],
+  );
+
   const patchPrediction = useCallback((found: FigurePredictionResultDto) => {
     const patch = (figure: FigureViewDto): FigureViewDto => figure.figureId !== found.figureId ? figure : {
       ...figure,
@@ -516,6 +555,9 @@ export function useFigures({
       setExpanded,
       request,
       revise,
+      rebuild,
+      recheck,
+      openSource,
       predict,
       explain,
       under,
@@ -528,7 +570,7 @@ export function useFigures({
       optInSpanId,
       answerManimOptIn,
     }),
-    [enabled, contract, figures, pending, expandedKey, setExpanded, request, revise, predict, explain, under,
+    [enabled, contract, figures, pending, expandedKey, setExpanded, request, revise, rebuild, recheck, openSource, predict, explain, under,
      shownFollowed, follow, richPending, cancelRich, retryRich, manimOptIn, optInSpanId, answerManimOptIn],
   );
 }

@@ -75,6 +75,11 @@ CHECKS_LEAD = f"{CHECKED} by LearnLoop:"
 # The grammar figure's badges (RW5a; RW5d P1's abstention).
 #: What a grammar figure's badge says (spec §8.3): never "matches the book" (RW5c's).
 ILLUSTRATIVE_LABEL = "AI-built illustration of an interpretation · not checked against the book"
+#: RW5c (spec §7.3): what an element that passed the source check says, beside the book's own
+#: left-hand side, and what the rest of its figure is. Drawn only from the element map's role.
+BOOK_CHECKED_LABEL = "matches the book's equation (checked)"
+REST_ILLUSTRATION_LABEL = "the rest is an illustration"
+DERIVED_LABEL = "computed by LearnLoop from it"
 #: What a figure built with nothing from the learner's books says (RW1c's abstention).
 NOT_FROM_BOOKS_LABEL = "AI-built illustration · not from your books"
 #: The sketch's code-owned badges (spec §6.6, §9.5): never "checked against the book".
@@ -282,6 +287,9 @@ def strip_json(raw: Any) -> Any:
 
 
 __all__ = [
+    "BOOK_CHECKED_LABEL",
+    "DERIVED_LABEL",
+    "REST_ILLUSTRATION_LABEL",
     "CHECKED",
     "CHECKS_LEAD",
     "CHECK_GLYPHS",
