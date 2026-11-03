@@ -22,7 +22,7 @@ Run against the sources from before the fixes, 21 of the 98 PWA tests fail, and 
 
 - **The phone's copy of a question (F2, F3, F5).** `store/sessionCache.ts` holds the answer, the key, the draft's help, the request as sent and what is known of how it ended. It is written on every change, and the request is written before it is sent.
 - **One rule for a key (F2).** The outcome of a request is `none`, `failed` (the host said so) or `unknown`. An unknown outcome is settled with `GET /api/v1/submissions/{id}` before anything else goes: completed opens the feedback, accepted or running waits, and an unreachable host sends nothing. A key is replaced at the submit, and only when the job is known to have failed and the answer changed, or its request is gone. A key the host never saw keeps serving, so a late copy of the old request meets a typed conflict and not a second grade. `edit` no longer mints anything.
-- **Which errors say how it ended.** Anything typed except `desktop_offline` and `internal`. `internal` is what an unreadable response becomes, so it is treated as unknown; reading the status costs one GET.
+- **Which errors say how it ended.** None, since the re-review below. This round read anything typed except `desktop_offline` and `internal` as an end, and that was F2's reopening.
 - **Help on an adopted draft (F1).** `DraftAssist` carries the checkpoint's authored count, `pageSeen`, `hintSeen`, the first-hint marker and the plan presentation. A save sends the count, because each save replaces it, and the flags, because they live under the key. A submit sends the desktop's `answerHints`, `authoredHints` and `bookCounted`, and `phoneAttemptType` takes the desktop's hint branch. Help with no answer yet also reopens the question.
 - **Taking back (F4).** The next view is worked out first, then the session and the view are set in one step, so the old question never renders under the new owner. An adoption drops the phone's copies, and the owner generation is in the question's React key.
 - **Navigation (F5).** A question flushes on unmount, except after a skip or a settled submit, and a failed save stays dirty. Today restores from the phone's copy, then the checkpoint's draft for that item. Capture now sits over the practice side instead of replacing it, so an open question keeps its editor, its serve and a submit under way.
@@ -78,5 +78,49 @@ No full suite, by the owner's rule of 2026-10-17; the landing gate runs it. Tree
 Not run, because nothing under them changed: `cargo check` (no `src-tauri` change), the DB reference scripts (no schema change), desktop vitest (no desktop file changed).
 
 Targeted pytest files: `test_architecture`, `test_capture_desktop`, `test_capture_domain`, `test_capture_originals_race`, `test_capture_route_recovery`, `test_codex_lockdown_round2`, `test_codex_lockdown_round3`, `test_compare_sources_keep`, `test_deliverable_rpcs`, `test_e0_isolation`, `test_lp_claim_fixes_rereview`, `test_mobile_allowlist`, `test_mobile_doctor`, `test_mobile_handoff`, `test_mobile_host_auth`, `test_mobile_host_coexistence`, `test_mobile_jobs`, `test_mobile_pairing`, `test_mobile_rpc`, `test_mobile_two_process`, `test_notes_linked`, `test_public_tip_guards`, `test_reader_ca1_as_printed`, `test_reader_ca5_also_in_books`, `test_section_coverage_rpcs`.
+
+No model or paid calls; synthetic vaults only.
+
+## Re-review
+
+Job `20261103-140335-Uvq2Ac` (gpt-6.1-sol): F1 confirmed fixed, F2 reopened, one new Medium (F10). Verdict REOPENED. Both were reproduced through the real `App` and transport first: of the 22 new tests, 21 fail on the sources before these fixes. The one that passes is the skip of a job the host never took, which has nothing to catch.
+
+| Id | Severity | Title | Verdict | Commit | Test or reason |
+|---|---|---|---|---|---|
+| F1 | High | Adopted assistance lost | Confirmed fixed earlier | `6b3460744c`, `ebeb12e297` | No change this round |
+| F2 | High | Typed errors treated as a job's end, so a key is replaced with no status read | Fixed | `3120775412` | `App.test.tsx` "F2, re-review" (18): host_busy after four requests, running and finished; five other typed errors; a typed error with no job keeps the key; a grading outage read back first; `submission_conflict` running, finished, failed; a refused status read sends nothing; the stored outcome; a skip over an unsettled key (4) |
+| F10 | Medium | A failed Skip disables draft saving | Fixed | `3120775412` | `App.test.tsx` "F10" (4): a refused skip saves at once and keeps the answer; once only; a failed save is resent on leaving; nothing saves during a skip, and one that lands puts nothing back |
+
+### What changed
+
+- **F2: only the status read settles a key.** `saysHowItEnded` is gone. Every send starts `unknown`, and its own error leaves it there, typed or not. From the phone a job's end and a refusal before any job look the same. So `GET /api/v1/submissions/{id}` is the only thing that sets `failed` or `none`, and a key is replaced only after `failed`. A retry after a grading outage costs one more GET and one more draft save. The request sent is unchanged.
+- **F2: `submission_conflict`.** It no longer frees the key. The request just refused is dropped from the phone's copy, since it could only conflict again. So a running job is waited for, a finished one opens its feedback, and a failed one takes a new key even for the same answer.
+- **F10.** `onSkipped` now returns whether the host recorded the skip. While a skip is in flight no save goes out and the question's controls are disabled, so a double tap sends one skip. If it lands, nothing is saved and the unmount flush stays quiet. If it is refused, the answer is saved at once, because the debounce will not fire again until the next edit. If that save fails too, the draft stays dirty and leaving sends it.
+- **Beyond the finding, same class as F2.** A skip clears the phone's copy, which held the key, and reopening the question would then mint a new one over a job that might still land. So a skip over an `unknown` key reads the status first. A running job is waited for, a recorded attempt opens, and an unreadable status skips nothing. This adds one GET and only when the key is unsettled.
+
+The spec's §6.3 note says the same, and the first round's "Which errors say how it ended" line above is marked superseded.
+
+### Limits left
+
+- A job that failed with a non-retryable error returns the same failure for the same answer, until the learner changes it. That behaviour is unchanged and was not in the findings.
+- `submission_conflict` shows the host's own message, "This request id was used for a different request." It is rare and the next tap settles it, so the wording was left alone.
+- This is still jsdom against a fake host, with A4 the owner's.
+
+### Gate
+
+No full suite, by the owner's rule of 2026-10-17. Tree at `3120775412`. Only `apps/learnloop-mobile` code changed, plus the spec's note and this record.
+
+| Step | Result |
+|---|---|
+| `uv sync --extra dev --extra mobile`, `uv pip install pypdfium2` (isolated env) | Done |
+| `uv run lint-imports --no-cache` (isolated env) | 42 kept, 0 broken |
+| Targeted pytest, `-n 6`, memory-capped | **522 passed** |
+| `apps/learnloop-mobile`: `npm install`, `npm run typecheck` | Pass (exit 0) |
+| `apps/learnloop-mobile`: vitest (all 6 files), `--maxWorkers=4` | **120 passed** (98 before, 22 new; `App.test.tsx` 70) |
+| `apps/learnloop-mobile`: `npm run build` | Built |
+
+Targeted pytest files: `test_mobile_allowlist`, `test_mobile_doctor`, `test_mobile_host_auth`, `test_mobile_jobs`, `test_mobile_rpc`, `test_mobile_handoff`, `test_public_tip_guards`. `test_mobile_allowlist` and `test_mobile_doctor` reference the phone app; the others pin the host contract the fix relies on (no server code changed).
+
+Not run, because nothing under them changed: durability (no migration or DB code), `cargo check` (no `src-tauri` change), the DB reference scripts (no schema change), desktop vitest and build (no desktop file changed), the module catalog (no Python changed).
 
 No model or paid calls; synthetic vaults only.
