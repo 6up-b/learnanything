@@ -2,14 +2,16 @@
 
 **A first-delayed-success proxy, not goal attainment.** From a learning object's enrollment to the first
 presentation the shared definition (:mod:`learnloop.delayed_completion`) calls a completed delayed attempt at
-or above the success threshold the board already uses. An enrollment is the earliest of a goal's confirmed
-contract (or its creation) whose scope holds the LO, or a learner's own commitment on it; with neither it is
-the first exposure, and says so. No goal model: the goal contract in force at the success (or now) is pinned by
-id, version and due date.
+or above the success threshold the board already uses. An enrollment is the earliest of the first confirmed
+contract version whose own recorded scope holds the LO (a goal with no contract: its creation, under today's
+scope), or a learner's own commitment on it; with neither it is the first exposure, and says so. No goal model:
+the goal contract in force at the success (or now) is pinned by id, version and due date, and only when that
+version covers the LO: goal expansion enrolls an objective when it was added, never before.
 
 **Time is reported in two kinds and never blended.** ``active``: what a learner's activity was measured to take
 (attempt latency, Reader active seconds). ``elapsed``: wall-clock spans around it (a presentation's serve to its
-answer, a Reader visit's open to its close, a reading block's start to its end). Unrecorded time is not zero: a
+answer, a Reader visit's open to its close, and a reading block's start to its end where no such visit of the LO
+already holds it, so one reading is counted once). Unrecorded time is not zero: a
 trajectory carries its coverage, and an unfinished trajectory stays on the report (right-censored at ``as_of``).
 A Reader visit is attributed to an LO only when a reading receipt or an exposure on that LO falls inside it
 (split evenly when several do); the rest is reported ``unattributed``. Lessons' durations join with TE3.
@@ -40,6 +42,21 @@ SOURCE_FIRST_EXPOSURE = "first_exposure"
 _SYSTEM_VIA = frozenset({"measurement", "lesson"})
 #: Attempt types that are no served problem (``scoreboard._NON_PROBLEM_ATTEMPT_TYPES``).
 _NON_PROBLEM = frozenset({"self_report", "skip"})
+
+
+@dataclass(frozen=True)
+class _Membership:
+    """One goal's hold on an LO: all its contract versions, oldest first, and which of them cover the LO."""
+
+    goal: Any
+    versions: tuple[Mapping[str, Any], ...]
+    covering: frozenset[str]
+
+    def first_covered_at(self) -> str | None:
+        if not self.versions:
+            created = getattr(self.goal, "created_at", None)
+            return str(created) if created else None
+        return next(str(row["created_at"]) for row in self.versions if str(row["id"]) in self.covering)
 
 
 @dataclass(frozen=True)
@@ -97,18 +114,40 @@ def _days(later: str, earlier: str) -> float | None:
     return None if seconds is None else round(seconds / 86400.0, 6)
 
 
-def _goal_scopes(vault: Any) -> dict[str, list[Any]]:
-    """Each LO's goals (any status: an enrollment is a historical fact)."""
+def _covers(learning_object: Any, concepts: set[str], facets: set[str]) -> bool:
+    return learning_object.concept in concepts or bool(facets & set(learning_object_facet_union(learning_object)))
 
-    out: dict[str, list[Any]] = {}
+
+def _recorded_scope(version: Mapping[str, Any]) -> tuple[set[str], set[str]] | None:
+    """A contract version's own recorded scope; None when its body names none (the goal's stands in)."""
+
+    try:
+        scope = (json.loads(version["contract_json"]) or {}).get("facet_scope")
+    except (TypeError, ValueError, AttributeError):
+        return None
+    if not isinstance(scope, Mapping):
+        return None
+    return {str(value) for value in scope.get("concepts") or ()}, {str(value) for value in scope.get("facets") or ()}
+
+
+def _goal_scopes(vault: Any, contracts: Mapping[str, list[dict[str, Any]]]) -> dict[str, list[_Membership]]:
+    """Each LO's goals (any status: an enrollment is a historical fact) and which of each goal's contract
+    versions held it, by each version's own scope. A goal with no contract has only today's scope."""
+
+    out: dict[str, list[_Membership]] = {}
     for goal in getattr(vault, "goals", ()) or ():
         scope = getattr(goal, "facet_scope", None)
-        if scope is None:
-            continue
-        concepts, facets = set(scope.concepts), set(scope.facets)
+        today = (set(scope.concepts), set(scope.facets)) if scope is not None else None
+        versions = contracts.get(str(goal.id), [])
+        recorded = [(str(version["id"]), _recorded_scope(version) or today) for version in versions]
         for lo_id, learning_object in vault.learning_objects.items():
-            if learning_object.concept in concepts or (facets & set(learning_object_facet_union(learning_object))):
-                out.setdefault(str(lo_id), []).append(goal)
+            if versions:
+                covering = frozenset(version for version, held in recorded
+                                     if held is not None and _covers(learning_object, *held))
+                if covering:
+                    out.setdefault(str(lo_id), []).append(_Membership(goal, tuple(versions), covering))
+            elif today is not None and _covers(learning_object, *today):
+                out.setdefault(str(lo_id), []).append(_Membership(goal, (), frozenset()))
     return out
 
 
@@ -123,17 +162,22 @@ def _contract_rows(connection: sqlite3.Connection) -> dict[str, list[dict[str, A
     return rows
 
 
-def _pinned(goals: Sequence[Any], contracts: Mapping[str, list[dict[str, Any]]], as_of: str) -> dict[str, Any] | None:
-    """The contract in force at ``as_of``: the newest confirmed version of the LO's first goal holding one."""
+def _pinned(memberships: Sequence[_Membership], as_of: str) -> dict[str, Any] | None:
+    """The contract in force at ``as_of`` that applies: of the LO's first goal whose newest confirmed version
+    then covers it. A version in force that does not hold the LO (added later, or dropped) is never cited. A
+    goal with no contract at all is named without one."""
 
     fallback = None
-    for goal in goals:
-        versions = [row for row in contracts.get(str(goal.id), ()) if str(row["created_at"]) <= as_of]
-        if not versions:
+    for membership in memberships:
+        goal = membership.goal
+        if not membership.versions:
             fallback = fallback or {"goal_id": str(goal.id), "contract_version_id": None, "version": None,
                                     "content_hash": None, "due_at": getattr(goal, "due_at", None) or None}
             continue
-        head = versions[-1]
+        in_force = [row for row in membership.versions if str(row["created_at"]) <= as_of]
+        if not in_force or str(in_force[-1]["id"]) not in membership.covering:
+            continue
+        head = in_force[-1]
         try:
             due = (json.loads(head["contract_json"]) or {}).get("due_at")
         except (TypeError, ValueError):
@@ -166,14 +210,13 @@ def _commitment_times(connection: sqlite3.Connection, vault: Any) -> dict[str, s
     return out
 
 
-def _enrollment(lo: str, goals: Sequence[Any], contracts: Mapping[str, list[dict[str, Any]]],
-                commitments: Mapping[str, str], ledger: _Ledger) -> tuple[str, str] | None:
+def _enrollment(lo: str, memberships: Sequence[_Membership], commitments: Mapping[str, str],
+                ledger: _Ledger) -> tuple[str, str] | None:
     times: list[tuple[str, str]] = []
-    for goal in goals:
-        versions = contracts.get(str(goal.id), ())
-        when = str(versions[0]["created_at"]) if versions else getattr(goal, "created_at", None)
+    for membership in memberships:
+        when = membership.first_covered_at()
         if when:
-            times.append((str(when), SOURCE_GOAL))
+            times.append((when, SOURCE_GOAL))
     if lo in commitments:
         times.append((commitments[lo], SOURCE_COMMITMENT))
     if times:
@@ -233,8 +276,8 @@ def _attribute_visits(visits: Sequence[Mapping[str, Any]], marks: Sequence[tuple
             continue
         elapsed = _seconds(visit["closed_at"], visit["opened_at"]) or 0.0
         for lo in los:
-            by_lo.setdefault(lo, []).append({"at": visit["closed_at"], "active": visit["active_seconds"] / len(los),
-                                             "elapsed": elapsed / len(los)})
+            by_lo.setdefault(lo, []).append({"at": visit["closed_at"], "opened_at": visit["opened_at"],
+                                             "active": visit["active_seconds"] / len(los), "elapsed": elapsed / len(los)})
     return by_lo, unattributed
 
 
@@ -252,8 +295,37 @@ def _plan_reading(connection: sqlite3.Connection, decisions: Sequence[Mapping[st
         block = events.get(_decision_block(decision) or "") or {}
         span = _seconds(block["block_ended"], block["block_started"]) if {"block_started", "block_ended"} <= set(block) else None
         if span is not None and decision.get("learning_object_id"):
-            out.setdefault(str(decision["learning_object_id"]), []).append({"at": block["block_ended"], "elapsed": span})
+            out.setdefault(str(decision["learning_object_id"]), []).append(
+                {"at": block["block_ended"], "started_at": block["block_started"]})
     return out
+
+
+def _merged(spans: Sequence[tuple[str, str]]) -> list[tuple[float, float]]:
+    """The union of ``(start, end)`` time spans as sorted, disjoint instants."""
+
+    instants = sorted((start.timestamp(), end.timestamp()) for start, end in
+                      ((parse_utc(first), parse_utc(last)) for first, last in spans)
+                      if start is not None and end is not None and end > start)
+    merged: list[tuple[float, float]] = []
+    for start, end in instants:
+        if merged and start <= merged[-1][1]:
+            merged[-1] = (merged[-1][0], max(merged[-1][1], end))
+        else:
+            merged.append((start, end))
+    return merged
+
+
+def _blocks_outside_visits(blocks: Sequence[Mapping[str, Any]], visits: Sequence[Mapping[str, Any]]) -> float:
+    """Seconds of the blocks' union no visit of the same LO holds: a reading block runs inside a Reader
+    visit and both record its interval (Codex review F5), so the visit counts it and the block only the rest."""
+
+    held = _merged([(visit["opened_at"], visit["at"]) for visit in visits])
+    total = 0.0
+    for start, end in _merged([(block["started_at"], block["at"]) for block in blocks]):
+        total += end - start
+        for held_start, held_end in held:
+            total -= max(0.0, min(end, held_end) - max(start, held_start))
+    return total
 
 
 def trajectories(
@@ -269,8 +341,8 @@ def trajectories(
 
     pfc_states = pfc_states or {}
     ledger = _Ledger(connection, held_attempt_ids=frozenset(held_attempt_ids), version=OUTCOME_VERSION_V3)
-    goal_scopes = _goal_scopes(vault)
     contracts = _contract_rows(connection)
+    goal_scopes = _goal_scopes(vault, contracts)
     commitments = _commitment_times(connection, vault)
     visits_by_lo, unattributed = _attribute_visits(_visits(connection), _reading_marks(connection))
     reading_decisions: list[dict[str, Any]] = []
@@ -282,8 +354,8 @@ def trajectories(
     candidates = set(goal_scopes) | set(commitments) | set(ledger.lo_exposures)
     out: list[Trajectory] = []
     for lo in sorted(candidates):
-        goals = goal_scopes.get(lo, ())
-        enrolled = _enrollment(lo, goals, contracts, commitments, ledger)
+        memberships = goal_scopes.get(lo, ())
+        enrolled = _enrollment(lo, memberships, commitments, ledger)
         if enrolled is None:
             continue
         enrolled_at, source = enrolled
@@ -317,7 +389,7 @@ def trajectories(
             learning_object_id=lo,
             enrolled_at=enrolled_at,
             enrollment_source=source,
-            goal=_pinned(goals, contracts, end),
+            goal=_pinned(memberships, end),
             success_attempt_id=str(success["id"]) if success is not None else None,
             success_at=str(success["created_at"]) if success is not None else None,
             calendar_days=_days(end, enrolled_at) if success is not None else None,
@@ -331,7 +403,7 @@ def trajectories(
             reading_visits=len(visits),
             active_reading_seconds=round(sum(visit["active"] for visit in visits), 3),
             elapsed_reading_seconds=round(sum(visit["elapsed"] for visit in visits), 3),
-            plan_reading_elapsed_seconds=round(sum(block["elapsed"] for block in blocks), 3),
+            plan_reading_elapsed_seconds=round(_blocks_outside_visits(blocks, visits), 3),
         ))
     return out, {"unattributed_active_reading_seconds": round(unattributed, 3)}
 

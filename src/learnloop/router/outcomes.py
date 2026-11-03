@@ -102,7 +102,12 @@ reveal during it) is R_cold = 0, a failure of unassisted completion, as adaptive
 difficulty defines it. A pre-exposed presentation and an unanswered one are
 neither: they stay separate. Below it R_cold is v2's exactly (a help-assisted
 attempt is excluded). Version only: certification, mastery, grading, FSRS and the
-projection read nothing here.
+projection read nothing here. Its reading exposures are the frozen, LO-linked ones
+adaptive difficulty's dose outcomes read: ``ad_reading_opportunities`` (a completed
+section, a passage view, a tutor exchange, a worked example, an in-passage question;
+Codex review F1) beside the LO-linked ``source_exposure_events``, so a reading the
+hour before an answer leaves it warm on both sides. The receipts are written by AD's
+sweep (``adaptive_difficulty.forecast_receipts``): off, only the exposure events count.
 
 **A reading block, a follow-up that waits and a stop** (data capture A2, version 3):
 a decision with a frozen objective (``decision_objectives``) and no action of its
@@ -118,8 +123,8 @@ before its objective could be frozen has none and stays ``not_applicable``
 
 Deterministic from ledgers (``router_decisions``, ``practice_attempts``,
 grading evidence through the caller's PF-c states, ``reveal_events``,
-``question_events``, ``source_exposure_events``, ``sessions.ended_at``,
-``router_suggestion_responses``) and the
+``question_events``, ``source_exposure_events``, ``ad_reading_opportunities``
+(version 3), ``sessions.ended_at``, ``router_suggestion_responses``) and the
 caller's maps (servable items per learning object from vault content; the FSRS
 prediction per attempt): no clock, no model call. It imports no scheduler or
 substrate code.
@@ -277,6 +282,25 @@ def _exclusions(
     return reasons
 
 
+def _frozen_reading(connection: sqlite3.Connection) -> list[tuple[str, str]]:
+    """``(LO, time)`` of every frozen reading receipt, its time at the attempts' own precision
+    (a receipt keeps microseconds, an attempt seconds: the ledger compares them as strings)."""
+
+    if not _table_present(connection, "ad_reading_opportunities"):
+        return []
+    out: list[tuple[str, str]] = []
+    for lo, written_at in connection.execute(
+            "SELECT learning_object_id, source_written_at FROM ad_reading_opportunities "
+            "WHERE learning_object_id IS NOT NULL ORDER BY source_written_at, id"):
+        try:
+            when = parse_utc(str(written_at))
+        except ValueError:  # pragma: no cover - the sweep stamps it
+            continue
+        if when is not None:
+            out.append((str(lo), when.strftime("%Y-%m-%dT%H:%M:%SZ")))
+    return out
+
+
 class _Ledger:
     """The attempt, reveal and exposure ledgers, indexed once for every decision."""
 
@@ -428,6 +452,9 @@ class _Ledger:
                     lo = item_lo.get(row["entity_id"])
                     if lo:
                         los[lo].append(exposure)
+        if self.version == OUTCOME_VERSION_V3:
+            for lo, at in _frozen_reading(connection):
+                los[lo].append((at, "", "reading", None))
         for table in (items, los, facets):
             for entries in table.values():
                 entries.sort(key=lambda entry: (entry[0], entry[1]))
@@ -993,25 +1020,61 @@ def _completion_detail(ledger: _Ledger, r_cold: Mapping[str, Any]) -> dict[str, 
     return {"delayed_completion_version": DC.DELAYED_COMPLETION_VERSION, "r_cold_completion": r_cold.get("completion")}
 
 
-#: The fold's order over a measurement's states: a later state stands for it.
-_MEASUREMENT_ORDER = ("unavailable", "due", "offered", "answered")
+def _event_instant(event: Mapping[str, Any]) -> float:
+    try:
+        when = parse_utc(str(event.get("created_at")))
+    except ValueError:  # pragma: no cover - the row is ours
+        return 0.0
+    return when.timestamp() if when is not None else 0.0
+
+
+def _replacement_of(event: Mapping[str, Any]) -> str | None:
+    """The check an early answer's event arranged in its place (``daily_plan.measurement.settle``)."""
+
+    try:
+        detail = json.loads(event.get("detail_json") or "{}")
+    except (TypeError, ValueError):  # pragma: no cover - the row is ours
+        return None
+    return detail.get("replacement_commitment_id") if isinstance(detail, Mapping) else None
 
 
 def measurement_state(objective: Mapping[str, Any], events: Sequence[Mapping[str, Any]]) -> dict[str, Any]:
-    """An objective's measurement as one plain record (this adapter's and the capture report's)."""
+    """An objective's measurement as one plain record (this adapter's and the capture report's).
 
-    states = {str(event["state"]) for event in events}
-    latest = next((state for state in reversed(_MEASUREMENT_ORDER) if state in states), None)
-    if latest is None:
+    The state is the chronological fold of its events (Codex review F7): a check that came due and was
+    then replaced reads ``unavailable``, and a later offer makes it available again. An answer is terminal.
+    Unavailable with a replacement arranged reads ``scheduled``: the measurement's duty stands."""
+
+    ordered = sorted(events, key=_event_instant)
+    states = {str(event["state"]) for event in ordered}
+    replacements = [found for found in (_replacement_of(event) for event in ordered) if found]
+    if "answered" in states:
+        latest = "answered"
+    elif ordered:
+        last = ordered[-1]
+        latest = "scheduled" if last["state"] == "unavailable" and _replacement_of(last) else str(last["state"])
+    else:
         latest = "scheduled" if objective.get("measurement") in ("arranged", "shared") else str(objective.get("measurement"))
     return {
         "arranged": objective.get("measurement"),
         "state": latest,
         "states": sorted(states),
-        "reasons": sorted({str(event["reason"]) for event in events if event.get("reason")}),
+        "reasons": sorted({str(event["reason"]) for event in ordered if event["state"] == "unavailable" and event.get("reason")}),
         "commitment_id": objective.get("commitment_id"),
         "practice_item_id": objective.get("practice_item_id"),
+        **({"replacement_commitment_id": replacements[-1]} if replacements else {}),
     }
+
+
+def answer_completion(connection: sqlite3.Connection, attempt_id: str, *, decided_at: str) -> DC.Completion | None:
+    """What the shared definition makes of one attempt as the delayed retrieval of a decision taken at
+    ``decided_at``: a measurement's check asks this of its answer. None for an attempt not on the ledger."""
+
+    ledger = _Ledger(connection, version=OUTCOME_VERSION_V3)
+    row = ledger.by_id.get(attempt_id)
+    if row is None:
+        return None
+    return _completion(row, ledger, {}, source_session_id=None, not_before=decided_at)
 
 
 def _objective_record(decision: Mapping[str, Any], objective: Mapping[str, Any], ledger: _Ledger,
@@ -1337,6 +1400,7 @@ def rebuild_router_outcomes(
 
 
 __all__ = [
+    "answer_completion",
     "COLDNESS_CANDIDATE_CAP",
     "COVARIATE_NAMES",
     "INDEPENDENT_ATTEMPT_TYPES",

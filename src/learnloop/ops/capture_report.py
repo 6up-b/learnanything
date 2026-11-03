@@ -116,7 +116,12 @@ def measurement_section(connection: sqlite3.Connection) -> dict[str, Any]:
 
 
 def outcome_section(connection: sqlite3.Connection, vault: Any) -> dict[str, Any]:
-    """A2, A4: the derived outcomes by arm under the vault's outcome version, and A4's skip reasons."""
+    """A2, A4: the derived outcomes under the vault's outcome version, and A4's skip reasons.
+
+    ``r_cold_by_arm`` is one endpoint, the frozen objective's, for every arm of every decision that has
+    one: a practice or insert arm reads the same record the reading, wait and stop arms do (its
+    ``objective_itt``). ``action_bound_r_cold`` is each served action's own outcome, a different endpoint
+    (it follows the item the arm happened to serve), kept apart so the two are never compared."""
 
     from learnloop.router.outcomes import derive_router_outcomes, outcome_version_for, servable_items_by_learning_object
 
@@ -126,13 +131,20 @@ def outcome_section(connection: sqlite3.Connection, vault: Any) -> dict[str, Any
                                   servable_items_by_lo=servable_items_by_learning_object(vault),
                                   held_attempt_ids=held_for_review_attempts(connection), outcome_version=version)
     by_arm: dict[str, Counter[str]] = {}
+    action_bound: Counter[str] = Counter()
     completions: Counter[str] = Counter()
     skips: Counter[str] = Counter()
     no_outcome = 0
     for row in rows:
         detail = json.loads(row["detail_json"] or "{}")
-        arm = str(detail.get("arm") or "practice_or_offer")
-        by_arm.setdefault(arm, Counter())[str(row["r_cold_status"])] += 1
+        status = str(row["r_cold_status"])
+        itt = detail.get("objective_itt")
+        if detail.get("arm"):
+            by_arm.setdefault(str(detail["arm"]), Counter())[status] += 1
+        elif not detail.get("no_outcome"):
+            action_bound[status] += 1
+        if itt:
+            by_arm.setdefault(str(itt.get("arm")), Counter())[str(itt.get("r_cold_status"))] += 1
         if detail.get("r_cold_completion"):
             completions[str(detail["r_cold_completion"])] += 1
         skips.update({str(key): int(value) for key, value in (detail.get("r_cold_skip_reasons") or {}).items()})
@@ -141,6 +153,12 @@ def outcome_section(connection: sqlite3.Connection, vault: Any) -> dict[str, Any
         "outcome_version": version,
         "decisions": len(rows),
         "r_cold_by_arm": {arm: dict(counts) for arm, counts in sorted(by_arm.items())},
+        "action_bound_r_cold": dict(sorted(action_bound.items())),
+        # The Reader's exposures reach the delayed definition through these receipts (AD's sweep).
+        "reading_exposure_receipts": (
+            int(connection.execute("SELECT COUNT(*) FROM ad_reading_opportunities").fetchone()[0])
+            if _present(connection, "ad_reading_opportunities") else 0
+        ),
         "completions": dict(completions),
         "r_cold_skip_reasons": dict(skips),
         "no_frozen_objective": no_outcome,
@@ -234,8 +252,11 @@ def lines(report: Mapping[str, Any]) -> list[str]:
     outcomes = report["outcomes"]
     out.append(f"Outcomes ({outcomes['outcome_version']}): {outcomes['decisions']} decisions, "
                f"{outcomes['no_frozen_objective']} with no frozen objective")
+    out.append("  R_cold on the frozen objective, by arm:")
     for arm, counts in outcomes["r_cold_by_arm"].items():
-        out.append(f"  {arm}: {counts}")
+        out.append(f"    {arm}: {counts}")
+    out.append(f"  R_cold of the served action (action-bound, not comparable with the above): {outcomes['action_bound_r_cold']}")
+    out.append(f"  reading exposures on record: {outcomes['reading_exposure_receipts']}")
     if outcomes["completions"]:
         out.append(f"  delayed completions: {outcomes['completions']}")
     first = report["first_delayed_success"]

@@ -621,6 +621,7 @@ def publish_offer(
                 "router R1: offer decision for slate %s not logged", trace.slate_id, exc_info=True
             )
             decision = None
+    receipt = _offer_prefilter(vault, decision, trace, queue) if decision is not None else None
     with repository.atomic() if alongside is not None else nullcontext():
         if alongside is not None:
             alongside()
@@ -630,39 +631,42 @@ def publish_offer(
                 [item.scheduler_candidate_id for item in queue if item.scheduler_candidate_id],
                 entry_surface=offer_surface(ctx.request_origin),
                 router_decision=decision,
+                decision_receipt=receipt,
             )
         elif decision is not None:
             # Nothing was published (an empty offer): the stop is still a decision.
             try:
-                record_decision(repository, decision)
+                record_decision(repository, decision, alongside=receipt)
             except Exception:  # pragma: no cover - logging never fails the offer
                 logging.getLogger(__name__).warning(
                     "router R1: empty-offer decision for slate %s not logged", trace.slate_id if trace else None,
                     exc_info=True,
                 )
-    if decision is not None:
-        _link_offer_prefilter(vault, repository, decision, trace, queue)
     return queue, dtos
 
 
-def _link_offer_prefilter(vault: Any, repository: Any, decision: Mapping[str, Any], trace: Any, queue: Any) -> None:
-    """Data capture A1: the build's prefilter, linked to the offer's committed decision (never the offer's failure)."""
+def _offer_prefilter(vault: Any, decision: Mapping[str, Any], trace: Any, queue: Any) -> Callable[[Any], Any] | None:
+    """Data capture A1: the build's prefilter, ready to link in the transaction that commits the offer's
+    decision (Codex review F8: apart from it, a crash between the two left the decision no receipt, and the
+    build's trace is in memory only). Built before that transaction opens; never the offer's failure."""
 
     from learnloop.data_capture import prefilter
     from learnloop.data_capture.gates import receipts_on
     from learnloop.diagnosis.voi_stopping import FORECAST_VERSION
 
     if not receipts_on(vault.config):
-        return
+        return None
     try:
         material = prefilter.today_offer_material(
             trace, offered=[item.practice_item_id for item in queue],
             versions={"voi_forecast": FORECAST_VERSION, "selection_policy": SELECTION_POLICY},
         )
-        with repository.atomic(), repository.connection() as connection:
-            if connection.execute("SELECT 1 FROM router_decisions WHERE id = ?", (decision["id"],)).fetchone() is None:
-                return  # a repeated receipt key wrote no row of its own: its first keeps its receipt
-            prefilter.record(connection, decision_id=str(decision["id"]), decision_kind="today_offer", material=material,
-                             config=vault.config, at=str(decision["created_at"]))
     except Exception:  # noqa: BLE001 - a receipt never fails the offer
-        logging.getLogger(__name__).warning("data capture: the offer's prefilter was not written", exc_info=True)
+        logging.getLogger(__name__).warning("data capture: the offer's prefilter was not built", exc_info=True)
+        return None
+
+    def link(connection: Any) -> None:
+        prefilter.record(connection, decision_id=str(decision["id"]), decision_kind="today_offer", material=material,
+                         config=vault.config, at=str(decision["created_at"]))
+
+    return link

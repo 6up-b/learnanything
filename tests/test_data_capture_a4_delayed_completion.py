@@ -234,9 +234,11 @@ class _View:
     def attempts(self, _connection):
         return list(self._attempts)
 
+    def reading_opportunities(self, _connection):
+        return []
+
     def rows(self, _connection, table, *args, **kwargs):
-        assert table == "question_events"
-        return list(self._questions)
+        return list(self._questions) if table == "question_events" else []
 
 
 def _event(attempt_id, *, at, category=2, lo=LO, item=A, served=None):

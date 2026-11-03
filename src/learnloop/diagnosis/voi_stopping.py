@@ -928,6 +928,18 @@ class SiteDecision:
         return body
 
 
+def candidate_forecasts(decisions: Iterable[SiteDecision]) -> list[dict[str, Any]]:
+    """Every evaluated candidate's whole valuation (its likelihood rows, prior and minutes), economically
+    rejected or not, for the prefilter receipt's content-addressed part (data capture A1, Codex review F3).
+    The decision's own inline body keeps summaries: its shape and size stay what they were."""
+
+    return [
+        {"site": decision.site, "learning_object_id": decision.learning_object_id, "decision": decision.decision,
+         "candidates": [value.as_dict() for value in decision.candidates]}
+        for decision in decisions
+    ]
+
+
 def _forecast(
     member0: Mapping[str, Mapping[Any, float]],
     prior: Mapping[str, float],
@@ -2477,6 +2489,7 @@ __all__ = [
     "former_cap",
     "greedy_information_admission",
     "heuristic_parameters",
+    "candidate_forecasts",
     "hypothesis_channel_body",
     "information_candidate",
     "label_conditionals",

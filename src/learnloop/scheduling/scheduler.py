@@ -174,6 +174,9 @@ class OfferTrace:
     #: mvp-0.21: every value-of-information stop/continue decision the build
     #: made (probe episodes, further teach-backs), each with its forecast.
     voi_decisions: tuple[dict[str, Any], ...] = ()
+    #: Data capture A1: every probe candidate's whole forecast, rejected ones too, for the prefilter
+    #: receipt alone (the decision's ``voi_decisions`` go inline on its row and keep summaries).
+    voi_forecasts: tuple[dict[str, Any], ...] = ()
     #: The exclusion reason for teach-back items the composition dropped:
     #: the count cap below mvp-0.21, their value at it.
     teach_back_exclusion_reason: str = "teach_back_session_cap"
@@ -957,6 +960,9 @@ def build_due_queue(
         offer_trace.voi_decisions = tuple(
             [decision.as_dict() for _episode_id, decision in sorted(voi_probe_decisions.items())]
             + list(teach_back_voi_decisions)
+        )
+        offer_trace.voi_forecasts = tuple(
+            voi.candidate_forecasts(decision for _episode_id, decision in sorted(voi_probe_decisions.items()))
         )
         if voi.voi_stopping_active(config, voi.SITE_TEACH_BACK):
             offer_trace.teach_back_exclusion_reason = "teach_back_value_below_minutes_cost"

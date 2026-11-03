@@ -640,11 +640,16 @@ def build_staged_p2_decision(
     }
 
 
-def record_decision(repository: Any, row: Mapping[str, Any]) -> bool:
-    """Append one decision row in its own transaction; idempotent on its key."""
+def record_decision(repository: Any, row: Mapping[str, Any], *,
+                    alongside: Callable[[Any], Any] | None = None) -> bool:
+    """Append one decision row in its own transaction; idempotent on its key. ``alongside`` runs in that
+    transaction when the row was written, so what belongs to the decision commits with it."""
 
     with repository.atomic(), repository.connection() as connection:
-        return insert_router_decision(connection, row)
+        written = insert_router_decision(connection, row)
+        if written and alongside is not None:
+            alongside(connection)
+        return written
 
 
 def logging_enabled(config: Any) -> bool:

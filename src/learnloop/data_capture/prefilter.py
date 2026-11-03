@@ -119,7 +119,7 @@ def _trace_parts(trace: Any) -> dict[str, Any]:
     if trace is None:
         return {
             "gates": {"exclusions": {}, "trace": "not_available"},
-            "upstream": {"voi_decisions": [], "likelihoods": {}, "trace": "not_available"},
+            "upstream": {"voi_decisions": [], "likelihoods": {}, "candidate_forecasts": [], "trace": "not_available"},
             "considered": [],
             "session": {},
             "config": {},
@@ -134,6 +134,8 @@ def _trace_parts(trace: Any) -> dict[str, Any]:
         },
         "upstream": {
             "voi_decisions": [dict(row) for row in trace.voi_decisions],
+            # Each evaluated probe's whole forecast: its likelihood rows, prior and minutes, rejected or not.
+            "candidate_forecasts": [dict(row) for row in getattr(trace, "voi_forecasts", ())],
             "teach_back_exclusion_reason": trace.teach_back_exclusion_reason,
             "likelihoods": {
                 item.practice_item_id: dict(item.hypothesis_channel)
@@ -173,7 +175,10 @@ def _material(surface: str, built: Mapping[str, Any], *, classification: Mapping
         "inputs": canonical(inputs),
         "config": canonical({**dict(built["config"]), **dict(config_extra)}),
     }
-    likelihoods = built["upstream"].get("likelihoods") or {}
+    likelihoods = {
+        key: value for key, value in (("likelihoods", built["upstream"].get("likelihoods")),
+                                      ("candidate_forecasts", built["upstream"].get("candidate_forecasts"))) if value
+    }
     return Material(
         surface=surface,
         parts=parts,

@@ -4,7 +4,7 @@ from __future__ import annotations
 import json
 import logging
 import sqlite3
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 from typing import Any
 
 from learnloop.clock import utc_now_iso
@@ -58,6 +58,7 @@ class CollectionStoreMixin:
         *,
         entry_surface: str = "desktop_queue",
         router_decision: Mapping[str, Any] | None = None,
+        decision_receipt: Callable[[Any], Any] | None = None,
     ) -> None:
         """Publish the offer; router R1's decision row commits with it.
 
@@ -65,7 +66,8 @@ class CollectionStoreMixin:
         the receipt's own transaction, so a published offer and its logged
         decision never disagree. A republished (identical) offer writes nothing.
         A row the ledger refuses (a CHECK or NOT NULL violation) rolls back
-        alone with a warning; the offer still publishes.
+        alone with a warning; the offer still publishes. ``decision_receipt``
+        runs in that transaction when the decision was written.
         """
 
         if slate_id is None:
@@ -84,8 +86,9 @@ class CollectionStoreMixin:
             connection.executemany("UPDATE scheduler_slate_candidates SET was_returned=1,returned_rank=? WHERE id=? AND slate_id=?", [(rank, candidate_id, slate_id) for rank, candidate_id in enumerate(candidate_ids, 1)])
             connection.execute("UPDATE scheduler_slates SET returned_count=? WHERE id=?", (len(candidate_ids), slate_id))
             connection.execute("INSERT INTO scheduler_offer_receipts(slate_id,returned_candidate_ids_json,entry_surface,collection_version,created_at) VALUES (?,?,?,?,?)", (slate_id, encoded, entry_surface, COLLECTION_VERSION, utc_now_iso()))
-            if router_decision is not None:
-                append_router_decision(connection, router_decision)
+            if router_decision is not None and append_router_decision(connection, router_decision):
+                if decision_receipt is not None:
+                    decision_receipt(connection)
 
     def record_false_remediation(self, *, attempt_id: str, value: bool, evidence_refs: list[dict[str, str]], author_kind: str, verifier_version: str) -> str:
         if type(value) is not bool or not evidence_refs or author_kind not in {"human", "machine"} or not verifier_version.strip():

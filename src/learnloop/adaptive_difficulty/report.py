@@ -365,7 +365,9 @@ def _visits(connection: Any, snapshot: RP.Snapshot, *, view: Any) -> list[dict[s
 
 def _delayed_exposures(connection: Any, snapshot: RP.Snapshot, *, view: Any) -> dict[str, list[str]]:
     """Each LO's exposure and practice times for the shared delayed definition, read through the view:
-    its attempts and reveals (the warmth rule's own), its reading opportunities and tutor questions."""
+    its attempts and reveals (the warmth rule's own), its reading receipts and LO-linked source exposures
+    (the same two the router's ledger reads; a capped second passage view has only the exposure, Codex
+    review F1) and tutor questions."""
 
     item_lo = {str(attempt.practice_item_id): str(attempt.learning_object_id) for attempt in snapshot.events.attempts}
     by_lo: dict[str, list[str]] = defaultdict(list)
@@ -373,8 +375,15 @@ def _delayed_exposures(connection: Any, snapshot: RP.Snapshot, *, view: Any) -> 
         lo = row.get("learning_object_id") or item_lo.get(str(row.get("practice_item_id")))
         if lo:
             by_lo[str(lo)].append(str(row["created_at"]))
-    for opportunity in snapshot.events.opportunities:
-        by_lo[str(opportunity.learning_object_id)].append(str(opportunity.created_at))
+    for row in view.reading_opportunities(connection):
+        if row.get("learning_object_id") and row.get("source_written_at"):
+            by_lo[str(row["learning_object_id"])].append(str(row["source_written_at"]))
+    for row in view.rows(connection, "source_exposure_events",
+                         "entity_type IN ('learning_object', 'practice_item') AND entity_id IS NOT NULL",
+                         order="created_at, id"):
+        lo = row["entity_id"] if row["entity_type"] == "learning_object" else item_lo.get(str(row["entity_id"]))
+        if lo:
+            by_lo[str(lo)].append(str(row["created_at"]))
     for row in view.rows(connection, "question_events", "practice_item_id IS NOT NULL", order="created_at, id"):
         lo = item_lo.get(str(row.get("practice_item_id")))
         if lo:
