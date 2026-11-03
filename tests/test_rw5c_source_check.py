@@ -11,7 +11,6 @@ from typing import Any
 import pytest
 
 from learnloop.content.authoring import pf_sandbox
-from learnloop.db.repositories import Repository
 from learnloop.figures import service as FS
 from learnloop.figures import source_check as SC
 from learnloop.figures import spec as S
@@ -498,8 +497,6 @@ class _FlipAfterCheck:
 
 
 def test_the_switch_off_between_the_sandbox_and_the_second_attempt_stops_the_build(tmp_path, monkeypatch):
-    from learnloop_sidecar.errors import SidecarError
-
     half = plot(HALF_EXPR, parameters=PARAMETERS, low=-3, high=3, stated="f(x)", span="s1")
     paths, repository = build_check_vault(tmp_path / "vault", BLOCKS)
     flip = _FlipAfterCheck(paths)
@@ -516,7 +513,6 @@ def test_the_switch_off_between_the_sandbox_and_the_second_attempt_stops_the_bui
     for table in ("interactive_figures", "figure_source_checks"):
         assert rows(repository, table) == []
     assert not [row for row in rows(repository, "judgment_ledger") if row["task"] == SC.LEDGER_TASK]
-    assert SidecarError  # the RPC surfaces the same refusal
 
 
 def test_the_switch_off_at_the_store_writes_nothing(tmp_path, monkeypatch):
@@ -586,7 +582,3 @@ def test_a_held_out_block_later_withholds_the_figure_and_its_check(tmp_path, mon
         {"source_id": "src_math", "revision_id": "rev_math", "default_role": "exam"}]})
     ctx = context(paths.root, author=AuthorFake())
     assert call(ctx, "reader.figures", {"extractionId": EXTRACTION})["figures"] == []
-
-
-def test_repository_attach_is_unused_by_the_module_import():
-    assert Repository  # the fixture's repository is the only one these tests open

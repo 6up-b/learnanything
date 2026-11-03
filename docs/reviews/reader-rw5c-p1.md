@@ -165,7 +165,48 @@ Of the 319 segments that state a relation (896 minus `not_equation`), the table 
 
 ## Gate
 
-GATE_PLACEHOLDER
+Owner rule 2026-10-17: the full suite, the whole durability lane and the whole vitest run are the landing's. Targeted only here. Every command ran in `systemd-run --user --scope --quiet -p MemoryMax=5G -p MemorySwapMax=1G`, pytest at `-n 6` or fewer, vitest at `--maxWorkers=4`, one test command at a time, `TMPDIR` outside the worktree. Scripts outside pytest ran under `env -i` with empty `HOME`, `CODEX_HOME` and `LEARNLOOP_CONFIG_DIR`.
+
+| Command | Result |
+|---|---|
+| `uv sync --extra dev --extra mobile`, `uv pip install pypdfium2` | ok |
+| `lint-imports --no-cache` | **42 kept, 0 broken** |
+| pytest, every test file naming figures or the check (133 files, list below) | 3272 passed, 6 skipped, 36 xfailed; 7 failed, each fixed and rerun in the next row |
+| pytest, every contract file for what moved (config defaults, CLI help, table roles, AD classes, migration chain, head paths, mobile allowlist) plus the files changed (133 files, list below) | 8060 passed, 12 skipped, 3 xfailed; 2 failed, each fixed and rerun in the next row |
+| pytest, the RW5c files plus the two fixed (`test_rw5c_*`, `test_cli_help_snapshot.py`, `test_teacher_te1b_migration.py`) | **297 passed** |
+| `pytest -m durability` on `test_rw5c_migration.py`, `test_figure_prefetch_migration.py`, `test_tracked_fixture_databases.py`, `test_public_tip_guards.py` | **2 passed**, 24 deselected |
+| `pytest --durable-sqlite` on `test_rw5c_migration.py`, `test_rw5c_judgments.py`, `test_rw5c_recheck.py` | **24 passed** |
+| `pytest` on `test_tracked_fixture_databases.py`, `test_public_tip_guards.py`, `test_sqlite_file_copies.py` | **18 passed** |
+| `npm run typecheck` | ok |
+| `vitest run --maxWorkers=4 src/screens/reader/figures src/screens/LessonScreen.test.tsx src/components/askFigures.test.tsx src/screens/reader/alsoInBooksReader.test.tsx` | **472 passed**, 22 files |
+| `npm run frontend:build` | built |
+| `cargo check --manifest-path src-tauri/Cargo.toml` | ok |
+| `db_generate_reference.py`, `db_validate_reference.py` | errors `[]`; head 238, 373 table notes, 1128 config leaves |
+| `module_generate.py`, `module_validate.py` | PASS, 1153 module notes |
+| `desktop_generate.py`, `desktop_validate.py` | PASS (`--check` clean) |
+
+**What failed in the first two rows, all expected from the change:** the mobile allowlist's pinned RPC list (the new `reader.figure_recheck`); `test_no_code_path_can_store_or_render_verified_or_checked` (it pinned the claim's words as absent: now allowed only in `labels.py` and `FIGURE_FRAME`); the defaults snapshots and the four tests freezing older values (`test_reader_ca2_one_ask`, `test_batch3_landing`, `test_teacher_te1_successor`, `test_teacher_te1b_suggestions`: all 34 entries recomputed, and the frozen comparisons also drop the new key); `test_teacher_te1b_migration.py`'s composed chain; the CLI help snapshot (`reader` and `reader figure-checks` only); and one test of mine ordering verdicts by a tied timestamp.
+
+**G23a-G23i, and where each is pinned:**
+
+| Gate | Tests |
+|---|---|
+| G23a | `test_rw5c_labels.py`, `test_rw5c_switch_off.py::test_a_row_written_just_before_a_switch_off...`, vitest `the claim appears only on a book element...` |
+| G23b | `test_rw5c_book_math.py`, `test_rw5c_source_check.py` (blocks, quotes, `test_a_fake_author...`, `test_a_model_quote...`) |
+| G23c | `test_rw5c_source_check.py` (the planted-wrong corpus: domains, F8, mixed candidates, controls, literals, conditions, display) |
+| G23d | `test_rw5c_labels.py::test_g23d_*` |
+| G23e | `test_rw5c_labels.py` (no model label in the delivered spec, the view or the choices), vitest `every label slot reads from the elements`, `an id with no element...` |
+| G23f | `test_rw5c_source_check.py` (no bubblewrap, a timeout, failed runs, inconclusive controls, unreadable and unhealthy blocks, a check that raises) |
+| G23g | `test_rw5c_switch_off.py` against `tests/fixtures/rw5c_switch_off_golden.json`, recorded by `tests/rw5c_golden_source.py` on `git archive aae65635b6`; the admission tests in `test_rw5c_source_check.py`, `test_rw5c_recheck.py` |
+| G23h | `test_rw5c_never_evidence.py`, the `evidence-never-reads-figures` contract |
+| G23i | `test_rw5c_judgments.py` |
+| G22's extension | `test_rw5c_display_twins.py`, vitest `figureDisplayCorpus.test.ts`, both over `figureDisplayCorpus.json`, whose `formatValue` and `String(v)` answers were written by node |
+
+The sandboxed tests ran against real bubblewrap on this machine (`/usr/bin/bwrap`); the fake-sandbox twins cover the rest.
+
+**Files of the first pytest row:** every `tests/test_*.py` matching `git grep -lE "figures|figure_|FiguresConfig|interactive_figures|source_check"` at the WIP commit. **Second row:** every `tests/test_*.py` matching `DEFAULTS_SNAPSHOT_BY_ALGORITHM|defaults_fingerprint|FiguresConfig|parameter_registry|cli_help_snapshot|table_roles|protected_tables|column_classes|migration_head_238`, plus the RW5c files and the fixed ones. Both lists are the grep at this commit; neither was hand-picked.
+
+**Live calls and spend:** none. No model call, no paid command, no owner vault opened, no git in the main checkout, no stash, no GUI, no tailscale. Every author in the tests is a fake.
 
 ## Owner-run commands
 
@@ -181,4 +222,12 @@ If a wrong "checked" ever shows: `figures.checked_labels_enabled = false`, write
 
 ## Open questions
 
-OPEN_PLACEHOLDER
+For the owner:
+
+1. **Every default Q2-Q18 above** is recorded as a default, not owner-confirmed.
+2. **Coverage cannot be measured on the mvp-0.35 copies**, which hold no figures. After landing, `learnloop reader figure-checks --recheck --dry-run --json` on a vault with figures gives the first `names` and `not_bare` numbers. They decide P1b (a prompt addition asking for the book's symbol names and a bare reference) and P2's order.
+3. **`view.label` and the Ask rail's line** still read as an illustration on a checked figure (`frameBadge`). It errs on the honest side and no slot is wrong; a follow-up could pass the checked badge to the rail.
+4. **A followed figure** shows as an illustration until it is followed again after its recheck. A lesson or attempt-host figure built before this landing has no recheck control (Deviation 8).
+5. **`\dfrac` and `\tfrac`** are refused as outside the table. `unsupported_command`'s 26 refusals were not broken down (counts only); a later instrument could name the commands.
+
+For the landing: merge main first if follow-ups batch 7 has landed (its files do not overlap this stage's except `figures/prefetch.py` by name, which this stage did not edit). The reference notes and the snapshots will need regenerating after that merge.

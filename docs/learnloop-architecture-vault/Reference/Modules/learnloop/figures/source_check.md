@@ -7,8 +7,8 @@ version: "1.0.0"
 source_path: "src/learnloop/figures/source_check.py"
 source_paths:
   - "src/learnloop/figures/source_check.py"
-source_commit: "7fd12e25ec8d644a7f73bd03a530e9a4ee9585d0"
-source_commit_timestamp: "2026-11-02T19:40:18-05:00"
+source_commit: "39fd569d10508a8619f1f18a14a9d98324061109"
+source_commit_timestamp: "2026-11-02T20:15:17-05:00"
 source_worktree_state: "clean"
 generated: true
 generated_at: "2026-11-02"
@@ -50,13 +50,13 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/figures/source_check.py](../../../../../../src/learnloop/figures/source_check.py) |
-| Source lines | 1042 |
+| Source lines | 1045 |
 | Owning package | [[Reference/Modules/learnloop/figures/_package|learnloop.figures]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `7fd12e25ec8d644a7f73bd03a530e9a4ee9585d0` |
-| Commit timestamp | `2026-11-02T19:40:18-05:00` |
+| Source commit | `39fd569d10508a8619f1f18a14a9d98324061109` |
+| Commit timestamp | `2026-11-02T20:15:17-05:00` |
 
 ## Public API
 
@@ -84,9 +84,9 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `recheck_due(found: Mapping[str, Any] | None) -> bool` ([source](../../../../../../src/learnloop/figures/source_check.py), line 814) — No check at the current certification version; or the last found no sandbox (a machine that has one now can decide what that one could not).
 - `recheck(vault: Any, repository: Any, row: Mapping[str, Any], *, live_vault: Callable[[], Any] | None=None, clock: Clock | None=None, dry_run: bool=False, sandbox: Sandbox | None=None, sandbox_ready: Callable[[], bool] | None=None) -> Check | None` ([source](../../../../../../src/learnloop/figures/source_check.py), line 827) — A stored grammar figure rechecked by code, with no model client (§10.4), admitted against the switch as it is now before the sandbox and before the write (§6.7).
 - `coverage(vault: Any, repository: Any, *, dry_run: bool, withheld: Callable[[Mapping[str, Any]], bool], sandbox: Sandbox | None=None, clock: Clock | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/figures/source_check.py), line 875) — ``reader figure-checks --recheck``: every stored grammar figure rechecked by code, with no model client; ``dry_run`` writes nothing.
-- `audit(repository: Any) -> dict[str, Any]` ([source](../../../../../../src/learnloop/figures/source_check.py), line 947) — ``reader figure-checks`` with no ``--recheck``: each element carrying the claim, from the ledger.
-- `report_block(connection: Any, *, since: str | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/figures/source_check.py), line 964) — The reader report's ``source_checks``: outcomes, reasons, elements, latency, and opens and "not right?" notes for figures with a ``book`` element and without (§12 item 4).
-- `add_report_block(report: dict[str, Any], sqlite_path: Any, *, since: str | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/figures/source_check.py), line 1002) — Put :func:`report_block` under the reader report's ``figures`` (``learnloop reader report`` calls it only with the switch on, so off the report is as before: G23g).
+- `audit(repository: Any) -> dict[str, Any]` ([source](../../../../../../src/learnloop/figures/source_check.py), line 950) — ``reader figure-checks`` with no ``--recheck``: each element carrying the claim, from the ledger.
+- `report_block(connection: Any, *, since: str | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/figures/source_check.py), line 967) — The reader report's ``source_checks``: outcomes, reasons, elements, latency, and opens and "not right?" notes for figures with a ``book`` element and without (§12 item 4).
+- `add_report_block(report: dict[str, Any], sqlite_path: Any, *, since: str | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/figures/source_check.py), line 1005) — Put :func:`report_block` under the reader report's ``figures`` (``learnloop reader report`` calls it only with the switch on, so off the report is as before: G23g).
 
 ### Module constants
 
@@ -163,8 +163,8 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `_finished(compiled: S.CompiledFigure, definitions: list[dict[str, Any]], candidates: Sequence[Candidate], reasons: Mapping[str, int], outcome: str, sympy_version: str, *, book: Mapping[str, E.BookLabel] | None=None, book_elements: Mapping[str, str] | None=None, problems: Sequence[str]=()) -> Check` ([source](../../../../../../src/learnloop/figures/source_check.py), line 726)
 - `_rationale(definitions: Sequence[Mapping[str, Any]], reasons: Mapping[str, int]) -> str` ([source](../../../../../../src/learnloop/figures/source_check.py), line 744) — Code text only, for the ledger: per definition its name, outcome, closed reason and a difference's witness.
 - `_shown_rows(connection: Any) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/figures/source_check.py), line 870)
-- `_latency(durations: Sequence[int]) -> dict[str, int | None]` ([source](../../../../../../src/learnloop/figures/source_check.py), line 915)
-- `_audit_entries(row: Mapping[str, Any], definitions: Sequence[Mapping[str, Any]], elements: Sequence[Mapping[str, Any]]) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/figures/source_check.py), line 920) — Each element carrying the claim, for the owner's audit (§12 item 2): the book's equation as read, its page and the figure's definition, rendered.
+- `_latency(durations: Sequence[int]) -> dict[str, int | None]` ([source](../../../../../../src/learnloop/figures/source_check.py), line 918)
+- `_audit_entries(row: Mapping[str, Any], definitions: Sequence[Mapping[str, Any]], elements: Sequence[Mapping[str, Any]]) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/figures/source_check.py), line 923) — Each element carrying the claim, for the owner's audit (§12 item 2): the book's equation as read, its page and the figure's definition, rendered.
 
 ## Who imports or calls it
 
