@@ -2718,8 +2718,17 @@ export function ReaderScreen({
   // words a running head, and a jump to a dropped block would move nothing.
   openFigureSource.current = (extractionId, spanId) => {
     if (render && extractionId === render.extractionId) {
-      if (renderBlocksBySpan.has(spanId)) peekPassage(spanId);
-      else onError(FIGURE_PAGE_NOT_OPENED);
+      const onOriginal = pdfView && surface === "pdf" && !offline;
+      if (!renderBlocksBySpan.has(spanId)) onError(FIGURE_PAGE_NOT_OPENED);
+      else if (onOriginal && !pdfView.blocks.some((block) => block.spanId === spanId) && !pdfView.pageSpans?.some((entry) => entry.spanId === spanId)) {
+        // The original has neither a box nor a page for it (Sol verify V2): the
+        // extracted text draws every block the page shows.
+        setSurface("text");
+        window.setTimeout(() => {
+          peekPassage(spanId);
+          if (!bodyRef.current?.querySelector(`[data-span-id="${spanId}"]`)) onError(FIGURE_PAGE_NOT_OPENED);
+        }, 0);
+      } else peekPassage(spanId);
       return;
     }
     void (async () => {

@@ -532,7 +532,6 @@ export function useReadingProgress(input: ReadingProgressInput): ReadingProgress
     () => (pdfView && pdfView.blocks.length === 0 ? pdfView.pageSpans ?? [] : []),
     [pdfView],
   );
-  const pageOfSpan = useMemo(() => new Map(pageSpans.map((entry) => [entry.spanId, entry.page])), [pageSpans]);
   const pageMode = Boolean(pdfView && surface === "pdf" && !offline && pageSpans.length > 0);
   pageModeRef.current = pageMode;
   pageSpansRef.current = pageSpans;
@@ -975,8 +974,9 @@ export function useReadingProgress(input: ReadingProgressInput): ReadingProgress
           revealSegment(geometry.page, spanId, align);
           return;
         }
-        // No boxes, only the passage's page (usability round 1, U2).
-        const page = pageOfSpan.get(spanId);
+        // No box for this passage, only its page (usability round 1, U2): a
+        // book may have boxes for its other passages (Sol verify V2).
+        const page = pageBySpan.get(spanId);
         if (page !== undefined) {
           setReadingOffset(0);
           paneRef.current?.scrollToPage(page, 0);
@@ -990,7 +990,7 @@ export function useReadingProgress(input: ReadingProgressInput): ReadingProgress
       const reduced = typeof window.matchMedia === "function" && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
       if (el instanceof HTMLElement) el.scrollIntoView?.({ behavior: reduced ? "auto" : "smooth", block: "center" });
     },
-    [pdfView, surface, offline, pageOfSpan, revealSegment, setActiveSpan, watchRef, paneRef, bodyRef],
+    [pdfView, surface, offline, pageBySpan, revealSegment, setActiveSpan, watchRef, paneRef, bodyRef],
   );
 
   const notePlacement = useCallback(() => {

@@ -11,7 +11,8 @@ import { resetReaderActivityForTests } from "../activity";
 import policy from "../../../render/readerBlockPolicy.json";
 import { youtubeVideoId } from "../../../components/sourceTail";
 
-const { api, plan, state } = vi.hoisted(() => ({
+const { api, pane, plan, state } = vi.hoisted(() => ({
+  pane: { scrollToPage: vi.fn(), scrollToSegment: vi.fn() },
   api: {
     readerRenderView: vi.fn(), readerGuidePlan: vi.fn(), readerGetProgress: vi.fn(), readerPdfView: vi.fn(),
     readerDrainOutbox: vi.fn(), readerSourceAnnotations: vi.fn(), readerAskHistory: vi.fn(), readerAsk: vi.fn(),
@@ -26,6 +27,7 @@ const { api, plan, state } = vi.hoisted(() => ({
   state: { sources: [] as unknown[] },
 }));
 vi.mock("../../../api/client", () => ({ api }));
+vi.mock("@tauri-apps/api/core", () => ({ convertFileSrc: (path: string) => path }));
 vi.mock("@tauri-apps/api/window", () => ({ getCurrentWindow: () => ({ onCloseRequested: async () => vi.fn(), destroy: vi.fn() }) }));
 vi.mock("../../../render/MarkdownMath", () => ({ MarkdownMath: ({ value }: { value: string }) => <div>{value}</div> }));
 vi.mock("../../../api/useCachedQuery", () => ({ useCachedQuery: (key: string[]) => ({ data: key[0] === "reader_prompt_contract" ? CONTRACT : { sources: state.sources }, error: null }) }));
@@ -35,7 +37,13 @@ vi.mock("../useReaderRequests", () => ({
   useReaderRequests: () => ({ requests: [], proposalCount: 0, synthesizedObjects: new Map(), openProposalIds: new Set(), loadError: null, refresh: () => Promise.resolve() }),
   parseRequestError: () => null, parseRequestResult: () => ({}),
 }));
-vi.mock("../../../components/PdfReaderPane", () => ({ PdfReaderPane: () => null }));
+vi.mock("../../../components/PdfReaderPane", async () => {
+  const { forwardRef, useImperativeHandle } = await import("react");
+  return { PdfReaderPane: forwardRef(function FakePane(props: { inlineNotes?: { spanId: string; node: unknown }[] }, ref) {
+    useImperativeHandle(ref, () => pane);
+    return <div data-testid="pdf-pane">{(props.inlineNotes ?? []).map((note) => <div key={note.spanId}>{note.node as never}</div>)}</div>;
+  }) };
+});
 
 const CONTRACT = { readerEnabled: true, inquiryEnabled: true, intent, activeReading: { foldBlocks: 3 }, figures: { predictions: true, region: true, revisions: true } };
 const STRANG = { sourceId: view.sourceId, title: "Strang", canonicalUri: "book.pdf", readiness: "ready", readerEnabled: true } as SourceLibraryCard;
@@ -73,6 +81,8 @@ async function pressOpenThePage(onError = vi.fn()) {
 
 beforeEach(() => {
   for (const mock of Object.values(api)) mock.mockReset();
+  pane.scrollToPage.mockReset();
+  pane.scrollToSegment.mockReset();
   resetReaderActivityForTests();
   state.sources = [STRANG, AXLER];
   Element.prototype.scrollIntoView = vi.fn();
@@ -106,6 +116,35 @@ it("an earlier reading of the open book reopens it and translates the span, neve
   api.readerFigures.mockResolvedValue({ extractionId: view.extractionId, figures: [figure("ext_old", "old_span")] });
   await pressOpenThePage();
   await waitFor(() => expect(api.readerSavedPlace).toHaveBeenCalledWith(expect.objectContaining({ sourceId: view.sourceId, spanId: "old_span", extractionId: "ext_old" })));
+});
+
+// Sol verify V2: an already-mounted original where another passage has a box and the cited one doesn't.
+const OTHER_BOX = { spanId: view.blocks[1].spanId, page: 3, bbox: [0, 0, 1, 1], polygon: null, pageWidth: 612, pageHeight: 792, kind: "text" };
+function pdfManifest(pageSpans: { spanId: string; page: number }[]) {
+  return { version: 1, available: true, fileName: "sha256-strang", extractionId: view.extractionId, sourceId: view.sourceId, revisionId: "rev", blocks: [OTHER_BOX], pageSpans };
+}
+
+it("on the original, a passage with no box goes to its page", async () => {
+  const cited = view.blocks[2].spanId as string;
+  api.readerPdfView.mockResolvedValue(pdfManifest([{ spanId: cited, page: 87 }]));
+  api.readerFigures.mockResolvedValue({ extractionId: view.extractionId, figures: [figure(view.extractionId, cited)] });
+  const { onError } = await pressOpenThePage();
+  await waitFor(() => expect(pane.scrollToPage).toHaveBeenCalledWith(87, 0));
+  expect(pane.scrollToSegment.mock.calls.map((call) => call[1])).not.toContain(cited);
+  expect(onError).not.toHaveBeenCalled();
+});
+
+it("on the original, a passage with no box and no page goes to the extracted text, which holds it", async () => {
+  const cited = view.blocks[2].spanId as string;
+  api.readerPdfView.mockResolvedValue(pdfManifest([]));
+  api.readerFigures.mockResolvedValue({ extractionId: view.extractionId, figures: [figure(view.extractionId, cited)] });
+  const { onError } = await pressOpenThePage();
+  await screen.findByText("original pdf →");
+  await waitFor(() => expect(Element.prototype.scrollIntoView).toHaveBeenCalled());
+  const target = vi.mocked(Element.prototype.scrollIntoView).mock.contexts.slice(-1)[0] as HTMLElement;
+  expect(target.getAttribute("data-span-id")).toBe(cited);
+  expect(pane.scrollToPage).not.toHaveBeenCalled();
+  expect(onError).not.toHaveBeenCalled();
 });
 
 it("the open reading's own equation peeks its passage with no new read", async () => {
