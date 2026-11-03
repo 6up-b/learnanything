@@ -1,0 +1,266 @@
+{
+  "actions": {
+    "is.workflow.actions.alert": {
+      "class": "WFAlertAction",
+      "parameters": [
+        "WFAlertActionCancelButtonShown",
+        "WFAlertActionMessage",
+        "WFAlertActionTitle"
+      ]
+    },
+    "is.workflow.actions.ask": {
+      "class": "WFAskForInputAction",
+      "parameters": [
+        "ShowWhenRun",
+        "WFAllowsMultilineText",
+        "WFAskActionAllowsDecimalNumbers",
+        "WFAskActionAllowsNegativeNumbers",
+        "WFAskActionDefaultAnswer",
+        "WFAskActionDefaultAnswerDate",
+        "WFAskActionDefaultAnswerDateAndTime",
+        "WFAskActionDefaultAnswerNumber",
+        "WFAskActionDefaultAnswerTime",
+        "WFAskActionDefaultAnswerURL",
+        "WFAskActionPrompt",
+        "WFInputType",
+        "urlAnswer"
+      ]
+    },
+    "is.workflow.actions.conditional": {
+      "class": "WFConditionalAction",
+      "parameters": [
+        "WFConditions"
+      ]
+    },
+    "is.workflow.actions.date": {
+      "class": "WFDateAction",
+      "parameters": [
+        "WFDateActionDate",
+        "WFDateActionMode",
+        "WFEventOccurrenceMode",
+        "WFEventOccurrenceSpecifiedYear"
+      ]
+    },
+    "is.workflow.actions.detect.dictionary": {
+      "class": "WFCoercionAction",
+      "parameters": [
+        "WFInput"
+      ]
+    },
+    "is.workflow.actions.dictionary": {
+      "class": "WFDictionaryAction",
+      "parameters": [
+        "WFItems"
+      ]
+    },
+    "is.workflow.actions.documentpicker.open": {
+      "class": "WFGetFileAction",
+      "parameters": [
+        "WFFile",
+        "WFFileErrorIfNotFound",
+        "WFGetFilePath",
+        "WFGetFolderContents"
+      ]
+    },
+    "is.workflow.actions.documentpicker.save": {
+      "class": "WFSaveFileAction",
+      "parameters": [
+        "WFAskWhereToSave",
+        "WFFileDestinationPath",
+        "WFFolder",
+        "WFInput",
+        "WFSaveFileOverwrite"
+      ]
+    },
+    "is.workflow.actions.downloadurl": {
+      "class": "WFDownloadURLAction",
+      "parameters": [
+        "ShowHeaders",
+        "WFFormValues",
+        "WFHTTPBodyType",
+        "WFHTTPHeaders",
+        "WFHTTPMethod",
+        "WFJSONValues",
+        "WFRequestVariable",
+        "WFURL"
+      ]
+    },
+    "is.workflow.actions.exit": {
+      "class": "WFExitAction",
+      "parameters": []
+    },
+    "is.workflow.actions.file.delete": {
+      "class": "WFDeleteFileAction",
+      "parameters": [
+        "WFDeleteImmediatelyDelete",
+        "WFInput"
+      ]
+    },
+    "is.workflow.actions.file.getfoldercontents": {
+      "class": "WFGetFolderContentsAction",
+      "parameters": [
+        "Recursive",
+        "WFFolder"
+      ]
+    },
+    "is.workflow.actions.filter.files": {
+      "class": "WFContentItemFilterAction",
+      "parameters": [
+        "WFCompoundType",
+        "WFContentItemFilter",
+        "WFContentItemInputParameter",
+        "WFContentItemLimitEnabled",
+        "WFContentItemLimitNumber",
+        "WFContentItemSortOrder",
+        "WFContentItemSortProperty"
+      ]
+    },
+    "is.workflow.actions.format.date": {
+      "class": "WFFormatDateAction",
+      "parameters": [
+        "WFDate",
+        "WFDateFormat",
+        "WFDateFormatStyle",
+        "WFISO8601IncludeTime",
+        "WFLocale",
+        "WFRelativeDateFormatStyle",
+        "WFTimeFormatStyle"
+      ]
+    },
+    "is.workflow.actions.getitemfromlist": {
+      "class": "WFGetItemFromListAction",
+      "parameters": [
+        "WFInput",
+        "WFItemIndex",
+        "WFItemRangeEnd",
+        "WFItemRangeStart",
+        "WFItemSpecifier"
+      ]
+    },
+    "is.workflow.actions.gettext": {
+      "class": "WFTextAction",
+      "parameters": [
+        "WFTextActionText"
+      ]
+    },
+    "is.workflow.actions.gettimebetweendates": {
+      "class": "WFTimeUntilDateAction",
+      "parameters": [
+        "WFInput",
+        "WFTimeUntilFromDate",
+        "WFTimeUntilUnit"
+      ]
+    },
+    "is.workflow.actions.getvalueforkey": {
+      "class": "WFGetDictionaryValueAction",
+      "parameters": [
+        "WFDictionaryKey",
+        "WFGetDictionaryValueType",
+        "WFInput"
+      ]
+    },
+    "is.workflow.actions.getvariable": {
+      "class": "WFGetVariableAction",
+      "parameters": [
+        "WFVariable"
+      ]
+    },
+    "is.workflow.actions.image.convert": {
+      "class": "WFImageConvertAction",
+      "parameters": [
+        "WFImageCompressionQuality",
+        "WFImageFormat",
+        "WFImagePreserveMetadata",
+        "WFInput"
+      ]
+    },
+    "is.workflow.actions.math": {
+      "class": "WFCalculateAction",
+      "parameters": [
+        "WFInput",
+        "WFMathOperand",
+        "WFMathOperation",
+        "WFScientificMathOperand",
+        "WFScientificMathOperation"
+      ]
+    },
+    "is.workflow.actions.notification": {
+      "class": "WFNotificationAction",
+      "parameters": [
+        "WFInput",
+        "WFNotificationActionBody",
+        "WFNotificationActionSound",
+        "WFNotificationActionTitle"
+      ]
+    },
+    "is.workflow.actions.number.random": {
+      "class": "WFRandomNumberAction",
+      "parameters": [
+        "WFRandomNumberMaximum",
+        "WFRandomNumberMinimum"
+      ]
+    },
+    "is.workflow.actions.repeat.count": {
+      "class": "WFFiniteRepeatAction",
+      "parameters": [
+        "WFRepeatCount"
+      ]
+    },
+    "is.workflow.actions.repeat.each": {
+      "class": "WFForEachRepeatAction",
+      "parameters": [
+        "WFInput"
+      ]
+    },
+    "is.workflow.actions.round": {
+      "class": "WFRoundNumberAction",
+      "parameters": [
+        "TenToThePowerOf",
+        "WFInput",
+        "WFRoundMode",
+        "WFRoundTo"
+      ]
+    },
+    "is.workflow.actions.runworkflow": {
+      "class": "WFRunWorkflowAction",
+      "parameters": [
+        "WFInput",
+        "WFWorkflow"
+      ]
+    },
+    "is.workflow.actions.setitemname": {
+      "class": "WFSetItemNameAction",
+      "parameters": [
+        "WFDontIncludeFileExtension",
+        "WFInput",
+        "WFName"
+      ]
+    },
+    "is.workflow.actions.setvariable": {
+      "class": "WFSetVariableAction",
+      "parameters": [
+        "WFInput",
+        "WFVariableName"
+      ]
+    },
+    "is.workflow.actions.text.match": {
+      "class": "WFHandleCustomIntentAction",
+      "parameters": [
+        "ShowWhenRun",
+        "WFMatchTextCaseSensitive",
+        "WFMatchTextPattern",
+        "text"
+      ]
+    },
+    "is.workflow.actions.text.split": {
+      "class": "WFTextComponentsAction",
+      "parameters": [
+        "ShowWhenRun",
+        "WFTextCustomSeparator",
+        "WFTextSeparator",
+        "text"
+      ]
+    }
+  },
+  "source": "Apple ActionKit WFActionRegistry, inspected 2026-11-03; definitions only, not workflow execution"
+}
