@@ -95,10 +95,10 @@ def test_mvp035_is_one_constant_after_mvp034_and_the_latest():
     # The kept replaced claims' mvp-0.36, mobile PR-4's mvp-0.37, the cold-retry reschedule's mvp-0.38, Reader RW6b's mvp-0.39 and
     # curriculum C1's mvp-0.40, teacher TE1's mvp-0.41, follow-ups Nov 2's mvp-0.42 and teacher TE1b's mvp-0.43 (the
     # latest) follow it (and keep it).
-    assert SUCCESSOR_CHAIN[-11:] == ("mvp-0.33", "mvp-0.34", "mvp-0.35", "mvp-0.36", "mvp-0.37", "mvp-0.38", "mvp-0.39", "mvp-0.40", "mvp-0.41", "mvp-0.42", "mvp-0.43")
-    assert TAG == "mvp-0.35" == SUCCESSOR_CHAIN[-9] and LATEST_ALGORITHM_VERSION == "mvp-0.43"
+    assert SUCCESSOR_CHAIN[-12:] == ("mvp-0.33", "mvp-0.34", "mvp-0.35", "mvp-0.36", "mvp-0.37", "mvp-0.38", "mvp-0.39", "mvp-0.40", "mvp-0.41", "mvp-0.42", "mvp-0.43", "mvp-0.44")
+    assert TAG == "mvp-0.35" == SUCCESSOR_CHAIN[-10] and LATEST_ALGORITHM_VERSION == "mvp-0.44"
     assert UPGRADE_PREDECESSOR == PREDECESSOR == "mvp-0.34"
-    assert ONE_ASK_VERSIONS == frozenset({TAG, "mvp-0.36", "mvp-0.37", "mvp-0.38", "mvp-0.39", "mvp-0.40", "mvp-0.41", "mvp-0.42", "mvp-0.43"})
+    assert ONE_ASK_VERSIONS == frozenset({TAG, "mvp-0.36", "mvp-0.37", "mvp-0.38", "mvp-0.39", "mvp-0.40", "mvp-0.41", "mvp-0.42", "mvp-0.43", "mvp-0.44"})
     for version in SUCCESSOR_CHAIN:
         assert DEFAULTS_SNAPSHOT_BY_ALGORITHM[version] == defaults_fingerprint_for_version(version), version
 
