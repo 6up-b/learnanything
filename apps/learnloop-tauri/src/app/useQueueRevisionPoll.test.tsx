@@ -1,7 +1,8 @@
 // Mobile PR-7 (spec_mobile_tailnet_v1 §3.3, §6.5, G12): the app-level poll. The poll's
 // cost is pinned: an idle tick is one token read, no refetch and no session read, and
-// nothing runs behind a call in flight. A window's return refetches once at any token. An open answer or Reader holds the refetch, not
-// the detection. The phone's bump itself is tested on the Python side
+// nothing runs behind a call in flight. A window's return reads the token and the session
+// and refetches nothing at an unchanged token (orchestrator ruling R1). An open answer or
+// Reader holds the refetch, not the detection. The phone's bump itself is tested on the Python side
 // (tests/test_host_queue_revision.py).
 import { act, cleanup, renderHook } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -118,14 +119,14 @@ describe("what a tick costs", () => {
     expect(stubs.getQueueRevision).toHaveBeenCalledTimes(1);
 
     // The focus that came in meanwhile is served when the call returns, once: the
-    // refetch and the session read both run after it, so no second token read.
+    // session read runs after it, so no second token read.
     await act(async () => {
       release(revision(5));
       await vi.advanceTimersByTimeAsync(0);
     });
     expect(stubs.getQueueRevision).toHaveBeenCalledTimes(1);
     expect(stubs.getSession).toHaveBeenCalledTimes(1);
-    expect(refetches).toBe(1);
+    expect(refetches).toBe(0);
   });
 
   it("keeps polling after a failed read", async () => {
@@ -184,18 +185,28 @@ describe("what a tick costs", () => {
 });
 
 describe("when the window regains focus", () => {
-  it("refetches once at an unchanged token: a bump that failed leaves nothing else to see (§3.3, Codex F4)", async () => {
+  it("reads the token and the session and refetches nothing at an unchanged token (R1)", async () => {
     mount();
     await settle();
     await focusWindow();
 
     expect(stubs.getQueueRevision).toHaveBeenCalledTimes(2);
     expect(stubs.getSession).toHaveBeenCalledTimes(1);
-    expect(refetches).toBe(1);
+    expect(refetches).toBe(0);
 
     await tick(3);
-    expect(refetches).toBe(1);
+    expect(refetches).toBe(0);
     expect(stubs.getSession).toHaveBeenCalledTimes(1);
+  });
+
+  it("200 returns at an unchanged revision: no invalidation, and every session read runs (R1)", async () => {
+    mount();
+    await settle();
+    for (let index = 0; index < 200; index += 1) await focusWindow();
+
+    expect(refetches).toBe(0);
+    expect(stubs.getQueueRevision).toHaveBeenCalledTimes(201);
+    expect(stubs.getSession).toHaveBeenCalledTimes(200);
   });
 
   it("counts visibility and focus arriving together as one return", async () => {
@@ -207,32 +218,42 @@ describe("when the window regains focus", () => {
       await vi.advanceTimersByTimeAsync(0);
     });
 
-    expect(refetches).toBe(1);
+    expect(refetches).toBe(0);
     expect(stubs.getQueueRevision).toHaveBeenCalledTimes(2);
+    expect(stubs.getSession).toHaveBeenCalledTimes(1);
   });
 
-  it("holds a return's refetch while quiet and runs it once on leaving", async () => {
+  it("owes nothing on leaving after a return while quiet", async () => {
     const { rerender } = mount({ ...OPEN, quiet: true });
     await settle();
     await focusWindow();
-    expect(refetches).toBe(0);
+    expect(stubs.getSession).toHaveBeenCalledTimes(1);
 
     rerender({ ...OPEN, quiet: false });
     await settle();
-    expect(refetches).toBe(1);
+    expect(refetches).toBe(0);
   });
 
-  it("keeps a return's refetch through a failed token read, without looping", async () => {
+  it("keeps a return's session read through a failed token read, without looping", async () => {
     mount();
     await settle();
     stubs.getQueueRevision.mockRejectedValueOnce({ code: "database_busy", message: "busy", retryable: true });
     await focusWindow();
-    expect(refetches).toBe(0);
+    expect(stubs.getSession).not.toHaveBeenCalled();
     expect(stubs.getQueueRevision).toHaveBeenCalledTimes(2);
 
     await tick();
-    expect(refetches).toBe(1);
+    expect(stubs.getSession).toHaveBeenCalledTimes(1);
+    expect(refetches).toBe(0);
     expect(stubs.getQueueRevision).toHaveBeenCalledTimes(3);
+  });
+
+  it("refetches on a return only for a read that reloaded the vault (a job landed)", async () => {
+    mount();
+    await settle();
+    stubs.getQueueRevision.mockResolvedValueOnce(revision(5, true));
+    await focusWindow();
+    expect(refetches).toBe(1);
   });
 
   it("does not refetch on a return that happens while nothing is open", async () => {
@@ -359,7 +380,7 @@ describe("session_moved detection", () => {
     await tick();
     await focusWindow();
     expect(stubs.getSession).not.toHaveBeenCalled();
-    expect(refetches).toBe(2);
+    expect(refetches).toBe(1);
   });
 
   it("keeps a failed read owed: the next tick at the same revision reads again (Codex F5)", async () => {

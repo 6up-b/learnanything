@@ -8,7 +8,7 @@ F1, F2 by the new tests on the pre-fix sources; F3 by the new parametrized cases
 | F1 | Medium | Phone filtering corrupts router propensities | **Fixed** | b0684f8a4f, 14bb2c6153 | `test_a_limited_offer_logs_no_probability_for_an_item_below_the_cut_it_cannot_show`. Before: `head_distribution` gave an image below the cut and the hunt 0.25 each |
 | F2 | Medium | The limit before eligibility can starve the phone | **Fixed** | b0684f8a4f, 14bb2c6153 | `test_a_limit_is_applied_after_the_filter_so_the_top_item_cannot_starve_the_phone`, `test_the_reentry_cap_is_applied_after_the_filter_too`, `test_a_follow_up_naming_an_ineligible_item_cannot_come_back_at_the_top`. Before: an empty queue |
 | F3 | Medium | Valid Markdown references bypass eligibility | **Fixed** | d99c09c7a7 | `test_reference_forms_resolve_as_the_renderer_resolves_them` (10 cases), `test_brackets_the_renderer_shows_as_text_stay_eligible` (9) |
-| F4 | Medium | Focus does not recover a missed bump | **Fixed** | 25fde8c546 | `useQueueRevisionPoll.test.tsx` "refetches once at an unchanged token", "counts visibility and focus arriving together as one return", "holds a return's refetch while quiet", "keeps a return's refetch through a failed token read"; `test_a_failed_bump_is_owed_and_the_hosts_next_request_pays_it_once` |
+| F4 | Medium | Focus does not recover a missed bump | **Fixed; the refetch at an unchanged token is superseded by ruling R1 (Sol verify V1)** | 25fde8c546 | `useQueueRevisionPoll.test.tsx` "refetches once at an unchanged token", "counts visibility and focus arriving together as one return", "holds a return's refetch while quiet", "keeps a return's refetch through a failed token read"; `test_a_failed_bump_is_owed_and_the_hosts_next_request_pays_it_once` |
 | F5 | Medium | A failed session read consumes the handoff signal | **Fixed** | 25fde8c546 | "keeps a failed read owed: the next tick at the same revision reads again", "retries a failing read once a tick, never in a loop and never beside a read in flight" |
 | F6 | Medium | Device serving has no successor or kill switch | **Kill switch and policy name fixed; successor rejected** | b0684f8a4f | `test_switched_off_*` at the queue, the skip, both by-id doors, the probe contract and adoption; `test_the_phones_decision_names_the_rules_and_the_desktops_does_not`. The successor's reason is below |
 
@@ -27,7 +27,7 @@ no second rule in `_OfferHeadRule` to keep in step, and `publish_offer` is back 
 resolves through its definition, a local autolink counts, and indented code is code. **One behaviour flips on purpose:** `![graph][fig1]` with no definition was `embeds_image`, and is now eligible, because the renderer shows it as text on every device. The old test's case moved. The parse is cached per prompt (`lru_cache`, 4096: a memory bound, not a decision).
 
 **F4: a return refetches once at any token.** §3.3 says "adds a refetch when the window regains focus"; the as-built note had narrowed that to "only if the token moved", and no token can show a bump that never landed. Held while quiet, as a change is. A focus and a `visibilitychange` that arrive during one token read are one return. A failed read keeps it owed for the next tick, with no loop.
-The bump itself is recoverable too: `bump_for_host` sets `SidecarContext.host_bump_owed` on failure and `acting_as` retries it at the start of the host's next request, never failing that request. An atomic bump was not chosen: the mutations commit in many transactions across handlers, and the point of `host_mutation` is that the host has nothing to remember. A host that dies with a bump owed is what the focus refetch is for.
+The bump itself is recoverable too: `bump_for_host` sets `SidecarContext.host_bump_owed` on failure and `acting_as` retries it at the start of the host's next request, never failing that request. An atomic bump was not chosen: the mutations commit in many transactions across handlers, and the point of `host_mutation` is that the host has nothing to remember. A host that dies with a bump owed is what the focus refetch was for. **Superseded by Sol verify V1 and ruling R1, below:** a return no longer refetches at an unchanged token.
 
 **F5: a session read stays owed until one answers.** Retried once a tick, inside the tick's one-call-in-flight, so never in a loop or beside another call. A read that came back for a session no longer open keeps it owed, for the one open now.
 
@@ -45,7 +45,7 @@ The question belongs to M2, which opens the door: see below. The switch answers 
 
 | Claim | Now |
 |---|---|
-| "The desktop's next focus catches up" | True: F4 |
+| "The desktop's next focus catches up" | True at this round: F4. **False since ruling R1:** a return reads and refetches nothing at an unchanged token; the host's next request on that vault pays a failed bump |
 | The router decision describes the published phone policy | True, by construction: F1 |
 | The prompt scan covers image embeds and asset references | True for reference forms: F3. A raw `<a href>` or `<object>` is still not read: the renderer has no raw HTML plugin, so it shows nothing there |
 | Desktop parity justifies no successor | Partly conceded: a switch now exists; the successor stays rejected for the reasons above |
@@ -53,9 +53,9 @@ The question belongs to M2, which opens the door: see below. The switch answers 
 ## Consequences and open questions
 
 1. **F6's successor is a ruling to confirm.** It is rejected at this stage; if the owner's rule is read as covering phone serving, the natural place is M2's landing, when an origin first exists.
-2. **A window's return now costs one Today rebuild.** Every alt-tab away and back runs one `get_today_queue` and `get_daily_plan` when Today or the App is listening, each writing its usual slate and router row. That is §3.3 as written, and the review's fix. If it shows up in use, M2 can skip a return shorter than some interval (a `keep` bound), which is not added here because nothing measures it yet.
+2. **Superseded by ruling R1 (a return refetches nothing at an unchanged token).** A window's return cost one Today rebuild at this round. Every alt-tab away and back runs one `get_today_queue` and `get_daily_plan` when Today or the App is listening, each writing its usual slate and router row. That is §3.3 as written, and the review's fix. If it shows up in use, M2 can skip a return shorter than some interval (a `keep` bound), which is not added here because nothing measures it yet.
 3. **A check's refused candidate is not counted as waiting.** An ineligible candidate of a due "Check once" is refused by the check gate (`intent_check_refused`), which runs first, so `device_deferred_count` omits it. The count errs low by that item, and the check serves its next candidate.
-4. **The owed bump is in memory.** It is lost with the process; the focus refetch covers that.
+4. **The owed bump is in memory.** It is lost with the process. The focus refetch covered that at this round; since ruling R1, M2's host bumps once at start, so the token moves (recorded for M2, not built).
 
 ## Gate (this step; the full suite runs once in the landing gate)
 

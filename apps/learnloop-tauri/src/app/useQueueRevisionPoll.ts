@@ -8,8 +8,11 @@
 // changes or the read itself reloaded the vault, so an idle desktop never refetches
 // Today. It never holds a second call behind the serialized sidecar pipe.
 //
-// The window coming back refetches once whatever the token says (§3.3): it is the
-// recovery for a bump that never landed, which no token can show.
+// The window coming back reads the token and the session at once and refetches nothing
+// on its own (orchestrator ruling R1): a rebuild per alt-tab can start background model
+// work and writes offer and decision rows for lists nobody looked at. A refetch needs a
+// revision change or a reload. A bump that never landed stays owed in the host, whose
+// next request pays it.
 //
 // What it leaves alone: an open practice answer and an open Reader. While the screen
 // is `quiet` a change is remembered and the queue is invalidated once when the learner
@@ -89,7 +92,7 @@ export function useQueueRevisionPoll({ vaultRoot, sessionId, quiet }: QueueRevis
     let disposed = false;
     let inFlight = false;
     let seen: number | null = null;
-    // The window came back: one refetch owed at any token, kept until a token read answers.
+    // The window came back: one session read owed, kept until a token read answers.
     let windowBack = false;
     // A session read owed by a change or a return. Kept until one answers: the change that
     // owed it is already in `seen`, so no later tick would ask again.
@@ -121,12 +124,12 @@ export function useQueueRevisionPoll({ vaultRoot, sessionId, quiet }: QueueRevis
         if (disposed) return;
         answered = true;
         // Read after the await, so a focus and a visibilitychange that arrive
-        // together during this read are one return, and one refetch.
+        // together during this read are one return, and one session read.
         const back = windowBack;
         windowBack = false;
         const changed = seen !== null && seen !== snapshot.revision;
         seen = snapshot.revision;
-        if (changed || snapshot.reloaded || back) {
+        if (changed || snapshot.reloaded) {
           if (quietRef.current) pendingRef.current = true;
           else notifyQueueChanged();
         }

@@ -147,21 +147,21 @@ adopting gets `probe_assigned_to_other_session`, the same as after any closed se
 
 **§6.5 and §9.5 on what belongs here.** §6.5 lists the desktop's adopt / start fresh prompt and the "continued on your phone"
 banner under "Desktop changes (M2)", beside PR-7's poll, and §9.5 says the prompts for the two new codes are M2's. So this stage
-builds the poll, the focus refetch and the session re-read, and detects the move; G12's "shows `session_moved`" is finished by
+builds the poll, the read on a window's return (no refetch of its own: ruling R1) and the session re-read, and detects the move; G12's "shows `session_moved`" is finished by
 M2's banner.
 
 **The bump.** `request_origin.host_mutation` on the handlers themselves, so M2's RPC and job workers have nothing to remember and
 a test can drive it through a fake host origin. Job completion is `submit_attempt`, `submit_dont_know` and
 `answer_grading_clarification` returning; session start, adopt, end and skip are theirs. It runs after the handler's commit, as
 §3.3 says, with one exception to "a refusal doesn't bump": `submission_committed`, whose attempt is in. A failed bump is logged and
-swallowed: the learner's write stands, the bump stays owed for the host's next request, and the desktop's next focus refetches at any token (Codex review F4). Desktop writes have no origin and no bump.
+swallowed: the learner's write stands, the bump stays owed, on its own vault, for the host's next request there (Codex review F4, Sol verify V3). A window's return refetches nothing at an unchanged token (ruling R1). A host that dies owing one is M2's: it bumps once at start. Desktop writes have no origin and no bump.
 
 **Polling cost.**
 
 - One `get_queue_revision` per 3 s tick (the existing interval, a `keep` bound in the hook's comment). No refetch and no session read
   while the token holds. `App.queueRevision.test.tsx` counts an idle Today: five ticks, five token reads, no plan or count read.
 - **One call in flight.** The sidecar pipe is serialized, so a tick during a 60 s grade waits; later ticks add nothing behind it.
-- **Asleep while hidden,** reading and refetching once when the window comes back (Codex review F4). Being merely unfocused keeps polling (a window beside another).
+- **Asleep while hidden,** reading the token and the session at once when the window comes back, with no refetch of its own (ruling R1). Being merely unfocused keeps polling (a window beside another).
 - **`get_queue_revision` itself got cheaper,** because it now runs on every screen: it read every recent batch's full view
   (`list_batches`: dependencies, rung requests, `_batch_view`) plus one `get_ingest_job` per completed job. It now reads batches and
   jobs and checks in-memory state first (`IngestJobManager.completed_jobs_awaiting_reload`).
