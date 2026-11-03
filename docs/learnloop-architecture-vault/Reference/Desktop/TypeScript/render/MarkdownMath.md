@@ -10,9 +10,9 @@ area: "TypeScript/render"
 source_path: "apps/learnloop-tauri/src/render/MarkdownMath.tsx"
 source_paths:
   - "apps/learnloop-tauri/src/render/MarkdownMath.tsx"
-source_commit: "ad991418ef3cb163828f9b1cf1ad9da9cce7549a"
-source_commit_timestamp: "2026-09-03T10:55:39-07:00"
-source_worktree_state: "clean"
+source_commit: "677db664814feb3446ee0469b65cf4eb5c278b16"
+source_commit_timestamp: "2026-11-02T23:12:42-05:00"
+source_worktree_state: "staged-or-mixed"
 activation_kind: "entry-reachable build graph"
 activation_evidence: "A static TypeScript import path reaches this file from the Vite entry src/main.tsx."
 generated: true
@@ -42,14 +42,14 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/render/MarkdownMath.tsx](../../../../../../apps/learnloop-tauri/src/render/MarkdownMath.tsx) |
-| Source lines | 41 |
+| Source lines | 23 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/render/_area|TypeScript/render]] |
 | Refactor status | `ACTIVE` |
 | Activation kind | `entry-reachable build graph` |
-| Worktree state | `clean` |
-| Source commit | `ad991418ef3cb163828f9b1cf1ad9da9cce7549a` |
-| Commit timestamp | `2026-09-03T10:55:39-07:00` |
+| Worktree state | `staged-or-mixed` |
+| Source commit | `677db664814feb3446ee0469b65cf4eb5c278b16` |
+| Commit timestamp | `2026-11-02T23:12:42-05:00` |
 
 ## Activation and status evidence
 
@@ -60,16 +60,12 @@ The system-level behavior stays authoritative in the linked architecture, concep
 
 ## Public API
 
-- `export function normalizeMathDelimiters(value: string): string` — function, line 20
-- `export const MarkdownMath = memo(function MarkdownMath(` — const, line 35
+- `export const MarkdownMath = memo(function MarkdownMath(` — const, line 17
 
 ## Internal implementation anchors
 
-- `const CODE_SEGMENT = /(```[\s\S]*?(?:```|$)|~~~[\s\S]*?(?:~~~|$)|`[^`\n]*`)/g` — const, line 12
-- `function rewriteDelimiters(text: string): string` — function, line 14
-- `type MarkdownProps = ComponentProps<typeof ReactMarkdown>` — type, line 31
-- `const REMARK_PLUGINS: MarkdownProps["remarkPlugins"] = [remarkGfm, remarkMath]` — const, line 32
-- `const REHYPE_PLUGINS: MarkdownProps["rehypePlugins"] = [rehypeKatex]` — const, line 33
+- `type MarkdownProps = ComponentProps<typeof ReactMarkdown>` — type, line 14
+- `const REHYPE_PLUGINS: MarkdownProps["rehypePlugins"] = [rehypeKatex]` — const, line 15
 
 ## Who imports or calls it
 
@@ -114,11 +110,11 @@ The system-level behavior stays authoritative in the linked architecture, concep
 
 ### Desktop source modules
 
-No local TypeScript/TSX or Rust module dependency was detected.
+- [[Reference/Desktop/TypeScript/render/markdownPipeline|src/render/markdownPipeline.ts]] — import-or-re-export; imports `REMARK_PLUGINS`, `normalizeMathDelimiters`
 
 ### Assets, platform, and third-party dependencies
 
-- Imported packages/crates: `katex/dist/katex.min.css`, `react`, `react-markdown`, `rehype-katex`, `remark-gfm`, `remark-math`
+- Imported packages/crates: `katex/dist/katex.min.css`, `react`, `react-markdown`, `rehype-katex`
 
 ## Larger desktop and workflow participation
 
@@ -131,6 +127,8 @@ The workflow note owns end-to-end sequencing; this module note describes only it
 ## Tests that define behavior
 
 - [apps/learnloop-tauri/src/screens/reader/figures/bookMathRender.test.ts](../../../../../../apps/learnloop-tauri/src/screens/reader/figures/bookMathRender.test.ts) — vitest test: imports and executes this module under jsdom (`npm test`).
+- [tests/test_rw5c_book_math.py](../../../../../../tests/test_rw5c_book_math.py) — cross-boundary name contract: references uniquely owned exported name `MarkdownMath`; it does **not** directly execute this source module.
+- [tests/test_rw5c_katex_tree.py](../../../../../../tests/test_rw5c_katex_tree.py) — cross-boundary name contract: references uniquely owned exported name `MarkdownMath`; it does **not** directly execute this source module.
 
 ## Modification guidance
 

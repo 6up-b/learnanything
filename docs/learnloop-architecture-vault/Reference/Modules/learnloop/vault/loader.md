@@ -2793,8 +2793,10 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_a_double_superscript_the_page_shows_as_an_error_is_never_checked`
   - `test_a_macro_definition_in_the_segment_is_never_checked`
   - `test_a_withheld_span_is_never_read`
+  - `test_an_equation_the_page_does_not_show_never_certifies_the_curve`
   - `test_an_unbraced_radical_never_certifies_the_meaning_the_page_does_not_show`
   - `test_build_key_holds_the_switch_and_the_reuse_key_does_not`
+  - `test_the_equation_the_page_does_show_beside_a_hidden_one_is_still_checked`
   - `test_the_switch_off_at_the_store_writes_nothing`
   - `test_the_switch_off_between_the_sandbox_and_the_second_attempt_stops_the_build`
   - `test_with_no_engine_a_book_equation_is_unreadable_and_the_sandbox_is_not_asked`

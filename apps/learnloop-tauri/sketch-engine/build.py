@@ -25,7 +25,8 @@ rewrites the pin after an intended change (then update
 **Variants** (``variants`` in the lock file): the same harness and the same pinned
 sources under extra ``defines``, each with its own output and pin. RW5c's
 ``book-math-engine.wasm`` is the one: KaTeX's lexer needs the RegExp intrinsic, which a
-sketch never gets, so the sketch engine's bytes and caps are untouched (``--check``
+sketch never gets, and a block through the page's markdown (``markdown/build.mjs``) needs more
+work than a sketch's frame, so the sketch engine's bytes and caps are untouched (``--check``
 proves it, rebuilding both).
 The sidecar alone runs it (``learnloop.figures.katex_tree``; pin in ``KATEX_ENGINE_SHA256``).
 

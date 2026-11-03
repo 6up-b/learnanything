@@ -8,8 +8,10 @@ below, under the licences named. LearnLoop's own code is under the
 repository's licence.
 
 book-math-engine.wasm (this directory) is the same build with the RegExp
-intrinsic, so it holds the same projects. The KaTeX it runs is not in the binary:
-katex/katex.min.js is tracked as text, under its own MIT licence in katex/LICENSE.
+intrinsic and its own work budget, so it holds the same projects. What it runs is
+not in the binary: katex/katex.min.js is tracked as text, under its own MIT licence
+in katex/LICENSE, and markdown/page-markdown.js as text, under the licences of its
+packages in markdown/LICENSES.txt.
 
 
 1. QuickJS-ng 0.17.0 (quickjs-amalgam.c), MIT License

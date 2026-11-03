@@ -183,8 +183,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/katex_meaning.py](../../../../../../tests/katex_meaning.py) — direct import
 - [tests/sketch_parity_corpus.py](../../../../../../tests/sketch_parity_corpus.py) — direct import
 - [tests/test_rw5c_katex_tree.py](../../../../../../tests/test_rw5c_katex_tree.py) — direct import
-  - `test_the_engine_variant_is_pinned_and_differs_from_the_sketch_engine_by_one_define`
-  - `test_the_variant_runs_under_the_sketch_engines_caps`
+  - `test_the_engine_variant_is_pinned_and_differs_from_the_sketch_engine_by_its_defines`
+  - `test_the_variant_runs_under_the_sketch_engines_caps_but_its_own_work_budget`
 - [tests/test_rw5c_source_check.py](../../../../../../tests/test_rw5c_source_check.py) — direct import
   - `test_a_check_loads_one_engine_however_many_segments_it_reads`
 - [tests/test_sketch_engine.py](../../../../../../tests/test_sketch_engine.py) — direct import

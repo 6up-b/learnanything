@@ -7,8 +7,8 @@ version: "1.0.0"
 source_path: "src/learnloop/figures/book_math.py"
 source_paths:
   - "src/learnloop/figures/book_math.py"
-source_commit: "a126b6bea5b3498d0ed30d949340f2ccc9a35ff6"
-source_commit_timestamp: "2026-11-02T22:44:18-05:00"
+source_commit: "677db664814feb3446ee0469b65cf4eb5c278b16"
+source_commit_timestamp: "2026-11-02T23:12:42-05:00"
 source_worktree_state: "clean"
 generated: true
 generated_at: "2026-11-02"
@@ -50,47 +50,41 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/figures/book_math.py](../../../../../../src/learnloop/figures/book_math.py) |
-| Source lines | 1026 |
+| Source lines | 1011 |
 | Owning package | [[Reference/Modules/learnloop/figures/_package|learnloop.figures]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `a126b6bea5b3498d0ed30d949340f2ccc9a35ff6` |
-| Commit timestamp | `2026-11-02T22:44:18-05:00` |
+| Source commit | `677db664814feb3446ee0469b65cf4eb5c278b16` |
+| Commit timestamp | `2026-11-02T23:12:42-05:00` |
 
 ## Public API
 
-- `class Unreadable(ValueError)` ([source](../../../../../../src/learnloop/figures/book_math.py), line 113) — A segment outside the table; ``reason`` is one key of :data:`REASONS`.
-  - `__init__(self, reason: str) -> None` (line 116; internal)
-- `class Segment` ([source](../../../../../../src/learnloop/figures/book_math.py), line 122) — One math segment of a block's text; ``start``/``end`` delimit ``latex``'s place in it; ``display`` is how the page parses it (``$$`` and ``\[`` against ``$``).
-- `class Relation` ([source](../../../../../../src/learnloop/figures/book_math.py), line 133) — A read equation.
-- `segments(text: str, block_type: str='') -> list[Segment]` ([source](../../../../../../src/learnloop/figures/book_math.py), line 162) — The math segments of a block's text in reading order (§5.2), as the page's own markdown finds them: ``$...$``, ``$$...$$``, ``\[...\]``, or the whole text of an equation block.
-- `binary64_exact(text: str) -> bool` ([source](../../../../../../src/learnloop/figures/book_math.py), line 415) — Whether a decimal's exact value is a binary64 value: no made-up bound, no ``Decimal`` context (§6.1): 0, 1, 0.5, 0.375, never 0.3.
-- `read_relation(latex: str, *, display: bool=False, trees: KT.Trees | None=None) -> Relation` ([source](../../../../../../src/learnloop/figures/book_math.py), line 969) — One math segment read as one relation, or :class:`Unreadable`.
+- `class Unreadable(ValueError)` ([source](../../../../../../src/learnloop/figures/book_math.py), line 115) — A segment outside the table; ``reason`` is one key of :data:`REASONS`.
+  - `__init__(self, reason: str) -> None` (line 118; internal)
+- `class Segment` ([source](../../../../../../src/learnloop/figures/book_math.py), line 124) — One math element the page shows for a block's text.
+- `class Relation` ([source](../../../../../../src/learnloop/figures/book_math.py), line 136) — A read equation.
+- `segments(text: str, *, trees: KT.Trees | None=None) -> list[Segment]` ([source](../../../../../../src/learnloop/figures/book_math.py), line 153) — The equations the page shows for a block's text (§5.2), found by the page's own pipeline (:meth:`.katex_tree.Trees.page_math`), or :class:`Unreadable`.
+- `binary64_exact(text: str) -> bool` ([source](../../../../../../src/learnloop/figures/book_math.py), line 400) — Whether a decimal's exact value is a binary64 value: no made-up bound, no ``Decimal`` context (§6.1): 0, 1, 0.5, 0.375, never 0.3.
+- `read_relation(latex: str, *, display: bool=False, trees: KT.Trees | None=None) -> Relation` ([source](../../../../../../src/learnloop/figures/book_math.py), line 954) — One math segment read as one relation, or :class:`Unreadable`.
 
 ### Module constants
 
-- `READER_VERSION` ([src/learnloop/figures/book_math.py](../../../../../../src/learnloop/figures/book_math.py), line 58)
-- `REASONS` ([src/learnloop/figures/book_math.py](../../../../../../src/learnloop/figures/book_math.py), line 61)
-- `_GREEK` ([src/learnloop/figures/book_math.py](../../../../../../src/learnloop/figures/book_math.py), line 73)
-- `_FUNCTIONS` ([src/learnloop/figures/book_math.py](../../../../../../src/learnloop/figures/book_math.py), line 82)
-- `_EXTREMES` ([src/learnloop/figures/book_math.py](../../../../../../src/learnloop/figures/book_math.py), line 83)
-- `_LABELS` ([src/learnloop/figures/book_math.py](../../../../../../src/learnloop/figures/book_math.py), line 86)
-- `_CONDITION_OPS` ([src/learnloop/figures/book_math.py](../../../../../../src/learnloop/figures/book_math.py), line 96)
-- `_CASE_WORDS` ([src/learnloop/figures/book_math.py](../../../../../../src/learnloop/figures/book_math.py), line 98)
-- `_NUMBER` ([src/learnloop/figures/book_math.py](../../../../../../src/learnloop/figures/book_math.py), line 99)
-- `_KERNS` ([src/learnloop/figures/book_math.py](../../../../../../src/learnloop/figures/book_math.py), line 101)
-- `_SPACES` ([src/learnloop/figures/book_math.py](../../../../../../src/learnloop/figures/book_math.py), line 102)
-- `_MACRO_DEFINITION` ([src/learnloop/figures/book_math.py](../../../../../../src/learnloop/figures/book_math.py), line 104)
-- `_LABEL_NODES` ([src/learnloop/figures/book_math.py](../../../../../../src/learnloop/figures/book_math.py), line 107)
-- `EQUATION_BLOCK_TYPES` ([src/learnloop/figures/book_math.py](../../../../../../src/learnloop/figures/book_math.py), line 110)
-- `_DELIMITED` ([src/learnloop/figures/book_math.py](../../../../../../src/learnloop/figures/book_math.py), line 150)
-- `_CODE` ([src/learnloop/figures/book_math.py](../../../../../../src/learnloop/figures/book_math.py), line 153)
-- `_PARAGRAPH` ([src/learnloop/figures/book_math.py](../../../../../../src/learnloop/figures/book_math.py), line 154)
-- `_FENCED` ([src/learnloop/figures/book_math.py](../../../../../../src/learnloop/figures/book_math.py), line 158)
-- `_LINE_END` ([src/learnloop/figures/book_math.py](../../../../../../src/learnloop/figures/book_math.py), line 159)
-- `_ATOMS` ([src/learnloop/figures/book_math.py](../../../../../../src/learnloop/figures/book_math.py), line 224)
-- `_NODE_REASONS` ([src/learnloop/figures/book_math.py](../../../../../../src/learnloop/figures/book_math.py), line 233)
+- `READER_VERSION` ([src/learnloop/figures/book_math.py](../../../../../../src/learnloop/figures/book_math.py), line 62)
+- `REASONS` ([src/learnloop/figures/book_math.py](../../../../../../src/learnloop/figures/book_math.py), line 65)
+- `_GREEK` ([src/learnloop/figures/book_math.py](../../../../../../src/learnloop/figures/book_math.py), line 77)
+- `_FUNCTIONS` ([src/learnloop/figures/book_math.py](../../../../../../src/learnloop/figures/book_math.py), line 86)
+- `_EXTREMES` ([src/learnloop/figures/book_math.py](../../../../../../src/learnloop/figures/book_math.py), line 87)
+- `_LABELS` ([src/learnloop/figures/book_math.py](../../../../../../src/learnloop/figures/book_math.py), line 90)
+- `_CONDITION_OPS` ([src/learnloop/figures/book_math.py](../../../../../../src/learnloop/figures/book_math.py), line 100)
+- `_CASE_WORDS` ([src/learnloop/figures/book_math.py](../../../../../../src/learnloop/figures/book_math.py), line 102)
+- `_NUMBER` ([src/learnloop/figures/book_math.py](../../../../../../src/learnloop/figures/book_math.py), line 103)
+- `_KERNS` ([src/learnloop/figures/book_math.py](../../../../../../src/learnloop/figures/book_math.py), line 105)
+- `_SPACES` ([src/learnloop/figures/book_math.py](../../../../../../src/learnloop/figures/book_math.py), line 106)
+- `_MACRO_DEFINITION` ([src/learnloop/figures/book_math.py](../../../../../../src/learnloop/figures/book_math.py), line 108)
+- `_LABEL_NODES` ([src/learnloop/figures/book_math.py](../../../../../../src/learnloop/figures/book_math.py), line 111)
+- `_ATOMS` ([src/learnloop/figures/book_math.py](../../../../../../src/learnloop/figures/book_math.py), line 209)
+- `_NODE_REASONS` ([src/learnloop/figures/book_math.py](../../../../../../src/learnloop/figures/book_math.py), line 218)
 
 ### Explicit exports
 
@@ -107,34 +101,34 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 
 ## Internal implementation anchors
 
-- `class _Item` ([source](../../../../../../src/learnloop/figures/book_math.py), line 196) — One thing in reading order.
-- `_body(node: Tree) -> Sequence[Tree]` ([source](../../../../../../src/learnloop/figures/book_math.py), line 210)
-- `_word(nodes: Sequence[Tree]) -> str | None` ([source](../../../../../../src/learnloop/figures/book_math.py), line 214) — The letters of ``\mathrm{...}`` or ``\operatorname{...}``, if letters are all it holds.
-- `_is_table_space(node: Tree) -> bool` ([source](../../../../../../src/learnloop/figures/book_math.py), line 236)
-- `_refuse_symbol(text: str) -> Unreadable` ([source](../../../../../../src/learnloop/figures/book_math.py), line 241)
-- `_items(nodes: Sequence[Tree]) -> list[_Item]` ([source](../../../../../../src/learnloop/figures/book_math.py), line 245)
-- `_base_items(base: Tree) -> list[_Item]` ([source](../../../../../../src/learnloop/figures/book_math.py), line 283)
-- `_atom_item(base: Tree, text: str) -> _Item` ([source](../../../../../../src/learnloop/figures/book_math.py), line 337)
-- `_leftright_items(base: Tree) -> list[_Item]` ([source](../../../../../../src/learnloop/figures/book_math.py), line 347)
-- `_font_item(base: Tree) -> _Item` ([source](../../../../../../src/learnloop/figures/book_math.py), line 365)
-- `_starts_with_d(node: Tree) -> bool` ([source](../../../../../../src/learnloop/figures/book_math.py), line 381) — Whether a fraction's side begins with a differential's ``d``.
-- `_dyadic_text(value: Fraction) -> str` ([source](../../../../../../src/learnloop/figures/book_math.py), line 398) — A dyadic rational's exact decimal, which reads back as the same fraction.
-- `class _Reader` ([source](../../../../../../src/learnloop/figures/book_math.py), line 429)
-- `_numeric_side(node: Tree) -> Fraction | None` ([source](../../../../../../src/learnloop/figures/book_math.py), line 795) — One side of a fraction as a number, when it is one numeral.
-- `_numeric_sides(item: _Item) -> tuple[Fraction | None, Fraction | None]` ([source](../../../../../../src/learnloop/figures/book_math.py), line 805)
-- `_cell(cell: Tree) -> Sequence[Tree]` ([source](../../../../../../src/learnloop/figures/book_math.py), line 810) — A cell of an array: KaTeX wraps its contents in a style and a group.
-- `_text_words(node: Tree) -> str` ([source](../../../../../../src/learnloop/figures/book_math.py), line 819) — A ``\text{...}``'s words: its characters as KaTeX lists them.
-- `_without_end_punctuation(nodes: Sequence[Tree]) -> Sequence[Tree]` ([source](../../../../../../src/learnloop/figures/book_math.py), line 833) — Without the ``,`` or ``.`` a sentence or a row ends on.
-- `_flip(op: str) -> str` ([source](../../../../../../src/learnloop/figures/book_math.py), line 841)
-- `_compare(point: Fraction, op: str, value: Fraction) -> bool` ([source](../../../../../../src/learnloop/figures/book_math.py), line 845)
-- `_is_atom(node: Tree, family: str, text: str | None=None) -> bool` ([source](../../../../../../src/learnloop/figures/book_math.py), line 853)
-- `_split_relation(nodes: Sequence[Tree]) -> tuple[int, int]` ([source](../../../../../../src/learnloop/figures/book_math.py), line 857) — Where the one top-level ``=`` or ``:=`` of KaTeX's list is, as ``(lhs_end, rhs_start)`` indices: a segment must hold exactly one.
-- `_lhs_args(nodes: Sequence[Tree]) -> tuple[tuple[str, ...], dict[str, set[str]], dict[str, str]]` ([source](../../../../../../src/learnloop/figures/book_math.py), line 890) — The symbols of a ``name(args)`` left-hand side, with how the book spells them; empty for ``P(X = k)``, ``E[X]`` or a bare name.
-- `_walk(value: Any) -> Iterator[Tree]` ([source](../../../../../../src/learnloop/figures/book_math.py), line 925) — Every node under ``value``, whatever field holds it.
-- `_without_places(value: Any) -> Any` ([source](../../../../../../src/learnloop/figures/book_math.py), line 938)
-- `_parse(trees: KT.Trees, source: str, display: bool) -> list[Tree]` ([source](../../../../../../src/learnloop/figures/book_math.py), line 946)
-- `_left_hand_side(source: str, tree: Sequence[Tree], lhs_end: int, *, trees: KT.Trees, display: bool) -> str` ([source](../../../../../../src/learnloop/figures/book_math.py), line 953) — The book's own substring, kept only when KaTeX reads it alone as the left of this parse.
-- `_translate(source: str, tree: Sequence[Tree], *, trees: KT.Trees, display: bool) -> Relation` ([source](../../../../../../src/learnloop/figures/book_math.py), line 992)
+- `class _Item` ([source](../../../../../../src/learnloop/figures/book_math.py), line 181) — One thing in reading order.
+- `_body(node: Tree) -> Sequence[Tree]` ([source](../../../../../../src/learnloop/figures/book_math.py), line 195)
+- `_word(nodes: Sequence[Tree]) -> str | None` ([source](../../../../../../src/learnloop/figures/book_math.py), line 199) — The letters of ``\mathrm{...}`` or ``\operatorname{...}``, if letters are all it holds.
+- `_is_table_space(node: Tree) -> bool` ([source](../../../../../../src/learnloop/figures/book_math.py), line 221)
+- `_refuse_symbol(text: str) -> Unreadable` ([source](../../../../../../src/learnloop/figures/book_math.py), line 226)
+- `_items(nodes: Sequence[Tree]) -> list[_Item]` ([source](../../../../../../src/learnloop/figures/book_math.py), line 230)
+- `_base_items(base: Tree) -> list[_Item]` ([source](../../../../../../src/learnloop/figures/book_math.py), line 268)
+- `_atom_item(base: Tree, text: str) -> _Item` ([source](../../../../../../src/learnloop/figures/book_math.py), line 322)
+- `_leftright_items(base: Tree) -> list[_Item]` ([source](../../../../../../src/learnloop/figures/book_math.py), line 332)
+- `_font_item(base: Tree) -> _Item` ([source](../../../../../../src/learnloop/figures/book_math.py), line 350)
+- `_starts_with_d(node: Tree) -> bool` ([source](../../../../../../src/learnloop/figures/book_math.py), line 366) — Whether a fraction's side begins with a differential's ``d``.
+- `_dyadic_text(value: Fraction) -> str` ([source](../../../../../../src/learnloop/figures/book_math.py), line 383) — A dyadic rational's exact decimal, which reads back as the same fraction.
+- `class _Reader` ([source](../../../../../../src/learnloop/figures/book_math.py), line 414)
+- `_numeric_side(node: Tree) -> Fraction | None` ([source](../../../../../../src/learnloop/figures/book_math.py), line 780) — One side of a fraction as a number, when it is one numeral.
+- `_numeric_sides(item: _Item) -> tuple[Fraction | None, Fraction | None]` ([source](../../../../../../src/learnloop/figures/book_math.py), line 790)
+- `_cell(cell: Tree) -> Sequence[Tree]` ([source](../../../../../../src/learnloop/figures/book_math.py), line 795) — A cell of an array: KaTeX wraps its contents in a style and a group.
+- `_text_words(node: Tree) -> str` ([source](../../../../../../src/learnloop/figures/book_math.py), line 804) — A ``\text{...}``'s words: its characters as KaTeX lists them.
+- `_without_end_punctuation(nodes: Sequence[Tree]) -> Sequence[Tree]` ([source](../../../../../../src/learnloop/figures/book_math.py), line 818) — Without the ``,`` or ``.`` a sentence or a row ends on.
+- `_flip(op: str) -> str` ([source](../../../../../../src/learnloop/figures/book_math.py), line 826)
+- `_compare(point: Fraction, op: str, value: Fraction) -> bool` ([source](../../../../../../src/learnloop/figures/book_math.py), line 830)
+- `_is_atom(node: Tree, family: str, text: str | None=None) -> bool` ([source](../../../../../../src/learnloop/figures/book_math.py), line 838)
+- `_split_relation(nodes: Sequence[Tree]) -> tuple[int, int]` ([source](../../../../../../src/learnloop/figures/book_math.py), line 842) — Where the one top-level ``=`` or ``:=`` of KaTeX's list is, as ``(lhs_end, rhs_start)`` indices: a segment must hold exactly one.
+- `_lhs_args(nodes: Sequence[Tree]) -> tuple[tuple[str, ...], dict[str, set[str]], dict[str, str]]` ([source](../../../../../../src/learnloop/figures/book_math.py), line 875) — The symbols of a ``name(args)`` left-hand side, with how the book spells them; empty for ``P(X = k)``, ``E[X]`` or a bare name.
+- `_walk(value: Any) -> Iterator[Tree]` ([source](../../../../../../src/learnloop/figures/book_math.py), line 910) — Every node under ``value``, whatever field holds it.
+- `_without_places(value: Any) -> Any` ([source](../../../../../../src/learnloop/figures/book_math.py), line 923)
+- `_parse(trees: KT.Trees, source: str, display: bool) -> list[Tree]` ([source](../../../../../../src/learnloop/figures/book_math.py), line 931)
+- `_left_hand_side(source: str, tree: Sequence[Tree], lhs_end: int, *, trees: KT.Trees, display: bool) -> str` ([source](../../../../../../src/learnloop/figures/book_math.py), line 938) — The book's own substring, kept only when KaTeX reads it alone as the left of this parse.
+- `_translate(source: str, tree: Sequence[Tree], *, trees: KT.Trees, display: bool) -> Relation` ([source](../../../../../../src/learnloop/figures/book_math.py), line 977)
 
 ## Who imports or calls it
 
@@ -174,13 +168,17 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_each_unreadable_construct_has_its_reason`
   - `test_every_reason_key_is_in_the_closed_list`
   - `test_literals_are_exact_binary64_or_nothing`
-  - `test_segments_find_only_delimited_latex_or_an_equation_block`
+  - `test_segments_are_the_math_elements_the_page_finds_at_their_places_in_the_text`
+  - `test_text_the_page_does_not_render_as_math_is_no_segment_and_costs_no_engine`
   - `test_the_e_rule_reads_only_a_power_or_mathrm`
   - `test_the_left_hand_side_is_kept_as_the_books_substring_with_its_arguments`
   - `test_the_product_rule_never_resolves_a_name`
 - [tests/test_rw5c_katex_tree.py](../../../../../../tests/test_rw5c_katex_tree.py) — direct import
+  - `test_a_block_past_the_work_cap_or_nested_past_the_stack_is_unreadable_and_the_engine_still_reads`
   - `test_a_blocks_segments_are_the_ones_the_page_has`
-  - `test_a_katex_bump_moves_the_reader_version_and_needs_a_certification_bump`
+  - `test_a_changed_markdown_bundle_is_unreadable`
+  - `test_a_katex_or_markdown_bump_moves_the_reader_version_and_needs_a_certification_bump`
+  - `test_a_long_paragraph_of_a_book_fits_the_work_budget`
   - `test_a_segment_nested_past_every_cap_is_unreadable_not_a_crash`
   - `test_a_segment_over_the_work_cap_is_unreadable_and_the_engine_still_reads`
   - `test_display_mode_does_not_change_a_readable_tree`
@@ -188,6 +186,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_the_left_hand_side_is_refused_when_alone_it_would_not_be_the_left_of_the_parse`
   - `test_the_left_hand_side_is_the_books_substring_and_the_left_of_the_parse`
   - `test_what_a_tree_shows_that_no_row_covers_is_refused_never_dropped`
+  - `test_with_no_engine_a_block_has_no_segments_never_a_fallback`
 - [tests/test_rw5c_recheck.py](../../../../../../tests/test_rw5c_recheck.py) — direct import
   - `test_a_certification_the_old_reader_stored_no_longer_delivers_checked`
   - `test_the_bulk_recheck_replaces_a_certification_the_old_reader_stored`

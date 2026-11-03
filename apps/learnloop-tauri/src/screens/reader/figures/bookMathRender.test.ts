@@ -29,9 +29,13 @@ function mathml(block: string): string {
   return found![1];
 }
 
-/** The source of each math element the page rendered, in reading order. */
+/** The exact source of each math element the page rendered, in reading order. */
+function exactSources(block: string): string[] {
+  return [...page(block).matchAll(/<annotation encoding="application\/x-tex">([\s\S]*?)<\/annotation>/g)].map((match) => unescaped(match[1]));
+}
+
 function renderedSources(block: string): string[] {
-  return [...page(block).matchAll(/<annotation encoding="application\/x-tex">([\s\S]*?)<\/annotation>/g)].map((match) => unescaped(match[1]).split(/\s+/).join(" ").trim());
+  return exactSources(block).map((source) => source.split(/\s+/).join(" ").trim());
 }
 
 describe("the source's rendered structure", () => {
@@ -145,16 +149,16 @@ describe("whatever the markdown around them, the reader's segments are the page'
   it("1500 generated blocks", () => {
     let withMath = 0;
     for (const block of generated(20261102)) {
-      const shown = renderedSources(block);
+      const shown = exactSources(block);
       withMath += shown.length ? 1 : 0;
-      expect(pageMathSegments(block).map((found) => squeezed(found.latex)), block).toEqual(shown);
+      expect(pageMathSegments(block).map((found) => found.latex), block).toEqual(shown);
     }
     expect(withMath).toBeGreaterThan(300);
   });
 });
 
 describe("the bundle the sidecar runs", () => {
-  const file = (name: string) => readFileSync(new URL(`../../../../sketch-engine/markdown/${name}`, import.meta.url), "utf8");
+  const file = (name: string) => readFileSync(`sketch-engine/markdown/${name}`, "utf8");
 
   it("is this source built from these packages, byte for byte", async () => {
     // @ts-expect-error build.mjs is plain node, with no types

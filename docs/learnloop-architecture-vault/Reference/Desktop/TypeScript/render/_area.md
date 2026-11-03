@@ -6,8 +6,8 @@ refactor_status: "ACTIVE"
 version: "1.0.0"
 source_paths:
   - "apps/learnloop-tauri/src/render"
-source_commit: "0947b8fce973ebe53519b6f2ef2a93781ef9253d"
-source_commit_timestamp: "2026-10-17T08:45:47-04:00"
+source_commit: "677db664814feb3446ee0469b65cf4eb5c278b16"
+source_commit_timestamp: "2026-11-02T23:12:42-05:00"
 generated: true
 generated_at: "2026-08-18"
 tags:
@@ -37,8 +37,10 @@ No nested ownership area.
 | Module | Status | Purpose | Imports | Imported by |
 |---|---|---|---:|---:|
 | [[Reference/Desktop/TypeScript/render/LiveMarkdownEditor|LiveMarkdownEditor.tsx]] | `ACTIVE` | Adapts `LiveMarkdownEditor` content editing or rendering into React presentation behavior. | 2 | 2 |
-| [[Reference/Desktop/TypeScript/render/MarkdownMath|MarkdownMath.tsx]] | `ACTIVE` | Adapts `MarkdownMath` content editing or rendering into React presentation behavior. | 0 | 33 |
+| [[Reference/Desktop/TypeScript/render/MarkdownMath|MarkdownMath.tsx]] | `ACTIVE` | Adapts `MarkdownMath` content editing or rendering into React presentation behavior. | 1 | 33 |
 | [[Reference/Desktop/TypeScript/render/MathLiveEditor|MathLiveEditor.tsx]] | `ACTIVE` | Adapts `MathLiveEditor` content editing or rendering into React presentation behavior. | 0 | 2 |
+| [[Reference/Desktop/TypeScript/render/markdownPipeline|markdownPipeline.ts]] | `ACTIVE` | Adapts `markdownPipeline` content editing or rendering into React presentation behavior. | 0 | 2 |
+| [[Reference/Desktop/TypeScript/render/pageMathSegments|pageMathSegments.ts]] | `ACTIVE` | Adapts `pageMathSegments` content editing or rendering into React presentation behavior. | 1 | 0 |
 
 ## Modification guidance
 

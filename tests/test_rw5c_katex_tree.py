@@ -70,6 +70,8 @@ def test_the_vendored_markdown_is_the_page_pipeline_the_reader_locks():
     for name, version in lock["packages"].items():
         assert PACKAGE_LOCK["packages"][f"node_modules/{name}"]["version"] == version
         assert f"--- {name} {version} (" in notice
+        # One copy: react-markdown and the bundle resolve the same package.
+        assert not [path for path in PACKAGE_LOCK["packages"] if path.endswith(f"/node_modules/{name}")]
     # What makes it the page's: the parser, the plugins MarkdownMath passes, and remark-rehype.
     assert {"remark-gfm", "remark-math", "remark-rehype", "micromark", "unified"} <= set(lock["packages"])
 
@@ -152,10 +154,10 @@ def test_a_block_past_the_work_cap_or_nested_past_the_stack_is_unreadable_and_th
 def test_a_long_paragraph_of_a_book_fits_the_work_budget():
     """Measured on the coverage corpus (review file): its longest block with math is 5,879 characters."""
 
-    text = "The density is $f(x) = x + 1$ for every word of this sentence, as above. " * 80
+    text = "The density is $f(x) = x + 1$ for every word of this sentence, as above. " * 81
     assert len(text) > 5_879
     with KT.Trees() as trees:
-        assert len(B.segments(text, trees=trees)) == 80
+        assert len(B.segments(text, trees=trees)) == 81
 
 
 def test_a_segment_over_the_work_cap_is_unreadable_and_the_engine_still_reads():

@@ -31,7 +31,7 @@ source_paths:
   - "src/learnloop/figures/spec.py"
   - "src/learnloop/figures/verify.py"
 source_commit: "aggregate; see module notes"
-source_commit_timestamp: "2026-11-02T22:44:18-05:00"
+source_commit_timestamp: "2026-11-02T23:12:42-05:00"
 generated: true
 generated_at: "2026-11-02"
 package: "learnloop.figures"

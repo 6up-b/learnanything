@@ -6,7 +6,6 @@ import { normalizeMathDelimiters, REMARK_PLUGINS } from "./markdownPipeline";
 
 // The normalization and the remark plugins live in markdownPipeline.ts, because the check behind "matches the book's
 // equation (checked)" must find the equations this page finds.
-export { normalizeMathDelimiters };
 
 // Module-level plugin list: a fresh array per render defeats react-markdown's
 // own memoisation, and the component is memoised because the markdown +
