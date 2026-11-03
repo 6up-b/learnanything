@@ -206,3 +206,61 @@ No full suite: the landing runs it. No migration, successor or config key. No mo
 - **Other furniture lists.** `pdfSelection/tokens.ts`, `reader_guidance`, `source_block_fts`, `repositories.py`'s query, `exercise_statements` and `role_labeller` hold their own lists (the last two different sets). None decides what a check reads, and the stage was not to touch them. Nothing pins them to the policy, so `tokens.ts` could drift from it; that changes selection only.
 - **`detex`'s plain text** for a fraction or a font: `\frac{1-a}{k}` reads `frac1-ak` in an `aria-label` or SVG text. It predates this stage and is the same on a book element's own label, so it is no new grouping fault here, but it does lose the fraction's structure. A small follow-up.
 - **The PDF surface's jump.** A candidate with no box in a book whose other blocks have boxes moves nothing there: `jumpToSpan` finds no geometry and no text block is drawn. Not changed and not tested here; it needs a book with boxes on only some blocks.
+
+## Sol verify (job 20261103-001208-h8y9pg): V1, V2, V3
+
+The scoped verify after A1 and A2. None shows a false `checked`. All three are Medium and fixed at landing with tests (ruling R3 in `reader-rw5c-p1.md`); no further Codex round.
+
+| # | Severity | Finding | Status | Commit | Pinned by |
+|---|---|---|---|---|---|
+| V1 | Medium | `detex` reached visible labels | fixed | `ddda73b843` | `test_rw5c_plain_words.py`, `figureDisplayCorpus` in both lanes |
+| V2 | Medium | "Open the page" silently did nothing on an original with partial geometry | fixed | `85b5278eac` | `figureProvenanceReader.test.tsx` |
+| V3 | Medium | The preflight could validate one reading and open another | fixed | `ba61eaba73` | `figureProvenanceReader.test.tsx` |
+
+### V1
+
+**Reproduced first.** Through the real check, on `9562a5ec2e`: `$\frac{dF(x)}{dx}=2x$` came back `checked` with the element's plain `fracdF(x)dx` and the shade's `area under fracdF(x)dx from 0 to 0.5`. This closes the "`detex`'s plain text" item left above.
+
+**The fix.** `detex` is gone. `book_math.plain_words` writes the left-hand side from KaTeX's tree, the same list `_compound` reads, in the reader's vocabulary: `Relation.lhs_plain`, then `BookLabel.plain`, a required field like `compound`. Operands, book elements, templates and prediction choices all take it. A book symbol's token stays a small rule (`_token_plain`), because the reader writes only `x`, `\alpha`, `x_{1}` or `\alpha_{i}`, so that form can't garble.
+
+Decisions the tree leaves to the writer:
+
+- **Fractions.** A numerator is grouped when it is compound or itself a fraction. A denominator is grouped unless it is one factor (a symbol, a numeral, one bracketed thing, `f(x)`), since `a/bc` is what the reader itself refuses as `ambiguous_slash`. So `(1-a)/k`, `a/(bc)`, `1/(2 pi)`, `(a/b)/c`.
+- **Derivatives.** `dF(x)/dx`, `dy/dx`, `∂F/∂x` stay as one ratio only when both parts start with a differential and the denominator is a differential and one thing. `\frac{a}{dx}` reads `a/(dx)`.
+- **A fraction beside something.** `2(a/b)`, `(a/b)c`, `(a/b)^2`, `(a/b)!`: a slash would reach too far otherwise.
+- **Scripts.** Grouped unless one symbol or one numeral: `e^(-k)`, `x_(i+1)`, `x^10`. Primes stay primes.
+- **Fonts and accents.** Plain fonts say nothing (`\mathrm{Var}` is `Var`); `bold(x)`, `bb(E)`, `cal(L)`, `hat(F)`, `bar(x)` and the like keep what a font or accent adds.
+
+**The closed fallback, and which kinds take it.** The words are *the book's expression*. As an operand it takes no brackets, because it is words and not a term. A label falls back when its tree holds any of these:
+
+- a font outside the table: `\mathfrak`, `\mathscr`, `\mathsf`, `\mathtt`;
+- an accent outside the table: `\check`, `\breve`, `\mathring`;
+- a root with an index, `\sqrt[3]{x}`;
+- a fraction with other delimiters or no bar outside `\binom`, such as `\genfrac` forms;
+- a symbol, delimiter or big operator outside the tables: `\aleph`, `\hbar`, `\langle`, `\lfloor`, `\otimes`, `\oint`;
+- a script on a bare brace group of more than one thing: `{a+b}^2` shows `a+b²` and TeX means the group, so neither reading is safe;
+- a prime mixed with an exponent inside one script, `f'^2`;
+- an empty group where words are required, `\sqrt{}`, `\frac{}{b}`;
+- `\text` holding anything but letters, digits, spaces and `-.,:'`.
+
+`_NO_WORDS` in the test file holds these; each either falls back or is refused by the reader outright. Two shades drawing fallback labels over the same bounds would read alike in a prediction's radio buttons (their values stay distinct). That needs two unwritable left-hand sides in one figure, so it is left as Low.
+
+**Held to KaTeX's own output.** Generated nested fractions, roots, scripts and signs through the real reader: the words are read back by the grammar's parser and compared with the value of KaTeX's MathML (`katex_meaning`, independent of the tree), over 300 forms per run. Removing the numerator's brackets, the denominator's or a script's fails it (each mutation was run). The label slots are tested through the real `build`: `\frac{dF(x)}{dx}=2x` is `checked` and the area prediction's choice reads `area under dF(x)/dx from 0 to 0.5`; bars labelled `\frac{1-a}{k}` carry `(1-a)/k` in the series, the highlight and the readout. The shared corpus's words moved with it, and both lanes pass.
+
+`CERTIFICATION_VERSION` is 6, so a stored version-5 label with the old words is neither delivered nor skipped by a recheck. `READER_VERSION` is `book-math-v5`.
+
+### V2
+
+**Reproduced first.** The real Reader with the manifest Sol described: another block has a box, the cited one has only `pageSpans` page 87. The press passed the block guard and `scrollToPage` was never called, and no error was reported. With no page either, nothing happened at all. Both tests fail on `ddda73b843`'s Reader.
+
+**The fix.** `pageOfSpan` was built only when the manifest had no boxes at all. `jumpToSpan` now reads `pageBySpan`, which already held every passage's page, so every jump benefits, not only this button. "Open the page" adds the rest: with neither box nor page on the original it switches to the extracted text, which draws every block the page shows, and peeks there; if that block still isn't in the body, it says "That page couldn't be opened."
+
+This also closes the "PDF surface's jump" item left above. The test's fake pane now draws `inlineNotes`, since that is how a figure reaches the original at all.
+
+### V3
+
+**Reproduced first.** Reading A open, the cited reading B, and a sidecar that would resolve the book to C from then on: the press validated B's translation onto A, then `openSource` resolved again and could open C. The new tests fail on the old callback.
+
+**The fix.** One pinned reading. On the open book, the span is translated onto the reading that stays open and peeked there through the same callback, with no new read, and an answer naming any other reading opens nothing. The "near the passage you found" line still shows for a translated place whose words changed (`noteFoundApproximate`), since that used to come with the reopen. On another book, `openSource` takes the view just read and validated (`options.view`), so nothing resolves the source id afterwards. If the learner has moved to another book while the press was waiting, `sourceEpochRef` drops it.
+
+**One behaviour change to name.** An earlier reading's citation in the open book used to reset and reopen the Reader. It now moves within the page, leaving a Detour crumb like any other peek, which keeps the learner's rail, selection and place.
