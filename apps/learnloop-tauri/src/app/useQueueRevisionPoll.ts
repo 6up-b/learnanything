@@ -14,8 +14,11 @@
 // revision change or a reload. A bump that never landed stays owed in the host, whose
 // next request pays it.
 //
-// Where it refetches and reloads (ruling R2): only where Today's own poll used to run,
-// Today's list with nothing over it (`revisionPollHeld`). Everywhere else the screen is
+// Where it refetches and reloads (ruling R2): only on Today's list, with nothing over it
+// (`revisionPollHeld`), on the classic Today and on the simple shell's Today and Start. Main's
+// only poller was the classic Today, so the simple shell's freshness is new, on purpose
+// (ruling R5): a real revision change or a completed reload job refreshes it, and an idle
+// token rebuilds nothing. Everywhere else the screen is
 // `quiet`: the token is still read, asking the sidecar not to reload now, a change is
 // remembered, and on the return to Today one read reloads whatever is owed and one
 // refetch pays for it all. The App-level plan read would otherwise rebuild on the pipe
@@ -82,9 +85,8 @@ export interface RevisionPollView {
 }
 
 /**
- * Whether the poll holds its refetches and reloads: anywhere but Today's list. Feedback
- * and block review replace the list on the Today tab, so Today's own poll did not run
- * under them either. A command overlay (Ask, Settings, the inspector) sits over a list
+ * Whether the poll holds its refetches and reloads: anywhere but Today's list (ruling R2).
+ * Feedback and block review replace the list on the Today tab. A command overlay (Ask, Settings, the inspector) sits over a list
  * that stays mounted, so it does not hold.
  */
 export function revisionPollHeld(view: RevisionPollView): boolean {

@@ -95,13 +95,13 @@ The scoped verify came back NOT CLEAN with three Mediums, and the answer to its 
 
 **V1b.** `revisionPollHeld` decides the hold, and `get_queue_revision` gains `holdReload` (default false; declared, because `ParamsModel` forbids extras). The Rust command becomes a passthrough, since it used to send a fixed empty object. While held, the read leaves a completed job owed and a change is remembered. The hold lifting reads at once, and only a read that was free to reload pays what was remembered, so a held change and a held reload are one refetch and it runs after the reload. A read in flight when the hold lifts is followed by one that may reload; a failed read keeps the debt for the next tick.
 
-Three readings of "where Today's own poll ran", for the orchestrator's review:
+Three readings the brief did not settle, reviewed and accepted by the orchestrator (R2 as amended, R5):
 
-1. **Feedback and block review hold.** R2 says "only where Today's own poll ran"; the brief's sentence says "`todayStage` other than practice". On main `FeedbackScreen` and `DiagnosticReviewScreen` replace `TodayScreen`, so its poll did not run there, and R4's parity needs them held. This overrides the earlier note that the feedback stage is not held.
-2. **The simple shell's Today lifts it, though main had no poll there.** Main's only `getQueueRevision` caller is the classic `TodayScreen`; `TodayPlace` never polled. So on the default shell this branch adds a reload and a refetch on Today's list when a job completes or the revision moves, which main did not do. It is what the brief's "leaving to Today" test asks for, and holding there would leave the default shell with no freshness at all. R4's "matches main" does not hold for this one case. Row growth is bounded by real changes: an idle token and a return add nothing.
-3. **The simple shell's Start tab counts as Today** (it renders `TodayPlace`, "Start and Today are one place"); the classic shell's Start is its own screen and holds.
+1. **Feedback and block review hold.** They replace `TodayScreen` on the Today tab, so the hold lifts only at `todayStage` queue. This overrides the earlier note that the feedback stage is not held.
+2. **The simple shell's Today lifts it, though main had no poll there.** Main's only `getQueueRevision` caller was the classic `TodayScreen`. This is the one desktop difference kept on purpose, R5: a real revision change or a completed reload job refreshes the simple Today, and an idle token rebuilds nothing.
+3. **The simple shell's Start tab counts as Today** (it renders `TodayPlace`); the classic shell's Start is its own screen and holds.
 
-A golden-path run also holds, as a body-replacing overlay the brief did not name. Command overlays (Ask, Settings, the inspector, repair) sit over a list that stays mounted, and do not hold, as on main.
+A golden-path run also holds, as a body-replacing overlay. Command overlays (Ask, Settings, the inspector, repair) sit over a list that stays mounted, and do not hold, as on main.
 
 **V2.** Under R3 this is the last round on the scan's agreement with the renderer; any further disagreement is Low. A protocol-relative link is remote. GFM footnote definition lines and references go before the parse (a definition holding a real image is Low). `llpdf:` is read on rendered link and image targets and raw HTML, not as a substring, so the old pin of bare prose as a link went. The math strip keeps a backslash escape, so `\$5` opens no math and `\\$x$` still does. The quick exit stays: a target or HTML needs `[` or `<`. No new parser or dependency.
 
@@ -110,3 +110,13 @@ A golden-path run also holds, as a body-replacing overlay the brief did not name
 **Item 5 of the verify, the cost of a return, is answered by V1:** no rebuild, so none of the slates, offers, router decisions or background starts it listed. R4 keeps the successor question for M2.
 
 **Gate for this step:** `test_device_eligibility`, `test_host_queue_revision`, `test_request_origin`, `test_desktop_rpc_contract`, `test_sidecar_contract`, `test_question_queue`: 294 passed, 5 skipped. Durability lane on the first five: 200 passed. Vitest `useQueueRevisionPoll.test.tsx`, `App.queueRevision.test.tsx`, `src/screens/TodayScreen*`: 65 passed; every `src/app/App*` file also run. `npm run typecheck` clean. `cargo check` clean, because `commands.rs` changed.
+
+## Scoped Sol review of step 0 (job `20261103-044532-744Tsp`)
+
+Verdict NOT CLEAN on one finding, ruled Low and not fixed; V1, V1b, V2 and V3 each pass, with no other new finding in `db63ec8ec3..27497a7340`.
+
+| Id | Sol's severity | Finding | Verdict |
+|---|---|---|---|
+| 1 | Medium | `commands.rs`: the passthrough makes `input` mandatory, so an older `invoke("get_queue_revision")` with no input fails before Python and its poll silently stops | **Low, not fixed (ruling R6):** the frontend and the shell ship together in one app, and the one caller sends input |
+
+**The question it was asked: keep the simple shell's freshness?** It recommended keeping it, as a freshness correction, and the orchestrator ruled so (R5). It found no self-sustaining loop: follow-up and placement bumps settle, plan boundaries persist their decisions, and prefetch and AD preparation do not bump this token. The cost it measured: an unchanged idle token gives 0 poll-driven rebuilds an hour; continuous genuine changes at the 3 s cadence could reach 1,200 invalidation cycles an hour (about 2,400 scheduler builds with the full list open), which needs work landing throughout the hour. A rebuild on such a change can start the existing background work, under its existing switches and budgets, so a refetch is not a free read. Refreshed rows can move under the full list's keyboard selection, on genuine changes only; main's file watcher already allowed that. Main had a real database-only gap (a Reader follow-up's new check stayed stale on the simple Today until something else refreshed), though newly authored YAML already reached it through the file watcher.

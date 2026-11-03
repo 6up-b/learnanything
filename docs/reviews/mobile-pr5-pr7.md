@@ -171,7 +171,7 @@ swallowed: the learner's write stands, the bump stays owed, on its own vault, fo
 
 **Holding, as amended by ruling R2 (Sol verify V1b).** A revision change does two things, and only one is held. `notifyQueueChanged`
 invalidates `TAG.queue`, and the App always mounts `get_daily_plan` under it, so an invalidation rebuilds the plan on the pipe, which can
-start work and writes rows for a list nobody is looking at. `revisionPollHeld` lifts the hold only on Today's list: every other tab, Today's
+start work and writes rows for a list nobody is looking at. `revisionPollHeld` lifts the hold only on Today's list, on the classic Today and the simple shell's Today and Start (the simple shell is new here, ruling R5): every other tab, Today's
 practice, feedback and block review stages, and an exam, calibration session, lesson or golden-path run hold it. While held, a change is
 remembered and the read asks for no reload (`holdReload`); on the return to Today one read reloads what is owed and one refetch pays for it
 all. Reading the session is held for nothing, and its result goes to a separate store, never `setSession`, so the question's `key` and its
