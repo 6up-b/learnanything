@@ -297,6 +297,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_a_glm_reread_of_a_sliced_book_sends_only_its_pages`
 - [tests/test_reread_safety_landing.py](../../../../../../../tests/test_reread_safety_landing.py) — direct import
   - `test_a_glm_reread_uploads_pages_of_the_stored_original_not_the_pointer`
+- [tests/test_rw5c_block_policy.py](../../../../../../../tests/test_rw5c_block_policy.py) — direct import
+  - `test_every_type_an_extractor_writes_is_classified`
 
 ## Modification guidance
 

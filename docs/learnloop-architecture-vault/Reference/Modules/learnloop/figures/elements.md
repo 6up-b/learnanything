@@ -7,8 +7,8 @@ version: "1.0.0"
 source_path: "src/learnloop/figures/elements.py"
 source_paths:
   - "src/learnloop/figures/elements.py"
-source_commit: "7866e67b1459b5d656ed7cb0067373e2c125e69d"
-source_commit_timestamp: "2026-11-02T22:18:16-05:00"
+source_commit: "3da9041670d761302c8f41993f6f9f98413a9a3d"
+source_commit_timestamp: "2026-11-03T00:02:23-05:00"
 source_worktree_state: "clean"
 generated: true
 generated_at: "2026-11-02"
@@ -50,13 +50,13 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/figures/elements.py](../../../../../../src/learnloop/figures/elements.py) |
-| Source lines | 575 |
+| Source lines | 599 |
 | Owning package | [[Reference/Modules/learnloop/figures/_package|learnloop.figures]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `7866e67b1459b5d656ed7cb0067373e2c125e69d` |
-| Commit timestamp | `2026-11-02T22:18:16-05:00` |
+| Source commit | `3da9041670d761302c8f41993f6f9f98413a9a3d` |
+| Commit timestamp | `2026-11-03T00:02:23-05:00` |
 
 ## Public API
 
@@ -69,9 +69,10 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `to_plain(node: G.Node, _outer: int=0) -> str` ([source](../../../../../../src/learnloop/figures/elements.py), line 253) — The expression as plain text for ``aria-label``s and SVG text: the grammar's own infix, rebuilt from the tree.
 - `detex(latex: str) -> str` ([source](../../../../../../src/learnloop/figures/elements.py), line 290) — A left-hand side as plain text for ``aria-label``s (source text, its markup dropped).
 - `class BookLabel` ([source](../../../../../../src/learnloop/figures/elements.py), line 302) — A checked definition's candidate: the book's own words for its label.
-- `template_words(template: Mapping[str, Any], bounds: Mapping[str, Any], number: Any) -> tuple[str, str]` ([source](../../../../../../src/learnloop/figures/elements.py), line 365) — The closed derived-label templates (§7.2), in TeX and in plain text.
-- `element_map(compiled: S.CompiledFigure, book: Mapping[str, BookLabel], book_elements: Mapping[str, str]) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/figures/elements.py), line 416) — Every label-carrying element and its role (§7.2).
-- `rewrite_spec(spec_json: str, compiled: S.CompiledFigure) -> tuple[str, dict[str, str]]` ([source](../../../../../../src/learnloop/figures/elements.py), line 509) — The delivered spec with every label replaced by its element id, references too (§7.4, by construction: the walk reaches every ``Label``), and the map from each model label a reference may name to its id.
+  - `operand(self) -> tuple[str, str]` (line 316; public) — ``lhs`` where a template writes an operator or words before it, as TeX and plain text: a compound one is visibly whole (Astra A2: \sum 1-F(k) beside the sum of all of 1-F(k)).
+- `template_words(template: Mapping[str, Any], bounds: Mapping[str, Any], number: Any) -> tuple[str, str]` ([source](../../../../../../src/learnloop/figures/elements.py), line 387) — The closed derived-label templates (§7.2), in TeX and in plain text.
+- `element_map(compiled: S.CompiledFigure, book: Mapping[str, BookLabel], book_elements: Mapping[str, str]) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/figures/elements.py), line 438) — Every label-carrying element and its role (§7.2).
+- `rewrite_spec(spec_json: str, compiled: S.CompiledFigure) -> tuple[str, dict[str, str]]` ([source](../../../../../../src/learnloop/figures/elements.py), line 533) — The delivered spec with every label replaced by its element id, references too (§7.4, by construction: the walk reaches every ``Label``), and the map from each model label a reference may name to its id.
 
 ### Module constants
 
@@ -112,14 +113,15 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `_hints(model: type[BaseModel]) -> dict[str, Any]` ([source](../../../../../../src/learnloop/figures/elements.py), line 81)
 - `_walk_value(value: Any, path: tuple[Any, ...]) -> Iterator[Slot]` ([source](../../../../../../src/learnloop/figures/elements.py), line 100)
 - `_number_tex(text: str) -> str` ([source](../../../../../../src/learnloop/figures/elements.py), line 181)
-- `_element(path: Sequence[Any], role: str, tex: str, plain: str, voice: str, **extra: Any) -> dict[str, Any]` ([source](../../../../../../src/learnloop/figures/elements.py), line 314)
-- `_source(label: BookLabel) -> dict[str, Any]` ([source](../../../../../../src/learnloop/figures/elements.py), line 319)
-- `_bare(node: G.Node | None, definitions: Mapping[str, Any]) -> str | None` ([source](../../../../../../src/learnloop/figures/elements.py), line 323)
-- `_curve(path: Sequence[Any], node: G.Node | None, axis: str | None, compiled: S.CompiledFigure, book: Mapping[str, BookLabel], book_elements: Mapping[str, str]) -> dict[str, Any]` ([source](../../../../../../src/learnloop/figures/elements.py), line 327) — A series or a readout's plain value: ``book``, else code's rendering in the model's voice.
-- `_template(path: Sequence[Any], kind: str, panel: int, index: int, *, body_tex: str, body_plain: str, variable: str, role: str, voice: str, compiled: S.CompiledFigure, env: Mapping[str, float], **extra: Any) -> dict[str, Any]` ([source](../../../../../../src/learnloop/figures/elements.py), line 349) — A shade, a highlight or a bound readout: its words state the bounds the evaluator used (F2) and name them losslessly (F9).
-- `_panel_tex(panel: S.CompiledPanel, definitions: Mapping[str, Any]) -> tuple[str, str]` ([source](../../../../../../src/learnloop/figures/elements.py), line 395) — A non-curve panel's own expression, for a label its author gave it.
-- `_slot_element_path(slot: Slot) -> tuple[Any, ...]` ([source](../../../../../../src/learnloop/figures/elements.py), line 502) — The element a label slot names: its owner's path (a readout's and a panel's own ``label`` name the panel).
-- `_assign(data: Any, path: Sequence[Any], value: str) -> None` ([source](../../../../../../src/learnloop/figures/elements.py), line 549)
+- `_element(path: Sequence[Any], role: str, tex: str, plain: str, voice: str, **extra: Any) -> dict[str, Any]` ([source](../../../../../../src/learnloop/figures/elements.py), line 324)
+- `_source(label: BookLabel) -> dict[str, Any]` ([source](../../../../../../src/learnloop/figures/elements.py), line 329)
+- `_bare(node: G.Node | None, definitions: Mapping[str, Any]) -> str | None` ([source](../../../../../../src/learnloop/figures/elements.py), line 333)
+- `_curve(path: Sequence[Any], node: G.Node | None, axis: str | None, compiled: S.CompiledFigure, book: Mapping[str, BookLabel], book_elements: Mapping[str, str]) -> dict[str, Any]` ([source](../../../../../../src/learnloop/figures/elements.py), line 337) — A series or a readout's plain value: ``book``, else code's rendering in the model's voice.
+- `_operand(curve: Mapping[str, Any], node: G.Node | None, compiled: S.CompiledFigure, book: Mapping[str, BookLabel]) -> tuple[str, str]` ([source](../../../../../../src/learnloop/figures/elements.py), line 359) — A curve as a template's operand: the book's left-hand side, or code's rendering grouped as a sum's or an integral's body is.
+- `_template(path: Sequence[Any], kind: str, panel: int, index: int, *, body_tex: str, body_plain: str, variable: str, role: str, voice: str, compiled: S.CompiledFigure, env: Mapping[str, float], **extra: Any) -> dict[str, Any]` ([source](../../../../../../src/learnloop/figures/elements.py), line 371) — A shade, a highlight or a bound readout: its words state the bounds the evaluator used (F2) and name them losslessly (F9).
+- `_panel_tex(panel: S.CompiledPanel, definitions: Mapping[str, Any]) -> tuple[str, str]` ([source](../../../../../../src/learnloop/figures/elements.py), line 417) — A non-curve panel's own expression, for a label its author gave it.
+- `_slot_element_path(slot: Slot) -> tuple[Any, ...]` ([source](../../../../../../src/learnloop/figures/elements.py), line 526) — The element a label slot names: its owner's path (a readout's and a panel's own ``label`` name the panel).
+- `_assign(data: Any, path: Sequence[Any], value: str) -> None` ([source](../../../../../../src/learnloop/figures/elements.py), line 573)
 
 ## Who imports or calls it
 
@@ -155,12 +157,16 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
+- [tests/test_rw5c_display_twins.py](../../../../../../tests/test_rw5c_display_twins.py) — direct import
+  - `test_the_derived_words_are_the_corpus_s_from_the_book_s_left_hand_side`
 - [tests/test_rw5c_labels.py](../../../../../../tests/test_rw5c_labels.py) — direct import
   - `test_a_book_elements_label_is_the_books_left_hand_side_and_its_provenance`
   - `test_a_bound_readouts_body_is_grouped_in_its_template`
+  - `test_a_generated_left_hand_side_is_whole_in_every_template_in_katexs_own_mathml`
   - `test_a_power_of_a_power_keeps_its_grouping_in_plain_text`
   - `test_a_readout_whose_body_is_not_the_bare_reference_is_not_derived`
   - `test_a_scientific_literal_as_a_base_is_grouped_in_both_writers`
+  - `test_a_shade_or_a_highlight_of_an_ai_curve_groups_code_s_own_rendering`
   - `test_a_sum_or_an_integral_written_inside_a_product_is_grouped`
   - `test_an_unchecked_definition_renders_as_its_grammar_name_marked_ai_defined`
   - `test_codes_own_rendering_of_an_expression`

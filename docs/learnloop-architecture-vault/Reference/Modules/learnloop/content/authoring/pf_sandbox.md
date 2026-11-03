@@ -208,6 +208,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_f20_a_partial_judgment_resumes_without_any_paid_pipeline_work`
 - [tests/test_required_method_round3.py](../../../../../../../tests/test_required_method_round3.py) — direct import
 - [tests/test_required_method_round3_review.py](../../../../../../../tests/test_required_method_round3_review.py) — direct import
+- [tests/test_rw5c_block_policy.py](../../../../../../../tests/test_rw5c_block_policy.py) — direct import
 - [tests/test_rw5c_labels.py](../../../../../../../tests/test_rw5c_labels.py) — direct import
   - `test_a_figure_with_no_book_element_is_drawn_exactly_as_before`
 - [tests/test_rw5c_recheck.py](../../../../../../../tests/test_rw5c_recheck.py) — direct import

@@ -185,8 +185,8 @@ def main() -> int:
     # RW5d P3: components/askFigures.tsx (show me in the Ask panel); teacher TE1: LessonScreen.tsx;
     # teacher TE1b: screens/today/LessonSuggestionCard.tsx (Today's lesson suggestion card).
     # Reader RW5c: screens/reader/figures/figureLabels.tsx (a checked figure's code-owned labels).
-    if len(ts_sources) != 311:
-        errors.append(f"source inventory drift: expected 311 TypeScript/TSX files, found {len(ts_sources)}")
+    if len(ts_sources) != 312:
+        errors.append(f"source inventory drift: expected 312 TypeScript/TSX files, found {len(ts_sources)}")
     if len(rust_sources) != 6:
         errors.append(f"source inventory drift: expected 6 authored Rust modules, found {len(rust_sources)}")
     for path in sorted(expected - actual):
@@ -280,7 +280,7 @@ def main() -> int:
             errors.append(f"duplicate source coverage for {source_path}: {len(notes)} notes")
 
     expected_activation_counts = {
-        "entry-reachable build graph": 300,
+        "entry-reachable build graph": 301,
         # RW5d P2 sketch compartment: sketch.worker.ts and sketchWorkerCore.ts, bundled by vite.config.mjs.
         "bundled worker entry": 2,
         "compiler-implicit": 2,
@@ -294,7 +294,7 @@ def main() -> int:
     status_counts: dict[str, int] = defaultdict(int)
     for info in audited_infos.values():
         status_counts[info.refactor_status] += 1
-    if dict(status_counts) != {"ACTIVE": 317}:
+    if dict(status_counts) != {"ACTIVE": 318}:
         errors.append(f"lifecycle classification drift requires review: {dict(status_counts)}")
 
     link_errors, wikilinks, fragments, markdown_links = validate_links(sorted(actual))

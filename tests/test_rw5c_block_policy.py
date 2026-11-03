@@ -107,7 +107,7 @@ def test_every_type_an_extractor_writes_is_classified():
 
     known = {*_POLICY["furniture"], *_POLICY["markdown"]}
     written = {*glm_ocr._BLOCK_TYPES.values(), "Text", "SectionHeader", "Caption", "Code", "Equation", "Footnote"}
-    # Marker's own (marker.schema.BlockTypes), less its layout-only Line, Span, Char, Page and Document.
+    # Marker's own, by hand (the pdf extra isn't in this gate's environment), less its layout-only Line, Span, Char, Page and Document.
     marker = {"FigureGroup", "TableGroup", "ListGroup", "PictureGroup", "Caption", "Code", "Figure", "Footnote", "Form",
               "Equation", "Handwriting", "TextInlineMath", "ListItem", "PageFooter", "PageHeader", "Picture", "SectionHeader",
               "Table", "Text", "TableOfContents", "ComplexRegion", "TableCell", "Reference"}

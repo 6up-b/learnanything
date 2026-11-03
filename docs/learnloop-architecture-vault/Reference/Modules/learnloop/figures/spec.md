@@ -285,14 +285,17 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_figures_show_me.py](../../../../../../tests/test_figures_show_me.py) — direct import
   - `test_an_rw5ab_request_hashes_and_prompts_exactly_as_before`
 - [tests/test_reader_rw5d_p4a_figures_follow.py](../../../../../../tests/test_reader_rw5d_p4a_figures_follow.py) — direct import
+- [tests/test_rw5c_block_policy.py](../../../../../../tests/test_rw5c_block_policy.py) — direct import
 - [tests/test_rw5c_display_twins.py](../../../../../../tests/test_rw5c_display_twins.py) — direct import
   - `test_the_derived_bounds_pin_the_evaluator`
 - [tests/test_rw5c_judgments.py](../../../../../../tests/test_rw5c_judgments.py) — direct import
   - `test_the_rationale_is_code_text_only`
 - [tests/test_rw5c_labels.py](../../../../../../tests/test_rw5c_labels.py) — direct import
+  - `test_a2_a_derived_sum_keeps_a_compound_left_hand_side_whole`
   - `test_a_book_elements_label_is_the_books_left_hand_side_and_its_provenance`
   - `test_a_bound_readouts_body_is_grouped_in_its_template`
   - `test_a_readout_whose_body_is_not_the_bare_reference_is_not_derived`
+  - `test_a_shade_or_a_highlight_of_an_ai_curve_groups_code_s_own_rendering`
   - `test_an_unchecked_definition_renders_as_its_grammar_name_marked_ai_defined`
   - `test_f2_a_shade_states_the_bounds_the_evaluator_used`
   - `test_f2_an_integral_readout_states_its_evaluated_bounds`

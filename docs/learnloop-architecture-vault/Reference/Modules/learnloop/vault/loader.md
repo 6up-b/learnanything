@@ -2772,10 +2772,16 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_narration_switched_off_after_a_narrative_was_saved_shows_it_nowhere`
   - `test_the_section_is_absent_with_its_switches_off`
 - [tests/test_router_staged_p2.py](../../../../../../tests/test_router_staged_p2.py) — direct import
+- [tests/test_rw5c_block_policy.py](../../../../../../tests/test_rw5c_block_policy.py) — direct import
+  - `test_a_furniture_block_with_no_math_refuses_nothing`
+  - `test_a_source_nobody_can_find_or_an_unreadable_policy_shows_nothing`
+  - `test_an_equation_in_furniture_never_certifies_a_curve_beside_a_page_showing_another`
 - [tests/test_rw5c_judgments.py](../../../../../../tests/test_rw5c_judgments.py) — direct import
   - `test_a_failure_between_the_two_inserts_leaves_neither`
   - `test_a_recheck_supersedes_the_previous_verdict_of_the_same_figure`
   - `test_at_build_a_failure_leaves_no_figure_row_and_no_verdict`
+- [tests/test_rw5c_labels.py](../../../../../../tests/test_rw5c_labels.py) — direct import
+  - `test_a2_a_derived_sum_keeps_a_compound_left_hand_side_whole`
 - [tests/test_rw5c_recheck.py](../../../../../../tests/test_rw5c_recheck.py) — direct import
   - `test_a_certification_bump_rechecks_at_no_paid_cost`
   - `test_a_difference_found_at_recheck_gives_the_failed_state_with_rebuild`

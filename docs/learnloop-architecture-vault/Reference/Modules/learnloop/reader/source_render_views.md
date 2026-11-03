@@ -7,8 +7,8 @@ version: "1.0.0"
 source_path: "src/learnloop/reader/source_render_views.py"
 source_paths:
   - "src/learnloop/reader/source_render_views.py"
-source_commit: "b322ef2e9b5cebc241b612e4963a5aaf1a37f99a"
-source_commit_timestamp: "2026-08-20T18:04:29-04:00"
+source_commit: "d16ae726e14498e51cf3777e08ea9cf4b7741c51"
+source_commit_timestamp: "2026-11-02T23:57:40-05:00"
 source_worktree_state: "clean"
 generated: true
 generated_at: "2026-11-02"
@@ -49,42 +49,46 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/reader/source_render_views.py](../../../../../../src/learnloop/reader/source_render_views.py) |
-| Source lines | 215 |
+| Source lines | 247 |
 | Owning package | [[Reference/Modules/learnloop/reader/_package|learnloop.reader]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `b322ef2e9b5cebc241b612e4963a5aaf1a37f99a` |
-| Commit timestamp | `2026-08-20T18:04:29-04:00` |
+| Source commit | `d16ae726e14498e51cf3777e08ea9cf4b7741c51` |
+| Commit timestamp | `2026-11-02T23:57:40-05:00` |
 
 ## Public API
 
-- `sanitize_source_text(text: str) -> tuple[str, bool]` ([source](../../../../../../src/learnloop/reader/source_render_views.py), line 44) — Neutralize script execution / external embeds / local-file refs in untrusted source text (§3.3).
-- `build_crosswalk(ir: Any) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/reader/source_render_views.py), line 69) — One display node per source block (1:1), with disposable display offsets.
-- `resolve_or_create_render_view(repository: Repository, *, revision_id: str | None=None, extraction_id: str, clock: Clock | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/reader/source_render_views.py), line 93) — Lazy + idempotent render-view resolution keyed on ``request_hash``.
-- `render_payload(repository: Repository, render_view_id: str) -> dict[str, Any]` ([source](../../../../../../src/learnloop/reader/source_render_views.py), line 153) — The reader render payload: sanitized display nodes + per-block health + the six authority layers (§3.1).
+- `page_renders_block_type(block_type: str | None) -> bool` ([source](../../../../../../src/learnloop/reader/source_render_views.py), line 63) — Whether the page gives a block of this type to its markdown: never furniture, and never a type it has not met.
+- `page_renders_source(canonical_uri: str | None) -> bool` ([source](../../../../../../src/learnloop/reader/source_render_views.py), line 69) — Whether a source's page is markdown: a source on the watch surface shows its transcript as plain text.
+- `sanitize_source_text(text: str) -> tuple[str, bool]` ([source](../../../../../../src/learnloop/reader/source_render_views.py), line 76) — Neutralize script execution / external embeds / local-file refs in untrusted source text (§3.3).
+- `build_crosswalk(ir: Any) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/reader/source_render_views.py), line 101) — One display node per source block (1:1), with disposable display offsets.
+- `resolve_or_create_render_view(repository: Repository, *, revision_id: str | None=None, extraction_id: str, clock: Clock | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/reader/source_render_views.py), line 125) — Lazy + idempotent render-view resolution keyed on ``request_hash``.
+- `render_payload(repository: Repository, render_view_id: str) -> dict[str, Any]` ([source](../../../../../../src/learnloop/reader/source_render_views.py), line 185) — The reader render payload: sanitized display nodes + per-block health + the six authority layers (§3.1).
 
 ### Module constants
 
-- `RENDER_SCHEMA_VERSION` ([src/learnloop/reader/source_render_views.py](../../../../../../src/learnloop/reader/source_render_views.py), line 25)
-- `RENDERER` ([src/learnloop/reader/source_render_views.py](../../../../../../src/learnloop/reader/source_render_views.py), line 26)
-- `AUTHORITY_LAYERS` ([src/learnloop/reader/source_render_views.py](../../../../../../src/learnloop/reader/source_render_views.py), line 29)
-- `_SCRIPT_RE` ([src/learnloop/reader/source_render_views.py](../../../../../../src/learnloop/reader/source_render_views.py), line 38)
-- `_EMBED_RE` ([src/learnloop/reader/source_render_views.py](../../../../../../src/learnloop/reader/source_render_views.py), line 39)
-- `_JS_URI_RE` ([src/learnloop/reader/source_render_views.py](../../../../../../src/learnloop/reader/source_render_views.py), line 40)
-- `_FILE_URI_RE` ([src/learnloop/reader/source_render_views.py](../../../../../../src/learnloop/reader/source_render_views.py), line 41)
+- `RENDER_SCHEMA_VERSION` ([src/learnloop/reader/source_render_views.py](../../../../../../src/learnloop/reader/source_render_views.py), line 28)
+- `RENDERER` ([src/learnloop/reader/source_render_views.py](../../../../../../src/learnloop/reader/source_render_views.py), line 29)
+- `AUTHORITY_LAYERS` ([src/learnloop/reader/source_render_views.py](../../../../../../src/learnloop/reader/source_render_views.py), line 32)
+- `_SCRIPT_RE` ([src/learnloop/reader/source_render_views.py](../../../../../../src/learnloop/reader/source_render_views.py), line 41)
+- `_EMBED_RE` ([src/learnloop/reader/source_render_views.py](../../../../../../src/learnloop/reader/source_render_views.py), line 42)
+- `_JS_URI_RE` ([src/learnloop/reader/source_render_views.py](../../../../../../src/learnloop/reader/source_render_views.py), line 43)
+- `_FILE_URI_RE` ([src/learnloop/reader/source_render_views.py](../../../../../../src/learnloop/reader/source_render_views.py), line 44)
+- `BLOCK_POLICY_PATH` ([src/learnloop/reader/source_render_views.py](../../../../../../src/learnloop/reader/source_render_views.py), line 47)
 
 ## Internal implementation anchors
 
-- `_request_hash(*, revision_id: str, extraction_id: str, renderer_version: str) -> str` ([source](../../../../../../src/learnloop/reader/source_render_views.py), line 64)
-- `_loads_list(value: str | None) -> list[Any]` ([source](../../../../../../src/learnloop/reader/source_render_views.py), line 206)
+- `_block_policy() -> tuple[frozenset[str], re.Pattern[str] | None]` ([source](../../../../../../src/learnloop/reader/source_render_views.py), line 51) — The types known to reach the page's markdown, and the pattern of a source whose page is plain text.
+- `_request_hash(*, revision_id: str, extraction_id: str, renderer_version: str) -> str` ([source](../../../../../../src/learnloop/reader/source_render_views.py), line 96)
+- `_loads_list(value: str | None) -> list[Any]` ([source](../../../../../../src/learnloop/reader/source_render_views.py), line 238)
 
 ## Who imports or calls it
 
 > [!note] Static evidence boundary
 > “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
 
-- [[Reference/Modules/learnloop/figures/source_check|learnloop.figures.source_check]] — imports `sanitize_source_text`; statically calls `sanitize_source_text`
+- [[Reference/Modules/learnloop/figures/source_check|learnloop.figures.source_check]] — imports `page_renders_block_type`, `page_renders_source`, `sanitize_source_text`; statically calls `page_renders_block_type`, `page_renders_source`, `sanitize_source_text`
 - [[Reference/Modules/learnloop/source_retrieval/section_coverage|learnloop.source_retrieval.section_coverage]] — imports `sanitize_source_text`; statically calls `sanitize_source_text`
 - [[Reference/Modules/learnloop_sidecar/handlers/reader|learnloop_sidecar.handlers.reader]] — imports `module`; statically calls `render_payload`, `resolve_or_create_render_view`
 
@@ -97,7 +101,7 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 
 ### Platform and third-party dependencies
 
-- Standard library: `__future__`, `hashlib`, `json`, `re`, `typing`
+- Standard library: `__future__`, `functools`, `hashlib`, `json`, `pathlib`, `re`, `typing`
 - Third party: none imported directly
 
 ## Larger workflow participation
@@ -119,6 +123,9 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_render_payload_states_six_authority_layers`
   - `test_render_view_is_idempotent_on_request_hash`
   - `test_unsafe_source_html_is_sanitized_inert`
+- [tests/test_rw5c_block_policy.py](../../../../../../tests/test_rw5c_block_policy.py) — direct import
+  - `test_a_source_nobody_can_find_or_an_unreadable_policy_shows_nothing`
+  - `test_the_page_reads_this_policy_and_a_change_to_it_needs_a_certification_bump`
 
 ## Modification guidance
 

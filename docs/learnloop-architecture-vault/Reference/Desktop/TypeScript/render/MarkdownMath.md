@@ -127,6 +127,7 @@ The workflow note owns end-to-end sequencing; this module note describes only it
 ## Tests that define behavior
 
 - [apps/learnloop-tauri/src/screens/reader/figures/bookMathRender.test.ts](../../../../../../apps/learnloop-tauri/src/screens/reader/figures/bookMathRender.test.ts) — vitest test: imports and executes this module under jsdom (`npm test`).
+- [tests/test_rw5c_block_policy.py](../../../../../../tests/test_rw5c_block_policy.py) — cross-boundary name contract: references uniquely owned exported name `MarkdownMath`; it does **not** directly execute this source module.
 - [tests/test_rw5c_book_math.py](../../../../../../tests/test_rw5c_book_math.py) — cross-boundary name contract: references uniquely owned exported name `MarkdownMath`; it does **not** directly execute this source module.
 - [tests/test_rw5c_katex_tree.py](../../../../../../tests/test_rw5c_katex_tree.py) — cross-boundary name contract: references uniquely owned exported name `MarkdownMath`; it does **not** directly execute this source module.
 
