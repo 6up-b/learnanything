@@ -87,3 +87,46 @@ Targeted only, per the owner's 2026-10-17 rule; no full suite and no whole-vites
 **Pytest files:** `test_rw5c_book_math`, `test_rw5c_display_twins`, `test_rw5c_judgments`, `test_rw5c_labels`, `test_rw5c_migration`, `test_rw5c_never_evidence`, `test_rw5c_recheck`, `test_rw5c_source_check`, `test_rw5c_switch_off`, `test_codex_output_schema`, `test_figures_migration`, `test_figure_label_wording`, `test_figures_scope_redesign`, `test_cli_help_snapshot`, `test_architecture`, `test_public_tip_guards`.
 
 **Vitest files:** everything under `src/screens/reader/figures/` (including the new `bookMathRender.test.ts` and `figureProvenanceReader.test.tsx`, and `figureLabels.test.tsx`), plus `src/screens/reader/alsoInBooksReader.test.tsx` and `src/screens/reader/figuresWithReadingPath.test.tsx`.
+
+## Re-review
+
+- **Review:** gpt-6.1-sol, job `20261102-212937-ekIpqS`. Verdict: reopened. It found no new defects in the fix commits.
+- **Fix commit:** `fb70ce2af2`.
+
+| Id | Severity | Title | Verdict | Commit | Test |
+|---|---|---|---|---|---|
+| F1 | High | A "checked" stored before the radical fix is still delivered and skipped by the bulk recheck | fixed | `fb70ce2af2` | `test_rw5c_recheck.py::test_a_certification_the_old_reader_stored_no_longer_delivers_checked`; `::test_the_bulk_recheck_replaces_a_certification_the_old_reader_stored` |
+| F2 | High | Audit exposes equations of held-out sources | confirmed fixed by the review; no change | `63aafe9199` | `test_rw5c_recheck.py::test_the_audit_lists_no_equation_of_a_source_held_out_after_its_check` |
+
+### F1
+
+It reproduced before the fix, using a planted version 1 row with outcome `checked` and a `book` element on a `4*x` figure quoting `f(x)=\sqrt16 x`. `reader.figures` delivered the element, and `figure-checks --recheck` counted the figure as `not_due`.
+
+`CERTIFICATION_VERSION` is now 2 and `READER_VERSION` is `book-math-v2`. Every delivery path already reads the ledger at the current version, so no other code changed. With the bump:
+
+- **Delivery:** the old row gives `status: none` with `recheckDue: true`, no elements and no audit entry.
+- **Bulk recheck:** it rechecks the figure. The new row is `not_checkable` with reason `function_arg`, and the figure is no longer due.
+
+§10.2 of the spec now records version 2, and that the version goes up whenever the reader's table changes.
+
+**Reach:** this stage has not landed, so version 1 rows can exist only on copies made from this branch, such as the coverage copies under `fixtures-local/`. Owner vaults hold none. The row in the tests is planted for that reason, not written by the old code. The bump is still right: it is the mechanism §10.4 names, and no vault will be able to carry a version 1 row past landing.
+
+`figureLabels.test.tsx` and `figureProvenanceReader.test.tsx` still use `certificationVersion: 1` as mock data. The frontend only passes that field through, so I left them unchanged.
+
+## Re-review gate
+
+Targeted only, per the owner's 2026-10-17 rule; no full suite and no whole-vitest run. Every pytest command ran in the 5G memory-capped scope. Python outside pytest ran under `env -i` with empty, existing `HOME`, `CODEX_HOME` and `LEARNLOOP_CONFIG_DIR`. No live calls and no spend.
+
+| Step | Result |
+|---|---|
+| `uv sync --extra dev --extra mobile`, `uv pip install pypdfium2` | done |
+| `uv run lint-imports --no-cache` (run as `.venv/bin/lint-imports` under `env -i`) | 42 kept, 0 broken |
+| targeted pytest `-n 6`, first run (33 files) | **1051 passed** |
+| targeted pytest `-n 6`, second run (12 files) | **189 passed** |
+| `module_generate.py`, then `module_validate.py` | PASS |
+| `git diff --check` on the fix commit | clean |
+| Frontend, `cargo check`, durability lane, DB references | not needed: no frontend, `src-tauri`, migration, connection or schema change |
+
+**First run:** `test_codex_output_schema`, `test_figure_label_wording`, `test_figure_offers`, `test_figure_rich_contract`, `test_figure_verification`, `test_figures_codex_review`, `test_figures_final_round`, `test_figures_fix_round2`, `test_figures_fix_round5`, `test_figures_help_codex_review`, `test_figures_prefetch`, `test_figures_rw5b_review`, `test_figures_scope_redesign`, `test_figures_show_me`, `test_figures_show_me_codex_review`, `test_followups_nov2_figure_provenance`, `test_learner_data_relax_2`, `test_reader_rw5d_p4a_figures_follow`, `test_reader_rw5d_p4b_teacher_visuals`, `test_rw5c_book_math`, `test_rw5c_display_twins`, `test_rw5c_judgments`, `test_rw5c_labels`, `test_rw5c_migration`, `test_rw5c_never_evidence`, `test_rw5c_recheck`, `test_rw5c_source_check`, `test_rw5c_switch_off`, `test_sketch_service`, `test_figures_migration`, `test_cli_help_snapshot`, `test_architecture`, `test_public_tip_guards`.
+
+**Second run:** `test_figure_rich_failed_correction_durable`, `test_figure_rich_job`, `test_figure_rich_rereview_fixes`, `test_figure_rich_review_fixes`, `test_figure_rich_rpc`, `test_figures_prefetch_review_fixes`, `test_followups_batch6_prefetch_decided_once`, `test_followups_batch6_prefetch_next_section`, `test_followups_batch6_prefetch_plan_wait`, `test_followups_batch6_review_fixes`, `test_followups_batch6_verify_fixes`, `test_followups_batch7_prefetch_capped_resume`.
