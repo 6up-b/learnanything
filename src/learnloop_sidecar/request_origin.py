@@ -79,9 +79,12 @@ def bump_for_host(ctx: Any) -> None:
 
     Attempts and session rows carry no revision of their own, so ``queue_revision``
     is what the desktop's poll sees. The mutation has committed by now: a failed
-    bump is logged, never raised, because the learner's write stands and the
-    desktop's next focus or next bump catches up. The desktop's own writes keep
-    today's behaviour (no origin, no bump): its mutation wrappers invalidate.
+    bump is logged, never raised, because the learner's write stands. It stays
+    owed (``SidecarContext.host_bump_owed``) and the host's next request pays it
+    (:meth:`SidecarContext.acting_as`); until then, or if this process goes away,
+    the desktop's next focus refetches whatever the token says. The desktop's own
+    writes keep today's behaviour (no origin, no bump): its mutation wrappers
+    invalidate.
     """
 
     if ctx.request_origin is None:
@@ -90,7 +93,10 @@ def bump_for_host(ctx: Any) -> None:
     try:
         repository.bump_queue_revision()
     except sqlite3.Error:
+        ctx.host_bump_owed = True
         logging.getLogger(__name__).warning("host mutation committed; queue revision not bumped", exc_info=True)
+    else:
+        ctx.host_bump_owed = False
 
 
 def host_mutation(handler: Callable[[Any, Any], Any]) -> Callable[[Any, Any], Any]:

@@ -44,7 +44,7 @@ from learnloop_sidecar.background_jobs import BackgroundJobs
 from learnloop_sidecar.errors import SidecarError
 from learnloop_sidecar.exam_grading import ExamGradingManager
 from learnloop_sidecar.post_attempt_worker import PostAttemptWorker
-from learnloop_sidecar.request_origin import RequestOrigin
+from learnloop_sidecar.request_origin import RequestOrigin, bump_for_host
 from learnloop.content.pipeline.jobs import IngestJobManager
 
 _LOGGER = logging.getLogger(__name__)
@@ -136,6 +136,9 @@ class SidecarContext:
     # it; parameters never carry it. A context belongs to one worker thread
     # (§3.1), so it never describes another thread's request.
     request_origin: RequestOrigin | None = field(default=None, repr=False)
+    # A host mutation committed and its queue_revision bump failed; the next host
+    # request pays it (request_origin.bump_for_host, Codex review F4).
+    host_bump_owed: bool = field(default=False, repr=False)
 
     @property
     def origin_device_id(self) -> str | None:
@@ -150,6 +153,8 @@ class SidecarContext:
         previous = self.request_origin
         self.request_origin = origin
         try:
+            if self.host_bump_owed:
+                bump_for_host(self)
             yield
         finally:
             self.request_origin = previous

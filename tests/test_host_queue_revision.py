@@ -81,6 +81,44 @@ def _submit(ctx, session_id, item=ITEM, **extra):
 # -- what bumps ------------------------------------------------------------
 
 
+def test_a_failed_bump_is_owed_and_the_hosts_next_request_pays_it_once(tmp_path, monkeypatch):
+    """Codex review F4: the attempt is in and nothing else would say so."""
+
+    _paths, repository, ctx = _world(tmp_path)
+    with ctx.acting_as(PHONE):
+        session = _call(ctx, "start_session", {"availableMinutes": 60})
+    before = _revision(repository)
+    repo_class = type(repository)
+    real_bump = repo_class.bump_queue_revision
+
+    def locked(_self):
+        raise sqlite3.OperationalError("database is locked")
+
+    monkeypatch.setattr(repo_class, "bump_queue_revision", locked)
+    with ctx.acting_as(PHONE):
+        _submit(ctx, session["sessionId"])
+    assert _revision(repository) == before and ctx.host_bump_owed is True
+
+    # Still locked: the retry never fails the request it rides on, and stays owed.
+    with ctx.acting_as(PHONE):
+        _call(ctx, "open_queue_item", {"practiceItemId": ITEM})
+    assert ctx.host_bump_owed is True
+
+    # The desktop's own requests do not pay it: they have no origin.
+    monkeypatch.setattr(repo_class, "bump_queue_revision", real_bump)
+    with ctx.acting_as(None):
+        pass
+    assert _revision(repository) == before and ctx.host_bump_owed is True
+
+    with ctx.acting_as(PHONE):
+        pass
+    assert _revision(repository) == before + 1 and ctx.host_bump_owed is False
+
+    with ctx.acting_as(PHONE):
+        pass
+    assert _revision(repository) == before + 1
+
+
 def test_each_committed_phone_mutation_bumps_once_and_is_visible_with_it(tmp_path):
     """Job completion, skip, session start, adopt and end (§3.3)."""
 

@@ -8,13 +8,16 @@
 // changes or the read itself reloaded the vault, so an idle desktop never refetches
 // Today. It never holds a second call behind the serialized sidecar pipe.
 //
+// The window coming back refetches once whatever the token says (§3.3): it is the
+// recovery for a bump that never landed, which no token can show.
+//
 // What it leaves alone: an open practice answer and an open Reader. While the screen
 // is `quiet` a change is remembered and the queue is invalidated once when the learner
 // leaves; the App-level plan read would otherwise rebuild on the pipe under their
 // typing. Reading the session never touches the App's session or the screen.
 //
 // session_moved: on a change, and when the window comes back, the open session is
-// re-read, and a session that left this desktop is noted here. The banner and the
+// re-read until a read answers, and a session that left this desktop is noted here. The banner and the
 // adopt / start fresh prompts that act on it are M2's (§6.5); a write the desktop
 // makes meanwhile is refused by the sidecar with `session_moved`.
 import { useEffect, useRef, useSyncExternalStore } from "react";
@@ -86,47 +89,60 @@ export function useQueueRevisionPoll({ vaultRoot, sessionId, quiet }: QueueRevis
     let disposed = false;
     let inFlight = false;
     let seen: number | null = null;
-    let rereadSession = false;
+    // The window came back: one refetch owed at any token, kept until a token read answers.
+    let windowBack = false;
+    // A session read owed by a change or a return. Kept until one answers: the change that
+    // owed it is already in `seen`, so no later tick would ask again.
+    let sessionReadOwed = false;
 
-    const readOpenSession = async () => {
+    /** Whether it answered for the session still open. A failed read says nothing about who holds it. */
+    const readOpenSession = async (): Promise<boolean> => {
       const id = sessionIdRef.current;
-      if (!id) return;
+      if (!id) return true;
       try {
         const snapshot = await api.getSession(id);
-        if (!disposed && sessionIdRef.current === id) setSessionMoved(sessionMovedFrom(snapshot));
+        if (disposed) return true;
+        if (sessionIdRef.current !== id) return false;
+        setSessionMoved(sessionMovedFrom(snapshot));
+        return true;
       } catch {
-        /* a failed read says nothing about who holds the session: try on the next change */
+        return false;
       }
     };
 
     const tick = async () => {
       // One call at a time: a tick behind a long grade waits on the pipe, and the
-      // ones after it have nothing to add.
+      // ones after it have nothing to add. A failure waits for the next interval.
       if (inFlight || disposed) return;
       inFlight = true;
-      const reread = rereadSession;
-      rereadSession = false;
+      let answered = false;
       try {
         const snapshot = await api.getQueueRevision();
         if (disposed) return;
+        answered = true;
+        // Read after the await, so a focus and a visibilitychange that arrive
+        // together during this read are one return, and one refetch.
+        const back = windowBack;
+        windowBack = false;
         const changed = seen !== null && seen !== snapshot.revision;
         seen = snapshot.revision;
-        if (changed || snapshot.reloaded) {
+        if (changed || snapshot.reloaded || back) {
           if (quietRef.current) pendingRef.current = true;
           else notifyQueueChanged();
         }
-        if (changed || reread) await readOpenSession();
+        if (changed || back) sessionReadOwed = true;
+        if (sessionReadOwed && (await readOpenSession())) sessionReadOwed = false;
       } catch {
         /* transient poll failure: try again next tick */
       } finally {
         inFlight = false;
       }
-      if (rereadSession && !disposed) void tick();
+      if (answered && windowBack && !disposed) void tick();
     };
 
     const onWindowBack = () => {
       if (document.visibilityState === "hidden") return;
-      rereadSession = true;
+      windowBack = true;
       void tick();
     };
     void tick();
