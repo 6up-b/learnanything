@@ -152,6 +152,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 > [!note] Static evidence boundary
 > “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
 
+- [[Reference/Modules/learnloop/figures/katex_tree|learnloop.figures.katex_tree]] — imports `module`; statically calls `SketchEngine`
 - [[Reference/Modules/learnloop/figures/service|learnloop.figures.service]] — imports `ENGINE_SHA256`, `ENGINE_VERSION`, `SketchEngine`, `SketchRunError`, `engine_ready`; statically calls `SketchEngine`, `engine_ready`
 - [[Reference/Modules/learnloop/figures/sketch_verify|learnloop.figures.sketch_verify]] — imports `ENGINE_SHA256`, `SketchEngine`, `SketchRunError`; statically calls `SketchRunError`
 
@@ -173,13 +174,19 @@ Use this module in context through:
 - [[Initialize a Vault]]
 - [[Start a Learning Cycle]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/figures/service|learnloop.figures.service]], [[Reference/Modules/learnloop/figures/sketch_verify|learnloop.figures.sketch_verify]].
+Static participation evidence comes from [[Reference/Modules/learnloop/figures/katex_tree|learnloop.figures.katex_tree]], [[Reference/Modules/learnloop/figures/service|learnloop.figures.service]], [[Reference/Modules/learnloop/figures/sketch_verify|learnloop.figures.sketch_verify]].
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
 ## Tests that define behavior
 
+- [tests/katex_meaning.py](../../../../../../tests/katex_meaning.py) — direct import
 - [tests/sketch_parity_corpus.py](../../../../../../tests/sketch_parity_corpus.py) — direct import
+- [tests/test_rw5c_katex_tree.py](../../../../../../tests/test_rw5c_katex_tree.py) — direct import
+  - `test_the_engine_variant_is_pinned_and_differs_from_the_sketch_engine_by_one_define`
+  - `test_the_variant_runs_under_the_sketch_engines_caps`
+- [tests/test_rw5c_source_check.py](../../../../../../tests/test_rw5c_source_check.py) — direct import
+  - `test_a_check_loads_one_engine_however_many_segments_it_reads`
 - [tests/test_sketch_engine.py](../../../../../../tests/test_sketch_engine.py) — direct import
   - `test_a_call_never_starts_past_the_callers_deadline`
   - `test_a_digest_mismatch_refuses_to_load`

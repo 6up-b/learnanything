@@ -204,6 +204,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 - [tests/figure_corpus.py](../../../../../../tests/figure_corpus.py) — direct import
 - [tests/figure_property_corpus.py](../../../../../../tests/figure_property_corpus.py) — direct import
+- [tests/katex_meaning.py](../../../../../../tests/katex_meaning.py) — direct import
 - [tests/test_figure_grammar.py](../../../../../../tests/test_figure_grammar.py) — direct import
   - `test_expression_values`
   - `test_fuzz_verdicts`
@@ -224,8 +225,15 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_figures_fix_round5.py](../../../../../../tests/test_figures_fix_round5.py) — direct import
 - [tests/test_rw5c_book_math.py](../../../../../../tests/test_rw5c_book_math.py) — direct import
   - `test_the_e_rule_reads_only_a_power_or_mathrm`
+- [tests/test_rw5c_katex_tree.py](../../../../../../tests/test_rw5c_katex_tree.py) — direct import
+  - `test_each_read_form_has_the_pages_mathml_and_means_it`
 - [tests/test_rw5c_labels.py](../../../../../../tests/test_rw5c_labels.py) — direct import
+  - `test_a_power_of_a_power_keeps_its_grouping_in_plain_text`
+  - `test_a_scientific_literal_as_a_base_is_grouped_in_both_writers`
+  - `test_a_sum_or_an_integral_written_inside_a_product_is_grouped`
   - `test_codes_own_rendering_of_an_expression`
+  - `test_every_other_code_owned_label_template_renders_in_katex`
+  - `test_the_plain_writer_parses_back_to_the_same_value_and_the_tex_writer_means_it_in_katex`
 - [tests/test_sketch_verify.py](../../../../../../tests/test_sketch_verify.py) — direct import
   - `test_a_pairs_claim_is_charged_for_its_probes_own_x`
   - `test_the_meter_stops_one_evaluation_at_the_cap_and_at_the_clock`

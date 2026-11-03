@@ -2787,11 +2787,17 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_section_figures_leave_a_rejected_figure_out`
 - [tests/test_rw5c_source_check.py](../../../../../../tests/test_rw5c_source_check.py) — direct import
   - `test_a_block_that_is_not_ok_is_refused_with_its_reason`
+  - `test_a_block_the_page_shows_sanitized_is_not_read`
+  - `test_a_check_loads_one_engine_however_many_segments_it_reads`
+  - `test_a_definition_in_one_block_does_not_touch_another_blocks_reading`
+  - `test_a_double_superscript_the_page_shows_as_an_error_is_never_checked`
+  - `test_a_macro_definition_in_the_segment_is_never_checked`
   - `test_a_withheld_span_is_never_read`
   - `test_an_unbraced_radical_never_certifies_the_meaning_the_page_does_not_show`
   - `test_build_key_holds_the_switch_and_the_reuse_key_does_not`
   - `test_the_switch_off_at_the_store_writes_nothing`
   - `test_the_switch_off_between_the_sandbox_and_the_second_attempt_stops_the_build`
+  - `test_with_no_engine_a_book_equation_is_unreadable_and_the_sandbox_is_not_asked`
 - [tests/test_rw5c_switch_off.py](../../../../../../tests/test_rw5c_switch_off.py) — direct import
   - `test_nothing_reads_the_ledger_while_the_switch_is_off`
 - [tests/test_rw7b_codex_review_fixes.py](../../../../../../tests/test_rw7b_codex_review_fixes.py) — direct import

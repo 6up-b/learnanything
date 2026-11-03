@@ -12,8 +12,9 @@ the two kept identical by one golden corpus.
 * :mod:`.spec`: the spec, its caps, and :func:`~.spec.evaluate_figure` (the
   panels' data, the corpus's parity unit);
 * :mod:`.verify`: structure, invariants, shaded areas (§8.3 steps 1-2);
-* RW5c's step 3, the source match: :mod:`.book_math` (code reads the book's
-  equation), :mod:`.source_check` with its sandboxed harness (the exact check,
+* RW5c's step 3, the source match: :mod:`.katex_tree` (the page's KaTeX parses the
+  book's equation in a sealed engine), :mod:`.book_math` (a closed translator reads
+  that tree), :mod:`.source_check` with its sandboxed harness (the exact check,
   no model), :mod:`.elements` (code-owned labels) and :mod:`.display_format`
   (the display twins);
 * :mod:`.routes`: ``figure_author`` under the spend cap;

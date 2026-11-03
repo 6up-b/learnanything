@@ -872,8 +872,9 @@ def _split_relation(nodes: Sequence[Tree]) -> tuple[int, int]:
         elif depth == 0 and _is_atom(current, "rel", "="):
             colon = index > 0 and _is_atom(nodes[index - 1], "rel", ":")
             found.append((index - 1 if colon else index, index + 1))
-        elif depth == 0 and _is_atom(current, "rel") and current.get("text") != ":":
-            other = other or _LABELS.get(str(current.get("text")), "relation")
+        elif depth == 0 and _is_atom(current, "rel") and _LABELS.get(str(current.get("text")), "relation") == "relation" \
+                and current.get("text") != ":":
+            other = other or "relation"
         elif depth == 0 and current.get("type") == "htmlmathml":
             other = other or "relation"
     if other is not None:

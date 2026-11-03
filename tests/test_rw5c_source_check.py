@@ -611,3 +611,56 @@ def test_a_double_superscript_the_page_shows_as_an_error_is_never_checked(tmp_pa
     result = check((load_vault(paths.root), repository), plot("exp(x)^2", low=0.0, high=1.0), "a")
     assert not result.book_elements and result.outcome == SC.NOT_CHECKABLE
     assert result.reasons.get("not_rendered") == 1
+
+
+def test_with_no_engine_a_book_equation_is_unreadable_and_the_sandbox_is_not_asked(tmp_path, monkeypatch):
+    """Fail closed: no fallback to any other reading of the source."""
+
+    from learnloop.figures import katex_tree as KT
+
+    def gone(_self: Any) -> Any:
+        raise KT.TreeRefused("unavailable")
+
+    def never(*_args: Any, **_kwargs: Any):
+        raise AssertionError("the sandbox is not asked")
+
+    monkeypatch.setattr(KT.Trees, "_open", gone)
+    paths, repository = build_check_vault(tmp_path / "vault", [("a", "Text", "$f(x)=x$")])
+    result = check((load_vault(paths.root), repository), plot("x"), "a", sandbox=never)
+    assert not result.book_elements and result.outcome == SC.NOT_CHECKABLE
+    assert result.reasons.get("engine_unavailable") == 1
+
+
+def test_a_block_the_page_shows_sanitized_is_not_read(tmp_path):
+    paths, repository = build_check_vault(tmp_path / "vault", [("a", "Text", "<script>x</script> $f(x)=x$")])
+    result = check((load_vault(paths.root), repository), plot("x"), "a")
+    assert not result.book_elements and result.reasons.get("block_health") == 1
+
+
+def test_a_definition_in_one_block_does_not_touch_another_blocks_reading(tmp_path):
+    """Two blocks of one figure: the page renders each alone, and the macro's own segment is the only one refused."""
+
+    blocks = [("a", "Text", r"$\gdef\x{y}f(x)=\x$"), ("b", "Text", "$f(x)=x$")]
+    paths, repository = build_check_vault(tmp_path / "vault", blocks)
+    vault, repo = load_vault(paths.root), repository
+    candidates, reasons = SC.read_candidates(vault, repo, [(EXTRACTION, "a", "a"), (EXTRACTION, "b", "b")])
+    assert [candidate.relation.latex for candidate in candidates] == ["f(x)=x"]
+    assert reasons == {"macro_definition": 1}
+
+
+def test_a_check_loads_one_engine_however_many_segments_it_reads(tmp_path, monkeypatch):
+    from learnloop.figures import katex_tree as KT
+    from learnloop.figures import sketch_engine as SE
+
+    opened: list[Any] = []
+    real = SE.SketchEngine
+
+    def counting(*args: Any, **kwargs: Any) -> Any:
+        opened.append(1)
+        return real(*args, **kwargs)
+
+    monkeypatch.setattr(KT.SE, "SketchEngine", counting)
+    blocks = [("a", "Text", "$f(x)=x$ and $g(x)=2x$"), ("b", "Text", "$h(x)=3x$")]
+    paths, repository = build_check_vault(tmp_path / "vault", blocks)
+    candidates, _reasons = SC.read_candidates(load_vault(paths.root), repository, [(EXTRACTION, "a", "a"), (EXTRACTION, "b", "b")])
+    assert len(candidates) == 3 and len(opened) == 1

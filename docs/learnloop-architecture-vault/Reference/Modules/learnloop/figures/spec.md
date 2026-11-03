@@ -291,6 +291,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_the_rationale_is_code_text_only`
 - [tests/test_rw5c_labels.py](../../../../../../tests/test_rw5c_labels.py) — direct import
   - `test_a_book_elements_label_is_the_books_left_hand_side_and_its_provenance`
+  - `test_a_bound_readouts_body_is_grouped_in_its_template`
   - `test_a_readout_whose_body_is_not_the_bare_reference_is_not_derived`
   - `test_an_unchecked_definition_renders_as_its_grammar_name_marked_ai_defined`
   - `test_f2_a_shade_states_the_bounds_the_evaluator_used`

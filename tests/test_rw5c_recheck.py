@@ -397,3 +397,21 @@ def test_since_drops_an_open_before_it_of_a_figure_checked_after(tmp_path):
     assert block["opened"] == {"with_book": 0, "without": 0}
     assert block["not_right_notes"] == {"with_book": 0, "without": 0}
     assert block["figures"] == 1
+
+
+@sandboxed
+def test_reading_a_figure_never_opens_the_katex_engine(tmp_path, monkeypatch):
+    """§5.3's cost: KaTeX runs at build and recheck time; a Reader read is a ledger read."""
+
+    from learnloop.figures import katex_tree as KT
+
+    paths, _repository, _author, ctx = _vault(tmp_path, [plot("x")])
+    figure = build(ctx, REQUEST)["figure"]
+    assert figure["sourceCheck"]["status"] == "checked"
+
+    def never(_self: Any) -> Any:
+        raise AssertionError("a Reader read loaded KaTeX")
+
+    monkeypatch.setattr(KT.Trees, "_open", never)
+    listed = call(ctx, "reader.figures", {"extractionId": EXTRACTION})["figures"][0]
+    assert listed["sourceCheck"]["status"] == "checked"

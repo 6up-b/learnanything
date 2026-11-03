@@ -793,6 +793,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_l6_the_compare_rpcs_refuse_a_problem_whose_exercise_is_withheld_now`
 - [tests/test_rw4d_rw3b_composition.py](../../../../../../tests/test_rw4d_rw3b_composition.py) — direct import
   - `test_every_passage_rw4ds_predicate_withholds_is_one_the_cues_never_surface`
+- [tests/test_rw5c_recheck.py](../../../../../../tests/test_rw5c_recheck.py) — direct import
 - [tests/test_secondary_attach.py](../../../../../../tests/test_secondary_attach.py) — direct import
   - `test_second_process_attaches_beside_a_writing_primary_on_wal`
   - `test_secondary_refuses_a_schema_it_would_have_to_migrate`

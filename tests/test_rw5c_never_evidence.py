@@ -32,7 +32,8 @@ def test_only_the_figure_package_reads_the_ledger_or_its_judgments():
 
 
 def test_nothing_outside_the_figure_package_imports_the_check():
-    importers = _grep("figures.source_check", "figures import source_check", "figures.elements", "figures.book_math")
+    importers = _grep("figures.source_check", "figures import source_check", "figures.elements", "figures.book_math",
+                      "figures.katex_tree", "figures import katex_tree")
     outside = {path for path in importers if not path.startswith("src/learnloop/figures/")}
     # The sidecar's RPC and the CLI start it; neither is evidence, attempts, hints or scheduling.
     assert outside <= {"src/learnloop/cli/reader.py", "src/learnloop_sidecar/handlers/figures.py"}
@@ -53,5 +54,5 @@ def test_the_table_is_protected_and_unread_by_ad():
 def test_the_import_contract_covers_the_new_modules():
     text = (ROOT / "pyproject.toml").read_text(encoding="utf-8")
     assert "evidence-never-reads-figures" in text or "learnloop.figures" in text
-    for module in ("book_math", "source_check", "elements", "display_format"):
+    for module in ("book_math", "katex_tree", "source_check", "elements", "display_format"):
         assert (ROOT / "src" / "learnloop" / "figures" / f"{module}.py").is_file()

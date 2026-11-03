@@ -125,6 +125,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
+- [tests/katex_meaning.py](../../../../../../../tests/katex_meaning.py) — direct import
 - [tests/test_math_text.py](../../../../../../../tests/test_math_text.py) — direct import
   - `test_ambiguous_canonical_match_refuses`
   - `test_canonical_streams_agree_across_surfaces`
