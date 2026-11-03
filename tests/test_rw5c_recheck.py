@@ -121,6 +121,20 @@ def test_the_cli_rechecks_only_what_is_due_and_lists_each_checked_element(tmp_pa
     assert audit["checked"][0]["definition"] == "f" and audit["checked"][0]["definition_tex"] == "x"
 
 
+@sandboxed
+def test_the_report_has_a_source_checks_block_only_while_the_switch_is_on(tmp_path):
+    paths, repository, _author, ctx = _vault(tmp_path, [plot("x")])
+    figure = build(ctx, REQUEST)["figure"]
+    runner = CliRunner()
+    block = json.loads(runner.invoke(app, ["reader", "report", "--json", "--vault", str(paths.root)]).output)["figures"]["source_checks"]
+    assert block["figures"] == 1 and block["outcomes"] == {"checked": 1} and block["elements"]["book"] == 1
+    assert block["latency_ms"]["max"] is not None and block["opened"] == {"with_book": 0, "without": 0}
+    assert figure["sourceCheck"]["status"] == "checked"
+    set_switch(paths, False)
+    off = json.loads(runner.invoke(app, ["reader", "report", "--json", "--vault", str(paths.root)]).output)["figures"]
+    assert "source_checks" not in off
+
+
 def test_dry_run_needs_recheck(tmp_path):
     paths, _repository, _author, _ctx = _vault(tmp_path, [])
     result = CliRunner().invoke(app, ["reader", "figure-checks", "--dry-run", "--vault", str(paths.root)])

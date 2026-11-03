@@ -7,8 +7,8 @@ version: "1.0.0"
 source_path: "src/learnloop/adaptive_difficulty/column_classes.py"
 source_paths:
   - "src/learnloop/adaptive_difficulty/column_classes.py"
-source_commit: "24d941ce27f7cea1059a78c7f7c337fb1e95ac92"
-source_commit_timestamp: "2026-11-02T12:23:06-05:00"
+source_commit: "18e1b00c392cd1b2aba022d40f8a35b4fddef20f"
+source_commit_timestamp: "2026-11-02T19:33:12-05:00"
 source_worktree_state: "clean"
 generated: true
 generated_at: "2026-11-02"
@@ -50,24 +50,24 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/adaptive_difficulty/column_classes.py](../../../../../../src/learnloop/adaptive_difficulty/column_classes.py) |
-| Source lines | 651 |
+| Source lines | 656 |
 | Owning package | [[Reference/Modules/learnloop/adaptive_difficulty/_package|learnloop.adaptive_difficulty]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `24d941ce27f7cea1059a78c7f7c337fb1e95ac92` |
-| Commit timestamp | `2026-11-02T12:23:06-05:00` |
+| Source commit | `18e1b00c392cd1b2aba022d40f8a35b4fddef20f` |
+| Commit timestamp | `2026-11-02T19:33:12-05:00` |
 
 ## Public API
 
-- `column_class(table: str, column: str | None) -> str` ([source](../../../../../../src/learnloop/adaptive_difficulty/column_classes.py), line 642) — A column's class.
+- `column_class(table: str, column: str | None) -> str` ([source](../../../../../../src/learnloop/adaptive_difficulty/column_classes.py), line 647) — A column's class.
 
 ### Module constants
 
 - `METADATA` ([src/learnloop/adaptive_difficulty/column_classes.py](../../../../../../src/learnloop/adaptive_difficulty/column_classes.py), line 26)
 - `CONTENT` ([src/learnloop/adaptive_difficulty/column_classes.py](../../../../../../src/learnloop/adaptive_difficulty/column_classes.py), line 27)
 - `_CLASSES` ([src/learnloop/adaptive_difficulty/column_classes.py](../../../../../../src/learnloop/adaptive_difficulty/column_classes.py), line 30)
-- `CLASSES` ([src/learnloop/adaptive_difficulty/column_classes.py](../../../../../../src/learnloop/adaptive_difficulty/column_classes.py), line 635)
+- `CLASSES` ([src/learnloop/adaptive_difficulty/column_classes.py](../../../../../../src/learnloop/adaptive_difficulty/column_classes.py), line 640)
 
 ### Explicit exports
 
@@ -115,6 +115,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 - [tests/test_ad_protected_tables.py](../../../../../../tests/test_ad_protected_tables.py) — direct import
   - `test_every_column_of_every_readable_table_is_metadata_or_content`
+- [tests/test_rw5c_migration.py](../../../../../../tests/test_rw5c_migration.py) — direct import
+  - `test_238_is_the_head_and_the_table_is_classified`
 
 ## Modification guidance
 

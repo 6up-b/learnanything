@@ -7,8 +7,8 @@ version: "1.0.0"
 source_path: "src/learnloop/figures/__init__.py"
 source_paths:
   - "src/learnloop/figures/__init__.py"
-source_commit: "0e38e7b003d014c6938fe377bf1c136b1157d82d"
-source_commit_timestamp: "2026-10-21T08:44:29-04:00"
+source_commit: "9e12d91330e6fa42d51fd7c7319294c7015e803f"
+source_commit_timestamp: "2026-11-02T20:08:53-05:00"
 source_worktree_state: "clean"
 generated: true
 generated_at: "2026-11-02"
@@ -49,13 +49,13 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/figures/__init__.py](../../../../../../src/learnloop/figures/__init__.py) |
-| Source lines | 24 |
+| Source lines | 27 |
 | Owning package | [[Reference/Modules/learnloop/figures/_package|learnloop.figures]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `0e38e7b003d014c6938fe377bf1c136b1157d82d` |
-| Commit timestamp | `2026-10-21T08:44:29-04:00` |
+| Source commit | `9e12d91330e6fa42d51fd7c7319294c7015e803f` |
+| Commit timestamp | `2026-11-02T20:08:53-05:00` |
 
 ## Public API
 

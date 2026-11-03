@@ -3,8 +3,8 @@ title: "Config - tutor_qa"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "856ce60f74f6074a19363758ab69d21dcfecc54d"
-source_commit_timestamp: "2026-11-02T16:19:09-05:00"
+source_commit: "9e12d91330e6fa42d51fd7c7319294c7015e803f"
+source_commit_timestamp: "2026-11-02T20:08:53-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "learnloop.toml tutor_qa"
@@ -26,6 +26,7 @@ source_paths:
   - "src/learnloop/tutor/question_signal.py"
   - "tests/e0_fakes.py"
   - "tests/figure_fixtures.py"
+  - "tests/rw5c_fixtures.py"
   - "tests/source_retrieval_fakes.py"
   - "tests/source_service_fakes.py"
   - "tests/test_batch3_landing.py"
@@ -35,7 +36,6 @@ source_paths:
   - "tests/test_e0_delivery.py"
   - "tests/test_figures_prefetch.py"
   - "tests/test_followups_batch6_prefetch_next_section.py"
-  - "tests/test_integration_daily_loop_field.py"
 tags:
   - "learnloop/configuration/fields"
   - "learnloop/configuration/section/tutor-qa"
@@ -81,6 +81,7 @@ Every row cites the exact Pydantic field declaration (or typed dynamic-key conta
 
 - `tests/e0_fakes.py`
 - `tests/figure_fixtures.py`
+- `tests/rw5c_fixtures.py`
 - `tests/source_retrieval_fakes.py`
 - `tests/source_service_fakes.py`
 - `tests/test_batch3_landing.py`
@@ -90,7 +91,6 @@ Every row cites the exact Pydantic field declaration (or typed dynamic-key conta
 - `tests/test_e0_delivery.py`
 - `tests/test_figures_prefetch.py`
 - `tests/test_followups_batch6_prefetch_next_section.py`
-- `tests/test_integration_daily_loop_field.py`
 
 ## Extension and modification guidance
 

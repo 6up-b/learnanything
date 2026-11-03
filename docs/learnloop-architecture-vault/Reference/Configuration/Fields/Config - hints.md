@@ -3,8 +3,8 @@ title: "Config - hints"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "856ce60f74f6074a19363758ab69d21dcfecc54d"
-source_commit_timestamp: "2026-11-02T16:19:09-05:00"
+source_commit: "9e12d91330e6fa42d51fd7c7319294c7015e803f"
+source_commit_timestamp: "2026-11-02T20:08:53-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "learnloop.toml hints"
@@ -32,11 +32,11 @@ source_paths:
   - "tests/pf_fakes.py"
   - "tests/practice_index_fakes.py"
   - "tests/router_model_fakes.py"
+  - "tests/rw5c_fixtures.py"
   - "tests/split_live_helpers.py"
   - "tests/test_ad1_codex_review_fixes.py"
   - "tests/test_ad1_outside_and_cli.py"
   - "tests/test_ad23_contract.py"
-  - "tests/test_ad23_successor.py"
 tags:
   - "learnloop/configuration/fields"
   - "learnloop/configuration/section/hints"
@@ -86,11 +86,11 @@ Every row cites the exact Pydantic field declaration (or typed dynamic-key conta
 - `tests/pf_fakes.py`
 - `tests/practice_index_fakes.py`
 - `tests/router_model_fakes.py`
+- `tests/rw5c_fixtures.py`
 - `tests/split_live_helpers.py`
 - `tests/test_ad1_codex_review_fixes.py`
 - `tests/test_ad1_outside_and_cli.py`
 - `tests/test_ad23_contract.py`
-- `tests/test_ad23_successor.py`
 
 ## Extension and modification guidance
 

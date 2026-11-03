@@ -329,6 +329,10 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_219_adds_the_receipt_table_and_the_subject_column_and_nothing_else`
   - `test_219_on_the_durability_lane`
   - `test_the_head_fixture_holds_219_in_rollback_mode`
+- [tests/test_rw5c_migration.py](../../../../../../tests/test_rw5c_migration.py) — direct import
+  - `test_238_is_the_head_and_the_table_is_classified`
+  - `test_238_upgrades_a_copy_of_237_under_the_durable_pragmas`
+  - `test_the_head_fixture_is_at_238_in_rollback_mode_with_an_empty_table`
 - [tests/test_section_coverage_migration.py](../../../../../../tests/test_section_coverage_migration.py) — direct import
   - `test_222_adds_one_table_and_alters_nothing`
   - `test_222_on_the_durability_lane`

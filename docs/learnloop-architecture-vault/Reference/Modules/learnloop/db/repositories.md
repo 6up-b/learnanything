@@ -3096,6 +3096,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_the_backfill_is_held_to_its_money_cap`
 - [tests/test_router_staged_p2.py](../../../../../../tests/test_router_staged_p2.py) — direct import
 - [tests/test_rw2c_fix_round2.py](../../../../../../tests/test_rw2c_fix_round2.py) — direct import
+- [tests/test_rw5c_source_check.py](../../../../../../tests/test_rw5c_source_check.py) — direct import
+  - `test_repository_attach_is_unused_by_the_module_import`
 - [tests/test_scheduler.py](../../../../../../tests/test_scheduler.py) — direct import
   - `test_ordinary_due_pick_carries_no_followup_kind`
   - `test_scheduler_candidate_logs_are_retained_per_configured_limit`

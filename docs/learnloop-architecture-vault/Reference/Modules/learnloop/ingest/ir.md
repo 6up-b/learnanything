@@ -143,6 +143,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/figure_fixtures.py](../../../../../../tests/figure_fixtures.py) — direct import
 - [tests/helpers.py](../../../../../../tests/helpers.py) — direct import
 - [tests/reader_fixtures.py](../../../../../../tests/reader_fixtures.py) — direct import
+- [tests/rw5c_fixtures.py](../../../../../../tests/rw5c_fixtures.py) — direct import
 - [tests/source_retrieval_fakes.py](../../../../../../tests/source_retrieval_fakes.py) — direct import
 - [tests/source_service_fakes.py](../../../../../../tests/source_service_fakes.py) — direct import
 - [tests/test_ad1_reading_opportunities.py](../../../../../../tests/test_ad1_reading_opportunities.py) — direct import

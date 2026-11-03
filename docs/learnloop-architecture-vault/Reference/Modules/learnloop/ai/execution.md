@@ -404,6 +404,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_router_r2b_serving.py](../../../../../../tests/test_router_r2b_serving.py) — direct import
   - `test_the_daily_guard_counts_todays_router_receipts`
 - [tests/test_rw1a_composition.py](../../../../../../tests/test_rw1a_composition.py) — direct import
+- [tests/test_rw5c_source_check.py](../../../../../../tests/test_rw5c_source_check.py) — direct import
 - [tests/test_sidecar_close_cancels_jobs.py](../../../../../../tests/test_sidecar_close_cancels_jobs.py) — direct import
   - `test_a_closed_contexts_job_has_its_next_physical_request_refused`
 - [tests/test_sidecar_contract.py](../../../../../../tests/test_sidecar_contract.py) — direct import

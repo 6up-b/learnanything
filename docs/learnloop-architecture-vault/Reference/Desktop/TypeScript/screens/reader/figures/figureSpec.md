@@ -10,8 +10,8 @@ area: "TypeScript/screens/reader/figures"
 source_path: "apps/learnloop-tauri/src/screens/reader/figures/figureSpec.ts"
 source_paths:
   - "apps/learnloop-tauri/src/screens/reader/figures/figureSpec.ts"
-source_commit: "48d0a951e8e97d7b377caf0db9c7f40db14ce349"
-source_commit_timestamp: "2026-10-23T11:08:36-04:00"
+source_commit: "7fd12e25ec8d644a7f73bd03a530e9a4ee9585d0"
+source_commit_timestamp: "2026-11-02T19:40:18-05:00"
 source_worktree_state: "clean"
 activation_kind: "entry-reachable build graph"
 activation_evidence: "A static TypeScript import path reaches this file from the Vite entry src/main.tsx."
@@ -42,14 +42,14 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/screens/reader/figures/figureSpec.ts](../../../../../../../../apps/learnloop-tauri/src/screens/reader/figures/figureSpec.ts) |
-| Source lines | 775 |
+| Source lines | 811 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/screens/reader/figures/_area|TypeScript/screens/reader/figures]] |
 | Refactor status | `ACTIVE` |
 | Activation kind | `entry-reachable build graph` |
 | Worktree state | `clean` |
-| Source commit | `48d0a951e8e97d7b377caf0db9c7f40db14ce349` |
-| Commit timestamp | `2026-10-23T11:08:36-04:00` |
+| Source commit | `7fd12e25ec8d644a7f73bd03a530e9a4ee9585d0` |
+| Commit timestamp | `2026-11-02T19:40:18-05:00` |
 
 ## Activation and status evidence
 
@@ -127,10 +127,12 @@ The system-level behavior stays authoritative in the linked architecture, concep
 - `export type PanelData = FunctionPlotData | PmfBarsData | LinearMapData | ReadoutData | HeatmapData | VectorFieldData | TrajectoryData | IterateData` — type, line 570
 - `export function gridPoints(axis: FigureAxis, cells: number): number[]` — function, line 573
 - `export function escapeBox(axis: FigureAxis): [number, number]` — function, line 594
-- `export function evaluatePanel(compiled: CompiledFigure, panel: CompiledPanel, env: Env): PanelData` — function, line 696
-- `export interface FigureData` — interface, line 760
-- `export function evaluateFigure(compiled: CompiledFigure, params: Env =` — function, line 763
-- `export function observedValue(compiled: CompiledFigure, index: number, params: Env =` — function, line 769
+- `export interface DerivedBounds` — interface, line 700
+- `export function derivedBounds(compiled: CompiledFigure, panelIndex: number, kind: "shade" | "highlight" | "integral" | "sum", index: number, env: Env): DerivedBounds` — function, line 707
+- `export function evaluatePanel(compiled: CompiledFigure, panel: CompiledPanel, env: Env): PanelData` — function, line 732
+- `export interface FigureData` — interface, line 796
+- `export function evaluateFigure(compiled: CompiledFigure, params: Env =` — function, line 799
+- `export function observedValue(compiled: CompiledFigure, index: number, params: Env =` — function, line 805
 
 ## Internal implementation anchors
 
@@ -264,25 +266,37 @@ The system-level behavior stays authoritative in the linked architecture, concep
 - `const ys = gridPoints(model.y, cellsOf(model, model.y))` — const, line 680
 - `let overlay: HeatmapGridData | null = null` — let, line 681
 - `const side = overlayCells(model.heatmap)` — const, line 683
-- `const defs = compiled.definitions` — const, line 697
-- `const model = panel.model as FunctionPlotPanel` — const, line 700
-- `const xs = plotXs(model.x)` — const, line 701
-- `const series = model.series.map((item, index)` — const, line 702
-- `const node = (panel.nodes.series as Array<FigureNode | null>)[index]` — const, line 703
-- `const scope: Env = newEnv(env)` — const, line 704
-- `const shades = (model.shade ?? []).map((shade, index)` — const, line 713
-- `const markers = (model.markers ?? []).map((marker, index)` — const, line 717
-- `const model = panel.model as PmfBarsPanel` — const, line 724
-- `const ks = barKs(model.k)` — const, line 725
-- `const series = model.series.map((item, index)` — const, line 726
-- `const node = (panel.nodes.series as Array<FigureNode | null>)[index]` — const, line 727
-- `const scope: Env = newEnv(env)` — const, line 728
-- `let highlight: PmfBarsData["highlight"] = null` — let, line 737
-- `const m = (panel.nodes.matrix as Array<Array<FigureNode | null>>).map((row)` — const, line 745
-- `const corners: Array<[number, number]> = [[0, 0], [a, c], [a + b, c + d], [b, d]]` — const, line 748
-- `const model = panel.model as ReadoutPanel` — const, line 756
-- `const env = defaults(compiled)` — const, line 764
-- `const env = defaults(compiled)` — const, line 770
+- `function sumIntegers(low: number, high: number): [number, number] | null` — function, line 702
+- `const panel = compiled.panels[panelIndex]` — const, line 708
+- `const defs = compiled.definitions` — const, line 709
+- `const low = value(lowerNode, env, defs)` — const, line 712
+- `const high = value(upperNode, env, defs)` — const, line 713
+- `const clipped = (Number.isFinite(low) && low !== clampedLow) || (Number.isFinite(high) && high !== clampedHigh)` — const, line 715
+- `const low = value(lowerNode, env, defs)` — const, line 720
+- `const high = value(upperNode, env, defs)` — const, line 721
+- `const clipped = (Number.isFinite(low) && low !== clampedLow) || (Number.isFinite(high) && high !== clampedHigh)` — const, line 723
+- `const node = panel.nodes.expr as FigureNode` — const, line 726
+- `const low = value(node.args[1], env, defs)` — const, line 727
+- `const high = value(node.args[2], env, defs)` — const, line 728
+- `const defs = compiled.definitions` — const, line 733
+- `const model = panel.model as FunctionPlotPanel` — const, line 736
+- `const xs = plotXs(model.x)` — const, line 737
+- `const series = model.series.map((item, index)` — const, line 738
+- `const node = (panel.nodes.series as Array<FigureNode | null>)[index]` — const, line 739
+- `const scope: Env = newEnv(env)` — const, line 740
+- `const shades = (model.shade ?? []).map((shade, index)` — const, line 749
+- `const markers = (model.markers ?? []).map((marker, index)` — const, line 753
+- `const model = panel.model as PmfBarsPanel` — const, line 760
+- `const ks = barKs(model.k)` — const, line 761
+- `const series = model.series.map((item, index)` — const, line 762
+- `const node = (panel.nodes.series as Array<FigureNode | null>)[index]` — const, line 763
+- `const scope: Env = newEnv(env)` — const, line 764
+- `let highlight: PmfBarsData["highlight"] = null` — let, line 773
+- `const m = (panel.nodes.matrix as Array<Array<FigureNode | null>>).map((row)` — const, line 781
+- `const corners: Array<[number, number]> = [[0, 0], [a, c], [a + b, c + d], [b, d]]` — const, line 784
+- `const model = panel.model as ReadoutPanel` — const, line 792
+- `const env = defaults(compiled)` — const, line 800
+- `const env = defaults(compiled)` — const, line 806
 
 ## Who imports or calls it
 
@@ -292,6 +306,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 - [[Reference/Desktop/TypeScript/screens/reader/figures/AdvancedPanels|src/screens/reader/figures/AdvancedPanels.tsx]] — import-or-re-export: `ESCAPE_MARGIN`, `HeatmapGridData`, `IterateData`, `TrajectoryData`, `VectorFieldData`; references `ESCAPE_MARGIN`, `HeatmapGridData`, `IterateData`, `TrajectoryData`, `VectorFieldData`
 - [[Reference/Desktop/TypeScript/screens/reader/figures/FigureInline|src/screens/reader/figures/FigureInline.tsx]] — import-or-re-export: `CompiledFigure`, `FigureParameter`, `compileSpec`, `evaluateFigure`; references `CompiledFigure`, `FigureParameter`, `compileSpec`, `evaluateFigure`
 - [[Reference/Desktop/TypeScript/screens/reader/figures/FigurePanels|src/screens/reader/figures/FigurePanels.tsx]] — import-or-re-export: `FigurePanelModel`, `FunctionPlotData`, `LinearMapData`, `PanelData`, `PmfBarsData`, `ReadoutData`; references `FigurePanelModel`, `FunctionPlotData`, `LinearMapData`, `PanelData`, `PmfBarsData`, `ReadoutData`
+- [[Reference/Desktop/TypeScript/screens/reader/figures/figureLabels|src/screens/reader/figures/figureLabels.tsx]] — import-or-re-export: `CompiledFigure`, `DerivedBounds`, `defaults`, `derivedBounds`; references `CompiledFigure`, `DerivedBounds`, `defaults`, `derivedBounds`
 
 ## Dependencies
 
@@ -317,10 +332,10 @@ The workflow note owns end-to-end sequencing; this module note describes only it
 - [apps/learnloop-tauri/src/screens/reader/figures/figuresFollowSection.test.tsx](../../../../../../../../apps/learnloop-tauri/src/screens/reader/figures/figuresFollowSection.test.tsx) — vitest test: imports and executes this module under jsdom (`npm test`).
 - [apps/learnloop-tauri/src/screens/reader/figures/figurePanels.test.ts](../../../../../../../../apps/learnloop-tauri/src/screens/reader/figures/figurePanels.test.ts) — vitest test: imports and executes this module under jsdom (`npm test`).
 - [apps/learnloop-tauri/src/screens/reader/figures/figureGrammar.test.ts](../../../../../../../../apps/learnloop-tauri/src/screens/reader/figures/figureGrammar.test.ts) — vitest test: imports and executes this module under jsdom (`npm test`).
+- [apps/learnloop-tauri/src/screens/reader/figures/figureDisplayCorpus.test.ts](../../../../../../../../apps/learnloop-tauri/src/screens/reader/figures/figureDisplayCorpus.test.ts) — vitest test: imports and executes this module under jsdom (`npm test`).
 - [apps/learnloop-tauri/src/screens/reader/figures/advancedPanels.test.tsx](../../../../../../../../apps/learnloop-tauri/src/screens/reader/figures/advancedPanels.test.tsx) — vitest test: imports and executes this module under jsdom (`npm test`).
 - [apps/learnloop-tauri/src/screens/reader/figures/FigureInline.test.tsx](../../../../../../../../apps/learnloop-tauri/src/screens/reader/figures/FigureInline.test.tsx) — vitest test: imports and executes this module under jsdom (`npm test`).
 - [tests/test_figure_panels.py](../../../../../../../../tests/test_figure_panels.py) — cross-boundary name contract: references uniquely owned exported names `ADVANCED_KINDS`, `MAX_FIELD_CELLS`, `MAX_HEATMAP_CELLS`, `MAX_ITERATIONS`; it does **not** directly execute this source module.
-- [tests/test_figure_rich_rereview_fixes.py](../../../../../../../../tests/test_figure_rich_rereview_fixes.py) — cross-boundary name contract: references uniquely owned exported name `SPEC_VERSION`; it does **not** directly execute this source module.
 - [tests/test_sidecar_reader.py](../../../../../../../../tests/test_sidecar_reader.py) — related cross-boundary behavior contract; it does **not** directly execute this source module.
 - [tests/test_sidecar_reader_pdf_view.py](../../../../../../../../tests/test_sidecar_reader_pdf_view.py) — related cross-boundary behavior contract; it does **not** directly execute this source module.
 - [tests/test_reader_render_views.py](../../../../../../../../tests/test_reader_render_views.py) — related cross-boundary behavior contract; it does **not** directly execute this source module.

@@ -315,6 +315,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
+- [tests/rw5c_golden_source.py](../../../../../../tests/rw5c_golden_source.py) — direct import
 - [tests/test_ad1_outside_and_cli.py](../../../../../../tests/test_ad1_outside_and_cli.py) — direct import
   - `test_ad_backfill_dry_run_plans_and_writes_nothing`
   - `test_ad_data_check_is_read_only_and_reports_the_tables`
@@ -714,6 +715,10 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_router_log_shows_one_decisions_receipt_in_full`
 - [tests/test_router_r2c_retrieval.py](../../../../../../tests/test_router_r2c_retrieval.py) — direct import
   - `test_the_backfill_dry_runs_and_then_embeds_what_is_missing`
+- [tests/test_rw5c_recheck.py](../../../../../../tests/test_rw5c_recheck.py) — direct import
+  - `test_dry_run_needs_recheck`
+  - `test_dry_run_writes_nothing_and_the_cli_reports_by_reason_key`
+  - `test_the_cli_rechecks_only_what_is_due_and_lists_each_checked_element`
 - [tests/test_rw7b_codex_review_fixes.py](../../../../../../tests/test_rw7b_codex_review_fixes.py) — direct import
   - `test_f4_the_report_without_the_adapter_and_with_the_guide_off_is_as_before`
 - [tests/test_scoreboard.py](../../../../../../tests/test_scoreboard.py) — direct import

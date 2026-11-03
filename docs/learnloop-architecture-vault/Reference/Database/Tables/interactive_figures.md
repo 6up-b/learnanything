@@ -3,13 +3,13 @@ title: "interactive_figures"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "856ce60f74f6074a19363758ab69d21dcfecc54d"
-source_commit_timestamp: "2026-11-02T16:19:09-05:00"
+source_commit: "9e12d91330e6fa42d51fd7c7319294c7015e803f"
+source_commit_timestamp: "2026-11-02T20:08:53-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite interactive_figures"
   - "table interactive_figures"
-schema_head: 237
+schema_head: 238
 table_name: "interactive_figures"
 table_role: "workflow"
 functionality_status: "active"
@@ -52,7 +52,7 @@ It belongs to the **reader** navigation family. The family context lives in [[Da
 - **Role:** `workflow` — Mutable queue, session, lease, or other in-flight workflow state. It is preserved across rebuilds.
 - **Functionality status:** `active`.
 - **Introduced by:** `migrations/216_interactive_figures.sql`.
-- **Schema touched by:** `216_interactive_figures.sql`, `224_figure_requests.sql`, `232_help_assist_figures.sql`.
+- **Schema touched by:** `216_interactive_figures.sql`, `224_figure_requests.sql`, `232_help_assist_figures.sql`, `238_figure_source_checks.sql`.
 - **Rebuild owner:** none; this table is preserved by the rebuild umbrella.
 
 For the distinction between SQLite state and human-authored vault files, see [[State and Persistence]]. For whole-vault creation and opening behavior, see [[Vault Lifecycle]]. ^table-lifecycle
@@ -127,6 +127,7 @@ None found by exact static reference scan.
 - `src/learnloop/figures/help.py`
 - `src/learnloop/figures/prefetch.py`
 - `src/learnloop/figures/prefetch_ledger.py`
+- `src/learnloop/figures/source_check.py`
 - `src/learnloop/reader/reader_report.py`
 
 ### Direct SQL writers

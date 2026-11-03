@@ -89,6 +89,14 @@ def test_the_half_density_with_a_stated_claim_differs_and_names_where(book):
     assert "x = -3" in result.problems[0]
 
 
+def test_with_its_invariant_the_half_density_is_still_refused_at_step_two():
+    from learnloop.figures import verify as V
+
+    declared = {"kind": "integrates_to_one", "expr": "f", "var": "x", "from": -40, "to": 40}
+    spec = plot(HALF_EXPR, parameters=PARAMETERS, low=-3, high=3, invariants=[declared])
+    assert V.verify_numerics(S.parse_spec(spec)).outcome == V.FAILED
+
+
 # -- the controls ------------------------------------------------------------------------------------
 
 @sandboxed

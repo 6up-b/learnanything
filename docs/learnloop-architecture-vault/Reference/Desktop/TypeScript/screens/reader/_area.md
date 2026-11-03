@@ -6,8 +6,8 @@ refactor_status: "ACTIVE"
 version: "1.0.0"
 source_paths:
   - "apps/learnloop-tauri/src/screens/reader"
-source_commit: "b5724c404baefd39ef9f16e76a1db75339342ff4"
-source_commit_timestamp: "2026-11-02T09:34:05-05:00"
+source_commit: "9e12d91330e6fa42d51fd7c7319294c7015e803f"
+source_commit_timestamp: "2026-11-02T20:08:53-05:00"
 generated: true
 generated_at: "2026-08-18"
 tags:
@@ -119,7 +119,7 @@ Reader request-state coordination extracted from the main reader screen.
 | [[Reference/Desktop/TypeScript/screens/reader/useReadingProgress|useReadingProgress.ts]] | `ACTIVE` | Provides `SEEN_SETTLE_MS`, `SEEN_REPORT_MS`, `READING_MARKER`, `readingPositionKey` and related exports within the desktop's TypeScript/screens/reader ownership area. | 7 | 3 |
 | [[Reference/Desktop/TypeScript/screens/reader/useSideBySide|useSideBySide.ts]] | `ACTIVE` | Provides `SidePaneDraft`, `SIDE_BY_SIDE_COPY`, `SIDE_BY_SIDE_SCROLL_KEYS`, `MainPane` and related exports within the desktop's TypeScript/screens/reader ownership area. | 7 | 2 |
 | [[Reference/Desktop/TypeScript/screens/reader/useSidePane|useSidePane.ts]] | `ACTIVE` | Provides `PaneCaptureTarget`, `SidePaneInput`, `useSidePane`, `SidePane` and related exports within the desktop's TypeScript/screens/reader ownership area. | 7 | 1 |
-| [[Reference/Desktop/TypeScript/screens/reader/voices|voices.tsx]] | `ACTIVE` | Implements the `voices` routed desktop screen and coordinates its learner-facing workflow state. | 1 | 42 |
+| [[Reference/Desktop/TypeScript/screens/reader/voices|voices.tsx]] | `ACTIVE` | Implements the `voices` routed desktop screen and coordinates its learner-facing workflow state. | 1 | 43 |
 
 ## Modification guidance
 

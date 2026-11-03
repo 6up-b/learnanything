@@ -3,13 +3,13 @@ title: "learner_text_gap_jobs"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "856ce60f74f6074a19363758ab69d21dcfecc54d"
-source_commit_timestamp: "2026-11-02T16:19:09-05:00"
+source_commit: "9e12d91330e6fa42d51fd7c7319294c7015e803f"
+source_commit_timestamp: "2026-11-02T20:08:53-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite learner_text_gap_jobs"
   - "table learner_text_gap_jobs"
-schema_head: 237
+schema_head: 238
 table_name: "learner_text_gap_jobs"
 table_role: "workflow"
 functionality_status: "active"

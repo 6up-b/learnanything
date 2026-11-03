@@ -10,8 +10,8 @@ area: "TypeScript/screens/reader/figures"
 source_path: "apps/learnloop-tauri/src/screens/reader/figures/useFigures.ts"
 source_paths:
   - "apps/learnloop-tauri/src/screens/reader/figures/useFigures.ts"
-source_commit: "b5724c404baefd39ef9f16e76a1db75339342ff4"
-source_commit_timestamp: "2026-11-02T09:34:05-05:00"
+source_commit: "7fd12e25ec8d644a7f73bd03a530e9a4ee9585d0"
+source_commit_timestamp: "2026-11-02T19:40:18-05:00"
 source_worktree_state: "clean"
 activation_kind: "entry-reachable build graph"
 activation_evidence: "A static TypeScript import path reaches this file from the Vite entry src/main.tsx."
@@ -42,14 +42,14 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/screens/reader/figures/useFigures.ts](../../../../../../../../apps/learnloop-tauri/src/screens/reader/figures/useFigures.ts) |
-| Source lines | 534 |
+| Source lines | 576 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/screens/reader/figures/_area|TypeScript/screens/reader/figures]] |
 | Refactor status | `ACTIVE` |
 | Activation kind | `entry-reachable build graph` |
 | Worktree state | `clean` |
-| Source commit | `b5724c404baefd39ef9f16e76a1db75339342ff4` |
-| Commit timestamp | `2026-11-02T09:34:05-05:00` |
+| Source commit | `7fd12e25ec8d644a7f73bd03a530e9a4ee9585d0` |
+| Commit timestamp | `2026-11-02T19:40:18-05:00` |
 
 ## Activation and status evidence
 
@@ -70,79 +70,85 @@ The system-level behavior stays authoritative in the linked architecture, concep
 - `export interface FigureHome` — interface, line 82
 - `export interface FollowedFigure` — interface, line 90
 - `export interface FiguresCtl` — interface, line 96
-- `export function figurePlacementKey(figure: Pick<FigureViewDto, "figureId" | "anchorSpanId">): string` — function, line 137
-- `export function useFigures(` — function, line 145
+- `export function figurePlacementKey(figure: Pick<FigureViewDto, "figureId" | "anchorSpanId">): string` — function, line 143
+- `export function useFigures(` — function, line 151
 
 ## Internal implementation anchors
 
-- `function sleep(ms: number): Promise<void>` — function, line 141
-- `const enabled = Boolean(contract && extractionId)` — const, line 159
-- `const followOn = enabled && followEnabled` — const, line 160
-- `const prefetchClock = useRef<ReturnType<typeof setTimeout> | null>(null)` — const, line 169
-- `const followedRef = useRef(followed)` — const, line 171
-- `const setExpanded = useCallback((figure: FigureViewDto | null)` — const, line 176
-- `const generation = useRef(0)` — const, line 178
-- `const followGeneration = useRef(0)` — const, line 181
-- `const runs = useRef(new Map<string, object>())` — const, line 182
-- `const onBuiltRef = useRef(onBuilt)` — const, line 183
-- `const mine = generation.current` — const, line 198
-- `const keys = new Set(followedRef.current.map((entry)` — const, line 215
-- `const fullerRunning = (figure: FigureViewDto)` — const, line 230
-- `const speculativeFuller = figures.some((figure)` — const, line 232
-- `const prefetchActive = prefetchPending || speculativeFuller` — const, line 233
-- `const mine = generation.current` — const, line 239
-- `const richRunning = ( (prefetchActive && !prefetchExpired) || richPending.some((line)` — const, line 243
-- `const mine = generation.current` — const, line 249
-- `const timer = setTimeout(()` — const, line 250
-- `const land = useCallback((figure: FigureViewDto)` — const, line 264
-- `const sameRequest = (item: FigureViewDto)` — const, line 265
-- `const goalOnly = figure.spanIds.length === 0 && figure.region === null` — const, line 273
-- `const anchors = goalOnly ? [...new Set([figure.anchorSpanId, ...list.filter((item)` — const, line 274
-- `const placed = anchors.map((anchorSpanId)` — const, line 277
-- `const run = useCallback( (key: string, anchorSpanId: string, start: ()` — const, line 289
-- `const mine = generation.current` — const, line 292
-- `const token =` — const, line 293
-- `const live = ()` — const, line 295
-- `let jobId: string | null = null` — let, line 296
-- `const retry = ()` — const, line 297
-- `const cancel = ()` — const, line 298
-- `let job = await start()` — let, line 306
-- `const rich = job.state === "done" ? job.result?.rich ?? null : null` — const, line 315
-- `const figure = job.state === "done" ? job.result?.figure ?? null : null` — const, line 321
-- `const shown = figure !== null && (figure.verification === "verified" || figure.verification === "illustrative")` — const, line 322
-- `const command = getCommandError(error)` — const, line 334
-- `const request = useCallback( (input: FigureRequestInput): Promise<FigureRequestOutcome>` — const, line 345
-- `const spanIds = [...new Set(input.spanIds)]` — const, line 348
-- `const anchor = spanIds[spanIds.length - 1] ?? input.region?.spanId ?? input.readingAt?.spanId ?? ""` — const, line 349
-- `const region = input.region && contract?.region ? input.region : null` — const, line 352
-- `const goal = input.goalText?.trim() ? input.goalText.trim() : null` — const, line 353
-- `const key = `req:$` — const, line 354
-- `const origin = input.origin ?? (goal ? "show_me" : "selection")` — const, line 355
-- `const anchored = spanIds.length > 0 || region !== null` — const, line 362
-- `const readingAt = input.readingAt?.spanId ?` — const, line 363
-- `const refresh = useCallback(()` — const, line 383
-- `const mine = generation.current` — const, line 385
-- `const cancelRich = useCallback((richJobId: string)` — const, line 396
-- `const retryRich = useCallback((richJobId: string)` — const, line 401
-- `const answerManimOptIn = useCallback((choice: "allow" | "decline")` — const, line 407
-- `const revise = useCallback( (figure: FigureViewDto, note: string, differentKind?: boolean)` — const, line 415
-- `const patchPrediction = useCallback((found: FigurePredictionResultDto)` — const, line 424
-- `const patch = (figure: FigureViewDto): FigureViewDto` — const, line 425
-- `const follow = useCallback( async (ref: CorrespondentFigureDto, home: FigureHome, at: string): Promise<boolean>` — const, line 434
-- `const mine = generation.current` — const, line 437
-- `const mineFollow = followGeneration.current` — const, line 438
-- `const current = ()` — const, line 439
-- `const refuse = ()` — const, line 442
-- `const keys = new Set(followedRef.current.filter((entry)` — const, line 444
-- `let found: FigureViewDto | undefined` — let, line 451
-- `const listed = await api.readerFigures(` — const, line 454
-- `const figure: FigureViewDto =` — const, line 464
-- `const predict = useCallback( async (figure: FigureViewDto, index: number, answer: string)` — const, line 473
-- `const found = await api.readerFigurePredict(` — const, line 476
-- `const explain = useCallback( async (_figure: FigureViewDto, predictionId: string, text: string)` — const, line 483
-- `const found = await api.readerFigureExplain(` — const, line 486
-- `const shownFollowed = useMemo(()` — const, line 494
-- `const under = useCallback( (spanId: string | null | undefined)` — const, line 496
+- `function sleep(ms: number): Promise<void>` — function, line 147
+- `const enabled = Boolean(contract && extractionId)` — const, line 168
+- `const followOn = enabled && followEnabled` — const, line 169
+- `const prefetchClock = useRef<ReturnType<typeof setTimeout> | null>(null)` — const, line 178
+- `const followedRef = useRef(followed)` — const, line 180
+- `const setExpanded = useCallback((figure: FigureViewDto | null)` — const, line 185
+- `const generation = useRef(0)` — const, line 187
+- `const followGeneration = useRef(0)` — const, line 190
+- `const runs = useRef(new Map<string, object>())` — const, line 191
+- `const onBuiltRef = useRef(onBuilt)` — const, line 192
+- `const mine = generation.current` — const, line 207
+- `const keys = new Set(followedRef.current.map((entry)` — const, line 224
+- `const fullerRunning = (figure: FigureViewDto)` — const, line 239
+- `const speculativeFuller = figures.some((figure)` — const, line 241
+- `const prefetchActive = prefetchPending || speculativeFuller` — const, line 242
+- `const mine = generation.current` — const, line 248
+- `const richRunning = ( (prefetchActive && !prefetchExpired) || richPending.some((line)` — const, line 252
+- `const mine = generation.current` — const, line 258
+- `const timer = setTimeout(()` — const, line 259
+- `const land = useCallback((figure: FigureViewDto)` — const, line 273
+- `const sameRequest = (item: FigureViewDto)` — const, line 274
+- `const goalOnly = figure.spanIds.length === 0 && figure.region === null` — const, line 282
+- `const anchors = goalOnly ? [...new Set([figure.anchorSpanId, ...list.filter((item)` — const, line 283
+- `const placed = anchors.map((anchorSpanId)` — const, line 286
+- `const run = useCallback( (key: string, anchorSpanId: string, start: ()` — const, line 298
+- `const mine = generation.current` — const, line 301
+- `const token =` — const, line 302
+- `const live = ()` — const, line 304
+- `let jobId: string | null = null` — let, line 305
+- `const retry = ()` — const, line 306
+- `const cancel = ()` — const, line 307
+- `let job = await start()` — let, line 315
+- `const rich = job.state === "done" ? job.result?.rich ?? null : null` — const, line 324
+- `const figure = job.state === "done" ? job.result?.figure ?? null : null` — const, line 330
+- `const shown = figure !== null && (figure.verification === "verified" || figure.verification === "illustrative")` — const, line 331
+- `const command = getCommandError(error)` — const, line 343
+- `const request = useCallback( (input: FigureRequestInput): Promise<FigureRequestOutcome>` — const, line 354
+- `const spanIds = [...new Set(input.spanIds)]` — const, line 357
+- `const anchor = spanIds[spanIds.length - 1] ?? input.region?.spanId ?? input.readingAt?.spanId ?? ""` — const, line 358
+- `const region = input.region && contract?.region ? input.region : null` — const, line 361
+- `const goal = input.goalText?.trim() ? input.goalText.trim() : null` — const, line 362
+- `const key = `req:$` — const, line 363
+- `const origin = input.origin ?? (goal ? "show_me" : "selection")` — const, line 364
+- `const anchored = spanIds.length > 0 || region !== null` — const, line 371
+- `const readingAt = input.readingAt?.spanId ?` — const, line 372
+- `const refresh = useCallback(()` — const, line 392
+- `const mine = generation.current` — const, line 394
+- `const cancelRich = useCallback((richJobId: string)` — const, line 405
+- `const retryRich = useCallback((richJobId: string)` — const, line 410
+- `const answerManimOptIn = useCallback((choice: "allow" | "decline")` — const, line 416
+- `const revise = useCallback( (figure: FigureViewDto, note: string, differentKind?: boolean)` — const, line 424
+- `const rebuild = useCallback( (figure: FigureViewDto)` — const, line 434
+- `const rechecking = useRef(new Set<string>())` — const, line 444
+- `const recheck = useCallback( (figure: FigureViewDto)` — const, line 445
+- `const started = await Promise.resolve(api.readerFigureRecheck(` — const, line 450
+- `let state = started?.state` — let, line 451
+- `const jobId = started?.jobId` — const, line 452
+- `const patchPrediction = useCallback((found: FigurePredictionResultDto)` — const, line 463
+- `const patch = (figure: FigureViewDto): FigureViewDto` — const, line 464
+- `const follow = useCallback( async (ref: CorrespondentFigureDto, home: FigureHome, at: string): Promise<boolean>` — const, line 473
+- `const mine = generation.current` — const, line 476
+- `const mineFollow = followGeneration.current` — const, line 477
+- `const current = ()` — const, line 478
+- `const refuse = ()` — const, line 481
+- `const keys = new Set(followedRef.current.filter((entry)` — const, line 483
+- `let found: FigureViewDto | undefined` — let, line 490
+- `const listed = await api.readerFigures(` — const, line 493
+- `const figure: FigureViewDto =` — const, line 503
+- `const predict = useCallback( async (figure: FigureViewDto, index: number, answer: string)` — const, line 512
+- `const found = await api.readerFigurePredict(` — const, line 515
+- `const explain = useCallback( async (_figure: FigureViewDto, predictionId: string, text: string)` — const, line 522
+- `const found = await api.readerFigureExplain(` — const, line 525
+- `const shownFollowed = useMemo(()` — const, line 533
+- `const under = useCallback( (spanId: string | null | undefined)` — const, line 535
 
 ## Who imports or calls it
 
@@ -152,8 +158,10 @@ The system-level behavior stays authoritative in the linked architecture, concep
 - [[Reference/Desktop/TypeScript/components/askFigures|src/components/askFigures.tsx]] — import-or-re-export: `FiguresContract`, `FiguresCtl`, `figurePlacementKey`; references `FiguresContract`, `FiguresCtl`, `figurePlacementKey`
 - [[Reference/Desktop/TypeScript/screens/LessonScreen|src/screens/LessonScreen.tsx]] — import-or-re-export: `FiguresContract`, `FiguresCtl`, `figurePlacementKey`; references `FiguresContract`, `FiguresCtl`, `figurePlacementKey`
 - [[Reference/Desktop/TypeScript/screens/ReaderScreen|src/screens/ReaderScreen.tsx]] — import-or-re-export: `FigureRequestOutcome`, `FiguresCtl`, `useFigures`; references `FigureRequestOutcome`, `FiguresCtl`, `useFigures`
-- [[Reference/Desktop/TypeScript/screens/reader/figures/FigureInline|src/screens/reader/figures/FigureInline.tsx]] — import-or-re-export: `/** RW5d P1: built with nothing from the learner's books (grounding "none"`, `checksLead: "checked by LearnLoop:"`, `code-written). */
-  notFromBooks: "not from your books — LearnLoop's model's illustration · not checked against the book"`, `const`, `failed: "couldn't build a reliable version of this"`, `illustration: "AI-built illustration of an interpretation · not checked against the book"`, `unsupported: "can't draw this yet · noted"`; references `const`
+- [[Reference/Desktop/TypeScript/screens/reader/figures/FigureInline|src/screens/reader/figures/FigureInline.tsx]] — import-or-re-export: `/** RW5d P1: built with nothing from the learner's books (grounding "none"`, `// RW5c (spec §7.3): drawn only from an element's closed role`, `aiBuilt: "AI-built"`, `aiDefined: "AI-defined"`, `aiElement: "AI-built · not checked against the book"`, `beside the book's own left-hand side.
+  bookChecked: "matches the book's equation (checked)"`, `checksLead: "checked by LearnLoop:"`, `code-written). */
+  notFromBooks: "not from your books — LearnLoop's model's illustration · not checked against the book"`, `const`, `derivedFrom: "computed by LearnLoop from it"`, `failed: "couldn't build a reliable version of this"`, `illustration: "AI-built illustration of an interpretation · not checked against the book"`, `limitedToPlot: "limited to the plotted range"`, `noTerms: "no terms in this range"`, `restIllustration: "the rest is an illustration"`, `unsupported: "can't draw this yet · noted"`; references `const`
+- [[Reference/Desktop/TypeScript/screens/reader/figures/figureLabels|src/screens/reader/figures/figureLabels.tsx]] — import-or-re-export: `FiguresCtl`; references `FiguresCtl`
 - [[Reference/Desktop/TypeScript/screens/reader/figures/sketch/SketchFigure|src/screens/reader/figures/sketch/SketchFigure.tsx]] — import-or-re-export: `FiguresCtl`; references `FiguresCtl`
 - [[Reference/Desktop/TypeScript/screens/reader/useSidePane|src/screens/reader/useSidePane.ts]] — import-or-re-export: `FiguresContract`, `useFigures`; references `FiguresContract`, `useFigures`
 
@@ -186,6 +194,7 @@ The workflow note owns end-to-end sequencing; this module note describes only it
 - [apps/learnloop-tauri/src/screens/reader/figures/showMe.test.tsx](../../../../../../../../apps/learnloop-tauri/src/screens/reader/figures/showMe.test.tsx) — vitest test: imports and executes this module under jsdom (`npm test`).
 - [apps/learnloop-tauri/src/screens/reader/figures/richFigure.test.tsx](../../../../../../../../apps/learnloop-tauri/src/screens/reader/figures/richFigure.test.tsx) — vitest test: imports and executes this module under jsdom (`npm test`).
 - [apps/learnloop-tauri/src/screens/reader/figures/figuresFollowSection.test.tsx](../../../../../../../../apps/learnloop-tauri/src/screens/reader/figures/figuresFollowSection.test.tsx) — vitest test: imports and executes this module under jsdom (`npm test`).
+- [apps/learnloop-tauri/src/screens/reader/figures/figureLabels.test.tsx](../../../../../../../../apps/learnloop-tauri/src/screens/reader/figures/figureLabels.test.tsx) — vitest test: imports and executes this module under jsdom (`npm test`).
 - [apps/learnloop-tauri/src/screens/reader/figures/advancedPanels.test.tsx](../../../../../../../../apps/learnloop-tauri/src/screens/reader/figures/advancedPanels.test.tsx) — vitest test: imports and executes this module under jsdom (`npm test`).
 - [apps/learnloop-tauri/src/screens/reader/figures/FigureInline.test.tsx](../../../../../../../../apps/learnloop-tauri/src/screens/reader/figures/FigureInline.test.tsx) — vitest test: imports and executes this module under jsdom (`npm test`).
 - [tests/test_sidecar_reader.py](../../../../../../../../tests/test_sidecar_reader.py) — related cross-boundary behavior contract; it does **not** directly execute this source module.

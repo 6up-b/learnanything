@@ -62,7 +62,7 @@ source_paths:
   - "src/learnloop/cli/surfaces.py"
   - "src/learnloop/cli/teacher.py"
 source_commit: "aggregate; see module notes"
-source_commit_timestamp: "2026-11-02T15:09:46-05:00"
+source_commit_timestamp: "2026-11-02T19:40:18-05:00"
 generated: true
 generated_at: "2026-11-02"
 package: "learnloop.cli"
@@ -105,7 +105,7 @@ For system intent, use [[Architecture Overview]].
 | [[Reference/Modules/learnloop/cli/ad|learnloop.cli.ad]] | [[Reference/Modules/learnloop/cli/ad#^module-purpose|purpose]] | `ACTIVE` | 1 | 0 |
 | [[Reference/Modules/learnloop/cli/ai|learnloop.cli.ai]] | [[Reference/Modules/learnloop/cli/ai#^module-purpose|purpose]] | `ACTIVE` | 1 | 0 |
 | [[Reference/Modules/learnloop/cli/ai_compare|learnloop.cli.ai_compare]] | [[Reference/Modules/learnloop/cli/ai_compare#^module-purpose|purpose]] | `ACTIVE` | 1 | 1 |
-| [[Reference/Modules/learnloop/cli/app|learnloop.cli.app]] | [[Reference/Modules/learnloop/cli/app#^module-purpose|purpose]] | `ACTIVE` | 3 | 169 |
+| [[Reference/Modules/learnloop/cli/app|learnloop.cli.app]] | [[Reference/Modules/learnloop/cli/app#^module-purpose|purpose]] | `ACTIVE` | 3 | 171 |
 | [[Reference/Modules/learnloop/cli/calibration|learnloop.cli.calibration]] | [[Reference/Modules/learnloop/cli/calibration#^module-purpose|purpose]] | `ACTIVE` | 1 | 0 |
 | [[Reference/Modules/learnloop/cli/card|learnloop.cli.card]] | [[Reference/Modules/learnloop/cli/card#^module-purpose|purpose]] | `ACTIVE` | 1 | 0 |
 | [[Reference/Modules/learnloop/cli/claims|learnloop.cli.claims]] | [[Reference/Modules/learnloop/cli/claims#^module-purpose|purpose]] | `ACTIVE` | 1 | 0 |
@@ -200,6 +200,7 @@ For system intent, use [[Architecture Overview]].
 - [[Reference/Modules/learnloop/hints/_package|learnloop.hints]] — 4 static module edges
 - [[Reference/Modules/learnloop/params/_package|learnloop.params]] — 4 static module edges
 - [[Reference/Modules/learnloop/tutor/_package|learnloop.tutor]] — 4 static module edges
+- [[Reference/Modules/learnloop/figures/_package|learnloop.figures]] — 3 static module edges
 - [[Reference/Modules/learnloop/ops/contamination/_package|learnloop.ops.contamination]] — 3 static module edges
 - [[Reference/Modules/learnloop/placement/_package|learnloop.placement]] — 3 static module edges
 - [[Reference/Modules/learnloop/remote/_package|learnloop.remote]] — 3 static module edges
@@ -208,7 +209,6 @@ For system intent, use [[Architecture Overview]].
 - [[Reference/Modules/learnloop/content/facet_identity/_package|learnloop.content.facet_identity]] — 2 static module edges
 - [[Reference/Modules/learnloop/local_embeddings/_package|learnloop.local_embeddings]] — 2 static module edges
 - [[Reference/Modules/learnloop/capture/_package|learnloop.capture]] — 1 static module edge
-- [[Reference/Modules/learnloop/figures/_package|learnloop.figures]] — 1 static module edge
 - [[Reference/Modules/learnloop/ingest/_package|learnloop.ingest]] — 1 static module edge
 - [[Reference/Modules/learnloop/intent/_package|learnloop.intent]] — 1 static module edge
 - [[Reference/Modules/learnloop/reader/_package|learnloop.reader]] — 1 static module edge

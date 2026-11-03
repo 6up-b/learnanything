@@ -3,13 +3,13 @@ title: "source_revisions"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "856ce60f74f6074a19363758ab69d21dcfecc54d"
-source_commit_timestamp: "2026-11-02T16:19:09-05:00"
+source_commit: "9e12d91330e6fa42d51fd7c7319294c7015e803f"
+source_commit_timestamp: "2026-11-02T20:08:53-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite source_revisions"
   - "table source_revisions"
-schema_head: 237
+schema_head: 238
 table_name: "source_revisions"
 table_role: "raw_ledger"
 functionality_status: "active"
@@ -153,6 +153,7 @@ Indexes and uniqueness:
 - `tests/figure_fixtures.py`
 - `tests/helpers.py`
 - `tests/reader_fixtures.py`
+- `tests/rw5c_fixtures.py`
 - `tests/source_retrieval_fakes.py`
 - `tests/source_service_fakes.py`
 - `tests/test_ad23_contract.py`
@@ -167,7 +168,6 @@ Indexes and uniqueness:
 - `tests/test_quick_add.py`
 - `tests/test_reader_ca1_as_printed.py`
 - `tests/test_reader_ca1_astra_codex_review.py`
-- `tests/test_reader_ca1_astra_fixes.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

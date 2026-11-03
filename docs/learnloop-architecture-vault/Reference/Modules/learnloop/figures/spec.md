@@ -7,8 +7,8 @@ version: "1.0.0"
 source_path: "src/learnloop/figures/spec.py"
 source_paths:
   - "src/learnloop/figures/spec.py"
-source_commit: "48d0a951e8e97d7b377caf0db9c7f40db14ce349"
-source_commit_timestamp: "2026-10-23T11:08:36-04:00"
+source_commit: "18e1b00c392cd1b2aba022d40f8a35b4fddef20f"
+source_commit_timestamp: "2026-11-02T19:33:12-05:00"
 source_worktree_state: "clean"
 generated: true
 generated_at: "2026-11-02"
@@ -50,13 +50,13 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/figures/spec.py](../../../../../../src/learnloop/figures/spec.py) |
-| Source lines | 1123 |
+| Source lines | 1162 |
 | Owning package | [[Reference/Modules/learnloop/figures/_package|learnloop.figures]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `48d0a951e8e97d7b377caf0db9c7f40db14ce349` |
-| Commit timestamp | `2026-10-23T11:08:36-04:00` |
+| Source commit | `18e1b00c392cd1b2aba022d40f8a35b4fddef20f` |
+| Commit timestamp | `2026-11-02T19:33:12-05:00` |
 
 ## Public API
 
@@ -102,12 +102,13 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `bar_ks(axis: Axis) -> list[float]` ([source](../../../../../../src/learnloop/figures/spec.py), line 817) — The bars' k values: counted from the support's start, at most :data:`MAX_BARS` of them (fix round 2; validation refuses more).
 - `shade_value(compiled: CompiledFigure, panel: CompiledPanel, shade_index: int, env: Mapping[str, float]) -> tuple[float, float, float]` ([source](../../../../../../src/learnloop/figures/spec.py), line 825) — A shaded area's clipped bounds and its value (the linked readout).
 - `highlight_value(compiled: CompiledFigure, panel: CompiledPanel, env: Mapping[str, float]) -> tuple[float, float, float]` ([source](../../../../../../src/learnloop/figures/spec.py), line 848)
-- `evaluate_panel(compiled: CompiledFigure, panel: CompiledPanel, env: Mapping[str, float]) -> dict[str, Any]` ([source](../../../../../../src/learnloop/figures/spec.py), line 867)
-- `grid_points(axis: Any, cells: int) -> list[float]` ([source](../../../../../../src/learnloop/figures/spec.py), line 918) — ``cells + 1`` samples from ``axis.min`` to ``axis.max``.
-- `escape_box(axis: Any) -> tuple[float, float]` ([source](../../../../../../src/learnloop/figures/spec.py), line 947) — The window a path may stay in: the axis range padded by :data:`ESCAPE_MARGIN` of its span.
-- `evaluate_figure(compiled: CompiledFigure, params: Mapping[str, float] | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/figures/spec.py), line 1050) — Every panel's data at ``params`` (defaults for the rest).
-- `observed(compiled: CompiledFigure, index: int, params: Mapping[str, float] | None=None) -> float` ([source](../../../../../../src/learnloop/figures/spec.py), line 1060)
-- `prediction_outcome(compiled: CompiledFigure, index: int) -> dict[str, Any]` ([source](../../../../../../src/learnloop/figures/spec.py), line 1067) — What a prediction observes and its right answer, decided by code.
+- `derived_bounds(compiled: CompiledFigure, panel_index: int, kind: str, index: int, env: Mapping[str, float]) -> dict[str, Any]` ([source](../../../../../../src/learnloop/figures/spec.py), line 867) — The bounds a derived label states (RW5c §7.2, Codex review F2): the ones the evaluator used, whatever the author's bound expressions say.
+- `evaluate_panel(compiled: CompiledFigure, panel: CompiledPanel, env: Mapping[str, float]) -> dict[str, Any]` ([source](../../../../../../src/learnloop/figures/spec.py), line 905)
+- `grid_points(axis: Any, cells: int) -> list[float]` ([source](../../../../../../src/learnloop/figures/spec.py), line 956) — ``cells + 1`` samples from ``axis.min`` to ``axis.max``.
+- `escape_box(axis: Any) -> tuple[float, float]` ([source](../../../../../../src/learnloop/figures/spec.py), line 985) — The window a path may stay in: the axis range padded by :data:`ESCAPE_MARGIN` of its span.
+- `evaluate_figure(compiled: CompiledFigure, params: Mapping[str, float] | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/figures/spec.py), line 1088) — Every panel's data at ``params`` (defaults for the rest).
+- `observed(compiled: CompiledFigure, index: int, params: Mapping[str, float] | None=None) -> float` ([source](../../../../../../src/learnloop/figures/spec.py), line 1098)
+- `prediction_outcome(compiled: CompiledFigure, index: int) -> dict[str, Any]` ([source](../../../../../../src/learnloop/figures/spec.py), line 1105) — What a prediction observes and its right answer, decided by code.
 
 ### Module constants
 
@@ -164,6 +165,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `MAX_PANEL_WORK`
 - `MAX_TRAJECTORY_STEPS`
 - `advanced_kinds`
+- `derived_bounds`
 - `DIRECTION_LABELS`
 - `SAMPLES`
 - `SPEC_VERSION`
@@ -189,20 +191,23 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `_sum_terms(node: G.Node, parameters: Sequence[Parameter], ranges: Mapping[str, tuple[float, float]]) -> int | None` ([source](../../../../../../src/learnloop/figures/spec.py), line 728) — The most terms a sum can have (its bounds' widest reach), or None when its bounds are not countable.
 - `_num(value: float) -> float | None` ([source](../../../../../../src/learnloop/figures/spec.py), line 803) — A shown value: None when not finite, never -0 (fix round 3).
 - `_value(node: G.Node | None, env: Mapping[str, float], definitions: Mapping[str, G.Node]) -> float` ([source](../../../../../../src/learnloop/figures/spec.py), line 809)
-- `_grid_values(node: G.Node | None, xs: Sequence[float], ys: Sequence[float], xv: str, yv: str, env: Mapping[str, float], defs: Mapping[str, G.Node]) -> list[list[float | None]]` ([source](../../../../../../src/learnloop/figures/spec.py), line 924) — Rows by y, columns by x.
-- `_heatmap_data(node: G.Node | None, contours: Sequence[G.Node | None], xs: list[float], ys: list[float], xv: str, yv: str, label: str, env: Mapping[str, float], defs: Mapping[str, G.Node]) -> dict[str, Any]` ([source](../../../../../../src/learnloop/figures/spec.py), line 940)
-- `_path(model: Any, nodes: Mapping[str, Any], env: Mapping[str, float], defs: Mapping[str, G.Node]) -> dict[str, Any]` ([source](../../../../../../src/learnloop/figures/spec.py), line 954) — A trajectory (fixed-step RK4) or an iterated map, cut where it leaves its padded window or stops being finite (``stopped``).
-- `_evaluate_advanced(panel: CompiledPanel, env: Mapping[str, float], defs: Mapping[str, G.Node]) -> dict[str, Any]` ([source](../../../../../../src/learnloop/figures/spec.py), line 1027)
+- `_sum_integers(low: float, high: float) -> list[int] | None` ([source](../../../../../../src/learnloop/figures/spec.py), line 897) — The integers :func:`grammar.exact_sum` runs over: its own rule and slack.
+- `_grid_values(node: G.Node | None, xs: Sequence[float], ys: Sequence[float], xv: str, yv: str, env: Mapping[str, float], defs: Mapping[str, G.Node]) -> list[list[float | None]]` ([source](../../../../../../src/learnloop/figures/spec.py), line 962) — Rows by y, columns by x.
+- `_heatmap_data(node: G.Node | None, contours: Sequence[G.Node | None], xs: list[float], ys: list[float], xv: str, yv: str, label: str, env: Mapping[str, float], defs: Mapping[str, G.Node]) -> dict[str, Any]` ([source](../../../../../../src/learnloop/figures/spec.py), line 978)
+- `_path(model: Any, nodes: Mapping[str, Any], env: Mapping[str, float], defs: Mapping[str, G.Node]) -> dict[str, Any]` ([source](../../../../../../src/learnloop/figures/spec.py), line 992) — A trajectory (fixed-step RK4) or an iterated map, cut where it leaves its padded window or stops being finite (``stopped``).
+- `_evaluate_advanced(panel: CompiledPanel, env: Mapping[str, float], defs: Mapping[str, G.Node]) -> dict[str, Any]` ([source](../../../../../../src/learnloop/figures/spec.py), line 1065)
 
 ## Who imports or calls it
 
 > [!note] Static evidence boundary
 > “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
 
+- [[Reference/Modules/learnloop/figures/elements|learnloop.figures.elements]] — imports `module`; statically calls `derived_bounds`
 - [[Reference/Modules/learnloop/figures/help|learnloop.figures.help]] — imports `module`; statically calls `evaluate_figure`, `parse_spec`
 - [[Reference/Modules/learnloop/figures/routes|learnloop.figures.routes]] — imports `module`
 - [[Reference/Modules/learnloop/figures/service|learnloop.figures.service]] — imports `module`; statically calls `advanced_kinds`, `parse_spec`, `prediction_outcome`
 - [[Reference/Modules/learnloop/figures/sketch|learnloop.figures.sketch]] — imports `module`
+- [[Reference/Modules/learnloop/figures/source_check|learnloop.figures.source_check]] — imports `module`; statically calls `_num`, `bar_ks`, `expanded_free`, `parse_spec`, `plot_xs`
 - [[Reference/Modules/learnloop/figures/verify|learnloop.figures.verify]] — imports `module`; statically calls `evaluate_figure`, `expanded_free`, `prediction_outcome`, `shade_value`
 
 ## Dependencies
@@ -223,7 +228,7 @@ Use this module in context through:
 - [[Initialize a Vault]]
 - [[Start a Learning Cycle]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/figures/help|learnloop.figures.help]], [[Reference/Modules/learnloop/figures/routes|learnloop.figures.routes]], [[Reference/Modules/learnloop/figures/service|learnloop.figures.service]], [[Reference/Modules/learnloop/figures/sketch|learnloop.figures.sketch]], [[Reference/Modules/learnloop/figures/verify|learnloop.figures.verify]].
+Static participation evidence comes from [[Reference/Modules/learnloop/figures/elements|learnloop.figures.elements]], [[Reference/Modules/learnloop/figures/help|learnloop.figures.help]], [[Reference/Modules/learnloop/figures/routes|learnloop.figures.routes]], [[Reference/Modules/learnloop/figures/service|learnloop.figures.service]], [[Reference/Modules/learnloop/figures/sketch|learnloop.figures.sketch]] and 2 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
@@ -280,6 +285,25 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_figures_show_me.py](../../../../../../tests/test_figures_show_me.py) — direct import
   - `test_an_rw5ab_request_hashes_and_prompts_exactly_as_before`
 - [tests/test_reader_rw5d_p4a_figures_follow.py](../../../../../../tests/test_reader_rw5d_p4a_figures_follow.py) — direct import
+- [tests/test_rw5c_display_twins.py](../../../../../../tests/test_rw5c_display_twins.py) — direct import
+  - `test_the_derived_bounds_pin_the_evaluator`
+- [tests/test_rw5c_judgments.py](../../../../../../tests/test_rw5c_judgments.py) — direct import
+  - `test_the_rationale_is_code_text_only`
+- [tests/test_rw5c_labels.py](../../../../../../tests/test_rw5c_labels.py) — direct import
+  - `test_a_book_elements_label_is_the_books_left_hand_side_and_its_provenance`
+  - `test_a_readout_whose_body_is_not_the_bare_reference_is_not_derived`
+  - `test_an_unchecked_definition_renders_as_its_grammar_name_marked_ai_defined`
+  - `test_f2_a_shade_states_the_bounds_the_evaluator_used`
+  - `test_f2_an_integral_readout_states_its_evaluated_bounds`
+  - `test_f9_endpoints_are_lossless_never_format_value`
+  - `test_the_element_map_gives_every_label_a_closed_role_and_no_model_text`
+  - `test_under_b_the_delivered_spec_holds_no_model_label_string`
+- [tests/test_rw5c_source_check.py](../../../../../../tests/test_rw5c_source_check.py) — direct import
+  - `test_a_block_that_is_not_ok_is_refused_with_its_reason`
+  - `test_a_fake_author_sending_sympy_text_or_a_verified_field_changes_nothing`
+  - `test_a_sketch_tier_is_never_checked`
+  - `test_a_withheld_span_is_never_read`
+  - `test_with_its_invariant_the_half_density_is_still_refused_at_step_two`
 
 ## Modification guidance
 

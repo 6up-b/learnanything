@@ -6,8 +6,8 @@ refactor_status: "ACTIVE"
 version: "1.0.0"
 source_paths:
   - "apps/learnloop-tauri/src/screens/reader/figures"
-source_commit: "b5724c404baefd39ef9f16e76a1db75339342ff4"
-source_commit_timestamp: "2026-11-02T09:34:05-05:00"
+source_commit: "9e12d91330e6fa42d51fd7c7319294c7015e803f"
+source_commit_timestamp: "2026-11-02T20:08:53-05:00"
 generated: true
 generated_at: "2026-08-18"
 tags:
@@ -36,14 +36,15 @@ Reader "show me" figures: the figure grammar and spec, inline figures, panels, p
 
 | Module | Status | Purpose | Imports | Imported by |
 |---|---|---|---:|---:|
-| [[Reference/Desktop/TypeScript/screens/reader/figures/AdvancedPanels|AdvancedPanels.tsx]] | `ACTIVE` | Implements the `AdvancedPanels` routed desktop screen and coordinates its learner-facing workflow state. | 3 | 1 |
-| [[Reference/Desktop/TypeScript/screens/reader/figures/FigureInline|FigureInline.tsx]] | `ACTIVE` | Implements the `FigureInline` routed desktop screen and coordinates its learner-facing workflow state. | 12 | 7 |
-| [[Reference/Desktop/TypeScript/screens/reader/figures/FigurePanels|FigurePanels.tsx]] | `ACTIVE` | Implements the `FigurePanels` routed desktop screen and coordinates its learner-facing workflow state. | 3 | 3 |
+| [[Reference/Desktop/TypeScript/screens/reader/figures/AdvancedPanels|AdvancedPanels.tsx]] | `ACTIVE` | Implements the `AdvancedPanels` routed desktop screen and coordinates its learner-facing workflow state. | 4 | 1 |
+| [[Reference/Desktop/TypeScript/screens/reader/figures/FigureInline|FigureInline.tsx]] | `ACTIVE` | Implements the `FigureInline` routed desktop screen and coordinates its learner-facing workflow state. | 13 | 8 |
+| [[Reference/Desktop/TypeScript/screens/reader/figures/FigurePanels|FigurePanels.tsx]] | `ACTIVE` | Implements the `FigurePanels` routed desktop screen and coordinates its learner-facing workflow state. | 4 | 3 |
 | [[Reference/Desktop/TypeScript/screens/reader/figures/RichFigure|RichFigure.tsx]] | `ACTIVE` | Implements the `RichFigure` routed desktop screen and coordinates its learner-facing workflow state. | 5 | 1 |
 | [[Reference/Desktop/TypeScript/screens/reader/figures/figureGrammar|figureGrammar.ts]] | `ACTIVE` | Provides `MAX_EXPR_CHARS`, `MAX_NODES`, `MAX_DEPTH`, `MAX_EXPANDED_NODES` and related exports within the desktop's TypeScript/screens/reader/figures ownership area. | 0 | 1 |
-| [[Reference/Desktop/TypeScript/screens/reader/figures/figureSpec|figureSpec.ts]] | `ACTIVE` | Provides `SPEC_VERSION`, `SAMPLES`, `DIRECTIONS`, `SAME_TOLERANCE` and related exports within the desktop's TypeScript/screens/reader/figures ownership area. | 1 | 3 |
+| [[Reference/Desktop/TypeScript/screens/reader/figures/figureLabels|figureLabels.tsx]] | `ACTIVE` | Implements the `figureLabels` routed desktop screen and coordinates its learner-facing workflow state. | 6 | 3 |
+| [[Reference/Desktop/TypeScript/screens/reader/figures/figureSpec|figureSpec.ts]] | `ACTIVE` | Provides `SPEC_VERSION`, `SAMPLES`, `DIRECTIONS`, `SAME_TOLERANCE` and related exports within the desktop's TypeScript/screens/reader/figures ownership area. | 1 | 4 |
 | [[Reference/Desktop/TypeScript/screens/reader/figures/showMe|showMe.ts]] | `ACTIVE` | Provides `SHOW_ME_COPY`, `ShowMeLine`, `passageChip`, `showMeSourceLine` and related exports within the desktop's TypeScript/screens/reader/figures ownership area. | 1 | 4 |
-| [[Reference/Desktop/TypeScript/screens/reader/figures/useFigures|useFigures.ts]] | `ACTIVE` | Provides `FIGURE_POLL_MS`, `RICH_POLL_MS`, `PREFETCH_POLL_LIFETIME_MS`, `FigureRequestInput` and related exports within the desktop's TypeScript/screens/reader/figures ownership area. | 5 | 6 |
+| [[Reference/Desktop/TypeScript/screens/reader/figures/useFigures|useFigures.ts]] | `ACTIVE` | Provides `FIGURE_POLL_MS`, `RICH_POLL_MS`, `PREFETCH_POLL_LIFETIME_MS`, `FigureRequestInput` and related exports within the desktop's TypeScript/screens/reader/figures ownership area. | 5 | 7 |
 
 ## Modification guidance
 

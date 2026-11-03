@@ -894,7 +894,10 @@ def coverage(vault: Any, repository: Any, *, dry_run: bool, withheld: Callable[[
         if not dry_run and not recheck_due(current_row(repository, str(row["id"]))):
             skipped["not_due"] += 1
             continue
-        result = recheck(vault, repository, row, dry_run=dry_run, sandbox=sandbox, clock=clock)
+        try:
+            result = recheck(vault, repository, row, dry_run=dry_run, sandbox=sandbox, clock=clock)
+        except Exception:  # noqa: BLE001 - one figure that cannot be read does not end the report
+            result = None
         if result is None:
             skipped["unreadable"] += 1
             continue

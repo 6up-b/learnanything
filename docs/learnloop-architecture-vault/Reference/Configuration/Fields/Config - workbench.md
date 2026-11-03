@@ -3,8 +3,8 @@ title: "Config - workbench"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "856ce60f74f6074a19363758ab69d21dcfecc54d"
-source_commit_timestamp: "2026-11-02T16:19:09-05:00"
+source_commit: "9e12d91330e6fa42d51fd7c7319294c7015e803f"
+source_commit_timestamp: "2026-11-02T20:08:53-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "learnloop.toml workbench"
@@ -36,9 +36,9 @@ source_paths:
   - "tests/rw2b_fix10_base_sequence.py"
   - "tests/rw2b_fix11_base_sequence.py"
   - "tests/rw2c_base_sequence.py"
+  - "tests/rw5c_fixtures.py"
   - "tests/split_live_helpers.py"
   - "tests/test_ad1_codex_review_fixes.py"
-  - "tests/test_ad1_outside_and_cli.py"
 tags:
   - "learnloop/configuration/fields"
   - "learnloop/configuration/section/workbench"
@@ -91,9 +91,9 @@ Every row cites the exact Pydantic field declaration (or typed dynamic-key conta
 - `tests/rw2b_fix10_base_sequence.py`
 - `tests/rw2b_fix11_base_sequence.py`
 - `tests/rw2c_base_sequence.py`
+- `tests/rw5c_fixtures.py`
 - `tests/split_live_helpers.py`
 - `tests/test_ad1_codex_review_fixes.py`
-- `tests/test_ad1_outside_and_cli.py`
 
 ## Extension and modification guidance
 

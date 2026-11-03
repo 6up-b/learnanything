@@ -3,13 +3,13 @@ title: "golden_path_artifacts"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "856ce60f74f6074a19363758ab69d21dcfecc54d"
-source_commit_timestamp: "2026-11-02T16:19:09-05:00"
+source_commit: "9e12d91330e6fa42d51fd7c7319294c7015e803f"
+source_commit_timestamp: "2026-11-02T20:08:53-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite golden_path_artifacts"
   - "table golden_path_artifacts"
-schema_head: 237
+schema_head: 238
 table_name: "golden_path_artifacts"
 table_role: "receipt"
 functionality_status: "active"

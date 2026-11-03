@@ -86,7 +86,7 @@ For system intent, use [[Learning System]].
 | [[Reference/Modules/learnloop/reader/reader_observations|learnloop.reader.reader_observations]] | [[Reference/Modules/learnloop/reader/reader_observations#^module-purpose|purpose]] | `ACTIVE` | 2 | 3 |
 | [[Reference/Modules/learnloop/reader/reader_progression|learnloop.reader.reader_progression]] | [[Reference/Modules/learnloop/reader/reader_progression#^module-purpose|purpose]] | `ACTIVE` | 21 | 6 |
 | [[Reference/Modules/learnloop/reader/reader_quick_check|learnloop.reader.reader_quick_check]] | [[Reference/Modules/learnloop/reader/reader_quick_check#^module-purpose|purpose]] | `ACTIVE` | 4 | 15 |
-| [[Reference/Modules/learnloop/reader/reader_report|learnloop.reader.reader_report]] | [[Reference/Modules/learnloop/reader/reader_report#^module-purpose|purpose]] | `ACTIVE` | 1 | 21 |
+| [[Reference/Modules/learnloop/reader/reader_report|learnloop.reader.reader_report]] | [[Reference/Modules/learnloop/reader/reader_report#^module-purpose|purpose]] | `ACTIVE` | 1 | 22 |
 | [[Reference/Modules/learnloop/reader/reader_requests|learnloop.reader.reader_requests]] | [[Reference/Modules/learnloop/reader/reader_requests#^module-purpose|purpose]] | `ACTIVE` | 4 | 9 |
 | [[Reference/Modules/learnloop/reader/reader_restoration|learnloop.reader.reader_restoration]] | [[Reference/Modules/learnloop/reader/reader_restoration#^module-purpose|purpose]] | `ACTIVE` | 1 | 2 |
 | [[Reference/Modules/learnloop/reader/reader_sessions|learnloop.reader.reader_sessions]] | [[Reference/Modules/learnloop/reader/reader_sessions#^module-purpose|purpose]] | `ACTIVE` | 6 | 9 |

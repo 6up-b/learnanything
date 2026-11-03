@@ -7,8 +7,8 @@ version: "1.0.0"
 source_path: "src/learnloop/figure_admission.py"
 source_paths:
   - "src/learnloop/figure_admission.py"
-source_commit: "c6356d13e97c941eec48cbd7cac9174d1a75b7e7"
-source_commit_timestamp: "2026-11-02T09:14:59-05:00"
+source_commit: "18e1b00c392cd1b2aba022d40f8a35b4fddef20f"
+source_commit_timestamp: "2026-11-02T19:33:12-05:00"
 source_worktree_state: "clean"
 generated: true
 generated_at: "2026-11-02"
@@ -50,13 +50,13 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/figure_admission.py](../../../../../src/learnloop/figure_admission.py) |
-| Source lines | 448 |
+| Source lines | 458 |
 | Owning package | [[Reference/Modules/learnloop/_package|learnloop]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `c6356d13e97c941eec48cbd7cac9174d1a75b7e7` |
-| Commit timestamp | `2026-11-02T09:14:59-05:00` |
+| Source commit | `18e1b00c392cd1b2aba022d40f8a35b4fddef20f` |
+| Commit timestamp | `2026-11-02T19:33:12-05:00` |
 
 ## Public API
 
@@ -65,37 +65,38 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `offers_enabled(vault: Any) -> bool` ([source](../../../../../src/learnloop/figure_admission.py), line 55) — RW5b: ``figures.offers_enabled`` under ``figures.enabled``: the library organizer and the Reader tutor judge ``explorable`` on a cited equation or figure block in the call they already make.
 - `show_me_enabled(vault: Any) -> bool` ([source](../../../../../src/learnloop/figure_admission.py), line 70) — Reader RW5d P1: ``figures.show_me_enabled`` under ``figures.enabled``: "show me" takes the learner's words (and the Reader tutor may write an optional figure goal).
 - `sketch_enabled(vault: Any) -> bool` ([source](../../../../../src/learnloop/figure_admission.py), line 81) — Reader RW5d P2: ``figures.sketch_enabled`` under ``figures.enabled``: the sketch tier (a sealed, verified simulation when the grammar can't express the idea).
-- `figure_home_keys(connection: Any, figure_id: str) -> list[tuple[str, str]] | None` ([source](../../../../../src/learnloop/figure_admission.py), line 91) — Reader RW5d (Codex review F3, F4): where a figure built with no passage lands, as ``(extraction_id, span_id)``: the reading position of every request that built or reused it or a version it supersedes, first asked first.
-- `offerable(block_type: Any) -> bool` ([source](../../../../../src/learnloop/figure_admission.py), line 148) — Whether a cited block is one "make this explorable" may be offered on: code decides the block (by its extracted type), the judge only whether it could support a figure.
-- `offer_kind(block_type: Any) -> str | None` ([source](../../../../../src/learnloop/figure_admission.py), line 156) — ``equation`` | ``figure`` for an offerable block, else None.
-- `offerable_blocks(repository: Any, keys: Any) -> dict[tuple[str, str], str]` ([source](../../../../../src/learnloop/figure_admission.py), line 164) — Which of these ``(extraction_id, span_id)`` blocks an offer may name, each with its kind (:func:`offer_kind`), read from the stored blocks.
-- `explorable_yes(value: Any) -> bool` ([source](../../../../../src/learnloop/figure_admission.py), line 186) — The judge said yes (an old output with no field, or anything else, is no).
-- `tutor_explorable_judgment_id(question_event_id: str, extraction_id: str, span_id: str) -> str` ([source](../../../../../src/learnloop/figure_admission.py), line 199) — The ledger id of the tutor's verdict on one block of one answer: derived, so the press reads it back without a search, and an answer judges a block once.
-- `tutor_explorable_yes(repository: Any, question_event_id: str, keys: Any) -> set[tuple[str, str]]` ([source](../../../../../src/learnloop/figure_admission.py), line 208) — Which of these ``(extraction_id, span_id)`` blocks the tutor's ledger rows for this answer record as ``explorable: yes``.
-- `tutor_figure_goal_judgment_id(question_event_id: str) -> str` ([source](../../../../../src/learnloop/figure_admission.py), line 236) — The ledger id of an answer's figure goal: derived, so the press reads it back without a search, and an answer offers at most one goal.
-- `figure_goal_digest(text: Any, span_keys: Any) -> str` ([source](../../../../../src/learnloop/figure_admission.py), line 245) — The identity of a figure goal: its whitespace-normalized text and the cited passages it is grounded in, in order.
-- `tutor_figure_goal_offered(repository: Any, question_event_id: str, text: Any, span_keys: Any) -> bool` ([source](../../../../../src/learnloop/figure_admission.py), line 255) — Whether the answer's ledger row records this very goal (its text and its grounding keys) as offered by the tutor's model.
-- `rich_tiers_enabled(vault: Any) -> bool` ([source](../../../../../src/learnloop/figure_admission.py), line 272) — Reader RW5d P2b: ``figures.rich_tiers_enabled`` under ``figures.enabled``: the rich tiers (a narrated Manim figure; JS behind its build flag).
-- `author_learner_state_enabled(vault: Any) -> bool` ([source](../../../../../src/learnloop/figure_admission.py), line 282) — Learner data-relax 2: ``figures.author_learner_state`` under ``figures.enabled``: the figure author is sent the learner's state on the passage's topics (``learnloop.figures.learner_state``).
-- `help_kind_enabled(vault: Any) -> bool` ([source](../../../../../src/learnloop/figure_admission.py), line 292) — Reader RW5d P3: ``figures.help_kind_enabled`` under ``figures.enabled`` and ``figures.show_me_enabled``: figures inside an open attempt (the Ask panel's *show me* on practice, feedback and the workbench, the cold take step, the chooser's ``explore_figure``, ``figure`` in the hel…
-- `manim_opt_in(vault: Any) -> str | None` ([source](../../../../../src/learnloop/figure_admission.py), line 304) — Reader RW5d P2b: the learner's standing opt-in for Manim figures (``"standing"``), their "not now" (``"declined"``), or None (not asked).
-- `text_key(vault: Any) -> Hashable` ([source](../../../../../src/learnloop/figure_admission.py), line 313) — What a figure prediction's learner-text reading depends on: the vault and the switch (its money cap is ``learner_text_gaps``'s, as on main).
-- `class FiguresChanged(BaseException)` ([source](../../../../../src/learnloop/figure_admission.py), line 320) — A figure-derived request refused before it was sent: the configuration its unit of work started under has changed (the switch turned off, the route, cap or price changed, or another vault is open).
-- `class FiguresGate` ([source](../../../../../src/learnloop/figure_admission.py), line 336) — Admit a figure-derived unit of work's requests only while its key holds.
-  - `__init__(self, vault: Any, key: Callable[[Any], Hashable], *, live_vault: Callable[[], Any] | None=None, hold: Callable[[Any], str | None] | None=None, wait: Callable[[], Any] | None=None) -> None` (line 356; internal)
-  - `_current(self) -> Any | None` (line 373; internal)
-  - `check(self, purpose: str='request') -> None` (line 383; public) — Raise :class:`FiguresChanged` when the unit may do nothing more.
-  - `admit(self, client: Any, *, purpose: str, prompt: Any, budget: int | None) -> Any` (line 404; public)
-  - `settle(self, admission: Any, usage: dict[str, Any]) -> None` (line 417; public)
+- `checked_labels_enabled(vault: Any) -> bool` ([source](../../../../../src/learnloop/figure_admission.py), line 91) — Reader RW5c: ``figures.checked_labels_enabled`` under ``figures.enabled``: code reads the book's equation and compares a figure's definition with it, and a checked element carries code-owned labels.
+- `figure_home_keys(connection: Any, figure_id: str) -> list[tuple[str, str]] | None` ([source](../../../../../src/learnloop/figure_admission.py), line 101) — Reader RW5d (Codex review F3, F4): where a figure built with no passage lands, as ``(extraction_id, span_id)``: the reading position of every request that built or reused it or a version it supersedes, first asked first.
+- `offerable(block_type: Any) -> bool` ([source](../../../../../src/learnloop/figure_admission.py), line 158) — Whether a cited block is one "make this explorable" may be offered on: code decides the block (by its extracted type), the judge only whether it could support a figure.
+- `offer_kind(block_type: Any) -> str | None` ([source](../../../../../src/learnloop/figure_admission.py), line 166) — ``equation`` | ``figure`` for an offerable block, else None.
+- `offerable_blocks(repository: Any, keys: Any) -> dict[tuple[str, str], str]` ([source](../../../../../src/learnloop/figure_admission.py), line 174) — Which of these ``(extraction_id, span_id)`` blocks an offer may name, each with its kind (:func:`offer_kind`), read from the stored blocks.
+- `explorable_yes(value: Any) -> bool` ([source](../../../../../src/learnloop/figure_admission.py), line 196) — The judge said yes (an old output with no field, or anything else, is no).
+- `tutor_explorable_judgment_id(question_event_id: str, extraction_id: str, span_id: str) -> str` ([source](../../../../../src/learnloop/figure_admission.py), line 209) — The ledger id of the tutor's verdict on one block of one answer: derived, so the press reads it back without a search, and an answer judges a block once.
+- `tutor_explorable_yes(repository: Any, question_event_id: str, keys: Any) -> set[tuple[str, str]]` ([source](../../../../../src/learnloop/figure_admission.py), line 218) — Which of these ``(extraction_id, span_id)`` blocks the tutor's ledger rows for this answer record as ``explorable: yes``.
+- `tutor_figure_goal_judgment_id(question_event_id: str) -> str` ([source](../../../../../src/learnloop/figure_admission.py), line 246) — The ledger id of an answer's figure goal: derived, so the press reads it back without a search, and an answer offers at most one goal.
+- `figure_goal_digest(text: Any, span_keys: Any) -> str` ([source](../../../../../src/learnloop/figure_admission.py), line 255) — The identity of a figure goal: its whitespace-normalized text and the cited passages it is grounded in, in order.
+- `tutor_figure_goal_offered(repository: Any, question_event_id: str, text: Any, span_keys: Any) -> bool` ([source](../../../../../src/learnloop/figure_admission.py), line 265) — Whether the answer's ledger row records this very goal (its text and its grounding keys) as offered by the tutor's model.
+- `rich_tiers_enabled(vault: Any) -> bool` ([source](../../../../../src/learnloop/figure_admission.py), line 282) — Reader RW5d P2b: ``figures.rich_tiers_enabled`` under ``figures.enabled``: the rich tiers (a narrated Manim figure; JS behind its build flag).
+- `author_learner_state_enabled(vault: Any) -> bool` ([source](../../../../../src/learnloop/figure_admission.py), line 292) — Learner data-relax 2: ``figures.author_learner_state`` under ``figures.enabled``: the figure author is sent the learner's state on the passage's topics (``learnloop.figures.learner_state``).
+- `help_kind_enabled(vault: Any) -> bool` ([source](../../../../../src/learnloop/figure_admission.py), line 302) — Reader RW5d P3: ``figures.help_kind_enabled`` under ``figures.enabled`` and ``figures.show_me_enabled``: figures inside an open attempt (the Ask panel's *show me* on practice, feedback and the workbench, the cold take step, the chooser's ``explore_figure``, ``figure`` in the hel…
+- `manim_opt_in(vault: Any) -> str | None` ([source](../../../../../src/learnloop/figure_admission.py), line 314) — Reader RW5d P2b: the learner's standing opt-in for Manim figures (``"standing"``), their "not now" (``"declined"``), or None (not asked).
+- `text_key(vault: Any) -> Hashable` ([source](../../../../../src/learnloop/figure_admission.py), line 323) — What a figure prediction's learner-text reading depends on: the vault and the switch (its money cap is ``learner_text_gaps``'s, as on main).
+- `class FiguresChanged(BaseException)` ([source](../../../../../src/learnloop/figure_admission.py), line 330) — A figure-derived request refused before it was sent: the configuration its unit of work started under has changed (the switch turned off, the route, cap or price changed, or another vault is open).
+- `class FiguresGate` ([source](../../../../../src/learnloop/figure_admission.py), line 346) — Admit a figure-derived unit of work's requests only while its key holds.
+  - `__init__(self, vault: Any, key: Callable[[Any], Hashable], *, live_vault: Callable[[], Any] | None=None, hold: Callable[[Any], str | None] | None=None, wait: Callable[[], Any] | None=None) -> None` (line 366; internal)
+  - `_current(self) -> Any | None` (line 383; internal)
+  - `check(self, purpose: str='request') -> None` (line 393; public) — Raise :class:`FiguresChanged` when the unit may do nothing more.
+  - `admit(self, client: Any, *, purpose: str, prompt: Any, budget: int | None) -> Any` (line 414; public)
+  - `settle(self, admission: Any, usage: dict[str, Any]) -> None` (line 427; public)
 
 ### Module constants
 
 - `GROUNDING_PASSAGES` ([src/learnloop/figure_admission.py](../../../../../src/learnloop/figure_admission.py), line 67)
-- `OFFER_BLOCK_TYPES` ([src/learnloop/figure_admission.py](../../../../../src/learnloop/figure_admission.py), line 142)
-- `EXPLORABLE` ([src/learnloop/figure_admission.py](../../../../../src/learnloop/figure_admission.py), line 145)
-- `TUTOR_EXPLORABLE_TASK` ([src/learnloop/figure_admission.py](../../../../../src/learnloop/figure_admission.py), line 196)
-- `TUTOR_FIGURE_GOAL_TASK` ([src/learnloop/figure_admission.py](../../../../../src/learnloop/figure_admission.py), line 231)
-- `FIGURE_GOAL_OFFERED` ([src/learnloop/figure_admission.py](../../../../../src/learnloop/figure_admission.py), line 233)
+- `OFFER_BLOCK_TYPES` ([src/learnloop/figure_admission.py](../../../../../src/learnloop/figure_admission.py), line 152)
+- `EXPLORABLE` ([src/learnloop/figure_admission.py](../../../../../src/learnloop/figure_admission.py), line 155)
+- `TUTOR_EXPLORABLE_TASK` ([src/learnloop/figure_admission.py](../../../../../src/learnloop/figure_admission.py), line 206)
+- `TUTOR_FIGURE_GOAL_TASK` ([src/learnloop/figure_admission.py](../../../../../src/learnloop/figure_admission.py), line 241)
+- `FIGURE_GOAL_OFFERED` ([src/learnloop/figure_admission.py](../../../../../src/learnloop/figure_admission.py), line 243)
 
 ### Explicit exports
 
@@ -143,7 +144,8 @@ No private top-level function or class definition is declared in this file.
 - [[Reference/Modules/learnloop/figures/learner_state|learnloop.figures.learner_state]] — imports `author_learner_state_enabled`; statically calls `author_learner_state_enabled`
 - [[Reference/Modules/learnloop/figures/prefetch|learnloop.figures.prefetch]] — imports `FiguresChanged`, `FiguresGate`; statically calls `FiguresGate`
 - [[Reference/Modules/learnloop/figures/rich|learnloop.figures.rich]] — imports `FiguresChanged`, `FiguresGate`, `author_learner_state_enabled`, `figures_enabled`, `manim_opt_in`, `rich_tiers_enabled`; statically calls `FiguresGate`, `author_learner_state_enabled`, `figures_enabled`, `manim_opt_in`, `rich_tiers_enabled`
-- [[Reference/Modules/learnloop/figures/service|learnloop.figures.service]] — imports `FiguresChanged`, `FiguresGate`, `GROUNDING_PASSAGES`, `advanced_panels_enabled`, `author_learner_state_enabled`, `figure_home_keys`, `figures_enabled`, `help_kind_enabled`, `offers_enabled`, `show_me_enabled`, `sketch_enabled`; statically calls `FiguresGate`, `advanced_panels_enabled`, `author_learner_state_enabled`, `figure_home_keys`, `figures_enabled`, `help_kind_enabled`, `offers_enabled`, `show_me_enabled`, `sketch_enabled`
+- [[Reference/Modules/learnloop/figures/service|learnloop.figures.service]] — imports `FiguresChanged`, `FiguresGate`, `GROUNDING_PASSAGES`, `advanced_panels_enabled`, `author_learner_state_enabled`, `checked_labels_enabled`, `figure_home_keys`, `figures_enabled`, `help_kind_enabled`, `offers_enabled`, `show_me_enabled`, `sketch_enabled`; statically calls `FiguresGate`, `advanced_panels_enabled`, `author_learner_state_enabled`, `checked_labels_enabled`, `figure_home_keys`, `figures_enabled`, `help_kind_enabled`, `offers_enabled`, `show_me_enabled`, `sketch_enabled`
+- [[Reference/Modules/learnloop/figures/source_check|learnloop.figures.source_check]] — imports `FiguresChanged`, `FiguresGate`, `checked_labels_enabled`, `figures_enabled`; statically calls `FiguresGate`, `checked_labels_enabled`, `figures_enabled`
 - [[Reference/Modules/learnloop/source_retrieval/library_ask|learnloop.source_retrieval.library_ask]] — imports `EXPLORABLE`, `explorable_yes`, `offer_kind`, `offers_enabled`; statically calls `explorable_yes`, `offer_kind`, `offers_enabled`
 - [[Reference/Modules/learnloop/source_retrieval/reader_tutor|learnloop.source_retrieval.reader_tutor]] — imports `offerable_blocks`; statically calls `offerable_blocks`
 - [[Reference/Modules/learnloop/tutor/reader_modes|learnloop.tutor.reader_modes]] — imports `GROUNDING_PASSAGES`
@@ -176,7 +178,7 @@ Use this module in context through:
 - [[Initialize a Vault]]
 - [[Start a Learning Cycle]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/diagnosis/split/figure_trace|learnloop.diagnosis.split.figure_trace]], [[Reference/Modules/learnloop/diagnosis/text_gaps/jobs|learnloop.diagnosis.text_gaps.jobs]], [[Reference/Modules/learnloop/diagnosis/text_gaps/sources|learnloop.diagnosis.text_gaps.sources]], [[Reference/Modules/learnloop/figures/help|learnloop.figures.help]], [[Reference/Modules/learnloop/figures/learner_state|learnloop.figures.learner_state]] and 12 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/diagnosis/split/figure_trace|learnloop.diagnosis.split.figure_trace]], [[Reference/Modules/learnloop/diagnosis/text_gaps/jobs|learnloop.diagnosis.text_gaps.jobs]], [[Reference/Modules/learnloop/diagnosis/text_gaps/sources|learnloop.diagnosis.text_gaps.sources]], [[Reference/Modules/learnloop/figures/help|learnloop.figures.help]], [[Reference/Modules/learnloop/figures/learner_state|learnloop.figures.learner_state]] and 13 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
@@ -195,6 +197,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_f6_a_goal_in_the_view_with_no_ledger_row_is_refused`
   - `test_f6_no_goal_writes_no_goal_row`
   - `test_f6_the_tutors_goal_has_one_ledger_row_and_the_press_reads_it`
+- [tests/test_rw5c_source_check.py](../../../../../tests/test_rw5c_source_check.py) — direct import
 
 ## Modification guidance
 

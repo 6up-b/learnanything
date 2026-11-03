@@ -10,8 +10,8 @@ area: "TypeScript/screens/reader/figures"
 source_path: "apps/learnloop-tauri/src/screens/reader/figures/FigurePanels.tsx"
 source_paths:
   - "apps/learnloop-tauri/src/screens/reader/figures/FigurePanels.tsx"
-source_commit: "48d0a951e8e97d7b377caf0db9c7f40db14ce349"
-source_commit_timestamp: "2026-10-23T11:08:36-04:00"
+source_commit: "7fd12e25ec8d644a7f73bd03a530e9a4ee9585d0"
+source_commit_timestamp: "2026-11-02T19:40:18-05:00"
 source_worktree_state: "clean"
 activation_kind: "entry-reachable build graph"
 activation_evidence: "A static TypeScript import path reaches this file from the Vite entry src/main.tsx."
@@ -42,14 +42,14 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/screens/reader/figures/FigurePanels.tsx](../../../../../../../../apps/learnloop-tauri/src/screens/reader/figures/FigurePanels.tsx) |
-| Source lines | 269 |
+| Source lines | 277 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/screens/reader/figures/_area|TypeScript/screens/reader/figures]] |
 | Refactor status | `ACTIVE` |
 | Activation kind | `entry-reachable build graph` |
 | Worktree state | `clean` |
-| Source commit | `48d0a951e8e97d7b377caf0db9c7f40db14ce349` |
-| Commit timestamp | `2026-10-23T11:08:36-04:00` |
+| Source commit | `7fd12e25ec8d644a7f73bd03a530e9a4ee9585d0` |
+| Commit timestamp | `2026-11-02T19:40:18-05:00` |
 
 ## Activation and status evidence
 
@@ -60,61 +60,67 @@ The system-level behavior stays authoritative in the linked architecture, concep
 
 ## Public API
 
-- `export function formatValue(value: number | null, format: "number" | "percent" = "number"): string` — function, line 22
-- `export function FigurePanel(` — function, line 257
+- `export function formatValue(value: number | null, format: "number" | "percent" = "number"): string` — function, line 23
+- `export function FigurePanel(` — function, line 265
 
 ## Internal implementation anchors
 
-- `const W = 600` — const, line 16
-- `const H = 220` — const, line 17
-- `const PAD =` — const, line 18
-- `const DASHES = ["", "6 4", "2 3", "10 3 2 3"]` — const, line 19
-- `const SHADE_FILLS = ["var(--wash-amber)", "var(--wash-cyan)", "var(--wash-purple)", "var(--wash-green)"]` — const, line 20
-- `const scaled = value * 100` — const, line 26
-- `function extent(values: Array<number | null>, include: number[] = []): [number, number]` — function, line 33
-- `const finite = [...values.filter((value): value is number` — const, line 34
-- `let low = Math.min(...finite)` — let, line 36
-- `let high = Math.max(...finite)` — let, line 37
-- `const pad = (high - low) * 0.05` — const, line 42
-- `function scaler(domain: [number, number], range: [number, number]): (value: number)` — function, line 46
-- `const svgStyle: CSSProperties =` — const, line 52
-- `const tableStyle: CSSProperties =` — const, line 53
-- `const cellStyle: CSSProperties =` — const, line 54
-- `function Axes(` — function, line 56
-- `const zeroY = yDomain[0] <= 0 && yDomain[1] >= 0 ? y(0) : H - PAD.bottom` — const, line 57
-- `function FunctionPlot(` — function, line 72
-- `const xDomain: [number, number] = [data.x[0], data.x[data.x.length - 1]]` — const, line 73
-- `const yDomain = extent(data.series.flatMap((series)` — const, line 74
-- `const x = scaler(xDomain, [PAD.left, W - PAD.right])` — const, line 75
-- `const y = scaler(yDomain, [H - PAD.bottom, PAD.top])` — const, line 76
-- `const path = (ys: Array<number | null>)` — const, line 77
-- `let d = ""` — let, line 78
-- `let pen = false` — let, line 79
-- `const shadePath = (shade: FunctionPlotData["shades"][number])` — const, line 90
-- `const series = data.series.find((item)` — const, line 91
-- `const points: Array<[number, number]> = []` — const, line 94
-- `const yv = series.y[index]` — const, line 96
-- `const base = y(Math.max(yDomain[0], Math.min(0, yDomain[1])))` — const, line 100
-- `function FunctionTable(` — function, line 145
-- `const rows = data.x.map((xv, index)` — const, line 146
-- `function PmfBars(` — function, line 172
-- `const ks = data.k` — const, line 173
-- `const yDomain = extent(data.series.flatMap((series)` — const, line 174
-- `const x = scaler([ks[0] - 0.5, ks[ks.length - 1] + 0.5], [PAD.left, W - PAD.right])` — const, line 175
-- `const y = scaler(yDomain, [H - PAD.bottom, PAD.top])` — const, line 176
-- `const width = Math.max(1, (x(1) - x(0)) * 0.7 / Math.max(1, data.series.length))` — const, line 177
-- `const inHighlight = (k: number)` — const, line 178
-- `function LinearMap(` — function, line 212
-- `const points = data.square.filter((point): point is [number, number]` — const, line 213
-- `const all = [...points, [0, 0], [1, 0], [1, 1], [0, 1]] as Array<[number, number]>` — const, line 214
-- `const reach = Math.max(1.2, ...all.map(([px, py])` — const, line 215
-- `const size = H - PAD.top - PAD.bottom` — const, line 216
-- `const left = (W - size) / 2` — const, line 217
-- `const x = scaler([-reach, reach], [left, left + size])` — const, line 218
-- `const y = scaler([-reach, reach], [H - PAD.bottom, PAD.top])` — const, line 219
-- `const polygon = (corners: Array<[number, number]>)` — const, line 220
-- `function Readout(` — function, line 249
-- `const axes = model && (model.kind === "trajectory_2d" || model.kind === "iterate_2d") ?` — const, line 265
+- `const W = 600` — const, line 17
+- `const H = 220` — const, line 18
+- `const PAD =` — const, line 19
+- `const DASHES = ["", "6 4", "2 3", "10 3 2 3"]` — const, line 20
+- `const SHADE_FILLS = ["var(--wash-amber)", "var(--wash-cyan)", "var(--wash-purple)", "var(--wash-green)"]` — const, line 21
+- `const scaled = value * 100` — const, line 27
+- `function extent(values: Array<number | null>, include: number[] = []): [number, number]` — function, line 34
+- `const finite = [...values.filter((value): value is number` — const, line 35
+- `let low = Math.min(...finite)` — let, line 37
+- `let high = Math.max(...finite)` — let, line 38
+- `const pad = (high - low) * 0.05` — const, line 43
+- `function scaler(domain: [number, number], range: [number, number]): (value: number)` — function, line 47
+- `const svgStyle: CSSProperties =` — const, line 53
+- `const tableStyle: CSSProperties =` — const, line 54
+- `const cellStyle: CSSProperties =` — const, line 55
+- `function Axes(` — function, line 57
+- `const zeroY = yDomain[0] <= 0 && yDomain[1] >= 0 ? y(0) : H - PAD.bottom` — const, line 58
+- `function FunctionPlot(` — function, line 73
+- `const labels = useFigureLabels()` — const, line 75
+- `const plain = (id: string)` — const, line 76
+- `const xDomain: [number, number] = [data.x[0], data.x[data.x.length - 1]]` — const, line 77
+- `const yDomain = extent(data.series.flatMap((series)` — const, line 78
+- `const x = scaler(xDomain, [PAD.left, W - PAD.right])` — const, line 79
+- `const y = scaler(yDomain, [H - PAD.bottom, PAD.top])` — const, line 80
+- `const path = (ys: Array<number | null>)` — const, line 81
+- `let d = ""` — let, line 82
+- `let pen = false` — let, line 83
+- `const shadePath = (shade: FunctionPlotData["shades"][number])` — const, line 94
+- `const series = data.series.find((item)` — const, line 95
+- `const points: Array<[number, number]> = []` — const, line 98
+- `const yv = series.y[index]` — const, line 100
+- `const base = y(Math.max(yDomain[0], Math.min(0, yDomain[1])))` — const, line 104
+- `function FunctionTable(` — function, line 149
+- `const rows = data.x.map((xv, index)` — const, line 150
+- `function PmfBars(` — function, line 176
+- `const labels = useFigureLabels()` — const, line 177
+- `const plain = (id: string)` — const, line 178
+- `const ks = data.k` — const, line 179
+- `const yDomain = extent(data.series.flatMap((series)` — const, line 180
+- `const x = scaler([ks[0] - 0.5, ks[ks.length - 1] + 0.5], [PAD.left, W - PAD.right])` — const, line 181
+- `const y = scaler(yDomain, [H - PAD.bottom, PAD.top])` — const, line 182
+- `const width = Math.max(1, (x(1) - x(0)) * 0.7 / Math.max(1, data.series.length))` — const, line 183
+- `const inHighlight = (k: number)` — const, line 184
+- `function LinearMap(` — function, line 218
+- `const labels = useFigureLabels()` — const, line 219
+- `const spoken = labels && label ? labels.plain(label) : label` — const, line 220
+- `const points = data.square.filter((point): point is [number, number]` — const, line 221
+- `const all = [...points, [0, 0], [1, 0], [1, 1], [0, 1]] as Array<[number, number]>` — const, line 222
+- `const reach = Math.max(1.2, ...all.map(([px, py])` — const, line 223
+- `const size = H - PAD.top - PAD.bottom` — const, line 224
+- `const left = (W - size) / 2` — const, line 225
+- `const x = scaler([-reach, reach], [left, left + size])` — const, line 226
+- `const y = scaler([-reach, reach], [H - PAD.bottom, PAD.top])` — const, line 227
+- `const polygon = (corners: Array<[number, number]>)` — const, line 228
+- `function Readout(` — function, line 257
+- `const axes = model && (model.kind === "trajectory_2d" || model.kind === "iterate_2d") ?` — const, line 273
 
 ## Who imports or calls it
 
@@ -131,6 +137,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 
 - [[Reference/Desktop/TypeScript/components/term|src/components/term.tsx]] — import-or-re-export; imports `COLOR`, `FONT_MONO`
 - [[Reference/Desktop/TypeScript/screens/reader/figures/AdvancedPanels|src/screens/reader/figures/AdvancedPanels.tsx]] — import-or-re-export; imports `HeatmapPanelView`, `PathPanelView`, `VectorFieldPanelView`
+- [[Reference/Desktop/TypeScript/screens/reader/figures/figureLabels|src/screens/reader/figures/figureLabels.tsx]] — import-or-re-export; imports `LabelSuffix`, `LabelText`, `useFigureLabels`
 - [[Reference/Desktop/TypeScript/screens/reader/figures/figureSpec|src/screens/reader/figures/figureSpec.ts]] — import-or-re-export; imports `FigurePanelModel`, `FunctionPlotData`, `LinearMapData`, `PanelData`, `PmfBarsData`, `ReadoutData`
 
 ### Assets, platform, and third-party dependencies
@@ -148,6 +155,7 @@ The workflow note owns end-to-end sequencing; this module note describes only it
 ## Tests that define behavior
 
 - [apps/learnloop-tauri/src/screens/reader/figures/sketch/SketchFigure.test.tsx](../../../../../../../../apps/learnloop-tauri/src/screens/reader/figures/sketch/SketchFigure.test.tsx) — vitest test: imports and executes this module under jsdom (`npm test`).
+- [apps/learnloop-tauri/src/screens/reader/figures/figureDisplayCorpus.test.ts](../../../../../../../../apps/learnloop-tauri/src/screens/reader/figures/figureDisplayCorpus.test.ts) — vitest test: imports and executes this module under jsdom (`npm test`).
 - [apps/learnloop-tauri/src/screens/reader/figures/advancedPanels.test.tsx](../../../../../../../../apps/learnloop-tauri/src/screens/reader/figures/advancedPanels.test.tsx) — vitest test: imports and executes this module under jsdom (`npm test`).
 - [apps/learnloop-tauri/src/screens/reader/figures/FigureInline.test.tsx](../../../../../../../../apps/learnloop-tauri/src/screens/reader/figures/FigureInline.test.tsx) — vitest test: imports and executes this module under jsdom (`npm test`).
 - [tests/test_sidecar_reader.py](../../../../../../../../tests/test_sidecar_reader.py) — related cross-boundary behavior contract; it does **not** directly execute this source module.

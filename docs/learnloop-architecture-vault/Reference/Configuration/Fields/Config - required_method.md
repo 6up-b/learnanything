@@ -3,8 +3,8 @@ title: "Config - required_method"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "856ce60f74f6074a19363758ab69d21dcfecc54d"
-source_commit_timestamp: "2026-11-02T16:19:09-05:00"
+source_commit: "9e12d91330e6fa42d51fd7c7319294c7015e803f"
+source_commit_timestamp: "2026-11-02T20:08:53-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "learnloop.toml required_method"
@@ -26,12 +26,12 @@ source_paths:
   - "tests/pf_fakes.py"
   - "tests/practice_index_fakes.py"
   - "tests/router_model_fakes.py"
+  - "tests/rw5c_fixtures.py"
   - "tests/split_live_helpers.py"
   - "tests/test_ad23_contract.py"
   - "tests/test_ad23_successor.py"
   - "tests/test_ad2_model.py"
   - "tests/test_ai_config.py"
-  - "tests/test_approach_maps.py"
 tags:
   - "learnloop/configuration/fields"
   - "learnloop/configuration/section/required-method"
@@ -52,7 +52,7 @@ The main configuration contract, precedence rules, and safe-edit workflow live i
 
 | Dotted path | Effective value | Shape | Origin | Function | Runtime/refactor status | Consumer/source anchors |
 |---|---|---|---|---|---|---|
-| `required_method.enabled` | `true` | boolean | modeled default or validator seed | Kill switch for the method-explicit successor's required-method grading (owner rule 2026-10-13; mvp-0.25). On, the own-route rules are own-route-v2: an item's required_method, frozen with the assessment contract (the one authority: no prompt is parsed to decide it), reaches the grader's policy, and a criterion tied to it is graded on use of that method, so a divergent route fails it with no quoted wrong step (neither PF-c's gate nor the unlocated rule unassesses it); every other criterion keeps the own-route rules. Off, new answers grade exactly as mvp-0.24. Dormant below the successor and when proof_check.enabled is off; replay reads the blind record, never this switch. Generation phrasing criteria by fact and doctor's criterion:method_phrased are content paths, not gated here. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:3361`; `src/learnloop/ai/plan_fallback.py:138`; `src/learnloop/attempts/grading_support.py:272` |
+| `required_method.enabled` | `true` | boolean | modeled default or validator seed | Kill switch for the method-explicit successor's required-method grading (owner rule 2026-10-13; mvp-0.25). On, the own-route rules are own-route-v2: an item's required_method, frozen with the assessment contract (the one authority: no prompt is parsed to decide it), reaches the grader's policy, and a criterion tied to it is graded on use of that method, so a divergent route fails it with no quoted wrong step (neither PF-c's gate nor the unlocated rule unassesses it); every other criterion keeps the own-route rules. Off, new answers grade exactly as mvp-0.24. Dormant below the successor and when proof_check.enabled is off; replay reads the blind record, never this switch. Generation phrasing criteria by fact and doctor's criterion:method_phrased are content paths, not gated here. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:3372`; `src/learnloop/ai/plan_fallback.py:138`; `src/learnloop/attempts/grading_support.py:272` |
 
 > [!warning] Omitted does not mean frozen in the file
 > Most values are intentionally absent from `learnloop.toml`. Their reproducibility is protected by the defaults fingerprint keyed to `algorithms.algorithm_version`, not by dumping every default into each vault.
@@ -67,12 +67,12 @@ Every row cites the exact Pydantic field declaration (or typed dynamic-key conta
 - `tests/pf_fakes.py`
 - `tests/practice_index_fakes.py`
 - `tests/router_model_fakes.py`
+- `tests/rw5c_fixtures.py`
 - `tests/split_live_helpers.py`
 - `tests/test_ad23_contract.py`
 - `tests/test_ad23_successor.py`
 - `tests/test_ad2_model.py`
 - `tests/test_ai_config.py`
-- `tests/test_approach_maps.py`
 
 ## Extension and modification guidance
 

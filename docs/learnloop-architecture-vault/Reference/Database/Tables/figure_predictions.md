@@ -3,13 +3,13 @@ title: "figure_predictions"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "856ce60f74f6074a19363758ab69d21dcfecc54d"
-source_commit_timestamp: "2026-11-02T16:19:09-05:00"
+source_commit: "9e12d91330e6fa42d51fd7c7319294c7015e803f"
+source_commit_timestamp: "2026-11-02T20:08:53-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite figure_predictions"
   - "table figure_predictions"
-schema_head: 237
+schema_head: 238
 table_name: "figure_predictions"
 table_role: "raw_ledger"
 functionality_status: "active"
@@ -131,6 +131,7 @@ None found by exact static reference scan.
 - `tests/test_learner_note_source_kind_migration.py`
 - `tests/test_reader_rw5d_p4b_teacher_visuals.py`
 - `tests/test_router_reader_activity.py`
+- `tests/test_rw5c_labels.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

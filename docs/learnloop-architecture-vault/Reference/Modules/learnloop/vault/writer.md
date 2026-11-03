@@ -167,6 +167,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/mcp_world.py](../../../../../../tests/mcp_world.py) — direct import
 - [tests/passage_cue_fakes.py](../../../../../../tests/passage_cue_fakes.py) — direct import
 - [tests/pf_fakes.py](../../../../../../tests/pf_fakes.py) — direct import
+- [tests/rw5c_fixtures.py](../../../../../../tests/rw5c_fixtures.py) — direct import
 - [tests/section_coverage_fixtures.py](../../../../../../tests/section_coverage_fixtures.py) — direct import
 - [tests/source_retrieval_fakes.py](../../../../../../tests/source_retrieval_fakes.py) — direct import
 - [tests/source_service_fakes.py](../../../../../../tests/source_service_fakes.py) — direct import
@@ -333,6 +334,9 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_router_probe_ties.py](../../../../../../tests/test_router_probe_ties.py) — direct import
   - `test_teach_back_items_are_probe_near_ties_at_the_successor`
 - [tests/test_router_r2a_landing.py](../../../../../../tests/test_router_r2a_landing.py) — direct import
+- [tests/test_rw5c_source_check.py](../../../../../../tests/test_rw5c_source_check.py) — direct import
+  - `test_a_held_out_block_later_withholds_the_figure_and_its_check`
+  - `test_a_withheld_span_is_never_read`
 - [tests/test_scheduler_golden.py](../../../../../../tests/test_scheduler_golden.py) — direct import
 - [tests/test_scheduler_probe_eig.py](../../../../../../tests/test_scheduler_probe_eig.py) — direct import
   - `test_probe_eig_uses_prospective_familiarity_discount`

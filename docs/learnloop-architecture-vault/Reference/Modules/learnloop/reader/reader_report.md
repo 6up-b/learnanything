@@ -125,6 +125,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
+- [tests/rw5c_golden_source.py](../../../../../../tests/rw5c_golden_source.py) — direct import
 - [tests/test_compare_sources_keep.py](../../../../../../tests/test_compare_sources_keep.py) — direct import
   - `test_the_report_counts_keeps_takes_and_relations_without_quoting`
 - [tests/test_figure_offers.py](../../../../../../tests/test_figure_offers.py) — direct import

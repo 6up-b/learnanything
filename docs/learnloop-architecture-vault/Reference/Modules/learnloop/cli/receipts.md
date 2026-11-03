@@ -131,6 +131,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 No test imports this module directly. These tests exercise a direct production consumer:
 
+- [tests/rw5c_golden_source.py](../../../../../../tests/rw5c_golden_source.py) — imports consumer [[Reference/Modules/learnloop/cli/app|learnloop.cli.app]]
 - [tests/test_ad1_outside_and_cli.py](../../../../../../tests/test_ad1_outside_and_cli.py) — imports consumer [[Reference/Modules/learnloop/cli/app|learnloop.cli.app]]
 - [tests/test_ad23_contract.py](../../../../../../tests/test_ad23_contract.py) — imports consumer [[Reference/Modules/learnloop/cli/app|learnloop.cli.app]]
 - [tests/test_ad23_successor.py](../../../../../../tests/test_ad23_successor.py) — imports consumer [[Reference/Modules/learnloop/cli/app|learnloop.cli.app]]
@@ -142,7 +143,6 @@ No test imports this module directly. These tests exercise a direct production c
 - [tests/test_attempt_content_state_successor.py](../../../../../../tests/test_attempt_content_state_successor.py) — imports consumer [[Reference/Modules/learnloop/cli/app|learnloop.cli.app]]
 - [tests/test_auto_build_spend_report.py](../../../../../../tests/test_auto_build_spend_report.py) — imports consumer [[Reference/Modules/learnloop/cli/app|learnloop.cli.app]]
 - [tests/test_batch3_landing.py](../../../../../../tests/test_batch3_landing.py) — imports consumer [[Reference/Modules/learnloop/cli/app|learnloop.cli.app]]
-- [tests/test_capture_desktop.py](../../../../../../tests/test_capture_desktop.py) — imports consumer [[Reference/Modules/learnloop/cli/app|learnloop.cli.app]]
 
 ## Modification guidance
 

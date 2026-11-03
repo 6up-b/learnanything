@@ -10,8 +10,8 @@ area: "TypeScript/screens/reader/figures"
 source_path: "apps/learnloop-tauri/src/screens/reader/figures/AdvancedPanels.tsx"
 source_paths:
   - "apps/learnloop-tauri/src/screens/reader/figures/AdvancedPanels.tsx"
-source_commit: "48d0a951e8e97d7b377caf0db9c7f40db14ce349"
-source_commit_timestamp: "2026-10-23T11:08:36-04:00"
+source_commit: "7fd12e25ec8d644a7f73bd03a530e9a4ee9585d0"
+source_commit_timestamp: "2026-11-02T19:40:18-05:00"
 source_worktree_state: "clean"
 activation_kind: "entry-reachable build graph"
 activation_evidence: "A static TypeScript import path reaches this file from the Vite entry src/main.tsx."
@@ -42,14 +42,14 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/screens/reader/figures/AdvancedPanels.tsx](../../../../../../../../apps/learnloop-tauri/src/screens/reader/figures/AdvancedPanels.tsx) |
-| Source lines | 283 |
+| Source lines | 290 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/screens/reader/figures/_area|TypeScript/screens/reader/figures]] |
 | Refactor status | `ACTIVE` |
 | Activation kind | `entry-reachable build graph` |
 | Worktree state | `clean` |
-| Source commit | `48d0a951e8e97d7b377caf0db9c7f40db14ce349` |
-| Commit timestamp | `2026-10-23T11:08:36-04:00` |
+| Source commit | `7fd12e25ec8d644a7f73bd03a530e9a4ee9585d0` |
+| Commit timestamp | `2026-11-02T19:40:18-05:00` |
 
 ## Activation and status evidence
 
@@ -60,76 +60,82 @@ The system-level behavior stays authoritative in the linked architecture, concep
 
 ## Public API
 
-- `export const ADVANCED_COPY =` — const, line 28
-- `export function contourSegments(grid: HeatmapGridData, level: number): Array<[[number, number], [number, number]]>` — function, line 85
-- `export function HeatmapPanelView(` — function, line 170
-- `export function VectorFieldPanelView(` — function, line 184
-- `export function PathPanelView(` — function, line 234
+- `export const ADVANCED_COPY =` — const, line 29
+- `export function contourSegments(grid: HeatmapGridData, level: number): Array<[[number, number], [number, number]]>` — function, line 86
+- `export function HeatmapPanelView(` — function, line 171
+- `export function VectorFieldPanelView(` — function, line 187
+- `export function PathPanelView(` — function, line 239
 
 ## Internal implementation anchors
 
-- `const W = 600` — const, line 18
-- `const H = 300` — const, line 19
-- `const PAD =` — const, line 20
-- `const TABLE_SIDE = 12` — const, line 21
-- `const svgStyle: CSSProperties =` — const, line 23
-- `const tableStyle: CSSProperties =` — const, line 24
-- `const cellStyle: CSSProperties =` — const, line 25
-- `const noteStyle: CSSProperties =` — const, line 26
-- `function scaler(domain: [number, number], range: [number, number]): (value: number)` — function, line 35
-- `const span = d1 - d0 || 1` — const, line 38
-- `function finiteRange(values: Array<number | null>): [number, number] | null` — function, line 42
-- `let low = Infinity` — let, line 43
-- `let high = -Infinity` — let, line 44
-- `function sampled(length: number, side = TABLE_SIDE): number[]` — function, line 54
-- `const step = Math.max(1, Math.ceil(length / side))` — const, line 56
-- `const out: number[] = []` — const, line 57
-- `function GridAxes(` — function, line 63
-- `function frame(xs: number[], ys: number[])` — function, line 78
-- `const xDomain: [number, number] = [xs[0], xs[xs.length - 1]]` — const, line 79
-- `const yDomain: [number, number] = [ys[0], ys[ys.length - 1]]` — const, line 80
-- `const segments: Array<[[number, number], [number, number]]> = []` — const, line 86
-- `const cross = (x0: number, y0: number, v0: number, x1: number, y1: number, v1: number): [number, number]` — const, line 88
-- `const t = v1 === v0 ? 0.5 : (level - v0) / (v1 - v0)` — const, line 89
-- `const corners = [z[j][i], z[j][i + 1], z[j + 1][i + 1], z[j + 1][i]]` — const, line 94
-- `const points: Array<[number, number]> = []` — const, line 97
-- `const edges: Array<[number, number, number, number, number, number]> = [ [xs[i], ys[j], a, xs[i + 1], ys[j], b], [xs[i + 1], ys[j], b, xs[i + 1], ys[j + 1], c], [xs[i + 1], ys[j + 1], c, xs[i], ys[j + 1], d], [xs[i], ys[j + 1], d, xs[i], ys[j], a], ]` — const, line 98
-- `function HeatCells(` — function, line 114
-- `const range = finiteRange(grid.z.flat())` — const, line 115
-- `const span = high - low || 1` — const, line 118
-- `const halfX = (index: number)` — const, line 119
-- `const halfY = (index: number)` — const, line 120
-- `const left = x(Math.max(grid.x[0], grid.x[i] - halfX(i)))` — const, line 125
-- `const right = x(Math.min(grid.x[grid.x.length - 1], grid.x[i] + halfX(i)))` — const, line 126
-- `const top = y(Math.min(grid.y[grid.y.length - 1], grid.y[j] + halfY(j)))` — const, line 127
-- `const bottom = y(Math.max(grid.y[0], grid.y[j] - halfY(j)))` — const, line 128
-- `function HeatLegend(` — function, line 142
-- `const range = finiteRange(grid.z.flat())` — const, line 143
-- `function ValuesGrid(` — function, line 153
-- `const columns = sampled(xs.length)` — const, line 154
-- `const rows = sampled(ys.length)` — const, line 155
-- `let longest = 0` — let, line 186
-- `const v = data.v[j][i]` — const, line 188
-- `const stepX = data.x.length > 1 ? Math.abs(x(data.x[1]) - x(data.x[0])) : W` — const, line 191
-- `const stepY = data.y.length > 1 ? Math.abs(y(data.y[1]) - y(data.y[0])) : H` — const, line 192
-- `const reach = 0.85 * Math.min(stepX, stepY)` — const, line 193
-- `const v = data.v[j][i]` — const, line 206
-- `const scale = reach / longest` — const, line 208
-- `const x0 = x(data.x[i])` — const, line 209
-- `const y0 = y(data.y[j])` — const, line 210
-- `const dx = u * scale` — const, line 211
-- `const dy = -v * scale` — const, line 212
-- `function pathWindow(range:` — function, line 229
-- `const pad = (range.max - range.min) * ESCAPE_MARGIN` — const, line 230
-- `const trajectory = data.kind === "trajectory_2d"` — const, line 235
-- `const xDomain = axes ? pathWindow(axes.x) : (finiteRange(data.x) ?? [0, 1])` — const, line 236
-- `const yDomain = axes ? pathWindow(axes.y) : (finiteRange(data.y) ?? [0, 1])` — const, line 237
-- `const x = scaler(xDomain, [PAD.left, W - PAD.right])` — const, line 238
-- `const y = scaler(yDomain, [H - PAD.bottom, PAD.top])` — const, line 239
-- `const steps = trajectory ? (data as TrajectoryData).t : (data as IterateData).k` — const, line 240
-- `const d = data.x.map((xv, index)` — const, line 241
-- `const stoppedLine = data.stopped === "left_plot" ? ADVANCED_COPY.leftPlot : data.stopped === "not_finite" ? ADVANCED_COPY.notFinite : data.stopped === "starts_outside" ? ADVANCED_COPY.startsOutside : null` — const, line 242
-- `const last = data.x.length - 1` — const, line 245
+- `const W = 600` — const, line 19
+- `const H = 300` — const, line 20
+- `const PAD =` — const, line 21
+- `const TABLE_SIDE = 12` — const, line 22
+- `const svgStyle: CSSProperties =` — const, line 24
+- `const tableStyle: CSSProperties =` — const, line 25
+- `const cellStyle: CSSProperties =` — const, line 26
+- `const noteStyle: CSSProperties =` — const, line 27
+- `function scaler(domain: [number, number], range: [number, number]): (value: number)` — function, line 36
+- `const span = d1 - d0 || 1` — const, line 39
+- `function finiteRange(values: Array<number | null>): [number, number] | null` — function, line 43
+- `let low = Infinity` — let, line 44
+- `let high = -Infinity` — let, line 45
+- `function sampled(length: number, side = TABLE_SIDE): number[]` — function, line 55
+- `const step = Math.max(1, Math.ceil(length / side))` — const, line 57
+- `const out: number[] = []` — const, line 58
+- `function GridAxes(` — function, line 64
+- `function frame(xs: number[], ys: number[])` — function, line 79
+- `const xDomain: [number, number] = [xs[0], xs[xs.length - 1]]` — const, line 80
+- `const yDomain: [number, number] = [ys[0], ys[ys.length - 1]]` — const, line 81
+- `const segments: Array<[[number, number], [number, number]]> = []` — const, line 87
+- `const cross = (x0: number, y0: number, v0: number, x1: number, y1: number, v1: number): [number, number]` — const, line 89
+- `const t = v1 === v0 ? 0.5 : (level - v0) / (v1 - v0)` — const, line 90
+- `const corners = [z[j][i], z[j][i + 1], z[j + 1][i + 1], z[j + 1][i]]` — const, line 95
+- `const points: Array<[number, number]> = []` — const, line 98
+- `const edges: Array<[number, number, number, number, number, number]> = [ [xs[i], ys[j], a, xs[i + 1], ys[j], b], [xs[i + 1], ys[j], b, xs[i + 1], ys[j + 1], c], [xs[i + 1], ys[j + 1], c, xs[i], ys[j + 1], d], [xs[i], ys[j + 1], d, xs[i], ys[j], a], ]` — const, line 99
+- `function HeatCells(` — function, line 115
+- `const range = finiteRange(grid.z.flat())` — const, line 116
+- `const span = high - low || 1` — const, line 119
+- `const halfX = (index: number)` — const, line 120
+- `const halfY = (index: number)` — const, line 121
+- `const left = x(Math.max(grid.x[0], grid.x[i] - halfX(i)))` — const, line 126
+- `const right = x(Math.min(grid.x[grid.x.length - 1], grid.x[i] + halfX(i)))` — const, line 127
+- `const top = y(Math.min(grid.y[grid.y.length - 1], grid.y[j] + halfY(j)))` — const, line 128
+- `const bottom = y(Math.max(grid.y[0], grid.y[j] - halfY(j)))` — const, line 129
+- `function HeatLegend(` — function, line 143
+- `const range = finiteRange(grid.z.flat())` — const, line 144
+- `function ValuesGrid(` — function, line 154
+- `const columns = sampled(xs.length)` — const, line 155
+- `const rows = sampled(ys.length)` — const, line 156
+- `const labels = useFigureLabels()` — const, line 173
+- `const plain = (id: string)` — const, line 174
+- `let longest = 0` — let, line 189
+- `const v = data.v[j][i]` — const, line 191
+- `const stepX = data.x.length > 1 ? Math.abs(x(data.x[1]) - x(data.x[0])) : W` — const, line 194
+- `const stepY = data.y.length > 1 ? Math.abs(y(data.y[1]) - y(data.y[0])) : H` — const, line 195
+- `const reach = 0.85 * Math.min(stepX, stepY)` — const, line 196
+- `const labels = useFigureLabels()` — const, line 197
+- `const plain = (id: string)` — const, line 198
+- `const v = data.v[j][i]` — const, line 211
+- `const scale = reach / longest` — const, line 213
+- `const x0 = x(data.x[i])` — const, line 214
+- `const y0 = y(data.y[j])` — const, line 215
+- `const dx = u * scale` — const, line 216
+- `const dy = -v * scale` — const, line 217
+- `function pathWindow(range:` — function, line 234
+- `const pad = (range.max - range.min) * ESCAPE_MARGIN` — const, line 235
+- `const trajectory = data.kind === "trajectory_2d"` — const, line 240
+- `const xDomain = axes ? pathWindow(axes.x) : (finiteRange(data.x) ?? [0, 1])` — const, line 241
+- `const yDomain = axes ? pathWindow(axes.y) : (finiteRange(data.y) ?? [0, 1])` — const, line 242
+- `const x = scaler(xDomain, [PAD.left, W - PAD.right])` — const, line 243
+- `const y = scaler(yDomain, [H - PAD.bottom, PAD.top])` — const, line 244
+- `const steps = trajectory ? (data as TrajectoryData).t : (data as IterateData).k` — const, line 245
+- `const d = data.x.map((xv, index)` — const, line 246
+- `const stoppedLine = data.stopped === "left_plot" ? ADVANCED_COPY.leftPlot : data.stopped === "not_finite" ? ADVANCED_COPY.notFinite : data.stopped === "starts_outside" ? ADVANCED_COPY.startsOutside : null` — const, line 247
+- `const last = data.x.length - 1` — const, line 250
+- `const labels = useFigureLabels()` — const, line 251
+- `const plain = (id: string)` — const, line 252
 
 ## Who imports or calls it
 
@@ -144,6 +150,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 
 - [[Reference/Desktop/TypeScript/components/term|src/components/term.tsx]] — import-or-re-export; imports `COLOR`, `FONT_MONO`
 - [[Reference/Desktop/TypeScript/screens/reader/figures/FigurePanels|src/screens/reader/figures/FigurePanels.tsx]] — import-or-re-export; imports `formatValue`
+- [[Reference/Desktop/TypeScript/screens/reader/figures/figureLabels|src/screens/reader/figures/figureLabels.tsx]] — import-or-re-export; imports `LabelText`, `useFigureLabels`
 - [[Reference/Desktop/TypeScript/screens/reader/figures/figureSpec|src/screens/reader/figures/figureSpec.ts]] — import-or-re-export; imports `ESCAPE_MARGIN`, `HeatmapGridData`, `IterateData`, `TrajectoryData`, `VectorFieldData`
 
 ### Assets, platform, and third-party dependencies

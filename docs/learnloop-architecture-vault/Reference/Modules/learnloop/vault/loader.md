@@ -278,6 +278,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/mcp_world.py](../../../../../../tests/mcp_world.py) — direct import
 - [tests/passage_cue_fakes.py](../../../../../../tests/passage_cue_fakes.py) — direct import
 - [tests/pf_fakes.py](../../../../../../tests/pf_fakes.py) — direct import
+- [tests/rw5c_golden_source.py](../../../../../../tests/rw5c_golden_source.py) — direct import
 - [tests/source_retrieval_fakes.py](../../../../../../tests/source_retrieval_fakes.py) — direct import
 - [tests/source_service_fakes.py](../../../../../../tests/source_service_fakes.py) — direct import
 - [tests/split_live_helpers.py](../../../../../../tests/split_live_helpers.py) — direct import
@@ -2760,6 +2761,27 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_narration_switched_off_after_a_narrative_was_saved_shows_it_nowhere`
   - `test_the_section_is_absent_with_its_switches_off`
 - [tests/test_router_staged_p2.py](../../../../../../tests/test_router_staged_p2.py) — direct import
+- [tests/test_rw5c_judgments.py](../../../../../../tests/test_rw5c_judgments.py) — direct import
+  - `test_a_failure_between_the_two_inserts_leaves_neither`
+  - `test_a_recheck_supersedes_the_previous_verdict_of_the_same_figure`
+  - `test_at_build_a_failure_leaves_no_figure_row_and_no_verdict`
+- [tests/test_rw5c_recheck.py](../../../../../../tests/test_rw5c_recheck.py) — direct import
+  - `test_a_certification_bump_rechecks_at_no_paid_cost`
+  - `test_a_difference_found_at_recheck_gives_the_failed_state_with_rebuild`
+  - `test_a_kept_build_result_read_after_the_switch_turns_off_shows_no_label`
+  - `test_a_prebuilt_figure_nobody_pressed_for_that_differs_lists_nothing`
+  - `test_a_recheck_with_the_switch_off_or_turned_off_before_its_write_writes_nothing`
+  - `test_pressing_rebuild_calls_the_author_and_stores_a_new_version`
+  - `test_rebuild_is_not_offered_with_revisions_off`
+  - `test_section_figures_leave_a_rejected_figure_out`
+- [tests/test_rw5c_source_check.py](../../../../../../tests/test_rw5c_source_check.py) — direct import
+  - `test_a_block_that_is_not_ok_is_refused_with_its_reason`
+  - `test_a_withheld_span_is_never_read`
+  - `test_build_key_holds_the_switch_and_the_reuse_key_does_not`
+  - `test_the_switch_off_at_the_store_writes_nothing`
+  - `test_the_switch_off_between_the_sandbox_and_the_second_attempt_stops_the_build`
+- [tests/test_rw5c_switch_off.py](../../../../../../tests/test_rw5c_switch_off.py) — direct import
+  - `test_nothing_reads_the_ledger_while_the_switch_is_off`
 - [tests/test_rw7b_codex_review_fixes.py](../../../../../../tests/test_rw7b_codex_review_fixes.py) — direct import
   - `test_f1_a_staged_unstarted_path_reading_is_ended_unread_and_the_predecessors_is_served`
   - `test_f1_switching_off_after_the_build_restores_the_predecessors_reading`

@@ -113,6 +113,7 @@ The authoritative system-level explanation remains in [[Learning System]], [[AI 
 - [[Reference/Modules/learnloop/content/authoring/pf_contracts|learnloop.content.authoring.pf_contracts]] — imports `EQUIVALENCE_PROTOCOL`, `GENERATOR_PROTOCOL`
 - [[Reference/Modules/learnloop/content/authoring/source_exercise_import|learnloop.content.authoring.source_exercise_import]] — imports `SandboxLimits`
 - [[Reference/Modules/learnloop/figures/manim_figure|learnloop.figures.manim_figure]] — imports `module`; statically calls `SandboxLimits`, `run_sandboxed_python`
+- [[Reference/Modules/learnloop/figures/source_check|learnloop.figures.source_check]] — imports `module`; statically calls `SandboxLimits`, `sandbox_available`
 - [[Reference/Modules/learnloop/ops/embedding_compare|learnloop.ops.embedding_compare]] — imports `equivalence_confirmations`, `run_equivalence_checks`, `sandbox_available`; statically calls `equivalence_confirmations`, `run_equivalence_checks`, `sandbox_available`
 - [[Reference/Modules/learnloop/ops/pf_generation|learnloop.ops.pf_generation]] — imports `GENERATOR_PROTOCOL`, `SandboxLimits`, `SandboxUnavailable`, `check_generator_answers`, `equivalence_confirmations`, `require_sandbox`, `run_equivalence_checks`, `run_generator_tests`, `sandbox_available`; statically calls `check_generator_answers`, `require_sandbox`, `run_generator_tests`, `sandbox_available`
 - [[Reference/Modules/learnloop/ops/pf_verify|learnloop.ops.pf_verify]] — imports `SandboxLimits`, `SandboxUnavailable`, `equivalence_confirmations`, `run_equivalence_checks`, `sandbox_available`; statically calls `equivalence_confirmations`, `run_equivalence_checks`, `sandbox_available`
@@ -136,7 +137,7 @@ Use this module in context through:
 - [[Import Canonical Sources]]
 - [[Build a Study Map]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/content/authoring/pf_contracts|learnloop.content.authoring.pf_contracts]], [[Reference/Modules/learnloop/content/authoring/source_exercise_import|learnloop.content.authoring.source_exercise_import]], [[Reference/Modules/learnloop/figures/manim_figure|learnloop.figures.manim_figure]], [[Reference/Modules/learnloop/ops/embedding_compare|learnloop.ops.embedding_compare]], [[Reference/Modules/learnloop/ops/pf_generation|learnloop.ops.pf_generation]] and 2 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/content/authoring/pf_contracts|learnloop.content.authoring.pf_contracts]], [[Reference/Modules/learnloop/content/authoring/source_exercise_import|learnloop.content.authoring.source_exercise_import]], [[Reference/Modules/learnloop/figures/manim_figure|learnloop.figures.manim_figure]], [[Reference/Modules/learnloop/figures/source_check|learnloop.figures.source_check]], [[Reference/Modules/learnloop/ops/embedding_compare|learnloop.ops.embedding_compare]] and 3 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
@@ -207,6 +208,19 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_f20_a_partial_judgment_resumes_without_any_paid_pipeline_work`
 - [tests/test_required_method_round3.py](../../../../../../../tests/test_required_method_round3.py) — direct import
 - [tests/test_required_method_round3_review.py](../../../../../../../tests/test_required_method_round3_review.py) — direct import
+- [tests/test_rw5c_labels.py](../../../../../../../tests/test_rw5c_labels.py) — direct import
+  - `test_a_figure_with_no_book_element_is_drawn_exactly_as_before`
+- [tests/test_rw5c_recheck.py](../../../../../../../tests/test_rw5c_recheck.py) — direct import
+  - `test_a_certification_bump_rechecks_at_no_paid_cost`
+  - `test_a_recheck_with_the_switch_off_or_turned_off_before_its_write_writes_nothing`
+  - `test_dry_run_writes_nothing_and_the_cli_reports_by_reason_key`
+  - `test_rebuild_of_a_figure_with_no_difference_is_refused`
+- [tests/test_rw5c_source_check.py](../../../../../../../tests/test_rw5c_source_check.py) — direct import
+  - `test_a_held_out_block_later_withholds_the_figure_and_its_check`
+  - `test_a_quote_across_two_blocks_points_at_no_candidate`
+  - `test_a_sandbox_that_raises_unavailable_checks_nothing`
+  - `test_the_switch_off_at_the_store_writes_nothing`
+  - `test_the_switch_off_between_the_sandbox_and_the_second_attempt_stops_the_build`
 - [tests/test_source_exercise_import.py](../../../../../../../tests/test_source_exercise_import.py) — direct import
   - `test_a_need_is_never_fulfilled_by_an_unverified_key`
   - `test_an_unverified_key_is_written_labelled_or_refused_by_the_switch`

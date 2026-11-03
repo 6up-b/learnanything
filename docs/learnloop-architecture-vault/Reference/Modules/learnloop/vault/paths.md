@@ -263,6 +263,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/mcp_world.py](../../../../../../tests/mcp_world.py) — direct import
 - [tests/practice_index_fakes.py](../../../../../../tests/practice_index_fakes.py) — direct import
 - [tests/reading_path_fixtures.py](../../../../../../tests/reading_path_fixtures.py) — direct import
+- [tests/rw5c_golden_source.py](../../../../../../tests/rw5c_golden_source.py) — direct import
 - [tests/section_coverage_fixtures.py](../../../../../../tests/section_coverage_fixtures.py) — direct import
 - [tests/source_retrieval_fakes.py](../../../../../../tests/source_retrieval_fakes.py) — direct import
 - [tests/source_service_fakes.py](../../../../../../tests/source_service_fakes.py) — direct import
