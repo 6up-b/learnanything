@@ -151,6 +151,7 @@ export function PracticeScreen({
   onBack,
   onCheckpointCleared,
   onDraftSaved,
+  sessionMoved = false,
   onTeachBackActive,
   onAskAvailabilityChange,
   onInspect,
@@ -204,6 +205,8 @@ export function PracticeScreen({
   onCheckpointCleared: (identity?: PracticeCheckpointIdentity) => void;
   /** Mirror of the last flushed draft, so App can restore it if this item is
    *  re-opened before the backend checkpoint is reloaded. */
+  /** Mobile M2a (§6.5): the open session moved to another device. */
+  sessionMoved?: boolean;
   onDraftSaved: (draft: {
     practiceItemId: string;
     answerMd: string;
@@ -516,7 +519,10 @@ export function PracticeScreen({
     suppressDraftFlush.current = false;
   }, [answer, hintsUsed, planPresentationId, practiceItemId, restoredSubmissionId, schedulerCandidateId, session.sessionId, stuck, firstHint.value, hintSeen, pageSeen, earlierCountedFor]);
 
-  const draftSavingDisabled = () => suppressDraftFlush.current || teachBackRef.current;
+  // Mobile M2a (§6.5): this session continued on a phone; stop writing until it comes back.
+  const sessionMovedRef = useRef(sessionMoved);
+  sessionMovedRef.current = sessionMoved;
+  const draftSavingDisabled = () => suppressDraftFlush.current || teachBackRef.current || sessionMovedRef.current;
 
   /** Queue a save of the latest draft behind any save already in flight. */
   const saveDraft = useCallback(() => {
@@ -752,7 +758,7 @@ export function PracticeScreen({
 
   const practiceReady = item !== null && probeLoadState === "ready";
   const probeActive = Boolean(probe?.active && probe.presentationId);
-  const interactionReady = practiceReady && committedRecovery === null && !vaultChanging;
+  const interactionReady = practiceReady && committedRecovery === null && !vaultChanging && !sessionMoved;
 
   // RW2a: "Work in steps" on an ordinary serve (never a diagnostic check, a
   // teach-back, a guided redo or a primed retry), behind workbench.enabled.

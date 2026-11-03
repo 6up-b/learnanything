@@ -10,6 +10,7 @@
 
 import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { api } from "../api/client";
+import { startSessionOrAsk } from "../app/sessionHandoff";
 import { useCachedQuery } from "../api/useCachedQuery";
 import { peek } from "../api/queryCache";
 import { TAG } from "../api/queryTags";
@@ -1773,7 +1774,8 @@ export function StartScreen({
     setLoading(true);
     try {
       // Minutes only (§6.6): energy and sleep are no longer asked for or sent.
-      const session = await api.startSession({ availableMinutes: plan ? Math.round(plan.minutesBudget) : minutes });
+      const session = await startSessionOrAsk({ availableMinutes: plan ? Math.round(plan.minutesBudget) : minutes });
+      if (!session) return;
       if (plan) {
         // Begin starts today's plan at its first step.
         const first = await api.nextPlanItem({ sessionId: session.sessionId, serve: true });

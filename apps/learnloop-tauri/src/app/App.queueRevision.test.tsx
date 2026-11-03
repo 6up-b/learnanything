@@ -198,6 +198,103 @@ describe("the app-level revision poll", () => {
   });
 });
 
+describe("M2a (§6.5): the session moved to the phone", () => {
+  const MOVED = { ...SESSION, ownerDeviceId: "dev_phone", ownerLabel: "Phone", ownerGeneration: 1 };
+
+  async function openOnPractice(session: Record<string, unknown> = SESSION) {
+    stubs.session = session;
+    render(<App />);
+    await wait(0);
+    await wait(0);
+  }
+
+  async function phoneTakesIt() {
+    stubs.api.getQueueRevision = vi.fn(async () => ({ version: 1, revision: 2, updatedAt: null }));
+    stubs.api.getSession = vi.fn(async () => MOVED);
+    await wait(REVISION_POLL_MS * 2);
+  }
+
+  it("the banner names the phone, and the question stops writing without being remounted", async () => {
+    await openOnPractice();
+    expect(stubs.practiceProps?.sessionMoved).toBe(false);
+    await phoneTakesIt();
+    expect(screen.getByRole("status", { name: "Session moved" }).textContent).toContain("This session continued on Phone.");
+    expect(stubs.practiceProps?.sessionMoved).toBe(true);
+    expect(stubs.practiceMounts).toBe(1);
+  });
+
+  it("a session the phone already holds at load is a move at once, with no read of its own", async () => {
+    await openOnPractice(MOVED);
+    expect(screen.getByRole("status", { name: "Session moved" })).toBeTruthy();
+    expect(stubs.api.getSession).not.toHaveBeenCalled();
+  });
+
+  it("a write refused with session_moved says so before the poll's next read", async () => {
+    const { noteSessionMovedError } = await import("./sessionMoved");
+    await openOnPractice();
+    expect(screen.queryByRole("status", { name: "Session moved" })).toBeNull();
+    await act(async () => {
+      noteSessionMovedError({ code: "session_moved", message: "m", details: { session_id: "ses_1", owner_label: "Phone", owner_generation: 4 } });
+    });
+    expect(screen.getByRole("status", { name: "Session moved" }).textContent).toContain("Phone");
+  });
+
+  it("Take it back adopts at the generation it saw and reopens the question on the checkpoint", async () => {
+    await openOnPractice();
+    await phoneTakesIt();
+    const back = { ...SESSION, ownerGeneration: 2, checkpoint: { ...SESSION.checkpoint, currentAnswer: "the phone's answer" } };
+    stubs.api.adoptSession = vi.fn(async () => ({}));
+    stubs.api.getSession = vi.fn(async () => back);
+    fireEvent.click(screen.getByRole("button", { name: "Take it back" }));
+    await wait(0);
+    await wait(0);
+    expect(stubs.api.adoptSession).toHaveBeenCalledWith({ sessionId: "ses_1", expectedGeneration: 1 });
+    expect(screen.queryByRole("status", { name: "Session moved" })).toBeNull();
+    expect(stubs.practiceProps?.sessionMoved).toBe(false);
+    expect(stubs.practiceMounts).toBe(2);
+    expect((stubs.practiceProps?.session as { checkpoint: { currentAnswer: string } }).checkpoint.currentAnswer).toBe("the phone's answer");
+  });
+
+  it("Start fresh names the session it replaces", async () => {
+    await openOnPractice();
+    await phoneTakesIt();
+    stubs.api.startSession = vi.fn(async () => ({ ...SESSION, sessionId: "ses_2", checkpoint: null }));
+    fireEvent.click(screen.getByRole("button", { name: "Start fresh" }));
+    await wait(0);
+    await wait(0);
+    expect(stubs.api.startSession).toHaveBeenCalledWith({ availableMinutes: 25, replace: "ses_1" });
+    expect(screen.queryByRole("status", { name: "Session moved" })).toBeNull();
+  });
+
+  it("a session ended elsewhere offers no taking back", async () => {
+    await openOnPractice();
+    stubs.api.getQueueRevision = vi.fn(async () => ({ version: 1, revision: 2, updatedAt: null }));
+    stubs.api.getSession = vi.fn(async () => ({ ...SESSION, endedAt: "2026-11-03T01:00:00Z" }));
+    await wait(REVISION_POLL_MS * 2);
+    expect(screen.getByRole("status", { name: "Session moved" }).textContent).toContain("ended on another device");
+    expect(screen.queryByRole("button", { name: "Take it back" })).toBeNull();
+  });
+
+  it("open item 6: a phone's change on Today refetches once, and a focus at the same token nothing", async () => {
+    stubs.session = { ...SESSION, checkpoint: null };
+    stubs.config = { shell: "simple", teacher: { lessons: true } };
+    render(<App />);
+    await wait(0);
+    await wait(0);
+    const before = vi.mocked(stubs.api.getDailyPlan).mock.calls.length;
+    stubs.api.getQueueRevision = vi.fn(async () => ({ version: 1, revision: 2, updatedAt: null }));
+    await wait(REVISION_POLL_MS * 2);
+    const after = vi.mocked(stubs.api.getDailyPlan).mock.calls.length;
+    expect(after).toBe(before + 1);
+    await act(async () => {
+      window.dispatchEvent(new Event("focus"));
+      await vi.advanceTimersByTimeAsync(0);
+    });
+    await wait(REVISION_POLL_MS);
+    expect(stubs.api.getDailyPlan).toHaveBeenCalledTimes(after);
+  });
+});
+
 describe("ruling R2: reloads and refetches only where Today's poll ran", () => {
   const OPEN_SESSION = { ...SESSION, checkpoint: null };
   /** A sidecar that holds one completed job and reloads for it on the first read that may. */

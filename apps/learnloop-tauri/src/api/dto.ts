@@ -670,6 +670,20 @@ export interface SessionStartInput {
   sleepQuality?: number | null;
   availableMinutes?: number | null;
   notesMdPath?: string | null;
+  /** Mobile M2a (§6.5): "start fresh" over the open session another device owns. */
+  replace?: string | null;
+}
+
+/** What `start_session` refuses with, `session_open_elsewhere` (§6.5). Snake case: error details stay so. */
+export interface SessionElsewhereDetails {
+  session_id: string;
+  started_at?: string | null;
+  owner_device_id?: string | null;
+  owner_label?: string | null;
+  owner_generation?: number | null;
+  current_practice_item_id?: string | null;
+  has_draft?: boolean;
+  draft_first_line?: string | null;
 }
 
 /** What Start shows before a session begins (daily-loop DL0, spec §6.6 and §8). */
@@ -854,6 +868,8 @@ export interface QueueSnapshot {
   /** Set while the welcome-back panel shows: the re-entry session is capped at
    *  this many items (owner decision P6). Null/absent: no re-entry cap. */
   reentryRefresherCap?: number | null;
+  /** Mobile M2a (§6.4, D6): the phone's "N items waiting for the desktop". Absent on the desktop. */
+  deviceDeferredCount?: number;
 }
 
 /** Knowledge-model §5.1: what a rubric criterion actually observes. `role`

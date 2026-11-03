@@ -8,6 +8,8 @@ import { DockedAsk } from "../components/DockedAsk";
 import { AddPopover, DropOverlay, useAddSource } from "../components/AddSource";
 import { ConnectAISheet } from "../components/ConnectAI";
 import { PlanFallbackOffer } from "../components/PlanFallbackOffer";
+import { SessionElsewherePrompt } from "../components/SessionElsewherePrompt";
+import { SessionMovedBanner } from "../components/SessionMovedBanner";
 import { pickSourceFiles, useSourceFileDrop } from "../components/useSourceFileDrop";
 import { LibraryPlace, type LibraryView } from "../screens/LibraryPlace";
 import { useGlobalAdd } from "./useGlobalAdd";
@@ -70,6 +72,8 @@ import { setAlgoConfig } from "./algoConfig";
 import { isTypingTarget } from "./keyboard";
 import { notifyQueueChanged, subscribeQueueChanged } from "../queueEvents";
 import { revisionPollHeld, useQueueRevisionPoll } from "./useQueueRevisionPoll";
+import { adoptMovedSession, startSessionOrAsk } from "./sessionHandoff";
+import { setSessionMoved, useSessionMoved, type SessionMoved } from "./sessionMoved";
 import { clear as clearQueryCache, invalidateAll as invalidateAllQueries } from "../api/queryCache";
 import { clearPdfDocuments } from "../components/pdfDocumentCache";
 import { selectWithDraftFlush } from "./vaultTransition";
@@ -267,6 +271,9 @@ export function App() {
   // re-opening the same question mid-session would show an empty editor.
   const [localDraft, setLocalDraft] = useState<PracticeDraftMirror | null>(null);
   const onPracticeDraft = useCallback((draft: PracticeDraftMirror) => setLocalDraft(draft), []);
+  // Mobile M2a: the session came back from a phone; the open question reopens on its checkpoint.
+  const [handoffEpoch, setHandoffEpoch] = useState(0);
+  const sessionMoved = useSessionMoved();
   const [libraryNoteId, setLibraryNoteId] = useState<string | null>(null);
   // F6 Repair (§4.10): a detail overlay launched with a misconception id. Not a
   // tab. openRepair is the App-level entry point — wire it to Feedback's "repair
@@ -607,6 +614,7 @@ export function App() {
   useQueueRevisionPoll({
     vaultRoot,
     sessionId: session?.sessionId ?? null,
+    openedSession: session,
     quiet: revisionPollHeld({
       tab,
       todayStage,
@@ -900,15 +908,16 @@ export function App() {
     if (pendingStartRef.current) return pendingStartRef.current;
     if (vaultChangesRef.current > 0) return Promise.resolve(null);
     const generation = vaultGenRef.current;
-    let request: Promise<SessionSnapshot>;
+    let request: Promise<SessionSnapshot | null>;
     try {
-      request = api.startSession({ availableMinutes: minutes });
+      // M2a (§6.5): a session a phone holds asks first; Cancel answers null.
+      request = startSessionOrAsk({ availableMinutes: minutes });
     } catch (error) {
       return Promise.reject(error);
     }
     const pending: Promise<SessionSnapshot | null> = request
       .then((next) => {
-        if (vaultGenRef.current !== generation) return null;
+        if (next === null || vaultGenRef.current !== generation) return null;
         sessionRef.current = next;
         setTodayNoGoalBannerDismissed(false);
         setSession(next);
@@ -1338,6 +1347,52 @@ export function App() {
     setLibraryFilePath(path);
     setLibraryView("files");
     setTab("library");
+  }
+
+  // Mobile M2a (§6.5): the banner's choices. Taking it back keeps the session's id, its
+  // caps and the phone's draft: the mirror goes, the checkpoint is what a screen restores,
+  // and the question reopens on it (the epoch), since the phone may have moved on.
+  function installHandedSession(next: SessionSnapshot) {
+    sessionRef.current = next;
+    setLocalDraft(null);
+    setHandoffEpoch((epoch) => epoch + 1);
+    setSession(next);
+    const item = next.checkpoint?.currentPracticeItemId ?? null;
+    if (item) setPracticeItemId(item);
+    else if (todayStage === "practice") setTodayStage("queue");
+    notifyQueueChanged();
+  }
+
+  async function adoptSessionBack(from: SessionMoved) {
+    try {
+      installHandedSession(await adoptMovedSession(from));
+      setSessionMoved(null);
+    } catch (error) {
+      reportError(error, "Couldn't take this session back.");
+    }
+  }
+
+  async function startFreshOverMoved(from: SessionMoved) {
+    try {
+      const minutes = session?.availableMinutes ?? (await implicitSessionMinutes());
+      // A session a phone holds now and a stale id both come back as the prompt.
+      const next = await startSessionOrAsk({
+        availableMinutes: minutes,
+        ...(from.reason === "adopted" ? { replace: from.sessionId } : {})
+      });
+      if (!next) return;
+      setPracticeOffer(null);
+      setPracticeItemId(null);
+      setAttemptId(null);
+      setTodayStage("queue");
+      setLocalDraft(null);
+      sessionRef.current = next;
+      setSession(next);
+      setSessionMoved(null);
+      notifyQueueChanged();
+    } catch (error) {
+      reportError(error, "Couldn't start a new session.");
+    }
   }
 
   function clearLocalCheckpoint(identity?: { practiceItemId: string; submissionId: string }) {
@@ -1919,9 +1974,10 @@ export function App() {
       if (todayStage === "practice" && session && practiceItemId) {
         return (
           <PracticeScreen
-            key={`${session.sessionId}:${practiceItemId}`}
+            key={`${session.sessionId}:${practiceItemId}:${handoffEpoch}`}
             session={session}
             practiceItemId={practiceItemId}
+            sessionMoved={sessionMoved !== null}
             schedulerCandidateId={schedulerCandidateForServe({
               offer: practiceOffer,
               practiceItemId,
@@ -2467,6 +2523,13 @@ export function App() {
       ) : null}
       {/* Plan-first transport T1: the ChatGPT plan is unavailable and OpenRouter could serve. */}
       <PlanFallbackOffer onContinueWithChatGPT={() => setConnectOpen(true)} />
+      {/* Mobile M2a (§6.5): the session moved to a phone, or a start found one open there. */}
+      <SessionMovedBanner
+        moved={sessionMoved}
+        onAdoptBack={adoptSessionBack}
+        onStartFresh={startFreshOverMoved}
+      />
+      <SessionElsewherePrompt />
       {fileDragging ? <DropOverlay /> : null}
       {simple && !settingsOpen ? <NoticeHost notices={notices} holding={readerHolding} onChange={setNotices} /> : null}
       {keysHelpOpen ? <KeyboardHelp shell={shell} onClose={() => setKeysHelpOpen(false)} /> : null}
