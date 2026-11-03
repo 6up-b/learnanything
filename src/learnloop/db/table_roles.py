@@ -172,6 +172,7 @@ _TABLE_ROLE_ITEMS: tuple[tuple[str, TableRole], ...] = (
     # draw, and the states of the check that measures it (append-only).
     ("decision_measurement_events", TableRole.RECEIPT),
     ("decision_objectives", TableRole.RECEIPT),
+    ("reading_exposure_receipts", TableRole.RECEIPT),
     # Deliverable curriculum C0b (migration 228): the learner's scope inputs
     # (their own words, append-only), the resolver's resolutions and the
     # curated path's rows with the learner's verdicts (paid outputs, never

@@ -20,6 +20,8 @@ logger = logging.getLogger(__name__)
 
 RECEIPT_TABLES: tuple[str, ...] = ("prefilter_payloads", "prefilter_receipts")
 OBJECTIVE_TABLES: tuple[str, ...] = ("decision_objectives", "decision_measurement_events")
+#: Reader activity frozen for the delayed-completion definition, whatever AD's forecast logging says.
+READING_EXPOSURES = "reading_exposure_receipts"
 
 RECEIPT_COLUMNS: tuple[str, ...] = (
     "id", "decision_id", "decision_kind", "surface", "receipt_version", "algorithm_version", "code_revision",
@@ -127,15 +129,51 @@ def insert_measurement_event(
     attempt_id: str | None = None,
     detail: Mapping[str, Any] | None = None,
     at: str,
+    episode: str = "",
 ) -> bool:
-    """A measurement's state, once per reason: a repeat is a no-op (returns False)."""
+    """A measurement's state, once per reason and episode: a repeat is a no-op (returns False)."""
 
     cursor = connection.execute(
         "INSERT OR IGNORE INTO decision_measurement_events"
-        "(id, decision_id, state, reason, practice_item_id, attempt_id, detail_json, created_at) "
-        "VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+        "(id, decision_id, state, reason, practice_item_id, attempt_id, detail_json, created_at, episode) "
+        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
         (new_ulid(), decision_id, state, reason, practice_item_id, attempt_id,
-         json.dumps(dict(detail or {}), sort_keys=True, separators=(",", ":")), at),
+         json.dumps(dict(detail or {}), sort_keys=True, separators=(",", ":")), at, episode),
+    )
+    return cursor.rowcount > 0
+
+
+def latest_episode(connection: sqlite3.Connection, decision_id: str, *, reason: str) -> str:
+    """The episode the newest ``due`` or ``offered`` state of this check opened: a loss is counted once per it."""
+
+    row = connection.execute(
+        "SELECT episode FROM decision_measurement_events WHERE decision_id = ? AND reason = ? "
+        "AND state IN ('due', 'offered') ORDER BY created_at DESC, id DESC LIMIT 1", (decision_id, reason)).fetchone()
+    return str(row[0]) if row is not None else ""
+
+
+def reading_exposures_present(connection: sqlite3.Connection) -> bool:
+    return _present(connection, (READING_EXPOSURES,))
+
+
+def newest_reading_exposure(connection: sqlite3.Connection) -> str | None:
+    """The newest source time on record: where the next sweep's window starts."""
+
+    return connection.execute(f"SELECT MAX(source_written_at) FROM {READING_EXPOSURES}").fetchone()[0]
+
+
+def reading_exposure_recorded(connection: sqlite3.Connection, where: str, args: Iterable[Any] = ()) -> bool:
+    return connection.execute(f"SELECT 1 FROM {READING_EXPOSURES} WHERE {where} LIMIT 1", tuple(args)).fetchone() is not None
+
+
+def insert_reading_exposure(connection: sqlite3.Connection, *, kind: str, subkind: str, source_table: str, source_id: str,
+                            source_written_at: str, learning_object_id: str, mapping_version: str, swept_at: str) -> bool:
+    """One reading exposure on one LO, once: a repeat is a no-op (returns False)."""
+
+    cursor = connection.execute(
+        f"INSERT OR IGNORE INTO {READING_EXPOSURES}(id, kind, subkind, source_table, source_id, source_written_at, "
+        "learning_object_id, mapping_version, swept_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+        (new_ulid(), kind, subkind, source_table, source_id, source_written_at, learning_object_id, mapping_version, swept_at),
     )
     return cursor.rowcount > 0
 
@@ -158,10 +196,16 @@ def measurement_events(connection: sqlite3.Connection) -> dict[str, list[dict[st
 
 
 __all__ = [
+    "READING_EXPOSURES",
     "MEASUREMENT_STATES",
     "OBJECTIVE_COLUMNS",
     "RECEIPT_COLUMNS",
     "insert_measurement_event",
+    "insert_reading_exposure",
+    "latest_episode",
+    "newest_reading_exposure",
+    "reading_exposure_recorded",
+    "reading_exposures_present",
     "insert_objective",
     "insert_prefilter_receipt",
     "measurement_events",

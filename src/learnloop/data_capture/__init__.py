@@ -12,6 +12,6 @@ This package is a leaf (the stores and the version gates only): every serving pa
 it. The rest lives where its reads do: the shared delayed-completion definition
 (:mod:`learnloop.delayed_completion`, A4), the frozen objective and its measurement
 (:mod:`learnloop.daily_plan.measurement`, A2), the first-delayed-success proxy
-(:mod:`learnloop.diagnosis.first_delayed_success`, A3) and the read-only report
+(:mod:`learnloop.router.first_delayed_success`, A3) and the read-only report
 (:mod:`learnloop.ops.capture_report`).
 """

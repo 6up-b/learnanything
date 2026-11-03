@@ -1,4 +1,4 @@
-"""Data capture: migration 239, four append-only RECEIPT tables (docs/reviews/data-capture-a1-a6.md).
+"""Data capture: migration 239, five append-only RECEIPT tables (docs/reviews/data-capture-a1-a6.md).
 
 Additive: no existing object changes, no row is written, nothing replay reads. The head fixture is at 239
 in rollback mode with empty tables. Earlier migrations' "nothing else changed" diffs on the way to head
@@ -17,7 +17,8 @@ from learnloop.db.migrate import UPGRADE_TEST_HELPER, applied_versions, apply_mi
 from learnloop.db.table_roles import TABLE_ROLES, TableRole
 
 HEAD = Path(__file__).resolve().parents[1] / "fixtures" / "migration_head_239" / "state.sqlite"
-TABLES = ("prefilter_payloads", "prefilter_receipts", "decision_objectives", "decision_measurement_events")
+TABLES = ("prefilter_payloads", "prefilter_receipts", "decision_objectives", "decision_measurement_events",
+          "reading_exposure_receipts")
 #: What 239 adds (its tables, autoindexes, indexes and triggers).
 DATA_CAPTURE_ADDED_OBJECTS = frozenset({
     *TABLES,
@@ -27,6 +28,8 @@ DATA_CAPTURE_ADDED_OBJECTS = frozenset({
     "sqlite_autoindex_decision_measurement_events_1", "sqlite_autoindex_decision_measurement_events_2",
     "prefilter_receipts_created", "decision_objectives_lo", "decision_objectives_commitment",
     "decision_measurement_events_decision",
+    "sqlite_autoindex_reading_exposure_receipts_1", "sqlite_autoindex_reading_exposure_receipts_2",
+    "reading_exposure_receipts_source_time",
     *(f"{table}_no_{verb}" for table in TABLES for verb in ("update", "delete")),
 })
 

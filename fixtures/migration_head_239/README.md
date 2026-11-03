@@ -49,7 +49,8 @@ through `learnloop.db.migrate.apply_migrations` under the scratch-copy allowance
 companion files. The head holds 229 through 239.
 
 * 239 adds exactly its objects: `prefilter_payloads`, `prefilter_receipts`,
-  `decision_objectives` and `decision_measurement_events` (all RECEIPT), their
+  `decision_objectives`, `decision_measurement_events` and
+  `reading_exposure_receipts` (all RECEIPT), their
   autoindexes and indexes and their append-only triggers, with no row.
 
 No other object changed definition and only `schema_migrations` gained a row (239);

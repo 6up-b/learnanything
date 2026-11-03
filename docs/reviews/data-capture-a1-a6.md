@@ -62,8 +62,10 @@ Five parts, each stored once by hash, compressed:
 * `classification`: each item, its lane and reason, and the **admission**: `probability_1`, or `probability_0` by reason.
   `router_probability` says `conditional_on_admission`; `admission_probability()` reads it.
 * `upstream`: all VOI decisions of the build (probe episodes, further teach-backs, due project probes), the likelihood
-  rows of in-episode probes (their hash in `versions_json`), any upstream draw. No likelihood version exists today, so
-  the rows themselves are the record.
+  rows of in-episode probes, every evaluated probe's whole forecast whether or not it paid (`candidate_forecasts`: its
+  likelihood rows, prior and minutes; about 3.8 KB raw and 0.5 KB compressed per candidate on the synthetic probe vault,
+  unmeasured on real probes), their hash in `versions_json`, any upstream draw. No likelihood version exists today, so the
+  rows themselves are the record.
 * `inputs`: each considered item's priority, the session, minutes, requests, deadlines, open problems.
 * `config`: the configuration snapshot.
 
@@ -97,16 +99,26 @@ maintain lane's load first, so it replaces an ordinary slot and the other lanes 
 States (`due`, `offered`, `answered`, `unavailable` with a reason) are written where Today prepares
 (`measurement.settle`), once per reason, idempotently.
 
+A check is shared only where it can measure the decision: it comes due no earlier than `RETENTION_MIN_DELAY_SECONDS` from
+it. A new check is dated at the first local midnight past that delay, whatever a short FSRS interval or the date's
+truncation would say; one already due is left to its own decision and another item is asked. A check answered warm (the
+learner practised the LO just before) satisfies the check but not the decision's outcome: it reads `unavailable`
+(`answer_not_delayed`), and one replacement check is arranged from that moment, its states under a `replacement:` reason.
+A replacement answered warm too ends the arrangement, since each one costs the learner a question; ordinary retrievals
+still reach the outcome. Every reader folds the states chronologically: a replaced check stops reading `due`, a later
+offer restores it, an answer is terminal.
+
 **For A7:** `freeze`/`freeze_followup`, `record(..., experiment_id=...)` and the adapter take any decision; a test does it.
 
 ## A3, the honest time metric
 
 `learnloop.router.first_delayed_success` (`first_delayed_success_proxy_v1`, labelled "first-delayed-success proxy, not goal
-attainment"). From enrollment (the earliest goal or learner commitment on the LO; with neither, the first exposure, and it
+attainment"). From enrollment (the first contract version whose own recorded scope holds the LO, or a goal's creation where it has no
+contract, or a learner's commitment on it, the earliest of those; with neither, the first exposure, and it
 says so; a system-dated check is never one) to the first presentation the shared definition calls a completed delayed
-attempt at the board's existing success threshold. The goal contract in force is pinned by id, version and due date; no
-goal model. `active` (attempt latency, Reader active seconds) and `elapsed` (serve to answer, a visit's open to close, a
-reading block's start to end) are separate fields, never blended. Unfinished trajectories stay counted; missing latency is
+attempt at the board's existing success threshold. The goal contract in force is pinned by id, version and due date, only when that version
+covers the LO; no goal model. `active` (attempt latency, Reader active seconds) and `elapsed` (serve to answer, a visit's open to close, the part of a
+reading block no visit of that LO already holds) are separate fields, never blended. Unfinished trajectories stay counted; missing latency is
 coverage, not zero; a visit no reading names is `unattributed`, reported. Lessons' durations join with TE3.
 
 `learner_minutes_to_cold_success` is renamed `learner_minutes_to_first_unassisted_success` (`b5_scoreboard_v2`), and the
@@ -119,7 +131,9 @@ since the last exposure or practice before the attempt's own presentation (attem
 since the decision for an ITT outcome. Requested help on a delayed, unexposed presentation is `R_cold = 0`. A pre-exposed
 presentation (AD's frozen flag, or a primed attempt with a reveal before its serve) and an abandoned one stay separate; a
 primed attempt with no bound presentation is `primed_unbound`, AD's own exclusion. AD's value rule stays its own (`Y = 2`
-is 1). Outcome version only: no certification, mastery, grading, FSRS or projection reads it. Below the tag, v2 exactly.
+is 1). Both read one set of reading exposures: AD's frozen `ad_reading_opportunities` receipts and the LO-linked
+`source_exposure_events`, the router's raw, AD's through its material view. The receipts come from AD's sweep, so with
+`adaptive_difficulty.forecast_receipts` off only the exposure events count; the report shows how many receipts exist. Outcome version only: no certification, mastery, grading, FSRS or projection reads it. Below the tag, v2 exactly.
 
 ## A5, exploration floor when not_ready
 
@@ -148,7 +162,8 @@ bind-logged, never clamped. Unconditional: it corrects a logged number and chang
 ## The report
 
 `learnloop data-capture report --vault <path> [--json]`, read-only: receipts by kind with coverage, rows and bytes per
-active day; objectives by arm with each arm's measurement states and why any is unavailable; outcomes by arm; the proxy with
+active day; objectives by arm with each arm's measurement states and why any is unavailable; R_cold on the frozen objective by arm (one
+endpoint for every arm), each served action's own outcome apart; the proxy with
 its coverage; the not_ready floor's draws, the delayed picks' ties, thin supports.
 
 ## Calls worth the owner's eye

@@ -481,6 +481,17 @@ _COLLECTORS: tuple[Callable[..., list[_Event]], ...] = (
 )
 
 
+def listed_events(connection: Any, reading_map: Any, lower: str | None, upper: str, *, view: Any) -> list[_Event]:
+    """Every listed learning opportunity in the window, as ``reading_map`` and ``view`` see them: this list and its
+    reading, with no receipt, no cap and no write. Data capture's exposure sweep reads the same list
+    (:mod:`learnloop.daily_plan.reading_exposures`), since it stands whatever this module's switches say."""
+
+    events: list[_Event] = []
+    for collect in _COLLECTORS:
+        events.extend(collect(connection, reading_map, lower, upper, view=view))
+    return events
+
+
 def _capped(kind: str, subkind: str) -> tuple[str, int] | None:
     """A capped kind's occupancy bucket and its cap per LO and day (§5.11), or None."""
 
@@ -590,9 +601,7 @@ def sweep(vault: Any, repository: Any, *, as_of: str, sweep_kind: str = "serve",
                        if row.get("source_written_at")]
             newest = parse_utc(max(visible)) if visible else None
             lower = _stamp((newest - SWEEP_OVERLAP).isoformat()) if newest is not None else None
-        events: list[_Event] = []
-        for collect in _COLLECTORS:
-            events.extend(collect(connection, mapping, lower, upper, view=material))
+        events = listed_events(connection, mapping, lower, upper, view=material)
         events.sort(key=lambda event: (event.written_at, event.source_table, event.source_id, event.subkind))
         result.considered = len(events)
         # AD2+AD3 (§5.12): a taken dose offer's extra carries the offer's id on its receipt.
@@ -633,5 +642,6 @@ __all__ = [
     "SOURCES",
     "SweepResult",
     "VaultReadingMap",
+    "listed_events",
     "sweep",
 ]

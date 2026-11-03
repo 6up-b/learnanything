@@ -102,12 +102,12 @@ reveal during it) is R_cold = 0, a failure of unassisted completion, as adaptive
 difficulty defines it. A pre-exposed presentation and an unanswered one are
 neither: they stay separate. Below it R_cold is v2's exactly (a help-assisted
 attempt is excluded). Version only: certification, mastery, grading, FSRS and the
-projection read nothing here. Its reading exposures are the frozen, LO-linked ones
-adaptive difficulty's dose outcomes read: ``ad_reading_opportunities`` (a completed
-section, a passage view, a tutor exchange, a worked example, an in-passage question;
-Codex review F1) beside the LO-linked ``source_exposure_events``, so a reading the
-hour before an answer leaves it warm on both sides. The receipts are written by AD's
-sweep (``adaptive_difficulty.forecast_receipts``): off, only the exposure events count.
+projection read nothing here. Its reading exposures are frozen and LO-linked (a
+completed section, a passage view, a tutor exchange, a worked example, an in-passage
+question; Codex review F1): data capture's own ``reading_exposure_receipts``, which
+stand whatever adaptive difficulty's forecast logging says (Codex re-review F1), and
+AD's ``ad_reading_opportunities`` where those exist, beside the LO-linked
+``source_exposure_events``, so a reading the hour before an answer leaves it warm.
 
 **A reading block, a follow-up that waits and a stop** (data capture A2, version 3):
 a decision with a frozen objective (``decision_objectives``) and no action of its
@@ -123,8 +123,8 @@ before its objective could be frozen has none and stays ``not_applicable``
 
 Deterministic from ledgers (``router_decisions``, ``practice_attempts``,
 grading evidence through the caller's PF-c states, ``reveal_events``,
-``question_events``, ``source_exposure_events``, ``ad_reading_opportunities``
-(version 3), ``sessions.ended_at``, ``router_suggestion_responses``) and the
+``question_events``, ``source_exposure_events``, ``reading_exposure_receipts`` and
+``ad_reading_opportunities`` (version 3), ``sessions.ended_at``, ``router_suggestion_responses``) and the
 caller's maps (servable items per learning object from vault content; the FSRS
 prediction per attempt): no clock, no model call. It imports no scheduler or
 substrate code.
@@ -282,23 +282,27 @@ def _exclusions(
     return reasons
 
 
+#: The frozen reading receipts: data capture's own, and adaptive difficulty's where its logging is on.
+READING_RECEIPT_TABLES: tuple[str, ...] = ("reading_exposure_receipts", "ad_reading_opportunities")
+
+
 def _frozen_reading(connection: sqlite3.Connection) -> list[tuple[str, str]]:
     """``(LO, time)`` of every frozen reading receipt, its time at the attempts' own precision
     (a receipt keeps microseconds, an attempt seconds: the ledger compares them as strings)."""
 
-    if not _table_present(connection, "ad_reading_opportunities"):
-        return []
-    out: list[tuple[str, str]] = []
-    for lo, written_at in connection.execute(
-            "SELECT learning_object_id, source_written_at FROM ad_reading_opportunities "
-            "WHERE learning_object_id IS NOT NULL ORDER BY source_written_at, id"):
-        try:
-            when = parse_utc(str(written_at))
-        except ValueError:  # pragma: no cover - the sweep stamps it
+    out: set[tuple[str, str]] = set()
+    for table in READING_RECEIPT_TABLES:
+        if not _table_present(connection, table):
             continue
-        if when is not None:
-            out.append((str(lo), when.strftime("%Y-%m-%dT%H:%M:%SZ")))
-    return out
+        for lo, written_at in connection.execute(
+                f"SELECT learning_object_id, source_written_at FROM {table} WHERE learning_object_id IS NOT NULL"):
+            try:
+                when = parse_utc(str(written_at))
+            except ValueError:  # pragma: no cover - the sweep stamps it
+                continue
+            if when is not None:
+                out.add((str(lo), when.strftime("%Y-%m-%dT%H:%M:%SZ")))
+    return sorted(out)
 
 
 class _Ledger:
@@ -1042,7 +1046,8 @@ def measurement_state(objective: Mapping[str, Any], events: Sequence[Mapping[str
     """An objective's measurement as one plain record (this adapter's and the capture report's).
 
     The state is the chronological fold of its events (Codex review F7): a check that came due and was
-    then replaced reads ``unavailable``, and a later offer makes it available again. An answer is terminal.
+    then replaced reads ``unavailable``, and a later offer makes it available again, however many times
+    (each offer and each loss is its own event, ``episode``; re-review F10). An answer is terminal.
     Unavailable with a replacement arranged reads ``scheduled``: the measurement's duty stands."""
 
     ordered = sorted(events, key=_event_instant)

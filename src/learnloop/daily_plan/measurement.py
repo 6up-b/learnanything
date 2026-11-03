@@ -22,14 +22,20 @@ replaces an ordinary maintenance slot rather than the day's new work.
 
 **The states** (``decision_measurement_events``): ``due``, ``offered``, ``answered`` and
 ``unavailable`` with its reason, written where Today prepares (:func:`settle`), so treatment-dependent
-censoring is visible. A state is written once per reason, and every reader folds them with
-:func:`learnloop.router.outcomes.measurement_state`.
+censoring is visible. A state is written once per reason and **episode**: a due date opens one, each
+presentation opens one, and a loss belongs to the newest of those (Codex re-review F10), so availability
+can come and go, and every reader folds them with :func:`learnloop.router.outcomes.measurement_state`.
 
 **A check answered warm** satisfies the check (it was asked on the learner's own), but the decision's outcome
 rejects it: the learner had just practised the objective. That is ``unavailable`` (:data:`ANSWER_NOT_DELAYED`),
 not ``answered``, and the duty stands: one replacement check is arranged, dated from now, and its states are
-written under a ``replacement:`` reason. A replacement answered warm too ends the arranged measurement, because
-each one costs the learner a question; ordinary retrievals still reach the outcome.
+written under a ``replacement:`` reason. Decisions that shared the check share its replacement, as they would any
+pending check that opens after the window (Codex re-review F9): one question can measure them all. A replacement
+answered warm too ends the arranged measurement, because each one costs the learner a question; ordinary retrievals
+still reach the outcome.
+
+**Reader activity** is an exposure for the outcome whatever adaptive difficulty's logging says: :func:`settle` sweeps it
+first (:mod:`learnloop.daily_plan.reading_exposures`, Codex re-review F1).
 
 **For A7** (a probe versus continue experiment on the same outcome collection): :func:`freeze`,
 :func:`record` with its ``experiment_id`` and the adapter take any decision kind; nothing here knows
@@ -50,7 +56,7 @@ from typing import Any
 
 from learnloop import delayed_checks as D
 from learnloop import delayed_completion as DC
-from learnloop.clock import Clock, SystemClock, utc_now_iso
+from learnloop.clock import Clock, SystemClock, parse_utc, utc_now_iso
 from learnloop.db.stores import data_capture as store
 
 logger = logging.getLogger(__name__)
@@ -89,8 +95,10 @@ COMMITMENT_CLOSED = "commitment_closed"
 CHECK_REPLACED = "check_replaced"
 #: The check was answered, but warm or exposed: the decision's outcome cannot read that answer.
 ANSWER_NOT_DELAYED = "answer_not_delayed"
-#: Prefixes the reason of every state of a replacement check (a state is written once per reason).
+#: Prefixes the reason of every state of a replacement check (a state is written once per reason and episode).
 REPLACEMENT = "replacement"
+#: The episode of a ``due`` written for a check found already satisfied, whose date is no longer read.
+SATISFIED_EPISODE = "satisfied"
 
 
 @dataclass(frozen=True)
@@ -353,19 +361,31 @@ def plan_slots(intent: Any, checks: Sequence[Any], maintain_load: float) -> tupl
 
 
 def _replacement_check(vault: Any, repository: Any, decision_id: str, learning_object_id: str | None, *, answered_item: Any,
-                       serving: Any, now: datetime, clock: Clock | None) -> _Arrangement:
-    """The duty a warm answer left: one more check on the objective, dated from now. Never raises."""
+                       serving: Any, now: datetime, clock: Clock | None, fresh: dict[str, _Arrangement]) -> _Arrangement:
+    """The duty a warm answer left: one check on the objective that opens past the window from now. One already pending
+    is shared, whether ``serving`` shows it or this settlement made it (``fresh``, by LO: ``serving`` predates them),
+    as a new decision shares one (:func:`_arrange`). Otherwise a new one, dated from now. Never raises."""
 
     try:
+        lo = str(learning_object_id)
         if learning_object_id not in vault.learning_objects:
             return _Arrangement(UNAVAILABLE, reason=NO_LEARNING_OBJECT)
-        lo_items = [item for item in vault.practice_items.values() if item.learning_object_id == learning_object_id]
+        if lo in fresh:
+            return replace(fresh[lo], measurement=SHARED, pick=None)
+        lo_items = [item for item in vault.practice_items.values() if item.learning_object_id == lo]
         pending = _pending_checks(serving, {item.id for item in lo_items}) if serving is not None else []
+        for check in pending:
+            if check.date >= _window_opens(now):
+                return _Arrangement(SHARED, commitment_id=check.commitment_id,
+                                    practice_item_id=check.candidates[0] if check.candidates else None)
         held = {item_id for check in pending for item_id in check.candidates}
         with repository.atomic():
-            return _new_check(vault, repository, str(learning_object_id), lo_items,
-                              exclude={*held, *([str(answered_item)] if answered_item else [])}, decision_id=decision_id,
-                              idempotency_key=f"measurement:{decision_id}:{REPLACEMENT}", now=now, clock=clock)
+            arranged = _new_check(vault, repository, lo, lo_items,
+                                  exclude={*held, *([str(answered_item)] if answered_item else [])}, decision_id=decision_id,
+                                  idempotency_key=f"measurement:{decision_id}:{REPLACEMENT}", now=now, clock=clock)
+        if arranged.commitment_id:
+            fresh[lo] = arranged
+        return arranged
     except Exception:  # noqa: BLE001 - its savepoint rolled back; the state says so
         logger.warning("data capture: the replacement measurement of %s was not arranged", decision_id, exc_info=True)
         return _Arrangement(UNAVAILABLE, reason=ARRANGE_FAILED)
@@ -412,6 +432,10 @@ def settle(vault: Any, repository: Any, *, clock: Clock | None = None) -> int:
 
     from learnloop.data_capture.gates import serving_on
 
+    from learnloop.daily_plan import reading_exposures
+
+    # First: an answer below is judged against what the learner read before it.
+    reading_exposures.sweep_quietly(vault, repository, clock=clock)
     if not serving_on(vault.config):
         return 0
     from learnloop.curriculum import commitments as C
@@ -434,6 +458,8 @@ def settle(vault: Any, repository: Any, *, clock: Clock | None = None) -> int:
         serving = intent_serving(vault, repository, now=now)
         unplanned = _unplanned_reasons(connection, today)
         at = utc_now_iso(clock)
+        # Replacements made during this pass, which ``serving`` predates (Codex re-review F9).
+        fresh: dict[str, _Arrangement] = {}
         for row in open_rows:
             decision_id, commitment_id = str(row["decision_id"]), str(row["commitment_id"])
             early = _replacement_detail(connection, decision_id)
@@ -449,30 +475,37 @@ def settle(vault: Any, repository: Any, *, clock: Clock | None = None) -> int:
             if answered_by is None and check is None:
                 answered_by = _satisfied_by(connection, commitment_id)
                 if answered_by is None and C.resolve_disposition(repository, commitment_id) != "one_check_pending":
-                    written += _event(connection, decision_id, "unavailable", reason=f"{prefix}{COMMITMENT_CLOSED}", at=at)
+                    written += _lost(connection, decision_id, prefix, COMMITMENT_CLOSED, at=at)
                     continue
             if check is None and answered_by is None:
                 continue
             if check is not None and check.replaced and answered_by is None:
                 # Another commitment decides every item it covered: this check will not be served.
-                written += _event(connection, decision_id, "unavailable", reason=f"{prefix}{CHECK_REPLACED}", at=at)
+                written += _lost(connection, decision_id, prefix, CHECK_REPLACED, at=at)
                 continue
-            due = bool(check.due) if check is not None else True
-            if due:
-                due_at = check.date.strftime("%Y-%m-%dT%H:%M:%SZ") if check is not None else at
-                written += _event(connection, decision_id, "due", reason=prefix, at=due_at)
-                offered = _offered(connection, check, row, since=due_at)
-                if offered is not None:
-                    written += _event(connection, decision_id, "offered", reason=prefix, at=offered["served_at"],
-                                      practice_item_id=offered["practice_item_id"], detail={"presentation_id": offered["id"]})
-                for reason in unplanned.get(commitment_id, ()):
-                    if offered is None:
-                        written += _event(connection, decision_id, "unavailable", reason=f"{prefix}{reason}", at=at)
+            attempt = connection.execute(
+                "SELECT created_at, practice_item_id FROM practice_attempts WHERE id = ?", (answered_by,)
+            ).fetchone() if answered_by is not None else None
+            answered_at = str(attempt[0]) if attempt is not None else at
+            if check is None:
+                # Satisfied since the last settlement: its date is gone with the pending check, so at most one more
+                # ``due``, no later than the answer, which it opened.
+                written += _event(connection, decision_id, "due", reason=prefix, at=answered_at, episode=SATISFIED_EPISODE)
+            elif check.due:
+                due_at = check.date.strftime("%Y-%m-%dT%H:%M:%SZ")
+                # A check dated again by assisted practice comes due again: that is a new episode.
+                written += _event(connection, decision_id, "due", reason=prefix, at=due_at, episode=due_at)
+                offers = _offers(connection, check, row, since=due_at)
+                for offer in offers:
+                    written += _event(connection, decision_id, "offered", reason=prefix, at=offer["served_at"],
+                                      practice_item_id=offer["practice_item_id"], detail={"presentation_id": offer["id"]},
+                                      episode=str(offer["id"]))
+                # A plan's reason stands only for a day the check was not offered at all.
+                if not any(_local_day(offer["served_at"]) == today for offer in offers):
+                    for reason in unplanned.get(commitment_id, ()):
+                        written += _lost(connection, decision_id, prefix, reason, at=at)
             if answered_by is None:
                 continue
-            when = connection.execute(
-                "SELECT created_at, practice_item_id FROM practice_attempts WHERE id = ?", (answered_by,)).fetchone()
-            answered_at = str(when[0]) if when is not None else at
             if not _answer_missed_window(connection, answered_by, row.get("decided_at")):
                 written += _event(connection, decision_id, "answered", attempt_id=answered_by, at=answered_at)
             elif replacement:
@@ -480,8 +513,8 @@ def settle(vault: Any, repository: Any, *, clock: Clock | None = None) -> int:
                                   attempt_id=answered_by, at=at)
             else:
                 arranged = _replacement_check(vault, repository, decision_id, row.get("learning_object_id"),
-                                              answered_item=when[1] if when is not None else None, serving=serving,
-                                              now=now, clock=clock)
+                                              answered_item=attempt[1] if attempt is not None else None, serving=serving,
+                                              now=now, clock=clock, fresh=fresh)
                 written += _event(connection, decision_id, "unavailable", reason=ANSWER_NOT_DELAYED, attempt_id=answered_by,
                                   at=at, detail={"replacement_commitment_id": arranged.commitment_id,
                                                  "practice_item_id": arranged.practice_item_id,
@@ -489,12 +522,27 @@ def settle(vault: Any, repository: Any, *, clock: Clock | None = None) -> int:
     return written
 
 
+def _local_day(at: str) -> str | None:
+    """A UTC stamp's local day (the plan's, ``engine.local_date``)."""
+
+    when = parse_utc(str(at))
+    return when.astimezone().date().isoformat() if when is not None else None
+
+
+def _lost(connection: Any, decision_id: str, prefix: str, reason: str, *, at: str) -> int:
+    """The check cannot be offered, in the episode its newest ``due`` or ``offered`` opened: the same reason again
+    only counts after availability came back. (``prefix`` is the reason of those states: this check's own.)"""
+
+    return _event(connection, decision_id, "unavailable", reason=f"{prefix}{reason}", at=at,
+                  episode=store.latest_episode(connection, decision_id, reason=prefix))
+
+
 def _event(connection: Any, decision_id: str, state: str, *, at: str, reason: str = "",
            practice_item_id: str | None = None, attempt_id: str | None = None,
-           detail: Mapping[str, Any] | None = None) -> int:
+           detail: Mapping[str, Any] | None = None, episode: str = "") -> int:
     return 1 if store.insert_measurement_event(connection, decision_id=decision_id, state=state, reason=reason,
                                                practice_item_id=practice_item_id, attempt_id=attempt_id, detail=detail,
-                                               at=at) else 0
+                                               at=at, episode=episode) else 0
 
 
 def _satisfied_by(connection: Any, commitment_id: str) -> str | None:
@@ -505,17 +553,16 @@ def _satisfied_by(connection: Any, commitment_id: str) -> str | None:
     return str(row[0]) if row is not None and row[0] else None
 
 
-def _offered(connection: Any, check: Any, row: Mapping[str, Any], *, since: str) -> dict[str, Any] | None:
-    """The check's first presentation at or after it came due (its item, or any it decides)."""
+def _offers(connection: Any, check: Any, row: Mapping[str, Any], *, since: str) -> list[dict[str, Any]]:
+    """The check's presentations at or after it came due (its item, or any it decides), oldest first."""
 
     items = list(getattr(check, "candidates", ()) or ()) or ([row["practice_item_id"]] if row.get("practice_item_id") else [])
     if not items:
-        return None
+        return []
     marks = ",".join("?" for _ in items)
-    found = connection.execute(
+    return [dict(found) for found in connection.execute(
         f"SELECT id, practice_item_id, served_at FROM plan_presentations WHERE practice_item_id IN ({marks}) "
-        "AND served_at >= ? ORDER BY served_at, id LIMIT 1", [*items, since]).fetchone()
-    return dict(found) if found is not None else None
+        "AND served_at >= ? ORDER BY served_at, id", [*items, since])]
 
 
 __all__ = [

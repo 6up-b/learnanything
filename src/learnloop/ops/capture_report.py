@@ -115,6 +115,10 @@ def measurement_section(connection: sqlite3.Connection) -> dict[str, Any]:
     }
 
 
+def _row_count(connection: sqlite3.Connection, table: str) -> int:
+    return int(connection.execute(f"SELECT COUNT(*) FROM {table}").fetchone()[0]) if _present(connection, table) else 0
+
+
 def outcome_section(connection: sqlite3.Connection, vault: Any) -> dict[str, Any]:
     """A2, A4: the derived outcomes under the vault's outcome version, and A4's skip reasons.
 
@@ -154,11 +158,10 @@ def outcome_section(connection: sqlite3.Connection, vault: Any) -> dict[str, Any
         "decisions": len(rows),
         "r_cold_by_arm": {arm: dict(counts) for arm, counts in sorted(by_arm.items())},
         "action_bound_r_cold": dict(sorted(action_bound.items())),
-        # The Reader's exposures reach the delayed definition through these receipts (AD's sweep).
-        "reading_exposure_receipts": (
-            int(connection.execute("SELECT COUNT(*) FROM ad_reading_opportunities").fetchone()[0])
-            if _present(connection, "ad_reading_opportunities") else 0
-        ),
+        # The Reader's exposures reach the delayed definition through these receipts (written where Today prepares,
+        # so a section read since then counts once Today next prepares); AD's own only under its forecast logging.
+        "reading_exposure_receipts": _row_count(connection, "reading_exposure_receipts"),
+        "ad_reading_receipts": _row_count(connection, "ad_reading_opportunities"),
         "completions": dict(completions),
         "r_cold_skip_reasons": dict(skips),
         "no_frozen_objective": no_outcome,

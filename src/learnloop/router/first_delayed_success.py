@@ -29,7 +29,14 @@ from typing import Any
 
 from learnloop import delayed_completion as DC
 from learnloop.clock import parse_utc
-from learnloop.router.outcomes import OUTCOME_VERSION_V3, _completion, _decision_block, _Ledger, _table_present
+from learnloop.router.outcomes import (
+    OUTCOME_VERSION_V3,
+    READING_RECEIPT_TABLES,
+    _completion,
+    _decision_block,
+    _Ledger,
+    _table_present,
+)
 from learnloop.vault.models import learning_object_facet_union
 
 METRIC_VERSION = "first_delayed_success_proxy_v1"
@@ -254,9 +261,10 @@ def _reading_marks(connection: sqlite3.Connection) -> list[tuple[str, str]]:
     """``(time, LO)`` of reading on an LO: its reading receipts and source exposures."""
 
     marks: list[tuple[str, str]] = []
-    if _table_present(connection, "ad_reading_opportunities"):
-        marks += [(str(row[0]), str(row[1])) for row in connection.execute(
-            "SELECT source_written_at, learning_object_id FROM ad_reading_opportunities")]
+    for table in READING_RECEIPT_TABLES:
+        if _table_present(connection, table):
+            marks += [(str(row[0]), str(row[1])) for row in connection.execute(
+                f"SELECT source_written_at, learning_object_id FROM {table}")]
     if _table_present(connection, "source_exposure_events"):
         marks += [(str(row[0]), str(row[1])) for row in connection.execute(
             "SELECT created_at, entity_id FROM source_exposure_events WHERE entity_type = 'learning_object' "

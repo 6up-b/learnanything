@@ -23,9 +23,14 @@
 --    arranged. The outcome adapter (router_outcomes_v3) reads it.
 --
 -- 4. decision_measurement_events (RECEIPT): the states of an arranged measurement:
---    due, offered, answered, unavailable. A state is written once per reason
---    (a check unavailable today for a reason may be offered tomorrow), so
---    treatment-dependent censoring stays visible.
+--    due, offered, answered, unavailable. A state is written once per reason and
+--    episode (a check unavailable today for a reason may be offered tomorrow and lost
+--    again for the same reason: episode names the offer or due date that opened each
+--    one), so treatment-dependent censoring stays visible and folds in time order.
+-- 5. reading_exposure_receipts (RECEIPT): Reader activity on a learning object, the
+--    fact and its source time, frozen for the delayed-completion definition whatever
+--    adaptive difficulty's forecast logging says (its ad_reading_opportunities are
+--    written only under forecast_receipts). No dwell, no magnitude, no answer text.
 CREATE TABLE prefilter_payloads (
   content_hash TEXT PRIMARY KEY,
   part TEXT NOT NULL CHECK (part IN ('gates', 'classification', 'upstream', 'inputs', 'config')),
@@ -120,7 +125,9 @@ CREATE TABLE decision_measurement_events (
   attempt_id TEXT,
   detail_json TEXT NOT NULL DEFAULT '{}',
   created_at TEXT NOT NULL,
-  UNIQUE (decision_id, state, reason)
+  -- What opened this availability episode: a due date, a presentation, the last of those for an unavailable state.
+  episode TEXT NOT NULL DEFAULT '',
+  UNIQUE (decision_id, state, reason, episode)
 );
 CREATE INDEX decision_measurement_events_decision ON decision_measurement_events(decision_id, created_at);
 CREATE TRIGGER decision_measurement_events_no_update
@@ -132,4 +139,28 @@ CREATE TRIGGER decision_measurement_events_no_delete
 BEFORE DELETE ON decision_measurement_events
 BEGIN
     SELECT RAISE(ABORT, 'decision_measurement_events is append-only');
+END;
+
+CREATE TABLE reading_exposure_receipts (
+  id TEXT PRIMARY KEY,
+  kind TEXT NOT NULL,
+  subkind TEXT NOT NULL,
+  source_table TEXT NOT NULL,
+  source_id TEXT NOT NULL,
+  source_written_at TEXT NOT NULL,
+  learning_object_id TEXT NOT NULL,
+  mapping_version TEXT NOT NULL,
+  swept_at TEXT NOT NULL,
+  UNIQUE (kind, subkind, source_table, source_id, learning_object_id)
+);
+CREATE INDEX reading_exposure_receipts_source_time ON reading_exposure_receipts(source_written_at);
+CREATE TRIGGER reading_exposure_receipts_no_update
+BEFORE UPDATE ON reading_exposure_receipts
+BEGIN
+    SELECT RAISE(ABORT, 'reading_exposure_receipts is append-only');
+END;
+CREATE TRIGGER reading_exposure_receipts_no_delete
+BEFORE DELETE ON reading_exposure_receipts
+BEGIN
+    SELECT RAISE(ABORT, 'reading_exposure_receipts is append-only');
 END;
