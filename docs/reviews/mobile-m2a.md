@@ -252,7 +252,7 @@ R1 and R3 are for the owner: no algorithm successor at M2a, and the host drains 
 
 ### What the owner runs (A1-A4)
 
-Nothing below has been run on this branch. Land first, then close and reopen the desktop app once, which applies 239 to the vault. **A host already running from main's M1 code will refuse the vault after that: run `systemctl --user restart learnloop-mobile` once this checkout has the new code and the vault has 239,** and skip any setup line already done. `HTTPS_PORT` is an unused port on this tailnet node: 8445 if 443 is taken, and then `HOST` is `<hostname>:8445`. With 443, `HOST` is `<hostname>` alone. These commands add a route and change no other project's.
+Nothing below has been run on this branch. Land first, then close and reopen the desktop app once, which applies 239 to the vault. **A host already running keeps its old code until restarted, so run `systemctl --user restart learnloop-mobile` after the vault has 239.** Restarted before that, it exits 78 and the unit stays down (`RestartPreventExitStatus=78`) until the next restart. Skip any setup line already done. `HTTPS_PORT` is an unused port on this tailnet node: 8445 if 443 is taken, and then `HOST` is `<hostname>:8445`. With 443, `HOST` is `<hostname>` alone. These commands add a route and change no other project's.
 
 ```bash
 cd ~/Documents/thinking/learnanything
