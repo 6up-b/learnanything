@@ -7,8 +7,8 @@ version: "1.0.0"
 source_path: "src/learnloop_sidecar/request_origin.py"
 source_paths:
   - "src/learnloop_sidecar/request_origin.py"
-source_commit: "b9e7c8f33f7cb1b38b1fcdfe459a430a2fdf0a5e"
-source_commit_timestamp: "2026-11-03T04:37:42-05:00"
+source_commit: "cdd578ba62529223b963e848b1ee6c8f98799ae9"
+source_commit_timestamp: "2026-11-03T12:14:06-05:00"
 source_worktree_state: "clean"
 generated: true
 generated_at: "2026-11-02"
@@ -53,23 +53,23 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop_sidecar/request_origin.py](../../../../../src/learnloop_sidecar/request_origin.py) |
-| Source lines | 126 |
+| Source lines | 130 |
 | Owning package | [[Reference/Modules/learnloop_sidecar/_package|learnloop_sidecar]] |
 | Architecture layer | `adapter` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `b9e7c8f33f7cb1b38b1fcdfe459a430a2fdf0a5e` |
-| Commit timestamp | `2026-11-03T04:37:42-05:00` |
+| Source commit | `cdd578ba62529223b963e848b1ee6c8f98799ae9` |
+| Commit timestamp | `2026-11-03T12:14:06-05:00` |
 
 ## Public API
 
 - `class RequestOrigin` ([source](../../../../../src/learnloop_sidecar/request_origin.py), line 41) — One authenticated caller: the paired device and the surface it runs.
-  - `__post_init__(self) -> None` (line 47; internal)
-- `device_class(origin: RequestOrigin | None) -> str` ([source](../../../../../src/learnloop_sidecar/request_origin.py), line 54) — The class the eligibility module asks about (§6.4); None is the desktop.
-- `practice_surface(origin: RequestOrigin | None) -> str` ([source](../../../../../src/learnloop_sidecar/request_origin.py), line 60) — ``entry_surface`` of an attempt and of a submission's binding.
-- `offer_surface(origin: RequestOrigin | None) -> str` ([source](../../../../../src/learnloop_sidecar/request_origin.py), line 66) — ``entry_surface`` of a published scheduler offer.
-- `bump_for_host(ctx: Any) -> None` ([source](../../../../../src/learnloop_sidecar/request_origin.py), line 77) — Tell the desktop a host request changed what it shows (PR-7, §3.3).
-- `host_mutation(handler: Callable[[Any, Any], Any]) -> Callable[[Any, Any], Any]` ([source](../../../../../src/learnloop_sidecar/request_origin.py), line 104) — A handler whose committed work changes what the desktop shows (PR-7, §3.3).
+  - `__post_init__(self) -> None` (line 51; internal)
+- `device_class(origin: RequestOrigin | None) -> str` ([source](../../../../../src/learnloop_sidecar/request_origin.py), line 58) — The class the eligibility module asks about (§6.4); None is the desktop.
+- `practice_surface(origin: RequestOrigin | None) -> str` ([source](../../../../../src/learnloop_sidecar/request_origin.py), line 64) — ``entry_surface`` of an attempt and of a submission's binding.
+- `offer_surface(origin: RequestOrigin | None) -> str` ([source](../../../../../src/learnloop_sidecar/request_origin.py), line 70) — ``entry_surface`` of a published scheduler offer.
+- `bump_for_host(ctx: Any) -> None` ([source](../../../../../src/learnloop_sidecar/request_origin.py), line 81) — Tell the desktop a host request changed what it shows (PR-7, §3.3).
+- `host_mutation(handler: Callable[[Any, Any], Any]) -> Callable[[Any, Any], Any]` ([source](../../../../../src/learnloop_sidecar/request_origin.py), line 108) — A handler whose committed work changes what the desktop shows (PR-7, §3.3).
 
 ### Module constants
 
@@ -77,7 +77,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `DESKTOP_QUEUE` ([src/learnloop_sidecar/request_origin.py](../../../../../src/learnloop_sidecar/request_origin.py), line 34)
 - `PHONE_PRACTICE` ([src/learnloop_sidecar/request_origin.py](../../../../../src/learnloop_sidecar/request_origin.py), line 36)
 - `PHONE_QUEUE` ([src/learnloop_sidecar/request_origin.py](../../../../../src/learnloop_sidecar/request_origin.py), line 37)
-- `_COMMITTED_REFUSALS` ([src/learnloop_sidecar/request_origin.py](../../../../../src/learnloop_sidecar/request_origin.py), line 74)
+- `_COMMITTED_REFUSALS` ([src/learnloop_sidecar/request_origin.py](../../../../../src/learnloop_sidecar/request_origin.py), line 78)
 
 ## Internal implementation anchors
 

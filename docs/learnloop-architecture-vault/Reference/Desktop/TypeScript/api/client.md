@@ -10,8 +10,8 @@ area: "TypeScript/api"
 source_path: "apps/learnloop-tauri/src/api/client.ts"
 source_paths:
   - "apps/learnloop-tauri/src/api/client.ts"
-source_commit: "da3182176a0bb372a0759299ba54df0c4ab145ef"
-source_commit_timestamp: "2026-11-03T04:42:27-05:00"
+source_commit: "c397af76627dd82e2bae14dcf251e595cc6e23b2"
+source_commit_timestamp: "2026-11-03T12:14:06-05:00"
 source_worktree_state: "clean"
 activation_kind: "entry-reachable build graph"
 activation_evidence: "A static TypeScript import path reaches this file from the Vite entry src/main.tsx."
@@ -42,14 +42,14 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/api/client.ts](../../../../../../apps/learnloop-tauri/src/api/client.ts) |
-| Source lines | 1955 |
+| Source lines | 1961 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/api/_area|TypeScript/api]] |
 | Refactor status | `ACTIVE` |
 | Activation kind | `entry-reachable build graph` |
 | Worktree state | `clean` |
-| Source commit | `da3182176a0bb372a0759299ba54df0c4ab145ef` |
-| Commit timestamp | `2026-11-03T04:42:27-05:00` |
+| Source commit | `c397af76627dd82e2bae14dcf251e595cc6e23b2` |
+| Commit timestamp | `2026-11-03T12:14:06-05:00` |
 
 ## Activation and status evidence
 
@@ -60,29 +60,29 @@ The system-level behavior stays authoritative in the linked architecture, concep
 
 ## Public API
 
-- `export const api =` — const, line 537
+- `export const api =` — const, line 540
 
 ## Internal implementation anchors
 
-- `function readRpcDebugFlag(): boolean` — function, line 382
-- `const RPC_DEBUG = import.meta.env.DEV && readRpcDebugFlag()` — const, line 389
-- `const rpcCounts = new Map<string, number>()` — const, line 390
-- `async function call<T>(command: string, args: Record<string, unknown> =` — function, line 395
-- `const count = (rpcCounts.get(command) ?? 0) + 1` — const, line 397
-- `let result: T` — let, line 401
-- `const normalized = normalizeError(error)` — const, line 405
-- `function normalizeError(error: unknown): CommandError` — function, line 415
-- `const commandError = error as CommandError` — const, line 417
-- `const validationErrors = (commandError.details as` — const, line 418
-- `const ATTEMPT_TAGS: readonly QueryTag[] = [TAG.queue, TAG.graph, TAG.goals, TAG.review, TAG.maintenance, TAG.errors]` — const, line 457
-- `const INGEST_TAGS: readonly QueryTag[] = [TAG.sources, TAG.library, TAG.maintenance]` — const, line 459
-- `const REVISION_TAGS: readonly QueryTag[] = [TAG.sources, TAG.graph, TAG.proposals, TAG.registry, TAG.maintenance]` — const, line 461
-- `function settled<T>(promise: Promise<T>, onSettled: ()` — function, line 470
-- `function mutating<T>(tags: readonly QueryTag[], promise: Promise<T>): Promise<T>` — function, line 483
-- `function mutatingAll<T>(promise: Promise<T>): Promise<T>` — function, line 488
-- `function mutatingReader<T>(promise: Promise<T>, extraTags: readonly QueryTag[] = []): Promise<T>` — function, line 493
-- `function afterProposalMutation( promise: Promise<ProposalsSnapshot>, extraTags: readonly QueryTag[] = [] ): Promise<ProposalsSnapshot>` — function, line 501
-- `function afterSettingsMutation(promise: Promise<SettingsDto>): Promise<SettingsDto>` — function, line 523
+- `function readRpcDebugFlag(): boolean` — function, line 383
+- `const RPC_DEBUG = import.meta.env.DEV && readRpcDebugFlag()` — const, line 390
+- `const rpcCounts = new Map<string, number>()` — const, line 391
+- `async function call<T>(command: string, args: Record<string, unknown> =` — function, line 396
+- `const count = (rpcCounts.get(command) ?? 0) + 1` — const, line 398
+- `let result: T` — let, line 402
+- `const normalized = normalizeError(error)` — const, line 406
+- `function normalizeError(error: unknown): CommandError` — function, line 418
+- `const commandError = error as CommandError` — const, line 420
+- `const validationErrors = (commandError.details as` — const, line 421
+- `const ATTEMPT_TAGS: readonly QueryTag[] = [TAG.queue, TAG.graph, TAG.goals, TAG.review, TAG.maintenance, TAG.errors]` — const, line 460
+- `const INGEST_TAGS: readonly QueryTag[] = [TAG.sources, TAG.library, TAG.maintenance]` — const, line 462
+- `const REVISION_TAGS: readonly QueryTag[] = [TAG.sources, TAG.graph, TAG.proposals, TAG.registry, TAG.maintenance]` — const, line 464
+- `function settled<T>(promise: Promise<T>, onSettled: ()` — function, line 473
+- `function mutating<T>(tags: readonly QueryTag[], promise: Promise<T>): Promise<T>` — function, line 486
+- `function mutatingAll<T>(promise: Promise<T>): Promise<T>` — function, line 491
+- `function mutatingReader<T>(promise: Promise<T>, extraTags: readonly QueryTag[] = []): Promise<T>` — function, line 496
+- `function afterProposalMutation( promise: Promise<ProposalsSnapshot>, extraTags: readonly QueryTag[] = [] ): Promise<ProposalsSnapshot>` — function, line 504
+- `function afterSettingsMutation(promise: Promise<SettingsDto>): Promise<SettingsDto>` — function, line 526
 
 ## Who imports or calls it
 
@@ -92,6 +92,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 - [[Reference/Desktop/TypeScript/app/App|src/app/App.tsx]] — import-or-re-export: `api`; references `api`
 - [[Reference/Desktop/TypeScript/app/autoAdvance|src/app/autoAdvance.ts]] — import-or-re-export: `api`; references `api`
 - [[Reference/Desktop/TypeScript/app/dailyPlan|src/app/dailyPlan.ts]] — import-or-re-export: `api`; references `api`
+- [[Reference/Desktop/TypeScript/app/sessionHandoff|src/app/sessionHandoff.ts]] — import-or-re-export: `api`; references `api`
 - [[Reference/Desktop/TypeScript/app/todayPlan|src/app/todayPlan.ts]] — import-or-re-export: `api`; references `api`
 - [[Reference/Desktop/TypeScript/app/useQueueRevisionPoll|src/app/useQueueRevisionPoll.ts]] — import-or-re-export: `api`; references `api`
 - [[Reference/Desktop/TypeScript/components/AddSource|src/components/AddSource.tsx]] — import-or-re-export: `api`; references `api`
@@ -221,6 +222,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 - [[Reference/Desktop/TypeScript/api/queryCache|src/api/queryCache.ts]] — import-or-re-export; imports `QueryTag`, `invalidate`, `invalidateAll`, `setQueryData`
 - [[Reference/Desktop/TypeScript/api/queryTags|src/api/queryTags.ts]] — import-or-re-export; imports `READER_PREFIX`, `TAG`
 - [[Reference/Desktop/TypeScript/app/planFallback|src/app/planFallback.ts]] — import-or-re-export; imports `noteFallbackOffer`
+- [[Reference/Desktop/TypeScript/app/sessionMoved|src/app/sessionMoved.ts]] — import-or-re-export; imports `noteSessionMovedError`
 
 ### Assets, platform, and third-party dependencies
 

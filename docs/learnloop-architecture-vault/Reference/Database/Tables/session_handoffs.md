@@ -3,13 +3,13 @@ title: "session_handoffs"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "27497a7340a969f6662bfd46bcc6d5ff9522f505"
-source_commit_timestamp: "2026-11-03T04:44:30-05:00"
+source_commit: "01fa9698ae962d7b0977b90915e12e269c3b8db5"
+source_commit_timestamp: "2026-11-03T12:40:09-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite session_handoffs"
   - "table session_handoffs"
-schema_head: 238
+schema_head: 240
 table_name: "session_handoffs"
 table_role: "receipt"
 functionality_status: "active"
@@ -102,6 +102,7 @@ None found by exact static reference scan.
 
 - `tests/test_architecture.py`
 - `tests/test_device_eligibility.py`
+- `tests/test_mobile_handoff.py`
 - `tests/test_session_ownership.py`
 - `tests/test_session_ownership_migration.py`
 

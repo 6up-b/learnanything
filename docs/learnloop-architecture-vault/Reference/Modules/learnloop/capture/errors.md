@@ -75,6 +75,7 @@ No private top-level function or class definition is declared in this file.
 - [[Reference/Modules/learnloop/capture/__init__|learnloop.capture]] — imports `CaptureError`
 - [[Reference/Modules/learnloop/capture/devices|learnloop.capture.devices]] — imports `CaptureError`; statically calls `CaptureError`
 - [[Reference/Modules/learnloop/capture/inbox|learnloop.capture.inbox]] — imports `CaptureError`; statically calls `CaptureError`
+- [[Reference/Modules/learnloop/capture/jobs|learnloop.capture.jobs]] — imports `CaptureError`; statically calls `CaptureError`
 - [[Reference/Modules/learnloop/capture/maintenance|learnloop.capture.maintenance]] — imports `CaptureError`; statically calls `CaptureError`
 - [[Reference/Modules/learnloop/capture/routing|learnloop.capture.routing]] — imports `CaptureError`; statically calls `CaptureError`
 
@@ -96,7 +97,7 @@ Use this module in context through:
 - [[Initialize a Vault]]
 - [[Start a Learning Cycle]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/capture/__init__|learnloop.capture]], [[Reference/Modules/learnloop/capture/devices|learnloop.capture.devices]], [[Reference/Modules/learnloop/capture/inbox|learnloop.capture.inbox]], [[Reference/Modules/learnloop/capture/maintenance|learnloop.capture.maintenance]], [[Reference/Modules/learnloop/capture/routing|learnloop.capture.routing]].
+Static participation evidence comes from [[Reference/Modules/learnloop/capture/__init__|learnloop.capture]], [[Reference/Modules/learnloop/capture/devices|learnloop.capture.devices]], [[Reference/Modules/learnloop/capture/inbox|learnloop.capture.inbox]], [[Reference/Modules/learnloop/capture/jobs|learnloop.capture.jobs]], [[Reference/Modules/learnloop/capture/maintenance|learnloop.capture.maintenance]] and 1 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
@@ -104,12 +105,15 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 No test imports this module directly. These tests exercise a direct production consumer:
 
+- [tests/mobile_host_helpers.py](../../../../../../tests/mobile_host_helpers.py) — imports consumer [[Reference/Modules/learnloop/capture/__init__|learnloop.capture]]
 - [tests/test_capture_desktop.py](../../../../../../tests/test_capture_desktop.py) — imports consumer [[Reference/Modules/learnloop/capture/__init__|learnloop.capture]]
 - [tests/test_capture_domain.py](../../../../../../tests/test_capture_domain.py) — imports consumer [[Reference/Modules/learnloop/capture/__init__|learnloop.capture]]
 - [tests/test_capture_originals_race.py](../../../../../../tests/test_capture_originals_race.py) — imports consumer [[Reference/Modules/learnloop/capture/__init__|learnloop.capture]]
 - [tests/test_capture_route_recovery.py](../../../../../../tests/test_capture_route_recovery.py) — imports consumer [[Reference/Modules/learnloop/capture/__init__|learnloop.capture]]
+- [tests/test_mobile_handoff.py](../../../../../../tests/test_mobile_handoff.py) — imports consumer [[Reference/Modules/learnloop/capture/__init__|learnloop.capture]]
 - [tests/test_mobile_host_auth.py](../../../../../../tests/test_mobile_host_auth.py) — imports consumer [[Reference/Modules/learnloop/capture/__init__|learnloop.capture]]
 - [tests/test_mobile_host_coexistence.py](../../../../../../tests/test_mobile_host_coexistence.py) — imports consumer [[Reference/Modules/learnloop/capture/__init__|learnloop.capture]]
+- [tests/test_mobile_jobs.py](../../../../../../tests/test_mobile_jobs.py) — imports consumer [[Reference/Modules/learnloop/capture/__init__|learnloop.capture]]
 - [tests/test_mobile_pairing.py](../../../../../../tests/test_mobile_pairing.py) — imports consumer [[Reference/Modules/learnloop/capture/__init__|learnloop.capture]]
 - [tests/test_reader_ca1_as_printed.py](../../../../../../tests/test_reader_ca1_as_printed.py) — imports consumer [[Reference/Modules/learnloop/capture/__init__|learnloop.capture]]
 - [tests/notes_fixtures.py](../../../../../../tests/notes_fixtures.py) — imports consumer [[Reference/Modules/learnloop/capture/inbox|learnloop.capture.inbox]]

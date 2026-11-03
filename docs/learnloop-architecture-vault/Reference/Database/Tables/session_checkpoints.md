@@ -3,13 +3,13 @@ title: "session_checkpoints"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "27497a7340a969f6662bfd46bcc6d5ff9522f505"
-source_commit_timestamp: "2026-11-03T04:44:30-05:00"
+source_commit: "01fa9698ae962d7b0977b90915e12e269c3b8db5"
+source_commit_timestamp: "2026-11-03T12:40:09-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite session_checkpoints"
   - "table session_checkpoints"
-schema_head: 238
+schema_head: 240
 table_name: "session_checkpoints"
 table_role: "workflow"
 functionality_status: "active"
@@ -129,6 +129,8 @@ Indexes and uniqueness:
 - `tests/test_e2e_codex_mock.py`
 - `tests/test_host_queue_revision.py`
 - `tests/test_item_authoring.py`
+- `tests/test_mobile_handoff.py`
+- `tests/test_mobile_jobs.py`
 - `tests/test_owner_capture_1025.py`
 - `tests/test_placement_sidecar.py`
 - `tests/test_repositories.py`

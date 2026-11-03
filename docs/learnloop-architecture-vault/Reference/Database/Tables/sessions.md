@@ -3,13 +3,13 @@ title: "sessions"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "27497a7340a969f6662bfd46bcc6d5ff9522f505"
-source_commit_timestamp: "2026-11-03T04:44:30-05:00"
+source_commit: "01fa9698ae962d7b0977b90915e12e269c3b8db5"
+source_commit_timestamp: "2026-11-03T12:40:09-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite sessions"
   - "table sessions"
-schema_head: 238
+schema_head: 240
 table_name: "sessions"
 table_role: "workflow"
 functionality_status: "active"
@@ -23,10 +23,10 @@ source_paths:
   - "src/learnloop/ai/isolation.py"
   - "src/learnloop/ai/providers/codex_lockdown.py"
   - "src/learnloop/algorithm_versions.py"
+  - "src/learnloop/capture/report.py"
   - "src/learnloop/cli/hints.py"
   - "src/learnloop/config/schema.py"
   - "src/learnloop/config/template.py"
-  - "src/learnloop/curriculum/ai_contracts.py"
   - "src/learnloop/cli/app.py"
   - "src/learnloop/daily_plan/engine.py"
   - "src/learnloop/daily_plan/reentry.py"
@@ -102,6 +102,7 @@ Indexes and uniqueness:
 
 ### Direct SQL readers
 
+- `src/learnloop/capture/report.py`
 - `src/learnloop/db/repositories.py`
 - `src/learnloop/db/stores/session_ownership.py`
 - `src/learnloop/router/outcomes.py`

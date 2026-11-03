@@ -7,8 +7,8 @@ version: "1.0.0"
 source_path: "src/learnloop_sidecar/handlers/practice.py"
 source_paths:
   - "src/learnloop_sidecar/handlers/practice.py"
-source_commit: "b0684f8a4f9f019f78175c3220afc7643d6556a2"
-source_commit_timestamp: "2026-11-03T02:23:35-05:00"
+source_commit: "01fa9698ae962d7b0977b90915e12e269c3b8db5"
+source_commit_timestamp: "2026-11-03T12:40:09-05:00"
 source_worktree_state: "clean"
 generated: true
 generated_at: "2026-11-02"
@@ -53,13 +53,13 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop_sidecar/handlers/practice.py](../../../../../../src/learnloop_sidecar/handlers/practice.py) |
-| Source lines | 2176 |
+| Source lines | 2183 |
 | Owning package | [[Reference/Modules/learnloop_sidecar/handlers/_package|learnloop_sidecar.handlers]] |
 | Architecture layer | `adapter` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `b0684f8a4f9f019f78175c3220afc7643d6556a2` |
-| Commit timestamp | `2026-11-03T02:23:35-05:00` |
+| Source commit | `01fa9698ae962d7b0977b90915e12e269c3b8db5` |
+| Commit timestamp | `2026-11-03T12:40:09-05:00` |
 
 ## Public API
 
@@ -94,7 +94,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `submission_key(params: Any) -> str | None` ([source](../../../../../../src/learnloop_sidecar/handlers/practice.py), line 1706) — The retry key a request's attempt, receipt and model calls are keyed on.
 - `answering_key(repository, submission_id: str | None, session_id: str, practice_item_id: str) -> tuple[str | None, bool]` ([source](../../../../../../src/learnloop_sidecar/handlers/practice.py), line 1715) — The key a submission's attempt, intent and receipt are written under, and whether it is a successor of the client's (owner capture 2026-10-25, B4).
 - `skip_practice_item(ctx: SidecarContext, params: SkipInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/practice.py), line 1919)
-- `mark_released_held(payload: dict[str, Any], repository) -> None` ([source](../../../../../../src/learnloop_sidecar/handlers/practice.py), line 2013) — UX Phase 4 (display only): each released short-check answer says whether its grade is held for review (THE held predicate), so the result shows "held for review" and never the grader's provisional score.
+- `mark_released_held(payload: dict[str, Any], repository) -> None` ([source](../../../../../../src/learnloop_sidecar/handlers/practice.py), line 2020) — UX Phase 4 (display only): each released short-check answer says whether its grade is held for review (THE held predicate), so the result shows "held for review" and never the grader's provisional score.
 
 ### Module constants
 
@@ -136,14 +136,14 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `_require_same_item(recorded_item_id: str, practice_item_id: str) -> None` ([source](../../../../../../src/learnloop_sidecar/handlers/practice.py), line 1882)
 - `_submission_committed(attempt: dict[str, Any]) -> SidecarError` ([source](../../../../../../src/learnloop_sidecar/handlers/practice.py), line 1887)
 - `_store_submission_receipt(repository, submission_id: str | None, attempt_id: str, practice_item_id: str, payload: dict[str, Any]) -> None` ([source](../../../../../../src/learnloop_sidecar/handlers/practice.py), line 1900)
-- `_self_grade(payload: SelfGradeInputDto | None) -> SelfGradeInput | None` ([source](../../../../../../src/learnloop_sidecar/handlers/practice.py), line 1960)
-- `_attempt_result(result, repository=None, vault=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/practice.py), line 1978)
-- `_log_attempt_recorded(repository, session_id: str, answer_md: str, result) -> None` ([source](../../../../../../src/learnloop_sidecar/handlers/practice.py), line 2029)
-- `_latent_snapshot(vault, repository, practice_item_id: str) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop_sidecar/handlers/practice.py), line 2054) — Capture pre-attempt latent state for a practice item, for debug deltas.
-- `_log_state_update(vault, repository, method_name: str, session_id: str, before, result) -> None` ([source](../../../../../../src/learnloop_sidecar/handlers/practice.py), line 2083)
-- `_display_mean(mastery) -> float | None` ([source](../../../../../../src/learnloop_sidecar/handlers/practice.py), line 2154)
-- `_display_variance(mastery) -> float | None` ([source](../../../../../../src/learnloop_sidecar/handlers/practice.py), line 2162)
-- `_require_open_session(repository, session_id: str) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/practice.py), line 2170)
+- `_self_grade(payload: SelfGradeInputDto | None) -> SelfGradeInput | None` ([source](../../../../../../src/learnloop_sidecar/handlers/practice.py), line 1967)
+- `_attempt_result(result, repository=None, vault=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/practice.py), line 1985)
+- `_log_attempt_recorded(repository, session_id: str, answer_md: str, result) -> None` ([source](../../../../../../src/learnloop_sidecar/handlers/practice.py), line 2036)
+- `_latent_snapshot(vault, repository, practice_item_id: str) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop_sidecar/handlers/practice.py), line 2061) — Capture pre-attempt latent state for a practice item, for debug deltas.
+- `_log_state_update(vault, repository, method_name: str, session_id: str, before, result) -> None` ([source](../../../../../../src/learnloop_sidecar/handlers/practice.py), line 2090)
+- `_display_mean(mastery) -> float | None` ([source](../../../../../../src/learnloop_sidecar/handlers/practice.py), line 2161)
+- `_display_variance(mastery) -> float | None` ([source](../../../../../../src/learnloop_sidecar/handlers/practice.py), line 2169)
+- `_require_open_session(repository, session_id: str) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/practice.py), line 2177)
 
 ## Who imports or calls it
 
@@ -222,6 +222,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
+- [tests/mobile_host_helpers.py](../../../../../../tests/mobile_host_helpers.py) — direct import
 - [tests/rw2b_fix10_base_sequence.py](../../../../../../tests/rw2b_fix10_base_sequence.py) — direct import
 - [tests/rw2b_fix11_base_sequence.py](../../../../../../tests/rw2b_fix11_base_sequence.py) — direct import
 - [tests/test_approach_maps.py](../../../../../../tests/test_approach_maps.py) — direct import
@@ -261,6 +262,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_library_exercises.py](../../../../../../tests/test_library_exercises.py) — direct import
 - [tests/test_mobile_allowlist.py](../../../../../../tests/test_mobile_allowlist.py) — direct import
   - `test_the_pinned_hints_h0_rpcs_are_all_of_them`
+- [tests/test_mobile_two_process.py](../../../../../../tests/test_mobile_two_process.py) — direct import
 - [tests/test_owner_capture_1025.py](../../../../../../tests/test_owner_capture_1025.py) — direct import
 - [tests/test_reader_rw2b_fix10.py](../../../../../../tests/test_reader_rw2b_fix10.py) — direct import
   - `test_item3_the_refold_never_drops_an_assist_it_already_counted`

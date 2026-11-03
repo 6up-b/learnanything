@@ -234,7 +234,10 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_learner_pick_proposal.py](../../../../../../tests/test_learner_pick_proposal.py) — direct import
 - [tests/test_lp_claim_fixes_review.py](../../../../../../tests/test_lp_claim_fixes_review.py) — direct import
 - [tests/test_mobile_allowlist.py](../../../../../../tests/test_mobile_allowlist.py) — direct import
+- [tests/test_mobile_handoff.py](../../../../../../tests/test_mobile_handoff.py) — direct import
 - [tests/test_mobile_host_auth.py](../../../../../../tests/test_mobile_host_auth.py) — direct import
+- [tests/test_mobile_rpc.py](../../../../../../tests/test_mobile_rpc.py) — direct import
+- [tests/test_mobile_two_process.py](../../../../../../tests/test_mobile_two_process.py) — direct import
 - [tests/test_owner_capture_1025.py](../../../../../../tests/test_owner_capture_1025.py) — direct import
 - [tests/test_placement_opening_probes.py](../../../../../../tests/test_placement_opening_probes.py) — direct import
 - [tests/test_placement_sidecar.py](../../../../../../tests/test_placement_sidecar.py) — direct import

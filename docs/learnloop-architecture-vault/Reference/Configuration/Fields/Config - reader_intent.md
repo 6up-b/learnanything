@@ -3,8 +3,8 @@ title: "Config - reader_intent"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "27497a7340a969f6662bfd46bcc6d5ff9522f505"
-source_commit_timestamp: "2026-11-03T04:44:30-05:00"
+source_commit: "01fa9698ae962d7b0977b90915e12e269c3b8db5"
+source_commit_timestamp: "2026-11-03T12:40:09-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "learnloop.toml reader_intent"
@@ -24,6 +24,7 @@ source_paths:
   - "tests/codex_cli_fakes.py"
   - "tests/hint_fakes.py"
   - "tests/local_embeddings_fakes.py"
+  - "tests/mobile_host_helpers.py"
   - "tests/notes_fixtures.py"
   - "tests/pf_fakes.py"
   - "tests/practice_index_fakes.py"
@@ -31,7 +32,6 @@ source_paths:
   - "tests/rw5c_fixtures.py"
   - "tests/split_live_helpers.py"
   - "tests/test_ad1_codex_rereview_fixes.py"
-  - "tests/test_ad1_codex_review_fixes.py"
 tags:
   - "learnloop/configuration/fields"
   - "learnloop/configuration/section/reader-intent"
@@ -69,6 +69,7 @@ Every row cites the exact Pydantic field declaration (or typed dynamic-key conta
 - `tests/codex_cli_fakes.py`
 - `tests/hint_fakes.py`
 - `tests/local_embeddings_fakes.py`
+- `tests/mobile_host_helpers.py`
 - `tests/notes_fixtures.py`
 - `tests/pf_fakes.py`
 - `tests/practice_index_fakes.py`
@@ -76,7 +77,6 @@ Every row cites the exact Pydantic field declaration (or typed dynamic-key conta
 - `tests/rw5c_fixtures.py`
 - `tests/split_live_helpers.py`
 - `tests/test_ad1_codex_rereview_fixes.py`
-- `tests/test_ad1_codex_review_fixes.py`
 
 ## Extension and modification guidance
 

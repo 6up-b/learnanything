@@ -6,8 +6,8 @@ refactor_status: "ACTIVE"
 version: "1.0.0"
 source_paths:
   - "apps/learnloop-tauri/src"
-source_commit: "da3182176a0bb372a0759299ba54df0c4ab145ef"
-source_commit_timestamp: "2026-11-03T04:42:27-05:00"
+source_commit: "01fa9698ae962d7b0977b90915e12e269c3b8db5"
+source_commit_timestamp: "2026-11-03T12:40:09-05:00"
 generated: true
 generated_at: "2026-08-18"
 tags:
@@ -42,7 +42,7 @@ The React renderer entry point and cross-cutting frontend modules.
 
 | Module | Status | Purpose | Imports | Imported by |
 |---|---|---|---:|---:|
-| [[Reference/Desktop/TypeScript/errors|errors.ts]] | `ACTIVE` | Turns unknown renderer failures into the user-facing desktop error contract. | 1 | 65 |
+| [[Reference/Desktop/TypeScript/errors|errors.ts]] | `ACTIVE` | Turns unknown renderer failures into the user-facing desktop error contract. | 1 | 66 |
 | [[Reference/Desktop/TypeScript/main|main.tsx]] | `ACTIVE` | Bootstraps React, applies the persisted palette before first paint, and mounts the desktop application shell. | 1 | 0 |
 | [[Reference/Desktop/TypeScript/queueEvents|queueEvents.ts]] | `ACTIVE` | Provides the in-window event boundary that tells independent surfaces the practice queue changed. | 2 | 5 |
 | [[Reference/Desktop/TypeScript/testNodeShims.d|testNodeShims.d.ts]] | `ACTIVE` | Provides `readFileSync`, `readFileSync`, `writeFileSync`, `readdirSync` and related exports within the desktop's TypeScript ownership area. | 0 | 0 |

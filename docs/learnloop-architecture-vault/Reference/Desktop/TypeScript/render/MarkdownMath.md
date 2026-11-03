@@ -10,8 +10,8 @@ area: "TypeScript/render"
 source_path: "apps/learnloop-tauri/src/render/MarkdownMath.tsx"
 source_paths:
   - "apps/learnloop-tauri/src/render/MarkdownMath.tsx"
-source_commit: "47e8b002ea4bb9e37e276d97d7acaf4d8e474c37"
-source_commit_timestamp: "2026-11-02T23:24:23-05:00"
+source_commit: "76b7e44272ab57e22c23c1d73d6d916535f4a857"
+source_commit_timestamp: "2026-11-03T12:15:55-05:00"
 source_worktree_state: "clean"
 activation_kind: "entry-reachable build graph"
 activation_evidence: "A static TypeScript import path reaches this file from the Vite entry src/main.tsx."
@@ -42,14 +42,14 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/render/MarkdownMath.tsx](../../../../../../apps/learnloop-tauri/src/render/MarkdownMath.tsx) |
-| Source lines | 23 |
+| Source lines | 31 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/render/_area|TypeScript/render]] |
 | Refactor status | `ACTIVE` |
 | Activation kind | `entry-reachable build graph` |
 | Worktree state | `clean` |
-| Source commit | `47e8b002ea4bb9e37e276d97d7acaf4d8e474c37` |
-| Commit timestamp | `2026-11-02T23:24:23-05:00` |
+| Source commit | `76b7e44272ab57e22c23c1d73d6d916535f4a857` |
+| Commit timestamp | `2026-11-03T12:15:55-05:00` |
 
 ## Activation and status evidence
 
@@ -60,7 +60,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 
 ## Public API
 
-- `export const MarkdownMath = memo(function MarkdownMath(` — const, line 17
+- `export const MarkdownMath = memo(function MarkdownMath(` — const, line 19
 
 ## Internal implementation anchors
 

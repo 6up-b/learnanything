@@ -3,13 +3,13 @@ title: "hypothesis_events"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "27497a7340a969f6662bfd46bcc6d5ff9522f505"
-source_commit_timestamp: "2026-11-03T04:44:30-05:00"
+source_commit: "01fa9698ae962d7b0977b90915e12e269c3b8db5"
+source_commit_timestamp: "2026-11-03T12:40:09-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite hypothesis_events"
   - "table hypothesis_events"
-schema_head: 238
+schema_head: 240
 table_name: "hypothesis_events"
 table_role: "raw_ledger"
 functionality_status: "active"
@@ -19,6 +19,7 @@ generated: true
 source_paths:
   - "src/learnloop/db/table_roles.py"
   - "migrations/055_hypothesis_events.sql"
+  - "src/learnloop/capture/report.py"
   - "src/learnloop/db/repositories.py"
   - "src/learnloop/diagnosis/scoreboard.py"
   - "src/learnloop/learner/surfaced_beliefs.py"
@@ -114,6 +115,7 @@ Indexes and uniqueness:
 
 ### Direct SQL readers
 
+- `src/learnloop/capture/report.py`
 - `src/learnloop/db/repositories.py`
 
 ### Direct SQL writers

@@ -3,31 +3,31 @@ title: "Database Catalog"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "27497a7340a969f6662bfd46bcc6d5ff9522f505"
-source_commit_timestamp: "2026-11-03T04:44:30-05:00"
+source_commit: "01fa9698ae962d7b0977b90915e12e269c3b8db5"
+source_commit_timestamp: "2026-11-03T12:40:09-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite table index"
   - "Database table MOC"
   - "Table Catalog"
-schema_head: 238
-table_count: 373
+schema_head: 240
+table_count: 374
 generated: true
 source_paths:
   - "src/learnloop/db/table_roles.py"
-  - "fixtures/migration_head_238/state.sqlite"
+  - "fixtures/migration_head_240/state.sqlite"
   - "migrations/"
   - "tests/test_table_roles.py"
   - "tests/test_migrations.py"
 tags:
   - "learnloop/database/moc"
-  - "learnloop/database/schema-head-238"
+  - "learnloop/database/schema-head-240"
   - "learnloop/navigation"
 ---
 
 # Database Catalog
 
-This is the exhaustive map of the 373 user tables at migration head 238. Use [[Table Roles]] to interpret rebuild policy and [[Rebuild Ownership]] to see which projections are actually cleared and replayed. The larger persistence boundary lives in [[State and Persistence]]. ^catalog-scope
+This is the exhaustive map of the 374 user tables at migration head 240. Use [[Table Roles]] to interpret rebuild policy and [[Rebuild Ownership]] to see which projections are actually cleared and replayed. The larger persistence boundary lives in [[State and Persistence]]. ^catalog-scope
 
 > [!important] Role is not runtime status
 > `raw_ledger`, `derived`, `receipt`, `workflow`, and `compat` say what rebuild may do. `active`, `legacy-preserved`, `dormant-shadow`, and `dormant-owner-gated` say how the refactored runtime treats the table. See [[Table Roles#Role versus functionality status]].
@@ -41,14 +41,14 @@ This is the exhaustive map of the 373 user tables at migration head 238. Use [[T
 | [[Table Roles#Raw Ledger|`raw_ledger`]] | 162 |
 | [[Table Roles#Derived|`derived`]] | 26 |
 | [[Table Roles#Receipt|`receipt`]] | 79 |
-| [[Table Roles#Workflow|`workflow`]] | 96 |
+| [[Table Roles#Workflow|`workflow`]] | 97 |
 | [[Table Roles#Compat|`compat`]] | 10 |
 
 ### By functionality status
 
 | Status | Tables |
 |---|---:|
-| `active` | 360 |
+| `active` | 361 |
 | `active-historical-seam` | 1 |
 | `dormant-owner-gated` | 3 |
 | `dormant-shadow` | 3 |
@@ -477,6 +477,7 @@ Maintenance, generic observations, and optional generated media. This is a navig
 - [[Reference/Database/Tables/library_asks|library_asks]] — `workflow` · `active` · Gives library ask a stable database identity so maintenance and optional operational work remains inspectable without becoming learner-state authority. It lets interrupted or asynchronous work resume without pretending in-flight state is historical evidence. Rows bind `extraction_id`, `comparison_id`, `question_event_id`, making the operational relationship explicit.
 - [[Reference/Database/Tables/maintenance_notices|maintenance_notices]] — `workflow` · `active` · Stores actionable maintenance items surfaced by operational checks. It lets interrupted or asynchronous work resume without pretending in-flight state is historical evidence. Rows bind `subject_id`, `entity_id`, `notice_type`, making the operational relationship explicit.
 - [[Reference/Database/Tables/mobile_devices|mobile_devices]] — `workflow` · `active` · Gives mobile device a stable database identity so maintenance and optional operational work remains inspectable without becoming learner-state authority. It lets interrupted or asynchronous work resume without pretending in-flight state is historical evidence. Rows bind `token_hash`, `label`, `scope`, making the operational relationship explicit.
+- [[Reference/Database/Tables/mobile_jobs|mobile_jobs]] — `workflow` · `active` · Coordinates leased, retryable work for mobile so maintenance and optional operational work remains inspectable without becoming learner-state authority. It lets interrupted or asynchronous work resume without pretending in-flight state is historical evidence. Rows bind `device_id`, `request_id`, `host_boot_id`, making the operational relationship explicit.
 - [[Reference/Database/Tables/mobile_pairing_attempts|mobile_pairing_attempts]] — `workflow` · `active` · Gives mobile pairing attempt a stable database identity so maintenance and optional operational work remains inspectable without becoming learner-state authority. It lets interrupted or asynchronous work resume without pretending in-flight state is historical evidence. Rows bind `at`, making the operational relationship explicit.
 - [[Reference/Database/Tables/mobile_pairing_guard|mobile_pairing_guard]] — `workflow` · `active` · Gives mobile pairing guard a stable database identity so maintenance and optional operational work remains inspectable without becoming learner-state authority. It lets interrupted or asynchronous work resume without pretending in-flight state is historical evidence. Rows bind `locked`, making the operational relationship explicit.
 - [[Reference/Database/Tables/mobile_pairings|mobile_pairings]] — `workflow` · `active` · Gives mobile pairing a stable database identity so maintenance and optional operational work remains inspectable without becoming learner-state authority. It lets interrupted or asynchronous work resume without pretending in-flight state is historical evidence. Rows bind `secret_hash`, `code_hash`, `label`, making the operational relationship explicit.

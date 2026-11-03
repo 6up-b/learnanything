@@ -7,8 +7,8 @@ version: "1.0.0"
 source_path: "src/learnloop/scheduling/device_eligibility.py"
 source_paths:
   - "src/learnloop/scheduling/device_eligibility.py"
-source_commit: "2bdb6dfd81c59fe1d9302498ee64f66d7ed02719"
-source_commit_timestamp: "2026-11-03T04:38:37-05:00"
+source_commit: "01fa9698ae962d7b0977b90915e12e269c3b8db5"
+source_commit_timestamp: "2026-11-03T12:40:09-05:00"
 source_worktree_state: "clean"
 generated: true
 generated_at: "2026-11-02"
@@ -50,20 +50,20 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/scheduling/device_eligibility.py](../../../../../../src/learnloop/scheduling/device_eligibility.py) |
-| Source lines | 205 |
+| Source lines | 210 |
 | Owning package | [[Reference/Modules/learnloop/scheduling/_package|learnloop.scheduling]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `2bdb6dfd81c59fe1d9302498ee64f66d7ed02719` |
-| Commit timestamp | `2026-11-03T04:38:37-05:00` |
+| Source commit | `01fa9698ae962d7b0977b90915e12e269c3b8db5` |
+| Commit timestamp | `2026-11-03T12:40:09-05:00` |
 
 ## Public API
 
 - `class DeviceFilter` ([source](../../../../../../src/learnloop/scheduling/device_eligibility.py), line 152) — One queue build's device, and what it held back.
-  - `refuses(self, item: Any) -> bool` (line 169; public)
-  - `holds_back(self, item: Any) -> bool` (line 172; public) — ``refuses``, for an item the build would otherwise serve.
-- `ineligibility_reason(vault: Any, item: Any, device_class: str) -> str | None` ([source](../../../../../../src/learnloop/scheduling/device_eligibility.py), line 181) — Why ``device_class`` cannot answer ``item``, or None when it can.
+  - `refuses(self, item: Any) -> bool` (line 174; public)
+  - `holds_back(self, item: Any) -> bool` (line 177; public) — ``refuses``, for an item the build would otherwise serve.
+- `ineligibility_reason(vault: Any, item: Any, device_class: str) -> str | None` ([source](../../../../../../src/learnloop/scheduling/device_eligibility.py), line 186) — Why ``device_class`` cannot answer ``item``, or None when it can.
 
 ### Module constants
 
@@ -145,6 +145,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_the_phones_decision_names_the_rules_and_the_desktops_does_not`
   - `test_what_the_renderer_resolves_is_still_kept_for_the_desktop`
   - `test_what_the_renderer_shows_as_text_or_a_web_link_stays_eligible`
+- [tests/test_mobile_handoff.py](../../../../../../tests/test_mobile_handoff.py) — direct import
+  - `test_suspected_figure_is_a_word_pattern_and_only_a_report`
 
 ## Modification guidance
 

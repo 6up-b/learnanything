@@ -3,13 +3,13 @@ title: "scheduler_slates"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "27497a7340a969f6662bfd46bcc6d5ff9522f505"
-source_commit_timestamp: "2026-11-03T04:44:30-05:00"
+source_commit: "01fa9698ae962d7b0977b90915e12e269c3b8db5"
+source_commit_timestamp: "2026-11-03T12:40:09-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite scheduler_slates"
   - "table scheduler_slates"
-schema_head: 238
+schema_head: 240
 table_name: "scheduler_slates"
 table_role: "workflow"
 functionality_status: "active"
@@ -120,6 +120,7 @@ Indexes and uniqueness:
 - `src/learnloop_sidecar/handlers/inspector.py`
 - `src/learnloop_sidecar/handlers/practice.py`
 - `src/learnloop_sidecar/handlers/queue.py`
+- `src/learnloop_sidecar/serving.py`
 
 > [!note] Static-reference boundary
 > These lists are evidence from exact table-name SQL and repository-method calls. Dynamic dispatch and higher-level tests may exercise the table without spelling its name.

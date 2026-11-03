@@ -3,13 +3,13 @@ title: "queue_state"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "27497a7340a969f6662bfd46bcc6d5ff9522f505"
-source_commit_timestamp: "2026-11-03T04:44:30-05:00"
+source_commit: "01fa9698ae962d7b0977b90915e12e269c3b8db5"
+source_commit_timestamp: "2026-11-03T12:40:09-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite queue_state"
   - "table queue_state"
-schema_head: 238
+schema_head: 240
 table_name: "queue_state"
 table_role: "workflow"
 functionality_status: "active"
@@ -106,11 +106,11 @@ Indexes and uniqueness:
 - `src/learnloop/placement/decisions.py`
 - `src/learnloop/source_retrieval/deliverable_path.py`
 - `src/learnloop/tutor/promotions.py`
+- `src/learnloop_mobile/host.py`
 - `src/learnloop_sidecar/context.py`
 - `src/learnloop_sidecar/handlers/deliverables.py`
 - `src/learnloop_sidecar/handlers/item_authoring.py`
 - `src/learnloop_sidecar/handlers/learner_gaps.py`
-- `src/learnloop_sidecar/handlers/queue.py`
 
 > [!note] Static-reference boundary
 > These lists are evidence from exact table-name SQL and repository-method calls. Dynamic dispatch and higher-level tests may exercise the table without spelling its name.
@@ -125,6 +125,10 @@ Indexes and uniqueness:
 - `tests/test_daily_plan_build.py`
 - `tests/test_host_queue_revision.py`
 - `tests/test_learner_text_gaps_review.py`
+- `tests/test_mobile_handoff.py`
+- `tests/test_mobile_jobs.py`
+- `tests/test_mobile_rpc.py`
+- `tests/test_mobile_two_process.py`
 - `tests/test_question_promotion_jobs.py`
 - `tests/test_vault_watcher_refresh.py`
 

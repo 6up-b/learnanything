@@ -3,13 +3,13 @@ title: "measurement_contract_corrections"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "27497a7340a969f6662bfd46bcc6d5ff9522f505"
-source_commit_timestamp: "2026-11-03T04:44:30-05:00"
+source_commit: "01fa9698ae962d7b0977b90915e12e269c3b8db5"
+source_commit_timestamp: "2026-11-03T12:40:09-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite measurement_contract_corrections"
   - "table measurement_contract_corrections"
-schema_head: 238
+schema_head: 240
 table_name: "measurement_contract_corrections"
 table_role: "raw_ledger"
 functionality_status: "active"

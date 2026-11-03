@@ -10,9 +10,9 @@ area: "TypeScript/app"
 source_path: "apps/learnloop-tauri/src/app/useQueueRevisionPoll.ts"
 source_paths:
   - "apps/learnloop-tauri/src/app/useQueueRevisionPoll.ts"
-source_commit: "da3182176a0bb372a0759299ba54df0c4ab145ef"
-source_commit_timestamp: "2026-11-03T04:42:27-05:00"
-source_worktree_state: "staged-or-mixed"
+source_commit: "c397af76627dd82e2bae14dcf251e595cc6e23b2"
+source_commit_timestamp: "2026-11-03T12:14:06-05:00"
+source_worktree_state: "clean"
 activation_kind: "entry-reachable build graph"
 activation_evidence: "A static TypeScript import path reaches this file from the Vite entry src/main.tsx."
 generated: true
@@ -31,7 +31,7 @@ Area: [[Reference/Desktop/TypeScript/app/_area|TypeScript/app]] · Jump to [[#Pu
 
 ## Why this module exists
 
-Provides `REVISION_POLL_MS`, `SessionMoved`, `sessionMovedFrom`, `useSessionMoved` and related exports within the desktop's TypeScript/app ownership area.
+Provides `REVISION_POLL_MS`, `RevisionPollView`, `revisionPollHeld`, `QueueRevisionPollOptions` and related exports within the desktop's TypeScript/app ownership area.
 
 The system-level behavior stays authoritative in the linked architecture, concept, and workflow notes; this note owns only source-level lookup facts.
 
@@ -42,14 +42,14 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/app/useQueueRevisionPoll.ts](../../../../../../apps/learnloop-tauri/src/app/useQueueRevisionPoll.ts) |
-| Source lines | 211 |
+| Source lines | 187 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/app/_area|TypeScript/app]] |
 | Refactor status | `ACTIVE` |
 | Activation kind | `entry-reachable build graph` |
-| Worktree state | `staged-or-mixed` |
-| Source commit | `da3182176a0bb372a0759299ba54df0c4ab145ef` |
-| Commit timestamp | `2026-11-03T04:42:27-05:00` |
+| Worktree state | `clean` |
+| Source commit | `c397af76627dd82e2bae14dcf251e595cc6e23b2` |
+| Commit timestamp | `2026-11-03T12:14:06-05:00` |
 
 ## Activation and status evidence
 
@@ -60,46 +60,38 @@ The system-level behavior stays authoritative in the linked architecture, concep
 
 ## Public API
 
-- `export const REVISION_POLL_MS = 3000` — const, line 38
-- `export interface SessionMoved` — interface, line 40
-- `export function sessionMovedFrom(snapshot: SessionSnapshot): SessionMoved | null` — function, line 49
-- `export function useSessionMoved(): SessionMoved | null` — function, line 71
-- `export interface RevisionPollView` — interface, line 76
-- `export function revisionPollHeld(view: RevisionPollView): boolean` — function, line 92
-- `export interface QueueRevisionPollOptions` — interface, line 98
-- `export function useQueueRevisionPoll(` — function, line 107
+- `export const REVISION_POLL_MS = 3000` — const, line 43
+- `export interface RevisionPollView` — interface, line 48
+- `export function revisionPollHeld(view: RevisionPollView): boolean` — function, line 64
+- `export interface QueueRevisionPollOptions` — interface, line 70
+- `export function useQueueRevisionPoll(` — function, line 81
 
 ## Internal implementation anchors
 
-- `const ownership =` — const, line 50
-- `let moved: SessionMoved | null = null` — let, line 56
-- `const movedListeners = new Set<()` — const, line 57
-- `function setSessionMoved(next: SessionMoved | null): void` — function, line 59
-- `function subscribeSessionMoved(listener: ()` — function, line 65
-- `const onToday = view.tab === "today" || (view.simple && view.tab === "start")` — const, line 93
-- `const overToday = view.examOpen || view.calibrationOpen || view.lessonOpen || view.goldenRunOpen` — const, line 94
-- `const sessionIdRef = useRef(sessionId)` — const, line 108
-- `const quietRef = useRef(quiet)` — const, line 110
-- `const pendingRef = useRef(false)` — const, line 112
-- `const tickRef = useRef<(()` — const, line 113
-- `let disposed = false` — let, line 122
-- `let inFlight = false` — let, line 123
-- `let seen: number | null = null` — let, line 124
-- `let windowBack = false` — let, line 126
-- `let sessionReadOwed = false` — let, line 129
-- `const readOpenSession = async (): Promise<boolean>` — const, line 132
-- `const id = sessionIdRef.current` — const, line 133
-- `const snapshot = await api.getSession(id)` — const, line 136
-- `const tick = async ()` — const, line 146
-- `let answered = false` — let, line 151
-- `const heldRead = quietRef.current` — const, line 152
-- `const snapshot = await api.getQueueRevision(heldRead ?` — const, line 154
-- `const back = windowBack` — const, line 159
-- `const changed = seen !== null && seen !== snapshot.revision` — const, line 161
-- `const onWindowBack = ()` — const, line 182
-- `const interval = window.setInterval(()` — const, line 189
-- `const wasQuietRef = useRef(quiet)` — const, line 205
-- `const wasQuiet = wasQuietRef.current` — const, line 207
+- `const onToday = view.tab === "today" || (view.simple && view.tab === "start")` — const, line 65
+- `const overToday = view.examOpen || view.calibrationOpen || view.lessonOpen || view.goldenRunOpen` — const, line 66
+- `const sessionIdRef = useRef(sessionId)` — const, line 82
+- `const quietRef = useRef(quiet)` — const, line 84
+- `const pendingRef = useRef(false)` — const, line 86
+- `const tickRef = useRef<(()` — const, line 87
+- `let disposed = false` — let, line 98
+- `let inFlight = false` — let, line 99
+- `let seen: number | null = null` — let, line 100
+- `let windowBack = false` — let, line 102
+- `let sessionReadOwed = false` — let, line 105
+- `const readOpenSession = async (): Promise<boolean>` — const, line 108
+- `const id = sessionIdRef.current` — const, line 109
+- `const snapshot = await api.getSession(id)` — const, line 112
+- `const tick = async ()` — const, line 122
+- `let answered = false` — let, line 127
+- `const heldRead = quietRef.current` — const, line 128
+- `const snapshot = await api.getQueueRevision(heldRead ?` — const, line 130
+- `const back = windowBack` — const, line 135
+- `const changed = seen !== null && seen !== snapshot.revision` — const, line 137
+- `const onWindowBack = ()` — const, line 158
+- `const interval = window.setInterval(()` — const, line 165
+- `const wasQuietRef = useRef(quiet)` — const, line 181
+- `const wasQuiet = wasQuietRef.current` — const, line 183
 
 ## Who imports or calls it
 
@@ -114,6 +106,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 
 - [[Reference/Desktop/TypeScript/api/client|src/api/client.ts]] — import-or-re-export; imports `api`
 - [[Reference/Desktop/TypeScript/api/dto|src/api/dto.ts]] — import-or-re-export; imports `SessionSnapshot`
+- [[Reference/Desktop/TypeScript/app/sessionMoved|src/app/sessionMoved.ts]] — import-or-re-export; imports `SessionMoved`, `const`, `sessionMovedFrom`, `setSessionMoved`, `useSessionMoved`
 - [[Reference/Desktop/TypeScript/queueEvents|src/queueEvents.ts]] — import-or-re-export; imports `notifyQueueChanged`
 
 ### Assets, platform, and third-party dependencies

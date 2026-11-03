@@ -7,8 +7,8 @@ version: "1.0.0"
 source_path: "src/learnloop_sidecar/handlers/queue.py"
 source_paths:
   - "src/learnloop_sidecar/handlers/queue.py"
-source_commit: "da3182176a0bb372a0759299ba54df0c4ab145ef"
-source_commit_timestamp: "2026-11-03T04:42:27-05:00"
+source_commit: "01fa9698ae962d7b0977b90915e12e269c3b8db5"
+source_commit_timestamp: "2026-11-03T12:40:09-05:00"
 source_worktree_state: "clean"
 generated: true
 generated_at: "2026-11-02"
@@ -50,13 +50,13 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop_sidecar/handlers/queue.py](../../../../../../src/learnloop_sidecar/handlers/queue.py) |
-| Source lines | 636 |
+| Source lines | 638 |
 | Owning package | [[Reference/Modules/learnloop_sidecar/handlers/_package|learnloop_sidecar.handlers]] |
 | Architecture layer | `adapter` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `da3182176a0bb372a0759299ba54df0c4ab145ef` |
-| Commit timestamp | `2026-11-03T04:42:27-05:00` |
+| Source commit | `01fa9698ae962d7b0977b90915e12e269c3b8db5` |
+| Commit timestamp | `2026-11-03T12:40:09-05:00` |
 
 ## Public API
 
@@ -149,6 +149,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_the_reentry_cap_is_applied_after_the_filter_too`
 - [tests/test_diagnosis_async_router.py](../../../../../../tests/test_diagnosis_async_router.py) — direct import
   - `test_a_failed_or_budget_skipped_diagnosis_is_unavailable_at_the_serve`
+- [tests/test_mobile_rpc.py](../../../../../../tests/test_mobile_rpc.py) — direct import
+  - `test_a_desktop_only_item_is_refused_at_each_door_and_counted`
 - [tests/test_router_offer_log.py](../../../../../../tests/test_router_offer_log.py) — direct import
   - `test_a_logging_failure_never_fails_the_offer`
   - `test_an_offer_row_the_ledger_refuses_is_warned_and_the_offer_still_publishes`

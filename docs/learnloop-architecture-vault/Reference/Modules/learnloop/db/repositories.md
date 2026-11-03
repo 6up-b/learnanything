@@ -1185,7 +1185,9 @@ The authoritative system-level explanation remains in [[State and Persistence]],
 - [[Reference/Modules/learnloop/attempts/surprise|learnloop.attempts.surprise]] — imports `ActiveErrorEvent`, `MasteryState`
 - [[Reference/Modules/learnloop/capture/devices|learnloop.capture.devices]] — imports `Repository`
 - [[Reference/Modules/learnloop/capture/inbox|learnloop.capture.inbox]] — imports `Repository`
+- [[Reference/Modules/learnloop/capture/jobs|learnloop.capture.jobs]] — imports `Repository`
 - [[Reference/Modules/learnloop/capture/maintenance|learnloop.capture.maintenance]] — imports `Repository`
+- [[Reference/Modules/learnloop/capture/report|learnloop.capture.report]] — imports `Repository`
 - [[Reference/Modules/learnloop/cli/ad|learnloop.cli.ad]] — imports `Repository`
 - [[Reference/Modules/learnloop/cli/app|learnloop.cli.app]] — imports `Repository`
 - [[Reference/Modules/learnloop/cli/diagnose|learnloop.cli.diagnose]] — imports `Repository`
@@ -1602,7 +1604,7 @@ Use this module in context through:
 - [[Inspect Persistent State]]
 - [[Doctor Migrations and Recovery]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/adaptive_difficulty/background|learnloop.adaptive_difficulty.background]], [[Reference/Modules/learnloop/adaptive_difficulty/relatedness_jobs|learnloop.adaptive_difficulty.relatedness_jobs]], [[Reference/Modules/learnloop/ai/runs|learnloop.ai.runs]], [[Reference/Modules/learnloop/attempts/attempt_trace|learnloop.attempts.attempt_trace]], [[Reference/Modules/learnloop/attempts/attempts|learnloop.attempts.attempts]] and 381 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/adaptive_difficulty/background|learnloop.adaptive_difficulty.background]], [[Reference/Modules/learnloop/adaptive_difficulty/relatedness_jobs|learnloop.adaptive_difficulty.relatedness_jobs]], [[Reference/Modules/learnloop/ai/runs|learnloop.ai.runs]], [[Reference/Modules/learnloop/attempts/attempt_trace|learnloop.attempts.attempt_trace]], [[Reference/Modules/learnloop/attempts/attempts|learnloop.attempts.attempts]] and 383 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
@@ -1620,6 +1622,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/hint_fakes.py](../../../../../../tests/hint_fakes.py) — direct import
 - [tests/intent_fakes.py](../../../../../../tests/intent_fakes.py) — direct import
 - [tests/mcp_world.py](../../../../../../tests/mcp_world.py) — direct import
+- [tests/mobile_host_helpers.py](../../../../../../tests/mobile_host_helpers.py) — direct import
 - [tests/notes_fixtures.py](../../../../../../tests/notes_fixtures.py) — direct import
 - [tests/passage_cue_fakes.py](../../../../../../tests/passage_cue_fakes.py) — direct import
 - [tests/pf_fakes.py](../../../../../../tests/pf_fakes.py) — direct import
