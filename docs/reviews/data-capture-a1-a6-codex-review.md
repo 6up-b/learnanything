@@ -53,7 +53,7 @@ empty, existing `HOME`, `CODEX_HOME`, `LEARNLOOP_CONFIG_DIR` and routes off. Ful
 
 * `uv sync --extra dev --extra mobile`, `uv pip install pypdfium2`.
 * `lint-imports --no-cache`: **42 kept, 0 broken**.
-* Targeted `pytest -n 6` over the 123 files below: **7487 passed, 6 skipped, 0 failed** (33:48).
+* Targeted `pytest -n 6` over the 114 files below: **7487 passed, 6 skipped, 0 failed** (33:48).
 * `pytest -n 6 -m durability` on `test_data_capture_migration`, `test_coordinated_migrations`, `test_table_roles`,
   `test_tracked_fixture_databases`: **3 passed**.
 * `pytest -n 6 --durable-sqlite` on `test_data_capture_codex_rereview`, `test_data_capture_codex_review`,
