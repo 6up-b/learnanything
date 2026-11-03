@@ -136,9 +136,10 @@ def _code_strings(path: Path) -> str:
 
 
 def test_no_code_path_can_store_or_render_verified_or_checked():
-    """Static: the claim's words appear nowhere in the figure code (Python or
-    the Reader's renderer), and "verified" only as the store's RW5c constant;
-    no verifier route exists."""
+    """Static: the claim's words appear only as code-owned frame constants (RW5c
+    brought the claim back through an element's closed role: the labels module and
+    the Reader's FIGURE_FRAME, kept equal by a test), and "verified" only as the
+    store's constant; no verifier route exists."""
 
     from learnloop.ai import routing
     from learnloop.config.schema import AIRoutingConfig
@@ -150,6 +151,8 @@ def test_no_code_path_can_store_or_render_verified_or_checked():
     frontend = [path for path in sorted((ROOT / "apps" / "learnloop-tauri" / "src" / "screens" / "reader" / "figures")
                                         .glob("*.ts*")) if ".test." not in path.name]
     for path in [*python, *frontend]:
+        if path.name in ("labels.py", "FigureInline.tsx"):
+            continue  # the one place each side writes the claim's words: BOOK_CHECKED_LABEL, FIGURE_FRAME.bookChecked
         text = _code_strings(path)
         assert "matches the book" not in text and "matches the source" not in text, path
         assert "equation (checked)" not in text and "· checked" not in text, path

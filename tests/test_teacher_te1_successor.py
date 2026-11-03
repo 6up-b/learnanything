@@ -75,6 +75,8 @@ def test_every_defaults_snapshot_drops_to_mains_value_without_the_teacher_keys()
         dumped["hints"].pop("fold_follows_attach")
         dumped["router"].pop("lesson_suggestions")  # teacher TE1b's keys (tests/test_teacher_te1b_successor.py)
         # Reader RW5d P5 (after main's 19c72752b3): its [figures] prefetch keys and route moved them too.
+        # Reader RW5c P1 landed after it too: its kill switch moved them.
+        dumped["figures"].pop("checked_labels_enabled")
         dumped["figures"].pop("prefetch_enabled")
         dumped["figures"].pop("prefetch")
         dumped["ai"]["routing"].pop("figure_prefetch_judge")

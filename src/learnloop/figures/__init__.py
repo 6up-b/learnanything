@@ -11,8 +11,11 @@ the two kept identical by one golden corpus.
   fixed adaptive Simpson rule and exact sums;
 * :mod:`.spec`: the spec, its caps, and :func:`~.spec.evaluate_figure` (the
   panels' data, the corpus's parity unit);
-* :mod:`.verify`: structure, invariants, shaded areas (§8.3 steps 1-2; the
-  source match, step 3, is RW5c's);
+* :mod:`.verify`: structure, invariants, shaded areas (§8.3 steps 1-2);
+* RW5c's step 3, the source match: :mod:`.book_math` (code reads the book's
+  equation), :mod:`.source_check` with its sandboxed harness (the exact check,
+  no model), :mod:`.elements` (code-owned labels) and :mod:`.display_format`
+  (the display twins);
 * :mod:`.routes`: ``figure_author`` under the spend cap;
 * :mod:`learnloop.figure_admission`: the one switch predicate and the gate
   every figure-derived model request passes;

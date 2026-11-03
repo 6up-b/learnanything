@@ -29,9 +29,10 @@ import signal
 import sys
 import time
 
-workdir = sys.argv[1]
-sys.path.insert(0, workdir)
-sys.setrecursionlimit(20000)
+if __name__ == "__main__":
+    # In the sandbox ``-I`` leaves the script's directory off the path; display_format.py is beside it.
+    sys.path.insert(0, sys.argv[1])
+    sys.setrecursionlimit(20000)
 MARKER = "@@PF-SANDBOX-RESULT@@"
 
 
@@ -43,14 +44,16 @@ def _alarm(_signum, _frame):
     raise _Timeout()
 
 
-signal.signal(signal.SIGALRM, _alarm)
-
 from fractions import Fraction  # noqa: E402
 
 import mpmath  # noqa: E402
 from mpmath import iv  # noqa: E402
 import sympy  # noqa: E402
-from display_format import format_value  # noqa: E402
+
+try:
+    from display_format import format_value  # noqa: E402
+except ImportError:  # imported, not run (a module walk): the package's own copy of the same file
+    from learnloop.figures.display_format import format_value  # noqa: E402
 
 CONSTANTS = {"pi": sympy.pi, "e": sympy.E}
 TOTAL = {"exp", "sin", "cos", "atan", "erf", "Phi", "abs", "min", "max"}
@@ -738,7 +741,8 @@ def run_pair(pair, payload, symbols, deadline, per_check):
 
 
 def main():
-    with open(os.path.join(workdir, "input.json"), encoding="utf-8") as handle:
+    signal.signal(signal.SIGALRM, _alarm)
+    with open(os.path.join(sys.argv[1], "input.json"), encoding="utf-8") as handle:
         payload = json.load(handle)
     per_check = int(payload["per_check_seconds"])
     # Stop starting new work while one more unit still fits inside the CPU
@@ -804,4 +808,6 @@ def main():
     print(MARKER + json.dumps({"sympy_version": sympy.__version__, "results": results}))
 
 
-main()
+
+if __name__ == "__main__":
+    main()

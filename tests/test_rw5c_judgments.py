@@ -51,11 +51,11 @@ def test_a_recheck_supersedes_the_previous_verdict_of_the_same_figure(stored):
     full = store.figure(repository.connection(), figure["id"])
     SC.recheck(vault, repository, full)
     SC.recheck(vault, repository, full)
-    verdicts = _verdicts(repository)
-    assert len(verdicts) == 3
-    by_time = sorted(verdicts, key=lambda row: row["created_at"])
-    assert by_time[0]["supersedes_id"] is None
-    assert {row["supersedes_id"] for row in by_time[1:]} <= {row["id"] for row in by_time}
+    with repository.connection() as connection:
+        ordered = [dict(row) for row in connection.execute(
+            "SELECT id, supersedes_id FROM judgment_ledger WHERE task = ? ORDER BY rowid", (SC.LEDGER_TASK,))]
+    assert len(ordered) == 3 and ordered[0]["supersedes_id"] is None
+    assert [row["supersedes_id"] for row in ordered[1:]] == [ordered[0]["id"], ordered[1]["id"]]
     assert [row["trigger"] for row in rows(repository, "figure_source_checks")].count("recheck") == 2
 
 

@@ -505,6 +505,10 @@ def rewrite_spec(spec_json: str, compiled: S.CompiledFigure) -> tuple[str, dict[
             continue
         by_label.setdefault(slot.value, element_id(_slot_element_path(slot)))
     for slot in slots:
+        # An area prediction answers with a shade's label: a shade's own id wins over a series named alike.
+        if slot.owner == "Shade" and slot.field == "label":
+            by_label[slot.value] = element_id(_slot_element_path(slot))
+    for slot in slots:
         if slot.kind != "label":
             continue
         role = LABEL_FIELDS.get((slot.owner, slot.field))

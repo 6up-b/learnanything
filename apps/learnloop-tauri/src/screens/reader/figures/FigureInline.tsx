@@ -24,8 +24,8 @@ import { compileSpec, evaluateFigure, type CompiledFigure, type FigureParameter 
 // verification status and the closed keys of the checks code ran (spec §8.3
 // steps 1-2). Model-authored labels and text (series and readout labels, what
 // it shows, a failure's reason, an unsupported request's kind) render inside
-// the frame and never in its badge slot. RW5a makes no "matches the book"
-// claim; that label is RW5c's.
+// the frame and never in its badge slot. RW5c's "matches the book's equation
+// (checked)" comes only from an element's closed role (figureLabels.tsx).
 export const FIGURE_FRAME = {
   illustration: "AI-built illustration of an interpretation · not checked against the book",
   /** RW5d P1: built with nothing from the learner's books (grounding "none", code-written). */
@@ -519,7 +519,8 @@ function FigureBody({ figure, ctl, compiled }: { figure: FigureViewDto; ctl: Fig
           <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
             {compiled.spec.annotations.map((annotation, index) => (
               <MeaningLabel key={index} style={{ fontSize: 11 }}>
-                {labelElements(figure).length ? (annotation.target ? <><LabelText id={annotation.target} />: </> : <>◇ </>) : <>◇ {annotation.target}: </>}{annotation.text}
+                {/* The model's line stays in the model's voice (§8.2): its target is code's name for the element, with no claim. */}
+                ◇ {labelElements(figure).length ? (annotation.target ? <><LabelText id={annotation.target} bare />: </> : null) : <>{annotation.target}: </>}{annotation.text}
               </MeaningLabel>
             ))}
           </div>

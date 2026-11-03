@@ -22,6 +22,17 @@ sandboxed = pytest.mark.skipif(not pf_sandbox.sandbox_available(), reason="needs
 MODEL_WORDS = "matches the book's equation (checked)"
 
 
+def test_the_frame_and_the_python_labels_are_the_same_words():
+    from learnloop.figures import labels as L
+    from tests.test_figure_label_wording import _frame
+
+    frame = _frame("FigureInline.tsx", "FIGURE_FRAME")
+    assert frame["bookChecked"] == L.BOOK_CHECKED_LABEL == MODEL_WORDS
+    assert frame["restIllustration"] == L.REST_ILLUSTRATION_LABEL and frame["derivedFrom"] == L.DERIVED_LABEL
+    # The free-text rule reads the claim's words as a label, so a model cannot reproduce them in what it shows.
+    assert L.label_like(L.BOOK_CHECKED_LABEL) is not None
+
+
 def test_g23d_the_walk_covers_every_label_and_text_field_of_the_schema():
     found = E.schema_label_fields()
     assert {(model, name) for model, name, kind in found if kind == "label"} == set(E.LABEL_FIELDS)

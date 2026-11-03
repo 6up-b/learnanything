@@ -108,12 +108,13 @@ const GLYPH: CSSProperties = { fontFamily: FONT_MONO };
 
 /** One label slot. With no element map, the label as the spec gives it. An id with no element draws
  *  the model's glyph alone: a model string can never reach a slot by being unmapped. */
-export function LabelText({ id, legendIndex }: { id: string; legendIndex?: number }) {
+export function LabelText({ id, legendIndex, bare }: { id: string; legendIndex?: number; /** Just the name, with no glyph or claim: an annotation's target, in the model's line. */ bare?: boolean }) {
   const labels = useFigureLabels();
   if (!labels) return <>{id}</>;
   const element = labels.elements.get(id);
   if (!element) return <span data-figure-label={id} data-figure-role="unmapped" style={{ ...GLYPH, color: COLOR.purpleText }}>◇</span>;
   const words = element.template ? derivedWords(element, labels.bounds(element)) : { tex: element.tex, plain: element.plain, empty: false, clipped: false };
+  if (bare) return <span data-figure-label={id} data-figure-role={element.role}><Tex tex={words.tex} /></span>;
   if (element.role === "book") {
     return (
       <span data-figure-label={id} data-figure-role="book" data-figure-voice="source" style={{ color: COLOR.text }}>

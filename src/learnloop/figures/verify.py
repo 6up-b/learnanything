@@ -24,10 +24,11 @@ and a path is cut where it leaves its padded plot, saying so). Their caps on
 computation are the compiler's (:data:`spec.MAX_PANEL_WORK` and the grid,
 step and iteration maxima), so verification stays bounded.
 
-Step 3, the source match ("matches the book's equation (checked)"), is not in
-RW5a: the owner shipped RW5a with every figure an illustration (2026-10-21)
-and deferred the claim to RW5c, code-owned labels designed first. A
-reconstruction is stored ``illustrative`` like any other figure.
+Step 3, the source match ("matches the book's equation (checked)"), is not
+here: the owner shipped RW5a with every figure an illustration (2026-10-21)
+and RW5c brought the claim back in :mod:`.source_check`, code-owned labels and
+all, with its own ledger. A reconstruction is stored ``illustrative`` like any
+other figure, whatever step 3 finds.
 
 **Outcomes:** 1 and 2 pass: ``illustrative`` (labelled "not checked against the
 book"). 1 or 2 fails: ``failed``, never shown. A prediction code cannot

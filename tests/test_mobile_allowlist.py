@@ -542,6 +542,8 @@ def test_the_pinned_ca6_rpcs_are_all_of_them():
 READER_RW5A_RPCS = (
     "reader.figure_request",
     "reader.figure_revise",
+    # Reader RW5c: a code-only recheck of a stored figure when it is opened. Desktop only.
+    "reader.figure_recheck",
     "reader.figure_job",
     "reader.figure_job_cancel",
     "reader.figures",
