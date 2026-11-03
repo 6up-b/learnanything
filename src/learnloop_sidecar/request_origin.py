@@ -80,10 +80,12 @@ def bump_for_host(ctx: Any) -> None:
     Attempts and session rows carry no revision of their own, so ``queue_revision``
     is what the desktop's poll sees. The mutation has committed by now: a failed
     bump is logged, never raised, because the learner's write stands. It stays
-    owed (``SidecarContext.host_bump_owed``) and the host's next request pays it
-    (:meth:`SidecarContext.acting_as`); until then, or if this process goes away,
-    the desktop's next focus refetches whatever the token says. The desktop's own
-    writes keep today's behaviour (no origin, no bump): its mutation wrappers
+    owed on its own vault (``SidecarContext.host_bumps_owed``) and the host's next
+    request on that vault pays it (:meth:`SidecarContext.acting_as`). Nothing else
+    recovers it: the desktop's poll refetches on a token change or a reload, and a
+    window's return only reads (orchestrator ruling R1). A debt dies with the
+    process, so M2's host bumps once at start, which moves the token. The desktop's
+    own writes keep today's behaviour (no origin, no bump): its mutation wrappers
     invalidate.
     """
 
@@ -93,10 +95,10 @@ def bump_for_host(ctx: Any) -> None:
     try:
         repository.bump_queue_revision()
     except sqlite3.Error:
-        ctx.host_bump_owed = True
+        ctx.host_bumps_owed.add(ctx.vault_root)
         logging.getLogger(__name__).warning("host mutation committed; queue revision not bumped", exc_info=True)
     else:
-        ctx.host_bump_owed = False
+        ctx.host_bumps_owed.discard(ctx.vault_root)
 
 
 def host_mutation(handler: Callable[[Any, Any], Any]) -> Callable[[Any, Any], Any]:

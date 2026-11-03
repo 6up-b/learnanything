@@ -136,9 +136,10 @@ class SidecarContext:
     # it; parameters never carry it. A context belongs to one worker thread
     # (§3.1), so it never describes another thread's request.
     request_origin: RequestOrigin | None = field(default=None, repr=False)
-    # A host mutation committed and its queue_revision bump failed; the next host
-    # request pays it (request_origin.bump_for_host, Codex review F4).
-    host_bump_owed: bool = field(default=False, repr=False)
+    # The vaults (``vault_root``) where a host mutation committed and its
+    # queue_revision bump failed. A host request on that vault pays it, and only
+    # that vault's (request_origin.bump_for_host, Codex review F4, Sol verify V3).
+    host_bumps_owed: set[Path] = field(default_factory=set, repr=False)
 
     @property
     def origin_device_id(self) -> str | None:
@@ -153,7 +154,7 @@ class SidecarContext:
         previous = self.request_origin
         self.request_origin = origin
         try:
-            if self.host_bump_owed:
+            if self.vault_root in self.host_bumps_owed:
                 bump_for_host(self)
             yield
         finally:

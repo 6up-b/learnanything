@@ -97,26 +97,101 @@ def test_a_failed_bump_is_owed_and_the_hosts_next_request_pays_it_once(tmp_path,
     monkeypatch.setattr(repo_class, "bump_queue_revision", locked)
     with ctx.acting_as(PHONE):
         _submit(ctx, session["sessionId"])
-    assert _revision(repository) == before and ctx.host_bump_owed is True
+    assert _revision(repository) == before and ctx.host_bumps_owed == {ctx.vault_root}
 
     # Still locked: the retry never fails the request it rides on, and stays owed.
     with ctx.acting_as(PHONE):
         _call(ctx, "open_queue_item", {"practiceItemId": ITEM})
-    assert ctx.host_bump_owed is True
+    assert ctx.host_bumps_owed == {ctx.vault_root}
 
     # The desktop's own requests do not pay it: they have no origin.
     monkeypatch.setattr(repo_class, "bump_queue_revision", real_bump)
     with ctx.acting_as(None):
         pass
-    assert _revision(repository) == before and ctx.host_bump_owed is True
+    assert _revision(repository) == before and ctx.host_bumps_owed == {ctx.vault_root}
 
     with ctx.acting_as(PHONE):
         pass
-    assert _revision(repository) == before + 1 and ctx.host_bump_owed is False
+    assert _revision(repository) == before + 1 and ctx.host_bumps_owed == set()
 
     with ctx.acting_as(PHONE):
         pass
     assert _revision(repository) == before + 1
+
+
+def test_an_owed_bump_belongs_to_its_vault(tmp_path, monkeypatch):
+    """Sol verify V3: A's bump fails, a request on B bumps nothing on A's behalf, and
+    a later request on A pays A once. The debt names the vault it was owed on."""
+
+    _paths_a, repository_a, ctx = _world(tmp_path / "a")
+    paths_b, repository_b, other = _world(tmp_path / "b")
+    other.close()
+    with ctx.acting_as(PHONE):
+        session = _call(ctx, "start_session", {"availableMinutes": 60})
+    a_root, b_root = ctx.vault_root, paths_b.root
+    before_a, before_b = _revision(repository_a), _revision(repository_b)
+    repo_class = type(repository_a)
+    real_bump = repo_class.bump_queue_revision
+
+    def locked(_self):
+        raise sqlite3.OperationalError("database is locked")
+
+    monkeypatch.setattr(repo_class, "bump_queue_revision", locked)
+    with ctx.acting_as(PHONE):
+        _submit(ctx, session["sessionId"])
+    monkeypatch.setattr(repo_class, "bump_queue_revision", real_bump)
+    assert (_revision(repository_a), _revision(repository_b)) == (before_a, before_b)
+
+    ctx.load(b_root)
+    with ctx.acting_as(PHONE):
+        pass
+    assert (_revision(repository_a), _revision(repository_b)) == (before_a, before_b)
+
+    ctx.load(a_root)
+    with ctx.acting_as(PHONE):
+        pass
+    assert (_revision(repository_a), _revision(repository_b)) == (before_a + 1, before_b)
+    with ctx.acting_as(PHONE):
+        pass
+    assert (_revision(repository_a), _revision(repository_b)) == (before_a + 1, before_b)
+
+
+def test_two_vaults_owe_separately_and_a_failed_retry_stays_owed(tmp_path, monkeypatch):
+    """Paying one vault's debt leaves the other's, and a retry that fails again
+    neither fails the request nor forgets it."""
+
+    _paths_a, repository_a, ctx = _world(tmp_path / "a")
+    paths_b, repository_b, other = _world(tmp_path / "b")
+    other.close()
+    a_root, b_root = ctx.vault_root, paths_b.root
+    before_a, before_b = _revision(repository_a), _revision(repository_b)
+    repo_class = type(repository_a)
+    real_bump = repo_class.bump_queue_revision
+
+    def locked(_self):
+        raise sqlite3.OperationalError("database is locked")
+
+    monkeypatch.setattr(repo_class, "bump_queue_revision", locked)
+    with ctx.acting_as(PHONE):
+        bump_for_host(ctx)
+    ctx.load(b_root)
+    with ctx.acting_as(PHONE):
+        bump_for_host(ctx)
+    with ctx.acting_as(PHONE):  # B's retry fails again: the request stands
+        pass
+    assert ctx.host_bumps_owed == {a_root, ctx.vault_root}
+
+    monkeypatch.setattr(repo_class, "bump_queue_revision", real_bump)
+    with ctx.acting_as(PHONE):
+        pass
+    assert (_revision(repository_a), _revision(repository_b)) == (before_a, before_b + 1)
+    assert ctx.host_bumps_owed == {a_root}
+
+    ctx.load(a_root)
+    with ctx.acting_as(PHONE):
+        pass
+    assert (_revision(repository_a), _revision(repository_b)) == (before_a + 1, before_b + 1)
+    assert ctx.host_bumps_owed == set()
 
 
 def test_each_committed_phone_mutation_bumps_once_and_is_visible_with_it(tmp_path):
