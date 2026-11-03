@@ -32,8 +32,6 @@ import json
 from pathlib import Path
 from typing import Any
 
-from learnloop.figures import sketch_engine as SE
-
 _ENGINE_DIR = Path(__file__).resolve().parents[3] / "apps" / "learnloop-tauri" / "sketch-engine"
 #: The tracked artifact; ``engine.lock.json``'s ``variants.book-math.output`` records the same digest.
 KATEX_ENGINE_PATH = _ENGINE_DIR / "book-math-engine.wasm"
@@ -88,11 +86,14 @@ class Trees:
                  source: Path = KATEX_PATH, source_sha256: str = KATEX_SHA256) -> None:
         self._path, self._expected = path, expected
         self._source, self._source_sha256 = source, source_sha256
-        self._engine: SE.SketchEngine | None = None
+        self._engine: Any = None
 
-    def _open(self) -> SE.SketchEngine:
+    def _open(self) -> Any:
         if self._engine is None:
             try:
+                # Imported here: the sidecar's start imports neither wasmtime nor the engine (RW5d P2).
+                from learnloop.figures import sketch_engine as SE
+
                 text = self._source.read_bytes()
                 if hashlib.sha256(text).hexdigest() != self._source_sha256:
                     raise TreeRefused("unavailable")
@@ -111,6 +112,8 @@ class Trees:
 
     def parse(self, tex: str, *, display: bool = False) -> list[dict[str, Any]]:
         """KaTeX's tree of ``tex`` under the page's settings, or :class:`TreeRefused`."""
+
+        from learnloop.figures import sketch_engine as SE
 
         engine = self._open()
         try:

@@ -24,8 +24,8 @@ and not TeX, each failing closed under its own key:
 * ``n!`` (``factorial``), ``\\frac{d}{dx}`` and a prime (``derivative``), ``\\sin^2 x``
   (``function_power``), ``\\log`` and ``\\ln_2`` (``log_base``), ``\\sin 2x`` (``function_arg``);
 * ``3\\frac{1}{2}`` is a mixed number on a page (``syntax``); ``a / b c`` and ``a / b / c``
-  part books on the grouping (``ambiguous_slash``); a numeral directly after a factor (``x^10``,
-  ``\\sqrt16 x``, ``x 2``) is what the page shows and rarely what its author meant (``syntax``);
+  part books on the grouping (``ambiguous_slash``), and ``|a|b|c|`` too (``syntax``); a numeral directly
+  after a factor (``x^10``, ``\\sqrt16 x``, ``x 2``) is what the page shows and rarely what its author meant (``syntax``);
 * ``{a+b}c``: braces group for TeX and show nothing, so a bare brace group is not a
   grouping (``syntax``). A bracket, a fraction, a radical or an exponent shows its group;
 * the rows of ``cases`` are proved to cover the real line unless the last says
@@ -506,6 +506,7 @@ class _Reader:
         return node
 
     def term(self, depth: int) -> G.Node:
+        barred = (first := self.peek()) is not None and first.kind == "bar"
         node = self.factor(depth + 1)
         while (item := self.peek()) is not None:
             if item.kind == "op" and item.text == "*":
@@ -525,6 +526,10 @@ class _Reader:
                 # 3\frac{1}{2} on a page is a mixed number, 3.5; the product it would parse as is 1.5.
                 if item.kind == "frac" and self.items[self.position - 1].kind == "num" and None not in _numeric_sides(item):
                     raise Unreadable("syntax")
+                # |a|b|c| is |a|·b·|c| or |a·|b|·c|: the page does not say which.
+                if item.kind == "bar" and barred:
+                    raise Unreadable("syntax")
+                barred = barred or item.kind == "bar"
                 node = self.node("bin", depth, op="*", args=(node, self.factor(depth + 1)))
             else:
                 return node
@@ -1003,7 +1008,7 @@ def _translate(source: str, tree: Sequence[Tree], *, trees: KT.Trees, display: b
     if not nodes:
         raise Unreadable("not_equation")
     lhs_end, rhs_start = _split_relation(nodes)
-    if lhs_end == 0 or rhs_start >= len(nodes):
+    if rhs_start >= len(nodes) or all(node.get("type") in ("kern", "spacing") for node in nodes[:lhs_end]):
         raise Unreadable("not_equation")
     lhs = _left_hand_side(source, nodes, lhs_end, trees=trees, display=display)
     args, spellings, first = _lhs_args(nodes[:lhs_end])

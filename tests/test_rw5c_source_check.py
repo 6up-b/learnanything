@@ -649,7 +649,6 @@ def test_a_definition_in_one_block_does_not_touch_another_blocks_reading(tmp_pat
 
 
 def test_a_check_loads_one_engine_however_many_segments_it_reads(tmp_path, monkeypatch):
-    from learnloop.figures import katex_tree as KT
     from learnloop.figures import sketch_engine as SE
 
     opened: list[Any] = []
@@ -659,7 +658,7 @@ def test_a_check_loads_one_engine_however_many_segments_it_reads(tmp_path, monke
         opened.append(1)
         return real(*args, **kwargs)
 
-    monkeypatch.setattr(KT.SE, "SketchEngine", counting)
+    monkeypatch.setattr(SE, "SketchEngine", counting)
     blocks = [("a", "Text", "$f(x)=x$ and $g(x)=2x$"), ("b", "Text", "$h(x)=3x$")]
     paths, repository = build_check_vault(tmp_path / "vault", blocks)
     candidates, _reasons = SC.read_candidates(load_vault(paths.root), repository, [(EXTRACTION, "a", "a"), (EXTRACTION, "b", "b")])

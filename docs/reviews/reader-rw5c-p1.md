@@ -105,7 +105,7 @@ The design's code truth was `dbc1559e7`. Every §2 row was re-read at the base. 
 
 ## Deviations from the letter of the spec
 
-Each is additive or stricter; none lets anything more carry the claim. **Items 3, 4, 5 and 9 are superseded by `reader-rw5c-p1-katex.md`**: the reader no longer tokenizes TeX, it reads KaTeX's own tree, §5.3 now says so, and `\dfrac`, `\tfrac`, `\sqrt x`, `x^a_1` and `2 3` read as the page shows them.
+Each is additive or stricter; none lets anything more carry the claim. **Items 3, 4 and 9 are superseded by `reader-rw5c-p1-katex.md`**: the reader no longer tokenizes TeX, it reads KaTeX's own tree, §5.3 now says so, and `\frac12`, `\sqrt x`, `x^a_1` and `2 3` read as the page shows them. Item 5 still holds (KaTeX wraps `\dfrac` and `\tfrac` in a style node, outside the table).
 
 1. **A fourth role, `symbol`.** §8.2 draws a slider of a checked definition's symbol as the book's token (`§ λ`). It is no `book` element (G23a: only a `book` element carries the claim words), so it has its own closed role rather than overloading `book`.
 2. **`plain` on every element, and `reasons_json` and `duration_ms` on the row.** `aria-label`s and SVG `<text>` cannot hold KaTeX, so each element also carries a code-written plain string (the left-hand side's markup dropped for `book`). The two columns serve the report (§12 asks for reason counts and latency).

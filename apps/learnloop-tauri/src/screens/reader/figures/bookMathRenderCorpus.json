@@ -115,6 +115,16 @@
       "rhs": "\\displaystyle x",
       "mathml": "<mstyle scriptlevel=\"0\" displaystyle=\"true\"><mi>x</mi></mstyle>",
       "reason": "unsupported_command"
+    },
+    {
+      "rhs": "\\dfrac{a}{b}",
+      "mathml": "<mstyle scriptlevel=\"0\" displaystyle=\"true\"><mfrac><mi>a</mi><mi>b</mi></mfrac></mstyle>",
+      "reason": "unsupported_command"
+    },
+    {
+      "rhs": "\\tfrac{a}{b}",
+      "mathml": "<mstyle scriptlevel=\"0\" displaystyle=\"false\"><mfrac><mi>a</mi><mi>b</mi></mfrac></mstyle>",
+      "reason": "unsupported_command"
     }
   ],
   "read": [
@@ -177,16 +187,6 @@
       "rhs": "\\frac12",
       "mathml": "<mfrac><mn>1</mn><mn>2</mn></mfrac>",
       "grammar": "1/2"
-    },
-    {
-      "rhs": "\\dfrac{a}{b}",
-      "mathml": "<mstyle scriptlevel=\"0\" displaystyle=\"true\"><mfrac><mi>a</mi><mi>b</mi></mfrac></mstyle>",
-      "grammar": "a/b"
-    },
-    {
-      "rhs": "\\tfrac{a}{b}",
-      "mathml": "<mstyle scriptlevel=\"0\" displaystyle=\"false\"><mfrac><mi>a</mi><mi>b</mi></mfrac></mstyle>",
-      "grammar": "a/b"
     },
     {
       "rhs": "x^{a \\over b}",

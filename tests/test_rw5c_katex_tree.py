@@ -213,6 +213,9 @@ def test_the_left_hand_side_is_refused_when_alone_it_would_not_be_the_left_of_th
     r"y = \left(1\,000\right)",
     r"y = 2\,3",
     r"y = \frac{1}{2}3",
+    r"y = |a|b|c|",          # |a|·b·|c| or |a·|b|·c|
+    r"y = |a||b|",
+    r"\, = x",               # nothing to label
 ])
 def test_what_a_tree_shows_that_no_row_covers_is_refused_never_dropped(latex):
     assert _reason(latex) in B.REASONS
@@ -370,3 +373,13 @@ def test_whatever_reads_from_token_soup_means_what_katex_renders(renderer):
         for _ in range(4000):
             read += _agrees(trees, renderer, "y = " + "".join(chance.choice(SOUP) for _ in range(chance.randrange(1, 14)))) is not None
     assert read > 100, read
+
+
+def test_the_reader_words_every_closed_reason():
+    """The Reader drops a key it does not know, so a new reason without words would vanish from the figure."""
+
+    from learnloop.figures import source_check as SC
+
+    words = (APP / "src" / "screens" / "reader" / "figures" / "FigureInline.tsx").read_text(encoding="utf-8")
+    # "differs" has its own state (the failed line and rebuild), never a reason's words.
+    assert [reason for reason in SC.REASONS if f"  {reason}: " not in words and reason != "differs"] == []
