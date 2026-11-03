@@ -56,6 +56,74 @@ def semantics(markup: str) -> str:
     return found.group(1)
 
 
+_SIGNS = frozenset("+−±∓⋅×∗/∕,=<>")
+_OPENING = frozenset("([{⟨")
+_CLOSING = frozenset(")]}⟩")
+
+
+def _flat(elements: list[ElementTree.Element]) -> list[ElementTree.Element]:
+    """Without the ``mrow``s, which draw nothing: braces and fonts hide no sign from a reader."""
+
+    out: list[ElementTree.Element] = []
+    for element in elements:
+        out.extend(_flat(list(element)) if _local(element) == "mrow" else [element])
+    return out
+
+
+def _markup(elements: list[ElementTree.Element]) -> list[bytes]:
+    return [ElementTree.tostring(element) for element in elements]
+
+
+def whole_in_scope(words: str, lhs: str, kind: str) -> bool:
+    """Whether a derived label's MathML holds all of the left-hand side as what its template applies to,
+    as a reader sees it: inside one fence right after the sign (or the words), or standing there with no
+    sign outside its brackets. An independent reading: the output of KaTeX, never its parse tree."""
+
+    children = list(ElementTree.fromstring(f"<mrow>{words}</mrow>"))
+    if kind == "shade":
+        start = next(i for i, child in enumerate(children) if _local(child) == "mtext" and "area" in (child.text or "")) + 1
+        end = next(i for i, child in enumerate(children) if i >= start and _local(child) == "mtext" and "from" in (child.text or ""))
+    else:
+        start = next(i for i, child in enumerate(children) if _local(child) in ("msubsup", "munderover", "msub", "munder")) + 1
+        # An integral ends at its spacing, d and variable.
+        end = len(children) - 3 if kind == "integral" else len(children)
+    operand = children[start:end]
+    if kind == "shade":
+        # KaTeX joins adjacent text: \\text{area under } \\text{Var}(k) is one mtext, then (k).
+        head = children[start - 1]
+        rest = (head.text or "").replace("\xa0", " ").split("area under ", 1)[1]
+        if rest:
+            merged = ElementTree.Element("mtext")
+            merged.text = rest
+            operand.insert(0, merged)
+    expected = _markup(_flat(list(ElementTree.fromstring(f"<mrow>{lhs}</mrow>"))))
+    if len(operand) == 1 and _local(operand[0]) == "mrow":
+        inner = list(operand[0])
+        if inner and inner[0].get("fence") == "true" and inner[-1].get("fence") == "true" \
+                and (inner[0].text, inner[-1].text) == ("(", ")") and _markup(_flat(inner[1:-1])) == expected:
+            return True
+    flat = _flat(operand)
+    if _markup(flat) != expected:
+        return False
+    depth = 0
+    bars = 0
+    for element in flat:
+        text = element.text or ""
+        if _local(element) != "mo":
+            continue
+        if text in ("∣", "∥"):
+            # |k-1|: the same mark opens and closes.
+            bars += 1
+            depth += 1 if bars % 2 else -1
+        elif text in _OPENING:
+            depth += 1
+        elif text in _CLOSING:
+            depth -= 1
+        elif depth == 0 and text in _SIGNS:
+            return False
+    return True
+
+
 def _local(element: ElementTree.Element) -> str:
     return element.tag.rsplit("}", 1)[-1]
 

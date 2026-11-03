@@ -47,6 +47,7 @@ export function Tex({ tex, style }: { tex: string; style?: CSSProperties }) {
 export function derivedWords(element: FigureElementDto, bounds: DerivedBounds | null): { tex: string; plain: string; empty: boolean; clipped: boolean } {
   const template = element.template;
   if (!template || !bounds || bounds.from === null || bounds.to === null) return { tex: element.tex, plain: element.plain, empty: false, clipped: false };
+  // The operand as the check wrote it: a compound left-hand side arrives grouped, read from KaTeX's tree (elements.BookLabel.operand; Astra A2).
   const { bodyTex, bodyPlain, variable } = template;
   if (bounds.integers && bounds.integers[1] < bounds.integers[0]) {
     return { tex: bodyTex, plain: `${bodyPlain}: ${FIGURE_FRAME.noTerms}`, empty: true, clipped: bounds.clipped };

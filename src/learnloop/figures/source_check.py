@@ -726,7 +726,7 @@ def _decide_definition(entry: dict[str, Any], name: str, pairs: Sequence[tuple[C
         entry["display"] = shown
         if failures:
             entry["display_failures"] = failures
-        book[name] = E.BookLabel(lhs=relation.lhs, latex=relation.latex, variable=drawn[0].variable,
+        book[name] = E.BookLabel(compound=relation.lhs_compound, lhs=relation.lhs, latex=relation.latex, variable=drawn[0].variable,
                                  tokens=dict(relation.tokens), extraction_id=candidate.extraction_id,
                                  span_id=candidate.span_id, page=candidate.page)
         return

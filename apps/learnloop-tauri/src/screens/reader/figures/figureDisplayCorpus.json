@@ -708,5 +708,1393 @@
     ]
    }
   }
+ ],
+ "templates": [
+  {
+   "lhs": "1-F(k)",
+   "compound": true,
+   "kind": "shade",
+   "bounds": {
+    "from": 0.5,
+    "to": 2,
+    "clipped": true,
+    "integers": null
+   },
+   "body_tex": "\\left(1-F(k)\\right)",
+   "body_plain": "(1-F(k))",
+   "tex": "\\text{area under } \\left(1-F(k)\\right) \\text{ from } 0.5 \\text{ to } 2",
+   "plain": "area under (1-F(k)) from 0.5 to 2 · limited to the plotted range"
+  },
+  {
+   "lhs": "1-F(k)",
+   "compound": true,
+   "kind": "integral",
+   "bounds": {
+    "from": 0,
+    "to": 1e-07,
+    "clipped": false,
+    "integers": null
+   },
+   "body_tex": "\\left(1-F(k)\\right)",
+   "body_plain": "(1-F(k))",
+   "tex": "\\int_{0}^{1 \\times 10^{-7}} \\left(1-F(k)\\right)\\,dk",
+   "plain": "integral from 0 to 1e-7 of (1-F(k)) dk"
+  },
+  {
+   "lhs": "1-F(k)",
+   "compound": true,
+   "kind": "highlight",
+   "bounds": {
+    "from": 0,
+    "to": 2,
+    "clipped": true,
+    "integers": [
+     0,
+     2
+    ]
+   },
+   "body_tex": "\\left(1-F(k)\\right)",
+   "body_plain": "(1-F(k))",
+   "tex": "\\sum_{k=0}^{2} \\left(1-F(k)\\right)",
+   "plain": "sum for k from 0 to 2 of (1-F(k)) · limited to the plotted range"
+  },
+  {
+   "lhs": "1-F(k)",
+   "compound": true,
+   "kind": "sum",
+   "bounds": {
+    "from": 0,
+    "to": 2,
+    "clipped": false,
+    "integers": [
+     0,
+     2
+    ]
+   },
+   "body_tex": "\\left(1-F(k)\\right)",
+   "body_plain": "(1-F(k))",
+   "tex": "\\sum_{k=0}^{2} \\left(1-F(k)\\right)",
+   "plain": "sum for k from 0 to 2 of (1-F(k))"
+  },
+  {
+   "lhs": "-F(k)",
+   "compound": true,
+   "kind": "shade",
+   "bounds": {
+    "from": 0.5,
+    "to": 2,
+    "clipped": true,
+    "integers": null
+   },
+   "body_tex": "\\left(-F(k)\\right)",
+   "body_plain": "(-F(k))",
+   "tex": "\\text{area under } \\left(-F(k)\\right) \\text{ from } 0.5 \\text{ to } 2",
+   "plain": "area under (-F(k)) from 0.5 to 2 · limited to the plotted range"
+  },
+  {
+   "lhs": "-F(k)",
+   "compound": true,
+   "kind": "integral",
+   "bounds": {
+    "from": 0,
+    "to": 1e-07,
+    "clipped": false,
+    "integers": null
+   },
+   "body_tex": "\\left(-F(k)\\right)",
+   "body_plain": "(-F(k))",
+   "tex": "\\int_{0}^{1 \\times 10^{-7}} \\left(-F(k)\\right)\\,dk",
+   "plain": "integral from 0 to 1e-7 of (-F(k)) dk"
+  },
+  {
+   "lhs": "-F(k)",
+   "compound": true,
+   "kind": "highlight",
+   "bounds": {
+    "from": 0,
+    "to": 2,
+    "clipped": true,
+    "integers": [
+     0,
+     2
+    ]
+   },
+   "body_tex": "\\left(-F(k)\\right)",
+   "body_plain": "(-F(k))",
+   "tex": "\\sum_{k=0}^{2} \\left(-F(k)\\right)",
+   "plain": "sum for k from 0 to 2 of (-F(k)) · limited to the plotted range"
+  },
+  {
+   "lhs": "-F(k)",
+   "compound": true,
+   "kind": "sum",
+   "bounds": {
+    "from": 0,
+    "to": 2,
+    "clipped": false,
+    "integers": [
+     0,
+     2
+    ]
+   },
+   "body_tex": "\\left(-F(k)\\right)",
+   "body_plain": "(-F(k))",
+   "tex": "\\sum_{k=0}^{2} \\left(-F(k)\\right)",
+   "plain": "sum for k from 0 to 2 of (-F(k))"
+  },
+  {
+   "lhs": "a+b",
+   "compound": true,
+   "kind": "shade",
+   "bounds": {
+    "from": 0.5,
+    "to": 2,
+    "clipped": true,
+    "integers": null
+   },
+   "body_tex": "\\left(a+b\\right)",
+   "body_plain": "(a+b)",
+   "tex": "\\text{area under } \\left(a+b\\right) \\text{ from } 0.5 \\text{ to } 2",
+   "plain": "area under (a+b) from 0.5 to 2 · limited to the plotted range"
+  },
+  {
+   "lhs": "a+b",
+   "compound": true,
+   "kind": "integral",
+   "bounds": {
+    "from": 0,
+    "to": 1e-07,
+    "clipped": false,
+    "integers": null
+   },
+   "body_tex": "\\left(a+b\\right)",
+   "body_plain": "(a+b)",
+   "tex": "\\int_{0}^{1 \\times 10^{-7}} \\left(a+b\\right)\\,dk",
+   "plain": "integral from 0 to 1e-7 of (a+b) dk"
+  },
+  {
+   "lhs": "a+b",
+   "compound": true,
+   "kind": "highlight",
+   "bounds": {
+    "from": 0,
+    "to": 2,
+    "clipped": true,
+    "integers": [
+     0,
+     2
+    ]
+   },
+   "body_tex": "\\left(a+b\\right)",
+   "body_plain": "(a+b)",
+   "tex": "\\sum_{k=0}^{2} \\left(a+b\\right)",
+   "plain": "sum for k from 0 to 2 of (a+b) · limited to the plotted range"
+  },
+  {
+   "lhs": "a+b",
+   "compound": true,
+   "kind": "sum",
+   "bounds": {
+    "from": 0,
+    "to": 2,
+    "clipped": false,
+    "integers": [
+     0,
+     2
+    ]
+   },
+   "body_tex": "\\left(a+b\\right)",
+   "body_plain": "(a+b)",
+   "tex": "\\sum_{k=0}^{2} \\left(a+b\\right)",
+   "plain": "sum for k from 0 to 2 of (a+b)"
+  },
+  {
+   "lhs": "{1-F(k)}",
+   "compound": true,
+   "kind": "shade",
+   "bounds": {
+    "from": 0.5,
+    "to": 2,
+    "clipped": true,
+    "integers": null
+   },
+   "body_tex": "\\left({1-F(k)}\\right)",
+   "body_plain": "(1-F(k))",
+   "tex": "\\text{area under } \\left({1-F(k)}\\right) \\text{ from } 0.5 \\text{ to } 2",
+   "plain": "area under (1-F(k)) from 0.5 to 2 · limited to the plotted range"
+  },
+  {
+   "lhs": "{1-F(k)}",
+   "compound": true,
+   "kind": "integral",
+   "bounds": {
+    "from": 0,
+    "to": 1e-07,
+    "clipped": false,
+    "integers": null
+   },
+   "body_tex": "\\left({1-F(k)}\\right)",
+   "body_plain": "(1-F(k))",
+   "tex": "\\int_{0}^{1 \\times 10^{-7}} \\left({1-F(k)}\\right)\\,dk",
+   "plain": "integral from 0 to 1e-7 of (1-F(k)) dk"
+  },
+  {
+   "lhs": "{1-F(k)}",
+   "compound": true,
+   "kind": "highlight",
+   "bounds": {
+    "from": 0,
+    "to": 2,
+    "clipped": true,
+    "integers": [
+     0,
+     2
+    ]
+   },
+   "body_tex": "\\left({1-F(k)}\\right)",
+   "body_plain": "(1-F(k))",
+   "tex": "\\sum_{k=0}^{2} \\left({1-F(k)}\\right)",
+   "plain": "sum for k from 0 to 2 of (1-F(k)) · limited to the plotted range"
+  },
+  {
+   "lhs": "{1-F(k)}",
+   "compound": true,
+   "kind": "sum",
+   "bounds": {
+    "from": 0,
+    "to": 2,
+    "clipped": false,
+    "integers": [
+     0,
+     2
+    ]
+   },
+   "body_tex": "\\left({1-F(k)}\\right)",
+   "body_plain": "(1-F(k))",
+   "tex": "\\sum_{k=0}^{2} \\left({1-F(k)}\\right)",
+   "plain": "sum for k from 0 to 2 of (1-F(k))"
+  },
+  {
+   "lhs": "\\mathrm{1-F}(k)",
+   "compound": true,
+   "kind": "shade",
+   "bounds": {
+    "from": 0.5,
+    "to": 2,
+    "clipped": true,
+    "integers": null
+   },
+   "body_tex": "\\left(\\mathrm{1-F}(k)\\right)",
+   "body_plain": "(mathrm1-F(k))",
+   "tex": "\\text{area under } \\left(\\mathrm{1-F}(k)\\right) \\text{ from } 0.5 \\text{ to } 2",
+   "plain": "area under (mathrm1-F(k)) from 0.5 to 2 · limited to the plotted range"
+  },
+  {
+   "lhs": "\\mathrm{1-F}(k)",
+   "compound": true,
+   "kind": "integral",
+   "bounds": {
+    "from": 0,
+    "to": 1e-07,
+    "clipped": false,
+    "integers": null
+   },
+   "body_tex": "\\left(\\mathrm{1-F}(k)\\right)",
+   "body_plain": "(mathrm1-F(k))",
+   "tex": "\\int_{0}^{1 \\times 10^{-7}} \\left(\\mathrm{1-F}(k)\\right)\\,dk",
+   "plain": "integral from 0 to 1e-7 of (mathrm1-F(k)) dk"
+  },
+  {
+   "lhs": "\\mathrm{1-F}(k)",
+   "compound": true,
+   "kind": "highlight",
+   "bounds": {
+    "from": 0,
+    "to": 2,
+    "clipped": true,
+    "integers": [
+     0,
+     2
+    ]
+   },
+   "body_tex": "\\left(\\mathrm{1-F}(k)\\right)",
+   "body_plain": "(mathrm1-F(k))",
+   "tex": "\\sum_{k=0}^{2} \\left(\\mathrm{1-F}(k)\\right)",
+   "plain": "sum for k from 0 to 2 of (mathrm1-F(k)) · limited to the plotted range"
+  },
+  {
+   "lhs": "\\mathrm{1-F}(k)",
+   "compound": true,
+   "kind": "sum",
+   "bounds": {
+    "from": 0,
+    "to": 2,
+    "clipped": false,
+    "integers": [
+     0,
+     2
+    ]
+   },
+   "body_tex": "\\left(\\mathrm{1-F}(k)\\right)",
+   "body_plain": "(mathrm1-F(k))",
+   "tex": "\\sum_{k=0}^{2} \\left(\\mathrm{1-F}(k)\\right)",
+   "plain": "sum for k from 0 to 2 of (mathrm1-F(k))"
+  },
+  {
+   "lhs": "F(k)\\cdot 2",
+   "compound": true,
+   "kind": "shade",
+   "bounds": {
+    "from": 0.5,
+    "to": 2,
+    "clipped": true,
+    "integers": null
+   },
+   "body_tex": "\\left(F(k)\\cdot 2\\right)",
+   "body_plain": "(F(k)cdot 2)",
+   "tex": "\\text{area under } \\left(F(k)\\cdot 2\\right) \\text{ from } 0.5 \\text{ to } 2",
+   "plain": "area under (F(k)cdot 2) from 0.5 to 2 · limited to the plotted range"
+  },
+  {
+   "lhs": "F(k)\\cdot 2",
+   "compound": true,
+   "kind": "integral",
+   "bounds": {
+    "from": 0,
+    "to": 1e-07,
+    "clipped": false,
+    "integers": null
+   },
+   "body_tex": "\\left(F(k)\\cdot 2\\right)",
+   "body_plain": "(F(k)cdot 2)",
+   "tex": "\\int_{0}^{1 \\times 10^{-7}} \\left(F(k)\\cdot 2\\right)\\,dk",
+   "plain": "integral from 0 to 1e-7 of (F(k)cdot 2) dk"
+  },
+  {
+   "lhs": "F(k)\\cdot 2",
+   "compound": true,
+   "kind": "highlight",
+   "bounds": {
+    "from": 0,
+    "to": 2,
+    "clipped": true,
+    "integers": [
+     0,
+     2
+    ]
+   },
+   "body_tex": "\\left(F(k)\\cdot 2\\right)",
+   "body_plain": "(F(k)cdot 2)",
+   "tex": "\\sum_{k=0}^{2} \\left(F(k)\\cdot 2\\right)",
+   "plain": "sum for k from 0 to 2 of (F(k)cdot 2) · limited to the plotted range"
+  },
+  {
+   "lhs": "F(k)\\cdot 2",
+   "compound": true,
+   "kind": "sum",
+   "bounds": {
+    "from": 0,
+    "to": 2,
+    "clipped": false,
+    "integers": [
+     0,
+     2
+    ]
+   },
+   "body_tex": "\\left(F(k)\\cdot 2\\right)",
+   "body_plain": "(F(k)cdot 2)",
+   "tex": "\\sum_{k=0}^{2} \\left(F(k)\\cdot 2\\right)",
+   "plain": "sum for k from 0 to 2 of (F(k)cdot 2)"
+  },
+  {
+   "lhs": "a/b",
+   "compound": true,
+   "kind": "shade",
+   "bounds": {
+    "from": 0.5,
+    "to": 2,
+    "clipped": true,
+    "integers": null
+   },
+   "body_tex": "\\left(a/b\\right)",
+   "body_plain": "(a/b)",
+   "tex": "\\text{area under } \\left(a/b\\right) \\text{ from } 0.5 \\text{ to } 2",
+   "plain": "area under (a/b) from 0.5 to 2 · limited to the plotted range"
+  },
+  {
+   "lhs": "a/b",
+   "compound": true,
+   "kind": "integral",
+   "bounds": {
+    "from": 0,
+    "to": 1e-07,
+    "clipped": false,
+    "integers": null
+   },
+   "body_tex": "\\left(a/b\\right)",
+   "body_plain": "(a/b)",
+   "tex": "\\int_{0}^{1 \\times 10^{-7}} \\left(a/b\\right)\\,dk",
+   "plain": "integral from 0 to 1e-7 of (a/b) dk"
+  },
+  {
+   "lhs": "a/b",
+   "compound": true,
+   "kind": "highlight",
+   "bounds": {
+    "from": 0,
+    "to": 2,
+    "clipped": true,
+    "integers": [
+     0,
+     2
+    ]
+   },
+   "body_tex": "\\left(a/b\\right)",
+   "body_plain": "(a/b)",
+   "tex": "\\sum_{k=0}^{2} \\left(a/b\\right)",
+   "plain": "sum for k from 0 to 2 of (a/b) · limited to the plotted range"
+  },
+  {
+   "lhs": "a/b",
+   "compound": true,
+   "kind": "sum",
+   "bounds": {
+    "from": 0,
+    "to": 2,
+    "clipped": false,
+    "integers": [
+     0,
+     2
+    ]
+   },
+   "body_tex": "\\left(a/b\\right)",
+   "body_plain": "(a/b)",
+   "tex": "\\sum_{k=0}^{2} \\left(a/b\\right)",
+   "plain": "sum for k from 0 to 2 of (a/b)"
+  },
+  {
+   "lhs": "F(k)\\pm 1",
+   "compound": true,
+   "kind": "shade",
+   "bounds": {
+    "from": 0.5,
+    "to": 2,
+    "clipped": true,
+    "integers": null
+   },
+   "body_tex": "\\left(F(k)\\pm 1\\right)",
+   "body_plain": "(F(k)pm 1)",
+   "tex": "\\text{area under } \\left(F(k)\\pm 1\\right) \\text{ from } 0.5 \\text{ to } 2",
+   "plain": "area under (F(k)pm 1) from 0.5 to 2 · limited to the plotted range"
+  },
+  {
+   "lhs": "F(k)\\pm 1",
+   "compound": true,
+   "kind": "integral",
+   "bounds": {
+    "from": 0,
+    "to": 1e-07,
+    "clipped": false,
+    "integers": null
+   },
+   "body_tex": "\\left(F(k)\\pm 1\\right)",
+   "body_plain": "(F(k)pm 1)",
+   "tex": "\\int_{0}^{1 \\times 10^{-7}} \\left(F(k)\\pm 1\\right)\\,dk",
+   "plain": "integral from 0 to 1e-7 of (F(k)pm 1) dk"
+  },
+  {
+   "lhs": "F(k)\\pm 1",
+   "compound": true,
+   "kind": "highlight",
+   "bounds": {
+    "from": 0,
+    "to": 2,
+    "clipped": true,
+    "integers": [
+     0,
+     2
+    ]
+   },
+   "body_tex": "\\left(F(k)\\pm 1\\right)",
+   "body_plain": "(F(k)pm 1)",
+   "tex": "\\sum_{k=0}^{2} \\left(F(k)\\pm 1\\right)",
+   "plain": "sum for k from 0 to 2 of (F(k)pm 1) · limited to the plotted range"
+  },
+  {
+   "lhs": "F(k)\\pm 1",
+   "compound": true,
+   "kind": "sum",
+   "bounds": {
+    "from": 0,
+    "to": 2,
+    "clipped": false,
+    "integers": [
+     0,
+     2
+    ]
+   },
+   "body_tex": "\\left(F(k)\\pm 1\\right)",
+   "body_plain": "(F(k)pm 1)",
+   "tex": "\\sum_{k=0}^{2} \\left(F(k)\\pm 1\\right)",
+   "plain": "sum for k from 0 to 2 of (F(k)pm 1)"
+  },
+  {
+   "lhs": "(1-a)-(1-b)",
+   "compound": true,
+   "kind": "shade",
+   "bounds": {
+    "from": 0.5,
+    "to": 2,
+    "clipped": true,
+    "integers": null
+   },
+   "body_tex": "\\left((1-a)-(1-b)\\right)",
+   "body_plain": "((1-a)-(1-b))",
+   "tex": "\\text{area under } \\left((1-a)-(1-b)\\right) \\text{ from } 0.5 \\text{ to } 2",
+   "plain": "area under ((1-a)-(1-b)) from 0.5 to 2 · limited to the plotted range"
+  },
+  {
+   "lhs": "(1-a)-(1-b)",
+   "compound": true,
+   "kind": "integral",
+   "bounds": {
+    "from": 0,
+    "to": 1e-07,
+    "clipped": false,
+    "integers": null
+   },
+   "body_tex": "\\left((1-a)-(1-b)\\right)",
+   "body_plain": "((1-a)-(1-b))",
+   "tex": "\\int_{0}^{1 \\times 10^{-7}} \\left((1-a)-(1-b)\\right)\\,dk",
+   "plain": "integral from 0 to 1e-7 of ((1-a)-(1-b)) dk"
+  },
+  {
+   "lhs": "(1-a)-(1-b)",
+   "compound": true,
+   "kind": "highlight",
+   "bounds": {
+    "from": 0,
+    "to": 2,
+    "clipped": true,
+    "integers": [
+     0,
+     2
+    ]
+   },
+   "body_tex": "\\left((1-a)-(1-b)\\right)",
+   "body_plain": "((1-a)-(1-b))",
+   "tex": "\\sum_{k=0}^{2} \\left((1-a)-(1-b)\\right)",
+   "plain": "sum for k from 0 to 2 of ((1-a)-(1-b)) · limited to the plotted range"
+  },
+  {
+   "lhs": "(1-a)-(1-b)",
+   "compound": true,
+   "kind": "sum",
+   "bounds": {
+    "from": 0,
+    "to": 2,
+    "clipped": false,
+    "integers": [
+     0,
+     2
+    ]
+   },
+   "body_tex": "\\left((1-a)-(1-b)\\right)",
+   "body_plain": "((1-a)-(1-b))",
+   "tex": "\\sum_{k=0}^{2} \\left((1-a)-(1-b)\\right)",
+   "plain": "sum for k from 0 to 2 of ((1-a)-(1-b))"
+  },
+  {
+   "lhs": "\\text{a or b}",
+   "compound": true,
+   "kind": "shade",
+   "bounds": {
+    "from": 0.5,
+    "to": 2,
+    "clipped": true,
+    "integers": null
+   },
+   "body_tex": "\\left(\\text{a or b}\\right)",
+   "body_plain": "(texta or b)",
+   "tex": "\\text{area under } \\left(\\text{a or b}\\right) \\text{ from } 0.5 \\text{ to } 2",
+   "plain": "area under (texta or b) from 0.5 to 2 · limited to the plotted range"
+  },
+  {
+   "lhs": "\\text{a or b}",
+   "compound": true,
+   "kind": "integral",
+   "bounds": {
+    "from": 0,
+    "to": 1e-07,
+    "clipped": false,
+    "integers": null
+   },
+   "body_tex": "\\left(\\text{a or b}\\right)",
+   "body_plain": "(texta or b)",
+   "tex": "\\int_{0}^{1 \\times 10^{-7}} \\left(\\text{a or b}\\right)\\,dk",
+   "plain": "integral from 0 to 1e-7 of (texta or b) dk"
+  },
+  {
+   "lhs": "\\text{a or b}",
+   "compound": true,
+   "kind": "highlight",
+   "bounds": {
+    "from": 0,
+    "to": 2,
+    "clipped": true,
+    "integers": [
+     0,
+     2
+    ]
+   },
+   "body_tex": "\\left(\\text{a or b}\\right)",
+   "body_plain": "(texta or b)",
+   "tex": "\\sum_{k=0}^{2} \\left(\\text{a or b}\\right)",
+   "plain": "sum for k from 0 to 2 of (texta or b) · limited to the plotted range"
+  },
+  {
+   "lhs": "\\text{a or b}",
+   "compound": true,
+   "kind": "sum",
+   "bounds": {
+    "from": 0,
+    "to": 2,
+    "clipped": false,
+    "integers": [
+     0,
+     2
+    ]
+   },
+   "body_tex": "\\left(\\text{a or b}\\right)",
+   "body_plain": "(texta or b)",
+   "tex": "\\sum_{k=0}^{2} \\left(\\text{a or b}\\right)",
+   "plain": "sum for k from 0 to 2 of (texta or b)"
+  },
+  {
+   "lhs": "F(k)",
+   "compound": false,
+   "kind": "shade",
+   "bounds": {
+    "from": 0.5,
+    "to": 2,
+    "clipped": true,
+    "integers": null
+   },
+   "body_tex": "F(k)",
+   "body_plain": "F(k)",
+   "tex": "\\text{area under } F(k) \\text{ from } 0.5 \\text{ to } 2",
+   "plain": "area under F(k) from 0.5 to 2 · limited to the plotted range"
+  },
+  {
+   "lhs": "F(k)",
+   "compound": false,
+   "kind": "integral",
+   "bounds": {
+    "from": 0,
+    "to": 1e-07,
+    "clipped": false,
+    "integers": null
+   },
+   "body_tex": "F(k)",
+   "body_plain": "F(k)",
+   "tex": "\\int_{0}^{1 \\times 10^{-7}} F(k)\\,dk",
+   "plain": "integral from 0 to 1e-7 of F(k) dk"
+  },
+  {
+   "lhs": "F(k)",
+   "compound": false,
+   "kind": "highlight",
+   "bounds": {
+    "from": 0,
+    "to": 2,
+    "clipped": true,
+    "integers": [
+     0,
+     2
+    ]
+   },
+   "body_tex": "F(k)",
+   "body_plain": "F(k)",
+   "tex": "\\sum_{k=0}^{2} F(k)",
+   "plain": "sum for k from 0 to 2 of F(k) · limited to the plotted range"
+  },
+  {
+   "lhs": "F(k)",
+   "compound": false,
+   "kind": "sum",
+   "bounds": {
+    "from": 0,
+    "to": 2,
+    "clipped": false,
+    "integers": [
+     0,
+     2
+    ]
+   },
+   "body_tex": "F(k)",
+   "body_plain": "F(k)",
+   "tex": "\\sum_{k=0}^{2} F(k)",
+   "plain": "sum for k from 0 to 2 of F(k)"
+  },
+  {
+   "lhs": "2F(k)",
+   "compound": false,
+   "kind": "shade",
+   "bounds": {
+    "from": 0.5,
+    "to": 2,
+    "clipped": true,
+    "integers": null
+   },
+   "body_tex": "2F(k)",
+   "body_plain": "2F(k)",
+   "tex": "\\text{area under } 2F(k) \\text{ from } 0.5 \\text{ to } 2",
+   "plain": "area under 2F(k) from 0.5 to 2 · limited to the plotted range"
+  },
+  {
+   "lhs": "2F(k)",
+   "compound": false,
+   "kind": "integral",
+   "bounds": {
+    "from": 0,
+    "to": 1e-07,
+    "clipped": false,
+    "integers": null
+   },
+   "body_tex": "2F(k)",
+   "body_plain": "2F(k)",
+   "tex": "\\int_{0}^{1 \\times 10^{-7}} 2F(k)\\,dk",
+   "plain": "integral from 0 to 1e-7 of 2F(k) dk"
+  },
+  {
+   "lhs": "2F(k)",
+   "compound": false,
+   "kind": "highlight",
+   "bounds": {
+    "from": 0,
+    "to": 2,
+    "clipped": true,
+    "integers": [
+     0,
+     2
+    ]
+   },
+   "body_tex": "2F(k)",
+   "body_plain": "2F(k)",
+   "tex": "\\sum_{k=0}^{2} 2F(k)",
+   "plain": "sum for k from 0 to 2 of 2F(k) · limited to the plotted range"
+  },
+  {
+   "lhs": "2F(k)",
+   "compound": false,
+   "kind": "sum",
+   "bounds": {
+    "from": 0,
+    "to": 2,
+    "clipped": false,
+    "integers": [
+     0,
+     2
+    ]
+   },
+   "body_tex": "2F(k)",
+   "body_plain": "2F(k)",
+   "tex": "\\sum_{k=0}^{2} 2F(k)",
+   "plain": "sum for k from 0 to 2 of 2F(k)"
+  },
+  {
+   "lhs": "(1-F(k))",
+   "compound": false,
+   "kind": "shade",
+   "bounds": {
+    "from": 0.5,
+    "to": 2,
+    "clipped": true,
+    "integers": null
+   },
+   "body_tex": "(1-F(k))",
+   "body_plain": "(1-F(k))",
+   "tex": "\\text{area under } (1-F(k)) \\text{ from } 0.5 \\text{ to } 2",
+   "plain": "area under (1-F(k)) from 0.5 to 2 · limited to the plotted range"
+  },
+  {
+   "lhs": "(1-F(k))",
+   "compound": false,
+   "kind": "integral",
+   "bounds": {
+    "from": 0,
+    "to": 1e-07,
+    "clipped": false,
+    "integers": null
+   },
+   "body_tex": "(1-F(k))",
+   "body_plain": "(1-F(k))",
+   "tex": "\\int_{0}^{1 \\times 10^{-7}} (1-F(k))\\,dk",
+   "plain": "integral from 0 to 1e-7 of (1-F(k)) dk"
+  },
+  {
+   "lhs": "(1-F(k))",
+   "compound": false,
+   "kind": "highlight",
+   "bounds": {
+    "from": 0,
+    "to": 2,
+    "clipped": true,
+    "integers": [
+     0,
+     2
+    ]
+   },
+   "body_tex": "(1-F(k))",
+   "body_plain": "(1-F(k))",
+   "tex": "\\sum_{k=0}^{2} (1-F(k))",
+   "plain": "sum for k from 0 to 2 of (1-F(k)) · limited to the plotted range"
+  },
+  {
+   "lhs": "(1-F(k))",
+   "compound": false,
+   "kind": "sum",
+   "bounds": {
+    "from": 0,
+    "to": 2,
+    "clipped": false,
+    "integers": [
+     0,
+     2
+    ]
+   },
+   "body_tex": "(1-F(k))",
+   "body_plain": "(1-F(k))",
+   "tex": "\\sum_{k=0}^{2} (1-F(k))",
+   "plain": "sum for k from 0 to 2 of (1-F(k))"
+  },
+  {
+   "lhs": "\\left(1-F(k)\\right)",
+   "compound": false,
+   "kind": "shade",
+   "bounds": {
+    "from": 0.5,
+    "to": 2,
+    "clipped": true,
+    "integers": null
+   },
+   "body_tex": "\\left(1-F(k)\\right)",
+   "body_plain": "(1-F(k))",
+   "tex": "\\text{area under } \\left(1-F(k)\\right) \\text{ from } 0.5 \\text{ to } 2",
+   "plain": "area under (1-F(k)) from 0.5 to 2 · limited to the plotted range"
+  },
+  {
+   "lhs": "\\left(1-F(k)\\right)",
+   "compound": false,
+   "kind": "integral",
+   "bounds": {
+    "from": 0,
+    "to": 1e-07,
+    "clipped": false,
+    "integers": null
+   },
+   "body_tex": "\\left(1-F(k)\\right)",
+   "body_plain": "(1-F(k))",
+   "tex": "\\int_{0}^{1 \\times 10^{-7}} \\left(1-F(k)\\right)\\,dk",
+   "plain": "integral from 0 to 1e-7 of (1-F(k)) dk"
+  },
+  {
+   "lhs": "\\left(1-F(k)\\right)",
+   "compound": false,
+   "kind": "highlight",
+   "bounds": {
+    "from": 0,
+    "to": 2,
+    "clipped": true,
+    "integers": [
+     0,
+     2
+    ]
+   },
+   "body_tex": "\\left(1-F(k)\\right)",
+   "body_plain": "(1-F(k))",
+   "tex": "\\sum_{k=0}^{2} \\left(1-F(k)\\right)",
+   "plain": "sum for k from 0 to 2 of (1-F(k)) · limited to the plotted range"
+  },
+  {
+   "lhs": "\\left(1-F(k)\\right)",
+   "compound": false,
+   "kind": "sum",
+   "bounds": {
+    "from": 0,
+    "to": 2,
+    "clipped": false,
+    "integers": [
+     0,
+     2
+    ]
+   },
+   "body_tex": "\\left(1-F(k)\\right)",
+   "body_plain": "(1-F(k))",
+   "tex": "\\sum_{k=0}^{2} \\left(1-F(k)\\right)",
+   "plain": "sum for k from 0 to 2 of (1-F(k))"
+  },
+  {
+   "lhs": "\\frac{1-a}{k}",
+   "compound": false,
+   "kind": "shade",
+   "bounds": {
+    "from": 0.5,
+    "to": 2,
+    "clipped": true,
+    "integers": null
+   },
+   "body_tex": "\\frac{1-a}{k}",
+   "body_plain": "frac1-ak",
+   "tex": "\\text{area under } \\frac{1-a}{k} \\text{ from } 0.5 \\text{ to } 2",
+   "plain": "area under frac1-ak from 0.5 to 2 · limited to the plotted range"
+  },
+  {
+   "lhs": "\\frac{1-a}{k}",
+   "compound": false,
+   "kind": "integral",
+   "bounds": {
+    "from": 0,
+    "to": 1e-07,
+    "clipped": false,
+    "integers": null
+   },
+   "body_tex": "\\frac{1-a}{k}",
+   "body_plain": "frac1-ak",
+   "tex": "\\int_{0}^{1 \\times 10^{-7}} \\frac{1-a}{k}\\,dk",
+   "plain": "integral from 0 to 1e-7 of frac1-ak dk"
+  },
+  {
+   "lhs": "\\frac{1-a}{k}",
+   "compound": false,
+   "kind": "highlight",
+   "bounds": {
+    "from": 0,
+    "to": 2,
+    "clipped": true,
+    "integers": [
+     0,
+     2
+    ]
+   },
+   "body_tex": "\\frac{1-a}{k}",
+   "body_plain": "frac1-ak",
+   "tex": "\\sum_{k=0}^{2} \\frac{1-a}{k}",
+   "plain": "sum for k from 0 to 2 of frac1-ak · limited to the plotted range"
+  },
+  {
+   "lhs": "\\frac{1-a}{k}",
+   "compound": false,
+   "kind": "sum",
+   "bounds": {
+    "from": 0,
+    "to": 2,
+    "clipped": false,
+    "integers": [
+     0,
+     2
+    ]
+   },
+   "body_tex": "\\frac{1-a}{k}",
+   "body_plain": "frac1-ak",
+   "tex": "\\sum_{k=0}^{2} \\frac{1-a}{k}",
+   "plain": "sum for k from 0 to 2 of frac1-ak"
+  },
+  {
+   "lhs": "f_{X}(k)",
+   "compound": false,
+   "kind": "shade",
+   "bounds": {
+    "from": 0.5,
+    "to": 2,
+    "clipped": true,
+    "integers": null
+   },
+   "body_tex": "f_{X}(k)",
+   "body_plain": "f_X(k)",
+   "tex": "\\text{area under } f_{X}(k) \\text{ from } 0.5 \\text{ to } 2",
+   "plain": "area under f_X(k) from 0.5 to 2 · limited to the plotted range"
+  },
+  {
+   "lhs": "f_{X}(k)",
+   "compound": false,
+   "kind": "integral",
+   "bounds": {
+    "from": 0,
+    "to": 1e-07,
+    "clipped": false,
+    "integers": null
+   },
+   "body_tex": "f_{X}(k)",
+   "body_plain": "f_X(k)",
+   "tex": "\\int_{0}^{1 \\times 10^{-7}} f_{X}(k)\\,dk",
+   "plain": "integral from 0 to 1e-7 of f_X(k) dk"
+  },
+  {
+   "lhs": "f_{X}(k)",
+   "compound": false,
+   "kind": "highlight",
+   "bounds": {
+    "from": 0,
+    "to": 2,
+    "clipped": true,
+    "integers": [
+     0,
+     2
+    ]
+   },
+   "body_tex": "f_{X}(k)",
+   "body_plain": "f_X(k)",
+   "tex": "\\sum_{k=0}^{2} f_{X}(k)",
+   "plain": "sum for k from 0 to 2 of f_X(k) · limited to the plotted range"
+  },
+  {
+   "lhs": "f_{X}(k)",
+   "compound": false,
+   "kind": "sum",
+   "bounds": {
+    "from": 0,
+    "to": 2,
+    "clipped": false,
+    "integers": [
+     0,
+     2
+    ]
+   },
+   "body_tex": "f_{X}(k)",
+   "body_plain": "f_X(k)",
+   "tex": "\\sum_{k=0}^{2} f_{X}(k)",
+   "plain": "sum for k from 0 to 2 of f_X(k)"
+  },
+  {
+   "lhs": "e^{-k}",
+   "compound": false,
+   "kind": "shade",
+   "bounds": {
+    "from": 0.5,
+    "to": 2,
+    "clipped": true,
+    "integers": null
+   },
+   "body_tex": "e^{-k}",
+   "body_plain": "e^-k",
+   "tex": "\\text{area under } e^{-k} \\text{ from } 0.5 \\text{ to } 2",
+   "plain": "area under e^-k from 0.5 to 2 · limited to the plotted range"
+  },
+  {
+   "lhs": "e^{-k}",
+   "compound": false,
+   "kind": "integral",
+   "bounds": {
+    "from": 0,
+    "to": 1e-07,
+    "clipped": false,
+    "integers": null
+   },
+   "body_tex": "e^{-k}",
+   "body_plain": "e^-k",
+   "tex": "\\int_{0}^{1 \\times 10^{-7}} e^{-k}\\,dk",
+   "plain": "integral from 0 to 1e-7 of e^-k dk"
+  },
+  {
+   "lhs": "e^{-k}",
+   "compound": false,
+   "kind": "highlight",
+   "bounds": {
+    "from": 0,
+    "to": 2,
+    "clipped": true,
+    "integers": [
+     0,
+     2
+    ]
+   },
+   "body_tex": "e^{-k}",
+   "body_plain": "e^-k",
+   "tex": "\\sum_{k=0}^{2} e^{-k}",
+   "plain": "sum for k from 0 to 2 of e^-k · limited to the plotted range"
+  },
+  {
+   "lhs": "e^{-k}",
+   "compound": false,
+   "kind": "sum",
+   "bounds": {
+    "from": 0,
+    "to": 2,
+    "clipped": false,
+    "integers": [
+     0,
+     2
+    ]
+   },
+   "body_tex": "e^{-k}",
+   "body_plain": "e^-k",
+   "tex": "\\sum_{k=0}^{2} e^{-k}",
+   "plain": "sum for k from 0 to 2 of e^-k"
+  },
+  {
+   "lhs": "\\sqrt{1-k}",
+   "compound": false,
+   "kind": "shade",
+   "bounds": {
+    "from": 0.5,
+    "to": 2,
+    "clipped": true,
+    "integers": null
+   },
+   "body_tex": "\\sqrt{1-k}",
+   "body_plain": "sqrt1-k",
+   "tex": "\\text{area under } \\sqrt{1-k} \\text{ from } 0.5 \\text{ to } 2",
+   "plain": "area under sqrt1-k from 0.5 to 2 · limited to the plotted range"
+  },
+  {
+   "lhs": "\\sqrt{1-k}",
+   "compound": false,
+   "kind": "integral",
+   "bounds": {
+    "from": 0,
+    "to": 1e-07,
+    "clipped": false,
+    "integers": null
+   },
+   "body_tex": "\\sqrt{1-k}",
+   "body_plain": "sqrt1-k",
+   "tex": "\\int_{0}^{1 \\times 10^{-7}} \\sqrt{1-k}\\,dk",
+   "plain": "integral from 0 to 1e-7 of sqrt1-k dk"
+  },
+  {
+   "lhs": "\\sqrt{1-k}",
+   "compound": false,
+   "kind": "highlight",
+   "bounds": {
+    "from": 0,
+    "to": 2,
+    "clipped": true,
+    "integers": [
+     0,
+     2
+    ]
+   },
+   "body_tex": "\\sqrt{1-k}",
+   "body_plain": "sqrt1-k",
+   "tex": "\\sum_{k=0}^{2} \\sqrt{1-k}",
+   "plain": "sum for k from 0 to 2 of sqrt1-k · limited to the plotted range"
+  },
+  {
+   "lhs": "\\sqrt{1-k}",
+   "compound": false,
+   "kind": "sum",
+   "bounds": {
+    "from": 0,
+    "to": 2,
+    "clipped": false,
+    "integers": [
+     0,
+     2
+    ]
+   },
+   "body_tex": "\\sqrt{1-k}",
+   "body_plain": "sqrt1-k",
+   "tex": "\\sum_{k=0}^{2} \\sqrt{1-k}",
+   "plain": "sum for k from 0 to 2 of sqrt1-k"
+  },
+  {
+   "lhs": "P(X=k)",
+   "compound": false,
+   "kind": "shade",
+   "bounds": {
+    "from": 0.5,
+    "to": 2,
+    "clipped": true,
+    "integers": null
+   },
+   "body_tex": "P(X=k)",
+   "body_plain": "P(X=k)",
+   "tex": "\\text{area under } P(X=k) \\text{ from } 0.5 \\text{ to } 2",
+   "plain": "area under P(X=k) from 0.5 to 2 · limited to the plotted range"
+  },
+  {
+   "lhs": "P(X=k)",
+   "compound": false,
+   "kind": "integral",
+   "bounds": {
+    "from": 0,
+    "to": 1e-07,
+    "clipped": false,
+    "integers": null
+   },
+   "body_tex": "P(X=k)",
+   "body_plain": "P(X=k)",
+   "tex": "\\int_{0}^{1 \\times 10^{-7}} P(X=k)\\,dk",
+   "plain": "integral from 0 to 1e-7 of P(X=k) dk"
+  },
+  {
+   "lhs": "P(X=k)",
+   "compound": false,
+   "kind": "highlight",
+   "bounds": {
+    "from": 0,
+    "to": 2,
+    "clipped": true,
+    "integers": [
+     0,
+     2
+    ]
+   },
+   "body_tex": "P(X=k)",
+   "body_plain": "P(X=k)",
+   "tex": "\\sum_{k=0}^{2} P(X=k)",
+   "plain": "sum for k from 0 to 2 of P(X=k) · limited to the plotted range"
+  },
+  {
+   "lhs": "P(X=k)",
+   "compound": false,
+   "kind": "sum",
+   "bounds": {
+    "from": 0,
+    "to": 2,
+    "clipped": false,
+    "integers": [
+     0,
+     2
+    ]
+   },
+   "body_tex": "P(X=k)",
+   "body_plain": "P(X=k)",
+   "tex": "\\sum_{k=0}^{2} P(X=k)",
+   "plain": "sum for k from 0 to 2 of P(X=k)"
+  },
+  {
+   "lhs": "\\text{Var}(k)",
+   "compound": false,
+   "kind": "shade",
+   "bounds": {
+    "from": 0.5,
+    "to": 2,
+    "clipped": true,
+    "integers": null
+   },
+   "body_tex": "\\text{Var}(k)",
+   "body_plain": "textVar(k)",
+   "tex": "\\text{area under } \\text{Var}(k) \\text{ from } 0.5 \\text{ to } 2",
+   "plain": "area under textVar(k) from 0.5 to 2 · limited to the plotted range"
+  },
+  {
+   "lhs": "\\text{Var}(k)",
+   "compound": false,
+   "kind": "integral",
+   "bounds": {
+    "from": 0,
+    "to": 1e-07,
+    "clipped": false,
+    "integers": null
+   },
+   "body_tex": "\\text{Var}(k)",
+   "body_plain": "textVar(k)",
+   "tex": "\\int_{0}^{1 \\times 10^{-7}} \\text{Var}(k)\\,dk",
+   "plain": "integral from 0 to 1e-7 of textVar(k) dk"
+  },
+  {
+   "lhs": "\\text{Var}(k)",
+   "compound": false,
+   "kind": "highlight",
+   "bounds": {
+    "from": 0,
+    "to": 2,
+    "clipped": true,
+    "integers": [
+     0,
+     2
+    ]
+   },
+   "body_tex": "\\text{Var}(k)",
+   "body_plain": "textVar(k)",
+   "tex": "\\sum_{k=0}^{2} \\text{Var}(k)",
+   "plain": "sum for k from 0 to 2 of textVar(k) · limited to the plotted range"
+  },
+  {
+   "lhs": "\\text{Var}(k)",
+   "compound": false,
+   "kind": "sum",
+   "bounds": {
+    "from": 0,
+    "to": 2,
+    "clipped": false,
+    "integers": [
+     0,
+     2
+    ]
+   },
+   "body_tex": "\\text{Var}(k)",
+   "body_plain": "textVar(k)",
+   "tex": "\\sum_{k=0}^{2} \\text{Var}(k)",
+   "plain": "sum for k from 0 to 2 of textVar(k)"
+  },
+  {
+   "lhs": "n!",
+   "compound": false,
+   "kind": "shade",
+   "bounds": {
+    "from": 0.5,
+    "to": 2,
+    "clipped": true,
+    "integers": null
+   },
+   "body_tex": "n!",
+   "body_plain": "n!",
+   "tex": "\\text{area under } n! \\text{ from } 0.5 \\text{ to } 2",
+   "plain": "area under n! from 0.5 to 2 · limited to the plotted range"
+  },
+  {
+   "lhs": "n!",
+   "compound": false,
+   "kind": "integral",
+   "bounds": {
+    "from": 0,
+    "to": 1e-07,
+    "clipped": false,
+    "integers": null
+   },
+   "body_tex": "n!",
+   "body_plain": "n!",
+   "tex": "\\int_{0}^{1 \\times 10^{-7}} n!\\,dk",
+   "plain": "integral from 0 to 1e-7 of n! dk"
+  },
+  {
+   "lhs": "n!",
+   "compound": false,
+   "kind": "highlight",
+   "bounds": {
+    "from": 0,
+    "to": 2,
+    "clipped": true,
+    "integers": [
+     0,
+     2
+    ]
+   },
+   "body_tex": "n!",
+   "body_plain": "n!",
+   "tex": "\\sum_{k=0}^{2} n!",
+   "plain": "sum for k from 0 to 2 of n! · limited to the plotted range"
+  },
+  {
+   "lhs": "n!",
+   "compound": false,
+   "kind": "sum",
+   "bounds": {
+    "from": 0,
+    "to": 2,
+    "clipped": false,
+    "integers": [
+     0,
+     2
+    ]
+   },
+   "body_tex": "n!",
+   "body_plain": "n!",
+   "tex": "\\sum_{k=0}^{2} n!",
+   "plain": "sum for k from 0 to 2 of n!"
+  }
  ]
 }

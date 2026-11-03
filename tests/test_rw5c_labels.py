@@ -82,7 +82,7 @@ def _every_panel() -> dict[str, Any]:
 
 def _book_labels(compiled: S.CompiledFigure) -> tuple[dict[str, E.BookLabel], dict[str, str]]:
     label = E.BookLabel(lhs="f(x)", latex="f(x)=ax", variable="x", tokens={"a": "a", "x": "x"}, extraction_id="e",
-                        span_id="s", page=3)
+                        span_id="s", page=3, compound=False)
     return {"f": label}, {"panels.0.series.0": "f"}
 
 
@@ -145,7 +145,7 @@ def test_a_book_elements_label_is_the_books_left_hand_side_and_its_provenance():
 
 def test_an_unchecked_definition_renders_as_its_grammar_name_marked_ai_defined():
     compiled = S.parse_spec(plot("x", name="F"))
-    entry = E.element_map(compiled, {"G": E.BookLabel("g", "g=1", None, {}, "e", "s", 1)}, {})[0]
+    entry = E.element_map(compiled, {"G": E.BookLabel("g", "g=1", None, {}, "e", "s", 1, False)}, {})[0]
     assert entry["tag"] == "ai_defined" and entry["role"] == "ai" and entry["tex"] == r"\mathrm{F}(x)"
     assert entry["plain"] == "F(x)"
 
@@ -153,7 +153,7 @@ def test_an_unchecked_definition_renders_as_its_grammar_name_marked_ai_defined()
 def _derived(spec: dict[str, Any], element_id: str, params: dict[str, float] | None = None) -> tuple[str, dict[str, Any]]:
     compiled = S.parse_spec(spec)
     elements = {element["id"]: element for element in E.element_map(compiled, {"f": E.BookLabel(
-        "f(x)", "f(x)=x", "x", {"x": "x"}, "e", "s", 1)}, {"panels.0.series.0": "f"})}
+        "f(x)", "f(x)=x", "x", {"x": "x"}, "e", "s", 1, False)}, {"panels.0.series.0": "f"})}
     element = elements[element_id]
     env = {**compiled.defaults, **(params or {})}
     bounds = S.derived_bounds(compiled, element["template"]["panel"], element["template"]["kind"],
@@ -207,7 +207,7 @@ def _readout(expr: str, variable: str = "x") -> dict[str, Any]:
 def test_f2_an_integral_readout_states_its_evaluated_bounds():
     spec = _readout("integral(f, x, 0, 0.5)")
     compiled = S.parse_spec(spec)
-    book = {"f": E.BookLabel("f(x)", "f(x)=x", "x", {}, "e", "s", 1)}
+    book = {"f": E.BookLabel("f(x)", "f(x)=x", "x", {}, "e", "s", 1, False)}
     element = {item["id"]: item for item in E.element_map(compiled, book, {"panels.0.series.0": "f"})}["panels.1"]
     assert element["role"] == "derived" and element["plain"] == "integral from 0 to 0.5 of f(x) dx"
     assert r"\int_{0}^{0.5} f(x)\,dx" == element["tex"]
@@ -216,7 +216,7 @@ def test_f2_an_integral_readout_states_its_evaluated_bounds():
 def test_a_readout_whose_body_is_not_the_bare_reference_is_not_derived():
     spec = _readout("integral(2*f, x, 0, 0.5)")
     compiled = S.parse_spec(spec)
-    book = {"f": E.BookLabel("f(x)", "f(x)=x", "x", {}, "e", "s", 1)}
+    book = {"f": E.BookLabel("f(x)", "f(x)=x", "x", {}, "e", "s", 1, False)}
     element = {item["id"]: item for item in E.element_map(compiled, book, {"panels.0.series.0": "f"})}["panels.1"]
     assert element["role"] == "ai" and element["voice"] == "model"
 
@@ -225,7 +225,7 @@ def test_f9_endpoints_are_lossless_never_format_value():
     spec = _readout("sum(f, k, 100000, 100001)", "k")
     spec["panels"][0] = {"kind": "pmf_bars", "k": {"var": "k", "min": 0, "max": 3}, "series": [{"expr": "f", "label": "m"}]}
     compiled = S.parse_spec(spec)
-    book = {"f": E.BookLabel("f(k)", "f(k)=1/(k+1)", "k", {}, "e", "s", 1)}
+    book = {"f": E.BookLabel("f(k)", "f(k)=1/(k+1)", "k", {}, "e", "s", 1, False)}
     element = {item["id"]: item for item in E.element_map(compiled, book, {"panels.0.series.0": "f"})}["panels.1"]
     assert r"\sum_{k=100000}^{100001}" in element["tex"] and "1.000e+5" not in element["tex"]
     plain, bounds = _derived(_bars("100000", "100001", (99990, 100010)), "panels.0.highlight")
@@ -463,3 +463,112 @@ def test_a_bound_readouts_body_is_grouped_in_its_template():
     readout = {element["id"]: element for element in E.element_map(compiled, {}, {})}["panels.1"]
     assert readout["tex"].startswith(r"\int_{0}^{1} \left(x + 1\right)\,d")
     assert "of (x + 1) dx" in readout["plain"]
+
+
+def _tail_bars() -> dict[str, Any]:
+    spec = plot("2^(-k)", name="tail", variable="k", low=0.0, high=2.0, label="tail")
+    spec["panels"] = [{"kind": "pmf_bars", "k": {"var": "k", "min": 0, "max": 2}, "series": [{"expr": "tail", "label": "tail"}],
+                       "highlight": {"from": "0", "to": "1", "label": "first"}},
+                      {"kind": "readout", "label": "total", "expr": "sum(tail, k, 0, 2)"}]
+    return spec
+
+
+@sandboxed
+def test_a2_a_derived_sum_keeps_a_compound_left_hand_side_whole(tmp_path):
+    """Astra A2: the book's 1-F(k)=2^{-k}: the label wrote \\sum 1-F(k) beside 1.75, the sum of the whole left-hand side."""
+
+    from learnloop.vault.loader import load_vault
+
+    paths, repository = build_check_vault(tmp_path / "vault", [("a", "Text", r"The tail is $1-F(k)=2^{-k}$.")])
+    result = SC.check_figure(load_vault(paths.root), repository, S.parse_spec(_tail_bars()),
+                             spans=[(EXTRACTION, "a", "a")], grounding="anchor")
+    assert result.outcome == SC.CHECKED
+    elements = {element["id"]: element for element in result.elements}
+    assert elements["panels.0.series.0"]["tex"] == "1-F(k)"  # the label itself is the book's own, with no operator beside it
+    readout, highlight = elements["panels.1"], elements["panels.0.highlight"]
+    assert readout["role"] == "derived" and readout["tex"] == r"\sum_{k=0}^{2} \left(1-F(k)\right)"
+    assert readout["plain"] == "sum for k from 0 to 2 of (1-F(k))"
+    assert highlight["role"] == "derived" and highlight["tex"] == r"\sum_{k=0}^{1} \left(1-F(k)\right)"
+
+
+_TERMS = (r"F(k)", r"f_{X}(k)", "p", "2", r"e^{-k}", r"\frac{1-a}{k}", r"\sqrt{1-k}", r"\bar{F}(k)", r"P(X=k)", r"\lvert k-1\rvert",
+          r"\sin k", r"\left(1-k\right)", r"(1-k)", r"\text{Var}(k)", "n!", r"(1-k)^{2}", r"\ln(k)")
+_SIGNS = ("-", "+", r"\cdot ", r"\times ", r"\pm ", "/")
+
+
+def _left_hand_side(chance) -> tuple[str, bool]:
+    """A left-hand side, and whether it was built compound: a sign, a slash or a leading sign outside every bracket, perhaps in braces or a font."""
+
+    def term() -> str:
+        return chance.choice(_TERMS)
+
+    shape = chance.randrange(6)
+    if shape == 0:
+        return term(), False
+    if shape == 1:
+        return term() + " " + term(), False
+    if shape == 2:
+        return "-" + term(), True
+    built = term() + chance.choice(_SIGNS) + term()
+    if chance.randrange(3) == 0:
+        built += chance.choice(_SIGNS) + term()
+    return (f"{{{built}}}" if shape == 3 else built), True
+
+
+def test_a_generated_left_hand_side_is_whole_in_every_template_in_katexs_own_mathml():
+    """A2's class: the real reader, the real templates, and KaTeX's MathML read independently of its tree."""
+
+    import random
+
+    from learnloop.figures import book_math as B
+    from learnloop.figures import katex_tree as KT
+    from tests import katex_meaning as M
+
+    chance = random.Random(20261102)
+    read = {True: 0, False: 0}
+    with KT.Trees() as trees, M.Renderer() as renderer:
+        for _ in range(500):
+            lhs, compound = _left_hand_side(chance)
+            try:
+                relation = B.read_relation(lhs + "=x", trees=trees)
+            except B.Unreadable:
+                continue
+            assert relation.lhs_compound or not compound, lhs
+            read[compound] += 1
+            body_tex, body_plain = E.BookLabel(relation.lhs, relation.latex, "k", {}, "e", "s", 1, relation.lhs_compound).operand
+            alone = renderer.mathml(lhs)
+            for kind, bounds in (("sum", {"from": 0, "to": 2, "integers": (0, 2)}), ("highlight", {"from": 0, "to": 2, "integers": (0, 2)}),
+                                 ("integral", {"from": 0, "to": 1}), ("shade", {"from": 0, "to": 1})):
+                template = {"kind": kind, "body_tex": body_tex, "body_plain": body_plain, "variable": "k"}
+                words, plain = E.template_words(template, bounds, str)
+                assert M.whole_in_scope(renderer.mathml(words), alone, kind), (kind, words)
+                assert not compound or f"({E.detex(lhs)})" in plain, (kind, plain)
+    assert read[True] > 200 and read[False] > 50
+
+
+def test_the_scope_reading_refuses_the_label_astra_found():
+    """So the property above has teeth: the same words with no group fail it, in every template."""
+
+    from tests import katex_meaning as M
+
+    with M.Renderer() as renderer:
+        alone = renderer.mathml("1-F(k)")
+        assert not M.whole_in_scope(renderer.mathml(r"\sum_{k=0}^{2} 1-F(k)"), alone, "sum")
+        assert not M.whole_in_scope(renderer.mathml(r"\int_{0}^{1} 1-F(k)\,dk"), alone, "integral")
+        assert not M.whole_in_scope(renderer.mathml(r"\text{area under } 1-F(k) \text{ from } 0 \text{ to } 1"), alone, "shade")
+        assert not M.whole_in_scope(renderer.mathml(r"\sum_{k=0}^{2} 1"), alone, "sum")  # a part in scope is not the whole
+        assert M.whole_in_scope(renderer.mathml(r"\sum_{k=0}^{2} \left(1-F(k)\right)"), alone, "sum")
+
+
+def test_a_shade_or_a_highlight_of_an_ai_curve_groups_code_s_own_rendering():
+    """The same two template lines take code's rendering in the model's voice: \\sum k + 1 reads no better there."""
+
+    bars = _bars("0", "1", expr="k + 1")
+    bars["definitions"] = []
+    bars["panels"][0]["series"][0]["expr"] = "k + 1"
+    highlight = {element["id"]: element for element in E.element_map(S.parse_spec(bars), {}, {})}["panels.0.highlight"]
+    assert highlight["role"] == "ai" and highlight["tex"] == r"\sum_{k=0}^{1} \left(k + 1\right)" and "of (k + 1)" in highlight["plain"]
+    shaded = plot("1 - x", definitions=[], shades=[{"series": "the book's curve", "from": "0", "to": "1", "label": "area"}])
+    shaded["panels"][0]["series"][0]["expr"] = "1 - x"
+    shade = {element["id"]: element for element in E.element_map(S.parse_spec(shaded), {}, {})}["panels.0.shade.0"]
+    assert shade["role"] == "ai" and r"\left(1 - x\right)" in shade["tex"]

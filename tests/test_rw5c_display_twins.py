@@ -9,6 +9,8 @@ from pathlib import Path
 
 import pytest
 
+from learnloop.figures import book_math as B
+from learnloop.figures import elements as E
 from learnloop.figures import spec as S
 from learnloop.figures.display_format import format_value, js_string
 
@@ -36,3 +38,15 @@ def test_the_derived_bounds_pin_the_evaluator(case):
     env = {**compiled.defaults, **case.get("params", {})}
     found = S.derived_bounds(compiled, case["panel"], case["kind"], case["index"], env)
     assert found == case["expected"]
+
+
+@pytest.mark.parametrize("case", CORPUS["templates"], ids=lambda case: f"{case['kind']}-{case['lhs']}")
+def test_the_derived_words_are_the_corpus_s_from_the_book_s_left_hand_side(case):
+    """The reader decides what is compound, from KaTeX's tree; the Reader's derivedWords writes the same words (vitest)."""
+
+    relation = B.read_relation(case["lhs"] + "=x")
+    assert relation.lhs_compound is case["compound"]
+    label = E.BookLabel(relation.lhs, relation.latex, "k", {}, "e", "s", 1, relation.lhs_compound)
+    assert label.operand == (case["body_tex"], case["body_plain"])
+    template = {"kind": case["kind"], "body_tex": case["body_tex"], "body_plain": case["body_plain"], "variable": "k"}
+    assert E.template_words(template, case["bounds"], js_string) == (case["tex"], case["plain"])

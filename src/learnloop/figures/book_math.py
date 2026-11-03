@@ -110,6 +110,8 @@ _MACRO_DEFINITION = re.compile(
 #: What a left-hand side may hold: it becomes a label, and must not paint, hide, link or move anything.
 _LABEL_NODES = frozenset({"accent", "atom", "font", "genfrac", "kern", "leftright", "mathord", "op", "operatorname",
                           "ordgroup", "spacing", "sqrt", "supsub", "text", "textord"})
+#: Label nodes drawn as one term whatever they hold: they bracket, stack or cover their contents, or are one name or a gap.
+_ONE_TERM_NODES = frozenset({"accent", "genfrac", "kern", "leftright", "mathord", "op", "operatorname", "spacing", "sqrt"})
 
 
 class Unreadable(ValueError):
@@ -144,6 +146,8 @@ class Relation:
     args: tuple[str, ...] = ()
     symbols: frozenset[str] = frozenset()
     tokens: dict[str, str] = field(default_factory=dict)
+    #: Whether ``lhs`` needs grouping as an operand (:func:`_compound`). Grouped unless read otherwise.
+    lhs_compound: bool = True
 
 
 # ---------------------------------------------------------------------------
@@ -872,6 +876,50 @@ def _split_relation(nodes: Sequence[Tree]) -> tuple[int, int]:
     return found[0]
 
 
+def _compound(nodes: Sequence[Tree]) -> bool:
+    """Whether a left-hand side, in KaTeX's list, is more than one term to a reader: an operator written
+    before it (``\\sum``, ``\\int``) would seem to reach only its first. A binary sign, a relation or
+    a comma outside every bracket makes it so, as does a slash or a spaced word; braces and fonts draw
+    nothing, so they are looked through. A kind not named here is grouped: an extra pair of brackets
+    says nothing false."""
+
+    depth = 0
+    for node in nodes:
+        current = node.get("base") if node.get("type") == "supsub" else node
+        if current is None:
+            continue
+        kind = current.get("type")
+        if kind == "atom":
+            family = current.get("family")
+            if family == "open":
+                depth += 1
+            elif family == "close":
+                # n! and n? close nothing (as in _split_relation).
+                if current.get("text") not in ("!", "?"):
+                    depth -= 1
+                if depth < 0:
+                    return True
+            elif depth == 0:
+                return True
+        elif depth > 0 or kind in _ONE_TERM_NODES:
+            continue
+        elif kind == "textord":
+            if current.get("text") == "/":
+                return True
+        elif kind == "ordgroup":
+            if _compound(current.get("body") or ()):
+                return True
+        elif kind == "font":
+            if _compound((current["body"],)):
+                return True
+        elif kind == "text":
+            if any(item.get("type") == "spacing" for item in current.get("body") or ()):
+                return True
+        else:
+            return True
+    return depth != 0
+
+
 def _lhs_args(nodes: Sequence[Tree]) -> tuple[tuple[str, ...], dict[str, set[str]], dict[str, str]]:
     """The symbols of a ``name(args)`` left-hand side, with how the book spells
     them; empty for ``P(X = k)``, ``E[X]`` or a bare name."""
@@ -996,7 +1044,7 @@ def _translate(source: str, tree: Sequence[Tree], *, trees: KT.Trees, display: b
     if G.node_count(rhs, {}) > G.MAX_EXPANDED_NODES:
         raise Unreadable("too_long")
     return Relation(latex=source, lhs=lhs, rhs=rhs, args=args, symbols=frozenset(G.free_names(rhs)),
-                    tokens=dict(reader.first))
+                    tokens=dict(reader.first), lhs_compound=_compound(nodes[:lhs_end]))
 
 
 __all__ = [

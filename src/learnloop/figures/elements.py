@@ -309,6 +309,16 @@ class BookLabel:
     extraction_id: str
     span_id: str
     page: int | None
+    #: KaTeX's reading of ``lhs`` (:attr:`.book_math.Relation.lhs_compound`): required, so no path can forget it.
+    compound: bool
+
+    @property
+    def operand(self) -> tuple[str, str]:
+        """``lhs`` where a template writes an operator or words before it, as TeX and plain text: a
+        compound one is visibly whole (Astra A2: \\sum 1-F(k) beside the sum of all of 1-F(k))."""
+
+        plain = detex(self.lhs)
+        return (r"\left(" + self.lhs + r"\right)", f"({plain})") if self.compound else (self.lhs, plain)
 
 
 def _element(path: Sequence[Any], role: str, tex: str, plain: str, voice: str, **extra: Any) -> dict[str, Any]:
@@ -344,6 +354,18 @@ def _curve(path: Sequence[Any], node: G.Node | None, axis: str | None, compiled:
     if node is None:
         return _element(path, "ai", "", "", "model")
     return _element(path, "ai", to_tex(node, definitions), to_plain(node), "model")
+
+
+def _operand(curve: Mapping[str, Any], node: G.Node | None, compiled: S.CompiledFigure,
+             book: Mapping[str, BookLabel]) -> tuple[str, str]:
+    """A curve as a template's operand: the book's left-hand side, or code's rendering grouped as a
+    sum's or an integral's body is. A name or nothing is one term as it is."""
+
+    if curve["role"] == "book":
+        return book[str(curve["definition"])].operand
+    if node is None or node.kind == "name":
+        return str(curve["tex"]), str(curve["plain"])
+    return to_tex(node, compiled.definitions, 2), to_plain(node, 2)
 
 
 def _template(path: Sequence[Any], kind: str, panel: int, index: int, *, body_tex: str, body_plain: str,
@@ -451,11 +473,13 @@ def element_map(compiled: S.CompiledFigure, book: Mapping[str, BookLabel],
                     elements[element_id(path)] = _element(path, "ai", tex, plain, "model")
                 labels = [series.label for series in model.series]
                 for index, shade in enumerate(model.shade):
-                    parent = curves[labels.index(shade.series)]
+                    position = labels.index(shade.series)
+                    parent = curves[position]
                     path = (*base, "shade", index)
                     derived = parent["role"] == "book"
+                    body_tex, body_plain = _operand(parent, panel.nodes["series"][position], compiled, book)
                     elements[element_id(path)] = _template(
-                        path, "shade", panel_index, index, body_tex=parent["tex"], body_plain=parent["plain"],
+                        path, "shade", panel_index, index, body_tex=body_tex, body_plain=body_plain,
                         variable=axis, role="derived" if derived else "ai", voice="frame" if derived else "model",
                         compiled=compiled, env=env, **({"definition": parent["definition"]} if derived else {}))
             elif model.highlight is not None:
@@ -463,8 +487,9 @@ def element_map(compiled: S.CompiledFigure, book: Mapping[str, BookLabel],
                 parent = curves[0]
                 path = (*base, "highlight")
                 derived = parent["role"] == "book"
+                body_tex, body_plain = _operand(parent, panel.nodes["series"][0], compiled, book)
                 elements[element_id(path)] = _template(
-                    path, "highlight", panel_index, 0, body_tex=parent["tex"], body_plain=parent["plain"],
+                    path, "highlight", panel_index, 0, body_tex=body_tex, body_plain=body_plain,
                     variable=axis, role="derived" if derived else "ai", voice="frame" if derived else "model",
                     compiled=compiled, env=env, **({"definition": parent["definition"]} if derived else {}))
         elif panel.kind == "readout":
@@ -477,8 +502,7 @@ def element_map(compiled: S.CompiledFigure, book: Mapping[str, BookLabel],
                 carries = name is not None and name in set(book_elements.values()) and name in book \
                     and book[name].variable == bound.text
                 if carries:
-                    label = book[str(name)]
-                    body_tex, body_plain = label.lhs, detex(label.lhs)
+                    body_tex, body_plain = book[str(name)].operand
                 else:
                     # The template writes what follows the integral or sum sign: a sum in it is grouped, as in to_tex.
                     body_tex, body_plain = to_tex(body, definitions, 2), to_plain(body, 2)
