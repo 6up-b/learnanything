@@ -53,6 +53,7 @@ import time
 from typing import Any
 
 from learnloop.daily_plan.chooser import LaneQuotaChooser, unspent_share
+from learnloop.daily_plan import measurement as objectives
 from learnloop.data_capture.gates import serving_on
 from learnloop.daily_plan.staged_frame import CardBuilder, StagedChooser
 from learnloop.daily_plan.types import (
@@ -418,6 +419,12 @@ class RouterChooser:
         if not ready and not serving_on(config):
             return deterministic("not_ready", models={name: {"status": NOT_READY, "error": readiness.get(name)}
                                                       for name in (DECIDER, LLM)})
+        if serving_on(config):
+            # Data capture A2: the objective the arms are evaluated on, frozen before the draw.
+            record["objective"] = objectives.freeze(
+                self.vault, self.repository, staged_ref=staged.candidate_id, candidates=feasible, support=support,
+                stop_ref=STOP_FOR_TODAY,
+            ).as_dict()
         key = _hash({
             "v": KEY_VERSION, "kind": "plan_block", "plan_id": state.plan_id,
             "state": {"minutes_left": round(state.minutes_left, 3), "items_left": state.items_left,

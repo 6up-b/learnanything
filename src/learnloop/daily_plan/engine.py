@@ -104,10 +104,12 @@ from learnloop.daily_plan.types import (
     PlanState,
     ReadingTarget,
 )
+from learnloop.daily_plan import measurement as objectives
 from learnloop.data_capture import prefilter
-from learnloop.data_capture.gates import receipts_on
+from learnloop.data_capture.gates import receipts_on, serving_on
 from learnloop.db.stores import daily_plans as store
 from learnloop.ids import new_ulid
+from learnloop.router.plan_log import INSERT_REF as INSERT_NOW_REF
 from learnloop.router.plan_log import log_plan_block_decision
 
 if TYPE_CHECKING:
@@ -1664,6 +1666,13 @@ def _prepare_plan(
     for item in rest:
         if item.lane in loads and item.lane != "new":
             loads[item.lane] += item.est_minutes
+    # Data capture A2: a measurement replaces an ordinary maintenance slot: its minutes come off
+    # the maintain lane's load, so the other lanes keep theirs (none here: as any due check).
+    measurement_slots: list[dict[str, Any]] = []
+    maintain_replaced = 0.0
+    if built.intent is not None and checks and serving_on(env.vault.config):
+        measurement_slots, maintain_replaced = objectives.plan_slots(built.intent, checks, loads["maintain"])
+        loads["maintain"] -= maintain_replaced
     m = max(budget - requested_minutes - check_minutes, 0.0)
     new_candidates = new_material_candidates(built.intent, rest)
     review_load = projected_review_load(
@@ -1760,6 +1769,9 @@ def _prepare_plan(
             for item in checks
         ]
         split_json["checks_unplanned"] = checks_unplanned
+        if measurement_slots:
+            split_json["measurement_slots"] = {"checks": measurement_slots,
+                                               "maintain_minutes_replaced": round(maintain_replaced, 4)}
     if reading_path_receipt is not None:
         # RW7b's receipt (only where the successor acted, so a plan built
         # with it off is the predecessor's byte for byte).
@@ -2780,6 +2792,7 @@ def _boundary(
         forced_spent=forced_spent,
     )
     choice = decision.choice
+    frozen = _frozen_objective(env, record, decision)
     detail: dict[str, Any] = {
         "source": env.policy.source_name,
         "chooser": getattr(env.policy.chooser, "name", "unknown"),
@@ -2846,6 +2859,7 @@ def _boundary(
         _close(
             env, record, status="complete", reason=choice.why or "nothing more worth doing today",
             stop_detail=detail, log_decision=True, router_record=router_record, prefilter=context.prefilter,
+            frozen=frozen,
         )
         return None
     items: list[tuple[PoolItem | PlannedItem, str]] = [(item, forced_origin) for item in forced]
@@ -2906,6 +2920,12 @@ def _boundary(
         if decision_ref is None and logged is not None:
             decision_ref = logged
             detail["decision_ref"] = logged
+        arm = objectives.ARM_READING if reading is not None else objectives.ARM_PRACTICE
+        if logged is not None and chosen_by != "learner_pick" and objectives.applies(frozen, arm):
+            # Never an item this decision's block serves now, nor another of the plan's.
+            objectives.record(env.vault, env.repository, connection, decision_id=logged, decision_kind="plan_block",
+                              frozen=frozen, arm=arm, clock=env.clock,
+                              exclude={*record.planned_ids(), *(item.practice_item_id for item, _origin in items)})
         _persist_block(
             env,
             connection,
@@ -2926,6 +2946,29 @@ def _boundary(
         )
     _record_probe_value_forecasts(env, detail, block_id=block_id, decision_ref=decision_ref)
     return block_id
+
+
+def _frozen_objective(env: PlanEnv, record: PlanRecord, decision: Any) -> objectives.FrozenObjective | None:
+    """Data capture A2: the decision's objective (None: off, or below the tag). A mixture's was frozen
+    before its draw (``RouterChooser.choose``); a deterministic rule has one arm, its own choice."""
+
+    if not serving_on(env.vault.config):
+        return None
+    router_record = decision.choice.router_record or {}
+    try:
+        if router_record.get("objective"):
+            frozen = objectives.FrozenObjective.from_dict(router_record["objective"])
+        else:
+            frozen = objectives.freeze(
+                env.vault, env.repository, staged_ref=decision.choice.candidate_id, candidates=decision.feasible,
+                support=[decision.choice.candidate_id] if decision.choice.candidate_id else [STOP_FOR_TODAY],
+                stop_ref=STOP_FOR_TODAY,
+            )
+        last = next((item.learning_object_id for block in reversed(record.blocks) for item in reversed(block.items)), None)
+        return objectives.with_last_block(frozen, last)
+    except Exception:  # noqa: BLE001 - a decision never waits on its objective
+        logging.getLogger(__name__).warning("data capture: a decision's objective was not frozen", exc_info=True)
+        return None
 
 
 def _record_probe_value_forecasts(
@@ -3001,6 +3044,7 @@ def _close(
     log_decision: bool = False,
     router_record: Mapping[str, Any] | None = None,
     prefilter: Any = None,
+    frozen: objectives.FrozenObjective | None = None,
 ) -> None:
     """Close the plan. A chooser's stop (``stop_detail``: the candidate set,
     chooser, propensity and fallback) is appended as a stop receipt, so a plan
@@ -3035,6 +3079,10 @@ def _close(
                 if decision_ref is None and logged is not None:
                     decision_ref = logged
                     detail["decision_ref"] = logged
+                if logged is not None and objectives.applies(frozen, objectives.ARM_STOP):
+                    objectives.record(env.vault, env.repository, connection, decision_id=logged,
+                                      decision_kind="plan_block", frozen=frozen, arm=objectives.ARM_STOP,
+                                      exclude=record.planned_ids(), clock=env.clock)
             _persist_receipt(
                 env,
                 connection,
@@ -3922,6 +3970,16 @@ def _log_interrupt(
         if decision_ref is not None:
             prefilter.record(connection, decision_id=decision_ref, decision_kind="plan_interrupt", material=material,
                              config=env.vault.config, at=env.now_iso())
+            if serving_on(env.vault.config) and not outcome.refused and outcome.wait_feasible:
+                # Data capture A2: the follow-up's own LO, whichever arm was drawn; its check never
+                # takes an item this plan holds or the follow-up itself.
+                objectives.record(
+                    env.vault, env.repository, connection, decision_id=decision_ref, decision_kind="plan_interrupt",
+                    frozen=objectives.freeze_followup(item.learning_object_id,
+                                                      support=[INSERT_NOW_REF, CONTINUE_CURRENT]),
+                    arm=objectives.ARM_WAIT if outcome.wait else objectives.ARM_INSERT, clock=env.clock,
+                    exclude={*record.planned_ids(), item.practice_item_id},
+                )
         return decision_ref
     except Exception:  # noqa: BLE001 - logging never blocks the learner's plan
         logging.getLogger(__name__).warning("plan_interrupt decision not logged", exc_info=True)

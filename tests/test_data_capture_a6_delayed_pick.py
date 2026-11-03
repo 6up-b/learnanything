@@ -14,6 +14,7 @@ import json
 import pytest
 
 from learnloop.algorithm_versions import DATA_CAPTURE_ALGORITHM_VERSION, LESSON_SUGGESTIONS_ALGORITHM_VERSION
+from learnloop import delayed_checks as DC
 from learnloop.clock import FrozenClock, parse_utc
 from learnloop.teacher import brief as B
 from learnloop.teacher import delayed as D
@@ -46,11 +47,11 @@ def _candidates(vault, ids):
 
 def test_the_same_lo_has_a_different_prediction_per_item(tmp_path):
     _paths, repository, vault = _vault(tmp_path, pi_a=0.1, pi_b=0.9)
-    easy = B.lo_prediction(vault, repository, "lo_eigen", item=vault.practice_items["pi_a"])
-    hard = B.lo_prediction(vault, repository, "lo_eigen", item=vault.practice_items["pi_b"])
-    assert easy["p"] > hard["p"]
-    # With no item it stays the LO's own prediction, as the brief reads it.
-    assert B.lo_prediction(vault, repository, "lo_eigen")["item_b"] != easy["item_b"]
+    easy = DC.predicted_item_success(vault, repository, vault.practice_items["pi_a"])
+    hard = DC.predicted_item_success(vault, repository, vault.practice_items["pi_b"])
+    assert easy > hard
+    # The brief's LO prediction stays what it was: the LO's own, one number.
+    assert B.lo_prediction(vault, repository, "lo_eigen")["p"] not in (round(easy, 4), round(hard, 4))
 
 
 def test_the_pick_is_the_item_nearest_the_band_not_the_smallest_id(tmp_path):
@@ -58,7 +59,7 @@ def test_the_pick_is_the_item_nearest_the_band_not_the_smallest_id(tmp_path):
 
     _paths, repository, vault = _vault(tmp_path, pi_a=0.99, pi_b=0.99, pi_mid=0.5)
     items = _candidates(vault, ["pi_a", "pi_b", "pi_mid"])
-    predictions = {item.id: B.lo_prediction(vault, repository, "lo_eigen", item=item)["p"] for item in items}
+    predictions = {item.id: DC.predicted_item_success(vault, repository, item) for item in items}
     band = vault.config.adaptive_difficulty.practice_band
     middle = (band[0] + band[1]) / 2.0
     nearest = min(predictions, key=lambda item_id: abs(predictions[item_id] - middle))

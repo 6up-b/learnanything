@@ -41,7 +41,6 @@ tutor; the answer is an ordinary attempt with full evidence and FSRS.
 
 from __future__ import annotations
 
-import hashlib
 import re
 from collections.abc import Iterable, Mapping, Sequence
 from datetime import timedelta
@@ -49,54 +48,14 @@ from typing import Any
 
 from learnloop.clock import Clock, parse_utc, utc_now_iso
 from learnloop.data_capture.gates import serving_on
-from learnloop.learner.lesson_weight import predicted_success
+from learnloop.delayed_checks import PICK_VERSION, candidates, due_days, lineage, pick_with_receipt
+from learnloop.delayed_checks import attempted_items as _attempted
+from learnloop.delayed_checks import revealed_items as _revealed
 from learnloop.teacher.brief import downstream_learning_objects, lo_prediction
 
 PURPOSES = ("retention", "transfer")
 DEPTH_PRESET = "keep_in_touch"
 VIA = "lesson"
-#: The receipt's shape and the picker's rule (data capture A6).
-PICK_VERSION = "delayed_pick_v2"
-#: Numerical resolution, never a margin: equal predictions differ by no more than float noise.
-_EXACT_TIE = 1e-12
-
-
-def _attempted(repository: Any) -> set[str]:
-    with repository.connection() as connection:
-        return {str(row[0]) for row in connection.execute("SELECT DISTINCT practice_item_id FROM practice_attempts")}
-
-
-def _revealed(repository: Any, lesson_id: str) -> set[str]:
-    """Items this lesson exposed (a reveal row with basis ``lesson:<id>``), and items whose summed
-    exposure already reaches the auto-prime threshold (an answer would be primed: never cold)."""
-
-    from learnloop.serve_eligibility import AUTO_PRIME_REVEAL_THRESHOLD
-
-    with repository.connection() as connection:
-        lesson = {str(row[0]) for row in connection.execute(
-            "SELECT DISTINCT practice_item_id FROM reveal_events WHERE basis = ?", (f"lesson:{lesson_id}",))}
-        primed = {str(row[0]) for row in connection.execute(
-            "SELECT practice_item_id FROM reveal_events GROUP BY practice_item_id HAVING SUM(amount) >= ?",
-            (AUTO_PRIME_REVEAL_THRESHOLD,))}
-    return lesson | primed
-
-
-def lineage(item: Any) -> set[str]:
-    """The structural kin an item declares: its family, its contrast pair, its shared stimulus and the
-    source exercise it presents (any shared key makes two items the same material)."""
-
-    keys: set[str] = set()
-    if getattr(item, "family_id", None):
-        keys.add(f"family:{item.family_id}")
-    if getattr(item, "contrast_of", None):
-        keys.add("pair:" + "|".join(sorted((str(item.id), str(item.contrast_of)))))
-    fingerprint = getattr(item, "evidence_fingerprint", None)
-    if fingerprint is not None and getattr(fingerprint, "shared_stimulus_id", None):
-        keys.add(f"stimulus:{fingerprint.shared_stimulus_id}")
-    exercise = getattr(item, "canonical_exercise", None)
-    if exercise is not None:
-        keys.add(f"exercise:{exercise.extraction_id}:{','.join(sorted(exercise.span_ids))}")
-    return keys
 
 
 def _bigrams(text: str) -> set[tuple[str, str]]:
@@ -172,72 +131,6 @@ def presentation(item: Any) -> str | None:
     return str(value) if value else None
 
 
-def candidates(vault: Any, repository: Any, learning_object_id: str, *, exclude: Iterable[str],
-               withheld: Any, attempted: set[str], revealed: set[str],
-               excluded_lineage: set[str] | frozenset[str] = frozenset()) -> list[Any]:
-    """The candidate rule (§13 step 1) for one LO, in id order."""
-
-    from learnloop.vault.lifecycle import practice_item_serving_block
-
-    excluded = set(exclude)
-    out = []
-    for item in sorted(vault.practice_items.values(), key=lambda value: value.id):
-        if item.learning_object_id != learning_object_id or item.id in excluded:
-            continue
-        if excluded_lineage and lineage(item) & excluded_lineage:
-            continue
-        if item.id in attempted or item.id in revealed:
-            continue
-        if withheld.reason(item.id) or practice_item_serving_block(vault, item) is not None:
-            continue
-        out.append(item)
-    return out
-
-
-def _band_middle(vault: Any) -> float:
-    band = tuple(getattr(vault.config.adaptive_difficulty, "practice_band", (0.70, 0.80)))
-    return (float(band[0]) + float(band[1])) / 2.0
-
-
-def _uniform(seed: str) -> float:
-    """A uniform in [0, 1) from the seed (53 bits of a SHA-256, as the router's draws)."""
-
-    digest = hashlib.sha256(f"{seed}:delayed_pick".encode("utf-8")).digest()
-    return (int.from_bytes(digest[:8], "big") >> 11) / float(1 << 53)
-
-
-def pick_with_receipt(vault: Any, repository: Any, items: Sequence[Any], *, seed_key: str = "") -> tuple[Any | None, dict[str, Any]]:
-    """The candidate pitched nearest the band's middle by its own prediction, and what was decided.
-
-    An exact tie (equal predictions, or none: a structural tie) is a uniform draw: the seed names the
-    decision (``seed_key``), never the candidates, so the check and the forecast about it agree."""
-
-    middle = _band_middle(vault)
-    considered = []
-    for item in sorted(items, key=lambda value: value.id):
-        prediction = lo_prediction(vault, repository, item.learning_object_id, item=item)
-        p = prediction.get("p")
-        # The tie reads the prediction itself, not its displayed rounding.
-        exact = (predicted_success(prediction["mu"], prediction["variance"], a=prediction["item_a"], b=prediction["item_b"])
-                 if p is not None else None)
-        considered.append({"item_id": item.id, "p": p, "distance": abs(exact - middle) if exact is not None else 1.0})
-    receipt: dict[str, Any] = {"version": PICK_VERSION, "predictor": "mastery_ekf_item", "band_middle": middle,
-                               "considered": [{"item_id": row["item_id"], "p": row["p"]} for row in considered],
-                               "tied": [], "n": 0, "propensity": None, "seed": None, "draw": None, "chosen": None}
-    if not considered:
-        return None, receipt
-    nearest = min(row["distance"] for row in considered)
-    tied = [row["item_id"] for row in considered if row["distance"] - nearest <= _EXACT_TIE]
-    seed, draw = None, None
-    chosen = tied[0]
-    if len(tied) > 1:
-        seed = hashlib.sha256(f"{PICK_VERSION}|{seed_key}".encode()).hexdigest()
-        draw = _uniform(seed)
-        chosen = tied[min(int(draw * len(tied)), len(tied) - 1)]
-    receipt.update(tied=tied, n=len(tied), propensity=1.0 / len(tied), seed=seed, draw=draw, chosen=chosen)
-    return next(item for item in items if item.id == chosen), receipt
-
-
 def pick(vault: Any, repository: Any, items: Sequence[Any], *, seed_key: str = "") -> Any | None:
     """The candidate pitched nearest the band's middle (the house prior); module docstring."""
 
@@ -245,7 +138,8 @@ def pick(vault: Any, repository: Any, items: Sequence[Any], *, seed_key: str = "
         return None
     if serving_on(vault.config):
         return pick_with_receipt(vault, repository, items, seed_key=seed_key)[0]
-    middle = _band_middle(vault)
+    band = tuple(getattr(vault.config.adaptive_difficulty, "practice_band", (0.70, 0.80)))
+    middle = (float(band[0]) + float(band[1])) / 2.0
 
     def distance(item: Any) -> tuple[float, str]:
         p = lo_prediction(vault, repository, item.learning_object_id).get("p")
@@ -258,28 +152,6 @@ def retention_seed_key(lesson_id: str, learning_object_id: str) -> str:
     """The retention check's draw: its commit and the lesson forecast about it share it (§12.2)."""
 
     return f"lesson:{lesson_id}:retention:{learning_object_id}"
-
-
-def due_days(vault: Any, repository: Any, *, purpose: str, lesson_item_ids: Sequence[str]) -> tuple[float, str]:
-    """Days until the check is due, and how they were set (``retrievability`` or ``fallback``)."""
-
-    from learnloop.scheduling.fsrs import interval_for_retention
-
-    config = vault.config.teacher.delayed
-    stabilities: list[float] = []
-    if lesson_item_ids:
-        marks = ",".join("?" for _ in lesson_item_ids)
-        with repository.connection() as connection:
-            stabilities = [float(row[0]) for row in connection.execute(
-                f"SELECT stability FROM practice_item_state WHERE practice_item_id IN ({marks}) AND stability IS NOT NULL",
-                list(lesson_item_ids))]
-    if stabilities:
-        days = interval_for_retention(max(stabilities), float(config.target_retrievability))
-        basis = "retrievability"
-    else:
-        days = float(config.fallback_retention_days if purpose == "retention" else config.fallback_transfer_days)
-        basis = "fallback"
-    return min(max(days, 0.0), float(config.max_wait_days)), basis
 
 
 def commit_checks(vault: Any, repository: Any, *, lesson_id: str, landed: Sequence[Mapping[str, Any]],

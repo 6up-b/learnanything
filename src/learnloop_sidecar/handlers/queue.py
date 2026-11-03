@@ -14,6 +14,7 @@ from learnloop.substrate.instrument_serving import (
 )
 from learnloop.content.proposals.proposals import queue_accepted_diagnostic_followups
 from learnloop.daily_plan.engine import plan_active
+from learnloop.daily_plan import measurement as objectives
 from learnloop.intent.checks import settle_answered_checks
 from learnloop.projects.capture import auto_sweep
 from learnloop.scheduling.reentry_summary import reentry_session_cap
@@ -134,6 +135,12 @@ def prepare_queue_build(ctx: SidecarContext, vault: Any, repository: Any, sessio
     # commitment's own disposition; serving already reads it so). A no-op
     # without commitments or with intent.enabled off.
     settle_answered_checks(vault, repository)
+    # Data capture A2: a measurement's due, offered, answered and unavailable states. A no-op
+    # below mvp-0.44 or with data_capture.serving off; it never blocks the queue.
+    try:
+        objectives.settle(vault, repository)
+    except Exception:  # noqa: BLE001 - a record of states never fails the queue
+        logging.getLogger(__name__).warning("data capture: measurement states were not settled", exc_info=True)
     # Reader RW6b: re-value the pending cold follow-ups before the day's plan
     # (no model call) and plan any ended reader session in the background.
     # A no-op with followups.enabled off.

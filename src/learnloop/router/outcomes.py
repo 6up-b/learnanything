@@ -104,6 +104,18 @@ neither: they stay separate. Below it R_cold is v2's exactly (a help-assisted
 attempt is excluded). Version only: certification, mastery, grading, FSRS and the
 projection read nothing here.
 
+**A reading block, a follow-up that waits and a stop** (data capture A2, version 3):
+a decision with a frozen objective (``decision_objectives``) and no action of its
+own reads the lesson suggestion's intention-to-treat adapter: ``R_cold`` is the
+first eligible delayed retrieval on the objective's LO after the decision, ``S =
+R_cold``, ``R_next`` not applicable, and the detail names its arm, its predeclared
+scope and its measurement's states (due, offered, answered, unavailable), so
+treatment-dependent censoring is visible. A practice arm of such a decision keeps
+its own action-bound outcome and adds the same objective's record under
+``objective_itt``, so every arm of the decision is comparable. A decision logged
+before its objective could be frozen has none and stays ``not_applicable``
+(``no_frozen_objective``): it cannot be recovered.
+
 Deterministic from ledgers (``router_decisions``, ``practice_attempts``,
 grading evidence through the caller's PF-c states, ``reveal_events``,
 ``question_events``, ``source_exposure_events``, ``sessions.ended_at``,
@@ -116,7 +128,7 @@ from __future__ import annotations
 
 from bisect import bisect_left, bisect_right
 from collections import defaultdict
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 import json
 import sqlite3
 from typing import Any
@@ -124,6 +136,7 @@ from typing import Any
 from learnloop import delayed_completion as DC
 from learnloop.clock import parse_utc
 from learnloop.data_capture.gates import serving_on
+from learnloop.db.stores import data_capture as capture_store
 from learnloop.db.stores.plan_presentations import presentations_for_blocks
 from learnloop.db.stores.router import replace_router_outcomes
 from learnloop.outcome_contract import RETENTION_MIN_DELAY_SECONDS, retention_exclusions
@@ -139,6 +152,11 @@ BINDING_SESSION_RULE = "session_rule"
 
 #: The Pipeline plan's declared policy weight on durable retrieval.
 S_ALPHA = 0.75
+
+#: A frozen objective's arms with no action of their own (``data_capture.objectives``, where they are
+#: named; repeated here because the router leaf never imports it: a test pins the two equal).
+ARM_READING = "reading"
+ACTIONLESS_ARMS: frozenset[str] = frozenset({ARM_READING, "wait", "stop"})
 
 #: Attempt types that count as an independent attempt for R_next and R_cold.
 INDEPENDENT_ATTEMPT_TYPES: frozenset[str] = frozenset(
@@ -975,6 +993,112 @@ def _completion_detail(ledger: _Ledger, r_cold: Mapping[str, Any]) -> dict[str, 
     return {"delayed_completion_version": DC.DELAYED_COMPLETION_VERSION, "r_cold_completion": r_cold.get("completion")}
 
 
+#: The fold's order over a measurement's states: a later state stands for it.
+_MEASUREMENT_ORDER = ("unavailable", "due", "offered", "answered")
+
+
+def measurement_state(objective: Mapping[str, Any], events: Sequence[Mapping[str, Any]]) -> dict[str, Any]:
+    """An objective's measurement as one plain record (this adapter's and the capture report's)."""
+
+    states = {str(event["state"]) for event in events}
+    latest = next((state for state in reversed(_MEASUREMENT_ORDER) if state in states), None)
+    if latest is None:
+        latest = "scheduled" if objective.get("measurement") in ("arranged", "shared") else str(objective.get("measurement"))
+    return {
+        "arranged": objective.get("measurement"),
+        "state": latest,
+        "states": sorted(states),
+        "reasons": sorted({str(event["reason"]) for event in events if event.get("reason")}),
+        "commitment_id": objective.get("commitment_id"),
+        "practice_item_id": objective.get("practice_item_id"),
+    }
+
+
+def _objective_record(decision: Mapping[str, Any], objective: Mapping[str, Any], ledger: _Ledger,
+                      pfc_states: Mapping[str, str], events: Sequence[Mapping[str, Any]]) -> dict[str, Any]:
+    """A frozen objective's ITT record: its R_cold, its scope's, its measurement's states."""
+
+    lo = objective.get("learning_object_id")
+    start = str(decision["created_at"])
+    r_cold = _r_cold_itt(str(lo), start, ledger, pfc_states) if lo else {
+        "status": "not_applicable", "value": None, "row": None, "gap_seconds": None, "skipped": {}, "completion": None}
+    try:
+        scope = json.loads(objective.get("scope_json") or "[]")
+    except (TypeError, ValueError):  # pragma: no cover - the row is ours
+        scope = []
+    entries = _suggestion_scope(
+        {"target_scope": scope, "drawn_ref": None}, str(lo), start, ledger, pfc_states,
+        {"response": "accepted", "candidate_ref": str(decision.get("chosen_ref") or "")},
+    ) if lo and scope else []
+    return {
+        "arm": objective.get("arm"),
+        "objective": {"version": objective.get("objective_version"), "source": objective.get("source"),
+                      "learning_object_id": lo, "support": json.loads(objective.get("support_json") or "[]"),
+                      **({"experiment_id": objective["experiment_id"]} if objective.get("experiment_id") else {})},
+        "measurement": measurement_state(objective, events),
+        "scope": entries,
+        "r_cold": r_cold,
+    }
+
+
+def _objective_outcome(decision: Mapping[str, Any], objective: Mapping[str, Any], ledger: _Ledger,
+                       pfc_states: Mapping[str, str], events: Sequence[Mapping[str, Any]],
+                       reading_started: frozenset[str] | set[str]) -> dict[str, Any]:
+    """A reading, wait or stop arm's outcome: the lesson suggestion's adapter over a frozen objective."""
+
+    record = _objective_record(decision, objective, ledger, pfc_states, events)
+    r_cold = record.pop("r_cold")
+    arm = record["arm"]
+    status = "taken"
+    if arm == ARM_READING and (_decision_block(decision) or "") not in reading_started:
+        status = "open"
+    observed = r_cold["status"] == "observed"
+    out = _not_applicable(decision, status, ledger.observed_through, pending=False, version=ledger.version)
+    out.update({
+        "target_learning_object_id": objective.get("learning_object_id"),
+        "r_next_status": "not_applicable",
+        "r_cold_status": r_cold["status"],
+        "r_cold_value": r_cold["value"],
+        "r_cold_attempt_id": r_cold["row"]["id"] if observed else None,
+        "r_cold_gap_seconds": r_cold["gap_seconds"],
+        "r_cold_skipped": sum(r_cold["skipped"].values()),
+        "s_status": "final" if observed else r_cold["status"],
+        "s_value": r_cold["value"],
+        **_covariate_columns("r_cold", ledger.covariates(r_cold["row"]) if observed else None),
+        "r_cold_reference_status": r_cold["row"].get("reference_status") if observed else None,
+        "detail_json": json.dumps({
+            "basis": ledger.version, "r_cold_rule": R_COLD_ITT_RULE, "s_from": "r_cold" if observed else None,
+            **_completion_detail(ledger, r_cold), **record,
+            "r_cold_skip_reasons": dict(sorted(r_cold["skipped"].items())),
+            "cold_min_gap_seconds": RETENTION_MIN_DELAY_SECONDS,
+        }, sort_keys=True),
+    })
+    return out
+
+
+def _with_objective_itt(row: dict[str, Any], decision: Mapping[str, Any], objective: Mapping[str, Any], ledger: _Ledger,
+                        pfc_states: Mapping[str, str], events: Sequence[Mapping[str, Any]]) -> dict[str, Any]:
+    """A practice arm keeps its own outcome and records the same objective, so every arm compares."""
+
+    record = _objective_record(decision, objective, ledger, pfc_states, events)
+    r_cold = record.pop("r_cold")
+    detail = json.loads(row["detail_json"])
+    detail["objective_itt"] = {
+        **record, "r_cold_status": r_cold["status"], "r_cold_value": r_cold["value"],
+        "r_cold_attempt_id": r_cold["row"]["id"] if r_cold["status"] == "observed" else None,
+        "r_cold_gap_seconds": r_cold["gap_seconds"], "r_cold_completion": r_cold.get("completion"),
+    }
+    row["detail_json"] = json.dumps(detail, sort_keys=True)
+    return row
+
+
+def _reading_started(connection: sqlite3.Connection) -> set[str]:
+    if not _table_present(connection, "attention_block_events"):
+        return set()
+    return {str(row[0]) for row in connection.execute(
+        "SELECT DISTINCT block_id FROM attention_block_events WHERE kind IN ('block_started', 'block_ended')")}
+
+
 def _ended_sessions(connection: sqlite3.Connection, session_ids: set[str]) -> set[str]:
     if not session_ids:
         return set()
@@ -1054,15 +1178,27 @@ def derive_router_outcomes(
     ended = _ended_sessions(connection, set(last_in_session))
 
     suggestion_responses = _suggestion_responses(connection)
+    frozen = capture_store.objectives(connection) if outcome_version == OUTCOME_VERSION_V3 else {}
+    states = capture_store.measurement_events(connection) if frozen else {}
+    reading_started = _reading_started(connection) if frozen else set()
     outcomes: list[dict[str, Any]] = []
     for index, decision in enumerate(decisions):
         if decision["decision_kind"] == _SUGGESTION_KIND:
             outcomes.append(_suggestion_outcome(decision, ledger, pfc_states, suggestion_responses))
             continue
+        objective = frozen.get(decision["id"])
+        if objective is not None and objective.get("arm") in ACTIONLESS_ARMS:
+            outcomes.append(_objective_outcome(decision, objective, ledger, pfc_states,
+                                               states.get(decision["id"], ()), reading_started))
+            continue
         if not decision.get("chosen_practice_item_id"):
             # Stop for today, a vetoed run, a block with no item: no action to follow.
-            outcomes.append(_not_applicable(decision, "not_applicable", ledger.observed_through, pending=False,
-                                            version=outcome_version))
+            out = _not_applicable(decision, "not_applicable", ledger.observed_through, pending=False,
+                                  version=outcome_version)
+            if outcome_version == OUTCOME_VERSION_V3:
+                out["detail_json"] = json.dumps({**json.loads(out["detail_json"]), "no_outcome": "no_frozen_objective"},
+                                                sort_keys=True)
+            outcomes.append(out)
             continue
         action, binding = _action_attempt(decision, ledger, presentations)
         if action is None:
@@ -1074,8 +1210,9 @@ def derive_router_outcomes(
                 status, pending = "not_taken", False
             else:
                 status, pending = "open", True
-            outcomes.append(_not_applicable(decision, status, ledger.observed_through, pending=pending,
-                                            version=outcome_version))
+            out = _not_applicable(decision, status, ledger.observed_through, pending=pending, version=outcome_version)
+            outcomes.append(out if objective is None else _with_objective_itt(
+                out, decision, objective, ledger, pfc_states, states.get(decision["id"], ())))
             continue
         r_cold = _r_cold(action, ledger, pfc_states)
         # Only R_cold finalizes S: once it is observed, R_next counts only if
@@ -1170,6 +1307,8 @@ def derive_router_outcomes(
                 ),
             }
         )
+        if objective is not None:
+            _with_objective_itt(outcomes[-1], decision, objective, ledger, pfc_states, states.get(decision["id"], ()))
     return outcomes
 
 
@@ -1208,6 +1347,7 @@ __all__ = [
     "R_COLD_RULE_V3",
     "S_ALPHA",
     "derive_router_outcomes",
+    "measurement_state",
     "outcome_version_for",
     "rebuild_router_outcomes",
     "servable_items_by_learning_object",
