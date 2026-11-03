@@ -2,14 +2,18 @@
 
 The closed reader of the "matches the book's equation (checked)" claim. One math
 segment of a source block becomes one relation, and its right-hand side the figure
-grammar's :class:`~learnloop.figures.grammar.Node` values, in two steps:
+grammar's :class:`~learnloop.figures.grammar.Node` values, in three steps:
 
-1. **KaTeX parses the whole segment** (:mod:`.katex_tree`), the same KaTeX under the
+1. **The page's own markdown pipeline finds the segments** (:func:`segments`,
+   :mod:`.katex_tree`): only math elements it would hand to KaTeX, and their text as it
+   would hand it. No Markdown is parsed here, so a reference definition, a link title, a
+   code span or an unreferenced footnote cannot hold a candidate.
+2. **KaTeX parses the whole segment** (:mod:`.katex_tree`), the same KaTeX under the
    same settings as the page. If it refuses, or no engine runs, or a cap is hit, the
    segment is unreadable: what code reads is what the page shows, or nothing. No TeX is
    tokenized here. So TeX's grouping needs no rule of ours: ``x^a_1`` is ``x₁`` to the
    ``a``, ``\\sqrt16`` the root of 1 then a 6, ``2 3`` the numeral 23, and ``e^x^2`` an error.
-2. **A closed translator** turns KaTeX's tree into the grammar: an allowlist of tree
+3. **A closed translator** turns KaTeX's tree into the grammar: an allowlist of tree
    node kinds and exact symbols; anything else is unreadable with a closed reason key
    (:data:`REASONS`), which the coverage report counts (§12). No model writes any part
    of this: the figure author's quote can only point at a segment.
@@ -54,8 +58,8 @@ from typing import Any
 from learnloop.figures import grammar as G
 from learnloop.figures import katex_tree as KT
 
-#: The version of this table and of the KaTeX behind it, recorded on every check row.
-READER_VERSION = f"book-math-v3+katex-{KT.KATEX_VERSION}"
+#: The version of this table and of the KaTeX and markdown behind it, recorded on every check row.
+READER_VERSION = f"book-math-v4+katex-{KT.KATEX_VERSION}+markdown-{KT.MARKDOWN_SHA256[:12]}"
 
 #: Every reason a candidate is unreadable, as a closed key (§5.3, §12).
 REASONS = (
@@ -106,8 +110,6 @@ _MACRO_DEFINITION = re.compile(
 #: What a left-hand side may hold: it becomes a label, and must not paint, hide, link or move anything.
 _LABEL_NODES = frozenset({"accent", "atom", "font", "genfrac", "kern", "leftright", "mathord", "op", "operatorname",
                           "ordgroup", "spacing", "sqrt", "supsub", "text", "textord"})
-#: The block types whose whole text is the equation when it has no delimiters.
-EQUATION_BLOCK_TYPES = frozenset({"equation", "formula", "math"})
 
 
 class Unreadable(ValueError):
@@ -120,8 +122,9 @@ class Unreadable(ValueError):
 
 @dataclass(frozen=True)
 class Segment:
-    """One math segment of a block's text; ``start``/``end`` delimit ``latex``'s place
-    in it; ``display`` is how the page parses it (``$$`` and ``\\[`` against ``$``)."""
+    """One math element the page shows for a block's text. ``latex`` is what the page gives
+    KaTeX. ``start``/``end`` delimit its place in the text (the whole element, delimiters
+    too, when a container's markers interrupt it). ``display`` is how the page renders it."""
 
     latex: str
     start: int
@@ -147,42 +150,24 @@ class Relation:
 # Segments
 # ---------------------------------------------------------------------------
 
-_DELIMITED = re.compile(r"(?<!\\)\$\$(?P<display>.+?)(?<!\\)\$\$|\\\[(?P<bracket>.+?)\\\]|(?<!\\)\$(?P<inline>[^$]+?)(?<!\\)\$",
-                        re.DOTALL)
-#: What the page's own pipeline keeps out of math (``normalizeMathDelimiters``'s code segments; a paragraph ends math).
-_CODE = re.compile(r"```[\s\S]*?(?:```|\Z)|~~~[\s\S]*?(?:~~~|\Z)|`[^`\n]*`")
-_PARAGRAPH = re.compile(r"(?:(?!\n[ \t\r]*\n)[\s\S])+")
-#: remark-math's fence, the only math of more than one line the page keeps whole: ``$$`` alone on
-#: its line, to ``$$`` alone on its line. Elsewhere a meta string is unshown, or a line
-#: beginning ``+`` or ``-`` is a list item that ends the paragraph, and the math with it.
-_FENCED = re.compile(r"[ \t\r]*\n[\s\S]*\n[ \t]*\Z")
-_LINE_END = re.compile(r"[ \t\r]*(?:\n|\Z)")
-
-
-def segments(text: str, block_type: str = "") -> list[Segment]:
-    """The math segments of a block's text in reading order (§5.2), as the page's own
-    markdown finds them: ``$...$``, ``$$...$$``, ``\\[...\\]``, or the whole text of an equation
-    block. ``bookMathRenderCorpus.json``'s ``blocks`` pin them against the page. A shape
-    the page would read otherwise is no segment. Unicode math outside these is never one."""
+def segments(text: str, *, trees: KT.Trees | None = None) -> list[Segment]:
+    """The equations the page shows for a block's text (§5.2), found by the page's own
+    pipeline (:meth:`.katex_tree.Trees.page_math`), or :class:`Unreadable`. ``trees``: the
+    check's loaded engine. ``bookMathRenderCorpus.json``'s ``blocks`` pin them against
+    the real ``MarkdownMath``. Unicode math is never one, nor a block with no math element."""
 
     source = str(text or "")
-    masked = _CODE.sub(lambda code: "\0" * len(code.group()), source)
-    found = []
-    for paragraph in _PARAGRAPH.finditer(masked):
-        for match in _DELIMITED.finditer(masked, paragraph.start(), paragraph.end()):
-            name = match.lastgroup or "inline"
-            latex = match.group(name)
-            if "\0" in latex or "\\$" in latex:
-                continue
-            if name != "bracket" and "\n" in latex and not (
-                    name == "display" and not masked[masked.rfind("\n", 0, match.start()) + 1:match.start()].strip()
-                    and _FENCED.match(latex) and _LINE_END.match(masked, match.end())):
-                continue
-            found.append(Segment(latex, match.start(name), match.end(name), name != "inline"))
-    if not found and str(block_type or "").lower() in EQUATION_BLOCK_TYPES and source.strip():
-        begin = len(source) - len(source.lstrip())
-        found.append(Segment(source.strip(), begin, begin + len(source.strip()), True))
-    return found
+    # All the page's math starts from one of these (normalizeMathDelimiters makes \[ and \( into $), so a block without any costs no engine.
+    if "$" not in source and "\\[" not in source and "\\(" not in source:
+        return []
+    if trees is None:
+        with KT.Trees() as own:
+            return segments(source, trees=own)
+    try:
+        found = trees.page_math(source)
+    except KT.TreeRefused as refused:
+        raise Unreadable(refused.reason) from refused
+    return [Segment(str(item["latex"]), int(item["start"]), int(item["end"]), bool(item["display"])) for item in found]
 
 
 # ---------------------------------------------------------------------------

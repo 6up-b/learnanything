@@ -613,6 +613,39 @@ def test_a_double_superscript_the_page_shows_as_an_error_is_never_checked(tmp_pa
     assert result.reasons.get("not_rendered") == 1
 
 
+#: Text the raw block holds as ``$f(x)=x$`` and the page never shows as that equation: only ``f(x)=2x`` is on the page.
+HIDDEN_FROM_THE_PAGE = {
+    "reference_definition": '[unused]: https://example.org "$f(x)=x$"\n\nThe book states $f(x)=2x$.',
+    "link_title": 'See [here](https://example.org "$f(x)=x$"), where $f(x)=2x$.',
+    "double_backtick_code": "``$f(x)=x$`` and the book states $f(x)=2x$.",
+    "indented_code": "    $f(x)=x$\n\nThe book states $f(x)=2x$.",
+    "unreferenced_footnote": "[^1]: $f(x)=x$\n\nThe book states $f(x)=2x$.",
+    "image_alt": "![$f(x)=x$](a.png) The book states $f(x)=2x$.",
+    "html_attribute": '<span title="$f(x)=x$">The book states</span> $f(x)=2x$.',
+    "html_comment": "<!-- $f(x)=x$ -->\n\nThe book states $f(x)=2x$.",
+    "struck_through": "~~$f(x)=x$~~ The book states $f(x)=2x$.",
+}
+
+
+@pytest.mark.parametrize("block", HIDDEN_FROM_THE_PAGE.values(), ids=HIDDEN_FROM_THE_PAGE.keys())
+def test_an_equation_the_page_does_not_show_never_certifies_the_curve(tmp_path, block):
+    """F1: the hidden equation matched the figure, every later check compared against it, and the page shows another one."""
+
+    paths, repository = build_check_vault(tmp_path / "vault", [("a", "Text", block)])
+    vault = load_vault(paths.root)
+    hidden = check((vault, repository), plot("x", low=0.0, high=1.0), "a")
+    assert not hidden.book_elements and hidden.outcome != SC.CHECKED
+    candidates, _reasons = SC.read_candidates(vault, repository, [(EXTRACTION, "a", "a")])
+    assert [candidate.relation.latex for candidate in candidates] == ["f(x)=2x"]
+
+
+@pytest.mark.parametrize("block", HIDDEN_FROM_THE_PAGE.values(), ids=HIDDEN_FROM_THE_PAGE.keys())
+def test_the_equation_the_page_does_show_beside_a_hidden_one_is_still_checked(tmp_path, block):
+    paths, repository = build_check_vault(tmp_path / "vault", [("a", "Text", block)])
+    shown = check((load_vault(paths.root), repository), plot("2*x", low=0.0, high=1.0), "a")
+    assert shown.book_elements and shown.outcome == SC.CHECKED
+
+
 def test_with_no_engine_a_book_equation_is_unreadable_and_the_sandbox_is_not_asked(tmp_path, monkeypatch):
     """Fail closed: no fallback to any other reading of the source."""
 

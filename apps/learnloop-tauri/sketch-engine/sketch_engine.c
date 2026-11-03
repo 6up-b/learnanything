@@ -35,7 +35,9 @@
  * sketchEngine.ts; tests assert they equal sk_limits(). */
 #define SK_MEMORY_BYTES (64u * 1024u * 1024u)   /* SKETCH_MEMORY_BYTES */
 #define SK_STACK_BYTES (192u * 1024u)           /* JS recursion depth guard (shadow stack) */
+#ifndef SK_TICKS_PER_CALL                       /* the book-math variant sets its own: book text through the page's markdown, never a model's program */
 #define SK_TICKS_PER_CALL 16u                   /* SKETCH_FUEL_PER_CALL: interrupt ticks per entry-point call (measured, review file) */
+#endif
 #define SK_SERIALIZE_TICKS 48u                  /* SKETCH_SERIALIZE_TICKS: writing a result as JSON, its own budget */
 #define SK_MAX_OUTPUT (4u * 1024u * 1024u)      /* largest result text */
 #define SK_MAX_MESSAGE 400u                     /* largest error message */

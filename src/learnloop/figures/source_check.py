@@ -60,7 +60,9 @@ from learnloop.reader.source_render_views import sanitize_source_text
 #: 2: the reader refuses forms the page shows otherwise (\sqrt16 x and its class),
 #: so a "checked" stored under 1 is not delivered until code has read it again.
 #: 3: the reader reads KaTeX's own tree (\def and e^x^2 and their class).
-CERTIFICATION_VERSION = 3
+#: 4: the page's own markdown finds the segments (a reference definition, a link title,
+#: a code span could certify an equation the page never shows; and their class).
+CERTIFICATION_VERSION = 4
 LEDGER_TASK = "figure_source_check"
 CHECKED, DIFFERS, UNDECIDED, NOT_CHECKABLE = "checked", "differs", "undecided", "not_checkable"
 OUTCOMES = (CHECKED, DIFFERS, UNDECIDED, NOT_CHECKABLE)
@@ -204,7 +206,13 @@ def read_candidates(vault: Any, repository: Any, spans: Sequence[tuple[str, str,
                 refuse("block_withheld")
                 continue
             text = block.text or ""
-            found = BM.segments(text, block.block_type)
+            # The page gets the sanitized text (source_render_views); a block that changes it is refused below.
+            shown, sanitized = sanitize_source_text(text)
+            try:
+                found = BM.segments(shown, trees=trees)
+            except BM.Unreadable as refused:
+                refuse(refused.reason)
+                continue
             if not found:
                 if _UNICODE_MATH.search(text):
                     refuse("unicode_math")
@@ -213,8 +221,7 @@ def read_candidates(vault: Any, repository: Any, spans: Sequence[tuple[str, str,
             if health.get("status") != "ok":
                 refuse("block_health")
                 continue
-            # The page shows a sanitized block otherwise (source_render_views): not this text.
-            if sanitize_source_text(text)[1]:
+            if sanitized:
                 refuse("block_health")
                 continue
             position = next((index for index, item in enumerate(ir.blocks) if item.span_id == span_id), 0)

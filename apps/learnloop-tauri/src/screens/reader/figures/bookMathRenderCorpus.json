@@ -1,5 +1,5 @@
 {
-  "_comment": "RW5c: one corpus for both lanes. bookMathRender.test.ts runs each form through the Reader's real pipeline (MarkdownMath: remark-math and rehype-katex) and pins the MathML the page holds, or that the page shows an error; test_rw5c_katex_tree.py pins that the same KaTeX in the sealed engine gives the same MathML, that the reader gives each result, and that what it reads means what that MathML means. `whole` is a complete segment; the rest are right-hand sides. `blocks` pins which segments a block's text has on the page and to the reader; `page` is what the page shows when the reader deliberately reads nothing (a fence's first line is an unshown meta string).",
+  "_comment": "RW5c: one corpus for both lanes. bookMathRender.test.ts runs each form through the Reader's real pipeline (MarkdownMath: remark-math and rehype-katex) and pins the MathML the page holds, or that the page shows an error; test_rw5c_katex_tree.py pins that the same KaTeX in the sealed engine gives the same MathML, that the reader gives each result, and that what it reads means what that MathML means. `whole` is a complete segment; the rest are right-hand sides. `blocks` pins which math elements a block's text has on the page and to the reader (src/render/pageMathSegments.ts, run by the sidecar as sketch-engine/markdown/page-markdown.js); `page`, when it differs, is the elements KaTeX renders on the page: empty where KaTeX refuses the element (the page shows an error, the reader says not_rendered), or holding what is shown and on purpose not read (a ```math fence, struck-through math).",
   "refused": [
     {
       "rhs": "\\sqrt16 x",
@@ -290,83 +290,41 @@
     }
   ],
   "blocks": [
-    {
-      "block": "Then $f(x)=x$ and $g(x)=2x$ both hold.",
-      "segments": [
-        "f(x)=x",
-        "g(x)=2x"
-      ]
-    },
-    {
-      "block": "$$y = x$$",
-      "segments": [
-        "y = x"
-      ]
-    },
-    {
-      "block": "\\[y = x\\]",
-      "segments": [
-        "y = x"
-      ]
-    },
-    {
-      "block": "see $a = 1$, $$b = 2$$ and \\[c = 3\\] done",
-      "segments": [
-        "a = 1",
-        "b = 2",
-        "c = 3"
-      ]
-    },
-    {
-      "block": "a price of \\$5 and $y = x$",
-      "segments": [
-        "y = x"
-      ]
-    },
-    {
-      "block": "$$\ny = x\n$$",
-      "segments": [
-        "y = x"
-      ]
-    },
-    {
-      "block": "$$ y = 1\n+ 2\n$$",
-      "segments": [],
-      "page": [
-        "+ 2"
-      ]
-    },
-    {
-      "block": "$$\ny = 1\n+ 2 $$",
-      "segments": []
-    },
-    {
-      "block": "$x = 1\n\n$y = 2$",
-      "segments": [
-        "y = 2"
-      ]
-    },
-    {
-      "block": "`$y = x$` and $a = 1$",
-      "segments": [
-        "a = 1"
-      ]
-    },
-    {
-      "block": "$a = 1\n+ 2$",
-      "segments": []
-    },
-    {
-      "block": "\\[a = 1\n+ 2\\]",
-      "segments": [
-        "a = 1 + 2"
-      ]
-    },
-    {
-      "block": "The density is $$y = x$$ for all.",
-      "segments": [
-        "y = x"
-      ]
-    }
+    {"block": "Then $f(x)=x$ and $g(x)=2x$ both hold.", "segments": ["f(x)=x", "g(x)=2x"]},
+    {"block": "$$y = x$$", "segments": ["y = x"]},
+    {"block": "\\[y = x\\]", "segments": ["y = x"]},
+    {"block": "see $a = 1$, $$b = 2$$ and \\[c = 3\\] done", "segments": ["a = 1", "b = 2", "c = 3"]},
+    {"block": "a price of \\$5 and $y = x$", "segments": ["y = x"]},
+    {"block": "$$\ny = x\n$$", "segments": ["y = x"]},
+    {"block": "$$ y = 1\n+ 2\n$$", "segments": ["+ 2"]},
+    {"block": "$$\ny = 1\n+ 2 $$", "segments": ["y = 1 + 2 $$"], "page": []},
+    {"block": "$x = 1\n\n$y = 2$", "segments": ["y = 2"]},
+    {"block": "`$y = x$` and $a = 1$", "segments": ["a = 1"]},
+    {"block": "$a = 1\n+ 2$", "segments": []},
+    {"block": "\\[a = 1\n+ 2\\]", "segments": ["a = 1 + 2"]},
+    {"block": "The density is $$y = x$$ for all.", "segments": ["y = x"]},
+    {"block": "[unused]: https://example.org \"$f(x)=x$\"\n\nThe book states $f(x)=2x$.", "segments": ["f(x)=2x"]},
+    {"block": "See [here](https://example.org \"$f(x)=x$\"), where $f(x)=2x$.", "segments": ["f(x)=2x"]},
+    {"block": "``$f(x)=x$`` and $f(x)=2x$.", "segments": ["f(x)=2x"]},
+    {"block": "    $f(x)=x$\n\nThe book states $f(x)=2x$.", "segments": ["f(x)=2x"]},
+    {"block": "[^1]: $f(x)=x$\n\nThe book states $f(x)=2x$.", "segments": ["f(x)=2x"]},
+    {"block": "![$f(x)=x$](a.png) The book states $f(x)=2x$.", "segments": ["f(x)=2x"]},
+    {"block": "<span title=\"$f(x)=x$\">The book states</span> $f(x)=2x$.", "segments": ["f(x)=2x"]},
+    {"block": "<!-- $f(x)=x$ -->\n\nThe book states $f(x)=2x$.", "segments": ["f(x)=2x"]},
+    {"block": "<div>\n$f(x)=x$\n</div>\n\nThe book states $f(x)=2x$.", "segments": ["f(x)=2x"]},
+    {"block": "```\n$f(x)=x$\n```\n\nThe book states $f(x)=2x$.", "segments": ["f(x)=2x"]},
+    {"block": "[^1]: $f(x)=x$\n\nA note[^1] and $f(x)=2x$.", "segments": ["f(x)=2x", "f(x)=x"]},
+    {"block": "[$f(x)=x$](https://example.org) links.", "segments": ["f(x)=x"]},
+    {"block": "> $f(x)=x$ is quoted.", "segments": ["f(x)=x"]},
+    {"block": "> $$\n> f(x)=x\n> $$", "segments": ["f(x)=x"]},
+    {"block": "- one $a = 1$\n- two $b = 2$", "segments": ["a = 1", "b = 2"]},
+    {"block": "# Heading $a = 1$", "segments": ["a = 1"]},
+    {"block": "| a |\n|---|\n| $o = 5$ |", "segments": ["o = 5"]},
+    {"block": "And \\(h = 7\\) here.", "segments": ["h = 7"]},
+    {"block": "$$a = 1$$$$b = 2$$", "segments": ["a = 1$$$$b = 2"], "page": []},
+    {"block": "𝜆 and $m = 3$", "segments": ["m = 3"]},
+    {"block": "\\`$y = x$\\` shows ticks", "segments": ["y = x"]},
+    {"block": "```math\nz = 1\n```", "segments": [], "page": ["z = 1"]},
+    {"block": "~~$f(x)=x$~~ The book states $f(x)=2x$.", "segments": ["f(x)=2x"], "page": ["f(x)=x", "f(x)=2x"]}
   ]
 }

@@ -50,12 +50,28 @@ def test_the_vendored_file_is_byte_for_byte_the_installed_package_when_installed
     assert (installed / "dist" / "katex.min.js").read_bytes() == KT.KATEX_PATH.read_bytes()
 
 
-def test_a_katex_bump_moves_the_reader_version_and_needs_a_certification_bump():
+def test_a_katex_or_markdown_bump_moves_the_reader_version_and_needs_a_certification_bump():
     from learnloop.figures import source_check as SC
 
-    assert KT.KATEX_VERSION in B.READER_VERSION
-    # A new KaTeX can read a stored equation otherwise: bump CERTIFICATION_VERSION with it, then this pair.
-    assert (SC.CERTIFICATION_VERSION, KT.KATEX_VERSION) == (3, "0.16.47")
+    assert KT.KATEX_VERSION in B.READER_VERSION and KT.MARKDOWN_SHA256[:12] in B.READER_VERSION
+    # A new KaTeX or markdown can read a stored equation otherwise: bump CERTIFICATION_VERSION with it, then this tuple.
+    assert (SC.CERTIFICATION_VERSION, KT.KATEX_VERSION, KT.MARKDOWN_SHA256[:12]) == (4, "0.16.47", "29fd5be75b4e")
+
+
+def test_the_vendored_markdown_is_the_page_pipeline_the_reader_locks():
+    """The digest, every bundled package at the version package-lock.json locks, and each one's licence
+    named in the notice. bookMathRender's build test rebuilds the bytes from the source and these packages."""
+
+    lock = json.loads((KT.MARKDOWN_PATH.parent / "page-markdown.lock.json").read_text(encoding="utf-8"))
+    data = KT.MARKDOWN_PATH.read_bytes()
+    assert hashlib.sha256(data).hexdigest() == KT.MARKDOWN_SHA256 == lock["sha256"]
+    assert len(data) == lock["bytes"] and b"\0" not in data and data.isascii()
+    notice = (KT.MARKDOWN_PATH.parent / "LICENSES.txt").read_text(encoding="utf-8")
+    for name, version in lock["packages"].items():
+        assert PACKAGE_LOCK["packages"][f"node_modules/{name}"]["version"] == version
+        assert f"--- {name} {version} (" in notice
+    # What makes it the page's: the parser, the plugins MarkdownMath passes, and remark-rehype.
+    assert {"remark-gfm", "remark-math", "remark-rehype", "micromark", "unified"} <= set(lock["packages"])
 
 
 def test_the_vendored_file_is_text_with_its_licence_beside_it():
@@ -67,8 +83,8 @@ def test_the_vendored_file_is_text_with_its_licence_beside_it():
     assert "katex/LICENSE" in (APP / "sketch-engine" / "LICENSES.txt").read_text(encoding="utf-8")
 
 
-def test_the_engine_variant_is_pinned_and_differs_from_the_sketch_engine_by_one_define():
-    assert VARIANT["defines"] == ["-DSK_WITH_REGEXP"]
+def test_the_engine_variant_is_pinned_and_differs_from_the_sketch_engine_by_its_defines():
+    assert VARIANT["defines"] == ["-DSK_WITH_REGEXP", f"-DSK_TICKS_PER_CALL={KT.BOOK_MATH_TICKS_PER_CALL}u"]
     assert SE.artifact_digest(KT.KATEX_ENGINE_PATH) == KT.KATEX_ENGINE_SHA256 == VARIANT["output"]["sha256"]
     # The sketch tier's artifact and its pin did not move; a sketch still has no regular expression.
     assert SE.artifact_digest() == SE.ENGINE_SHA256 == LOCK["output"]["sha256"]
@@ -77,11 +93,11 @@ def test_the_engine_variant_is_pinned_and_differs_from_the_sketch_engine_by_one_
             sketch.load("var r = /a/; function view() { return 0; }")
 
 
-def test_the_variant_runs_under_the_sketch_engines_caps():
+def test_the_variant_runs_under_the_sketch_engines_caps_but_its_own_work_budget():
     with SE.SketchEngine(path=KT.KATEX_ENGINE_PATH, expected=KT.KATEX_ENGINE_SHA256) as engine:
         limits = engine.limits()
     assert limits["memory_bytes"] == SE.SKETCH_MEMORY_BYTES
-    assert limits["ticks_per_call"] == SE.SKETCH_FUEL_PER_CALL
+    assert limits["ticks_per_call"] == KT.BOOK_MATH_TICKS_PER_CALL
     assert limits["serialize_ticks"] == SE.SKETCH_SERIALIZE_TICKS
 
 
@@ -106,6 +122,40 @@ def test_a_changed_katex_file_is_unreadable(tmp_path):
     changed = tmp_path / "katex.min.js"
     changed.write_text(KT.KATEX_PATH.read_text(encoding="utf-8") + "\n//", encoding="utf-8")
     assert _reason("y = x", trees=KT.Trees(source=changed)) == "engine_unavailable"
+
+
+def test_a_changed_markdown_bundle_is_unreadable(tmp_path):
+    changed = tmp_path / "page-markdown.js"
+    changed.write_text(KT.MARKDOWN_PATH.read_text(encoding="utf-8") + "\n//", encoding="utf-8")
+    assert _reason("y = x", trees=KT.Trees(markdown=changed)) == "engine_unavailable"
+    with pytest.raises(B.Unreadable) as caught:
+        B.segments("$y = x$", trees=KT.Trees(markdown=changed))
+    assert caught.value.reason == "engine_unavailable"
+
+
+def test_with_no_engine_a_block_has_no_segments_never_a_fallback(tmp_path):
+    with pytest.raises(B.Unreadable) as caught:
+        B.segments("$y = x$", trees=KT.Trees(path=tmp_path / "gone.wasm"))
+    assert caught.value.reason == "engine_unavailable"
+
+
+def test_a_block_past_the_work_cap_or_nested_past_the_stack_is_unreadable_and_the_engine_still_reads():
+    with KT.Trees() as trees:
+        for text in ("$a = 1$ word " * 40_000, "> " * 5_000 + "$a = 1$", "[" * 20_000 + "$a = 1$"):
+            with pytest.raises(B.Unreadable) as caught:
+                found = B.segments(text, trees=trees)
+                pytest.fail(f"read {len(found)} segments")
+            assert caught.value.reason in ("too_long", "not_rendered")
+        assert [segment.latex for segment in B.segments("$y = x$", trees=trees)] == ["y = x"]
+
+
+def test_a_long_paragraph_of_a_book_fits_the_work_budget():
+    """Measured on the coverage corpus (review file): its longest block with math is 5,879 characters."""
+
+    text = "The density is $f(x) = x + 1$ for every word of this sentence, as above. " * 80
+    assert len(text) > 5_879
+    with KT.Trees() as trees:
+        assert len(B.segments(text, trees=trees)) == 80
 
 
 def test_a_segment_over_the_work_cap_is_unreadable_and_the_engine_still_reads():
@@ -263,7 +313,13 @@ def test_each_whole_segment_has_its_reason(case, renderer):
 
 @pytest.mark.parametrize("case", CORPUS["blocks"], ids=lambda case: case["block"])
 def test_a_blocks_segments_are_the_ones_the_page_has(case):
-    assert [" ".join(segment.latex.split()) for segment in B.segments(case["block"])] == case["segments"]
+    found = B.segments(case["block"])
+    assert [" ".join(segment.latex.split()) for segment in found] == case["segments"]
+    # What the page shows as an error, the sealed KaTeX refuses too; the reader never reads it.
+    if case.get("page") == []:
+        assert found
+        for segment in found:
+            assert _reason(segment.latex, display=segment.display) == "not_rendered"
 
 
 # -- the generated differential ------------------------------------------------------------------------------------

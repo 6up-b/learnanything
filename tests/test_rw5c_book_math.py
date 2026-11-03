@@ -190,14 +190,30 @@ def test_cases_refusals(rows, reason):
     assert caught.value.reason == reason
 
 
-def test_segments_find_only_delimited_latex_or_an_equation_block():
-    assert [s.latex for s in B.segments(r"see $a = 1$ and $$b = 2$$ and \[c = 3\] done")] == ["a = 1", "b = 2", "c = 3"]
-    assert [s.latex for s in B.segments("y = x", "Equation")] == ["y = x"]
-    assert B.segments("y = x", "Text") == []
-    assert B.segments("y = 𝜆x", "Text") == []
-    text = r"before $a = 1$"
+def test_segments_are_the_math_elements_the_page_finds_at_their_places_in_the_text():
+    text = r"see $a = 1$ and $$b = 2$$ and \[c = 3\] done"
+    found = B.segments(text)
+    assert [s.latex for s in found] == ["a = 1", "b = 2", "c = 3"]
+    assert [text[s.start:s.end] for s in found] == ["a = 1", "b = 2", "c = 3"]
+    # A delimiter the normalization rewrites, characters beyond the BMP before it, a bracket's whitespace.
+    text = "𝜆 and \\[  c = 3 \\] and \\( d = 4 \\)"
+    assert [text[s.start:s.end] for s in B.segments(text)] == ["c = 3", "d = 4"]
+    # A container's markers interrupt the math: the place is the whole element.
+    text = "> $$\n> a = 1\n> b = 2\n> $$"
     found = B.segments(text)[0]
-    assert text[found.start:found.end] == "a = 1"
+    assert found.latex == "a = 1\nb = 2" and found.display and text[found.start:found.end].startswith("$$")
+    assert not B.segments("$a = 1$")[0].display and B.segments("$$\na = 1\n$$")[0].display
+
+
+def test_text_the_page_does_not_render_as_math_is_no_segment_and_costs_no_engine():
+    class NoEngine:
+        def page_math(self, markdown):
+            raise AssertionError("no math delimiter, so nothing to ask")
+
+    for text in ("y = x", "y = 𝜆x", "f(x) = \\frac{1}{2}", ""):
+        assert B.segments(text, trees=NoEngine()) == []
+    # An undelimited equation block is plain text on the page (MarkdownMath knows no block types).
+    assert B.segments("$y = x$ as code `$z = 1$`")[0].latex == "y = x"
 
 
 def test_caps_and_a_seeded_fuzz_never_raise_outside_the_reasons():
