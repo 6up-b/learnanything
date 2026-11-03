@@ -141,12 +141,12 @@ Job `20261103-141659-Qx4lon` (gpt-6.1-sol): F1 and F10 confirmed fixed, F2 reope
 - **F2: `failed` now means no attempt committed.** `HostRuntime.submission_status` and `job_status` go through one read: for a submit, a receipt is `completed` with its result, and an attempt with no receipt is `running`, before anything the job's row says. `_run_job`'s failure path asks the same question before it writes: it writes `failed` only if no attempt committed, and a debt asks again before it pays. If that check itself can't be read, the waiter hears `running`, not `failed`.
 - **F2: the re-drive.** A status read of a committed attempt queues one `recover_practice_submission` under the same key on the job worker. Never beside the job completing it (`_waiters`) or another recovery (`_redriving`), so one poll starts one at most and no polling starts none. The read itself still reads. The recovery goes through the job worker's `_dispatch` and writes the row through `_finish`, so F7's debt applies. It is a `host_mutation` now, so the desktop's token moves when it finishes; with no origin it does nothing new on the desktop.
 - **F2: a completion that can't finish is `recorded`.** `submission_committed` from the handler, or three failed tries (`_REDRIVES_BEFORE_DELAYED`, a `keep` bound: it only decides how long a phone waits), makes the row `recorded`, with `attempt_id` on the status and `409 submission_committed` on `/rpc`. The attempt stands and its key is spent. The phone opens its feedback from every path that reads a status and from a polled job, acknowledging the key as a completed submit does. Later reads go on trying; healed, it becomes `completed`. A later host start retries a recorded job as well, up to `MAX_BOOTS`, so a completion nobody reads again isn't simply abandoned. Three boots of a committed attempt end `recorded`, not `host_restart_exhausted`.
-- **F2: a schema change.** `recorded` is a new value in `mobile_jobs.state`'s CHECK, in migration 240, which hasn't landed. The head fixture picks it up at the renumbering (landing step 2), not in this commit, to keep a second 7 MB database out of the history.
+- **F2: a schema change.** `recorded` is a new value in `mobile_jobs.state`'s CHECK, in the migration as it then stood (240, unlanded; 239 since the landing's renumbering). The head fixture picked it up at that renumbering (landing step 2), not in this commit, to keep a second 7 MB database out of the history.
 - **F2: what a key's truth is.** For a job it is the key its handler answers under (B4's `answering_key`) and only for its item, so another device's reuse of a key for another item keeps its own `validation_error`. A status read with no job (a desktop's submission) uses the key as given, and re-drives it as the reading phone.
 - **F2: client logic this made dead.** The second spelling of `attempt_id` and `terminalJob`. `saysHowItEnded` went last round. The phone keeps "a submit's own error leaves the key unknown": that isn't about a failed job, it's about a response that never came.
 - **F11.** `onSkipped` returns `recorded`, `refused` or `unknown`. `refused` is any typed error but `internal`; no reply, a reply that isn't ours and `internal` are `unknown`. On `unknown` the phone writes nothing and reads the checkpoint: this item there means it didn't land, so the save goes out and a notice says so; anything else means it landed, so the copy goes and Today is next. If the read fails it says the desktop can't be reached and stays. `skipUnknown` is on the phone's copy, so Back writes nothing, and the next edit, Skip, Submit or reopening reads first. A second Skip sends nothing if the first landed.
 - **HTTPS port.** No code change was needed: the host's Host and Origin checks, doctor and pairing already read `https_authority` and `base_url`, and the PWA is same-origin with `/app/`-relative URLs. The new tests pin that for M2a's own routes. The deploy command, the A list and the spec's commands now say `https_port`.
-- **The report** says "no contest on the phone" for `phone_practice`, and §9's row and `mobile-m2a.md` say the same.
+- **The report** said "no contest on the phone" for `phone_practice`; step 0b's R7 replaced that with the observed rate and a note.
 
 ### Limits left
 
@@ -170,3 +170,21 @@ No full suite, by the owner's rule of 2026-10-17; it runs at landing step 4. Tre
 | `apps/learnloop-mobile`: `npm run build` | Built |
 
 No model or paid calls; synthetic vaults only.
+
+## Scoped verify of step 0, and landing step 0b
+
+Job `20261103-144839-1ikqpG` (scoped, on step 0): F2 closed. Two Mediums, fixed at landing with tests and no further Codex round (ruling R7), and one Low, recorded and not fixed. R6 is the orchestrator's own.
+
+| Id | Severity | Title | Verdict | Commit | Test or reason |
+|---|---|---|---|---|---|
+| R6 | Landing | The root `.gitignore` is the owner's, with local edits | Done | `01b72f0d8b` | `git check-ignore`: with main's root file, `node_modules` and the built app weren't ignored; with `apps/learnloop-mobile/.gitignore` and `src/learnloop_mobile/static/.gitignore` they are. Root file equal to main's |
+| V1 | Medium | New text lost after an unresolved Skip | Fixed | `de0d9a11c0` | `App.test.tsx` "F11 … and the read fails too" (4 new, 3 of them failing first; one more failing on the copy's new field) |
+| V2 | Medium | The report hid a desktop contest of a phone attempt | Fixed | `cc6654de6b` | `test_mobile_handoff.py`: a contested phone attempt among two reads 0.5, and an uncontested one 0.0, each failing first |
+| V3 | Low | The latency report omits a successor-key completion whose row says `failed` | Recorded (R7) | None | The `MAX_BOOTS` successor case in "Limits left" above. Status answers correctly; the row isn't repaired, so `submit_to_feedback_seconds` leaves that one submission out |
+
+### What changed
+
+- **V1.** The phone's copy counts the draft's revisions, and an unresolved skip records the revision it was sent at (`skipRevision`, which replaces last round's `skipUnknown`). A landed skip discards only that revision. If the learner has written since, the text stays on screen and on the phone. It becomes a fresh draft: a new key, no offer (that serve's went with the skip) and the draft's help kept. It is saved once the checkpoint has been read, or submitted under that key. A notice says so. The check runs after the read, because an edit can start one and the editor stays open during it. Skip again means all of it, so it moves the recorded revision up first.
+- **V2.** `contest_rate_by_surface` is the observed rate by the attempt's surface, phone included, and `contest_note` says separately that the phone has no button. §9's row and `mobile-m2a.md` say the same.
+
+Tests and gate for this round are the landing's: `mobile-m2a.md`, "Landing onto main".

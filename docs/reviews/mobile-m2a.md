@@ -14,7 +14,7 @@ No model calls and no paid calls; synthetic vaults only; fake identity header an
 | Group | What |
 |---|---|
 | Host and adapter | `/rpc`, the M2 allowlist, `adapter.py`, `runtime.py` (two workers in secondary attach), `GET /api/v1/queue-revision`, `/app/` serving, the start bump, the phone's offer logging, the M2 report |
-| Jobs | Migration 240, head fixture 240 and the mechanical test renames, `capture/jobs.py` wired in, restart recovery, job and submission status, G7, G6b |
+| Jobs | Migration 239 (built as 240 until the landing), its head fixture and the mechanical test renames, `capture/jobs.py` wired in, restart recovery, job and submission status, G7, G6b |
 | Handoff | The desktop's adopt, start fresh and cancel prompt, the banner reading `useSessionMoved`, the frozen question, `adopt_session` in Tauri, G10 |
 | PWA | `apps/learnloop-mobile` |
 | This record | The spec's §9.9, the daily-loop spec's dated amendments, fixes after review, regenerated catalogs |
@@ -84,7 +84,7 @@ Re-checked at `6cf7a91ba8`. `docs/reviews/mobile-pr5-pr7.md` §0 has PR-5..7's t
 
 ## 4. Persisted and served meaning
 
-Migration 240 adds one workflow table, never evidence; replay ignores it. New `mobile_request_log` labels only. No new config key, no parameter-registry key and no model constant. The numbers added are operational bounds, each with its reason beside it: `JOB_WAIT_SECONDS` (15, §6.3), `RPC_QUEUE_LIMIT` and `JOB_QUEUE_LIMIT` (16 and 8, §4.6), `MAX_BOOTS` (3, §6.3), `READINESS_TTL_SECONDS`, the `LANE_LIMITS`, and in the PWA the polling intervals, `PHONE_QUEUE_LIMIT`, the retry bound and the image's edge.
+Migration 239 adds one workflow table, never evidence; replay ignores it. New `mobile_request_log` labels only. No new config key, no parameter-registry key and no model constant. The numbers added are operational bounds, each with its reason beside it: `JOB_WAIT_SECONDS` (15, §6.3), `RPC_QUEUE_LIMIT` and `JOB_QUEUE_LIMIT` (16 and 8, §4.6), `MAX_BOOTS` (3, §6.3), `READINESS_TTL_SECONDS`, the `LANE_LIMITS`, and in the PWA the polling intervals, `PHONE_QUEUE_LIMIT`, the retry bound and the image's edge.
 
 ## 5. Gates G1-G12
 
@@ -175,4 +175,4 @@ Reports for §9's row: `.venv/bin/learnloop-mobile report`, read-only.
 2. §3 item 7: should PR-4's remaining session-keyed writes be closed before the owner uses a phone daily, or left as Low?
 3. The phone has no contest button (§2); its attempts are contested on the desktop. Is a phone contest wanted before M3?
 4. Main's `42aeeec9ec` is not merged here (§6). The landing merges it, and that merged tree is what the gate has to test.
-5. Landing: 239 and 240. Whichever lands second renames the head fixture and reruns `db_generate_reference`, which takes about 4 minutes. A mechanical rename across 59 files is what moved 238 to 240 here.
+5. Settled by R5: M2a lands first with 239, and data capture renumbers to 240 at its landing, renaming the head fixture and rerunning `db_generate_reference` (about 4 minutes). The rename touches about 59 files.

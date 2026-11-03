@@ -37,13 +37,15 @@ at S0's checkpoint (D6). Rebuilding the head for a new migration keeps the
 sanitized content: apply the migration to a backup-API copy of this fixture,
 as before.
 
-## Mobile M2a (migration 240), `mobile/m2a`, 2026-11-03
+## Mobile M2a (migration 239), `mobile/m2a`, 2026-11-03
 
-`migration_head_238/state.sqlite` (main `6cf7a91ba8`): a backup-API copy with only 240
-(`mobile_jobs`, a workflow table, empty) applied through `learnloop.db.migrate.apply_migrations` under
-`UPGRADE_TEST_HELPER`, `wal_checkpoint(TRUNCATE)`, `journal_mode=DELETE`, `integrity_check` ok,
-`foreign_key_check` empty, header bytes 1/1, no companion files. 239 is the parallel data-capture
-stage's number; the landing renumbers whichever lands second.
+Renamed from `migration_head_238` (`docs/reviews/mobile-m2a.md`). Rebuilt from the tracked, sanitized
+`migration_head_238/state.sqlite` (main `42aeeec9ec`): a backup-API copy under `fixtures-local/` with only
+`239_mobile_jobs.sql` (`mobile_jobs`, a workflow table, empty) applied through
+`learnloop.db.migrate.apply_migrations` under the scratch-copy allowance (`UPGRADE_SCRATCH_COPY`), then
+`wal_checkpoint(TRUNCATE)`, `journal_mode=DELETE` (header bytes 1/1), `integrity_check` ok and
+`foreign_key_check` empty, and copied into place with the backup API, with no companion files. The head
+holds 229 through 239. The data-capture stage renumbers to 240 at its own landing.
 
 ## Reader RW5c P1 (migration 238), `reader/rw5c-p1`, 2026-11-02
 

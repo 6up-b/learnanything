@@ -1,6 +1,6 @@
 -- Mobile M2a: accepted jobs for the phone's long mutations
 -- (docs/specs/spec_mobile_tailnet_v1.md §6.3, §8; docs/reviews/mobile-m2a.md).
--- Built as 240 beside the data-capture stage's 239; renumbered at its landing if need be.
+-- Landed before the data-capture stage, which renumbers to 240 at its own landing.
 --
 -- mobile_jobs (WORKFLOW): one row per long request a phone made. It answers the
 -- status endpoints from a read-only connection, and it is what a restarted host

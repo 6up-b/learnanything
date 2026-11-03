@@ -1,6 +1,6 @@
-"""Mobile M2a: migration 240, ``mobile_jobs`` (spec_mobile_tailnet_v1 §6.3, §8).
+"""Mobile M2a: migration 239, ``mobile_jobs`` (spec_mobile_tailnet_v1 §6.3, §8).
 
-A workflow table, never evidence. The head fixture is at 240 in rollback mode with an empty
+A workflow table, never evidence. The head fixture is at 239 in rollback mode with an empty
 table. Earlier migrations' "nothing else changed" diffs on the way to head read
 ``M2A_ADDED_OBJECTS``.
 """
@@ -16,8 +16,8 @@ import pytest
 from learnloop.db.migrate import UPGRADE_TEST_HELPER, apply_migrations, applied_versions, discover_migrations, upgrade_allowance
 from learnloop.db.table_roles import TableRole, role_for_table
 
-HEAD = Path(__file__).resolve().parents[1] / "fixtures" / "migration_head_240" / "state.sqlite"
-#: What 240 adds (its table, its autoindexes, its indexes).
+HEAD = Path(__file__).resolve().parents[1] / "fixtures" / "migration_head_239" / "state.sqlite"
+#: What 239 adds (its table, its autoindexes, its indexes).
 M2A_ADDED_OBJECTS = frozenset({
     "mobile_jobs", "sqlite_autoindex_mobile_jobs_1", "sqlite_autoindex_mobile_jobs_2",
     "mobile_jobs_request", "mobile_jobs_open",
@@ -28,15 +28,15 @@ def _names(connection: sqlite3.Connection) -> set[str]:
     return {row[0] for row in connection.execute("SELECT name FROM sqlite_master")}
 
 
-def test_240_is_the_head_and_the_table_is_classified():
+def test_239_is_the_head_and_the_table_is_classified():
     names = {migration.version: migration.path.name for migration in discover_migrations()}
-    assert names[240] == "240_mobile_jobs.sql"
+    assert names[239] == "239_mobile_jobs.sql"
     assert role_for_table("mobile_jobs") == TableRole.WORKFLOW
 
 
-def test_the_head_fixture_is_at_240_in_rollback_mode_with_an_empty_table():
+def test_the_head_fixture_is_at_239_in_rollback_mode_with_an_empty_table():
     assert HEAD.read_bytes()[18:20] == b"\x01\x01"
-    assert max(applied_versions(HEAD)) == max(migration.version for migration in discover_migrations()) == 240
+    assert max(applied_versions(HEAD)) == max(migration.version for migration in discover_migrations()) == 239
     with closing(sqlite3.connect(HEAD)) as connection:
         assert M2A_ADDED_OBJECTS <= _names(connection)
         assert connection.execute("SELECT COUNT(*) FROM mobile_jobs").fetchone()[0] == 0
@@ -54,12 +54,12 @@ def database(tmp_path: Path) -> Path:
 def test_a_database_at_238_gets_it_and_nothing_else_changes(database: Path):
     with closing(sqlite3.connect(database)) as connection:
         connection.execute("DROP TABLE mobile_jobs")
-        connection.execute("DELETE FROM schema_migrations WHERE version = 240")
+        connection.execute("DELETE FROM schema_migrations WHERE version = 239")
         connection.commit()
         before = _names(connection)
     with upgrade_allowance(UPGRADE_TEST_HELPER):
         applied = apply_migrations(database)
-    assert [migration.version for migration in applied] == [240]
+    assert [migration.version for migration in applied] == [239]
     with closing(sqlite3.connect(database)) as connection:
         assert _names(connection) - before == M2A_ADDED_OBJECTS
         assert connection.execute("PRAGMA integrity_check").fetchone()[0] == "ok"
