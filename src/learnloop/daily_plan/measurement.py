@@ -14,8 +14,9 @@ with nothing else feasible keeps its objective but is left to ordinary retrieval
 alternative was at stake, so it spends no question. One check per learning object while one is
 pending and can still measure this decision (``shared``): a check comes due no earlier than the outcome
 contract's delay from the decision, whatever a short interval or the date's truncation would say (Codex
-review F2), so one due sooner is not shared, and another item is asked. Learner picks and requests are the
-learner's own: no objective.
+review F2), so one due sooner is not shared, and another item is asked; and every answer that could satisfy it
+measures this objective (landing review F11), so a broad check that another LO's answer could close is not shared
+either. Learner picks and requests are the learner's own: no objective.
 
 **The slot.** A measurement's minutes come out of the maintain lane first (``plan_slots``), so it
 replaces an ordinary maintenance slot rather than the day's new work.
@@ -32,7 +33,9 @@ not ``answered``, and the duty stands: one replacement check is arranged, dated 
 written under a ``replacement:`` reason. Decisions that shared the check share its replacement, as they would any
 pending check that opens after the window (Codex re-review F9): one question can measure them all. A replacement
 answered warm too ends the arranged measurement, because each one costs the learner a question; ordinary retrievals
-still reach the outcome.
+still reach the outcome. **A check answered on another LO** (its items can widen after it was shared) reads the same way,
+under :data:`ANSWER_OTHER_OBJECTIVE`: it satisfied the check and measured nothing of this objective, so it is never
+``answered``, and it takes the same one replacement.
 
 **Reader activity** is an exposure for the outcome whatever adaptive difficulty's logging says, and :func:`settle` judges
 an answer by the same read every outcome uses (:func:`learnloop.data_capture.reading_exposures.read`, landing ruling R1). Its
@@ -97,6 +100,10 @@ COMMITMENT_CLOSED = "commitment_closed"
 CHECK_REPLACED = "check_replaced"
 #: The check was answered, but warm or exposed: the decision's outcome cannot read that answer.
 ANSWER_NOT_DELAYED = "answer_not_delayed"
+#: The check was answered on another LO: the answer measures nothing of this decision's objective.
+ANSWER_OTHER_OBJECTIVE = "answer_other_objective"
+#: Why an answer did not measure the objective, each taking the one replacement.
+_UNREAD_ANSWERS = (ANSWER_NOT_DELAYED, ANSWER_OTHER_OBJECTIVE)
 #: Prefixes the reason of every state of a replacement check (a state is written once per reason and episode).
 REPLACEMENT = "replacement"
 #: The episode of a ``due`` written for a check found already satisfied, whose date is no longer read.
@@ -213,6 +220,12 @@ def _pending_checks(serving: Any, item_ids: set[str]) -> list[Any]:
             if check.answered_by is None and not check.replaced and item_ids & set(check.candidates)]
 
 
+def _measures_objective(check: Any, item_ids: set[str]) -> bool:
+    """Every answer that could satisfy this check is on the objective's LO, so it may be shared (landing review F11)."""
+
+    return set(check.candidates) <= item_ids
+
+
 @dataclass(frozen=True)
 class _Arrangement:
     measurement: str
@@ -237,13 +250,14 @@ def _arrange(vault: Any, repository: Any, frozen: FrozenObjective, *, decision_i
         # Intent is off: "Check once" is not served.
         return _Arrangement(UNAVAILABLE, reason=CHECKS_OFF)
     lo_items = [item for item in vault.practice_items.values() if item.learning_object_id == lo]
-    pending = _pending_checks(serving, {item.id for item in lo_items})
+    lo_item_ids = {item.id for item in lo_items}
+    pending = _pending_checks(serving, lo_item_ids)
     for check in pending:
-        # Its answer comes no earlier than its date, so this one can measure this decision.
-        if check.date >= _window_opens(now):
+        # Its answer comes no earlier than its date, and is on this LO, so this one can measure this decision.
+        if check.date >= _window_opens(now) and _measures_objective(check, lo_item_ids):
             return _Arrangement(SHARED, commitment_id=check.commitment_id,
                                 practice_item_id=check.candidates[0] if check.candidates else None)
-    # A check due sooner keeps its own decision: a new commitment on its item would replace it.
+    # A check due sooner or broader keeps its own decision: a new commitment on its item would replace it.
     held = {item_id for check in pending for item_id in check.candidates}
     return _new_check(vault, repository, lo, lo_items, exclude={*exclude, *held}, decision_id=decision_id,
                       idempotency_key=f"measurement:{decision_id}", now=now, clock=clock)
@@ -342,8 +356,8 @@ def plan_slots(intent: Any, checks: Sequence[Any], maintain_load: float) -> tupl
 
 def _replacement_check(vault: Any, repository: Any, decision_id: str, learning_object_id: str | None, *, answered_item: Any,
                        serving: Any, now: datetime, clock: Clock | None, fresh: dict[str, _Arrangement]) -> _Arrangement:
-    """The duty a warm answer left: one check on the objective that opens past the window from now. One already pending
-    is shared, whether ``serving`` shows it or this settlement made it (``fresh``, by LO: ``serving`` predates them),
+    """The duty an unread answer left: one check on the objective that opens past the window from now. One already pending
+    whose every answer is on the objective is shared, whether ``serving`` shows it or this settlement made it (``fresh``, by LO: ``serving`` predates them),
     as a new decision shares one (:func:`_arrange`). Otherwise a new one, dated from now. Never raises."""
 
     try:
@@ -353,9 +367,10 @@ def _replacement_check(vault: Any, repository: Any, decision_id: str, learning_o
         if lo in fresh:
             return replace(fresh[lo], measurement=SHARED, pick=None)
         lo_items = [item for item in vault.practice_items.values() if item.learning_object_id == lo]
-        pending = _pending_checks(serving, {item.id for item in lo_items}) if serving is not None else []
+        lo_item_ids = {item.id for item in lo_items}
+        pending = _pending_checks(serving, lo_item_ids) if serving is not None else []
         for check in pending:
-            if check.date >= _window_opens(now):
+            if check.date >= _window_opens(now) and _measures_objective(check, lo_item_ids):
                 return _Arrangement(SHARED, commitment_id=check.commitment_id,
                                     practice_item_id=check.candidates[0] if check.candidates else None)
         held = {item_id for check in pending for item_id in check.candidates}
@@ -389,8 +404,8 @@ def _replacement_detail(connection: Any, decision_id: str) -> dict[str, Any] | N
     """The early answer's event of this decision's measurement, if it had one."""
 
     row = connection.execute(
-        "SELECT detail_json FROM decision_measurement_events WHERE decision_id = ? AND state = 'unavailable' AND reason = ?",
-        (decision_id, ANSWER_NOT_DELAYED)).fetchone()
+        "SELECT detail_json FROM decision_measurement_events WHERE decision_id = ? AND state = 'unavailable' "
+        f"AND reason IN ({','.join('?' for _ in _UNREAD_ANSWERS)})", (decision_id, *_UNREAD_ANSWERS)).fetchone()
     return json.loads(row[0] or "{}") if row is not None else None
 
 
@@ -432,8 +447,9 @@ def settle(vault: Any, repository: Any, *, clock: Clock | None = None) -> int:
             "SELECT o.decision_id, o.commitment_id, o.practice_item_id, o.learning_object_id, d.created_at AS decided_at "
             "FROM decision_objectives o LEFT JOIN router_decisions d ON d.id = o.decision_id "
             "WHERE o.commitment_id IS NOT NULL AND NOT EXISTS (SELECT 1 FROM decision_measurement_events e "
-            "WHERE e.decision_id = o.decision_id AND (e.state = 'answered' OR (e.state = 'unavailable' AND e.reason = ?)))",
-            (f"{REPLACEMENT}:{ANSWER_NOT_DELAYED}",))]
+            "WHERE e.decision_id = o.decision_id AND (e.state = 'answered' OR (e.state = 'unavailable' "
+            f"AND e.reason IN ({','.join('?' for _ in _UNREAD_ANSWERS)}))))",
+            tuple(f"{REPLACEMENT}:{reason}" for reason in _UNREAD_ANSWERS))]
         if not open_rows:
             return 0
         serving = intent_serving(vault, repository, now=now)
@@ -466,7 +482,7 @@ def settle(vault: Any, repository: Any, *, clock: Clock | None = None) -> int:
                 written += _lost(connection, decision_id, prefix, CHECK_REPLACED, at=at)
                 continue
             attempt = connection.execute(
-                "SELECT created_at, practice_item_id FROM practice_attempts WHERE id = ?", (answered_by,)
+                "SELECT created_at, practice_item_id, learning_object_id FROM practice_attempts WHERE id = ?", (answered_by,)
             ).fetchone() if answered_by is not None else None
             answered_at = str(attempt[0]) if attempt is not None else at
             if check is None:
@@ -494,19 +510,27 @@ def settle(vault: Any, repository: Any, *, clock: Clock | None = None) -> int:
                 except Exception:  # noqa: BLE001 - never blocks Today; an answer waits for a read that can judge it
                     logger.warning("data capture: Reader exposures were not read", exc_info=True)
                     continue
-            if not _answer_missed_window(connection, answered_by, row.get("decided_at"), exposures):
+            answered_lo = str(attempt[2]) if attempt is not None else None
+            if answered_lo != str(row.get("learning_object_id")):
+                unread = ANSWER_OTHER_OBJECTIVE
+            elif _answer_missed_window(connection, answered_by, row.get("decided_at"), exposures):
+                unread = ANSWER_NOT_DELAYED
+            else:
                 written += _event(connection, decision_id, "answered", attempt_id=answered_by, at=answered_at)
-            elif replacement:
-                written += _event(connection, decision_id, "unavailable", reason=f"{prefix}{ANSWER_NOT_DELAYED}",
+                continue
+            if replacement:
+                written += _event(connection, decision_id, "unavailable", reason=f"{prefix}{unread}",
                                   attempt_id=answered_by, at=at)
             else:
                 arranged = _replacement_check(vault, repository, decision_id, row.get("learning_object_id"),
                                               answered_item=attempt[1] if attempt is not None else None, serving=serving,
                                               now=now, clock=clock, fresh=fresh)
-                written += _event(connection, decision_id, "unavailable", reason=ANSWER_NOT_DELAYED, attempt_id=answered_by,
+                written += _event(connection, decision_id, "unavailable", reason=unread, attempt_id=answered_by,
                                   at=at, detail={"replacement_commitment_id": arranged.commitment_id,
                                                  "practice_item_id": arranged.practice_item_id,
-                                                 "replacement_unavailable": arranged.reason or None})
+                                                 "replacement_unavailable": arranged.reason or None,
+                                                 **({"answered_learning_object_id": answered_lo}
+                                                    if unread == ANSWER_OTHER_OBJECTIVE else {})})
     return written
 
 
@@ -556,6 +580,7 @@ def _offers(connection: Any, check: Any, row: Mapping[str, Any], *, since: str) 
 __all__ = [
     "ACTIONLESS_ARMS",
     "ANSWER_NOT_DELAYED",
+    "ANSWER_OTHER_OBJECTIVE",
     "ARM_INSERT",
     "ARM_PRACTICE",
     "ARM_READING",

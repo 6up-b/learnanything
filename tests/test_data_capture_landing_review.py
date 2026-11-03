@@ -2,7 +2,7 @@
 
 F1 reopened: an answer's label depended on whether Today had swept the Reader's activity. Monday's practice, Wednesday
 10:00's completed section, 10:30's correct answer read ``observed`` 1.0 before a sweep and ``pending`` after one, so a
-report or a rebuild brought back the false cold label.
+report or a rebuild brought back the false cold label. F11: a broad check on A and B, answered on B, closed A's measurement.
 Fakes only; no network.
 """
 
@@ -11,9 +11,11 @@ from __future__ import annotations
 import ast
 from datetime import timedelta
 import hashlib
+import json
 from pathlib import Path
 
 from learnloop import delayed_completion as DC
+from learnloop.curriculum import commitments as C
 from learnloop.daily_plan import measurement as M
 from learnloop.data_capture import reading_exposures as RE
 from learnloop.db.connection import connect
@@ -24,8 +26,9 @@ from learnloop.router import outcomes as RO
 from learnloop.router.first_delayed_success import trajectories
 from learnloop.substrate.rebuild_orchestrator import rebuild_all_derived_state
 
-from tests.test_data_capture_a2_measurement import _arranged_wait, _due_measurement, _events
+from tests.test_data_capture_a2_measurement import _answer, _arranged_wait, _due_measurement, _events, _objectives
 from tests.test_data_capture_codex_rereview import _complete_section, _count, _map_sections, _other_item
+from tests.test_data_capture_codex_review import _warm_answer
 from tests.test_router_g4_restraint import DECIDER_ONLY
 
 AD_OFF = "[adaptive_difficulty]\nenabled = false\n"
@@ -257,3 +260,96 @@ def test_f1_every_production_derivation_passes_the_read():
     # The caller list, so a renamed function can't empty this test.
     assert {"capture_report.py", "router.py", "router_retrieval.py", "measurement.py", "scoreboard.py",
             "rebuild_orchestrator.py"} <= set(found)
+
+
+# -- F11: a shared check measures the frozen objective ---------------------------------------------------------------
+
+
+def _other_lo_item(env, lo):
+    return next(item for item in env.vault.practice_items.values() if item.learning_object_id != lo)
+
+
+def _broad_check(env, items, *, days=30):
+    return C.create_commitment(
+        env.repository, action="test_me_later", intent_text="check once, broad",
+        targets=[{"target_kind": "legacy_practice_item", "target_ref": item, "role": "required"} for item in items],
+        depth_preset="keep_in_touch", client_idempotency_key=f"broad:{sorted(items)}",
+        due_hint=(env.clock.now() + timedelta(days=days)).date().isoformat(), reason="test", provenance={}, clock=env.clock,
+    ).id
+
+
+def test_f11_a_warm_answers_replacement_never_shares_a_check_that_b_can_answer(tmp_path):
+    """Reproduced first: the broad check was shared, and B's answer wrote ``answered`` on A's measurement."""
+
+    env, decision_id, objective = _due_measurement(tmp_path)
+    lo = objective["learning_object_id"]
+    other = _other_lo_item(env, lo)
+    mine = _other_item(env, objective)
+    broad = _broad_check(env, [mine, other.id])
+    _warm_answer(env, objective, warm_item=mine)
+    M.settle(env.vault, env.repository, clock=env.clock)
+    early = next(event for event in _events(env)[decision_id] if event["reason"] == M.ANSWER_NOT_DELAYED)
+    replacement = json.loads(early["detail_json"])["replacement_commitment_id"]
+    assert replacement and replacement != broad
+    env.clock.instant = env.clock.instant + timedelta(days=45)
+    _answer(env, other.id, other.learning_object_id)
+    env.clock.advance(1)
+    M.settle(env.vault, env.repository, clock=env.clock)
+    assert "answered" not in {event["state"] for event in _events(env)[decision_id]}, "B's answer measures nothing of A"
+
+
+def test_f11_a_new_decision_never_shares_a_check_that_b_can_answer(tmp_path):
+    env, _first_id, objective = _arranged_wait(tmp_path)
+    lo = objective["learning_object_id"]
+    other = _other_lo_item(env, lo)
+    broad = _broad_check(env, [_other_item(env, objective), other.id])
+    env.clock.advance(1)
+    with env.repository.atomic(), env.repository.connection() as connection:
+        arranged = M._arrange(env.vault, env.repository, M.freeze_followup(lo, support=["insert_now", "continue_current"]),
+                              decision_id="d9", exclude=(), clock=env.clock)
+    assert arranged.commitment_id != broad
+
+
+def test_f11_a_check_wholly_on_the_objective_is_still_shared(tmp_path):
+    env, _first_id, objective = _arranged_wait(tmp_path)
+    lo = objective["learning_object_id"]
+    with env.repository.atomic():
+        arranged = M._arrange(env.vault, env.repository, M.freeze_followup(lo, support=["insert_now", "continue_current"]),
+                              decision_id="d9", exclude=(), clock=env.clock)
+    assert arranged.measurement == M.SHARED and arranged.commitment_id == objective["commitment_id"]
+
+
+def _shared_broad_answered_on_b(tmp_path):
+    """A check that named A's item when it was shared, and later B's too (its other target's commitment closed)."""
+
+    env, decision_id, objective = _due_measurement(tmp_path)
+    lo = objective["learning_object_id"]
+    other = _other_lo_item(env, lo)
+    broad = _broad_check(env, [_other_item(env, objective), other.id], days=1)
+    return env, decision_id, objective, broad, other
+
+
+def test_f11_an_answer_on_another_objective_never_records_answered_and_the_duty_stays(tmp_path):
+    env, decision_id, objective, broad, other = _shared_broad_answered_on_b(tmp_path)
+    # Recorded as it would be had it been shared before B joined: the settle-time check is what stands here.
+    with env.repository.atomic(), env.repository.connection() as connection:
+        connection.execute("DROP TRIGGER decision_objectives_no_update")
+        connection.execute("UPDATE decision_objectives SET commitment_id = ? WHERE decision_id = ?", (broad, decision_id))
+    env.clock.instant = env.clock.instant + timedelta(days=5)
+    _answer(env, other.id, other.learning_object_id)
+    env.clock.advance(1)
+    M.settle(env.vault, env.repository, clock=env.clock)
+    events = _events(env)[decision_id]
+    assert "answered" not in {event["state"] for event in events}
+    lost = next(event for event in events if event["reason"] == M.ANSWER_OTHER_OBJECTIVE)
+    detail = json.loads(lost["detail_json"])
+    assert lost["state"] == "unavailable" and detail["replacement_commitment_id"], "one replacement carries the duty"
+    assert detail["answered_learning_object_id"] == other.learning_object_id
+    assert RO.measurement_state(_objectives(env)[decision_id], events)["state"] == "scheduled"
+    # That replacement, answered on the objective after its date, is the measurement.
+    env.clock.instant = env.clock.instant + timedelta(days=60)
+    lo = objective["learning_object_id"]
+    _in_session(env, detail["practice_item_id"], lo, "much_later")
+    env.clock.advance(1)
+    M.settle(env.vault, env.repository, clock=env.clock)
+    assert "answered" in {event["state"] for event in _events(env)[decision_id]}
