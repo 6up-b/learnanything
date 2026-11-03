@@ -44,7 +44,7 @@ def _later():
     from tests.test_figure_prefetch_migration import P5_ADDED_OBJECTS
 
     from tests.test_mobile_jobs_migration import M2A_ADDED_OBJECTS
-from tests.test_rw5c_migration import RW5C_ADDED_OBJECTS
+    from tests.test_rw5c_migration import RW5C_ADDED_OBJECTS
 
     # _schema reads objects with SQL only: TE1's (and RW5d P5's 237's) autoindexes are not among them.
     te1_added = {name for name in TE1_ADDED_OBJECTS | P5_ADDED_OBJECTS | RW5C_ADDED_OBJECTS | M2A_ADDED_OBJECTS if not name.startswith("sqlite_autoindex")}

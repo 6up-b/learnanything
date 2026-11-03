@@ -102,7 +102,7 @@ def test_238_upgrades_a_copy_of_237_under_the_durable_pragmas(tmp_path: Path):
         connection.commit()
     with upgrade_allowance(UPGRADE_TEST_HELPER):
         applied = apply_migrations(database)
-    assert [migration.version for migration in applied] == [238, 240]
+    assert [migration.version for migration in applied] == [238]
     with closing(sqlite3.connect(database)) as connection:
         assert RW5C_ADDED_OBJECTS <= _names(connection)
         assert connection.execute("PRAGMA integrity_check").fetchone()[0] == "ok"

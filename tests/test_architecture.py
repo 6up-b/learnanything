@@ -91,7 +91,6 @@ REGISTERED_SQL_OWNERS = frozenset(
         "src/learnloop/capture/devices.py",
         "src/learnloop/capture/inbox.py",
         "src/learnloop/capture/jobs.py",
-        "src/learnloop/capture/report.py",
         "src/learnloop/capture/maintenance.py",
         "src/learnloop/capture/routing.py",
         # Learner field F2 placement receipts and quick-check queue state.
