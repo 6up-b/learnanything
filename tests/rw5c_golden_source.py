@@ -1,7 +1,7 @@
 """Reader RW5c (G23g): what the switch-off golden pins, as one function both trees can run.
 
 ``tests/fixtures/rw5c_switch_off_golden.json`` was written by running this file on an export of main
-(``aae65635b6``, before RW5c): ``python tests/rw5c_golden_source.py <out> `` under ``env -i`` with
+(``9c594465a8``, before RW5c): ``python tests/rw5c_golden_source.py <out> `` under ``env -i`` with
 ``PYTHONPATH=<export>/src:<export>``. :mod:`tests.test_rw5c_switch_off` runs the same function on this
 tree with ``figures.checked_labels_enabled`` off and compares: the views, the reader report, the CLI's
 report, the reuse keys and the author's prompt must be main's, byte for byte, once ids and times are

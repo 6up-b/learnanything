@@ -556,6 +556,11 @@
      }
     },
     "propensity_mean": null,
+    "resumed": {
+     "caps": 0,
+     "plan": 0,
+     "power": 0
+    },
     "skipped": {
      "caps": 0,
      "plan": 0,

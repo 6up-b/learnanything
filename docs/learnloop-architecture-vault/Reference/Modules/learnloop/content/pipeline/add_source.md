@@ -7,9 +7,9 @@ version: "1.0.0"
 source_path: "src/learnloop/content/pipeline/add_source.py"
 source_paths:
   - "src/learnloop/content/pipeline/add_source.py"
-source_commit: "workspace/uncommitted @ HEAD 9a4aaf6a01c0a130282a4d2315921cb166ba3f3a"
-source_commit_timestamp: "2026-11-02T20:59:20-05:00"
-source_worktree_state: "modified"
+source_commit: "5f53bffc256a57e12c2fcb53eed3cd0666c5c260"
+source_commit_timestamp: "2026-11-02T18:35:07-05:00"
+source_worktree_state: "clean"
 generated: true
 generated_at: "2026-11-02"
 package: "learnloop.content.pipeline"
@@ -55,9 +55,9 @@ The authoritative system-level explanation remains in [[Learning System]], [[AI 
 | Owning package | [[Reference/Modules/learnloop/content/pipeline/_package|learnloop.content.pipeline]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
-| Worktree state | `modified` |
-| Source commit | `workspace/uncommitted @ HEAD 9a4aaf6a01c0a130282a4d2315921cb166ba3f3a` |
-| Commit timestamp | `2026-11-02T20:59:20-05:00` |
+| Worktree state | `clean` |
+| Source commit | `5f53bffc256a57e12c2fcb53eed3cd0666c5c260` |
+| Commit timestamp | `2026-11-02T18:35:07-05:00` |
 
 ## Public API
 

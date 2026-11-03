@@ -1,6 +1,6 @@
 """Reader RW5c (G23g): with ``figures.checked_labels_enabled`` off, everything is RW5a/RW5d's exactly.
 
-The golden was recorded on an export of main (``aae65635b6``) by :mod:`tests.rw5c_golden_source`.
+The golden was recorded on an export of main (``9c594465a8``) by :mod:`tests.rw5c_golden_source`.
 """
 
 from __future__ import annotations

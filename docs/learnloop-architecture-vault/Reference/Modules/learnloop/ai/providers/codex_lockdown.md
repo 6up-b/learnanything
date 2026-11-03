@@ -7,9 +7,9 @@ version: "1.0.0"
 source_path: "src/learnloop/ai/providers/codex_lockdown.py"
 source_paths:
   - "src/learnloop/ai/providers/codex_lockdown.py"
-source_commit: "workspace/uncommitted @ HEAD 9a4aaf6a01c0a130282a4d2315921cb166ba3f3a"
-source_commit_timestamp: "2026-11-02T20:59:20-05:00"
-source_worktree_state: "modified"
+source_commit: "8fe4b96e315ce6c3913a02bbd209cd54e93c3cbe"
+source_commit_timestamp: "2026-11-02T20:19:06-05:00"
+source_worktree_state: "clean"
 generated: true
 generated_at: "2026-11-02"
 package: "learnloop.ai.providers"
@@ -55,9 +55,9 @@ The authoritative system-level explanation remains in [[AI Architecture]], [[Arc
 | Owning package | [[Reference/Modules/learnloop/ai/providers/_package|learnloop.ai.providers]] |
 | Architecture layer | `infrastructure` |
 | Refactor status | `ACTIVE` |
-| Worktree state | `modified` |
-| Source commit | `workspace/uncommitted @ HEAD 9a4aaf6a01c0a130282a4d2315921cb166ba3f3a` |
-| Commit timestamp | `2026-11-02T20:59:20-05:00` |
+| Worktree state | `clean` |
+| Source commit | `8fe4b96e315ce6c3913a02bbd209cd54e93c3cbe` |
+| Commit timestamp | `2026-11-02T20:19:06-05:00` |
 
 ## Public API
 

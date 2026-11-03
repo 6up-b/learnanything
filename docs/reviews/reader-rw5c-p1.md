@@ -185,6 +185,8 @@ Owner rule 2026-10-17: the full suite, the whole durability lane and the whole v
 | `module_generate.py`, `module_validate.py` | PASS, 1153 module notes |
 | `desktop_generate.py`, `desktop_validate.py` | PASS (`--check` clean) |
 
+**After merging main `9c594465a8`** (follow-ups batch 7 and the Codex CLI 0.166 lockdown had landed, as the stage's notes expected; only generated reference notes conflicted, resolved to main's side and regenerated; no frontend file came with it): `pytest -n 6` on the RW5c files and on `test_figures_prefetch.py`, `test_figures_prefetch_review_fixes.py`, `test_followups_batch7_*`, `test_module_catalog_inventory.py`, `test_figures_rpc.py`, `test_figure_revisions.py`, `test_figures_scope_redesign.py`, `test_mobile_allowlist.py`, `test_cli_help_snapshot.py`, `test_batch3_landing.py`, `test_codex_cli_0166_lockdown.py`, `test_reader_rw5d_p4a_figures_follow.py`: 837 passed and 1 failed. The failure was the switch-off golden: batch 7 added a `resumed` block to main's prefetch report. It was **re-recorded on an export of the new main**, not on this branch, and now passes (`test_rw5c_switch_off.py`, 3 passed). The rows above ran before the merge.
+
 **What failed in the first two rows, all expected from the change:** the mobile allowlist's pinned RPC list (the new `reader.figure_recheck`); `test_no_code_path_can_store_or_render_verified_or_checked` (it pinned the claim's words as absent: now allowed only in `labels.py` and `FIGURE_FRAME`); the defaults snapshots and the four tests freezing older values (`test_reader_ca2_one_ask`, `test_batch3_landing`, `test_teacher_te1_successor`, `test_teacher_te1b_suggestions`: all 34 entries recomputed, and the frozen comparisons also drop the new key); `test_teacher_te1b_migration.py`'s composed chain; the CLI help snapshot (`reader` and `reader figure-checks` only); and one test of mine ordering verdicts by a tied timestamp.
 
 **G23a-G23i, and where each is pinned:**
@@ -197,7 +199,7 @@ Owner rule 2026-10-17: the full suite, the whole durability lane and the whole v
 | G23d | `test_rw5c_labels.py::test_g23d_*` |
 | G23e | `test_rw5c_labels.py` (no model label in the delivered spec, the view or the choices), vitest `every label slot reads from the elements`, `an id with no element...` |
 | G23f | `test_rw5c_source_check.py` (no bubblewrap, a timeout, failed runs, inconclusive controls, unreadable and unhealthy blocks, a check that raises) |
-| G23g | `test_rw5c_switch_off.py` against `tests/fixtures/rw5c_switch_off_golden.json`, recorded by `tests/rw5c_golden_source.py` on `git archive aae65635b6`; the admission tests in `test_rw5c_source_check.py`, `test_rw5c_recheck.py` |
+| G23g | `test_rw5c_switch_off.py` against `tests/fixtures/rw5c_switch_off_golden.json`, recorded by `tests/rw5c_golden_source.py` on `git archive 9c594465a8` (main after follow-ups batch 7); the admission tests in `test_rw5c_source_check.py`, `test_rw5c_recheck.py` |
 | G23h | `test_rw5c_never_evidence.py`, the `evidence-never-reads-figures` contract |
 | G23i | `test_rw5c_judgments.py` |
 | G22's extension | `test_rw5c_display_twins.py`, vitest `figureDisplayCorpus.test.ts`, both over `figureDisplayCorpus.json`, whose `formatValue` and `String(v)` answers were written by node |
@@ -230,4 +232,4 @@ For the owner:
 4. **A followed figure** shows as an illustration until it is followed again after its recheck. A lesson or attempt-host figure built before this landing has no recheck control (Deviation 8).
 5. **`\dfrac` and `\tfrac`** are refused as outside the table. `unsupported_command`'s 26 refusals were not broken down (counts only); a later instrument could name the commands.
 
-For the landing: merge main first if follow-ups batch 7 has landed (its files do not overlap this stage's except `figures/prefetch.py` by name, which this stage did not edit). The reference notes and the snapshots will need regenerating after that merge.
+For the landing: main is merged through `9c594465a8`. A later main needs the switch-off golden re-recorded if it moves a view, the report or a prompt (`tests/rw5c_golden_source.py`, on an export of that main), and the reference notes regenerated.
