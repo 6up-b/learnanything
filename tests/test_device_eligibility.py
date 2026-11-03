@@ -692,3 +692,31 @@ def test_switched_off_adoption_carries_the_draft(tmp_path):
         adopted = _call(off, "adopt_session", {"sessionId": session_id, "expectedGeneration": 0})
     assert adopted["ownerDeviceId"] == ORIGIN.device_id and adopted["hasDraft"] is True
     assert repository.fetch_session_checkpoint(session_id)["current_answer"] == "my repair"
+
+
+def test_a_card_not_due_is_not_counted_as_waiting(tmp_path):
+    """A phone's count is what the build would have served, not every hunt in the vault."""
+
+    _paths, repository, ctx = _ranked_world(tmp_path)
+    repository.upsert_practice_item_state(
+        LOW_IMAGE, difficulty=5.0, stability=2000.0, due_at="2099-05-18T12:00:00Z",
+        last_attempt_at="2026-05-16T12:00:00Z", active=False,
+    )
+    with ctx.acting_as(ORIGIN):
+        session = _call(ctx, "start_session", {"availableMinutes": 60})
+        queue = _call(ctx, "get_today_queue", {"sessionId": session["sessionId"]})
+    assert queue["deviceDeferredCount"] == 1
+
+
+def test_a_check_once_asks_the_same_gate(tmp_path):
+    """Ruling R1: the check's candidate selection reads the build's admission predicate."""
+
+    from learnloop.scheduling.scheduler import _BuildAdmission
+    from learnloop.scheduling.serving_exclusions import ADMISSION_GATES, DEVICE_INELIGIBLE
+
+    assert DEVICE_INELIGIBLE in ADMISSION_GATES
+    item = SimpleNamespace(id=HUNT)
+    gate = _BuildAdmission.device_gate
+    holder = SimpleNamespace(device_filter=SimpleNamespace(refuses=lambda _item: True))
+    assert gate(holder, item, None) == DEVICE_INELIGIBLE
+    assert gate(SimpleNamespace(device_filter=None), item, None) is None

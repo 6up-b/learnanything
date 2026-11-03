@@ -178,6 +178,10 @@ ROUTINE_GATES: tuple[str, ...] = (
     "no_learning_object",
     "lifecycle_put_away",
 )
+#: A phone's build holds back what its device cannot answer (mobile PR-6). The
+#: build still ranks such an item, to tell one waiting for the desktop from one
+#: not due, so it is the one reason the candidate loop does not act on at once.
+DEVICE_INELIGIBLE = "device_ineligible"
 #: The build's own gates (:class:`BuildGates`), in the order
 #: :func:`admission_reason` asks them after the routine gate.
 BUILD_GATES: tuple[str, ...] = (
@@ -187,6 +191,8 @@ BUILD_GATES: tuple[str, ...] = (
     "cold_start_unattempted",
     "voi_value_below_minutes_cost",
     "diagnostic_reserved",
+    # Mobile PR-6: only a build given a device filter (a phone request) can say it.
+    DEVICE_INELIGIBLE,
 )
 #: Every reason :func:`admission_reason` can give: every per-item gate of
 #: ``build_due_queue`` (a test enumerates the build's ``withheld`` reasons
@@ -206,6 +212,9 @@ class BuildGates(Protocol):
 
     def freshness_gate(self, item: Any, state: Any) -> str | None:
         """A diagnostic_probe surface outside an in-progress, unblocked episode."""
+
+    def device_gate(self, item: Any, state: Any) -> str | None:
+        """An item this build's device cannot answer (mobile PR-6, a phone's build)."""
 
     def placement_gate(self, item: Any, state: Any) -> str | None:
         """Placement's withholding of an unrequested item (assumed, maintained)."""
@@ -237,7 +246,8 @@ def admission_reason(
     (the build's intent gate, which is the check's own decision, so the check
     selection passes none); then the build's gates: the diagnostic freshness
     reserve, placement and the cold-start gate (a request is exempt from
-    both: the learner asked for it), and the probe-episode gates. ``gates``
+    both: the learner asked for it), the probe-episode gates, and the
+    device's (last, so every other reason keeps its own code). ``gates``
     None asks the routine gate only (a selector outside the build)."""
 
     reason = routine_withhold_reason(vault, item, state, exclusions)
@@ -259,7 +269,7 @@ def admission_reason(
             return reason
     if probe_surface and (reason := gates.probe_gate(item, state)) is not None:
         return reason
-    return None
+    return gates.device_gate(item, state)
 
 
 def _iso(value: Any) -> str:

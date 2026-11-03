@@ -522,6 +522,7 @@ def test_every_defaults_snapshot_drops_to_te1s_value_without_the_suggestion_keys
         # Reader RW5d P5 landed after TE1b: its [figures] prefetch keys and route moved them too.
         # Reader RW5c P1 landed after it too: its kill switch moved them.
         dumped["figures"].pop("checked_labels_enabled")
+        dumped["practice"].pop("device_eligibility_enabled")  # mobile PR-6 landed after it too
         dumped["figures"].pop("prefetch_enabled")
         dumped["figures"].pop("prefetch")
         dumped["ai"]["routing"].pop("figure_prefetch_judge")

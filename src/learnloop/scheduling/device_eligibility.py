@@ -64,8 +64,6 @@ REFERENCES_ITEM_ASSET = "references_item_asset"
 #: switch (``practice.device_eligibility_enabled``).
 DEVICE_POLICY = "device_eligibility_v1"
 DEVICE_POLICY_OFF = "off"
-#: The exclusion a queue build logs for an item it held back for its device.
-DEVICE_INELIGIBLE = "device_ineligible"
 
 #: What Markdown shows as text: fenced and inline code, and display and inline
 #: math, where ``n![k](x)`` is a formula and ``llpdf://`` an example.
@@ -133,20 +131,27 @@ def _prompt_reason(prompt: str) -> str | None:
 class DeviceFilter:
     """One queue build's device, and what it held back.
 
-    Passed to ``build_due_queue``, which asks before an item becomes a candidate.
-    So it runs before the exploration's support and before ``limit`` (Codex review
-    F1, F2): every counterfactual the router logs is an order the phone could have
-    been shown, and the cut, a client's or the re-entry cap, falls among items the
-    phone can answer. ``deferred`` is what waits for the desktop, wherever the cut
-    fell.
+    Passed to ``build_due_queue``, whose admission predicate asks it
+    (``serving_exclusions.admission_reason``, so a "Check once" asks too, and
+    orchestrator ruling R1 holds). So it runs before the exploration's support and
+    before ``limit`` (Codex review F1, F2): every counterfactual the router logs is
+    an order the phone could have been shown, and the cut, a client's or the
+    re-entry cap, falls among items the phone can answer. ``deferred`` is what
+    waits for the desktop, wherever the cut fell: an item the build would have
+    served, not every such item in the vault, so a card not due is not counted.
     """
 
     vault: Any
     device_class: str
     deferred: set[str] = field(default_factory=set)
 
+    def refuses(self, item: Any) -> bool:
+        return ineligibility_reason(self.vault, item, self.device_class) is not None
+
     def holds_back(self, item: Any) -> bool:
-        if ineligibility_reason(self.vault, item, self.device_class) is None:
+        """``refuses``, for an item the build would otherwise serve."""
+
+        if not self.refuses(item):
             return False
         self.deferred.add(item.id)
         return True

@@ -5,8 +5,9 @@ algorithm `mvp-0.43`). Spec: `docs/specs/spec_mobile_tailnet_v1.md` §3.3, §6.4
 notes §9.6, §9.7, §9.8.
 
 Scope: the three prerequisites, three commit groups in order. No host (M2) code and no phone UI. **No migration, no
-algorithm successor, no new config key or parameter:** nothing the desktop serves changed, and a None origin takes
-none of the new branches. No model calls and no paid calls; synthetic vaults only.
+algorithm successor, no new config key or parameter** at this record (the Codex review added one kill switch,
+`practice.device_eligibility_enabled`, and moved the filter into the build; see `mobile-pr5-pr7-codex-review.md`): nothing the
+desktop serves changed, and a None origin takes none of the new branches. No model calls and no paid calls; synthetic vaults only.
 
 ## Commits
 
@@ -122,7 +123,7 @@ grade, and the attempt stays `phone_practice` with the session already the deskt
 
 | Path (§6.4) | State |
 |---|---|
-| `get_today_queue`, before `finalize_scheduler_offer` | **Here**, in `publish_offer`: the receipt lists what the phone showed. `device_deferred_count` is absent for the desktop. The router gets `device_ineligible` under exclusions, and the head rule cannot choose a dropped item |
+| `get_today_queue`, before `finalize_scheduler_offer` | **Here**, inside the build since the Codex review (F1, F2; built in `publish_offer`): the receipt lists what the phone showed. `device_deferred_count` is absent for the desktop. The router gets `device_ineligible` under exclusions, and no outcome of the draw can hold a dropped item |
 | The skip's rebuild | **Here**, by the same function |
 | `open_queue_item`, `get_practice_item` | **Here:** `desktop_only`, with session and without (a read-only open on the phone would render what it cannot show) |
 | `adopt_session` | **Here**, through PR-4's `current_item_ineligible` seam and the new RPC |
@@ -139,7 +140,7 @@ a fresh desktop context adopts the session back, and `get_probe_contract` return
 one. So `ineligibility_reason` does not exclude probe-capable items. One limit: a desktop that *starts a new session* instead of
 adopting gets `probe_assigned_to_other_session`, the same as after any closed session today.
 
-**The desktop's serving is unchanged (G9).** `device_deferred_ids` returns an empty set for None before reading an item.
+**The desktop's serving is unchanged (G9).** `device_filter` returns None for None, and the build then takes no new branch.
 `test_the_desktop_queue_is_unfiltered_and_has_no_count` pins the reply's keys, the unfiltered list and the router's row.
 
 ## 3. PR-7: desktop freshness
@@ -153,14 +154,14 @@ M2's banner.
 a test can drive it through a fake host origin. Job completion is `submit_attempt`, `submit_dont_know` and
 `answer_grading_clarification` returning; session start, adopt, end and skip are theirs. It runs after the handler's commit, as
 §3.3 says, with one exception to "a refusal doesn't bump": `submission_committed`, whose attempt is in. A failed bump is logged and
-swallowed: the learner's write stands, and the desktop's next focus or bump catches up. Desktop writes have no origin and no bump.
+swallowed: the learner's write stands, the bump stays owed for the host's next request, and the desktop's next focus refetches at any token (Codex review F4). Desktop writes have no origin and no bump.
 
 **Polling cost.**
 
 - One `get_queue_revision` per 3 s tick (the existing interval, a `keep` bound in the hook's comment). No refetch and no session read
   while the token holds. `App.queueRevision.test.tsx` counts an idle Today: five ticks, five token reads, no plan or count read.
 - **One call in flight.** The sidecar pipe is serialized, so a tick during a 60 s grade waits; later ticks add nothing behind it.
-- **Asleep while hidden,** reading at once when the window comes back. Being merely unfocused keeps polling (a window beside another).
+- **Asleep while hidden,** reading and refetching once when the window comes back (Codex review F4). Being merely unfocused keeps polling (a window beside another).
 - **`get_queue_revision` itself got cheaper,** because it now runs on every screen: it read every recent batch's full view
   (`list_batches`: dependencies, rung requests, `_batch_view`) plus one `get_ingest_job` per completed job. It now reads batches and
   jobs and checks in-memory state first (`IngestJobManager.completed_jobs_awaiting_reload`).
@@ -216,9 +217,7 @@ at most, one at a time; `lint-imports` and the catalog scripts under `env -i` wi
 
 ## 6. Open questions and notes for M2
 
-1. **A `limit` cuts before the phone's filter.** `get_today_queue` builds with its limit, a re-entry cap included, and the filter runs after, as the
-   spec's "filters before `finalize_scheduler_offer`" asks. A small cap whose picks are all ineligible returns an empty phone queue and a count.
-   M2 can build the phone's list unlimited and cut after the filter, if that turns up in use.
+1. **A `limit` cuts before the phone's filter.** Closed by the Codex review (F2): the filter is inside the build, so the cut falls among items the phone can answer.
 2. **`full_list` on the phone.** Under a serving plan `today_head_served` is False, so a phone's Today offer logs `full_list` and every bind as a
    learner pick. If M2a's phone shows the queue rather than the plan, its head is served and this should follow the origin. `daily_plan.py` says
    M2a will show the plan through allowlisted RPCs, and §4.5 does not list them: M2 has to decide, and the plan's stored record is shared (§2).

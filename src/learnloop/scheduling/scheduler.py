@@ -46,6 +46,7 @@ from learnloop.learner.recall_coverage import (
     resolve_coverage,
 )
 from learnloop.scheduling.serving_exclusions import (
+    DEVICE_INELIGIBLE,
     PROBE_RESERVED_GATES,
     ServingExclusions,
     admission_reason,
@@ -59,7 +60,7 @@ from learnloop.scheduling.selection_rewards import (
     item_demand_vector,
     score_selection_reward,
 )
-from learnloop.scheduling.device_eligibility import DEVICE_INELIGIBLE, DeviceFilter
+from learnloop.scheduling.device_eligibility import DeviceFilter
 from learnloop.vault.lifecycle import practice_item_servable
 from learnloop.vault.models import LoadedVault, PracticeItem
 
@@ -403,6 +404,7 @@ def build_due_queue(
         voi_probe_decisions=voi_probe_decisions,
         episode_posterior_cache=episode_posterior_cache,
         episode_eligible_cache=episode_eligible_cache,
+        device_filter=device_filter,
     )
     if intent_view is not None:
         intent_view.bind_admission(admission.check_candidate_refusal)
@@ -442,7 +444,8 @@ def build_due_queue(
             requested=requested,
             intent_gate=intent_view.withhold_reason if intent_view is not None else None,
         )
-        if reason is not None:
+        device_held = reason == DEVICE_INELIGIBLE
+        if reason is not None and not device_held:
             if reason in PROBE_RESERVED_GATES:
                 # In an open probe episode but not servable as a probe this
                 # refresh. The surface stays reserved rather than leaking into
@@ -527,10 +530,12 @@ def build_due_queue(
         if priority <= 0:
             withheld("zero_priority", item.id)
             continue
-        if device_filter is not None and device_filter.holds_back(item):
-            # Mobile PR-6 (§6.4): due, and not this device's to answer. Here, so
-            # the draw, the composition and the limit only ever see what it can.
-            withheld(DEVICE_INELIGIBLE, item.id)
+        if device_held:
+            # Mobile PR-6 (§6.4): this device cannot answer it. Held here, not at
+            # the gate, so only an item the build would have served counts as
+            # waiting; before the draw, the composition and the limit, which only
+            # ever see what it can answer.
+            _held_for_device(vault, device_filter, item.id, withheld)
             continue
         plain_english = _plain_english(item, components)
         if evaluated_head_ids and goal_frontier_component > 0:
@@ -1071,7 +1076,7 @@ def _held_for_device(vault: LoadedVault, device_filter: DeviceFilter, practice_i
         return False
     if not device_filter.holds_back(item):
         return False
-    withheld(DEVICE_INELIGIBLE, practice_item_id)
+    withheld("device_ineligible", practice_item_id)
     return True
 
 
@@ -3033,7 +3038,9 @@ class _BuildAdmission:
         voi_probe_decisions: dict[str, Any],
         episode_posterior_cache: dict[str, Any],
         episode_eligible_cache: dict[str, Any],
+        device_filter: DeviceFilter | None = None,
     ) -> None:
+        self.device_filter = device_filter
         self.vault = vault
         self.repository = repository
         self.config = vault.config
@@ -3089,6 +3096,11 @@ class _BuildAdmission:
         learning_object = self.vault.learning_object_for_item(item)
         episode = self.open_episodes().get(learning_object.id)
         return episode is not None and episode.status == "in_progress" and self.probe_block_reason() is None
+
+    def device_gate(self, item: PracticeItem, state: Any) -> str | None:
+        if self.device_filter is None or not self.device_filter.refuses(item):
+            return None
+        return "device_ineligible"
 
     def freshness_gate(self, item: PracticeItem, state: Any) -> str | None:
         # Freshness reserve (owner design intent): a diagnostic_probe surface
