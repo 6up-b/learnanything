@@ -11,6 +11,7 @@ compare-and-swap, and the probe check commits and resumes a presentation).
 
 from __future__ import annotations
 
+import json
 from types import SimpleNamespace
 
 import pytest
@@ -19,6 +20,7 @@ import learnloop_sidecar.handlers  # noqa: F401 -- populate METHOD_REGISTRY
 from learnloop.clock import FrozenClock
 from learnloop.db.repositories import Repository
 from learnloop.diagnosis.probe_episodes import enter_episode
+from learnloop.scheduling import device_eligibility
 from learnloop.scheduling.device_eligibility import (
     DESKTOP,
     DESKTOP_ONLY_MODE,
@@ -39,9 +41,11 @@ from learnloop.vault.writer import upsert_practice_item
 from learnloop_sidecar.context import SidecarContext
 from learnloop_sidecar.errors import SidecarError
 from learnloop_sidecar.handlers import practice as practice_handlers
+from learnloop_sidecar.handlers import queue as queue_handlers
 from learnloop_sidecar.registry import METHOD_REGISTRY
 from learnloop_sidecar.request_origin import RequestOrigin
 
+from tests.source_service_fakes import set_config
 from tests.helpers import NOW, NOW_ISO, admit_probe_instrument_card, create_basic_vault, seed_due_item
 
 pytestmark = pytest.mark.durability
@@ -168,7 +172,6 @@ def test_a_lessons_own_held_check_stays_in_its_lesson(item):
 @pytest.mark.parametrize("prompt, reason", [
     ("Look.\n\n![a triangle](figures/t.png)", EMBEDS_IMAGE),
     ("![remote](https://example.org/t.png)", EMBEDS_IMAGE),
-    ("![reference style][fig1]", EMBEDS_IMAGE),
     ('Look: <img src="x.png">', EMBEDS_IMAGE),
     ("See [page 3](llpdf://source/abc#page=3).", LINKS_LLPDF),
     ("Bare llpdf://source/abc", LINKS_LLPDF),
@@ -414,3 +417,198 @@ def test_a_presentation_committed_on_the_phone_resumes_on_the_desktop(tmp_path, 
     rows = [row for row in repository.probe_presentations_for_episode(episode.id)
             if row.status in ("selected", "served")]
     assert [row.id for row in rows] == [on_phone["presentationId"]]
+
+
+# -- Codex review F3: what the renderer resolves, not only what the source looks like
+
+
+@pytest.mark.parametrize("prompt, reason", [
+    # A shortcut, a collapsed and a full reference image: each renders an image.
+    ("![graph] What is its slope?\n\n[graph]: figures/graph.png", EMBEDS_IMAGE),
+    ("![graph][] What is its slope?\n\n[graph]: figures/graph.png", EMBEDS_IMAGE),
+    ("![the graph][fig1]\n\n[fig1]: https://example.org/graph.png", EMBEDS_IMAGE),
+    # A reference link whose definition names a file.
+    ("Use [the data][sheet] to compute the mean.\n\n[sheet]: assets/observations.csv", REFERENCES_ITEM_ASSET),
+    ("Use [sheet] to compute the mean.\n\n[sheet]: assets/observations.csv", REFERENCES_ITEM_ASSET),
+    ("Use [sheet][] to compute the mean.\n\n[sheet]: <assets/observations.csv>", REFERENCES_ITEM_ASSET),
+    ('Use [sheet].\n\n[Sheet]: observations.csv "The data"', REFERENCES_ITEM_ASSET),
+    # An autolink to a local file is a link too.
+    ("Open <file:///tmp/sheet.csv> first.", REFERENCES_ITEM_ASSET),
+    # An image inside a link still embeds an image.
+    ("[![a triangle](t.png)](https://example.org)", EMBEDS_IMAGE),
+    ('<div><img src="x.png"></div>', EMBEDS_IMAGE),
+])
+def test_reference_forms_resolve_as_the_renderer_resolves_them(item, prompt, reason):
+    assert ineligibility_reason(None, item.model_copy(update={"prompt": prompt}), PHONE) == reason
+
+
+@pytest.mark.parametrize("prompt", [
+    # No definition: the renderer shows these brackets as text, on every device.
+    "![graph] What is its slope?",
+    "![reference style][fig1]",
+    "Use [the data][sheet] to compute the mean.",
+    "Let [A] and [B] be the concentrations.",
+    "Compute n![k][j] by hand.",
+    # A definition nothing uses renders nothing.
+    "Define the SVD.\n\n[sheet]: assets/observations.csv",
+    # A reference to a page a phone can follow.
+    "Read [the note][n] first.\n\n[n]: https://example.org/note",
+    # Indented code is code.
+    "What does this print?\n\n    ![alt](x.png)\n",
+    # An unclosed tag is text.
+    "Is a <img b true?",
+])
+def test_brackets_the_renderer_shows_as_text_stay_eligible(item, prompt):
+    assert ineligibility_reason(None, item.model_copy(update={"prompt": prompt}), PHONE) is None
+
+
+# -- Codex review F1, F2: the filter sits inside the build, before the cut
+
+
+LOW_IMAGE = "pi_zzz_image"
+LOW_PLAIN = "pi_aaa_plain"
+NEXT_PLAIN = "pi_aab_plain"
+TOP_HUNT = "pi_aaa_a_hunt"
+
+
+def _ranked_world(tmp_path, *, explore: bool = False):
+    """Near-tied due items, ranked by id: two plain ones above an image, or a hunt on top."""
+
+    paths = create_basic_vault(tmp_path / "vault", fresh=True)
+    repository = seed_due_item(paths)
+    hunt = {"error_hunt": {
+        "worked_solution_md": "Step 1: S is orthogonal.",
+        "planted_errors": [{
+            "id": "pe_one", "step_ref": "step 1", "source": "facet_error_signature",
+            "error_signature": "S is orthogonal", "required_repair": "S is diagonal", "facet_id": "recall",
+        }],
+    }}
+    for item_id, extra in {
+        LOW_PLAIN: {}, NEXT_PLAIN: {}, TOP_HUNT: hunt,
+        LOW_IMAGE: {"prompt": "Which matrix?\n\n![the matrix](figures/matrix.png)"},
+    }.items():
+        upsert_practice_item(paths.root, _payload(item_id, **extra), clock=CLOCK)
+        repository.upsert_practice_item_state(
+            item_id, difficulty=5.0, stability=2.0, due_at="2026-05-18T12:00:00Z",
+            last_attempt_at="2026-05-16T12:00:00Z", active=True,
+        )
+    if explore:
+        # Every near-tie is an alternative, and the draw always explores.
+        set_config(paths, "scheduler", selection_exploration_rate=1.0, selection_exploration_reward_window=1000.0)
+    with repository.connection() as connection:
+        connection.execute(
+            "INSERT INTO mobile_devices (id, label, scope, token_hash, created_at) "
+            "VALUES (?, 'Phone', 'app', 'hash', '2026-11-03T00:00:00Z')",
+            (ORIGIN.device_id,),
+        )
+        connection.commit()
+    ctx = SidecarContext()
+    ctx.load_secondary(paths.root)
+    ctx.grading_provider_override = "manual"
+    return paths, repository, ctx
+
+
+def _full_decision(repository: Repository) -> dict:
+    with repository.connection() as connection:
+        row = connection.execute(
+            "SELECT candidates_json, exclusions_json, detail_json FROM router_decisions "
+            "WHERE decision_kind = 'today_offer' ORDER BY rowid DESC LIMIT 1"
+        ).fetchone()
+    return {key: json.loads(row[key]) for key in row.keys()}
+
+
+def test_a_limit_is_applied_after_the_filter_so_the_top_item_cannot_starve_the_phone(tmp_path):
+    """F2: the desktop's limit=1 is the hunt; the phone's is the next item it can answer."""
+
+    _paths, _repository, ctx = _ranked_world(tmp_path)
+    session = _call(ctx, "start_session", {"availableMinutes": 60})
+    assert _ids(_call(ctx, "get_today_queue", {"sessionId": session["sessionId"], "limit": 1})) == [TOP_HUNT]
+    with ctx.acting_as(ORIGIN):
+        phone = _call(ctx, "start_session", {"availableMinutes": 60})
+        queue = _call(ctx, "get_today_queue", {"sessionId": phone["sessionId"], "limit": 1})
+
+    assert _ids(queue) == [LOW_PLAIN]
+    assert queue["totalItems"] == 1
+    # What waits is what waits, wherever the cut fell.
+    assert queue["deviceDeferredCount"] == 2
+
+
+def test_the_reentry_cap_is_applied_after_the_filter_too(tmp_path, monkeypatch):
+    """F2: the automatic cap, with no limit from the client."""
+
+    _paths, _repository, ctx = _ranked_world(tmp_path)
+    monkeypatch.setattr(queue_handlers, "plan_active", lambda _vault: False)
+    monkeypatch.setattr(queue_handlers, "reentry_session_cap", lambda *_args: 1)
+    with ctx.acting_as(ORIGIN):
+        session = _call(ctx, "start_session", {"availableMinutes": 60})
+        queue = _call(ctx, "get_today_queue", {"sessionId": session["sessionId"]})
+    assert _ids(queue) == [LOW_PLAIN]
+    assert queue["reentryRefresherCap"] == 1
+
+
+def test_a_limited_offer_logs_no_probability_for_an_item_below_the_cut_it_cannot_show(tmp_path):
+    """F1: exploration must not be able to promote an ineligible item from below the
+    cut, and the logged distribution is the one that produced the published list."""
+
+    _paths, repository, ctx = _ranked_world(tmp_path, explore=True)
+    with ctx.acting_as(ORIGIN):
+        session = _call(ctx, "start_session", {"availableMinutes": 60})
+        queue = _call(ctx, "get_today_queue", {"sessionId": session["sessionId"], "limit": 2})
+
+    assert not {LOW_IMAGE, TOP_HUNT} & set(_ids(queue))
+    assert _ids(queue)
+    decision = _full_decision(repository)
+    distribution = decision["detail_json"]["head_distribution"]
+    assert not {LOW_IMAGE, TOP_HUNT} & set(distribution)
+    assert sum(distribution.values()) == pytest.approx(1.0)
+    alternatives = decision["detail_json"]["exploration"]["alternative_item_ids"]
+    assert alternatives and not {LOW_IMAGE, TOP_HUNT} & set(alternatives)
+    assert not {LOW_IMAGE, TOP_HUNT} & {entry["ref"] for entry in decision["candidates_json"]}
+    assert {LOW_IMAGE, TOP_HUNT} <= set(decision["exclusions_json"]["named"]["device_ineligible"])
+
+
+def test_a_follow_up_naming_an_ineligible_item_cannot_come_back_at_the_top(tmp_path):
+    """The follow-up door rebuilds an item by id after the ranked loop: same filter."""
+
+    _paths, repository, ctx = _ranked_world(tmp_path)
+    monkey = pytest.MonkeyPatch()
+    monkey.setattr(
+        type(repository), "pending_followup_practice_items",
+        lambda self, **kwargs: [{"id": "task_1", "practice_item_id": LOW_IMAGE, "followup_kind": "cold_retry"}],
+    )
+    try:
+        with ctx.acting_as(ORIGIN):
+            session = _call(ctx, "start_session", {"availableMinutes": 60})
+            queue = _call(ctx, "get_today_queue", {"sessionId": session["sessionId"], "limit": 1})
+    finally:
+        monkey.undo()
+    assert _ids(queue) == [LOW_PLAIN]
+    assert queue["deviceDeferredCount"] == 2
+
+
+def test_a_presentation_on_an_item_the_phone_cannot_show_survives_the_phone_queue(tmp_path, monkeypatch):
+    """The filter holds an item back from the phone; it must not end the desktop's
+    committed presentation as if the item had stopped being servable."""
+
+    paths, repository, ctx, episode = _probe_world(tmp_path, monkeypatch)
+    del paths, episode
+    item_id = None
+    session = _call(ctx, "start_session", {"availableMinutes": 60})
+    contract = None
+    queue = _call(ctx, "get_today_queue", {"sessionId": session["sessionId"]})
+    for candidate in _ids(queue):
+        contract = _call(ctx, "get_probe_contract", {"sessionId": session["sessionId"], "practiceItemId": candidate})
+        if contract.get("active"):
+            item_id = candidate
+            break
+    assert contract is not None and contract.get("active"), "the world commits a presentation"
+    monkeypatch.setattr(
+        device_eligibility, "_prompt_reason", lambda _prompt: EMBEDS_IMAGE,
+    )
+    with ctx.acting_as(ORIGIN):
+        adopted = _call(ctx, "adopt_session", {"sessionId": session["sessionId"], "expectedGeneration": 0})
+        phone_queue = _call(ctx, "get_today_queue", {"sessionId": session["sessionId"]})
+    assert adopted["ownerDeviceId"] == ORIGIN.device_id
+    assert item_id not in _ids(phone_queue)
+    presentation = repository.active_probe_presentation_for_session(session["sessionId"])
+    assert presentation is not None and presentation.practice_item_id == item_id

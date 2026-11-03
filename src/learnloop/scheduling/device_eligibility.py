@@ -8,8 +8,9 @@ the sidecar asks it at every door (``learnloop_sidecar.serving``), with the devi
 class from the request origin (§6.8), never from a parameter.
 
 **What is structural and what is not.** The reasons read the item's contract and
-the Markdown syntax of its prompt: an image, an ``llpdf://`` link, a link to a file
-in the vault. Text cues ("see the figure below") are never read here. Phrase lists
+the parsed Markdown of its prompt, as the renderer resolves it, reference
+definitions included: an image, an ``llpdf://`` link, a link to a file in the vault.
+Text cues ("see the figure below") are never read here. Phrase lists
 misfire, so a suspected figure is not filtered: M2's report logs it as
 ``suspected_figure`` for review (§6.4). A test pins that such a prompt stays
 eligible.
@@ -30,7 +31,12 @@ eligible.
 from __future__ import annotations
 
 import re
+from collections.abc import Iterable, Iterator
+from functools import lru_cache
 from typing import Any
+
+from markdown_it import MarkdownIt
+from markdown_it.token import Token
 
 from learnloop.vault.lifecycle import minted_for_lesson
 
@@ -63,39 +69,55 @@ _LITERAL_TEXT = re.compile(
     r"|\\\[.*?\\\]",
     re.MULTILINE | re.DOTALL,
 )
-_MARKDOWN_IMAGE = re.compile(r"!\[[^\]\n]*\]\s*[(\[]")
 _HTML_IMAGE = re.compile(r"<img\b", re.IGNORECASE)
-_MARKDOWN_LINK = re.compile(r"\[[^\]\n]*\]\(\s*<?([^)\s>]+)")
 _URL_SCHEME = re.compile(r"^[A-Za-z][A-Za-z0-9+.-]*:")
 #: Schemes that name a file on this machine rather than a page anywhere.
 _LOCAL_SCHEMES = ("file:", "asset:")
 _FILE_SUFFIX = re.compile(r"\.[A-Za-z0-9]{1,8}$")
 
-
-def _references_item_asset(text: str) -> bool:
-    """A Markdown link to a file: a local scheme, or a relative target that is a
-    path. ``[0,1](x)`` is an interval and a function, not a link to anything."""
-
-    for match in _MARKDOWN_LINK.finditer(text):
-        target = match.group(1)
-        if target.lower().startswith(_LOCAL_SCHEMES):
-            return True
-        if _URL_SCHEME.match(target) or target.startswith("#"):
-            continue
-        if "/" in target or _FILE_SUFFIX.search(target):
-            return True
-    return False
+#: CommonMark, as the renderer's remark parser reads it (Codex review F3): only a
+#: parser knows that ``![graph]`` is an image when ``[graph]: figures/graph.png``
+#: is defined further down and bracketed text when it is not. Math has no meaning
+#: to it, so ``_LITERAL_TEXT`` still goes first. ``validateLink`` is opened because
+#: the default drops ``file:`` links, the very thing asked about here.
+_MARKDOWN = MarkdownIt("commonmark")
+_MARKDOWN.validateLink = lambda _url: True
 
 
+def _is_item_asset(target: str) -> bool:
+    """A link to a file: a local scheme, or a relative target that is a path.
+    ``[0,1](x)`` is an interval and a function, not a link to anything."""
+
+    if target.lower().startswith(_LOCAL_SCHEMES):
+        return True
+    if _URL_SCHEME.match(target) or target.startswith("#"):
+        return False
+    return "/" in target or _FILE_SUFFIX.search(target) is not None
+
+
+def _rendered_tokens(tokens: Iterable[Token]) -> Iterator[Token]:
+    for token in tokens:
+        yield token
+        if token.children:
+            yield from _rendered_tokens(token.children)
+
+
+@lru_cache(maxsize=4096)
 def _prompt_reason(prompt: str) -> str | None:
+    """Read per candidate on every phone build, and a prompt's parse never changes."""
+
     text = _LITERAL_TEXT.sub(" ", prompt or "")
     if "llpdf://" in text.lower():
         return LINKS_LLPDF
-    if _MARKDOWN_IMAGE.search(text) or _HTML_IMAGE.search(text):
-        return EMBEDS_IMAGE
-    if _references_item_asset(text):
-        return REFERENCES_ITEM_ASSET
-    return None
+    if "[" not in text and "<" not in text:
+        return None
+    links_asset = False
+    for token in _rendered_tokens(_MARKDOWN.parse(text)):
+        if token.type == "image" or (token.type in ("html_inline", "html_block") and _HTML_IMAGE.search(token.content)):
+            return EMBEDS_IMAGE
+        if token.type == "link_open" and _is_item_asset(str(token.attrGet("href") or "")):
+            links_asset = True
+    return REFERENCES_ITEM_ASSET if links_asset else None
 
 
 def ineligibility_reason(vault: Any, item: Any, device_class: str) -> str | None:
