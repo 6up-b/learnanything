@@ -24,6 +24,11 @@ tutor; the answer is an ordinary attempt with full evidence and FSRS.
 * **The pick** among candidates is the item whose predicted success is nearest
   the middle of adaptive difficulty's band (the house pitch prior, §10 item 7),
   ties by id. RW6b's valuation replaces this picker when it lands (one producer).
+  From mvp-0.44 with ``data_capture.serving`` on (data capture A6) the prediction
+  is the item's own, and an exact tie is a uniform draw whose seed, draw and
+  probability 1/n are on the check's receipt (:func:`pick_with_receipt`); below
+  the tag, or switched off, every item of an LO reads the LO's one prediction, so
+  the smallest id wins, as it did.
 * **Dates from retrievability** (owner, 2026-10-24): the first day the LO's
   predicted retrievability falls to ``R*`` (``teacher.delayed.target_retrievability``,
   a seeded prior, basis ``published``), by FSRS from the stability the lesson's
@@ -36,17 +41,24 @@ tutor; the answer is an ordinary attempt with full evidence and FSRS.
 
 from __future__ import annotations
 
+import hashlib
 import re
 from collections.abc import Iterable, Mapping, Sequence
 from datetime import timedelta
 from typing import Any
 
 from learnloop.clock import Clock, parse_utc, utc_now_iso
+from learnloop.data_capture.gates import serving_on
+from learnloop.learner.lesson_weight import predicted_success
 from learnloop.teacher.brief import downstream_learning_objects, lo_prediction
 
 PURPOSES = ("retention", "transfer")
 DEPTH_PRESET = "keep_in_touch"
 VIA = "lesson"
+#: The receipt's shape and the picker's rule (data capture A6).
+PICK_VERSION = "delayed_pick_v2"
+#: Numerical resolution, never a margin: equal predictions differ by no more than float noise.
+_EXACT_TIE = 1e-12
 
 
 def _attempted(repository: Any) -> set[str]:
@@ -182,19 +194,70 @@ def candidates(vault: Any, repository: Any, learning_object_id: str, *, exclude:
     return out
 
 
-def pick(vault: Any, repository: Any, items: Sequence[Any]) -> Any | None:
-    """The candidate pitched nearest the band's middle (the house prior), ties by id."""
+def _band_middle(vault: Any) -> float:
+    band = tuple(getattr(vault.config.adaptive_difficulty, "practice_band", (0.70, 0.80)))
+    return (float(band[0]) + float(band[1])) / 2.0
+
+
+def _uniform(seed: str) -> float:
+    """A uniform in [0, 1) from the seed (53 bits of a SHA-256, as the router's draws)."""
+
+    digest = hashlib.sha256(f"{seed}:delayed_pick".encode("utf-8")).digest()
+    return (int.from_bytes(digest[:8], "big") >> 11) / float(1 << 53)
+
+
+def pick_with_receipt(vault: Any, repository: Any, items: Sequence[Any], *, seed_key: str = "") -> tuple[Any | None, dict[str, Any]]:
+    """The candidate pitched nearest the band's middle by its own prediction, and what was decided.
+
+    An exact tie (equal predictions, or none: a structural tie) is a uniform draw: the seed names the
+    decision (``seed_key``), never the candidates, so the check and the forecast about it agree."""
+
+    middle = _band_middle(vault)
+    considered = []
+    for item in sorted(items, key=lambda value: value.id):
+        prediction = lo_prediction(vault, repository, item.learning_object_id, item=item)
+        p = prediction.get("p")
+        # The tie reads the prediction itself, not its displayed rounding.
+        exact = (predicted_success(prediction["mu"], prediction["variance"], a=prediction["item_a"], b=prediction["item_b"])
+                 if p is not None else None)
+        considered.append({"item_id": item.id, "p": p, "distance": abs(exact - middle) if exact is not None else 1.0})
+    receipt: dict[str, Any] = {"version": PICK_VERSION, "predictor": "mastery_ekf_item", "band_middle": middle,
+                               "considered": [{"item_id": row["item_id"], "p": row["p"]} for row in considered],
+                               "tied": [], "n": 0, "propensity": None, "seed": None, "draw": None, "chosen": None}
+    if not considered:
+        return None, receipt
+    nearest = min(row["distance"] for row in considered)
+    tied = [row["item_id"] for row in considered if row["distance"] - nearest <= _EXACT_TIE]
+    seed, draw = None, None
+    chosen = tied[0]
+    if len(tied) > 1:
+        seed = hashlib.sha256(f"{PICK_VERSION}|{seed_key}".encode()).hexdigest()
+        draw = _uniform(seed)
+        chosen = tied[min(int(draw * len(tied)), len(tied) - 1)]
+    receipt.update(tied=tied, n=len(tied), propensity=1.0 / len(tied), seed=seed, draw=draw, chosen=chosen)
+    return next(item for item in items if item.id == chosen), receipt
+
+
+def pick(vault: Any, repository: Any, items: Sequence[Any], *, seed_key: str = "") -> Any | None:
+    """The candidate pitched nearest the band's middle (the house prior); module docstring."""
 
     if not items:
         return None
-    band = tuple(getattr(vault.config.adaptive_difficulty, "practice_band", (0.70, 0.80)))
-    middle = (float(band[0]) + float(band[1])) / 2.0
+    if serving_on(vault.config):
+        return pick_with_receipt(vault, repository, items, seed_key=seed_key)[0]
+    middle = _band_middle(vault)
 
     def distance(item: Any) -> tuple[float, str]:
         p = lo_prediction(vault, repository, item.learning_object_id).get("p")
         return (abs(float(p) - middle) if p is not None else 1.0, item.id)
 
     return min(items, key=distance)
+
+
+def retention_seed_key(lesson_id: str, learning_object_id: str) -> str:
+    """The retention check's draw: its commit and the lesson forecast about it share it (§12.2)."""
+
+    return f"lesson:{lesson_id}:retention:{learning_object_id}"
 
 
 def due_days(vault: Any, repository: Any, *, purpose: str, lesson_item_ids: Sequence[str]) -> tuple[float, str]:
@@ -242,14 +305,26 @@ def commit_checks(vault: Any, repository: Any, *, lesson_id: str, landed: Sequen
     assert now is not None
     plan: list[tuple[str, str | None, str, Any]] = []
     landed_los: list[str] = []
+    item_picks: dict[str, dict[str, Any]] = {}
+
+    def picked_for(found: Sequence[Any], seed_key: str) -> Any | None:
+        """The pick among ``found``; at the successor its receipt is kept for the check's row."""
+
+        if not serving_on(vault.config):
+            return pick(vault, repository, found)
+        item, receipt = pick_with_receipt(vault, repository, found, seed_key=seed_key)
+        if item is not None:
+            item_picks[item.id] = receipt
+        return item
+
     for node in landed:
         lo = node.get("lo_id")
         if not lo or lo not in vault.learning_objects:
             continue
         landed_los.append(str(lo))
-        item = pick(vault, repository, candidates(vault, repository, str(lo), exclude=used, withheld=withheld,
-                                                  attempted=attempted, revealed=revealed,
-                                                  excluded_lineage=shown_lineage))
+        item = picked_for(candidates(vault, repository, str(lo), exclude=used, withheld=withheld,
+                                     attempted=attempted, revealed=revealed, excluded_lineage=shown_lineage),
+                          retention_seed_key(lesson_id, str(lo)))
         if item is None:
             warnings.append(f"no unseen question for a cold check on {lo}")
             plan.append(("retention", str(node.get("id")), str(lo), None))
@@ -266,7 +341,7 @@ def commit_checks(vault: Any, repository: Any, *, lesson_id: str, landed: Sequen
                                                  attempted=attempted, revealed=revealed,
                                                  excluded_lineage=shown_lineage)
                      if measures_facet(vault, item, facets)]
-            transfer = pick(vault, repository, found)
+            transfer = picked_for(found, f"lesson:{lesson_id}:transfer")
             if transfer is not None:
                 break
         if transfer is None:
@@ -276,7 +351,7 @@ def commit_checks(vault: Any, repository: Any, *, lesson_id: str, landed: Sequen
                                                      attempted=attempted, revealed=revealed,
                                                      excluded_lineage=shown_lineage | picked_lineage)
                          if presentation(item) is not None and presentation(item) not in avoid]
-                transfer = pick(vault, repository, found)
+                transfer = picked_for(found, f"lesson:{lesson_id}:transfer")
                 if transfer is not None:
                     break
         if transfer is None:
@@ -293,6 +368,7 @@ def commit_checks(vault: Any, repository: Any, *, lesson_id: str, landed: Sequen
         days, basis = due_days(vault, repository, purpose=purpose,
                                lesson_item_ids=list(lesson_items_by_lo.get(lo, ())))
         due = (now + timedelta(days=days)).strftime("%Y-%m-%d")
+        picked = {"pick": item_picks[item.id]} if item.id in item_picks else {}
         commitment = C.create_commitment(
             repository,
             action="test_me_later",
@@ -303,13 +379,13 @@ def commit_checks(vault: Any, repository: Any, *, lesson_id: str, landed: Sequen
             due_hint=due,
             reason=f"lesson_{purpose}_check",
             provenance={"via": VIA, "lesson_id": lesson_id, "node_id": node_id, "purpose": purpose,
-                        "dated_by": basis},
+                        "dated_by": basis, **picked},
             clock=clock,
         )
         out.append({"purpose": purpose, "node_id": node_id, "learning_object_id": lo, "item_id": item.id,
-                    "commitment_id": commitment.id, "due": due, "dated_by": basis, "days": round(days, 3)})
+                    "commitment_id": commitment.id, "due": due, "dated_by": basis, "days": round(days, 3), **picked})
     return out, warnings
 
 
-__all__ = ["PURPOSES", "candidates", "commit_checks", "due_days", "lineage", "measures_facet", "pick",
-           "presentation", "shown_vault_items", "taught_facets"]
+__all__ = ["PICK_VERSION", "PURPOSES", "candidates", "commit_checks", "due_days", "lineage", "measures_facet", "pick",
+           "pick_with_receipt", "presentation", "retention_seed_key", "shown_vault_items", "taught_facets"]

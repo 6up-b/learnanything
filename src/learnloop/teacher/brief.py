@@ -278,13 +278,20 @@ def downstream_learning_objects(vault: Any, learning_object_ids: Iterable[str]) 
 # --- predictions -------------------------------------------------------------------
 
 
-def lo_prediction(vault: Any, repository: Any, learning_object_id: str) -> dict[str, Any]:
-    """The active predictor's predicted unassisted success on the LO, with its interval, in words."""
+def lo_prediction(vault: Any, repository: Any, learning_object_id: str, *, item: Any = None) -> dict[str, Any]:
+    """The active predictor's predicted unassisted success on the LO, with its interval, in words.
 
-    from learnloop.learner.mastery import item_irt_params
+    ``item`` (data capture A6): the same prediction for that item, through the one IRT seam the mastery
+    EKF, surprise and prediction read (``resolve_item_irt_params``); none is the LO's own."""
+
+    from learnloop.learner.mastery import item_irt_params, resolve_item_irt_params
 
     learning_object = vault.learning_objects.get(learning_object_id)
-    a, b = item_irt_params(None, learning_object, vault.config.mastery)
+    if item is None:
+        a, b = item_irt_params(None, learning_object, vault.config.mastery)
+    else:
+        a, b = resolve_item_irt_params(item, learning_object, vault.config.mastery,
+                                       repository.item_parameter_state(item.id))
     state = repository.mastery_state(learning_object_id)
     if state is None and learning_object is not None:
         # No evidence yet: the model's own prior for the LO (what its first update would start from).

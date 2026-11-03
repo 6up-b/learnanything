@@ -125,7 +125,8 @@ def cold_reference(vault: Any, repository: Any, learning_object_id: str, *, less
     lineage: set[str] = set().union(*(D.lineage(i) for i in shown)) if shown else set()
     found = D.pick(vault, repository, D.candidates(
         vault, repository, learning_object_id, exclude=exclude, withheld=withheld_items(vault, repository),
-        attempted=D._attempted(repository), revealed=D._revealed(repository, lesson_id), excluded_lineage=lineage))
+        attempted=D._attempted(repository), revealed=D._revealed(repository, lesson_id), excluded_lineage=lineage),
+        seed_key=D.retention_seed_key(lesson_id, learning_object_id))
     a, b = item_irt_params(found, vault.learning_objects.get(learning_object_id), vault.config.mastery)
     days, basis = D.due_days(vault, repository, purpose="retention", lesson_item_ids=list(lesson_item_ids))
     return {"item_id": found.id if found is not None else None, "a": float(a), "b": float(b),
