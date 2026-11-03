@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import os
 import re
+import subprocess
 import sys
 from collections import defaultdict
 from pathlib import Path
@@ -87,18 +88,34 @@ def expected_moc(package: str) -> Path:
     return CATALOG_ROOT.joinpath(*package.split("."), "_package.md")
 
 
+def tracked_files(root: Path, suffix: str) -> set[Path]:
+    """Files under ``root`` with ``suffix`` that git tracks and that exist now.
+
+    Raises when git can't answer (no git, or not a checkout), and the caller decides."""
+
+    # A hook's GIT_DIR or GIT_INDEX_FILE would otherwise answer for another repository.
+    env = {key: value for key, value in os.environ.items()
+           if key not in ("GIT_DIR", "GIT_WORK_TREE", "GIT_INDEX_FILE")}
+    listed = subprocess.run(["git", "ls-files", "-z", "--cached", "--", root.relative_to(REPO_ROOT).as_posix()],
+                            cwd=REPO_ROOT, env=env, capture_output=True, check=True).stdout
+    paths = (REPO_ROOT / name for name in listed.decode("utf-8").split("\0") if name)
+    return {path for path in paths if path.suffix == suffix and path.is_file()}
+
+
 def inventory_gaps() -> tuple[list[str], list[str]]:
     """``(missing, orphaned)``: the catalog's notes against the source tree, by path alone.
 
     Never opens a note, so an edit that makes a note's contents stale can't trip it; only a module
-    with no note, or a note with no module. ``tests/test_module_catalog_inventory.py`` runs this on
-    every full suite; :func:`main` is the deeper check."""
+    with no note, or a note with no module. Only what git tracks, on both sides (Codex verify V2):
+    an untracked probe, an ignored ``build/`` directory or a temporary note can't fail an unrelated
+    suite. ``tests/test_module_catalog_inventory.py`` runs this on every full suite; :func:`main` is
+    the deeper check, and still reads the whole tree."""
 
-    sources = source_files()
+    sources = sorted(path for root in SOURCE_ROOTS for path in tracked_files(root, ".py"))
     expected = {expected_note(source) for source in sources}
     expected |= {expected_moc(package) for package in package_names(sources)}
     expected.add(CATALOG_ROOT / "Module Catalog.md")
-    actual = set(CATALOG_ROOT.rglob("*.md"))
+    actual = tracked_files(CATALOG_ROOT, ".md")
 
     def relative(paths: set[Path]) -> list[str]:
         return sorted(path.relative_to(REPO_ROOT).as_posix() for path in paths)
