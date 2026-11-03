@@ -7,8 +7,8 @@ version: "1.0.0"
 source_path: "src/learnloop/figures/katex_tree.py"
 source_paths:
   - "src/learnloop/figures/katex_tree.py"
-source_commit: "7866e67b1459b5d656ed7cb0067373e2c125e69d"
-source_commit_timestamp: "2026-11-02T22:18:16-05:00"
+source_commit: "f68fbfe1b5e4292fde7b79d509762d1e935df8d1"
+source_commit_timestamp: "2026-11-02T22:41:07-05:00"
 source_worktree_state: "clean"
 generated: true
 generated_at: "2026-11-02"
@@ -50,35 +50,35 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/figures/katex_tree.py](../../../../../../src/learnloop/figures/katex_tree.py) |
-| Source lines | 150 |
+| Source lines | 153 |
 | Owning package | [[Reference/Modules/learnloop/figures/_package|learnloop.figures]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `7866e67b1459b5d656ed7cb0067373e2c125e69d` |
-| Commit timestamp | `2026-11-02T22:18:16-05:00` |
+| Source commit | `f68fbfe1b5e4292fde7b79d509762d1e935df8d1` |
+| Commit timestamp | `2026-11-02T22:41:07-05:00` |
 
 ## Public API
 
-- `class TreeRefused(Exception)` ([source](../../../../../../src/learnloop/figures/katex_tree.py), line 74) — No tree: ``kind`` is ``not_rendered`` (KaTeX refuses; the page shows an error), ``macro`` (the segment defined one), ``cap`` (over a cap) or ``unavailable`` (no engine here).
-  - `__init__(self, kind: str) -> None` (line 78; internal)
-- `class Trees` ([source](../../../../../../src/learnloop/figures/katex_tree.py), line 83) — One loaded engine for one check (not thread-safe, as :class:`.sketch_engine.SketchEngine`).
-  - `__init__(self, *, path: Path=KATEX_ENGINE_PATH, expected: str=KATEX_ENGINE_SHA256, source: Path=KATEX_PATH, source_sha256: str=KATEX_SHA256) -> None` (line 87; internal)
-  - `_open(self) -> SE.SketchEngine` (line 93; internal)
-  - `parse(self, tex: str, *, display: bool=False) -> list[dict[str, Any]]` (line 112; public) — KaTeX's tree of ``tex`` under the page's settings, or :class:`TreeRefused`.
-  - `close(self) -> None` (line 130; public)
-  - `__enter__(self) -> 'Trees'` (line 135; internal)
-  - `__exit__(self, *_exc: Any) -> None` (line 138; internal)
+- `class TreeRefused(Exception)` ([source](../../../../../../src/learnloop/figures/katex_tree.py), line 72) — No tree: ``kind`` is ``not_rendered`` (KaTeX refuses; the page shows an error), ``macro`` (the segment defined one), ``cap`` (over a cap) or ``unavailable`` (no engine here).
+  - `__init__(self, kind: str) -> None` (line 76; internal)
+- `class Trees` ([source](../../../../../../src/learnloop/figures/katex_tree.py), line 81) — One loaded engine for one check (not thread-safe, as :class:`.sketch_engine.SketchEngine`).
+  - `__init__(self, *, path: Path=KATEX_ENGINE_PATH, expected: str=KATEX_ENGINE_SHA256, source: Path=KATEX_PATH, source_sha256: str=KATEX_SHA256) -> None` (line 85; internal)
+  - `_open(self) -> Any` (line 91; internal)
+  - `parse(self, tex: str, *, display: bool=False) -> list[dict[str, Any]]` (line 113; public) — KaTeX's tree of ``tex`` under the page's settings, or :class:`TreeRefused`.
+  - `close(self) -> None` (line 133; public)
+  - `__enter__(self) -> 'Trees'` (line 138; internal)
+  - `__exit__(self, *_exc: Any) -> None` (line 141; internal)
 
 ### Module constants
 
-- `_ENGINE_DIR` ([src/learnloop/figures/katex_tree.py](../../../../../../src/learnloop/figures/katex_tree.py), line 37)
-- `KATEX_ENGINE_PATH` ([src/learnloop/figures/katex_tree.py](../../../../../../src/learnloop/figures/katex_tree.py), line 39)
-- `KATEX_ENGINE_SHA256` ([src/learnloop/figures/katex_tree.py](../../../../../../src/learnloop/figures/katex_tree.py), line 40)
-- `KATEX_PATH` ([src/learnloop/figures/katex_tree.py](../../../../../../src/learnloop/figures/katex_tree.py), line 43)
-- `KATEX_VERSION` ([src/learnloop/figures/katex_tree.py](../../../../../../src/learnloop/figures/katex_tree.py), line 44)
-- `KATEX_SHA256` ([src/learnloop/figures/katex_tree.py](../../../../../../src/learnloop/figures/katex_tree.py), line 45)
-- `_PROGRAM` ([src/learnloop/figures/katex_tree.py](../../../../../../src/learnloop/figures/katex_tree.py), line 50)
+- `_ENGINE_DIR` ([src/learnloop/figures/katex_tree.py](../../../../../../src/learnloop/figures/katex_tree.py), line 35)
+- `KATEX_ENGINE_PATH` ([src/learnloop/figures/katex_tree.py](../../../../../../src/learnloop/figures/katex_tree.py), line 37)
+- `KATEX_ENGINE_SHA256` ([src/learnloop/figures/katex_tree.py](../../../../../../src/learnloop/figures/katex_tree.py), line 38)
+- `KATEX_PATH` ([src/learnloop/figures/katex_tree.py](../../../../../../src/learnloop/figures/katex_tree.py), line 41)
+- `KATEX_VERSION` ([src/learnloop/figures/katex_tree.py](../../../../../../src/learnloop/figures/katex_tree.py), line 42)
+- `KATEX_SHA256` ([src/learnloop/figures/katex_tree.py](../../../../../../src/learnloop/figures/katex_tree.py), line 43)
+- `_PROGRAM` ([src/learnloop/figures/katex_tree.py](../../../../../../src/learnloop/figures/katex_tree.py), line 48)
 
 ### Explicit exports
 
@@ -154,7 +154,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_rw5c_recheck.py](../../../../../../tests/test_rw5c_recheck.py) — direct import
   - `test_reading_a_figure_never_opens_the_katex_engine`
 - [tests/test_rw5c_source_check.py](../../../../../../tests/test_rw5c_source_check.py) — direct import
-  - `test_a_check_loads_one_engine_however_many_segments_it_reads`
   - `test_with_no_engine_a_book_equation_is_unreadable_and_the_sandbox_is_not_asked`
 
 ## Modification guidance

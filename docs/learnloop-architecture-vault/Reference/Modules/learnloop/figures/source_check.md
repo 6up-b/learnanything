@@ -221,6 +221,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_the_rationale_is_code_text_only`
 - [tests/test_rw5c_katex_tree.py](../../../../../../tests/test_rw5c_katex_tree.py) — direct import
   - `test_a_katex_bump_moves_the_reader_version_and_needs_a_certification_bump`
+  - `test_the_reader_words_every_closed_reason`
 - [tests/test_rw5c_labels.py](../../../../../../tests/test_rw5c_labels.py) — direct import
   - `test_a_sketch_view_has_no_elements_or_source_check`
 - [tests/test_rw5c_recheck.py](../../../../../../tests/test_rw5c_recheck.py) — direct import

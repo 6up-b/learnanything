@@ -141,10 +141,10 @@ def test_a_definition_never_reaches_another_parse_in_one_engine():
         trees.parse(r"\def\foo{1}\foo")
         with pytest.raises(KT.TreeRefused) as caught:
             trees.parse(r"\foo")
-        assert caught.value.kind == "not_rendered"
+        assert caught.value.reason == "not_rendered"
         with pytest.raises(KT.TreeRefused) as caught:
             trees.parse(r"\gdef\foo{1}\foo")
-        assert caught.value.kind == "macro"
+        assert caught.value.reason == "macro_definition"
         with pytest.raises(KT.TreeRefused):
             trees.parse(r"\foo")
 

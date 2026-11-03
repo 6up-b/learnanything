@@ -619,7 +619,7 @@ def test_with_no_engine_a_book_equation_is_unreadable_and_the_sandbox_is_not_ask
     from learnloop.figures import katex_tree as KT
 
     def gone(_self: Any) -> Any:
-        raise KT.TreeRefused("unavailable")
+        raise KT.TreeRefused("engine_unavailable")
 
     def never(*_args: Any, **_kwargs: Any):
         raise AssertionError("the sandbox is not asked")

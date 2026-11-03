@@ -70,12 +70,12 @@ function view(state, p) {
 
 
 class TreeRefused(Exception):
-    """No tree: ``kind`` is ``not_rendered`` (KaTeX refuses; the page shows an error),
-    ``macro`` (the segment defined one), ``cap`` (over a cap) or ``unavailable`` (no engine here)."""
+    """No tree, and why as the reader's closed key: ``not_rendered`` (KaTeX refuses; the page shows an
+    error), ``macro_definition``, ``too_long`` (over a cap) or ``engine_unavailable`` (no engine here)."""
 
-    def __init__(self, kind: str) -> None:
-        super().__init__(kind)
-        self.kind = kind
+    def __init__(self, reason: str) -> None:
+        super().__init__(reason)
+        self.reason = reason
 
 
 class Trees:
@@ -96,17 +96,17 @@ class Trees:
 
                 text = self._source.read_bytes()
                 if hashlib.sha256(text).hexdigest() != self._source_sha256:
-                    raise TreeRefused("unavailable")
+                    raise TreeRefused("engine_unavailable")
                 engine = SE.SketchEngine(path=self._path, expected=self._expected)
             except TreeRefused:
                 raise
             except Exception as exc:  # noqa: BLE001 - no file, wrong digest, wasmtime missing: fail closed
-                raise TreeRefused("unavailable") from exc
+                raise TreeRefused("engine_unavailable") from exc
             try:
                 engine.load(text.decode("utf-8") + _PROGRAM)
             except BaseException as exc:
                 engine.close()
-                raise TreeRefused("unavailable") from exc
+                raise TreeRefused("engine_unavailable") from exc
             self._engine = engine
         return self._engine
 
@@ -121,13 +121,13 @@ class Trees:
         except SE.SketchRunError as exc:
             if exc.trap:
                 self.close()
-            raise TreeRefused("not_rendered" if exc.kind == "error" else "cap") from exc
+            raise TreeRefused("not_rendered" if exc.kind == "error" else "too_long") from exc
         except RecursionError as exc:
-            raise TreeRefused("cap") from exc
+            raise TreeRefused("too_long") from exc
         if answer.get("refused"):
             raise TreeRefused("not_rendered")
         if answer.get("macros"):
-            raise TreeRefused("macro")
+            raise TreeRefused("macro_definition")
         return answer["tree"]
 
     def close(self) -> None:

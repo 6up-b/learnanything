@@ -93,7 +93,6 @@ _LABELS = {
     r"\leq": "relation", r"\ge": "relation", r"\geq": "relation", r"\ll": "relation", r"\gg": "relation",
     "<": "relation", ">": "relation",
 }
-_OPENERS = {"(": ")", "[": "]", r"\{": r"\}"}
 _CONDITION_OPS = {"<": "<", ">": ">", r"\le": "<=", r"\leq": "<=", r"\ge": ">=", r"\geq": ">=",
                   r"\leqslant": "<=", r"\geqslant": ">="}
 _CASE_WORDS = {"if", "for"}
@@ -221,6 +220,19 @@ def _word(nodes: Sequence[Tree]) -> str | None:
     return "".join(str(node.get("text")) for node in kept)
 
 
+#: The allowlist of KaTeX's atoms, by family and exact symbol (``_CONDITION_OPS`` holds the relations).
+_ATOMS = {
+    ("bin", "+"): _Item("op", "+"), ("bin", "-"): _Item("op", "-"), ("bin", "*"): _Item("op", "*"),
+    ("bin", r"\cdot"): _Item("op", "*"), ("bin", r"\times"): _Item("op", "*"), ("punct", ","): _Item("punct", ","),
+    ("open", "("): _Item("open", ")"), ("open", "["): _Item("open", "]"), ("open", r"\{"): _Item("open", r"\}"),
+    ("open", r"\lvert"): _Item("open", r"\rvert", absolute=True), ("close", ")"): _Item("close", ")"),
+    ("close", "]"): _Item("close", "]"), ("close", r"\}"): _Item("close", r"\}"), ("close", r"\rvert"): _Item("close", r"\rvert"),
+    ("close", "!"): _Item("bang", "!"),
+}
+#: Tree nodes outside the table, by what the report calls them (the default is ``unsupported_command``).
+_NODE_REASONS = {"ordgroup": "syntax", "cr": "syntax", "htmlmathml": "relation"}
+
+
 def _is_table_space(node: Tree) -> bool:
     dimension = node.get("dimension") or {}
     return node.get("text") in _SPACES or (dimension.get("number"), dimension.get("unit")) in _KERNS
@@ -319,31 +331,16 @@ def _base_items(base: Tree) -> list[_Item]:
         return [_Item("text", node=base)]
     if kind == "array":
         raise Unreadable("unsupported_environment" if base.get("colSeparationType") or base.get("addJot") else "matrix")
-    if kind in ("ordgroup", "cr"):
-        raise Unreadable("syntax")
-    if kind == "htmlmathml":  # \neq and its kin: KaTeX builds them, and none is an equality
-        raise Unreadable("relation")
-    raise Unreadable("unsupported_command")
+    raise Unreadable(_NODE_REASONS.get(str(kind), "unsupported_command"))
 
 
 def _atom_item(base: Tree, text: str) -> _Item:
     family = base.get("family")
-    if family == "bin" and text in ("+", "-"):
-        return _Item("op", text)
-    if family == "bin" and text in ("*", r"\cdot", r"\times"):
-        return _Item("op", "*")
+    found = _ATOMS.get((family, text))
+    if found is not None:
+        return found
     if family == "rel" and text in _CONDITION_OPS:
         return _Item("rel", text)
-    if family == "open" and text in _OPENERS:
-        return _Item("open", _OPENERS[text])
-    if family == "open" and text == r"\lvert":
-        return _Item("open", r"\rvert", absolute=True)
-    if family == "close" and text in (")", "]", r"\}", r"\rvert"):
-        return _Item("close", text)
-    if family == "close" and text == "!":
-        return _Item("bang", "!")
-    if family == "punct" and text == ",":
-        return _Item("punct", ",")
     raise _refuse_symbol(text) if text in _LABELS else Unreadable("syntax" if family in ("punct", "rel") else "unsupported_command")
 
 
@@ -795,20 +792,19 @@ class _Reader:
         return self.node("piecewise", depth, args=tuple(args))
 
 
-def _numeric_sides(item: _Item) -> tuple[Fraction | None, Fraction | None]:
-    """A fraction's two sides as numbers, each when it is one numeral."""
+def _numeric_side(node: Tree) -> Fraction | None:
+    """One side of a fraction as a number, when it is one numeral."""
 
-    def side(node: Tree) -> Fraction | None:
-        try:
-            found = _items(_body(node))
-        except Unreadable:
-            return None
-        if len(found) == 1 and found[0].kind == "num" and found[0].sup is None:
-            return Fraction(found[0].text)
+    try:
+        found = _items(_body(node))
+    except Unreadable:
         return None
+    return Fraction(found[0].text) if len(found) == 1 and found[0].kind == "num" and found[0].sup is None else None
 
+
+def _numeric_sides(item: _Item) -> tuple[Fraction | None, Fraction | None]:
     assert item.node is not None
-    return side(item.node["numer"]), side(item.node["denom"])
+    return _numeric_side(item.node["numer"]), _numeric_side(item.node["denom"])
 
 
 def _cell(cell: Tree) -> Sequence[Tree]:
@@ -908,31 +904,22 @@ def _lhs_args(nodes: Sequence[Tree]) -> tuple[tuple[str, ...], dict[str, set[str
         head, inner = kept[:opening], kept[opening + 1:-1]
     if not head or not all(node.get("type") in ("mathord", "op", "supsub", "textord") and "sup" not in node for node in head):
         return nothing
-    parts: list[list[Tree]] = [[]]
-    for node in inner:
-        if _is_atom(node, "punct", ","):
-            parts.append([])
-        elif node.get("type") not in ("kern", "spacing"):
-            parts[-1].append(node)
-    args: list[str] = []
-    spellings: dict[str, set[str]] = {}
-    first: dict[str, str] = {}
-    for part in parts:
-        try:
-            items = _items(part)
-            if len(items) != 1 or items[0].kind != "sym" or items[0].sup is not None:
-                return nothing
-            reader = _Reader(items)
-            value = reader.symbol(reader.take(), 0)[0]
-        except Unreadable:
+    try:
+        items = _items(inner)
+        # sym, sym, sym: each argument one symbol, no script but its subscript.
+        if len(items) % 2 == 0 or any(item.kind != ("punct" if index % 2 else "sym") or item.sup is not None
+                                      for index, item in enumerate(items)):
             return nothing
-        if value.kind != "name":
-            return nothing
-        args.append(value.text)
-        for name, spelled in reader.spellings.items():
-            spellings.setdefault(name, set()).update(spelled)
-        first.update(reader.first)
-    return tuple(args), spellings, first
+        reader = _Reader(items)
+        args = []
+        while (following := reader.peek()) is not None:
+            if following.kind == "punct":
+                reader.take()
+            else:
+                args.append(reader.symbol(reader.take(), 0)[0].text)
+    except Unreadable:
+        return nothing
+    return tuple(args), reader.spellings, reader.first
 
 
 def _walk(value: Any) -> Iterator[Tree]:
@@ -960,8 +947,7 @@ def _parse(trees: KT.Trees, source: str, display: bool) -> list[Tree]:
     try:
         return trees.parse(source, display=display)
     except KT.TreeRefused as refused:
-        raise Unreadable({"not_rendered": "not_rendered", "macro": "macro_definition", "cap": "too_long",
-                          "unavailable": "engine_unavailable"}[refused.kind]) from refused
+        raise Unreadable(refused.reason) from refused
 
 
 def _left_hand_side(source: str, tree: Sequence[Tree], lhs_end: int, *, trees: KT.Trees, display: bool) -> str:
