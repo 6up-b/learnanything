@@ -64,7 +64,7 @@ The new tests fail on the old callback (3 of 4; the fourth pins the same-reading
 
 ### Also found
 
-`desktop_validate.py` failed on this branch: its inventory pins still counted 308 TypeScript files, without the stage's `figureLabels.tsx`. The pins are now 309 files, 299 entry-reachable and 315 ACTIVE. The stage record's desktop row (`PASS`) cannot have been a run of the validator on that tree.
+`desktop_validate.py` failed on this branch: its inventory pins still counted 308 TypeScript files, without the stage's `figureLabels.tsx`. The pins are now 309 files, 299 entry-reachable and 315 ACTIVE. The stage record's desktop row says `PASS`, which does not match the tree as committed; I did not trace how that row was produced.
 
 The coverage numbers in the stage record (92 of 319 relations read) predate these refusals and were not re-measured, so they may read slightly high.
 

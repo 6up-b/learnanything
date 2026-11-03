@@ -184,6 +184,7 @@ def main() -> int:
     # followups-nov1c: HiddenNotesSettings.tsx (Settings) and ScopeFromPassage.tsx (the Notes rail);
     # RW5d P3: components/askFigures.tsx (show me in the Ask panel); teacher TE1: LessonScreen.tsx;
     # teacher TE1b: screens/today/LessonSuggestionCard.tsx (Today's lesson suggestion card).
+    # Reader RW5c: screens/reader/figures/figureLabels.tsx (a checked figure's code-owned labels).
     if len(ts_sources) != 309:
         errors.append(f"source inventory drift: expected 309 TypeScript/TSX files, found {len(ts_sources)}")
     if len(rust_sources) != 6:
