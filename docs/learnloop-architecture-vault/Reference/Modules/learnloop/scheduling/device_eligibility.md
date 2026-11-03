@@ -7,8 +7,8 @@ version: "1.0.0"
 source_path: "src/learnloop/scheduling/device_eligibility.py"
 source_paths:
   - "src/learnloop/scheduling/device_eligibility.py"
-source_commit: "b0684f8a4f9f019f78175c3220afc7643d6556a2"
-source_commit_timestamp: "2026-11-03T02:23:35-05:00"
+source_commit: "14bb2c615356cfabd9cf1c0e631e48b1ef153fd8"
+source_commit_timestamp: "2026-11-03T03:24:48-05:00"
 source_worktree_state: "clean"
 generated: true
 generated_at: "2026-11-02"
@@ -50,19 +50,20 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/scheduling/device_eligibility.py](../../../../../../src/learnloop/scheduling/device_eligibility.py) |
-| Source lines | 179 |
+| Source lines | 184 |
 | Owning package | [[Reference/Modules/learnloop/scheduling/_package|learnloop.scheduling]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `b0684f8a4f9f019f78175c3220afc7643d6556a2` |
-| Commit timestamp | `2026-11-03T02:23:35-05:00` |
+| Source commit | `14bb2c615356cfabd9cf1c0e631e48b1ef153fd8` |
+| Commit timestamp | `2026-11-03T03:24:48-05:00` |
 
 ## Public API
 
-- `class DeviceFilter` ([source](../../../../../../src/learnloop/scheduling/device_eligibility.py), line 133) — One queue build's device, and what it held back.
-  - `holds_back(self, item: Any) -> bool` (line 148; public)
-- `ineligibility_reason(vault: Any, item: Any, device_class: str) -> str | None` ([source](../../../../../../src/learnloop/scheduling/device_eligibility.py), line 155) — Why ``device_class`` cannot answer ``item``, or None when it can.
+- `class DeviceFilter` ([source](../../../../../../src/learnloop/scheduling/device_eligibility.py), line 131) — One queue build's device, and what it held back.
+  - `refuses(self, item: Any) -> bool` (line 148; public)
+  - `holds_back(self, item: Any) -> bool` (line 151; public) — ``refuses``, for an item the build would otherwise serve.
+- `ineligibility_reason(vault: Any, item: Any, device_class: str) -> str | None` ([source](../../../../../../src/learnloop/scheduling/device_eligibility.py), line 160) — Why ``device_class`` cannot answer ``item``, or None when it can.
 
 ### Module constants
 
@@ -80,26 +81,25 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 - `REFERENCES_ITEM_ASSET` ([src/learnloop/scheduling/device_eligibility.py](../../../../../../src/learnloop/scheduling/device_eligibility.py), line 60)
 - `DEVICE_POLICY` ([src/learnloop/scheduling/device_eligibility.py](../../../../../../src/learnloop/scheduling/device_eligibility.py), line 65)
 - `DEVICE_POLICY_OFF` ([src/learnloop/scheduling/device_eligibility.py](../../../../../../src/learnloop/scheduling/device_eligibility.py), line 66)
-- `DEVICE_INELIGIBLE` ([src/learnloop/scheduling/device_eligibility.py](../../../../../../src/learnloop/scheduling/device_eligibility.py), line 68)
-- `_LITERAL_TEXT` ([src/learnloop/scheduling/device_eligibility.py](../../../../../../src/learnloop/scheduling/device_eligibility.py), line 72)
-- `_HTML_IMAGE` ([src/learnloop/scheduling/device_eligibility.py](../../../../../../src/learnloop/scheduling/device_eligibility.py), line 81)
-- `_URL_SCHEME` ([src/learnloop/scheduling/device_eligibility.py](../../../../../../src/learnloop/scheduling/device_eligibility.py), line 82)
-- `_LOCAL_SCHEMES` ([src/learnloop/scheduling/device_eligibility.py](../../../../../../src/learnloop/scheduling/device_eligibility.py), line 84)
-- `_FILE_SUFFIX` ([src/learnloop/scheduling/device_eligibility.py](../../../../../../src/learnloop/scheduling/device_eligibility.py), line 85)
-- `_MARKDOWN` ([src/learnloop/scheduling/device_eligibility.py](../../../../../../src/learnloop/scheduling/device_eligibility.py), line 92)
+- `_LITERAL_TEXT` ([src/learnloop/scheduling/device_eligibility.py](../../../../../../src/learnloop/scheduling/device_eligibility.py), line 70)
+- `_HTML_IMAGE` ([src/learnloop/scheduling/device_eligibility.py](../../../../../../src/learnloop/scheduling/device_eligibility.py), line 79)
+- `_URL_SCHEME` ([src/learnloop/scheduling/device_eligibility.py](../../../../../../src/learnloop/scheduling/device_eligibility.py), line 80)
+- `_LOCAL_SCHEMES` ([src/learnloop/scheduling/device_eligibility.py](../../../../../../src/learnloop/scheduling/device_eligibility.py), line 82)
+- `_FILE_SUFFIX` ([src/learnloop/scheduling/device_eligibility.py](../../../../../../src/learnloop/scheduling/device_eligibility.py), line 83)
+- `_MARKDOWN` ([src/learnloop/scheduling/device_eligibility.py](../../../../../../src/learnloop/scheduling/device_eligibility.py), line 90)
 
 ## Internal implementation anchors
 
-- `_is_item_asset(target: str) -> bool` ([source](../../../../../../src/learnloop/scheduling/device_eligibility.py), line 96) — A link to a file: a local scheme, or a relative target that is a path.
-- `_rendered_tokens(tokens: Iterable[Token]) -> Iterator[Token]` ([source](../../../../../../src/learnloop/scheduling/device_eligibility.py), line 107)
-- `_prompt_reason(prompt: str) -> str | None` ([source](../../../../../../src/learnloop/scheduling/device_eligibility.py), line 115) — Read per candidate on every phone build, and a prompt's parse never changes.
+- `_is_item_asset(target: str) -> bool` ([source](../../../../../../src/learnloop/scheduling/device_eligibility.py), line 94) — A link to a file: a local scheme, or a relative target that is a path.
+- `_rendered_tokens(tokens: Iterable[Token]) -> Iterator[Token]` ([source](../../../../../../src/learnloop/scheduling/device_eligibility.py), line 105)
+- `_prompt_reason(prompt: str) -> str | None` ([source](../../../../../../src/learnloop/scheduling/device_eligibility.py), line 113) — Read per candidate on every phone build, and a prompt's parse never changes.
 
 ## Who imports or calls it
 
 > [!note] Static evidence boundary
 > “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
 
-- [[Reference/Modules/learnloop/scheduling/scheduler|learnloop.scheduling.scheduler]] — imports `DEVICE_INELIGIBLE`, `DeviceFilter`
+- [[Reference/Modules/learnloop/scheduling/scheduler|learnloop.scheduling.scheduler]] — imports `DeviceFilter`
 - [[Reference/Modules/learnloop_sidecar/request_origin|learnloop_sidecar.request_origin]] — imports `DESKTOP`, `PHONE`
 - [[Reference/Modules/learnloop_sidecar/serving|learnloop_sidecar.serving]] — imports `DEVICE_POLICY`, `DEVICE_POLICY_OFF`, `DeviceFilter`, `ineligibility_reason`; statically calls `DeviceFilter`, `ineligibility_reason`
 

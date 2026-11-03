@@ -7,8 +7,8 @@ version: "1.0.0"
 source_path: "src/learnloop/daily_plan/slot_facts_schema.py"
 source_paths:
   - "src/learnloop/daily_plan/slot_facts_schema.py"
-source_commit: "38c895e230ef534fc7b4a2eff18a51ca456a06a2"
-source_commit_timestamp: "2026-10-24T10:23:24-04:00"
+source_commit: "14bb2c615356cfabd9cf1c0e631e48b1ef153fd8"
+source_commit_timestamp: "2026-11-03T03:24:48-05:00"
 source_worktree_state: "clean"
 generated: true
 generated_at: "2026-11-02"
@@ -55,8 +55,8 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `38c895e230ef534fc7b4a2eff18a51ca456a06a2` |
-| Commit timestamp | `2026-10-24T10:23:24-04:00` |
+| Source commit | `14bb2c615356cfabd9cf1c0e631e48b1ef153fd8` |
+| Commit timestamp | `2026-11-03T03:24:48-05:00` |
 
 ## Public API
 
