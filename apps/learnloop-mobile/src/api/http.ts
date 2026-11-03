@@ -127,6 +127,15 @@ export interface JobState<T> {
   readonly attempt_id?: string;
 }
 
+/**
+ * Did the host say it refused this write, or could it have gone through? No reply, a reply that isn't
+ * ours and the host's own `internal` don't say. Every other typed error is a refusal.
+ */
+export function refusedOutright(error: unknown): boolean {
+  const code = (error as CommandError | undefined)?.code;
+  return typeof code === "string" && code !== "desktop_offline" && code !== "internal";
+}
+
 /** The attempt a `submission_committed` refusal names: `/rpc`'s word, and a polled job's, for `recorded`. */
 export function committedAttempt(error: unknown): string | null {
   const command = error as CommandError | undefined;

@@ -2,13 +2,13 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import type { AttemptResultDto, CommandError, ScheduledItemDto, SessionEndSummary, SessionSnapshot } from "@desktop/api/dto";
 import { invalidate, setQueryData, clear as clearQueries } from "@desktop/api/queryCache";
 import { TAG } from "@desktop/api/queryTags";
-import { committedAttempt, pollJob } from "./api/http";
+import { committedAttempt, pollJob, refusedOutright } from "./api/http";
 import { phone, type OwnerSnapshot } from "./api/phone";
 import { useVisibleInterval } from "./util/useVisibleInterval";
 import { CaptureScreen } from "./screens/CaptureScreen";
 import { FeedbackScreen } from "./screens/FeedbackScreen";
 import { PairScreen } from "./screens/PairScreen";
-import { GRADING_DOWN, QuestionScreen, type QuestionTarget } from "./screens/QuestionScreen";
+import { GRADING_DOWN, QuestionScreen, type QuestionTarget, type SkipOutcome, type SkipSettled } from "./screens/QuestionScreen";
 import { PHONE_QUEUE_LIMIT, queueKey, queueRows, TodayScreen } from "./screens/TodayScreen";
 import { readCredential, subscribeCredential, type Credential } from "./store/credential";
 import { flushOutbox, listOutbox, type FlushStop } from "./store/outbox";
@@ -390,20 +390,41 @@ function Phone({ credential }: { credential: Credential }) {
     }
   }
 
-  /** True once the host has it. Short of that the question stays open and its draft is still live. */
-  async function skip(practiceItemId: string): Promise<boolean> {
+  /** Short of `recorded` the question stays open. Only a typed refusal says the skip didn't happen (F11). */
+  async function skip(practiceItemId: string): Promise<SkipOutcome> {
     const open = sessionRef.current;
-    if (!open) return false;
+    if (!open) return "refused";
     try {
       const queue = await phone.skipItem(open.sessionId, practiceItemId);
       clearQuestionDraft(open.sessionId, practiceItemId);
       setQueryData(queueKey(open.sessionId), queue, [TAG.queue]);
       setView({ name: "today" });
-      return true;
+      return "recorded";
+    } catch (error) {
+      if (!refusedOutright(error)) return "unknown";
+      reportError(error);
+      return "refused";
+    }
+  }
+
+  /** A skip with no reply: it clears the checkpoint, so what the checkpoint holds says if it landed. */
+  async function settleSkip(practiceItemId: string): Promise<SkipSettled> {
+    const open = sessionRef.current;
+    if (!open) return "unreachable";
+    let snapshot: SessionSnapshot;
+    try {
+      snapshot = await phone.getSession(open.sessionId);
     } catch (error) {
       reportError(error);
-      return false;
+      return "unreachable";
     }
+    const away = movedFrom(snapshot, deviceId);
+    if (away) setMoved(away);
+    if (snapshot.checkpoint?.currentPracticeItemId === practiceItemId) return "not_landed";
+    clearQuestionDraft(open.sessionId, practiceItemId);
+    invalidate({ tags: [TAG.queue] });
+    setView({ name: "today" });
+    return "landed";
   }
 
   async function endSession() {
@@ -483,6 +504,7 @@ function Phone({ credential }: { credential: Credential }) {
           onWaiting={(submissionId, practiceItemId) => setView({ name: "waiting", submissionId, practiceItemId })}
           onDesktopOnly={leftForDesktop}
           onSkipped={skip}
+          onSkipUnknown={settleSkip}
           onBack={() => setView({ name: "today" })}
           onError={reportError}
         />

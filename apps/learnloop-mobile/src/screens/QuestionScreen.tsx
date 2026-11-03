@@ -40,6 +40,22 @@ function insertSymbol(symbol: string, append: (text: string) => void): void {
 
 export const GRADING_DOWN = "AI grading is unavailable; your answer is saved. Retry later or finish on the desktop.";
 
+/** A skip sent: the host says it did it, the host says it didn't, or no reply says either (F11). */
+export type SkipOutcome = "recorded" | "refused" | "unknown";
+/** An `unknown` skip, once the checkpoint has been read, if it could be. */
+export type SkipSettled = "landed" | "not_landed" | "unreachable";
+
+const SKIP_UNSETTLED: CommandError = {
+  code: "desktop_offline",
+  message: "The desktop can't be reached, so this skip isn't settled. Your answer stays on this phone.",
+  retryable: false
+};
+const SKIP_NOT_RECORDED: CommandError = {
+  code: "skip_not_recorded",
+  message: "The skip didn't reach the desktop, and the question is still open.",
+  retryable: false
+};
+
 /** What this screen opens on: its own copy if it has one, else the checkpoint's draft, else nothing. */
 function openedDraft(sessionId: string, target: QuestionTarget) {
   const own = readQuestionDraft(sessionId, target.practiceItemId);
@@ -54,6 +70,7 @@ function openedDraft(sessionId: string, target: QuestionTarget) {
     sentInput: null as SubmitInput | null,
     // A key that came with the checkpoint may have a job or an attempt behind it.
     outcome: (restored?.submissionId ? "unknown" : "none") as SubmitOutcome,
+    skipUnknown: false,
     own: false
   };
 }
@@ -66,6 +83,7 @@ export function QuestionScreen({
   onWaiting,
   onDesktopOnly,
   onSkipped,
+  onSkipUnknown,
   onBack,
   onError
 }: {
@@ -77,8 +95,10 @@ export function QuestionScreen({
   /** The host is already working on this key: wait for it there, not here. */
   onWaiting: (submissionId: string, practiceItemId: string) => void;
   onDesktopOnly: (practiceItemId: string) => void;
-  /** True once the host has recorded it. A refusal is the App's to report. */
-  onSkipped: (practiceItemId: string) => Promise<boolean>;
+  /** A refusal is the App's to report. */
+  onSkipped: (practiceItemId: string) => Promise<SkipOutcome>;
+  /** Landed, the App has dropped the phone's copy and moved on. */
+  onSkipUnknown: (practiceItemId: string) => Promise<SkipSettled>;
   onBack: () => void;
   onError: (error: unknown) => void;
 }) {
@@ -100,6 +120,8 @@ export function QuestionScreen({
   const outcome = useRef<SubmitOutcome>(opened.outcome);
   // A skip on its way ends this draft if it lands: no save may put the draft back meanwhile (F10).
   const skipInFlight = useRef(false);
+  // A skip with no reply and no read of the checkpoint since: it may have landed, so no write yet (F11).
+  const skipUnknown = useRef(opened.skipUnknown ?? false);
   const shownAt = useRef(Date.now());
   // Its own copy may hold what never reached the checkpoint, or the checkpoint may have moved on to
   // another item since. A request already sent settles that at the submit.
@@ -118,7 +140,8 @@ export function QuestionScreen({
       schedulerCandidateId,
       assist,
       sentInput: sentInput.current,
-      outcome: outcome.current
+      outcome: outcome.current,
+      skipUnknown: skipUnknown.current
     });
   }
 
@@ -151,7 +174,7 @@ export function QuestionScreen({
   }, [practiceItemId, sessionId, loadRevision]);
 
   const saveDraft = useCallback(async () => {
-    if (!dirty.current || skipInFlight.current || latest.current.frozen || !latest.current.ready) return;
+    if (!dirty.current || skipInFlight.current || skipUnknown.current || latest.current.frozen || !latest.current.ready) return;
     dirty.current = false;
     try {
       await phone.saveDraft({
@@ -176,7 +199,7 @@ export function QuestionScreen({
 
   useEffect(() => {
     if (!item || probeActive) return undefined;
-    const timer = window.setTimeout(() => void saveDraft().catch(onError), DRAFT_DEBOUNCE_MS);
+    const timer = window.setTimeout(() => void saveWhenSettled().catch(onError), DRAFT_DEBOUNCE_MS);
     return () => window.clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [answer, stuck, item, probeActive, saveDraft]);
@@ -191,6 +214,31 @@ export function QuestionScreen({
     dirty.current = true;
     setAnswer(next);
     remember({ answer: next });
+  }
+
+  /** Reads the checkpoint for a skip with no reply. Unreachable, the question stays and nothing is written. */
+  async function settleSkip(): Promise<SkipSettled> {
+    const settled = await onSkipUnknown(practiceItemId);
+    if (settled === "unreachable") {
+      skipUnknown.current = true;
+      remember();
+      setFailure(SKIP_UNSETTLED);
+    } else if (settled === "not_landed") {
+      skipUnknown.current = false;
+      remember();
+    }
+    return settled;
+  }
+
+  /** The debounce's save. Past a skip with no reply it asks first, whenever this screen next has cause to write. */
+  async function saveWhenSettled(): Promise<void> {
+    if (!skipUnknown.current) return saveDraft();
+    if (skipInFlight.current) return;
+    skipInFlight.current = true;
+    const settled = await settleSkip();
+    if (settled === "landed") return;
+    skipInFlight.current = false;
+    if (settled === "not_landed") await saveDraft();
   }
 
   async function finish(attemptId: string, key: string) {
@@ -258,6 +306,7 @@ export function QuestionScreen({
     setFailure(null);
     let sending = false;
     try {
+      if (skipUnknown.current && (await settleSkip()) !== "not_landed") return;
       if (outcome.current === "unknown") {
         if (await settledByTheHost()) return;
         // Whatever it was, the checkpoint gets this draft again before the request goes.
@@ -322,19 +371,27 @@ export function QuestionScreen({
     if (skipInFlight.current) return;
     skipInFlight.current = true;
     setSkipping(true);
-    // A skip forgets the key, and reopening would then mint another over a job that may still land.
-    let skipped = false;
-    try {
-      skipped = (outcome.current === "unknown" && (await settledByTheHost())) || (await onSkipped(practiceItemId));
-    } catch (error) {
-      onError(error);
+    let result: SkipOutcome = "refused";
+    let settled: SkipSettled | null = skipUnknown.current ? await settleSkip() : null;
+    if (settled !== "landed" && settled !== "unreachable") {
+      try {
+        // A skip forgets the key, and reopening would then mint another over a job that may still land.
+        result = outcome.current === "unknown" && (await settledByTheHost()) ? "recorded" : await onSkipped(practiceItemId);
+      } catch (error) {
+        onError(error);
+      }
+      if (result === "unknown") {
+        // Saving now could put back what a skip that landed cleared, so the checkpoint says first.
+        settled = await settleSkip();
+        if (settled === "not_landed") onError(SKIP_NOT_RECORDED);
+      }
     }
     // Landed, it stays set: the skip ended this draft, and a flush on the way out would put it back.
-    if (skipped) return;
+    if (result === "recorded" || settled === "landed") return;
     skipInFlight.current = false;
     setSkipping(false);
-    // The question stays open, so what the skip held back is due now.
-    void saveDraft().catch(onError);
+    // The question stays open, so what the skip held back is due now, unless it may still have landed.
+    if (settled !== "unreachable") void saveDraft().catch(onError);
   }
 
   if (loadError) {

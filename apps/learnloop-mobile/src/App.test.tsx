@@ -1023,6 +1023,177 @@ describe("a question through what can go wrong (Codex review of M2a)", () => {
       expect(called("save_practice_draft")).toEqual([]);
     });
   });
+
+  describe("F11: a skip has three outcomes", () => {
+    const HELD = (answer = "Half an answer") => session({ checkpoint: { currentPracticeItemId: "i1", currentAnswer: answer, submissionId: "k9" } });
+    const READ_REFUSED = { status: 409, body: { ok: false, error: { code: "database_locked", message: "Can't read it now.", retryable: false } } };
+    const settle = () => act(async () => { await new Promise((resolve) => setTimeout(resolve, 1000)); });
+    const heldCopy = () => Object.values(JSON.parse(localStorage.getItem("learnloop.questionDrafts") ?? "{}")) as Array<{ answer: string; skipUnknown?: boolean }>;
+
+    /** The skip goes out, the host may or may not have done it, and its reply never comes. */
+    async function lostSkip(read: unknown = session()) {
+      answers.skip_practice_item = NOT_OURS;
+      const editor = await openAndType("Half an answer");
+      answers.get_session = read;
+      fireEvent.click(screen.getByRole("button", { name: "Skip" }));
+      await waitFor(() => expect(called("skip_practice_item")).toHaveLength(1));
+      return editor;
+    }
+
+    it("it landed: no save, the copy is dropped, and Today is next", async () => {
+      await lostSkip(session());
+      await screen.findByRole("button", { name: /^Next: Topic i1/ });
+      await settle();
+      expect(called("save_practice_draft")).toEqual([]);
+      expect(called("skip_practice_item")).toHaveLength(1);
+      expect(heldCopy()).toEqual([]);
+    });
+
+    it("the checkpoint moved on to another item: it landed too", async () => {
+      await lostSkip(session({ checkpoint: { currentPracticeItemId: "i2", currentAnswer: "other", submissionId: "k8" } }));
+      await screen.findByRole("button", { name: /^Next: Topic i1/ });
+      await settle();
+      expect(called("save_practice_draft")).toEqual([]);
+    });
+
+    it("the same when the transport itself failed", async () => {
+      const realFetch = globalThis.fetch;
+      vi.stubGlobal("fetch", vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+        if (String(input) === "/rpc" && JSON.parse(init?.body as string).method === "skip_practice_item") {
+          calls.push({ method: "skip_practice_item", params: {} });
+          throw new TypeError("connection lost");
+        }
+        return realFetch(input, init);
+      }));
+      await openAndType("Half an answer");
+      fireEvent.click(screen.getByRole("button", { name: "Skip" }));
+      await screen.findByRole("button", { name: /^Next: Topic i1/ });
+      await settle();
+      expect(called("save_practice_draft")).toEqual([]);
+    });
+
+    it("the host's own internal error says nothing of it either", async () => {
+      answers.skip_practice_item = { status: 500, body: { ok: false, error: { code: "internal", message: "Stopped.", retryable: false } } };
+      await openAndType("Half an answer");
+      fireEvent.click(screen.getByRole("button", { name: "Skip" }));
+      await screen.findByRole("button", { name: /^Next: Topic i1/ });
+      await settle();
+      expect(called("save_practice_draft")).toEqual([]);
+    });
+
+    it("the checkpoint still holds this item's draft: it didn't land, and the save goes ahead, once", async () => {
+      const editor = await lostSkip(HELD());
+      await waitFor(() => expect(called("save_practice_draft")).toHaveLength(1));
+      expect(called("save_practice_draft")[0].params.answerMd).toBe("Half an answer");
+      expect(editor.textContent).toContain("Half an answer");
+      expect(await screen.findByText(/skip didn't reach the desktop/)).toBeTruthy();
+      expect((screen.getByRole("button", { name: "Skip" }) as HTMLButtonElement).disabled).toBe(false);
+      await settle();
+      expect(called("save_practice_draft")).toHaveLength(1);
+      expect(heldCopy()[0].skipUnknown).toBeFalsy();
+    });
+
+    describe("and the read fails too", () => {
+      it("says the desktop can't be reached, stays, keeps the copy and writes nothing", async () => {
+        const editor = await lostSkip(READ_REFUSED);
+        expect(await screen.findByText(/desktop can't be reached/)).toBeTruthy();
+        expect(editor.textContent).toContain("Half an answer");
+        await waitFor(() => expect((screen.getByRole("button", { name: "Skip" }) as HTMLButtonElement).disabled).toBe(false));
+        await settle();
+        expect(called("save_practice_draft")).toEqual([]);
+        expect(heldCopy()[0]).toMatchObject({ answer: "Half an answer", skipUnknown: true });
+      });
+
+      it("the desktop gone altogether says so, on the shell too", async () => {
+        await lostSkip({ status: 502, body: {} });
+        expect(await screen.findByText(/desktop can't be reached/, undefined, { timeout: 6000 })).toBeTruthy();
+        expect(await screen.findByText(/Desktop offline/)).toBeTruthy();
+        expect(called("save_practice_draft")).toEqual([]);
+      }, 10000);
+
+      it("Back writes nothing, and reopening reads before it writes", async () => {
+        await lostSkip(READ_REFUSED);
+        await screen.findByText(/desktop can't be reached/);
+        await waitFor(() => expect((screen.getByRole("button", { name: "Back" }) as HTMLButtonElement).disabled).toBe(false));
+        fireEvent.click(screen.getByRole("button", { name: "Back" }));
+        await screen.findByRole("button", { name: /^Next: Topic i1/ });
+        await settle();
+        expect(called("save_practice_draft")).toEqual([]);
+        answers.get_session = session();
+        fireEvent.click(screen.getByRole("button", { name: /^Next: Topic i1/ }));
+        await screen.findByRole("textbox", { name: "Your answer" });
+        await settle();
+        expect(called("save_practice_draft")).toEqual([]);
+        expect(heldCopy()).toEqual([]);
+        await screen.findByRole("button", { name: /^Next: Topic i1/ });
+      });
+
+      it("an edit waits for the read: landed, nothing is saved", async () => {
+        await lostSkip(READ_REFUSED);
+        await screen.findByText(/desktop can't be reached/);
+        await waitFor(() => expect((screen.getByRole("button", { name: "Skip" }) as HTMLButtonElement).disabled).toBe(false));
+        answers.get_session = session();
+        typeInto("Half an answer, and more");
+        await screen.findByRole("button", { name: /^Next: Topic i1/ }, { timeout: 3000 });
+        await settle();
+        expect(called("save_practice_draft")).toEqual([]);
+      });
+
+      it("an edit waits for the read: not landed, that edit is saved", async () => {
+        await lostSkip(READ_REFUSED);
+        await screen.findByText(/desktop can't be reached/);
+        await waitFor(() => expect((screen.getByRole("button", { name: "Skip" }) as HTMLButtonElement).disabled).toBe(false));
+        answers.get_session = HELD();
+        typeInto("Half an answer, and more");
+        await waitFor(() => expect(called("save_practice_draft")).toHaveLength(1), { timeout: 3000 });
+        expect(called("save_practice_draft")[0].params.answerMd).toBe("Half an answer, and more");
+      });
+
+      it("Skip again reads first: landed, no second skip", async () => {
+        await lostSkip(READ_REFUSED);
+        await screen.findByText(/desktop can't be reached/);
+        await waitFor(() => expect((screen.getByRole("button", { name: "Skip" }) as HTMLButtonElement).disabled).toBe(false));
+        answers.get_session = session();
+        fireEvent.click(screen.getByRole("button", { name: "Skip" }));
+        await screen.findByRole("button", { name: /^Next: Topic i1/ });
+        expect(called("skip_practice_item")).toHaveLength(1);
+      });
+
+      it("Skip again reads first: not landed, it goes out again", async () => {
+        await lostSkip(READ_REFUSED);
+        await screen.findByText(/desktop can't be reached/);
+        await waitFor(() => expect((screen.getByRole("button", { name: "Skip" }) as HTMLButtonElement).disabled).toBe(false));
+        answers.get_session = HELD();
+        answers.skip_practice_item = queue([row("i2")]);
+        fireEvent.click(screen.getByRole("button", { name: "Skip" }));
+        await screen.findByRole("button", { name: /^Next: Topic i2/ });
+        expect(called("skip_practice_item")).toHaveLength(2);
+        expect(called("save_practice_draft")).toEqual([]);
+      });
+
+      it("Submit reads first: landed, nothing is graded", async () => {
+        await lostSkip(READ_REFUSED);
+        await screen.findByText(/desktop can't be reached/);
+        await waitFor(() => expect((screen.getByRole("button", { name: "Submit" }) as HTMLButtonElement).disabled).toBe(false));
+        answers.get_session = session();
+        fireEvent.click(screen.getByRole("button", { name: /Submit/ }));
+        await screen.findByRole("button", { name: /^Next: Topic i1/ });
+        expect(called("submit_attempt")).toEqual([]);
+        expect(called("save_practice_draft")).toEqual([]);
+      });
+
+      it("Submit reads first: still unreachable, nothing goes out", async () => {
+        await lostSkip(READ_REFUSED);
+        await screen.findByText(/desktop can't be reached/);
+        await waitFor(() => expect((screen.getByRole("button", { name: "Submit" }) as HTMLButtonElement).disabled).toBe(false));
+        fireEvent.click(screen.getByRole("button", { name: /Submit/ }));
+        await settle();
+        expect(called("submit_attempt")).toEqual([]);
+        expect(called("save_practice_draft")).toEqual([]);
+        expect(screen.getByText(/desktop can't be reached/)).toBeTruthy();
+      });
+    });
+  });
 });
 
 describe("capture and the desktop being away (§7)", () => {
