@@ -47,7 +47,7 @@ from __future__ import annotations
 
 import re
 from collections.abc import Iterator, Mapping, Sequence
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from fractions import Fraction
 from typing import Any
 
@@ -204,6 +204,11 @@ def _word(nodes: Sequence[Tree]) -> str | None:
     return "".join(str(node.get("text")) for node in kept)
 
 
+def _is_table_space(node: Tree) -> bool:
+    dimension = node.get("dimension") or {}
+    return node.get("text") in _SPACES or (dimension.get("number"), dimension.get("unit")) in _KERNS
+
+
 def _refuse_symbol(text: str) -> Unreadable:
     return Unreadable(_LABELS.get(text, "unsupported_command"))
 
@@ -213,14 +218,8 @@ def _items(nodes: Sequence[Tree]) -> list[_Item]:
     gap = False
     for node in nodes:
         kind = node.get("type")
-        if kind == "kern":
-            dimension = node.get("dimension") or {}
-            if (dimension.get("number"), dimension.get("unit")) not in _KERNS:
-                raise Unreadable("unsupported_command")
-            gap = True
-            continue
-        if kind == "spacing":
-            if node.get("text") not in _SPACES:
+        if kind in ("kern", "spacing"):
+            if not _is_table_space(node):
                 raise Unreadable("unsupported_command")
             gap = True
             continue
@@ -229,12 +228,20 @@ def _items(nodes: Sequence[Tree]) -> list[_Item]:
             base, sup, sub = node.get("base"), node.get("sup"), node.get("sub")
             if base is None:
                 raise Unreadable("syntax")
-        made = _base_items(base, sup, sub)
-        if (sup is not None or sub is not None) and made[-1].kind in ("op", "rel", "punct", "bang", "text"):
-            raise Unreadable("syntax")  # a script on +, =, a comma or \text: the page shows it, and no reading has a place for it
-        if len(made) == 1 and made[0].kind == "num" and not gap and out and out[-1].kind == "num" and out[-1].sup is None and out[-1].sub is None:
+        made = _base_items(base)
+        if sup is not None or sub is not None:
+            last = made[-1]
+            # A script on +, =, a comma or \text: the page shows it, and no reading has a place for it.
+            if last.kind in ("op", "rel", "punct", "bang", "text", "extreme"):
+                raise Unreadable("syntax")
+            if last.kind == "func":
+                raise Unreadable("function_power" if sup is not None else "log_base")
+            if sub is not None and last.kind != "sym":
+                raise Unreadable("subscript")
+            made[-1] = replace(last, sup=sup, sub=sub)
+        if len(made) == 1 and made[0].kind == "num" and not gap and out and out[-1].kind == "num" and out[-1].sup is None:
             # TeX's digits are one token each; the page's numeral is the run (and a script is on its last digit).
-            out[-1] = _Item("num", out[-1].text + made[0].text, sup=made[0].sup, sub=made[0].sub)
+            out[-1] = _Item("num", out[-1].text + made[0].text, sup=made[0].sup)
         else:
             out.extend(made)
         gap = False
@@ -244,62 +251,65 @@ def _items(nodes: Sequence[Tree]) -> list[_Item]:
     return out
 
 
-def _base_items(base: Tree, sup: Tree | None, sub: Tree | None) -> list[_Item]:
+def _base_items(base: Tree) -> list[_Item]:
     kind = base.get("type")
     text = str(base.get("text") or "")
     if kind == "textord":
         if text.isdigit() or text == ".":
-            return [_Item("num", text, sup=sup, sub=sub)]
+            return [_Item("num", text)]
         if text == "/":
             return [_Item("op", "/")]
         if text == "|":
-            return [_Item("bar", "|", sup=sup, sub=sub)]
+            return [_Item("bar", "|")]
         if text[1:] in _GREEK:
-            return [_Item("sym", text, sup=sup, sub=sub)]
+            return [_Item("sym", text)]
         raise _refuse_symbol(text)
     if kind == "mathord":
         if (len(text) == 1 and text.isascii() and text.isalpha()) or text[1:] in _GREEK:
-            return [_Item("sym", text, sup=sup, sub=sub)]
+            return [_Item("sym", text)]
         raise _refuse_symbol(text)
     if kind == "atom":
-        return [_atom_item(base, text, sup, sub)]
+        return [_atom_item(base, text)]
     if kind == "leftright":
-        return _leftright_items(base, sup, sub)
+        return _leftright_items(base)
     if kind == "op":
-        return [_op_item(base, sup, sub)]
+        name = str(base.get("name") or "")
+        if name in _FUNCTIONS:
+            return [_Item("func", _FUNCTIONS[name])]
+        if name in _EXTREMES:
+            return [_Item("extreme", _EXTREMES[name])]
+        raise _refuse_symbol(name)
     if kind == "operatorname":
         word = _word(base.get("body") or ())
         if word in ("limsup", "liminf"):
             raise Unreadable("limit")
         if word != "erf":
             raise Unreadable("unsupported_function")
-        return [_function_item("erf", sup, sub)]
+        return [_Item("func", "erf")]
     if kind == "font":
-        return [_font_item(base, sup, sub)]
+        return [_font_item(base)]
     if kind == "genfrac":
         if not base.get("hasBarLine"):
             raise Unreadable("binom" if base.get("leftDelim") else "unsupported_command")
         if base.get("leftDelim") or base.get("rightDelim"):
             raise Unreadable("unsupported_command")
-        return [_Item("frac", node=base, sup=sup, sub=sub)]
+        return [_Item("frac", node=base)]
     if kind == "sqrt":
         if base.get("index") is not None:
             raise Unreadable("nth_root")
-        return [_Item("sqrt", node=base, sup=sup, sub=sub)]
+        return [_Item("sqrt", node=base)]
     if kind == "text":
         return [_Item("text", node=base)]
     if kind == "array":
         raise Unreadable("unsupported_environment" if base.get("colSeparationType") or base.get("addJot") else "matrix")
-    if kind == "ordgroup":
-        raise Unreadable("syntax")
-    if kind == "cr":
+    if kind in ("ordgroup", "cr"):
         raise Unreadable("syntax")
     if kind == "htmlmathml":  # \neq and its kin: KaTeX builds them, and none is an equality
         raise Unreadable("relation")
     raise Unreadable("unsupported_command")
 
 
-def _atom_item(base: Tree, text: str, sup: Tree | None, sub: Tree | None) -> _Item:
+def _atom_item(base: Tree, text: str) -> _Item:
     family = base.get("family")
     if family == "bin" and text in ("+", "-"):
         return _Item("op", text)
@@ -308,11 +318,11 @@ def _atom_item(base: Tree, text: str, sup: Tree | None, sub: Tree | None) -> _It
     if family == "rel" and text in _CONDITION_OPS:
         return _Item("rel", text)
     if family == "open" and text in _OPENERS:
-        return _Item("open", _OPENERS[text], sup=sup, sub=sub)
+        return _Item("open", _OPENERS[text])
     if family == "open" and text == r"\lvert":
-        return _Item("open", r"\rvert", absolute=True, sup=sup, sub=sub)
+        return _Item("open", r"\rvert", absolute=True)
     if family == "close" and text in (")", "]", r"\}", r"\rvert"):
-        return _Item("close", text, sup=sup, sub=sub)
+        return _Item("close", text)
     if family == "close" and text == "!":
         return _Item("bang", "!")
     if family == "punct" and text == ",":
@@ -320,7 +330,7 @@ def _atom_item(base: Tree, text: str, sup: Tree | None, sub: Tree | None) -> _It
     raise _refuse_symbol(text) if text in _LABELS else Unreadable("syntax" if family in ("punct", "rel") else "unsupported_command")
 
 
-def _leftright_items(base: Tree, sup: Tree | None, sub: Tree | None) -> list[_Item]:
+def _leftright_items(base: Tree) -> list[_Item]:
     left, right = base.get("left"), base.get("right")
     body = base.get("body") or ()
     arrays = [node for node in body if node.get("type") == "array"]
@@ -330,46 +340,25 @@ def _leftright_items(base: Tree, sup: Tree | None, sub: Tree | None) -> list[_It
         columns = arrays[0].get("cols") or ()
         if arrays[0].get("colSeparationType") or [column.get("align") for column in columns] != ["l", "l"]:
             raise Unreadable("unsupported_environment")
-        return [_Item("cases", node=arrays[0], sup=sup, sub=sub)]
+        return [_Item("cases", node=arrays[0])]
     closers = {"(": ")", "[": "]", r"\{": r"\}", "|": "|", r"\lvert": r"\rvert"}
     if closers.get(str(left)) != right:
         raise Unreadable("syntax")
     return [_Item("open", str(right), absolute=left in ("|", r"\lvert")), *_items(body),
-            _Item("close", str(right), sup=sup, sub=sub)]
+            _Item("close", str(right))]
 
 
-def _op_item(base: Tree, sup: Tree | None, sub: Tree | None) -> _Item:
-    name = str(base.get("name") or "")
-    if name in _LABELS:
-        raise _refuse_symbol(name)
-    if name in _FUNCTIONS:
-        return _function_item(_FUNCTIONS[name], sup, sub)
-    if name in _EXTREMES:
-        if sup is not None or sub is not None:
-            raise Unreadable("syntax")
-        return _Item("extreme", _EXTREMES[name])
-    raise Unreadable("unsupported_command")
-
-
-def _function_item(name: str, sup: Tree | None, sub: Tree | None) -> _Item:
-    if sup is not None:
-        raise Unreadable("function_power")
-    if sub is not None:
-        raise Unreadable("log_base")
-    return _Item("func", name)
-
-
-def _font_item(base: Tree, sup: Tree | None, sub: Tree | None) -> _Item:
+def _font_item(base: Tree) -> _Item:
     font, body = base.get("font"), base.get("body") or {}
     if font == "mathbb":
         raise Unreadable("indicator")
     if font != "mathrm":
         raise Unreadable("unsupported_command")
     word = _word(_body(body))
-    if word == "e" and sub is None:
-        return _Item("const", "e", sup=sup)
+    if word == "e":
+        return _Item("const", "e")
     if word == "erf":
-        return _function_item("erf", sup, sub)
+        return _Item("func", "erf")
     if word == "d":
         raise Unreadable("derivative")
     raise Unreadable("unsupported_command")
@@ -418,12 +407,6 @@ def binary64_exact(text: str) -> bool:
         return Fraction(text) == Fraction(value)
     except (ValueError, OverflowError, ZeroDivisionError):
         return False
-
-
-def _exact_numeral(item: _Item, sign: int) -> Fraction:
-    if not binary64_exact(item.text):
-        raise Unreadable("inexact_literal")
-    return sign * Fraction(item.text)
 
 
 Rows = list[tuple[G.Node, G.Node | None, tuple[str, list[tuple[str, Fraction]]] | None]]
@@ -523,7 +506,7 @@ class _Reader:
                 if item.kind == "num":
                     raise Unreadable("syntax")
                 # 3\frac{1}{2} on a page is a mixed number, 3.5; the product it would parse as is 1.5.
-                if item.kind == "frac" and self.items[self.position - 1].kind == "num" and _numeric_fraction(item):
+                if item.kind == "frac" and self.items[self.position - 1].kind == "num" and None not in _numeric_sides(item):
                     raise Unreadable("syntax")
                 node = self.node("bin", depth, op="*", args=(node, self.factor(depth + 1)))
             else:
@@ -553,8 +536,6 @@ class _Reader:
         item = self.take()
         kind = item.kind
         if kind == "num":
-            if item.sub is not None:
-                raise Unreadable("subscript")
             if float(item.text) == float("inf"):
                 raise Unreadable("too_long")
             return self.node("num", depth, text=item.text, value=float(item.text)), item.sup
@@ -567,33 +548,24 @@ class _Reader:
         if kind == "open":
             return self.group(item, depth)
         if kind == "bar":
-            if self.bars or item.sup is not None or item.sub is not None:
+            if self.bars or item.sup is not None:
                 raise Unreadable("syntax")
             self.bars += 1
             inner = self.expression(depth + 1)
             self.bars -= 1
-            closing = self.closes("bar", "|")
-            if closing.sub is not None:
-                raise Unreadable("subscript")
-            return self.node("call", depth, text="abs", args=(inner,)), closing.sup
+            return self.node("call", depth, text="abs", args=(inner,)), self.closes("bar", "|").sup
         if kind == "frac":
-            return self.fraction(item, depth), self.plain_script(item)
+            return self.fraction(item, depth), item.sup
         if kind == "sqrt":
             assert item.node is not None
-            return self.node("call", depth, text="sqrt", args=(self.inner(item.node["body"], depth + 1),)), self.plain_script(item)
+            return self.node("call", depth, text="sqrt", args=(self.inner(item.node["body"], depth + 1),)), item.sup
         if kind == "func":
             return self.function(item, depth)
         if kind == "extreme":
             return self.extreme(item, depth)
         if kind == "cases":
-            return self.cases(item, depth), self.plain_script(item)
+            return self.cases(item, depth), item.sup
         raise self.leftover(item)
-
-    @staticmethod
-    def plain_script(item: _Item) -> Tree | None:
-        if item.sub is not None:
-            raise Unreadable("subscript")
-        return item.sup
 
     def symbol(self, item: _Item, depth: int) -> tuple[G.Node, Tree | None]:
         raw = item.text
@@ -611,33 +583,26 @@ class _Reader:
             if item.sup is None:
                 raise Unreadable("ambiguous_e")
             return self.node("call", depth, text="exp", args=(self.inner(item.sup, depth + 1),)), None
+        if not (canonical == "pi" and raw == r"\pi"):
+            if canonical in G.RESERVED or not G.is_name(canonical):
+                raise Unreadable("reserved_name")
+            known = self.spellings.setdefault(canonical, set())
+            known.add(latex)
+            if len(known) > 1:
+                raise Unreadable("name_collision")
+            self.first.setdefault(canonical, latex)
         following = self.peek()
         applied = following is not None and following.kind == "open" and not following.absolute
-        if canonical == "pi" and raw == r"\pi":
-            (self.applied if applied else self.plain).add(canonical)
-            return self.node("name", depth, text="pi"), item.sup
-        if canonical in G.RESERVED or not G.is_name(canonical):
-            raise Unreadable("reserved_name")
-        self.record(canonical, latex)
         (self.applied if applied else self.plain).add(canonical)
         return self.node("name", depth, text=canonical), item.sup
 
-    def record(self, canonical: str, latex: str) -> None:
-        known = self.spellings.setdefault(canonical, set())
-        known.add(latex)
-        if len(known) > 1:
-            raise Unreadable("name_collision")
-        self.first.setdefault(canonical, latex)
-
     def group(self, opening: _Item, depth: int) -> tuple[G.Node, Tree | None]:
-        if opening.sup is not None or opening.sub is not None:
+        if opening.sup is not None:
             raise Unreadable("syntax")
         saved, self.bars = self.bars, 0
         inner = self.expression(depth + 1)
         self.bars = saved
         closing = self.closes("close", opening.text)
-        if closing.sub is not None:
-            raise Unreadable("subscript")
         if opening.absolute:
             inner = self.node("call", depth, text="abs", args=(inner,))
         return inner, closing.sup
@@ -660,13 +625,9 @@ class _Reader:
             self.take()
             inner, sup = self.group(argument, depth + 1)
             return self.node("call", depth, text=item.text, args=(inner,)), sup
-        if argument.kind not in ("num", "sym") or argument.sup is not None or argument.sub is not None and argument.kind == "num":
+        if argument.kind not in ("num", "sym") or argument.sup is not None:
             raise Unreadable("function_arg")
-        self.take()
-        if argument.kind == "num":
-            inner = self.node("num", depth + 1, text=argument.text, value=float(argument.text))
-        else:
-            inner = self.symbol(argument, depth + 1)[0]
+        inner = self.atom(depth + 1)[0]
         following = self.peek()
         if following is not None and self.starts_factor(following) and following.kind != "func":
             raise Unreadable("function_arg")
@@ -695,10 +656,8 @@ class _Reader:
         for row in item.node.get("body") or ():
             # A row with no condition column names no condition: only the word
             # "otherwise" may stand for the rest of the line.
-            if len(row) < 2:
+            if len(row) != 2:
                 raise Unreadable("cases_cover")
-            if len(row) > 2:
-                raise Unreadable("unsupported_environment")
             value = self.inner(_without_end_punctuation(_cell(row[0])), depth + 1)
             condition, shape = self.condition(_cell(row[1]), depth + 1)
             rows.append((value, condition, shape))
@@ -765,13 +724,15 @@ class _Reader:
             item = self.take() if self.peek() is not None else None
             if item is None:
                 raise Unreadable("cases_condition")
-        if item.sup is not None or (item.sub is not None and item.kind != "sym"):
+        if item.sup is not None:
             raise Unreadable("cases_condition")
         if item.kind == "num":
-            return _exact_numeral(item, sign)
+            if not binary64_exact(item.text):
+                raise Unreadable("inexact_literal")
+            return sign * Fraction(item.text)
         if item.kind == "frac":
             top, bottom = _numeric_sides(item)
-            if top is None or bottom is None or not bottom:
+            if top is None or not bottom:
                 raise Unreadable("cases_condition")
             value = top / bottom
             if Fraction(float(value)) != value:
@@ -820,16 +781,12 @@ def _numeric_sides(item: _Item) -> tuple[Fraction | None, Fraction | None]:
             found = _items(_body(node))
         except Unreadable:
             return None
-        if len(found) == 1 and found[0].kind == "num" and found[0].sup is None and found[0].sub is None:
+        if len(found) == 1 and found[0].kind == "num" and found[0].sup is None:
             return Fraction(found[0].text)
         return None
 
     assert item.node is not None
     return side(item.node["numer"]), side(item.node["denom"])
-
-
-def _numeric_fraction(item: _Item) -> bool:
-    return None not in _numeric_sides(item)
 
 
 def _cell(cell: Tree) -> Sequence[Tree]:
@@ -926,7 +883,7 @@ def _lhs_args(nodes: Sequence[Tree]) -> tuple[tuple[str, ...], dict[str, set[str
         if opening is None or not _is_atom(kept[-1], "close", ")"):
             return nothing
         head, inner = kept[:opening], kept[opening + 1:-1]
-    if not head or not all(_is_name_part(node, index == len(head) - 1) for index, node in enumerate(head)):
+    if not head or not all(node.get("type") in ("mathord", "op", "supsub", "textord") and "sup" not in node for node in head):
         return nothing
     parts: list[list[Tree]] = [[]]
     for node in inner:
@@ -953,17 +910,6 @@ def _lhs_args(nodes: Sequence[Tree]) -> tuple[tuple[str, ...], dict[str, set[str
             spellings.setdefault(name, set()).update(spelled)
         first.update(reader.first)
     return tuple(args), spellings, first
-
-
-def _is_name_part(node: Tree, last: bool) -> bool:
-    """A function's name on the left: letters, a named operator, or a subscript on the last letter."""
-
-    kind = node.get("type")
-    if kind == "supsub":
-        return last and node.get("sup") is None and (node.get("base") or {}).get("type") in ("mathord", "textord")
-    if kind == "textord":
-        return str(node.get("text"))[1:] in _GREEK or str(node.get("text")) in (r"\Phi", r"\Gamma")
-    return kind in ("mathord", "op")
 
 
 def _walk(value: Any) -> Iterator[Tree]:
@@ -1004,8 +950,7 @@ def _left_hand_side(source: str, tree: Sequence[Tree], lhs_end: int, *, trees: K
     lhs = source[:start].strip()
     left = tree[:lhs_end]
     for node in _walk(list(left)):
-        dimension = node.get("dimension") or {}
-        if node.get("type") not in _LABEL_NODES or (node.get("type") == "kern" and (dimension.get("number"), dimension.get("unit")) not in _KERNS):
+        if node.get("type") not in _LABEL_NODES or (node.get("type") == "kern" and not _is_table_space(node)):
             raise Unreadable("unsupported_command")
     if _without_places(_parse(trees, lhs, display)) != _without_places(list(left)):
         raise Unreadable("syntax")

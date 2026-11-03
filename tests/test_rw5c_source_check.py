@@ -187,7 +187,7 @@ def test_an_unbraced_radical_never_certifies_the_meaning_the_page_does_not_show(
     paths, repository = build_check_vault(tmp_path / "vault", [("a", "Text", r"$f(x)=\sqrt16 x$")])
     result = check((load_vault(paths.root), repository), plot("4*x", stated="f(x)", span="a"), "a")
     assert not result.book_elements and result.outcome == SC.NOT_CHECKABLE
-    assert result.reasons.get("function_arg") == 1
+    assert result.reasons.get("syntax") == 1
 
 
 def test_a_withheld_span_is_never_read(tmp_path):

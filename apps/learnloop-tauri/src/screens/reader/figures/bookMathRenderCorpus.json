@@ -1,20 +1,312 @@
 {
-  "_comment": "RW5c Codex review F1: how TeX groups these right-hand sides (KaTeX MathML, pinned by bookMathRender.test.ts) against what code reads (tests/test_rw5c_book_math.py). TeX takes one token where the expression tokenizer sees a whole numeral or a symbol with its subscript, and it ignores spaces between digits, so each unbraced form below is refused and only the braced form is read.",
+  "_comment": "RW5c: one corpus for both lanes. bookMathRender.test.ts runs each form through the Reader's real pipeline (MarkdownMath: remark-math and rehype-katex) and pins the MathML the page holds, or that the page shows an error; test_rw5c_katex_tree.py pins that the same KaTeX in the sealed engine gives the same MathML, that the reader gives each result, and that what it reads means what that MathML means. `whole` is a complete segment; the rest are right-hand sides. `blocks` pins which segments a block's text has on the page and to the reader.",
   "refused": [
-    { "rhs": "\\sqrt16 x", "mathml": "<msqrt><mn>1</mn></msqrt><mn>6</mn><mi>x</mi>", "reason": "function_arg" },
-    { "rhs": "\\sqrt16", "mathml": "<msqrt><mn>1</mn></msqrt><mn>6</mn>", "reason": "function_arg" },
-    { "rhs": "\\sqrt x", "mathml": "<msqrt><mi>x</mi></msqrt>", "reason": "function_arg" },
-    { "rhs": "2 3 x", "mathml": "<mn>23</mn><mi>x</mi>", "reason": "syntax" },
-    { "rhs": "2.5 .5", "mathml": "<mn>2.5.5</mn>", "reason": "syntax" },
-    { "rhs": "1\\,000 x", "mathml": "<mn>1</mn><mtext>\u2009</mtext><mn>000</mn><mi>x</mi>", "reason": "syntax" },
-    { "rhs": "x^a_1", "mathml": "<msubsup><mi>x</mi><mn>1</mn><mi>a</mi></msubsup>", "reason": "subscript" },
-    { "rhs": "x^\\alpha_1", "mathml": "<msubsup><mi>x</mi><mn>1</mn><mi>α</mi></msubsup>", "reason": "subscript" },
-    { "rhs": "e^x_1", "mathml": "<msubsup><mi>e</mi><mn>1</mn><mi>x</mi></msubsup>", "reason": "subscript" }
+    {
+      "rhs": "\\sqrt16 x",
+      "mathml": "<msqrt><mn>1</mn></msqrt><mn>6</mn><mi>x</mi>",
+      "reason": "syntax"
+    },
+    {
+      "rhs": "\\sqrt16",
+      "mathml": "<msqrt><mn>1</mn></msqrt><mn>6</mn>",
+      "reason": "syntax"
+    },
+    {
+      "rhs": "2.5 .5",
+      "mathml": "<mn>2.5.5</mn>",
+      "reason": "syntax"
+    },
+    {
+      "rhs": "1\\,000 x",
+      "mathml": "<mn>1</mn><mtext> </mtext><mn>000</mn><mi>x</mi>",
+      "reason": "syntax"
+    },
+    {
+      "rhs": "x^10",
+      "mathml": "<msup><mi>x</mi><mn>1</mn></msup><mn>0</mn>",
+      "reason": "syntax"
+    },
+    {
+      "rhs": "3\\frac{1}{2} x",
+      "mathml": "<mn>3</mn><mfrac><mn>1</mn><mn>2</mn></mfrac><mi>x</mi>",
+      "reason": "syntax"
+    },
+    {
+      "rhs": "{a+b}c",
+      "mathml": "<mrow><mi>a</mi><mo>+</mo><mi>b</mi></mrow><mi>c</mi>",
+      "reason": "syntax"
+    },
+    {
+      "rhs": "{x}^2",
+      "mathml": "<msup><mi>x</mi><mn>2</mn></msup>",
+      "reason": "syntax"
+    },
+    {
+      "rhs": "a +^2 b",
+      "mathml": "<mi>a</mi><msup><mo>+</mo><mn>2</mn></msup><mi>b</mi>",
+      "reason": "syntax"
+    },
+    {
+      "rhs": "\\sin^2 x",
+      "mathml": "<msup><mrow><mi>sin</mi><mo>⁡</mo></mrow><mn>2</mn></msup><mi>x</mi>",
+      "reason": "function_power"
+    },
+    {
+      "rhs": "\\ln_2 x",
+      "mathml": "<msub><mrow><mi>ln</mi><mo>⁡</mo></mrow><mn>2</mn></msub><mi>x</mi>",
+      "reason": "log_base"
+    },
+    {
+      "rhs": "\\log x",
+      "mathml": "<mi>log</mi><mo>⁡</mo><mi>x</mi>",
+      "reason": "log_base"
+    },
+    {
+      "rhs": "n!",
+      "mathml": "<mi>n</mi><mo stretchy=\"false\">!</mo>",
+      "reason": "factorial"
+    },
+    {
+      "rhs": "g(1-p)",
+      "mathml": "<mi>g</mi><mo stretchy=\"false\">(</mo><mn>1</mn><mo>−</mo><mi>p</mi><mo stretchy=\"false\">)</mo>",
+      "reason": "application"
+    },
+    {
+      "rhs": "b^2(1-a)",
+      "mathml": "<msup><mi>b</mi><mn>2</mn></msup><mo stretchy=\"false\">(</mo><mn>1</mn><mo>−</mo><mi>a</mi><mo stretchy=\"false\">)</mo>",
+      "reason": "application"
+    },
+    {
+      "rhs": "\\frac{d}{dx} x",
+      "mathml": "<mfrac><mi>d</mi><mrow><mi>d</mi><mi>x</mi></mrow></mfrac><mi>x</mi>",
+      "reason": "derivative"
+    },
+    {
+      "rhs": "f'",
+      "mathml": "<msup><mi>f</mi><mo mathvariant=\"normal\" lspace=\"0em\" rspace=\"0em\">′</mo></msup>",
+      "reason": "derivative"
+    },
+    {
+      "rhs": "e",
+      "mathml": "<mi>e</mi>",
+      "reason": "ambiguous_e"
+    },
+    {
+      "rhs": "\\binom{n}{k}",
+      "mathml": "<mo fence=\"true\">(</mo><mfrac linethickness=\"0px\"><mi>n</mi><mi>k</mi></mfrac><mo fence=\"true\">)</mo>",
+      "reason": "binom"
+    },
+    {
+      "rhs": "\\sqrt[3]{x}",
+      "mathml": "<mroot><mi>x</mi><mn>3</mn></mroot>",
+      "reason": "nth_root"
+    },
+    {
+      "rhs": "\\hat{x}",
+      "mathml": "<mover accent=\"true\"><mi>x</mi><mo>^</mo></mover>",
+      "reason": "unsupported_command"
+    },
+    {
+      "rhs": "\\color{red}x",
+      "mathml": "<mstyle mathcolor=\"red\"><mi>x</mi></mstyle>",
+      "reason": "unsupported_command"
+    },
+    {
+      "rhs": "\\displaystyle x",
+      "mathml": "<mstyle scriptlevel=\"0\" displaystyle=\"true\"><mi>x</mi></mstyle>",
+      "reason": "unsupported_command"
+    }
   ],
   "read": [
-    { "rhs": "\\sqrt{16} x", "mathml": "<msqrt><mn>16</mn></msqrt><mi>x</mi>", "grammar": "sqrt(16)*x" },
-    { "rhs": "x^{a_1}", "mathml": "<msup><mi>x</mi><msub><mi>a</mi><mn>1</mn></msub></msup>", "grammar": "x^a1" },
-    { "rhs": "x_1^a", "mathml": "<msubsup><mi>x</mi><mn>1</mn><mi>a</mi></msubsup>", "grammar": "x1^a" },
-    { "rhs": "2 x", "mathml": "<mn>2</mn><mi>x</mi>", "grammar": "2*x" }
+    {
+      "rhs": "\\sqrt{16} x",
+      "mathml": "<msqrt><mn>16</mn></msqrt><mi>x</mi>",
+      "grammar": "sqrt(16)*x"
+    },
+    {
+      "rhs": "\\sqrt x",
+      "mathml": "<msqrt><mi>x</mi></msqrt>",
+      "grammar": "sqrt(x)"
+    },
+    {
+      "rhs": "x^{a_1}",
+      "mathml": "<msup><mi>x</mi><msub><mi>a</mi><mn>1</mn></msub></msup>",
+      "grammar": "x^a1"
+    },
+    {
+      "rhs": "x_1^a",
+      "mathml": "<msubsup><mi>x</mi><mn>1</mn><mi>a</mi></msubsup>",
+      "grammar": "x1^a"
+    },
+    {
+      "rhs": "x^a_1",
+      "mathml": "<msubsup><mi>x</mi><mn>1</mn><mi>a</mi></msubsup>",
+      "grammar": "x1^a"
+    },
+    {
+      "rhs": "x^\\alpha_1",
+      "mathml": "<msubsup><mi>x</mi><mn>1</mn><mi>α</mi></msubsup>",
+      "grammar": "x1^alpha"
+    },
+    {
+      "rhs": "e^x_1",
+      "mathml": "<msubsup><mi>e</mi><mn>1</mn><mi>x</mi></msubsup>",
+      "grammar": "e1^x"
+    },
+    {
+      "rhs": "2 x",
+      "mathml": "<mn>2</mn><mi>x</mi>",
+      "grammar": "2*x"
+    },
+    {
+      "rhs": "2 3 x",
+      "mathml": "<mn>23</mn><mi>x</mi>",
+      "grammar": "23*x"
+    },
+    {
+      "rhs": "12^x",
+      "mathml": "<msup><mn>12</mn><mi>x</mi></msup>",
+      "grammar": "12^x"
+    },
+    {
+      "rhs": "0.5^2",
+      "mathml": "<msup><mn>0.5</mn><mn>2</mn></msup>",
+      "grammar": "0.5^2"
+    },
+    {
+      "rhs": "\\frac12",
+      "mathml": "<mfrac><mn>1</mn><mn>2</mn></mfrac>",
+      "grammar": "1/2"
+    },
+    {
+      "rhs": "\\frac12 x",
+      "mathml": "<mfrac><mn>1</mn><mn>2</mn></mfrac><mi>x</mi>",
+      "grammar": "1/2*x"
+    },
+    {
+      "rhs": "(x+1)^2",
+      "mathml": "<mo stretchy=\"false\">(</mo><mi>x</mi><mo>+</mo><mn>1</mn><msup><mo stretchy=\"false\">)</mo><mn>2</mn></msup>",
+      "grammar": "(x+1)^2"
+    },
+    {
+      "rhs": "\\left(x+1\\right)^2",
+      "mathml": "<msup><mrow><mo fence=\"true\">(</mo><mi>x</mi><mo>+</mo><mn>1</mn><mo fence=\"true\">)</mo></mrow><mn>2</mn></msup>",
+      "grammar": "(x+1)^2"
+    },
+    {
+      "rhs": "|x|^2",
+      "mathml": "<mi mathvariant=\"normal\">∣</mi><mi>x</mi><msup><mi mathvariant=\"normal\">∣</mi><mn>2</mn></msup>",
+      "grammar": "abs(x)^2"
+    },
+    {
+      "rhs": "\\sin(x)^2",
+      "mathml": "<mi>sin</mi><mo>⁡</mo><mo stretchy=\"false\">(</mo><mi>x</mi><msup><mo stretchy=\"false\">)</mo><mn>2</mn></msup>",
+      "grammar": "sin(x)^2"
+    },
+    {
+      "rhs": "\\frac{a}{b}^2",
+      "mathml": "<msup><mfrac><mi>a</mi><mi>b</mi></mfrac><mn>2</mn></msup>",
+      "grammar": "(a/b)^2"
+    },
+    {
+      "rhs": "e^{x} e^{-x}",
+      "mathml": "<msup><mi>e</mi><mi>x</mi></msup><msup><mi>e</mi><mrow><mo>−</mo><mi>x</mi></mrow></msup>",
+      "grammar": "exp(x)*exp(-x)"
+    },
+    {
+      "rhs": "\\begin{cases} a & x < 0 \\\\ b & \\text{otherwise} \\end{cases}",
+      "mathml": "<mo fence=\"true\">{</mo><mtable rowspacing=\"0.36em\" columnalign=\"left left\" columnspacing=\"1em\"><mtr><mtd><mstyle scriptlevel=\"0\" displaystyle=\"false\"><mi>a</mi></mstyle></mtd><mtd><mstyle scriptlevel=\"0\" displaystyle=\"false\"><mrow><mi>x</mi><mo>&lt;</mo><mn>0</mn></mrow></mstyle></mtd></mtr><mtr><mtd><mstyle scriptlevel=\"0\" displaystyle=\"false\"><mi>b</mi></mstyle></mtd><mtd><mstyle scriptlevel=\"0\" displaystyle=\"false\"><mtext>otherwise</mtext></mstyle></mtd></mtr></mtable>",
+      "grammar": "piecewise((x < 0, a), b)"
+    }
+  ],
+  "not_rendered": [
+    {
+      "rhs": "e^x^2"
+    },
+    {
+      "rhs": "x^2^3"
+    },
+    {
+      "rhs": "x_1_2"
+    },
+    {
+      "rhs": "\\frac{1}"
+    },
+    {
+      "rhs": "\\undefinedname x"
+    },
+    {
+      "rhs": "\\mbox{a}"
+    },
+    {
+      "rhs": "\\left( x"
+    }
+  ],
+  "whole": [
+    {
+      "latex": "\\def\\sin{\\cos}f(x)=\\sin(x)",
+      "mathml": "<mi>f</mi><mo stretchy=\"false\">(</mo><mi>x</mi><mo stretchy=\"false\">)</mo><mo>=</mo><mi>cos</mi><mo>⁡</mo><mo stretchy=\"false\">(</mo><mi>x</mi><mo stretchy=\"false\">)</mo>",
+      "reason": "macro_definition"
+    },
+    {
+      "latex": "\\newcommand{\\foo}{1}f(x)=\\foo",
+      "mathml": "<mi>f</mi><mo stretchy=\"false\">(</mo><mi>x</mi><mo stretchy=\"false\">)</mo><mo>=</mo><mn>1</mn>",
+      "reason": "macro_definition"
+    },
+    {
+      "latex": "\\gdef\\foo{1}f(x)=\\foo",
+      "mathml": "<mi>f</mi><mo stretchy=\"false\">(</mo><mi>x</mi><mo stretchy=\"false\">)</mo><mo>=</mo><mn>1</mn>",
+      "reason": "macro_definition"
+    },
+    {
+      "latex": "\\let\\sin\\cos f(x)=\\sin(x)",
+      "mathml": "<mi>f</mi><mo stretchy=\"false\">(</mo><mi>x</mi><mo stretchy=\"false\">)</mo><mo>=</mo><mi>cos</mi><mo>⁡</mo><mo stretchy=\"false\">(</mo><mi>x</mi><mo stretchy=\"false\">)</mo>",
+      "reason": "macro_definition"
+    },
+    {
+      "latex": "\\color{red}f(x)=x",
+      "mathml": "<mstyle mathcolor=\"red\"><mi>f</mi><mo stretchy=\"false\">(</mo><mi>x</mi><mo stretchy=\"false\">)</mo><mo>=</mo><mi>x</mi></mstyle>",
+      "reason": "not_equation"
+    },
+    {
+      "latex": "a \\over b = c",
+      "mathml": "<mfrac><mi>a</mi><mrow><mi>b</mi><mo>=</mo><mi>c</mi></mrow></mfrac>",
+      "reason": "not_equation"
+    }
+  ],
+  "blocks": [
+    {
+      "block": "Then $f(x)=x$ and $g(x)=2x$ both hold.",
+      "segments": [
+        "f(x)=x",
+        "g(x)=2x"
+      ]
+    },
+    {
+      "block": "$$y = x$$",
+      "segments": [
+        "y = x"
+      ]
+    },
+    {
+      "block": "\\[y = x\\]",
+      "segments": [
+        "y = x"
+      ]
+    },
+    {
+      "block": "see $a = 1$, $$b = 2$$ and \\[c = 3\\] done",
+      "segments": [
+        "a = 1",
+        "b = 2",
+        "c = 3"
+      ]
+    },
+    {
+      "block": "a price of \\$5 and $y = x$",
+      "segments": [
+        "y = x"
+      ]
+    }
   ]
 }

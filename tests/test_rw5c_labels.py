@@ -357,3 +357,109 @@ def test_a_scientific_literal_as_a_base_is_grouped_in_both_writers():
     node = G.parse("(1e-3)^2")
     assert E.to_tex(node, {}) == r"\left(1 \times 10^{-3}\right)^{2}"
     assert E.to_plain(node) == "(1e-3)^2"
+
+
+def _generated(chance, depth: int = 0):
+    """A random expression tree of the figure grammar, with the literals and shapes labels meet."""
+
+    from learnloop.figures import grammar as G
+
+    def literal() -> G.Node:
+        text = chance.choice(["2", "3", "0.5", "10", "1e-3", "2.5e3", "1E2", "0.25", ".5", "7"])
+        return G.Node("num", text=text, value=float(text))
+
+    def name() -> G.Node:
+        return G.Node("name", text=chance.choice(["x", "y", "lambda", "mu1", "a"]))
+
+    if depth >= 4 or chance.random() < 0.2:
+        return literal() if chance.random() < 0.5 else name()
+    shape = chance.randrange(10)
+    if shape < 5:
+        op = chance.choice(["+", "-", "*", "/", "^", "^", "^"])
+        return G.Node("bin", op=op, args=(_generated(chance, depth + 1), _generated(chance, depth + 1)))
+    if shape == 5:
+        return G.Node("neg", args=(_generated(chance, depth + 1),))
+    if shape < 8:
+        function = chance.choice(["sin", "exp", "sqrt", "abs", "log", "erf", "atan"])
+        return G.Node("call", text=function, args=(_generated(chance, depth + 1),))
+    if shape == 8:
+        return G.Node("call", text=chance.choice(["min", "max"]), args=(_generated(chance, depth + 1), _generated(chance, depth + 1)))
+    condition = G.Node("cmp", op=chance.choice(["<", "<=", ">", ">="]), args=(name(), literal()))
+    return G.Node("piecewise", args=(condition, _generated(chance, depth + 1), _generated(chance, depth + 1)))
+
+
+_POINTS = [{"x": 0.7, "y": 1.3, "lambda": 2.1, "mu1": 0.4, "a": 3.0}, {"x": -1.2, "y": 0.6, "lambda": 0.3, "mu1": 2.2, "a": 1.5}]
+
+
+def test_the_plain_writer_parses_back_to_the_same_value_and_the_tex_writer_means_it_in_katex():
+    """Class fix for A3 and A4: over generated trees, the plain writer's output through the figure grammar has
+    the tree's value, and the TeX writer's output parses in the page's KaTeX and renders the same meaning."""
+
+    import random
+
+    from learnloop.figures import grammar as G
+    from learnloop.figures import katex_tree as KT
+    from tests import katex_meaning as M
+
+    chance = random.Random(20261104)
+    with KT.Trees() as trees, M.Renderer() as renderer:
+        for _ in range(1500):
+            tree = _generated(chance)
+            plain = E.to_plain(tree)
+            assert M.same_value(tree, G.parse(plain), _POINTS), plain
+            tex = E.to_tex(tree, {})
+            trees.parse(tex)  # raises KT.TreeRefused on what the page would show as red raw TeX
+            meaning = M.right_hand_side(renderer.mathml("y = " + tex))
+            assert M.same_value(tree, meaning, _POINTS), tex
+
+
+def test_every_other_code_owned_label_template_renders_in_katex():
+    """A marker, a shade, a bound readout, every panel's rendering and an AI curve: each parses in the page's KaTeX."""
+
+    import random
+    from types import SimpleNamespace
+
+    from learnloop.figures import grammar as G
+    from learnloop.figures import katex_tree as KT
+
+    chance = random.Random(20261105)
+    with KT.Trees() as trees:
+        for _ in range(300):
+            tree, other = _generated(chance), _generated(chance)
+            body_tex, body_plain = E.to_tex(tree, {}, 2), E.to_plain(tree, 2)
+            trees.parse(E.symbol_tex("x") + " = " + E.to_tex(tree, {}))
+            for kind in ("shade", "highlight", "integral", "sum"):
+                template = {"kind": kind, "panel": 0, "index": 0, "body_tex": body_tex, "body_plain": body_plain, "variable": "mu1"}
+                for low, high in ((0, 1), (-1e-7, 2.5e21), (1e21, -0.5)):
+                    words, _plain = E.template_words(template, {"from": low, "to": high}, str)
+                    trees.parse(words)
+                words, _plain = E.template_words(template, {"from": 0, "to": 3, "integers": (0, 3)}, str)
+                trees.parse(words)
+            nodes = {"matrix": ((tree, other), (other, tree)), "expr": tree, "u": tree, "v": other, "dx": tree, "dy": other, "fx": tree, "fy": other}
+            for kind in ("linear_map_2d", "heatmap_2d", "vector_field_2d", "trajectory_2d", "iterate_2d"):
+                tex, _plain = E._panel_tex(SimpleNamespace(kind=kind, nodes=nodes), {})
+                trees.parse(tex)
+            bound = G.Node("integral", text="t", args=(tree, G.Node("num", text="0", value=0.0), G.Node("num", text="1e-3", value=1e-3)))
+            trees.parse(E.to_tex(G.Node("bin", op="^", args=(bound, G.Node("num", text="2", value=2.0))), {}))
+            trees.parse(E.to_tex(G.Node("bin", op="*", args=(G.Node("call", text="exp", args=(tree,)), bound)), {}))
+            assert E.to_plain(bound)  # the grammar's own form
+
+
+def test_a_sum_or_an_integral_written_inside_a_product_is_grouped():
+    from learnloop.figures import grammar as G
+
+    tree = G.parse("sum(k^2, k, 1, 3)*x")
+    assert E.to_tex(tree, {}).startswith(r"\left(\sum_{k=1}^{3}") and E.to_plain(G.parse(E.to_plain(tree))) == E.to_plain(tree)
+
+
+def test_a_bound_readouts_body_is_grouped_in_its_template():
+    """The words after an integral sign end at dx; a body with a sum in it needs its parentheses."""
+
+    from learnloop.figures import spec as S
+
+    spec = plot("x")
+    spec["panels"].append({"kind": "readout", "label": "area", "expr": "integral(x + 1, x, 0, 1)"})
+    compiled = S.parse_spec(spec)
+    readout = {element["id"]: element for element in E.element_map(compiled, {}, {})}["panels.1"]
+    assert readout["tex"].startswith(r"\int_{0}^{1} \left(x + 1\right)\,d")
+    assert "of (x + 1) dx" in readout["plain"]

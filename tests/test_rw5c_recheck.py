@@ -119,7 +119,7 @@ def test_the_bulk_recheck_replaces_a_certification_the_old_reader_stored(tmp_pat
     assert result.exit_code == 0, result.output
     report = json.loads(result.output)
     assert report["skipped"]["not_due"] == 0 and report["figures"] == 1
-    assert report["outcomes"] == {"not_checkable": 1} and report["reasons"].get("function_arg") == 1
+    assert report["outcomes"] == {"not_checkable": 1} and report["reasons"].get("syntax") == 1
     assert report["checked"] == []
     newest = store.latest_source_check(repository.connection(), figure_id, SC.CERTIFICATION_VERSION)
     assert newest["reader_version"] == BM.READER_VERSION and not newest["elements"]
@@ -338,7 +338,7 @@ def _opened(repository: Any, figure_id: str, at: str, event_id: str) -> None:
     with repository.connection() as connection:
         connection.execute(
             "INSERT INTO interaction_events (id, kind, payload_json, origin, created_at, occurred_at, received_at) "
-            "VALUES (?, 'reader_action_invoked', ?, 'test', ?, ?, ?)",
+            "VALUES (?, 'reader_action_invoked', ?, 'learner', ?, ?, ?)",
             (event_id, json.dumps({"event": "figure_opened", "figure_id": figure_id}), at, at, at))
         connection.commit()
 
@@ -364,16 +364,22 @@ def _report(repository: Any, since: str) -> dict[str, Any]:
         return SC.report_block(connection, since=since)
 
 
+def _day(figure_row: dict[str, Any], days: int) -> str:
+    """A date ``days`` from when the figure's check row was written (rows are immutable, so dates move around it)."""
+
+    from datetime import datetime, timedelta
+
+    return (datetime.fromisoformat(str(figure_row["created_at"]).replace("Z", "+00:00")) + timedelta(days=days)).isoformat()
+
+
 @sandboxed
 def test_since_counts_a_figure_checked_before_it_and_opened_after(tmp_path):
     paths, repository, _author, ctx = _vault(tmp_path, [plot("x")])
     figure_id = build(ctx, REQUEST)["figure"]["figureId"]
-    with repository.connection() as connection:
-        connection.execute("UPDATE figure_source_checks SET created_at = '2026-10-01T00:00:00Z'")
-        connection.commit()
-    _opened(repository, figure_id, "2026-11-02T00:00:00Z", "ev_new")
-    _revised(repository, figure_id, "2026-11-02T00:00:00Z", "fig_new")
-    block = _report(repository, "2026-11-01T00:00:00Z")
+    checked = rows(repository, "figure_source_checks")[0]
+    _opened(repository, figure_id, _day(checked, 2), "ev_new")
+    _revised(repository, figure_id, _day(checked, 2), "fig_new")
+    block = _report(repository, _day(checked, 1))
     assert block["opened"] == {"with_book": 1, "without": 0}
     assert block["not_right_notes"] == {"with_book": 1, "without": 0}
     # The check's own counts still go by the check's date.
@@ -384,12 +390,10 @@ def test_since_counts_a_figure_checked_before_it_and_opened_after(tmp_path):
 def test_since_drops_an_open_before_it_of_a_figure_checked_after(tmp_path):
     paths, repository, _author, ctx = _vault(tmp_path, [plot("x")])
     figure_id = build(ctx, REQUEST)["figure"]["figureId"]
-    with repository.connection() as connection:
-        connection.execute("UPDATE figure_source_checks SET created_at = '2026-11-02T00:00:00Z'")
-        connection.commit()
-    _opened(repository, figure_id, "2026-10-01T00:00:00Z", "ev_old")
-    _revised(repository, figure_id, "2026-10-01T00:00:00Z", "fig_old")
-    block = _report(repository, "2026-11-01T00:00:00Z")
+    checked = rows(repository, "figure_source_checks")[0]
+    _opened(repository, figure_id, _day(checked, -2), "ev_old")
+    _revised(repository, figure_id, _day(checked, -2), "fig_old")
+    block = _report(repository, _day(checked, -1))
     assert block["opened"] == {"with_book": 0, "without": 0}
     assert block["not_right_notes"] == {"with_book": 0, "without": 0}
     assert block["figures"] == 1
