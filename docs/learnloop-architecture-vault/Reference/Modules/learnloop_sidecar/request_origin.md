@@ -7,8 +7,8 @@ version: "1.0.0"
 source_path: "src/learnloop_sidecar/request_origin.py"
 source_paths:
   - "src/learnloop_sidecar/request_origin.py"
-source_commit: "a500c7fab899f7060bd00510419477e514bb07c8"
-source_commit_timestamp: "2026-11-03T01:49:39-05:00"
+source_commit: "25fde8c546c1ce5c9f32f19296fe204bf8fb7cc1"
+source_commit_timestamp: "2026-11-03T02:25:46-05:00"
 source_worktree_state: "clean"
 generated: true
 generated_at: "2026-11-02"
@@ -53,13 +53,13 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop_sidecar/request_origin.py](../../../../../src/learnloop_sidecar/request_origin.py) |
-| Source lines | 118 |
+| Source lines | 124 |
 | Owning package | [[Reference/Modules/learnloop_sidecar/_package|learnloop_sidecar]] |
 | Architecture layer | `adapter` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `a500c7fab899f7060bd00510419477e514bb07c8` |
-| Commit timestamp | `2026-11-03T01:49:39-05:00` |
+| Source commit | `25fde8c546c1ce5c9f32f19296fe204bf8fb7cc1` |
+| Commit timestamp | `2026-11-03T02:25:46-05:00` |
 
 ## Public API
 
@@ -69,7 +69,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `practice_surface(origin: RequestOrigin | None) -> str` ([source](../../../../../src/learnloop_sidecar/request_origin.py), line 60) — ``entry_surface`` of an attempt and of a submission's binding.
 - `offer_surface(origin: RequestOrigin | None) -> str` ([source](../../../../../src/learnloop_sidecar/request_origin.py), line 66) — ``entry_surface`` of a published scheduler offer.
 - `bump_for_host(ctx: Any) -> None` ([source](../../../../../src/learnloop_sidecar/request_origin.py), line 77) — Tell the desktop a host request changed what it shows (PR-7, §3.3).
-- `host_mutation(handler: Callable[[Any, Any], Any]) -> Callable[[Any, Any], Any]` ([source](../../../../../src/learnloop_sidecar/request_origin.py), line 96) — A handler whose committed work changes what the desktop shows (PR-7, §3.3).
+- `host_mutation(handler: Callable[[Any, Any], Any]) -> Callable[[Any, Any], Any]` ([source](../../../../../src/learnloop_sidecar/request_origin.py), line 102) — A handler whose committed work changes what the desktop shows (PR-7, §3.3).
 
 ### Module constants
 
@@ -88,7 +88,7 @@ No private top-level function or class definition is declared in this file.
 > [!note] Static evidence boundary
 > “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
 
-- [[Reference/Modules/learnloop_sidecar/context|learnloop_sidecar.context]] — imports `RequestOrigin`
+- [[Reference/Modules/learnloop_sidecar/context|learnloop_sidecar.context]] — imports `RequestOrigin`, `bump_for_host`; statically calls `bump_for_host`
 - [[Reference/Modules/learnloop_sidecar/handlers/feedback|learnloop_sidecar.handlers.feedback]] — imports `host_mutation`
 - [[Reference/Modules/learnloop_sidecar/handlers/practice|learnloop_sidecar.handlers.practice]] — imports `DESKTOP_PRACTICE`, `host_mutation`, `practice_surface`; statically calls `practice_surface`
 - [[Reference/Modules/learnloop_sidecar/handlers/queue|learnloop_sidecar.handlers.queue]] — imports `offer_surface`; statically calls `offer_surface`

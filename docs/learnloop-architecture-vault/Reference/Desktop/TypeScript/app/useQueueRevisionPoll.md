@@ -10,8 +10,8 @@ area: "TypeScript/app"
 source_path: "apps/learnloop-tauri/src/app/useQueueRevisionPoll.ts"
 source_paths:
   - "apps/learnloop-tauri/src/app/useQueueRevisionPoll.ts"
-source_commit: "a500c7fab899f7060bd00510419477e514bb07c8"
-source_commit_timestamp: "2026-11-03T01:49:39-05:00"
+source_commit: "25fde8c546c1ce5c9f32f19296fe204bf8fb7cc1"
+source_commit_timestamp: "2026-11-03T02:25:46-05:00"
 source_worktree_state: "clean"
 activation_kind: "entry-reachable build graph"
 activation_evidence: "A static TypeScript import path reaches this file from the Vite entry src/main.tsx."
@@ -42,14 +42,14 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/app/useQueueRevisionPoll.ts](../../../../../../apps/learnloop-tauri/src/app/useQueueRevisionPoll.ts) |
-| Source lines | 153 |
+| Source lines | 169 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/app/_area|TypeScript/app]] |
 | Refactor status | `ACTIVE` |
 | Activation kind | `entry-reachable build graph` |
 | Worktree state | `clean` |
-| Source commit | `a500c7fab899f7060bd00510419477e514bb07c8` |
-| Commit timestamp | `2026-11-03T01:49:39-05:00` |
+| Source commit | `25fde8c546c1ce5c9f32f19296fe204bf8fb7cc1` |
+| Commit timestamp | `2026-11-03T02:25:46-05:00` |
 
 ## Activation and status evidence
 
@@ -60,36 +60,38 @@ The system-level behavior stays authoritative in the linked architecture, concep
 
 ## Public API
 
-- `export const REVISION_POLL_MS = 3000` — const, line 26
-- `export interface SessionMoved` — interface, line 28
-- `export function sessionMovedFrom(snapshot: SessionSnapshot): SessionMoved | null` — function, line 37
-- `export function useSessionMoved(): SessionMoved | null` — function, line 59
-- `export interface QueueRevisionPollOptions` — interface, line 63
-- `export function useQueueRevisionPoll(` — function, line 72
+- `export const REVISION_POLL_MS = 3000` — const, line 29
+- `export interface SessionMoved` — interface, line 31
+- `export function sessionMovedFrom(snapshot: SessionSnapshot): SessionMoved | null` — function, line 40
+- `export function useSessionMoved(): SessionMoved | null` — function, line 62
+- `export interface QueueRevisionPollOptions` — interface, line 66
+- `export function useQueueRevisionPoll(` — function, line 75
 
 ## Internal implementation anchors
 
-- `const ownership =` — const, line 38
-- `let moved: SessionMoved | null = null` — let, line 44
-- `const movedListeners = new Set<()` — const, line 45
-- `function setSessionMoved(next: SessionMoved | null): void` — function, line 47
-- `function subscribeSessionMoved(listener: ()` — function, line 53
-- `const sessionIdRef = useRef(sessionId)` — const, line 73
-- `const quietRef = useRef(quiet)` — const, line 75
-- `const pendingRef = useRef(false)` — const, line 77
-- `let disposed = false` — let, line 86
-- `let inFlight = false` — let, line 87
-- `let seen: number | null = null` — let, line 88
-- `let rereadSession = false` — let, line 89
-- `const readOpenSession = async ()` — const, line 91
-- `const id = sessionIdRef.current` — const, line 92
-- `const snapshot = await api.getSession(id)` — const, line 95
-- `const tick = async ()` — const, line 102
-- `const reread = rereadSession` — const, line 107
-- `const snapshot = await api.getQueueRevision()` — const, line 110
-- `const changed = seen !== null && seen !== snapshot.revision` — const, line 112
-- `const onWindowBack = ()` — const, line 127
-- `const interval = window.setInterval(()` — const, line 134
+- `const ownership =` — const, line 41
+- `let moved: SessionMoved | null = null` — let, line 47
+- `const movedListeners = new Set<()` — const, line 48
+- `function setSessionMoved(next: SessionMoved | null): void` — function, line 50
+- `function subscribeSessionMoved(listener: ()` — function, line 56
+- `const sessionIdRef = useRef(sessionId)` — const, line 76
+- `const quietRef = useRef(quiet)` — const, line 78
+- `const pendingRef = useRef(false)` — const, line 80
+- `let disposed = false` — let, line 89
+- `let inFlight = false` — let, line 90
+- `let seen: number | null = null` — let, line 91
+- `let windowBack = false` — let, line 93
+- `let sessionReadOwed = false` — let, line 96
+- `const readOpenSession = async (): Promise<boolean>` — const, line 99
+- `const id = sessionIdRef.current` — const, line 100
+- `const snapshot = await api.getSession(id)` — const, line 103
+- `const tick = async ()` — const, line 113
+- `let answered = false` — let, line 118
+- `const snapshot = await api.getQueueRevision()` — const, line 120
+- `const back = windowBack` — const, line 125
+- `const changed = seen !== null && seen !== snapshot.revision` — const, line 127
+- `const onWindowBack = ()` — const, line 143
+- `const interval = window.setInterval(()` — const, line 150
 
 ## Who imports or calls it
 

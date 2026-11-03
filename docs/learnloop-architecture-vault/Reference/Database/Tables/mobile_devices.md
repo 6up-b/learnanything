@@ -3,8 +3,8 @@ title: "mobile_devices"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "18935b1960ed4ca92b19909b347a57c5571b6035"
-source_commit_timestamp: "2026-11-03T00:34:13-05:00"
+source_commit: "25fde8c546c1ce5c9f32f19296fe204bf8fb7cc1"
+source_commit_timestamp: "2026-11-03T02:25:46-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite mobile_devices"
@@ -99,9 +99,12 @@ None found by exact static reference scan.
 
 ## Tests that define behavior
 
+- `tests/test_device_eligibility.py`
+- `tests/test_host_queue_revision.py`
 - `tests/test_mobile_host_coexistence.py`
 - `tests/test_mobile_pairing.py`
 - `tests/test_pr4_superseded_claims_landing.py`
+- `tests/test_request_origin.py`
 - `tests/test_session_ownership.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.

@@ -3,8 +3,8 @@ title: "queue_state"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "18935b1960ed4ca92b19909b347a57c5571b6035"
-source_commit_timestamp: "2026-11-03T00:34:13-05:00"
+source_commit: "25fde8c546c1ce5c9f32f19296fe204bf8fb7cc1"
+source_commit_timestamp: "2026-11-03T02:25:46-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite queue_state"
@@ -123,6 +123,7 @@ Indexes and uniqueness:
 - `tests/test_secondary_attach.py`
 - `tests/test_capture_route_recovery.py`
 - `tests/test_daily_plan_build.py`
+- `tests/test_host_queue_revision.py`
 - `tests/test_learner_text_gaps_review.py`
 - `tests/test_question_promotion_jobs.py`
 - `tests/test_vault_watcher_refresh.py`

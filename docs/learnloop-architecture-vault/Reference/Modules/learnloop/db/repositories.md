@@ -2155,6 +2155,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_startup_maintenance_regrades_pending_self_grade_when_codex_ready`
 - [tests/test_depth_transition.py](../../../../../../tests/test_depth_transition.py) — direct import
 - [tests/test_device_eligibility.py](../../../../../../tests/test_device_eligibility.py) — direct import
+  - `test_a_follow_up_naming_an_ineligible_item_cannot_come_back_at_the_top`
 - [tests/test_diagnose_review.py](../../../../../../tests/test_diagnose_review.py) — direct import
   - `test_an_owner_verdict_never_lands_on_a_receipt_the_owner_did_not_see`
   - `test_import_links_appends_real_links_once`

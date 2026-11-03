@@ -1373,6 +1373,13 @@ CONFIG_FUNCTION_OVERRIDES: dict[str, str] = {
         "Off, the attempt upserts the whole row from the vault it graded against, exactly as mvp-0.36. "
         "Dormant below the successor; replay never reads it."
     ),
+    "practice.device_eligibility_enabled": (
+        "Kill switch for the phone's device rules (mobile PR-6, spec_mobile_tailnet_v1 §6.4; "
+        "learnloop.scheduling.device_eligibility). On, a request with a phone origin never gets an item that "
+        "needs a desktop: it is held back in the queue build, refused desktop_only at a by-id door and a probe "
+        "contract, and a draft on one refuses adoption. Off, a phone request is served as the desktop is, and "
+        "the router's inputs say device_policy off. Never read by a desktop request or by replay; no successor."
+    ),
     "practice.reschedule_cold_after_assist": (
         "Kill switch for the cold-retry reschedule's successor (mvp-0.38; "
         "learnloop.cold_retry_reschedule_upgrade; owner decision 2026-10-25, Reader CA2 follow-up Q4). On "
