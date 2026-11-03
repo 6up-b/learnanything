@@ -177,6 +177,9 @@ const HEALTH_COLOR: Record<string, "green" | "amber" | "pink" | "slate"> = {
 // heads repeat every page and the book's own ToC interleaves mid-prose.
 const FURNITURE_BLOCK_TYPES = new Set(["PageHeader", "PageFooter", "TableOfContents"]);
 
+/** RW5c: "open the page" pressed on an equation whose book can't open here now. */
+const FIGURE_PAGE_NOT_OPENED = "That page couldn't be opened.";
+
 /** How opening a book ended (an offer's press waiting on it settles on this). */
 type OpenOutcome = "opened" | "preparing" | "not_opened";
 
@@ -2710,8 +2713,22 @@ export function ReaderScreen({
   // under the passage in view (when it is in this section, else the section's
   // first passage), expanded, its home named. Its own book's listing is read
   // now (protection and switches checked there); nothing is copied.
+  // RW5c "open the page": the page a checked equation cites may be on another
+  // book, or an earlier reading of this one, whose span ids are not this
+  // reading's (Codex review F4): that one opens as a search hit would, with its
+  // span translated, and a page that cannot be opened says so.
   openFigureSource.current = (extractionId, spanId) => {
-    if (render && extractionId === render.extractionId) peekPassage(spanId);
+    if (render && extractionId === render.extractionId) {
+      peekPassage(spanId);
+      return;
+    }
+    void (async () => {
+      const { sourceId } = await api.readerRenderView({ extractionId });
+      const card = (library ?? []).find((candidate) => candidate.sourceId === sourceId);
+      if (!card || opening !== null) onError(FIGURE_PAGE_NOT_OPENED);
+      else if (render && sourceId === render.sourceId) await openSource(card, spanId, { via: "search", jumpReading: extractionId });
+      else await openLibraryHit({ sourceId, extractionId, spanId });
+    })().catch((error) => onError(errorMessage(error)));
   };
   const openFollowedFigure = (figure: CorrespondentFigureDto, hit: CorrespondentSectionDto) => {
     if (!render || offline || !currentGuideSection) return;

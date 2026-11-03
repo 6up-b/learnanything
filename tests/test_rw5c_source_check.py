@@ -181,6 +181,15 @@ def test_a_block_that_is_not_ok_is_refused_with_its_reason(tmp_path):
     assert repository.block_health(EXTRACTION, "a")["status"] == "suspect"
 
 
+def test_an_unbraced_radical_never_certifies_the_meaning_the_page_does_not_show(tmp_path):
+    """Codex review F1: KaTeX shows \\sqrt16 x as sqrt(1)*6x. Read whole, it would prove 4*x "checked"."""
+
+    paths, repository = build_check_vault(tmp_path / "vault", [("a", "Text", r"$f(x)=\sqrt16 x$")])
+    result = check((load_vault(paths.root), repository), plot("4*x", stated="f(x)", span="a"), "a")
+    assert not result.book_elements and result.outcome == SC.NOT_CHECKABLE
+    assert result.reasons.get("function_arg") == 1
+
+
 def test_a_withheld_span_is_never_read(tmp_path):
     paths, repository = build_check_vault(tmp_path / "vault", [("a", "Text", "$f(x)=x$")], source="src_exam2", revision="rev_exam2",
                                           extra_members=())

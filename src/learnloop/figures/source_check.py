@@ -947,20 +947,26 @@ def _audit_entries(row: Mapping[str, Any], definitions: Sequence[Mapping[str, An
     return found
 
 
-def audit(repository: Any) -> dict[str, Any]:
-    """``reader figure-checks`` with no ``--recheck``: each element carrying the claim, from the ledger."""
+def audit(repository: Any, *, withheld: Callable[[Mapping[str, Any]], bool]) -> dict[str, Any]:
+    """``reader figure-checks`` with no ``--recheck``: each element carrying the claim,
+    from the ledger. A figure withheld now is left out, its equations with it: its
+    row keeps its stored ``verification`` when a source is held out later (§11.3)."""
 
     with closing(connect(repository.sqlite_path, read_only=True)) as connection:
         checks = store.latest_source_checks(connection, CERTIFICATION_VERSION)
         rows = {str(row["id"]): row for row in _shown_rows(connection)}
     checked: list[dict[str, Any]] = []
     outcomes: dict[str, int] = {}
+    skipped = {"withheld": 0}
     for found in checks:
-        outcomes[found["outcome"]] = outcomes.get(found["outcome"], 0) + 1
         row = rows.get(str(found["figure_id"]))
+        if row is not None and withheld(row):
+            skipped["withheld"] += 1
+            continue
+        outcomes[found["outcome"]] = outcomes.get(found["outcome"], 0) + 1
         if row is not None:
             checked.extend(_audit_entries(row, found["definitions"], found["elements"]))
-    return {"figures": sum(outcomes.values()), "outcomes": outcomes, "checked": checked,
+    return {"figures": sum(outcomes.values()), "outcomes": outcomes, "checked": checked, "skipped": skipped,
             "certification_version": CERTIFICATION_VERSION}
 
 

@@ -1,0 +1,20 @@
+{
+  "_comment": "RW5c Codex review F1: how TeX groups these right-hand sides (KaTeX MathML, pinned by bookMathRender.test.ts) against what code reads (tests/test_rw5c_book_math.py). TeX takes one token where the expression tokenizer sees a whole numeral or a symbol with its subscript, and it ignores spaces between digits, so each unbraced form below is refused and only the braced form is read.",
+  "refused": [
+    { "rhs": "\\sqrt16 x", "mathml": "<msqrt><mn>1</mn></msqrt><mn>6</mn><mi>x</mi>", "reason": "function_arg" },
+    { "rhs": "\\sqrt16", "mathml": "<msqrt><mn>1</mn></msqrt><mn>6</mn>", "reason": "function_arg" },
+    { "rhs": "\\sqrt x", "mathml": "<msqrt><mi>x</mi></msqrt>", "reason": "function_arg" },
+    { "rhs": "2 3 x", "mathml": "<mn>23</mn><mi>x</mi>", "reason": "syntax" },
+    { "rhs": "2.5 .5", "mathml": "<mn>2.5.5</mn>", "reason": "syntax" },
+    { "rhs": "1\\,000 x", "mathml": "<mn>1</mn><mtext>\u2009</mtext><mn>000</mn><mi>x</mi>", "reason": "syntax" },
+    { "rhs": "x^a_1", "mathml": "<msubsup><mi>x</mi><mn>1</mn><mi>a</mi></msubsup>", "reason": "subscript" },
+    { "rhs": "x^\\alpha_1", "mathml": "<msubsup><mi>x</mi><mn>1</mn><mi>α</mi></msubsup>", "reason": "subscript" },
+    { "rhs": "e^x_1", "mathml": "<msubsup><mi>e</mi><mn>1</mn><mi>x</mi></msubsup>", "reason": "subscript" }
+  ],
+  "read": [
+    { "rhs": "\\sqrt{16} x", "mathml": "<msqrt><mn>16</mn></msqrt><mi>x</mi>", "grammar": "sqrt(16)*x" },
+    { "rhs": "x^{a_1}", "mathml": "<msup><mi>x</mi><msub><mi>a</mi><mn>1</mn></msub></msup>", "grammar": "x^a1" },
+    { "rhs": "x_1^a", "mathml": "<msubsup><mi>x</mi><mn>1</mn><mi>a</mi></msubsup>", "grammar": "x1^a" },
+    { "rhs": "2 x", "mathml": "<mn>2</mn><mi>x</mi>", "grammar": "2*x" }
+  ]
+}

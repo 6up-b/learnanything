@@ -41,6 +41,15 @@ guesses, each failing closed under its own key: ``a / b c`` and ``a / b / c``
 (``ambiguous_slash``; books part on the grouping), ``x^10`` (LaTeX would
 superscript only the 1) and ``\\frac{d}{dx}`` (``derivative``: read as a
 product it would cancel the ``d``).
+
+The tokens here are the expression's, not TeX's: a numeral is one token here and
+one digit per token to TeX, and TeX ignores the spaces this tokenizer parts
+digits on. So the forms where the two disagree are refused, whatever they
+would parse as, and bookMathRenderCorpus.json pins each against KaTeX: an
+unbraced ``\\sqrt16 x`` (the page shows the root of 1, then 6x), a numeral beside
+a numeral (``2 3`` is the page's 23, ``1\\,000`` its thousand), and a subscript
+after an unbraced exponent (``x^a_1`` is x sub 1 to the a). So is a numeral before
+a numeric fraction: ``3\\frac{1}{2}`` is a mixed number, never a product.
 """
 
 from __future__ import annotations
@@ -208,7 +217,11 @@ def _tokenize(source: str) -> list[_Token]:
             continue
         tokens.append(_Token("op", char, position, position + 1))
         position += 1
-    return [token for token in tokens if not (token.kind == "command" and token.text[1:] in _IGNORED)]
+    kept = [token for token in tokens if not (token.kind == "command" and token.text[1:] in _IGNORED)]
+    # TeX joins digits across a space (2 3 is 23) and \\, spaces a numeral's groups (1\\,000): never a product.
+    if any(left.kind == "number" and right.kind == "number" for left, right in zip(kept, kept[1:])):
+        raise Unreadable("syntax")
+    return kept
 
 
 # ---------------------------------------------------------------------------
@@ -365,6 +378,9 @@ class _Reader:
             self.take()
             return self.node("num", depth, text=token.text, value=float(token.text))
         if token.kind == "letter" or (token.kind == "command" and token.text[1:] in _GREEK):
+            # x^a_1 subscripts the base in TeX: x sub 1 to the a, never x to the a1.
+            if self.at_offset(1, "_"):
+                raise Unreadable("subscript")
             return self.symbol(depth + 1, in_exponent=True)
         raise Unreadable("syntax")
 
@@ -533,6 +549,7 @@ class _Reader:
         return node
 
     def fraction(self, depth: int) -> G.Node:
+        before = self.tokens[self.position - 1] if self.position else None
         self.take()
         numerator_start = self.peek(1)
         numerator = self.braced(depth + 1)
@@ -542,17 +559,19 @@ class _Reader:
                 and following is not None and following.text == "d":
             raise Unreadable("derivative")
         denominator = self.braced(depth + 1)
+        # 3\\frac{1}{2} on a page is a mixed number, 3.5; the product it would parse as is 1.5.
+        if before is not None and before.kind == "number" and numerator.kind == denominator.kind == "num":
+            raise Unreadable("syntax")
         return self.node("bin", depth, op="/", args=(numerator, denominator))
 
     def square_root(self, depth: int) -> G.Node:
         self.take()
         if self.at("[", "op"):
             raise Unreadable("nth_root")
-        if self.at("{", "op"):
-            inner = self.braced(depth + 1)
-        else:
-            inner = self.bare_argument(depth + 1)
-        return self.node("call", depth, text="sqrt", args=(inner,))
+        # Only \\sqrt{u} (§5.3): TeX takes one token, the 1 of \\sqrt16, where this tokenizer has a numeral.
+        if not self.at("{", "op"):
+            raise Unreadable("function_arg")
+        return self.node("call", depth, text="sqrt", args=(self.braced(depth + 1),))
 
     def word(self) -> str:
         """The letters of a ``{word}`` argument."""

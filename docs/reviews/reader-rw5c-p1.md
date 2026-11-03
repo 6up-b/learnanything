@@ -115,6 +115,7 @@ Each is additive or stricter; none lets anything more carry the claim.
 6. **Structural equality spares sympy the proof, not the domain rule.** §6.3 step 4 says identical trees have identical domains; §14 requires `x^{1/3}` against itself to be `undecided` (`domain`). `decide` runs the definedness conditions first, so a power whose domain cannot be stated exactly stays `undecided` even when the trees match. The stricter reading wins.
 7. **A control's bare `s + 1` on a piecewise definition** makes its comparisons computed, so the harness answers `undecided` for it, which refuses it (§6.5: "different or undecided, never equal"). `d + 1` and `2·d` still decide such pairs.
 8. **Recheck is triggered by the Reader's open** (`reader.figure_recheck` from `FigureInline`'s toggle), not by listing, as §10.4 says. Lessons and attempt hosts have no recheck control.
+9. **More refusals where TeX's tokens are not the expression's** (Codex review F1, §5.3's new paragraph): an unbraced radical (the first version read `\sqrt x` and `\sqrt16`, which broadened §5.3 and let a false "checked" through; see `reader-rw5c-p1-codex-review.md`), a numeral beside a numeral, a subscript after an unbraced exponent, and a numeral before a numeric fraction. The coverage numbers below were measured before these refusals, so they may read slightly high.
 
 ## The adversarial question, walked through the code
 
@@ -122,7 +123,7 @@ Each is additive or stricter; none lets anything more carry the claim.
 
 - **Label slots.** With a `book` element, `rewrite_spec` replaces every `Label` the walk finds, so a model string cannot reach a slot; an id with no element draws `◇` alone. Prediction choices and stored answers go out as element ids, in code's words.
 - **The annotation line.** Its text is free model text. It stays behind `◇`, and its target is drawn with no glyph and no claim words (`bare`), so a model note never reads as the source's voice.
-- **Derived numbers.** A shade, highlight or bound readout is `derived` only when its parent is a `book` element (or, for a readout, its body is the bare reference of a definition with one, and its variable is the book's). Otherwise the same template runs in the model's voice. Bounds are the evaluator's, written losslessly.
+- **Derived numbers.** A shade, highlight or bound readout is `derived` only when its parent is a `book` element (or, for a readout, its body is the bare reference of a definition with one, and its variable is the book's). Otherwise the same template runs in the model's voice. Bounds are the evaluator's, written losslessly, with an exponent in TeX as `\times 10^{…}` (Codex review F3).
 - **The figure-level line.** `CheckedBadge` lists `book` elements only; `labelElements` requires both `status === "checked"` and a `book` element.
 - **Kept views.** `redelivered_view` rebuilds the labels and claim from the ledger as the switch is now, so a job result finished before a switch-off shows none.
 

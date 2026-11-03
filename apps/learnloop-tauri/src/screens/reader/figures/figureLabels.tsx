@@ -53,16 +53,25 @@ export function derivedWords(element: FigureElementDto, bounds: DerivedBounds | 
   }
   const low = bounds.integers ? String(bounds.integers[0]) : String(bounds.from);
   const high = bounds.integers ? String(bounds.integers[1]) : String(bounds.to);
+  const lowTex = numberTex(low);
+  const highTex = numberTex(high);
   const limited = bounds.clipped ? ` · ${FIGURE_FRAME.limitedToPlot}` : "";
   if (template.kind === "shade") {
-    return { tex: `\\text{area under } ${bodyTex} \\text{ from } ${low} \\text{ to } ${high}`,
+    return { tex: `\\text{area under } ${bodyTex} \\text{ from } ${lowTex} \\text{ to } ${highTex}`,
       plain: `area under ${bodyPlain} from ${low} to ${high}${limited}`, empty: false, clipped: bounds.clipped };
   }
   const symbol = variableTex(variable);
   if (template.kind === "integral") {
-    return { tex: `\\int_{${low}}^{${high}} ${bodyTex}\\,d${symbol}`, plain: `integral from ${low} to ${high} of ${bodyPlain} d${variable}`, empty: false, clipped: false };
+    return { tex: `\\int_{${lowTex}}^{${highTex}} ${bodyTex}\\,d${symbol}`, plain: `integral from ${low} to ${high} of ${bodyPlain} d${variable}`, empty: false, clipped: false };
   }
-  return { tex: `\\sum_{${symbol}=${low}}^{${high}} ${bodyTex}`, plain: `sum for ${variable} from ${low} to ${high} of ${bodyPlain}${limited}`, empty: false, clipped: bounds.clipped };
+  return { tex: `\\sum_{${symbol}=${lowTex}}^{${highTex}} ${bodyTex}`, plain: `sum for ${variable} from ${low} to ${high} of ${bodyPlain}${limited}`, empty: false, clipped: bounds.clipped };
+}
+
+/** A number's lossless digits in TeX (the Python renderer's _number_tex): 1e-7 written bare would
+ *  read as a coefficient, the variable e, and a subtraction (Codex review F3). */
+function numberTex(text: string): string {
+  const [mantissa, exponent] = text.toLowerCase().split("e");
+  return exponent === undefined ? mantissa : `${mantissa || "1"} \\times 10^{${Number(exponent)}}`;
 }
 
 const GREEK = new Set(["alpha", "beta", "gamma", "delta", "epsilon", "zeta", "eta", "theta", "iota", "kappa", "lambda", "mu", "nu", "xi", "rho", "sigma", "tau", "upsilon", "phi", "chi", "psi", "omega"]);

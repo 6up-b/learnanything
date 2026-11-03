@@ -1,5 +1,6 @@
 // RW5c (spec §7, option B; G23a, G23e): every label slot of a checked figure reads from its elements.
 import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
+import katex from "katex";
 import { afterEach, expect, it, vi } from "vitest";
 import type { FigureElementDto, FigureViewDto } from "../../../api/dto";
 import { FIGURE_FRAME, FigureInline, frameBadge, SOURCE_CHECK_COPY, sourceCheckReasons } from "./FigureInline";
@@ -167,6 +168,23 @@ it("derived endpoints are lossless and an empty range says so", () => {
   expect(empty.plain).toContain(FIGURE_FRAME.noTerms);
   const shade: FigureElementDto = { ...template, template: { ...template.template!, kind: "shade", bodyTex: "f(x)", bodyPlain: "f(x)", variable: "x" } };
   expect(derivedWords(shade, { from: 0.123456, to: 0.123457, clipped: false, integers: null }).plain).toBe("area under f(x) from 0.123456 to 0.123457");
+});
+
+it("a scientific endpoint is written as the power it means, in every derived template (Codex review F3)", () => {
+  const template = (kind: "shade" | "integral" | "sum"): FigureElementDto => ({ id: "x", path: "x", role: "derived", tex: "", plain: "", voice: "frame",
+    template: { kind, panel: 0, index: 0, bodyTex: "f(x)", bodyPlain: "f(x)", variable: "x" } });
+  const bounds = { from: 1e-7, to: 2e-7, clipped: false, integers: null };
+  const integral = derivedWords(template("integral"), bounds);
+  // The same words as the Python twin (test_rw5c_labels.py); the plain line keeps the round-trip digits.
+  expect(integral.tex).toBe("\\int_{1 \\times 10^{-7}}^{2 \\times 10^{-7}} f(x)\\,dx");
+  expect(integral.plain).toBe("integral from 1e-7 to 2e-7 of f(x) dx");
+  expect(derivedWords(template("integral"), { ...bounds, from: -1.5e-7, to: 2.5e21 }).tex).toBe("\\int_{-1.5 \\times 10^{-7}}^{2.5 \\times 10^{21}} f(x)\\,dx");
+  expect(derivedWords(template("integral"), { ...bounds, from: 0.5, to: 1 }).tex).toBe("\\int_{0.5}^{1} f(x)\\,dx");
+  for (const kind of ["shade", "integral"] as const) {
+    const shown = katex.renderToString(derivedWords(template(kind), bounds).tex, { output: "mathml", strict: "ignore" });
+    expect(shown).toContain("<mn>1</mn><mo>×</mo><msup><mn>10</mn><mrow><mo>−</mo><mn>7</mn></mrow></msup>");
+    expect(shown.replace(/<annotation[\s\S]*$/, "")).not.toContain("<mi>e</mi>");
+  }
 });
 
 it("the annotation stays the model's line, its target code's name with no claim", () => {

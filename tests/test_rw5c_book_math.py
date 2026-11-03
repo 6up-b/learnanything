@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import json
 import random
+from pathlib import Path
 
 import pytest
 
@@ -36,6 +38,8 @@ def same(latex: str, grammar: str) -> None:
     (r"y = a \times b", "a*b"),
     (r"y = a b", "a*b"),
     (r"y = 2x", "2*x"),
+    (r"y = 2\frac{x}{3}", "2*(x/3)"),
+    (r"y = \frac{1}{2} x", "1/2*x"),
     (r"y = \frac{a}{b}", "a/b"),
     (r"y = a/b", "a/b"),
     (r"y = a^{b}", "a^b"),
@@ -112,6 +116,7 @@ def test_each_row_translates_exactly(latex, grammar):
     (r"y = 1 / 2 / x", "ambiguous_slash"),
     (r"y = x^10", "syntax"),
     (r"y = \frac12", "syntax"),
+    (r"y = 3\frac{1}{2} x", "syntax"),
     (r"y = \begin{aligned} x \end{aligned}", "unsupported_environment"),
     (r"y = \operatorname{sinc}(x)", "unsupported_function"),
     (r"y = \hat{x}", "unsupported_command"),
@@ -218,3 +223,23 @@ def test_caps_and_a_seeded_fuzz_never_raise_outside_the_reasons():
                                          ("0.1", False), ("10000000000000001", False), ("1234567890123456789012345678901", False)])
 def test_literals_are_exact_binary64_or_nothing(text, exact):
     assert B.binary64_exact(text) is exact
+
+
+# -- how TeX groups the source against what code reads (Codex review F1) ---------------------------------
+
+RENDER_CORPUS = json.loads((Path(__file__).resolve().parents[1] / "apps" / "learnloop-tauri" / "src" / "screens" / "reader"
+                            / "figures" / "bookMathRenderCorpus.json").read_text(encoding="utf-8"))
+
+
+@pytest.mark.parametrize("case", RENDER_CORPUS["refused"], ids=lambda case: case["rhs"])
+def test_a_form_tex_groups_differently_from_its_tokens_is_refused(case):
+    """The MathML beside each case is what KaTeX shows (bookMathRender.test.ts pins it)."""
+
+    with pytest.raises(B.Unreadable) as caught:
+        B.read_relation("y = " + case["rhs"])
+    assert caught.value.reason == case["reason"]
+
+
+@pytest.mark.parametrize("case", RENDER_CORPUS["read"], ids=lambda case: case["rhs"])
+def test_the_braced_form_reads_as_tex_groups_it(case):
+    same("y = " + case["rhs"], case["grammar"])

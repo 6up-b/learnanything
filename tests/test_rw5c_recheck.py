@@ -122,6 +122,28 @@ def test_the_cli_rechecks_only_what_is_due_and_lists_each_checked_element(tmp_pa
 
 
 @sandboxed
+def test_the_audit_lists_no_equation_of_a_source_held_out_after_its_check(tmp_path):
+    """Codex review F2: §11.3, a check row is never delivered apart from its figure's protection."""
+
+    from learnloop.vault.writer import upsert_source_set
+
+    paths, repository, _author, ctx = _vault(tmp_path, [plot("x")])
+    _stored_before_rw5c(paths, ctx, REQUEST)
+    runner = CliRunner()
+    assert json.loads(runner.invoke(app, ["reader", "figure-checks", "--recheck", "--json", "--vault", str(paths.root)]).output)["outcomes"] == {"checked": 1}
+    before = json.loads(runner.invoke(app, ["reader", "figure-checks", "--json", "--vault", str(paths.root)]).output)
+    assert before["checked"][0]["book_equation"] == "f(x)=x" and before["skipped"] == {"withheld": 0}
+    upsert_source_set(paths.root, {"id": "sset_la", "subject_id": "linear-algebra", "title": "x", "members": [
+        {"source_id": "src_math", "revision_id": "rev_math", "default_role": "exam"}]})
+    result = runner.invoke(app, ["reader", "figure-checks", "--json", "--vault", str(paths.root)])
+    assert result.exit_code == 0, result.output
+    audit = json.loads(result.output)
+    assert audit["checked"] == [] and audit["skipped"] == {"withheld": 1}
+    assert audit["figures"] == 0 and audit["outcomes"] == {}
+    assert "f(x)=x" not in result.output
+
+
+@sandboxed
 def test_the_report_has_a_source_checks_block_only_while_the_switch_is_on(tmp_path):
     paths, repository, _author, ctx = _vault(tmp_path, [plot("x")])
     figure = build(ctx, REQUEST)["figure"]

@@ -364,15 +364,17 @@ def template_words(template: Mapping[str, Any], bounds: Mapping[str, Any], numbe
         low_text, high_text = str(first), str(last)
     else:
         low_text, high_text = number(low), number(high)
+    # The digits are lossless either way; in TeX 1e-7 would read as a coefficient, the variable e, and a subtraction.
+    low_tex, high_tex = _number_tex(low_text), _number_tex(high_text)
     limited = " · limited to the plotted range" if bounds.get("clipped") else ""
     if kind == "shade":
-        return (r"\text{area under } " + body_tex + rf" \text{{ from }} {low_text} \text{{ to }} {high_text}",
+        return (r"\text{area under } " + body_tex + rf" \text{{ from }} {low_tex} \text{{ to }} {high_tex}",
                 f"area under {body_plain} from {low_text} to {high_text}{limited}")
     symbol = symbol_tex(variable)
     if kind == "integral":
-        return (rf"\int_{{{low_text}}}^{{{high_text}}} " + body_tex + rf"\,d{symbol}",
+        return (rf"\int_{{{low_tex}}}^{{{high_tex}}} " + body_tex + rf"\,d{symbol}",
                 f"integral from {low_text} to {high_text} of {body_plain} d{variable}")
-    return (rf"\sum_{{{symbol}={low_text}}}^{{{high_text}}} " + body_tex,
+    return (rf"\sum_{{{symbol}={low_tex}}}^{{{high_tex}}} " + body_tex,
             f"sum for {variable} from {low_text} to {high_text} of {body_plain}{limited}")
 
 

@@ -10,7 +10,7 @@ import re
 import sqlite3
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
-from typing import Annotated
+from typing import Annotated, Any
 
 import typer
 
@@ -122,11 +122,14 @@ def figure_checks(
         repository = Repository.attach(path, read_only=dry_run or not recheck)
         enabled = SC.enabled(loaded)
         payload: dict[str, object] = {"status": "ok", "enabled": enabled, "dry_run": dry_run}
+
+        def withheld(row: Any) -> bool:
+            return FS.row_withheld(loaded, repository, row) is not None
+
         if not recheck:
-            payload.update(SC.audit(repository) if enabled else {})
+            payload.update(SC.audit(repository, withheld=withheld) if enabled else {})
         elif enabled:
-            payload.update(SC.coverage(loaded, repository, dry_run=dry_run,
-                                       withheld=lambda row: FS.row_withheld(loaded, repository, row) is not None))
+            payload.update(SC.coverage(loaded, repository, dry_run=dry_run, withheld=withheld))
         typer.echo(json.dumps(payload, sort_keys=True, indent=None if json_output else 2, default=str))
     except (ValueError, OSError, sqlite3.Error) as exc:
         typer.echo(json.dumps({"status": "invalid", "reason": str(exc)}, sort_keys=True))

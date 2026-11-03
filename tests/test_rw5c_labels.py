@@ -234,6 +234,22 @@ def test_f9_endpoints_are_lossless_never_format_value():
     assert "from 0.123456 to 0.123457" in plain
 
 
+@pytest.mark.parametrize("low, high, shown", [
+    (1e-7, 2e-7, r"\int_{1 \times 10^{-7}}^{2 \times 10^{-7}} f(x)\,dx"),
+    (-1.5e-7, 2.5e21, r"\int_{-1.5 \times 10^{-7}}^{2.5 \times 10^{21}} f(x)\,dx"),
+    (0.5, 1, r"\int_{0.5}^{1} f(x)\,dx"),
+])
+def test_f3_a_scientific_endpoint_is_written_as_the_power_it_means(low, high, shown):
+    """Codex review F3: \\int_{1e-7} is a coefficient, the variable e, and a subtraction (figureLabels.test.tsx renders it)."""
+
+    template = {"kind": "integral", "body_tex": "f(x)", "body_plain": "f(x)", "variable": "x"}
+    tex, plain = E.template_words(template, {"from": low, "to": high, "integers": None, "clipped": False}, js_string)
+    assert tex == shown
+    assert plain == f"integral from {js_string(low)} to {js_string(high)} of f(x) dx"
+    shade, _plain = E.template_words({**template, "kind": "shade"}, {"from": low, "to": high, "integers": None, "clipped": False}, js_string)
+    assert "e-" not in shade and "e+" not in shade
+
+
 @pytest.mark.parametrize("expr, tex, plain", [
     ("2*x + 1", r"2 \cdot x + 1", "2*x + 1"),
     ("x^2", "x^{2}", "x^2"),
