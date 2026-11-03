@@ -11,6 +11,9 @@ from typing import Any
 
 from learnloop.algorithm_versions import DATA_CAPTURE_VERSIONS
 
+#: Data capture (mvp-0.44): R_cold under the shared delayed-completion definition (A4); ``router.outcomes`` derives it.
+OUTCOME_VERSION_V3 = "router_outcomes_v3"
+
 
 def receipts_on(config: Any) -> bool:
     section = getattr(config, "data_capture", None)
@@ -26,4 +29,4 @@ def serving_on(config: Any) -> bool:
     )
 
 
-__all__ = ["receipts_on", "serving_on"]
+__all__ = ["OUTCOME_VERSION_V3", "receipts_on", "serving_on"]

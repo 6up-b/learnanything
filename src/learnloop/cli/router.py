@@ -35,6 +35,17 @@ router_app = typer.Typer(
 )
 
 
+def _reader_exposures(connection: sqlite3.Connection, loaded: Any, path: Path) -> list[tuple[str, str]] | None:
+    """What this vault's outcome version reads of the Reader (read-only, like everything here)."""
+
+    from learnloop.data_capture import reading_exposures
+    from learnloop.db.repositories import Repository
+    from learnloop.router.outcomes import outcome_version_for
+
+    return reading_exposures.for_version(connection, loaded, Repository.attach(path, read_only=True),
+                                         outcome_version_for(loaded.config))
+
+
 def _emit(payload: dict, json_output: bool) -> None:
     typer.echo(json.dumps(payload, sort_keys=True, indent=None if json_output else 2))
 
@@ -160,6 +171,7 @@ def router_log(
                     servable_items_by_lo=servable_items_by_learning_object(loaded),
                     held_attempt_ids=held_for_review_attempts(connection),
                     outcome_version=outcome_version_for(loaded.config),
+                    reader_exposures=_reader_exposures(connection, loaded, path),
                 )
             }
             total = connection.execute("SELECT COUNT(*) FROM router_decisions").fetchone()[0]
@@ -230,6 +242,7 @@ def router_report(
                     servable_items_by_lo=servable_items_by_learning_object(loaded),
                     held_attempt_ids=held_for_review_attempts(connection),
                     outcome_version=outcome_version_for(loaded.config),
+                    reader_exposures=_reader_exposures(connection, loaded, path),
                 )
                 if str(row["decision_id"]) in wanted
             }

@@ -119,7 +119,7 @@ def _row_count(connection: sqlite3.Connection, table: str) -> int:
     return int(connection.execute(f"SELECT COUNT(*) FROM {table}").fetchone()[0]) if _present(connection, table) else 0
 
 
-def outcome_section(connection: sqlite3.Connection, vault: Any) -> dict[str, Any]:
+def outcome_section(connection: sqlite3.Connection, vault: Any, repository: Any) -> dict[str, Any]:
     """A2, A4: the derived outcomes under the vault's outcome version, and A4's skip reasons.
 
     ``r_cold_by_arm`` is one endpoint, the frozen objective's, for every arm of every decision that has
@@ -127,13 +127,15 @@ def outcome_section(connection: sqlite3.Connection, vault: Any) -> dict[str, Any
     ``objective_itt``). ``action_bound_r_cold`` is each served action's own outcome, a different endpoint
     (it follows the item the arm happened to serve), kept apart so the two are never compared."""
 
+    from learnloop.data_capture import reading_exposures
     from learnloop.router.outcomes import derive_router_outcomes, outcome_version_for, servable_items_by_learning_object
 
     attempt_ids = [row[0] for row in connection.execute("SELECT id FROM practice_attempts")]
     version = outcome_version_for(vault.config)
     rows = derive_router_outcomes(connection, pfc_states=pfc_assessments(connection, attempt_ids),
                                   servable_items_by_lo=servable_items_by_learning_object(vault),
-                                  held_attempt_ids=held_for_review_attempts(connection), outcome_version=version)
+                                  held_attempt_ids=held_for_review_attempts(connection), outcome_version=version,
+                                  reader_exposures=reading_exposures.for_version(connection, vault, repository, version))
     by_arm: dict[str, Counter[str]] = {}
     action_bound: Counter[str] = Counter()
     completions: Counter[str] = Counter()
@@ -158,9 +160,10 @@ def outcome_section(connection: sqlite3.Connection, vault: Any) -> dict[str, Any
         "decisions": len(rows),
         "r_cold_by_arm": {arm: dict(counts) for arm, counts in sorted(by_arm.items())},
         "action_bound_r_cold": dict(sorted(action_bound.items())),
-        # The Reader's exposures reach the delayed definition through these receipts (written where Today prepares,
-        # so a section read since then counts once Today next prepares); AD's own only under its forecast logging.
+        # The Reader's exposures reach the delayed definition through one read (the receipts plus the activity not yet
+        # swept, so the labels above are the same either way); AD's own only under its forecast logging.
         "reading_exposure_receipts": _row_count(connection, "reading_exposure_receipts"),
+        "reader_exposures_not_yet_swept": len(reading_exposures.not_yet_swept(connection, vault, repository)),
         "ad_reading_receipts": _row_count(connection, "ad_reading_opportunities"),
         "completions": dict(completions),
         "r_cold_skip_reasons": dict(skips),
@@ -168,15 +171,18 @@ def outcome_section(connection: sqlite3.Connection, vault: Any) -> dict[str, Any
     }
 
 
-def time_section(connection: sqlite3.Connection, vault: Any, *, as_of: str, success_correctness: float) -> dict[str, Any]:
+def time_section(connection: sqlite3.Connection, vault: Any, repository: Any, *, as_of: str,
+                 success_correctness: float) -> dict[str, Any]:
     """A3: the first-delayed-success proxy."""
 
+    from learnloop.data_capture import reading_exposures
     from learnloop.router.first_delayed_success import summary, trajectories
 
     attempt_ids = [row[0] for row in connection.execute("SELECT id FROM practice_attempts")]
     rows, facts = trajectories(connection, vault, success_correctness=success_correctness, as_of=as_of,
                                pfc_states=pfc_assessments(connection, attempt_ids),
-                               held_attempt_ids=held_for_review_attempts(connection))
+                               held_attempt_ids=held_for_review_attempts(connection),
+                               reader_exposures=reading_exposures.read(connection, vault, repository))
     return summary(rows, facts)
 
 
@@ -212,7 +218,8 @@ def floor_and_pick_section(connection: sqlite3.Connection) -> dict[str, Any]:
     return {"not_ready_floor": not_ready, "delayed_picks": picks, "thin_support_assignments": int(thin)}
 
 
-def build_report(connection: sqlite3.Connection, vault: Any, *, as_of: str, success_correctness: float) -> dict[str, Any]:
+def build_report(connection: sqlite3.Connection, vault: Any, repository: Any, *, as_of: str,
+                 success_correctness: float) -> dict[str, Any]:
     return {
         "report_version": REPORT_VERSION,
         "as_of": as_of,
@@ -220,8 +227,8 @@ def build_report(connection: sqlite3.Connection, vault: Any, *, as_of: str, succ
         "switches": {"receipts": receipts_on(vault.config), "serving": serving_on(vault.config)},
         "prefilter_receipts": prefilter_section(connection),
         "measurements": measurement_section(connection),
-        "outcomes": outcome_section(connection, vault),
-        "first_delayed_success": time_section(connection, vault, as_of=as_of, success_correctness=success_correctness),
+        "outcomes": outcome_section(connection, vault, repository),
+        "first_delayed_success": time_section(connection, vault, repository, as_of=as_of, success_correctness=success_correctness),
         "floor_and_picks": floor_and_pick_section(connection),
     }
 
@@ -259,7 +266,8 @@ def lines(report: Mapping[str, Any]) -> list[str]:
     for arm, counts in outcomes["r_cold_by_arm"].items():
         out.append(f"    {arm}: {counts}")
     out.append(f"  R_cold of the served action (action-bound, not comparable with the above): {outcomes['action_bound_r_cold']}")
-    out.append(f"  reading exposures on record: {outcomes['reading_exposure_receipts']}")
+    out.append(f"  reading exposures on record: {outcomes['reading_exposure_receipts']}, "
+               f"not yet swept: {outcomes['reader_exposures_not_yet_swept']} (read either way)")
     if outcomes["completions"]:
         out.append(f"  delayed completions: {outcomes['completions']}")
     first = report["first_delayed_success"]

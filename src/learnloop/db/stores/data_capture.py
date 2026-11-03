@@ -22,6 +22,8 @@ RECEIPT_TABLES: tuple[str, ...] = ("prefilter_payloads", "prefilter_receipts")
 OBJECTIVE_TABLES: tuple[str, ...] = ("decision_objectives", "decision_measurement_events")
 #: Reader activity frozen for the delayed-completion definition, whatever AD's forecast logging says.
 READING_EXPOSURES = "reading_exposure_receipts"
+#: The frozen reading receipts: data capture's own, and adaptive difficulty's where its logging is on.
+READING_RECEIPT_TABLES: tuple[str, ...] = (READING_EXPOSURES, "ad_reading_opportunities")
 
 RECEIPT_COLUMNS: tuple[str, ...] = (
     "id", "decision_id", "decision_kind", "surface", "receipt_version", "algorithm_version", "code_revision",
@@ -156,10 +158,15 @@ def reading_exposures_present(connection: sqlite3.Connection) -> bool:
     return _present(connection, (READING_EXPOSURES,))
 
 
-def newest_reading_exposure(connection: sqlite3.Connection) -> str | None:
-    """The newest source time on record: where the next sweep's window starts."""
+def reading_receipts(connection: sqlite3.Connection) -> set[tuple[str, str]]:
+    """``(LO, source time)`` of every stored reading receipt, data capture's own and AD's where its logging wrote any."""
 
-    return connection.execute(f"SELECT MAX(source_written_at) FROM {READING_EXPOSURES}").fetchone()[0]
+    out: set[tuple[str, str]] = set()
+    for table in READING_RECEIPT_TABLES:
+        if _present(connection, (table,)):
+            out.update((str(row[0]), str(row[1])) for row in connection.execute(
+                f"SELECT learning_object_id, source_written_at FROM {table} WHERE learning_object_id IS NOT NULL"))
+    return out
 
 
 def reading_exposure_recorded(connection: sqlite3.Connection, where: str, args: Iterable[Any] = ()) -> bool:
@@ -203,8 +210,9 @@ __all__ = [
     "insert_measurement_event",
     "insert_reading_exposure",
     "latest_episode",
-    "newest_reading_exposure",
+    "READING_RECEIPT_TABLES",
     "reading_exposure_recorded",
+    "reading_receipts",
     "reading_exposures_present",
     "insert_objective",
     "insert_prefilter_receipt",

@@ -1,0 +1,259 @@
+"""Data capture A1-A6: the final verify's two findings, each reproduced first (landing ruling R1).
+
+F1 reopened: an answer's label depended on whether Today had swept the Reader's activity. Monday's practice, Wednesday
+10:00's completed section, 10:30's correct answer read ``observed`` 1.0 before a sweep and ``pending`` after one, so a
+report or a rebuild brought back the false cold label.
+Fakes only; no network.
+"""
+
+from __future__ import annotations
+
+import ast
+from datetime import timedelta
+import hashlib
+from pathlib import Path
+
+from learnloop import delayed_completion as DC
+from learnloop.daily_plan import measurement as M
+from learnloop.data_capture import reading_exposures as RE
+from learnloop.db.connection import connect
+from learnloop.db.repositories import Repository
+from learnloop.db.stores import data_capture as store
+from learnloop.ops import capture_report as CR
+from learnloop.router import outcomes as RO
+from learnloop.router.first_delayed_success import trajectories
+from learnloop.substrate.rebuild_orchestrator import rebuild_all_derived_state
+
+from tests.test_data_capture_a2_measurement import _arranged_wait, _due_measurement, _events
+from tests.test_data_capture_codex_rereview import _complete_section, _count, _map_sections, _other_item
+from tests.test_router_g4_restraint import DECIDER_ONLY
+
+AD_OFF = "[adaptive_difficulty]\nenabled = false\n"
+ROOT = Path(__file__).resolve().parent.parent
+
+
+def _in_session(env, item, lo, session, *, correctness=1.0):
+    with env.repository.connection() as connection:
+        connection.execute(
+            "INSERT INTO practice_attempts(id, practice_item_id, learning_object_id, practice_mode, attempt_type,"
+            " hints_used, correctness, manual_review, created_at, session_id, primed, evidence_origin)"
+            " VALUES (?,?,?,?,?,0,?,0,?,?,0,'human')",
+            (f"att_{item}_{env.now_iso()}", item, lo, "short_answer", "independent_attempt", correctness, env.now_iso(), session))
+        connection.commit()
+
+
+def _monday_wednesday(tmp_path, monkeypatch, *, read=True):
+    """Monday's practice in one session, Wednesday 10:00's section (when ``read``), and 10:30's correct answer in another."""
+
+    env, decision_id, objective = _arranged_wait(tmp_path, toml=DECIDER_ONLY + AD_OFF)
+    lo = objective["learning_object_id"]
+    _map_sections(monkeypatch, lo)
+    env.clock.advance(1)
+    _in_session(env, _other_item(env, objective), lo, "monday", correctness=0.4)
+    env.clock.instant = env.clock.instant + timedelta(days=2)
+    if read:
+        _complete_section(env)
+    env.clock.advance(30)
+    _in_session(env, objective["practice_item_id"], lo, "wednesday")
+    env.clock.advance(1)
+    return env, decision_id, objective
+
+
+def _derive(env):
+    with env.repository.connection() as connection:
+        return {row["decision_id"]: row for row in RO.derive_router_outcomes(
+            connection, outcome_version=RO.OUTCOME_VERSION_V3,
+            reader_exposures=RE.read(connection, env.vault, env.repository))}
+
+
+def _metric(env, lo):
+    with env.repository.connection() as connection:
+        found, _facts = trajectories(connection, env.vault, success_correctness=0.8, as_of=env.now_iso(),
+                                     reader_exposures=RE.read(connection, env.vault, env.repository))
+    return next(row for row in found if row.learning_object_id == lo)
+
+
+def _warm_completion(env, objective, decision_id):
+    with env.repository.connection() as connection:
+        attempt = connection.execute("SELECT id FROM practice_attempts WHERE session_id = 'wednesday'").fetchone()[0]
+        decided = connection.execute("SELECT created_at FROM router_decisions WHERE id = ?", (decision_id,)).fetchone()[0]
+        return RO.answer_completion(connection, attempt, decided_at=decided,
+                                    reader_exposures=RE.read(connection, env.vault, env.repository))
+
+
+# -- F1: one read ---------------------------------------------------------------------------------------------------
+
+
+def test_f1_the_warm_answer_is_not_delayed_with_no_sweep_having_run(tmp_path, monkeypatch):
+    """Reproduced first: ``observed`` 1.0 and a first delayed success before the sweep, ``pending`` after it."""
+
+    env, decision_id, objective = _monday_wednesday(tmp_path, monkeypatch)
+    assert not env.vault.config.adaptive_difficulty.enabled and _count(env, "reading_exposure_receipts") == 0
+    assert _warm_completion(env, objective, decision_id).status == DC.NOT_DELAYED
+    outcome = _derive(env)[decision_id]
+    assert outcome["r_cold_status"] == "pending" and outcome["r_cold_value"] is None
+    assert not _metric(env, objective["learning_object_id"]).reached
+    assert _count(env, "reading_exposure_receipts") == 0, "the read writes nothing"
+
+
+def test_f1_with_no_section_read_the_same_answer_is_the_cold_success(tmp_path, monkeypatch):
+    """The other side of the same case, so the test above is about the reading."""
+
+    env, decision_id, objective = _monday_wednesday(tmp_path, monkeypatch, read=False)
+    assert _warm_completion(env, objective, decision_id).status == DC.COMPLETED
+    assert _derive(env)[decision_id]["r_cold_status"] == "observed"
+    assert _metric(env, objective["learning_object_id"]).reached
+
+
+def test_f1_derivation_metric_and_report_read_the_same_before_and_after_the_sweep(tmp_path, monkeypatch):
+    env, decision_id, objective = _monday_wednesday(tmp_path, monkeypatch)
+    lo = objective["learning_object_id"]
+
+    def everything():
+        with env.repository.connection() as connection:
+            section = CR.outcome_section(connection, env.vault, env.repository)
+            exposures = RE.read(connection, env.vault, env.repository)
+            time = CR.time_section(connection, env.vault, env.repository, as_of=env.now_iso(), success_correctness=0.8)
+        for volatile in ("reading_exposure_receipts", "reader_exposures_not_yet_swept"):
+            section.pop(volatile)
+        return exposures, _derive(env), _metric(env, lo), section, time
+
+    before = everything()
+    with env.repository.connection() as connection:
+        assert len(RE.not_yet_swept(connection, env.vault, env.repository)) == 1
+    assert RE.sweep(env.vault, env.repository, clock=env.clock) == 1
+    with env.repository.connection() as connection:
+        assert RE.not_yet_swept(connection, env.vault, env.repository) == []
+    after = everything()
+    assert before == after
+
+
+def test_f1_the_report_says_what_is_on_record_and_what_is_not_yet(tmp_path, monkeypatch):
+    env, _decision_id, _objective = _monday_wednesday(tmp_path, monkeypatch)
+    with env.repository.connection() as connection:
+        section = CR.outcome_section(connection, env.vault, env.repository)
+    assert section["reading_exposure_receipts"] == 0 and section["reader_exposures_not_yet_swept"] == 1
+
+
+def test_f1_a_rebuild_with_no_sweep_cannot_bring_back_the_cold_label(tmp_path, monkeypatch):
+    env, decision_id, _objective = _monday_wednesday(tmp_path, monkeypatch)
+    rebuild_all_derived_state(env.vault, env.repository, clock=env.clock, require_complete_attempt_coverage=False)
+    with env.repository.connection() as connection:
+        row = dict(connection.execute("SELECT * FROM router_outcomes WHERE decision_id = ?", (decision_id,)).fetchone())
+    assert row["r_cold_status"] == "pending" and row["r_cold_value"] is None
+    assert _count(env, "reading_exposure_receipts") == 0, "a rebuild freezes nothing"
+
+
+def test_f1_settle_judges_the_answer_by_the_read_when_the_sweep_failed(tmp_path, monkeypatch):
+    env, decision_id, objective = _monday_wednesday(tmp_path, monkeypatch, read=False)
+    # Past the check's date, answered the half hour after a section no sweep recorded.
+    env.clock.instant = env.clock.instant + timedelta(days=30)
+    _complete_section(env)
+    env.clock.advance(30)
+    _in_session(env, objective["practice_item_id"], objective["learning_object_id"], "later")
+    env.clock.advance(1)
+    monkeypatch.setattr(RE, "sweep_quietly", lambda *_a, **_k: 0)
+    M.settle(env.vault, env.repository, clock=env.clock)
+    events = _events(env)[decision_id]
+    assert "answered" not in {event["state"] for event in events}
+    assert M.ANSWER_NOT_DELAYED in {event["reason"] for event in events}
+
+
+def test_f1_an_answer_waits_when_the_read_cannot_judge_it(tmp_path, monkeypatch):
+    env, decision_id, objective = _due_measurement(tmp_path)
+    _in_session(env, objective["practice_item_id"], objective["learning_object_id"], "later")
+    env.clock.advance(1)
+
+    def boom(*_args, **_kwargs):
+        raise RuntimeError("unreadable")
+
+    monkeypatch.setattr(RE, "read", boom)
+    M.settle(env.vault, env.repository, clock=env.clock)
+    assert "answered" not in {event["state"] for event in _events(env)[decision_id]}
+    monkeypatch.undo()
+    M.settle(env.vault, env.repository, clock=env.clock)
+    assert "answered" in {event["state"] for event in _events(env)[decision_id]}
+
+
+def test_f1_activity_stamped_long_before_the_newest_receipt_is_read_and_frozen_alike(tmp_path, monkeypatch):
+    """A row stamped past the sweep's old overlap, committed after a later row was swept: the read and the sweep agree."""
+
+    env, _decision_id, objective = _arranged_wait(tmp_path, toml=DECIDER_ONLY + AD_OFF)
+    lo = objective["learning_object_id"]
+    _map_sections(monkeypatch, lo)
+    old = env.now_iso()
+    env.clock.instant = env.clock.instant + timedelta(days=5)
+    _complete_section(env, section="new")
+    assert RE.sweep(env.vault, env.repository, clock=env.clock) == 1
+    with env.repository.atomic(), env.repository.connection() as connection:
+        connection.execute("INSERT INTO reader_section_progress(extraction_id, section_id, completed_at, updated_at)"
+                           " VALUES ('x', 'late', ?, ?)", (old, old))
+    with env.repository.connection() as connection:
+        assert [at[:19] for _lo, at in RE.not_yet_swept(connection, env.vault, env.repository)] == [old[:19]]
+        before = RE.read(connection, env.vault, env.repository)
+    assert RE.sweep(env.vault, env.repository, clock=env.clock) == 1
+    with env.repository.connection() as connection:
+        assert RE.read(connection, env.vault, env.repository) == before
+
+
+def test_f1_a_section_no_lo_named_until_later_reads_the_same_swept_or_not(tmp_path, monkeypatch):
+    env, _decision_id, objective = _arranged_wait(tmp_path, toml=DECIDER_ONLY + AD_OFF)
+    monkeypatch.setattr(RE, "reading_learning_objects", lambda _vault, _repo, _target: [])
+    _complete_section(env)
+    assert RE.sweep(env.vault, env.repository, clock=env.clock) == 0, "no LO yet: nothing to record"
+    _map_sections(monkeypatch, objective["learning_object_id"])
+    env.clock.instant = env.clock.instant + timedelta(days=5)
+    with env.repository.connection() as connection:
+        assert len(RE.not_yet_swept(connection, env.vault, env.repository)) == 1
+    assert RE.sweep(env.vault, env.repository, clock=env.clock) == 1
+
+
+def test_f1_the_read_is_read_only_under_a_read_only_repository(tmp_path, monkeypatch):
+    env, _decision_id, objective = _monday_wednesday(tmp_path, monkeypatch)
+    path = env.repository.sqlite_path
+
+    def digest():
+        with connect(path) as connection:
+            connection.execute("PRAGMA wal_checkpoint(TRUNCATE)")
+        return hashlib.sha256(Path(path).read_bytes()).hexdigest()
+
+    before = digest()
+    repository = Repository.attach(path, read_only=True)
+    connection = connect(path, read_only=True)
+    try:
+        exposures = RE.read(connection, env.vault, repository)
+    finally:
+        connection.close()
+    assert [lo for lo, _at in exposures] == [objective["learning_object_id"]]
+    assert digest() == before
+
+
+def test_f1_below_the_receipts_table_the_read_is_activity_alone(tmp_path, monkeypatch):
+    env, _decision_id, objective = _monday_wednesday(tmp_path, monkeypatch)
+    monkeypatch.setattr(store, "reading_exposures_present", lambda _connection: False)
+    with env.repository.connection() as connection:
+        assert [lo for lo, _at in RE.not_yet_swept(connection, env.vault, env.repository)] == [objective["learning_object_id"]]
+
+
+def test_f1_for_version_reads_only_at_version_3(tmp_path, monkeypatch):
+    env, _decision_id, _objective = _monday_wednesday(tmp_path, monkeypatch)
+    with env.repository.connection() as connection:
+        assert RE.for_version(connection, env.vault, env.repository, RO.OUTCOME_VERSION) is None
+        assert RE.for_version(connection, env.vault, env.repository, RO.OUTCOME_VERSION_V3)
+
+
+def test_f1_every_production_derivation_passes_the_read():
+    """A caller that forgets falls back to the stored receipts alone: the false cold label, quietly. So each names it."""
+
+    names = {"derive_router_outcomes", "rebuild_router_outcomes", "trajectories", "answer_completion"}
+    found: list[str] = []
+    for path in (ROOT / "src" / "learnloop").rglob("*.py"):
+        for node in ast.walk(ast.parse(path.read_text(encoding="utf-8"))):
+            if isinstance(node, ast.Call):
+                name = getattr(node.func, "id", getattr(node.func, "attr", None))
+                if name in names and node.args:
+                    found.append(path.name)
+                    assert any(keyword.arg == "reader_exposures" for keyword in node.keywords), f"{path}:{node.lineno}"
+    # The caller list, so a renamed function can't empty this test.
+    assert {"capture_report.py", "router.py", "router_retrieval.py", "measurement.py", "scoreboard.py",
+            "rebuild_orchestrator.py"} <= set(found)

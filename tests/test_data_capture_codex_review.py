@@ -509,7 +509,7 @@ def test_f6_every_arm_is_reported_on_its_frozen_objective_and_action_outcomes_ap
     ]
     monkeypatch.setattr(RO, "derive_router_outcomes", lambda *_a, **_k: derived)
     with repository.connection() as connection:
-        section = CR.outcome_section(connection, vault)
+        section = CR.outcome_section(connection, vault, repository)
     assert section["r_cold_by_arm"] == {"practice": {"observed": 1}, "reading": {"observed": 1}, "wait": {"pending": 1},
                                         "insert": {"pending": 1}}
     assert section["action_bound_r_cold"] == {"pending": 1, "observed": 2}
@@ -521,7 +521,7 @@ def test_f6_the_text_report_names_both(world, monkeypatch):
     monkeypatch.setattr(RO, "derive_router_outcomes", lambda *_a, **_k: [
         _row("x", status="pending", detail={"objective_itt": {"arm": "practice", "r_cold_status": "observed"}})])
     with repository.connection() as connection:
-        report = CR.build_report(connection, vault, as_of=AS_OF, success_correctness=0.8)
+        report = CR.build_report(connection, vault, repository, as_of=AS_OF, success_correctness=0.8)
     text = "\n".join(CR.lines(report))
     assert "objective, by arm" in text and "action-bound" in text and "practice: {'observed': 1}" in text
 

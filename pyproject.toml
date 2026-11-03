@@ -1059,6 +1059,11 @@ ignore_imports = [
     # PlannedVisualV1 (teacher.contracts); function-local, and teacher never imports prefetch.
     "learnloop.figures.prefetch -> learnloop.teacher.visuals",
     "learnloop.figures.prefetch -> learnloop.teacher.contracts",
+    # Data capture landing ruling R1: the one read of Reader exposures uses AD's list of sources and
+    # the Reader's section mapping (function-local), and the scoreboard and the rebuild read it, so it
+    # sits below daily_plan; neither AD nor the Reader imports it.
+    "learnloop.data_capture.reading_exposures -> learnloop.adaptive_difficulty.reading",
+    "learnloop.data_capture.reading_exposures -> learnloop.reader.reader_progression",
     # Adaptive difficulty AD2+AD3: composition-root registration of AD's two
     # DERIVED-table owners (function-local imports in the orchestrator).
     "learnloop.substrate.rebuild_orchestrator -> learnloop.adaptive_difficulty.replay",

@@ -537,6 +537,7 @@ def _run_source_block_fts(
 def _run_router_outcomes(
     spec: DerivedStateReplayer, context: _ReplayContext
 ) -> ReplayerResult:
+    from learnloop.data_capture import reading_exposures
     from learnloop.field.outcomes import fsrs_predicted_retrievability
     from learnloop.router.outcomes import (
         outcome_version_for,
@@ -565,13 +566,18 @@ def _run_router_outcomes(
             if logged
             else {}
         )
+        version = outcome_version_for(context.vault.config)
         written = rebuild_router_outcomes(
             connection,
             pfc_states=pfc_assessments(connection, attempt_ids),
             servable_items_by_lo=servable_items_by_learning_object(context.vault),
             retrievability_by_attempt=retrievability,
             held_attempt_ids=held,
-            outcome_version=outcome_version_for(context.vault.config),
+            outcome_version=version,
+            # A rebuild reads what the live derivation reads, so it can't bring back a false cold label (R1).
+            reader_exposures=(
+                reading_exposures.for_version(connection, context.vault, context.repository, version) if logged else None
+            ),
         )
     return ReplayerResult(spec.name, tuple(sorted(spec.owned_tables)), rows_processed=written)
 

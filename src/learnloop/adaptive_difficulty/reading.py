@@ -484,7 +484,7 @@ _COLLECTORS: tuple[Callable[..., list[_Event]], ...] = (
 def listed_events(connection: Any, reading_map: Any, lower: str | None, upper: str, *, view: Any) -> list[_Event]:
     """Every listed learning opportunity in the window, as ``reading_map`` and ``view`` see them: this list and its
     reading, with no receipt, no cap and no write. Data capture's exposure sweep reads the same list
-    (:mod:`learnloop.daily_plan.reading_exposures`), since it stands whatever this module's switches say."""
+    (:mod:`learnloop.data_capture.reading_exposures`), since it stands whatever this module's switches say."""
 
     events: list[_Event] = []
     for collect in _COLLECTORS:

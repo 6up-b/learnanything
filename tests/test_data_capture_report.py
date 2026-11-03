@@ -21,7 +21,7 @@ TAG = "mvp-0.44"
 
 def _report(env):
     with env.repository.connection() as connection:
-        return build_report(connection, env.vault, as_of=env.now_iso(), success_correctness=0.8)
+        return build_report(connection, env.vault, env.repository, as_of=env.now_iso(), success_correctness=0.8)
 
 
 def test_the_report_lists_each_record_with_counts_and_coverage(tmp_path):

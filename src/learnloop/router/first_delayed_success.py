@@ -21,7 +21,7 @@ Read-only; no model call. The router leaf: it imports no scheduler or substrate 
 
 from __future__ import annotations
 
-from collections.abc import Mapping, Sequence
+from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import asdict, dataclass, field
 import json
 import sqlite3
@@ -29,9 +29,9 @@ from typing import Any
 
 from learnloop import delayed_completion as DC
 from learnloop.clock import parse_utc
+from learnloop.db.stores import data_capture as capture_store
 from learnloop.router.outcomes import (
     OUTCOME_VERSION_V3,
-    READING_RECEIPT_TABLES,
     _completion,
     _decision_block,
     _Ledger,
@@ -257,14 +257,12 @@ def _visits(connection: sqlite3.Connection) -> list[dict[str, Any]]:
     return visits
 
 
-def _reading_marks(connection: sqlite3.Connection) -> list[tuple[str, str]]:
-    """``(time, LO)`` of reading on an LO: its reading receipts and source exposures."""
+def _reading_marks(connection: sqlite3.Connection, reader_exposures: Iterable[tuple[str, str]] | None) -> list[tuple[str, str]]:
+    """``(time, LO)`` of reading on an LO: the Reader exposures (the stored receipts alone, with none given) and source
+    exposures."""
 
-    marks: list[tuple[str, str]] = []
-    for table in READING_RECEIPT_TABLES:
-        if _table_present(connection, table):
-            marks += [(str(row[0]), str(row[1])) for row in connection.execute(
-                f"SELECT source_written_at, learning_object_id FROM {table}")]
+    stored = capture_store.reading_receipts(connection) if reader_exposures is None else reader_exposures
+    marks: list[tuple[str, str]] = [(str(at), str(lo)) for lo, at in stored]
     if _table_present(connection, "source_exposure_events"):
         marks += [(str(row[0]), str(row[1])) for row in connection.execute(
             "SELECT created_at, entity_id FROM source_exposure_events WHERE entity_type = 'learning_object' "
@@ -344,15 +342,18 @@ def trajectories(
     as_of: str,
     pfc_states: Mapping[str, str] | None = None,
     held_attempt_ids: frozenset[str] | set[str] = frozenset(),
+    reader_exposures: Iterable[tuple[str, str]] | None = None,
 ) -> tuple[list[Trajectory], dict[str, Any]]:
-    """Every enrolled LO's trajectory, reached or not, and the report-level timing facts."""
+    """Every enrolled LO's trajectory, reached or not, and the report-level timing facts. ``reader_exposures``:
+    ``data_capture.reading_exposures.read``, which every caller with a repository passes; without it, the stored receipts."""
 
     pfc_states = pfc_states or {}
-    ledger = _Ledger(connection, held_attempt_ids=frozenset(held_attempt_ids), version=OUTCOME_VERSION_V3)
+    ledger = _Ledger(connection, held_attempt_ids=frozenset(held_attempt_ids), version=OUTCOME_VERSION_V3,
+                     reader_exposures=reader_exposures)
     contracts = _contract_rows(connection)
     goal_scopes = _goal_scopes(vault, contracts)
     commitments = _commitment_times(connection, vault)
-    visits_by_lo, unattributed = _attribute_visits(_visits(connection), _reading_marks(connection))
+    visits_by_lo, unattributed = _attribute_visits(_visits(connection), _reading_marks(connection, reader_exposures))
     reading_decisions: list[dict[str, Any]] = []
     if _table_present(connection, "decision_objectives"):
         reading_decisions = [dict(row) for row in connection.execute(

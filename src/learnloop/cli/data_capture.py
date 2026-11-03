@@ -38,11 +38,11 @@ def data_capture_report(
             raise ValueError("--vault must contain learnloop.toml")
         loaded = load_vault(vault, load_environment=False)
         path = VaultPaths(loaded.root, loaded.config).sqlite_path
-        threshold = float(resolve_causal_probe_parameters(Repository.attach(path, read_only=True))[
-            "cold_verification_success_correctness"])
+        repository = Repository.attach(path, read_only=True)
+        threshold = float(resolve_causal_probe_parameters(repository)["cold_verification_success_correctness"])
         with closing(connect(path, read_only=True)) as connection:
             connection.execute("BEGIN")
-            report = build_report(connection, loaded, as_of=utc_now_iso(), success_correctness=threshold)
+            report = build_report(connection, loaded, repository, as_of=utc_now_iso(), success_correctness=threshold)
     except (ValueError, OSError, sqlite3.Error) as exc:
         typer.echo(json.dumps({"status": "invalid", "reason": str(exc)}, sort_keys=True))
         raise typer.Exit(code=1) from exc

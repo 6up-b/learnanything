@@ -13,11 +13,21 @@ outcome reads:
   Reading held-out material is an exposure all the same, and the row holds only its LO and the time;
 * **no doses, no dwell, no answer text**: the fact and its source time, no more.
 
-Written where Today prepares (:func:`learnloop.daily_plan.measurement.settle`, which judges answers against it), so a
-section read since then counts once Today next prepares: the source time is kept, and every outcome is derived from the
-ledgers at read time, so a late sweep corrects it. Under either of data capture's switches, at every version: a receipt
-changes nothing served, and only ``router_outcomes_v3`` and the time metric read it. Never evidence, FSRS, the projection
-or replay (A12 stands: this writes nothing AD reads).
+**One read** (landing ruling R1): :func:`read` is how ``router_outcomes_v3``, the time metric and the capture report see
+Reader exposures: the stored receipts plus the source activity not yet swept, through the same collectors, the same
+mapping and the same source time as the sweep. :func:`sweep` writes what :func:`read` would add and nothing else, so **the
+sweep only freezes**: no answer depends on whether Today has run. A row is never mapped again once recorded (what freezing
+means), and every source row is listed, not only recent ones, so a row stamped before a sweep and committed after it, or a
+section whose LOs appear later, reads the same with or without a sweep between.
+
+Its cost, per call: one indexed lookup per Reader source row, and for each distinct section or span not on record (not yet
+swept, or no LO names it yet) a document load and a scan of the active LOs, cached for the call. Rows on record are not
+mapped. No model call, no write, no clock. Measured on copies of the owner's vaults (60 to 85 receipts' worth of activity):
+300 to 430 ms with nothing swept yet, 2 to 70 ms after a sweep; a vault with n sections no LO names pays about n x 20 ms.
+
+Frozen where Today prepares (:func:`learnloop.daily_plan.measurement.settle`). Under either of data capture's switches, at
+every version: a receipt changes nothing served, and only ``router_outcomes_v3`` and the time metric read it. Never
+evidence, FSRS, the projection or replay (A12 stands: this writes nothing AD reads).
 """
 
 from __future__ import annotations
@@ -29,12 +39,37 @@ from types import SimpleNamespace
 from typing import Any
 
 from learnloop.clock import Clock, SystemClock, parse_utc, utc_now_iso
-from learnloop.data_capture.gates import receipts_on, serving_on
+from learnloop.data_capture.gates import OUTCOME_VERSION_V3, receipts_on, serving_on
 from learnloop.db.stores import data_capture as store
 
 logger = logging.getLogger(__name__)
 
 MAPPING_VERSION = "reading_exposure_map_v1"
+#: Above any source time: a read has no clock, and a row stamped past the sweep's "now" is still read (AD's stamp form).
+NO_UPPER = "9999-12-31T23:59:59.999999Z"
+
+
+def reading_learning_objects(vault: Any, repository: Any, target: Any) -> list[str]:
+    """The LOs a reading target's section holds (its provenance-linked LOs and coverage rows): what a decision's
+    objective freezes (:mod:`learnloop.daily_plan.measurement`) and what an exposure names."""
+
+    if target is None:
+        return []
+    found: list[str] = []
+    try:
+        from learnloop.reader.reader_progression import learning_objects_for_section
+
+        found.extend(learning_objects_for_section(
+            vault, repository, extraction_id=str(target.extraction_id), section_id=str(target.section_id)))
+        with repository.connection() as connection:
+            from learnloop.db.stores import section_coverage as coverage
+
+            if coverage.table_present(connection):
+                found.extend(coverage.learning_objects_named(connection, str(target.extraction_id),
+                                                             str(target.section_id)))
+    except Exception:  # noqa: BLE001 - an unreadable section has no objective; the decision stands
+        logger.warning("data capture: a reading section's learning objects were not read", exc_info=True)
+    return list(dict.fromkeys(found))
 
 
 class _Map:
@@ -47,8 +82,6 @@ class _Map:
         self._spans: dict[tuple[str, str], list[str]] = {}
 
     def los_for_section(self, extraction_id: str, section_id: str) -> list[str]:
-        from learnloop.daily_plan.measurement import reading_learning_objects
-
         key = (extraction_id, section_id)
         if key not in self._sections:
             target = SimpleNamespace(extraction_id=extraction_id, section_id=section_id)
@@ -103,6 +136,8 @@ class _Rows:
 
     def lookup(self, connection: Any, _table: str, where: str, args: Iterable[Any] = (), *,
                stale_as_missing: bool = False) -> tuple[str, Mapping[str, Any] | None]:
+        if not store.reading_exposures_present(connection):
+            return "missing", None  # below migration 239 nothing is on record: everything is still activity to read
         return ("ok", {}) if store.reading_exposure_recorded(connection, where, args) else ("missing", None)
 
     def answered_questions(self, connection: Any, styles: Sequence[str]) -> list[dict[str, Any]]:
@@ -130,19 +165,40 @@ def _stamp(when: datetime) -> str:
     return when.isoformat(timespec="microseconds").replace("+00:00", "Z")
 
 
-def _events(connection: Any, vault: Any, repository: Any, *, upper: str) -> list[Any]:
-    from learnloop.adaptive_difficulty.reading import SWEEP_OVERLAP, listed_events
+def _events(connection: Any, vault: Any, repository: Any, *, upper: str = NO_UPPER) -> list[Any]:
+    """The listed activity not yet on record, the whole of it (see the module's note): what the sweep freezes and what
+    :func:`read` adds are this one list."""
 
-    # AD's own overlap, its reason the same: a source row stamped a little before the newest on record is still read.
-    newest = store.newest_reading_exposure(connection)
-    parsed = parse_utc(newest) if newest else None
-    lower = _stamp(parsed - SWEEP_OVERLAP) if parsed is not None else None
-    return listed_events(connection, _Map(vault, repository), lower, upper, view=_Rows())
+    from learnloop.adaptive_difficulty.reading import listed_events
+
+    return listed_events(connection, _Map(vault, repository), None, upper, view=_Rows())
+
+
+def not_yet_swept(connection: Any, vault: Any, repository: Any) -> list[tuple[str, str]]:
+    """``(LO, source time)`` of the listed activity no sweep has recorded yet. Read-only."""
+
+    return sorted({(str(lo), str(event.written_at)) for event in _events(connection, vault, repository)
+                   for lo in event.learning_object_ids})
+
+
+def read(connection: Any, vault: Any, repository: Any) -> list[tuple[str, str]]:
+    """Every Reader exposure, ``(LO, source time)``: the stored receipts plus the source activity not yet swept.
+
+    The one read of them (R1), the same before and after a sweep. Read-only, whichever connection and repository it is
+    given, and at any switch: reading an exposure changes nothing served."""
+
+    return sorted({*store.reading_receipts(connection), *not_yet_swept(connection, vault, repository)})
+
+
+def for_version(connection: Any, vault: Any, repository: Any, version: str) -> list[tuple[str, str]] | None:
+    """:func:`read` for a derivation at ``version``; None below ``router_outcomes_v3``, which reads no reading receipt."""
+
+    return read(connection, vault, repository) if version == OUTCOME_VERSION_V3 else None
 
 
 def sweep(vault: Any, repository: Any, *, clock: Clock | None = None) -> int:
-    """Record the listed Reader activity not yet on record; how many rows it wrote. Idempotent; a no-op with both of
-    data capture's switches off or before migration 239."""
+    """Freeze the listed Reader activity not yet on record, as :func:`read` already reads it; how many rows it wrote.
+    Idempotent; a no-op with both of data capture's switches off or before migration 239."""
 
     if not (receipts_on(vault.config) or serving_on(vault.config)):
         return 0
@@ -171,4 +227,4 @@ def sweep_quietly(vault: Any, repository: Any, *, clock: Clock | None = None) ->
         return 0
 
 
-__all__ = ["MAPPING_VERSION", "sweep", "sweep_quietly"]
+__all__ = ["MAPPING_VERSION", "for_version", "not_yet_swept", "read", "reading_learning_objects", "sweep", "sweep_quietly"]

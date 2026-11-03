@@ -34,8 +34,9 @@ pending check that opens after the window (Codex re-review F9): one question can
 answered warm too ends the arranged measurement, because each one costs the learner a question; ordinary retrievals
 still reach the outcome.
 
-**Reader activity** is an exposure for the outcome whatever adaptive difficulty's logging says: :func:`settle` sweeps it
-first (:mod:`learnloop.daily_plan.reading_exposures`, Codex re-review F1).
+**Reader activity** is an exposure for the outcome whatever adaptive difficulty's logging says, and :func:`settle` judges
+an answer by the same read every outcome uses (:func:`learnloop.data_capture.reading_exposures.read`, landing ruling R1). Its
+sweep only freezes that activity: no state or outcome depends on whether it has run.
 
 **For A7** (a probe versus continue experiment on the same outcome collection): :func:`freeze`,
 :func:`record` with its ``experiment_id`` and the adapter take any decision kind; nothing here knows
@@ -57,6 +58,7 @@ from typing import Any
 from learnloop import delayed_checks as D
 from learnloop import delayed_completion as DC
 from learnloop.clock import Clock, SystemClock, parse_utc, utc_now_iso
+from learnloop.data_capture.reading_exposures import reading_learning_objects
 from learnloop.db.stores import data_capture as store
 
 logger = logging.getLogger(__name__)
@@ -122,28 +124,6 @@ class FrozenObjective:
                    scope=tuple(row.get("scope") or ()), support=tuple(row.get("support") or ()),
                    actionless=bool(row.get("actionless")), real_choice=bool(row.get("real_choice")),
                    version=str(row.get("version") or OBJECTIVE_VERSION))
-
-
-def reading_learning_objects(vault: Any, repository: Any, target: Any) -> list[str]:
-    """The LOs a reading target's section holds (its provenance-linked LOs and coverage rows)."""
-
-    if target is None:
-        return []
-    found: list[str] = []
-    try:
-        from learnloop.reader.reader_progression import learning_objects_for_section
-
-        found.extend(learning_objects_for_section(
-            vault, repository, extraction_id=str(target.extraction_id), section_id=str(target.section_id)))
-        with repository.connection() as connection:
-            from learnloop.db.stores import section_coverage as coverage
-
-            if coverage.table_present(connection):
-                found.extend(coverage.learning_objects_named(connection, str(target.extraction_id),
-                                                             str(target.section_id)))
-    except Exception:  # noqa: BLE001 - an unreadable section has no objective; the decision stands
-        logger.warning("data capture: a reading section's learning objects were not read", exc_info=True)
-    return list(dict.fromkeys(found))
 
 
 def freeze(vault: Any, repository: Any, *, staged_ref: str | None, candidates: Sequence[Any], support: Sequence[str],
@@ -391,7 +371,8 @@ def _replacement_check(vault: Any, repository: Any, decision_id: str, learning_o
         return _Arrangement(UNAVAILABLE, reason=ARRANGE_FAILED)
 
 
-def _answer_missed_window(connection: Any, attempt_id: str, decided_at: str | None) -> bool:
+def _answer_missed_window(connection: Any, attempt_id: str, decided_at: str | None,
+                          reader_exposures: Iterable[tuple[str, str]]) -> bool:
     """Whether the decision's outcome cannot read this answer because it was warm or exposed (a held or
     unscorable answer is still an answer: its outcome says why it is not read). The same definition as
     the outcome, so a state never disagrees with it."""
@@ -400,7 +381,7 @@ def _answer_missed_window(connection: Any, attempt_id: str, decided_at: str | No
 
     if not decided_at:
         return False
-    completion = answer_completion(connection, attempt_id, decided_at=decided_at)
+    completion = answer_completion(connection, attempt_id, decided_at=decided_at, reader_exposures=reader_exposures)
     return completion is not None and completion.status in (DC.NOT_DELAYED, DC.PRE_EXPOSED)
 
 
@@ -432,9 +413,9 @@ def settle(vault: Any, repository: Any, *, clock: Clock | None = None) -> int:
 
     from learnloop.data_capture.gates import serving_on
 
-    from learnloop.daily_plan import reading_exposures
+    from learnloop.data_capture import reading_exposures
 
-    # First: an answer below is judged against what the learner read before it.
+    # Freezes what the read below already sees.
     reading_exposures.sweep_quietly(vault, repository, clock=clock)
     if not serving_on(vault.config):
         return 0
@@ -460,6 +441,7 @@ def settle(vault: Any, repository: Any, *, clock: Clock | None = None) -> int:
         at = utc_now_iso(clock)
         # Replacements made during this pass, which ``serving`` predates (Codex re-review F9).
         fresh: dict[str, _Arrangement] = {}
+        exposures: list[tuple[str, str]] | None = None
         for row in open_rows:
             decision_id, commitment_id = str(row["decision_id"]), str(row["commitment_id"])
             early = _replacement_detail(connection, decision_id)
@@ -506,7 +488,13 @@ def settle(vault: Any, repository: Any, *, clock: Clock | None = None) -> int:
                         written += _lost(connection, decision_id, prefix, reason, at=at)
             if answered_by is None:
                 continue
-            if not _answer_missed_window(connection, answered_by, row.get("decided_at")):
+            if exposures is None:
+                try:
+                    exposures = reading_exposures.read(connection, vault, repository)
+                except Exception:  # noqa: BLE001 - never blocks Today; an answer waits for a read that can judge it
+                    logger.warning("data capture: Reader exposures were not read", exc_info=True)
+                    continue
+            if not _answer_missed_window(connection, answered_by, row.get("decided_at"), exposures):
                 written += _event(connection, decision_id, "answered", attempt_id=answered_by, at=answered_at)
             elif replacement:
                 written += _event(connection, decision_id, "unavailable", reason=f"{prefix}{ANSWER_NOT_DELAYED}",

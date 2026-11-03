@@ -492,6 +492,7 @@ def first_delayed_success_metrics(
     timing coverage ride in the detail, and an unfinished one is never counted as reached."""
 
     from learnloop.clock import utc_now_iso
+    from learnloop.data_capture import reading_exposures
     from learnloop.diagnosis.causal_probe_coherence import resolve_causal_probe_parameters
     from learnloop.held_grades import held_for_review_attempts, pfc_assessments
     from learnloop.router.first_delayed_success import LABEL, summary, trajectories
@@ -505,6 +506,7 @@ def first_delayed_success_metrics(
         rows, facts = trajectories(
             connection, vault, success_correctness=threshold, as_of=utc_now_iso(clock),
             pfc_states=pfc_assessments(connection, attempt_ids), held_attempt_ids=held_for_review_attempts(connection),
+            reader_exposures=reading_exposures.read(connection, vault, repository),
         )
     detail = summary(rows, facts)
     reached = [row for row in rows if row.reached]

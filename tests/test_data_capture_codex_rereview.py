@@ -13,7 +13,7 @@ import json
 import pytest
 
 from learnloop.daily_plan import measurement as M
-from learnloop.daily_plan import reading_exposures as RE
+from learnloop.data_capture import reading_exposures as RE
 from learnloop.db.stores import data_capture as store
 from learnloop.ops import capture_report as CR
 from learnloop.router import outcomes as RO
@@ -40,7 +40,7 @@ def _complete_section(env, extraction="x", section="sec"):
 
 
 def _map_sections(monkeypatch, lo):
-    monkeypatch.setattr(M, "reading_learning_objects", lambda _vault, _repo, _target: [lo])
+    monkeypatch.setattr(RE, "reading_learning_objects", lambda _vault, _repo, _target: [lo])
 
 
 def _other_item(env, objective):
@@ -180,7 +180,7 @@ def test_f1_the_report_counts_the_exposures_on_record(tmp_path, monkeypatch):
     env, _decision_id, objective = _practice_read_answer(tmp_path, monkeypatch)
     M.settle(env.vault, env.repository, clock=env.clock)
     with env.repository.connection() as connection:
-        section = CR.outcome_section(connection, env.vault)
+        section = CR.outcome_section(connection, env.vault, env.repository)
     assert section["reading_exposure_receipts"] == 1 and section["ad_reading_receipts"] == 0
 
 
