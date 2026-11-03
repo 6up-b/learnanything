@@ -20,7 +20,18 @@ class MobileConfig(BaseModel):
     hostname: str
     owner_login: str = Field(min_length=1, max_length=254)
     port: int = Field(default=8765, ge=1, le=65535, strict=True)
+    https_port: int = Field(default=443, ge=1, le=65535, strict=True)
     max_upload_mb: int = Field(default=20, ge=1, le=20, strict=True)
+
+    @property
+    def https_authority(self) -> str:
+        """The browser's Host header; HTTPS's default port is implicit."""
+        return self.hostname if self.https_port == 443 else f"{self.hostname}:{self.https_port}"
+
+    @property
+    def base_url(self) -> str:
+        """The external HTTPS origin for pairing and phone URLs, without a path."""
+        return f"https://{self.https_authority}"
 
     @field_validator("vault")
     @classmethod

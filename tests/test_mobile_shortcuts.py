@@ -3,6 +3,9 @@
 import importlib.util
 from pathlib import Path
 import plistlib
+import re
+
+import pytest
 
 ROOT = Path(__file__).resolve().parents[1]
 IOS = ROOT / "integrations" / "ios"
@@ -121,3 +124,27 @@ def test_host_and_token_are_import_time_setup_not_per_capture_questions():
         a["WFWorkflowActionIdentifier"] == "is.workflow.actions.ask"
         for a in workflow["WFWorkflowActions"]
     )
+
+
+@pytest.mark.parametrize("url,accepted", [
+    ("https://desktop.tailnet.ts.net", True),
+    ("https://desktop.tailnet.ts.net:443", True),
+    ("https://desktop.tailnet.ts.net:8445", True),
+    ("https://desktop.tailnet.ts.net:1", True),
+    ("https://desktop.tailnet.ts.net:65535", True),
+    ("https://desktop.tailnet.ts.net:0", False),
+    ("https://desktop.tailnet.ts.net:65536", False),
+    ("https://desktop.tailnet.ts.net:8445/app", False),
+    ("https://desktop.tailnet.ts.net:8445/", False),
+    ("https://desktop.tailnet.ts.net:8445\n", False),
+    ("http://desktop.tailnet.ts.net:8445", False),
+    ("https://desktop.tailnet.ts.net.evil.invalid:8445", False),
+    ("https://token@desktop.tailnet.ts.net:8445", False),
+])
+def test_flush_accepts_https_ports_without_allowing_other_url_components(url, accepted):
+    workflow = plistlib.loads(dict(generated())["Flush LearnLoop outbox"])
+    pattern = next(a["WFWorkflowActionParameters"]["WFMatchTextPattern"]
+                   for a in workflow["WFWorkflowActions"]
+                   if a["WFWorkflowActionIdentifier"].endswith(".text.match"))
+    # Shortcuts uses ICU's strict end anchor; Python <=3.13 spells it \\Z.
+    assert bool(re.search(pattern.replace(r"\z", r"\Z"), url)) is accepted

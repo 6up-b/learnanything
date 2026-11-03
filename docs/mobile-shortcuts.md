@@ -39,6 +39,9 @@ No Scriptable or other companion app is required.
    LearnLoop`; it converts to JPEG and strips metadata before persisting it.
 5. Import `Flush LearnLoop outbox` first. Its setup questions ask once for
    the HTTPS tailnet host without a trailing slash and the capture token.
+   Include the configured `https_port` when it is not 443, for example
+   `https://desktop.tailnet.ts.net:8445`. The hostname remains bare in
+   `mobile.toml`; `https_port` is separate from the local backend `port`.
    These values are stored in **your private installed Shortcut**, not the
    files shipped here. Never export/share your configured copy; revoke its token
    if you accidentally do. Setup text is not a password field: avoid observers,

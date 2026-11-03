@@ -164,15 +164,17 @@ def flush():
     w = Workflow("Flush LearnLoop outbox")
     # Import-time setup modifies only the owner's private installed copy.
     # Never export/share that configured copy: it contains a plaintext token.
-    w.setup("HTTPS host, e.g. https://desktop.tailnet.ts.net (no trailing slash)",
+    w.setup("HTTPS host, e.g. https://desktop.tailnet.ts.net:8445 (no trailing slash)",
             "Host", "https://desktop.tailnet.ts.net")
     w.add("text.match", WFText=var("Host"),
-          WFMatchTextPattern=r"^https://[a-zA-Z0-9.-]+\.ts\.net$")
+          WFMatchTextPattern=(r"\Ahttps://[a-zA-Z0-9.-]+\.ts\.net"
+                              r"(?::(?:[1-9][0-9]{0,3}|[1-5][0-9]{4}|6[0-4][0-9]{3}|"
+                              r"65[0-4][0-9]{2}|655[0-2][0-9]|6553[0-5]))?\z"))
     w.set("Valid Host")
     valid = w.block("conditional", WFInput=var("Valid Host"), WFCondition=100)
     w.end("conditional", valid, mode=1)
     w.add("showalert", WFAlertActionTitle="Invalid host",
-          WFAlertActionMessage="Use an HTTPS .ts.net hostname without a path or trailing slash.")
+          WFAlertActionMessage="Use an HTTPS .ts.net hostname with an optional port (1–65535), without a path or trailing slash.")
     w.add("exit")
     w.end("conditional", valid)
     w.setup("Paste the capture-scope pairing token. Keep this configured Shortcut private.",
