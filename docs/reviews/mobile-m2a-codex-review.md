@@ -124,3 +124,49 @@ Targeted pytest files: `test_mobile_allowlist`, `test_mobile_doctor`, `test_mobi
 Not run, because nothing under them changed: durability (no migration or DB code), `cargo check` (no `src-tauri` change), the DB reference scripts (no schema change), desktop vitest and build (no desktop file changed), the module catalog (no Python changed).
 
 No model or paid calls; synthetic vaults only.
+
+## Final verify, and landing step 0
+
+Job `20261103-141659-Qx4lon` (gpt-6.1-sol): F1 and F10 confirmed fixed, F2 reopened a second time, one new Medium (F11). Verdict REOPENED. Under the stuck-loop rule (ruling R2 in `mobile-m2a.md`, "Landing onto main") the F2 fix moved to the server. Each fix below was reproduced first: 15 of the first 17 new pytest cases and 7 of 8 new vitest cases failed for F2, 14 of 14 for F11, and the report's test for the contest line.
+
+| Id | Severity | Title | Verdict | Commit | Test or reason |
+|---|---|---|---|---|---|
+| F2 | High | A job's `failed` didn't establish that no attempt committed | Fixed on the server | `cf6a6b0afb`, `49b6587ab7` | `test_mobile_jobs.py` after "ruling R2" (18 cases, fault injection through the real runtime); `App.test.tsx` "F2, final" (8 cases, the real App and transport) |
+| F11 | Medium | A lost Skip reply restored the skipped draft | Fixed | `ed191bfe92` | `App.test.tsx` "F11" (14) |
+| HTTPS port | Landing | The owner's patch on M2a's routes | Verified, pinned | `d7382c141d` | `test_mobile_https.py`: `/rpc` and `/app/*` at 443 and 8445, right Host and Origin accepted, another port refused |
+| Contest line | Landing | A rate that is 0 by construction | Fixed | `16445def7a` | `test_mobile_handoff.py` |
+
+### What changed
+
+- **F2: `failed` now means no attempt committed.** `HostRuntime.submission_status` and `job_status` go through one read: for a submit, a receipt is `completed` with its result, and an attempt with no receipt is `running`, before anything the job's row says. `_run_job`'s failure path asks the same question before it writes: it writes `failed` only if no attempt committed, and a debt asks again before it pays. If that check itself can't be read, the waiter hears `running`, not `failed`.
+- **F2: the re-drive.** A status read of a committed attempt queues one `recover_practice_submission` under the same key on the job worker. Never beside the job completing it (`_waiters`) or another recovery (`_redriving`), so one poll starts one at most and no polling starts none. The read itself still reads. The recovery goes through the job worker's `_dispatch` and writes the row through `_finish`, so F7's debt applies. It is a `host_mutation` now, so the desktop's token moves when it finishes; with no origin it does nothing new on the desktop.
+- **F2: a completion that can't finish is `recorded`.** `submission_committed` from the handler, or three failed tries (`_REDRIVES_BEFORE_DELAYED`, a `keep` bound: it only decides how long a phone waits), makes the row `recorded`, with `attempt_id` on the status and `409 submission_committed` on `/rpc`. The attempt stands and its key is spent. The phone opens its feedback from every path that reads a status and from a polled job, acknowledging the key as a completed submit does. Later reads go on trying; healed, it becomes `completed`. A later host start retries a recorded job as well, up to `MAX_BOOTS`, so a completion nobody reads again isn't simply abandoned. Three boots of a committed attempt end `recorded`, not `host_restart_exhausted`.
+- **F2: a schema change.** `recorded` is a new value in `mobile_jobs.state`'s CHECK, in migration 240, which hasn't landed. The head fixture picks it up at the renumbering (landing step 2), not in this commit, to keep a second 7 MB database out of the history.
+- **F2: what a key's truth is.** For a job it is the key its handler answers under (B4's `answering_key`) and only for its item, so another device's reuse of a key for another item keeps its own `validation_error`. A status read with no job (a desktop's submission) uses the key as given, and re-drives it as the reading phone.
+- **F2: client logic this made dead.** The second spelling of `attempt_id` and `terminalJob`. `saysHowItEnded` went last round. The phone keeps "a submit's own error leaves the key unknown": that isn't about a failed job, it's about a response that never came.
+- **F11.** `onSkipped` returns `recorded`, `refused` or `unknown`. `refused` is any typed error but `internal`; no reply, a reply that isn't ours and `internal` are `unknown`. On `unknown` the phone writes nothing and reads the checkpoint: this item there means it didn't land, so the save goes out and a notice says so; anything else means it landed, so the copy goes and Today is next. If the read fails it says the desktop can't be reached and stays. `skipUnknown` is on the phone's copy, so Back writes nothing, and the next edit, Skip, Submit or reopening reads first. A second Skip sends nothing if the first landed.
+- **HTTPS port.** No code change was needed: the host's Host and Origin checks, doctor and pairing already read `https_authority` and `base_url`, and the PWA is same-origin with `/app/`-relative URLs. The new tests pin that for M2a's own routes. The deploy command, the A list and the spec's commands now say `https_port`.
+- **The report** says "no contest on the phone" for `phone_practice`, and §9's row and `mobile-m2a.md` say the same.
+
+### Limits left
+
+- **A skip lost before it reached the host, with nothing in the checkpoint, reads as landed.** A draft that never reached the checkpoint leaves nothing to tell the two apart, so the phone drops its copy and goes to Today, and the item is still there. The learner had asked to discard that answer, so the copy going is what they wanted.
+- **Under R2, a further settling case is Low** unless it realistically produces a second grade or a second attempt. A re-drive can't do either: recovery never grades, and it commits no attempt.
+- **A successor-key attempt at `MAX_BOOTS`.** `recover_jobs` looks the attempt up by the request's key, with no sidecar in `capture`. A successor-key attempt reaching its third boot gets `failed` on the row, and the status read still says `running` or `recorded` from the attempt, then finishes it. Low.
+- This is still jsdom against a fake host for the phone's half, with A4 the owner's; the host's half is the real runtime and ASGI app. The landing smoke's kill tests drive a real host process.
+
+### Gate (step 0)
+
+No full suite, by the owner's rule of 2026-10-17; it runs at landing step 4. Tree: this commit, on `mobile/m2a` with main's `42aeeec9ec` merged.
+
+| Step | Result |
+|---|---|
+| `uv sync --extra dev --extra mobile`, `uv pip install --offline pypdfium2==5.14.0` (isolated env) | Done |
+| `lint-imports --no-cache` | 42 kept, 0 broken |
+| Every `test_mobile_*`, `test_public_tip_guards`, `test_architecture`, `test_host_queue_revision`, and the other files naming `recover_practice_submission` (`test_hint_telemetry`, `test_owner_capture_1025`, `test_sidecar_contract`), `-n 6`, memory-capped | **827 passed, 5 skipped** |
+| Durability: `-m durability --durable-sqlite` on `test_mobile_two_process`, `test_mobile_host_coexistence`, `test_mobile_jobs`, `test_mobile_handoff`; then `--durable-sqlite` on all of them | 2 passed; 69 passed |
+| `apps/learnloop-mobile`: `npm install`, `npm run typecheck` | Pass |
+| `apps/learnloop-mobile`: vitest (all 6 files), `--maxWorkers=4` | **142 passed** (120 before, 22 new) |
+| `apps/learnloop-mobile`: `npm run build` | Built |
+
+No model or paid calls; synthetic vaults only.
