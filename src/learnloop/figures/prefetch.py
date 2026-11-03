@@ -1197,8 +1197,7 @@ def rich_in_flight(env: PrefetchEnv) -> bool:
 
 def _requests_of(connection: Any, decision_id: str) -> list[tuple[str, Any, Any]]:
     """The decision's stored requests as (id, figure's input hash, figure id), one naming a figure
-    first (an earlier one may be a rich-only build's whose job never started, which holds nothing
-    to open), then oldest first."""
+    first, then oldest first."""
 
     return [tuple(found) for found in connection.execute(
         "SELECT r.id, f.input_hash, r.figure_id FROM figure_requests r "
@@ -1206,15 +1205,32 @@ def _requests_of(connection: Any, decision_id: str) -> list[tuple[str, Any, Any]
         "ORDER BY r.figure_id IS NULL, r.created_at, r.id", (decision_id,))]
 
 
-def _link(env: PrefetchEnv, decision_id: str) -> None:
-    """Set the decision's request and the figure's input hash, once each (the build stored them)."""
+def _served_request(env: PrefetchEnv, connection: Any, decision_id: str) -> tuple[str, Any, Any] | None:
+    """The request that served this decision: the one to link, or None while none did.
 
+    A request counts when it names a figure or its rich job exists (that job's figure will name it).
+    One with neither served nothing: a rich-only build whose enqueue failed or whose sidecar stopped,
+    or a request recorded against another request's pending job. Linking it would leave the
+    decision naming a request no figure will ever name, so opening the figure would close it
+    ``neither`` (Codex verify V1). It stays unlinked and the row stays in the queue, so its build
+    is retried."""
+
+    from learnloop.figures import rich as RICH
+
+    return next((found for found in _requests_of(connection, decision_id)
+                 if found[2] or RICH.rich_job_for_request(env.repository, str(found[0])) is not None), None)
+
+
+def _link(env: PrefetchEnv, decision_id: str) -> bool:
+    """Set the decision's request and the figure's input hash, once each. False: nothing served it."""
+
+    with closing(connect(env.repository.sqlite_path, read_only=True)) as connection:
+        served = _served_request(env, connection, decision_id)
+    if served is None:
+        return False
     with env.repository.atomic():
-        connection = env.repository.connection()
-        found = _requests_of(connection, decision_id)
-        if not found:
-            return
-        store.link_request(connection, decision_id, str(found[0][0]), found[0][1])
+        store.link_request(env.repository.connection(), decision_id, str(served[0]), served[1])
+    return True
 
 
 def link_stored_requests(env: PrefetchEnv) -> int:
@@ -1223,12 +1239,8 @@ def link_stored_requests(env: PrefetchEnv) -> int:
 
     Bookkeeping: no model call and no budget, so no build guard applies, and it comes before any
     horizon closes, or a figure the learner opened would close ``neither`` with no request to read
-    openings from, and the opening model would lose it. A request counts when it names a figure or
-    its rich job exists. One with neither (a rich-only build whose job never started) built
-    nothing: it stays unlinked and the row stays in the queue, so its build is retried. Rows closed
-    before this existed are immutable and stay as they closed."""
-
-    from learnloop.figures import rich as RICH
+    openings from, and the opening model would lose it. Only a request :func:`_served_request`
+    finds is linked. Rows closed before this existed are immutable and stay as they closed."""
 
     with closing(connect(env.repository.sqlite_path, read_only=True)) as connection:
         if not PL.has_tables(connection):
@@ -1237,8 +1249,7 @@ def link_stored_requests(env: PrefetchEnv) -> int:
         for (decision_id,) in connection.execute(
                 f"SELECT d.id FROM {PL.DECISIONS_TABLE} d WHERE d.request_id IS NULL AND d.outcome IS NULL "
                 "AND EXISTS (SELECT 1 FROM figure_requests r WHERE r.prefetch_decision_id = d.id)").fetchall():
-            served = next((found for found in _requests_of(connection, str(decision_id))
-                           if found[2] or RICH.rich_job_for_request(env.repository, str(found[0])) is not None), None)
+            served = _served_request(env, connection, str(decision_id))
             if served is not None:
                 links.append((str(decision_id), served))
     if links:
@@ -1325,8 +1336,11 @@ def run_builds(env: PrefetchEnv, queue: Sequence[tuple[dict[str, Any], Candidate
                 _LOG.warning("a figure prebuild failed", exc_info=True)
                 result.notes.append(f"{row['id']}: failed")
                 continue
-        _link(env, str(row["id"]))
-        result.built.append(str(row["id"]))
+        if _link(env, str(row["id"])):
+            result.built.append(str(row["id"]))
+        else:
+            # Only another request's rich job is running for this input: this row waits for its figure.
+            result.notes.append(f"{row['id']}: waits for a rich job already running")
 
 
 # ---------------------------------------------------------------------------

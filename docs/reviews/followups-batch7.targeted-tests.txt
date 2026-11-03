@@ -1,4 +1,5 @@
 tests/test_followups_batch7_prefetch_capped_resume.py
+tests/test_followups_batch7_prefetch_link_served.py
 tests/test_followups_batch7_note_titles.py
 tests/test_module_catalog_inventory.py
 tests/test_figures_prefetch.py
