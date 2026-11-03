@@ -119,6 +119,7 @@ import statistics
 from dataclasses import dataclass, field, replace
 from typing import Any, Callable, Iterable, Mapping, Sequence
 
+from learnloop.data_capture.gates import serving_on
 from learnloop.algorithm_versions import VOI_STOPPING_VERSIONS
 from learnloop.diagnosis.robust_composition import (
     BURDEN_COST,
@@ -833,6 +834,9 @@ class SiteDecision:
     #: The lookahead's forecast when it ran (no single check paid with a
     #: decision at stake): the batches it valued and whether one paid.
     lookahead: dict[str, Any] | None = None
+    #: Data capture A1 (mvp-0.44, ``data_capture.serving``): the receipt keeps every candidate's
+    #: summary, not the first :data:`MAX_RECORDED_CANDIDATES` (a rejected alternative is data).
+    record_all_candidates: bool = False
 
     def value_for(self, ref: str) -> CandidateValue | None:
         return next((value for value in self.candidates if value.ref == ref), None)
@@ -897,7 +901,10 @@ class SiteDecision:
                 recommended.ref if recommended is not None else None
             ),
             "best": best.as_dict() if best is not None else None,
-            "candidates": [value.summary() for value in self.candidates[:MAX_RECORDED_CANDIDATES]],
+            "candidates": [
+                value.summary()
+                for value in (self.candidates if self.record_all_candidates else self.candidates[:MAX_RECORDED_CANDIDATES])
+            ],
             "candidate_count": len(self.candidates),
             "former_cap": dict(self.former_cap),
             "cap_comparison": self.cap_comparison(),
@@ -1130,7 +1137,8 @@ def value_candidates(
         and loss_table is not None
         and not any(value.continues for value in values)
     ):
-        values, lookahead = _lookahead(values, candidates, diagnostic, rank, loss_table, settings)
+        values, lookahead = _lookahead(values, candidates, diagnostic, rank, loss_table, settings,
+                                       record_all=serving_on(ctx.vault.config))
     values.sort(key=lambda value: (-value.value_per_minute, value.ref))
     continuing = [value for value in values if value.continues]
     decision = CONTINUE if continuing else STOP
@@ -1182,6 +1190,7 @@ def value_candidates(
             loss_regime=ctx.loss_regime, unresolved_cost=unresolved_cost,
         ),
         lookahead=lookahead,
+        record_all_candidates=serving_on(ctx.vault.config),
     )
 
 
@@ -1192,6 +1201,8 @@ def _lookahead(
     rank: EV.RankResult,
     loss_table: AL.LossTable,
     settings: VoiSettings,
+    *,
+    record_all: bool = False,
 ) -> tuple[list[CandidateValue], dict[str, Any]]:
     """The multi-family study's lookahead (rank 2, ``evsi_multisim`` §6.1;
     ``evsi_calibration/policies.py:_paying_batch`` and ``decide_package``).
@@ -1233,8 +1244,8 @@ def _lookahead(
     body: dict[str, Any] = {
         "max_checks": settings.lookahead_max_checks,
         "quantile": settings.robust_quantile,
-        "ranking": ranked[:MAX_RECORDED_CANDIDATES],
-        "skipped_same_surface": skipped[:MAX_RECORDED_CANDIDATES],
+        "ranking": ranked if record_all else ranked[:MAX_RECORDED_CANDIDATES],
+        "skipped_same_surface": skipped if record_all else skipped[:MAX_RECORDED_CANDIDATES],
         "paid": False,
         "tried": [],
     }

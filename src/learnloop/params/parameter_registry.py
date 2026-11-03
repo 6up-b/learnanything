@@ -1278,8 +1278,9 @@ _reg_const("voi_stopping:_ROUND_DIGITS", "numerical", kind="structural", owner="
            "nats; display of the logged forecast only.")
 _reg_const("voi_stopping:MAX_RECORDED_CANDIDATES", "operational", kind="structural",
            owner="voi_stopping",
-           rationale="how many candidates' summaries one value-of-information receipt keeps (the "
-           "best keeps its full forecast); receipt size only, never a decision.")
+           rationale="how many candidates' summaries one value-of-information receipt keeps below "
+           "mvp-0.44 or with data_capture.serving off (from it, every one; the best keeps its full "
+           "forecast); receipt size only, never a decision.")
 _reg_const("voi_stopping:_VARIANCE_FLOOR", "numerical", kind="structural", owner="voi_stopping",
            rationale="mvp-0.21 greedy conditional valuation: the selection reward's own variance "
            "floor (selection_rewards.probe_information_gain_components, 1e-6) repeated so a check's "

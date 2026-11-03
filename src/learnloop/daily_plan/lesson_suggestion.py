@@ -53,6 +53,7 @@ from learnloop.algorithm_versions import LESSON_SUGGESTIONS_VERSIONS, ROUTER_MIX
 from learnloop.clock import Clock, parse_utc
 from learnloop.daily_plan.engine import PlanEnv, latest_today
 from learnloop.db.stores import router_suggestions as store
+from learnloop.data_capture import prefilter
 from learnloop.db.stores.router import ROUTER_LOG_VERSION, insert_router_decision
 from learnloop.ids import new_ulid
 from learnloop.learner.lesson_weight import COLD_ATTEMPT_TYPES, predicted_success
@@ -478,7 +479,11 @@ def today_suggestion(vault: Any, repository: Any, *, clock: Clock | None = None,
                 "card_hash": LS.canonical_hash(card_payload) if result.shown else None,
                 "detail_json": json.dumps(detail, sort_keys=True), "created_at": now_iso,
             }
-            insert_router_decision(connection, row)
+            if insert_router_decision(connection, row):
+                # Data capture A1: what the day's draw refused and considered, on its own row.
+                prefilter.record(connection, decision_id=str(row["id"]), decision_kind=LS.DECISION_KIND,
+                                 material=prefilter.decision_row_material(row, versions={"suggestion": LS.SUGGESTION_VERSION}),
+                                 config=vault.config, at=now_iso)
             return card_view(connection, store.decision_for_day(connection, today))
     # Another call settled the day between the two reads (its decision, or a reservation): read it back.
     return _recovered(vault, repository, today=today, now_iso=now_iso)[1]

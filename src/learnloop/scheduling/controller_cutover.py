@@ -278,6 +278,7 @@ def _log_staged_decision(
     the standing decision writes nothing new.
     """
 
+    from learnloop.data_capture import prefilter
     from learnloop.router import decisions as router_decisions
 
     config = getattr(vault, "config", None)
@@ -308,7 +309,12 @@ def _log_staged_decision(
             chosen_learning_object_id=getattr(item, "learning_object_id", None),
             created_at=utc_now_iso(clock),
         )
-        router_decisions.record_decision(repository, row)
+        if router_decisions.record_decision(repository, row):
+            # Data capture A1: this path keeps no scheduler build; its own row is what it considered.
+            with repository.atomic(), repository.connection() as connection:
+                prefilter.record(connection, decision_id=str(row["id"]), decision_kind="staged_p2",
+                                 material=prefilter.decision_row_material(row, versions={}), config=config,
+                                 at=str(row["created_at"]))
     except Exception:  # pragma: no cover - logging must never change the decision
         import logging
 
