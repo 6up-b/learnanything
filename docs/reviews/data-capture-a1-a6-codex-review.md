@@ -219,7 +219,7 @@ Two function-local edges join the frozen-cycles ignore list, with the reason: to
 **Cost**, measured with the read on copies of the owner's mvp-0.43 vaults: 300 to 430 ms with nothing swept (`linear_algebra` 79
 exposures, `probability` 75), 2 to 70 ms after a sweep, 25 ms on `arxiv_v2` with no activity. One indexed lookup per Reader source row,
 plus a document load and an LO scan (about 20 ms) per distinct section or span not on record, cached for the call. The database hash
-was unchanged after the read under a read-only repository. Today's path reads it only at version 3 with similar decisions on.
+was unchanged after the read under a read-only repository. Today's path reads it in `settle` only when an open check has an answer, and in similar decisions only at version 3 with that feature on.
 
 **What stays, Low under R1.** A row on record is never mapped again, which is what freezing means. So if a section's LOs change
 between its sweep and a later answer, the LO added reads differently with and without that sweep. Reaching a warm answer with a cold
