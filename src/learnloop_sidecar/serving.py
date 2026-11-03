@@ -19,10 +19,15 @@ evaluation (exam protection, Codex review F1): a queue built, a link copied or
 a session restored before the owner marked the unit still cannot put the
 exam's question in front of the learner (``refuse_held_out_item``; kill switch
 ``goals.held_out_selection``).
+
+A by-id door also refuses an item the requesting device cannot answer (mobile
+PR-6, ``desktop_only``), and :func:`device_deferred_ids` is what the queue filters
+for the same device. With no request origin, the desktop, neither does anything.
 """
 
 from __future__ import annotations
 
+from collections.abc import Iterable
 from typing import Any
 
 from learnloop.content.sources.exam_material import (
@@ -31,6 +36,7 @@ from learnloop.content.sources.exam_material import (
     held_out_material,
     held_out_selection_active,
 )
+from learnloop.scheduling.device_eligibility import ineligibility_reason
 from learnloop.vault.lifecycle import (
     LEARNER_TEXT_GAP_DISABLED,
     REFERENCE_ADOPTION_DISABLED,
@@ -39,9 +45,42 @@ from learnloop.vault.lifecycle import (
 )
 from learnloop.vault.models import LoadedVault, PracticeItem
 from learnloop_sidecar.errors import SidecarError
+from learnloop_sidecar.request_origin import RequestOrigin, device_class
 
+DESKTOP_ONLY_ERROR_CODE = "desktop_only"
 INACTIVE_LEARNING_OBJECT_ERROR_CODE = "learning_object_inactive"
 HELD_OUT_MATERIAL_ERROR_CODE = "held_out_material"
+
+
+def origin_ineligibility(origin: RequestOrigin | None, vault: Any, item: Any) -> str | None:
+    """Why the request's device cannot answer ``item``; never asked for the desktop."""
+
+    return None if origin is None else ineligibility_reason(vault, item, device_class(origin))
+
+
+def device_deferred_ids(origin: RequestOrigin | None, vault: Any, practice_item_ids: Iterable[str]) -> frozenset[str]:
+    """The items of a queue that wait for the desktop (§6.4, D6). Empty for the desktop."""
+
+    if origin is None:
+        return frozenset()
+    items = ((item_id, vault.practice_items.get(item_id)) for item_id in practice_item_ids)
+    return frozenset(
+        item_id for item_id, item in items
+        if item is not None and origin_ineligibility(origin, vault, item) is not None
+    )
+
+
+def refuse_device_ineligible_item(origin: RequestOrigin | None, vault: Any, item: Any) -> None:
+    """A by-id door (§6.4): a stale list, a deep link or a restored session cannot
+    bring the phone an item it cannot show. The desktop is never refused."""
+
+    reason = origin_ineligibility(origin, vault, item)
+    if reason is not None:
+        raise SidecarError(
+            DESKTOP_ONLY_ERROR_CODE,
+            f"{item.id} can only be answered on the desktop.",
+            details={"practice_item_id": item.id, "reason": reason},
+        )
 
 
 def refuse_inactive_learning_object(vault: LoadedVault, learning_object_id: str | None) -> None:

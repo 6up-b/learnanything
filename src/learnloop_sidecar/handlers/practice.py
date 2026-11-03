@@ -86,6 +86,7 @@ from learnloop_sidecar.logging import debug_enabled, log_event
 from learnloop_sidecar.registry import method
 from learnloop_sidecar.request_origin import DESKTOP_PRACTICE, practice_surface
 from learnloop_sidecar.serving import (
+    refuse_device_ineligible_item,
     refuse_held_out_item,
     refuse_inactive_learning_object,
     refuse_unservable_item,
@@ -323,6 +324,7 @@ def get_practice_item(ctx: SidecarContext, params: ServePracticeItemInput) -> di
     item = vault.practice_items.get(params.practice_item_id)
     if item is None:
         raise SidecarError("not_found", f"Practice item {params.practice_item_id} not found.")
+    refuse_device_ineligible_item(ctx.request_origin, vault, item)
     if params.session_id is not None:
         item = _require_active_item(vault, params.practice_item_id)
         # A session serve of a dormant/resolved LO's item, or of one made from
@@ -470,6 +472,9 @@ def get_probe_contract(ctx: SidecarContext, params: ProbeContractInput) -> dict[
 
     vault, repository = ctx.require_vault()
     item = _require_active_item(vault, params.practice_item_id)
+    # Mobile PR-6: committing a presentation is a serve, so an item the phone
+    # cannot show never commits one from there.
+    refuse_device_ineligible_item(ctx.request_origin, vault, item)
     episode = repository.open_probe_episode(item.learning_object_id)
     if episode is None or episode.status != "in_progress":
         return versioned({"active": False})
@@ -1932,7 +1937,7 @@ def skip_practice_item(ctx: SidecarContext, params: SkipInput) -> dict[str, Any]
         require_owned_session(ctx, repository, params.session_id, expected_generation=generation)
         clear_checkpoint(repository, params.session_id)
 
-    queue, dtos = publish_offer(
+    queue, dtos, _device_deferred = publish_offer(
         ctx, vault, repository, queue, trace=trace, surface="skip_requeue",
         removed_ids=frozenset({params.practice_item_id}),
         alongside=clear_owned_checkpoint,

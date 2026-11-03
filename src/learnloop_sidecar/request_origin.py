@@ -6,21 +6,21 @@ on the handler context, and never from request parameters. The phone host sets
 (:meth:`SidecarContext.acting_as`); the desktop sidecar leaves it ``None``, which
 means the desktop, so every desktop write and response stays as it was.
 
-Two things read it:
+Three things read it:
 
 * **provenance:** an attempt's ``entry_surface`` and an offer's or a binding's
   surface (:func:`practice_surface`, :func:`offer_surface`). A session's
   ``owner_device_id`` changes on handoff, so it never says which device made an
   attempt: the request does;
-* **session ownership:** ``SidecarContext.origin_device_id`` (§6.5).
+* **session ownership:** ``SidecarContext.origin_device_id`` (§6.5);
+* **device eligibility:** :func:`device_class` (§6.4).
 """
 
 from __future__ import annotations
 
 from dataclasses import dataclass
 
-#: The one surface a request origin names so far (§6.8): the phone host's.
-PHONE = "phone"
+from learnloop.scheduling.device_eligibility import DESKTOP, PHONE
 
 #: The surfaces the desktop has always recorded (the stores' own defaults).
 DESKTOP_PRACTICE = "desktop_practice"
@@ -42,6 +42,12 @@ class RequestOrigin:
             raise ValueError("A request origin names a device.")
         if self.surface != PHONE:
             raise ValueError(f"Unknown request surface {self.surface!r}.")
+
+
+def device_class(origin: RequestOrigin | None) -> str:
+    """The class the eligibility module asks about (§6.4); None is the desktop."""
+
+    return DESKTOP if origin is None else origin.surface
 
 
 def practice_surface(origin: RequestOrigin | None) -> str:

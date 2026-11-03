@@ -5,7 +5,7 @@ from collections.abc import Callable, Mapping
 from contextlib import nullcontext
 from datetime import UTC, datetime
 
-from typing import Any
+from typing import Any, NamedTuple
 
 from learnloop.clock import SystemClock, utc_now_iso
 from learnloop.substrate.instrument_serving import (
@@ -52,7 +52,12 @@ from learnloop_sidecar.handlers.teach_back import (
 from learnloop_sidecar.logging import log_event
 from learnloop_sidecar.registry import method
 from learnloop_sidecar.request_origin import offer_surface
-from learnloop_sidecar.serving import refuse_held_out_item, refuse_unservable_item
+from learnloop_sidecar.serving import (
+    device_deferred_ids,
+    refuse_device_ineligible_item,
+    refuse_held_out_item,
+    refuse_unservable_item,
+)
 
 
 class QueueInput(ParamsModel):
@@ -157,7 +162,7 @@ def get_today_queue(ctx: SidecarContext, params: QueueInput) -> dict[str, Any]:
         limit=limit,
         offer_trace=trace,
     )
-    queue, dtos = publish_offer(
+    queue, dtos, device_deferred = publish_offer(
         ctx, vault, repository, queue, trace=trace, surface=offer_surface(ctx.request_origin)
     )
     slate = repository.latest_scheduler_slate_by_session(params.session_id) if params.session_id else None
@@ -208,6 +213,9 @@ def get_today_queue(ctx: SidecarContext, params: QueueInput) -> dict[str, Any]:
             "total_items": len(dtos),
             "deferred_cold_checks": deferrals,
             "reentry_refresher_cap": reentry_cap,
+            # Mobile PR-6 (§6.4, D6): "N items waiting for the desktop". Absent
+            # for the desktop, whose reply stays byte-identical (G9).
+            **({} if ctx.request_origin is None else {"device_deferred_count": device_deferred}),
         }
     )
 
@@ -305,6 +313,7 @@ def open_queue_item(ctx: SidecarContext, params: PracticeItemInput) -> dict[str,
             details={"practice_item_id": params.practice_item_id},
         )
     if item is not None:
+        refuse_device_ineligible_item(ctx.request_origin, vault, item)
         refuse_unservable_item(vault, item)
         refuse_held_out_item(vault, repository, item)
         eligibility = revalidate_cold_check(vault, repository, item.id)
@@ -514,6 +523,14 @@ def _in_progress_draft(repository: Any, session_id: str | None) -> dict[str, Any
     return {"source": "draft", "practice_item_id": str(item_id), "submission_id": submission_id}
 
 
+class PublishedOffer(NamedTuple):
+    """What one published offer showed, and how many items wait for the desktop."""
+
+    items: list[ScheduledItem]
+    dtos: list[dict[str, Any]]
+    device_deferred: int
+
+
 def publish_offer(
     ctx: SidecarContext,
     vault: Any,
@@ -524,8 +541,8 @@ def publish_offer(
     surface: str,
     removed_ids: frozenset[str] = frozenset(),
     alongside: Callable[[], None] | None = None,
-) -> tuple[list[ScheduledItem], list[dict[str, Any]]]:
-    """Filter, serialize and publish one Today offer; returns (items, dtos).
+) -> PublishedOffer:
+    """Filter, serialize and publish one Today offer.
 
     ``alongside`` (mobile PR-4, Codex review F1): session writes that commit
     in one transaction with the offer. It runs first in that transaction, so
@@ -535,8 +552,11 @@ def publish_offer(
 
     Teach-back items dead-end without their AI provider, so they are dropped
     from the offered queue while it is down; ``removed_ids`` are dropped too (a
-    skipped item). The resulting list is what ``finalize_scheduler_offer``
-    records as offered, and router R1's decision row commits with that receipt.
+    skipped item). A phone request (mobile PR-6, §6.4) also drops the items its
+    device cannot answer, here, so every offer it publishes (the queue, a skip's
+    rebuild) is filtered the same way and the receipt matches what it showed. The
+    resulting list is what ``finalize_scheduler_offer`` records as offered, and
+    router R1's decision row commits with that receipt.
     The list, its DTOs and the decision's head rule read the item states once
     and probe teach-back readiness at most once, so the logged decision
     describes exactly the list that was published.
@@ -548,8 +568,12 @@ def publish_offer(
     queue = filter_unready_teach_back_items(vault, queue, offerable=teach_back_ready)
     kept = {item.practice_item_id for item in queue}
     unready = [item.practice_item_id for item in built if item.practice_item_id not in kept]
-    if removed_ids:
-        queue = [item for item in queue if item.practice_item_id not in removed_ids]
+    deferred = device_deferred_ids(
+        ctx.request_origin, vault, (item.practice_item_id for item in queue)
+    ) - removed_ids
+    gone = removed_ids | deferred
+    if gone:
+        queue = [item for item in queue if item.practice_item_id not in gone]
     now = SystemClock().now().astimezone(UTC)
     states = repository.practice_item_states()
     dtos = scheduled_item_dtos(vault, repository, queue, now=now, item_states=states)
@@ -558,7 +582,7 @@ def publish_offer(
         try:
             head_served = today_head_served(vault)
             head_rule = _OfferHeadRule(
-                vault, limit=trace.limit, removed_ids=removed_ids, now=now, states=states,
+                vault, limit=trace.limit, removed_ids=gone, now=now, states=states,
                 teach_back_ready=teach_back_ready,
             )
             # Readiness is a decision input: probe it now if any order the
@@ -576,6 +600,7 @@ def publish_offer(
                 removed={
                     "teach_back_provider_unready": unready,
                     "skipped_by_learner": sorted(removed_ids),
+                    **({"device_ineligible": sorted(deferred)} if deferred else {}),
                 },
                 inputs={"teach_back_ready": teach_back_ready.value},
                 head_served=head_served,
@@ -604,4 +629,4 @@ def publish_offer(
                     "router R1: empty-offer decision for slate %s not logged", trace.slate_id if trace else None,
                     exc_info=True,
                 )
-    return queue, dtos
+    return PublishedOffer(queue, dtos, len(deferred))

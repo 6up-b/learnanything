@@ -15,6 +15,7 @@ from learnloop_sidecar.context import SidecarContext, session_snapshot
 from learnloop_sidecar.dto import EmptyParams, ParamsModel, versioned
 from learnloop_sidecar.errors import SidecarError
 from learnloop_sidecar.registry import method
+from learnloop_sidecar.serving import origin_ineligibility
 
 
 class SessionStartInput(ParamsModel):
@@ -28,6 +29,12 @@ class SessionStartInput(ParamsModel):
 
 class SessionIdInput(ParamsModel):
     session_id: str
+
+
+class AdoptSessionInput(ParamsModel):
+    session_id: str
+    #: The ``ownerGeneration`` the client read; a stale one is ``session_moved``.
+    expected_generation: int
 
 
 class SessionCheckpointInput(ParamsModel):
@@ -71,6 +78,35 @@ def start_session(ctx: SidecarContext, params: SessionStartInput) -> dict[str, A
     if snapshot is None:
         raise SidecarError("internal", "Session was created but could not be read.")
     return snapshot
+
+
+@method("adopt_session", AdoptSessionInput)
+def adopt_session(ctx: SidecarContext, params: AdoptSessionInput) -> dict[str, Any]:
+    """Move the open session to the request's device (§6.5), keeping its id, its
+    checkpoint, its caps and its offer binding.
+
+    The operation PR-4 built, reached through the request origin. A draft on a
+    current item the adopting device cannot answer refuses the adopt
+    (``current_item_desktop_only``, §6.4), so adopting never loses a draft; with
+    no draft it proceeds, and opening that item is what is refused. The desktop's
+    "adopt it back" prompt and the phone's allowlist entry are M2's.
+    """
+
+    vault, repository = ctx.require_vault()
+    origin = ctx.request_origin
+
+    def current_item_ineligible(practice_item_id: str) -> bool:
+        item = vault.practice_items.get(practice_item_id)
+        return item is not None and origin_ineligibility(origin, vault, item) is not None
+
+    with owned_session_errors():
+        adopted = repository.adopt_session(
+            params.session_id,
+            ctx.origin_device_id,
+            params.expected_generation,
+            current_item_ineligible=current_item_ineligible,
+        )
+    return versioned(adopted)
 
 
 @method("get_start_summary", EmptyParams)
