@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import json
 import threading
+import time
 
 import pytest
 
@@ -462,3 +463,67 @@ def test_a_job_of_this_run_is_never_recovered_by_itself(world):
     assert host.runtime.recover() == 0
     new_run = capture.recover_jobs(repository, new_ulid())
     assert new_run == []  # terminal rows are nobody's debt
+
+
+def test_a_terminal_write_that_keeps_failing_is_paid_without_a_restart(world, monkeypatch):
+    """Codex review F7. The attempt is in and every retry of its row failed: the status reads answer
+    from what this run owes, and the row is written once the database takes it, with no restart."""
+
+    import sqlite3
+
+    from learnloop_mobile import runtime as runtime_module
+
+    phone, host, repository, *_ = world
+    monkeypatch.setattr(runtime_module, "_FINISH_RETRIES", 0)
+    monkeypatch.setattr(runtime_module, "_FINISH_DEBT_RETRY_SECONDS", 0.02)
+    real_finish = capture.finish_job
+    healed = threading.Event()
+
+    def stuck_until_healed(*args, **kwargs):
+        if not healed.is_set():
+            raise sqlite3.OperationalError("database or disk is full")
+        return real_finish(*args, **kwargs)
+
+    monkeypatch.setattr(capture, "finish_job", stuck_until_healed)
+    session = phone.start()
+    response = phone.submit(session["sessionId"], "owed")
+    assert response.status_code == 200, response.text
+    job = rows(repository, "SELECT id, state FROM mobile_jobs WHERE request_id='owed'")[0]
+    assert job["state"] == "running"
+    # The row is behind; what the phone reads is not.
+    assert phone.get(f"/api/v1/jobs/{job['id']}").json()["state"] == "completed"
+    status = phone.get("/api/v1/submissions/owed").json()
+    assert status["state"] == "completed" and status["result"]["attemptId"]
+    # A retry of the same request reads the same answer, and no second grade or attempt.
+    again = phone.submit(session["sessionId"], "owed")
+    assert again.status_code == 200 and again.json()["result"]["attemptId"] == status["result"]["attemptId"]
+    assert len(_attempts(repository, "owed")) == 1
+    healed.set()
+    deadline = time.monotonic() + 10
+    while rows(repository, "SELECT state FROM mobile_jobs WHERE request_id='owed'")[0]["state"] != "completed":
+        assert time.monotonic() < deadline, "the terminal write was never paid"
+        time.sleep(0.01)
+    assert phone.get(f"/api/v1/jobs/{job['id']}").json()["state"] == "completed"
+    assert host.runtime.owed_finishes() == 0
+
+
+def test_a_terminal_failure_that_cannot_be_written_is_read_as_failed(world, monkeypatch):
+    import sqlite3
+
+    from learnloop_mobile import runtime as runtime_module
+
+    phone, _host, repository, *_ = world
+    monkeypatch.setattr(runtime_module, "_FINISH_RETRIES", 0)
+    monkeypatch.setattr(runtime_module, "_FINISH_DEBT_RETRY_SECONDS", 3600.0)
+    install_grading_outage(monkeypatch)
+
+    def always_full(*args, **kwargs):
+        raise sqlite3.OperationalError("database or disk is full")
+
+    monkeypatch.setattr(capture, "finish_job", always_full)
+    session = phone.start()
+    response = phone.submit(session["sessionId"], "owed2")
+    assert response.status_code >= 400
+    assert rows(repository, "SELECT state FROM mobile_jobs WHERE request_id='owed2'")[0]["state"] == "running"
+    status = phone.get("/api/v1/submissions/owed2").json()
+    assert status["state"] == "failed" and status["error"]["code"] == "grading_fallback_required"

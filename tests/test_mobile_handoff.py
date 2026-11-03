@@ -237,3 +237,70 @@ def test_suspected_figure_is_a_word_pattern_and_only_a_report(prompt, hit):
     # It decides nothing: serving reads Markdown structure, and this module has no word for it.
     source = Path(device_eligibility.__file__).read_text(encoding="utf-8")
     assert "capture" not in source and "suspected_figure(" not in source
+
+
+def _policy(repository, submission_id: str):
+    from learnloop.diagnosis.causal_activity_policy import resolve_attempt_activity_policy
+
+    row = rows(repository, "SELECT id, attempt_type, primed, hints_used FROM practice_attempts WHERE submission_id=?", submission_id)[0]
+    policy = resolve_attempt_activity_policy(
+        attempt_type=row["attempt_type"], primed=bool(row["primed"]), hints_used=int(row["hints_used"]),
+        recorded=repository.all_causal_activity_classifications().get(str(row["id"])),
+    )
+    return row, policy
+
+
+def test_a_desktop_hinted_draft_adopted_by_the_phone_stays_assisted_evidence(world):
+    """Codex review F1. The server's fold leaves a client's authored hints to the client, so the
+    phone carries the checkpoint's count: through its own draft saves, into its submit."""
+
+    phone, desktop, repository, *_ = world
+    sid = _desktop(desktop, "start_session", {"availableMinutes": 25})["sessionId"]
+    _desktop(desktop, "save_practice_draft", {
+        "sessionId": sid, "practiceItemId": ITEM, "answerMd": "half", "submissionId": "hinted", "hintsUsed": 1,
+    })
+    phone.rpc("adopt_session", {"sessionId": sid, "expectedGeneration": 0})
+    checkpoint = phone.rpc("get_session", {"sessionId": sid})["checkpoint"]
+    assert checkpoint["hintsUsed"] == 1
+    # What the PWA saves and submits for that checkpoint.
+    phone.rpc("save_practice_draft", {
+        "sessionId": sid, "practiceItemId": ITEM, "answerMd": "half and more", "submissionId": "hinted", "hintsUsed": 1,
+    })
+    assert phone.rpc("get_session", {"sessionId": sid})["checkpoint"]["hintsUsed"] == 1
+    response = phone.submit(sid, "hinted", answerMd="half and more", hintsUsed=1, authoredHints=1, bookCounted=False,
+                            attemptType="hinted_attempt")
+    assert response.status_code == 200, response.text
+    row, policy = _policy(repository, "hinted")
+    assert (row["hints_used"], row["attempt_type"]) == (1, "hinted_attempt")
+    assert policy.eligible_for_certification is False
+
+
+def test_a_draft_whose_count_is_dropped_certifies_which_is_why_the_phone_must_carry_it(world):
+    """The harm F1 names, pinned on the server's side: nothing there restores a client's count."""
+
+    phone, desktop, repository, *_ = world
+    sid = _desktop(desktop, "start_session", {"availableMinutes": 25})["sessionId"]
+    _desktop(desktop, "save_practice_draft", {
+        "sessionId": sid, "practiceItemId": ITEM, "answerMd": "half", "submissionId": "dropped", "hintsUsed": 1,
+    })
+    phone.rpc("adopt_session", {"sessionId": sid, "expectedGeneration": 0})
+    assert phone.submit(sid, "dropped").status_code == 200
+    row, _policy_read = _policy(repository, "dropped")
+    assert row["hints_used"] == 0
+
+
+def test_the_report_counts_a_failed_submit_in_the_share_of_202(world):
+    """Codex review F9: nine failures and one 202 is one in ten, not one in one."""
+
+    from learnloop.capture import mobile_report
+
+    _phone, _desktop_context, repository, *_ = world
+    with repository.atomic(), repository.connection() as connection:
+        for index, status in enumerate([503] * 8 + [409, 202, 200]):
+            connection.execute(
+                "INSERT INTO mobile_request_log(id, endpoint, status, duration_ms, at) VALUES (?, 'rpc:submit_attempt', ?, 1.0, '2026-11-03T00:00:00+00:00')",
+                (index + 1000, status),
+            )
+    report = mobile_report(repository)
+    assert report["share_of_submits_returning_202"] == round(1 / 11, 4)
+    assert report["submit_responses"] == {"total": 11, "returned_200": 1, "returned_202": 1, "failed": 9}

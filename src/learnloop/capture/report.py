@@ -98,7 +98,10 @@ def mobile_report(repo: Repository, *, prompts: Mapping[str, str] | None = None)
     latencies = [
         _seconds(job["accepted_at"], job["finished_at"]) for job in jobs if job["state"] == "completed" and job["finished_at"]
     ]
-    answered = sum(count for status, count in logged.items() if status in (200, 202))
+    # Every answer a submit got, its failures included: a share of the successes alone reads 1.0
+    # when nine of ten submits failed and the tenth took the slow path.
+    submits = sum(logged.values())
+    succeeded = logged[200] + logged[202]
     surface_of = {str(row["id"]): str(row["entry_surface"]) for row in attempts}
     contested = {str(ref.get("attemptId")) for ref in contests if ref.get("attemptId")}
     split = Counter(surface_of.values())
@@ -120,7 +123,10 @@ def mobile_report(repo: Repository, *, prompts: Mapping[str, str] | None = None)
         "phone_sessions_ended": len(phone_sessions & ended),
         "completion": _rate(len(phone_sessions & ended), len(phone_sessions)),
         "submit_to_feedback_seconds": {"count": len(latencies), "p50": _percentile(latencies, 0.5), "p95": _percentile(latencies, 0.95)},
-        "share_of_submits_returning_202": _rate(logged[202], answered),
+        "share_of_submits_returning_202": _rate(logged[202], submits),
+        "submit_responses": {
+            "total": submits, "returned_200": logged[200], "returned_202": logged[202], "failed": submits - succeeded,
+        },
         "attempts_by_surface": dict(sorted(split.items())),
         "contest_rate_by_surface": {surface: _rate(contest_by_surface[surface], count) for surface, count in sorted(split.items())},
         "suspected_figure": figures,

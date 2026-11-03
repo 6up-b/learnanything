@@ -41,6 +41,9 @@ READINESS_TTL_SECONDS = 60.0
 #: the handler's commit stands and the row is all the phone has to read.
 _FINISH_RETRIES = 5
 _FINISH_BACKOFF_SECONDS = 0.5
+#: Past those, how often this run tries a terminal write it still owes. A `keep` bound: a slow
+#: try costs nothing a phone sees, since the status reads already answer from the debt.
+_FINISH_DEBT_RETRY_SECONDS = 5.0
 
 
 class HostBusy(Exception):
@@ -174,6 +177,12 @@ class HostRuntime:
         self._waiters_lock = threading.Lock()
         self._readiness: tuple[float, bool] | None = None
         self._readiness_refreshing = False
+        # Terminal writes this run still owes (job id -> what the row should say). The handler's
+        # commit stands, so the status reads answer from here until the row catches up.
+        self._owed: dict[str, tuple[JobView, Any]] = {}
+        self._owed_lock = threading.Lock()
+        self._owed_thread: threading.Thread | None = None
+        self._owed_stop = threading.Event()
 
     # -- contexts (each on its worker's own thread) ----------------------------
 
@@ -315,26 +324,65 @@ class HostRuntime:
             LOG.exception("job %s failed", job_id)
             response = {"error": {"message": "This request stopped unexpectedly.", "data": {"code": "internal"}}}
         error = flat_error(response)
-        self._finish(job_id, result=response.get("result"), error=error)
         view = JobView(id=job_id, request_id=job["request_id"],
                        state=capture.FAILED if error is not None else capture.COMPLETED,
                        result=None if error is not None else response.get("result"), error=error)
+        self._finish(view, result=response.get("result"))
         with self._waiters_lock:
             waiter = self._waiters.pop(job_id, None)
         if waiter is not None:
             waiter.set_result(view)
 
-    def _finish(self, job_id: str, *, result: Any, error: dict[str, Any] | None) -> None:
+    def _finish(self, view: JobView, *, result: Any) -> None:
         for attempt in range(_FINISH_RETRIES + 1):
             try:
-                capture.finish_job(self._repo, job_id, result=result, error=error)
+                capture.finish_job(self._repo, view.id, result=result, error=view.error)
                 return
             except sqlite3.OperationalError:
                 if attempt == _FINISH_RETRIES:
-                    # A restart finds the row open and the handler's receipt beside it.
-                    LOG.exception("job %s finished but its row was not written", job_id)
+                    # Busy past the retries, or a full disk: the row stays behind while this run
+                    # answers for it and keeps trying. Dying here, a restart finds the row open
+                    # and the handler's receipt beside it.
+                    LOG.exception("job %s finished but its row was not written; retrying in the background", view.id)
+                    self._owe(view, result)
                     return
                 time.sleep(_FINISH_BACKOFF_SECONDS * (2 ** attempt))
+
+    def _owe(self, view: JobView, result: Any) -> None:
+        with self._owed_lock:
+            self._owed[view.id] = (view, result)
+            if self._owed_thread is None:
+                self._owed_thread = threading.Thread(target=self._pay_owed, name="mobile-job-finish", daemon=True)
+                self._owed_thread.start()
+
+    def _pay_owed_once(self) -> None:
+        with self._owed_lock:
+            owed = list(self._owed.values())
+        for view, result in owed:
+            try:
+                capture.finish_job(self._repo, view.id, result=result, error=view.error)
+            except sqlite3.OperationalError:
+                LOG.warning("job %s: its terminal write is still owed", view.id)
+                continue
+            with self._owed_lock:
+                self._owed.pop(view.id, None)
+
+    def _pay_owed(self) -> None:
+        while not self._owed_stop.wait(_FINISH_DEBT_RETRY_SECONDS):
+            self._pay_owed_once()
+            with self._owed_lock:
+                if not self._owed:
+                    self._owed_thread = None
+                    return
+
+    def owed_finishes(self) -> int:
+        with self._owed_lock:
+            return len(self._owed)
+
+    def _owed_view(self, job_id: str) -> JobView | None:
+        with self._owed_lock:
+            owed = self._owed.get(job_id)
+        return owed[0] if owed is not None else None
 
     def waiter(self, job_id: str) -> Future | None:
         with self._waiters_lock:
@@ -352,7 +400,9 @@ class HostRuntime:
 
     def job_status(self, job_id: str) -> JobView | None:
         job = capture.get_job(self._read_repo, job_id)
-        return JobView.of(job) if job is not None else None
+        if job is None:
+            return None
+        return (None if job["state"] in (capture.COMPLETED, capture.FAILED) else self._owed_view(job_id)) or JobView.of(job)
 
     def submission_status(self, submission_id: str) -> dict[str, Any]:
         """§6.1: covers a desktop's submissions through their receipts. An attempt without a
@@ -361,7 +411,8 @@ class HostRuntime:
 
         job = capture.job_for_request(self._read_repo, submission_id)
         if job is not None:
-            return _status_body(JobView.of(job))
+            view = self.job_status(job["id"])
+            return _status_body(view if view is not None else JobView.of(job))
         receipt = self._read_repo.attempt_submission_receipt(submission_id)
         if receipt is not None:
             return {"state": capture.COMPLETED, "result": receipt["result"]}
@@ -406,6 +457,9 @@ class HostRuntime:
         self.rpc_worker.stop(STOP_JOIN_SECONDS)
         if not self.job_worker.stop(STOP_JOIN_SECONDS):
             LOG.warning("a job outlived the stop; a restarted host picks it up")
+        # One last try at what this run owes; what is left, the next start recovers from the row.
+        self._owed_stop.set()
+        self._pay_owed_once()
 
 
 def _status_body(view: JobView) -> dict[str, Any]:
