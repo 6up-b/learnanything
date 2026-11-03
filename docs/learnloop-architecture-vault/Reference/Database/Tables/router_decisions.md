@@ -3,8 +3,8 @@ title: "router_decisions"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "55154e0388c3526da2d1a55ac4d850cea630f066"
-source_commit_timestamp: "2026-11-03T13:30:51-05:00"
+source_commit: "81c99679c019714fdc1fb448114532bc8568d453"
+source_commit_timestamp: "2026-11-03T15:06:14-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite router_decisions"
@@ -23,10 +23,10 @@ source_paths:
   - "src/learnloop/cli/router.py"
   - "src/learnloop/config/schema.py"
   - "src/learnloop/daily_plan/engine.py"
+  - "src/learnloop/daily_plan/measurement.py"
   - "src/learnloop/daily_plan/router_retrieval.py"
   - "src/learnloop/daily_plan/types.py"
   - "src/learnloop/db/stores/plan_presentations.py"
-  - "src/learnloop/db/stores/router.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/raw-ledger"
@@ -131,6 +131,7 @@ None found by exact static reference scan.
 
 - `src/learnloop/cli/router.py`
 - `src/learnloop/daily_plan/engine.py`
+- `src/learnloop/daily_plan/measurement.py`
 - `src/learnloop/daily_plan/router_retrieval.py`
 - `src/learnloop/db/stores/plan_presentations.py`
 - `src/learnloop/db/stores/router.py`
@@ -141,7 +142,6 @@ None found by exact static reference scan.
 - `src/learnloop/router/first_delayed_success.py`
 - `src/learnloop/router/outcomes.py`
 - `src/learnloop/substrate/rebuild_orchestrator.py`
-- `src/learnloop_sidecar/handlers/queue.py`
 
 ### Direct SQL writers
 
@@ -163,6 +163,7 @@ None found by exact static reference scan.
 - `tests/test_daily_plan_review_regressions.py`
 - `tests/test_data_capture_a1_prefilter.py`
 - `tests/test_data_capture_a2_measurement.py`
+- `tests/test_data_capture_codex_review.py`
 - `tests/test_device_eligibility.py`
 - `tests/test_dl2_rw4b_keyed_pick_check.py`
 - `tests/test_evsi_router_composition.py`
@@ -175,7 +176,6 @@ None found by exact static reference scan.
 - `tests/test_mvp023_upgrade.py`
 - `tests/test_mvp024_upgrade.py`
 - `tests/test_plan_determinism.py`
-- `tests/test_plan_determinism_landing.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

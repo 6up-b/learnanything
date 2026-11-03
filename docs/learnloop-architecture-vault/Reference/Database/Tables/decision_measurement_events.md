@@ -3,8 +3,8 @@ title: "decision_measurement_events"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "55154e0388c3526da2d1a55ac4d850cea630f066"
-source_commit_timestamp: "2026-11-03T13:30:51-05:00"
+source_commit: "81c99679c019714fdc1fb448114532bc8568d453"
+source_commit_timestamp: "2026-11-03T15:06:14-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite decision_measurement_events"
@@ -61,6 +61,7 @@ For the distinction between SQLite state and human-authored vault files, see [[S
 | `attempt_id` | `TEXT` | no | — | — | Application-validated soft reference |
 | `detail_json` | `TEXT` | yes | `'{}'` | — | JSON-encoded structured payload |
 | `created_at` | `TEXT` | yes | — | — | Timestamp (ISO-8601 UTC text) |
+| `episode` | `TEXT` | yes | `''` | — | Stored value |
 
 ## Relationships and access paths
 
@@ -71,7 +72,7 @@ Declared SQLite foreign keys:
 Indexes and uniqueness:
 
 - `decision_measurement_events_decision` on `decision_id`, `created_at`.
-- `sqlite_autoindex_decision_measurement_events_2` on `decision_id`, `state`, `reason` (unique).
+- `sqlite_autoindex_decision_measurement_events_2` on `decision_id`, `state`, `reason`, `episode` (unique).
 - `sqlite_autoindex_decision_measurement_events_1` on `id` (unique).
 
 Database triggers:
@@ -129,7 +130,9 @@ CREATE TABLE decision_measurement_events (
   attempt_id TEXT,
   detail_json TEXT NOT NULL DEFAULT '{}',
   created_at TEXT NOT NULL,
-  UNIQUE (decision_id, state, reason)
+  -- What opened this availability episode: a due date, a presentation, the last of those for an unavailable state.
+  episode TEXT NOT NULL DEFAULT '',
+  UNIQUE (decision_id, state, reason, episode)
 );
 ```
 

@@ -39,7 +39,7 @@ switch `[data_capture] serving` (default true). Below the tag, or off, the plan 
 tests repeat it. Receipts (A1) are additive at every version behind `[data_capture] receipts` (default true); they write
 only their own tables.
 
-Migration **239** (four RECEIPT tables: `prefilter_payloads`, `prefilter_receipts`, `decision_objectives`,
+Migration **239** (five RECEIPT tables: `prefilter_payloads`, `prefilter_receipts`, `decision_objectives`, `reading_exposure_receipts`,
 `decision_measurement_events`), head fixture `migration_head_239` rebuilt from the tracked 238, no other object or row
 changed. M2a may claim 240 and mvp-0.45.
 
@@ -97,16 +97,18 @@ Measurement: a `test_me_later` commitment (Check once), with `learnloop.delayed_
 dates the teacher's delayed checks use (extracted so the plan need not import the teacher). Its minutes come off the
 maintain lane's load first, so it replaces an ordinary slot and the other lanes keep theirs (`split_json.measurement_slots`).
 States (`due`, `offered`, `answered`, `unavailable` with a reason) are written where Today prepares
-(`measurement.settle`), once per reason, idempotently.
+(`measurement.settle`), once per reason and episode, idempotently: a due date opens an episode, each presentation opens one,
+and a loss belongs to the newest of those.
 
 A check is shared only where it can measure the decision: it comes due no earlier than `RETENTION_MIN_DELAY_SECONDS` from
 it. A new check is dated at the first local midnight past that delay, whatever a short FSRS interval or the date's
 truncation would say; one already due is left to its own decision and another item is asked. A check answered warm (the
 learner practised the LO just before) satisfies the check but not the decision's outcome: it reads `unavailable`
 (`answer_not_delayed`), and one replacement check is arranged from that moment, its states under a `replacement:` reason.
-A replacement answered warm too ends the arrangement, since each one costs the learner a question; ordinary retrievals
-still reach the outcome. Every reader folds the states chronologically: a replaced check stops reading `due`, a later
-offer restores it, an answer is terminal.
+Decisions that shared the check share its replacement, as they would any pending check that opens past the window, so one
+question measures them all. A replacement answered warm too ends the arrangement, since each one costs the learner a
+question; ordinary retrievals still reach the outcome. Every reader folds the states chronologically: a replaced check
+stops reading `due`, a later offer restores it, the same loss after that offer is a new transition, an answer is terminal.
 
 **For A7:** `freeze`/`freeze_followup`, `record(..., experiment_id=...)` and the adapter take any decision; a test does it.
 
@@ -131,9 +133,13 @@ since the last exposure or practice before the attempt's own presentation (attem
 since the decision for an ITT outcome. Requested help on a delayed, unexposed presentation is `R_cold = 0`. A pre-exposed
 presentation (AD's frozen flag, or a primed attempt with a reveal before its serve) and an abandoned one stay separate; a
 primed attempt with no bound presentation is `primed_unbound`, AD's own exclusion. AD's value rule stays its own (`Y = 2`
-is 1). Both read one set of reading exposures: AD's frozen `ad_reading_opportunities` receipts and the LO-linked
-`source_exposure_events`, the router's raw, AD's through its material view. The receipts come from AD's sweep, so with
-`adaptive_difficulty.forecast_receipts` off only the exposure events count; the report shows how many receipts exist. Outcome version only: no certification, mastery, grading, FSRS or projection reads it. Below the tag, v2 exactly.
+is 1). Reading is an exposure on both sides. `reading_exposure_receipts` (RECEIPT, 239) is data capture's own record, whatever
+AD's switches say: AD's list of sources, read by AD's collectors, with no cap, no material view and no doses, swept where Today
+prepares under either data capture switch and first thing in `settle`. The source time is kept and outcomes derive at read
+time, so a section read since the last sweep counts once Today next prepares. The router and the time metric read it beside
+AD's `ad_reading_opportunities` and the LO-linked `source_exposure_events`. AD's dose outcomes read AD's receipts and the
+exposure events through the material view, its boundary; they exist only for AD's own draws, which forecast logging writes.
+Outcome version only: no certification, mastery, grading, FSRS or projection reads it. Below the tag, v2 exactly.
 
 ## A5, exploration floor when not_ready
 
@@ -203,7 +209,7 @@ Every pytest inside the memory-capped scope, at most `-n 6`.
   `tests/test_data_capture_*.py` files, **111 passed**.
 * Durability: `-m durability` over the 27 migration and schema test files, **28 passed**; `--durable-sqlite` on the A1, A2,
   migration and report files, **50 passed**.
-* DB reference: `db_generate_reference.py`, `db_validate_reference.py`, **errors []** (schema head 239, 377 table notes,
+* DB reference: `db_generate_reference.py`, `db_validate_reference.py`, **errors []** (schema head 239, 378 table notes since the re-review,
   1131 config leaves). The module and desktop catalogs are regenerated at the landing, as for other stages.
 * Frontend and `src-tauri`: unchanged, so no npm or cargo step.
 * No live call: every Python or CLI run outside pytest ran under `env -i` with empty, existing `HOME`, `CODEX_HOME`,

@@ -3,8 +3,8 @@ title: "reader_section_progress"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "55154e0388c3526da2d1a55ac4d850cea630f066"
-source_commit_timestamp: "2026-11-03T13:30:51-05:00"
+source_commit: "81c99679c019714fdc1fb448114532bc8568d453"
+source_commit_timestamp: "2026-11-03T15:06:14-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite reader_section_progress"
@@ -132,6 +132,8 @@ Indexes and uniqueness:
 - `tests/test_ad_guard.py`
 - `tests/test_curriculum_c1_fix_round3.py`
 - `tests/test_curriculum_c1_fix_round4.py`
+- `tests/test_data_capture_codex_rereview.py`
+- `tests/test_data_capture_codex_review.py`
 - `tests/test_followups_batch6_prefetch_decided_once.py`
 - `tests/test_reader_ca5_also_in_books.py`
 - `tests/test_router_reader_activity.py`
@@ -141,8 +143,6 @@ Indexes and uniqueness:
 - `tests/test_daily_plan_reading.py`
 - `tests/test_deliverable_path.py`
 - `tests/test_figures_prefetch.py`
-- `tests/test_followups_batch7_prefetch_capped_resume.py`
-- `tests/test_plan_follows_path.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

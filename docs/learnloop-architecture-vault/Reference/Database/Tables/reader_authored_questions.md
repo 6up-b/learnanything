@@ -3,8 +3,8 @@ title: "reader_authored_questions"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "55154e0388c3526da2d1a55ac4d850cea630f066"
-source_commit_timestamp: "2026-11-03T13:30:51-05:00"
+source_commit: "81c99679c019714fdc1fb448114532bc8568d453"
+source_commit_timestamp: "2026-11-03T15:06:14-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite reader_authored_questions"
@@ -24,8 +24,8 @@ source_paths:
   - "src/learnloop/adaptive_difficulty/protected_tables.py"
   - "src/learnloop/adaptive_difficulty/reading.py"
   - "src/learnloop/attempts/salience_firewall.py"
+  - "src/learnloop/daily_plan/reading_exposures.py"
   - "src/learnloop/db/repositories.py"
-  - "src/learnloop/diagnosis/text_gaps/provenance.py"
   - "src/learnloop/content/pipeline/jobs.py"
   - "src/learnloop/content/sources/source_deletion.py"
   - "src/learnloop/diagnosis/text_gaps/sources.py"
@@ -145,6 +145,7 @@ Indexes and uniqueness:
 
 - `tests/ad_ingest_fakes.py`
 - `tests/test_ad_protected_tables.py`
+- `tests/test_data_capture_codex_rereview.py`
 - `tests/test_figure_predictions.py`
 - `tests/test_learner_text_source_widening.py`
 - `tests/test_reader_active_reading.py`
