@@ -29,7 +29,7 @@ from learnloop.db.migrate import (
 from learnloop.db.table_roles import TableRole, role_for_table
 
 NOW = "2026-11-01T10:00:00Z"
-HEAD = Path(__file__).resolve().parents[1] / "fixtures" / "migration_head_237" / "state.sqlite"
+HEAD = Path(__file__).resolve().parents[1] / "fixtures" / "migration_head_238" / "state.sqlite"
 #: The objects 233 redefines (rebuilt in place, same name; it adds nothing).
 C2B_ALTERED_TABLES = frozenset({"learner_notes"})
 
@@ -86,7 +86,7 @@ def _upgrade(tmp_path: Path) -> Path:
         applied = apply_migrations(database)
     # Teacher TE1's 234 (its own tables and source_tool_calls, none read here), follow-ups Nov 2's 235
     # (learner_text_gap_reversals) and teacher TE1b's 236 (router tables), none read here, follow on the way to head.
-    assert [migration.version for migration in applied] == [233, 234, 235, 236, 237]
+    assert [migration.version for migration in applied] == [233, 234, 235, 236, 237, 238]
     # Every row survives (two new columns, NULL for the C2-era rows).
     assert [row[:13] for row in _rows(database, "learner_notes")] == notes
     assert all(row[13:] == (None, None) for row in _rows(database, "learner_notes"))

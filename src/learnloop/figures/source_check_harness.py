@@ -481,8 +481,6 @@ def evaluate(node, env):
             if high < 0:
                 raise Undefined()
             if low < 0:
-                if high == 0:
-                    raise Unresolved()
                 raise Unresolved()
             return iv.sqrt(first)
         if name == "abs":
@@ -502,11 +500,11 @@ def evaluate(node, env):
         if name == "Phi":
             return (1 + monotone(mpmath.erf, first / iv.sqrt(iv.mpf(2)))) / 2
         if name in ("min", "max"):
-            pairs = [endpoints(arg) for arg in args]
+            # Each end is one argument's own end, carried over exactly.
             pick = min if name == "min" else max
-            low, high = pick(pair[0] for pair in pairs), pick(pair[1] for pair in pairs)
-            return iv.mpf([iv.mpf(low.numerator) / iv.mpf(low.denominator),
-                           iv.mpf(high.numerator) / iv.mpf(high.denominator)])
+            low = pick((arg._mpi_[0] for arg in args), key=raw_fraction)
+            high = pick((arg._mpi_[1] for arg in args), key=raw_fraction)
+            return iv.make_mpf((low, high))
     raise Unresolved()
 
 

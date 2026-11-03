@@ -2091,6 +2091,12 @@ _CONFIG_RULES: list[_ConfigRule] = [
         "kill switch for sending the figure author the learner's state on the passage's topics (status in words, "
         "open statements, two recent answers, protected work never); on-off availability of context for help "
         "content, no measurement, scheduling or serving authority."),
+    # Reader RW5c P1: the kill switch over "matches the book's equation (checked)".
+    _ConfigRule(_exact(
+        "figures.checked_labels_enabled",
+    ), "structural", "operational",
+        "kill switch for RW5c's code-only source check and code-owned labels on a checked figure; on-off "
+        "availability of a content label, no measurement, scheduling or serving authority (never evidence)."),
     _ConfigRule(_exact(
         "figures.show_me_enabled",
     ), "structural", "operational",

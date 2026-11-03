@@ -88,6 +88,16 @@ def sketch_enabled(vault: Any) -> bool:
     return figures_enabled(config) and bool(getattr(config.figures, "sketch_enabled", False))
 
 
+def checked_labels_enabled(vault: Any) -> bool:
+    """Reader RW5c: ``figures.checked_labels_enabled`` under ``figures.enabled``:
+    code reads the book's equation and compares a figure's definition with it,
+    and a checked element carries code-owned labels. Off: no check runs, nothing
+    reads ``figure_source_checks`` and every view is RW5a/RW5d's."""
+
+    config = getattr(vault, "config", vault)
+    return figures_enabled(config) and bool(getattr(config.figures, "checked_labels_enabled", False))
+
+
 def figure_home_keys(connection: Any, figure_id: str) -> list[tuple[str, str]] | None:
     """Reader RW5d (Codex review F3, F4): where a figure built with no passage
     lands, as ``(extraction_id, span_id)``: the reading position of every

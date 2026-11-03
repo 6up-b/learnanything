@@ -37,6 +37,25 @@ at S0's checkpoint (D6). Rebuilding the head for a new migration keeps the
 sanitized content: apply the migration to a backup-API copy of this fixture,
 as before.
 
+## Reader RW5c P1 (migration 238), `reader/rw5c-p1`, 2026-11-02
+
+Renamed from `migration_head_237` (`docs/reviews/reader-rw5c-p1.md`). Rebuilt from
+the tracked, sanitized `migration_head_237/state.sqlite` (main `aae65635b6`): a
+backup-API copy under `fixtures-local/` with only `238_figure_source_checks.sql`
+applied through `learnloop.db.migrate.apply_migrations` under the scratch-copy
+allowance (`UPGRADE_SCRATCH_COPY`), then `wal_checkpoint(TRUNCATE)` (0, 0, 0),
+`journal_mode=DELETE` (header bytes 1/1), `integrity_check` ok and
+`foreign_key_check` empty, and copied into place with the backup API, with no
+companion files. The head holds 229 through 238.
+
+* 238 adds exactly its objects: `figure_source_checks` (RAW_LEDGER), its primary
+  key's autoindex, `idx_figure_source_checks_figure` and the append-only triggers
+  `figure_source_checks_no_update` and `figure_source_checks_no_delete`, with no row.
+
+No other object changed definition and only `schema_migrations` gained a row
+(238); every other table's rows are identical, so the sanitized content carries
+over (every companion file is byte-identical).
+
 ## Reader RW5d P5 (migration 237), landing of `reader/rw5d-p5-prefetch`, 2026-11-02
 
 Renamed from `migration_head_236` at P5's landing onto main

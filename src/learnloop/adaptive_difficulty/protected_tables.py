@@ -113,6 +113,7 @@ _ROLES: tuple[tuple[str, str], ...] = (
     ("ingest_job_dependencies", NEUTRAL),
     ("ingest_jobs", NEUTRAL),
     ("interaction_events", PROTECTED),
+    ("figure_source_checks", PROTECTED),
     ("interactive_figures", PROTECTED),
     ("item_forecast_payloads", PROTECTED),
     ("item_forecast_scores", PROTECTED),
@@ -359,6 +360,11 @@ COLUMNS: Mapping[str, Mapping[str, str]] = MappingProxyType({
                "media_file_name fuller_of_id checks_json",
         # The goal and the retrieved passages' keys (any reading, any source) are never read as stored.
         derived="spec_json verification_report_json goal_text input_span_keys_json"),
+    # Reader RW5c P1 (migration 238): a code check of a figure's content; AD reads no figure.
+    "figure_source_checks": _table({},
+        values="id figure_id certification_version trigger outcome harness_sha256 reader_version sympy_version "
+               "duration_ms judgment_id created_at",
+        derived="definitions_json elements_json reasons_json"),
     "judgment_ledger": _table({"left_id": "entity@left_kind", "right_id": "entity@right_kind"},
         values="id created_at supersedes_id task left_kind right_kind judge judge_model prompt_version input_hash "
                "verdict score rationale"),
@@ -566,6 +572,8 @@ DERIVED_TREATMENT: Mapping[tuple[str, str], str] = MappingProxyType({
     **{("interactive_figures", column): "unread: a model's figure from the spans sent, which can cite other "
                                         "readings; AD reads no figure" for column in (
         "spec_json", "verification_report_json", "goal_text", "input_span_keys_json")},
+    **{("figure_source_checks", column): "unread: a code check of a figure's content; AD reads no figure"
+       for column in ("definitions_json", "elements_json", "reasons_json")},
     **{("passage_links", column): "unread: the cue judge's pick for an incumbent diagnosis target, ranked "
                                   "against other passages; AD reads no cue" for column in (
         "target_kind", "target_id", "relation", "pick_rank", "ranks_json", "roles_json", "target_facets_json",
@@ -611,6 +619,8 @@ READING = frozenset({
     # The compose round (main 558e85ab1): RW3b's cues and impressions, RW5a's figures and predictions,
     # RW7a's path labels (none is attempt evidence).
     "passage_links", "reader_cue_impressions", "interactive_figures", "figure_predictions", "reader_path_sections",
+    # Reader RW5c P1: a code check of a figure's content (never attempt evidence).
+    "figure_source_checks",
     # Curriculum C0a: section coverage (display and retrieval context, never attempt evidence).
     "section_coverage",
     # Curriculum C0b: the deliverable path and the passage scope inputs (display only).

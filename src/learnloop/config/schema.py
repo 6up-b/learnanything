@@ -2849,6 +2849,16 @@ class FiguresConfig(BaseModel):
     nothing builds in the background, no decision is written, and a prebuilt
     figure nobody pressed for is not listed (rev 1's behaviour exactly).
 
+    RW5c P1 (spec_reader_rw5c_checked_labels_v1 §10.1): ``checked_labels_enabled``:
+    after steps 1-2, code reads the book's equations from a grammar figure's own
+    input spans and compares each definition drawn by bare reference with them,
+    exactly, in the sandbox (no model call); an element that passes reads
+    "matches the book's equation (checked)", and every label of that figure is
+    code-owned. A stated claim proved different gets the second author attempt
+    and is otherwise not shown. Default **on** (Q2's recommended default). Off:
+    nothing is checked, nothing reads ``figure_source_checks``, and every view is
+    RW5a/RW5d's exactly; existing rows are kept and show again when it is back on.
+
     Caps (money, W4): two author attempts per request; ``max_daily_cost_usd``
     meters the author route's metered spend a UTC day at
     ``price_per_million`` (unset: a metered route is refused before sending;
@@ -2869,6 +2879,7 @@ class FiguresConfig(BaseModel):
     author_learner_state: bool = True
     help_kind_enabled: bool = True
     prefetch_enabled: bool = True
+    checked_labels_enabled: bool = True
     prefetch: FiguresPrefetchConfig = Field(default_factory=FiguresPrefetchConfig)
     manim_opt_in: Literal["standing", "declined"] | None = None
     manim_opt_in_at: str | None = None

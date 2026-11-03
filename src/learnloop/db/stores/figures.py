@@ -38,17 +38,92 @@ PREDICTION_COLUMNS = ("id", "figure_id", "extraction_id", "prediction_index", "l
                       "assist_id", "explained_at")
 #: What a figure may be shown as.
 SHOWN = ("verified", "illustrative")
-#: The one stored value RW5a never writes (migration 216 keeps it for RW5c's
-#: source check); the service shows such a row as an illustration.
+#: The one stored value nothing writes: migration 216 reserved it for RW5c, and
+#: RW5c records its result in figure_source_checks instead (one source of truth,
+#: spec §10.2); a legacy row is shown as an illustration.
 VERIFIED_RW5C = "verified"
 
 
 def shown_verification(verification: str | None) -> str | None:
     """A stored verification as RW5a shows and counts it: ``verified`` (never
-    written by RW5a; RW5c's) is an illustration. The one normalization the
-    figure view and the Reader report share (final round, High 2)."""
+    written by RW5a or RW5c, whose result is its own ledger's) is an
+    illustration. The one normalization the figure view and the Reader report
+    share (final round, High 2)."""
 
     return "illustrative" if verification == VERIFIED_RW5C else verification
+
+
+#: Reader RW5c (migration 238): one check of a stored grammar figure.
+SOURCE_CHECK_COLUMNS = ("id", "figure_id", "certification_version", "trigger", "outcome", "definitions_json",
+                        "elements_json", "reasons_json", "harness_sha256", "reader_version", "sympy_version",
+                        "duration_ms", "judgment_id", "created_at")
+
+
+def insert_source_check(connection: sqlite3.Connection, row: Mapping[str, Any]) -> None:
+    """One ``figure_source_checks`` row (RAW_LEDGER, append-only by trigger), in
+    the caller's transaction, with its judgment."""
+
+    values = {
+        **row,
+        "definitions_json": json.dumps(list(row.get("definitions") or ()), sort_keys=True, default=str),
+        "elements_json": json.dumps(list(row.get("elements") or ()), sort_keys=True, ensure_ascii=False),
+        "reasons_json": json.dumps(dict(row.get("reasons") or {}), sort_keys=True),
+    }
+    columns = ", ".join(f'"{column}"' for column in SOURCE_CHECK_COLUMNS)
+    connection.execute(
+        f"INSERT INTO figure_source_checks ({columns}) VALUES ({', '.join('?' for _ in SOURCE_CHECK_COLUMNS)})",
+        tuple(values.get(column) for column in SOURCE_CHECK_COLUMNS),
+    )
+
+
+def _source_check(row: sqlite3.Row | tuple | None) -> dict[str, Any] | None:
+    if row is None:
+        return None
+    found = dict(zip(SOURCE_CHECK_COLUMNS, row))
+    found["definitions"] = json.loads(found.pop("definitions_json") or "[]")
+    found["elements"] = json.loads(found.pop("elements_json") or "[]")
+    found["reasons"] = json.loads(found.pop("reasons_json") or "{}")
+    return found
+
+
+def has_source_checks(connection: sqlite3.Connection) -> bool:
+    return connection.execute(
+        "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'figure_source_checks'").fetchone() is not None
+
+
+def latest_source_check(connection: sqlite3.Connection, figure_id: str, certification_version: int
+                        ) -> dict[str, Any] | None:
+    """The newest check of a figure at this certification version (the shown state, §10.2)."""
+
+    if not has_source_checks(connection):
+        return None
+    columns = ", ".join(f'"{column}"' for column in SOURCE_CHECK_COLUMNS)
+    return _source_check(connection.execute(
+        f"SELECT {columns} FROM figure_source_checks WHERE figure_id = ? AND certification_version = ? "
+        "ORDER BY created_at DESC, rowid DESC LIMIT 1", (figure_id, certification_version)).fetchone())
+
+
+def source_checks(connection: sqlite3.Connection, figure_id: str) -> list[dict[str, Any]]:
+    """Every check of a figure, oldest first."""
+
+    if not has_source_checks(connection):
+        return []
+    columns = ", ".join(f'"{column}"' for column in SOURCE_CHECK_COLUMNS)
+    return [_source_check(row) for row in connection.execute(  # type: ignore[misc]
+        f"SELECT {columns} FROM figure_source_checks WHERE figure_id = ? ORDER BY created_at, rowid", (figure_id,))]
+
+
+def latest_source_checks(connection: sqlite3.Connection, certification_version: int) -> list[dict[str, Any]]:
+    """The newest check of each figure at this certification version (the report, §12)."""
+
+    if not has_source_checks(connection):
+        return []
+    columns = ", ".join(f'c."{column}"' for column in SOURCE_CHECK_COLUMNS)
+    return [_source_check(row) for row in connection.execute(  # type: ignore[misc]
+        f"SELECT {columns} FROM figure_source_checks c WHERE c.certification_version = ? AND c.rowid = ("
+        "SELECT o.rowid FROM figure_source_checks o WHERE o.figure_id = c.figure_id "
+        "AND o.certification_version = c.certification_version ORDER BY o.created_at DESC, o.rowid DESC LIMIT 1) "
+        "ORDER BY c.created_at, c.rowid", (certification_version,))]
 
 
 def has_tables(connection: sqlite3.Connection) -> bool:
@@ -302,6 +377,12 @@ def figure_verdicts(connection: sqlite3.Connection, task: str, figure_id: str) -
 
 
 __all__ = [
+    "SOURCE_CHECK_COLUMNS",
+    "has_source_checks",
+    "insert_source_check",
+    "latest_source_check",
+    "latest_source_checks",
+    "source_checks",
     "FIGURE_COLUMNS",
     "PREDICTION_COLUMNS",
     "REQUEST_COLUMNS",

@@ -20,7 +20,7 @@ from learnloop.db.migrate import UPGRADE_TEST_HELPER, apply_migrations, discover
 from learnloop.db.table_roles import TableRole, role_for_table
 from tests.test_teacher_te1_migration import TE1_ADDED_OBJECTS, TE1_ALTERED_TABLES
 
-HEAD = Path(__file__).resolve().parents[1] / "fixtures" / "migration_head_237" / "state.sqlite"
+HEAD = Path(__file__).resolve().parents[1] / "fixtures" / "migration_head_238" / "state.sqlite"
 TE1B_ADDED_OBJECTS = frozenset({
     "router_suggestion_responses", "idx_router_suggestion_responses_at",
     "router_suggestion_responses_no_update", "router_suggestion_responses_no_delete",
@@ -61,7 +61,7 @@ def _upgrade(tmp_path: Path) -> Path:
 def test_the_head_fixture_is_at_236_in_rollback_mode_with_no_response():
     assert HEAD.read_bytes()[18:20] == b"\x01\x01"
     with closing(sqlite3.connect(f"file:{HEAD}?mode=ro", uri=True)) as connection:
-        assert connection.execute("SELECT MAX(version) FROM schema_migrations").fetchone()[0] == 237
+        assert connection.execute("SELECT MAX(version) FROM schema_migrations").fetchone()[0] == 238
         names = {row[0] for row in connection.execute("SELECT name FROM sqlite_master")}
         assert TE1B_ADDED_OBJECTS <= names
         assert connection.execute("SELECT COUNT(*) FROM router_suggestion_responses").fetchone()[0] == 0

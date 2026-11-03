@@ -864,6 +864,44 @@ def highlight_value(compiled: CompiledFigure, panel: CompiledPanel, env: Mapping
     return lower, upper, G.exact_sum(at, lower, upper)
 
 
+def derived_bounds(compiled: CompiledFigure, panel_index: int, kind: str, index: int, env: Mapping[str, float]
+                   ) -> dict[str, Any]:
+    """The bounds a derived label states (RW5c §7.2, Codex review F2): the ones
+    the evaluator used, whatever the author's bound expressions say. ``from`` and
+    ``to`` are a shade's or highlight's clamped bounds (a highlight's and a sum's
+    also as the ``integers`` they run over) or a readout's evaluated ones;
+    ``clipped`` says a clamp moved a bound. Twin of ``derivedBounds`` in
+    figureSpec.ts; G22's extension pins the pair."""
+
+    panel = compiled.panels[panel_index]
+    defs = compiled.definitions
+    if kind == "shade":
+        lower_node, upper_node = panel.nodes["shades"][index]
+        low, high = _value(lower_node, env, defs), _value(upper_node, env, defs)
+        clamped_low, clamped_high, _area = shade_value(compiled, panel, index, env)
+        clipped = (math.isfinite(low) and low != clamped_low) or (math.isfinite(high) and high != clamped_high)
+        return {"from": _num(clamped_low), "to": _num(clamped_high), "clipped": clipped, "integers": None}
+    if kind == "highlight":
+        lower_node, upper_node = panel.nodes["highlight"]
+        low, high = _value(lower_node, env, defs), _value(upper_node, env, defs)
+        clamped_low, clamped_high, _sum = highlight_value(compiled, panel, env)
+        clipped = (math.isfinite(low) and low != clamped_low) or (math.isfinite(high) and high != clamped_high)
+        return {"from": _num(clamped_low), "to": _num(clamped_high), "clipped": clipped,
+                "integers": _sum_integers(clamped_low, clamped_high)}
+    node = panel.nodes["expr"]
+    low, high = _value(node.args[1], env, defs), _value(node.args[2], env, defs)
+    return {"from": _num(low), "to": _num(high), "clipped": False,
+            "integers": _sum_integers(low, high) if kind == "sum" else None}
+
+
+def _sum_integers(low: float, high: float) -> list[int] | None:
+    """The integers :func:`grammar.exact_sum` runs over: its own rule and slack."""
+
+    if not (math.isfinite(low) and math.isfinite(high)):
+        return None
+    return [math.ceil(low - 1e-9), math.floor(high + 1e-9)]
+
+
 def evaluate_panel(compiled: CompiledFigure, panel: CompiledPanel, env: Mapping[str, float]) -> dict[str, Any]:
     defs = compiled.definitions
     model = panel.model
@@ -1106,6 +1144,7 @@ __all__ = [
     "MAX_PANEL_WORK",
     "MAX_TRAJECTORY_STEPS",
     "advanced_kinds",
+    "derived_bounds",
     "DIRECTION_LABELS",
     "SAMPLES",
     "SPEC_VERSION",

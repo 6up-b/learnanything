@@ -256,6 +256,8 @@ _TABLE_ROLE_ITEMS: tuple[tuple[str, TableRole], ...] = (
     # decision time (no DERIVED table, no replayer); never evidence, and replay
     # never reads them.
     ("figure_prefetch_decisions", TableRole.RAW_LEDGER),
+    # Reader RW5c P1 (migration 238): a code check of a figure's content, append-only.
+    ("figure_source_checks", TableRole.RAW_LEDGER),
     ("plan_usage_pauses", TableRole.RAW_LEDGER),
     ("fitted_parameters", TableRole.RAW_LEDGER),
     ("followup_ratings", TableRole.RAW_LEDGER),

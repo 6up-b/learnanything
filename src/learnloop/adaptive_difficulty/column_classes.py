@@ -312,6 +312,11 @@ _CLASSES: dict[str, tuple[str, str]] = {
         "activity_id payload_hash client_idempotency_key producer_version app_version policy_version "
         "supersedes_event_id",
         "payload_json actor locator_json privacy_locality consent_context"),
+    # Reader RW5c P1 (migration 238): a code check of a figure's content; AD reads no figure.
+    "figure_source_checks": (
+        "id figure_id certification_version trigger outcome harness_sha256 reader_version sympy_version "
+        "duration_ms judgment_id created_at",
+        "definitions_json elements_json reasons_json"),
     "interactive_figures": (
         "id extraction_id span_ids_json asset_id input_span_ids_json origin supersedes_id spec_version kind "
         "verification unsupported_kind model prompt_version input_hash created_at "
