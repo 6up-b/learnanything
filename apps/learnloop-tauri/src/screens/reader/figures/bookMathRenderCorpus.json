@@ -1,5 +1,5 @@
 {
-  "_comment": "RW5c: one corpus for both lanes. bookMathRender.test.ts runs each form through the Reader's real pipeline (MarkdownMath: remark-math and rehype-katex) and pins the MathML the page holds, or that the page shows an error; test_rw5c_katex_tree.py pins that the same KaTeX in the sealed engine gives the same MathML, that the reader gives each result, and that what it reads means what that MathML means. `whole` is a complete segment; the rest are right-hand sides. `blocks` pins which segments a block's text has on the page and to the reader.",
+  "_comment": "RW5c: one corpus for both lanes. bookMathRender.test.ts runs each form through the Reader's real pipeline (MarkdownMath: remark-math and rehype-katex) and pins the MathML the page holds, or that the page shows an error; test_rw5c_katex_tree.py pins that the same KaTeX in the sealed engine gives the same MathML, that the reader gives each result, and that what it reads means what that MathML means. `whole` is a complete segment; the rest are right-hand sides. `blocks` pins which segments a block's text has on the page and to the reader; `page` is what the page shows when the reader deliberately reads nothing (a fence's first line is an unshown meta string).",
   "refused": [
     {
       "rhs": "\\sqrt16 x",
@@ -304,6 +304,51 @@
     },
     {
       "block": "a price of \\$5 and $y = x$",
+      "segments": [
+        "y = x"
+      ]
+    },
+    {
+      "block": "$$\ny = x\n$$",
+      "segments": [
+        "y = x"
+      ]
+    },
+    {
+      "block": "$$ y = 1\n+ 2\n$$",
+      "segments": [],
+      "page": [
+        "+ 2"
+      ]
+    },
+    {
+      "block": "$$\ny = 1\n+ 2 $$",
+      "segments": []
+    },
+    {
+      "block": "$x = 1\n\n$y = 2$",
+      "segments": [
+        "y = 2"
+      ]
+    },
+    {
+      "block": "`$y = x$` and $a = 1$",
+      "segments": [
+        "a = 1"
+      ]
+    },
+    {
+      "block": "$a = 1\n+ 2$",
+      "segments": []
+    },
+    {
+      "block": "\\[a = 1\n+ 2\\]",
+      "segments": [
+        "a = 1 + 2"
+      ]
+    },
+    {
+      "block": "The density is $$y = x$$ for all.",
       "segments": [
         "y = x"
       ]

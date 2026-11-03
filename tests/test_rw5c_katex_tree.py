@@ -260,7 +260,7 @@ def test_each_whole_segment_has_its_reason(case, renderer):
 
 @pytest.mark.parametrize("case", CORPUS["blocks"], ids=lambda case: case["block"])
 def test_a_blocks_segments_are_the_ones_the_page_has(case):
-    assert [segment.latex for segment in B.segments(case["block"])] == case["segments"]
+    assert [" ".join(segment.latex.split()) for segment in B.segments(case["block"])] == case["segments"]
 
 
 # -- the generated differential ------------------------------------------------------------------------------------

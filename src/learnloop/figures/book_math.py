@@ -104,7 +104,6 @@ _SPACES = {r"\ ", r"\nobreakspace", r"\space"}
 #: Every way TeX defines a macro; a control word ends at anything but a letter or ``@``, as in KaTeX's lexer.
 _MACRO_DEFINITION = re.compile(
     r"\\(?:def|gdef|edef|xdef|let|futurelet|global|long|newcommand|renewcommand|providecommand)(?![A-Za-z@])")
-_BLANK_LINE = re.compile(r"\n[ \t\r]*\n")
 #: What a left-hand side may hold: it becomes a label, and must not paint, hide, link or move anything.
 _LABEL_NODES = frozenset({"accent", "atom", "font", "genfrac", "kern", "leftright", "mathord", "op", "operatorname",
                           "ordgroup", "spacing", "sqrt", "supsub", "text", "textord"})
@@ -151,18 +150,36 @@ class Relation:
 
 _DELIMITED = re.compile(r"(?<!\\)\$\$(?P<display>.+?)(?<!\\)\$\$|\\\[(?P<bracket>.+?)\\\]|(?<!\\)\$(?P<inline>[^$]+?)(?<!\\)\$",
                         re.DOTALL)
+#: What the page's own pipeline keeps out of math (``normalizeMathDelimiters``'s code segments; a paragraph ends math).
+_CODE = re.compile(r"```[\s\S]*?(?:```|\Z)|~~~[\s\S]*?(?:~~~|\Z)|`[^`\n]*`")
+_PARAGRAPH = re.compile(r"(?:(?!\n[ \t\r]*\n)[\s\S])+")
+#: remark-math's fence, the only math of more than one line the page keeps whole: ``$$`` alone on
+#: its line, to ``$$`` alone on its line. Elsewhere a meta string is unshown, or a line
+#: beginning ``+`` or ``-`` is a list item that ends the paragraph, and the math with it.
+_FENCED = re.compile(r"[ \t\r]*\n[\s\S]*\n[ \t]*\Z")
+_LINE_END = re.compile(r"[ \t\r]*(?:\n|\Z)")
 
 
 def segments(text: str, block_type: str = "") -> list[Segment]:
-    """The math segments of a block's text in reading order (§5.2): ``$...$``,
-    ``$$...$$``, ``\\[...\\]``, or the whole text of an equation block.
-    Unicode math outside these is never a segment."""
+    """The math segments of a block's text in reading order (§5.2), as the page's own
+    markdown finds them: ``$...$``, ``$$...$$``, ``\\[...\\]``, or the whole text of an equation
+    block. ``bookMathRenderCorpus.json``'s ``blocks`` pin them against the page. A shape
+    the page would read otherwise is no segment. Unicode math outside these is never one."""
 
     source = str(text or "")
+    masked = _CODE.sub(lambda code: "\0" * len(code.group()), source)
     found = []
-    for match in _DELIMITED.finditer(source):
-        name = match.lastgroup or "inline"
-        found.append(Segment(match.group(name), match.start(name), match.end(name), name != "inline"))
+    for paragraph in _PARAGRAPH.finditer(masked):
+        for match in _DELIMITED.finditer(masked, paragraph.start(), paragraph.end()):
+            name = match.lastgroup or "inline"
+            latex = match.group(name)
+            if "\0" in latex or "\\$" in latex:
+                continue
+            if name != "bracket" and "\n" in latex and not (
+                    name == "display" and not masked[masked.rfind("\n", 0, match.start()) + 1:match.start()].strip()
+                    and _FENCED.match(latex) and _LINE_END.match(masked, match.end())):
+                continue
+            found.append(Segment(latex, match.start(name), match.end(name), name != "inline"))
     if not found and str(block_type or "").lower() in EQUATION_BLOCK_TYPES and source.strip():
         begin = len(source) - len(source.lstrip())
         found.append(Segment(source.strip(), begin, begin + len(source.strip()), True))
@@ -970,7 +987,7 @@ def read_relation(latex: str, *, display: bool = False, trees: KT.Trees | None =
     if not source.isascii():
         raise Unreadable("unicode_math")
     # A comment ends at a newline, and the page's markdown may have made that a space.
-    if "%" in source or _BLANK_LINE.search(source):
+    if "%" in source:
         raise Unreadable("syntax")
     if _MACRO_DEFINITION.search(source):
         raise Unreadable("macro_definition")
