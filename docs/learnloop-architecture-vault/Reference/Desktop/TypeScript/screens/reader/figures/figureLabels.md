@@ -10,8 +10,8 @@ area: "TypeScript/screens/reader/figures"
 source_path: "apps/learnloop-tauri/src/screens/reader/figures/figureLabels.tsx"
 source_paths:
   - "apps/learnloop-tauri/src/screens/reader/figures/figureLabels.tsx"
-source_commit: "9e12d91330e6fa42d51fd7c7319294c7015e803f"
-source_commit_timestamp: "2026-11-02T20:08:53-05:00"
+source_commit: "63aafe919913aeb354b178e53e55ecb4d57b7c47"
+source_commit_timestamp: "2026-11-02T21:23:47-05:00"
 source_worktree_state: "clean"
 activation_kind: "entry-reachable build graph"
 activation_evidence: "A static TypeScript import path reaches this file from the Vite entry src/main.tsx."
@@ -42,14 +42,14 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/screens/reader/figures/figureLabels.tsx](../../../../../../../../apps/learnloop-tauri/src/screens/reader/figures/figureLabels.tsx) |
-| Source lines | 217 |
+| Source lines | 226 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/screens/reader/figures/_area|TypeScript/screens/reader/figures]] |
 | Refactor status | `ACTIVE` |
 | Activation kind | `entry-reachable build graph` |
 | Worktree state | `clean` |
-| Source commit | `9e12d91330e6fa42d51fd7c7319294c7015e803f` |
-| Commit timestamp | `2026-11-02T20:08:53-05:00` |
+| Source commit | `63aafe919913aeb354b178e53e55ecb4d57b7c47` |
+| Commit timestamp | `2026-11-02T21:23:47-05:00` |
 
 ## Activation and status evidence
 
@@ -65,12 +65,12 @@ The system-level behavior stays authoritative in the linked architecture, concep
 - `export function labelElements(figure: FigureViewDto): FigureElementDto[]` — function, line 36
 - `export function Tex(` — function, line 41
 - `export function derivedWords(element: FigureElementDto, bounds: DerivedBounds | null):` — function, line 47
-- `export function FigureLabelsProvider(` — function, line 80
-- `export function LabelText(` — function, line 111
-- `export function LabelSuffix(` — function, line 141
-- `export function CheckedBadge(` — function, line 164
-- `export function CheckedLines(` — function, line 178
-- `export function FigureSourceInfo(` — function, line 193
+- `export function FigureLabelsProvider(` — function, line 89
+- `export function LabelText(` — function, line 120
+- `export function LabelSuffix(` — function, line 150
+- `export function CheckedBadge(` — function, line 173
+- `export function CheckedLines(` — function, line 187
+- `export function FigureSourceInfo(` — function, line 202
 
 ## Internal implementation anchors
 
@@ -81,32 +81,35 @@ The system-level behavior stays authoritative in the linked architecture, concep
 - `const template = element.template` — const, line 48
 - `const low = bounds.integers ? String(bounds.integers[0]) : String(bounds.from)` — const, line 54
 - `const high = bounds.integers ? String(bounds.integers[1]) : String(bounds.to)` — const, line 55
-- `const limited = bounds.clipped ? ` · $` — const, line 56
-- `const symbol = variableTex(variable)` — const, line 61
-- `const GREEK = new Set(["alpha", "beta", "gamma", "delta", "epsilon", "zeta", "eta", "theta", "iota", "kappa", "lambda", "mu", "nu", "xi", "rho", "sigma", "tau", "upsilon", "phi", "chi", "psi", "omega"])` — const, line 68
-- `function variableTex(name: string): string` — function, line 71
-- `const head = name.replace(/[0-9]+$/, "")` — const, line 74
-- `const tail = name.slice(head.length)` — const, line 75
-- `const value = useMemo<FigureLabels | null>(()` — const, line 81
-- `const list = labelElements(figure)` — const, line 82
-- `const elements = new Map(list.map((element)` — const, line 84
-- `const bounds = (element: FigureElementDto)` — const, line 85
-- `const template = element.template` — const, line 86
-- `const element = elements.get(id)` — const, line 98
-- `const GLYPH: CSSProperties =` — const, line 107
-- `const labels = useFigureLabels()` — const, line 112
-- `const element = labels.elements.get(id)` — const, line 114
-- `const words = element.template ? derivedWords(element, labels.bounds(element)) :` — const, line 116
-- `const compact = element.role === "ai" && legendIndex !== undefined && words.plain.length > LEGEND_CHARS` — const, line 128
-- `const glyph = element.voice === "model" ? <span aria-hidden="true" style=` — const, line 129
-- `const labels = useFigureLabels()` — const, line 142
-- `const element = labels?.elements.get(id)` — const, line 143
-- `const words = derivedWords(element, labels.bounds(element))` — const, line 145
-- `function distinctBook(figure: FigureViewDto): FigureElementDto[]` — function, line 154
-- `const seen = new Set<string>()` — const, line 155
-- `const rest = labelElements(figure).some((element)` — const, line 165
-- `const book = distinctBook(figure)` — const, line 195
-- `const reasons = sourceCheckReasons(figure.sourceCheck?.reasons)` — const, line 196
+- `const lowTex = numberTex(low)` — const, line 56
+- `const highTex = numberTex(high)` — const, line 57
+- `const limited = bounds.clipped ? ` · $` — const, line 58
+- `const symbol = variableTex(variable)` — const, line 63
+- `function numberTex(text: string): string` — function, line 72
+- `const GREEK = new Set(["alpha", "beta", "gamma", "delta", "epsilon", "zeta", "eta", "theta", "iota", "kappa", "lambda", "mu", "nu", "xi", "rho", "sigma", "tau", "upsilon", "phi", "chi", "psi", "omega"])` — const, line 77
+- `function variableTex(name: string): string` — function, line 80
+- `const head = name.replace(/[0-9]+$/, "")` — const, line 83
+- `const tail = name.slice(head.length)` — const, line 84
+- `const value = useMemo<FigureLabels | null>(()` — const, line 90
+- `const list = labelElements(figure)` — const, line 91
+- `const elements = new Map(list.map((element)` — const, line 93
+- `const bounds = (element: FigureElementDto)` — const, line 94
+- `const template = element.template` — const, line 95
+- `const element = elements.get(id)` — const, line 107
+- `const GLYPH: CSSProperties =` — const, line 116
+- `const labels = useFigureLabels()` — const, line 121
+- `const element = labels.elements.get(id)` — const, line 123
+- `const words = element.template ? derivedWords(element, labels.bounds(element)) :` — const, line 125
+- `const compact = element.role === "ai" && legendIndex !== undefined && words.plain.length > LEGEND_CHARS` — const, line 137
+- `const glyph = element.voice === "model" ? <span aria-hidden="true" style=` — const, line 138
+- `const labels = useFigureLabels()` — const, line 151
+- `const element = labels?.elements.get(id)` — const, line 152
+- `const words = derivedWords(element, labels.bounds(element))` — const, line 154
+- `function distinctBook(figure: FigureViewDto): FigureElementDto[]` — function, line 163
+- `const seen = new Set<string>()` — const, line 164
+- `const rest = labelElements(figure).some((element)` — const, line 174
+- `const book = distinctBook(figure)` — const, line 204
+- `const reasons = sourceCheckReasons(figure.sourceCheck?.reasons)` — const, line 205
 
 ## Who imports or calls it
 
