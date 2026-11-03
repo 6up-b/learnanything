@@ -3,8 +3,8 @@ title: "Config - evsi"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "27497a7340a969f6662bfd46bcc6d5ff9522f505"
-source_commit_timestamp: "2026-11-03T04:44:30-05:00"
+source_commit: "55154e0388c3526da2d1a55ac4d850cea630f066"
+source_commit_timestamp: "2026-11-03T13:30:51-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "learnloop.toml evsi"
@@ -47,7 +47,7 @@ The main configuration contract, precedence rules, and safe-edit workflow live i
 |---|---|---|---|---|---|---|
 | `evsi.forecast_logging` | `true` | boolean | modeled default or validator seed | Turns forecast logging behavior on or off within EVSI calibration: the value-of-information forecast log (voi_forecasts, logging only) and the measured-loss regime's switch and shrinkage strength (Part C, default off). | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:3340`; `src/learnloop/ai/plan_fallback.py:138`; `src/learnloop/evsi_calibration/live_report.py:982` |
 | `evsi.measured_loss_enabled` | `false` | boolean | modeled default or validator seed | Turns measured loss behavior on or off within EVSI calibration: the value-of-information forecast log (voi_forecasts, logging only) and the measured-loss regime's switch and shrinkage strength (Part C, default off). | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:3341`; `src/learnloop/ai/plan_fallback.py:138`; `src/learnloop/evsi_calibration/live_report.py:983` |
-| `evsi.unresolved_cost_prior_pseudo_count` | `5.0` | number | modeled default or validator seed | Controls unresolved cost prior pseudo count in EVSI calibration: the value-of-information forecast log (voi_forecasts, logging only) and the measured-loss regime's switch and shrinkage strength (Part C, default off), using the typed value shown here as the fresh-vault default. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:3342`; `src/learnloop/ai/plan_fallback.py:138`; `src/learnloop/diagnosis/voi_stopping.py:538` |
+| `evsi.unresolved_cost_prior_pseudo_count` | `5.0` | number | modeled default or validator seed | Controls unresolved cost prior pseudo count in EVSI calibration: the value-of-information forecast log (voi_forecasts, logging only) and the measured-loss regime's switch and shrinkage strength (Part C, default off), using the typed value shown here as the fresh-vault default. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:3342`; `src/learnloop/ai/plan_fallback.py:138`; `src/learnloop/diagnosis/voi_stopping.py:539` |
 
 > [!warning] Omitted does not mean frozen in the file
 > Most values are intentionally absent from `learnloop.toml`. Their reproducibility is protected by the defaults fingerprint keyed to `algorithms.algorithm_version`, not by dumping every default into each vault.

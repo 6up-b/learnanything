@@ -3,8 +3,8 @@ title: "Config - algorithms"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "27497a7340a969f6662bfd46bcc6d5ff9522f505"
-source_commit_timestamp: "2026-11-03T04:44:30-05:00"
+source_commit: "55154e0388c3526da2d1a55ac4d850cea630f066"
+source_commit_timestamp: "2026-11-03T13:30:51-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "learnloop.toml algorithms"
@@ -52,7 +52,7 @@ The main configuration contract, precedence rules, and safe-edit workflow live i
 
 | Dotted path | Effective value | Shape | Origin | Function | Runtime/refactor status | Consumer/source anchors |
 |---|---|---|---|---|---|---|
-| `algorithms.algorithm_version` | `"mvp-0.43"` | string | explicit template decision | Pins the replay/defaults namespace so historical evidence is interpreted by the algorithm that produced it. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:18`; `src/learnloop/ad_successor_upgrade.py:71`; `src/learnloop/adaptive_difficulty/outside.py:391` |
+| `algorithms.algorithm_version` | `"mvp-0.44"` | string | explicit template decision | Pins the replay/defaults namespace so historical evidence is interpreted by the algorithm that produced it. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:18`; `src/learnloop/ad_successor_upgrade.py:71`; `src/learnloop/adaptive_difficulty/outside.py:391` |
 
 > [!warning] Omitted does not mean frozen in the file
 > Most values are intentionally absent from `learnloop.toml`. Their reproducibility is protected by the defaults fingerprint keyed to `algorithms.algorithm_version`, not by dumping every default into each vault.

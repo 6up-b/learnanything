@@ -3,13 +3,13 @@ title: "commitments"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "27497a7340a969f6662bfd46bcc6d5ff9522f505"
-source_commit_timestamp: "2026-11-03T04:44:30-05:00"
+source_commit: "55154e0388c3526da2d1a55ac4d850cea630f066"
+source_commit_timestamp: "2026-11-03T13:30:51-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite commitments"
   - "table commitments"
-schema_head: 238
+schema_head: 239
 table_name: "commitments"
 table_role: "raw_ledger"
 functionality_status: "active"
@@ -30,7 +30,7 @@ source_paths:
   - "src/learnloop/content/authoring/rung_variants.py"
   - "src/learnloop/curriculum/golden_path_confirm.py"
   - "src/learnloop/daily_plan/engine.py"
-  - "src/learnloop/daily_plan/router_reader.py"
+  - "src/learnloop/daily_plan/measurement.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/raw-ledger"
@@ -109,6 +109,7 @@ Indexes and uniqueness:
 - `src/learnloop/curriculum/commitments.py`
 - `src/learnloop/curriculum/golden_path_confirm.py`
 - `src/learnloop/daily_plan/engine.py`
+- `src/learnloop/daily_plan/measurement.py`
 - `src/learnloop/daily_plan/router_reader.py`
 - `src/learnloop/instructional/reader_followups.py`
 - `src/learnloop/intent/control.py`
@@ -142,11 +143,11 @@ Indexes and uniqueness:
 - `tests/test_curriculum_c1_landing.py`
 - `tests/test_daily_loop_reader_authored_practice.py`
 - `tests/test_daily_loop_reference_adoption.py`
+- `tests/test_data_capture_a2_measurement.py`
+- `tests/test_data_capture_a3_time_metric.py`
+- `tests/test_data_capture_successor.py`
 - `tests/test_deliverable_path.py`
 - `tests/test_depth_transition.py`
-- `tests/test_dispersion.py`
-- `tests/test_dl2_rw4b_keyed_pick_check.py`
-- `tests/test_dual_authority_administration.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

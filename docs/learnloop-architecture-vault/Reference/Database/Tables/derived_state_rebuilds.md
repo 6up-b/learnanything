@@ -3,13 +3,13 @@ title: "derived_state_rebuilds"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "27497a7340a969f6662bfd46bcc6d5ff9522f505"
-source_commit_timestamp: "2026-11-03T04:44:30-05:00"
+source_commit: "55154e0388c3526da2d1a55ac4d850cea630f066"
+source_commit_timestamp: "2026-11-03T13:30:51-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite derived_state_rebuilds"
   - "table derived_state_rebuilds"
-schema_head: 238
+schema_head: 239
 table_name: "derived_state_rebuilds"
 table_role: "receipt"
 functionality_status: "active"
@@ -24,8 +24,8 @@ source_paths:
   - "src/learnloop/attempt_content_state_upgrade.py"
   - "src/learnloop/claim_fixes_upgrade.py"
   - "src/learnloop/cold_retry_reschedule_upgrade.py"
+  - "src/learnloop/data_capture_upgrade.py"
   - "src/learnloop/db/repositories.py"
-  - "src/learnloop/deliverable_plan_upgrade.py"
   - "src/learnloop/attempts/measurement_corrections.py"
   - "src/learnloop/curriculum/integration_backfill.py"
   - "src/learnloop/learner/learner_review_feed.py"
@@ -97,6 +97,7 @@ Indexes and uniqueness:
 - `src/learnloop/attempt_content_state_upgrade.py`
 - `src/learnloop/claim_fixes_upgrade.py`
 - `src/learnloop/cold_retry_reschedule_upgrade.py`
+- `src/learnloop/data_capture_upgrade.py`
 - `src/learnloop/db/repositories.py`
 - `src/learnloop/deliverable_plan_upgrade.py`
 - `src/learnloop/diagnosis/recurrence/report.py`

@@ -3,13 +3,13 @@ title: "daily_plans"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "27497a7340a969f6662bfd46bcc6d5ff9522f505"
-source_commit_timestamp: "2026-11-03T04:44:30-05:00"
+source_commit: "55154e0388c3526da2d1a55ac4d850cea630f066"
+source_commit_timestamp: "2026-11-03T13:30:51-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite daily_plans"
   - "table daily_plans"
-schema_head: 238
+schema_head: 239
 table_name: "daily_plans"
 table_role: "workflow"
 functionality_status: "active"
@@ -24,9 +24,9 @@ source_paths:
   - "src/learnloop/daily_plan/engine.py"
   - "src/learnloop/daily_plan/estimates.py"
   - "src/learnloop/daily_plan/lanes.py"
+  - "src/learnloop/daily_plan/measurement.py"
   - "src/learnloop/daily_plan/records.py"
   - "src/learnloop/daily_plan/router_card.py"
-  - "src/learnloop/daily_plan_upgrade.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/workflow"
@@ -130,6 +130,7 @@ None found by exact static reference scan.
 - `tests/test_daily_plan_kill_switch.py`
 - `tests/test_daily_plan_reading.py`
 - `tests/test_daily_plan_replay.py`
+- `tests/test_data_capture_a2_measurement.py`
 - `tests/test_exam_protection_identity.py`
 - `tests/test_followups_batch6_prefetch_decided_once.py`
 - `tests/test_followups_batch6_verify_fixes.py`
@@ -137,7 +138,6 @@ None found by exact static reference scan.
 - `tests/test_mvp014_upgrade.py`
 - `tests/test_plan_determinism.py`
 - `tests/test_plan_follows_path.py`
-- `tests/test_reader_rw3b_protection.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

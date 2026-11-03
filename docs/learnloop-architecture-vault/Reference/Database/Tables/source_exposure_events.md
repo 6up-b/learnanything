@@ -3,13 +3,13 @@ title: "source_exposure_events"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "27497a7340a969f6662bfd46bcc6d5ff9522f505"
-source_commit_timestamp: "2026-11-03T04:44:30-05:00"
+source_commit: "55154e0388c3526da2d1a55ac4d850cea630f066"
+source_commit_timestamp: "2026-11-03T13:30:51-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite source_exposure_events"
   - "table source_exposure_events"
-schema_head: 238
+schema_head: 239
 table_name: "source_exposure_events"
 table_role: "raw_ledger"
 functionality_status: "active"
@@ -102,6 +102,7 @@ Indexes and uniqueness:
 - `src/learnloop/db/repositories.py`
 - `src/learnloop/db/stores/source_service.py`
 - `src/learnloop/instructional/exposure.py`
+- `src/learnloop/router/first_delayed_success.py`
 - `src/learnloop/router/outcomes.py`
 - `src/learnloop/source_retrieval/reader_tutor.py`
 - `src/learnloop/substrate/intervention_outcomes.py`
@@ -132,6 +133,8 @@ Indexes and uniqueness:
 - `tests/test_ad3_reading.py`
 - `tests/test_ad_protected_readings.py`
 - `tests/test_coldness_receipt.py`
+- `tests/test_data_capture_a3_time_metric.py`
+- `tests/test_data_capture_a4_delayed_completion.py`
 - `tests/test_exam_protection.py`
 - `tests/test_exam_protection_review.py`
 - `tests/test_library_ask.py`
@@ -145,8 +148,6 @@ Indexes and uniqueness:
 - `tests/test_reader_ca5a_find_section.py`
 - `tests/test_reader_ca6_side_by_side.py`
 - `tests/test_reader_restoration.py`
-- `tests/test_reader_tutor_offers.py`
-- `tests/test_reader_tutor_retrieval.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

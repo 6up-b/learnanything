@@ -3,13 +3,13 @@ title: "measurement_events"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "27497a7340a969f6662bfd46bcc6d5ff9522f505"
-source_commit_timestamp: "2026-11-03T04:44:30-05:00"
+source_commit: "55154e0388c3526da2d1a55ac4d850cea630f066"
+source_commit_timestamp: "2026-11-03T13:30:51-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite measurement_events"
   - "table measurement_events"
-schema_head: 238
+schema_head: 239
 table_name: "measurement_events"
 table_role: "raw_ledger"
 functionality_status: "active"
@@ -21,6 +21,9 @@ source_paths:
   - "migrations/065_activity_lineage_substrate.sql"
   - "src/learnloop/attempts/grader_calibration.py"
   - "src/learnloop/db/repositories.py"
+  - "src/learnloop/db/stores/data_capture.py"
+  - "src/learnloop/ops/capture_report.py"
+  - "src/learnloop/router/outcomes.py"
   - "src/learnloop/attempts/grade_resolution.py"
   - "src/learnloop/substrate/activities.py"
   - "src/learnloop/substrate/compat/substrate_cutover.py"
@@ -111,6 +114,7 @@ Indexes and uniqueness:
 ## Tests that define behavior
 
 - `tests/test_activity_substrate.py`
+- `tests/test_data_capture_a2_measurement.py`
 - `tests/test_p0_projection_cutover.py`
 - `tests/test_administration_adapters.py`
 - `tests/test_assessment_enforcement.py`

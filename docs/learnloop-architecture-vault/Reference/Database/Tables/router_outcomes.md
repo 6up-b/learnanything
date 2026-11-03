@@ -3,13 +3,13 @@ title: "router_outcomes"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "27497a7340a969f6662bfd46bcc6d5ff9522f505"
-source_commit_timestamp: "2026-11-03T04:44:30-05:00"
+source_commit: "55154e0388c3526da2d1a55ac4d850cea630f066"
+source_commit_timestamp: "2026-11-03T13:30:51-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite router_outcomes"
   - "table router_outcomes"
-schema_head: 238
+schema_head: 239
 table_name: "router_outcomes"
 table_role: "derived"
 functionality_status: "active"
@@ -22,10 +22,10 @@ source_paths:
   - "src/learnloop/algorithm_versions.py"
   - "src/learnloop/cli/router.py"
   - "src/learnloop/daily_plan/router_retrieval.py"
+  - "src/learnloop/data_capture_upgrade.py"
   - "src/learnloop/db/stores/router.py"
   - "src/learnloop/evsi_calibration/live_report.py"
   - "src/learnloop/probe_tie_upgrade.py"
-  - "src/learnloop/router/outcomes.py"
   - "src/learnloop/substrate/rebuild_orchestrator.py"
 tags:
   - "learnloop/database/table"
@@ -131,6 +131,7 @@ None found by exact static reference scan.
 ## Tests that define behavior
 
 - `tests/test_daily_plan_replay.py`
+- `tests/test_data_capture_successor.py`
 - `tests/test_evsi_router_composition.py`
 - `tests/test_held_grade_composition.py`
 - `tests/test_mvp015_upgrade.py`

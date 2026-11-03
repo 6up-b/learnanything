@@ -870,6 +870,7 @@ CONFIG_SECTION_FUNCTIONS: dict[str, str] = {
     "diagnosis": "Slice 1 learner-blind grading and the asynchronous history-aware diagnoser (mvp-0.10): kill switch, history mode, queue limits, diagnosis card, PF-c grading support, mvp-0.21's probe hypothesis lane reading the diagnoser's verdict (with its pending rule), and the saved diagnosis forecasts' kill switch (forecast_receipts, logging only)",
     "placement": "learner field F2 (mvp-0.11): starting new material without ceremony, assumed-known receipts, and the optional quick check",
     "router": "action router R1: decision logging on today's serving paths and the mvp-0.15 probe-tie admission kill switch",
+    "data_capture": "data capture (the long-horizon objective's dataset): the prefilter receipts' switch, additive at every version, and the kill switch of the successor mvp-0.44's measurement slots, not_ready floor, delayed-check picker and router_outcomes_v3",
     "pf": "PF-b generation, verification and capped publication of verified practice items (kill switch off by default)",
     "recurrence": "Slice 2 T1 recurrence groups with authority (mvp-0.12): kill switch, the live same-cause judge's shortlist (top-k and benchmark-set blocking cutoffs bound to the vectors they were measured on) and caps, the escalation card and its escalated-repair request",
     "source_retrieval": "Slice 2 T6 source retrieval (keyword + dense, fused by rank) for the library search, tutor spans, the Quick Add scope and labelled LO suggestions, with the live rewrite and verification spend",

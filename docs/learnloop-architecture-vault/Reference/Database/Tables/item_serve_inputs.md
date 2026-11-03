@@ -3,13 +3,13 @@ title: "item_serve_inputs"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "27497a7340a969f6662bfd46bcc6d5ff9522f505"
-source_commit_timestamp: "2026-11-03T04:44:30-05:00"
+source_commit: "55154e0388c3526da2d1a55ac4d850cea630f066"
+source_commit_timestamp: "2026-11-03T13:30:51-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite item_serve_inputs"
   - "table item_serve_inputs"
-schema_head: 238
+schema_head: 239
 table_name: "item_serve_inputs"
 table_role: "receipt"
 functionality_status: "active"
@@ -111,6 +111,7 @@ None found by exact static reference scan.
 
 - `src/learnloop/adaptive_difficulty/data_check.py`
 - `src/learnloop/adaptive_difficulty/material_view.py`
+- `src/learnloop/router/outcomes.py`
 
 ### Direct SQL writers
 

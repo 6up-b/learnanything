@@ -3,13 +3,13 @@ title: "commitment_target_versions"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "27497a7340a969f6662bfd46bcc6d5ff9522f505"
-source_commit_timestamp: "2026-11-03T04:44:30-05:00"
+source_commit: "55154e0388c3526da2d1a55ac4d850cea630f066"
+source_commit_timestamp: "2026-11-03T13:30:51-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite commitment_target_versions"
   - "table commitment_target_versions"
-schema_head: 238
+schema_head: 239
 table_name: "commitment_target_versions"
 table_role: "raw_ledger"
 functionality_status: "active"
@@ -96,6 +96,7 @@ Indexes and uniqueness:
 - `src/learnloop/db/stores/intent_reads.py`
 - `src/learnloop/instructional/reader_followups.py`
 - `src/learnloop/reader/reader_authoring.py`
+- `src/learnloop/router/first_delayed_success.py`
 
 ### Direct SQL writers
 
