@@ -112,6 +112,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_no_value_is_a_dash`
   - `test_the_twins_agree_with_javascript`
 - [tests/test_rw5c_labels.py](../../../../../../tests/test_rw5c_labels.py) — direct import
+  - `test_f3_a_scientific_endpoint_is_written_as_the_power_it_means`
 
 ## Modification guidance
 

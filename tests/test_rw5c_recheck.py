@@ -11,6 +11,7 @@ from typer.testing import CliRunner
 from learnloop.cli.app import app
 from learnloop.content.authoring import pf_sandbox
 from learnloop.db.stores import figures as store
+from learnloop.figures import book_math as BM
 from learnloop.figures import service as FS
 from learnloop.figures import source_check as SC
 from learnloop.vault.loader import load_vault
@@ -48,8 +49,8 @@ def test_a_stored_figure_is_rechecked_with_no_model_client_and_upgrades_in_place
     assert rows(repository, "figure_source_checks") == []
     ctx = context(paths.root, author=AuthorFake())
     listed = call(ctx, "reader.figures", {"extractionId": EXTRACTION})["figures"][0]
-    assert listed["sourceCheck"] == {"status": "none", "certificationVersion": 1, "reasons": [], "recheckDue": True,
-                                     "rebuild": False}
+    assert listed["sourceCheck"] == {"status": "none", "certificationVersion": SC.CERTIFICATION_VERSION, "reasons": [],
+                                     "recheckDue": True, "rebuild": False}
     assert listed["elements"] == []
     job = call(ctx, "reader.figure_recheck", {"figureId": figure["figureId"]})
     if job["state"] == "pending":
@@ -67,13 +68,65 @@ def test_a_certification_bump_rechecks_at_no_paid_cost(tmp_path, monkeypatch):
     monkeypatch.setattr(pf_sandbox, "sandbox_available", lambda: False)
     figure = build(ctx, REQUEST)["figure"]
     assert figure["sourceCheck"]["recheckDue"] is False
-    monkeypatch.setattr(SC, "CERTIFICATION_VERSION", SC.CERTIFICATION_VERSION + 1)
+    built_under = SC.CERTIFICATION_VERSION
+    monkeypatch.setattr(SC, "CERTIFICATION_VERSION", built_under + 1)
     listed = call(ctx, "reader.figures", {"extractionId": EXTRACTION})["figures"][0]
-    assert listed["sourceCheck"]["recheckDue"] is True and listed["sourceCheck"]["certificationVersion"] == 2
+    assert listed["sourceCheck"]["recheckDue"] is True and listed["sourceCheck"]["certificationVersion"] == built_under + 1
     full = store.figure(repository.connection(), figure["figureId"])
     SC.recheck(load_vault(paths.root), repository, full)
-    assert [row["certification_version"] for row in rows(repository, "figure_source_checks")] == [1, 2]
+    assert [row["certification_version"] for row in rows(repository, "figure_source_checks")] == [built_under, built_under + 1]
     assert author.calls == 1
+
+
+def _certified_by_the_old_reader(tmp_path) -> tuple[Any, Any, str]:
+    """Codex re-review F1: a figure whose ledger holds the "checked" the reader wrote
+    before it refused the unbraced radical. KaTeX shows \\sqrt16 x as sqrt(1)*6x; the
+    old reader read it whole, so 4*x was stored as matching the book."""
+
+    book = [("a", "Text", r"$f(x)=\sqrt16 x$")]
+    paths, repository = build_check_vault(tmp_path / "vault", book)
+    ctx = context(paths.root, author=AuthorFake([plot("4*x", stated="f(x)", span="a")]))
+    figure = _stored_before_rw5c(paths, ctx, {"extractionId": EXTRACTION, "spanIds": ["a"]})
+    assert rows(repository, "figure_source_checks") == []
+    element = {"id": "panels.0.series.0", "role": "book", "definition": "f", "tex": "f(x)", "plain": "f(x)",
+               "equation": r"f(x)=\sqrt16 x"}
+    with repository.connection() as connection:
+        connection.execute("PRAGMA foreign_keys = OFF")
+        store.insert_source_check(connection, {
+            "id": "fsc_old_reader", "figure_id": figure["figureId"], "certification_version": 1, "trigger": "build",
+            "outcome": SC.CHECKED, "definitions": [], "elements": [element], "reasons": {}, "harness_sha256": "x",
+            "reader_version": "book-math-v1", "sympy_version": "x", "duration_ms": 1, "judgment_id": "j_old_reader",
+            "created_at": "2026-11-02T00:00:00Z"})
+        connection.commit()
+    return paths, repository, figure["figureId"]
+
+
+def test_a_certification_the_old_reader_stored_no_longer_delivers_checked(tmp_path):
+    assert SC.CERTIFICATION_VERSION > 1 and BM.READER_VERSION != "book-math-v1"
+    paths, _repository, figure_id = _certified_by_the_old_reader(tmp_path)
+    ctx = context(paths.root, author=AuthorFake())
+    listed = call(ctx, "reader.figures", {"extractionId": EXTRACTION})["figures"][0]
+    assert listed["figureId"] == figure_id and listed["elements"] == []
+    assert listed["sourceCheck"]["status"] == "none" and listed["sourceCheck"]["recheckDue"] is True
+    audit = json.loads(CliRunner().invoke(app, ["reader", "figure-checks", "--json", "--vault", str(paths.root)]).output)
+    assert audit["figures"] == 0 and audit["checked"] == []
+
+
+@sandboxed
+def test_the_bulk_recheck_replaces_a_certification_the_old_reader_stored(tmp_path):
+    paths, repository, figure_id = _certified_by_the_old_reader(tmp_path)
+    result = CliRunner().invoke(app, ["reader", "figure-checks", "--recheck", "--json", "--vault", str(paths.root)])
+    assert result.exit_code == 0, result.output
+    report = json.loads(result.output)
+    assert report["skipped"]["not_due"] == 0 and report["figures"] == 1
+    assert report["outcomes"] == {"not_checkable": 1} and report["reasons"].get("function_arg") == 1
+    assert report["checked"] == []
+    newest = store.latest_source_check(repository.connection(), figure_id, SC.CERTIFICATION_VERSION)
+    assert newest["reader_version"] == BM.READER_VERSION and not newest["elements"]
+    ctx = context(paths.root, author=AuthorFake())
+    listed = call(ctx, "reader.figures", {"extractionId": EXTRACTION})["figures"][0]
+    assert listed["elements"] == [] and listed["sourceCheck"]["status"] == "none"
+    assert listed["sourceCheck"]["recheckDue"] is False
 
 
 def test_a_recheck_with_the_switch_off_or_turned_off_before_its_write_writes_nothing(tmp_path, monkeypatch):

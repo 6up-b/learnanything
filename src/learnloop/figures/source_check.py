@@ -55,7 +55,9 @@ from learnloop.ids import new_ulid
 
 #: The rules a check ran under (the reader's table, the harness, the display
 #: format). Bumping it rechecks stored figures, by code, at no paid cost (§10.4).
-CERTIFICATION_VERSION = 1
+#: 2: the reader refuses forms the page shows otherwise (\sqrt16 x and its class),
+#: so a "checked" stored under 1 is not delivered until code has read it again.
+CERTIFICATION_VERSION = 2
 LEDGER_TASK = "figure_source_check"
 CHECKED, DIFFERS, UNDECIDED, NOT_CHECKABLE = "checked", "differs", "undecided", "not_checkable"
 OUTCOMES = (CHECKED, DIFFERS, UNDECIDED, NOT_CHECKABLE)

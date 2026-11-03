@@ -7,8 +7,8 @@ version: "1.0.0"
 source_path: "src/learnloop/figures/elements.py"
 source_paths:
   - "src/learnloop/figures/elements.py"
-source_commit: "9e12d91330e6fa42d51fd7c7319294c7015e803f"
-source_commit_timestamp: "2026-11-02T20:08:53-05:00"
+source_commit: "63aafe919913aeb354b178e53e55ecb4d57b7c47"
+source_commit_timestamp: "2026-11-02T21:23:47-05:00"
 source_worktree_state: "clean"
 generated: true
 generated_at: "2026-11-02"
@@ -50,13 +50,13 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/figures/elements.py](../../../../../../src/learnloop/figures/elements.py) |
-| Source lines | 558 |
+| Source lines | 560 |
 | Owning package | [[Reference/Modules/learnloop/figures/_package|learnloop.figures]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `9e12d91330e6fa42d51fd7c7319294c7015e803f` |
-| Commit timestamp | `2026-11-02T20:08:53-05:00` |
+| Source commit | `63aafe919913aeb354b178e53e55ecb4d57b7c47` |
+| Commit timestamp | `2026-11-02T21:23:47-05:00` |
 
 ## Public API
 
@@ -70,8 +70,8 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `detex(latex: str) -> str` ([source](../../../../../../src/learnloop/figures/elements.py), line 276) — A left-hand side as plain text for ``aria-label``s (source text, its markup dropped).
 - `class BookLabel` ([source](../../../../../../src/learnloop/figures/elements.py), line 288) — A checked definition's candidate: the book's own words for its label.
 - `template_words(template: Mapping[str, Any], bounds: Mapping[str, Any], number: Any) -> tuple[str, str]` ([source](../../../../../../src/learnloop/figures/elements.py), line 351) — The closed derived-label templates (§7.2), in TeX and in plain text.
-- `element_map(compiled: S.CompiledFigure, book: Mapping[str, BookLabel], book_elements: Mapping[str, str]) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/figures/elements.py), line 400) — Every label-carrying element and its role (§7.2).
-- `rewrite_spec(spec_json: str, compiled: S.CompiledFigure) -> tuple[str, dict[str, str]]` ([source](../../../../../../src/learnloop/figures/elements.py), line 492) — The delivered spec with every label replaced by its element id, references too (§7.4, by construction: the walk reaches every ``Label``), and the map from each model label a reference may name to its id.
+- `element_map(compiled: S.CompiledFigure, book: Mapping[str, BookLabel], book_elements: Mapping[str, str]) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/figures/elements.py), line 402) — Every label-carrying element and its role (§7.2).
+- `rewrite_spec(spec_json: str, compiled: S.CompiledFigure) -> tuple[str, dict[str, str]]` ([source](../../../../../../src/learnloop/figures/elements.py), line 494) — The delivered spec with every label replaced by its element id, references too (§7.4, by construction: the walk reaches every ``Label``), and the map from each model label a reference may name to its id.
 
 ### Module constants
 
@@ -116,9 +116,9 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `_bare(node: G.Node | None, definitions: Mapping[str, Any]) -> str | None` ([source](../../../../../../src/learnloop/figures/elements.py), line 309)
 - `_curve(path: Sequence[Any], node: G.Node | None, axis: str | None, compiled: S.CompiledFigure, book: Mapping[str, BookLabel], book_elements: Mapping[str, str]) -> dict[str, Any]` ([source](../../../../../../src/learnloop/figures/elements.py), line 313) — A series or a readout's plain value: ``book``, else code's rendering in the model's voice.
 - `_template(path: Sequence[Any], kind: str, panel: int, index: int, *, body_tex: str, body_plain: str, variable: str, role: str, voice: str, compiled: S.CompiledFigure, env: Mapping[str, float], **extra: Any) -> dict[str, Any]` ([source](../../../../../../src/learnloop/figures/elements.py), line 335) — A shade, a highlight or a bound readout: its words state the bounds the evaluator used (F2) and name them losslessly (F9).
-- `_panel_tex(panel: S.CompiledPanel, definitions: Mapping[str, Any]) -> tuple[str, str]` ([source](../../../../../../src/learnloop/figures/elements.py), line 379) — A non-curve panel's own expression, for a label its author gave it.
-- `_slot_element_path(slot: Slot) -> tuple[Any, ...]` ([source](../../../../../../src/learnloop/figures/elements.py), line 485) — The element a label slot names: its owner's path (a readout's and a panel's own ``label`` name the panel).
-- `_assign(data: Any, path: Sequence[Any], value: str) -> None` ([source](../../../../../../src/learnloop/figures/elements.py), line 532)
+- `_panel_tex(panel: S.CompiledPanel, definitions: Mapping[str, Any]) -> tuple[str, str]` ([source](../../../../../../src/learnloop/figures/elements.py), line 381) — A non-curve panel's own expression, for a label its author gave it.
+- `_slot_element_path(slot: Slot) -> tuple[Any, ...]` ([source](../../../../../../src/learnloop/figures/elements.py), line 487) — The element a label slot names: its owner's path (a readout's and a panel's own ``label`` name the panel).
+- `_assign(data: Any, path: Sequence[Any], value: str) -> None` ([source](../../../../../../src/learnloop/figures/elements.py), line 534)
 
 ## Who imports or calls it
 
@@ -160,6 +160,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_an_unchecked_definition_renders_as_its_grammar_name_marked_ai_defined`
   - `test_codes_own_rendering_of_an_expression`
   - `test_f2_an_integral_readout_states_its_evaluated_bounds`
+  - `test_f3_a_scientific_endpoint_is_written_as_the_power_it_means`
   - `test_f9_endpoints_are_lossless_never_format_value`
   - `test_g23d_a_new_panel_with_a_label_fails_until_it_is_mapped`
   - `test_g23d_the_walk_covers_every_label_and_text_field_of_the_schema`

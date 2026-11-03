@@ -2788,6 +2788,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_rw5c_source_check.py](../../../../../../tests/test_rw5c_source_check.py) — direct import
   - `test_a_block_that_is_not_ok_is_refused_with_its_reason`
   - `test_a_withheld_span_is_never_read`
+  - `test_an_unbraced_radical_never_certifies_the_meaning_the_page_does_not_show`
   - `test_build_key_holds_the_switch_and_the_reuse_key_does_not`
   - `test_the_switch_off_at_the_store_writes_nothing`
   - `test_the_switch_off_between_the_sandbox_and_the_second_attempt_stops_the_build`

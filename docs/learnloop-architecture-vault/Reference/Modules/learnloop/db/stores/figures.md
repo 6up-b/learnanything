@@ -216,6 +216,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_pressing_rebuild_calls_the_author_and_stores_a_new_version`
   - `test_rebuild_is_not_offered_with_revisions_off`
   - `test_section_figures_leave_a_rejected_figure_out`
+  - `test_the_bulk_recheck_replaces_a_certification_the_old_reader_stored`
 - [tests/test_rw5c_switch_off.py](../../../../../../../tests/test_rw5c_switch_off.py) — direct import
   - `test_a_row_written_just_before_a_switch_off_is_never_shown_while_it_is_off`
   - `test_nothing_reads_the_ledger_while_the_switch_is_off`

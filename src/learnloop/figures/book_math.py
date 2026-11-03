@@ -61,7 +61,7 @@ from fractions import Fraction
 from learnloop.figures import grammar as G
 
 #: The version of this table, recorded on every check row.
-READER_VERSION = "book-math-v1"
+READER_VERSION = "book-math-v2"
 
 #: Every reason a candidate is unreadable, as a closed key (§5.3, §12).
 REASONS = (

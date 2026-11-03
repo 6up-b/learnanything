@@ -7,9 +7,9 @@ version: "1.0.0"
 source_path: "src/learnloop/figures/book_math.py"
 source_paths:
   - "src/learnloop/figures/book_math.py"
-source_commit: "0c288306c13ec1b8bdc13261204b17451343da17"
-source_commit_timestamp: "2026-11-02T19:47:48-05:00"
-source_worktree_state: "clean"
+source_commit: "workspace/uncommitted @ HEAD 6ea7184ca983997c6c504ebbda9e28c3d26e18c9"
+source_commit_timestamp: "2026-11-02T21:29:11-05:00"
+source_worktree_state: "modified"
 generated: true
 generated_at: "2026-11-02"
 package: "learnloop.figures"
@@ -50,44 +50,44 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/figures/book_math.py](../../../../../../src/learnloop/figures/book_math.py) |
-| Source lines | 955 |
+| Source lines | 974 |
 | Owning package | [[Reference/Modules/learnloop/figures/_package|learnloop.figures]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
-| Worktree state | `clean` |
-| Source commit | `0c288306c13ec1b8bdc13261204b17451343da17` |
-| Commit timestamp | `2026-11-02T19:47:48-05:00` |
+| Worktree state | `modified` |
+| Source commit | `workspace/uncommitted @ HEAD 6ea7184ca983997c6c504ebbda9e28c3d26e18c9` |
+| Commit timestamp | `2026-11-02T21:29:11-05:00` |
 
 ## Public API
 
-- `class Unreadable(ValueError)` ([source](../../../../../../src/learnloop/figures/book_math.py), line 105) — A segment outside the table; ``reason`` is one key of :data:`REASONS`.
-  - `__init__(self, reason: str) -> None` (line 108; internal)
-- `class Segment` ([source](../../../../../../src/learnloop/figures/book_math.py), line 114) — One math segment of a block's text; ``start``/``end`` delimit ``latex``'s place in it.
-- `class Relation` ([source](../../../../../../src/learnloop/figures/book_math.py), line 123) — A read equation.
-- `segments(text: str, block_type: str='') -> list[Segment]` ([source](../../../../../../src/learnloop/figures/book_math.py), line 145) — The math segments of a block's text in reading order (§5.2): ``$...$``, ``$$...$$``, ``\[...\]``, or the whole text of an equation block.
-- `binary64_exact(text: str) -> bool` ([source](../../../../../../src/learnloop/figures/book_math.py), line 235) — Whether a decimal's exact value is a binary64 value: no made-up bound, no ``Decimal`` context (§6.1): 0, 1, 0.5, 0.375, never 0.3.
-- `read_relation(latex: str) -> Relation` ([source](../../../../../../src/learnloop/figures/book_math.py), line 907) — One math segment read as one relation, or :class:`Unreadable`.
+- `class Unreadable(ValueError)` ([source](../../../../../../src/learnloop/figures/book_math.py), line 114) — A segment outside the table; ``reason`` is one key of :data:`REASONS`.
+  - `__init__(self, reason: str) -> None` (line 117; internal)
+- `class Segment` ([source](../../../../../../src/learnloop/figures/book_math.py), line 123) — One math segment of a block's text; ``start``/``end`` delimit ``latex``'s place in it.
+- `class Relation` ([source](../../../../../../src/learnloop/figures/book_math.py), line 132) — A read equation.
+- `segments(text: str, block_type: str='') -> list[Segment]` ([source](../../../../../../src/learnloop/figures/book_math.py), line 154) — The math segments of a block's text in reading order (§5.2): ``$...$``, ``$$...$$``, ``\[...\]``, or the whole text of an equation block.
+- `binary64_exact(text: str) -> bool` ([source](../../../../../../src/learnloop/figures/book_math.py), line 248) — Whether a decimal's exact value is a binary64 value: no made-up bound, no ``Decimal`` context (§6.1): 0, 1, 0.5, 0.375, never 0.3.
+- `read_relation(latex: str) -> Relation` ([source](../../../../../../src/learnloop/figures/book_math.py), line 926) — One math segment read as one relation, or :class:`Unreadable`.
 
 ### Module constants
 
-- `READER_VERSION` ([src/learnloop/figures/book_math.py](../../../../../../src/learnloop/figures/book_math.py), line 55)
-- `REASONS` ([src/learnloop/figures/book_math.py](../../../../../../src/learnloop/figures/book_math.py), line 58)
-- `_GREEK` ([src/learnloop/figures/book_math.py](../../../../../../src/learnloop/figures/book_math.py), line 69)
-- `_FUNCTIONS` ([src/learnloop/figures/book_math.py](../../../../../../src/learnloop/figures/book_math.py), line 78)
-- `_EXTREMES` ([src/learnloop/figures/book_math.py](../../../../../../src/learnloop/figures/book_math.py), line 79)
-- `_REFUSED_COMMANDS` ([src/learnloop/figures/book_math.py](../../../../../../src/learnloop/figures/book_math.py), line 81)
-- `_IGNORED` ([src/learnloop/figures/book_math.py](../../../../../../src/learnloop/figures/book_math.py), line 91)
-- `_RELATION_TOKENS` ([src/learnloop/figures/book_math.py](../../../../../../src/learnloop/figures/book_math.py), line 92)
-- `_OPENERS` ([src/learnloop/figures/book_math.py](../../../../../../src/learnloop/figures/book_math.py), line 93)
-- `_ENVIRONMENTS_MATRIX` ([src/learnloop/figures/book_math.py](../../../../../../src/learnloop/figures/book_math.py), line 94)
-- `_CONDITION_OPS` ([src/learnloop/figures/book_math.py](../../../../../../src/learnloop/figures/book_math.py), line 95)
-- `_CASE_WORDS` ([src/learnloop/figures/book_math.py](../../../../../../src/learnloop/figures/book_math.py), line 97)
-- `_NUMBER` ([src/learnloop/figures/book_math.py](../../../../../../src/learnloop/figures/book_math.py), line 98)
-- `_COMMAND` ([src/learnloop/figures/book_math.py](../../../../../../src/learnloop/figures/book_math.py), line 99)
-- `_TEXT_ARG` ([src/learnloop/figures/book_math.py](../../../../../../src/learnloop/figures/book_math.py), line 100)
-- `EQUATION_BLOCK_TYPES` ([src/learnloop/figures/book_math.py](../../../../../../src/learnloop/figures/book_math.py), line 102)
-- `_DELIMITED` ([src/learnloop/figures/book_math.py](../../../../../../src/learnloop/figures/book_math.py), line 141)
-- `_LHS_APPLICATION` ([src/learnloop/figures/book_math.py](../../../../../../src/learnloop/figures/book_math.py), line 836)
+- `READER_VERSION` ([src/learnloop/figures/book_math.py](../../../../../../src/learnloop/figures/book_math.py), line 64)
+- `REASONS` ([src/learnloop/figures/book_math.py](../../../../../../src/learnloop/figures/book_math.py), line 67)
+- `_GREEK` ([src/learnloop/figures/book_math.py](../../../../../../src/learnloop/figures/book_math.py), line 78)
+- `_FUNCTIONS` ([src/learnloop/figures/book_math.py](../../../../../../src/learnloop/figures/book_math.py), line 87)
+- `_EXTREMES` ([src/learnloop/figures/book_math.py](../../../../../../src/learnloop/figures/book_math.py), line 88)
+- `_REFUSED_COMMANDS` ([src/learnloop/figures/book_math.py](../../../../../../src/learnloop/figures/book_math.py), line 90)
+- `_IGNORED` ([src/learnloop/figures/book_math.py](../../../../../../src/learnloop/figures/book_math.py), line 100)
+- `_RELATION_TOKENS` ([src/learnloop/figures/book_math.py](../../../../../../src/learnloop/figures/book_math.py), line 101)
+- `_OPENERS` ([src/learnloop/figures/book_math.py](../../../../../../src/learnloop/figures/book_math.py), line 102)
+- `_ENVIRONMENTS_MATRIX` ([src/learnloop/figures/book_math.py](../../../../../../src/learnloop/figures/book_math.py), line 103)
+- `_CONDITION_OPS` ([src/learnloop/figures/book_math.py](../../../../../../src/learnloop/figures/book_math.py), line 104)
+- `_CASE_WORDS` ([src/learnloop/figures/book_math.py](../../../../../../src/learnloop/figures/book_math.py), line 106)
+- `_NUMBER` ([src/learnloop/figures/book_math.py](../../../../../../src/learnloop/figures/book_math.py), line 107)
+- `_COMMAND` ([src/learnloop/figures/book_math.py](../../../../../../src/learnloop/figures/book_math.py), line 108)
+- `_TEXT_ARG` ([src/learnloop/figures/book_math.py](../../../../../../src/learnloop/figures/book_math.py), line 109)
+- `EQUATION_BLOCK_TYPES` ([src/learnloop/figures/book_math.py](../../../../../../src/learnloop/figures/book_math.py), line 111)
+- `_DELIMITED` ([src/learnloop/figures/book_math.py](../../../../../../src/learnloop/figures/book_math.py), line 150)
+- `_LHS_APPLICATION` ([src/learnloop/figures/book_math.py](../../../../../../src/learnloop/figures/book_math.py), line 855)
 
 ### Explicit exports
 
@@ -104,14 +104,14 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 
 ## Internal implementation anchors
 
-- `class _Token` ([source](../../../../../../src/learnloop/figures/book_math.py), line 166)
-- `_tokenize(source: str) -> list[_Token]` ([source](../../../../../../src/learnloop/figures/book_math.py), line 173)
-- `_dyadic_text(value: Fraction) -> str` ([source](../../../../../../src/learnloop/figures/book_math.py), line 218) — A dyadic rational's exact decimal, which reads back as the same fraction.
-- `class _Reader` ([source](../../../../../../src/learnloop/figures/book_math.py), line 246)
-- `_flip(op: str) -> str` ([source](../../../../../../src/learnloop/figures/book_math.py), line 824)
-- `_compare(point: Fraction, op: str, value: Fraction) -> bool` ([source](../../../../../../src/learnloop/figures/book_math.py), line 828)
-- `_split_relation(tokens: list[_Token]) -> tuple[int, int]` ([source](../../../../../../src/learnloop/figures/book_math.py), line 839) — Where the one top-level ``=`` or ``:=`` is, as ``(lhs_end, rhs_start)`` token indices: a segment must hold exactly one.
-- `_lhs_args(lhs: str) -> tuple[tuple[str, ...], dict[str, set[str]], dict[str, str]]` ([source](../../../../../../src/learnloop/figures/book_math.py), line 871) — The symbols of a ``name(args)`` left-hand side, with how the book spells them; empty for ``P(X = k)``, ``E[X]`` or a bare name.
+- `class _Token` ([source](../../../../../../src/learnloop/figures/book_math.py), line 175)
+- `_tokenize(source: str) -> list[_Token]` ([source](../../../../../../src/learnloop/figures/book_math.py), line 182)
+- `_dyadic_text(value: Fraction) -> str` ([source](../../../../../../src/learnloop/figures/book_math.py), line 231) — A dyadic rational's exact decimal, which reads back as the same fraction.
+- `class _Reader` ([source](../../../../../../src/learnloop/figures/book_math.py), line 259)
+- `_flip(op: str) -> str` ([source](../../../../../../src/learnloop/figures/book_math.py), line 843)
+- `_compare(point: Fraction, op: str, value: Fraction) -> bool` ([source](../../../../../../src/learnloop/figures/book_math.py), line 847)
+- `_split_relation(tokens: list[_Token]) -> tuple[int, int]` ([source](../../../../../../src/learnloop/figures/book_math.py), line 858) — Where the one top-level ``=`` or ``:=`` is, as ``(lhs_end, rhs_start)`` token indices: a segment must hold exactly one.
+- `_lhs_args(lhs: str) -> tuple[tuple[str, ...], dict[str, set[str]], dict[str, str]]` ([source](../../../../../../src/learnloop/figures/book_math.py), line 890) — The symbols of a ``name(args)`` left-hand side, with how the book spells them; empty for ``P(X = k)``, ``E[X]`` or a bare name.
 
 ## Who imports or calls it
 
@@ -145,6 +145,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 ## Tests that define behavior
 
 - [tests/test_rw5c_book_math.py](../../../../../../tests/test_rw5c_book_math.py) — direct import
+  - `test_a_form_tex_groups_differently_from_its_tokens_is_refused`
   - `test_caps_and_a_seeded_fuzz_never_raise_outside_the_reasons`
   - `test_cases_refusals`
   - `test_each_unreadable_construct_has_its_reason`
@@ -154,6 +155,9 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_the_e_rule_reads_only_a_power_or_mathrm`
   - `test_the_left_hand_side_is_kept_as_the_books_substring_with_its_arguments`
   - `test_the_product_rule_never_resolves_a_name`
+- [tests/test_rw5c_recheck.py](../../../../../../tests/test_rw5c_recheck.py) — direct import
+  - `test_a_certification_the_old_reader_stored_no_longer_delivers_checked`
+  - `test_the_bulk_recheck_replaces_a_certification_the_old_reader_stored`
 
 ## Modification guidance
 

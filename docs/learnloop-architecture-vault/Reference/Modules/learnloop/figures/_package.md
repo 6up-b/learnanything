@@ -30,7 +30,7 @@ source_paths:
   - "src/learnloop/figures/spec.py"
   - "src/learnloop/figures/verify.py"
 source_commit: "aggregate; see module notes"
-source_commit_timestamp: "2026-11-02T21:04:31-05:00"
+source_commit_timestamp: "2026-11-02T21:29:11-05:00"
 generated: true
 generated_at: "2026-11-02"
 package: "learnloop.figures"
@@ -68,7 +68,7 @@ For system intent, use [[Architecture Overview]].
 | Module | Purpose | Status | Direct importers | Direct test files |
 |---|---|---:|---:|---:|
 | [[Reference/Modules/learnloop/figures/__init__|learnloop.figures]] | [[Reference/Modules/learnloop/figures/__init__#^module-purpose|purpose]] | `ACTIVE` | 0 | 0 |
-| [[Reference/Modules/learnloop/figures/book_math|learnloop.figures.book_math]] | [[Reference/Modules/learnloop/figures/book_math#^module-purpose|purpose]] | `ACTIVE` | 1 | 1 |
+| [[Reference/Modules/learnloop/figures/book_math|learnloop.figures.book_math]] | [[Reference/Modules/learnloop/figures/book_math#^module-purpose|purpose]] | `ACTIVE` | 1 | 2 |
 | [[Reference/Modules/learnloop/figures/display_format|learnloop.figures.display_format]] | [[Reference/Modules/learnloop/figures/display_format#^module-purpose|purpose]] | `ACTIVE` | 3 | 2 |
 | [[Reference/Modules/learnloop/figures/elements|learnloop.figures.elements]] | [[Reference/Modules/learnloop/figures/elements#^module-purpose|purpose]] | `ACTIVE` | 2 | 1 |
 | [[Reference/Modules/learnloop/figures/foreground|learnloop.figures.foreground]] | [[Reference/Modules/learnloop/figures/foreground#^module-purpose|purpose]] | `ACTIVE` | 5 | 3 |

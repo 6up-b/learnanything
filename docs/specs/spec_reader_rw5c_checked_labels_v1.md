@@ -326,7 +326,7 @@ The number is 227 if it is still free when the stage is implemented. The runner 
 |---|---|
 | `id` | TEXT primary key |
 | `figure_id` | `interactive_figures(id)` |
-| `certification_version` | INTEGER: the rules this check ran under (the reader's table, the harness, the display format); version 1 is RW5c P1 |
+| `certification_version` | INTEGER: the rules this check ran under (the reader's table, the harness, the display format); version 2 is RW5c P1 as it lands (1 was the same stage before the reader refused `\sqrt16 x` and its class; bump it whenever the reader's table changes, §10.4) |
 | `trigger` | `build` \| `recheck` |
 | `outcome` | `checked` \| `differs` \| `undecided` \| `not_checkable` (figure level, §6.6) |
 | `definitions_json` | per definition: outcome, reason key, the candidate's provenance (`extraction_id`, `span_id`, page, the LaTeX segment, the left-hand side, block health `{analyzer_version, status}`), the controls' answers, display agreement `{samples, agreed}` |

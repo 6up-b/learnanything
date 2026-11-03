@@ -716,8 +716,11 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_router_r2c_retrieval.py](../../../../../../tests/test_router_r2c_retrieval.py) — direct import
   - `test_the_backfill_dry_runs_and_then_embeds_what_is_missing`
 - [tests/test_rw5c_recheck.py](../../../../../../tests/test_rw5c_recheck.py) — direct import
+  - `test_a_certification_the_old_reader_stored_no_longer_delivers_checked`
   - `test_dry_run_needs_recheck`
   - `test_dry_run_writes_nothing_and_the_cli_reports_by_reason_key`
+  - `test_the_audit_lists_no_equation_of_a_source_held_out_after_its_check`
+  - `test_the_bulk_recheck_replaces_a_certification_the_old_reader_stored`
   - `test_the_cli_rechecks_only_what_is_due_and_lists_each_checked_element`
   - `test_the_report_has_a_source_checks_block_only_while_the_switch_is_on`
 - [tests/test_rw7b_codex_review_fixes.py](../../../../../../tests/test_rw7b_codex_review_fixes.py) — direct import
