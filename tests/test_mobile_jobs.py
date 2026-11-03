@@ -944,3 +944,22 @@ def test_the_recorded_state_is_in_the_jobs_schema(world):
     with repository.connection() as connection:
         ddl = connection.execute("SELECT sql FROM sqlite_master WHERE name='mobile_jobs'").fetchone()[0]
     assert "'recorded'" in ddl
+
+
+def test_a_recovery_that_answers_pending_finishes_nothing(world, monkeypatch):
+    """Recovery's other word: no failure of its own, and never a completed job with no result."""
+
+    import learnloop_sidecar.handlers.practice as practice
+
+    phone, _host, repository, _paths, _grader = world
+    real_pipeline = practice.run_post_attempt_pipeline
+    real_cached = practice._cached_submission
+    _break_completion(monkeypatch)
+    monkeypatch.setattr(practice, "_cached_submission", lambda *args: None)
+    session = phone.start()
+    assert phone.submit(session["sessionId"], "k1").status_code == 202
+    _poll_until(phone, "k1", "recorded")
+    assert rows(repository, "SELECT result_json FROM mobile_jobs WHERE request_id='k1'")[0]["result_json"] is None
+    monkeypatch.setattr(practice, "_cached_submission", real_cached)
+    monkeypatch.setattr(practice, "run_post_attempt_pipeline", real_pipeline)
+    assert _poll_until(phone, "k1", "completed")[-1]["result"]["attemptId"]

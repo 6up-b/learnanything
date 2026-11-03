@@ -538,10 +538,11 @@ class HostRuntime:
             LOG.exception("recovery of submission %s stopped", submission_id)
             response = {"error": {"message": "This request stopped unexpectedly.", "data": {"code": "internal"}}}
         error = flat_error(response)
+        recovered = error is None and response["result"].get("status") == "recovered"
         with self._waiters_lock:
-            if error is None:
+            if recovered:
                 self._redrive_failures.pop(submission_id, None)
-            elif error.get("code") == capture.SUBMISSION_COMMITTED:
+            elif (error or {}).get("code") == capture.SUBMISSION_COMMITTED:
                 self._redrive_failures[submission_id] = None
             elif self._redrive_failures.get(submission_id, 0) is not None:
                 self._redrive_failures[submission_id] = self._redrive_failures.get(submission_id, 0) + 1
@@ -549,7 +550,7 @@ class HostRuntime:
             self._redriving.discard(submission_id)
         if job is None:
             return
-        if error is None:
+        if recovered:
             view = JobView(id=job["id"], request_id=submission_id, state=capture.COMPLETED,
                            result=response["result"].get("result"))
         elif failures is None or failures >= _REDRIVES_BEFORE_DELAYED:
