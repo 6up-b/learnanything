@@ -1,0 +1,9 @@
+{
+  "furniture": ["PageFooter", "PageHeader", "TableOfContents"],
+  "markdown": [
+    "Caption", "Code", "ComplexRegion", "Equation", "Figure", "FigureGroup", "Footnote", "Form", "Handwriting", "ListGroup",
+    "ListItem", "PageNumber", "Picture", "PictureGroup", "Reference", "Section", "SectionHeader", "Table", "TableCell",
+    "TableGroup", "Text", "TextInlineMath"
+  ],
+  "plainTextSourceUri": "(^|//)([\\w-]+\\.)?(youtube\\.com|youtu\\.be)/"
+}

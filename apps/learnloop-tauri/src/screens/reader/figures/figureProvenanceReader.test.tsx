@@ -8,6 +8,8 @@ import { readerRenderViewFixture as view } from "../../../fixtures/readerRenderV
 import { readerIntentContractFixture as intent } from "../../../fixtures/readerIntentContract";
 import type { FigureViewDto, SourceLibraryCard } from "../../../api/dto";
 import { resetReaderActivityForTests } from "../activity";
+import policy from "../../../render/readerBlockPolicy.json";
+import { youtubeVideoId } from "../../../components/sourceTail";
 
 const { api, plan, state } = vi.hoisted(() => ({
   api: {
@@ -112,6 +114,58 @@ it("the open reading's own equation peeks its passage with no new read", async (
   await screen.findByRole("navigation", { name: "Detour" });
   expect(api.readerRenderView.mock.calls.length).toBe(before);
   expect(onError).not.toHaveBeenCalled();
+});
+
+it("a passage this page doesn't show says so: no jump to a dropped block (Astra review A1)", async () => {
+  const head = { ...view.blocks[0], spanId: "head", displayNodeId: "node-head", blockType: "PageHeader", markdown: "The identity" };
+  api.readerRenderView.mockImplementation(async () => ({ ...view, blocks: [...view.blocks, head] }));
+  api.readerFigures.mockResolvedValue({ extractionId: view.extractionId, figures: [figure(view.extractionId, "head")] });
+  const { onError } = await pressOpenThePage();
+  await waitFor(() => expect(onError).toHaveBeenCalledWith(expect.stringContaining("couldn't be opened")));
+  expect(screen.queryByRole("navigation", { name: "Detour" })).toBeNull();
+});
+
+it("another reading's span that lands on a dropped block, or on none, says so and opens nothing (Astra review A1)", async () => {
+  const head = { ...view.blocks[0], spanId: "head", displayNodeId: "node-head", blockType: "TableOfContents", markdown: "Contents" };
+  api.readerRenderView.mockImplementation(async () => ({ ...view, blocks: [...view.blocks, head] }));
+  api.readerFigures.mockResolvedValue({ extractionId: view.extractionId, figures: [figure("ext_old", "old_span")] });
+  for (const landed of [{ extractionId: view.extractionId, spanId: "head", status: "current" }, { extractionId: view.extractionId, spanId: anchor, status: "stale" }]) {
+    api.readerSavedPlace.mockResolvedValue(landed);
+    const { onError } = await pressOpenThePage();
+    await waitFor(() => expect(onError).toHaveBeenCalledWith(expect.stringContaining("couldn't be opened")));
+    expect(api.readerGetProgress.mock.calls.length).toBe(1);
+    cleanup();
+    api.readerGetProgress.mockClear();
+  }
+});
+
+it("the page drops furniture from the shared policy and shows every type the check may read", async () => {
+  const types = [...policy.furniture, ...policy.markdown, "ATypeNobodyMet"];
+  const typed = types.map((blockType, index) => (
+    { ...view.blocks[0], spanId: `typed${index}`, displayNodeId: `node-typed${index}`, blockType, markdown: `block of type ${blockType}` }));
+  api.readerRenderView.mockImplementation(async () => ({ ...view, blocks: typed }));
+  api.readerFigures.mockResolvedValue({ extractionId: view.extractionId, figures: [] });
+  const { container } = render(<ReaderScreen initialSource={{ card: STRANG, spanId: `typed${policy.furniture.length}` }} onError={vi.fn()} />);
+  await waitFor(() => expect(container.querySelector(`[data-span-id="typed${policy.furniture.length}"]`)).not.toBeNull());
+  // The page has always shown a type it has never met; the check reads only the markdown list (test_rw5c_block_policy).
+  types.forEach((blockType, index) => {
+    const shown = container.querySelector(`[data-span-id="typed${index}"]`);
+    if (policy.furniture.includes(blockType)) expect(shown).toBeNull();
+    else expect(shown?.textContent).toContain(`block of type ${blockType}`);
+  });
+  expect(new Set(policy.furniture).size + new Set(policy.markdown).size).toBe(new Set([...policy.furniture, ...policy.markdown]).size);
+});
+
+it("a source the watch surface opens matches the policy's plain-text pattern, and a book does not", () => {
+  const plainText = new RegExp(policy.plainTextSourceUri, "i");
+  for (const uri of ["https://www.youtube.com/watch?v=abc", "https://youtu.be/abc", "https://m.youtube.com/shorts/abc", "https://www.youtube.com/live/abc"]) {
+    expect(youtubeVideoId(uri)).not.toBeNull();
+    expect(plainText.test(uri)).toBe(true);
+  }
+  for (const uri of ["book.pdf", "file:///a/youtube.pdf", "https://example.org/youtube.com"]) {
+    expect(youtubeVideoId(uri)).toBeNull();
+  }
+  expect(plainText.test("book.pdf") || plainText.test("file:///a/youtube.pdf")).toBe(false);
 });
 
 it("a page that cannot be opened says so, never a dead press", async () => {

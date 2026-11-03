@@ -87,6 +87,7 @@ export const SOURCE_CHECK_COPY: Readonly<Record<string, string>> = Object.freeze
   unsupported_environment: `${UNREADABLE}: it uses a layout outside the table`,
   unsupported_function: `${UNREADABLE}: it uses a function outside the table`,
   block_health: "the page this equation is on may be misread",
+  block_not_shown: "the equation isn't in a passage the Reader shows as math",
   block_withheld: "that passage is held out",
   no_book_source: "this figure isn't from your books",
   no_readable_candidate: "the figure's passages have no equation LearnLoop can read",

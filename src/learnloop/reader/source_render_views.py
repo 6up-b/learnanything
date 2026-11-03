@@ -16,7 +16,10 @@ local-file refs) and delimited as data, never executed.
 from __future__ import annotations
 
 import hashlib
+import json
 import re
+from functools import lru_cache
+from pathlib import Path
 from typing import Any
 
 from learnloop.clock import Clock
@@ -39,6 +42,35 @@ _SCRIPT_RE = re.compile(r"<\s*script", re.IGNORECASE)
 _EMBED_RE = re.compile(r"<\s*(iframe|embed|object)\b", re.IGNORECASE)
 _JS_URI_RE = re.compile(r"javascript:", re.IGNORECASE)
 _FILE_URI_RE = re.compile(r"file:/{2}", re.IGNORECASE)
+
+#: Which blocks the Reader displays, one file for the page and this code (``render/readerBlockPolicy.ts`` tells what each list is).
+BLOCK_POLICY_PATH = Path(__file__).resolve().parents[3] / "apps" / "learnloop-tauri" / "src" / "render" / "readerBlockPolicy.json"
+
+
+@lru_cache(maxsize=1)
+def _block_policy() -> tuple[frozenset[str], re.Pattern[str] | None]:
+    """The types known to reach the page's markdown, and the pattern of a source whose page is
+    plain text. With the file unreadable, nothing is known to be shown."""
+
+    try:
+        policy = json.loads(BLOCK_POLICY_PATH.read_text(encoding="utf-8"))
+        return (frozenset(policy["markdown"]) - frozenset(policy["furniture"]),
+                re.compile(policy["plainTextSourceUri"], re.IGNORECASE))
+    except (OSError, ValueError, KeyError, TypeError):
+        return frozenset(), None
+
+
+def page_renders_block_type(block_type: str | None) -> bool:
+    """Whether the page gives a block of this type to its markdown: never furniture, and never a type it has not met."""
+
+    return block_type in _block_policy()[0]
+
+
+def page_renders_source(canonical_uri: str | None) -> bool:
+    """Whether a source's page is markdown: a source on the watch surface shows its transcript as plain text."""
+
+    pattern = _block_policy()[1]
+    return pattern is not None and pattern.search((canonical_uri or "").strip()) is None
 
 
 def sanitize_source_text(text: str) -> tuple[str, bool]:

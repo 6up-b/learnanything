@@ -49,6 +49,7 @@ import { MarkdownMath } from "../render/MarkdownMath";
 import { SecondaryButton } from "../components/goldenpath/shared";
 import { readerRenderViewFixture } from "../fixtures/readerRenderView";
 import { youtubeVideoId } from "../components/sourceTail";
+import { readerDisplaysBlock } from "../render/readerBlockPolicy";
 import { PdfReaderPane, type PdfReaderPaneHandle, type TagMenuRequest } from "../components/PdfReaderPane";
 import { highlightFromPlacement, kindLabel, type PdfHighlight } from "../components/pdfSelection/highlights";
 import { exactNode } from "../components/pdfSelection/model";
@@ -172,10 +173,6 @@ const HEALTH_COLOR: Record<string, "green" | "amber" | "pink" | "slate"> = {
   failed: "pink",
   unknown: "slate",
 };
-
-// Page furniture is real extraction data but noise in a reading flow: running
-// heads repeat every page and the book's own ToC interleaves mid-prose.
-const FURNITURE_BLOCK_TYPES = new Set(["PageHeader", "PageFooter", "TableOfContents"]);
 
 /** RW5c: "open the page" pressed on an equation whose book can't open here now. */
 const FIGURE_PAGE_NOT_OPENED = "That page couldn't be opened.";
@@ -556,7 +553,7 @@ export function ReaderScreen({
   const [tutorOfferStore] = useState(createTutorOfferStore);
 
   const blocks: ReaderRenderBlockDto[] = useMemo(
-    () => (render?.blocks ?? []).filter((b) => !FURNITURE_BLOCK_TYPES.has(b.blockType ?? "")),
+    () => (render?.blocks ?? []).filter((b) => readerDisplaysBlock(b.blockType)),
     [render],
   );
   const renderBlocksBySpan = useMemo(
@@ -2716,17 +2713,27 @@ export function ReaderScreen({
   // RW5c "open the page": the page a checked equation cites may be on another
   // book, or an earlier reading of this one, whose span ids are not this
   // reading's (Codex review F4): that one opens as a search hit would, with its
-  // span translated, and a page that cannot be opened says so.
+  // span translated, and a page that cannot be opened says so. It must land on
+  // a block the page shows (Astra review A1): a re-read may have made the same
+  // words a running head, and a jump to a dropped block would move nothing.
   openFigureSource.current = (extractionId, spanId) => {
     if (render && extractionId === render.extractionId) {
-      peekPassage(spanId);
+      if (renderBlocksBySpan.has(spanId)) peekPassage(spanId);
+      else onError(FIGURE_PAGE_NOT_OPENED);
       return;
     }
     void (async () => {
       const { sourceId } = await api.readerRenderView({ extractionId });
       const card = (library ?? []).find((candidate) => candidate.sourceId === sourceId);
-      if (!card || opening !== null) onError(FIGURE_PAGE_NOT_OPENED);
-      else if (render && sourceId === render.sourceId) await openSource(card, spanId, { via: "search", jumpReading: extractionId });
+      if (!card || opening !== null) {
+        onError(FIGURE_PAGE_NOT_OPENED);
+        return;
+      }
+      const sameBook = Boolean(render && sourceId === render.sourceId);
+      const landed = await api.readerSavedPlace({ sourceId, spanId, extractionId, toExtractionId: sameBook && render ? render.extractionId : null });
+      const landing = landed.spanId && landed.status !== "stale" ? await api.readerRenderView({ extractionId: landed.extractionId }) : null;
+      if (!landing?.blocks.some((block) => block.spanId === landed.spanId && readerDisplaysBlock(block.blockType))) onError(FIGURE_PAGE_NOT_OPENED);
+      else if (sameBook) await openSource(card, spanId, { via: "search", jumpReading: extractionId });
       else await openLibraryHit({ sourceId, extractionId, spanId });
     })().catch((error) => onError(errorMessage(error)));
   };

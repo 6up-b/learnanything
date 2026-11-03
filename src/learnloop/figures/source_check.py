@@ -53,7 +53,7 @@ from learnloop.figures import katex_tree as KT
 from learnloop.figures import spec as S
 from learnloop.figures import verify as V
 from learnloop.ids import new_ulid
-from learnloop.reader.source_render_views import sanitize_source_text
+from learnloop.reader.source_render_views import page_renders_block_type, page_renders_source, sanitize_source_text
 
 #: The rules a check ran under (the reader's table, the harness, the display
 #: format). Bumping it rechecks stored figures, by code, at no paid cost (§10.4).
@@ -62,13 +62,15 @@ from learnloop.reader.source_render_views import sanitize_source_text
 #: 3: the reader reads KaTeX's own tree (\def and e^x^2 and their class).
 #: 4: the page's own markdown finds the segments (a reference definition, a link title,
 #: a code span could certify an equation the page never shows; and their class).
-CERTIFICATION_VERSION = 4
+#: 5: only a block the page displays holds candidates (a running head could certify an equation the
+#: page drops), and a derived label groups a compound left-hand side.
+CERTIFICATION_VERSION = 5
 LEDGER_TASK = "figure_source_check"
 CHECKED, DIFFERS, UNDECIDED, NOT_CHECKABLE = "checked", "differs", "undecided", "not_checkable"
 OUTCOMES = (CHECKED, DIFFERS, UNDECIDED, NOT_CHECKABLE)
 #: The reasons a definition or a figure is not ``checked``: closed keys the
 #: Reader words itself (``SOURCE_CHECK_COPY``); the report counts them (§12).
-REASONS = (*BM.REASONS, "block_health", "block_withheld", "control_accepted", "control_inconclusive", "differs",
+REASONS = (*BM.REASONS, "block_health", "block_not_shown", "block_withheld", "control_accepted", "control_inconclusive", "differs",
            "display_disagrees", "domain", "inexact_condition", "inexact_construct", "names", "no_book_source",
            "no_proof", "no_readable_candidate", "not_bare", "parametric_breakpoint", "quote_across_blocks",
            "sandbox_failed", "sandbox_unavailable", "timeout")
@@ -176,6 +178,15 @@ def _health(repository: Any, extraction_id: str, block: Any, ir: Any, *, persist
     return {"analyzer_version": computed.get("analyzer_version"), "status": computed.get("status")}
 
 
+def _page_shows_markdown(repository: Any, extraction_id: str) -> bool:
+    """Whether the reading's source opens on a markdown page; a source that can't be found is not known to."""
+
+    run = repository.get_extraction_run(extraction_id)
+    revision = repository.get_source_revision(run.get("revision_id")) if run else None
+    source = repository.get_source_artifact(revision.get("source_id")) if revision else None
+    return source is not None and page_renders_source(source.get("canonical_uri"))
+
+
 def read_candidates(vault: Any, repository: Any, spans: Sequence[tuple[str, str, str]], *, persist: bool = True
                     ) -> tuple[list[Candidate], dict[str, int]]:
     """The readable equations of the input spans in reading order, and how many
@@ -188,6 +199,7 @@ def read_candidates(vault: Any, repository: Any, spans: Sequence[tuple[str, str,
     placed: list[tuple[int, int, Candidate]] = []
     documents: dict[str, Any] = {}
     orders: dict[str, int] = {}
+    markdown_pages: dict[str, bool] = {}
 
     def refuse(reason: str) -> None:
         reasons[reason] = reasons.get(reason, 0) + 1
@@ -198,6 +210,7 @@ def read_candidates(vault: Any, repository: Any, spans: Sequence[tuple[str, str,
             if extraction_id not in documents:
                 documents[extraction_id] = repository.load_document_ir(extraction_id)
                 orders[extraction_id] = len(orders)
+                markdown_pages[extraction_id] = _page_shows_markdown(repository, extraction_id)
             ir = documents[extraction_id]
             block = ir.block_by_span(span_id) if ir is not None else None
             if block is None:
@@ -208,10 +221,17 @@ def read_candidates(vault: Any, repository: Any, spans: Sequence[tuple[str, str,
             text = block.text or ""
             # The page gets the sanitized text (source_render_views); a block that changes it is refused below.
             shown, sanitized = sanitize_source_text(text)
+            # The page drops furniture before its markdown, shows a watched source's transcript as plain text, and
+            # no check vouches for a type it has not met. A block with no math there has nothing to refuse.
+            displayed = markdown_pages[extraction_id] and page_renders_block_type(block.block_type)
             try:
                 found = BM.segments(shown, trees=trees)
             except BM.Unreadable as refused:
-                refuse(refused.reason)
+                refuse(refused.reason if displayed else "block_not_shown")
+                continue
+            if not displayed:
+                if found:
+                    refuse("block_not_shown")
                 continue
             if not found:
                 if _UNICODE_MATH.search(text):
