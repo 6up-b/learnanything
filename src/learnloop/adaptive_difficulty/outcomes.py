@@ -26,8 +26,8 @@ from dataclasses import dataclass, field
 
 from learnloop.adaptive_difficulty import priors as P
 from learnloop.adaptive_difficulty.model import CENSORED
+from learnloop.delayed_completion import HELP_TYPES
 
-HELP_TYPES = frozenset({"prerequisite", "mechanism", "clarification", "strategy"})
 NO_DRAFT = "no_draft"
 DRAFT_STARTED = "draft_started"
 

@@ -147,7 +147,7 @@ def _matured(connection: Any, decision_time: str, candidate_ids: set[str], vault
     """Of ``candidate_ids``, the decisions whose R_next or R_cold was observed
     strictly before ``decision_time``, with those outcomes."""
 
-    from learnloop.router.outcomes import derive_router_outcomes, servable_items_by_learning_object
+    from learnloop.router.outcomes import derive_router_outcomes, outcome_version_for, servable_items_by_learning_object
     from learnloop.substrate.canonical_projection import held_for_review_attempts, pfc_assessments
 
     if not candidate_ids:
@@ -158,6 +158,7 @@ def _matured(connection: Any, decision_time: str, candidate_ids: set[str], vault
         pfc_states=pfc_assessments(connection, attempt_ids),
         servable_items_by_lo=servable_items_by_learning_object(vault) if vault is not None else None,
         held_attempt_ids=held_for_review_attempts(connection),
+        **({"outcome_version": outcome_version_for(vault.config)} if vault is not None else {}),
     )
     times = {
         str(row[0]): str(row[1])

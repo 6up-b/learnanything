@@ -39,7 +39,9 @@ from typing import Any
 
 import numpy as np
 
+from learnloop import delayed_completion as DC
 from learnloop.clock import parse_utc, utc_now_iso
+from learnloop.data_capture.gates import serving_on
 from learnloop.db.stores import ad_serving as store
 
 from learnloop.adaptive_difficulty import arms as A
@@ -361,10 +363,36 @@ def _visits(connection: Any, snapshot: RP.Snapshot, *, view: Any) -> list[dict[s
     return visits
 
 
-def _offer_outcomes(connection: Any, snapshot: RP.Snapshot, *, view: Any) -> dict[str, list[DR.OfferOutcome]]:
+def _delayed_exposures(connection: Any, snapshot: RP.Snapshot, *, view: Any) -> dict[str, list[str]]:
+    """Each LO's exposure and practice times for the shared delayed definition, read through the view:
+    its attempts and reveals (the warmth rule's own), its reading opportunities and tutor questions."""
+
+    item_lo = {str(attempt.practice_item_id): str(attempt.learning_object_id) for attempt in snapshot.events.attempts}
+    by_lo: dict[str, list[str]] = defaultdict(list)
+    for row in [*view.attempts(connection), *view.reveals(connection)]:
+        lo = row.get("learning_object_id") or item_lo.get(str(row.get("practice_item_id")))
+        if lo:
+            by_lo[str(lo)].append(str(row["created_at"]))
+    for opportunity in snapshot.events.opportunities:
+        by_lo[str(opportunity.learning_object_id)].append(str(opportunity.created_at))
+    for row in view.rows(connection, "question_events", "practice_item_id IS NOT NULL", order="created_at, id"):
+        lo = item_lo.get(str(row.get("practice_item_id")))
+        if lo:
+            by_lo[lo].append(str(row["created_at"]))
+    return by_lo
+
+
+def _offer_outcomes(connection: Any, snapshot: RP.Snapshot, *, view: Any,
+                    delayed_definition: bool = False) -> dict[str, list[DR.OfferOutcome]]:
     """Each dose draw's matured cold outcome (§5.12): the first graded attempt on an item of one of
     the section's LOs at least one day after the decision, with no reveal of that item in between.
-    The draws are the view's (a withheld extra's draw is left out; Codex verify F29)."""
+    The draws are the view's (a withheld extra's draw is left out; Codex verify F29).
+
+    ``delayed_definition`` (data capture A4, mvp-0.44, ``data_capture.serving``): the shared definition
+    (:mod:`learnloop.delayed_completion`): a day since the last exposure or practice on the LO before the
+    attempt's presentation as well as since the decision, so warm performance never carries a cold label.
+    The value stays AD's own (``Y = 2`` is 1, anything else 0: any help is a failure of unassisted
+    completion, and a pre-exposed presentation has no category at all)."""
 
     rows = view.dose_rows(connection)
     draws = [row for row in rows if row["row_kind"] == "draw"]
@@ -375,6 +403,7 @@ def _offer_outcomes(connection: Any, snapshot: RP.Snapshot, *, view: Any) -> dic
     attempts = sorted((e for e in snapshot.events.attempts if e.eligible and e.category is not None),
                       key=lambda e: e.created_at)
     by_variant: dict[str, list[DR.OfferOutcome]] = defaultdict(list)
+    exposures = _delayed_exposures(connection, snapshot, view=view) if delayed_definition else {}
     for draw in draws:
         decided = parse_utc(str(draw["created_at"]))
         if decided is None:
@@ -383,6 +412,21 @@ def _offer_outcomes(connection: Any, snapshot: RP.Snapshot, *, view: Any) -> dic
         los = set(draw.get("learning_object_ids") or [])
         outcome = None
         for attempt in attempts:
+            if delayed_definition:
+                if attempt.learning_object_id not in los or attempt.created_at <= str(draw["created_at"]):
+                    continue
+                completion = DC.classify(DC.Presentation(
+                    presented_at=attempt.served_at,
+                    last_exposure_at=DC.last_before(
+                        (t for t in exposures.get(attempt.learning_object_id, ()) if t != attempt.created_at),
+                        attempt.served_at),
+                    not_before=str(draw["created_at"]),
+                    correctness=1.0 if attempt.category == 2 else 0.0,
+                ))
+                if completion.is_outcome:
+                    outcome = completion.value
+                    break
+                continue
             if attempt.learning_object_id in los and attempt.created_at >= cold:
                 if any(str(draw["created_at"]) <= r <= attempt.created_at for r in reveals.get(attempt.practice_item_id, ())):
                     continue
@@ -574,7 +618,9 @@ def build(vault: Any, repository: Any, connection: Any, *, arms: Sequence[str] =
     selections = view.selections(connection)
     dose = DR.analyse(snapshot.subject, visits=_visits(connection, snapshot, view=view),
                       answer_minutes=_answer_minutes(connection, view=view),
-                      median_doses=_median_doses(records), offers=_offer_outcomes(connection, snapshot, view=view),
+                      median_doses=_median_doses(records),
+                      offers=_offer_outcomes(connection, snapshot, view=view,
+                                             delayed_definition=serving_on(vault.config)),
                       records=[{"y": r.y, "p": r.p.get(A.SUBJECT), "doses": r.doses} for r in records])
     report = {
         "version": REPORT_VERSION,

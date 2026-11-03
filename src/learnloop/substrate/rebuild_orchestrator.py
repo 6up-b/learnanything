@@ -539,6 +539,7 @@ def _run_router_outcomes(
 ) -> ReplayerResult:
     from learnloop.field.outcomes import fsrs_predicted_retrievability
     from learnloop.router.outcomes import (
+        outcome_version_for,
         rebuild_router_outcomes,
         servable_items_by_learning_object,
     )
@@ -570,6 +571,7 @@ def _run_router_outcomes(
             servable_items_by_lo=servable_items_by_learning_object(context.vault),
             retrievability_by_attempt=retrievability,
             held_attempt_ids=held,
+            outcome_version=outcome_version_for(context.vault.config),
         )
     return ReplayerResult(spec.name, tuple(sorted(spec.owned_tables)), rows_processed=written)
 

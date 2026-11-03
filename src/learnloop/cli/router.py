@@ -119,6 +119,7 @@ def router_log(
     from learnloop.db.stores.router import router_decision_rows, router_payloads_present
     from learnloop.router.outcomes import (
         derive_router_outcomes,
+        outcome_version_for,
         servable_items_by_learning_object,
     )
     from learnloop.substrate.canonical_projection import held_for_review_attempts, pfc_assessments
@@ -158,6 +159,7 @@ def router_log(
                     pfc_states=pfc_assessments(connection, attempt_ids),
                     servable_items_by_lo=servable_items_by_learning_object(loaded),
                     held_attempt_ids=held_for_review_attempts(connection),
+                    outcome_version=outcome_version_for(loaded.config),
                 )
             }
             total = connection.execute("SELECT COUNT(*) FROM router_decisions").fetchone()[0]
@@ -198,7 +200,7 @@ def router_report(
     arm propensity (read-only; no model call)."""
 
     from learnloop.db.stores import router_suggestions
-    from learnloop.router.outcomes import derive_router_outcomes, servable_items_by_learning_object
+    from learnloop.router.outcomes import derive_router_outcomes, outcome_version_for, servable_items_by_learning_object
     from learnloop.router.suggestion_report import itt_split, lines
     from learnloop.substrate.canonical_projection import held_for_review_attempts, pfc_assessments
 
@@ -227,6 +229,7 @@ def router_report(
                     pfc_states=pfc_assessments(connection, attempt_ids),
                     servable_items_by_lo=servable_items_by_learning_object(loaded),
                     held_attempt_ids=held_for_review_attempts(connection),
+                    outcome_version=outcome_version_for(loaded.config),
                 )
                 if str(row["decision_id"]) in wanted
             }

@@ -91,6 +91,19 @@ alternative's delayed check reaches its decision without replacing the ITT
 target (codex review F4). No switch is claimed from it; the effect among those who accepted is
 confounded and never reported.
 
+**Version 3** (``router_outcomes_v3``, data capture A4; mvp-0.44 with
+``data_capture.serving``, the caller says through :func:`outcome_version_for`):
+R_cold reads the one shared definition (:mod:`learnloop.delayed_completion`,
+adaptive difficulty's dose outcomes read it too). The delay runs since the last
+exposure or practice before the attempt's own presentation (an attempt, a
+reveal, a tutor question or a reading, any of them), and a delayed, unexposed
+presentation followed by requested help (a hint, a help-equivalent question, a
+reveal during it) is R_cold = 0, a failure of unassisted completion, as adaptive
+difficulty defines it. A pre-exposed presentation and an unanswered one are
+neither: they stay separate. Below it R_cold is v2's exactly (a help-assisted
+attempt is excluded). Version only: certification, mastery, grading, FSRS and the
+projection read nothing here.
+
 Deterministic from ledgers (``router_decisions``, ``practice_attempts``,
 grading evidence through the caller's PF-c states, ``reveal_events``,
 ``question_events``, ``source_exposure_events``, ``sessions.ended_at``,
@@ -108,12 +121,16 @@ import json
 import sqlite3
 from typing import Any
 
+from learnloop import delayed_completion as DC
 from learnloop.clock import parse_utc
+from learnloop.data_capture.gates import serving_on
 from learnloop.db.stores.plan_presentations import presentations_for_blocks
 from learnloop.db.stores.router import replace_router_outcomes
 from learnloop.outcome_contract import RETENTION_MIN_DELAY_SECONDS, retention_exclusions
 
 OUTCOME_VERSION = "router_outcomes_v2"
+#: Data capture (mvp-0.44): R_cold under the shared delayed-completion definition (A4).
+OUTCOME_VERSION_V3 = "router_outcomes_v3"
 
 #: How an action attempt was bound (plan §5.4), most exact first.
 BINDING_PRESENTATION = "presentation"
@@ -138,10 +155,12 @@ _ATTEMPT_COLUMNS = (
 )
 #: Columns later migrations added, read when present (202: the presentation
 #: an attempt answers; 188: its answer-key status).
-_OPTIONAL_ATTEMPT_COLUMNS = ("plan_presentation_id", "reference_status")
+_OPTIONAL_ATTEMPT_COLUMNS = ("plan_presentation_id", "reference_status", "probe_presentation_id")
 
 #: The provisional R_cold rule's name (D12: a label until R3 fits coldness).
 R_COLD_RULE = "provisional_one_day"
+#: Version 3's R_cold rule: the shared definition, its version in the name.
+R_COLD_RULE_V3 = DC.DELAYED_COMPLETION_VERSION
 #: Later attempts listed per outcome in ``coldness_candidates_json``.
 COLDNESS_CANDIDATE_CAP = 20
 #: The covariates recorded per outcome attempt (column suffixes).
@@ -179,6 +198,12 @@ def _facet_ids(raw: Any) -> tuple[str, ...]:
     return tuple(dict.fromkeys(ids))
 
 
+def outcome_version_for(config: Any) -> str:
+    """The outcome version a vault's outcomes are derived under (module docstring)."""
+
+    return OUTCOME_VERSION_V3 if serving_on(config) else OUTCOME_VERSION
+
+
 def _table_present(connection: sqlite3.Connection, name: str) -> bool:
     return connection.execute(
         "SELECT 1 FROM sqlite_master WHERE type='table' AND name=?", (name,)
@@ -192,6 +217,30 @@ def _seconds(later: str, earlier: str) -> int | None:
     return int((late - early).total_seconds())
 
 
+def _contract_row(
+    attempt: Mapping[str, Any],
+    *,
+    elapsed_seconds: int | None,
+    source_session_id: str | None,
+    pfc_states: Mapping[str, str],
+) -> dict[str, Any]:
+    """The outcome contract's view of one attempt."""
+
+    return {
+        "label_value": attempt["correctness"],
+        "elapsed_seconds": elapsed_seconds,
+        "outcome_hints_used": attempt["hints_used"],
+        "outcome_primed": attempt["primed"],
+        "outcome_manual_review": attempt["manual_review"],
+        "outcome_manual_review_reason": attempt["manual_review_reason"],
+        "outcome_pfc_assessment": pfc_states.get(attempt["id"]),
+        "outcome_grade_held_for_review": attempt.get("grade_held_for_review", False),
+        "source_session_id": source_session_id,
+        "outcome_session_id": attempt["session_id"],
+        "intervening_attempt_count": 0,
+    }
+
+
 def _exclusions(
     attempt: Mapping[str, Any],
     *,
@@ -200,19 +249,8 @@ def _exclusions(
     pfc_states: Mapping[str, str],
 ) -> list[str]:
     reasons = retention_exclusions(
-        {
-            "label_value": attempt["correctness"],
-            "elapsed_seconds": elapsed_seconds,
-            "outcome_hints_used": attempt["hints_used"],
-            "outcome_primed": attempt["primed"],
-            "outcome_manual_review": attempt["manual_review"],
-            "outcome_manual_review_reason": attempt["manual_review_reason"],
-            "outcome_pfc_assessment": pfc_states.get(attempt["id"]),
-            "outcome_grade_held_for_review": attempt.get("grade_held_for_review", False),
-            "source_session_id": source_session_id,
-            "outcome_session_id": attempt["session_id"],
-            "intervening_attempt_count": 0,
-        }
+        _contract_row(attempt, elapsed_seconds=elapsed_seconds, source_session_id=source_session_id,
+                      pfc_states=pfc_states)
     )
     if attempt["attempt_type"] not in INDEPENDENT_ATTEMPT_TYPES:
         reasons.append("not_independent_type")
@@ -231,7 +269,9 @@ class _Ledger:
         item_learning_objects: Mapping[str, str] | None = None,
         retrievability_by_attempt: Mapping[str, float] | None = None,
         held_attempt_ids: frozenset[str] = frozenset(),
+        version: str = OUTCOME_VERSION,
     ) -> None:
+        self.version = version
         present = {row[1] for row in connection.execute("PRAGMA table_info(practice_attempts)")}
         optional = "".join(
             f", {column}" if column in present else f", NULL AS {column}" for column in _OPTIONAL_ATTEMPT_COLUMNS
@@ -281,6 +321,30 @@ class _Ledger:
             connection, attempts, has_reveals=bool(has_reveals), item_learning_objects=item_learning_objects or {}
         )
         self.retrievability = dict(retrievability_by_attempt or {})
+        self.served_at: dict[str, str] = {}
+        self.frozen_pre_exposed: dict[str, bool] = {}
+        self.help_attempts: set[str] = set()
+        if version == OUTCOME_VERSION_V3:
+            self._index_presentations(connection)
+
+    def _index_presentations(self, connection: sqlite3.Connection) -> None:
+        """Version 3's frozen facts: each presentation's serve, whether its answer was exposed before
+        it (adaptive difficulty's receipt), and the attempts a help-equivalent question was bound to."""
+
+        if _table_present(connection, "plan_presentations"):
+            self.served_at = {str(row[0]): str(row[1]) for row in connection.execute(
+                "SELECT id, served_at FROM plan_presentations")}
+        if _table_present(connection, "item_serve_inputs"):
+            for row in connection.execute(
+                    "SELECT plan_presentation_id, pre_exposed FROM item_serve_inputs "
+                    "WHERE plan_presentation_id IS NOT NULL"):
+                self.frozen_pre_exposed[str(row[0])] = bool(row[1])
+        if _table_present(connection, "question_events"):
+            for row in connection.execute(
+                    "SELECT attempt_id, context, hint_equivalent, question_type FROM question_events "
+                    "WHERE attempt_id IS NOT NULL"):
+                if DC.help_question({"context": row[1], "hint_equivalent": row[2], "question_type": row[3]}):
+                    self.help_attempts.add(str(row[0]))
 
     def _index_exposures(
         self,
@@ -405,6 +469,31 @@ class _Ledger:
             "last_facet_exposure_kind": facet_last[2] if facet_last else None,
             "last_lo_exposure_kind": lo_last[2] if lo_last else None,
         }
+
+    def presented_at(self, attempt: Mapping[str, Any]) -> str:
+        """When the attempt's presentation was served (an unbound attempt's own time, as AD reads it)."""
+
+        presentation = attempt.get("plan_presentation_id")
+        return self.served_at.get(str(presentation), attempt["created_at"]) if presentation else attempt["created_at"]
+
+    def last_exposure_before(self, attempt: Mapping[str, Any], presented_at: str) -> str | None:
+        """The newest exposure to the attempt's LO strictly before its presentation (never one it caused)."""
+
+        entries = self.lo_exposures.get(attempt["learning_object_id"], [])
+        index = bisect_left(entries, (presented_at,))
+        while index > 0:
+            index -= 1
+            if entries[index][3] != attempt["id"]:
+                return entries[index][0]
+        return None
+
+    def reveals_around(self, attempt: Mapping[str, Any], presented_at: str) -> tuple[bool, bool]:
+        """Whether the item's or LO's answer was revealed before the presentation, and during it."""
+
+        times = [*self.reveals.get(("item", attempt["practice_item_id"]), ()),
+                 *self.reveals.get(("lo", attempt["learning_object_id"]), ())]
+        return (any(value < presented_at for value in times),
+                any(presented_at <= value <= attempt["created_at"] for value in times))
 
     def last_reveal(self, item_id: str, learning_object_id: str, until: str) -> str | None:
         """The newest reveal on the item or its learning object at or before ``until``."""
@@ -551,7 +640,79 @@ def _r_next(
     }
 
 
+def _completion(
+    row: Mapping[str, Any],
+    ledger: _Ledger,
+    pfc_states: Mapping[str, str],
+    *,
+    source_session_id: str | None,
+    not_before: str | None = None,
+) -> DC.Completion:
+    """Version 3: the shared definition over one attempt's frozen facts."""
+
+    presented_at = ledger.presented_at(row)
+    other = list(DC.other_exclusions(_contract_row(
+        row, elapsed_seconds=None, source_session_id=source_session_id, pfc_states=pfc_states)))
+    if row["attempt_type"] not in INDEPENDENT_ATTEMPT_TYPES and row["attempt_type"] != DC.HINTED_ATTEMPT_TYPE:
+        other.append("not_independent_type")
+    if row["evidence_origin"] != "human":
+        other.append("non_human_outcome")
+    primed = bool(row["primed"])
+    before, during = ledger.reveals_around(row, presented_at)
+    presentation_id = row.get("plan_presentation_id")
+    frozen = ledger.frozen_pre_exposed.get(str(presentation_id)) if presentation_id else None
+    pre_exposed = frozen if frozen is not None else (primed and before)
+    if primed and not pre_exposed and not (presentation_id or row.get("probe_presentation_id")):
+        # Its reveal's timing is unknown (adaptive difficulty's ``primed_unbound``): neither a failure nor a success.
+        other.append("primed_unbound")
+    return DC.classify(DC.Presentation(
+        presented_at=presented_at,
+        last_exposure_at=ledger.last_exposure_before(row, presented_at),
+        correctness=None if row["correctness"] is None else float(row["correctness"]),
+        help_requested=bool(row["hints_used"]) or row["id"] in ledger.help_attempts or primed or during,
+        pre_exposed=bool(pre_exposed),
+        not_before=not_before,
+        exclusions=tuple(other),
+    ))
+
+
+def _completion_reasons(completion: DC.Completion) -> list[str]:
+    """A non-outcome's reasons under the skip counts (``pre_exposed`` and the rest stay apart)."""
+
+    if completion.is_outcome:
+        return []
+    return list(completion.reasons) or [completion.status]
+
+
+def _r_cold_v3(action: Mapping[str, Any], ledger: _Ledger, pfc_states: Mapping[str, str]) -> dict[str, Any]:
+    """The next delayed presentation on the action's LO under the shared definition (module docstring)."""
+
+    rows = ledger.by_lo[action["learning_object_id"]]
+    skipped: dict[str, int] = defaultdict(int)
+    considered: list[tuple[dict[str, Any], list[str]]] = []
+    for index in range(ledger.position[action["id"]] + 1, len(rows)):
+        row = rows[index]
+        completion = _completion(row, ledger, pfc_states, source_session_id=rows[index - 1]["session_id"])
+        reasons = _completion_reasons(completion)
+        considered.append((row, reasons))
+        if reasons:
+            for reason in reasons:
+                skipped[reason] += 1
+            continue
+        return {
+            "status": "observed", "value": completion.value, "attempt_id": row["id"], "row": row,
+            "gap_seconds": completion.delay_seconds, "position": index, "skipped": skipped, "considered": considered,
+            "completion": completion.status,
+        }
+    return {
+        "status": "pending", "value": None, "attempt_id": None, "row": None, "gap_seconds": None, "position": None,
+        "skipped": skipped, "considered": considered, "completion": None,
+    }
+
+
 def _r_cold(action: Mapping[str, Any], ledger: _Ledger, pfc_states: Mapping[str, str]) -> dict[str, Any]:
+    if ledger.version == OUTCOME_VERSION_V3:
+        return _r_cold_v3(action, ledger, pfc_states)
     learning_object_id = action["learning_object_id"]
     rows = ledger.by_lo[learning_object_id]
     start = ledger.position[action["id"]]
@@ -592,11 +753,12 @@ def _r_cold(action: Mapping[str, Any], ledger: _Ledger, pfc_states: Mapping[str,
     }
 
 
-def _not_applicable(decision: Mapping[str, Any], status: str, observed_through: str | None, *, pending: bool) -> dict[str, Any]:
+def _not_applicable(decision: Mapping[str, Any], status: str, observed_through: str | None, *, pending: bool,
+                    version: str = OUTCOME_VERSION) -> dict[str, Any]:
     outcome = "pending" if pending else "not_applicable"
     return {
         "decision_id": decision["id"],
-        "outcome_version": OUTCOME_VERSION,
+        "outcome_version": version,
         "target_practice_item_id": decision.get("chosen_practice_item_id"),
         "target_learning_object_id": decision.get("chosen_learning_object_id"),
         "action_status": status,
@@ -621,8 +783,12 @@ def _not_applicable(decision: Mapping[str, Any], status: str, observed_through: 
         "action_binding": None,
         "r_next_reference_status": None,
         "r_cold_reference_status": None,
-        "detail_json": json.dumps({"basis": OUTCOME_VERSION, "r_cold_rule": R_COLD_RULE}, sort_keys=True),
+        "detail_json": json.dumps({"basis": version, "r_cold_rule": _r_cold_rule(version)}, sort_keys=True),
     }
+
+
+def _r_cold_rule(version: str) -> str:
+    return R_COLD_RULE_V3 if version == OUTCOME_VERSION_V3 else R_COLD_RULE
 
 
 def _covariate_columns(prefix: str, covariates: Mapping[str, Any] | None) -> dict[str, Any]:
@@ -687,6 +853,16 @@ def _r_cold_itt(learning_object_id: str, start: str, ledger: _Ledger, pfc_states
     for index, row in enumerate(rows):
         if row["created_at"] <= start:
             continue
+        if ledger.version == OUTCOME_VERSION_V3:
+            completion = _completion(row, ledger, pfc_states, not_before=start,
+                                     source_session_id=rows[index - 1]["session_id"] if index else None)
+            reasons = _completion_reasons(completion)
+            if reasons:
+                for reason in reasons:
+                    skipped[reason] += 1
+                continue
+            return {"status": "observed", "value": completion.value, "row": row,
+                    "gap_seconds": completion.delay_seconds, "skipped": skipped, "completion": completion.status}
         last = ledger._last_before(ledger.lo_exposures.get(learning_object_id, []), row)
         last_at = start if last is None or last[0] < start else last[0]
         previous = rows[index - 1] if index else None
@@ -702,7 +878,7 @@ def _r_cold_itt(learning_object_id: str, start: str, ledger: _Ledger, pfc_states
             continue
         return {"status": "observed", "value": float(row["correctness"]), "row": row,
                 "gap_seconds": _seconds(row["created_at"], last_at), "skipped": skipped}
-    return {"status": "pending", "value": None, "row": None, "gap_seconds": None, "skipped": skipped}
+    return {"status": "pending", "value": None, "row": None, "gap_seconds": None, "skipped": skipped, "completion": None}
 
 
 def _suggestion_scope(detail: Mapping[str, Any], target: str, start: str, ledger: _Ledger,
@@ -745,7 +921,7 @@ def _suggestion_outcome(decision: Mapping[str, Any], ledger: _Ledger, pfc_states
     except (TypeError, ValueError):  # pragma: no cover - the row is ours
         detail = {}
     los = [str(lo) for lo in detail.get("drawn_learning_object_ids") or []]
-    out = _not_applicable(decision, "not_applicable", ledger.observed_through, pending=False)
+    out = _not_applicable(decision, "not_applicable", ledger.observed_through, pending=False, version=ledger.version)
     if not los:
         return out
     shown = bool(detail.get("shown"))
@@ -776,8 +952,9 @@ def _suggestion_outcome(decision: Mapping[str, Any], ledger: _Ledger, pfc_states
         **_covariate_columns("r_cold", ledger.covariates(r_cold["row"]) if observed else None),
         "r_cold_reference_status": r_cold["row"].get("reference_status") if observed else None,
         "detail_json": json.dumps({
-            "basis": OUTCOME_VERSION, "r_cold_rule": R_COLD_ITT_RULE, "arm": "shown" if shown else "not_shown",
+            "basis": ledger.version, "r_cold_rule": R_COLD_ITT_RULE, "arm": "shown" if shown else "not_shown",
             "response": response, "s_from": "r_cold" if observed else None,
+            **_completion_detail(ledger, r_cold),
             # The predeclared scope's R_cold (secondary; the ITT S above is the drawn target's), with the
             # entry the learner took marked: an acceptor analysis is self-selected and never the ITT.
             "scope": scope,
@@ -788,6 +965,14 @@ def _suggestion_outcome(decision: Mapping[str, Any], ledger: _Ledger, pfc_states
         }, sort_keys=True),
     })
     return out
+
+
+def _completion_detail(ledger: _Ledger, r_cold: Mapping[str, Any]) -> dict[str, Any]:
+    """Version 3's fields on an outcome's detail (absent below it, whose detail stays byte-identical)."""
+
+    if ledger.version != OUTCOME_VERSION_V3:
+        return {}
+    return {"delayed_completion_version": DC.DELAYED_COMPLETION_VERSION, "r_cold_completion": r_cold.get("completion")}
 
 
 def _ended_sessions(connection: sqlite3.Connection, session_ids: set[str]) -> set[str]:
@@ -814,6 +999,7 @@ def derive_router_outcomes(
     servable_items_by_lo: Mapping[str, set[str]] | None = None,
     retrievability_by_attempt: Mapping[str, float] | None = None,
     held_attempt_ids: frozenset[str] | set[str] = frozenset(),
+    outcome_version: str = OUTCOME_VERSION,
 ) -> list[dict[str, Any]]:
     """One outcome row per logged decision, from the ledgers alone (read-only).
 
@@ -828,7 +1014,8 @@ def derive_router_outcomes(
     an unobserved R_next stays ``pending``. ``retrievability_by_attempt`` maps
     attempt id to its FSRS-predicted retrievability (D12; the replayer's fold,
     ``scheduling.review_log.predicted_retrievability_by_attempt``); without it
-    that covariate is NULL.
+    that covariate is NULL. ``outcome_version``: :func:`outcome_version_for` of
+    the vault's config (the default is version 2's rule).
     """
 
     pfc_states = pfc_states or {}
@@ -842,6 +1029,7 @@ def derive_router_outcomes(
         item_learning_objects=item_learning_objects,
         retrievability_by_attempt=retrievability_by_attempt,
         held_attempt_ids=frozenset(held_attempt_ids),
+        version=outcome_version,
     )
     decisions = [
         dict(row)
@@ -873,7 +1061,8 @@ def derive_router_outcomes(
             continue
         if not decision.get("chosen_practice_item_id"):
             # Stop for today, a vetoed run, a block with no item: no action to follow.
-            outcomes.append(_not_applicable(decision, "not_applicable", ledger.observed_through, pending=False))
+            outcomes.append(_not_applicable(decision, "not_applicable", ledger.observed_through, pending=False,
+                                            version=outcome_version))
             continue
         action, binding = _action_attempt(decision, ledger, presentations)
         if action is None:
@@ -885,7 +1074,8 @@ def derive_router_outcomes(
                 status, pending = "not_taken", False
             else:
                 status, pending = "open", True
-            outcomes.append(_not_applicable(decision, status, ledger.observed_through, pending=pending))
+            outcomes.append(_not_applicable(decision, status, ledger.observed_through, pending=pending,
+                                            version=outcome_version))
             continue
         r_cold = _r_cold(action, ledger, pfc_states)
         # Only R_cold finalizes S: once it is observed, R_next counts only if
@@ -924,7 +1114,7 @@ def derive_router_outcomes(
         outcomes.append(
             {
                 "decision_id": decision["id"],
-                "outcome_version": OUTCOME_VERSION,
+                "outcome_version": outcome_version,
                 "target_practice_item_id": action["practice_item_id"],
                 "target_learning_object_id": action["learning_object_id"],
                 "action_status": "taken",
@@ -959,8 +1149,9 @@ def derive_router_outcomes(
                 ),
                 "detail_json": json.dumps(
                     {
-                        "basis": OUTCOME_VERSION,
-                        "r_cold_rule": R_COLD_RULE,
+                        "basis": outcome_version,
+                        "r_cold_rule": _r_cold_rule(outcome_version),
+                        **_completion_detail(ledger, r_cold),
                         "coldness_candidates_truncated": truncated,
                         "cold_min_gap_seconds": RETENTION_MIN_DELAY_SECONDS,
                         "r_next_skip_reasons": dict(sorted(r_next["skipped"].items())),
@@ -989,6 +1180,7 @@ def rebuild_router_outcomes(
     servable_items_by_lo: Mapping[str, set[str]] | None = None,
     retrievability_by_attempt: Mapping[str, float] | None = None,
     held_attempt_ids: frozenset[str] | set[str] = frozenset(),
+    outcome_version: str = OUTCOME_VERSION,
 ) -> int:
     """Replace the derived cache; the caller owns the transaction."""
 
@@ -1000,6 +1192,7 @@ def rebuild_router_outcomes(
             servable_items_by_lo=servable_items_by_lo,
             retrievability_by_attempt=retrievability_by_attempt,
             held_attempt_ids=held_attempt_ids,
+            outcome_version=outcome_version,
         ),
     )
 
@@ -1011,8 +1204,11 @@ __all__ = [
     "R_COLD_ITT_RULE",
     "R_COLD_RULE",
     "OUTCOME_VERSION",
+    "OUTCOME_VERSION_V3",
+    "R_COLD_RULE_V3",
     "S_ALPHA",
     "derive_router_outcomes",
+    "outcome_version_for",
     "rebuild_router_outcomes",
     "servable_items_by_learning_object",
 ]
