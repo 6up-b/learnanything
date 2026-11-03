@@ -51,6 +51,7 @@ from learnloop_sidecar.handlers.teach_back import (
 )
 from learnloop_sidecar.logging import log_event
 from learnloop_sidecar.registry import method
+from learnloop_sidecar.request_origin import offer_surface
 from learnloop_sidecar.serving import refuse_held_out_item, refuse_unservable_item
 
 
@@ -156,7 +157,9 @@ def get_today_queue(ctx: SidecarContext, params: QueueInput) -> dict[str, Any]:
         limit=limit,
         offer_trace=trace,
     )
-    queue, dtos = publish_offer(ctx, vault, repository, queue, trace=trace, surface="desktop_queue")
+    queue, dtos = publish_offer(
+        ctx, vault, repository, queue, trace=trace, surface=offer_surface(ctx.request_origin)
+    )
     slate = repository.latest_scheduler_slate_by_session(params.session_id) if params.session_id else None
     log_event(
         "scheduler_slate",
@@ -589,7 +592,7 @@ def publish_offer(
             repository.finalize_scheduler_offer(
                 slate_id,
                 [item.scheduler_candidate_id for item in queue if item.scheduler_candidate_id],
-                entry_surface="desktop_queue",
+                entry_surface=offer_surface(ctx.request_origin),
                 router_decision=decision,
             )
         elif decision is not None:

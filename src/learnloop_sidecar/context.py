@@ -4,6 +4,8 @@ import json
 import logging
 import threading
 import time
+from collections.abc import Iterator
+from contextlib import contextmanager
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -42,6 +44,7 @@ from learnloop_sidecar.background_jobs import BackgroundJobs
 from learnloop_sidecar.errors import SidecarError
 from learnloop_sidecar.exam_grading import ExamGradingManager
 from learnloop_sidecar.post_attempt_worker import PostAttemptWorker
+from learnloop_sidecar.request_origin import RequestOrigin
 from learnloop.content.pipeline.jobs import IngestJobManager
 
 _LOGGER = logging.getLogger(__name__)
@@ -127,6 +130,29 @@ class SidecarContext:
     # succeeded, so a failed refresh is retried by the next request.
     content_fingerprint: str | None = field(default=None, repr=False)
     _fingerprint_checked_at: float = field(default=float("-inf"), repr=False, compare=False)
+    # Mobile PR-5 (spec_mobile_tailnet_v1 §6.8): who the request being handled
+    # comes from. The host sets it around each call (:meth:`acting_as`); the
+    # desktop sidecar leaves it None, which means the desktop. Handlers read
+    # it; parameters never carry it. A context belongs to one worker thread
+    # (§3.1), so it never describes another thread's request.
+    request_origin: RequestOrigin | None = field(default=None, repr=False)
+
+    @property
+    def origin_device_id(self) -> str | None:
+        """The device a session-scoped request comes from; None is the desktop."""
+
+        return None if self.request_origin is None else self.request_origin.device_id
+
+    @contextmanager
+    def acting_as(self, origin: RequestOrigin | None) -> Iterator[None]:
+        """The one way a host sets the origin: around one call, restored after it."""
+
+        previous = self.request_origin
+        self.request_origin = origin
+        try:
+            yield
+        finally:
+            self.request_origin = previous
 
     def __setattr__(self, name: str, value: Any) -> None:
         if name != "vault":

@@ -79,12 +79,12 @@ from learnloop_sidecar.handlers.sessions import (
     draft_plan_presentation,
     draft_self_grade_disclosure,
     patch_checkpoint,
-    request_device_id,
     require_owned_session,
     settle_self_grade_disclosure,
 )
 from learnloop_sidecar.logging import debug_enabled, log_event
 from learnloop_sidecar.registry import method
+from learnloop_sidecar.request_origin import DESKTOP_PRACTICE, practice_surface
 from learnloop_sidecar.serving import (
     refuse_held_out_item,
     refuse_inactive_learning_object,
@@ -667,7 +667,7 @@ def save_practice_draft(ctx: SidecarContext, params: PracticeDraftCheckpoint) ->
     # refused before it binds anything (``session_moved``); the patch checks
     # again inside its own transaction.
     require_owned_session(ctx, repository, params.session_id)
-    _bind_offer(repository, params, params.submission_id)
+    _bind_offer(repository, params, params.submission_id, entry_surface=_origin_bind_surface(ctx))
     patch_checkpoint(
         repository,
         SessionCheckpointInput(
@@ -678,7 +678,7 @@ def save_practice_draft(ctx: SidecarContext, params: PracticeDraftCheckpoint) ->
             submission_id=params.submission_id,
             declared_stuck=params.declared_stuck,
         ),
-        device_id=request_device_id(ctx),
+        device_id=ctx.origin_device_id,
         plan_presentation_id=params.plan_presentation_id,
         first_hint_progress=_draft_marker(vault, params),
         hint_seen=params.hint_seen if "hint_seen" in params.model_fields_set else KEEP_HINT_SEEN,
@@ -933,7 +933,7 @@ def record_self_grade_disclosure(ctx: SidecarContext, params: SelfGradeDisclosur
             current_answer=params.answer_md,
             submission_id=submission_id,
         ),
-        device_id=request_device_id(ctx),
+        device_id=ctx.origin_device_id,
         self_grade_disclosure={
             "practiceItemId": params.practice_item_id,
             "learningObjectId": item.learning_object_id,
@@ -1151,9 +1151,16 @@ def _held_fields(item, held: tuple[tuple[Any, ...], bool], *, client_hints: int,
             "held_types": tuple(item.attempt_types_allowed or ()) if attempt_types else None}
 
 
+def _origin_bind_surface(ctx: SidecarContext) -> str | None:
+    """A draft's binding surface: the phone's, or the store's default on the desktop."""
+
+    return None if ctx.request_origin is None else practice_surface(ctx.request_origin)
+
+
 def _bind_offer(repository, params, submission_id, *, entry_surface: str | None = None):
-    # Reader workbench RW2a: a workbench submit names its own surface; every
-    # other caller binds exactly as before (the store's default surface).
+    # Reader workbench RW2a: a workbench submit names its own surface, and
+    # mobile PR-5 a phone request its origin's; every other caller binds
+    # exactly as before (the store's default surface).
     surface = {} if entry_surface is None else {"entry_surface": entry_surface}
     candidate_id = params.scheduler_candidate_id
     if candidate_id is not None and repository.scheduler_offer_answered(
@@ -1260,11 +1267,11 @@ def acknowledge_practice_submission(
 
 @method("submit_attempt", SubmitAttemptInput)
 def submit_attempt(ctx: SidecarContext, params: SubmitAttemptInput) -> dict[str, Any]:
-    return submit_attempt_on(ctx, params)
+    return submit_attempt_on(ctx, params, entry_surface=practice_surface(ctx.request_origin))
 
 
 def submit_attempt_on(
-    ctx: SidecarContext, params: SubmitAttemptInput, *, entry_surface: str = "desktop_practice",
+    ctx: SidecarContext, params: SubmitAttemptInput, *, entry_surface: str = DESKTOP_PRACTICE,
     hint_window_fold: bool = False,
 ) -> dict[str, Any]:
     """``submit_attempt``, recorded on ``entry_surface``. The one submit
@@ -1274,7 +1281,7 @@ def submit_attempt_on(
     other; the RPC passes the practice screen's surface, unchanged."""
 
     vault, repository = ctx.require_vault()
-    workbench_surface = None if entry_surface == "desktop_practice" else entry_surface
+    bind_surface = None if entry_surface == DESKTOP_PRACTICE else entry_surface
     submission_id, successor = answering_key(repository, submission_key(params), params.session_id,
                                              params.practice_item_id)
     if successor:
@@ -1360,7 +1367,7 @@ def submit_attempt_on(
     if disclosure_primed and not hint_fold.folded_primed:
         log_event("self_grade_trace_changed_after_disclosure", session_id=params.session_id,
                   practice_item_id=params.practice_item_id)
-    scheduler_candidate_id = _bind_offer(repository, params, submission_id, entry_surface=workbench_surface)
+    scheduler_candidate_id = _bind_offer(repository, params, submission_id, entry_surface=bind_surface)
     draft = AttemptDraft(
         practice_item_id=params.practice_item_id,
         learner_answer_md=learner_answer_md,
@@ -1504,15 +1511,15 @@ def _schedule_hint_outcome(ctx: SidecarContext, vault, repository, attempt_id: s
 
 @method("submit_dont_know", DontKnowInput)
 def submit_dont_know(ctx: SidecarContext, params: DontKnowInput) -> dict[str, Any]:
-    return submit_dont_know_on(ctx, params)
+    return submit_dont_know_on(ctx, params, entry_surface=practice_surface(ctx.request_origin))
 
 
 def submit_dont_know_on(
-    ctx: SidecarContext, params: DontKnowInput, *, entry_surface: str = "desktop_practice",
+    ctx: SidecarContext, params: DontKnowInput, *, entry_surface: str = DESKTOP_PRACTICE,
     hint_window_fold: bool = False,
 ) -> dict[str, Any]:
     vault, repository = ctx.require_vault()
-    workbench_surface = None if entry_surface == "desktop_practice" else entry_surface
+    bind_surface = None if entry_surface == DESKTOP_PRACTICE else entry_surface
     submission_id, successor = answering_key(repository, submission_key(params), params.session_id,
                                              params.practice_item_id)
     if successor:
@@ -1571,7 +1578,7 @@ def submit_dont_know_on(
             answer_confidence=params.answer_confidence,
             assessment_contract_version_id=params.assessment_contract_version_id,
             submission_id=submission_id,
-            scheduler_candidate_id=_bind_offer(repository, params, submission_id, entry_surface=workbench_surface),
+            scheduler_candidate_id=_bind_offer(repository, params, submission_id, entry_surface=bind_surface),
             entry_surface=entry_surface,
             evidence_origin="human",
             declared_stuck=True,
@@ -1583,7 +1590,7 @@ def submit_dont_know_on(
             ctx, vault, repository, draft, params.session_id, before, hint_submitted_at=hint_submitted_at
         )
     grade = _self_grade(params.self_grade) or SelfGradeInput(criterion_points={}, confidence=3)
-    scheduler_candidate_id = _bind_offer(repository, params, submission_id, entry_surface=workbench_surface)
+    scheduler_candidate_id = _bind_offer(repository, params, submission_id, entry_surface=bind_surface)
     draft = AttemptDraft(
         practice_item_id=params.practice_item_id,
         learner_answer_md="",

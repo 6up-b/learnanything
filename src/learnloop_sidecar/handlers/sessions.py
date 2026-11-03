@@ -64,7 +64,7 @@ def start_session(ctx: SidecarContext, params: SessionStartInput) -> dict[str, A
                 "available_minutes": params.available_minutes,
                 "notes_md_path": params.notes_md_path,
             },
-            request_device_id(ctx),
+            ctx.origin_device_id,
             settle_checkpoint=lambda stale: settle_self_grade_disclosure(repository, stale),
         )
     snapshot = session_snapshot(repository, session_id)
@@ -108,7 +108,7 @@ def get_session(ctx: SidecarContext, params: SessionIdInput) -> dict[str, Any]:
 @method("update_session_checkpoint", SessionCheckpointInput)
 def update_session_checkpoint(ctx: SidecarContext, params: SessionCheckpointInput) -> dict[str, Any]:
     _vault, repository = ctx.require_vault()
-    patch_checkpoint(repository, params, device_id=request_device_id(ctx))
+    patch_checkpoint(repository, params, device_id=ctx.origin_device_id)
     return {"ok": True}
 
 
@@ -128,7 +128,7 @@ def end_session(ctx: SidecarContext, params: SessionIdInput) -> dict[str, Any]:
     with owned_session_errors():
         row = repository.end_session_owned(
             params.session_id,
-            request_device_id(ctx),
+            ctx.origin_device_id,
             clear=lambda session_id: clear_checkpoint(repository, session_id),
         )
     counts = repository.session_attempt_counts(params.session_id) or {"attempts_recorded": 0, "items_reviewed": 0}
@@ -260,7 +260,7 @@ def patch_checkpoint(
     Mobile PR-4 (§6.5): the read-merge-write is one ``BEGIN IMMEDIATE``
     transaction, so two writers never merge into the same stale checkpoint,
     and it starts with the ownership check: ``device_id`` (the request
-    origin's, :func:`request_device_id`; None is the desktop) must own the
+    origin's, ``SidecarContext.origin_device_id``; None is the desktop) must own the
     session, or the patch fails with ``session_moved``. It has no default, so
     no caller checks against the desktop by omission (Codex review F3).
     """
@@ -336,18 +336,6 @@ def _patch_checkpoint_locked(
     )
 
 
-def request_device_id(ctx: SidecarContext) -> str | None:
-    """The device a session-scoped request comes from (mobile §6.8): None, the desktop.
-
-    Mobile PR-5 puts the request origin on the context (the phone host sets
-    it around each call); until then every sidecar request is the desktop's.
-    Never a parameter: a client cannot claim to be another device.
-    """
-
-    del ctx
-    return None
-
-
 def ownership_error(error: SessionOwnershipError) -> SidecarError:
     """The sidecar's form of a refused session operation (mobile PR-4).
 
@@ -394,7 +382,7 @@ def require_owned_session(
     ``SessionOwnershipStoreMixin.require_session_owner``.
     """
 
-    return _require_owned(repository, session_id, request_device_id(ctx), expected_generation=expected_generation)
+    return _require_owned(repository, session_id, ctx.origin_device_id, expected_generation=expected_generation)
 
 
 def _merged_value(existing: dict[str, Any], params: SessionCheckpointInput, fields: set[str], name: str):

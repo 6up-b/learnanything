@@ -49,7 +49,6 @@ from learnloop_sidecar.logging import log_event
 from learnloop_sidecar.handlers.sessions import (
     SessionCheckpointInput,
     patch_checkpoint,
-    request_device_id,
     require_owned_session,
 )
 from learnloop_sidecar.registry import method
@@ -557,5 +556,5 @@ def _persist_state(ctx: SidecarContext, repository, session_id: str, state: Teac
                 {"mode": "teach_back", "state": state.to_dict()}, sort_keys=True
             ),
         ),
-        device_id=request_device_id(ctx),
+        device_id=ctx.origin_device_id,
     )

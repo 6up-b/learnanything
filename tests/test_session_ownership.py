@@ -16,7 +16,8 @@ transaction shared by the desktop sidecar and the phone host:
 
 The phone host does not exist yet (M2), so the other device here is a second
 ``Repository`` acting as one (``owner_device_id = dev_phone``); the desktop is
-the sidecar, whose requests come from the desktop (NULL) until PR-5.
+the sidecar with no request origin (NULL). ``test_request_origin.py`` drives the
+same checks through a host origin (PR-5).
 
 Durability lane: production pragmas and WAL on fresh vaults.
 """
