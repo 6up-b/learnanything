@@ -419,6 +419,29 @@ def test_a_presentation_committed_on_the_phone_resumes_on_the_desktop(tmp_path, 
     assert [row.id for row in rows] == [on_phone["presentationId"]]
 
 
+def test_what_the_phone_left_for_the_desktop_is_held_back_from_its_next_build(tmp_path, monkeypatch):
+    """M2a, open item 3: a committed, unrendered check is not the head of the next list, so an
+    answer after it is that offer's head and no learner pick. It stays the session's assignment."""
+
+    paths, repository, ctx, episode = _probe_world(tmp_path, monkeypatch)
+    with ctx.acting_as(ORIGIN):
+        session_id = _call(ctx, "start_session", {"availableMinutes": 60})["sessionId"]
+        assert PLAIN in _ids(_call(ctx, "get_today_queue", {"sessionId": session_id}))
+        contract = _call(ctx, "get_probe_contract", {"practiceItemId": PLAIN, "sessionId": session_id})
+        assert contract["active"] is True
+        queue = _call(ctx, "get_today_queue", {"sessionId": session_id})
+    assert PLAIN not in _ids(queue)
+    assert queue["deviceDeferredCount"] >= 1
+    # Not ended: the desktop resumes the same presentation.
+    assert repository.active_probe_presentation(episode.id).id == contract["presentationId"]
+    desktop = SidecarContext()
+    desktop.load_secondary(paths.root)
+    generation = repository.fetch_session(session_id)["owner_generation"]
+    _call(desktop, "adopt_session", {"sessionId": session_id, "expectedGeneration": generation})
+    assert PLAIN in _ids(_call(desktop, "get_today_queue", {"sessionId": session_id}))
+    desktop.close()
+
+
 # -- Codex review F3: what the renderer resolves, not only what the source looks like
 
 

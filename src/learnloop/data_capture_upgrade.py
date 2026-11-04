@@ -20,7 +20,7 @@ The upgrade:
   predecessor's own upgrade first (with its own activation and notes, a
   refusal's included). If the chained steps succeed and this step then fails,
   the vault is left at the valid predecessor. Anything older is refused;
-* changes nothing already recorded: the receipts of migration 239 are additive.
+* changes nothing already recorded: the receipts of migration 240 are additive.
   Its activation is the idempotent rebuild of the same projection namespace, the
   registry refresh and the config's publication. Readers derive outcomes under v3
   from the tag on; the ``router_outcomes`` cache follows at the next

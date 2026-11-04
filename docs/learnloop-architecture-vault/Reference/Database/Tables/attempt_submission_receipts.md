@@ -3,8 +3,8 @@ title: "attempt_submission_receipts"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "81c99679c019714fdc1fb448114532bc8568d453"
-source_commit_timestamp: "2026-11-03T15:06:14-05:00"
+source_commit: "d2de54b4e148637154ed1322a7241b74bba04bcf"
+source_commit_timestamp: "2026-11-03T15:00:46-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite attempt_submission_receipts"
@@ -20,6 +20,8 @@ source_paths:
   - "src/learnloop/db/table_roles.py"
   - "migrations/053_attempt_submission_idempotency.sql"
   - "src/learnloop/db/repositories.py"
+  - "src/learnloop/capture/jobs.py"
+  - "src/learnloop_mobile/runtime.py"
   - "src/learnloop_sidecar/handlers/practice.py"
 tags:
   - "learnloop/database/table"
@@ -87,6 +89,8 @@ Indexes and uniqueness:
 
 ### Upstream callers of the repository access surface
 
+- `src/learnloop/capture/jobs.py`
+- `src/learnloop_mobile/runtime.py`
 - `src/learnloop_sidecar/handlers/practice.py`
 
 > [!note] Static-reference boundary
@@ -94,6 +98,7 @@ Indexes and uniqueness:
 
 ## Tests that define behavior
 
+- `tests/test_mobile_jobs.py`
 - `tests/test_sidecar_contract.py`
 - `tests/test_goal_series.py`
 

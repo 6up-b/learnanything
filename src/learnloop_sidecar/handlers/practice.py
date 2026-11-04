@@ -1194,6 +1194,7 @@ def _bind_offer(repository, params, submission_id, *, entry_surface: str | None 
 
 
 @method("recover_practice_submission", PracticeSubmissionRecoveryInput)
+@host_mutation
 def recover_practice_submission(
     ctx: SidecarContext,
     params: PracticeSubmissionRecoveryInput,
@@ -1926,6 +1927,7 @@ def skip_practice_item(ctx: SidecarContext, params: SkipInput) -> dict[str, Any]
     session = require_owned_session(ctx, repository, params.session_id)
     generation = int(session.get("owner_generation") or 0)
     trace = offer_trace_for(vault, params.session_id)
+    held_for_device = device_filter(ctx.request_origin, vault, repository, params.session_id)
     queue = build_due_queue(
         vault,
         repository,
@@ -1935,7 +1937,7 @@ def skip_practice_item(ctx: SidecarContext, params: SkipInput) -> dict[str, Any]
             energy=session.get("energy"),
         ),
         offer_trace=trace,
-        device_filter=device_filter(ctx.request_origin, vault),
+        device_filter=held_for_device,
     )
 
     def clear_owned_checkpoint() -> None:
@@ -1953,6 +1955,12 @@ def skip_practice_item(ctx: SidecarContext, params: SkipInput) -> dict[str, Any]
             "session_id": params.session_id,
             "sections": _sections(dtos),
             "total_items": len(dtos),
+            # The phone's list after a skip keeps its "N items waiting for the desktop".
+            **(
+                {}
+                if ctx.request_origin is None
+                else {"device_deferred_count": len(held_for_device.deferred) if held_for_device else 0}
+            ),
         }
     )
 

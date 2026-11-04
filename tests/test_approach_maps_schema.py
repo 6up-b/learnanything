@@ -41,9 +41,10 @@ from tests.test_teacher_te1b_migration import TE1_AND_TE1B_ADDED_OBJECTS as TE1_
 from tests.test_teacher_te1b_migration import TE1_AND_TE1B_ALTERED_TABLES as TE1_ALTERED_TABLES
 from tests.test_figure_prefetch_migration import P5_ADDED_OBJECTS
 from tests.test_data_capture_migration import DATA_CAPTURE_ADDED_OBJECTS
+from tests.test_mobile_jobs_migration import M2A_ADDED_OBJECTS
 from tests.test_rw5c_migration import RW5C_ADDED_OBJECTS
 
-HEAD = Path(__file__).resolve().parents[1] / "fixtures" / "migration_head_239" / "state.sqlite"
+HEAD = Path(__file__).resolve().parents[1] / "fixtures" / "migration_head_240" / "state.sqlite"
 NOW = "2026-10-18T09:00:00Z"
 #: §9's columns, plus the revision keys and the trigger H1 adds.
 SPEC_COLUMNS = {"id", "practice_item_id", "practice_item_hash", "family_id", "version", "map_json", "seeds_json",
@@ -80,7 +81,7 @@ def _upgrade(tmp_path: Path) -> Path:
     after = _schema(database)
     # Adaptive difficulty AD1's 213 (its receipts) follows on the way to head.
     # ... and adaptive difficulty's 214, Reader RW3b's 215, RW5a's 216 and RW7a's 217 (their two tables each), RW2d's 219 and local retrieval P1's 220.
-    assert set(after) - set(before) - AD1_ADDED_OBJECTS - AD23_ADDED_OBJECTS - RW3B_ADDED_OBJECTS - RW5A_ADDED_OBJECTS - RW7A_ADDED_OBJECTS - RW2D_ADDED_OBJECTS - P1_ADDED_OBJECTS - C0A_ADDED_OBJECTS - RW5D_ADDED_OBJECTS - PR4_ADDED_OBJECTS - RW6B_ADDED_OBJECTS - C0B_ADDED_OBJECTS - C2_ADDED_OBJECTS - P3_ADDED_OBJECTS - TE1_ADDED_OBJECTS - P5_ADDED_OBJECTS - RW5C_ADDED_OBJECTS - DATA_CAPTURE_ADDED_OBJECTS == {"approach_maps", "idx_approach_maps_item", "idx_approach_maps_family",
+    assert set(after) - set(before) - AD1_ADDED_OBJECTS - AD23_ADDED_OBJECTS - RW3B_ADDED_OBJECTS - RW5A_ADDED_OBJECTS - RW7A_ADDED_OBJECTS - RW2D_ADDED_OBJECTS - P1_ADDED_OBJECTS - C0A_ADDED_OBJECTS - RW5D_ADDED_OBJECTS - PR4_ADDED_OBJECTS - RW6B_ADDED_OBJECTS - C0B_ADDED_OBJECTS - C2_ADDED_OBJECTS - P3_ADDED_OBJECTS - TE1_ADDED_OBJECTS - P5_ADDED_OBJECTS - RW5C_ADDED_OBJECTS - M2A_ADDED_OBJECTS - DATA_CAPTURE_ADDED_OBJECTS == {"approach_maps", "idx_approach_maps_item", "idx_approach_maps_family",
                                         "approach_maps_no_update", "approach_maps_no_delete"}
     # 212 rebuilds the two learner-text tables (their source_kind CHECK only).
     # Adaptive difficulty AD1's 213 adds two practice_attempts columns on the way.
@@ -164,6 +165,6 @@ def test_the_store_refuses_unknown_columns(tmp_path):
 
 def test_the_head_fixture_is_at_head_in_rollback_mode():
     assert HEAD.read_bytes()[18:20] == b"\x01\x01"
-    assert max(applied_versions(HEAD)) == max(m.version for m in discover_migrations()) == 239
+    assert max(applied_versions(HEAD)) == max(m.version for m in discover_migrations()) == 240
     for suffix in ("-wal", "-shm", "-journal"):
         assert not HEAD.with_name(HEAD.name + suffix).exists()

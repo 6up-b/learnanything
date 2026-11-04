@@ -6,8 +6,8 @@ refactor_status: "ACTIVE"
 version: "1.0.0"
 source_paths:
   - "apps/learnloop-tauri/src/components"
-source_commit: "d1e83c7e701bfc9ed2da4275f107660bcec6b728"
-source_commit_timestamp: "2026-11-02T00:41:15-05:00"
+source_commit: "01fa9698ae962d7b0977b90915e12e269c3b8db5"
+source_commit_timestamp: "2026-11-03T12:40:09-05:00"
 generated: true
 generated_at: "2026-08-18"
 tags:
@@ -97,7 +97,9 @@ Reusable learner-facing controls and composite interaction surfaces.
 | [[Reference/Desktop/TypeScript/components/RepairAffordances|RepairAffordances.tsx]] | `ACTIVE` | Provides the reusable `RepairAffordances` interaction surface used by one or more desktop workflows. | 3 | 2 |
 | [[Reference/Desktop/TypeScript/components/RepairTrace|RepairTrace.tsx]] | `ACTIVE` | Provides the reusable `RepairTrace` interaction surface used by one or more desktop workflows. | 3 | 3 |
 | [[Reference/Desktop/TypeScript/components/RewordConfirms|RewordConfirms.tsx]] | `ACTIVE` | Provides the reusable `RewordConfirms` interaction surface used by one or more desktop workflows. | 3 | 3 |
+| [[Reference/Desktop/TypeScript/components/SessionElsewherePrompt|SessionElsewherePrompt.tsx]] | `ACTIVE` | Provides the reusable `SessionElsewherePrompt` interaction surface used by one or more desktop workflows. | 2 | 1 |
 | [[Reference/Desktop/TypeScript/components/SessionFinishHud|SessionFinishHud.tsx]] | `ACTIVE` | Provides the reusable `SessionFinishHud` interaction surface used by one or more desktop workflows. | 5 | 1 |
+| [[Reference/Desktop/TypeScript/components/SessionMovedBanner|SessionMovedBanner.tsx]] | `ACTIVE` | Provides the reusable `SessionMovedBanner` interaction surface used by one or more desktop workflows. | 2 | 1 |
 | [[Reference/Desktop/TypeScript/components/ShellNav|ShellNav.tsx]] | `ACTIVE` | Provides the reusable `ShellNav` interaction surface used by one or more desktop workflows. | 3 | 1 |
 | [[Reference/Desktop/TypeScript/components/SourceLibrarySidebar|SourceLibrarySidebar.tsx]] | `ACTIVE` | Provides the reusable `SourceLibrarySidebar` interaction surface used by one or more desktop workflows. | 9 | 1 |
 | [[Reference/Desktop/TypeScript/components/SourceOffers|SourceOffers.tsx]] | `ACTIVE` | Provides the reusable `SourceOffers` interaction surface used by one or more desktop workflows. | 3 | 1 |
@@ -114,7 +116,7 @@ Reusable learner-facing controls and composite interaction surfaces.
 | [[Reference/Desktop/TypeScript/components/pdfPages|pdfPages.ts]] | `ACTIVE` | Provides shared `pdfPages` state or utility behavior for desktop components. | 0 | 1 |
 | [[Reference/Desktop/TypeScript/components/quickAddConsent|quickAddConsent.ts]] | `ACTIVE` | Provides shared `quickAddConsent` state or utility behavior for desktop components. | 1 | 1 |
 | [[Reference/Desktop/TypeScript/components/sourceTail|sourceTail.ts]] | `ACTIVE` | Provides shared `sourceTail` state or utility behavior for desktop components. | 0 | 3 |
-| [[Reference/Desktop/TypeScript/components/term|term.tsx]] | `ACTIVE` | Provides the reusable `term` interaction surface used by one or more desktop workflows. | 0 | 161 |
+| [[Reference/Desktop/TypeScript/components/term|term.tsx]] | `ACTIVE` | Provides the reusable `term` interaction surface used by one or more desktop workflows. | 0 | 163 |
 | [[Reference/Desktop/TypeScript/components/ui|ui.tsx]] | `ACTIVE` | Provides the reusable `ui` interaction surface used by one or more desktop workflows. | 3 | 23 |
 | [[Reference/Desktop/TypeScript/components/useSourceFileDrop|useSourceFileDrop.ts]] | `ACTIVE` | Provides shared `useSourceFileDrop` state or utility behavior for desktop components. | 0 | 5 |
 

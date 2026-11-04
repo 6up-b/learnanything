@@ -3,8 +3,8 @@ title: "scheduler_offer_receipts"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "81c99679c019714fdc1fb448114532bc8568d453"
-source_commit_timestamp: "2026-11-03T15:06:14-05:00"
+source_commit: "d2de54b4e148637154ed1322a7241b74bba04bcf"
+source_commit_timestamp: "2026-11-03T15:00:46-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite scheduler_offer_receipts"
@@ -21,6 +21,7 @@ source_paths:
   - "migrations/161_collection_contract.sql"
   - "src/learnloop/adaptive_difficulty/column_classes.py"
   - "src/learnloop/adaptive_difficulty/protected_tables.py"
+  - "src/learnloop/capture/report.py"
   - "src/learnloop/daily_plan/engine.py"
   - "src/learnloop/db/stores/collection.py"
   - "src/learnloop/field/outcomes.py"
@@ -85,6 +86,7 @@ None found by exact static reference scan.
 
 ### Direct SQL readers
 
+- `src/learnloop/capture/report.py`
 - `src/learnloop/daily_plan/engine.py`
 - `src/learnloop/db/stores/collection.py`
 - `src/learnloop/field/outcomes.py`
@@ -110,6 +112,8 @@ None found by exact static reference scan.
 - `tests/test_device_eligibility.py`
 - `tests/test_facet_outcome_view.py`
 - `tests/test_mcp_tools.py`
+- `tests/test_mobile_handoff.py`
+- `tests/test_mobile_rpc.py`
 - `tests/test_request_origin.py`
 - `tests/test_router_offer_log.py`
 

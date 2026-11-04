@@ -3,8 +3,8 @@ title: "derived_state_rebuilds"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "81c99679c019714fdc1fb448114532bc8568d453"
-source_commit_timestamp: "2026-11-03T15:06:14-05:00"
+source_commit: "d2de54b4e148637154ed1322a7241b74bba04bcf"
+source_commit_timestamp: "2026-11-03T15:00:46-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite derived_state_rebuilds"
@@ -24,8 +24,8 @@ source_paths:
   - "src/learnloop/attempt_content_state_upgrade.py"
   - "src/learnloop/claim_fixes_upgrade.py"
   - "src/learnloop/cold_retry_reschedule_upgrade.py"
-  - "src/learnloop/data_capture_upgrade.py"
   - "src/learnloop/db/repositories.py"
+  - "src/learnloop/deliverable_plan_upgrade.py"
   - "src/learnloop/attempts/measurement_corrections.py"
   - "src/learnloop/curriculum/integration_backfill.py"
   - "src/learnloop/learner/learner_review_feed.py"
@@ -97,7 +97,6 @@ Indexes and uniqueness:
 - `src/learnloop/attempt_content_state_upgrade.py`
 - `src/learnloop/claim_fixes_upgrade.py`
 - `src/learnloop/cold_retry_reschedule_upgrade.py`
-- `src/learnloop/data_capture_upgrade.py`
 - `src/learnloop/db/repositories.py`
 - `src/learnloop/deliverable_plan_upgrade.py`
 - `src/learnloop/diagnosis/recurrence/report.py`

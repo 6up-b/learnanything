@@ -40,7 +40,7 @@ tests repeat it. Receipts (A1) are additive at every version behind `[data_captu
 only their own tables.
 
 Migration **239** (five RECEIPT tables: `prefilter_payloads`, `prefilter_receipts`, `decision_objectives`, `reading_exposure_receipts`,
-`decision_measurement_events`), head fixture `migration_head_239` rebuilt from the tracked 238, no other object or row
+`decision_measurement_events`), head fixture `migration_head_240` (239 on the branch, renumbered at landing) rebuilt from the tracked 238, no other object or row
 changed. M2a may claim 240 and mvp-0.45.
 
 No new decision constant. A4's delay is the outcome contract's `RETENTION_MIN_DELAY_SECONDS`; A5's floor is

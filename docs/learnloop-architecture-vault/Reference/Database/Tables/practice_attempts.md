@@ -3,8 +3,8 @@ title: "practice_attempts"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "81c99679c019714fdc1fb448114532bc8568d453"
-source_commit_timestamp: "2026-11-03T15:06:14-05:00"
+source_commit: "d2de54b4e148637154ed1322a7241b74bba04bcf"
+source_commit_timestamp: "2026-11-03T15:00:46-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite practice_attempts"
@@ -184,12 +184,12 @@ Indexes and uniqueness:
 - `src/learnloop/adaptive_difficulty/data_check.py`
 - `src/learnloop/adaptive_difficulty/material_view.py`
 - `src/learnloop/attempts/stuck.py`
+- `src/learnloop/capture/report.py`
 - `src/learnloop/cli/router.py`
 - `src/learnloop/confidence_events.py`
 - `src/learnloop/content/proposals/method_phrasing.py`
 - `src/learnloop/daily_plan/engine.py`
 - `src/learnloop/daily_plan/estimates.py`
-- `src/learnloop/daily_plan/measurement.py`
 - `src/learnloop/daily_plan/router_card.py`
 - `src/learnloop/daily_plan/router_chooser.py`
 - `src/learnloop/daily_plan/router_retrieval.py`
@@ -206,7 +206,6 @@ Indexes and uniqueness:
 - `src/learnloop/db/stores/router_suggestions.py`
 - `src/learnloop/db/stores/source_service.py`
 - `src/learnloop/db/stores/write_provenance.py`
-- `src/learnloop/delayed_checks.py`
 - `src/learnloop/diagnosis/forecast_receipts.py`
 - `src/learnloop/diagnosis/offline_review/report.py`
 - `src/learnloop/diagnosis/offline_review/runner.py`
@@ -244,7 +243,6 @@ Indexes and uniqueness:
 - `src/learnloop/learner/lesson_weight.py`
 - `src/learnloop/learner_context.py`
 - `src/learnloop/learner_protection.py`
-- `src/learnloop/ops/capture_report.py`
 - `src/learnloop/ops/contamination/detectors.py`
 - `src/learnloop/ops/pf_generation.py`
 - `src/learnloop/ops/pf_reports.py`
@@ -265,6 +263,7 @@ Indexes and uniqueness:
 - `src/learnloop/substrate/rebuild_orchestrator.py`
 - `src/learnloop/teacher/actions.py`
 - `src/learnloop/teacher/brief.py`
+- `src/learnloop/teacher/delayed.py`
 - `src/learnloop/teacher/service.py`
 - `src/learnloop/workbench/compare_methods.py`
 - `src/learnloop/workbench/help_outcomes.py`
@@ -289,6 +288,7 @@ Indexes and uniqueness:
 - `src/learnloop/attempts/measurement_corrections.py`
 - `src/learnloop/attempts/post_attempt.py`
 - `src/learnloop/attempts/regrade.py`
+- `src/learnloop/capture/jobs.py`
 - `src/learnloop/claim_fixes_upgrade.py`
 - `src/learnloop/cli/ai_compare.py`
 - `src/learnloop/cli/app.py`
@@ -298,7 +298,6 @@ Indexes and uniqueness:
 - `src/learnloop/content/proposals/proposals.py`
 - `src/learnloop/curriculum/curriculum_locks.py`
 - `src/learnloop/curriculum/graph_edit_proposals.py`
-- `src/learnloop/daily_plan/engine.py`
 
 > [!note] Static-reference boundary
 > These lists are evidence from exact table-name SQL and repository-method calls. Dynamic dispatch and higher-level tests may exercise the table without spelling its name.

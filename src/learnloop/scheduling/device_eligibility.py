@@ -165,9 +165,14 @@ class DeviceFilter:
     vault: Any
     device_class: str
     deferred: set[str] = field(default_factory=set)
+    #: M2a (§6.4): an item this session's phone committed a diagnostic presentation for and
+    #: did not render. It stays the session's assignment for the desktop; left in this build it
+    #: would be the pinned head of a list that moved past it, and every answer after it a
+    #: learner pick nobody made.
+    left_for_desktop: frozenset[str] = frozenset()
 
     def refuses(self, item: Any) -> bool:
-        return ineligibility_reason(self.vault, item, self.device_class) is not None
+        return item.id in self.left_for_desktop or ineligibility_reason(self.vault, item, self.device_class) is not None
 
     def holds_back(self, item: Any) -> bool:
         """``refuses``, for an item the build would otherwise serve."""

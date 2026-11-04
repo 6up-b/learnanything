@@ -3,8 +3,8 @@ title: "item_serve_inputs"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "81c99679c019714fdc1fb448114532bc8568d453"
-source_commit_timestamp: "2026-11-03T15:06:14-05:00"
+source_commit: "d2de54b4e148637154ed1322a7241b74bba04bcf"
+source_commit_timestamp: "2026-11-03T15:00:46-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite item_serve_inputs"
@@ -111,7 +111,6 @@ None found by exact static reference scan.
 
 - `src/learnloop/adaptive_difficulty/data_check.py`
 - `src/learnloop/adaptive_difficulty/material_view.py`
-- `src/learnloop/router/outcomes.py`
 
 ### Direct SQL writers
 

@@ -198,7 +198,7 @@ class _Rows:
     def lookup(self, connection: Any, _table: str, where: str, args: Iterable[Any] = (), *,
                stale_as_missing: bool = False) -> tuple[str, Mapping[str, Any] | None]:
         if not store.reading_exposures_present(connection):
-            return "missing", None  # below migration 239 nothing is on record: everything is still activity to read
+            return "missing", None  # below migration 240 nothing is on record: everything is still activity to read
         return ("ok", {}) if store.reading_exposure_recorded(connection, where, args) else ("missing", None)
 
     def answered_questions(self, connection: Any, styles: Sequence[str]) -> list[dict[str, Any]]:
@@ -285,7 +285,7 @@ def for_version(connection: Any, vault: Any, repository: Any, version: str, *, r
 
 def sweep(vault: Any, repository: Any, *, clock: Clock | None = None) -> int:
     """Freeze the listed Reader activity since the window's start (:func:`recent_since`); how many rows it wrote. Idempotent;
-    a no-op with both of data capture's switches off or before migration 239. The write lock only with rows to write."""
+    a no-op with both of data capture's switches off or before migration 240. The write lock only with rows to write."""
 
     if not (receipts_on(vault.config) or serving_on(vault.config)):
         return 0

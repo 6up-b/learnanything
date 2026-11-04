@@ -3,8 +3,8 @@ title: "commitment_events"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "81c99679c019714fdc1fb448114532bc8568d453"
-source_commit_timestamp: "2026-11-03T15:06:14-05:00"
+source_commit: "d2de54b4e148637154ed1322a7241b74bba04bcf"
+source_commit_timestamp: "2026-11-03T15:00:46-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite commitment_events"
@@ -22,10 +22,10 @@ source_paths:
   - "src/learnloop/adaptive_difficulty/column_classes.py"
   - "src/learnloop/adaptive_difficulty/protected_tables.py"
   - "src/learnloop/curriculum/commitments.py"
-  - "src/learnloop/daily_plan/measurement.py"
   - "src/learnloop/db/repositories.py"
   - "src/learnloop/db/stores/intent_reads.py"
   - "src/learnloop/intent/checks.py"
+  - "src/learnloop/reader/reader_authoring.py"
   - "src/learnloop/curriculum/depth_rungs.py"
   - "src/learnloop/curriculum/depth_transition.py"
   - "src/learnloop/daily_plan/engine.py"
@@ -92,7 +92,6 @@ Indexes and uniqueness:
 
 ### Direct SQL readers
 
-- `src/learnloop/daily_plan/measurement.py`
 - `src/learnloop/db/repositories.py`
 - `src/learnloop/db/stores/intent_reads.py`
 - `src/learnloop/intent/checks.py`

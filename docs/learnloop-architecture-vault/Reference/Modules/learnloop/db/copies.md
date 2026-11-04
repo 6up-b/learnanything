@@ -197,6 +197,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_owner_copies_off_is_the_predecessor_and_on_reports_the_mastery_deltas`
 - [tests/test_method_explicit_upgrade.py](../../../../../../tests/test_method_explicit_upgrade.py) — direct import
   - `test_head_fixture_predecessor_to_successor_path`
+- [tests/test_mobile_jobs_migration.py](../../../../../../tests/test_mobile_jobs_migration.py) — direct import
 - [tests/test_mvp010_upgrade.py](../../../../../../tests/test_mvp010_upgrade.py) — direct import
   - `test_head_fixture_predecessor_to_successor_path`
 - [tests/test_mvp011_upgrade.py](../../../../../../tests/test_mvp011_upgrade.py) — direct import

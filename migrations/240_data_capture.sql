@@ -1,6 +1,5 @@
 -- Data capture A1, A2 (the long-horizon objective; docs/reviews/data-capture-a1-a6.md).
--- Numbered 239 on its branch: main's head is 238; a parallel stage (M2a) may
--- claim 240 and mvp-0.45 (the migration runner has no contiguity rule).
+-- Numbered 240 at landing: M2a landed first and took 239 (landing ruling R5).
 --
 -- Additive: four append-only tables, no existing row or table changes, and
 -- nothing replay reads for scoring, FSRS, mastery or the projection.

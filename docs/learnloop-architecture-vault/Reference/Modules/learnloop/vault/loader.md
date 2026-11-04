@@ -1955,6 +1955,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_report_surfaces_the_abstention_rate`
 - [tests/test_mobile_host_coexistence.py](../../../../../../tests/test_mobile_host_coexistence.py) — direct import
   - `test_capture_host_coexists_without_primary_startup_work`
+- [tests/test_mobile_two_process.py](../../../../../../tests/test_mobile_two_process.py) — direct import
+  - `test_the_desktop_and_the_host_coexist_with_no_lost_writes`
 - [tests/test_model_grade_lane.py](../../../../../../tests/test_model_grade_lane.py) — direct import
   - `test_ai_graded_practice_takes_the_soft_score_lane_on_the_init_version`
   - `test_rebuild_moves_only_learning_objects_with_model_graded_attempts`

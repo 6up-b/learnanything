@@ -1,4 +1,4 @@
-"""Data capture's append-only records (migration 239). No policy here.
+"""Data capture's append-only records (migration 240). No policy here.
 
 Every writer runs on the caller's connection, inside its transaction, and a
 refused row rolls back alone (a savepoint) with a warning: a receipt never blocks

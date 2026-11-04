@@ -3,8 +3,8 @@ title: "policy_experiment_assignments"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "81c99679c019714fdc1fb448114532bc8568d453"
-source_commit_timestamp: "2026-11-03T15:06:14-05:00"
+source_commit: "d2de54b4e148637154ed1322a7241b74bba04bcf"
+source_commit_timestamp: "2026-11-03T15:00:46-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite policy_experiment_assignments"
@@ -20,7 +20,6 @@ source_paths:
   - "src/learnloop/db/table_roles.py"
   - "migrations/098_controller_randomization_and_outcomes.sql"
   - "src/learnloop/db/stores/router.py"
-  - "src/learnloop/ops/capture_report.py"
   - "src/learnloop/scheduling/controller_store.py"
 tags:
   - "learnloop/database/table"
@@ -92,7 +91,6 @@ None found by exact static reference scan.
 
 ### Direct SQL readers
 
-- `src/learnloop/ops/capture_report.py`
 - `src/learnloop/scheduling/controller_store.py`
 
 ### Direct SQL writers
@@ -108,7 +106,7 @@ None found by exact static reference scan.
 
 ## Tests that define behavior
 
-- `tests/test_randomization_layer.py`
+No table-specific test contains the table name or a detected repository method call. The schema/role invariants are still pinned by `tests/test_migrations.py` and `tests/test_table_roles.py`.
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

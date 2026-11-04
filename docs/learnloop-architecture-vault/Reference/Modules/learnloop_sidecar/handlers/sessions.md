@@ -7,8 +7,8 @@ version: "1.0.0"
 source_path: "src/learnloop_sidecar/handlers/sessions.py"
 source_paths:
   - "src/learnloop_sidecar/handlers/sessions.py"
-source_commit: "a500c7fab899f7060bd00510419477e514bb07c8"
-source_commit_timestamp: "2026-11-03T01:49:39-05:00"
+source_commit: "cdd578ba62529223b963e848b1ee6c8f98799ae9"
+source_commit_timestamp: "2026-11-03T12:14:06-05:00"
 source_worktree_state: "clean"
 generated: true
 generated_at: "2026-11-02"
@@ -50,71 +50,71 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop_sidecar/handlers/sessions.py](../../../../../../src/learnloop_sidecar/handlers/sessions.py) |
-| Source lines | 873 |
+| Source lines | 884 |
 | Owning package | [[Reference/Modules/learnloop_sidecar/handlers/_package|learnloop_sidecar.handlers]] |
 | Architecture layer | `adapter` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `a500c7fab899f7060bd00510419477e514bb07c8` |
-| Commit timestamp | `2026-11-03T01:49:39-05:00` |
+| Source commit | `cdd578ba62529223b963e848b1ee6c8f98799ae9` |
+| Commit timestamp | `2026-11-03T12:14:06-05:00` |
 
 ## Public API
 
 - `class SessionStartInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/sessions.py), line 22)
-- `class SessionIdInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/sessions.py), line 31)
-- `class AdoptSessionInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/sessions.py), line 35)
-- `class SessionCheckpointInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/sessions.py), line 41)
-- `start_session(ctx: SidecarContext, params: SessionStartInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/sessions.py), line 57)
-- `adopt_session(ctx: SidecarContext, params: AdoptSessionInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/sessions.py), line 87) — Move the open session to the request's device (§6.5), keeping its id, its checkpoint, its caps and its offer binding.
-- `get_start_summary(ctx: SidecarContext, _params: EmptyParams) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/sessions.py), line 116) — What Start shows before a session begins (daily-loop DL0).
-- `get_session(ctx: SidecarContext, params: SessionIdInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/sessions.py), line 139)
-- `update_session_checkpoint(ctx: SidecarContext, params: SessionCheckpointInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/sessions.py), line 148)
-- `clear_session_checkpoint(ctx: SidecarContext, params: SessionIdInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/sessions.py), line 155)
-- `end_session(ctx: SidecarContext, params: SessionIdInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/sessions.py), line 164)
-- `patch_checkpoint(repository, params: SessionCheckpointInput, *, device_id: str | None, plan_presentation_id: Any=_KEEP, self_grade_disclosure: Any=_KEEP, first_hint_progress: Any=_KEEP, hint_seen: Any=_KEEP, page_seen: Any=_KEEP, earlier_opened: Any=_KEEP) -> None` ([source](../../../../../../src/learnloop_sidecar/handlers/sessions.py), line 274) — Merge ``params`` into the session's checkpoint.
-- `ownership_error(error: SessionOwnershipError) -> SidecarError` ([source](../../../../../../src/learnloop_sidecar/handlers/sessions.py), line 379) — The sidecar's form of a refused session operation (mobile PR-4).
-- `owned_session_errors() -> Iterator[None]` ([source](../../../../../../src/learnloop_sidecar/handlers/sessions.py), line 394)
-- `require_owned_session(ctx: SidecarContext, repository, session_id: str, *, expected_generation: int | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/sessions.py), line 408) — The open session, if the request's device owns it (mobile PR-4, §6.5).
-- `draft_page_seen(practice: dict[str, Any] | None, submission_id: str | None) -> bool` ([source](../../../../../../src/learnloop_sidecar/handlers/sessions.py), line 559) — Reader CA1: whether a saved draft records the original page opened before Submit under ``submission_id``.
-- `draft_earlier_opened(checkpoint: dict[str, Any] | None, *, practice_item_id: str) -> bool` ([source](../../../../../../src/learnloop_sidecar/handlers/sessions.py), line 583) — Whether the session's saved draft on ``practice_item_id`` opened an earlier attempt's help under its current retry key (Codex review F1).
-- `draft_earlier_uncarried(checkpoint: dict[str, Any] | None, *, practice_item_id: str) -> bool` ([source](../../../../../../src/learnloop_sidecar/handlers/sessions.py), line 591) — Whether the draft's opening is not marked carried yet (opened, and :func:`carry_earlier_opened` has not recorded the first problem it moved onto).
-- `carry_earlier_opened(repository, session_id: str | None, *, practice_item_id: str, workbench_session_id: str) -> bool` ([source](../../../../../../src/learnloop_sidecar/handlers/sessions.py), line 601) — Codex re-review F1: the practice screen hands its draft to the steps, so the opening's one hint moves onto the unfinished workbench, where it lives as a carried answer-box hint (``workbench_sessions.carried_hints``, durable whatever the session's later drafts or sessions).
-- `draft_hint_seen(practice: dict[str, Any] | None, submission_id: str | None) -> bool` ([source](../../../../../../src/learnloop_sidecar/handlers/sessions.py), line 631) — Whether a saved draft records a hint seen under ``submission_id``.
-- `draft_first_hint_progress(practice: dict[str, Any] | None, submission_id: str | None) -> str | None` ([source](../../../../../../src/learnloop_sidecar/handlers/sessions.py), line 640) — The marker a saved draft holds for ``submission_id``, else None.
-- `draft_plan_presentation(checkpoint: dict[str, Any] | None, *, practice_item_id: str, submission_id: str | None) -> str | None` ([source](../../../../../../src/learnloop_sidecar/handlers/sessions.py), line 652) — The presentation a saved draft named, when ``submission_id`` is that draft's retry key on ``practice_item_id`` (router R2a, review F5), else None.
-- `with_self_grade_disclosure(focus: dict[str, Any] | None, disclosure: dict[str, Any] | None) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/sessions.py), line 706) — Store (or, with None, drop) the frozen self-grade trace in the practice envelope.
-- `draft_self_grade_disclosure(checkpoint: dict[str, Any] | None) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop_sidecar/handlers/sessions.py), line 731) — The trace a plain self-grade froze for the checkpoint's draft, or None.
-- `settle_self_grade_disclosure(repository, checkpoint: dict[str, Any] | None) -> None` ([source](../../../../../../src/learnloop_sidecar/handlers/sessions.py), line 769) — The draft a plain self-grade showed a full answer for is done with: debit the reveal ledger (``reveal_ledger.record_self_grade_disclosure_reveal``).
-- `clear_checkpoint(repository, session_id: str) -> bool` ([source](../../../../../../src/learnloop_sidecar/handlers/sessions.py), line 799) — Clear the session's checkpoint, settling a self-grade disclosure first.
+- `class SessionIdInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/sessions.py), line 34)
+- `class AdoptSessionInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/sessions.py), line 38)
+- `class SessionCheckpointInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/sessions.py), line 44)
+- `start_session(ctx: SidecarContext, params: SessionStartInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/sessions.py), line 60)
+- `adopt_session(ctx: SidecarContext, params: AdoptSessionInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/sessions.py), line 91) — Move the open session to the request's device (§6.5), keeping its id, its checkpoint, its caps and its offer binding.
+- `get_start_summary(ctx: SidecarContext, _params: EmptyParams) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/sessions.py), line 120) — What Start shows before a session begins (daily-loop DL0).
+- `get_session(ctx: SidecarContext, params: SessionIdInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/sessions.py), line 143)
+- `update_session_checkpoint(ctx: SidecarContext, params: SessionCheckpointInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/sessions.py), line 152)
+- `clear_session_checkpoint(ctx: SidecarContext, params: SessionIdInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/sessions.py), line 159)
+- `end_session(ctx: SidecarContext, params: SessionIdInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/sessions.py), line 168)
+- `patch_checkpoint(repository, params: SessionCheckpointInput, *, device_id: str | None, plan_presentation_id: Any=_KEEP, self_grade_disclosure: Any=_KEEP, first_hint_progress: Any=_KEEP, hint_seen: Any=_KEEP, page_seen: Any=_KEEP, earlier_opened: Any=_KEEP) -> None` ([source](../../../../../../src/learnloop_sidecar/handlers/sessions.py), line 278) — Merge ``params`` into the session's checkpoint.
+- `ownership_error(error: SessionOwnershipError) -> SidecarError` ([source](../../../../../../src/learnloop_sidecar/handlers/sessions.py), line 383) — The sidecar's form of a refused session operation (mobile PR-4).
+- `owned_session_errors() -> Iterator[None]` ([source](../../../../../../src/learnloop_sidecar/handlers/sessions.py), line 398)
+- `require_owned_session(ctx: SidecarContext, repository, session_id: str, *, expected_generation: int | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/sessions.py), line 412) — The open session, if the request's device owns it (mobile PR-4, §6.5).
+- `draft_page_seen(practice: dict[str, Any] | None, submission_id: str | None) -> bool` ([source](../../../../../../src/learnloop_sidecar/handlers/sessions.py), line 570) — Reader CA1: whether a saved draft records the original page opened before Submit under ``submission_id``.
+- `draft_earlier_opened(checkpoint: dict[str, Any] | None, *, practice_item_id: str) -> bool` ([source](../../../../../../src/learnloop_sidecar/handlers/sessions.py), line 594) — Whether the session's saved draft on ``practice_item_id`` opened an earlier attempt's help under its current retry key (Codex review F1).
+- `draft_earlier_uncarried(checkpoint: dict[str, Any] | None, *, practice_item_id: str) -> bool` ([source](../../../../../../src/learnloop_sidecar/handlers/sessions.py), line 602) — Whether the draft's opening is not marked carried yet (opened, and :func:`carry_earlier_opened` has not recorded the first problem it moved onto).
+- `carry_earlier_opened(repository, session_id: str | None, *, practice_item_id: str, workbench_session_id: str) -> bool` ([source](../../../../../../src/learnloop_sidecar/handlers/sessions.py), line 612) — Codex re-review F1: the practice screen hands its draft to the steps, so the opening's one hint moves onto the unfinished workbench, where it lives as a carried answer-box hint (``workbench_sessions.carried_hints``, durable whatever the session's later drafts or sessions).
+- `draft_hint_seen(practice: dict[str, Any] | None, submission_id: str | None) -> bool` ([source](../../../../../../src/learnloop_sidecar/handlers/sessions.py), line 642) — Whether a saved draft records a hint seen under ``submission_id``.
+- `draft_first_hint_progress(practice: dict[str, Any] | None, submission_id: str | None) -> str | None` ([source](../../../../../../src/learnloop_sidecar/handlers/sessions.py), line 651) — The marker a saved draft holds for ``submission_id``, else None.
+- `draft_plan_presentation(checkpoint: dict[str, Any] | None, *, practice_item_id: str, submission_id: str | None) -> str | None` ([source](../../../../../../src/learnloop_sidecar/handlers/sessions.py), line 663) — The presentation a saved draft named, when ``submission_id`` is that draft's retry key on ``practice_item_id`` (router R2a, review F5), else None.
+- `with_self_grade_disclosure(focus: dict[str, Any] | None, disclosure: dict[str, Any] | None) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/sessions.py), line 717) — Store (or, with None, drop) the frozen self-grade trace in the practice envelope.
+- `draft_self_grade_disclosure(checkpoint: dict[str, Any] | None) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop_sidecar/handlers/sessions.py), line 742) — The trace a plain self-grade froze for the checkpoint's draft, or None.
+- `settle_self_grade_disclosure(repository, checkpoint: dict[str, Any] | None) -> None` ([source](../../../../../../src/learnloop_sidecar/handlers/sessions.py), line 780) — The draft a plain self-grade showed a full answer for is done with: debit the reveal ledger (``reveal_ledger.record_self_grade_disclosure_reveal``).
+- `clear_checkpoint(repository, session_id: str) -> bool` ([source](../../../../../../src/learnloop_sidecar/handlers/sessions.py), line 810) — Clear the session's checkpoint, settling a self-grade disclosure first.
 
 ### Module constants
 
-- `_ASSISTED_ATTEMPT_TYPES` ([src/learnloop_sidecar/handlers/sessions.py](../../../../../../src/learnloop_sidecar/handlers/sessions.py), line 205)
-- `_KEEP` ([src/learnloop_sidecar/handlers/sessions.py](../../../../../../src/learnloop_sidecar/handlers/sessions.py), line 267)
-- `KEEP_MARKER` ([src/learnloop_sidecar/handlers/sessions.py](../../../../../../src/learnloop_sidecar/handlers/sessions.py), line 269)
-- `KEEP_HINT_SEEN` ([src/learnloop_sidecar/handlers/sessions.py](../../../../../../src/learnloop_sidecar/handlers/sessions.py), line 270)
-- `KEEP_EARLIER_OPENED` ([src/learnloop_sidecar/handlers/sessions.py](../../../../../../src/learnloop_sidecar/handlers/sessions.py), line 271)
-- `_SELF_GRADE_DISCLOSURE_KEY` ([src/learnloop_sidecar/handlers/sessions.py](../../../../../../src/learnloop_sidecar/handlers/sessions.py), line 703)
+- `_ASSISTED_ATTEMPT_TYPES` ([src/learnloop_sidecar/handlers/sessions.py](../../../../../../src/learnloop_sidecar/handlers/sessions.py), line 209)
+- `_KEEP` ([src/learnloop_sidecar/handlers/sessions.py](../../../../../../src/learnloop_sidecar/handlers/sessions.py), line 271)
+- `KEEP_MARKER` ([src/learnloop_sidecar/handlers/sessions.py](../../../../../../src/learnloop_sidecar/handlers/sessions.py), line 273)
+- `KEEP_HINT_SEEN` ([src/learnloop_sidecar/handlers/sessions.py](../../../../../../src/learnloop_sidecar/handlers/sessions.py), line 274)
+- `KEEP_EARLIER_OPENED` ([src/learnloop_sidecar/handlers/sessions.py](../../../../../../src/learnloop_sidecar/handlers/sessions.py), line 275)
+- `_SELF_GRADE_DISCLOSURE_KEY` ([src/learnloop_sidecar/handlers/sessions.py](../../../../../../src/learnloop_sidecar/handlers/sessions.py), line 714)
 
 ## Internal implementation anchors
 
-- `_session_topics(vault, repository, session_id: str, demonstrated_attempt_ids) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop_sidecar/handlers/sessions.py), line 208) — The topics the session practised, each with how it went, in the ○ ◌ ● vocabulary (``docs/specs/ux_learnloop_v1.md`` §7.5, session end): * ``on_your_own`` (●): one of the topic's OWN answers in the session earned certification credit (the session diff's ``demonstrated_attempt_ids…
-- `_patch_checkpoint_locked(repository, params: SessionCheckpointInput, *, plan_presentation_id: Any, self_grade_disclosure: Any, first_hint_progress: Any, hint_seen: Any, page_seen: Any, earlier_opened: Any) -> None` ([source](../../../../../../src/learnloop_sidecar/handlers/sessions.py), line 317)
-- `_require_owned(repository, session_id: str, device_id: str | None, *, expected_generation: int | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/sessions.py), line 401)
-- `_merged_value(existing: dict[str, Any], params: SessionCheckpointInput, fields: set[str], name: str)` ([source](../../../../../../src/learnloop_sidecar/handlers/sessions.py), line 428)
-- `_copy_mapping(value: dict[str, Any] | None) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop_sidecar/handlers/sessions.py), line 434)
-- `_with_hints_used(focus: dict[str, Any] | None, hints_used: int) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/sessions.py), line 438)
-- `_with_declared_stuck(focus: dict[str, Any] | None, declared_stuck: bool) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/sessions.py), line 450) — Store whether the draft is a stuck answer in the practice envelope.
-- `_with_plan_presentation_id(focus: dict[str, Any] | None, presentation_id: str | None) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/sessions.py), line 468) — Store the draft's daily-plan presentation in the practice envelope (router R2a; no schema change).
-- `_with_first_hint_progress(focus: dict[str, Any] | None, marker: str | None) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/sessions.py), line 484) — Adaptive difficulty AD1 (§11.2): keep the draft's first-hint progress marker in the practice envelope with the retry key it was set under (no schema change), so a restored draft keeps it and another draft never inherits it.
-- `_with_hint_seen(focus: dict[str, Any] | None, seen: Any) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/sessions.py), line 502) — Adaptive difficulty AD1 fix round 5 (V4): keep "a hint was seen on this draft" in the practice envelope with the retry key it was set under (no schema change), so a draft restored without a first-hint marker knows the first hint's timing is unknown.
-- `_with_keyed_flag(focus: dict[str, Any] | None, name: str, value: Any) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/sessions.py), line 520) — A flag kept in the practice envelope under the retry key it was set under (Reader CA1's ``pageSeen``, as ``hintSeen``); anything but True clears it.
-- `_with_earlier_opened(focus: dict[str, Any] | None, opened: Any) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/sessions.py), line 537) — Reader CA2 (K6, Q2; Codex review F1): *earlier on this question* was opened before Submit on this draft, kept in the practice envelope with the retry key it was opened under (no schema change), so the one hint-equivalent it costs survives a restart and a move into steps: the sub…
-- `_draft_earlier_marker(checkpoint: dict[str, Any] | None, practice_item_id: str) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop_sidecar/handlers/sessions.py), line 569)
-- `_with_submission_id(focus: dict[str, Any] | None, submission_id: str | None) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/sessions.py), line 670) — Store the current attempt's stable retry key in the practice envelope.
-- `_kept_disclosure(focus: dict[str, Any] | None, current_item: Any) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop_sidecar/handlers/sessions.py), line 720) — The envelope without a disclosure that no longer belongs to its draft (another item, or another retry key on the same item).
-- `_session_cold_checks(repository, session_id: str) -> dict[str, int]` ([source](../../../../../../src/learnloop_sidecar/handlers/sessions.py), line 806) — Repair cold checks this session spent, and how many of them passed.
-- `_session_followups_queued(repository, session_id: str) -> int` ([source](../../../../../../src/learnloop_sidecar/handlers/sessions.py), line 841)
+- `_session_topics(vault, repository, session_id: str, demonstrated_attempt_ids) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop_sidecar/handlers/sessions.py), line 212) — The topics the session practised, each with how it went, in the ○ ◌ ● vocabulary (``docs/specs/ux_learnloop_v1.md`` §7.5, session end): * ``on_your_own`` (●): one of the topic's OWN answers in the session earned certification credit (the session diff's ``demonstrated_attempt_ids…
+- `_patch_checkpoint_locked(repository, params: SessionCheckpointInput, *, plan_presentation_id: Any, self_grade_disclosure: Any, first_hint_progress: Any, hint_seen: Any, page_seen: Any, earlier_opened: Any) -> None` ([source](../../../../../../src/learnloop_sidecar/handlers/sessions.py), line 321)
+- `_require_owned(repository, session_id: str, device_id: str | None, *, expected_generation: int | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/sessions.py), line 405)
+- `_merged_value(existing: dict[str, Any], params: SessionCheckpointInput, fields: set[str], name: str)` ([source](../../../../../../src/learnloop_sidecar/handlers/sessions.py), line 439)
+- `_copy_mapping(value: dict[str, Any] | None) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop_sidecar/handlers/sessions.py), line 445)
+- `_with_hints_used(focus: dict[str, Any] | None, hints_used: int) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/sessions.py), line 449)
+- `_with_declared_stuck(focus: dict[str, Any] | None, declared_stuck: bool) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/sessions.py), line 461) — Store whether the draft is a stuck answer in the practice envelope.
+- `_with_plan_presentation_id(focus: dict[str, Any] | None, presentation_id: str | None) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/sessions.py), line 479) — Store the draft's daily-plan presentation in the practice envelope (router R2a; no schema change).
+- `_with_first_hint_progress(focus: dict[str, Any] | None, marker: str | None) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/sessions.py), line 495) — Adaptive difficulty AD1 (§11.2): keep the draft's first-hint progress marker in the practice envelope with the retry key it was set under (no schema change), so a restored draft keeps it and another draft never inherits it.
+- `_with_hint_seen(focus: dict[str, Any] | None, seen: Any) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/sessions.py), line 513) — Adaptive difficulty AD1 fix round 5 (V4): keep "a hint was seen on this draft" in the practice envelope with the retry key it was set under (no schema change), so a draft restored without a first-hint marker knows the first hint's timing is unknown.
+- `_with_keyed_flag(focus: dict[str, Any] | None, name: str, value: Any) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/sessions.py), line 531) — A flag kept in the practice envelope under the retry key it was set under (Reader CA1's ``pageSeen``, as ``hintSeen``); anything but True clears it.
+- `_with_earlier_opened(focus: dict[str, Any] | None, opened: Any) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/sessions.py), line 548) — Reader CA2 (K6, Q2; Codex review F1): *earlier on this question* was opened before Submit on this draft, kept in the practice envelope with the retry key it was opened under (no schema change), so the one hint-equivalent it costs survives a restart and a move into steps: the sub…
+- `_draft_earlier_marker(checkpoint: dict[str, Any] | None, practice_item_id: str) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop_sidecar/handlers/sessions.py), line 580)
+- `_with_submission_id(focus: dict[str, Any] | None, submission_id: str | None) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/sessions.py), line 681) — Store the current attempt's stable retry key in the practice envelope.
+- `_kept_disclosure(focus: dict[str, Any] | None, current_item: Any) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop_sidecar/handlers/sessions.py), line 731) — The envelope without a disclosure that no longer belongs to its draft (another item, or another retry key on the same item).
+- `_session_cold_checks(repository, session_id: str) -> dict[str, int]` ([source](../../../../../../src/learnloop_sidecar/handlers/sessions.py), line 817) — Repair cold checks this session spent, and how many of them passed.
+- `_session_followups_queued(repository, session_id: str) -> int` ([source](../../../../../../src/learnloop_sidecar/handlers/sessions.py), line 852)
 
 ## Who imports or calls it
 

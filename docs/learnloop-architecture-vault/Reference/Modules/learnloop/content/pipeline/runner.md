@@ -345,6 +345,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_an_index_obligation_that_cannot_be_queued_fails_the_extraction_retryably`
 - [tests/test_mobile_host_coexistence.py](../../../../../../../tests/test_mobile_host_coexistence.py) — direct import
   - `test_capture_host_coexists_without_primary_startup_work`
+- [tests/test_mobile_two_process.py](../../../../../../../tests/test_mobile_two_process.py) — direct import
+  - `test_the_desktop_and_the_host_coexist_with_no_lost_writes`
 - [tests/test_model_work_checkpoints.py](../../../../../../../tests/test_model_work_checkpoints.py) — direct import
   - `test_ingest_job_and_direct_inventory_key_windows_identically`
 - [tests/test_plan_first_transport.py](../../../../../../../tests/test_plan_first_transport.py) — direct import

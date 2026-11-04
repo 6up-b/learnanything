@@ -282,6 +282,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_method_explicit_landing.py](../../../../../../tests/test_method_explicit_landing.py) — direct import
   - `test_a_check_recorded_on_main_still_verifies_and_the_fresh_check_label_needs_a_change`
   - `test_check_me_keeps_the_sentence_whole_when_it_clips`
+- [tests/test_mobile_rpc.py](../../../../../../tests/test_mobile_rpc.py) — direct import
 - [tests/test_model_grade_lane.py](../../../../../../tests/test_model_grade_lane.py) — direct import
 - [tests/test_patch_applier.py](../../../../../../tests/test_patch_applier.py) — direct import
   - `test_reject_accepted_concept_create_blocks_when_referenced`

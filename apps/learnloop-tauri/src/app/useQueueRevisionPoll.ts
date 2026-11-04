@@ -26,51 +26,23 @@
 // the session never touches the App's session or the screen.
 //
 // session_moved: on a change, and when the window comes back, on every screen, the open
-// session is re-read until a read answers, and a session that left this desktop is noted here. The banner and the
-// adopt / start fresh prompts that act on it are M2's (§6.5); a write the desktop
-// makes meanwhile is refused by the sidecar with `session_moved`.
+// session is re-read until a read answers, and a session that left this desktop is noted
+// (`sessionMoved.ts`), which is what the banner reads (§6.5). A write the desktop makes
+// meanwhile is refused by the sidecar with `session_moved`, which notes it too.
+//
+// M2a settled whether a phone needs R2's hold widened: it does not (docs/reviews/mobile-m2a.md).
+// A phone's change reaches Today's list on the next tick there, and otherwise once, on the
+// return to it, with no rebuild per return; the move itself is seen on every screen.
 import { useEffect, useRef, useSyncExternalStore } from "react";
 import { api } from "../api/client";
 import type { SessionSnapshot } from "../api/dto";
 import { notifyQueueChanged } from "../queueEvents";
+import { sessionMovedFrom, setSessionMoved } from "./sessionMoved";
 
 /** How often the token is read. A `keep` bound: Today's existing poll, a cheap read, and what §6.5's handoff can feel. */
 export const REVISION_POLL_MS = 3000;
 
-export interface SessionMoved {
-  readonly sessionId: string;
-  /** `adopted`: another device holds it. `ended`: it ended elsewhere (a phone's start fresh). */
-  readonly reason: "adopted" | "ended";
-  readonly ownerLabel: string | null;
-  readonly ownerGeneration: number | null;
-}
-
-/** How a re-read session differs from the one this desktop has open; null when it is still ours. */
-export function sessionMovedFrom(snapshot: SessionSnapshot): SessionMoved | null {
-  const ownership = { ownerLabel: snapshot.ownerLabel ?? null, ownerGeneration: snapshot.ownerGeneration ?? null };
-  if (snapshot.ownerDeviceId) return { sessionId: snapshot.sessionId, reason: "adopted", ...ownership };
-  if (snapshot.endedAt) return { sessionId: snapshot.sessionId, reason: "ended", ...ownership };
-  return null;
-}
-
-let moved: SessionMoved | null = null;
-const movedListeners = new Set<() => void>();
-
-function setSessionMoved(next: SessionMoved | null): void {
-  if (moved === next || (moved !== null && next !== null && JSON.stringify(moved) === JSON.stringify(next))) return;
-  moved = next;
-  for (const listener of movedListeners) listener();
-}
-
-function subscribeSessionMoved(listener: () => void): () => void {
-  movedListeners.add(listener);
-  return () => movedListeners.delete(listener);
-}
-
-/** The open session's move, if the desktop has seen one. M2's banner reads this. */
-export function useSessionMoved(): SessionMoved | null {
-  return useSyncExternalStore(subscribeSessionMoved, () => moved);
-}
+export { sessionMovedFrom, useSessionMoved, type SessionMoved } from "./sessionMoved";
 
 /** What decides whether a refetch or a reload may run now (ruling R2). */
 export interface RevisionPollView {
@@ -100,11 +72,13 @@ export interface QueueRevisionPollOptions {
   readonly vaultRoot: string | null;
   /** The session this desktop has open. */
   readonly sessionId: string | null;
+  /** The snapshot it opened with: a session a phone holds at load is a move already. */
+  readonly openedSession?: SessionSnapshot | null;
   /** `revisionPollHeld`: no reload and no refetch now; both are paid when this lifts. */
   readonly quiet: boolean;
 }
 
-export function useQueueRevisionPoll({ vaultRoot, sessionId, quiet }: QueueRevisionPollOptions): void {
+export function useQueueRevisionPoll({ vaultRoot, sessionId, openedSession, quiet }: QueueRevisionPollOptions): void {
   const sessionIdRef = useRef(sessionId);
   sessionIdRef.current = sessionId;
   const quietRef = useRef(quiet);
@@ -114,7 +88,9 @@ export function useQueueRevisionPoll({ vaultRoot, sessionId, quiet }: QueueRevis
 
   useEffect(() => {
     // A move belongs to the session it was seen on.
-    setSessionMoved(null);
+    setSessionMoved(openedSession?.sessionId === sessionId && openedSession ? sessionMovedFrom(openedSession) : null);
+    // Keyed on the id: a later snapshot of the same session is the poll's to read.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sessionId, vaultRoot]);
 
   useEffect(() => {

@@ -3,8 +3,8 @@ title: "router_decision_payloads"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "81c99679c019714fdc1fb448114532bc8568d453"
-source_commit_timestamp: "2026-11-03T15:06:14-05:00"
+source_commit: "d2de54b4e148637154ed1322a7241b74bba04bcf"
+source_commit_timestamp: "2026-11-03T15:00:46-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite router_decision_payloads"
@@ -105,7 +105,6 @@ None found by exact static reference scan.
 ## Tests that define behavior
 
 - `tests/router_mixture_helpers.py`
-- `tests/test_data_capture_a5_not_ready_floor.py`
 - `tests/test_mvp023_upgrade.py`
 - `tests/test_router_card.py`
 - `tests/test_router_r2a_serving.py`

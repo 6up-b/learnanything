@@ -3,8 +3,8 @@ title: "session_checkpoints"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "81c99679c019714fdc1fb448114532bc8568d453"
-source_commit_timestamp: "2026-11-03T15:06:14-05:00"
+source_commit: "d2de54b4e148637154ed1322a7241b74bba04bcf"
+source_commit_timestamp: "2026-11-03T15:00:46-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite session_checkpoints"
@@ -129,6 +129,8 @@ Indexes and uniqueness:
 - `tests/test_e2e_codex_mock.py`
 - `tests/test_host_queue_revision.py`
 - `tests/test_item_authoring.py`
+- `tests/test_mobile_handoff.py`
+- `tests/test_mobile_jobs.py`
 - `tests/test_owner_capture_1025.py`
 - `tests/test_placement_sidecar.py`
 - `tests/test_repositories.py`

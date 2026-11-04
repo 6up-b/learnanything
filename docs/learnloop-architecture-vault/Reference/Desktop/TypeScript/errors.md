@@ -90,6 +90,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 - [[Reference/Desktop/TypeScript/app/App|src/app/App.tsx]] — import-or-re-export: `ErrorReport`, `NoticeRetry`, `RETRY_RAN`, `errorMessage`, `getCommandError`; references `ErrorReport`, `NoticeRetry`, `RETRY_RAN`, `errorMessage`, `getCommandError`
 - [[Reference/Desktop/TypeScript/app/ScreenErrorBoundary|src/app/ScreenErrorBoundary.tsx]] — import-or-re-export: `errorMessage`; references `errorMessage`
 - [[Reference/Desktop/TypeScript/app/notices|src/app/notices.ts]] — import-or-re-export: `MessageKind`, `NoticeRetry`, `errorMessage`, `getCommandError`, `retryRan`; references `MessageKind`, `NoticeRetry`, `errorMessage`, `getCommandError`, `retryRan`
+- [[Reference/Desktop/TypeScript/app/sessionHandoff|src/app/sessionHandoff.ts]] — import-or-re-export: `getCommandError`; references `getCommandError`
 - [[Reference/Desktop/TypeScript/app/useCloseWithFlush|src/app/useCloseWithFlush.ts]] — import-or-re-export: `errorMessage`; references `errorMessage`
 - [[Reference/Desktop/TypeScript/components/AdjudicationOverlay|src/components/AdjudicationOverlay.tsx]] — import-or-re-export: `errorMessage`; references `errorMessage`
 - [[Reference/Desktop/TypeScript/components/AsPrinted|src/components/AsPrinted.tsx]] — import-or-re-export: `errorMessage`; references `errorMessage`

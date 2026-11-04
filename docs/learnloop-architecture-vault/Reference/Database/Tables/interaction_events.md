@@ -3,8 +3,8 @@ title: "interaction_events"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "81c99679c019714fdc1fb448114532bc8568d453"
-source_commit_timestamp: "2026-11-03T15:06:14-05:00"
+source_commit: "d2de54b4e148637154ed1322a7241b74bba04bcf"
+source_commit_timestamp: "2026-11-03T15:00:46-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite interaction_events"
@@ -138,7 +138,6 @@ Indexes and uniqueness:
 - `src/learnloop/ops/pf_reports.py`
 - `src/learnloop/reader/reader_report.py`
 - `src/learnloop/reader/reader_sessions.py`
-- `src/learnloop/router/first_delayed_success.py`
 - `src/learnloop/scheduling/action_loss.py`
 - `src/learnloop/workbench/ladder.py`
 
@@ -179,7 +178,6 @@ Indexes and uniqueness:
 - `tests/test_ad_protected_readings.py`
 - `tests/test_compare_keep_switch_off.py`
 - `tests/test_compare_sources_keep.py`
-- `tests/test_data_capture_a3_time_metric.py`
 - `tests/test_exam_protection.py`
 - `tests/test_figures_rpc.py`
 - `tests/test_grading_cli.py`
@@ -190,6 +188,7 @@ Indexes and uniqueness:
 - `tests/test_reader_branches.py`
 - `tests/test_reader_ca5_also_in_books.py`
 - `tests/test_reader_ca6_side_by_side.py`
+- `tests/test_reader_capture.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

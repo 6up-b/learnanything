@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 import tomllib
 from datetime import datetime, timedelta
 from pathlib import Path
@@ -13,13 +14,16 @@ from .errors import CaptureError
 
 # Only route templates, never arbitrary URLs, queries, tokens or request bodies.
 _LOG_ENDPOINTS = frozenset({"/pair", "/api/v1/capture", "/rpc"})
+# ...and an allowlisted method's name (spec §4.6), which the host has checked by then:
+# the M2 report reads a submit's status from it (the share returning 202).
+_RPC_METHOD = re.compile(r"rpc:[a-z_.]+")
 
 
 def log_request(
     repo: Repository, *, endpoint: str, status: int, duration_ms: float,
     device_id: str | None = None, now: datetime | None = None,
 ) -> None:
-    if endpoint not in _LOG_ENDPOINTS:
+    if endpoint not in _LOG_ENDPOINTS and not _RPC_METHOD.fullmatch(endpoint):
         return  # Polls are deliberately not logged.
     if not 100 <= status <= 599 or duration_ms < 0:
         raise CaptureError("validation_error", 422, "Invalid request log metadata")

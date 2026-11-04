@@ -3,8 +3,8 @@ title: "source_exposure_events"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "81c99679c019714fdc1fb448114532bc8568d453"
-source_commit_timestamp: "2026-11-03T15:06:14-05:00"
+source_commit: "d2de54b4e148637154ed1322a7241b74bba04bcf"
+source_commit_timestamp: "2026-11-03T15:00:46-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite source_exposure_events"
@@ -23,10 +23,10 @@ source_paths:
   - "src/learnloop/adaptive_difficulty/material_view.py"
   - "src/learnloop/adaptive_difficulty/protected_tables.py"
   - "src/learnloop/adaptive_difficulty/reading.py"
-  - "src/learnloop/adaptive_difficulty/report.py"
   - "src/learnloop/attempts/coldness_receipt.py"
   - "src/learnloop/attempts/salience_firewall.py"
   - "src/learnloop/content/sources/source_outcome_analytics.py"
+  - "src/learnloop/db/repositories.py"
   - "src/learnloop/content/sources/source_deletion.py"
   - "src/learnloop/diagnosis/remediation.py"
   - "src/learnloop/instructional/interventions.py"
@@ -102,7 +102,6 @@ Indexes and uniqueness:
 - `src/learnloop/db/repositories.py`
 - `src/learnloop/db/stores/source_service.py`
 - `src/learnloop/instructional/exposure.py`
-- `src/learnloop/router/first_delayed_success.py`
 - `src/learnloop/router/outcomes.py`
 - `src/learnloop/source_retrieval/reader_tutor.py`
 - `src/learnloop/substrate/intervention_outcomes.py`
@@ -133,10 +132,6 @@ Indexes and uniqueness:
 - `tests/test_ad3_reading.py`
 - `tests/test_ad_protected_readings.py`
 - `tests/test_coldness_receipt.py`
-- `tests/test_data_capture_a3_time_metric.py`
-- `tests/test_data_capture_a4_delayed_completion.py`
-- `tests/test_data_capture_codex_rereview.py`
-- `tests/test_data_capture_codex_review.py`
 - `tests/test_exam_protection.py`
 - `tests/test_exam_protection_review.py`
 - `tests/test_library_ask.py`
@@ -148,6 +143,10 @@ Indexes and uniqueness:
 - `tests/test_reader_ca1_as_printed.py`
 - `tests/test_reader_ca3_landing_ca5a.py`
 - `tests/test_reader_ca5a_find_section.py`
+- `tests/test_reader_ca6_side_by_side.py`
+- `tests/test_reader_restoration.py`
+- `tests/test_reader_tutor_offers.py`
+- `tests/test_reader_tutor_retrieval.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

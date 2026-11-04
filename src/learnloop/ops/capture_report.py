@@ -39,7 +39,7 @@ def prefilter_section(connection: sqlite3.Connection) -> dict[str, Any]:
     """A1: receipts by decision kind against the decisions they cover, and what they cost."""
 
     if not store.receipts_present(connection):
-        return {"available": False, "reason": "this database predates migration 239"}
+        return {"available": False, "reason": "this database predates migration 240"}
     decisions = Counter(str(row[0]) for row in connection.execute("SELECT decision_kind FROM router_decisions"))
     receipts = [dict(row) for row in connection.execute(
         "SELECT decision_kind, surface, session_present, scheduler_trace, considered_count, admitted_count, refused_count, "
@@ -92,7 +92,7 @@ def measurement_section(connection: sqlite3.Connection) -> dict[str, Any]:
     """A2: objectives by arm, and each arm's measurement states (censoring by treatment, visible)."""
 
     if not store.objectives_present(connection):
-        return {"available": False, "reason": "this database predates migration 239"}
+        return {"available": False, "reason": "this database predates migration 240"}
     from learnloop.router.outcomes import measurement_state
 
     objectives = store.objectives(connection)

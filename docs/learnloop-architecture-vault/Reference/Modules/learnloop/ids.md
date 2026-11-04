@@ -93,6 +93,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop/bootstrap|learnloop.bootstrap]] — imports `kebab_case`; statically calls `kebab_case`
 - [[Reference/Modules/learnloop/capture/devices|learnloop.capture.devices]] — imports `new_ulid`; statically calls `new_ulid`
 - [[Reference/Modules/learnloop/capture/inbox|learnloop.capture.inbox]] — imports `new_ulid`; statically calls `new_ulid`
+- [[Reference/Modules/learnloop/capture/jobs|learnloop.capture.jobs]] — imports `new_ulid`; statically calls `new_ulid`
 - [[Reference/Modules/learnloop/capture/routing|learnloop.capture.routing]] — imports `new_ulid`; statically calls `new_ulid`
 - [[Reference/Modules/learnloop/cli/ai_compare|learnloop.cli.ai_compare]] — imports `new_ulid`; statically calls `new_ulid`
 - [[Reference/Modules/learnloop/cli/diagnose|learnloop.cli.diagnose]] — imports `new_ulid`; statically calls `new_ulid`
@@ -256,7 +257,7 @@ Use this module in context through:
 - [[Initialize a Vault]]
 - [[Start a Learning Cycle]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/attempts/attempts|learnloop.attempts.attempts]], [[Reference/Modules/learnloop/attempts/calibration_streams|learnloop.attempts.calibration_streams]], [[Reference/Modules/learnloop/attempts/clarification|learnloop.attempts.clarification]], [[Reference/Modules/learnloop/attempts/grade_resolution|learnloop.attempts.grade_resolution]], [[Reference/Modules/learnloop/attempts/measurement_corrections|learnloop.attempts.measurement_corrections]] and 148 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/attempts/attempts|learnloop.attempts.attempts]], [[Reference/Modules/learnloop/attempts/calibration_streams|learnloop.attempts.calibration_streams]], [[Reference/Modules/learnloop/attempts/clarification|learnloop.attempts.clarification]], [[Reference/Modules/learnloop/attempts/grade_resolution|learnloop.attempts.grade_resolution]], [[Reference/Modules/learnloop/attempts/measurement_corrections|learnloop.attempts.measurement_corrections]] and 149 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
@@ -319,6 +320,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_mobile_capture.py](../../../../../tests/test_mobile_capture.py) — direct import
 - [tests/test_mobile_host_auth.py](../../../../../tests/test_mobile_host_auth.py) — direct import
   - `test_offline_backlog_flushes_without_per_device_throttle`
+- [tests/test_mobile_jobs.py](../../../../../tests/test_mobile_jobs.py) — direct import
+  - `test_a_job_of_this_run_is_never_recovered_by_itself`
 - [tests/test_model_grade_lane.py](../../../../../tests/test_model_grade_lane.py) — direct import
 - [tests/test_notes_linked.py](../../../../../tests/test_notes_linked.py) — direct import
   - `test_r6_review_f2_a_clock_correction_and_restart_never_blocks_later_refreshes`

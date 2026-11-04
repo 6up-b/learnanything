@@ -7,8 +7,8 @@ version: "1.0.0"
 source_path: "src/learnloop_sidecar/serving.py"
 source_paths:
   - "src/learnloop_sidecar/serving.py"
-source_commit: "b0684f8a4f9f019f78175c3220afc7643d6556a2"
-source_commit_timestamp: "2026-11-03T02:23:35-05:00"
+source_commit: "01fa9698ae962d7b0977b90915e12e269c3b8db5"
+source_commit_timestamp: "2026-11-03T12:40:09-05:00"
 source_worktree_state: "clean"
 generated: true
 generated_at: "2026-11-02"
@@ -53,23 +53,23 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop_sidecar/serving.py](../../../../../src/learnloop_sidecar/serving.py) |
-| Source lines | 141 |
+| Source lines | 148 |
 | Owning package | [[Reference/Modules/learnloop_sidecar/_package|learnloop_sidecar]] |
 | Architecture layer | `adapter` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `b0684f8a4f9f019f78175c3220afc7643d6556a2` |
-| Commit timestamp | `2026-11-03T02:23:35-05:00` |
+| Source commit | `01fa9698ae962d7b0977b90915e12e269c3b8db5` |
+| Commit timestamp | `2026-11-03T12:40:09-05:00` |
 
 ## Public API
 
 - `device_policy(vault: Any) -> str` ([source](../../../../../src/learnloop_sidecar/serving.py), line 59) — The rules a phone request is served under, for the router's inputs.
 - `origin_ineligibility(origin: RequestOrigin | None, vault: Any, item: Any) -> str | None` ([source](../../../../../src/learnloop_sidecar/serving.py), line 65) — Why the request's device cannot answer ``item``; never asked for the desktop.
-- `device_filter(origin: RequestOrigin | None, vault: Any) -> DeviceFilter | None` ([source](../../../../../src/learnloop_sidecar/serving.py), line 73) — What a queue build holds back for the request's device (§6.4, D6).
-- `refuse_device_ineligible_item(origin: RequestOrigin | None, vault: Any, item: Any) -> None` ([source](../../../../../src/learnloop_sidecar/serving.py), line 82) — A by-id door (§6.4): a stale list, a deep link or a restored session cannot bring the phone an item it cannot show.
-- `refuse_inactive_learning_object(vault: LoadedVault, learning_object_id: str | None) -> None` ([source](../../../../../src/learnloop_sidecar/serving.py), line 95)
-- `refuse_unservable_item(vault: LoadedVault, item: PracticeItem) -> None` ([source](../../../../../src/learnloop_sidecar/serving.py), line 117) — The item-level door: its LO's refusal, then the adoption kill switch.
-- `refuse_held_out_item(vault: LoadedVault, repository: Any, item: PracticeItem) -> None` ([source](../../../../../src/learnloop_sidecar/serving.py), line 131) — A session serve of an item made from held-out material is refused.
+- `device_filter(origin: RequestOrigin | None, vault: Any, repository: Any=None, session_id: str | None=None) -> DeviceFilter | None` ([source](../../../../../src/learnloop_sidecar/serving.py), line 73) — What a queue build holds back for the request's device (§6.4, D6).
+- `refuse_device_ineligible_item(origin: RequestOrigin | None, vault: Any, item: Any) -> None` ([source](../../../../../src/learnloop_sidecar/serving.py), line 89) — A by-id door (§6.4): a stale list, a deep link or a restored session cannot bring the phone an item it cannot show.
+- `refuse_inactive_learning_object(vault: LoadedVault, learning_object_id: str | None) -> None` ([source](../../../../../src/learnloop_sidecar/serving.py), line 102)
+- `refuse_unservable_item(vault: LoadedVault, item: PracticeItem) -> None` ([source](../../../../../src/learnloop_sidecar/serving.py), line 124) — The item-level door: its LO's refusal, then the adoption kill switch.
+- `refuse_held_out_item(vault: LoadedVault, repository: Any, item: PracticeItem) -> None` ([source](../../../../../src/learnloop_sidecar/serving.py), line 138) — A session serve of an item made from held-out material is refused.
 
 ### Module constants
 
@@ -126,6 +126,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 No test imports this module directly. These tests exercise a direct production consumer:
 
+- [tests/mobile_host_helpers.py](../../../../../tests/mobile_host_helpers.py) — imports consumer [[Reference/Modules/learnloop_sidecar/handlers/practice|learnloop_sidecar.handlers.practice]]
 - [tests/rw2b_fix10_base_sequence.py](../../../../../tests/rw2b_fix10_base_sequence.py) — imports consumer [[Reference/Modules/learnloop_sidecar/handlers/practice|learnloop_sidecar.handlers.practice]]
 - [tests/rw2b_fix11_base_sequence.py](../../../../../tests/rw2b_fix11_base_sequence.py) — imports consumer [[Reference/Modules/learnloop_sidecar/handlers/practice|learnloop_sidecar.handlers.practice]]
 - [tests/test_approach_maps.py](../../../../../tests/test_approach_maps.py) — imports consumer [[Reference/Modules/learnloop_sidecar/handlers/practice|learnloop_sidecar.handlers.practice]]
@@ -137,7 +138,6 @@ No test imports this module directly. These tests exercise a direct production c
 - [tests/test_hint_h2a_review_round3.py](../../../../../tests/test_hint_h2a_review_round3.py) — imports consumer [[Reference/Modules/learnloop_sidecar/handlers/practice|learnloop_sidecar.handlers.practice]]
 - [tests/test_hint_h2b_fix3.py](../../../../../tests/test_hint_h2b_fix3.py) — imports consumer [[Reference/Modules/learnloop_sidecar/handlers/practice|learnloop_sidecar.handlers.practice]]
 - [tests/test_hint_h2b_fix4.py](../../../../../tests/test_hint_h2b_fix4.py) — imports consumer [[Reference/Modules/learnloop_sidecar/handlers/practice|learnloop_sidecar.handlers.practice]]
-- [tests/test_hint_h2b_review.py](../../../../../tests/test_hint_h2b_review.py) — imports consumer [[Reference/Modules/learnloop_sidecar/handlers/practice|learnloop_sidecar.handlers.practice]]
 
 ## Modification guidance
 

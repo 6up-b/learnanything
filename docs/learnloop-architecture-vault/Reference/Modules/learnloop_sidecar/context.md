@@ -349,6 +349,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_decider_landing.py](../../../../../tests/test_decider_landing.py) — direct import
 - [tests/test_device_eligibility.py](../../../../../tests/test_device_eligibility.py) — direct import
   - `test_a_presentation_committed_on_the_phone_resumes_on_the_desktop`
+  - `test_what_the_phone_left_for_the_desktop_is_held_back_from_its_next_build`
 - [tests/test_diagnosis_async_router.py](../../../../../tests/test_diagnosis_async_router.py) — direct import
 - [tests/test_diagnosis_card.py](../../../../../tests/test_diagnosis_card.py) — direct import
 - [tests/test_dialogue_causal_join.py](../../../../../tests/test_dialogue_causal_join.py) — direct import
@@ -436,6 +437,13 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_f6_get_feedback_attaches_the_line_to_the_resolving_review_only`
 - [tests/test_mcp_runtime.py](../../../../../tests/test_mcp_runtime.py) — direct import
   - `test_a_second_process_serves_the_vault_beside_the_desktop_sidecar`
+- [tests/test_mobile_handoff.py](../../../../../tests/test_mobile_handoff.py) — direct import
+- [tests/test_mobile_jobs.py](../../../../../tests/test_mobile_jobs.py) — direct import
+  - `test_the_submission_endpoint_covers_a_desktops_submissions`
+- [tests/test_mobile_rpc.py](../../../../../tests/test_mobile_rpc.py) — direct import
+  - `test_the_desktops_offer_under_a_plan_is_still_full_list`
+- [tests/test_mobile_two_process.py](../../../../../tests/test_mobile_two_process.py) — direct import
+  - `test_the_desktop_and_the_host_coexist_with_no_lost_writes`
 - [tests/test_owner_capture_1025.py](../../../../../tests/test_owner_capture_1025.py) — direct import
 - [tests/test_placement_opening_probes.py](../../../../../tests/test_placement_opening_probes.py) — direct import
   - `test_an_in_progress_opening_episode_serves_no_probe_and_is_not_parked`

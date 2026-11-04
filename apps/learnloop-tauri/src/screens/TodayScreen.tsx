@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import { api } from "../api/client";
+import { startSessionOrAsk } from "../app/sessionHandoff";
 import { useCachedQuery } from "../api/useCachedQuery";
 import { TAG } from "../api/queryTags";
 import type {
@@ -673,7 +674,8 @@ export function TodayScreen({
       // Begin today's plan here, as Start's begin does: a session for the
       // plan's minutes, then its first step (usability round 2).
       const begun = await runPlan(async () => {
-        const started = await api.startSession({ availableMinutes: Math.round(budget) });
+        const started = await startSessionOrAsk({ availableMinutes: Math.round(budget) });
+        if (!started) return null;
         const first = await api.nextPlanItem({ sessionId: started.sessionId, serve: true });
         return { started, step: first.step ?? null };
       });

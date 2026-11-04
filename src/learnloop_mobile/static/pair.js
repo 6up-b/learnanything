@@ -21,6 +21,12 @@ document.getElementById("pair").addEventListener("submit", async (event) => {
     document.getElementById("token").value = result.token;
     document.getElementById("token-label").hidden = false;
     message.textContent = "Paired. Keep this token private; it is shown only once.";
+    if (result.scope === "app") {
+      // The app reads its token from this fragment, which never reaches a server or a log.
+      const fragment = new URLSearchParams({token: result.token, device: result.device_id});
+      document.getElementById("open-app-link").href = "/app/#" + fragment.toString();
+      document.getElementById("open-app").hidden = false;
+    }
   } catch (_) {
     message.textContent = "Pairing failed. Run pair again on the desktop.";
     button.disabled = false;

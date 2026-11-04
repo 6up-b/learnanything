@@ -379,6 +379,9 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_the_fallback_is_learner_initiated_and_switched_off_by_default`
   - `test_the_learner_pick_is_owed_durably_across_a_restart_and_acknowledged_only_after_delivery`
   - `test_with_the_sources_service_absent_the_view_is_absent`
+- [tests/test_mobile_handoff.py](../../../../../tests/test_mobile_handoff.py) — direct import
+  - `test_a_desktop_start_over_a_phone_session_asks_and_replace_is_its_answer`
+  - `test_writes_from_the_device_that_lost_it_are_session_moved`
 - [tests/test_notes_linked.py](../../../../../tests/test_notes_linked.py) — direct import
   - `test_a_learner_links_a_note_by_hand_from_the_reader`
   - `test_meaning_search_is_refused_while_embeddings_are_off`

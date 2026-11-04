@@ -3,8 +3,8 @@ title: "Config - followups"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "81c99679c019714fdc1fb448114532bc8568d453"
-source_commit_timestamp: "2026-11-03T15:06:14-05:00"
+source_commit: "d2de54b4e148637154ed1322a7241b74bba04bcf"
+source_commit_timestamp: "2026-11-03T15:00:46-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "learnloop.toml followups"
@@ -21,6 +21,7 @@ source_paths:
   - "src/learnloop/ai/plan_fallback.py"
   - "tests/codex_cli_fakes.py"
   - "tests/local_embeddings_fakes.py"
+  - "tests/mobile_host_helpers.py"
   - "tests/notes_fixtures.py"
   - "tests/pf_fakes.py"
   - "tests/practice_index_fakes.py"
@@ -30,7 +31,6 @@ source_paths:
   - "tests/test_ad23_contract.py"
   - "tests/test_ad23_successor.py"
   - "tests/test_ad2_model.py"
-  - "tests/test_ai_config.py"
 tags:
   - "learnloop/configuration/fields"
   - "learnloop/configuration/section/followups"
@@ -66,6 +66,7 @@ Every row cites the exact Pydantic field declaration (or typed dynamic-key conta
 
 - `tests/codex_cli_fakes.py`
 - `tests/local_embeddings_fakes.py`
+- `tests/mobile_host_helpers.py`
 - `tests/notes_fixtures.py`
 - `tests/pf_fakes.py`
 - `tests/practice_index_fakes.py`
@@ -75,7 +76,6 @@ Every row cites the exact Pydantic field declaration (or typed dynamic-key conta
 - `tests/test_ad23_contract.py`
 - `tests/test_ad23_successor.py`
 - `tests/test_ad2_model.py`
-- `tests/test_ai_config.py`
 
 ## Extension and modification guidance
 

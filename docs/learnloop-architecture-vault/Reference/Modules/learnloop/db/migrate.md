@@ -295,6 +295,10 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_source_unit_selections_migration_applies_on_pre_040_db`
   - `test_source_unit_selections_schema_is_available`
   - `test_variable_rubric_scale_migration_allows_scores_above_four`
+- [tests/test_mobile_jobs_migration.py](../../../../../../tests/test_mobile_jobs_migration.py) — direct import
+  - `test_239_is_the_head_and_the_table_is_classified`
+  - `test_a_database_at_238_gets_it_and_nothing_else_changes`
+  - `test_the_head_fixture_is_at_239_in_rollback_mode_with_an_empty_table`
 - [tests/test_model_call_receipt_owners.py](../../../../../../tests/test_model_call_receipt_owners.py) — direct import
   - `test_a_database_below_the_receipt_schema_lets_the_model_call_run_unrecorded`
 - [tests/test_persistence_open.py](../../../../../../tests/test_persistence_open.py) — direct import

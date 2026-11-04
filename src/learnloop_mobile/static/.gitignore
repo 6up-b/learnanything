@@ -1,0 +1,2 @@
+# The phone PWA build, served by the host at /app/ (apps/learnloop-mobile: npm run build).
+app/

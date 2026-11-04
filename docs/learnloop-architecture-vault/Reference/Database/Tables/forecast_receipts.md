@@ -3,8 +3,8 @@ title: "forecast_receipts"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "81c99679c019714fdc1fb448114532bc8568d453"
-source_commit_timestamp: "2026-11-03T15:06:14-05:00"
+source_commit: "d2de54b4e148637154ed1322a7241b74bba04bcf"
+source_commit_timestamp: "2026-11-03T15:00:46-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite forecast_receipts"
@@ -50,7 +50,7 @@ It belongs to the **goals and exams** navigation family. The family context live
 - **Role:** `receipt` — Historical audit/decision receipt. It is preserved and never rebuilt.
 - **Functionality status:** `active`.
 - **Introduced by:** `migrations/206_forecast_receipts.sql`.
-- **Schema touched by:** `206_forecast_receipts.sql`, `213_adaptive_difficulty_receipts.sql`, `214_adaptive_difficulty_serving.sql`, `239_data_capture.sql`.
+- **Schema touched by:** `206_forecast_receipts.sql`, `213_adaptive_difficulty_receipts.sql`, `214_adaptive_difficulty_serving.sql`.
 - **Rebuild owner:** none; this table is preserved by the rebuild umbrella.
 
 For the distinction between SQLite state and human-authored vault files, see [[State and Persistence]]. For whole-vault creation and opening behavior, see [[Vault Lifecycle]]. ^table-lifecycle

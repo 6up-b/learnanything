@@ -269,13 +269,25 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_r2_contract_no_workbench_or_reader_exercise_rpc_returns_a_held_out_statement`
 - [tests/test_lp_claim_fixes_review.py](../../../../../tests/test_lp_claim_fixes_review.py) — direct import
 - [tests/test_mobile_allowlist.py](../../../../../tests/test_mobile_allowlist.py) — direct import
-  - `test_all_registered_methods_are_denied`
   - `test_desktop_and_main_rpcs_are_registered_but_never_phone_allowed`
+  - `test_every_other_registered_method_is_denied`
   - `test_r2a_params_are_the_plan_presentation_on_the_three_answer_rpcs`
   - `test_rw2b_fix5_authored_hints_is_an_optional_param_of_the_two_submits`
+- [tests/test_mobile_handoff.py](../../../../../tests/test_mobile_handoff.py) — direct import
 - [tests/test_mobile_host_auth.py](../../../../../tests/test_mobile_host_auth.py) — direct import
   - `test_desktop_only_and_main_rpcs_are_http_denied_for_every_phone_scope`
-  - `test_every_registry_method_is_http_denied`
+  - `test_every_method_outside_the_m2_row_is_http_denied`
+- [tests/test_mobile_jobs.py](../../../../../tests/test_mobile_jobs.py) — direct import
+  - `test_the_submission_endpoint_covers_a_desktops_submissions`
+- [tests/test_mobile_rpc.py](../../../../../tests/test_mobile_rpc.py) — direct import
+  - `test_a_locked_database_is_503_retryable`
+  - `test_an_unknown_id_is_404_and_a_handler_crash_is_500_with_no_detail`
+  - `test_every_other_registered_method_answers_403`
+  - `test_no_allowlisted_model_declares_a_path_the_rule_misses`
+  - `test_the_allowlist_is_the_m2_row_and_every_name_is_a_registered_method`
+  - `test_the_desktops_offer_under_a_plan_is_still_full_list`
+- [tests/test_mobile_two_process.py](../../../../../tests/test_mobile_two_process.py) — direct import
+  - `test_the_desktop_and_the_host_coexist_with_no_lost_writes`
 - [tests/test_notes_linked.py](../../../../../tests/test_notes_linked.py) — direct import
   - `test_the_rpcs_are_registered_and_desktop_only`
 - [tests/test_owner_capture_1025.py](../../../../../tests/test_owner_capture_1025.py) — direct import

@@ -3,8 +3,19 @@ import pytest
 from learnloop_mobile.allowlist import ALLOWLIST, validate_envelope
 
 
-def test_m1_allowlist_is_empty_and_frozen():
-    assert not ALLOWLIST
+#: §4.5's M2 row. test_mobile_rpc.py holds what each entry may do; here, only that the
+#: "never phone-allowed" pins below cannot drift from it.
+M2_ALLOWED = frozenset({
+    "start_session", "adopt_session", "get_session", "end_session", "update_session_checkpoint",
+    "clear_session_checkpoint", "get_today_queue", "open_queue_item", "get_practice_item", "get_probe_contract",
+    "save_practice_draft", "submit_attempt", "submit_dont_know", "skip_practice_item",
+    "acknowledge_practice_submission", "get_feedback", "get_attempt", "get_grading_clarification",
+    "answer_grading_clarification", "diagnosis_status",
+})
+
+
+def test_the_allowlist_is_the_m2_row_and_frozen():
+    assert set(ALLOWLIST) == M2_ALLOWED
     with pytest.raises(TypeError):
         ALLOWLIST["run_cli_command"] = object()
 
@@ -19,12 +30,24 @@ def test_envelope_rejects_batches_unknown_fields_and_bad_types(value):
         validate_envelope(value)
 
 
-def test_all_registered_methods_are_denied():
+def test_every_other_registered_method_is_denied():
     from learnloop_sidecar import handlers  # noqa: F401 — populates the registry
     from learnloop_sidecar.registry import METHOD_REGISTRY
     assert METHOD_REGISTRY
     for method in METHOD_REGISTRY:
-        assert validate_envelope({"method": method, "params": {}})["method"] not in ALLOWLIST
+        name = validate_envelope({"method": method, "params": {}})["method"]
+        assert (name in ALLOWLIST) == (name in M2_ALLOWED), name
+
+
+def test_the_clients_retry_policy_is_the_allowlists():
+    """§6.2: the PWA retries on its own only what the allowlist marks retry-safe."""
+    import json
+    from pathlib import Path
+
+    policy = Path(__file__).resolve().parents[1] / "apps" / "learnloop-mobile" / "src" / "api" / "retryPolicy.json"
+    assert set(json.loads(policy.read_text(encoding="utf-8"))["retrySafe"]) == {
+        name for name, entry in ALLOWLIST.items() if entry.retry_safe
+    }
 
 
 # Desktop-only capture RPCs (mobile M1) and the sidecar RPCs main gained before
@@ -87,9 +110,10 @@ STUCK_PROMPT_RPCS = (
 )
 
 
-# Daily-loop DL1 (mvp-0.14): the finite plan. Mobile M2a will show the plan
-# through allowlisted plan RPCs; until then they are desktop-only, pinned by
-# name. DL1 also extends get_today_queue (no re-entry cap while the plan
+# Daily-loop DL1 (mvp-0.14): the finite plan. Desktop-only, pinned by name.
+# Mobile M2a settled it (docs/reviews/mobile-m2a.md, 2026-11-03): the phone shows the
+# allowlisted queue, because §4.5 lists no plan RPC and the plan's stored record is
+# shared between devices. DL1 also extends get_today_queue (no re-entry cap while the plan
 # serves) and reader.mark_section_progress (the reading block's progress),
 # pinned here too.
 DAILY_PLAN_RPCS = (
@@ -867,4 +891,4 @@ def test_desktop_and_main_rpcs_are_registered_but_never_phone_allowed(method):
     from learnloop_sidecar import handlers  # noqa: F401 — populates the registry
     from learnloop_sidecar.registry import METHOD_REGISTRY
     assert method in METHOD_REGISTRY
-    assert method not in ALLOWLIST
+    assert (method in ALLOWLIST) == (method in M2_ALLOWED)

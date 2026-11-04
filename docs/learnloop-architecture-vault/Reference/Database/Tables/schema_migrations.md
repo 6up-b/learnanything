@@ -3,8 +3,8 @@ title: "schema_migrations"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "81c99679c019714fdc1fb448114532bc8568d453"
-source_commit_timestamp: "2026-11-03T15:06:14-05:00"
+source_commit: "d2de54b4e148637154ed1322a7241b74bba04bcf"
+source_commit_timestamp: "2026-11-03T15:00:46-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite schema_migrations"
@@ -96,7 +96,6 @@ None found by exact static reference scan.
 - `tests/test_ad1_migration.py`
 - `tests/test_ad23_migration.py`
 - `tests/test_collection_dataset.py`
-- `tests/test_data_capture_migration.py`
 - `tests/test_diagnosis_input_provenance_landing.py`
 - `tests/test_doctor.py`
 - `tests/test_exam_protection_identity.py`
@@ -108,6 +107,7 @@ None found by exact static reference scan.
 - `tests/test_migrate_fresh.py`
 - `tests/test_migration_coordinator.py`
 - `tests/test_mobile_host_auth.py`
+- `tests/test_mobile_jobs_migration.py`
 - `tests/test_mvp021_upgrade.py`
 - `tests/test_persistence_open.py`
 - `tests/test_practice_index_adapters.py`

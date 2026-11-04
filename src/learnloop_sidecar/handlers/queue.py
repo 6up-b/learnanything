@@ -167,7 +167,7 @@ def get_today_queue(ctx: SidecarContext, params: QueueInput) -> dict[str, Any]:
     if reentry_cap is not None:
         limit = reentry_cap if limit is None else min(limit, reentry_cap)
     trace = offer_trace_for(vault, params.session_id)
-    held_for_device = device_filter(ctx.request_origin, vault)
+    held_for_device = device_filter(ctx.request_origin, vault, repository, params.session_id)
     queue = build_due_queue(
         vault,
         repository,
@@ -589,7 +589,9 @@ def publish_offer(
     decision = None
     if trace is not None and trace.slate_id is not None:
         try:
-            head_served = today_head_served(vault)
+            # M2a (open item 3): a phone has no plan. It shows this list and "Next" opens its
+            # head, so its head is served under any plan, and a bind to another row is a pick.
+            head_served = ctx.request_origin is not None or today_head_served(vault)
             head_rule = _OfferHeadRule(
                 vault, limit=trace.limit, removed_ids=removed_ids, now=now, states=states,
                 teach_back_ready=teach_back_ready,

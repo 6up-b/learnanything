@@ -65,7 +65,7 @@ def pair(config: ConfigOption = None, label: str = "Phone", scope: str = "captur
     except CaptureError as exc:
         typer.echo(exc.message, err=True)
         raise typer.Exit(1) from None
-    url = f"https://{settings.hostname}/pair#s={result['secret']}"
+    url = f"{settings.base_url}/pair#s={result['secret']}"
     qr = qrcode.QRCode()
     qr.add_data(url)
     qr.print_ascii(invert=True)
@@ -92,6 +92,17 @@ def inbox_list(config: ConfigOption = None, limit: int = 100, offset: int = 0):
     """List captures without starting any background processing."""
     from learnloop.capture import list_captures
     _print(list_captures(_repo(_config(config), read_only=True), limit=limit, offset=offset))
+
+
+@app.command()
+def report(config: ConfigOption = None):
+    """The M2 usage report (spec §9, §10), read-only, with no thresholds."""
+    from learnloop.capture import mobile_report
+    from learnloop.vault.loader import load_vault
+    settings = _config(config)
+    # The vault's files, for the suspected-figure list, which is report-only (§6.4).
+    prompts = {item.id: item.prompt for item in load_vault(settings.vault).practice_items.values()}
+    _print(mobile_report(_repo(settings, read_only=True), prompts=prompts))
 
 
 @app.command()

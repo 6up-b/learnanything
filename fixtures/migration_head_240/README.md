@@ -37,25 +37,23 @@ at S0's checkpoint (D6). Rebuilding the head for a new migration keeps the
 sanitized content: apply the migration to a backup-API copy of this fixture,
 as before.
 
-## Data capture (migration 239), `data/capture-a1-a6`, 2026-11-03
+## Data capture (migration 240), `data/capture-a1-a6`, 2026-11-03
 
-Renamed from `migration_head_238` (`docs/reviews/data-capture-a1-a6.md`). Rebuilt from
-the tracked, sanitized `migration_head_238/state.sqlite` (main `6cf7a91ba8`): a
-backup-API copy under `fixtures-local/` with only `239_data_capture.sql` applied
-through `learnloop.db.migrate.apply_migrations` under the scratch-copy allowance
-(`UPGRADE_SCRATCH_COPY`), then `wal_checkpoint(TRUNCATE)` (0, 0, 0),
-`journal_mode=DELETE` (header bytes 1/1), `integrity_check` ok and
-`foreign_key_check` empty, and copied into place with the backup API, with no
-companion files. The head holds 229 through 239.
+Renamed from `migration_head_239` (`docs/reviews/data-capture-a1-a6.md`, ruling R5). Rebuilt from the tracked, sanitized
+`migration_head_239/state.sqlite` (main `02f7cbec2d`): a backup-API copy outside the checkout with only
+`240_data_capture.sql` (five append-only receipt tables, empty) applied through `learnloop.db.migrate.apply_migrations` under the
+test suite's upgrade allowance, `wal_checkpoint(TRUNCATE)`, `journal_mode=DELETE` (header bytes 1/1), `integrity_check` ok and
+`foreign_key_check` empty, and copied into place with the backup API, with no companion files. The head holds 229 through 240.
 
-* 239 adds exactly its objects: `prefilter_payloads`, `prefilter_receipts`,
-  `decision_objectives`, `decision_measurement_events` and
-  `reading_exposure_receipts` (all RECEIPT), their
-  autoindexes and indexes and their append-only triggers, with no row.
+## Mobile M2a (migration 239), `mobile/m2a`, 2026-11-03
 
-No other object changed definition and only `schema_migrations` gained a row (239);
-every other table's rows are identical, so the sanitized content carries over (every
-companion file is byte-identical).
+Renamed from `migration_head_238` (`docs/reviews/mobile-m2a.md`). Rebuilt from the tracked, sanitized
+`migration_head_238/state.sqlite` (main `42aeeec9ec`): a backup-API copy under `fixtures-local/` with only
+`239_mobile_jobs.sql` (`mobile_jobs`, a workflow table, empty) applied through
+`learnloop.db.migrate.apply_migrations` under the scratch-copy allowance (`UPGRADE_SCRATCH_COPY`), then
+`wal_checkpoint(TRUNCATE)`, `journal_mode=DELETE` (header bytes 1/1), `integrity_check` ok and
+`foreign_key_check` empty, and copied into place with the backup API, with no companion files. The head
+holds 229 through 239. The data-capture stage renumbers to 240 at its own landing.
 
 ## Reader RW5c P1 (migration 238), `reader/rw5c-p1`, 2026-11-02
 

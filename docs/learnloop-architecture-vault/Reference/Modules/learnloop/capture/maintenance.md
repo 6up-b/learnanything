@@ -7,8 +7,8 @@ version: "1.0.0"
 source_path: "src/learnloop/capture/maintenance.py"
 source_paths:
   - "src/learnloop/capture/maintenance.py"
-source_commit: "3fde02bfe8f284fbd1cf59c96d0659d9b00fb130"
-source_commit_timestamp: "2026-10-11T23:13:46-04:00"
+source_commit: "cdd578ba62529223b963e848b1ee6c8f98799ae9"
+source_commit_timestamp: "2026-11-03T12:14:06-05:00"
 source_worktree_state: "clean"
 generated: true
 generated_at: "2026-11-02"
@@ -50,23 +50,24 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/capture/maintenance.py](../../../../../../src/learnloop/capture/maintenance.py) |
-| Source lines | 56 |
+| Source lines | 60 |
 | Owning package | [[Reference/Modules/learnloop/capture/_package|learnloop.capture]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `3fde02bfe8f284fbd1cf59c96d0659d9b00fb130` |
-| Commit timestamp | `2026-10-11T23:13:46-04:00` |
+| Source commit | `cdd578ba62529223b963e848b1ee6c8f98799ae9` |
+| Commit timestamp | `2026-11-03T12:14:06-05:00` |
 
 ## Public API
 
-- `log_request(repo: Repository, *, endpoint: str, status: int, duration_ms: float, device_id: str | None=None, now: datetime | None=None) -> None` ([source](../../../../../../src/learnloop/capture/maintenance.py), line 18)
-- `prune_request_log(repo: Repository, *, now: datetime | None=None) -> int` ([source](../../../../../../src/learnloop/capture/maintenance.py), line 35)
-- `pinned_vault_info(config_path: Path, current_root: Path) -> dict` ([source](../../../../../../src/learnloop/capture/maintenance.py), line 41) — Read machine routing information without importing a host entry point.
+- `log_request(repo: Repository, *, endpoint: str, status: int, duration_ms: float, device_id: str | None=None, now: datetime | None=None) -> None` ([source](../../../../../../src/learnloop/capture/maintenance.py), line 22)
+- `prune_request_log(repo: Repository, *, now: datetime | None=None) -> int` ([source](../../../../../../src/learnloop/capture/maintenance.py), line 39)
+- `pinned_vault_info(config_path: Path, current_root: Path) -> dict` ([source](../../../../../../src/learnloop/capture/maintenance.py), line 45) — Read machine routing information without importing a host entry point.
 
 ### Module constants
 
-- `_LOG_ENDPOINTS` ([src/learnloop/capture/maintenance.py](../../../../../../src/learnloop/capture/maintenance.py), line 15)
+- `_LOG_ENDPOINTS` ([src/learnloop/capture/maintenance.py](../../../../../../src/learnloop/capture/maintenance.py), line 16)
+- `_RPC_METHOD` ([src/learnloop/capture/maintenance.py](../../../../../../src/learnloop/capture/maintenance.py), line 19)
 
 ## Internal implementation anchors
 
@@ -89,7 +90,7 @@ No private top-level function or class definition is declared in this file.
 
 ### Platform and third-party dependencies
 
-- Standard library: `__future__`, `datetime`, `pathlib`, `tomllib`
+- Standard library: `__future__`, `datetime`, `pathlib`, `re`, `tomllib`
 - Third party: none imported directly
 
 ## Larger workflow participation
@@ -107,12 +108,16 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 No test imports this module directly. These tests exercise a direct production consumer:
 
+- [tests/mobile_host_helpers.py](../../../../../../tests/mobile_host_helpers.py) — imports consumer [[Reference/Modules/learnloop/capture/__init__|learnloop.capture]]
 - [tests/test_capture_desktop.py](../../../../../../tests/test_capture_desktop.py) — imports consumer [[Reference/Modules/learnloop/capture/__init__|learnloop.capture]]
 - [tests/test_capture_domain.py](../../../../../../tests/test_capture_domain.py) — imports consumer [[Reference/Modules/learnloop/capture/__init__|learnloop.capture]]
 - [tests/test_capture_originals_race.py](../../../../../../tests/test_capture_originals_race.py) — imports consumer [[Reference/Modules/learnloop/capture/__init__|learnloop.capture]]
 - [tests/test_capture_route_recovery.py](../../../../../../tests/test_capture_route_recovery.py) — imports consumer [[Reference/Modules/learnloop/capture/__init__|learnloop.capture]]
+- [tests/test_mobile_handoff.py](../../../../../../tests/test_mobile_handoff.py) — imports consumer [[Reference/Modules/learnloop/capture/__init__|learnloop.capture]]
 - [tests/test_mobile_host_auth.py](../../../../../../tests/test_mobile_host_auth.py) — imports consumer [[Reference/Modules/learnloop/capture/__init__|learnloop.capture]]
 - [tests/test_mobile_host_coexistence.py](../../../../../../tests/test_mobile_host_coexistence.py) — imports consumer [[Reference/Modules/learnloop/capture/__init__|learnloop.capture]]
+- [tests/test_mobile_https.py](../../../../../../tests/test_mobile_https.py) — imports consumer [[Reference/Modules/learnloop/capture/__init__|learnloop.capture]]
+- [tests/test_mobile_jobs.py](../../../../../../tests/test_mobile_jobs.py) — imports consumer [[Reference/Modules/learnloop/capture/__init__|learnloop.capture]]
 - [tests/test_mobile_pairing.py](../../../../../../tests/test_mobile_pairing.py) — imports consumer [[Reference/Modules/learnloop/capture/__init__|learnloop.capture]]
 - [tests/test_reader_ca1_as_printed.py](../../../../../../tests/test_reader_ca1_as_printed.py) — imports consumer [[Reference/Modules/learnloop/capture/__init__|learnloop.capture]]
 

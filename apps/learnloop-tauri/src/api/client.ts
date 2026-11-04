@@ -2,6 +2,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { invalidate, invalidateAll, setQueryData, type QueryTag } from "./queryCache";
 import { READER_PREFIX, TAG } from "./queryTags";
 import { noteFallbackOffer } from "../app/planFallback";
+import { noteSessionMovedError } from "../app/sessionMoved";
 import type {
   NoteSearchDto,
   NoteLinkDto,
@@ -406,6 +407,8 @@ async function call<T>(command: string, args: Record<string, unknown> = {}): Pro
     // Plan-first transport T1: an unavailable ChatGPT-plan route may offer
     // OpenRouter; the shell banner asks (nothing is sent until chosen).
     noteFallbackOffer(normalized);
+    // Mobile M2a (§6.5): a write this desktop no longer owns; the banner says where it went.
+    noteSessionMovedError(normalized);
     throw normalized;
   }
   noteFallbackOffer(result);
@@ -558,6 +561,9 @@ export const api = {
   // remembered minutes and the streak's "today" state refresh once a session begins.
   getStartSummary: () => call<StartSummaryDto>("get_start_summary"),
   getSession: (sessionId: string) => call<SessionSnapshot>("get_session", { sessionId }),
+  // Mobile M2a (§6.5): take a session a phone holds, or give it back. Its checkpoint and id carry over.
+  adoptSession: (input: { sessionId: string; expectedGeneration: number }) =>
+    mutating([TAG.queue], call<Record<string, unknown>>("adopt_session", { input })),
   clearSessionCheckpoint: (sessionId: string) => call<{ cleared: boolean }>("clear_session_checkpoint", { sessionId }),
   endSession: (sessionId: string) => mutating([TAG.queue], call<SessionEndSummary>("end_session", { sessionId })),
   getTodayQueue: (input: QueueInput) => call<QueueSnapshot>("get_today_queue", { input }),

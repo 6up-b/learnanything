@@ -7,8 +7,8 @@ version: "1.0.0"
 source_path: "src/learnloop_sidecar/handlers/practice.py"
 source_paths:
   - "src/learnloop_sidecar/handlers/practice.py"
-source_commit: "b0684f8a4f9f019f78175c3220afc7643d6556a2"
-source_commit_timestamp: "2026-11-03T02:23:35-05:00"
+source_commit: "cf6a6b0afb12d56a8d5211a920dacac4b1969743"
+source_commit_timestamp: "2026-11-03T14:38:28-05:00"
 source_worktree_state: "clean"
 generated: true
 generated_at: "2026-11-02"
@@ -53,13 +53,13 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop_sidecar/handlers/practice.py](../../../../../../src/learnloop_sidecar/handlers/practice.py) |
-| Source lines | 2176 |
+| Source lines | 2184 |
 | Owning package | [[Reference/Modules/learnloop_sidecar/handlers/_package|learnloop_sidecar.handlers]] |
 | Architecture layer | `adapter` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `b0684f8a4f9f019f78175c3220afc7643d6556a2` |
-| Commit timestamp | `2026-11-03T02:23:35-05:00` |
+| Source commit | `cf6a6b0afb12d56a8d5211a920dacac4b1969743` |
+| Commit timestamp | `2026-11-03T14:38:28-05:00` |
 
 ## Public API
 
@@ -85,16 +85,16 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `save_practice_draft(ctx: SidecarContext, params: PracticeDraftCheckpoint) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/practice.py), line 669)
 - `record_hint_reveal(ctx: SidecarContext, params: HintRevealInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/practice.py), line 713) — Adaptive hints H0 (spec_adaptive_hints_v1 §9, §10 H0): record one authored hint the practice screen revealed, as a ``help_assists`` row.
 - `record_self_grade_disclosure(ctx: SidecarContext, params: SelfGradeDisclosureInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/practice.py), line 908) — Freeze the learner's whole trace before the plain self-grade shows a full answer (UX Phase 4, Codex review F1).
-- `recover_practice_submission(ctx: SidecarContext, params: PracticeSubmissionRecoveryInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/practice.py), line 1197) — Recover a completed submit before trying to serve the item again.
-- `acknowledge_practice_submission(ctx: SidecarContext, params: PracticeSubmissionAcknowledgementInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/practice.py), line 1233) — Clear only the checkpoint whose authoritative result was received.
-- `submit_attempt(ctx: SidecarContext, params: SubmitAttemptInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/practice.py), line 1276)
-- `submit_attempt_on(ctx: SidecarContext, params: SubmitAttemptInput, *, entry_surface: str=DESKTOP_PRACTICE, hint_window_fold: bool=False) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/practice.py), line 1280) — ``submit_attempt``, recorded on ``entry_surface``.
-- `submit_dont_know(ctx: SidecarContext, params: DontKnowInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/practice.py), line 1521)
-- `submit_dont_know_on(ctx: SidecarContext, params: DontKnowInput, *, entry_surface: str=DESKTOP_PRACTICE, hint_window_fold: bool=False) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/practice.py), line 1525)
-- `submission_key(params: Any) -> str | None` ([source](../../../../../../src/learnloop_sidecar/handlers/practice.py), line 1706) — The retry key a request's attempt, receipt and model calls are keyed on.
-- `answering_key(repository, submission_id: str | None, session_id: str, practice_item_id: str) -> tuple[str | None, bool]` ([source](../../../../../../src/learnloop_sidecar/handlers/practice.py), line 1715) — The key a submission's attempt, intent and receipt are written under, and whether it is a successor of the client's (owner capture 2026-10-25, B4).
-- `skip_practice_item(ctx: SidecarContext, params: SkipInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/practice.py), line 1919)
-- `mark_released_held(payload: dict[str, Any], repository) -> None` ([source](../../../../../../src/learnloop_sidecar/handlers/practice.py), line 2013) — UX Phase 4 (display only): each released short-check answer says whether its grade is held for review (THE held predicate), so the result shows "held for review" and never the grader's provisional score.
+- `recover_practice_submission(ctx: SidecarContext, params: PracticeSubmissionRecoveryInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/practice.py), line 1198) — Recover a completed submit before trying to serve the item again.
+- `acknowledge_practice_submission(ctx: SidecarContext, params: PracticeSubmissionAcknowledgementInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/practice.py), line 1234) — Clear only the checkpoint whose authoritative result was received.
+- `submit_attempt(ctx: SidecarContext, params: SubmitAttemptInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/practice.py), line 1277)
+- `submit_attempt_on(ctx: SidecarContext, params: SubmitAttemptInput, *, entry_surface: str=DESKTOP_PRACTICE, hint_window_fold: bool=False) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/practice.py), line 1281) — ``submit_attempt``, recorded on ``entry_surface``.
+- `submit_dont_know(ctx: SidecarContext, params: DontKnowInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/practice.py), line 1522)
+- `submit_dont_know_on(ctx: SidecarContext, params: DontKnowInput, *, entry_surface: str=DESKTOP_PRACTICE, hint_window_fold: bool=False) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/practice.py), line 1526)
+- `submission_key(params: Any) -> str | None` ([source](../../../../../../src/learnloop_sidecar/handlers/practice.py), line 1707) — The retry key a request's attempt, receipt and model calls are keyed on.
+- `answering_key(repository, submission_id: str | None, session_id: str, practice_item_id: str) -> tuple[str | None, bool]` ([source](../../../../../../src/learnloop_sidecar/handlers/practice.py), line 1716) — The key a submission's attempt, intent and receipt are written under, and whether it is a successor of the client's (owner capture 2026-10-25, B4).
+- `skip_practice_item(ctx: SidecarContext, params: SkipInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/practice.py), line 1920)
+- `mark_released_held(payload: dict[str, Any], repository) -> None` ([source](../../../../../../src/learnloop_sidecar/handlers/practice.py), line 2021) — UX Phase 4 (display only): each released short-check answer says whether its grade is held for review (THE held predicate), so the result shows "held for review" and never the grader's provisional score.
 
 ### Module constants
 
@@ -124,26 +124,26 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `_held_fields(item, held: tuple[tuple[Any, ...], bool], *, client_hints: int, extra_hints: int, attempt_types: bool, authored_hints: int | None=None, client_book: bool | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/practice.py), line 1143)
 - `_origin_bind_surface(ctx: SidecarContext) -> str | None` ([source](../../../../../../src/learnloop_sidecar/handlers/practice.py), line 1160) — A draft's binding surface: the phone's, or the store's default on the desktop.
 - `_bind_offer(repository, params, submission_id, *, entry_surface: str | None=None)` ([source](../../../../../../src/learnloop_sidecar/handlers/practice.py), line 1166)
-- `_schedule_hint_outcome(ctx: SidecarContext, vault, repository, attempt_id: str) -> None` ([source](../../../../../../src/learnloop_sidecar/handlers/practice.py), line 1508)
-- `_record_empty_stuck(ctx: SidecarContext, vault, repository, draft: AttemptDraft, session_id: str, before, *, hint_submitted_at: str | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/practice.py), line 1653) — Commit an empty "I'm stuck" answer and answer like any submission.
-- `_submission_id(client_id: str | None, presentation_id: str | None) -> str | None` ([source](../../../../../../src/learnloop_sidecar/handlers/practice.py), line 1696) — Return the stable retry key; old probe clients inherit one for free.
-- `_without_stale_help(repository, params: Any, *, successor: bool) -> tuple[Any, bool]` ([source](../../../../../../src/learnloop_sidecar/handlers/practice.py), line 1743) — The submit's params with the help a stale draft carried taken out, and whether the draft was stale (owner capture 2026-10-25, fix round 2, item 2).
-- `_window_authored_reveals(repository, practice_item_id: str, session_id: str) -> int` ([source](../../../../../../src/learnloop_sidecar/handlers/practice.py), line 1782) — The authored hints the practice screen revealed on the item in this session since its last attempt there (H0 rows; any key): a read.
-- `_cached_submission(ctx: SidecarContext, vault, repository, submission_id: str | None, practice_item_id: str) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop_sidecar/handlers/practice.py), line 1801) — The response for a submission that was already committed, if any.
-- `_resume_saved_completion(ctx: SidecarContext, vault, repository, work: dict[str, Any], submission_id: str) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/practice.py), line 1844) — Complete a committed attempt from its saved result and store the receipt.
-- `_normalization_client(ctx: SidecarContext, vault) -> Any | None` ([source](../../../../../../src/learnloop_sidecar/handlers/practice.py), line 1868)
-- `_open_session_id(repository, session_id: str | None) -> str | None` ([source](../../../../../../src/learnloop_sidecar/handlers/practice.py), line 1873)
-- `_require_same_item(recorded_item_id: str, practice_item_id: str) -> None` ([source](../../../../../../src/learnloop_sidecar/handlers/practice.py), line 1882)
-- `_submission_committed(attempt: dict[str, Any]) -> SidecarError` ([source](../../../../../../src/learnloop_sidecar/handlers/practice.py), line 1887)
-- `_store_submission_receipt(repository, submission_id: str | None, attempt_id: str, practice_item_id: str, payload: dict[str, Any]) -> None` ([source](../../../../../../src/learnloop_sidecar/handlers/practice.py), line 1900)
-- `_self_grade(payload: SelfGradeInputDto | None) -> SelfGradeInput | None` ([source](../../../../../../src/learnloop_sidecar/handlers/practice.py), line 1960)
-- `_attempt_result(result, repository=None, vault=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/practice.py), line 1978)
-- `_log_attempt_recorded(repository, session_id: str, answer_md: str, result) -> None` ([source](../../../../../../src/learnloop_sidecar/handlers/practice.py), line 2029)
-- `_latent_snapshot(vault, repository, practice_item_id: str) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop_sidecar/handlers/practice.py), line 2054) — Capture pre-attempt latent state for a practice item, for debug deltas.
-- `_log_state_update(vault, repository, method_name: str, session_id: str, before, result) -> None` ([source](../../../../../../src/learnloop_sidecar/handlers/practice.py), line 2083)
-- `_display_mean(mastery) -> float | None` ([source](../../../../../../src/learnloop_sidecar/handlers/practice.py), line 2154)
-- `_display_variance(mastery) -> float | None` ([source](../../../../../../src/learnloop_sidecar/handlers/practice.py), line 2162)
-- `_require_open_session(repository, session_id: str) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/practice.py), line 2170)
+- `_schedule_hint_outcome(ctx: SidecarContext, vault, repository, attempt_id: str) -> None` ([source](../../../../../../src/learnloop_sidecar/handlers/practice.py), line 1509)
+- `_record_empty_stuck(ctx: SidecarContext, vault, repository, draft: AttemptDraft, session_id: str, before, *, hint_submitted_at: str | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/practice.py), line 1654) — Commit an empty "I'm stuck" answer and answer like any submission.
+- `_submission_id(client_id: str | None, presentation_id: str | None) -> str | None` ([source](../../../../../../src/learnloop_sidecar/handlers/practice.py), line 1697) — Return the stable retry key; old probe clients inherit one for free.
+- `_without_stale_help(repository, params: Any, *, successor: bool) -> tuple[Any, bool]` ([source](../../../../../../src/learnloop_sidecar/handlers/practice.py), line 1744) — The submit's params with the help a stale draft carried taken out, and whether the draft was stale (owner capture 2026-10-25, fix round 2, item 2).
+- `_window_authored_reveals(repository, practice_item_id: str, session_id: str) -> int` ([source](../../../../../../src/learnloop_sidecar/handlers/practice.py), line 1783) — The authored hints the practice screen revealed on the item in this session since its last attempt there (H0 rows; any key): a read.
+- `_cached_submission(ctx: SidecarContext, vault, repository, submission_id: str | None, practice_item_id: str) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop_sidecar/handlers/practice.py), line 1802) — The response for a submission that was already committed, if any.
+- `_resume_saved_completion(ctx: SidecarContext, vault, repository, work: dict[str, Any], submission_id: str) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/practice.py), line 1845) — Complete a committed attempt from its saved result and store the receipt.
+- `_normalization_client(ctx: SidecarContext, vault) -> Any | None` ([source](../../../../../../src/learnloop_sidecar/handlers/practice.py), line 1869)
+- `_open_session_id(repository, session_id: str | None) -> str | None` ([source](../../../../../../src/learnloop_sidecar/handlers/practice.py), line 1874)
+- `_require_same_item(recorded_item_id: str, practice_item_id: str) -> None` ([source](../../../../../../src/learnloop_sidecar/handlers/practice.py), line 1883)
+- `_submission_committed(attempt: dict[str, Any]) -> SidecarError` ([source](../../../../../../src/learnloop_sidecar/handlers/practice.py), line 1888)
+- `_store_submission_receipt(repository, submission_id: str | None, attempt_id: str, practice_item_id: str, payload: dict[str, Any]) -> None` ([source](../../../../../../src/learnloop_sidecar/handlers/practice.py), line 1901)
+- `_self_grade(payload: SelfGradeInputDto | None) -> SelfGradeInput | None` ([source](../../../../../../src/learnloop_sidecar/handlers/practice.py), line 1968)
+- `_attempt_result(result, repository=None, vault=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/practice.py), line 1986)
+- `_log_attempt_recorded(repository, session_id: str, answer_md: str, result) -> None` ([source](../../../../../../src/learnloop_sidecar/handlers/practice.py), line 2037)
+- `_latent_snapshot(vault, repository, practice_item_id: str) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop_sidecar/handlers/practice.py), line 2062) — Capture pre-attempt latent state for a practice item, for debug deltas.
+- `_log_state_update(vault, repository, method_name: str, session_id: str, before, result) -> None` ([source](../../../../../../src/learnloop_sidecar/handlers/practice.py), line 2091)
+- `_display_mean(mastery) -> float | None` ([source](../../../../../../src/learnloop_sidecar/handlers/practice.py), line 2162)
+- `_display_variance(mastery) -> float | None` ([source](../../../../../../src/learnloop_sidecar/handlers/practice.py), line 2170)
+- `_require_open_session(repository, session_id: str) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/practice.py), line 2178)
 
 ## Who imports or calls it
 
@@ -222,6 +222,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
+- [tests/mobile_host_helpers.py](../../../../../../tests/mobile_host_helpers.py) — direct import
 - [tests/rw2b_fix10_base_sequence.py](../../../../../../tests/rw2b_fix10_base_sequence.py) — direct import
 - [tests/rw2b_fix11_base_sequence.py](../../../../../../tests/rw2b_fix11_base_sequence.py) — direct import
 - [tests/test_approach_maps.py](../../../../../../tests/test_approach_maps.py) — direct import
@@ -261,6 +262,12 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_library_exercises.py](../../../../../../tests/test_library_exercises.py) — direct import
 - [tests/test_mobile_allowlist.py](../../../../../../tests/test_mobile_allowlist.py) — direct import
   - `test_the_pinned_hints_h0_rpcs_are_all_of_them`
+- [tests/test_mobile_jobs.py](../../../../../../tests/test_mobile_jobs.py) — direct import
+  - `test_a_completion_that_can_never_finish_says_recorded_and_never_failed`
+  - `test_a_failure_the_runtime_can_not_check_is_not_reported_failed`
+  - `test_a_recovery_that_answers_pending_finishes_nothing`
+  - `test_the_attempt_of_a_successor_key_counts_for_its_job`
+- [tests/test_mobile_two_process.py](../../../../../../tests/test_mobile_two_process.py) — direct import
 - [tests/test_owner_capture_1025.py](../../../../../../tests/test_owner_capture_1025.py) — direct import
 - [tests/test_reader_rw2b_fix10.py](../../../../../../tests/test_reader_rw2b_fix10.py) — direct import
   - `test_item3_the_refold_never_drops_an_assist_it_already_counted`

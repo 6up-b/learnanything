@@ -14,7 +14,9 @@ No Scriptable or other companion app is required.
 2. Create **iCloud Drive → Shortcuts → LearnLoop → outbox** in Files. Native
    Shortcuts' default file provider is its `Shortcuts` folder; action paths are
    `LearnLoop/outbox`. If your iOS release uses a different base folder, bind
-   *all* Save/Get File actions to the same folder when importing. This extra
+   Flush's folder setup question to this outbox when importing. The capture
+   Shortcuts' Save File questions instead select **iCloud Drive → Shortcuts**;
+   their saved paths already contain `LearnLoop/outbox`. This extra
    `Shortcuts` sandbox directory is the concrete implementation of the spec's
    `Files/LearnLoop/outbox`.
 3. Regenerate assets if needed:
@@ -38,13 +40,23 @@ No Scriptable or other companion app is required.
    kind prompt (`url` also covers arXiv IDs). Share one image to `Photo to
    LearnLoop`; it converts to JPEG and strips metadata before persisting it.
 5. Import `Flush LearnLoop outbox` first. Its setup questions ask once for
-   the HTTPS tailnet host without a trailing slash and the capture token.
+   the HTTPS tailnet host without a trailing slash, the capture token, and
+   the outbox folder. Choose **iCloud Drive → Shortcuts → LearnLoop → outbox**
+   for that folder question.
+   Include the configured `https_port` when it is not 443, for example
+   `https://desktop.tailnet.ts.net:8445`. The hostname remains bare in
+   `mobile.toml`; `https_port` is separate from the local backend `port`.
    These values are stored in **your private installed Shortcut**, not the
    files shipped here. Never export/share your configured copy; revoke its token
    if you accidentally do. Setup text is not a password field: avoid observers,
    clear the clipboard, and do not screenshot it. Change the two initial Text
    actions after re-pairing. Capture invokes flush **after saving**; subsequent
    shares require no host/token prompts.
+
+   When importing Capture and Photo, select the installed **Flush LearnLoop
+   outbox** at their Run Shortcut setup question. Keep that name when replacing
+   an older Flush. Copy your token from the private installed copy before
+   replacing it; the existing pairing remains valid.
 
 The workflow creates a ULID using a base32 epoch-millisecond prefix and 16
 random base32 characters. The manifest holds the original timestamp, kind and
@@ -100,7 +112,7 @@ app/export. Store the token in its private secret variable; exclude it from
 exports. Configure:
 
 ```text
-POST https://<desktop>.<tailnet>.ts.net/api/v1/capture
+POST https://<desktop>.<tailnet>.ts.net[:<https_port>]/api/v1/capture
 Authorization: Bearer <private token>
 Content-Type: application/json
 ```

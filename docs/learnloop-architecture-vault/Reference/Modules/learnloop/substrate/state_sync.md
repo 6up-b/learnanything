@@ -293,6 +293,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_method_explicit_upgrade.py](../../../../../../tests/test_method_explicit_upgrade.py) — direct import
   - `test_upgrade_from_mvp024_flips_rebuilds_and_rewrites_nothing`
 - [tests/test_misconception_resolution.py](../../../../../../tests/test_misconception_resolution.py) — direct import
+- [tests/test_mobile_two_process.py](../../../../../../tests/test_mobile_two_process.py) — direct import
+  - `test_the_desktop_and_the_host_coexist_with_no_lost_writes`
 - [tests/test_mvp011_upgrade.py](../../../../../../tests/test_mvp011_upgrade.py) — direct import
   - `test_existing_vaults_keep_their_version_until_the_owner_upgrades`
   - `test_upgrade_from_mvp010_flips_rebuilds_and_preserves_history_and_open_episodes`

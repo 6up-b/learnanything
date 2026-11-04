@@ -70,13 +70,20 @@ def origin_ineligibility(origin: RequestOrigin | None, vault: Any, item: Any) ->
     return ineligibility_reason(vault, item, device_class(origin))
 
 
-def device_filter(origin: RequestOrigin | None, vault: Any) -> DeviceFilter | None:
+def device_filter(
+    origin: RequestOrigin | None, vault: Any, repository: Any = None, session_id: str | None = None
+) -> DeviceFilter | None:
     """What a queue build holds back for the request's device (§6.4, D6). None for
-    the desktop, and with the switch off: the build is then the desktop's."""
+    the desktop, and with the switch off: the build is then the desktop's.
+
+    With a session, also the diagnostic presentation it committed here and left for the
+    desktop: the phone never renders one, so it is no part of what the phone can be shown."""
 
     if origin is None or not _device_rules_on(vault):
         return None
-    return DeviceFilter(vault, device_class(origin))
+    committed = repository.active_probe_presentation_for_session(session_id) if repository and session_id else None
+    left = frozenset({committed.practice_item_id}) if committed is not None else frozenset()
+    return DeviceFilter(vault, device_class(origin), left_for_desktop=left)
 
 
 def refuse_device_ineligible_item(origin: RequestOrigin | None, vault: Any, item: Any) -> None:

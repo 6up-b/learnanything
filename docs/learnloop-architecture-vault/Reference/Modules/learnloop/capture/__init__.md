@@ -7,8 +7,8 @@ version: "1.0.0"
 source_path: "src/learnloop/capture/__init__.py"
 source_paths:
   - "src/learnloop/capture/__init__.py"
-source_commit: "fd203b85eab9c4a925589c804f6300d11c7dd1ed"
-source_commit_timestamp: "2026-10-25T16:07:25-04:00"
+source_commit: "cf6a6b0afb12d56a8d5211a920dacac4b1969743"
+source_commit_timestamp: "2026-11-03T14:38:28-05:00"
 source_worktree_state: "clean"
 generated: true
 generated_at: "2026-11-02"
@@ -49,13 +49,13 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/capture/__init__.py](../../../../../../src/learnloop/capture/__init__.py) |
-| Source lines | 35 |
+| Source lines | 54 |
 | Owning package | [[Reference/Modules/learnloop/capture/_package|learnloop.capture]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `fd203b85eab9c4a925589c804f6300d11c7dd1ed` |
-| Commit timestamp | `2026-10-25T16:07:25-04:00` |
+| Source commit | `cf6a6b0afb12d56a8d5211a920dacac4b1969743` |
+| Commit timestamp | `2026-11-03T14:38:28-05:00` |
 
 ## Public API
 
@@ -65,7 +65,24 @@ No public top-level function or class definition is declared in this file.
 
 `__all__` declares:
 
+- `mobile_report`
+- `suspected_figure`
+- `ACCEPTED`
+- `COMPLETED`
+- `FAILED`
+- `MAX_BOOTS`
+- `RECORDED`
+- `RUNNING`
+- `SUBMISSION_COMMITTED`
+- `SUBMIT_METHODS`
+- `recorded_error`
 - `CaptureError`
+- `accept_job`
+- `finish_job`
+- `get_job`
+- `job_for_request`
+- `recover_jobs`
+- `start_job`
 - `authenticate_device`
 - `create_pairing`
 - `exchange_pairing`
@@ -109,7 +126,9 @@ No private top-level function or class definition is declared in this file.
 - [[Reference/Modules/learnloop/capture/devices|learnloop.capture.devices]] — imports `authenticate_device`, `create_pairing`, `exchange_pairing`, `list_devices`, `revoke_device`, `touch_device`
 - [[Reference/Modules/learnloop/capture/errors|learnloop.capture.errors]] — imports `CaptureError`
 - [[Reference/Modules/learnloop/capture/inbox|learnloop.capture.inbox]] — imports `capture_media_preview`, `create_capture`, `dismiss_capture`, `get_capture`, `get_inbox_summary`, `list_captures`, `photo_for_practice_item`, `purge_capture`, `report_orphan_originals`, `route_capture`, `sanitize_image`, `validate_url`
+- [[Reference/Modules/learnloop/capture/jobs|learnloop.capture.jobs]] — imports `ACCEPTED`, `COMPLETED`, `FAILED`, `MAX_BOOTS`, `RECORDED`, `RUNNING`, `SUBMISSION_COMMITTED`, `SUBMIT_METHODS`, `accept_job`, `finish_job`, `get_job`, `job_for_request`, `recorded_error`, `recover_jobs`, `start_job`
 - [[Reference/Modules/learnloop/capture/maintenance|learnloop.capture.maintenance]] — imports `log_request`, `pinned_vault_info`, `prune_request_log`
+- [[Reference/Modules/learnloop/capture/report|learnloop.capture.report]] — imports `mobile_report`, `suspected_figure`
 
 ### Platform and third-party dependencies
 
@@ -128,6 +147,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
+- [tests/mobile_host_helpers.py](../../../../../../tests/mobile_host_helpers.py) — direct import
 - [tests/test_capture_desktop.py](../../../../../../tests/test_capture_desktop.py) — direct import
   - `test_card_route_after_success_only`
   - `test_desktop_photo_preview_rpc_reads_only_the_capture_original`
@@ -164,6 +184,11 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_reload_failure_is_truthful_and_retry_safe`
   - `test_replacement_tutor_request_moves_the_partial_note_to_its_subject`
   - `test_resume_finishes_an_unfinished_route_without_any_inputs`
+- [tests/test_mobile_handoff.py](../../../../../../tests/test_mobile_handoff.py) — direct import
+  - `test_suspected_figure_is_a_word_pattern_and_only_a_report`
+  - `test_the_report_counts_a_desktop_contest_of_a_phone_attempt`
+  - `test_the_report_counts_a_failed_submit_in_the_share_of_202`
+  - `test_the_report_counts_the_phone_apart_and_never_touches_serving`
 - [tests/test_mobile_host_auth.py](../../../../../../tests/test_mobile_host_auth.py) — direct import
   - `test_desktop_only_and_main_rpcs_are_http_denied_for_every_phone_scope`
   - `test_pairing_is_identity_gated_static_and_one_use`
@@ -173,6 +198,14 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_startup_and_shutdown_never_prune`
 - [tests/test_mobile_host_coexistence.py](../../../../../../tests/test_mobile_host_coexistence.py) — direct import
   - `test_capture_host_coexists_without_primary_startup_work`
+- [tests/test_mobile_https.py](../../../../../../tests/test_mobile_https.py) — direct import
+  - `test_configured_https_origin_can_pair_and_read_status`
+- [tests/test_mobile_jobs.py](../../../../../../tests/test_mobile_jobs.py) — direct import
+  - `test_a_job_of_this_run_is_never_recovered_by_itself`
+  - `test_a_recorded_job_is_tried_again_by_a_later_host_and_only_so_many_times`
+  - `test_a_terminal_failure_that_cannot_be_written_is_read_as_failed`
+  - `test_a_terminal_write_a_recovery_owes_is_paid_like_any_other`
+  - `test_a_terminal_write_that_keeps_failing_is_paid_without_a_restart`
 - [tests/test_mobile_pairing.py](../../../../../../tests/test_mobile_pairing.py) — direct import
   - `test_authentication_and_device_listing_are_read_only`
   - `test_exchange_failure_rolls_back_consumption`

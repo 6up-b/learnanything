@@ -181,7 +181,9 @@ The system-level behavior stays authoritative in the linked architecture, concep
 - [[Reference/Desktop/TypeScript/components/RepairAffordances|src/components/RepairAffordances.tsx]] — import-or-re-export: `COLOR`, `FONT_MONO`, `Faint`; references `COLOR`, `FONT_MONO`, `Faint`
 - [[Reference/Desktop/TypeScript/components/RepairTrace|src/components/RepairTrace.tsx]] — import-or-re-export: `COLOR`, `FONT_MONO`; references `COLOR`, `FONT_MONO`
 - [[Reference/Desktop/TypeScript/components/RewordConfirms|src/components/RewordConfirms.tsx]] — import-or-re-export: `COLOR`, `FONT_MONO`, `Faint`, `SectionHeader`; references `COLOR`, `FONT_MONO`, `Faint`, `SectionHeader`
+- [[Reference/Desktop/TypeScript/components/SessionElsewherePrompt|src/components/SessionElsewherePrompt.tsx]] — import-or-re-export: `COLOR`, `FONT_MONO`; references `COLOR`, `FONT_MONO`
 - [[Reference/Desktop/TypeScript/components/SessionFinishHud|src/components/SessionFinishHud.tsx]] — import-or-re-export: `COLOR`; references `COLOR`
+- [[Reference/Desktop/TypeScript/components/SessionMovedBanner|src/components/SessionMovedBanner.tsx]] — import-or-re-export: `COLOR`, `FONT_MONO`; references `COLOR`, `FONT_MONO`
 - [[Reference/Desktop/TypeScript/components/SourceLibrarySidebar|src/components/SourceLibrarySidebar.tsx]] — import-or-re-export: `COLOR`, `FONT_MONO`, `Faint`, `Pill`, `TermCheckbox`; references `COLOR`, `FONT_MONO`, `Faint`, `Pill`, `TermCheckbox`
 - [[Reference/Desktop/TypeScript/components/SourceOffers|src/components/SourceOffers.tsx]] — import-or-re-export: `COLOR`, `FONT_MONO`, `Faint`, `Pill`; references `COLOR`, `FONT_MONO`, `Faint`, `Pill`
 - [[Reference/Desktop/TypeScript/components/StudyMapBriefWizard|src/components/StudyMapBriefWizard.tsx]] — import-or-re-export: `COLOR`, `FONT_MONO`, `Faint`; references `COLOR`, `FONT_MONO`, `Faint`

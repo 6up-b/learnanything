@@ -3,8 +3,8 @@ title: "reveal_events"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "81c99679c019714fdc1fb448114532bc8568d453"
-source_commit_timestamp: "2026-11-03T15:06:14-05:00"
+source_commit: "d2de54b4e148637154ed1322a7241b74bba04bcf"
+source_commit_timestamp: "2026-11-03T15:00:46-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite reveal_events"
@@ -103,7 +103,6 @@ Database triggers:
 - `src/learnloop/db/repositories.py`
 - `src/learnloop/db/stores/practice_index.py`
 - `src/learnloop/db/stores/source_service.py`
-- `src/learnloop/delayed_checks.py`
 - `src/learnloop/diagnosis/split/card.py`
 - `src/learnloop/diagnosis/text_gaps/provenance.py`
 - `src/learnloop/hints/report.py`
@@ -115,6 +114,7 @@ Database triggers:
 - `src/learnloop/router/outcomes.py`
 - `src/learnloop/source_retrieval/deliverable_path.py`
 - `src/learnloop/substrate/intervention_outcomes.py`
+- `src/learnloop/teacher/delayed.py`
 - `src/learnloop/teacher/service.py`
 - `src/learnloop_sidecar/handlers/figures.py`
 

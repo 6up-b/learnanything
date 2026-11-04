@@ -124,6 +124,7 @@ pub async fn get_config(sidecar: State<'_, SidecarManager>) -> Result<Value, Com
 }
 
 sidecar_passthrough!(start_session, "start_session");
+sidecar_passthrough!(adopt_session, "adopt_session");
 
 #[tauri::command]
 pub async fn get_start_summary(sidecar: State<'_, SidecarManager>) -> Result<Value, CommandError> {

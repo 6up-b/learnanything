@@ -97,7 +97,7 @@ def test_pairing_is_identity_gated_static_and_one_use(mobile):
     assert response.status_code == 200
     assert response.json()["token"]
     assert client.post("/pair", json=data, headers=identity).status_code >= 400
-    for path in ("/app/", "/pair.html", "/static/pair.html", "/state.sqlite", "/pair/../learnloop.toml"):
+    for path in ("/pair.html", "/static/pair.html", "/state.sqlite", "/pair/../learnloop.toml"):
         assert client.get(path, headers=headers).status_code == 404
 
 
@@ -230,7 +230,7 @@ def test_slow_capture_has_separate_bounded_lane(mobile, monkeypatch):
                 release.set()
                 results = await asyncio.gather(first, *([second] if second else []))
             assert all(response.status_code == 201 for response in results)
-            assert host.active == {"short": 0, "capture": 0, "media": 0}
+            assert host.active == {"short": 0, "capture": 0, "media": 0, "rpc": 0}
     asyncio.run(run())
 
 
@@ -287,12 +287,13 @@ def test_malformed_json_is_bounded_invalid_request(mobile, body):
     assert response.json()["error"]["code"] == "invalid_request"
 
 
-def test_every_registry_method_is_http_denied(mobile):
+def test_every_method_outside_the_m2_row_is_http_denied(mobile):
     from learnloop_sidecar import handlers  # noqa: F401
     from learnloop_sidecar.registry import METHOD_REGISTRY
+    from tests.test_mobile_allowlist import M2_ALLOWED
     client, host, _, _, headers = mobile
     assert METHOD_REGISTRY
-    for method in METHOD_REGISTRY:
+    for method in sorted(set(METHOD_REGISTRY) - M2_ALLOWED):
         response = client.post("/rpc", json={"method": method, "params": {}}, headers=headers)
         assert response.status_code == 403, method
         assert response.json()["error"]["code"] == "method_not_allowed"
@@ -308,6 +309,7 @@ def test_desktop_only_and_main_rpcs_are_http_denied_for_every_phone_scope(mobile
         DESKTOP_ONLY_CAPTURE_RPCS,
         FACET_IDENTITY_RPCS,
         LEARNER_TEXT_GAP_RPCS,
+        M2_ALLOWED,
         MAIN_SIDECAR_RPCS,
     )
     client, _, repo, _, headers = mobile
@@ -322,6 +324,8 @@ def test_desktop_only_and_main_rpcs_are_http_denied_for_every_phone_scope(mobile
         + LEARNER_TEXT_GAP_RPCS + FACET_IDENTITY_RPCS
     ):
         assert method in METHOD_REGISTRY
+        if scope == "app" and method in M2_ALLOWED:
+            continue  # §4.5's M2 row; test_mobile_rpc.py holds what it may do.
         response = client.post("/rpc", json={"method": method, "params": {"captureId": "c"}},
                                headers=phone)
         assert response.status_code == 403, (scope, method)

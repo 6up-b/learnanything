@@ -3,8 +3,8 @@ title: "Config - plan"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "81c99679c019714fdc1fb448114532bc8568d453"
-source_commit_timestamp: "2026-11-03T15:06:14-05:00"
+source_commit: "d2de54b4e148637154ed1322a7241b74bba04bcf"
+source_commit_timestamp: "2026-11-03T15:00:46-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "learnloop.toml plan"
@@ -27,6 +27,7 @@ source_paths:
   - "src/learnloop/remote/views.py"
   - "tests/codex_cli_fakes.py"
   - "tests/local_embeddings_fakes.py"
+  - "tests/mobile_host_helpers.py"
   - "tests/notes_fixtures.py"
   - "tests/pf_fakes.py"
   - "tests/practice_index_fakes.py"
@@ -36,7 +37,6 @@ source_paths:
   - "tests/test_ad23_contract.py"
   - "tests/test_ad23_successor.py"
   - "tests/test_ad2_model.py"
-  - "tests/test_ai_config.py"
 tags:
   - "learnloop/configuration/fields"
   - "learnloop/configuration/section/plan"
@@ -57,11 +57,11 @@ The main configuration contract, precedence rules, and safe-edit workflow live i
 
 | Dotted path | Effective value | Shape | Origin | Function | Runtime/refactor status | Consumer/source anchors |
 |---|---|---|---|---|---|---|
-| `plan.enabled` | `true` | boolean | modeled default or validator seed | Kill switch for the finite daily plan at mvp-0.14 and later; off restores mvp-0.13's Today (the open queue with its re-entry cap) and every plan RPC answers enabled false. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:3879`; `src/learnloop/ai/plan_fallback.py:138`; `src/learnloop/daily_plan/engine.py:142` |
+| `plan.enabled` | `true` | boolean | modeled default or validator seed | Kill switch for the finite daily plan at mvp-0.14 and later; off restores mvp-0.13's Today (the open queue with its re-entry cap) and every plan RPC answers enabled false. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:3879`; `src/learnloop/ai/plan_fallback.py:138`; `src/learnloop/daily_plan/engine.py:138` |
 | `plan.new_admission_enabled` | `true` | boolean | modeled default or validator seed | Sub-switch: off admits no system-chosen new material (learner requests and scheduled checks still serve). | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:3882`; `src/learnloop/ai/plan_fallback.py:138` |
 | `plan.reading_blocks` | `true` | boolean | modeled default or validator seed | Sub-switch: on puts at most one reading block a day from an as_you_read source in the new lane. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:3884`; `src/learnloop/ai/plan_fallback.py:138` |
-| `plan.reading_from_furthest` | `true` | boolean | modeled default or validator seed | Kill switch for UX Phase 1's reading step (U4), a live change wherever the plan acts (no successor tag; replay never reads the selection): the reading block continues from the furthest section read and skips front matter while a chapter is left; off it is DL1's first unfinished section in book order. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:3892`; `src/learnloop/ai/plan_fallback.py:138`; `src/learnloop/daily_plan/engine.py:161` |
-| `plan.deterministic_staged_plans` | `true` | boolean | modeled default or validator seed | Kill switch for plan determinism (owner rule 2026-10-13: staged plans are deterministic), a live change wherever the router composes Today (no successor tag; replay never reads a plan): the staged plan's pool is the scheduler's greedy order and a contrast pair's member order is the pair's own draw, so the same vault state plans the same blocks in every session; at mvp-0.24 that pool also gives the model mixture its candidates (the staged pick and the support), while the mixture keeps its own seeded draw, floor and logged propensities; off restores the staged pool as mvp-0.23 and mvp-0.24 landed (the scheduler's seeded exploration and the per-session pair order). | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:3906`; `src/learnloop/ai/plan_fallback.py:138`; `src/learnloop/daily_plan/engine.py:711` |
+| `plan.reading_from_furthest` | `true` | boolean | modeled default or validator seed | Kill switch for UX Phase 1's reading step (U4), a live change wherever the plan acts (no successor tag; replay never reads the selection): the reading block continues from the furthest section read and skips front matter while a chapter is left; off it is DL1's first unfinished section in book order. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:3892`; `src/learnloop/ai/plan_fallback.py:138`; `src/learnloop/daily_plan/engine.py:157` |
+| `plan.deterministic_staged_plans` | `true` | boolean | modeled default or validator seed | Kill switch for plan determinism (owner rule 2026-10-13: staged plans are deterministic), a live change wherever the router composes Today (no successor tag; replay never reads a plan): the staged plan's pool is the scheduler's greedy order and a contrast pair's member order is the pair's own draw, so the same vault state plans the same blocks in every session; at mvp-0.24 that pool also gives the model mixture its candidates (the staged pick and the support), while the mixture keeps its own seeded draw, floor and logged propensities; off restores the staged pool as mvp-0.23 and mvp-0.24 landed (the scheduler's seeded exploration and the per-session pair order). | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:3906`; `src/learnloop/ai/plan_fallback.py:138`; `src/learnloop/daily_plan/engine.py:705` |
 | `plan.default_minutes` | `25` | integer | modeled default or validator seed | Daily budget on a vault with no plan and no session minutes (D1); afterwards the remembered minutes carry forward. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:3908`; `src/learnloop/ai/plan_fallback.py:138`; `src/learnloop/source_retrieval/deliverable_path.py:367` |
 | `plan.minutes_presets` | `[10, 15, 25, 40, 60]` | array | modeled default or validator seed | The one-tap minute chips on Start and Today. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:3909`; `src/learnloop/ai/plan_fallback.py:138` |
 | `plan.repair_max_share` | `0.3` | number | modeled default or validator seed | Largest share of the budget the repair lane takes before new and push (D2). | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:3911`; `src/learnloop/ai/plan_fallback.py:138` |
@@ -72,7 +72,7 @@ The main configuration contract, precedence rules, and safe-edit workflow live i
 | `plan.new_item_reviews_14d` | `4` | integer | modeled default or validator seed | Reviews assumed for a new item in its first two weeks when costing its admission (Q11). | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:3918`; `src/learnloop/ai/plan_fallback.py:138` |
 | `plan.max_new_items_per_day` | `10` | integer | modeled default or validator seed | Most new items planned a day across the day's plans; learner requests are exempt (Q11). | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:3919`; `src/learnloop/ai/plan_fallback.py:138` |
 | `plan.min_new_items_per_day` | `1` | integer | modeled default or validator seed | Fewest new items a day when new material exists and the plan is not re-entry (Q11). | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:3920`; `src/learnloop/ai/plan_fallback.py:138` |
-| `plan.latency_cap_minutes` | `15.0` | number | modeled default or validator seed | Winsorizing cap on an answer latency in the duration estimate (Q12). | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:3922`; `src/learnloop/ai/plan_fallback.py:138`; `src/learnloop/cli/app.py:3059` |
+| `plan.latency_cap_minutes` | `15.0` | number | modeled default or validator seed | Winsorizing cap on an answer latency in the duration estimate (Q12). | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:3922`; `src/learnloop/ai/plan_fallback.py:138`; `src/learnloop/cli/app.py:3053` |
 | `plan.read_words_per_minute` | `120` | integer | modeled default or validator seed | Reading pace that turns a section's words left into a reading block's estimate. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:3924`; `src/learnloop/ai/plan_fallback.py:138`; `src/learnloop/cli/sources.py:341` |
 | `plan.pre_questions` | `3` | integer | modeled default or validator seed | Pre-questions a reading block may open with (DL4; DL1 serves none). | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:3926`; `src/learnloop/ai/plan_fallback.py:138` |
 | `plan.reentry_minutes` | `15` | integer | modeled default or validator seed | Most minutes a re-entry plan takes after a break, whatever the remembered budget (D11). | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:3928`; `src/learnloop/ai/plan_fallback.py:138` |
@@ -89,6 +89,7 @@ Every row cites the exact Pydantic field declaration (or typed dynamic-key conta
 
 - `tests/codex_cli_fakes.py`
 - `tests/local_embeddings_fakes.py`
+- `tests/mobile_host_helpers.py`
 - `tests/notes_fixtures.py`
 - `tests/pf_fakes.py`
 - `tests/practice_index_fakes.py`
@@ -98,7 +99,6 @@ Every row cites the exact Pydantic field declaration (or typed dynamic-key conta
 - `tests/test_ad23_contract.py`
 - `tests/test_ad23_successor.py`
 - `tests/test_ad2_model.py`
-- `tests/test_ai_config.py`
 
 ## Extension and modification guidance
 

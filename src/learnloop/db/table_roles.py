@@ -168,7 +168,7 @@ _TABLE_ROLE_ITEMS: tuple[tuple[str, TableRole], ...] = (
     # decisions are attention_block_events receipts). Replay never reads it.
     ("daily_plans", TableRole.WORKFLOW),
     ("decision_features", TableRole.RECEIPT),
-    # Data capture A2 (migration 239): the objective frozen before a decision's
+    # Data capture A2 (migration 240): the objective frozen before a decision's
     # draw, and the states of the check that measures it (append-only).
     ("decision_measurement_events", TableRole.RECEIPT),
     ("decision_objectives", TableRole.RECEIPT),
@@ -401,6 +401,7 @@ _TABLE_ROLE_ITEMS: tuple[tuple[str, TableRole], ...] = (
     ("misconception_transition_events", TableRole.RECEIPT),
     ("misconceptions", TableRole.WORKFLOW),
     ("mobile_devices", TableRole.WORKFLOW),
+    ("mobile_jobs", TableRole.WORKFLOW),
     ("mobile_pairing_attempts", TableRole.WORKFLOW),
     ("mobile_pairing_guard", TableRole.WORKFLOW),
     ("mobile_pairings", TableRole.WORKFLOW),
@@ -454,7 +455,7 @@ _TABLE_ROLE_ITEMS: tuple[tuple[str, TableRole], ...] = (
     ("practice_pool_events", TableRole.RECEIPT),
     ("practice_pool_surfaces", TableRole.RAW_LEDGER),
     ("practice_pools", TableRole.RAW_LEDGER),
-    # Data capture A1 (migration 239): what was decided before the router saw
+    # Data capture A1 (migration 240): what was decided before the router saw
     # candidates, linked into each committed decision; parts stored once by hash.
     ("prefilter_payloads", TableRole.RECEIPT),
     ("prefilter_receipts", TableRole.RECEIPT),

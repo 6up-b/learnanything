@@ -264,6 +264,7 @@ fn main() {
                 get_runtime_health,
                 get_config,
                 start_session,
+                adopt_session,
                 get_start_summary,
                 get_session,
                 update_session_checkpoint,
