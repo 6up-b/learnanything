@@ -156,7 +156,8 @@ def _matured(connection: Any, decision_time: str, candidate_ids: set[str], vault
         return {}
     attempt_ids = [row[0] for row in connection.execute("SELECT id FROM practice_attempts")]
     version = {"outcome_version": outcome_version_for(vault.config)} if vault is not None else {}
-    exposures = (reading_exposures.for_version(connection, vault, repository, version["outcome_version"])
+    # On the deciding path: stored receipts and recent activity, never the whole history (ruling R6).
+    exposures = (reading_exposures.for_version(connection, vault, repository, version["outcome_version"], recent=True)
                  if vault is not None and repository is not None else None)
     outcomes = derive_router_outcomes(
         connection,

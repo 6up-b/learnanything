@@ -158,6 +158,12 @@ def reading_exposures_present(connection: sqlite3.Connection) -> bool:
     return _present(connection, (READING_EXPOSURES,))
 
 
+def newest_reading_exposure(connection: sqlite3.Connection) -> str | None:
+    """The newest source time on record: where the next sweep's window starts."""
+
+    return connection.execute(f"SELECT MAX(source_written_at) FROM {READING_EXPOSURES}").fetchone()[0]
+
+
 def reading_receipts(connection: sqlite3.Connection) -> set[tuple[str, str]]:
     """``(LO, source time)`` of every stored reading receipt, data capture's own and AD's where its logging wrote any."""
 
@@ -211,6 +217,7 @@ __all__ = [
     "insert_reading_exposure",
     "latest_episode",
     "READING_RECEIPT_TABLES",
+    "newest_reading_exposure",
     "reading_exposure_recorded",
     "reading_receipts",
     "reading_exposures_present",

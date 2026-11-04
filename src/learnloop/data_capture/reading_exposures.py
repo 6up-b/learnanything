@@ -15,15 +15,20 @@ outcome reads:
 
 **One read** (landing ruling R1): :func:`read` is how ``router_outcomes_v3``, the time metric and the capture report see
 Reader exposures: the stored receipts plus the source activity not yet swept, through the same collectors, the same
-mapping and the same source time as the sweep. :func:`sweep` writes what :func:`read` would add and nothing else, so **the
-sweep only freezes**: no answer depends on whether Today has run. A row is never mapped again once recorded (what freezing
-means), and every source row is listed, not only recent ones, so a row stamped before a sweep and committed after it, or a
-section whose LOs appear later, reads the same with or without a sweep between.
+mapping and the same source time as the sweep. Correctness rests on this read, which lists every source row, so **the
+sweep only freezes**: no answer depends on whether Today has run.
 
-Its cost, per call: one indexed lookup per Reader source row, and for each distinct section or span not on record (not yet
-swept, or no LO names it yet) a document load and a scan of the active LOs, cached for the call. Rows on record are not
-mapped. No model call, no write, no clock. Measured on copies of the owner's vaults (60 to 85 receipts' worth of activity):
-300 to 430 ms with nothing swept yet, 2 to 70 ms after a sweep; a vault with n sections no LO names pays about n x 20 ms.
+**The sweep and the foreground** (ruling R6). :func:`sweep` runs where Today prepares, so it reads only from the newest
+recorded source time less AD's overlap (:data:`learnloop.reading_sources.SWEEP_OVERLAP`) and takes the write lock only when
+it has something to write. A row it never reaches (stamped older than its window, or a section no LO named at the time)
+stays where the whole read finds it. Today's other reads pass ``since`` (:func:`recent_since`, and for an answer
+:func:`read_for_answer`), so nothing on the foreground lists the whole history: the rows that could change that answer are
+the recent ones.
+
+**The cost.** The whole read: one indexed lookup per Reader source row, and for each distinct section or span not on record
+a document load and an LO scan, about 20 ms. Those mappings, empty results included, are kept for the process against the
+vault's content and the source and coverage rows they read (:func:`_revision`), so a repeat costs lookups alone: no model
+call, no write, no clock. Measured on copies of the owner's vaults in ``docs/reviews/data-capture-a1-a6-codex-review.md``.
 
 Frozen where Today prepares (:func:`learnloop.daily_plan.measurement.settle`). Under either of data capture's switches, at
 every version: a receipt changes nothing served, and only ``router_outcomes_v3`` and the time metric read it. Never
@@ -32,16 +37,19 @@ evidence, FSRS, the projection or replay (A12 stands: this writes nothing AD rea
 
 from __future__ import annotations
 
+from collections import OrderedDict
 from collections.abc import Iterable, Mapping, Sequence
-from datetime import UTC, datetime
+from datetime import UTC, timedelta
+import hashlib
 import logging
-from types import SimpleNamespace
 from typing import Any
 
 from learnloop.clock import Clock, SystemClock, parse_utc, utc_now_iso
 from learnloop.data_capture.gates import OUTCOME_VERSION_V3, receipts_on, serving_on
 from learnloop.db.stores import data_capture as store
-from learnloop.reading_sources import listed_events
+from learnloop.outcome_contract import RETENTION_MIN_DELAY_SECONDS
+from learnloop.reading_sources import SWEEP_OVERLAP, listed_events, source_stamp
+from learnloop.vault.models import learning_object_facet_union
 from learnloop import section_map
 
 logger = logging.getLogger(__name__)
@@ -51,41 +59,95 @@ MAPPING_VERSION = "reading_exposure_map_v1"
 NO_UPPER = "9999-12-31T23:59:59.999999Z"
 
 
+def _section_los(vault: Any, repository: Any, extraction_id: str, section_id: str) -> list[str]:
+    """The LOs a section holds: its provenance-linked LOs and its coverage rows. Raises what it can't read."""
+
+    found = list(section_map.learning_objects_for_section(
+        vault, repository, extraction_id=extraction_id, section_id=section_id))
+    with repository.connection() as connection:
+        from learnloop.db.stores import section_coverage as coverage
+
+        if coverage.table_present(connection):
+            found.extend(coverage.learning_objects_named(connection, extraction_id, section_id))
+    return list(dict.fromkeys(found))
+
+
 def reading_learning_objects(vault: Any, repository: Any, target: Any) -> list[str]:
-    """The LOs a reading target's section holds (its provenance-linked LOs and coverage rows): what a decision's
-    objective freezes (:mod:`learnloop.daily_plan.measurement`) and what an exposure names."""
+    """What a decision's objective freezes (:mod:`learnloop.daily_plan.measurement`) and what an exposure names."""
 
     if target is None:
         return []
-    found: list[str] = []
     try:
-        found.extend(section_map.learning_objects_for_section(
-            vault, repository, extraction_id=str(target.extraction_id), section_id=str(target.section_id)))
-        with repository.connection() as connection:
-            from learnloop.db.stores import section_coverage as coverage
-
-            if coverage.table_present(connection):
-                found.extend(coverage.learning_objects_named(connection, str(target.extraction_id),
-                                                             str(target.section_id)))
+        return _section_los(vault, repository, str(target.extraction_id), str(target.section_id))
     except Exception:  # noqa: BLE001 - an unreadable section has no objective; the decision stands
         logger.warning("data capture: a reading section's learning objects were not read", exc_info=True)
-    return list(dict.fromkeys(found))
+        return []
+
+
+def _content_revision(vault: Any) -> str:
+    """What the mapping reads of the vault: active LOs' and their facets' provenance, and the notes' canonical sources."""
+
+    digest = hashlib.blake2b(digest_size=16)
+    for lo_id, lo in sorted(vault.learning_objects.items()):
+        digest.update(repr((lo_id, lo.status, lo.provenance.source_refs,
+                            sorted(map(str, learning_object_facet_union(lo))))).encode())
+    for facet_id, facet in sorted(getattr(vault, "evidence_facets", {}).items()):
+        digest.update(repr((facet_id, facet.provenance.source_refs)).encode())
+    for note_id, note in sorted(getattr(vault, "notes", {}).items()):
+        digest.update(repr((note_id, getattr(note, "model_extra", None), getattr(note, "related_los", None))).encode())
+    return digest.hexdigest()
+
+
+def _revision(connection: Any, vault: Any) -> tuple[Any, ...]:
+    """A mapping stands while these do: the vault's content, the readings and their aliases, the sources' artifacts, the
+    coverage rows. A completed reading's document never changes, so its extraction id stands for it."""
+
+    def stamp(table: str) -> tuple[Any, ...]:
+        if not connection.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name=?", (table,)).fetchone():
+            return ()
+        return tuple(connection.execute(f"SELECT COUNT(*), MAX(rowid) FROM {table}").fetchone())
+
+    return (_content_revision(vault), *(stamp(table) for table in (
+        "source_extraction_runs", "source_artifacts", "source_span_reanchors", "section_coverage")))
+
+
+#: Each vault's mappings at its current revision, for the process: empty results included.
+_MAPPINGS: OrderedDict[str, tuple[tuple[Any, ...], dict[tuple[str, str], list[str]], dict[tuple[str, str], list[str]]]] = OrderedDict()
+_MAPPINGS_KEPT = 8
+
+
+def _clear_mapping_cache() -> None:
+    """A new process's view: what a test uses to say so."""
+
+    _MAPPINGS.clear()
 
 
 class _Map:
     """A section's and a span's LOs as the objective's freeze reads them (provenance and coverage rows), an item's, a
-    note's. Nothing is withheld and no span is a worked example here: only the LO and the time are kept."""
+    note's. Nothing is withheld and no span is a worked example here: only the LO and the time are kept. A failure to read
+    maps to nothing for this call and is not kept."""
 
-    def __init__(self, vault: Any, repository: Any) -> None:
+    def __init__(self, vault: Any, repository: Any, connection: Any) -> None:
         self.vault, self.repository = vault, repository
-        self._sections: dict[tuple[str, str], list[str]] = {}
-        self._spans: dict[tuple[str, str], list[str]] = {}
+        key = str(getattr(repository, "sqlite_path", ""))
+        revision = _revision(connection, vault)
+        entry = _MAPPINGS.get(key)
+        if entry is None or entry[0] != revision:
+            entry = (revision, {}, {})
+            _MAPPINGS[key] = entry
+            while len(_MAPPINGS) > _MAPPINGS_KEPT:
+                _MAPPINGS.popitem(last=False)
+        _MAPPINGS.move_to_end(key)
+        self._sections, self._spans = entry[1], entry[2]
 
     def los_for_section(self, extraction_id: str, section_id: str) -> list[str]:
         key = (extraction_id, section_id)
         if key not in self._sections:
-            target = SimpleNamespace(extraction_id=extraction_id, section_id=section_id)
-            self._sections[key] = list(reading_learning_objects(self.vault, self.repository, target))
+            try:
+                self._sections[key] = list(_section_los(self.vault, self.repository, extraction_id, section_id))
+            except Exception:  # noqa: BLE001 - never kept: an exposure is not lost to a passing failure
+                logger.warning("data capture: a section's learning objects were not read", exc_info=True)
+                return []
         return self._sections[key]
 
     def los_for_span(self, extraction_id: str, span_id: str) -> list[str]:
@@ -94,8 +156,9 @@ class _Map:
             try:
                 self._spans[key] = list(section_map.learning_objects_for_span(
                     self.vault, self.repository, extraction_id=extraction_id, span_id=span_id))
-            except Exception:  # noqa: BLE001 - an unreadable extraction maps to nothing
-                self._spans[key] = []
+            except Exception:  # noqa: BLE001 - as above
+                logger.warning("data capture: a span's learning objects were not read", exc_info=True)
+                return []
         return self._spans[key]
 
     def section_spans(self, _extraction_id: str, _section_id: str) -> list[str]:
@@ -157,54 +220,77 @@ class _Rows:
         return str(surface[0]["legacy_practice_item_id"]) if surface and surface[0].get("legacy_practice_item_id") else None
 
 
-def _stamp(when: datetime) -> str:
-    """AD's source-time form (``adaptive_difficulty.reading._stamp``): microseconds and ``Z``, so stamps sort."""
-
-    return when.isoformat(timespec="microseconds").replace("+00:00", "Z")
-
-
-def _events(connection: Any, vault: Any, repository: Any, *, upper: str = NO_UPPER) -> list[Any]:
-    """The listed activity not yet on record, the whole of it (see the module's note): what the sweep freezes and what
+def _events(connection: Any, vault: Any, repository: Any, *, lower: str | None = None, upper: str = NO_UPPER) -> list[Any]:
+    """The listed activity not yet on record since ``lower`` (all of it with none): what the sweep freezes and what
     :func:`read` adds are this one list."""
 
-    return listed_events(connection, _Map(vault, repository), None, upper, view=_Rows())
+    return listed_events(connection, _Map(vault, repository, connection), lower, upper, view=_Rows())
 
 
-def not_yet_swept(connection: Any, vault: Any, repository: Any) -> list[tuple[str, str]]:
+def recent_since(connection: Any) -> str | None:
+    """Where the foreground reads from: the newest source time on record less AD's overlap, so a source row stamped a
+    little before it is still read. None with nothing on record."""
+
+    newest = store.newest_reading_exposure(connection) if store.reading_exposures_present(connection) else None
+    parsed = parse_utc(newest) if newest else None
+    return source_stamp((parsed - SWEEP_OVERLAP).isoformat()) if parsed is not None else None
+
+
+def not_yet_swept(connection: Any, vault: Any, repository: Any, *, since: str | None = None) -> list[tuple[str, str]]:
     """``(LO, source time)`` of the listed activity no sweep has recorded yet. Read-only."""
 
-    return sorted({(str(lo), str(event.written_at)) for event in _events(connection, vault, repository)
+    return sorted({(str(lo), str(event.written_at)) for event in _events(connection, vault, repository, lower=since)
                    for lo in event.learning_object_ids})
 
 
-def read(connection: Any, vault: Any, repository: Any) -> list[tuple[str, str]]:
+def read(connection: Any, vault: Any, repository: Any, *, since: str | None = None) -> list[tuple[str, str]]:
     """Every Reader exposure, ``(LO, source time)``: the stored receipts plus the source activity not yet swept.
 
     The one read of them (R1), the same before and after a sweep. Read-only, whichever connection and repository it is
-    given, and at any switch: reading an exposure changes nothing served."""
+    given, and at any switch: reading an exposure changes nothing served. ``since`` lists only activity after it (the
+    foreground's, see the module's note); the stored receipts are always all read."""
 
-    return sorted({*store.reading_receipts(connection), *not_yet_swept(connection, vault, repository)})
+    return sorted({*store.reading_receipts(connection), *not_yet_swept(connection, vault, repository, since=since)})
 
 
-def for_version(connection: Any, vault: Any, repository: Any, version: str) -> list[tuple[str, str]] | None:
-    """:func:`read` for a derivation at ``version``; None below ``router_outcomes_v3``, which reads no reading receipt."""
+def read_for_answer(connection: Any, vault: Any, repository: Any, *, answered_at: str) -> list[tuple[str, str]]:
+    """:func:`read` for judging one answer on the foreground: activity that could have made it warm, or newer than the
+    sweep's window. An exposure older than the delay before the answer can't change it."""
 
-    return read(connection, vault, repository) if version == OUTCOME_VERSION_V3 else None
+    recent = recent_since(connection)
+    parsed = parse_utc(answered_at)
+    window = (source_stamp((parsed - timedelta(seconds=RETENTION_MIN_DELAY_SECONDS) - SWEEP_OVERLAP).isoformat())
+              if parsed is not None else None)
+    since = min(recent, window) if recent is not None and window is not None else None
+    return read(connection, vault, repository, since=since)
+
+
+def for_version(connection: Any, vault: Any, repository: Any, version: str, *, recent: bool = False) -> list[tuple[str, str]] | None:
+    """:func:`read` for a derivation at ``version`` (``recent``: on the foreground, from :func:`recent_since`); None below
+    ``router_outcomes_v3``, which reads no reading receipt."""
+
+    if version != OUTCOME_VERSION_V3:
+        return None
+    return read(connection, vault, repository, since=recent_since(connection) if recent else None)
 
 
 def sweep(vault: Any, repository: Any, *, clock: Clock | None = None) -> int:
-    """Freeze the listed Reader activity not yet on record, as :func:`read` already reads it; how many rows it wrote.
-    Idempotent; a no-op with both of data capture's switches off or before migration 239."""
+    """Freeze the listed Reader activity since the window's start (:func:`recent_since`); how many rows it wrote. Idempotent;
+    a no-op with both of data capture's switches off or before migration 239. The write lock only with rows to write."""
 
     if not (receipts_on(vault.config) or serving_on(vault.config)):
         return 0
     swept_at = utc_now_iso(clock)
-    upper = _stamp((clock or SystemClock()).now().astimezone(UTC))
-    written = 0
-    with repository.atomic(), repository.connection() as connection:
+    upper = (clock or SystemClock()).now().astimezone(UTC).isoformat(timespec="microseconds").replace("+00:00", "Z")
+    with repository.connection() as connection:
         if not store.reading_exposures_present(connection):
             return 0
-        for event in _events(connection, vault, repository, upper=upper):
+        events = _events(connection, vault, repository, lower=recent_since(connection), upper=upper)
+    if not events:
+        return 0
+    written = 0
+    with repository.atomic(), repository.connection() as connection:
+        for event in events:
             for lo in event.learning_object_ids:
                 written += bool(store.insert_reading_exposure(
                     connection, kind=event.kind, subkind=event.subkind, source_table=event.source_table,
@@ -223,4 +309,14 @@ def sweep_quietly(vault: Any, repository: Any, *, clock: Clock | None = None) ->
         return 0
 
 
-__all__ = ["MAPPING_VERSION", "for_version", "not_yet_swept", "read", "reading_learning_objects", "sweep", "sweep_quietly"]
+__all__ = [
+    "MAPPING_VERSION",
+    "for_version",
+    "not_yet_swept",
+    "read",
+    "read_for_answer",
+    "reading_learning_objects",
+    "recent_since",
+    "sweep",
+    "sweep_quietly",
+]

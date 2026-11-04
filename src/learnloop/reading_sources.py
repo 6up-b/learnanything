@@ -10,6 +10,7 @@ from __future__ import annotations
 
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass
+from datetime import timedelta
 import json
 from typing import Any, Protocol
 
@@ -23,6 +24,10 @@ UNKNOWN_ANSWER_MODE = "unknown"
 #: The in-passage question styles that are learning opportunities (``reconstruct``
 #: questions are escalated to practice items, which AD reads as attempts).
 IN_PASSAGE_STYLES: tuple[str, ...] = ("recall", "next_step", "why_step", "assumptions")
+#: A serve's sweep re-reads this far behind the newest recorded source time,
+#: so a source row stamped a little before an earlier sweep but committed
+#: after it (a tutor answer completing, a clock skew) is still recorded once.
+SWEEP_OVERLAP = timedelta(hours=1)
 
 SELF_CHECK_TASK = "reader_quick_check_self_check"
 SELF_CHECK_CLASSES = {"matches": "self_check:matched", "partly": "self_check:missed", "no": "self_check:missed"}
@@ -321,6 +326,7 @@ __all__ = [
     "ReadingMap",
     "SELF_CHECK_CLASSES",
     "SELF_CHECK_TASK",
+    "SWEEP_OVERLAP",
     "TUTOR_ANSWER_MODES",
     "TUTOR_CONTEXTS",
     "UNKNOWN_ANSWER_MODE",

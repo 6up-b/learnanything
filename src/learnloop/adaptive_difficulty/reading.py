@@ -59,13 +59,13 @@ import logging
 from collections.abc import Mapping, Sequence
 from contextlib import closing
 from dataclasses import dataclass, field
-from datetime import timedelta
 from typing import Any
 
 from learnloop.attempts.salience_firewall import LEARNING_OPPORTUNITY_KINDS, LEARNING_OPPORTUNITY_SOURCES
 from learnloop.reading_sources import (
     EXPOSURE_CONTEXTS,
     IN_PASSAGE_STYLES,
+    SWEEP_OVERLAP,
     ReadingMap,
     ListedEvent as _Event,
     listed_events,
@@ -82,10 +82,6 @@ MAPPING_VERSION = "ad_reading_map_v1"
 KINDS = LEARNING_OPPORTUNITY_KINDS
 PASSAGES_PER_LO_PER_DAY = 1
 TUTOR_EXCHANGES_PER_LO_PER_DAY = 3
-#: A serve's sweep re-reads this far behind the newest recorded source time,
-#: so a source row stamped a little before an earlier sweep but committed
-#: after it (a tutor answer completing, a clock skew) is still recorded once.
-SWEEP_OVERLAP = timedelta(hours=1)
 
 #: The carve-out's allowlist: (kind, subkind, source table). One list, the
 #: firewall's (AD2+AD3 moved it there; G-AD3-13).

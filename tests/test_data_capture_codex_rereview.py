@@ -40,7 +40,7 @@ def _complete_section(env, extraction="x", section="sec"):
 
 
 def _map_sections(monkeypatch, lo):
-    monkeypatch.setattr(RE, "reading_learning_objects", lambda _vault, _repo, _target: [lo])
+    monkeypatch.setattr(RE, "_section_los", lambda _vault, _repo, _extraction, _section: [lo])
 
 
 def _other_item(env, objective):

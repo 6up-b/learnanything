@@ -178,8 +178,8 @@ def test_f1_an_answer_waits_when_the_read_cannot_judge_it(tmp_path, monkeypatch)
     assert "answered" in {event["state"] for event in _events(env)[decision_id]}
 
 
-def test_f1_activity_stamped_long_before_the_newest_receipt_is_read_and_frozen_alike(tmp_path, monkeypatch):
-    """A row stamped past the sweep's old overlap, committed after a later row was swept: the read and the sweep agree."""
+def test_f1_activity_stamped_long_before_the_newest_receipt_is_read_though_the_sweep_leaves_it(tmp_path, monkeypatch):
+    """A row stamped past the sweep's overlap, committed after a later row was swept: the read has it either way."""
 
     env, _decision_id, objective = _arranged_wait(tmp_path, toml=DECIDER_ONLY + AD_OFF)
     lo = objective["learning_object_id"]
@@ -194,17 +194,18 @@ def test_f1_activity_stamped_long_before_the_newest_receipt_is_read_and_frozen_a
     with env.repository.connection() as connection:
         assert [at[:19] for _lo, at in RE.not_yet_swept(connection, env.vault, env.repository)] == [old[:19]]
         before = RE.read(connection, env.vault, env.repository)
-    assert RE.sweep(env.vault, env.repository, clock=env.clock) == 1
+    assert RE.sweep(env.vault, env.repository, clock=env.clock) == 0, "past the sweep's window (R6)"
     with env.repository.connection() as connection:
-        assert RE.read(connection, env.vault, env.repository) == before
+        assert RE.read(connection, env.vault, env.repository) == before, "the live read still has it"
 
 
 def test_f1_a_section_no_lo_named_until_later_reads_the_same_swept_or_not(tmp_path, monkeypatch):
     env, _decision_id, objective = _arranged_wait(tmp_path, toml=DECIDER_ONLY + AD_OFF)
-    monkeypatch.setattr(RE, "reading_learning_objects", lambda _vault, _repo, _target: [])
+    monkeypatch.setattr(RE, "_section_los", lambda *_a: [])
     _complete_section(env)
     assert RE.sweep(env.vault, env.repository, clock=env.clock) == 0, "no LO yet: nothing to record"
     _map_sections(monkeypatch, objective["learning_object_id"])
+    RE._clear_mapping_cache()  # the vault's content changed, in the real thing
     env.clock.instant = env.clock.instant + timedelta(days=5)
     with env.repository.connection() as connection:
         assert len(RE.not_yet_swept(connection, env.vault, env.repository)) == 1
@@ -353,3 +354,134 @@ def test_f11_an_answer_on_another_objective_never_records_answered_and_the_duty_
     env.clock.advance(1)
     M.settle(env.vault, env.repository, clock=env.clock)
     assert "answered" in {event["state"] for event in _events(env)[decision_id]}
+
+
+# -- the sweep on the foreground path (final scoped verify, finding 1, ruling R6) -------------------------------------
+
+
+def _unmapped_sections(env, count, *, at=None):
+    with env.repository.atomic(), env.repository.connection() as connection:
+        for index in range(count):
+            connection.execute(
+                "INSERT INTO reader_section_progress(extraction_id, section_id, completed_at, updated_at) VALUES (?,?,?,?)",
+                ("x", f"unmapped{index}", at or env.now_iso(), at or env.now_iso()))
+
+
+def _count_mappings(monkeypatch):
+    calls = {"sections": 0, "spans": 0}
+
+    def section(*_args, **_kwargs):
+        calls["sections"] += 1
+        return []
+
+    def span(*_args, **_kwargs):
+        calls["spans"] += 1
+        return []
+
+    monkeypatch.setattr("learnloop.section_map.learning_objects_for_section", section)
+    monkeypatch.setattr("learnloop.section_map.learning_objects_for_span", span)
+    return calls
+
+
+def test_r6_a_repeat_sweep_with_nothing_new_makes_no_mapping_call(tmp_path, monkeypatch):
+    """Reproduced first: 100 mapping calls on every sweep of 100 unmapped sections, with no receipt written."""
+
+    env, _decision_id, _objective = _arranged_wait(tmp_path, toml=DECIDER_ONLY + AD_OFF)
+    _unmapped_sections(env, 100)
+    calls = _count_mappings(monkeypatch)
+    assert RE.sweep(env.vault, env.repository, clock=env.clock) == 0
+    assert calls["sections"] == 100, "the first look maps them"
+    calls["sections"] = 0
+    assert RE.sweep(env.vault, env.repository, clock=env.clock) == 0
+    assert calls == {"sections": 0, "spans": 0}, "a repeat maps nothing, empty results included"
+
+
+def test_r6_the_cached_mapping_follows_coverage_and_content(tmp_path, monkeypatch):
+    env, _decision_id, objective = _arranged_wait(tmp_path, toml=DECIDER_ONLY + AD_OFF)
+    lo = objective["learning_object_id"]
+    _complete_section(env)
+    calls = _count_mappings(monkeypatch)
+    assert RE.sweep(env.vault, env.repository, clock=env.clock) == 0 and calls["sections"] == 1
+    assert RE.sweep(env.vault, env.repository, clock=env.clock) == 0 and calls["sections"] == 1
+    _name_on_coverage(env, lo)
+    assert RE.sweep(env.vault, env.repository, clock=env.clock) == 1, "a coverage row is a new revision"
+    assert calls["sections"] == 2
+    # The vault's content is a revision too. (That one section is on record now, so another asks.)
+    _complete_section(env, section="other")
+    assert RE.sweep(env.vault, env.repository, clock=env.clock) == 0 and calls["sections"] == 3
+    assert RE.sweep(env.vault, env.repository, clock=env.clock) == 0 and calls["sections"] == 3
+    env.vault.learning_objects[lo].status = "archived"
+    assert RE.sweep(env.vault, env.repository, clock=env.clock) == 0 and calls["sections"] == 4
+
+
+def test_r6_with_receipts_on_record_the_window_leaves_old_unmapped_sections_alone_in_a_new_process(tmp_path, monkeypatch):
+    env, _decision_id, objective = _arranged_wait(tmp_path, toml=DECIDER_ONLY + AD_OFF)
+    lo = objective["learning_object_id"]
+    _unmapped_sections(env, 100, at=env.now_iso())
+    env.clock.instant = env.clock.instant + timedelta(days=5)
+    _complete_section(env, section="named")
+    monkeypatch.setattr(RE, "_section_los", lambda _vault, _repo, _extraction, section: [lo] if section == "named" else [])
+    assert RE.sweep(env.vault, env.repository, clock=env.clock) == 1
+    RE._clear_mapping_cache()
+    monkeypatch.undo()
+    calls = _count_mappings(monkeypatch)
+    assert RE.sweep(env.vault, env.repository, clock=env.clock) == 0
+    assert calls == {"sections": 0, "spans": 0}
+
+
+def test_r6_the_foreground_read_does_not_list_the_whole_history(tmp_path, monkeypatch):
+    env, _decision_id, objective = _arranged_wait(tmp_path, toml=DECIDER_ONLY + AD_OFF)
+    lo = objective["learning_object_id"]
+    _unmapped_sections(env, 100, at=env.now_iso())
+    env.clock.instant = env.clock.instant + timedelta(days=5)
+    _complete_section(env, section="named")
+    monkeypatch.setattr(RE, "_section_los", lambda _vault, _repo, _extraction, section: [lo] if section == "named" else [])
+    RE.sweep(env.vault, env.repository, clock=env.clock)
+    RE._clear_mapping_cache()
+    monkeypatch.undo()
+    calls = _count_mappings(monkeypatch)
+    with env.repository.connection() as connection:
+        found = RE.read(connection, env.vault, env.repository, since=RE.recent_since(connection))
+    assert calls == {"sections": 0, "spans": 0} and [row[0] for row in found] == [lo]
+
+
+def test_r6_a_transient_mapping_failure_is_not_cached_as_empty(tmp_path, monkeypatch):
+    env, _decision_id, objective = _arranged_wait(tmp_path, toml=DECIDER_ONLY + AD_OFF)
+    lo = objective["learning_object_id"]
+    _complete_section(env)
+
+    def boom(*_args, **_kwargs):
+        raise RuntimeError("database is locked")
+
+    monkeypatch.setattr(RE, "_section_los", boom)
+    assert RE.sweep(env.vault, env.repository, clock=env.clock) == 0
+    monkeypatch.setattr(RE, "_section_los", lambda *_a: [lo])
+    assert RE.sweep(env.vault, env.repository, clock=env.clock) == 1
+
+
+def test_r6_a_sweep_with_nothing_to_write_takes_no_write_lock(tmp_path, monkeypatch):
+    env, _decision_id, _objective = _arranged_wait(tmp_path, toml=DECIDER_ONLY + AD_OFF)
+    opened = []
+    real = env.repository.atomic
+
+    def counted():
+        opened.append(1)
+        return real()
+
+    monkeypatch.setattr(env.repository, "atomic", counted)
+    assert RE.sweep(env.vault, env.repository, clock=env.clock) == 0
+    assert not opened
+
+
+def _name_on_coverage(env, lo, *, extraction="x", section="sec"):
+    connection = connect(env.repository.sqlite_path)
+    try:
+        connection.execute("PRAGMA foreign_keys = OFF")  # the row's judgment is not what this reads
+        connection.execute(
+            "INSERT INTO section_coverage(id, extraction_id, section_id, learning_object_id, treatment, origin, section_hash,"
+            " lo_hash, state_key, ledger_id, model, prompt_version, created_at)"
+            " VALUES (?,?,?,?, 'develops', 'retrieval', 'h', 'h', 'k', 'l', 'm', 'v', ?)",
+            (f"cov_{lo}_{env.now_iso()}", extraction, section, lo, env.now_iso()))
+        connection.commit()
+    finally:
+        connection.close()

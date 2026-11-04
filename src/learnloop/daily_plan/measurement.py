@@ -38,8 +38,9 @@ under :data:`ANSWER_OTHER_OBJECTIVE`: it satisfied the check and measured nothin
 ``answered``, and it takes the same one replacement.
 
 **Reader activity** is an exposure for the outcome whatever adaptive difficulty's logging says, and :func:`settle` judges
-an answer by the same read every outcome uses (:func:`learnloop.data_capture.reading_exposures.read`, landing ruling R1). Its
-sweep only freezes that activity: no state or outcome depends on whether it has run.
+an answer by the same read every outcome uses, over the activity that could have made it warm
+(:func:`learnloop.data_capture.reading_exposures.read_for_answer`, landing rulings R1 and R6). Its sweep only freezes that
+activity: no state or outcome depends on whether it has run.
 
 **For A7** (a probe versus continue experiment on the same outcome collection): :func:`freeze`,
 :func:`record` with its ``experiment_id`` and the adapter take any decision kind; nothing here knows
@@ -457,7 +458,6 @@ def settle(vault: Any, repository: Any, *, clock: Clock | None = None) -> int:
         at = utc_now_iso(clock)
         # Replacements made during this pass, which ``serving`` predates (Codex re-review F9).
         fresh: dict[str, _Arrangement] = {}
-        exposures: list[tuple[str, str]] | None = None
         for row in open_rows:
             decision_id, commitment_id = str(row["decision_id"]), str(row["commitment_id"])
             early = _replacement_detail(connection, decision_id)
@@ -504,20 +504,19 @@ def settle(vault: Any, repository: Any, *, clock: Clock | None = None) -> int:
                         written += _lost(connection, decision_id, prefix, reason, at=at)
             if answered_by is None:
                 continue
-            if exposures is None:
-                try:
-                    exposures = reading_exposures.read(connection, vault, repository)
-                except Exception:  # noqa: BLE001 - never blocks Today; an answer waits for a read that can judge it
-                    logger.warning("data capture: Reader exposures were not read", exc_info=True)
-                    continue
             answered_lo = str(attempt[2]) if attempt is not None else None
             if answered_lo != str(row.get("learning_object_id")):
                 unread = ANSWER_OTHER_OBJECTIVE
-            elif _answer_missed_window(connection, answered_by, row.get("decided_at"), exposures):
-                unread = ANSWER_NOT_DELAYED
             else:
-                written += _event(connection, decision_id, "answered", attempt_id=answered_by, at=answered_at)
-                continue
+                try:
+                    exposures = reading_exposures.read_for_answer(connection, vault, repository, answered_at=answered_at)
+                except Exception:  # noqa: BLE001 - never blocks Today; an answer waits for a read that can judge it
+                    logger.warning("data capture: Reader exposures were not read", exc_info=True)
+                    continue
+                if not _answer_missed_window(connection, answered_by, row.get("decided_at"), exposures):
+                    written += _event(connection, decision_id, "answered", attempt_id=answered_by, at=answered_at)
+                    continue
+                unread = ANSWER_NOT_DELAYED
             if replacement:
                 written += _event(connection, decision_id, "unavailable", reason=f"{prefix}{unread}",
                                   attempt_id=answered_by, at=at)
