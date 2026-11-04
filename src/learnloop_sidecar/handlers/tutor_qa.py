@@ -59,6 +59,9 @@ class AskTutorQuestionInput(ParamsModel):
     hints_used_before: int | None = None
     direct_explanation_request: bool = False
     attempt_progress: str | None = None
+    # RO0 row 1 (spec_router_objective_v1 §4): whether the answer is on the learner's screen now. Only the
+    # screen knows, so it is the client's word or unknown.
+    answer_visible_now: bool | None = None
     # Canonical sources S4 (§10.3), "Explain this with my work": the passages
     # the learner chose (span keys "<extraction>:<span>") and their current draft.
     pinned_span_keys: list[str] = Field(default_factory=list, max_length=20)
@@ -283,6 +286,7 @@ def ask_tutor_question(ctx: SidecarContext, params: AskTutorQuestionInput) -> di
                 "hints_used_before": params.hints_used_before,
                 "direct_explanation_request": params.direct_explanation_request,
                 "attempt_progress": params.attempt_progress,
+                "answer_visible_now": params.answer_visible_now,
             },
             # Slice 2 T6: question-dependent, verified source spans (kill switch
             # source_retrieval.enabled; any failure keeps the linked spans).

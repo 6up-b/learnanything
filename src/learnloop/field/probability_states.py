@@ -73,7 +73,9 @@ from learnloop.field.types import AttemptRow
 from learnloop.learner.assessment_contracts import rubric_from_contract
 from learnloop.vault.models import LoadedVault, PracticeItem, Rubric
 
-STATE_VERSION = "llm-probability-state-v3"
+#: v4 (RO0, spec_router_objective_v1 §4): a question's ``hints_used_before`` is now populated by the server, where
+#: every earlier row has null. The card's shape is unchanged; its input is not, so its version records it.
+STATE_VERSION = "llm-probability-state-v4"
 VARIANTS = ("v1", "v2", "v3")
 V2_WINDOW = 25
 #: router.card_token_budget's default (router spec §4, D8): V3 uses the same.

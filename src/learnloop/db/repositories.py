@@ -4535,6 +4535,12 @@ class Repository(
                     event.get("answer_mode"),
                 ),
             )
+            if event.get("reveal_state_json") is not None:
+                # RO0 row 1, with the row: only a question RO0 read has it (and only a vault at migration 242 can).
+                connection.execute(
+                    "UPDATE question_events SET reveal_state_json = ? WHERE id = ?",
+                    (event["reveal_state_json"], event_id),
+                )
             connection.commit()
         return event_id
 
