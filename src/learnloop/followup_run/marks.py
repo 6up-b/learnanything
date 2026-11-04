@@ -35,8 +35,11 @@ logger = logging.getLogger(__name__)
 #: The marks panel on the attempt's own feedback, and on the probe's answer.
 SURFACE_FEEDBACK = "marks_feedback"
 SURFACE_PROBE_FEEDBACK = "marks_probe_feedback"
+#: The inspector's read of an attempt or an error event (a click from the feedback screen, or a search),
+#: which shows the raw causes. It has no client event: the sidecar's read is the display.
+SURFACE_INSPECTOR = "inspector"
 #: The other places the desktop lists an attempt's causes; each keeps its own order.
-LIST_SURFACES: frozenset[str] = frozenset({"why", "unresolved_cause_card", "causal_feedback"})
+LIST_SURFACES: frozenset[str] = frozenset({"why", "unresolved_cause_card", "causal_feedback", SURFACE_INSPECTOR})
 MARKS_SURFACES: frozenset[str] = frozenset({SURFACE_FEEDBACK, SURFACE_PROBE_FEEDBACK})
 EXPOSURE_SURFACES: frozenset[str] = LIST_SURFACES | MARKS_SURFACES
 
@@ -226,6 +229,19 @@ def record_exposure(
         return None
 
 
+def record_inspector_exposure(vault: Any, repository: Repository, attempt_id: str) -> str | None:
+    """The inspector shows every cause of the attempt, held or not. Never in the way of the read."""
+
+    try:
+        ids = list(dict.fromkeys(str(row["id"]) for row in repository.causal_hypotheses_for_attempt(attempt_id)))
+    except Exception:  # noqa: BLE001 - a receipt never blocks a screen
+        logger.warning("the causes of attempt %s could not be read", attempt_id, exc_info=True)
+        return None
+    if not ids:
+        return None
+    return record_exposure(vault, repository, attempt_id=attempt_id, surface=SURFACE_INSPECTOR, hypothesis_version_ids=ids)
+
+
 def _readable_time(value: str | None) -> bool:
     try:
         return bool(value) and parse_utc(value) is not None
@@ -315,5 +331,5 @@ def record_mark(
 
 __all__ = [
     "EXPOSURE_SURFACES", "LIST_SURFACES", "MARKS_SURFACES", "MarkRefused", "MarkableList", "SURFACE_FEEDBACK",
-    "SURFACE_PROBE_FEEDBACK", "bundle_view", "markable_list", "record_exposure", "record_mark", "view",
+    "SURFACE_INSPECTOR", "SURFACE_PROBE_FEEDBACK", "bundle_view", "markable_list", "record_exposure", "record_inspector_exposure", "record_mark", "view",
 ]

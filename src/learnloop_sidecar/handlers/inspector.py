@@ -66,10 +66,22 @@ def inspect_entity(ctx: SidecarContext, params: InspectInput) -> dict[str, Any]:
     if record is not None:
         kind, payload = record
         if kind == "practice_attempt":
+            _causes_on_screen(ctx, vault, repository, params.id)
             return versioned({"kind": "attempt", "id": params.id, "detail": attempt_detail(vault, repository, params.id)})
         if kind == "error_event":
+            _causes_on_screen(ctx, vault, repository, str(payload.get("attempt_id") or ""))
             return versioned({"kind": "error_event", "id": params.id, "detail": error_event_dto(vault, payload)})
     return versioned({"kind": "not_found", "id": params.id, "suggestions": _search_suggestions(vault, params.id)})
+
+
+def _causes_on_screen(ctx: SidecarContext, vault: Any, repository: Any, attempt_id: str) -> None:
+    """FG1c, R1: the inspector shows an attempt's raw causes, whatever is held, so a probe's later answer
+    has to know. Only the desktop has this overlay."""
+
+    from learnloop.followup_run.marks import record_inspector_exposure
+
+    if ctx.request_origin is None and attempt_id:
+        record_inspector_exposure(vault, repository, attempt_id)
 
 
 def _note_detail(vault: Any, identifier: str) -> dict[str, Any] | None:

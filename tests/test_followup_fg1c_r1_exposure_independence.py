@@ -296,3 +296,70 @@ def test_an_exposure_recorded_before_marks_went_off_still_counts(journey):
     append_config_toml(ctx.vault_root, MARKS_OFF)
     ctx.reload(maintenance=False)
     assert wf.probe_answer_exposed(repository, row["presentation_id"], answered_at=TWO) == wf.CAUSES_SHOWN_BEFORE_PROBE
+
+
+# -- the doors that showed causes with no display event ------------------------------------------------
+
+
+def _not_showing(bundle):
+    assert bundle["causalFeedback"] is None and bundle["unresolvedCauses"] == [] and bundle["feedbackMd"] is None
+    assert bundle["followup"]["held"] is True
+
+
+@pytest.mark.parametrize("name, params", [
+    ("add_error_event", {"errorType": "x", "severity": 0.5}),
+    ("rate_followup", {"useful": True}),
+    ("trigger_followup", {}),
+    ("trigger_regrade", {"learnerReason": "My answer was right.", "contestId": "contest-1"}),
+])
+def test_a_door_on_a_held_screen_keeps_the_causes_held(journey, name, params):
+    ctx, _vault, repository, result, outcome = journey
+    _not_showing(_call(ctx, name, {"attemptId": result.attempt_id, **params}))
+    assert is_holding(wf.get(repository, outcome.workflow_id))
+
+
+def test_a_plain_regrade_on_a_held_screen_keeps_the_causes_held(journey, monkeypatch):
+    ctx, _vault, _repository, result, _outcome = journey
+    monkeypatch.setattr("learnloop_sidecar.handlers.feedback._run_regrade", lambda *_args, **_kw: None)
+    _not_showing(_call(ctx, "trigger_regrade", {"attemptId": result.attempt_id}))
+
+
+def test_the_same_door_with_nothing_held_returns_the_whole_bundle(journey):
+    ctx, _vault, repository, result, outcome = journey
+    _call(ctx, "followup_show_anyway", {"attemptId": result.attempt_id})
+    assert not is_holding(wf.get(repository, outcome.workflow_id))
+    bundle = _call(ctx, "add_error_event", {"attemptId": result.attempt_id, "errorType": "x", "severity": 0.5})
+    assert bundle["feedbackMd"] and "followup" not in bundle
+
+
+def test_every_door_of_the_handler_goes_through_the_hold():
+    """Only ``get_feedback`` composes the hold itself, and ``_door_bundle`` is the one other reader."""
+
+    import inspect
+
+    from learnloop_sidecar.handlers import feedback
+
+    assert inspect.getsource(feedback).count("feedback_bundle(vault, repository,") == 2
+
+
+@pytest.mark.parametrize("kind", ["attempt", "error_event"])
+def test_the_inspector_on_a_held_attempt_is_a_recorded_exposure(journey, kind):
+    ctx, _vault, repository, result, outcome = journey
+    row = _ready(ctx, repository, outcome)
+    target = result.attempt_id
+    if kind == "error_event":
+        _call(ctx, "add_error_event", {"attemptId": result.attempt_id, "errorType": "x", "severity": 0.5})
+        with repository.connection() as connection:
+            target = connection.execute("SELECT id FROM error_events WHERE attempt_id = ? LIMIT 1", (result.attempt_id,)).fetchone()[0]
+    assert _call(ctx, "inspect_entity", {"id": target})["kind"] == kind
+    written = _rows(repository, "hypothesis_list_exposures")
+    assert [value["surface"] for value in written] == ["inspector"]
+    assert sorted(json.loads(written[0]["hypothesis_version_ids_json"])) == sorted(set(_versions(repository, result.attempt_id)))
+    later = (CLOCK.now() + timedelta(days=3650)).isoformat()
+    assert wf.probe_answer_exposed(repository, row["presentation_id"], answered_at=later) == wf.CAUSES_SHOWN_BEFORE_PROBE
+
+
+def test_the_inspector_with_marks_off_writes_nothing(marks_off):
+    ctx, _vault, repository, result, _outcome = marks_off
+    assert _call(ctx, "inspect_entity", {"id": result.attempt_id})["kind"] == "attempt"
+    assert _rows(repository, "hypothesis_list_exposures") == []
