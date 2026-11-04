@@ -4,7 +4,10 @@ A stable id exists before routing, keyed to the source attempt and the effective
 grade revision. While it is open, predecessor insertion is withheld, and every Next and
 serve door reads it. Each move is a compare-and-set, so a late diagnosis or generator
 adds nothing after a fallback, a skip, factor closure or a newer diagnosis, and retry
-and crash recovery reuse the identity.
+and crash recovery reuse the identity. Nothing recovers a terminal workflow, so
+:func:`finish` is the only way into a terminal state: it closes what the workflow
+prepared in the move's own commit. ``tests/test_followup_codex_review.py`` fails on any
+other writer.
 
 States: ``pending`` (no decision or no item yet), ``ready`` (a question is pinned, Next
 opens it), ``waiting`` (the router let it wait for the next block), ``refused`` (a hard
@@ -163,6 +166,56 @@ def move(
     clock: Clock | None = None,
     **fields: Any,
 ) -> bool:
+    """A move between open states; False when it lost the race. :func:`finish` makes the last one."""
+
+    if to_state in store.TERMINAL_STATES:
+        raise ValueError(f"{to_state} is terminal: only finish() moves there")
+    return _apply_move(repository, workflow_id, to_state=to_state, reason=reason, from_states=from_states,
+                       release=release, detail=detail, clock=clock, **fields)
+
+
+def finish(
+    repository: Repository,
+    workflow_id: str,
+    *,
+    to_state: str,
+    reason: str,
+    from_states: tuple[str, ...] = tuple(store.OPEN_STATES),
+    release: str | None = None,
+    detail: Mapping[str, Any] | None = None,
+    answered_item: str | None = None,
+    clock: Clock | None = None,
+    **fields: Any,
+) -> bool:
+    """The one move to a terminal state, and the closing of what the workflow prepared, in
+    one commit: nothing recovers a terminal workflow, so a crash between them would leave a
+    probe live with nothing to withdraw it. False when the move lost the race, and then
+    nothing closes. ``answered_item`` is the question whose answer settled it, which stays."""
+
+    if to_state not in store.TERMINAL_STATES:
+        raise ValueError(f"{to_state} is not terminal: move() moves there")
+    with repository.atomic():
+        if not _apply_move(repository, workflow_id, to_state=to_state, reason=reason, from_states=from_states,
+                           release=release, detail=detail, clock=clock, **fields):
+            return False
+        row = get(repository, workflow_id)
+        if row is not None:
+            close_probe(repository, row, reason=reason, answered_item=answered_item, clock=clock)
+    return True
+
+
+def _apply_move(
+    repository: Repository,
+    workflow_id: str,
+    *,
+    to_state: str,
+    reason: str,
+    from_states: tuple[str, ...],
+    release: str | None,
+    detail: Mapping[str, Any] | None,
+    clock: Clock | None,
+    **fields: Any,
+) -> bool:
     """One state move, with its release of held feedback; False when it lost the race."""
 
     now = _now(clock)
@@ -273,58 +326,48 @@ def waiting_still_valid(repository: Repository, row: Mapping[str, Any]) -> bool:
     return current <= labels
 
 
-def close_probe(repository: Repository, row: Mapping[str, Any], *, reason: str, clock: Clock | None = None) -> None:
-    """A workflow's probe that will not be answered is withdrawn, with anything an interrupted
-    run left unbound, and its own episode, if it measured nothing, doesn't stay open on the
-    topic. One commit; a caller moving the workflow holds them together (:func:`skip_and_close`)."""
+def close_probe(repository: Repository, row: Mapping[str, Any], *, reason: str, answered_item: str | None = None,
+                clock: Clock | None = None) -> None:
+    """What a workflow prepared and nobody will answer is closed: its probe and anything an
+    interrupted run left unbound are withdrawn, and an episode it pinned one on doesn't stay
+    open on the topic if it measured nothing. An interrupted run never bound its item, so the
+    row doesn't name any of that: the ledger does. One commit, held with the move by :func:`finish`.
+    ``answered_item`` stays as it is, and so does whatever its answer measured."""
 
     from learnloop.followup_serve import identity
 
     with repository.atomic():
         workflow_id = str(row["id"])
+        with repository.connection() as connection:
+            pinned = store.episodes_pinned_by_workflow(connection, workflow_id)
         item_id = row.get("practice_item_id")
-        if item_id:
+        if item_id and str(item_id) != answered_item:
             identity.withdraw(repository, str(item_id), reason=reason, workflow_id=workflow_id, clock=clock)
-        identity.retire_unbound(repository, workflow_id, clock=clock)
-        if row.get("presentation_id"):
+        identity.retire_unbound(repository, workflow_id, reason=reason, keep=answered_item, clock=clock)
+        if row.get("presentation_id") and answered_item is None:
             repository.end_probe_presentation(str(row["presentation_id"]), end_reason="abandoned", clock=clock)
-        episode_id = row.get("probe_episode_id")
-        if not episode_id:
-            return
-        # ``probe_episodes.episode_has_observations``, read here: a leaf imports no domain package.
-        measured = bool(repository.probe_observations_for_episode(str(episode_id))) or any(
-            presentation.status == "submitted"
-            for presentation in repository.probe_presentations_for_episode(str(episode_id))
-        )
-        if not measured:
-            repository.update_probe_episode_status(str(episode_id), status="abandoned", clock=clock)
+        for episode_id in dict.fromkeys([*filter(None, [row.get("probe_episode_id")]), *pinned]):
+            _abandon_if_empty(repository, str(episode_id), clock=clock)
 
 
-def skip_and_close(
-    repository: Repository,
-    row: Mapping[str, Any],
-    *,
-    reason: str,
-    release: str,
-    from_states: tuple[str, ...] = tuple(store.OPEN_STATES),
-    clock: Clock | None = None,
-) -> bool:
-    """The move to ``skipped`` and what it closes, in one commit: nothing recovers a terminal
-    workflow, so a crash between them would strand its item in a standing plan. False when
-    the move lost the race, and then nothing closes."""
+def _abandon_if_empty(repository: Repository, episode_id: str, *, clock: Clock | None) -> None:
+    """An open episode with no observation, and no presentation left that could make one."""
 
-    with repository.atomic():
-        if not move(repository, str(row["id"]), to_state=SKIPPED, reason=reason, from_states=from_states,
-                    release=release, clock=clock):
-            return False
-        close_probe(repository, row, reason=reason, clock=clock)
-    return True
+    episode = repository.probe_episode(episode_id)
+    if episode is None or episode.status not in {"pending_items", "in_progress"}:
+        return
+    # ``probe_episodes.episode_has_observations``, read here: a leaf imports no domain package.
+    if repository.probe_observations_for_episode(episode_id):
+        return
+    if all(presentation.status == "ended" for presentation in repository.probe_presentations_for_episode(episode_id)):
+        repository.update_probe_episode_status(episode_id, status="abandoned", clock=clock)
 
 
 def retire_waiting(repository: Repository, row: Mapping[str, Any], *, reason: str, clock: Clock | None = None) -> None:
     """A wait that can't be served now: its probe retires, unused, and nothing else follows."""
 
-    skip_and_close(repository, row, reason=reason, release=RELEASE_FALLBACK, from_states=(WAITING, READY), clock=clock)
+    finish(repository, str(row["id"]), to_state=SKIPPED, reason=reason, release=RELEASE_FALLBACK,
+           from_states=(WAITING, READY), clock=clock)
 
 
 def probe_answered(repository: Repository, practice_item_id: str, *, attempt_id: str, clock: Clock | None = None) -> bool:
@@ -340,13 +383,15 @@ def probe_answered(repository: Repository, practice_item_id: str, *, attempt_id:
         row = store.workflow_for_item(connection, practice_item_id)
     if row is None or row["state"] not in {READY, WAITING}:
         return False
-    if not move(repository, str(row["id"]), to_state=SETTLED, reason="probe_answered", release=RELEASE_PROBE_ANSWERED,
-                from_states=(READY, WAITING), detail={"attempt_id": attempt_id}, clock=clock):
-        return False
-    if row.get("decision_id"):
-        with repository.atomic(), repository.connection() as connection:
-            store.append_binding(connection, decision_id=str(row["decision_id"]), workflow_id=str(row["id"]),
-                                 binding_kind="outcome", outcome="answered", at=_now(clock))
+    with repository.atomic():
+        if not finish(repository, str(row["id"]), to_state=SETTLED, reason="probe_answered",
+                      release=RELEASE_PROBE_ANSWERED, from_states=(READY, WAITING), detail={"attempt_id": attempt_id},
+                      answered_item=practice_item_id, clock=clock):
+            return False
+        if row.get("decision_id"):
+            with repository.connection() as connection:
+                store.append_binding(connection, decision_id=str(row["decision_id"]), workflow_id=str(row["id"]),
+                                     binding_kind="outcome", outcome="answered", at=_now(clock))
     return True
 
 
@@ -363,7 +408,8 @@ def settle_open_when_off(vault: Any, repository: Repository, *, clock: Clock | N
         rows = store.open_workflows(connection)
     settled = 0
     for row in rows:
-        if skip_and_close(repository, row, reason="switch_off", release=RELEASE_SWITCH_OFF, clock=clock):
+        if finish(repository, str(row["id"]), to_state=SKIPPED, reason="switch_off", release=RELEASE_SWITCH_OFF,
+                  clock=clock):
             settled += 1
     return settled
 
@@ -384,6 +430,6 @@ def diagnosis_ended(vault: Any, repository: Repository, *, attempt_id: str, cloc
 
 __all__ = [
     "FAILED", "OPEN_STATES", "PENDING", "READY", "REFUSED", "SETTLED", "SKIPPED", "WAITING", "WORKFLOW_OWNS_REASON",
-    "attempt_workflow", "close_probe", "desktop_waiting_count", "diagnosis_ended", "get", "move", "open_for_attempt", "probe_answer_exposed", "probe_answered", "release_feedback", "retire_waiting", "session_rows", "skip_and_close", "waiting_still_valid", "owns_attempt", "settle_open_when_off",
+    "attempt_workflow", "close_probe", "desktop_waiting_count", "diagnosis_ended", "finish", "get", "move", "open_for_attempt", "probe_answer_exposed", "probe_answered", "release_feedback", "retire_waiting", "session_rows", "waiting_still_valid", "owns_attempt", "settle_open_when_off",
     "superseded", "workflow_id_for", "workflow_of_item",
 ]

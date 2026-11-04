@@ -186,8 +186,8 @@ def continue_without(repository: Repository, attempt_id: str, *, clock: Clock | 
     if row is None or row["state"] not in {wf.PENDING, wf.READY}:
         return False
     with repository.atomic():
-        if not wf.skip_and_close(repository, row, reason="continue_without_it", release=wf.RELEASE_CONTINUE_WITHOUT,
-                                 from_states=(wf.PENDING, wf.READY), clock=clock):
+        if not wf.finish(repository, str(row["id"]), to_state=wf.SKIPPED, reason="continue_without_it",
+                         release=wf.RELEASE_CONTINUE_WITHOUT, from_states=(wf.PENDING, wf.READY), clock=clock):
             return False
         if row.get("factor_id"):
             record_learner_preference(
@@ -235,7 +235,8 @@ def abandon(repository: Repository, practice_item_id: str, *, clock: Clock | Non
             return False
         return identity.withdraw(repository, practice_item_id, reason="abandoned", clock=clock)
     with repository.atomic():
-        if not wf.skip_and_close(repository, row, reason="abandoned", release=wf.RELEASE_CONTINUE_WITHOUT, clock=clock):
+        if not wf.finish(repository, str(row["id"]), to_state=wf.SKIPPED, reason="abandoned",
+                         release=wf.RELEASE_CONTINUE_WITHOUT, clock=clock):
             return False
         if row.get("decision_id"):
             router.append_outcome(repository, str(row["decision_id"]), str(row["id"]), outcome="abandoned", clock=clock)

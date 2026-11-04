@@ -127,11 +127,11 @@ def fail_workflow(vault: Any, repository: Repository, workflow_id: str, *, reaso
     if row is None:
         return
     with repository.atomic():
-        if not wf.move(repository, workflow_id, to_state=wf.FAILED, reason=reason, release=wf.RELEASE_GENERATION_FAILED,
-                       clock=clock):
+        # What its last run left closes with it, or it would block the need's own question
+        # (``duplicate_instrument_class``).
+        if not wf.finish(repository, workflow_id, to_state=wf.FAILED, reason=reason,
+                         release=wf.RELEASE_GENERATION_FAILED, clock=clock):
             return
-        # What its last run left would block the need's own question (``duplicate_instrument_class``).
-        identity.retire_unbound(repository, workflow_id, clock=clock)
         if row.get("factor_id"):
             queue.enqueue_factor(repository, str(row["factor_id"]), workflow_id=workflow_id,
                                  not_before=_iso_after(clock, NEED_RETRY_DELAY_SECONDS), clock=clock)
@@ -293,8 +293,8 @@ def _run_workflow(vault: Any, repository: Repository, workflow_id: str, *, clien
     if row is None or row["state"] != wf.PENDING:
         return
     if wf.superseded(repository, row):
-        wf.move(repository, workflow_id, to_state=wf.SKIPPED, reason="newer_grade", release=wf.RELEASE_FALLBACK,
-                clock=clock)
+        wf.finish(repository, workflow_id, to_state=wf.SKIPPED, reason="newer_grade", release=wf.RELEASE_FALLBACK,
+                  clock=clock)
         return
     attempt_id = str(row["source_attempt_id"])
     blind = repository.latest_blind_grade_record(attempt_id) is not None
@@ -347,15 +347,15 @@ def _run_probe_lane(vault: Any, repository: Repository, row: Mapping[str, Any], 
     decision = router.decide_once(vault, repository, row, choice=choice, clients=clients, clock=clock)
     if decision.refused:
         with repository.atomic():
-            wf.move(repository, workflow_id, to_state=wf.REFUSED, reason=decision.reason, release=wf.RELEASE_REFUSED,
-                    clock=clock)
+            wf.finish(repository, workflow_id, to_state=wf.REFUSED, reason=decision.reason, release=wf.RELEASE_REFUSED,
+                      clock=clock)
             router.record_outcome(repository, row, decision, outcome="refused", clock=clock)
         return
     if decision.no_intervention:
         # §5 item 4: nothing is generated, the screen shows the decision, and what was held is released.
         with repository.atomic():
-            wf.move(repository, workflow_id, to_state=wf.SETTLED, reason="no_intervention",
-                    release=wf.RELEASE_NO_INTERVENTION, lane=wf.LANE_PROBE, clock=clock)
+            wf.finish(repository, workflow_id, to_state=wf.SETTLED, reason="no_intervention",
+                      release=wf.RELEASE_NO_INTERVENTION, lane=wf.LANE_PROBE, clock=clock)
             router.record_outcome(repository, row, decision, outcome="no_intervention", clock=clock)
         return
     if decision.wait:
@@ -384,8 +384,8 @@ def _run_probe_lane(vault: Any, repository: Repository, row: Mapping[str, Any], 
     except admission.OfferRefused as refused:
         with repository.atomic():
             _withdraw(repository, item_id, reason=refused.reason, workflow_id=workflow_id, clock=clock)
-            wf.move(repository, workflow_id, to_state=wf.REFUSED, reason=refused.reason, release=wf.RELEASE_REFUSED,
-                    clock=clock)
+            wf.finish(repository, workflow_id, to_state=wf.REFUSED, reason=refused.reason, release=wf.RELEASE_REFUSED,
+                      clock=clock)
             router.record_outcome(repository, row, decision, outcome="refused", clock=clock)
         return
     except admission.AdmissionFailed as failed:
@@ -394,10 +394,10 @@ def _run_probe_lane(vault: Any, repository: Repository, row: Mapping[str, Any], 
             fail_workflow(vault, repository, workflow_id, reason=failed.reason, clock=clock)
             router.record_outcome(repository, row, decision, outcome="generation_failed", clock=clock)
         return
-    to_state = wf.WAITING if decision.wait else wf.READY
     with repository.atomic():
         moved = wf.move(
-            repository, workflow_id, to_state=to_state, reason=decision.chosen_ref, from_states=(wf.PENDING,),
+            repository, workflow_id, to_state=wf.WAITING if decision.wait else wf.READY, reason=decision.chosen_ref,
+            from_states=(wf.PENDING,),
             practice_item_id=admitted.practice_item_id, probe_candidate_id=admitted.candidate_id,
             hypothesis_set_id=admitted.hypothesis_set_id, probe_episode_id=admitted.episode_id,
             presentation_id=admitted.presentation_id, clock=clock,
@@ -406,7 +406,10 @@ def _run_probe_lane(vault: Any, repository: Repository, row: Mapping[str, Any], 
             router.bind_item(repository, row, decision, admitted, clock=clock)
         else:
             # A late generator: the skip or fallback already settled it, and this adds nothing.
-            _withdraw(repository, admitted.practice_item_id, reason="workflow_settled", workflow_id=workflow_id, clock=clock)
+            wf.close_probe(repository, {**row, "practice_item_id": admitted.practice_item_id,
+                                        "presentation_id": admitted.presentation_id,
+                                        "probe_episode_id": admitted.episode_id},
+                           reason="workflow_settled", clock=clock)
 
 
 def reloaded(vault: Any) -> Any:

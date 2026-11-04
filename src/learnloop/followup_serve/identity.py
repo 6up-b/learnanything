@@ -222,16 +222,18 @@ def withdraw(
     return retired
 
 
-def retire_unbound(repository: Repository, workflow_id: str, *, clock: Clock | None = None) -> list[str]:
+def retire_unbound(repository: Repository, workflow_id: str, *, reason: str = "publication_interrupted",
+                   keep: str | None = None, clock: Clock | None = None) -> list[str]:
     """What an interrupted run of this workflow published and never bound is withdrawn, unused,
-    before the retry writes its own question. One commit, so a crash here leaves it selected."""
+    before the retry writes its own question or the workflow ends. One commit, so a crash here
+    leaves it selected. ``keep`` is a question that was answered, whatever its ledger says."""
 
     with repository.atomic(), repository.connection() as connection:
         if not _present(connection):
             return []
-        items = store.unclosed_probes_of_workflow(connection, workflow_id)
+        items = [item_id for item_id in store.unclosed_probes_of_workflow(connection, workflow_id) if item_id != keep]
         for item_id in items:
-            withdraw(repository, item_id, reason="publication_interrupted", workflow_id=workflow_id, clock=clock)
+            withdraw(repository, item_id, reason=reason, workflow_id=workflow_id, clock=clock)
     return items
 
 

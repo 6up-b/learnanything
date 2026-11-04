@@ -67,8 +67,8 @@ def settle_practice_lane(
 ) -> bool:
     """The practice lane, or the one fallback: the predecessor's chooser runs once.
 
-    The move and the insertion commit together, so a crash leaves neither and a retry
-    runs both once; a workflow something else settled inserts nothing.
+    The move, what it closes and the insertion commit together, so a crash leaves none of
+    them and a retry runs all of it once; a workflow something else settled inserts nothing.
     """
 
     from learnloop.attempts.attempts import AttemptResult
@@ -79,8 +79,8 @@ def settle_practice_lane(
     work = repository.attempt_completion(attempt_id)
     decision = None
     with repository.atomic():
-        if not WF.move(repository, workflow_id, to_state=WF.SETTLED, reason=reason, release=release,
-                       lane=WF.LANE_PRACTICE, from_states=(WF.PENDING,), clock=clock):
+        if not WF.finish(repository, workflow_id, to_state=WF.SETTLED, reason=reason, release=release,
+                         lane=WF.LANE_PRACTICE, from_states=(WF.PENDING,), clock=clock):
             return False
         if work is not None:
             decision = evaluate_attempt_intervention_followup(

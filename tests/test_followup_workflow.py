@@ -88,8 +88,8 @@ def test_a_practice_lane_fallback_runs_the_predecessors_chooser_once(tmp_path):
 def test_a_settled_workflow_takes_nothing_more(tmp_path):
     vault, repository, _paths = rival_causes_vault(tmp_path)
     _result, outcome = miss_with_rivals(vault, repository)
-    assert wf.move(repository, outcome.workflow_id, to_state=wf.SKIPPED, reason="continue_without_it",
-                   release=wf.RELEASE_CONTINUE_WITHOUT, clock=CLOCK)
+    assert wf.finish(repository, outcome.workflow_id, to_state=wf.SKIPPED, reason="continue_without_it",
+                     release=wf.RELEASE_CONTINUE_WITHOUT, clock=CLOCK)
     row = wf.get(repository, outcome.workflow_id)
     assert row["release_reason"] == wf.RELEASE_CONTINUE_WITHOUT
     # A late generator or diagnosis loses the compare-and-set.

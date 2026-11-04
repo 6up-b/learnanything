@@ -120,8 +120,8 @@ def test_a_late_generator_adds_nothing_after_a_skip(tmp_path):
 
     class SkipsMidway(AuthorFake):
         def run_followup_probe_authoring(self, context):
-            wf.move(repository, outcome.workflow_id, to_state=wf.SKIPPED, reason="continue_without_it",
-                    release=wf.RELEASE_CONTINUE_WITHOUT, clock=CLOCK)
+            wf.finish(repository, outcome.workflow_id, to_state=wf.SKIPPED, reason="continue_without_it",
+                      release=wf.RELEASE_CONTINUE_WITHOUT, clock=CLOCK)
             return super().run_followup_probe_authoring(context)
 
     run_jobs(vault, repository, clients=author_clients(SkipsMidway()))

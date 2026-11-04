@@ -273,6 +273,17 @@ def unclosed_probes_of_workflow(connection: sqlite3.Connection, workflow_id: str
     )]
 
 
+def episodes_pinned_by_workflow(connection: sqlite3.Connection, workflow_id: str) -> list[str]:
+    """The episodes holding a presentation of this workflow's generated probes, bound or not."""
+
+    return [str(row[0]) for row in connection.execute(
+        "SELECT DISTINCT p.probe_episode_id FROM generated_probe_items i "
+        "JOIN probe_presentations p ON p.practice_item_id = i.practice_item_id "
+        "WHERE i.workflow_id = ? ORDER BY p.probe_episode_id",
+        (workflow_id,),
+    )]
+
+
 def live_candidates_of_item(connection: sqlite3.Connection, practice_item_id: str) -> list[str]:
     """The item's causal probe candidates not yet rejected."""
 

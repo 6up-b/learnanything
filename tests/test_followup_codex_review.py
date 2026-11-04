@@ -1312,3 +1312,302 @@ def test_f10_a_failed_workflow_withdraws_what_its_last_run_left(journey, monkeyp
     assert wf.get(repository, journey.workflow_id)["state"] == wf.FAILED
     assert first.practice_item_id in identity.retired_probe_ids(repository)
     assert repository.causal_probe_candidate(first.candidate_id)["status"] == "rejected"
+
+
+# -- Final verify (job 20261104-030053-ASNG4N), F7: ruling R1, one function for every terminal move ---
+
+
+TERMINAL_NAMES = {"REFUSED", "FAILED", "SKIPPED", "SETTLED"}
+
+
+def _newer_grade(repository, attempt_id):
+    repository.insert_blind_grade_record(
+        attempt_id=attempt_id, agent_run_id=None, grading_prompt_version="test", output_schema_version="test",
+        context_hash="newer", record={"grade": "newer"}, queue_diagnosis=False, clock=LATER,
+    )
+
+
+def _nothing_left_open(repository, first, *, episode=True):
+    """What every exit owes: no burn or retirement missing, no state, candidate or pin left live."""
+
+    item = first.practice_item_id
+    assert item in identity.retired_probe_ids(repository)
+    assert not repository.practice_item_state(item).active
+    assert repository.causal_probe_candidate(first.candidate_id)["status"] == "rejected"
+    assert repository.probe_presentation(first.presentation_id).status == "ended"
+    assert repository.active_probe_presentation_for_item(item) is None
+    if episode:
+        assert repository.probe_episode(first.episode_id).status == "abandoned"
+
+
+def _exit_newer_grade(journey, monkeypatch):
+    _newer_grade(journey.repository, journey.result.attempt_id)
+    run_jobs(load_vault(journey.paths.root), journey.repository, clients=author_clients(AuthorFake()), clock=LATER)
+    return wf.SKIPPED, "newer_grade"
+
+
+def _exit_causes_not_accounted_for(journey, monkeypatch):
+    from learnloop.followup_run.authoring import CAUSES_UNACCOUNTED
+
+    _no_record(monkeypatch)
+    _exam_elsewhere(monkeypatch)
+    run_jobs(load_vault(journey.paths.root), journey.repository, clients=author_clients(AuthorFake()), clock=LATER)
+    return wf.SETTLED, CAUSES_UNACCOUNTED
+
+
+def _exit_one_hypothesis(journey, monkeypatch):
+    from learnloop.followup_run import lanes
+
+    monkeypatch.setattr(lanes, "select_lane", lambda *_a, **_k: lanes.LaneChoice(wf.LANE_PRACTICE, "one_hypothesis"))
+    run_jobs(load_vault(journey.paths.root), journey.repository, clients=author_clients(AuthorFake()), clock=LATER)
+    return wf.SETTLED, "one_hypothesis"
+
+
+def _exit_timeout(journey, _monkeypatch):
+    from learnloop.followup_run import lanes
+
+    row = wf.get(journey.repository, journey.workflow_id)
+    lanes.settle_practice_lane(journey.vault, journey.repository, row, reason="diagnosis_timeout",
+                               release=wf.RELEASE_FALLBACK, clock=LATER)
+    return wf.SETTLED, "diagnosis_timeout"
+
+
+def _exit_refused(journey, _monkeypatch):
+    row = wf.get(journey.repository, journey.workflow_id)
+    _not_now(journey.repository, row["factor_id"], row["session_id"])
+    run_jobs(load_vault(journey.paths.root), journey.repository, clients=author_clients(AuthorFake()), clock=LATER)
+    return wf.REFUSED, "learner_decline"
+
+
+def _exit_no_intervention(journey, _monkeypatch):
+    wf.set_fields(journey.repository, journey.workflow_id, chosen_ref=router.NO_INTERVENTION, clock=LATER)
+    run_jobs(load_vault(journey.paths.root), journey.repository, clients=author_clients(AuthorFake()), clock=LATER)
+    return wf.SETTLED, "no_intervention"
+
+
+def _exit_failed(journey, _monkeypatch):
+    jobs.fail_workflow(journey.vault, journey.repository, journey.workflow_id, reason="generation_job_ended", clock=LATER)
+    return wf.FAILED, "generation_job_ended"
+
+
+def _exit_continue_without(journey, _monkeypatch):
+    serving.continue_without(journey.repository, journey.result.attempt_id, clock=LATER)
+    return wf.SKIPPED, "continue_without_it"
+
+
+_EXITS = {
+    "newer_grade": _exit_newer_grade,
+    "causes_not_accounted_for": _exit_causes_not_accounted_for,
+    "one_hypothesis": _exit_one_hypothesis,
+    "diagnosis_timeout": _exit_timeout,
+    "refused": _exit_refused,
+    "no_intervention": _exit_no_intervention,
+    "failed": _exit_failed,
+    "continue_without": _exit_continue_without,
+}
+
+
+@pytest.mark.parametrize("name", sorted(_EXITS))
+def test_f7_verify_every_exit_closes_what_an_interrupted_run_prepared(journey, monkeypatch, name):
+    """Codex's two reproductions (newer grade, causes not accounted for), and every other way out."""
+
+    first = _crash_after_the_pin(journey, monkeypatch)
+    repository = journey.repository
+    assert repository.probe_presentation(first.presentation_id).status == "selected"
+    state, reason = _EXITS[name](journey, monkeypatch)
+    row = wf.get(repository, journey.workflow_id)
+    assert row["state"] == state and _last_reason(repository, journey.workflow_id) == reason
+    assert row["feedback_released_at"]
+    assert row["practice_item_id"] is None  # it was never bound: nothing but the ledger could find it
+    _nothing_left_open(repository, first)
+    # Nothing recovers a terminal workflow, so this is the last word; Next goes on.
+    assert not jobs.recover_workflow(journey.vault, repository, row, clock=LATER)
+    assert serving.next_action(journey.vault, repository, journey.result.attempt_id, plan_serves=False,
+                               clock=LATER).action == "continue"
+
+
+@pytest.mark.parametrize("name", ["newer_grade", "causes_not_accounted_for"])
+@pytest.mark.parametrize("dies_in", ["end_probe_presentation", "update_causal_probe_candidate",
+                                     "update_probe_episode_status"])
+def test_f7_verify_a_crash_in_the_exit_leaves_all_of_it_open_for_the_next_run(journey, monkeypatch, name, dies_in):
+    first = _crash_after_the_pin(journey, monkeypatch)
+    repository = journey.repository
+
+    def dies(*_a, **_k):
+        raise Died()
+
+    real = getattr(repository, dies_in)
+    monkeypatch.setattr(repository, dies_in, dies)
+    with pytest.raises(Died):
+        _EXITS[name](journey, monkeypatch)
+    monkeypatch.setattr(repository, dies_in, real)
+    row = wf.get(repository, journey.workflow_id)
+    assert row["state"] == wf.PENDING and not row["feedback_released_at"]
+    assert first.practice_item_id not in identity.retired_probe_ids(repository)
+
+    run_jobs(load_vault(journey.paths.root), repository, clients=author_clients(AuthorFake()),
+             clock=FrozenClock(LATER.now() + timedelta(hours=2)))
+    assert wf.get(repository, journey.workflow_id)["state"] in store.TERMINAL_STATES
+    _nothing_left_open(repository, first)
+
+
+def test_f7_verify_the_settled_exit_adds_no_question_of_its_own(journey, monkeypatch):
+    first = _crash_after_the_pin(journey, monkeypatch)
+    repository = journey.repository
+    fake = AuthorFake()
+    _no_record(monkeypatch)
+    _exam_elsewhere(monkeypatch)
+    run_jobs(load_vault(journey.paths.root), repository, clients=author_clients(fake), clock=LATER)
+    assert fake.calls == 0
+    assert identity.generated_probe_ids(repository) == {first.practice_item_id}
+
+
+def test_f7_verify_an_answer_keeps_its_own_question_and_closes_only_the_leftovers(journey):
+    row = _workflow_probe(journey)
+    repository = journey.repository
+    identity.register(repository, practice_item_id="pi_gen_left_behind", revision="r", source="workflow",
+                      workflow_id=journey.workflow_id, clock=CLOCK)
+    assert wf.probe_answered(repository, row["practice_item_id"], attempt_id="att_probe", clock=LATER)
+    assert wf.get(repository, journey.workflow_id)["state"] == wf.SETTLED
+    retired = identity.retired_probe_ids(repository)
+    assert "pi_gen_left_behind" in retired and row["practice_item_id"] not in retired
+    assert repository.probe_presentation(row["presentation_id"]).status != "ended"
+    assert repository.probe_episode(row["probe_episode_id"]).status == "in_progress"
+
+
+def test_f7_verify_an_episode_another_presentation_still_holds_stays_open(journey, monkeypatch):
+    row = _workflow_probe(journey)
+    repository = journey.repository
+    monkeypatch.setattr(repository, "probe_presentations_for_episode",
+                        lambda _episode_id: [SimpleNamespace(status="selected")])
+    serving.continue_without(repository, journey.result.attempt_id, clock=LATER)
+    assert wf.get(repository, journey.workflow_id)["state"] == wf.SKIPPED
+    assert repository.probe_episode(row["probe_episode_id"]).status == "in_progress"
+
+
+def test_f7_verify_a_late_generator_closes_the_episode_it_pinned(tmp_path):
+    vault, repository, _paths = rival_causes_vault(tmp_path)
+    _result, outcome = miss_with_rivals(vault, repository)
+
+    class SkipsMidway(AuthorFake):
+        def run_followup_probe_authoring(self, context):
+            serving_row = wf.get(repository, outcome.workflow_id)
+            assert wf.finish(repository, serving_row["id"], to_state=wf.SKIPPED, reason="continue_without_it",
+                             release=wf.RELEASE_CONTINUE_WITHOUT, clock=CLOCK)
+            return super().run_followup_probe_authoring(context)
+
+    run_jobs(vault, repository, clients=author_clients(SkipsMidway()))
+    generated = identity.generated_probe_ids(repository)
+    assert len(generated) == 1 and generated <= identity.retired_probe_ids(repository)
+    with repository.connection() as connection:
+        episodes = [row[0] for row in connection.execute(
+            "SELECT DISTINCT probe_episode_id FROM probe_presentations WHERE practice_item_id = ?", (next(iter(generated)),))]
+    assert episodes and all(repository.probe_episode(value).status == "abandoned" for value in episodes)
+
+
+def test_f7_verify_move_refuses_a_terminal_state_and_finish_refuses_any_other(journey):
+    for state in store.TERMINAL_STATES:
+        with pytest.raises(ValueError):
+            wf.move(journey.repository, journey.workflow_id, to_state=state, reason="test", clock=CLOCK)
+    with pytest.raises(ValueError):
+        wf.finish(journey.repository, journey.workflow_id, to_state=wf.READY, reason="test", clock=CLOCK)
+    assert wf.get(journey.repository, journey.workflow_id)["state"] == wf.PENDING
+
+
+def _terminal_state_writers(source: str, *, relative: str) -> list[str]:
+    """Every place in this module that could write a terminal state without :func:`workflow.finish`."""
+
+    import ast
+    import re
+
+    found: list[str] = []
+    tree = ast.parse(source)
+
+    def is_store_module() -> bool:
+        return relative == "learnloop/db/stores/followup_serve.py"
+
+    def is_workflow_module() -> bool:
+        return relative == "learnloop/followup_serve/workflow.py"
+
+    def constants(value: ast.AST) -> list[str | None]:
+        """The states this expression can name; None for one it doesn't spell out."""
+
+        if isinstance(value, ast.IfExp):
+            return constants(value.body) + constants(value.orelse)
+        if isinstance(value, ast.Attribute):
+            return [value.attr]
+        if isinstance(value, ast.Constant) and isinstance(value.value, str):
+            return [value.value.upper()]
+        return [None]
+
+    owners: dict[ast.AST, str] = {}
+    for node in ast.walk(tree):
+        if isinstance(node, ast.FunctionDef):
+            for child in ast.walk(node):
+                owners.setdefault(child, node.name) if child is not node else None
+
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Call):
+            name = node.func.attr if isinstance(node.func, ast.Attribute) else getattr(node.func, "id", None)
+            keywords = {keyword.arg: keyword.value for keyword in node.keywords}
+            if name == "move" and "to_state" in keywords:
+                for state in constants(keywords["to_state"]):
+                    if state is None or state in TERMINAL_NAMES:
+                        found.append(f"{relative}:{node.lineno} move to {state}")
+            if name == "_apply_move" and not (is_workflow_module() and owners.get(node) in {"move", "finish"}):
+                found.append(f"{relative}:{node.lineno} _apply_move")
+        if isinstance(node, (ast.Name, ast.Attribute)):
+            name = node.attr if isinstance(node, ast.Attribute) else node.id
+            if name == "move_workflow" and not (is_workflow_module() and owners.get(node) == "_apply_move"):
+                found.append(f"{relative}:{node.lineno} move_workflow")
+        if isinstance(node, ast.Constant) and isinstance(node.value, str):
+            text = node.value
+            if re.search(r"UPDATE\s+followup_workflows\s+SET\s[^;]*\bstate\s*=", text, re.I) and not (
+                    is_store_module() and owners.get(node) == "move_workflow"):
+                found.append(f"{relative}:{node.lineno} UPDATE of state")
+            if re.search(r"(INSERT|REPLACE)\s+(OR\s+\w+\s+)?INTO\s+followup_workflows\b", text, re.I) and not (
+                    is_store_module() and owners.get(node) == "insert_workflow"):
+                found.append(f"{relative}:{node.lineno} INSERT")
+    return found
+
+
+def test_f7_verify_no_other_writer_of_a_terminal_state():
+    """R1. Anything else that writes one fails here; ``move`` also refuses a terminal state when it runs."""
+
+    from pathlib import Path
+
+    root = Path(__file__).resolve().parents[1] / "src"
+    found: list[str] = []
+    for path in sorted(root.rglob("*.py")):
+        found += _terminal_state_writers(path.read_text(encoding="utf-8"), relative=path.relative_to(root).as_posix())
+    assert found == []
+    # The one UPDATE that could spell a state through its fields can't.
+    assert "state" not in store.WORKFLOW_FIELDS
+    assert not store.TERMINAL_STATES & store.OPEN_STATES
+
+
+@pytest.mark.parametrize("source", [
+    "wf.move(r, i, to_state=wf.SKIPPED, reason='x')",
+    "WF.move(r, i, to_state=WF.SETTLED, reason='x')",
+    "followup_workflow.move(r, i, to_state=followup_workflow.FAILED, reason='x')",
+    "move(r, i, to_state='refused', reason='x')",
+    "wf.move(r, i, to_state=whichever, reason='x')",
+    "wf.move(r, i, to_state=wf.READY if a else wf.REFUSED, reason='x')",
+    "wf._apply_move(r, i, to_state=wf.READY, reason='x')",
+    "store.move_workflow(c, i, from_states=(), to_state='failed', reason='x', at='t')",
+    "c.execute('UPDATE followup_workflows SET state = ? WHERE id = ?', a)",
+    "c.execute('update followup_workflows set lane = ?, state = ? where id = ?', a)",
+    "c.execute('INSERT OR REPLACE INTO followup_workflows (state) VALUES (?)', a)",
+])
+def test_f7_verify_the_scan_catches_each_kind_of_writer(source):
+    assert _terminal_state_writers(source, relative="learnloop/elsewhere.py")
+
+
+@pytest.mark.parametrize("source", [
+    "wf.move(r, i, to_state=wf.READY, reason='x')",
+    "wf.move(r, i, to_state=wf.WAITING if a else wf.READY, reason='x')",
+    "shutil.move(a, b)",
+    "c.execute('UPDATE followup_workflows SET lane = ? WHERE id = ?', a)",
+])
+def test_f7_verify_the_scan_leaves_what_isnt_a_writer(source):
+    assert _terminal_state_writers(source, relative="learnloop/elsewhere.py") == []
