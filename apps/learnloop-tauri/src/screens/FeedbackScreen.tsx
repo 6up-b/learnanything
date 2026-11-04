@@ -1598,25 +1598,7 @@ export function FeedbackScreen({
       : feedback?.followup ?? null;
   const followupRef = useRef<FollowupDto | null>(null);
   followupRef.current = followup;
-  const advance = useCallback(async () => {
-    const owner = followupRef.current;
-    if (owner && (owner.state === "pending" || owner.state === "ready")) {
-      let next: FollowupNextDto | null = null;
-      try {
-        next = await trackQueueWrite(api.followupNext(attemptId));
-      } catch {
-        next = null; // never strands: the plan or the queue goes on
-      }
-      if (next?.action === "wait") {
-        setNextWaiting(true);
-        return;
-      }
-      setNextWaiting(false);
-      if (next?.action === "open" && next.practiceItemId && onOpenNext) {
-        onOpenNext(next.practiceItemId, null);
-        return;
-      }
-    }
+  const goOn = useCallback(async () => {
     if (planMode && onPlanStep) {
       if (advancingRef.current) return;
       advancingRef.current = true;
@@ -1657,14 +1639,51 @@ export function FeedbackScreen({
     setAdvancing(false);
     if (head) onOpenNext(head.practiceItemId, head.schedulerCandidateId ?? null);
     else onNext();
-  }, [autoAdvance, onOpenNext, onNext, resolveNext, planMode, onPlanStep, resolvePlanStep, attemptId, trackQueueWrite]);
+  }, [autoAdvance, onOpenNext, onNext, resolveNext, planMode, onPlanStep, resolvePlanStep]);
+  // R13: the one path for every reply to Next, the first press's and the poll's alike.
+  const actOnNext = useCallback((next: FollowupNextDto | null) => {
+    if (next?.action === "wait") {
+      setNextWaiting(true);
+      return;
+    }
+    setNextWaiting(false);
+    if (next?.action === "open" && next.practiceItemId && onOpenNext) {
+      onOpenNext(next.practiceItemId, null);
+      return;
+    }
+    void goOn();
+  }, [onOpenNext, goOn]);
+  const actOnNextRef = useRef(actOnNext);
+  actOnNextRef.current = actOnNext;
+  const advance = useCallback(async () => {
+    const owner = followupRef.current;
+    if (owner && (owner.state === "pending" || owner.state === "ready")) {
+      let next: FollowupNextDto | null = null;
+      try {
+        next = await trackQueueWrite(api.followupNext(attemptId));
+      } catch {
+        next = null; // never strands: the plan or the queue goes on
+      }
+      actOnNext(next);
+      return;
+    }
+    await goOn();
+  }, [actOnNext, goOn, attemptId, trackQueueWrite]);
   const followupOpen = followup !== null && (followup.state === "pending" || followup.held);
   useEffect(() => {
     if (!followupOpen && !nextWaiting) return undefined;
     let stopped = false;
     const timer = window.setInterval(() => {
-      // While Next waits, ask Next: it is what settles a diagnosis that timed out.
-      const asked = nextWaiting ? api.followupNext(attemptId).then(() => undefined, () => undefined) : Promise.resolve();
+      // While Next waits, ask Next: it is what settles a diagnosis that timed out, and its reply
+      // moves the learner on through the same path as the first press. A failed poll changes nothing.
+      const asked = nextWaiting
+        ? api.followupNext(attemptId).then((next) => {
+            if (!stopped && next.action !== "wait") {
+              stopped = true;
+              actOnNextRef.current(next);
+            }
+          }, () => undefined)
+        : Promise.resolve();
       void asked
         .then(() => api.followupStatus(attemptId))
         .then((status) => {
@@ -1685,12 +1704,6 @@ export function FeedbackScreen({
       api.getFeedback(attemptId).then(setFeedback).catch(() => undefined);
     }
   }, [followup, attemptId]);
-  useEffect(() => {
-    if (nextWaiting && followup && followup.state !== "pending") {
-      setNextWaiting(false);
-      void advance();
-    }
-  }, [nextWaiting, followup, advance]);
   const continueWithout = useCallback(async () => {
     await trackQueueWrite(api.followupContinueWithout(attemptId)).catch(() => undefined);
     setNextWaiting(false);

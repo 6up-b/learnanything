@@ -153,3 +153,51 @@ it("with no workflow the screen is what it was", async () => {
   expect(screen.queryByTestId("followup-panel")).toBeNull();
   expect(invoke.mock.calls.some(([command]) => String(command).startsWith("followup_"))).toBe(false);
 });
+
+// F22, R13: a reply to Next from the poll goes through the same path as the first press.
+const WAITING = { version: 1, action: "wait", line: "Preparing a question on this…", practiceItemId: null, presentationId: null };
+
+async function pressNextAndWait() {
+  const callbacks = show();
+  await screen.findByTestId("followup-line");
+  await act(async () => { fireEvent.keyDown(window, { key: "n" }); });
+  await screen.findByText("Continue without it");
+  return callbacks;
+}
+
+it("goes on when the poll's Next says continue, though the workflow is still pending", async () => {
+  // The router chose to wait while Next was waiting: the answer is released, the question is still being written.
+  nextAnswers = [WAITING, { version: 1, action: "continue", line: null, practiceItemId: null, presentationId: null }];
+  const callbacks = await pressNextAndWait();
+  status = { version: 1, enabled: true, ...HELD, state: "pending", held: false };
+  await waitFor(() => expect(callbacks.onNext).toHaveBeenCalledTimes(1), { timeout: 4000 });
+  expect(callbacks.onOpenNext).not.toHaveBeenCalled();
+});
+
+it("opens the probe when the poll's Next says open", async () => {
+  nextAnswers = [WAITING, { version: 1, action: "open", line: null, practiceItemId: "pi_generated", presentationId: "pp" }];
+  const callbacks = await pressNextAndWait();
+  await waitFor(() => expect(callbacks.onOpenNext).toHaveBeenCalledWith("pi_generated", null), { timeout: 4000 });
+  expect(callbacks.onOpenNext).toHaveBeenCalledTimes(1);
+  expect(callbacks.onNext).not.toHaveBeenCalled();
+});
+
+it("keeps waiting when the poll's Next says wait, and asks again", async () => {
+  nextAnswers = [WAITING, WAITING, WAITING, WAITING];
+  const callbacks = await pressNextAndWait();
+  const asked = () => invoke.mock.calls.filter(([command]) => command === "followup_next").length;
+  await waitFor(() => expect(asked()).toBeGreaterThanOrEqual(2), { timeout: 4000 });
+  expect(callbacks.onNext).not.toHaveBeenCalled();
+  expect(callbacks.onOpenNext).not.toHaveBeenCalled();
+  expect(screen.getByText("Continue without it")).toBeTruthy();
+});
+
+it("goes on in plan mode through the plan's step when the poll's Next says continue", async () => {
+  nextAnswers = [WAITING, { version: 1, action: "continue", line: null, practiceItemId: null, presentationId: null }];
+  const onPlanStep = vi.fn();
+  const callbacks = show({ nextPlan: { sessionId: "s1" }, onPlanStep });
+  await screen.findByTestId("followup-line");
+  await act(async () => { fireEvent.keyDown(window, { key: "n" }); });
+  await waitFor(() => expect(onPlanStep).toHaveBeenCalledTimes(1), { timeout: 4000 });
+  expect(callbacks.onNext).not.toHaveBeenCalled();
+});
