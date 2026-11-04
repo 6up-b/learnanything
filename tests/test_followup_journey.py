@@ -311,7 +311,9 @@ def test_with_no_plan_a_ready_probe_heads_todays_queue(tmp_path):
 
 
 def _bundle_without_ids(bundle):
-    drop = {"attemptId", "generatedAt", "feedbackLastShownAt", "feedbackFirstShownAt", "nextDueAt"}
+    # hypothesisMarks is FG1c's, and its order hangs off episode keys that differ between two vaults;
+    # tests/test_hypothesis_marks.py holds its own on-and-off comparison.
+    drop = {"attemptId", "generatedAt", "feedbackLastShownAt", "feedbackFirstShownAt", "nextDueAt", "hypothesisMarks"}
     return {key: value for key, value in bundle.items() if key not in drop}
 
 

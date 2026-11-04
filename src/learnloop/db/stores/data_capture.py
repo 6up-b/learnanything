@@ -105,7 +105,7 @@ def prefilter_part(connection: sqlite3.Connection, content_hash: str) -> Any:
 
 def insert_objective(connection: sqlite3.Connection, row: Mapping[str, Any]) -> bool:
     """One decision's frozen objective, or False (a warning) when refused. ``delay_json`` (RO0 row 10; migration
-    242), only where it was read, is never in the row's insert (landing ruling R1): it follows in its own savepoint,
+    243), only where it was read, is never in the row's insert (landing ruling R1): it follows in its own savepoint,
     so a refused delay leaves the objective standing without it."""
 
     connection.execute("SAVEPOINT decision_objective_append")
@@ -143,7 +143,7 @@ def insert_measurement_event(
     delay: str | None = None,
 ) -> bool:
     """A measurement's state, once per reason and episode: a repeat is a no-op (returns False).
-    ``non_service_type``, ``delay``: RO0 row 10's columns, only where they were read (migration 242), never in the
+    ``non_service_type``, ``delay``: RO0 row 10's columns, only where they were read (migration 243), never in the
     row's insert (landing ruling R1): they follow in their own savepoint, so a refusal leaves the state standing."""
 
     event_id = new_ulid()

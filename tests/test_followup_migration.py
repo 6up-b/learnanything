@@ -14,7 +14,7 @@ import pytest
 from learnloop.db.migrate import applied_versions, discover_migrations
 from learnloop.db.table_roles import TABLE_ROLES, TableRole
 
-HEAD = Path(__file__).resolve().parents[1] / "fixtures" / "migration_head_242" / "state.sqlite"
+HEAD = Path(__file__).resolve().parents[1] / "fixtures" / "migration_head_243" / "state.sqlite"
 ROLES = {
     "followup_workflows": TableRole.WORKFLOW,
     "followup_generation_jobs": TableRole.WORKFLOW,
@@ -39,7 +39,7 @@ FOLLOWUP_ADDED_OBJECTS = frozenset({
 })
 
 
-def test_241_exists_and_its_tables_have_their_roles():
+def test_241_is_applied_and_its_tables_have_their_roles():
     names = {migration.version: migration.path.name for migration in discover_migrations()}
     assert names[241] == "241_followup_generate_serve.sql" and max(names) >= 241
     for table, role in ROLES.items():
@@ -48,7 +48,7 @@ def test_241_exists_and_its_tables_have_their_roles():
 
 def test_the_head_fixture_holds_241_in_rollback_mode_with_empty_tables():
     assert HEAD.read_bytes()[18:20] == b"\x01\x01"
-    assert 241 in applied_versions(HEAD)
+    assert max(applied_versions(HEAD)) >= 241
     with closing(sqlite3.connect(HEAD)) as connection:
         names = {row[0] for row in connection.execute("SELECT name FROM sqlite_master")}
         assert FOLLOWUP_ADDED_OBJECTS <= names

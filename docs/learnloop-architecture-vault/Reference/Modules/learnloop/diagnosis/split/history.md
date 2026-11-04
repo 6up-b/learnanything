@@ -7,8 +7,8 @@ version: "1.0.0"
 source_path: "src/learnloop/diagnosis/split/history.py"
 source_paths:
   - "src/learnloop/diagnosis/split/history.py"
-source_commit: "b732478c02a0b96a364ed9023ef132ae28acaedf"
-source_commit_timestamp: "2026-10-25T09:19:45-04:00"
+source_commit: "a1ba732a86f8c704cd6e6ee1071bf7a30ad3fb1a"
+source_commit_timestamp: "2026-11-04T08:47:30-05:00"
 source_worktree_state: "clean"
 generated: true
 generated_at: "2026-11-02"
@@ -50,80 +50,80 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/diagnosis/split/history.py](../../../../../../../src/learnloop/diagnosis/split/history.py) |
-| Source lines | 1359 |
+| Source lines | 1389 |
 | Owning package | [[Reference/Modules/learnloop/diagnosis/split/_package|learnloop.diagnosis.split]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `b732478c02a0b96a364ed9023ef132ae28acaedf` |
-| Commit timestamp | `2026-10-25T09:19:45-04:00` |
+| Source commit | `a1ba732a86f8c704cd6e6ee1071bf7a30ad3fb1a` |
+| Commit timestamp | `2026-11-04T08:47:30-05:00` |
 
 ## Public API
 
 - `class AttemptRef` ([source](../../../../../../../src/learnloop/diagnosis/split/history.py), line 91) — Where an attempt sits on the global chronological axis.
   - `key(self) -> tuple[str, str]` (line 97; public)
 - `class HistoryAttempt` ([source](../../../../../../../src/learnloop/diagnosis/split/history.py), line 102) — One prior attempt, rendered from blind-grade-equivalent fields only.
-  - `key(self) -> tuple[str, str]` (line 146; public)
-  - `evidence_units(self) -> list[tuple[frozenset[str], bool]]` (line 149; public) — Each non-pass observation as (facets it bears on, valid measurement?).
-  - `recurrence_invalid_reason(self, targets: Iterable[str]) -> str | None` (line 196; public) — S4 on the overlapping target itself; ``None`` when a citation counts.
-  - `non_pass(self) -> bool` (line 216; public) — Any non-full criterion, fatal error or error attribution.
-  - `cold_unassisted(self) -> bool` (line 222; public)
-  - `valid_measurement(self) -> bool` (line 226; public) — S4: at least one attribution is a valid measurement (or none flagged).
-  - `facets(self) -> frozenset[str]` (line 233; public)
-  - `failure_facets(self) -> frozenset[str]` (line 236; public) — Where this attempt's blind grade shows a non-pass (S4 overlap).
-- `class HypothesisRecord` ([source](../../../../../../../src/learnloop/diagnosis/split/history.py), line 243) — A typed prior hypothesis, factor or durable misconception (no prose).
-- `class RegistryRecord` ([source](../../../../../../../src/learnloop/diagnosis/split/history.py), line 261) — A durable misconception or a holding-pen candidate the diagnoser may match.
-- `class RepairRecord` ([source](../../../../../../../src/learnloop/diagnosis/split/history.py), line 275) — A repair tried on these facets and how its cold verifications went.
-- `class Neighborhood` ([source](../../../../../../../src/learnloop/diagnosis/split/history.py), line 288) — The LO and its one-hop prerequisite / confusable neighbours (§5.2).
-  - `all_ids(self) -> tuple[str, ...]` (line 297; public)
-  - `relation(self, learning_object_id: str) -> str` (line 308; public)
-- `learning_object_neighborhood(vault: LoadedVault, learning_object_id: str) -> Neighborhood` ([source](../../../../../../../src/learnloop/diagnosis/split/history.py), line 322) — One hop over prerequisite and confusable edges, both directions.
-- `class HistoryStore(Protocol)` ([source](../../../../../../../src/learnloop/diagnosis/split/history.py), line 385) — What the context assembler reads; every method applies ``before``.
-  - `attempt(self, attempt_id: str) -> HistoryAttempt | None` (line 388; public)
-  - `attempts_before(self, before: AttemptRef, learning_object_ids: Sequence[str] | None=None) -> list[HistoryAttempt]` (line 391; public) — Prior attempts in chronological order; ``None`` = the whole vault.
-  - `hypotheses_before(self, before: AttemptRef, learning_object_ids: Sequence[str]) -> list[HypothesisRecord]` (line 397; public)
-  - `registry_before(self, before: AttemptRef, learning_object_ids: Sequence[str] | None) -> list[RegistryRecord]` (line 402; public)
-  - `repairs_before(self, before: AttemptRef, facets: Iterable[str] | None) -> list[RepairRecord]` (line 407; public)
-  - `lagged_attempts(self, before: AttemptRef) -> int` (line 412; public) — Attempts that exist after the cutoff (async lag disclosure).
-- `criterion_facets(vault: LoadedVault, item: PracticeItem | None) -> dict[str, tuple[str, ...]]` ([source](../../../../../../../src/learnloop/diagnosis/split/history.py), line 488) — Each criterion's measured facets: authored targets, else the item's facets.
-- `history_attempt_from_blind_record(vault: LoadedVault, *, attempt_id: str, item: PracticeItem | None, learning_object_id: str, practice_item_id: str, completed_at: str, learner_answer_md: str, attempt_type: str, record: Mapping[str, Any], hints_used: int=0, primed: bool=False, contract: Mapping[str, Any] | None=None) -> HistoryAttempt` ([source](../../../../../../../src/learnloop/diagnosis/split/history.py), line 561) — Blind-grade-equivalent fields from a validated blind grade record.
-- `class VaultHistoryStore` ([source](../../../../../../../src/learnloop/diagnosis/split/history.py), line 656) — History read from a vault database, with an optional blind-grade overlay.
-  - `__init__(self, vault: LoadedVault, repository: Repository, *, blind_grades: Mapping[str, Mapping[str, Any]] | None=None, grading_marks: Mapping[str, str] | None=None) -> None` (line 664; internal)
-  - `with_blind_grades(self, blind_grades: Mapping[str, Mapping[str, Any]]) -> 'VaultHistoryStore'` (line 696; public)
-  - `blind_grade(self, attempt_id: str) -> Mapping[str, Any] | None` (line 704; public) — The overlay's blind record of ``attempt_id`` (read with its grading's identity by ``live.live_history_store``), or None.
-  - `_held(self, attempt_id: str, ledger_held: frozenset[str]) -> bool` (line 710; internal) — Is the grade this store shows for ``attempt_id`` held for review?
-  - `_load(self) -> None` (line 731; internal)
-  - `_written_before(written: datetime | None, before: AttemptRef) -> bool` (line 1015; internal) — Whether a record was written strictly before the cutoff attempt.
-  - `_visible(self, entry: _Written, before: AttemptRef) -> bool` (line 1025; internal)
-  - `_hypotheses_as_of(self, before: AttemptRef) -> list[HypothesisRecord]` (line 1030; internal) — Every hypothesis as it stood at ``before``.
-  - `_observed_before(self, cold_attempt_id: str, written: datetime | None, before: AttemptRef) -> bool` (line 1059; internal) — A cold verification counts as of ``before`` only when it was recorded before it AND its cold attempt (when known) precedes it.
-  - `_repair_as_of(self, entry: tuple[Any, ...], visible_hypotheses: Sequence[HypothesisRecord], before: AttemptRef) -> RepairRecord | None` (line 1068; internal)
-  - `_earliest_source(self, error_event_ids: Sequence[str]) -> str | None` (line 1086; internal)
-  - `_from_stored(self, row: Mapping[str, Any], item: PracticeItem | None, points: Mapping[str, float], events: Sequence[Mapping[str, Any]], fatal: Sequence[str], *, has_unassessed: bool=False, contract: Mapping[str, Any] | None=None) -> HistoryAttempt` (line 1096; internal) — A stored joint grade, reduced to blind-grade-equivalent fields (S3).
-  - `attempt(self, attempt_id: str) -> HistoryAttempt | None` (line 1178; public)
-  - `ref(self, attempt_id: str) -> AttemptRef | None` (line 1182; public)
-  - `all_attempts(self) -> list[HistoryAttempt]` (line 1187; public)
-  - `grading_marks(self) -> dict[str, str]` (line 1191; public) — Each attempt's grading identity as this store read it, in one snapshot with what it shows (``write_provenance.grading_marks``: the payload, the contract and the provenance): a record frozen later names every grading replaced since (diagnosis input provenance, codex review F3 and…
-  - `attempts_before(self, before: AttemptRef, learning_object_ids: Sequence[str] | None=None) -> list[HistoryAttempt]` (line 1201; public)
-  - `_source_before(self, source_attempt_id: str | None, before: AttemptRef) -> bool` (line 1213; internal)
-  - `hypotheses_before(self, before: AttemptRef, learning_object_ids: Sequence[str]) -> list[HypothesisRecord]` (line 1219; public)
-  - `registry_before(self, before: AttemptRef, learning_object_ids: Sequence[str] | None) -> list[RegistryRecord]` (line 1226; public)
-  - `repairs_before(self, before: AttemptRef, facets: Iterable[str] | None) -> list[RepairRecord]` (line 1238; public)
-  - `lagged_attempts(self, before: AttemptRef) -> int` (line 1251; public)
-- `class StaticHistoryStore` ([source](../../../../../../../src/learnloop/diagnosis/split/history.py), line 1257) — An explicit history, e.g.
-  - `__post_init__(self) -> None` (line 1265; internal)
-  - `add(self, attempt: HistoryAttempt) -> None` (line 1269; public)
-  - `replace_attempt(self, attempt: HistoryAttempt) -> None` (line 1273; public)
-  - `attempt(self, attempt_id: str) -> HistoryAttempt | None` (line 1279; public)
-  - `ref(self, attempt_id: str) -> AttemptRef | None` (line 1282; public)
-  - `all_attempts(self) -> list[HistoryAttempt]` (line 1286; public)
-  - `attempts_before(self, before: AttemptRef, learning_object_ids: Sequence[str] | None=None) -> list[HistoryAttempt]` (line 1289; public)
-  - `_before(self, source: str | None, before: AttemptRef) -> bool` (line 1300; internal)
-  - `hypotheses_before(self, before: AttemptRef, learning_object_ids: Sequence[str]) -> list[HypothesisRecord]` (line 1304; public)
-  - `registry_before(self, before: AttemptRef, learning_object_ids: Sequence[str] | None) -> list[RegistryRecord]` (line 1314; public)
-  - `repairs_before(self, before: AttemptRef, facets: Iterable[str] | None) -> list[RepairRecord]` (line 1325; public)
-  - `lagged_attempts(self, before: AttemptRef) -> int` (line 1336; public)
-- `with_blind_overlay(attempt: HistoryAttempt, **changes: Any) -> HistoryAttempt` ([source](../../../../../../../src/learnloop/diagnosis/split/history.py), line 1340)
+  - `key(self) -> tuple[str, str]` (line 149; public)
+  - `evidence_units(self) -> list[tuple[frozenset[str], bool]]` (line 152; public) — Each non-pass observation as (facets it bears on, valid measurement?).
+  - `recurrence_invalid_reason(self, targets: Iterable[str]) -> str | None` (line 199; public) — S4 on the overlapping target itself; ``None`` when a citation counts.
+  - `non_pass(self) -> bool` (line 219; public) — Any non-full criterion, fatal error or error attribution.
+  - `cold_unassisted(self) -> bool` (line 225; public)
+  - `valid_measurement(self) -> bool` (line 229; public) — S4: at least one attribution is a valid measurement (or none flagged).
+  - `facets(self) -> frozenset[str]` (line 236; public)
+  - `failure_facets(self) -> frozenset[str]` (line 239; public) — Where this attempt's blind grade shows a non-pass (S4 overlap).
+- `class HypothesisRecord` ([source](../../../../../../../src/learnloop/diagnosis/split/history.py), line 246) — A typed prior hypothesis, factor or durable misconception (no prose).
+- `class RegistryRecord` ([source](../../../../../../../src/learnloop/diagnosis/split/history.py), line 264) — A durable misconception or a holding-pen candidate the diagnoser may match.
+- `class RepairRecord` ([source](../../../../../../../src/learnloop/diagnosis/split/history.py), line 278) — A repair tried on these facets and how its cold verifications went.
+- `class Neighborhood` ([source](../../../../../../../src/learnloop/diagnosis/split/history.py), line 291) — The LO and its one-hop prerequisite / confusable neighbours (§5.2).
+  - `all_ids(self) -> tuple[str, ...]` (line 300; public)
+  - `relation(self, learning_object_id: str) -> str` (line 311; public)
+- `learning_object_neighborhood(vault: LoadedVault, learning_object_id: str) -> Neighborhood` ([source](../../../../../../../src/learnloop/diagnosis/split/history.py), line 325) — One hop over prerequisite and confusable edges, both directions.
+- `class HistoryStore(Protocol)` ([source](../../../../../../../src/learnloop/diagnosis/split/history.py), line 388) — What the context assembler reads; every method applies ``before``.
+  - `attempt(self, attempt_id: str) -> HistoryAttempt | None` (line 391; public)
+  - `attempts_before(self, before: AttemptRef, learning_object_ids: Sequence[str] | None=None) -> list[HistoryAttempt]` (line 394; public) — Prior attempts in chronological order; ``None`` = the whole vault.
+  - `hypotheses_before(self, before: AttemptRef, learning_object_ids: Sequence[str]) -> list[HypothesisRecord]` (line 400; public)
+  - `registry_before(self, before: AttemptRef, learning_object_ids: Sequence[str] | None) -> list[RegistryRecord]` (line 405; public)
+  - `repairs_before(self, before: AttemptRef, facets: Iterable[str] | None) -> list[RepairRecord]` (line 410; public)
+  - `lagged_attempts(self, before: AttemptRef) -> int` (line 415; public) — Attempts that exist after the cutoff (async lag disclosure).
+- `criterion_facets(vault: LoadedVault, item: PracticeItem | None) -> dict[str, tuple[str, ...]]` ([source](../../../../../../../src/learnloop/diagnosis/split/history.py), line 491) — Each criterion's measured facets: authored targets, else the item's facets.
+- `history_attempt_from_blind_record(vault: LoadedVault, *, attempt_id: str, item: PracticeItem | None, learning_object_id: str, practice_item_id: str, completed_at: str, learner_answer_md: str, attempt_type: str, record: Mapping[str, Any], hints_used: int=0, primed: bool=False, contract: Mapping[str, Any] | None=None) -> HistoryAttempt` ([source](../../../../../../../src/learnloop/diagnosis/split/history.py), line 564) — Blind-grade-equivalent fields from a validated blind grade record.
+- `class VaultHistoryStore` ([source](../../../../../../../src/learnloop/diagnosis/split/history.py), line 683) — History read from a vault database, with an optional blind-grade overlay.
+  - `__init__(self, vault: LoadedVault, repository: Repository, *, blind_grades: Mapping[str, Mapping[str, Any]] | None=None, grading_marks: Mapping[str, str] | None=None) -> None` (line 691; internal)
+  - `with_blind_grades(self, blind_grades: Mapping[str, Mapping[str, Any]]) -> 'VaultHistoryStore'` (line 723; public)
+  - `blind_grade(self, attempt_id: str) -> Mapping[str, Any] | None` (line 731; public) — The overlay's blind record of ``attempt_id`` (read with its grading's identity by ``live.live_history_store``), or None.
+  - `_held(self, attempt_id: str, ledger_held: frozenset[str]) -> bool` (line 737; internal) — Is the grade this store shows for ``attempt_id`` held for review?
+  - `_load(self) -> None` (line 758; internal)
+  - `_written_before(written: datetime | None, before: AttemptRef) -> bool` (line 1045; internal) — Whether a record was written strictly before the cutoff attempt.
+  - `_visible(self, entry: _Written, before: AttemptRef) -> bool` (line 1055; internal)
+  - `_hypotheses_as_of(self, before: AttemptRef) -> list[HypothesisRecord]` (line 1060; internal) — Every hypothesis as it stood at ``before``.
+  - `_observed_before(self, cold_attempt_id: str, written: datetime | None, before: AttemptRef) -> bool` (line 1089; internal) — A cold verification counts as of ``before`` only when it was recorded before it AND its cold attempt (when known) precedes it.
+  - `_repair_as_of(self, entry: tuple[Any, ...], visible_hypotheses: Sequence[HypothesisRecord], before: AttemptRef) -> RepairRecord | None` (line 1098; internal)
+  - `_earliest_source(self, error_event_ids: Sequence[str]) -> str | None` (line 1116; internal)
+  - `_from_stored(self, row: Mapping[str, Any], item: PracticeItem | None, points: Mapping[str, float], events: Sequence[Mapping[str, Any]], fatal: Sequence[str], *, has_unassessed: bool=False, contract: Mapping[str, Any] | None=None) -> HistoryAttempt` (line 1126; internal) — A stored joint grade, reduced to blind-grade-equivalent fields (S3).
+  - `attempt(self, attempt_id: str) -> HistoryAttempt | None` (line 1208; public)
+  - `ref(self, attempt_id: str) -> AttemptRef | None` (line 1212; public)
+  - `all_attempts(self) -> list[HistoryAttempt]` (line 1217; public)
+  - `grading_marks(self) -> dict[str, str]` (line 1221; public) — Each attempt's grading identity as this store read it, in one snapshot with what it shows (``write_provenance.grading_marks``: the payload, the contract and the provenance): a record frozen later names every grading replaced since (diagnosis input provenance, codex review F3 and…
+  - `attempts_before(self, before: AttemptRef, learning_object_ids: Sequence[str] | None=None) -> list[HistoryAttempt]` (line 1231; public)
+  - `_source_before(self, source_attempt_id: str | None, before: AttemptRef) -> bool` (line 1243; internal)
+  - `hypotheses_before(self, before: AttemptRef, learning_object_ids: Sequence[str]) -> list[HypothesisRecord]` (line 1249; public)
+  - `registry_before(self, before: AttemptRef, learning_object_ids: Sequence[str] | None) -> list[RegistryRecord]` (line 1256; public)
+  - `repairs_before(self, before: AttemptRef, facets: Iterable[str] | None) -> list[RepairRecord]` (line 1268; public)
+  - `lagged_attempts(self, before: AttemptRef) -> int` (line 1281; public)
+- `class StaticHistoryStore` ([source](../../../../../../../src/learnloop/diagnosis/split/history.py), line 1287) — An explicit history, e.g.
+  - `__post_init__(self) -> None` (line 1295; internal)
+  - `add(self, attempt: HistoryAttempt) -> None` (line 1299; public)
+  - `replace_attempt(self, attempt: HistoryAttempt) -> None` (line 1303; public)
+  - `attempt(self, attempt_id: str) -> HistoryAttempt | None` (line 1309; public)
+  - `ref(self, attempt_id: str) -> AttemptRef | None` (line 1312; public)
+  - `all_attempts(self) -> list[HistoryAttempt]` (line 1316; public)
+  - `attempts_before(self, before: AttemptRef, learning_object_ids: Sequence[str] | None=None) -> list[HistoryAttempt]` (line 1319; public)
+  - `_before(self, source: str | None, before: AttemptRef) -> bool` (line 1330; internal)
+  - `hypotheses_before(self, before: AttemptRef, learning_object_ids: Sequence[str]) -> list[HypothesisRecord]` (line 1334; public)
+  - `registry_before(self, before: AttemptRef, learning_object_ids: Sequence[str] | None) -> list[RegistryRecord]` (line 1344; public)
+  - `repairs_before(self, before: AttemptRef, facets: Iterable[str] | None) -> list[RepairRecord]` (line 1355; public)
+  - `lagged_attempts(self, before: AttemptRef) -> int` (line 1366; public)
+- `with_blind_overlay(attempt: HistoryAttempt, **changes: Any) -> HistoryAttempt` ([source](../../../../../../../src/learnloop/diagnosis/split/history.py), line 1370)
 
 ### Module constants
 
@@ -155,17 +155,19 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 
 ## Internal implementation anchors
 
-- `_instant(value: Any) -> datetime | None` ([source](../../../../../../../src/learnloop/diagnosis/split/history.py), line 417) — A stored timestamp as an aware UTC instant; unparseable -> None.
-- `class _Written` ([source](../../../../../../../src/learnloop/diagnosis/split/history.py), line 429) — A history record with the instant it was written (F5, as of a cutoff).
-- `_learner_text_candidate_ids(connection: Any, vault: LoadedVault) -> frozenset[str]` ([source](../../../../../../../src/learnloop/diagnosis/split/history.py), line 449) — Holding-pen candidates a learner's text named (learner-text gaps), while the pipeline and its sightings are switched on.
-- `_decode_json(value: Any, default: Any) -> Any` ([source](../../../../../../../src/learnloop/diagnosis/split/history.py), line 467)
-- `_max_points_by_criterion(vault: LoadedVault, item: PracticeItem | None) -> tuple[dict[str, float], float | None]` ([source](../../../../../../../src/learnloop/diagnosis/split/history.py), line 478)
-- `_failed_facets(vault: LoadedVault, item: PracticeItem | None, failed: Sequence[str]) -> tuple[str, ...]` ([source](../../../../../../../src/learnloop/diagnosis/split/history.py), line 508)
-- `_criterion_facet_sets(vault: LoadedVault, item: PracticeItem | None, criteria: Sequence[str]) -> tuple[tuple[str, ...], ...]` ([source](../../../../../../../src/learnloop/diagnosis/split/history.py), line 514) — Per criterion (in order), the facets it measures.
-- `_attribution_alignment(vault: LoadedVault, item: PracticeItem | None, attributions: Sequence[Mapping[str, Any]]) -> tuple[tuple[tuple[str, ...], ...], tuple[tuple[str, ...], ...]]` ([source](../../../../../../../src/learnloop/diagnosis/split/history.py), line 522) — Per attribution: (facets it bears on, criteria it targets).
-- `_target_facets_from(attribution: Mapping[str, Any], vault: LoadedVault) -> list[str]` ([source](../../../../../../../src/learnloop/diagnosis/split/history.py), line 543)
-- `_quote_from(first_divergence: Any) -> str | None` ([source](../../../../../../../src/learnloop/diagnosis/split/history.py), line 554)
-- `_with_confidence(record: HistoryAttempt, tap: Any, hedge: str | None, *, held: bool) -> HistoryAttempt` ([source](../../../../../../../src/learnloop/diagnosis/split/history.py), line 645) — TE0: the attempt with its tap and confidence event (unchanged with neither).
+- `_instant(value: Any) -> datetime | None` ([source](../../../../../../../src/learnloop/diagnosis/split/history.py), line 420) — A stored timestamp as an aware UTC instant; unparseable -> None.
+- `class _Written` ([source](../../../../../../../src/learnloop/diagnosis/split/history.py), line 432) — A history record with the instant it was written (F5, as of a cutoff).
+- `_learner_text_candidate_ids(connection: Any, vault: LoadedVault) -> frozenset[str]` ([source](../../../../../../../src/learnloop/diagnosis/split/history.py), line 452) — Holding-pen candidates a learner's text named (learner-text gaps), while the pipeline and its sightings are switched on.
+- `_decode_json(value: Any, default: Any) -> Any` ([source](../../../../../../../src/learnloop/diagnosis/split/history.py), line 470)
+- `_max_points_by_criterion(vault: LoadedVault, item: PracticeItem | None) -> tuple[dict[str, float], float | None]` ([source](../../../../../../../src/learnloop/diagnosis/split/history.py), line 481)
+- `_failed_facets(vault: LoadedVault, item: PracticeItem | None, failed: Sequence[str]) -> tuple[str, ...]` ([source](../../../../../../../src/learnloop/diagnosis/split/history.py), line 511)
+- `_criterion_facet_sets(vault: LoadedVault, item: PracticeItem | None, criteria: Sequence[str]) -> tuple[tuple[str, ...], ...]` ([source](../../../../../../../src/learnloop/diagnosis/split/history.py), line 517) — Per criterion (in order), the facets it measures.
+- `_attribution_alignment(vault: LoadedVault, item: PracticeItem | None, attributions: Sequence[Mapping[str, Any]]) -> tuple[tuple[tuple[str, ...], ...], tuple[tuple[str, ...], ...]]` ([source](../../../../../../../src/learnloop/diagnosis/split/history.py), line 525) — Per attribution: (facets it bears on, criteria it targets).
+- `_target_facets_from(attribution: Mapping[str, Any], vault: LoadedVault) -> list[str]` ([source](../../../../../../../src/learnloop/diagnosis/split/history.py), line 546)
+- `_quote_from(first_divergence: Any) -> str | None` ([source](../../../../../../../src/learnloop/diagnosis/split/history.py), line 557)
+- `_with_confidence(record: HistoryAttempt, tap: Any, hedge: str | None, *, held: bool) -> HistoryAttempt` ([source](../../../../../../../src/learnloop/diagnosis/split/history.py), line 648) — TE0: the attempt with its tap and confidence event (unchanged with neither).
+- `_ledger_marks(connection: Any, vault: Any) -> dict[str, list[dict[str, Any]]]` ([source](../../../../../../../src/learnloop/diagnosis/split/history.py), line 659) — FG1c: every mark by attempt; none with the kill switch off (the history is its predecessor's).
+- `_marks_as_of(attempt: HistoryAttempt, before: AttemptRef) -> HistoryAttempt` ([source](../../../../../../../src/learnloop/diagnosis/split/history.py), line 673) — The marks a context cut off at ``before`` could have read: nothing written after it.
 
 ## Who imports or calls it
 
@@ -192,7 +194,9 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 - [[Reference/Modules/learnloop/confidence_events|learnloop.confidence_events]] — imports `module`; calls `Reading`, `enabled`, `event_text`, `hedge_from_record`, `read_hedges`, `result_class`, `valid_tap`
 - [[Reference/Modules/learnloop/db/repositories|learnloop.db.repositories]] — imports `Repository`
 - [[Reference/Modules/learnloop/db/stores/answered_contracts|learnloop.db.stores.answered_contracts]] — imports `answered_contracts`; calls `answered_contracts`
+- [[Reference/Modules/learnloop/db/stores/hypothesis_marks|learnloop.db.stores.hypothesis_marks]] — imports `module`; calls `all_marks`, `present`
 - [[Reference/Modules/learnloop/db/stores/write_provenance|learnloop.db.stores.write_provenance]] — imports `UNIDENTIFIED_GRADING`, `grading_marks`, `read_snapshot`, `replaced_error_event_attempts`; calls `grading_marks`, `read_snapshot`, `replaced_error_event_attempts`
+- [[Reference/Modules/learnloop/followup_serve/gates|learnloop.followup_serve.gates]] — imports `hypothesis_marks_on`; calls `hypothesis_marks_on`
 - [[Reference/Modules/learnloop/outcome_contract|learnloop.outcome_contract]] — imports `grade_held_for_review`; calls `grade_held_for_review`
 - [[Reference/Modules/learnloop/substrate/canonical_projection|learnloop.substrate.canonical_projection]] — imports `UNVERIFIED_CRITERION_BLOCK`, `held_for_review_attempts`, `surface_group_id`, `unverified_evidence_row`; calls `held_for_review_attempts`, `surface_group_id`, `unverified_evidence_row`
 - [[Reference/Modules/learnloop/vault/models|learnloop.vault.models]] — imports `LoadedVault`, `PracticeItem`
@@ -249,6 +253,14 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_f4_a_regrade_to_no_errors_keeps_the_retired_events_answer`
   - `test_rereview_f3_a_payload_its_caller_supplied_is_never_certified`
   - `test_rereview_f3_the_overlay_s_payload_is_validated_by_the_identity_captured_with_it`
+- [tests/test_followup_fg1c_codex_review.py](../../../../../../../tests/test_followup_fg1c_codex_review.py) — direct import
+  - `test_f1_a_history_attempt_folds_the_causes_its_marks_show_as_of_its_cutoff`
+  - `test_f1_a_rediagnosis_records_the_cause_it_was_shown_through_a_mark`
+  - `test_f1_only_the_causes_a_context_still_shows_are_folded`
+  - `test_f1_the_snapshot_entry_of_a_marked_attempt_carries_the_cause`
+- [tests/test_hypothesis_marks.py](../../../../../../../tests/test_hypothesis_marks.py) — direct import
+  - `test_the_diagnoser_reads_only_marks_made_before_the_attempt_it_is_on`
+  - `test_the_switch_off_keeps_the_diagnosers_context_as_it_was_whatever_rows_exist`
 - [tests/test_learner_blindness_relax.py](../../../../../../../tests/test_learner_blindness_relax.py) — direct import
 - [tests/test_learner_text_gaps.py](../../../../../../../tests/test_learner_text_gaps.py) — direct import
   - `test_a_tutor_question_that_states_a_belief_reaches_the_holding_pen`

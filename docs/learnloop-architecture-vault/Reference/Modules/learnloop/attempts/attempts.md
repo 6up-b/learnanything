@@ -476,6 +476,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_followup_codex_review.py](../../../../../../tests/test_followup_codex_review.py) — direct import
   - `test_f6_a_crash_right_after_a_probe_answer_has_settled_its_workflow`
 - [tests/test_followup_diagnostic_selection.py](../../../../../../tests/test_followup_diagnostic_selection.py) — direct import
+- [tests/test_followup_fg1c_codex_review.py](../../../../../../tests/test_followup_fg1c_codex_review.py) — direct import
 - [tests/test_followup_journey.py](../../../../../../tests/test_followup_journey.py) — direct import
 - [tests/test_followups.py](../../../../../../tests/test_followups.py) — direct import
   - `test_negative_surprise_followup_stops_forcing_after_followup_attempt`
@@ -514,6 +515,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_f7_surface_filters_the_chooser_statistics_and_avoidance`
 - [tests/test_hint_report.py](../../../../../../tests/test_hint_report.py) — direct import
 - [tests/test_hot_path_eligibility_cutover.py](../../../../../../tests/test_hot_path_eligibility_cutover.py) — direct import
+- [tests/test_hypothesis_marks_context.py](../../../../../../tests/test_hypothesis_marks_context.py) — direct import
+  - `test_the_report_measures_marks_against_delayed_performance`
 - [tests/test_instrument_servability_journeys.py](../../../../../../tests/test_instrument_servability_journeys.py) — direct import
   - `test_the_certification_cold_probe_selects_an_instrument_as_its_held_out_item`
 - [tests/test_intent_orchestrator_rulings.py](../../../../../../tests/test_intent_orchestrator_rulings.py) — direct import

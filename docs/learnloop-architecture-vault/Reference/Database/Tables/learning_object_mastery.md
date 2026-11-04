@@ -3,8 +3,8 @@ title: "learning_object_mastery"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "0ed947a2c0b030671b4fbd264957e0ca13fa010f"
-source_commit_timestamp: "2026-11-04T11:05:42-05:00"
+source_commit: "094836387e8580ee3996941f4e181b109942c8dc"
+source_commit_timestamp: "2026-11-04T11:35:15-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite learning_object_mastery"
@@ -25,13 +25,12 @@ source_paths:
   - "src/learnloop/ops/debug_time.py"
   - "src/learnloop/ops/doctor.py"
   - "src/learnloop/placement/predictor.py"
-  - "src/learnloop/router_objective/decision_state.py"
+  - "src/learnloop/substrate/rebuild_orchestrator.py"
   - "src/learnloop/adaptive_difficulty/forecasters.py"
   - "src/learnloop/attempts/attempts.py"
   - "src/learnloop/claim_fixes_upgrade.py"
   - "src/learnloop/cli/app.py"
   - "src/learnloop/content/authoring/practice_generation.py"
-  - "src/learnloop/substrate/rebuild_orchestrator.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/derived"
@@ -94,7 +93,6 @@ Indexes and uniqueness:
 ### Direct SQL readers
 
 - `src/learnloop/db/repositories.py`
-- `src/learnloop/router_objective/decision_state.py`
 
 ### Direct SQL writers
 

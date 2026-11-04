@@ -142,6 +142,9 @@ class HistoryAttempt:
     #: words ("marked 5/5 sure; wrong"); None without a tap or a hedge read.
     answer_confidence: int | None = None
     confidence_event: str | None = None
+    #: FG1c (spec_followup_generate_serve_v1 §7): the ledger's marks on this attempt's causes,
+    #: oldest first, each with its time; ``attempts_before`` keeps those already made at its cutoff.
+    learner_marks: tuple[Mapping[str, Any], ...] = ()
 
     def key(self) -> tuple[str, str]:
         return (self.completed_at, self.attempt_id)
@@ -653,6 +656,30 @@ def _with_confidence(record: HistoryAttempt, tap: Any, hedge: str | None, *, hel
                    confidence_event=confidence_events.event_text(reading, result))
 
 
+def _ledger_marks(connection: Any, vault: Any) -> dict[str, list[dict[str, Any]]]:
+    """FG1c: every mark by attempt; none with the kill switch off (the history is its predecessor's)."""
+
+    from learnloop.db.stores import hypothesis_marks as marks_store
+    from learnloop.followup_serve.gates import hypothesis_marks_on
+
+    if not hypothesis_marks_on(vault.config) or not marks_store.present(connection):
+        return {}
+    by_attempt: dict[str, list[dict[str, Any]]] = {}
+    for row in marks_store.all_marks(connection):
+        by_attempt.setdefault(str(row["attempt_id"]), []).append(row)
+    return by_attempt
+
+
+def _marks_as_of(attempt: HistoryAttempt, before: AttemptRef) -> HistoryAttempt:
+    """The marks a context cut off at ``before`` could have read: nothing written after it."""
+
+    if not attempt.learner_marks:
+        return attempt
+    return replace(attempt, learner_marks=tuple(
+        row for row in attempt.learner_marks if str(row.get("created_at") or "") < before.completed_at
+    ))
+
+
 class VaultHistoryStore:
     """History read from a vault database, with an optional blind-grade overlay.
 
@@ -756,6 +783,7 @@ class VaultHistoryStore:
             # (none read with the kill switch off: the history is its predecessor's).
             confidence_on = confidence_events.enabled(self.vault)
             hedges = confidence_events.read_hedges(connection) if confidence_on else {}
+            marks_by_attempt = _ledger_marks(connection, self.vault)
             evidence: dict[str, dict[str, float]] = {}
             #: Attempts with a PF-c unverified criterion row (review F4): those
             #: rows are neither failures nor passes in the history.
@@ -857,6 +885,8 @@ class VaultHistoryStore:
                 )
             if is_held:
                 record = replace(record, score=None)
+            if attempt_id in marks_by_attempt:
+                record = replace(record, learner_marks=tuple(marks_by_attempt[attempt_id]))
             self._attempts.append(record)
             self._by_id[attempt_id] = record
 
@@ -1204,7 +1234,7 @@ class VaultHistoryStore:
         self._load()
         wanted = set(learning_object_ids) if learning_object_ids is not None else None
         return [
-            attempt
+            _marks_as_of(attempt, before)
             for attempt in self._attempts
             if attempt.key() < before.key()
             and (wanted is None or attempt.learning_object_id in wanted)

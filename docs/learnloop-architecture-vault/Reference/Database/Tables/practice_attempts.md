@@ -3,8 +3,8 @@ title: "practice_attempts"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "0ed947a2c0b030671b4fbd264957e0ca13fa010f"
-source_commit_timestamp: "2026-11-04T11:05:42-05:00"
+source_commit: "094836387e8580ee3996941f4e181b109942c8dc"
+source_commit_timestamp: "2026-11-04T11:35:15-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite practice_attempts"
@@ -200,6 +200,7 @@ Indexes and uniqueness:
 - `src/learnloop/db/stores/daily_plans.py`
 - `src/learnloop/db/stores/diagnoses.py`
 - `src/learnloop/db/stores/help_assists.py`
+- `src/learnloop/db/stores/hypothesis_marks.py`
 - `src/learnloop/db/stores/intent_reads.py`
 - `src/learnloop/db/stores/observation_ledger.py`
 - `src/learnloop/db/stores/plan_presentations.py`
@@ -258,8 +259,6 @@ Indexes and uniqueness:
 - `src/learnloop/reader_learner_state.py`
 - `src/learnloop/remote/views.py`
 - `src/learnloop/router/outcomes.py`
-- `src/learnloop/router_objective/decision_state.py`
-- `src/learnloop/router_objective/trajectory.py`
 - `src/learnloop/scheduling/intent/followup_gate.py`
 - `src/learnloop/scheduling/unresolved_cost.py`
 - `src/learnloop/source_retrieval/deliverable_path.py`

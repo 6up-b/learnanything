@@ -108,6 +108,7 @@ import logging
 import math
 from typing import Any, Mapping, Sequence
 
+from learnloop.causal_activity_policy import DISCRIMINATING_OUTCOMES
 from learnloop.clock import Clock
 from learnloop.db.repositories import (
     OBSERVATION_CHANNEL_BLIND_PROBE,
@@ -220,11 +221,6 @@ OBSERVATION_FEATURE_SOURCES = (
 )
 #: ...and the ONE source that earns `validator_owned` support authority.
 VALIDATOR_OWNED_FEATURE_SOURCES = frozenset({"deterministic"})
-
-#: Classification outcomes that carry discriminating information at all.  The
-#: other four (`matched_multiple`, `all_bundles_matched`, `cohort_mismatch`,
-#: `unparsed_features`) are recorded and resolve nothing.
-DISCRIMINATING_OUTCOMES = frozenset({"matched_single", "no_bundle_matched"})
 
 #: Deterministic probe-feature vocabulary (see `deterministic_probe_features`).
 DETERMINISTIC_FEATURE_PREFIX = "criterion:"
@@ -2536,10 +2532,14 @@ def _probe_production_admissibility(
         return None
     from learnloop.followup_serve.workflow import probe_answer_exposed
 
-    exposed = probe_answer_exposed(repository, str(attempt.get("probe_presentation_id") or ""))
+    exposed = probe_answer_exposed(
+        repository, str(attempt.get("probe_presentation_id") or ""),
+        answered_at=str(attempt.get("created_at") or "") or None,
+    )
     if exposed is not None:
-        # FG1 §6.0, §7: the learner took "Show anyway", or the feedback was released
-        # before a wait: an answer it can't resolve the cause with, whatever the ledger.
+        # FG1 §6.0, §7: the learner took "Show anyway", the feedback was released before a
+        # wait, or the causes were displayed before this answer (a recorded exposure, FG1c):
+        # an answer it can't resolve the cause with, whatever the ledger.
         return ProductionAdmissibility(False, exposed)
     return production_admissibility(
         repository,

@@ -3,15 +3,15 @@ title: "Configuration Field Catalog"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "0ed947a2c0b030671b4fbd264957e0ca13fa010f"
-source_commit_timestamp: "2026-11-04T11:05:42-05:00"
+source_commit: "094836387e8580ee3996941f4e181b109942c8dc"
+source_commit_timestamp: "2026-11-04T11:35:15-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "Effective config index"
   - "learnloop.toml field MOC"
 config_schema_version: 2
 algorithm_version: "mvp-0.9"
-section_count: 81
+section_count: 80
 field_count: 1135
 field_status_counts: {"ACTIVE": 1109, "COMPAT": 7, "DORMANT": 15, "LEGACY": 4}
 generated: true
@@ -83,8 +83,7 @@ Every one of the 1135 effective leaves has a semantic Function, a runtime/refact
 | [[Config - placement|`placement`]] | 8 | Runtime configuration |
 | [[Config - router|`router`]] | 24 | Runtime configuration |
 | [[Config - data_capture|`data_capture`]] | 2 | Runtime configuration |
-| [[Config - router_objective|`router_objective`]] | 1 | Runtime configuration |
-| [[Config - followup|`followup`]] | 1 | Runtime configuration |
+| [[Config - followup|`followup`]] | 2 | Runtime configuration |
 | [[Config - pf|`pf`]] | 14 | Runtime configuration |
 | [[Config - plan|`plan`]] | 22 | Runtime configuration |
 | [[Config - intent|`intent`]] | 7 | Runtime configuration |

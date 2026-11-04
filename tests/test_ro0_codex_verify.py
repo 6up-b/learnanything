@@ -40,7 +40,7 @@ from tests.test_question_context import FakeTutorClient
 
 SRC = Path(__file__).resolve().parents[1] / "src"
 VERSIONS = [LESSON_SUGGESTIONS_ALGORITHM_VERSION, DATA_CAPTURE_ALGORITHM_VERSION, LATEST_ALGORITHM_VERSION]
-#: Every column RO0 writes on a table that existed before it: migration 242's eight, and the generating-process fields
+#: Every column RO0 writes on a table that existed before it: migration 243's eight, and the generating-process fields
 #: (row 2 and row 3's ``question_opportunity``) RO0 now fills on the pending question.
 RO0_COLUMNS: dict[str, tuple[str, ...]] = {
     "question_events": ("reveal_state_json", "hints_used_before", "scaffold_level", "preceding_tutor_move", "learner_mode",

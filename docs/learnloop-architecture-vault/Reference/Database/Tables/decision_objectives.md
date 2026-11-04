@@ -3,8 +3,8 @@ title: "decision_objectives"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "0ed947a2c0b030671b4fbd264957e0ca13fa010f"
-source_commit_timestamp: "2026-11-04T11:05:42-05:00"
+source_commit: "094836387e8580ee3996941f4e181b109942c8dc"
+source_commit_timestamp: "2026-11-04T11:35:15-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite decision_objectives"
@@ -23,8 +23,6 @@ source_paths:
   - "src/learnloop/db/stores/data_capture.py"
   - "src/learnloop/router/first_delayed_success.py"
   - "src/learnloop/router/outcomes.py"
-  - "src/learnloop/router_objective/report.py"
-  - "src/learnloop/router_objective/trajectory.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/receipt"
@@ -48,7 +46,7 @@ It belongs to the **operations** navigation family. The family context lives in 
 - **Role:** `receipt` — Historical audit/decision receipt. It is preserved and never rebuilt.
 - **Functionality status:** `active`.
 - **Introduced by:** `migrations/240_data_capture.sql`.
-- **Schema touched by:** `240_data_capture.sql`, `242_router_objective_receipts.sql`.
+- **Schema touched by:** `240_data_capture.sql`.
 - **Rebuild owner:** none; this table is preserved by the rebuild umbrella.
 
 For the distinction between SQLite state and human-authored vault files, see [[State and Persistence]]. For whole-vault creation and opening behavior, see [[Vault Lifecycle]]. ^table-lifecycle
@@ -71,7 +69,6 @@ For the distinction between SQLite state and human-authored vault files, see [[S
 | `pick_json` | `TEXT` | yes | `'{}'` | — | JSON-encoded structured payload |
 | `experiment_id` | `TEXT` | no | — | — | Application-validated soft reference |
 | `created_at` | `TEXT` | yes | — | — | Timestamp (ISO-8601 UTC text) |
-| `delay_json` | `TEXT` | no | — | — | JSON-encoded structured payload |
 
 ## Relationships and access paths
 
@@ -101,8 +98,6 @@ None found by exact static reference scan.
 - `src/learnloop/daily_plan/measurement.py`
 - `src/learnloop/db/stores/data_capture.py`
 - `src/learnloop/router/first_delayed_success.py`
-- `src/learnloop/router_objective/report.py`
-- `src/learnloop/router_objective/trajectory.py`
 
 ### Direct SQL writers
 
@@ -121,8 +116,6 @@ None found by exact static reference scan.
 - `tests/test_data_capture_migration.py`
 - `tests/test_data_capture_successor.py`
 - `tests/test_followup_router.py`
-- `tests/test_ro0_row10_cold_timing.py`
-- `tests/test_router_objective_migration.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 
@@ -157,7 +150,7 @@ CREATE TABLE decision_objectives (
   pick_json TEXT NOT NULL DEFAULT '{}',
   experiment_id TEXT,
   created_at TEXT NOT NULL
-, delay_json TEXT);
+);
 ```
 
 ## Related notes

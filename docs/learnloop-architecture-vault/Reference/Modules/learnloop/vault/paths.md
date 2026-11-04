@@ -330,6 +330,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_triage_records_tier_one_basis_on_the_result_and_the_event`
 - [tests/test_figure_rich_job.py](../../../../../../tests/test_figure_rich_job.py) — direct import
   - `test_the_quick_figure_shows_first_and_the_fuller_one_lands_under_it`
+- [tests/test_followup_fg1c_codex_review.py](../../../../../../tests/test_followup_fg1c_codex_review.py) — direct import
+  - `test_f4_a_later_success_disagrees_with_a_named_gap_and_the_plain_report_says_what_came_after`
 - [tests/test_forecast_receipts.py](../../../../../../tests/test_forecast_receipts.py) — direct import
   - `test_f3_a_cold_success_whose_grade_is_now_held_is_not_measured`
 - [tests/test_goal_scope_material.py](../../../../../../tests/test_goal_scope_material.py) — direct import
@@ -339,6 +341,9 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_grading_hardcases.py](../../../../../../tests/test_grading_hardcases.py) — direct import
 - [tests/test_held_grade_evidence.py](../../../../../../tests/test_held_grade_evidence.py) — direct import
   - `test_review_f3_diagnostic_observations_held_by_a_regrade_qualify_nothing`
+- [tests/test_hypothesis_marks.py](../../../../../../tests/test_hypothesis_marks.py) — direct import
+- [tests/test_hypothesis_marks_context.py](../../../../../../tests/test_hypothesis_marks_context.py) — direct import
+  - `test_the_whole_report_carries_the_section_in_json_and_in_words`
 - [tests/test_import_split_parity.py](../../../../../../tests/test_import_split_parity.py) — direct import
   - `test_author_then_write_writes_what_import_exercises_writes`
 - [tests/test_intent_codex_review.py](../../../../../../tests/test_intent_codex_review.py) — direct import

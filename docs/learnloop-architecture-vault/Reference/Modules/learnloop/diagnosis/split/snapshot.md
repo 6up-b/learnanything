@@ -7,8 +7,8 @@ version: "1.0.0"
 source_path: "src/learnloop/diagnosis/split/snapshot.py"
 source_paths:
   - "src/learnloop/diagnosis/split/snapshot.py"
-source_commit: "4d995af6881ed260cb561d070a1e429b7ad10deb"
-source_commit_timestamp: "2026-10-25T02:02:48-04:00"
+source_commit: "a1ba732a86f8c704cd6e6ee1071bf7a30ad3fb1a"
+source_commit_timestamp: "2026-11-04T08:47:30-05:00"
 source_worktree_state: "clean"
 generated: true
 generated_at: "2026-11-02"
@@ -50,28 +50,28 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/diagnosis/split/snapshot.py](../../../../../../../src/learnloop/diagnosis/split/snapshot.py) |
-| Source lines | 375 |
+| Source lines | 380 |
 | Owning package | [[Reference/Modules/learnloop/diagnosis/split/_package|learnloop.diagnosis.split]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `4d995af6881ed260cb561d070a1e429b7ad10deb` |
-| Commit timestamp | `2026-10-25T02:02:48-04:00` |
+| Source commit | `a1ba732a86f8c704cd6e6ee1071bf7a30ad3fb1a` |
+| Commit timestamp | `2026-11-04T08:47:30-05:00` |
 
 ## Public API
 
-- `class SnapshotManifest` ([source](../../../../../../../src/learnloop/diagnosis/split/snapshot.py), line 45)
-  - `file_count(self) -> int` (line 57; public)
-  - `as_receipt(self) -> dict[str, Any]` (line 60; public)
-  - `as_context_note(self) -> dict[str, Any]` (line 69; public) — What the inline context says about the workspace (no learner text).
-- `render_attempt(attempt: HistoryAttempt, title: str) -> str` ([source](../../../../../../../src/learnloop/diagnosis/split/snapshot.py), line 100)
-- `export_snapshot(vault: LoadedVault, store: HistoryStore, before: AttemptRef, destination: Path) -> SnapshotManifest` ([source](../../../../../../../src/learnloop/diagnosis/split/snapshot.py), line 235) — Write the as-of export into an empty ``destination`` directory.
-- `snapshot_workspace(vault: LoadedVault, store: HistoryStore, before: AttemptRef, *, parent: Path | None=None) -> Iterator[SnapshotManifest]` ([source](../../../../../../../src/learnloop/diagnosis/split/snapshot.py), line 353) — A fresh export that is always deleted, on success or failure.
+- `class SnapshotManifest` ([source](../../../../../../../src/learnloop/diagnosis/split/snapshot.py), line 47)
+  - `file_count(self) -> int` (line 59; public)
+  - `as_receipt(self) -> dict[str, Any]` (line 62; public)
+  - `as_context_note(self) -> dict[str, Any]` (line 71; public) — What the inline context says about the workspace (no learner text).
+- `render_attempt(attempt: HistoryAttempt, title: str) -> str` ([source](../../../../../../../src/learnloop/diagnosis/split/snapshot.py), line 102)
+- `export_snapshot(vault: LoadedVault, store: HistoryStore, before: AttemptRef, destination: Path) -> SnapshotManifest` ([source](../../../../../../../src/learnloop/diagnosis/split/snapshot.py), line 240) — Write the as-of export into an empty ``destination`` directory.
+- `snapshot_workspace(vault: LoadedVault, store: HistoryStore, before: AttemptRef, *, parent: Path | None=None) -> Iterator[SnapshotManifest]` ([source](../../../../../../../src/learnloop/diagnosis/split/snapshot.py), line 358) — A fresh export that is always deleted, on success or failure.
 
 ### Module constants
 
-- `SNAPSHOT_EXPORT_VERSION` ([src/learnloop/diagnosis/split/snapshot.py](../../../../../../../src/learnloop/diagnosis/split/snapshot.py), line 36)
-- `_UNSAFE` ([src/learnloop/diagnosis/split/snapshot.py](../../../../../../../src/learnloop/diagnosis/split/snapshot.py), line 37)
+- `SNAPSHOT_EXPORT_VERSION` ([src/learnloop/diagnosis/split/snapshot.py](../../../../../../../src/learnloop/diagnosis/split/snapshot.py), line 38)
+- `_UNSAFE` ([src/learnloop/diagnosis/split/snapshot.py](../../../../../../../src/learnloop/diagnosis/split/snapshot.py), line 39)
 
 ### Explicit exports
 
@@ -85,12 +85,12 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 
 ## Internal implementation anchors
 
-- `_safe(value: str) -> str` ([source](../../../../../../../src/learnloop/diagnosis/split/snapshot.py), line 40)
-- `_bullets(rows: list[tuple[str, Any]]) -> str` ([source](../../../../../../../src/learnloop/diagnosis/split/snapshot.py), line 89)
-- `_render_hypothesis(record: HypothesisRecord) -> str` ([source](../../../../../../../src/learnloop/diagnosis/split/snapshot.py), line 147)
-- `_render_registry(record: RegistryRecord) -> str` ([source](../../../../../../../src/learnloop/diagnosis/split/snapshot.py), line 173)
-- `_render_repairs(facet: str, records: list[RepairRecord]) -> str` ([source](../../../../../../../src/learnloop/diagnosis/split/snapshot.py), line 196)
-- `_render_graph(vault: LoadedVault) -> tuple[str, set[str]]` ([source](../../../../../../../src/learnloop/diagnosis/split/snapshot.py), line 208)
+- `_safe(value: str) -> str` ([source](../../../../../../../src/learnloop/diagnosis/split/snapshot.py), line 42)
+- `_bullets(rows: list[tuple[str, Any]]) -> str` ([source](../../../../../../../src/learnloop/diagnosis/split/snapshot.py), line 91)
+- `_render_hypothesis(record: HypothesisRecord) -> str` ([source](../../../../../../../src/learnloop/diagnosis/split/snapshot.py), line 152)
+- `_render_registry(record: RegistryRecord) -> str` ([source](../../../../../../../src/learnloop/diagnosis/split/snapshot.py), line 178)
+- `_render_repairs(facet: str, records: list[RepairRecord]) -> str` ([source](../../../../../../../src/learnloop/diagnosis/split/snapshot.py), line 201)
+- `_render_graph(vault: LoadedVault) -> tuple[str, set[str]]` ([source](../../../../../../../src/learnloop/diagnosis/split/snapshot.py), line 213)
 
 ## Who imports or calls it
 
@@ -107,11 +107,12 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 - [[Reference/Modules/learnloop/diagnosis/split/context|learnloop.diagnosis.split.context]] — imports `KnownIds`; calls `KnownIds`
 - [[Reference/Modules/learnloop/diagnosis/split/history|learnloop.diagnosis.split.history]] — imports `AttemptRef`, `HistoryAttempt`, `HistoryStore`, `HypothesisRecord`, `RegistryRecord`, `RepairRecord`
 - [[Reference/Modules/learnloop/diagnosis/split/provenance|learnloop.diagnosis.split.provenance]] — imports `DiagnosisReads`, `SnapshotEntries`, `attempt_read`, `freeze_entries`, `hypothesis_read`, `registry_read`, `repair_read`, `shown_titles`; calls `DiagnosisReads`, `SnapshotEntries`, `attempt_read`, `freeze_entries`, `hypothesis_read`, `registry_read`, `repair_read`, `shown_titles`
+- [[Reference/Modules/learnloop/followup_serve/marks|learnloop.followup_serve.marks]] — imports `opinion_block`; calls `opinion_block`
 - [[Reference/Modules/learnloop/vault/models|learnloop.vault.models]] — imports `LoadedVault`, `learning_object_facet_union`; calls `learning_object_facet_union`
 
 ### Platform and third-party dependencies
 
-- Standard library: `__future__`, `contextlib`, `dataclasses`, `hashlib`, `pathlib`, `re`, `shutil`, `tempfile`, `typing`
+- Standard library: `__future__`, `contextlib`, `dataclasses`, `hashlib`, `json`, `pathlib`, `re`, `shutil`, `tempfile`, `typing`
 - Third party: none imported directly
 
 ## Larger workflow participation
@@ -132,6 +133,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_diagnosis_history_modes.py](../../../../../../../tests/test_diagnosis_history_modes.py) — direct import
   - `test_snapshot_export_is_as_of_and_stripped`
   - `test_snapshot_workspace_is_deleted_on_success_and_on_failure`
+- [tests/test_followup_fg1c_codex_review.py](../../../../../../../tests/test_followup_fg1c_codex_review.py) — direct import
+  - `test_f1_the_snapshot_entry_of_a_marked_attempt_carries_the_cause`
 
 ## Modification guidance
 

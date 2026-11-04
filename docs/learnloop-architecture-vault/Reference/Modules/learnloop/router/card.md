@@ -7,8 +7,8 @@ version: "1.0.0"
 source_path: "src/learnloop/router/card.py"
 source_paths:
   - "src/learnloop/router/card.py"
-source_commit: "b6799c0b963006dd1e645f9663e26a4c1ca6b3ad"
-source_commit_timestamp: "2026-11-02T15:12:18-05:00"
+source_commit: "a1ba732a86f8c704cd6e6ee1071bf7a30ad3fb1a"
+source_commit_timestamp: "2026-11-04T08:47:30-05:00"
 source_worktree_state: "clean"
 generated: true
 generated_at: "2026-11-02"
@@ -50,13 +50,13 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/router/card.py](../../../../../../src/learnloop/router/card.py) |
-| Source lines | 618 |
+| Source lines | 648 |
 | Owning package | [[Reference/Modules/learnloop/router/_package|learnloop.router]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `b6799c0b963006dd1e645f9663e26a4c1ca6b3ad` |
-| Commit timestamp | `2026-11-02T15:12:18-05:00` |
+| Source commit | `a1ba732a86f8c704cd6e6ee1071bf7a30ad3fb1a` |
+| Commit timestamp | `2026-11-04T08:47:30-05:00` |
 
 ## Public API
 
@@ -67,7 +67,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `class LearnerStateCard` ([source](../../../../../../src/learnloop/router/card.py), line 123)
   - `payload(self) -> dict[str, Any]` (line 131; public) — What the decision stores (``router_decision_payloads``, kind card).
 - `render_text(card: Mapping[str, Any]) -> str` ([source](../../../../../../src/learnloop/router/card.py), line 196) — The card's text sections (deterministic from the typed card).
-- `build_card(inputs: CardInputs, *, token_budget: int=DEFAULT_TOKEN_BUDGET) -> LearnerStateCard` ([source](../../../../../../src/learnloop/router/card.py), line 504) — The card for one decision, within ``token_budget`` (deterministic).
+- `build_card(inputs: CardInputs, *, token_budget: int=DEFAULT_TOKEN_BUDGET) -> LearnerStateCard` ([source](../../../../../../src/learnloop/router/card.py), line 526) — The card for one decision, within ``token_budget`` (deterministic).
 
 ### Module constants
 
@@ -78,15 +78,18 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `STEM_LIMIT` ([src/learnloop/router/card.py](../../../../../../src/learnloop/router/card.py), line 62)
 - `STATEMENT_LIMIT` ([src/learnloop/router/card.py](../../../../../../src/learnloop/router/card.py), line 63)
 - `TYPED_SECTIONS` ([src/learnloop/router/card.py](../../../../../../src/learnloop/router/card.py), line 68)
-- `SUGGESTION_SECTION` ([src/learnloop/router/card.py](../../../../../../src/learnloop/router/card.py), line 297)
-- `_SUGGESTION_WORDS` ([src/learnloop/router/card.py](../../../../../../src/learnloop/router/card.py), line 298)
-- `AD_CARD_VERSION` ([src/learnloop/router/card.py](../../../../../../src/learnloop/router/card.py), line 381)
-- `SUGGESTION_CARD_SUFFIX` ([src/learnloop/router/card.py](../../../../../../src/learnloop/router/card.py), line 386)
-- `SUGGESTION_RELEASE_CARD_SUFFIX` ([src/learnloop/router/card.py](../../../../../../src/learnloop/router/card.py), line 390)
-- `_METADATA_TRUNCATION_KEYS` ([src/learnloop/router/card.py](../../../../../../src/learnloop/router/card.py), line 411)
-- `READER_SECTION` ([src/learnloop/router/card.py](../../../../../../src/learnloop/router/card.py), line 420)
-- `_READER_LISTS` ([src/learnloop/router/card.py](../../../../../../src/learnloop/router/card.py), line 421)
-- `_READER_OLDEST_FIRST` ([src/learnloop/router/card.py](../../../../../../src/learnloop/router/card.py), line 425)
+- `SUGGESTION_SECTION` ([src/learnloop/router/card.py](../../../../../../src/learnloop/router/card.py), line 300)
+- `_SUGGESTION_WORDS` ([src/learnloop/router/card.py](../../../../../../src/learnloop/router/card.py), line 301)
+- `AD_CARD_VERSION` ([src/learnloop/router/card.py](../../../../../../src/learnloop/router/card.py), line 384)
+- `SUGGESTION_CARD_SUFFIX` ([src/learnloop/router/card.py](../../../../../../src/learnloop/router/card.py), line 389)
+- `SUGGESTION_RELEASE_CARD_SUFFIX` ([src/learnloop/router/card.py](../../../../../../src/learnloop/router/card.py), line 393)
+- `MARKS_SECTION` ([src/learnloop/router/card.py](../../../../../../src/learnloop/router/card.py), line 399)
+- `MARKS_CARD_SUFFIX` ([src/learnloop/router/card.py](../../../../../../src/learnloop/router/card.py), line 400)
+- `_MARKS_HEADING` ([src/learnloop/router/card.py](../../../../../../src/learnloop/router/card.py), line 401)
+- `_METADATA_TRUNCATION_KEYS` ([src/learnloop/router/card.py](../../../../../../src/learnloop/router/card.py), line 433)
+- `READER_SECTION` ([src/learnloop/router/card.py](../../../../../../src/learnloop/router/card.py), line 442)
+- `_READER_LISTS` ([src/learnloop/router/card.py](../../../../../../src/learnloop/router/card.py), line 443)
+- `_READER_OLDEST_FIRST` ([src/learnloop/router/card.py](../../../../../../src/learnloop/router/card.py), line 447)
 
 ### Explicit exports
 
@@ -94,6 +97,8 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 
 - `AD_CARD_VERSION`
 - `CARD_VERSION`
+- `MARKS_CARD_SUFFIX`
+- `MARKS_SECTION`
 - `SUGGESTION_CARD_SUFFIX`
 - `SUGGESTION_RELEASE_CARD_SUFFIX`
 - `SUGGESTION_SECTION`
@@ -113,20 +118,21 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `_successful(entry: Mapping[str, Any]) -> bool` ([source](../../../../../../src/learnloop/router/card.py), line 138)
 - `_work_line(entry: Mapping[str, Any]) -> str` ([source](../../../../../../src/learnloop/router/card.py), line 142)
 - `_lo_line(lo_id: str, row: Mapping[str, Any]) -> str` ([source](../../../../../../src/learnloop/router/card.py), line 166)
-- `_suggestion_lines(entries: Sequence[Mapping[str, Any]]) -> list[str]` ([source](../../../../../../src/learnloop/router/card.py), line 307)
-- `_topics(ids: Any, card: Mapping[str, Any]) -> str` ([source](../../../../../../src/learnloop/router/card.py), line 317)
-- `_reader_lines(reader: Mapping[str, Any], card: Mapping[str, Any]) -> list[str]` ([source](../../../../../../src/learnloop/router/card.py), line 322) — Reader workbench RW6b part 2 (spec §9.2; router R2): the "Reader activity" section, typed facts in plain words.
-- `_card_version(inputs: CardInputs, evidence_sections: Mapping[str, Any] | None=None) -> str` ([source](../../../../../../src/learnloop/router/card.py), line 393)
-- `_drop_reader_entry(reader: dict[str, Any]) -> bool` ([source](../../../../../../src/learnloop/router/card.py), line 429) — Remove one entry of the reader section, deterministically, counting it in the section's ``omitted`` (Codex re-review F9): the model-written narrative first, then one entry of the longest list (ties: the later list), its oldest end.
-- `_assemble(inputs: CardInputs, work: list[dict[str, Any]], truncation: Mapping[str, Any], confidence: Mapping[str, Sequence[Mapping[str, Any]]] | None=None, confidence_dropped: int=0, *, limit: bool=True, notice: bool=True, evidence_sections: Mapping[str, Any] | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/router/card.py), line 456)
-- `_drop_oldest_event(confidence: dict[str, list[dict[str, Any]]]) -> bool` ([source](../../../../../../src/learnloop/router/card.py), line 492) — Remove the oldest 7-day confidence event of any topic (each list is newest first); False when none is left.
+- `_suggestion_lines(entries: Sequence[Mapping[str, Any]]) -> list[str]` ([source](../../../../../../src/learnloop/router/card.py), line 310)
+- `_topics(ids: Any, card: Mapping[str, Any]) -> str` ([source](../../../../../../src/learnloop/router/card.py), line 320)
+- `_reader_lines(reader: Mapping[str, Any], card: Mapping[str, Any]) -> list[str]` ([source](../../../../../../src/learnloop/router/card.py), line 325) — Reader workbench RW6b part 2 (spec §9.2; router R2): the "Reader activity" section, typed facts in plain words.
+- `_marks_lines(entries: Sequence[Mapping[str, Any]]) -> list[str]` ([source](../../../../../../src/learnloop/router/card.py), line 404)
+- `_card_version(inputs: CardInputs, evidence_sections: Mapping[str, Any] | None=None) -> str` ([source](../../../../../../src/learnloop/router/card.py), line 414)
+- `_drop_reader_entry(reader: dict[str, Any]) -> bool` ([source](../../../../../../src/learnloop/router/card.py), line 451) — Remove one entry of the reader section, deterministically, counting it in the section's ``omitted`` (Codex re-review F9): the model-written narrative first, then one entry of the longest list (ties: the later list), its oldest end.
+- `_assemble(inputs: CardInputs, work: list[dict[str, Any]], truncation: Mapping[str, Any], confidence: Mapping[str, Sequence[Mapping[str, Any]]] | None=None, confidence_dropped: int=0, *, limit: bool=True, notice: bool=True, evidence_sections: Mapping[str, Any] | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/router/card.py), line 478)
+- `_drop_oldest_event(confidence: dict[str, list[dict[str, Any]]]) -> bool` ([source](../../../../../../src/learnloop/router/card.py), line 514) — Remove the oldest 7-day confidence event of any topic (each list is newest first); False when none is left.
 
 ## Who imports or calls it
 
 > [!note] Static evidence boundary
 > “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
 
-- [[Reference/Modules/learnloop/daily_plan/router_card|learnloop.daily_plan.router_card]] — imports `CardInputs`, `EXCERPT_LIMIT`, `LearnerStateCard`, `STATEMENT_LIMIT`, `STEM_LIMIT`, `SUGGESTION_SECTION`, `build_card`, `excerpt`; statically calls `CardInputs`, `build_card`, `excerpt`
+- [[Reference/Modules/learnloop/daily_plan/router_card|learnloop.daily_plan.router_card]] — imports `CardInputs`, `EXCERPT_LIMIT`, `LearnerStateCard`, `MARKS_SECTION`, `STATEMENT_LIMIT`, `STEM_LIMIT`, `SUGGESTION_SECTION`, `build_card`, `excerpt`; statically calls `CardInputs`, `build_card`, `excerpt`
 
 ## Dependencies
 
@@ -160,6 +166,12 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_a_declined_suggestion_keeps_its_not_now_line`
   - `test_a_reservation_the_app_set_aside_is_not_a_learner_answer`
   - `test_not_now_on_a_pending_card_is_its_own_line_after_the_start`
+- [tests/test_hypothesis_marks_context.py](../../../../../../tests/test_hypothesis_marks_context.py) — direct import
+  - `test_marks_on_protected_work_keep_the_mark_and_never_the_words`
+  - `test_over_budget_the_marks_go_whole_and_the_version_follows`
+  - `test_the_card_counts_the_latest_and_takes_back_what_was_cleared`
+  - `test_the_card_reads_no_mark_from_after_its_own_decision`
+  - `test_with_no_mark_the_card_is_what_it_was_and_a_mark_comes_attributed`
 - [tests/test_mcp_c1a_landing.py](../../../../../../tests/test_mcp_c1a_landing.py) — direct import
   - `test_both_readers_render_the_pinned_question_with_its_frozen_method`
 - [tests/test_method_explicit_landing.py](../../../../../../tests/test_method_explicit_landing.py) — direct import

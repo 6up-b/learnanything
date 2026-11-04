@@ -3,8 +3,8 @@ title: "causal_discriminating_observations"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "0ed947a2c0b030671b4fbd264957e0ca13fa010f"
-source_commit_timestamp: "2026-11-04T11:05:42-05:00"
+source_commit: "094836387e8580ee3996941f4e181b109942c8dc"
+source_commit_timestamp: "2026-11-04T11:35:15-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite causal_discriminating_observations"
@@ -20,12 +20,12 @@ source_paths:
   - "src/learnloop/db/table_roles.py"
   - "migrations/130_causal_discriminating_observations.sql"
   - "src/learnloop/db/repositories.py"
+  - "src/learnloop/db/stores/hypothesis_marks.py"
   - "src/learnloop/diagnosis/causal_factor_deferral.py"
   - "src/learnloop/diagnosis/causal_health.py"
   - "src/learnloop/diagnosis/causal_orchestrator.py"
   - "src/learnloop/diagnosis/causal_probe_commissioning.py"
   - "src/learnloop/diagnosis/failure_triage.py"
-  - "src/learnloop/diagnosis/scoreboard.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/raw-ledger"
@@ -114,7 +114,9 @@ Database triggers:
 ### Direct SQL readers
 
 - `src/learnloop/db/repositories.py`
+- `src/learnloop/db/stores/hypothesis_marks.py`
 - `src/learnloop/evsi_calibration/live_report.py`
+- `src/learnloop/ops/capture_report.py`
 
 ### Direct SQL writers
 
@@ -138,8 +140,12 @@ None found by exact static reference scan.
 - `tests/test_causal_probe_commissioning.py`
 - `tests/test_dialogue_causal_join.py`
 - `tests/test_failure_triage_causal_gate.py`
+- `tests/test_followup_fg1c_codex_review.py`
+- `tests/test_followup_fg1c_r1_exposure_independence.py`
 - `tests/test_followup_journey.py`
 - `tests/test_followup_next_matrix.py`
+- `tests/test_hypothesis_marks.py`
+- `tests/test_hypothesis_marks_context.py`
 - `tests/test_pfc_unassessed_readers.py`
 - `tests/test_scoreboard.py`
 - `tests/test_voi_forecasts.py`

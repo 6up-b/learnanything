@@ -48,6 +48,7 @@ from tests.test_teacher_te1b_migration import TE1_AND_TE1B_ALTERED_TABLES as TE1
 from tests.test_figure_prefetch_migration import P5_ADDED_OBJECTS
 from tests.test_data_capture_migration import DATA_CAPTURE_ADDED_OBJECTS
 from tests.test_followup_migration import FOLLOWUP_ADDED_OBJECTS
+from tests.test_hypothesis_marks_migration import MARKS_ADDED_OBJECTS
 from tests.test_router_objective_migration import RO0_ADDED_OBJECTS
 from tests.test_mobile_jobs_migration import M2A_ADDED_OBJECTS
 from tests.test_rw5c_migration import RW5C_ADDED_OBJECTS
@@ -88,7 +89,7 @@ def _upgrade(tmp_path: Path) -> Path:
     # Later migrations (adaptive hints H0's 210, help_assists, and H1's 211,
     # approach_maps) follow 209 on the way to head.
     added = {name for name in set(after) - set(before)
-             if "help_assists" not in name and "approach_maps" not in name and name not in AD1_ADDED_OBJECTS | AD23_ADDED_OBJECTS | RW3B_ADDED_OBJECTS | RW5A_ADDED_OBJECTS | RW7A_ADDED_OBJECTS | RW2D_ADDED_OBJECTS | P1_ADDED_OBJECTS | C0A_ADDED_OBJECTS | RW5D_ADDED_OBJECTS | PR4_ADDED_OBJECTS | RW6B_ADDED_OBJECTS | C0B_ADDED_OBJECTS | C2_ADDED_OBJECTS | P3_ADDED_OBJECTS | TE1_ADDED_OBJECTS | P5_ADDED_OBJECTS | RW5C_ADDED_OBJECTS | M2A_ADDED_OBJECTS | DATA_CAPTURE_ADDED_OBJECTS | FOLLOWUP_ADDED_OBJECTS | RO0_ADDED_OBJECTS}
+             if "help_assists" not in name and "approach_maps" not in name and name not in AD1_ADDED_OBJECTS | AD23_ADDED_OBJECTS | RW3B_ADDED_OBJECTS | RW5A_ADDED_OBJECTS | RW7A_ADDED_OBJECTS | RW2D_ADDED_OBJECTS | P1_ADDED_OBJECTS | C0A_ADDED_OBJECTS | RW5D_ADDED_OBJECTS | PR4_ADDED_OBJECTS | RW6B_ADDED_OBJECTS | C0B_ADDED_OBJECTS | C2_ADDED_OBJECTS | P3_ADDED_OBJECTS | TE1_ADDED_OBJECTS | P5_ADDED_OBJECTS | RW5C_ADDED_OBJECTS | M2A_ADDED_OBJECTS | DATA_CAPTURE_ADDED_OBJECTS | FOLLOWUP_ADDED_OBJECTS | MARKS_ADDED_OBJECTS | RO0_ADDED_OBJECTS}
     assert added == {"library_asks", "idx_library_asks_created", "idx_library_asks_extraction"}
     # Adaptive hints H2b's 212 rebuilds the two learner-text tables on the way
     # (their source_kind CHECK only; tests/test_hint_feedback_widening.py).
@@ -139,6 +140,6 @@ def test_library_asks_is_workflow():
 
 
 def test_the_head_fixture_is_at_head_in_rollback_mode():
-    head = Path(__file__).resolve().parents[1] / "fixtures" / "migration_head_242" / "state.sqlite"
+    head = Path(__file__).resolve().parents[1] / "fixtures" / "migration_head_243" / "state.sqlite"
     assert head.read_bytes()[18:20] == b"\x01\x01"
-    assert max(applied_versions(head)) == max(m.version for m in discover_migrations()) == 242
+    assert max(applied_versions(head)) == max(m.version for m in discover_migrations()) == 243

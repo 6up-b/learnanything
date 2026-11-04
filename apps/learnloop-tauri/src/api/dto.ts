@@ -1612,6 +1612,8 @@ export interface FeedbackBundle {
   followupQueued: boolean;
   /** FG1: the follow-up workflow's read; absent when no workflow owns this attempt. */
   followup?: FollowupDto;
+  /** FG1c (spec §7): present only when there is a list of causes to mark and it isn't held. */
+  hypothesisMarks?: HypothesisMarksDto;
   /** FG1 §3: this answered a generated probe; the earlier miss's held feedback is out now. */
   heldFeedbackAttemptId?: string;
   // Non-null when this attempt is itself a follow-up (drives the rating strip).
@@ -10608,6 +10610,21 @@ export interface FollowupDto {
   canContinueWithout: boolean;
   shownAnyway: boolean;
   routerDecision?: RouterDecisionDto | null;
+}
+
+/** FG1c (spec §7): the learner's optional marks on possible causes, in display order. */
+export type HypothesisMark = "my_gap" | "partly" | "not_it";
+
+export interface HypothesisMarksDto {
+  attemptId: string;
+  surface: string;
+  orderSeed: string;
+  probeAnswered: boolean;
+  /** On the probe lane the marks replace the diagnosis card's tap, so the learner isn't asked twice. */
+  replacesCardTap: boolean;
+  hypotheses: { hypothesisVersionId: string; statement: string; mark: HypothesisMark | null }[];
+  noneOfThese: boolean;
+  noneOfTheseText: string | null;
 }
 
 export interface FollowupNextDto {

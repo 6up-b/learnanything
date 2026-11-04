@@ -14,7 +14,7 @@ fatal errors or first-divergence quotes, written by a grader that read the
 item's rubric and reference solution), the items whose rubric and reference
 solution were shown directly (the diagnosed attempt's), the topics named,
 and the derived texts read (prior hypotheses, registry statements, repairs'
-owning hypotheses, unresolved-cause factors), and the name each topic was
+owning hypotheses, unresolved-cause factors, the causes a learner's marks show), and the name each topic was
 shown by (``titles``). :func:`diagnosis_record` turns it into the closed
 :class:`~learnloop.db.stores.write_provenance.WriteRecord` on the writer's
 connection.
@@ -218,12 +218,17 @@ def repair_read(record: Any) -> DiagnosisReads:
 
 def attempt_read(attempt: Any, *, title: str | None = None) -> DiagnosisReads:
     """A history attempt (``history.HistoryAttempt``) shown, with its
-    topic's name when the rendering showed one (``title``)."""
+    topic's name when the rendering showed one (``title``), and each cause
+    the learner's marks on it show (FG1c, Codex review F1)."""
+
+    from learnloop.followup_serve.marks import marked_causes
 
     topics = tuple(value for value in (getattr(attempt, "learning_object_id", None),) if value)
     titles = ((str(topics[0]), str(title)),) if topics and title is not None else ()
     return DiagnosisReads(attempts=(AttemptRead(str(attempt.attempt_id), _grader_text(attempt)),), topics=topics,
-                          titles=titles)
+                          titles=titles,
+                          records=tuple(("hypothesis", version, statement)
+                                        for version, statement in marked_causes(getattr(attempt, "learner_marks", ()))))
 
 
 def reads_of_context(

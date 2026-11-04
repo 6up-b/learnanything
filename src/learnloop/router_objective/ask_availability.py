@@ -34,7 +34,7 @@ def at_serve(vault: Any, practice_item_id: str) -> int | None:
 
 
 def serve_fields(vault: Any, connection: Any, practice_item_id: str) -> dict[str, Any]:
-    """The presentation row's new column, on or off, at or below migration 242. Never raises: a keyed pick's serve
+    """The presentation row's new column, on or off, at or below migration 243. Never raises: a keyed pick's serve
     propagates its own failures, and a receipt's must not be one (landing ruling R1)."""
 
     try:

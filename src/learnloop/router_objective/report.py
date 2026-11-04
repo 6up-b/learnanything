@@ -201,7 +201,7 @@ def section(connection: sqlite3.Connection, *, goal_ids: Sequence[str]) -> dict[
     """Coverage per row, and what it costs."""
 
     if not store.table_present(connection, store.DECISION_STATE):
-        return {"available": False, "reason": "this database predates migration 242"}
+        return {"available": False, "reason": "this database predates migration 243"}
     questions = _question_rows(connection)
     sessions = _sessions(connection)
     state = _decision_state(connection)

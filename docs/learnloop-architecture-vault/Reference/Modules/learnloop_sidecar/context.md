@@ -387,6 +387,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_figures_help.py](../../../../../tests/test_figures_help.py) — direct import
 - [tests/test_followup_codex_review.py](../../../../../tests/test_followup_codex_review.py) — direct import
   - `test_f7_next_through_the_sidecar_after_the_switch`
+- [tests/test_followup_fg1c_r1_exposure_independence.py](../../../../../tests/test_followup_fg1c_r1_exposure_independence.py) — direct import
 - [tests/test_followup_journey.py](../../../../../tests/test_followup_journey.py) — direct import
   - `test_with_no_plan_a_ready_probe_heads_todays_queue`
   - `test_with_the_switch_off_nothing_changes_in_the_feedback`
@@ -429,6 +430,9 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_hint_telemetry.py](../../../../../tests/test_hint_telemetry.py) — direct import
 - [tests/test_host_queue_revision.py](../../../../../tests/test_host_queue_revision.py) — direct import
   - `test_a_desktop_session_reply_is_unchanged_until_the_session_leaves_it`
+- [tests/test_hypothesis_marks.py](../../../../../tests/test_hypothesis_marks.py) — direct import
+  - `test_off_means_no_key_no_rows_and_the_same_replies`
+  - `test_with_no_causes_on_the_attempt_the_bundle_has_no_key`
 - [tests/test_ingest_jobs.py](../../../../../tests/test_ingest_jobs.py) — direct import
   - `test_batch_completion_triggers_one_vault_reload`
 - [tests/test_ingest_latency_journey.py](../../../../../tests/test_ingest_latency_journey.py) — direct import

@@ -1,4 +1,4 @@
-"""Migration 242: RO0's additive columns and tables, the head fixture holding them, and their roles.
+"""Migration 243: RO0's additive columns and tables, the head fixture holding them, and their roles.
 
 Earlier migrations' additivity tests downgrade the head, so they read ``RO0_ADDED_OBJECTS``.
 """
@@ -17,7 +17,7 @@ from learnloop.db.migrate import applied_versions, discover_migrations
 from learnloop.db.table_roles import TABLE_ROLES, TableRole
 from learnloop.params.parameter_registry import REGISTRY, classify_config_path
 
-HEAD = Path(__file__).resolve().parents[1] / "fixtures" / "migration_head_242" / "state.sqlite"
+HEAD = Path(__file__).resolve().parents[1] / "fixtures" / "migration_head_243" / "state.sqlite"
 TABLES = ("session_receipts", "decision_state_receipts", "goal_lifecycle_events")
 NEW_COLUMNS = {
     "question_events": {"reveal_state_json"},
@@ -35,16 +35,16 @@ RO0_ADDED_OBJECTS = frozenset({
 })
 
 
-def test_242_exists_and_its_tables_are_receipts():
+def test_243_exists_and_its_tables_are_receipts():
     names = {migration.version: migration.path.name for migration in discover_migrations()}
-    assert names[242] == "242_router_objective_receipts.sql"
+    assert names[243] == "243_router_objective_receipts.sql"
     for table in TABLES:
         assert TABLE_ROLES[table] is TableRole.RECEIPT
 
 
-def test_the_head_fixture_holds_242_in_rollback_mode_with_empty_tables_and_null_columns():
+def test_the_head_fixture_holds_243_in_rollback_mode_with_empty_tables_and_null_columns():
     assert HEAD.read_bytes()[18:20] == b"\x01\x01"
-    assert 242 in applied_versions(HEAD)
+    assert 243 in applied_versions(HEAD)
     with closing(sqlite3.connect(HEAD)) as connection:
         names = {row[0] for row in connection.execute("SELECT name FROM sqlite_master")}
         assert RO0_ADDED_OBJECTS <= names

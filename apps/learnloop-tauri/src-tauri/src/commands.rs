@@ -288,6 +288,8 @@ sidecar_passthrough!(followup_status, "followup_status");
 sidecar_passthrough!(followup_next, "followup_next");
 sidecar_passthrough!(followup_continue_without, "followup_continue_without");
 sidecar_passthrough!(followup_show_anyway, "followup_show_anyway");
+sidecar_passthrough!(record_hypothesis_exposure, "record_hypothesis_exposure");
+sidecar_passthrough!(record_hypothesis_mark, "record_hypothesis_mark");
 
 #[tauri::command]
 pub async fn get_feedback(

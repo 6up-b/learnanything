@@ -37,12 +37,22 @@ at S0's checkpoint (D6). Rebuilding the head for a new migration keeps the
 sanitized content: apply the migration to a backup-API copy of this fixture,
 as before.
 
-## Router objective RO0 (migration 242), `router/ro0-logging`, 2026-11-04
+## Router objective RO0 (migration 243), `router/ro0-logging`, 2026-11-04
 
-Renamed from `migration_head_241`. `242_router_objective_receipts.sql` (eight additive columns and three empty RECEIPT tables)
-applied through `learnloop.db.migrate.apply_migrations` on a backup-API copy of the tracked fixture under the test suite's
-upgrade allowance, `wal_checkpoint(TRUNCATE)`, `journal_mode=DELETE`, `integrity_check` ok, `foreign_key_check` empty, and
-copied into place with the backup API, with no companion files. The head holds 229 through 242.
+Renamed from `migration_head_242` at RO0's landing onto main (FG1c took 242). `243_router_objective_receipts.sql` (eight
+additive columns on five older tables, three empty RECEIPT tables, and the update guards of `plan_presentations`,
+`decision_objectives` and `decision_measurement_events` replaced with guards that allow RO0's one fill, landing ruling R1) applied
+through `learnloop.db.migrate.apply_migrations` on a backup-API copy of the tracked, sanitized `migration_head_242/state.sqlite`
+(main `d1a77ac634`) outside the checkout, under the scratch-copy upgrade allowance; `wal_checkpoint(TRUNCATE)`,
+`journal_mode=DELETE` (header bytes 1/1), `integrity_check` ok and `foreign_key_check` empty; copied into place with the backup
+API, with no companion files. No row changes. The head holds 229 through 243.
+
+## Learner marks on hypotheses (migration 242), `followup/fg1c-marks`, 2026-11-04
+
+Renamed from `migration_head_241`. `242_hypothesis_marks.sql` (three additive tables, empty) applied through
+`learnloop.db.migrate.apply_migrations` on a backup-API copy of the tracked fixture, `PRAGMA journal_mode=DELETE`,
+`integrity_check` ok, `foreign_key_check` empty, and copied into place with the backup API, with no companion files.
+The head holds 229 through 242.
 
 ## Follow-up generate and serve (migration 241), `followup/fg1-generate-serve`, 2026-11-03
 

@@ -7,8 +7,8 @@ version: "1.0.0"
 source_path: "src/learnloop/attempts/post_attempt.py"
 source_paths:
   - "src/learnloop/attempts/post_attempt.py"
-source_commit: "a01ecfbb27093bad0f8c7924a0558bfc49acbc22"
-source_commit_timestamp: "2026-11-04T01:43:14-05:00"
+source_commit: "a1ba732a86f8c704cd6e6ee1071bf7a30ad3fb1a"
+source_commit_timestamp: "2026-11-04T08:47:30-05:00"
 source_worktree_state: "clean"
 generated: true
 generated_at: "2026-11-02"
@@ -50,13 +50,13 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/attempts/post_attempt.py](../../../../../../src/learnloop/attempts/post_attempt.py) |
-| Source lines | 456 |
+| Source lines | 458 |
 | Owning package | [[Reference/Modules/learnloop/attempts/_package|learnloop.attempts]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `a01ecfbb27093bad0f8c7924a0558bfc49acbc22` |
-| Commit timestamp | `2026-11-04T01:43:14-05:00` |
+| Source commit | `a1ba732a86f8c704cd6e6ee1071bf7a30ad3fb1a` |
+| Commit timestamp | `2026-11-04T08:47:30-05:00` |
 
 ## Public API
 
@@ -64,10 +64,10 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 - `class PostAttemptOutcome` ([source](../../../../../../src/learnloop/attempts/post_attempt.py), line 68)
   - `inserted(self) -> bool` (line 76; public) — Did the follow-up evaluation insert queue work or mint a need?
 - `run_post_attempt_pipeline(vault: LoadedVault, repository: Repository, *, result: Any, purpose: str='practice', session_id: str | None=None, self_grade: Any=None, ai_client: Any=None, available_minutes: int | None=None, suppress_insertion_reason: str | None=None, followup_surface: str | None=None, clock: Clock | None=None) -> PostAttemptOutcome` ([source](../../../../../../src/learnloop/attempts/post_attempt.py), line 89) — Complete one applied attempt; a completed attempt is not completed again.
-- `probe_route(repository: Repository, result: Any, *, episode_id: str | None) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/attempts/post_attempt.py), line 323) — The learner route for an attempt applied under ``episode_id``.
-- `persist_attempt_feedback_metadata(repository: Repository, result: Any, self_grade: Any=None, *, clock: Clock | None=None) -> None` ([source](../../../../../../src/learnloop/attempts/post_attempt.py), line 342) — Persist the grade's feedback/repair metadata for later surfaces.
-- `run_exam_sitting_pipeline(vault: LoadedVault, repository: Repository, *, results: list[Any], intervention_cap: int=EXAM_SITTING_INTERVENTION_CAP, followup_surface: str | None=None, clock: Clock | None=None) -> list[PostAttemptOutcome]` ([source](../../../../../../src/learnloop/attempts/post_attempt.py), line 374) — Run the pipeline for every attempt an exam sitting just applied.
-- `committed_submission_result(repository: Repository, submission_id: str | None) -> Any` ([source](../../../../../../src/learnloop/attempts/post_attempt.py), line 438) — The saved result of the attempt a submission id already committed.
+- `probe_route(repository: Repository, result: Any, *, episode_id: str | None) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/attempts/post_attempt.py), line 325) — The learner route for an attempt applied under ``episode_id``.
+- `persist_attempt_feedback_metadata(repository: Repository, result: Any, self_grade: Any=None, *, clock: Clock | None=None) -> None` ([source](../../../../../../src/learnloop/attempts/post_attempt.py), line 344) — Persist the grade's feedback/repair metadata for later surfaces.
+- `run_exam_sitting_pipeline(vault: LoadedVault, repository: Repository, *, results: list[Any], intervention_cap: int=EXAM_SITTING_INTERVENTION_CAP, followup_surface: str | None=None, clock: Clock | None=None) -> list[PostAttemptOutcome]` ([source](../../../../../../src/learnloop/attempts/post_attempt.py), line 376) — Run the pipeline for every attempt an exam sitting just applied.
+- `committed_submission_result(repository: Repository, submission_id: str | None) -> Any` ([source](../../../../../../src/learnloop/attempts/post_attempt.py), line 440) — The saved result of the attempt a submission id already committed.
 
 ### Module constants
 
@@ -76,11 +76,11 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 
 ## Internal implementation anchors
 
-- `_open_followup_workflow(vault: LoadedVault, repository: Repository, *, result: Any, surface: str | None, session_id: str | None, purpose: str, applied_episode: Any, clock: Clock | None) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/attempts/post_attempt.py), line 217) — FG1: the workflow that owns this miss, or None (the predecessor's path).
-- `_shadow_diagnosis_enabled(vault: LoadedVault) -> bool` ([source](../../../../../../src/learnloop/attempts/post_attempt.py), line 253)
-- `_applied_probe_episode_id(vault: LoadedVault, repository: Repository, result: Any, work: dict[str, Any] | None) -> str | None` ([source](../../../../../../src/learnloop/attempts/post_attempt.py), line 257) — The probe episode the attempt was applied under.
-- `_record_normalization_inputs(vault: LoadedVault, repository: Repository, *, result: Any, self_grade: Any, clock: Clock | None) -> None` ([source](../../../../../../src/learnloop/attempts/post_attempt.py), line 281) — Write what normalization and follow-up evaluation read back.
-- `_defers_to_block_end(repository: Repository, result: Any, episode: Any) -> bool` ([source](../../../../../../src/learnloop/attempts/post_attempt.py), line 310) — Is this a diagnostic submission inside a block that is still measuring?
+- `_open_followup_workflow(vault: LoadedVault, repository: Repository, *, result: Any, surface: str | None, session_id: str | None, purpose: str, applied_episode: Any, clock: Clock | None) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/attempts/post_attempt.py), line 219) — FG1: the workflow that owns this miss, or None (the predecessor's path).
+- `_shadow_diagnosis_enabled(vault: LoadedVault) -> bool` ([source](../../../../../../src/learnloop/attempts/post_attempt.py), line 255)
+- `_applied_probe_episode_id(vault: LoadedVault, repository: Repository, result: Any, work: dict[str, Any] | None) -> str | None` ([source](../../../../../../src/learnloop/attempts/post_attempt.py), line 259) — The probe episode the attempt was applied under.
+- `_record_normalization_inputs(vault: LoadedVault, repository: Repository, *, result: Any, self_grade: Any, clock: Clock | None) -> None` ([source](../../../../../../src/learnloop/attempts/post_attempt.py), line 283) — Write what normalization and follow-up evaluation read back.
+- `_defers_to_block_end(repository: Repository, result: Any, episode: Any) -> bool` ([source](../../../../../../src/learnloop/attempts/post_attempt.py), line 312) — Is this a diagnostic submission inside a block that is still measuring?
 
 ## Who imports or calls it
 
@@ -103,7 +103,7 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 - [[Reference/Modules/learnloop/clock|learnloop.clock]] — imports `Clock`
 - [[Reference/Modules/learnloop/db/repositories|learnloop.db.repositories]] — imports `Repository`
 - [[Reference/Modules/learnloop/diagnosis/followups|learnloop.diagnosis.followups]] — imports `FollowupDecision`, `attempt_followup_grade`, `enqueue_post_attempt_diagnosis`, `enqueue_post_attempt_learner_text`, `evaluate_attempt_intervention_followup`, `normalize_and_resolve_attempt`; calls `attempt_followup_grade`, `enqueue_post_attempt_diagnosis`, `enqueue_post_attempt_learner_text`, `evaluate_attempt_intervention_followup`, `normalize_and_resolve_attempt`
-- [[Reference/Modules/learnloop/followup_serve/gates|learnloop.followup_serve.gates]] — imports `SERVING_SURFACE`, `generate_and_serve_on`; calls `generate_and_serve_on`
+- [[Reference/Modules/learnloop/followup_serve/gates|learnloop.followup_serve.gates]] — imports `SERVING_SURFACE`, `generate_and_serve_on`, `hypothesis_marks_on`; calls `generate_and_serve_on`, `hypothesis_marks_on`
 - [[Reference/Modules/learnloop/followup_serve/queue|learnloop.followup_serve.queue]] — imports `enqueue_workflow`; calls `enqueue_workflow`
 - [[Reference/Modules/learnloop/followup_serve/workflow|learnloop.followup_serve.workflow]] — imports `WORKFLOW_OWNS_REASON`, `open_for_attempt`, `probe_answered`; calls `open_for_attempt`, `probe_answered`
 - [[Reference/Modules/learnloop/goals/certification_cold_probe|learnloop.goals.certification_cold_probe]] — imports `schedule_certification_cold_probes`; calls `schedule_certification_cold_probes`
@@ -155,6 +155,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_f6_a_crash_right_after_completion_still_has_the_job`
   - `test_f6_a_shadow_vault_has_its_workflows_job_at_once`
   - `test_f6_startup_recovery_needs_no_click`
+- [tests/test_followup_fg1c_codex_review.py](../../../../../../tests/test_followup_fg1c_codex_review.py) — direct import
 - [tests/test_followup_journey.py](../../../../../../tests/test_followup_journey.py) — direct import
 - [tests/test_followup_reserved_only.py](../../../../../../tests/test_followup_reserved_only.py) — direct import
   - `test_an_exam_sittings_miss_reaches_the_probe_lane_after_the_sitting`
@@ -164,6 +165,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_forecast_receipts.py](../../../../../../tests/test_forecast_receipts.py) — direct import
 - [tests/test_held_grade_evidence.py](../../../../../../tests/test_held_grade_evidence.py) — direct import
   - `test_f5_an_adjudication_releases_the_follow_up_suppression`
+- [tests/test_hypothesis_marks_context.py](../../../../../../tests/test_hypothesis_marks_context.py) — direct import
+  - `test_the_report_measures_marks_against_delayed_performance`
 - [tests/test_learner_text_gaps_composition.py](../../../../../../tests/test_learner_text_gaps_composition.py) — direct import
 - [tests/test_learner_text_gaps_review.py](../../../../../../tests/test_learner_text_gaps_review.py) — direct import
 - [tests/test_post_attempt_pipeline.py](../../../../../../tests/test_post_attempt_pipeline.py) — direct import

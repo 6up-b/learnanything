@@ -33,7 +33,7 @@ _BY_CONTEXT: Mapping[str, str] = {
     "remediation": PLAN,
     "remediation_delivery": PLAN,
 }
-#: The extra columns of ``source_exposure_events`` (a vault below migration 242 has none).
+#: The extra columns of ``source_exposure_events`` (a vault below migration 243 has none).
 COLUMNS: tuple[str, ...] = ("initiator", "initiator_block_id", "initiator_session_id", "initiator_visit_id")
 #: How a visit's ``session_id`` and ``block_id`` were linked (``session_link``, ``block_link`` in its payload).
 LINK_CLIENT = "client"

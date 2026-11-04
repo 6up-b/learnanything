@@ -38,7 +38,7 @@ import { CompareMethods } from "./feedback/CompareMethods";
 import { screenLeavesKey } from "../app/keymap";
 import { useNextQueueItem } from "../app/autoAdvance";
 import { nextPlanKeyLabel, useNextPlanStep } from "../app/dailyPlan";
-import type { FollowupDto, FollowupNextDto, PlanStepDto } from "../api/dto";
+import type { FollowupDto, FollowupNextDto, HypothesisMarksDto, PlanStepDto } from "../api/dto";
 import { MarkdownMath } from "../render/MarkdownMath";
 import {
   CausalFeedbackPanel,
@@ -49,6 +49,7 @@ import {
 import { CommonRepairCard, GuidedRedoAffordance } from "../components/RepairAffordances";
 import { DiagnosisCard, useDiagnosisCard } from "../components/DiagnosisCard";
 import { FollowupPanel } from "./feedback/FollowupPanel";
+import { HypothesisMarksPanel, useHypothesisListExposure } from "./feedback/HypothesisMarks";
 import { errorMessage } from "../errors";
 import {
   FIX_MIX_UP_LABEL,
@@ -89,6 +90,8 @@ const C = {
   red: "#e07e7e",
 };
 
+/** How many possible causes the plain surface's why? lists. */
+const WHY_CAUSES_SHOWN = 3;
 const MONO = '"JetBrains Mono", "Fira Code", ui-monospace, SFMono-Regular, Menlo, monospace';
 
 // ── Tiny text helpers ────────────────────────────────────────────────────────
@@ -1756,6 +1759,40 @@ export function FeedbackScreen({
   // key, and cancelling or opening a contest starts a new identity.
   const contestKey = useRef<{ key: string; reason: string } | null>(null);
   const [causalNotRight, setCausalNotRight] = useState(false);
+  // FG1c §7: the marks panel's read rides on the bundle, only when there is a list to show. A bundle
+  // from a rating or a regrade carries none, and that isn't a reason to lose the panel: what was on
+  // screen for this attempt stays. Each other place an attempt's causes are listed writes its exposure
+  // receipt from what is on screen; the key's presence says the switch is on and nothing is held.
+  const marksKept = useRef<{ attemptId: string; marks: HypothesisMarksDto } | null>(null);
+  if (feedback?.hypothesisMarks) marksKept.current = { attemptId, marks: feedback.hypothesisMarks };
+  const marksRead = marksKept.current?.attemptId === attemptId ? marksKept.current.marks : null;
+  const tapReplaced = marksRead !== null && marksRead.attemptId === feedback?.attemptId && marksRead.replacesCardTap;
+  const listsOn = marksRead !== null && feedback?.attemptId === attemptId;
+  const causalHypotheses = feedback?.causalFeedback?.causalHypotheses ?? [];
+  useHypothesisListExposure(
+    attemptId,
+    "why",
+    causalHypotheses
+      .filter((hypothesis) => Boolean(hypothesis.statement?.trim() || hypothesis.label))
+      .slice(0, WHY_CAUSES_SHOWN)
+      .map((hypothesis) => hypothesis.hypothesisId),
+    simple && listsOn && whyOpen,
+  );
+  useHypothesisListExposure(
+    attemptId,
+    "causal_feedback",
+    causalHypotheses.map((hypothesis) => hypothesis.hypothesisId),
+    listsOn && (!simple || detailsOpen),
+  );
+  useHypothesisListExposure(
+    attemptId,
+    "unresolved_cause_card",
+    Array.from(new Set((feedback?.unresolvedCauses ?? []).flatMap((factor) =>
+      factor.candidateCauses
+        .filter((cause) => cause.hypothesisId && cause.hypothesisId !== "H_OTHER" && !cause.openSet)
+        .map((cause) => cause.hypothesisId as string)))),
+    listsOn && (!simple || detailsOpen) && !feedback?.matchedMisconception,
+  );
   useEffect(() => {
     setDetailsOpen(false);
     setWhyOpen(false);
@@ -2352,7 +2389,8 @@ export function FeedbackScreen({
     // diagnosis verdict, "this doesn't sound right".
     const card = diagnosis.status === "done" ? diagnosis.card : null;
     const causal = f.causalFeedback ?? null;
-    const canSayNotRight = Boolean(card?.diagnosisId && card.responses.some((option) => option.response === "diagnosis_wrong"));
+    // On the probe lane the marks replace the card's tap (§7), this line of it included.
+    const canSayNotRight = !tapReplaced && Boolean(card?.diagnosisId && card.responses.some((option) => option.response === "diagnosis_wrong"));
     const causalNotRightOk = Boolean(causal?.contestAction?.available && causal.contestAction.reasons.includes("diagnosis_wrong"));
     const why = {
       open: whyOpen,
@@ -2360,7 +2398,7 @@ export function FeedbackScreen({
       causes: (causal?.causalHypotheses ?? [])
         .map((hypothesis) => hypothesis.statement?.trim() || hypothesis.label)
         .filter((line): line is string => Boolean(line))
-        .slice(0, 3),
+        .slice(0, WHY_CAUSES_SHOWN),
       showed: (causal?.demonstratedCriteria ?? [])
         .map((criterion) => criterion.criterionLabel ?? "")
         .filter(Boolean),
@@ -2465,6 +2503,7 @@ export function FeedbackScreen({
             // FG1 §6.0: held means off screen, with no display row.
             answerCovered={answerCovered || followup?.held === true}
           />
+          {marksRead ? <HypothesisMarksPanel marks={marksRead} /> : null}
           {/* Reader RW2c: "compare methods ▸" after a correct workbench Submit,
               only while workbench.compare_methods_enabled is on. */}
           {algoConfig().workbenchHelp?.compareMethods ? (
@@ -2626,6 +2665,7 @@ export function FeedbackScreen({
                 onOpenAttempt={onInspect}
                 onError={onError}
                 state={diagnosis}
+                hideTaps={tapReplaced}
               />
 
               {/* Where the question came from. */}
@@ -3285,12 +3325,14 @@ export function FeedbackScreen({
             local feedback above are final now; the card fills in place when
             the diagnosis lands, and the repairs / guided redo it brings are
             re-read without counting another open of this screen. */}
+        {marksRead ? <HypothesisMarksPanel marks={marksRead} /> : null}
         <DiagnosisCard
           attemptId={f.attemptId}
           initialStatus={f.diagnosisStatus}
           onDiagnosisReady={refreshAfterDiagnosis}
           onOpenAttempt={onInspect}
           onError={onError}
+          hideTaps={tapReplaced}
         />
 
         {/* ── eliciting repair ──

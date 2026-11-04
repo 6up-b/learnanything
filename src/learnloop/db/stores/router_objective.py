@@ -1,4 +1,4 @@
-"""RO0's append-only records (migration 242; spec_router_objective_v1 §4). No policy here.
+"""RO0's append-only records (migration 243; spec_router_objective_v1 §4). No policy here.
 
 Every writer runs on the caller's connection, inside its transaction, and a refused row rolls back alone (a
 savepoint) with a warning: a receipt never blocks a plan or an answer, as
@@ -45,7 +45,7 @@ def table_present(connection: sqlite3.Connection, table: str) -> bool:
 
 
 def column_present(connection: sqlite3.Connection, table: str, column: str) -> bool:
-    """Whether the database has the column (a vault below migration 242 has not)."""
+    """Whether the database has the column (a vault below migration 243 has not)."""
 
     return any(str(row[1]) == column for row in connection.execute(f"PRAGMA table_info({table})"))
 
@@ -69,7 +69,7 @@ def _append(connection: sqlite3.Connection, table: str, columns: tuple[str, ...]
 #: RO0's fields on tables that existed before it (landing ruling R1). None is ever written in its row's own insert: the
 #: row is inserted with its predecessor's fields and these follow in their own savepoint (:func:`fill_receipt`), so a
 #: refused receipt leaves the row standing with them null. ``question_events`` holds row 1's state and the generating
-#: process RO0 fills (rows 2 and 3); the three append-only tables' update guards (migration 242) allow exactly this fill.
+#: process RO0 fills (rows 2 and 3); the three append-only tables' update guards (migration 243) allow exactly this fill.
 RECEIPT_FIELDS: Mapping[str, tuple[str, ...]] = {
     "question_events": ("reveal_state_json", "hints_used_before", "scaffold_level", "preceding_tutor_move", "learner_mode",
                         "question_opportunity"),
@@ -101,7 +101,7 @@ def split_receipt(table: str, row: Mapping[str, Any]) -> tuple[dict[str, Any], d
 
 def fill_receipt(connection: sqlite3.Connection, table: str, key: Any, values: Mapping[str, Any]) -> bool:
     """RO0's fields on a row just inserted without them, in their own savepoint, or False: nothing to write (a vault
-    below migration 242 has no such column), or refused, with a warning, and the row stands with them null."""
+    below migration 243 has no such column), or refused, with a warning, and the row stands with them null."""
 
     present = {str(row[1]) for row in connection.execute(f"PRAGMA table_info({table})")}
     filled = {name: value for name, value in values.items()

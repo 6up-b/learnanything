@@ -7,7 +7,7 @@ import { clear } from "../api/queryCache";
 
 const { invoke } = vi.hoisted(() => ({ invoke: vi.fn() }));
 vi.mock("@tauri-apps/api/core", () => ({ invoke }));
-vi.mock("../render/MarkdownMath", () => ({ MarkdownMath: () => null }));
+vi.mock("../render/MarkdownMath", () => ({ MarkdownMath: ({ value }: { value?: string }) => (value?.startsWith("CAUSE:") ? <span>{value}</span> : null) }));
 vi.mock("../components/ClaimSurface", () => ({ ClaimSurface: () => null, mintVisitId: () => "visit" }));
 vi.mock("../components/KnowledgeModel", () => ({ AttemptTraceView: () => null, UnresolvedCauseCard: () => null }));
 vi.mock("../components/CardControls", () => ({ CardControls: () => null, ProbeRemintAction: () => null }));
@@ -200,4 +200,161 @@ it("goes on in plan mode through the plan's step when the poll's Next says conti
   await act(async () => { fireEvent.keyDown(window, { key: "n" }); });
   await waitFor(() => expect(onPlanStep).toHaveBeenCalledTimes(1), { timeout: 4000 });
   expect(callbacks.onNext).not.toHaveBeenCalled();
+});
+
+// FG1c §7: the marks follow §6.0. Hidden while held, on the screen once released; Next stays free.
+const MARKS = {
+  attemptId: "att_1", surface: "marks_feedback", orderSeed: "seed", probeAnswered: false, replacesCardTap: true,
+  hypotheses: [{ hypothesisVersionId: "h1", statement: "CAUSE: the first", mark: null },
+               { hypothesisVersionId: "h2", statement: "CAUSE: the second", mark: null }],
+  noneOfThese: false, noneOfTheseText: null,
+};
+const OPEN: FollowupDto = { ...HELD, state: "settled", held: false, line: null, canShowAnyway: false, canContinueWithout: false };
+
+function withBundle(bundle: Record<string, unknown>, status2?: Record<string, unknown>) {
+  invoke.mockImplementation(async (command: string) => {
+    switch (command) {
+      case "get_feedback":
+        return bundle;
+      case "followup_status":
+        return status2 ?? { version: 1, enabled: false };
+      case "record_hypothesis_exposure":
+        return { version: 1, recorded: true };
+      case "record_hypothesis_mark":
+        return { version: 1, recorded: true, marks: MARKS };
+      default:
+        return null;
+    }
+  });
+}
+
+it("held, there is no list and nothing is receipted, and the way out says why", async () => {
+  show();
+  await screen.findByTestId("followup-held");
+  expect(screen.queryByTestId("hypothesis-marks")).toBeNull();
+  expect(screen.getByTestId("followup-held").textContent).toContain("possible causes come after the question");
+  await act(async () => { await Promise.resolve(); });
+  expect(invoke.mock.calls.some(([command]) => command === "record_hypothesis_exposure")).toBe(false);
+});
+
+it("Show anyway brings the list back through the fresh read, and it is receipted when shown", async () => {
+  let shown = false;
+  invoke.mockImplementation(async (command: string) => {
+    switch (command) {
+      case "get_feedback":
+        return shown ? { ...BUNDLE, followup: { ...HELD, state: "ready", held: false, shownAnyway: true }, hypothesisMarks: MARKS }
+          : { ...BUNDLE, followup: HELD };
+      case "followup_status":
+        return { version: 1, enabled: true, ...HELD, state: "ready", held: !shown ? true : false, shownAnyway: shown };
+      case "followup_show_anyway":
+        shown = true;
+        return { released: true };
+      case "record_hypothesis_exposure":
+        return { version: 1, recorded: true };
+      default:
+        return null;
+    }
+  });
+  show();
+  fireEvent.click(await screen.findByText("Show anyway"));
+  expect(await screen.findByTestId("hypothesis-marks")).toBeTruthy();
+  await waitFor(() => expect(invoke.mock.calls.filter(([command]) => command === "record_hypothesis_exposure").length).toBe(1));
+});
+
+it("with no probe the list is on the feedback screen, and marking never waits on or blocks Next", async () => {
+  withBundle({ ...BUNDLE, followup: { ...OPEN, state: "settled" }, hypothesisMarks: { ...MARKS, replacesCardTap: false } });
+  const callbacks = show();
+  fireEvent.click((await screen.findAllByText("Not it"))[0]);
+  await act(async () => { fireEvent.keyDown(window, { key: "n" }); });
+  await waitFor(() => expect(callbacks.onNext).toHaveBeenCalled());
+});
+
+it("an answer to the probe shows the earlier miss's list and receipts it under the miss", async () => {
+  withBundle({ ...BUNDLE, attemptId: "att_probe", heldFeedbackAttemptId: "att_1",
+               hypothesisMarks: { ...MARKS, surface: "marks_probe_feedback", probeAnswered: true } });
+  show({ attemptId: "att_probe" });
+  await screen.findByTestId("hypothesis-marks");
+  await waitFor(() => expect(invoke.mock.calls.some(([command]) => command === "record_hypothesis_exposure")).toBe(true));
+  const event = invoke.mock.calls.find(([command]) => command === "record_hypothesis_exposure");
+  expect(JSON.stringify(event)).toContain('"attemptId":"att_1"');
+  expect(JSON.stringify(event)).toContain('"surface":"marks_probe_feedback"');
+  // The probe's own lists aren't the miss's, so nothing else is receipted for them.
+  expect(invoke.mock.calls.filter(([command]) => command === "record_hypothesis_exposure").length).toBe(1);
+});
+
+it("the switch off, or nothing to mark, leaves no panel and no call", async () => {
+  withBundle({ ...BUNDLE, followup: OPEN });
+  show();
+  await screen.findByTestId("followup-panel");
+  await act(async () => { await Promise.resolve(); });
+  expect(screen.queryByTestId("hypothesis-marks")).toBeNull();
+  expect(invoke.mock.calls.some(([command]) => String(command).includes("hypothesis"))).toBe(false);
+});
+
+it("a bundle with no list, as a rating's reply is, doesn't take the panel away", async () => {
+  withBundle({ ...BUNDLE, followup: OPEN, hypothesisMarks: MARKS, followupSource: { gateAttemptId: "att_0" }, followupRating: null });
+  const original = invoke.getMockImplementation();
+  invoke.mockImplementation(async (command: string, ...rest: unknown[]) => {
+    if (command === "rate_followup") return { ...BUNDLE, followup: OPEN, followupSource: { gateAttemptId: "att_0" }, followupRating: { useful: true, ratedAt: "t" } };
+    return original ? original(command, ...rest) : null;
+  });
+  show();
+  await screen.findByTestId("hypothesis-marks");
+  await act(async () => { fireEvent.keyDown(window, { key: "u" }); });
+  await waitFor(() => expect(invoke.mock.calls.some(([command]) => command === "rate_followup")).toBe(true));
+  await act(async () => { await Promise.resolve(); });
+  expect(screen.getByTestId("hypothesis-marks")).toBeTruthy();
+});
+
+const CARD = {
+  version: 1, status: "done", attemptId: "att_1", cardEnabled: true, diagnosisId: "d1", summaryMd: "A summary.",
+  repairSuggestions: [], madeBefore: [], prerequisiteGap: null, escalation: null, recordedResponse: null,
+  notSameMistakeAttemptIds: [], responses: [{ response: "believed_candidate", label: "That's it" }, { response: "diagnosis_wrong", label: "That's wrong" }],
+};
+
+it.each([
+  ["on the probe lane the marks replace the card's tap", true],
+  ["elsewhere the card's tap stays", false],
+])("%s", async (_name, replaces) => {
+  invoke.mockImplementation(async (command: string) => {
+    switch (command) {
+      case "get_feedback":
+        return { ...BUNDLE, diagnosisStatus: "done", followup: OPEN, hypothesisMarks: { ...MARKS, replacesCardTap: replaces } };
+      case "diagnosis_status":
+        return CARD;
+      case "record_hypothesis_exposure":
+        return { version: 1, recorded: true };
+      default:
+        return null;
+    }
+  });
+  show();
+  await screen.findByTestId("hypothesis-marks");
+  fireEvent.keyDown(window, { key: "." });
+  await screen.findByTestId("diagnosis-card");
+  expect(screen.queryByTestId("diagnosis-taps") !== null).toBe(!replaces);
+});
+
+it("each other list of the attempt's causes is receipted when it is on screen, in its own order", async () => {
+  invoke.mockImplementation(async (command: string) => {
+    switch (command) {
+      case "get_feedback":
+        return { ...BUNDLE, followup: OPEN, hypothesisMarks: MARKS, causalFeedback: {
+          causalHypotheses: [{ hypothesisId: "h9", label: "Possible", statement: "CAUSE: a", causeScope: "learner_state", supportScore: null }],
+          demonstratedCriteria: [], unverified: [], verifiedCorrection: null, proposedNextAction: null,
+          contestAction: { available: false, reasons: [], factorId: null },
+        } };
+      case "record_hypothesis_exposure":
+        return { version: 1, recorded: true };
+      default:
+        return null;
+    }
+  });
+  show();
+  await screen.findByTestId("hypothesis-marks");
+  const surfaces = () => invoke.mock.calls.filter(([command]) => command === "record_hypothesis_exposure").map((call) => JSON.stringify(call));
+  await waitFor(() => expect(surfaces().length).toBe(1));
+  expect(surfaces().some((row) => row.includes('"surface":"why"'))).toBe(false);
+  fireEvent.click(await screen.findByText(/why\?/));
+  await waitFor(() => expect(surfaces().some((row) => row.includes('"surface":"why"') && row.includes('"hypothesisVersionIds":["h9"]'))).toBe(true));
 });

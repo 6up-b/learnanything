@@ -296,6 +296,8 @@ fn main() {
                 followup_next,
                 followup_continue_without,
                 followup_show_anyway,
+                record_hypothesis_exposure,
+                record_hypothesis_mark,
                 get_attempt,
                 get_attempt_trace_evidence,
                 get_grading_clarification,
