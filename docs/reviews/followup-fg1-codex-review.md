@@ -505,7 +505,7 @@ One departure from the finding's words: where the vault holds no exam or held-ou
 
 - `uv sync --extra dev --extra mobile`, `uv pip install --offline pypdfium2==5.14.0`.
 - `lint-imports --no-cache` (empty env): 42 contracts kept, 0 broken, so the frozen-cycles list holds.
-- Targeted pytest, capped scope, `-n 6`, on the 395 files below: **7566 passed, 46 skipped, 8 xfailed, 0 failed** (42 min). It includes the CLI help snapshot, the process-launch list (`test_codex_lockdown_round3.py`), frozen cycles (`test_codex_lockdown_frozen.py`), the display label's audit (`test_sidecar_measurement.py`), serializer, desktop RPC, mobile allowlist, architecture, table roles, judge routes and public-tip guards.
+- Targeted pytest, capped scope, `-n 6`, on the 395 files below: **7566 passed, 46 skipped, 8 xfailed, 0 failed** (42 min). It includes the CLI help snapshot, the process-launch list (`test_codex_lockdown_round3.py`), the display label's audit (`test_sidecar_measurement.py`), serializer, desktop RPC, mobile allowlist, architecture, table roles, judge routes and public-tip guards.
 - Durability, `--durable-sqlite` on the seven FG1 test files (a store module changed; no migration did): **149 passed**.
 - References: the schema didn't change, but moved source lines made the catalogs stale, so all three were regenerated. DB validate `errors: []` (385 table notes), desktop 318 TS and 6 Rust, modules 1188 notes and 66 maps, vault validation passes.
 - No frontend or `src-tauri` change, so no npm run, vitest or `cargo check`.
