@@ -199,7 +199,8 @@ def test_the_report_measures_marks_against_the_probe_each_labelled_conditional(j
     section = _report(ctx.require_vault()[0])
     agreement = section["agreement_with_probe_outcomes"]
     assert agreement["label"] == PROBE_AGREEMENT_LABEL and "conditional on being observed" in agreement["label"]
-    assert (agreement["agree"], agreement["disagree"], agreement["agreement"]) == (2, 1, 0.6667)
+    assert agreement["independent_answers"] == {"agree": 2, "disagree": 1, "agreement": 0.6667}
+    assert agreement["not_independent_answers"] == {"agree": 0, "disagree": 0, "agreement": None}
     assert agreement["by_mark_outcome_independence_and_timing"][
         "my_gap|probe_supports|independent_answer|marked_after_the_answer"] == 1
     assert section["marks"]["rows"] == 3 and section["marks"]["latest_by_mark"] == {"my_gap": 1, "not_it": 1, "none_of_these": 1}
@@ -222,7 +223,8 @@ def test_a_not_independent_answer_is_counted_apart_and_partly_is_never_scored(jo
     agreement = _report(ctx.require_vault()[0])["agreement_with_probe_outcomes"]
     keys = list(agreement["by_mark_outcome_independence_and_timing"])
     assert keys and all("not_independent_answer" in key and "marked_before_the_answer" in key for key in keys)
-    assert agreement["agree"] + agreement["disagree"] == 1
+    exposed = agreement["not_independent_answers"]
+    assert exposed["agree"] + exposed["disagree"] == 1 and agreement["independent_answers"]["agreement"] is None
     assert any(key.startswith("partly|") for key in keys)
 
 
@@ -274,7 +276,7 @@ def test_the_whole_report_carries_the_section_in_json_and_in_words(journey):
     with closing(connect(path, read_only=True)) as connection:
         connection.execute("BEGIN")
         report = build_report(connection, vault, Repository.attach(path, read_only=True), as_of=NOW, success_correctness=0.7)
-    assert report["switches"]["hypothesis_marks"] is True and report["hypothesis_marks"]["available"] is True
+    assert report["hypothesis_marks"]["switch_on"] is True and report["hypothesis_marks"]["available"] is True
     json.dumps(report, default=str)
     text = "\n".join(lines(report))
     assert "Hypothesis-list exposures: 1" in text and "Marks on possible causes: 1 rows" in text

@@ -11,6 +11,7 @@ import sqlite3
 import pytest
 
 from learnloop.db.stores import hypothesis_marks as store
+from learnloop.db.table_roles import TABLE_ROLES, TableRole
 from learnloop.followup_run import marks as panel
 from learnloop.followup_serve import marks as M
 from learnloop.followup_serve import workflow as wf
@@ -29,7 +30,7 @@ from tests.followup_serve_helpers import (
     rival_causes_vault,
     run_jobs,
 )
-from tests.test_followup_journey import _Runtime, _answer, _call, _forced, _generate, journey  # noqa: F401 - the fixture
+from tests.test_followup_journey import _Runtime, _answer, _bundle_without_ids, _call, _forced, _generate, journey  # noqa: F401 - the fixture
 
 MARKS_OFF = "\n[followup]\nhypothesis_marks = false\n"
 LEDGERS = frozenset({"hypothesis_list_exposures", "hypothesis_exposure_probe_links", "hypothesis_marks"})
@@ -394,21 +395,28 @@ def test_a_rebuild_ignores_marks_and_keeps_them(journey):
     version = marks["hypotheses"][0]["hypothesisVersionId"]
     paths = _paths(vault)
     rebuild_derived_state(vault, repository)
+    rebuild_derived_state(vault, repository)
     without = _dump(paths)
     _mark(ctx, result.attempt_id, "my_gap", version)
     rebuild_derived_state(vault, repository)
     with_marks = _dump(paths)
-    surrogate = {"agent_runs"}
-    changed = {table for table in without if table not in surrogate and without[table] != with_marks[table]}
-    # A rebuild's own stamps differ between any two runs: what matters is that nothing moved because of a mark.
-    assert changed <= _rebuild_noise(vault, repository, paths, without)
+    derived = {table for table, role in TABLE_ROLES.items() if role is TableRole.DERIVED and table in without}
+    assert derived
+    assert ({table: _without_surrogates(with_marks)[table] for table in derived}
+            == {table: _without_surrogates(without)[table] for table in derived})
     assert len(_rows(repository, "hypothesis_marks")) == 1
 
 
-def _rebuild_noise(vault, repository, paths, baseline):
-    rebuild_derived_state(vault, repository)
-    again = _dump(paths)
-    return {table for table in baseline if baseline[table] != again[table]}
+def _without_surrogates(dump):
+    """A rebuild mints new ids and stamps new times: what replay derives is the rest."""
+
+    import re
+
+    def plain(row):
+        text = re.sub(r"[0-9A-HJKMNP-TV-Z]{26}", "ULID", repr(row))
+        return re.sub(r"\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d(\.\d+)?(Z|\+00:00)", "TIME", text)
+
+    return {table: sorted(plain(row) for row in rows) for table, rows in dump.items()}
 
 
 def test_marks_are_never_forwarded_to_the_self_report_channel(journey, monkeypatch):
@@ -533,10 +541,20 @@ def test_off_means_no_key_no_rows_and_the_same_replies(tmp_path, monkeypatch):
     assert replies["on"]["rows"]["hypothesis_marks"] == 1
     assert replies["off"]["receipt"]["recorded"] is False and replies["off"]["mark"]["recorded"] is False
     assert "hypothesisMarks" not in replies["off"]["bundle"] and "hypothesisMarks" not in replies["off"]["probe"]
-    # On adds exactly that one key to each bundle: everything else is the same read.
+    # On adds exactly that one key to each bundle: everything else is the same read, byte for byte.
     for key in ("bundle", "probe"):
         assert set(replies["on"][key]) - set(replies["off"][key]) == {"hypothesisMarks"}
-        assert set(replies["off"][key]) - set(replies["on"][key]) == set()
+        shown = {name: dict(replies[name][key]) for name in ("on", "off")}
+        shown["on"].pop("hypothesisMarks")
+        assert _normalized(shown["on"]) == _normalized(shown["off"])
+
+
+def _normalized(reply):
+    import re
+
+    text = json.dumps(_bundle_without_ids(reply), sort_keys=True, default=str)
+    text = re.sub(r"[0-9A-HJKMNP-TV-Z]{26}", "ULID", text)
+    return re.sub(r"\b(dr|cdo|chs|hs|pp|ge|rc|fw|cpc)_[0-9a-f]{16,}", r"\1_ID", text)
 
 
 def test_with_no_causes_on_the_attempt_the_bundle_has_no_key(tmp_path):

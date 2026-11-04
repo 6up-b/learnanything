@@ -269,7 +269,7 @@ def _observations(connection: sqlite3.Connection) -> dict[str, dict[str, Any]]:
     keys = {str(row[0]): str(row[1]) for row in connection.execute("SELECT id, episode_key FROM causal_hypotheses")}
     out: dict[str, dict[str, Any]] = {}
     for row in connection.execute(
-        "SELECT factor_id, outcome, classified_as_json, supports_open_set, admitted, detail_json, created_at "
+        "SELECT factor_id, outcome, classified_as_json, admitted, detail_json "
         "FROM causal_discriminating_observations WHERE probe_attempt_id IS NOT NULL ORDER BY created_at, id"
     ):
         detail = json.loads(row["detail_json"] or "{}")
@@ -277,7 +277,6 @@ def _observations(connection: sqlite3.Connection) -> dict[str, dict[str, Any]]:
             "outcome": str(row["outcome"]),
             "classified": {keys.get(str(value), str(value)) for value in json.loads(row["classified_as_json"] or "[]")},
             "measured": {keys.get(str(value), str(value)) for value in detail.get("measured_hypothesis_ids") or []},
-            "open_set": bool(row["supports_open_set"]),
             "independent": bool(row["admitted"]),
         }
     return out
@@ -289,7 +288,8 @@ def _probe_agreement(connection: sqlite3.Connection, latest: list[dict[str, Any]
 
     observations = _observations(connection)
     table: dict[str, dict[str, int]] = {}
-    not_discriminating = not_measured = no_probe = agree = disagree = 0
+    not_discriminating = not_measured = no_probe = 0
+    scored = {"independent_answer": [0, 0], "not_independent_answer": [0, 0]}
     for row in latest:
         factor = row.get("factor_id")
         observation = observations.get(str(factor)) if factor else None
@@ -301,7 +301,7 @@ def _probe_agreement(connection: sqlite3.Connection, latest: list[dict[str, Any]
             continue
         mark = str(row["mark"])
         if mark == marks_rules.NONE_OF_THESE:
-            supported = observation["open_set"]
+            supported = observation["outcome"] == "no_bundle_matched"
         elif str(row["hypothesis_key"]) not in observation["measured"]:
             not_measured += 1
             continue
@@ -314,14 +314,19 @@ def _probe_agreement(connection: sqlite3.Connection, latest: list[dict[str, Any]
         slot["marks"] += 1
         # "Partly" is neither side of agreement: it is reported, never scored.
         if mark in {marks_rules.MY_GAP, marks_rules.NONE_OF_THESE}:
-            agree, disagree = (agree + 1, disagree) if supported else (agree, disagree + 1)
+            scored[independence][0 if supported else 1] += 1
         elif mark == marks_rules.NOT_IT:
-            agree, disagree = (agree, disagree + 1) if supported else (agree + 1, disagree)
+            scored[independence][1 if supported else 0] += 1
     return {
         "label": PROBE_AGREEMENT_LABEL,
-        "agree": agree,
-        "disagree": disagree,
-        "agreement": round(agree / (agree + disagree), 4) if agree + disagree else None,
+        **{
+            f"{name}s": {
+                "agree": agree,
+                "disagree": disagree,
+                "agreement": round(agree / (agree + disagree), 4) if agree + disagree else None,
+            }
+            for name, (agree, disagree) in scored.items()
+        },
         "by_mark_outcome_independence_and_timing": {
             key: value["marks"] for key, value in sorted(table.items())
         },
@@ -438,14 +443,16 @@ def build_report(connection: sqlite3.Connection, vault: Any, repository: Any, *,
         "report_version": REPORT_VERSION,
         "as_of": as_of,
         "algorithm_version": vault.config.algorithms.algorithm_version,
-        "switches": {"receipts": receipts_on(vault.config), "serving": serving_on(vault.config),
-                     "hypothesis_marks": hypothesis_marks_on(vault.config)},
+        "switches": {"receipts": receipts_on(vault.config), "serving": serving_on(vault.config)},
         "prefilter_receipts": prefilter_section(connection),
         "measurements": measurement_section(connection),
         "outcomes": outcome_section(connection, vault, repository),
         "first_delayed_success": time_section(connection, vault, repository, as_of=as_of, success_correctness=success_correctness),
         "floor_and_picks": floor_and_pick_section(connection),
-        "hypothesis_marks": hypothesis_marks_section(connection, vault, repository, success_correctness=success_correctness),
+        "hypothesis_marks": {
+            "switch_on": hypothesis_marks_on(vault.config),
+            **hypothesis_marks_section(connection, vault, repository, success_correctness=success_correctness),
+        },
     }
 
 
@@ -511,8 +518,10 @@ def lines(report: Mapping[str, Any]) -> list[str]:
         out.append(f"Marks on possible causes: {counts['rows']} rows on {counts['attempts']} attempts, latest "
                    f"{counts['latest_by_mark']}, {counts['changes_of_mind']} changes of mind, {counts['with_free_text']} with free text")
         probe = marks["agreement_with_probe_outcomes"]
-        out.append(f"  with probe outcomes: agreement {probe['agreement']} ({probe['agree']} agree, {probe['disagree']} disagree); "
-                   f"{probe['label']}")
+        clean, exposed = probe["independent_answers"], probe["not_independent_answers"]
+        out.append(f"  with probe outcomes: agreement {clean['agreement']} on independent answers ({clean['agree']} agree, "
+                   f"{clean['disagree']} disagree), {exposed['agreement']} on answers given after the causes were shown "
+                   f"({exposed['agree']} agree, {exposed['disagree']} disagree); {probe['label']}")
         delayed = marks["agreement_with_delayed_performance"]
         out.append(f"  with delayed performance: agreement {delayed['agreement']} ({delayed['agree']} agree, "
                    f"{delayed['disagree']} disagree); {delayed['label']}")
