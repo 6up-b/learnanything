@@ -257,6 +257,8 @@ class SidecarContext:
             self.reconcile_hint_work()
             # A previous process may have left queued or leased jobs; resume.
             self.resume_post_attempt_jobs()
+            # FG1 §10: with the switch off, open workflows settle as skipped.
+            self.settle_followup_workflows_when_off()
             # ... and imported exercises' key checks it never committed
             # (canonical sources, Codex review F5).
             self.recover_import_key_checks()
@@ -543,6 +545,16 @@ class SidecarContext:
 
         threading.Thread(target=run, name="import-key-check-recovery", daemon=True).start()
 
+    def settle_followup_workflows_when_off(self) -> None:
+        if self.vault is None or self.repository is None:
+            return
+        try:
+            from learnloop.followup_serve.workflow import settle_open_when_off
+
+            settle_open_when_off(self.vault, self.repository)
+        except Exception:  # noqa: BLE001 - startup maintenance never fails an open
+            _LOGGER.warning("follow-up workflows not settled", exc_info=True)
+
     def resume_post_attempt_jobs(self) -> None:
         """Wake the worker when the durable queue holds unfinished jobs."""
 
@@ -555,6 +567,12 @@ class SidecarContext:
 
         if pending_jobs(self.repository):
             # Learner-text gap readings left by a previous process.
+            self.post_attempt_worker.notify()
+            return
+        from learnloop.followup_serve.jobs import pending_jobs as pending_followup_jobs
+
+        if pending_followup_jobs(self.repository):
+            # FG1 generation left by a previous process, or queued at an episode's entry.
             self.post_attempt_worker.notify()
 
     def reload(self, *, maintenance: bool = True) -> None:
@@ -779,8 +797,8 @@ def _complete_interrupted_activation(vault_root: Path) -> None:
     # mvp-0.35 at the batch landing; the kept replaced claims' mvp-0.36;
     # mobile PR-4's mvp-0.37; the cold-retry reschedule's mvp-0.38; Reader
     # RW6b's mvp-0.39; curriculum C1's mvp-0.40; teacher TE1's mvp-0.41; follow-ups Nov 2's mvp-0.42;
-    # teacher TE1b's mvp-0.43; data capture's mvp-0.44).
-    from learnloop.data_capture_upgrade import complete_interrupted_activation
+    # teacher TE1b's mvp-0.43; data capture's mvp-0.44; FG1's mvp-0.45).
+    from learnloop.followup_serve_upgrade import complete_interrupted_activation
 
     complete_interrupted_activation(vault_root)
 

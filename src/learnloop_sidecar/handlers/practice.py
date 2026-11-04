@@ -302,6 +302,15 @@ def _require_active_item(vault, practice_item_id: str):
     return item
 
 
+def followup_surface(ctx: SidecarContext) -> str | None:
+    """FG1 §3.1, §10: only the desktop has the pending and skip UI; a phone's miss
+    stays on the predecessor's path."""
+
+    from learnloop.followup_serve.gates import SERVING_SURFACE
+
+    return SERVING_SURFACE if ctx.request_origin is None else None
+
+
 @method("get_practice_item", ServePracticeItemInput)
 def get_practice_item(ctx: SidecarContext, params: ServePracticeItemInput) -> dict[str, Any]:
     """Serve one item, carrying A6's elicitation decision for this serve.
@@ -1483,6 +1492,7 @@ def submit_attempt_on(
         session_id=params.session_id,
         self_grade=self_grade,
         ai_client=client if runtime.ready else None,
+        followup_surface=followup_surface(ctx),
     )
     # Slice 1 §11: the diagnosis (if one was queued) runs on the worker.
     ctx.resume_post_attempt_jobs()
@@ -1638,6 +1648,7 @@ def submit_dont_know_on(
         repository,
         result=result,
         session_id=params.session_id,
+        followup_surface=followup_surface(ctx),
     )
     # Client acknowledgment owns checkpoint removal; see submit_attempt.
     _log_attempt_recorded(repository, params.session_id, "", result)
@@ -1681,6 +1692,7 @@ def _record_empty_stuck(
         repository,
         result=result,
         session_id=session_id,
+        followup_surface=followup_surface(ctx),
     )
     ctx.resume_post_attempt_jobs()
     _log_attempt_recorded(repository, session_id, "", result)
@@ -1859,6 +1871,7 @@ def _resume_saved_completion(
         result=result,
         session_id=_open_session_id(repository, work["session_id"]),
         ai_client=_normalization_client(ctx, vault),
+        followup_surface=followup_surface(ctx),
     )
     ctx.resume_post_attempt_jobs()
     payload = _attempt_result(result, repository, vault)

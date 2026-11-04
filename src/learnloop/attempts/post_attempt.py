@@ -68,11 +68,17 @@ class PostAttemptOutcome:
     attempt_id: str
     followup: FollowupDecision | None
     notes: tuple[str, ...] = field(default_factory=tuple)
+    #: FG1: the durable workflow that owns this attempt's intervention, if any.
+    workflow_id: str | None = None
 
     @property
     def inserted(self) -> bool:
         """Did the follow-up evaluation insert queue work or mint a need?"""
 
+        if self.workflow_id is not None:
+            # FG1 §3.1: a workflow counts against an exam sitting's cap when it opens,
+            # before any generation, so later jobs cannot get around it.
+            return True
         decision = self.followup
         if decision is None:
             return False
@@ -90,9 +96,15 @@ def run_post_attempt_pipeline(
     ai_client: Any = None,
     available_minutes: int | None = None,
     suppress_insertion_reason: str | None = None,
+    followup_surface: str | None = None,
     clock: Clock | None = None,
 ) -> PostAttemptOutcome:
     """Complete one applied attempt; a completed attempt is not completed again.
+
+    ``followup_surface`` names the door's surface for FG1: only a surface with the
+    pending and skip UI can give a miss to a durable workflow (spec §3.1). The
+    workflow then owns the attempt, with the predecessor's insertion withheld under a
+    typed suppression, and commits with the completion.
 
     ``result`` is the :class:`learnloop.attempts.attempts.AttemptResult` the
     door received from grading/apply; the attempt and its saved completion
@@ -146,7 +158,17 @@ def run_post_attempt_pipeline(
                 learning_object_id=result.learning_object_id, ai_client=ai_client,
                 clock=clock,
             )
+        workflow = None
         with repository.atomic():
+            if suppress_insertion_reason is None and not deferred:
+                workflow = _open_followup_workflow(
+                    vault, repository, result=result, surface=followup_surface, session_id=session_id,
+                    purpose=purpose, applied_episode=applied_episode, clock=clock,
+                )
+                if workflow is not None:
+                    from learnloop.followup_serve.workflow import WORKFLOW_OWNS_REASON
+
+                    suppress_insertion_reason = WORKFLOW_OWNS_REASON
             decision = evaluate_attempt_intervention_followup(
                 vault,
                 repository,
@@ -172,8 +194,46 @@ def run_post_attempt_pipeline(
         # After the completion commits: a non-empty stuck answer is queued
         # for the learner-text gap reading (never fails the attempt).
         enqueue_post_attempt_learner_text(vault, repository, attempt_id=result.attempt_id, clock=clock)
+        if workflow is not None and not (blind or _shadow_diagnosis_enabled(vault)):
+            # A joint vault has no live diagnosis job (spec §3.1): selection uses the
+            # hypotheses normalization has already written.
+            from learnloop.followup_serve.workflow import enqueue_workflow_job
+
+            enqueue_workflow_job(repository, str(workflow["id"]), clock=clock)
     notes = (suppress_insertion_reason,) if suppress_insertion_reason is not None else ()
-    return PostAttemptOutcome(attempt_id=result.attempt_id, followup=decision, notes=notes)
+    return PostAttemptOutcome(
+        attempt_id=result.attempt_id, followup=decision, notes=notes,
+        workflow_id=str(workflow["id"]) if workflow is not None else None,
+    )
+
+
+def _open_followup_workflow(
+    vault: LoadedVault,
+    repository: Repository,
+    *,
+    result: Any,
+    surface: str | None,
+    session_id: str | None,
+    purpose: str,
+    applied_episode: Any,
+    clock: Clock | None,
+) -> dict[str, Any] | None:
+    """FG1: the workflow that owns this miss, or None (the predecessor's path).
+
+    An exam sitting records eligibility here, inside its cap, before any generation,
+    and shows no follow-up between answers; a block that just closed releases its
+    eligibility, unless an episode with locked hypotheses is still measuring (a
+    deferred attempt never reaches here). Feedback that was never going to wait for a
+    probe (an exam's report) is not held.
+    """
+
+    from learnloop.followup_serve.workflow import open_for_attempt
+
+    origin = "exam" if purpose == "exam" else ("block" if applied_episode is not None else "practice")
+    return open_for_attempt(
+        vault, repository, result=result, surface=surface, session_id=session_id, origin=origin,
+        hold_feedback=origin != "exam", clock=clock,
+    )
 
 
 def _shadow_diagnosis_enabled(vault: LoadedVault) -> bool:
@@ -303,6 +363,7 @@ def run_exam_sitting_pipeline(
     *,
     results: list[Any],
     intervention_cap: int = EXAM_SITTING_INTERVENTION_CAP,
+    followup_surface: str | None = None,
     clock: Clock | None = None,
 ) -> list[PostAttemptOutcome]:
     """Run the pipeline for every attempt an exam sitting just applied.
@@ -337,6 +398,7 @@ def run_exam_sitting_pipeline(
                 result=result,
                 purpose="exam",
                 suppress_insertion_reason=reason,
+                followup_surface=followup_surface,
                 clock=clock,
             )
         except Exception:  # noqa: BLE001 - attempts are applied; report must proceed

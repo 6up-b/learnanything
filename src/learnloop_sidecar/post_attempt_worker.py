@@ -1,8 +1,9 @@
 """The sidecar's post-attempt worker (Slice 1 §11).
 
-Three daemon slots - ``diagnose`` (concurrency 1, strict attempt order),
-``embed`` (concurrency 1, unordered) and ``gaps`` (learner-text gaps,
-concurrency 1, oldest first: ``learner_text_gap_jobs``) - drain their queues
+Four daemon slots - ``diagnose`` (concurrency 1, strict attempt order),
+``embed`` (concurrency 1, unordered), ``gaps`` (learner-text gaps,
+concurrency 1, oldest first: ``learner_text_gap_jobs``) and ``followup``
+(FG1's generation, concurrency 1: ``followup_generation_jobs``) - drain their queues
 on their own SQLite connection, in short transactions. The queue is durable and lease-fenced,
 so a process exit loses at most the in-flight model call; the next start (or the
 next notify) reclaims expired leases. Built on the ``ExamGradingManager``
@@ -34,7 +35,7 @@ IDLE_POLL_SECONDS = 30.0
 #: retries them itself with a bounded backoff (§11).
 BUSY_RETRIES = 5
 BUSY_BACKOFF_SECONDS = 0.5
-KINDS = ("diagnose", "embed", "gaps")
+KINDS = ("diagnose", "embed", "gaps", "followup")
 
 VaultSupplier = Callable[[], tuple[Any, Any] | None]
 
@@ -60,6 +61,8 @@ class PostAttemptWorker:
         self.embedding_factory: Callable[[Any], Any] | None = None
         #: vault -> learner-text gap PipelineClients (test seam; None: the routes).
         self.gap_clients: Callable[[Any], Any] | None = None
+        #: vault -> FG1's generation clients (test seam; None: the routes).
+        self.followup_clients: Callable[[Any], Any] | None = None
         #: RW5d P5: called after any nonempty gap drain, whatever its jobs' outcome (deferred or
         #: failed work included, so a poll tick can fire it with nobody at the keyboard): the
         #: prefetch gap trigger, a no-op with figures.prefetch_enabled off, and worker-origin,
@@ -147,6 +150,8 @@ class PostAttemptWorker:
         repository = self._repository(sqlite_path)
         if kind == "gaps":
             return self._run_gaps(vault, repository, max_jobs=max_jobs, clock=clock)
+        if kind == "followup":
+            return self._run_followup(vault, repository, max_jobs=max_jobs, clock=clock)
         outcomes: list[Any] = []
         while len(outcomes) < max_jobs:
             result = self._with_busy_retry(
@@ -173,8 +178,10 @@ class PostAttemptWorker:
             with self._changed:
                 self._changed.notify_all()
             if kind == "diagnose":
-                # An applied diagnosis may have queued a learner-text gap job.
+                # An applied diagnosis may have queued a learner-text gap job,
+                # and an ended one moves its follow-up workflow on (FG1).
                 self._wake["gaps"].set()
+                self._wake["followup"].set()
             if result.state in ("released", "lease_lost"):
                 break
         return outcomes
@@ -207,6 +214,27 @@ class PostAttemptWorker:
                 self.after_gaps()
             except Exception:  # noqa: BLE001 - a trigger never fails the gap drain
                 pass
+        return outcomes
+
+    def _run_followup(self, vault: Any, repository: Any, *, max_jobs: int, clock: Any) -> list[Any]:
+        """FG1: the generation slot, apart from the strictly ordered diagnosis slot, so a
+        later diagnosis is never delayed by a question being written (spec §5 item 1)."""
+
+        from learnloop.followup_serve.jobs import process_next_job as process_next_followup_job
+
+        outcomes: list[Any] = []
+        clients = self.followup_clients(vault) if self.followup_clients is not None else None
+        while len(outcomes) < max_jobs and not self._stop.is_set():
+            result = self._with_busy_retry(
+                lambda: process_next_followup_job(
+                    vault, repository, owner=self.owner, clients=clients, cancelled=self._stop.is_set, clock=clock,
+                )
+            )
+            if result is None:
+                break
+            outcomes.append(result)
+            with self._changed:
+                self._changed.notify_all()
         return outcomes
 
     def _with_busy_retry(self, work: Callable[[], Any]) -> Any:

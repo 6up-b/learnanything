@@ -720,6 +720,22 @@ LESSON_SUGGESTIONS_ALGORITHM_VERSION = "mvp-0.43"
 # (``data_capture.receipts``).
 DATA_CAPTURE_ALGORITHM_VERSION = "mvp-0.44"
 
+# mvp-0.45 (follow-up generate and serve, FG1; owner decisions 2026-11-03;
+# docs/specs/spec_followup_generate_serve_v1.md), on top of mvp-0.44 (the chain
+# stays linear). On a miss with diagnosis on, one durable workflow owns the
+# intervention: the router decides first whether and when (itemless, with
+# ``no_intervention`` in its logged mixture), a frontier LLM writes one
+# single-use probe aimed at the rival causes, machine checks admit it, and the
+# next step opens it; the worked answer and the causes are held until it is
+# answered. Every generated probe is single use (a durable identity and burn
+# ledger, every door). Practice-lane needs fill in the background, and every
+# episode entry enqueues generation (``auto_generate_on_entry`` is effectively
+# true). Kill switch: ``followup.generate_and_serve`` (off, or below the tag,
+# behaviour matches mvp-0.44 from an equivalent state, the stored
+# ``auto_generate_on_entry`` applies, burns persist and open workflows settle
+# as skipped).
+FOLLOWUP_SERVE_ALGORITHM_VERSION = "mvp-0.45"
+
 # The linear successor chain on the mvp-0.8 projection namespace, oldest
 # first. Each successor means its predecessor's semantics PLUS its own, so
 # every gate below is "this tag or any later one". A successor merge appends
@@ -763,6 +779,7 @@ SUCCESSOR_CHAIN: tuple[str, ...] = (
     HELP_FOLD_ATTACH_ALGORITHM_VERSION,
     LESSON_SUGGESTIONS_ALGORITHM_VERSION,
     DATA_CAPTURE_ALGORITHM_VERSION,
+    FOLLOWUP_SERVE_ALGORITHM_VERSION,
 )
 
 
@@ -963,6 +980,11 @@ LESSON_SUGGESTIONS_VERSIONS: frozenset[str] = successors_from(LESSON_SUGGESTIONS
 # (behind ``data_capture.serving``). Every later successor keeps them; gates
 # must use this set, never equality.
 DATA_CAPTURE_VERSIONS: frozenset[str] = successors_from(DATA_CAPTURE_ALGORITHM_VERSION)
+
+# Versions whose misses are owned by one durable follow-up workflow and whose
+# generated probes are single use (behind ``followup.generate_and_serve``; FG1).
+# Every later successor keeps them; gates must use this set, never equality.
+FOLLOWUP_SERVE_VERSIONS: frozenset[str] = successors_from(FOLLOWUP_SERVE_ALGORITHM_VERSION)
 
 # The newest successor: the last tag in the chain. ``learnloop upgrade`` with
 # no ``--to`` targets it, and new vaults start at it

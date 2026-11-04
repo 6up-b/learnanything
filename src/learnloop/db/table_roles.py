@@ -171,6 +171,14 @@ _TABLE_ROLE_ITEMS: tuple[tuple[str, TableRole], ...] = (
     # Data capture A2 (migration 240): the objective frozen before a decision's
     # draw, and the states of the check that measures it (append-only).
     ("decision_measurement_events", TableRole.RECEIPT),
+    # FG1 (migration 241): the durable follow-up workflow and its generation queue;
+    # its moves, the single-use identity and burn ledger, and the router bindings.
+    ("followup_generation_jobs", TableRole.WORKFLOW),
+    ("followup_workflow_events", TableRole.RECEIPT),
+    ("followup_workflows", TableRole.WORKFLOW),
+    ("generated_probe_burns", TableRole.RAW_LEDGER),
+    ("generated_probe_items", TableRole.RAW_LEDGER),
+    ("router_decision_bindings", TableRole.RECEIPT),
     ("decision_objectives", TableRole.RECEIPT),
     ("reading_exposure_receipts", TableRole.RECEIPT),
     # Deliverable curriculum C0b (migration 228): the learner's scope inputs

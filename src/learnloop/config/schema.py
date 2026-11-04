@@ -4145,6 +4145,19 @@ class DataCaptureConfig(BaseModel):
     serving: bool = True
 
 
+class FollowupServeConfig(BaseModel):
+    """Follow-up generate and serve (FG1; ``docs/specs/spec_followup_generate_serve_v1.md``).
+
+    ``generate_and_serve`` is the kill switch of the successor mvp-0.45
+    (``FOLLOWUP_SERVE_VERSIONS``). Off, or below the tag, behaviour matches mvp-0.44
+    from an equivalent starting state, the stored
+    ``probe.generation.auto_generate_on_entry`` applies, burns persist and open
+    workflows settle as skipped.
+    """
+
+    generate_and_serve: bool = True
+
+
 class VoiStoppingConfig(BaseModel):
     """mvp-0.21 Part 1: four count caps lifted onto value of information.
 
@@ -4266,6 +4279,9 @@ class UiConfig(BaseModel):
 
     practice_feedback: Literal["simple", "classic"] = "simple"
     shell: Literal["simple", "classic"] = "simple"
+    #: FG1 §6.4: the router's decisions, plainly on Feedback and in the plan, for
+    #: debugging and calibration (a deliberate exception to "machinery behind why?").
+    show_router_decisions: bool = True
 
 
 class TeacherWeightConfig(BaseModel):
@@ -4597,6 +4613,7 @@ class LearnLoopConfig(BaseModel):
     placement: PlacementConfig = Field(default_factory=PlacementConfig)
     router: RouterConfig = Field(default_factory=RouterConfig)
     data_capture: DataCaptureConfig = Field(default_factory=DataCaptureConfig)
+    followup: FollowupServeConfig = Field(default_factory=FollowupServeConfig)
     pf: PFConfig = Field(default_factory=PFConfig)
     plan: PlanConfig = Field(default_factory=PlanConfig)
     intent: IntentConfig = Field(default_factory=IntentConfig)

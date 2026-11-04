@@ -17,6 +17,7 @@ from learnloop.algorithm_versions import (
     TEACHER_ALGORITHM_VERSION,
     LESSON_SUGGESTIONS_ALGORITHM_VERSION,
     DATA_CAPTURE_ALGORITHM_VERSION,
+    FOLLOWUP_SERVE_ALGORITHM_VERSION,
     WORKBENCH_FIELD_SIGNALS_ALGORITHM_VERSION,
 )
 from learnloop.cli.receipts import command_receipts
@@ -111,7 +112,8 @@ def upgrade(
                 f"{ATTEMPT_CONTENT_STATE_ALGORITHM_VERSION}, {COLD_RETRY_RESCHEDULE_ALGORITHM_VERSION}, "
                 f"{READER_FOLLOWUPS_ALGORITHM_VERSION}, {DELIVERABLE_PLAN_ALGORITHM_VERSION}, "
                 f"{TEACHER_ALGORITHM_VERSION}, {HELP_FOLD_ATTACH_ALGORITHM_VERSION}, "
-                f"{LESSON_SUGGESTIONS_ALGORITHM_VERSION} or {DATA_CAPTURE_ALGORITHM_VERSION}); default: the latest."
+                f"{LESSON_SUGGESTIONS_ALGORITHM_VERSION}, {DATA_CAPTURE_ALGORITHM_VERSION} or "
+                f"{FOLLOWUP_SERVE_ALGORITHM_VERSION}); default: the latest."
             ),
         ),
     ] = LATEST_ALGORITHM_VERSION,
@@ -421,6 +423,10 @@ def upgrade(
         from learnloop.data_capture_upgrade import upgrade_to_data_capture
 
         result = upgrade_to_data_capture(_root(vault))
+    elif to == FOLLOWUP_SERVE_ALGORITHM_VERSION:
+        from learnloop.followup_serve_upgrade import upgrade_to_followup_serve
+
+        result = upgrade_to_followup_serve(_root(vault))
     else:
         typer.echo(
             "Unknown target version "
@@ -432,7 +438,8 @@ def upgrade(
             f"{SUPERSEDED_CLAIMS_ALGORITHM_VERSION}, {ATTEMPT_CONTENT_STATE_ALGORITHM_VERSION}, "
             f"{COLD_RETRY_RESCHEDULE_ALGORITHM_VERSION}, {READER_FOLLOWUPS_ALGORITHM_VERSION}, "
             f"{DELIVERABLE_PLAN_ALGORITHM_VERSION}, {TEACHER_ALGORITHM_VERSION} or "
-            f"{LESSON_SUGGESTIONS_ALGORITHM_VERSION} or {DATA_CAPTURE_ALGORITHM_VERSION}."
+            f"{LESSON_SUGGESTIONS_ALGORITHM_VERSION}, {DATA_CAPTURE_ALGORITHM_VERSION} or "
+            f"{FOLLOWUP_SERVE_ALGORITHM_VERSION}."
         )
         raise typer.Exit(code=2)
     if result.upgraded:

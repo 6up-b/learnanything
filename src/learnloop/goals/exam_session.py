@@ -521,6 +521,7 @@ def finish_exam(
     repository: Repository,
     session_id: str,
     *,
+    followup_surface: str | None = None,
     clock: Clock | None = None,
 ) -> dict[str, Any]:
     """Apply every answered item as an ``exam_attempt`` and persist the report.
@@ -619,7 +620,7 @@ def finish_exam(
         from learnloop.attempts.post_attempt import run_exam_sitting_pipeline
 
         run_exam_sitting_pipeline(
-            vault, repository, results=applied_results, clock=clock
+            vault, repository, results=applied_results, followup_surface=followup_surface, clock=clock
         )
 
     report = _compute_report(vault, repository, session, goal, withdrawn=withdrawn)

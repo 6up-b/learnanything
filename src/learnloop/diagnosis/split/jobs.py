@@ -667,6 +667,18 @@ def _hybrid_retriever(
     return EmbeddingHistoryRetriever(client=client, sqlite_path=repository.sqlite_path, guard=guard)
 
 
+def _workflow_diagnosis_ended(vault: LoadedVault, repository: Repository, attempt_id: str, mode: str,
+                              clock: Clock | None) -> None:
+    """FG1: a live diagnosis ended, or stays released for a readiness reason: the follow-up
+    workflow that owns the attempt moves on, on its own slot (never in this ordered one)."""
+
+    if mode != "live":
+        return
+    from learnloop.followup_serve.workflow import diagnosis_ended
+
+    diagnosis_ended(vault, repository, attempt_id=attempt_id, clock=clock)
+
+
 def run_diagnose_job(
     vault: LoadedVault,
     repository: Repository,
@@ -702,6 +714,7 @@ def run_diagnose_job(
                 # Queued again: stamp it held (a no-op once it was stamped).
                 repository.hold_queued_live_diagnoses(clock=clock)
                 outcome.state, outcome.error = "released", "split_disabled"
+                _workflow_diagnosis_ended(vault, repository, attempt_id, mode, clock)
                 return outcome
             record_row = repository.latest_blind_grade_record(attempt_id) if mode == "live" else None
             if record_row is not None and not needs_diagnosis(record_row.get("record") or {}):
@@ -717,6 +730,7 @@ def run_diagnose_job(
                 }, clock=clock)
                 _finish(repository, job, "skipped", error="not_needed", clock=clock)
                 outcome.state, outcome.error, outcome.diagnosis_id = "skipped", "not_needed", diagnosis_id
+                _workflow_diagnosis_ended(vault, repository, attempt_id, mode, clock)
                 return outcome
             if cancelled is not None and cancelled():
                 _release(repository, job, not_before=utc_now_iso(clock), error="cancelled",
@@ -737,12 +751,14 @@ def run_diagnose_job(
                 }, clock=clock)
                 _finish(repository, job, "skipped", error="budget", clock=clock)
                 outcome.state, outcome.error, outcome.diagnosis_id = "skipped", "budget", diagnosis_id
+                _workflow_diagnosis_ended(vault, repository, attempt_id, mode, clock)
                 return outcome
             client = client_factory()
             if client is None:
                 _release(repository, job, not_before=_later(NOT_READY_RECHECK_SECONDS, clock),
                          error="provider_not_ready", refund=True, clock=clock)
                 outcome.state, outcome.error = "released", "provider_not_ready"
+                _workflow_diagnosis_ended(vault, repository, attempt_id, mode, clock)
                 return outcome
             existing = _diagnose(
                 vault, repository, job, attempt, client=client, mode=mode, payload=payload,
@@ -750,6 +766,8 @@ def run_diagnose_job(
                 spend=spend, scope_attempt_id=scope_attempt_id, cancelled=cancelled,
             )
             if existing is None:
+                if outcome.state in ("failed", "skipped"):
+                    _workflow_diagnosis_ended(vault, repository, attempt_id, mode, clock)
                 return outcome
         outcome.diagnosis_id = str(existing["id"])
         outcome.status = str(existing["status"])
@@ -778,6 +796,7 @@ def run_diagnose_job(
             outcome.state, outcome.error = "lease_lost", "lease_lost"
             return outcome
         outcome.state = final_state
+        _workflow_diagnosis_ended(vault, repository, attempt_id, mode, clock)
         outcome.error = outcome.error or existing.get("error")
         return outcome
     except _LeaseLost:

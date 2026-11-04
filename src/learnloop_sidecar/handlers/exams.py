@@ -43,6 +43,7 @@ from learnloop_sidecar.handlers.goals import GoalIdInput, _find_goal
 from learnloop_sidecar.handlers.serializers import answered_presentation, item_presentation
 from learnloop_sidecar.registry import method
 from learnloop_sidecar.dto import EmptyParams
+from learnloop.followup_serve.gates import SERVING_SURFACE
 
 
 class StartExamInput(ParamsModel):
@@ -408,7 +409,11 @@ def finish_exam_handler(ctx: SidecarContext, params: FinishExamInput) -> dict[st
             except Exception as exc:  # noqa: BLE001 - mapped to stable RPC error
                 _raise_exam_grading_error(exc)
     try:
-        report = finish_exam(vault, repository, params.session_id)
+        report = finish_exam(
+            vault, repository, params.session_id,
+            # FG1 §3.1: the sitting's eligibility and cap, recorded before any generation.
+            followup_surface=SERVING_SURFACE if ctx.request_origin is None else None,
+        )
     except ExamSessionError as exc:
         raise SidecarError("exam_finish_failed", str(exc)) from exc
     return versioned(_report_dto(vault, repository, report))

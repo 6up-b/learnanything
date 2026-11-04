@@ -595,9 +595,14 @@ def evaluate_attempt_intervention_followup(
     normalization_prepared: bool = False,
     applied_probe_episode_id: str | None | object = CURRENT_EPISODE,
     defer_diagnosis_hooks: bool = False,
+    insertion_only: bool = False,
     clock: Clock | None = None,
 ) -> FollowupDecision:
     """Run the full post-attempt intervention policy for one attempt result.
+
+    ``insertion_only`` (FG1): the workflow that owned this attempt settled on the
+    practice lane or its fallback, so the predecessor's insertion runs now. The
+    evidence-side hooks already ran when the attempt completed, and do not run twice.
 
     ``defer_diagnosis_hooks`` (Slice 1 §7.2, split vaults): the grade-keyed
     hooks run here as always, but the diagnosis-dependent common-repair
@@ -659,21 +664,22 @@ def evaluate_attempt_intervention_followup(
             ai_client=ai_client,
             clock=clock,
         )
-    # §6.5 re-probe trigger: repeated prediction errors on a settled LO signal
-    # model misspecification and reopen probing (live path only, never replay).
-    from learnloop.diagnosis.probe_episodes import maybe_reprobe_for_predictive_failure
+    if not insertion_only:
+        # §6.5 re-probe trigger: repeated prediction errors on a settled LO signal
+        # model misspecification and reopen probing (live path only, never replay).
+        from learnloop.diagnosis.probe_episodes import maybe_reprobe_for_predictive_failure
 
-    maybe_reprobe_for_predictive_failure(
-        vault, repository, result.learning_object_id, clock=clock
-    )
-    _run_causal_orchestrator_hooks(
-        vault,
-        repository,
-        result,
-        session_id=session_id,
-        clock=clock,
-        include_common_repair=not defer_diagnosis_hooks,
-    )
+        maybe_reprobe_for_predictive_failure(
+            vault, repository, result.learning_object_id, clock=clock
+        )
+        _run_causal_orchestrator_hooks(
+            vault,
+            repository,
+            result,
+            session_id=session_id,
+            clock=clock,
+            include_common_repair=not defer_diagnosis_hooks,
+        )
 
     if suppress_insertion_reason is not None:
         # Batch doors (an exam sitting) cap how many follow-ups one batch may
