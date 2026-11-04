@@ -48,6 +48,7 @@ from learnloop import confidence_events
 from learnloop.attempts.grading import resolved_rubric
 from learnloop.clock import parse_utc
 from learnloop.db.repositories import Repository
+from learnloop.router_objective_switches import validated_resolution_ids
 from learnloop.substrate.canonical_projection import (
     UNVERIFIED_CRITERION_BLOCK,
     held_for_review_attempts,
@@ -909,7 +910,11 @@ class VaultHistoryStore:
                         lifecycle=_FACTOR_LIFECYCLE.get(status, status),
                         learning_object_id=source.learning_object_id if source else None,
                         source_attempt_id=attempt_id or None,
-                        validated_evidence_count=len(_decode_json(row.get("resolution_observation_ids_json"), []) or []),
+                        # Router objective RO1 (mvp-0.46, spec §5.4): a learner's
+                        # own pick (learner_report:*) resolves the factor but is no
+                        # validated evidence at the tag; the factor and its ids stay.
+                        validated_evidence_count=len(validated_resolution_ids(
+                            _decode_json(row.get("resolution_observation_ids_json"), []) or [], vault.config)),
                         last_updated=str(row.get("updated_at") or row.get("created_at") or "") or None,
                     ),
                     _instant(row.get("created_at")),
