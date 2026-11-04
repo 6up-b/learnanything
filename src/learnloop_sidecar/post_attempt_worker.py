@@ -220,7 +220,7 @@ class PostAttemptWorker:
         """FG1: the generation slot, apart from the strictly ordered diagnosis slot, so a
         later diagnosis is never delayed by a question being written (spec §5 item 1)."""
 
-        from learnloop.followup_serve.jobs import process_next_job as process_next_followup_job
+        from learnloop.followup_run.jobs import process_next_job as process_next_followup_job
 
         outcomes: list[Any] = []
         clients = self.followup_clients(vault) if self.followup_clients is not None else None

@@ -19,6 +19,7 @@ from learnloop.clock import Clock, parse_utc, utc_now_iso
 from learnloop.db.repositories import Repository
 from learnloop.db.stores import followup_serve as store
 from learnloop.followup_serve import workflow as wf
+from learnloop.followup_serve import queue
 from learnloop.followup_serve.gates import generate_and_serve_on
 
 LOG = logging.getLogger(__name__)
@@ -49,30 +50,6 @@ class JobOutcome:
 def _iso_after(clock: Clock | None, seconds: float) -> str:
     now = parse_utc(utc_now_iso(clock))
     return (now + timedelta(seconds=seconds)).isoformat().replace("+00:00", "Z")
-
-
-def enqueue_need_fill(repository: Repository, need_id: str, *, clock: Clock | None = None) -> str | None:
-    """A recorded practice-lane need fills in the background, deduplicated (§4)."""
-
-    with repository.atomic(), repository.connection() as connection:
-        return store.enqueue_generation_job(
-            connection, kind="need", dedupe_key=f"need:{need_id}", need_id=need_id, at=utc_now_iso(clock),
-        )
-
-
-def enqueue_entry_generation(repository: Repository, episode_id: str, *, clock: Clock | None = None) -> str | None:
-    """An episode entered: its generation is queued, so opening a vault can't stall or burst (§4.3)."""
-
-    with repository.atomic(), repository.connection() as connection:
-        return store.enqueue_generation_job(
-            connection, kind="entry_episode", dedupe_key=f"entry:{episode_id}", probe_episode_id=episode_id,
-            at=utc_now_iso(clock),
-        )
-
-
-def pending_jobs(repository: Repository) -> int:
-    with repository.connection() as connection:
-        return store.runnable_generation_jobs(connection) if store.present(connection, "followup_generation_jobs") else 0
 
 
 def process_next_job(
@@ -143,11 +120,7 @@ def fail_workflow(vault: Any, repository: Repository, workflow_id: str, *, reaso
         return
     if wf.move(repository, workflow_id, to_state=wf.FAILED, reason=reason, release=wf.RELEASE_GENERATION_FAILED,
                clock=clock) and row.get("factor_id"):
-        with repository.atomic(), repository.connection() as connection:
-            store.enqueue_generation_job(
-                connection, kind="need", dedupe_key=f"factor:{row['factor_id']}", workflow_id=workflow_id,
-                need_id=None, at=utc_now_iso(clock),
-            )
+        queue.enqueue_factor(repository, str(row["factor_id"]), workflow_id=workflow_id, clock=clock)
 
 
 def _run(vault: Any, repository: Repository, job: Mapping[str, Any], *, clients: Any, clock: Clock | None) -> None:
@@ -159,8 +132,7 @@ def _run(vault: Any, repository: Repository, job: Mapping[str, Any], *, clients:
 
 def _run_workflow(vault: Any, repository: Repository, workflow_id: str, *, clients: Any, clock: Clock | None) -> None:
     from learnloop.diagnosis.split.jobs import DONE, diagnosis_status
-    from learnloop.followup_serve.lanes import select_lane
-
+    from learnloop.followup_run.lanes import select_lane, settle_practice_lane
     row = wf.get(repository, workflow_id)
     if row is None or row["state"] != wf.PENDING:
         return
@@ -172,17 +144,17 @@ def _run_workflow(vault: Any, repository: Repository, workflow_id: str, *, clien
     blind = repository.latest_blind_grade_record(attempt_id) is not None
     if blind and diagnosis_status(repository, attempt_id)["status"] != DONE:
         # §6.2: failed, skipped or released for readiness: one fallback, from the grade alone.
-        wf.settle_practice_lane(vault, repository, row, reason="diagnosis_unavailable", release=wf.RELEASE_FALLBACK,
+        settle_practice_lane(vault, repository, row, reason="diagnosis_unavailable", release=wf.RELEASE_FALLBACK,
                                 clock=clock)
         return
     choice = select_lane(repository, row)
     if choice.lane != wf.LANE_PROBE:
-        wf.settle_practice_lane(vault, repository, row, reason=choice.reason, clock=clock)
+        settle_practice_lane(vault, repository, row, reason=choice.reason, clock=clock)
         return
     wf.set_fields(repository, workflow_id, lane=wf.LANE_PROBE, factor_id=choice.factor_id, clock=clock)
 
 
 __all__ = [
     "GenerationDeferred", "JobOutcome", "LEASE_SECONDS", "MAX_GENERATION_ATTEMPTS", "RETRY_BACKOFF_SECONDS",
-    "enqueue_entry_generation", "enqueue_need_fill", "fail_workflow", "pending_jobs", "process_next_job",
+    "fail_workflow", "process_next_job",
 ]

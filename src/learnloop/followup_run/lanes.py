@@ -7,10 +7,14 @@ or one hypothesis, or no diagnosis.
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from dataclasses import dataclass, field
 from typing import Any
 
+from learnloop.clock import Clock
 from learnloop.db.repositories import Repository
+from learnloop.followup_serve import workflow as WF
+from learnloop.followup_serve.queue import enqueue_need
 
 
 @dataclass(frozen=True)
@@ -52,4 +56,43 @@ def select_lane(repository: Repository, workflow: dict[str, Any]) -> LaneChoice:
     return best or LaneChoice("practice", "no_open_factor" if factors == [] else "no_concrete_cause")
 
 
-__all__ = ["LaneChoice", "concrete_rivals", "select_lane"]
+def settle_practice_lane(
+    vault: Any,
+    repository: Repository,
+    row: Mapping[str, Any],
+    *,
+    reason: str,
+    release: str = WF.RELEASE_PRACTICE_LANE,
+    clock: Clock | None = None,
+) -> bool:
+    """The practice lane, or the one fallback: the predecessor's chooser runs once.
+
+    The move and the insertion commit together, so a crash leaves neither and a retry
+    runs both once; a workflow something else settled inserts nothing.
+    """
+
+    from learnloop.attempts.attempts import AttemptResult
+    from learnloop.diagnosis.followups import evaluate_attempt_intervention_followup
+
+    workflow_id = str(row["id"])
+    attempt_id = str(row["source_attempt_id"])
+    work = repository.attempt_completion(attempt_id)
+    decision = None
+    with repository.atomic():
+        if not WF.move(repository, workflow_id, to_state=WF.SETTLED, reason=reason, release=release,
+                       lane=WF.LANE_PRACTICE, from_states=(WF.PENDING,), clock=clock):
+            return False
+        if work is not None:
+            decision = evaluate_attempt_intervention_followup(
+                vault, repository, result=AttemptResult.from_dict(work["result"]),
+                session_id=row.get("session_id"), normalization_prepared=True,
+                applied_probe_episode_id=work.get("applied_probe_episode_id"),
+                defer_diagnosis_hooks=True, insertion_only=True, clock=clock,
+            )
+    if decision is not None and decision.need_id:
+        # §4: a recorded need fills in the background, textbook first (S2b).
+        enqueue_need(repository, str(decision.need_id), clock=clock)
+    return True
+
+
+__all__ = ["LaneChoice", "concrete_rivals", "select_lane", "settle_practice_lane"]

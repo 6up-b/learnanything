@@ -3,6 +3,7 @@ from __future__ import annotations
 import logging
 from dataclasses import dataclass, field, replace
 from datetime import UTC, datetime
+from collections.abc import Mapping
 from typing import Any
 
 from learnloop.clock import Clock, parse_utc
@@ -903,6 +904,21 @@ def _run_causal_orchestrator_hooks(
             result.attempt_id,
             exc_info=True,
         )
+
+
+def attempt_followup_grade(
+    vault: LoadedVault, repository: Repository, attempt: Mapping[str, Any]
+) -> tuple[bool, str]:
+    """FG1: (is this a miss, its grade revision). Blind records and joint grades use the
+    one ``needs_diagnosis`` rule, so a workflow opens exactly where a live diagnosis
+    would explain something."""
+
+    from learnloop.diagnosis.split.live import joint_grade_record, needs_diagnosis
+
+    row = repository.latest_blind_grade_record(str(attempt["id"]))
+    if row is not None:
+        return needs_diagnosis(dict(row.get("record") or {})), str(row["id"])
+    return needs_diagnosis(joint_grade_record(vault, repository, attempt)), "joint"
 
 
 def enqueue_post_attempt_diagnosis(

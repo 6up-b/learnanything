@@ -569,7 +569,7 @@ class SidecarContext:
             # Learner-text gap readings left by a previous process.
             self.post_attempt_worker.notify()
             return
-        from learnloop.followup_serve.jobs import pending_jobs as pending_followup_jobs
+        from learnloop.followup_serve.queue import pending_jobs as pending_followup_jobs
 
         if pending_followup_jobs(self.repository):
             # FG1 generation left by a previous process, or queued at an episode's entry.

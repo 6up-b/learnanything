@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from learnloop.attempts.post_attempt import EXAM_SITTING_CAP_REASON, run_exam_sitting_pipeline, run_post_attempt_pipeline
 from learnloop.db.stores import followup_serve as store
+from learnloop.followup_run.lanes import settle_practice_lane
 from learnloop.followup_serve import workflow as wf
 from learnloop.followup_serve.gates import effective_auto_generate_on_entry, generate_and_serve_on
 
@@ -34,7 +35,8 @@ def test_the_identity_is_stable_and_a_resumed_completion_reuses_it(tmp_path):
     result, outcome = miss_with_rivals(vault, repository)
     assert outcome.workflow_id == wf.workflow_id_for(result.attempt_id, "joint")
     with repository.atomic():
-        again = wf.open_for_attempt(vault, repository, result=result, surface="desktop", session_id=None, clock=CLOCK)
+        again = wf.open_for_attempt(vault, repository, result=result, surface="desktop", session_id=None,
+                                    grade=(True, "joint"), clock=CLOCK)
     assert again["id"] == outcome.workflow_id
     assert len(_workflows(repository)) == 1
 
@@ -92,7 +94,7 @@ def test_a_settled_workflow_takes_nothing_more(tmp_path):
     assert row["release_reason"] == wf.RELEASE_CONTINUE_WITHOUT
     # A late generator or diagnosis loses the compare-and-set.
     assert not wf.move(repository, outcome.workflow_id, to_state=wf.READY, reason="late", clock=CLOCK)
-    assert not wf.settle_practice_lane(vault, repository, row, reason="late", clock=CLOCK)
+    assert not settle_practice_lane(vault, repository, row, reason="late", clock=CLOCK)
     wf.diagnosis_ended(vault, repository, attempt_id=row["source_attempt_id"], clock=CLOCK)
     with repository.connection() as connection:
         assert store.generation_job(connection, f"workflow:{outcome.workflow_id}")["state"] == "skipped"

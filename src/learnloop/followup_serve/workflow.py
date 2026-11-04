@@ -24,6 +24,7 @@ from learnloop.clock import Clock, utc_now_iso
 from learnloop.db.repositories import Repository
 from learnloop.db.stores import followup_serve as store
 from learnloop.followup_serve.gates import SERVING_SURFACE, generate_and_serve_on
+from learnloop.followup_serve.queue import enqueue_workflow
 
 logger = logging.getLogger(__name__)
 
@@ -65,22 +66,6 @@ def _now(clock: Clock | None) -> str:
     return utc_now_iso(clock)
 
 
-def attempt_needs_followup(vault: Any, repository: Repository, attempt: Mapping[str, Any]) -> tuple[bool, str] | None:
-    """(a miss, its grade revision), or None when the attempt has no readable grade.
-
-    Blind records and joint grades use the one ``needs_diagnosis`` rule, so a workflow
-    opens exactly where a live diagnosis would explain something.
-    """
-
-    from learnloop.diagnosis.split.live import joint_grade_record, needs_diagnosis
-
-    attempt_id = str(attempt["id"])
-    row = repository.latest_blind_grade_record(attempt_id)
-    if row is not None:
-        return needs_diagnosis(dict(row.get("record") or {})), str(row["id"])
-    return needs_diagnosis(joint_grade_record(vault, repository, attempt)), "joint"
-
-
 def open_for_attempt(
     vault: Any,
     repository: Repository,
@@ -88,6 +73,7 @@ def open_for_attempt(
     result: Any,
     surface: str | None,
     session_id: str | None,
+    grade: tuple[bool, str] | None,
     origin: str = "practice",
     hold_feedback: bool = True,
     clock: Clock | None = None,
@@ -96,6 +82,8 @@ def open_for_attempt(
 
     None leaves the attempt on the predecessor's path: the switch is off, the door has
     no pending and skip UI (§3.1), it is not a miss, or it answered a generated probe.
+    ``grade`` is (a miss, its grade revision), which the caller reads with the one
+    ``needs_diagnosis`` rule, or None when the attempt has no readable grade.
     """
 
     if surface != SERVING_SURFACE or not generate_and_serve_on(vault.config):
@@ -107,7 +95,6 @@ def open_for_attempt(
 
     if identity.is_generated_probe(repository, str(attempt.get("practice_item_id") or "")):
         return None
-    grade = attempt_needs_followup(vault, repository, attempt)
     if grade is None or not grade[0]:
         return None
     revision_key = grade[1]
@@ -148,15 +135,6 @@ def attempt_workflow(repository: Repository, attempt_id: str) -> dict[str, Any] 
 def get(repository: Repository, workflow_id: str) -> dict[str, Any] | None:
     with repository.connection() as connection:
         return store.workflow(connection, workflow_id)
-
-
-def enqueue_workflow_job(repository: Repository, workflow_id: str, *, clock: Clock | None = None) -> str | None:
-    """Queue the workflow's one job (the dedupe key is its identity)."""
-
-    with repository.atomic(), repository.connection() as connection:
-        return store.enqueue_generation_job(
-            connection, kind="workflow", dedupe_key=f"workflow:{workflow_id}", workflow_id=workflow_id, at=_now(clock),
-        )
 
 
 def _release_fields(row: Mapping[str, Any], reason: str, at: str) -> dict[str, Any]:
@@ -208,47 +186,6 @@ def superseded(repository: Repository, row: Mapping[str, Any]) -> bool:
     return str(latest["id"]) != str(row["revision_key"])
 
 
-def settle_practice_lane(
-    vault: Any,
-    repository: Repository,
-    row: Mapping[str, Any],
-    *,
-    reason: str,
-    release: str = RELEASE_PRACTICE_LANE,
-    clock: Clock | None = None,
-) -> bool:
-    """The practice lane, or the one fallback: the predecessor's chooser runs once.
-
-    The move and the insertion commit together, so a crash leaves neither and a retry
-    runs both once; a workflow something else settled inserts nothing.
-    """
-
-    from learnloop.attempts.attempts import AttemptResult
-    from learnloop.diagnosis.followups import evaluate_attempt_intervention_followup
-
-    workflow_id = str(row["id"])
-    attempt_id = str(row["source_attempt_id"])
-    work = repository.attempt_completion(attempt_id)
-    decision = None
-    with repository.atomic():
-        if not move(repository, workflow_id, to_state=SETTLED, reason=reason, release=release, lane=LANE_PRACTICE,
-                    from_states=(PENDING,), clock=clock):
-            return False
-        if work is not None:
-            decision = evaluate_attempt_intervention_followup(
-                vault, repository, result=AttemptResult.from_dict(work["result"]),
-                session_id=row.get("session_id"), normalization_prepared=True,
-                applied_probe_episode_id=work.get("applied_probe_episode_id"),
-                defer_diagnosis_hooks=True, insertion_only=True, clock=clock,
-            )
-    if decision is not None and decision.need_id:
-        # §4: a recorded need fills in the background, textbook first (S2b).
-        from learnloop.followup_serve.jobs import enqueue_need_fill
-
-        enqueue_need_fill(repository, str(decision.need_id), clock=clock)
-    return True
-
-
 def settle_open_when_off(vault: Any, repository: Repository, *, clock: Clock | None = None) -> int:
     """§10: with the switch off, open workflows settle as skipped and burns persist."""
 
@@ -275,14 +212,13 @@ def diagnosis_ended(vault: Any, repository: Repository, *, attempt_id: str, cloc
             return
         row = owns_attempt(repository, attempt_id)
         if row is not None and row["state"] == PENDING:
-            enqueue_workflow_job(repository, str(row["id"]), clock=clock)
+            enqueue_workflow(repository, str(row["id"]), clock=clock)
     except Exception:  # noqa: BLE001 - bookkeeping never fails a diagnosis
         logger.warning("follow-up workflow hook failed for attempt %s", attempt_id, exc_info=True)
 
 
 __all__ = [
     "FAILED", "PENDING", "READY", "REFUSED", "SETTLED", "SKIPPED", "WAITING", "WORKFLOW_OWNS_REASON",
-    "attempt_needs_followup", "attempt_workflow", "diagnosis_ended", "enqueue_workflow_job", "get", "move",
-    "open_for_attempt", "owns_attempt", "settle_open_when_off", "settle_practice_lane", "superseded",
-    "workflow_id_for",
+    "attempt_workflow", "diagnosis_ended", "get", "move", "open_for_attempt", "owns_attempt", "settle_open_when_off",
+    "superseded", "workflow_id_for",
 ]

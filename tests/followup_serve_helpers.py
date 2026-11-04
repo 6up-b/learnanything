@@ -8,7 +8,7 @@ from learnloop.algorithm_versions import FOLLOWUP_SERVE_ALGORITHM_VERSION
 from learnloop.attempts.post_attempt import run_post_attempt_pipeline
 from learnloop.db.repositories import Repository
 from learnloop.followup_serve.gates import SERVING_SURFACE
-from learnloop.followup_serve.jobs import process_next_job
+from learnloop.followup_run.jobs import process_next_job
 from learnloop.substrate.state_sync import sync_vault_state
 from learnloop.vault.loader import load_vault
 

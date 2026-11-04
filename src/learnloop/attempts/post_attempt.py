@@ -38,6 +38,7 @@ from learnloop.clock import Clock
 from learnloop.db.repositories import Repository
 from learnloop.diagnosis.followups import (
     FollowupDecision,
+    attempt_followup_grade,
     enqueue_post_attempt_diagnosis,
     enqueue_post_attempt_learner_text,
     evaluate_attempt_intervention_followup,
@@ -197,9 +198,9 @@ def run_post_attempt_pipeline(
         if workflow is not None and not (blind or _shadow_diagnosis_enabled(vault)):
             # A joint vault has no live diagnosis job (spec §3.1): selection uses the
             # hypotheses normalization has already written.
-            from learnloop.followup_serve.workflow import enqueue_workflow_job
+            from learnloop.followup_serve.queue import enqueue_workflow
 
-            enqueue_workflow_job(repository, str(workflow["id"]), clock=clock)
+            enqueue_workflow(repository, str(workflow["id"]), clock=clock)
     notes = (suppress_insertion_reason,) if suppress_insertion_reason is not None else ()
     return PostAttemptOutcome(
         attempt_id=result.attempt_id, followup=decision, notes=notes,
@@ -227,11 +228,18 @@ def _open_followup_workflow(
     probe (an exam's report) is not held.
     """
 
+    from learnloop.followup_serve.gates import SERVING_SURFACE, generate_and_serve_on
     from learnloop.followup_serve.workflow import open_for_attempt
 
+    if surface != SERVING_SURFACE or not generate_and_serve_on(vault.config):
+        return None
+    attempt = repository.fetch_practice_attempt(result.attempt_id)
+    if attempt is None:
+        return None
+    grade = attempt_followup_grade(vault, repository, attempt)
     origin = "exam" if purpose == "exam" else ("block" if applied_episode is not None else "practice")
     return open_for_attempt(
-        vault, repository, result=result, surface=surface, session_id=session_id, origin=origin,
+        vault, repository, result=result, surface=surface, session_id=session_id, grade=grade, origin=origin,
         hold_feedback=origin != "exam", clock=clock,
     )
 
