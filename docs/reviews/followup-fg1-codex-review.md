@@ -911,3 +911,40 @@ tests/test_workbench_text_gaps.py
 tests/test_workbench_trace.py
 
 </details>
+
+## Final verify
+
+Verify job `20261104-030053-ASNG4N` (gpt-6.1-sol), verdict REOPENED. It confirmed F1 to F6, F8 and F10 as fixed and reopened F7 and F9, with no new findings. Both are fixed under the orchestrator's rulings R1 and R2, which `docs/reviews/followup-fg1.md` records verbatim at landing. Tests: the `test_f7_verify_*` and `test_f9_verify_*` tests in `tests/test_followup_codex_review.py`.
+
+| Id | Severity | Title | Verdict | Commit | Test |
+|---|---|---|---|---|---|
+| F7 | Medium | Terminal recovery paths left an interrupted run's probe live | fixed | `7465040da5` | `test_f7_verify_*`: eight exits after a crash that pinned, a crash inside the exit, an answer's leftovers, a shared episode, a late generator, the scan |
+| F9 | Medium | Revalidation missed checks on the whole learning object | fixed | `8783ae293a` | `test_f9_verify_*`: at the retry and after authoring; another object or a non-blocking kind refuses nothing |
+
+**How they were reproduced.** Against `c14d2d062d`, 19 of the 35 new F7 tests failed, including both of Codex's reproductions (`newer_grade`, `causes_not_accounted_for`); the other 16 are the scan's 15 checks on itself and a pin that the settled exit asks for no question. For F9, 2 of 3 failed: the retry reached authoring (`fake.calls` 1, wanted 0) and the workflow went `ready`, wanted `refused`. The third pins what must keep working.
+
+**F7 (R1).** `workflow.finish` is now the only way into a terminal state. In one commit it moves the workflow and closes what the workflow prepared: its probe and anything unbound are withdrawn (retired, presentations ended, candidate rejected) and an empty episode is abandoned. `move` raises on a terminal state. `skip_and_close` is gone, since `finish` replaces it. `test_f7_verify_no_other_writer_of_a_terminal_state` walks `src/` and fails on a terminal `move`, a `to_state` it can't read, a `move_workflow` or `_apply_move` outside `finish` and `move`, or SQL that writes `followup_workflows.state` anywhere else. A second test checks that the scan catches each kind of writer.
+
+**F9 (R2).** `router.hard_refusal` passes the workflow's learning object to `pending_machine_checks_for_factor`. The first decision uses the same function, so it changes too.
+
+**What R1 needed that the finding didn't name:**
+
+- **An interrupted run's episode.** A pin that never reached `ready` isn't on the workflow row, so nothing would have closed its episode. `store.episodes_pinned_by_workflow` finds it through `generated_probe_items` and the item's presentations. Only episodes this workflow pinned a probe on are touched, so an old `pending_items` episode with no such presentation stays as it is.
+- **When an episode closes.** It now closes only if it is still open, has no observation and has no presentation left open. Before, a presentation not yet ended didn't stop it, so a skipped workflow could abandon an episode another revision's workflow had just pinned on.
+- **An answer.** `probe_answered` also goes through `finish`, with `answered_item`: that question, its presentation and what its answer measured stay, and only leftovers close. The outcome binding now commits with the move.
+- **A burn's reason.** On a terminal exit, an unbound probe's retirement carries the exit's reason instead of `publication_interrupted`, which stays for a retry.
+- **A late generator.** It already withdrew its item; it now also closes the episode it pinned.
+
+**Left as it is.** A workflow that had drawn a decision and then leaves by `newer_grade` or the practice lane appends no outcome against that decision. The finding doesn't cover this and it strands nothing, so it stays out of this fix.
+
+R5's three Low items aren't fixed here, per that ruling.
+
+### Gate
+
+Targeted only, per the brief; the full gate comes at landing.
+
+- `tests/test_followup_*.py`, `test_table_roles`, `test_coordinated_migrations`, `test_architecture`, capped scope, `-n 6`: **238 passed, 0 failed**.
+- `--durable-sqlite` on the nine `tests/test_followup_*.py` files: **196 passed**.
+- `lint-imports --no-cache`, empty env: **42 kept, 0 broken**.
+- Not run yet: the reference catalogs. Moved source lines leave them stale until step 3 of the landing regenerates them.
+- No model call; every model-backed test uses fakes.
