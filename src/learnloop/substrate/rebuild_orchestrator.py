@@ -576,7 +576,7 @@ def _run_router_outcomes(
             outcome_version=version,
             # A rebuild reads what the live derivation reads, so it can't bring back a false cold label (R1).
             reader_exposures=(
-                reading_exposures.for_version(connection, context.vault, context.repository, version) if logged else None
+                reading_exposures.for_version(connection, context.vault, context.repository, version) if logged else []
             ),
         )
     return ReplayerResult(spec.name, tuple(sorted(spec.owned_tables)), rows_processed=written)

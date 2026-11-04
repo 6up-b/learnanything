@@ -81,7 +81,8 @@ def test_f1_a_completed_section_is_an_exposure_with_ad_off(tmp_path, monkeypatch
     # The answer a minute after the decision, and the one 30 minutes after the reading.
     assert json.loads(outcome["detail_json"])["r_cold_skip_reasons"] == {"insufficient_delay": 2}
     with env.repository.connection() as connection:
-        found, _facts = trajectories(connection, env.vault, success_correctness=0.8, as_of=env.now_iso())
+        found, _facts = trajectories(connection, env.vault, success_correctness=0.8, as_of=env.now_iso(),
+                                     reader_exposures=RE.read(connection, env.vault, env.repository))
     metric = next(row for row in found if row.learning_object_id == objective["learning_object_id"])
     assert not metric.reached, "the warm answer is no first delayed success"
 

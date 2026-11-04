@@ -70,7 +70,7 @@ def test_replay_never_asks_a_model_and_is_deterministic(tmp_path, monkeypatch):
 
     def rebuilt():
         with env.repository.atomic(), env.repository.connection() as connection:
-            rebuild_router_outcomes(connection)
+            rebuild_router_outcomes(connection, reader_exposures=None)
             return [dict(row) for row in connection.execute("SELECT * FROM router_outcomes ORDER BY decision_id")]
 
     first = rebuilt()

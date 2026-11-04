@@ -91,7 +91,7 @@ def _outcome_for_block(env, block_id: str) -> dict:
             "SELECT id FROM router_decisions WHERE receipt_key = ?", (f"plan_block:{block_id}",)
         ).fetchone()
         assert decision is not None, "R1 logs every plan block decision"
-        outcomes = {row["decision_id"]: row for row in derive_router_outcomes(connection)}
+        outcomes = {row["decision_id"]: row for row in derive_router_outcomes(connection, reader_exposures=None)}
     return outcomes[decision["id"]]
 
 

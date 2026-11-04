@@ -8,11 +8,12 @@ Fakes only; no network.
 
 from __future__ import annotations
 
-import ast
 from datetime import timedelta
 import hashlib
 import json
 from pathlib import Path
+
+import pytest
 
 from learnloop import delayed_completion as DC
 from learnloop.curriculum import commitments as C
@@ -32,7 +33,6 @@ from tests.test_data_capture_codex_review import _warm_answer
 from tests.test_router_g4_restraint import DECIDER_ONLY
 
 AD_OFF = "[adaptive_difficulty]\nenabled = false\n"
-ROOT = Path(__file__).resolve().parent.parent
 
 
 def _in_session(env, item, lo, session, *, correctness=1.0):
@@ -246,21 +246,39 @@ def test_f1_for_version_reads_only_at_version_3(tmp_path, monkeypatch):
         assert RE.for_version(connection, env.vault, env.repository, RO.OUTCOME_VERSION_V3)
 
 
-def test_f1_every_production_derivation_passes_the_read():
-    """A caller that forgets falls back to the stored receipts alone: the false cold label, quietly. So each names it."""
+def test_f1_version_3_refuses_to_derive_without_the_read(tmp_path, monkeypatch):
+    """Required, and None fails closed: a caller that forgot would quietly bring back the false cold label."""
 
-    names = {"derive_router_outcomes", "rebuild_router_outcomes", "trajectories", "answer_completion"}
-    found: list[str] = []
-    for path in (ROOT / "src" / "learnloop").rglob("*.py"):
-        for node in ast.walk(ast.parse(path.read_text(encoding="utf-8"))):
-            if isinstance(node, ast.Call):
-                name = getattr(node.func, "id", getattr(node.func, "attr", None))
-                if name in names and node.args:
-                    found.append(path.name)
-                    assert any(keyword.arg == "reader_exposures" for keyword in node.keywords), f"{path}:{node.lineno}"
-    # The caller list, so a renamed function can't empty this test.
-    assert {"capture_report.py", "router.py", "router_retrieval.py", "measurement.py", "scoreboard.py",
-            "rebuild_orchestrator.py"} <= set(found)
+    env, decision_id, objective = _monday_wednesday(tmp_path, monkeypatch)
+    with env.repository.connection() as connection:
+        for call in (lambda **kw: RO.derive_router_outcomes(connection, outcome_version=RO.OUTCOME_VERSION_V3, **kw),
+                     lambda **kw: trajectories(connection, env.vault, success_correctness=0.8, as_of=env.now_iso(), **kw),
+                     lambda **kw: RO.answer_completion(connection, "x", decided_at=env.now_iso(), **kw)):
+            with pytest.raises(TypeError):
+                call()
+            with pytest.raises(ValueError):
+                call(reader_exposures=None)
+            call(reader_exposures=[])
+        with pytest.raises(TypeError):
+            RO.derive_router_outcomes(connection)
+        with pytest.raises(TypeError):
+            RO.rebuild_router_outcomes(connection)
+        assert RO.derive_router_outcomes(connection, reader_exposures=None), "below version 3 none is read"
+
+
+def test_f1_a_rebuild_with_no_decisions_needs_no_read(tmp_path, monkeypatch):
+    from tests.helpers import create_basic_vault
+    from learnloop.vault.loader import load_vault
+
+    paths = create_basic_vault(tmp_path / "vault")
+    vault, repository = load_vault(paths.root), Repository(paths.sqlite_path)
+    monkeypatch.setattr(RO, "outcome_version_for", lambda _config: RO.OUTCOME_VERSION_V3)
+
+    def boom(*_args, **_kwargs):
+        raise AssertionError("no decision: no read")
+
+    monkeypatch.setattr(RE, "read", boom)
+    rebuild_all_derived_state(vault, repository, require_complete_attempt_coverage=False)
 
 
 # -- F11: a shared check measures the frozen objective ---------------------------------------------------------------

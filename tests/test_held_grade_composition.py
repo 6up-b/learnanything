@@ -171,7 +171,7 @@ def test_a_released_hold_is_an_ordinary_outcome_again(tmp_path):
         "status": "checked", "held_for_review": False, "version": "proof-route-check-v3"}})
     with repository.connection() as connection:
         assert held_for_review_attempts(connection) == frozenset()
-        [outcome] = derive_router_outcomes(connection, held_attempt_ids=held_for_review_attempts(connection))
+        [outcome] = derive_router_outcomes(connection, reader_exposures=None, held_attempt_ids=held_for_review_attempts(connection))
     assert outcome["r_cold_attempt_id"] == "h1"
 
 

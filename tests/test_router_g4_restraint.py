@@ -263,7 +263,7 @@ def test_an_inserted_follow_up_is_bound_to_its_own_decision_by_its_presentation(
         owner = connection.execute(
             "SELECT router_decision_id FROM plan_presentations WHERE id = ?", (step["presentation_id"],)
         ).fetchone()[0]
-        outcomes = {row["decision_id"]: row for row in derive_router_outcomes(connection)}
+        outcomes = {row["decision_id"]: row for row in derive_router_outcomes(connection, reader_exposures=None)}
     outcome = outcomes[interrupt["id"]]
     assert (outcome["action_status"], outcome["action_attempt_id"], outcome["action_binding"]) == (
         "taken", answered, "presentation",

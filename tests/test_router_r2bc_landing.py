@@ -95,7 +95,7 @@ def _answer_binds_by_presentation(paths, ctx, session_id, check, step):
     with connect(paths.sqlite_path, read_only=True) as connection:
         bound = connection.execute("SELECT plan_presentation_id FROM practice_attempts WHERE id = ?",
                                    (submitted["attemptId"],)).fetchone()[0]
-        outcomes = {row["decision_id"]: row for row in derive_router_outcomes(connection)}
+        outcomes = {row["decision_id"]: row for row in derive_router_outcomes(connection, reader_exposures=None)}
     assert bound == step["presentationId"]
     return submitted["attemptId"], outcomes
 

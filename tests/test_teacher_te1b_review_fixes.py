@@ -46,7 +46,7 @@ def _outcome(repository, decision_id: str) -> dict:
     from learnloop.router.outcomes import derive_router_outcomes
 
     with repository.connection() as connection:
-        (outcome,) = [o for o in derive_router_outcomes(connection) if o["decision_id"] == decision_id]
+        (outcome,) = [o for o in derive_router_outcomes(connection, reader_exposures=None) if o["decision_id"] == decision_id]
     return outcome
 
 

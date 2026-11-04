@@ -119,7 +119,7 @@ def test_each_outcome_records_its_coldness_covariates(repo):
 
     with repo.connection() as connection:
         [outcome] = [
-            row for row in derive_router_outcomes(connection, retrievability_by_attempt={"a2": 0.42, "a1": 0.97})
+            row for row in derive_router_outcomes(connection, reader_exposures=None, retrievability_by_attempt={"a2": 0.42, "a1": 0.97})
             if row["decision_id"] == "d1"
         ]
 
@@ -159,7 +159,7 @@ def test_an_unobserved_outcome_has_no_covariates(repo):
     _attempt(repo, "a0", item=A, created_at=_at(minutes=1), correctness=0.5, session="s1", facets=["f"], candidate="c1")
 
     with repo.connection() as connection:
-        [outcome] = derive_router_outcomes(connection)
+        [outcome] = derive_router_outcomes(connection, reader_exposures=None)
 
     assert outcome["r_next_status"] == outcome["r_cold_status"] == "pending"
     for prefix in ("r_next", "r_cold"):

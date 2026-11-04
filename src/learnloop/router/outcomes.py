@@ -109,7 +109,8 @@ question; Codex review F1): the caller's ``reader_exposures``
 not yet swept, so no answer depends on whether Today has run; landing ruling R1),
 whatever adaptive difficulty's forecast logging says (re-review F1), beside the
 LO-linked ``source_exposure_events``, so a reading the hour before an answer leaves it
-warm. A caller with no vault to map with passes none and reads the stored receipts alone.
+warm. It is required: version 3 refuses to derive without it, since a caller that forgot would quietly bring back the
+false cold label (fail closed).
 
 **A reading block, a follow-up that waits and a stop** (data capture A2, version 3):
 a decision with a frozen objective (``decision_objectives``) and no action of its
@@ -282,12 +283,12 @@ def _exclusions(
     return reasons
 
 
-def _reading_marks(connection: sqlite3.Connection, reader_exposures: Iterable[tuple[str, str]] | None) -> list[tuple[str, str]]:
+def _reading_marks(reader_exposures: Iterable[tuple[str, str]]) -> list[tuple[str, str]]:
     """``(LO, time)`` of the Reader exposures, the time at the attempts' own precision
     (a receipt keeps microseconds, an attempt seconds: the ledger compares them as strings)."""
 
     out: set[tuple[str, str]] = set()
-    for lo, written_at in (capture_store.reading_receipts(connection) if reader_exposures is None else reader_exposures):
+    for lo, written_at in reader_exposures:
         try:
             when = parse_utc(str(written_at))
         except ValueError:  # pragma: no cover - the sweep stamps it
@@ -304,12 +305,14 @@ class _Ledger:
         self,
         connection: sqlite3.Connection,
         *,
+        reader_exposures: Iterable[tuple[str, str]] | None,
         item_learning_objects: Mapping[str, str] | None = None,
         retrievability_by_attempt: Mapping[str, float] | None = None,
         held_attempt_ids: frozenset[str] = frozenset(),
         version: str = OUTCOME_VERSION,
-        reader_exposures: Iterable[tuple[str, str]] | None = None,
     ) -> None:
+        if version == OUTCOME_VERSION_V3 and reader_exposures is None:
+            raise ValueError("router_outcomes_v3 needs the Reader's exposures (data_capture.reading_exposures.read)")
         self.version = version
         self._reader_exposures = reader_exposures
         present = {row[1] for row in connection.execute("PRAGMA table_info(practice_attempts)")}
@@ -451,7 +454,7 @@ class _Ledger:
                     if lo:
                         los[lo].append(exposure)
         if self.version == OUTCOME_VERSION_V3:
-            for lo, at in _reading_marks(connection, self._reader_exposures):
+            for lo, at in _reading_marks(self._reader_exposures):
                 los[lo].append((at, "", "reading", None))
         for table in (items, los, facets):
             for entries in table.values():
@@ -1066,7 +1069,7 @@ def measurement_state(objective: Mapping[str, Any], events: Sequence[Mapping[str
 
 
 def answer_completion(connection: sqlite3.Connection, attempt_id: str, *, decided_at: str,
-                      reader_exposures: Iterable[tuple[str, str]] | None = None) -> DC.Completion | None:
+                      reader_exposures: Iterable[tuple[str, str]]) -> DC.Completion | None:
     """What the shared definition makes of one attempt as the delayed retrieval of a decision taken at
     ``decided_at``: a measurement's check asks this of its answer. None for an attempt not on the ledger."""
 
@@ -1182,12 +1185,12 @@ def _ended_sessions(connection: sqlite3.Connection, session_ids: set[str]) -> se
 def derive_router_outcomes(
     connection: sqlite3.Connection,
     *,
+    reader_exposures: Iterable[tuple[str, str]] | None,
     pfc_states: Mapping[str, str] | None = None,
     servable_items_by_lo: Mapping[str, set[str]] | None = None,
     retrievability_by_attempt: Mapping[str, float] | None = None,
     held_attempt_ids: frozenset[str] | set[str] = frozenset(),
     outcome_version: str = OUTCOME_VERSION,
-    reader_exposures: Iterable[tuple[str, str]] | None = None,
 ) -> list[dict[str, Any]]:
     """One outcome row per logged decision, from the ledgers alone (read-only).
 
@@ -1204,8 +1207,8 @@ def derive_router_outcomes(
     ``scheduling.review_log.predicted_retrievability_by_attempt``); without it
     that covariate is NULL. ``outcome_version``: :func:`outcome_version_for` of
     the vault's config (the default is version 2's rule). ``reader_exposures``
-    (``data_capture.reading_exposures.for_version``, version 3 only): every caller
-    with a vault passes it; without it only the stored receipts are read.
+    (``data_capture.reading_exposures.for_version``): required, and None is refused
+    at version 3, where it is read; ``None`` below it, which reads none.
     """
 
     pfc_states = pfc_states or {}
@@ -1382,12 +1385,12 @@ def derive_router_outcomes(
 def rebuild_router_outcomes(
     connection: sqlite3.Connection,
     *,
+    reader_exposures: Iterable[tuple[str, str]] | None,
     pfc_states: Mapping[str, str] | None = None,
     servable_items_by_lo: Mapping[str, set[str]] | None = None,
     retrievability_by_attempt: Mapping[str, float] | None = None,
     held_attempt_ids: frozenset[str] | set[str] = frozenset(),
     outcome_version: str = OUTCOME_VERSION,
-    reader_exposures: Iterable[tuple[str, str]] | None = None,
 ) -> int:
     """Replace the derived cache; the caller owns the transaction."""
 

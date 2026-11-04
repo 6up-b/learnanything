@@ -21,6 +21,7 @@ from learnloop.clock import parse_utc
 from learnloop.daily_plan import measurement as M
 from learnloop.data_capture import prefilter as PF
 from learnloop.db.repositories import Repository
+from learnloop.data_capture import reading_exposures as RE
 from learnloop.db.stores import ad_receipts
 from learnloop.db.stores import data_capture as store
 from learnloop.diagnosis import voi_stopping as voi
@@ -69,13 +70,16 @@ def _section_read(repository, *, at, lo=LO, key="sec"):
 def _metric(world, lo=LO):
     vault, repository = world
     with repository.connection() as connection:
-        found, facts = trajectories(connection, vault, success_correctness=0.8, as_of=AS_OF)
+        found, facts = trajectories(connection, vault, success_correctness=0.8, as_of=AS_OF,
+                                    reader_exposures=RE.read(connection, vault, repository))
     return next(row for row in found if row.learning_object_id == lo)
 
 
 def _derive(repository, version=RO.OUTCOME_VERSION_V3):
     with repository.connection() as connection:
-        return {row["decision_id"]: row for row in RO.derive_router_outcomes(connection, outcome_version=version)}
+        return {row["decision_id"]: row for row in RO.derive_router_outcomes(
+            connection, outcome_version=version,
+            reader_exposures=store.reading_receipts(connection) if version == RO.OUTCOME_VERSION_V3 else None)}
 
 
 # -- F1: ordinary Reader activity is an exposure for every reader of the definition ----------------------------

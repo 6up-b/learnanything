@@ -175,7 +175,7 @@ def test_replay_never_needs_a_vector(tmp_path):
 
     def outcomes():
         with connect(env.repository.sqlite_path, read_only=True) as connection:
-            return derive_router_outcomes(connection)
+            return derive_router_outcomes(connection, reader_exposures=None)
 
     before = outcomes()
     shown = [row["similar_decision_ids_json"] for row in rows(env)]

@@ -12,6 +12,7 @@ import json
 
 import pytest
 
+from learnloop.data_capture import reading_exposures as RE
 from learnloop.db.repositories import Repository
 from learnloop.diagnosis import scoreboard as SB
 from learnloop.router.first_delayed_success import LABEL, METRIC_VERSION, summary, trajectories
@@ -51,7 +52,8 @@ def _attempt(repository, attempt_id, *, item=A, at, correctness=1.0, latency=120
 def _trajectory(world, lo=LO):
     vault, repository = world
     with repository.connection() as connection:
-        rows, facts = trajectories(connection, vault, success_correctness=0.8, as_of=AS_OF)
+        rows, facts = trajectories(connection, vault, success_correctness=0.8, as_of=AS_OF,
+                                   reader_exposures=RE.read(connection, vault, repository))
     return next(row for row in rows if row.learning_object_id == lo), rows, facts
 
 

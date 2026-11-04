@@ -29,7 +29,6 @@ from typing import Any
 
 from learnloop import delayed_completion as DC
 from learnloop.clock import parse_utc
-from learnloop.db.stores import data_capture as capture_store
 from learnloop.router.outcomes import (
     OUTCOME_VERSION_V3,
     _completion,
@@ -257,12 +256,10 @@ def _visits(connection: sqlite3.Connection) -> list[dict[str, Any]]:
     return visits
 
 
-def _reading_marks(connection: sqlite3.Connection, reader_exposures: Iterable[tuple[str, str]] | None) -> list[tuple[str, str]]:
-    """``(time, LO)`` of reading on an LO: the Reader exposures (the stored receipts alone, with none given) and source
-    exposures."""
+def _reading_marks(connection: sqlite3.Connection, reader_exposures: Iterable[tuple[str, str]]) -> list[tuple[str, str]]:
+    """``(time, LO)`` of reading on an LO: the Reader exposures and source exposures."""
 
-    stored = capture_store.reading_receipts(connection) if reader_exposures is None else reader_exposures
-    marks: list[tuple[str, str]] = [(str(at), str(lo)) for lo, at in stored]
+    marks: list[tuple[str, str]] = [(str(at), str(lo)) for lo, at in reader_exposures]
     if _table_present(connection, "source_exposure_events"):
         marks += [(str(row[0]), str(row[1])) for row in connection.execute(
             "SELECT created_at, entity_id FROM source_exposure_events WHERE entity_type = 'learning_object' "
@@ -342,10 +339,10 @@ def trajectories(
     as_of: str,
     pfc_states: Mapping[str, str] | None = None,
     held_attempt_ids: frozenset[str] | set[str] = frozenset(),
-    reader_exposures: Iterable[tuple[str, str]] | None = None,
+    reader_exposures: Iterable[tuple[str, str]],
 ) -> tuple[list[Trajectory], dict[str, Any]]:
     """Every enrolled LO's trajectory, reached or not, and the report-level timing facts. ``reader_exposures``:
-    ``data_capture.reading_exposures.read``, which every caller with a repository passes; without it, the stored receipts."""
+    ``data_capture.reading_exposures.read``."""
 
     pfc_states = pfc_states or {}
     ledger = _Ledger(connection, held_attempt_ids=frozenset(held_attempt_ids), version=OUTCOME_VERSION_V3,

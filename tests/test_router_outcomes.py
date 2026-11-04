@@ -89,7 +89,7 @@ def _reveal(repo, reveal_id: str, *, item: str, created_at: str) -> None:
 
 def _outcomes(repo, pfc=None) -> dict[str, dict]:
     with repo.connection() as connection:
-        return {row["decision_id"]: row for row in derive_router_outcomes(connection, pfc_states=pfc)}
+        return {row["decision_id"]: row for row in derive_router_outcomes(connection, reader_exposures=None, pfc_states=pfc)}
 
 
 def test_r_next_is_the_first_fresh_unassisted_attempt_after_the_action(repo):
@@ -278,7 +278,7 @@ def test_r_next_is_not_applicable_on_a_single_item_learning_object_and_r_cold_fi
     with repo.connection() as connection:
         outcome = {
             row["decision_id"]: row
-            for row in derive_router_outcomes(connection, servable_items_by_lo={LO: {A}})
+            for row in derive_router_outcomes(connection, reader_exposures=None, servable_items_by_lo={LO: {A}})
         }["d1"]
 
     assert outcome["r_next_status"] == "not_applicable"
@@ -296,7 +296,7 @@ def test_an_observed_cold_retrieval_finalizes_s_and_closes_r_next(repo):
     with repo.connection() as connection:
         outcome = {
             row["decision_id"]: row
-            for row in derive_router_outcomes(connection, servable_items_by_lo={LO: {A, B}})
+            for row in derive_router_outcomes(connection, reader_exposures=None, servable_items_by_lo={LO: {A, B}})
         }["d1"]
 
     # Only R_cold finalizes S; a "next" attempt after the cold retrieval is not

@@ -18,6 +18,7 @@ from learnloop import delayed_completion as DC
 from learnloop.adaptive_difficulty.report import _offer_outcomes
 from learnloop.db.repositories import Repository
 from learnloop.outcome_contract import RETENTION_MIN_DELAY_SECONDS
+from learnloop.db.stores.data_capture import reading_receipts
 from learnloop.router.outcomes import (
     OUTCOME_VERSION,
     OUTCOME_VERSION_V3,
@@ -41,7 +42,9 @@ def repo(tmp_path):
 
 def _outcomes(repo, version=OUTCOME_VERSION_V3):
     with repo.connection() as connection:
-        return {row["decision_id"]: row for row in derive_router_outcomes(connection, outcome_version=version)}
+        return {row["decision_id"]: row for row in derive_router_outcomes(
+            connection, outcome_version=version,
+            reader_exposures=reading_receipts(connection) if version == OUTCOME_VERSION_V3 else None)}
 
 
 # -- the definition --------------------------------------------------------------------------
@@ -209,8 +212,8 @@ def test_v2_derivation_is_untouched_by_default(repo):
     _attempt(repo, "a0", item=A, created_at=_at(minutes=1), correctness=1.0, candidate="c1")
     _attempt(repo, "a1", item=B, created_at=_at(days=2), correctness=1.0, session="s2")
     with repo.connection() as connection:
-        default = derive_router_outcomes(connection)
-        explicit = derive_router_outcomes(connection, outcome_version=OUTCOME_VERSION)
+        default = derive_router_outcomes(connection, reader_exposures=None)
+        explicit = derive_router_outcomes(connection, outcome_version=OUTCOME_VERSION, reader_exposures=None)
     assert default == explicit
     detail = json.loads(default[0]["detail_json"])
     assert "delayed_completion_version" not in detail and "r_cold_completion" not in detail

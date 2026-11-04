@@ -15,6 +15,7 @@ import pytest
 from learnloop.algorithm_versions import DATA_CAPTURE_ALGORITHM_VERSION, LESSON_SUGGESTIONS_ALGORITHM_VERSION
 from learnloop.daily_plan import engine
 from learnloop.daily_plan import measurement as M
+from learnloop.data_capture import reading_exposures as RE
 from learnloop.daily_plan.engine import advance, build_plan, learner_pick
 from learnloop.daily_plan.lanes import ReadingTarget
 from learnloop.db.stores import data_capture as store
@@ -43,7 +44,9 @@ def _events(env):
 
 def _outcomes(env, version=RO.OUTCOME_VERSION_V3):
     with env.repository.connection() as connection:
-        return {row["decision_id"]: row for row in RO.derive_router_outcomes(connection, outcome_version=version)}
+        return {row["decision_id"]: row for row in RO.derive_router_outcomes(
+            connection, outcome_version=version,
+            reader_exposures=RE.for_version(connection, env.vault, env.repository, version))}
 
 
 def _answer(env, item, lo, *, correctness=1.0, hints=0):

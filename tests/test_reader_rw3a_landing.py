@@ -166,7 +166,7 @@ def test_the_answer_to_a_check_binds_by_the_picks_presentation(tmp_path, monkeyp
                                    (submitted["attemptId"],)).fetchone()[0]
         decision_id = connection.execute("SELECT router_decision_id FROM plan_presentations WHERE id = ?",
                                          (step["presentationId"],)).fetchone()[0]
-        outcomes = {row["decision_id"]: row for row in derive_router_outcomes(connection)}
+        outcomes = {row["decision_id"]: row for row in derive_router_outcomes(connection, reader_exposures=None)}
     assert bound == step["presentationId"]
     outcome = outcomes[decision_id]
     assert (outcome["action_status"], outcome["action_attempt_id"], outcome["action_binding"]) == (

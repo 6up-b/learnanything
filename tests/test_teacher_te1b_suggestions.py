@@ -385,7 +385,7 @@ def test_the_outcome_is_r_cold_on_the_drawn_lo_shown_or_not(tmp_path, shown):
     SG.respond(load_vault(paths.root), repository, decision_id=card["decision_id"], response="declined",
                clock=_clock(hours=1))
     with repository.connection() as connection:
-        (pending,) = [o for o in derive_router_outcomes(connection) if o["decision_id"] == card["decision_id"]]
+        (pending,) = [o for o in derive_router_outcomes(connection, reader_exposures=None) if o["decision_id"] == card["decision_id"]]
     assert pending["r_cold_status"] == "pending" and pending["action_status"] == "not_taken"
     assert pending["target_learning_object_id"] == lo
     # Same day: too soon; two days later: the cold retrieval.
@@ -396,7 +396,7 @@ def test_the_outcome_is_r_cold_on_the_drawn_lo_shown_or_not(tmp_path, shown):
                          evidence_origin="human"),
             SelfGradeInput(criterion_points={"correctness": 4}, confidence=4), clock=when)
     with repository.connection() as connection:
-        (outcome,) = [o for o in derive_router_outcomes(connection) if o["decision_id"] == card["decision_id"]]
+        (outcome,) = [o for o in derive_router_outcomes(connection, reader_exposures=None) if o["decision_id"] == card["decision_id"]]
     assert outcome["r_cold_status"] == "observed" and outcome["r_cold_value"] == 1.0, outcome["detail_json"]
     assert outcome["s_status"] == "final" and outcome["s_value"] == 1.0 and outcome["r_next_status"] == "not_applicable"
     detail = json.loads(outcome["detail_json"])
