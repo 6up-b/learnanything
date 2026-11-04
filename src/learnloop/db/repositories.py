@@ -18708,6 +18708,12 @@ class Repository(
             # says something, like declared_stuck.
             columns.append("reference_status")
             values.append(attempt["reference_status"])
+        if attempt.get("received_at") is not None:
+            # Router objective RO1 (migration 242): when the attempt became
+            # known, written only where created_at is not the write time (exam
+            # seeding). Written only when set, like the AD1 columns below.
+            columns.extend(("received_at", "received_at_source"))
+            values.extend((attempt["received_at"], attempt.get("received_at_source") or "recorded"))
         for column in ("difficulty_rating", "first_hint_progress"):
             if attempt.get(column) is not None:
                 # Adaptive difficulty AD1 (migration 213): written only when

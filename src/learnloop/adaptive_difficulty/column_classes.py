@@ -188,7 +188,7 @@ _CLASSES: dict[str, tuple[str, str]] = {
         "body_json"),
     "derived_state_rebuilds": (
         "id scope learning_object_ids_json algorithm_version rebuilt_learning_objects replayed_attempts "
-        "created_at canonical_projection_version coverage_denominator_version",
+        "created_at canonical_projection_version coverage_denominator_version projection_switches_json",
         ""),
     "diagnosis_context_receipts": (
         "id diagnosis_id context_hash context_as_of_attempt_id lagged_attempts failure_attempt_ids_json "
@@ -461,7 +461,7 @@ _CLASSES: dict[str, tuple[str, str]] = {
         "correctness confidence latency_seconds hints_used error_type grader_confidence manual_review "
         "created_at updated_at session_id scheduler_slate_id scheduler_candidate_id primed "
         "probe_presentation_id answer_confidence submission_id declared_dont_know collection_version "
-        "declared_stuck reference_status plan_presentation_id",
+        "declared_stuck reference_status plan_presentation_id received_at received_at_source",
         "concept learner_answer_md evidence_facets_json evidence_weights_json manual_review_reason "
         "entry_surface evidence_origin difficulty_rating first_hint_progress"),
     "practice_item_snapshots": (

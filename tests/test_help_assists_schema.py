@@ -30,6 +30,7 @@ from learnloop.db.migrate import (
 )
 from learnloop.db.stores import help_assists as store
 from learnloop.db.table_roles import TableRole, role_for_table
+from tests.test_ro1_availability import RO1_ALTERED_TABLES
 from tests.test_ad1_migration import AD1_ADDED_OBJECTS, AD1_ALTERED_TABLES
 from tests.test_ad23_migration import AD23_ADDED_OBJECTS
 from tests.test_figures_migration import RW5A_ADDED_OBJECTS
@@ -57,7 +58,7 @@ from tests.test_mobile_jobs_migration import M2A_ADDED_OBJECTS
 from tests.test_rw5c_migration import RW5C_ADDED_OBJECTS
 
 NOW = "2026-10-17T10:00:00.000Z"
-HEAD = Path(__file__).resolve().parents[1] / "fixtures" / "migration_head_241" / "state.sqlite"
+HEAD = Path(__file__).resolve().parents[1] / "fixtures" / "migration_head_242" / "state.sqlite"
 
 #: spec_adaptive_hints_v1 §9, "This spec's columns".
 HINTS_SPEC_COLUMNS = {
@@ -174,9 +175,9 @@ def _upgrade(tmp_path: Path) -> Path:
     # (their source_kind CHECK only; tests/test_hint_feedback_widening.py).
     # Adaptive difficulty AD1's 213 adds two practice_attempts columns on the way.
     assert {name: sql for name, sql in after.items()
-            if name in before and not name.startswith("learner_text_gap") and name not in AD1_ALTERED_TABLES | T1_ALTERED_TABLES | (RW2D_ALTERED_TABLES | CLAIM_POINT_ALTERED_TABLES | PR4_ALTERED_TABLES | DR2_ALTERED_TABLES | P3_ALTERED_TABLES | TE1_ALTERED_TABLES)} \
+            if name in before and not name.startswith("learner_text_gap") and name not in AD1_ALTERED_TABLES | T1_ALTERED_TABLES | (RW2D_ALTERED_TABLES | CLAIM_POINT_ALTERED_TABLES | PR4_ALTERED_TABLES | DR2_ALTERED_TABLES | P3_ALTERED_TABLES | (TE1_ALTERED_TABLES | RO1_ALTERED_TABLES))} \
         == {name: sql for name, sql in before.items()
-            if not name.startswith("learner_text_gap") and name not in AD1_ALTERED_TABLES | T1_ALTERED_TABLES | (RW2D_ALTERED_TABLES | CLAIM_POINT_ALTERED_TABLES | PR4_ALTERED_TABLES | DR2_ALTERED_TABLES | P3_ALTERED_TABLES | TE1_ALTERED_TABLES)}  # nothing else changed
+            if not name.startswith("learner_text_gap") and name not in AD1_ALTERED_TABLES | T1_ALTERED_TABLES | (RW2D_ALTERED_TABLES | CLAIM_POINT_ALTERED_TABLES | PR4_ALTERED_TABLES | DR2_ALTERED_TABLES | P3_ALTERED_TABLES | (TE1_ALTERED_TABLES | RO1_ALTERED_TABLES))}  # nothing else changed
     return database
 
 
@@ -389,6 +390,6 @@ def test_help_assists_is_a_raw_ledger():
 
 def test_the_head_fixture_is_at_head_in_rollback_mode():
     assert HEAD.read_bytes()[18:20] == b"\x01\x01"
-    assert max(applied_versions(HEAD)) == max(m.version for m in discover_migrations()) == 241
+    assert max(applied_versions(HEAD)) == max(m.version for m in discover_migrations()) == 242
     for suffix in ("-wal", "-shm", "-journal"):
         assert not HEAD.with_name(HEAD.name + suffix).exists()

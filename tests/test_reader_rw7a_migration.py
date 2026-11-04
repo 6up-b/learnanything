@@ -27,6 +27,7 @@ from learnloop.db.migrate import (
     upgrade_allowance,
 )
 from learnloop.db.table_roles import TableRole, role_for_table
+from tests.test_ro1_availability import RO1_ALTERED_TABLES
 from tests.test_figures_migration import RW5A_ADDED_OBJECTS
 from tests.test_t1_batch_origin_migration import T1_ALTERED_TABLES
 from tests.test_rw2d_receipts_migration import RW2D_ADDED_OBJECTS, RW2D_ALTERED_TABLES
@@ -51,7 +52,7 @@ from tests.test_followup_migration import FOLLOWUP_ADDED_OBJECTS
 from tests.test_mobile_jobs_migration import M2A_ADDED_OBJECTS
 from tests.test_rw5c_migration import RW5C_ADDED_OBJECTS
 
-HEAD = Path(__file__).resolve().parents[1] / "fixtures" / "migration_head_241" / "state.sqlite"
+HEAD = Path(__file__).resolve().parents[1] / "fixtures" / "migration_head_242" / "state.sqlite"
 NOW = "2026-10-21T10:00:00Z"
 #: What 217 adds: the earlier migrations' "nothing else changed" diffs on the
 #: way to head read these.
@@ -89,10 +90,10 @@ def _upgrade(tmp_path: Path) -> Path:
     with upgrade_allowance(UPGRADE_TEST_HELPER):
         applied = apply_migrations(database)
     # Reader RW5a's 216 (its own two tables, altering nothing) lands with 217 on the way to head.
-    assert [migration.version for migration in applied] == [216, 217, 218, 219, 220, 221, 222, 223, 224, 225, 226, 227, 228, 229, 230, 231, 232, 233, 234, 235, 236, 237, 238, 239, 240, 241]  # and T1's 218, RW2d's 219, local retrieval P1's 220
+    assert [migration.version for migration in applied] == [216, 217, 218, 219, 220, 221, 222, 223, 224, 225, 226, 227, 228, 229, 230, 231, 232, 233, 234, 235, 236, 237, 238, 239, 240, 241, 242]  # and T1's 218, RW2d's 219, local retrieval P1's 220
     after = _schema(database)
     assert set(after) - set(before) - RW5A_ADDED_OBJECTS - RW2D_ADDED_OBJECTS - P1_ADDED_OBJECTS - C0A_ADDED_OBJECTS - RW5D_ADDED_OBJECTS - PR4_ADDED_OBJECTS - RW6B_ADDED_OBJECTS - C0B_ADDED_OBJECTS - C2_ADDED_OBJECTS - P3_ADDED_OBJECTS - TE1_ADDED_OBJECTS - P5_ADDED_OBJECTS - RW5C_ADDED_OBJECTS - M2A_ADDED_OBJECTS - DATA_CAPTURE_ADDED_OBJECTS - FOLLOWUP_ADDED_OBJECTS == RW7A_ADDED_OBJECTS
-    assert {name for name in before if before[name] != after.get(name)} - T1_ALTERED_TABLES - (RW2D_ALTERED_TABLES | CLAIM_POINT_ALTERED_TABLES | PR4_ALTERED_TABLES | DR2_ALTERED_TABLES | C5_ALTERED_TABLES | P3_ALTERED_TABLES | UNLINKED_ALTERED_TABLES | TE1_ALTERED_TABLES) == set(), "217 alters nothing"
+    assert {name for name in before if before[name] != after.get(name)} - T1_ALTERED_TABLES - (RW2D_ALTERED_TABLES | CLAIM_POINT_ALTERED_TABLES | PR4_ALTERED_TABLES | DR2_ALTERED_TABLES | C5_ALTERED_TABLES | P3_ALTERED_TABLES | UNLINKED_ALTERED_TABLES | (TE1_ALTERED_TABLES | RO1_ALTERED_TABLES)) == set(), "217 alters nothing"
     return database
 
 
@@ -170,7 +171,7 @@ def test_the_head_fixture_is_at_217_in_rollback_mode_with_empty_rw7a_tables(tmp_
     from learnloop.db.copies import backup_database
 
     assert HEAD.read_bytes()[18:20] == b"\x01\x01"
-    assert max(applied_versions(HEAD)) == max(m.version for m in discover_migrations()) == 241
+    assert max(applied_versions(HEAD)) == max(m.version for m in discover_migrations()) == 242
     # RW5a's 216 landed after RW7a; AD2+AD3's 214 joined them at its compose round, T1's 218, RW2d's 219 and local retrieval P1's 220 after.
     assert {214, 215, 216, 217, 218, 219, 220, 221} <= set(applied_versions(HEAD))
     with closing(sqlite3.connect(f"file:{HEAD}?mode=ro", uri=True)) as connection:

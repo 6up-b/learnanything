@@ -17,7 +17,7 @@ from tests.test_followup_migration import FOLLOWUP_ADDED_OBJECTS
 from learnloop.db.migrate import UPGRADE_TEST_HELPER, applied_versions, apply_migrations, discover_migrations, upgrade_allowance
 from learnloop.db.table_roles import TABLE_ROLES, TableRole
 
-HEAD = Path(__file__).resolve().parents[1] / "fixtures" / "migration_head_241" / "state.sqlite"
+HEAD = Path(__file__).resolve().parents[1] / "fixtures" / "migration_head_242" / "state.sqlite"
 TABLES = ("prefilter_payloads", "prefilter_receipts", "decision_objectives", "decision_measurement_events",
           "reading_exposure_receipts")
 #: What 240 adds (its tables, autoindexes, indexes and triggers).

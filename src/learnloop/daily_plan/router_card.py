@@ -202,8 +202,13 @@ class CardGatherer:
         with self.repository.connection() as connection, read_snapshot(connection):
             past = PastWork(connection, vault, self.repository, withheld=withheld, unknowns=unknowns)
             rule = CardText(past)
+            # Router objective RO1 (spec §5.3): what the router could know at the
+            # decision is read by availability time, coalesce(received_at,
+            # created_at), at the tag with the switch on; otherwise, and on a
+            # database below migration 242, the predecessor's SQL byte for byte.
+            known = self._attempt_time(connection)
             as_of = connection.execute(
-                "SELECT id FROM practice_attempts WHERE created_at < ? ORDER BY created_at DESC, id DESC LIMIT 1",
+                f"SELECT id FROM practice_attempts WHERE {known} < ? ORDER BY {known} DESC, id DESC LIMIT 1",
                 (now_iso,),
             ).fetchone()
             attempts = self._attempts(connection, los, now_iso)
@@ -422,16 +427,31 @@ class CardGatherer:
             "ladder": notes.get("ladder"),
         }
 
+    def _attempt_time(self, connection: Any) -> str:
+        """The column decision-time attempt reads filter by (RO1 §5.3): the availability time
+        where the gate is on and the database has ``received_at``, otherwise ``created_at``."""
+
+        from learnloop.router_objective_switches import attempt_time_column
+
+        column = attempt_time_column(self.vault.config)
+        if column == "created_at":
+            return column
+        columns = {row[1] for row in connection.execute("PRAGMA table_info(practice_attempts)")}
+        return column if "received_at" in columns else "created_at"
+
     def _attempts(self, connection: Any, los: Sequence[str], now_iso: str) -> list[dict[str, Any]]:
         if not los:
             return []
+        known = self._attempt_time(connection)
         columns = {row[1] for row in connection.execute("PRAGMA table_info(practice_attempts)")}
         status = "reference_status" if "reference_status" in columns else "NULL AS reference_status"
         tap = "answer_confidence" if "answer_confidence" in columns else "NULL AS answer_confidence"
         rows = connection.execute(
             f"SELECT id, practice_item_id, learning_object_id, practice_mode, attempt_type, correctness, hints_used, "
             f"primed, learner_answer_md, created_at, {status}, {tap} FROM practice_attempts "
-            f"WHERE learning_object_id IN ({_marks(los)}) AND created_at < ? ORDER BY created_at DESC, id DESC",
+            # RO1: filtered by what was known at the decision; ordered, and shown,
+            # by when it happened (created_at), as before.
+            f"WHERE learning_object_id IN ({_marks(los)}) AND {known} < ? ORDER BY created_at DESC, id DESC",
             (*los, now_iso),
         ).fetchall()
         return [dict(row) for row in rows]

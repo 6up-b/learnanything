@@ -33,7 +33,12 @@ Design notes:
   the exam date.
 - Timestamps: seeded attempts are stamped at 12:00:00 UTC on the exam date
   plus ``index`` seconds in ascending question order, so created_at ordering
-  is stable and deterministic across runs.
+  is stable and deterministic across runs. That is not the write time, so each
+  seeded attempt also records ``received_at``, the time of the import (router
+  objective RO1, spec_router_objective_v1 §5.3): decision-time reads use it
+  (an exam imported today is nothing an earlier decision could have known),
+  while FSRS, mastery and outcomes keep ``created_at`` (the exam sat on its
+  date was a real exposure then).
 """
 
 from __future__ import annotations
@@ -43,7 +48,7 @@ from dataclasses import dataclass, field
 from datetime import UTC, date, datetime, timedelta
 from typing import Any, Mapping
 
-from learnloop.clock import FrozenClock
+from learnloop.clock import Clock, FrozenClock, utc_now_iso
 from learnloop.db.repositories import Repository
 from learnloop.ids import new_ulid
 from learnloop.attempts.attempts import (
@@ -289,12 +294,14 @@ def seed_exam_attempts(
     outcomes: ExamOutcomesFile,
     subject: str | None = None,
     dry_run: bool = False,
+    clock: Clock | None = None,
 ) -> ExamSeedingResult:
     """Seed backdated ``exam_evidence`` attempts from per-question outcomes.
 
     Raises :class:`ExamSeedingError` when an outcome key does not match any
     ``exam_q:<n>``-tagged practice item. Exam items with no outcome are
-    reported as warnings and skipped.
+    reported as warnings and skipped. ``clock`` is the import's own (wall)
+    time, recorded as each attempt's ``received_at``.
     """
 
     exam_items = find_exam_items(vault, subject=subject)
@@ -372,8 +379,9 @@ def seed_exam_attempts(
                 )
             )
             continue
-        clock = FrozenClock(base_instant + timedelta(seconds=index))
-        now_iso = clock.now().replace(microsecond=0).isoformat().replace("+00:00", "Z")
+        received_at = utc_now_iso(clock)
+        exam_clock = FrozenClock(base_instant + timedelta(seconds=index))
+        now_iso = exam_clock.now().replace(microsecond=0).isoformat().replace("+00:00", "Z")
         attempt_id = new_ulid()
         confidence = outcome.confidence if outcome.confidence is not None else config.default_learner_confidence
         answer_md = outcome.answer_md or f"[imported exam outcome: score {outcome.score:.2f}]"
@@ -412,6 +420,7 @@ def seed_exam_attempts(
             entry_surface="exam_seeding",
             evidence_origin="human",
             awaits_completion=False,
+            received_at=received_at,
         )
         result = apply_attempt(
             vault,
@@ -419,7 +428,7 @@ def seed_exam_attempts(
             # Q33: written at the exam's past instant, so only reveals stamped
             # by then were in view (``serve_eligibility``).
             ApplyAttemptInput(draft=draft, attempt_id=attempt_id, grade=grade, reveal_window_bounded=True),
-            clock=clock,
+            clock=exam_clock,
         )
         seeded += 1
         if result.learning_object_id not in affected_learning_objects:

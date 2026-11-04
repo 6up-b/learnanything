@@ -37,6 +37,18 @@ at S0's checkpoint (D6). Rebuilding the head for a new migration keeps the
 sanitized content: apply the migration to a backup-API copy of this fixture,
 as before.
 
+## Router objective RO1 (migration 242), `router/ro1-interval`, 2026-11-04
+
+Renamed from `migration_head_241` (`docs/reviews/router-ro1.md`). Rebuilt from the tracked, sanitized
+`migration_head_241/state.sqlite` (main `90f7def5e3`): a backup-API copy outside the checkout with only
+`242_availability_time.sql` applied through `learnloop.db.migrate.apply_migrations` under the scratch-copy
+allowance (`UPGRADE_SCRATCH_COPY`), then `wal_checkpoint(TRUNCATE)` (0, 0, 0), `journal_mode=DELETE` (header
+bytes 1/1), `integrity_check` ok and `foreign_key_check` empty, and copied into place with the backup API, with no
+companion files. 242 adds three nullable columns (`practice_attempts.received_at`, `received_at_source`,
+`derived_state_rebuilds.projection_switches_json`); the six attempts are not exam imports, so the backfill wrote
+nothing and every column is null. The head holds 229 through 242. FG1c and RO0 also claim 242; the landing
+renumbers.
+
 ## Follow-up generate and serve (migration 241), `followup/fg1-generate-serve`, 2026-11-03
 
 Renamed from `migration_head_240`. `241_followup_generate_serve.sql` (six additive tables, empty) applied through
