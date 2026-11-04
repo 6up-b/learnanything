@@ -36,7 +36,7 @@ source_paths:
   - "src/learnloop/attempts/surprise.py"
   - "src/learnloop/attempts/trace_evidence.py"
 source_commit: "aggregate; see module notes"
-source_commit_timestamp: "2026-11-03T23:34:25-05:00"
+source_commit_timestamp: "2026-11-04T00:19:09-05:00"
 generated: true
 generated_at: "2026-11-02"
 package: "learnloop.attempts"
@@ -78,7 +78,7 @@ For system intent, use [[Learning System]].
 | [[Reference/Modules/learnloop/attempts/ai_contracts|learnloop.attempts.ai_contracts]] | [[Reference/Modules/learnloop/attempts/ai_contracts#^module-purpose|purpose]] | `ACTIVE` | 13 | 30 |
 | [[Reference/Modules/learnloop/attempts/answer_check|learnloop.attempts.answer_check]] | [[Reference/Modules/learnloop/attempts/answer_check#^module-purpose|purpose]] | `ACTIVE` | 6 | 1 |
 | [[Reference/Modules/learnloop/attempts/attempt_trace|learnloop.attempts.attempt_trace]] | [[Reference/Modules/learnloop/attempts/attempt_trace#^module-purpose|purpose]] | `ACTIVE` | 1 | 0 |
-| [[Reference/Modules/learnloop/attempts/attempts|learnloop.attempts.attempts]] | [[Reference/Modules/learnloop/attempts/attempts#^module-purpose|purpose]] | `ACTIVE` | 36 | 206 |
+| [[Reference/Modules/learnloop/attempts/attempts|learnloop.attempts.attempts]] | [[Reference/Modules/learnloop/attempts/attempts#^module-purpose|purpose]] | `ACTIVE` | 36 | 207 |
 | [[Reference/Modules/learnloop/attempts/blind_grading|learnloop.attempts.blind_grading]] | [[Reference/Modules/learnloop/attempts/blind_grading#^module-purpose|purpose]] | `ACTIVE` | 13 | 34 |
 | [[Reference/Modules/learnloop/attempts/calibration_streams|learnloop.attempts.calibration_streams]] | [[Reference/Modules/learnloop/attempts/calibration_streams#^module-purpose|purpose]] | `ACTIVE` | 2 | 1 |
 | [[Reference/Modules/learnloop/attempts/clarification|learnloop.attempts.clarification]] | [[Reference/Modules/learnloop/attempts/clarification#^module-purpose|purpose]] | `ACTIVE` | 6 | 3 |
@@ -96,7 +96,7 @@ For system intent, use [[Learning System]].
 | [[Reference/Modules/learnloop/attempts/measurement_corrections|learnloop.attempts.measurement_corrections]] | [[Reference/Modules/learnloop/attempts/measurement_corrections#^module-purpose|purpose]] | `ACTIVE` | 1 | 2 |
 | [[Reference/Modules/learnloop/attempts/observations|learnloop.attempts.observations]] | [[Reference/Modules/learnloop/attempts/observations#^module-purpose|purpose]] | `ACTIVE` | 1 | 2 |
 | [[Reference/Modules/learnloop/attempts/outcome_schemas|learnloop.attempts.outcome_schemas]] | [[Reference/Modules/learnloop/attempts/outcome_schemas#^module-purpose|purpose]] | `ACTIVE` | 6 | 5 |
-| [[Reference/Modules/learnloop/attempts/post_attempt|learnloop.attempts.post_attempt]] | [[Reference/Modules/learnloop/attempts/post_attempt#^module-purpose|purpose]] | `ACTIVE` | 6 | 18 |
+| [[Reference/Modules/learnloop/attempts/post_attempt|learnloop.attempts.post_attempt]] | [[Reference/Modules/learnloop/attempts/post_attempt#^module-purpose|purpose]] | `ACTIVE` | 6 | 19 |
 | [[Reference/Modules/learnloop/attempts/regrade|learnloop.attempts.regrade]] | [[Reference/Modules/learnloop/attempts/regrade#^module-purpose|purpose]] | `ACTIVE` | 3 | 25 |
 | [[Reference/Modules/learnloop/attempts/reveal_ledger|learnloop.attempts.reveal_ledger]] | [[Reference/Modules/learnloop/attempts/reveal_ledger#^module-purpose|purpose]] | `ACTIVE` | 18 | 12 |
 | [[Reference/Modules/learnloop/attempts/salience_firewall|learnloop.attempts.salience_firewall]] | [[Reference/Modules/learnloop/attempts/salience_firewall#^module-purpose|purpose]] | `ACTIVE` | 17 | 27 |

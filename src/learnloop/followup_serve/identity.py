@@ -63,7 +63,8 @@ def register(
     probe_episode_id: str | None = None,
     clock: Clock | None = None,
 ) -> bool:
-    """Give an item the identity, once, in the transaction that writes it."""
+    """Give an item the identity, once, committed before its file exists (no crash publishes
+    a question without it)."""
 
     with repository.atomic(), repository.connection() as connection:
         return store.insert_generated_probe(
@@ -124,9 +125,13 @@ def claim_serve(
 ) -> Claim:
     """The atomic first-serve burn; an item with no identity needs no claim.
 
-    A re-open by the same surface and presentation is the same administration (a
-    remount, a restored session), still with its one valid submission. Anything else
-    after a burn or a retirement is refused.
+    ``presentation_id`` is the item's open presentation as the door read it, None when it
+    has none. A re-open by the same surface and that same open presentation is the same
+    administration (a remount, a restored session), still with its one valid submission.
+    A burn made before any presentation was committed binds to the one committed next, and
+    no presentation is never a wildcard: once any of the item's presentations was answered
+    or ended, that administration is over. Anything else after a burn or a retirement is
+    refused.
     """
 
     with repository.atomic(), repository.connection() as connection:
@@ -140,12 +145,13 @@ def claim_serve(
             return Claim(False, False, GENERATED_PROBE_CLOSED, burns[RETIRED])
         if SERVED in burns:
             burn = burns[SERVED]
-            # The first door may have opened it before its presentation was committed.
             stored = burn.get("presentation_id")
-            same = burn.get("surface") == surface and (
-                stored is None or presentation_id is None or stored == presentation_id
-            )
-            if same and RETIRED not in burns:
+            if stored is None:
+                # The first door opened it before its presentation was committed.
+                current = not store.administration_ended(connection, practice_item_id)
+            else:
+                current = stored == presentation_id
+            if burn.get("surface") == surface and current and RETIRED not in burns:
                 return Claim(True, False, None, burn)
             return Claim(False, False, GENERATED_PROBE_CLOSED, burn)
         store.insert_burn(
@@ -182,6 +188,22 @@ def retire(
         )
     repository.set_practice_item_active(practice_item_id, active=False, clock=clock)
     return inserted
+
+
+def retire_unbound(repository: Repository, workflow_id: str, *, clock: Clock | None = None) -> list[str]:
+    """What an interrupted run of this workflow published and never bound retires, unused,
+    with any presentation it had pinned, before the retry writes its own question."""
+
+    with repository.connection() as connection:
+        if not _present(connection):
+            return []
+        items = store.unclosed_probes_of_workflow(connection, workflow_id)
+    for item_id in items:
+        retire(repository, item_id, reason="publication_interrupted", workflow_id=workflow_id, clock=clock)
+        presentation = repository.active_probe_presentation_for_item(item_id)
+        if presentation is not None:
+            repository.end_probe_presentation(presentation.id, end_reason="abandoned", clock=clock)
+    return items
 
 
 def door_refusal(repository: Repository, practice_item_id: str, *, workflow_id: str | None = None) -> str | None:
@@ -239,5 +261,5 @@ def replay_inactive_ids(repository: Repository) -> frozenset[str]:
 __all__ = [
     "Claim", "GENERATED_PROBE_CLOSED", "GENERATED_PROBE_RESERVED", "RETIRED", "SERVED", "claim_serve",
     "closed_probe_ids", "door_refusal", "door_sets", "exclude_ids", "generated_probe_ids", "is_generated_probe", "item_revision",
-    "register", "replay_inactive_ids", "retire", "retired_probe_ids",
+    "register", "replay_inactive_ids", "retire", "retire_unbound", "retired_probe_ids",
 ]

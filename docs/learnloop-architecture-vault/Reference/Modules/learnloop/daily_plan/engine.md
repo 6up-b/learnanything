@@ -584,6 +584,9 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_an_unbound_attempt_on_the_chosen_item_is_never_the_forecasts_outcome`
 - [tests/test_exam_protection_landing.py](../../../../../../tests/test_exam_protection_landing.py) — direct import
   - `test_the_reading_step_never_offers_a_held_out_section_of_a_book_in_no_source_set`
+- [tests/test_followup_codex_review.py](../../../../../../tests/test_followup_codex_review.py) — direct import
+  - `test_f7_a_standing_plan_doesnt_strand_next_on_a_switched_off_probe`
+  - `test_f7_next_through_the_sidecar_after_the_switch`
 - [tests/test_followup_router.py](../../../../../../tests/test_followup_router.py) — direct import
   - `test_a_wait_keeps_its_room_and_next_continues_the_block`
   - `test_ask_now_is_what_next_opens`

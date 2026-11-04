@@ -73,8 +73,10 @@ LLM = "llm"
 COMPONENT_ROUTES = {DECIDER: "router_decider", LLM: "router_llm"}
 RECEIPT_OWNER = "router_decision"
 SUMMARY_RECEIPT_OWNER = "router_teach_back_summary"
+#: FG1 §8: a follow-up probe's generation shares the router's daily envelope.
+FOLLOWUP_GENERATION_OWNER = "followup_generation"
 #: Every receipt the router's daily guard counts.
-GUARDED_OWNERS = (RECEIPT_OWNER, SUMMARY_RECEIPT_OWNER)
+GUARDED_OWNERS = (RECEIPT_OWNER, SUMMARY_RECEIPT_OWNER, FOLLOWUP_GENERATION_OWNER)
 #: Owner 2026-10-13: the router LLM's output room is never below this.
 LLM_OUTPUT_FLOOR = 16_384
 #: ``LEARNLOOP_ROUTER_MODELS=off``: no router model is asked.
@@ -725,6 +727,7 @@ __all__ = [
     "DECIDER",
     "DecisionPending",
     "FAILED",
+    "FOLLOWUP_GENERATION_OWNER",
     "GUARDED_OWNERS",
     "INVALID",
     "LLM",

@@ -88,7 +88,7 @@ No private top-level function or class definition is declared in this file.
 - [[Reference/Modules/learnloop/attempts/post_attempt|learnloop.attempts.post_attempt]] — imports `enqueue_workflow`; statically calls `enqueue_workflow`
 - [[Reference/Modules/learnloop/diagnosis/diagnostic_surface_supply|learnloop.diagnosis.diagnostic_surface_supply]] — imports `enqueue_entry`; statically calls `enqueue_entry`
 - [[Reference/Modules/learnloop/diagnosis/probe_episodes|learnloop.diagnosis.probe_episodes]] — imports `enqueue_entry`; statically calls `enqueue_entry`
-- [[Reference/Modules/learnloop/followup_run/jobs|learnloop.followup_run.jobs]] — imports `module`; statically calls `enqueue_factor`
+- [[Reference/Modules/learnloop/followup_run/jobs|learnloop.followup_run.jobs]] — imports `module`; statically calls `enqueue_factor`, `enqueue_workflow`
 - [[Reference/Modules/learnloop/followup_run/lanes|learnloop.followup_run.lanes]] — imports `enqueue_need`; statically calls `enqueue_need`
 - [[Reference/Modules/learnloop/followup_serve/workflow|learnloop.followup_serve.workflow]] — imports `enqueue_workflow`; statically calls `enqueue_workflow`
 - [[Reference/Modules/learnloop_sidecar/context|learnloop_sidecar.context]] — imports `pending_jobs`; statically calls `pending_jobs`

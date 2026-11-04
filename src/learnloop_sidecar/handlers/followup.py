@@ -54,8 +54,8 @@ def followup_next(ctx: SidecarContext, params: FollowupInput) -> dict[str, Any]:
 
     vault, repository = ctx.require_vault()
     vault = _fresh_vault(ctx, vault, repository, params.attempt_id)
-    ctx.resume_post_attempt_jobs()
     action = next_action(vault, repository, params.attempt_id, plan_serves=plan_active(vault))
+    ctx.resume_post_attempt_jobs()
     return versioned(to_camel({
         "action": action.action, "line": action.line, "practice_item_id": action.practice_item_id,
         "presentation_id": action.presentation_id,

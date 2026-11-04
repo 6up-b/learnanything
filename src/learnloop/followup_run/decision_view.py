@@ -45,11 +45,20 @@ def _percent(value: float) -> str:
 
 
 def decision_view(repository: Repository, decision_id: str | None) -> dict[str, Any] | None:
-    """The line and its *details*, or None for a decision the ledger doesn't hold."""
+    """The line and its *details*, or None for a decision the ledger doesn't hold.
+
+    §6.0: the card lists open problems, so it and the rationale name the causes. While any
+    miss's causes are held, *details* leaves out what can say them, on the server, so opening
+    it isn't a disclosure the probe's independence never hears of. The line and the models'
+    numbers stay.
+    """
+
+    from learnloop.db.stores import followup_serve as store
 
     if not decision_id:
         return None
     with repository.connection() as connection:
+        held = store.present(connection) and store.any_feedback_held(connection)
         row = connection.execute("SELECT * FROM router_decisions WHERE id = ?", (decision_id,)).fetchone()
         card_row = connection.execute(
             "SELECT content_text FROM router_decision_payloads WHERE decision_id = ? AND kind = 'card'", (decision_id,)
@@ -83,11 +92,12 @@ def decision_view(repository: Repository, decision_id: str | None) -> dict[str, 
         "decision_id": str(row["id"]),
         "line": " · ".join(parts),
         "details": {
-            "card_summary": str(card_row[0]) if card_row is not None and card_row[0] else None,
+            "held": bool(held),
+            "card_summary": None if held or card_row is None or not card_row[0] else str(card_row[0]),
             "models": models,
-            "rationale": rationale.get("text") if isinstance(rationale, Mapping) else None,
+            "rationale": rationale.get("text") if not held and isinstance(rationale, Mapping) else None,
             "fallback": row["fallback"],
-            "observational": detail.get("observational") if isinstance(detail, Mapping) else None,
+            "observational": detail.get("observational") if not held and isinstance(detail, Mapping) else None,
         },
     }
 

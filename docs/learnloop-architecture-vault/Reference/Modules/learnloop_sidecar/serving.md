@@ -7,9 +7,9 @@ version: "1.0.0"
 source_path: "src/learnloop_sidecar/serving.py"
 source_paths:
   - "src/learnloop_sidecar/serving.py"
-source_commit: "2cfe5cce75c95910c18c0105c36d952e15ab11cc"
-source_commit_timestamp: "2026-11-03T23:34:25-05:00"
-source_worktree_state: "clean"
+source_commit: "workspace/uncommitted @ HEAD efd894886714472c5495a6a6b87e97e8a774701a"
+source_commit_timestamp: "2026-11-04T00:19:09-05:00"
+source_worktree_state: "modified"
 generated: true
 generated_at: "2026-11-02"
 package: "learnloop_sidecar"
@@ -53,13 +53,13 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop_sidecar/serving.py](../../../../../src/learnloop_sidecar/serving.py) |
-| Source lines | 203 |
+| Source lines | 218 |
 | Owning package | [[Reference/Modules/learnloop_sidecar/_package|learnloop_sidecar]] |
 | Architecture layer | `adapter` |
 | Refactor status | `ACTIVE` |
-| Worktree state | `clean` |
-| Source commit | `2cfe5cce75c95910c18c0105c36d952e15ab11cc` |
-| Commit timestamp | `2026-11-03T23:34:25-05:00` |
+| Worktree state | `modified` |
+| Source commit | `workspace/uncommitted @ HEAD efd894886714472c5495a6a6b87e97e8a774701a` |
+| Commit timestamp | `2026-11-04T00:19:09-05:00` |
 
 ## Public API
 
@@ -69,8 +69,8 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `refuse_device_ineligible_item(origin: RequestOrigin | None, vault: Any, item: Any) -> None` ([source](../../../../../src/learnloop_sidecar/serving.py), line 89) — A by-id door (§6.4): a stale list, a deep link or a restored session cannot bring the phone an item it cannot show.
 - `refuse_inactive_learning_object(vault: LoadedVault, learning_object_id: str | None) -> None` ([source](../../../../../src/learnloop_sidecar/serving.py), line 102)
 - `refuse_generated_probe_door(ctx_origin: RequestOrigin | None, repository: Any, item: PracticeItem, *, serve: bool) -> None` ([source](../../../../../src/learnloop_sidecar/serving.py), line 124) — FG1 §4.2: every serve door for a generated probe, before its text leaves.
-- `refuse_unservable_item(vault: LoadedVault, item: PracticeItem) -> None` ([source](../../../../../src/learnloop_sidecar/serving.py), line 179) — The item-level door: its LO's refusal, then the adoption kill switch.
-- `refuse_held_out_item(vault: LoadedVault, repository: Any, item: PracticeItem) -> None` ([source](../../../../../src/learnloop_sidecar/serving.py), line 193) — A session serve of an item made from held-out material is refused.
+- `refuse_unservable_item(vault: LoadedVault, item: PracticeItem) -> None` ([source](../../../../../src/learnloop_sidecar/serving.py), line 194) — The item-level door: its LO's refusal, then the adoption kill switch.
+- `refuse_held_out_item(vault: LoadedVault, repository: Any, item: PracticeItem) -> None` ([source](../../../../../src/learnloop_sidecar/serving.py), line 208) — A session serve of an item made from held-out material is refused.
 
 ### Module constants
 
@@ -81,6 +81,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 ## Internal implementation anchors
 
 - `_device_rules_on(vault: Any) -> bool` ([source](../../../../../src/learnloop_sidecar/serving.py), line 55)
+- `_claim_refusal(repository: Any, practice_item_id: str, row: Any) -> str | None` ([source](../../../../../src/learnloop_sidecar/serving.py), line 178) — The atomic claim, against the presentation actually open for this item, not the id a caller or a workflow row remembers (it may have ended, and an absent one is no wildcard).
 
 ## Who imports or calls it
 

@@ -7,9 +7,9 @@ version: "1.0.0"
 source_path: "src/learnloop/followup_run/router.py"
 source_paths:
   - "src/learnloop/followup_run/router.py"
-source_commit: "e262b85b96108b93ffda0fb5bf84527952b7c3e2"
-source_commit_timestamp: "2026-11-03T22:37:18-05:00"
-source_worktree_state: "clean"
+source_commit: "workspace/uncommitted @ HEAD efd894886714472c5495a6a6b87e97e8a774701a"
+source_commit_timestamp: "2026-11-04T00:19:09-05:00"
+source_worktree_state: "modified"
 generated: true
 generated_at: "2026-11-02"
 package: "learnloop.followup_run"
@@ -50,13 +50,13 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/followup_run/router.py](../../../../../../src/learnloop/followup_run/router.py) |
-| Source lines | 291 |
+| Source lines | 317 |
 | Owning package | [[Reference/Modules/learnloop/followup_run/_package|learnloop.followup_run]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
-| Worktree state | `clean` |
-| Source commit | `e262b85b96108b93ffda0fb5bf84527952b7c3e2` |
-| Commit timestamp | `2026-11-03T22:37:18-05:00` |
+| Worktree state | `modified` |
+| Source commit | `workspace/uncommitted @ HEAD efd894886714472c5495a6a6b87e97e8a774701a` |
+| Commit timestamp | `2026-11-04T00:19:09-05:00` |
 
 ## Public API
 
@@ -68,11 +68,12 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `hard_refusal(vault: Any, repository: Repository, row: Mapping[str, Any], *, factor_id: str) -> str | None` ([source](../../../../../../src/learnloop/followup_run/router.py), line 76) — §5: what still refuses, in the orchestrator's own terms, before anything is spent.
 - `observational(repository: Repository, factor_id: str) -> dict[str, Any]` ([source](../../../../../../src/learnloop/followup_run/router.py), line 102) — §5 item 5: the checks that stopped deciding on this lane, still on the record.
 - `decide(vault: Any, repository: Repository, row: Mapping[str, Any], *, choice: Any, clients: Any, clock: Clock | None) -> FollowupDecision` ([source](../../../../../../src/learnloop/followup_run/router.py), line 169)
-- `record_decision(vault: Any, repository: Repository, row: Mapping[str, Any], decision: FollowupDecision, *, clock: Clock | None) -> FollowupDecision` ([source](../../../../../../src/learnloop/followup_run/router.py), line 202) — Log it, with its objective frozen, and name it on the workflow.
-- `record_outcome(repository: Repository, row: Mapping[str, Any], decision: FollowupDecision, *, outcome: str, clock: Clock | None) -> None` ([source](../../../../../../src/learnloop/followup_run/router.py), line 246) — Generation failure, skip and abandonment are distinct outcomes (§5 item 2).
-- `append_outcome(repository: Repository, decision_id: str, workflow_id: str, *, outcome: str, clock: Clock | None) -> None` ([source](../../../../../../src/learnloop/followup_run/router.py), line 254)
-- `bind_item(repository: Repository, row: Mapping[str, Any], decision: FollowupDecision, admitted: Any, *, clock: Clock | None) -> None` ([source](../../../../../../src/learnloop/followup_run/router.py), line 260) — The appended binding: decision -> generated item and its probe presentation.
-- `bind_plan_presentation(repository: Repository, row: Mapping[str, Any], *, plan_presentation_id: str, clock: Clock | None) -> None` ([source](../../../../../../src/learnloop/followup_run/router.py), line 274) — The second presentation: the plan's own, once Next served it.
+- `decide_once(vault: Any, repository: Repository, row: Mapping[str, Any], *, choice: Any, clients: Any, clock: Clock | None) -> FollowupDecision` ([source](../../../../../../src/learnloop/followup_run/router.py), line 202) — The workflow's one decision (§5 item 2): the one it already recorded, else a new one.
+- `record_decision(vault: Any, repository: Repository, row: Mapping[str, Any], decision: FollowupDecision, *, clock: Clock | None) -> FollowupDecision` ([source](../../../../../../src/learnloop/followup_run/router.py), line 217) — Log it, with its objective frozen, and name it on the workflow, in one transaction, so a crash leaves both or neither.
+- `record_outcome(repository: Repository, row: Mapping[str, Any], decision: FollowupDecision, *, outcome: str, clock: Clock | None) -> None` ([source](../../../../../../src/learnloop/followup_run/router.py), line 272) — Generation failure, skip and abandonment are distinct outcomes (§5 item 2).
+- `append_outcome(repository: Repository, decision_id: str, workflow_id: str, *, outcome: str, clock: Clock | None) -> None` ([source](../../../../../../src/learnloop/followup_run/router.py), line 280)
+- `bind_item(repository: Repository, row: Mapping[str, Any], decision: FollowupDecision, admitted: Any, *, clock: Clock | None) -> None` ([source](../../../../../../src/learnloop/followup_run/router.py), line 286) — The appended binding: decision -> generated item and its probe presentation.
+- `bind_plan_presentation(repository: Repository, row: Mapping[str, Any], *, plan_presentation_id: str, clock: Clock | None) -> None` ([source](../../../../../../src/learnloop/followup_run/router.py), line 300) — The second presentation: the plan's own, once Next served it.
 
 ### Module constants
 
@@ -97,6 +98,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `bind_item`
 - `bind_plan_presentation`
 - `decide`
+- `decide_once`
 - `hard_refusal`
 - `observational`
 - `record_decision`
@@ -112,7 +114,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 > [!note] Static evidence boundary
 > “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
 
-- [[Reference/Modules/learnloop/followup_run/jobs|learnloop.followup_run.jobs]] — imports `module`; statically calls `bind_item`, `decide`, `record_decision`, `record_outcome`
+- [[Reference/Modules/learnloop/followup_run/jobs|learnloop.followup_run.jobs]] — imports `module`; statically calls `bind_item`, `decide_once`, `record_outcome`
 - [[Reference/Modules/learnloop/followup_run/serving|learnloop.followup_run.serving]] — imports `module`; statically calls `append_outcome`, `bind_plan_presentation`
 
 ## Dependencies
@@ -126,11 +128,11 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop/daily_plan/router_chooser|learnloop.daily_plan.router_chooser]] — imports `FollowupGate`; calls `FollowupGate`
 - [[Reference/Modules/learnloop/data_capture/gates|learnloop.data_capture.gates]] — imports `serving_on`; calls `serving_on`
 - [[Reference/Modules/learnloop/db/repositories|learnloop.db.repositories]] — imports `Repository`
-- [[Reference/Modules/learnloop/db/stores/followup_serve|learnloop.db.stores.followup_serve]] — imports `module`; calls `append_binding`
+- [[Reference/Modules/learnloop/db/stores/followup_serve|learnloop.db.stores.followup_serve]] — imports `module`; calls `append_binding`, `update_workflow`
 - [[Reference/Modules/learnloop/diagnosis/causal_orchestrator|learnloop.diagnosis.causal_orchestrator]] — imports `causal_origin`, `episode_conflict_reason`, `learner_preference`, `pending_machine_checks_for_factor`; calls `causal_origin`, `episode_conflict_reason`, `learner_preference`, `pending_machine_checks_for_factor`
 - [[Reference/Modules/learnloop/diagnosis/causal_probe_coherence|learnloop.diagnosis.causal_probe_coherence]] — imports `decide_probe`, `repair_class_need_for_factor`; calls `decide_probe`, `repair_class_need_for_factor`
 - [[Reference/Modules/learnloop/followup_serve/workflow|learnloop.followup_serve.workflow]] — imports `module`; calls `set_fields`
-- [[Reference/Modules/learnloop/router/plan_log|learnloop.router.plan_log]] — imports `log_followup_decision`; calls `log_followup_decision`
+- [[Reference/Modules/learnloop/router/plan_log|learnloop.router.plan_log]] — imports `existing_followup_decision`, `log_followup_decision`; calls `existing_followup_decision`, `log_followup_decision`
 
 ### Platform and third-party dependencies
 
@@ -150,6 +152,13 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
+- [tests/test_followup_codex_review.py](../../../../../../tests/test_followup_codex_review.py) — direct import
+  - `test_f5_a_cause_written_from_exam_work_reaches_neither_request`
+  - `test_f8_a_crash_after_the_decision_keeps_it_through_the_lease_recovery`
+  - `test_f8_a_duplicate_receipt_resolves_to_the_decision_logged`
+  - `test_f8_a_no_plan_decision_is_kept_too`
+  - `test_f8_a_transport_failure_retries_under_the_decision_it_drew`
+  - `test_f8_naming_the_decision_commits_with_it`
 - [tests/test_followup_journey.py](../../../../../../tests/test_followup_journey.py) — direct import
   - `test_a_wait_releases_now_labels_the_probe_exposed_and_its_answer_cant_close_the_factor`
   - `test_no_intervention_generates_nothing_and_releases_what_was_held`

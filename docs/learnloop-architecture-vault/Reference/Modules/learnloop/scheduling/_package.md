@@ -112,7 +112,7 @@ For system intent, use [[Learning System]].
 | [[Reference/Modules/learnloop/scheduling/reentry_adapter|learnloop.scheduling.reentry_adapter]] | [[Reference/Modules/learnloop/scheduling/reentry_adapter#^module-purpose|purpose]] | `ACTIVE` | 0 | 1 |
 | [[Reference/Modules/learnloop/scheduling/reentry_summary|learnloop.scheduling.reentry_summary]] | [[Reference/Modules/learnloop/scheduling/reentry_summary#^module-purpose|purpose]] | `ACTIVE` | 5 | 3 |
 | [[Reference/Modules/learnloop/scheduling/review_log|learnloop.scheduling.review_log]] | [[Reference/Modules/learnloop/scheduling/review_log#^module-purpose|purpose]] | `ACTIVE` | 3 | 3 |
-| [[Reference/Modules/learnloop/scheduling/scheduler|learnloop.scheduling.scheduler]] | [[Reference/Modules/learnloop/scheduling/scheduler#^module-purpose|purpose]] | `ACTIVE` | 19 | 91 |
+| [[Reference/Modules/learnloop/scheduling/scheduler|learnloop.scheduling.scheduler]] | [[Reference/Modules/learnloop/scheduling/scheduler#^module-purpose|purpose]] | `ACTIVE` | 19 | 92 |
 | [[Reference/Modules/learnloop/scheduling/selection_rewards|learnloop.scheduling.selection_rewards]] | [[Reference/Modules/learnloop/scheduling/selection_rewards#^module-purpose|purpose]] | `ACTIVE` | 5 | 7 |
 | [[Reference/Modules/learnloop/scheduling/serving_exclusions|learnloop.scheduling.serving_exclusions]] | [[Reference/Modules/learnloop/scheduling/serving_exclusions#^module-purpose|purpose]] | `ACTIVE` | 4 | 12 |
 | [[Reference/Modules/learnloop/scheduling/session_minutes|learnloop.scheduling.session_minutes]] | [[Reference/Modules/learnloop/scheduling/session_minutes#^module-purpose|purpose]] | `ACTIVE` | 3 | 1 |

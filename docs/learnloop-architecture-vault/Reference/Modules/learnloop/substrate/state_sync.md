@@ -241,6 +241,9 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_facet_identity_actions.py](../../../../../../tests/test_facet_identity_actions.py) — direct import
 - [tests/test_facet_state_write_on_change.py](../../../../../../tests/test_facet_state_write_on_change.py) — direct import
 - [tests/test_field_workbench_signals.py](../../../../../../tests/test_field_workbench_signals.py) — direct import
+- [tests/test_followup_codex_review.py](../../../../../../tests/test_followup_codex_review.py) — direct import
+  - `test_f3_a_crash_after_the_pin_ends_the_pin_with_the_retired_item`
+  - `test_f3_the_mint_and_the_batch_write_the_identity_before_the_file`
 - [tests/test_followup_diagnostic_selection.py](../../../../../../tests/test_followup_diagnostic_selection.py) — direct import
 - [tests/test_followup_journey.py](../../../../../../tests/test_followup_journey.py) — direct import
   - `test_the_whole_journey_and_never_again`

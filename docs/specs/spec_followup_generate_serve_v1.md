@@ -30,7 +30,7 @@ Either way the mistake usually isn't addressed, and the learner moves on to the 
 
 ### 3.1 Where the journey doesn't run
 
-- **Exam sittings.** No follow-up or banner between answers. `finish_exam` runs the batch afterwards, which ranks failures worst-first and caps follow-ups at three (`post_attempt.py:300`). FG1 records that eligibility and cap before any generation, so later jobs can't get around the cap.
+- **Exam sittings.** No follow-up or banner between answers. `finish_exam` runs the batch afterwards, which ranks failures worst-first and caps follow-ups at three (`post_attempt.py:300`). FG1 records that eligibility and cap before any generation, so later jobs can't get around the cap. A cause written from exam work can't reach the router or the author (§4.1, §8; Codex review F5), so these misses take the practice lane.
 - **Diagnostic blocks.** A follow-up mid-block would reveal that the last answer was wrong (`followups.py:624`), so block completion releases eligibility. If an episode with locked hypotheses is already measuring, it is not replaced.
 - **Joint vaults.** There is no live diagnosis job (`diagnosis/split/jobs.py:144`). Selection uses the hypotheses normalization has already written.
 - **Surfaces without the pending and skip behaviour** stay on predecessor behaviour: the TUI has its own Next (`tui/screens/feedback.py:655`). FG1 serving is enabled only with that surface's UI. See §10 for the phone.

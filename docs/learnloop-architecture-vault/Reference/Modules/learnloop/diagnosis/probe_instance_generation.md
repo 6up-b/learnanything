@@ -7,9 +7,9 @@ version: "1.0.0"
 source_path: "src/learnloop/diagnosis/probe_instance_generation.py"
 source_paths:
   - "src/learnloop/diagnosis/probe_instance_generation.py"
-source_commit: "2cfe5cce75c95910c18c0105c36d952e15ab11cc"
-source_commit_timestamp: "2026-11-03T23:34:25-05:00"
-source_worktree_state: "clean"
+source_commit: "workspace/uncommitted @ HEAD efd894886714472c5495a6a6b87e97e8a774701a"
+source_commit_timestamp: "2026-11-04T00:19:09-05:00"
+source_worktree_state: "modified"
 generated: true
 generated_at: "2026-11-02"
 package: "learnloop.diagnosis"
@@ -50,13 +50,13 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/diagnosis/probe_instance_generation.py](../../../../../../src/learnloop/diagnosis/probe_instance_generation.py) |
-| Source lines | 1493 |
+| Source lines | 1509 |
 | Owning package | [[Reference/Modules/learnloop/diagnosis/_package|learnloop.diagnosis]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
-| Worktree state | `clean` |
-| Source commit | `2cfe5cce75c95910c18c0105c36d952e15ab11cc` |
-| Commit timestamp | `2026-11-03T23:34:25-05:00` |
+| Worktree state | `modified` |
+| Source commit | `workspace/uncommitted @ HEAD efd894886714472c5495a6a6b87e97e8a774701a` |
+| Commit timestamp | `2026-11-04T00:19:09-05:00` |
 
 ## Public API
 
@@ -75,10 +75,10 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 - `llm_instance_payloads(vault: LoadedVault, card: InstrumentCard, template: ProbeFamilyTemplate, *, count: int, ai_client: object, clock: Clock | None=None, repository: Repository | None=None) -> list[dict[str, Any]] | None` ([source](../../../../../../src/learnloop/diagnosis/probe_instance_generation.py), line 811) — LLM-generated surface payloads for one binding, or None when the provider lacks the capability or is unavailable (§9.2 fallback contract).
 - `instance_gate_errors(vault: LoadedVault, payload: Mapping[str, Any], card: InstrumentCard, template: ProbeFamilyTemplate) -> list[str]` ([source](../../../../../../src/learnloop/diagnosis/probe_instance_generation.py), line 916) — Cheap structural, grounding, duplication, and card-conformance checks.
 - `generate_instances_for_episode(repository: Repository, vault: LoadedVault, episode_id: str, *, clock: Clock | None=None, instances_per_family: int | None=None, seed: int=0, ai_client: object | None=None) -> GenerationSummary` ([source](../../../../../../src/learnloop/diagnosis/probe_instance_generation.py), line 991) — Resolve a `pending_items` episode's generation needs through admitted family/card bindings (§10 steps 3–6).
-- `mint_single_use_probe_surface(repository: Repository, vault: LoadedVault, episode_id: str, *, ai_client: object, clock: Clock | None=None, seed: int=0) -> GeneratedInstance | None` ([source](../../../../../../src/learnloop/diagnosis/probe_instance_generation.py), line 1171) — Mint ONE fresh single-use ``diagnostic_probe`` surface for an open episode.
-- `approve_probe_instance(repository: Repository, vault: LoadedVault, practice_item_id: str, *, clock: Clock | None=None) -> bool` ([source](../../../../../../src/learnloop/diagnosis/probe_instance_generation.py), line 1358) — Reviewer approval for a pending instance: activate it and unpark its LO's episode when it now yields an eligible instrument.
-- `run_llm_family_gate(vault: LoadedVault, repository: Repository, learning_object_id: str, template: ProbeFamilyTemplate, ai_client: object, *, trials_per_hypothesis: int=3, clock: Clock | None=None)` ([source](../../../../../../src/learnloop/diagnosis/probe_instance_generation.py), line 1395) — Run the §9.6 family admission gate with LLM planted-trial traces.
-- `pending_review_instance_ids(repository: Repository) -> set[str]` ([source](../../../../../../src/learnloop/diagnosis/probe_instance_generation.py), line 1489) — Item ids parked behind instance review (consumed by state sync so a vault sync cannot force-reactivate them).
+- `mint_single_use_probe_surface(repository: Repository, vault: LoadedVault, episode_id: str, *, ai_client: object, clock: Clock | None=None, seed: int=0) -> GeneratedInstance | None` ([source](../../../../../../src/learnloop/diagnosis/probe_instance_generation.py), line 1179) — Mint ONE fresh single-use ``diagnostic_probe`` surface for an open episode.
+- `approve_probe_instance(repository: Repository, vault: LoadedVault, practice_item_id: str, *, clock: Clock | None=None) -> bool` ([source](../../../../../../src/learnloop/diagnosis/probe_instance_generation.py), line 1374) — Reviewer approval for a pending instance: activate it and unpark its LO's episode when it now yields an eligible instrument.
+- `run_llm_family_gate(vault: LoadedVault, repository: Repository, learning_object_id: str, template: ProbeFamilyTemplate, ai_client: object, *, trials_per_hypothesis: int=3, clock: Clock | None=None)` ([source](../../../../../../src/learnloop/diagnosis/probe_instance_generation.py), line 1411) — Run the §9.6 family admission gate with LLM planted-trial traces.
+- `pending_review_instance_ids(repository: Repository) -> set[str]` ([source](../../../../../../src/learnloop/diagnosis/probe_instance_generation.py), line 1505) — Item ids parked behind instance review (consumed by state sync so a vault sync cannot force-reactivate them).
 
 ### Module constants
 
@@ -100,7 +100,7 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 - `_llm_prompt_version() -> str` ([source](../../../../../../src/learnloop/diagnosis/probe_instance_generation.py), line 798)
 - `_sanitized_surface_suffix(raw: str, index: int) -> str` ([source](../../../../../../src/learnloop/diagnosis/probe_instance_generation.py), line 804)
 - `_grounding_tokens(text: str) -> set[str]` ([source](../../../../../../src/learnloop/diagnosis/probe_instance_generation.py), line 906) — Content tokens for the grounding check: >3 chars, naive plural fold.
-- `_register_single_use(repository: Repository, payload: Mapping[str, Any], *, source: str, episode_id: str | None, clock: Clock | None) -> None` ([source](../../../../../../src/learnloop/diagnosis/probe_instance_generation.py), line 1161) — FG1 §4.2, §12: every generated probe carries the durable single-use identity.
+- `_register_single_use(repository: Repository, payload: Mapping[str, Any], *, source: str, episode_id: str | None, clock: Clock | None) -> None` ([source](../../../../../../src/learnloop/diagnosis/probe_instance_generation.py), line 1169) — FG1 §4.2, §12: every generated probe carries the durable single-use identity.
 
 ## Who imports or calls it
 
@@ -156,6 +156,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
+- [tests/test_followup_codex_review.py](../../../../../../tests/test_followup_codex_review.py) — direct import
+  - `test_f3_the_mint_and_the_batch_write_the_identity_before_the_file`
 - [tests/test_km4_taxonomy.py](../../../../../../tests/test_km4_taxonomy.py) — direct import
   - `test_compositional_record_parameterizes_contrast_probe`
 - [tests/test_probe_coverage.py](../../../../../../tests/test_probe_coverage.py) — direct import

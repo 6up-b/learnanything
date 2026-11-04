@@ -117,6 +117,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 ## Tests that define behavior
 
 - [tests/followup_serve_helpers.py](../../../../../../tests/followup_serve_helpers.py) — direct import
+- [tests/test_followup_codex_review.py](../../../../../../tests/test_followup_codex_review.py) — direct import
+  - `test_f7_a_prepared_probe_closes_with_the_switch`
 - [tests/test_followup_journey.py](../../../../../../tests/test_followup_journey.py) — direct import
 - [tests/test_followup_successor.py](../../../../../../tests/test_followup_successor.py) — direct import
   - `test_new_vaults_get_true_effectively_and_older_templates_stay_as_they_were`

@@ -7,9 +7,9 @@ version: "1.0.0"
 source_path: "src/learnloop/router/plan_log.py"
 source_paths:
   - "src/learnloop/router/plan_log.py"
-source_commit: "c11b6179c76d77eb4ef639d03f4fb112e12a75a7"
-source_commit_timestamp: "2026-11-03T22:03:31-05:00"
-source_worktree_state: "clean"
+source_commit: "workspace/uncommitted @ HEAD efd894886714472c5495a6a6b87e97e8a774701a"
+source_commit_timestamp: "2026-11-04T00:19:09-05:00"
+source_worktree_state: "modified"
 generated: true
 generated_at: "2026-11-02"
 package: "learnloop.router"
@@ -50,13 +50,13 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/router/plan_log.py](../../../../../../src/learnloop/router/plan_log.py) |
-| Source lines | 758 |
+| Source lines | 775 |
 | Owning package | [[Reference/Modules/learnloop/router/_package|learnloop.router]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
-| Worktree state | `clean` |
-| Source commit | `c11b6179c76d77eb4ef639d03f4fb112e12a75a7` |
-| Commit timestamp | `2026-11-03T22:03:31-05:00` |
+| Worktree state | `modified` |
+| Source commit | `workspace/uncommitted @ HEAD efd894886714472c5495a6a6b87e97e8a774701a` |
+| Commit timestamp | `2026-11-04T00:19:09-05:00` |
 
 ## Public API
 
@@ -65,7 +65,8 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `build_plan_interrupt_decision(decision: Mapping[str, Any]) -> dict[str, Any]` ([source](../../../../../../src/learnloop/router/plan_log.py), line 495) — The ``router_decisions`` row of one ``plan_interrupt`` decision (pure).
 - `log_plan_interrupt_decision(connection: Any, decision: Mapping[str, Any]) -> str | None` ([source](../../../../../../src/learnloop/router/plan_log.py), line 605) — Write one ``plan_interrupt`` row on the caller's transaction; returns its id.
 - `build_followup_decision(decision: Mapping[str, Any]) -> dict[str, Any]` ([source](../../../../../../src/learnloop/router/plan_log.py), line 634) — FG1's ``plan_interrupt`` row: it names the workflow, since no item exists yet.
-- `log_followup_decision(connection: Any, decision: Mapping[str, Any]) -> str | None` ([source](../../../../../../src/learnloop/router/plan_log.py), line 728) — Write one FG1 row on the caller's transaction, its card and payloads beside it.
+- `existing_followup_decision(connection: Any, *, block_id: Any, workflow_id: str) -> Mapping[str, Any] | None` ([source](../../../../../../src/learnloop/router/plan_log.py), line 732) — The decision this workflow already logged on this block, or None: its immutable receipt.
+- `log_followup_decision(connection: Any, decision: Mapping[str, Any]) -> str | None` ([source](../../../../../../src/learnloop/router/plan_log.py), line 744) — Write one FG1 row on the caller's transaction, its card and payloads beside it.
 
 ### Module constants
 
@@ -97,6 +98,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `build_plan_block_decision`
 - `log_followup_decision`
 - `build_plan_interrupt_decision`
+- `existing_followup_decision`
 - `log_plan_block_decision`
 - `log_plan_interrupt_decision`
 
@@ -111,6 +113,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `_store_payloads(connection: Any, record: Mapping[str, Any], row: Mapping[str, Any]) -> None` ([source](../../../../../../src/learnloop/router/plan_log.py), line 368) — R2b: both models' requests and raw answers, beside the decision (own savepoints).
 - `_store_context_vector(connection: Any, record: Mapping[str, Any], row: Mapping[str, Any]) -> None` ([source](../../../../../../src/learnloop/router/plan_log.py), line 392) — R2c: the decision's ``decision/context`` vector (computed at prefetch, written after the decision, in its own savepoint; a cache replay never reads).
 - `_store_card(connection: Any, decision: Any, row: Mapping[str, Any]) -> None` ([source](../../../../../../src/learnloop/router/plan_log.py), line 424) — R2a: the learner-state card the chooser built, beside its decision.
+- `_followup_receipt_key(block_id: Any, workflow_id: Any) -> str` ([source](../../../../../../src/learnloop/router/plan_log.py), line 728)
 
 ## Who imports or calls it
 
@@ -119,7 +122,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 
 - [[Reference/Modules/learnloop/daily_plan/engine|learnloop.daily_plan.engine]] — imports `INSERT_REF`, `log_plan_block_decision`, `log_plan_interrupt_decision`; statically calls `log_plan_interrupt_decision`
 - [[Reference/Modules/learnloop/daily_plan/router_chooser|learnloop.daily_plan.router_chooser]] — imports `module`
-- [[Reference/Modules/learnloop/followup_run/router|learnloop.followup_run.router]] — imports `log_followup_decision`; statically calls `log_followup_decision`
+- [[Reference/Modules/learnloop/followup_run/router|learnloop.followup_run.router]] — imports `existing_followup_decision`, `log_followup_decision`; statically calls `existing_followup_decision`, `log_followup_decision`
 
 ## Dependencies
 

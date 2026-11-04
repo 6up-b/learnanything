@@ -321,6 +321,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_f6_a_goal_in_the_view_with_no_ledger_row_is_refused`
   - `test_f6_the_tutors_goal_has_one_ledger_row_and_the_press_reads_it`
   - `test_f7_a_reuse_whose_request_cannot_be_recorded_fails_retryably_and_the_retry_reuses`
+- [tests/test_followup_codex_review.py](../../../../../tests/test_followup_codex_review.py) — direct import
 - [tests/test_followup_journey.py](../../../../../tests/test_followup_journey.py) — direct import
 - [tests/test_followups_batch5_lesson.py](../../../../../tests/test_followups_batch5_lesson.py) — direct import
   - `test_c_a_step_of_a_saved_lesson_whose_route_is_down_says_it_is_saved`

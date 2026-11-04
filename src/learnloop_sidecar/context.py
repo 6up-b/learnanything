@@ -255,10 +255,11 @@ class SidecarContext:
             # Adaptive hints H2b (review F4, F5): work a previous process
             # committed the source of and never queued or finished.
             self.reconcile_hint_work()
+            # FG1 §10: with the switch off, open workflows settle as skipped; on, a pending
+            # one gets the job a previous process committed and never handed off.
+            self.settle_followup_workflows_when_off()
             # A previous process may have left queued or leased jobs; resume.
             self.resume_post_attempt_jobs()
-            # FG1 §10: with the switch off, open workflows settle as skipped.
-            self.settle_followup_workflows_when_off()
             # ... and imported exercises' key checks it never committed
             # (canonical sources, Codex review F5).
             self.recover_import_key_checks()
@@ -549,9 +550,11 @@ class SidecarContext:
         if self.vault is None or self.repository is None:
             return
         try:
+            from learnloop.followup_run.jobs import recover_pending_workflows
             from learnloop.followup_serve.workflow import settle_open_when_off
 
             settle_open_when_off(self.vault, self.repository)
+            recover_pending_workflows(self.vault, self.repository)
         except Exception:  # noqa: BLE001 - startup maintenance never fails an open
             _LOGGER.warning("follow-up workflows not settled", exc_info=True)
 

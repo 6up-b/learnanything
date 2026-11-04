@@ -229,7 +229,10 @@ def persist_item(
     attempted_ids, attempted_surfaces = administered_surface_exclusions(vault, repository)
     if payload["id"] in attempted_ids or payload["surface_family"] in attempted_surfaces:
         raise AdmissionFailed("seen_before")
-    upsert_practice_item(vault.root, payload, clock=clock)
+    # The identity, and the family link whose pending review parks the item from state sync,
+    # commit before the file exists. A crash after it leaves a question no door serves: the
+    # retry retires it (``identity.retire_unbound``), or it stays parked. Never the reverse:
+    # a file with neither would sync as an active ordinary item.
     with repository.atomic():
         repository.link_probe_item_family(
             practice_item_id=payload["id"],
@@ -253,7 +256,8 @@ def persist_item(
             repository, practice_item_id=payload["id"], revision=identity.item_revision(payload), source=source,
             workflow_id=workflow_id, probe_episode_id=episode_id, clock=clock,
         )
-        repository.upsert_practice_item_state(payload["id"], active=False, clock=clock)
+    upsert_practice_item(vault.root, payload, clock=clock)
+    repository.upsert_practice_item_state(payload["id"], active=False, clock=clock)
     return str(payload["id"])
 
 
@@ -267,6 +271,21 @@ def admit(repository: Repository, *, candidate_id: str, receipt: Mapping[str, An
                                clock=clock)
     transition_probe_candidate(repository, candidate_id, to_status="active", reviewer=MACHINE_REVIEWER, reason=reason,
                                clock=clock)
+
+
+def withdraw_interrupted(repository: Repository, *, workflow_id: str, factor_id: str, clock: Clock | None = None) -> None:
+    """Before a retry: what an interrupted run of this workflow left is retired, its pin ended,
+    and its candidate withdrawn, or the retry's own question would duplicate its class."""
+
+    from learnloop.diagnosis.causal_probe_coherence import transition_probe_candidate
+
+    interrupted = set(identity.retire_unbound(repository, workflow_id, clock=clock))
+    if not interrupted:
+        return
+    for candidate in repository.causal_probe_candidates_for_factor(factor_id):
+        if str(candidate["practice_item_id"]) in interrupted and candidate["status"] != "rejected":
+            transition_probe_candidate(repository, str(candidate["id"]), to_status="rejected", reviewer=MACHINE_REVIEWER,
+                                       reason="publication_interrupted", clock=clock)
 
 
 def commission_only(
@@ -356,4 +375,5 @@ def commission_and_pin(
 __all__ = [
     "AdmissionFailed", "AdmittedProbe", "MACHINE_REVIEWER", "OfferRefused", "admit", "author_probe",
     "blind_generator", "commission_and_pin", "commission_only", "manipulation_contract", "persist_item",
+    "withdraw_interrupted",
 ]

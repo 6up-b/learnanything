@@ -35,7 +35,7 @@ source_paths:
   - "src/learnloop/daily_plan/types.py"
   - "src/learnloop/daily_plan/view.py"
 source_commit: "aggregate; see module notes"
-source_commit_timestamp: "2026-11-03T22:03:31-05:00"
+source_commit_timestamp: "2026-11-04T00:19:09-05:00"
 generated: true
 generated_at: "2026-11-02"
 package: "learnloop.daily_plan"
@@ -76,7 +76,7 @@ For system intent, use [[Architecture Overview]].
 | [[Reference/Modules/learnloop/daily_plan/ad_slot|learnloop.daily_plan.ad_slot]] | [[Reference/Modules/learnloop/daily_plan/ad_slot#^module-purpose|purpose]] | `ACTIVE` | 1 | 6 |
 | [[Reference/Modules/learnloop/daily_plan/admission|learnloop.daily_plan.admission]] | [[Reference/Modules/learnloop/daily_plan/admission#^module-purpose|purpose]] | `ACTIVE` | 3 | 2 |
 | [[Reference/Modules/learnloop/daily_plan/chooser|learnloop.daily_plan.chooser]] | [[Reference/Modules/learnloop/daily_plan/chooser#^module-purpose|purpose]] | `ACTIVE` | 4 | 4 |
-| [[Reference/Modules/learnloop/daily_plan/engine|learnloop.daily_plan.engine]] | [[Reference/Modules/learnloop/daily_plan/engine#^module-purpose|purpose]] | `ACTIVE` | 14 | 101 |
+| [[Reference/Modules/learnloop/daily_plan/engine|learnloop.daily_plan.engine]] | [[Reference/Modules/learnloop/daily_plan/engine#^module-purpose|purpose]] | `ACTIVE` | 14 | 102 |
 | [[Reference/Modules/learnloop/daily_plan/estimates|learnloop.daily_plan.estimates]] | [[Reference/Modules/learnloop/daily_plan/estimates#^module-purpose|purpose]] | `ACTIVE` | 6 | 4 |
 | [[Reference/Modules/learnloop/daily_plan/headline|learnloop.daily_plan.headline]] | [[Reference/Modules/learnloop/daily_plan/headline#^module-purpose|purpose]] | `ACTIVE` | 4 | 5 |
 | [[Reference/Modules/learnloop/daily_plan/intent_cost|learnloop.daily_plan.intent_cost]] | [[Reference/Modules/learnloop/daily_plan/intent_cost#^module-purpose|purpose]] | `ACTIVE` | 1 | 2 |
@@ -93,7 +93,7 @@ For system intent, use [[Architecture Overview]].
 | [[Reference/Modules/learnloop/daily_plan/router_chooser|learnloop.daily_plan.router_chooser]] | [[Reference/Modules/learnloop/daily_plan/router_chooser#^module-purpose|purpose]] | `ACTIVE` | 2 | 3 |
 | [[Reference/Modules/learnloop/daily_plan/router_reader|learnloop.daily_plan.router_reader]] | [[Reference/Modules/learnloop/daily_plan/router_reader#^module-purpose|purpose]] | `ACTIVE` | 1 | 1 |
 | [[Reference/Modules/learnloop/daily_plan/router_retrieval|learnloop.daily_plan.router_retrieval]] | [[Reference/Modules/learnloop/daily_plan/router_retrieval#^module-purpose|purpose]] | `ACTIVE` | 2 | 1 |
-| [[Reference/Modules/learnloop/daily_plan/router_runtime|learnloop.daily_plan.router_runtime]] | [[Reference/Modules/learnloop/daily_plan/router_runtime#^module-purpose|purpose]] | `ACTIVE` | 6 | 6 |
+| [[Reference/Modules/learnloop/daily_plan/router_runtime|learnloop.daily_plan.router_runtime]] | [[Reference/Modules/learnloop/daily_plan/router_runtime#^module-purpose|purpose]] | `ACTIVE` | 6 | 7 |
 | [[Reference/Modules/learnloop/daily_plan/router_teach_back|learnloop.daily_plan.router_teach_back]] | [[Reference/Modules/learnloop/daily_plan/router_teach_back#^module-purpose|purpose]] | `ACTIVE` | 2 | 4 |
 | [[Reference/Modules/learnloop/daily_plan/slot_facts|learnloop.daily_plan.slot_facts]] | [[Reference/Modules/learnloop/daily_plan/slot_facts#^module-purpose|purpose]] | `ACTIVE` | 1 | 3 |
 | [[Reference/Modules/learnloop/daily_plan/slot_facts_schema|learnloop.daily_plan.slot_facts_schema]] | [[Reference/Modules/learnloop/daily_plan/slot_facts_schema#^module-purpose|purpose]] | `ACTIVE` | 3 | 2 |

@@ -58,7 +58,7 @@ source_paths:
   - "src/learnloop/db/stores/workbench.py"
   - "src/learnloop/db/stores/write_provenance.py"
 source_commit: "aggregate; see module notes"
-source_commit_timestamp: "2026-11-03T22:09:07-05:00"
+source_commit_timestamp: "2026-11-04T00:19:09-05:00"
 generated: true
 generated_at: "2026-11-02"
 package: "learnloop.db.stores"
@@ -115,7 +115,7 @@ For system intent, use [[State and Persistence]], [[Architecture Overview]].
 | [[Reference/Modules/learnloop/db/stores/field_signal_receipts|learnloop.db.stores.field_signal_receipts]] | [[Reference/Modules/learnloop/db/stores/field_signal_receipts#^module-purpose|purpose]] | `ACTIVE` | 1 | 1 |
 | [[Reference/Modules/learnloop/db/stores/figure_prefetch|learnloop.db.stores.figure_prefetch]] | [[Reference/Modules/learnloop/db/stores/figure_prefetch#^module-purpose|purpose]] | `ACTIVE` | 1 | 0 |
 | [[Reference/Modules/learnloop/db/stores/figures|learnloop.db.stores.figures]] | [[Reference/Modules/learnloop/db/stores/figures#^module-purpose|purpose]] | `ACTIVE` | 10 | 14 |
-| [[Reference/Modules/learnloop/db/stores/followup_serve|learnloop.db.stores.followup_serve]] | [[Reference/Modules/learnloop/db/stores/followup_serve#^module-purpose|purpose]] | `ACTIVE` | 6 | 3 |
+| [[Reference/Modules/learnloop/db/stores/followup_serve|learnloop.db.stores.followup_serve]] | [[Reference/Modules/learnloop/db/stores/followup_serve#^module-purpose|purpose]] | `ACTIVE` | 7 | 4 |
 | [[Reference/Modules/learnloop/db/stores/followup_value|learnloop.db.stores.followup_value]] | [[Reference/Modules/learnloop/db/stores/followup_value#^module-purpose|purpose]] | `ACTIVE` | 1 | 0 |
 | [[Reference/Modules/learnloop/db/stores/forecast_receipts|learnloop.db.stores.forecast_receipts]] | [[Reference/Modules/learnloop/db/stores/forecast_receipts#^module-purpose|purpose]] | `ACTIVE` | 4 | 3 |
 | [[Reference/Modules/learnloop/db/stores/held_out_signals|learnloop.db.stores.held_out_signals]] | [[Reference/Modules/learnloop/db/stores/held_out_signals#^module-purpose|purpose]] | `ACTIVE` | 3 | 1 |
@@ -147,7 +147,7 @@ For system intent, use [[State and Persistence]], [[Architecture Overview]].
 | [[Reference/Modules/learnloop/db/stores/source_service|learnloop.db.stores.source_service]] | [[Reference/Modules/learnloop/db/stores/source_service#^module-purpose|purpose]] | `ACTIVE` | 34 | 44 |
 | [[Reference/Modules/learnloop/db/stores/voi_forecasts|learnloop.db.stores.voi_forecasts]] | [[Reference/Modules/learnloop/db/stores/voi_forecasts#^module-purpose|purpose]] | `ACTIVE` | 4 | 3 |
 | [[Reference/Modules/learnloop/db/stores/workbench|learnloop.db.stores.workbench]] | [[Reference/Modules/learnloop/db/stores/workbench#^module-purpose|purpose]] | `ACTIVE` | 5 | 1 |
-| [[Reference/Modules/learnloop/db/stores/write_provenance|learnloop.db.stores.write_provenance]] | [[Reference/Modules/learnloop/db/stores/write_provenance#^module-purpose|purpose]] | `ACTIVE` | 17 | 5 |
+| [[Reference/Modules/learnloop/db/stores/write_provenance|learnloop.db.stores.write_provenance]] | [[Reference/Modules/learnloop/db/stores/write_provenance#^module-purpose|purpose]] | `ACTIVE` | 18 | 6 |
 
 ## Cross-package dependencies
 
@@ -187,6 +187,7 @@ For system intent, use [[State and Persistence]], [[Architecture Overview]].
 - [[Reference/Modules/learnloop/scheduling/intent/_package|learnloop.scheduling.intent]] — 5 static module edges
 - [[Reference/Modules/learnloop/content/authoring/_package|learnloop.content.authoring]] — 4 static module edges
 - [[Reference/Modules/learnloop/content/facet_identity/_package|learnloop.content.facet_identity]] — 4 static module edges
+- [[Reference/Modules/learnloop/followup_run/_package|learnloop.followup_run]] — 4 static module edges
 - [[Reference/Modules/learnloop/placement/_package|learnloop.placement]] — 4 static module edges
 - [[Reference/Modules/learnloop/tutor/_package|learnloop.tutor]] — 4 static module edges
 - [[Reference/Modules/learnloop/vault/_package|learnloop.vault]] — 4 static module edges
@@ -199,7 +200,6 @@ For system intent, use [[State and Persistence]], [[Architecture Overview]].
 - [[Reference/Modules/learnloop/ops/contamination/_package|learnloop.ops.contamination]] — 3 static module edges
 - [[Reference/Modules/learnloop/scheduling/_package|learnloop.scheduling]] — 3 static module edges
 - [[Reference/Modules/learnloop/content/synthesis/_package|learnloop.content.synthesis]] — 2 static module edges
-- [[Reference/Modules/learnloop/followup_run/_package|learnloop.followup_run]] — 2 static module edges
 - [[Reference/Modules/learnloop/goals/_package|learnloop.goals]] — 2 static module edges
 - [[Reference/Modules/learnloop/curriculum/_package|learnloop.curriculum]] — 1 static module edge
 - [[Reference/Modules/learnloop/learner/_package|learnloop.learner]] — 1 static module edge

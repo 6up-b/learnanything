@@ -3,8 +3,8 @@ title: "probe_presentations"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "2cfe5cce75c95910c18c0105c36d952e15ab11cc"
-source_commit_timestamp: "2026-11-03T23:34:25-05:00"
+source_commit: "efd894886714472c5495a6a6b87e97e8a774701a"
+source_commit_timestamp: "2026-11-04T00:19:09-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite probe_presentations"
@@ -23,9 +23,9 @@ source_paths:
   - "src/learnloop/adaptive_difficulty/protected_tables.py"
   - "src/learnloop/attempts/attempts.py"
   - "src/learnloop/db/repositories.py"
+  - "src/learnloop/db/stores/followup_serve.py"
   - "src/learnloop/evsi_calibration/forecast_report.py"
   - "src/learnloop/evsi_calibration/live_report.py"
-  - "src/learnloop/field/outcomes.py"
   - "src/learnloop/diagnosis/calibration_sessions.py"
   - "src/learnloop/diagnosis/causal_orchestrator.py"
   - "src/learnloop/diagnosis/diagnostic_pack.py"
@@ -125,6 +125,7 @@ Indexes and uniqueness:
 
 - `src/learnloop/attempts/attempts.py`
 - `src/learnloop/db/repositories.py`
+- `src/learnloop/db/stores/followup_serve.py`
 - `src/learnloop/evsi_calibration/forecast_report.py`
 - `src/learnloop/evsi_calibration/live_report.py`
 - `src/learnloop/field/outcomes.py`
@@ -149,6 +150,7 @@ Indexes and uniqueness:
 - `src/learnloop/diagnosis/voi_stopping.py`
 - `src/learnloop/followup_run/jobs.py`
 - `src/learnloop/followup_run/serving.py`
+- `src/learnloop/followup_serve/identity.py`
 - `src/learnloop/followup_serve/workflow.py`
 - `src/learnloop/scheduling/scheduler.py`
 - `src/learnloop/substrate/compat/activity_backfill.py`
@@ -165,6 +167,7 @@ Indexes and uniqueness:
 
 - `tests/test_ad_guard_reachable_reads.py`
 - `tests/test_facet_outcome_view.py`
+- `tests/test_followup_codex_review.py`
 - `tests/test_grade_resolution_pipeline.py`
 - `tests/test_mcp_c1a_landing.py`
 - `tests/test_placement_opening_probes.py`
@@ -182,7 +185,6 @@ Indexes and uniqueness:
 - `tests/test_sidecar_contract.py`
 - `tests/test_ux_phase4_feedback.py`
 - `tests/test_voi_forecasts.py`
-- `tests/test_voi_merge_composition.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

@@ -125,16 +125,16 @@ def refuse_generated_probe_door(ctx_origin: RequestOrigin | None, repository: An
                                 *, serve: bool) -> None:
     """FG1 §4.2: every serve door for a generated probe, before its text leaves.
 
-    A session serve claims the one administration (keyed to surface and presentation),
-    atomically; a re-open of that same administration passes. Reserved for its workflow
-    until then, and closed afterwards. A read with no session (feedback, the inspector)
+    A session serve claims the one administration (keyed to surface and the item's open
+    presentation), atomically; a re-open of that same administration passes. Reserved for its
+    workflow until then, and closed afterwards. One not yet admitted is not served at all: a
+    publication a crash interrupted stays parked. A read with no session (feedback, the inspector)
     never burns, and sees it only once it has been served. A phone never opens one (§10).
     An item with no identity passes, and the ledger is read whatever the switch says:
     burns persist after a rollback.
     """
 
     from learnloop.followup_serve import identity, workflow as followup_workflow
-    from learnloop.followup_serve.gates import SERVING_SURFACE
 
     if not identity.is_generated_probe(repository, item.id):
         return
@@ -153,27 +153,42 @@ def refuse_generated_probe_door(ctx_origin: RequestOrigin | None, repository: An
             refusal = identity.GENERATED_PROBE_CLOSED if burned else identity.GENERATED_PROBE_RESERVED
         elif state is not None and state.last_attempt_at is not None:
             refusal = identity.GENERATED_PROBE_CLOSED
-        elif (
-            row is not None and item.id not in identity.closed_probe_ids(repository)
-            and not followup_workflow.waiting_still_valid(repository, row)
-        ):
+        elif item.id in identity.closed_probe_ids(repository):
+            refusal = _claim_refusal(repository, item.id, row)
+        elif row is None and identity.door_refusal(repository, item.id) is not None:
+            # Its workflow never bound it: an interrupted run's, which a retry retires.
+            refusal = identity.GENERATED_PROBE_RESERVED
+        elif state is None or not state.active:
+            # Published and not admitted: parked until a retry or its review says otherwise.
+            refusal = identity.GENERATED_PROBE_RESERVED
+        elif row is not None and not followup_workflow.waiting_still_valid(repository, row):
             # §4.2: retired while unused, if its hypotheses closed first.
             followup_workflow.retire_waiting(repository, row, reason="hypotheses_closed")
             refusal = identity.GENERATED_PROBE_CLOSED
         else:
-            claim = identity.claim_serve(
-                repository, item.id, surface=SERVING_SURFACE,
-                presentation_id=(row or {}).get("presentation_id"),
-                workflow_id=(row or {}).get("id"),
-            )
-            if not claim.granted:
-                refusal = claim.reason or identity.GENERATED_PROBE_CLOSED
+            refusal = _claim_refusal(repository, item.id, row)
     if refusal is not None:
         raise SidecarError(
             refusal,
             f"{item.id} is a single-use question and can't be opened here.",
             details={"practice_item_id": item.id},
         )
+
+
+def _claim_refusal(repository: Any, practice_item_id: str, row: Any) -> str | None:
+    """The atomic claim, against the presentation actually open for this item, not the id a
+    caller or a workflow row remembers (it may have ended, and an absent one is no wildcard)."""
+
+    from learnloop.followup_serve import identity
+    from learnloop.followup_serve.gates import SERVING_SURFACE
+
+    open_presentation = repository.active_probe_presentation_for_item(practice_item_id)
+    claim = identity.claim_serve(
+        repository, practice_item_id, surface=SERVING_SURFACE,
+        presentation_id=open_presentation.id if open_presentation is not None else None,
+        workflow_id=(row or {}).get("id"),
+    )
+    return None if claim.granted else (claim.reason or identity.GENERATED_PROBE_CLOSED)
 
 
 def refuse_unservable_item(vault: LoadedVault, item: PracticeItem) -> None:

@@ -7,9 +7,9 @@ version: "1.0.0"
 source_path: "src/learnloop_sidecar/handlers/followup.py"
 source_paths:
   - "src/learnloop_sidecar/handlers/followup.py"
-source_commit: "e262b85b96108b93ffda0fb5bf84527952b7c3e2"
-source_commit_timestamp: "2026-11-03T22:37:18-05:00"
-source_worktree_state: "clean"
+source_commit: "workspace/uncommitted @ HEAD efd894886714472c5495a6a6b87e97e8a774701a"
+source_commit_timestamp: "2026-11-04T00:19:09-05:00"
+source_worktree_state: "modified"
 generated: true
 generated_at: "2026-11-02"
 package: "learnloop_sidecar.handlers"
@@ -57,9 +57,9 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Owning package | [[Reference/Modules/learnloop_sidecar/handlers/_package|learnloop_sidecar.handlers]] |
 | Architecture layer | `adapter` |
 | Refactor status | `ACTIVE` |
-| Worktree state | `clean` |
-| Source commit | `e262b85b96108b93ffda0fb5bf84527952b7c3e2` |
-| Commit timestamp | `2026-11-03T22:37:18-05:00` |
+| Worktree state | `modified` |
+| Source commit | `workspace/uncommitted @ HEAD efd894886714472c5495a6a6b87e97e8a774701a` |
+| Commit timestamp | `2026-11-04T00:19:09-05:00` |
 
 ## Public API
 

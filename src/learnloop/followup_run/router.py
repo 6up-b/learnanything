@@ -199,17 +199,34 @@ def decide(vault: Any, repository: Repository, row: Mapping[str, Any], *, choice
     )
 
 
+def decide_once(vault: Any, repository: Repository, row: Mapping[str, Any], *, choice: Any, clients: Any,
+                clock: Clock | None) -> FollowupDecision:
+    """The workflow's one decision (§5 item 2): the one it already recorded, else a new one.
+
+    A retry or a lease recovery after a failed generation keeps the arm, the propensity
+    and the outcome binding the first draw committed; no model is asked again.
+    """
+
+    if row.get("chosen_ref"):
+        return FollowupDecision(str(row["chosen_ref"]), "recorded", "recorded",
+                                decision_id=row.get("decision_id") or None)
+    decision = decide(vault, repository, row, choice=choice, clients=clients, clock=clock)
+    return record_decision(vault, repository, row, decision, clock=clock)
+
+
 def record_decision(vault: Any, repository: Repository, row: Mapping[str, Any], decision: FollowupDecision, *,
                     clock: Clock | None) -> FollowupDecision:
-    """Log it, with its objective frozen, and name it on the workflow. Logging never blocks
-    the learner's plan; with no plan there is no decision to log (§5.1)."""
+    """Log it, with its objective frozen, and name it on the workflow, in one transaction, so
+    a crash leaves both or neither. Logging never blocks the learner's plan; with no plan
+    there is no decision to log (§5.1). A receipt already logged is the decision: what the
+    row says stands, and nothing is written twice."""
 
     from dataclasses import replace
 
     from learnloop.daily_plan import measurement as objectives
     from learnloop.data_capture.gates import serving_on
     from learnloop.followup_serve import workflow as wf
-    from learnloop.router.plan_log import log_followup_decision
+    from learnloop.router.plan_log import existing_followup_decision, log_followup_decision
 
     if decision.decided_by == "no_plan":
         wf.set_fields(repository, str(row["id"]), chosen_ref=decision.chosen_ref, clock=clock)
@@ -218,6 +235,12 @@ def record_decision(vault: Any, repository: Repository, row: Mapping[str, Any], 
     now = utc_now_iso(clock)
     try:
         with repository.atomic(), repository.connection() as connection:
+            logged = existing_followup_decision(connection, block_id=decision.block_id, workflow_id=str(row["id"]))
+            if logged is not None:
+                decision = replace(decision, chosen_ref=str(logged["chosen_ref"]), propensity=float(logged["propensity"]))
+                store.update_workflow(connection, str(row["id"]), at=now, chosen_ref=decision.chosen_ref,
+                                      decision_id=str(logged["id"]))
+                return replace(decision, decision_id=str(logged["id"]))
             decision_id = log_followup_decision(connection, {
                 "plan_id": decision.plan_id, "plan_kind": decision.plan_kind, "local_date": decision.local_date,
                 "block_id": decision.block_id, "session_id": row.get("session_id"),
@@ -237,10 +260,13 @@ def record_decision(vault: Any, repository: Repository, row: Mapping[str, Any], 
                     frozen=objectives.freeze_followup(str(row["learning_object_id"]), support=support), arm=arm,
                     clock=clock, exclude=set(),
                 )
+            store.update_workflow(connection, str(row["id"]), at=now, chosen_ref=decision.chosen_ref,
+                                  decision_id=decision_id)
+            return replace(decision, decision_id=decision_id)
     except Exception:  # noqa: BLE001 - logging never blocks the learner's plan
         LOG.warning("follow-up decision not logged for %s", row["id"], exc_info=True)
-    wf.set_fields(repository, str(row["id"]), chosen_ref=decision.chosen_ref, decision_id=decision_id, clock=clock)
-    return replace(decision, decision_id=decision_id)
+    wf.set_fields(repository, str(row["id"]), chosen_ref=decision.chosen_ref, decision_id=None, clock=clock)
+    return replace(decision, decision_id=None)
 
 
 def record_outcome(repository: Repository, row: Mapping[str, Any], decision: FollowupDecision, *, outcome: str,
@@ -287,5 +313,5 @@ def bind_plan_presentation(repository: Repository, row: Mapping[str, Any], *, pl
 
 __all__ = [
     "ARM_LABELS", "ASK_NOW", "DECLINE", "FollowupDecision", "NO_INTERVENTION", "WAIT", "append_outcome", "bind_item",
-    "bind_plan_presentation", "decide", "hard_refusal", "observational", "record_decision", "record_outcome",
+    "bind_plan_presentation", "decide", "decide_once", "hard_refusal", "observational", "record_decision", "record_outcome",
 ]

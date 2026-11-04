@@ -70,7 +70,7 @@ source_paths:
   - "src/learnloop/voi_stopping_upgrade.py"
   - "src/learnloop/workbench_field_signals_upgrade.py"
 source_commit: "aggregate; see module notes"
-source_commit_timestamp: "2026-11-03T21:44:48-05:00"
+source_commit_timestamp: "2026-11-04T00:19:09-05:00"
 generated: true
 generated_at: "2026-11-02"
 package: "learnloop"
@@ -119,7 +119,7 @@ For system intent, use [[Architecture Overview]].
 | [[Reference/Modules/learnloop/bootstrap|learnloop.bootstrap]] | [[Reference/Modules/learnloop/bootstrap#^module-purpose|purpose]] | `ACTIVE` | 3 | 6 |
 | [[Reference/Modules/learnloop/causal_activity_policy|learnloop.causal_activity_policy]] | [[Reference/Modules/learnloop/causal_activity_policy#^module-purpose|purpose]] | `ACTIVE` | 3 | 1 |
 | [[Reference/Modules/learnloop/claim_fixes_upgrade|learnloop.claim_fixes_upgrade]] | [[Reference/Modules/learnloop/claim_fixes_upgrade#^module-purpose|purpose]] | `ACTIVE` | 13 | 3 |
-| [[Reference/Modules/learnloop/clock|learnloop.clock]] | [[Reference/Modules/learnloop/clock#^module-purpose|purpose]] | `ACTIVE` | 411 | 516 |
+| [[Reference/Modules/learnloop/clock|learnloop.clock]] | [[Reference/Modules/learnloop/clock#^module-purpose|purpose]] | `ACTIVE` | 411 | 517 |
 | [[Reference/Modules/learnloop/cold_retry_reschedule_upgrade|learnloop.cold_retry_reschedule_upgrade]] | [[Reference/Modules/learnloop/cold_retry_reschedule_upgrade#^module-purpose|purpose]] | `ACTIVE` | 2 | 1 |
 | [[Reference/Modules/learnloop/confidence_events|learnloop.confidence_events]] | [[Reference/Modules/learnloop/confidence_events#^module-purpose|purpose]] | `ACTIVE` | 6 | 4 |
 | [[Reference/Modules/learnloop/daily_plan_upgrade|learnloop.daily_plan_upgrade]] | [[Reference/Modules/learnloop/daily_plan_upgrade#^module-purpose|purpose]] | `ACTIVE` | 2 | 1 |
@@ -139,7 +139,7 @@ For system intent, use [[Architecture Overview]].
 | [[Reference/Modules/learnloop/ids|learnloop.ids]] | [[Reference/Modules/learnloop/ids#^module-purpose|purpose]] | `ACTIVE` | 157 | 50 |
 | [[Reference/Modules/learnloop/intent_upgrade|learnloop.intent_upgrade]] | [[Reference/Modules/learnloop/intent_upgrade#^module-purpose|purpose]] | `ACTIVE` | 2 | 1 |
 | [[Reference/Modules/learnloop/learner_context|learnloop.learner_context]] | [[Reference/Modules/learnloop/learner_context#^module-purpose|purpose]] | `ACTIVE` | 4 | 9 |
-| [[Reference/Modules/learnloop/learner_protection|learnloop.learner_protection]] | [[Reference/Modules/learnloop/learner_protection#^module-purpose|purpose]] | `ACTIVE` | 19 | 18 |
+| [[Reference/Modules/learnloop/learner_protection|learnloop.learner_protection]] | [[Reference/Modules/learnloop/learner_protection#^module-purpose|purpose]] | `ACTIVE` | 19 | 19 |
 | [[Reference/Modules/learnloop/learner_text_gap_upgrade|learnloop.learner_text_gap_upgrade]] | [[Reference/Modules/learnloop/learner_text_gap_upgrade#^module-purpose|purpose]] | `ACTIVE` | 2 | 2 |
 | [[Reference/Modules/learnloop/lesson_suggestions_upgrade|learnloop.lesson_suggestions_upgrade]] | [[Reference/Modules/learnloop/lesson_suggestions_upgrade#^module-purpose|purpose]] | `ACTIVE` | 2 | 3 |
 | [[Reference/Modules/learnloop/method_explicit_upgrade|learnloop.method_explicit_upgrade]] | [[Reference/Modules/learnloop/method_explicit_upgrade#^module-purpose|purpose]] | `ACTIVE` | 2 | 2 |

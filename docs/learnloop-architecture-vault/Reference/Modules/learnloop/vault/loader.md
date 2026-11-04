@@ -1444,6 +1444,11 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_f5_an_anchored_figures_text_is_unchanged`
 - [tests/test_figures_switch_off.py](../../../../../../tests/test_figures_switch_off.py) — direct import
   - `test_figures_off_queues_and_reads_no_figure_text`
+- [tests/test_followup_codex_review.py](../../../../../../tests/test_followup_codex_review.py) — direct import
+  - `test_f3_a_crash_after_the_pin_ends_the_pin_with_the_retired_item`
+  - `test_f3_the_mint_and_the_batch_write_the_identity_before_the_file`
+  - `test_f3_the_retry_retires_the_orphan_and_serves_its_own_question`
+  - `test_f7_a_standing_plan_doesnt_strand_next_on_a_switched_off_probe`
 - [tests/test_followup_diagnostic_selection.py](../../../../../../tests/test_followup_diagnostic_selection.py) — direct import
 - [tests/test_followup_single_use.py](../../../../../../tests/test_followup_single_use.py) — direct import
   - `test_an_exam_never_reserves_one`

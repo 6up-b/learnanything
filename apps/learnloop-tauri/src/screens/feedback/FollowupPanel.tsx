@@ -14,6 +14,7 @@ export function RouterDecisionLine({ decision }: { decision: RouterDecisionDto }
       <button type="button" style={quietLink} onClick={() => setOpen((value) => !value)}>details</button>
       {open ? (
         <div data-testid="router-decision-details" style={{ marginTop: 6, display: "grid", gap: 4 }}>
+          {decision.details.held ? <div>The rest of this comes after the question.</div> : null}
           {decision.details.cardSummary ? <div style={{ whiteSpace: "pre-wrap" }}>{decision.details.cardSummary}</div> : null}
           {decision.details.models.map((model) => (
             <div key={model.name}>{model.name}: {model.status ?? ""} {model.answer != null ? JSON.stringify(model.answer) : ""}</div>

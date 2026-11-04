@@ -128,6 +128,24 @@ it("shows the router's decision line with details on demand", async () => {
   expect(screen.getByTestId("router-decision-details").textContent).toContain("because");
 });
 
+it("while the causes are held, details says the rest comes later and shows no card", async () => {
+  invoke.mockImplementation(async (command: string) => {
+    if (command === "get_feedback") {
+      return { ...BUNDLE, followup: { ...HELD, routerDecision: {
+        decisionId: "d1", line: "Router: ask now · drawn by LLM · ask now 62%, wait 38% · floor 5%",
+        details: { held: true, cardSummary: null, models: [{ name: "LLM", status: "answered", answer: { a: 1 } }], rationale: null, fallback: null },
+      } } };
+    }
+    return null;
+  });
+  show();
+  fireEvent.click(within(await screen.findByTestId("router-decision")).getByText("details"));
+  const details = screen.getByTestId("router-decision-details").textContent ?? "";
+  expect(details).toContain("comes after the question");
+  expect(details).not.toContain("Why:");
+  expect(invoke.mock.calls.some(([command]) => command === "followup_show_anyway")).toBe(false);
+});
+
 it("with no workflow the screen is what it was", async () => {
   invoke.mockImplementation(async (command: string) => (command === "get_feedback" ? BUNDLE : null));
   show();

@@ -3,8 +3,8 @@ title: "router_decisions"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "2cfe5cce75c95910c18c0105c36d952e15ab11cc"
-source_commit_timestamp: "2026-11-03T23:34:25-05:00"
+source_commit: "efd894886714472c5495a6a6b87e97e8a774701a"
+source_commit_timestamp: "2026-11-04T00:19:09-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite router_decisions"
@@ -142,6 +142,7 @@ None found by exact static reference scan.
 - `src/learnloop/router/agreement.py`
 - `src/learnloop/router/first_delayed_success.py`
 - `src/learnloop/router/outcomes.py`
+- `src/learnloop/router/plan_log.py`
 - `src/learnloop/substrate/rebuild_orchestrator.py`
 
 ### Direct SQL writers
@@ -172,11 +173,11 @@ None found by exact static reference scan.
 - `tests/test_evsi_router_composition.py`
 - `tests/test_evsi_staged_binding.py`
 - `tests/test_figure_predictions.py`
+- `tests/test_followup_codex_review.py`
 - `tests/test_intent_fix_round5.py`
 - `tests/test_learner_pick_proposal.py`
 - `tests/test_mcp_tools.py`
 - `tests/test_mobile_rpc.py`
-- `tests/test_mvp015_upgrade.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

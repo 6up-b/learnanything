@@ -10577,6 +10577,8 @@ export interface RouterDecisionDto {
   decisionId: string;
   line: string;
   details: {
+    /** The card and the rationale can name causes still held (§6.0): the server left them out. */
+    held?: boolean;
     cardSummary: string | null;
     models: Array<{ name: string; status?: string | null; answer?: unknown }>;
     rationale: string | null;

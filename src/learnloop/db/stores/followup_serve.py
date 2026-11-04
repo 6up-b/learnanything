@@ -81,6 +81,14 @@ def workflow_for_item(connection: sqlite3.Connection, practice_item_id: str) -> 
     ).fetchone())
 
 
+def any_feedback_held(connection: sqlite3.Connection) -> bool:
+    """A miss's causes are still held from the learner, somewhere."""
+
+    return connection.execute(
+        "SELECT 1 FROM followup_workflows WHERE feedback_held = 1 AND feedback_released_at IS NULL LIMIT 1"
+    ).fetchone() is not None
+
+
 def workflow_for_presentation(connection: sqlite3.Connection, presentation_id: str) -> dict[str, Any] | None:
     return _row(connection.execute(
         "SELECT * FROM followup_workflows WHERE presentation_id = ? ORDER BY created_at DESC, id DESC LIMIT 1",
@@ -252,6 +260,26 @@ def insert_generated_probe(connection: sqlite3.Connection, *, practice_item_id: 
 def generated_probe(connection: sqlite3.Connection, practice_item_id: str) -> dict[str, Any] | None:
     return _row(connection.execute(
         "SELECT * FROM generated_probe_items WHERE practice_item_id = ?", (practice_item_id,)).fetchone())
+
+
+def unclosed_probes_of_workflow(connection: sqlite3.Connection, workflow_id: str) -> list[str]:
+    """A workflow's generated probes with no burn: what an interrupted run left behind."""
+
+    return [str(row[0]) for row in connection.execute(
+        "SELECT i.practice_item_id FROM generated_probe_items i WHERE i.workflow_id = ? AND NOT EXISTS "
+        "(SELECT 1 FROM generated_probe_burns b WHERE b.practice_item_id = i.practice_item_id) "
+        "ORDER BY i.created_at, i.practice_item_id",
+        (workflow_id,),
+    )]
+
+
+def administration_ended(connection: sqlite3.Connection, practice_item_id: str) -> bool:
+    """Some presentation of this item was answered or ended: its one administration is over."""
+
+    return connection.execute(
+        "SELECT 1 FROM probe_presentations WHERE practice_item_id = ? AND status IN ('submitted', 'ended') LIMIT 1",
+        (practice_item_id,),
+    ).fetchone() is not None
 
 
 def generated_probe_ids(connection: sqlite3.Connection) -> frozenset[str]:

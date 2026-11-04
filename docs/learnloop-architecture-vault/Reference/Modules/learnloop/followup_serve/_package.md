@@ -11,7 +11,7 @@ source_paths:
   - "src/learnloop/followup_serve/queue.py"
   - "src/learnloop/followup_serve/workflow.py"
 source_commit: "aggregate; see module notes"
-source_commit_timestamp: "2026-11-03T23:34:25-05:00"
+source_commit_timestamp: "2026-11-04T00:19:09-05:00"
 generated: true
 generated_at: "2026-11-02"
 package: "learnloop.followup_serve"
@@ -49,10 +49,10 @@ For system intent, use [[Architecture Overview]].
 | Module | Purpose | Status | Direct importers | Direct test files |
 |---|---|---:|---:|---:|
 | [[Reference/Modules/learnloop/followup_serve/__init__|learnloop.followup_serve]] | [[Reference/Modules/learnloop/followup_serve/__init__#^module-purpose|purpose]] | `ACTIVE` | 0 | 0 |
-| [[Reference/Modules/learnloop/followup_serve/gates|learnloop.followup_serve.gates]] | [[Reference/Modules/learnloop/followup_serve/gates#^module-purpose|purpose]] | `ACTIVE` | 14 | 4 |
-| [[Reference/Modules/learnloop/followup_serve/identity|learnloop.followup_serve.identity]] | [[Reference/Modules/learnloop/followup_serve/identity#^module-purpose|purpose]] | `ACTIVE` | 15 | 6 |
+| [[Reference/Modules/learnloop/followup_serve/gates|learnloop.followup_serve.gates]] | [[Reference/Modules/learnloop/followup_serve/gates#^module-purpose|purpose]] | `ACTIVE` | 14 | 5 |
+| [[Reference/Modules/learnloop/followup_serve/identity|learnloop.followup_serve.identity]] | [[Reference/Modules/learnloop/followup_serve/identity#^module-purpose|purpose]] | `ACTIVE` | 15 | 7 |
 | [[Reference/Modules/learnloop/followup_serve/queue|learnloop.followup_serve.queue]] | [[Reference/Modules/learnloop/followup_serve/queue#^module-purpose|purpose]] | `ACTIVE` | 7 | 1 |
-| [[Reference/Modules/learnloop/followup_serve/workflow|learnloop.followup_serve.workflow]] | [[Reference/Modules/learnloop/followup_serve/workflow#^module-purpose|purpose]] | `ACTIVE` | 15 | 4 |
+| [[Reference/Modules/learnloop/followup_serve/workflow|learnloop.followup_serve.workflow]] | [[Reference/Modules/learnloop/followup_serve/workflow#^module-purpose|purpose]] | `ACTIVE` | 15 | 5 |
 
 ## Cross-package dependencies
 

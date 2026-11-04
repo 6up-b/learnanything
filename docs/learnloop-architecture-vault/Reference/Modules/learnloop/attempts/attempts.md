@@ -473,6 +473,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_real_receipt_from_apply_attempt_does_not_force_tier_two`
 - [tests/test_field_workbench_signals.py](../../../../../../tests/test_field_workbench_signals.py) — direct import
   - `test_review_f2_the_row_survives_the_submit_on_the_vault`
+- [tests/test_followup_codex_review.py](../../../../../../tests/test_followup_codex_review.py) — direct import
+  - `test_f6_a_crash_right_after_a_probe_answer_has_settled_its_workflow`
 - [tests/test_followup_diagnostic_selection.py](../../../../../../tests/test_followup_diagnostic_selection.py) — direct import
 - [tests/test_followup_journey.py](../../../../../../tests/test_followup_journey.py) — direct import
 - [tests/test_followups.py](../../../../../../tests/test_followups.py) — direct import

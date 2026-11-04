@@ -7,9 +7,9 @@ version: "1.0.0"
 source_path: "src/learnloop/followup_run/serving.py"
 source_paths:
   - "src/learnloop/followup_run/serving.py"
-source_commit: "2cfe5cce75c95910c18c0105c36d952e15ab11cc"
-source_commit_timestamp: "2026-11-03T23:34:25-05:00"
-source_worktree_state: "clean"
+source_commit: "workspace/uncommitted @ HEAD efd894886714472c5495a6a6b87e97e8a774701a"
+source_commit_timestamp: "2026-11-04T00:19:09-05:00"
+source_worktree_state: "modified"
 generated: true
 generated_at: "2026-11-02"
 package: "learnloop.followup_run"
@@ -50,13 +50,13 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/followup_run/serving.py](../../../../../../src/learnloop/followup_run/serving.py) |
-| Source lines | 248 |
+| Source lines | 253 |
 | Owning package | [[Reference/Modules/learnloop/followup_run/_package|learnloop.followup_run]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
-| Worktree state | `clean` |
-| Source commit | `2cfe5cce75c95910c18c0105c36d952e15ab11cc` |
-| Commit timestamp | `2026-11-03T23:34:25-05:00` |
+| Worktree state | `modified` |
+| Source commit | `workspace/uncommitted @ HEAD efd894886714472c5495a6a6b87e97e8a774701a` |
+| Commit timestamp | `2026-11-04T00:19:09-05:00` |
 
 ## Public API
 
@@ -66,10 +66,10 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `view(vault: Any, repository: Repository, attempt_id: str) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/followup_run/serving.py), line 76) — The screen's read of the attempt's workflow, or None (the bundle stays as it was).
 - `source_of_probe_attempt(repository: Repository, attempt_id: str) -> str | None` ([source](../../../../../../src/learnloop/followup_run/serving.py), line 105) — The miss whose held feedback this probe answer released, or None.
 - `next_action(vault: Any, repository: Repository, attempt_id: str, *, plan_serves: bool, clock: Clock | None=None) -> NextAction` ([source](../../../../../../src/learnloop/followup_run/serving.py), line 117) — §6.1: what Next does.
-- `continue_without(repository: Repository, attempt_id: str, *, clock: Clock | None=None) -> bool` ([source](../../../../../../src/learnloop/followup_run/serving.py), line 163) — §6.1: logged, it retires the probe, and §5.1 records today's *Teach me now* authorisation.
-- `show_anyway(repository: Repository, attempt_id: str, *, clock: Clock | None=None) -> bool` ([source](../../../../../../src/learnloop/followup_run/serving.py), line 201) — §6.0: releases what's held and marks the probe's answer not independent.
-- `bind_plan_step(repository: Repository, step: Mapping[str, Any] | None, *, clock: Clock | None=None) -> None` ([source](../../../../../../src/learnloop/followup_run/serving.py), line 213) — The plan served it: the decision's second presentation joins its binding.
-- `abandon(repository: Repository, practice_item_id: str, *, clock: Clock | None=None) -> bool` ([source](../../../../../../src/learnloop/followup_run/serving.py), line 225) — A served probe skipped: abandonment closes it, and what was held is released.
+- `continue_without(repository: Repository, attempt_id: str, *, clock: Clock | None=None) -> bool` ([source](../../../../../../src/learnloop/followup_run/serving.py), line 179) — §6.1: logged, it retires the probe, and §5.1 records today's *Teach me now* authorisation.
+- `show_anyway(repository: Repository, attempt_id: str, *, clock: Clock | None=None) -> bool` ([source](../../../../../../src/learnloop/followup_run/serving.py), line 202) — §6.0: releases what's held and marks the probe's answer not independent.
+- `bind_plan_step(repository: Repository, step: Mapping[str, Any] | None, *, clock: Clock | None=None) -> None` ([source](../../../../../../src/learnloop/followup_run/serving.py), line 214) — The plan served it: the decision's second presentation joins its binding.
+- `abandon(repository: Repository, practice_item_id: str, *, clock: Clock | None=None) -> bool` ([source](../../../../../../src/learnloop/followup_run/serving.py), line 226) — A generated probe skipped: abandonment closes it, for every generated probe, with or without a workflow, and what its workflow held is released.
 
 ### Module constants
 
@@ -102,8 +102,8 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 
 - `_line(vault: Any, row: Mapping[str, Any]) -> str | None` ([source](../../../../../../src/learnloop/followup_run/serving.py), line 61)
 - `_served(repository: Repository, row: Mapping[str, Any]) -> bool` ([source](../../../../../../src/learnloop/followup_run/serving.py), line 100)
-- `_diagnosis_timed_out(vault: Any, repository: Repository, row: Mapping[str, Any], now: str) -> bool` ([source](../../../../../../src/learnloop/followup_run/serving.py), line 147) — Only while the diagnosis itself is what's outstanding; generation has *Continue without it*.
-- `_close_unmeasured_episode(repository: Repository, row: Mapping[str, Any], *, clock: Clock | None) -> None` ([source](../../../../../../src/learnloop/followup_run/serving.py), line 191) — A closed probe's own episode, if it measured nothing, doesn't stay open on the topic.
+- `_administration_over(repository: Repository, row: Mapping[str, Any]) -> bool` ([source](../../../../../../src/learnloop/followup_run/serving.py), line 158)
+- `_diagnosis_timed_out(vault: Any, repository: Repository, row: Mapping[str, Any], now: str) -> bool` ([source](../../../../../../src/learnloop/followup_run/serving.py), line 163) — Only while the diagnosis itself is what's outstanding; generation has *Continue without it*.
 
 ## Who imports or calls it
 
@@ -123,13 +123,13 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop/clock|learnloop.clock]] — imports `Clock`, `parse_utc`, `utc_now_iso`; calls `parse_utc`, `utc_now_iso`
 - [[Reference/Modules/learnloop/db/repositories|learnloop.db.repositories]] — imports `Repository`
 - [[Reference/Modules/learnloop/diagnosis/causal_orchestrator|learnloop.diagnosis.causal_orchestrator]] — imports `record_learner_preference`; calls `record_learner_preference`
-- [[Reference/Modules/learnloop/diagnosis/probe_episodes|learnloop.diagnosis.probe_episodes]] — imports `episode_has_observations`; calls `episode_has_observations`
 - [[Reference/Modules/learnloop/diagnosis/split/jobs|learnloop.diagnosis.split.jobs]] — imports `PENDING`, `diagnosis_status`; calls `diagnosis_status`
 - [[Reference/Modules/learnloop/followup_run/decision_view|learnloop.followup_run.decision_view]] — imports `module`; calls `decision_view`, `show_router_decisions`
+- [[Reference/Modules/learnloop/followup_run/jobs|learnloop.followup_run.jobs]] — imports `recover_workflow`; calls `recover_workflow`
 - [[Reference/Modules/learnloop/followup_run/lanes|learnloop.followup_run.lanes]] — imports `module`; calls `settle_practice_lane`
 - [[Reference/Modules/learnloop/followup_run/router|learnloop.followup_run.router]] — imports `module`; calls `append_outcome`, `bind_plan_presentation`
-- [[Reference/Modules/learnloop/followup_serve/identity|learnloop.followup_serve.identity]] — imports `module`; calls `closed_probe_ids`, `retire`
-- [[Reference/Modules/learnloop/followup_serve/workflow|learnloop.followup_serve.workflow]] — imports `module`; calls `attempt_workflow`, `move`, `retire_waiting`, `set_fields`, `waiting_still_valid`, `workflow_of_item`
+- [[Reference/Modules/learnloop/followup_serve/identity|learnloop.followup_serve.identity]] — imports `module`; calls `closed_probe_ids`, `is_generated_probe`, `retire`
+- [[Reference/Modules/learnloop/followup_serve/workflow|learnloop.followup_serve.workflow]] — imports `module`; calls `attempt_workflow`, `close_probe`, `get`, `move`, `retire_waiting`, `set_fields`, `waiting_still_valid`, `workflow_of_item`
 
 ### Platform and third-party dependencies
 
@@ -149,20 +149,12 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
-No test imports this module directly. These tests exercise a direct production consumer:
-
-- [tests/test_ad23_fix_review.py](../../../../../../tests/test_ad23_fix_review.py) — imports consumer [[Reference/Modules/learnloop_sidecar/handlers/daily_plan|learnloop_sidecar.handlers.daily_plan]]
-- [tests/test_followups_batch6_verify_fixes.py](../../../../../../tests/test_followups_batch6_verify_fixes.py) — imports consumer [[Reference/Modules/learnloop_sidecar/handlers/daily_plan|learnloop_sidecar.handlers.daily_plan]]
-- [tests/test_learner_pick_proposal.py](../../../../../../tests/test_learner_pick_proposal.py) — imports consumer [[Reference/Modules/learnloop_sidecar/handlers/daily_plan|learnloop_sidecar.handlers.daily_plan]]
-- [tests/test_library_exercises.py](../../../../../../tests/test_library_exercises.py) — imports consumer [[Reference/Modules/learnloop_sidecar/handlers/daily_plan|learnloop_sidecar.handlers.daily_plan]]
-- [tests/test_mobile_allowlist.py](../../../../../../tests/test_mobile_allowlist.py) — imports consumer [[Reference/Modules/learnloop_sidecar/handlers/daily_plan|learnloop_sidecar.handlers.daily_plan]]
-- [tests/test_reader_rw4b_admission_idempotency.py](../../../../../../tests/test_reader_rw4b_admission_idempotency.py) — imports consumer [[Reference/Modules/learnloop_sidecar/handlers/daily_plan|learnloop_sidecar.handlers.daily_plan]]
-- [tests/test_reader_rw4b_fix6.py](../../../../../../tests/test_reader_rw4b_fix6.py) — imports consumer [[Reference/Modules/learnloop_sidecar/handlers/daily_plan|learnloop_sidecar.handlers.daily_plan]]
-- [tests/test_teacher_te1b_suggestions.py](../../../../../../tests/test_teacher_te1b_suggestions.py) — imports consumer [[Reference/Modules/learnloop_sidecar/handlers/daily_plan|learnloop_sidecar.handlers.daily_plan]]
-- [tests/test_common_repair_delivery.py](../../../../../../tests/test_common_repair_delivery.py) — imports consumer [[Reference/Modules/learnloop_sidecar/handlers/feedback|learnloop_sidecar.handlers.feedback]]
-- [tests/test_reveal_ledger.py](../../../../../../tests/test_reveal_ledger.py) — imports consumer [[Reference/Modules/learnloop_sidecar/handlers/feedback|learnloop_sidecar.handlers.feedback]]
-- [tests/test_source_first_needs.py](../../../../../../tests/test_source_first_needs.py) — imports consumer [[Reference/Modules/learnloop_sidecar/handlers/feedback|learnloop_sidecar.handlers.feedback]]
-- [tests/mobile_host_helpers.py](../../../../../../tests/mobile_host_helpers.py) — imports consumer [[Reference/Modules/learnloop_sidecar/handlers/practice|learnloop_sidecar.handlers.practice]]
+- [tests/test_followup_codex_review.py](../../../../../../tests/test_followup_codex_review.py) — direct import
+  - `test_f2_details_leave_out_the_held_causes_until_they_are_released`
+  - `test_f4_a_skip_of_an_ordinary_item_changes_nothing`
+  - `test_f4_skipping_one_the_plan_listed_abandons_it_unserved_too`
+  - `test_f6_a_crash_after_the_diagnosis_ended_is_recovered_by_next`
+  - `test_f6_a_job_that_ended_with_its_workflow_pending_says_it_failed`
 
 ## Modification guidance
 

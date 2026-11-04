@@ -172,7 +172,7 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 - [[Reference/Modules/learnloop/diagnosis/split/card|learnloop.diagnosis.split.card]] — imports `DONE`, `diagnosis_status`; statically calls `diagnosis_status`
 - [[Reference/Modules/learnloop/diagnosis/text_gaps/judges|learnloop.diagnosis.text_gaps.judges]] — imports `register_retrieval_route`; statically calls `register_retrieval_route`
 - [[Reference/Modules/learnloop/diagnosis/text_gaps/pipeline|learnloop.diagnosis.text_gaps.pipeline]] — imports `default_embedding_client`; statically calls `default_embedding_client`
-- [[Reference/Modules/learnloop/followup_run/jobs|learnloop.followup_run.jobs]] — imports `DONE`, `diagnosis_status`; statically calls `diagnosis_status`
+- [[Reference/Modules/learnloop/followup_run/jobs|learnloop.followup_run.jobs]] — imports `DONE`, `PENDING`, `diagnosis_status`; statically calls `diagnosis_status`
 - [[Reference/Modules/learnloop/followup_run/serving|learnloop.followup_run.serving]] — imports `PENDING`, `diagnosis_status`; statically calls `diagnosis_status`
 - [[Reference/Modules/learnloop/learner_context|learnloop.learner_context]] — imports `DONE`, `diagnosis_status`; statically calls `diagnosis_status`
 - [[Reference/Modules/learnloop/tui/screens/feedback|learnloop.tui.screens.feedback]] — imports `DIAGNOSE_KIND`, `DONE`, `NOT_NEEDED`, `diagnosis_status`, `drain`; statically calls `diagnosis_status`, `drain`

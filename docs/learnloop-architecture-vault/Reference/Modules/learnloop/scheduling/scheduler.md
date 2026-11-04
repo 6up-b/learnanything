@@ -303,6 +303,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_exam_pool.py](../../../../../../tests/test_exam_pool.py) — direct import
   - `test_scheduler_skips_reserved_items`
 - [tests/test_exam_protection_review.py](../../../../../../tests/test_exam_protection_review.py) — direct import
+- [tests/test_followup_codex_review.py](../../../../../../tests/test_followup_codex_review.py) — direct import
+  - `test_f3_a_crash_after_the_file_leaves_an_identified_parked_item`
 - [tests/test_followup_diagnostic_selection.py](../../../../../../tests/test_followup_diagnostic_selection.py) — direct import
   - `test_repair_journey_task_with_administered_diagnostic_still_serves`
   - `test_stale_generic_task_with_administered_diagnostic_is_refused`

@@ -3,8 +3,8 @@ title: "probe_item_family_links"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "2cfe5cce75c95910c18c0105c36d952e15ab11cc"
-source_commit_timestamp: "2026-11-03T23:34:25-05:00"
+source_commit: "efd894886714472c5495a6a6b87e97e8a774701a"
+source_commit_timestamp: "2026-11-04T00:19:09-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite probe_item_family_links"
@@ -111,6 +111,7 @@ Indexes and uniqueness:
 
 ## Tests that define behavior
 
+- `tests/test_followup_codex_review.py`
 - `tests/test_followup_generate_e2e.py`
 - `tests/test_probe_dialogue.py`
 - `tests/test_probe_instance_generation.py`

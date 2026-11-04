@@ -7,9 +7,9 @@ version: "1.0.0"
 source_path: "src/learnloop/followup_run/decision_view.py"
 source_paths:
   - "src/learnloop/followup_run/decision_view.py"
-source_commit: "51766c96a7b6a1f182f4b018e6ec4bf330c49e1f"
-source_commit_timestamp: "2026-11-03T22:09:07-05:00"
-source_worktree_state: "clean"
+source_commit: "workspace/uncommitted @ HEAD efd894886714472c5495a6a6b87e97e8a774701a"
+source_commit_timestamp: "2026-11-04T00:19:09-05:00"
+source_worktree_state: "modified"
 generated: true
 generated_at: "2026-11-02"
 package: "learnloop.followup_run"
@@ -50,13 +50,13 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/followup_run/decision_view.py](../../../../../../src/learnloop/followup_run/decision_view.py) |
-| Source lines | 95 |
+| Source lines | 105 |
 | Owning package | [[Reference/Modules/learnloop/followup_run/_package|learnloop.followup_run]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
-| Worktree state | `clean` |
-| Source commit | `51766c96a7b6a1f182f4b018e6ec4bf330c49e1f` |
-| Commit timestamp | `2026-11-03T22:09:07-05:00` |
+| Worktree state | `modified` |
+| Source commit | `workspace/uncommitted @ HEAD efd894886714472c5495a6a6b87e97e8a774701a` |
+| Commit timestamp | `2026-11-04T00:19:09-05:00` |
 
 ## Public API
 
@@ -95,6 +95,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 ### LearnLoop dependencies
 
 - [[Reference/Modules/learnloop/db/repositories|learnloop.db.repositories]] — imports `Repository`
+- [[Reference/Modules/learnloop/db/stores/followup_serve|learnloop.db.stores.followup_serve]] — imports `module`; calls `any_feedback_held`, `present`
 
 ### Platform and third-party dependencies
 
@@ -114,6 +115,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
+- [tests/test_followup_codex_review.py](../../../../../../tests/test_followup_codex_review.py) — direct import
+  - `test_f2_another_decisions_card_is_held_too_since_cards_list_open_problems`
 - [tests/test_followup_router.py](../../../../../../tests/test_followup_router.py) — direct import
   - `test_the_decision_line_says_what_the_screen_should`
 

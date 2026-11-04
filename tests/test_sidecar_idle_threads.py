@@ -69,11 +69,11 @@ def _goes_quiet(threads: list[threading.Thread], attempts: int = 10) -> list[flo
 def test_an_idle_sidecars_background_threads_sleep_and_stop_on_close(tmp_path):
     paths = create_basic_vault(tmp_path / "vault")
     ctx = context(paths.root)
-    ctx.post_attempt_worker.notify()  # its three slots start and find nothing queued
+    ctx.post_attempt_worker.notify()  # its slots start and find nothing queued
     threads = _background(ctx)
     names = sorted(thread.name for thread in threads)
     assert names == ["learnloop-post-attempt-diagnose", "learnloop-post-attempt-embed",
-                     "learnloop-post-attempt-gaps", "learnloop-reading-sweep"]
+                     "learnloop-post-attempt-followup", "learnloop-post-attempt-gaps", "learnloop-reading-sweep"]
 
     used = _goes_quiet(threads)
     assert used[-1] < IDLE_CPU_SECONDS, f"idle background threads kept using CPU: {used}"
@@ -89,7 +89,7 @@ def test_the_shutdown_rpc_stops_the_idle_background_owners(tmp_path):
     ctx = context(paths.root)
     ctx.post_attempt_worker.notify()
     threads = _background(ctx)
-    assert len(threads) == 4
+    assert len(threads) == 5
 
     assert call(ctx, "shutdown", {}) == {"ok": True}
 

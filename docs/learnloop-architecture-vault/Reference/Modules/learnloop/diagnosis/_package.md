@@ -64,7 +64,7 @@ source_paths:
   - "src/learnloop/diagnosis/voi_forecasting.py"
   - "src/learnloop/diagnosis/voi_stopping.py"
 source_commit: "aggregate; see module notes"
-source_commit_timestamp: "2026-11-03T23:34:25-05:00"
+source_commit_timestamp: "2026-11-04T00:19:09-05:00"
 generated: true
 generated_at: "2026-11-02"
 package: "learnloop.diagnosis"
@@ -139,10 +139,10 @@ For system intent, use [[Learning System]].
 | [[Reference/Modules/learnloop/diagnosis/probe_blocks|learnloop.diagnosis.probe_blocks]] | [[Reference/Modules/learnloop/diagnosis/probe_blocks#^module-purpose|purpose]] | `ACTIVE` | 3 | 1 |
 | [[Reference/Modules/learnloop/diagnosis/probe_coverage|learnloop.diagnosis.probe_coverage]] | [[Reference/Modules/learnloop/diagnosis/probe_coverage#^module-purpose|purpose]] | `ACTIVE` | 1 | 2 |
 | [[Reference/Modules/learnloop/diagnosis/probe_dialogue|learnloop.diagnosis.probe_dialogue]] | [[Reference/Modules/learnloop/diagnosis/probe_dialogue#^module-purpose|purpose]] | `ACTIVE` | 1 | 3 |
-| [[Reference/Modules/learnloop/diagnosis/probe_episodes|learnloop.diagnosis.probe_episodes]] | [[Reference/Modules/learnloop/diagnosis/probe_episodes#^module-purpose|purpose]] | `ACTIVE` | 23 | 52 |
+| [[Reference/Modules/learnloop/diagnosis/probe_episodes|learnloop.diagnosis.probe_episodes]] | [[Reference/Modules/learnloop/diagnosis/probe_episodes#^module-purpose|purpose]] | `ACTIVE` | 22 | 53 |
 | [[Reference/Modules/learnloop/diagnosis/probe_families|learnloop.diagnosis.probe_families]] | [[Reference/Modules/learnloop/diagnosis/probe_families#^module-purpose|purpose]] | `ACTIVE` | 17 | 22 |
 | [[Reference/Modules/learnloop/diagnosis/probe_hypotheses|learnloop.diagnosis.probe_hypotheses]] | [[Reference/Modules/learnloop/diagnosis/probe_hypotheses#^module-purpose|purpose]] | `ACTIVE` | 14 | 10 |
-| [[Reference/Modules/learnloop/diagnosis/probe_instance_generation|learnloop.diagnosis.probe_instance_generation]] | [[Reference/Modules/learnloop/diagnosis/probe_instance_generation#^module-purpose|purpose]] | `ACTIVE` | 10 | 7 |
+| [[Reference/Modules/learnloop/diagnosis/probe_instance_generation|learnloop.diagnosis.probe_instance_generation]] | [[Reference/Modules/learnloop/diagnosis/probe_instance_generation#^module-purpose|purpose]] | `ACTIVE` | 10 | 8 |
 | [[Reference/Modules/learnloop/diagnosis/probe_lifecycle|learnloop.diagnosis.probe_lifecycle]] | [[Reference/Modules/learnloop/diagnosis/probe_lifecycle#^module-purpose|purpose]] | `ACTIVE` | 1 | 1 |
 | [[Reference/Modules/learnloop/diagnosis/probe_outcome_mapping|learnloop.diagnosis.probe_outcome_mapping]] | [[Reference/Modules/learnloop/diagnosis/probe_outcome_mapping#^module-purpose|purpose]] | `ACTIVE` | 2 | 1 |
 | [[Reference/Modules/learnloop/diagnosis/probe_remint|learnloop.diagnosis.probe_remint]] | [[Reference/Modules/learnloop/diagnosis/probe_remint#^module-purpose|purpose]] | `ACTIVE` | 1 | 2 |
@@ -204,7 +204,7 @@ For system intent, use [[Learning System]].
 - [[Reference/Modules/learnloop_sidecar/handlers/_package|learnloop_sidecar.handlers]] — 30 static module edges
 - [[Reference/Modules/learnloop/cli/_package|learnloop.cli]] — 25 static module edges
 - [[Reference/Modules/learnloop/attempts/_package|learnloop.attempts]] — 20 static module edges
-- [[Reference/Modules/learnloop/followup_run/_package|learnloop.followup_run]] — 16 static module edges
+- [[Reference/Modules/learnloop/followup_run/_package|learnloop.followup_run]] — 15 static module edges
 - [[Reference/Modules/learnloop/evsi_calibration/_package|learnloop.evsi_calibration]] — 12 static module edges
 - [[Reference/Modules/learnloop/instructional/_package|learnloop.instructional]] — 12 static module edges
 - [[Reference/Modules/learnloop/content/authoring/_package|learnloop.content.authoring]] — 9 static module edges

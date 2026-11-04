@@ -126,7 +126,18 @@ def next_action(
         # §4.2: retired while unused, if its hypotheses closed first.
         wf.retire_waiting(repository, row, reason="hypotheses_closed", clock=clock)
         return NextAction("continue")
+    if row["state"] == wf.READY and _administration_over(repository, row):
+        # Served, and its presentation has since ended: the door would refuse it, so Next doesn't offer it.
+        wf.retire_waiting(repository, row, reason="presentation_ended", clock=clock)
+        return NextAction("continue")
     if row["state"] == wf.PENDING:
+        from learnloop.followup_run.jobs import recover_workflow
+
+        # §6.1: Next never strands the learner on a handoff a crash lost.
+        recover_workflow(vault, repository, row, clock=clock)
+        row = wf.get(repository, str(row["id"])) or row
+        if row["state"] != wf.PENDING:
+            return next_action(vault, repository, attempt_id, plan_serves=plan_serves, clock=clock)
         now = utc_now_iso(clock)
         if not row.get("next_requested_at"):
             wf.set_fields(repository, str(row["id"]), next_requested_at=now, clock=clock)
@@ -142,6 +153,11 @@ def next_action(
         return NextAction("continue")
     return NextAction("open", practice_item_id=str(row["practice_item_id"]),
                       presentation_id=str(row.get("presentation_id") or "") or None)
+
+
+def _administration_over(repository: Repository, row: Mapping[str, Any]) -> bool:
+    presentation = repository.probe_presentation(str(row.get("presentation_id") or ""))
+    return _served(repository, row) and (presentation is None or presentation.status == "ended")
 
 
 def _diagnosis_timed_out(vault: Any, repository: Repository, row: Mapping[str, Any], now: str) -> bool:
@@ -172,12 +188,7 @@ def continue_without(repository: Repository, attempt_id: str, *, clock: Clock | 
     if not wf.move(repository, str(row["id"]), to_state=wf.SKIPPED, reason="continue_without_it",
                    release=wf.RELEASE_CONTINUE_WITHOUT, from_states=(wf.PENDING, wf.READY), clock=clock):
         return False
-    if row.get("practice_item_id"):
-        identity.retire(repository, str(row["practice_item_id"]), reason="continue_without_it",
-                        workflow_id=str(row["id"]), clock=clock)
-    if row.get("presentation_id"):
-        repository.end_probe_presentation(str(row["presentation_id"]), end_reason="abandoned", clock=clock)
-    _close_unmeasured_episode(repository, row, clock=clock)
+    wf.close_probe(repository, row, reason="continue_without_it", clock=clock)
     if row.get("factor_id"):
         record_learner_preference(
             repository, preference="teach_now", factor_id=str(row["factor_id"]), session_id=row.get("session_id"),
@@ -186,16 +197,6 @@ def continue_without(repository: Repository, attempt_id: str, *, clock: Clock | 
     if row.get("decision_id"):
         router.append_outcome(repository, str(row["decision_id"]), str(row["id"]), outcome="skipped", clock=clock)
     return True
-
-
-def _close_unmeasured_episode(repository: Repository, row: Mapping[str, Any], *, clock: Clock | None) -> None:
-    """A closed probe's own episode, if it measured nothing, doesn't stay open on the topic."""
-
-    from learnloop.diagnosis.probe_episodes import episode_has_observations
-
-    episode_id = row.get("probe_episode_id")
-    if episode_id and not episode_has_observations(repository, str(episode_id)):
-        repository.update_probe_episode_status(str(episode_id), status="abandoned", clock=clock)
 
 
 def show_anyway(repository: Repository, attempt_id: str, *, clock: Clock | None = None) -> bool:
@@ -223,20 +224,24 @@ def bind_plan_step(repository: Repository, step: Mapping[str, Any] | None, *, cl
 
 
 def abandon(repository: Repository, practice_item_id: str, *, clock: Clock | None = None) -> bool:
-    """A served probe skipped: abandonment closes it, and what was held is released."""
+    """A generated probe skipped: abandonment closes it, for every generated probe, with or
+    without a workflow, and what its workflow held is released."""
 
     from learnloop.followup_run import router
 
     row = wf.workflow_of_item(repository, practice_item_id)
     if row is None or row["state"] not in wf.OPEN_STATES:
-        return False
+        if not identity.is_generated_probe(repository, practice_item_id):
+            return False
+        retired = identity.retire(repository, practice_item_id, reason="abandoned", clock=clock)
+        presentation = repository.active_probe_presentation_for_item(practice_item_id)
+        if presentation is not None:
+            repository.end_probe_presentation(presentation.id, end_reason="abandoned", clock=clock)
+        return retired
     if not wf.move(repository, str(row["id"]), to_state=wf.SKIPPED, reason="abandoned",
                    release=wf.RELEASE_CONTINUE_WITHOUT, clock=clock):
         return False
-    identity.retire(repository, practice_item_id, reason="abandoned", workflow_id=str(row["id"]), clock=clock)
-    if row.get("presentation_id"):
-        repository.end_probe_presentation(str(row["presentation_id"]), end_reason="abandoned", clock=clock)
-    _close_unmeasured_episode(repository, row, clock=clock)
+    wf.close_probe(repository, row, reason="abandoned", clock=clock)
     if row.get("decision_id"):
         router.append_outcome(repository, str(row["decision_id"]), str(row["id"]), outcome="abandoned", clock=clock)
     return True

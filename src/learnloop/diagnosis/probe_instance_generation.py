@@ -1106,19 +1106,27 @@ def generate_instances_for_episode(
             if generator_id == LLM_GENERATOR_ID:
                 instance_metadata["generator_model"] = getattr(ai_client, "model", None)
                 instance_metadata["prompt_version"] = _llm_prompt_version()
-            upsert_practice_item(vault.root, payload, clock=clock)
-            repository.link_probe_item_family(
-                practice_item_id=payload["id"],
-                instrument_card_id=card.id,
-                instrument_card_version=card.version,
-                generator_id=generator_id,
-                generator_version=generator_version,
-                generation_seed=str(seed),
-                instance_metadata=instance_metadata,
-                clock=clock,
-            )
+            def record_generated() -> None:
+                repository.link_probe_item_family(
+                    practice_item_id=payload["id"],
+                    instrument_card_id=card.id,
+                    instrument_card_version=card.version,
+                    generator_id=generator_id,
+                    generator_version=generator_version,
+                    generation_seed=str(seed),
+                    instance_metadata=instance_metadata,
+                    clock=clock,
+                )
+                if fg1:
+                    _register_single_use(repository, payload, source="batch", episode_id=episode.id, clock=clock)
+
             if fg1:
-                _register_single_use(repository, payload, source="batch", episode_id=episode.id, clock=clock)
+                # FG1 §4.2: the identity before the file, so no crash publishes one without it.
+                with repository.atomic():
+                    record_generated()
+            upsert_practice_item(vault.root, payload, clock=clock)
+            if not fg1:
+                record_generated()
             repository.upsert_practice_item_state(
                 payload["id"],
                 active=review_status == "auto_admitted_provisional",
@@ -1288,33 +1296,41 @@ def mint_single_use_probe_surface(
             if surface_family and surface_family in attempted_surfaces:
                 continue
 
-            upsert_practice_item(vault.root, payload, clock=clock)
-            repository.link_probe_item_family(
-                practice_item_id=payload["id"],
-                instrument_card_id=card.id,
-                instrument_card_version=card.version,
-                generator_id=generator_id,
-                generator_version=generator_version,
-                generation_seed=str(seed),
-                instance_metadata={
-                    "review_status": review_status,
-                    "surface_family": payload["surface_family"],
-                    "family_status_at_generation": family_status,
-                    "single_use_probe_mint": True,
-                    "probe_episode_id": episode.id,
-                    **(
-                        {
-                            "generator_model": getattr(ai_client, "model", None),
-                            "prompt_version": _llm_prompt_version(),
-                        }
-                        if generator_id == LLM_GENERATOR_ID
-                        else {}
-                    ),
-                },
-                clock=clock,
-            )
+            def record_generated() -> None:
+                repository.link_probe_item_family(
+                    practice_item_id=payload["id"],
+                    instrument_card_id=card.id,
+                    instrument_card_version=card.version,
+                    generator_id=generator_id,
+                    generator_version=generator_version,
+                    generation_seed=str(seed),
+                    instance_metadata={
+                        "review_status": review_status,
+                        "surface_family": payload["surface_family"],
+                        "family_status_at_generation": family_status,
+                        "single_use_probe_mint": True,
+                        "probe_episode_id": episode.id,
+                        **(
+                            {
+                                "generator_model": getattr(ai_client, "model", None),
+                                "prompt_version": _llm_prompt_version(),
+                            }
+                            if generator_id == LLM_GENERATOR_ID
+                            else {}
+                        ),
+                    },
+                    clock=clock,
+                )
+                if fg1:
+                    _register_single_use(repository, payload, source="mint", episode_id=episode.id, clock=clock)
+
             if fg1:
-                _register_single_use(repository, payload, source="mint", episode_id=episode.id, clock=clock)
+                # FG1 §4.2: the identity before the file, so no crash publishes one without it.
+                with repository.atomic():
+                    record_generated()
+            upsert_practice_item(vault.root, payload, clock=clock)
+            if not fg1:
+                record_generated()
             repository.upsert_practice_item_state(
                 payload["id"],
                 active=review_status == "auto_admitted_provisional",

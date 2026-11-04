@@ -186,6 +186,18 @@ def run_post_attempt_pipeline(
                 # A diagnostic block still measuring is diagnosed at block end
                 # (``probe_blocks``), exactly as it is normalized there today.
                 enqueue_post_attempt_diagnosis(vault, repository, attempt_id=result.attempt_id, clock=clock)
+            # FG1: both handoffs commit with the completion, since a completed attempt is
+            # never completed again and a crash after it would strand them. An answer to a
+            # generated probe settles its workflow and releases what it held.
+            from learnloop.followup_serve.queue import enqueue_workflow
+            from learnloop.followup_serve.workflow import probe_answered
+
+            probe_answered(repository, str(getattr(result, "practice_item_id", "") or ""),
+                           attempt_id=result.attempt_id, clock=clock)
+            if workflow is not None and not blind:
+                # A joint vault has no live diagnosis job, and a shadow one never moves a
+                # workflow (spec §3.1): selection uses what normalization has already written.
+                enqueue_workflow(repository, str(workflow["id"]), clock=clock)
             repository.complete_attempt_work(
                 result.attempt_id,
                 result=result.as_dict(),
@@ -195,16 +207,6 @@ def run_post_attempt_pipeline(
         # After the completion commits: a non-empty stuck answer is queued
         # for the learner-text gap reading (never fails the attempt).
         enqueue_post_attempt_learner_text(vault, repository, attempt_id=result.attempt_id, clock=clock)
-        # FG1: an answer to a generated probe settles its workflow and releases what it held.
-        from learnloop.followup_serve.workflow import probe_answered
-
-        probe_answered(repository, str(getattr(result, "practice_item_id", "") or ""), attempt_id=result.attempt_id, clock=clock)
-        if workflow is not None and not (blind or _shadow_diagnosis_enabled(vault)):
-            # A joint vault has no live diagnosis job (spec §3.1): selection uses the
-            # hypotheses normalization has already written.
-            from learnloop.followup_serve.queue import enqueue_workflow
-
-            enqueue_workflow(repository, str(workflow["id"]), clock=clock)
     notes = (suppress_insertion_reason,) if suppress_insertion_reason is not None else ()
     return PostAttemptOutcome(
         attempt_id=result.attempt_id, followup=decision, notes=notes,

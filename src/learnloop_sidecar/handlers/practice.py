@@ -1940,16 +1940,16 @@ def _store_submission_receipt(
 @host_mutation
 def skip_practice_item(ctx: SidecarContext, params: SkipInput) -> dict[str, Any]:
     vault, repository = ctx.require_vault()
-    # FG1 §4.2: skipping a generated probe abandons it, and it is never served again.
-    from learnloop.followup_run.serving import abandon
-
-    abandon(repository, params.practice_item_id)
     # Mobile PR-4: refused early, before the queue is built, when the session
     # is another device's; checked again below, with the generation read here,
     # in the transaction that publishes the offer and clears the checkpoint
     # (Codex review F1), so a session adopted while the queue was being built
     # keeps the new owner's draft.
     session = require_owned_session(ctx, repository, params.session_id)
+    # FG1 §4.2: skipping a generated probe abandons it, and it is never served again.
+    from learnloop.followup_run.serving import abandon
+
+    abandon(repository, params.practice_item_id)
     generation = int(session.get("owner_generation") or 0)
     trace = offer_trace_for(vault, params.session_id)
     held_for_device = device_filter(ctx.request_origin, vault, repository, params.session_id)

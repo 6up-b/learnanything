@@ -507,6 +507,32 @@ class PastWork:
                 return reason
         return None
 
+    def exam_reason(self, answers: Iterable[Any] = (), items: Iterable[Any] = (),
+                    sources: Iterable[Mapping[str, Any]] = ()) -> str | None:
+        """The leakage rule for a reader that may see everything but exam material (FG1's
+        author: a new question, on a topic the learner just answered): why a text written
+        from these may quote exam or reserved material, or why that can't be ruled out. A
+        check waiting or a probe the learner answered holds its item from the learner, and
+        doesn't stop this reader."""
+
+        if not self.withheld.available:
+            return WITHHELD_UNREADABLE
+        answer_ids = sorted(_ids(answers))
+        self.load(answer_ids)
+        item_ids = _ids(items)
+        for answer in answer_ids:
+            row = self.attempt(answer)
+            if row is None:
+                return ANSWER_UNRECORDED
+            if row.get("type") in EXAM_ATTEMPT_TYPES:
+                return WITHHELD_EXAM
+            item_ids |= _ids([row.get("item")])
+        for item in sorted(item_ids):
+            reason = self.withheld.reason(item)
+            if reason not in {None, WITHHELD_COLD, WITHHELD_PROBE}:
+                return reason
+        return self.source_reason(sources)
+
     # -- what a writer read (a derived text's write-time record) -----------------------
 
     def window_closed(self, item_id: Any) -> bool:

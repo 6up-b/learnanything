@@ -171,7 +171,6 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 - [[Reference/Modules/learnloop/diagnosis/probe_instance_generation|learnloop.diagnosis.probe_instance_generation]] — imports `administered_surface_exclusions`, `eligible_instruments`; statically calls `administered_surface_exclusions`, `eligible_instruments`
 - [[Reference/Modules/learnloop/diagnosis/probe_targeting|learnloop.diagnosis.probe_targeting]] — imports `eligible_instruments`; statically calls `eligible_instruments`
 - [[Reference/Modules/learnloop/followup_run/admission|learnloop.followup_run.admission]] — imports `administered_surface_exclusions`; statically calls `administered_surface_exclusions`
-- [[Reference/Modules/learnloop/followup_run/serving|learnloop.followup_run.serving]] — imports `episode_has_observations`; statically calls `episode_has_observations`
 - [[Reference/Modules/learnloop/instructional/valuation|learnloop.instructional.valuation]] — imports `eligible_instruments`, `episode_hypothesis_set`, `episode_posterior`; statically calls `eligible_instruments`, `episode_hypothesis_set`, `episode_posterior`
 - [[Reference/Modules/learnloop/scheduling/scheduler|learnloop.scheduling.scheduler]] — imports `EligibleInstrument`, `EpisodePosterior`, `RoutineDisplayCovered`, `administered_surface_exclusions`, `eligible_instruments`, `episode_hypothesis_set`, `episode_posterior`, `presentation_commit_payload`, `probe_serving_block_reason`, `record_presentation_forecast`, `robust_gate_counterfactual`; statically calls `administered_surface_exclusions`, `eligible_instruments`, `episode_hypothesis_set`, `episode_posterior`, `presentation_commit_payload`, `probe_serving_block_reason`, `record_presentation_forecast`, `robust_gate_counterfactual`
 - [[Reference/Modules/learnloop/sim/diagnostic_validation|learnloop.sim.diagnostic_validation]] — imports `RoutineDisplayCovered`, `commit_presentation`, `eligible_instruments`, `episode_posterior`, `serve_presentation`; statically calls `commit_presentation`, `eligible_instruments`, `episode_posterior`, `serve_presentation`
@@ -232,7 +231,7 @@ Use this module in context through:
 - [[Process Model Output]]
 - [[Start a Learning Cycle]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/attempts/attempts|learnloop.attempts.attempts]], [[Reference/Modules/learnloop/curriculum/confusable_concepts|learnloop.curriculum.confusable_concepts]], [[Reference/Modules/learnloop/curriculum/golden_path_run|learnloop.curriculum.golden_path_run]], [[Reference/Modules/learnloop/diagnosis/calibration_sessions|learnloop.diagnosis.calibration_sessions]], [[Reference/Modules/learnloop/diagnosis/causal_orchestrator|learnloop.diagnosis.causal_orchestrator]] and 18 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/attempts/attempts|learnloop.attempts.attempts]], [[Reference/Modules/learnloop/curriculum/confusable_concepts|learnloop.curriculum.confusable_concepts]], [[Reference/Modules/learnloop/curriculum/golden_path_run|learnloop.curriculum.golden_path_run]], [[Reference/Modules/learnloop/diagnosis/calibration_sessions|learnloop.diagnosis.calibration_sessions]], [[Reference/Modules/learnloop/diagnosis/causal_orchestrator|learnloop.diagnosis.causal_orchestrator]] and 17 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
@@ -270,6 +269,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_staged_owned_item_never_surfaces_in_probe_slate`
   - `test_unowned_probe_slate_is_byte_identical`
   - `test_wholly_staged_owned_lo_refuses_probe_administration`
+- [tests/test_followup_codex_review.py](../../../../../../tests/test_followup_codex_review.py) — direct import
+  - `test_f3_the_mint_and_the_batch_write_the_identity_before_the_file`
 - [tests/test_followup_generate_e2e.py](../../../../../../tests/test_followup_generate_e2e.py) — direct import
   - `test_entry_enqueues_deduplicated_work_and_never_calls_a_model_inline`
 - [tests/test_followup_journey.py](../../../../../../tests/test_followup_journey.py) — direct import

@@ -342,6 +342,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_figures_show_me.py](../../../../../../tests/test_figures_show_me.py) — direct import
   - `test_an_rw5ab_request_hashes_and_prompts_exactly_as_before`
 - [tests/test_figures_show_me_codex_review.py](../../../../../../tests/test_figures_show_me_codex_review.py) — direct import
+- [tests/test_followup_codex_review.py](../../../../../../tests/test_followup_codex_review.py) — direct import
+  - `test_f1_an_in_flight_generation_reserves_against_the_next`
 - [tests/test_followups_batch5_lesson.py](../../../../../../tests/test_followups_batch5_lesson.py) — direct import
 - [tests/test_glm_ocr.py](../../../../../../tests/test_glm_ocr.py) — direct import
   - `test_429_and_5xx_retry_with_their_own_admission_and_receipt`

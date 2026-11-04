@@ -692,7 +692,7 @@ def build_followup_decision(decision: Mapping[str, Any]) -> dict[str, Any]:
     sampled = bool(mixture) and propensity_kind == "exact"
     return {
         "id": str(record.get("decision_id") or new_ulid()),
-        "receipt_key": f"{INTERRUPT_KIND}:{decision.get('block_id') or ''}:{workflow.get('id')}",
+        "receipt_key": _followup_receipt_key(decision.get("block_id"), workflow.get("id")),
         "decision_kind": INTERRUPT_KIND,
         "surface": SURFACE,
         "mode": str(record.get("mode") or "mixture"),
@@ -725,6 +725,22 @@ def build_followup_decision(decision: Mapping[str, Any]) -> dict[str, Any]:
     }
 
 
+def _followup_receipt_key(block_id: Any, workflow_id: Any) -> str:
+    return f"{INTERRUPT_KIND}:{block_id or ''}:{workflow_id}"
+
+
+def existing_followup_decision(connection: Any, *, block_id: Any, workflow_id: str) -> Mapping[str, Any] | None:
+    """The decision this workflow already logged on this block, or None: its immutable receipt."""
+
+    if not _ledger_present(connection):
+        return None
+    row = connection.execute(
+        "SELECT id, chosen_ref, propensity FROM router_decisions WHERE receipt_key = ?",
+        (_followup_receipt_key(block_id, workflow_id),),
+    ).fetchone()
+    return dict(row) if row is not None else None
+
+
 def log_followup_decision(connection: Any, decision: Mapping[str, Any]) -> str | None:
     """Write one FG1 row on the caller's transaction, its card and payloads beside it."""
 
@@ -753,6 +769,7 @@ __all__ = [
     "build_plan_block_decision",
     "log_followup_decision",
     "build_plan_interrupt_decision",
+    "existing_followup_decision",
     "log_plan_block_decision",
     "log_plan_interrupt_decision",
 ]

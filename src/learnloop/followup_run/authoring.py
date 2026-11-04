@@ -60,6 +60,35 @@ def admissible_item(withheld: Any, item: Any) -> bool:
     return withheld.reason(str(item.id)) is None
 
 
+def hypotheses_exam_reason(vault: Any, repository: Repository, hypothesis_ids: Sequence[str]) -> str | None:
+    """Why any of these causes' words may carry exam material, or None.
+
+    A statement can quote what it was written from, so the items' filter below doesn't cover
+    it. The shared leakage rule decides, by provenance, never by the words: the attempts of the
+    hypothesis's episode, and the items and sources its writer recorded reading
+    (``PastWork.exam_reason``). Raises when protection can't be read, so no request is built.
+    """
+
+    from learnloop.db.stores.write_provenance import stored_record
+    from learnloop.learner_protection import PastWork, hypothesis_answers
+
+    withheld = protection_view(vault, repository)
+    with repository.connection() as connection:
+        past = PastWork(connection, vault, repository, withheld=withheld)
+        behind = hypothesis_answers(connection, hypothesis_ids)
+        for hypothesis_id in hypothesis_ids:
+            record = stored_record(connection, "hypothesis", str(hypothesis_id))
+            inputs = record.record.inputs if record is not None else None
+            reason = past.exam_reason(
+                answers=[*behind.get(str(hypothesis_id), ()), *(inputs.answers if inputs else ())],
+                items=[*(inputs.items if inputs else ()), *(inputs.solution_items if inputs else ())],
+                sources=inputs.sources if inputs else (),
+            )
+            if reason is not None:
+                return reason
+    return None
+
+
 def build_context(
     vault: Any,
     repository: Repository,
@@ -73,11 +102,14 @@ def build_context(
 ) -> tuple[FollowupProbeContext, dict[str, str]]:
     """The prompt's context, and the reference -> hypothesis id map.
 
-    Only what ``protection_view`` admits reaches it. The hypotheses carry their statement,
+    Only what ``protection_view`` admits reaches it, and a cause written from exam material
+    stops it here (:func:`hypotheses_exam_reason`). The hypotheses carry their statement,
     scope and typed target: never a postdictive claim, and never the learner's answer.
     """
 
     withheld = protection_view(vault, repository)
+    if hypotheses_exam_reason(vault, repository, [str(hypothesis["id"]) for hypothesis in hypotheses]) is not None:
+        raise AuthoringRejected("causes_from_exam_material")
     learning_object = vault.learning_objects[learning_object_id]
     existing = sorted(
         item.prompt.strip()
@@ -192,5 +224,5 @@ def resolve_author_client(vault: Any) -> Any | None:
 
 __all__ = [
     "AUTHORING_PURPOSE", "AUTHOR_AXES", "AUTHOR_ROUTE", "AuthoredProbe", "AuthoringRejected", "admissible_item",
-    "build_context", "check_output", "protection_view", "request_authored_probe", "resolve_author_client",
+    "build_context", "check_output", "hypotheses_exam_reason", "protection_view", "request_authored_probe", "resolve_author_client",
 ]

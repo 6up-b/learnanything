@@ -16,6 +16,7 @@ import logging
 from typing import Any
 
 from learnloop.clock import Clock, parse_utc, utc_now_iso
+from learnloop.daily_plan.router_runtime import FOLLOWUP_GENERATION_OWNER
 from learnloop.db.repositories import Repository
 from learnloop.db.stores import followup_serve as store
 from learnloop.followup_serve import workflow as wf
@@ -24,8 +25,9 @@ from learnloop.followup_serve.gates import generate_and_serve_on
 
 LOG = logging.getLogger(__name__)
 
-#: The model-call receipts of one generation job: calls and cost per probe are read from these.
-RECEIPT_OWNER = "followup_generation"
+#: The model-call receipts of one generation job: calls and cost per probe are read from these,
+#: and the router's daily guard counts them, so several jobs can't pass its cap between them.
+RECEIPT_OWNER = FOLLOWUP_GENERATION_OWNER
 
 #: A job's lease: a generation is one structured model call with its checks.
 LEASE_SECONDS = 900.0
@@ -127,6 +129,40 @@ def fail_workflow(vault: Any, repository: Repository, workflow_id: str, *, reaso
                clock=clock) and row.get("factor_id"):
         queue.enqueue_factor(repository, str(row["factor_id"]), workflow_id=workflow_id,
                              not_before=_iso_after(clock, NEED_RETRY_DELAY_SECONDS), clock=clock)
+
+
+def recover_workflow(vault: Any, repository: Repository, row: Mapping[str, Any], *, clock: Clock | None = None) -> bool:
+    """§6.2's "Next never strands": a pending workflow whose diagnosis ended and whose job a
+    crash lost gets that job; one whose job ended with the workflow still pending fails, with
+    its failure line. Idempotent, and nothing happens while the diagnosis is still out."""
+
+    from learnloop.diagnosis.split.jobs import PENDING, diagnosis_status
+
+    if row["state"] != wf.PENDING:
+        return False
+    attempt_id = str(row["source_attempt_id"])
+    if (repository.latest_blind_grade_record(attempt_id) is not None
+            and diagnosis_status(repository, attempt_id)["status"] == PENDING):
+        return False
+    workflow_id = str(row["id"])
+    with repository.connection() as connection:
+        job = store.generation_job(connection, f"workflow:{workflow_id}")
+    if job is None:
+        return queue.enqueue_workflow(repository, workflow_id, clock=clock) is not None
+    if job["state"] in {"done", "failed", "skipped"}:
+        fail_workflow(vault, repository, workflow_id, reason="generation_job_ended", clock=clock)
+        return True
+    return False
+
+
+def recover_pending_workflows(vault: Any, repository: Repository, *, clock: Clock | None = None) -> int:
+    """At startup: what a previous process committed and never handed off."""
+
+    if not generate_and_serve_on(vault.config):
+        return 0
+    with repository.connection() as connection:
+        rows = store.open_workflows(connection, states=(wf.PENDING,)) if store.present(connection) else []
+    return sum(1 for row in rows if recover_workflow(vault, repository, row, clock=clock))
 
 
 def _run(vault: Any, repository: Repository, job: Mapping[str, Any], *, clients: Any, clock: Clock | None) -> None:
@@ -265,6 +301,18 @@ def _run_workflow(vault: Any, repository: Repository, workflow_id: str, *, clien
     if choice.lane != wf.LANE_PROBE:
         settle_practice_lane(vault, repository, row, reason=choice.reason, clock=clock)
         return
+    # §4.1, §8: a cause written from exam material sends its words to neither the router nor
+    # the author, so this miss takes the practice lane. Before anything is spent.
+    from learnloop.followup_run.authoring import AuthoringRejected, hypotheses_exam_reason
+
+    try:
+        protected = hypotheses_exam_reason(vault, repository, choice.hypothesis_ids)
+    except AuthoringRejected as rejected:
+        fail_workflow(vault, repository, workflow_id, reason=str(rejected), clock=clock)
+        return
+    if protected is not None:
+        settle_practice_lane(vault, repository, row, reason="causes_from_exam_material", clock=clock)
+        return
     wf.set_fields(repository, workflow_id, lane=wf.LANE_PROBE, factor_id=choice.factor_id, clock=clock)
     row = wf.get(repository, workflow_id) or row
     _run_probe_lane(vault, repository, row, choice=choice, clients=clients, clock=clock)
@@ -287,8 +335,8 @@ def _run_probe_lane(vault: Any, repository: Repository, row: Mapping[str, Any], 
 
     workflow_id = str(row["id"])
     factor_id = str(choice.factor_id)
-    decision = router.decide(vault, repository, row, choice=choice, clients=clients, clock=clock)
-    decision = router.record_decision(vault, repository, row, decision, clock=clock)
+    # Retry and lease recovery run under the decision already drawn, never a fresh draw.
+    decision = router.decide_once(vault, repository, row, choice=choice, clients=clients, clock=clock)
     if decision.refused:
         wf.move(repository, workflow_id, to_state=wf.REFUSED, reason=decision.reason, release=wf.RELEASE_REFUSED,
                 clock=clock)
@@ -306,6 +354,8 @@ def _run_probe_lane(vault: Any, repository: Repository, row: Mapping[str, Any], 
     client = _author_client(vault, clients)
     if client is None:
         raise GenerationDeferred("author_route_not_ready")
+    # §4.2: what an interrupted run published and never bound is never served.
+    admission.withdraw_interrupted(repository, workflow_id=workflow_id, factor_id=factor_id, clock=clock)
     item_id: str | None = None
     fresh = vault
     try:
@@ -366,5 +416,5 @@ def _retire(repository: Repository, item_id: str | None, *, reason: str, workflo
 __all__ = [
     "GenerationDeferred", "JobOutcome", "LEASE_SECONDS", "MAX_GENERATION_ATTEMPTS", "NEED_RETRY_DELAY_SECONDS",
     "RETRY_BACKOFF_SECONDS",
-    "fail_workflow", "process_next_job", "reloaded",
+    "fail_workflow", "process_next_job", "recover_pending_workflows", "recover_workflow", "reloaded",
 ]

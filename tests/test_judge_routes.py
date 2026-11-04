@@ -168,7 +168,8 @@ def test_settings_payload_discloses_each_judgment_route(tmp_path, monkeypatch, c
                            "hint_outcome", "ad_forecast_llm", "ad_forecast_decider", "ad_feature_audit",
                            "workbench_check", "passage_cue_judge", "reading_path_judge", "figure_author",
                            "deliverable_scope_resolver", "deliverable_path_judge", "reader_digest",
-                           "figure_rich_author", "note_link_judge", "teacher", "figure_prefetch_judge"}
+                           "figure_rich_author", "note_link_judge", "teacher", "figure_prefetch_judge",
+                           "followup_probe_author"}
     # Reader RW5d P5: the prefetch judge reads section text (and in gap mode one sentence of what
     # LearnLoop thinks you're unsure of), only with the switch on, only on the plan, never exam material.
     assert "figures.prefetch_enabled is on" in judges["figure_prefetch_judge"]["disclosure"]
