@@ -1,0 +1,238 @@
+# Follow-up generate and serve (FG1)
+
+**Status:** owner's decisions recorded, 2026-11-03 (§2, §11). Revised after a read-only Sol review against the code (job 20261103-211904-wVotHw). Nothing here is built. Code references are to main at `02f7cbec2d`.
+
+## 1. The problem
+
+A learner misses a question. The diagnoser writes several possible causes. Then one of two things happens:
+
+- no suitable item exists, so a need is recorded and nothing is asked;
+- an existing item is queued. In split vaults it was chosen at grade time, before the causes existed (`attempts/post_attempt.py:150`, with diagnosis enqueued afterwards; the worker never reruns selection, `diagnosis/followups.py:945`).
+
+Either way the mistake usually isn't addressed, and the learner moves on to the next queue item or to Today. No spec covered this. Three specified the behaviour we are changing (§9).
+
+## 2. The owner's decisions (Nov 3, verbatim)
+
+> Follow up rules should prefer direct generation over looking for a suitable existing item, since generated items will be far more targeted and applicable. auto_generate_on_entry should default to true for all vaults. When a follow up intervention is chosen for a follow up probe, hypotheses are written, then a follow up question should be generated immediately to be served to the user. I think the intended user journey is if after a practice item opens up several hypotheses and the action router decides an intervention, this intervention specifically should be served immediately. Right now the behavior is confusing and the user's mistake isn't addressed and they're just send to the Today queue, which doesn't make any sense.
+
+> The user I feel like could also read the generated hypotheses and offer insight from their own evaluation on what their gap is that we can use to inform later model training (of course this is an imperfect sensor from the user, but it would definitely help. Like being able to mark a hypothesis as more correct or the learner recognizes that this is their gap of understanding. I think textbook first should be a philosophy for generating practice items, but for probes I think generation is superior. The router can keep its "wait" option but I feel like this should also be clear in the UI/UX. The action router's decisions I think should be clear at least for now for debugging and callibration. And yes generated probes should skip manual review and be single use surfaces that do not become practice items later or are ever served again.
+
+## 3. The journey
+
+1. The learner answers and sees the blind grade at once: the verdict and the criteria. The worked answer and the diagnosis text are held (§6.0).
+2. The diagnosis job writes its hypotheses.
+3. The system picks a lane (§4).
+4. The router decides whether and when (§5).
+5. The question is generated at once (§4.1).
+6. Next opens it. If it isn't ready, Next waits and says so (§6.1).
+7. The learner answers the probe, and its answer separates the hypotheses.
+8. The held feedback appears, repair follows through the existing path, and the learner can mark which hypothesis fits (§7).
+
+### 3.1 Where the journey doesn't run
+
+- **Exam sittings.** No follow-up or banner between answers. `finish_exam` runs the batch afterwards, which ranks failures worst-first and caps follow-ups at three (`post_attempt.py:300`). FG1 records that eligibility and cap before any generation, so later jobs can't get around the cap.
+- **Diagnostic blocks.** A follow-up mid-block would reveal that the last answer was wrong (`followups.py:624`), so block completion releases eligibility. If an episode with locked hypotheses is already measuring, it is not replaced.
+- **Joint vaults.** There is no live diagnosis job (`diagnosis/split/jobs.py:144`). Selection uses the hypotheses normalization has already written.
+- **Surfaces without the pending and skip behaviour** stay on predecessor behaviour: the TUI has its own Next (`tui/screens/feedback.py:655`). FG1 serving is enabled only with that surface's UI. See §10 for the phone.
+
+## 4. Two lanes
+
+| Lane | When | Source of the question |
+|---|---|---|
+| **Probe** | The diagnosis leaves two or more current concrete rival causes in the selected factor. `H_OTHER` is kept in the set but not counted (`causal_probe_coherence.py:728`) | Always generated, aimed at those hypotheses |
+| **Practice** | The cause is known or there is only one hypothesis; or there is no diagnosis | Existing item, then textbook exercise, then generated |
+
+The existing-item chooser no longer runs for the probe lane.
+
+The practice lane keeps the existing chooser and S2b's textbook-first order. One thing changes: a recorded need is now filled automatically in the background, instead of waiting for a click or a CLI command.
+
+### 4.1 Generated probes
+
+Today's two half-paths don't compose. The mint (`probe_instance_generation.py:1117`) never sees the rival causes and commonly writes one generic `correctness` criterion. Commissioning (`causal_probe_commissioning.py:383`, CLI only) writes no question: it needs an existing item, and it derives predictions from criterion targets the mint doesn't supply. Family likelihoods also send arbitrary causes to `other_or_unknown` (`probe_families.py:707`).
+
+So the build adds:
+
+- **One new authoring operation on a frontier LLM,** taking the router's decision and the rival causes. It produces the question, the key, an independently authored criterion contract and a manipulation contract.
+- **Reuse of the mint's persistence and single-use handling,** then commissioning of that explicit item with observation-free prediction bundles.
+- **A defined presentation binding.** Generic family rows are not the causal measurement. Bundle features are limited to what the existing sensor can read (`causal_orchestrator.py:2796, 2904`), or the build names a new sensor.
+- **The pinned offer, run automatically.** Plain queue insertion would lose the `causal_probe` pin classification needs (`causal_orchestrator.py:2151`).
+
+**No human review.** The lifecycle stays and automation drives it: serving accepts only `active` candidates (`causal_orchestrator.py:2053`), so a machine admission receipt moves the candidate and updates the family-link and item state (`causal_probe_coherence.py:1674`). These automated checks stay, and a failure means the question isn't served:
+
+- the structural instance gate and the never-before-seen check;
+- the manipulation audit (`causal_probe_coherence.py:1418`);
+- the blind prediction bundles;
+- exam-material protection, which needs new work: `llm_instance_payloads` sends every item on the topic to the generator with no protection filter (`probe_instance_generation.py:813, 837`), and the structural gate isn't an exam-material gate. The context builder must exclude protected material and exam reservations before any prompt, and generated-item provenance and output checks run before activation.
+
+The automated adversarial review runs only if its cost fits the wait; the build reports its time and cost.
+
+**Evidence.** Answers count as evidence from the first serve, as for any diagnostic probe. The admissibility rule stays exactly as it is (§6.0).
+
+**No template fallback.** Parametric templates can't aim at specific hypotheses, so they aren't a fallback on this lane. If generation fails, see §6.2.
+
+### 4.2 Single use, strictly
+
+A generated probe is served once and never again. It never becomes a practice item. One durable identity and retirement rule governs every door, not a naming convention or the generic `codex_proposal` origin.
+
+- **Burned at first serve.** An atomic claim, keyed to item revision, surface and presentation, blocks any new administration and keeps that presentation's one valid submission. Ending the presentation at burn would make submission fail (`probe_episodes.py:1808`). Generation, queue listing, plan prefetch and presentation commit never burn. Abandonment closes it. A response lost after the server burned the item counts as burned: a server can't prove pixels were displayed, so this errs toward never repeating.
+- **Reserved for its workflow** until then, so a selected id or precommitted presentation isn't exclusive across devices.
+- **Retired while unused** if its hypotheses close first, or the learner takes *Continue without it*.
+- **Kept for history.** The item stays in the vault so attempts and replays resolve. The build measures vault growth.
+
+| Door | What the build does |
+|---|---|
+| Queue and direct-by-id opens | Burn and ownership checks at the actual serve (`serving_exclusions.py:147, 260`) |
+| Plan pool | Checks standing plans too; served items can reopen (`engine.py:4239`) |
+| `find_practice` | Already excludes diagnostic modes (`practice_index/admission.py:116`); keep it, recheck stale picks |
+| Teacher | Brief probe headers list unattempted items without checking active state or mode (`teacher/brief.py:419`); exclude FG1 items |
+| AD | Limited to the plan's admitted pool (`daily_plan/ad_slot.py:21`); FG1 items never become new-material candidates |
+| Exams | Reservations don't exclude `diagnostic_probe` (`goals/exam_pool.py:423`); exclude FG1 items at reservation and on frozen pools |
+| Phone | Submit rejects `probe_presentation_id` (`learnloop_mobile/allowlist.py:81`); see §10 |
+| MCP | Read-only with no question text (`remote/views.py:141, 189`); keep it |
+| Follow-up tasks | `cold_retry` may reuse an administered diagnostic item (`scheduler.py:1550, 2353`); FG1 identity overrides that |
+| Rebuild replay | Replay reproduces attempt-time deactivation only (`substrate/replay.py:327`); add burn-ledger replay, and no generation during rebuild |
+| `state_sync` | Reactivation guards only on `last_attempt_at` (`state_sync.py:44`); add burn and retirement to the shared predicate |
+| Check once | Can use a diagnostic presentation (`practice.py:579`); shared admission gets the FG1 rule, including standing assignments |
+| Remint | Accepts diagnostic probes (`probe_remint.py:245`); refuses FG1 identity |
+
+### 4.3 `auto_generate_on_entry`
+
+The owner's decision is true for all vaults. A schema change alone can't deliver it, because the template writes an explicit `false` that loading honours (`config/template.py:286`, `config/loader.py:64`), and rewriting vault files would break rollback. So the successor computes the **effective** setting: true while FG1 is on, whatever the file says, leaving the stored value for rollback. New vaults get `true`.
+
+Passing a client alone wouldn't give model-written single-use questions. Entry currently runs the batch generator synchronously: two instances per family, parking provisional families, with parametric fallback (`probe_instance_generation.py:695, 996`). Entry also comes from far more than sync: misconception and prediction-failure re-probes, stale uncertainty, calibration, goal diagnostics and diagnostic packs (`probe_episodes.py:651, 719`, `calibration_sessions.py:219`, `diagnostic_pack.py:317`). So:
+
+- **Every entry point enqueues deduplicated generation work.** Opening a vault can't stall or burst. A calibration the learner starts may still generate in its own flow.
+- **The worker chooses the contract.** With concrete rival causes, it uses §4.1. Otherwise it uses the family's question pattern, written by the model.
+- **All generated probes are single use** (§12), under §4.2.
+
+## 5. The router
+
+Today the router decides only between "ask now" and "wait" on an item that already exists, and value checks can suppress a follow-up first.
+
+1. **A durable workflow owns each intervention.** It has a stable id before routing, keyed to the source attempt and the effective diagnosis or grade revision, with states pending, ready, waiting, refused, failed, skipped and settled. Predecessor insertion is suppressed only while it owns the attempt, and every Next and serve door reads it. A timeout settles one fallback. A late diagnosis or generator can't add a second intervention after a fallback, a skip, factor closure or a newer diagnosis. Generation doesn't run inside the strictly ordered diagnosis worker (`post_attempt_worker.py:3`), so later diagnoses aren't delayed. Retry and crash recovery reuse the workflow's identity.
+2. **The decision comes before the item.** `plan_interrupt` today indexes `practice_item_id` for its candidates, `receipt_key` and chosen action (`router/plan_log.py:529, 571`), and rows are append-only (`db/stores/router.py:102`). The decision stays immutable and names the workflow. A separate appended binding links it to the generated item and both presentations. Receipt parsing, outcome joins (`router/outcomes.py:432, 874`) and data capture follow that binding. Generation failure, skip and abandonment are distinct outcomes, and a wait is measured through its eventual binding.
+3. **Waiting stays.** A wait generates at once as preparation, under the same budget, with boundary room reserved. Before serving, it revalidates hypothesis versions, item constraints and room. Next continues the current block after a wait; it doesn't wait for the future question.
+4. **It can choose no intervention.** Today it never decides whether (`engine.py:3600`). `no_intervention` sits in the same logged mixture, including its random floor, so weak cases are the router's call. Nothing is generated, the screen shows the decision (§6.4), and held feedback and causes are released.
+5. **Value checks stop suppressing this lane.** They log but don't decide, in line with the Nov 2 decision that the nat-scale rule stop deciding. That covers the follow-up check (`followups.py:~395`), the probe contract's value refusal (`practice.py:554`), and the causal decision policy's value and EIG skips. If rivals share a repair class, commissioning refuses today (`causal_probe_commissioning.py:481`); on this lane that becomes a fact on the router's card, since the owner allows minutes to be spent on improving the model. The build lists any gate it can't make observational.
+
+**Hard refusals stay:** constraint refusals, episode conflicts (`causal_orchestrator.py:1830`), pending machine checks (the orchestrator's rule that a bad item or grader is ruled out first), incomplete measurement, and a learner's own "Not now".
+
+### 5.1 The causal orchestrator's role
+
+The router decides whether and when. The orchestrator keeps the measurement. `decide_probe` runs and logs but no longer decides on this lane, and the learner's accept click is replaced by the router's decision. The orchestrator still runs machine checks, locks the hypothesis set, pins the prediction bundles, classifies the answer against them, writes the discriminating-observation receipt (the only channel that moves support for a cause), and starts the targeted repair and its cold verification. *Continue without it* records the same explicit authorisation as today's *Teach me now*. The offer's *Take the quick check* remains for factors that didn't come through this lane.
+
+Without a plan there is no `plan_interrupt` timing decision: classic Today still logs its `today_offer` decision (`queue.py:429, 595`), the probe goes to the head of the queue, and the screen says so. Whether no-plan misses need a no-intervention draw is left to the build record, with the default that they don't.
+
+## 6. What the learner sees
+
+### 6.0 What is held until the probe is answered
+
+Reveal checks look at the probe item **and its whole topic** (`attempts/reveal_ledger.py:270`), and the orchestrator refuses causal support when independence fails (`causal_orchestrator.py:2504, 2703`). The feedback screen already records full-answer exposure (`learnloop_sidecar/handlers/feedback.py:718`) and debits displayed repairs (`handlers/diagnosis_card.py:44`). So a probe served straight after today's feedback could be answered but could never close the question it was built for. Hiding only the causes behind `why?` wouldn't fix that.
+
+So, on a miss while the workflow is pending:
+
+- **Shown at once:** the verdict and the criteria, unless the reveal rules count a criterion as disclosure.
+- **Held:** the worked answer, the diagnosis summary and possible causes, repairs, the prerequisite explanation and escalation.
+- **Released when:** the probe is answered, the router chooses no intervention, the practice lane is chosen, the learner takes *Continue without it*, or generation fails.
+- **On a wait:** released now, and the later probe is labelled exposed, so it can't resolve the cause. Holding the answer through a whole block seemed worse (§12, Q4).
+- **Show anyway** releases what's held, with the existing exposure recording on the actual disclosures, and marks the probe's answer as not independent. It doesn't cancel the probe.
+
+The diagnosis card's poll must not record a reveal for content it hasn't shown.
+
+### 6.1 While waiting
+
+The feedback screen shows at once, with a line: *Preparing a question on this…*. Pressing Next waits with the same words and offers *Continue without it*. Taking that option is logged and retires the probe.
+
+The owner didn't object to this proposal; it stands unless changed.
+
+### 6.2 When something fails
+
+- Diagnosis fails, times out or stays released for readiness reasons (`jobs.py:697, 741`): the workflow settles one fallback, and the practice lane runs from the grade alone. There is no unbounded wait. The timeout reuses `diagnosis.next_item_wait_seconds` (`queue.py:238`), so no new constant.
+- Generation fails or no question passes the checks: *Couldn't prepare a question on this. It's noted for later.* Next continues the plan. The need stays open for background generation, deduplicated, and cancelled if the hypotheses close.
+
+Next never strands the learner.
+
+### 6.3 A wait is visible
+
+When the router waits, the screen says so where the question would have been: *A question on {topic} is coming in your next block.* Today the wording exists in code (`router/why.py:217`), but I found nothing that puts it on screen. That block's first question names why it's there.
+
+### 6.4 Router decisions are visible, for now
+
+For debugging and calibration, a plain line on Feedback and in the plan:
+
+> Router: ask now · drawn by LLM · ask now 62%, wait 38% · floor 5%
+
+Under it, *details* opens the card summary, each model's answer and rationale, the fallback if any, and the decision id. A setting `ui.show_router_decisions` defaults to true, so it can be turned off when calibration is done. This is a deliberate exception to the UX spec's "machinery behind why?" rule.
+
+This covers follow-up decisions and ordinary block choices.
+
+### 6.5 UX spec changes
+
+Next no longer always returns to where the attempt started: a follow-up comes first. A chosen probe replaces the optional next-step button, since it is the next step. The Feedback section's answer-at-once rule gains §6.0's exception.
+
+## 7. Learner marks on hypotheses
+
+The learner reads the possible causes and marks them. It's an imperfect sensor, collected for later model training.
+
+- **Marks, per hypothesis, all optional:** *This is my gap* · *Partly* · *Not it*. One extra line: *None of these*, with optional free text. The text goes to the diagnoser, per the Oct 12 rule on learner text.
+- **Timing.** Showing causes before the probe would prime the answer, since a hypothesis often states the misconception outright. So causes follow §6.0: hidden by default, with `why?` saying why, and shown after the probe is answered. With no probe, they appear on the feedback screen. *Show anyway* marks the probe's answer as not independent.
+- **What is stored,** in a new raw ledger table: the attempt, diagnosis and hypothesis version ids, the mark, the display order (shuffled and logged, to measure position bias), whether the probe had been answered, its outcome if known, and the time.
+- **What it affects now:** nothing that decides. It reaches the learner state card and the diagnoser's context as attributed opinion. It never touches certification, opens no belief, resolves no factor, and moves no probability until measured.
+- **Existing channels.** The card's single-response tap and the unresolved-cause self-report stay, with O14's forwarding unchanged. Marks are not forwarded: that channel can open a provisional belief and resolve a factor (`causal_attribution.py:3497, 3586`), it targets the primary cause rather than the one tapped (`split/card.py:282`), and it allows one report per factor (`:3514`). On the probe lane the marks replace the card's tap, so the learner isn't asked twice.
+- **Measuring the sensor.** `learnloop data-capture report`, once data capture lands, gains agreement between marks and probe outcomes, and between marks and delayed performance, along with mark rates by display position. That tells us how far to trust it and watches for acquiescence, which O14 already warned of.
+
+## 8. Protection and spend
+
+**Kept:** the blind grader sees none of this. Prediction bundles stay blind. Exam material stays protected, with the new filter in §4.1. Probe answers remain cold unless the reveal ledger says otherwise.
+
+**Spend:** generation runs on plan routes through the existing spend envelopes, covering every physical call, including retries and optional review. A metered route needs the existing budget. Dollar reservations don't bound request count on a subscription (`ai/spend.py:19`), so the bound is structural: one generation per workflow and one per deduplicated need, with retries admitted by the workflow. The build reports real latency and calls per probe, on a copy.
+
+## 9. Specs amended
+
+| Spec | Amendment |
+|---|---|
+| `spec_blind_grading_diagnosis_split_v1.md:444, 613` | On a miss with diagnosis on, the workflow owns the attempt and holds selection for hypotheses, up to one settled fallback. The verdict never waits; the worked answer may be held (§6.0) |
+| `spec_source_practice_and_probes_v1.md` §8.5 (S2b) | Textbook-first applies to practice items only. Needs fill automatically |
+| `spec_action_router_v1.md`, `plan_router_r2_v1.md` §3.5 | The decision precedes the item. The value check stops deciding on this lane |
+| `spec_causal_attribution_v1.md` §6 | An absent or unreviewed instrument no longer blocks when generation can fill the slot; `blocked_pending_review` stays for episode conflict. `probe_now` serves without "Take the quick check". Machine admission replaces the human ladder on this lane |
+| `ux_learnloop_v1.md`, Feedback section | §6.0, §6.4 and §6.5 above |
+
+## 10. Build
+
+**Stages.** FG1: the workflow, lanes, generation, single-use rules, router change, successor and the desktop UI (§6), landed together, since serving without the pending and skip UI would strand Next. FG1c: marks and the report (§7), right after.
+
+**Persisted meaning:** a successor after data capture's `mvp-0.44`, with a kill switch `followup.generate_and_serve`. Off: behaviour matches the predecessor from an equivalent starting state, background work and UI included, and the stored `auto_generate_on_entry` is what applies. Burns persist after a rollback, and open FG1 workflows settle as skipped. New tables get a role in `table_roles.py`, per CLAUDE.md. Numbers are claimed at landing.
+
+**Queue position:** as soon as possible, per the owner: ahead of A7 and the TE2/TE3 re-spec. A7's probe arm needs a question to serve, and it can reuse this path.
+
+**Phone.** Phone submit rejects `probe_presentation_id`, so a generated probe can't be answered there yet. A miss on the phone follows the existing behaviour for what it can serve, and a pending probe is handed to the desktop with a line saying so. The phone's feedback doesn't hold what it can't follow with a probe. Phone probe answers are a follow-up. Phone files are in the owner's working tree at the time of writing, so the build merges whatever lands.
+
+**Tests.** Fakes only, plus a smoke on fresh copies of the owner's vaults:
+
+- a miss with two concrete rivals leads to one generated item, shown next, and never again after serve, rebuild, sync, remint or any door in §4.2's table;
+- an unanswered probe stays retired after a rebuild, and a submission on its one presentation still works;
+- the answer is held, and the probe's answer is admissible and can close the factor; with *Show anyway*, it can't;
+- protected and reserved items never reach the generator's prompt;
+- a late diagnosis or generator after a fallback or skip adds nothing;
+- exam sittings and diagnostic blocks see no interruption, and the exam cap holds;
+- each failure in §6.2 leaves Next working;
+- ask now, wait, no intervention and refuse each log correctly, bind to their outcome and match what's on screen;
+- marks don't change any grade, certification or probability;
+- with the switch off, from an equivalent starting state, replies are byte-identical to the predecessor.
+
+## 11. Decided by the owner (Nov 3)
+
+> Yes, the router should be able to choose no intervention. The router will decide for weak cases. Yes, you should have the hypothesis hidden by default and if read it should be marked as not independent. We should have it run as soon as possible since this is a big user experience gap
+
+- **No intervention** is a router option (§5). Its logged random floor gives the probe-versus-no-probe contrast A7 wants.
+- **No threshold** on hypothesis strength. The router decides weak cases.
+- **Causes stay hidden** until the probe is answered. Reading them first marks the probe's answer as not independent (§7).
+- **Priority:** as soon as possible, ahead of A7 and the TE2/TE3 re-spec.
+
+## 12. Build defaults awaiting the owner's word
+
+The build proceeds on these. Each is cheap to change until landing.
+
+- **Q4. Holding the worked answer (§6.0).** The review found that today's feedback would make an immediate probe unable to resolve anything. The default holds the answer until the probe is answered, and releases it on a wait.
+
+Decided by the owner, Nov 3: "yes I think FG1 single use rule should cover all generated probes. The generated probe uses the frontier LLM to turn an action router decision about the hypothesis set." So every generated probe is single use (§4.2), and a frontier LLM writes the question from the router's decision and the hypothesis set, not the Decider.
