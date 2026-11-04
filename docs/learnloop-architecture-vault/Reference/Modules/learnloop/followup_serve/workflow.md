@@ -7,8 +7,8 @@ version: "1.0.0"
 source_path: "src/learnloop/followup_serve/workflow.py"
 source_paths:
   - "src/learnloop/followup_serve/workflow.py"
-source_commit: "fa2f73234bec22c4fde78a2a23b6e1a5b81400e5"
-source_commit_timestamp: "2026-11-04T05:19:00-05:00"
+source_commit: "a1ba732a86f8c704cd6e6ee1071bf7a30ad3fb1a"
+source_commit_timestamp: "2026-11-04T08:47:30-05:00"
 source_worktree_state: "clean"
 generated: true
 generated_at: "2026-11-02"
@@ -50,63 +50,63 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/followup_serve/workflow.py](../../../../../../src/learnloop/followup_serve/workflow.py) |
-| Source lines | 472 |
+| Source lines | 483 |
 | Owning package | [[Reference/Modules/learnloop/followup_serve/_package|learnloop.followup_serve]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `fa2f73234bec22c4fde78a2a23b6e1a5b81400e5` |
-| Commit timestamp | `2026-11-04T05:19:00-05:00` |
+| Source commit | `a1ba732a86f8c704cd6e6ee1071bf7a30ad3fb1a` |
+| Commit timestamp | `2026-11-04T08:47:30-05:00` |
 
 ## Public API
 
-- `workflow_id_for(attempt_id: str, revision_key: str) -> str` ([source](../../../../../../src/learnloop/followup_serve/workflow.py), line 65) — Stable across retry and crash recovery: the attempt and its grade revision.
-- `open_for_attempt(vault: Any, repository: Repository, *, result: Any, surface: str | None, session_id: str | None, grade: tuple[bool, str] | None, origin: str='practice', hold_feedback: bool=True, clock: Clock | None=None) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/followup_serve/workflow.py), line 76) — Open (or find) the attempt's workflow on the caller's transaction, or None.
-- `owns_attempt(repository: Repository, attempt_id: str) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/followup_serve/workflow.py), line 125) — The attempt's open workflow, or None.
-- `attempt_workflow(repository: Repository, attempt_id: str) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/followup_serve/workflow.py), line 135)
-- `workflow_of_item(repository: Repository, practice_item_id: str) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/followup_serve/workflow.py), line 142)
-- `get(repository: Repository, workflow_id: str) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/followup_serve/workflow.py), line 149)
-- `move(repository: Repository, workflow_id: str, *, to_state: str, reason: str, from_states: tuple[str, ...]=tuple(store.OPEN_STATES), release: str | None=None, detail: Mapping[str, Any] | None=None, clock: Clock | None=None, **fields: Any) -> bool` ([source](../../../../../../src/learnloop/followup_serve/workflow.py), line 160) — A move between open states; False when it lost the race.
-- `finish(repository: Repository, workflow_id: str, *, to_state: str, reason: str, from_states: tuple[str, ...]=tuple(store.OPEN_STATES), release: str | None=None, detail: Mapping[str, Any] | None=None, answered_item: str | None=None, clock: Clock | None=None, **fields: Any) -> bool` ([source](../../../../../../src/learnloop/followup_serve/workflow.py), line 180) — The one move to a terminal state, and the closing of what the workflow prepared, in one commit: nothing recovers a terminal workflow, so a crash between them would leave a probe live with nothing to withdraw it.
-- `note(repository: Repository, workflow_id: str, *, reason: str, detail: Mapping[str, Any], clock: Clock | None=None) -> None` ([source](../../../../../../src/learnloop/followup_serve/workflow.py), line 241) — An event on the workflow with no move: what a retry needs to read back after a crash.
-- `noted(repository: Repository, workflow_id: str, *, reason: str) -> dict[str, Any]` ([source](../../../../../../src/learnloop/followup_serve/workflow.py), line 251) — The latest such note's detail, or nothing.
-- `release_feedback(repository: Repository, workflow_id: str, *, reason: str, exposed: bool=False, clock: Clock | None=None) -> bool` ([source](../../../../../../src/learnloop/followup_serve/workflow.py), line 260) — Release what is held; ``exposed`` labels a later probe's answer (§6.0).
-- `set_fields(repository: Repository, workflow_id: str, *, clock: Clock | None=None, **fields: Any) -> None` ([source](../../../../../../src/learnloop/followup_serve/workflow.py), line 278)
-- `superseded(repository: Repository, row: Mapping[str, Any]) -> bool` ([source](../../../../../../src/learnloop/followup_serve/workflow.py), line 283) — A newer grade revision came after this workflow: it adds nothing.
-- `probe_answer_exposed(repository: Repository, presentation_id: str) -> str | None` ([source](../../../../../../src/learnloop/followup_serve/workflow.py), line 292) — Why a generated probe's answer is not independent, or None: FG1's two labels.
-- `session_rows(repository: Repository, session_id: str) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/followup_serve/workflow.py), line 313) — Workflows with something to place: ready, or waiting for a boundary.
-- `desktop_waiting_count(repository: Repository) -> int` ([source](../../../../../../src/learnloop/followup_serve/workflow.py), line 323) — Generated probes the desktop will serve: what a phone says is waiting there (§10).
-- `waiting_still_valid(repository: Repository, row: Mapping[str, Any]) -> bool` ([source](../../../../../../src/learnloop/followup_serve/workflow.py), line 332) — §5 item 3, before serving: the factor is still open and the pin's hypotheses current.
-- `close_probe(repository: Repository, row: Mapping[str, Any], *, reason: str, answered_item: str | None=None, clock: Clock | None=None) -> None` ([source](../../../../../../src/learnloop/followup_serve/workflow.py), line 353) — What a workflow prepared and nobody will answer is closed: its probe and anything an interrupted run left unbound are withdrawn, and an episode it pinned one on doesn't stay open on the topic if it measured nothing.
-- `retire_waiting(repository: Repository, row: Mapping[str, Any], *, reason: str, clock: Clock | None=None) -> None` ([source](../../../../../../src/learnloop/followup_serve/workflow.py), line 403) — A wait that can't be served now: its probe retires, unused, and nothing else follows.
-- `probe_answered(repository: Repository, practice_item_id: str, *, attempt_id: str, clock: Clock | None=None) -> bool` ([source](../../../../../../src/learnloop/followup_serve/workflow.py), line 410) — The probe's answer settles the workflow, and §6.0's hold ends, by the item whichever way it was answered: a contract that could not stand (no grading route at the serve) must not strand what was held.
-- `settle_open_when_off(vault: Any, repository: Repository, *, clock: Clock | None=None) -> int` ([source](../../../../../../src/learnloop/followup_serve/workflow.py), line 435) — §10: with the switch off, open workflows settle as skipped and burns persist.
-- `diagnosis_ended(vault: Any, repository: Repository, *, attempt_id: str, clock: Clock | None=None) -> None` ([source](../../../../../../src/learnloop/followup_serve/workflow.py), line 454) — The diagnosis worker's one hook: the workflow's job runs on its own slot, so a later diagnosis is never delayed by generation.
+- `workflow_id_for(attempt_id: str, revision_key: str) -> str` ([source](../../../../../../src/learnloop/followup_serve/workflow.py), line 66) — Stable across retry and crash recovery: the attempt and its grade revision.
+- `open_for_attempt(vault: Any, repository: Repository, *, result: Any, surface: str | None, session_id: str | None, grade: tuple[bool, str] | None, origin: str='practice', hold_feedback: bool=True, clock: Clock | None=None) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/followup_serve/workflow.py), line 77) — Open (or find) the attempt's workflow on the caller's transaction, or None.
+- `owns_attempt(repository: Repository, attempt_id: str) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/followup_serve/workflow.py), line 126) — The attempt's open workflow, or None.
+- `attempt_workflow(repository: Repository, attempt_id: str) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/followup_serve/workflow.py), line 136)
+- `workflow_of_item(repository: Repository, practice_item_id: str) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/followup_serve/workflow.py), line 143)
+- `get(repository: Repository, workflow_id: str) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/followup_serve/workflow.py), line 150)
+- `move(repository: Repository, workflow_id: str, *, to_state: str, reason: str, from_states: tuple[str, ...]=tuple(store.OPEN_STATES), release: str | None=None, detail: Mapping[str, Any] | None=None, clock: Clock | None=None, **fields: Any) -> bool` ([source](../../../../../../src/learnloop/followup_serve/workflow.py), line 161) — A move between open states; False when it lost the race.
+- `finish(repository: Repository, workflow_id: str, *, to_state: str, reason: str, from_states: tuple[str, ...]=tuple(store.OPEN_STATES), release: str | None=None, detail: Mapping[str, Any] | None=None, answered_item: str | None=None, clock: Clock | None=None, **fields: Any) -> bool` ([source](../../../../../../src/learnloop/followup_serve/workflow.py), line 181) — The one move to a terminal state, and the closing of what the workflow prepared, in one commit: nothing recovers a terminal workflow, so a crash between them would leave a probe live with nothing to withdraw it.
+- `note(repository: Repository, workflow_id: str, *, reason: str, detail: Mapping[str, Any], clock: Clock | None=None) -> None` ([source](../../../../../../src/learnloop/followup_serve/workflow.py), line 242) — An event on the workflow with no move: what a retry needs to read back after a crash.
+- `noted(repository: Repository, workflow_id: str, *, reason: str) -> dict[str, Any]` ([source](../../../../../../src/learnloop/followup_serve/workflow.py), line 252) — The latest such note's detail, or nothing.
+- `release_feedback(repository: Repository, workflow_id: str, *, reason: str, exposed: bool=False, clock: Clock | None=None) -> bool` ([source](../../../../../../src/learnloop/followup_serve/workflow.py), line 261) — Release what is held; ``exposed`` labels a later probe's answer (§6.0).
+- `set_fields(repository: Repository, workflow_id: str, *, clock: Clock | None=None, **fields: Any) -> None` ([source](../../../../../../src/learnloop/followup_serve/workflow.py), line 279)
+- `superseded(repository: Repository, row: Mapping[str, Any]) -> bool` ([source](../../../../../../src/learnloop/followup_serve/workflow.py), line 284) — A newer grade revision came after this workflow: it adds nothing.
+- `probe_answer_exposed(repository: Repository, presentation_id: str) -> str | None` ([source](../../../../../../src/learnloop/followup_serve/workflow.py), line 293) — Why a generated probe's answer is not independent, or None: FG1's two labels.
+- `session_rows(repository: Repository, session_id: str) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/followup_serve/workflow.py), line 314) — Workflows with something to place: ready, or waiting for a boundary.
+- `desktop_waiting_count(repository: Repository) -> int` ([source](../../../../../../src/learnloop/followup_serve/workflow.py), line 324) — Generated probes the desktop will serve: what a phone says is waiting there (§10).
+- `waiting_still_valid(repository: Repository, row: Mapping[str, Any]) -> bool` ([source](../../../../../../src/learnloop/followup_serve/workflow.py), line 333) — §5 item 3, before serving: the factor is still open and the pin's hypotheses current.
+- `close_probe(repository: Repository, row: Mapping[str, Any], *, reason: str, answered_item: str | None=None, clock: Clock | None=None) -> None` ([source](../../../../../../src/learnloop/followup_serve/workflow.py), line 354) — What a workflow prepared and nobody will answer is closed: its probe and anything an interrupted run left unbound are withdrawn, and an episode it pinned one on doesn't stay open on the topic if it measured nothing.
+- `retire_waiting(repository: Repository, row: Mapping[str, Any], *, reason: str, clock: Clock | None=None) -> None` ([source](../../../../../../src/learnloop/followup_serve/workflow.py), line 404) — A wait that can't be served now: its probe retires, unused, and nothing else follows.
+- `probe_answered(repository: Repository, practice_item_id: str, *, attempt_id: str, clock: Clock | None=None, link_exposures: bool=False) -> bool` ([source](../../../../../../src/learnloop/followup_serve/workflow.py), line 411) — The probe's answer settles the workflow, and §6.0's hold ends, by the item whichever way it was answered: a contract that could not stand (no grading route at the serve) must not strand what was held.
+- `settle_open_when_off(vault: Any, repository: Repository, *, clock: Clock | None=None) -> int` ([source](../../../../../../src/learnloop/followup_serve/workflow.py), line 446) — §10: with the switch off, open workflows settle as skipped and burns persist.
+- `diagnosis_ended(vault: Any, repository: Repository, *, attempt_id: str, clock: Clock | None=None) -> None` ([source](../../../../../../src/learnloop/followup_serve/workflow.py), line 465) — The diagnosis worker's one hook: the workflow's job runs on its own slot, so a later diagnosis is never delayed by generation.
 
 ### Module constants
 
-- `WORKFLOW_OWNS_REASON` ([src/learnloop/followup_serve/workflow.py](../../../../../../src/learnloop/followup_serve/workflow.py), line 36)
-- `PENDING` ([src/learnloop/followup_serve/workflow.py](../../../../../../src/learnloop/followup_serve/workflow.py), line 38)
-- `READY` ([src/learnloop/followup_serve/workflow.py](../../../../../../src/learnloop/followup_serve/workflow.py), line 39)
-- `WAITING` ([src/learnloop/followup_serve/workflow.py](../../../../../../src/learnloop/followup_serve/workflow.py), line 40)
-- `REFUSED` ([src/learnloop/followup_serve/workflow.py](../../../../../../src/learnloop/followup_serve/workflow.py), line 41)
-- `FAILED` ([src/learnloop/followup_serve/workflow.py](../../../../../../src/learnloop/followup_serve/workflow.py), line 42)
-- `SKIPPED` ([src/learnloop/followup_serve/workflow.py](../../../../../../src/learnloop/followup_serve/workflow.py), line 43)
-- `SETTLED` ([src/learnloop/followup_serve/workflow.py](../../../../../../src/learnloop/followup_serve/workflow.py), line 44)
-- `OPEN_STATES` ([src/learnloop/followup_serve/workflow.py](../../../../../../src/learnloop/followup_serve/workflow.py), line 45)
-- `LANE_PROBE` ([src/learnloop/followup_serve/workflow.py](../../../../../../src/learnloop/followup_serve/workflow.py), line 47)
-- `LANE_PRACTICE` ([src/learnloop/followup_serve/workflow.py](../../../../../../src/learnloop/followup_serve/workflow.py), line 48)
-- `RELEASE_PROBE_ANSWERED` ([src/learnloop/followup_serve/workflow.py](../../../../../../src/learnloop/followup_serve/workflow.py), line 51)
-- `RELEASE_NO_INTERVENTION` ([src/learnloop/followup_serve/workflow.py](../../../../../../src/learnloop/followup_serve/workflow.py), line 52)
-- `RELEASE_PRACTICE_LANE` ([src/learnloop/followup_serve/workflow.py](../../../../../../src/learnloop/followup_serve/workflow.py), line 53)
-- `RELEASE_CONTINUE_WITHOUT` ([src/learnloop/followup_serve/workflow.py](../../../../../../src/learnloop/followup_serve/workflow.py), line 54)
-- `RELEASE_GENERATION_FAILED` ([src/learnloop/followup_serve/workflow.py](../../../../../../src/learnloop/followup_serve/workflow.py), line 55)
-- `RELEASE_WAIT` ([src/learnloop/followup_serve/workflow.py](../../../../../../src/learnloop/followup_serve/workflow.py), line 56)
-- `RELEASE_SHOW_ANYWAY` ([src/learnloop/followup_serve/workflow.py](../../../../../../src/learnloop/followup_serve/workflow.py), line 57)
-- `RELEASE_REFUSED` ([src/learnloop/followup_serve/workflow.py](../../../../../../src/learnloop/followup_serve/workflow.py), line 58)
-- `RELEASE_FALLBACK` ([src/learnloop/followup_serve/workflow.py](../../../../../../src/learnloop/followup_serve/workflow.py), line 59)
-- `RELEASE_SWITCH_OFF` ([src/learnloop/followup_serve/workflow.py](../../../../../../src/learnloop/followup_serve/workflow.py), line 60)
-- `FACTOR_DECLINED` ([src/learnloop/followup_serve/workflow.py](../../../../../../src/learnloop/followup_serve/workflow.py), line 62)
+- `WORKFLOW_OWNS_REASON` ([src/learnloop/followup_serve/workflow.py](../../../../../../src/learnloop/followup_serve/workflow.py), line 37)
+- `PENDING` ([src/learnloop/followup_serve/workflow.py](../../../../../../src/learnloop/followup_serve/workflow.py), line 39)
+- `READY` ([src/learnloop/followup_serve/workflow.py](../../../../../../src/learnloop/followup_serve/workflow.py), line 40)
+- `WAITING` ([src/learnloop/followup_serve/workflow.py](../../../../../../src/learnloop/followup_serve/workflow.py), line 41)
+- `REFUSED` ([src/learnloop/followup_serve/workflow.py](../../../../../../src/learnloop/followup_serve/workflow.py), line 42)
+- `FAILED` ([src/learnloop/followup_serve/workflow.py](../../../../../../src/learnloop/followup_serve/workflow.py), line 43)
+- `SKIPPED` ([src/learnloop/followup_serve/workflow.py](../../../../../../src/learnloop/followup_serve/workflow.py), line 44)
+- `SETTLED` ([src/learnloop/followup_serve/workflow.py](../../../../../../src/learnloop/followup_serve/workflow.py), line 45)
+- `OPEN_STATES` ([src/learnloop/followup_serve/workflow.py](../../../../../../src/learnloop/followup_serve/workflow.py), line 46)
+- `LANE_PROBE` ([src/learnloop/followup_serve/workflow.py](../../../../../../src/learnloop/followup_serve/workflow.py), line 48)
+- `LANE_PRACTICE` ([src/learnloop/followup_serve/workflow.py](../../../../../../src/learnloop/followup_serve/workflow.py), line 49)
+- `RELEASE_PROBE_ANSWERED` ([src/learnloop/followup_serve/workflow.py](../../../../../../src/learnloop/followup_serve/workflow.py), line 52)
+- `RELEASE_NO_INTERVENTION` ([src/learnloop/followup_serve/workflow.py](../../../../../../src/learnloop/followup_serve/workflow.py), line 53)
+- `RELEASE_PRACTICE_LANE` ([src/learnloop/followup_serve/workflow.py](../../../../../../src/learnloop/followup_serve/workflow.py), line 54)
+- `RELEASE_CONTINUE_WITHOUT` ([src/learnloop/followup_serve/workflow.py](../../../../../../src/learnloop/followup_serve/workflow.py), line 55)
+- `RELEASE_GENERATION_FAILED` ([src/learnloop/followup_serve/workflow.py](../../../../../../src/learnloop/followup_serve/workflow.py), line 56)
+- `RELEASE_WAIT` ([src/learnloop/followup_serve/workflow.py](../../../../../../src/learnloop/followup_serve/workflow.py), line 57)
+- `RELEASE_SHOW_ANYWAY` ([src/learnloop/followup_serve/workflow.py](../../../../../../src/learnloop/followup_serve/workflow.py), line 58)
+- `RELEASE_REFUSED` ([src/learnloop/followup_serve/workflow.py](../../../../../../src/learnloop/followup_serve/workflow.py), line 59)
+- `RELEASE_FALLBACK` ([src/learnloop/followup_serve/workflow.py](../../../../../../src/learnloop/followup_serve/workflow.py), line 60)
+- `RELEASE_SWITCH_OFF` ([src/learnloop/followup_serve/workflow.py](../../../../../../src/learnloop/followup_serve/workflow.py), line 61)
+- `FACTOR_DECLINED` ([src/learnloop/followup_serve/workflow.py](../../../../../../src/learnloop/followup_serve/workflow.py), line 63)
 
 ### Explicit exports
 
@@ -143,11 +143,11 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 
 ## Internal implementation anchors
 
-- `_now(clock: Clock | None) -> str` ([source](../../../../../../src/learnloop/followup_serve/workflow.py), line 72)
-- `_release_fields(row: Mapping[str, Any], reason: str, at: str) -> dict[str, Any]` ([source](../../../../../../src/learnloop/followup_serve/workflow.py), line 154)
-- `_apply_move(repository: Repository, workflow_id: str, *, to_state: str, reason: str, from_states: tuple[str, ...], release: str | None, detail: Mapping[str, Any] | None, clock: Clock | None, **fields: Any) -> bool` ([source](../../../../../../src/learnloop/followup_serve/workflow.py), line 212) — One state move, with its release of held feedback; False when it lost the race.
-- `_close_declined_factor(repository: Repository, row: Mapping[str, Any], *, reason: str, clock: Clock | None) -> None` ([source](../../../../../../src/learnloop/followup_serve/workflow.py), line 377) — R9: the factor this lane opened for its question goes when the question won't be asked: left open, it would hold the topic in the plan's repair lane with no repair to serve.
-- `_abandon_if_empty(repository: Repository, episode_id: str, *, clock: Clock | None) -> None` ([source](../../../../../../src/learnloop/followup_serve/workflow.py), line 390) — An open episode with no observation, and no presentation left that could make one.
+- `_now(clock: Clock | None) -> str` ([source](../../../../../../src/learnloop/followup_serve/workflow.py), line 73)
+- `_release_fields(row: Mapping[str, Any], reason: str, at: str) -> dict[str, Any]` ([source](../../../../../../src/learnloop/followup_serve/workflow.py), line 155)
+- `_apply_move(repository: Repository, workflow_id: str, *, to_state: str, reason: str, from_states: tuple[str, ...], release: str | None, detail: Mapping[str, Any] | None, clock: Clock | None, **fields: Any) -> bool` ([source](../../../../../../src/learnloop/followup_serve/workflow.py), line 213) — One state move, with its release of held feedback; False when it lost the race.
+- `_close_declined_factor(repository: Repository, row: Mapping[str, Any], *, reason: str, clock: Clock | None) -> None` ([source](../../../../../../src/learnloop/followup_serve/workflow.py), line 378) — R9: the factor this lane opened for its question goes when the question won't be asked: left open, it would hold the topic in the plan's repair lane with no repair to serve.
+- `_abandon_if_empty(repository: Repository, episode_id: str, *, clock: Clock | None) -> None` ([source](../../../../../../src/learnloop/followup_serve/workflow.py), line 391) — An open episode with no observation, and no presentation left that could make one.
 
 ## Who imports or calls it
 
@@ -160,6 +160,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop/diagnosis/split/jobs|learnloop.diagnosis.split.jobs]] — imports `diagnosis_ended`; statically calls `diagnosis_ended`
 - [[Reference/Modules/learnloop/followup_run/jobs|learnloop.followup_run.jobs]] — imports `module`; statically calls `close_probe`, `finish`, `get`, `move`, `note`, `noted`, `release_feedback`, `set_fields`, `superseded`
 - [[Reference/Modules/learnloop/followup_run/lanes|learnloop.followup_run.lanes]] — imports `module`; statically calls `finish`
+- [[Reference/Modules/learnloop/followup_run/marks|learnloop.followup_run.marks]] — imports `module`; statically calls `attempt_workflow`
 - [[Reference/Modules/learnloop/followup_run/router|learnloop.followup_run.router]] — imports `module`; statically calls `set_fields`
 - [[Reference/Modules/learnloop/followup_run/serving|learnloop.followup_run.serving]] — imports `module`; statically calls `attempt_workflow`, `finish`, `get`, `retire_waiting`, `set_fields`, `waiting_still_valid`, `workflow_of_item`
 - [[Reference/Modules/learnloop_sidecar/context|learnloop_sidecar.context]] — imports `settle_open_when_off`; statically calls `settle_open_when_off`
@@ -177,6 +178,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop/clock|learnloop.clock]] — imports `Clock`, `utc_now_iso`; calls `utc_now_iso`
 - [[Reference/Modules/learnloop/db/repositories|learnloop.db.repositories]] — imports `Repository`
 - [[Reference/Modules/learnloop/db/stores/followup_serve|learnloop.db.stores.followup_serve]] — imports `module`; calls `append_binding`, `cancel_generation_jobs`, `episodes_pinned_by_workflow`, `insert_event`, `insert_workflow`, `move_workflow`, `open_workflows`, `present`, `update_workflow`, `workflow`, `workflow_events`, `workflow_for_attempt`, `workflow_for_item`, `workflow_for_presentation`
+- [[Reference/Modules/learnloop/db/stores/hypothesis_marks|learnloop.db.stores.hypothesis_marks]] — imports `module`; calls `link_probe_answer`, `present`
 - [[Reference/Modules/learnloop/followup_serve/gates|learnloop.followup_serve.gates]] — imports `RIVAL_CAUSES_FACTOR_VERSION`, `SERVING_SURFACE`, `generate_and_serve_on`; calls `generate_and_serve_on`
 - [[Reference/Modules/learnloop/followup_serve/identity|learnloop.followup_serve.identity]] — imports `module`; calls `is_generated_probe`, `retire_unbound`, `withdraw`
 - [[Reference/Modules/learnloop/followup_serve/queue|learnloop.followup_serve.queue]] — imports `enqueue_workflow`; calls `enqueue_workflow`
@@ -193,7 +195,7 @@ Use this module in context through:
 - [[Initialize a Vault]]
 - [[Start a Learning Cycle]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/attempts/post_attempt|learnloop.attempts.post_attempt]], [[Reference/Modules/learnloop/daily_plan/engine|learnloop.daily_plan.engine]], [[Reference/Modules/learnloop/diagnosis/causal_orchestrator|learnloop.diagnosis.causal_orchestrator]], [[Reference/Modules/learnloop/diagnosis/split/jobs|learnloop.diagnosis.split.jobs]], [[Reference/Modules/learnloop/followup_run/jobs|learnloop.followup_run.jobs]] and 10 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/attempts/post_attempt|learnloop.attempts.post_attempt]], [[Reference/Modules/learnloop/daily_plan/engine|learnloop.daily_plan.engine]], [[Reference/Modules/learnloop/diagnosis/causal_orchestrator|learnloop.diagnosis.causal_orchestrator]], [[Reference/Modules/learnloop/diagnosis/split/jobs|learnloop.diagnosis.split.jobs]], [[Reference/Modules/learnloop/followup_run/jobs|learnloop.followup_run.jobs]] and 11 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
@@ -307,6 +309,17 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_a_settled_workflow_takes_nothing_more`
   - `test_the_identity_is_stable_and_a_resumed_completion_reuses_it`
   - `test_the_switch_off_settles_open_workflows_as_skipped`
+- [tests/test_hypothesis_marks.py](../../../../../../tests/test_hypothesis_marks.py) — direct import
+  - `test_a_live_diagnosis_is_stored_by_its_id`
+  - `test_a_practice_lane_miss_keeps_the_cards_tap`
+  - `test_a_refused_link_never_blocks_the_probes_answer`
+  - `test_an_exposure_records_the_order_as_displayed_not_the_servers`
+  - `test_marks_are_never_forwarded_to_the_self_report_channel`
+  - `test_the_blind_grader_never_sees_marks_and_the_diagnoser_does`
+  - `test_the_diagnoser_reads_only_marks_made_before_the_attempt_it_is_on`
+  - `test_the_switch_off_keeps_the_diagnosers_context_as_it_was_whatever_rows_exist`
+  - `test_with_no_probe_the_list_is_on_the_feedback_screen`
+- [tests/test_hypothesis_marks_context.py](../../../../../../tests/test_hypothesis_marks_context.py) — direct import
 
 ## Modification guidance
 

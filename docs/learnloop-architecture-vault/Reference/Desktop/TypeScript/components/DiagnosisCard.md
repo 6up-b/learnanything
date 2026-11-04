@@ -10,8 +10,8 @@ area: "TypeScript/components"
 source_path: "apps/learnloop-tauri/src/components/DiagnosisCard.tsx"
 source_paths:
   - "apps/learnloop-tauri/src/components/DiagnosisCard.tsx"
-source_commit: "bb022fb4d1bc2fecf3a5cf591d7e5100fce29567"
-source_commit_timestamp: "2026-10-15T16:01:00-04:00"
+source_commit: "52b1842ebcee0e7f249495ca3d2fa1cfa49d7e80"
+source_commit_timestamp: "2026-11-04T08:56:43-05:00"
 source_worktree_state: "clean"
 activation_kind: "entry-reachable build graph"
 activation_evidence: "A static TypeScript import path reaches this file from the Vite entry src/main.tsx."
@@ -42,14 +42,14 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/components/DiagnosisCard.tsx](../../../../../../apps/learnloop-tauri/src/components/DiagnosisCard.tsx) |
-| Source lines | 361 |
+| Source lines | 366 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/components/_area|TypeScript/components]] |
 | Refactor status | `ACTIVE` |
 | Activation kind | `entry-reachable build graph` |
 | Worktree state | `clean` |
-| Source commit | `bb022fb4d1bc2fecf3a5cf591d7e5100fce29567` |
-| Commit timestamp | `2026-10-15T16:01:00-04:00` |
+| Source commit | `52b1842ebcee0e7f249495ca3d2fa1cfa49d7e80` |
+| Commit timestamp | `2026-11-04T08:56:43-05:00` |
 
 ## Activation and status evidence
 
@@ -77,16 +77,16 @@ The system-level behavior stays authoritative in the linked architecture, concep
 - `let timer: ReturnType<typeof setTimeout> | null = null` — let, line 92
 - `const poll = ()` — const, line 93
 - `const record = useCallback( async ( response: DiagnosisCardResponse | EscalationResponse | "not_same_mistake", citedAttemptId: string | null = null, )` — const, line 128
-- `const own = useDiagnosisCard(attemptId, state ? null : initialStatus, onDiagnosisReady, onError)` — const, line 191
-- `const escalation = card.escalation ?? null` — const, line 210
-- `const escalatedRepair = escalation?.repair ?? null` — const, line 211
-- `const repairs = (card.repairSuggestions ?? []).filter( (repair)` — const, line 213
-- `const madeBefore = card.madeBefore ?? []` — const, line 216
-- `const disowned = new Set(card.notSameMistakeAttemptIds ?? [])` — const, line 217
-- `const chosen = escalation.recordedResponse === option.response` — const, line 271
-- `const done = escalation.recordedResponse != null` — const, line 272
-- `const chosen = card.recordedResponse === option.response` — const, line 341
-- `const done = card.recordedResponse != null` — const, line 342
+- `const own = useDiagnosisCard(attemptId, state ? null : initialStatus, onDiagnosisReady, onError)` — const, line 194
+- `const escalation = card.escalation ?? null` — const, line 213
+- `const escalatedRepair = escalation?.repair ?? null` — const, line 214
+- `const repairs = (card.repairSuggestions ?? []).filter( (repair)` — const, line 216
+- `const madeBefore = card.madeBefore ?? []` — const, line 219
+- `const disowned = new Set(card.notSameMistakeAttemptIds ?? [])` — const, line 220
+- `const chosen = escalation.recordedResponse === option.response` — const, line 274
+- `const done = escalation.recordedResponse != null` — const, line 275
+- `const chosen = card.recordedResponse === option.response` — const, line 345
+- `const done = card.recordedResponse != null` — const, line 346
 
 ## Who imports or calls it
 

@@ -520,6 +520,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_hiding_the_book_after_the_submit_never_flips_the_attempt`
   - `test_submit_never_attaches_another_sessions_or_items_rows`
   - `test_the_report_summarises_any_number_of_rows`
+- [tests/test_hypothesis_marks_context.py](../../../../../../tests/test_hypothesis_marks_context.py) — direct import
+  - `test_the_whole_report_carries_the_section_in_json_and_in_words`
 - [tests/test_intent_plan.py](../../../../../../tests/test_intent_plan.py) — direct import
   - `test_plan_report_counts_the_recall_target_fallbacks`
 - [tests/test_judge_routes.py](../../../../../../tests/test_judge_routes.py) — direct import

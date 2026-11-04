@@ -337,31 +337,30 @@ def _delayed_agreement(connection: sqlite3.Connection, vault: Any, repository: A
     gap agrees with a later miss; a learner ruling every listed cause out agrees with a later success."""
 
     from learnloop.data_capture import reading_exposures
-    from learnloop.router.outcomes import OUTCOME_VERSION_V3, _Ledger, _r_cold_v3
+    from learnloop.router.outcomes import next_delayed_outcomes
 
     by_attempt: dict[str, set[str]] = {}
+    learning_objects: dict[str, str] = {}
     for row in latest:
         by_attempt.setdefault(str(row["attempt_id"]), set()).add(str(row["mark"]))
+        learning_objects[str(row["attempt_id"])] = str(row["learning_object_id"])
     out = {"label": DELAYED_AGREEMENT_LABEL, "agree": 0, "disagree": 0, "agreement": None,
            "named_a_gap": {"later_success": 0, "later_miss": 0}, "partly": {"later_success": 0, "later_miss": 0},
            "ruled_the_list_out": {"later_success": 0, "later_miss": 0}, "marked_answers_with_no_later_delayed_answer": 0}
     if not by_attempt:
         return out
     attempt_ids = [row[0] for row in connection.execute("SELECT id FROM practice_attempts")]
-    pfc_states = pfc_assessments(connection, attempt_ids)
-    ledger = _Ledger(connection, held_attempt_ids=frozenset(held_for_review_attempts(connection)), version=OUTCOME_VERSION_V3,
-                     reader_exposures=reading_exposures.read(connection, vault, repository))
-    los = {str(row["id"]): row for row in connection.execute("SELECT id, learning_object_id FROM practice_attempts")}
+    outcomes = next_delayed_outcomes(
+        connection, learning_objects, pfc_states=pfc_assessments(connection, attempt_ids),
+        held_attempt_ids=frozenset(held_for_review_attempts(connection)),
+        reader_exposures=reading_exposures.read(connection, vault, repository),
+    )
     for attempt_id, marks in sorted(by_attempt.items()):
-        attempt = los.get(attempt_id)
-        if attempt is None or attempt_id not in ledger.position:
+        cold = outcomes.get(attempt_id)
+        if cold is None or cold["status"] != "observed":
             out["marked_answers_with_no_later_delayed_answer"] += 1
             continue
-        cold = _r_cold_v3({"id": attempt_id, "learning_object_id": attempt["learning_object_id"]}, ledger, pfc_states)
-        if cold.get("status") != "observed":
-            out["marked_answers_with_no_later_delayed_answer"] += 1
-            continue
-        success = cold.get("completion") == "completed" and float(cold.get("value") or 0.0) >= success_correctness
+        success = cold["completion"] == "completed" and float(cold["value"] or 0.0) >= success_correctness
         outcome = "later_success" if success else "later_miss"
         if marks_rules.MY_GAP in marks:
             out["named_a_gap"][outcome] += 1

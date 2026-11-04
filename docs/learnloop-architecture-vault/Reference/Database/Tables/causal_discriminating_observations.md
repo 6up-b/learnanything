@@ -3,13 +3,13 @@ title: "causal_discriminating_observations"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "c351033cdfa816184211a76bd032919f54f5a1b6"
-source_commit_timestamp: "2026-11-04T07:28:45-05:00"
+source_commit: "52b1842ebcee0e7f249495ca3d2fa1cfa49d7e80"
+source_commit_timestamp: "2026-11-04T08:56:43-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite causal_discriminating_observations"
   - "table causal_discriminating_observations"
-schema_head: 241
+schema_head: 242
 table_name: "causal_discriminating_observations"
 table_role: "raw_ledger"
 functionality_status: "active"
@@ -20,12 +20,12 @@ source_paths:
   - "src/learnloop/db/table_roles.py"
   - "migrations/130_causal_discriminating_observations.sql"
   - "src/learnloop/db/repositories.py"
+  - "src/learnloop/db/stores/hypothesis_marks.py"
   - "src/learnloop/diagnosis/causal_factor_deferral.py"
   - "src/learnloop/diagnosis/causal_health.py"
   - "src/learnloop/diagnosis/causal_orchestrator.py"
   - "src/learnloop/diagnosis/causal_probe_commissioning.py"
   - "src/learnloop/diagnosis/failure_triage.py"
-  - "src/learnloop/diagnosis/scoreboard.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/raw-ledger"
@@ -114,7 +114,9 @@ Database triggers:
 ### Direct SQL readers
 
 - `src/learnloop/db/repositories.py`
+- `src/learnloop/db/stores/hypothesis_marks.py`
 - `src/learnloop/evsi_calibration/live_report.py`
+- `src/learnloop/ops/capture_report.py`
 
 ### Direct SQL writers
 
@@ -140,6 +142,8 @@ None found by exact static reference scan.
 - `tests/test_failure_triage_causal_gate.py`
 - `tests/test_followup_journey.py`
 - `tests/test_followup_next_matrix.py`
+- `tests/test_hypothesis_marks.py`
+- `tests/test_hypothesis_marks_context.py`
 - `tests/test_pfc_unassessed_readers.py`
 - `tests/test_scoreboard.py`
 - `tests/test_voi_forecasts.py`

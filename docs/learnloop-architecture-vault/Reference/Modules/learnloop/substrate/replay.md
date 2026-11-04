@@ -159,6 +159,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_retired_while_unused_stays_retired_after_sync_and_rebuild`
 - [tests/test_help_fold_attach_successor.py](../../../../../../tests/test_help_fold_attach_successor.py) — direct import
   - `test_a_rebuild_changes_no_attempt_and_a_shadow_rebuild_is_zero`
+- [tests/test_hypothesis_marks.py](../../../../../../tests/test_hypothesis_marks.py) — direct import
+  - `test_a_rebuild_ignores_marks_and_keeps_them`
 - [tests/test_ingest_instrument_gates.py](../../../../../../tests/test_ingest_instrument_gates.py) — direct import
   - `test_apply_stamps_coverage_boundary_and_later_rebuilds_add_nothing`
   - `test_record_content_recalibration_ignores_unknown_los`

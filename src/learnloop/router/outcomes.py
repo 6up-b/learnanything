@@ -740,6 +740,27 @@ def _completion_reasons(completion: DC.Completion) -> list[str]:
     return list(completion.reasons) or [completion.status]
 
 
+def next_delayed_outcomes(
+    connection: sqlite3.Connection,
+    attempts: Mapping[str, str],
+    *,
+    pfc_states: Mapping[str, str],
+    held_attempt_ids: frozenset[str],
+    reader_exposures: Iterable[tuple[str, str]],
+) -> dict[str, dict[str, Any]]:
+    """Per attempt (``{attempt id: learning object}``), the next delayed presentation on its topic under
+    the shared definition: ``status`` ("observed" with ``value`` and ``completion``, or "pending"). An
+    attempt the ledger doesn't hold is left out. The capture report's read of what followed a marked answer."""
+
+    ledger = _Ledger(connection, held_attempt_ids=held_attempt_ids, version=OUTCOME_VERSION_V3, reader_exposures=reader_exposures)
+    out: dict[str, dict[str, Any]] = {}
+    for attempt_id, learning_object_id in attempts.items():
+        if attempt_id in ledger.position:
+            cold = _r_cold_v3({"id": attempt_id, "learning_object_id": learning_object_id}, ledger, pfc_states)
+            out[attempt_id] = {key: cold.get(key) for key in ("status", "value", "completion", "attempt_id")}
+    return out
+
+
 def _r_cold_v3(action: Mapping[str, Any], ledger: _Ledger, pfc_states: Mapping[str, str]) -> dict[str, Any]:
     """The next delayed presentation on the action's LO under the shared definition (module docstring)."""
 
@@ -1424,6 +1445,7 @@ def rebuild_router_outcomes(
 
 __all__ = [
     "answer_completion",
+    "next_delayed_outcomes",
     "COLDNESS_CANDIDATE_CAP",
     "COVARIATE_NAMES",
     "INDEPENDENT_ATTEMPT_TYPES",

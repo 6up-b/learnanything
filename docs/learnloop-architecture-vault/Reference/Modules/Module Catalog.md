@@ -9,7 +9,7 @@ source_paths:
   - "src/learnloop_sidecar"
   - "apps/learnloop-tauri"
 source_commit: "aggregate; see module notes"
-source_commit_timestamp: "2026-11-04T07:26:00-05:00"
+source_commit_timestamp: "2026-11-04T08:56:43-05:00"
 generated: true
 generated_at: "2026-11-02"
 tags:
@@ -21,13 +21,13 @@ tags:
 # Module Catalog
 
 > [!abstract] Lookup contract
-> This catalog maps all **1188 Python source modules** under `src/learnloop` and `src/learnloop_sidecar` to one generated reference note apiece—including explicit active, compatibility, dormant, and evaluation statuses—and links the **592 TypeScript/TSX/Rust modules** in [[Desktop Module Catalog]]. It also provides **66 Python package maps**. Concepts belong in [[Architecture Overview]], [[Learning System]], [[AI Architecture]], [[State and Persistence]], and [[Configuration]]; workflows belong in their dedicated notes.
+> This catalog maps all **1191 Python source modules** under `src/learnloop` and `src/learnloop_sidecar` to one generated reference note apiece—including explicit active, compatibility, dormant, and evaluation statuses—and links the **594 TypeScript/TSX/Rust modules** in [[Desktop Module Catalog]]. It also provides **66 Python package maps**. Concepts belong in [[Architecture Overview]], [[Learning System]], [[AI Architecture]], [[State and Persistence]], and [[Configuration]]; workflows belong in their dedicated notes.
 
 ## Coverage and status
 
 | Refactor status | Modules | Meaning |
 |---|---:|---|
-| `ACTIVE` | 1165 | Live ownership after the refactor. |
+| `ACTIVE` | 1168 | Live ownership after the refactor. |
 | `COMPAT` | 4 | Live but frozen old-vault compatibility machinery. |
 | `DORMANT` | 2 | Explicitly disabled/descoped modules with no live workflow authority. |
 | `EVALUATION` | 17 | Shadow, audit, or offline evaluation code whose outputs are decision-inert. |
@@ -61,7 +61,7 @@ tags:
 | [[Reference/Modules/learnloop/daily_plan/_package|learnloop.daily_plan]] | `domain` | `ACTIVE` | 29 | The finite daily plan: remembered minutes split across repair, maintain, new and push, chosen block by block, and the router card. |
 | [[Reference/Modules/learnloop/data_capture/_package|learnloop.data_capture]] | `domain` | `ACTIVE` | 4 | What later evaluation needs, recorded now: its switches, prefilter receipts, and the one read of Reader exposures with the sweep that freezes them. |
 | [[Reference/Modules/learnloop/db/_package|learnloop.db]] | `infrastructure` | `ACTIVE` | 9 | SQLite connections, migrations, repository compatibility, table roles, rebuilds, and persistence infrastructure. |
-| [[Reference/Modules/learnloop/db/stores/_package|learnloop.db.stores]] | `infrastructure` | `ACTIVE` | 52 | Table-family persistence owners extracted from the repository facade. |
+| [[Reference/Modules/learnloop/db/stores/_package|learnloop.db.stores]] | `infrastructure` | `ACTIVE` | 53 | Table-family persistence owners extracted from the repository facade. |
 | [[Reference/Modules/learnloop/diagnosis/_package|learnloop.diagnosis]] | `domain` | `ACTIVE` | 58 | Diagnostic probes, causal attribution, error classification, and remediation decisions. |
 | [[Reference/Modules/learnloop/diagnosis/offline_review/_package|learnloop.diagnosis.offline_review]] | `domain` | `ACTIVE` | 10 | The offline review of blind grading and history-aware diagnosis, run on backup copies with synthetic learners; never changes a live vault. |
 | [[Reference/Modules/learnloop/diagnosis/recurrence/_package|learnloop.diagnosis.recurrence]] | `domain` | `ACTIVE` | 11 | Recurrence with authority: the same_cause match kind over causal hypotheses, its shortlist and judge, the live step and the backlog. |
@@ -73,8 +73,8 @@ tags:
 | [[Reference/Modules/learnloop/experiments/contextual_embeddings/e1/_package|learnloop.experiments.contextual_embeddings.e1]] | `domain` | `ACTIVE` | 12 | Experiment E1: the local pplx v2-context-9b batch pilot over E0's bank and finalists. |
 | [[Reference/Modules/learnloop/field/_package|learnloop.field]] | `domain` | `ACTIVE` | 18 | Replay-only learner-field contracts (the LearnerPredictor contract, signals, outcomes); no serving policy or evidence writes. |
 | [[Reference/Modules/learnloop/figures/_package|learnloop.figures]] | `domain` | `ACTIVE` | 25 | Explorable figures: declarative specs and sketches, their authoring routes, verification, labels, help records and the figure service. |
-| [[Reference/Modules/learnloop/followup_run/_package|learnloop.followup_run]] | `domain` | `ACTIVE` | 8 | FG1's composition, imported only by the sidecar: lanes, the frontier authoring operation, machine admission, the router's itemless decision, what the feedback screen and Next read, and the generation worker. |
-| [[Reference/Modules/learnloop/followup_serve/_package|learnloop.followup_serve]] | `domain` | `ACTIVE` | 5 | FG1's leaf: the kill switch, the durable workflow's record, the generation queue's writes and the generated probe's single-use identity, read by the domain packages. |
+| [[Reference/Modules/learnloop/followup_run/_package|learnloop.followup_run]] | `domain` | `ACTIVE` | 9 | FG1's composition, imported only by the sidecar: lanes, the frontier authoring operation, machine admission, the router's itemless decision, what the feedback screen and Next read, and the generation worker. |
+| [[Reference/Modules/learnloop/followup_serve/_package|learnloop.followup_serve]] | `domain` | `ACTIVE` | 6 | FG1's leaf: the kill switch, the durable workflow's record, the generation queue's writes and the generated probe's single-use identity, read by the domain packages. |
 | [[Reference/Modules/learnloop/goals/_package|learnloop.goals]] | `domain` | `ACTIVE` | 18 | Learning goals, forecasts, certification, readiness, and exam workflows. |
 | [[Reference/Modules/learnloop/hints/_package|learnloop.hints]] | `domain` | `ACTIVE` | 19 | Adaptive hints: telemetry and report, approach maps, the hint service and its outcomes. |
 | [[Reference/Modules/learnloop/ingest/_package|learnloop.ingest]] | `infrastructure` | `ACTIVE` | 13 | Acquisition intermediate representation, locators, fetchers, originals, and ingestion orchestration. |
@@ -110,7 +110,7 @@ tags:
 
 ## Desktop client modules
 
-The Tauri desktop application has **592 source modules** with one-to-one reference notes in [[Desktop Module Catalog]]. Read [[Desktop Architecture]] first for the React-to-Rust-to-sidecar boundary, then use that catalog for per-file callers, dependencies, tests, and modification guidance.
+The Tauri desktop application has **594 source modules** with one-to-one reference notes in [[Desktop Module Catalog]]. Read [[Desktop Architecture]] first for the React-to-Rust-to-sidecar boundary, then use that catalog for per-file callers, dependencies, tests, and modification guidance.
 
 > [!tip] Choose the catalog by source tree
 > Use this catalog for Python under `src/`; use [[Desktop Module Catalog]] for TypeScript, TSX, and Rust under `apps/learnloop-tauri/`. Both link back to the same concepts and end-to-end workflows.
@@ -162,4 +162,4 @@ SORT file.name ASC
 .venv/bin/python docs/learnloop-architecture-vault/_scripts/module_validate.py
 ```
 
-The current generation discovered 1332 Python test files. Each module note lists direct importing tests or, when absent, one-hop consumer tests.
+The current generation discovered 1335 Python test files. Each module note lists direct importing tests or, when absent, one-hop consumer tests.

@@ -83,7 +83,7 @@ source_paths:
   - "src/learnloop_sidecar/handlers/workbench_help.py"
   - "src/learnloop_sidecar/handlers/workbench_rw2c.py"
 source_commit: "aggregate; see module notes"
-source_commit_timestamp: "2026-11-04T06:46:03-05:00"
+source_commit_timestamp: "2026-11-04T08:47:30-05:00"
 generated: true
 generated_at: "2026-11-02"
 package: "learnloop_sidecar.handlers"
@@ -205,7 +205,7 @@ For system intent, use [[Architecture Overview]].
 
 ### This package imports
 
-- [[Reference/Modules/learnloop_sidecar/_package|learnloop_sidecar]] — 327 static module edges
+- [[Reference/Modules/learnloop_sidecar/_package|learnloop_sidecar]] — 328 static module edges
 - [[Reference/Modules/learnloop/reader/_package|learnloop.reader]] — 48 static module edges
 - [[Reference/Modules/learnloop/_package|learnloop]] — 47 static module edges
 - [[Reference/Modules/learnloop/source_retrieval/_package|learnloop.source_retrieval]] — 41 static module edges
@@ -232,12 +232,12 @@ For system intent, use [[Architecture Overview]].
 - [[Reference/Modules/learnloop/figures/_package|learnloop.figures]] — 10 static module edges
 - [[Reference/Modules/learnloop/ops/_package|learnloop.ops]] — 10 static module edges
 - [[Reference/Modules/learnloop/content/synthesis/_package|learnloop.content.synthesis]] — 8 static module edges
+- [[Reference/Modules/learnloop/followup_run/_package|learnloop.followup_run]] — 8 static module edges
 - [[Reference/Modules/learnloop/intent/_package|learnloop.intent]] — 8 static module edges
 - [[Reference/Modules/learnloop/substrate/_package|learnloop.substrate]] — 8 static module edges
 - [[Reference/Modules/learnloop/config/_package|learnloop.config]] — 7 static module edges
 - [[Reference/Modules/learnloop/content/proposals/_package|learnloop.content.proposals]] — 6 static module edges
 - [[Reference/Modules/learnloop/diagnosis/split/_package|learnloop.diagnosis.split]] — 6 static module edges
-- [[Reference/Modules/learnloop/followup_run/_package|learnloop.followup_run]] — 6 static module edges
 - [[Reference/Modules/learnloop/ingest/_package|learnloop.ingest]] — 6 static module edges
 - [[Reference/Modules/learnloop/placement/_package|learnloop.placement]] — 6 static module edges
 - [[Reference/Modules/learnloop/ai/chatgpt_plan/_package|learnloop.ai.chatgpt_plan]] — 5 static module edges
@@ -277,7 +277,7 @@ flowchart LR
     n_learnloop_diagnosis["learnloop.diagnosis"]
     n_learnloop_content_sources["learnloop.content.sources"]
     n_learnloop_sidecar -->|4| center
-    center -->|327| n_learnloop_sidecar
+    center -->|328| n_learnloop_sidecar
     center -->|48| n_learnloop_reader
     center -->|47| n_learnloop
     center -->|41| n_learnloop_source_retrieval

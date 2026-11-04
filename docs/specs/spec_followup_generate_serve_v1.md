@@ -1,6 +1,6 @@
 # Follow-up generate and serve (FG1)
 
-**Status:** FG1 built on `followup/fg1-generate-serve` (mvp-0.45, migration 241; `docs/reviews/followup-fg1.md`); §7's marks table and report are FG1c, next. Owner's decisions recorded, 2026-11-03 (§2, §11). Revised after a read-only Sol review against the code (job 20261103-211904-wVotHw). Code references are to main at `02f7cbec2d`.
+**Status:** FG1 built on `followup/fg1-generate-serve` (mvp-0.45, migration 241; `docs/reviews/followup-fg1.md`); §7's marks and report built as FG1c on `followup/fg1c-marks` (migration 242, no successor; `docs/reviews/followup-fg1c.md`). Owner's decisions recorded, 2026-11-03 (§2, §11). Revised after a read-only Sol review against the code (job 20261103-211904-wVotHw). Code references are to main at `02f7cbec2d`.
 
 ## 1. The problem
 
@@ -185,6 +185,18 @@ The learner reads the possible causes and marks them. It's an imperfect sensor, 
 - **Existing channels.** The card's single-response tap and the unresolved-cause self-report stay, with O14's forwarding unchanged. Marks are not forwarded: that channel can open a provisional belief and resolve a factor (`causal_attribution.py:3497, 3586`), it targets the primary cause rather than the one tapped (`split/card.py:282`), and it allows one report per factor (`:3514`). On the probe lane the marks replace the card's tap, so the learner isn't asked twice.
 - **Measuring the sensor.** `learnloop data-capture report`, once data capture lands, gains agreement between marks and probe outcomes, and between marks and delayed performance, along with mark rates by display position. That tells us how far to trust it and watches for acquiescence, which O14 already warned of.
 
+*As built (FG1c, Nov 4, 2026; migration 242, `docs/reviews/followup-fg1c.md`):*
+
+- **Tables.** `hypothesis_marks` (RAW_LEDGER), and `hypothesis_list_exposures` with `hypothesis_exposure_probe_links` (RECEIPT), the exposure table of `spec_router_objective_v1.md` §4 row 6, which this stage owns. Every list of an attempt's causes the desktop displays writes a row from the client's display event, through the `record_hypothesis_exposure` RPC: the marks panel, `why?`, the causal feedback and the unresolved-cause card, each with the order as displayed. A refused receipt rolls back alone with a warning and never blocks an answer.
+- **The list.** The workflow's factor's concrete causes, whatever became of the factor, since its probe tested those versions; else the newest open or resolved factor's; else, with no factor, exactly the causes the feedback's claim-checked overlay would show. Hypothesis version id is the `causal_hypotheses` row, and the stable identity is its `episode_key`.
+- **The order.** Each identity sorts by its own hash under a seed from the attempt and factor (`hypothesis_order_v1`), so a list reads the same every time, a later version keeps its place and a new cause moves nothing else. The seed is on every panel exposure and every mark.
+- **Where the panel sits.** Under the feedback surface, on the miss's own screen and on the probe answer's (where it lists the miss's causes), not inside `FollowupPanel`: above the verdict it would come before what it's about. `FollowupPanel`'s held line stays what says why the causes are hidden.
+- **Taking a mark back.** One value beyond the spec's: tapping a mark again appends `cleared`.
+- **On the probe lane** the diagnosis card's tap row goes, and so does `why?`'s "this doesn't sound right" when it would have written that tap. The unresolved-cause self-report stays, as above, under *details*. The RPC behind the tap is unchanged.
+- **Reaching the diagnoser.** Marks reach history attempts as of the diagnosis's cutoff, and a re-diagnosis of the same attempt reads its own. Nothing triggers a re-diagnosis. The block carries its own attribution, so no prompt version moved.
+- **Kill switch** `followup.hypothesis_marks`, default true, at every algorithm version. Off: no bundle key, no rows, no card section or context block, whatever rows an earlier run left.
+- **No successor.** No score, schedule, projection or admissibility reads any of this, and replay clears none of it. The card's version gains `+marks` only while a mark is on it, which is how a stored card says which model input it was.
+
 ## 8. Protection and spend
 
 **Kept:** the blind grader sees none of this. Prediction bundles stay blind. Exam material stays protected, with the new filter in §4.1. Probe answers remain cold unless the reveal ledger says otherwise.
@@ -205,7 +217,7 @@ The learner reads the possible causes and marks them. It's an imperfect sensor, 
 
 ## 10. Build
 
-**Stages.** FG1: the workflow, lanes, generation, single-use rules, router change, successor and the desktop UI (§6), landed together, since serving without the pending and skip UI would strand Next. FG1c: marks and the report (§7), right after.
+**Stages.** FG1: the workflow, lanes, generation, single-use rules, router change, successor and the desktop UI (§6), landed together, since serving without the pending and skip UI would strand Next. FG1c: marks and the report (§7), right after; built with no successor (§7, "As built").
 
 **Persisted meaning:** a successor after data capture's `mvp-0.44`, with a kill switch `followup.generate_and_serve`. Off: behaviour matches the predecessor from an equivalent starting state, background work and UI included, and the stored `auto_generate_on_entry` is what applies. Burns persist after a rollback, and open FG1 workflows settle as skipped. New tables get a role in `table_roles.py`, per CLAUDE.md. Numbers are claimed at landing.
 

@@ -86,6 +86,7 @@ No private top-level function or class definition is declared in this file.
 > “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
 
 - [[Reference/Modules/learnloop/followup_run/jobs|learnloop.followup_run.jobs]] — imports `concrete_rivals`, `open_rival_factor`, `select_lane`, `settle_practice_lane`; statically calls `concrete_rivals`, `open_rival_factor`, `select_lane`, `settle_practice_lane`
+- [[Reference/Modules/learnloop/followup_run/marks|learnloop.followup_run.marks]] — imports `concrete_rivals`; statically calls `concrete_rivals`
 - [[Reference/Modules/learnloop/followup_run/serving|learnloop.followup_run.serving]] — imports `module`; statically calls `settle_practice_lane`
 
 ## Dependencies
@@ -113,7 +114,7 @@ Use this module in context through:
 - [[Initialize a Vault]]
 - [[Start a Learning Cycle]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/followup_run/jobs|learnloop.followup_run.jobs]], [[Reference/Modules/learnloop/followup_run/serving|learnloop.followup_run.serving]].
+Static participation evidence comes from [[Reference/Modules/learnloop/followup_run/jobs|learnloop.followup_run.jobs]], [[Reference/Modules/learnloop/followup_run/marks|learnloop.followup_run.marks]], [[Reference/Modules/learnloop/followup_run/serving|learnloop.followup_run.serving]].
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 

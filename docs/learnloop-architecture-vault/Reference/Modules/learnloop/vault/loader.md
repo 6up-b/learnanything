@@ -1692,6 +1692,11 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_kill_switch_writes_nothing_and_the_rpc_is_a_no_op`
   - `test_rebuild_with_help_assists_populated_calls_no_model_and_never_reads_it`
 - [tests/test_hot_path_eligibility_cutover.py](../../../../../../tests/test_hot_path_eligibility_cutover.py) — direct import
+- [tests/test_hypothesis_marks.py](../../../../../../tests/test_hypothesis_marks.py) — direct import
+  - `test_the_switch_off_keeps_the_diagnosers_context_as_it_was_whatever_rows_exist`
+- [tests/test_hypothesis_marks_context.py](../../../../../../tests/test_hypothesis_marks_context.py) — direct import
+  - `test_a_rediagnosis_reads_the_marks_on_its_own_attempt`
+  - `test_with_the_switch_off_the_card_is_byte_identical_whatever_rows_exist`
 - [tests/test_hypothesis_sets.py](../../../../../../tests/test_hypothesis_sets.py) — direct import
   - `test_hypothesis_set_adds_active_misconception`
   - `test_hypothesis_set_always_has_mastered_and_unfamiliar`

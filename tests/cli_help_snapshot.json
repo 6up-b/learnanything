@@ -244,12 +244,12 @@
     "sha256": "9436e900093ef24c23ec3d3d68cb83808acc0551c1ebafb5599883e1d9fb7989"
   },
   "data-capture": {
-    "bytes": 1923,
-    "sha256": "8ca6c66ac1305f6014e4622a2dc41e94c87627660e7eae768cba3df7e5a316fc"
+    "bytes": 2093,
+    "sha256": "3c9fca1fd2416035ce505c7da2682879ede126f12ba01221f9f8d5b0058ab505"
   },
   "data-capture report": {
-    "bytes": 1368,
-    "sha256": "9809be60af7189d6668248452fd56263710547921eee45d3ff975bf85fbd947d"
+    "bytes": 1449,
+    "sha256": "abbd7075c459c172c1b01185564801bfc0619b8b87e493df5f532945e4e723df"
   },
   "data-quality": {
     "bytes": 1040,

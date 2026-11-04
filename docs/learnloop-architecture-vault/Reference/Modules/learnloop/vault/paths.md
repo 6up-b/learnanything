@@ -339,6 +339,9 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_grading_hardcases.py](../../../../../../tests/test_grading_hardcases.py) — direct import
 - [tests/test_held_grade_evidence.py](../../../../../../tests/test_held_grade_evidence.py) — direct import
   - `test_review_f3_diagnostic_observations_held_by_a_regrade_qualify_nothing`
+- [tests/test_hypothesis_marks.py](../../../../../../tests/test_hypothesis_marks.py) — direct import
+- [tests/test_hypothesis_marks_context.py](../../../../../../tests/test_hypothesis_marks_context.py) — direct import
+  - `test_the_whole_report_carries_the_section_in_json_and_in_words`
 - [tests/test_import_split_parity.py](../../../../../../tests/test_import_split_parity.py) — direct import
   - `test_author_then_write_writes_what_import_exercises_writes`
 - [tests/test_intent_codex_review.py](../../../../../../tests/test_intent_codex_review.py) — direct import

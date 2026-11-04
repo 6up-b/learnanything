@@ -3,13 +3,13 @@ title: "misconceptions"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "c351033cdfa816184211a76bd032919f54f5a1b6"
-source_commit_timestamp: "2026-11-04T07:28:45-05:00"
+source_commit: "52b1842ebcee0e7f249495ca3d2fa1cfa49d7e80"
+source_commit_timestamp: "2026-11-04T08:56:43-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite misconceptions"
   - "table misconceptions"
-schema_head: 241
+schema_head: 242
 table_name: "misconceptions"
 table_role: "workflow"
 functionality_status: "active"

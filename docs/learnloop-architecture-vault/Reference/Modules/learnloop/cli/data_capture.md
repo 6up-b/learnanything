@@ -7,8 +7,8 @@ version: "1.0.0"
 source_path: "src/learnloop/cli/data_capture.py"
 source_paths:
   - "src/learnloop/cli/data_capture.py"
-source_commit: "1d242b25e2e9fd03cada602956254bdc2e51ed25"
-source_commit_timestamp: "2026-11-03T16:06:38-05:00"
+source_commit: "a1ba732a86f8c704cd6e6ee1071bf7a30ad3fb1a"
+source_commit_timestamp: "2026-11-04T08:47:30-05:00"
 source_worktree_state: "clean"
 generated: true
 generated_at: "2026-11-02"
@@ -52,17 +52,17 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/cli/data_capture.py](../../../../../../src/learnloop/cli/data_capture.py) |
-| Source lines | 53 |
+| Source lines | 54 |
 | Owning package | [[Reference/Modules/learnloop/cli/_package|learnloop.cli]] |
 | Architecture layer | `adapter` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `1d242b25e2e9fd03cada602956254bdc2e51ed25` |
-| Commit timestamp | `2026-11-03T16:06:38-05:00` |
+| Source commit | `a1ba732a86f8c704cd6e6ee1071bf7a30ad3fb1a` |
+| Commit timestamp | `2026-11-04T08:47:30-05:00` |
 
 ## Public API
 
-- `data_capture_report(vault: Annotated[Path, typer.Option('--vault', help='Vault root (read-only).')], json_output: Annotated[bool, typer.Option('--json')]=False) -> None` ([source](../../../../../../src/learnloop/cli/data_capture.py), line 24) — Counts and coverage for each new record: prefilter receipts, frozen objectives and their measurement states by arm, outcomes by arm, the first-delayed-success proxy, the not_ready floor and the delayed picks (read-only; no model call; no effect is estimated).
+- `data_capture_report(vault: Annotated[Path, typer.Option('--vault', help='Vault root (read-only).')], json_output: Annotated[bool, typer.Option('--json')]=False) -> None` ([source](../../../../../../src/learnloop/cli/data_capture.py), line 24) — Counts and coverage for each new record: prefilter receipts, frozen objectives and their measurement states by arm, outcomes by arm, the first-delayed-success proxy, the not_ready floor and the delayed picks, and the marks on possible causes with the coverage of their exposures…
 
 ## Internal implementation anchors
 
