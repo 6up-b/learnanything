@@ -119,3 +119,83 @@ Not run, because nothing they cover changed:
 
 No paid or live calls were made. Scripts outside pytest ran under `env -i` with empty `HOME`, `CODEX_HOME` and `LEARNLOOP_CONFIG_DIR`. Only synthetic vaults
 were used, all in the scratch directory, and none of the owner's off-limit paths was touched.
+
+## Codex verify: F1 and F7 reopened, fixed at the landing
+
+The scoped verify (codex job `20261104-165216-3b1KmL`) read `58ec14a227`. It closed F2 to F6 and F8 and reopened two:
+
+- **F1, sibling writes.** The disclosure state's fix held, but three other RO0 writes still rode their row's insert:
+  `ask_available` in the plan presentation's insert (which a keyed pick requires, so a refusal failed the pick), the
+  generating-process fields in the pending question's insert (a refusal failed the answer before its model call), and
+  the initiator fields in the source exposure's insert (a refusal failed the opening and lost its coldness exposure).
+  Codex reproduced the pick and the answer at mvp-0.43, 0.44 and 0.45.
+- **F7, Reader attribution.** A visit's block was the newest reading block on its extraction and its session the one
+  open when the batch arrived, so a visit stamped 09:01 and received at 10:01 was stored against a block created at
+  10:00 and the newer session.
+
+The orchestrator ruled R1 and R2 (verbatim in `docs/reviews/router-ro0-logging.md`, "Landing onto main"). Each fix is
+its own commit, and its tests carry Codex's reproductions. The tests are in `tests/test_ro0_codex_verify.py`.
+
+| Id | Ruling | Commit | Tests |
+|---|---|---|---|
+| F1 | R1 | `811e16a98f` | `test_r1_*` (31: 26 journeys, a keyed pick, an answer and a source opening at three versions, an arranged check's delay and an unserved check's type at 0.44 and 0.45, each under an insert-refusing and a fill-refusing trigger; every writer at the store; the five writers are the only inserts; the guards name every column and refuse every other update) |
+| F7 | R2 | `ed0e027193` | `test_r2_*` (Codex's late visit; two sessions fitting, none fitting; two blocks in force, an ended block; the client's capture; a learner's visit names no block; an opening with two open sessions; off writes no link) |
+
+**R1.** No RO0 field on a table that existed before it is written in its row's insert. The writers are the only five inserts into
+those tables (a test pins the list): `insert_question_event`, `insert_source_exposure_event`, `insert_plan_presentation`,
+`insert_objective` and `insert_measurement_event`. Each inserts the row with its predecessor's fields, then calls
+`db/stores/router_objective.fill_receipt`. That writes RO0's fields in one `UPDATE` inside its own savepoint; refused, the savepoint rolls back
+alone, a warning names the row, and the row stands with them null. `RECEIPT_FIELDS` lists the fields:
+
+- `question_events`: `reveal_state_json`, and the generating process RO0 fills (`hints_used_before`, `scaffold_level`,
+  `preceding_tutor_move`, `learner_mode`, `question_opportunity`);
+- `plan_presentations.ask_available`;
+- `source_exposure_events`: `initiator`, `initiator_block_id`, `initiator_session_id`, `initiator_visit_id`;
+- `decision_objectives.delay_json`;
+- `decision_measurement_events`: `non_service_type`, `delay_json`.
+
+Callers are unchanged: the writer splits the fields off itself, so no caller can put one back in the insert. The
+disclosure state's own helper (`set_question_state`) is folded into the fill. `ask_availability.serve_fields` no longer
+raises, since a keyed pick's serve propagates what fails inside it.
+
+Three of the tables are append-only. Migration 242 now replaces their update guards
+(`plan_presentations_no_update`, `decision_objectives_no_update`, `decision_measurement_events_no_update`) with guards that allow exactly the fill:
+RO0's columns set once from null, every other column unchanged. Each guard names every column of its table, and a test fails if a
+later column is missing from it. Every other update, a second fill, and a fill that changes another column are still
+refused, and so is every delete.
+
+**R2.** A Reader visit's block and session are resolved as of its `occurred_at`, the client's stamp. Without a stamp,
+they're resolved as of when the server had the visit.
+
+- A session fits if it had started by then and hadn't ended before it.
+- A plan reading block on the visit's extraction fits if it had been created by then and hadn't ended
+  (`block_ended`) before it.
+- Exactly one fit is the link. None, or more than one, is recorded as unknown.
+- A block or session the client sends at the opening stands.
+
+The payload says which happened: `session_link` and, for a plan-sent visit or a client's block, `block_link`, each
+`client`, `as_of_event` or `unknown`. An unknown link has no id. An opening the server records as it happens
+(`exposure.fields`, every source exposure) names the one open session, and none when two are open, where it used to name
+the newest. The desktop sends neither id yet, so its visits are resolved by the server. One case stays open and is
+named here, not guessed around: a session left open by a crash is ended later at its last attempt or checkpoint. A visit made while it was still open
+was linked to it as of then (`as_of_event`), and a reader that trains on the link can check it against the
+session's final `ended_at`.
+
+R4 (verbatim in the record) sets the bar for later findings: there's no further Codex round on these two classes.
+
+### Gate (step 0)
+
+| What | Result |
+|---|---|
+| `tests/test_ro0_codex_verify.py` before R1's fix (R1 part) | 30 failed, 1 passed (the list of writers, which reads the source) |
+| The same after R1 | 31 passed |
+| R2's part before its fix | 7 failed, 1 passed (off writes no link, a guard) |
+| R2's part after | 8 passed; with the row 3, 4 and 5 files and the review file, 96 passed |
+| Targeted after R1: 294 files naming a changed table or writer, plus the contract files | 11,237 passed, 13 skipped, 2 xfailed, 21 failed: every one an earlier migration's additive diff, which saw `plan_presentations_no_update` change. `TE1_AND_TE1B_ALTERED_TABLES` now names it; the 21 rerun pass |
+| Targeted after R2: every `test_ro0_*`, `test_question_context`, `test_data_capture_successor`, `test_table_roles`, `test_coordinated_migrations`, `test_architecture`, and the files naming the Reader's activity or an exposure (78 files) | 7,445 passed, 6 skipped, 0 failed |
+| `--durable-sqlite` on `test_ro0_*.py` and `test_question_context.py` | 178 passed |
+| `lint-imports --no-cache` | 42 kept, 0 broken |
+
+Every pytest run was in the memory-capped scope with `-n 6`, and every script outside pytest under `env -i` with empty `HOME`, `CODEX_HOME` and
+`LEARNLOOP_CONFIG_DIR`. No model call. The head fixture still holds 242's earlier guards: the landing rebuilds it as `migration_head_243`, applying the
+final file.
