@@ -2532,10 +2532,14 @@ def _probe_production_admissibility(
         return None
     from learnloop.followup_serve.workflow import probe_answer_exposed
 
-    exposed = probe_answer_exposed(repository, str(attempt.get("probe_presentation_id") or ""))
+    exposed = probe_answer_exposed(
+        repository, str(attempt.get("probe_presentation_id") or ""),
+        answered_at=str(attempt.get("created_at") or "") or None,
+    )
     if exposed is not None:
-        # FG1 §6.0, §7: the learner took "Show anyway", or the feedback was released
-        # before a wait: an answer it can't resolve the cause with, whatever the ledger.
+        # FG1 §6.0, §7: the learner took "Show anyway", the feedback was released before a
+        # wait, or the causes were displayed before this answer (a recorded exposure, FG1c):
+        # an answer it can't resolve the cause with, whatever the ledger.
         return ProductionAdmissibility(False, exposed)
     return production_admissibility(
         repository,

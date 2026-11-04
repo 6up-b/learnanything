@@ -6,8 +6,11 @@ releases it and FG1 keeps the probe's answer labelled not independent.
 
 The order is shuffled once, with a logged seed, over stable hypothesis identities (§11 of the router
 objective spec), and each display of any list of an attempt's causes writes an exposure receipt from
-the client's display event. Nothing here decides anything: a mark is appended to a raw ledger and is
-not forwarded to ``record_unresolved_cause_self_report``.
+the client's display event. A display event is what happened on screen, so it is recorded even while
+feedback is held, and ``workflow.probe_answer_exposed`` reads it: causes on screen before a probe's
+answer make that answer not independent, whichever surface showed them (R1 of the landing record).
+A mark decides nothing: it is appended to a raw ledger and is not forwarded to
+``record_unresolved_cause_self_report``.
 """
 
 from __future__ import annotations
@@ -184,7 +187,9 @@ def record_exposure(
     clock: Clock | None = None,
 ) -> str | None:
     """One display, from the client's display event, in the order as displayed. The id, or None. A
-    refused receipt rolls back alone with a warning: it never blocks a screen or an answer."""
+    refused receipt rolls back alone with a warning: it never blocks a screen or an answer. A display
+    event while feedback is held is recorded, not discarded: the screen says the causes were on it,
+    and the probe's answer has to know. A time that can't be read is the server's own."""
 
     if not hypothesis_marks_on(vault.config):
         return None
@@ -213,7 +218,7 @@ def record_exposure(
                 "order_version": M.ORDER_VERSION if shuffled else None,
                 "probe_answered": 1 if state["answered"] else 0,
                 "probe_attempt_id": state["attempt_id"],
-                "shown_at": shown_at if shown_at and parse_utc(shown_at) is not None else now,
+                "shown_at": shown_at if _readable_time(shown_at) else now,
                 "created_at": now,
             })
     except Exception:  # noqa: BLE001 - a receipt never blocks a screen or an answer
@@ -221,13 +226,18 @@ def record_exposure(
         return None
 
 
+def _readable_time(value: str | None) -> bool:
+    try:
+        return bool(value) and parse_utc(value) is not None
+    except ValueError:
+        return False
+
+
 def _exposure_refusal(repository: Repository, attempt_id: str, surface: str, ids: Sequence[str]) -> str | None:
     if surface not in EXPOSURE_SURFACES:
         return f"unknown surface {surface!r}"
     if not ids or len(set(ids)) != len(ids):
         return "no list, or a repeated cause"
-    if is_holding(wf.attempt_workflow(repository, attempt_id)):
-        return "the list is held, so it was not on screen"
     for value in ids:
         hypothesis = repository.causal_hypothesis(str(value))
         if hypothesis is None or str(hypothesis.get("attempt_id")) != attempt_id:

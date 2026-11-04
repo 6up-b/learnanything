@@ -81,7 +81,7 @@ def _dump(paths, *, without=LEDGERS):
 # -- timing: §6.0, as FG1 built it ------------------------------------------------------------------
 
 
-def test_while_held_there_is_no_list_and_nothing_can_be_marked_or_receipted(journey):
+def test_while_held_there_is_no_list_and_nothing_can_be_marked_but_a_display_event_is_recorded(journey):
     ctx, _vault, repository, result, _outcome = journey
     assert "hypothesisMarks" not in _call(ctx, "get_feedback", {"attemptId": result.attempt_id})
     with pytest.raises(SidecarError) as caught:
@@ -90,8 +90,9 @@ def test_while_held_there_is_no_list_and_nothing_can_be_marked_or_receipted(jour
     version = repository.causal_hypotheses_for_attempt(result.attempt_id)[0]["id"]
     reply = _call(ctx, "record_hypothesis_exposure", {"attemptId": result.attempt_id, "surface": "why",
                                                       "hypothesisVersionIds": [version]})
-    assert reply["recorded"] is False
-    assert _rows(repository, "hypothesis_list_exposures") == [] and _rows(repository, "hypothesis_marks") == []
+    # R1: what the screen says it showed is recorded, and it's what labels the probe's answer.
+    assert reply["recorded"] is True
+    assert len(_rows(repository, "hypothesis_list_exposures")) == 1 and _rows(repository, "hypothesis_marks") == []
 
 
 def test_after_the_probe_is_answered_its_feedback_shows_the_misss_list(journey):

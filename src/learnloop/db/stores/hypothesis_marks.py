@@ -142,6 +142,16 @@ def exposures_for_attempt(connection: sqlite3.Connection, attempt_id: str) -> li
         f"SELECT * FROM {EXPOSURES} WHERE attempt_id = ? ORDER BY created_at, id", (attempt_id,)))
 
 
+def exposures_of_causes(connection: sqlite3.Connection, *, attempt_id: str, factor_id: str | None) -> list[dict[str, Any]]:
+    """Every display of this attempt's causes or this factor's, oldest first. A list shown before its
+    factor opened carries no factor, so the attempt alone is enough."""
+
+    return _rows(connection.execute(
+        f"SELECT * FROM {EXPOSURES} WHERE attempt_id = ? OR (? IS NOT NULL AND factor_id = ?) ORDER BY created_at, id",
+        (attempt_id, factor_id, factor_id),
+    ))
+
+
 def probe_links(connection: sqlite3.Connection, attempt_id: str | None = None) -> list[dict[str, Any]]:
     if attempt_id is None:
         return _rows(connection.execute(f"SELECT * FROM {PROBE_LINKS} ORDER BY created_at, id"))

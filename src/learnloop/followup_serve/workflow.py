@@ -22,9 +22,10 @@ from collections.abc import Mapping
 import hashlib
 import json
 import logging
+import sqlite3
 from typing import Any
 
-from learnloop.clock import Clock, utc_now_iso
+from learnloop.clock import Clock, parse_utc, utc_now_iso
 from learnloop.db.repositories import Repository
 from learnloop.db.stores import followup_serve as store
 from learnloop.db.stores import hypothesis_marks as marks_store
@@ -59,6 +60,9 @@ RELEASE_SHOW_ANYWAY = "show_anyway"
 RELEASE_REFUSED = "refused"
 RELEASE_FALLBACK = "fallback"
 RELEASE_SWITCH_OFF = "switch_off"
+#: Why a probe's answer is not independent, beyond FG1's two flags (spec §7; R1 of the landing).
+CAUSES_SHOWN_BEFORE_PROBE = "followup_causes_shown_before_probe"
+CAUSE_EXPOSURES_UNREADABLE = "followup_cause_exposures_unreadable"
 #: How a factor opened for this lane closes when its question won't be asked (R9).
 FACTOR_DECLINED = "followup_declined"
 
@@ -290,10 +294,43 @@ def superseded(repository: Repository, row: Mapping[str, Any]) -> bool:
     return str(latest["id"]) != str(row["revision_key"])
 
 
-def probe_answer_exposed(repository: Repository, presentation_id: str) -> str | None:
-    """Why a generated probe's answer is not independent, or None: FG1's two labels.
+def _instant(value: Any) -> Any:
+    try:
+        return parse_utc(str(value)) if value else None
+    except ValueError:
+        return None
 
-    ``Show anyway`` marks it, and a wait labels the later probe exposed (spec §6.0).
+
+def _causes_shown_before(repository: Repository, row: Mapping[str, Any], answered_at: str | None) -> str | None:
+    """A recorded display of the workflow's causes before the answer, from any surface, held or not (R1).
+
+    A display whose time can't be placed against the answer counts: nothing shows it came after. An
+    unreadable table is not independent either, since it can't say the causes weren't on screen, and it
+    never raises: this runs inside the answer's own pipeline."""
+
+    answered = _instant(answered_at)
+    try:
+        with repository.connection() as connection:
+            if not marks_store.present(connection):
+                return None
+            shown = marks_store.exposures_of_causes(connection, attempt_id=str(row["source_attempt_id"]),
+                                                    factor_id=row.get("factor_id"))
+    except sqlite3.Error:
+        logger.warning("the exposures of workflow %s could not be read", row.get("id"), exc_info=True)
+        return CAUSE_EXPOSURES_UNREADABLE
+    for exposure in shown:
+        at = _instant(exposure.get("shown_at"))
+        if answered is None or at is None or at < answered:
+            return CAUSES_SHOWN_BEFORE_PROBE
+    return None
+
+
+def probe_answer_exposed(repository: Repository, presentation_id: str, *, answered_at: str | None = None) -> str | None:
+    """Why a generated probe's answer is not independent, or None.
+
+    ``Show anyway`` marks it, a wait labels the later probe exposed (spec §6.0), and so does any
+    recorded display of the causes before ``answered_at`` (§7): hypotheses read before the probe mark
+    its answer, the owner's rule of Nov 3. With marks off, no display is recorded and the flags stand.
     """
 
     if not presentation_id:
@@ -308,7 +345,7 @@ def probe_answer_exposed(repository: Repository, presentation_id: str) -> str | 
         return "followup_feedback_shown_anyway"
     if row.get("exposed_at"):
         return "followup_feedback_released_before_probe"
-    return None
+    return _causes_shown_before(repository, row, answered_at)
 
 
 def session_rows(repository: Repository, session_id: str) -> list[dict[str, Any]]:
@@ -477,6 +514,7 @@ def diagnosis_ended(vault: Any, repository: Repository, *, attempt_id: str, cloc
 
 
 __all__ = [
+    "CAUSES_SHOWN_BEFORE_PROBE", "CAUSE_EXPOSURES_UNREADABLE",
     "FAILED", "OPEN_STATES", "PENDING", "READY", "REFUSED", "SETTLED", "SKIPPED", "WAITING", "WORKFLOW_OWNS_REASON",
     "attempt_workflow", "close_probe", "desktop_waiting_count", "diagnosis_ended", "finish", "get", "move", "open_for_attempt", "probe_answer_exposed", "probe_answered", "release_feedback", "retire_waiting", "session_rows", "waiting_still_valid", "owns_attempt", "settle_open_when_off",
     "superseded", "workflow_id_for", "workflow_of_item",

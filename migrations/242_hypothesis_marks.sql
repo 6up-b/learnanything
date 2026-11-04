@@ -2,7 +2,8 @@
 -- hypothesis-list exposure receipt (docs/specs/spec_router_objective_v1.md §4 row 6).
 --
 -- Additive: new tables only, no existing row or table changes, and nothing replay,
--- grading, certification, mastery, FSRS, serving or any causal channel reads.
+-- grading, certification, mastery, FSRS or serving reads. One causal read, of (1) only: a display of a
+-- workflow's causes before its probe's answer makes that answer not independent.
 --
 -- 1. hypothesis_list_exposures (RECEIPT): one row each time the desktop displays a list of an
 --    attempt's possible causes, written from the client's display event: the attempt, the factor,

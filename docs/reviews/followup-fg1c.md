@@ -22,7 +22,7 @@ store. `post_attempt` passes the switch's value to `probe_answered` so the link 
 
 Item 1 asks whether the change alters persisted meaning. It doesn't:
 
-- No score, schedule, projection or admissibility reads the three tables, and `test_marks_change_no_row_outside_their_own_ledger` compares every
+- No score, schedule or projection reads the three tables, no mark reaches admissibility (one read of the exposure table does, by ruling R1 under *Landing onto main*), and `test_marks_change_no_row_outside_their_own_ledger` compares every
   other table's every row through every kind of mark. `test_a_rebuild_ignores_marks_and_keeps_them` compares every DERIVED table with and without a mark.
 - The card and the diagnoser's context are empty until a mark exists, so an unmarked vault's are byte-identical. TE0's confidence events are the
   precedent for context with no successor. A stored card says which model input it was through `+marks`, and the diagnoser's context hash is on its receipt.
