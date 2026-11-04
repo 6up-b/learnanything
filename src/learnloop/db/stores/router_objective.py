@@ -2,8 +2,9 @@
 
 Every writer runs on the caller's connection, inside its transaction, and a refused row rolls back alone (a
 savepoint) with a warning: a receipt never blocks a plan or an answer, as
-:func:`learnloop.db.stores.data_capture.insert_prefilter_receipt`. Receipts hold ids and numbers, no protected
-text. Nothing serving, scheduling, certification or replay reads these tables.
+:func:`learnloop.db.stores.data_capture.insert_prefilter_receipt`. RO0's columns on older tables follow their row in
+the same way (:func:`fill_receipt`). Receipts hold ids and numbers, no protected text. Nothing serving, scheduling,
+certification or replay reads these tables.
 """
 
 from __future__ import annotations
@@ -65,18 +66,61 @@ def _append(connection: sqlite3.Connection, table: str, columns: tuple[str, ...]
     return cursor.rowcount > 0
 
 
-def set_question_state(connection: sqlite3.Connection, question_event_id: str, state: str) -> bool:
-    """Row 1's state on a question just inserted, or False (a warning): refused, the question stands without it."""
+#: RO0's fields on tables that existed before it (landing ruling R1). None is ever written in its row's own insert: the
+#: row is inserted with its predecessor's fields and these follow in their own savepoint (:func:`fill_receipt`), so a
+#: refused receipt leaves the row standing with them null. ``question_events`` holds row 1's state and the generating
+#: process RO0 fills (rows 2 and 3); the three append-only tables' update guards (migration 242) allow exactly this fill.
+RECEIPT_FIELDS: Mapping[str, tuple[str, ...]] = {
+    "question_events": ("reveal_state_json", "hints_used_before", "scaffold_level", "preceding_tutor_move", "learner_mode",
+                        "question_opportunity"),
+    "plan_presentations": ("ask_available",),
+    "source_exposure_events": ("initiator", "initiator_block_id", "initiator_session_id", "initiator_visit_id"),
+    "decision_objectives": ("delay_json",),
+    "decision_measurement_events": ("non_service_type", "delay_json"),
+}
+_RECEIPT_KEYS: Mapping[str, str] = {
+    "question_events": "id", "plan_presentations": "id", "source_exposure_events": "id",
+    "decision_objectives": "decision_id", "decision_measurement_events": "id",
+}
+_RECEIPT_WHAT: Mapping[str, str] = {
+    "question_events": "the disclosure state and generating process of question",
+    "plan_presentations": "Ask's availability on presentation",
+    "source_exposure_events": "the initiator of exposure",
+    "decision_objectives": "the check delay of objective",
+    "decision_measurement_events": "the delay and type of measurement event",
+}
 
-    connection.execute("SAVEPOINT question_state_write")
-    try:
-        connection.execute("UPDATE question_events SET reveal_state_json = ? WHERE id = ?", (state, question_event_id))
-    except sqlite3.Error:
-        connection.execute("ROLLBACK TO question_state_write")
-        connection.execute("RELEASE question_state_write")
-        logger.warning("router objective: the disclosure state of question %s was refused", question_event_id, exc_info=True)
+
+def split_receipt(table: str, row: Mapping[str, Any]) -> tuple[dict[str, Any], dict[str, Any]]:
+    """``row`` as its predecessor wrote it (RO0's fields out), and RO0's fields on it that hold a value."""
+
+    fields = RECEIPT_FIELDS[table]
+    return ({key: value for key, value in row.items() if key not in fields},
+            {key: row[key] for key in fields if row.get(key) is not None})
+
+
+def fill_receipt(connection: sqlite3.Connection, table: str, key: Any, values: Mapping[str, Any]) -> bool:
+    """RO0's fields on a row just inserted without them, in their own savepoint, or False: nothing to write (a vault
+    below migration 242 has no such column), or refused, with a warning, and the row stands with them null."""
+
+    present = {str(row[1]) for row in connection.execute(f"PRAGMA table_info({table})")}
+    filled = {name: value for name, value in values.items()
+              if name in RECEIPT_FIELDS[table] and value is not None and name in present}
+    if not filled:
         return False
-    connection.execute("RELEASE question_state_write")
+    savepoint = f"{table}_receipt_fill"
+    connection.execute(f"SAVEPOINT {savepoint}")
+    try:
+        connection.execute(
+            f"UPDATE {table} SET {', '.join(f'{name} = ?' for name in filled)} WHERE {_RECEIPT_KEYS[table]} = ?",
+            [*filled.values(), key],
+        )
+    except sqlite3.Error:
+        connection.execute(f"ROLLBACK TO {savepoint}")
+        connection.execute(f"RELEASE {savepoint}")
+        logger.warning("router objective: %s %s was refused", _RECEIPT_WHAT[table], key, exc_info=True)
+        return False
+    connection.execute(f"RELEASE {savepoint}")
     return True
 
 
@@ -140,7 +184,9 @@ __all__ = [
     "insert_goal_event",
     "insert_session_receipt",
     "latest_goal_events",
+    "RECEIPT_FIELDS",
+    "fill_receipt",
     "session_receipt",
-    "set_question_state",
+    "split_receipt",
     "table_present",
 ]

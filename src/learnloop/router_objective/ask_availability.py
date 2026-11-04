@@ -34,11 +34,17 @@ def at_serve(vault: Any, practice_item_id: str) -> int | None:
 
 
 def serve_fields(vault: Any, connection: Any, practice_item_id: str) -> dict[str, Any]:
-    """The presentation row's new column, on or off, at or below migration 242."""
+    """The presentation row's new column, on or off, at or below migration 242. Never raises: a keyed pick's serve
+    propagates its own failures, and a receipt's must not be one (landing ruling R1)."""
 
-    if not objective_receipts_on(vault.config) or not store.column_present(connection, "plan_presentations", "ask_available"):
+    try:
+        if not objective_receipts_on(vault.config) or not store.column_present(connection, "plan_presentations",
+                                                                                "ask_available"):
+            return {}
+        return {"ask_available": at_serve(vault, practice_item_id)}
+    except Exception:  # noqa: BLE001 - a receipt never blocks a serve
+        logger.warning("router objective: Ask's availability at this serve was not read", exc_info=True)
         return {}
-    return {"ask_available": at_serve(vault, practice_item_id)}
 
 
 def _standing(connection: Any, presentation: dict[str, Any]) -> int | None:

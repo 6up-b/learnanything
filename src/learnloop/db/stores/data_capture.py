@@ -14,6 +14,7 @@ import sqlite3
 from typing import Any
 import zlib
 
+from learnloop.db.stores import router_objective as receipts
 from learnloop.ids import new_ulid
 
 logger = logging.getLogger(__name__)
@@ -46,10 +47,6 @@ def _present(connection: sqlite3.Connection, tables: Iterable[str]) -> bool:
         wanted,
     ).fetchone()[0]
     return int(found) == len(wanted)
-
-
-def _has_column(connection: sqlite3.Connection, table: str, column: str) -> bool:
-    return any(str(row[1]) == column for row in connection.execute(f"PRAGMA table_info({table})"))
 
 
 def receipts_present(connection: sqlite3.Connection) -> bool:
@@ -108,16 +105,15 @@ def prefilter_part(connection: sqlite3.Connection, content_hash: str) -> Any:
 
 def insert_objective(connection: sqlite3.Connection, row: Mapping[str, Any]) -> bool:
     """One decision's frozen objective, or False (a warning) when refused. ``delay_json`` (RO0 row 10; migration
-    242) is written only where it was read."""
+    242), only where it was read, is never in the row's insert (landing ruling R1): it follows in its own savepoint,
+    so a refused delay leaves the objective standing without it."""
 
-    columns = OBJECTIVE_COLUMNS + (
-        ("delay_json",) if row.get("delay_json") and _has_column(connection, "decision_objectives", "delay_json") else ())
     connection.execute("SAVEPOINT decision_objective_append")
     try:
         cursor = connection.execute(
-            f"INSERT OR IGNORE INTO decision_objectives ({','.join(columns)}) "
-            f"VALUES ({','.join('?' for _ in columns)})",
-            [row.get(column) for column in columns],
+            f"INSERT OR IGNORE INTO decision_objectives ({','.join(OBJECTIVE_COLUMNS)}) "
+            f"VALUES ({','.join('?' for _ in OBJECTIVE_COLUMNS)})",
+            [row.get(column) for column in OBJECTIVE_COLUMNS],
         )
     except sqlite3.Error:
         connection.execute("ROLLBACK TO decision_objective_append")
@@ -125,7 +121,11 @@ def insert_objective(connection: sqlite3.Connection, row: Mapping[str, Any]) -> 
         logger.warning("data capture: the objective of %s was refused", row.get("decision_id"), exc_info=True)
         return False
     connection.execute("RELEASE decision_objective_append")
-    return cursor.rowcount > 0
+    if cursor.rowcount <= 0:
+        return False
+    _base, receipt = receipts.split_receipt("decision_objectives", row)
+    receipts.fill_receipt(connection, "decision_objectives", row["decision_id"], receipt)
+    return True
 
 
 def insert_measurement_event(
@@ -143,21 +143,21 @@ def insert_measurement_event(
     delay: str | None = None,
 ) -> bool:
     """A measurement's state, once per reason and episode: a repeat is a no-op (returns False).
-    ``non_service_type``, ``delay``: RO0 row 10's columns, only where they were read (migration 242)."""
+    ``non_service_type``, ``delay``: RO0 row 10's columns, only where they were read (migration 242), never in the
+    row's insert (landing ruling R1): they follow in their own savepoint, so a refusal leaves the state standing."""
 
-    extra = {name: value for name, value in (("non_service_type", non_service_type), ("delay_json", delay))
-             if value is not None}
-    if extra and not _has_column(connection, "decision_measurement_events", "delay_json"):
-        extra = {}
-    columns = ["id", "decision_id", "state", "reason", "practice_item_id", "attempt_id", "detail_json", "created_at",
-               "episode", *extra]
+    event_id = new_ulid()
     cursor = connection.execute(
-        f"INSERT OR IGNORE INTO decision_measurement_events({', '.join(columns)}) "
-        f"VALUES ({', '.join('?' for _ in columns)})",
-        (new_ulid(), decision_id, state, reason, practice_item_id, attempt_id,
-         json.dumps(dict(detail or {}), sort_keys=True, separators=(",", ":")), at, episode, *extra.values()),
+        "INSERT OR IGNORE INTO decision_measurement_events(id, decision_id, state, reason, practice_item_id, attempt_id, "
+        "detail_json, created_at, episode) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+        (event_id, decision_id, state, reason, practice_item_id, attempt_id,
+         json.dumps(dict(detail or {}), sort_keys=True, separators=(",", ":")), at, episode),
     )
-    return cursor.rowcount > 0
+    if cursor.rowcount <= 0:
+        return False
+    receipts.fill_receipt(connection, "decision_measurement_events", event_id,
+                          {"non_service_type": non_service_type, "delay_json": delay})
+    return True
 
 
 def latest_episode(connection: sqlite3.Connection, decision_id: str, *, reason: str) -> str:

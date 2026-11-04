@@ -33,8 +33,10 @@ TE1B_ALTERED_TABLES = frozenset({"router_decisions"})
 #: What TE1's 234 and TE1b's 236 add and alter on the way to head (the earlier diffs compose these).
 TE1_AND_TE1B_ADDED_OBJECTS = TE1_ADDED_OBJECTS | TE1B_ADDED_OBJECTS
 TE1_AND_TE1B_ALTERED_TABLES = TE1_ALTERED_TABLES | TE1B_ALTERED_TABLES
-#: RO0's 242 adds columns to three older tables (decision_measurement_events is younger than every diff using this).
-TE1_AND_TE1B_ALTERED_TABLES = TE1_AND_TE1B_ALTERED_TABLES | frozenset({"question_events", "plan_presentations", "source_exposure_events"})
+#: RO0's 242 adds columns to three older tables (decision_measurement_events is younger than every diff using this), and
+#: replaces plan_presentations' update guard with one that allows RO0's fill (landing ruling R1).
+TE1_AND_TE1B_ALTERED_TABLES = TE1_AND_TE1B_ALTERED_TABLES | frozenset({
+    "question_events", "plan_presentations", "source_exposure_events", "plan_presentations_no_update"})
 
 _DECISION = (
     "INSERT INTO router_decisions(id, receipt_key, decision_kind, surface, mode, policy, algorithm_version, "

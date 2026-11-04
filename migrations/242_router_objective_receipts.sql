@@ -1,7 +1,8 @@
 -- Router objective RO0: logging what is being lost (docs/specs/spec_router_objective_v1.md §4;
 -- docs/reviews/router-ro0-logging.md).
 --
--- Additive: new columns and three new RECEIPT tables, no existing row changes, and nothing
+-- Additive: new columns, three new RECEIPT tables and three update guards that allow RO0's fill
+-- (below), no existing row changes, and nothing
 -- serving, scheduling, certification or replay reads. The one offline reader is the
 -- probability arms' card (llm-probability-state-v4), which reads hints_used_before.
 -- Written behind [router_objective] receipts at every algorithm version; off, nothing is written.
@@ -28,6 +29,56 @@ ALTER TABLE decision_measurement_events ADD COLUMN non_service_type TEXT
   ));
 ALTER TABLE decision_measurement_events ADD COLUMN delay_json TEXT;
 ALTER TABLE decision_objectives ADD COLUMN delay_json TEXT;
+
+-- Landing ruling R1: none of these columns is written in its row's own insert. The row is inserted
+-- with its predecessor's fields and RO0's follow in their own savepoint
+-- (db/stores/router_objective.fill_receipt), so a refused receipt leaves the row standing with them
+-- null. Three of the tables are append-only; each update guard now allows exactly that fill: RO0's
+-- columns set once from null, every other column unchanged. It names every column of its table, so a
+-- later column must be added to it (tests/test_ro0_codex_verify.py).
+DROP TRIGGER plan_presentations_no_update;
+CREATE TRIGGER plan_presentations_no_update
+BEFORE UPDATE ON plan_presentations
+WHEN NOT (
+  OLD.ask_available IS NULL AND NEW.ask_available IS NOT NULL
+  AND NEW.id IS OLD.id AND NEW.block_id IS OLD.block_id AND NEW.router_decision_id IS OLD.router_decision_id
+  AND NEW.controller_decision_id IS OLD.controller_decision_id AND NEW.practice_item_id IS OLD.practice_item_id
+  AND NEW.position IS OLD.position AND NEW.origin IS OLD.origin
+  AND NEW.scheduler_candidate_id IS OLD.scheduler_candidate_id
+  AND NEW.probe_presentation_id IS OLD.probe_presentation_id AND NEW.session_id IS OLD.session_id
+  AND NEW.served_at IS OLD.served_at
+)
+BEGIN
+    SELECT RAISE(ABORT, 'plan_presentations is append-only');
+END;
+DROP TRIGGER decision_objectives_no_update;
+CREATE TRIGGER decision_objectives_no_update
+BEFORE UPDATE ON decision_objectives
+WHEN NOT (
+  OLD.delay_json IS NULL AND NEW.delay_json IS NOT NULL
+  AND NEW.decision_id IS OLD.decision_id AND NEW.decision_kind IS OLD.decision_kind
+  AND NEW.objective_version IS OLD.objective_version AND NEW.learning_object_id IS OLD.learning_object_id
+  AND NEW.source IS OLD.source AND NEW.scope_json IS OLD.scope_json AND NEW.arm IS OLD.arm
+  AND NEW.support_json IS OLD.support_json AND NEW.measurement IS OLD.measurement
+  AND NEW.commitment_id IS OLD.commitment_id AND NEW.practice_item_id IS OLD.practice_item_id
+  AND NEW.pick_json IS OLD.pick_json AND NEW.experiment_id IS OLD.experiment_id AND NEW.created_at IS OLD.created_at
+)
+BEGIN
+    SELECT RAISE(ABORT, 'decision_objectives is append-only');
+END;
+DROP TRIGGER decision_measurement_events_no_update;
+CREATE TRIGGER decision_measurement_events_no_update
+BEFORE UPDATE ON decision_measurement_events
+WHEN NOT (
+  OLD.non_service_type IS NULL AND OLD.delay_json IS NULL
+  AND (NEW.non_service_type IS NOT NULL OR NEW.delay_json IS NOT NULL)
+  AND NEW.id IS OLD.id AND NEW.decision_id IS OLD.decision_id AND NEW.state IS OLD.state AND NEW.reason IS OLD.reason
+  AND NEW.practice_item_id IS OLD.practice_item_id AND NEW.attempt_id IS OLD.attempt_id
+  AND NEW.detail_json IS OLD.detail_json AND NEW.created_at IS OLD.created_at AND NEW.episode IS OLD.episode
+)
+BEGIN
+    SELECT RAISE(ABORT, 'decision_measurement_events is append-only');
+END;
 
 -- Rows 7 and 8 (RECEIPT): one 'availability' row stamped before a session's first block, one
 -- 'end' row, and a 'stop_response' row each time an offered stop was overridden (the session
