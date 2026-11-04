@@ -29,7 +29,7 @@ from learnloop.db.migrate import (
 from learnloop.db.table_roles import TableRole, role_for_table
 
 NOW = "2026-11-01T10:00:00Z"
-HEAD = Path(__file__).resolve().parents[1] / "fixtures" / "migration_head_240" / "state.sqlite"
+HEAD = Path(__file__).resolve().parents[1] / "fixtures" / "migration_head_241" / "state.sqlite"
 #: The objects 233 redefines (rebuilt in place, same name; it adds nothing).
 C2B_ALTERED_TABLES = frozenset({"learner_notes"})
 

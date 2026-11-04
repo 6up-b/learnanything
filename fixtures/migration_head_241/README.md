@@ -37,6 +37,13 @@ at S0's checkpoint (D6). Rebuilding the head for a new migration keeps the
 sanitized content: apply the migration to a backup-API copy of this fixture,
 as before.
 
+## Follow-up generate and serve (migration 241), `followup/fg1-generate-serve`, 2026-11-03
+
+Renamed from `migration_head_240`. `241_followup_generate_serve.sql` (six additive tables, empty) applied through
+`learnloop.db.migrate.apply_migrations` on a backup-API copy of the tracked fixture, `PRAGMA journal_mode=DELETE`,
+`integrity_check` ok, `foreign_key_check` empty, and copied into place with the backup API, with no companion files.
+The head holds 229 through 241.
+
 ## Data capture (migration 240), `data/capture-a1-a6`, 2026-11-03
 
 Renamed from `migration_head_239` (`docs/reviews/data-capture-a1-a6.md`, ruling R5). Rebuilt from the tracked, sanitized

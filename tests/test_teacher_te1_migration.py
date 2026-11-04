@@ -19,7 +19,7 @@ from learnloop.adaptive_difficulty import protected_tables as PT
 from learnloop.db.migrate import UPGRADE_TEST_HELPER, apply_migrations, discover_migrations, upgrade_allowance
 from learnloop.db.table_roles import TableRole, role_for_table
 
-HEAD = Path(__file__).resolve().parents[1] / "fixtures" / "migration_head_240" / "state.sqlite"
+HEAD = Path(__file__).resolve().parents[1] / "fixtures" / "migration_head_241" / "state.sqlite"
 TE1_TABLES = {
     "lessons": TableRole.RAW_LEDGER, "lesson_turns": TableRole.RAW_LEDGER, "lesson_plans": TableRole.RAW_LEDGER,
     "lesson_turn_payloads": TableRole.WORKFLOW, "lesson_checks": TableRole.RECEIPT,

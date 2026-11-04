@@ -20,7 +20,7 @@ from learnloop.db.migrate import applied_versions, discover_migrations
 from learnloop.db.table_roles import TableRole, role_for_table
 
 MIGRATIONS = Path(__file__).resolve().parents[1] / "migrations"
-HEAD = Path(__file__).resolve().parents[1] / "fixtures" / "migration_head_240" / "state.sqlite"
+HEAD = Path(__file__).resolve().parents[1] / "fixtures" / "migration_head_241" / "state.sqlite"
 #: Every schema object 228 adds (it alters nothing): the earlier migrations' "nothing
 #: else changed" diffs on the way to head read these.
 C0B_ADDED_OBJECTS = frozenset({

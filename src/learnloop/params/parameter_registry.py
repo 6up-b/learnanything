@@ -266,6 +266,7 @@ MODULE_INVENTORY: dict[str, str] = {
     # Data capture (docs/reviews/data-capture-a1-a6.md): no decision parameter of its own. The delay is
     # the outcome contract's, the floor the router's, the pitch and dates the teacher's.
     "data_capture_prefilter": "src/learnloop/data_capture/prefilter.py",
+    "followup_run_jobs": "src/learnloop/followup_run/jobs.py",
     "delayed_checks": "src/learnloop/delayed_checks.py",
 }
 
@@ -429,6 +430,14 @@ _reg_const("teacher_actions:_HISTORY_TEXT_CHARS", "display", kind="structural", 
 # Teacher TE1b module constants (spec_teacher_v1 §15.1, §18.4): seeded priors (basis legacy:
 # revision 3's defaults, 1.0 logit per effect, the recovery rate on a grid), learned from every
 # shown suggestion's response; presentation bounds kept.
+_reg_const("followup_run_jobs:LEASE_SECONDS", "numerical", kind="structural", owner="followup_run_jobs",
+           rationale="a generation job's lease: one structured model call with its checks; a lapsed lease is reclaimed.")
+_reg_const("followup_run_jobs:MAX_GENERATION_ATTEMPTS", "numerical", kind="structural", owner="followup_run_jobs",
+           rationale="FG1 spec §8: the structural bound on physical generation per workflow or need on a subscription route.")
+_reg_const("followup_run_jobs:RETRY_BACKOFF_SECONDS", "numerical", kind="structural", owner="followup_run_jobs",
+           rationale="the pause before the one retry after a transient provider failure; short against the learner's wait.")
+_reg_const("followup_run_jobs:NEED_RETRY_DELAY_SECONDS", "numerical", kind="structural", owner="followup_run_jobs",
+           rationale="a failed lane's background retry: what just failed would fail again if tried at once.")
 _reg_const("data_capture_prefilter:_ROUND_DIGITS", "numerical", kind="structural", owner="data_capture_prefilter",
            rationale="decimal places of a priority or minutes in a prefilter receipt's inputs, so float "
            "noise does not defeat the content-addressed dedupe; receipt size only, never a decision.")

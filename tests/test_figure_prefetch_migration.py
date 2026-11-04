@@ -20,7 +20,7 @@ from learnloop.adaptive_difficulty import protected_tables as PT
 from learnloop.db.migrate import UPGRADE_TEST_HELPER, apply_migrations, discover_migrations, upgrade_allowance
 from learnloop.db.table_roles import TableRole, role_for_table
 
-HEAD = Path(__file__).resolve().parents[1] / "fixtures" / "migration_head_240" / "state.sqlite"
+HEAD = Path(__file__).resolve().parents[1] / "fixtures" / "migration_head_241" / "state.sqlite"
 P5_TABLES = {"figure_prefetch_decisions": TableRole.RAW_LEDGER, "plan_usage_pauses": TableRole.RAW_LEDGER}
 #: What 237 adds (its tables, their indexes and autoindexes, the triggers, the figure_requests index).
 P5_ADDED_OBJECTS = frozenset({

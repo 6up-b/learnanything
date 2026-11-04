@@ -45,7 +45,7 @@ from tests.test_data_capture_migration import DATA_CAPTURE_ADDED_OBJECTS
 from tests.test_mobile_jobs_migration import M2A_ADDED_OBJECTS
 from tests.test_rw5c_migration import RW5C_ADDED_OBJECTS
 
-HEAD = Path(__file__).resolve().parents[1] / "fixtures" / "migration_head_240" / "state.sqlite"
+HEAD = Path(__file__).resolve().parents[1] / "fixtures" / "migration_head_241" / "state.sqlite"
 NEW_TABLES = {"embedding_spaces", "retrieval_feedback", "retrieval_fusion_posteriors"}
 #: Every schema object 220 adds: the earlier migrations' "nothing else" diffs on the way to head read this.
 P1_ADDED_OBJECTS = frozenset({

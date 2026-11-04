@@ -18,7 +18,7 @@ from learnloop.db.stores import reader_digests as RDG
 from learnloop.db.table_roles import TableRole, role_for_table
 
 MIGRATIONS = Path(__file__).resolve().parents[1] / "migrations"
-HEAD = Path(__file__).resolve().parents[1] / "fixtures" / "migration_head_240" / "state.sqlite"
+HEAD = Path(__file__).resolve().parents[1] / "fixtures" / "migration_head_241" / "state.sqlite"
 #: Every schema object 227 adds: the earlier migrations' "nothing else
 #: changed" diffs on the way to head read these.
 RW6B_ADDED_OBJECTS = frozenset({

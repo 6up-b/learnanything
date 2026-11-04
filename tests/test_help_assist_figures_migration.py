@@ -34,7 +34,7 @@ from tests.test_data_capture_migration import DATA_CAPTURE_ADDED_OBJECTS
 from tests.test_mobile_jobs_migration import M2A_ADDED_OBJECTS
 from tests.test_rw5c_migration import RW5C_ADDED_OBJECTS
 
-HEAD = Path(__file__).resolve().parents[1] / "fixtures" / "migration_head_240" / "state.sqlite"
+HEAD = Path(__file__).resolve().parents[1] / "fixtures" / "migration_head_241" / "state.sqlite"
 #: What 232 alters and adds: the earlier migrations' "nothing else changed"
 #: diffs on the way to head read these.
 #: Codex review F7/F9: figure_predictions is rebuilt too (nullable

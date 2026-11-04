@@ -213,7 +213,7 @@ def test_231_adds_learner_note_and_nothing_else():
 
 def test_the_head_fixture_holds_231_in_rollback_mode_with_no_note_gap():
     # The head is teacher TE1b's 236 now (rebuilt from follow-ups Nov 2's 235 head with only 236 applied); it holds 231.
-    head = Path(__file__).resolve().parents[1] / "fixtures" / "migration_head_240" / "state.sqlite"
+    head = Path(__file__).resolve().parents[1] / "fixtures" / "migration_head_241" / "state.sqlite"
     assert head.read_bytes()[18:20] == b"\x01\x01"
     assert 231 in applied_versions(head)
     assert max(applied_versions(head)) == max(m.version for m in discover_migrations()) == 240

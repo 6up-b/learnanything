@@ -37,7 +37,7 @@ from tests.test_figure_prefetch_migration import P5_ADDED_OBJECTS
 from tests.test_data_capture_migration import DATA_CAPTURE_ADDED_OBJECTS
 from tests.test_mobile_jobs_migration import M2A_ADDED_OBJECTS
 from tests.test_rw5c_migration import RW5C_ADDED_OBJECTS
-HEAD = Path(__file__).resolve().parents[1] / "fixtures" / "migration_head_240" / "state.sqlite"
+HEAD = Path(__file__).resolve().parents[1] / "fixtures" / "migration_head_241" / "state.sqlite"
 #: What 225 alters: the earlier migrations' "nothing else changed" diffs on the way to head read this.
 SUPERSEDED_ALTERED_TABLES = frozenset({"learner_claims"})
 

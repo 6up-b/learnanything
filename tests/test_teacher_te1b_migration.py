@@ -20,7 +20,7 @@ from learnloop.db.migrate import UPGRADE_TEST_HELPER, apply_migrations, discover
 from learnloop.db.table_roles import TableRole, role_for_table
 from tests.test_teacher_te1_migration import TE1_ADDED_OBJECTS, TE1_ALTERED_TABLES
 
-HEAD = Path(__file__).resolve().parents[1] / "fixtures" / "migration_head_240" / "state.sqlite"
+HEAD = Path(__file__).resolve().parents[1] / "fixtures" / "migration_head_241" / "state.sqlite"
 TE1B_ADDED_OBJECTS = frozenset({
     "router_suggestion_responses", "idx_router_suggestion_responses_at",
     "router_suggestion_responses_no_update", "router_suggestion_responses_no_delete",
