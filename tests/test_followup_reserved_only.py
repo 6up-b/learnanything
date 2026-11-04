@@ -408,3 +408,154 @@ def test_r10_a_phrase_only_a_held_out_span_shows_still_matches(tmp_path, monkeyp
     exam = SimpleNamespace(covers=lambda extraction_id, span_id=None: extraction_id == "ext_exam")
     withheld = replace(learner_protection.withheld_items(vault, repository), exam=exam)
     assert reserved_findings(f"I read that {phrase} somewhere.", reserved_questions(vault, repository, withheld))
+
+
+# -- F20: the durable attempt limit comes before any authoring call ---------------------------------
+
+
+class _Died(BaseException):
+    """The process, gone: no handler in the job catches this."""
+
+
+def _after(clock_hours):
+    from datetime import timedelta
+
+    from learnloop.clock import FrozenClock
+
+    return FrozenClock(CLOCK.now() + timedelta(hours=clock_hours))
+
+
+def _assert_settled_at_two_calls(repository, vault, outcome, result, fake):
+    from learnloop.followup_run import jobs, serving
+
+    row = wf.get(repository, outcome.workflow_id)
+    assert fake.calls == 2
+    assert row["state"] == wf.SETTLED and row["lane"] == wf.LANE_PRACTICE and row["feedback_released_at"]
+    assert _reasons(repository, outcome.workflow_id)[-1] == jobs.ATTEMPTS_EXHAUSTED
+    assert identity.generated_probe_ids(repository) - identity.closed_probe_ids(repository) == frozenset()
+    action = serving.next_action(vault, repository, result.attempt_id, plan_serves=False, clock=_after(9))
+    assert action.action == "continue"
+    with repository.connection() as connection:
+        job = connection.execute("SELECT state, attempt_count FROM followup_generation_jobs WHERE workflow_id = ?",
+                                 (outcome.workflow_id,)).fetchone()
+    assert job[0] == "done" and job[1] == 3
+
+
+def test_f20_a_crash_on_the_retry_after_a_match_makes_no_third_call(tmp_path, monkeypatch):
+    from learnloop.followup_run import jobs
+
+    _paths, vault, repository, result, outcome = _setup(tmp_path, monkeypatch)
+
+    class EchoThenDies(_EchoesOnce):
+        def run_followup_probe_authoring(self, context):
+            authored = super().run_followup_probe_authoring(context)
+            if self.calls == 2:
+                raise _Died()
+            return authored
+
+    fake = EchoThenDies()
+    clients = author_clients(fake)
+    assert jobs.process_next_job(vault, repository, owner="w", clients=clients, clock=CLOCK).state == "retry"
+    with pytest.raises(_Died):
+        jobs.process_next_job(vault, repository, owner="w", clients=clients, clock=CLOCK)
+    run_jobs(vault, repository, clients=clients, clock=_after(1))
+    _assert_settled_at_two_calls(repository, vault, outcome, result, fake)
+
+
+def test_f20_a_transport_failure_then_a_crash_makes_no_third_call(tmp_path, monkeypatch):
+    from learnloop.followup_run import jobs
+
+    _paths, vault, repository, result, outcome = _setup(tmp_path, monkeypatch)
+
+    class FailsThenDies(AuthorFake):
+        def run_followup_probe_authoring(self, context):
+            self.calls += 1
+            if self.calls == 1:
+                raise RuntimeError("provider down")
+            raise _Died()
+
+    fake = FailsThenDies()
+    clients = author_clients(fake)
+    assert jobs.process_next_job(vault, repository, owner="w", clients=clients, clock=CLOCK).state == "retry"
+    with pytest.raises(_Died):
+        jobs.process_next_job(vault, repository, owner="w", clients=clients, clock=_after(1))
+    run_jobs(vault, repository, clients=clients, clock=_after(2))
+    _assert_settled_at_two_calls(repository, vault, outcome, result, fake)
+
+
+def test_f20_what_a_crashed_run_pinned_closes_with_the_exhausted_job(tmp_path, monkeypatch):
+    from learnloop.followup_run import admission, jobs
+
+    _paths, vault, repository, result, outcome = _setup(tmp_path, monkeypatch)
+    real = admission.commission_and_pin
+    pinned = []
+
+    def pins_then_dies(*args, **kwargs):
+        pinned.append(real(*args, **kwargs))
+        raise _Died()
+
+    monkeypatch.setattr(admission, "commission_and_pin", pins_then_dies)
+    fake = AuthorFake()
+    clients = author_clients(fake)
+    for hours in (0, 1):
+        with pytest.raises(_Died):
+            jobs.process_next_job(load_vault(vault.root), repository, owner="w", clients=clients, clock=_after(hours))
+    monkeypatch.setattr(admission, "commission_and_pin", real)
+    run_jobs(load_vault(vault.root), repository, clients=clients, clock=_after(2))
+    assert fake.calls == 2
+    row = wf.get(repository, outcome.workflow_id)
+    assert row["state"] == wf.SETTLED and row["feedback_released_at"]
+    assert repository.probe_presentation(pinned[-1].presentation_id).status == "ended"
+    assert pinned[-1].practice_item_id in identity.retired_probe_ids(repository)
+
+
+def test_f20_an_exit_that_spends_nothing_still_takes_its_own_way_out(tmp_path, monkeypatch):
+    """The limit is on authoring: a newer grade found on a third run settles as a newer grade."""
+
+    from learnloop.followup_run import jobs
+
+    _paths, vault, repository, result, outcome = _setup(tmp_path, monkeypatch)
+
+    class Dies(AuthorFake):
+        def run_followup_probe_authoring(self, context):
+            self.calls += 1
+            raise _Died()
+
+    fake = Dies()
+    clients = author_clients(fake)
+    for hours in (0, 1):
+        with pytest.raises(_Died):
+            jobs.process_next_job(vault, repository, owner="w", clients=clients, clock=_after(hours))
+    repository.insert_blind_grade_record(
+        attempt_id=result.attempt_id, agent_run_id=None, grading_prompt_version="test", output_schema_version="test",
+        context_hash="newer", record={"grade": "newer"}, queue_diagnosis=False, clock=_after(2),
+    )
+    run_jobs(vault, repository, clients=clients, clock=_after(2))
+    assert fake.calls == 2
+    assert _reasons(repository, outcome.workflow_id)[-1] == "newer_grade"
+
+
+def test_f20_a_need_job_has_the_same_limit(tmp_path, monkeypatch):
+    from learnloop.followup_run import jobs
+    from learnloop.followup_serve import queue
+
+    _paths, vault, repository, result, _outcome = _setup(tmp_path, monkeypatch)
+    wf_row = wf.attempt_workflow(repository, result.attempt_id)
+    factor = repository.unresolved_cause_factors_for_attempt(result.attempt_id)[0]
+    with repository.atomic(), repository.connection() as connection:
+        connection.execute("UPDATE followup_generation_jobs SET state = 'done' WHERE workflow_id = ?", (wf_row["id"],))
+    queue.enqueue_factor(repository, str(factor["id"]), workflow_id=None, clock=CLOCK)
+
+    class Dies(AuthorFake):
+        def run_followup_probe_authoring(self, context):
+            self.calls += 1
+            raise _Died()
+
+    fake = Dies()
+    clients = author_clients(fake)
+    for hours in (0, 1):
+        with pytest.raises(_Died):
+            jobs.process_next_job(vault, repository, owner="w", clients=clients, clock=_after(hours))
+    outcomes = run_jobs(vault, repository, clients=clients, clock=_after(2))
+    assert fake.calls == 2
+    assert [job.state for job in outcomes] == ["failed"] and outcomes[0].error == jobs.ATTEMPTS_EXHAUSTED

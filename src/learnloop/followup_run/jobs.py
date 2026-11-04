@@ -40,6 +40,8 @@ MAX_GENERATION_ATTEMPTS = 2
 RETRY_BACKOFF_SECONDS = 20.0
 #: A failed lane's need is tried again later, not now: what just failed would fail again.
 NEED_RETRY_DELAY_SECONDS = 3_600.0
+#: A crash doesn't requeue a job, its lease lapses: each lease counts, and past the limit no more is paid.
+ATTEMPTS_EXHAUSTED = "generation_attempts_exhausted"
 
 
 class GenerationDeferred(RuntimeError):
@@ -91,6 +93,12 @@ def process_next_job(
         if not generate_and_serve_on(vault.config):
             _finish(repository, job, "skipped", "switch_off", clock)
             outcome.state, outcome.error = "skipped", "switch_off"
+            return outcome
+        if job["kind"] != "workflow" and int(job.get("attempt_count") or 0) > MAX_GENERATION_ATTEMPTS:
+            # F20: no learner waits on an entry or a need, so its job just ends. A workflow's ends in
+            # ``_run_probe_lane``, where other ways out cost nothing and it has feedback to release.
+            _finish(repository, job, "failed", ATTEMPTS_EXHAUSTED, clock)
+            outcome.state, outcome.error = "failed", ATTEMPTS_EXHAUSTED
             return outcome
         _run(vault, repository, job, clients=clients, clock=clock)
         _finish(repository, job, "done", None, clock)
@@ -355,6 +363,15 @@ def _run_probe_lane(vault: Any, repository: Repository, row: Mapping[str, Any], 
 
     workflow_id = str(row["id"])
     factor_id = str(choice.factor_id)
+    if attempt > MAX_GENERATION_ATTEMPTS:
+        # F20, R11: the limit holds across crashes, before anything is paid. It settles like any
+        # other exit: what the crashed runs prepared closes, feedback is released, Next goes on.
+        with repository.atomic():
+            settle_practice_lane(vault, repository, row, reason=ATTEMPTS_EXHAUSTED, clock=clock)
+            if row.get("decision_id"):
+                router.append_outcome(repository, str(row["decision_id"]), workflow_id, outcome="generation_failed",
+                                      clock=clock)
+        return
     # §4.2: what an interrupted run published and never bound is never served, whatever this run decides.
     identity.retire_unbound(repository, workflow_id, clock=clock)
     # Retry and lease recovery run under the decision already drawn, never a fresh draw.
@@ -455,7 +472,7 @@ def _withdraw(repository: Repository, item_id: str | None, *, reason: str, workf
 
 
 __all__ = [
-    "GenerationDeferred", "JobOutcome", "LEASE_SECONDS", "MAX_GENERATION_ATTEMPTS", "NEED_RETRY_DELAY_SECONDS",
+    "ATTEMPTS_EXHAUSTED", "GenerationDeferred", "JobOutcome", "LEASE_SECONDS", "MAX_GENERATION_ATTEMPTS", "NEED_RETRY_DELAY_SECONDS",
     "RETRY_BACKOFF_SECONDS",
     "fail_workflow", "process_next_job", "recover_pending_workflows", "recover_workflow", "reloaded",
 ]

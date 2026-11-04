@@ -1055,3 +1055,15 @@ Numbers below are for the tip's code; the full gate hasn't resumed, and the refe
 - `--durable-sqlite` on the `test_followup_*` files: **232 passed, 0 failed**.
 - `lint-imports --no-cache`: **42 kept, 0 broken**.
 - No model call; every model-backed test and smoke run uses fakes.
+
+## F20: the attempt limit across crashes
+
+Verify job `20261104-053133-bwYwSu` (gpt-6.1-sol), over `30e1b53185..7fe97de9dd`, found this and no other defect. Ruling R11, recorded under "Landing onto main".
+
+| Id | Severity | Title | Verdict | Test |
+|---|---|---|---|---|
+| F20 | Medium | Crash recovery exceeds R10's two-attempt limit | fixed | `test_f20_*` in `tests/test_followup_reserved_only.py` |
+
+**Reproduced.** A crash doesn't requeue a job; its lease lapses and the next lease counts up. `MAX_GENERATION_ATTEMPTS` only bounded requeuing after a failure, so a third lease called the author: 3 calls, wanted 2. It failed for a draft that matched then a crash, a transport failure then a crash, two crashes after a pin, and a need job.
+
+**Fixed.** The limit is checked before any authoring call. An exhausted workflow settles through `settle_practice_lane`, logged `generation_attempts_exhausted`: what the crashed runs prepared closes in the move's commit, feedback is released, the predecessor's chooser runs and Next goes on. The job isn't excluded from leasing, since that would strand Next. A job with no workflow (an entry or a need) ends as `failed` with the same code; no learner waits on it. Exits that cost nothing still take their own way out: a newer grade on a third lease settles as `newer_grade`. Every lease counts, including one that crashed before its call, so a job can end with fewer than two calls.
