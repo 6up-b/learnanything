@@ -133,6 +133,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_diagnosis_history_modes.py](../../../../../../../tests/test_diagnosis_history_modes.py) — direct import
   - `test_snapshot_export_is_as_of_and_stripped`
   - `test_snapshot_workspace_is_deleted_on_success_and_on_failure`
+- [tests/test_followup_fg1c_codex_review.py](../../../../../../../tests/test_followup_fg1c_codex_review.py) — direct import
+  - `test_f1_the_snapshot_entry_of_a_marked_attempt_carries_the_cause`
 
 ## Modification guidance
 

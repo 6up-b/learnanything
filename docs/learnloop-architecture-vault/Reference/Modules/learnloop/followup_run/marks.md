@@ -7,9 +7,9 @@ version: "1.0.0"
 source_path: "src/learnloop/followup_run/marks.py"
 source_paths:
   - "src/learnloop/followup_run/marks.py"
-source_commit: "workspace/uncommitted @ HEAD 28a1b3d9817a7e579bdd8eb3b17ab29acdf57458"
-source_commit_timestamp: "2026-11-04T09:10:39-05:00"
-source_worktree_state: "modified"
+source_commit: "450c22470d46f9bd13a2faf2d4fb955ba0dad985"
+source_commit_timestamp: "2026-11-04T10:02:56-05:00"
+source_worktree_state: "clean"
 generated: true
 generated_at: "2026-11-02"
 package: "learnloop.followup_run"
@@ -54,9 +54,9 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Owning package | [[Reference/Modules/learnloop/followup_run/_package|learnloop.followup_run]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
-| Worktree state | `modified` |
-| Source commit | `workspace/uncommitted @ HEAD 28a1b3d9817a7e579bdd8eb3b17ab29acdf57458` |
-| Commit timestamp | `2026-11-04T09:10:39-05:00` |
+| Worktree state | `clean` |
+| Source commit | `450c22470d46f9bd13a2faf2d4fb955ba0dad985` |
+| Commit timestamp | `2026-11-04T10:02:56-05:00` |
 
 ## Public API
 
@@ -142,6 +142,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
+- [tests/test_followup_fg1c_codex_review.py](../../../../../../tests/test_followup_fg1c_codex_review.py) — direct import
+  - `test_f1_only_the_causes_a_context_still_shows_are_folded`
 - [tests/test_hypothesis_marks.py](../../../../../../tests/test_hypothesis_marks.py) — direct import
   - `test_a_live_diagnosis_is_stored_by_its_id`
   - `test_a_marks_read_that_fails_costs_the_panel_and_not_the_feedback`
@@ -152,6 +154,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_the_switch_off_keeps_the_diagnosers_context_as_it_was_whatever_rows_exist`
   - `test_with_no_causes_on_the_attempt_the_bundle_has_no_key`
 - [tests/test_hypothesis_marks_context.py](../../../../../../tests/test_hypothesis_marks_context.py) — direct import
+  - `test_the_report_measures_marks_against_delayed_performance`
 
 ## Modification guidance
 

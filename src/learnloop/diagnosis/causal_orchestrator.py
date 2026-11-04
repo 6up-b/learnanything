@@ -108,6 +108,7 @@ import logging
 import math
 from typing import Any, Mapping, Sequence
 
+from learnloop.causal_activity_policy import DISCRIMINATING_OUTCOMES
 from learnloop.clock import Clock
 from learnloop.db.repositories import (
     OBSERVATION_CHANNEL_BLIND_PROBE,
@@ -220,11 +221,6 @@ OBSERVATION_FEATURE_SOURCES = (
 )
 #: ...and the ONE source that earns `validator_owned` support authority.
 VALIDATOR_OWNED_FEATURE_SOURCES = frozenset({"deterministic"})
-
-#: Classification outcomes that carry discriminating information at all.  The
-#: other four (`matched_multiple`, `all_bundles_matched`, `cohort_mismatch`,
-#: `unparsed_features`) are recorded and resolve nothing.
-DISCRIMINATING_OUTCOMES = frozenset({"matched_single", "no_bundle_matched"})
 
 #: Deterministic probe-feature vocabulary (see `deterministic_probe_features`).
 DETERMINISTIC_FEATURE_PREFIX = "criterion:"

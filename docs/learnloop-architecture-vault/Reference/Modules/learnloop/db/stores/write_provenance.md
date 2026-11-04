@@ -218,6 +218,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_q14_on_a_vault_the_coordinator_upgrades_the_receipt_commits_with_the_grade`
 - [tests/test_diagnostic_augmentation.py](../../../../../../../tests/test_diagnostic_augmentation.py) — direct import
   - `test_a_committed_joint_grade_carries_its_receipt_and_grading_record`
+- [tests/test_followup_fg1c_codex_review.py](../../../../../../../tests/test_followup_fg1c_codex_review.py) — direct import
 - [tests/test_followup_reserved_only.py](../../../../../../../tests/test_followup_reserved_only.py) — direct import
   - `test_a_vault_with_exam_attempts_and_incomplete_records_reaches_the_probe_lane`
 - [tests/test_followups_nov2_figure_provenance.py](../../../../../../../tests/test_followups_nov2_figure_provenance.py) — direct import

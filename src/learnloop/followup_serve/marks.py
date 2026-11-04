@@ -82,13 +82,22 @@ def opinion_block(rows: Iterable[Mapping[str, Any]]) -> dict[str, Any] | None:
     return {"attribution": ATTRIBUTION, "marks": entries} if entries else None
 
 
-def attempt_opinion(repository: Any, attempt_id: str) -> dict[str, Any] | None:
-    """The block for one attempt from the ledger; None below migration 242 or with no marks."""
+def marked_causes(rows: Iterable[Mapping[str, Any]]) -> tuple[tuple[str, str], ...]:
+    """(hypothesis version, statement) of each cause the opinion shows: model-written text, so what reads
+    the opinion read it, and it folds into that writer's provenance record (Codex review F1)."""
+
+    return tuple(
+        (str(row["hypothesis_version_id"]), str(row["hypothesis_statement"]))
+        for row in latest_marks(rows).values()
+        if row.get("hypothesis_version_id") and row.get("hypothesis_statement")
+    )
+
+
+def attempt_marks(repository: Any, attempt_id: str) -> list[dict[str, Any]]:
+    """One attempt's ledger rows, oldest first; none below migration 242."""
 
     with repository.connection() as connection:
-        if not store.present(connection):
-            return None
-        return opinion_block(store.marks_for_attempt(connection, attempt_id))
+        return store.marks_for_attempt(connection, attempt_id) if store.present(connection) else []
 
 
 def probe_state(connection: Any, *, factor_id: str | None, workflow: Mapping[str, Any] | None) -> dict[str, Any]:
@@ -119,5 +128,5 @@ def probe_state(connection: Any, *, factor_id: str | None, workflow: Mapping[str
 
 __all__ = [
     "ATTRIBUTION", "CLEARED", "HYPOTHESIS_MARKS", "MARKS", "MARK_WORDS", "MY_GAP", "NONE_OF_THESE", "NOT_IT", "ORDER_VERSION",
-    "PARTLY", "attempt_opinion", "display_order", "latest_marks", "opinion_block", "opinion_entries", "probe_state",
+    "PARTLY", "attempt_marks", "display_order", "latest_marks", "marked_causes", "opinion_block", "opinion_entries", "probe_state",
 ]

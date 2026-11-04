@@ -7,9 +7,9 @@ version: "1.0.0"
 source_path: "src/learnloop/diagnosis/split/context.py"
 source_paths:
   - "src/learnloop/diagnosis/split/context.py"
-source_commit: "a1ba732a86f8c704cd6e6ee1071bf7a30ad3fb1a"
-source_commit_timestamp: "2026-11-04T08:47:30-05:00"
-source_worktree_state: "clean"
+source_commit: "workspace/uncommitted @ HEAD 450c22470d46f9bd13a2faf2d4fb955ba0dad985"
+source_commit_timestamp: "2026-11-04T10:02:56-05:00"
+source_worktree_state: "modified"
 generated: true
 generated_at: "2026-11-02"
 package: "learnloop.diagnosis.split"
@@ -50,43 +50,43 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/diagnosis/split/context.py](../../../../../../../src/learnloop/diagnosis/split/context.py) |
-| Source lines | 1020 |
+| Source lines | 1031 |
 | Owning package | [[Reference/Modules/learnloop/diagnosis/split/_package|learnloop.diagnosis.split]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
-| Worktree state | `clean` |
-| Source commit | `a1ba732a86f8c704cd6e6ee1071bf7a30ad3fb1a` |
-| Commit timestamp | `2026-11-04T08:47:30-05:00` |
+| Worktree state | `modified` |
+| Source commit | `workspace/uncommitted @ HEAD 450c22470d46f9bd13a2faf2d4fb955ba0dad985` |
+| Commit timestamp | `2026-11-04T10:02:56-05:00` |
 
 ## Public API
 
 - `estimate_tokens(text: str) -> int` ([source](../../../../../../../src/learnloop/diagnosis/split/context.py), line 82) — Conservative token estimate: UTF-8 bytes / 4, rounded up.
 - `canonical_json(value: Any) -> str` ([source](../../../../../../../src/learnloop/diagnosis/split/context.py), line 88)
 - `class CurrentAttempt` ([source](../../../../../../../src/learnloop/diagnosis/split/context.py), line 93) — The attempt being diagnosed, with its blind grade (§5.2 "current").
-  - `ref(self) -> AttemptRef` (line 125; public)
-  - `target_facets(self) -> frozenset[str]` (line 128; public) — The blind grade's facet targets, else the item's own facets.
-  - `render(self) -> dict[str, Any]` (line 139; public)
-  - `_render(self, grade: Mapping[str, Any]) -> dict[str, Any]` (line 169; internal)
-- `current_attempt_from(vault: LoadedVault, item: PracticeItem, *, attempt_id: str, completed_at: str, learner_answer_md: str, blind_grade: Mapping[str, Any], contract: Mapping[str, Any] | None=None, workbench_trace: Mapping[str, Any] | None=None, confidence: Mapping[str, Any] | None=None, figure_trace: Mapping[str, Any] | None=None, learner_marks: Mapping[str, Any] | None=None) -> CurrentAttempt` ([source](../../../../../../../src/learnloop/diagnosis/split/context.py), line 223) — The attempt being diagnosed.
-- `class KnownIds` ([source](../../../../../../../src/learnloop/diagnosis/split/context.py), line 279) — The closed world the validators check model-cited ids against (§5.4).
-  - `union(self, other: 'KnownIds') -> 'KnownIds'` (line 289; public)
-- `class RetrievalMatch` ([source](../../../../../../../src/learnloop/diagnosis/split/context.py), line 301)
-- `class RetrievalResult` ([source](../../../../../../../src/learnloop/diagnosis/split/context.py), line 308)
-- `class RegistryNeighbor` ([source](../../../../../../../src/learnloop/diagnosis/split/context.py), line 316)
-- `class RegistryShortlist` ([source](../../../../../../../src/learnloop/diagnosis/split/context.py), line 323)
-- `registry_key(record: RegistryRecord) -> str` ([source](../../../../../../../src/learnloop/diagnosis/split/context.py), line 330) — A registry record's id in the ``misconception/statement`` index.
-- `class RegistryRetriever(Protocol)` ([source](../../../../../../../src/learnloop/diagnosis/split/context.py), line 336) — kNN over the whole vault registry (S1.4a shortlist, §5.2).
-  - `registry_knn(self, current: 'CurrentAttempt', records: Sequence[RegistryRecord], *, limit: int) -> RegistryShortlist` (line 339; public)
-- `class HistoryRetriever(Protocol)` ([source](../../../../../../../src/learnloop/diagnosis/split/context.py), line 349) — kNN over prior failures for the hybrid mode (§9.4).
-  - `knn(self, current: CurrentAttempt, candidates: Sequence[HistoryAttempt], *, limit: int) -> RetrievalResult` (line 352; public)
-- `class AssembledContext` ([source](../../../../../../../src/learnloop/diagnosis/split/context.py), line 363) — A rendered context plus its audit receipt and closed-world ids.
-  - `rendered(self) -> str` (line 379; public)
-- `render_context(blocks: Mapping[str, Any], current: Mapping[str, Any]) -> str` ([source](../../../../../../../src/learnloop/diagnosis/split/context.py), line 383) — Byte-stable rendering: stable blocks in fixed order, current attempt last.
-- `assemble_diagnosis_context(vault: LoadedVault, store: HistoryStore, current: CurrentAttempt, settings: DiagnosisSettings, *, mode: HistoryMode | None=None, retriever: HistoryRetriever | None=None, snapshot_manifest: Mapping[str, Any] | None=None, token_budget: int | None=None, registry_retriever: RegistryRetriever | None=None, prior_analysis: Any=None) -> AssembledContext` ([source](../../../../../../../src/learnloop/diagnosis/split/context.py), line 675) — Assemble one context deterministically.
-- `history_attempt_tokens(attempt: HistoryAttempt, neighborhood: Neighborhood, *, with_answer: bool) -> int` ([source](../../../../../../../src/learnloop/diagnosis/split/context.py), line 962) — Estimated tokens one attempt adds to a rendered history block.
-- `stable_prefix(rendered: str) -> str` ([source](../../../../../../../src/learnloop/diagnosis/split/context.py), line 968) — Everything before the current attempt.
-- `cacheable_prefix(blocks: Mapping[str, Any]) -> str` ([source](../../../../../../../src/learnloop/diagnosis/split/context.py), line 976) — The bytes a later diagnosis on the same LO can share with this one.
-- `facets_overlap(left: Iterable[str], right: Iterable[str]) -> bool` ([source](../../../../../../../src/learnloop/diagnosis/split/context.py), line 993)
+  - `ref(self) -> AttemptRef` (line 128; public)
+  - `target_facets(self) -> frozenset[str]` (line 131; public) — The blind grade's facet targets, else the item's own facets.
+  - `render(self) -> dict[str, Any]` (line 142; public)
+  - `_render(self, grade: Mapping[str, Any]) -> dict[str, Any]` (line 172; internal)
+- `current_attempt_from(vault: LoadedVault, item: PracticeItem, *, attempt_id: str, completed_at: str, learner_answer_md: str, blind_grade: Mapping[str, Any], contract: Mapping[str, Any] | None=None, workbench_trace: Mapping[str, Any] | None=None, confidence: Mapping[str, Any] | None=None, figure_trace: Mapping[str, Any] | None=None, learner_marks: Mapping[str, Any] | None=None, marked_causes: tuple[tuple[str, str], ...]=()) -> CurrentAttempt` ([source](../../../../../../../src/learnloop/diagnosis/split/context.py), line 226) — The attempt being diagnosed.
+- `class KnownIds` ([source](../../../../../../../src/learnloop/diagnosis/split/context.py), line 284) — The closed world the validators check model-cited ids against (§5.4).
+  - `union(self, other: 'KnownIds') -> 'KnownIds'` (line 294; public)
+- `class RetrievalMatch` ([source](../../../../../../../src/learnloop/diagnosis/split/context.py), line 306)
+- `class RetrievalResult` ([source](../../../../../../../src/learnloop/diagnosis/split/context.py), line 313)
+- `class RegistryNeighbor` ([source](../../../../../../../src/learnloop/diagnosis/split/context.py), line 321)
+- `class RegistryShortlist` ([source](../../../../../../../src/learnloop/diagnosis/split/context.py), line 328)
+- `registry_key(record: RegistryRecord) -> str` ([source](../../../../../../../src/learnloop/diagnosis/split/context.py), line 335) — A registry record's id in the ``misconception/statement`` index.
+- `class RegistryRetriever(Protocol)` ([source](../../../../../../../src/learnloop/diagnosis/split/context.py), line 341) — kNN over the whole vault registry (S1.4a shortlist, §5.2).
+  - `registry_knn(self, current: 'CurrentAttempt', records: Sequence[RegistryRecord], *, limit: int) -> RegistryShortlist` (line 344; public)
+- `class HistoryRetriever(Protocol)` ([source](../../../../../../../src/learnloop/diagnosis/split/context.py), line 354) — kNN over prior failures for the hybrid mode (§9.4).
+  - `knn(self, current: CurrentAttempt, candidates: Sequence[HistoryAttempt], *, limit: int) -> RetrievalResult` (line 357; public)
+- `class AssembledContext` ([source](../../../../../../../src/learnloop/diagnosis/split/context.py), line 368) — A rendered context plus its audit receipt and closed-world ids.
+  - `rendered(self) -> str` (line 384; public)
+- `render_context(blocks: Mapping[str, Any], current: Mapping[str, Any]) -> str` ([source](../../../../../../../src/learnloop/diagnosis/split/context.py), line 388) — Byte-stable rendering: stable blocks in fixed order, current attempt last.
+- `assemble_diagnosis_context(vault: LoadedVault, store: HistoryStore, current: CurrentAttempt, settings: DiagnosisSettings, *, mode: HistoryMode | None=None, retriever: HistoryRetriever | None=None, snapshot_manifest: Mapping[str, Any] | None=None, token_budget: int | None=None, registry_retriever: RegistryRetriever | None=None, prior_analysis: Any=None) -> AssembledContext` ([source](../../../../../../../src/learnloop/diagnosis/split/context.py), line 680) — Assemble one context deterministically.
+- `history_attempt_tokens(attempt: HistoryAttempt, neighborhood: Neighborhood, *, with_answer: bool) -> int` ([source](../../../../../../../src/learnloop/diagnosis/split/context.py), line 973) — Estimated tokens one attempt adds to a rendered history block.
+- `stable_prefix(rendered: str) -> str` ([source](../../../../../../../src/learnloop/diagnosis/split/context.py), line 979) — Everything before the current attempt.
+- `cacheable_prefix(blocks: Mapping[str, Any]) -> str` ([source](../../../../../../../src/learnloop/diagnosis/split/context.py), line 987) — The bytes a later diagnosis on the same LO can share with this one.
+- `facets_overlap(left: Iterable[str], right: Iterable[str]) -> bool` ([source](../../../../../../../src/learnloop/diagnosis/split/context.py), line 1004)
 
 ### Module constants
 
@@ -123,17 +123,17 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 
 ## Internal implementation anchors
 
-- `_status_for(attempts: Sequence[HistoryAttempt]) -> str` ([source](../../../../../../../src/learnloop/diagnosis/split/context.py), line 395)
-- `_neighborhood_block(vault: LoadedVault, neighborhood: Neighborhood, prior: Sequence[HistoryAttempt]) -> tuple[dict[str, Any], set[str], list[dict[str, Any]]]` ([source](../../../../../../../src/learnloop/diagnosis/split/context.py), line 403)
-- `_render_attempt(attempt: HistoryAttempt, neighborhood: Neighborhood, *, with_answer: bool, prior: Mapping[str, Any] | None=None) -> dict[str, Any]` ([source](../../../../../../../src/learnloop/diagnosis/split/context.py), line 443)
-- `_render_hypothesis(record: HypothesisRecord) -> dict[str, Any]` ([source](../../../../../../../src/learnloop/diagnosis/split/context.py), line 499)
-- `_render_registry(record: RegistryRecord) -> dict[str, Any]` ([source](../../../../../../../src/learnloop/diagnosis/split/context.py), line 513)
-- `_render_repair(record: RepairRecord) -> dict[str, Any]` ([source](../../../../../../../src/learnloop/diagnosis/split/context.py), line 525)
-- `_exact_failures(prior: Sequence[HistoryAttempt], targets: frozenset[str], *, current_attempt_id: str) -> list[HistoryAttempt]` ([source](../../../../../../../src/learnloop/diagnosis/split/context.py), line 535) — Non-pass, facet-overlapping, any surface family; most recent first.
-- `_exact_successes(prior: Sequence[HistoryAttempt], targets: frozenset[str], *, current_attempt_id: str) -> list[HistoryAttempt]` ([source](../../../../../../../src/learnloop/diagnosis/split/context.py), line 552) — Prior passes on the same facets, cold and unassisted first, recent first.
-- `_rrf(exact: Sequence[HistoryAttempt], knn: RetrievalResult, *, k: int, keep: int, by_id: Mapping[str, HistoryAttempt]) -> tuple[list[HistoryAttempt], list[dict[str, Any]]]` ([source](../../../../../../../src/learnloop/diagnosis/split/context.py), line 570)
-- `_truncate_oldest(attempts: list[HistoryAttempt], drop: int) -> tuple[list[HistoryAttempt], int]` ([source](../../../../../../../src/learnloop/diagnosis/split/context.py), line 605) — Drop ``drop`` of the OLDEST attempts, keeping the block's display order.
-- `_registry_shortlist(retriever: RegistryRetriever, store: HistoryStore, current: 'CurrentAttempt', before: AttemptRef, exact: list[RegistryRecord], *, limit: int) -> tuple[list[RegistryRecord], dict[str, Any]]` ([source](../../../../../../../src/learnloop/diagnosis/split/context.py), line 619) — The exact set plus up to ``limit`` kNN-only registry records.
+- `_status_for(attempts: Sequence[HistoryAttempt]) -> str` ([source](../../../../../../../src/learnloop/diagnosis/split/context.py), line 400)
+- `_neighborhood_block(vault: LoadedVault, neighborhood: Neighborhood, prior: Sequence[HistoryAttempt]) -> tuple[dict[str, Any], set[str], list[dict[str, Any]]]` ([source](../../../../../../../src/learnloop/diagnosis/split/context.py), line 408)
+- `_render_attempt(attempt: HistoryAttempt, neighborhood: Neighborhood, *, with_answer: bool, prior: Mapping[str, Any] | None=None) -> dict[str, Any]` ([source](../../../../../../../src/learnloop/diagnosis/split/context.py), line 448)
+- `_render_hypothesis(record: HypothesisRecord) -> dict[str, Any]` ([source](../../../../../../../src/learnloop/diagnosis/split/context.py), line 504)
+- `_render_registry(record: RegistryRecord) -> dict[str, Any]` ([source](../../../../../../../src/learnloop/diagnosis/split/context.py), line 518)
+- `_render_repair(record: RepairRecord) -> dict[str, Any]` ([source](../../../../../../../src/learnloop/diagnosis/split/context.py), line 530)
+- `_exact_failures(prior: Sequence[HistoryAttempt], targets: frozenset[str], *, current_attempt_id: str) -> list[HistoryAttempt]` ([source](../../../../../../../src/learnloop/diagnosis/split/context.py), line 540) — Non-pass, facet-overlapping, any surface family; most recent first.
+- `_exact_successes(prior: Sequence[HistoryAttempt], targets: frozenset[str], *, current_attempt_id: str) -> list[HistoryAttempt]` ([source](../../../../../../../src/learnloop/diagnosis/split/context.py), line 557) — Prior passes on the same facets, cold and unassisted first, recent first.
+- `_rrf(exact: Sequence[HistoryAttempt], knn: RetrievalResult, *, k: int, keep: int, by_id: Mapping[str, HistoryAttempt]) -> tuple[list[HistoryAttempt], list[dict[str, Any]]]` ([source](../../../../../../../src/learnloop/diagnosis/split/context.py), line 575)
+- `_truncate_oldest(attempts: list[HistoryAttempt], drop: int) -> tuple[list[HistoryAttempt], int]` ([source](../../../../../../../src/learnloop/diagnosis/split/context.py), line 610) — Drop ``drop`` of the OLDEST attempts, keeping the block's display order.
+- `_registry_shortlist(retriever: RegistryRetriever, store: HistoryStore, current: 'CurrentAttempt', before: AttemptRef, exact: list[RegistryRecord], *, limit: int) -> tuple[list[RegistryRecord], dict[str, Any]]` ([source](../../../../../../../src/learnloop/diagnosis/split/context.py), line 624) — The exact set plus up to ``limit`` kNN-only registry records.
 
 ## Who imports or calls it
 
@@ -201,6 +201,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_hybrid_fuses_exact_and_knn_and_records_provenance`
 - [tests/test_figures_help.py](../../../../../../../tests/test_figures_help.py) — direct import
   - `test_the_context_hashes_as_before_without_a_figure_trace`
+- [tests/test_followup_fg1c_codex_review.py](../../../../../../../tests/test_followup_fg1c_codex_review.py) — direct import
+  - `test_f1_a_rediagnosis_records_the_cause_it_was_shown_through_a_mark`
 - [tests/test_learner_blindness_relax.py](../../../../../../../tests/test_learner_blindness_relax.py) — direct import
 - [tests/test_pfc_unassessed_readers.py](../../../../../../../tests/test_pfc_unassessed_readers.py) — direct import
   - `test_a_later_diagnosis_cannot_cite_an_unassessed_shortfall_as_a_recurrence`

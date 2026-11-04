@@ -231,7 +231,8 @@ def test_a_not_independent_answer_is_counted_apart_and_partly_is_never_scored(jo
 def test_the_report_measures_marks_against_delayed_performance(journey):
     ctx, vault, repository, result, outcome = journey
     marks = _released(ctx, repository, outcome, result)
-    _mark(ctx, result.attempt_id, "my_gap", _versions(marks)[0])
+    panel.record_mark(ctx.require_vault()[0], repository, attempt_id=result.attempt_id, mark="my_gap",
+                      hypothesis_version_id=_versions(marks)[0], clock=CLOCK)
     section = _report(ctx.require_vault()[0])
     assert section["agreement_with_delayed_performance"]["marked_answers_with_no_later_delayed_answer"] == 1
     assert section["agreement_with_delayed_performance"]["agreement"] is None

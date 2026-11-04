@@ -2347,6 +2347,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_s0_an_attempt_hosted_payload_is_refused_by_its_flag_too`
 - [tests/test_fitted_parameters.py](../../../../../../tests/test_fitted_parameters.py) — direct import
 - [tests/test_followup_diagnostic_selection.py](../../../../../../tests/test_followup_diagnostic_selection.py) — direct import
+- [tests/test_followup_fg1c_codex_review.py](../../../../../../tests/test_followup_fg1c_codex_review.py) — direct import
+  - `test_f4_a_later_success_disagrees_with_a_named_gap_and_the_plain_report_says_what_came_after`
 - [tests/test_followups.py](../../../../../../tests/test_followups.py) — direct import
   - `test_followup_gate_skips_non_negative_surprise`
   - `test_manual_override_forces_followup_when_gate_silent`

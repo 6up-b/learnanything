@@ -7,8 +7,8 @@ version: "1.0.0"
 source_path: "src/learnloop/followup_serve/marks.py"
 source_paths:
   - "src/learnloop/followup_serve/marks.py"
-source_commit: "workspace/uncommitted @ HEAD 28a1b3d9817a7e579bdd8eb3b17ab29acdf57458"
-source_commit_timestamp: "2026-11-04T09:10:39-05:00"
+source_commit: "workspace/uncommitted @ HEAD 450c22470d46f9bd13a2faf2d4fb955ba0dad985"
+source_commit_timestamp: "2026-11-04T10:02:56-05:00"
 source_worktree_state: "modified"
 generated: true
 generated_at: "2026-11-02"
@@ -50,13 +50,13 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/followup_serve/marks.py](../../../../../../src/learnloop/followup_serve/marks.py) |
-| Source lines | 123 |
+| Source lines | 132 |
 | Owning package | [[Reference/Modules/learnloop/followup_serve/_package|learnloop.followup_serve]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `modified` |
-| Source commit | `workspace/uncommitted @ HEAD 28a1b3d9817a7e579bdd8eb3b17ab29acdf57458` |
-| Commit timestamp | `2026-11-04T09:10:39-05:00` |
+| Source commit | `workspace/uncommitted @ HEAD 450c22470d46f9bd13a2faf2d4fb955ba0dad985` |
+| Commit timestamp | `2026-11-04T10:02:56-05:00` |
 
 ## Public API
 
@@ -64,8 +64,9 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `latest_marks(rows: Iterable[Mapping[str, Any]]) -> dict[str | None, Mapping[str, Any]]` ([source](../../../../../../src/learnloop/followup_serve/marks.py), line 52) — A change of mind appends and the latest counts: per hypothesis identity (None is the None of these line), the latest row in ``rows``, oldest first, unless it took the mark back.
 - `opinion_entries(rows: Iterable[Mapping[str, Any]]) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/followup_serve/marks.py), line 62) — What the diagnoser reads of one attempt's marks: the latest counts.
 - `opinion_block(rows: Iterable[Mapping[str, Any]]) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/followup_serve/marks.py), line 78) — The attributed block a context carries for one attempt, or None (it renders as before).
-- `attempt_opinion(repository: Any, attempt_id: str) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/followup_serve/marks.py), line 85) — The block for one attempt from the ledger; None below migration 242 or with no marks.
-- `probe_state(connection: Any, *, factor_id: str | None, workflow: Mapping[str, Any] | None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/followup_serve/marks.py), line 94) — Whether the attempt's probe has been answered, by which attempt, and its outcome if known.
+- `marked_causes(rows: Iterable[Mapping[str, Any]]) -> tuple[tuple[str, str], ...]` ([source](../../../../../../src/learnloop/followup_serve/marks.py), line 85) — (hypothesis version, statement) of each cause the opinion shows: model-written text, so what reads the opinion read it, and it folds into that writer's provenance record (Codex review F1).
+- `attempt_marks(repository: Any, attempt_id: str) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/followup_serve/marks.py), line 96) — One attempt's ledger rows, oldest first; none below migration 242.
+- `probe_state(connection: Any, *, factor_id: str | None, workflow: Mapping[str, Any] | None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/followup_serve/marks.py), line 103) — Whether the attempt's probe has been answered, by which attempt, and its outcome if known.
 
 ### Module constants
 
@@ -94,9 +95,10 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `NOT_IT`
 - `ORDER_VERSION`
 - `PARTLY`
-- `attempt_opinion`
+- `attempt_marks`
 - `display_order`
 - `latest_marks`
+- `marked_causes`
 - `opinion_block`
 - `opinion_entries`
 - `probe_state`
@@ -112,7 +114,8 @@ No private top-level function or class definition is declared in this file.
 
 - [[Reference/Modules/learnloop/daily_plan/router_card|learnloop.daily_plan.router_card]] — imports `module`; statically calls `latest_marks`
 - [[Reference/Modules/learnloop/diagnosis/split/context|learnloop.diagnosis.split.context]] — imports `opinion_block`; statically calls `opinion_block`
-- [[Reference/Modules/learnloop/diagnosis/split/live|learnloop.diagnosis.split.live]] — imports `attempt_opinion`; statically calls `attempt_opinion`
+- [[Reference/Modules/learnloop/diagnosis/split/live|learnloop.diagnosis.split.live]] — imports `attempt_marks`, `marked_causes`, `opinion_block`; statically calls `attempt_marks`, `marked_causes`, `opinion_block`
+- [[Reference/Modules/learnloop/diagnosis/split/provenance|learnloop.diagnosis.split.provenance]] — imports `marked_causes`; statically calls `marked_causes`
 - [[Reference/Modules/learnloop/diagnosis/split/snapshot|learnloop.diagnosis.split.snapshot]] — imports `opinion_block`; statically calls `opinion_block`
 - [[Reference/Modules/learnloop/followup_run/marks|learnloop.followup_run.marks]] — imports `module`; statically calls `display_order`, `latest_marks`, `probe_state`
 - [[Reference/Modules/learnloop/ops/capture_report|learnloop.ops.capture_report]] — imports `module`; statically calls `latest_marks`
@@ -135,7 +138,7 @@ Use this module in context through:
 - [[Initialize a Vault]]
 - [[Start a Learning Cycle]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/daily_plan/router_card|learnloop.daily_plan.router_card]], [[Reference/Modules/learnloop/diagnosis/split/context|learnloop.diagnosis.split.context]], [[Reference/Modules/learnloop/diagnosis/split/live|learnloop.diagnosis.split.live]], [[Reference/Modules/learnloop/diagnosis/split/snapshot|learnloop.diagnosis.split.snapshot]], [[Reference/Modules/learnloop/followup_run/marks|learnloop.followup_run.marks]] and 1 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/daily_plan/router_card|learnloop.daily_plan.router_card]], [[Reference/Modules/learnloop/diagnosis/split/context|learnloop.diagnosis.split.context]], [[Reference/Modules/learnloop/diagnosis/split/live|learnloop.diagnosis.split.live]], [[Reference/Modules/learnloop/diagnosis/split/provenance|learnloop.diagnosis.split.provenance]], [[Reference/Modules/learnloop/diagnosis/split/snapshot|learnloop.diagnosis.split.snapshot]] and 2 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 

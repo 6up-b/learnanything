@@ -117,6 +117,9 @@ class CurrentAttempt:
     #: FG1c (spec_followup_generate_serve_v1 §7): the learner's marks on this attempt's possible
     #: causes, as attributed opinion (a re-diagnosis has them; a first diagnosis never does).
     learner_marks: Mapping[str, Any] | None = None
+    #: (hypothesis version, statement) of each cause ``learner_marks`` shows: never rendered twice,
+    #: only folded into what this context read (Codex review F1).
+    marked_causes: tuple[tuple[str, str], ...] = ()
     #: Reader RW5d P3: the figures this attempt used
     #: (``figure_trace.figure_trace_for_attempt``); None for every other
     #: attempt, whose context renders and hashes exactly as before.
@@ -233,6 +236,7 @@ def current_attempt_from(
     confidence: Mapping[str, Any] | None = None,
     figure_trace: Mapping[str, Any] | None = None,
     learner_marks: Mapping[str, Any] | None = None,
+    marked_causes: tuple[tuple[str, str], ...] = (),
 ) -> CurrentAttempt:
     """The attempt being diagnosed. ``contract`` (method-explicit-3 review
     F3) is the assessment contract its answer was graded under: a
@@ -272,6 +276,7 @@ def current_attempt_from(
         confidence=dict(confidence) if confidence else None,
         figure_trace=dict(figure_trace) if figure_trace else None,
         learner_marks=dict(learner_marks) if learner_marks else None,
+        marked_causes=marked_causes,
     )
 
 
@@ -918,6 +923,12 @@ def assemble_diagnosis_context(
         # The neighbourhood block names each topic by its title (codex review F2).
         titles=shown_titles(vault, [entry["learning_object_id"] for entry in neighborhood_block["learning_objects"]]),
     )
+    if current.marked_causes:
+        # FG1c: a re-diagnosis shown the causes the learner marked read that model-written text (F1).
+        from learnloop.diagnosis.split.provenance import DiagnosisReads
+
+        reads = reads.join(DiagnosisReads(records=tuple(("hypothesis", version, statement)
+                                                        for version, statement in current.marked_causes)))
     if prior_by_id:
         # The prior-analysis arm: each earlier diagnosis shown is a derived
         # text read (its own record folds in, diagnosis input provenance).

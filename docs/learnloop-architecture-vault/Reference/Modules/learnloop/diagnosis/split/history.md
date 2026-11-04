@@ -253,6 +253,11 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_f4_a_regrade_to_no_errors_keeps_the_retired_events_answer`
   - `test_rereview_f3_a_payload_its_caller_supplied_is_never_certified`
   - `test_rereview_f3_the_overlay_s_payload_is_validated_by_the_identity_captured_with_it`
+- [tests/test_followup_fg1c_codex_review.py](../../../../../../../tests/test_followup_fg1c_codex_review.py) — direct import
+  - `test_f1_a_history_attempt_folds_the_causes_its_marks_show_as_of_its_cutoff`
+  - `test_f1_a_rediagnosis_records_the_cause_it_was_shown_through_a_mark`
+  - `test_f1_only_the_causes_a_context_still_shows_are_folded`
+  - `test_f1_the_snapshot_entry_of_a_marked_attempt_carries_the_cause`
 - [tests/test_hypothesis_marks.py](../../../../../../../tests/test_hypothesis_marks.py) — direct import
   - `test_the_diagnoser_reads_only_marks_made_before_the_attempt_it_is_on`
   - `test_the_switch_off_keeps_the_diagnosers_context_as_it_was_whatever_rows_exist`

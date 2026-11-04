@@ -12,7 +12,7 @@ landed. Migration 242 (recheck the number at landing: RO0 runs beside this and t
 | (3) Display order | `followup_serve/marks.py::display_order`, `hypothesis_order_v1`, seed on every panel exposure and every mark |
 | (4) Desktop | `screens/feedback/HypothesisMarks.tsx`, mounted by `FeedbackScreen`; `DiagnosisCard`'s `hideTaps`; bundle key `hypothesisMarks`, added by `handlers/feedback.py::_with_hypothesis_marks` |
 | (5) Attributed opinion | `daily_plan/router_card.py::_hypothesis_marks` and `router/card.py` (`MARKS_SECTION`, version suffix `+marks`); `diagnosis/split/history.py`, `context.py`, `live.py`, `snapshot.py` (`learner_marks`) |
-| (6) Report | `ops/capture_report.py::hypothesis_marks_section`; `router/outcomes.py::next_delayed_outcomes` |
+| (6) Report | `ops/capture_report.py::hypothesis_marks_section`; `router/outcomes.py::delayed_outcomes_after` |
 | (7) Kill switch | `followup.hypothesis_marks`, default true, at every version; `followup_serve/gates.py::hypothesis_marks_on`; a `structural` rule in the parameter registry |
 
 **Import contract.** `graders-never-read-hypothesis-marks` (43 contracts now): `learnloop.attempts` imports neither the marks module nor their
@@ -62,10 +62,10 @@ fingerprint is checked by tests and isn't stored in a vault, so no vault notices
 `learnloop data-capture report` gains `hypothesis_marks`:
 
 - **Exposure coverage:** rows by surface, attempts displayed against attempts with causes written since the first display, later links, rows and bytes per active day.
-- **Agreement with probe outcomes,** apart for independent answers and answers given after the causes were shown, with the full table by mark, outcome, independence and
+- **Agreement with probe outcomes,** apart for independent answers (`admissible_as_independent`) and answers given after the causes were shown, with the full table by mark, outcome, independence and
   timing. `my_gap` and `none_of_these` agree when the probe supports them, `not_it` when it doesn't, `partly` is reported and never scored. A cause the probe didn't
-  measure and a probe that didn't discriminate are counted apart.
-- **Agreement with delayed performance:** the next delayed answer on the topic under `delayed_completion_v1`. A named gap agrees with a later miss, ruling the list out with a later success.
+  measure, a probe that didn't discriminate (the shared `DISCRIMINATING_OUTCOMES`) and *None of these* on a no-match that didn't measure every cause are counted apart.
+- **Agreement with delayed performance:** the first delayed answer on the topic under `delayed_completion_v1` that an opinion was held before, and that opinion. A named gap agrees with a later miss, ruling the whole list out (*None of these*, or *Not it* on every cause displayed) with a later success. `partly` and `rejected_some_causes` are reported and never scored. Marks made or changed after a delayed answer are counted apart in `marked_after_a_delayed_answer`.
 - **Mark rates by display position,** over the shuffled panel only.
 
 Each of the three carries a label starting "conditional on being observed". No threshold reads any of it.

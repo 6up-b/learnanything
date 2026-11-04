@@ -7,9 +7,9 @@ version: "1.0.0"
 source_path: "src/learnloop/router/outcomes.py"
 source_paths:
   - "src/learnloop/router/outcomes.py"
-source_commit: "9c3c613bdf639f94146be3c1f47dcef04060668a"
-source_commit_timestamp: "2026-11-04T09:06:52-05:00"
-source_worktree_state: "clean"
+source_commit: "workspace/uncommitted @ HEAD 450c22470d46f9bd13a2faf2d4fb955ba0dad985"
+source_commit_timestamp: "2026-11-04T10:02:56-05:00"
+source_worktree_state: "modified"
 generated: true
 generated_at: "2026-11-02"
 package: "learnloop.router"
@@ -50,23 +50,23 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/router/outcomes.py](../../../../../../src/learnloop/router/outcomes.py) |
-| Source lines | 1463 |
+| Source lines | 1472 |
 | Owning package | [[Reference/Modules/learnloop/router/_package|learnloop.router]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
-| Worktree state | `clean` |
-| Source commit | `9c3c613bdf639f94146be3c1f47dcef04060668a` |
-| Commit timestamp | `2026-11-04T09:06:52-05:00` |
+| Worktree state | `modified` |
+| Source commit | `workspace/uncommitted @ HEAD 450c22470d46f9bd13a2faf2d4fb955ba0dad985` |
+| Commit timestamp | `2026-11-04T10:02:56-05:00` |
 
 ## Public API
 
 - `outcome_version_for(config: Any) -> str` ([source](../../../../../../src/learnloop/router/outcomes.py), line 225) — The outcome version a vault's outcomes are derived under (module docstring).
 - `servable_items_by_learning_object(vault: Any) -> dict[str, set[str]]` ([source](../../../../../../src/learnloop/router/outcomes.py), line 639) — Each learning object's active, servable practice items (vault content).
-- `next_delayed_outcomes(connection: sqlite3.Connection, attempts: Mapping[str, str], *, pfc_states: Mapping[str, str], held_attempt_ids: frozenset[str], reader_exposures: Iterable[tuple[str, str]]) -> dict[str, dict[str, Any]]` ([source](../../../../../../src/learnloop/router/outcomes.py), line 743) — Per attempt (``{attempt id: learning object}``), the next delayed presentation on its topic under the shared definition: ``status`` ("observed" with ``value`` and ``completion``, or "pending").
-- `fold_measurement(objective: Mapping[str, Any], events: Sequence[Mapping[str, Any]]) -> dict[str, Any]` ([source](../../../../../../src/learnloop/router/outcomes.py), line 1073) — An objective's measurement as one plain record (this adapter's and the capture report's).
-- `answer_completion(connection: sqlite3.Connection, attempt_id: str, *, decided_at: str, reader_exposures: Iterable[tuple[str, str]]) -> DC.Completion | None` ([source](../../../../../../src/learnloop/router/outcomes.py), line 1102) — What the shared definition makes of one attempt as the delayed retrieval of a decision taken at ``decided_at``: a measurement's check asks this of its answer.
-- `derive_router_outcomes(connection: sqlite3.Connection, *, reader_exposures: Iterable[tuple[str, str]] | None, pfc_states: Mapping[str, str] | None=None, servable_items_by_lo: Mapping[str, set[str]] | None=None, retrievability_by_attempt: Mapping[str, float] | None=None, held_attempt_ids: frozenset[str] | set[str]=frozenset(), outcome_version: str=OUTCOME_VERSION) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/router/outcomes.py), line 1216) — One outcome row per logged decision, from the ledgers alone (read-only).
-- `rebuild_router_outcomes(connection: sqlite3.Connection, *, reader_exposures: Iterable[tuple[str, str]] | None, pfc_states: Mapping[str, str] | None=None, servable_items_by_lo: Mapping[str, set[str]] | None=None, retrievability_by_attempt: Mapping[str, float] | None=None, held_attempt_ids: frozenset[str] | set[str]=frozenset(), outcome_version: str=OUTCOME_VERSION) -> int` ([source](../../../../../../src/learnloop/router/outcomes.py), line 1420) — Replace the derived cache; the caller owns the transaction.
+- `delayed_outcomes_after(connection: sqlite3.Connection, attempts: Mapping[str, str], *, pfc_states: Mapping[str, str], held_attempt_ids: frozenset[str], reader_exposures: Iterable[tuple[str, str]]) -> dict[str, list[dict[str, Any]]]` ([source](../../../../../../src/learnloop/router/outcomes.py), line 743) — Per attempt (``{attempt id: learning object}``), every delayed presentation after it on its topic under the shared definition, oldest first (the first is ``_r_cold_v3``'s), each with ``presented_at``, ``value``, ``completion`` and ``attempt_id``.
+- `fold_measurement(objective: Mapping[str, Any], events: Sequence[Mapping[str, Any]]) -> dict[str, Any]` ([source](../../../../../../src/learnloop/router/outcomes.py), line 1082) — An objective's measurement as one plain record (this adapter's and the capture report's).
+- `answer_completion(connection: sqlite3.Connection, attempt_id: str, *, decided_at: str, reader_exposures: Iterable[tuple[str, str]]) -> DC.Completion | None` ([source](../../../../../../src/learnloop/router/outcomes.py), line 1111) — What the shared definition makes of one attempt as the delayed retrieval of a decision taken at ``decided_at``: a measurement's check asks this of its answer.
+- `derive_router_outcomes(connection: sqlite3.Connection, *, reader_exposures: Iterable[tuple[str, str]] | None, pfc_states: Mapping[str, str] | None=None, servable_items_by_lo: Mapping[str, set[str]] | None=None, retrievability_by_attempt: Mapping[str, float] | None=None, held_attempt_ids: frozenset[str] | set[str]=frozenset(), outcome_version: str=OUTCOME_VERSION) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/router/outcomes.py), line 1225) — One outcome row per logged decision, from the ledgers alone (read-only).
+- `rebuild_router_outcomes(connection: sqlite3.Connection, *, reader_exposures: Iterable[tuple[str, str]] | None, pfc_states: Mapping[str, str] | None=None, servable_items_by_lo: Mapping[str, set[str]] | None=None, retrievability_by_attempt: Mapping[str, float] | None=None, held_attempt_ids: frozenset[str] | set[str]=frozenset(), outcome_version: str=OUTCOME_VERSION) -> int` ([source](../../../../../../src/learnloop/router/outcomes.py), line 1429) — Replace the derived cache; the caller owns the transaction.
 
 ### Module constants
 
@@ -94,7 +94,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 `__all__` declares:
 
 - `answer_completion`
-- `next_delayed_outcomes`
+- `delayed_outcomes_after`
 - `COLDNESS_CANDIDATE_CAP`
 - `COVARIATE_NAMES`
 - `INDEPENDENT_ATTEMPT_TYPES`
@@ -126,24 +126,24 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `_r_next(action: Mapping[str, Any], ledger: _Ledger, pfc_states: Mapping[str, str], *, until_position: int | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/router/outcomes.py), line 659) — The first fresh, unassisted, independent attempt after the action, at or before ``until_position`` (the R_cold attempt) when one is given.
 - `_completion(row: Mapping[str, Any], ledger: _Ledger, pfc_states: Mapping[str, str], *, source_session_id: str | None, not_before: str | None=None) -> DC.Completion` ([source](../../../../../../src/learnloop/router/outcomes.py), line 699) — Version 3: the shared definition over one attempt's frozen facts.
 - `_completion_reasons(completion: DC.Completion) -> list[str]` ([source](../../../../../../src/learnloop/router/outcomes.py), line 735) — A non-outcome's reasons under the skip counts (``pre_exposed`` and the rest stay apart).
-- `_r_cold_v3(action: Mapping[str, Any], ledger: _Ledger, pfc_states: Mapping[str, str]) -> dict[str, Any]` ([source](../../../../../../src/learnloop/router/outcomes.py), line 764) — The next delayed presentation on the action's LO under the shared definition (module docstring).
-- `_r_cold(action: Mapping[str, Any], ledger: _Ledger, pfc_states: Mapping[str, str]) -> dict[str, Any]` ([source](../../../../../../src/learnloop/router/outcomes.py), line 790)
-- `_not_applicable(decision: Mapping[str, Any], status: str, observed_through: str | None, *, pending: bool, version: str=OUTCOME_VERSION) -> dict[str, Any]` ([source](../../../../../../src/learnloop/router/outcomes.py), line 833)
-- `_r_cold_rule(version: str) -> str` ([source](../../../../../../src/learnloop/router/outcomes.py), line 867)
-- `_covariate_columns(prefix: str, covariates: Mapping[str, Any] | None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/router/outcomes.py), line 871)
-- `_coldness_candidates(action: Mapping[str, Any], considered: list[tuple[dict[str, Any], list[str]]], ledger: _Ledger, *, r_next_id: str | None, r_cold_id: str | None) -> tuple[list[dict[str, Any]], int]` ([source](../../../../../../src/learnloop/router/outcomes.py), line 875) — Every later attempt the R_cold rule considered, with its covariates.
-- `_suggestion_responses(connection: sqlite3.Connection) -> dict[str, dict[str, Any]]` ([source](../../../../../../src/learnloop/router/outcomes.py), line 907) — Each suggestion decision's one response: its kind, the candidate taken and its LOs.
-- `_r_cold_itt(learning_object_id: str, start: str, ledger: _Ledger, pfc_states: Mapping[str, str]) -> dict[str, Any]` ([source](../../../../../../src/learnloop/router/outcomes.py), line 925) — The first eligible cold retrieval on the LO at least a day after ``start`` and after its last exposure.
-- `_suggestion_scope(detail: Mapping[str, Any], target: str, start: str, ledger: _Ledger, pfc_states: Mapping[str, str], taken: Mapping[str, Any] | None) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/router/outcomes.py), line 961) — R_cold on every LO of the decision's predeclared scope (codex review F4): the target and the candidates the card offered (or would have offered) beside it, fixed at the draw in both arms, so an accepted alternative's delayed check reaches its decision.
-- `_suggestion_outcome(decision: Mapping[str, Any], ledger: _Ledger, pfc_states: Mapping[str, str], responses: Mapping[str, Mapping[str, Any]]) -> dict[str, Any]` ([source](../../../../../../src/learnloop/router/outcomes.py), line 992) — A lesson suggestion's intention-to-treat outcome (module docstring).
-- `_completion_detail(ledger: _Ledger, r_cold: Mapping[str, Any]) -> dict[str, Any]` ([source](../../../../../../src/learnloop/router/outcomes.py), line 1047) — Version 3's fields on an outcome's detail (absent below it, whose detail stays byte-identical).
-- `_event_instant(event: Mapping[str, Any]) -> float` ([source](../../../../../../src/learnloop/router/outcomes.py), line 1055)
-- `_replacement_of(event: Mapping[str, Any]) -> str | None` ([source](../../../../../../src/learnloop/router/outcomes.py), line 1063) — The check an early answer's event arranged in its place (``daily_plan.measurement.settle``).
-- `_objective_record(decision: Mapping[str, Any], objective: Mapping[str, Any], ledger: _Ledger, pfc_states: Mapping[str, str], events: Sequence[Mapping[str, Any]]) -> dict[str, Any]` ([source](../../../../../../src/learnloop/router/outcomes.py), line 1114) — A frozen objective's ITT record: its R_cold, its scope's, its measurement's states.
-- `_objective_outcome(decision: Mapping[str, Any], objective: Mapping[str, Any], ledger: _Ledger, pfc_states: Mapping[str, str], events: Sequence[Mapping[str, Any]], reading_started: frozenset[str] | set[str]) -> dict[str, Any]` ([source](../../../../../../src/learnloop/router/outcomes.py), line 1141) — A reading, wait or stop arm's outcome: the lesson suggestion's adapter over a frozen objective.
-- `_with_objective_itt(row: dict[str, Any], decision: Mapping[str, Any], objective: Mapping[str, Any], ledger: _Ledger, pfc_states: Mapping[str, str], events: Sequence[Mapping[str, Any]]) -> dict[str, Any]` ([source](../../../../../../src/learnloop/router/outcomes.py), line 1176) — A practice arm keeps its own outcome and records the same objective, so every arm compares.
-- `_reading_started(connection: sqlite3.Connection) -> set[str]` ([source](../../../../../../src/learnloop/router/outcomes.py), line 1192)
-- `_ended_sessions(connection: sqlite3.Connection, session_ids: set[str]) -> set[str]` ([source](../../../../../../src/learnloop/router/outcomes.py), line 1199)
+- `_r_cold_v3(action: Mapping[str, Any], ledger: _Ledger, pfc_states: Mapping[str, str]) -> dict[str, Any]` ([source](../../../../../../src/learnloop/router/outcomes.py), line 773) — The next delayed presentation on the action's LO under the shared definition (module docstring).
+- `_r_cold(action: Mapping[str, Any], ledger: _Ledger, pfc_states: Mapping[str, str]) -> dict[str, Any]` ([source](../../../../../../src/learnloop/router/outcomes.py), line 799)
+- `_not_applicable(decision: Mapping[str, Any], status: str, observed_through: str | None, *, pending: bool, version: str=OUTCOME_VERSION) -> dict[str, Any]` ([source](../../../../../../src/learnloop/router/outcomes.py), line 842)
+- `_r_cold_rule(version: str) -> str` ([source](../../../../../../src/learnloop/router/outcomes.py), line 876)
+- `_covariate_columns(prefix: str, covariates: Mapping[str, Any] | None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/router/outcomes.py), line 880)
+- `_coldness_candidates(action: Mapping[str, Any], considered: list[tuple[dict[str, Any], list[str]]], ledger: _Ledger, *, r_next_id: str | None, r_cold_id: str | None) -> tuple[list[dict[str, Any]], int]` ([source](../../../../../../src/learnloop/router/outcomes.py), line 884) — Every later attempt the R_cold rule considered, with its covariates.
+- `_suggestion_responses(connection: sqlite3.Connection) -> dict[str, dict[str, Any]]` ([source](../../../../../../src/learnloop/router/outcomes.py), line 916) — Each suggestion decision's one response: its kind, the candidate taken and its LOs.
+- `_r_cold_itt(learning_object_id: str, start: str, ledger: _Ledger, pfc_states: Mapping[str, str]) -> dict[str, Any]` ([source](../../../../../../src/learnloop/router/outcomes.py), line 934) — The first eligible cold retrieval on the LO at least a day after ``start`` and after its last exposure.
+- `_suggestion_scope(detail: Mapping[str, Any], target: str, start: str, ledger: _Ledger, pfc_states: Mapping[str, str], taken: Mapping[str, Any] | None) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/router/outcomes.py), line 970) — R_cold on every LO of the decision's predeclared scope (codex review F4): the target and the candidates the card offered (or would have offered) beside it, fixed at the draw in both arms, so an accepted alternative's delayed check reaches its decision.
+- `_suggestion_outcome(decision: Mapping[str, Any], ledger: _Ledger, pfc_states: Mapping[str, str], responses: Mapping[str, Mapping[str, Any]]) -> dict[str, Any]` ([source](../../../../../../src/learnloop/router/outcomes.py), line 1001) — A lesson suggestion's intention-to-treat outcome (module docstring).
+- `_completion_detail(ledger: _Ledger, r_cold: Mapping[str, Any]) -> dict[str, Any]` ([source](../../../../../../src/learnloop/router/outcomes.py), line 1056) — Version 3's fields on an outcome's detail (absent below it, whose detail stays byte-identical).
+- `_event_instant(event: Mapping[str, Any]) -> float` ([source](../../../../../../src/learnloop/router/outcomes.py), line 1064)
+- `_replacement_of(event: Mapping[str, Any]) -> str | None` ([source](../../../../../../src/learnloop/router/outcomes.py), line 1072) — The check an early answer's event arranged in its place (``daily_plan.measurement.settle``).
+- `_objective_record(decision: Mapping[str, Any], objective: Mapping[str, Any], ledger: _Ledger, pfc_states: Mapping[str, str], events: Sequence[Mapping[str, Any]]) -> dict[str, Any]` ([source](../../../../../../src/learnloop/router/outcomes.py), line 1123) — A frozen objective's ITT record: its R_cold, its scope's, its measurement's states.
+- `_objective_outcome(decision: Mapping[str, Any], objective: Mapping[str, Any], ledger: _Ledger, pfc_states: Mapping[str, str], events: Sequence[Mapping[str, Any]], reading_started: frozenset[str] | set[str]) -> dict[str, Any]` ([source](../../../../../../src/learnloop/router/outcomes.py), line 1150) — A reading, wait or stop arm's outcome: the lesson suggestion's adapter over a frozen objective.
+- `_with_objective_itt(row: dict[str, Any], decision: Mapping[str, Any], objective: Mapping[str, Any], ledger: _Ledger, pfc_states: Mapping[str, str], events: Sequence[Mapping[str, Any]]) -> dict[str, Any]` ([source](../../../../../../src/learnloop/router/outcomes.py), line 1185) — A practice arm keeps its own outcome and records the same objective, so every arm compares.
+- `_reading_started(connection: sqlite3.Connection) -> set[str]` ([source](../../../../../../src/learnloop/router/outcomes.py), line 1201)
+- `_ended_sessions(connection: sqlite3.Connection, session_ids: set[str]) -> set[str]` ([source](../../../../../../src/learnloop/router/outcomes.py), line 1208)
 
 ## Who imports or calls it
 
@@ -153,7 +153,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop/cli/router|learnloop.cli.router]] — imports `derive_router_outcomes`, `outcome_version_for`, `servable_items_by_learning_object`; statically calls `derive_router_outcomes`, `outcome_version_for`, `servable_items_by_learning_object`
 - [[Reference/Modules/learnloop/daily_plan/measurement|learnloop.daily_plan.measurement]] — imports `answer_completion`; statically calls `answer_completion`
 - [[Reference/Modules/learnloop/daily_plan/router_retrieval|learnloop.daily_plan.router_retrieval]] — imports `derive_router_outcomes`, `outcome_version_for`, `servable_items_by_learning_object`; statically calls `derive_router_outcomes`, `outcome_version_for`, `servable_items_by_learning_object`
-- [[Reference/Modules/learnloop/ops/capture_report|learnloop.ops.capture_report]] — imports `derive_router_outcomes`, `fold_measurement`, `next_delayed_outcomes`, `outcome_version_for`, `servable_items_by_learning_object`; statically calls `derive_router_outcomes`, `fold_measurement`, `next_delayed_outcomes`, `outcome_version_for`, `servable_items_by_learning_object`
+- [[Reference/Modules/learnloop/ops/capture_report|learnloop.ops.capture_report]] — imports `delayed_outcomes_after`, `derive_router_outcomes`, `fold_measurement`, `outcome_version_for`, `servable_items_by_learning_object`; statically calls `delayed_outcomes_after`, `derive_router_outcomes`, `fold_measurement`, `outcome_version_for`, `servable_items_by_learning_object`
 - [[Reference/Modules/learnloop/router/first_delayed_success|learnloop.router.first_delayed_success]] — imports `OUTCOME_VERSION_V3`, `_Ledger`, `_completion`, `_decision_block`, `_table_present`; statically calls `_Ledger`, `_completion`, `_decision_block`, `_table_present`
 - [[Reference/Modules/learnloop/substrate/rebuild_orchestrator|learnloop.substrate.rebuild_orchestrator]] — imports `outcome_version_for`, `rebuild_router_outcomes`, `servable_items_by_learning_object`; statically calls `outcome_version_for`, `rebuild_router_outcomes`, `servable_items_by_learning_object`
 

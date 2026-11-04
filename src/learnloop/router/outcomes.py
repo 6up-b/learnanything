@@ -740,24 +740,33 @@ def _completion_reasons(completion: DC.Completion) -> list[str]:
     return list(completion.reasons) or [completion.status]
 
 
-def next_delayed_outcomes(
+def delayed_outcomes_after(
     connection: sqlite3.Connection,
     attempts: Mapping[str, str],
     *,
     pfc_states: Mapping[str, str],
     held_attempt_ids: frozenset[str],
     reader_exposures: Iterable[tuple[str, str]],
-) -> dict[str, dict[str, Any]]:
-    """Per attempt (``{attempt id: learning object}``), the next delayed presentation on its topic under
-    the shared definition: ``status`` ("observed" with ``value`` and ``completion``, or "pending"). An
-    attempt the ledger doesn't hold is left out. The capture report's read of what followed a marked answer."""
+) -> dict[str, list[dict[str, Any]]]:
+    """Per attempt (``{attempt id: learning object}``), every delayed presentation after it on its topic under
+    the shared definition, oldest first (the first is ``_r_cold_v3``'s), each with ``presented_at``, ``value``,
+    ``completion`` and ``attempt_id``. An attempt the ledger doesn't hold is left out. The capture report's read
+    of what followed a marked answer: which of them a mark came before is the report's question."""
 
     ledger = _Ledger(connection, held_attempt_ids=held_attempt_ids, version=OUTCOME_VERSION_V3, reader_exposures=reader_exposures)
-    out: dict[str, dict[str, Any]] = {}
+    out: dict[str, list[dict[str, Any]]] = {}
     for attempt_id, learning_object_id in attempts.items():
-        if attempt_id in ledger.position:
-            cold = _r_cold_v3({"id": attempt_id, "learning_object_id": learning_object_id}, ledger, pfc_states)
-            out[attempt_id] = {key: cold.get(key) for key in ("status", "value", "completion", "attempt_id")}
+        if attempt_id not in ledger.position:
+            continue
+        rows = ledger.by_lo[learning_object_id]
+        found: list[dict[str, Any]] = []
+        for index in range(ledger.position[attempt_id] + 1, len(rows)):
+            row = rows[index]
+            completion = _completion(row, ledger, pfc_states, source_session_id=rows[index - 1]["session_id"])
+            if completion.is_outcome:
+                found.append({"presented_at": ledger.presented_at(row), "value": completion.value,
+                              "completion": completion.status, "attempt_id": row["id"]})
+        out[attempt_id] = found
     return out
 
 
@@ -1445,7 +1454,7 @@ def rebuild_router_outcomes(
 
 __all__ = [
     "answer_completion",
-    "next_delayed_outcomes",
+    "delayed_outcomes_after",
     "COLDNESS_CANDIDATE_CAP",
     "COVARIATE_NAMES",
     "INDEPENDENT_ATTEMPT_TYPES",

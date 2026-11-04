@@ -7,9 +7,9 @@ version: "1.0.0"
 source_path: "src/learnloop/diagnosis/split/live.py"
 source_paths:
   - "src/learnloop/diagnosis/split/live.py"
-source_commit: "a1ba732a86f8c704cd6e6ee1071bf7a30ad3fb1a"
-source_commit_timestamp: "2026-11-04T08:47:30-05:00"
-source_worktree_state: "clean"
+source_commit: "workspace/uncommitted @ HEAD 450c22470d46f9bd13a2faf2d4fb955ba0dad985"
+source_commit_timestamp: "2026-11-04T10:02:56-05:00"
+source_worktree_state: "modified"
 generated: true
 generated_at: "2026-11-02"
 package: "learnloop.diagnosis.split"
@@ -50,34 +50,34 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/diagnosis/split/live.py](../../../../../../../src/learnloop/diagnosis/split/live.py) |
-| Source lines | 498 |
+| Source lines | 499 |
 | Owning package | [[Reference/Modules/learnloop/diagnosis/split/_package|learnloop.diagnosis.split]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
-| Worktree state | `clean` |
-| Source commit | `a1ba732a86f8c704cd6e6ee1071bf7a30ad3fb1a` |
-| Commit timestamp | `2026-11-04T08:47:30-05:00` |
+| Worktree state | `modified` |
+| Source commit | `workspace/uncommitted @ HEAD 450c22470d46f9bd13a2faf2d4fb955ba0dad985` |
+| Commit timestamp | `2026-11-04T10:02:56-05:00` |
 
 ## Public API
 
-- `settings_from_config(vault: LoadedVault) -> DiagnosisSettings` ([source](../../../../../../../src/learnloop/diagnosis/split/live.py), line 68)
-- `live_history_store(vault: LoadedVault, repository: Repository) -> VaultHistoryStore` ([source](../../../../../../../src/learnloop/diagnosis/split/live.py), line 86) — M1's store with every persisted blind grade as the overlay.
-- `joint_grade_record(vault: LoadedVault, repository: Repository, attempt: Mapping[str, Any]) -> dict[str, Any]` ([source](../../../../../../../src/learnloop/diagnosis/split/live.py), line 106) — A stored JOINT grade in the blind-record shape, causal fields stripped.
-- `current_attempt_for(vault: LoadedVault, attempt: Mapping[str, Any], record: Mapping[str, Any], repository: Any=None) -> CurrentAttempt | None` ([source](../../../../../../../src/learnloop/diagnosis/split/live.py), line 162) — The attempt to diagnose; with ``repository``, its question is the one its graded contract froze (method-explicit-3 review F3).
-- `current_confidence(repository: Any, attempt: Mapping[str, Any], record: Mapping[str, Any], *, vault: Any=None, vault_grade: bool=True) -> dict[str, Any] | None` ([source](../../../../../../../src/learnloop/diagnosis/split/live.py), line 217) — Teacher TE0 (spec_teacher_v1 §15.2): the diagnosed attempt's confidence event (its tap, and the hedge read of the grade the diagnoser is shown: the blind record's own, else, with ``vault_grade``, the current grading evidence's) with the stated limit on the taps up to and includi…
-- `confidence_for_offline_target(vault: Any, repository: Any, *, attempt_id: str, completed_at: str, record: Mapping[str, Any], planted: bool) -> dict[str, Any] | None` ([source](../../../../../../../src/learnloop/diagnosis/split/live.py), line 267) — Review F4: the confidence block an offline diagnosis arm is given, the same assembly as live (:func:`current_confidence`) over the arm's own blind record.
-- `needs_diagnosis(record: Mapping[str, Any]) -> bool` ([source](../../../../../../../src/learnloop/diagnosis/split/live.py), line 292) — §5.1: a non-pass criterion, a fatal error, or an error attribution.
-- `sampled_correct_answer(attempt_id: str, rate: float) -> bool` ([source](../../../../../../../src/learnloop/diagnosis/split/live.py), line 323) — Deterministic shadow sample of correct answers (§5.1, O5).
-- `build_causal_view(*, diagnosis_id: str, proposal: Mapping[str, Any], record: Mapping[str, Any], error_events: Sequence[Mapping[str, Any]], agent_run_id: str | None=None) -> dict[str, Any]` ([source](../../../../../../../src/learnloop/diagnosis/split/live.py), line 368) — The §4.2 reverse mapping of one validated diagnosis (computed once).
-- `diagnosis_for_attempt(repository: Repository, attempt_id: str) -> dict[str, Any] | None` ([source](../../../../../../../src/learnloop/diagnosis/split/live.py), line 455) — The diagnosis every reader uses: live, else a joint legacy view, else None.
-- `grader_mode_for(repository: Repository, attempt_id: str) -> str` ([source](../../../../../../../src/learnloop/diagnosis/split/live.py), line 483)
+- `settings_from_config(vault: LoadedVault) -> DiagnosisSettings` ([source](../../../../../../../src/learnloop/diagnosis/split/live.py), line 69)
+- `live_history_store(vault: LoadedVault, repository: Repository) -> VaultHistoryStore` ([source](../../../../../../../src/learnloop/diagnosis/split/live.py), line 87) — M1's store with every persisted blind grade as the overlay.
+- `joint_grade_record(vault: LoadedVault, repository: Repository, attempt: Mapping[str, Any]) -> dict[str, Any]` ([source](../../../../../../../src/learnloop/diagnosis/split/live.py), line 107) — A stored JOINT grade in the blind-record shape, causal fields stripped.
+- `current_attempt_for(vault: LoadedVault, attempt: Mapping[str, Any], record: Mapping[str, Any], repository: Any=None) -> CurrentAttempt | None` ([source](../../../../../../../src/learnloop/diagnosis/split/live.py), line 163) — The attempt to diagnose; with ``repository``, its question is the one its graded contract froze (method-explicit-3 review F3).
+- `current_confidence(repository: Any, attempt: Mapping[str, Any], record: Mapping[str, Any], *, vault: Any=None, vault_grade: bool=True) -> dict[str, Any] | None` ([source](../../../../../../../src/learnloop/diagnosis/split/live.py), line 218) — Teacher TE0 (spec_teacher_v1 §15.2): the diagnosed attempt's confidence event (its tap, and the hedge read of the grade the diagnoser is shown: the blind record's own, else, with ``vault_grade``, the current grading evidence's) with the stated limit on the taps up to and includi…
+- `confidence_for_offline_target(vault: Any, repository: Any, *, attempt_id: str, completed_at: str, record: Mapping[str, Any], planted: bool) -> dict[str, Any] | None` ([source](../../../../../../../src/learnloop/diagnosis/split/live.py), line 268) — Review F4: the confidence block an offline diagnosis arm is given, the same assembly as live (:func:`current_confidence`) over the arm's own blind record.
+- `needs_diagnosis(record: Mapping[str, Any]) -> bool` ([source](../../../../../../../src/learnloop/diagnosis/split/live.py), line 293) — §5.1: a non-pass criterion, a fatal error, or an error attribution.
+- `sampled_correct_answer(attempt_id: str, rate: float) -> bool` ([source](../../../../../../../src/learnloop/diagnosis/split/live.py), line 324) — Deterministic shadow sample of correct answers (§5.1, O5).
+- `build_causal_view(*, diagnosis_id: str, proposal: Mapping[str, Any], record: Mapping[str, Any], error_events: Sequence[Mapping[str, Any]], agent_run_id: str | None=None) -> dict[str, Any]` ([source](../../../../../../../src/learnloop/diagnosis/split/live.py), line 369) — The §4.2 reverse mapping of one validated diagnosis (computed once).
+- `diagnosis_for_attempt(repository: Repository, attempt_id: str) -> dict[str, Any] | None` ([source](../../../../../../../src/learnloop/diagnosis/split/live.py), line 456) — The diagnosis every reader uses: live, else a joint legacy view, else None.
+- `grader_mode_for(repository: Repository, attempt_id: str) -> str` ([source](../../../../../../../src/learnloop/diagnosis/split/live.py), line 484)
 
 ### Module constants
 
-- `CAUSAL_VIEW_VERSION` ([src/learnloop/diagnosis/split/live.py](../../../../../../../src/learnloop/diagnosis/split/live.py), line 33)
-- `_SCOPE_FOR_VALIDITY` ([src/learnloop/diagnosis/split/live.py](../../../../../../../src/learnloop/diagnosis/split/live.py), line 36)
-- `_REPAIR_FIELDS` ([src/learnloop/diagnosis/split/live.py](../../../../../../../src/learnloop/diagnosis/split/live.py), line 42)
-- `_TRACE_FIELDS` ([src/learnloop/diagnosis/split/live.py](../../../../../../../src/learnloop/diagnosis/split/live.py), line 57)
+- `CAUSAL_VIEW_VERSION` ([src/learnloop/diagnosis/split/live.py](../../../../../../../src/learnloop/diagnosis/split/live.py), line 34)
+- `_SCOPE_FOR_VALIDITY` ([src/learnloop/diagnosis/split/live.py](../../../../../../../src/learnloop/diagnosis/split/live.py), line 37)
+- `_REPAIR_FIELDS` ([src/learnloop/diagnosis/split/live.py](../../../../../../../src/learnloop/diagnosis/split/live.py), line 43)
+- `_TRACE_FIELDS` ([src/learnloop/diagnosis/split/live.py](../../../../../../../src/learnloop/diagnosis/split/live.py), line 58)
 
 ### Explicit exports
 
@@ -96,8 +96,8 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 
 ## Internal implementation anchors
 
-- `_present(value: Any) -> bool` ([source](../../../../../../../src/learnloop/diagnosis/split/live.py), line 334)
-- `_event_ids_by_index(record: Mapping[str, Any], events: Sequence[Mapping[str, Any]]) -> dict[int, str]` ([source](../../../../../../../src/learnloop/diagnosis/split/live.py), line 338) — Blind attribution index -> raw error-event id.
+- `_present(value: Any) -> bool` ([source](../../../../../../../src/learnloop/diagnosis/split/live.py), line 335)
+- `_event_ids_by_index(record: Mapping[str, Any], events: Sequence[Mapping[str, Any]]) -> dict[int, str]` ([source](../../../../../../../src/learnloop/diagnosis/split/live.py), line 339) — Blind attribution index -> raw error-event id.
 
 ## Who imports or calls it
 
@@ -131,7 +131,7 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 - [[Reference/Modules/learnloop/diagnosis/split/settings|learnloop.diagnosis.split.settings]] — imports `DiagnosisSettings`; calls `DiagnosisSettings`
 - [[Reference/Modules/learnloop/diagnosis/split/workbench_trace|learnloop.diagnosis.split.workbench_trace]] — imports `trace_for_attempt`; calls `trace_for_attempt`
 - [[Reference/Modules/learnloop/followup_serve/gates|learnloop.followup_serve.gates]] — imports `hypothesis_marks_on`; calls `hypothesis_marks_on`
-- [[Reference/Modules/learnloop/followup_serve/marks|learnloop.followup_serve.marks]] — imports `attempt_opinion`; calls `attempt_opinion`
+- [[Reference/Modules/learnloop/followup_serve/marks|learnloop.followup_serve.marks]] — imports `attempt_marks`, `marked_causes`, `opinion_block`; calls `attempt_marks`, `marked_causes`, `opinion_block`
 - [[Reference/Modules/learnloop/learner_protection|learnloop.learner_protection]] — imports `held_attempts`; calls `held_attempts`
 - [[Reference/Modules/learnloop/outcome_contract|learnloop.outcome_contract]] — imports `grade_held_for_review`; calls `grade_held_for_review`
 - [[Reference/Modules/learnloop/symbolic_view|learnloop.symbolic_view]] — imports `switch_now`; calls `switch_now`
@@ -167,6 +167,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_the_accessor_and_the_overlays_agree_on_the_diagnosis_in_force`
 - [tests/test_diagnosis_replay.py](../../../../../../../tests/test_diagnosis_replay.py) — direct import
   - `test_joint_reads_are_untouched_by_the_overlay`
+- [tests/test_followup_fg1c_codex_review.py](../../../../../../../tests/test_followup_fg1c_codex_review.py) — direct import
+  - `test_f1_a_rediagnosis_records_the_cause_it_was_shown_through_a_mark`
 - [tests/test_hypothesis_marks_context.py](../../../../../../../tests/test_hypothesis_marks_context.py) — direct import
   - `test_a_rediagnosis_reads_the_marks_on_its_own_attempt`
 - [tests/test_pfc_unassessed_readers.py](../../../../../../../tests/test_pfc_unassessed_readers.py) — direct import

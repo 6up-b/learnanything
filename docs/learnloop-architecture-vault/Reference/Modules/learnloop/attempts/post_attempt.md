@@ -155,6 +155,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_f6_a_crash_right_after_completion_still_has_the_job`
   - `test_f6_a_shadow_vault_has_its_workflows_job_at_once`
   - `test_f6_startup_recovery_needs_no_click`
+- [tests/test_followup_fg1c_codex_review.py](../../../../../../tests/test_followup_fg1c_codex_review.py) — direct import
 - [tests/test_followup_journey.py](../../../../../../tests/test_followup_journey.py) — direct import
 - [tests/test_followup_reserved_only.py](../../../../../../tests/test_followup_reserved_only.py) — direct import
   - `test_an_exam_sittings_miss_reaches_the_probe_lane_after_the_sitting`

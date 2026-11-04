@@ -240,6 +240,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_f9_verify_a_check_on_another_object_or_of_a_non_blocking_kind_refuses_nothing`
   - `test_f9_verify_a_check_on_the_object_that_arrives_during_authoring_stops_the_offer`
   - `test_f9_verify_a_retry_is_refused_by_a_check_on_the_whole_learning_object`
+- [tests/test_followup_fg1c_codex_review.py](../../../../../../tests/test_followup_fg1c_codex_review.py) — direct import
 - [tests/test_followup_generate_e2e.py](../../../../../../tests/test_followup_generate_e2e.py) — direct import
   - `test_a_failed_lanes_need_is_deduplicated_and_cancelled_when_the_factor_closes`
   - `test_a_late_generator_adds_nothing_after_a_skip`
