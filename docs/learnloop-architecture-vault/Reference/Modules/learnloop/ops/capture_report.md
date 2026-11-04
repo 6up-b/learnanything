@@ -7,9 +7,9 @@ version: "1.0.0"
 source_path: "src/learnloop/ops/capture_report.py"
 source_paths:
   - "src/learnloop/ops/capture_report.py"
-source_commit: "43bcc8fac4be9bfc864222dd8821769f1ee74d88"
-source_commit_timestamp: "2026-11-03T19:34:35-05:00"
-source_worktree_state: "clean"
+source_commit: "workspace/uncommitted @ HEAD 19939c66a7ad278706b5dbade166b33e25eb5005"
+source_commit_timestamp: "2026-11-03T19:47:28-05:00"
+source_worktree_state: "modified"
 generated: true
 generated_at: "2026-11-02"
 package: "learnloop.ops"
@@ -54,9 +54,9 @@ The authoritative system-level explanation remains in [[State and Persistence]],
 | Owning package | [[Reference/Modules/learnloop/ops/_package|learnloop.ops]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
-| Worktree state | `clean` |
-| Source commit | `43bcc8fac4be9bfc864222dd8821769f1ee74d88` |
-| Commit timestamp | `2026-11-03T19:34:35-05:00` |
+| Worktree state | `modified` |
+| Source commit | `workspace/uncommitted @ HEAD 19939c66a7ad278706b5dbade166b33e25eb5005` |
+| Commit timestamp | `2026-11-03T19:47:28-05:00` |
 
 ## Public API
 
@@ -104,7 +104,7 @@ The authoritative system-level explanation remains in [[State and Persistence]],
 - [[Reference/Modules/learnloop/db/stores/data_capture|learnloop.db.stores.data_capture]] — imports `module`; calls `measurement_events`, `objectives`, `objectives_present`, `receipts_present`
 - [[Reference/Modules/learnloop/held_grades|learnloop.held_grades]] — imports `held_for_review_attempts`, `pfc_assessments`; calls `held_for_review_attempts`, `pfc_assessments`
 - [[Reference/Modules/learnloop/router/first_delayed_success|learnloop.router.first_delayed_success]] — imports `summary`, `trajectories`; calls `summary`, `trajectories`
-- [[Reference/Modules/learnloop/router/outcomes|learnloop.router.outcomes]] — imports `derive_router_outcomes`, `measurement_state`, `outcome_version_for`, `servable_items_by_learning_object`; calls `derive_router_outcomes`, `measurement_state`, `outcome_version_for`, `servable_items_by_learning_object`
+- [[Reference/Modules/learnloop/router/outcomes|learnloop.router.outcomes]] — imports `derive_router_outcomes`, `fold_measurement`, `outcome_version_for`, `servable_items_by_learning_object`; calls `derive_router_outcomes`, `fold_measurement`, `outcome_version_for`, `servable_items_by_learning_object`
 
 ### Platform and third-party dependencies
 

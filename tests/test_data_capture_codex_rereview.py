@@ -284,7 +284,7 @@ def _plan_could_not_hold(env, commitment_id, reason="plan_minutes_exhausted"):
 
 def _state(env, decision_id, objective):
     with env.repository.connection() as connection:
-        return RO.measurement_state(objective, store.measurement_events(connection)[decision_id])["state"]
+        return RO.fold_measurement(objective, store.measurement_events(connection)[decision_id])["state"]
 
 
 def test_f10_an_offer_after_a_postponement_and_a_lost_plan_restores_it(tmp_path):

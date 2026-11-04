@@ -485,6 +485,7 @@ APPROVED_LAUNCH_SITES = {
     ("src/learnloop/ai/providers/codex.py", "default_startup", "getattr(subprocess)"),
     ("src/learnloop/ai/providers/codex.py", "default_startup", "subprocess.Popen"),  # x2: annotation + call
     ("src/learnloop/cli/ai_compare.py", "tracked_database_reason", "subprocess.run"),
+    ("src/learnloop/data_capture/prefilter.py", "code_revision", "subprocess.run"),  # git rev-parse, once per process
     ("src/learnloop/content/authoring/concept_animation.py", "manim_runtime", "subprocess.run"),
     ("src/learnloop/content/authoring/concept_animation.py", "provision_animation_venv", "subprocess.run"),
     # Reader RW5d P2b: the one-time probe that a user systemd scope can start

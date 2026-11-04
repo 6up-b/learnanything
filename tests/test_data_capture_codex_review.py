@@ -269,7 +269,7 @@ def test_f2_a_warm_answer_consumes_the_check_but_keeps_the_measurement_duty(tmp_
     assert replacement and replacement != objective["commitment_id"]
     assert _hint_instant(_due_hint(env, replacement)) >= env.clock.now() + timedelta(seconds=DC.MIN_DELAY_SECONDS)
     with env.repository.connection() as connection:
-        state = RO.measurement_state(objective, store.measurement_events(connection)[decision_id])
+        state = RO.fold_measurement(objective, store.measurement_events(connection)[decision_id])
     assert state["state"] == "scheduled" and state["replacement_commitment_id"] == replacement
     # Idempotent: the duty is not arranged twice.
     assert M.settle(env.vault, env.repository, clock=env.clock) == 0
@@ -295,7 +295,7 @@ def test_f2_the_replacement_answered_cold_completes_the_measurement(tmp_path):
     M.settle(env.vault, env.repository, clock=env.clock)
     events = _events(env)[decision_id]
     assert [event["state"] for event in events if event["state"] == "answered"] == ["answered"]
-    assert RO.measurement_state(objective, events)["state"] == "answered"
+    assert RO.fold_measurement(objective, events)["state"] == "answered"
     assert json.loads(_outcome(env, decision_id)["detail_json"])["measurement"]["state"] == "answered"
     assert _outcome(env, decision_id)["r_cold_status"] == "observed"
 
@@ -541,7 +541,7 @@ def test_f7_a_replaced_check_reads_unavailable_not_due():
     """Reproduced first: due followed by replacement still returned ``state: due``."""
 
     objective = {"measurement": "arranged"}
-    state = RO.measurement_state(objective, [_state_event("due", "2026-05-20T00:00:00Z"),
+    state = RO.fold_measurement(objective, [_state_event("due", "2026-05-20T00:00:00Z"),
                                              _state_event("unavailable", "2026-05-21T00:00:00Z", "check_replaced")])
     assert state["state"] == "unavailable" and state["reasons"] == ["check_replaced"]
 
@@ -551,17 +551,17 @@ def test_f7_a_later_offer_restores_it_and_an_answer_is_terminal():
     lost = [_state_event("due", "2026-05-20T00:00:00Z"),
             _state_event("unavailable", "2026-05-21T00:00:00Z", "plan_minutes_exhausted")]
     offered = [*lost, _state_event("offered", "2026-05-22T00:00:00Z")]
-    assert RO.measurement_state(objective, offered)["state"] == "offered"
+    assert RO.fold_measurement(objective, offered)["state"] == "offered"
     # A reason is still on the record: the day it could not be held happened.
-    assert RO.measurement_state(objective, offered)["reasons"] == ["plan_minutes_exhausted"]
+    assert RO.fold_measurement(objective, offered)["reasons"] == ["plan_minutes_exhausted"]
     answered = [*offered, _state_event("answered", "2026-05-22T00:05:00Z"),
                 _state_event("unavailable", "2026-05-23T00:00:00Z", "check_replaced")]
-    assert RO.measurement_state(objective, answered)["state"] == "answered"
+    assert RO.fold_measurement(objective, answered)["state"] == "answered"
 
 
 def test_f7_times_of_different_precision_fold_in_time_order():
     objective = {"measurement": "arranged"}
-    state = RO.measurement_state(objective, [
+    state = RO.fold_measurement(objective, [
         _state_event("unavailable", "2026-05-20T00:00:00.500000Z", "later_in_the_second"),
         _state_event("due", "2026-05-20T00:00:00Z")])
     assert state["state"] == "unavailable"

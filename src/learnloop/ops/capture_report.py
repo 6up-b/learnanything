@@ -93,14 +93,14 @@ def measurement_section(connection: sqlite3.Connection) -> dict[str, Any]:
 
     if not store.objectives_present(connection):
         return {"available": False, "reason": "this database predates migration 240"}
-    from learnloop.router.outcomes import measurement_state
+    from learnloop.router.outcomes import fold_measurement
 
     objectives = store.objectives(connection)
     events = store.measurement_events(connection)
     by_arm: dict[str, Counter[str]] = {}
     reasons: Counter[str] = Counter()
     for decision_id, objective in objectives.items():
-        state = measurement_state(objective, events.get(decision_id, ()))
+        state = fold_measurement(objective, events.get(decision_id, ()))
         arm = str(objective["arm"])
         by_arm.setdefault(arm, Counter())[state["state"]] += 1
         reasons.update(state["reasons"])

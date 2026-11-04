@@ -25,7 +25,7 @@ replaces an ordinary maintenance slot rather than the day's new work.
 ``unavailable`` with its reason, written where Today prepares (:func:`settle`), so treatment-dependent
 censoring is visible. A state is written once per reason and **episode**: a due date opens one, each
 presentation opens one, and a loss belongs to the newest of those (Codex re-review F10), so availability
-can come and go, and every reader folds them with :func:`learnloop.router.outcomes.measurement_state`.
+can come and go, and every reader folds them with :func:`learnloop.router.outcomes.fold_measurement`.
 
 **A check answered warm** satisfies the check (it was asked on the learner's own), but the decision's outcome
 rejects it: the learner had just practised the objective. That is ``unavailable`` (:data:`ANSWER_NOT_DELAYED`),

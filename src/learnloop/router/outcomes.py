@@ -1039,7 +1039,7 @@ def _replacement_of(event: Mapping[str, Any]) -> str | None:
     return detail.get("replacement_commitment_id") if isinstance(detail, Mapping) else None
 
 
-def measurement_state(objective: Mapping[str, Any], events: Sequence[Mapping[str, Any]]) -> dict[str, Any]:
+def fold_measurement(objective: Mapping[str, Any], events: Sequence[Mapping[str, Any]]) -> dict[str, Any]:
     """An objective's measurement as one plain record (this adapter's and the capture report's).
 
     The state is the chronological fold of its events (Codex review F7): a check that came due and was
@@ -1101,7 +1101,7 @@ def _objective_record(decision: Mapping[str, Any], objective: Mapping[str, Any],
         "objective": {"version": objective.get("objective_version"), "source": objective.get("source"),
                       "learning_object_id": lo, "support": json.loads(objective.get("support_json") or "[]"),
                       **({"experiment_id": objective["experiment_id"]} if objective.get("experiment_id") else {})},
-        "measurement": measurement_state(objective, events),
+        "measurement": fold_measurement(objective, events),
         "scope": entries,
         "r_cold": r_cold,
     }
@@ -1420,7 +1420,7 @@ __all__ = [
     "R_COLD_RULE_V3",
     "S_ALPHA",
     "derive_router_outcomes",
-    "measurement_state",
+    "fold_measurement",
     "outcome_version_for",
     "rebuild_router_outcomes",
     "servable_items_by_learning_object",

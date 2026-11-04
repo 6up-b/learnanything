@@ -7,9 +7,9 @@ version: "1.0.0"
 source_path: "src/learnloop/daily_plan/measurement.py"
 source_paths:
   - "src/learnloop/daily_plan/measurement.py"
-source_commit: "2d4520e1fe11db97835f80cc5f280b51602c6954"
-source_commit_timestamp: "2026-11-03T19:28:17-05:00"
-source_worktree_state: "clean"
+source_commit: "workspace/uncommitted @ HEAD 19939c66a7ad278706b5dbade166b33e25eb5005"
+source_commit_timestamp: "2026-11-03T19:47:28-05:00"
+source_worktree_state: "modified"
 generated: true
 generated_at: "2026-11-02"
 package: "learnloop.daily_plan"
@@ -54,9 +54,9 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Owning package | [[Reference/Modules/learnloop/daily_plan/_package|learnloop.daily_plan]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
-| Worktree state | `clean` |
-| Source commit | `2d4520e1fe11db97835f80cc5f280b51602c6954` |
-| Commit timestamp | `2026-11-03T19:28:17-05:00` |
+| Worktree state | `modified` |
+| Source commit | `workspace/uncommitted @ HEAD 19939c66a7ad278706b5dbade166b33e25eb5005` |
+| Commit timestamp | `2026-11-03T19:47:28-05:00` |
 
 ## Public API
 

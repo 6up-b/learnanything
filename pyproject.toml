@@ -566,6 +566,8 @@ source_modules = [
     "learnloop.teacher_upgrade",
     "learnloop.help_fold_attach_upgrade",
     "learnloop.lesson_suggestions_upgrade",
+    "learnloop.reading_sources",
+    "learnloop.section_map",
     "learnloop.data_capture",
     "learnloop.data_capture_upgrade",
     "learnloop.delayed_checks",

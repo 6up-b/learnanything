@@ -364,7 +364,7 @@ def test_f11_an_answer_on_another_objective_never_records_answered_and_the_duty_
     detail = json.loads(lost["detail_json"])
     assert lost["state"] == "unavailable" and detail["replacement_commitment_id"], "one replacement carries the duty"
     assert detail["answered_learning_object_id"] == other.learning_object_id
-    assert RO.measurement_state(_objectives(env)[decision_id], events)["state"] == "scheduled"
+    assert RO.fold_measurement(_objectives(env)[decision_id], events)["state"] == "scheduled"
     # That replacement, answered on the objective after its date, is the measurement.
     env.clock.instant = env.clock.instant + timedelta(days=60)
     lo = objective["learning_object_id"]

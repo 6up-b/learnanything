@@ -7,9 +7,9 @@ version: "1.0.0"
 source_path: "src/learnloop/router/outcomes.py"
 source_paths:
   - "src/learnloop/router/outcomes.py"
-source_commit: "2574993e6dd12dd85300cc807bf0e7321e29e1a4"
-source_commit_timestamp: "2026-11-03T19:31:22-05:00"
-source_worktree_state: "clean"
+source_commit: "workspace/uncommitted @ HEAD 19939c66a7ad278706b5dbade166b33e25eb5005"
+source_commit_timestamp: "2026-11-03T19:47:28-05:00"
+source_worktree_state: "modified"
 generated: true
 generated_at: "2026-11-02"
 package: "learnloop.router"
@@ -54,15 +54,15 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Owning package | [[Reference/Modules/learnloop/router/_package|learnloop.router]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
-| Worktree state | `clean` |
-| Source commit | `2574993e6dd12dd85300cc807bf0e7321e29e1a4` |
-| Commit timestamp | `2026-11-03T19:31:22-05:00` |
+| Worktree state | `modified` |
+| Source commit | `workspace/uncommitted @ HEAD 19939c66a7ad278706b5dbade166b33e25eb5005` |
+| Commit timestamp | `2026-11-03T19:47:28-05:00` |
 
 ## Public API
 
 - `outcome_version_for(config: Any) -> str` ([source](../../../../../../src/learnloop/router/outcomes.py), line 225) — The outcome version a vault's outcomes are derived under (module docstring).
 - `servable_items_by_learning_object(vault: Any) -> dict[str, set[str]]` ([source](../../../../../../src/learnloop/router/outcomes.py), line 629) — Each learning object's active, servable practice items (vault content).
-- `measurement_state(objective: Mapping[str, Any], events: Sequence[Mapping[str, Any]]) -> dict[str, Any]` ([source](../../../../../../src/learnloop/router/outcomes.py), line 1042) — An objective's measurement as one plain record (this adapter's and the capture report's).
+- `fold_measurement(objective: Mapping[str, Any], events: Sequence[Mapping[str, Any]]) -> dict[str, Any]` ([source](../../../../../../src/learnloop/router/outcomes.py), line 1042) — An objective's measurement as one plain record (this adapter's and the capture report's).
 - `answer_completion(connection: sqlite3.Connection, attempt_id: str, *, decided_at: str, reader_exposures: Iterable[tuple[str, str]]) -> DC.Completion | None` ([source](../../../../../../src/learnloop/router/outcomes.py), line 1071) — What the shared definition makes of one attempt as the delayed retrieval of a decision taken at ``decided_at``: a measurement's check asks this of its answer.
 - `derive_router_outcomes(connection: sqlite3.Connection, *, reader_exposures: Iterable[tuple[str, str]] | None, pfc_states: Mapping[str, str] | None=None, servable_items_by_lo: Mapping[str, set[str]] | None=None, retrievability_by_attempt: Mapping[str, float] | None=None, held_attempt_ids: frozenset[str] | set[str]=frozenset(), outcome_version: str=OUTCOME_VERSION) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/router/outcomes.py), line 1185) — One outcome row per logged decision, from the ledgers alone (read-only).
 - `rebuild_router_outcomes(connection: sqlite3.Connection, *, reader_exposures: Iterable[tuple[str, str]] | None, pfc_states: Mapping[str, str] | None=None, servable_items_by_lo: Mapping[str, set[str]] | None=None, retrievability_by_attempt: Mapping[str, float] | None=None, held_attempt_ids: frozenset[str] | set[str]=frozenset(), outcome_version: str=OUTCOME_VERSION) -> int` ([source](../../../../../../src/learnloop/router/outcomes.py), line 1385) — Replace the derived cache; the caller owns the transaction.
@@ -103,7 +103,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `R_COLD_RULE_V3`
 - `S_ALPHA`
 - `derive_router_outcomes`
-- `measurement_state`
+- `fold_measurement`
 - `outcome_version_for`
 - `rebuild_router_outcomes`
 - `servable_items_by_learning_object`
@@ -150,7 +150,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop/cli/router|learnloop.cli.router]] — imports `derive_router_outcomes`, `outcome_version_for`, `servable_items_by_learning_object`; statically calls `derive_router_outcomes`, `outcome_version_for`, `servable_items_by_learning_object`
 - [[Reference/Modules/learnloop/daily_plan/measurement|learnloop.daily_plan.measurement]] — imports `answer_completion`; statically calls `answer_completion`
 - [[Reference/Modules/learnloop/daily_plan/router_retrieval|learnloop.daily_plan.router_retrieval]] — imports `derive_router_outcomes`, `outcome_version_for`, `servable_items_by_learning_object`; statically calls `derive_router_outcomes`, `outcome_version_for`, `servable_items_by_learning_object`
-- [[Reference/Modules/learnloop/ops/capture_report|learnloop.ops.capture_report]] — imports `derive_router_outcomes`, `measurement_state`, `outcome_version_for`, `servable_items_by_learning_object`; statically calls `derive_router_outcomes`, `measurement_state`, `outcome_version_for`, `servable_items_by_learning_object`
+- [[Reference/Modules/learnloop/ops/capture_report|learnloop.ops.capture_report]] — imports `derive_router_outcomes`, `fold_measurement`, `outcome_version_for`, `servable_items_by_learning_object`; statically calls `derive_router_outcomes`, `fold_measurement`, `outcome_version_for`, `servable_items_by_learning_object`
 - [[Reference/Modules/learnloop/router/first_delayed_success|learnloop.router.first_delayed_success]] — imports `OUTCOME_VERSION_V3`, `_Ledger`, `_completion`, `_decision_block`, `_table_present`; statically calls `_Ledger`, `_completion`, `_decision_block`, `_table_present`
 - [[Reference/Modules/learnloop/substrate/rebuild_orchestrator|learnloop.substrate.rebuild_orchestrator]] — imports `outcome_version_for`, `rebuild_router_outcomes`, `servable_items_by_learning_object`; statically calls `outcome_version_for`, `rebuild_router_outcomes`, `servable_items_by_learning_object`
 

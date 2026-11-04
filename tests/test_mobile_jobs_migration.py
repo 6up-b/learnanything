@@ -36,7 +36,7 @@ def test_239_is_named_and_the_table_is_classified():
 
 def test_the_head_fixture_is_at_head_in_rollback_mode_with_an_empty_table():
     assert HEAD.read_bytes()[18:20] == b"\x01\x01"
-    assert max(applied_versions(HEAD)) == max(migration.version for migration in discover_migrations()) == 239
+    assert max(applied_versions(HEAD)) == max(migration.version for migration in discover_migrations()) == 240
     with closing(sqlite3.connect(HEAD)) as connection:
         assert M2A_ADDED_OBJECTS <= _names(connection)
         assert connection.execute("SELECT COUNT(*) FROM mobile_jobs").fetchone()[0] == 0

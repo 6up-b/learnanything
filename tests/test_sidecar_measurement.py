@@ -41,7 +41,7 @@ def test_measurement_health_exposes_stage_zero_through_five_producers(ctx):
         "integrationBackfill",
         "causalProbeReview",
     } <= set(result)
-    assert len(result["scoreboard"]["metrics"]) == 15
+    assert len(result["scoreboard"]["metrics"]) == 17
     assert result["reachability"]["summary"]["cellCount"] >= 0
     assert result["reachability"]["summary"]["learningObjectsTotal"] >= 1
     assert result["inferencePrecheck"]["summary"]["capabilityDominance"]["cellsConverted"] >= 0
