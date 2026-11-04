@@ -284,6 +284,11 @@ class RestraintRequest:
         ])
 
 
+NO_INTERVENTION_DESCRIPTION = (
+    "Ask no follow-up: show the learner the answer and the possible causes now, and go on with the plan."
+)
+
+
 # -- the LLM's answers -------------------------------------------------------------------
 
 

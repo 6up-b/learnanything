@@ -288,15 +288,17 @@ def _run_probe_lane(vault: Any, repository: Repository, row: Mapping[str, Any], 
     workflow_id = str(row["id"])
     factor_id = str(choice.factor_id)
     decision = router.decide(vault, repository, row, choice=choice, clients=clients, clock=clock)
-    router.record_decision(repository, row, decision, clock=clock)
+    decision = router.record_decision(vault, repository, row, decision, clock=clock)
     if decision.refused:
         wf.move(repository, workflow_id, to_state=wf.REFUSED, reason=decision.reason, release=wf.RELEASE_REFUSED,
                 clock=clock)
+        router.record_outcome(repository, row, decision, outcome="refused", clock=clock)
         return
     if decision.no_intervention:
         # §5 item 4: nothing is generated, the screen shows the decision, and what was held is released.
         wf.move(repository, workflow_id, to_state=wf.SETTLED, reason="no_intervention",
                 release=wf.RELEASE_NO_INTERVENTION, lane=wf.LANE_PROBE, clock=clock)
+        router.record_outcome(repository, row, decision, outcome="no_intervention", clock=clock)
         return
     if decision.wait:
         # §6.0: released now, and the later probe is labelled exposed, so it can't resolve the cause.

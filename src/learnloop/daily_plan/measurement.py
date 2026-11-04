@@ -77,8 +77,10 @@ ARM_WAIT = "wait"
 ARM_STOP = "stop"
 ARM_PRACTICE = "practice"
 ARM_INSERT = "insert"
+#: FG1: the router chose no follow-up at all.
+ARM_NO_INTERVENTION = "no_intervention"
 #: The arms with no action of their own.
-ACTIONLESS_ARMS: frozenset[str] = frozenset({ARM_READING, ARM_WAIT, ARM_STOP})
+ACTIONLESS_ARMS: frozenset[str] = frozenset({ARM_READING, ARM_WAIT, ARM_STOP, ARM_NO_INTERVENTION})
 
 ARRANGED = "arranged"
 SHARED = "shared"

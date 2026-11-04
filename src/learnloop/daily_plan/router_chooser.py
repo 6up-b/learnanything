@@ -802,9 +802,172 @@ class RestraintGate:
         )
 
 
+# -- FG1: the follow-up's itemless decision --------------------------------------------------
+
+NO_INTERVENTION = "no_intervention"
+
+
+def _followup_job(entry: Prefetch, *, runtime: RouterRuntime, vault: Any, sqlite_path: Any) -> None:
+    from learnloop.db.repositories import Repository
+
+    material = entry.material
+    repository = Repository.attach(sqlite_path)
+    with runtime.spend.metered(repository, vault.config, owner_kind=RECEIPT_OWNER, owner_id=entry.key):
+        options = material["options"]
+        evidence = material["evidence"]
+        request = rq.BoundaryRequest(
+            options=tuple(options),
+            state=rq.state_text(material["card_text"], options, evidence=evidence, extra=material["facts"]),
+            sensors=(),
+            evidence=tuple(evidence),
+        )
+        entry.request = request
+        _run_components(runtime, entry, vault, repository, request,
+                        {DECIDER: rq.parse_decider_choice, LLM: rq.parse_llm_choice}, material.get("card_hash"))
+
+
+@dataclass
+class FollowupGate(RestraintGate):
+    """FG1 §5: whether and when, before any item exists.
+
+    Three arms in one logged mixture: ask now, wait for the next block, no intervention,
+    each keeping the random floor, so weak cases are the router's call and the contrast
+    with no probe is measurable. It runs on the generation slot, so waiting for the
+    models delays no learner read.
+    """
+
+    def _support(self, *, wait_feasible: bool) -> list[str]:
+        return [INSERT_NOW, *([CONTINUE_CURRENT] if wait_feasible else []), NO_INTERVENTION]
+
+    def _followup_state(self, record: Any, current: Any, workflow: Mapping[str, Any]) -> tuple[PlanState, list[BlockCandidate]]:
+        titles = {lo_id: lo.title for lo_id, lo in self.vault.learning_objects.items()}
+        learning_object_id = str(workflow["learning_object_id"])
+        remaining = [entry for entry in current.items if not entry.resolved and not entry.displaced] if current else []
+        state = PlanState(
+            plan_id=record.id, kind=record.kind, minutes_budget=record.budget, minutes_left=record.minutes_left(),
+            lane_minutes_left=record.lane_left(), days_since_last_activity=0, streak_days=0,
+            current_block_id=current.id if current is not None else None,
+        )
+        insert = BlockCandidate(
+            candidate_id=INSERT_NOW, lane="repair", action="practice", subtype="completion_or_repair",
+            learning_object_ids=(learning_object_id,), item_ids=(), reading=None,
+            est_minutes=0.0, planner_value=0.0, reason="a new question aimed at the possible causes of this answer",
+            annotations={"reason_code": "repair_followup", "topic": titles.get(learning_object_id, learning_object_id),
+                         "reversible": True},
+        )
+        cont = BlockCandidate(
+            candidate_id=CONTINUE_CURRENT, lane=(current.lane if current else None) or "maintain",
+            action=(current.action if current else None) or "practice", subtype=current.subtype if current else None,
+            learning_object_ids=tuple(dict.fromkeys(entry.learning_object_id for entry in remaining)),
+            item_ids=tuple(entry.practice_item_id for entry in remaining), reading=None,
+            est_minutes=float(sum(entry.est_minutes for entry in remaining)), planner_value=0.0,
+            reason="the current block's remaining questions", annotations={"reversible": True},
+        )
+        return state, [insert, cont]
+
+    def decide_followup(self, record: Any, current: Any, workflow: Mapping[str, Any], *, wait_feasible: bool,
+                        facts: Sequence[str] = ()) -> RestraintOutcome:
+        """The draw; raises nothing: failed models give their weight to the staged rule."""
+
+        config = self.vault.config
+        settings = router_settings(config)
+        state, candidates = self._followup_state(record, current, workflow)
+        support = self._support(wait_feasible=wait_feasible)
+        readiness = self.runtime.readiness(self.vault)
+        ready = tuple(name for name in (DECIDER, LLM) if readiness.get(name) is None)
+        base: dict[str, Any] = {"mode": MODE, "why_version": router_why.MIXTURE_WHY_VERSION}
+        key = _hash({
+            "v": KEY_VERSION, "kind": "followup", "plan_id": record.id, "workflow": workflow.get("id"),
+            "version": config.algorithms.algorithm_version, "settings": settings, "ready": ready, "support": support,
+        })
+        if ready:
+            entry = self.runtime.lookup(self.scope, key)
+            if entry is None:
+                entry = self._start_followup(key, state, candidates, workflow, ready, support, facts)
+            _await(self.runtime, entry, may_defer=False, timeout=float(config.router.timeout_seconds))
+        else:
+            entry = _NoModels(key, {"card": _build_card(self.card_builder, state, candidates)}, self.runtime.clock())
+        results = _results(entry, readiness)
+        distributions = {
+            name: dict(result.parsed.distribution) for name, result in results.items()
+            if result.status == ANSWERED and result.parsed is not None
+        }
+        failed = [name for name in mx.MODEL_COMPONENTS if name not in distributions]
+        effective = mx.effective_weights(settings["weights"], failed)
+        decision_id = new_ulid()
+        seed = self.runtime.seed_for(entry.key, decision_id)
+        components = mx.component_distributions(support, INSERT_NOW, distributions)
+        drawn = mx.draw(support, components, effective, settings["epsilon_min"], seed)
+        card: _Card = entry.material["card"]
+        latencies = [result.latency_ms for result in results.values() if result.latency_ms is not None]
+        costs = [result.cost_usd for result in results.values() if result.cost_usd is not None]
+        llm = results.get(LLM)
+        base.update(
+            policy=mx.POLICY,
+            decided_by="mixture" if ready else "not_ready",
+            decision_id=decision_id,
+            design=mx.DESIGN,
+            seed=seed,
+            drawn_component=drawn.component,
+            fallback=mx.fallback_label(failed),
+            fallback_reasons={name: results[name].status for name in failed},
+            mixture={
+                "boundary_key": entry.key, "support": support, "staged_ref": INSERT_NOW,
+                "k": len(support), "epsilon": settings["epsilon_min"], "effective_weights": effective,
+                "drawn_component": drawn.component, "u1": drawn.u1, "u2": drawn.u2, "pi": dict(drawn.pi),
+                "models": {name: result.summary() for name, result in sorted(results.items())},
+                "rationale": {"text": llm.parsed.rationale if llm is not None and llm.parsed is not None else None},
+            },
+            mixture_weights={"configured": dict(settings["weights"]), "effective": effective},
+            model_distributions={name: distributions.get(name) for name in mx.MODEL_COMPONENTS},
+            question_set_version=rq.QUESTION_SET_V2,
+            model_ids={"decider": results[DECIDER].model, "llm": results[LLM].model,
+                       "llm_schema_version": rq.LLM_SCHEMA_V2},
+            latency_ms=max(latencies) if latencies else None,
+            cost_usd=round(sum(costs), 8) if costs else 0.0,
+            payloads=_payloads(results),
+            **_card_fields(card),
+        )
+        why = router_why.FOLLOWUP_WAITS if drawn.chosen == CONTINUE_CURRENT else ""
+        return RestraintOutcome(drawn.chosen, 1.0 if drawn.deterministic else drawn.propensity, base, why=why,
+                                wait_feasible=wait_feasible)
+
+    def _start_followup(self, key: str, state: PlanState, candidates: list[BlockCandidate], workflow: Mapping[str, Any],
+                        ready: tuple[str, ...], support: Sequence[str], facts: Sequence[str]) -> Prefetch:
+        from functools import partial
+
+        config = self.vault.config
+        card = _build_card(self.card_builder, state, candidates)
+        titles = {lo_id: lo.title for lo_id, lo in self.vault.learning_objects.items()}
+        topic = titles.get(str(workflow["learning_object_id"]), str(workflow["learning_object_id"]))
+        cont = candidates[1]
+        described = {
+            INSERT_NOW: f"Ask a new follow-up question on {topic} now, written to tell the possible causes apart.",
+            CONTINUE_CURRENT: (
+                f"Finish the current block first ({len(cont.item_ids)} questions left, about "
+                f"{max(1, round(cont.est_minutes))} min); the new question then opens the next block, and the "
+                "learner sees the answer now, so it can no longer settle the cause."
+            ),
+            NO_INTERVENTION: rq.NO_INTERVENTION_DESCRIPTION,
+        }
+        options = [rq.BlockOption(ref, described[ref]) for ref in support]
+        material = {
+            "card": card, "card_hash": card.card_hash, "card_text": card.text, "options": options,
+            "evidence": list(rq.evidence_from_card(card.json)), "topic": topic,
+            "facts": [f"A question on {topic} was just missed.", *facts],
+        }
+        return self.runtime.start(
+            self.scope, key, kind="plan_interrupt", budget=float(config.router.prefetch_timeout_seconds),
+            material=material, components=ready,
+            job=partial(_followup_job, runtime=self.runtime, vault=self.vault, sqlite_path=self.repository.sqlite_path),
+        )
+
+
 __all__ = [
     "CHOOSER_NAME",
+    "FollowupGate",
     "INSERT_NOW",
+    "NO_INTERVENTION",
     "MODE",
     "RestraintGate",
     "RestraintOutcome",

@@ -590,6 +590,16 @@ def _presentation_is_the_decisions(decision: Mapping[str, Any], presentation: Ma
     return not owner or str(owner) == str(decision.get("id"))
 
 
+def _follow_binding(decision: Mapping[str, Any], bindings: Mapping[str, Mapping[str, Any]]) -> Mapping[str, Any]:
+    """FG1: a decision comes before its item, and its row stays immutable, so its action is
+    what the appended binding names. A wait is measured through its eventual binding."""
+
+    bound = bindings.get(str(decision.get("id")), {}).get("item")
+    if not bound or decision.get("chosen_practice_item_id"):
+        return decision
+    return {**decision, "chosen_practice_item_id": bound.get("practice_item_id")}
+
+
 def _action_attempt(
     decision: Mapping[str, Any],
     ledger: _Ledger,
@@ -1248,6 +1258,9 @@ def derive_router_outcomes(
     ended = _ended_sessions(connection, set(last_in_session))
 
     suggestion_responses = _suggestion_responses(connection)
+    from learnloop.db.stores.followup_serve import all_bindings
+
+    bindings = all_bindings(connection)
     frozen = capture_store.objectives(connection) if outcome_version == OUTCOME_VERSION_V3 else {}
     states = capture_store.measurement_events(connection) if frozen else {}
     reading_started = _reading_started(connection) if frozen else set()
@@ -1261,6 +1274,7 @@ def derive_router_outcomes(
             outcomes.append(_objective_outcome(decision, objective, ledger, pfc_states,
                                                states.get(decision["id"], ()), reading_started))
             continue
+        decision = _follow_binding(decision, bindings)
         if not decision.get("chosen_practice_item_id"):
             # Stop for today, a vetoed run, a block with no item: no action to follow.
             out = _not_applicable(decision, "not_applicable", ledger.observed_through, pending=False,

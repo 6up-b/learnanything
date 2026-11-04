@@ -3745,6 +3745,10 @@ def _insert_followups(env: PlanEnv, record: PlanRecord, built: _Pool) -> tuple[P
     Returns the follow-ups to force into the next block when none is current.
     """
 
+    # FG1 §5: a generated probe's workflow already has its router decision.
+    record, decided_forced = _place_followup_probes(env, record, built)
+    if decided_forced:
+        return record, decided_forced
     followups = _pending_followups(record, built)
     if not followups or not record.is_open:
         return record, []
@@ -3822,6 +3826,78 @@ def _insert_followups(env: PlanEnv, record: PlanRecord, built: _Pool) -> tuple[P
                             decision_ref=None, now=now)
             protected.add(item.practice_item_id)
     return _reload(env, record.id), []
+
+
+def _place_followup_probes(env: PlanEnv, record: PlanRecord, built: _Pool) -> tuple[PlanRecord, list[PoolItem]]:
+    """FG1: the plan's end of a workflow whose router decision is made and whose item exists.
+
+    Ask now: it joins the current block and is served next (``next_item`` puts a
+    follow-up first). A wait keeps its minutes for the boundary, with its decision logged
+    once on that block; at the boundary it is revalidated (hypothesis versions, item
+    constraints, room) before the next block opens with it. Returns what to force into
+    the next block when none is current. Never a model call; the decision was made on
+    the generation slot.
+    """
+
+    from learnloop.followup_serve import workflow as followup_workflow
+    from learnloop.followup_serve.gates import generate_and_serve_on
+
+    if not generate_and_serve_on(env.vault.config) or env.session_id is None or not record.is_open:
+        return record, []
+    rows = [row for row in followup_workflow.session_rows(env.repository, env.session_id) if row.get("practice_item_id")]
+    if not rows:
+        return record, []
+    taken = {item.practice_item_id for item in record.items()}
+    forced: list[PoolItem] = []
+    gate = getattr(env.policy, "restraint", None)
+    now = env.now_iso()
+    changed = False
+    current = record.current_block()
+    for row in rows:
+        item_id = str(row["practice_item_id"])
+        if item_id in taken:
+            continue
+        practice_item = env.vault.practice_items.get(item_id)
+        if practice_item is None:
+            continue  # not yet in this process's vault: the next read has it
+        estimate = built.estimator.estimate(item_id, practice_item.practice_mode, practice_item.expected_minutes)
+        pool_item = PoolItem(
+            practice_item_id=item_id, learning_object_id=str(row["learning_object_id"]), rank=0, priority=0.0,
+            lane="repair", reason="a new question from your last answer", est_minutes=float(estimate.minutes),
+            never_attempted=True, followup=True,
+        )
+        boundary = current is None or current.is_reading
+        if row["state"] == followup_workflow.WAITING and not boundary:
+            if not any(item_id in block.deferred_followups() for block in record.blocks):
+                with env.repository.atomic(), env.repository.connection() as connection:
+                    _event(connection, current.id, "followup_deferred",
+                           {"practice_item_id": item_id, "decision_ref": row.get("decision_id"),
+                            "kept_minutes": round(pool_item.est_minutes, 4)}, now)
+                changed = True
+            continue
+        if row["state"] == followup_workflow.WAITING:
+            if not followup_workflow.waiting_still_valid(env.repository, row):
+                followup_workflow.retire_waiting(env.repository, row, reason="hypotheses_changed", clock=env.clock)
+                continue
+            if gate is not None and gate.refusals(pool_item):
+                followup_workflow.retire_waiting(env.repository, row, reason="constraint_refused", clock=env.clock)
+                continue
+            if not followup_workflow.move(env.repository, str(row["id"]), to_state=followup_workflow.READY,
+                                          reason="boundary", from_states=(followup_workflow.WAITING,), clock=env.clock):
+                continue
+        if boundary:
+            forced.append(pool_item)
+            continue
+        position = max((entry.position for entry in current.items), default=0) + 1
+        # The decision's own room: asked now, it does not depend on displacing anything.
+        victims = _displacement_plan(record, need_minutes=pool_item.est_minutes - record.minutes_left(), need_items=0,
+                                     keep={item_id}) or []
+        lane, release = _place_followup(record, current, pool_item, victims, position=position, now=now)
+        with env.repository.atomic(), env.repository.connection() as connection:
+            _write_followup(connection, current, pool_item, victims, lane=lane, release=release, position=position,
+                            decision_ref=row.get("decision_id"), now=now)
+        changed = True
+    return (_reload(env, record.id) if changed else record), forced
 
 
 def _place_followup(

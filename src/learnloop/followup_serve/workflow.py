@@ -232,6 +232,47 @@ def probe_answer_exposed(repository: Repository, presentation_id: str) -> str | 
     return None
 
 
+def session_rows(repository: Repository, session_id: str) -> list[dict[str, Any]]:
+    """This session's workflows with something to place: ready, or waiting for a boundary."""
+
+    with repository.connection() as connection:
+        if not store.present(connection):
+            return []
+        return store.open_workflows(connection, session_id=session_id, states=(READY, WAITING))
+
+
+def waiting_still_valid(repository: Repository, row: Mapping[str, Any]) -> bool:
+    """§5 item 3, before serving: the factor is still open and the pin's hypotheses current."""
+
+    factor_id = row.get("factor_id")
+    if not factor_id:
+        return False
+    factor = repository.unresolved_cause_factor(str(factor_id))
+    if factor is None or factor.get("status") != "open":
+        return False
+    presentation = repository.probe_presentation(str(row.get("presentation_id") or ""))
+    if presentation is None or presentation.status == "ended":
+        return False
+    current = {
+        str(value.get("hypothesis_id")) for value in factor.get("candidate_causes") or []
+        if isinstance(value, Mapping) and not value.get("open_set") and value.get("hypothesis_id")
+    }
+    locked = repository.fetch_hypothesis_set(str(row.get("hypothesis_set_id") or ""))
+    labels = {str(value.get("label")) for value in (locked or {}).get("hypotheses") or [] if isinstance(value, Mapping)}
+    return current <= labels
+
+
+def retire_waiting(repository: Repository, row: Mapping[str, Any], *, reason: str, clock: Clock | None = None) -> None:
+    """A wait that can't be served now: its probe retires, unused, and nothing else follows."""
+
+    from learnloop.followup_serve import identity
+
+    if move(repository, str(row["id"]), to_state=SKIPPED, reason=reason, from_states=(WAITING, READY), clock=clock):
+        identity.retire(repository, str(row["practice_item_id"]), reason=reason, workflow_id=str(row["id"]), clock=clock)
+        if row.get("presentation_id"):
+            repository.end_probe_presentation(str(row["presentation_id"]), end_reason="abandoned", clock=clock)
+
+
 def settle_open_when_off(vault: Any, repository: Repository, *, clock: Clock | None = None) -> int:
     """§10: with the switch off, open workflows settle as skipped and burns persist."""
 
@@ -265,6 +306,6 @@ def diagnosis_ended(vault: Any, repository: Repository, *, attempt_id: str, cloc
 
 __all__ = [
     "FAILED", "PENDING", "READY", "REFUSED", "SETTLED", "SKIPPED", "WAITING", "WORKFLOW_OWNS_REASON",
-    "attempt_workflow", "diagnosis_ended", "get", "move", "open_for_attempt", "probe_answer_exposed", "release_feedback", "owns_attempt", "settle_open_when_off",
+    "attempt_workflow", "diagnosis_ended", "get", "move", "open_for_attempt", "probe_answer_exposed", "release_feedback", "retire_waiting", "session_rows", "waiting_still_valid", "owns_attempt", "settle_open_when_off",
     "superseded", "workflow_id_for", "workflow_of_item",
 ]

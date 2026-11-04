@@ -625,13 +625,133 @@ def log_plan_interrupt_decision(connection: Any, decision: Mapping[str, Any]) ->
     return str(row["id"])
 
 
+# -- FG1: a follow-up's itemless decision (spec_followup_generate_serve_v1 §5) ------------------
+
+#: The third arm of FG1's mixture: nothing is generated, and what was held is released.
+NO_INTERVENTION_REF = "no_intervention"
+
+
+def build_followup_decision(decision: Mapping[str, Any]) -> dict[str, Any]:
+    """FG1's ``plan_interrupt`` row: it names the workflow, since no item exists yet.
+
+    The row stays immutable; a separate appended binding (``router_decision_bindings``)
+    links it to the generated item and its presentations. ``no_intervention`` sits in
+    the same logged mixture, its random floor included."""
+
+    record: Mapping[str, Any] = decision.get("router_record") or {}
+    mixture: Mapping[str, Any] = record.get("mixture") or {}
+    pi: Mapping[str, Any] = mixture.get("pi") or {}
+    workflow: Mapping[str, Any] = decision["workflow"]
+    chosen_ref = str(decision["chosen_ref"])
+    raw = _probability(decision.get("propensity"))
+    if raw is None or raw >= 1.0 - _DETERMINISTIC_TOLERANCE:
+        propensity, propensity_kind = 1.0, "deterministic"
+    else:
+        propensity, propensity_kind = raw, "exact"
+    refused: Mapping[str, Any] = decision.get("refused") or {}
+    wait_feasible = bool(decision.get("wait_feasible", True))
+
+    def candidate_propensity(ref: str) -> float:
+        if ref == chosen_ref:
+            return propensity
+        return float(pi.get(ref, 0.0)) if pi else 0.0
+
+    candidates = [
+        {"ref": INSERT_REF, "kind": "insert", "item_ids": [], "feasible": not refused,
+         "propensity": candidate_propensity(INSERT_REF)},
+        {"ref": CONTINUE_REF, "kind": "continue", "item_ids": [], "feasible": not refused and wait_feasible,
+         "propensity": candidate_propensity(CONTINUE_REF)},
+        {"ref": NO_INTERVENTION_REF, "kind": "no_intervention", "item_ids": [], "feasible": not refused,
+         "propensity": candidate_propensity(NO_INTERVENTION_REF)},
+        {"ref": DECLINE_REF, "kind": "decline", "item_ids": [], "feasible": bool(refused),
+         "propensity": candidate_propensity(DECLINE_REF)},
+    ]
+    config = decision.get("config")
+    algorithms = getattr(config, "algorithms", None)
+    algorithm_version = str(getattr(algorithms, "algorithm_version", None) or "unknown")
+    inputs = {
+        "plan_id": decision.get("plan_id"),
+        "block_id": decision.get("block_id"),
+        "workflow_id": workflow.get("id"),
+        "candidates": candidates,
+        "algorithm_version": algorithm_version,
+        **({"card_hash": record.get("card_hash")} if record.get("card_hash") else {}),
+    }
+    detail = {
+        "plan_id": decision.get("plan_id"),
+        "plan_kind": decision.get("plan_kind"),
+        "local_date": decision.get("local_date"),
+        "block_id": decision.get("block_id"),
+        "workflow": dict(workflow),
+        "why": decision.get("why"),
+        "observational": dict(decision.get("observational") or {}),
+        **({} if wait_feasible or refused else {"wait": {"feasible": False, "reason": "no_room_after_block"}}),
+        "refused": [dict(reason) for reason in refused.get("reasons") or ()],
+        **({"mixture": {key: value for key, value in mixture.items() if key != "pi"}} if mixture else {}),
+    }
+    sampled = bool(mixture) and propensity_kind == "exact"
+    return {
+        "id": str(record.get("decision_id") or new_ulid()),
+        "receipt_key": f"{INTERRUPT_KIND}:{decision.get('block_id') or ''}:{workflow.get('id')}",
+        "decision_kind": INTERRUPT_KIND,
+        "surface": SURFACE,
+        "mode": str(record.get("mode") or "mixture"),
+        "policy": str(record.get("policy") or "staged_v1"),
+        "algorithm_version": algorithm_version,
+        "log_version": ROUTER_LOG_VERSION,
+        "session_id": decision.get("session_id"),
+        "parent_decision_id": None,
+        "scheduler_slate_id": None,
+        "controller_decision_id": None,
+        "snapshot_hash": _hash(inputs),
+        "design": record.get("design") if sampled else None,
+        "seed": record.get("seed") if sampled else None,
+        **_model_columns(record),
+        "candidates_json": _dumps(candidates),
+        "exclusions_json": _dumps({}),
+        "candidate_count": len(candidates),
+        "chosen_ref": chosen_ref,
+        # The decision comes before the item: the binding names it later.
+        "chosen_practice_item_id": None,
+        "chosen_learning_object_id": str(workflow.get("learning_object_id")) if chosen_ref == INSERT_REF else None,
+        "chosen_scheduler_candidate_id": None,
+        "propensity": propensity,
+        "propensity_kind": propensity_kind,
+        "learner_pick": 0,
+        "fallback": record.get("fallback"),
+        "card_hash": record.get("card_hash"),
+        "detail_json": _dumps(detail),
+        "created_at": decision.get("decided_at") or utc_now_iso(),
+    }
+
+
+def log_followup_decision(connection: Any, decision: Mapping[str, Any]) -> str | None:
+    """Write one FG1 row on the caller's transaction, its card and payloads beside it."""
+
+    if not _logging_enabled(decision.get("config")) or not _ledger_present(connection):
+        return None
+    row = build_followup_decision(decision)
+    if not append_router_decision(connection, row):
+        return None
+
+    class _Carrier:
+        router_record = decision.get("router_record") or {}
+        config = decision.get("config")
+
+    _store_card(connection, _Carrier(), row)
+    return str(row["id"])
+
+
 __all__ = [
     "DECISION_KIND",
     "DECLINE_REF",
     "INSERT_REF",
     "INTERRUPT_KIND",
     "MODEL_PAYLOAD_KINDS",
+    "NO_INTERVENTION_REF",
+    "build_followup_decision",
     "build_plan_block_decision",
+    "log_followup_decision",
     "build_plan_interrupt_decision",
     "log_plan_block_decision",
     "log_plan_interrupt_decision",
