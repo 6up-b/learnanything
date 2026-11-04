@@ -1959,6 +1959,12 @@ def _causal_origin(factor_id: str) -> str:
     return f"causal_factor:{factor_id}"
 
 
+def causal_origin(factor_id: str) -> str:
+    """An episode's origin string for a factor."""
+
+    return _causal_origin(factor_id)
+
+
 def causal_origin_factor(origin: str) -> str | None:
     """The factor a causal episode's origin names, or None (:func:`_causal_origin`)."""
 

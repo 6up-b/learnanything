@@ -143,14 +143,14 @@ def author_probe(
     """The one authoring call for this workflow, and its output checks."""
 
     from learnloop.diagnosis.causal_probe_coherence import build_causal_hypothesis_set
-    from learnloop.diagnosis.causal_probe_commissioning import _support_scores
-    from learnloop.diagnosis.probe_instance_generation import _FAMILY_MEASUREMENT_INTENT
+    from learnloop.diagnosis.causal_probe_commissioning import support_scores
+    from learnloop.diagnosis.probe_instance_generation import family_measurement_intent
 
     factor = repository.unresolved_cause_factor(factor_id)
     if factor is None or factor.get("status") != "open":
         raise AdmissionFailed("factor_not_open")
     try:
-        plan = build_causal_hypothesis_set(repository, factor_id, support_scores=_support_scores(repository, factor))
+        plan = build_causal_hypothesis_set(repository, factor_id, support_scores=support_scores(repository, factor))
     except ValueError as error:
         raise AdmissionFailed("factor_not_probeable", detail={"reason": str(error)}) from error
     learning_object_id = str(workflow["learning_object_id"])
@@ -165,7 +165,7 @@ def author_probe(
             vault, repository, learning_object_id=learning_object_id, hypotheses=hypotheses,
             router_decision=decision, target_facets=[str(value) for value in card.target_facets],
             source_item_id=str(attempt.get("practice_item_id") or "") or None,
-            measurement_pattern=_FAMILY_MEASUREMENT_INTENT.get(template.id),
+            measurement_pattern=family_measurement_intent(template.id),
         )
         authored = request_authored_probe(client, context)
         probe = check_output(vault, repository, authored, refs=refs, learning_object_id=learning_object_id)
@@ -193,8 +193,7 @@ def persist_item(
     from learnloop.diagnosis.probe_instance_generation import (
         LLM_GENERATOR_ID,
         LLM_GENERATOR_VERSION,
-        _instance_payload,
-        _sanitized_surface_suffix,
+        generated_instance_payload,
         instance_gate_errors,
     )
     from learnloop.diagnosis.ai_contracts import FOLLOWUP_PROBE_PROMPT_VERSION
@@ -202,11 +201,11 @@ def persist_item(
 
     learning_object = vault.learning_objects[str(card.learning_object_id)]
     authored = probe.authored
-    suffix = _sanitized_surface_suffix(authored.surface_suffix, 0)
     now = utc_now_iso(clock)
-    payload = _instance_payload(
+    payload = generated_instance_payload(
         learning_object, card, template, prompt=authored.prompt_md.strip(),
-        expected_answer=authored.expected_answer_md.strip(), surface_family=f"followup_{template.id}_{suffix}", now=now,
+        expected_answer=authored.expected_answer_md.strip(), surface_suffix=authored.surface_suffix,
+        surface_prefix="followup", now=now,
     )
     total = sum(criterion.points for criterion in authored.criteria)
     payload = {

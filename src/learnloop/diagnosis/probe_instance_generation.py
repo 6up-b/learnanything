@@ -778,6 +778,23 @@ _FAMILY_MEASUREMENT_INTENT: dict[str, str] = {
 }
 
 
+def family_measurement_intent(template_id: str) -> str | None:
+    """The family's measurement pattern in prose, for an author that writes to it."""
+
+    return _FAMILY_MEASUREMENT_INTENT.get(template_id)
+
+
+def generated_instance_payload(
+    learning_object: LearningObject, card: InstrumentCard, template: ProbeFamilyTemplate, *, prompt: str,
+    expected_answer: str, surface_suffix: str, surface_prefix: str, now: str,
+) -> dict[str, Any]:
+    """One item payload as the mint builds it, for an author outside this module (FG1)."""
+
+    suffix = _sanitized_surface_suffix(surface_suffix, 0)
+    return _instance_payload(learning_object, card, template, prompt=prompt, expected_answer=expected_answer,
+                             surface_family=f"{surface_prefix}_{template.id}_{suffix}", now=now)
+
+
 def _llm_prompt_version() -> str:
     from learnloop.diagnosis.ai_contracts import PROBE_INSTANCE_PROMPT_VERSION
 

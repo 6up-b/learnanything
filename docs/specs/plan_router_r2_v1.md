@@ -198,6 +198,8 @@ With lane quota as the staged component, the replay compares the models against 
 
 ### 3.5 The restraint gate on Today (G4)
 
+**Amended by FG1 (mvp-0.45, `spec_followup_generate_serve_v1.md` §5).** A generated follow-up's decision is made before its item exists and can choose no intervention; the rest of this section still governs follow-ups that come through the predecessor's path. The value check stops deciding on that lane.
+
 - At a plan boundary nothing is in progress, so `intervene_now` has nothing to gate.
 - The plan's one mid-block interruption is `_insert_followups`: a follow-up from this session's answer joins the **current** block and displaces its tail (`engine.py:1674-1757`).
 - R2c makes that a router decision of kind `plan_interrupt`:

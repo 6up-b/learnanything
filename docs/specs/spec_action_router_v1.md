@@ -245,6 +245,8 @@ The questions:
 
 ## 7. Selection: who decides what
 
+**Amended by FG1 (mvp-0.45, `spec_followup_generate_serve_v1.md` §5).** On the follow-up lane the decision precedes the item: an itemless `plan_interrupt` names the workflow, and an appended binding (`router_decision_bindings`) links it to the generated item and both presentations. Its support is ask now, wait and `no_intervention`, in one logged mixture with its floor. The value check stops deciding on this lane; it logs.
+
 ### 7.1 Hard and irreversible things stay deterministic
 
 These are chosen only by the staged rule, and never sampled:

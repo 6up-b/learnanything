@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from dataclasses import replace
+
 import logging
 from collections.abc import Callable, Mapping
 from contextlib import nullcontext
@@ -181,6 +183,7 @@ def get_today_queue(ctx: SidecarContext, params: QueueInput) -> dict[str, Any]:
         offer_trace=trace,
         device_filter=held_for_device,
     )
+    queue = _with_followup_head(ctx, vault, repository, queue)
     queue, dtos = publish_offer(
         ctx, vault, repository, queue, trace=trace, surface=offer_surface(ctx.request_origin)
     )
@@ -242,6 +245,29 @@ def get_today_queue(ctx: SidecarContext, params: QueueInput) -> dict[str, Any]:
             ),
         }
     )
+
+
+def _with_followup_head(ctx: SidecarContext, vault: Any, repository: Any, queue: list[ScheduledItem]) -> list[ScheduledItem]:
+    """FG1 §5.1: with no plan, a ready generated probe goes to the head of the queue, and the
+    offer that lists it is the logged decision. On the desktop only; a phone never lists one."""
+
+    from learnloop.daily_plan.engine import plan_active
+    from learnloop.followup_serve.gates import generate_and_serve_on
+
+    if ctx.request_origin is not None or not generate_and_serve_on(vault.config) or plan_active(vault):
+        return queue
+    from learnloop.followup_serve import workflow as followup_workflow
+    from learnloop.scheduling.scheduler import followup_head_item
+
+    heads = []
+    for row in followup_workflow.session_rows(repository, ""):
+        item = vault.practice_items.get(str(row.get("practice_item_id") or ""))
+        if row["state"] == followup_workflow.READY and item is not None:
+            head = followup_head_item(vault, item, priority=max((entry.priority for entry in queue), default=0.0) + 1.0)
+            if head is not None:
+                # In the offer's slate, with no candidate of its own: its pin is its measurement.
+                heads.append(replace(head, scheduler_slate_id=queue[0].scheduler_slate_id if queue else None))
+    return [*heads, *queue] if heads else queue
 
 
 def _desktop_followups(repository: Any) -> int:

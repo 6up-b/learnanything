@@ -441,6 +441,8 @@ Following `CLAUDE.md`: upgrade and rename `fixtures/migration_head_165/` → `mi
 - Enqueueing the job is the last sync step recorded in `attempt_completion_work`, and `_resume_saved_completion` (`practice.py:718-743`) re-enqueues it if the process died before that step.
 - After that, the job queue's leases own recovery (§11).
 
+**Amended by FG1 (mvp-0.45, `spec_followup_generate_serve_v1.md` §9).** On a miss with diagnosis on, a durable workflow owns the attempt and holds selection for hypotheses, up to one settled fallback (`followup.generate_and_serve`). The verdict never waits; the worked answer may be held (§6.0 there). Off, or below the tag, what follows stands.
+
 **5. The grade-keyed follow-up is unchanged and runs synchronously.** `evaluate_intervention_followup` keys on grader-owned fields (surprise, severity, failed facets, `grader_confidence`), so the live next-action channel (`scheduler.py:1115-1214`) works before, and without, a diagnosis.
 
 **6. The `recurrence_key` seam (behaviour-neutral).** Add `recurrence_key(hypothesis) -> str` to `diagnosis/causal_factor_deferral.py`. In this slice it returns `statement_normalized`. Route every site that groups hypotheses by exact statement through it:
@@ -610,6 +612,7 @@ This produces E5's labelled pairs. Every later LLM or owner adjudication of "sam
 - **Budget.** Diagnosis calls count toward `model_call_budgets`. When the budget is exhausted, the job is `skipped` with reason `budget`; the grade is never skipped.
 
 **The router tolerates a late diagnosis**
+- **Amended by FG1 (mvp-0.45).** While a workflow owns the attempt, Next reads the workflow: it waits and says so, and a timeout under `diagnosis.next_item_wait_seconds` settles one fallback from the grade alone (`spec_followup_generate_serve_v1.md` §6.1, §6.2). Next is never stranded.
 - **Next action never needs a diagnosis to exist.** The scheduler's live channel runs on the grade-keyed follow-up (§7.5).
 - Diagnosis-driven decisions for attempt N enter through the existing mechanisms whenever the job completes: hypotheses, factors, the orchestrator's common-repair/probe decisions, and pending follow-ups inserted at the head of the queue (`scheduler.py:165,507`).
 - **Bounded wait for fast clicks.** When the learner requests the next item while a `diagnose` job for an attempt in the current session is queued or running, the next-item handler waits up to `diagnosis.next_item_wait_seconds` (default 10) on a completion event, like `wait_for_session`. It then proceeds regardless.

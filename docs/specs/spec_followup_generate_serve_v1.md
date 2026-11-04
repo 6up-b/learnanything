@@ -1,6 +1,6 @@
 # Follow-up generate and serve (FG1)
 
-**Status:** owner's decisions recorded, 2026-11-03 (§2, §11). Revised after a read-only Sol review against the code (job 20261103-211904-wVotHw). Nothing here is built. Code references are to main at `02f7cbec2d`.
+**Status:** FG1 built on `followup/fg1-generate-serve` (mvp-0.45, migration 241; `docs/reviews/followup-fg1.md`); §7's marks table and report are FG1c, next. Owner's decisions recorded, 2026-11-03 (§2, §11). Revised after a read-only Sol review against the code (job 20261103-211904-wVotHw). Code references are to main at `02f7cbec2d`.
 
 ## 1. The problem
 

@@ -630,11 +630,11 @@ def build_due_queue(
             config.tutor_promotion.requested_items_per_session,
         )
         composed = _rotate_same_day_frontier_repeats(composed, item_states, now)
-        from learnloop.followup_serve.identity import closed_probe_ids
+        from learnloop.followup_serve.identity import generated_probe_ids
 
         composed = _insert_pending_followups(
             vault, composed, pending_followups, readiness_factor, item_states=item_states,
-            generated_probe_closed=closed_probe_ids(repository),
+            generated_probes=generated_probe_ids(repository),
         )
         return _apply_contrast_pair_order(
             vault, repository, composed, session, clock=clock, record=record
@@ -2299,6 +2299,16 @@ def _bare_scheduled(vault: LoadedVault, practice_item: Any, readiness_factor: fl
     )
 
 
+def followup_head_item(vault: LoadedVault, item: PracticeItem, *, priority: float) -> ScheduledItem | None:
+    """FG1 §5.1: a generated probe at the queue's head; its workflow's door still decides the serve."""
+
+    bare = _bare_scheduled(vault, item, None)
+    if bare is None:
+        return None
+    return replace(bare, priority=priority, followup_kind="intervention_followup",
+                   plain_english=["a new question from your last answer"])
+
+
 def _insert_pending_followups(
     vault: LoadedVault,
     queue: list[ScheduledItem],
@@ -2306,7 +2316,7 @@ def _insert_pending_followups(
     readiness_factor: float | None,
     *,
     item_states: dict[str, PracticeItemState] | None = None,
-    generated_probe_closed: frozenset[str] = frozenset(),
+    generated_probes: frozenset[str] = frozenset(),
 ) -> list[ScheduledItem]:
     if not pending_followups:
         return queue
@@ -2367,7 +2377,7 @@ def _insert_pending_followups(
         # is a legitimate diagnostic serving path — and an explicit
         # repair-journey kind (REPAIR_JOURNEY_TASK_KINDS) keeps its selection
         # even post-administration, consistent with the selection-time rule.
-        if practice_item_id in generated_probe_closed:
+        if practice_item_id in generated_probes:
             # FG1 §4.2: the identity overrides even a repair journey's by-id selection.
             continue
         if (

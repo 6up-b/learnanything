@@ -724,6 +724,12 @@ def commission_probe_instrument(
     )
 
 
+def support_scores(repository: Repository, factor: Mapping[str, Any]) -> dict[str, float | None]:
+    """The factor's receipt support scores, as commissioning reads them (the follow-up lane too)."""
+
+    return _support_scores(repository, factor)
+
+
 def _support_scores(
     repository: Repository, factor: Mapping[str, Any]
 ) -> dict[str, float | None]:

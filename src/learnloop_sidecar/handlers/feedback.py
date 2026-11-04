@@ -210,8 +210,9 @@ def _with_followup(ctx: SidecarContext, vault: Any, repository: Any, attempt_id:
     The phone's feedback doesn't hold what it can't follow with a probe (§10)."""
 
     from learnloop.followup_run.serving import held_bundle, view
+    from learnloop.followup_serve.gates import generate_and_serve_on
 
-    if ctx.request_origin is not None:
+    if ctx.request_origin is not None or not generate_and_serve_on(vault.config):
         return bundle
     current = view(vault, repository, attempt_id)
     if current is None:

@@ -396,13 +396,21 @@ def reconcile_empty_probe_pools(
                     mint_single_use_probe_surface,
                 )
 
-                minted = mint_single_use_probe_surface(
-                    repository,
-                    vault,
-                    condition.episode_id,
-                    ai_client=ai_client,
-                    clock=clock,
-                )
+                from learnloop.followup_serve.gates import generate_and_serve_on
+                from learnloop.followup_serve.queue import enqueue_entry
+
+                if generate_and_serve_on(vault.config):
+                    # FG1 §4.3: deduplicated work for the worker, never a model call here.
+                    enqueue_entry(repository, condition.episode_id, clock=clock)
+                    minted = None
+                else:
+                    minted = mint_single_use_probe_surface(
+                        repository,
+                        vault,
+                        condition.episode_id,
+                        ai_client=ai_client,
+                        clock=clock,
+                    )
                 if minted is not None:
                     minted_item_ids.append(minted.practice_item_id)
         payload = probe_pool_empty_notice_payload(vault, condition)

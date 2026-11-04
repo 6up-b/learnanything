@@ -233,12 +233,13 @@ def probe_answer_exposed(repository: Repository, presentation_id: str) -> str | 
 
 
 def session_rows(repository: Repository, session_id: str) -> list[dict[str, Any]]:
-    """This session's workflows with something to place: ready, or waiting for a boundary."""
+    """Workflows with something to place: ready, or waiting for a boundary. One learner on one
+    desktop, so a question prepared in a session that has since ended still comes first in this one."""
 
     with repository.connection() as connection:
         if not store.present(connection):
             return []
-        return store.open_workflows(connection, session_id=session_id, states=(READY, WAITING))
+        return store.open_workflows(connection, states=(READY, WAITING))
 
 
 def desktop_waiting_count(repository: Repository) -> int:

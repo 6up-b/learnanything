@@ -282,6 +282,12 @@ sidecar_passthrough!(submit_dont_know, "submit_dont_know");
 
 sidecar_passthrough!(skip_practice_item, "skip_practice_item");
 
+// FG1: the follow-up workflow's read, Next and the two ways out of a hold.
+sidecar_passthrough!(followup_status, "followup_status");
+sidecar_passthrough!(followup_next, "followup_next");
+sidecar_passthrough!(followup_continue_without, "followup_continue_without");
+sidecar_passthrough!(followup_show_anyway, "followup_show_anyway");
+
 #[tauri::command]
 pub async fn get_feedback(
     attempt_id: String,

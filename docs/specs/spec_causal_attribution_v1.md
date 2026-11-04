@@ -558,6 +558,8 @@ trace-consistent contrast still yields a provisional belief immediately.
 
 ## 6. P1 — causal records & structural minimal repair
 
+**Amended by FG1 (mvp-0.45, `spec_followup_generate_serve_v1.md` §5.1, §9).** An absent or unreviewed instrument no longer blocks when generation can fill the slot; `blocked_pending_review` stays for episode conflict. `probe_now` serves without "Take the quick check", which stays for factors that didn't come through this lane. Machine admission (`system:followup_machine_admission_v1`) replaces the human ladder on this lane. `decide_probe` runs and logs and does not decide there.
+
 ### 6.1 `causal_hypotheses` (one table; ownership per §3)
 
 (id, attempt_id, learning_object_id, cause_scope, statement, mechanism,

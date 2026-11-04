@@ -36,7 +36,9 @@ def followup_status(ctx: SidecarContext, params: FollowupInput) -> dict[str, Any
 
     vault, repository = ctx.require_vault()
     vault = _fresh_vault(ctx, vault, repository, params.attempt_id)
-    current = view(vault, repository, params.attempt_id)
+    from learnloop.followup_serve.gates import generate_and_serve_on
+
+    current = view(vault, repository, params.attempt_id) if generate_and_serve_on(vault.config) else None
     if current is None:
         return versioned({"enabled": False})
     ctx.resume_post_attempt_jobs()

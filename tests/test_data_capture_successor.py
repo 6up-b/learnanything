@@ -43,8 +43,9 @@ OFF = "[data_capture]\nserving = false\n"
 
 
 def test_the_successor_is_one_constant_after_te1b_and_the_latest():
-    assert SUCCESSOR_CHAIN[-2:] == (OLD, TAG) == ("mvp-0.43", "mvp-0.44")
-    assert LATEST_ALGORITHM_VERSION == TAG and DATA_CAPTURE_VERSIONS == frozenset({TAG})
+    position = SUCCESSOR_CHAIN.index(TAG)
+    assert SUCCESSOR_CHAIN[position - 1:position + 1] == (OLD, TAG) == ("mvp-0.43", "mvp-0.44")
+    assert TAG in DATA_CAPTURE_VERSIONS and OLD not in DATA_CAPTURE_VERSIONS
     assert PREDECESSOR == OLD
 
 
@@ -55,6 +56,10 @@ def test_every_defaults_snapshot_is_recomputed_and_moves_only_by_the_new_keys():
     # main's value at 6cf7a91ba8, frozen here: dropping the two keys reproduces it.
     dumped = LearnLoopConfig.model_validate(tomllib.loads(default_config_text(OLD))).model_dump(mode="json", exclude_none=False)
     assert dumped.pop("data_capture") == {"receipts": True, "serving": True}
+    # FG1's keys, in every snapshot and inert below its tag.
+    dumped.pop("followup")
+    dumped["ai"]["routing"].pop("followup_probe_author", None)
+    dumped["ui"].pop("show_router_decisions")
     digest = hashlib.sha256(json.dumps(dumped, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
     assert digest == "08840dbd600321a4a8d52fafb969bfacb6ace0e53d3166f5bdb12f81be6b34f3"
 
@@ -125,8 +130,9 @@ def test_the_openers_install_this_links_completion():
     from learnloop.cli import runtime
     from learnloop_sidecar import context
 
-    assert "learnloop.data_capture_upgrade" in inspect.getsource(runtime._complete_interrupted_activation)
-    assert "learnloop.data_capture_upgrade" in inspect.getsource(context._complete_interrupted_activation)
+    # The chain's latest completion hands an earlier link's journal on.
+    assert "learnloop.followup_serve_upgrade" in inspect.getsource(runtime._complete_interrupted_activation)
+    assert "learnloop.followup_serve_upgrade" in inspect.getsource(context._complete_interrupted_activation)
     assert "learnloop.lesson_suggestions_upgrade import complete_interrupted_activation" in inspect.getsource(data_capture_upgrade)
     assert callable(lesson_suggestions_upgrade.complete_interrupted_activation)
 

@@ -77,7 +77,7 @@ def hard_refusal(vault: Any, repository: Repository, row: Mapping[str, Any], *, 
     """§5: what still refuses, in the orchestrator's own terms, before anything is spent."""
 
     from learnloop.diagnosis.causal_orchestrator import (
-        _causal_origin,
+        causal_origin,
         episode_conflict_reason,
         learner_preference,
         pending_machine_checks_for_factor,
@@ -92,7 +92,7 @@ def hard_refusal(vault: Any, repository: Repository, row: Mapping[str, Any], *, 
     if pending_machine_checks_for_factor(repository, factor_id=factor_id):
         return "pending_machine_checks"
     existing = repository.open_probe_episode(str(row["learning_object_id"]))
-    if existing is not None and str(existing.origin or "") != _causal_origin(factor_id):
+    if existing is not None and str(existing.origin or "") != causal_origin(factor_id):
         reason = episode_conflict_reason(repository, existing)
         if reason is not None:
             return str(reason)

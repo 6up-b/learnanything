@@ -644,6 +644,8 @@ A **learner-initiated** request is the learner's own search or a tutor offer the
 
 A learner-initiated result therefore has three groups: valued candidates in value order with the stop marked, bounded ones, and unvalued ones with their reasons ("LearnLoop can't estimate how much this would tell you"). The learner decides.
 
+**Amended by FG1 (mvp-0.45, `spec_followup_generate_serve_v1.md` §4, §9).** Textbook-first applies to practice items only: a probe with rival causes is always generated. A recorded need now fills automatically in the background, in this order, instead of waiting for a click or a CLI command.
+
 **S2b takes no license from a valuation.** It uses the verdicts to order candidates, to skip them and to stop (§8.5), and it serves only a draft that passes the follow-up chooser's own gate, the rule the chooser applies to any item it serves. That gate, not the regime, is what licenses an S2b check.
 
 #### 8.3.4 Modes, verdicts and stopping

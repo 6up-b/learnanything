@@ -2318,7 +2318,9 @@ export function FeedbackScreen({
       (!repairStatus ? f.causalFeedback?.commonRepair?.misconceptionId ?? null : null);
     let step: FeedbackNextStep | null = null;
     let stepIsRetry = false;
-    if (verdict === "partly" || verdict === "not_yet") {
+    // FG1 §6.5: a chosen probe IS the next step, so it replaces this button.
+    const probeIsNext = followup !== null && (followup.state === "pending" || followup.state === "ready");
+    if ((verdict === "partly" || verdict === "not_yet") && !probeIsNext) {
       if (fixId && onOpenRepair) {
         step = { label: FIX_MIX_UP_LABEL, onRun: () => onOpenRepair(fixId) };
       } else if (onGuidedRedo && f.guidedRedoAvailable && f.rubricScore < f.maxPoints) {
