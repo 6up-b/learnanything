@@ -1452,6 +1452,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_f3_the_retry_retires_the_orphan_and_serves_its_own_question`
   - `test_f7_a_standing_plan_doesnt_strand_next_on_a_switched_off_probe`
   - `test_f7_rereview_a_startup_crash_doesnt_leave_a_standing_plan_holding_the_item`
+  - `test_f7_verify_a_crash_in_the_exit_leaves_all_of_it_open_for_the_next_run`
+  - `test_f7_verify_the_settled_exit_adds_no_question_of_its_own`
   - `test_f9_a_refused_retry_doesnt_leave_what_the_crash_pinned`
 - [tests/test_followup_diagnostic_selection.py](../../../../../../tests/test_followup_diagnostic_selection.py) — direct import
 - [tests/test_followup_single_use.py](../../../../../../tests/test_followup_single_use.py) — direct import

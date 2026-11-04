@@ -3,8 +3,8 @@ title: "followup_workflows"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "3a57cdc863da69ad6a23e47a006c6932863322ee"
-source_commit_timestamp: "2026-11-04T01:43:28-05:00"
+source_commit: "30e1b53185db7e9aaf36257d3667cbd479214aea"
+source_commit_timestamp: "2026-11-04T03:25:34-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite followup_workflows"
@@ -117,6 +117,7 @@ None found by exact static reference scan.
 
 ## Tests that define behavior
 
+- `tests/test_followup_codex_review.py`
 - `tests/test_followup_migration.py`
 - `tests/test_followup_workflow.py`
 

@@ -7,9 +7,9 @@ version: "1.0.0"
 source_path: "src/learnloop/followup_run/authoring.py"
 source_paths:
   - "src/learnloop/followup_run/authoring.py"
-source_commit: "workspace/uncommitted @ HEAD 3a57cdc863da69ad6a23e47a006c6932863322ee"
-source_commit_timestamp: "2026-11-04T01:43:28-05:00"
-source_worktree_state: "modified"
+source_commit: "06461f09ccf65c6446b23516124ce9c3b699b9f9"
+source_commit_timestamp: "2026-11-04T02:59:38-05:00"
+source_worktree_state: "clean"
 generated: true
 generated_at: "2026-11-02"
 package: "learnloop.followup_run"
@@ -54,9 +54,9 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Owning package | [[Reference/Modules/learnloop/followup_run/_package|learnloop.followup_run]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
-| Worktree state | `modified` |
-| Source commit | `workspace/uncommitted @ HEAD 3a57cdc863da69ad6a23e47a006c6932863322ee` |
-| Commit timestamp | `2026-11-04T01:43:28-05:00` |
+| Worktree state | `clean` |
+| Source commit | `06461f09ccf65c6446b23516124ce9c3b699b9f9` |
+| Commit timestamp | `2026-11-04T02:59:38-05:00` |
 
 ## Public API
 

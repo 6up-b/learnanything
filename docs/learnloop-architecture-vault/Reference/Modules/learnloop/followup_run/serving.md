@@ -7,9 +7,9 @@ version: "1.0.0"
 source_path: "src/learnloop/followup_run/serving.py"
 source_paths:
   - "src/learnloop/followup_run/serving.py"
-source_commit: "workspace/uncommitted @ HEAD 3a57cdc863da69ad6a23e47a006c6932863322ee"
-source_commit_timestamp: "2026-11-04T01:43:28-05:00"
-source_worktree_state: "modified"
+source_commit: "7465040da518ecae8b84745591a2f06c89954d05"
+source_commit_timestamp: "2026-11-04T03:21:04-05:00"
+source_worktree_state: "clean"
 generated: true
 generated_at: "2026-11-02"
 package: "learnloop.followup_run"
@@ -50,13 +50,13 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/followup_run/serving.py](../../../../../../src/learnloop/followup_run/serving.py) |
-| Source lines | 248 |
+| Source lines | 249 |
 | Owning package | [[Reference/Modules/learnloop/followup_run/_package|learnloop.followup_run]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
-| Worktree state | `modified` |
-| Source commit | `workspace/uncommitted @ HEAD 3a57cdc863da69ad6a23e47a006c6932863322ee` |
-| Commit timestamp | `2026-11-04T01:43:28-05:00` |
+| Worktree state | `clean` |
+| Source commit | `7465040da518ecae8b84745591a2f06c89954d05` |
+| Commit timestamp | `2026-11-04T03:21:04-05:00` |
 
 ## Public API
 
@@ -129,7 +129,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop/followup_run/lanes|learnloop.followup_run.lanes]] — imports `module`; calls `settle_practice_lane`
 - [[Reference/Modules/learnloop/followup_run/router|learnloop.followup_run.router]] — imports `module`; calls `append_outcome`, `bind_plan_presentation`
 - [[Reference/Modules/learnloop/followup_serve/identity|learnloop.followup_serve.identity]] — imports `module`; calls `closed_probe_ids`, `is_generated_probe`, `withdraw`
-- [[Reference/Modules/learnloop/followup_serve/workflow|learnloop.followup_serve.workflow]] — imports `module`; calls `attempt_workflow`, `get`, `retire_waiting`, `set_fields`, `skip_and_close`, `waiting_still_valid`, `workflow_of_item`
+- [[Reference/Modules/learnloop/followup_serve/workflow|learnloop.followup_serve.workflow]] — imports `module`; calls `attempt_workflow`, `finish`, `get`, `retire_waiting`, `set_fields`, `waiting_still_valid`, `workflow_of_item`
 
 ### Platform and third-party dependencies
 
@@ -156,6 +156,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_f6_a_crash_after_the_diagnosis_ended_is_recovered_by_next`
   - `test_f6_a_job_that_ended_with_its_workflow_pending_says_it_failed`
   - `test_f7_rereview_continue_without_commits_its_preference_and_outcome_with_the_move`
+  - `test_f7_verify_an_episode_another_presentation_still_holds_stays_open`
+  - `test_f7_verify_every_exit_closes_what_an_interrupted_run_prepared`
 
 ## Modification guidance
 

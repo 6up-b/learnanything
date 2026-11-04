@@ -7,8 +7,8 @@ version: "1.0.0"
 source_path: "src/learnloop/followup_run/lanes.py"
 source_paths:
   - "src/learnloop/followup_run/lanes.py"
-source_commit: "29cbb06646fc5a5c347caefd9f20a22eaa5adecf"
-source_commit_timestamp: "2026-11-03T21:46:41-05:00"
+source_commit: "7465040da518ecae8b84745591a2f06c89954d05"
+source_commit_timestamp: "2026-11-04T03:21:04-05:00"
 source_worktree_state: "clean"
 generated: true
 generated_at: "2026-11-02"
@@ -55,8 +55,8 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `29cbb06646fc5a5c347caefd9f20a22eaa5adecf` |
-| Commit timestamp | `2026-11-03T21:46:41-05:00` |
+| Source commit | `7465040da518ecae8b84745591a2f06c89954d05` |
+| Commit timestamp | `2026-11-04T03:21:04-05:00` |
 
 ## Public API
 
@@ -96,7 +96,7 @@ No private top-level function or class definition is declared in this file.
 - [[Reference/Modules/learnloop/diagnosis/causal_attribution|learnloop.diagnosis.causal_attribution]] — imports `OPEN_SET_CAUSE_ID`
 - [[Reference/Modules/learnloop/diagnosis/followups|learnloop.diagnosis.followups]] — imports `evaluate_attempt_intervention_followup`; calls `evaluate_attempt_intervention_followup`
 - [[Reference/Modules/learnloop/followup_serve/queue|learnloop.followup_serve.queue]] — imports `enqueue_need`; calls `enqueue_need`
-- [[Reference/Modules/learnloop/followup_serve/workflow|learnloop.followup_serve.workflow]] — imports `module`; calls `move`
+- [[Reference/Modules/learnloop/followup_serve/workflow|learnloop.followup_serve.workflow]] — imports `module`; calls `finish`
 
 ### Platform and third-party dependencies
 
@@ -116,6 +116,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
+- [tests/test_followup_codex_review.py](../../../../../../tests/test_followup_codex_review.py) — direct import
 - [tests/test_followup_workflow.py](../../../../../../tests/test_followup_workflow.py) — direct import
   - `test_a_settled_workflow_takes_nothing_more`
 

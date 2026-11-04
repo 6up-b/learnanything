@@ -1021,6 +1021,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_f9_an_open_after_the_horizon_is_not_an_outcome`
   - `test_r5_a_planned_visual_is_prebuilt_and_the_lesson_step_reuses_it_with_no_author_call`
 - [tests/test_followup_codex_review.py](../../../../../tests/test_followup_codex_review.py) — direct import
+  - `test_f7_verify_a_crash_in_the_exit_leaves_all_of_it_open_for_the_next_run`
 - [tests/test_followup_diagnostic_selection.py](../../../../../tests/test_followup_diagnostic_selection.py) — direct import
 - [tests/test_followup_generate_e2e.py](../../../../../tests/test_followup_generate_e2e.py) — direct import
   - `test_a_transport_failure_retries_once_and_then_fails_with_next_working`

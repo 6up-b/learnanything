@@ -11,7 +11,7 @@ source_paths:
   - "src/learnloop/followup_serve/queue.py"
   - "src/learnloop/followup_serve/workflow.py"
 source_commit: "aggregate; see module notes"
-source_commit_timestamp: "2026-11-04T01:43:28-05:00"
+source_commit_timestamp: "2026-11-04T03:21:04-05:00"
 generated: true
 generated_at: "2026-11-02"
 package: "learnloop.followup_serve"

@@ -345,6 +345,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_question_join_never_fails_the_learners_answer`
 - [tests/test_followup_codex_review.py](../../../../../../tests/test_followup_codex_review.py) — direct import
   - `test_f10_a_closed_probes_candidate_leaves_the_factors_active_set`
+  - `test_f9_verify_a_check_on_another_object_or_of_a_non_blocking_kind_refuses_nothing`
 - [tests/test_followup_generate_e2e.py](../../../../../../tests/test_followup_generate_e2e.py) — direct import
   - `test_a_miss_with_two_rivals_generates_one_pinned_probe`
 - [tests/test_followup_journey.py](../../../../../../tests/test_followup_journey.py) — direct import

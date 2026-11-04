@@ -7,9 +7,9 @@ version: "1.0.0"
 source_path: "src/learnloop/followup_serve/identity.py"
 source_paths:
   - "src/learnloop/followup_serve/identity.py"
-source_commit: "workspace/uncommitted @ HEAD 3a57cdc863da69ad6a23e47a006c6932863322ee"
-source_commit_timestamp: "2026-11-04T01:43:28-05:00"
-source_worktree_state: "modified"
+source_commit: "7465040da518ecae8b84745591a2f06c89954d05"
+source_commit_timestamp: "2026-11-04T03:21:04-05:00"
+source_worktree_state: "clean"
 generated: true
 generated_at: "2026-11-02"
 package: "learnloop.followup_serve"
@@ -50,13 +50,13 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/followup_serve/identity.py](../../../../../../src/learnloop/followup_serve/identity.py) |
-| Source lines | 294 |
+| Source lines | 296 |
 | Owning package | [[Reference/Modules/learnloop/followup_serve/_package|learnloop.followup_serve]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
-| Worktree state | `modified` |
-| Source commit | `workspace/uncommitted @ HEAD 3a57cdc863da69ad6a23e47a006c6932863322ee` |
-| Commit timestamp | `2026-11-04T01:43:28-05:00` |
+| Worktree state | `clean` |
+| Source commit | `7465040da518ecae8b84745591a2f06c89954d05` |
+| Commit timestamp | `2026-11-04T03:21:04-05:00` |
 
 ## Public API
 
@@ -70,11 +70,11 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `claim_serve(repository: Repository, practice_item_id: str, *, surface: str, presentation_id: str | None, workflow_id: str | None=None, reason: str='first_serve', clock: Clock | None=None) -> Claim` ([source](../../../../../../src/learnloop/followup_serve/identity.py), line 119) — The atomic first-serve burn; an item with no identity needs no claim.
 - `retire(repository: Repository, practice_item_id: str, *, reason: str, workflow_id: str | None=None, clock: Clock | None=None) -> bool` ([source](../../../../../../src/learnloop/followup_serve/identity.py), line 168) — Close a generated probe for any further administration, and keep it for history.
 - `withdraw(repository: Repository, practice_item_id: str, *, reason: str, workflow_id: str | None=None, clock: Clock | None=None) -> bool` ([source](../../../../../../src/learnloop/followup_serve/identity.py), line 196) — Everything that could still serve a generated probe, closed in one commit: it retires, its open presentations end, and its candidate stops being one, since serving accepts any ``active`` candidate and a live one blocks its factor's next question (``duplicate_instrument_class``).
-- `retire_unbound(repository: Repository, workflow_id: str, *, clock: Clock | None=None) -> list[str]` ([source](../../../../../../src/learnloop/followup_serve/identity.py), line 225) — What an interrupted run of this workflow published and never bound is withdrawn, unused, before the retry writes its own question.
-- `door_refusal(repository: Repository, practice_item_id: str, *, workflow_id: str | None=None) -> str | None` ([source](../../../../../../src/learnloop/followup_serve/identity.py), line 238) — Why a door may not open this generated probe now, or None.
-- `door_sets(repository: Repository) -> tuple[frozenset[str], frozenset[str]]` ([source](../../../../../../src/learnloop/followup_serve/identity.py), line 260) — (closed, reserved): what every selector leaves out, read once.
-- `exclude_ids(repository: Repository, item_ids: Iterable[str]) -> set[str]` ([source](../../../../../../src/learnloop/followup_serve/identity.py), line 277) — The ones in ``item_ids`` that carry the identity.
-- `replay_inactive_ids(repository: Repository) -> frozenset[str]` ([source](../../../../../../src/learnloop/followup_serve/identity.py), line 284) — Rebuild replay: an item the ledger closed stays closed, attempt or no attempt.
+- `retire_unbound(repository: Repository, workflow_id: str, *, reason: str='publication_interrupted', keep: str | None=None, clock: Clock | None=None) -> list[str]` ([source](../../../../../../src/learnloop/followup_serve/identity.py), line 225) — What an interrupted run of this workflow published and never bound is withdrawn, unused, before the retry writes its own question or the workflow ends.
+- `door_refusal(repository: Repository, practice_item_id: str, *, workflow_id: str | None=None) -> str | None` ([source](../../../../../../src/learnloop/followup_serve/identity.py), line 240) — Why a door may not open this generated probe now, or None.
+- `door_sets(repository: Repository) -> tuple[frozenset[str], frozenset[str]]` ([source](../../../../../../src/learnloop/followup_serve/identity.py), line 262) — (closed, reserved): what every selector leaves out, read once.
+- `exclude_ids(repository: Repository, item_ids: Iterable[str]) -> set[str]` ([source](../../../../../../src/learnloop/followup_serve/identity.py), line 279) — The ones in ``item_ids`` that carry the identity.
+- `replay_inactive_ids(repository: Repository) -> frozenset[str]` ([source](../../../../../../src/learnloop/followup_serve/identity.py), line 286) — Rebuild replay: an item the ledger closed stays closed, attempt or no attempt.
 
 ### Module constants
 
@@ -182,9 +182,15 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_f7_rereview_a_crash_in_cleanup_leaves_the_workflow_open_for_recovery`
   - `test_f7_rereview_a_startup_crash_doesnt_leave_a_standing_plan_holding_the_item`
   - `test_f7_rereview_skipping_a_workflows_probe_through_the_sidecar_closes_it`
+  - `test_f7_verify_a_crash_in_the_exit_leaves_all_of_it_open_for_the_next_run`
+  - `test_f7_verify_a_late_generator_closes_the_episode_it_pinned`
+  - `test_f7_verify_an_answer_keeps_its_own_question_and_closes_only_the_leftovers`
+  - `test_f7_verify_the_settled_exit_adds_no_question_of_its_own`
   - `test_f9_a_refusal_that_arrives_during_authoring_stops_the_offer`
   - `test_f9_a_refused_retry_doesnt_leave_what_the_crash_pinned`
   - `test_f9_a_retry_rechecks_the_hard_refusals_and_keeps_the_draw`
+  - `test_f9_verify_a_check_on_the_object_that_arrives_during_authoring_stops_the_offer`
+  - `test_f9_verify_a_retry_is_refused_by_a_check_on_the_whole_learning_object`
 - [tests/test_followup_generate_e2e.py](../../../../../../tests/test_followup_generate_e2e.py) — direct import
   - `test_a_late_generator_adds_nothing_after_a_skip`
   - `test_a_mint_under_fg1_is_model_written_single_use_and_needs_no_review`

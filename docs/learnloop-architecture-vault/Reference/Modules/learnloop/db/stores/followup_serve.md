@@ -7,9 +7,9 @@ version: "1.0.0"
 source_path: "src/learnloop/db/stores/followup_serve.py"
 source_paths:
   - "src/learnloop/db/stores/followup_serve.py"
-source_commit: "workspace/uncommitted @ HEAD 3a57cdc863da69ad6a23e47a006c6932863322ee"
-source_commit_timestamp: "2026-11-04T01:43:28-05:00"
-source_worktree_state: "modified"
+source_commit: "7465040da518ecae8b84745591a2f06c89954d05"
+source_commit_timestamp: "2026-11-04T03:21:04-05:00"
+source_worktree_state: "clean"
 generated: true
 generated_at: "2026-11-02"
 package: "learnloop.db.stores"
@@ -51,13 +51,13 @@ The authoritative system-level explanation remains in [[State and Persistence]],
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/db/stores/followup_serve.py](../../../../../../../src/learnloop/db/stores/followup_serve.py) |
-| Source lines | 358 |
+| Source lines | 369 |
 | Owning package | [[Reference/Modules/learnloop/db/stores/_package|learnloop.db.stores]] |
 | Architecture layer | `infrastructure` |
 | Refactor status | `ACTIVE` |
-| Worktree state | `modified` |
-| Source commit | `workspace/uncommitted @ HEAD 3a57cdc863da69ad6a23e47a006c6932863322ee` |
-| Commit timestamp | `2026-11-04T01:43:28-05:00` |
+| Worktree state | `clean` |
+| Source commit | `7465040da518ecae8b84745591a2f06c89954d05` |
+| Commit timestamp | `2026-11-04T03:21:04-05:00` |
 
 ## Public API
 
@@ -82,15 +82,16 @@ The authoritative system-level explanation remains in [[State and Persistence]],
 - `insert_generated_probe(connection: sqlite3.Connection, *, practice_item_id: str, item_revision: str, source: str, at: str, workflow_id: str | None=None, probe_episode_id: str | None=None) -> bool` ([source](../../../../../../../src/learnloop/db/stores/followup_serve.py), line 250)
 - `generated_probe(connection: sqlite3.Connection, practice_item_id: str) -> dict[str, Any] | None` ([source](../../../../../../../src/learnloop/db/stores/followup_serve.py), line 260)
 - `unclosed_probes_of_workflow(connection: sqlite3.Connection, workflow_id: str) -> list[str]` ([source](../../../../../../../src/learnloop/db/stores/followup_serve.py), line 265) — A workflow's generated probes with no burn: what an interrupted run left behind.
-- `live_candidates_of_item(connection: sqlite3.Connection, practice_item_id: str) -> list[str]` ([source](../../../../../../../src/learnloop/db/stores/followup_serve.py), line 276) — The item's causal probe candidates not yet rejected.
-- `administration_ended(connection: sqlite3.Connection, practice_item_id: str) -> bool` ([source](../../../../../../../src/learnloop/db/stores/followup_serve.py), line 285) — Some presentation of this item was answered or ended: its one administration is over.
-- `generated_probe_ids(connection: sqlite3.Connection) -> frozenset[str]` ([source](../../../../../../../src/learnloop/db/stores/followup_serve.py), line 294)
-- `insert_burn(connection: sqlite3.Connection, *, practice_item_id: str, kind: str, item_revision: str, reason: str, at: str, surface: str | None=None, presentation_id: str | None=None, workflow_id: str | None=None) -> bool` ([source](../../../../../../../src/learnloop/db/stores/followup_serve.py), line 298) — The atomic claim: the UNIQUE (item, kind) decides the one winner.
-- `burns_for_item(connection: sqlite3.Connection, practice_item_id: str) -> dict[str, dict[str, Any]]` ([source](../../../../../../../src/learnloop/db/stores/followup_serve.py), line 312)
-- `closed_generated_probe_ids(connection: sqlite3.Connection) -> frozenset[str]` ([source](../../../../../../../src/learnloop/db/stores/followup_serve.py), line 320) — Every generated probe with a burn or a retirement.
-- `append_binding(connection: sqlite3.Connection, *, decision_id: str, workflow_id: str, binding_kind: str, at: str, practice_item_id: str | None=None, probe_presentation_id: str | None=None, plan_presentation_id: str | None=None, outcome: str | None=None) -> bool` ([source](../../../../../../../src/learnloop/db/stores/followup_serve.py), line 330)
-- `bindings_for_decision(connection: sqlite3.Connection, decision_id: str) -> dict[str, dict[str, Any]]` ([source](../../../../../../../src/learnloop/db/stores/followup_serve.py), line 343)
-- `all_bindings(connection: sqlite3.Connection) -> dict[str, dict[str, dict[str, Any]]]` ([source](../../../../../../../src/learnloop/db/stores/followup_serve.py), line 350) — Every decision's bindings, keyed by decision id and then kind (the outcome join's one read).
+- `episodes_pinned_by_workflow(connection: sqlite3.Connection, workflow_id: str) -> list[str]` ([source](../../../../../../../src/learnloop/db/stores/followup_serve.py), line 276) — The episodes holding a presentation of this workflow's generated probes, bound or not.
+- `live_candidates_of_item(connection: sqlite3.Connection, practice_item_id: str) -> list[str]` ([source](../../../../../../../src/learnloop/db/stores/followup_serve.py), line 287) — The item's causal probe candidates not yet rejected.
+- `administration_ended(connection: sqlite3.Connection, practice_item_id: str) -> bool` ([source](../../../../../../../src/learnloop/db/stores/followup_serve.py), line 296) — Some presentation of this item was answered or ended: its one administration is over.
+- `generated_probe_ids(connection: sqlite3.Connection) -> frozenset[str]` ([source](../../../../../../../src/learnloop/db/stores/followup_serve.py), line 305)
+- `insert_burn(connection: sqlite3.Connection, *, practice_item_id: str, kind: str, item_revision: str, reason: str, at: str, surface: str | None=None, presentation_id: str | None=None, workflow_id: str | None=None) -> bool` ([source](../../../../../../../src/learnloop/db/stores/followup_serve.py), line 309) — The atomic claim: the UNIQUE (item, kind) decides the one winner.
+- `burns_for_item(connection: sqlite3.Connection, practice_item_id: str) -> dict[str, dict[str, Any]]` ([source](../../../../../../../src/learnloop/db/stores/followup_serve.py), line 323)
+- `closed_generated_probe_ids(connection: sqlite3.Connection) -> frozenset[str]` ([source](../../../../../../../src/learnloop/db/stores/followup_serve.py), line 331) — Every generated probe with a burn or a retirement.
+- `append_binding(connection: sqlite3.Connection, *, decision_id: str, workflow_id: str, binding_kind: str, at: str, practice_item_id: str | None=None, probe_presentation_id: str | None=None, plan_presentation_id: str | None=None, outcome: str | None=None) -> bool` ([source](../../../../../../../src/learnloop/db/stores/followup_serve.py), line 341)
+- `bindings_for_decision(connection: sqlite3.Connection, decision_id: str) -> dict[str, dict[str, Any]]` ([source](../../../../../../../src/learnloop/db/stores/followup_serve.py), line 354)
+- `all_bindings(connection: sqlite3.Connection) -> dict[str, dict[str, dict[str, Any]]]` ([source](../../../../../../../src/learnloop/db/stores/followup_serve.py), line 361) — Every decision's bindings, keyed by decision id and then kind (the outcome join's one read).
 
 ### Module constants
 
@@ -114,7 +115,7 @@ The authoritative system-level explanation remains in [[State and Persistence]],
 - [[Reference/Modules/learnloop/followup_run/router|learnloop.followup_run.router]] — imports `module`; statically calls `append_binding`, `update_workflow`
 - [[Reference/Modules/learnloop/followup_serve/identity|learnloop.followup_serve.identity]] — imports `module`; statically calls `administration_ended`, `burns_for_item`, `closed_generated_probe_ids`, `generated_probe`, `generated_probe_ids`, `insert_burn`, `insert_generated_probe`, `live_candidates_of_item`, `present`, `unclosed_probes_of_workflow`
 - [[Reference/Modules/learnloop/followup_serve/queue|learnloop.followup_serve.queue]] — imports `module`; statically calls `enqueue_generation_job`, `present`, `runnable_generation_jobs`
-- [[Reference/Modules/learnloop/followup_serve/workflow|learnloop.followup_serve.workflow]] — imports `module`; statically calls `append_binding`, `cancel_generation_jobs`, `insert_workflow`, `move_workflow`, `open_workflows`, `present`, `update_workflow`, `workflow`, `workflow_for_attempt`, `workflow_for_item`, `workflow_for_presentation`
+- [[Reference/Modules/learnloop/followup_serve/workflow|learnloop.followup_serve.workflow]] — imports `module`; statically calls `append_binding`, `cancel_generation_jobs`, `episodes_pinned_by_workflow`, `insert_workflow`, `move_workflow`, `open_workflows`, `present`, `update_workflow`, `workflow`, `workflow_for_attempt`, `workflow_for_item`, `workflow_for_presentation`
 - [[Reference/Modules/learnloop/router/outcomes|learnloop.router.outcomes]] — imports `all_bindings`; statically calls `all_bindings`
 
 ## Dependencies
@@ -146,6 +147,9 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_f4_the_burn_binds_to_the_open_presentation_and_ends_with_it`
   - `test_f7_a_served_probe_keeps_its_burn_after_the_rollback`
   - `test_f7_rereview_continue_without_commits_its_preference_and_outcome_with_the_move`
+  - `test_f7_verify_a_crash_in_the_exit_leaves_all_of_it_open_for_the_next_run`
+  - `test_f7_verify_move_refuses_a_terminal_state_and_finish_refuses_any_other`
+  - `test_f7_verify_no_other_writer_of_a_terminal_state`
   - `test_f8_a_transport_failure_retries_under_the_decision_it_drew`
   - `test_f8_naming_the_decision_commits_with_it`
   - `test_f9_a_retry_rechecks_the_hard_refusals_and_keeps_the_draw`
