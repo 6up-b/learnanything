@@ -232,9 +232,12 @@ def record_decision(vault: Any, repository: Repository, row: Mapping[str, Any], 
     there is no decision to log (§5.1). A receipt already logged is the decision: what the
     row says stands, and nothing is written twice."""
 
+    from learnloop.adaptive_difficulty.readiness import decision_state_fields
     from learnloop.daily_plan import measurement as objectives
     from learnloop.data_capture.gates import serving_on
     from learnloop.followup_serve import workflow as wf
+    from learnloop.router_objective import decision_state
+    from learnloop.scheduling.fsrs import forgetting_curve
     from learnloop.router.plan_log import existing_followup_decision, log_followup_decision
 
     if decision.decided_by == "no_plan":
@@ -242,6 +245,11 @@ def record_decision(vault: Any, repository: Repository, row: Mapping[str, Any], 
         return decision
     decision_id: str | None = None
     now = utc_now_iso(clock)
+    # RO0 rows 9 and 13: the follow-up's LO, read before the transaction opens.
+    state = decision_state.prepare(
+        vault, repository, candidates=[{"learning_object_ids": [row["learning_object_id"]]}], session_id=row.get("session_id"),
+        ad_fields=lambda los: decision_state_fields(vault, repository, list(los)), forgetting_curve=forgetting_curve,
+        clock=clock)
     try:
         with repository.atomic(), repository.connection() as connection:
             logged = existing_followup_decision(connection, block_id=decision.block_id, workflow_id=str(row["id"]))
@@ -260,6 +268,9 @@ def record_decision(vault: Any, repository: Repository, row: Mapping[str, Any], 
                 "wait_feasible": decision.wait_feasible, "router_record": decision.record, "why": decision.why,
                 "observational": decision.observational, "decided_at": now, "config": vault.config,
             })
+            if decision_id is not None:
+                decision_state.record(connection, decision_id=decision_id, decision_kind="plan_interrupt", material=state,
+                                      config=vault.config, at=now)
             if decision_id is not None and serving_on(vault.config) and not decision.refused:
                 support = [ASK_NOW, *([WAIT] if decision.wait_feasible else []), NO_INTERVENTION]
                 arm = {WAIT: objectives.ARM_WAIT, NO_INTERVENTION: objectives.ARM_NO_INTERVENTION}.get(

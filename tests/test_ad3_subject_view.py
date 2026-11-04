@@ -379,3 +379,22 @@ def test_subject_view_mixture_keeps_propensities_exact():
     redone = S.recompute(row)
     assert redone.chosen == drawn.chosen
     assert {k: round(p, 9) for k, p in redone.propensities.items()} == {k: round(p, 9) for k, p in drawn.propensities.items()}
+
+
+def test_ro0_decision_state_fields_read_the_cards_numbers_with_the_state_they_came_from(tmp_path):
+    """RO0 row 9: the card's numbers for each candidate LO, its untested mark beside its raw prediction, one state."""
+
+    seen = _scenario(tmp_path, "state", seen=True)
+    vault = load_vault(seen["paths"].root)
+    repository = Repository(seen["paths"].sqlite_path)
+    read = RD.decision_state_fields(vault, repository, [LO, "lo_unknown"])
+    assert read["status"] == "live" and read["state_hash"]
+    assert set(read["los"]) == {LO}, "an LO with no visible cell has no numbers"
+    card = RD.card_fields(vault, repository, LO)
+    row = read["los"][LO]
+    assert row["p_band_next"] == card["p_band_next"] and row["untested"] == card["untested"]
+    assert row["cell"] == card["cell"]
+    assert row["p_bar_at_top_raw"] is not None
+    assert "p_bar_at_top_raw" not in card, "the card itself is unchanged"
+    off = _scenario(tmp_path, "state_off", seen=True, ad="promoted_predictor = false\n")
+    assert RD.decision_state_fields(load_vault(off["paths"].root), Repository(off["paths"].sqlite_path), [LO]) == {"status": "not_live"}

@@ -111,6 +111,36 @@ def card_fields(vault: Any, repository: Any, learning_object_id: str, *,
 
     view = material_view(vault, repository, view)
     snapshot = snapshot or RP.snapshot(vault, repository, view=view)
+    fields = _lo_fields(vault, view, snapshot, learning_object_id)
+    if fields is None:
+        return None
+    return {key: value for key, value in fields.items() if key != "p_bar_at_top_raw"}
+
+
+@entry(read_only=True)
+def decision_state_fields(vault: Any, repository: Any, learning_object_ids: Sequence[str], *,
+                          snapshot: RP.Snapshot | None = None, view: Any = None) -> dict[str, Any]:
+    """RO0 row 9 (spec_router_objective_v1 §4): the card's numbers for each candidate LO at one decision, and the state
+    they were read from. A receipt, not a claim: an untested cell keeps its mark beside its raw prediction, which no
+    display reads. Through the material view, so a protected item never shapes it (A8)."""
+
+    if not subject_view_live(vault.config):
+        return {"status": "not_live"}
+    from learnloop.adaptive_difficulty.material_view import material_view
+
+    view = material_view(vault, repository, view)
+    snapshot = snapshot or RP.snapshot(vault, repository, view=view)
+    los: dict[str, Any] = {}
+    for learning_object_id in learning_object_ids:
+        fields = _lo_fields(vault, view, snapshot, learning_object_id)
+        if fields is not None:
+            los[learning_object_id] = {key: fields[key] for key in ("p_band_next", "p_bar_at_top_raw", "untested", "cell")}
+    return {"status": "live", "state_hash": snapshot.state_hash(), "los": los}
+
+
+def _lo_fields(vault: Any, view: Any, snapshot: RP.Snapshot, learning_object_id: str) -> dict[str, Any] | None:
+    """One LO's AD numbers in its main cell, or None with no visible cell."""
+
     cells = _cells(view, learning_object_id)
     if not cells:
         return None
@@ -137,6 +167,7 @@ def card_fields(vault: Any, repository: Any, learning_object_id: str, *,
         "kind": "prediction", "cell": [facet, capability],
         "p_band_next": round(max((s.p_band for s in scored), default=0.0), 4),
         "p_bar_at_top": None if untested or at_target is None else round(at_target, 4),
+        "p_bar_at_top_raw": None if at_target is None else round(at_target, 4),
         "untested": untested,
     }
 
@@ -214,4 +245,4 @@ def card_line(fields: Mapping[str, Any]) -> str:
 
 
 __all__ = ["LIKELY", "NOT_PREDICTED", "NOT_YET", "READINESS_VERSION", "UNTESTED", "aggregate_line", "band_positions",
-           "card_fields", "card_line", "lo_readiness"]
+           "card_fields", "card_line", "decision_state_fields", "lo_readiness"]
