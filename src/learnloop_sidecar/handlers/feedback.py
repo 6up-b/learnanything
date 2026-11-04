@@ -183,6 +183,42 @@ def _debit_repair_display_reveals(
         )
 
 
+def _followup_holding(repository: Any, attempt_id: str) -> bool:
+    from learnloop.followup_run.serving import is_holding
+    from learnloop.followup_serve.workflow import attempt_workflow
+
+    return is_holding(attempt_workflow(repository, attempt_id))
+
+
+def _debit_released_feedback(vault: Any, repository: Any, attempt: dict[str, Any], stored_feedback: dict[str, Any]) -> None:
+    """The display the hold deferred, charged once, on the actual disclosure."""
+
+    from learnloop.followup_serve.workflow import attempt_workflow, set_fields
+
+    row = attempt_workflow(repository, str(attempt["id"]))
+    if row is None or not row.get("feedback_held") or row.get("feedback_debited_at") or not row.get("feedback_released_at"):
+        return
+    from learnloop.clock import utc_now_iso
+
+    _debit_repair_display_reveals(vault, repository, attempt, stored_feedback)
+    set_fields(repository, str(row["id"]), feedback_debited_at=utc_now_iso())
+
+
+def _with_followup(ctx: SidecarContext, vault: Any, repository: Any, attempt_id: str, bundle: dict[str, Any],
+                   holding: bool) -> dict[str, Any]:
+    """FG1 §6: the workflow's read rides on the bundle; with no workflow it stays as it was.
+    The phone's feedback doesn't hold what it can't follow with a probe (§10)."""
+
+    from learnloop.followup_run.serving import held_bundle, view
+
+    if ctx.request_origin is not None:
+        return bundle
+    current = view(vault, repository, attempt_id)
+    if current is None:
+        return bundle
+    return {**(held_bundle(bundle) if holding else bundle), "followup": to_camel(current)}
+
+
 @method("get_feedback", FeedbackInput)
 def get_feedback(ctx: SidecarContext, params: FeedbackInput) -> dict[str, Any]:
     vault, repository = ctx.require_vault()
@@ -195,8 +231,12 @@ def get_feedback(ctx: SidecarContext, params: FeedbackInput) -> dict[str, Any]:
     first_show = not stored_feedback.get("first_shown_at")
     if params.record_open:
         repository.record_feedback_shown(params.attempt_id, session_id=session_id)
-    if params.record_open and first_show and attempt is not None:
+    followup_holding = ctx.request_origin is None and _followup_holding(repository, params.attempt_id)
+    if params.record_open and first_show and attempt is not None and not followup_holding:
         _debit_repair_display_reveals(vault, repository, attempt, stored_feedback)
+    if params.record_open and attempt is not None and not first_show and not followup_holding:
+        # FG1 §6.0: what the hold kept off the first open is charged at the first open after its release.
+        _debit_released_feedback(vault, repository, attempt, stored_feedback)
     bundle = feedback_bundle(vault, repository, params.attempt_id)
     _attach_common_repair(repository, params.attempt_id, bundle)
     # Daily-loop DL2: an attempt that answered a "Check once" says so after
@@ -214,6 +254,7 @@ def get_feedback(ctx: SidecarContext, params: FeedbackInput) -> dict[str, Any]:
     claim_line = claim_check(vault, repository, params.attempt_id)
     if claim_line is not None:
         bundle["claimCheck"] = to_camel(claim_line)
+    bundle = _with_followup(ctx, vault, repository, params.attempt_id, bundle, followup_holding)
     log_event(
         "feedback_shown",
         session_id=session_id,
@@ -737,6 +778,10 @@ def record_answer_display(ctx: SidecarContext, params: AnswerDisplayInput) -> di
     attempt = repository.fetch_practice_attempt(params.attempt_id)
     if attempt is None:
         raise SidecarError("not_found", f"Attempt {params.attempt_id} not found.")
+    if ctx.request_origin is None and _followup_holding(repository, params.attempt_id):
+        # FG1 §6.0: held means not shown, so nothing here records a display.
+        raise SidecarError("followup_feedback_held", "The answer is held until the question is answered.",
+                           details={"attempt_id": params.attempt_id})
     try:
         receipt = record_feedback_answer_display_reveal(
             repository,

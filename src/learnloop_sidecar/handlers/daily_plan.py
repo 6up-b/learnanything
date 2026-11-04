@@ -331,11 +331,19 @@ def next_plan_item(ctx: SidecarContext, params: NextPlanItemInput) -> dict[str, 
     if required is None:
         return _off(ctx)
     _vault, _repository, env = required
+    if params.skip_practice_item_id:
+        # FG1 §4.2: skipping a generated probe abandons it, and it is never served again.
+        from learnloop.followup_run.serving import abandon
+
+        abandon(env.repository, params.skip_practice_item_id)
     record, step, context = advance_with_context(
         env, serve=params.serve, skip_practice_item_id=params.skip_practice_item_id
     )
     result = versioned({"enabled": True, "step": step, **_view(env, record, step, context)})
     if params.serve:
+        from learnloop.followup_run.serving import bind_plan_step
+
+        bind_plan_step(env.repository, step)
         _schedule_ad(ctx, env, step=step)
     return result
 

@@ -24,6 +24,7 @@ from learnloop_sidecar.handlers import (  # noqa: F401
     facet_identity,
     facets,
     feedback,
+    followup,
     figures,
     first_run,
     goals,

@@ -241,6 +241,15 @@ def session_rows(repository: Repository, session_id: str) -> list[dict[str, Any]
         return store.open_workflows(connection, session_id=session_id, states=(READY, WAITING))
 
 
+def desktop_waiting_count(repository: Repository) -> int:
+    """Generated probes the desktop will serve: what a phone says is waiting there (§10)."""
+
+    with repository.connection() as connection:
+        if not store.present(connection):
+            return 0
+        return len(store.open_workflows(connection, states=(READY, WAITING)))
+
+
 def waiting_still_valid(repository: Repository, row: Mapping[str, Any]) -> bool:
     """§5 item 3, before serving: the factor is still open and the pin's hypotheses current."""
 
@@ -271,6 +280,29 @@ def retire_waiting(repository: Repository, row: Mapping[str, Any], *, reason: st
         identity.retire(repository, str(row["practice_item_id"]), reason=reason, workflow_id=str(row["id"]), clock=clock)
         if row.get("presentation_id"):
             repository.end_probe_presentation(str(row["presentation_id"]), end_reason="abandoned", clock=clock)
+
+
+def probe_answered(repository: Repository, practice_item_id: str, *, attempt_id: str, clock: Clock | None = None) -> bool:
+    """The probe's answer settles the workflow, and §6.0's hold ends, by the item whichever
+    way it was answered: a contract that could not stand (no grading route at the serve) must
+    not strand what was held. Runs on the live path only."""
+
+    if not practice_item_id:
+        return False
+    with repository.connection() as connection:
+        if not store.present(connection):
+            return False
+        row = store.workflow_for_item(connection, practice_item_id)
+    if row is None or row["state"] not in {READY, WAITING}:
+        return False
+    if not move(repository, str(row["id"]), to_state=SETTLED, reason="probe_answered", release=RELEASE_PROBE_ANSWERED,
+                from_states=(READY, WAITING), detail={"attempt_id": attempt_id}, clock=clock):
+        return False
+    if row.get("decision_id"):
+        with repository.atomic(), repository.connection() as connection:
+            store.append_binding(connection, decision_id=str(row["decision_id"]), workflow_id=str(row["id"]),
+                                 binding_kind="outcome", outcome="answered", at=_now(clock))
+    return True
 
 
 def settle_open_when_off(vault: Any, repository: Repository, *, clock: Clock | None = None) -> int:
@@ -306,6 +338,6 @@ def diagnosis_ended(vault: Any, repository: Repository, *, attempt_id: str, cloc
 
 __all__ = [
     "FAILED", "PENDING", "READY", "REFUSED", "SETTLED", "SKIPPED", "WAITING", "WORKFLOW_OWNS_REASON",
-    "attempt_workflow", "diagnosis_ended", "get", "move", "open_for_attempt", "probe_answer_exposed", "release_feedback", "retire_waiting", "session_rows", "waiting_still_valid", "owns_attempt", "settle_open_when_off",
+    "attempt_workflow", "desktop_waiting_count", "diagnosis_ended", "get", "move", "open_for_attempt", "probe_answer_exposed", "probe_answered", "release_feedback", "retire_waiting", "session_rows", "waiting_still_valid", "owns_attempt", "settle_open_when_off",
     "superseded", "workflow_id_for", "workflow_of_item",
 ]

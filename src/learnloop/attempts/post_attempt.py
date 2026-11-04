@@ -195,6 +195,10 @@ def run_post_attempt_pipeline(
         # After the completion commits: a non-empty stuck answer is queued
         # for the learner-text gap reading (never fails the attempt).
         enqueue_post_attempt_learner_text(vault, repository, attempt_id=result.attempt_id, clock=clock)
+        # FG1: an answer to a generated probe settles its workflow and releases what it held.
+        from learnloop.followup_serve.workflow import probe_answered
+
+        probe_answered(repository, str(result.practice_item_id), attempt_id=result.attempt_id, clock=clock)
         if workflow is not None and not (blind or _shadow_diagnosis_enabled(vault)):
             # A joint vault has no live diagnosis job (spec §3.1): selection uses the
             # hypotheses normalization has already written.

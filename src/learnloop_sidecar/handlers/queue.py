@@ -237,10 +237,19 @@ def get_today_queue(ctx: SidecarContext, params: QueueInput) -> dict[str, Any]:
             **(
                 {}
                 if ctx.request_origin is None
-                else {"device_deferred_count": len(held_for_device.deferred) if held_for_device else 0}
+                else {"device_deferred_count": (len(held_for_device.deferred) if held_for_device else 0)
+                      + _desktop_followups(repository)}
             ),
         }
     )
+
+
+def _desktop_followups(repository: Any) -> int:
+    """FG1 §10: a pending generated probe is the desktop's; it joins the phone's "waiting" line."""
+
+    from learnloop.followup_serve.workflow import desktop_waiting_count
+
+    return desktop_waiting_count(repository)
 
 
 def _wait_for_session_diagnoses(ctx: SidecarContext, vault: Any, repository: Any, session_id: str | None) -> None:

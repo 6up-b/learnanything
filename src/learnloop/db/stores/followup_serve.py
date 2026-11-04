@@ -22,7 +22,7 @@ OPEN_STATES: frozenset[str] = frozenset({"pending", "ready", "waiting"})
 WORKFLOW_FIELDS: frozenset[str] = frozenset({
     "settled_reason", "lane", "factor_id", "decision_id", "chosen_ref", "practice_item_id", "probe_candidate_id",
     "hypothesis_set_id", "probe_episode_id", "presentation_id", "feedback_held", "feedback_released_at",
-    "release_reason", "shown_anyway_at", "exposed_at", "next_requested_at",
+    "release_reason", "shown_anyway_at", "exposed_at", "next_requested_at", "feedback_debited_at",
 })
 
 

@@ -1417,6 +1417,11 @@ def presentation_commit_payload(
     eig = instrument_expected_information_gain(belief, eligible.instrument, eligible.slot_map)
     expires_at = None
     ttl_minutes = vault.config.probe.episode.presentation_ttl_minutes
+    causal_pin = (extra_selection_components or {}).get("causal_probe")
+    if isinstance(causal_pin, Mapping) and causal_pin.get("followup_workflow_id"):
+        # FG1 §4.2: a follow-up's probe waits for its workflow, a wait included. Abandonment
+        # or a skip closes it, not a clock, or a submission could fail after its one burn.
+        ttl_minutes = 0
     if ttl_minutes > 0:
         from datetime import timedelta
 

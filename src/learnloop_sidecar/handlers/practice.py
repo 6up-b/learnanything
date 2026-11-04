@@ -507,9 +507,13 @@ def get_probe_contract(ctx: SidecarContext, params: ProbeContractInput) -> dict[
     cap_lifted = params.session_id is not None and calibration_cap_lifted(
         repository, params.session_id
     )
+    # FG1 §5: the router already decided this one, so the routine session caps don't refuse it.
+    from learnloop.followup_serve.workflow import workflow_of_item
+
+    followup_row = workflow_of_item(repository, item.id)
     block_reason = probe_serving_block_reason(
         vault, repository, session_id=params.session_id, cap_lifted=cap_lifted
-    )
+    ) if followup_row is None else None
     if block_reason is not None:
         return versioned({"active": False, "reason": block_reason})
 
@@ -1935,6 +1939,10 @@ def _store_submission_receipt(
 @host_mutation
 def skip_practice_item(ctx: SidecarContext, params: SkipInput) -> dict[str, Any]:
     vault, repository = ctx.require_vault()
+    # FG1 §4.2: skipping a generated probe abandons it, and it is never served again.
+    from learnloop.followup_run.serving import abandon
+
+    abandon(repository, params.practice_item_id)
     # Mobile PR-4: refused early, before the queue is built, when the session
     # is another device's; checked again below, with the generation read here,
     # in the transaction that publishes the offer and clears the checkpoint

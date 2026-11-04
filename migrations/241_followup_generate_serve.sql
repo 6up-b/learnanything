@@ -54,6 +54,7 @@ CREATE TABLE followup_workflows (
   shown_anyway_at TEXT,
   exposed_at TEXT,
   next_requested_at TEXT,
+  feedback_debited_at TEXT,
   created_at TEXT NOT NULL,
   updated_at TEXT NOT NULL,
   UNIQUE (source_attempt_id, revision_key)
