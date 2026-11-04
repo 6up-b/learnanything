@@ -7,9 +7,9 @@ version: "1.0.0"
 source_path: "src/learnloop/diagnosis/causal_orchestrator.py"
 source_paths:
   - "src/learnloop/diagnosis/causal_orchestrator.py"
-source_commit: "workspace/uncommitted @ HEAD 450c22470d46f9bd13a2faf2d4fb955ba0dad985"
-source_commit_timestamp: "2026-11-04T10:02:56-05:00"
-source_worktree_state: "modified"
+source_commit: "e352671bc5acc2a4286028b9bff1f8847e74351c"
+source_commit_timestamp: "2026-11-04T11:32:15-05:00"
+source_worktree_state: "clean"
 generated: true
 generated_at: "2026-11-02"
 package: "learnloop.diagnosis"
@@ -50,13 +50,13 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/diagnosis/causal_orchestrator.py](../../../../../../src/learnloop/diagnosis/causal_orchestrator.py) |
-| Source lines | 3417 |
+| Source lines | 3421 |
 | Owning package | [[Reference/Modules/learnloop/diagnosis/_package|learnloop.diagnosis]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
-| Worktree state | `modified` |
-| Source commit | `workspace/uncommitted @ HEAD 450c22470d46f9bd13a2faf2d4fb955ba0dad985` |
-| Commit timestamp | `2026-11-04T10:02:56-05:00` |
+| Worktree state | `clean` |
+| Source commit | `e352671bc5acc2a4286028b9bff1f8847e74351c` |
+| Commit timestamp | `2026-11-04T11:32:15-05:00` |
 
 ## Public API
 
@@ -98,13 +98,13 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
   - `outcome(self) -> str` (line 2412; public)
   - `observation_id(self) -> str | None` (line 2416; public)
   - `as_dict(self) -> dict[str, Any]` (line 2419; public)
-- `record_learner_embedded_prediction(repository: Repository, *, factor_id: str, prediction: str, question_event_id: str, attempt_id: str | None=None, practice_item_id: str | None=None, remediation_episode_id: str | None=None, clock: Clock | None=None) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/diagnosis/causal_orchestrator.py), line 2559) — Record a falsifiable expectation the learner's OWN question asserted.
-- `record_probe_classification(repository: Repository, *, presentation_id: str, observed_features: Mapping[str, Any], feature_source: str, probe_attempt_id: str | None=None, clock: Clock | None=None) -> DiscriminatingObservation` ([source](../../../../../../src/learnloop/diagnosis/causal_orchestrator.py), line 2638) — Classify an administered probe AND act on the verdict (§6, §7).
-- `deterministic_probe_features(vault: LoadedVault, repository: Repository, attempt_id: str) -> dict[str, Any]` ([source](../../../../../../src/learnloop/diagnosis/causal_orchestrator.py), line 2832) — The graded probe attempt's own criterion outcomes, as a feature vector.
-- `auto_classify_pinned_probe(vault: LoadedVault, repository: Repository, *, attempt_id: str, clock: Clock | None=None) -> DiscriminatingObservation | None` ([source](../../../../../../src/learnloop/diagnosis/causal_orchestrator.py), line 2889) — Close the loop automatically when a probe answer can be read by machine.
-- `cold_verification_context(vault: LoadedVault | None, repository: Repository, *, episode: Mapping[str, Any], source_attempt: Mapping[str, Any]) -> dict[str, Any]` ([source](../../../../../../src/learnloop/diagnosis/causal_orchestrator.py), line 2961) — Everything ``record_delayed_cold_verification`` will need, resolved NOW.
-- `record_cold_verification_from_task(vault: LoadedVault, repository: Repository, *, task: Mapping[str, Any], cold_attempt_id: str, clock: Clock | None=None) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/diagnosis/causal_orchestrator.py), line 3071) — Fire the delayed cold verification when a scheduled retry completes.
-- `sweep_expired_cold_retries(vault: LoadedVault, repository: Repository, *, clock: Clock | None=None) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/diagnosis/causal_orchestrator.py), line 3250) — Turn silent cold-retry expiries into typed §4.3 dispositions.
+- `record_learner_embedded_prediction(repository: Repository, *, factor_id: str, prediction: str, question_event_id: str, attempt_id: str | None=None, practice_item_id: str | None=None, remediation_episode_id: str | None=None, clock: Clock | None=None) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/diagnosis/causal_orchestrator.py), line 2563) — Record a falsifiable expectation the learner's OWN question asserted.
+- `record_probe_classification(repository: Repository, *, presentation_id: str, observed_features: Mapping[str, Any], feature_source: str, probe_attempt_id: str | None=None, clock: Clock | None=None) -> DiscriminatingObservation` ([source](../../../../../../src/learnloop/diagnosis/causal_orchestrator.py), line 2642) — Classify an administered probe AND act on the verdict (§6, §7).
+- `deterministic_probe_features(vault: LoadedVault, repository: Repository, attempt_id: str) -> dict[str, Any]` ([source](../../../../../../src/learnloop/diagnosis/causal_orchestrator.py), line 2836) — The graded probe attempt's own criterion outcomes, as a feature vector.
+- `auto_classify_pinned_probe(vault: LoadedVault, repository: Repository, *, attempt_id: str, clock: Clock | None=None) -> DiscriminatingObservation | None` ([source](../../../../../../src/learnloop/diagnosis/causal_orchestrator.py), line 2893) — Close the loop automatically when a probe answer can be read by machine.
+- `cold_verification_context(vault: LoadedVault | None, repository: Repository, *, episode: Mapping[str, Any], source_attempt: Mapping[str, Any]) -> dict[str, Any]` ([source](../../../../../../src/learnloop/diagnosis/causal_orchestrator.py), line 2965) — Everything ``record_delayed_cold_verification`` will need, resolved NOW.
+- `record_cold_verification_from_task(vault: LoadedVault, repository: Repository, *, task: Mapping[str, Any], cold_attempt_id: str, clock: Clock | None=None) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/diagnosis/causal_orchestrator.py), line 3075) — Fire the delayed cold verification when a scheduled retry completes.
+- `sweep_expired_cold_retries(vault: LoadedVault, repository: Repository, *, clock: Clock | None=None) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/diagnosis/causal_orchestrator.py), line 3254) — Turn silent cold-retry expiries into typed §4.3 dispositions.
 
 ### Module constants
 
@@ -136,7 +136,7 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 - `CAUSAL_ORCHESTRATOR_POLICY_DEFAULTS` ([src/learnloop/diagnosis/causal_orchestrator.py](../../../../../../src/learnloop/diagnosis/causal_orchestrator.py), line 269)
 - `_ORCHESTRATOR_POLICY_BOUNDS` ([src/learnloop/diagnosis/causal_orchestrator.py](../../../../../../src/learnloop/diagnosis/causal_orchestrator.py), line 280)
 - `_UNCOMMITTED_REPAIR_STATES` ([src/learnloop/diagnosis/causal_orchestrator.py](../../../../../../src/learnloop/diagnosis/causal_orchestrator.py), line 1194)
-- `_EMBEDDED_PREDICTION_OUTCOME` ([src/learnloop/diagnosis/causal_orchestrator.py](../../../../../../src/learnloop/diagnosis/causal_orchestrator.py), line 2556)
+- `_EMBEDDED_PREDICTION_OUTCOME` ([src/learnloop/diagnosis/causal_orchestrator.py](../../../../../../src/learnloop/diagnosis/causal_orchestrator.py), line 2560)
 
 ### Explicit exports
 

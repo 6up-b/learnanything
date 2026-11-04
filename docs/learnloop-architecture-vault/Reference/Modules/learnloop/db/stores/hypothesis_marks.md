@@ -7,8 +7,8 @@ version: "1.0.0"
 source_path: "src/learnloop/db/stores/hypothesis_marks.py"
 source_paths:
   - "src/learnloop/db/stores/hypothesis_marks.py"
-source_commit: "a1ba732a86f8c704cd6e6ee1071bf7a30ad3fb1a"
-source_commit_timestamp: "2026-11-04T08:47:30-05:00"
+source_commit: "e352671bc5acc2a4286028b9bff1f8847e74351c"
+source_commit_timestamp: "2026-11-04T11:32:15-05:00"
 source_worktree_state: "clean"
 generated: true
 generated_at: "2026-11-02"
@@ -51,13 +51,13 @@ The authoritative system-level explanation remains in [[State and Persistence]],
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/db/stores/hypothesis_marks.py](../../../../../../../src/learnloop/db/stores/hypothesis_marks.py) |
-| Source lines | 180 |
+| Source lines | 190 |
 | Owning package | [[Reference/Modules/learnloop/db/stores/_package|learnloop.db.stores]] |
 | Architecture layer | `infrastructure` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `a1ba732a86f8c704cd6e6ee1071bf7a30ad3fb1a` |
-| Commit timestamp | `2026-11-04T08:47:30-05:00` |
+| Source commit | `e352671bc5acc2a4286028b9bff1f8847e74351c` |
+| Commit timestamp | `2026-11-04T11:32:15-05:00` |
 
 ## Public API
 
@@ -70,10 +70,11 @@ The authoritative system-level explanation remains in [[State and Persistence]],
 - `all_marks(connection: sqlite3.Connection) -> list[dict[str, Any]]` ([source](../../../../../../../src/learnloop/db/stores/hypothesis_marks.py), line 132)
 - `all_exposures(connection: sqlite3.Connection) -> list[dict[str, Any]]` ([source](../../../../../../../src/learnloop/db/stores/hypothesis_marks.py), line 136)
 - `exposures_for_attempt(connection: sqlite3.Connection, attempt_id: str) -> list[dict[str, Any]]` ([source](../../../../../../../src/learnloop/db/stores/hypothesis_marks.py), line 140)
-- `probe_links(connection: sqlite3.Connection, attempt_id: str | None=None) -> list[dict[str, Any]]` ([source](../../../../../../../src/learnloop/db/stores/hypothesis_marks.py), line 145)
-- `latest_observation(connection: sqlite3.Connection, factor_id: str) -> dict[str, Any] | None` ([source](../../../../../../../src/learnloop/db/stores/hypothesis_marks.py), line 152) — The newest answered observation of a factor (the discriminating-observation receipt), or None.
-- `attempt_of_item(connection: sqlite3.Connection, practice_item_id: str) -> dict[str, Any] | None` ([source](../../../../../../../src/learnloop/db/stores/hypothesis_marks.py), line 164) — The first answer to a (single-use) item, or None.
-- `decode_ids(value: Any) -> list[str]` ([source](../../../../../../../src/learnloop/db/stores/hypothesis_marks.py), line 175)
+- `exposures_of_causes(connection: sqlite3.Connection, *, attempt_id: str, factor_id: str | None) -> list[dict[str, Any]]` ([source](../../../../../../../src/learnloop/db/stores/hypothesis_marks.py), line 145) — Every display of this attempt's causes or this factor's, oldest first.
+- `probe_links(connection: sqlite3.Connection, attempt_id: str | None=None) -> list[dict[str, Any]]` ([source](../../../../../../../src/learnloop/db/stores/hypothesis_marks.py), line 155)
+- `latest_observation(connection: sqlite3.Connection, factor_id: str) -> dict[str, Any] | None` ([source](../../../../../../../src/learnloop/db/stores/hypothesis_marks.py), line 162) — The newest answered observation of a factor (the discriminating-observation receipt), or None.
+- `attempt_of_item(connection: sqlite3.Connection, practice_item_id: str) -> dict[str, Any] | None` ([source](../../../../../../../src/learnloop/db/stores/hypothesis_marks.py), line 174) — The first answer to a (single-use) item, or None.
+- `decode_ids(value: Any) -> list[str]` ([source](../../../../../../../src/learnloop/db/stores/hypothesis_marks.py), line 185)
 
 ### Module constants
 
@@ -98,7 +99,7 @@ The authoritative system-level explanation remains in [[State and Persistence]],
 - [[Reference/Modules/learnloop/diagnosis/split/history|learnloop.diagnosis.split.history]] — imports `module`; statically calls `all_marks`, `present`
 - [[Reference/Modules/learnloop/followup_run/marks|learnloop.followup_run.marks]] — imports `module`; statically calls `insert_exposure`, `insert_mark`, `marks_for_attempt`, `present`
 - [[Reference/Modules/learnloop/followup_serve/marks|learnloop.followup_serve.marks]] — imports `module`; statically calls `attempt_of_item`, `latest_observation`, `marks_for_attempt`, `present`
-- [[Reference/Modules/learnloop/followup_serve/workflow|learnloop.followup_serve.workflow]] — imports `module`; statically calls `link_probe_answer`, `present`
+- [[Reference/Modules/learnloop/followup_serve/workflow|learnloop.followup_serve.workflow]] — imports `module`; statically calls `exposures_of_causes`, `link_probe_answer`, `present`
 - [[Reference/Modules/learnloop/ops/capture_report|learnloop.ops.capture_report]] — imports `module`; statically calls `all_exposures`, `all_marks`, `decode_ids`, `present`, `probe_links`
 
 ## Dependencies
@@ -125,6 +126,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
+- [tests/test_followup_fg1c_r1_exposure_independence.py](../../../../../../../tests/test_followup_fg1c_r1_exposure_independence.py) — direct import
 - [tests/test_hypothesis_marks.py](../../../../../../../tests/test_hypothesis_marks.py) — direct import
   - `test_a_refused_row_rolls_back_alone_and_the_rest_of_the_transaction_stands`
 

@@ -83,7 +83,7 @@ source_paths:
   - "src/learnloop_sidecar/handlers/workbench_help.py"
   - "src/learnloop_sidecar/handlers/workbench_rw2c.py"
 source_commit: "aggregate; see module notes"
-source_commit_timestamp: "2026-11-04T08:47:30-05:00"
+source_commit_timestamp: "2026-11-04T11:35:15-05:00"
 generated: true
 generated_at: "2026-11-02"
 package: "learnloop_sidecar.handlers"
@@ -146,7 +146,7 @@ For system intent, use [[Architecture Overview]].
 | [[Reference/Modules/learnloop_sidecar/handlers/facet_detail|learnloop_sidecar.handlers.facet_detail]] | [[Reference/Modules/learnloop_sidecar/handlers/facet_detail#^module-purpose|purpose]] | `ACTIVE` | 1 | 0 |
 | [[Reference/Modules/learnloop_sidecar/handlers/facet_identity|learnloop_sidecar.handlers.facet_identity]] | [[Reference/Modules/learnloop_sidecar/handlers/facet_identity#^module-purpose|purpose]] | `ACTIVE` | 1 | 0 |
 | [[Reference/Modules/learnloop_sidecar/handlers/facets|learnloop_sidecar.handlers.facets]] | [[Reference/Modules/learnloop_sidecar/handlers/facets#^module-purpose|purpose]] | `ACTIVE` | 1 | 0 |
-| [[Reference/Modules/learnloop_sidecar/handlers/feedback|learnloop_sidecar.handlers.feedback]] | [[Reference/Modules/learnloop_sidecar/handlers/feedback#^module-purpose|purpose]] | `ACTIVE` | 1 | 3 |
+| [[Reference/Modules/learnloop_sidecar/handlers/feedback|learnloop_sidecar.handlers.feedback]] | [[Reference/Modules/learnloop_sidecar/handlers/feedback#^module-purpose|purpose]] | `ACTIVE` | 1 | 4 |
 | [[Reference/Modules/learnloop_sidecar/handlers/figures|learnloop_sidecar.handlers.figures]] | [[Reference/Modules/learnloop_sidecar/handlers/figures#^module-purpose|purpose]] | `ACTIVE` | 4 | 8 |
 | [[Reference/Modules/learnloop_sidecar/handlers/first_run|learnloop_sidecar.handlers.first_run]] | [[Reference/Modules/learnloop_sidecar/handlers/first_run#^module-purpose|purpose]] | `ACTIVE` | 1 | 4 |
 | [[Reference/Modules/learnloop_sidecar/handlers/followup|learnloop_sidecar.handlers.followup]] | [[Reference/Modules/learnloop_sidecar/handlers/followup#^module-purpose|purpose]] | `ACTIVE` | 1 | 0 |
@@ -231,8 +231,8 @@ For system intent, use [[Architecture Overview]].
 - [[Reference/Modules/learnloop/adaptive_difficulty/_package|learnloop.adaptive_difficulty]] — 10 static module edges
 - [[Reference/Modules/learnloop/figures/_package|learnloop.figures]] — 10 static module edges
 - [[Reference/Modules/learnloop/ops/_package|learnloop.ops]] — 10 static module edges
+- [[Reference/Modules/learnloop/followup_run/_package|learnloop.followup_run]] — 9 static module edges
 - [[Reference/Modules/learnloop/content/synthesis/_package|learnloop.content.synthesis]] — 8 static module edges
-- [[Reference/Modules/learnloop/followup_run/_package|learnloop.followup_run]] — 8 static module edges
 - [[Reference/Modules/learnloop/intent/_package|learnloop.intent]] — 8 static module edges
 - [[Reference/Modules/learnloop/substrate/_package|learnloop.substrate]] — 8 static module edges
 - [[Reference/Modules/learnloop/config/_package|learnloop.config]] — 7 static module edges

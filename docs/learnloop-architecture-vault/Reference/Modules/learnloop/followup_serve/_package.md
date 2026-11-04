@@ -12,7 +12,7 @@ source_paths:
   - "src/learnloop/followup_serve/queue.py"
   - "src/learnloop/followup_serve/workflow.py"
 source_commit: "aggregate; see module notes"
-source_commit_timestamp: "2026-11-04T10:02:56-05:00"
+source_commit_timestamp: "2026-11-04T11:32:15-05:00"
 generated: true
 generated_at: "2026-11-02"
 package: "learnloop.followup_serve"
@@ -54,7 +54,7 @@ For system intent, use [[Architecture Overview]].
 | [[Reference/Modules/learnloop/followup_serve/identity|learnloop.followup_serve.identity]] | [[Reference/Modules/learnloop/followup_serve/identity#^module-purpose|purpose]] | `ACTIVE` | 15 | 10 |
 | [[Reference/Modules/learnloop/followup_serve/marks|learnloop.followup_serve.marks]] | [[Reference/Modules/learnloop/followup_serve/marks#^module-purpose|purpose]] | `ACTIVE` | 7 | 2 |
 | [[Reference/Modules/learnloop/followup_serve/queue|learnloop.followup_serve.queue]] | [[Reference/Modules/learnloop/followup_serve/queue#^module-purpose|purpose]] | `ACTIVE` | 7 | 2 |
-| [[Reference/Modules/learnloop/followup_serve/workflow|learnloop.followup_serve.workflow]] | [[Reference/Modules/learnloop/followup_serve/workflow#^module-purpose|purpose]] | `ACTIVE` | 16 | 12 |
+| [[Reference/Modules/learnloop/followup_serve/workflow|learnloop.followup_serve.workflow]] | [[Reference/Modules/learnloop/followup_serve/workflow#^module-purpose|purpose]] | `ACTIVE` | 16 | 13 |
 
 ## Cross-package dependencies
 

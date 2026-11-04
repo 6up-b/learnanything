@@ -7,8 +7,8 @@ version: "1.0.0"
 source_path: "src/learnloop/followup_run/marks.py"
 source_paths:
   - "src/learnloop/followup_run/marks.py"
-source_commit: "450c22470d46f9bd13a2faf2d4fb955ba0dad985"
-source_commit_timestamp: "2026-11-04T10:02:56-05:00"
+source_commit: "094836387e8580ee3996941f4e181b109942c8dc"
+source_commit_timestamp: "2026-11-04T11:35:15-05:00"
 source_worktree_state: "clean"
 generated: true
 generated_at: "2026-11-02"
@@ -50,32 +50,34 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/followup_run/marks.py](../../../../../../src/learnloop/followup_run/marks.py) |
-| Source lines | 309 |
+| Source lines | 335 |
 | Owning package | [[Reference/Modules/learnloop/followup_run/_package|learnloop.followup_run]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `450c22470d46f9bd13a2faf2d4fb955ba0dad985` |
-| Commit timestamp | `2026-11-04T10:02:56-05:00` |
+| Source commit | `094836387e8580ee3996941f4e181b109942c8dc` |
+| Commit timestamp | `2026-11-04T11:35:15-05:00` |
 
 ## Public API
 
-- `class MarkRefused(ValueError)` ([source](../../../../../../src/learnloop/followup_run/marks.py), line 41) — A mark that names nothing on this attempt's list, or a list that is still held.
-- `class MarkableList` ([source](../../../../../../src/learnloop/followup_run/marks.py), line 46) — One attempt's list of possible causes, in the order it is displayed.
-  - `order(self) -> list[str]` (line 59; public)
-- `markable_list(vault: Any, repository: Repository, attempt_id: str) -> MarkableList | None` ([source](../../../../../../src/learnloop/followup_run/marks.py), line 96) — The attempt's list, or None with no concrete cause to mark.
-- `view(vault: Any, repository: Repository, attempt_id: str, *, surface: str=SURFACE_FEEDBACK) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/followup_run/marks.py), line 130) — What the panel shows for one attempt, or None: the switch is off, the list is held, or there is nothing to mark.
-- `bundle_view(vault: Any, repository: Repository, attempt_id: str) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/followup_run/marks.py), line 164) — §3 step 8: an answer to a generated probe shows the earlier miss's list, since that is what its answer was about.
-- `record_exposure(vault: Any, repository: Repository, *, attempt_id: str, surface: str, hypothesis_version_ids: Sequence[str], shown_at: str | None=None, clock: Clock | None=None) -> str | None` ([source](../../../../../../src/learnloop/followup_run/marks.py), line 176) — One display, from the client's display event, in the order as displayed.
-- `record_mark(vault: Any, repository: Repository, *, attempt_id: str, mark: str, hypothesis_version_id: str | None=None, free_text: str | None=None, surface: str=SURFACE_FEEDBACK, clock: Clock | None=None) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/followup_run/marks.py), line 238) — Append one mark and return the panel's new read; None with the switch off.
+- `class MarkRefused(ValueError)` ([source](../../../../../../src/learnloop/followup_run/marks.py), line 47) — A mark that names nothing on this attempt's list, or a list that is still held.
+- `class MarkableList` ([source](../../../../../../src/learnloop/followup_run/marks.py), line 52) — One attempt's list of possible causes, in the order it is displayed.
+  - `order(self) -> list[str]` (line 65; public)
+- `markable_list(vault: Any, repository: Repository, attempt_id: str) -> MarkableList | None` ([source](../../../../../../src/learnloop/followup_run/marks.py), line 102) — The attempt's list, or None with no concrete cause to mark.
+- `view(vault: Any, repository: Repository, attempt_id: str, *, surface: str=SURFACE_FEEDBACK) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/followup_run/marks.py), line 136) — What the panel shows for one attempt, or None: the switch is off, the list is held, or there is nothing to mark.
+- `bundle_view(vault: Any, repository: Repository, attempt_id: str) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/followup_run/marks.py), line 170) — §3 step 8: an answer to a generated probe shows the earlier miss's list, since that is what its answer was about.
+- `record_exposure(vault: Any, repository: Repository, *, attempt_id: str, surface: str, hypothesis_version_ids: Sequence[str], shown_at: str | None=None, clock: Clock | None=None) -> str | None` ([source](../../../../../../src/learnloop/followup_run/marks.py), line 182) — One display, from the client's display event, in the order as displayed.
+- `record_inspector_exposure(vault: Any, repository: Repository, attempt_id: str) -> str | None` ([source](../../../../../../src/learnloop/followup_run/marks.py), line 232) — The inspector shows every cause of the attempt, held or not.
+- `record_mark(vault: Any, repository: Repository, *, attempt_id: str, mark: str, hypothesis_version_id: str | None=None, free_text: str | None=None, surface: str=SURFACE_FEEDBACK, clock: Clock | None=None) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/followup_run/marks.py), line 264) — Append one mark and return the panel's new read; None with the switch off.
 
 ### Module constants
 
-- `SURFACE_FEEDBACK` ([src/learnloop/followup_run/marks.py](../../../../../../src/learnloop/followup_run/marks.py), line 33)
-- `SURFACE_PROBE_FEEDBACK` ([src/learnloop/followup_run/marks.py](../../../../../../src/learnloop/followup_run/marks.py), line 34)
-- `LIST_SURFACES` ([src/learnloop/followup_run/marks.py](../../../../../../src/learnloop/followup_run/marks.py), line 36)
-- `MARKS_SURFACES` ([src/learnloop/followup_run/marks.py](../../../../../../src/learnloop/followup_run/marks.py), line 37)
-- `EXPOSURE_SURFACES` ([src/learnloop/followup_run/marks.py](../../../../../../src/learnloop/followup_run/marks.py), line 38)
+- `SURFACE_FEEDBACK` ([src/learnloop/followup_run/marks.py](../../../../../../src/learnloop/followup_run/marks.py), line 36)
+- `SURFACE_PROBE_FEEDBACK` ([src/learnloop/followup_run/marks.py](../../../../../../src/learnloop/followup_run/marks.py), line 37)
+- `SURFACE_INSPECTOR` ([src/learnloop/followup_run/marks.py](../../../../../../src/learnloop/followup_run/marks.py), line 40)
+- `LIST_SURFACES` ([src/learnloop/followup_run/marks.py](../../../../../../src/learnloop/followup_run/marks.py), line 42)
+- `MARKS_SURFACES` ([src/learnloop/followup_run/marks.py](../../../../../../src/learnloop/followup_run/marks.py), line 43)
+- `EXPOSURE_SURFACES` ([src/learnloop/followup_run/marks.py](../../../../../../src/learnloop/followup_run/marks.py), line 44)
 
 ### Explicit exports
 
@@ -87,19 +89,22 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `MarkRefused`
 - `MarkableList`
 - `SURFACE_FEEDBACK`
+- `SURFACE_INSPECTOR`
 - `SURFACE_PROBE_FEEDBACK`
 - `bundle_view`
 - `markable_list`
 - `record_exposure`
+- `record_inspector_exposure`
 - `record_mark`
 - `view`
 
 ## Internal implementation anchors
 
-- `_chosen_factor(repository: Repository, attempt_id: str, workflow: Mapping[str, Any] | None) -> tuple[str | None, tuple[str, ...]]` ([source](../../../../../../src/learnloop/followup_run/marks.py), line 63) — The factor whose causes are listed, and those causes: the workflow's, whatever became of it (its probe tested those very versions), else the newest factor still open or resolved.
-- `_claim_checked_ids(vault: Any, repository: Repository, attempt_id: str) -> tuple[str, ...]` ([source](../../../../../../src/learnloop/followup_run/marks.py), line 82) — With no factor, exactly the causes the feedback's own overlay would show (it fails closed on a receipt that doesn't permit learner feedback).
-- `_state(repository: Repository, listed: MarkableList) -> dict[str, Any]` ([source](../../../../../../src/learnloop/followup_run/marks.py), line 125)
-- `_exposure_refusal(repository: Repository, attempt_id: str, surface: str, ids: Sequence[str]) -> str | None` ([source](../../../../../../src/learnloop/followup_run/marks.py), line 224)
+- `_chosen_factor(repository: Repository, attempt_id: str, workflow: Mapping[str, Any] | None) -> tuple[str | None, tuple[str, ...]]` ([source](../../../../../../src/learnloop/followup_run/marks.py), line 69) — The factor whose causes are listed, and those causes: the workflow's, whatever became of it (its probe tested those very versions), else the newest factor still open or resolved.
+- `_claim_checked_ids(vault: Any, repository: Repository, attempt_id: str) -> tuple[str, ...]` ([source](../../../../../../src/learnloop/followup_run/marks.py), line 88) — With no factor, exactly the causes the feedback's own overlay would show (it fails closed on a receipt that doesn't permit learner feedback).
+- `_state(repository: Repository, listed: MarkableList) -> dict[str, Any]` ([source](../../../../../../src/learnloop/followup_run/marks.py), line 131)
+- `_readable_time(value: str | None) -> bool` ([source](../../../../../../src/learnloop/followup_run/marks.py), line 245)
+- `_exposure_refusal(repository: Repository, attempt_id: str, surface: str, ids: Sequence[str]) -> str | None` ([source](../../../../../../src/learnloop/followup_run/marks.py), line 252)
 
 ## Who imports or calls it
 
@@ -108,6 +113,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 
 - [[Reference/Modules/learnloop_sidecar/handlers/feedback|learnloop_sidecar.handlers.feedback]] — imports `bundle_view`; statically calls `bundle_view`
 - [[Reference/Modules/learnloop_sidecar/handlers/followup|learnloop_sidecar.handlers.followup]] — imports `MarkRefused`, `record_exposure`, `record_mark`; statically calls `record_exposure`, `record_mark`
+- [[Reference/Modules/learnloop_sidecar/handlers/inspector|learnloop_sidecar.handlers.inspector]] — imports `record_inspector_exposure`; statically calls `record_inspector_exposure`
 
 ## Dependencies
 
@@ -136,7 +142,7 @@ Use this module in context through:
 - [[Initialize a Vault]]
 - [[Start a Learning Cycle]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop_sidecar/handlers/feedback|learnloop_sidecar.handlers.feedback]], [[Reference/Modules/learnloop_sidecar/handlers/followup|learnloop_sidecar.handlers.followup]].
+Static participation evidence comes from [[Reference/Modules/learnloop_sidecar/handlers/feedback|learnloop_sidecar.handlers.feedback]], [[Reference/Modules/learnloop_sidecar/handlers/followup|learnloop_sidecar.handlers.followup]], [[Reference/Modules/learnloop_sidecar/handlers/inspector|learnloop_sidecar.handlers.inspector]].
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
@@ -144,6 +150,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 - [tests/test_followup_fg1c_codex_review.py](../../../../../../tests/test_followup_fg1c_codex_review.py) — direct import
   - `test_f1_only_the_causes_a_context_still_shows_are_folded`
+- [tests/test_followup_fg1c_r1_exposure_independence.py](../../../../../../tests/test_followup_fg1c_r1_exposure_independence.py) — direct import
+  - `test_every_surface_that_sends_a_display_event_reaches_it`
 - [tests/test_hypothesis_marks.py](../../../../../../tests/test_hypothesis_marks.py) — direct import
   - `test_a_live_diagnosis_is_stored_by_its_id`
   - `test_a_marks_read_that_fails_costs_the_panel_and_not_the_feedback`

@@ -7,8 +7,8 @@ version: "1.0.0"
 source_path: "src/learnloop_sidecar/handlers/inspector.py"
 source_paths:
   - "src/learnloop_sidecar/handlers/inspector.py"
-source_commit: "324e21708f4ec712cc669086f5a261efa70f57ff"
-source_commit_timestamp: "2026-07-15T11:03:42-04:00"
+source_commit: "094836387e8580ee3996941f4e181b109942c8dc"
+source_commit_timestamp: "2026-11-04T11:35:15-05:00"
 source_worktree_state: "clean"
 generated: true
 generated_at: "2026-11-02"
@@ -53,13 +53,13 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop_sidecar/handlers/inspector.py](../../../../../../src/learnloop_sidecar/handlers/inspector.py) |
-| Source lines | 216 |
+| Source lines | 228 |
 | Owning package | [[Reference/Modules/learnloop_sidecar/handlers/_package|learnloop_sidecar.handlers]] |
 | Architecture layer | `adapter` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `324e21708f4ec712cc669086f5a261efa70f57ff` |
-| Commit timestamp | `2026-07-15T11:03:42-04:00` |
+| Source commit | `094836387e8580ee3996941f4e181b109942c8dc` |
+| Commit timestamp | `2026-11-04T11:35:15-05:00` |
 
 ## Public API
 
@@ -68,12 +68,13 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 
 ## Internal implementation anchors
 
-- `_note_detail(vault: Any, identifier: str) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop_sidecar/handlers/inspector.py), line 75)
-- `_note_title(body: str) -> str | None` ([source](../../../../../../src/learnloop_sidecar/handlers/inspector.py), line 106)
-- `_search_suggestions(vault: Any, query: str) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop_sidecar/handlers/inspector.py), line 114)
-- `_match_score(query: str, value: str | None) -> float` ([source](../../../../../../src/learnloop_sidecar/handlers/inspector.py), line 182)
-- `_subsequence_score(query: str, haystack: str) -> float` ([source](../../../../../../src/learnloop_sidecar/handlers/inspector.py), line 200)
-- `_normalize(value: str) -> str` ([source](../../../../../../src/learnloop_sidecar/handlers/inspector.py), line 215)
+- `_causes_on_screen(ctx: SidecarContext, vault: Any, repository: Any, attempt_id: str) -> None` ([source](../../../../../../src/learnloop_sidecar/handlers/inspector.py), line 77) — FG1c, R1: the inspector shows an attempt's raw causes, whatever is held, so a probe's later answer has to know.
+- `_note_detail(vault: Any, identifier: str) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop_sidecar/handlers/inspector.py), line 87)
+- `_note_title(body: str) -> str | None` ([source](../../../../../../src/learnloop_sidecar/handlers/inspector.py), line 118)
+- `_search_suggestions(vault: Any, query: str) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop_sidecar/handlers/inspector.py), line 126)
+- `_match_score(query: str, value: str | None) -> float` ([source](../../../../../../src/learnloop_sidecar/handlers/inspector.py), line 194)
+- `_subsequence_score(query: str, haystack: str) -> float` ([source](../../../../../../src/learnloop_sidecar/handlers/inspector.py), line 212)
+- `_normalize(value: str) -> str` ([source](../../../../../../src/learnloop_sidecar/handlers/inspector.py), line 227)
 
 ## Who imports or calls it
 
@@ -86,6 +87,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 
 ### LearnLoop dependencies
 
+- [[Reference/Modules/learnloop/followup_run/marks|learnloop.followup_run.marks]] — imports `record_inspector_exposure`; calls `record_inspector_exposure`
 - [[Reference/Modules/learnloop_sidecar/context|learnloop_sidecar.context]] — imports `SidecarContext`
 - [[Reference/Modules/learnloop_sidecar/dto|learnloop_sidecar.dto]] — imports `ParamsModel`, `to_camel`, `versioned`; calls `to_camel`, `versioned`
 - [[Reference/Modules/learnloop_sidecar/handlers/serializers|learnloop_sidecar.handlers.serializers]] — imports `attempt_detail`, `concept_detail`, `error_event_dto`, `learning_object_detail`, `practice_item_detail`, `resolve_concept_id`; calls `attempt_detail`, `concept_detail`, `error_event_dto`, `learning_object_detail`, `practice_item_detail`, `resolve_concept_id`

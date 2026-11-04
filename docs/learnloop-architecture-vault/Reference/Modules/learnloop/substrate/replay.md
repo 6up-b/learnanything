@@ -152,6 +152,9 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_facet_uncertainty_rebuilds_from_attempts_and_grading_evidence`
 - [tests/test_followup_codex_review.py](../../../../../../tests/test_followup_codex_review.py) — direct import
   - `test_f3_the_retry_retires_the_orphan_and_serves_its_own_question`
+- [tests/test_followup_fg1c_r1_exposure_independence.py](../../../../../../tests/test_followup_fg1c_r1_exposure_independence.py) — direct import
+  - `test_a_rebuild_keeps_the_answer_not_independent`
+  - `test_the_panel_on_the_answers_own_feedback_doesnt_relabel_the_answer`
 - [tests/test_followup_journey.py](../../../../../../tests/test_followup_journey.py) — direct import
   - `test_a_lost_response_counts_as_burned_and_rebuild_keeps_the_one_submission`
   - `test_the_whole_journey_and_never_again`

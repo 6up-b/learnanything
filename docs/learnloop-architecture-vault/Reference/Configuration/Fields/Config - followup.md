@@ -3,8 +3,8 @@ title: "Config - followup"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "28a1b3d9817a7e579bdd8eb3b17ab29acdf57458"
-source_commit_timestamp: "2026-11-04T09:10:39-05:00"
+source_commit: "094836387e8580ee3996941f4e181b109942c8dc"
+source_commit_timestamp: "2026-11-04T11:35:15-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "learnloop.toml followup"
@@ -20,6 +20,7 @@ source_paths:
   - "tests/test_config_refactor.py"
   - "src/learnloop/ai/plan_fallback.py"
   - "tests/test_architecture.py"
+  - "tests/test_followup_fg1c_r1_exposure_independence.py"
   - "tests/test_followup_successor.py"
   - "tests/test_hypothesis_marks.py"
   - "tests/test_hypothesis_marks_context.py"
@@ -55,6 +56,7 @@ The main configuration contract, precedence rules, and safe-edit workflow live i
 Every row cites the exact Pydantic field declaration (or typed dynamic-key container). Additional anchors appear only when static analysis resolves the complete dotted path, a typed submodel parameter, or an alias derived from one of those paths; a declaration-only row means no direct runtime read was resolved, not that a same-named token was accepted as evidence. The broad tests most directly mentioning this section include:
 
 - `tests/test_architecture.py`
+- `tests/test_followup_fg1c_r1_exposure_independence.py`
 - `tests/test_followup_successor.py`
 - `tests/test_hypothesis_marks.py`
 - `tests/test_hypothesis_marks_context.py`

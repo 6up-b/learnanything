@@ -7,9 +7,9 @@ version: "1.0.0"
 source_path: "src/learnloop/followup_serve/marks.py"
 source_paths:
   - "src/learnloop/followup_serve/marks.py"
-source_commit: "workspace/uncommitted @ HEAD 450c22470d46f9bd13a2faf2d4fb955ba0dad985"
-source_commit_timestamp: "2026-11-04T10:02:56-05:00"
-source_worktree_state: "modified"
+source_commit: "b476193089d878c66a13b53ff18e690e04ba07c2"
+source_commit_timestamp: "2026-11-04T11:07:40-05:00"
+source_worktree_state: "clean"
 generated: true
 generated_at: "2026-11-02"
 package: "learnloop.followup_serve"
@@ -54,9 +54,9 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Owning package | [[Reference/Modules/learnloop/followup_serve/_package|learnloop.followup_serve]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
-| Worktree state | `modified` |
-| Source commit | `workspace/uncommitted @ HEAD 450c22470d46f9bd13a2faf2d4fb955ba0dad985` |
-| Commit timestamp | `2026-11-04T10:02:56-05:00` |
+| Worktree state | `clean` |
+| Source commit | `b476193089d878c66a13b53ff18e690e04ba07c2` |
+| Commit timestamp | `2026-11-04T11:07:40-05:00` |
 
 ## Public API
 
