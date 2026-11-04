@@ -129,6 +129,10 @@ def test_shadow_rebuild_cli_json_is_stable_and_leaves_live_hash_unchanged(tmp_pa
         "schedule",
         "summary",
     }
+    # RO1 (codex review F2, F3): serving's own read of each side, the live side read-only.
+    items = report["schedule_effects"]["practice_item_state"]
+    assert {"queue_due", "review_load_per_day", "interval_ratio"} <= set(items)
+    assert "queue_due" not in report["schedule_effects"]["activity_card_state"]
     assert _sha256(database) == before_hash
     assert _receipt_count(database) == receipts_before
 

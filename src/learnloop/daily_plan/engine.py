@@ -1499,11 +1499,23 @@ def _review_items(env: PlanEnv, estimator: Estimator, intent: Any = None) -> lis
     """The review-load population (§6.3): items with memory state, at their
     effective due (DL2, §5.3), in non-excluded intents."""
 
+    return review_population(
+        env.vault, env.repository, intent, minutes=lambda item_id: estimator.item_minutes(env.vault, item_id)
+    )
+
+
+def review_population(
+    vault: Any, repository: Any, intent: Any, *, minutes: Callable[[str], float]
+) -> list[ReviewItem]:
+    """:func:`_review_items` over a vault and repository: admission's review-load population, each
+    item at its effective due and from the review its interval runs from. Router objective RO1
+    (codex review F3): the upgrade's report (``daily_plan.schedule_effects``) reads serving through
+    this same function, so its queue and load are admission's own."""
+
     from learnloop.vault.lifecycle import practice_item_servable
 
-    vault = env.vault
     items: list[ReviewItem] = []
-    for item_id, state in env.repository.practice_item_states().items():
+    for item_id, state in repository.practice_item_states().items():
         if not state.active or state.due_at is None or state.stability is None:
             continue
         item = vault.practice_items.get(item_id)
@@ -1526,7 +1538,7 @@ def _review_items(env: PlanEnv, estimator: Estimator, intent: Any = None) -> lis
                 practice_item_id=item_id,
                 due_at=due_at,
                 last_review_at=last_review_at,
-                est_minutes=estimator.item_minutes(vault, item_id),
+                est_minutes=minutes(item_id),
             )
         )
     return items
@@ -5292,6 +5304,7 @@ __all__ = [
     "reconcile",
     "register_plan_decision_logger",
     "remembered_minutes",
+    "review_population",
     "set_minutes",
     "simulate_blocks",
     "staged_plans_deterministic",

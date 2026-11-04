@@ -13,11 +13,11 @@ successor, so `mvp-0.46` should hold. What was built where the spec differs is i
 | §5.1 the change | `attempts/attempts.py:4611`: at the gate the surprise record's `fsrs_interval_factor` is 1.0, and the interval line (`:4663`) multiplies by it, which is exact. The gate is `router_objective_switches.interval_factor_removed(config)`, its own (not `hot_path_applies_practice_review`) |
 | §5.2 what stays | Rating, S, D and every surprise value are computed as before; direction, the follow-up gate, the re-probe trigger and `signal_quantiles` read the same record. Replay goes through the same function, so a rebuild writes 1.0 under the same gate. `alpha_interval`, `f_min`, `f_max` stay in `config/schema.py` with a note; the full template (`LEGACY_DEFAULT_CONFIG_TEXT`, the one that stores them) carries the note; `recall_targets.py`'s docstring; `sim/default_sweep.yaml` now sweeps `remove_interval_factor = false` (alpha is inert at the latest version) |
 | §5.3 availability | Migration 242: `practice_attempts.received_at`, `received_at_source` (`recorded`, `inferred`), the backfill of `exam_evidence` rows from the id's ULID time (SQL: a Crockford GLOB and a base-32 fold of the first ten characters), invalid ids left null. `AttemptDraft.received_at` -> the attempt record -> `_insert_practice_attempt` (written only when set). `goals/exam_seeding.py` sets it (new `clock` argument, the import's time). `router_objective_switches.available_at(row)`, `AVAILABLE_AT_SQL`, `attempt_time_column(config)`. Replay's UPDATE never touches the column |
-| §5.3 decision-time reads | `daily_plan/router_card.py`: `as_of_attempt_id` (`:209`) and `_attempts` (`:445`) filter by availability at the gate. Outcomes, FSRS, mastery and the diagnoser's history keep `created_at` |
+| §5.3 decision-time reads | `daily_plan/router_card.py`: `as_of_attempt_id` (`:209`), `_attempts` (`:445`) and the week of activity (`_interaction`, codex review F1) filter by availability at the gate. Outcomes, FSRS, mastery and the diagnoser's history keep `created_at` |
 | §5.4 | `diagnosis/split/history.py:916`: `validated_resolution_ids` drops `learner_report:*` at the gate. Status and `resolution_observation_ids_json` untouched |
 | §5.5 version and switches | `algorithm_versions.py`, `config/schema.py` (`SchedulerSurpriseConfig.remove_interval_factor`, `RouterObjectiveConfig.available_at_reads`, `.self_report_not_validated`), the registry's three `_ConfigRule`s (structural, operational), every defaults snapshot recomputed and `mvp-0.46`'s added. CLI `upgrade --to`, the openers' completion (`cli/runtime.py`, `learnloop_sidecar/context.py`), the activation journal docstring, the import contracts' module list |
 | §5.5 the projection change | `derived_state_rebuilds.projection_switches_json`, written by both rebuild writers; `Repository.latest_whole_vault_rebuild`; `ops/doctor.py::_check_projection_switches` (`sql:projection_switches_stale`). The upgrade's activation runs a whole-vault rebuild under the tag in its transaction (rebuild equivalence's pattern; completion is that rebuild's receipt) |
-| §5.5 the upgrade's report | `daily_plan/schedule_effects.py`, added by `learnloop rebuild --shadow --json`; `ShadowRebuildResult.schedule_before/after` |
+| §5.5 the upgrade's report | `daily_plan/schedule_effects.py`, added by `learnloop rebuild --shadow --json`; `ShadowRebuildResult.schedule_before/after`, and (codex review F2, F3) `shadow_rebuild(observe=serving_schedule)`'s `observed_before/after`: serving's own population (`engine.review_population`) and the recall-target anchors on each side |
 
 **`RouterObjectiveConfig` and RO0.** RO0 adds the same class with `receipts`. This branch adds it with RO1's two
 keys at the same place in `LearnLoopConfig`; the merge keeps one class with all three keys, and the
@@ -78,7 +78,8 @@ byte-identical with the switch off (tested).
    item's own estimate, so minutes move with it item by item. No new constant: 1.0 is the unit.
 7. **The sweep.** `alpha_interval` is inert at the latest version with the switch on, so its sweep entry would
    report nothing; it is replaced by `remove_interval_factor: [false]`, which measures what RO1 changed.
-8. **Not done:** nothing in §5 was dropped.
+8. **Not done:** nothing in §5 was dropped. (The Codex review found the card's week of activity unfiltered and the
+   report's queue, load and interval anchors not serving's; fixed, `router-ro1-codex-review.md`.)
 
 ## The upgrade's report, measured on a synthetic vault
 
@@ -98,6 +99,10 @@ and `schedule_effects` at the day after the last round (2026-06-13), plan horizo
 | Activity cards | 0 rows | 0 rows |
 | Mastery and facet rows | | Only the version stamp, beyond one mastery row a same-version shadow also shows (this vault's replay-against-live difference, not RO1's) |
 | Live database | | Unchanged (hash before = after) |
+
+After the Codex review's F2/F3 fix (the report now reads serving's population and the recall-target anchors) the
+same builder gives the same numbers at 0, 3, 7 and 14 days: this vault has no commitment, no primed retry, no held
+grade and no inactive item, so serving's population is every row and each anchor is the last attempt.
 
 Reading: on this history the factor had mostly stretched intervals (a positive residual on the hard items and
 correct answers), so most dates come earlier, but the two longest intervals were compressed by misses and move

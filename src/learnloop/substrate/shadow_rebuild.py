@@ -17,7 +17,7 @@ from contextlib import closing
 from copy import deepcopy
 from dataclasses import dataclass, field, replace
 from pathlib import Path
-from typing import Any, Mapping, Sequence
+from typing import Any, Callable, Mapping, Sequence
 
 from pydantic import ValidationError
 
@@ -67,6 +67,12 @@ class ShadowRebuildResult:
     #: RO1 §5.5). Not part of :meth:`as_dict`.
     schedule_before: Mapping[tuple[Any, ...], Mapping[str, Any]] = field(default_factory=dict)
     schedule_after: Mapping[tuple[Any, ...], Mapping[str, Any]] = field(default_factory=dict)
+    #: What the caller's ``observe`` read of each side (the live database under the baseline config,
+    #: the replayed copy under the candidate), or None without one. Router objective RO1 (codex
+    #: review F2, F3): serving's own reads, which the substrate may not make itself (import contract
+    #: L4/L5). Not part of :meth:`as_dict`.
+    observed_before: Any = None
+    observed_after: Any = None
 
     @property
     def live_database_unchanged(self) -> bool:
@@ -236,8 +242,13 @@ def shadow_rebuild(
     vault: LoadedVault,
     *,
     assignments: Sequence[str] = (),
+    observe: Callable[[LoadedVault, Repository], Any] | None = None,
 ) -> ShadowRebuildResult:
     """Replay all history on a scratch DB and compare learner projections.
+
+    ``observe(vault, repository)``, when given, reads each side: the live database (attached
+    read-only) under the baseline config, and the replayed copy under the candidate config. A
+    failure in it fails the shadow run (``ShadowRebuildError``); the live database stays read-only.
 
     This entry point deliberately accepts a loaded vault rather than a writable
     repository.  It derives the existing live path from the *baseline* config,
@@ -255,10 +266,14 @@ def shadow_rebuild(
     baseline_snapshot: dict[str, dict[tuple[Any, ...], dict[str, Any]]] | None = None
     rebuild_result: OrchestratedRebuildResult | None = None
     candidate_snapshot: dict[str, dict[tuple[Any, ...], dict[str, Any]]] | None = None
+    observed_before: Any = None
+    observed_after: Any = None
     after_hash = before_hash
     try:
         live_repository = Repository.attach(live_path, read_only=True)
         baseline_snapshot = _learner_state_snapshot(live_repository)
+        if observe is not None:
+            observed_before = _observed(observe, vault, live_repository, "the live database")
         candidate_config, applied = build_candidate_config(vault.config, assignments)
         candidate_vault = replace(vault, config=candidate_config)
         with tempfile.TemporaryDirectory(prefix="learnloop-shadow-rebuild-") as scratch:
@@ -271,6 +286,8 @@ def shadow_rebuild(
                     scratch_repository,
                 )
                 candidate_snapshot = _learner_state_snapshot(scratch_repository)
+                if observe is not None:
+                    observed_after = _observed(observe, candidate_vault, scratch_repository, "the replayed copy")
     finally:
         # This check runs even if candidate validation/replay fails.  A mismatch
         # is elevated over the candidate error because isolation is the stronger
@@ -296,7 +313,20 @@ def shadow_rebuild(
         live_database_sha256_after=after_hash,
         schedule_before=baseline_snapshot["schedule"],
         schedule_after=candidate_snapshot["schedule"],
+        observed_before=observed_before,
+        observed_after=observed_after,
     )
+
+
+def _observed(
+    observe: Callable[[LoadedVault, Repository], Any], vault: LoadedVault, repository: Repository, side: str
+) -> Any:
+    try:
+        return observe(vault, repository)
+    except ShadowRebuildError:
+        raise
+    except Exception as exc:  # noqa: BLE001 - named, as a shadow failure
+        raise ShadowRebuildError(f"the shadow run's observer failed on {side}: {exc}") from exc
 
 
 
