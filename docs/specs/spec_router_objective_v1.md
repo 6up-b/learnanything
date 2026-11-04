@@ -1,6 +1,6 @@
 # Router objective (RO): one objective, two policies, a dataset that can test it
 
-**Status:** final for implementation, 2026-11-04, after independent reviews by Fable agents and an Astra Codex agent (job `20261104-044635-xuAd5U`) and an offline mechanism check (T1). Nothing here is built yet; the owner runs implementation through the queue orchestrator. No stage waits on data, calibration or sample size. Code references are to main at `9780ca3baf`. Evidence and reasoning: `reports/LearnLoop router optimization research.md` and `research_notes/LearnLoop router optimization research/` (both untracked; "the report" below). Forecasts of what a stage will do are untested unless a section says otherwise.
+**Status:** RO1 built Nov 4 2026 (§5.7). Final for implementation, 2026-11-04, after independent reviews by Fable agents and an Astra Codex agent (job `20261104-044635-xuAd5U`) and an offline mechanism check (T1). Nothing here is built yet; the owner runs implementation through the queue orchestrator. No stage waits on data, calibration or sample size. Code references are to main at `9780ca3baf`. Evidence and reasoning: `reports/LearnLoop router optimization research.md` and `research_notes/LearnLoop router optimization research/` (both untracked; "the report" below). Forecasts of what a stage will do are untested unless a section says otherwise.
 
 ## 1. The owner's decisions
 
@@ -32,7 +32,7 @@ Standing rules this spec follows: learned parameters with seeded priors (no made
 
 ## 2. Stages
 
-Build in this order. Migration numbers and successor tags are claimed at landing, because FG1 and A7 are ahead in the queue. "Uses" names a code dependency, never a wait for data.
+Build in this order. Migration numbers and successor tags are claimed at landing, because other stages land in between (FG1 landed Nov 4 as `mvp-0.45`; FG1c and RO0 land beside RO1). A7 was dropped as a separate stage (owner decision, Nov 4 2026: "I agree with you reccomendation to drop it"): its probe-versus-continue contrast is read from the router's logged `no_intervention` floor (FG1 §5, §11), and a higher no-probe share is a possible RO5 arm if that proves too thin (§9, item 5). "Uses" names a code dependency, never a wait for data.
 
 | Stage | What | Serving change? | Tag? | Learner minutes | Uses |
 |---|---|---|---|---|---|
@@ -192,6 +192,18 @@ Filtering by availability doesn't reconstruct what a grade said at the time. Fie
 ### 5.6 Tests
 
 Below the tag and with each switch off, after the projection change, due dates and the diagnoser's context are byte-identical. At the tag: `due_at` follows `interval_for_retention(S)` on every eligible review; held and ineligible attempts are unchanged; surprise values and follow-up triggers match the predecessor; a second rebuild is identical. All switch combinations are tested. Tests to revisit: `test_surprise.py`, `test_irt_end_to_end.py`, `test_intent_recall_targets.py`, `test_causal_repair_sidecar_rpcs.py`, `test_cli_generate_practice.py`, `test_ad23_fix_r5.py`, `test_ad3_subject_view.py`.
+
+### 5.7 As built (Nov 4 2026, `router/ro1-interval`; `docs/reviews/router-ro1.md`)
+
+Built as successor `mvp-0.46` (`INTERVAL_FACTOR_ALGORITHM_VERSION`, upgrade `learnloop.interval_factor_upgrade`) and migration 242 (`242_availability_time.sql`), both claimed at landing after FG1c and RO0. Where it differs from §5.1-5.6:
+
+- **The factor's gate** (§5.1) is `router_objective_switches.interval_factor_removed(config)`, asked once per attempt after surprise is computed (`attempts.py:4611` at this branch; the code moved since `9780ca3baf`). At the gate the surprise record's `fsrs_interval_factor` becomes 1.0 and the interval line multiplies by it, which is exact. Held grades already recorded 1.0.
+- **`received_at`** (§5.3) comes with `received_at_source` (`recorded` at a write, `inferred` from the id's ULID time by the migration), so an inferred value is never mistaken for a recorded one. The backfill reads `attempt_type = 'exam_evidence'` rows only. Exam sittings (`goals/exam_session.py`) stamp `created_at` at the finish, which is the write, so they set nothing. `seed_exam_attempts` gained a `clock` for the import's own time.
+- **Decision-time reads** (§5.3): the router card filters attempts by `coalesce(received_at, created_at)` and points `as_of_attempt_id` at the latest attempt by that clock (`router_card.py:209`, `:445`). Recent work stays ordered and dated by `created_at`. RO0's snapshots, RO2's cards and RO6's features aren't on this branch: they read the same `attempt_time_column(config)` and `available_at(row)` when they merge.
+- **The audit** (§5.4): `validated_evidence_count` for a factor is the only count of `resolution_observation_ids`. `repositories.py:17902` decodes the column for display and resolution; `causal_orchestrator.py:2773` writes a probe's `cdo:*` id, which still counts. The provisional belief's own `evidence_json` is a mapping, which `history.py` already counted as 0. `diagnosis/split/snapshot.py` hashes the count, so the snapshot id moves at the tag with it.
+- **The projection's defaults snapshot** (§5.5) is `derived_state_rebuilds.projection_switches_json`, written by every rebuild that replays attempts (`rebuild_all_derived_state`, `rebuild_derived_state`). It has one key, `scheduler.surprise.remove_interval_factor`, the gate's value. `doctor` compares the latest whole-vault rebuild's record with the config (`sql:projection_switches_stale`). A vault with no recorded rebuild isn't compared. The upgrade activates with a whole-vault rebuild under the tag, as rebuild equivalence's did, so due dates move at the upgrade.
+- **The upgrade's report** (§5.5): `learnloop rebuild --shadow --set algorithms.algorithm_version=mvp-0.46 --json` adds `schedule_effects` (`daily_plan/schedule_effects.py`): per projection, the due dates moved, the shift in days and the interval ratio (min, median, max), the queue due now before and after with the rows newly due and no longer due, and admission's projected review load in reviews per day. It lives in `daily_plan` because the substrate may not read the plan (import contract L4/L5). The record has its numbers on a synthetic vault.
+- **The config template**: the decision-only template stores none of the factor's keys, so the note is in the full (schema 1) template beside `alpha_interval`, and the switches are modelled defaults.
 
 ## 6. RO2: the frontier LLM forecaster
 
@@ -474,7 +486,7 @@ Counts are shown separately: decisions evaluated, **unique completed assessments
 
 ## 9. RO5: return and calibration
 
-A7 isn't landed. `experiment_id` exists in `policy_experiment_assignments` and measurement records (`daily_plan/measurement.py:302`, `scheduling/randomization_layer.py:242`), which is a place to integrate, not a generic experiment. Each arm below records its own assignment with an exact logged probability in `policy_experiment_assignments`, and doesn't wait for A7. Probabilities are declared prices for information, not statistical facts. Their seeds are in §12, and the report shows what they cost in minutes.
+A7 was dropped as a separate stage (owner decision, Nov 4 2026); its probe-versus-continue contrast is read from the router's `no_intervention` floor (FG1 §5, §11). `experiment_id` exists in `policy_experiment_assignments` and measurement records (`daily_plan/measurement.py:302`, `scheduling/randomization_layer.py:242`), which is a place to integrate, not a generic experiment. Each arm below records its own assignment with an exact logged probability in `policy_experiment_assignments`, with nothing to wait for. Probabilities are declared prices for information, not statistical facts. Their seeds are in §12, and the report shows what they cost in minutes.
 
 1. **Stop coin.** At a reversible block boundary: randomize offering stop against presenting the next block, in both directions, with availability logged first. The randomized action is the **offer**, so acceptance and overrides stay inside the outcome; it identifies the effect of offering stop, not of forcing one. It trains stop's return distribution and `κ`, and it ends the daily re-centring. The observational form is rejected (report T9). The trace shows the return effect; if attendance proves near-deterministic for this learner, the return model drops out of `V`.
 2. **Randomized checks, embedded by default.** Long-lag accuracy can only come from long lags, and each check resets the delay (A4), so checks are rationed. `[router_objective] check_rate` defaults to `"embedded"`: **a check replaces one ordinary question, so it adds almost no minutes and needs no new UI.** `embedded_checks_per_day` sets how many (default 1, in the day's first session). A number instead of `"embedded"` selects extra checks at that rate per valued topic per day, the design for wanting more data than practice can carry; `"off"` schedules none.
@@ -492,7 +504,7 @@ A7 isn't landed. `experiment_id` exists in `policy_experiment_assignments` and m
 
    "Am I ready?" stays a button, and its reads are flagged as self-selected. A read near the date counts as an exposure.
 4. **`S = 0.75 R_cold + 0.25 R_next`** (`router/outcomes.py:6`): `α` gets labelled provisional, like the one-day coldness rule. Learned coldness (router §15.2) reads the same covariates.
-5. **Cold read before repair and a leave-alone arm** (report: repair overwrites the evidence about whether the earlier reading would have held). A7's continue arm is close, and FG1's probe before held feedback is close to the cold read. A leave-alone arm conflicts with FG1's serve-at-once, so it's an owner decision (§12).
+5. **Cold read before repair and a leave-alone arm** (report: repair overwrites the evidence about whether the earlier reading would have held). The router's logged `no_intervention` floor (FG1 §5) is the probe-versus-continue contrast A7 would have given, since A7 was dropped as a stage (owner, Nov 4 2026); if that floor proves too thin, a higher no-probe share is a possible arm here, with its own logged probability. FG1's probe before held feedback is close to the cold read. A leave-alone arm conflicts with FG1's serve-at-once, so it's an owner decision (§12).
 6. **Testing misconception picks.** Owner's decision, Nov 4. A pick that today resolves its factor (a concrete candidate the trace doesn't contradict) keeps doing so by default. A small seeded share, assigned atomically with the report and reused on retries, stays open instead: the report is recorded and passed on as attributed opinion, no provisional belief opens, and the factor stays open.
 
    **What this identifies.** The effect of leaving a pick open, including on repair targeting, since no provisional belief forms. Agreement between picks and probes is conditional: open factors are probe targets only under further restrictions, such as open-set coverage and divergent repair classes (`diagnosis/probe_targeting.py:383`, `:429`), and the VOI gate may decline (`scheduling/staged_policy.py:595`). So easy picks stay unprobed and ambiguous ones get probed. `learnloop data-capture report` records assignment, eligibility, gate reasons, administration, completion and intervening instruction separately, and labels agreement as conditional on being probed. Agreement against delayed performance is reported for all picks, labelled self-selected. Seeing the list can itself change later performance, which RO0's exposure rows make visible.
@@ -540,8 +552,8 @@ y_i = R_i + Σ_{a′} π_ref(a′ | x′_i) Q̂(x′_i, a′)        with the ti
 
 | # | Open decision | Default |
 |---|---|---|
-| D1 | Leave-alone arm (§9, item 5), given FG1's serve-at-once | Not built; A7's continue arm first |
-| D2 | Stage order against FG1 and A7 | The orchestrator's queue decides. No RO stage needs either to land |
+| D1 | Leave-alone arm (§9, item 5), given FG1's serve-at-once | Not built; the `no_intervention` floor first (A7 was dropped as a stage, Nov 4), and a higher no-probe share as a possible RO5 arm if it proves too thin |
+| D2 | Stage order against FG1 and A7 | Decided Nov 4: FG1 landed first, A7 was dropped as a stage, and RO1 runs before TE2/TE3. No RO stage needs another to land |
 
 ## 13. Specs amended at landing
 
