@@ -403,11 +403,14 @@ def record_activity(
         body = dict(payload)
         if event is not None:
             body["event"] = event
+        times = _event_times(entry, clock) if objective else {}
         if not objective:
             for name in OBJECTIVE_ACTIVITY_FIELDS:
                 body.pop(name, None)
         elif kind == "reader_view_opened":
-            body.update(exposure.visit_fields(config, repository, body))
+            # Landing ruling R2: the visit's block and session as of its own time, not its batch's arrival.
+            body.update(exposure.visit_fields(config, repository, body,
+                                              at=times["occurred_at"] or times["received_at"]))
         ids.append(log_interaction_event(
             repository,
             kind=kind,
@@ -416,7 +419,7 @@ def record_activity(
             subject_id=payload.get("extraction_id") or payload.get("visit_id"),
             payload=salience_payload(body),
             clock=clock,
-            **(_event_times(entry, clock) if objective else {}),
+            **times,
         ))
     return ids
 

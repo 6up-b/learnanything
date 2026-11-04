@@ -67,8 +67,9 @@ Unmoved: `handlers/tutor_qa.py:277`, `reader_inquiry.py:144`, `:396`, `db/reposi
    reason, and the phone's paths are off limits this stage. Recovery runs at the next session's start because an open session can be resumed until then. A crash reads
    `app_closed`, `inferred`. A session another device replaced reads `rule`, `explicit`. Sessions from before RO0 aren't backfilled.
 9. **Row 4.** `dose_offer` and `lesson` are accepted and have no writer: a dose offer asks for questions inside the Reader and a lesson's text reaches only reveal
-   rows, so neither opens an exposure today. On the desktop only the plan's reading sets `plan`; a plan-sent visit's block comes from the server's newest reading block
-   on that extraction.
+   rows, so neither opens an exposure today. On the desktop only the plan's reading sets `plan`. A visit's block and session are the client's where it sends them, else the
+   ones in force at the visit's `occurred_at`; none or more than one fitting is recorded as unknown (landing ruling R2, which replaced
+   "the newest reading block on that extraction" and "the session open when the batch arrived").
 10. **Row 1.** The practice screen sends no `answerVisibleNow`, because it doesn't know whether a worked hint is still in view, so those rows read `unknown`. Feedback
     sends it. A cold Reader link row (`provider = 'reader'`) keeps no state: its question does, and the report excludes it from the denominator.
 11. **Row 3 at the serve** is the server's own rule, 0 for a teach-back's item, else 1. A probe's contract loads on the client, so a diagnostic check reads 1 at the serve,

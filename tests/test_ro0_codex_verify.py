@@ -6,6 +6,9 @@ warning. Codex's reproduction (a trigger refusing any insert that carries an RO0
 column written in an existing table's insert; a trigger refusing the fill is the test that the pick, the answer and the
 source opening succeed when the receipt is refused. Both at mvp-0.43, 0.44 and 0.45.
 
+R2: a Reader visit's block and session are resolved as of its ``occurred_at``, or captured at the opening where the client
+knows them; when more than one fits, or none, the link is recorded as unknown, never guessed (Codex's reproduction first).
+
 See ``docs/reviews/router-ro0-codex-review.md``, "Codex verify".
 """
 
@@ -349,3 +352,136 @@ def _store_rows_without_receipts(repository: Repository) -> None:
             "arm": "a", "support_json": "{}", "measurement": "arranged", "pick_json": "{}", "created_at": "2026-11-04T10:00:00Z"})
         capture_store.insert_measurement_event(connection, decision_id="d1", state="unavailable", reason="no_question",
                                                at="2026-11-04T10:00:00Z")
+
+
+# -- R2: a visit's block and session as of its own time, or unknown --------------------------------------
+#
+# Codex's reproduction: a visit stamped 09:01 and received at 10:01 was stored against a block created at 10:00 and
+# the session open at receipt. A visit's links are now resolved as of its ``occurred_at`` (or captured at the opening,
+# where the client knows them); when none fits or more than one does, the link is recorded as unknown, never guessed.
+
+
+def _reader_env(tmp_path):
+    from learnloop.reader import reader_inquiry as RI
+
+    paths = create_basic_vault(tmp_path / "vault")
+    vault, repository = load_vault(paths.root), Repository(paths.sqlite_path)
+    with repository.connection() as connection:
+        connection.execute(
+            "INSERT INTO daily_plans(id, local_date, kind, minutes_budget, remembered_minutes, minutes_source, split_json, "
+            "admission_json, estimator_version, source, chooser, algorithm_version, config_hash, created_at, updated_at) "
+            "VALUES ('plan', '2026-11-04', 'normal', 25, 25, 'chip', '{}', '{}', 'e', 's', 'c', 'v', 'h', "
+            "'2026-11-04T08:00:00Z', '2026-11-04T08:00:00Z')")
+        connection.commit()
+    return vault, repository, RI
+
+
+def _session(repository, session_id, started, ended=None):
+    with repository.connection() as connection:
+        connection.execute("INSERT INTO sessions(id, started_at, ended_at) VALUES (?, ?, ?)", (session_id, started, ended))
+        connection.commit()
+
+
+def _reading_block(repository, block_id, created, *, extraction="e1", ended=None):
+    with repository.connection() as connection:
+        connection.execute(
+            "INSERT INTO attention_blocks(id, action, budget_minutes, content_hash, created_at, daily_plan_id, reading_json) "
+            "VALUES (?, 'reading', 5, 'h', ?, 'plan', ?)", (block_id, created, json.dumps({"extraction_id": extraction})))
+        if ended:
+            connection.execute("INSERT INTO attention_block_events(id, block_id, event_ordinal, kind, detail_json, created_at) "
+                               "VALUES (?, ?, 1, 'block_ended', '{}', ?)", (f"end_{block_id}", block_id, ended))
+        connection.commit()
+
+
+def _visit(vault, repository, RI, *, occurred, received="2026-11-04T10:01:00Z", **payload):
+    from learnloop.clock import parse_utc
+
+    RI.record_activity(repository, [{"kind": "reader_view_opened", "occurred_at": occurred,
+                                     "payload": {"visit_id": "v1", "extraction_id": "e1", **payload}}],
+                       config=vault.config, clock=FrozenClock(parse_utc(received)))
+    with repository.connection() as connection:
+        return json.loads(connection.execute(
+            "SELECT payload_json FROM interaction_events WHERE kind = 'reader_view_opened' ORDER BY rowid DESC").fetchone()[0])
+
+
+def test_r2_a_late_visit_names_the_block_and_session_of_its_own_time_not_of_its_receipt(tmp_path):
+    vault, repository, RI = _reader_env(tmp_path)
+    _session(repository, "s_old", "2026-11-04T08:55:00Z", "2026-11-04T09:30:00Z")
+    _session(repository, "s_new", "2026-11-04T10:00:00Z")
+    _reading_block(repository, "old_block", "2026-11-04T09:00:00Z")
+    _reading_block(repository, "new_block", "2026-11-04T10:00:00Z")
+    payload = _visit(vault, repository, RI, occurred="2026-11-04T09:01:00Z", initiator="plan")
+    assert (payload["block_id"], payload["session_id"]) == ("old_block", "s_old"), "Codex: new_block and s_new"
+    assert (payload["block_link"], payload["session_link"]) == ("as_of_event", "as_of_event")
+
+
+def test_r2_two_sessions_that_both_fit_leave_the_session_unknown(tmp_path):
+    vault, repository, RI = _reader_env(tmp_path)
+    _session(repository, "s_phone", "2026-11-04T08:50:00Z")
+    _session(repository, "s_desk", "2026-11-04T08:55:00Z")
+    payload = _visit(vault, repository, RI, occurred="2026-11-04T09:01:00Z")
+    assert "session_id" not in payload and payload["session_link"] == "unknown", "never the newest of two"
+
+
+def test_r2_a_visit_between_sessions_has_an_unknown_session(tmp_path):
+    vault, repository, RI = _reader_env(tmp_path)
+    _session(repository, "s_old", "2026-11-04T08:00:00Z", "2026-11-04T08:30:00Z")
+    _session(repository, "s_new", "2026-11-04T10:00:00Z")
+    payload = _visit(vault, repository, RI, occurred="2026-11-04T09:01:00Z")
+    assert "session_id" not in payload and payload["session_link"] == "unknown"
+
+
+def test_r2_two_reading_blocks_in_force_leave_the_block_unknown_and_an_ended_one_does_not_count(tmp_path):
+    vault, repository, RI = _reader_env(tmp_path)
+    _session(repository, "s1", "2026-11-04T08:00:00Z")
+    _reading_block(repository, "b_a", "2026-11-04T08:10:00Z")
+    _reading_block(repository, "b_b", "2026-11-04T08:20:00Z")
+    payload = _visit(vault, repository, RI, occurred="2026-11-04T09:01:00Z", initiator="plan")
+    assert "block_id" not in payload and payload["block_link"] == "unknown", "never the newest of two"
+    _reading_block(repository, "b_c", "2026-11-04T09:30:00Z", extraction="e2")
+    _reading_block(repository, "b_d", "2026-11-04T09:40:00Z", extraction="e2", ended="2026-11-04T09:45:00Z")
+    later = _visit(vault, repository, RI, occurred="2026-11-04T09:50:00Z", initiator="plan", extraction_id="e2")
+    assert (later["block_id"], later["block_link"]) == ("b_c", "as_of_event")
+
+
+def test_r2_what_the_client_captured_at_the_opening_stands(tmp_path):
+    vault, repository, RI = _reader_env(tmp_path)
+    _session(repository, "s_new", "2026-11-04T10:00:00Z")
+    _reading_block(repository, "new_block", "2026-11-04T10:00:00Z")
+    payload = _visit(vault, repository, RI, occurred="2026-11-04T09:01:00Z", initiator="plan", block_id="b_seen",
+                     session_id="s_seen")
+    assert (payload["block_id"], payload["session_id"]) == ("b_seen", "s_seen")
+    assert (payload["block_link"], payload["session_link"]) == ("client", "client")
+
+
+def test_r2_a_learners_own_visit_names_no_block(tmp_path):
+    vault, repository, RI = _reader_env(tmp_path)
+    _session(repository, "s1", "2026-11-04T08:00:00Z")
+    _reading_block(repository, "b_a", "2026-11-04T08:10:00Z")
+    payload = _visit(vault, repository, RI, occurred="2026-11-04T09:01:00Z")
+    assert payload["initiator"] == "learner" and "block_id" not in payload and "block_link" not in payload
+    assert (payload["session_id"], payload["session_link"]) == ("s1", "as_of_event")
+
+
+def test_r2_an_opening_with_two_sessions_open_names_neither(tmp_path):
+    from learnloop.router_objective import exposure as EX
+
+    paths = create_basic_vault(tmp_path / "vault")
+    vault, repository = load_vault(paths.root), Repository(paths.sqlite_path)
+    _session(repository, "s_phone", "2026-11-04T08:50:00Z")
+    assert EX.fields(vault.config, repository, context="reader")["initiator_session_id"] == "s_phone"
+    _session(repository, "s_desk", "2026-11-04T08:55:00Z")
+    assert EX.fields(vault.config, repository, context="reader")["initiator_session_id"] is None, "unknown, not the newest"
+
+
+def test_r2_off_a_visit_keeps_no_link(tmp_path):
+    from tests.helpers import append_config_toml
+
+    paths = create_basic_vault(tmp_path / "vault")
+    append_config_toml(paths.root, "[router_objective]\nreceipts = false\n")
+    vault, repository = load_vault(paths.root), Repository(paths.sqlite_path)
+    from learnloop.reader import reader_inquiry as RI
+
+    _session(repository, "s1", "2026-11-04T08:00:00Z")
+    payload = _visit(vault, repository, RI, occurred="2026-11-04T09:01:00Z", initiator="plan")
+    assert not {"initiator", "block_id", "session_id", "block_link", "session_link"} & set(payload)
