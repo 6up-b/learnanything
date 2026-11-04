@@ -12,7 +12,8 @@
 --   a later change is an attention_block_events row of kind ask_availability_changed.
 -- Row 4: source_exposure_events.initiator and the ids beside it. A new field and not a new
 --   row: coldness readers count rows, and context keeps its meaning.
--- Row 10: decision_measurement_events.non_service_type, the typed reason a check was not served.
+-- Row 10: decision_objectives.delay_json and decision_measurement_events.delay_json, how a measurement
+--   check's delay was chosen; decision_measurement_events.non_service_type, the typed reason it was not served.
 ALTER TABLE question_events ADD COLUMN reveal_state_json TEXT;
 ALTER TABLE plan_presentations ADD COLUMN ask_available INTEGER
   CHECK (ask_available IS NULL OR ask_available IN (0, 1));
@@ -25,6 +26,8 @@ ALTER TABLE decision_measurement_events ADD COLUMN non_service_type TEXT
   CHECK (non_service_type IS NULL OR non_service_type IN (
     'structurally_refused', 'policy_refused', 'operationally_unavailable', 'learner_declined', 'answered_unread'
   ));
+ALTER TABLE decision_measurement_events ADD COLUMN delay_json TEXT;
+ALTER TABLE decision_objectives ADD COLUMN delay_json TEXT;
 
 -- Rows 7 and 8 (RECEIPT): one 'availability' row stamped before a session's first block, one
 -- 'end' row, and a 'stop_response' row each time an offered stop was overridden (the session

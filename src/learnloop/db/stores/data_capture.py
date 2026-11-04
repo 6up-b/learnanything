@@ -48,6 +48,10 @@ def _present(connection: sqlite3.Connection, tables: Iterable[str]) -> bool:
     return int(found) == len(wanted)
 
 
+def _has_column(connection: sqlite3.Connection, table: str, column: str) -> bool:
+    return any(str(row[1]) == column for row in connection.execute(f"PRAGMA table_info({table})"))
+
+
 def receipts_present(connection: sqlite3.Connection) -> bool:
     return _present(connection, RECEIPT_TABLES)
 
@@ -103,14 +107,17 @@ def prefilter_part(connection: sqlite3.Connection, content_hash: str) -> Any:
 
 
 def insert_objective(connection: sqlite3.Connection, row: Mapping[str, Any]) -> bool:
-    """One decision's frozen objective, or False (a warning) when refused."""
+    """One decision's frozen objective, or False (a warning) when refused. ``delay_json`` (RO0 row 10; migration
+    242) is written only where it was read."""
 
+    columns = OBJECTIVE_COLUMNS + (
+        ("delay_json",) if row.get("delay_json") and _has_column(connection, "decision_objectives", "delay_json") else ())
     connection.execute("SAVEPOINT decision_objective_append")
     try:
         cursor = connection.execute(
-            f"INSERT OR IGNORE INTO decision_objectives ({','.join(OBJECTIVE_COLUMNS)}) "
-            f"VALUES ({','.join('?' for _ in OBJECTIVE_COLUMNS)})",
-            [row.get(column) for column in OBJECTIVE_COLUMNS],
+            f"INSERT OR IGNORE INTO decision_objectives ({','.join(columns)}) "
+            f"VALUES ({','.join('?' for _ in columns)})",
+            [row.get(column) for column in columns],
         )
     except sqlite3.Error:
         connection.execute("ROLLBACK TO decision_objective_append")
@@ -132,15 +139,23 @@ def insert_measurement_event(
     detail: Mapping[str, Any] | None = None,
     at: str,
     episode: str = "",
+    non_service_type: str | None = None,
+    delay: str | None = None,
 ) -> bool:
-    """A measurement's state, once per reason and episode: a repeat is a no-op (returns False)."""
+    """A measurement's state, once per reason and episode: a repeat is a no-op (returns False).
+    ``non_service_type``, ``delay``: RO0 row 10's columns, only where they were read (migration 242)."""
 
+    extra = {name: value for name, value in (("non_service_type", non_service_type), ("delay_json", delay))
+             if value is not None}
+    if extra and not _has_column(connection, "decision_measurement_events", "delay_json"):
+        extra = {}
+    columns = ["id", "decision_id", "state", "reason", "practice_item_id", "attempt_id", "detail_json", "created_at",
+               "episode", *extra]
     cursor = connection.execute(
-        "INSERT OR IGNORE INTO decision_measurement_events"
-        "(id, decision_id, state, reason, practice_item_id, attempt_id, detail_json, created_at, episode) "
-        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+        f"INSERT OR IGNORE INTO decision_measurement_events({', '.join(columns)}) "
+        f"VALUES ({', '.join('?' for _ in columns)})",
         (new_ulid(), decision_id, state, reason, practice_item_id, attempt_id,
-         json.dumps(dict(detail or {}), sort_keys=True, separators=(",", ":")), at, episode),
+         json.dumps(dict(detail or {}), sort_keys=True, separators=(",", ":")), at, episode, *extra.values()),
     )
     return cursor.rowcount > 0
 

@@ -39,7 +39,7 @@ as before.
 
 ## Router objective RO0 (migration 242), `router/ro0-logging`, 2026-11-04
 
-Renamed from `migration_head_241`. `242_router_objective_receipts.sql` (five additive columns and three empty RECEIPT tables)
+Renamed from `migration_head_241`. `242_router_objective_receipts.sql` (eight additive columns and three empty RECEIPT tables)
 applied through `learnloop.db.migrate.apply_migrations` on a backup-API copy of the tracked fixture under the test suite's
 upgrade allowance, `wal_checkpoint(TRUNCATE)`, `journal_mode=DELETE`, `integrity_check` ok, `foreign_key_check` empty, and
 copied into place with the backup API, with no companion files. The head holds 229 through 242.

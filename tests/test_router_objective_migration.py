@@ -23,7 +23,8 @@ NEW_COLUMNS = {
     "question_events": {"reveal_state_json"},
     "plan_presentations": {"ask_available"},
     "source_exposure_events": {"initiator", "initiator_block_id", "initiator_session_id", "initiator_visit_id"},
-    "decision_measurement_events": {"non_service_type"},
+    "decision_measurement_events": {"non_service_type", "delay_json"},
+    "decision_objectives": {"delay_json"},
 }
 RO0_ADDED_OBJECTS = frozenset({
     *TABLES,
