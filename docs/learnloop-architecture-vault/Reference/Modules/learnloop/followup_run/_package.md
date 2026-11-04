@@ -59,7 +59,7 @@ For system intent, use [[Architecture Overview]].
 | [[Reference/Modules/learnloop/followup_run/jobs|learnloop.followup_run.jobs]] | [[Reference/Modules/learnloop/followup_run/jobs#^module-purpose|purpose]] | `ACTIVE` | 3 | 5 |
 | [[Reference/Modules/learnloop/followup_run/lanes|learnloop.followup_run.lanes]] | [[Reference/Modules/learnloop/followup_run/lanes#^module-purpose|purpose]] | `ACTIVE` | 3 | 3 |
 | [[Reference/Modules/learnloop/followup_run/marks|learnloop.followup_run.marks]] | [[Reference/Modules/learnloop/followup_run/marks#^module-purpose|purpose]] | `ACTIVE` | 3 | 4 |
-| [[Reference/Modules/learnloop/followup_run/router|learnloop.followup_run.router]] | [[Reference/Modules/learnloop/followup_run/router#^module-purpose|purpose]] | `ACTIVE` | 2 | 6 |
+| [[Reference/Modules/learnloop/followup_run/router|learnloop.followup_run.router]] | [[Reference/Modules/learnloop/followup_run/router#^module-purpose|purpose]] | `ACTIVE` | 2 | 7 |
 | [[Reference/Modules/learnloop/followup_run/serving|learnloop.followup_run.serving]] | [[Reference/Modules/learnloop/followup_run/serving#^module-purpose|purpose]] | `ACTIVE` | 6 | 3 |
 
 ## Cross-package dependencies
@@ -76,11 +76,14 @@ For system intent, use [[Architecture Overview]].
 - [[Reference/Modules/learnloop/content/authoring/_package|learnloop.content.authoring]] — 3 static module edges
 - [[Reference/Modules/learnloop/diagnosis/split/_package|learnloop.diagnosis.split]] — 3 static module edges
 - [[Reference/Modules/learnloop/vault/_package|learnloop.vault]] — 2 static module edges
+- [[Reference/Modules/learnloop/adaptive_difficulty/_package|learnloop.adaptive_difficulty]] — 1 static module edge
 - [[Reference/Modules/learnloop/attempts/_package|learnloop.attempts]] — 1 static module edge
 - [[Reference/Modules/learnloop/content/proposals/_package|learnloop.content.proposals]] — 1 static module edge
 - [[Reference/Modules/learnloop/data_capture/_package|learnloop.data_capture]] — 1 static module edge
 - [[Reference/Modules/learnloop/instructional/_package|learnloop.instructional]] — 1 static module edge
 - [[Reference/Modules/learnloop/router/_package|learnloop.router]] — 1 static module edge
+- [[Reference/Modules/learnloop/router_objective/_package|learnloop.router_objective]] — 1 static module edge
+- [[Reference/Modules/learnloop/scheduling/_package|learnloop.scheduling]] — 1 static module edge
 
 ### Packages that import this package
 

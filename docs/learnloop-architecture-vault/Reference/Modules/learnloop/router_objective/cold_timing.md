@@ -122,6 +122,9 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
+- [tests/test_ro0_codex_verify.py](../../../../../../tests/test_ro0_codex_verify.py) — direct import
+  - `test_r1_an_arranged_check_keeps_its_objective_whatever_its_delay_meets`
+  - `test_r1_an_unserved_check_keeps_its_state_whatever_its_type_meets`
 - [tests/test_ro0_row10_cold_timing.py](../../../../../../tests/test_ro0_row10_cold_timing.py) — direct import
   - `test_an_arranged_check_says_how_its_delay_was_chosen`
   - `test_each_reason_has_its_type_and_a_new_one_stays_untyped`

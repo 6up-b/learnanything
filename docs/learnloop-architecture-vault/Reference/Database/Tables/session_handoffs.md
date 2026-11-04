@@ -3,13 +3,13 @@ title: "session_handoffs"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "094836387e8580ee3996941f4e181b109942c8dc"
-source_commit_timestamp: "2026-11-04T11:35:15-05:00"
+source_commit: "2ffac8021ab164e5294b86f628c3747099919ac0"
+source_commit_timestamp: "2026-11-04T18:38:52-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite session_handoffs"
   - "table session_handoffs"
-schema_head: 242
+schema_head: 243
 table_name: "session_handoffs"
 table_role: "receipt"
 functionality_status: "active"
@@ -20,6 +20,7 @@ source_paths:
   - "src/learnloop/db/table_roles.py"
   - "migrations/226_session_ownership.sql"
   - "src/learnloop/db/stores/session_ownership.py"
+  - "src/learnloop/router_objective/sessions.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/receipt"
@@ -86,6 +87,7 @@ None found by exact static reference scan.
 ### Direct SQL readers
 
 - `src/learnloop/db/stores/session_ownership.py`
+- `src/learnloop/router_objective/sessions.py`
 
 ### Direct SQL writers
 

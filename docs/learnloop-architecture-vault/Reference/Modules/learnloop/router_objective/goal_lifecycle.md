@@ -7,8 +7,8 @@ version: "1.0.0"
 source_path: "src/learnloop/router_objective/goal_lifecycle.py"
 source_paths:
   - "src/learnloop/router_objective/goal_lifecycle.py"
-source_commit: "edf84b3a35ee45f993d029bfcdb5290569e1881e"
-source_commit_timestamp: "2026-11-04T09:28:50-05:00"
+source_commit: "2079aa1eb02ced81c4ed4449672db9e2e437e45b"
+source_commit_timestamp: "2026-11-04T16:51:26-05:00"
 source_worktree_state: "clean"
 generated: true
 generated_at: "2026-11-02"
@@ -49,13 +49,13 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/router_objective/goal_lifecycle.py](../../../../../../src/learnloop/router_objective/goal_lifecycle.py) |
-| Source lines | 95 |
+| Source lines | 98 |
 | Owning package | [[Reference/Modules/learnloop/router_objective/_package|learnloop.router_objective]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `edf84b3a35ee45f993d029bfcdb5290569e1881e` |
-| Commit timestamp | `2026-11-04T09:28:50-05:00` |
+| Source commit | `2079aa1eb02ced81c4ed4449672db9e2e437e45b` |
+| Commit timestamp | `2026-11-04T16:51:26-05:00` |
 
 ## Public API
 
@@ -123,6 +123,10 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
+- [tests/test_ro0_codex_review.py](../../../../../../tests/test_ro0_codex_review.py) — direct import
+  - `test_f8_an_unchanged_load_takes_no_write_lock`
+  - `test_f8_two_loaders_sweeping_a_new_goal_write_it_once`
+  - `test_f8_two_loaders_sweeping_a_pause_write_it_once`
 - [tests/test_ro0_report.py](../../../../../../tests/test_ro0_report.py) — direct import
   - `test_each_row_reports_what_was_written_and_measured_bytes`
 - [tests/test_ro0_row11_goal_lifecycle.py](../../../../../../tests/test_ro0_row11_goal_lifecycle.py) — direct import

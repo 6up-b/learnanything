@@ -7,8 +7,8 @@ version: "1.0.0"
 source_path: "src/learnloop/daily_plan/lesson_suggestion.py"
 source_paths:
   - "src/learnloop/daily_plan/lesson_suggestion.py"
-source_commit: "274113bb8aa49f51cead7f122b00c9eb6fbf6a53"
-source_commit_timestamp: "2026-11-04T09:25:40-05:00"
+source_commit: "2079aa1eb02ced81c4ed4449672db9e2e437e45b"
+source_commit_timestamp: "2026-11-04T16:51:26-05:00"
 source_worktree_state: "clean"
 generated: true
 generated_at: "2026-11-02"
@@ -50,13 +50,13 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/daily_plan/lesson_suggestion.py](../../../../../../src/learnloop/daily_plan/lesson_suggestion.py) |
-| Source lines | 590 |
+| Source lines | 592 |
 | Owning package | [[Reference/Modules/learnloop/daily_plan/_package|learnloop.daily_plan]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `274113bb8aa49f51cead7f122b00c9eb6fbf6a53` |
-| Commit timestamp | `2026-11-04T09:25:40-05:00` |
+| Source commit | `2079aa1eb02ced81c4ed4449672db9e2e437e45b` |
+| Commit timestamp | `2026-11-04T16:51:26-05:00` |
 
 ## Public API
 
@@ -67,7 +67,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `card_view(connection: Any, decision: Mapping[str, Any] | None) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/daily_plan/lesson_suggestion.py), line 262) — The card a decision shows while it is unanswered; None when it showed none or was answered.
 - `reservation_problem(vault: Any, repository: Any, view: Mapping[str, Any]) -> str | None` ([source](../../../../../../src/learnloop/daily_plan/lesson_suggestion.py), line 327) — Why a pending card's reserved lesson can no longer open on the current vault, or None.
 - `today_suggestion(vault: Any, repository: Any, *, clock: Clock | None=None, session_id: str | None=None) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/daily_plan/lesson_suggestion.py), line 401) — Today's suggestion card, drawing the day's decision on the first call; None when there is none.
-- `respond(vault: Any, repository: Any, *, decision_id: str, response: str, candidate_ref: str | None=None, session_id: str | None=None, clock: Clock | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/daily_plan/lesson_suggestion.py), line 506) — Record the learner's one response to a shown card; a Start or an alternative names its lesson id.
+- `respond(vault: Any, repository: Any, *, decision_id: str, response: str, candidate_ref: str | None=None, session_id: str | None=None, clock: Clock | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/daily_plan/lesson_suggestion.py), line 508) — Record the learner's one response to a shown card; a Start or an alternative names its lesson id.
 
 ### Module constants
 
@@ -105,8 +105,8 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `_expire(connection: Any, view: Mapping[str, Any], problem: str, *, now_iso: str) -> None` ([source](../../../../../../src/learnloop/daily_plan/lesson_suggestion.py), line 343) — Let an unopenable reservation go: an ``expired`` row on its decision (nothing deleted).
 - `_recovered(vault: Any, repository: Any, *, today: str, now_iso: str) -> tuple[bool, dict[str, Any] | None]` ([source](../../../../../../src/learnloop/daily_plan/lesson_suggestion.py), line 355) — Today's card before any draw: ``(True, card)`` when the day already has its decision or an earlier day's Start still waits to open (validated first; R2), else ``(False, None)`` (draw).
 - `_target(vault: Any, scored: Sequence[LS.ScoredCandidate], seed: str) -> LS.Target` ([source](../../../../../../src/learnloop/daily_plan/lesson_suggestion.py), line 382) — The day's target, drawn the router's way (spec §15.1, codex re-review F5).
-- `_release(connection: Any, decision: Mapping[str, Any], *, session_id: str | None, now_iso: str) -> dict[str, Any]` ([source](../../../../../../src/learnloop/daily_plan/lesson_suggestion.py), line 547) — Let a pending card's reservation go (the learner's "Not now" on it); idempotent.
-- `_response_view(row: Mapping[str, Any], chosen: Mapping[str, Any]) -> dict[str, Any]` ([source](../../../../../../src/learnloop/daily_plan/lesson_suggestion.py), line 570)
+- `_release(connection: Any, decision: Mapping[str, Any], *, session_id: str | None, now_iso: str) -> dict[str, Any]` ([source](../../../../../../src/learnloop/daily_plan/lesson_suggestion.py), line 549) — Let a pending card's reservation go (the learner's "Not now" on it); idempotent.
+- `_response_view(row: Mapping[str, Any], chosen: Mapping[str, Any]) -> dict[str, Any]` ([source](../../../../../../src/learnloop/daily_plan/lesson_suggestion.py), line 572)
 
 ## Who imports or calls it
 
@@ -121,7 +121,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 
 ### LearnLoop dependencies
 
-- [[Reference/Modules/learnloop/adaptive_difficulty/readiness|learnloop.adaptive_difficulty.readiness]] — imports `band_positions`; calls `band_positions`
+- [[Reference/Modules/learnloop/adaptive_difficulty/readiness|learnloop.adaptive_difficulty.readiness]] — imports `band_positions`, `decision_state_fields`; calls `band_positions`, `decision_state_fields`
 - [[Reference/Modules/learnloop/adaptive_difficulty/successor|learnloop.adaptive_difficulty.successor]] — imports `subject_view_live`; calls `subject_view_live`
 - [[Reference/Modules/learnloop/algorithm_versions|learnloop.algorithm_versions]] — imports `LESSON_SUGGESTIONS_VERSIONS`, `ROUTER_MIXTURE_VERSIONS`, `TEACHER_VERSIONS`
 - [[Reference/Modules/learnloop/clock|learnloop.clock]] — imports `Clock`, `parse_utc`; calls `parse_utc`
@@ -165,6 +165,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_followups_batch6_te1b_card.py](../../../../../../tests/test_followups_batch6_te1b_card.py) — direct import
   - `test_a_declined_suggestion_keeps_its_not_now_line`
   - `test_not_now_on_a_pending_card_is_its_own_line_after_the_start`
+- [tests/test_ro0_codex_review.py](../../../../../../tests/test_ro0_codex_review.py) — direct import
 - [tests/test_teacher_te1b_landing_r2.py](../../../../../../tests/test_teacher_te1b_landing_r2.py) — direct import
   - `test_a_reservation_is_set_aside_when_the_exam_material_cannot_be_checked`
   - `test_an_expired_reservation_cannot_then_be_released`

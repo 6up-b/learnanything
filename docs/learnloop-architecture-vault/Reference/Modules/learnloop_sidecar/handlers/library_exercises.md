@@ -7,8 +7,8 @@ version: "1.0.0"
 source_path: "src/learnloop_sidecar/handlers/library_exercises.py"
 source_paths:
   - "src/learnloop_sidecar/handlers/library_exercises.py"
-source_commit: "47cec5279eec7c2738ab839c558ebcbd603f4b6a"
-source_commit_timestamp: "2026-11-01T04:24:32-05:00"
+source_commit: "2079aa1eb02ced81c4ed4449672db9e2e437e45b"
+source_commit_timestamp: "2026-11-04T16:51:26-05:00"
 source_worktree_state: "clean"
 generated: true
 generated_at: "2026-11-02"
@@ -53,13 +53,13 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop_sidecar/handlers/library_exercises.py](../../../../../../src/learnloop_sidecar/handlers/library_exercises.py) |
-| Source lines | 508 |
+| Source lines | 510 |
 | Owning package | [[Reference/Modules/learnloop_sidecar/handlers/_package|learnloop_sidecar.handlers]] |
 | Architecture layer | `adapter` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `47cec5279eec7c2738ab839c558ebcbd603f4b6a` |
-| Commit timestamp | `2026-11-01T04:24:32-05:00` |
+| Source commit | `2079aa1eb02ced81c4ed4449672db9e2e437e45b` |
+| Commit timestamp | `2026-11-04T16:51:26-05:00` |
 
 ## Public API
 
@@ -135,6 +135,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop/instructional/interventions|learnloop.instructional.interventions]] — imports `record_shown_spans`; calls `record_shown_spans`
 - [[Reference/Modules/learnloop/instructional/practice|learnloop.instructional.practice]] — imports `proposed_exercise`; calls `proposed_exercise`
 - [[Reference/Modules/learnloop/instructional/sources|learnloop.instructional.sources]] — imports `propose_sources`; calls `propose_sources`
+- [[Reference/Modules/learnloop/router_objective/exposure|learnloop.router_objective.exposure]] — imports `module`; calls `fields`, `get`
 - [[Reference/Modules/learnloop/source_retrieval/library_ask|learnloop.source_retrieval.library_ask]] — imports `module`; calls `library_ask_enabled`
 - [[Reference/Modules/learnloop/source_retrieval/policy|learnloop.source_retrieval.policy]] — imports `PolicyRefused`
 - [[Reference/Modules/learnloop_sidecar/context|learnloop_sidecar.context]] — imports `SidecarContext`

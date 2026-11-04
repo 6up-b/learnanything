@@ -34,7 +34,7 @@ source_paths:
   - "src/learnloop/reader/span_view.py"
   - "src/learnloop/reader/workbench.py"
 source_commit: "aggregate; see module notes"
-source_commit_timestamp: "2026-11-04T09:17:25-05:00"
+source_commit_timestamp: "2026-11-04T18:31:07-05:00"
 generated: true
 generated_at: "2026-11-02"
 package: "learnloop.reader"
@@ -81,7 +81,7 @@ For system intent, use [[Learning System]].
 | [[Reference/Modules/learnloop/reader/reader_cues|learnloop.reader.reader_cues]] | [[Reference/Modules/learnloop/reader/reader_cues#^module-purpose|purpose]] | `ACTIVE` | 4 | 5 |
 | [[Reference/Modules/learnloop/reader/reader_dialogue|learnloop.reader.reader_dialogue]] | [[Reference/Modules/learnloop/reader/reader_dialogue#^module-purpose|purpose]] | `ACTIVE` | 17 | 24 |
 | [[Reference/Modules/learnloop/reader/reader_guidance|learnloop.reader.reader_guidance]] | [[Reference/Modules/learnloop/reader/reader_guidance#^module-purpose|purpose]] | `ACTIVE` | 15 | 23 |
-| [[Reference/Modules/learnloop/reader/reader_inquiry|learnloop.reader.reader_inquiry]] | [[Reference/Modules/learnloop/reader/reader_inquiry#^module-purpose|purpose]] | `ACTIVE` | 1 | 19 |
+| [[Reference/Modules/learnloop/reader/reader_inquiry|learnloop.reader.reader_inquiry]] | [[Reference/Modules/learnloop/reader/reader_inquiry#^module-purpose|purpose]] | `ACTIVE` | 1 | 21 |
 | [[Reference/Modules/learnloop/reader/reader_intent|learnloop.reader.reader_intent]] | [[Reference/Modules/learnloop/reader/reader_intent#^module-purpose|purpose]] | `ACTIVE` | 1 | 10 |
 | [[Reference/Modules/learnloop/reader/reader_observations|learnloop.reader.reader_observations]] | [[Reference/Modules/learnloop/reader/reader_observations#^module-purpose|purpose]] | `ACTIVE` | 2 | 3 |
 | [[Reference/Modules/learnloop/reader/reader_progression|learnloop.reader.reader_progression]] | [[Reference/Modules/learnloop/reader/reader_progression#^module-purpose|purpose]] | `ACTIVE` | 21 | 6 |

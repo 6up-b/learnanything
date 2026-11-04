@@ -7,8 +7,8 @@ version: "1.0.0"
 source_path: "src/learnloop_sidecar/handlers/reader_tutor.py"
 source_paths:
   - "src/learnloop_sidecar/handlers/reader_tutor.py"
-source_commit: "a2d2176b105ab0dc48837944ad2d6663280cc4d2"
-source_commit_timestamp: "2026-11-01T16:13:42-05:00"
+source_commit: "2079aa1eb02ced81c4ed4449672db9e2e437e45b"
+source_commit_timestamp: "2026-11-04T16:51:26-05:00"
 source_worktree_state: "clean"
 generated: true
 generated_at: "2026-11-02"
@@ -49,13 +49,13 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop_sidecar/handlers/reader_tutor.py](../../../../../../src/learnloop_sidecar/handlers/reader_tutor.py) |
-| Source lines | 469 |
+| Source lines | 471 |
 | Owning package | [[Reference/Modules/learnloop_sidecar/handlers/_package|learnloop_sidecar.handlers]] |
 | Architecture layer | `adapter` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `a2d2176b105ab0dc48837944ad2d6663280cc4d2` |
-| Commit timestamp | `2026-11-01T16:13:42-05:00` |
+| Source commit | `2079aa1eb02ced81c4ed4449672db9e2e437e45b` |
+| Commit timestamp | `2026-11-04T16:51:26-05:00` |
 
 ## Public API
 
@@ -75,7 +75,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `tools_refused(restricted: ReaderRestriction) -> bool` ([source](../../../../../../src/learnloop_sidecar/handlers/reader_tutor.py), line 372) — No tool, practice request or offer lookup may run for this question (G48, Codex review F2, re-review F2): during a cold administration, whether the client says so (``coldActive``) or the server derives it from the bound item, and inside a bound session, where a tool's own caller…
 - `offers(vault: Any, repository: Any, result: dict[str, Any], *, extraction_id: str) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop_sidecar/handlers/reader_tutor.py), line 383) — The Reader's own buttons under an answer (None while ``offers_enabled`` is off): RW1c's "try the next step first" and RW5b's "make this explorable".
 - `fallback_practice_request(vault: Any, question: str, event_id: str) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop_sidecar/handlers/reader_tutor.py), line 425) — Without the sources service, "Practice this" is a plain ``find_practice`` on the learner's question (§4.6; the same RPC S0 later fills).
-- `record_excerpt_exposure(repository: Any, result: dict[str, Any]) -> list[str]` ([source](../../../../../../src/learnloop_sidecar/handlers/reader_tutor.py), line 438) — The "From your books" excerpt's text is shown: one exposure row (best effort).
+- `record_excerpt_exposure(vault: Any, repository: Any, result: dict[str, Any]) -> list[str]` ([source](../../../../../../src/learnloop_sidecar/handlers/reader_tutor.py), line 438) — The "From your books" excerpt's text is shown: one exposure row (best effort).
 
 ### Module constants
 
@@ -122,6 +122,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop/reader/reader_dialogue|learnloop.reader.reader_dialogue]] — imports `module`; calls `ask_history`, `inquiry_enabled`
 - [[Reference/Modules/learnloop/reader/workbench|learnloop.reader.workbench]] — imports `module`; calls `session_row`
 - [[Reference/Modules/learnloop/reader_learner_state|learnloop.reader_learner_state]] — imports `module`; calls `build`, `enabled`, `omitted`
+- [[Reference/Modules/learnloop/router_objective/exposure|learnloop.router_objective.exposure]] — imports `module`; calls `fields`
 - [[Reference/Modules/learnloop/serve_eligibility|learnloop.serve_eligibility]] — imports `help_converts_active`; calls `help_converts_active`
 - [[Reference/Modules/learnloop/source_retrieval/find_sources|learnloop.source_retrieval.find_sources]] — imports `find_sources_for_caller`; calls `find_sources_for_caller`
 - [[Reference/Modules/learnloop/source_retrieval/library_ask|learnloop.source_retrieval.library_ask]] — imports `open_questions`; calls `open_questions`

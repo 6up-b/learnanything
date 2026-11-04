@@ -359,6 +359,10 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_feedback_questions_count_as_hints_for_the_next_attempt`
   - `test_hint_window_still_starts_at_the_previous_attempt`
   - `test_reader_questions_bind_no_item_so_they_debit_nothing`
+- [tests/test_ro0_codex_review.py](../../../../../../tests/test_ro0_codex_review.py) — direct import
+  - `test_f1_a_refused_disclosure_write_leaves_the_question_and_warns`
+- [tests/test_ro0_codex_verify.py](../../../../../../tests/test_ro0_codex_verify.py) — direct import
+  - `test_r1_an_answer_stands_whatever_its_questions_receipt_meets`
 - [tests/test_ro0_question_state.py](../../../../../../tests/test_ro0_question_state.py) — direct import
 - [tests/test_ro0_report.py](../../../../../../tests/test_ro0_report.py) — direct import
   - `test_each_row_reports_what_was_written_and_measured_bytes`

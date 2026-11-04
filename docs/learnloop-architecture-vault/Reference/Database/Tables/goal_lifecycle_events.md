@@ -3,22 +3,22 @@ title: "goal_lifecycle_events"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "0ed947a2c0b030671b4fbd264957e0ca13fa010f"
-source_commit_timestamp: "2026-11-04T11:05:42-05:00"
+source_commit: "2ffac8021ab164e5294b86f628c3747099919ac0"
+source_commit_timestamp: "2026-11-04T18:38:52-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite goal_lifecycle_events"
   - "table goal_lifecycle_events"
-schema_head: 242
+schema_head: 243
 table_name: "goal_lifecycle_events"
 table_role: "receipt"
 functionality_status: "active"
 domain_family: "goals-and-exams"
-introduced_in: "242_router_objective_receipts.sql"
+introduced_in: "243_router_objective_receipts.sql"
 generated: true
 source_paths:
   - "src/learnloop/db/table_roles.py"
-  - "migrations/242_router_objective_receipts.sql"
+  - "migrations/243_router_objective_receipts.sql"
   - "src/learnloop/db/stores/router_objective.py"
   - "src/learnloop/router_objective/report.py"
 tags:
@@ -46,8 +46,8 @@ It belongs to the **goals and exams** navigation family. The family context live
 
 - **Role:** `receipt` — Historical audit/decision receipt. It is preserved and never rebuilt.
 - **Functionality status:** `active`.
-- **Introduced by:** `migrations/242_router_objective_receipts.sql`.
-- **Schema touched by:** `242_router_objective_receipts.sql`.
+- **Introduced by:** `migrations/243_router_objective_receipts.sql`.
+- **Schema touched by:** `243_router_objective_receipts.sql`.
 - **Rebuild owner:** none; this table is preserved by the rebuild umbrella.
 
 For the distinction between SQLite state and human-authored vault files, see [[State and Persistence]]. For whole-vault creation and opening behavior, see [[Vault Lifecycle]]. ^table-lifecycle
@@ -107,6 +107,7 @@ None found by exact static reference scan.
 
 ## Tests that define behavior
 
+- `tests/test_ro0_codex_review.py`
 - `tests/test_ro0_gate.py`
 - `tests/test_ro0_report.py`
 - `tests/test_ro0_row11_goal_lifecycle.py`

@@ -112,6 +112,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
+- [tests/test_ro0_codex_verify.py](../../../../../../tests/test_ro0_codex_verify.py) — direct import
+  - `test_r1_a_source_opening_stands_whatever_its_initiators_receipt_meets`
 - [tests/test_ro0_row4_exposure_initiator.py](../../../../../../tests/test_ro0_row4_exposure_initiator.py) — direct import
   - `test_the_span_view_handler_records_the_mapped_initiator`
 

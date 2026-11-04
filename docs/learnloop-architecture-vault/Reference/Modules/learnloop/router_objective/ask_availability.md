@@ -7,8 +7,8 @@ version: "1.0.0"
 source_path: "src/learnloop/router_objective/ask_availability.py"
 source_paths:
   - "src/learnloop/router_objective/ask_availability.py"
-source_commit: "52756865dbdcfd48e1fe2adbd6c7d87996a15d65"
-source_commit_timestamp: "2026-11-04T09:17:25-05:00"
+source_commit: "2ffac8021ab164e5294b86f628c3747099919ac0"
+source_commit_timestamp: "2026-11-04T18:38:52-05:00"
 source_worktree_state: "clean"
 generated: true
 generated_at: "2026-11-02"
@@ -50,19 +50,19 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/router_objective/ask_availability.py](../../../../../../src/learnloop/router_objective/ask_availability.py) |
-| Source lines | 86 |
+| Source lines | 92 |
 | Owning package | [[Reference/Modules/learnloop/router_objective/_package|learnloop.router_objective]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `52756865dbdcfd48e1fe2adbd6c7d87996a15d65` |
-| Commit timestamp | `2026-11-04T09:17:25-05:00` |
+| Source commit | `2ffac8021ab164e5294b86f628c3747099919ac0` |
+| Commit timestamp | `2026-11-04T18:38:52-05:00` |
 
 ## Public API
 
 - `at_serve(vault: Any, practice_item_id: str) -> int | None` ([source](../../../../../../src/learnloop/router_objective/ask_availability.py), line 27) — 1 or 0 by the server's rule at the serve; None for an item this vault cannot read.
-- `serve_fields(vault: Any, connection: Any, practice_item_id: str) -> dict[str, Any]` ([source](../../../../../../src/learnloop/router_objective/ask_availability.py), line 36) — The presentation row's new column, on or off, at or below migration 242.
-- `record_change(vault: Any, repository: Any, *, session_id: str | None, practice_item_id: str, available: bool, reason: str | None=None, clock: Clock | None=None) -> bool` ([source](../../../../../../src/learnloop/router_objective/ask_availability.py), line 55) — The screen reports Ask's availability on an item it is showing.
+- `serve_fields(vault: Any, connection: Any, practice_item_id: str) -> dict[str, Any]` ([source](../../../../../../src/learnloop/router_objective/ask_availability.py), line 36) — The presentation row's new column, on or off, at or below migration 243.
+- `record_change(vault: Any, repository: Any, *, session_id: str | None, practice_item_id: str, available: bool, reason: str | None=None, clock: Clock | None=None) -> bool` ([source](../../../../../../src/learnloop/router_objective/ask_availability.py), line 61) — The screen reports Ask's availability on an item it is showing.
 
 ### Module constants
 
@@ -80,7 +80,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 
 ## Internal implementation anchors
 
-- `_standing(connection: Any, presentation: dict[str, Any]) -> int | None` ([source](../../../../../../src/learnloop/router_objective/ask_availability.py), line 44)
+- `_standing(connection: Any, presentation: dict[str, Any]) -> int | None` ([source](../../../../../../src/learnloop/router_objective/ask_availability.py), line 50)
 
 ## Who imports or calls it
 

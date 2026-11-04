@@ -252,6 +252,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_f1_an_answer_waits_when_the_read_cannot_judge_it`
   - `test_f1_settle_judges_the_answer_by_the_read_when_the_sweep_failed`
 - [tests/test_data_capture_phone.py](../../../../../../tests/test_data_capture_phone.py) — direct import
+- [tests/test_ro0_codex_verify.py](../../../../../../tests/test_ro0_codex_verify.py) — direct import
+  - `test_r1_an_unserved_check_keeps_its_state_whatever_its_type_meets`
 - [tests/test_ro0_row10_cold_timing.py](../../../../../../tests/test_ro0_row10_cold_timing.py) — direct import
   - `test_every_reason_the_measurement_writes_is_typed`
   - `test_no_question_to_ask_is_typed_structural`

@@ -183,6 +183,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_one_fail_per_rung_while_climbing_never_triggers_review`
   - `test_repeated_failure_counts_distinct_surfaces_only`
   - `test_repeated_varied_failures_terminate_into_needs_review`
+- [tests/test_ro0_codex_review.py](../../../../../../tests/test_ro0_codex_review.py) — direct import
+  - `test_f3_the_staged_bridge_hands_its_decision_the_ad_reader`
 - [tests/test_router_p2_bridge.py](../../../../../../tests/test_router_p2_bridge.py) — direct import
   - `test_a_requested_state_other_than_the_canonical_successor_is_the_learners_choice`
   - `test_a_retried_constraint_vetoed_advance_stays_deferred`

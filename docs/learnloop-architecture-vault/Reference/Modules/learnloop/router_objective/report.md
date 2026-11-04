@@ -7,8 +7,8 @@ version: "1.0.0"
 source_path: "src/learnloop/router_objective/report.py"
 source_paths:
   - "src/learnloop/router_objective/report.py"
-source_commit: "2918d13e0c847768373fc7db138103c5db7252a6"
-source_commit_timestamp: "2026-11-04T09:33:25-05:00"
+source_commit: "2ffac8021ab164e5294b86f628c3747099919ac0"
+source_commit_timestamp: "2026-11-04T18:38:52-05:00"
 source_worktree_state: "clean"
 generated: true
 generated_at: "2026-11-02"
@@ -55,8 +55,8 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `2918d13e0c847768373fc7db138103c5db7252a6` |
-| Commit timestamp | `2026-11-04T09:33:25-05:00` |
+| Source commit | `2ffac8021ab164e5294b86f628c3747099919ac0` |
+| Commit timestamp | `2026-11-04T18:38:52-05:00` |
 
 ## Public API
 
@@ -130,6 +130,8 @@ No test imports this module directly. These tests exercise a direct production c
 - [tests/test_data_capture_codex_review.py](../../../../../../tests/test_data_capture_codex_review.py) — imports consumer [[Reference/Modules/learnloop/ops/capture_report|learnloop.ops.capture_report]]
 - [tests/test_data_capture_landing_review.py](../../../../../../tests/test_data_capture_landing_review.py) — imports consumer [[Reference/Modules/learnloop/ops/capture_report|learnloop.ops.capture_report]]
 - [tests/test_data_capture_report.py](../../../../../../tests/test_data_capture_report.py) — imports consumer [[Reference/Modules/learnloop/ops/capture_report|learnloop.ops.capture_report]]
+- [tests/test_followup_fg1c_codex_review.py](../../../../../../tests/test_followup_fg1c_codex_review.py) — imports consumer [[Reference/Modules/learnloop/ops/capture_report|learnloop.ops.capture_report]]
+- [tests/test_hypothesis_marks_context.py](../../../../../../tests/test_hypothesis_marks_context.py) — imports consumer [[Reference/Modules/learnloop/ops/capture_report|learnloop.ops.capture_report]]
 - [tests/test_ro0_report.py](../../../../../../tests/test_ro0_report.py) — imports consumer [[Reference/Modules/learnloop/ops/capture_report|learnloop.ops.capture_report]]
 
 ## Modification guidance

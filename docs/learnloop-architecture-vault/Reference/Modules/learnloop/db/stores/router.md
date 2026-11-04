@@ -126,6 +126,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_data_capture_successor.py](../../../../../../../tests/test_data_capture_successor.py) — direct import
   - `test_the_outcomes_cache_is_rebuilt_under_the_vaults_version`
 - [tests/test_held_grade_composition.py](../../../../../../../tests/test_held_grade_composition.py) — direct import
+- [tests/test_ro0_codex_review.py](../../../../../../../tests/test_ro0_codex_review.py) — direct import
+  - `test_f3_a_staged_decision_keeps_its_ad_numbers`
 - [tests/test_router_coldness_covariates.py](../../../../../../../tests/test_router_coldness_covariates.py) — direct import
 - [tests/test_router_offer_log.py](../../../../../../../tests/test_router_offer_log.py) — direct import
   - `test_a_row_the_ledger_constraints_refuse_raises_instead_of_vanishing`

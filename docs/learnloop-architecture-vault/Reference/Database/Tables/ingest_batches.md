@@ -3,13 +3,13 @@ title: "ingest_batches"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "094836387e8580ee3996941f4e181b109942c8dc"
-source_commit_timestamp: "2026-11-04T11:35:15-05:00"
+source_commit: "2ffac8021ab164e5294b86f628c3747099919ac0"
+source_commit_timestamp: "2026-11-04T18:38:52-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite ingest_batches"
   - "table ingest_batches"
-schema_head: 242
+schema_head: 243
 table_name: "ingest_batches"
 table_role: "workflow"
 functionality_status: "active"

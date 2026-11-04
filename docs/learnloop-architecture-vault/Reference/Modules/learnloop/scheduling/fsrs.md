@@ -189,6 +189,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_dont_know_rating_and_weight`
   - `test_hint_cap_and_score_binning_match_live_semantics`
   - `test_reconstruction_reproduces_live_practice_item_state`
+- [tests/test_ro0_codex_review.py](../../../../../../tests/test_ro0_codex_review.py) — direct import
 - [tests/test_ro0_rows9_13_decision_state.py](../../../../../../tests/test_ro0_rows9_13_decision_state.py) — direct import
   - `test_a_path_that_reads_no_ad_says_so`
   - `test_ad_failing_is_said_and_everything_else_is_kept`

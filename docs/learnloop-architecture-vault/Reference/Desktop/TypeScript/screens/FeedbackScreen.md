@@ -10,8 +10,8 @@ area: "TypeScript/screens"
 source_path: "apps/learnloop-tauri/src/screens/FeedbackScreen.tsx"
 source_paths:
   - "apps/learnloop-tauri/src/screens/FeedbackScreen.tsx"
-source_commit: "450c22470d46f9bd13a2faf2d4fb955ba0dad985"
-source_commit_timestamp: "2026-11-04T10:02:56-05:00"
+source_commit: "2ffac8021ab164e5294b86f628c3747099919ac0"
+source_commit_timestamp: "2026-11-04T18:38:52-05:00"
 source_worktree_state: "clean"
 activation_kind: "entry-reachable build graph"
 activation_evidence: "A static TypeScript import path reaches this file from the Vite entry src/main.tsx."
@@ -42,14 +42,14 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/screens/FeedbackScreen.tsx](../../../../../../apps/learnloop-tauri/src/screens/FeedbackScreen.tsx) |
-| Source lines | 3560 |
+| Source lines | 3564 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/screens/_area|TypeScript/screens]] |
 | Refactor status | `ACTIVE` |
 | Activation kind | `entry-reachable build graph` |
 | Worktree state | `clean` |
-| Source commit | `450c22470d46f9bd13a2faf2d4fb955ba0dad985` |
-| Commit timestamp | `2026-11-04T10:02:56-05:00` |
+| Source commit | `2ffac8021ab164e5294b86f628c3747099919ac0` |
+| Commit timestamp | `2026-11-04T18:38:52-05:00` |
 
 ## Activation and status evidence
 
@@ -248,128 +248,129 @@ The system-level behavior stays authoritative in the linked architecture, concep
 - `const resolvePlanStep = nextPlanStep.resolve` — const, line 1588
 - `const followup = followupRead && followupRead.workflowId === feedback?.followup?.workflowId ? followupRead : feedback?.followup ?? null` — const, line 1598
 - `const followupRef = useRef<FollowupDto | null>(null)` — const, line 1602
-- `const goOn = useCallback(async ()` — const, line 1604
-- `const generation = ++advanceGeneration.current` — const, line 1608
-- `let step: PlanStepDto | null = null` — let, line 1610
-- `const generation = ++advanceGeneration.current` — const, line 1630
-- `let head: ScheduledItemDto | null = null` — let, line 1632
-- `const actOnNext = useCallback((next: FollowupNextDto | null)` — const, line 1647
-- `const actOnNextRef = useRef(actOnNext)` — const, line 1659
-- `const advance = useCallback(async ()` — const, line 1661
-- `const owner = followupRef.current` — const, line 1662
-- `let next: FollowupNextDto | null = null` — let, line 1664
-- `const followupOpen = followup !== null && (followup.state === "pending" || followup.held)` — const, line 1675
-- `let stopped = false` — let, line 1678
-- `const timer = window.setInterval(()` — const, line 1679
-- `const asked = nextWaiting ? api.followupNext(attemptId).then((next)` — const, line 1682
-- `const wasHeld = useRef(false)` — const, line 1702
-- `const continueWithout = useCallback(async ()` — const, line 1710
-- `const status = await api.followupStatus(attemptId).catch(()` — const, line 1713
-- `const showAnyway = useCallback(async ()` — const, line 1720
-- `const status = await api.followupStatus(attemptId).catch(()` — const, line 1722
-- `const goBack = useCallback(()` — const, line 1728
-- `const refreshAfterDiagnosis = useCallback(()` — const, line 1737
-- `const diagnosis = useDiagnosisCard(attemptId, simple ? feedback?.diagnosisStatus : null, refreshAfterDiagnosis, onError)` — const, line 1746
-- `const contestKey = useRef<` — const, line 1758
-- `const marksKept = useRef<` — const, line 1764
-- `const marksRead = marksKept.current?.attemptId === attemptId ? marksKept.current.marks : null` — const, line 1766
-- `const tapReplaced = marksRead !== null && marksRead.attemptId === feedback?.attemptId && marksRead.replacesCardTap` — const, line 1767
-- `const listsOn = marksRead !== null && feedback?.attemptId === attemptId` — const, line 1768
-- `const causalHypotheses = feedback?.causalFeedback?.causalHypotheses ?? []` — const, line 1769
-- `const errorInputRef = useRef<HTMLInputElement>(null)` — const, line 1814
-- `const noteTitleRef = useRef<HTMLInputElement>(null)` — const, line 1822
-- `const noteBodyRef = useRef<HTMLTextAreaElement>(null)` — const, line 1823
-- `const suggestions = useMemo<CandidateErrorTypeDto[]>(()` — const, line 1825
-- `const all = item?.candidateErrorTypes ?? []` — const, line 1826
-- `const q = errorTypeInput.trim().toLowerCase()` — const, line 1827
-- `const filtered = q ? all.filter((e)` — const, line 1828
-- `let cancelled = false` — let, line 1835
-- `let cancelled = false` — let, line 1871
-- `const handleAnswerClarification = async ()` — const, line 1890
-- `const answer = clarificationAnswer.trim()` — const, line 1891
-- `const result = await trackQueueWrite(api.answerGradingClarification(feedback.attemptId, answer))` — const, line 1895
-- `const handleSkipClarification = ()` — const, line 1915
-- `const applyRepairStatus = useCallback( (next: CausalRepairStatusDto)` — const, line 1927
-- `const repairCaseId = useMemo(()` — const, line 1939
-- `const causal = feedback?.causalFeedback` — const, line 1940
-- `const need = causal?.probeNeed` — const, line 1941
-- `let cancelled = false` — let, line 1958
-- `const inspectIds = feedback ? uniqueIds([ feedback.attemptId, feedback.practiceItemId, feedback.learningObjectId, ...feedback.errorAttributions.map((event)` — const, line 1993
-- `const practiceItemIds = feedback ? uniqueIds([feedback.practiceItemId]) : []` — const, line 2002
-- `const shownAttempt = useRef(attemptId)` — const, line 2022
-- `const refreshItemAfterRegrade = useCallback((bundle: FeedbackBundle)` — const, line 2024
-- `const handleRegrade = async ()` — const, line 2033
-- `const before = gradeSide(feedback)` — const, line 2036
-- `const updated = await trackQueueWrite(api.triggerRegrade(feedback.attemptId))` — const, line 2038
-- `const handleContest = async ()` — const, line 2057
-- `const before = verdictOf(` — const, line 2061
-- `const prior = gradeSide(feedback)` — const, line 2064
-- `const reason = contestReason.trim()` — const, line 2065
-- `const bound = contestKey.current` — const, line 2066
-- `const key = bound && bound.reason === reason ? bound.key : newClientKey("contest")` — const, line 2067
-- `const updated = await trackQueueWrite(api.triggerRegrade(feedback.attemptId, reason, key))` — const, line 2070
-- `const outcome = updated.contest` — const, line 2074
-- `const reviewed = outcome?.reviewRequested ? " It's marked for review." : ""` — const, line 2075
-- `const after = verdictOf(` — const, line 2080
-- `const contestCausal = (reason: UnresolvedCauseSelfReportResponse, factorId: string | null | undefined)` — const, line 2101
-- `const handleTriggerFollowup = async ()` — const, line 2124
-- `const updated = await trackQueueWrite(api.triggerFollowup(feedback.attemptId))` — const, line 2128
-- `const handlePrimedRetry = async ()` — const, line 2141
-- `const result = await api.startPrimedRetry(feedback.attemptId)` — const, line 2145
-- `const handleGuidedRedo = async ()` — const, line 2163
-- `const redo = await api.startGuidedRedo(feedback.attemptId)` — const, line 2167
-- `const handleRateFollowup = async (useful: boolean)` — const, line 2179
-- `const updated = await api.rateFollowup(feedback.attemptId, useful)` — const, line 2183
-- `const handleElicitingResponse = async (suggestionIndex: number, responseMd: string)` — const, line 2198
-- `const result = await trackQueueWrite(api.submitElicitingResponse(` — const, line 2202
-- `const doAddError = async (errorType: string, severity?: number)` — const, line 2219
-- `const updated = await api.addErrorEvent(feedback.attemptId, errorType.trim(), severity)` — const, line 2227
-- `const handleAddError = ()` — const, line 2238
-- `const sel = selectedSuggestionIdx >= 0 ? suggestions[selectedSuggestionIdx] : null` — const, line 2239
-- `const handleUnresolvedCauseReport = async ( factorId: string, response: UnresolvedCauseSelfReportResponse, candidateIndex?: number | null, )` — const, line 2243
-- `const resetNote = ()` — const, line 2260
-- `const openNoteCapture = ()` — const, line 2266
-- `const doSaveNote = async ()` — const, line 2272
-- `const title = noteTitle.trim()` — const, line 2274
-- `const body = noteBody.trim()` — const, line 2275
-- `const subjectId = item?.subject ?? item?.subjects?.[0] ?? null` — const, line 2280
-- `const stamp = new Date().toISOString().replace(/[-:T.]/g, "").slice(0, 14)` — const, line 2285
-- `const noteId = `$` — const, line 2286
-- `const result = await api.addNote(` — const, line 2289
-- `const onKey = (event: KeyboardEvent)` — const, line 2308
-- `const tag = (event.target as HTMLElement | null)?.tagName?.toLowerCase()` — const, line 2312
-- `const right = verdictOf(` — const, line 2328
-- `function simpleScreen( f: FeedbackBundle, matchedMisconception: FeedbackBundle["matchedMisconception"] | null, elicitingIndex: number, elicitingSuggestion: FeedbackBundle["repairSuggestions"][number] | null, errorPanel: ReactNode, notePanel: ReactNode, )` — function, line 2351
-- `const held = f.heldForReview === true` — const, line 2359
-- `const verdict = verdictOf(` — const, line 2360
-- `const contestAvailable = f.gradingSource !== "self" && verdict !== "right"` — const, line 2362
-- `const fixId = matchedMisconception?.id ?? (!repairStatus ? f.causalFeedback?.commonRepair?.misconceptionId ?? null : null)` — const, line 2366
-- `let step: FeedbackNextStep | null = null` — let, line 2369
-- `let stepIsRetry = false` — let, line 2370
-- `const probeIsNext = followup !== null && (followup.state === "pending" || followup.state === "ready")` — const, line 2372
-- `const card = diagnosis.status === "done" ? diagnosis.card : null` — const, line 2386
-- `const causal = f.causalFeedback ?? null` — const, line 2387
-- `const canSayNotRight = !tapReplaced && Boolean(card?.diagnosisId && card.responses.some((option)` — const, line 2389
-- `const causalNotRightOk = Boolean(causal?.contestAction?.available && causal.contestAction.reasons.includes("diagnosis_wrong"))` — const, line 2390
-- `const why =` — const, line 2391
-- `const nextLabel = nextWaiting ? "preparing a question…" : origin === "reader" ? "back to the book" : planMode ? nextPlanKeyLabel(advancing, nextPlanStep.step) : autoAdvance ? nextKeyLabel(autoAdvance, advancing, nextItem.head, nextItem.empty) : ""` — const, line 2417
-- `const regradeHistory: RegradeReceipt | null = regradeReceipt ?? (f.regrade ?` — const, line 2427
-- `const criteria = answeredCriterionRows(f)` — const, line 2439
-- `const showTier = f.criterionEvidence.some((row)` — const, line 2440
-- `const f = feedback` — const, line 2789
-- `const subject = item?.subject ?? item?.subjects?.[0] ?? null` — const, line 2790
-- `const tau = f.surprise.followupThresholdNats ?? algoConfig().tauFollowupNats` — const, line 2792
-- `const interventionNeed = f.interventionNeed` — const, line 2793
-- `const elicitingIndex = f.repairSuggestions.findIndex((s)` — const, line 2797
-- `const elicitingSuggestion = elicitingIndex >= 0 ? f.repairSuggestions[elicitingIndex] : null` — const, line 2798
-- `const matchedMisconception = f.matchedMisconception && f.matchedMisconception.correctionStatement?.trim() ? f.matchedMisconception : null` — const, line 2802
-- `const errorPanel = addingError ? ( <div style=` — const, line 2809
-- `const s = suggestions[selectedSuggestionIdx]` — const, line 2856
-- `const notePanel = addingNote ? ( <div style=` — const, line 2884
-- `const receipt: RegradeReceipt | null = regradeReceipt ?? (f.regrade ?` — const, line 3300
-- `function nextKeyLabel( autoAdvance: boolean, advancing: boolean, head: ScheduledItemDto | null, empty: boolean ): string` — function, line 3542
-- `const title = head.learningObjectTitle` — const, line 3551
-- `function uniqueIds(values: Array<string | null | undefined>): string[]` — function, line 3558
+- `const followupHeldRef = useRef(false)` — const, line 1603
+- `const goOn = useCallback(async ()` — const, line 1606
+- `const generation = ++advanceGeneration.current` — const, line 1610
+- `let step: PlanStepDto | null = null` — let, line 1612
+- `const generation = ++advanceGeneration.current` — const, line 1632
+- `let head: ScheduledItemDto | null = null` — let, line 1634
+- `const actOnNext = useCallback((next: FollowupNextDto | null)` — const, line 1649
+- `const actOnNextRef = useRef(actOnNext)` — const, line 1661
+- `const advance = useCallback(async ()` — const, line 1663
+- `const owner = followupRef.current` — const, line 1664
+- `let next: FollowupNextDto | null = null` — let, line 1666
+- `const followupOpen = followup !== null && (followup.state === "pending" || followup.held)` — const, line 1677
+- `let stopped = false` — let, line 1680
+- `const timer = window.setInterval(()` — const, line 1681
+- `const asked = nextWaiting ? api.followupNext(attemptId).then((next)` — const, line 1684
+- `const wasHeld = useRef(false)` — const, line 1704
+- `const continueWithout = useCallback(async ()` — const, line 1712
+- `const status = await api.followupStatus(attemptId).catch(()` — const, line 1715
+- `const showAnyway = useCallback(async ()` — const, line 1722
+- `const status = await api.followupStatus(attemptId).catch(()` — const, line 1724
+- `const goBack = useCallback(()` — const, line 1730
+- `const refreshAfterDiagnosis = useCallback(()` — const, line 1739
+- `const diagnosis = useDiagnosisCard(attemptId, simple ? feedback?.diagnosisStatus : null, refreshAfterDiagnosis, onError)` — const, line 1748
+- `const contestKey = useRef<` — const, line 1760
+- `const marksKept = useRef<` — const, line 1766
+- `const marksRead = marksKept.current?.attemptId === attemptId ? marksKept.current.marks : null` — const, line 1768
+- `const tapReplaced = marksRead !== null && marksRead.attemptId === feedback?.attemptId && marksRead.replacesCardTap` — const, line 1769
+- `const listsOn = marksRead !== null && feedback?.attemptId === attemptId` — const, line 1770
+- `const causalHypotheses = feedback?.causalFeedback?.causalHypotheses ?? []` — const, line 1771
+- `const errorInputRef = useRef<HTMLInputElement>(null)` — const, line 1816
+- `const noteTitleRef = useRef<HTMLInputElement>(null)` — const, line 1824
+- `const noteBodyRef = useRef<HTMLTextAreaElement>(null)` — const, line 1825
+- `const suggestions = useMemo<CandidateErrorTypeDto[]>(()` — const, line 1827
+- `const all = item?.candidateErrorTypes ?? []` — const, line 1828
+- `const q = errorTypeInput.trim().toLowerCase()` — const, line 1829
+- `const filtered = q ? all.filter((e)` — const, line 1830
+- `let cancelled = false` — let, line 1837
+- `let cancelled = false` — let, line 1873
+- `const handleAnswerClarification = async ()` — const, line 1892
+- `const answer = clarificationAnswer.trim()` — const, line 1893
+- `const result = await trackQueueWrite(api.answerGradingClarification(feedback.attemptId, answer))` — const, line 1897
+- `const handleSkipClarification = ()` — const, line 1917
+- `const applyRepairStatus = useCallback( (next: CausalRepairStatusDto)` — const, line 1929
+- `const repairCaseId = useMemo(()` — const, line 1941
+- `const causal = feedback?.causalFeedback` — const, line 1942
+- `const need = causal?.probeNeed` — const, line 1943
+- `let cancelled = false` — let, line 1960
+- `const inspectIds = feedback ? uniqueIds([ feedback.attemptId, feedback.practiceItemId, feedback.learningObjectId, ...feedback.errorAttributions.map((event)` — const, line 1995
+- `const practiceItemIds = feedback ? uniqueIds([feedback.practiceItemId]) : []` — const, line 2004
+- `const shownAttempt = useRef(attemptId)` — const, line 2024
+- `const refreshItemAfterRegrade = useCallback((bundle: FeedbackBundle)` — const, line 2026
+- `const handleRegrade = async ()` — const, line 2035
+- `const before = gradeSide(feedback)` — const, line 2038
+- `const updated = await trackQueueWrite(api.triggerRegrade(feedback.attemptId))` — const, line 2040
+- `const handleContest = async ()` — const, line 2059
+- `const before = verdictOf(` — const, line 2063
+- `const prior = gradeSide(feedback)` — const, line 2066
+- `const reason = contestReason.trim()` — const, line 2067
+- `const bound = contestKey.current` — const, line 2068
+- `const key = bound && bound.reason === reason ? bound.key : newClientKey("contest")` — const, line 2069
+- `const updated = await trackQueueWrite(api.triggerRegrade(feedback.attemptId, reason, key))` — const, line 2072
+- `const outcome = updated.contest` — const, line 2076
+- `const reviewed = outcome?.reviewRequested ? " It's marked for review." : ""` — const, line 2077
+- `const after = verdictOf(` — const, line 2082
+- `const contestCausal = (reason: UnresolvedCauseSelfReportResponse, factorId: string | null | undefined)` — const, line 2103
+- `const handleTriggerFollowup = async ()` — const, line 2126
+- `const updated = await trackQueueWrite(api.triggerFollowup(feedback.attemptId))` — const, line 2130
+- `const handlePrimedRetry = async ()` — const, line 2143
+- `const result = await api.startPrimedRetry(feedback.attemptId)` — const, line 2147
+- `const handleGuidedRedo = async ()` — const, line 2165
+- `const redo = await api.startGuidedRedo(feedback.attemptId)` — const, line 2169
+- `const handleRateFollowup = async (useful: boolean)` — const, line 2181
+- `const updated = await api.rateFollowup(feedback.attemptId, useful)` — const, line 2185
+- `const handleElicitingResponse = async (suggestionIndex: number, responseMd: string)` — const, line 2200
+- `const result = await trackQueueWrite(api.submitElicitingResponse(` — const, line 2204
+- `const doAddError = async (errorType: string, severity?: number)` — const, line 2221
+- `const updated = await api.addErrorEvent(feedback.attemptId, errorType.trim(), severity)` — const, line 2229
+- `const handleAddError = ()` — const, line 2240
+- `const sel = selectedSuggestionIdx >= 0 ? suggestions[selectedSuggestionIdx] : null` — const, line 2241
+- `const handleUnresolvedCauseReport = async ( factorId: string, response: UnresolvedCauseSelfReportResponse, candidateIndex?: number | null, )` — const, line 2245
+- `const resetNote = ()` — const, line 2262
+- `const openNoteCapture = ()` — const, line 2268
+- `const doSaveNote = async ()` — const, line 2274
+- `const title = noteTitle.trim()` — const, line 2276
+- `const body = noteBody.trim()` — const, line 2277
+- `const subjectId = item?.subject ?? item?.subjects?.[0] ?? null` — const, line 2282
+- `const stamp = new Date().toISOString().replace(/[-:T.]/g, "").slice(0, 14)` — const, line 2287
+- `const noteId = `$` — const, line 2288
+- `const result = await api.addNote(` — const, line 2291
+- `const onKey = (event: KeyboardEvent)` — const, line 2310
+- `const tag = (event.target as HTMLElement | null)?.tagName?.toLowerCase()` — const, line 2314
+- `const right = verdictOf(` — const, line 2330
+- `function simpleScreen( f: FeedbackBundle, matchedMisconception: FeedbackBundle["matchedMisconception"] | null, elicitingIndex: number, elicitingSuggestion: FeedbackBundle["repairSuggestions"][number] | null, errorPanel: ReactNode, notePanel: ReactNode, )` — function, line 2355
+- `const held = f.heldForReview === true` — const, line 2363
+- `const verdict = verdictOf(` — const, line 2364
+- `const contestAvailable = f.gradingSource !== "self" && verdict !== "right"` — const, line 2366
+- `const fixId = matchedMisconception?.id ?? (!repairStatus ? f.causalFeedback?.commonRepair?.misconceptionId ?? null : null)` — const, line 2370
+- `let step: FeedbackNextStep | null = null` — let, line 2373
+- `let stepIsRetry = false` — let, line 2374
+- `const probeIsNext = followup !== null && (followup.state === "pending" || followup.state === "ready")` — const, line 2376
+- `const card = diagnosis.status === "done" ? diagnosis.card : null` — const, line 2390
+- `const causal = f.causalFeedback ?? null` — const, line 2391
+- `const canSayNotRight = !tapReplaced && Boolean(card?.diagnosisId && card.responses.some((option)` — const, line 2393
+- `const causalNotRightOk = Boolean(causal?.contestAction?.available && causal.contestAction.reasons.includes("diagnosis_wrong"))` — const, line 2394
+- `const why =` — const, line 2395
+- `const nextLabel = nextWaiting ? "preparing a question…" : origin === "reader" ? "back to the book" : planMode ? nextPlanKeyLabel(advancing, nextPlanStep.step) : autoAdvance ? nextKeyLabel(autoAdvance, advancing, nextItem.head, nextItem.empty) : ""` — const, line 2421
+- `const regradeHistory: RegradeReceipt | null = regradeReceipt ?? (f.regrade ?` — const, line 2431
+- `const criteria = answeredCriterionRows(f)` — const, line 2443
+- `const showTier = f.criterionEvidence.some((row)` — const, line 2444
+- `const f = feedback` — const, line 2793
+- `const subject = item?.subject ?? item?.subjects?.[0] ?? null` — const, line 2794
+- `const tau = f.surprise.followupThresholdNats ?? algoConfig().tauFollowupNats` — const, line 2796
+- `const interventionNeed = f.interventionNeed` — const, line 2797
+- `const elicitingIndex = f.repairSuggestions.findIndex((s)` — const, line 2801
+- `const elicitingSuggestion = elicitingIndex >= 0 ? f.repairSuggestions[elicitingIndex] : null` — const, line 2802
+- `const matchedMisconception = f.matchedMisconception && f.matchedMisconception.correctionStatement?.trim() ? f.matchedMisconception : null` — const, line 2806
+- `const errorPanel = addingError ? ( <div style=` — const, line 2813
+- `const s = suggestions[selectedSuggestionIdx]` — const, line 2860
+- `const notePanel = addingNote ? ( <div style=` — const, line 2888
+- `const receipt: RegradeReceipt | null = regradeReceipt ?? (f.regrade ?` — const, line 3304
+- `function nextKeyLabel( autoAdvance: boolean, advancing: boolean, head: ScheduledItemDto | null, empty: boolean ): string` — function, line 3546
+- `const title = head.learningObjectTitle` — const, line 3555
+- `function uniqueIds(values: Array<string | null | undefined>): string[]` — function, line 3562
 
 ## Who imports or calls it
 

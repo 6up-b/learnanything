@@ -544,6 +544,12 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_rereview_f10_a_place_is_translated_onto_the_reading_the_reader_has_open`
   - `test_source_conflicts_open_the_span_they_cite_never_another_block`
   - `test_the_saved_reading_place_translates_through_the_aliases`
+- [tests/test_ro0_codex_review.py](../../../../../tests/test_ro0_codex_review.py) — direct import
+  - `test_f3_a_list_that_served_no_head_still_decides_nothing_and_reads_no_ad`
+  - `test_f3_a_served_offer_keeps_its_candidates_ad_numbers`
+  - `test_f3_the_staged_bridge_hands_its_decision_the_ad_reader`
+- [tests/test_ro0_codex_verify.py](../../../../../tests/test_ro0_codex_verify.py) — direct import
+  - `test_r1_a_source_opening_stands_whatever_its_initiators_receipt_meets`
 - [tests/test_ro0_gate.py](../../../../../tests/test_ro0_gate.py) — direct import
 - [tests/test_ro0_row11_goal_lifecycle.py](../../../../../tests/test_ro0_row11_goal_lifecycle.py) — direct import
   - `test_the_sidecar_sweeps_at_load`

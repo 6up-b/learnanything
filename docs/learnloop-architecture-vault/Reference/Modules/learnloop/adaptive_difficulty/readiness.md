@@ -103,12 +103,14 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 > “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
 
 - [[Reference/Modules/learnloop/daily_plan/engine|learnloop.daily_plan.engine]] — imports `decision_state_fields`; statically calls `decision_state_fields`
-- [[Reference/Modules/learnloop/daily_plan/lesson_suggestion|learnloop.daily_plan.lesson_suggestion]] — imports `band_positions`; statically calls `band_positions`
+- [[Reference/Modules/learnloop/daily_plan/lesson_suggestion|learnloop.daily_plan.lesson_suggestion]] — imports `band_positions`, `decision_state_fields`; statically calls `band_positions`, `decision_state_fields`
 - [[Reference/Modules/learnloop/daily_plan/router_card|learnloop.daily_plan.router_card]] — imports `card_fields`; statically calls `card_fields`
 - [[Reference/Modules/learnloop/followup_run/router|learnloop.followup_run.router]] — imports `decision_state_fields`; statically calls `decision_state_fields`
 - [[Reference/Modules/learnloop/teacher/brief|learnloop.teacher.brief]] — imports `card_fields`, `lo_readiness`; statically calls `card_fields`, `lo_readiness`
 - [[Reference/Modules/learnloop_sidecar/handlers/adaptive_difficulty|learnloop_sidecar.handlers.adaptive_difficulty]] — imports `NOT_PREDICTED`, `READINESS_VERSION`, `lo_readiness`; statically calls `lo_readiness`
 - [[Reference/Modules/learnloop_sidecar/handlers/deliverables|learnloop_sidecar.handlers.deliverables]] — imports `LIKELY`, `lo_readiness`; statically calls `lo_readiness`
+- [[Reference/Modules/learnloop_sidecar/handlers/golden_path|learnloop_sidecar.handlers.golden_path]] — imports `decision_state_fields`; statically calls `decision_state_fields`
+- [[Reference/Modules/learnloop_sidecar/handlers/queue|learnloop_sidecar.handlers.queue]] — imports `decision_state_fields`; statically calls `decision_state_fields`
 
 ## Dependencies
 
@@ -133,7 +135,7 @@ Use this module in context through:
 - [[Initialize a Vault]]
 - [[Start a Learning Cycle]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/daily_plan/engine|learnloop.daily_plan.engine]], [[Reference/Modules/learnloop/daily_plan/lesson_suggestion|learnloop.daily_plan.lesson_suggestion]], [[Reference/Modules/learnloop/daily_plan/router_card|learnloop.daily_plan.router_card]], [[Reference/Modules/learnloop/followup_run/router|learnloop.followup_run.router]], [[Reference/Modules/learnloop/teacher/brief|learnloop.teacher.brief]] and 2 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/daily_plan/engine|learnloop.daily_plan.engine]], [[Reference/Modules/learnloop/daily_plan/lesson_suggestion|learnloop.daily_plan.lesson_suggestion]], [[Reference/Modules/learnloop/daily_plan/router_card|learnloop.daily_plan.router_card]], [[Reference/Modules/learnloop/followup_run/router|learnloop.followup_run.router]], [[Reference/Modules/learnloop/teacher/brief|learnloop.teacher.brief]] and 4 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
@@ -147,6 +149,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_ad3_subject_view.py](../../../../../../tests/test_ad3_subject_view.py) — direct import
   - `test_readiness_numbers_from_subject_view_with_untested_cells`
   - `test_ro0_decision_state_fields_read_the_cards_numbers_with_the_state_they_came_from`
+- [tests/test_ro0_codex_review.py](../../../../../../tests/test_ro0_codex_review.py) — direct import
+  - `test_f3_a_staged_decision_keeps_its_ad_numbers`
 - [tests/test_teacher_te1b_review_fixes.py](../../../../../../tests/test_teacher_te1b_review_fixes.py) — direct import
   - `test_band_positions_thresholds_p_band_and_reads_the_side_from_expected_success`
   - `test_below_band_reads_adaptive_difficultys_posterior_not_the_mastery_model`

@@ -7,8 +7,8 @@ version: "1.0.0"
 source_path: "src/learnloop/reader/reader_inquiry.py"
 source_paths:
   - "src/learnloop/reader/reader_inquiry.py"
-source_commit: "52756865dbdcfd48e1fe2adbd6c7d87996a15d65"
-source_commit_timestamp: "2026-11-04T09:17:25-05:00"
+source_commit: "ed0e027193cb8a08703dbad143dc5896c99d39a0"
+source_commit_timestamp: "2026-11-04T18:31:07-05:00"
 source_worktree_state: "clean"
 generated: true
 generated_at: "2026-11-02"
@@ -49,13 +49,13 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/reader/reader_inquiry.py](../../../../../../src/learnloop/reader/reader_inquiry.py) |
-| Source lines | 452 |
+| Source lines | 455 |
 | Owning package | [[Reference/Modules/learnloop/reader/_package|learnloop.reader]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `52756865dbdcfd48e1fe2adbd6c7d87996a15d65` |
-| Commit timestamp | `2026-11-04T09:17:25-05:00` |
+| Source commit | `ed0e027193cb8a08703dbad143dc5896c99d39a0` |
+| Commit timestamp | `2026-11-04T18:31:07-05:00` |
 
 ## Public API
 
@@ -112,7 +112,7 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 - `_clean_value(value: Any) -> Any` ([source](../../../../../../src/learnloop/reader/reader_inquiry.py), line 331)
 - `_clean_payload(payload: Mapping[str, Any] | None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/reader/reader_inquiry.py), line 341)
 - `_validate(entry: Mapping[str, Any]) -> tuple[str, str | None, dict[str, Any]]` ([source](../../../../../../src/learnloop/reader/reader_inquiry.py), line 360)
-- `_event_times(entry: Mapping[str, Any], clock: Clock | None) -> dict[str, str | None]` ([source](../../../../../../src/learnloop/reader/reader_inquiry.py), line 424) — RO0 row 5: the client's stamp, if it is a time at all, and when the server had it.
+- `_event_times(entry: Mapping[str, Any], clock: Clock | None) -> dict[str, str | None]` ([source](../../../../../../src/learnloop/reader/reader_inquiry.py), line 427) — RO0 row 5: the client's stamp, if it is a time at all, and when the server had it.
 
 ## Who imports or calls it
 
@@ -194,6 +194,15 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_reader_report.py](../../../../../../tests/test_reader_report.py) — direct import
 - [tests/test_reader_tutor_offers.py](../../../../../../tests/test_reader_tutor_offers.py) — direct import
   - `test_a_press_is_a_salience_only_reader_event_counted_by_the_report`
+- [tests/test_ro0_codex_review.py](../../../../../../tests/test_ro0_codex_review.py) — direct import
+- [tests/test_ro0_codex_verify.py](../../../../../../tests/test_ro0_codex_verify.py) — direct import
+  - `test_r2_a_late_visit_names_the_block_and_session_of_its_own_time_not_of_its_receipt`
+  - `test_r2_a_learners_own_visit_names_no_block`
+  - `test_r2_a_visit_between_sessions_has_an_unknown_session`
+  - `test_r2_off_a_visit_keeps_no_link`
+  - `test_r2_two_reading_blocks_in_force_leave_the_block_unknown_and_an_ended_one_does_not_count`
+  - `test_r2_two_sessions_that_both_fit_leave_the_session_unknown`
+  - `test_r2_what_the_client_captured_at_the_opening_stands`
 - [tests/test_ro0_row3_ask_availability.py](../../../../../../tests/test_ro0_row3_ask_availability.py) — direct import
   - `test_a_reader_visit_says_whether_ask_was_available_and_off_it_does_not`
 - [tests/test_ro0_row4_exposure_initiator.py](../../../../../../tests/test_ro0_row4_exposure_initiator.py) — direct import

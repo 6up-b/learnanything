@@ -3,13 +3,13 @@ title: "followup_workflows"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "094836387e8580ee3996941f4e181b109942c8dc"
-source_commit_timestamp: "2026-11-04T11:35:15-05:00"
+source_commit: "2ffac8021ab164e5294b86f628c3747099919ac0"
+source_commit_timestamp: "2026-11-04T18:38:52-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite followup_workflows"
   - "table followup_workflows"
-schema_head: 242
+schema_head: 243
 table_name: "followup_workflows"
 table_role: "workflow"
 functionality_status: "active"
@@ -20,6 +20,7 @@ source_paths:
   - "src/learnloop/db/table_roles.py"
   - "migrations/241_followup_generate_serve.sql"
   - "src/learnloop/db/stores/followup_serve.py"
+  - "src/learnloop/router_objective/decision_state.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/workflow"
@@ -103,6 +104,7 @@ None found by exact static reference scan.
 ### Direct SQL readers
 
 - `src/learnloop/db/stores/followup_serve.py`
+- `src/learnloop/router_objective/decision_state.py`
 
 ### Direct SQL writers
 
@@ -122,6 +124,7 @@ None found by exact static reference scan.
 - `tests/test_followup_migration.py`
 - `tests/test_followup_workflow.py`
 - `tests/test_hypothesis_marks.py`
+- `tests/test_ro0_rows9_13_decision_state.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

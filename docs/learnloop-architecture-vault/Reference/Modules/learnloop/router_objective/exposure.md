@@ -7,8 +7,8 @@ version: "1.0.0"
 source_path: "src/learnloop/router_objective/exposure.py"
 source_paths:
   - "src/learnloop/router_objective/exposure.py"
-source_commit: "52756865dbdcfd48e1fe2adbd6c7d87996a15d65"
-source_commit_timestamp: "2026-11-04T09:17:25-05:00"
+source_commit: "2ffac8021ab164e5294b86f628c3747099919ac0"
+source_commit_timestamp: "2026-11-04T18:38:52-05:00"
 source_worktree_state: "clean"
 generated: true
 generated_at: "2026-11-02"
@@ -50,32 +50,35 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/router_objective/exposure.py](../../../../../../src/learnloop/router_objective/exposure.py) |
-| Source lines | 106 |
+| Source lines | 137 |
 | Owning package | [[Reference/Modules/learnloop/router_objective/_package|learnloop.router_objective]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `52756865dbdcfd48e1fe2adbd6c7d87996a15d65` |
-| Commit timestamp | `2026-11-04T09:17:25-05:00` |
+| Source commit | `2ffac8021ab164e5294b86f628c3747099919ac0` |
+| Commit timestamp | `2026-11-04T18:38:52-05:00` |
 
 ## Public API
 
-- `initiator_for(context: str | None, stated: str | None=None) -> str` ([source](../../../../../../src/learnloop/router_objective/exposure.py), line 35) — A client's word when it is one of ours, else what the context says, else the learner.
-- `open_session_id(repository: Any) -> str | None` ([source](../../../../../../src/learnloop/router_objective/exposure.py), line 43) — The open session, the one an exposure now belongs to; None when it cannot be said.
-- `fields(config: Any, repository: Any, *, context: str | None, initiator: str | None=None, block_id: str | None=None, session_id: str | None=None, visit_id: str | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/router_objective/exposure.py), line 54) — The event's RO0 fields, ``{}`` off or below the migration (the writer then writes what it always did).
-- `plan_block_for_reading(repository: Any, extraction_id: str | None) -> str | None` ([source](../../../../../../src/learnloop/router_objective/exposure.py), line 75) — The plan's newest reading block on this reading: the block a plan-sent visit belongs to.
-- `visit_fields(config: Any, repository: Any, payload: Mapping[str, Any]) -> dict[str, Any]` ([source](../../../../../../src/learnloop/router_objective/exposure.py), line 92) — What a Reader visit's event adds: its initiator, and the server's session and the plan's block.
+- `initiator_for(context: str | None, stated: str | None=None) -> str` ([source](../../../../../../src/learnloop/router_objective/exposure.py), line 44) — A client's word when it is one of ours, else what the context says, else the learner.
+- `session_at(repository: Any, at: str | None=None) -> str | None` ([source](../../../../../../src/learnloop/router_objective/exposure.py), line 56) — The one session in force at ``at``: started by then and not ended before it.
+- `plan_block_at(repository: Any, extraction_id: str | None, at: str) -> str | None` ([source](../../../../../../src/learnloop/router_objective/exposure.py), line 74) — The one plan reading block on this reading in force at ``at``: created by then and not ended before it.
+- `fields(config: Any, repository: Any, *, context: str | None, initiator: str | None=None, block_id: str | None=None, session_id: str | None=None, visit_id: str | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/router_objective/exposure.py), line 93) — The event's RO0 fields, ``{}`` off or below the migration (the writer then writes what it always did).
+- `visit_fields(config: Any, repository: Any, payload: Mapping[str, Any], *, at: str) -> dict[str, Any]` ([source](../../../../../../src/learnloop/router_objective/exposure.py), line 114) — What a Reader visit's event adds: its initiator, and its session and (a plan-sent visit's) block, each as the client captured it at the opening, else as of ``at``, the visit's own time; else the link is unknown.
 
 ### Module constants
 
-- `LEARNER` ([src/learnloop/router_objective/exposure.py](../../../../../../src/learnloop/router_objective/exposure.py), line 19)
-- `PLAN` ([src/learnloop/router_objective/exposure.py](../../../../../../src/learnloop/router_objective/exposure.py), line 20)
-- `TUTOR_CITATION` ([src/learnloop/router_objective/exposure.py](../../../../../../src/learnloop/router_objective/exposure.py), line 21)
-- `DOSE_OFFER` ([src/learnloop/router_objective/exposure.py](../../../../../../src/learnloop/router_objective/exposure.py), line 22)
-- `LESSON` ([src/learnloop/router_objective/exposure.py](../../../../../../src/learnloop/router_objective/exposure.py), line 23)
-- `INITIATORS` ([src/learnloop/router_objective/exposure.py](../../../../../../src/learnloop/router_objective/exposure.py), line 24)
-- `_BY_CONTEXT` ([src/learnloop/router_objective/exposure.py](../../../../../../src/learnloop/router_objective/exposure.py), line 26)
-- `COLUMNS` ([src/learnloop/router_objective/exposure.py](../../../../../../src/learnloop/router_objective/exposure.py), line 32)
+- `LEARNER` ([src/learnloop/router_objective/exposure.py](../../../../../../src/learnloop/router_objective/exposure.py), line 24)
+- `PLAN` ([src/learnloop/router_objective/exposure.py](../../../../../../src/learnloop/router_objective/exposure.py), line 25)
+- `TUTOR_CITATION` ([src/learnloop/router_objective/exposure.py](../../../../../../src/learnloop/router_objective/exposure.py), line 26)
+- `DOSE_OFFER` ([src/learnloop/router_objective/exposure.py](../../../../../../src/learnloop/router_objective/exposure.py), line 27)
+- `LESSON` ([src/learnloop/router_objective/exposure.py](../../../../../../src/learnloop/router_objective/exposure.py), line 28)
+- `INITIATORS` ([src/learnloop/router_objective/exposure.py](../../../../../../src/learnloop/router_objective/exposure.py), line 29)
+- `_BY_CONTEXT` ([src/learnloop/router_objective/exposure.py](../../../../../../src/learnloop/router_objective/exposure.py), line 31)
+- `COLUMNS` ([src/learnloop/router_objective/exposure.py](../../../../../../src/learnloop/router_objective/exposure.py), line 37)
+- `LINK_CLIENT` ([src/learnloop/router_objective/exposure.py](../../../../../../src/learnloop/router_objective/exposure.py), line 39)
+- `LINK_AS_OF_EVENT` ([src/learnloop/router_objective/exposure.py](../../../../../../src/learnloop/router_objective/exposure.py), line 40)
+- `LINK_UNKNOWN` ([src/learnloop/router_objective/exposure.py](../../../../../../src/learnloop/router_objective/exposure.py), line 41)
 
 ### Explicit exports
 
@@ -86,17 +89,20 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `INITIATORS`
 - `LEARNER`
 - `LESSON`
+- `LINK_AS_OF_EVENT`
+- `LINK_CLIENT`
+- `LINK_UNKNOWN`
 - `PLAN`
 - `TUTOR_CITATION`
 - `fields`
 - `initiator_for`
-- `open_session_id`
-- `plan_block_for_reading`
+- `plan_block_at`
+- `session_at`
 - `visit_fields`
 
 ## Internal implementation anchors
 
-No private top-level function or class definition is declared in this file.
+- `_only(rows: list[Any]) -> str | None` ([source](../../../../../../src/learnloop/router_objective/exposure.py), line 52)
 
 ## Who imports or calls it
 
@@ -108,10 +114,13 @@ No private top-level function or class definition is declared in this file.
 - [[Reference/Modules/learnloop/remote/sources|learnloop.remote.sources]] — imports `module`; statically calls `fields`
 - [[Reference/Modules/learnloop_sidecar/handlers/correspondents|learnloop_sidecar.handlers.correspondents]] — imports `module`; statically calls `fields`
 - [[Reference/Modules/learnloop_sidecar/handlers/library_ask|learnloop_sidecar.handlers.library_ask]] — imports `module`; statically calls `fields`
+- [[Reference/Modules/learnloop_sidecar/handlers/library_exercises|learnloop_sidecar.handlers.library_exercises]] — imports `module`; statically calls `fields`, `get`
 - [[Reference/Modules/learnloop_sidecar/handlers/provenance|learnloop_sidecar.handlers.provenance]] — imports `module`; statically calls `fields`
 - [[Reference/Modules/learnloop_sidecar/handlers/reader|learnloop_sidecar.handlers.reader]] — imports `module`; statically calls `fields`
+- [[Reference/Modules/learnloop_sidecar/handlers/reader_tutor|learnloop_sidecar.handlers.reader_tutor]] — imports `module`; statically calls `fields`
 - [[Reference/Modules/learnloop_sidecar/handlers/remediation|learnloop_sidecar.handlers.remediation]] — imports `module`; statically calls `fields`
 - [[Reference/Modules/learnloop_sidecar/handlers/side_by_side|learnloop_sidecar.handlers.side_by_side]] — imports `module`; statically calls `fields`
+- [[Reference/Modules/learnloop_sidecar/handlers/workbench|learnloop_sidecar.handlers.workbench]] — imports `module`; statically calls `fields`
 
 ## Dependencies
 
@@ -132,12 +141,14 @@ Use this module in context through:
 - [[Initialize a Vault]]
 - [[Start a Learning Cycle]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/instructional/interventions|learnloop.instructional.interventions]], [[Reference/Modules/learnloop/reader/reader_inquiry|learnloop.reader.reader_inquiry]], [[Reference/Modules/learnloop/remote/sources|learnloop.remote.sources]], [[Reference/Modules/learnloop_sidecar/handlers/correspondents|learnloop_sidecar.handlers.correspondents]], [[Reference/Modules/learnloop_sidecar/handlers/library_ask|learnloop_sidecar.handlers.library_ask]] and 4 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/instructional/interventions|learnloop.instructional.interventions]], [[Reference/Modules/learnloop/reader/reader_inquiry|learnloop.reader.reader_inquiry]], [[Reference/Modules/learnloop/remote/sources|learnloop.remote.sources]], [[Reference/Modules/learnloop_sidecar/handlers/correspondents|learnloop_sidecar.handlers.correspondents]], [[Reference/Modules/learnloop_sidecar/handlers/library_ask|learnloop_sidecar.handlers.library_ask]] and 7 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
 ## Tests that define behavior
 
+- [tests/test_ro0_codex_verify.py](../../../../../../tests/test_ro0_codex_verify.py) — direct import
+  - `test_r2_an_opening_with_two_sessions_open_names_neither`
 - [tests/test_ro0_row4_exposure_initiator.py](../../../../../../tests/test_ro0_row4_exposure_initiator.py) — direct import
   - `test_off_the_writer_writes_what_it_always_did`
   - `test_one_exposure_is_one_row_with_its_fields`

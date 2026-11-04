@@ -7,8 +7,8 @@ version: "1.0.0"
 source_path: "src/learnloop/router_objective/decision_state.py"
 source_paths:
   - "src/learnloop/router_objective/decision_state.py"
-source_commit: "01dc007d94d4e3214ef415a1e51d26e4bfec7320"
-source_commit_timestamp: "2026-11-04T10:15:33-05:00"
+source_commit: "2079aa1eb02ced81c4ed4449672db9e2e437e45b"
+source_commit_timestamp: "2026-11-04T16:51:26-05:00"
 source_worktree_state: "clean"
 generated: true
 generated_at: "2026-11-02"
@@ -50,20 +50,20 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/router_objective/decision_state.py](../../../../../../src/learnloop/router_objective/decision_state.py) |
-| Source lines | 335 |
+| Source lines | 376 |
 | Owning package | [[Reference/Modules/learnloop/router_objective/_package|learnloop.router_objective]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `01dc007d94d4e3214ef415a1e51d26e4bfec7320` |
-| Commit timestamp | `2026-11-04T10:15:33-05:00` |
+| Source commit | `2079aa1eb02ced81c4ed4449672db9e2e437e45b` |
+| Commit timestamp | `2026-11-04T16:51:26-05:00` |
 
 ## Public API
 
-- `class Material` ([source](../../../../../../src/learnloop/router_objective/decision_state.py), line 53) — One decision's state, canonical, ready to link when the decision commits.
-- `candidate_ids(vault: Any, candidates: Iterable[Mapping[str, Any]], *, extra_items: Iterable[str]=(), extra_los: Iterable[str]=()) -> tuple[list[str], list[str]]` ([source](../../../../../../src/learnloop/router_objective/decision_state.py), line 74) — The items and LOs a decision's candidates name, in any of the shapes the ledger holds.
-- `prepare(vault: Any, repository: Any, *, candidates: Iterable[Mapping[str, Any]], session_id: str | None, forgetting_curve: Callable[..., float], item_minutes: Mapping[str, Mapping[str, Any]] | None=None, block_minutes: Mapping[str, Any] | None=None, stop: Mapping[str, Any] | None=None, voi: Iterable[Mapping[str, Any]]=(), pick: tuple[str | None, str | None] | None=None, extra_items: Iterable[str]=(), extra_los: Iterable[str]=(), ad_fields: AdFields | Mapping[str, Any] | None=None, versions: Mapping[str, Any] | None=None, omitted: Mapping[str, Any] | None=None, clock: Clock | None=None) -> Material | None` ([source](../../../../../../src/learnloop/router_objective/decision_state.py), line 249) — Read one decision's state.
-- `record(connection: Any, *, decision_id: str, decision_kind: str, material: Material | None, config: Any, at: str) -> bool` ([source](../../../../../../src/learnloop/router_objective/decision_state.py), line 314) — Link ``material`` into a committed decision, on the caller's transaction.
+- `class Material` ([source](../../../../../../src/learnloop/router_objective/decision_state.py), line 54) — One decision's state, canonical, ready to link when the decision commits.
+- `candidate_ids(vault: Any, candidates: Iterable[Mapping[str, Any]], *, extra_items: Iterable[str]=(), extra_los: Iterable[str]=()) -> tuple[list[str], list[str]]` ([source](../../../../../../src/learnloop/router_objective/decision_state.py), line 75) — The items and LOs a decision's candidates name, in any of the shapes the ledger holds.
+- `prepare(vault: Any, repository: Any, *, candidates: Iterable[Mapping[str, Any]], session_id: str | None, forgetting_curve: Callable[..., float], item_minutes: Mapping[str, Mapping[str, Any]] | None=None, block_minutes: Mapping[str, Any] | None=None, stop: Mapping[str, Any] | None=None, voi: Iterable[Mapping[str, Any]]=(), pick: tuple[str | None, str | None] | None=None, extra_items: Iterable[str]=(), extra_los: Iterable[str]=(), ad_fields: AdFields | Mapping[str, Any] | None=None, versions: Mapping[str, Any] | None=None, omitted: Mapping[str, Any] | None=None, clock: Clock | None=None) -> Material | None` ([source](../../../../../../src/learnloop/router_objective/decision_state.py), line 290) — Read one decision's state.
+- `record(connection: Any, *, decision_id: str, decision_kind: str, material: Material | None, config: Any, at: str) -> bool` ([source](../../../../../../src/learnloop/router_objective/decision_state.py), line 355) — Link ``material`` into a committed decision, on the caller's transaction.
 
 ### Module constants
 
@@ -73,6 +73,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `AD_UNAVAILABLE` ([src/learnloop/router_objective/decision_state.py](../../../../../../src/learnloop/router_objective/decision_state.py), line 43)
 - `_VOI_FIELDS` ([src/learnloop/router_objective/decision_state.py](../../../../../../src/learnloop/router_objective/decision_state.py), line 45)
 - `_ACTIVE_BASIS` ([src/learnloop/router_objective/decision_state.py](../../../../../../src/learnloop/router_objective/decision_state.py), line 47)
+- `_STAMP` ([src/learnloop/router_objective/decision_state.py](../../../../../../src/learnloop/router_objective/decision_state.py), line 48)
 
 ### Explicit exports
 
@@ -89,16 +90,18 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 
 ## Internal implementation anchors
 
-- `_round(value: Any) -> Any` ([source](../../../../../../src/learnloop/router_objective/decision_state.py), line 66)
-- `_marks(values: Sequence[Any]) -> str` ([source](../../../../../../src/learnloop/router_objective/decision_state.py), line 70)
-- `_item_rows(connection: Any, items: Sequence[str], now: datetime, weights: Any, forgetting_curve: Callable[..., float], minutes: Mapping[str, Mapping[str, Any]]) -> dict[str, dict[str, Any]]` ([source](../../../../../../src/learnloop/router_objective/decision_state.py), line 99)
-- `_lo_rows(connection: Any, los: Sequence[str], ad: Mapping[str, Any]) -> dict[str, dict[str, Any]]` ([source](../../../../../../src/learnloop/router_objective/decision_state.py), line 119)
-- `_active_minutes(connection: Any, session_id: str | None, day_start: str) -> tuple[float | None, float]` ([source](../../../../../../src/learnloop/router_objective/decision_state.py), line 165) — Session and day active minutes: attempts' latency and Reader visits' active seconds, two clocks apart from elapsed time.
-- `_pending_reports(connection: Any, now_iso: str) -> dict[str, int | None]` ([source](../../../../../../src/learnloop/router_objective/decision_state.py), line 189) — What the learner or the router is still waiting to hear: each count None where the table is absent.
-- `_goals(vault: Any) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/router_objective/decision_state.py), line 208)
-- `_config_hash(config: Any) -> str` ([source](../../../../../../src/learnloop/router_objective/decision_state.py), line 221) — The config's hash, once per loaded config: a large dump, read at every decision.
-- `_voi(decisions: Iterable[Mapping[str, Any]]) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/router_objective/decision_state.py), line 230)
-- `_pick_verdict(verdicts: Sequence[Mapping[str, Any]], pick: tuple[str | None, str | None] | None) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/router_objective/decision_state.py), line 234) — For a pick, the verdict in force on what was picked: on the item, else on its LO.
+- `_round(value: Any) -> Any` ([source](../../../../../../src/learnloop/router_objective/decision_state.py), line 67)
+- `_marks(values: Sequence[Any]) -> str` ([source](../../../../../../src/learnloop/router_objective/decision_state.py), line 71)
+- `_item_rows(connection: Any, items: Sequence[str], now: datetime, weights: Any, forgetting_curve: Callable[..., float], minutes: Mapping[str, Mapping[str, Any]]) -> dict[str, dict[str, Any]]` ([source](../../../../../../src/learnloop/router_objective/decision_state.py), line 103)
+- `_lo_rows(connection: Any, los: Sequence[str], ad: Mapping[str, Any]) -> dict[str, dict[str, Any]]` ([source](../../../../../../src/learnloop/router_objective/decision_state.py), line 123)
+- `_reader_visits(connection: Any, since: str) -> tuple[list[tuple[datetime, datetime, float]], float]` ([source](../../../../../../src/learnloop/router_objective/decision_state.py), line 169) — The Reader visits reported since ``since``, each as ``(start, end, active seconds)``, and the active seconds of those that give no interval.
+- `_in_window(visit: tuple[datetime, datetime, float], low: datetime, high: datetime) -> float` ([source](../../../../../../src/learnloop/router_objective/decision_state.py), line 191) — A visit's active seconds inside ``[low, high]``.
+- `_active_minutes(connection: Any, session_id: str | None, day_start: datetime, now: datetime) -> tuple[float | None, float, dict[str, Any]]` ([source](../../../../../../src/learnloop/router_objective/decision_state.py), line 201) — Session and day active minutes: attempts' latency and Reader visits' active seconds, two clocks apart from elapsed time.
+- `_pending_reports(connection: Any, now_iso: str) -> dict[str, int | None]` ([source](../../../../../../src/learnloop/router_objective/decision_state.py), line 230) — What the learner or the router is still waiting to hear: each count None where the table is absent.
+- `_goals(vault: Any) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/router_objective/decision_state.py), line 249)
+- `_config_hash(config: Any) -> str` ([source](../../../../../../src/learnloop/router_objective/decision_state.py), line 262) — The config's hash, once per loaded config: a large dump, read at every decision.
+- `_voi(decisions: Iterable[Mapping[str, Any]]) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/router_objective/decision_state.py), line 271)
+- `_pick_verdict(verdicts: Sequence[Mapping[str, Any]], pick: tuple[str | None, str | None] | None) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/router_objective/decision_state.py), line 275) — For a pick, the verdict in force on what was picked: on the item, else on its LO.
 
 ## Who imports or calls it
 
@@ -140,6 +143,10 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
+- [tests/test_ro0_codex_review.py](../../../../../../tests/test_ro0_codex_review.py) — direct import
+  - `test_f2_the_forced_shape_names_its_item`
+  - `test_f3_a_list_that_served_no_head_still_decides_nothing_and_reads_no_ad`
+  - `test_f3_the_staged_bridge_hands_its_decision_the_ad_reader`
 - [tests/test_ro0_rows9_13_decision_state.py](../../../../../../tests/test_ro0_rows9_13_decision_state.py) — direct import
   - `test_a_path_that_reads_no_ad_says_so`
   - `test_a_state_that_cannot_be_read_never_touches_the_decision`

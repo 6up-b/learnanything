@@ -7,8 +7,8 @@ version: "1.0.0"
 source_path: "src/learnloop/db/stores/data_capture.py"
 source_paths:
   - "src/learnloop/db/stores/data_capture.py"
-source_commit: "be63e3aa478ec034aa69874c8751395b507d09ed"
-source_commit_timestamp: "2026-11-04T09:28:50-05:00"
+source_commit: "2ffac8021ab164e5294b86f628c3747099919ac0"
+source_commit_timestamp: "2026-11-04T18:38:52-05:00"
 source_worktree_state: "clean"
 generated: true
 generated_at: "2026-11-02"
@@ -56,17 +56,17 @@ The authoritative system-level explanation remains in [[State and Persistence]],
 | Architecture layer | `infrastructure` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `be63e3aa478ec034aa69874c8751395b507d09ed` |
-| Commit timestamp | `2026-11-04T09:28:50-05:00` |
+| Source commit | `2ffac8021ab164e5294b86f628c3747099919ac0` |
+| Commit timestamp | `2026-11-04T18:38:52-05:00` |
 
 ## Public API
 
-- `receipts_present(connection: sqlite3.Connection) -> bool` ([source](../../../../../../../src/learnloop/db/stores/data_capture.py), line 55)
-- `objectives_present(connection: sqlite3.Connection) -> bool` ([source](../../../../../../../src/learnloop/db/stores/data_capture.py), line 59)
-- `insert_prefilter_receipt(connection: sqlite3.Connection, row: Mapping[str, Any], parts: Mapping[str, tuple[str, str]]) -> bool` ([source](../../../../../../../src/learnloop/db/stores/data_capture.py), line 63) — One decision's receipt and any part not stored yet, or False (a warning) when refused.
-- `prefilter_receipt(connection: sqlite3.Connection, decision_id: str) -> dict[str, Any] | None` ([source](../../../../../../../src/learnloop/db/stores/data_capture.py), line 97)
-- `prefilter_part(connection: sqlite3.Connection, content_hash: str) -> Any` ([source](../../../../../../../src/learnloop/db/stores/data_capture.py), line 102)
-- `insert_objective(connection: sqlite3.Connection, row: Mapping[str, Any]) -> bool` ([source](../../../../../../../src/learnloop/db/stores/data_capture.py), line 109) — One decision's frozen objective, or False (a warning) when refused.
+- `receipts_present(connection: sqlite3.Connection) -> bool` ([source](../../../../../../../src/learnloop/db/stores/data_capture.py), line 52)
+- `objectives_present(connection: sqlite3.Connection) -> bool` ([source](../../../../../../../src/learnloop/db/stores/data_capture.py), line 56)
+- `insert_prefilter_receipt(connection: sqlite3.Connection, row: Mapping[str, Any], parts: Mapping[str, tuple[str, str]]) -> bool` ([source](../../../../../../../src/learnloop/db/stores/data_capture.py), line 60) — One decision's receipt and any part not stored yet, or False (a warning) when refused.
+- `prefilter_receipt(connection: sqlite3.Connection, decision_id: str) -> dict[str, Any] | None` ([source](../../../../../../../src/learnloop/db/stores/data_capture.py), line 94)
+- `prefilter_part(connection: sqlite3.Connection, content_hash: str) -> Any` ([source](../../../../../../../src/learnloop/db/stores/data_capture.py), line 99)
+- `insert_objective(connection: sqlite3.Connection, row: Mapping[str, Any]) -> bool` ([source](../../../../../../../src/learnloop/db/stores/data_capture.py), line 106) — One decision's frozen objective, or False (a warning) when refused.
 - `insert_measurement_event(connection: sqlite3.Connection, *, decision_id: str, state: str, reason: str='', practice_item_id: str | None=None, attempt_id: str | None=None, detail: Mapping[str, Any] | None=None, at: str, episode: str='', non_service_type: str | None=None, delay: str | None=None) -> bool` ([source](../../../../../../../src/learnloop/db/stores/data_capture.py), line 131) — A measurement's state, once per reason and episode: a repeat is a no-op (returns False).
 - `latest_episode(connection: sqlite3.Connection, decision_id: str, *, reason: str) -> str` ([source](../../../../../../../src/learnloop/db/stores/data_capture.py), line 163) — The episode the newest ``due`` or ``offered`` state of this check opened: a loss is counted once per it.
 - `reading_exposures_present(connection: sqlite3.Connection) -> bool` ([source](../../../../../../../src/learnloop/db/stores/data_capture.py), line 172)
@@ -80,13 +80,13 @@ The authoritative system-level explanation remains in [[State and Persistence]],
 
 ### Module constants
 
-- `RECEIPT_TABLES` ([src/learnloop/db/stores/data_capture.py](../../../../../../../src/learnloop/db/stores/data_capture.py), line 21)
-- `OBJECTIVE_TABLES` ([src/learnloop/db/stores/data_capture.py](../../../../../../../src/learnloop/db/stores/data_capture.py), line 22)
-- `READING_EXPOSURES` ([src/learnloop/db/stores/data_capture.py](../../../../../../../src/learnloop/db/stores/data_capture.py), line 24)
-- `READING_RECEIPT_TABLES` ([src/learnloop/db/stores/data_capture.py](../../../../../../../src/learnloop/db/stores/data_capture.py), line 26)
-- `RECEIPT_COLUMNS` ([src/learnloop/db/stores/data_capture.py](../../../../../../../src/learnloop/db/stores/data_capture.py), line 28)
-- `OBJECTIVE_COLUMNS` ([src/learnloop/db/stores/data_capture.py](../../../../../../../src/learnloop/db/stores/data_capture.py), line 34)
-- `MEASUREMENT_STATES` ([src/learnloop/db/stores/data_capture.py](../../../../../../../src/learnloop/db/stores/data_capture.py), line 39)
+- `RECEIPT_TABLES` ([src/learnloop/db/stores/data_capture.py](../../../../../../../src/learnloop/db/stores/data_capture.py), line 22)
+- `OBJECTIVE_TABLES` ([src/learnloop/db/stores/data_capture.py](../../../../../../../src/learnloop/db/stores/data_capture.py), line 23)
+- `READING_EXPOSURES` ([src/learnloop/db/stores/data_capture.py](../../../../../../../src/learnloop/db/stores/data_capture.py), line 25)
+- `READING_RECEIPT_TABLES` ([src/learnloop/db/stores/data_capture.py](../../../../../../../src/learnloop/db/stores/data_capture.py), line 27)
+- `RECEIPT_COLUMNS` ([src/learnloop/db/stores/data_capture.py](../../../../../../../src/learnloop/db/stores/data_capture.py), line 29)
+- `OBJECTIVE_COLUMNS` ([src/learnloop/db/stores/data_capture.py](../../../../../../../src/learnloop/db/stores/data_capture.py), line 35)
+- `MEASUREMENT_STATES` ([src/learnloop/db/stores/data_capture.py](../../../../../../../src/learnloop/db/stores/data_capture.py), line 40)
 
 ### Explicit exports
 
@@ -116,8 +116,7 @@ The authoritative system-level explanation remains in [[State and Persistence]],
 
 ## Internal implementation anchors
 
-- `_present(connection: sqlite3.Connection, tables: Iterable[str]) -> bool` ([source](../../../../../../../src/learnloop/db/stores/data_capture.py), line 42)
-- `_has_column(connection: sqlite3.Connection, table: str, column: str) -> bool` ([source](../../../../../../../src/learnloop/db/stores/data_capture.py), line 51)
+- `_present(connection: sqlite3.Connection, tables: Iterable[str]) -> bool` ([source](../../../../../../../src/learnloop/db/stores/data_capture.py), line 43)
 
 ## Who imports or calls it
 
@@ -134,6 +133,7 @@ The authoritative system-level explanation remains in [[State and Persistence]],
 
 ### LearnLoop dependencies
 
+- [[Reference/Modules/learnloop/db/stores/router_objective|learnloop.db.stores.router_objective]] — imports `module`; calls `fill_receipt`, `split_receipt`
 - [[Reference/Modules/learnloop/ids|learnloop.ids]] — imports `new_ulid`; calls `new_ulid`
 
 ### Platform and third-party dependencies
@@ -165,6 +165,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_data_capture_landing_review.py](../../../../../../../tests/test_data_capture_landing_review.py) — direct import
   - `test_f1_below_the_receipts_table_the_read_is_activity_alone`
 - [tests/test_data_capture_phone.py](../../../../../../../tests/test_data_capture_phone.py) — direct import
+- [tests/test_ro0_codex_verify.py](../../../../../../../tests/test_ro0_codex_verify.py) — direct import
 
 ## Modification guidance
 

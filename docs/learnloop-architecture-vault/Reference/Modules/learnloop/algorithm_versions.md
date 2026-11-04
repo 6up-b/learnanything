@@ -462,6 +462,14 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_required_method_rereview.py](../../../../../tests/test_required_method_rereview.py) — direct import
 - [tests/test_required_method_round3.py](../../../../../tests/test_required_method_round3.py) — direct import
 - [tests/test_required_method_round3_review.py](../../../../../tests/test_required_method_round3_review.py) — direct import
+- [tests/test_ro0_codex_review.py](../../../../../tests/test_ro0_codex_review.py) — direct import
+  - `test_f3_a_list_that_served_no_head_still_decides_nothing_and_reads_no_ad`
+  - `test_f3_a_served_offer_keeps_its_candidates_ad_numbers`
+  - `test_f3_a_staged_decision_keeps_its_ad_numbers`
+  - `test_f3_the_staged_bridge_hands_its_decision_the_ad_reader`
+- [tests/test_ro0_codex_verify.py](../../../../../tests/test_ro0_codex_verify.py) — direct import
+  - `test_r1_an_arranged_check_keeps_its_objective_whatever_its_delay_meets`
+  - `test_r1_an_unserved_check_keeps_its_state_whatever_its_type_meets`
 - [tests/test_ro0_gate.py](../../../../../tests/test_ro0_gate.py) — direct import
   - `test_the_plan_blocks_rows_and_serves_are_the_same_on_and_off`
 - [tests/test_route_rules_in_grader.py](../../../../../tests/test_route_rules_in_grader.py) — direct import

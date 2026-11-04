@@ -60,7 +60,7 @@ For system intent, use [[Architecture Overview]].
 | [[Reference/Modules/learnloop/router/card|learnloop.router.card]] | [[Reference/Modules/learnloop/router/card#^module-purpose|purpose]] | `ACTIVE` | 1 | 12 |
 | [[Reference/Modules/learnloop/router/decisions|learnloop.router.decisions]] | [[Reference/Modules/learnloop/router/decisions#^module-purpose|purpose]] | `ACTIVE` | 2 | 3 |
 | [[Reference/Modules/learnloop/router/first_delayed_success|learnloop.router.first_delayed_success]] | [[Reference/Modules/learnloop/router/first_delayed_success#^module-purpose|purpose]] | `ACTIVE` | 2 | 4 |
-| [[Reference/Modules/learnloop/router/lesson_suggestions|learnloop.router.lesson_suggestions]] | [[Reference/Modules/learnloop/router/lesson_suggestions#^module-purpose|purpose]] | `ACTIVE` | 1 | 6 |
+| [[Reference/Modules/learnloop/router/lesson_suggestions|learnloop.router.lesson_suggestions]] | [[Reference/Modules/learnloop/router/lesson_suggestions#^module-purpose|purpose]] | `ACTIVE` | 1 | 7 |
 | [[Reference/Modules/learnloop/router/mixture|learnloop.router.mixture]] | [[Reference/Modules/learnloop/router/mixture#^module-purpose|purpose]] | `ACTIVE` | 5 | 7 |
 | [[Reference/Modules/learnloop/router/outcomes|learnloop.router.outcomes]] | [[Reference/Modules/learnloop/router/outcomes#^module-purpose|purpose]] | `ACTIVE` | 6 | 19 |
 | [[Reference/Modules/learnloop/router/plan_log|learnloop.router.plan_log]] | [[Reference/Modules/learnloop/router/plan_log#^module-purpose|purpose]] | `ACTIVE` | 3 | 2 |

@@ -7,8 +7,8 @@ version: "1.0.0"
 source_path: "src/learnloop/ops/capture_report.py"
 source_paths:
   - "src/learnloop/ops/capture_report.py"
-source_commit: "b476193089d878c66a13b53ff18e690e04ba07c2"
-source_commit_timestamp: "2026-11-04T11:07:40-05:00"
+source_commit: "2ffac8021ab164e5294b86f628c3747099919ac0"
+source_commit_timestamp: "2026-11-04T18:38:52-05:00"
 source_worktree_state: "clean"
 generated: true
 generated_at: "2026-11-02"
@@ -50,33 +50,33 @@ The authoritative system-level explanation remains in [[State and Persistence]],
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/ops/capture_report.py](../../../../../../src/learnloop/ops/capture_report.py) |
-| Source lines | 602 |
+| Source lines | 611 |
 | Owning package | [[Reference/Modules/learnloop/ops/_package|learnloop.ops]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `b476193089d878c66a13b53ff18e690e04ba07c2` |
-| Commit timestamp | `2026-11-04T11:07:40-05:00` |
+| Source commit | `2ffac8021ab164e5294b86f628c3747099919ac0` |
+| Commit timestamp | `2026-11-04T18:38:52-05:00` |
 
 ## Public API
 
-- `prefilter_section(connection: sqlite3.Connection) -> dict[str, Any]` ([source](../../../../../../src/learnloop/ops/capture_report.py), line 42) — A1: receipts by decision kind against the decisions they cover, and what they cost.
-- `measurement_section(connection: sqlite3.Connection) -> dict[str, Any]` ([source](../../../../../../src/learnloop/ops/capture_report.py), line 95) — A2: objectives by arm, and each arm's measurement states (censoring by treatment, visible).
-- `outcome_section(connection: sqlite3.Connection, vault: Any, repository: Any) -> dict[str, Any]` ([source](../../../../../../src/learnloop/ops/capture_report.py), line 126) — A2, A4: the derived outcomes under the vault's outcome version, and A4's skip reasons.
-- `time_section(connection: sqlite3.Connection, vault: Any, repository: Any, *, as_of: str, success_correctness: float) -> dict[str, Any]` ([source](../../../../../../src/learnloop/ops/capture_report.py), line 178) — A3: the first-delayed-success proxy.
-- `floor_and_pick_section(connection: sqlite3.Connection) -> dict[str, Any]` ([source](../../../../../../src/learnloop/ops/capture_report.py), line 193) — A5, A6, A8: the not_ready floor's draws, the delayed picks' ties, the thin supports.
-- `hypothesis_marks_section(connection: sqlite3.Connection, vault: Any, repository: Any, *, success_correctness: float) -> dict[str, Any]` ([source](../../../../../../src/learnloop/ops/capture_report.py), line 478) — FG1c (spec §7) and row 6 of the router objective's logging: the exposure table's coverage, and how far the marks can be trusted, each labelled as conditional on being observed.
-- `build_report(connection: sqlite3.Connection, vault: Any, repository: Any, *, as_of: str, success_correctness: float) -> dict[str, Any]` ([source](../../../../../../src/learnloop/ops/capture_report.py), line 504)
-- `lines(report: Mapping[str, Any]) -> list[str]` ([source](../../../../../../src/learnloop/ops/capture_report.py), line 523) — The plain-text report.
+- `prefilter_section(connection: sqlite3.Connection) -> dict[str, Any]` ([source](../../../../../../src/learnloop/ops/capture_report.py), line 43) — A1: receipts by decision kind against the decisions they cover, and what they cost.
+- `measurement_section(connection: sqlite3.Connection) -> dict[str, Any]` ([source](../../../../../../src/learnloop/ops/capture_report.py), line 96) — A2: objectives by arm, and each arm's measurement states (censoring by treatment, visible).
+- `outcome_section(connection: sqlite3.Connection, vault: Any, repository: Any) -> dict[str, Any]` ([source](../../../../../../src/learnloop/ops/capture_report.py), line 127) — A2, A4: the derived outcomes under the vault's outcome version, and A4's skip reasons.
+- `time_section(connection: sqlite3.Connection, vault: Any, repository: Any, *, as_of: str, success_correctness: float) -> dict[str, Any]` ([source](../../../../../../src/learnloop/ops/capture_report.py), line 179) — A3: the first-delayed-success proxy.
+- `floor_and_pick_section(connection: sqlite3.Connection) -> dict[str, Any]` ([source](../../../../../../src/learnloop/ops/capture_report.py), line 194) — A5, A6, A8: the not_ready floor's draws, the delayed picks' ties, the thin supports.
+- `hypothesis_marks_section(connection: sqlite3.Connection, vault: Any, repository: Any, *, success_correctness: float) -> dict[str, Any]` ([source](../../../../../../src/learnloop/ops/capture_report.py), line 484) — FG1c (spec §7) and row 6 of the router objective's logging: the exposure table's coverage, and how far the marks can be trusted, each labelled as conditional on being observed.
+- `build_report(connection: sqlite3.Connection, vault: Any, repository: Any, *, as_of: str, success_correctness: float) -> dict[str, Any]` ([source](../../../../../../src/learnloop/ops/capture_report.py), line 510)
+- `lines(report: Mapping[str, Any]) -> list[str]` ([source](../../../../../../src/learnloop/ops/capture_report.py), line 531) — The plain-text report.
 
 ### Module constants
 
-- `REPORT_VERSION` ([src/learnloop/ops/capture_report.py](../../../../../../src/learnloop/ops/capture_report.py), line 25)
-- `_INHERITS_PARENT` ([src/learnloop/ops/capture_report.py](../../../../../../src/learnloop/ops/capture_report.py), line 27)
-- `PROBE_AGREEMENT_LABEL` ([src/learnloop/ops/capture_report.py](../../../../../../src/learnloop/ops/capture_report.py), line 225)
-- `DELAYED_AGREEMENT_LABEL` ([src/learnloop/ops/capture_report.py](../../../../../../src/learnloop/ops/capture_report.py), line 227)
-- `_OPINIONS` ([src/learnloop/ops/capture_report.py](../../../../../../src/learnloop/ops/capture_report.py), line 231)
-- `POSITION_LABEL` ([src/learnloop/ops/capture_report.py](../../../../../../src/learnloop/ops/capture_report.py), line 232)
+- `REPORT_VERSION` ([src/learnloop/ops/capture_report.py](../../../../../../src/learnloop/ops/capture_report.py), line 26)
+- `_INHERITS_PARENT` ([src/learnloop/ops/capture_report.py](../../../../../../src/learnloop/ops/capture_report.py), line 28)
+- `PROBE_AGREEMENT_LABEL` ([src/learnloop/ops/capture_report.py](../../../../../../src/learnloop/ops/capture_report.py), line 231)
+- `DELAYED_AGREEMENT_LABEL` ([src/learnloop/ops/capture_report.py](../../../../../../src/learnloop/ops/capture_report.py), line 233)
+- `_OPINIONS` ([src/learnloop/ops/capture_report.py](../../../../../../src/learnloop/ops/capture_report.py), line 237)
+- `POSITION_LABEL` ([src/learnloop/ops/capture_report.py](../../../../../../src/learnloop/ops/capture_report.py), line 238)
 
 ### Explicit exports
 
@@ -88,19 +88,20 @@ The authoritative system-level explanation remains in [[State and Persistence]],
 
 ## Internal implementation anchors
 
-- `_present(connection: sqlite3.Connection, table: str) -> bool` ([source](../../../../../../src/learnloop/ops/capture_report.py), line 30)
-- `_active_days(values: list[str]) -> int` ([source](../../../../../../src/learnloop/ops/capture_report.py), line 34)
-- `_per_day(total: float, days: int) -> float | None` ([source](../../../../../../src/learnloop/ops/capture_report.py), line 38)
-- `_row_count(connection: sqlite3.Connection, table: str) -> int` ([source](../../../../../../src/learnloop/ops/capture_report.py), line 122)
-- `_exposure_coverage(connection: sqlite3.Connection, exposures: list[dict[str, Any]], links: list[dict[str, Any]]) -> dict[str, Any]` ([source](../../../../../../src/learnloop/ops/capture_report.py), line 236) — The coverage row: how many attempts with causes since the first display had a list displayed, and what it costs.
-- `_latest_marks(marks: list[dict[str, Any]]) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/ops/capture_report.py), line 259)
-- `_hypothesis_keys(connection: sqlite3.Connection) -> dict[str, str]` ([source](../../../../../../src/learnloop/ops/capture_report.py), line 266) — Each hypothesis version's stable identity.
-- `_observations(connection: sqlite3.Connection) -> dict[str, dict[str, Any]]` ([source](../../../../../../src/learnloop/ops/capture_report.py), line 272) — Per factor, its newest answered observation, with what it measured and classified as stable identities.
-- `_probe_agreement(connection: sqlite3.Connection, latest: list[dict[str, Any]]) -> dict[str, Any]` ([source](../../../../../../src/learnloop/ops/capture_report.py), line 298) — Marks against what a probe's answer classified.
-- `_rejected_the_whole_list(latest: Mapping[str | None, Mapping[str, Any]], rows: list[Mapping[str, Any]], keys: Mapping[str, str]) -> bool` ([source](../../../../../../src/learnloop/ops/capture_report.py), line 358) — None of these, or Not it on every cause of the list as the newest mark displayed it.
-- `_opinion_reading(rows: list[Mapping[str, Any]], keys: Mapping[str, str]) -> str | None` ([source](../../../../../../src/learnloop/ops/capture_report.py), line 370) — One attempt's opinion in ``rows`` (oldest first), or None with nothing held: one of ``_OPINIONS``.
-- `_delayed_agreement(connection: sqlite3.Connection, vault: Any, repository: Any, marks: list[dict[str, Any]], success_correctness: float) -> dict[str, Any]` ([source](../../../../../../src/learnloop/ops/capture_report.py), line 384) — Marks against delayed answers on the topic under the shared definition: the opinion held before the first delayed answer that had one, so the answer is what it predicted and hindsight replaces nothing.
-- `_position_rates(exposures: list[dict[str, Any]], latest: list[dict[str, Any]]) -> dict[str, Any]` ([source](../../../../../../src/learnloop/ops/capture_report.py), line 447) — Mark rates by the position each cause held on the marks panel: shown once per attempt and cause.
+- `_present(connection: sqlite3.Connection, table: str) -> bool` ([source](../../../../../../src/learnloop/ops/capture_report.py), line 31)
+- `_active_days(values: list[str]) -> int` ([source](../../../../../../src/learnloop/ops/capture_report.py), line 35)
+- `_per_day(total: float, days: int) -> float | None` ([source](../../../../../../src/learnloop/ops/capture_report.py), line 39)
+- `_row_count(connection: sqlite3.Connection, table: str) -> int` ([source](../../../../../../src/learnloop/ops/capture_report.py), line 123)
+- `_goals(vault: Any) -> list[Any]` ([source](../../../../../../src/learnloop/ops/capture_report.py), line 226)
+- `_exposure_coverage(connection: sqlite3.Connection, exposures: list[dict[str, Any]], links: list[dict[str, Any]]) -> dict[str, Any]` ([source](../../../../../../src/learnloop/ops/capture_report.py), line 242) — The coverage row: how many attempts with causes since the first display had a list displayed, and what it costs.
+- `_latest_marks(marks: list[dict[str, Any]]) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/ops/capture_report.py), line 265)
+- `_hypothesis_keys(connection: sqlite3.Connection) -> dict[str, str]` ([source](../../../../../../src/learnloop/ops/capture_report.py), line 272) — Each hypothesis version's stable identity.
+- `_observations(connection: sqlite3.Connection) -> dict[str, dict[str, Any]]` ([source](../../../../../../src/learnloop/ops/capture_report.py), line 278) — Per factor, its newest answered observation, with what it measured and classified as stable identities.
+- `_probe_agreement(connection: sqlite3.Connection, latest: list[dict[str, Any]]) -> dict[str, Any]` ([source](../../../../../../src/learnloop/ops/capture_report.py), line 304) — Marks against what a probe's answer classified.
+- `_rejected_the_whole_list(latest: Mapping[str | None, Mapping[str, Any]], rows: list[Mapping[str, Any]], keys: Mapping[str, str]) -> bool` ([source](../../../../../../src/learnloop/ops/capture_report.py), line 364) — None of these, or Not it on every cause of the list as the newest mark displayed it.
+- `_opinion_reading(rows: list[Mapping[str, Any]], keys: Mapping[str, str]) -> str | None` ([source](../../../../../../src/learnloop/ops/capture_report.py), line 376) — One attempt's opinion in ``rows`` (oldest first), or None with nothing held: one of ``_OPINIONS``.
+- `_delayed_agreement(connection: sqlite3.Connection, vault: Any, repository: Any, marks: list[dict[str, Any]], success_correctness: float) -> dict[str, Any]` ([source](../../../../../../src/learnloop/ops/capture_report.py), line 390) — Marks against delayed answers on the topic under the shared definition: the opinion held before the first delayed answer that had one, so the answer is what it predicted and hindsight replaces nothing.
+- `_position_rates(exposures: list[dict[str, Any]], latest: list[dict[str, Any]]) -> dict[str, Any]` ([source](../../../../../../src/learnloop/ops/capture_report.py), line 453) — Mark rates by the position each cause held on the marks panel: shown once per attempt and cause.
 
 ## Who imports or calls it
 
@@ -114,7 +115,7 @@ The authoritative system-level explanation remains in [[State and Persistence]],
 ### LearnLoop dependencies
 
 - [[Reference/Modules/learnloop/causal_activity_policy|learnloop.causal_activity_policy]] — imports `DISCRIMINATING_OUTCOMES`
-- [[Reference/Modules/learnloop/data_capture/gates|learnloop.data_capture.gates]] — imports `receipts_on`, `serving_on`; calls `receipts_on`, `serving_on`
+- [[Reference/Modules/learnloop/data_capture/gates|learnloop.data_capture.gates]] — imports `objective_receipts_on`, `receipts_on`, `serving_on`; calls `objective_receipts_on`, `receipts_on`, `serving_on`
 - [[Reference/Modules/learnloop/data_capture/reading_exposures|learnloop.data_capture.reading_exposures]] — imports `module`; calls `for_version`, `not_yet_swept`, `read`
 - [[Reference/Modules/learnloop/db/stores/data_capture|learnloop.db.stores.data_capture]] — imports `module`; calls `measurement_events`, `objectives`, `objectives_present`, `receipts_present`
 - [[Reference/Modules/learnloop/db/stores/hypothesis_marks|learnloop.db.stores.hypothesis_marks]] — imports `module`; calls `all_exposures`, `all_marks`, `decode_ids`, `present`, `probe_links`
@@ -123,6 +124,7 @@ The authoritative system-level explanation remains in [[State and Persistence]],
 - [[Reference/Modules/learnloop/held_grades|learnloop.held_grades]] — imports `held_for_review_attempts`, `pfc_assessments`; calls `held_for_review_attempts`, `pfc_assessments`
 - [[Reference/Modules/learnloop/router/first_delayed_success|learnloop.router.first_delayed_success]] — imports `summary`, `trajectories`; calls `summary`, `trajectories`
 - [[Reference/Modules/learnloop/router/outcomes|learnloop.router.outcomes]] — imports `delayed_outcomes_after`, `derive_router_outcomes`, `fold_measurement`, `outcome_version_for`, `servable_items_by_learning_object`; calls `delayed_outcomes_after`, `derive_router_outcomes`, `fold_measurement`, `outcome_version_for`, `servable_items_by_learning_object`
+- [[Reference/Modules/learnloop/router_objective/report|learnloop.router_objective.report]] — imports `module`; calls `lines`, `section`
 
 ### Platform and third-party dependencies
 
@@ -165,6 +167,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_the_report_measures_marks_against_delayed_performance`
   - `test_the_report_measures_marks_against_the_probe_each_labelled_conditional`
   - `test_the_whole_report_carries_the_section_in_json_and_in_words`
+- [tests/test_ro0_report.py](../../../../../../tests/test_ro0_report.py) — direct import
+  - `test_each_row_reports_what_was_written_and_measured_bytes`
 
 ## Modification guidance
 

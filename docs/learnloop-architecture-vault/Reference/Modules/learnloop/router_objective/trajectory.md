@@ -7,8 +7,8 @@ version: "1.0.0"
 source_path: "src/learnloop/router_objective/trajectory.py"
 source_paths:
   - "src/learnloop/router_objective/trajectory.py"
-source_commit: "dd62a5964ef51df8d2279346e426225c7293e452"
-source_commit_timestamp: "2026-11-04T09:28:50-05:00"
+source_commit: "2079aa1eb02ced81c4ed4449672db9e2e437e45b"
+source_commit_timestamp: "2026-11-04T16:51:26-05:00"
 source_worktree_state: "clean"
 generated: true
 generated_at: "2026-11-02"
@@ -50,22 +50,22 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/router_objective/trajectory.py](../../../../../../src/learnloop/router_objective/trajectory.py) |
-| Source lines | 61 |
+| Source lines | 104 |
 | Owning package | [[Reference/Modules/learnloop/router_objective/_package|learnloop.router_objective]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `dd62a5964ef51df8d2279346e426225c7293e452` |
-| Commit timestamp | `2026-11-04T09:28:50-05:00` |
+| Source commit | `2079aa1eb02ced81c4ed4449672db9e2e437e45b` |
+| Commit timestamp | `2026-11-04T16:51:26-05:00` |
 
 ## Public API
 
-- `rows(connection: Any) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/router_objective/trajectory.py), line 55) — Every decision's links, read-only.
+- `rows(connection: Any) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/router_objective/trajectory.py), line 98) — Every decision's links, read-only.
 
 ### Module constants
 
-- `VERSION` ([src/learnloop/router_objective/trajectory.py](../../../../../../src/learnloop/router_objective/trajectory.py), line 20)
-- `TRAJECTORY_SQL` ([src/learnloop/router_objective/trajectory.py](../../../../../../src/learnloop/router_objective/trajectory.py), line 24)
+- `VERSION` ([src/learnloop/router_objective/trajectory.py](../../../../../../src/learnloop/router_objective/trajectory.py), line 27)
+- `TRAJECTORY_SQL` ([src/learnloop/router_objective/trajectory.py](../../../../../../src/learnloop/router_objective/trajectory.py), line 31)
 
 ### Explicit exports
 
@@ -110,6 +110,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
+- [tests/test_ro0_codex_review.py](../../../../../../tests/test_ro0_codex_review.py) — direct import
 - [tests/test_ro0_row12_trajectory.py](../../../../../../tests/test_ro0_row12_trajectory.py) — direct import
   - `test_the_read_runs_on_the_head_schema`
 

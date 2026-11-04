@@ -7,8 +7,8 @@ version: "1.0.0"
 source_path: "src/learnloop/daily_plan/engine.py"
 source_paths:
   - "src/learnloop/daily_plan/engine.py"
-source_commit: "01dc007d94d4e3214ef415a1e51d26e4bfec7320"
-source_commit_timestamp: "2026-11-04T10:15:33-05:00"
+source_commit: "2079aa1eb02ced81c4ed4449672db9e2e437e45b"
+source_commit_timestamp: "2026-11-04T16:51:26-05:00"
 source_worktree_state: "clean"
 generated: true
 generated_at: "2026-11-02"
@@ -55,8 +55,8 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `01dc007d94d4e3214ef415a1e51d26e4bfec7320` |
-| Commit timestamp | `2026-11-04T10:15:33-05:00` |
+| Source commit | `2079aa1eb02ced81c4ed4449672db9e2e437e45b` |
+| Commit timestamp | `2026-11-04T16:51:26-05:00` |
 
 ## Public API
 
@@ -713,6 +713,14 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_new_vaults_read_on_from_the_furthest_section`
   - `test_replay_never_reads_the_switch`
   - `test_the_reading_step_acts_wherever_the_plan_acts_behind_its_switch`
+- [tests/test_ro0_codex_review.py](../../../../../../tests/test_ro0_codex_review.py) — direct import
+  - `test_f2_a_forced_only_boundary_keeps_the_served_items_state_and_minutes`
+  - `test_f5_a_decision_whose_session_is_unknown_is_censored_and_names_no_return`
+  - `test_f5_a_session_still_open_returns_in_the_next_one_it_was_replaced_by`
+  - `test_f5_the_session_a_pre_session_decision_opened_is_not_its_return`
+- [tests/test_ro0_codex_verify.py](../../../../../../tests/test_ro0_codex_verify.py) — direct import
+  - `test_r1_a_keyed_pick_stands_whatever_its_presentations_receipt_meets`
+  - `test_r1_an_unserved_check_keeps_its_state_whatever_its_type_meets`
 - [tests/test_ro0_gate.py](../../../../../../tests/test_ro0_gate.py) — direct import
   - `test_rebuild_leaves_the_receipts_alone`
   - `test_the_plan_blocks_rows_and_serves_are_the_same_on_and_off`

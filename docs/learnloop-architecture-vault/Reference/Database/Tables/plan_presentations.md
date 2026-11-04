@@ -3,13 +3,13 @@ title: "plan_presentations"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "094836387e8580ee3996941f4e181b109942c8dc"
-source_commit_timestamp: "2026-11-04T11:35:15-05:00"
+source_commit: "2ffac8021ab164e5294b86f628c3747099919ac0"
+source_commit_timestamp: "2026-11-04T18:38:52-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite plan_presentations"
   - "table plan_presentations"
-schema_head: 242
+schema_head: 243
 table_name: "plan_presentations"
 table_role: "raw_ledger"
 functionality_status: "active"
@@ -53,7 +53,7 @@ It belongs to the **operations** navigation family. The family context lives in 
 - **Role:** `raw_ledger` — Authoritative replay input or mixed authoritative state. The rebuild umbrella preserves it.
 - **Functionality status:** `active`.
 - **Introduced by:** `migrations/202_router_staged_frame.sql`.
-- **Schema touched by:** `202_router_staged_frame.sql`, `214_adaptive_difficulty_serving.sql`, `236_router_lesson_suggestions.sql`.
+- **Schema touched by:** `202_router_staged_frame.sql`, `214_adaptive_difficulty_serving.sql`, `236_router_lesson_suggestions.sql`, `243_router_objective_receipts.sql`.
 - **Rebuild owner:** none; this table is preserved by the rebuild umbrella.
 
 For the distinction between SQLite state and human-authored vault files, see [[State and Persistence]]. For whole-vault creation and opening behavior, see [[Vault Lifecycle]]. ^table-lifecycle
@@ -73,6 +73,7 @@ For the distinction between SQLite state and human-authored vault files, see [[S
 | `probe_presentation_id` | `TEXT` | no | — | — | Application-validated soft reference |
 | `session_id` | `TEXT` | no | — | — | Application-validated soft reference |
 | `served_at` | `TEXT` | yes | — | — | Timestamp (ISO-8601 UTC text) |
+| `ask_available` | `INTEGER` | no | — | — | Stored value |
 
 ## Relationships and access paths
 
@@ -107,6 +108,10 @@ Database triggers:
 - `src/learnloop/db/stores/plan_presentations.py`
 - `src/learnloop/evsi_calibration/live_report.py`
 - `src/learnloop/router/outcomes.py`
+- `src/learnloop/router_objective/ask_availability.py`
+- `src/learnloop/router_objective/question_state.py`
+- `src/learnloop/router_objective/report.py`
+- `src/learnloop/router_objective/trajectory.py`
 
 ### Direct SQL writers
 
@@ -136,11 +141,11 @@ None found by exact static reference scan.
 - `tests/test_reader_rw3a_landing.py`
 - `tests/test_reader_rw4b_admission_idempotency.py`
 - `tests/test_reader_rw4b_fix6.py`
-- `tests/test_router_g4_restraint.py`
-- `tests/test_router_presentations.py`
-- `tests/test_router_r2a_serving.py`
-- `tests/test_router_r2bc_landing.py`
-- `tests/test_ux_phase4_landing.py`
+- `tests/test_ro0_codex_review.py`
+- `tests/test_ro0_codex_verify.py`
+- `tests/test_ro0_gate.py`
+- `tests/test_ro0_question_state.py`
+- `tests/test_ro0_row12_trajectory.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 
@@ -171,7 +176,8 @@ CREATE TABLE plan_presentations (
   -- plan does not open probe presentations; kept for that join).
   probe_presentation_id TEXT,
   session_id TEXT,
-  served_at TEXT NOT NULL,
+  served_at TEXT NOT NULL, ask_available INTEGER
+  CHECK (ask_available IS NULL OR ask_available IN (0, 1)),
   UNIQUE (block_id, practice_item_id)
 );
 ```

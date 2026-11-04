@@ -2784,6 +2784,16 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_a_revealed_cold_item_cannot_burn_its_cold_measurement`
 - [tests/test_review_log.py](../../../../../../tests/test_review_log.py) — direct import
 - [tests/test_revision_refresh.py](../../../../../../tests/test_revision_refresh.py) — direct import
+- [tests/test_ro0_codex_review.py](../../../../../../tests/test_ro0_codex_review.py) — direct import
+  - `test_f1_a_refused_disclosure_write_leaves_the_question_and_warns`
+  - `test_f3_a_staged_decision_keeps_its_ad_numbers`
+  - `test_f8_an_unchanged_load_takes_no_write_lock`
+  - `test_f8_two_loaders_sweeping_a_pause_write_it_once`
+- [tests/test_ro0_codex_verify.py](../../../../../../tests/test_ro0_codex_verify.py) — direct import
+  - `test_r1_a_source_opening_stands_whatever_its_initiators_receipt_meets`
+  - `test_r1_an_answer_stands_whatever_its_questions_receipt_meets`
+  - `test_r2_an_opening_with_two_sessions_open_names_neither`
+  - `test_r2_off_a_visit_keeps_no_link`
 - [tests/test_ro0_gate.py](../../../../../../tests/test_ro0_gate.py) — direct import
   - `test_rebuild_leaves_the_receipts_alone`
 - [tests/test_ro0_question_state.py](../../../../../../tests/test_ro0_question_state.py) — direct import

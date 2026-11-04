@@ -3,13 +3,13 @@ title: "source_exposure_events"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "094836387e8580ee3996941f4e181b109942c8dc"
-source_commit_timestamp: "2026-11-04T11:35:15-05:00"
+source_commit: "2ffac8021ab164e5294b86f628c3747099919ac0"
+source_commit_timestamp: "2026-11-04T18:38:52-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite source_exposure_events"
   - "table source_exposure_events"
-schema_head: 242
+schema_head: 243
 table_name: "source_exposure_events"
 table_role: "raw_ledger"
 functionality_status: "active"
@@ -56,7 +56,7 @@ It belongs to the **sources and ingest** navigation family. The family context l
 - **Role:** `raw_ledger` — Authoritative replay input or mixed authoritative state. The rebuild umbrella preserves it.
 - **Functionality status:** `active`.
 - **Introduced by:** `migrations/049_source_exposure_events.sql`.
-- **Schema touched by:** `049_source_exposure_events.sql`, `050_capability_residual_and_identifiability.sql`, `052_source_exposure_contexts.sql`, `058_remediation_episodes.sql`, `092_source_exposure_reader_contexts.sql`, `097_source_exposure_index_backfill.sql`, `150_remediation_delivery_exposure.sql`, `151_cold_measurement_opportunities.sql`.
+- **Schema touched by:** `049_source_exposure_events.sql`, `050_capability_residual_and_identifiability.sql`, `052_source_exposure_contexts.sql`, `058_remediation_episodes.sql`, `092_source_exposure_reader_contexts.sql`, `097_source_exposure_index_backfill.sql`, `150_remediation_delivery_exposure.sql`, `151_cold_measurement_opportunities.sql`, `243_router_objective_receipts.sql`.
 - **Rebuild owner:** none; this table is preserved by the rebuild umbrella.
 
 For the distinction between SQLite state and human-authored vault files, see [[State and Persistence]]. For whole-vault creation and opening behavior, see [[Vault Lifecycle]]. ^table-lifecycle
@@ -77,6 +77,10 @@ For the distinction between SQLite state and human-authored vault files, see [[S
 | `locator` | `TEXT` | no | — | — | Stored value |
 | `section_path_json` | `TEXT` | yes | `'[]'` | — | JSON-encoded structured payload |
 | `created_at` | `TEXT` | yes | — | — | Timestamp (ISO-8601 UTC text) |
+| `initiator` | `TEXT` | no | — | — | Stored value |
+| `initiator_block_id` | `TEXT` | no | — | — | Application-validated soft reference |
+| `initiator_session_id` | `TEXT` | no | — | — | Application-validated soft reference |
+| `initiator_visit_id` | `TEXT` | no | — | — | Application-validated soft reference |
 
 ## Relationships and access paths
 
@@ -104,6 +108,7 @@ Indexes and uniqueness:
 - `src/learnloop/instructional/exposure.py`
 - `src/learnloop/router/first_delayed_success.py`
 - `src/learnloop/router/outcomes.py`
+- `src/learnloop/router_objective/report.py`
 - `src/learnloop/source_retrieval/reader_tutor.py`
 - `src/learnloop/substrate/intervention_outcomes.py`
 - `src/learnloop_sidecar/handlers/library_exercises.py`
@@ -184,7 +189,8 @@ CREATE TABLE "source_exposure_events" (
   locator TEXT,
   section_path_json TEXT NOT NULL DEFAULT '[]',
   created_at TEXT NOT NULL
-);
+, initiator TEXT
+  CHECK (initiator IS NULL OR initiator IN ('learner', 'plan', 'tutor_citation', 'dose_offer', 'lesson')), initiator_block_id TEXT, initiator_session_id TEXT, initiator_visit_id TEXT);
 ```
 
 ## Related notes
