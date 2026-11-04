@@ -1,4 +1,4 @@
-"""The two switches of data capture (``[data_capture]``). A leaf: no store, no domain.
+"""The switches of data capture (``[data_capture]``) and of RO0's receipts. A leaf: no store, no domain.
 
 ``receipts_on`` acts at every algorithm version: a receipt changes nothing served.
 ``serving_on`` is the successor's gate (``DATA_CAPTURE_VERSIONS``, the kill switch
@@ -29,4 +29,11 @@ def serving_on(config: Any) -> bool:
     )
 
 
-__all__ = ["OUTCOME_VERSION_V3", "receipts_on", "serving_on"]
+def objective_receipts_on(config: Any) -> bool:
+    """RO0's additive receipts and columns (``[router_objective] receipts``): at every algorithm version."""
+
+    section = getattr(config, "router_objective", None)
+    return bool(getattr(section, "receipts", False))
+
+
+__all__ = ["OUTCOME_VERSION_V3", "objective_receipts_on", "receipts_on", "serving_on"]

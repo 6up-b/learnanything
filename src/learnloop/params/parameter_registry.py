@@ -1615,6 +1615,13 @@ _CONFIG_RULES: list[_ConfigRule] = [
         "kill switch for mobile PR-4's successor: a live attempt writes only its item row's scheduling columns "
         "(active only closes, content_hash is content sync's), so it never reopens a row a content sync closed; "
         "off, the attempt upserts the whole row as the predecessor did. Never read by replay."),
+    # Router objective RO0 (spec_router_objective_v1 §4): the receipts' kill switch. A boolean
+    # (classified so every new key has a rule); it decides no plan, only whether a row is written.
+    _ConfigRule(_exact(
+        "router_objective.receipts",
+    ), "structural", "operational",
+        "kill switch for RO0's additive receipts and columns: off, nothing is written and nothing else changes. "
+        "Nothing serving, scheduling, certification or replay reads what it writes."),
     # Mobile PR-6 (Codex review F6): the kill switch of the phone's device rules.
     # A boolean; which items need a desktop is structural (their contract and
     # their parsed Markdown), never a weight.
@@ -2860,6 +2867,11 @@ BOOLEAN_DECISION_LEAVES: tuple[str, ...] = (
     "diagnostic_augmentation.sampling_enabled",
 )
 
+#: Boolean leaves registered for inventory only: structural, not decisions.
+BOOLEAN_STRUCTURAL_LEAVES: tuple[str, ...] = (
+    "router_objective.receipts",
+)
+
 
 #: String (enum) config leaves that are DECISIONS: like the booleans above, the
 #: numeric walk skips them, so each is enumerated here.
@@ -2880,6 +2892,11 @@ def _build_config_specs() -> None:
         if not _register_config_path(path):
             raise RuntimeError(
                 f"enum decision leaf {path} has no classification rule"
+            )
+    for path in BOOLEAN_STRUCTURAL_LEAVES:
+        if not _register_config_path(path):
+            raise RuntimeError(
+                f"boolean structural leaf {path} has no classification rule"
             )
 
 

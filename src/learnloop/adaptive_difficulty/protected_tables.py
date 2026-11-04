@@ -382,7 +382,7 @@ COLUMNS: Mapping[str, Mapping[str, str]] = MappingProxyType({
                "judged_inputs_json published_at created_at updated_at"),
     "plan_presentations": _table({"id": "self", "practice_item_id": "self"},
         values="block_id router_decision_id controller_decision_id position origin scheduler_candidate_id "
-               "probe_presentation_id session_id served_at"),
+               "probe_presentation_id session_id served_at ask_available"),
     "practice_attempts": _table({"id": "self", "practice_item_id": "self", "plan_presentation_id": "self"},
         values="learning_object_id subject concept practice_mode attempt_type learner_answer_md evidence_facets_json "
                "evidence_weights_json rubric_score correctness confidence latency_seconds hints_used error_type "
@@ -407,7 +407,7 @@ COLUMNS: Mapping[str, Mapping[str, str]] = MappingProxyType({
                "rating seconds_into_attempt provider created_at answer_status saved_note_id preceding_tutor_move "
                "scaffold_level warning_state learner_mode question_opportunity hints_used_before "
                "direct_explanation_request attempt_progress signal_channel resolution leak_overlap "
-               "remediation_episode_id assessment_contract_version_id answered_at answer_mode"),
+               "remediation_episode_id assessment_contract_version_id answered_at answer_mode reveal_state_json"),
     "reader_authored_questions": _table({
         "id": "self", "extraction_id": "self", "anchor_span_ids_json": "self", "span_ids_json": "self",
         "practice_item_id": "item",
@@ -481,7 +481,8 @@ COLUMNS: Mapping[str, Mapping[str, str]] = MappingProxyType({
     "source_exposure_events": _table({
         "extraction_id": "extraction", "span_id": "span@extraction_id", "entity_id": "entity@entity_type",
     },
-        values="id context revision_id source_id entity_type page locator created_at", derived="section_path_json"),
+        values="id context revision_id source_id entity_type page locator created_at initiator initiator_block_id "
+               "initiator_session_id initiator_visit_id", derived="section_path_json"),
     "source_span_reanchors": _table({
         "from_extraction_id": "extraction", "from_span_id": "span@from_extraction_id",
         "to_extraction_id": "extraction", "to_span_id": "span@to_extraction_id",

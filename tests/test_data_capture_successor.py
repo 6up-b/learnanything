@@ -58,6 +58,7 @@ def test_every_defaults_snapshot_is_recomputed_and_moves_only_by_the_new_keys():
     assert dumped.pop("data_capture") == {"receipts": True, "serving": True}
     # FG1's keys, in every snapshot and inert below its tag.
     dumped.pop("followup")
+    dumped.pop("router_objective")  # RO0's switch (no successor; every snapshot moved)
     dumped["ai"]["routing"].pop("followup_probe_author", None)
     dumped["ui"].pop("show_router_decisions")
     digest = hashlib.sha256(json.dumps(dumped, sort_keys=True, separators=(",", ":")).encode()).hexdigest()

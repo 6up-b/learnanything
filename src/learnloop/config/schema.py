@@ -4148,6 +4148,18 @@ class DataCaptureConfig(BaseModel):
     serving: bool = True
 
 
+class RouterObjectiveConfig(BaseModel):
+    """The router objective (docs/specs/spec_router_objective_v1.md). RO0 adds only its logging:
+
+    * ``receipts``: the additive receipts and columns of §4 (disclosure state at an ask, generating-process
+      fields, question opportunity, exposure initiator, event times, session availability and end, decision-time
+      belief, cold-check timing, goal lifecycle). They act at every algorithm version and nothing serving,
+      scheduling or certification reads them; off, nothing is written and nothing else changes.
+    """
+
+    receipts: bool = True
+
+
 class FollowupServeConfig(BaseModel):
     """Follow-up generate and serve (FG1; ``docs/specs/spec_followup_generate_serve_v1.md``).
 
@@ -4616,6 +4628,7 @@ class LearnLoopConfig(BaseModel):
     placement: PlacementConfig = Field(default_factory=PlacementConfig)
     router: RouterConfig = Field(default_factory=RouterConfig)
     data_capture: DataCaptureConfig = Field(default_factory=DataCaptureConfig)
+    router_objective: RouterObjectiveConfig = Field(default_factory=RouterObjectiveConfig)
     followup: FollowupServeConfig = Field(default_factory=FollowupServeConfig)
     pf: PFConfig = Field(default_factory=PFConfig)
     plan: PlanConfig = Field(default_factory=PlanConfig)

@@ -79,6 +79,7 @@ def test_every_defaults_snapshot_drops_to_mains_value_without_the_teacher_keys()
         dumped["figures"].pop("checked_labels_enabled")
         dumped.pop("data_capture")  # data capture's keys (mvp-0.44; tests/test_data_capture_successor.py)
         dumped.pop("followup")  # FG1's keys (mvp-0.45; tests/test_followup_successor.py)
+        dumped.pop("router_objective")  # RO0's switch (no successor; every snapshot moved)
         dumped["ui"].pop("show_router_decisions")
         dumped["ai"]["routing"].pop("followup_probe_author", None)
         dumped["practice"].pop("device_eligibility_enabled")  # mobile PR-6 landed after it too

@@ -37,6 +37,13 @@ at S0's checkpoint (D6). Rebuilding the head for a new migration keeps the
 sanitized content: apply the migration to a backup-API copy of this fixture,
 as before.
 
+## Router objective RO0 (migration 242), `router/ro0-logging`, 2026-11-04
+
+Renamed from `migration_head_241`. `242_router_objective_receipts.sql` (five additive columns and three empty RECEIPT tables)
+applied through `learnloop.db.migrate.apply_migrations` on a backup-API copy of the tracked fixture under the test suite's
+upgrade allowance, `wal_checkpoint(TRUNCATE)`, `journal_mode=DELETE`, `integrity_check` ok, `foreign_key_check` empty, and
+copied into place with the backup API, with no companion files. The head holds 229 through 242.
+
 ## Follow-up generate and serve (migration 241), `followup/fg1-generate-serve`, 2026-11-03
 
 Renamed from `migration_head_240`. `241_followup_generate_serve.sql` (six additive tables, empty) applied through

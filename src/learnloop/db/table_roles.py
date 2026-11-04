@@ -180,6 +180,12 @@ _TABLE_ROLE_ITEMS: tuple[tuple[str, TableRole], ...] = (
     ("generated_probe_items", TableRole.RAW_LEDGER),
     ("router_decision_bindings", TableRole.RECEIPT),
     ("decision_objectives", TableRole.RECEIPT),
+    # Router objective RO0 (migration 242; spec_router_objective_v1 §4): session availability and
+    # end reasons, what the router believed at each decision, and goals' lifecycle seen at load.
+    # Immutable, written behind [router_objective] receipts; replay and rebuild never touch them.
+    ("session_receipts", TableRole.RECEIPT),
+    ("decision_state_receipts", TableRole.RECEIPT),
+    ("goal_lifecycle_events", TableRole.RECEIPT),
     ("reading_exposure_receipts", TableRole.RECEIPT),
     # Deliverable curriculum C0b (migration 228): the learner's scope inputs
     # (their own words, append-only), the resolver's resolutions and the
