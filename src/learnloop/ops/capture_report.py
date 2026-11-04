@@ -279,7 +279,6 @@ def _observations(connection: sqlite3.Connection) -> dict[str, dict[str, Any]]:
             "measured": {keys.get(str(value), str(value)) for value in detail.get("measured_hypothesis_ids") or []},
             "open_set": bool(row["supports_open_set"]),
             "independent": bool(row["admitted"]),
-            "at": str(row["created_at"]),
         }
     return out
 
@@ -308,7 +307,7 @@ def _probe_agreement(connection: sqlite3.Connection, latest: list[dict[str, Any]
             continue
         else:
             supported = str(row["hypothesis_key"]) in observation["classified"]
-        timing = "marked_after_the_answer" if str(row["created_at"]) >= observation["at"] else "marked_before_the_answer"
+        timing = "marked_after_the_answer" if row.get("probe_answered") else "marked_before_the_answer"
         independence = "independent_answer" if observation["independent"] else "not_independent_answer"
         verdict = "probe_supports" if supported else "probe_does_not_support"
         slot = table.setdefault(f"{mark}|{verdict}|{independence}|{timing}", {"marks": 0})
