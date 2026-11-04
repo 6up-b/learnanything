@@ -234,8 +234,12 @@ def enter_episode(
     causal_factor_id: str | None = None,
     clock: Clock | None = None,
     ai_client: object | None = None,
+    reserved_for: str | None = None,
 ) -> ProbeEpisodeRecord:
     """Open a diagnostic episode with a fresh ULID and locked hypothesis set.
+
+    ``reserved_for`` (FG1): the generated probe this episode is opened to serve, which
+    no other selector may read.
 
     Idempotent per LO: an already-open episode is returned unchanged. The
     episode enters ``in_progress`` when an eligible instrument exists locally,
@@ -347,7 +351,9 @@ def enter_episode(
     )
     episode = repository.probe_episode(episode_id)
     assert episode is not None
-    instruments = eligible_instruments(vault, repository, episode, hypothesis_set=locked)
+    instruments = eligible_instruments(
+        vault, repository, episode, hypothesis_set=locked, reserved_for=reserved_for
+    )
     if instruments:
         repository.update_probe_episode_status(episode_id, status="in_progress", clock=clock)
     elif learning_object_servable(vault, learning_object_id):
@@ -456,6 +462,7 @@ def retarget_episode_to_causal_factor(
     *,
     origin: str,
     clock: Clock | None = None,
+    reserved_for: str | None = None,
 ) -> ProbeEpisodeRecord:
     """Point an OBSERVATION-FREE open episode at a causal cause set.
 
@@ -524,7 +531,7 @@ def retarget_episode_to_causal_factor(
     relocked = repository.probe_episode(episode.id)
     assert relocked is not None
     instruments = eligible_instruments(
-        vault, repository, relocked, hypothesis_set=hypothesis_set
+        vault, repository, relocked, hypothesis_set=hypothesis_set, reserved_for=reserved_for
     )
     repository.update_probe_episode_status(
         episode.id,

@@ -799,6 +799,7 @@ def llm_instance_payloads(
     count: int,
     ai_client: object,
     clock: Clock | None = None,
+    repository: Repository | None = None,
 ) -> list[dict[str, Any]] | None:
     """LLM-generated surface payloads for one binding, or None when the
     provider lacks the capability or is unavailable (§9.2 fallback contract).
@@ -815,6 +816,19 @@ def llm_instance_payloads(
         for item in vault.practice_items.values()
         if item.learning_object_id == learning_object.id
     ]
+    from learnloop.followup_serve.gates import generate_and_serve_on
+
+    if generate_and_serve_on(vault.config):
+        # FG1 §4.1: no protected material or exam reservation reaches this prompt. The
+        # structural gate still compares against every item, locally.
+        from learnloop.learner_protection import withheld_items
+
+        if repository is None:
+            return None
+        withheld = withheld_items(vault, repository)
+        if not withheld.available:
+            return None
+        existing_items = [item for item in existing_items if withheld.reason(str(item.id)) is None]
     context = ProbeInstanceContext(
         family_template_id=template.id,
         family_template_version=template.version,
@@ -1035,7 +1049,8 @@ def generate_instances_for_episode(
         candidates: list[tuple[dict[str, Any], str, str]] = []
         if ai_client is not None and vault.config.probe.generation.llm_surfaces:
             llm_payloads = llm_instance_payloads(
-                vault, card, resolved_template, count=count, ai_client=ai_client, clock=clock
+                vault, card, resolved_template, count=count, ai_client=ai_client, clock=clock,
+                repository=repository,
             )
             for payload in llm_payloads or []:
                 candidates.append((payload, LLM_GENERATOR_ID, LLM_GENERATOR_VERSION))
@@ -1193,7 +1208,8 @@ def mint_single_use_probe_surface(
         candidates: list[tuple[dict[str, Any], str, str]] = []
         if vault.config.probe.generation.llm_surfaces:
             llm_payloads = llm_instance_payloads(
-                vault, card, resolved_template, count=1, ai_client=ai_client, clock=clock
+                vault, card, resolved_template, count=1, ai_client=ai_client, clock=clock,
+                repository=repository,
             )
             for payload in llm_payloads or []:
                 candidates.append((payload, LLM_GENERATOR_ID, LLM_GENERATOR_VERSION))

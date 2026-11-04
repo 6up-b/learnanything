@@ -37,6 +37,7 @@ from learnloop.curriculum.ai_contracts import DepthEdgeInstanceContext, RungBack
 from learnloop.diagnosis.ai_contracts import (
     ProbeDialogueTurnContext,
     ProbeFamilyTrialsContext,
+    FollowupProbeContext,
     ProbeInstanceContext,
 )
 from learnloop.projects.ai_contracts import (
@@ -69,6 +70,7 @@ _HANDLER_FOR_PURPOSE = {
     "diagnostic_trials": "run_diagnostic_trials",
     "grade_diagnostic_fire": "grade_diagnostic_fire",
     "probe_instance_surfaces": "run_probe_instance_surfaces",
+    "followup_probe_authoring": "run_followup_probe_authoring",
     "probe_dialogue_turn": "run_probe_dialogue_turn",
     "probe_family_trials": "run_probe_family_trials",
     "reader_preset_synthesis": "run_reader_preset_synthesis",
@@ -98,6 +100,7 @@ _CONTEXT_FOR_PURPOSE = {
     "teach_back_authoring": TeachBackAuthoringContext,
     "promotion_analysis": PromotionAnalysisContext,
     "probe_instance_surfaces": ProbeInstanceContext,
+    "followup_probe_authoring": FollowupProbeContext,
     "probe_dialogue_turn": ProbeDialogueTurnContext,
     "probe_family_trials": ProbeFamilyTrialsContext,
     "reader_preset_synthesis": ReaderPresetSynthesisContext,

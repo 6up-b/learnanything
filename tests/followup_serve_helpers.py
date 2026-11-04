@@ -66,3 +66,59 @@ def generated_item(vault_root, repository: Repository, item_id: str, *, workflow
     vault = load_vault(vault_root)
     sync_vault_state(vault, repository, clock=CLOCK)
     return vault
+
+
+class AuthorFake:
+    """The frontier author, faked: counts its physical calls and keeps what it read."""
+
+    model = "fake-frontier"
+
+    def __init__(self, *, prompt: str | None = None, same_predictions: bool = False, error: Exception | None = None):
+        self.calls = 0
+        self.contexts: list[Any] = []
+        self.prompt = prompt
+        self.same_predictions = same_predictions
+        self.error = error
+
+    def run_followup_probe_authoring(self, context: Any) -> Any:
+        from learnloop.diagnosis.ai_contracts import (
+            FollowupProbeAuthored,
+            FollowupProbeCriterion,
+            FollowupProbeManipulation,
+            FollowupProbePrediction,
+        )
+
+        self.calls += 1
+        self.contexts.append(context)
+        if self.error is not None:
+            raise self.error
+        refs = [row["hypothesis_ref"] for row in context.hypotheses]
+        criteria = [f"fact_{index}" for index in range(len(refs))]
+        return FollowupProbeAuthored(
+            prompt_md=self.prompt or f"On {context.learning_object_title}: which factor makes the product valid, and why? (#{self.calls})",
+            expected_answer_md="U Sigma V^T, because the factors must be orthogonal.",
+            surface_suffix=f"tell_apart_{self.calls}",
+            criteria=[FollowupProbeCriterion(id=name, description=f"States {name}.", points=2) for name in criteria],
+            predictions=[
+                FollowupProbePrediction(hypothesis_ref=ref, fails_criteria=[criteria[0] if self.same_predictions else criteria[index]])
+                for index, ref in enumerate(refs)
+            ],
+            intended_manipulations=[
+                FollowupProbeManipulation(axis=axis, rationale="A new question aimed at the causes.")
+                for axis in ("surface_wording", "answer_contract", "rubric")
+            ],
+        )
+
+
+def author_clients(fake: Any) -> Any:
+    from types import SimpleNamespace
+
+    from tests.structured_ai import StructuredClientFake
+
+    class _Client(StructuredClientFake):
+        model = "fake-frontier"
+
+        def run_followup_probe_authoring(self, context):
+            return fake.run_followup_probe_authoring(context)
+
+    return SimpleNamespace(author=_Client())

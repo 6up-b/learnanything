@@ -2032,8 +2032,15 @@ def accept_probe_offer(
     session_id: str | None = None,
     clock: Clock | None = None,
     ai_client: object | None = None,
+    candidate_id: str | None = None,
+    followup_workflow_id: str | None = None,
 ) -> ProbeOffer:
     """"Take the quick check": enter a factor-aware episode and pin the probe.
+
+    FG1 §5.1: the same offer runs automatically for a generated probe, with the
+    router's decision in place of the learner's click. ``candidate_id`` names the
+    exact candidate (the served instrument is the one just admitted), and
+    ``followup_workflow_id`` joins the pin to its workflow.
 
     This is the ONLY caller of ``enter_episode(causal_factor_id=...)`` — the
     parameter existed with zero callers anywhere, which is why the locked causal
@@ -2069,6 +2076,11 @@ def accept_probe_offer(
     # Same shared order as the decision path: the served instrument is the
     # receipt's chosen instrument by construction.
     candidate = candidates[0]
+    if candidate_id is not None:
+        named = [value for value in candidates if str(value["id"]) == candidate_id]
+        if not named:
+            return ProbeOffer(accepted=False, reason="no_reviewed_active_candidate", factor_id=factor_id)
+        candidate = named[0]
     practice_item_id = str(candidate["practice_item_id"])
     item = vault.practice_items.get(practice_item_id)
     if item is None:
@@ -2166,6 +2178,7 @@ def accept_probe_offer(
                         "decision_policy_version": CAUSAL_DECISION_POLICY_VERSION,
                         "formula_version": CAUSAL_ORCHESTRATOR_FORMULA_VERSION,
                         "session_id": session_id,
+                        **({"followup_workflow_id": followup_workflow_id} if followup_workflow_id else {}),
                     }
                 },
                 clock=clock,
@@ -2216,7 +2229,8 @@ def accept_probe_offer(
         try:
             with repository.atomic():
                 episode = retarget_episode_to_causal_factor(
-                    vault, repository, existing, factor_id, origin=origin, clock=clock
+                    vault, repository, existing, factor_id, origin=origin, clock=clock,
+                    reserved_for=practice_item_id,
                 )
                 return finish(episode)
         except _OfferRefusedAtCommit as refused:
@@ -2234,6 +2248,7 @@ def accept_probe_offer(
         causal_factor_id=factor_id,
         clock=clock,
         ai_client=ai_client,
+        reserved_for=practice_item_id,
     )
     try:
         return finish(episode)
@@ -2494,13 +2509,20 @@ def _probe_production_admissibility(
     a different claim from "assessed and clean".
     """
 
-    from learnloop.attempts.reveal_ledger import production_admissibility
+    from learnloop.attempts.reveal_ledger import ProductionAdmissibility, production_admissibility
 
     if not probe_attempt_id:
         return None
     attempt = repository.fetch_practice_attempt(probe_attempt_id)
     if attempt is None:
         return None
+    from learnloop.followup_serve.workflow import probe_answer_exposed
+
+    exposed = probe_answer_exposed(repository, str(attempt.get("probe_presentation_id") or ""))
+    if exposed is not None:
+        # FG1 §6.0, §7: the learner took "Show anyway", or the feedback was released
+        # before a wait: an answer it can't resolve the cause with, whatever the ledger.
+        return ProductionAdmissibility(False, exposed)
     return production_admissibility(
         repository,
         practice_item_id=str(attempt.get("practice_item_id") or "") or None,

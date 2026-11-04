@@ -1518,6 +1518,9 @@ class AIRoutingConfig(BaseModel):
     # an OpenRouter offer or a grant. Empty = ai.active_provider (the plan
     # under T1).
     figure_prefetch_judge: str | None = None
+    # FG1 (spec_followup_generate_serve_v1 §4.1): the frontier author of a generated
+    # single-use probe, in the background. Empty = ai.active_provider (the plan under T1).
+    followup_probe_author: str | None = None
     # Teacher TE1 (spec_teacher_v1 §17): the lesson's teacher, one structured
     # call per lesson turn on the request path (lesson.turn). Empty: the ChatGPT
     # plan's medium tier (keep: an operational route choice until a dry run picks

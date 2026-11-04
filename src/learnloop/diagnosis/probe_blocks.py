@@ -21,6 +21,7 @@ observation target is reached (probe_episodes.py).
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from typing import Any
 
 from learnloop.clock import Clock
@@ -75,6 +76,11 @@ def block_complete(
     components = dict(presentation.selection_components or {}) if presentation is not None else {}
     if components.get("dialogue_block_id"):
         return False
+    causal = components.get("causal_probe")
+    if isinstance(causal, Mapping) and causal.get("followup_workflow_id"):
+        # FG1 §3: a generated follow-up probe is one question: its answer closes the
+        # block, so the held feedback and the repair follow at once.
+        return True
 
     rows = repository.probe_observations_for_episode(episode.id)
     qualifying_rows = [row for row in rows if row["observation"].eligible_for_completion]

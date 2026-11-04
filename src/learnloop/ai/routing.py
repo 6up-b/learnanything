@@ -150,6 +150,9 @@ AITask = Literal[
     "note_link_judge",
     # Reader RW5d P5: the prefetch judge (a listwise task, background only, the plan only, never metered).
     "figure_prefetch_judge",
+    # FG1 (spec_followup_generate_serve_v1 §4.1): the frontier author of a generated
+    # single-use probe, one call per workflow or deduplicated need, in the background.
+    "followup_probe_author",
     # Teacher TE1: the lesson's teacher (a chat task, one call per lesson turn, pressed: plan first,
     # a granted OpenRouter offer covers the lesson; spec_teacher_v1 §17).
     "teacher",
@@ -299,6 +302,8 @@ ROUTE_FOR_OPERATION: dict[str, AITask] = {
     # figure (or writing an open gap's figure goal), in the background only,
     # on the ChatGPT plan only (never metered, never offered OpenRouter).
     "figure_prefetch_judge": "figure_prefetch_judge",
+    # FG1 §4.1: one generated probe from the router's decision and the rival causes.
+    "followup_probe_authoring": "followup_probe_author",
     # Teacher TE1: one lesson turn (TeacherTurnV1) from the doctrine, the
     # brief, the sources and the transcript (spec_teacher_v1 §8.2, §17).
     "teacher_turn": "teacher",

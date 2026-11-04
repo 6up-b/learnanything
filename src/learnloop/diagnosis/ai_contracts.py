@@ -303,3 +303,90 @@ def probe_family_trials_prompt(context: ProbeFamilyTrialsContext) -> str:
         PROBE_FAMILY_TRIALS_PROMPT_VERSION,
         {"task": PROBE_FAMILY_TRIALS_PROMPT, "context": asdict(context)},
     )
+
+
+# --- FG1: the generated follow-up probe (spec_followup_generate_serve_v1 §4.1) ---------
+
+
+@dataclass(frozen=True)
+class FollowupProbeContext:
+    """What the frontier author reads: the router's decision and the rival causes.
+
+    Observation-free by construction, so its predictions can be pinned as blind bundles
+    (causal §5.1): the learner's answer and postdictive claims are never here. Exam
+    material and reservations were left out before this was built (``learner_protection``).
+    """
+
+    learning_object_title: str
+    learning_object_concept: str
+    learning_object_summary: str
+    target_facets: list[str]
+    hypotheses: list[dict[str, Any]]
+    router_decision: dict[str, Any]
+    measurement_pattern: str | None = None
+    source_question_md: str | None = None
+    existing_prompts: list[str] = field(default_factory=list)
+
+
+class FollowupProbeCriterion(WireModel):
+    id: str
+    description: str
+    points: int
+
+
+class FollowupProbePrediction(WireModel):
+    hypothesis_ref: str
+    fails_criteria: list[str] = Field(default_factory=list)
+
+
+class FollowupProbeManipulation(WireModel):
+    axis: str
+    rationale: str
+
+
+class FollowupProbeAuthored(WireModel):
+    prompt_md: str
+    expected_answer_md: str
+    surface_suffix: str
+    criteria: list[FollowupProbeCriterion] = Field(default_factory=list)
+    predictions: list[FollowupProbePrediction] = Field(default_factory=list)
+    intended_manipulations: list[FollowupProbeManipulation] = Field(default_factory=list)
+    held_constant: list[str] = Field(default_factory=list)
+    incidental_changes: list[str] = Field(default_factory=list)
+
+
+FOLLOWUP_PROBE_PROMPT_VERSION = "fg1-followup-probe-authoring-v1"
+
+FOLLOWUP_PROBE_PROMPT = """\
+A learner just missed a question. Their diagnosis left the rival causes in `hypotheses`, and the
+router decided to ask one follow-up question (`router_decision`). Write that one question: a fresh
+question whose answer tells these causes apart. A learner with one cause should answer it differently
+from a learner with another.
+
+Rules:
+- The question is about the topic in `learning_object_title`, and names it or its idea in plain words.
+  It is new: it is not a rewording of `source_question_md` or of anything in `existing_prompts`.
+- It reads as an ordinary question. It never names, hints at or lists the possible causes, and it
+  never reveals what the mistake was or the answer to the earlier question.
+- `expected_answer_md` is the full correct answer.
+- `criteria` are 2 to 4 independently gradable facts a correct answer establishes. Each `id` is a short
+  snake_case word; `description` names the fact, never a method. Points are whole numbers that add to 4.
+- `predictions` has one entry per hypothesis, in `hypothesis_ref` terms: the criteria a learner with
+  ONLY that cause would miss, and no others. Two hypotheses never have the same set. A hypothesis that
+  would miss nothing on this question means the question does not measure it: rewrite the question.
+- `measurement_pattern`, when present, is the shape of question to use.
+- `intended_manipulations` says how this differs from the source question on purpose: each `axis` is
+  one of `surface_wording`, `answer_contract`, `rubric`. `held_constant` lists what you kept the same,
+  from the same words; never list an axis as both. `incidental_changes` lists any other axis that
+  changed from those words.
+- `surface_suffix` is one short snake_case tag for this question.
+Use the learner's plain level of language. Mathematics in LaTeX with $...$ delimiters.
+"""
+
+
+def followup_probe_prompt(context: FollowupProbeContext) -> str:
+    return render_structured_prompt(
+        "learnloop follow-up probe",
+        FOLLOWUP_PROBE_PROMPT_VERSION,
+        {"task": FOLLOWUP_PROBE_PROMPT, "context": asdict(context)},
+    )

@@ -152,9 +152,102 @@ def _run_workflow(vault: Any, repository: Repository, workflow_id: str, *, clien
         settle_practice_lane(vault, repository, row, reason=choice.reason, clock=clock)
         return
     wf.set_fields(repository, workflow_id, lane=wf.LANE_PROBE, factor_id=choice.factor_id, clock=clock)
+    row = wf.get(repository, workflow_id) or row
+    _run_probe_lane(vault, repository, row, choice=choice, clients=clients, clock=clock)
+
+
+def _author_client(vault: Any, clients: Any) -> Any:
+    """The test seam's client, else the route's; never the Decider."""
+
+    from learnloop.followup_run.authoring import resolve_author_client
+
+    injected = getattr(clients, "author", None)
+    return injected if injected is not None else resolve_author_client(vault)
+
+
+def _run_probe_lane(vault: Any, repository: Repository, row: Mapping[str, Any], *, choice: Any, clients: Any,
+                    clock: Clock | None) -> None:
+    """§5: the decision first and the item after it. One physical authoring call, on a plan route."""
+
+    from learnloop.followup_run import admission, router
+
+    workflow_id = str(row["id"])
+    factor_id = str(choice.factor_id)
+    decision = router.decide(vault, repository, row, choice=choice, clients=clients, clock=clock)
+    router.record_decision(repository, row, decision, clock=clock)
+    if decision.refused:
+        wf.move(repository, workflow_id, to_state=wf.REFUSED, reason=decision.reason, release=wf.RELEASE_REFUSED,
+                clock=clock)
+        return
+    if decision.no_intervention:
+        # §5 item 4: nothing is generated, the screen shows the decision, and what was held is released.
+        wf.move(repository, workflow_id, to_state=wf.SETTLED, reason="no_intervention",
+                release=wf.RELEASE_NO_INTERVENTION, lane=wf.LANE_PROBE, clock=clock)
+        return
+    if decision.wait:
+        # §6.0: released now, and the later probe is labelled exposed, so it can't resolve the cause.
+        wf.release_feedback(repository, workflow_id, reason=wf.RELEASE_WAIT, exposed=True, clock=clock)
+    client = _author_client(vault, clients)
+    if client is None:
+        raise GenerationDeferred("author_route_not_ready")
+    item_id: str | None = None
+    fresh = vault
+    try:
+        probe, template, card = admission.author_probe(
+            vault, repository, workflow=row, factor_id=factor_id, decision=decision.for_author(), client=client,
+        )
+        item_id = admission.persist_item(vault, repository, probe, template=template, card=card, workflow_id=workflow_id,
+                                         client=client, clock=clock)
+        fresh = reloaded(vault)
+        admitted = admission.commission_and_pin(
+            fresh, repository, probe, workflow=row, factor_id=factor_id, decision_id=decision.decision_id,
+            practice_item_id=item_id, client=client, clock=clock,
+        )
+    except admission.OfferRefused as refused:
+        _retire(repository, item_id, reason=refused.reason, workflow_id=workflow_id, clock=clock)
+        wf.move(repository, workflow_id, to_state=wf.REFUSED, reason=refused.reason, release=wf.RELEASE_REFUSED,
+                clock=clock)
+        router.record_outcome(repository, row, decision, outcome="refused", clock=clock)
+        return
+    except admission.AdmissionFailed as failed:
+        _retire(repository, item_id, reason=failed.reason, workflow_id=workflow_id, clock=clock)
+        fail_workflow(vault, repository, workflow_id, reason=failed.reason, clock=clock)
+        router.record_outcome(repository, row, decision, outcome="generation_failed", clock=clock)
+        return
+    to_state = wf.WAITING if decision.wait else wf.READY
+    moved = wf.move(
+        repository, workflow_id, to_state=to_state, reason=decision.chosen_ref, from_states=(wf.PENDING,),
+        practice_item_id=admitted.practice_item_id, probe_candidate_id=admitted.candidate_id,
+        hypothesis_set_id=admitted.hypothesis_set_id, probe_episode_id=admitted.episode_id,
+        presentation_id=admitted.presentation_id, clock=clock,
+    )
+    if not moved:
+        # A late generator: the skip or fallback already settled it, and this adds nothing.
+        _retire(repository, admitted.practice_item_id, reason="workflow_settled", workflow_id=workflow_id, clock=clock)
+        repository.end_probe_presentation(admitted.presentation_id, end_reason="abandoned", clock=clock)
+        return
+    router.bind_item(repository, row, decision, admitted, clock=clock)
+
+
+def reloaded(vault: Any) -> Any:
+    """The vault with the item just written; its config stays the run's."""
+
+    from learnloop.vault.loader import load_vault
+
+    fresh = load_vault(vault.root)
+    fresh.config = vault.config
+    return fresh
+
+
+def _retire(repository: Repository, item_id: str | None, *, reason: str, workflow_id: str, clock: Clock | None) -> None:
+    if item_id is None:
+        return
+    from learnloop.followup_serve import identity
+
+    identity.retire(repository, item_id, reason=reason, workflow_id=workflow_id, clock=clock)
 
 
 __all__ = [
     "GenerationDeferred", "JobOutcome", "LEASE_SECONDS", "MAX_GENERATION_ATTEMPTS", "RETRY_BACKOFF_SECONDS",
-    "fail_workflow", "process_next_job",
+    "fail_workflow", "process_next_job", "reloaded",
 ]

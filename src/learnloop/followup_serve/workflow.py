@@ -179,6 +179,24 @@ def move(
         return moved
 
 
+def release_feedback(repository: Repository, workflow_id: str, *, reason: str, exposed: bool = False,
+                     clock: Clock | None = None) -> bool:
+    """Release what is held; ``exposed`` labels a later probe's answer (§6.0). Once only."""
+
+    now = _now(clock)
+    with repository.atomic(), repository.connection() as connection:
+        row = store.workflow(connection, workflow_id)
+        if row is None:
+            return False
+        fields = _release_fields(row, reason, now)
+        if exposed and not row.get("exposed_at"):
+            fields["exposed_at"] = now
+        if not fields:
+            return False
+        store.update_workflow(connection, workflow_id, at=now, **fields)
+        return True
+
+
 def set_fields(repository: Repository, workflow_id: str, *, clock: Clock | None = None, **fields: Any) -> None:
     with repository.atomic(), repository.connection() as connection:
         store.update_workflow(connection, workflow_id, at=_now(clock), **fields)
@@ -191,6 +209,27 @@ def superseded(repository: Repository, row: Mapping[str, Any]) -> bool:
     if latest is None:
         return str(row["revision_key"]) != "joint"
     return str(latest["id"]) != str(row["revision_key"])
+
+
+def probe_answer_exposed(repository: Repository, presentation_id: str) -> str | None:
+    """Why a generated probe's answer is not independent, or None: FG1's two labels.
+
+    ``Show anyway`` marks it, and a wait labels the later probe exposed (spec §6.0).
+    """
+
+    if not presentation_id:
+        return None
+    with repository.connection() as connection:
+        if not store.present(connection):
+            return None
+        row = store.workflow_for_presentation(connection, presentation_id)
+    if row is None:
+        return None
+    if row.get("shown_anyway_at"):
+        return "followup_feedback_shown_anyway"
+    if row.get("exposed_at"):
+        return "followup_feedback_released_before_probe"
+    return None
 
 
 def settle_open_when_off(vault: Any, repository: Repository, *, clock: Clock | None = None) -> int:
@@ -226,6 +265,6 @@ def diagnosis_ended(vault: Any, repository: Repository, *, attempt_id: str, cloc
 
 __all__ = [
     "FAILED", "PENDING", "READY", "REFUSED", "SETTLED", "SKIPPED", "WAITING", "WORKFLOW_OWNS_REASON",
-    "attempt_workflow", "diagnosis_ended", "get", "move", "open_for_attempt", "owns_attempt", "settle_open_when_off",
+    "attempt_workflow", "diagnosis_ended", "get", "move", "open_for_attempt", "probe_answer_exposed", "release_feedback", "owns_attempt", "settle_open_when_off",
     "superseded", "workflow_id_for", "workflow_of_item",
 ]

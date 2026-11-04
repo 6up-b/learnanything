@@ -40,6 +40,7 @@ JUDGE_ROUTES: tuple[tuple[str, str, str], ...] = (
     ("figure_author", "llm", "figures"),
     ("figure_rich_author", "llm", "figures_rich"),
     ("figure_prefetch_judge", "llm", "figures_prefetch"),
+    ("followup_probe_author", "llm", "followup_probes"),
     ("reader_digest", "llm", "reader_digest"),
     ("note_link_judge", "llm", "notes"),
     ("teacher", "llm", "teacher"),
@@ -56,6 +57,12 @@ _WHEN = {
         "changes, it sends the subject's topic and facet titles and summaries, the concept graph and the "
         "practice questions' wording (never your answers, grades or any other learner text, never a "
         "reference answer, never exam material)."
+    ),
+    "followup_probes": (
+        "From mvp-0.45, while followup.generate_and_serve is on: after a missed question whose diagnosis leaves "
+        "rival causes, and for a probe an episode needs, the topic's title and summary, the possible causes the "
+        "diagnoser wrote, the question you missed and the topic's other practice questions are sent, to write "
+        "one new question. Never your answer, never a reference answer and never exam material."
     ),
     "router": (
         "From mvp-0.24, while router.enabled is on and router.mode is mixture: each time Today chooses "

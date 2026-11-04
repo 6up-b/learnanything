@@ -393,9 +393,16 @@ def commission_probe_instrument(
     generation_agent_run_id: str | None = None,
     reviewer_agent_run_id: str | None = None,
     require_adversarial: bool = True,
+    require_divergence: bool = True,
+    manipulation_contract: Mapping[str, Any] | None = None,
     clock: Clock | None = None,
 ) -> dict[str, Any]:
     """Commission one discriminating instrument for ``factor_id``.
+
+    FG1 §5 item 5: on the follow-up lane ``require_divergence`` is off, since rivals
+    sharing a repair class is a fact on the router's card, not a refusal (the owner
+    allows minutes spent on improving the model). ``manipulation_contract`` is the
+    author's, for an item that does not store one.
 
     Returns a typed result; expected states are outcomes, not exceptions, because
     the caller is a sweep and "this factor cannot be instrumented yet" is the
@@ -480,7 +487,7 @@ def commission_probe_instrument(
 
     # Divergence is the whole warrant for spending anything on discrimination.
     need = repair_class_need_for_factor(repository, factor_id)
-    if not need.get("repair_class_divergence"):
+    if require_divergence and not need.get("repair_class_divergence"):
         return _result(
             "not_divergent",
             repair_class_ids=list(need.get("repair_class_ids") or []),
@@ -629,7 +636,11 @@ def commission_probe_instrument(
         # satisfied and the adversarial half carries the whole audit. Recorded
         # explicitly rather than skipped, so the receipt says which it was.
         source_item=source_item if source_item is not None else candidate_item,
-        candidate_item=candidate_item,
+        candidate_item=(
+            candidate_item
+            if manipulation_contract is None
+            else {**candidate_item.model_dump(mode="json"), "manipulation_contract": dict(manipulation_contract)}
+        ),
         source_kind="causal_probe",
         adversarial_review=adversarial_review,
         generation_agent_run_id=generation_agent_run_id,
