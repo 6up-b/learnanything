@@ -119,6 +119,7 @@ from learnloop.diagnosis.causal_attribution import (
     CAUSAL_DECISION_POLICY_VERSION,
     SUPPORT_BASIS_AUTHORITY,
 )
+from learnloop.followup_serve.gates import RIVAL_CAUSES_FACTOR_VERSION
 from learnloop.diagnosis.causal_probe_coherence import (
     ProbeDecision,
     bundle_feature_row_report,
@@ -606,6 +607,10 @@ def sweep_machine_checks(
     for factor in repository.open_unresolved_cause_factors(
         learning_object_id=learning_object_id
     ):
+        if factor.get("algorithm_version") == RIVAL_CAUSES_FACTOR_VERSION:
+            # R9: FG1 writes this factor's question from its causes, so it owes no mapping,
+            # and a check here would refuse the question for a repair class it doesn't need.
+            continue
         causes = list(factor.get("candidate_causes") or [])
         if not any(
             isinstance(cause, Mapping)

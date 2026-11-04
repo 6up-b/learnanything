@@ -534,9 +534,11 @@ def test_f6_a_crash_after_the_diagnosis_ended_is_recovered_by_next(tmp_path, mon
     assert _job(repository, outcome.workflow_id) is None  # the hook never ran
     action = serving.next_action(vault, repository, result.attempt_id, plan_serves=False, clock=CLOCK)
     assert action.action == "wait" and _job(repository, outcome.workflow_id)["state"] == "queued"
-    run_jobs(vault, repository)
+    # R9: this diagnosis names two causes, so the recovered job prepares a question.
+    run_jobs(vault, repository, clients=author_clients(AuthorFake()))
     assert wf.get(repository, outcome.workflow_id)["state"] != wf.PENDING
-    assert serving.next_action(vault, repository, result.attempt_id, plan_serves=False, clock=CLOCK).action == "continue"
+    assert serving.next_action(load_vault(vault.root), repository, result.attempt_id, plan_serves=False,
+                               clock=CLOCK).action == "open"
 
 
 def test_f6_startup_recovery_needs_no_click(tmp_path, monkeypatch):

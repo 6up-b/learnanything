@@ -2223,6 +2223,35 @@ def _attempt_has_nontrivial_error(
     )
 
 
+def open_rival_causes_factor(repository: Repository, attempt_id: str, *, clock: Clock | None = None) -> str | None:
+    """R9: a miss with two or more distinct concrete causes and no factor gets one, with no
+    repair class and whatever its error type. The caller gates it on FG1. None when the attempt
+    has had a factor of any status (a closed one stays closed), fewer than two causes, or a grade
+    held for review, which is no failure. Touches no evidence: the factor is the question's target."""
+
+    from learnloop.followup_serve.gates import RIVAL_CAUSES_FACTOR_VERSION
+    from learnloop.held_grades import attempt_grade_held
+
+    if any(repository.unresolved_cause_factors_for_attempt(attempt_id, status=status)
+           for status in ("open", "resolved", "retired")):
+        return None
+    if attempt_grade_held(repository, attempt_id):
+        return None
+    concrete = [
+        value for value in repository.causal_hypotheses_for_attempt(attempt_id)
+        if value["status"] not in ("open_set", "retired", "demoted")
+    ]
+    if len({str(value["episode_key"]) for value in concrete}) < 2:
+        return None
+    return repository.insert_unresolved_cause_factor(
+        attempt_id=attempt_id,
+        candidate_causes=with_open_set_arm(
+            [{"hypothesis_id": value["id"], "version": value["version"]} for value in concrete]),
+        algorithm_version=RIVAL_CAUSES_FACTOR_VERSION,
+        clock=clock,
+    )
+
+
 def with_open_set_arm(refs: Sequence[Mapping[str, Any]]) -> list[dict[str, Any]]:
     """A factor's refs with the ``H_OTHER`` arm a probe's hypothesis set requires, for a factor
     that has concrete causes. ``build_causal_hypothesis_set`` refuses a factor without it."""

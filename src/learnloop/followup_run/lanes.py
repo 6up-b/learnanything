@@ -42,6 +42,20 @@ def concrete_rivals(repository: Repository, factor: dict[str, Any]) -> tuple[str
     return tuple(dict.fromkeys(out))
 
 
+def open_rival_factor(vault: Any, repository: Repository, workflow: Mapping[str, Any], *,
+                      clock: Clock | None = None) -> str | None:
+    """R9, just before :func:`select_lane`: rival causes are all this lane needs, so a miss that
+    has them and no factor gets one. Weak cases are the router's to decline. Below the tag and with
+    the switch off, nothing changes."""
+
+    from learnloop.diagnosis.causal_attribution import open_rival_causes_factor
+    from learnloop.followup_serve.gates import generate_and_serve_on
+
+    if not generate_and_serve_on(vault.config):
+        return None
+    return open_rival_causes_factor(repository, str(workflow["source_attempt_id"]), clock=clock)
+
+
 def select_lane(repository: Repository, workflow: dict[str, Any]) -> LaneChoice:
     """The probe lane needs an open factor with two rivals; anything else is practice."""
 
@@ -95,4 +109,4 @@ def settle_practice_lane(
     return True
 
 
-__all__ = ["LaneChoice", "concrete_rivals", "select_lane", "settle_practice_lane"]
+__all__ = ["LaneChoice", "concrete_rivals", "open_rival_factor", "select_lane", "settle_practice_lane"]

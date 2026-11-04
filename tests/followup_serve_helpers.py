@@ -138,6 +138,10 @@ class BlindRivalClient(ReviewFakeClient):
     divergent = False
     #: Words a test wants in the first cause's statement.
     quoting = ""
+    #: What this diagnosis leaves unmapped: "", "no_target", "no_repair", "other_criterion", or "trivial".
+    shape = ""
+    #: How many distinct causes it names.
+    causes = 2
 
     def _grade_parts(self, context):
         parts = super()._grade_parts(context)
@@ -152,7 +156,7 @@ class BlindRivalClient(ReviewFakeClient):
     def _blind_grading(self, request, context):
         result = super()._blind_grading(request, context)
         return result.model_copy(update={"error_attributions": [
-            attribution.model_copy(update={"error_type": "conceptual_schema_error"})
+            attribution.model_copy(update={"error_type": "local_slip" if self.shape == "trivial" else "conceptual_schema_error"})
             for attribution in result.error_attributions
         ]})
 
@@ -174,6 +178,18 @@ class BlindRivalClient(ReviewFakeClient):
             ]
         for repair in data["repair_suggestions"]:
             repair["target_criterion_ids"] = [value for value in criteria.values() if value]
+        for event in data["event_diagnoses"]:
+            event["candidate_causes"] = event["candidate_causes"][:self.causes]
+            if self.shape == "no_target":
+                for cause in event["candidate_causes"]:
+                    cause["target_ref"] = None
+        if self.shape == "no_repair":
+            data["repair_suggestions"] = []
+        if self.shape == "other_criterion":
+            names = [criterion["criterion_id"] for criterion in context["current_attempt"]["blind_grade"]["criteria"]]
+            other = [name for name in names if name not in criteria.values()][:1]
+            for repair in data["repair_suggestions"]:
+                repair["target_criterion_ids"] = other
         if self.divergent:
             # Two causes needing different repairs, what the predecessor's quick check is for.
             names = [criterion["criterion_id"] for criterion in context["current_attempt"]["blind_grade"]["criteria"]][:2]

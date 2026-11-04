@@ -26,7 +26,7 @@ from typing import Any
 from learnloop.clock import Clock, utc_now_iso
 from learnloop.db.repositories import Repository
 from learnloop.db.stores import followup_serve as store
-from learnloop.followup_serve.gates import SERVING_SURFACE, generate_and_serve_on
+from learnloop.followup_serve.gates import RIVAL_CAUSES_FACTOR_VERSION, SERVING_SURFACE, generate_and_serve_on
 from learnloop.followup_serve.queue import enqueue_workflow
 
 logger = logging.getLogger(__name__)
@@ -57,6 +57,8 @@ RELEASE_SHOW_ANYWAY = "show_anyway"
 RELEASE_REFUSED = "refused"
 RELEASE_FALLBACK = "fallback"
 RELEASE_SWITCH_OFF = "switch_off"
+#: How a factor opened for this lane closes when its question won't be asked (R9).
+FACTOR_DECLINED = "followup_declined"
 
 
 def workflow_id_for(attempt_id: str, revision_key: str) -> str:
@@ -201,6 +203,8 @@ def finish(
         row = get(repository, workflow_id)
         if row is not None:
             close_probe(repository, row, reason=reason, answered_item=answered_item, clock=clock)
+            if to_state != FAILED and answered_item is None:
+                _close_declined_factor(repository, row, reason=reason, clock=clock)
     return True
 
 
@@ -348,6 +352,19 @@ def close_probe(repository: Repository, row: Mapping[str, Any], *, reason: str, 
             repository.end_probe_presentation(str(row["presentation_id"]), end_reason="abandoned", clock=clock)
         for episode_id in dict.fromkeys([*filter(None, [row.get("probe_episode_id")]), *pinned]):
             _abandon_if_empty(repository, str(episode_id), clock=clock)
+
+
+def _close_declined_factor(repository: Repository, row: Mapping[str, Any], *, reason: str, clock: Clock | None) -> None:
+    """R9: the factor this lane opened for its question goes when the question won't be asked:
+    left open, it would hold the topic in the plan's repair lane with no repair to serve. A failed
+    workflow keeps it, since its need stays open for background generation (§6.2)."""
+
+    for factor in repository.unresolved_cause_factors_for_attempt(str(row["source_attempt_id"]), status="open"):
+        if factor.get("algorithm_version") == RIVAL_CAUSES_FACTOR_VERSION:
+            repository.close_unresolved_cause_factor(
+                str(factor["id"]), status="retired", resolution_kind=FACTOR_DECLINED,
+                resolution_detail={"workflow_id": str(row["id"]), "reason": reason}, clock=clock,
+            )
 
 
 def _abandon_if_empty(repository: Repository, episode_id: str, *, clock: Clock | None) -> None:

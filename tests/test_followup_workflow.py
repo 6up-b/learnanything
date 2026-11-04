@@ -8,7 +8,7 @@ from learnloop.followup_run.lanes import settle_practice_lane
 from learnloop.followup_serve import workflow as wf
 from learnloop.followup_serve.gates import effective_auto_generate_on_entry, generate_and_serve_on
 
-from tests.followup_serve_helpers import CLOCK, OFF, TAG, miss_with_rivals, rival_causes_vault, run_jobs
+from tests.followup_serve_helpers import CLOCK, BlindRivalClient, OFF, TAG, miss_with_rivals, rival_causes_vault, run_jobs
 from tests.split_live_helpers import drain_jobs, fake_client, split_vault, submit
 from tests.test_causal_p2_acceptance import _divergent_failure
 
@@ -67,7 +67,8 @@ def test_auto_generate_on_entry_is_effectively_true_only_while_fg1_is_on(tmp_pat
 
 def test_a_practice_lane_fallback_runs_the_predecessors_chooser_once(tmp_path):
     _paths, vault, repository = split_vault(tmp_path, version=TAG)
-    client = fake_client()
+    client = BlindRivalClient()  # one cause: rivals would take the probe lane (R9)
+    client.causes, client.shape = 1, "no_target"
     result = submit(vault, repository, client, pipeline=False)
     outcome = run_post_attempt_pipeline(vault, repository, result=result, followup_surface="desktop", clock=CLOCK)
     assert outcome.workflow_id is not None

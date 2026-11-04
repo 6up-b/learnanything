@@ -288,7 +288,7 @@ def _run_need(vault: Any, repository: Repository, need_id: str, *, clients: Any,
 
 def _run_workflow(vault: Any, repository: Repository, workflow_id: str, *, clients: Any, clock: Clock | None) -> None:
     from learnloop.diagnosis.split.jobs import DONE, diagnosis_status
-    from learnloop.followup_run.lanes import select_lane, settle_practice_lane
+    from learnloop.followup_run.lanes import open_rival_factor, select_lane, settle_practice_lane
     row = wf.get(repository, workflow_id)
     if row is None or row["state"] != wf.PENDING:
         return
@@ -303,6 +303,7 @@ def _run_workflow(vault: Any, repository: Repository, workflow_id: str, *, clien
         settle_practice_lane(vault, repository, row, reason="diagnosis_unavailable", release=wf.RELEASE_FALLBACK,
                                 clock=clock)
         return
+    open_rival_factor(vault, repository, row, clock=clock)
     choice = select_lane(repository, row)
     if choice.lane != wf.LANE_PROBE:
         settle_practice_lane(vault, repository, row, reason=choice.reason, clock=clock)

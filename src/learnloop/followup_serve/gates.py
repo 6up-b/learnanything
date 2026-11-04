@@ -16,6 +16,9 @@ from learnloop.algorithm_versions import FOLLOWUP_SERVE_VERSIONS
 SERVING_SURFACE = "desktop"
 #: The phone's request-origin surface name, used for its hand-off line (§10).
 PHONE_SURFACE = "phone"
+#: R9: a factor FG1's lane opened for its question. It owes no repair mapping, so the machine
+#: check sweep leaves it out, and it closes when its question won't be asked.
+RIVAL_CAUSES_FACTOR_VERSION = "followup_rival_causes_v1"
 
 
 def generate_and_serve_on(config: Any) -> bool:
