@@ -246,6 +246,7 @@ def test_an_answered_probe_moves_the_same_measurement_with_or_without_a_mapped_r
         ctx.reload(maintenance=False)
         vault, repository = ctx.require_vault()
         row = wf.attempt_workflow(repository, attempt_id)
+        before = _shape_of_state(repository)
         _call(ctx, "open_queue_item", {"practiceItemId": row["practice_item_id"]})
         contract = _call(ctx, "get_probe_contract", {"practiceItemId": row["practice_item_id"]})
         _call(ctx, "submit_attempt", {
@@ -253,6 +254,9 @@ def test_an_answered_probe_moves_the_same_measurement_with_or_without_a_mapped_r
             "attemptType": "diagnostic_probe", "latencySeconds": 40, "probePresentationId": contract["presentationId"],
         })
         states[shape] = _shape_of_state(repository)
+        # So this can't pass vacuously: the answer does move measurement, and it does schedule.
+        assert states[shape]["mastery"] != before["mastery"] or states[shape]["facet"] != before["facet"]
+        assert states[shape]["schedule"] != before["schedule"]
     assert states[""] == states["no_target"]
 
 
@@ -264,9 +268,11 @@ def _shape_of_state(repository):
     snapshot = _learner_state_snapshot(repository)
     drop = ("updated_at", "created_at", "last_", "due", "_at", "id")
     out = {}
-    for family in ("mastery", "facet"):
+    for family in ("mastery", "facet", "schedule"):
         out[family] = sorted(
-            repr((key, sorted((name, str(value)) for name, value in row.items() if not any(mark in name for mark in drop))))
+            repr((key if family != "schedule" or not str(key[-1]).startswith("pi_gen_") else (key[0], "pi_gen"),
+                  sorted((name, str(value)) for name, value in row.items()
+                         if not any(mark in name for mark in drop) and name != "content_hash")))
             for key, row in snapshot[family].items()
         )
     with repository.connection() as connection:
