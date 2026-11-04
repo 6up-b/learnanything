@@ -107,6 +107,24 @@ def search_blocks(
     return [BlockMatch(str(row[0]), str(row[1]), float(row[2])) for row in rows]
 
 
+def phrase_shown_outside(connection: sqlite3.Connection, phrase: str, covered: Callable[[str, str], bool]) -> bool:
+    """Whether a block ``covered`` doesn't hold shows this contiguous phrase. The index does the
+    reading, so the cost is one query per phrase asked about. Its porter tokenizer also counts a
+    plural as the same word. An index that can't answer shows nothing: the caller's check stands."""
+
+    terms = re.findall(r"[a-z0-9]+", phrase.lower())
+    if not terms:
+        return False
+    expression = '"' + " ".join(terms) + '"'
+    try:
+        rows = connection.execute(
+            "SELECT extraction_id, span_id FROM source_block_fts WHERE source_block_fts MATCH ?", (expression,),
+        )
+        return any(not covered(str(row[0]), str(row[1])) for row in rows)
+    except sqlite3.Error:
+        return False
+
+
 def rebuild_source_block_fts(connection: sqlite3.Connection) -> dict[str, int]:
     """Replace the whole index from ``source_document_blocks`` (the replayer body).
 
@@ -528,6 +546,7 @@ __all__ = [
     "EXCLUDED_BLOCK_TYPES",
     "HintRow",
     "MAX_QUERY_TERMS",
+    "phrase_shown_outside",
     "MAX_REGION_BLOCKS",
     "REGION_BODY_HINTS",
     "TEACHING_LINK_ENTITY_TYPES",

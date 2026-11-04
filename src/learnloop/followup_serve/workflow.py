@@ -20,6 +20,7 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 import hashlib
+import json
 import logging
 from typing import Any
 
@@ -235,6 +236,25 @@ def _apply_move(
         if moved and to_state in store.TERMINAL_STATES:
             store.cancel_generation_jobs(connection, workflow_id=workflow_id, reason=f"workflow_{to_state}", at=now)
         return moved
+
+
+def note(repository: Repository, workflow_id: str, *, reason: str, detail: Mapping[str, Any],
+         clock: Clock | None = None) -> None:
+    """An event on the workflow with no move: what a retry needs to read back after a crash."""
+
+    with repository.atomic(), repository.connection() as connection:
+        row = store.workflow(connection, workflow_id)
+        if row is not None:
+            store.insert_event(connection, workflow_id, str(row["state"]), str(row["state"]), reason, detail, _now(clock))
+
+
+def noted(repository: Repository, workflow_id: str, *, reason: str) -> dict[str, Any]:
+    """The latest such note's detail, or nothing."""
+
+    with repository.connection() as connection:
+        rows = [row for row in store.workflow_events(connection, workflow_id)
+                if row["reason"] == reason and row["from_state"] == row["to_state"]]
+    return json.loads(rows[-1]["detail_json"]) if rows else {}
 
 
 def release_feedback(repository: Repository, workflow_id: str, *, reason: str, exposed: bool = False,

@@ -18,7 +18,7 @@ measurement. Bundles predict over the criterion features the deterministic senso
 
 from __future__ import annotations
 
-from collections.abc import Iterable, Mapping
+from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass, field
 import json
 from typing import Any
@@ -35,7 +35,11 @@ from learnloop.followup_run.authoring import (
     request_authored_probe,
 )
 from learnloop.followup_serve import identity
-from learnloop.content.authoring.practice_leakage import reserved_payload_findings
+from learnloop.content.authoring.practice_leakage import (
+    learner_visible_text,
+    matching_phrases,
+    reserved_payload_findings,
+)
 
 #: Who the machine admission receipt says moved the candidate.
 MACHINE_REVIEWER = identity.MACHINE_REVIEWER
@@ -174,6 +178,7 @@ def author_probe(
     factor_id: str,
     decision: Mapping[str, Any],
     client: Any,
+    avoid_phrases: Sequence[str] = (),
 ) -> tuple[AuthoredProbe, Any, Any]:
     """The one authoring call for this workflow, and its output checks."""
 
@@ -201,7 +206,7 @@ def author_probe(
             vault, repository, learning_object_id=learning_object_id, hypotheses=hypotheses,
             router_decision=decision, target_facets=[str(value) for value in card.target_facets],
             source_item_id=str(attempt.get("practice_item_id") or "") or None,
-            measurement_pattern=family_measurement_intent(template.id),
+            measurement_pattern=family_measurement_intent(template.id), avoid_phrases=avoid_phrases,
         )
         authored = request_authored_probe(client, context)
         probe = check_output(vault, repository, authored, refs=refs, learning_object_id=learning_object_id)
@@ -270,8 +275,10 @@ def persist_item(
     }
     # First, since the structural gate would also call an exact echo a duplicate: a reserved
     # question's echo is §8's to refuse, nothing has been written, and the miss takes the practice lane.
-    if reserved_payload_findings(payload, _reserved(vault, repository)):
-        raise AdmissionFailed(QUESTION_MATCHES_RESERVED)
+    findings = reserved_payload_findings(payload, _reserved(vault, repository))
+    if findings:
+        raise AdmissionFailed(QUESTION_MATCHES_RESERVED,
+                              detail={"phrases": matching_phrases(learner_visible_text(payload), findings)})
     errors = instance_gate_errors(vault, payload, card, template)
     if errors:
         raise AdmissionFailed("instance_gate", detail={"errors": errors})

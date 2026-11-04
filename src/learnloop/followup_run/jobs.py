@@ -46,6 +46,11 @@ class GenerationDeferred(RuntimeError):
     """The route is not ready: nothing was spent, and the job may run again."""
 
 
+class QuestionEcho(RuntimeError):
+    """R10: a draft reproduced a reserved question and the job has its one retry left. Nothing
+    was written, the phrases are noted, and the retry runs at once: no provider failed."""
+
+
 @dataclass
 class JobOutcome:
     job_id: str
@@ -89,6 +94,10 @@ def process_next_job(
             return outcome
         _run(vault, repository, job, clients=clients, clock=clock)
         _finish(repository, job, "done", None, clock)
+        return outcome
+    except QuestionEcho as echo:
+        _finish(repository, job, "queued", str(echo), clock)
+        outcome.state, outcome.error = "retry", str(echo)
         return outcome
     except GenerationDeferred as deferred:
         return _retry_or_fail(vault, repository, job, outcome, str(deferred), clock)
@@ -181,7 +190,8 @@ def _run(vault: Any, repository: Repository, job: Mapping[str, Any], *, clients:
     runtime = getattr(clients, "runtime", None) or default_runtime()
     with runtime.spend.metered(repository, vault.config, owner_kind=RECEIPT_OWNER, owner_id=str(job["id"])):
         if kind == "workflow":
-            _run_workflow(vault, repository, str(job["workflow_id"]), clients=clients, clock=clock)
+            _run_workflow(vault, repository, str(job["workflow_id"]), clients=clients, clock=clock,
+                          attempt=int(job.get("attempt_count") or 0))
         elif kind == "entry_episode":
             _run_entry(vault, repository, str(job["probe_episode_id"]), clients=clients, clock=clock)
         elif job.get("need_id"):
@@ -286,7 +296,8 @@ def _run_need(vault: Any, repository: Repository, need_id: str, *, clients: Any,
     accept_items(vault.root, result.patch_id)
 
 
-def _run_workflow(vault: Any, repository: Repository, workflow_id: str, *, clients: Any, clock: Clock | None) -> None:
+def _run_workflow(vault: Any, repository: Repository, workflow_id: str, *, clients: Any, clock: Clock | None,
+                  attempt: int = MAX_GENERATION_ATTEMPTS) -> None:
     from learnloop.diagnosis.split.jobs import DONE, diagnosis_status
     from learnloop.followup_run.lanes import open_rival_factor, select_lane, settle_practice_lane
     row = wf.get(repository, workflow_id)
@@ -322,7 +333,7 @@ def _run_workflow(vault: Any, repository: Repository, workflow_id: str, *, clien
         return
     wf.set_fields(repository, workflow_id, lane=wf.LANE_PROBE, factor_id=choice.factor_id, clock=clock)
     row = wf.get(repository, workflow_id) or row
-    _run_probe_lane(vault, repository, row, choice=choice, clients=clients, clock=clock)
+    _run_probe_lane(vault, repository, row, choice=choice, clients=clients, clock=clock, attempt=attempt)
 
 
 def _author_client(vault: Any, clients: Any) -> Any:
@@ -335,10 +346,12 @@ def _author_client(vault: Any, clients: Any) -> Any:
 
 
 def _run_probe_lane(vault: Any, repository: Repository, row: Mapping[str, Any], *, choice: Any, clients: Any,
-                    clock: Clock | None) -> None:
+                    clock: Clock | None, attempt: int = MAX_GENERATION_ATTEMPTS) -> None:
     """§5: the decision first and the item after it. One physical authoring call, on a plan route."""
 
     from learnloop.followup_run import admission, router
+    from learnloop.followup_run.authoring import QUESTION_MATCHES_RESERVED, RESERVED_MATCHES
+    from learnloop.followup_run.lanes import settle_practice_lane
 
     workflow_id = str(row["id"])
     factor_id = str(choice.factor_id)
@@ -370,6 +383,7 @@ def _run_probe_lane(vault: Any, repository: Repository, row: Mapping[str, Any], 
     try:
         probe, template, card = admission.author_probe(
             vault, repository, workflow=row, factor_id=factor_id, decision=decision.for_author(), client=client,
+            avoid_phrases=wf.noted(repository, workflow_id, reason=QUESTION_MATCHES_RESERVED).get("phrases") or (),
         )
         # The learner may have said "Not now" while the model wrote; nothing further was paid for.
         refusal = router.hard_refusal(vault, repository, row, factor_id=factor_id)
@@ -390,9 +404,11 @@ def _run_probe_lane(vault: Any, repository: Repository, row: Mapping[str, Any], 
             router.record_outcome(repository, row, decision, outcome="refused", clock=clock)
         return
     except admission.AdmissionFailed as failed:
-        from learnloop.followup_run.authoring import RESERVED_MATCHES
-        from learnloop.followup_run.lanes import settle_practice_lane
-
+        if failed.reason == QUESTION_MATCHES_RESERVED and attempt < MAX_GENERATION_ATTEMPTS:
+            # R10: the job's one retry, told only the draft's own words. Nothing was written.
+            wf.note(repository, workflow_id, reason=failed.reason, detail={"phrases": failed.detail.get("phrases") or []},
+                    clock=clock)
+            raise QuestionEcho(failed.reason) from failed
         if failed.reason in RESERVED_MATCHES:
             # §8, the owner's ruling: the miss takes the practice lane, and nothing was served.
             with repository.atomic():

@@ -326,6 +326,8 @@ class FollowupProbeContext:
     measurement_pattern: str | None = None
     source_question_md: str | None = None
     existing_prompts: list[str] = field(default_factory=list)
+    #: Only on the one retry after a draft reproduced a reserved question: the draft's own words.
+    avoid_phrases: list[str] = field(default_factory=list)
 
 
 class FollowupProbeCriterion(WireModel):
@@ -375,6 +377,8 @@ Rules:
   ONLY that cause would miss, and no others. Two hypotheses never have the same set. A hypothesis that
   would miss nothing on this question means the question does not measure it: rewrite the question.
 - `measurement_pattern`, when present, is the shape of question to use.
+- `avoid_phrases`, when present, are phrases from your last draft that can't appear anywhere in this one:
+  not in the question, the answer or the criteria. Write it again without them.
 - `intended_manipulations` says how this differs from the source question on purpose: each `axis` is
   one of `surface_wording`, `answer_contract`, `rubric`. `held_constant` lists what you kept the same,
   from the same words; never list an axis as both. `incidental_changes` lists any other axis that

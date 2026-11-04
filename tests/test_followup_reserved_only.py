@@ -14,7 +14,6 @@ from pathlib import Path
 import pytest
 
 from learnloop import learner_protection
-from learnloop.db.stores import followup_serve as store
 from learnloop.db.stores import write_provenance as wp
 from learnloop.followup_run import admission, authoring, router
 from learnloop.followup_run.authoring import CAUSE_MATCHES_RESERVED, QUESTION_MATCHES_RESERVED
@@ -72,8 +71,9 @@ def _setup(tmp_path, monkeypatch, *, quoting=""):
 
 
 def _reasons(repository, workflow_id):
-    with repository.connection() as connection:
-        return [event["reason"] for event in store.workflow_events(connection, workflow_id)]
+    with repository.connection() as connection:  # by rowid: a retry's note and the move can share a time
+        return [row[0] for row in connection.execute(
+            "SELECT reason FROM followup_workflow_events WHERE workflow_id = ? ORDER BY rowid", (workflow_id,))]
 
 
 @pytest.mark.parametrize("words", [STEM, KEY, RUBRIC], ids=["stem", "solution", "rubric"])
@@ -124,7 +124,7 @@ def test_an_authored_question_echoing_a_reserved_one_is_refused_with_nothing_ser
     fake = Echoes()
     run_jobs(vault, repository, clients=author_clients(fake))
     row = wf.get(repository, outcome.workflow_id)
-    assert fake.calls == 1
+    assert fake.calls == 2  # R10: its one retry, then the practice lane
     assert row["state"] == wf.SETTLED and row["lane"] == wf.LANE_PRACTICE and row["feedback_released_at"]
     assert _reasons(repository, outcome.workflow_id)[-1] == QUESTION_MATCHES_RESERVED
     assert not row["practice_item_id"] and not row["presentation_id"]
@@ -300,3 +300,111 @@ def test_wording_an_ordinary_item_already_shows_is_no_match(tmp_path, monkeypatc
     reserved = reserved_questions(vault, repository, learner_protection.withheld_items(vault, repository))
     assert not reserved_findings(f"We know that {shared} here.", reserved)
     assert reserved_findings("the reserved sentinel matrix over the given sentinel field", reserved)
+
+
+# -- R10 --------------------------------------------------------------------------------------------
+
+
+class _EchoesOnce(AuthorFake):
+    """Its first draft reproduces part of the reserved question; told so, it writes another."""
+
+    times = 1
+
+    def run_followup_probe_authoring(self, context):
+        authored = super().run_followup_probe_authoring(context)
+        if self.calls <= self.times:
+            return authored.model_copy(update={"prompt_md": f"{authored.prompt_md} Then diagonalize the reserved sentinel matrix over the given sentinel field today."})
+        return authored
+
+
+def test_r10_a_match_gets_one_retry_naming_only_the_authors_own_phrase(tmp_path, monkeypatch):
+    _paths, vault, repository, _result, outcome = _setup(tmp_path, monkeypatch)
+    fake = _EchoesOnce()
+    states = [job.state for job in run_jobs(vault, repository, clients=author_clients(fake))]
+    assert states == ["retry", "done"] and fake.calls == 2
+    row = wf.get(repository, outcome.workflow_id)
+    assert row["state"] == wf.READY and row["lane"] == wf.LANE_PROBE and row["practice_item_id"]
+    assert fake.contexts[0].avoid_phrases == []
+    phrases = fake.contexts[1].avoid_phrases
+    assert phrases == ["diagonalize the reserved sentinel matrix over the given sentinel field today"]
+    # Words the author wrote, and nothing else of the reserved question: not its key, its rubric, or the rest of its stem.
+    second = json.dumps(asdict(fake.contexts[1]), default=str)
+    for held in ("Sentinel stem", "Sentinel key", "eigenbasis", "Sentinel rubric", "three sentinel vectors"):
+        assert held not in second
+
+
+def test_r10_a_second_match_takes_the_practice_lane(tmp_path, monkeypatch):
+    _paths, vault, repository, _result, outcome = _setup(tmp_path, monkeypatch)
+
+    fake = _EchoesOnce()
+    fake.times = 5
+    states = [job.state for job in run_jobs(vault, repository, clients=author_clients(fake))]
+    assert states == ["retry", "done"] and fake.calls == 2
+    row = wf.get(repository, outcome.workflow_id)
+    assert row["state"] == wf.SETTLED and row["lane"] == wf.LANE_PRACTICE
+    assert _reasons(repository, outcome.workflow_id)[-1] == QUESTION_MATCHES_RESERVED
+    assert identity.generated_probe_ids(repository) == frozenset()
+
+
+def test_r10_the_retry_is_the_workflows_one_so_no_third_call(tmp_path, monkeypatch):
+    from datetime import timedelta
+
+    from learnloop.clock import FrozenClock
+    from learnloop.followup_run.jobs import MAX_GENERATION_ATTEMPTS
+
+    assert MAX_GENERATION_ATTEMPTS == 2
+    _paths, vault, repository, _result, outcome = _setup(tmp_path, monkeypatch)
+    down = AuthorFake(error=RuntimeError("provider down"))
+    assert [job.state for job in run_jobs(vault, repository, clients=author_clients(down))] == ["retry"]
+    fake = _EchoesOnce()
+    run_jobs(vault, repository, clients=author_clients(fake), clock=FrozenClock(CLOCK.now() + timedelta(hours=1)))
+    assert fake.calls == 1
+    row = wf.get(repository, outcome.workflow_id)
+    assert row["state"] == wf.SETTLED and row["lane"] == wf.LANE_PRACTICE
+    assert _reasons(repository, outcome.workflow_id)[-1] == QUESTION_MATCHES_RESERVED
+
+
+def test_r10_a_phrase_source_text_outside_held_out_spans_shows_is_no_match(tmp_path, monkeypatch):
+    from types import SimpleNamespace
+
+    from dataclasses import replace
+
+    from learnloop.content.authoring.practice_leakage import reserved_findings, reserved_questions
+
+    paths, vault, repository = live_shape_vault(tmp_path)
+    vault = _with_reserved_question(paths, repository)
+    _reserve(monkeypatch)
+    phrase = "the reserved sentinel matrix over the given"
+    with repository.connection() as connection:
+        connection.execute("INSERT INTO source_block_fts (text, extraction_id, span_id) VALUES (?, 'ext_book', 'sp_1')",
+                           (f"The book says {phrase} often.",))
+        connection.execute("INSERT INTO source_block_fts (text, extraction_id, span_id) VALUES (?, 'ext_exam', 'sp_9')",
+                           ("A held-out line: the three sentinel vectors exactly as it stands.",))
+        connection.commit()
+    exam = SimpleNamespace(covers=lambda extraction_id, span_id=None: extraction_id == "ext_exam")
+    withheld = replace(learner_protection.withheld_items(vault, repository), exam=exam)
+    reserved = reserved_questions(vault, repository, withheld)
+    assert not reserved_findings(f"I read that {phrase} in the book.", reserved)  # shown outside held-out
+    assert reserved_findings("names the reserved sentinel criterion for the three sentinel vectors exactly", reserved)
+    # A whole stem counts wherever it is shown.
+    assert reserved_findings(STEM, reserved)
+
+
+def test_r10_a_phrase_only_a_held_out_span_shows_still_matches(tmp_path, monkeypatch):
+    from types import SimpleNamespace
+
+    from dataclasses import replace
+
+    from learnloop.content.authoring.practice_leakage import reserved_findings, reserved_questions
+
+    paths, vault, repository = live_shape_vault(tmp_path)
+    vault = _with_reserved_question(paths, repository)
+    _reserve(monkeypatch)
+    phrase = "the reserved sentinel matrix over the given"
+    with repository.connection() as connection:
+        connection.execute("INSERT INTO source_block_fts (text, extraction_id, span_id) VALUES (?, 'ext_exam', 'sp_9')",
+                           (f"Held out: {phrase} here.",))
+        connection.commit()
+    exam = SimpleNamespace(covers=lambda extraction_id, span_id=None: extraction_id == "ext_exam")
+    withheld = replace(learner_protection.withheld_items(vault, repository), exam=exam)
+    assert reserved_findings(f"I read that {phrase} somewhere.", reserved_questions(vault, repository, withheld))

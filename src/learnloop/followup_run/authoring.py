@@ -141,6 +141,7 @@ def build_context(
     target_facets: Sequence[str],
     source_item_id: str | None,
     measurement_pattern: str | None = None,
+    avoid_phrases: Sequence[str] = (),
 ) -> tuple[FollowupProbeContext, dict[str, str]]:
     """The prompt's context, and the reference -> hypothesis id map.
 
@@ -168,7 +169,7 @@ def build_context(
         source = None
     summary = learning_object.summary
     if summary and reserved_findings(str(summary), reserved):
-        summary = None
+        summary = ""
     refs: dict[str, str] = {}
     rows: list[dict[str, Any]] = []
     for index, hypothesis in enumerate(hypotheses):
@@ -191,6 +192,7 @@ def build_context(
             measurement_pattern=measurement_pattern,
             source_question_md=source.prompt if source is not None and admissible_item(withheld, source) else None,
             existing_prompts=existing,
+            avoid_phrases=[str(value) for value in avoid_phrases],
         ),
         refs,
     )

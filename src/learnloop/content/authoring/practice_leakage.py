@@ -19,6 +19,7 @@ context never grows with source count (knowledge-model §12.9).
 
 from __future__ import annotations
 
+from collections.abc import Callable
 import re
 from dataclasses import dataclass, field
 from typing import Any
@@ -235,6 +236,8 @@ class ReservedQuestions:
     inventory: HeldOutInventory
     #: Each reserved stem, whole: one shorter than the shingle order has no shingle to match.
     stems: frozenset[str]
+    #: Whether source text outside held-out spans already shows this phrase (R10).
+    source_shows: Callable[[str], bool] = field(default=lambda _phrase: False, compare=False, repr=False)
 
 
 def reserved_questions(vault: LoadedVault, repository: Repository, withheld: Any) -> ReservedQuestions:
@@ -262,14 +265,38 @@ def reserved_questions(vault: LoadedVault, repository: Repository, withheld: Any
         inventory=HeldOutInventory(shingles=held.shingles - ordinary.shingles, numerics=held.numerics - ordinary.numerics,
                                    shingle_n=held.shingle_n, span_count=held.span_count),
         stems=frozenset(stems - {""}),
+        source_shows=_source_shows(repository, withheld),
     )
+
+
+def _source_shows(repository: Repository, withheld: Any) -> Callable[[str], bool]:
+    """R10: a phrase the learner can read in source text outside held-out spans can't leak. Asked
+    only of a phrase that matched, one index query each, so an ordinary check costs nothing here."""
+
+    from learnloop.db.stores.source_block_fts import phrase_shown_outside
+
+    exam = withheld.exam
+    if exam is None:
+        return lambda _phrase: False
+    seen: dict[str, bool] = {}
+
+    def shows(phrase: str) -> bool:
+        if phrase not in seen:
+            with repository.connection() as connection:
+                seen[phrase] = phrase_shown_outside(connection, phrase, exam.covers)
+        return seen[phrase]
+
+    return shows
 
 
 def reserved_findings(text: str, reserved: ReservedQuestions) -> list[dict[str, str]]:
     """What this text reproduces of a reserved question: ``check_leakage``'s contiguous wording
     and distinctive numbers, and a whole stem. Comparison only; the text goes nowhere."""
 
-    findings = check_leakage(text, reserved.inventory)
+    findings = [
+        finding for finding in check_leakage(text, reserved.inventory)
+        if finding["kind"] != "wording" or not reserved.source_shows(finding["value"])
+    ]
     shown = f" {' '.join(_normalize_tokens(text))} "
     findings.extend({"kind": "stem", "value": stem} for stem in sorted(reserved.stems) if f" {stem} " in shown)
     return findings
@@ -278,8 +305,35 @@ def reserved_findings(text: str, reserved: ReservedQuestions) -> list[dict[str, 
 def reserved_payload_findings(payload: dict[str, Any], reserved: ReservedQuestions) -> list[dict[str, str]]:
     """The same, over everything a learner sees of a generated item: stem, key, rubric, hints."""
 
-    hints = [str(value) for value in payload.get("hints") or []]
-    return reserved_findings("\n".join([_payload_surfaces(payload), *hints]), reserved)
+    return reserved_findings(learner_visible_text(payload), reserved)
+
+
+def learner_visible_text(payload: dict[str, Any]) -> str:
+    return "\n".join([_payload_surfaces(payload), *(str(value) for value in payload.get("hints") or [])])
+
+
+def matching_phrases(text: str, findings: list[dict[str, str]]) -> list[str]:
+    """The stretches of ``text`` the findings fall in, in order: its own words only, so telling
+    its author about them shows nothing of a reserved question it hadn't already written."""
+
+    tokens = _normalize_tokens(text)
+    wording = {finding["value"] for finding in findings if finding["kind"] in {"wording", "stem"}}
+    covered = [False] * len(tokens)
+    for value in wording:
+        size = len(value.split())
+        for start in range(len(tokens) - size + 1):
+            if " ".join(tokens[start:start + size]) == value:
+                covered[start:start + size] = [True] * size
+    phrases: list[str] = []
+    run: list[str] = []
+    for token, marked in zip([*tokens, ""], [*covered, False]):
+        if marked:
+            run.append(token)
+        elif run:
+            phrases.append(" ".join(run))
+            run = []
+    numbers = sorted({finding["value"] for finding in findings if finding["kind"] == "numeric"})
+    return list(dict.fromkeys([*phrases, *numbers]))
 
 
 # --- cross-source context ---------------------------------------------------
