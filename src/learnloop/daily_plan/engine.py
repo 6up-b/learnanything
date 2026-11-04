@@ -107,6 +107,7 @@ from learnloop.daily_plan.types import (
 from learnloop.daily_plan import measurement as objectives
 from learnloop.data_capture import prefilter
 from learnloop.router_objective import ask_availability
+from learnloop.router_objective import sessions as session_receipts
 from learnloop.data_capture.gates import receipts_on, serving_on
 from learnloop.db.stores import daily_plans as store
 from learnloop.ids import new_ulid
@@ -5110,6 +5111,10 @@ def keep_going(env: PlanEnv) -> PlanRecord:
     record = reconcile(env, record)
     if record.is_open:
         return record
+    if record.status == "complete":
+        # RO0 row 7: the finished plan had offered the stop; the learner went on.
+        session_receipts.record_stop_override(env.vault, env.repository, session_id=env.session_id, plan_id=record.id,
+                                              via="keep_going", clock=env.clock)
     remembered = int(record.row["remembered_minutes"])
     if record.kind == "reentry":
         remaining = remembered - record.minutes_planned()
@@ -5168,6 +5173,10 @@ def more_new(env: PlanEnv, *, confirm: bool) -> tuple[PlanRecord | None, dict[st
         return record, preview
     if record.is_open:
         raise PlanStillOpenError("today's plan is still open; more new material is offered when it is done")
+    if record.status == "complete":
+        # RO0 row 7: as ``keep_going``.
+        session_receipts.record_stop_override(env.vault, env.repository, session_id=env.session_id, plan_id=record.id,
+                                              via="more_new", clock=env.clock)
     plan = build_plan(
         env,
         kind="keep_going",

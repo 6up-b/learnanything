@@ -7,6 +7,7 @@ from typing import Any
 
 from learnloop.db.stores.session_ownership import SessionOwnershipError
 from learnloop.router_objective import ask_availability
+from learnloop.router_objective import sessions as session_receipts
 from learnloop.scheduling.session_minutes import (
     MINUTE_PRESETS,
     minute_choices,
@@ -100,6 +101,11 @@ def start_session(ctx: SidecarContext, params: SessionStartInput) -> dict[str, A
             params.replace,
             settle_checkpoint=lambda stale: settle_self_grade_disclosure(repository, stale),
         )
+    # RO0 rows 7 and 8: a session this start just ended and nobody reported is inferred; this one's availability
+    # is stamped before its first block.
+    session_receipts.sweep_unreported(vault, repository, trigger="start_session")
+    session_receipts.record_availability(vault, repository, session_id, available_minutes=params.available_minutes,
+                                         device=ctx.origin_device_id or "desktop")
     snapshot = session_snapshot(repository, session_id)
     if snapshot is None:
         raise SidecarError("internal", "Session was created but could not be read.")
@@ -183,9 +189,14 @@ def clear_session_checkpoint(ctx: SidecarContext, params: SessionIdInput) -> dic
         return {"cleared": clear_checkpoint(repository, params.session_id)}
 
 
-@method("end_session", SessionIdInput)
+class SessionEndInput(SessionIdInput):
+    #: RO0 row 7: why, where the client knows (an interruption, losing the foreground). Absent: the plan's state says.
+    end_reason: str | None = None
+
+
+@method("end_session", SessionEndInput)
 @host_mutation
-def end_session(ctx: SidecarContext, params: SessionIdInput) -> dict[str, Any]:
+def end_session(ctx: SidecarContext, params: SessionEndInput) -> dict[str, Any]:
     vault, repository = ctx.require_vault()
     # Mobile PR-4: the owner check, the end and the checkpoint clear are one
     # transaction; ending an ended session still returns it unchanged.
@@ -195,6 +206,7 @@ def end_session(ctx: SidecarContext, params: SessionIdInput) -> dict[str, Any]:
             ctx.origin_device_id,
             clear=lambda session_id: clear_checkpoint(repository, session_id),
         )
+    session_receipts.record_end(vault, repository, params.session_id, reason=params.end_reason, ended_at=row["ended_at"])
     counts = repository.session_attempt_counts(params.session_id) or {"attempts_recorded": 0, "items_reviewed": 0}
     from learnloop.learner.session_learning_diff import session_learning_diff
 
