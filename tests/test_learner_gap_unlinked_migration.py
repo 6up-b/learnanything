@@ -180,7 +180,7 @@ def test_the_head_fixture_holds_235_in_rollback_mode():
     head = Path(__file__).resolve().parents[1] / "fixtures" / "migration_head_241" / "state.sqlite"
     assert head.read_bytes()[18:20] == b"\x01\x01"
     assert 235 in applied_versions(head)
-    assert max(applied_versions(head)) == max(m.version for m in discover_migrations()) == 240
+    assert max(applied_versions(head)) == max(m.version for m in discover_migrations()) == 241
     with closing(sqlite3.connect(f"file:{head}?mode=ro", uri=True)) as connection:
         assert connection.execute("PRAGMA journal_mode").fetchone()[0] == "delete"
         sql = connection.execute("SELECT sql FROM sqlite_master WHERE name = 'learner_text_gap_reversals'"

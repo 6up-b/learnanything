@@ -153,6 +153,13 @@ def refuse_generated_probe_door(ctx_origin: RequestOrigin | None, repository: An
             refusal = identity.GENERATED_PROBE_CLOSED if burned else identity.GENERATED_PROBE_RESERVED
         elif state is not None and state.last_attempt_at is not None:
             refusal = identity.GENERATED_PROBE_CLOSED
+        elif (
+            row is not None and item.id not in identity.closed_probe_ids(repository)
+            and not followup_workflow.waiting_still_valid(repository, row)
+        ):
+            # §4.2: retired while unused, if its hypotheses closed first.
+            followup_workflow.retire_waiting(repository, row, reason="hypotheses_closed")
+            refusal = identity.GENERATED_PROBE_CLOSED
         else:
             claim = identity.claim_serve(
                 repository, item.id, surface=SERVING_SURFACE,

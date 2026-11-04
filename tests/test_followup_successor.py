@@ -40,11 +40,11 @@ def test_every_defaults_snapshot_is_recomputed():
     assert DEFAULTS_SNAPSHOT_BY_ALGORITHM[TAG] != DEFAULTS_SNAPSHOT_BY_ALGORITHM[OLD]
 
 
-def test_new_vaults_get_true_and_older_templates_stay_as_they_were():
+def test_new_vaults_get_true_effectively_and_older_templates_stay_as_they_were():
     new = LearnLoopConfig.model_validate(tomllib.loads(default_config_text(TAG)))
     old = LearnLoopConfig.model_validate(tomllib.loads(default_config_text(OLD)))
-    assert new.probe.generation.auto_generate_on_entry is True
-    assert old.probe.generation.auto_generate_on_entry is False
+    assert effective_auto_generate_on_entry(new) is True
+    assert effective_auto_generate_on_entry(old) is False
     assert new.followup.generate_and_serve is True and new.ui.show_router_decisions is True
 
 

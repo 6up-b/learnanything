@@ -31,6 +31,7 @@ from tests.test_teacher_te1b_migration import TE1_AND_TE1B_ADDED_OBJECTS as TE1_
 from tests.test_teacher_te1b_migration import TE1_AND_TE1B_ALTERED_TABLES as TE1_ALTERED_TABLES
 from tests.test_figure_prefetch_migration import P5_ADDED_OBJECTS
 from tests.test_data_capture_migration import DATA_CAPTURE_ADDED_OBJECTS
+from tests.test_followup_migration import FOLLOWUP_ADDED_OBJECTS
 from tests.test_mobile_jobs_migration import M2A_ADDED_OBJECTS
 from tests.test_rw5c_migration import RW5C_ADDED_OBJECTS
 
@@ -92,9 +93,9 @@ def test_232_widens_three_checks_adds_figure_id_and_keeps_every_row(tmp_path):
         # Curriculum C2b's 233 (learner_notes) and teacher TE1's 234 (its own tables and source_tool_calls)
         # follow on the way to head; neither is read here.
         # Follow-ups Nov 2's 235 (learner_text_gap_reversals) and teacher TE1b's 236 (router tables), not read here, follow too.
-        assert [migration.version for migration in apply_migrations(database)] == [232, 233, 234, 235, 236, 237, 238, 239, 240]
+        assert [migration.version for migration in apply_migrations(database)] == [232, 233, 234, 235, 236, 237, 238, 239, 240, 241]
     after = _schema(database)
-    assert set(after) - set(before) - TE1_ADDED_OBJECTS - P5_ADDED_OBJECTS - RW5C_ADDED_OBJECTS - M2A_ADDED_OBJECTS - DATA_CAPTURE_ADDED_OBJECTS == set(P3_ADDED_OBJECTS)
+    assert set(after) - set(before) - TE1_ADDED_OBJECTS - P5_ADDED_OBJECTS - RW5C_ADDED_OBJECTS - M2A_ADDED_OBJECTS - DATA_CAPTURE_ADDED_OBJECTS - FOLLOWUP_ADDED_OBJECTS == set(P3_ADDED_OBJECTS)
     assert {name for name in before if before[name] != after.get(name)} == set(P3_ALTERED_TABLES) | set(
         C2B_ALTERED_TABLES) | TE1_ALTERED_TABLES | UNLINKED_ALTERED_TABLES
     with closing(sqlite3.connect(database)) as connection:
@@ -183,7 +184,7 @@ def test_the_head_fixture_holds_232_in_rollback_mode():
     # The head is teacher TE1b's 236 now (rebuilt from follow-ups Nov 2's 235 head with only 236 applied); it holds 232.
     assert HEAD.read_bytes()[18:20] == b"\x01\x01"
     assert 232 in applied_versions(HEAD)
-    assert max(applied_versions(HEAD)) == max(m.version for m in discover_migrations()) == 240
+    assert max(applied_versions(HEAD)) == max(m.version for m in discover_migrations()) == 241
     with closing(sqlite3.connect(f"file:{HEAD}?mode=ro", uri=True)) as connection:
         columns = [row[1] for row in connection.execute("PRAGMA table_info(help_assists)")]
         assert columns[-1] == "figure_id"
@@ -200,7 +201,7 @@ def test_232_on_the_durability_lane(tmp_path):
 
     database = _at_231(tmp_path)
     with upgrade_allowance(UPGRADE_TEST_HELPER):
-        assert [migration.version for migration in apply_migrations(database)] == [232, 233, 234, 235, 236, 237, 238, 239, 240]
+        assert [migration.version for migration in apply_migrations(database)] == [232, 233, 234, 235, 236, 237, 238, 239, 240, 241]
     with closing(sqlite3.connect(database)) as connection:
         assert connection.execute("PRAGMA journal_mode").fetchone()[0] == "wal"
         store.insert_assist(connection, {"id": "ha_d", "surface": "practice", "assist_kind": "figure",

@@ -465,9 +465,9 @@ def test_todays_plan_is_byte_identical_with_a_suggestion_drawn(tmp_path, shown):
 
 
 def test_the_successor_is_the_latest_link_after_followups_nov2():
-    assert SUCCESSOR_CHAIN[-4:-1] == (TEACHER_ALGORITHM_VERSION, PREDECESSOR_TAG, TAG) == ("mvp-0.41", "mvp-0.42", "mvp-0.43")
-    assert LATEST_ALGORITHM_VERSION == "mvp-0.44"
-    assert LESSON_SUGGESTIONS_VERSIONS == frozenset({TAG, "mvp-0.44"})
+    assert SUCCESSOR_CHAIN[-5:-2] == (TEACHER_ALGORITHM_VERSION, PREDECESSOR_TAG, TAG) == ("mvp-0.41", "mvp-0.42", "mvp-0.43")
+    assert LATEST_ALGORITHM_VERSION == "mvp-0.45"
+    assert LESSON_SUGGESTIONS_VERSIONS == frozenset({TAG, "mvp-0.44", "mvp-0.45"})
 
 
 def test_the_upgrade_from_teacher_te1_and_its_refusals(tmp_path):
@@ -495,8 +495,8 @@ def test_the_openers_install_this_links_completion():
     from learnloop.cli import runtime
     from learnloop_sidecar import context
 
-    assert "learnloop.data_capture_upgrade" in inspect.getsource(runtime._complete_interrupted_activation)
-    assert "learnloop.data_capture_upgrade" in inspect.getsource(context._complete_interrupted_activation)
+    assert "learnloop.followup_serve_upgrade" in inspect.getsource(runtime._complete_interrupted_activation)
+    assert "learnloop.followup_serve_upgrade" in inspect.getsource(context._complete_interrupted_activation)
 
 
 def test_every_defaults_snapshot_drops_to_te1s_value_without_the_suggestion_keys():
@@ -523,6 +523,9 @@ def test_every_defaults_snapshot_drops_to_te1s_value_without_the_suggestion_keys
         # Reader RW5c P1 landed after it too: its kill switch moved them.
         dumped["figures"].pop("checked_labels_enabled")
         dumped.pop("data_capture")  # data capture's keys (mvp-0.44; tests/test_data_capture_successor.py)
+        dumped.pop("followup")  # FG1's keys (mvp-0.45; tests/test_followup_successor.py)
+        dumped["ui"].pop("show_router_decisions")
+        dumped["ai"]["routing"].pop("followup_probe_author", None)
         dumped["practice"].pop("device_eligibility_enabled")  # mobile PR-6 landed after it too
         dumped["figures"].pop("prefetch_enabled")
         dumped["figures"].pop("prefetch")

@@ -42,7 +42,7 @@ ITEM = "pi_eigen_1"
 
 
 def test_the_chain_is_rw6b_then_c1():
-    assert SUCCESSOR_CHAIN[-7:-4] == (COLD, RW6B, C1) == ("mvp-0.38", "mvp-0.39", "mvp-0.40")
+    assert SUCCESSOR_CHAIN[-8:-5] == (COLD, RW6B, C1) == ("mvp-0.38", "mvp-0.39", "mvp-0.40")
 
 
 # -- (i) RW6b's follow-ups beside C1's reading block ---------------------------------------------------------

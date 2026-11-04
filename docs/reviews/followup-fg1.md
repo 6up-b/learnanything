@@ -56,6 +56,15 @@ sidecar. A small `attempt_followup_grade` lives in `diagnosis/followups.py`, so 
 6. **A block's follow-up uses the attempt that closed it**, when that attempt is a miss. §3.1 says completion "releases
    eligibility" without saying which of a block's misses it picks. The earlier misses keep the block's own diagnosis path.
 7. **Teach-back misses stay on the predecessor's path.** Their door has its own screen, with no pending and skip UI (§3.1's rule).
+8. **New vaults store no `auto_generate_on_entry = true`.** §4.3 says "new vaults get `true`", and the successor's effective setting
+   gives every vault at the tag exactly that. The decision-only template holds no `[probe.generation]` section (the spec's line 286 is
+   the older full template), and adding one would make the switch's off state differ from mvp-0.44 on a new vault. The review's own
+   rule (§10) wins: off, the stored value applies, and new and old vaults alike store none.
+9. **The feedback's "Show anyway" is the only hold exit from the plain surface.** The inspector can still read an attempt's raw
+   record if the learner digs there; it records its own exposure, as today, and §6.0's flag for the probe's independence comes from
+   the workflow only. If the owner wants the inspector held too, it reads the same `is_holding`.
+10. **A pre-FG1 generated probe keeps its old rules.** The identity is registered as an item is written; an upgrade does not
+    backfill items already in a vault, whose diagnostic mode still makes them single use by the attempt rule. Open question below.
 
 ### Gates that could not be made fully observational
 
@@ -63,3 +72,17 @@ None on this lane. Checked: the follow-up value check never runs while the workf
 it); the probe contract's value refusal is reached only with no committed presentation, and a workflow's probe always has one;
 `decide_probe` and repair-class divergence are logged on the row (`detail_json.observational`), and with shared repair classes that
 fact goes on the router's card.
+
+## Measured with fakes
+
+Physical authoring calls per probe: 1 (`test_a_miss_with_two_rivals_generates_one_pinned_probe`). A transport failure: 2, the first
+and the one retry the workflow admits, then the failure line (`MAX_GENERATION_ATTEMPTS`). A hard refusal, a `no_intervention` draw
+or unreadable protection: 0. Every physical call is admitted and recorded through `runtime.spend.metered` under
+`owner_kind=followup_generation`, one owner per job, so the owner's run on a copy reads calls and cost per probe from
+`model_call` receipts. Real latency and vault growth are for that run: no paid call was made in this stage.
+
+## Open questions for the owner
+
+1. Backfill the single-use identity onto `pi_gen_*` items already in the owner's vaults, or leave them on the older attempt rule?
+2. Q4 (§12) stands at its default: the answer is held until the probe is answered and released on a wait.
+3. Run on a copy: real latency and calls per probe, whether the adversarial review fits the wait, and vault growth.

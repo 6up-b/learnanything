@@ -122,6 +122,10 @@ def next_action(
     row = wf.attempt_workflow(repository, attempt_id)
     if row is None or row["state"] not in {wf.PENDING, wf.READY}:
         return NextAction("continue")
+    if row["state"] == wf.READY and not _served(repository, row) and not wf.waiting_still_valid(repository, row):
+        # §4.2: retired while unused, if its hypotheses closed first.
+        wf.retire_waiting(repository, row, reason="hypotheses_closed", clock=clock)
+        return NextAction("continue")
     if row["state"] == wf.PENDING:
         now = utc_now_iso(clock)
         if not row.get("next_requested_at"):
@@ -173,6 +177,7 @@ def continue_without(repository: Repository, attempt_id: str, *, clock: Clock | 
                         workflow_id=str(row["id"]), clock=clock)
     if row.get("presentation_id"):
         repository.end_probe_presentation(str(row["presentation_id"]), end_reason="abandoned", clock=clock)
+    _close_unmeasured_episode(repository, row, clock=clock)
     if row.get("factor_id"):
         record_learner_preference(
             repository, preference="teach_now", factor_id=str(row["factor_id"]), session_id=row.get("session_id"),
@@ -181,6 +186,16 @@ def continue_without(repository: Repository, attempt_id: str, *, clock: Clock | 
     if row.get("decision_id"):
         router.append_outcome(repository, str(row["decision_id"]), str(row["id"]), outcome="skipped", clock=clock)
     return True
+
+
+def _close_unmeasured_episode(repository: Repository, row: Mapping[str, Any], *, clock: Clock | None) -> None:
+    """A closed probe's own episode, if it measured nothing, doesn't stay open on the topic."""
+
+    from learnloop.diagnosis.probe_episodes import episode_has_observations
+
+    episode_id = row.get("probe_episode_id")
+    if episode_id and not episode_has_observations(repository, str(episode_id)):
+        repository.update_probe_episode_status(str(episode_id), status="abandoned", clock=clock)
 
 
 def show_anyway(repository: Repository, attempt_id: str, *, clock: Clock | None = None) -> bool:
@@ -221,6 +236,7 @@ def abandon(repository: Repository, practice_item_id: str, *, clock: Clock | Non
     identity.retire(repository, practice_item_id, reason="abandoned", workflow_id=str(row["id"]), clock=clock)
     if row.get("presentation_id"):
         repository.end_probe_presentation(str(row["presentation_id"]), end_reason="abandoned", clock=clock)
+    _close_unmeasured_episode(repository, row, clock=clock)
     if row.get("decision_id"):
         router.append_outcome(repository, str(row["decision_id"]), str(row["id"]), outcome="abandoned", clock=clock)
     return True

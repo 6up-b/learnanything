@@ -162,7 +162,7 @@ S_ALPHA = 0.75
 #: A frozen objective's arms with no action of their own (``data_capture.objectives``, where they are
 #: named; repeated here because the router leaf never imports it: a test pins the two equal).
 ARM_READING = "reading"
-ACTIONLESS_ARMS: frozenset[str] = frozenset({ARM_READING, "wait", "stop"})
+ACTIONLESS_ARMS: frozenset[str] = frozenset({ARM_READING, "wait", "stop", "no_intervention"})
 
 #: Attempt types that count as an independent attempt for R_next and R_cold.
 INDEPENDENT_ATTEMPT_TYPES: frozenset[str] = frozenset(

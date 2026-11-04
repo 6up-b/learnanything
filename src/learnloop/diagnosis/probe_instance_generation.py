@@ -1086,6 +1086,10 @@ def generate_instances_for_episode(
         for payload, generator_id, generator_version in candidates:
             if accepted >= count:
                 break
+            if fg1:
+                # FG1 §4.2: it never becomes a practice item: the mode carries the freshness rules.
+                payload = {**payload, "practice_mode": "diagnostic_probe",
+                           "attempt_types_allowed": ["diagnostic_probe", "dont_know"]}
             if payload["id"] in vault.practice_items or payload["id"] in batch_ids:
                 continue  # idempotent re-run / intra-batch duplicate
             prompt_key = str(payload["prompt"]).strip()

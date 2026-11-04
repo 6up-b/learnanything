@@ -8,7 +8,7 @@ import tomllib
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from learnloop.algorithm_versions import FOLLOWUP_SERVE_VERSIONS, LATEST_ALGORITHM_VERSION
+from learnloop.algorithm_versions import LATEST_ALGORITHM_VERSION
 
 if TYPE_CHECKING:
     from learnloop.config.schema import LearnLoopConfig
@@ -827,12 +827,7 @@ def default_config_text(algorithm_version: str = LATEST_ALGORITHM_VERSION) -> st
     (LATEST and every version gate follow) and records its own snapshot.
     """
 
-    text = _DEFAULT_CONFIG_TEMPLATE.replace(_ALGORITHM_VERSION_PLACEHOLDER, algorithm_version, 1)
-    if algorithm_version in FOLLOWUP_SERVE_VERSIONS:
-        # FG1 §4.3: new vaults get true. An existing vault's stored value is left alone
-        # (the successor computes the effective setting), so a rollback still reads it.
-        text = f"{text.rstrip()}\n\n[probe.generation]\nauto_generate_on_entry = true\n"
-    return text
+    return _DEFAULT_CONFIG_TEMPLATE.replace(_ALGORITHM_VERSION_PLACEHOLDER, algorithm_version, 1)
 
 
 DEFAULT_CONFIG_TEXT = default_config_text()
@@ -4019,11 +4014,11 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     "mvp-0.44": "e9f1be13365b44c86b99263ebddb2eeb76531ab1ce68793d61f274dbade33845",
     # mvp-0.45 (FG1, follow-up generate and serve; docs/specs/spec_followup_generate_serve_v1.md): mvp-0.44
     # plus one durable workflow per miss, the router's itemless decision, generated single-use probes and the
-    # held feedback. Kill switch [followup] generate_and_serve (default true). New vaults write
-    # probe.generation.auto_generate_on_entry = true (default_config_text); existing vaults keep their stored
-    # value and the successor computes the effective one. [followup] and [ui] show_router_decisions are in
-    # every snapshot, inert below the tag (recomputed for all of them, as above).
-    "mvp-0.45": "d06ee8035d28a604a4c5c5315a9d9ed8e6ae5144150eb491b8e6629d5b0c0b12",
+    # held feedback. Kill switch [followup] generate_and_serve (default true). The decision-only template stores
+    # no probe.generation.auto_generate_on_entry: every vault keeps what it has, and the successor computes the
+    # effective true, new vaults included. [followup] and [ui] show_router_decisions are in every snapshot,
+    # inert below the tag (recomputed for all of them, as above).
+    "mvp-0.45": "cca4dc62baa93737e29ef6103224263ad80dd9d710532d452dbe609bbb4c3125",
 }
 
 

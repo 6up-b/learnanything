@@ -47,6 +47,7 @@ from tests.test_teacher_te1b_migration import TE1_AND_TE1B_ADDED_OBJECTS as TE1_
 from tests.test_teacher_te1b_migration import TE1_AND_TE1B_ALTERED_TABLES as TE1_ALTERED_TABLES
 from tests.test_figure_prefetch_migration import P5_ADDED_OBJECTS
 from tests.test_data_capture_migration import DATA_CAPTURE_ADDED_OBJECTS
+from tests.test_followup_migration import FOLLOWUP_ADDED_OBJECTS
 from tests.test_mobile_jobs_migration import M2A_ADDED_OBJECTS
 from tests.test_rw5c_migration import RW5C_ADDED_OBJECTS
 
@@ -139,4 +140,4 @@ def test_library_asks_is_workflow():
 def test_the_head_fixture_is_at_head_in_rollback_mode():
     head = Path(__file__).resolve().parents[1] / "fixtures" / "migration_head_241" / "state.sqlite"
     assert head.read_bytes()[18:20] == b"\x01\x01"
-    assert max(applied_versions(head)) == max(m.version for m in discover_migrations()) == 240
+    assert max(applied_versions(head)) == max(m.version for m in discover_migrations()) == 241

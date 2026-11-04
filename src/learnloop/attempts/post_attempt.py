@@ -198,7 +198,7 @@ def run_post_attempt_pipeline(
         # FG1: an answer to a generated probe settles its workflow and releases what it held.
         from learnloop.followup_serve.workflow import probe_answered
 
-        probe_answered(repository, str(result.practice_item_id), attempt_id=result.attempt_id, clock=clock)
+        probe_answered(repository, str(getattr(result, "practice_item_id", "") or ""), attempt_id=result.attempt_id, clock=clock)
         if workflow is not None and not (blind or _shadow_diagnosis_enabled(vault)):
             # A joint vault has no live diagnosis job (spec §3.1): selection uses the
             # hypotheses normalization has already written.
@@ -410,8 +410,8 @@ def run_exam_sitting_pipeline(
                 result=result,
                 purpose="exam",
                 suppress_insertion_reason=reason,
-                followup_surface=followup_surface,
                 clock=clock,
+                **({"followup_surface": followup_surface} if followup_surface is not None else {}),
             )
         except Exception:  # noqa: BLE001 - attempts are applied; report must proceed
             logger.warning(

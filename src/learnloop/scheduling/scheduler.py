@@ -2306,6 +2306,7 @@ def followup_head_item(vault: LoadedVault, item: PracticeItem, *, priority: floa
     if bare is None:
         return None
     return replace(bare, priority=priority, followup_kind="intervention_followup",
+                   components={**bare.components, "intervention_followup": 1.0},
                    plain_english=["a new question from your last answer"])
 
 

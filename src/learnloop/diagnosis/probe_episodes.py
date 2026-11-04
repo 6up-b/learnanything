@@ -863,6 +863,13 @@ def eligible_instruments(
     hypothesis_set = hypothesis_set or episode_hypothesis_set(repository, episode)
     if hypothesis_set is None:
         return []
+    # FG1 §5: a workflow's pinned probe holds this episode until it is answered or closed: a
+    # routine selection committing another presentation would supersede the pin.
+    standing = repository.active_probe_presentation(episode.id)
+    if standing is not None and standing.practice_item_id != reserved_for:
+        pin = dict(standing.selection_components or {}).get("causal_probe")
+        if isinstance(pin, Mapping) and pin.get("followup_workflow_id"):
+            return []
     # Learner-set LO lifecycle: no item of a dormant/resolved LO is administered,
     # as a probe or otherwise (vault.lifecycle).
     if not learning_object_servable(vault, episode.learning_object_id):

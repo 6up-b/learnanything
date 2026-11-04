@@ -40,7 +40,7 @@ def test_238_is_applied_and_the_table_is_classified():
 
 def test_the_head_fixture_is_past_238_in_rollback_mode_with_an_empty_table():
     assert HEAD.read_bytes()[18:20] == b"\x01\x01"
-    assert max(applied_versions(HEAD)) == max(migration.version for migration in discover_migrations()) == 240
+    assert max(applied_versions(HEAD)) == max(migration.version for migration in discover_migrations()) == 241
     with closing(sqlite3.connect(HEAD)) as connection:
         assert RW5C_ADDED_OBJECTS <= _names(connection)
         assert connection.execute("SELECT COUNT(*) FROM figure_source_checks").fetchone()[0] == 0

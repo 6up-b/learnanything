@@ -277,7 +277,8 @@ def retire_waiting(repository: Repository, row: Mapping[str, Any], *, reason: st
 
     from learnloop.followup_serve import identity
 
-    if move(repository, str(row["id"]), to_state=SKIPPED, reason=reason, from_states=(WAITING, READY), clock=clock):
+    if move(repository, str(row["id"]), to_state=SKIPPED, reason=reason, from_states=(WAITING, READY),
+            release=RELEASE_FALLBACK, clock=clock):
         identity.retire(repository, str(row["practice_item_id"]), reason=reason, workflow_id=str(row["id"]), clock=clock)
         if row.get("presentation_id"):
             repository.end_probe_presentation(str(row["presentation_id"]), end_reason="abandoned", clock=clock)

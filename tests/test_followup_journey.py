@@ -293,18 +293,17 @@ def test_no_intervention_generates_nothing_and_releases_what_was_held(journey, m
     assert identity.generated_probe_ids(repository) == frozenset()
 
 
-def test_with_no_plan_a_ready_probe_heads_todays_queue(journey):
-    from learnloop.db.repositories import Repository  # noqa: F401
-
-    ctx, vault, repository, result, outcome = journey
+def test_with_no_plan_a_ready_probe_heads_todays_queue(tmp_path):
+    _vault, _repository, paths = rival_causes_vault(tmp_path, config="\n[plan]\nenabled = false\n")
+    ctx = SidecarContext()
+    ctx.load(paths.root)
+    ctx.post_attempt_worker.autostart = False
+    vault, repository = ctx.require_vault()
+    result, outcome = miss_with_rivals(vault, repository)
     _generate(ctx, repository)
-    _call(ctx, "followup_status", {"attemptId": result.attempt_id})
-    vault, _ = ctx.require_vault()
-    from learnloop.daily_plan.engine import plan_active
-
+    status = _call(ctx, "followup_status", {"attemptId": result.attempt_id})
+    assert status["line"] == "This question comes first."
     row = wf.get(repository, outcome.workflow_id)
-    if plan_active(vault):
-        pytest.skip("this vault's plan serves it")
     queue = _call(ctx, "get_today_queue", {"sessionId": None})
     first = queue["sections"][0]["items"][0]
     assert first["practiceItemId"] == row["practice_item_id"]
@@ -333,3 +332,39 @@ def test_with_the_switch_off_the_replies_match_the_predecessor(tmp_path):
         reply = re.sub(r"[0-9A-HJKMNP-TV-Z]{26}", "ULID", reply)
         replies[name] = re.sub(r"\b(dr|cdo|chs|hs|pp|ge|rc)_[0-9a-f]{16,}", r"\1_ID", reply)
     assert replies["old"] == replies["off"]
+
+
+def test_a_probe_whose_hypotheses_closed_first_is_retired_unused(journey):
+    ctx, _vault, repository, result, outcome = journey
+    _generate(ctx, repository)
+    row = wf.get(repository, outcome.workflow_id)
+    _call(ctx, "followup_status", {"attemptId": result.attempt_id})
+    with repository.atomic(), repository.connection() as connection:
+        connection.execute("UPDATE unresolved_cause_factors SET status = 'resolved' WHERE id = ?", (row["factor_id"],))
+    assert _call(ctx, "followup_next", {"attemptId": result.attempt_id})["action"] == "continue"
+    assert row["practice_item_id"] in identity.retired_probe_ids(repository)
+    settled = wf.get(repository, outcome.workflow_id)
+    assert settled["state"] == wf.SKIPPED and settled["feedback_released_at"]
+    _refused(ctx, "open_queue_item", {"practiceItemId": row["practice_item_id"]})
+
+
+def test_a_routine_selection_cannot_supersede_a_workflows_pin(journey):
+    from learnloop.diagnosis.probe_episodes import eligible_instruments
+
+    ctx, _vault, repository, result, outcome = journey
+    _generate(ctx, repository)
+    row = wf.get(repository, outcome.workflow_id)
+    _call(ctx, "followup_status", {"attemptId": result.attempt_id})
+    vault, _ = ctx.require_vault()
+    episode = repository.probe_episode(row["probe_episode_id"])
+    assert eligible_instruments(vault, repository, episode) == []
+    assert [entry.item.id for entry in eligible_instruments(vault, repository, episode, reserved_for=row["practice_item_id"])
+            ] == [row["practice_item_id"]]
+
+
+def test_continue_without_it_closes_the_episode_that_measured_nothing(journey):
+    ctx, _vault, repository, result, outcome = journey
+    _generate(ctx, repository)
+    row = wf.get(repository, outcome.workflow_id)
+    _call(ctx, "followup_continue_without", {"attemptId": result.attempt_id})
+    assert repository.probe_episode(row["probe_episode_id"]).status == "abandoned"

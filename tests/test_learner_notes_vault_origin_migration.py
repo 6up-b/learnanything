@@ -86,7 +86,7 @@ def _upgrade(tmp_path: Path) -> Path:
         applied = apply_migrations(database)
     # Teacher TE1's 234 (its own tables and source_tool_calls, none read here), follow-ups Nov 2's 235
     # (learner_text_gap_reversals) and teacher TE1b's 236 (router tables), none read here, follow on the way to head.
-    assert [migration.version for migration in applied] == [233, 234, 235, 236, 237, 238, 239, 240]
+    assert [migration.version for migration in applied] == [233, 234, 235, 236, 237, 238, 239, 240, 241]
     # Every row survives (two new columns, NULL for the C2-era rows).
     assert [row[:13] for row in _rows(database, "learner_notes")] == notes
     assert all(row[13:] == (None, None) for row in _rows(database, "learner_notes"))
