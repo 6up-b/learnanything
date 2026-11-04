@@ -19,6 +19,7 @@ from learnloop.clock import Clock, parse_utc, utc_now_iso
 from learnloop.daily_plan.router_runtime import FOLLOWUP_GENERATION_OWNER
 from learnloop.db.repositories import Repository
 from learnloop.db.stores import followup_serve as store
+from learnloop.followup_serve import identity
 from learnloop.followup_serve import workflow as wf
 from learnloop.followup_serve import queue
 from learnloop.followup_serve.gates import generate_and_serve_on
@@ -125,10 +126,15 @@ def fail_workflow(vault: Any, repository: Repository, workflow_id: str, *, reaso
     row = wf.get(repository, workflow_id)
     if row is None:
         return
-    if wf.move(repository, workflow_id, to_state=wf.FAILED, reason=reason, release=wf.RELEASE_GENERATION_FAILED,
-               clock=clock) and row.get("factor_id"):
-        queue.enqueue_factor(repository, str(row["factor_id"]), workflow_id=workflow_id,
-                             not_before=_iso_after(clock, NEED_RETRY_DELAY_SECONDS), clock=clock)
+    with repository.atomic():
+        if not wf.move(repository, workflow_id, to_state=wf.FAILED, reason=reason, release=wf.RELEASE_GENERATION_FAILED,
+                       clock=clock):
+            return
+        # What its last run left would block the need's own question (``duplicate_instrument_class``).
+        identity.retire_unbound(repository, workflow_id, clock=clock)
+        if row.get("factor_id"):
+            queue.enqueue_factor(repository, str(row["factor_id"]), workflow_id=workflow_id,
+                                 not_before=_iso_after(clock, NEED_RETRY_DELAY_SECONDS), clock=clock)
 
 
 def recover_workflow(vault: Any, repository: Repository, row: Mapping[str, Any], *, clock: Clock | None = None) -> bool:
@@ -303,7 +309,7 @@ def _run_workflow(vault: Any, repository: Repository, workflow_id: str, *, clien
         return
     # §4.1, §8: a cause written from exam material sends its words to neither the router nor
     # the author, so this miss takes the practice lane. Before anything is spent.
-    from learnloop.followup_run.authoring import AuthoringRejected, hypotheses_exam_reason
+    from learnloop.followup_run.authoring import AuthoringRejected, causes_refusal, hypotheses_exam_reason
 
     try:
         protected = hypotheses_exam_reason(vault, repository, choice.hypothesis_ids)
@@ -311,7 +317,7 @@ def _run_workflow(vault: Any, repository: Repository, workflow_id: str, *, clien
         fail_workflow(vault, repository, workflow_id, reason=str(rejected), clock=clock)
         return
     if protected is not None:
-        settle_practice_lane(vault, repository, row, reason="causes_from_exam_material", clock=clock)
+        settle_practice_lane(vault, repository, row, reason=causes_refusal(protected), clock=clock)
         return
     wf.set_fields(repository, workflow_id, lane=wf.LANE_PROBE, factor_id=choice.factor_id, clock=clock)
     row = wf.get(repository, workflow_id) or row
@@ -335,18 +341,22 @@ def _run_probe_lane(vault: Any, repository: Repository, row: Mapping[str, Any], 
 
     workflow_id = str(row["id"])
     factor_id = str(choice.factor_id)
+    # §4.2: what an interrupted run published and never bound is never served, whatever this run decides.
+    identity.retire_unbound(repository, workflow_id, clock=clock)
     # Retry and lease recovery run under the decision already drawn, never a fresh draw.
     decision = router.decide_once(vault, repository, row, choice=choice, clients=clients, clock=clock)
     if decision.refused:
-        wf.move(repository, workflow_id, to_state=wf.REFUSED, reason=decision.reason, release=wf.RELEASE_REFUSED,
-                clock=clock)
-        router.record_outcome(repository, row, decision, outcome="refused", clock=clock)
+        with repository.atomic():
+            wf.move(repository, workflow_id, to_state=wf.REFUSED, reason=decision.reason, release=wf.RELEASE_REFUSED,
+                    clock=clock)
+            router.record_outcome(repository, row, decision, outcome="refused", clock=clock)
         return
     if decision.no_intervention:
         # §5 item 4: nothing is generated, the screen shows the decision, and what was held is released.
-        wf.move(repository, workflow_id, to_state=wf.SETTLED, reason="no_intervention",
-                release=wf.RELEASE_NO_INTERVENTION, lane=wf.LANE_PROBE, clock=clock)
-        router.record_outcome(repository, row, decision, outcome="no_intervention", clock=clock)
+        with repository.atomic():
+            wf.move(repository, workflow_id, to_state=wf.SETTLED, reason="no_intervention",
+                    release=wf.RELEASE_NO_INTERVENTION, lane=wf.LANE_PROBE, clock=clock)
+            router.record_outcome(repository, row, decision, outcome="no_intervention", clock=clock)
         return
     if decision.wait:
         # §6.0: released now, and the later probe is labelled exposed, so it can't resolve the cause.
@@ -354,14 +364,16 @@ def _run_probe_lane(vault: Any, repository: Repository, row: Mapping[str, Any], 
     client = _author_client(vault, clients)
     if client is None:
         raise GenerationDeferred("author_route_not_ready")
-    # §4.2: what an interrupted run published and never bound is never served.
-    admission.withdraw_interrupted(repository, workflow_id=workflow_id, factor_id=factor_id, clock=clock)
     item_id: str | None = None
     fresh = vault
     try:
         probe, template, card = admission.author_probe(
             vault, repository, workflow=row, factor_id=factor_id, decision=decision.for_author(), client=client,
         )
+        # The learner may have said "Not now" while the model wrote; nothing further was paid for.
+        refusal = router.hard_refusal(vault, repository, row, factor_id=factor_id)
+        if refusal is not None:
+            raise admission.OfferRefused(refusal)
         item_id = admission.persist_item(vault, repository, probe, template=template, card=card, workflow_id=workflow_id,
                                          client=client, clock=clock)
         fresh = reloaded(vault)
@@ -370,29 +382,31 @@ def _run_probe_lane(vault: Any, repository: Repository, row: Mapping[str, Any], 
             practice_item_id=item_id, client=client, clock=clock,
         )
     except admission.OfferRefused as refused:
-        _retire(repository, item_id, reason=refused.reason, workflow_id=workflow_id, clock=clock)
-        wf.move(repository, workflow_id, to_state=wf.REFUSED, reason=refused.reason, release=wf.RELEASE_REFUSED,
-                clock=clock)
-        router.record_outcome(repository, row, decision, outcome="refused", clock=clock)
+        with repository.atomic():
+            _withdraw(repository, item_id, reason=refused.reason, workflow_id=workflow_id, clock=clock)
+            wf.move(repository, workflow_id, to_state=wf.REFUSED, reason=refused.reason, release=wf.RELEASE_REFUSED,
+                    clock=clock)
+            router.record_outcome(repository, row, decision, outcome="refused", clock=clock)
         return
     except admission.AdmissionFailed as failed:
-        _retire(repository, item_id, reason=failed.reason, workflow_id=workflow_id, clock=clock)
-        fail_workflow(vault, repository, workflow_id, reason=failed.reason, clock=clock)
-        router.record_outcome(repository, row, decision, outcome="generation_failed", clock=clock)
+        with repository.atomic():
+            _withdraw(repository, item_id, reason=failed.reason, workflow_id=workflow_id, clock=clock)
+            fail_workflow(vault, repository, workflow_id, reason=failed.reason, clock=clock)
+            router.record_outcome(repository, row, decision, outcome="generation_failed", clock=clock)
         return
     to_state = wf.WAITING if decision.wait else wf.READY
-    moved = wf.move(
-        repository, workflow_id, to_state=to_state, reason=decision.chosen_ref, from_states=(wf.PENDING,),
-        practice_item_id=admitted.practice_item_id, probe_candidate_id=admitted.candidate_id,
-        hypothesis_set_id=admitted.hypothesis_set_id, probe_episode_id=admitted.episode_id,
-        presentation_id=admitted.presentation_id, clock=clock,
-    )
-    if not moved:
-        # A late generator: the skip or fallback already settled it, and this adds nothing.
-        _retire(repository, admitted.practice_item_id, reason="workflow_settled", workflow_id=workflow_id, clock=clock)
-        repository.end_probe_presentation(admitted.presentation_id, end_reason="abandoned", clock=clock)
-        return
-    router.bind_item(repository, row, decision, admitted, clock=clock)
+    with repository.atomic():
+        moved = wf.move(
+            repository, workflow_id, to_state=to_state, reason=decision.chosen_ref, from_states=(wf.PENDING,),
+            practice_item_id=admitted.practice_item_id, probe_candidate_id=admitted.candidate_id,
+            hypothesis_set_id=admitted.hypothesis_set_id, probe_episode_id=admitted.episode_id,
+            presentation_id=admitted.presentation_id, clock=clock,
+        )
+        if moved:
+            router.bind_item(repository, row, decision, admitted, clock=clock)
+        else:
+            # A late generator: the skip or fallback already settled it, and this adds nothing.
+            _withdraw(repository, admitted.practice_item_id, reason="workflow_settled", workflow_id=workflow_id, clock=clock)
 
 
 def reloaded(vault: Any) -> Any:
@@ -405,12 +419,9 @@ def reloaded(vault: Any) -> Any:
     return fresh
 
 
-def _retire(repository: Repository, item_id: str | None, *, reason: str, workflow_id: str, clock: Clock | None) -> None:
-    if item_id is None:
-        return
-    from learnloop.followup_serve import identity
-
-    identity.retire(repository, item_id, reason=reason, workflow_id=workflow_id, clock=clock)
+def _withdraw(repository: Repository, item_id: str | None, *, reason: str, workflow_id: str, clock: Clock | None) -> None:
+    if item_id is not None:
+        identity.withdraw(repository, item_id, reason=reason, workflow_id=workflow_id, clock=clock)
 
 
 __all__ = [

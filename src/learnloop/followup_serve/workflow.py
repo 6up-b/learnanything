@@ -38,6 +38,7 @@ REFUSED = "refused"
 FAILED = "failed"
 SKIPPED = "skipped"
 SETTLED = "settled"
+OPEN_STATES = store.OPEN_STATES
 
 LANE_PROBE = "probe"
 LANE_PRACTICE = "practice"
@@ -273,33 +274,57 @@ def waiting_still_valid(repository: Repository, row: Mapping[str, Any]) -> bool:
 
 
 def close_probe(repository: Repository, row: Mapping[str, Any], *, reason: str, clock: Clock | None = None) -> None:
-    """A workflow's probe that will not be answered: it retires, its presentation ends, and
-    its own episode, if it measured nothing, doesn't stay open on the topic."""
+    """A workflow's probe that will not be answered is withdrawn, with anything an interrupted
+    run left unbound, and its own episode, if it measured nothing, doesn't stay open on the
+    topic. One commit; a caller moving the workflow holds them together (:func:`skip_and_close`)."""
 
     from learnloop.followup_serve import identity
 
-    item_id = row.get("practice_item_id")
-    if item_id:
-        identity.retire(repository, str(item_id), reason=reason, workflow_id=str(row["id"]), clock=clock)
-    if row.get("presentation_id"):
-        repository.end_probe_presentation(str(row["presentation_id"]), end_reason="abandoned", clock=clock)
-    episode_id = row.get("probe_episode_id")
-    if not episode_id:
-        return
-    # ``probe_episodes.episode_has_observations``, read here: a leaf imports no domain package.
-    measured = bool(repository.probe_observations_for_episode(str(episode_id))) or any(
-        presentation.status == "submitted" for presentation in repository.probe_presentations_for_episode(str(episode_id))
-    )
-    if not measured:
-        repository.update_probe_episode_status(str(episode_id), status="abandoned", clock=clock)
+    with repository.atomic():
+        workflow_id = str(row["id"])
+        item_id = row.get("practice_item_id")
+        if item_id:
+            identity.withdraw(repository, str(item_id), reason=reason, workflow_id=workflow_id, clock=clock)
+        identity.retire_unbound(repository, workflow_id, clock=clock)
+        if row.get("presentation_id"):
+            repository.end_probe_presentation(str(row["presentation_id"]), end_reason="abandoned", clock=clock)
+        episode_id = row.get("probe_episode_id")
+        if not episode_id:
+            return
+        # ``probe_episodes.episode_has_observations``, read here: a leaf imports no domain package.
+        measured = bool(repository.probe_observations_for_episode(str(episode_id))) or any(
+            presentation.status == "submitted"
+            for presentation in repository.probe_presentations_for_episode(str(episode_id))
+        )
+        if not measured:
+            repository.update_probe_episode_status(str(episode_id), status="abandoned", clock=clock)
+
+
+def skip_and_close(
+    repository: Repository,
+    row: Mapping[str, Any],
+    *,
+    reason: str,
+    release: str,
+    from_states: tuple[str, ...] = tuple(store.OPEN_STATES),
+    clock: Clock | None = None,
+) -> bool:
+    """The move to ``skipped`` and what it closes, in one commit: nothing recovers a terminal
+    workflow, so a crash between them would strand its item in a standing plan. False when
+    the move lost the race, and then nothing closes."""
+
+    with repository.atomic():
+        if not move(repository, str(row["id"]), to_state=SKIPPED, reason=reason, from_states=from_states,
+                    release=release, clock=clock):
+            return False
+        close_probe(repository, row, reason=reason, clock=clock)
+    return True
 
 
 def retire_waiting(repository: Repository, row: Mapping[str, Any], *, reason: str, clock: Clock | None = None) -> None:
     """A wait that can't be served now: its probe retires, unused, and nothing else follows."""
 
-    if move(repository, str(row["id"]), to_state=SKIPPED, reason=reason, from_states=(WAITING, READY),
-            release=RELEASE_FALLBACK, clock=clock):
-        close_probe(repository, row, reason=reason, clock=clock)
+    skip_and_close(repository, row, reason=reason, release=RELEASE_FALLBACK, from_states=(WAITING, READY), clock=clock)
 
 
 def probe_answered(repository: Repository, practice_item_id: str, *, attempt_id: str, clock: Clock | None = None) -> bool:
@@ -338,9 +363,7 @@ def settle_open_when_off(vault: Any, repository: Repository, *, clock: Clock | N
         rows = store.open_workflows(connection)
     settled = 0
     for row in rows:
-        if move(repository, str(row["id"]), to_state=SKIPPED, reason="switch_off", release=RELEASE_SWITCH_OFF,
-                clock=clock):
-            close_probe(repository, row, reason="switch_off", clock=clock)
+        if skip_and_close(repository, row, reason="switch_off", release=RELEASE_SWITCH_OFF, clock=clock):
             settled += 1
     return settled
 
@@ -360,7 +383,7 @@ def diagnosis_ended(vault: Any, repository: Repository, *, attempt_id: str, cloc
 
 
 __all__ = [
-    "FAILED", "PENDING", "READY", "REFUSED", "SETTLED", "SKIPPED", "WAITING", "WORKFLOW_OWNS_REASON",
-    "attempt_workflow", "close_probe", "desktop_waiting_count", "diagnosis_ended", "get", "move", "open_for_attempt", "probe_answer_exposed", "probe_answered", "release_feedback", "retire_waiting", "session_rows", "waiting_still_valid", "owns_attempt", "settle_open_when_off",
+    "FAILED", "OPEN_STATES", "PENDING", "READY", "REFUSED", "SETTLED", "SKIPPED", "WAITING", "WORKFLOW_OWNS_REASON",
+    "attempt_workflow", "close_probe", "desktop_waiting_count", "diagnosis_ended", "get", "move", "open_for_attempt", "probe_answer_exposed", "probe_answered", "release_feedback", "retire_waiting", "session_rows", "skip_and_close", "waiting_still_valid", "owns_attempt", "settle_open_when_off",
     "superseded", "workflow_id_for", "workflow_of_item",
 ]

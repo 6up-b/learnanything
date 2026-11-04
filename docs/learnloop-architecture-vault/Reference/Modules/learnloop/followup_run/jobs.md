@@ -7,8 +7,8 @@ version: "1.0.0"
 source_path: "src/learnloop/followup_run/jobs.py"
 source_paths:
   - "src/learnloop/followup_run/jobs.py"
-source_commit: "workspace/uncommitted @ HEAD efd894886714472c5495a6a6b87e97e8a774701a"
-source_commit_timestamp: "2026-11-04T00:19:09-05:00"
+source_commit: "workspace/uncommitted @ HEAD 3a57cdc863da69ad6a23e47a006c6932863322ee"
+source_commit_timestamp: "2026-11-04T01:43:28-05:00"
 source_worktree_state: "modified"
 generated: true
 generated_at: "2026-11-02"
@@ -50,32 +50,32 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/followup_run/jobs.py](../../../../../../src/learnloop/followup_run/jobs.py) |
-| Source lines | 420 |
+| Source lines | 431 |
 | Owning package | [[Reference/Modules/learnloop/followup_run/_package|learnloop.followup_run]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `modified` |
-| Source commit | `workspace/uncommitted @ HEAD efd894886714472c5495a6a6b87e97e8a774701a` |
-| Commit timestamp | `2026-11-04T00:19:09-05:00` |
+| Source commit | `workspace/uncommitted @ HEAD 3a57cdc863da69ad6a23e47a006c6932863322ee` |
+| Commit timestamp | `2026-11-04T01:43:28-05:00` |
 
 ## Public API
 
-- `class GenerationDeferred(RuntimeError)` ([source](../../../../../../src/learnloop/followup_run/jobs.py), line 44) — The route is not ready: nothing was spent, and the job may run again.
-- `class JobOutcome` ([source](../../../../../../src/learnloop/followup_run/jobs.py), line 49)
-- `process_next_job(vault: Any, repository: Repository, *, owner: str, clients: Any=None, cancelled: Callable[[], bool] | None=None, clock: Clock | None=None) -> JobOutcome | None` ([source](../../../../../../src/learnloop/followup_run/jobs.py), line 62) — Lease and run the next runnable job; None when none is.
-- `fail_workflow(vault: Any, repository: Repository, workflow_id: str, *, reason: str, clock: Clock | None) -> None` ([source](../../../../../../src/learnloop/followup_run/jobs.py), line 121) — §6.2: nothing passed.
-- `recover_workflow(vault: Any, repository: Repository, row: Mapping[str, Any], *, clock: Clock | None=None) -> bool` ([source](../../../../../../src/learnloop/followup_run/jobs.py), line 134) — §6.2's "Next never strands": a pending workflow whose diagnosis ended and whose job a crash lost gets that job; one whose job ended with the workflow still pending fails, with its failure line.
-- `recover_pending_workflows(vault: Any, repository: Repository, *, clock: Clock | None=None) -> int` ([source](../../../../../../src/learnloop/followup_run/jobs.py), line 158) — At startup: what a previous process committed and never handed off.
-- `reloaded(vault: Any) -> Any` ([source](../../../../../../src/learnloop/followup_run/jobs.py), line 398) — The vault with the item just written; its config stays the run's.
+- `class GenerationDeferred(RuntimeError)` ([source](../../../../../../src/learnloop/followup_run/jobs.py), line 45) — The route is not ready: nothing was spent, and the job may run again.
+- `class JobOutcome` ([source](../../../../../../src/learnloop/followup_run/jobs.py), line 50)
+- `process_next_job(vault: Any, repository: Repository, *, owner: str, clients: Any=None, cancelled: Callable[[], bool] | None=None, clock: Clock | None=None) -> JobOutcome | None` ([source](../../../../../../src/learnloop/followup_run/jobs.py), line 63) — Lease and run the next runnable job; None when none is.
+- `fail_workflow(vault: Any, repository: Repository, workflow_id: str, *, reason: str, clock: Clock | None) -> None` ([source](../../../../../../src/learnloop/followup_run/jobs.py), line 122) — §6.2: nothing passed.
+- `recover_workflow(vault: Any, repository: Repository, row: Mapping[str, Any], *, clock: Clock | None=None) -> bool` ([source](../../../../../../src/learnloop/followup_run/jobs.py), line 140) — §6.2's "Next never strands": a pending workflow whose diagnosis ended and whose job a crash lost gets that job; one whose job ended with the workflow still pending fails, with its failure line.
+- `recover_pending_workflows(vault: Any, repository: Repository, *, clock: Clock | None=None) -> int` ([source](../../../../../../src/learnloop/followup_run/jobs.py), line 164) — At startup: what a previous process committed and never handed off.
+- `reloaded(vault: Any) -> Any` ([source](../../../../../../src/learnloop/followup_run/jobs.py), line 412) — The vault with the item just written; its config stays the run's.
 
 ### Module constants
 
-- `LOG` ([src/learnloop/followup_run/jobs.py](../../../../../../src/learnloop/followup_run/jobs.py), line 26)
-- `RECEIPT_OWNER` ([src/learnloop/followup_run/jobs.py](../../../../../../src/learnloop/followup_run/jobs.py), line 30)
-- `LEASE_SECONDS` ([src/learnloop/followup_run/jobs.py](../../../../../../src/learnloop/followup_run/jobs.py), line 33)
-- `MAX_GENERATION_ATTEMPTS` ([src/learnloop/followup_run/jobs.py](../../../../../../src/learnloop/followup_run/jobs.py), line 36)
-- `RETRY_BACKOFF_SECONDS` ([src/learnloop/followup_run/jobs.py](../../../../../../src/learnloop/followup_run/jobs.py), line 39)
-- `NEED_RETRY_DELAY_SECONDS` ([src/learnloop/followup_run/jobs.py](../../../../../../src/learnloop/followup_run/jobs.py), line 41)
+- `LOG` ([src/learnloop/followup_run/jobs.py](../../../../../../src/learnloop/followup_run/jobs.py), line 27)
+- `RECEIPT_OWNER` ([src/learnloop/followup_run/jobs.py](../../../../../../src/learnloop/followup_run/jobs.py), line 31)
+- `LEASE_SECONDS` ([src/learnloop/followup_run/jobs.py](../../../../../../src/learnloop/followup_run/jobs.py), line 34)
+- `MAX_GENERATION_ATTEMPTS` ([src/learnloop/followup_run/jobs.py](../../../../../../src/learnloop/followup_run/jobs.py), line 37)
+- `RETRY_BACKOFF_SECONDS` ([src/learnloop/followup_run/jobs.py](../../../../../../src/learnloop/followup_run/jobs.py), line 40)
+- `NEED_RETRY_DELAY_SECONDS` ([src/learnloop/followup_run/jobs.py](../../../../../../src/learnloop/followup_run/jobs.py), line 42)
 
 ### Explicit exports
 
@@ -95,19 +95,19 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 
 ## Internal implementation anchors
 
-- `_iso_after(clock: Clock | None, seconds: float) -> str` ([source](../../../../../../src/learnloop/followup_run/jobs.py), line 57)
-- `_finish(repository: Repository, job: Mapping[str, Any], state: str, error: str | None, clock: Clock | None, *, not_before: str | None=None) -> bool` ([source](../../../../../../src/learnloop/followup_run/jobs.py), line 99)
-- `_retry_or_fail(vault: Any, repository: Repository, job: Mapping[str, Any], outcome: JobOutcome, error: str, clock: Clock | None) -> JobOutcome` ([source](../../../../../../src/learnloop/followup_run/jobs.py), line 107)
-- `_run(vault: Any, repository: Repository, job: Mapping[str, Any], *, clients: Any, clock: Clock | None) -> None` ([source](../../../../../../src/learnloop/followup_run/jobs.py), line 168)
-- `_run_entry(vault: Any, repository: Repository, episode_id: str, *, clients: Any, clock: Clock | None) -> None` ([source](../../../../../../src/learnloop/followup_run/jobs.py), line 187) — §4.3: the worker chooses the contract.
-- `_causal_factor_of(episode: Any) -> str | None` ([source](../../../../../../src/learnloop/followup_run/jobs.py), line 211)
-- `_author_for_factor(vault: Any, repository: Repository, *, factor_id: str, learning_object_id: str, attempt_id: str, episode_id: str | None, clients: Any, clock: Clock | None) -> str | None` ([source](../../../../../../src/learnloop/followup_run/jobs.py), line 217) — §4.1's contract with no workflow: an active candidate on the factor, unreserved.
-- `_run_factor_need(vault: Any, repository: Repository, factor_id: str, *, clients: Any, clock: Clock | None) -> None` ([source](../../../../../../src/learnloop/followup_run/jobs.py), line 238) — §6.2: a failed probe lane's need, deduplicated by factor and cancelled if it closed.
-- `_run_need(vault: Any, repository: Repository, need_id: str, *, clients: Any, clock: Clock | None) -> None` ([source](../../../../../../src/learnloop/followup_run/jobs.py), line 250) — §4: a recorded need fills in the background, S2b's order kept: an existing item was the chooser's, then a textbook exercise, then a generated practice item.
-- `_run_workflow(vault: Any, repository: Repository, workflow_id: str, *, clients: Any, clock: Clock | None) -> None` ([source](../../../../../../src/learnloop/followup_run/jobs.py), line 283)
-- `_author_client(vault: Any, clients: Any) -> Any` ([source](../../../../../../src/learnloop/followup_run/jobs.py), line 321) — The test seam's client, else the route's; never the Decider.
-- `_run_probe_lane(vault: Any, repository: Repository, row: Mapping[str, Any], *, choice: Any, clients: Any, clock: Clock | None) -> None` ([source](../../../../../../src/learnloop/followup_run/jobs.py), line 330) — §5: the decision first and the item after it.
-- `_retire(repository: Repository, item_id: str | None, *, reason: str, workflow_id: str, clock: Clock | None) -> None` ([source](../../../../../../src/learnloop/followup_run/jobs.py), line 408)
+- `_iso_after(clock: Clock | None, seconds: float) -> str` ([source](../../../../../../src/learnloop/followup_run/jobs.py), line 58)
+- `_finish(repository: Repository, job: Mapping[str, Any], state: str, error: str | None, clock: Clock | None, *, not_before: str | None=None) -> bool` ([source](../../../../../../src/learnloop/followup_run/jobs.py), line 100)
+- `_retry_or_fail(vault: Any, repository: Repository, job: Mapping[str, Any], outcome: JobOutcome, error: str, clock: Clock | None) -> JobOutcome` ([source](../../../../../../src/learnloop/followup_run/jobs.py), line 108)
+- `_run(vault: Any, repository: Repository, job: Mapping[str, Any], *, clients: Any, clock: Clock | None) -> None` ([source](../../../../../../src/learnloop/followup_run/jobs.py), line 174)
+- `_run_entry(vault: Any, repository: Repository, episode_id: str, *, clients: Any, clock: Clock | None) -> None` ([source](../../../../../../src/learnloop/followup_run/jobs.py), line 193) — §4.3: the worker chooses the contract.
+- `_causal_factor_of(episode: Any) -> str | None` ([source](../../../../../../src/learnloop/followup_run/jobs.py), line 217)
+- `_author_for_factor(vault: Any, repository: Repository, *, factor_id: str, learning_object_id: str, attempt_id: str, episode_id: str | None, clients: Any, clock: Clock | None) -> str | None` ([source](../../../../../../src/learnloop/followup_run/jobs.py), line 223) — §4.1's contract with no workflow: an active candidate on the factor, unreserved.
+- `_run_factor_need(vault: Any, repository: Repository, factor_id: str, *, clients: Any, clock: Clock | None) -> None` ([source](../../../../../../src/learnloop/followup_run/jobs.py), line 244) — §6.2: a failed probe lane's need, deduplicated by factor and cancelled if it closed.
+- `_run_need(vault: Any, repository: Repository, need_id: str, *, clients: Any, clock: Clock | None) -> None` ([source](../../../../../../src/learnloop/followup_run/jobs.py), line 256) — §4: a recorded need fills in the background, S2b's order kept: an existing item was the chooser's, then a textbook exercise, then a generated practice item.
+- `_run_workflow(vault: Any, repository: Repository, workflow_id: str, *, clients: Any, clock: Clock | None) -> None` ([source](../../../../../../src/learnloop/followup_run/jobs.py), line 289)
+- `_author_client(vault: Any, clients: Any) -> Any` ([source](../../../../../../src/learnloop/followup_run/jobs.py), line 327) — The test seam's client, else the route's; never the Decider.
+- `_run_probe_lane(vault: Any, repository: Repository, row: Mapping[str, Any], *, choice: Any, clients: Any, clock: Clock | None) -> None` ([source](../../../../../../src/learnloop/followup_run/jobs.py), line 336) — §5: the decision first and the item after it.
+- `_withdraw(repository: Repository, item_id: str | None, *, reason: str, workflow_id: str, clock: Clock | None) -> None` ([source](../../../../../../src/learnloop/followup_run/jobs.py), line 422)
 
 ## Who imports or calls it
 
@@ -132,12 +132,12 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop/diagnosis/causal_orchestrator|learnloop.diagnosis.causal_orchestrator]] — imports `causal_origin_factor`; calls `causal_origin_factor`
 - [[Reference/Modules/learnloop/diagnosis/probe_instance_generation|learnloop.diagnosis.probe_instance_generation]] — imports `mint_single_use_probe_surface`; calls `mint_single_use_probe_surface`
 - [[Reference/Modules/learnloop/diagnosis/split/jobs|learnloop.diagnosis.split.jobs]] — imports `DONE`, `PENDING`, `diagnosis_status`; calls `diagnosis_status`
-- [[Reference/Modules/learnloop/followup_run/admission|learnloop.followup_run.admission]] — imports `module`; calls `author_probe`, `commission_and_pin`, `commission_only`, `persist_item`, `withdraw_interrupted`
-- [[Reference/Modules/learnloop/followup_run/authoring|learnloop.followup_run.authoring]] — imports `AuthoringRejected`, `hypotheses_exam_reason`, `resolve_author_client`; calls `hypotheses_exam_reason`, `resolve_author_client`
+- [[Reference/Modules/learnloop/followup_run/admission|learnloop.followup_run.admission]] — imports `module`; calls `OfferRefused`, `author_probe`, `commission_and_pin`, `commission_only`, `persist_item`
+- [[Reference/Modules/learnloop/followup_run/authoring|learnloop.followup_run.authoring]] — imports `AuthoringRejected`, `causes_refusal`, `hypotheses_exam_reason`, `resolve_author_client`; calls `causes_refusal`, `hypotheses_exam_reason`, `resolve_author_client`
 - [[Reference/Modules/learnloop/followup_run/lanes|learnloop.followup_run.lanes]] — imports `concrete_rivals`, `select_lane`, `settle_practice_lane`; calls `concrete_rivals`, `select_lane`, `settle_practice_lane`
-- [[Reference/Modules/learnloop/followup_run/router|learnloop.followup_run.router]] — imports `module`; calls `bind_item`, `decide_once`, `record_outcome`
+- [[Reference/Modules/learnloop/followup_run/router|learnloop.followup_run.router]] — imports `module`; calls `bind_item`, `decide_once`, `hard_refusal`, `record_outcome`
 - [[Reference/Modules/learnloop/followup_serve/gates|learnloop.followup_serve.gates]] — imports `generate_and_serve_on`; calls `generate_and_serve_on`
-- [[Reference/Modules/learnloop/followup_serve/identity|learnloop.followup_serve.identity]] — imports `module`; calls `retire`
+- [[Reference/Modules/learnloop/followup_serve/identity|learnloop.followup_serve.identity]] — imports `module`; calls `retire_unbound`, `withdraw`
 - [[Reference/Modules/learnloop/followup_serve/queue|learnloop.followup_serve.queue]] — imports `module`; calls `enqueue_factor`, `enqueue_workflow`
 - [[Reference/Modules/learnloop/followup_serve/workflow|learnloop.followup_serve.workflow]] — imports `module`; calls `get`, `move`, `release_feedback`, `set_fields`, `superseded`
 - [[Reference/Modules/learnloop/instructional/needs|learnloop.instructional.needs]] — imports `fulfil_need_from_sources`, `pending_causal_decision`; calls `fulfil_need_from_sources`, `pending_causal_decision`
@@ -163,6 +163,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 - [tests/followup_serve_helpers.py](../../../../../../tests/followup_serve_helpers.py) — direct import
 - [tests/test_followup_codex_review.py](../../../../../../tests/test_followup_codex_review.py) — direct import
+  - `test_f10_a_failed_workflow_withdraws_what_its_last_run_left`
+  - `test_f10_recovery_redoes_a_withdrawal_a_crash_cut_at_the_job_boundary`
   - `test_f1_a_failed_generation_keeps_its_reservation`
   - `test_f1_an_in_flight_generation_reserves_against_the_next`
   - `test_f1_generation_receipts_are_in_the_daily_total`

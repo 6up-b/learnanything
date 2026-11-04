@@ -17,7 +17,7 @@ spec's default, recorded in the review file).
 from __future__ import annotations
 
 from collections.abc import Mapping
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 import logging
 from typing import Any
 
@@ -204,12 +204,21 @@ def decide_once(vault: Any, repository: Repository, row: Mapping[str, Any], *, c
     """The workflow's one decision (§5 item 2): the one it already recorded, else a new one.
 
     A retry or a lease recovery after a failed generation keeps the arm, the propensity
-    and the outcome binding the first draw committed; no model is asked again.
+    and the outcome binding the first draw committed; no model is asked again. The draw
+    doesn't outrank what came after it: a retry that would still generate asks the hard
+    refusals again, and one that holds now is this decision's outcome, on the same row.
     """
 
     if row.get("chosen_ref"):
-        return FollowupDecision(str(row["chosen_ref"]), "recorded", "recorded",
-                                decision_id=row.get("decision_id") or None)
+        recorded = FollowupDecision(str(row["chosen_ref"]), "recorded", "recorded",
+                                    decision_id=row.get("decision_id") or None)
+        if recorded.chosen_ref not in {ASK_NOW, WAIT}:
+            return recorded
+        refusal = hard_refusal(vault, repository, row, factor_id=str(choice.factor_id))
+        if refusal is None:
+            return recorded
+        return replace(recorded, chosen_ref=DECLINE, reason=refusal,
+                       refusals=({"reason": refusal, "constraint_key": refusal},))
     decision = decide(vault, repository, row, choice=choice, clients=clients, clock=clock)
     return record_decision(vault, repository, row, decision, clock=clock)
 
@@ -220,8 +229,6 @@ def record_decision(vault: Any, repository: Repository, row: Mapping[str, Any], 
     a crash leaves both or neither. Logging never blocks the learner's plan; with no plan
     there is no decision to log (§5.1). A receipt already logged is the decision: what the
     row says stands, and nothing is written twice."""
-
-    from dataclasses import replace
 
     from learnloop.daily_plan import measurement as objectives
     from learnloop.data_capture.gates import serving_on

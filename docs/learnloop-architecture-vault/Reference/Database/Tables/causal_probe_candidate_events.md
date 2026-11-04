@@ -3,8 +3,8 @@ title: "causal_probe_candidate_events"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "efd894886714472c5495a6a6b87e97e8a774701a"
-source_commit_timestamp: "2026-11-04T00:19:09-05:00"
+source_commit: "3a57cdc863da69ad6a23e47a006c6932863322ee"
+source_commit_timestamp: "2026-11-04T01:43:28-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite causal_probe_candidate_events"
@@ -21,6 +21,7 @@ source_paths:
   - "migrations/121_causal_probe_coherence.sql"
   - "src/learnloop/db/repositories.py"
   - "src/learnloop/diagnosis/causal_probe_coherence.py"
+  - "src/learnloop/followup_serve/identity.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/receipt"
@@ -98,6 +99,7 @@ Database triggers:
 ### Upstream callers of the repository access surface
 
 - `src/learnloop/diagnosis/causal_probe_coherence.py`
+- `src/learnloop/followup_serve/identity.py`
 
 > [!note] Static-reference boundary
 > These lists are evidence from exact table-name SQL and repository-method calls. Dynamic dispatch and higher-level tests may exercise the table without spelling its name.

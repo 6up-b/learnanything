@@ -185,17 +185,17 @@ def continue_without(repository: Repository, attempt_id: str, *, clock: Clock | 
     row = wf.attempt_workflow(repository, attempt_id)
     if row is None or row["state"] not in {wf.PENDING, wf.READY}:
         return False
-    if not wf.move(repository, str(row["id"]), to_state=wf.SKIPPED, reason="continue_without_it",
-                   release=wf.RELEASE_CONTINUE_WITHOUT, from_states=(wf.PENDING, wf.READY), clock=clock):
-        return False
-    wf.close_probe(repository, row, reason="continue_without_it", clock=clock)
-    if row.get("factor_id"):
-        record_learner_preference(
-            repository, preference="teach_now", factor_id=str(row["factor_id"]), session_id=row.get("session_id"),
-            source="continue_without_it", detail={"workflow_id": row["id"]}, clock=clock,
-        )
-    if row.get("decision_id"):
-        router.append_outcome(repository, str(row["decision_id"]), str(row["id"]), outcome="skipped", clock=clock)
+    with repository.atomic():
+        if not wf.skip_and_close(repository, row, reason="continue_without_it", release=wf.RELEASE_CONTINUE_WITHOUT,
+                                 from_states=(wf.PENDING, wf.READY), clock=clock):
+            return False
+        if row.get("factor_id"):
+            record_learner_preference(
+                repository, preference="teach_now", factor_id=str(row["factor_id"]), session_id=row.get("session_id"),
+                source="continue_without_it", detail={"workflow_id": row["id"]}, clock=clock,
+            )
+        if row.get("decision_id"):
+            router.append_outcome(repository, str(row["decision_id"]), str(row["id"]), outcome="skipped", clock=clock)
     return True
 
 
@@ -233,17 +233,12 @@ def abandon(repository: Repository, practice_item_id: str, *, clock: Clock | Non
     if row is None or row["state"] not in wf.OPEN_STATES:
         if not identity.is_generated_probe(repository, practice_item_id):
             return False
-        retired = identity.retire(repository, practice_item_id, reason="abandoned", clock=clock)
-        presentation = repository.active_probe_presentation_for_item(practice_item_id)
-        if presentation is not None:
-            repository.end_probe_presentation(presentation.id, end_reason="abandoned", clock=clock)
-        return retired
-    if not wf.move(repository, str(row["id"]), to_state=wf.SKIPPED, reason="abandoned",
-                   release=wf.RELEASE_CONTINUE_WITHOUT, clock=clock):
-        return False
-    wf.close_probe(repository, row, reason="abandoned", clock=clock)
-    if row.get("decision_id"):
-        router.append_outcome(repository, str(row["decision_id"]), str(row["id"]), outcome="abandoned", clock=clock)
+        return identity.withdraw(repository, practice_item_id, reason="abandoned", clock=clock)
+    with repository.atomic():
+        if not wf.skip_and_close(repository, row, reason="abandoned", release=wf.RELEASE_CONTINUE_WITHOUT, clock=clock):
+            return False
+        if row.get("decision_id"):
+            router.append_outcome(repository, str(row["decision_id"]), str(row["id"]), outcome="abandoned", clock=clock)
     return True
 
 

@@ -273,6 +273,15 @@ def unclosed_probes_of_workflow(connection: sqlite3.Connection, workflow_id: str
     )]
 
 
+def live_candidates_of_item(connection: sqlite3.Connection, practice_item_id: str) -> list[str]:
+    """The item's causal probe candidates not yet rejected."""
+
+    return [str(row[0]) for row in connection.execute(
+        "SELECT id FROM causal_probe_candidates WHERE practice_item_id = ? AND status <> 'rejected' ORDER BY id",
+        (practice_item_id,),
+    )]
+
+
 def administration_ended(connection: sqlite3.Connection, practice_item_id: str) -> bool:
     """Some presentation of this item was answered or ended: its one administration is over."""
 

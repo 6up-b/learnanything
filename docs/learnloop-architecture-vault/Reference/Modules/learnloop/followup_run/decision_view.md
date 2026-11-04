@@ -7,9 +7,9 @@ version: "1.0.0"
 source_path: "src/learnloop/followup_run/decision_view.py"
 source_paths:
   - "src/learnloop/followup_run/decision_view.py"
-source_commit: "workspace/uncommitted @ HEAD efd894886714472c5495a6a6b87e97e8a774701a"
-source_commit_timestamp: "2026-11-04T00:19:09-05:00"
-source_worktree_state: "modified"
+source_commit: "a01ecfbb27093bad0f8c7924a0558bfc49acbc22"
+source_commit_timestamp: "2026-11-04T01:43:14-05:00"
+source_worktree_state: "clean"
 generated: true
 generated_at: "2026-11-02"
 package: "learnloop.followup_run"
@@ -54,9 +54,9 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Owning package | [[Reference/Modules/learnloop/followup_run/_package|learnloop.followup_run]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
-| Worktree state | `modified` |
-| Source commit | `workspace/uncommitted @ HEAD efd894886714472c5495a6a6b87e97e8a774701a` |
-| Commit timestamp | `2026-11-04T00:19:09-05:00` |
+| Worktree state | `clean` |
+| Source commit | `a01ecfbb27093bad0f8c7924a0558bfc49acbc22` |
+| Commit timestamp | `2026-11-04T01:43:14-05:00` |
 
 ## Public API
 

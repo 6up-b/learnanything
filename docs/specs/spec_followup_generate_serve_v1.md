@@ -30,7 +30,7 @@ Either way the mistake usually isn't addressed, and the learner moves on to the 
 
 ### 3.1 Where the journey doesn't run
 
-- **Exam sittings.** No follow-up or banner between answers. `finish_exam` runs the batch afterwards, which ranks failures worst-first and caps follow-ups at three (`post_attempt.py:300`). FG1 records that eligibility and cap before any generation, so later jobs can't get around the cap. A cause written from exam work can't reach the router or the author (§4.1, §8; Codex review F5), so these misses take the practice lane.
+- **Exam sittings.** No follow-up or banner between answers. `finish_exam` runs the batch afterwards, which ranks failures worst-first and caps follow-ups at three (`post_attempt.py:300`). FG1 records that eligibility and cap before any generation, so later jobs can't get around the cap. A cause written from exam work can't reach the router or the author (§4.1, §8; Codex review F5), so these misses take the practice lane. So does a cause in a vault holding exam material whose write-time record is missing, incomplete or covers other words, since nothing then rules exam material out (Codex re-review F5); a vault with no exam material, reservation or exam work has nothing to quote and needs no record.
 - **Diagnostic blocks.** A follow-up mid-block would reveal that the last answer was wrong (`followups.py:624`), so block completion releases eligibility. If an episode with locked hypotheses is already measuring, it is not replaced.
 - **Joint vaults.** There is no live diagnosis job (`diagnosis/split/jobs.py:144`). Selection uses the hypotheses normalization has already written.
 - **Surfaces without the pending and skip behaviour** stay on predecessor behaviour: the TUI has its own Next (`tui/screens/feedback.py:655`). FG1 serving is enabled only with that surface's UI. See §10 for the phone.
@@ -115,7 +115,7 @@ Today the router decides only between "ask now" and "wait" on an item that alrea
 4. **It can choose no intervention.** Today it never decides whether (`engine.py:3600`). `no_intervention` sits in the same logged mixture, including its random floor, so weak cases are the router's call. Nothing is generated, the screen shows the decision (§6.4), and held feedback and causes are released.
 5. **Value checks stop suppressing this lane.** They log but don't decide, in line with the Nov 2 decision that the nat-scale rule stop deciding. That covers the follow-up check (`followups.py:~395`), the probe contract's value refusal (`practice.py:554`), and the causal decision policy's value and EIG skips. If rivals share a repair class, commissioning refuses today (`causal_probe_commissioning.py:481`); on this lane that becomes a fact on the router's card, since the owner allows minutes to be spent on improving the model. The build lists any gate it can't make observational.
 
-**Hard refusals stay:** constraint refusals, episode conflicts (`causal_orchestrator.py:1830`), pending machine checks (the orchestrator's rule that a bad item or grader is ruled out first), incomplete measurement, and a learner's own "Not now".
+**Hard refusals stay:** constraint refusals, episode conflicts (`causal_orchestrator.py:1830`), pending machine checks (the orchestrator's rule that a bad item or grader is ruled out first), incomplete measurement, and a learner's own "Not now". They hold over a decision already drawn: a retry keeps the draw and asks them again, and one that holds now is recorded as that decision's `refused` outcome (Codex re-review F9).
 
 ### 5.1 The causal orchestrator's role
 

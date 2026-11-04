@@ -404,6 +404,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_a_missed_predictions_text_rechecks_the_retrieved_passages`
   - `test_a_retrieved_passage_held_out_later_withholds_the_figure`
 - [tests/test_figures_show_me_codex_review.py](../../../../../../../tests/test_figures_show_me_codex_review.py) — direct import
+- [tests/test_followup_codex_review.py](../../../../../../../tests/test_followup_codex_review.py) — direct import
+  - `test_f5_rereview_every_recorded_input_is_checked`
 - [tests/test_intent_fix_round6.py](../../../../../../../tests/test_intent_fix_round6.py) — direct import
 - [tests/test_intent_fix_round7.py](../../../../../../../tests/test_intent_fix_round7.py) — direct import
   - `test_f22_a_protected_set_error_names_its_input`

@@ -343,6 +343,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_an_embedded_prediction_stays_admissible_after_a_reveal`
   - `test_embedded_prediction_is_idempotent_per_question`
   - `test_question_join_never_fails_the_learners_answer`
+- [tests/test_followup_codex_review.py](../../../../../../tests/test_followup_codex_review.py) — direct import
+  - `test_f10_a_closed_probes_candidate_leaves_the_factors_active_set`
 - [tests/test_followup_generate_e2e.py](../../../../../../tests/test_followup_generate_e2e.py) — direct import
   - `test_a_miss_with_two_rivals_generates_one_pinned_probe`
 - [tests/test_followup_journey.py](../../../../../../tests/test_followup_journey.py) — direct import

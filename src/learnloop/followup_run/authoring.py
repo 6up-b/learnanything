@@ -30,6 +30,9 @@ AUTHORING_PURPOSE = "followup_probe_authoring"
 AUTHOR_ROUTE = "followup_probe_author"
 #: The axes an author may declare; the rest are the system's to write.
 AUTHOR_AXES: frozenset[str] = frozenset({"surface_wording", "answer_contract", "rubric"})
+#: Why a miss's causes reach no request: they rest on exam material, or that can't be ruled out.
+CAUSES_FROM_EXAM = "causes_from_exam_material"
+CAUSES_UNACCOUNTED = "causes_not_accounted_for"
 
 
 class AuthoringRejected(ValueError):
@@ -65,28 +68,46 @@ def hypotheses_exam_reason(vault: Any, repository: Repository, hypothesis_ids: S
 
     A statement can quote what it was written from, so the items' filter below doesn't cover
     it. The shared leakage rule decides, by provenance, never by the words: the attempts of the
-    hypothesis's episode, and the items and sources its writer recorded reading
-    (``PastWork.exam_reason``). Raises when protection can't be read, so no request is built.
+    hypothesis's episode, and everything its writer recorded reading (``PastWork.exam_reason``).
+    The record must be complete and cover the statement as it stands; a cause without one
+    can't rule exam material out, unless the vault holds none to quote
+    (``PastWork.nothing_exam_to_quote``). Raises when protection can't be read, so no request
+    is built.
     """
 
-    from learnloop.db.stores.write_provenance import stored_record
-    from learnloop.learner_protection import PastWork, hypothesis_answers
+    from learnloop.db.stores.write_provenance import Inputs, stored_record, text_sha256
+    from learnloop.learner_protection import CAUSE_UNRECORDED, PastWork, hypothesis_answers
 
     withheld = protection_view(vault, repository)
     with repository.connection() as connection:
         past = PastWork(connection, vault, repository, withheld=withheld)
         behind = hypothesis_answers(connection, hypothesis_ids)
         for hypothesis_id in hypothesis_ids:
-            record = stored_record(connection, "hypothesis", str(hypothesis_id))
-            inputs = record.record.inputs if record is not None else None
+            hypothesis = repository.causal_hypothesis(str(hypothesis_id))
+            stored = stored_record(connection, "hypothesis", str(hypothesis_id))
+            covered = (hypothesis is not None and stored is not None and stored.record.complete
+                       and stored.text_sha256 == text_sha256(hypothesis.get("statement")))
+            if not covered and not past.nothing_exam_to_quote():
+                return CAUSE_UNRECORDED
+            inputs = stored.record.inputs if stored is not None else Inputs()
             reason = past.exam_reason(
-                answers=[*behind.get(str(hypothesis_id), ()), *(inputs.answers if inputs else ())],
-                items=[*(inputs.items if inputs else ()), *(inputs.solution_items if inputs else ())],
-                sources=inputs.sources if inputs else (),
+                answers=[*behind.get(str(hypothesis_id), ()), *inputs.answers],
+                items=[*inputs.items, *inputs.solution_items],
+                sources=inputs.sources,
+                questions=inputs.questions,
             )
             if reason is not None:
                 return reason
     return None
+
+
+def causes_refusal(reason: str) -> str:
+    """The workflow's word for :func:`hypotheses_exam_reason`'s answer: exam material itself,
+    or causes nothing rules it out for. They are counted apart, so the second can be seen."""
+
+    from learnloop.learner_protection import WITHHELD_EXAM, WITHHELD_RESERVED
+
+    return CAUSES_FROM_EXAM if reason in {WITHHELD_EXAM, WITHHELD_RESERVED} else CAUSES_UNACCOUNTED
 
 
 def build_context(
@@ -108,8 +129,9 @@ def build_context(
     """
 
     withheld = protection_view(vault, repository)
-    if hypotheses_exam_reason(vault, repository, [str(hypothesis["id"]) for hypothesis in hypotheses]) is not None:
-        raise AuthoringRejected("causes_from_exam_material")
+    protected = hypotheses_exam_reason(vault, repository, [str(hypothesis["id"]) for hypothesis in hypotheses])
+    if protected is not None:
+        raise AuthoringRejected(causes_refusal(protected))
     learning_object = vault.learning_objects[learning_object_id]
     existing = sorted(
         item.prompt.strip()
@@ -223,6 +245,6 @@ def resolve_author_client(vault: Any) -> Any | None:
 
 
 __all__ = [
-    "AUTHORING_PURPOSE", "AUTHOR_AXES", "AUTHOR_ROUTE", "AuthoredProbe", "AuthoringRejected", "admissible_item",
-    "build_context", "check_output", "hypotheses_exam_reason", "protection_view", "request_authored_probe", "resolve_author_client",
+    "AUTHORING_PURPOSE", "AUTHOR_AXES", "AUTHOR_ROUTE", "AuthoredProbe", "AuthoringRejected", "CAUSES_FROM_EXAM",
+    "CAUSES_UNACCOUNTED", "admissible_item", "build_context", "causes_refusal", "check_output", "hypotheses_exam_reason", "protection_view", "request_authored_probe", "resolve_author_client",
 ]

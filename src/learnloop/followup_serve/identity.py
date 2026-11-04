@@ -38,6 +38,9 @@ GENERATED_PROBE_RESERVED = "generated_probe_reserved"
 SERVED = "served"
 RETIRED = "retired"
 
+#: Who a machine admission receipt, and a withdrawal, say moved the candidate.
+MACHINE_REVIEWER = "system:followup_machine_admission_v1"
+
 
 def item_revision(payload: Mapping[str, Any]) -> str:
     """The content revision a claim is keyed to: the question as authored."""
@@ -190,19 +193,45 @@ def retire(
     return inserted
 
 
-def retire_unbound(repository: Repository, workflow_id: str, *, clock: Clock | None = None) -> list[str]:
-    """What an interrupted run of this workflow published and never bound retires, unused,
-    with any presentation it had pinned, before the retry writes its own question."""
+def withdraw(
+    repository: Repository,
+    practice_item_id: str,
+    *,
+    reason: str,
+    workflow_id: str | None = None,
+    clock: Clock | None = None,
+) -> bool:
+    """Everything that could still serve a generated probe, closed in one commit: it retires,
+    its open presentations end, and its candidate stops being one, since serving accepts any
+    ``active`` candidate and a live one blocks its factor's next question
+    (``duplicate_instrument_class``). A crash leaves all of it for the next recovery or none.
+    What retired already is still finished, so this can be called again."""
 
-    with repository.connection() as connection:
+    if not is_generated_probe(repository, practice_item_id):
+        return False
+    with repository.atomic():
+        retired = retire(repository, practice_item_id, reason=reason, workflow_id=workflow_id, clock=clock)
+        while (presentation := repository.active_probe_presentation_for_item(practice_item_id)) is not None:
+            repository.end_probe_presentation(presentation.id, end_reason="abandoned", clock=clock)
+        with repository.connection() as connection:
+            candidates = store.live_candidates_of_item(connection, practice_item_id)
+        for candidate_id in candidates:
+            repository.update_causal_probe_candidate(
+                candidate_id, status="rejected", reviewer=MACHINE_REVIEWER, review_reason=reason, clock=clock,
+            )
+    return retired
+
+
+def retire_unbound(repository: Repository, workflow_id: str, *, clock: Clock | None = None) -> list[str]:
+    """What an interrupted run of this workflow published and never bound is withdrawn, unused,
+    before the retry writes its own question. One commit, so a crash here leaves it selected."""
+
+    with repository.atomic(), repository.connection() as connection:
         if not _present(connection):
             return []
         items = store.unclosed_probes_of_workflow(connection, workflow_id)
-    for item_id in items:
-        retire(repository, item_id, reason="publication_interrupted", workflow_id=workflow_id, clock=clock)
-        presentation = repository.active_probe_presentation_for_item(item_id)
-        if presentation is not None:
-            repository.end_probe_presentation(presentation.id, end_reason="abandoned", clock=clock)
+        for item_id in items:
+            withdraw(repository, item_id, reason="publication_interrupted", workflow_id=workflow_id, clock=clock)
     return items
 
 
@@ -259,7 +288,7 @@ def replay_inactive_ids(repository: Repository) -> frozenset[str]:
 
 
 __all__ = [
-    "Claim", "GENERATED_PROBE_CLOSED", "GENERATED_PROBE_RESERVED", "RETIRED", "SERVED", "claim_serve",
+    "Claim", "GENERATED_PROBE_CLOSED", "GENERATED_PROBE_RESERVED", "MACHINE_REVIEWER", "RETIRED", "SERVED", "claim_serve",
     "closed_probe_ids", "door_refusal", "door_sets", "exclude_ids", "generated_probe_ids", "is_generated_probe", "item_revision",
-    "register", "replay_inactive_ids", "retire", "retire_unbound", "retired_probe_ids",
+    "register", "replay_inactive_ids", "retire", "retire_unbound", "retired_probe_ids", "withdraw",
 ]

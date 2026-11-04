@@ -10,9 +10,9 @@ area: "TypeScript/screens/feedback"
 source_path: "apps/learnloop-tauri/src/screens/feedback/FollowupPanel.tsx"
 source_paths:
   - "apps/learnloop-tauri/src/screens/feedback/FollowupPanel.tsx"
-source_commit: "d8aabd5dfcaa0d09ba16b8c66a2afd5f7416d82c"
-source_commit_timestamp: "2026-11-03T22:12:02-05:00"
-source_worktree_state: "staged-or-mixed"
+source_commit: "a01ecfbb27093bad0f8c7924a0558bfc49acbc22"
+source_commit_timestamp: "2026-11-04T01:43:14-05:00"
+source_worktree_state: "clean"
 activation_kind: "entry-reachable build graph"
 activation_evidence: "A static TypeScript import path reaches this file from the Vite entry src/main.tsx."
 generated: true
@@ -47,9 +47,9 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Area | [[Reference/Desktop/TypeScript/screens/feedback/_area|TypeScript/screens/feedback]] |
 | Refactor status | `ACTIVE` |
 | Activation kind | `entry-reachable build graph` |
-| Worktree state | `staged-or-mixed` |
-| Source commit | `d8aabd5dfcaa0d09ba16b8c66a2afd5f7416d82c` |
-| Commit timestamp | `2026-11-03T22:12:02-05:00` |
+| Worktree state | `clean` |
+| Source commit | `a01ecfbb27093bad0f8c7924a0558bfc49acbc22` |
+| Commit timestamp | `2026-11-04T01:43:14-05:00` |
 
 ## Activation and status evidence
 

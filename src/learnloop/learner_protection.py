@@ -87,6 +87,8 @@ WITHHELD_SOLUTION_OPEN = "written with the worked solution of a question you can
 QUESTION_UNRECORDED = "a question it was written from records no question revision"
 #: An attempt a text names that is not on record.
 ANSWER_UNRECORDED = "an answer it was drawn from is not on record"
+#: A text whose write-time record is missing, incomplete, or covers other words.
+CAUSE_UNRECORDED = "what it was written from is not accounted for"
 #: A shown attempt with no established question revision.
 STEM_UNRECORDED = "question revision not recorded"
 PINS_UNREADABLE = ("the question revisions past answers were graded against could not be read: no question or "
@@ -508,19 +510,25 @@ class PastWork:
         return None
 
     def exam_reason(self, answers: Iterable[Any] = (), items: Iterable[Any] = (),
-                    sources: Iterable[Mapping[str, Any]] = ()) -> str | None:
+                    sources: Iterable[Mapping[str, Any]] = (), questions: Iterable[Any] = ()) -> str | None:
         """The leakage rule for a reader that may see everything but exam material (FG1's
         author: a new question, on a topic the learner just answered): why a text written
         from these may quote exam or reserved material, or why that can't be ruled out. A
         check waiting or a probe the learner answered holds its item from the learner, and
-        doesn't stop this reader."""
+        doesn't stop this reader. A learner question counts through its attempt and its item."""
 
         if not self.withheld.available:
             return WITHHELD_UNREADABLE
-        answer_ids = sorted(_ids(answers))
-        self.load(answer_ids)
+        answer_ids = _ids(answers)
         item_ids = _ids(items)
-        for answer in answer_ids:
+        for event in sorted(_ids(questions)):
+            question = self.question(event)
+            if question is None:
+                return QUESTION_UNRECORDED
+            answer_ids |= _ids([question["attempt"]])
+            item_ids |= _ids([question["item"]])
+        self.load(answer_ids)
+        for answer in sorted(answer_ids):
             row = self.attempt(answer)
             if row is None:
                 return ANSWER_UNRECORDED
@@ -532,6 +540,20 @@ class PastWork:
             if reason not in {None, WITHHELD_COLD, WITHHELD_PROBE}:
                 return reason
         return self.source_reason(sources)
+
+    def nothing_exam_to_quote(self) -> bool:
+        """The vault holds no exam or held-out material, no live reservation and no exam work,
+        so no text in it can quote any, whatever its record says. False when that can't be read."""
+
+        withheld = self.withheld
+        if not withheld.available or withheld.exam is None or not withheld.exam.material.empty:
+            return False
+        if WITHHELD_EXAM in withheld.reasons.values() or WITHHELD_RESERVED in withheld.reasons.values():
+            return False
+        marks = _marks(sorted(EXAM_ATTEMPT_TYPES))
+        return self.connection.execute(
+            f"SELECT 1 FROM practice_attempts WHERE attempt_type IN ({marks}) LIMIT 1", sorted(EXAM_ATTEMPT_TYPES),
+        ).fetchone() is None
 
     # -- what a writer read (a derived text's write-time record) -----------------------
 
@@ -739,6 +761,7 @@ def statement_text(past: PastWork, rule: TextRule, kind: str, record_id: Any, te
 
 __all__ = [
     "ANSWER_UNRECORDED",
+    "CAUSE_UNRECORDED",
     "COLD_TASK_KINDS",
     "EXAM_ATTEMPT_TYPES",
     "PINS_UNREADABLE",

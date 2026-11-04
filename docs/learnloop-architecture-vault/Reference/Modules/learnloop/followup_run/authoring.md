@@ -7,8 +7,8 @@ version: "1.0.0"
 source_path: "src/learnloop/followup_run/authoring.py"
 source_paths:
   - "src/learnloop/followup_run/authoring.py"
-source_commit: "workspace/uncommitted @ HEAD efd894886714472c5495a6a6b87e97e8a774701a"
-source_commit_timestamp: "2026-11-04T00:19:09-05:00"
+source_commit: "workspace/uncommitted @ HEAD 3a57cdc863da69ad6a23e47a006c6932863322ee"
+source_commit_timestamp: "2026-11-04T01:43:28-05:00"
 source_worktree_state: "modified"
 generated: true
 generated_at: "2026-11-02"
@@ -50,31 +50,34 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/followup_run/authoring.py](../../../../../../src/learnloop/followup_run/authoring.py) |
-| Source lines | 228 |
+| Source lines | 250 |
 | Owning package | [[Reference/Modules/learnloop/followup_run/_package|learnloop.followup_run]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `modified` |
-| Source commit | `workspace/uncommitted @ HEAD efd894886714472c5495a6a6b87e97e8a774701a` |
-| Commit timestamp | `2026-11-04T00:19:09-05:00` |
+| Source commit | `workspace/uncommitted @ HEAD 3a57cdc863da69ad6a23e47a006c6932863322ee` |
+| Commit timestamp | `2026-11-04T01:43:28-05:00` |
 
 ## Public API
 
-- `class AuthoringRejected(ValueError)` ([source](../../../../../../src/learnloop/followup_run/authoring.py), line 35) — An authored question failed an output check: nothing was written, nothing is served.
-- `class AuthoredProbe` ([source](../../../../../../src/learnloop/followup_run/authoring.py), line 40)
-- `protection_view(vault: Any, repository: Repository) -> Any` ([source](../../../../../../src/learnloop/followup_run/authoring.py), line 48) — The withheld items; raises when they can't be read, so no prompt is built.
-- `admissible_item(withheld: Any, item: Any) -> bool` ([source](../../../../../../src/learnloop/followup_run/authoring.py), line 59)
-- `hypotheses_exam_reason(vault: Any, repository: Repository, hypothesis_ids: Sequence[str]) -> str | None` ([source](../../../../../../src/learnloop/followup_run/authoring.py), line 63) — Why any of these causes' words may carry exam material, or None.
-- `build_context(vault: Any, repository: Repository, *, learning_object_id: str, hypotheses: Sequence[Mapping[str, Any]], router_decision: Mapping[str, Any], target_facets: Sequence[str], source_item_id: str | None, measurement_pattern: str | None=None) -> tuple[FollowupProbeContext, dict[str, str]]` ([source](../../../../../../src/learnloop/followup_run/authoring.py), line 92) — The prompt's context, and the reference -> hypothesis id map.
-- `request_authored_probe(client: Any, context: FollowupProbeContext) -> FollowupProbeAuthored` ([source](../../../../../../src/learnloop/followup_run/authoring.py), line 147)
-- `check_output(vault: Any, repository: Repository, authored: FollowupProbeAuthored, *, refs: Mapping[str, str], learning_object_id: str) -> AuthoredProbe` ([source](../../../../../../src/learnloop/followup_run/authoring.py), line 160) — The output checks that run before anything is written (§4.1).
-- `resolve_author_client(vault: Any) -> Any | None` ([source](../../../../../../src/learnloop/followup_run/authoring.py), line 216) — The route's client, or None when it is not ready (nothing is spent).
+- `class AuthoringRejected(ValueError)` ([source](../../../../../../src/learnloop/followup_run/authoring.py), line 38) — An authored question failed an output check: nothing was written, nothing is served.
+- `class AuthoredProbe` ([source](../../../../../../src/learnloop/followup_run/authoring.py), line 43)
+- `protection_view(vault: Any, repository: Repository) -> Any` ([source](../../../../../../src/learnloop/followup_run/authoring.py), line 51) — The withheld items; raises when they can't be read, so no prompt is built.
+- `admissible_item(withheld: Any, item: Any) -> bool` ([source](../../../../../../src/learnloop/followup_run/authoring.py), line 62)
+- `hypotheses_exam_reason(vault: Any, repository: Repository, hypothesis_ids: Sequence[str]) -> str | None` ([source](../../../../../../src/learnloop/followup_run/authoring.py), line 66) — Why any of these causes' words may carry exam material, or None.
+- `causes_refusal(reason: str) -> str` ([source](../../../../../../src/learnloop/followup_run/authoring.py), line 104) — The workflow's word for :func:`hypotheses_exam_reason`'s answer: exam material itself, or causes nothing rules it out for.
+- `build_context(vault: Any, repository: Repository, *, learning_object_id: str, hypotheses: Sequence[Mapping[str, Any]], router_decision: Mapping[str, Any], target_facets: Sequence[str], source_item_id: str | None, measurement_pattern: str | None=None) -> tuple[FollowupProbeContext, dict[str, str]]` ([source](../../../../../../src/learnloop/followup_run/authoring.py), line 113) — The prompt's context, and the reference -> hypothesis id map.
+- `request_authored_probe(client: Any, context: FollowupProbeContext) -> FollowupProbeAuthored` ([source](../../../../../../src/learnloop/followup_run/authoring.py), line 169)
+- `check_output(vault: Any, repository: Repository, authored: FollowupProbeAuthored, *, refs: Mapping[str, str], learning_object_id: str) -> AuthoredProbe` ([source](../../../../../../src/learnloop/followup_run/authoring.py), line 182) — The output checks that run before anything is written (§4.1).
+- `resolve_author_client(vault: Any) -> Any | None` ([source](../../../../../../src/learnloop/followup_run/authoring.py), line 238) — The route's client, or None when it is not ready (nothing is spent).
 
 ### Module constants
 
 - `AUTHORING_PURPOSE` ([src/learnloop/followup_run/authoring.py](../../../../../../src/learnloop/followup_run/authoring.py), line 28)
 - `AUTHOR_ROUTE` ([src/learnloop/followup_run/authoring.py](../../../../../../src/learnloop/followup_run/authoring.py), line 30)
 - `AUTHOR_AXES` ([src/learnloop/followup_run/authoring.py](../../../../../../src/learnloop/followup_run/authoring.py), line 32)
+- `CAUSES_FROM_EXAM` ([src/learnloop/followup_run/authoring.py](../../../../../../src/learnloop/followup_run/authoring.py), line 34)
+- `CAUSES_UNACCOUNTED` ([src/learnloop/followup_run/authoring.py](../../../../../../src/learnloop/followup_run/authoring.py), line 35)
 
 ### Explicit exports
 
@@ -85,8 +88,11 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `AUTHOR_ROUTE`
 - `AuthoredProbe`
 - `AuthoringRejected`
+- `CAUSES_FROM_EXAM`
+- `CAUSES_UNACCOUNTED`
 - `admissible_item`
 - `build_context`
+- `causes_refusal`
 - `check_output`
 - `hypotheses_exam_reason`
 - `protection_view`
@@ -95,7 +101,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 
 ## Internal implementation anchors
 
-- `_normalized(text: str) -> str` ([source](../../../../../../src/learnloop/followup_run/authoring.py), line 156)
+- `_normalized(text: str) -> str` ([source](../../../../../../src/learnloop/followup_run/authoring.py), line 178)
 
 ## Who imports or calls it
 
@@ -103,7 +109,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 > “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
 
 - [[Reference/Modules/learnloop/followup_run/admission|learnloop.followup_run.admission]] — imports `AuthoredProbe`, `AuthoringRejected`, `build_context`, `check_output`, `request_authored_probe`; statically calls `build_context`, `check_output`, `request_authored_probe`
-- [[Reference/Modules/learnloop/followup_run/jobs|learnloop.followup_run.jobs]] — imports `AuthoringRejected`, `hypotheses_exam_reason`, `resolve_author_client`; statically calls `hypotheses_exam_reason`, `resolve_author_client`
+- [[Reference/Modules/learnloop/followup_run/jobs|learnloop.followup_run.jobs]] — imports `AuthoringRejected`, `causes_refusal`, `hypotheses_exam_reason`, `resolve_author_client`; statically calls `causes_refusal`, `hypotheses_exam_reason`, `resolve_author_client`
 
 ## Dependencies
 
@@ -112,9 +118,9 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop/ai/routing|learnloop.ai.routing]] — imports `ready_client_for_task`; calls `ready_client_for_task`
 - [[Reference/Modules/learnloop/ai/transport|learnloop.ai.transport]] — imports `execute_structured_operation`; calls `execute_structured_operation`
 - [[Reference/Modules/learnloop/db/repositories|learnloop.db.repositories]] — imports `Repository`
-- [[Reference/Modules/learnloop/db/stores/write_provenance|learnloop.db.stores.write_provenance]] — imports `stored_record`; calls `stored_record`
+- [[Reference/Modules/learnloop/db/stores/write_provenance|learnloop.db.stores.write_provenance]] — imports `Inputs`, `stored_record`, `text_sha256`; calls `Inputs`, `stored_record`, `text_sha256`
 - [[Reference/Modules/learnloop/diagnosis/ai_contracts|learnloop.diagnosis.ai_contracts]] — imports `FollowupProbeAuthored`, `FollowupProbeContext`, `followup_probe_prompt`; calls `FollowupProbeContext`, `followup_probe_prompt`
-- [[Reference/Modules/learnloop/learner_protection|learnloop.learner_protection]] — imports `PastWork`, `hypothesis_answers`, `withheld_items`; calls `PastWork`, `hypothesis_answers`, `withheld_items`
+- [[Reference/Modules/learnloop/learner_protection|learnloop.learner_protection]] — imports `CAUSE_UNRECORDED`, `PastWork`, `WITHHELD_EXAM`, `WITHHELD_RESERVED`, `hypothesis_answers`, `withheld_items`; calls `PastWork`, `hypothesis_answers`, `withheld_items`
 
 ### Platform and third-party dependencies
 
@@ -136,6 +142,12 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 - [tests/test_followup_codex_review.py](../../../../../../tests/test_followup_codex_review.py) — direct import
   - `test_f5_exam_attempt_work_is_exam_material_whatever_its_item`
+  - `test_f5_rereview_a_cause_the_record_doesnt_cover_reaches_neither_request`
+  - `test_f5_rereview_a_question_no_longer_on_record_counts_as_unaccounted`
+  - `test_f5_rereview_a_vault_with_nothing_to_protect_keeps_its_probe_lane`
+  - `test_f5_rereview_every_recorded_input_is_checked`
+  - `test_f5_rereview_exam_work_anywhere_means_there_is_something_to_protect`
+  - `test_f5_rereview_the_author_builder_refuses_a_cause_the_record_doesnt_cover`
   - `test_f5_what_the_writer_recorded_reading_counts`
 
 ## Modification guidance

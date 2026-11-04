@@ -587,6 +587,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_followup_codex_review.py](../../../../../../tests/test_followup_codex_review.py) — direct import
   - `test_f7_a_standing_plan_doesnt_strand_next_on_a_switched_off_probe`
   - `test_f7_next_through_the_sidecar_after_the_switch`
+  - `test_f7_rereview_a_startup_crash_doesnt_leave_a_standing_plan_holding_the_item`
 - [tests/test_followup_router.py](../../../../../../tests/test_followup_router.py) — direct import
   - `test_a_wait_keeps_its_room_and_next_continues_the_block`
   - `test_ask_now_is_what_next_opens`

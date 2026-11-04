@@ -3,8 +3,8 @@ title: "causal_probe_candidates"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "efd894886714472c5495a6a6b87e97e8a774701a"
-source_commit_timestamp: "2026-11-04T00:19:09-05:00"
+source_commit: "3a57cdc863da69ad6a23e47a006c6932863322ee"
+source_commit_timestamp: "2026-11-04T01:43:28-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite causal_probe_candidates"
@@ -20,6 +20,7 @@ source_paths:
   - "src/learnloop/db/table_roles.py"
   - "migrations/121_causal_probe_coherence.sql"
   - "src/learnloop/db/repositories.py"
+  - "src/learnloop/db/stores/followup_serve.py"
   - "src/learnloop/diagnosis/causal_probe_coherence.py"
   - "src/learnloop/diagnosis/causal_probe_commissioning.py"
   - "src/learnloop_sidecar/handlers/app.py"
@@ -98,6 +99,7 @@ Indexes and uniqueness:
 ### Direct SQL readers
 
 - `src/learnloop/db/repositories.py`
+- `src/learnloop/db/stores/followup_serve.py`
 - `src/learnloop_sidecar/handlers/app.py`
 
 ### Direct SQL writers
@@ -112,7 +114,7 @@ Indexes and uniqueness:
 - `src/learnloop/diagnosis/causal_probe_coherence.py`
 - `src/learnloop/diagnosis/causal_probe_commissioning.py`
 - `src/learnloop/diagnosis/causal_selection_audit.py`
-- `src/learnloop/followup_run/admission.py`
+- `src/learnloop/followup_serve/identity.py`
 - `src/learnloop_sidecar/handlers/measurement.py`
 
 > [!note] Static-reference boundary
@@ -123,6 +125,7 @@ Indexes and uniqueness:
 - `tests/test_causal_orchestrator.py`
 - `tests/test_causal_probe_commissioning.py`
 - `tests/test_causal_shadow_selection.py`
+- `tests/test_followup_codex_review.py`
 - `tests/test_followup_generate_e2e.py`
 - `tests/test_voi_forecasts.py`
 

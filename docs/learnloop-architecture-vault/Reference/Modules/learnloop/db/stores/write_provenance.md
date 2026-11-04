@@ -183,7 +183,7 @@ The authoritative system-level explanation remains in [[State and Persistence]],
 - [[Reference/Modules/learnloop/diagnosis/text_gaps/pipeline|learnloop.diagnosis.text_gaps.pipeline]] — imports `WriteRecord`, `record_text_write`; statically calls `record_text_write`
 - [[Reference/Modules/learnloop/diagnosis/text_gaps/provenance|learnloop.diagnosis.text_gaps.provenance]] — imports `GRADING`, `Inputs`, `WriteRecord`, `answer_inputs`, `closure`, `fold_topic_records`, `source_ref`; statically calls `WriteRecord`, `answer_inputs`, `closure`, `fold_topic_records`, `source_ref`
 - [[Reference/Modules/learnloop/figures/learner_state|learnloop.figures.learner_state]] — imports `Inputs`, `stored_record`; statically calls `Inputs`, `stored_record`
-- [[Reference/Modules/learnloop/followup_run/authoring|learnloop.followup_run.authoring]] — imports `stored_record`; statically calls `stored_record`
+- [[Reference/Modules/learnloop/followup_run/authoring|learnloop.followup_run.authoring]] — imports `Inputs`, `stored_record`, `text_sha256`; statically calls `Inputs`, `stored_record`, `text_sha256`
 - [[Reference/Modules/learnloop/learner_context|learnloop.learner_context]] — imports `stored_record`, `text_sha256`; statically calls `stored_record`, `text_sha256`
 - [[Reference/Modules/learnloop/learner_protection|learnloop.learner_protection]] — imports `pinned_contract_ids`; statically calls `pinned_contract_ids`
 
@@ -219,6 +219,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_diagnostic_augmentation.py](../../../../../../../tests/test_diagnostic_augmentation.py) — direct import
   - `test_a_committed_joint_grade_carries_its_receipt_and_grading_record`
 - [tests/test_followup_codex_review.py](../../../../../../../tests/test_followup_codex_review.py) — direct import
+  - `test_f5_rereview_a_question_no_longer_on_record_counts_as_unaccounted`
+  - `test_f5_rereview_every_recorded_input_is_checked`
   - `test_f5_what_the_writer_recorded_reading_counts`
 - [tests/test_followups_nov2_figure_provenance.py](../../../../../../../tests/test_followups_nov2_figure_provenance.py) — direct import
   - `test_a_press_of_the_same_input_never_backfills_the_marked_row_and_builds_afresh`

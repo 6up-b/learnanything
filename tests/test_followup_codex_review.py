@@ -544,8 +544,7 @@ def test_f5_what_the_writer_recorded_reading_counts(tmp_path, monkeypatch):
     ids = [str(value["hypothesis_id"]) for value in factor["candidate_causes"] if not value.get("open_set")]
     _exam_material(monkeypatch, "pi_an_exam_question")
     assert hypotheses_exam_reason(vault, repository, ids) is None
-    read_exam = SimpleNamespace(record=SimpleNamespace(inputs=write_provenance.Inputs(items=frozenset({"pi_an_exam_question"}))))
-    monkeypatch.setattr(write_provenance, "stored_record", lambda *_a, **_k: read_exam)
+    _record_for(repository, ids[0], write_provenance.WriteRecord(write_provenance.Inputs.of(items=["pi_an_exam_question"])))
     assert hypotheses_exam_reason(vault, repository, ids) == learner_protection.WITHHELD_EXAM
 
 
@@ -849,3 +848,467 @@ def test_f8_naming_the_decision_commits_with_it(tmp_path, monkeypatch):
     monkeypatch.setattr(store, "update_workflow", real)
     assert _decisions(repository) == []  # neither committed
     assert not wf.get(repository, outcome.workflow_id)["chosen_ref"]
+
+
+# -- Re-review F5: a cause's record must account for its words ----------------------------------------
+
+
+def _last_reason(repository, workflow_id):
+    with repository.connection() as connection:
+        return connection.execute(
+            "SELECT reason FROM followup_workflow_events WHERE workflow_id = ? ORDER BY rowid DESC LIMIT 1", (workflow_id,),
+        ).fetchone()[0]
+
+
+def _rivals(repository, row):
+    factor = repository.unresolved_cause_factors_for_attempt(row["source_attempt_id"])[0]
+    return [str(value["hypothesis_id"]) for value in factor["candidate_causes"] if not value.get("open_set")]
+
+
+def _no_record(monkeypatch):
+    """A cause written before records existed: the ledger is append-only, so its read is what's faked."""
+
+    from learnloop.db.stores import write_provenance
+
+    real = write_provenance.stored_record
+    monkeypatch.setattr(write_provenance, "stored_record",
+                        lambda connection, kind, record_id: None if kind == "hypothesis" else real(connection, kind, record_id))
+
+
+def _record_for(repository, hypothesis_id, record, *, text=None):
+    from learnloop.db.stores import write_provenance
+
+    statement = repository.causal_hypothesis(hypothesis_id)["statement"]
+    with repository.connection() as connection:
+        write_provenance.record_text_write(
+            connection, kind="hypothesis", record_id=hypothesis_id, text=statement if text is None else text,
+            writer="test", record=record, clock=CLOCK,
+        )
+        connection.commit()
+
+
+def _exam_elsewhere(monkeypatch):
+    # The vault holds exam material; none of it is on this cause's own attempt or item.
+    _exam_material(monkeypatch, "pi_an_exam_question")
+
+
+def _unaccounted(kind, repository, ids, monkeypatch):
+    from learnloop.db.stores import write_provenance as wp
+
+    if kind == "missing":
+        _no_record(monkeypatch)
+    elif kind == "incomplete":
+        _record_for(repository, ids[0], wp.WriteRecord.incomplete("a read nobody recorded"))
+    else:  # stale: the latest record covers other words than the statement as stored
+        _record_for(repository, ids[0], wp.WriteRecord(wp.Inputs()), text="the words the writer recorded")
+
+
+@pytest.mark.parametrize("kind", ["missing", "incomplete", "stale"])
+def test_f5_rereview_a_cause_the_record_doesnt_cover_reaches_neither_request(tmp_path, monkeypatch, kind):
+    from learnloop.followup_run.authoring import CAUSES_UNACCOUNTED, hypotheses_exam_reason
+
+    vault, repository, _paths = rival_causes_vault(tmp_path)
+    _result, outcome = miss_with_rivals(vault, repository)
+    row = wf.get(repository, outcome.workflow_id)
+    ids = _rivals(repository, row)
+    _exam_elsewhere(monkeypatch)
+    assert hypotheses_exam_reason(vault, repository, ids) is None  # with its record, the cause is fine
+    _unaccounted(kind, repository, ids, monkeypatch)
+    assert hypotheses_exam_reason(vault, repository, ids) == learner_protection.CAUSE_UNRECORDED
+    fake = AuthorFake()
+    decided = []
+    monkeypatch.setattr(router, "decide", lambda *a, **k: decided.append(1))
+    assert [job.state for job in run_jobs(vault, repository, clients=author_clients(fake))] == ["done"]
+    assert fake.calls == 0 and decided == []
+    settled = wf.get(repository, outcome.workflow_id)
+    assert settled["state"] == wf.SETTLED and settled["lane"] == wf.LANE_PRACTICE and settled["feedback_released_at"]
+    assert _last_reason(repository, outcome.workflow_id) == CAUSES_UNACCOUNTED
+
+
+@pytest.mark.parametrize("kind", ["missing", "incomplete", "stale"])
+def test_f5_rereview_the_author_builder_refuses_a_cause_the_record_doesnt_cover(tmp_path, monkeypatch, kind):
+    from learnloop.followup_run import admission
+    from learnloop.followup_run.authoring import CAUSES_UNACCOUNTED
+
+    vault, repository, _paths = rival_causes_vault(tmp_path)
+    _result, outcome = miss_with_rivals(vault, repository)
+    row = wf.get(repository, outcome.workflow_id)
+    ids = _rivals(repository, row)
+    factor = repository.unresolved_cause_factors_for_attempt(row["source_attempt_id"])[0]
+    _exam_elsewhere(monkeypatch)
+    _unaccounted(kind, repository, ids, monkeypatch)
+    fake = AuthorFake()
+    with pytest.raises(admission.AdmissionFailed) as caught:
+        admission.author_probe(vault, repository, workflow=row, factor_id=str(factor["id"]),
+                               decision={"chosen": "background", "timing": "later"}, client=author_clients(fake).author)
+    assert caught.value.reason == CAUSES_UNACCOUNTED
+    assert fake.calls == 0
+
+
+@pytest.mark.parametrize("field", ["items", "solution_items", "sources", "questions", "answers"])
+def test_f5_rereview_every_recorded_input_is_checked(tmp_path, monkeypatch, field):
+    from learnloop.content.sources import exam_material as em
+    from learnloop.db.stores import write_provenance as wp
+    from learnloop.followup_run.authoring import hypotheses_exam_reason
+
+    vault, repository, _paths = rival_causes_vault(tmp_path)
+    _result, outcome = miss_with_rivals(vault, repository)
+    row = wf.get(repository, outcome.workflow_id)
+    ids = _rivals(repository, row)
+    exam_item = "pi_an_exam_question"
+    _exam_material(monkeypatch, exam_item)
+    if field == "sources":
+        monkeypatch.setattr(em, "source_ref_protected", lambda *_a, **_k: True)
+        inputs = wp.Inputs.of(sources=[{"source_id": "src_exam", "revision_id": "rev_exam"}])
+    elif field == "questions":
+        event = repository.insert_question_event(
+            {"practice_item_id": exam_item, "question_md": "Why is this invertible?",
+             "context": "practice"}, clock=CLOCK)
+        inputs = wp.Inputs.of(questions={event: None})
+    elif field == "answers":
+        with repository.connection() as connection:
+            connection.execute("UPDATE practice_attempts SET attempt_type = 'exam_evidence' WHERE id = ?",
+                               (row["source_attempt_id"],))
+            connection.commit()
+        inputs = wp.Inputs.of(answers={row["source_attempt_id"]: None})
+    else:
+        inputs = wp.Inputs.of(**{field: [exam_item]})
+    _record_for(repository, ids[0], wp.WriteRecord(inputs))
+    assert hypotheses_exam_reason(vault, repository, ids) == learner_protection.WITHHELD_EXAM
+
+
+def test_f5_rereview_a_question_no_longer_on_record_counts_as_unaccounted(tmp_path, monkeypatch):
+    from learnloop.db.stores import write_provenance as wp
+    from learnloop.followup_run.authoring import hypotheses_exam_reason
+
+    vault, repository, _paths = rival_causes_vault(tmp_path)
+    _result, outcome = miss_with_rivals(vault, repository)
+    ids = _rivals(repository, wf.get(repository, outcome.workflow_id))
+    _exam_elsewhere(monkeypatch)
+    _record_for(repository, ids[0], wp.WriteRecord(wp.Inputs.of(questions={"qe_gone": None})))
+    assert hypotheses_exam_reason(vault, repository, ids) == learner_protection.QUESTION_UNRECORDED
+
+
+def test_f5_rereview_a_vault_with_nothing_to_protect_keeps_its_probe_lane(tmp_path, monkeypatch):
+    """A record can't be needed to rule out exam material where there is none: old causes,
+    written before records existed, still get their question."""
+
+    from learnloop.followup_run.authoring import hypotheses_exam_reason
+
+    vault, repository, _paths = rival_causes_vault(tmp_path)
+    _result, outcome = miss_with_rivals(vault, repository)
+    row = wf.get(repository, outcome.workflow_id)
+    ids = _rivals(repository, row)
+    _no_record(monkeypatch)
+    assert hypotheses_exam_reason(vault, repository, ids) is None
+    fake = AuthorFake()
+    run_jobs(vault, repository, clients=author_clients(fake))
+    assert fake.calls == 1 and wf.get(repository, outcome.workflow_id)["state"] == wf.READY
+
+
+def test_f5_rereview_exam_work_anywhere_means_there_is_something_to_protect(tmp_path, monkeypatch):
+    from learnloop.followup_run.authoring import hypotheses_exam_reason
+
+    vault, repository, _paths = rival_causes_vault(tmp_path)
+    _result, outcome = miss_with_rivals(vault, repository)
+    ids = _rivals(repository, wf.get(repository, outcome.workflow_id))
+    _no_record(monkeypatch)
+    other = record_attempt(repository, SOURCE_ITEM, LO_ID, CLOCK.now())
+    with repository.connection() as connection:
+        connection.execute("UPDATE practice_attempts SET attempt_type = 'exam_attempt' WHERE id = ?", (other,))
+        connection.commit()
+    assert hypotheses_exam_reason(vault, repository, ids) == learner_protection.CAUSE_UNRECORDED
+
+
+# -- Re-review F7: a move and what it closes are one commit -------------------------------------------
+
+
+_DOORS = {
+    "switch_off": lambda journey, _row, clock: wf.settle_open_when_off(
+        SimpleNamespace(config=load_vault(journey.paths.root).config), journey.repository, clock=clock),
+    "retire_waiting": lambda journey, row, clock: wf.retire_waiting(
+        journey.repository, row, reason="hypotheses_changed", clock=clock),
+    "continue_without": lambda journey, _row, clock: serving.continue_without(
+        journey.repository, journey.result.attempt_id, clock=clock),
+    "abandon": lambda journey, row, clock: serving.abandon(
+        journey.repository, row["practice_item_id"], clock=clock),
+}
+
+
+@pytest.mark.parametrize("door", sorted(_DOORS))
+@pytest.mark.parametrize("dies_in", ["end_probe_presentation", "update_probe_episode_status"])
+def test_f7_rereview_a_crash_in_cleanup_leaves_the_workflow_open_for_recovery(journey, monkeypatch, door, dies_in):
+    row = _workflow_probe(journey)
+    repository = journey.repository
+    if door == "switch_off":
+        append_config_toml(journey.paths.root, OFF)
+
+    def dies(*_a, **_k):
+        raise Died()
+
+    real = getattr(repository, dies_in)
+    monkeypatch.setattr(repository, dies_in, dies)
+    with pytest.raises(Died):
+        _DOORS[door](journey, row, CLOCK)
+    monkeypatch.setattr(repository, dies_in, real)
+
+    # Neither half stands: the workflow is what recovery reads, so it must still be open.
+    after = wf.get(repository, journey.workflow_id)
+    assert after["state"] == wf.READY and not after["feedback_released_at"]
+    assert not identity.closed_probe_ids(repository)
+    assert repository.practice_item_state(row["practice_item_id"]).active
+
+    _DOORS[door](journey, row, CLOCK)  # the next startup, or the learner's next click
+    after = wf.get(repository, journey.workflow_id)
+    assert after["state"] == wf.SKIPPED
+    assert row["practice_item_id"] in identity.retired_probe_ids(repository)
+    assert not repository.practice_item_state(row["practice_item_id"]).active
+    assert repository.probe_presentation(row["presentation_id"]).status == "ended"
+    assert repository.probe_episode(row["probe_episode_id"]).status == "abandoned"
+
+
+def test_f7_rereview_a_startup_crash_doesnt_leave_a_standing_plan_holding_the_item(tmp_path, monkeypatch):
+    env, _record = _env(tmp_path, fake_runtime())
+    _ready(env)
+    env.clock.advance(1)
+    advance(env, serve=False)
+    append_config_toml(env.vault.root, OFF)
+    off = load_vault(env.vault.root)
+    env.vault = off
+
+    def dies(*_a, **_k):
+        raise Died()
+
+    real = wf.close_probe
+    monkeypatch.setattr(wf, "close_probe", dies)
+    with pytest.raises(Died):
+        wf.settle_open_when_off(off, env.repository, clock=env.clock)
+    monkeypatch.setattr(wf, "close_probe", real)
+    assert wf.settle_open_when_off(off, env.repository, clock=env.clock) == 1  # the terminal state didn't hide it
+    assert ITEM in identity.retired_probe_ids(env.repository)
+    env.clock.advance(1)
+    record, _step = advance(env, serve=False)
+    assert next(item for item in record.items() if item.practice_item_id == ITEM).displaced_at is not None
+
+
+def test_f7_rereview_continue_without_commits_its_preference_and_outcome_with_the_move(tmp_path, monkeypatch):
+    from learnloop.db.stores import followup_serve
+
+    vault, repository, _paths = rival_causes_vault(tmp_path)
+    _result, outcome = miss_with_rivals(vault, repository)
+    _counting_decide(monkeypatch)
+    run_jobs(vault, repository, clients=author_clients(AuthorFake()))
+    row = wf.get(repository, outcome.workflow_id)
+
+    def dies(*_a, **_k):
+        raise Died()
+
+    real = followup_serve.append_binding
+    monkeypatch.setattr(followup_serve, "append_binding", dies)
+    with pytest.raises(Died):
+        serving.continue_without(repository, row["source_attempt_id"], clock=CLOCK)
+    monkeypatch.setattr(followup_serve, "append_binding", real)
+    assert wf.get(repository, outcome.workflow_id)["state"] == wf.READY
+    assert serving.continue_without(repository, row["source_attempt_id"], clock=CLOCK)
+    with repository.connection() as connection:
+        assert store.bindings_for_decision(connection, row["decision_id"])["outcome"]["outcome"] == "skipped"
+
+
+def test_f7_rereview_skipping_a_workflows_probe_through_the_sidecar_closes_it(journey):
+    """The workflow branch of ``abandon`` read a name its module didn't have, so this skip raised."""
+
+    row = _workflow_probe(journey)
+    ctx = journey.ctx
+    session_id = _session(ctx)
+    _call(ctx, "skip_practice_item", {"practiceItemId": row["practice_item_id"], "sessionId": session_id})
+    after = wf.get(journey.repository, journey.workflow_id)
+    assert after["state"] == wf.SKIPPED and after["feedback_released_at"]
+    assert row["practice_item_id"] in identity.retired_probe_ids(journey.repository)
+    assert journey.repository.causal_probe_candidate(row["probe_candidate_id"])["status"] == "rejected"
+    _refused(ctx, "open_queue_item", {"practiceItemId": row["practice_item_id"]})
+
+
+# -- Re-review F9: a recorded decision doesn't outrank a refusal that came after it ---------------
+
+
+def _not_now(repository, factor_id, session_id):
+    from learnloop.diagnosis.causal_orchestrator import record_learner_preference
+
+    record_learner_preference(repository, preference="decline", factor_id=factor_id, session_id=session_id,
+                              source="learner_action", clock=CLOCK)
+
+
+def _blocking_check(repository, factor_id):
+    from learnloop.diagnosis.causal_orchestrator import MACHINE_CHECK_REPAIR_MAPPING
+
+    repository.enqueue_causal_machine_check(check_id="mc_blocks", kind=MACHINE_CHECK_REPAIR_MAPPING, payload={},
+                                            source="test", factor_id=factor_id, clock=CLOCK)
+
+
+@pytest.mark.parametrize("arrives, reason", [("not_now", "learner_decline"), ("check", "pending_machine_checks")])
+@pytest.mark.parametrize("drawn", [router.ASK_NOW, router.WAIT])
+def test_f9_a_retry_rechecks_the_hard_refusals_and_keeps_the_draw(tmp_path, monkeypatch, arrives, reason, drawn):
+    vault, repository, _paths = rival_causes_vault(tmp_path)
+    _result, outcome = miss_with_rivals(vault, repository)
+    calls = _counting_decide(monkeypatch, chosen=drawn)
+    down = AuthorFake(error=RuntimeError("provider down"))
+    assert [job.state for job in run_jobs(vault, repository, clients=author_clients(down))] == ["retry"]
+    first = wf.get(repository, outcome.workflow_id)
+    assert first["chosen_ref"] == drawn and first["decision_id"] and first["factor_id"]
+    if arrives == "not_now":
+        _not_now(repository, first["factor_id"], first["session_id"])
+    else:
+        _blocking_check(repository, first["factor_id"])
+
+    fake = AuthorFake()
+    assert [job.state for job in run_jobs(vault, repository, clients=author_clients(fake), clock=LATER)] == ["done"]
+    assert fake.calls == 0 and calls == [1]  # no request, no fresh draw
+    row = wf.get(repository, outcome.workflow_id)
+    assert row["state"] == wf.REFUSED and _last_reason(repository, outcome.workflow_id) == reason
+    assert row["feedback_released_at"]
+    # The draw stands as drawn; what happened to it is an outcome against that decision.
+    assert row["chosen_ref"] == drawn and row["decision_id"] == first["decision_id"]
+    logged = _decisions(repository)
+    assert [(entry["id"], entry["chosen_ref"]) for entry in logged] == [(first["decision_id"], drawn)]
+    with repository.connection() as connection:
+        assert store.bindings_for_decision(connection, first["decision_id"])["outcome"]["outcome"] == "refused"
+    assert identity.generated_probe_ids(repository) == frozenset()
+
+
+def test_f9_a_no_plan_retry_is_refused_too(tmp_path):
+    vault, repository, _paths = rival_causes_vault(tmp_path)
+    _result, outcome = miss_with_rivals(vault, repository)
+    run_jobs(vault, repository, clients=author_clients(AuthorFake(error=RuntimeError("provider down"))))
+    first = wf.get(repository, outcome.workflow_id)
+    assert first["chosen_ref"] == router.ASK_NOW and not first["decision_id"]
+    _not_now(repository, first["factor_id"], first["session_id"])
+    fake = AuthorFake()
+    run_jobs(vault, repository, clients=author_clients(fake), clock=LATER)
+    assert fake.calls == 0 and wf.get(repository, outcome.workflow_id)["state"] == wf.REFUSED
+
+
+def test_f9_a_refusal_that_arrives_during_authoring_stops_the_offer(tmp_path):
+    vault, repository, _paths = rival_causes_vault(tmp_path)
+    _result, outcome = miss_with_rivals(vault, repository)
+
+    class LearnerSaysNotNow(AuthorFake):
+        def run_followup_probe_authoring(self, context):
+            row = wf.get(repository, outcome.workflow_id)
+            _not_now(repository, row["factor_id"], row["session_id"])
+            return super().run_followup_probe_authoring(context)
+
+    fake = LearnerSaysNotNow()
+    run_jobs(vault, repository, clients=author_clients(fake))
+    assert fake.calls == 1
+    row = wf.get(repository, outcome.workflow_id)
+    assert row["state"] == wf.REFUSED and _last_reason(repository, outcome.workflow_id) == "learner_decline"
+    assert not row["practice_item_id"] and not row["presentation_id"]
+    assert not identity.generated_probe_ids(repository) - identity.retired_probe_ids(repository)
+
+
+def test_f9_a_refused_retry_doesnt_leave_what_the_crash_pinned(journey, monkeypatch):
+    first = _crash_after_the_pin(journey, monkeypatch)
+    repository = journey.repository
+    row = wf.get(repository, journey.workflow_id)
+    _not_now(repository, row["factor_id"], row["session_id"])
+    fake = AuthorFake()
+    run_jobs(load_vault(journey.paths.root), repository, clients=author_clients(fake), clock=LATER)
+    assert fake.calls == 0
+    assert wf.get(repository, journey.workflow_id)["state"] == wf.REFUSED
+    assert first.practice_item_id in identity.retired_probe_ids(repository)
+    assert repository.probe_presentation(first.presentation_id).status == "ended"
+    assert repository.causal_probe_candidate(first.candidate_id)["status"] == "rejected"
+
+
+# -- Re-review F10: a withdrawal finishes, whatever interrupts it -----------------------------------
+
+
+def _crash_after_the_pin(journey, monkeypatch, fake=None):
+    from learnloop.followup_run import admission
+
+    repository = journey.repository
+    real = admission.commission_and_pin
+    pinned = {}
+
+    def pins_then_dies(*args, **kwargs):
+        pinned["admitted"] = real(*args, **kwargs)
+        raise Died()
+
+    monkeypatch.setattr(admission, "commission_and_pin", pins_then_dies)
+    with pytest.raises(Died):
+        jobs.process_next_job(journey.vault, repository, owner="dead", clients=author_clients(fake or AuthorFake()),
+                              clock=CLOCK)
+    monkeypatch.setattr(admission, "commission_and_pin", real)
+    sync_vault_state(load_vault(journey.paths.root), repository, clock=CLOCK)
+    return pinned["admitted"]
+
+
+@pytest.mark.parametrize("dies_in", ["end_probe_presentation", "update_causal_probe_candidate"])
+def test_f10_an_interrupted_withdrawal_is_redone_whole(journey, monkeypatch, dies_in):
+    fake = AuthorFake()  # one author, so the retry's question is a new one
+    first = _crash_after_the_pin(journey, monkeypatch, fake)
+    repository = journey.repository
+
+    def dies(*_a, **_k):
+        raise Died()
+
+    real = getattr(repository, dies_in)
+    monkeypatch.setattr(repository, dies_in, dies)
+    with pytest.raises(Died):
+        identity.retire_unbound(repository, journey.workflow_id, clock=CLOCK)
+    monkeypatch.setattr(repository, dies_in, real)
+    # All of it rolled back, so the next recovery still selects this item.
+    assert first.practice_item_id not in identity.closed_probe_ids(repository)
+    assert repository.causal_probe_candidate(first.candidate_id)["status"] == "active"
+
+    outcomes = run_jobs(load_vault(journey.paths.root), repository, clients=author_clients(fake), clock=LATER)
+    assert [job.state for job in outcomes] == ["done"]
+    row = wf.get(repository, journey.workflow_id)
+    # The replacement commissioned: no duplicate_instrument_class against the leftover.
+    assert row["state"] == wf.READY and row["practice_item_id"] != first.practice_item_id
+    assert first.practice_item_id in identity.retired_probe_ids(repository)
+    assert repository.probe_presentation(first.presentation_id).status == "ended"
+    assert repository.causal_probe_candidate(first.candidate_id)["status"] == "rejected"
+
+
+def test_f10_recovery_redoes_a_withdrawal_a_crash_cut_at_the_job_boundary(journey, monkeypatch):
+    first = _crash_after_the_pin(journey, monkeypatch)
+    repository = journey.repository
+    real = repository.update_causal_probe_candidate
+
+    def dies(*_a, **_k):
+        raise Died()
+
+    monkeypatch.setattr(repository, "update_causal_probe_candidate", dies)
+    with pytest.raises(Died):
+        jobs.process_next_job(load_vault(journey.paths.root), repository, owner="dead2",
+                              clients=author_clients(AuthorFake()), clock=LATER)
+    monkeypatch.setattr(repository, "update_causal_probe_candidate", real)
+    assert repository.causal_probe_candidate(first.candidate_id)["status"] == "active"
+    identity.retire_unbound(repository, journey.workflow_id, clock=LATER)
+    assert repository.causal_probe_candidate(first.candidate_id)["status"] == "rejected"
+    assert repository.probe_presentation(first.presentation_id).status == "ended"
+
+
+def test_f10_a_closed_probes_candidate_leaves_the_factors_active_set(journey):
+    """Serving accepts only ``active`` candidates, so a retired probe's mustn't stay one: the
+    predecessor's offer would pin a question every door refuses, after the switch goes off."""
+
+    from learnloop.diagnosis.causal_orchestrator import accept_probe_offer
+
+    row = _workflow_probe(journey)
+    repository = journey.repository
+    ctx = _switched_off(journey)
+    assert repository.causal_probe_candidate(row["probe_candidate_id"])["status"] == "rejected"
+    vault, _repository = ctx.require_vault()
+    offer = accept_probe_offer(vault, repository, factor_id=row["factor_id"], decision_receipt_id=None, clock=LATER)
+    assert not offer.accepted and offer.reason == "no_reviewed_active_candidate"
+
+
+def test_f10_a_failed_workflow_withdraws_what_its_last_run_left(journey, monkeypatch):
+    first = _crash_after_the_pin(journey, monkeypatch)
+    repository = journey.repository
+    jobs.fail_workflow(journey.vault, repository, journey.workflow_id, reason="generation_job_ended", clock=LATER)
+    assert wf.get(repository, journey.workflow_id)["state"] == wf.FAILED
+    assert first.practice_item_id in identity.retired_probe_ids(repository)
+    assert repository.causal_probe_candidate(first.candidate_id)["status"] == "rejected"
