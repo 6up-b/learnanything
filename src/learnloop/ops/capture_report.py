@@ -14,9 +14,10 @@ import json
 import sqlite3
 from typing import Any
 
-from learnloop.data_capture.gates import receipts_on, serving_on
+from learnloop.data_capture.gates import objective_receipts_on, receipts_on, serving_on
 from learnloop.db.stores import data_capture as store
 from learnloop.held_grades import held_for_review_attempts, pfc_assessments
+from learnloop.router_objective import report as objective_report
 
 REPORT_VERSION = "data_capture_report_v1"
 #: Decisions that share another's receipt: a learner's pick from an offer reads its parent's.
@@ -218,6 +219,11 @@ def floor_and_pick_section(connection: sqlite3.Connection) -> dict[str, Any]:
     return {"not_ready_floor": not_ready, "delayed_picks": picks, "thin_support_assignments": int(thin)}
 
 
+def _goals(vault: Any) -> list[Any]:
+    goals = getattr(vault, "goals", None) or ()
+    return list(goals.values() if isinstance(goals, Mapping) else goals)
+
+
 def build_report(connection: sqlite3.Connection, vault: Any, repository: Any, *, as_of: str,
                  success_correctness: float) -> dict[str, Any]:
     return {
@@ -230,6 +236,8 @@ def build_report(connection: sqlite3.Connection, vault: Any, repository: Any, *,
         "outcomes": outcome_section(connection, vault, repository),
         "first_delayed_success": time_section(connection, vault, repository, as_of=as_of, success_correctness=success_correctness),
         "floor_and_picks": floor_and_pick_section(connection),
+        "router_objective": {"receipts": objective_receipts_on(vault.config),
+                             **objective_report.section(connection, goal_ids=[str(goal.id) for goal in _goals(vault)])},
     }
 
 
@@ -283,6 +291,7 @@ def lines(report: Mapping[str, Any]) -> list[str]:
     floor = report["floor_and_picks"]
     out.append(f"Not-ready floor: {floor['not_ready_floor']}; delayed picks: {floor['delayed_picks']}; "
                f"thin-support assignments: {floor['thin_support_assignments']}")
+    out.extend(objective_report.lines(report["router_objective"]))
     return out
 
 

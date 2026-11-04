@@ -268,6 +268,9 @@ MODULE_INVENTORY: dict[str, str] = {
     # Data capture (docs/reviews/data-capture-a1-a6.md): no decision parameter of its own. The delay is
     # the outcome contract's, the floor the router's, the pitch and dates the teacher's.
     "data_capture_prefilter": "src/learnloop/data_capture/prefilter.py",
+    # Router objective RO0 (spec_router_objective_v1 §4): logging, no decision parameter of its own.
+    "router_objective_decision_state": "src/learnloop/router_objective/decision_state.py",
+    "router_objective_question_state": "src/learnloop/router_objective/question_state.py",
     "followup_run_jobs": "src/learnloop/followup_run/jobs.py",
     "delayed_checks": "src/learnloop/delayed_checks.py",
 }
@@ -454,6 +457,13 @@ _reg_const("followup_run_jobs:NEED_RETRY_DELAY_SECONDS", "numerical", kind="stru
 _reg_const("data_capture_prefilter:_ROUND_DIGITS", "numerical", kind="structural", owner="data_capture_prefilter",
            rationale="decimal places of a priority or minutes in a prefilter receipt's inputs, so float "
            "noise does not defeat the content-addressed dedupe; receipt size only, never a decision.")
+_reg_const("router_objective_decision_state:_ROUND_DIGITS", "numerical", kind="structural",
+           owner="router_objective_decision_state",
+           rationale="decimal places of a number in a decision's state receipt; receipt size only, never a decision.")
+_reg_const("router_objective_question_state:_WORKED_LEVEL", "constraint", kind="structural",
+           owner="router_objective_question_state",
+           rationale="the help ladder's first worked level (levels 4 and 5 give the solution away, hints.writer): what "
+           "the disclosure receipt calls a worked solution. Read by nothing that decides.")
 _reg_const("delayed_checks:_EXACT_TIE", "numerical", kind="structural", owner="delayed_checks",
            rationale="floating-point resolution of an exact tie between two items' predicted success; "
            "numerical resolution, not a margin: a real difference is never a tie.")

@@ -4051,7 +4051,7 @@ def _write_followup(
 
 def _restrained_followups(
     env: PlanEnv, record: PlanRecord, current: PlannedBlock, followups: Sequence[PoolItem], gate: Any, cap: Any,
-    *, material: Any = None,
+    *, material: Any = None, estimator: Any = None,
 ) -> tuple[PlanRecord, list[PoolItem]]:
     """Router R2c: each placeable mid-block follow-up's ``plan_interrupt`` decision.
 
