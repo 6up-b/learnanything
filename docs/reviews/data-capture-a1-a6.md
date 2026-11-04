@@ -216,3 +216,151 @@ Every pytest inside the memory-capped scope, at most `-n 6`.
   `LEARNLOOP_CONFIG_DIR` and `LEARNLOOP_ROUTER_MODELS=off`. No model call, no spend, no GUI, no owner vault opened.
 
 Test files added: `tests/test_data_capture_{a1_prefilter,a2_measurement,a3_time_metric,a4_delayed_completion,a5_not_ready_floor,a6_delayed_pick,migration,report,successor}.py`.
+
+## Landing onto main
+
+Main was `02f7cbec2d` (M2a with migration 239, and the owner's mobile patches). It was merged, not rebased. This stage is now
+migration 240 and head fixture `migration_head_240`, rebuilt from main's `migration_head_239` with only 240 applied (`[240]`,
+`integrity_check` ok, `foreign_key_check` empty, header bytes 1/1, no companion files). mvp-0.44 stays this stage's.
+
+### Rulings
+
+- R1: "F1 has now reopened twice on when Reader activity gets frozen, so under the stuck-loop rule the timing dependence goes: the router's outcomes, the time metric and the report read Reader exposures through one read-only function over the stored receipts and the source activity not yet swept. The sweep only freezes; no answer depends on whether Today has run. After this, a further timing case on this class is Low unless it realistically gives a warm answer a cold label in ordinary use."
+- R2: "A measurement falling back to an already-attempted item when an objective has no unseen one is accepted; the receipt's pool says so, and the delay still runs since the last exposure or practice, so later analysis can filter it."
+- R3: "A stop with nothing else feasible keeps its objective and spends no question."
+- R4: "A warm-answered measurement gets at most one replacement check. Each one costs the learner a question, and the report's counts show how often it runs out. The owner is told."
+- R5: "M2a lands first and takes migration 239, so this stage renumbers to migration 240 and head fixture migration_head_240 from main's head fixture. mvp-0.44 stays this stage's."
+- R6: "Scoped verify job 20261103-190644-2tE7S8 found F1 and F11 closed. Its Medium, the sweep's whole-history remapping slowing ordinary Today reads, is fixed at landing with tests. Correctness rests on the shared live read, so the sweep gets its window back. There is no further Codex round; later cases on this class are Low."
+- R7: "The frozen-cycles list stays frozen: the shared collectors and mapping move to a dependency-light read helper, and the two new exemptions go."
+
+### Gate
+
+At `6fe77d2f1b`, in the isolated environment, memory-capped:
+
+| Lane | Result |
+|---|---|
+| `lint-imports --no-cache` | 42 kept, 0 broken; the frozen-cycles list equals main's |
+| Full `pytest -n 8` | 25582 passed, 0 failed, 90 skipped, 47 xfailed (45:25) |
+| Durability (`-m durability`) | 399 passed, 1 skipped |
+| Owner lane, on fresh backup-API copies of `owner-copies-mvp035` | 83 passed, 2 known failures (`test_activity_backfill...duration`, `placement_fixture_copies[arxiv_v2]`), 4 skipped |
+| Desktop | typecheck exit 0; vitest 2720 passed; `frontend:build` exit 0 |
+| Mobile | `npm ci`, typecheck and build exit 0 |
+| Generators | DB reference 379 table notes, errors `[]`; desktop 317 TS and 6 Rust notes; module catalog 1172 notes and 64 package maps; vault validation passes |
+
+`cargo check` was not run: `src-tauri` is unchanged. No default changed, so no config fingerprint moved.
+
+The first full run, before the fixes in `6fe77d2f1b`, was the stage's first whole-suite run: 7 failed, 25575 passed. One came from the
+renumber (the phone's migration test). Two came from R7's helpers (AD's module no longer exporting two names, and the helpers missing from the
+experiments contract's module list). Four had been hidden by targeted runs: the display label's blast-radius audit matching
+`measurement_state` (now `fold_measurement`), the board's metric count, the CLI help snapshot after the rename, and the prefilter's
+`git rev-parse` not on the approved process-launch list (now on it, beside the Codex provider's).
+
+### Smoke
+
+Fresh backup-API copies of `~/learnloop-backups/mvp043-20261103-copy`, every AI route at `127.0.0.1:9` (a resolver check over every
+task found only those two profiles, plus `embedding`, disabled and keyless). Main's and the branch's code came from `git archive`
+with `migrations/`. Today, the plan and the plan's steps went through the real handlers in process, with the clock frozen, each
+calling module's ids from its own deterministic stream, and AD's background work off on both sides, since it races the snapshot.
+Attempts in the walks are stubs. The walks ran on `19939c66a7`; the code changes after it are renames, one re-export and the
+approved-list entry, and the before-upgrade comparison was rerun on the final tip: identical again.
+
+**Before upgrading.** The copies are at head 238, so main's primary load applies `[239]` and the branch's `[239, 240]`: 240 is all this
+stage adds. On all three vaults Today, the plan, its steps and every row written to main's tables are byte-identical to main, ids and
+times aside. The only additions are data capture's own receipts (receipts default on): 3 to 4 prefilter receipts on the first day, 79
+and 85 exposure receipts on `linear_algebra` and `probability`.
+
+**Upgrade.** `learnloop upgrade --to mvp-0.44`, then `rebuild-derived-state`, succeeded on each copy, with no notes: "Upgraded vault:
+mvp-0.43 -> mvp-0.44", then 3 LOs and 3 attempts (`arxiv_v2`), 8 LOs and 70 attempts (`linear_algebra`), 1 LO and 3 attempts
+(`probability`).
+
+**Upgraded, `[data_capture] serving` off.** Identical to mvp-0.43 on all three, version strings aside, lesson-check picks included.
+
+**Upgraded, on: what differs over a stubbed week** (7 days, up to 8 answered steps a day), against main on the same walk:
+
+| | `arxiv_v2` | `linear_algebra` | `probability` |
+|---|---|---|---|
+| Day 1, Today and steps | same | same, block's `chosenBy` reads `mixture`, propensity 0.96 not 1.0 | same |
+| Order of the day's steps | 2 of 7 days moved one item | same every day | 1 of 7 days, one item inserted |
+| `not_ready` draws | 41, 2 not the rule's pick | 18, 0 not the rule's pick | 17, 1 not the rule's pick |
+| Today's list | same | one item (`pi_what_makes_capstone_02`) gone from the third day: a measurement check holds it until its date | same |
+| Measurement checks arranged | 0 | 1, shared by 9 more decisions | 0 |
+| Objectives | 1 stop (natural) | 10 practice, 1 stop | 2 stop (natural) |
+
+A lesson check's item, on the owner's history: of the 19 LOs with two or more candidates, 14 pick a different item (the pitch rule, A6).
+No lesson ran in the walk, so nothing here was served that way.
+
+*Would a learner notice?* Rarely on any one day. The floor's draw occasionally moves one item in the day's order. The visible change is the check: on `linear_algebra`, walked on to its date (Nov 14),
+the item came back as the day's first step, replacing 2.3 maintenance minutes, and its one answer closed all ten decisions. The learner
+would see one question they haven't been shown for a while, leading the day, and an item missing from the list until then.
+
+**Receipts off.** Both switches off: no rows in any of the five tables. Receipts off with serving on: no prefilter rows; objectives and
+exposure rows are still written, because those are the serving side's.
+
+**A week's records.** Every committed decision has its receipt and link: coverage 1.0 for `plan_block` and `today_offer` on all three (the
+3 `probability` decisions without one predate the first receipt). Rows and bytes per active day: 16.6 and 11.2 KB (`arxiv_v2`), 9.9 and
+7.0 KB (`linear_algebra`), 10.0 and 8.9 KB (`probability`).
+
+**Inline VOI on real probe episodes stays unmeasured.** All 58 real episodes (31, 9 and 18) are `pending_items`, so the walk evaluated no
+probe and `candidate_forecasts` is empty on every real receipt. What did run is teach-back's inline VOI: at most 14.9 KB raw and 1.9 KB
+stored in one part. An evaluated probe's forecast in the receipt is shown only by the synthetic tests.
+
+**The report.** `learnloop data-capture report` left the database hash and the WAL's size unchanged on each copy. On real history, before
+any walk: `first_delayed_success` carries its proxy label, and `linear_algebra` reads 0 of 21 reached, `probability` 0 of 17, `arxiv_v2` 0 of 3,
+all counted as unfinished. That reading is right: no attempt on these vaults qualifies. On `linear_algebra` all 70 attempts fall in six days in
+July and read `not_delayed` (61) or excluded (9). Coverage reads 11 of 62 attempts timed, 3 of 3 and 0 of 0, in the same order. After the week's
+stubs: 3 of 21, 3 of 17 and 7 of 8 reached.
+
+**A section read with no Today preparation since**, on a real mapped section of `probability`: practice on its LO, the section completed two
+days later, the answer 30 minutes after that, with no sweep. The answer reads `not_delayed` and there is no first delayed success. After a sweep:
+the same, with the receipt on record. `linear_algebra` agrees.
+
+**The rest.** `rebuild --shadow`: 0/0/0 on all three, for facets, mastery and schedule. `model_call_receipts`: 0 new. Non-loopback sockets:
+0. Processes: `git rev-parse` once per process (the prefilter's revision) and `powerprofilesctl`; no Codex process.
+
+**Today's time against main, below mvp-0.44 and with serving off, receipts on** (`get_today_queue` in ms, a second process on each copy, 15
+repeats):
+
+| | main, median (min) | branch at mvp-0.43 | mvp-0.44, serving off |
+|---|---|---|---|
+| `linear_algebra` | 163 (153) | 166 (141) | 172 (160) |
+| `probability` | 121 (117) | 125 (122) | 126 (123) |
+| `arxiv_v2` | 107 (104) | 113 (111) | 112 (110) |
+
+So +3 to +9 ms. `settle` is 5 to 6 ms of it and the offer's prefilter 0.2 ms. That is about main's own median-to-minimum spread (3 to 10 ms),
+but it is a consistent small cost, not zero. Each process's first Today pays more (+7 to +86 ms, its first mappings and the `git` call),
+and the first Today after this lands pays about +390 to +530 ms once on the vaults with Reader history, to write the receipts.
+
+### The phone (M2a)
+
+Tested in `tests/test_data_capture_phone.py`, and on a `linear_algebra` copy through `acting_as`. A phone has no plan, so at a request origin:
+
+* **`settle` still runs**, through `prepare_queue_build`: the sweep, the states, and any replacement a warm answer earned.
+* **No objective is frozen and no measurement slot exists:** the phone's `today_offer` decisions have none, and it builds no plan row.
+* **A measurement check the phone can't show is held back**, and stays `due` for the desktop, where it is served. It reads
+  `intent_check_held`, not `device_ineligible`, because the check's own gate asks the device's. So the phone's "waiting for the desktop" count
+  doesn't include it. That is M2a's behaviour for any Check once.
+* **A check it can show is in its list**, at the rank the build gives it (21 of 40 on the copy), not first: a phone has no slot to lead with.
+  An answer on the phone measures the objective.
+* **The offer's receipt is linked**, with surface `today_offer`; the decision's surface is `phone_queue`, and so is the offer's
+  `entry_surface`. The held-back item has admission probability 0.
+* **A check the phone showed reads `due` until answered.** `offered` means a plan presentation, and a phone has none, so `offered` undercounts
+  phone use. Open below.
+
+### What the owner must run
+
+Close the app, MCP and the phone page first. Then, on each vault: `learnloop upgrade --to mvp-0.44`, then `learnloop rebuild-derived-state`,
+so `router_outcomes` moves to v3. The first Today after that writes the Reader's receipts once. `[data_capture] serving = false` is the kill
+switch, and `receipts = false` stops the prefilter.
+
+### Open items
+
+* AD's dose outcomes with `forecast_receipts` turned off still read only AD's receipts, so they miss Reader activity in the off period. The
+  router and the time metric aren't affected.
+* A7 is the next stage on `experiment_id`.
+* R3's router report and the census.
+* R4: the report's counts show how often a replacement runs out. The owner is told here.
+* A phone's offer writes no `offered` state (above). Counting it needs a rule for what a list row means, since every poll writes an offer.
+* A check the phone holds back isn't in its "waiting for the desktop" count (M2a's, for any Check once).
+* Timing classes that stay Low under R1 and R6: a provenance link added after a section was recorded, and a question or passage view whose
+  section gains a coverage row, read differently with and without a sweep between.
+* Inline VOI on real probe episodes stays unmeasured until one is evaluated.
