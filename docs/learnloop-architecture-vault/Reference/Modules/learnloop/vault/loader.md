@@ -2780,6 +2780,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_review_log.py](../../../../../../tests/test_review_log.py) — direct import
 - [tests/test_revision_refresh.py](../../../../../../tests/test_revision_refresh.py) — direct import
 - [tests/test_ro1_availability.py](../../../../../../tests/test_ro1_availability.py) — direct import
+  - `test_the_weeks_activity_counts_an_import_inside_its_week_once_it_is_known`
 - [tests/test_ro1_interval_factor.py](../../../../../../tests/test_ro1_interval_factor.py) — direct import
   - `test_the_gate_is_the_tag_and_the_switch`
 - [tests/test_ro1_projection.py](../../../../../../tests/test_ro1_projection.py) — direct import
@@ -2791,6 +2792,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_the_upgrade_moves_existing_due_dates_to_the_unstretched_interval`
   - `test_the_upgrade_refuses_anything_older_than_the_chain`
 - [tests/test_ro1_upgrade_report.py](../../../../../../tests/test_ro1_upgrade_report.py) — direct import
+  - `test_an_observer_failure_is_a_shadow_failure`
+  - `test_the_observer_reads_the_live_database_read_only_with_commitments`
   - `test_the_shadow_rebuild_reports_the_upgrades_schedule_effects`
   - `test_with_the_factor_kept_the_shadow_reports_no_schedule_change`
 - [tests/test_route_rules_in_grader.py](../../../../../../tests/test_route_rules_in_grader.py) — direct import

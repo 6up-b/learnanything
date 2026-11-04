@@ -7,8 +7,8 @@ version: "1.0.0"
 source_path: "src/learnloop/daily_plan/router_card.py"
 source_paths:
   - "src/learnloop/daily_plan/router_card.py"
-source_commit: "025a420fa5a95a2aae196da71e84bb416b795cf8"
-source_commit_timestamp: "2026-11-04T17:57:15-05:00"
+source_commit: "d82264755096bd6b464b054f49c11ae2e839cbfe"
+source_commit_timestamp: "2026-11-04T18:40:57-05:00"
 source_worktree_state: "clean"
 generated: true
 generated_at: "2026-11-02"
@@ -50,13 +50,13 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/daily_plan/router_card.py](../../../../../../src/learnloop/daily_plan/router_card.py) |
-| Source lines | 773 |
+| Source lines | 781 |
 | Owning package | [[Reference/Modules/learnloop/daily_plan/_package|learnloop.daily_plan]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `025a420fa5a95a2aae196da71e84bb416b795cf8` |
-| Commit timestamp | `2026-11-04T17:57:15-05:00` |
+| Source commit | `d82264755096bd6b464b054f49c11ae2e839cbfe` |
+| Commit timestamp | `2026-11-04T18:40:57-05:00` |
 
 ## Public API
 
@@ -80,10 +80,10 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
   - `_learning_objects(self, los: Sequence[str], candidate_los: Sequence[str], attempts: Sequence[Mapping[str, Any]], held: frozenset[str], feasible: Sequence[BlockCandidate], titles: Mapping[str, str], now_iso: str, unknowns: list[str]) -> dict[str, dict[str, Any]]` (line 474; internal)
   - `_adaptive_difficulty(self, lo: str, unknowns: list[str]) -> dict[str, Any] | None` (line 563; internal)
   - `_interaction(self, connection: Any, now_iso: str, unknowns: list[str]) -> dict[str, Any]` (line 577; internal)
-  - `_open_problems(self, connection: Any, los: set[str], titles: Mapping[str, str], unknowns: list[str], past: PastWork, rule: CardText) -> list[dict[str, Any]]` (line 602; internal)
-  - `_self_reports(self, connection: Any, los: set[str], titles: Mapping[str, str], now_iso: str, unknowns: list[str]) -> list[dict[str, Any]]` (line 694; internal)
-  - `_withheld_items(self, unknowns: list[str]) -> Withheld` (line 726; internal) — The items whose question and answers the card never shows: the shared predicate (``learner_protection.withheld_items``, the chat frontend's too): exam material by the one exam predicate, live assessment reservations, items a cold check or a repair's cold retry holds, diagnostic…
-  - `_recent_work(self, attempts: Sequence[Mapping[str, Any]], held: frozenset[str], past: PastWork, rule: CardText, titles: Mapping[str, str]) -> list[dict[str, Any]]` (line 744; internal)
+  - `_open_problems(self, connection: Any, los: set[str], titles: Mapping[str, str], unknowns: list[str], past: PastWork, rule: CardText) -> list[dict[str, Any]]` (line 610; internal)
+  - `_self_reports(self, connection: Any, los: set[str], titles: Mapping[str, str], now_iso: str, unknowns: list[str]) -> list[dict[str, Any]]` (line 702; internal)
+  - `_withheld_items(self, unknowns: list[str]) -> Withheld` (line 734; internal) — The items whose question and answers the card never shows: the shared predicate (``learner_protection.withheld_items``, the chat frontend's too): exam material by the one exam predicate, live assessment reservations, items a cold check or a repair's cold retry holds, diagnostic…
+  - `_recent_work(self, attempts: Sequence[Mapping[str, Any]], held: frozenset[str], past: PastWork, rule: CardText, titles: Mapping[str, str]) -> list[dict[str, Any]]` (line 752; internal)
 
 ### Module constants
 
@@ -162,6 +162,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_reread_safety_landing.py](../../../../../../tests/test_reread_safety_landing.py) — direct import
 - [tests/test_ro1_availability.py](../../../../../../tests/test_ro1_availability.py) — direct import
   - `test_the_router_cards_decision_time_reads_use_availability_at_the_tag`
+  - `test_the_weeks_activity_counts_an_import_inside_its_week_once_it_is_known`
 - [tests/test_router_r2a_landing.py](../../../../../../tests/test_router_r2a_landing.py) — direct import
   - `test_the_card_withholds_what_the_one_exam_predicate_names`
   - `test_the_cards_exam_protection_is_not_behind_the_serving_switch`

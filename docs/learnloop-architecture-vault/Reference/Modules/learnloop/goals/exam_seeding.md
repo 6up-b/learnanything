@@ -136,6 +136,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_subject_scoping_excludes_other_subjects`
   - `test_unmatched_outcome_key_errors`
 - [tests/test_ro1_availability.py](../../../../../../tests/test_ro1_availability.py) — direct import
+  - `test_the_weeks_activity_counts_an_import_inside_its_week_once_it_is_known`
 - [tests/test_ro1_projection.py](../../../../../../tests/test_ro1_projection.py) — direct import
   - `test_availability_moves_no_due_date_or_mastery`
 - [tests/test_serve_eligibility.py](../../../../../../tests/test_serve_eligibility.py) — direct import

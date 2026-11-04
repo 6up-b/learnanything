@@ -101,6 +101,7 @@ No private top-level function or class definition is declared in this file.
 > “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
 
 - [[Reference/Modules/learnloop/daily_plan/intent_cost|learnloop.daily_plan.intent_cost]] — imports `effective_due`, `load_anchors`; statically calls `effective_due`, `load_anchors`
+- [[Reference/Modules/learnloop/daily_plan/schedule_effects|learnloop.daily_plan.schedule_effects]] — imports `load_anchors`; statically calls `load_anchors`
 - [[Reference/Modules/learnloop/instructional/reader_followups|learnloop.instructional.reader_followups]] — imports `STORED_RETENTION`
 - [[Reference/Modules/learnloop/intent/report|learnloop.intent.report]] — imports `effective_due`, `load_anchors`; statically calls `effective_due`, `load_anchors`
 - [[Reference/Modules/learnloop/scheduling/intent/serving|learnloop.scheduling.intent.serving]] — imports `EffectiveDue`, `effective_due`, `load_anchors`; statically calls `EffectiveDue`, `effective_due`, `load_anchors`
@@ -126,7 +127,7 @@ Use this module in context through:
 - [[Start a Learning Cycle]]
 - [[Continue a Learning Cycle]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/daily_plan/intent_cost|learnloop.daily_plan.intent_cost]], [[Reference/Modules/learnloop/instructional/reader_followups|learnloop.instructional.reader_followups]], [[Reference/Modules/learnloop/intent/report|learnloop.intent.report]], [[Reference/Modules/learnloop/scheduling/intent/serving|learnloop.scheduling.intent.serving]].
+Static participation evidence comes from [[Reference/Modules/learnloop/daily_plan/intent_cost|learnloop.daily_plan.intent_cost]], [[Reference/Modules/learnloop/daily_plan/schedule_effects|learnloop.daily_plan.schedule_effects]], [[Reference/Modules/learnloop/instructional/reader_followups|learnloop.instructional.reader_followups]], [[Reference/Modules/learnloop/intent/report|learnloop.intent.report]], [[Reference/Modules/learnloop/scheduling/intent/serving|learnloop.scheduling.intent.serving]].
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 

@@ -132,6 +132,7 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 - [[Reference/Modules/learnloop/daily_plan/engine|learnloop.daily_plan.engine]] — imports `intent_serving`; statically calls `intent_serving`
 - [[Reference/Modules/learnloop/daily_plan/headline|learnloop.daily_plan.headline]] — imports `intent_serving`; statically calls `intent_serving`
 - [[Reference/Modules/learnloop/daily_plan/measurement|learnloop.daily_plan.measurement]] — imports `intent_serving`; statically calls `intent_serving`
+- [[Reference/Modules/learnloop/daily_plan/schedule_effects|learnloop.daily_plan.schedule_effects]] — imports `intent_serving`; statically calls `intent_serving`
 - [[Reference/Modules/learnloop/instructional/reader_followups|learnloop.instructional.reader_followups]] — imports `intent_serving`; statically calls `intent_serving`
 - [[Reference/Modules/learnloop/intent/checks|learnloop.intent.checks]] — imports `CheckState`, `intent_serving`; statically calls `intent_serving`
 - [[Reference/Modules/learnloop/intent/report|learnloop.intent.report]] — imports `intent_enabled`; statically calls `intent_enabled`
@@ -167,7 +168,7 @@ Use this module in context through:
 - [[Start a Learning Cycle]]
 - [[Continue a Learning Cycle]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/daily_plan/engine|learnloop.daily_plan.engine]], [[Reference/Modules/learnloop/daily_plan/headline|learnloop.daily_plan.headline]], [[Reference/Modules/learnloop/daily_plan/measurement|learnloop.daily_plan.measurement]], [[Reference/Modules/learnloop/instructional/reader_followups|learnloop.instructional.reader_followups]], [[Reference/Modules/learnloop/intent/checks|learnloop.intent.checks]] and 3 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/daily_plan/engine|learnloop.daily_plan.engine]], [[Reference/Modules/learnloop/daily_plan/headline|learnloop.daily_plan.headline]], [[Reference/Modules/learnloop/daily_plan/measurement|learnloop.daily_plan.measurement]], [[Reference/Modules/learnloop/daily_plan/schedule_effects|learnloop.daily_plan.schedule_effects]], [[Reference/Modules/learnloop/instructional/reader_followups|learnloop.instructional.reader_followups]] and 4 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 

@@ -1750,12 +1750,14 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_revision_refresh.py](../../../../../tests/test_revision_refresh.py) — direct import
 - [tests/test_ro1_availability.py](../../../../../tests/test_ro1_availability.py) — direct import
   - `test_an_ordinary_attempt_records_no_received_at`
+  - `test_the_weeks_activity_counts_an_import_inside_its_week_once_it_is_known`
 - [tests/test_ro1_interval_factor.py](../../../../../tests/test_ro1_interval_factor.py) — direct import
   - `test_rating_stability_difficulty_and_surprise_match_the_predecessor`
 - [tests/test_ro1_projection.py](../../../../../tests/test_ro1_projection.py) — direct import
   - `test_availability_moves_no_due_date_or_mastery`
 - [tests/test_ro1_self_report.py](../../../../../tests/test_ro1_self_report.py) — direct import
 - [tests/test_ro1_upgrade_report.py](../../../../../tests/test_ro1_upgrade_report.py) — direct import
+  - `test_the_report_counts_the_queue_and_load_admission_counts`
 - [tests/test_route_rules_in_grader.py](../../../../../tests/test_route_rules_in_grader.py) — direct import
   - `test_f1_live_an_incomplete_regrade_keeps_an_existing_hold`
   - `test_f3_live_a_clarification_regrade_keeps_an_error_the_reply_reveals`

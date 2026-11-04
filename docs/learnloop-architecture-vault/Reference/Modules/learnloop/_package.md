@@ -135,7 +135,7 @@ For system intent, use [[Architecture Overview]].
 | [[Reference/Modules/learnloop/figure_admission|learnloop.figure_admission]] | [[Reference/Modules/learnloop/figure_admission#^module-purpose|purpose]] | `ACTIVE` | 18 | 6 |
 | [[Reference/Modules/learnloop/followup_serve_upgrade|learnloop.followup_serve_upgrade]] | [[Reference/Modules/learnloop/followup_serve_upgrade#^module-purpose|purpose]] | `ACTIVE` | 2 | 1 |
 | [[Reference/Modules/learnloop/grading_epochs|learnloop.grading_epochs]] | [[Reference/Modules/learnloop/grading_epochs#^module-purpose|purpose]] | `ACTIVE` | 8 | 3 |
-| [[Reference/Modules/learnloop/held_grades|learnloop.held_grades]] | [[Reference/Modules/learnloop/held_grades#^module-purpose|purpose]] | `ACTIVE` | 49 | 15 |
+| [[Reference/Modules/learnloop/held_grades|learnloop.held_grades]] | [[Reference/Modules/learnloop/held_grades#^module-purpose|purpose]] | `ACTIVE` | 49 | 16 |
 | [[Reference/Modules/learnloop/help_fold_attach_upgrade|learnloop.help_fold_attach_upgrade]] | [[Reference/Modules/learnloop/help_fold_attach_upgrade#^module-purpose|purpose]] | `ACTIVE` | 2 | 2 |
 | [[Reference/Modules/learnloop/hint_window|learnloop.hint_window]] | [[Reference/Modules/learnloop/hint_window#^module-purpose|purpose]] | `ACTIVE` | 3 | 1 |
 | [[Reference/Modules/learnloop/ids|learnloop.ids]] | [[Reference/Modules/learnloop/ids#^module-purpose|purpose]] | `ACTIVE` | 157 | 51 |

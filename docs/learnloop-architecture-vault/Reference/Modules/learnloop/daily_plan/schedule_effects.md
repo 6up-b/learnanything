@@ -7,8 +7,8 @@ version: "1.0.0"
 source_path: "src/learnloop/daily_plan/schedule_effects.py"
 source_paths:
   - "src/learnloop/daily_plan/schedule_effects.py"
-source_commit: "4ce26b4b865d9850ab7f5bd68e1e78d7a590353b"
-source_commit_timestamp: "2026-11-04T17:57:24-05:00"
+source_commit: "73f023834fc8cb13955f1a4681f90f09db9a5542"
+source_commit_timestamp: "2026-11-04T18:44:13-05:00"
 source_worktree_state: "clean"
 generated: true
 generated_at: "2026-11-02"
@@ -50,50 +50,58 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/daily_plan/schedule_effects.py](../../../../../../src/learnloop/daily_plan/schedule_effects.py) |
-| Source lines | 100 |
+| Source lines | 142 |
 | Owning package | [[Reference/Modules/learnloop/daily_plan/_package|learnloop.daily_plan]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `4ce26b4b865d9850ab7f5bd68e1e78d7a590353b` |
-| Commit timestamp | `2026-11-04T17:57:24-05:00` |
+| Source commit | `73f023834fc8cb13955f1a4681f90f09db9a5542` |
+| Commit timestamp | `2026-11-04T18:44:13-05:00` |
 
 ## Public API
 
-- `schedule_effects(before: Mapping[tuple[Any, ...], Mapping[str, Any]], after: Mapping[tuple[Any, ...], Mapping[str, Any]], *, as_of: datetime, horizon_days: int) -> dict[str, Any]` ([source](../../../../../../src/learnloop/daily_plan/schedule_effects.py), line 35) — What a schedule change does to serving, from the two schedule snapshots.
+- `class ServingSchedule` ([source](../../../../../../src/learnloop/daily_plan/schedule_effects.py), line 31) — What serving reads of the item schedule at one instant (codex review F2, F3).
+- `serving_schedule(vault: Any, repository: Any, *, as_of: datetime) -> ServingSchedule` ([source](../../../../../../src/learnloop/daily_plan/schedule_effects.py), line 45) — Serving's read of ``repository``'s schedule at ``as_of`` (a shadow rebuild's observer).
+- `schedule_effects(before: Mapping[tuple[Any, ...], Mapping[str, Any]], after: Mapping[tuple[Any, ...], Mapping[str, Any]], *, as_of: datetime, horizon_days: int, serving_before: ServingSchedule, serving_after: ServingSchedule) -> dict[str, Any]` ([source](../../../../../../src/learnloop/daily_plan/schedule_effects.py), line 82) — What a schedule change does to serving, from the two schedule snapshots and serving's reads.
 
 ### Module constants
 
-- `_SCHEDULE_ANCHORS` ([src/learnloop/daily_plan/schedule_effects.py](../../../../../../src/learnloop/daily_plan/schedule_effects.py), line 22)
+- `_SCHEDULE_ANCHORS` ([src/learnloop/daily_plan/schedule_effects.py](../../../../../../src/learnloop/daily_plan/schedule_effects.py), line 27)
 
 ### Explicit exports
 
 `__all__` declares:
 
+- `ServingSchedule`
 - `schedule_effects`
+- `serving_schedule`
 
 ## Internal implementation anchors
 
-- `_days(later: datetime, earlier: datetime) -> float` ([source](../../../../../../src/learnloop/daily_plan/schedule_effects.py), line 25)
-- `_spread(values: Sequence[float]) -> dict[str, float] | None` ([source](../../../../../../src/learnloop/daily_plan/schedule_effects.py), line 29)
+- `_days(later: datetime, earlier: datetime) -> float` ([source](../../../../../../src/learnloop/daily_plan/schedule_effects.py), line 59)
+- `_spread(values: Sequence[float]) -> dict[str, float] | None` ([source](../../../../../../src/learnloop/daily_plan/schedule_effects.py), line 63)
+- `_queue_due(before: ServingSchedule, after: ServingSchedule, as_of: datetime) -> dict[str, int]` ([source](../../../../../../src/learnloop/daily_plan/schedule_effects.py), line 69)
 
 ## Who imports or calls it
 
 > [!note] Static evidence boundary
 > “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
 
-- [[Reference/Modules/learnloop/cli/app|learnloop.cli.app]] — imports `schedule_effects`; statically calls `schedule_effects`
+- [[Reference/Modules/learnloop/cli/app|learnloop.cli.app]] — imports `schedule_effects`, `serving_schedule`; statically calls `schedule_effects`
 
 ## Dependencies
 
 ### LearnLoop dependencies
 
 - [[Reference/Modules/learnloop/clock|learnloop.clock]] — imports `parse_utc`; calls `parse_utc`
-- [[Reference/Modules/learnloop/daily_plan/admission|learnloop.daily_plan.admission]] — imports `ReviewItem`, `projected_review_load`; calls `ReviewItem`, `projected_review_load`
+- [[Reference/Modules/learnloop/daily_plan/admission|learnloop.daily_plan.admission]] — imports `ReviewItem`, `projected_review_load`; calls `projected_review_load`
+- [[Reference/Modules/learnloop/daily_plan/engine|learnloop.daily_plan.engine]] — imports `review_population`; calls `review_population`
+- [[Reference/Modules/learnloop/scheduling/intent/recall_targets|learnloop.scheduling.intent.recall_targets]] — imports `load_anchors`; calls `load_anchors`
+- [[Reference/Modules/learnloop/scheduling/intent/serving|learnloop.scheduling.intent.serving]] — imports `intent_serving`; calls `intent_serving`
 
 ### Platform and third-party dependencies
 
-- Standard library: `__future__`, `collections`, `datetime`, `statistics`, `typing`
+- Standard library: `__future__`, `collections`, `dataclasses`, `datetime`, `statistics`, `typing`
 - Third party: none imported directly
 
 ## Larger workflow participation
@@ -110,6 +118,10 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 ## Tests that define behavior
 
 - [tests/test_ro1_upgrade_report.py](../../../../../../tests/test_ro1_upgrade_report.py) — direct import
+  - `test_a_primed_retry_after_the_review_is_not_the_intervals_anchor`
+  - `test_serving_reads_the_anchor_past_a_primed_retry_and_a_held_grade`
+  - `test_the_observer_reads_the_live_database_read_only_with_commitments`
+  - `test_the_report_counts_the_queue_and_load_admission_counts`
   - `test_with_the_factor_kept_the_shadow_reports_no_schedule_change`
 
 ## Modification guidance
