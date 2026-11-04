@@ -3,13 +3,13 @@ title: "derived_state_rebuilds"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "c351033cdfa816184211a76bd032919f54f5a1b6"
-source_commit_timestamp: "2026-11-04T07:28:45-05:00"
+source_commit: "4ce26b4b865d9850ab7f5bd68e1e78d7a590353b"
+source_commit_timestamp: "2026-11-04T17:57:24-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite derived_state_rebuilds"
   - "table derived_state_rebuilds"
-schema_head: 241
+schema_head: 242
 table_name: "derived_state_rebuilds"
 table_role: "receipt"
 functionality_status: "active"
@@ -28,9 +28,8 @@ source_paths:
   - "src/learnloop/db/repositories.py"
   - "src/learnloop/attempts/measurement_corrections.py"
   - "src/learnloop/curriculum/integration_backfill.py"
+  - "src/learnloop/interval_factor_upgrade.py"
   - "src/learnloop/learner/learner_review_feed.py"
-  - "src/learnloop/ops/doctor.py"
-  - "src/learnloop/regrade_contract_upgrade.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/receipt"
@@ -54,7 +53,7 @@ It belongs to the **schema and change** navigation family. The family context li
 - **Role:** `receipt` — Historical audit/decision receipt. It is preserved and never rebuilt.
 - **Functionality status:** `active`.
 - **Introduced by:** `migrations/009_derived_state_rebuilds.sql`.
-- **Schema touched by:** `009_derived_state_rebuilds.sql`, `122_causal_activity_events.sql`, `138_coverage_denominator_version.sql`.
+- **Schema touched by:** `009_derived_state_rebuilds.sql`, `122_causal_activity_events.sql`, `138_coverage_denominator_version.sql`, `242_availability_time.sql`.
 - **Rebuild owner:** none; this table is preserved by the rebuild umbrella.
 
 For the distinction between SQLite state and human-authored vault files, see [[State and Persistence]]. For whole-vault creation and opening behavior, see [[Vault Lifecycle]]. ^table-lifecycle
@@ -72,6 +71,7 @@ For the distinction between SQLite state and human-authored vault files, see [[S
 | `created_at` | `TEXT` | yes | — | — | Timestamp (ISO-8601 UTC text) |
 | `canonical_projection_version` | `TEXT` | no | — | — | Stored value |
 | `coverage_denominator_version` | `TEXT` | no | — | — | Stored value |
+| `projection_switches_json` | `TEXT` | no | — | — | JSON-encoded structured payload |
 
 ## Relationships and access paths
 
@@ -86,10 +86,12 @@ Indexes and uniqueness:
 
 ### Repository access surface
 
+- `Repository._has_projection_switches_column()`
 - `Repository.derived_state_rebuild_version_changes()`
 - `Repository.has_whole_vault_rebuild()`
 - `Repository.latest_canonical_projection_rebuild()`
 - `Repository.latest_derived_state_rebuild()`
+- `Repository.latest_whole_vault_rebuild()`
 - `Repository.record_derived_state_rebuild()`
 
 ### Direct SQL readers
@@ -118,6 +120,8 @@ Indexes and uniqueness:
 
 - `src/learnloop/attempts/measurement_corrections.py`
 - `src/learnloop/curriculum/integration_backfill.py`
+- `src/learnloop/db/repositories.py`
+- `src/learnloop/interval_factor_upgrade.py`
 - `src/learnloop/learner/learner_review_feed.py`
 - `src/learnloop/ops/doctor.py`
 - `src/learnloop/regrade_contract_upgrade.py`
@@ -133,6 +137,7 @@ Indexes and uniqueness:
 
 ## Tests that define behavior
 
+- `tests/test_ad1_migration.py`
 - `tests/test_attempt_content_state_successor.py`
 - `tests/test_batch3_landing.py`
 - `tests/test_canonical_projection_rollout.py`
@@ -152,7 +157,6 @@ Indexes and uniqueness:
 - `tests/test_mvp016_upgrade.py`
 - `tests/test_mvp017_upgrade.py`
 - `tests/test_mvp018_upgrade.py`
-- `tests/test_mvp020_upgrade.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 
@@ -177,7 +181,7 @@ CREATE TABLE derived_state_rebuilds (
   rebuilt_learning_objects INTEGER NOT NULL,
   replayed_attempts INTEGER NOT NULL,
   created_at TEXT NOT NULL
-, canonical_projection_version TEXT, coverage_denominator_version TEXT);
+, canonical_projection_version TEXT, coverage_denominator_version TEXT, projection_switches_json TEXT);
 ```
 
 ## Related notes

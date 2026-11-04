@@ -3,8 +3,8 @@ title: "Config - locks"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "c351033cdfa816184211a76bd032919f54f5a1b6"
-source_commit_timestamp: "2026-11-04T07:28:45-05:00"
+source_commit: "4ce26b4b865d9850ab7f5bd68e1e78d7a590353b"
+source_commit_timestamp: "2026-11-04T17:57:24-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "learnloop.toml locks"
@@ -40,8 +40,8 @@ The main configuration contract, precedence rules, and safe-edit workflow live i
 
 | Dotted path | Effective value | Shape | Origin | Function | Runtime/refactor status | Consumer/source anchors |
 |---|---|---|---|---|---|---|
-| `locks.facet_lock_mass` | `2.0` | number | modeled default or validator seed | Controls facet lock mass in the retired facet identity-lock thresholds (nothing reads them since facet locks were removed on 2026-10-12), using the typed value shown here as the fresh-vault default. | **COMPAT** — Retired with facet identity locks (owner, 2026-10-12): accepted so older vaults still open and the recorded defaults snapshots stay put; nothing reads it, and doctor warns when a vault sets it. | `src/learnloop/config/schema.py:1793`; `src/learnloop/ai/plan_fallback.py:138` |
-| `locks.facet_surface_groups` | `2` | integer | modeled default or validator seed | Controls facet surface groups in the retired facet identity-lock thresholds (nothing reads them since facet locks were removed on 2026-10-12), using the typed value shown here as the fresh-vault default. | **COMPAT** — Retired with facet identity locks (owner, 2026-10-12): accepted so older vaults still open and the recorded defaults snapshots stay put; nothing reads it, and doctor warns when a vault sets it. | `src/learnloop/config/schema.py:1794`; `src/learnloop/ai/plan_fallback.py:138` |
+| `locks.facet_lock_mass` | `2.0` | number | modeled default or validator seed | Controls facet lock mass in the retired facet identity-lock thresholds (nothing reads them since facet locks were removed on 2026-10-12), using the typed value shown here as the fresh-vault default. | **COMPAT** — Retired with facet identity locks (owner, 2026-10-12): accepted so older vaults still open and the recorded defaults snapshots stay put; nothing reads it, and doctor warns when a vault sets it. | `src/learnloop/config/schema.py:1801`; `src/learnloop/ai/plan_fallback.py:138` |
+| `locks.facet_surface_groups` | `2` | integer | modeled default or validator seed | Controls facet surface groups in the retired facet identity-lock thresholds (nothing reads them since facet locks were removed on 2026-10-12), using the typed value shown here as the fresh-vault default. | **COMPAT** — Retired with facet identity locks (owner, 2026-10-12): accepted so older vaults still open and the recorded defaults snapshots stay put; nothing reads it, and doctor warns when a vault sets it. | `src/learnloop/config/schema.py:1802`; `src/learnloop/ai/plan_fallback.py:138` |
 
 > [!warning] Omitted does not mean frozen in the file
 > Most values are intentionally absent from `learnloop.toml`. Their reproducibility is protected by the defaults fingerprint keyed to `algorithms.algorithm_version`, not by dumping every default into each vault.
