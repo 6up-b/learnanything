@@ -114,6 +114,27 @@ def source_of_probe_attempt(repository: Repository, attempt_id: str) -> str | No
     return str(row["source_attempt_id"])
 
 
+def router_wait() -> str:
+    from learnloop.followup_run.router import WAIT
+
+    return WAIT
+
+
+def plan_will_place(vault: Any, repository: Repository, attempt_id: str, *, clock: Clock | None = None) -> bool:
+    """R12: a plan serves a workflow's probe only if the miss came from the plan and today's plan
+    is still open to place it. The attempt says which by its own record, its validated
+    ``plan_presentation_id``, so every surface gets this without telling the server anything.
+    Otherwise Next opens the probe: nothing else would, and the answer would stay held."""
+
+    from learnloop.daily_plan.engine import PlanEnv, latest_today, plan_active
+
+    attempt = repository.fetch_practice_attempt(attempt_id) or {}
+    if not attempt.get("plan_presentation_id") or not plan_active(vault):
+        return False
+    record = latest_today(PlanEnv(vault=vault, repository=repository, clock=clock))
+    return record is not None and record.is_open
+
+
 def next_action(
     vault: Any, repository: Repository, attempt_id: str, *, plan_serves: bool, clock: Clock | None = None
 ) -> NextAction:
@@ -129,6 +150,10 @@ def next_action(
     if row["state"] == wf.READY and _administration_over(repository, row):
         # Served, and its presentation has since ended: the door would refuse it, so Next doesn't offer it.
         wf.retire_waiting(repository, row, reason="presentation_ended", clock=clock)
+        return NextAction("continue")
+    if row["state"] == wf.PENDING and row.get("chosen_ref") == router_wait() and not is_holding(row):
+        # §6.0: the router let it wait, and what was held is released, so nothing here waits for the
+        # question being written. Whatever its job comes to, Next goes on.
         return NextAction("continue")
     if row["state"] == wf.PENDING:
         from learnloop.followup_run.jobs import recover_workflow
