@@ -351,6 +351,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_reader_recap_review_r2.py](../../../../../tests/test_reader_recap_review_r2.py) — direct import
 - [tests/test_reader_tutor_retrieval.py](../../../../../tests/test_reader_tutor_retrieval.py) — direct import
 - [tests/test_reread_safety.py](../../../../../tests/test_reread_safety.py) — direct import
+- [tests/test_ro1_availability.py](../../../../../tests/test_ro1_availability.py) — direct import
+  - `test_the_backfill_reads_an_imported_exam_rows_ulid_time_and_leaves_bad_ids_null`
 - [tests/test_router_r2a_landing.py](../../../../../tests/test_router_r2a_landing.py) — direct import
 - [tests/test_sidecar_trace_and_clarification.py](../../../../../tests/test_sidecar_trace_and_clarification.py) — direct import
 - [tests/test_source_first_needs.py](../../../../../tests/test_source_first_needs.py) — direct import

@@ -7,8 +7,8 @@ version: "1.0.0"
 source_path: "src/learnloop/scheduling/intent/recall_targets.py"
 source_paths:
   - "src/learnloop/scheduling/intent/recall_targets.py"
-source_commit: "1d5ba0272bb7d749483eea0f91c9eda2030bc4e9"
-source_commit_timestamp: "2026-10-20T00:37:51-04:00"
+source_commit: "028e8c0decfee9a3d8717f3ef1958ab59cdbaa7c"
+source_commit_timestamp: "2026-11-04T17:56:52-05:00"
 source_worktree_state: "clean"
 generated: true
 generated_at: "2026-11-02"
@@ -50,30 +50,30 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/scheduling/intent/recall_targets.py](../../../../../../../src/learnloop/scheduling/intent/recall_targets.py) |
-| Source lines | 147 |
+| Source lines | 150 |
 | Owning package | [[Reference/Modules/learnloop/scheduling/intent/_package|learnloop.scheduling.intent]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `1d5ba0272bb7d749483eea0f91c9eda2030bc4e9` |
-| Commit timestamp | `2026-10-20T00:37:51-04:00` |
+| Source commit | `028e8c0decfee9a3d8717f3ef1958ab59cdbaa7c` |
+| Commit timestamp | `2026-11-04T17:56:52-05:00` |
 
 ## Public API
 
-- `ratio(target: float, weights: tuple[float, ...]) -> float` ([source](../../../../../../../src/learnloop/scheduling/intent/recall_targets.py), line 49) — The interval multiplier for ``target`` against the stored 0.90.
-- `fsrs_eligible(row: Mapping[str, Any]) -> bool` ([source](../../../../../../../src/learnloop/scheduling/intent/recall_targets.py), line 62)
-- `anchors_from_attempts(rows: Iterable[Mapping[str, Any]], *, held: frozenset[str]=frozenset()) -> dict[str, tuple[str, str]]` ([source](../../../../../../../src/learnloop/scheduling/intent/recall_targets.py), line 72) — ``{item id: (anchor created_at, attempt id)}``: the latest attempt per item that wrote FSRS state (eligible, and not ``held`` for review).
-- `load_anchors(connection: Any) -> dict[str, tuple[str, str]]` ([source](../../../../../../../src/learnloop/scheduling/intent/recall_targets.py), line 91)
-- `class EffectiveDue` ([source](../../../../../../../src/learnloop/scheduling/intent/recall_targets.py), line 102)
-- `effective_due(*, due_at: str | None, anchor_at: str | None, target: float, weights: tuple[float, ...], has_state: bool=True) -> EffectiveDue` ([source](../../../../../../../src/learnloop/scheduling/intent/recall_targets.py), line 109) — §5.3's effective due for one item.
+- `ratio(target: float, weights: tuple[float, ...]) -> float` ([source](../../../../../../../src/learnloop/scheduling/intent/recall_targets.py), line 52) — The interval multiplier for ``target`` against the stored 0.90.
+- `fsrs_eligible(row: Mapping[str, Any]) -> bool` ([source](../../../../../../../src/learnloop/scheduling/intent/recall_targets.py), line 65)
+- `anchors_from_attempts(rows: Iterable[Mapping[str, Any]], *, held: frozenset[str]=frozenset()) -> dict[str, tuple[str, str]]` ([source](../../../../../../../src/learnloop/scheduling/intent/recall_targets.py), line 75) — ``{item id: (anchor created_at, attempt id)}``: the latest attempt per item that wrote FSRS state (eligible, and not ``held`` for review).
+- `load_anchors(connection: Any) -> dict[str, tuple[str, str]]` ([source](../../../../../../../src/learnloop/scheduling/intent/recall_targets.py), line 94)
+- `class EffectiveDue` ([source](../../../../../../../src/learnloop/scheduling/intent/recall_targets.py), line 105)
+- `effective_due(*, due_at: str | None, anchor_at: str | None, target: float, weights: tuple[float, ...], has_state: bool=True) -> EffectiveDue` ([source](../../../../../../../src/learnloop/scheduling/intent/recall_targets.py), line 112) — §5.3's effective due for one item.
 
 ### Module constants
 
-- `STORED_RETENTION` ([src/learnloop/scheduling/intent/recall_targets.py](../../../../../../../src/learnloop/scheduling/intent/recall_targets.py), line 41)
-- `FALLBACK_NO_STATE` ([src/learnloop/scheduling/intent/recall_targets.py](../../../../../../../src/learnloop/scheduling/intent/recall_targets.py), line 43)
-- `FALLBACK_NO_DUE` ([src/learnloop/scheduling/intent/recall_targets.py](../../../../../../../src/learnloop/scheduling/intent/recall_targets.py), line 44)
-- `FALLBACK_NO_ANCHOR` ([src/learnloop/scheduling/intent/recall_targets.py](../../../../../../../src/learnloop/scheduling/intent/recall_targets.py), line 45)
-- `FALLBACK_ANCHOR_NOT_BEFORE_DUE` ([src/learnloop/scheduling/intent/recall_targets.py](../../../../../../../src/learnloop/scheduling/intent/recall_targets.py), line 46)
+- `STORED_RETENTION` ([src/learnloop/scheduling/intent/recall_targets.py](../../../../../../../src/learnloop/scheduling/intent/recall_targets.py), line 44)
+- `FALLBACK_NO_STATE` ([src/learnloop/scheduling/intent/recall_targets.py](../../../../../../../src/learnloop/scheduling/intent/recall_targets.py), line 46)
+- `FALLBACK_NO_DUE` ([src/learnloop/scheduling/intent/recall_targets.py](../../../../../../../src/learnloop/scheduling/intent/recall_targets.py), line 47)
+- `FALLBACK_NO_ANCHOR` ([src/learnloop/scheduling/intent/recall_targets.py](../../../../../../../src/learnloop/scheduling/intent/recall_targets.py), line 48)
+- `FALLBACK_ANCHOR_NOT_BEFORE_DUE` ([src/learnloop/scheduling/intent/recall_targets.py](../../../../../../../src/learnloop/scheduling/intent/recall_targets.py), line 49)
 
 ### Explicit exports
 

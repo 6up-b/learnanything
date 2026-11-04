@@ -7,8 +7,8 @@ version: "1.0.0"
 source_path: "src/learnloop/adaptive_difficulty/protected_tables.py"
 source_paths:
   - "src/learnloop/adaptive_difficulty/protected_tables.py"
-source_commit: "18e1b00c392cd1b2aba022d40f8a35b4fddef20f"
-source_commit_timestamp: "2026-11-02T19:33:12-05:00"
+source_commit: "025a420fa5a95a2aae196da71e84bb416b795cf8"
+source_commit_timestamp: "2026-11-04T17:57:15-05:00"
 source_worktree_state: "clean"
 generated: true
 generated_at: "2026-11-02"
@@ -55,8 +55,8 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `18e1b00c392cd1b2aba022d40f8a35b4fddef20f` |
-| Commit timestamp | `2026-11-02T19:33:12-05:00` |
+| Source commit | `025a420fa5a95a2aae196da71e84bb416b795cf8` |
+| Commit timestamp | `2026-11-04T17:57:15-05:00` |
 
 ## Public API
 

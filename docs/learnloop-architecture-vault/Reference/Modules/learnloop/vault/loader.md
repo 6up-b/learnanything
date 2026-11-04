@@ -189,6 +189,7 @@ The authoritative system-level explanation remains in [[State and Persistence]];
 - [[Reference/Modules/learnloop/instructional/harvest|learnloop.instructional.harvest]] — imports `load_vault`; statically calls `load_vault`
 - [[Reference/Modules/learnloop/instructional/needs|learnloop.instructional.needs]] — imports `load_vault`; statically calls `load_vault`
 - [[Reference/Modules/learnloop/intent_upgrade|learnloop.intent_upgrade]] — imports `load_vault`; statically calls `load_vault`
+- [[Reference/Modules/learnloop/interval_factor_upgrade|learnloop.interval_factor_upgrade]] — imports `load_vault`; statically calls `load_vault`
 - [[Reference/Modules/learnloop/learner/recall_calibration|learnloop.learner.recall_calibration]] — imports `add_subject`, `init_vault`, `load_vault`; statically calls `add_subject`, `init_vault`, `load_vault`
 - [[Reference/Modules/learnloop/learner_text_gap_upgrade|learnloop.learner_text_gap_upgrade]] — imports `load_vault`; statically calls `load_vault`
 - [[Reference/Modules/learnloop/lesson_suggestions_upgrade|learnloop.lesson_suggestions_upgrade]] — imports `load_vault`; statically calls `load_vault`
@@ -264,7 +265,7 @@ Use this module in context through:
 
 - [[Initialize a Vault]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/ad_successor_upgrade|learnloop.ad_successor_upgrade]], [[Reference/Modules/learnloop/adaptive_difficulty/generation|learnloop.adaptive_difficulty.generation]], [[Reference/Modules/learnloop/adaptive_difficulty/operation|learnloop.adaptive_difficulty.operation]], [[Reference/Modules/learnloop/attempt_content_state_upgrade|learnloop.attempt_content_state_upgrade]], [[Reference/Modules/learnloop/attempts/measurement_corrections|learnloop.attempts.measurement_corrections]] and 122 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/ad_successor_upgrade|learnloop.ad_successor_upgrade]], [[Reference/Modules/learnloop/adaptive_difficulty/generation|learnloop.adaptive_difficulty.generation]], [[Reference/Modules/learnloop/adaptive_difficulty/operation|learnloop.adaptive_difficulty.operation]], [[Reference/Modules/learnloop/attempt_content_state_upgrade|learnloop.attempt_content_state_upgrade]], [[Reference/Modules/learnloop/attempts/measurement_corrections|learnloop.attempts.measurement_corrections]] and 123 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
@@ -2778,6 +2779,20 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_a_revealed_cold_item_cannot_burn_its_cold_measurement`
 - [tests/test_review_log.py](../../../../../../tests/test_review_log.py) — direct import
 - [tests/test_revision_refresh.py](../../../../../../tests/test_revision_refresh.py) — direct import
+- [tests/test_ro1_availability.py](../../../../../../tests/test_ro1_availability.py) — direct import
+- [tests/test_ro1_interval_factor.py](../../../../../../tests/test_ro1_interval_factor.py) — direct import
+  - `test_the_gate_is_the_tag_and_the_switch`
+- [tests/test_ro1_projection.py](../../../../../../tests/test_ro1_projection.py) — direct import
+  - `test_availability_moves_no_due_date_or_mastery`
+  - `test_every_switch_combination_moves_exactly_its_own_part`
+- [tests/test_ro1_self_report.py](../../../../../../tests/test_ro1_self_report.py) — direct import
+- [tests/test_ro1_successor.py](../../../../../../tests/test_ro1_successor.py) — direct import
+  - `test_each_switch_is_classified_and_reads_off_or_below_the_tag`
+  - `test_the_upgrade_moves_existing_due_dates_to_the_unstretched_interval`
+  - `test_the_upgrade_refuses_anything_older_than_the_chain`
+- [tests/test_ro1_upgrade_report.py](../../../../../../tests/test_ro1_upgrade_report.py) — direct import
+  - `test_the_shadow_rebuild_reports_the_upgrades_schedule_effects`
+  - `test_with_the_factor_kept_the_shadow_reports_no_schedule_change`
 - [tests/test_route_rules_in_grader.py](../../../../../../tests/test_route_rules_in_grader.py) — direct import
   - `test_a_retired_proof_check_route_is_ignored_and_reported`
   - `test_f5_a_regrade_supersedes_an_mvp017_route_check_verdict`

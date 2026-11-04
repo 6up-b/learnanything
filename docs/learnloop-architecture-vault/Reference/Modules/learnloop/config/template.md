@@ -7,8 +7,8 @@ version: "1.0.0"
 source_path: "src/learnloop/config/template.py"
 source_paths:
   - "src/learnloop/config/template.py"
-source_commit: "2cfe5cce75c95910c18c0105c36d952e15ab11cc"
-source_commit_timestamp: "2026-11-03T23:34:25-05:00"
+source_commit: "028e8c0decfee9a3d8717f3ef1958ab59cdbaa7c"
+source_commit_timestamp: "2026-11-04T17:56:52-05:00"
 source_worktree_state: "clean"
 generated: true
 generated_at: "2026-11-02"
@@ -50,28 +50,28 @@ The authoritative system-level explanation remains in [[Configuration]], [[Archi
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/config/template.py](../../../../../../src/learnloop/config/template.py) |
-| Source lines | 4076 |
+| Source lines | 4093 |
 | Owning package | [[Reference/Modules/learnloop/config/_package|learnloop.config]] |
 | Architecture layer | `infrastructure` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `2cfe5cce75c95910c18c0105c36d952e15ab11cc` |
-| Commit timestamp | `2026-11-03T23:34:25-05:00` |
+| Source commit | `028e8c0decfee9a3d8717f3ef1958ab59cdbaa7c` |
+| Commit timestamp | `2026-11-04T17:56:52-05:00` |
 
 ## Public API
 
-- `default_config_text(algorithm_version: str=LATEST_ALGORITHM_VERSION) -> str` ([source](../../../../../../src/learnloop/config/template.py), line 819) — The decision-only template as a vault at ``algorithm_version`` holds it.
-- `write_default_config(path: Path) -> None` ([source](../../../../../../src/learnloop/config/template.py), line 4025) — Write the decision-only template without replacing an existing file.
-- `effective_defaults_fingerprint(config: LearnLoopConfig | None=None) -> str` ([source](../../../../../../src/learnloop/config/template.py), line 4033) — Content address of the complete effective defaults for a new vault.
-- `defaults_fingerprint_for_version(algorithm_version: str) -> str` ([source](../../../../../../src/learnloop/config/template.py), line 4055) — The effective-defaults fingerprint of a new vault at ``algorithm_version``.
+- `default_config_text(algorithm_version: str=LATEST_ALGORITHM_VERSION) -> str` ([source](../../../../../../src/learnloop/config/template.py), line 822) — The decision-only template as a vault at ``algorithm_version`` holds it.
+- `write_default_config(path: Path) -> None` ([source](../../../../../../src/learnloop/config/template.py), line 4042) — Write the decision-only template without replacing an existing file.
+- `effective_defaults_fingerprint(config: LearnLoopConfig | None=None) -> str` ([source](../../../../../../src/learnloop/config/template.py), line 4050) — Content address of the complete effective defaults for a new vault.
+- `defaults_fingerprint_for_version(algorithm_version: str) -> str` ([source](../../../../../../src/learnloop/config/template.py), line 4072) — The effective-defaults fingerprint of a new vault at ``algorithm_version``.
 
 ### Module constants
 
 - `LEGACY_DEFAULT_CONFIG_TEXT` ([src/learnloop/config/template.py](../../../../../../src/learnloop/config/template.py), line 19)
-- `_ALGORITHM_VERSION_PLACEHOLDER` ([src/learnloop/config/template.py](../../../../../../src/learnloop/config/template.py), line 734)
-- `_DEFAULT_CONFIG_TEMPLATE` ([src/learnloop/config/template.py](../../../../../../src/learnloop/config/template.py), line 736)
-- `DEFAULT_CONFIG_TEXT` ([src/learnloop/config/template.py](../../../../../../src/learnloop/config/template.py), line 833)
-- `DEFAULTS_SNAPSHOT_BY_ALGORITHM` ([src/learnloop/config/template.py](../../../../../../src/learnloop/config/template.py), line 842)
+- `_ALGORITHM_VERSION_PLACEHOLDER` ([src/learnloop/config/template.py](../../../../../../src/learnloop/config/template.py), line 737)
+- `_DEFAULT_CONFIG_TEMPLATE` ([src/learnloop/config/template.py](../../../../../../src/learnloop/config/template.py), line 739)
+- `DEFAULT_CONFIG_TEXT` ([src/learnloop/config/template.py](../../../../../../src/learnloop/config/template.py), line 836)
+- `DEFAULTS_SNAPSHOT_BY_ALGORITHM` ([src/learnloop/config/template.py](../../../../../../src/learnloop/config/template.py), line 845)
 
 ### Explicit exports
 
@@ -201,6 +201,9 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_defaults_fingerprint_is_recorded_for_the_successor`
 - [tests/test_regrade_contract_successor.py](../../../../../../tests/test_regrade_contract_successor.py) — direct import
   - `test_its_defaults_fingerprint_is_recorded`
+- [tests/test_ro1_successor.py](../../../../../../tests/test_ro1_successor.py) — direct import
+  - `test_every_defaults_snapshot_is_recomputed_and_moves_only_by_the_new_keys`
+  - `test_the_factors_constants_stay_in_config_with_their_note`
 - [tests/test_serve_eligibility_review.py](../../../../../../tests/test_serve_eligibility_review.py) — direct import
   - `test_f4_the_successor_follows_regrade_contracts_and_keeps_every_predecessor`
 - [tests/test_teacher_te1_successor.py](../../../../../../tests/test_teacher_te1_successor.py) — direct import

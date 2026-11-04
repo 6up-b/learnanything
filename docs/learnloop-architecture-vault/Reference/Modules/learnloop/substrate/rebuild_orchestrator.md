@@ -7,8 +7,8 @@ version: "1.0.0"
 source_path: "src/learnloop/substrate/rebuild_orchestrator.py"
 source_paths:
   - "src/learnloop/substrate/rebuild_orchestrator.py"
-source_commit: "2574993e6dd12dd85300cc807bf0e7321e29e1a4"
-source_commit_timestamp: "2026-11-03T19:31:22-05:00"
+source_commit: "f07990df62bdf890561c46f90d785f06a19e3d5b"
+source_commit_timestamp: "2026-11-04T17:57:24-05:00"
 source_worktree_state: "clean"
 generated: true
 generated_at: "2026-11-02"
@@ -50,13 +50,13 @@ The authoritative system-level explanation remains in [[Learning System]], [[Sta
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/substrate/rebuild_orchestrator.py](../../../../../../src/learnloop/substrate/rebuild_orchestrator.py) |
-| Source lines | 813 |
+| Source lines | 817 |
 | Owning package | [[Reference/Modules/learnloop/substrate/_package|learnloop.substrate]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `2574993e6dd12dd85300cc807bf0e7321e29e1a4` |
-| Commit timestamp | `2026-11-03T19:31:22-05:00` |
+| Source commit | `f07990df62bdf890561c46f90d785f06a19e3d5b` |
+| Commit timestamp | `2026-11-04T17:57:24-05:00` |
 
 ## Public API
 
@@ -71,7 +71,7 @@ The authoritative system-level explanation remains in [[Learning System]], [[Sta
 - `derived_table_owners(replayers: Sequence[DerivedStateReplayer]=DERIVED_STATE_REPLAYERS) -> dict[str, tuple[str, ...]]` ([source](../../../../../../src/learnloop/substrate/rebuild_orchestrator.py), line 226) — Return all declared owners, retaining duplicates for validation.
 - `validate_replayer_registry(replayers: Sequence[DerivedStateReplayer]=DERIVED_STATE_REPLAYERS) -> None` ([source](../../../../../../src/learnloop/substrate/rebuild_orchestrator.py), line 238) — Require exact, unique DERIVED ownership and valid dependency order.
 - `rebuild_all_derived_state(vault: LoadedVault, repository: Repository, *, learning_object_ids: list[str] | None=None, clock: Clock | None=None, require_complete_attempt_coverage: bool=True) -> OrchestratedRebuildResult` ([source](../../../../../../src/learnloop/substrate/rebuild_orchestrator.py), line 685) — Run all registered replayers and append exactly one rebuild receipt.
-- `rebuild_live_derived_state(vault: LoadedVault, repository: Repository, *, learning_object_ids: list[str] | None=None, clock: Clock | None=None) -> OrchestratedRebuildResult` ([source](../../../../../../src/learnloop/substrate/rebuild_orchestrator.py), line 770) — Rebuild a vault's live database, then truncate the WAL it grew.
+- `rebuild_live_derived_state(vault: LoadedVault, repository: Repository, *, learning_object_ids: list[str] | None=None, clock: Clock | None=None) -> OrchestratedRebuildResult` ([source](../../../../../../src/learnloop/substrate/rebuild_orchestrator.py), line 774) — Rebuild a vault's live database, then truncate the WAL it grew.
 
 ### Module constants
 
@@ -128,6 +128,7 @@ The authoritative system-level explanation remains in [[Learning System]], [[Sta
 
 - [[Reference/Modules/learnloop/claim_fixes_upgrade|learnloop.claim_fixes_upgrade]] — imports `COLD_MASTERY_BASELINE_AT`, `rebuild_all_derived_state`; statically calls `rebuild_all_derived_state`
 - [[Reference/Modules/learnloop/cli/runtime|learnloop.cli.runtime]] — imports `rebuild_all_derived_state`, `rebuild_live_derived_state`
+- [[Reference/Modules/learnloop/interval_factor_upgrade|learnloop.interval_factor_upgrade]] — imports `rebuild_all_derived_state`; statically calls `rebuild_all_derived_state`
 - [[Reference/Modules/learnloop/regrade_contract_upgrade|learnloop.regrade_contract_upgrade]] — imports `rebuild_all_derived_state`; statically calls `rebuild_all_derived_state`
 - [[Reference/Modules/learnloop/replay_ledger_upgrade|learnloop.replay_ledger_upgrade]] — imports `rebuild_all_derived_state`; statically calls `rebuild_all_derived_state`
 - [[Reference/Modules/learnloop/substrate/shadow_rebuild|learnloop.substrate.shadow_rebuild]] — imports `OrchestratedRebuildResult`, `rebuild_all_derived_state`; statically calls `rebuild_all_derived_state`
@@ -157,6 +158,7 @@ The authoritative system-level explanation remains in [[Learning System]], [[Sta
 - [[Reference/Modules/learnloop/learner/mastery|learnloop.learner.mastery]] — imports `initial_mastery_state_for_learning_object`; calls `initial_mastery_state_for_learning_object`
 - [[Reference/Modules/learnloop/local_embeddings/fusion|learnloop.local_embeddings.fusion]] — imports `refit_posteriors`; calls `refit_posteriors`
 - [[Reference/Modules/learnloop/router/outcomes|learnloop.router.outcomes]] — imports `outcome_version_for`, `rebuild_router_outcomes`, `servable_items_by_learning_object`; calls `outcome_version_for`, `rebuild_router_outcomes`, `servable_items_by_learning_object`
+- [[Reference/Modules/learnloop/router_objective_switches|learnloop.router_objective_switches]] — imports `projection_switches`; calls `projection_switches`
 - [[Reference/Modules/learnloop/substrate/canonical_projection|learnloop.substrate.canonical_projection]] — imports `CANONICAL_PROJECTION_VERSION`, `held_for_review_attempts`, `pfc_assessments`, `project_canonical_facet_state`; calls `held_for_review_attempts`, `pfc_assessments`, `project_canonical_facet_state`
 - [[Reference/Modules/learnloop/substrate/compat/activity_backfill|learnloop.substrate.compat.activity_backfill]] — imports `backfill_activity_substrate`; calls `backfill_activity_substrate`
 - [[Reference/Modules/learnloop/substrate/family_memory|learnloop.substrate.family_memory]] — imports `PROJECTION_LEGACY_FALLBACK`, `rebuild_family_memory`; calls `rebuild_family_memory`
@@ -177,7 +179,7 @@ Use this module in context through:
 
 - [[Rebuild and Shadow Compare]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/claim_fixes_upgrade|learnloop.claim_fixes_upgrade]], [[Reference/Modules/learnloop/cli/runtime|learnloop.cli.runtime]], [[Reference/Modules/learnloop/regrade_contract_upgrade|learnloop.regrade_contract_upgrade]], [[Reference/Modules/learnloop/replay_ledger_upgrade|learnloop.replay_ledger_upgrade]], [[Reference/Modules/learnloop/substrate/shadow_rebuild|learnloop.substrate.shadow_rebuild]].
+Static participation evidence comes from [[Reference/Modules/learnloop/claim_fixes_upgrade|learnloop.claim_fixes_upgrade]], [[Reference/Modules/learnloop/cli/runtime|learnloop.cli.runtime]], [[Reference/Modules/learnloop/interval_factor_upgrade|learnloop.interval_factor_upgrade]], [[Reference/Modules/learnloop/regrade_contract_upgrade|learnloop.regrade_contract_upgrade]], [[Reference/Modules/learnloop/replay_ledger_upgrade|learnloop.replay_ledger_upgrade]] and 1 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
@@ -348,6 +350,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_replay_reproduces_method_grades_without_a_model`
 - [tests/test_retrieval_spaces_migration.py](../../../../../../tests/test_retrieval_spaces_migration.py) — direct import
   - `test_table_roles_and_the_one_replayer`
+- [tests/test_ro1_projection.py](../../../../../../tests/test_ro1_projection.py) — direct import
 - [tests/test_route_rules_in_grader.py](../../../../../../tests/test_route_rules_in_grader.py) — direct import
   - `test_f1_live_an_incomplete_grade_with_nothing_located_is_held`
   - `test_f4_the_graders_route_verdict_reaches_the_judgment_ledger_and_regrades_supersede_it`

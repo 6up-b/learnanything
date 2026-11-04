@@ -205,6 +205,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_a_later_diagnosis_cannot_cite_an_unassessed_shortfall_as_a_recurrence`
 - [tests/test_reader_rw2b_fix15.py](../../../../../../../tests/test_reader_rw2b_fix15.py) — direct import
   - `test_item2_a_switch_off_during_context_assembly_masks_the_rendered_trace`
+- [tests/test_ro1_projection.py](../../../../../../../tests/test_ro1_projection.py) — direct import
 - [tests/test_teacher_te0_confidence_events.py](../../../../../../../tests/test_teacher_te0_confidence_events.py) — direct import
   - `test_the_diagnosers_history_and_current_attempt_carry_the_events`
 - [tests/test_workbench_trace.py](../../../../../../../tests/test_workbench_trace.py) — direct import

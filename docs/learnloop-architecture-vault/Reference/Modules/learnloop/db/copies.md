@@ -245,6 +245,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_the_head_fixture_predecessor_to_successor_path`
 - [tests/test_regrade_contract_upgrade.py](../../../../../../tests/test_regrade_contract_upgrade.py) — direct import
   - `test_head_fixture_predecessor_to_successor_path`
+- [tests/test_ro1_projection.py](../../../../../../tests/test_ro1_projection.py) — direct import
+- [tests/test_ro1_self_report.py](../../../../../../tests/test_ro1_self_report.py) — direct import
 - [tests/test_route_rules_in_grader.py](../../../../../../tests/test_route_rules_in_grader.py) — direct import
   - `test_f5_a_regrade_supersedes_an_mvp017_route_check_verdict`
   - `test_migration_186_keeps_its_trigger_which_nothing_writes_now`

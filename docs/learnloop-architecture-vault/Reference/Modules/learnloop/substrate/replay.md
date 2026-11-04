@@ -7,8 +7,8 @@ version: "1.0.0"
 source_path: "src/learnloop/substrate/replay.py"
 source_paths:
   - "src/learnloop/substrate/replay.py"
-source_commit: "b45e4414cdb7963772b12ecd3c8825b73e93266a"
-source_commit_timestamp: "2026-11-03T21:51:14-05:00"
+source_commit: "f07990df62bdf890561c46f90d785f06a19e3d5b"
+source_commit_timestamp: "2026-11-04T17:57:24-05:00"
 source_worktree_state: "clean"
 generated: true
 generated_at: "2026-11-02"
@@ -50,13 +50,13 @@ The authoritative system-level explanation remains in [[Learning System]], [[Sta
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/substrate/replay.py](../../../../../../src/learnloop/substrate/replay.py) |
-| Source lines | 533 |
+| Source lines | 536 |
 | Owning package | [[Reference/Modules/learnloop/substrate/_package|learnloop.substrate]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `b45e4414cdb7963772b12ecd3c8825b73e93266a` |
-| Commit timestamp | `2026-11-03T21:51:14-05:00` |
+| Source commit | `f07990df62bdf890561c46f90d785f06a19e3d5b` |
+| Commit timestamp | `2026-11-04T17:57:24-05:00` |
 
 ## Public API
 
@@ -66,7 +66,7 @@ The authoritative system-level explanation remains in [[Learning System]], [[Sta
   - `as_dict(self) -> dict[str, object]` (line 36; public)
 - `replay_learning_object(vault: LoadedVault, repository: Repository, learning_object_id: str, *, error_attribution_overrides: dict[str, list[GradeAttribution]] | None=None, grader_identity_overrides: dict[str, tuple[str, str] | None] | None=None, project_canonical_state: bool=True) -> ReplayResult` ([source](../../../../../../src/learnloop/substrate/replay.py), line 268) — Rebuild attempt-derived state for one learning object from persisted grades.
 - `rebuild_derived_state(vault: LoadedVault, repository: Repository, *, learning_object_ids: list[str] | None=None, clock: Clock | None=None, record_receipt: bool=True, project_canonical_state: bool=True) -> RebuildResult` ([source](../../../../../../src/learnloop/substrate/replay.py), line 420) — Replay all requested learning objects that have persisted attempts.
-- `record_content_recalibration(vault: LoadedVault, repository: Repository, *, affected_learning_object_ids: list[str], clock: Clock | None=None) -> str | None` ([source](../../../../../../src/learnloop/substrate/replay.py), line 480) — Stamp the recalibration boundary AT the content change, not after it.
+- `record_content_recalibration(vault: LoadedVault, repository: Repository, *, affected_learning_object_ids: list[str], clock: Clock | None=None) -> str | None` ([source](../../../../../../src/learnloop/substrate/replay.py), line 483) — Stamp the recalibration boundary AT the content change, not after it.
 
 ## Internal implementation anchors
 
@@ -102,6 +102,7 @@ The authoritative system-level explanation remains in [[Learning System]], [[Sta
 - [[Reference/Modules/learnloop/followup_serve/identity|learnloop.followup_serve.identity]] — imports `closed_probe_ids`; calls `closed_probe_ids`
 - [[Reference/Modules/learnloop/learner/facet_diagnostics|learnloop.learner.facet_diagnostics]] — imports `coverage_denominator_version`; calls `coverage_denominator_version`
 - [[Reference/Modules/learnloop/learner/mastery|learnloop.learner.mastery]] — imports `module`; calls `after_what_they_replaced`, `claim_fixes_live`, `covering_claims`, `initial_mastery_state_for_learning_object`, `reanchor_mastery_from_claim`
+- [[Reference/Modules/learnloop/router_objective_switches|learnloop.router_objective_switches]] — imports `projection_switches`; calls `projection_switches`
 - [[Reference/Modules/learnloop/substrate/canonical_projection|learnloop.substrate.canonical_projection]] — imports `CANONICAL_PROJECTION_VERSION`, `project_canonical_facet_state`; calls `project_canonical_facet_state`
 - [[Reference/Modules/learnloop/vault/models|learnloop.vault.models]] — imports `LoadedVault`
 
@@ -189,6 +190,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_live_and_replay_drive_shared_apply_attempt_step`
   - `test_rebuild_derived_state_replays_attempt_logs`
   - `test_replay_preserves_targeted_error_attribution_facets`
+- [tests/test_ro1_availability.py](../../../../../../tests/test_ro1_availability.py) — direct import
+  - `test_exam_seeding_records_the_import_time_and_replay_keeps_it`
 - [tests/test_source_append.py](../../../../../../tests/test_source_append.py) — direct import
   - `test_replay_identical_after_append_apply`
 - [tests/test_source_set_synthesis.py](../../../../../../tests/test_source_set_synthesis.py) — direct import
