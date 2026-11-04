@@ -280,3 +280,23 @@ def test_a_short_reserved_stem_is_still_a_match_within_longer_words(tmp_path, mo
     reserved = reserved_questions(vault, repository, learner_protection.withheld_items(vault, repository))
     assert reserved_findings("Earlier you were asked to name a prime, and did.", reserved)
     assert not reserved_findings("Earlier you named a number.", reserved)
+
+
+def test_wording_an_ordinary_item_already_shows_is_no_match(tmp_path, monkeypatch):
+    """On a real copy 28 of 84 ordinary items shared a six-word shingle with the reserved questions,
+    mostly formulas ("(u+v)+w = u+(v+w)"). What the learner is already shown can't leak."""
+
+    from learnloop.content.authoring.practice_leakage import reserved_findings, reserved_questions
+
+    shared = "for every vector in the space the identity holds"
+    paths, vault, repository = live_shape_vault(tmp_path)
+    for item_id, words in ((RESERVED_ITEM, f"{STEM} {shared}"), ("pi_svd_compute_002", f"Show that {shared}.")):
+        path = _item_path(paths, item_id)
+        payload = read_yaml(path)
+        payload["prompt"] = words
+        write_yaml(path, payload)
+    vault = load_vault(paths.root)
+    _reserve(monkeypatch)
+    reserved = reserved_questions(vault, repository, learner_protection.withheld_items(vault, repository))
+    assert not reserved_findings(f"We know that {shared} here.", reserved)
+    assert reserved_findings("the reserved sentinel matrix over the given sentinel field", reserved)

@@ -245,14 +245,24 @@ def reserved_questions(vault: LoadedVault, repository: Repository, withheld: Any
     from learnloop.learner_protection import WITHHELD_EXAM, WITHHELD_RESERVED
 
     texts: list[str] = []
+    shown: list[str] = []
     stems: set[str] = set()
     for item in vault.practice_items.values():
+        payload = item.model_dump(mode="json")
         if withheld.reason(str(item.id)) in {WITHHELD_EXAM, WITHHELD_RESERVED}:
-            payload = item.model_dump(mode="json")
             texts.append(_payload_surfaces(payload))
             stems.add(" ".join(_normalize_tokens(str(payload.get("prompt") or ""))))
+        else:
+            shown.append(_payload_surfaces(payload))
     texts.extend(span.text for span in held_out_spans(vault, repository))
-    return ReservedQuestions(inventory=inventory_for_texts(texts), stems=frozenset(stems - {""}))
+    # Structural, so no threshold: what an ordinary item already shows the learner can't leak, and
+    # on a real vault that is mostly formulas and the subject's own phrases. A whole stem still counts.
+    held, ordinary = inventory_for_texts(texts), inventory_for_texts(shown)
+    return ReservedQuestions(
+        inventory=HeldOutInventory(shingles=held.shingles - ordinary.shingles, numerics=held.numerics - ordinary.numerics,
+                                   shingle_n=held.shingle_n, span_count=held.span_count),
+        stems=frozenset(stems - {""}),
+    )
 
 
 def reserved_findings(text: str, reserved: ReservedQuestions) -> list[dict[str, str]]:
