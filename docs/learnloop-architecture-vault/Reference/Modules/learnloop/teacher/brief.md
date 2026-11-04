@@ -7,8 +7,8 @@ version: "1.0.0"
 source_path: "src/learnloop/teacher/brief.py"
 source_paths:
   - "src/learnloop/teacher/brief.py"
-source_commit: "074d1972a0a4d2f8f9cf2f6a86a7835ceb441011"
-source_commit_timestamp: "2026-11-02T10:54:18-05:00"
+source_commit: "0de875c28bff31b14fc26acc6034e3b7ffe3af21"
+source_commit_timestamp: "2026-11-03T12:35:46-05:00"
 source_worktree_state: "clean"
 generated: true
 generated_at: "2026-11-02"
@@ -55,8 +55,8 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `074d1972a0a4d2f8f9cf2f6a86a7835ceb441011` |
-| Commit timestamp | `2026-11-02T10:54:18-05:00` |
+| Source commit | `0de875c28bff31b14fc26acc6034e3b7ffe3af21` |
+| Commit timestamp | `2026-11-03T12:35:46-05:00` |
 
 ## Public API
 
@@ -182,6 +182,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
+- [tests/test_data_capture_a6_delayed_pick.py](../../../../../../tests/test_data_capture_a6_delayed_pick.py) — direct import
+  - `test_the_same_lo_has_a_different_prediction_per_item`
 - [tests/test_followups_batch5_recap_dependencies.py](../../../../../../tests/test_followups_batch5_recap_dependencies.py) — direct import
   - `test_f1_a_recap_inherited_through_last_lessons_is_left_out_with_its_source`
   - `test_f1_a_recap_inherited_through_read_history_is_left_out_with_its_source`

@@ -167,6 +167,11 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_vault_repository_upgrades_a_vault_that_is_behind_through_the_coordinator`
 - [tests/test_daily_plan_owner_decisions.py](../../../../../../tests/test_daily_plan_owner_decisions.py) — direct import
   - `test_migration_180_widens_the_field_serving_origins_and_keeps_its_rows`
+- [tests/test_data_capture_migration.py](../../../../../../tests/test_data_capture_migration.py) — direct import
+  - `test_240_adds_exactly_its_objects_and_changes_nothing_else`
+  - `test_240_is_the_head_and_its_tables_are_receipts`
+  - `test_240_on_the_durability_lane`
+  - `test_the_head_fixture_is_at_240_in_rollback_mode_with_empty_tables`
 - [tests/test_deliverable_curriculum_migration.py](../../../../../../tests/test_deliverable_curriculum_migration.py) — direct import
   - `test_228_is_c0bs_migration_classified_with_no_derived_table`
   - `test_the_head_fixture_holds_exactly_228s_objects_in_rollback_mode`
@@ -296,9 +301,9 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_source_unit_selections_schema_is_available`
   - `test_variable_rubric_scale_migration_allows_scores_above_four`
 - [tests/test_mobile_jobs_migration.py](../../../../../../tests/test_mobile_jobs_migration.py) — direct import
-  - `test_239_is_the_head_and_the_table_is_classified`
+  - `test_239_is_named_and_the_table_is_classified`
   - `test_a_database_at_238_gets_it_and_nothing_else_changes`
-  - `test_the_head_fixture_is_at_239_in_rollback_mode_with_an_empty_table`
+  - `test_the_head_fixture_is_at_head_in_rollback_mode_with_an_empty_table`
 - [tests/test_model_call_receipt_owners.py](../../../../../../tests/test_model_call_receipt_owners.py) — direct import
   - `test_a_database_below_the_receipt_schema_lets_the_model_call_run_unrecorded`
 - [tests/test_persistence_open.py](../../../../../../tests/test_persistence_open.py) — direct import
@@ -334,9 +339,9 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_219_on_the_durability_lane`
   - `test_the_head_fixture_holds_219_in_rollback_mode`
 - [tests/test_rw5c_migration.py](../../../../../../tests/test_rw5c_migration.py) — direct import
-  - `test_238_is_the_head_and_the_table_is_classified`
+  - `test_238_is_applied_and_the_table_is_classified`
   - `test_238_upgrades_a_copy_of_237_under_the_durable_pragmas`
-  - `test_the_head_fixture_is_at_238_in_rollback_mode_with_an_empty_table`
+  - `test_the_head_fixture_is_past_238_in_rollback_mode_with_an_empty_table`
 - [tests/test_section_coverage_migration.py](../../../../../../tests/test_section_coverage_migration.py) — direct import
   - `test_222_adds_one_table_and_alters_nothing`
   - `test_222_on_the_durability_lane`

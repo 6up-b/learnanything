@@ -136,6 +136,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 No test imports this module directly. These tests exercise a direct production consumer:
 
 - [tests/test_reader_rw5d_p4b_teacher_visuals.py](../../../../../../../tests/test_reader_rw5d_p4b_teacher_visuals.py) — imports consumer [[Reference/Modules/learnloop/teacher/actions|learnloop.teacher.actions]]
+- [tests/test_data_capture_a6_delayed_pick.py](../../../../../../../tests/test_data_capture_a6_delayed_pick.py) — imports consumer [[Reference/Modules/learnloop/teacher/brief|learnloop.teacher.brief]]
 - [tests/test_followups_batch5_recap_dependencies.py](../../../../../../../tests/test_followups_batch5_recap_dependencies.py) — imports consumer [[Reference/Modules/learnloop/teacher/brief|learnloop.teacher.brief]]
 - [tests/test_followups_batch5_recap_protection.py](../../../../../../../tests/test_followups_batch5_recap_protection.py) — imports consumer [[Reference/Modules/learnloop/teacher/brief|learnloop.teacher.brief]]
 - [tests/test_teacher_te1b_landing_r2.py](../../../../../../../tests/test_teacher_te1b_landing_r2.py) — imports consumer [[Reference/Modules/learnloop/teacher/brief|learnloop.teacher.brief]]
@@ -146,7 +147,6 @@ No test imports this module directly. These tests exercise a direct production c
 - [tests/test_followups_batch5_lesson.py](../../../../../../../tests/test_followups_batch5_lesson.py) — imports consumer [[Reference/Modules/learnloop/teacher/service|learnloop.teacher.service]]
 - [tests/test_followups_batch6_review_fixes.py](../../../../../../../tests/test_followups_batch6_review_fixes.py) — imports consumer [[Reference/Modules/learnloop/teacher/service|learnloop.teacher.service]]
 - [tests/test_followups_batch6_router_report.py](../../../../../../../tests/test_followups_batch6_router_report.py) — imports consumer [[Reference/Modules/learnloop/teacher/service|learnloop.teacher.service]]
-- [tests/test_followups_batch7_prefetch_capped_resume.py](../../../../../../../tests/test_followups_batch7_prefetch_capped_resume.py) — imports consumer [[Reference/Modules/learnloop/teacher/service|learnloop.teacher.service]]
 
 ## Modification guidance
 

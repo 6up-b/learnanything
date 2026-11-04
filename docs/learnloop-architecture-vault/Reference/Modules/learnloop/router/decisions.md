@@ -7,8 +7,8 @@ version: "1.0.0"
 source_path: "src/learnloop/router/decisions.py"
 source_paths:
   - "src/learnloop/router/decisions.py"
-source_commit: "cbd26b3e715642d45c0df27013a6ab9c1f29e5d5"
-source_commit_timestamp: "2026-10-13T17:56:23-04:00"
+source_commit: "e2ddd03c640065633f2c492b62122e9750390244"
+source_commit_timestamp: "2026-11-03T14:49:34-05:00"
 source_worktree_state: "clean"
 generated: true
 generated_at: "2026-11-02"
@@ -50,13 +50,13 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/router/decisions.py](../../../../../../src/learnloop/router/decisions.py) |
-| Source lines | 670 |
+| Source lines | 675 |
 | Owning package | [[Reference/Modules/learnloop/router/_package|learnloop.router]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `cbd26b3e715642d45c0df27013a6ab9c1f29e5d5` |
-| Commit timestamp | `2026-10-13T17:56:23-04:00` |
+| Source commit | `e2ddd03c640065633f2c492b62122e9750390244` |
+| Commit timestamp | `2026-11-03T14:49:34-05:00` |
 
 ## Public API
 
@@ -65,8 +65,8 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `head_distribution(outcomes: Sequence[Any], head_of: Callable[[Sequence[Any]], str | None]) -> dict[str | None, float]` ([source](../../../../../../src/learnloop/router/decisions.py), line 157) — P(each item heads the offer) over the exploration's whole support.
 - `build_today_offer_decision(trace: Any, *, offered: Sequence[Any], head_of: Callable[[Sequence[Any]], str | None], section_of: Callable[[Any], str], served_head: str | None, surface: str, policy: str, in_progress: Mapping[str, Any] | None=None, removed: Mapping[str, Iterable[str]] | None=None, inputs: Mapping[str, Any] | None=None, head_served: bool=True, created_at: str | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/router/decisions.py), line 174) — The ``router_decisions`` row for one published Today offer.
 - `build_staged_p2_decision(result: Any, *, ladder: Sequence[Mapping[str, Any]], canonical: Mapping[str, Any] | None, authority: str, veto_reason: str | None, run_id: str, commitment_id: str | None, algorithm_version: str, session_id: str | None, chosen_learning_object_id: str | None=None, created_at: str | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/router/decisions.py), line 447) — The ``router_decisions`` row for one live staged decision on a P2 run.
-- `record_decision(repository: Any, row: Mapping[str, Any]) -> bool` ([source](../../../../../../src/learnloop/router/decisions.py), line 643) — Append one decision row in its own transaction; idempotent on its key.
-- `logging_enabled(config: Any) -> bool` ([source](../../../../../../src/learnloop/router/decisions.py), line 650)
+- `record_decision(repository: Any, row: Mapping[str, Any], *, alongside: Callable[[Any], Any] | None=None) -> bool` ([source](../../../../../../src/learnloop/router/decisions.py), line 643) — Append one decision row in its own transaction; idempotent on its key.
+- `logging_enabled(config: Any) -> bool` ([source](../../../../../../src/learnloop/router/decisions.py), line 655)
 
 ### Module constants
 
@@ -144,6 +144,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
+- [tests/test_data_capture_codex_review.py](../../../../../../tests/test_data_capture_codex_review.py) — direct import
+  - `test_f8_a_crash_before_the_transaction_ends_loses_both_or_neither`
 - [tests/test_router_offer_log.py](../../../../../../tests/test_router_offer_log.py) — direct import
   - `test_a_committed_presentation_is_logged_as_the_continue_choice`
   - `test_a_draft_in_progress_is_logged_as_the_continue_candidate`

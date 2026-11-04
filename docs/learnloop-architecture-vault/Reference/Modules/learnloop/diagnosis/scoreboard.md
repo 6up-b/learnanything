@@ -7,8 +7,8 @@ version: "1.0.0"
 source_path: "src/learnloop/diagnosis/scoreboard.py"
 source_paths:
   - "src/learnloop/diagnosis/scoreboard.py"
-source_commit: "171ae5a5ed15b7627add8b2e512d0c0e91c5f3da"
-source_commit_timestamp: "2026-10-13T09:11:59-04:00"
+source_commit: "dbd1f3c3fa85ebd3e804c5d17bc29f77c60fd032"
+source_commit_timestamp: "2026-11-03T16:08:07-05:00"
 source_worktree_state: "clean"
 generated: true
 generated_at: "2026-11-02"
@@ -50,61 +50,62 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/diagnosis/scoreboard.py](../../../../../../src/learnloop/diagnosis/scoreboard.py) |
-| Source lines | 1765 |
+| Source lines | 1833 |
 | Owning package | [[Reference/Modules/learnloop/diagnosis/_package|learnloop.diagnosis]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `171ae5a5ed15b7627add8b2e512d0c0e91c5f3da` |
-| Commit timestamp | `2026-10-13T09:11:59-04:00` |
+| Source commit | `dbd1f3c3fa85ebd3e804c5d17bc29f77c60fd032` |
+| Commit timestamp | `2026-11-03T16:08:07-05:00` |
 
 ## Public API
 
-- `class Metric` ([source](../../../../../../src/learnloop/diagnosis/scoreboard.py), line 120) — One scoreboard row, with the denominator it is a rate over.
-  - `__post_init__(self) -> None` (line 140; internal)
-  - `available(self) -> bool` (line 154; public)
-  - `as_dict(self) -> dict[str, Any]` (line 157; public)
-- `class ColdSuccessTrajectory` ([source](../../../../../../src/learnloop/diagnosis/scoreboard.py), line 281) — One learning object's path to its first cold success (or lack of one).
-  - `reached(self) -> bool` (line 291; public)
-- `cold_success_trajectories(repository: Repository, *, success_correctness: float | None=None) -> list[ColdSuccessTrajectory]` ([source](../../../../../../src/learnloop/diagnosis/scoreboard.py), line 295) — Per learning object: problems served up to the first cold success.
-- `cold_success_metrics(repository: Repository, *, success_correctness: float | None=None) -> tuple[Metric, Metric]` ([source](../../../../../../src/learnloop/diagnosis/scoreboard.py), line 375) — `problems_to_cold_success` (B5's PRIMARY) and its minutes companion.
-- `harmful_write_rate(repository: Repository) -> Metric` ([source](../../../../../../src/learnloop/diagnosis/scoreboard.py), line 530) — Wrong-facet damage the learner was actually exposed to (B5, target ~0).
-- `cells_cleared_per_question(vault: LoadedVault, repository: Repository) -> Metric` ([source](../../../../../../src/learnloop/diagnosis/scoreboard.py), line 665) — Contract cells measured, per question served (Meas §5.7, §0).
-- `class CertificationPrefix` ([source](../../../../../../src/learnloop/diagnosis/scoreboard.py), line 775) — The earliest attempt prefix at which one learning object certifies.
-  - `regret(self) -> int | None` (line 789; public)
-- `certification_prefixes(vault: LoadedVault, repository: Repository, *, budget: int=DEFAULT_REPLAY_BUDGET) -> tuple[list[CertificationPrefix], dict[str, Any]]` ([source](../../../../../../src/learnloop/diagnosis/scoreboard.py), line 859) — Bisect the earliest certifying prefix for every learning object.
-- `certification_efficiency_metrics(vault: LoadedVault, repository: Repository, *, replay: bool=False, budget: int=DEFAULT_REPLAY_BUDGET) -> tuple[Metric, Metric]` ([source](../../../../../../src/learnloop/diagnosis/scoreboard.py), line 971) — `questions_to_certification` and `certification_regret` (Meas §5.7).
-- `tokens_per_resolved_diagnostic_episode(repository: Repository) -> Metric` ([source](../../../../../../src/learnloop/diagnosis/scoreboard.py), line 1134) — Grading tokens per resolved diagnostic episode (B5; C3's revert criterion).
-- `probe_action_change_rate(repository: Repository) -> Metric` ([source](../../../../../../src/learnloop/diagnosis/scoreboard.py), line 1257) — Probes whose outcome changed the selected repair, over probes administered.
-- `planted_ground_truth(repository: Repository) -> dict[str, dict[str, Any]] | None` ([source](../../../../../../src/learnloop/diagnosis/scoreboard.py), line 1334) — Licensed B1 labels keyed by attempt, or ``None`` without a license.
-- `planted_vs_adjudicated_agreement(repository: Repository) -> Metric` ([source](../../../../../../src/learnloop/diagnosis/scoreboard.py), line 1364) — B4 agreement on the planted/adjudicated overlap.
-- `false_certification_rate(vault: LoadedVault, repository: Repository, *, clock: Clock | None=None) -> Metric` ([source](../../../../../../src/learnloop/diagnosis/scoreboard.py), line 1492) — Composed from item 4.2's producer (Meas §5.7).
-- `measurement_rank_metric(vault: LoadedVault) -> Metric` ([source](../../../../../../src/learnloop/diagnosis/scoreboard.py), line 1655) — Independent dimensions the item pool can resolve, vs facets declared.
-- `scoreboard(vault: LoadedVault, repository: Repository, *, replay: bool=False, replay_budget: int=DEFAULT_REPLAY_BUDGET, clock: Clock | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/diagnosis/scoreboard.py), line 1695) — The whole §3 B5 board, in B5's frozen order.
+- `class Metric` ([source](../../../../../../src/learnloop/diagnosis/scoreboard.py), line 129) — One scoreboard row, with the denominator it is a rate over.
+  - `__post_init__(self) -> None` (line 149; internal)
+  - `available(self) -> bool` (line 163; public)
+  - `as_dict(self) -> dict[str, Any]` (line 166; public)
+- `class ColdSuccessTrajectory` ([source](../../../../../../src/learnloop/diagnosis/scoreboard.py), line 290) — One learning object's path to its first cold success (or lack of one).
+  - `reached(self) -> bool` (line 300; public)
+- `cold_success_trajectories(repository: Repository, *, success_correctness: float | None=None) -> list[ColdSuccessTrajectory]` ([source](../../../../../../src/learnloop/diagnosis/scoreboard.py), line 304) — Per learning object: problems served up to the first cold success.
+- `cold_success_metrics(repository: Repository, *, success_correctness: float | None=None) -> tuple[Metric, Metric]` ([source](../../../../../../src/learnloop/diagnosis/scoreboard.py), line 384) — `problems_to_first_unassisted_success` (B5's PRIMARY) and its minutes companion.
+- `first_delayed_success_metrics(vault: LoadedVault, repository: Repository, *, clock: Clock | None=None, success_correctness: float | None=None) -> tuple[Metric, Metric]` ([source](../../../../../../src/learnloop/diagnosis/scoreboard.py), line 489) — Calendar days and active learner minutes from enrollment to a first delayed success (A3).
+- `harmful_write_rate(repository: Repository) -> Metric` ([source](../../../../../../src/learnloop/diagnosis/scoreboard.py), line 595) — Wrong-facet damage the learner was actually exposed to (B5, target ~0).
+- `cells_cleared_per_question(vault: LoadedVault, repository: Repository) -> Metric` ([source](../../../../../../src/learnloop/diagnosis/scoreboard.py), line 730) — Contract cells measured, per question served (Meas §5.7, §0).
+- `class CertificationPrefix` ([source](../../../../../../src/learnloop/diagnosis/scoreboard.py), line 840) — The earliest attempt prefix at which one learning object certifies.
+  - `regret(self) -> int | None` (line 854; public)
+- `certification_prefixes(vault: LoadedVault, repository: Repository, *, budget: int=DEFAULT_REPLAY_BUDGET) -> tuple[list[CertificationPrefix], dict[str, Any]]` ([source](../../../../../../src/learnloop/diagnosis/scoreboard.py), line 924) — Bisect the earliest certifying prefix for every learning object.
+- `certification_efficiency_metrics(vault: LoadedVault, repository: Repository, *, replay: bool=False, budget: int=DEFAULT_REPLAY_BUDGET) -> tuple[Metric, Metric]` ([source](../../../../../../src/learnloop/diagnosis/scoreboard.py), line 1036) — `questions_to_certification` and `certification_regret` (Meas §5.7).
+- `tokens_per_resolved_diagnostic_episode(repository: Repository) -> Metric` ([source](../../../../../../src/learnloop/diagnosis/scoreboard.py), line 1199) — Grading tokens per resolved diagnostic episode (B5; C3's revert criterion).
+- `probe_action_change_rate(repository: Repository) -> Metric` ([source](../../../../../../src/learnloop/diagnosis/scoreboard.py), line 1322) — Probes whose outcome changed the selected repair, over probes administered.
+- `planted_ground_truth(repository: Repository) -> dict[str, dict[str, Any]] | None` ([source](../../../../../../src/learnloop/diagnosis/scoreboard.py), line 1399) — Licensed B1 labels keyed by attempt, or ``None`` without a license.
+- `planted_vs_adjudicated_agreement(repository: Repository) -> Metric` ([source](../../../../../../src/learnloop/diagnosis/scoreboard.py), line 1429) — B4 agreement on the planted/adjudicated overlap.
+- `false_certification_rate(vault: LoadedVault, repository: Repository, *, clock: Clock | None=None) -> Metric` ([source](../../../../../../src/learnloop/diagnosis/scoreboard.py), line 1557) — Composed from item 4.2's producer (Meas §5.7).
+- `measurement_rank_metric(vault: LoadedVault) -> Metric` ([source](../../../../../../src/learnloop/diagnosis/scoreboard.py), line 1720) — Independent dimensions the item pool can resolve, vs facets declared.
+- `scoreboard(vault: LoadedVault, repository: Repository, *, replay: bool=False, replay_budget: int=DEFAULT_REPLAY_BUDGET, clock: Clock | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/diagnosis/scoreboard.py), line 1760) — The whole §3 B5 board, in B5's frozen order.
 
 ### Module constants
 
-- `SCOREBOARD_VERSION` ([src/learnloop/diagnosis/scoreboard.py](../../../../../../src/learnloop/diagnosis/scoreboard.py), line 66)
-- `AVAILABILITY` ([src/learnloop/diagnosis/scoreboard.py](../../../../../../src/learnloop/diagnosis/scoreboard.py), line 87)
-- `UNAVAILABLE` ([src/learnloop/diagnosis/scoreboard.py](../../../../../../src/learnloop/diagnosis/scoreboard.py), line 95)
-- `B5_ORDER` ([src/learnloop/diagnosis/scoreboard.py](../../../../../../src/learnloop/diagnosis/scoreboard.py), line 100)
-- `_NON_PROBLEM_ATTEMPT_TYPES` ([src/learnloop/diagnosis/scoreboard.py](../../../../../../src/learnloop/diagnosis/scoreboard.py), line 277)
-- `HARMFUL_WITHDRAWAL_REASONS` ([src/learnloop/diagnosis/scoreboard.py](../../../../../../src/learnloop/diagnosis/scoreboard.py), line 516)
-- `HARMFUL_VERDICTS` ([src/learnloop/diagnosis/scoreboard.py](../../../../../../src/learnloop/diagnosis/scoreboard.py), line 525)
-- `DEFAULT_REPLAY_BUDGET` ([src/learnloop/diagnosis/scoreboard.py](../../../../../../src/learnloop/diagnosis/scoreboard.py), line 771)
-- `_PROBE_NOW_DECISION` ([src/learnloop/diagnosis/scoreboard.py](../../../../../../src/learnloop/diagnosis/scoreboard.py), line 1250)
-- `_PROBE_RECEIPT_LIMIT` ([src/learnloop/diagnosis/scoreboard.py](../../../../../../src/learnloop/diagnosis/scoreboard.py), line 1254)
-- `_FALSE_CERTIFICATION_PRODUCER` ([src/learnloop/diagnosis/scoreboard.py](../../../../../../src/learnloop/diagnosis/scoreboard.py), line 1476)
+- `SCOREBOARD_VERSION` ([src/learnloop/diagnosis/scoreboard.py](../../../../../../src/learnloop/diagnosis/scoreboard.py), line 70)
+- `AVAILABILITY` ([src/learnloop/diagnosis/scoreboard.py](../../../../../../src/learnloop/diagnosis/scoreboard.py), line 91)
+- `UNAVAILABLE` ([src/learnloop/diagnosis/scoreboard.py](../../../../../../src/learnloop/diagnosis/scoreboard.py), line 99)
+- `B5_ORDER` ([src/learnloop/diagnosis/scoreboard.py](../../../../../../src/learnloop/diagnosis/scoreboard.py), line 107)
+- `_NON_PROBLEM_ATTEMPT_TYPES` ([src/learnloop/diagnosis/scoreboard.py](../../../../../../src/learnloop/diagnosis/scoreboard.py), line 286)
+- `HARMFUL_WITHDRAWAL_REASONS` ([src/learnloop/diagnosis/scoreboard.py](../../../../../../src/learnloop/diagnosis/scoreboard.py), line 581)
+- `HARMFUL_VERDICTS` ([src/learnloop/diagnosis/scoreboard.py](../../../../../../src/learnloop/diagnosis/scoreboard.py), line 590)
+- `DEFAULT_REPLAY_BUDGET` ([src/learnloop/diagnosis/scoreboard.py](../../../../../../src/learnloop/diagnosis/scoreboard.py), line 836)
+- `_PROBE_NOW_DECISION` ([src/learnloop/diagnosis/scoreboard.py](../../../../../../src/learnloop/diagnosis/scoreboard.py), line 1315)
+- `_PROBE_RECEIPT_LIMIT` ([src/learnloop/diagnosis/scoreboard.py](../../../../../../src/learnloop/diagnosis/scoreboard.py), line 1319)
+- `_FALSE_CERTIFICATION_PRODUCER` ([src/learnloop/diagnosis/scoreboard.py](../../../../../../src/learnloop/diagnosis/scoreboard.py), line 1541)
 
 ## Internal implementation anchors
 
-- `_rate(name: str, *, numerator: float | None, denominator: float | None, unit: str, denominator_label: str, note: str, empty_note: str | None=None, empty_availability: str='no_data', companion_of: str | None=None, detail: Mapping[str, Any] | None=None) -> Metric` ([source](../../../../../../src/learnloop/diagnosis/scoreboard.py), line 173) — Build a ratio metric, refusing to divide by an empty denominator.
-- `_unavailable(name: str, *, availability: str, unit: str, denominator_label: str, note: str, numerator: float | None=None, denominator: float | None=None, companion_of: str | None=None, detail: Mapping[str, Any] | None=None) -> Metric` ([source](../../../../../../src/learnloop/diagnosis/scoreboard.py), line 221)
-- `_cell_has_evidence(evidence: Sequence[Any], capability: str) -> bool` ([source](../../../../../../src/learnloop/diagnosis/scoreboard.py), line 643) — Any observation at all in this cell — positive or negative.
-- `_attempt_boundaries(repository: Repository) -> list[tuple[str, str]]` ([source](../../../../../../src/learnloop/diagnosis/scoreboard.py), line 795) — Every attempt as (created_at, id), chronological — the cutoff axis.
-- `_certified_at_cutoff(vault: LoadedVault, source_path: Path, scratch_dir: Path, boundary_iso: str, index: int) -> frozenset[str]` ([source](../../../../../../src/learnloop/diagnosis/scoreboard.py), line 808) — Learning objects the authority certifies given attempts up to `boundary_iso`.
-- `_resolve_false_certification_producer() -> Callable[..., Any] | None` ([source](../../../../../../src/learnloop/diagnosis/scoreboard.py), line 1482)
-- `_adjudication_metrics(repository: Repository) -> tuple[list[Metric], dict[str, Any]]` ([source](../../../../../../src/learnloop/diagnosis/scoreboard.py), line 1557) — The four metrics the A4 store already produces, composed not recomputed.
+- `_rate(name: str, *, numerator: float | None, denominator: float | None, unit: str, denominator_label: str, note: str, empty_note: str | None=None, empty_availability: str='no_data', companion_of: str | None=None, detail: Mapping[str, Any] | None=None) -> Metric` ([source](../../../../../../src/learnloop/diagnosis/scoreboard.py), line 182) — Build a ratio metric, refusing to divide by an empty denominator.
+- `_unavailable(name: str, *, availability: str, unit: str, denominator_label: str, note: str, numerator: float | None=None, denominator: float | None=None, companion_of: str | None=None, detail: Mapping[str, Any] | None=None) -> Metric` ([source](../../../../../../src/learnloop/diagnosis/scoreboard.py), line 230)
+- `_cell_has_evidence(evidence: Sequence[Any], capability: str) -> bool` ([source](../../../../../../src/learnloop/diagnosis/scoreboard.py), line 708) — Any observation at all in this cell — positive or negative.
+- `_attempt_boundaries(repository: Repository) -> list[tuple[str, str]]` ([source](../../../../../../src/learnloop/diagnosis/scoreboard.py), line 860) — Every attempt as (created_at, id), chronological — the cutoff axis.
+- `_certified_at_cutoff(vault: LoadedVault, source_path: Path, scratch_dir: Path, boundary_iso: str, index: int) -> frozenset[str]` ([source](../../../../../../src/learnloop/diagnosis/scoreboard.py), line 873) — Learning objects the authority certifies given attempts up to `boundary_iso`.
+- `_resolve_false_certification_producer() -> Callable[..., Any] | None` ([source](../../../../../../src/learnloop/diagnosis/scoreboard.py), line 1547)
+- `_adjudication_metrics(repository: Repository) -> tuple[list[Metric], dict[str, Any]]` ([source](../../../../../../src/learnloop/diagnosis/scoreboard.py), line 1622) — The four metrics the A4 store already produces, composed not recomputed.
 
 ## Who imports or calls it
 
@@ -123,7 +124,8 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 
 ### LearnLoop dependencies
 
-- [[Reference/Modules/learnloop/clock|learnloop.clock]] — imports `Clock`, `FrozenClock`, `parse_utc`; calls `FrozenClock`, `parse_utc`
+- [[Reference/Modules/learnloop/clock|learnloop.clock]] — imports `Clock`, `FrozenClock`, `parse_utc`, `utc_now_iso`; calls `FrozenClock`, `parse_utc`, `utc_now_iso`
+- [[Reference/Modules/learnloop/data_capture/reading_exposures|learnloop.data_capture.reading_exposures]] — imports `module`; calls `read`
 - [[Reference/Modules/learnloop/db/copies|learnloop.db.copies]] — imports `backup_database`; calls `backup_database`
 - [[Reference/Modules/learnloop/db/repositories|learnloop.db.repositories]] — imports `Repository`
 - [[Reference/Modules/learnloop/diagnosis/causal_activity_policy|learnloop.diagnosis.causal_activity_policy]] — imports `attempt_counts_as_assisted`; calls `attempt_counts_as_assisted`
@@ -131,10 +133,11 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 - [[Reference/Modules/learnloop/diagnosis/diagnosis_adjudication|learnloop.diagnosis.diagnosis_adjudication]] — imports `FILLED_VERDICTS`, `adjudicated_ground_truth`, `diagnosis_adjudication_scoreboard`; calls `adjudicated_ground_truth`, `diagnosis_adjudication_scoreboard`
 - [[Reference/Modules/learnloop/goals/goal_certification|learnloop.goals.goal_certification]] — imports `lo_certification`; calls `lo_certification`
 - [[Reference/Modules/learnloop/goals/goal_series|learnloop.goals.goal_series]] — imports `prune_rows`; calls `prune_rows`
-- [[Reference/Modules/learnloop/held_grades|learnloop.held_grades]] — imports `held_attempt_ids`; calls `held_attempt_ids`
+- [[Reference/Modules/learnloop/held_grades|learnloop.held_grades]] — imports `held_attempt_ids`, `held_for_review_attempts`, `pfc_assessments`; calls `held_attempt_ids`, `held_for_review_attempts`, `pfc_assessments`
 - [[Reference/Modules/learnloop/learner/contract_reachability|learnloop.learner.contract_reachability]] — imports `contract_cells`; calls `contract_cells`
 - [[Reference/Modules/learnloop/learner/identifiability|learnloop.learner.identifiability]] — imports `build_registry_view`, `measurement_rank`; calls `build_registry_view`, `measurement_rank`
 - [[Reference/Modules/learnloop/learner/surfaced_beliefs|learnloop.learner.surfaced_beliefs]] — imports `typed_withdrawal_reason`; calls `typed_withdrawal_reason`
+- [[Reference/Modules/learnloop/router/first_delayed_success|learnloop.router.first_delayed_success]] — imports `LABEL`, `summary`, `trajectories`; calls `summary`, `trajectories`
 - [[Reference/Modules/learnloop/substrate/replay|learnloop.substrate.replay]] — imports `rebuild_derived_state`; calls `rebuild_derived_state`
 - [[Reference/Modules/learnloop/vault/models|learnloop.vault.models]] — imports `LoadedVault`
 
@@ -158,6 +161,10 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 - [tests/test_architecture.py](../../../../../../tests/test_architecture.py) — direct import
   - `test_runtime_constructed_module_references_resolve`
+- [tests/test_data_capture_a3_time_metric.py](../../../../../../tests/test_data_capture_a3_time_metric.py) — direct import
+  - `test_an_empty_board_reports_no_data_never_zero`
+  - `test_the_board_carries_the_proxies_as_companions_and_says_so`
+  - `test_the_first_success_in_the_same_sitting_does_not_qualify`
 - [tests/test_diagnostic_augmentation.py](../../../../../../tests/test_diagnostic_augmentation.py) — direct import
   - `test_licensed_b1_runs_blind_and_never_writes_a_learner_attempt`
 - [tests/test_held_grade_evidence.py](../../../../../../tests/test_held_grade_evidence.py) — direct import
@@ -190,7 +197,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_planted_side_absent_reports_no_producer_not_zero_overlap`
   - `test_probe_action_change_rate_counts_resolving_observations`
   - `test_probe_action_change_rate_says_no_probes_administered`
-  - `test_problems_to_cold_success_counts_problems_until_the_first_cold_success`
+  - `test_problems_to_first_unassisted_success_counts_problems_until_the_first_cold_success`
   - `test_self_reports_are_not_problems_served`
   - `test_supersession_is_not_harm_and_is_reported_separately`
   - `test_the_board_composes_rather_than_declaring_its_own_producers`

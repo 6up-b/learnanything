@@ -133,7 +133,7 @@ No test imports this module directly. These tests exercise a direct production c
 - [tests/test_ad23_intent_compose.py](../../../../../../../tests/test_ad23_intent_compose.py) — imports consumer [[Reference/Modules/learnloop/scheduling/intent/serving|learnloop.scheduling.intent.serving]]
 - [tests/test_ad23_inversion.py](../../../../../../../tests/test_ad23_inversion.py) — imports consumer [[Reference/Modules/learnloop/scheduling/intent/serving|learnloop.scheduling.intent.serving]]
 - [tests/test_ad23_pool_membership.py](../../../../../../../tests/test_ad23_pool_membership.py) — imports consumer [[Reference/Modules/learnloop/scheduling/intent/serving|learnloop.scheduling.intent.serving]]
-- [tests/test_intent_codex_rereview.py](../../../../../../../tests/test_intent_codex_rereview.py) — imports consumer [[Reference/Modules/learnloop/scheduling/intent/serving|learnloop.scheduling.intent.serving]]
+- [tests/test_data_capture_codex_rereview.py](../../../../../../../tests/test_data_capture_codex_rereview.py) — imports consumer [[Reference/Modules/learnloop/scheduling/intent/serving|learnloop.scheduling.intent.serving]]
 
 ## Modification guidance
 

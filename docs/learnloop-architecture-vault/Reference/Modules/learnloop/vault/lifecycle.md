@@ -91,6 +91,7 @@ The authoritative system-level explanation remains in [[State and Persistence]];
 
 - [[Reference/Modules/learnloop/daily_plan/ad_slot|learnloop.daily_plan.ad_slot]] — imports `practice_item_serving_block`; statically calls `practice_item_serving_block`
 - [[Reference/Modules/learnloop/daily_plan/engine|learnloop.daily_plan.engine]] — imports `practice_item_servable`; statically calls `practice_item_servable`
+- [[Reference/Modules/learnloop/delayed_checks|learnloop.delayed_checks]] — imports `practice_item_serving_block`; statically calls `practice_item_serving_block`
 - [[Reference/Modules/learnloop/diagnosis/probe_dialogue|learnloop.diagnosis.probe_dialogue]] — imports `learning_object_servable`; statically calls `learning_object_servable`
 - [[Reference/Modules/learnloop/diagnosis/probe_episodes|learnloop.diagnosis.probe_episodes]] — imports `learning_object_servable`; statically calls `learning_object_servable`
 - [[Reference/Modules/learnloop/diagnosis/quick_check|learnloop.diagnosis.quick_check]] — imports `practice_item_servable`; statically calls `practice_item_servable`
@@ -103,7 +104,6 @@ The authoritative system-level explanation remains in [[State and Persistence]];
 - [[Reference/Modules/learnloop/scheduling/scheduler|learnloop.scheduling.scheduler]] — imports `practice_item_servable`; statically calls `practice_item_servable`
 - [[Reference/Modules/learnloop/scheduling/serving_exclusions|learnloop.scheduling.serving_exclusions]] — imports `practice_item_servable`; statically calls `practice_item_servable`
 - [[Reference/Modules/learnloop/teacher/brief|learnloop.teacher.brief]] — imports `practice_item_serving_block`; statically calls `practice_item_serving_block`
-- [[Reference/Modules/learnloop/teacher/delayed|learnloop.teacher.delayed]] — imports `practice_item_serving_block`; statically calls `practice_item_serving_block`
 - [[Reference/Modules/learnloop/vault/loader|learnloop.vault.loader]] — imports `learner_text_gap_creations`, `learner_text_gap_edge_in_effect`; statically calls `learner_text_gap_creations`, `learner_text_gap_edge_in_effect`
 - [[Reference/Modules/learnloop_sidecar/serving|learnloop_sidecar.serving]] — imports `LEARNER_TEXT_GAP_DISABLED`, `REFERENCE_ADOPTION_DISABLED`, `learning_object_serving_block`, `practice_item_serving_block`; statically calls `learning_object_serving_block`, `practice_item_serving_block`
 
@@ -124,7 +124,7 @@ Use this module in context through:
 
 - [[Initialize a Vault]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/daily_plan/ad_slot|learnloop.daily_plan.ad_slot]], [[Reference/Modules/learnloop/daily_plan/engine|learnloop.daily_plan.engine]], [[Reference/Modules/learnloop/diagnosis/probe_dialogue|learnloop.diagnosis.probe_dialogue]], [[Reference/Modules/learnloop/diagnosis/probe_episodes|learnloop.diagnosis.probe_episodes]], [[Reference/Modules/learnloop/diagnosis/quick_check|learnloop.diagnosis.quick_check]] and 12 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/daily_plan/ad_slot|learnloop.daily_plan.ad_slot]], [[Reference/Modules/learnloop/daily_plan/engine|learnloop.daily_plan.engine]], [[Reference/Modules/learnloop/delayed_checks|learnloop.delayed_checks]], [[Reference/Modules/learnloop/diagnosis/probe_dialogue|learnloop.diagnosis.probe_dialogue]], [[Reference/Modules/learnloop/diagnosis/probe_episodes|learnloop.diagnosis.probe_episodes]] and 12 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 

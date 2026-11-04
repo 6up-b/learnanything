@@ -104,6 +104,7 @@ The authoritative system-level explanation remains in [[State and Persistence]];
 - [[Reference/Modules/learnloop/cli/ai_compare|learnloop.cli.ai_compare]] — imports `VaultPaths`; statically calls `VaultPaths`
 - [[Reference/Modules/learnloop/cli/curriculum|learnloop.cli.curriculum]] — imports `VaultPaths`; statically calls `VaultPaths`
 - [[Reference/Modules/learnloop/cli/data|learnloop.cli.data]] — imports `VaultPaths`; statically calls `VaultPaths`
+- [[Reference/Modules/learnloop/cli/data_capture|learnloop.cli.data_capture]] — imports `VaultPaths`; statically calls `VaultPaths`
 - [[Reference/Modules/learnloop/cli/decider|learnloop.cli.decider]] — imports `VaultPaths`; statically calls `VaultPaths`
 - [[Reference/Modules/learnloop/cli/diagnose|learnloop.cli.diagnose]] — imports `VaultPaths`; statically calls `VaultPaths`
 - [[Reference/Modules/learnloop/cli/embeddings|learnloop.cli.embeddings]] — imports `VaultPaths`; statically calls `VaultPaths`
@@ -150,6 +151,7 @@ The authoritative system-level explanation remains in [[State and Persistence]];
 - [[Reference/Modules/learnloop/curriculum/graph_edit_proposals|learnloop.curriculum.graph_edit_proposals]] — imports `VaultPaths`; statically calls `VaultPaths`
 - [[Reference/Modules/learnloop/curriculum/integration_backfill|learnloop.curriculum.integration_backfill]] — imports `VaultPaths`; statically calls `VaultPaths`
 - [[Reference/Modules/learnloop/daily_plan_upgrade|learnloop.daily_plan_upgrade]] — imports `VaultPaths`; statically calls `VaultPaths`
+- [[Reference/Modules/learnloop/data_capture_upgrade|learnloop.data_capture_upgrade]] — imports `VaultPaths`; statically calls `VaultPaths`
 - [[Reference/Modules/learnloop/decider_upgrade|learnloop.decider_upgrade]] — imports `VaultPaths`; statically calls `VaultPaths`
 - [[Reference/Modules/learnloop/deliverable_plan_upgrade|learnloop.deliverable_plan_upgrade]] — imports `VaultPaths`; statically calls `VaultPaths`
 - [[Reference/Modules/learnloop/diagnosis/grading_hardcases|learnloop.diagnosis.grading_hardcases]] — imports `VaultPaths`; statically calls `VaultPaths`
@@ -247,7 +249,7 @@ Use this module in context through:
 
 - [[Initialize a Vault]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/ad_successor_upgrade|learnloop.ad_successor_upgrade]], [[Reference/Modules/learnloop/attempt_content_state_upgrade|learnloop.attempt_content_state_upgrade]], [[Reference/Modules/learnloop/bootstrap|learnloop.bootstrap]], [[Reference/Modules/learnloop/claim_fixes_upgrade|learnloop.claim_fixes_upgrade]], [[Reference/Modules/learnloop/cli/ad|learnloop.cli.ad]] and 122 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/ad_successor_upgrade|learnloop.ad_successor_upgrade]], [[Reference/Modules/learnloop/attempt_content_state_upgrade|learnloop.attempt_content_state_upgrade]], [[Reference/Modules/learnloop/bootstrap|learnloop.bootstrap]], [[Reference/Modules/learnloop/claim_fixes_upgrade|learnloop.claim_fixes_upgrade]], [[Reference/Modules/learnloop/cli/ad|learnloop.cli.ad]] and 124 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 

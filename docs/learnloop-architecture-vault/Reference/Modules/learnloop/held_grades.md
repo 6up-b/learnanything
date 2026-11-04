@@ -7,8 +7,8 @@ version: "1.0.0"
 source_path: "src/learnloop/held_grades.py"
 source_paths:
   - "src/learnloop/held_grades.py"
-source_commit: "8e529218954fcf26cc284a07612cf76f2f430d67"
-source_commit_timestamp: "2026-10-16T10:17:46-04:00"
+source_commit: "35a648918814189370398d63681da08d45e07151"
+source_commit_timestamp: "2026-11-03T13:26:16-05:00"
 source_worktree_state: "clean"
 generated: true
 generated_at: "2026-11-02"
@@ -50,27 +50,29 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/held_grades.py](../../../../../src/learnloop/held_grades.py) |
-| Source lines | 246 |
+| Source lines | 284 |
 | Owning package | [[Reference/Modules/learnloop/_package|learnloop]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `8e529218954fcf26cc284a07612cf76f2f430d67` |
-| Commit timestamp | `2026-10-16T10:17:46-04:00` |
+| Source commit | `35a648918814189370398d63681da08d45e07151` |
+| Commit timestamp | `2026-11-03T13:26:16-05:00` |
 
 ## Public API
 
-- `held_for_review_attempts(connection: Any, attempt_ids: Iterable[str] | None=None) -> frozenset[str]` ([source](../../../../../src/learnloop/held_grades.py), line 59) — The attempts (of ``attempt_ids``; ``None`` reads every one) whose grade is held for review NOW, on ``connection``: a route-rule hold (the latest blind record AND the current evidence), or a current grading epoch whose contract is unrecorded (the reason replay records at ``mvp-0.…
-- `contract_unrecorded_attempts(connection: Any, attempt_ids: Iterable[str] | None=None) -> frozenset[str]` ([source](../../../../../src/learnloop/held_grades.py), line 129) — The attempts (of ``attempt_ids``; ``None`` reads every one) whose current grading epoch replay held because its contract is unrecorded (``GRADE_CONTRACT_UNRECORDED``, written only by replay at ``mvp-0.26``): the canonical projection leaves them out as replay does.
-- `record_held_for_review(blind_record: Mapping[str, Any] | None) -> bool` ([source](../../../../../src/learnloop/held_grades.py), line 157) — The RECORD half of the hold for one persisted blind grade record row (``outcome_contract.grade_held_for_review`` of its grading support): what replay hands the attempt step, which evaluates the evidence half.
-- `held_attempt_ids(repository: Any, attempt_ids: Iterable[str] | None=None) -> frozenset[str]` ([source](../../../../../src/learnloop/held_grades.py), line 166) — :func:`held_for_review_attempts` through a repository's connection (no read at all for an empty id list).
-- `attempt_grade_held(repository: Any, attempt_id: str | None) -> bool` ([source](../../../../../src/learnloop/held_grades.py), line 178) — Is this one persisted attempt's grade held for review now?
-- `mark_held_attempts(repository: Any, rows: Iterable[Mapping[str, Any]], *, key: str='id') -> list[dict[str, Any]]` ([source](../../../../../src/learnloop/held_grades.py), line 184) — ``rows`` (copies) with :data:`HELD_ROW_KEY` set on each attempt the predicate holds, in one query.
-- `effective_probe_observation_rows(connection: Any, rows: Iterable[dict[str, Any]]) -> list[dict[str, Any]]` ([source](../../../../../src/learnloop/held_grades.py), line 199) — Probe observation rows (``probe_observations_for_episode``'s shape: the observation record under ``"observation"`` plus its attempt's joined columns) as every reader takes them NOW (review F3).
+- `held_for_review_attempts(connection: Any, attempt_ids: Iterable[str] | None=None) -> frozenset[str]` ([source](../../../../../src/learnloop/held_grades.py), line 62) — The attempts (of ``attempt_ids``; ``None`` reads every one) whose grade is held for review NOW, on ``connection``: a route-rule hold (the latest blind record AND the current evidence), or a current grading epoch whose contract is unrecorded (the reason replay records at ``mvp-0.…
+- `contract_unrecorded_attempts(connection: Any, attempt_ids: Iterable[str] | None=None) -> frozenset[str]` ([source](../../../../../src/learnloop/held_grades.py), line 132) — The attempts (of ``attempt_ids``; ``None`` reads every one) whose current grading epoch replay held because its contract is unrecorded (``GRADE_CONTRACT_UNRECORDED``, written only by replay at ``mvp-0.26``): the canonical projection leaves them out as replay does.
+- `record_held_for_review(blind_record: Mapping[str, Any] | None) -> bool` ([source](../../../../../src/learnloop/held_grades.py), line 160) — The RECORD half of the hold for one persisted blind grade record row (``outcome_contract.grade_held_for_review`` of its grading support): what replay hands the attempt step, which evaluates the evidence half.
+- `held_attempt_ids(repository: Any, attempt_ids: Iterable[str] | None=None) -> frozenset[str]` ([source](../../../../../src/learnloop/held_grades.py), line 169) — :func:`held_for_review_attempts` through a repository's connection (no read at all for an empty id list).
+- `attempt_grade_held(repository: Any, attempt_id: str | None) -> bool` ([source](../../../../../src/learnloop/held_grades.py), line 181) — Is this one persisted attempt's grade held for review now?
+- `mark_held_attempts(repository: Any, rows: Iterable[Mapping[str, Any]], *, key: str='id') -> list[dict[str, Any]]` ([source](../../../../../src/learnloop/held_grades.py), line 187) — ``rows`` (copies) with :data:`HELD_ROW_KEY` set on each attempt the predicate holds, in one query.
+- `effective_probe_observation_rows(connection: Any, rows: Iterable[dict[str, Any]]) -> list[dict[str, Any]]` ([source](../../../../../src/learnloop/held_grades.py), line 202) — Probe observation rows (``probe_observations_for_episode``'s shape: the observation record under ``"observation"`` plus its attempt's joined columns) as every reader takes them NOW (review F3).
+- `pfc_assessment(attributions: Iterable[Any]) -> str | None` ([source](../../../../../src/learnloop/held_grades.py), line 240) — One attempt's PF-c assessment state from its current evidence rows' ``attribution_json`` values: ``None`` unless a row was written under the unassessed rule, else partially or nothing assessed (``outcome_contract``).
+- `pfc_assessments(connection: Any, attempt_ids: Iterable[str]) -> dict[str, str]` ([source](../../../../../src/learnloop/held_grades.py), line 251) — ``pfc_assessment`` for each of ``attempt_ids`` that has one, read from the current (non-superseded) grading evidence on ``connection``.
 
 ### Module constants
 
-- `_HELD_RECORD_MARK` ([src/learnloop/held_grades.py](../../../../../src/learnloop/held_grades.py), line 56)
+- `_HELD_RECORD_MARK` ([src/learnloop/held_grades.py](../../../../../src/learnloop/held_grades.py), line 59)
 
 ### Explicit exports
 
@@ -83,11 +85,13 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `held_attempt_ids`
 - `held_for_review_attempts`
 - `mark_held_attempts`
+- `pfc_assessment`
+- `pfc_assessments`
 - `record_held_for_review`
 
 ## Internal implementation anchors
 
-- `_contract_unrecorded_in(connection: Any, chunks: list[list[str] | None]) -> frozenset[str]` ([source](../../../../../src/learnloop/held_grades.py), line 141)
+- `_contract_unrecorded_in(connection: Any, chunks: list[list[str] | None]) -> frozenset[str]` ([source](../../../../../src/learnloop/held_grades.py), line 144)
 
 ## Who imports or calls it
 
@@ -111,7 +115,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop/diagnosis/probe_episodes|learnloop.diagnosis.probe_episodes]] — imports `held_attempt_ids`; statically calls `held_attempt_ids`
 - [[Reference/Modules/learnloop/diagnosis/probes|learnloop.diagnosis.probes]] — imports `held_attempt_ids`; statically calls `held_attempt_ids`
 - [[Reference/Modules/learnloop/diagnosis/recurrence/report|learnloop.diagnosis.recurrence.report]] — imports `held_attempt_ids`; statically calls `held_attempt_ids`
-- [[Reference/Modules/learnloop/diagnosis/scoreboard|learnloop.diagnosis.scoreboard]] — imports `held_attempt_ids`; statically calls `held_attempt_ids`
+- [[Reference/Modules/learnloop/diagnosis/scoreboard|learnloop.diagnosis.scoreboard]] — imports `held_attempt_ids`, `held_for_review_attempts`, `pfc_assessments`; statically calls `held_attempt_ids`, `held_for_review_attempts`, `pfc_assessments`
 - [[Reference/Modules/learnloop/evsi_calibration/forecast_report|learnloop.evsi_calibration.forecast_report]] — imports `held_for_review_attempts`; statically calls `held_for_review_attempts`
 - [[Reference/Modules/learnloop/goals/certification_cold_probe|learnloop.goals.certification_cold_probe]] — imports `held_attempt_ids`; statically calls `held_attempt_ids`
 - [[Reference/Modules/learnloop/goals/exam_calibration|learnloop.goals.exam_calibration]] — imports `held_attempt_ids`; statically calls `held_attempt_ids`
@@ -124,6 +128,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop/learner/lesson_weight|learnloop.learner.lesson_weight]] — imports `held_for_review_attempts`; statically calls `held_for_review_attempts`
 - [[Reference/Modules/learnloop/learner/recall_coverage|learnloop.learner.recall_coverage]] — imports `mark_held_attempts`; statically calls `mark_held_attempts`
 - [[Reference/Modules/learnloop/learner_protection|learnloop.learner_protection]] — imports `module`; statically calls `held_for_review_attempts`
+- [[Reference/Modules/learnloop/ops/capture_report|learnloop.ops.capture_report]] — imports `held_for_review_attempts`, `pfc_assessments`; statically calls `held_for_review_attempts`, `pfc_assessments`
 - [[Reference/Modules/learnloop/placement/state|learnloop.placement.state]] — imports `held_for_review_attempts`; statically calls `held_for_review_attempts`
 - [[Reference/Modules/learnloop/reader/reader_report|learnloop.reader.reader_report]] — imports `held_for_review_attempts`; statically calls `held_for_review_attempts`
 - [[Reference/Modules/learnloop/regrade_contract_upgrade|learnloop.regrade_contract_upgrade]] — imports `contract_unrecorded_attempts`; statically calls `contract_unrecorded_attempts`
@@ -132,7 +137,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop/scheduling/intent/recall_targets|learnloop.scheduling.intent.recall_targets]] — imports `held_for_review_attempts`; statically calls `held_for_review_attempts`
 - [[Reference/Modules/learnloop/scheduling/review_log|learnloop.scheduling.review_log]] — imports `held_attempt_ids`; statically calls `held_attempt_ids`
 - [[Reference/Modules/learnloop/scheduling/scheduler|learnloop.scheduling.scheduler]] — imports `held_attempt_ids`; statically calls `held_attempt_ids`
-- [[Reference/Modules/learnloop/substrate/canonical_projection|learnloop.substrate.canonical_projection]] — imports `HELD_ROW_KEY`, `attempt_grade_held`, `contract_unrecorded_attempts`, `held_attempt_ids`, `held_for_review_attempts`, `mark_held_attempts`; statically calls `contract_unrecorded_attempts`
+- [[Reference/Modules/learnloop/substrate/canonical_projection|learnloop.substrate.canonical_projection]] — imports `HELD_ROW_KEY`, `attempt_grade_held`, `contract_unrecorded_attempts`, `held_attempt_ids`, `held_for_review_attempts`, `mark_held_attempts`, `pfc_assessment`, `pfc_assessments`; statically calls `contract_unrecorded_attempts`
 - [[Reference/Modules/learnloop/substrate/data_quality|learnloop.substrate.data_quality]] — imports `held_for_review_attempts`; statically calls `held_for_review_attempts`
 - [[Reference/Modules/learnloop/substrate/dataset|learnloop.substrate.dataset]] — imports `held_for_review_attempts`; statically calls `held_for_review_attempts`
 - [[Reference/Modules/learnloop/substrate/intervention_outcomes|learnloop.substrate.intervention_outcomes]] — imports `held_for_review_attempts`; statically calls `held_for_review_attempts`
@@ -151,11 +156,11 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 
 ### LearnLoop dependencies
 
-- [[Reference/Modules/learnloop/outcome_contract|learnloop.outcome_contract]] — imports `GRADE_CONTRACT_UNRECORDED`, `HELD_ROW_KEY`, `grade_held_for_review`, `grade_is_held`, `unassessed_evidence_row`; calls `grade_held_for_review`, `grade_is_held`, `unassessed_evidence_row`
+- [[Reference/Modules/learnloop/outcome_contract|learnloop.outcome_contract]] — imports `GRADE_CONTRACT_UNRECORDED`, `HELD_ROW_KEY`, `PFC_NOTHING_ASSESSED`, `PFC_PARTIALLY_ASSESSED`, `grade_held_for_review`, `grade_is_held`, `unassessed_evidence_row`; calls `grade_held_for_review`, `grade_is_held`, `unassessed_evidence_row`
 
 ### Platform and third-party dependencies
 
-- Standard library: `__future__`, `dataclasses`, `json`, `typing`
+- Standard library: `__future__`, `collections`, `dataclasses`, `json`, `typing`
 - Third party: none imported directly
 
 ## Larger workflow participation
@@ -165,7 +170,7 @@ Use this module in context through:
 - [[Process Model Output]]
 - [[Inspect Persistent State]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/adaptive_difficulty/material_view|learnloop.adaptive_difficulty.material_view]], [[Reference/Modules/learnloop/attempts/attempts|learnloop.attempts.attempts]], [[Reference/Modules/learnloop/attempts/post_attempt|learnloop.attempts.post_attempt]], [[Reference/Modules/learnloop/attempts/regrade|learnloop.attempts.regrade]], [[Reference/Modules/learnloop/curriculum/graph_edit_proposals|learnloop.curriculum.graph_edit_proposals]] and 43 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/adaptive_difficulty/material_view|learnloop.adaptive_difficulty.material_view]], [[Reference/Modules/learnloop/attempts/attempts|learnloop.attempts.attempts]], [[Reference/Modules/learnloop/attempts/post_attempt|learnloop.attempts.post_attempt]], [[Reference/Modules/learnloop/attempts/regrade|learnloop.attempts.regrade]], [[Reference/Modules/learnloop/curriculum/graph_edit_proposals|learnloop.curriculum.graph_edit_proposals]] and 44 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 

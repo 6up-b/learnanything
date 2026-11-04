@@ -7,8 +7,8 @@ version: "1.0.0"
 source_path: "src/learnloop/cli/__init__.py"
 source_paths:
   - "src/learnloop/cli/__init__.py"
-source_commit: "cedf6a2c3aad3ce9b6c134bc57940b0c6e1d732c"
-source_commit_timestamp: "2026-11-01T19:02:30-05:00"
+source_commit: "ad9aa8e2dd3c7eb1ecc06e81b98c0a97ebc6da19"
+source_commit_timestamp: "2026-11-03T12:44:45-05:00"
 source_worktree_state: "clean"
 generated: true
 generated_at: "2026-11-02"
@@ -49,13 +49,13 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/cli/__init__.py](../../../../../../src/learnloop/cli/__init__.py) |
-| Source lines | 108 |
+| Source lines | 110 |
 | Owning package | [[Reference/Modules/learnloop/cli/_package|learnloop.cli]] |
 | Architecture layer | `adapter` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `cedf6a2c3aad3ce9b6c134bc57940b0c6e1d732c` |
-| Commit timestamp | `2026-11-01T19:02:30-05:00` |
+| Source commit | `ad9aa8e2dd3c7eb1ecc06e81b98c0a97ebc6da19` |
+| Commit timestamp | `2026-11-03T12:44:45-05:00` |
 
 ## Public API
 
@@ -92,6 +92,7 @@ No live LearnLoop module directly imports this module in the static graph.
 - [[Reference/Modules/learnloop/cli/controller|learnloop.cli.controller]] — imports `module`
 - [[Reference/Modules/learnloop/cli/curriculum|learnloop.cli.curriculum]] — imports `curriculum_app`
 - [[Reference/Modules/learnloop/cli/data|learnloop.cli.data]] — imports `module`
+- [[Reference/Modules/learnloop/cli/data_capture|learnloop.cli.data_capture]] — imports `data_capture_app`
 - [[Reference/Modules/learnloop/cli/decider|learnloop.cli.decider]] — imports `decider_app`
 - [[Reference/Modules/learnloop/cli/depth|learnloop.cli.depth]] — imports `module`
 - [[Reference/Modules/learnloop/cli/diagnose|learnloop.cli.diagnose]] — imports `diagnose_app`

@@ -3,13 +3,13 @@ title: "practice_attempts"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "d2de54b4e148637154ed1322a7241b74bba04bcf"
-source_commit_timestamp: "2026-11-03T15:00:46-05:00"
+source_commit: "9995860ab7dd149c0862dd57a7f483c3ac4e7815"
+source_commit_timestamp: "2026-11-03T19:35:50-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite practice_attempts"
   - "table practice_attempts"
-schema_head: 239
+schema_head: 240
 table_name: "practice_attempts"
 table_role: "raw_ledger"
 functionality_status: "active"
@@ -190,6 +190,7 @@ Indexes and uniqueness:
 - `src/learnloop/content/proposals/method_phrasing.py`
 - `src/learnloop/daily_plan/engine.py`
 - `src/learnloop/daily_plan/estimates.py`
+- `src/learnloop/daily_plan/measurement.py`
 - `src/learnloop/daily_plan/router_card.py`
 - `src/learnloop/daily_plan/router_chooser.py`
 - `src/learnloop/daily_plan/router_retrieval.py`
@@ -206,6 +207,7 @@ Indexes and uniqueness:
 - `src/learnloop/db/stores/router_suggestions.py`
 - `src/learnloop/db/stores/source_service.py`
 - `src/learnloop/db/stores/write_provenance.py`
+- `src/learnloop/delayed_checks.py`
 - `src/learnloop/diagnosis/forecast_receipts.py`
 - `src/learnloop/diagnosis/offline_review/report.py`
 - `src/learnloop/diagnosis/offline_review/runner.py`
@@ -243,6 +245,7 @@ Indexes and uniqueness:
 - `src/learnloop/learner/lesson_weight.py`
 - `src/learnloop/learner_context.py`
 - `src/learnloop/learner_protection.py`
+- `src/learnloop/ops/capture_report.py`
 - `src/learnloop/ops/contamination/detectors.py`
 - `src/learnloop/ops/pf_generation.py`
 - `src/learnloop/ops/pf_reports.py`
@@ -263,7 +266,6 @@ Indexes and uniqueness:
 - `src/learnloop/substrate/rebuild_orchestrator.py`
 - `src/learnloop/teacher/actions.py`
 - `src/learnloop/teacher/brief.py`
-- `src/learnloop/teacher/delayed.py`
 - `src/learnloop/teacher/service.py`
 - `src/learnloop/workbench/compare_methods.py`
 - `src/learnloop/workbench/help_outcomes.py`

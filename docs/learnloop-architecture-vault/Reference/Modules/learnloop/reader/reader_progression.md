@@ -7,8 +7,8 @@ version: "1.0.0"
 source_path: "src/learnloop/reader/reader_progression.py"
 source_paths:
   - "src/learnloop/reader/reader_progression.py"
-source_commit: "90c261ba8578c8fcc343b5158d8f18a1d091a30a"
-source_commit_timestamp: "2026-10-17T10:18:04-04:00"
+source_commit: "6df9761722934fe9a15e17c92a3b74cb50b9425c"
+source_commit_timestamp: "2026-11-03T19:25:26-05:00"
 source_worktree_state: "clean"
 generated: true
 generated_at: "2026-11-02"
@@ -49,32 +49,28 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/reader/reader_progression.py](../../../../../../src/learnloop/reader/reader_progression.py) |
-| Source lines | 399 |
+| Source lines | 239 |
 | Owning package | [[Reference/Modules/learnloop/reader/_package|learnloop.reader]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `90c261ba8578c8fcc343b5158d8f18a1d091a30a` |
-| Commit timestamp | `2026-10-17T10:18:04-04:00` |
+| Source commit | `6df9761722934fe9a15e17c92a3b74cb50b9425c` |
+| Commit timestamp | `2026-11-03T19:25:26-05:00` |
 
 ## Public API
 
-- `section_id_for_span(repository: Repository, *, extraction_id: str, span_id: str) -> str | None` ([source](../../../../../../src/learnloop/reader/reader_progression.py), line 31) — Resolve one reader span to its containing normalized section.
-- `learning_objects_for_span(vault: LoadedVault, repository: Repository, *, extraction_id: str, span_id: str) -> list[str]` ([source](../../../../../../src/learnloop/reader/reader_progression.py), line 44) — Provenance-linked Learning Objects available as promotion targets.
-- `learning_objects_for_section(vault: LoadedVault, repository: Repository, *, extraction_id: str, section_id: str) -> list[str]` ([source](../../../../../../src/learnloop/reader/reader_progression.py), line 66) — Active Learning Objects whose provenance cites spans inside the section.
-- `learning_objects_by_section(vault: LoadedVault, repository: Repository, *, extraction_id: str) -> dict[str, list[str]]` ([source](../../../../../../src/learnloop/reader/reader_progression.py), line 130) — Every section of an extraction with its provenance-linked Learning Objects.
-- `source_refs_for_span(vault: LoadedVault, repository: Repository, *, extraction_id: str, span_id: str, learning_object_ids: list[str]) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/reader/reader_progression.py), line 197) — Canonical, path-backed grounding bundles for a selected reader target.
-- `section_generation_candidates(vault: LoadedVault, repository: Repository, *, extraction_id: str, section_id: str, target_items_per_lo: int=3, max_new_per_lo: int=3) -> list[str]` ([source](../../../../../../src/learnloop/reader/reader_progression.py), line 221) — LOs in the section that actually need items (dry-run of the expansion plan with the probe gate waived).
-- `source_refs_for_section(vault: LoadedVault, repository: Repository, *, extraction_id: str, section_id: str, learning_object_ids: list[str]) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/reader/reader_progression.py), line 263) — Build bounded, proposal-local citation bundles for reader seeding.
+- `source_refs_for_span(vault: LoadedVault, repository: Repository, *, extraction_id: str, span_id: str, learning_object_ids: list[str]) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/reader/reader_progression.py), line 37) — Canonical, path-backed grounding bundles for a selected reader target.
+- `section_generation_candidates(vault: LoadedVault, repository: Repository, *, extraction_id: str, section_id: str, target_items_per_lo: int=3, max_new_per_lo: int=3) -> list[str]` ([source](../../../../../../src/learnloop/reader/reader_progression.py), line 61) — LOs in the section that actually need items (dry-run of the expansion plan with the probe gate waived).
+- `source_refs_for_section(vault: LoadedVault, repository: Repository, *, extraction_id: str, section_id: str, learning_object_ids: list[str]) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/reader/reader_progression.py), line 103) — Build bounded, proposal-local citation bundles for reader seeding.
 
 ### Module constants
 
-- `_SOURCE_BUNDLE_RADIUS` ([src/learnloop/reader/reader_progression.py](../../../../../../src/learnloop/reader/reader_progression.py), line 27)
-- `_MAX_SOURCE_BUNDLES_PER_LO` ([src/learnloop/reader/reader_progression.py](../../../../../../src/learnloop/reader/reader_progression.py), line 28)
+- `_SOURCE_BUNDLE_RADIUS` ([src/learnloop/reader/reader_progression.py](../../../../../../src/learnloop/reader/reader_progression.py), line 33)
+- `_MAX_SOURCE_BUNDLES_PER_LO` ([src/learnloop/reader/reader_progression.py](../../../../../../src/learnloop/reader/reader_progression.py), line 34)
 
 ## Internal implementation anchors
 
-- `_merged_context_intervals(anchor_indices: list[int], span_count: int) -> list[tuple[int, int]]` ([source](../../../../../../src/learnloop/reader/reader_progression.py), line 385)
+- `_merged_context_intervals(anchor_indices: list[int], span_count: int) -> list[tuple[int, int]]` ([source](../../../../../../src/learnloop/reader/reader_progression.py), line 225)
 
 ## Who imports or calls it
 
@@ -111,6 +107,7 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 - [[Reference/Modules/learnloop/content/sources/span_aliases|learnloop.content.sources.span_aliases]] — imports `SpanTranslator`; calls `SpanTranslator`
 - [[Reference/Modules/learnloop/db/repositories|learnloop.db.repositories]] — imports `Repository`
 - [[Reference/Modules/learnloop/reader/reader_guidance|learnloop.reader.reader_guidance]] — imports `_canonical_note_ids`, `_span_for_ref`, `extraction_sections`; calls `_canonical_note_ids`, `_span_for_ref`, `extraction_sections`
+- [[Reference/Modules/learnloop/section_map|learnloop.section_map]] — imports `learning_objects_by_section`, `learning_objects_for_section`, `learning_objects_for_span`, `section_id_for_span`; calls `learning_objects_for_section`, `section_id_for_span`
 - [[Reference/Modules/learnloop/vault/models|learnloop.vault.models]] — imports `LoadedVault`, `learning_object_facet_union`; calls `learning_object_facet_union`
 - [[Reference/Modules/learnloop/vault/paths|learnloop.vault.paths]] — imports `VaultPaths`; calls `VaultPaths`
 

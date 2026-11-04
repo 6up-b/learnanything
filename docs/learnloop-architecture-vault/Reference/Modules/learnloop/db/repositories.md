@@ -1190,6 +1190,7 @@ The authoritative system-level explanation remains in [[State and Persistence]],
 - [[Reference/Modules/learnloop/capture/report|learnloop.capture.report]] — imports `Repository`
 - [[Reference/Modules/learnloop/cli/ad|learnloop.cli.ad]] — imports `Repository`
 - [[Reference/Modules/learnloop/cli/app|learnloop.cli.app]] — imports `Repository`
+- [[Reference/Modules/learnloop/cli/data_capture|learnloop.cli.data_capture]] — imports `Repository`
 - [[Reference/Modules/learnloop/cli/diagnose|learnloop.cli.diagnose]] — imports `Repository`
 - [[Reference/Modules/learnloop/cli/embeddings|learnloop.cli.embeddings]] — imports `Repository`
 - [[Reference/Modules/learnloop/cli/field|learnloop.cli.field]] — imports `Repository`
@@ -1469,6 +1470,7 @@ The authoritative system-level explanation remains in [[State and Persistence]],
 - [[Reference/Modules/learnloop/scheduling/state_signals|learnloop.scheduling.state_signals]] — imports `Repository`
 - [[Reference/Modules/learnloop/scheduling/unresolved_cost|learnloop.scheduling.unresolved_cost]] — imports `Repository`
 - [[Reference/Modules/learnloop/scheduling/voi_forecasts|learnloop.scheduling.voi_forecasts]] — imports `Repository`
+- [[Reference/Modules/learnloop/section_map|learnloop.section_map]] — imports `Repository`
 - [[Reference/Modules/learnloop/sim/diagnostic_validation|learnloop.sim.diagnostic_validation]] — imports `Repository`
 - [[Reference/Modules/learnloop/sim/metrics|learnloop.sim.metrics]] — imports `Repository`
 - [[Reference/Modules/learnloop/sim/offline_benchmarks|learnloop.sim.offline_benchmarks]] — imports `Repository`
@@ -1604,7 +1606,7 @@ Use this module in context through:
 - [[Inspect Persistent State]]
 - [[Doctor Migrations and Recovery]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/adaptive_difficulty/background|learnloop.adaptive_difficulty.background]], [[Reference/Modules/learnloop/adaptive_difficulty/relatedness_jobs|learnloop.adaptive_difficulty.relatedness_jobs]], [[Reference/Modules/learnloop/ai/runs|learnloop.ai.runs]], [[Reference/Modules/learnloop/attempts/attempt_trace|learnloop.attempts.attempt_trace]], [[Reference/Modules/learnloop/attempts/attempts|learnloop.attempts.attempts]] and 383 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/adaptive_difficulty/background|learnloop.adaptive_difficulty.background]], [[Reference/Modules/learnloop/adaptive_difficulty/relatedness_jobs|learnloop.adaptive_difficulty.relatedness_jobs]], [[Reference/Modules/learnloop/ai/runs|learnloop.ai.runs]], [[Reference/Modules/learnloop/attempts/attempt_trace|learnloop.attempts.attempt_trace]], [[Reference/Modules/learnloop/attempts/attempts|learnloop.attempts.attempts]] and 385 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
@@ -2135,6 +2137,15 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_daily_plan_rpc.py](../../../../../../tests/test_daily_plan_rpc.py) — direct import
   - `test_g3_every_shown_number_is_what_the_plan_serves`
   - `test_next_plan_item_serves_with_the_offer_that_ranked_it_and_advances`
+- [tests/test_data_capture_a1_prefilter.py](../../../../../../tests/test_data_capture_a1_prefilter.py) — direct import
+- [tests/test_data_capture_a3_time_metric.py](../../../../../../tests/test_data_capture_a3_time_metric.py) — direct import
+- [tests/test_data_capture_a4_delayed_completion.py](../../../../../../tests/test_data_capture_a4_delayed_completion.py) — direct import
+- [tests/test_data_capture_codex_review.py](../../../../../../tests/test_data_capture_codex_review.py) — direct import
+  - `test_f8_a_crash_before_the_transaction_ends_loses_both_or_neither`
+  - `test_f8_the_staged_decisions_receipt_commits_with_it`
+- [tests/test_data_capture_landing_review.py](../../../../../../tests/test_data_capture_landing_review.py) — direct import
+  - `test_f1_a_rebuild_with_no_decisions_needs_no_read`
+  - `test_f1_the_read_is_read_only_under_a_read_only_repository`
 - [tests/test_debug_advance.py](../../../../../../tests/test_debug_advance.py) — direct import
   - `test_debug_advance_shifts_practice_item_state_timestamps`
 - [tests/test_decider_agreement.py](../../../../../../tests/test_decider_agreement.py) — direct import

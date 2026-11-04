@@ -116,6 +116,7 @@ The authoritative system-level explanation remains in [[State and Persistence]];
 - [[Reference/Modules/learnloop/cli/ai|learnloop.cli.ai]] — imports `load_vault`; statically calls `load_vault`
 - [[Reference/Modules/learnloop/cli/contamination|learnloop.cli.contamination]] — imports `load_vault`; statically calls `load_vault`
 - [[Reference/Modules/learnloop/cli/curriculum|learnloop.cli.curriculum]] — imports `load_vault`; statically calls `load_vault`
+- [[Reference/Modules/learnloop/cli/data_capture|learnloop.cli.data_capture]] — imports `load_vault`; statically calls `load_vault`
 - [[Reference/Modules/learnloop/cli/decider|learnloop.cli.decider]] — imports `load_vault`; statically calls `load_vault`
 - [[Reference/Modules/learnloop/cli/diagnose|learnloop.cli.diagnose]] — imports `load_vault`; statically calls `load_vault`
 - [[Reference/Modules/learnloop/cli/embeddings|learnloop.cli.embeddings]] — imports `load_vault`; statically calls `load_vault`
@@ -166,6 +167,7 @@ The authoritative system-level explanation remains in [[State and Persistence]];
 - [[Reference/Modules/learnloop/curriculum/rung_backfill|learnloop.curriculum.rung_backfill]] — imports `load_vault`; statically calls `load_vault`
 - [[Reference/Modules/learnloop/curriculum/subject_registry|learnloop.curriculum.subject_registry]] — imports `load_vault`; statically calls `load_vault`
 - [[Reference/Modules/learnloop/daily_plan_upgrade|learnloop.daily_plan_upgrade]] — imports `load_vault`; statically calls `load_vault`
+- [[Reference/Modules/learnloop/data_capture_upgrade|learnloop.data_capture_upgrade]] — imports `load_vault`; statically calls `load_vault`
 - [[Reference/Modules/learnloop/decider_upgrade|learnloop.decider_upgrade]] — imports `load_vault`; statically calls `load_vault`
 - [[Reference/Modules/learnloop/deliverable_plan_upgrade|learnloop.deliverable_plan_upgrade]] — imports `load_vault`; statically calls `load_vault`
 - [[Reference/Modules/learnloop/diagnosis/calibration_sessions|learnloop.diagnosis.calibration_sessions]] — imports `load_vault`; statically calls `load_vault`
@@ -260,7 +262,7 @@ Use this module in context through:
 
 - [[Initialize a Vault]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/ad_successor_upgrade|learnloop.ad_successor_upgrade]], [[Reference/Modules/learnloop/adaptive_difficulty/generation|learnloop.adaptive_difficulty.generation]], [[Reference/Modules/learnloop/adaptive_difficulty/operation|learnloop.adaptive_difficulty.operation]], [[Reference/Modules/learnloop/attempt_content_state_upgrade|learnloop.attempt_content_state_upgrade]], [[Reference/Modules/learnloop/attempts/measurement_corrections|learnloop.attempts.measurement_corrections]] and 118 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/ad_successor_upgrade|learnloop.ad_successor_upgrade]], [[Reference/Modules/learnloop/adaptive_difficulty/generation|learnloop.adaptive_difficulty.generation]], [[Reference/Modules/learnloop/adaptive_difficulty/operation|learnloop.adaptive_difficulty.operation]], [[Reference/Modules/learnloop/attempt_content_state_upgrade|learnloop.attempt_content_state_upgrade]], [[Reference/Modules/learnloop/attempts/measurement_corrections|learnloop.attempts.measurement_corrections]] and 120 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
@@ -966,6 +968,17 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_f9_reentry_panel_names_only_what_it_counts`
 - [tests/test_daily_plan_rpc.py](../../../../../../tests/test_daily_plan_rpc.py) — direct import
   - `test_g3_every_shown_number_is_what_the_plan_serves`
+- [tests/test_data_capture_a1_prefilter.py](../../../../../../tests/test_data_capture_a1_prefilter.py) — direct import
+- [tests/test_data_capture_a3_time_metric.py](../../../../../../tests/test_data_capture_a3_time_metric.py) — direct import
+- [tests/test_data_capture_a6_delayed_pick.py](../../../../../../tests/test_data_capture_a6_delayed_pick.py) — direct import
+- [tests/test_data_capture_codex_review.py](../../../../../../tests/test_data_capture_codex_review.py) — direct import
+  - `test_f8_a_crash_before_the_transaction_ends_loses_both_or_neither`
+  - `test_f8_the_staged_decisions_receipt_commits_with_it`
+- [tests/test_data_capture_landing_review.py](../../../../../../tests/test_data_capture_landing_review.py) — direct import
+  - `test_f1_a_rebuild_with_no_decisions_needs_no_read`
+- [tests/test_data_capture_successor.py](../../../../../../tests/test_data_capture_successor.py) — direct import
+  - `test_the_outcomes_cache_is_rebuilt_under_the_vaults_version`
+  - `test_the_upgrade_from_te1b_and_through_the_chain_and_its_refusals`
 - [tests/test_decider_landing.py](../../../../../../tests/test_decider_landing.py) — direct import
   - `test_a_book_carrying_the_retired_keep_local_is_asked_like_any_other`
   - `test_a_tied_span_check_inside_an_automatic_build_waits_for_the_owner`

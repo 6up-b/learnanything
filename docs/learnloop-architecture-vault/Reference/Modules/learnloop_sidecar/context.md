@@ -7,8 +7,8 @@ version: "1.0.0"
 source_path: "src/learnloop_sidecar/context.py"
 source_paths:
   - "src/learnloop_sidecar/context.py"
-source_commit: "b9e7c8f33f7cb1b38b1fcdfe459a430a2fdf0a5e"
-source_commit_timestamp: "2026-11-03T04:37:42-05:00"
+source_commit: "8edf1024fe826abfb585584550cf0c4480268657"
+source_commit_timestamp: "2026-11-03T11:44:05-05:00"
 source_worktree_state: "clean"
 generated: true
 generated_at: "2026-11-02"
@@ -58,8 +58,8 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Architecture layer | `adapter` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `b9e7c8f33f7cb1b38b1fcdfe459a430a2fdf0a5e` |
-| Commit timestamp | `2026-11-03T04:37:42-05:00` |
+| Source commit | `8edf1024fe826abfb585584550cf0c4480268657` |
+| Commit timestamp | `2026-11-03T11:44:05-05:00` |
 
 ## Public API
 
@@ -219,6 +219,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop/daily_plan/policy|learnloop.daily_plan.policy]] — imports `mixture_active`; calls `mixture_active`
 - [[Reference/Modules/learnloop/daily_plan/reading_choice|learnloop.daily_plan.reading_choice]] — imports `module`; calls `forget`
 - [[Reference/Modules/learnloop/daily_plan/router_runtime|learnloop.daily_plan.router_runtime]] — imports `models_disabled`; calls `models_disabled`
+- [[Reference/Modules/learnloop/data_capture_upgrade|learnloop.data_capture_upgrade]] — imports `complete_interrupted_activation`; calls `complete_interrupted_activation`
 - [[Reference/Modules/learnloop/db/migrate|learnloop.db.migrate]] — imports `applied_versions`, `discover_migrations`, `schema_is_current`; calls `applied_versions`, `discover_migrations`, `schema_is_current`
 - [[Reference/Modules/learnloop/db/repositories|learnloop.db.repositories]] — imports `Repository`
 - [[Reference/Modules/learnloop/diagnosis/probe_instance_generation|learnloop.diagnosis.probe_instance_generation]] — imports `pending_review_instance_ids`; calls `pending_review_instance_ids`
@@ -229,7 +230,6 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop/hints/outcome|learnloop.hints.outcome]] — imports `reconcile_outcome_placements`; calls `reconcile_outcome_placements`
 - [[Reference/Modules/learnloop/learner/facet_diagnostics|learnloop.learner.facet_diagnostics]] — imports `mastery_diagnostic_view`; calls `mastery_diagnostic_view`
 - [[Reference/Modules/learnloop/learner/mastery|learnloop.learner.mastery]] — imports `display_mastery`; calls `display_mastery`
-- [[Reference/Modules/learnloop/lesson_suggestions_upgrade|learnloop.lesson_suggestions_upgrade]] — imports `complete_interrupted_activation`; calls `complete_interrupted_activation`
 - [[Reference/Modules/learnloop/ops/startup|learnloop.ops.startup]] — imports `run_startup_maintenance`; calls `run_startup_maintenance`
 - [[Reference/Modules/learnloop/reader/reader_authoring|learnloop.reader.reader_authoring]] — imports `adopt_reference_questions`; calls `adopt_reference_questions`
 - [[Reference/Modules/learnloop/serve_eligibility|learnloop.serve_eligibility]] — imports `help_converts_active`; calls `help_converts_active`
@@ -346,6 +346,12 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_f13_a_pick_ignores_a_used_or_unshown_offer`
   - `test_f5_plan_rpcs_finalize_no_offer_and_picks_keep_the_list_offer`
 - [tests/test_daily_plan_rpc.py](../../../../../tests/test_daily_plan_rpc.py) — direct import
+- [tests/test_data_capture_a1_prefilter.py](../../../../../tests/test_data_capture_a1_prefilter.py) — direct import
+  - `test_todays_offer_links_its_builds_receipt_with_every_gate`
+- [tests/test_data_capture_codex_review.py](../../../../../tests/test_data_capture_codex_review.py) — direct import
+  - `test_f8_an_offers_receipt_commits_in_its_decisions_transaction`
+- [tests/test_data_capture_successor.py](../../../../../tests/test_data_capture_successor.py) — direct import
+  - `test_the_openers_install_this_links_completion`
 - [tests/test_decider_landing.py](../../../../../tests/test_decider_landing.py) — direct import
 - [tests/test_device_eligibility.py](../../../../../tests/test_device_eligibility.py) — direct import
   - `test_a_presentation_committed_on_the_phone_resumes_on_the_desktop`

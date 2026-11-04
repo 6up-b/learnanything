@@ -3,13 +3,13 @@ title: "measurement_events"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "d2de54b4e148637154ed1322a7241b74bba04bcf"
-source_commit_timestamp: "2026-11-03T15:00:46-05:00"
+source_commit: "9995860ab7dd149c0862dd57a7f483c3ac4e7815"
+source_commit_timestamp: "2026-11-03T19:35:50-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite measurement_events"
   - "table measurement_events"
-schema_head: 239
+schema_head: 240
 table_name: "measurement_events"
 table_role: "raw_ledger"
 functionality_status: "active"
@@ -21,6 +21,9 @@ source_paths:
   - "migrations/065_activity_lineage_substrate.sql"
   - "src/learnloop/attempts/grader_calibration.py"
   - "src/learnloop/db/repositories.py"
+  - "src/learnloop/db/stores/data_capture.py"
+  - "src/learnloop/ops/capture_report.py"
+  - "src/learnloop/router/outcomes.py"
   - "src/learnloop/attempts/grade_resolution.py"
   - "src/learnloop/substrate/activities.py"
   - "src/learnloop/substrate/compat/substrate_cutover.py"
@@ -111,6 +114,10 @@ Indexes and uniqueness:
 ## Tests that define behavior
 
 - `tests/test_activity_substrate.py`
+- `tests/test_data_capture_a2_measurement.py`
+- `tests/test_data_capture_codex_rereview.py`
+- `tests/test_data_capture_codex_review.py`
+- `tests/test_data_capture_phone.py`
 - `tests/test_p0_projection_cutover.py`
 - `tests/test_administration_adapters.py`
 - `tests/test_assessment_enforcement.py`

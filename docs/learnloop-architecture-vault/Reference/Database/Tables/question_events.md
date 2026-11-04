@@ -3,13 +3,13 @@ title: "question_events"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "d2de54b4e148637154ed1322a7241b74bba04bcf"
-source_commit_timestamp: "2026-11-03T15:00:46-05:00"
+source_commit: "9995860ab7dd149c0862dd57a7f483c3ac4e7815"
+source_commit_timestamp: "2026-11-03T19:35:50-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite question_events"
   - "table question_events"
-schema_head: 239
+schema_head: 240
 table_name: "question_events"
 table_role: "raw_ledger"
 functionality_status: "active"
@@ -24,6 +24,7 @@ source_paths:
   - "src/learnloop/adaptive_difficulty/protected_tables.py"
   - "src/learnloop/adaptive_difficulty/reading.py"
   - "src/learnloop/adaptive_difficulty/replay.py"
+  - "src/learnloop/adaptive_difficulty/report.py"
   - "src/learnloop/attempts/coldness_receipt.py"
   - "src/learnloop/attempts/salience_firewall.py"
   - "src/learnloop/cli/field_classification.py"
@@ -188,13 +189,13 @@ Indexes and uniqueness:
 - `tests/test_capture_route_recovery.py`
 - `tests/test_coldness_receipt.py`
 - `tests/test_compare_sources_keep.py`
+- `tests/test_data_capture_a4_delayed_completion.py`
 - `tests/test_diagnosis_input_provenance.py`
 - `tests/test_diagnosis_input_provenance_landing.py`
 - `tests/test_exam_protection.py`
 - `tests/test_field_signal_production_paths.py`
 - `tests/test_figure_predictions.py`
 - `tests/test_figures_show_me_codex_review.py`
-- `tests/test_hint_telemetry.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

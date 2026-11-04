@@ -3,13 +3,13 @@ title: "reveal_events"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "d2de54b4e148637154ed1322a7241b74bba04bcf"
-source_commit_timestamp: "2026-11-03T15:00:46-05:00"
+source_commit: "9995860ab7dd149c0862dd57a7f483c3ac4e7815"
+source_commit_timestamp: "2026-11-03T19:35:50-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite reveal_events"
   - "table reveal_events"
-schema_head: 239
+schema_head: 240
 table_name: "reveal_events"
 table_role: "raw_ledger"
 functionality_status: "active"
@@ -103,6 +103,7 @@ Database triggers:
 - `src/learnloop/db/repositories.py`
 - `src/learnloop/db/stores/practice_index.py`
 - `src/learnloop/db/stores/source_service.py`
+- `src/learnloop/delayed_checks.py`
 - `src/learnloop/diagnosis/split/card.py`
 - `src/learnloop/diagnosis/text_gaps/provenance.py`
 - `src/learnloop/hints/report.py`
@@ -114,7 +115,6 @@ Database triggers:
 - `src/learnloop/router/outcomes.py`
 - `src/learnloop/source_retrieval/deliverable_path.py`
 - `src/learnloop/substrate/intervention_outcomes.py`
-- `src/learnloop/teacher/delayed.py`
 - `src/learnloop/teacher/service.py`
 - `src/learnloop_sidecar/handlers/figures.py`
 

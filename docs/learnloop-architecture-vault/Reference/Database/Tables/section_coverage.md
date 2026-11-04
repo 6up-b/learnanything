@@ -3,13 +3,13 @@ title: "section_coverage"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "d2de54b4e148637154ed1322a7241b74bba04bcf"
-source_commit_timestamp: "2026-11-03T15:00:46-05:00"
+source_commit: "9995860ab7dd149c0862dd57a7f483c3ac4e7815"
+source_commit_timestamp: "2026-11-03T19:35:50-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite section_coverage"
   - "table section_coverage"
-schema_head: 239
+schema_head: 240
 table_name: "section_coverage"
 table_role: "workflow"
 functionality_status: "active"
@@ -24,8 +24,9 @@ source_paths:
   - "src/learnloop/cli/curriculum.py"
   - "src/learnloop/content/pipeline/jobs.py"
   - "src/learnloop/daily_plan/lesson_suggestion.py"
+  - "src/learnloop/data_capture/reading_exposures.py"
+  - "src/learnloop/db/stores/data_capture.py"
   - "src/learnloop/db/stores/section_coverage.py"
-  - "src/learnloop/figures/help.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/workflow"
@@ -104,6 +105,7 @@ None found by exact static reference scan.
 
 ### Direct SQL readers
 
+- `src/learnloop/db/stores/data_capture.py`
 - `src/learnloop/db/stores/section_coverage.py`
 - `src/learnloop/figures/help.py`
 - `src/learnloop/source_retrieval/deliverable_path.py`
@@ -128,6 +130,7 @@ None found by exact static reference scan.
 - `tests/test_curriculum_c0b_landing.py`
 - `tests/test_curriculum_c1_plan_follows_path.py`
 - `tests/test_curriculum_c3_exam_scoping.py`
+- `tests/test_data_capture_landing_review.py`
 - `tests/test_deliverable_codex_review.py`
 - `tests/test_deliverable_rpcs.py`
 - `tests/test_deliverable_scope.py`
@@ -141,7 +144,6 @@ None found by exact static reference scan.
 - `tests/test_reader_ca6_side_by_side.py`
 - `tests/test_section_coverage.py`
 - `tests/test_section_coverage_migration.py`
-- `tests/test_section_coverage_review.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

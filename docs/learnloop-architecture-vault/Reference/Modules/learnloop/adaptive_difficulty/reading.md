@@ -7,8 +7,8 @@ version: "1.0.0"
 source_path: "src/learnloop/adaptive_difficulty/reading.py"
 source_paths:
   - "src/learnloop/adaptive_difficulty/reading.py"
-source_commit: "38c895e230ef534fc7b4a2eff18a51ca456a06a2"
-source_commit_timestamp: "2026-10-24T10:23:24-04:00"
+source_commit: "2d4520e1fe11db97835f80cc5f280b51602c6954"
+source_commit_timestamp: "2026-11-03T19:28:17-05:00"
 source_worktree_state: "clean"
 generated: true
 generated_at: "2026-11-02"
@@ -50,56 +50,41 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/adaptive_difficulty/reading.py](../../../../../../src/learnloop/adaptive_difficulty/reading.py) |
-| Source lines | 637 |
+| Source lines | 355 |
 | Owning package | [[Reference/Modules/learnloop/adaptive_difficulty/_package|learnloop.adaptive_difficulty]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `38c895e230ef534fc7b4a2eff18a51ca456a06a2` |
-| Commit timestamp | `2026-10-24T10:23:24-04:00` |
+| Source commit | `2d4520e1fe11db97835f80cc5f280b51602c6954` |
+| Commit timestamp | `2026-11-03T19:28:17-05:00` |
 
 ## Public API
 
-- `class ReadingMap(Protocol)` ([source](../../../../../../src/learnloop/adaptive_difficulty/reading.py), line 115) — How a source row maps to LOs and facets (the Reader's own mapping).
-  - `los_for_section(self, extraction_id: str, section_id: str) -> list[str]` (line 118; public)
-  - `los_for_span(self, extraction_id: str, span_id: str) -> list[str]` (line 119; public)
-  - `section_spans(self, extraction_id: str, section_id: str) -> list[str]` (line 120; public)
-  - `worked_example_spans(self, extraction_id: str) -> set[str]` (line 121; public)
-  - `withheld(self, extraction_id: str, span_id: str | None) -> bool` (line 122; public)
-  - `los_for_note(self, note_id: str) -> list[str]` (line 123; public)
-  - `lo_for_item(self, practice_item_id: str) -> str | None` (line 124; public)
-  - `facets_for_lo(self, learning_object_id: str) -> list[str]` (line 125; public)
-- `class VaultReadingMap` ([source](../../../../../../src/learnloop/adaptive_difficulty/reading.py), line 128) — The default map: ``reader.reader_progression``'s section/span -> LO rule, worked examples by role (``source_retrieval.corpus.role_keys``), facets by the LO's facet union.
-  - `__init__(self, vault: Any, repository: Any, view: Any=None) -> None` (line 135; internal)
-  - `los_for_section(self, extraction_id: str, section_id: str) -> list[str]` (line 145; public)
-  - `los_for_span(self, extraction_id: str, span_id: str) -> list[str]` (line 157; public)
-  - `section_spans(self, extraction_id: str, section_id: str) -> list[str]` (line 169; public)
-  - `worked_example_spans(self, extraction_id: str) -> set[str]` (line 172; public)
-  - `reading_order(self, extraction_id: str) -> dict[str, int]` (line 184; public)
-  - `withheld(self, extraction_id: str, span_id: str | None) -> bool` (line 187; public)
-  - `note_withheld(self, note_id: str) -> bool` (line 192; public) — Whether a note is withheld (a held-out source's canonical note; fix round 13, F43).
-  - `los_for_note(self, note_id: str) -> list[str]` (line 200; public)
-  - `lo_for_item(self, practice_item_id: str) -> str | None` (line 207; public)
-  - `facets_for_lo(self, learning_object_id: str) -> list[str]` (line 211; public)
-- `class SweepResult` ([source](../../../../../../src/learnloop/adaptive_difficulty/reading.py), line 234)
-  - `as_dict(self) -> dict[str, Any]` (line 239; public)
-- `occupancy(connection: Any, view: Any) -> dict[tuple[str, str, str], int]` ([source](../../../../../../src/learnloop/adaptive_difficulty/reading.py), line 494) — Each capped bucket's occupancy, ``(bucket, LO, day) -> receipts``, counted over the receipts AD's material view sees (Codex verify F44, fix round 13): a receipt from withheld material is, for AD, a receipt never written, so it occupies no slot of a daily cap.
-- `sweep(vault: Any, repository: Any, *, as_of: str, sweep_kind: str='serve', sweep_ref: str | None=None, reading_map: ReadingMap | None=None, clock: Clock | None=None, view: Any=None) -> SweepResult` ([source](../../../../../../src/learnloop/adaptive_difficulty/reading.py), line 553) — Record every listed opportunity written no later than ``as_of``.
+- `class VaultReadingMap` ([source](../../../../../../src/learnloop/adaptive_difficulty/reading.py), line 91) — The default map: ``reader.reader_progression``'s section/span -> LO rule, worked examples by role (``source_retrieval.corpus.role_keys``), facets by the LO's facet union.
+  - `__init__(self, vault: Any, repository: Any, view: Any=None) -> None` (line 98; internal)
+  - `los_for_section(self, extraction_id: str, section_id: str) -> list[str]` (line 108; public)
+  - `los_for_span(self, extraction_id: str, span_id: str) -> list[str]` (line 120; public)
+  - `section_spans(self, extraction_id: str, section_id: str) -> list[str]` (line 132; public)
+  - `worked_example_spans(self, extraction_id: str) -> set[str]` (line 135; public)
+  - `reading_order(self, extraction_id: str) -> dict[str, int]` (line 147; public)
+  - `withheld(self, extraction_id: str, span_id: str | None) -> bool` (line 150; public)
+  - `note_withheld(self, note_id: str) -> bool` (line 155; public) — Whether a note is withheld (a held-out source's canonical note; fix round 13, F43).
+  - `los_for_note(self, note_id: str) -> list[str]` (line 163; public)
+  - `lo_for_item(self, practice_item_id: str) -> str | None` (line 170; public)
+  - `facets_for_lo(self, learning_object_id: str) -> list[str]` (line 174; public)
+- `class SweepResult` ([source](../../../../../../src/learnloop/adaptive_difficulty/reading.py), line 183)
+  - `as_dict(self) -> dict[str, Any]` (line 188; public)
+- `occupancy(connection: Any, view: Any) -> dict[tuple[str, str, str], int]` ([source](../../../../../../src/learnloop/adaptive_difficulty/reading.py), line 213) — Each capped bucket's occupancy, ``(bucket, LO, day) -> receipts``, counted over the receipts AD's material view sees (Codex verify F44, fix round 13): a receipt from withheld material is, for AD, a receipt never written, so it occupies no slot of a daily cap.
+- `sweep(vault: Any, repository: Any, *, as_of: str, sweep_kind: str='serve', sweep_ref: str | None=None, reading_map: ReadingMap | None=None, clock: Clock | None=None, view: Any=None) -> SweepResult` ([source](../../../../../../src/learnloop/adaptive_difficulty/reading.py), line 272) — Record every listed opportunity written no later than ``as_of``.
 
 ### Module constants
 
-- `LOG` ([src/learnloop/adaptive_difficulty/reading.py](../../../../../../src/learnloop/adaptive_difficulty/reading.py), line 78)
-- `MAPPING_VERSION` ([src/learnloop/adaptive_difficulty/reading.py](../../../../../../src/learnloop/adaptive_difficulty/reading.py), line 80)
-- `KINDS` ([src/learnloop/adaptive_difficulty/reading.py](../../../../../../src/learnloop/adaptive_difficulty/reading.py), line 81)
-- `SELF_CHECK_TASK` ([src/learnloop/adaptive_difficulty/reading.py](../../../../../../src/learnloop/adaptive_difficulty/reading.py), line 82)
-- `SELF_CHECK_CLASSES` ([src/learnloop/adaptive_difficulty/reading.py](../../../../../../src/learnloop/adaptive_difficulty/reading.py), line 83)
-- `EXPOSURE_CONTEXTS` ([src/learnloop/adaptive_difficulty/reading.py](../../../../../../src/learnloop/adaptive_difficulty/reading.py), line 88)
-- `TUTOR_CONTEXTS` ([src/learnloop/adaptive_difficulty/reading.py](../../../../../../src/learnloop/adaptive_difficulty/reading.py), line 90)
-- `PASSAGES_PER_LO_PER_DAY` ([src/learnloop/adaptive_difficulty/reading.py](../../../../../../src/learnloop/adaptive_difficulty/reading.py), line 91)
-- `TUTOR_EXCHANGES_PER_LO_PER_DAY` ([src/learnloop/adaptive_difficulty/reading.py](../../../../../../src/learnloop/adaptive_difficulty/reading.py), line 92)
-- `SWEEP_OVERLAP` ([src/learnloop/adaptive_difficulty/reading.py](../../../../../../src/learnloop/adaptive_difficulty/reading.py), line 96)
-- `SOURCES` ([src/learnloop/adaptive_difficulty/reading.py](../../../../../../src/learnloop/adaptive_difficulty/reading.py), line 100)
-- `_COLLECTORS` ([src/learnloop/adaptive_difficulty/reading.py](../../../../../../src/learnloop/adaptive_difficulty/reading.py), line 479)
+- `LOG` ([src/learnloop/adaptive_difficulty/reading.py](../../../../../../src/learnloop/adaptive_difficulty/reading.py), line 79)
+- `MAPPING_VERSION` ([src/learnloop/adaptive_difficulty/reading.py](../../../../../../src/learnloop/adaptive_difficulty/reading.py), line 81)
+- `KINDS` ([src/learnloop/adaptive_difficulty/reading.py](../../../../../../src/learnloop/adaptive_difficulty/reading.py), line 82)
+- `PASSAGES_PER_LO_PER_DAY` ([src/learnloop/adaptive_difficulty/reading.py](../../../../../../src/learnloop/adaptive_difficulty/reading.py), line 83)
+- `TUTOR_EXCHANGES_PER_LO_PER_DAY` ([src/learnloop/adaptive_difficulty/reading.py](../../../../../../src/learnloop/adaptive_difficulty/reading.py), line 84)
+- `SOURCES` ([src/learnloop/adaptive_difficulty/reading.py](../../../../../../src/learnloop/adaptive_difficulty/reading.py), line 88)
 
 ### Explicit exports
 
@@ -113,28 +98,16 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `SOURCES`
 - `SweepResult`
 - `VaultReadingMap`
+- `listed_events`
 - `sweep`
 
 ## Internal implementation anchors
 
-- `_stamp(value: Any) -> str | None` ([source](../../../../../../src/learnloop/adaptive_difficulty/reading.py), line 103) — A source time in one sortable form (microseconds, ``Z``); None when unreadable.
-- `class _Event` ([source](../../../../../../src/learnloop/adaptive_difficulty/reading.py), line 220)
-- `_doses(reading_map: ReadingMap, lo_id: str, named: Sequence[str]) -> dict[str, float]` ([source](../../../../../../src/learnloop/adaptive_difficulty/reading.py), line 243)
-- `_in_window(stamp: str | None, lower: str | None, upper: str) -> bool` ([source](../../../../../../src/learnloop/adaptive_difficulty/reading.py), line 254)
-- `_recorded(connection: Any, kind: str, subkind: str, table: str, source_id: str, *, view: Any) -> bool` ([source](../../../../../../src/learnloop/adaptive_difficulty/reading.py), line 258) — An earlier sweep recorded this source row: it is not mapped again (a serve's sweep re-reads its overlap window, never re-resolves it).
-- `_section_events(connection: Any, reading_map: ReadingMap, lower: str | None, upper: str, view: Any=None) -> list[_Event]` ([source](../../../../../../src/learnloop/adaptive_difficulty/reading.py), line 268)
-- `_exposure_events(connection: Any, reading_map: ReadingMap, lower: str | None, upper: str, view: Any=None) -> list[_Event]` ([source](../../../../../../src/learnloop/adaptive_difficulty/reading.py), line 300)
-- `_named_facets(raw: Any) -> tuple[str, ...]` ([source](../../../../../../src/learnloop/adaptive_difficulty/reading.py), line 328)
-- `_note_withheld(connection: Any, reading_map: Any, view: Any, note_id: str) -> bool` ([source](../../../../../../src/learnloop/adaptive_difficulty/reading.py), line 338) — A note's protection for the sweep: the map's own rule when it has one, else the view's (every note while the view is unavailable).
-- `_tutor_events(connection: Any, reading_map: ReadingMap, lower: str | None, upper: str, view: Any=None) -> list[_Event]` ([source](../../../../../../src/learnloop/adaptive_difficulty/reading.py), line 347)
-- `_question_los(reading_map: ReadingMap, extraction_id: str, section_id: str, anchors: Any) -> tuple[str, ...]` ([source](../../../../../../src/learnloop/adaptive_difficulty/reading.py), line 394)
-- `_question_events(connection: Any, reading_map: ReadingMap, lower: str | None, upper: str, view: Any=None) -> list[_Event]` ([source](../../../../../../src/learnloop/adaptive_difficulty/reading.py), line 408)
-- `_owner_placed_events(connection: Any, reading_map: ReadingMap, lower: str | None, upper: str, view: Any=None) -> list[_Event]` ([source](../../../../../../src/learnloop/adaptive_difficulty/reading.py), line 429)
-- `_verdict_events(connection: Any, reading_map: ReadingMap, lower: str | None, upper: str, view: Any=None) -> list[_Event]` ([source](../../../../../../src/learnloop/adaptive_difficulty/reading.py), line 447)
-- `_capped(kind: str, subkind: str) -> tuple[str, int] | None` ([source](../../../../../../src/learnloop/adaptive_difficulty/reading.py), line 484) — A capped kind's occupancy bucket and its cap per LO and day (§5.11), or None.
-- `_keys(connection: Any, event: _Event, lo_id: str, occupied: dict[tuple[str, str, str], int]) -> str | None` ([source](../../../../../../src/learnloop/adaptive_difficulty/reading.py), line 508) — The opportunity's key inside its cap, or None when the cap is full.
-- `_taken_offers(connection: Any, view: Any) -> dict[str, str]` ([source](../../../../../../src/learnloop/adaptive_difficulty/reading.py), line 532)
-- `_offer_for(offers: Mapping[str, str], event: '_Event') -> str | None` ([source](../../../../../../src/learnloop/adaptive_difficulty/reading.py), line 542)
+- `_doses(reading_map: ReadingMap, lo_id: str, named: Sequence[str]) -> dict[str, float]` ([source](../../../../../../src/learnloop/adaptive_difficulty/reading.py), line 192)
+- `_capped(kind: str, subkind: str) -> tuple[str, int] | None` ([source](../../../../../../src/learnloop/adaptive_difficulty/reading.py), line 203) — A capped kind's occupancy bucket and its cap per LO and day (§5.11), or None.
+- `_keys(connection: Any, event: _Event, lo_id: str, occupied: dict[tuple[str, str, str], int]) -> str | None` ([source](../../../../../../src/learnloop/adaptive_difficulty/reading.py), line 227) — The opportunity's key inside its cap, or None when the cap is full.
+- `_taken_offers(connection: Any, view: Any) -> dict[str, str]` ([source](../../../../../../src/learnloop/adaptive_difficulty/reading.py), line 251)
+- `_offer_for(offers: Mapping[str, str], event: '_Event') -> str | None` ([source](../../../../../../src/learnloop/adaptive_difficulty/reading.py), line 261)
 
 ## Who imports or calls it
 
@@ -155,17 +128,17 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop/adaptive_difficulty/material_view|learnloop.adaptive_difficulty.material_view]] — imports `material_view`; calls `material_view`
 - [[Reference/Modules/learnloop/adaptive_difficulty/operation|learnloop.adaptive_difficulty.operation]] — imports `entry`; calls `entry`
 - [[Reference/Modules/learnloop/adaptive_difficulty/switches|learnloop.adaptive_difficulty.switches]] — imports `receipts_enabled`; calls `receipts_enabled`
-- [[Reference/Modules/learnloop/attempts/salience_firewall|learnloop.attempts.salience_firewall]] — imports `IN_PASSAGE_STYLES`, `LEARNING_OPPORTUNITY_KINDS`, `LEARNING_OPPORTUNITY_SOURCES`, `TUTOR_ANSWER_MODES`, `UNKNOWN_ANSWER_MODE`
+- [[Reference/Modules/learnloop/attempts/salience_firewall|learnloop.attempts.salience_firewall]] — imports `LEARNING_OPPORTUNITY_KINDS`, `LEARNING_OPPORTUNITY_SOURCES`
 - [[Reference/Modules/learnloop/clock|learnloop.clock]] — imports `Clock`, `parse_utc`, `utc_now_iso`; calls `parse_utc`, `utc_now_iso`
 - [[Reference/Modules/learnloop/db/connection|learnloop.db.connection]] — imports `connect`; calls `connect`
 - [[Reference/Modules/learnloop/db/stores/ad_receipts|learnloop.db.stores.ad_receipts]] — imports `module`; calls `has_table`, `insert_reading_opportunity`
 - [[Reference/Modules/learnloop/db/stores/ad_serving|learnloop.db.stores.ad_serving]] — imports `module`; calls `has_table`
-- [[Reference/Modules/learnloop/ingest/locators|learnloop.ingest.locators]] — imports `parse_block_span`; calls `parse_block_span`
 - [[Reference/Modules/learnloop/reader/reader_progression|learnloop.reader.reader_progression]] — imports `learning_objects_for_section`, `learning_objects_for_span`; calls `learning_objects_for_section`, `learning_objects_for_span`
+- [[Reference/Modules/learnloop/reading_sources|learnloop.reading_sources]] — imports `EXPOSURE_CONTEXTS`, `IN_PASSAGE_STYLES`, `ListedEvent`, `ReadingMap`, `SWEEP_OVERLAP`, `listed_events`, `source_stamp`; calls `listed_events`, `source_stamp`
 
 ### Platform and third-party dependencies
 
-- Standard library: `__future__`, `collections`, `contextlib`, `dataclasses`, `datetime`, `json`, `logging`, `typing`
+- Standard library: `__future__`, `collections`, `contextlib`, `dataclasses`, `logging`, `typing`
 - Third party: none imported directly
 
 ## Larger workflow participation

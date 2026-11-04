@@ -34,7 +34,7 @@ source_paths:
   - "src/learnloop/reader/span_view.py"
   - "src/learnloop/reader/workbench.py"
 source_commit: "aggregate; see module notes"
-source_commit_timestamp: "2026-11-02T23:57:40-05:00"
+source_commit_timestamp: "2026-11-03T19:25:26-05:00"
 generated: true
 generated_at: "2026-11-02"
 package: "learnloop.reader"
@@ -104,7 +104,7 @@ For system intent, use [[Learning System]].
 
 ### This package imports
 
-- [[Reference/Modules/learnloop/_package|learnloop]] — 25 static module edges
+- [[Reference/Modules/learnloop/_package|learnloop]] — 27 static module edges
 - [[Reference/Modules/learnloop/db/_package|learnloop.db]] — 18 static module edges
 - [[Reference/Modules/learnloop/content/sources/_package|learnloop.content.sources]] — 17 static module edges
 - [[Reference/Modules/learnloop/ai/_package|learnloop.ai]] — 16 static module edges
@@ -149,8 +149,8 @@ This diagram compresses package-level static imports; edge labels are distinct m
 flowchart LR
     center["learnloop.reader"]
     n_learnloop_sidecar_handlers["learnloop_sidecar.handlers"]
-    n_learnloop_source_retrieval["learnloop.source_retrieval"]
     n_learnloop["learnloop"]
+    n_learnloop_source_retrieval["learnloop.source_retrieval"]
     n_learnloop_db["learnloop.db"]
     n_learnloop_content_sources["learnloop.content.sources"]
     n_learnloop_ai["learnloop.ai"]
@@ -159,8 +159,8 @@ flowchart LR
     n_learnloop_ingest["learnloop.ingest"]
     n_learnloop_substrate["learnloop.substrate"]
     n_learnloop_sidecar_handlers -->|48| center
+    center -->|27| n_learnloop
     n_learnloop_source_retrieval -->|27| center
-    center -->|25| n_learnloop
     center -->|18| n_learnloop_db
     center -->|17| n_learnloop_content_sources
     center -->|16| n_learnloop_ai

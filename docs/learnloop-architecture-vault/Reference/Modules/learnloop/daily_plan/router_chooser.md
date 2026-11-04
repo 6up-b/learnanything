@@ -7,8 +7,8 @@ version: "1.0.0"
 source_path: "src/learnloop/daily_plan/router_chooser.py"
 source_paths:
   - "src/learnloop/daily_plan/router_chooser.py"
-source_commit: "ad3c0b4cf6f8f4e7f2a1fafdbe8203ecab3ce0cb"
-source_commit_timestamp: "2026-10-14T11:36:29-04:00"
+source_commit: "9cd91ef176e1863c6397482cdd73c8bb714e5817"
+source_commit_timestamp: "2026-11-03T14:27:04-05:00"
 source_worktree_state: "clean"
 generated: true
 generated_at: "2026-11-02"
@@ -50,44 +50,45 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/daily_plan/router_chooser.py](../../../../../../src/learnloop/daily_plan/router_chooser.py) |
-| Source lines | 771 |
+| Source lines | 814 |
 | Owning package | [[Reference/Modules/learnloop/daily_plan/_package|learnloop.daily_plan]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `ad3c0b4cf6f8f4e7f2a1fafdbe8203ecab3ce0cb` |
-| Commit timestamp | `2026-10-14T11:36:29-04:00` |
+| Source commit | `9cd91ef176e1863c6397482cdd73c8bb714e5817` |
+| Commit timestamp | `2026-11-03T14:27:04-05:00` |
 
 ## Public API
 
-- `router_settings(config: Any) -> dict[str, Any]` ([source](../../../../../../src/learnloop/daily_plan/router_chooser.py), line 101) — The router settings a decision's key and record carry.
-- `support_order(state: PlanState, candidates: Sequence[BlockCandidate], staged_id: str, *, k: int, stop_offered: bool, ties_only: bool) -> list[str]` ([source](../../../../../../src/learnloop/daily_plan/router_chooser.py), line 125) — The top-k options in the deterministic order of plan §3.3 item 3.
-- `favoured_option(distribution: Mapping[str, float] | None) -> str | None` ([source](../../../../../../src/learnloop/daily_plan/router_chooser.py), line 165) — The one option a model's distribution puts the most on (None on a tie at the top).
-- `class RouterChooser` ([source](../../../../../../src/learnloop/daily_plan/router_chooser.py), line 355) — ``router_mixture_v1``: the logged model mixture over the staged frame's candidates.
-  - `scope(self) -> str` (line 370; public)
-  - `_now_iso(self) -> str` (line 373; internal)
-  - `choose(self, state: PlanState, feasible: Sequence[BlockCandidate]) -> BlockChoice` (line 378; public)
-  - `_start(self, key: str, state: PlanState, feasible: Sequence[BlockCandidate], support: Sequence[str], by_id: Mapping[str, BlockCandidate], ready: tuple[str, ...]) -> Prefetch` (line 421; internal)
-  - `_decide(self, entry: Prefetch, state: PlanState, staged: BlockChoice, record: dict[str, Any], support: Sequence[str], by_id: Mapping[str, BlockCandidate], readiness: Mapping[str, str | None], settings: Mapping[str, Any]) -> BlockChoice` (line 450; internal)
-- `class RestraintOutcome` ([source](../../../../../../src/learnloop/daily_plan/router_chooser.py), line 557) — A follow-up's ``plan_interrupt`` decision, made outside any write.
-  - `insert(self) -> bool` (line 570; public)
-  - `wait(self) -> bool` (line 574; public)
-- `class RestraintGate` ([source](../../../../../../src/learnloop/daily_plan/router_chooser.py), line 579) — ``plan_interrupt``: insert a placeable mid-block follow-up now, or let it wait.
-  - `scope(self) -> str` (line 592; public)
-  - `refusals(self, item: Any) -> tuple[dict[str, Any], ...]` (line 595; public) — The P4 constraint engine's named refusals of one follow-up (none: placeable).
-  - `declined(refusals: Sequence[Mapping[str, Any]]) -> RestraintOutcome` (line 601; public) — A refused follow-up's deterministic ``decline`` (no model is asked).
-  - `_refusals(self, item: Any) -> tuple[dict[str, Any], ...]` (line 611; internal)
-  - `decide(self, record: Any, current: Any, item: Any, *, wait_feasible: bool=True) -> RestraintOutcome` (line 621; public) — The decision for one follow-up the rules would place now (raises :class:`DecisionPending` on a read whose models are still out).
-  - `_state(self, record: Any, current: Any, item: Any) -> tuple[PlanState, list[BlockCandidate]]` (line 708; internal)
-  - `_start(self, key: str, state: PlanState, candidates: list[BlockCandidate], item: Any, ready: tuple[str, ...]) -> Prefetch` (line 733; internal)
+- `router_settings(config: Any) -> dict[str, Any]` ([source](../../../../../../src/learnloop/daily_plan/router_chooser.py), line 103) — The router settings a decision's key and record carry.
+- `support_order(state: PlanState, candidates: Sequence[BlockCandidate], staged_id: str, *, k: int, stop_offered: bool, ties_only: bool) -> list[str]` ([source](../../../../../../src/learnloop/daily_plan/router_chooser.py), line 127) — The top-k options in the deterministic order of plan §3.3 item 3.
+- `favoured_option(distribution: Mapping[str, float] | None) -> str | None` ([source](../../../../../../src/learnloop/daily_plan/router_chooser.py), line 167) — The one option a model's distribution puts the most on (None on a tie at the top).
+- `class RouterChooser` ([source](../../../../../../src/learnloop/daily_plan/router_chooser.py), line 371) — ``router_mixture_v1``: the logged model mixture over the staged frame's candidates.
+  - `scope(self) -> str` (line 386; public)
+  - `_now_iso(self) -> str` (line 389; internal)
+  - `choose(self, state: PlanState, feasible: Sequence[BlockCandidate]) -> BlockChoice` (line 394; public)
+  - `_freeze_objective(self, record: dict[str, Any], staged: BlockChoice, feasible: Sequence[BlockCandidate], support: Sequence[str]) -> None` (line 448; internal) — Data capture A2: the objective the arms are evaluated on, frozen from pre-draw inputs only, just before the draw (a read whose models are still out reaches neither).
+  - `_start(self, key: str, state: PlanState, feasible: Sequence[BlockCandidate], support: Sequence[str], by_id: Mapping[str, BlockCandidate], ready: tuple[str, ...]) -> Prefetch` (line 459; internal)
+  - `_decide(self, entry: Prefetch, state: PlanState, staged: BlockChoice, record: dict[str, Any], support: Sequence[str], by_id: Mapping[str, BlockCandidate], readiness: Mapping[str, str | None], settings: Mapping[str, Any], *, decided_by: str='mixture') -> BlockChoice` (line 488; internal)
+- `class RestraintOutcome` ([source](../../../../../../src/learnloop/daily_plan/router_chooser.py), line 595) — A follow-up's ``plan_interrupt`` decision, made outside any write.
+  - `insert(self) -> bool` (line 608; public)
+  - `wait(self) -> bool` (line 612; public)
+- `class RestraintGate` ([source](../../../../../../src/learnloop/daily_plan/router_chooser.py), line 617) — ``plan_interrupt``: insert a placeable mid-block follow-up now, or let it wait.
+  - `scope(self) -> str` (line 630; public)
+  - `refusals(self, item: Any) -> tuple[dict[str, Any], ...]` (line 633; public) — The P4 constraint engine's named refusals of one follow-up (none: placeable).
+  - `declined(refusals: Sequence[Mapping[str, Any]]) -> RestraintOutcome` (line 639; public) — A refused follow-up's deterministic ``decline`` (no model is asked).
+  - `_refusals(self, item: Any) -> tuple[dict[str, Any], ...]` (line 649; internal)
+  - `decide(self, record: Any, current: Any, item: Any, *, wait_feasible: bool=True) -> RestraintOutcome` (line 659; public) — The decision for one follow-up the rules would place now (raises :class:`DecisionPending` on a read whose models are still out).
+  - `_state(self, record: Any, current: Any, item: Any) -> tuple[PlanState, list[BlockCandidate]]` (line 751; internal)
+  - `_start(self, key: str, state: PlanState, candidates: list[BlockCandidate], item: Any, ready: tuple[str, ...]) -> Prefetch` (line 776; internal)
 
 ### Module constants
 
-- `LOG` ([src/learnloop/daily_plan/router_chooser.py](../../../../../../src/learnloop/daily_plan/router_chooser.py), line 85)
-- `CHOOSER_NAME` ([src/learnloop/daily_plan/router_chooser.py](../../../../../../src/learnloop/daily_plan/router_chooser.py), line 87)
-- `MODE` ([src/learnloop/daily_plan/router_chooser.py](../../../../../../src/learnloop/daily_plan/router_chooser.py), line 88)
-- `KEY_VERSION` ([src/learnloop/daily_plan/router_chooser.py](../../../../../../src/learnloop/daily_plan/router_chooser.py), line 89)
-- `INSERT_NOW` ([src/learnloop/daily_plan/router_chooser.py](../../../../../../src/learnloop/daily_plan/router_chooser.py), line 90)
+- `LOG` ([src/learnloop/daily_plan/router_chooser.py](../../../../../../src/learnloop/daily_plan/router_chooser.py), line 87)
+- `CHOOSER_NAME` ([src/learnloop/daily_plan/router_chooser.py](../../../../../../src/learnloop/daily_plan/router_chooser.py), line 89)
+- `MODE` ([src/learnloop/daily_plan/router_chooser.py](../../../../../../src/learnloop/daily_plan/router_chooser.py), line 90)
+- `KEY_VERSION` ([src/learnloop/daily_plan/router_chooser.py](../../../../../../src/learnloop/daily_plan/router_chooser.py), line 91)
+- `INSERT_NOW` ([src/learnloop/daily_plan/router_chooser.py](../../../../../../src/learnloop/daily_plan/router_chooser.py), line 92)
 
 ### Explicit exports
 
@@ -104,20 +105,21 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 
 ## Internal implementation anchors
 
-- `_canonical(value: Any) -> str` ([source](../../../../../../src/learnloop/daily_plan/router_chooser.py), line 93)
-- `_hash(value: Any) -> str` ([source](../../../../../../src/learnloop/daily_plan/router_chooser.py), line 97)
-- `_latest_attempt(repository: Any) -> str | None` ([source](../../../../../../src/learnloop/daily_plan/router_chooser.py), line 117)
-- `_rule_sentence(candidate: BlockCandidate | None, state: PlanState) -> tuple[str, str]` ([source](../../../../../../src/learnloop/daily_plan/router_chooser.py), line 175)
-- `_option(candidate: BlockCandidate, titles: Mapping[str, str]) -> rq.BlockOption` ([source](../../../../../../src/learnloop/daily_plan/router_chooser.py), line 184)
-- `_run_components(runtime: RouterRuntime, entry: Prefetch, vault: Any, repository: Any, request: Any, parse: Mapping[str, Any], card_hash: str | None) -> None` ([source](../../../../../../src/learnloop/daily_plan/router_chooser.py), line 200) — Ask every component of ``entry`` (the Decider on this thread, the LLM on its own).
-- `_block_job(entry: Prefetch, *, runtime: RouterRuntime, vault: Any, sqlite_path: Any, session_id: str | None, plan_id: str | None) -> None` ([source](../../../../../../src/learnloop/daily_plan/router_chooser.py), line 246)
-- `_restraint_job(entry: Prefetch, *, runtime: RouterRuntime, vault: Any, sqlite_path: Any) -> None` ([source](../../../../../../src/learnloop/daily_plan/router_chooser.py), line 279)
-- `_await(runtime: RouterRuntime, entry: Prefetch, *, may_defer: bool, timeout: float) -> None` ([source](../../../../../../src/learnloop/daily_plan/router_chooser.py), line 298)
-- `_results(entry: Prefetch, readiness: Mapping[str, str | None]) -> dict[str, ComponentResult]` ([source](../../../../../../src/learnloop/daily_plan/router_chooser.py), line 307)
-- `_payloads(results: Mapping[str, ComponentResult]) -> dict[str, Any]` ([source](../../../../../../src/learnloop/daily_plan/router_chooser.py), line 315)
-- `class _Card` ([source](../../../../../../src/learnloop/daily_plan/router_chooser.py), line 326)
-- `_build_card(builder: CardBuilder | None, state: PlanState, feasible: Sequence[BlockCandidate]) -> _Card` ([source](../../../../../../src/learnloop/daily_plan/router_chooser.py), line 335)
-- `_card_fields(card: _Card) -> dict[str, Any]` ([source](../../../../../../src/learnloop/daily_plan/router_chooser.py), line 348)
+- `_canonical(value: Any) -> str` ([source](../../../../../../src/learnloop/daily_plan/router_chooser.py), line 95)
+- `_hash(value: Any) -> str` ([source](../../../../../../src/learnloop/daily_plan/router_chooser.py), line 99)
+- `_latest_attempt(repository: Any) -> str | None` ([source](../../../../../../src/learnloop/daily_plan/router_chooser.py), line 119)
+- `_rule_sentence(candidate: BlockCandidate | None, state: PlanState) -> tuple[str, str]` ([source](../../../../../../src/learnloop/daily_plan/router_chooser.py), line 177)
+- `_option(candidate: BlockCandidate, titles: Mapping[str, str]) -> rq.BlockOption` ([source](../../../../../../src/learnloop/daily_plan/router_chooser.py), line 186)
+- `_run_components(runtime: RouterRuntime, entry: Prefetch, vault: Any, repository: Any, request: Any, parse: Mapping[str, Any], card_hash: str | None) -> None` ([source](../../../../../../src/learnloop/daily_plan/router_chooser.py), line 202) — Ask every component of ``entry`` (the Decider on this thread, the LLM on its own).
+- `_block_job(entry: Prefetch, *, runtime: RouterRuntime, vault: Any, sqlite_path: Any, session_id: str | None, plan_id: str | None) -> None` ([source](../../../../../../src/learnloop/daily_plan/router_chooser.py), line 248)
+- `_restraint_job(entry: Prefetch, *, runtime: RouterRuntime, vault: Any, sqlite_path: Any) -> None` ([source](../../../../../../src/learnloop/daily_plan/router_chooser.py), line 281)
+- `_await(runtime: RouterRuntime, entry: Prefetch, *, may_defer: bool, timeout: float) -> None` ([source](../../../../../../src/learnloop/daily_plan/router_chooser.py), line 300)
+- `_results(entry: Prefetch, readiness: Mapping[str, str | None]) -> dict[str, ComponentResult]` ([source](../../../../../../src/learnloop/daily_plan/router_chooser.py), line 309)
+- `_payloads(results: Mapping[str, ComponentResult]) -> dict[str, Any]` ([source](../../../../../../src/learnloop/daily_plan/router_chooser.py), line 317)
+- `class _Card` ([source](../../../../../../src/learnloop/daily_plan/router_chooser.py), line 328)
+- `_build_card(builder: CardBuilder | None, state: PlanState, feasible: Sequence[BlockCandidate]) -> _Card` ([source](../../../../../../src/learnloop/daily_plan/router_chooser.py), line 337)
+- `_card_fields(card: _Card) -> dict[str, Any]` ([source](../../../../../../src/learnloop/daily_plan/router_chooser.py), line 350)
+- `class _NoModels` ([source](../../../../../../src/learnloop/daily_plan/router_chooser.py), line 357) — A decision no model is asked about: the prefetch's shape with no job (data capture A5).
 
 ## Who imports or calls it
 
@@ -132,10 +134,12 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 
 - [[Reference/Modules/learnloop/clock|learnloop.clock]] — imports `utc_now_iso`; calls `utc_now_iso`
 - [[Reference/Modules/learnloop/daily_plan/chooser|learnloop.daily_plan.chooser]] — imports `LaneQuotaChooser`, `unspent_share`; calls `unspent_share`
+- [[Reference/Modules/learnloop/daily_plan/measurement|learnloop.daily_plan.measurement]] — imports `module`; calls `freeze`
 - [[Reference/Modules/learnloop/daily_plan/router_retrieval|learnloop.daily_plan.router_retrieval]] — imports `module`; calls `prepare`
 - [[Reference/Modules/learnloop/daily_plan/router_runtime|learnloop.daily_plan.router_runtime]] — imports `ANSWERED`, `ComponentResult`, `DECIDER`, `INVALID`, `LLM`, `NOT_READY`, `Prefetch`, `RECEIPT_OWNER`, `RouterRuntime`, `call_decider`, `call_llm`; calls `ComponentResult`
 - [[Reference/Modules/learnloop/daily_plan/staged_frame|learnloop.daily_plan.staged_frame]] — imports `CardBuilder`, `StagedChooser`; calls `StagedChooser`
 - [[Reference/Modules/learnloop/daily_plan/types|learnloop.daily_plan.types]] — imports `BlockCandidate`, `BlockChoice`, `CONTINUE_CURRENT`, `DecisionPending`, `LANES`, `PlanState`, `STOP_FOR_TODAY`, `STOP_OFFER_MINUTES`; calls `BlockCandidate`, `BlockChoice`, `DecisionPending`, `PlanState`
+- [[Reference/Modules/learnloop/data_capture/gates|learnloop.data_capture.gates]] — imports `serving_on`; calls `serving_on`
 - [[Reference/Modules/learnloop/db/repositories|learnloop.db.repositories]] — imports `Repository`
 - [[Reference/Modules/learnloop/ids|learnloop.ids]] — imports `new_ulid`; calls `new_ulid`
 - [[Reference/Modules/learnloop/router/mixture|learnloop.router.mixture]] — imports `module`; calls `component_distributions`, `draw`, `effective_weights`, `fallback_label`
@@ -161,6 +165,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
+- [tests/test_data_capture_a5_not_ready_floor.py](../../../../../../tests/test_data_capture_a5_not_ready_floor.py) — direct import
+  - `test_the_restraint_keeps_the_floor_on_not_ready_too`
 - [tests/test_mvp024_upgrade.py](../../../../../../tests/test_mvp024_upgrade.py) — direct import
   - `test_the_mixture_serves_only_at_the_successor_in_mixture_mode`
 

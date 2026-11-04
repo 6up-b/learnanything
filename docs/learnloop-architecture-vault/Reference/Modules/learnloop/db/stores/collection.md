@@ -7,8 +7,8 @@ version: "1.0.0"
 source_path: "src/learnloop/db/stores/collection.py"
 source_paths:
   - "src/learnloop/db/stores/collection.py"
-source_commit: "fd370553ca49e76aa275c26c672822439f973802"
-source_commit_timestamp: "2026-10-25T15:02:34-04:00"
+source_commit: "e2ddd03c640065633f2c492b62122e9750390244"
+source_commit_timestamp: "2026-11-03T14:49:34-05:00"
 source_worktree_state: "clean"
 generated: true
 generated_at: "2026-11-02"
@@ -51,23 +51,23 @@ The authoritative system-level explanation remains in [[State and Persistence]],
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/db/stores/collection.py](../../../../../../../src/learnloop/db/stores/collection.py) |
-| Source lines | 224 |
+| Source lines | 227 |
 | Owning package | [[Reference/Modules/learnloop/db/stores/_package|learnloop.db.stores]] |
 | Architecture layer | `infrastructure` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `fd370553ca49e76aa275c26c672822439f973802` |
-| Commit timestamp | `2026-10-25T15:02:34-04:00` |
+| Source commit | `e2ddd03c640065633f2c492b62122e9750390244` |
+| Commit timestamp | `2026-11-03T14:49:34-05:00` |
 
 ## Public API
 
 - `class CollectionStoreMixin` ([source](../../../../../../../src/learnloop/db/stores/collection.py), line 53)
-  - `finalize_scheduler_offer(self, slate_id: str | None, candidate_ids: list[str], *, entry_surface: str='desktop_queue', router_decision: Mapping[str, Any] | None=None) -> None` (line 54; public) — Publish the offer; router R1's decision row commits with it.
-  - `record_false_remediation(self, *, attempt_id: str, value: bool, evidence_refs: list[dict[str, str]], author_kind: str, verifier_version: str) -> str` (line 90; public)
-  - `scheduler_offer_open(self, *, scheduler_candidate_id: str, session_id: str, practice_item_id: str) -> bool` (line 107; public) — Whether an offer is still an unanswered offer of this item in this session: the check :meth:`bind_submission_offer` makes, read-only.
-  - `scheduler_offer_answered(self, *, scheduler_candidate_id: str, session_id: str, practice_item_id: str) -> bool` (line 114; public) — Whether an offer is a real offer of this item in this session that an attempt has already answered (stale, not foreign): read-only.
-  - `submission_offer_answered_elsewhere(self, *, submission_id: str, session_id: str, practice_item_id: str) -> str | None` (line 126; public) — The attempt that answered this submission's bound offer, when that attempt is another submission's (else None): read-only.
-  - `bind_submission_offer(self, *, submission_id: str | None, session_id: str, practice_item_id: str, scheduler_candidate_id: str | None, entry_surface: str='desktop_practice', record_pick: bool=True) -> str | None` (line 154; public) — Return the scheduler offer a submission answers, binding it on first use.
+  - `finalize_scheduler_offer(self, slate_id: str | None, candidate_ids: list[str], *, entry_surface: str='desktop_queue', router_decision: Mapping[str, Any] | None=None, decision_receipt: Callable[[Any], Any] | None=None) -> None` (line 54; public) — Publish the offer; router R1's decision row commits with it.
+  - `record_false_remediation(self, *, attempt_id: str, value: bool, evidence_refs: list[dict[str, str]], author_kind: str, verifier_version: str) -> str` (line 93; public)
+  - `scheduler_offer_open(self, *, scheduler_candidate_id: str, session_id: str, practice_item_id: str) -> bool` (line 110; public) — Whether an offer is still an unanswered offer of this item in this session: the check :meth:`bind_submission_offer` makes, read-only.
+  - `scheduler_offer_answered(self, *, scheduler_candidate_id: str, session_id: str, practice_item_id: str) -> bool` (line 117; public) — Whether an offer is a real offer of this item in this session that an attempt has already answered (stale, not foreign): read-only.
+  - `submission_offer_answered_elsewhere(self, *, submission_id: str, session_id: str, practice_item_id: str) -> str | None` (line 129; public) — The attempt that answered this submission's bound offer, when that attempt is another submission's (else None): read-only.
+  - `bind_submission_offer(self, *, submission_id: str | None, session_id: str, practice_item_id: str, scheduler_candidate_id: str | None, entry_surface: str='desktop_practice', record_pick: bool=True) -> str | None` (line 157; public) — Return the scheduler offer a submission answers, binding it on first use.
 
 ### Module constants
 

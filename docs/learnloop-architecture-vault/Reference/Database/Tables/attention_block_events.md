@@ -3,13 +3,13 @@ title: "attention_block_events"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "d2de54b4e148637154ed1322a7241b74bba04bcf"
-source_commit_timestamp: "2026-11-03T15:00:46-05:00"
+source_commit: "9995860ab7dd149c0862dd57a7f483c3ac4e7815"
+source_commit_timestamp: "2026-11-03T19:35:50-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite attention_block_events"
   - "table attention_block_events"
-schema_head: 239
+schema_head: 240
 table_name: "attention_block_events"
 table_role: "receipt"
 functionality_status: "active"
@@ -89,6 +89,8 @@ None found by exact static reference scan.
 - `src/learnloop/daily_plan/estimates.py`
 - `src/learnloop/db/stores/daily_plans.py`
 - `src/learnloop/evsi_calibration/live_report.py`
+- `src/learnloop/router/first_delayed_success.py`
+- `src/learnloop/router/outcomes.py`
 - `src/learnloop/scheduling/controller_store.py`
 
 ### Direct SQL writers
@@ -111,6 +113,7 @@ None found by exact static reference scan.
 - `tests/test_curriculum_c1_landing.py`
 - `tests/test_daily_plan_replay.py`
 - `tests/test_daily_plan_review_regressions.py`
+- `tests/test_data_capture_codex_review.py`
 - `tests/test_dl2_rw4b_keyed_pick_check.py`
 - `tests/test_mcp_tools.py`
 - `tests/test_migrations.py`

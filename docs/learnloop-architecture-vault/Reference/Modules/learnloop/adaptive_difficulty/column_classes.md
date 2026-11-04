@@ -116,7 +116,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_ad_protected_tables.py](../../../../../../tests/test_ad_protected_tables.py) — direct import
   - `test_every_column_of_every_readable_table_is_metadata_or_content`
 - [tests/test_rw5c_migration.py](../../../../../../tests/test_rw5c_migration.py) — direct import
-  - `test_238_is_the_head_and_the_table_is_classified`
+  - `test_238_is_applied_and_the_table_is_classified`
 
 ## Modification guidance
 

@@ -7,8 +7,8 @@ version: "1.0.0"
 source_path: "src/learnloop/substrate/canonical_projection.py"
 source_paths:
   - "src/learnloop/substrate/canonical_projection.py"
-source_commit: "5932734121e2cbb2873e850a377b7a2a08c4954a"
-source_commit_timestamp: "2026-10-25T17:10:07-04:00"
+source_commit: "35a648918814189370398d63681da08d45e07151"
+source_commit_timestamp: "2026-11-03T13:26:16-05:00"
 source_worktree_state: "clean"
 generated: true
 generated_at: "2026-11-02"
@@ -51,50 +51,48 @@ The authoritative system-level explanation remains in [[Learning System]], [[Sta
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/substrate/canonical_projection.py](../../../../../../src/learnloop/substrate/canonical_projection.py) |
-| Source lines | 1364 |
+| Source lines | 1334 |
 | Owning package | [[Reference/Modules/learnloop/substrate/_package|learnloop.substrate]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `5932734121e2cbb2873e850a377b7a2a08c4954a` |
-| Commit timestamp | `2026-10-25T17:10:07-04:00` |
+| Source commit | `35a648918814189370398d63681da08d45e07151` |
+| Commit timestamp | `2026-11-03T13:26:16-05:00` |
 
 ## Public API
 
-- `pfc_assessment(attributions: Iterable[Any]) -> str | None` ([source](../../../../../../src/learnloop/substrate/canonical_projection.py), line 98) — One attempt's PF-c assessment state from its current evidence rows' ``attribution_json`` values: ``None`` unless a row was written under the unassessed rule, else partially or nothing assessed (``outcome_contract``).
-- `pfc_assessments(connection: Any, attempt_ids: Iterable[str]) -> dict[str, str]` ([source](../../../../../../src/learnloop/substrate/canonical_projection.py), line 111) — ``pfc_assessment`` for each of ``attempt_ids`` that has one, read from the current (non-superseded) grading evidence on ``connection``.
-- `p0_effective_evidence_mass(repository: Repository, *, interpretation: Mapping[str, Any] | None, attempt_type_mass: float, references: EffectiveObservationReferences | None=None) -> float` ([source](../../../../../../src/learnloop/substrate/canonical_projection.py), line 205) — THE mvp-0.8 response-level evidence-mass discount (P0.3 §4.3), shared by both evidence folds.
-- `surface_group_id(item: PracticeItem) -> str` ([source](../../../../../../src/learnloop/substrate/canonical_projection.py), line 248) — The correlation/surface group an item's evidence belongs to (§6).
-- `class CanonicalProjectionSnapshot` ([source](../../../../../../src/learnloop/substrate/canonical_projection.py), line 309) — Bulk-loaded, immutable inputs for one canonical evidence replay.
-- `load_canonical_projection_snapshot(repository: Repository, *, algorithm_version: str) -> CanonicalProjectionSnapshot` ([source](../../../../../../src/learnloop/substrate/canonical_projection.py), line 325) — Read replay inputs once, before the pure attempt fold begins.
-- `attribution_weights(raw: object, targets: list[CriterionTarget]) -> dict[tuple[str, str], float]` ([source](../../../../../../src/learnloop/substrate/canonical_projection.py), line 446) — Normalize persisted failure attribution over the criterion targets.
-- `observed_unresolved_failure(observed_fraction: float, targets: Sequence[CriterionTarget], attribution: Mapping[tuple[str, str], float]) -> bool` ([source](../../../../../../src/learnloop/substrate/canonical_projection.py), line 476) — True when an OBSERVED failure has multiple candidate causes and no resolving attribution (§5.3) — the condition that opens an unresolved-cause factor.
-- `configured_repeat_discount(vault: LoadedVault) -> float` ([source](../../../../../../src/learnloop/substrate/canonical_projection.py), line 641)
-- `project_canonical_facet_state(vault: LoadedVault, repository: Repository, *, clock: Clock | None=None, refresh_factor_candidates_for: Collection[str] | None=None, before: tuple[str, str] | None=None, through: tuple[str, str] | None=None) -> None` ([source](../../../../../../src/learnloop/substrate/canonical_projection.py), line 649) — Recompute and persist the canonical belief cache.
-- `project_capability_residuals(vault: LoadedVault, repository: Repository, *, clock: Clock | None=None) -> None` ([source](../../../../../../src/learnloop/substrate/canonical_projection.py), line 1176) — Derive lazy capability-residual activation state (§4.2, KM5; DEFAULT OFF).
+- `p0_effective_evidence_mass(repository: Repository, *, interpretation: Mapping[str, Any] | None, attempt_type_mass: float, references: EffectiveObservationReferences | None=None) -> float` ([source](../../../../../../src/learnloop/substrate/canonical_projection.py), line 175) — THE mvp-0.8 response-level evidence-mass discount (P0.3 §4.3), shared by both evidence folds.
+- `surface_group_id(item: PracticeItem) -> str` ([source](../../../../../../src/learnloop/substrate/canonical_projection.py), line 218) — The correlation/surface group an item's evidence belongs to (§6).
+- `class CanonicalProjectionSnapshot` ([source](../../../../../../src/learnloop/substrate/canonical_projection.py), line 279) — Bulk-loaded, immutable inputs for one canonical evidence replay.
+- `load_canonical_projection_snapshot(repository: Repository, *, algorithm_version: str) -> CanonicalProjectionSnapshot` ([source](../../../../../../src/learnloop/substrate/canonical_projection.py), line 295) — Read replay inputs once, before the pure attempt fold begins.
+- `attribution_weights(raw: object, targets: list[CriterionTarget]) -> dict[tuple[str, str], float]` ([source](../../../../../../src/learnloop/substrate/canonical_projection.py), line 416) — Normalize persisted failure attribution over the criterion targets.
+- `observed_unresolved_failure(observed_fraction: float, targets: Sequence[CriterionTarget], attribution: Mapping[tuple[str, str], float]) -> bool` ([source](../../../../../../src/learnloop/substrate/canonical_projection.py), line 446) — True when an OBSERVED failure has multiple candidate causes and no resolving attribution (§5.3) — the condition that opens an unresolved-cause factor.
+- `configured_repeat_discount(vault: LoadedVault) -> float` ([source](../../../../../../src/learnloop/substrate/canonical_projection.py), line 611)
+- `project_canonical_facet_state(vault: LoadedVault, repository: Repository, *, clock: Clock | None=None, refresh_factor_candidates_for: Collection[str] | None=None, before: tuple[str, str] | None=None, through: tuple[str, str] | None=None) -> None` ([source](../../../../../../src/learnloop/substrate/canonical_projection.py), line 619) — Recompute and persist the canonical belief cache.
+- `project_capability_residuals(vault: LoadedVault, repository: Repository, *, clock: Clock | None=None) -> None` ([source](../../../../../../src/learnloop/substrate/canonical_projection.py), line 1146) — Derive lazy capability-residual activation state (§4.2, KM5; DEFAULT OFF).
 
 ### Module constants
 
 - `FAILURE_THRESHOLD` ([src/learnloop/substrate/canonical_projection.py](../../../../../../src/learnloop/substrate/canonical_projection.py), line 58)
 - `DEFAULT_REPEAT_SURFACE_DISCOUNT` ([src/learnloop/substrate/canonical_projection.py](../../../../../../src/learnloop/substrate/canonical_projection.py), line 63)
-- `ASSISTED_ATTEMPT_TYPES` ([src/learnloop/substrate/canonical_projection.py](../../../../../../src/learnloop/substrate/canonical_projection.py), line 150)
-- `CANONICAL_PROJECTION_VERSION` ([src/learnloop/substrate/canonical_projection.py](../../../../../../src/learnloop/substrate/canonical_projection.py), line 202)
+- `ASSISTED_ATTEMPT_TYPES` ([src/learnloop/substrate/canonical_projection.py](../../../../../../src/learnloop/substrate/canonical_projection.py), line 120)
+- `CANONICAL_PROJECTION_VERSION` ([src/learnloop/substrate/canonical_projection.py](../../../../../../src/learnloop/substrate/canonical_projection.py), line 172)
 
 ## Internal implementation anchors
 
-- `class _RecallAcc` ([source](../../../../../../src/learnloop/substrate/canonical_projection.py), line 270)
-- `class _CapAcc` ([source](../../../../../../src/learnloop/substrate/canonical_projection.py), line 282)
-- `class _HistoricalCriterion` ([source](../../../../../../src/learnloop/substrate/canonical_projection.py), line 300)
-- `_contract_unrecorded(repository: Repository) -> frozenset[str]` ([source](../../../../../../src/learnloop/substrate/canonical_projection.py), line 377)
-- `_historical_contract(evidence: list[dict[str, Any]], *, contracts_by_source_version: Mapping[str, Mapping[str, Any]]) -> Mapping[str, Any] | None` ([source](../../../../../../src/learnloop/substrate/canonical_projection.py), line 384) — Resolve the immutable assessment contract attached to this grading.
-- `_contract_criteria(contract: Mapping[str, Any]) -> list[_HistoricalCriterion]` ([source](../../../../../../src/learnloop/substrate/canonical_projection.py), line 409)
-- `_contract_surface_group(contract: Mapping[str, Any], practice_item_id: str) -> str` ([source](../../../../../../src/learnloop/substrate/canonical_projection.py), line 436)
-- `_target_ref_key(target_ref: Any) -> str` ([source](../../../../../../src/learnloop/substrate/canonical_projection.py), line 495) — Identity of a candidate cause's declared target, for union de-duplication.
-- `_facet_target_cause(target: CriterionTarget) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/substrate/canonical_projection.py), line 511) — One synthesized open-world arm for a criterion target.
-- `_open_candidate_causes(error_events: Sequence[Mapping[str, Any]], targets: Sequence[CriterionTarget]) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/substrate/canonical_projection.py), line 536) — Thin candidate set for an unresolved factor, always open-world.
-- `_adjudicated_score_fraction(adjudication: Mapping[str, Any] | None, interpretation: Mapping[str, Any] | None, score_fraction: Mapping[str, float]) -> float | None` ([source](../../../../../../src/learnloop/substrate/canonical_projection.py), line 605) — Observed-outcome override when an adjudication heads the interpretation chain.
-- `_ledger_position_within(row: Mapping[str, Any], bound: tuple[str, str], *, inclusive: bool) -> bool` ([source](../../../../../../src/learnloop/substrate/canonical_projection.py), line 1163) — Whether a ledger row lies before (or, inclusive, at) ``bound``.
-- `_sync_unresolved_cause_factors(repository: Repository, unresolved: list[dict[str, object]], *, clock: Clock | None, refresh_attempt_ids: Collection[str] | None=None, retire_within_attempt_ids: Collection[str] | None=None) -> None` ([source](../../../../../../src/learnloop/substrate/canonical_projection.py), line 1301) — Idempotently reconcile open unresolved-cause factors with the projection.
+- `class _RecallAcc` ([source](../../../../../../src/learnloop/substrate/canonical_projection.py), line 240)
+- `class _CapAcc` ([source](../../../../../../src/learnloop/substrate/canonical_projection.py), line 252)
+- `class _HistoricalCriterion` ([source](../../../../../../src/learnloop/substrate/canonical_projection.py), line 270)
+- `_contract_unrecorded(repository: Repository) -> frozenset[str]` ([source](../../../../../../src/learnloop/substrate/canonical_projection.py), line 347)
+- `_historical_contract(evidence: list[dict[str, Any]], *, contracts_by_source_version: Mapping[str, Mapping[str, Any]]) -> Mapping[str, Any] | None` ([source](../../../../../../src/learnloop/substrate/canonical_projection.py), line 354) — Resolve the immutable assessment contract attached to this grading.
+- `_contract_criteria(contract: Mapping[str, Any]) -> list[_HistoricalCriterion]` ([source](../../../../../../src/learnloop/substrate/canonical_projection.py), line 379)
+- `_contract_surface_group(contract: Mapping[str, Any], practice_item_id: str) -> str` ([source](../../../../../../src/learnloop/substrate/canonical_projection.py), line 406)
+- `_target_ref_key(target_ref: Any) -> str` ([source](../../../../../../src/learnloop/substrate/canonical_projection.py), line 465) — Identity of a candidate cause's declared target, for union de-duplication.
+- `_facet_target_cause(target: CriterionTarget) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/substrate/canonical_projection.py), line 481) — One synthesized open-world arm for a criterion target.
+- `_open_candidate_causes(error_events: Sequence[Mapping[str, Any]], targets: Sequence[CriterionTarget]) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/substrate/canonical_projection.py), line 506) — Thin candidate set for an unresolved factor, always open-world.
+- `_adjudicated_score_fraction(adjudication: Mapping[str, Any] | None, interpretation: Mapping[str, Any] | None, score_fraction: Mapping[str, float]) -> float | None` ([source](../../../../../../src/learnloop/substrate/canonical_projection.py), line 575) — Observed-outcome override when an adjudication heads the interpretation chain.
+- `_ledger_position_within(row: Mapping[str, Any], bound: tuple[str, str], *, inclusive: bool) -> bool` ([source](../../../../../../src/learnloop/substrate/canonical_projection.py), line 1133) — Whether a ledger row lies before (or, inclusive, at) ``bound``.
+- `_sync_unresolved_cause_factors(repository: Repository, unresolved: list[dict[str, object]], *, clock: Clock | None, refresh_attempt_ids: Collection[str] | None=None, retire_within_attempt_ids: Collection[str] | None=None) -> None` ([source](../../../../../../src/learnloop/substrate/canonical_projection.py), line 1271) — Idempotently reconcile open unresolved-cause factors with the projection.
 
 ## Who imports or calls it
 
@@ -160,10 +158,10 @@ The authoritative system-level explanation remains in [[Learning System]], [[Sta
 - [[Reference/Modules/learnloop/diagnosis/causal_attribution|learnloop.diagnosis.causal_attribution]] — imports `OPEN_SET_CAUSE_ID`
 - [[Reference/Modules/learnloop/goals/receipt_contributions|learnloop.goals.receipt_contributions]] — imports `itemize_observation_contributions`; calls `itemize_observation_contributions`
 - [[Reference/Modules/learnloop/grading_epochs|learnloop.grading_epochs]] — imports `current_epoch`; calls `current_epoch`
-- [[Reference/Modules/learnloop/held_grades|learnloop.held_grades]] — imports `HELD_ROW_KEY`, `attempt_grade_held`, `contract_unrecorded_attempts`, `held_attempt_ids`, `held_for_review_attempts`, `mark_held_attempts`; calls `contract_unrecorded_attempts`
+- [[Reference/Modules/learnloop/held_grades|learnloop.held_grades]] — imports `HELD_ROW_KEY`, `attempt_grade_held`, `contract_unrecorded_attempts`, `held_attempt_ids`, `held_for_review_attempts`, `mark_held_attempts`, `pfc_assessment`, `pfc_assessments`; calls `contract_unrecorded_attempts`
 - [[Reference/Modules/learnloop/learner/assessment_contracts|learnloop.learner.assessment_contracts]] — imports `CANONICAL_STATE_VERSIONS`, `KM_ALGORITHM_VERSION`, `P0_ALGORITHM_VERSION`, `P0_PROJECTION_VERSIONS`
 - [[Reference/Modules/learnloop/learner/capability_mapping|learnloop.learner.capability_mapping]] — imports `CriterionOutcome`, `allocate_success_mass`, `certification_credit`, `compile_criterion_targets`, `criterion_pseudo_mass`, `localize_criterion_outcomes`; calls `CriterionOutcome`, `allocate_success_mass`, `certification_credit`, `compile_criterion_targets`, `criterion_pseudo_mass`, `localize_criterion_outcomes`
-- [[Reference/Modules/learnloop/outcome_contract|learnloop.outcome_contract]] — imports `PFC_NOTHING_ASSESSED`, `PFC_PARTIALLY_ASSESSED`, `UNASSESSED_INTERPRETATION`, `UNVERIFIED_CRITERION_BLOCK`, `UNVERIFIED_INTERPRETATION_KEY`, `unassessed_evidence_row`, `unverified_evidence_row`; calls `unassessed_evidence_row`, `unverified_evidence_row`
+- [[Reference/Modules/learnloop/outcome_contract|learnloop.outcome_contract]] — imports `UNASSESSED_INTERPRETATION`, `UNVERIFIED_CRITERION_BLOCK`, `UNVERIFIED_INTERPRETATION_KEY`, `unassessed_evidence_row`, `unverified_evidence_row`; calls `unassessed_evidence_row`, `unverified_evidence_row`
 - [[Reference/Modules/learnloop/vault/models|learnloop.vault.models]] — imports `CriterionTarget`, `LoadedVault`, `PracticeItem`; calls `CriterionTarget`
 
 ### Platform and third-party dependencies

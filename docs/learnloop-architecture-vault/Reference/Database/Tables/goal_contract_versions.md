@@ -3,13 +3,13 @@ title: "goal_contract_versions"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "d2de54b4e148637154ed1322a7241b74bba04bcf"
-source_commit_timestamp: "2026-11-03T15:00:46-05:00"
+source_commit: "9995860ab7dd149c0862dd57a7f483c3ac4e7815"
+source_commit_timestamp: "2026-11-03T19:35:50-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite goal_contract_versions"
   - "table goal_contract_versions"
-schema_head: 239
+schema_head: 240
 table_name: "goal_contract_versions"
 table_role: "raw_ledger"
 functionality_status: "active"
@@ -21,6 +21,7 @@ source_paths:
   - "migrations/068_goal_terminal_contracts.sql"
   - "src/learnloop/db/repositories.py"
   - "src/learnloop/ops/doctor.py"
+  - "src/learnloop/router/first_delayed_success.py"
   - "src/learnloop/cli/contracts.py"
   - "src/learnloop/curriculum/golden_path_confirm.py"
   - "src/learnloop/curriculum/golden_path_fixture.py"
@@ -101,6 +102,7 @@ Indexes and uniqueness:
 ### Direct SQL readers
 
 - `src/learnloop/db/repositories.py`
+- `src/learnloop/router/first_delayed_success.py`
 
 ### Direct SQL writers
 
@@ -118,6 +120,8 @@ Indexes and uniqueness:
 
 ## Tests that define behavior
 
+- `tests/test_data_capture_a3_time_metric.py`
+- `tests/test_data_capture_codex_review.py`
 - `tests/test_goal_contracts.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.

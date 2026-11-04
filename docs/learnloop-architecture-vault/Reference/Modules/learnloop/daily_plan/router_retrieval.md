@@ -7,8 +7,8 @@ version: "1.0.0"
 source_path: "src/learnloop/daily_plan/router_retrieval.py"
 source_paths:
   - "src/learnloop/daily_plan/router_retrieval.py"
-source_commit: "bf85487372ed056f27d0209e7b8517b8097c8aa0"
-source_commit_timestamp: "2026-10-14T11:32:05-04:00"
+source_commit: "2d4520e1fe11db97835f80cc5f280b51602c6954"
+source_commit_timestamp: "2026-11-03T19:28:17-05:00"
 source_worktree_state: "clean"
 generated: true
 generated_at: "2026-11-02"
@@ -50,13 +50,13 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/daily_plan/router_retrieval.py](../../../../../../src/learnloop/daily_plan/router_retrieval.py) |
-| Source lines | 413 |
+| Source lines | 422 |
 | Owning package | [[Reference/Modules/learnloop/daily_plan/_package|learnloop.daily_plan]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `bf85487372ed056f27d0209e7b8517b8097c8aa0` |
-| Commit timestamp | `2026-10-14T11:32:05-04:00` |
+| Source commit | `2d4520e1fe11db97835f80cc5f280b51602c6954` |
+| Commit timestamp | `2026-11-03T19:28:17-05:00` |
 
 ## Public API
 
@@ -64,9 +64,9 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `content_hash(text: str) -> str` ([source](../../../../../../src/learnloop/daily_plan/router_retrieval.py), line 105)
 - `decision_context_records(connection: Any) -> list[Any]` ([source](../../../../../../src/learnloop/daily_plan/router_retrieval.py), line 110) — The ``decision/context`` records of every ``plan_block`` decision whose card is stored.
 - `include_coin(boundary_key: str, rate: float) -> tuple[float, bool]` ([source](../../../../../../src/learnloop/daily_plan/router_retrieval.py), line 137) — The decision's inclusion coin: ``(u, u < rate)``, seeded by its boundary key.
-- `similar_decisions(connection: Any, *, query: Sequence[float], model_id: str, decision_time: str, session_id: str | None, plan_id: str | None, limit: int, vault: Any=None) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/daily_plan/router_retrieval.py), line 207) — The top ``limit`` matured similar decisions (G5), each with the line shown to the models.
-- `prepare(*, vault: Any, repository: Any, embedding_client: Any, card_json: Mapping[str, Any] | None, boundary_key: str, decision_time: str, session_id: str | None, plan_id: str | None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/daily_plan/router_retrieval.py), line 272) — The prefetch's retrieval: embed the context, retrieve, flip the coin.
-- `backfill(vault: Any, repository: Any, *, caps: Any, dry_run: bool, limit: int | None=None, batch_size: int=32, price_per_million: float | None=None, client_factory: Any=None, cancelled: Any=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/daily_plan/router_retrieval.py), line 348) — Embed the ``decision/context`` of every logged decision that has no vector yet.
+- `similar_decisions(connection: Any, *, query: Sequence[float], model_id: str, decision_time: str, session_id: str | None, plan_id: str | None, limit: int, vault: Any=None, repository: Any=None) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/daily_plan/router_retrieval.py), line 215) — The top ``limit`` matured similar decisions (G5), each with the line shown to the models.
+- `prepare(*, vault: Any, repository: Any, embedding_client: Any, card_json: Mapping[str, Any] | None, boundary_key: str, decision_time: str, session_id: str | None, plan_id: str | None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/daily_plan/router_retrieval.py), line 281) — The prefetch's retrieval: embed the context, retrieve, flip the coin.
+- `backfill(vault: Any, repository: Any, *, caps: Any, dry_run: bool, limit: int | None=None, batch_size: int=32, price_per_million: float | None=None, client_factory: Any=None, cancelled: Any=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/daily_plan/router_retrieval.py), line 357) — Embed the ``decision/context`` of every logged decision that has no vector yet.
 
 ### Module constants
 
@@ -105,9 +105,9 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 ## Internal implementation anchors
 
 - `_bucket(value: Any, edges: Sequence[float], labels: Sequence[str]) -> str` ([source](../../../../../../src/learnloop/daily_plan/router_retrieval.py), line 63)
-- `_matured(connection: Any, decision_time: str, candidate_ids: set[str], vault: Any) -> dict[str, dict[str, Any]]` ([source](../../../../../../src/learnloop/daily_plan/router_retrieval.py), line 146) — Of ``candidate_ids``, the decisions whose R_next or R_cold was observed strictly before ``decision_time``, with those outcomes.
-- `_outcome_words(value: Any) -> str` ([source](../../../../../../src/learnloop/daily_plan/router_retrieval.py), line 181)
-- `_describe(row: Mapping[str, Any], observed: Mapping[str, Any], titles: Mapping[str, str]) -> str` ([source](../../../../../../src/learnloop/daily_plan/router_retrieval.py), line 193)
+- `_matured(connection: Any, decision_time: str, candidate_ids: set[str], vault: Any, repository: Any=None) -> dict[str, dict[str, Any]]` ([source](../../../../../../src/learnloop/daily_plan/router_retrieval.py), line 146) — Of ``candidate_ids``, the decisions whose R_next or R_cold was observed strictly before ``decision_time``, with those outcomes.
+- `_outcome_words(value: Any) -> str` ([source](../../../../../../src/learnloop/daily_plan/router_retrieval.py), line 189)
+- `_describe(row: Mapping[str, Any], observed: Mapping[str, Any], titles: Mapping[str, str]) -> str` ([source](../../../../../../src/learnloop/daily_plan/router_retrieval.py), line 201)
 
 ## Who imports or calls it
 
@@ -123,11 +123,12 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 
 - [[Reference/Modules/learnloop/ai/embedding|learnloop.ai.embedding]] — imports `embedding_request_timeout`; calls `embedding_request_timeout`
 - [[Reference/Modules/learnloop/daily_plan/router_runtime|learnloop.daily_plan.router_runtime]] — imports `EMBEDDING_TIMEOUT_SECONDS`, `SpendRefused`
+- [[Reference/Modules/learnloop/data_capture/reading_exposures|learnloop.data_capture.reading_exposures]] — imports `module`; calls `for_version`
 - [[Reference/Modules/learnloop/db/connection|learnloop.db.connection]] — imports `connect`; calls `connect`
 - [[Reference/Modules/learnloop/db/stores/embedding_vectors|learnloop.db.stores.embedding_vectors]] — imports `get_vector`, `retrieve`; calls `get_vector`, `retrieve`
 - [[Reference/Modules/learnloop/ops/embedding_backfill|learnloop.ops.embedding_backfill]] — imports `backfill_embeddings`; calls `backfill_embeddings`
 - [[Reference/Modules/learnloop/router/mixture|learnloop.router.mixture]] — imports `uniform`; calls `uniform`
-- [[Reference/Modules/learnloop/router/outcomes|learnloop.router.outcomes]] — imports `derive_router_outcomes`, `servable_items_by_learning_object`; calls `derive_router_outcomes`, `servable_items_by_learning_object`
+- [[Reference/Modules/learnloop/router/outcomes|learnloop.router.outcomes]] — imports `derive_router_outcomes`, `outcome_version_for`, `servable_items_by_learning_object`; calls `derive_router_outcomes`, `outcome_version_for`, `servable_items_by_learning_object`
 - [[Reference/Modules/learnloop/substrate/canonical_projection|learnloop.substrate.canonical_projection]] — imports `held_for_review_attempts`, `pfc_assessments`; calls `held_for_review_attempts`, `pfc_assessments`
 - [[Reference/Modules/learnloop/vault/embedding_recipes|learnloop.vault.embedding_recipes]] — imports `EmbeddingRecord`; calls `EmbeddingRecord`
 

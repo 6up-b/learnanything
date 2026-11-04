@@ -131,6 +131,7 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 
 - [[Reference/Modules/learnloop/daily_plan/engine|learnloop.daily_plan.engine]] — imports `intent_serving`; statically calls `intent_serving`
 - [[Reference/Modules/learnloop/daily_plan/headline|learnloop.daily_plan.headline]] — imports `intent_serving`; statically calls `intent_serving`
+- [[Reference/Modules/learnloop/daily_plan/measurement|learnloop.daily_plan.measurement]] — imports `intent_serving`; statically calls `intent_serving`
 - [[Reference/Modules/learnloop/instructional/reader_followups|learnloop.instructional.reader_followups]] — imports `intent_serving`; statically calls `intent_serving`
 - [[Reference/Modules/learnloop/intent/checks|learnloop.intent.checks]] — imports `CheckState`, `intent_serving`; statically calls `intent_serving`
 - [[Reference/Modules/learnloop/intent/report|learnloop.intent.report]] — imports `intent_enabled`; statically calls `intent_enabled`
@@ -166,7 +167,7 @@ Use this module in context through:
 - [[Start a Learning Cycle]]
 - [[Continue a Learning Cycle]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/daily_plan/engine|learnloop.daily_plan.engine]], [[Reference/Modules/learnloop/daily_plan/headline|learnloop.daily_plan.headline]], [[Reference/Modules/learnloop/instructional/reader_followups|learnloop.instructional.reader_followups]], [[Reference/Modules/learnloop/intent/checks|learnloop.intent.checks]], [[Reference/Modules/learnloop/intent/report|learnloop.intent.report]] and 2 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/daily_plan/engine|learnloop.daily_plan.engine]], [[Reference/Modules/learnloop/daily_plan/headline|learnloop.daily_plan.headline]], [[Reference/Modules/learnloop/daily_plan/measurement|learnloop.daily_plan.measurement]], [[Reference/Modules/learnloop/instructional/reader_followups|learnloop.instructional.reader_followups]], [[Reference/Modules/learnloop/intent/checks|learnloop.intent.checks]] and 3 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
@@ -182,6 +183,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_the_codes_vocabulary_covers_the_incumbents_reasons`
 - [tests/test_ad23_pool_membership.py](../../../../../../../tests/test_ad23_pool_membership.py) — direct import
   - `test_h_a_due_check_once_leaves_ad_drawing`
+- [tests/test_data_capture_codex_rereview.py](../../../../../../../tests/test_data_capture_codex_rereview.py) — direct import
+- [tests/test_data_capture_codex_review.py](../../../../../../../tests/test_data_capture_codex_review.py) — direct import
 - [tests/test_intent_codex_rereview.py](../../../../../../../tests/test_intent_codex_rereview.py) — direct import
   - `test_f2_below_the_tag_commitments_change_nothing_with_the_switch_on`
   - `test_f2_new_vaults_start_at_the_successor_with_intent_live`

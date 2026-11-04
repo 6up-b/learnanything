@@ -3,13 +3,13 @@ title: "reader_authored_questions"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "d2de54b4e148637154ed1322a7241b74bba04bcf"
-source_commit_timestamp: "2026-11-03T15:00:46-05:00"
+source_commit: "9995860ab7dd149c0862dd57a7f483c3ac4e7815"
+source_commit_timestamp: "2026-11-03T19:35:50-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite reader_authored_questions"
   - "table reader_authored_questions"
-schema_head: 239
+schema_head: 240
 table_name: "reader_authored_questions"
 table_role: "workflow"
 functionality_status: "active"
@@ -24,8 +24,8 @@ source_paths:
   - "src/learnloop/adaptive_difficulty/protected_tables.py"
   - "src/learnloop/adaptive_difficulty/reading.py"
   - "src/learnloop/attempts/salience_firewall.py"
+  - "src/learnloop/data_capture/reading_exposures.py"
   - "src/learnloop/db/repositories.py"
-  - "src/learnloop/diagnosis/text_gaps/provenance.py"
   - "src/learnloop/content/pipeline/jobs.py"
   - "src/learnloop/content/sources/source_deletion.py"
   - "src/learnloop/diagnosis/text_gaps/sources.py"
@@ -145,6 +145,7 @@ Indexes and uniqueness:
 
 - `tests/ad_ingest_fakes.py`
 - `tests/test_ad_protected_tables.py`
+- `tests/test_data_capture_codex_rereview.py`
 - `tests/test_figure_predictions.py`
 - `tests/test_learner_text_source_widening.py`
 - `tests/test_reader_active_reading.py`

@@ -3,13 +3,13 @@ title: "practice_eval_queries"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "d2de54b4e148637154ed1322a7241b74bba04bcf"
-source_commit_timestamp: "2026-11-03T15:00:46-05:00"
+source_commit: "9995860ab7dd149c0862dd57a7f483c3ac4e7815"
+source_commit_timestamp: "2026-11-03T19:35:50-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite practice_eval_queries"
   - "table practice_eval_queries"
-schema_head: 239
+schema_head: 240
 table_name: "practice_eval_queries"
 table_role: "workflow"
 functionality_status: "active"

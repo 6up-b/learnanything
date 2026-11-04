@@ -125,6 +125,7 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 - [[Reference/Modules/learnloop/curriculum/depth_transition|learnloop.curriculum.depth_transition]] — imports `module`; statically calls `resolve_head`
 - [[Reference/Modules/learnloop/curriculum/golden_path_confirm|learnloop.curriculum.golden_path_confirm]] — imports `module`; statically calls `_coerce_targets`, `_default_depth_body`, `_default_envelope_body`, `_target_row`, `_version_hash`, `target_set_hash`
 - [[Reference/Modules/learnloop/curriculum/golden_path_restoration|learnloop.curriculum.golden_path_restoration]] — imports `module`; statically calls `record_milestone_reached`
+- [[Reference/Modules/learnloop/daily_plan/measurement|learnloop.daily_plan.measurement]] — imports `module`; statically calls `create_commitment`, `resolve_disposition`
 - [[Reference/Modules/learnloop/daily_plan/router_reader|learnloop.daily_plan.router_reader]] — imports `module`; statically calls `resolve_disposition`
 - [[Reference/Modules/learnloop/instructional/reader_followups|learnloop.instructional.reader_followups]] — imports `module`; statically calls `create_commitment`, `resolve_disposition`, `retire`
 - [[Reference/Modules/learnloop/intent/checks|learnloop.intent.checks]] — imports `module`; statically calls `resolve_disposition`, `satisfy_single_check`
@@ -164,7 +165,7 @@ Use this module in context through:
 
 - [[Build a Study Map]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/curriculum/commitment_arcs|learnloop.curriculum.commitment_arcs]], [[Reference/Modules/learnloop/curriculum/depth_edge_authoring|learnloop.curriculum.depth_edge_authoring]], [[Reference/Modules/learnloop/curriculum/depth_rungs|learnloop.curriculum.depth_rungs]], [[Reference/Modules/learnloop/curriculum/depth_transition|learnloop.curriculum.depth_transition]], [[Reference/Modules/learnloop/curriculum/golden_path_confirm|learnloop.curriculum.golden_path_confirm]] and 20 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/curriculum/commitment_arcs|learnloop.curriculum.commitment_arcs]], [[Reference/Modules/learnloop/curriculum/depth_edge_authoring|learnloop.curriculum.depth_edge_authoring]], [[Reference/Modules/learnloop/curriculum/depth_rungs|learnloop.curriculum.depth_rungs]], [[Reference/Modules/learnloop/curriculum/depth_transition|learnloop.curriculum.depth_transition]], [[Reference/Modules/learnloop/curriculum/golden_path_confirm|learnloop.curriculum.golden_path_confirm]] and 21 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
@@ -198,6 +199,17 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_a_retired_reference_question_is_never_adopted`
   - `test_adoption_kill_switch_restores_baseline_and_keeps_adopted_cards`
   - `test_reference_question_becomes_practice_once_an_lo_cites_its_passage`
+- [tests/test_data_capture_a2_measurement.py](../../../../../../tests/test_data_capture_a2_measurement.py) — direct import
+  - `test_a_block_of_only_measurement_checks_is_no_learner_pick_and_says_so`
+  - `test_a_check_another_commitment_replaced_is_unavailable_with_why`
+  - `test_the_plan_charges_a_measurement_to_the_maintain_lane`
+- [tests/test_data_capture_a3_time_metric.py](../../../../../../tests/test_data_capture_a3_time_metric.py) — direct import
+  - `test_enrollment_is_the_learners_commitment_and_a_system_dated_check_is_none`
+- [tests/test_data_capture_codex_review.py](../../../../../../tests/test_data_capture_codex_review.py) — direct import
+  - `test_f4_a_success_before_the_contract_covered_it_never_cites_that_contract`
+  - `test_f7_the_report_counts_a_replaced_check_as_unavailable`
+- [tests/test_data_capture_landing_review.py](../../../../../../tests/test_data_capture_landing_review.py) — direct import
+- [tests/test_data_capture_phone.py](../../../../../../tests/test_data_capture_phone.py) — direct import
 - [tests/test_deliverable_path.py](../../../../../../tests/test_deliverable_path.py) — direct import
   - `test_overrides_use_instead_skip_and_check_later`
 - [tests/test_depth_transition.py](../../../../../../tests/test_depth_transition.py) — direct import

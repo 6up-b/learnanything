@@ -3,22 +3,22 @@ title: "prefilter_receipts"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "81c99679c019714fdc1fb448114532bc8568d453"
-source_commit_timestamp: "2026-11-03T15:06:14-05:00"
+source_commit: "9995860ab7dd149c0862dd57a7f483c3ac4e7815"
+source_commit_timestamp: "2026-11-03T19:35:50-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite prefilter_receipts"
   - "table prefilter_receipts"
-schema_head: 239
+schema_head: 240
 table_name: "prefilter_receipts"
 table_role: "receipt"
 functionality_status: "active"
 domain_family: "operations"
-introduced_in: "239_data_capture.sql"
+introduced_in: "240_data_capture.sql"
 generated: true
 source_paths:
   - "src/learnloop/db/table_roles.py"
-  - "migrations/239_data_capture.sql"
+  - "migrations/240_data_capture.sql"
   - "src/learnloop/config/schema.py"
   - "src/learnloop/db/stores/data_capture.py"
   - "src/learnloop/ops/capture_report.py"
@@ -44,8 +44,8 @@ It belongs to the **operations** navigation family. The family context lives in 
 
 - **Role:** `receipt` — Historical audit/decision receipt. It is preserved and never rebuilt.
 - **Functionality status:** `active`.
-- **Introduced by:** `migrations/239_data_capture.sql`.
-- **Schema touched by:** `239_data_capture.sql`.
+- **Introduced by:** `migrations/240_data_capture.sql`.
+- **Schema touched by:** `240_data_capture.sql`.
 - **Rebuild owner:** none; this table is preserved by the rebuild umbrella.
 
 For the distinction between SQLite state and human-authored vault files, see [[State and Persistence]]. For whole-vault creation and opening behavior, see [[Vault Lifecycle]]. ^table-lifecycle
@@ -123,6 +123,7 @@ None found by exact static reference scan.
 
 - `tests/test_data_capture_a1_prefilter.py`
 - `tests/test_data_capture_migration.py`
+- `tests/test_data_capture_phone.py`
 - `tests/test_data_capture_report.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.

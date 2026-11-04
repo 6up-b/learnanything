@@ -3,13 +3,13 @@ title: "router_decisions"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "d2de54b4e148637154ed1322a7241b74bba04bcf"
-source_commit_timestamp: "2026-11-03T15:00:46-05:00"
+source_commit: "9995860ab7dd149c0862dd57a7f483c3ac4e7815"
+source_commit_timestamp: "2026-11-03T19:35:50-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite router_decisions"
   - "table router_decisions"
-schema_head: 239
+schema_head: 240
 table_name: "router_decisions"
 table_role: "raw_ledger"
 functionality_status: "active"
@@ -23,10 +23,10 @@ source_paths:
   - "src/learnloop/cli/router.py"
   - "src/learnloop/config/schema.py"
   - "src/learnloop/daily_plan/engine.py"
+  - "src/learnloop/daily_plan/measurement.py"
   - "src/learnloop/daily_plan/router_retrieval.py"
   - "src/learnloop/daily_plan/types.py"
   - "src/learnloop/db/stores/plan_presentations.py"
-  - "src/learnloop/db/stores/router.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/raw-ledger"
@@ -53,7 +53,7 @@ It belongs to the **scheduling** navigation family. The family context lives in 
 - **Role:** `raw_ledger` — Authoritative replay input or mixed authoritative state. The rebuild umbrella preserves it.
 - **Functionality status:** `active`.
 - **Introduced by:** `migrations/181_router_decisions.sql`.
-- **Schema touched by:** `181_router_decisions.sql`, `202_router_staged_frame.sql`, `208_learner_text_source_kinds.sql`, `236_router_lesson_suggestions.sql`.
+- **Schema touched by:** `181_router_decisions.sql`, `202_router_staged_frame.sql`, `208_learner_text_source_kinds.sql`, `236_router_lesson_suggestions.sql`, `240_data_capture.sql`.
 - **Rebuild owner:** none; this table is preserved by the rebuild umbrella.
 
 For the distinction between SQLite state and human-authored vault files, see [[State and Persistence]]. For whole-vault creation and opening behavior, see [[Vault Lifecycle]]. ^table-lifecycle
@@ -131,12 +131,15 @@ None found by exact static reference scan.
 
 - `src/learnloop/cli/router.py`
 - `src/learnloop/daily_plan/engine.py`
+- `src/learnloop/daily_plan/measurement.py`
 - `src/learnloop/daily_plan/router_retrieval.py`
 - `src/learnloop/db/stores/plan_presentations.py`
 - `src/learnloop/db/stores/router.py`
 - `src/learnloop/db/stores/router_suggestions.py`
 - `src/learnloop/evsi_calibration/live_report.py`
+- `src/learnloop/ops/capture_report.py`
 - `src/learnloop/router/agreement.py`
+- `src/learnloop/router/first_delayed_success.py`
 - `src/learnloop/router/outcomes.py`
 - `src/learnloop/substrate/rebuild_orchestrator.py`
 
@@ -158,6 +161,11 @@ None found by exact static reference scan.
 - `tests/test_daily_plan_owner_decisions.py`
 - `tests/test_daily_plan_replay.py`
 - `tests/test_daily_plan_review_regressions.py`
+- `tests/test_data_capture_a1_prefilter.py`
+- `tests/test_data_capture_a2_measurement.py`
+- `tests/test_data_capture_codex_review.py`
+- `tests/test_data_capture_landing_review.py`
+- `tests/test_data_capture_phone.py`
 - `tests/test_device_eligibility.py`
 - `tests/test_dl2_rw4b_keyed_pick_check.py`
 - `tests/test_evsi_router_composition.py`
@@ -168,11 +176,6 @@ None found by exact static reference scan.
 - `tests/test_mcp_tools.py`
 - `tests/test_mobile_rpc.py`
 - `tests/test_mvp015_upgrade.py`
-- `tests/test_mvp023_upgrade.py`
-- `tests/test_mvp024_upgrade.py`
-- `tests/test_plan_determinism.py`
-- `tests/test_plan_determinism_landing.py`
-- `tests/test_reader_rw3a_landing.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

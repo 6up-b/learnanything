@@ -148,6 +148,12 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 ## Tests that define behavior
 
 - [tests/router_model_fakes.py](../../../../../../tests/router_model_fakes.py) — direct import
+- [tests/test_data_capture_a5_not_ready_floor.py](../../../../../../tests/test_data_capture_a5_not_ready_floor.py) — direct import
+  - `test_a_model_that_answers_is_untouched`
+  - `test_not_ready_draws_from_the_fallback_distribution_with_its_floor_and_exact_propensity`
+  - `test_the_draw_reproduces_from_its_logged_seed`
+  - `test_the_floor_can_draw_another_option_than_the_rules`
+  - `test_the_restraint_keeps_the_floor_on_not_ready_too`
 - [tests/test_plan_determinism_landing.py](../../../../../../tests/test_plan_determinism_landing.py) — direct import
   - `test_staged_plans_at_mvp024_are_the_same_in_every_session_and_at_start`
   - `test_the_floor_binds_where_the_models_put_no_mass`

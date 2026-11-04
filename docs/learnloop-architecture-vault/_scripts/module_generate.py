@@ -82,6 +82,7 @@ PACKAGE_DESCRIPTIONS = {
     "learnloop.ai.chatgpt_plan": "Sign in with ChatGPT for the chatgpt_plan provider: the machine-local sign-in store, the PKCE flow, access tokens and plan-usage state, and its requests.",
     "learnloop.capture": "The shared capture domain (the capture inbox); importing it never attaches or migrates.",
     "learnloop.content.facet_identity": "Facet identity at mint time and the dedupe command: embedding shortlists, a judge over each neighbourhood, live merges with exact undo.",
+    "learnloop.data_capture": "What later evaluation needs, recorded now: its switches, prefilter receipts, and the one read of Reader exposures with the sweep that freezes them.",
     "learnloop.daily_plan": "The finite daily plan: remembered minutes split across repair, maintain, new and push, chosen block by block, and the router card.",
     "learnloop.diagnosis.offline_review": "The offline review of blind grading and history-aware diagnosis, run on backup copies with synthetic learners; never changes a live vault.",
     "learnloop.diagnosis.recurrence": "Recurrence with authority: the same_cause match kind over causal hypotheses, its shortlist and judge, the live step and the backlog.",

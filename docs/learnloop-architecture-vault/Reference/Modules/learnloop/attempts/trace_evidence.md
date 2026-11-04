@@ -7,8 +7,8 @@ version: "1.0.0"
 source_path: "src/learnloop/attempts/trace_evidence.py"
 source_paths:
   - "src/learnloop/attempts/trace_evidence.py"
-source_commit: "ba3b4b9bc8e5574c127ee78f736846f6c3c8b38a"
-source_commit_timestamp: "2026-10-15T15:43:26-04:00"
+source_commit: "dbd1f3c3fa85ebd3e804c5d17bc29f77c60fd032"
+source_commit_timestamp: "2026-11-03T16:08:07-05:00"
 source_worktree_state: "clean"
 generated: true
 generated_at: "2026-11-02"
@@ -55,8 +55,8 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `ba3b4b9bc8e5574c127ee78f736846f6c3c8b38a` |
-| Commit timestamp | `2026-10-15T15:43:26-04:00` |
+| Source commit | `dbd1f3c3fa85ebd3e804c5d17bc29f77c60fd032` |
+| Commit timestamp | `2026-11-03T16:08:07-05:00` |
 
 ## Public API
 

@@ -221,6 +221,10 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_daily_plan_reentry.py](../../../../../tests/test_daily_plan_reentry.py) — direct import
 - [tests/test_daily_plan_review_regressions.py](../../../../../tests/test_daily_plan_review_regressions.py) — direct import
 - [tests/test_daily_plan_rpc.py](../../../../../tests/test_daily_plan_rpc.py) — direct import
+- [tests/test_data_capture_a1_prefilter.py](../../../../../tests/test_data_capture_a1_prefilter.py) — direct import
+  - `test_todays_offer_links_its_builds_receipt_with_every_gate`
+- [tests/test_data_capture_codex_review.py](../../../../../tests/test_data_capture_codex_review.py) — direct import
+  - `test_f8_an_offers_receipt_commits_in_its_decisions_transaction`
 - [tests/test_decider_landing.py](../../../../../tests/test_decider_landing.py) — direct import
 - [tests/test_deliverable_rpcs.py](../../../../../tests/test_deliverable_rpcs.py) — direct import
   - `test_the_rpcs_are_registered_and_desktop_only`

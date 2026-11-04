@@ -7,8 +7,8 @@ version: "1.0.0"
 source_path: "src/learnloop/scheduling/randomization_layer.py"
 source_paths:
   - "src/learnloop/scheduling/randomization_layer.py"
-source_commit: "9218ba7a856652fb4091a4d048fdc4cb77d0ee84"
-source_commit_timestamp: "2026-11-02T07:45:40-05:00"
+source_commit: "17377b66e3d9ba4edb0cc8ea48f662aa60d04e1e"
+source_commit_timestamp: "2026-11-03T11:44:59-05:00"
 source_worktree_state: "clean"
 generated: true
 generated_at: "2026-11-02"
@@ -50,46 +50,47 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/scheduling/randomization_layer.py](../../../../../../src/learnloop/scheduling/randomization_layer.py) |
-| Source lines | 411 |
+| Source lines | 421 |
 | Owning package | [[Reference/Modules/learnloop/scheduling/_package|learnloop.scheduling]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `9218ba7a856652fb4091a4d048fdc4cb77d0ee84` |
-| Commit timestamp | `2026-11-02T07:45:40-05:00` |
+| Source commit | `17377b66e3d9ba4edb0cc8ea48f662aa60d04e1e` |
+| Commit timestamp | `2026-11-03T11:44:59-05:00` |
 
 ## Public API
 
-- `class Assignment` ([source](../../../../../../src/learnloop/scheduling/randomization_layer.py), line 80) — The result of one randomization draw (persisted; propensity logged first).
-  - `as_dict(self) -> dict[str, Any]` (line 96; public)
-- `grade_for(*, reversible: bool, commitment_unit: bool, carryover_modeled: bool) -> str` ([source](../../../../../../src/learnloop/scheduling/randomization_layer.py), line 113) — The experiment grade (§9.3 label enforcement).
-- `is_near_equivalent(values: Sequence[float], margin: float=EPSILON_TIE_MARGIN) -> bool` ([source](../../../../../../src/learnloop/scheduling/randomization_layer.py), line 127) — True when the top-2 feasible values fall within ``margin`` fraction of the top (the ε near-equivalence test).
-- `tied_set(refs: Sequence[str], values: Sequence[float], margin: float=EPSILON_TIE_MARGIN) -> list[str]` ([source](../../../../../../src/learnloop/scheduling/randomization_layer.py), line 155) — The refs :func:`epsilon_tiebreak` randomizes over when the top is near-equivalent (sorted).
-- `epsilon_tiebreak(repository: Repository | None, *, experiment_id: str, refs: Sequence[str], values: Sequence[float], seed: str, decision_id: str | None=None, reversible: bool=True, margin: float=EPSILON_TIE_MARGIN, clock: Clock | None=None) -> Assignment` ([source](../../../../../../src/learnloop/scheduling/randomization_layer.py), line 178) — ε tie-break among feasible candidates (§9.3).
-- `micro_randomize(repository: Repository | None, *, experiment_id: str, variants: Sequence[str], seed: str, reversible: bool, decision_id: str | None=None, clock: Clock | None=None) -> Assignment` ([source](../../../../../../src/learnloop/scheduling/randomization_layer.py), line 229) — Micro-randomize among REVERSIBLE near-equivalent variants (MRT, §9.3).
-- `commitment_parallel_assign(repository: Repository | None, *, experiment_id: str, commitment_id: str, variants: Sequence[str], seed: str, carryover_modeled: bool, clock: Clock | None=None) -> Assignment` ([source](../../../../../../src/learnloop/scheduling/randomization_layer.py), line 270) — Assign a COMMITMENT to a variant for a durable intervention (§9.3).
-- `model_mixture(*, experiment_id: str, support: Sequence[str], staged_ref: str, distributions: Mapping[str, Mapping[str, float] | None], weights: Mapping[str, float], epsilon: float, seed: str, decision_id: str | None=None) -> Assignment` ([source](../../../../../../src/learnloop/scheduling/randomization_layer.py), line 308) — The ``model_mixture`` design (router R2b): reversible candidates only.
-- `open_outcome_window(repository: Repository, *, decision_id: str | None, assignment: Assignment | None, card_ref: str | None, commitment_id: str | None=None, candidate_ref: str | None=None, anchor_kind: str='administration_committed', anchor_ref: str | None=None, next_spaced_cold_review_at: str | None=None, clock: Clock | None=None) -> str` ([source](../../../../../../src/learnloop/scheduling/randomization_layer.py), line 341) — Open a delayed outcome window anchored to the NEXT SPACED COLD REVIEW (§9.3).
-- `feature_overlap_propensities(refs: Sequence[str], tied: Sequence[str], overlap: Sequence[str], q: float) -> dict[str, float]` ([source](../../../../../../src/learnloop/scheduling/randomization_layer.py), line 370) — ``π(i) = (1 - q)·1[i∈T]/|T| + q·1[i∈O]/|O|`` (``q = 0`` when ``O`` is empty): exact.
-- `reading_dose_propensities(feasible: Sequence[str], base: Mapping[str, float], floor: float) -> dict[str, float]` ([source](../../../../../../src/learnloop/scheduling/randomization_layer.py), line 383) — ``π(v) = (1 - k·ε)·base(v) + ε`` over the ``k`` feasible variants (its own floor ``ε``).
-- `draw_from(propensities: Mapping[str, float], u: float) -> str` ([source](../../../../../../src/learnloop/scheduling/randomization_layer.py), line 402) — Invert the propensities' CDF over the variants in sorted order.
+- `class Assignment` ([source](../../../../../../src/learnloop/scheduling/randomization_layer.py), line 82) — The result of one randomization draw (persisted; propensity logged first).
+  - `as_dict(self) -> dict[str, Any]` (line 100; public)
+- `grade_for(*, reversible: bool, commitment_unit: bool, carryover_modeled: bool) -> str` ([source](../../../../../../src/learnloop/scheduling/randomization_layer.py), line 118) — The experiment grade (§9.3 label enforcement).
+- `is_near_equivalent(values: Sequence[float], margin: float=EPSILON_TIE_MARGIN) -> bool` ([source](../../../../../../src/learnloop/scheduling/randomization_layer.py), line 132) — True when the top-2 feasible values fall within ``margin`` fraction of the top (the ε near-equivalence test).
+- `tied_set(refs: Sequence[str], values: Sequence[float], margin: float=EPSILON_TIE_MARGIN) -> list[str]` ([source](../../../../../../src/learnloop/scheduling/randomization_layer.py), line 160) — The refs :func:`epsilon_tiebreak` randomizes over when the top is near-equivalent (sorted).
+- `epsilon_tiebreak(repository: Repository | None, *, experiment_id: str, refs: Sequence[str], values: Sequence[float], seed: str, decision_id: str | None=None, reversible: bool=True, margin: float=EPSILON_TIE_MARGIN, clock: Clock | None=None) -> Assignment` ([source](../../../../../../src/learnloop/scheduling/randomization_layer.py), line 188) — ε tie-break among feasible candidates (§9.3).
+- `micro_randomize(repository: Repository | None, *, experiment_id: str, variants: Sequence[str], seed: str, reversible: bool, decision_id: str | None=None, clock: Clock | None=None) -> Assignment` ([source](../../../../../../src/learnloop/scheduling/randomization_layer.py), line 239) — Micro-randomize among REVERSIBLE near-equivalent variants (MRT, §9.3).
+- `commitment_parallel_assign(repository: Repository | None, *, experiment_id: str, commitment_id: str, variants: Sequence[str], seed: str, carryover_modeled: bool, clock: Clock | None=None) -> Assignment` ([source](../../../../../../src/learnloop/scheduling/randomization_layer.py), line 280) — Assign a COMMITMENT to a variant for a durable intervention (§9.3).
+- `model_mixture(*, experiment_id: str, support: Sequence[str], staged_ref: str, distributions: Mapping[str, Mapping[str, float] | None], weights: Mapping[str, float], epsilon: float, seed: str, decision_id: str | None=None) -> Assignment` ([source](../../../../../../src/learnloop/scheduling/randomization_layer.py), line 318) — The ``model_mixture`` design (router R2b): reversible candidates only.
+- `open_outcome_window(repository: Repository, *, decision_id: str | None, assignment: Assignment | None, card_ref: str | None, commitment_id: str | None=None, candidate_ref: str | None=None, anchor_kind: str='administration_committed', anchor_ref: str | None=None, next_spaced_cold_review_at: str | None=None, clock: Clock | None=None) -> str` ([source](../../../../../../src/learnloop/scheduling/randomization_layer.py), line 351) — Open a delayed outcome window anchored to the NEXT SPACED COLD REVIEW (§9.3).
+- `feature_overlap_propensities(refs: Sequence[str], tied: Sequence[str], overlap: Sequence[str], q: float) -> dict[str, float]` ([source](../../../../../../src/learnloop/scheduling/randomization_layer.py), line 380) — ``π(i) = (1 - q)·1[i∈T]/|T| + q·1[i∈O]/|O|`` (``q = 0`` when ``O`` is empty): exact.
+- `reading_dose_propensities(feasible: Sequence[str], base: Mapping[str, float], floor: float) -> dict[str, float]` ([source](../../../../../../src/learnloop/scheduling/randomization_layer.py), line 393) — ``π(v) = (1 - k·ε)·base(v) + ε`` over the ``k`` feasible variants (its own floor ``ε``).
+- `draw_from(propensities: Mapping[str, float], u: float) -> str` ([source](../../../../../../src/learnloop/scheduling/randomization_layer.py), line 412) — Invert the propensities' CDF over the variants in sorted order.
 
 ### Module constants
 
 - `RANDOMIZATION_LAYER_VERSION` ([src/learnloop/scheduling/randomization_layer.py](../../../../../../src/learnloop/scheduling/randomization_layer.py), line 54)
 - `EPSILON_TIE_MARGIN` ([src/learnloop/scheduling/randomization_layer.py](../../../../../../src/learnloop/scheduling/randomization_layer.py), line 60)
-- `PROPENSITY_FLOOR` ([src/learnloop/scheduling/randomization_layer.py](../../../../../../src/learnloop/scheduling/randomization_layer.py), line 65)
-- `_GRADES` ([src/learnloop/scheduling/randomization_layer.py](../../../../../../src/learnloop/scheduling/randomization_layer.py), line 67)
-- `MODEL_MIXTURE` ([src/learnloop/scheduling/randomization_layer.py](../../../../../../src/learnloop/scheduling/randomization_layer.py), line 68)
-- `FEATURE_OVERLAP` ([src/learnloop/scheduling/randomization_layer.py](../../../../../../src/learnloop/scheduling/randomization_layer.py), line 69)
-- `READING_DOSE` ([src/learnloop/scheduling/randomization_layer.py](../../../../../../src/learnloop/scheduling/randomization_layer.py), line 70)
-- `ADMISSIBLE_DESIGNS` ([src/learnloop/scheduling/randomization_layer.py](../../../../../../src/learnloop/scheduling/randomization_layer.py), line 71)
+- `PROPENSITY_FLOOR` ([src/learnloop/scheduling/randomization_layer.py](../../../../../../src/learnloop/scheduling/randomization_layer.py), line 67)
+- `_GRADES` ([src/learnloop/scheduling/randomization_layer.py](../../../../../../src/learnloop/scheduling/randomization_layer.py), line 69)
+- `MODEL_MIXTURE` ([src/learnloop/scheduling/randomization_layer.py](../../../../../../src/learnloop/scheduling/randomization_layer.py), line 70)
+- `FEATURE_OVERLAP` ([src/learnloop/scheduling/randomization_layer.py](../../../../../../src/learnloop/scheduling/randomization_layer.py), line 71)
+- `READING_DOSE` ([src/learnloop/scheduling/randomization_layer.py](../../../../../../src/learnloop/scheduling/randomization_layer.py), line 72)
+- `ADMISSIBLE_DESIGNS` ([src/learnloop/scheduling/randomization_layer.py](../../../../../../src/learnloop/scheduling/randomization_layer.py), line 73)
 
 ## Internal implementation anchors
 
-- `_seed_int(seed: str) -> int` ([source](../../../../../../src/learnloop/scheduling/randomization_layer.py), line 75)
-- `_tied_set(refs: Sequence[str], values: Sequence[float], margin: float) -> list[str]` ([source](../../../../../../src/learnloop/scheduling/randomization_layer.py), line 141)
-- `_clamped_uniform_propensity(repository: Repository | None, n: int, *, floor: float, clock: Clock | None) -> float` ([source](../../../../../../src/learnloop/scheduling/randomization_layer.py), line 161) — Uniform propensity 1/n, guarded by the dormant propensity floor.
+- `_seed_int(seed: str) -> int` ([source](../../../../../../src/learnloop/scheduling/randomization_layer.py), line 77)
+- `_tied_set(refs: Sequence[str], values: Sequence[float], margin: float) -> list[str]` ([source](../../../../../../src/learnloop/scheduling/randomization_layer.py), line 146)
+- `_uniform_propensity(repository: Repository | None, n: int, *, floor: float, clock: Clock | None) -> tuple[float, bool]` ([source](../../../../../../src/learnloop/scheduling/randomization_layer.py), line 166) — The uniform draw's true propensity 1/n, and whether it is below the dormant propensity floor: a thin support, bind-logged (U-022), never clamped (data capture A8: every design here draws uniformly over all n, so a clamped number would be false).
+- `_thin(detail: dict[str, Any], thin_support: bool) -> dict[str, Any]` ([source](../../../../../../src/learnloop/scheduling/randomization_layer.py), line 184)
 
 ## Who imports or calls it
 
@@ -136,6 +137,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_ad_guard.py](../../../../../../tests/test_ad_guard.py) — direct import
   - `test_a_denied_dose_response_rolls_the_draw_back`
 - [tests/test_randomization_layer.py](../../../../../../tests/test_randomization_layer.py) — direct import
+  - `test_a_thin_support_logs_the_true_propensity_and_is_flagged`
+  - `test_an_ordinary_support_is_not_flagged_and_its_receipt_is_unchanged`
   - `test_commitment_parallel_grade_depends_on_carryover_model`
   - `test_epsilon_tiebreak_is_deterministic_for_a_seed`
   - `test_epsilon_tiebreak_is_inert_when_not_near_equivalent`
@@ -144,7 +147,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_is_near_equivalent_margin`
   - `test_micro_randomize_only_on_reversible`
   - `test_outcome_window_anchored_to_next_spaced_cold_review`
-  - `test_propensity_floor_binds_and_is_logged`
+  - `test_the_tie_break_above_twenty_candidates_logs_one_over_n`
 - [tests/test_teacher_te1b_rereview_fixes.py](../../../../../../tests/test_teacher_te1b_rereview_fixes.py) — direct import
   - `test_staged_mode_draws_the_target_by_the_epsilon_tiebreak`
   - `test_the_staged_tiebreak_is_deterministic_without_a_near_tie`

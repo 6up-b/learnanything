@@ -166,6 +166,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_reentry_orders_assumed_checks_then_deadlines_then_rank`
 - [tests/test_daily_plan_review_regressions.py](../../../../../../tests/test_daily_plan_review_regressions.py) — direct import
   - `test_f1_repair_needs_a_recent_error_not_any_active_one`
+- [tests/test_data_capture_a2_measurement.py](../../../../../../tests/test_data_capture_a2_measurement.py) — direct import
 - [tests/test_intent_codex_review.py](../../../../../../tests/test_intent_codex_review.py) — direct import
   - `test_f6_the_chooser_takes_the_master_block_first_in_re_entry`
 - [tests/test_intent_plan.py](../../../../../../tests/test_intent_plan.py) — direct import

@@ -7,8 +7,8 @@ version: "1.0.0"
 source_path: "src/learnloop/teacher/checks.py"
 source_paths:
   - "src/learnloop/teacher/checks.py"
-source_commit: "a27561ff43fab9cfe5e6aae8236eaa139a6f742f"
-source_commit_timestamp: "2026-11-01T22:10:57-05:00"
+source_commit: "8237dd049179c13bcf6dae21128852bd73e945ae"
+source_commit_timestamp: "2026-11-03T12:18:54-05:00"
 source_worktree_state: "clean"
 generated: true
 generated_at: "2026-11-02"
@@ -50,13 +50,13 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/teacher/checks.py](../../../../../../src/learnloop/teacher/checks.py) |
-| Source lines | 317 |
+| Source lines | 318 |
 | Owning package | [[Reference/Modules/learnloop/teacher/_package|learnloop.teacher]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `a27561ff43fab9cfe5e6aae8236eaa139a6f742f` |
-| Commit timestamp | `2026-11-01T22:10:57-05:00` |
+| Source commit | `8237dd049179c13bcf6dae21128852bd73e945ae` |
+| Commit timestamp | `2026-11-03T12:18:54-05:00` |
 
 ## Public API
 
@@ -67,10 +67,10 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `mint_check_item(root: Path, *, lesson_id: str, check_ref: str, check: CheckV1, learning_object_id: str, book: SourceBook, clock: Clock | None=None) -> str` ([source](../../../../../../src/learnloop/teacher/checks.py), line 64) — Write the check's held item (vault YAML) and return its id.
 - `lesson_item(item: Any) -> bool` ([source](../../../../../../src/learnloop/teacher/checks.py), line 105)
 - `cold_reference(vault: Any, repository: Any, learning_object_id: str, *, lesson_id: str, exclude: Sequence[str], lesson_item_ids: Sequence[str]) -> dict[str, Any]` ([source](../../../../../../src/learnloop/teacher/checks.py), line 113) — The committed cold item a node's retention forecast is about, as of now (§12.2; review F5): the item the delayed retention check would commit (``teacher.delayed``'s candidate rule and picker, excluding the lesson's own and shown items and their lineage), its IRT parameters (the…
-- `check_mass(vault: Any, repository: Any, *, learning_object_id: str, tap: int | None, hedge: str | None, correctness: float, item: Any, as_of: str, p_teacher_retained: float | None, family: str, reference: Mapping[str, Any] | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/teacher/checks.py), line 135) — The mass this check enters mastery at, with every input (``weight_inputs``).
-- `grade_answer(vault: Any, repository: Any, client: Any, *, item: Any, attempt_id: str, answer: str, runtime: Any=None, clock: Clock | None=None) -> tuple[Any, str]` ([source](../../../../../../src/learnloop/teacher/checks.py), line 197) — The blind grader's validated grade of ``answer`` (the answer only), as a ResolvedGrade, and its run id.
-- `record_answered_check(vault: Any, repository: Any, *, lesson_id: str, node_id: str, check_ref: str, item: Any, attempt_id: str, answer: str, grade: Any, grading_run_id: str, grading_source: str, tap: int | None, mass: Mapping[str, Any], created_at: str, forecast_correct_key: str | None, forecast_retained_key: str | None, clock: Clock | None=None) -> Any` ([source](../../../../../../src/learnloop/teacher/checks.py), line 259) — One transaction: the ``lesson_checks`` row (the mass the attempt step reads), then the attempt.
-- `withdraw_check(repository: Any, *, lesson_id: str, node_id: str, check_ref: str, item: Any, overlap: float, created_at: str) -> str` ([source](../../../../../../src/learnloop/teacher/checks.py), line 293)
+- `check_mass(vault: Any, repository: Any, *, learning_object_id: str, tap: int | None, hedge: str | None, correctness: float, item: Any, as_of: str, p_teacher_retained: float | None, family: str, reference: Mapping[str, Any] | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/teacher/checks.py), line 136) — The mass this check enters mastery at, with every input (``weight_inputs``).
+- `grade_answer(vault: Any, repository: Any, client: Any, *, item: Any, attempt_id: str, answer: str, runtime: Any=None, clock: Clock | None=None) -> tuple[Any, str]` ([source](../../../../../../src/learnloop/teacher/checks.py), line 198) — The blind grader's validated grade of ``answer`` (the answer only), as a ResolvedGrade, and its run id.
+- `record_answered_check(vault: Any, repository: Any, *, lesson_id: str, node_id: str, check_ref: str, item: Any, attempt_id: str, answer: str, grade: Any, grading_run_id: str, grading_source: str, tap: int | None, mass: Mapping[str, Any], created_at: str, forecast_correct_key: str | None, forecast_retained_key: str | None, clock: Clock | None=None) -> Any` ([source](../../../../../../src/learnloop/teacher/checks.py), line 260) — One transaction: the ``lesson_checks`` row (the mass the attempt step reads), then the attempt.
+- `withdraw_check(repository: Any, *, lesson_id: str, node_id: str, check_ref: str, item: Any, overlap: float, created_at: str) -> str` ([source](../../../../../../src/learnloop/teacher/checks.py), line 294)
 
 ### Module constants
 
@@ -124,7 +124,7 @@ No private top-level function or class definition is declared in this file.
 - [[Reference/Modules/learnloop/learner_protection|learnloop.learner_protection]] — imports `withheld_items`; calls `withheld_items`
 - [[Reference/Modules/learnloop/teacher/brief|learnloop.teacher.brief]] — imports `SourceBook`, `lo_prediction`; calls `lo_prediction`
 - [[Reference/Modules/learnloop/teacher/contracts|learnloop.teacher.contracts]] — imports `CheckV1`
-- [[Reference/Modules/learnloop/teacher/delayed|learnloop.teacher.delayed]] — imports `module`; calls `_attempted`, `_revealed`, `candidates`, `due_days`, `lineage`, `pick`
+- [[Reference/Modules/learnloop/teacher/delayed|learnloop.teacher.delayed]] — imports `module`; calls `_attempted`, `_revealed`, `candidates`, `due_days`, `lineage`, `pick`, `retention_seed_key`
 - [[Reference/Modules/learnloop/vault/writer|learnloop.vault.writer]] — imports `upsert_practice_item`; calls `upsert_practice_item`
 
 ### Platform and third-party dependencies
@@ -145,20 +145,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
-No test imports this module directly. These tests exercise a direct production consumer:
-
-- [tests/teacher_fakes.py](../../../../../../tests/teacher_fakes.py) — imports consumer [[Reference/Modules/learnloop/teacher/service|learnloop.teacher.service]]
-- [tests/test_figures_prefetch.py](../../../../../../tests/test_figures_prefetch.py) — imports consumer [[Reference/Modules/learnloop/teacher/service|learnloop.teacher.service]]
-- [tests/test_figures_prefetch_review_fixes.py](../../../../../../tests/test_figures_prefetch_review_fixes.py) — imports consumer [[Reference/Modules/learnloop/teacher/service|learnloop.teacher.service]]
-- [tests/test_followups_batch5_lesson.py](../../../../../../tests/test_followups_batch5_lesson.py) — imports consumer [[Reference/Modules/learnloop/teacher/service|learnloop.teacher.service]]
-- [tests/test_followups_batch5_recap_dependencies.py](../../../../../../tests/test_followups_batch5_recap_dependencies.py) — imports consumer [[Reference/Modules/learnloop/teacher/service|learnloop.teacher.service]]
-- [tests/test_followups_batch5_recap_protection.py](../../../../../../tests/test_followups_batch5_recap_protection.py) — imports consumer [[Reference/Modules/learnloop/teacher/service|learnloop.teacher.service]]
-- [tests/test_followups_batch6_review_fixes.py](../../../../../../tests/test_followups_batch6_review_fixes.py) — imports consumer [[Reference/Modules/learnloop/teacher/service|learnloop.teacher.service]]
-- [tests/test_followups_batch6_router_report.py](../../../../../../tests/test_followups_batch6_router_report.py) — imports consumer [[Reference/Modules/learnloop/teacher/service|learnloop.teacher.service]]
-- [tests/test_followups_batch7_prefetch_capped_resume.py](../../../../../../tests/test_followups_batch7_prefetch_capped_resume.py) — imports consumer [[Reference/Modules/learnloop/teacher/service|learnloop.teacher.service]]
-- [tests/test_followups_nov2_figure_provenance.py](../../../../../../tests/test_followups_nov2_figure_provenance.py) — imports consumer [[Reference/Modules/learnloop/teacher/service|learnloop.teacher.service]]
-- [tests/test_reader_rw5d_p4b_teacher_visuals.py](../../../../../../tests/test_reader_rw5d_p4b_teacher_visuals.py) — imports consumer [[Reference/Modules/learnloop/teacher/service|learnloop.teacher.service]]
-- [tests/test_teacher_te1_curriculum_c4.py](../../../../../../tests/test_teacher_te1_curriculum_c4.py) — imports consumer [[Reference/Modules/learnloop/teacher/service|learnloop.teacher.service]]
+- [tests/test_data_capture_a6_delayed_pick.py](../../../../../../tests/test_data_capture_a6_delayed_pick.py) — direct import
+  - `test_the_lessons_forecast_reference_is_the_item_the_check_would_commit`
 
 ## Modification guidance
 

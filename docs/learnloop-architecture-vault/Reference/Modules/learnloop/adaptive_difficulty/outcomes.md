@@ -7,8 +7,8 @@ version: "1.0.0"
 source_path: "src/learnloop/adaptive_difficulty/outcomes.py"
 source_paths:
   - "src/learnloop/adaptive_difficulty/outcomes.py"
-source_commit: "a8f9053de7bd74a49b076b4a496fc8950047f8c9"
-source_commit_timestamp: "2026-10-19T02:40:13-04:00"
+source_commit: "720de3fcf94e2c5856c0de04bafb85b735a83b96"
+source_commit_timestamp: "2026-11-03T12:23:09-05:00"
 source_worktree_state: "clean"
 generated: true
 generated_at: "2026-11-02"
@@ -55,8 +55,8 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `a8f9053de7bd74a49b076b4a496fc8950047f8c9` |
-| Commit timestamp | `2026-10-19T02:40:13-04:00` |
+| Source commit | `720de3fcf94e2c5856c0de04bafb85b735a83b96` |
+| Commit timestamp | `2026-11-03T12:23:09-05:00` |
 
 ## Public API
 
@@ -71,7 +71,6 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 
 ### Module constants
 
-- `HELP_TYPES` ([src/learnloop/adaptive_difficulty/outcomes.py](../../../../../../src/learnloop/adaptive_difficulty/outcomes.py), line 30)
 - `NO_DRAFT` ([src/learnloop/adaptive_difficulty/outcomes.py](../../../../../../src/learnloop/adaptive_difficulty/outcomes.py), line 31)
 - `DRAFT_STARTED` ([src/learnloop/adaptive_difficulty/outcomes.py](../../../../../../src/learnloop/adaptive_difficulty/outcomes.py), line 32)
 - `NONE` ([src/learnloop/adaptive_difficulty/outcomes.py](../../../../../../src/learnloop/adaptive_difficulty/outcomes.py), line 34)
@@ -118,6 +117,7 @@ No private top-level function or class definition is declared in this file.
 
 - [[Reference/Modules/learnloop/adaptive_difficulty/model|learnloop.adaptive_difficulty.model]] — imports `CENSORED`
 - [[Reference/Modules/learnloop/adaptive_difficulty/priors|learnloop.adaptive_difficulty.priors]] — imports `module`
+- [[Reference/Modules/learnloop/delayed_completion|learnloop.delayed_completion]] — imports `HELP_TYPES`
 
 ### Platform and third-party dependencies
 

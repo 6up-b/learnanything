@@ -7,8 +7,8 @@ version: "1.0.0"
 source_path: "src/learnloop/reader/reader_guidance.py"
 source_paths:
   - "src/learnloop/reader/reader_guidance.py"
-source_commit: "b1087be0a01909d5363e9c41f140e27673801640"
-source_commit_timestamp: "2026-10-15T14:19:42-04:00"
+source_commit: "6df9761722934fe9a15e17c92a3b74cb50b9425c"
+source_commit_timestamp: "2026-11-03T19:25:26-05:00"
 source_worktree_state: "clean"
 generated: true
 generated_at: "2026-11-02"
@@ -49,56 +49,44 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/reader/reader_guidance.py](../../../../../../src/learnloop/reader/reader_guidance.py) |
-| Source lines | 776 |
+| Source lines | 629 |
 | Owning package | [[Reference/Modules/learnloop/reader/_package|learnloop.reader]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `b1087be0a01909d5363e9c41f140e27673801640` |
-| Commit timestamp | `2026-10-15T14:19:42-04:00` |
+| Source commit | `6df9761722934fe9a15e17c92a3b74cb50b9425c` |
+| Commit timestamp | `2026-11-03T19:25:26-05:00` |
 
 ## Public API
 
-- `normalize_text(value: str | None) -> str` ([source](../../../../../../src/learnloop/reader/reader_guidance.py), line 45)
-- `goal_for_item(vault: LoadedVault, learning_object: Any, item: Any) -> Any | None` ([source](../../../../../../src/learnloop/reader/reader_guidance.py), line 169)
-- `extraction_sections(ir: Any) -> tuple[list[dict[str, Any]], dict[str, Any], dict[str, str]]` ([source](../../../../../../src/learnloop/reader/reader_guidance.py), line 313) — Derive the Reader's guide sections from one extraction's IR.
-- `build_guide_plan(vault: LoadedVault, repository: Repository, *, extraction_id: str) -> dict[str, Any]` ([source](../../../../../../src/learnloop/reader/reader_guidance.py), line 353) — Build section checks and suggested passages for one extraction.
-- `held_out_sections(vault_or_sets: Any, repository: Repository, extraction_id: str, section_rows: Iterable[Mapping[str, Any]]) -> set[str]` ([source](../../../../../../src/learnloop/reader/reader_guidance.py), line 642) — The sections with any block in held-out material (exam protection's one held-out partition, ``content.sources.exam_material``).
-- `reading_protection(vault_or_sets: Any, repository: Repository, extraction_id: str, span_ids: Iterable[str | None]) -> dict[str, Any]` ([source](../../../../../../src/learnloop/reader/reader_guidance.py), line 661) — What of a reading the Reader's model actions must not touch, for its selection surfaces (reader-pdf-selection): the whole reading when it is withheld (``exam_material`` rule 4, or held out whole), else its held-out passages, with the refusal the model paths give.
+- `goal_for_item(vault: LoadedVault, learning_object: Any, item: Any) -> Any | None` ([source](../../../../../../src/learnloop/reader/reader_guidance.py), line 62)
+- `build_guide_plan(vault: LoadedVault, repository: Repository, *, extraction_id: str) -> dict[str, Any]` ([source](../../../../../../src/learnloop/reader/reader_guidance.py), line 206) — Build section checks and suggested passages for one extraction.
+- `held_out_sections(vault_or_sets: Any, repository: Repository, extraction_id: str, section_rows: Iterable[Mapping[str, Any]]) -> set[str]` ([source](../../../../../../src/learnloop/reader/reader_guidance.py), line 495) — The sections with any block in held-out material (exam protection's one held-out partition, ``content.sources.exam_material``).
+- `reading_protection(vault_or_sets: Any, repository: Repository, extraction_id: str, span_ids: Iterable[str | None]) -> dict[str, Any]` ([source](../../../../../../src/learnloop/reader/reader_guidance.py), line 514) — What of a reading the Reader's model actions must not touch, for its selection surfaces (reader-pdf-selection): the whole reading when it is withheld (``exam_material`` rule 4, or held out whole), else its held-out passages, with the refusal the model paths give.
 
 ### Module constants
 
-- `_SPAN_LOCATOR_RE` ([src/learnloop/reader/reader_guidance.py](../../../../../../src/learnloop/reader/reader_guidance.py), line 28)
-- `_TIME_LOCATOR_RE` ([src/learnloop/reader/reader_guidance.py](../../../../../../src/learnloop/reader/reader_guidance.py), line 29)
-- `_FURNITURE_TYPES` ([src/learnloop/reader/reader_guidance.py](../../../../../../src/learnloop/reader/reader_guidance.py), line 30)
-- `_PATTERN_PHASES` ([src/learnloop/reader/reader_guidance.py](../../../../../../src/learnloop/reader/reader_guidance.py), line 31)
-- `_READING_PHASES` ([src/learnloop/reader/reader_guidance.py](../../../../../../src/learnloop/reader/reader_guidance.py), line 37)
-- `_ANCHOR_CURRENT` ([src/learnloop/reader/reader_guidance.py](../../../../../../src/learnloop/reader/reader_guidance.py), line 93)
-- `_ANCHOR_MOVED` ([src/learnloop/reader/reader_guidance.py](../../../../../../src/learnloop/reader/reader_guidance.py), line 94)
+- `_PATTERN_PHASES` ([src/learnloop/reader/reader_guidance.py](../../../../../../src/learnloop/reader/reader_guidance.py), line 38)
+- `_READING_PHASES` ([src/learnloop/reader/reader_guidance.py](../../../../../../src/learnloop/reader/reader_guidance.py), line 44)
 
 ## Internal implementation anchors
 
-- `_extras(value: Any) -> dict[str, Any]` ([source](../../../../../../src/learnloop/reader/reader_guidance.py), line 40)
-- `_section_key(value: str | None) -> str` ([source](../../../../../../src/learnloop/reader/reader_guidance.py), line 49)
-- `_canonical_note_ids(vault: LoadedVault, artifact: dict[str, Any]) -> set[str]` ([source](../../../../../../src/learnloop/reader/reader_guidance.py), line 53) — Resolve legacy note-id provenance to the source-library artifact.
-- `_ref_matches_source(ref: SourceRef, source_id: str, note_ids: set[str]) -> bool` ([source](../../../../../../src/learnloop/reader/reader_guidance.py), line 67)
-- `_span_for_ref(ref: SourceRef, *, source_id: str, extraction_id: str, note_ids: set[str], blocks: list[Any], translator: Any=None, accept_moved: bool=False) -> str | None` ([source](../../../../../../src/learnloop/reader/reader_guidance.py), line 76) — The span of the viewed reading a provenance ref names, or None.
-- `_anchor_for_ref(ref: SourceRef, *, source_id: str, extraction_id: str, note_ids: set[str], blocks: list[Any], translator: Any=None) -> tuple[str, str] | None` ([source](../../../../../../src/learnloop/reader/reader_guidance.py), line 97) — ``(span id, "current" | "needs_reanchor")`` for a ref on the viewed reading.
-- `_cited_text(repository: Repository, ref: SourceRef) -> str | None` ([source](../../../../../../src/learnloop/reader/reader_guidance.py), line 158) — The text a span ref cites, read on the reading it names.
-- `_learner_signal(repository: Repository, learning_object_id: str, *, goal_match: bool) -> tuple[float, str, str]` ([source](../../../../../../src/learnloop/reader/reader_guidance.py), line 183) — Return a local ranking boost and a learner-facing, non-numeric reason.
-- `_refs_for(vault: LoadedVault, item: Any, learning_object: Any) -> Iterable[SourceRef]` ([source](../../../../../../src/learnloop/reader/reader_guidance.py), line 218)
-- `_placement_item_id(placement: dict[str, Any], blueprint_spec: dict[str, Any]) -> str | None` ([source](../../../../../../src/learnloop/reader/reader_guidance.py), line 227) — Resolve the explicitly placed surface, with a legacy blueprint fallback.
-- `_placement_phase(placement: dict[str, Any]) -> tuple[str, str | None]` ([source](../../../../../../src/learnloop/reader/reader_guidance.py), line 252)
-- `_placement_section(placement: dict[str, Any], *, blueprint_unit_id: str, sections: list[dict[str, Any]]) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/reader/reader_guidance.py), line 261)
-- `_placement_suppressed(repository: Repository, placement_event_id: str) -> bool` ([source](../../../../../../src/learnloop/reader/reader_guidance.py), line 298) — Honor the learner's durable "don't bring this back" control.
-- `_pending_diagnoses(repository: Repository, sections: list[dict[str, Any]]) -> list[str]` ([source](../../../../../../src/learnloop/reader/reader_guidance.py), line 415) — Attempts whose pending live diagnosis can still change a shown reason.
-- `_goal_candidate(goal: Any, golden_run: Mapping[str, Any] | None, score: float) -> dict[str, Any]` ([source](../../../../../../src/learnloop/reader/reader_guidance.py), line 434)
-- `_passages_by_section(vault: LoadedVault, repository: Repository, *, source_id: str, extraction_id: str, note_ids: set[str], blocks: list[Any], block_by_span: dict[str, Any], span_to_section: dict[str, str]) -> tuple[dict[str, dict[str, dict[str, Any]]], list[dict[str, Any]]]` ([source](../../../../../../src/learnloop/reader/reader_guidance.py), line 444) — Passages that active, source-grounded Practice Items cite, keyed by section then span.
-- `_pinned_blueprint_goals(vault: LoadedVault, repository: Repository, *, source_revs: set[str], unit_ids: set[str]) -> dict[str, Any]` ([source](../../../../../../src/learnloop/reader/reader_guidance.py), line 524) — Active goals whose golden-path run pins a blueprint to this source, by blueprint version.
-- `_reviewed_placement_questions(vault: LoadedVault, repository: Repository, *, source_revs: set[str], section_rows: list[dict[str, Any]]) -> tuple[dict[str, dict[str, Any]], list[dict[str, Any]]]` ([source](../../../../../../src/learnloop/reader/reader_guidance.py), line 554) — One owner-reviewed question per section, from static reviewed placements (P3 §5.1 / P2 §7.6).
-- `_add_auto_authored_questions(repository: Repository, *, extraction_id: str, question_by_section: dict[str, dict[str, Any]], passages_by_section: dict[str, dict[str, dict[str, Any]]], withheld_sections: set[str] | frozenset[str]=frozenset()) -> None` ([source](../../../../../../src/learnloop/reader/reader_guidance.py), line 681) — Fill sections that have no owner-reviewed question with their authored quick check.
-- `_goal_context(goal_candidates: list[dict[str, Any]]) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/reader/reader_guidance.py), line 741) — The highest-scoring goal any passage or question supports (ties to the larger goal id).
-- `_assembled_sections(section_rows: list[dict[str, Any]], passages_by_section: dict[str, dict[str, dict[str, Any]]], question_by_section: dict[str, dict[str, Any]]) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/reader/reader_guidance.py), line 756) — Each section with its question and its three best passages (scores stripped).
+- `_section_key(value: str | None) -> str` ([source](../../../../../../src/learnloop/reader/reader_guidance.py), line 47)
+- `_cited_text(repository: Repository, ref: SourceRef) -> str | None` ([source](../../../../../../src/learnloop/reader/reader_guidance.py), line 51) — The text a span ref cites, read on the reading it names.
+- `_learner_signal(repository: Repository, learning_object_id: str, *, goal_match: bool) -> tuple[float, str, str]` ([source](../../../../../../src/learnloop/reader/reader_guidance.py), line 76) — Return a local ranking boost and a learner-facing, non-numeric reason.
+- `_refs_for(vault: LoadedVault, item: Any, learning_object: Any) -> Iterable[SourceRef]` ([source](../../../../../../src/learnloop/reader/reader_guidance.py), line 111)
+- `_placement_item_id(placement: dict[str, Any], blueprint_spec: dict[str, Any]) -> str | None` ([source](../../../../../../src/learnloop/reader/reader_guidance.py), line 120) — Resolve the explicitly placed surface, with a legacy blueprint fallback.
+- `_placement_phase(placement: dict[str, Any]) -> tuple[str, str | None]` ([source](../../../../../../src/learnloop/reader/reader_guidance.py), line 145)
+- `_placement_section(placement: dict[str, Any], *, blueprint_unit_id: str, sections: list[dict[str, Any]]) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/reader/reader_guidance.py), line 154)
+- `_placement_suppressed(repository: Repository, placement_event_id: str) -> bool` ([source](../../../../../../src/learnloop/reader/reader_guidance.py), line 191) — Honor the learner's durable "don't bring this back" control.
+- `_pending_diagnoses(repository: Repository, sections: list[dict[str, Any]]) -> list[str]` ([source](../../../../../../src/learnloop/reader/reader_guidance.py), line 268) — Attempts whose pending live diagnosis can still change a shown reason.
+- `_goal_candidate(goal: Any, golden_run: Mapping[str, Any] | None, score: float) -> dict[str, Any]` ([source](../../../../../../src/learnloop/reader/reader_guidance.py), line 287)
+- `_passages_by_section(vault: LoadedVault, repository: Repository, *, source_id: str, extraction_id: str, note_ids: set[str], blocks: list[Any], block_by_span: dict[str, Any], span_to_section: dict[str, str]) -> tuple[dict[str, dict[str, dict[str, Any]]], list[dict[str, Any]]]` ([source](../../../../../../src/learnloop/reader/reader_guidance.py), line 297) — Passages that active, source-grounded Practice Items cite, keyed by section then span.
+- `_pinned_blueprint_goals(vault: LoadedVault, repository: Repository, *, source_revs: set[str], unit_ids: set[str]) -> dict[str, Any]` ([source](../../../../../../src/learnloop/reader/reader_guidance.py), line 377) — Active goals whose golden-path run pins a blueprint to this source, by blueprint version.
+- `_reviewed_placement_questions(vault: LoadedVault, repository: Repository, *, source_revs: set[str], section_rows: list[dict[str, Any]]) -> tuple[dict[str, dict[str, Any]], list[dict[str, Any]]]` ([source](../../../../../../src/learnloop/reader/reader_guidance.py), line 407) — One owner-reviewed question per section, from static reviewed placements (P3 §5.1 / P2 §7.6).
+- `_add_auto_authored_questions(repository: Repository, *, extraction_id: str, question_by_section: dict[str, dict[str, Any]], passages_by_section: dict[str, dict[str, dict[str, Any]]], withheld_sections: set[str] | frozenset[str]=frozenset()) -> None` ([source](../../../../../../src/learnloop/reader/reader_guidance.py), line 534) — Fill sections that have no owner-reviewed question with their authored quick check.
+- `_goal_context(goal_candidates: list[dict[str, Any]]) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/reader/reader_guidance.py), line 594) — The highest-scoring goal any passage or question supports (ties to the larger goal id).
+- `_assembled_sections(section_rows: list[dict[str, Any]], passages_by_section: dict[str, dict[str, dict[str, Any]]], question_by_section: dict[str, dict[str, Any]]) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/reader/reader_guidance.py), line 609) — Each section with its question and its three best passages (scores stripped).
 
 ## Who imports or calls it
 
@@ -128,6 +116,7 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 - [[Reference/Modules/learnloop/content/sources/exam_material|learnloop.content.sources.exam_material]] — imports `held_out_among`, `held_out_material`, `held_out_refusal`; calls `held_out_among`, `held_out_material`, `held_out_refusal`
 - [[Reference/Modules/learnloop/content/sources/span_aliases|learnloop.content.sources.span_aliases]] — imports `SpanTranslator`; calls `SpanTranslator`
 - [[Reference/Modules/learnloop/db/repositories|learnloop.db.repositories]] — imports `Repository`
+- [[Reference/Modules/learnloop/section_map|learnloop.section_map]] — imports `ANCHOR_CURRENT`, `ANCHOR_MOVED`, `SPAN_LOCATOR_RE`, `anchor_for_ref`, `canonical_note_ids`, `extraction_sections`, `normalize_text`, `span_for_ref`; calls `anchor_for_ref`, `canonical_note_ids`, `extraction_sections`, `normalize_text`
 - [[Reference/Modules/learnloop/vault/models|learnloop.vault.models]] — imports `LoadedVault`, `SourceRef`, `learning_object_facet_union`; calls `learning_object_facet_union`
 - [[Reference/Modules/learnloop/vault/required_method|learnloop.vault.required_method]] — imports `presented_prompt`; calls `presented_prompt`
 

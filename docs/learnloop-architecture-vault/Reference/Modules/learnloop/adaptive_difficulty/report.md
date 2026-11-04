@@ -7,8 +7,8 @@ version: "1.0.0"
 source_path: "src/learnloop/adaptive_difficulty/report.py"
 source_paths:
   - "src/learnloop/adaptive_difficulty/report.py"
-source_commit: "adedc67e3ed99bb3c3cb18343978cc6430c068b4"
-source_commit_timestamp: "2026-10-27T14:45:17-04:00"
+source_commit: "e2ddd03c640065633f2c492b62122e9750390244"
+source_commit_timestamp: "2026-11-03T14:49:34-05:00"
 source_worktree_state: "clean"
 generated: true
 generated_at: "2026-11-02"
@@ -50,35 +50,35 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/adaptive_difficulty/report.py](../../../../../../src/learnloop/adaptive_difficulty/report.py) |
-| Source lines | 675 |
+| Source lines | 730 |
 | Owning package | [[Reference/Modules/learnloop/adaptive_difficulty/_package|learnloop.adaptive_difficulty]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `adedc67e3ed99bb3c3cb18343978cc6430c068b4` |
-| Commit timestamp | `2026-10-27T14:45:17-04:00` |
+| Source commit | `e2ddd03c640065633f2c492b62122e9750390244` |
+| Commit timestamp | `2026-11-03T14:49:34-05:00` |
 
 ## Public API
 
-- `arm_scores(records: Sequence[A.Record], arm: str, split: str | None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/adaptive_difficulty/report.py), line 69)
-- `feature_time_correlation(points: Sequence[Mapping[str, Any] | None]) -> dict[str, dict[str, Any]]` ([source](../../../../../../src/learnloop/adaptive_difficulty/report.py), line 133) — §5.8's first diagnostic: per dimension, the correlation between the served feature level and time (the order served); ``confounded`` when ``|r| > 0.6``.
-- `aliased_coordinates(posterior: np.ndarray, prior_variances: Sequence[float], names: Sequence[str]) -> set[str]` ([source](../../../../../../src/learnloop/adaptive_difficulty/report.py), line 153) — §5.8's aliased directions: eigenvectors of the data's contribution to the posterior precision of ``(β, α)``, in prior-sd units, with eigenvalue below 5% of the prior precision; the coordinates loading on them (``|v| > 0.5``) are "prior-dependent".
-- `readiness_errors(records: Sequence[A.Record], selection_times: Sequence[str], *, every: int=REPORT_EVERY_SELECTIONS) -> list[float | None]` ([source](../../../../../../src/learnloop/adaptive_difficulty/report.py), line 462) — The band-region error of ``@subject`` at each report, oldest first (Codex review F8).
-- `density_lowerings(connection: Any, *, view: Any) -> list[str]` ([source](../../../../../../src/learnloop/adaptive_difficulty/report.py), line 485) — When the learner lowered the cue density within a visit after an extra offer (§10.4, F8).
-- `build(vault: Any, repository: Any, connection: Any, *, arms: Sequence[str]=A.DEFAULT_ARMS, previous_errors: Sequence[float | None] | None=None, sensitivity: bool=True, now: str | None=None, report_every: int=REPORT_EVERY_SELECTIONS) -> dict[str, Any]` ([source](../../../../../../src/learnloop/adaptive_difficulty/report.py), line 545) — The whole report (a pure read; zero model calls).
-- `render_markdown(report: Mapping[str, Any]) -> str` ([source](../../../../../../src/learnloop/adaptive_difficulty/report.py), line 643) — A plain rendering for the owner (the JSON is the record).
+- `arm_scores(records: Sequence[A.Record], arm: str, split: str | None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/adaptive_difficulty/report.py), line 71)
+- `feature_time_correlation(points: Sequence[Mapping[str, Any] | None]) -> dict[str, dict[str, Any]]` ([source](../../../../../../src/learnloop/adaptive_difficulty/report.py), line 135) — §5.8's first diagnostic: per dimension, the correlation between the served feature level and time (the order served); ``confounded`` when ``|r| > 0.6``.
+- `aliased_coordinates(posterior: np.ndarray, prior_variances: Sequence[float], names: Sequence[str]) -> set[str]` ([source](../../../../../../src/learnloop/adaptive_difficulty/report.py), line 155) — §5.8's aliased directions: eigenvectors of the data's contribution to the posterior precision of ``(β, α)``, in prior-sd units, with eigenvalue below 5% of the prior precision; the coordinates loading on them (``|v| > 0.5``) are "prior-dependent".
+- `readiness_errors(records: Sequence[A.Record], selection_times: Sequence[str], *, every: int=REPORT_EVERY_SELECTIONS) -> list[float | None]` ([source](../../../../../../src/learnloop/adaptive_difficulty/report.py), line 515) — The band-region error of ``@subject`` at each report, oldest first (Codex review F8).
+- `density_lowerings(connection: Any, *, view: Any) -> list[str]` ([source](../../../../../../src/learnloop/adaptive_difficulty/report.py), line 538) — When the learner lowered the cue density within a visit after an extra offer (§10.4, F8).
+- `build(vault: Any, repository: Any, connection: Any, *, arms: Sequence[str]=A.DEFAULT_ARMS, previous_errors: Sequence[float | None] | None=None, sensitivity: bool=True, now: str | None=None, report_every: int=REPORT_EVERY_SELECTIONS) -> dict[str, Any]` ([source](../../../../../../src/learnloop/adaptive_difficulty/report.py), line 598) — The whole report (a pure read; zero model calls).
+- `render_markdown(report: Mapping[str, Any]) -> str` ([source](../../../../../../src/learnloop/adaptive_difficulty/report.py), line 698) — A plain rendering for the owner (the JSON is the record).
 
 ### Module constants
 
-- `REPORT_VERSION` ([src/learnloop/adaptive_difficulty/report.py](../../../../../../src/learnloop/adaptive_difficulty/report.py), line 52)
-- `HONEST_STATEMENT` ([src/learnloop/adaptive_difficulty/report.py](../../../../../../src/learnloop/adaptive_difficulty/report.py), line 53)
-- `SPLITS` ([src/learnloop/adaptive_difficulty/report.py](../../../../../../src/learnloop/adaptive_difficulty/report.py), line 61)
-- `COMPARISONS` ([src/learnloop/adaptive_difficulty/report.py](../../../../../../src/learnloop/adaptive_difficulty/report.py), line 62)
-- `FAST_TRACK_Q` ([src/learnloop/adaptive_difficulty/report.py](../../../../../../src/learnloop/adaptive_difficulty/report.py), line 66)
-- `CONFOUNDED_R` ([src/learnloop/adaptive_difficulty/report.py](../../../../../../src/learnloop/adaptive_difficulty/report.py), line 129)
-- `ALIASED_SHARE` ([src/learnloop/adaptive_difficulty/report.py](../../../../../../src/learnloop/adaptive_difficulty/report.py), line 130)
-- `REPORT_EVERY_SELECTIONS` ([src/learnloop/adaptive_difficulty/report.py](../../../../../../src/learnloop/adaptive_difficulty/report.py), line 457)
-- `CUE_DENSITIES` ([src/learnloop/adaptive_difficulty/report.py](../../../../../../src/learnloop/adaptive_difficulty/report.py), line 459)
+- `REPORT_VERSION` ([src/learnloop/adaptive_difficulty/report.py](../../../../../../src/learnloop/adaptive_difficulty/report.py), line 54)
+- `HONEST_STATEMENT` ([src/learnloop/adaptive_difficulty/report.py](../../../../../../src/learnloop/adaptive_difficulty/report.py), line 55)
+- `SPLITS` ([src/learnloop/adaptive_difficulty/report.py](../../../../../../src/learnloop/adaptive_difficulty/report.py), line 63)
+- `COMPARISONS` ([src/learnloop/adaptive_difficulty/report.py](../../../../../../src/learnloop/adaptive_difficulty/report.py), line 64)
+- `FAST_TRACK_Q` ([src/learnloop/adaptive_difficulty/report.py](../../../../../../src/learnloop/adaptive_difficulty/report.py), line 68)
+- `CONFOUNDED_R` ([src/learnloop/adaptive_difficulty/report.py](../../../../../../src/learnloop/adaptive_difficulty/report.py), line 131)
+- `ALIASED_SHARE` ([src/learnloop/adaptive_difficulty/report.py](../../../../../../src/learnloop/adaptive_difficulty/report.py), line 132)
+- `REPORT_EVERY_SELECTIONS` ([src/learnloop/adaptive_difficulty/report.py](../../../../../../src/learnloop/adaptive_difficulty/report.py), line 510)
+- `CUE_DENSITIES` ([src/learnloop/adaptive_difficulty/report.py](../../../../../../src/learnloop/adaptive_difficulty/report.py), line 512)
 
 ### Explicit exports
 
@@ -98,20 +98,21 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 
 ## Internal implementation anchors
 
-- `_arm_names(records: Sequence[A.Record]) -> list[str]` ([source](../../../../../../src/learnloop/adaptive_difficulty/report.py), line 84)
-- `_field_rule(records: Sequence[A.Record], challenger: str, comparator: str) -> dict[str, Any]` ([source](../../../../../../src/learnloop/adaptive_difficulty/report.py), line 91)
-- `_flags_and_lines(records: Sequence[A.Record], previous_errors: Sequence[float | None], *, selected_outcomes: Sequence[float], delivered: Sequence[Mapping[str, Any]], lowerings: Sequence[str], now: str) -> tuple[list[dict[str, Any]], list[str]]` ([source](../../../../../../src/learnloop/adaptive_difficulty/report.py), line 107)
-- `_identifiability(snapshot: RP.Snapshot, records: Sequence[A.Record]) -> dict[str, Any]` ([source](../../../../../../src/learnloop/adaptive_difficulty/report.py), line 171)
-- `_sensitivity(vault: Any, repository: Any, connection: Any, snapshot: RP.Snapshot, selections: Sequence[Mapping[str, Any]], *, view: Any, limit: int=50) -> dict[str, Any]` ([source](../../../../../../src/learnloop/adaptive_difficulty/report.py), line 210) — Each β prior mean shifted ±1 sd: how many of the latest serve draws' modes or near-tie sets change (re-scored on the current state; a bounded check, §5.8).
-- `_selection_stats(connection: Any, snapshot: RP.Snapshot, *, view: Any) -> dict[str, Any]` ([source](../../../../../../src/learnloop/adaptive_difficulty/report.py), line 252) — The selection and commission cohorts, read through the material view (Codex verify F29): a commission result on a withheld item or revision is not counted, and with the predicate unavailable the section is suppressed (no draw, result or outcome is read).
-- `_trivial_success(connection: Any, snapshot: RP.Snapshot) -> dict[str, Any]` ([source](../../../../../../src/learnloop/adaptive_difficulty/report.py), line 313) — §9.6: the share of successes on items whose p̄ at serve exceeded 0.95 (``ad_threshold@subject``).
-- `_visits(connection: Any, snapshot: RP.Snapshot, *, view: Any) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/adaptive_difficulty/report.py), line 331) — Reader visits with their active minutes (a cost, read as the Reader report reads it) and the count of each kind of opportunity inside them.
-- `_offer_outcomes(connection: Any, snapshot: RP.Snapshot, *, view: Any) -> dict[str, list[DR.OfferOutcome]]` ([source](../../../../../../src/learnloop/adaptive_difficulty/report.py), line 364) — Each dose draw's matured cold outcome (§5.12): the first graded attempt on an item of one of the section's LOs at least one day after the decision, with no reveal of that item in between.
-- `_dose_arm(connection: Any, *, view: Any) -> dict[str, Any]` ([source](../../../../../../src/learnloop/adaptive_difficulty/report.py), line 404) — The dose arm's draws and uptake through the material view (Codex verify F29).
-- `_self_check(records: Sequence[A.Record]) -> dict[str, Any]` ([source](../../../../../../src/learnloop/adaptive_difficulty/report.py), line 423)
-- `_median_doses(records: Sequence[A.Record]) -> dict[str, float]` ([source](../../../../../../src/learnloop/adaptive_difficulty/report.py), line 439)
-- `_answer_minutes(connection: Any, *, view: Any) -> float | None` ([source](../../../../../../src/learnloop/adaptive_difficulty/report.py), line 447) — The median minutes of the practice cohort (Codex verify F27): visible, graded practice answers with a recorded latency (``MaterialView.practice_minutes``); a withheld item's answer, a skip or a self-report never counts, and an unavailable predicate counts nothing.
-- `_guard_lines(guard: Mapping[str, Any]) -> list[str]` ([source](../../../../../../src/learnloop/adaptive_difficulty/report.py), line 620) — The guard block's lines: the live log's count (since the last upgrade once one has archived a log; "so far" before), by entry point, and the archives' total.
+- `_arm_names(records: Sequence[A.Record]) -> list[str]` ([source](../../../../../../src/learnloop/adaptive_difficulty/report.py), line 86)
+- `_field_rule(records: Sequence[A.Record], challenger: str, comparator: str) -> dict[str, Any]` ([source](../../../../../../src/learnloop/adaptive_difficulty/report.py), line 93)
+- `_flags_and_lines(records: Sequence[A.Record], previous_errors: Sequence[float | None], *, selected_outcomes: Sequence[float], delivered: Sequence[Mapping[str, Any]], lowerings: Sequence[str], now: str) -> tuple[list[dict[str, Any]], list[str]]` ([source](../../../../../../src/learnloop/adaptive_difficulty/report.py), line 109)
+- `_identifiability(snapshot: RP.Snapshot, records: Sequence[A.Record]) -> dict[str, Any]` ([source](../../../../../../src/learnloop/adaptive_difficulty/report.py), line 173)
+- `_sensitivity(vault: Any, repository: Any, connection: Any, snapshot: RP.Snapshot, selections: Sequence[Mapping[str, Any]], *, view: Any, limit: int=50) -> dict[str, Any]` ([source](../../../../../../src/learnloop/adaptive_difficulty/report.py), line 212) — Each β prior mean shifted ±1 sd: how many of the latest serve draws' modes or near-tie sets change (re-scored on the current state; a bounded check, §5.8).
+- `_selection_stats(connection: Any, snapshot: RP.Snapshot, *, view: Any) -> dict[str, Any]` ([source](../../../../../../src/learnloop/adaptive_difficulty/report.py), line 254) — The selection and commission cohorts, read through the material view (Codex verify F29): a commission result on a withheld item or revision is not counted, and with the predicate unavailable the section is suppressed (no draw, result or outcome is read).
+- `_trivial_success(connection: Any, snapshot: RP.Snapshot) -> dict[str, Any]` ([source](../../../../../../src/learnloop/adaptive_difficulty/report.py), line 315) — §9.6: the share of successes on items whose p̄ at serve exceeded 0.95 (``ad_threshold@subject``).
+- `_visits(connection: Any, snapshot: RP.Snapshot, *, view: Any) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/adaptive_difficulty/report.py), line 333) — Reader visits with their active minutes (a cost, read as the Reader report reads it) and the count of each kind of opportunity inside them.
+- `_delayed_exposures(connection: Any, snapshot: RP.Snapshot, *, view: Any) -> dict[str, list[str]]` ([source](../../../../../../src/learnloop/adaptive_difficulty/report.py), line 366) — Each LO's exposure and practice times for the shared delayed definition, read through the view: its attempts and reveals (the warmth rule's own), its reading receipts and LO-linked source exposures (the same two the router's ledger reads; a capped second passage view has only th…
+- `_offer_outcomes(connection: Any, snapshot: RP.Snapshot, *, view: Any, delayed_definition: bool=False) -> dict[str, list[DR.OfferOutcome]]` ([source](../../../../../../src/learnloop/adaptive_difficulty/report.py), line 394) — Each dose draw's matured cold outcome (§5.12): the first graded attempt on an item of one of the section's LOs at least one day after the decision, with no reveal of that item in between.
+- `_dose_arm(connection: Any, *, view: Any) -> dict[str, Any]` ([source](../../../../../../src/learnloop/adaptive_difficulty/report.py), line 457) — The dose arm's draws and uptake through the material view (Codex verify F29).
+- `_self_check(records: Sequence[A.Record]) -> dict[str, Any]` ([source](../../../../../../src/learnloop/adaptive_difficulty/report.py), line 476)
+- `_median_doses(records: Sequence[A.Record]) -> dict[str, float]` ([source](../../../../../../src/learnloop/adaptive_difficulty/report.py), line 492)
+- `_answer_minutes(connection: Any, *, view: Any) -> float | None` ([source](../../../../../../src/learnloop/adaptive_difficulty/report.py), line 500) — The median minutes of the practice cohort (Codex verify F27): visible, graded practice answers with a recorded latency (``MaterialView.practice_minutes``); a withheld item's answer, a skip or a self-report never counts, and an unavailable predicate counts nothing.
+- `_guard_lines(guard: Mapping[str, Any]) -> list[str]` ([source](../../../../../../src/learnloop/adaptive_difficulty/report.py), line 675) — The guard block's lines: the live log's count (since the last upgrade once one has archived a log; "so far" before), by entry point, and the archives' total.
 
 ## Who imports or calls it
 
@@ -136,7 +137,9 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop/adaptive_difficulty/replay|learnloop.adaptive_difficulty.replay]] — imports `module`; calls `run`
 - [[Reference/Modules/learnloop/adaptive_difficulty/selection|learnloop.adaptive_difficulty.selection]] — imports `module`; calls `constants_from_config`, `feature_level`, `point_key`, `propensities`
 - [[Reference/Modules/learnloop/clock|learnloop.clock]] — imports `parse_utc`, `utc_now_iso`; calls `parse_utc`, `utc_now_iso`
+- [[Reference/Modules/learnloop/data_capture/gates|learnloop.data_capture.gates]] — imports `serving_on`; calls `serving_on`
 - [[Reference/Modules/learnloop/db/stores/ad_serving|learnloop.db.stores.ad_serving]] — imports `module`; calls `has_table`
+- [[Reference/Modules/learnloop/delayed_completion|learnloop.delayed_completion]] — imports `module`; calls `Presentation`, `classify`, `last_before`
 
 ### Platform and third-party dependencies
 
@@ -183,6 +186,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_the_serving_snapshot_and_the_report_run_with_zero_denials`
 - [tests/test_ad_guard_reachable_reads.py](../../../../../../tests/test_ad_guard_reachable_reads.py) — direct import
 - [tests/test_ad_protected_readings.py](../../../../../../tests/test_ad_protected_readings.py) — direct import
+- [tests/test_data_capture_a4_delayed_completion.py](../../../../../../tests/test_data_capture_a4_delayed_completion.py) — direct import
+- [tests/test_data_capture_codex_review.py](../../../../../../tests/test_data_capture_codex_review.py) — direct import
 
 ## Modification guidance
 

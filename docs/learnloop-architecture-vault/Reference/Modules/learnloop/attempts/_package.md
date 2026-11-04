@@ -36,7 +36,7 @@ source_paths:
   - "src/learnloop/attempts/surprise.py"
   - "src/learnloop/attempts/trace_evidence.py"
 source_commit: "aggregate; see module notes"
-source_commit_timestamp: "2026-11-02T05:09:48-05:00"
+source_commit_timestamp: "2026-11-03T19:25:26-05:00"
 generated: true
 generated_at: "2026-11-02"
 package: "learnloop.attempts"
@@ -108,7 +108,7 @@ For system intent, use [[Learning System]].
 
 ### This package imports
 
-- [[Reference/Modules/learnloop/_package|learnloop]] — 44 static module edges
+- [[Reference/Modules/learnloop/_package|learnloop]] — 45 static module edges
 - [[Reference/Modules/learnloop/diagnosis/_package|learnloop.diagnosis]] — 20 static module edges
 - [[Reference/Modules/learnloop/ai/_package|learnloop.ai]] — 17 static module edges
 - [[Reference/Modules/learnloop/vault/_package|learnloop.vault]] — 17 static module edges
@@ -167,8 +167,8 @@ This diagram compresses package-level static imports; edge labels are distinct m
 ```mermaid
 flowchart LR
     center["learnloop.attempts"]
-    n_learnloop_diagnosis["learnloop.diagnosis"]
     n_learnloop["learnloop"]
+    n_learnloop_diagnosis["learnloop.diagnosis"]
     n_learnloop_sidecar_handlers["learnloop_sidecar.handlers"]
     n_learnloop_learner["learnloop.learner"]
     n_learnloop_cli["learnloop.cli"]
@@ -177,10 +177,10 @@ flowchart LR
     n_learnloop_vault["learnloop.vault"]
     n_learnloop_db["learnloop.db"]
     n_learnloop_diagnosis_split["learnloop.diagnosis.split"]
+    n_learnloop -->|1| center
+    center -->|45| n_learnloop
     n_learnloop_diagnosis -->|26| center
     center -->|20| n_learnloop_diagnosis
-    n_learnloop -->|1| center
-    center -->|44| n_learnloop
     n_learnloop_sidecar_handlers -->|30| center
     n_learnloop_learner -->|6| center
     center -->|14| n_learnloop_learner

@@ -111,7 +111,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 > [!note] Static evidence boundary
 > “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
 
-- [[Reference/Modules/learnloop/daily_plan/engine|learnloop.daily_plan.engine]] — imports `log_plan_block_decision`, `log_plan_interrupt_decision`; statically calls `log_plan_interrupt_decision`
+- [[Reference/Modules/learnloop/daily_plan/engine|learnloop.daily_plan.engine]] — imports `INSERT_REF`, `log_plan_block_decision`, `log_plan_interrupt_decision`; statically calls `log_plan_interrupt_decision`
 - [[Reference/Modules/learnloop/daily_plan/router_chooser|learnloop.daily_plan.router_chooser]] — imports `module`
 
 ## Dependencies
@@ -143,6 +143,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 - [tests/test_daily_plan_owner_decisions.py](../../../../../../tests/test_daily_plan_owner_decisions.py) — direct import
   - `test_router_r1_logs_plan_block_decisions_through_the_boundary_hook`
+- [tests/test_data_capture_a5_not_ready_floor.py](../../../../../../tests/test_data_capture_a5_not_ready_floor.py) — direct import
+  - `test_the_restraint_keeps_the_floor_on_not_ready_too`
 
 ## Modification guidance
 

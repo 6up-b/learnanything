@@ -3,13 +3,13 @@ title: "interaction_events"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "d2de54b4e148637154ed1322a7241b74bba04bcf"
-source_commit_timestamp: "2026-11-03T15:00:46-05:00"
+source_commit: "9995860ab7dd149c0862dd57a7f483c3ac4e7815"
+source_commit_timestamp: "2026-11-03T19:35:50-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite interaction_events"
   - "table interaction_events"
-schema_head: 239
+schema_head: 240
 table_name: "interaction_events"
 table_role: "raw_ledger"
 functionality_status: "active"
@@ -22,11 +22,11 @@ source_paths:
   - "src/learnloop/adaptive_difficulty/column_classes.py"
   - "src/learnloop/adaptive_difficulty/material_view.py"
   - "src/learnloop/adaptive_difficulty/protected_tables.py"
-  - "src/learnloop/adaptive_difficulty/reading.py"
   - "src/learnloop/adaptive_difficulty/report.py"
   - "src/learnloop/attempts/salience_firewall.py"
   - "src/learnloop/cli/field_classification.py"
   - "src/learnloop/cli/surfaces.py"
+  - "src/learnloop/db/repositories.py"
   - "src/learnloop/content/authoring/exercise_authoring.py"
   - "src/learnloop/content/authoring/item_authoring.py"
   - "src/learnloop/content/authoring/rung_variants.py"
@@ -138,6 +138,7 @@ Indexes and uniqueness:
 - `src/learnloop/ops/pf_reports.py`
 - `src/learnloop/reader/reader_report.py`
 - `src/learnloop/reader/reader_sessions.py`
+- `src/learnloop/router/first_delayed_success.py`
 - `src/learnloop/scheduling/action_loss.py`
 - `src/learnloop/workbench/ladder.py`
 
@@ -178,6 +179,7 @@ Indexes and uniqueness:
 - `tests/test_ad_protected_readings.py`
 - `tests/test_compare_keep_switch_off.py`
 - `tests/test_compare_sources_keep.py`
+- `tests/test_data_capture_a3_time_metric.py`
 - `tests/test_exam_protection.py`
 - `tests/test_figures_rpc.py`
 - `tests/test_grading_cli.py`
@@ -188,7 +190,6 @@ Indexes and uniqueness:
 - `tests/test_reader_branches.py`
 - `tests/test_reader_ca5_also_in_books.py`
 - `tests/test_reader_ca6_side_by_side.py`
-- `tests/test_reader_capture.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

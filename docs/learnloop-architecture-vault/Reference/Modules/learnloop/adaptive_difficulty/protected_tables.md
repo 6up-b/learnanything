@@ -176,7 +176,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_learner_notes_vault_origin_migration.py](../../../../../../tests/test_learner_notes_vault_origin_migration.py) — direct import
   - `test_233_classifies_nothing_new`
 - [tests/test_rw5c_migration.py](../../../../../../tests/test_rw5c_migration.py) — direct import
-  - `test_238_is_the_head_and_the_table_is_classified`
+  - `test_238_is_applied_and_the_table_is_classified`
 - [tests/test_rw5c_never_evidence.py](../../../../../../tests/test_rw5c_never_evidence.py) — direct import
   - `test_the_table_is_protected_and_unread_by_ad`
 - [tests/test_section_coverage_migration.py](../../../../../../tests/test_section_coverage_migration.py) — direct import
