@@ -2112,7 +2112,7 @@ def accept_probe_offer(
             )
         eligible = [
             entry
-            for entry in eligible_instruments(vault, repository, episode)
+            for entry in eligible_instruments(vault, repository, episode, reserved_for=practice_item_id)
             if entry.item.id == practice_item_id
         ]
         if not eligible:

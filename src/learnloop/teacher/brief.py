@@ -418,11 +418,14 @@ def _history(vault: Any, repository: Any, learning_object_ids: Sequence[str], wi
 
 def _probe_headers(vault: Any, repository: Any, learning_object_id: str, withheld: Any,
                    attempted: set[str], prediction: Mapping[str, Any]) -> list[dict[str, Any]]:
+    from learnloop.followup_serve.identity import generated_probe_ids
     from learnloop.vault.lifecycle import practice_item_serving_block
 
+    # FG1 §4.2: a generated probe is never a lesson's check, attempted or not.
+    generated = generated_probe_ids(repository)
     out = []
     for item in sorted(vault.practice_items.values(), key=lambda i: i.id):
-        if item.learning_object_id != learning_object_id or item.id in attempted:
+        if item.learning_object_id != learning_object_id or item.id in attempted or item.id in generated:
             continue
         if withheld.reason(item.id) or practice_item_serving_block(vault, item) is not None:
             continue

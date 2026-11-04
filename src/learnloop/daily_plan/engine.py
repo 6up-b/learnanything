@@ -2391,7 +2391,15 @@ def admitted_new_material_ids(
         item_states=item_states,
     )
     context = _context(env, record, built, day=(), released=released, unclaimed=unclaimed)
-    return frozenset(candidate.practice_item_id for candidate in new_material_candidates(built.intent, context.pool))
+    # FG1 §4.2: a generated probe never becomes a new-material candidate, whatever the pool holds.
+    from learnloop.followup_serve.identity import generated_probe_ids
+
+    generated = generated_probe_ids(env.repository)
+    return frozenset(
+        candidate.practice_item_id
+        for candidate in new_material_candidates(built.intent, context.pool)
+        if candidate.practice_item_id not in generated
+    )
 
 
 def _intent_admission_order(intent: Any, candidates: Sequence[NewCandidate]) -> list[NewCandidate]:
@@ -3153,6 +3161,9 @@ def reconcile(env: PlanEnv, record: PlanRecord) -> PlanRecord:
         for row in rows:
             attempts.setdefault(str(row["practice_item_id"]), []).append(row)
         vault = env.vault
+        from learnloop.followup_serve.identity import closed_probe_ids, retired_probe_ids
+
+        generated_closed, generated_retired = closed_probe_ids(env.repository), retired_probe_ids(env.repository)
         for item in open_items:
             attempt = next(
                 (row for row in attempts.get(item.practice_item_id, []) if str(row["created_at"]) >= item.planned_at),
@@ -3193,6 +3204,17 @@ def reconcile(env: PlanEnv, record: PlanRecord) -> PlanRecord:
             if not servable:
                 writes.append(
                     (item.block_id, "item_displaced", {"practice_item_id": item.practice_item_id, "reason": "no_longer_servable"})
+                )
+                item.displaced_at = now
+                continue
+            if item.practice_item_id in generated_closed and (
+                item.served_at is None or item.practice_item_id in generated_retired
+            ):
+                # FG1 §4.2: standing plans too. Served here and unanswered, it may reopen
+                # as the same administration; served elsewhere, or retired, it is gone.
+                writes.append(
+                    (item.block_id, "item_displaced",
+                     {"practice_item_id": item.practice_item_id, "reason": "generated_probe_closed"})
                 )
                 item.displaced_at = now
                 continue

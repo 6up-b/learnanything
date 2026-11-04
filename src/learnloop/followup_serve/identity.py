@@ -91,6 +91,16 @@ def closed_probe_ids(repository: Repository) -> frozenset[str]:
         return store.closed_generated_probe_ids(connection) if _present(connection) else frozenset()
 
 
+def retired_probe_ids(repository: Repository) -> frozenset[str]:
+    with repository.connection() as connection:
+        if not _present(connection):
+            return frozenset()
+        return frozenset(
+            str(row[0]) for row in connection.execute(
+                "SELECT practice_item_id FROM generated_probe_burns WHERE kind = 'retired'")
+        )
+
+
 @dataclass(frozen=True)
 class Claim:
     """A first-serve claim's verdict."""
@@ -130,7 +140,11 @@ def claim_serve(
             return Claim(False, False, GENERATED_PROBE_CLOSED, burns[RETIRED])
         if SERVED in burns:
             burn = burns[SERVED]
-            same = burn.get("surface") == surface and burn.get("presentation_id") == presentation_id
+            # The first door may have opened it before its presentation was committed.
+            stored = burn.get("presentation_id")
+            same = burn.get("surface") == surface and (
+                stored is None or presentation_id is None or stored == presentation_id
+            )
             if same and RETIRED not in burns:
                 return Claim(True, False, None, burn)
             return Claim(False, False, GENERATED_PROBE_CLOSED, burn)
@@ -192,6 +206,23 @@ def door_refusal(repository: Repository, practice_item_id: str, *, workflow_id: 
     return None
 
 
+def door_sets(repository: Repository) -> tuple[frozenset[str], frozenset[str]]:
+    """(closed, reserved): what every selector leaves out, read once.
+
+    Reserved: unserved and owned by a workflow, which alone may open it.
+    """
+
+    with repository.connection() as connection:
+        if not _present(connection):
+            return frozenset(), frozenset()
+        closed = store.closed_generated_probe_ids(connection)
+        owned = frozenset(
+            str(row[0]) for row in connection.execute(
+                "SELECT practice_item_id FROM generated_probe_items WHERE workflow_id IS NOT NULL")
+        )
+    return closed, owned - closed
+
+
 def exclude_ids(repository: Repository, item_ids: Iterable[str]) -> set[str]:
     """The ones in ``item_ids`` that carry the identity."""
 
@@ -207,6 +238,6 @@ def replay_inactive_ids(repository: Repository) -> frozenset[str]:
 
 __all__ = [
     "Claim", "GENERATED_PROBE_CLOSED", "GENERATED_PROBE_RESERVED", "RETIRED", "SERVED", "claim_serve",
-    "closed_probe_ids", "door_refusal", "exclude_ids", "generated_probe_ids", "is_generated_probe", "item_revision",
-    "register", "replay_inactive_ids", "retire",
+    "closed_probe_ids", "door_refusal", "door_sets", "exclude_ids", "generated_probe_ids", "is_generated_probe", "item_revision",
+    "register", "replay_inactive_ids", "retire", "retired_probe_ids",
 ]

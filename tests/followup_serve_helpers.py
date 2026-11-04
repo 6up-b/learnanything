@@ -51,3 +51,18 @@ def run_jobs(vault: Any, repository: Repository, *, clients: Any = None, clock: 
             break
         outcomes.append(outcome)
     return outcomes
+
+
+def generated_item(vault_root, repository: Repository, item_id: str, *, workflow_id: str | None = None,
+                   source: str = "workflow") -> Any:
+    """A real item in the vault with the single-use identity."""
+
+    from learnloop.followup_serve import identity
+    from tests.test_causal_p2_acceptance import _extra_item
+
+    _extra_item(vault_root, item_id, source_family=f"family-{item_id}", prompt=f"Fresh question {item_id}")
+    identity.register(repository, practice_item_id=item_id, revision=f"rev-{item_id}", source=source,
+                      workflow_id=workflow_id, clock=CLOCK)
+    vault = load_vault(vault_root)
+    sync_vault_state(vault, repository, clock=CLOCK)
+    return vault

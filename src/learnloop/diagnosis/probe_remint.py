@@ -254,6 +254,14 @@ def remint_probe_as_practice_item(
             "not_a_diagnostic_probe",
             f"Attempt {attempt_id} is on {source.id}, which is not a diagnostic probe.",
         )
+    from learnloop.followup_serve.identity import is_generated_probe
+
+    if is_generated_probe(repository, source.id):
+        # FG1 §4.2: a generated probe never becomes a practice item.
+        raise ProbeRemintError(
+            "generated_probe_single_use",
+            f"{source.id} is a generated single-use probe and is never served again.",
+        )
 
     existing = existing_remint(vault, source.id)
     if existing is not None:

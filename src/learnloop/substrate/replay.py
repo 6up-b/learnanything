@@ -371,7 +371,17 @@ def _replay_learning_object(
         # A re-anchoring claim made after the last attempt merges too, as it
         # did live at its own time.
         claim_stream.finish()
-    repository.keep_practice_items_inactive(inactive_item_ids)
+    # FG1 §4.2: the burn ledger, read not re-derived. An unanswered generated probe stays
+    # retired after a rebuild, and nothing is generated here.
+    from learnloop.followup_serve.identity import closed_probe_ids
+
+    repository.keep_practice_items_inactive(
+        set(inactive_item_ids) | {
+            item_id for item_id in closed_probe_ids(repository)
+            if (item := vault.practice_items.get(item_id)) is not None
+            and item.learning_object_id == learning_object_id
+        }
+    )
     # spec §7: registry links survive replay (persisted misconception_id on the
     # error events is re-threaded through GradeAttribution). Replay never
     # re-normalizes, but it re-derives resolution status deterministically from

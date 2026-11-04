@@ -33,6 +33,7 @@ def practice_item_activatable(
     review_parked: set[str],
     measurement_superseded: set[str],
     state=None,
+    generated_probe_closed: frozenset[str] = frozenset(),
 ) -> bool:
     """The one lifecycle gate shared by full and incremental vault sync.
 
@@ -48,6 +49,10 @@ def practice_item_activatable(
         and state is not None
         and state.last_attempt_at is not None
     ):
+        return False
+    # FG1 §4.2: a generated probe the ledger closed is never reactivated, attempt or no
+    # attempt, and it persists after a rollback.
+    if item_id in generated_probe_closed:
         return False
     return (
         item_id not in review_parked
@@ -65,6 +70,7 @@ def reconcile_practice_item_state(
     review_parked: set[str],
     measurement_superseded: set[str],
     content_hash: str | None = None,
+    generated_probe_closed: frozenset[str] | None = None,
     clock: Clock | None = None,
 ) -> tuple[str, bool]:
     """Bring one item's ``active`` flag and content hash in line with its YAML.
@@ -92,12 +98,17 @@ def reconcile_practice_item_state(
 
     if content_hash is None:
         content_hash = practice_item_hash(item)
+    if generated_probe_closed is None:
+        from learnloop.followup_serve.identity import closed_probe_ids
+
+        generated_probe_closed = closed_probe_ids(repository)
     active = practice_item_activatable(
         item_id,
         item,
         review_parked=review_parked,
         measurement_superseded=measurement_superseded,
         state=state,
+        generated_probe_closed=generated_probe_closed,
     )
     if state is not None and state.active == active and state.content_hash == content_hash:
         # Nothing to write by the snapshot. A change committed since then is
@@ -105,6 +116,7 @@ def reconcile_practice_item_state(
         return "unchanged", active
 
     from learnloop.diagnosis.probe_instance_generation import pending_review_instance_ids
+    from learnloop.followup_serve.identity import closed_probe_ids
 
     with repository.atomic():
         current = repository.practice_item_state(item_id)
@@ -114,6 +126,7 @@ def reconcile_practice_item_state(
             review_parked=pending_review_instance_ids(repository),
             measurement_superseded=repository.superseded_measurement_item_ids(),
             state=current,
+            generated_probe_closed=closed_probe_ids(repository),
         )
         if current is None:
             repository.initialize_practice_item_state(

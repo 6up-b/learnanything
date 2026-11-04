@@ -418,10 +418,14 @@ def _candidates(
     # Exam protection (2026-10-13): material the learner has already been
     # shown is not held out, so it never becomes an exam item.
     shown = _shown_items(vault, repository)
+    # FG1 §4.2: reservations don't exclude diagnostic_probe, so the identity must.
+    from learnloop.followup_serve.identity import generated_probe_ids
+
+    generated = generated_probe_ids(repository)
 
     candidates: list[_Candidate] = []
     for item in vault.practice_items.values():
-        if item.status != "active":
+        if item.status != "active" or item.id in generated:
             continue
         scope_facets = scope.get(item.learning_object_id)
         if not scope_facets:

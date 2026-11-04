@@ -132,6 +132,13 @@ def attempt_workflow(repository: Repository, attempt_id: str) -> dict[str, Any] 
         return store.workflow_for_attempt(connection, attempt_id)
 
 
+def workflow_of_item(repository: Repository, practice_item_id: str) -> dict[str, Any] | None:
+    with repository.connection() as connection:
+        if not store.present(connection):
+            return None
+        return store.workflow_for_item(connection, practice_item_id)
+
+
 def get(repository: Repository, workflow_id: str) -> dict[str, Any] | None:
     with repository.connection() as connection:
         return store.workflow(connection, workflow_id)
@@ -220,5 +227,5 @@ def diagnosis_ended(vault: Any, repository: Repository, *, attempt_id: str, cloc
 __all__ = [
     "FAILED", "PENDING", "READY", "REFUSED", "SETTLED", "SKIPPED", "WAITING", "WORKFLOW_OWNS_REASON",
     "attempt_workflow", "diagnosis_ended", "get", "move", "open_for_attempt", "owns_attempt", "settle_open_when_off",
-    "superseded", "workflow_id_for",
+    "superseded", "workflow_id_for", "workflow_of_item",
 ]

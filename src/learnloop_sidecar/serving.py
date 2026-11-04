@@ -121,6 +121,50 @@ def refuse_inactive_learning_object(vault: LoadedVault, learning_object_id: str 
     )
 
 
+def refuse_generated_probe_door(ctx_origin: RequestOrigin | None, repository: Any, item: PracticeItem,
+                                *, serve: bool) -> None:
+    """FG1 §4.2: every serve door for a generated probe, before its text leaves.
+
+    A session serve claims the one administration (keyed to surface and presentation),
+    atomically; a re-open of that same administration passes. Reserved for its workflow
+    until then, and closed afterwards. A read with no session (feedback, the inspector)
+    never burns, and sees it only once it has been served. A phone never opens one (§10).
+    An item with no identity passes, and the ledger is read whatever the switch says:
+    burns persist after a rollback.
+    """
+
+    from learnloop.followup_serve import identity, workflow as followup_workflow
+    from learnloop.followup_serve.gates import SERVING_SURFACE
+
+    if not identity.is_generated_probe(repository, item.id):
+        return
+    refusal = None
+    if not serve:
+        if identity.door_refusal(repository, item.id) == identity.GENERATED_PROBE_RESERVED:
+            refusal = identity.GENERATED_PROBE_RESERVED
+    elif ctx_origin is not None:
+        refusal = identity.GENERATED_PROBE_RESERVED
+    else:
+        row = followup_workflow.workflow_of_item(repository, item.id)
+        owned = row is not None and row["state"] == followup_workflow.READY
+        if row is not None and not owned and identity.door_refusal(repository, item.id, workflow_id=row["id"]) is None:
+            refusal = identity.GENERATED_PROBE_RESERVED
+        else:
+            claim = identity.claim_serve(
+                repository, item.id, surface=SERVING_SURFACE,
+                presentation_id=(row or {}).get("presentation_id"),
+                workflow_id=(row or {}).get("id"),
+            )
+            if not claim.granted:
+                refusal = claim.reason or identity.GENERATED_PROBE_CLOSED
+    if refusal is not None:
+        raise SidecarError(
+            refusal,
+            f"{item.id} is a single-use question and can't be opened here.",
+            details={"practice_item_id": item.id},
+        )
+
+
 def refuse_unservable_item(vault: LoadedVault, item: PracticeItem) -> None:
     """The item-level door: its LO's refusal, then the adoption kill switch."""
 

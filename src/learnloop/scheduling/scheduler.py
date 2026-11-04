@@ -630,8 +630,11 @@ def build_due_queue(
             config.tutor_promotion.requested_items_per_session,
         )
         composed = _rotate_same_day_frontier_repeats(composed, item_states, now)
+        from learnloop.followup_serve.identity import closed_probe_ids
+
         composed = _insert_pending_followups(
-            vault, composed, pending_followups, readiness_factor, item_states=item_states
+            vault, composed, pending_followups, readiness_factor, item_states=item_states,
+            generated_probe_closed=closed_probe_ids(repository),
         )
         return _apply_contrast_pair_order(
             vault, repository, composed, session, clock=clock, record=record
@@ -2303,6 +2306,7 @@ def _insert_pending_followups(
     readiness_factor: float | None,
     *,
     item_states: dict[str, PracticeItemState] | None = None,
+    generated_probe_closed: frozenset[str] = frozenset(),
 ) -> list[ScheduledItem]:
     if not pending_followups:
         return queue
@@ -2363,6 +2367,9 @@ def _insert_pending_followups(
         # is a legitimate diagnostic serving path — and an explicit
         # repair-journey kind (REPAIR_JOURNEY_TASK_KINDS) keeps its selection
         # even post-administration, consistent with the selection-time rule.
+        if practice_item_id in generated_probe_closed:
+            # FG1 §4.2: the identity overrides even a repair journey's by-id selection.
+            continue
         if (
             candidate_item.practice_mode == "diagnostic_probe"
             and action_type not in REPAIR_JOURNEY_TASK_KINDS

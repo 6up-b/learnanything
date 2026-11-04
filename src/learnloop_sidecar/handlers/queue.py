@@ -57,6 +57,7 @@ from learnloop_sidecar.serving import (
     device_filter,
     device_policy,
     refuse_device_ineligible_item,
+    refuse_generated_probe_door,
     refuse_held_out_item,
     refuse_unservable_item,
 )
@@ -338,6 +339,7 @@ def open_queue_item(ctx: SidecarContext, params: PracticeItemInput) -> dict[str,
         refuse_device_ineligible_item(ctx.request_origin, vault, item)
         refuse_unservable_item(vault, item)
         refuse_held_out_item(vault, repository, item)
+        refuse_generated_probe_door(ctx.request_origin, repository, item, serve=True)
         eligibility = revalidate_cold_check(vault, repository, item.id)
     else:
         eligibility = None

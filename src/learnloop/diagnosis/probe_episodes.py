@@ -834,6 +834,7 @@ def eligible_instruments(
     *,
     hypothesis_set: HypothesisSet | None = None,
     posterior: Mapping[str, float] | None = None,
+    reserved_for: str | None = None,
 ) -> list[EligibleInstrument]:
     """Instruments admitted for this episode's locked set, ranked by EIG.
 
@@ -884,6 +885,12 @@ def eligible_instruments(
     # part is free to carry its own family string — so without this the probe
     # could spend several administrations re-observing one setup.
     used_item_ids: set[str] = set()
+    # FG1 §4.2: the ledger closes a generated probe for every selector, and one reserved
+    # for its workflow is that workflow's alone (its pin names it here).
+    from learnloop.followup_serve.identity import door_sets
+
+    closed_generated, reserved_generated = door_sets(repository)
+    used_item_ids |= closed_generated | (reserved_generated - ({reserved_for} if reserved_for else set()))
     used_surfaces: set[str] = set()
     observed_family_counts: dict[str, int] = {}
     for row in repository.probe_observations_for_episode(episode.id):

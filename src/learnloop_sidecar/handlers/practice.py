@@ -88,6 +88,7 @@ from learnloop_sidecar.request_origin import DESKTOP_PRACTICE, host_mutation, pr
 from learnloop_sidecar.serving import (
     device_filter,
     refuse_device_ineligible_item,
+    refuse_generated_probe_door,
     refuse_held_out_item,
     refuse_inactive_learning_object,
     refuse_unservable_item,
@@ -335,6 +336,7 @@ def get_practice_item(ctx: SidecarContext, params: ServePracticeItemInput) -> di
     if item is None:
         raise SidecarError("not_found", f"Practice item {params.practice_item_id} not found.")
     refuse_device_ineligible_item(ctx.request_origin, vault, item)
+    refuse_generated_probe_door(ctx.request_origin, repository, item, serve=params.session_id is not None)
     if params.session_id is not None:
         item = _require_active_item(vault, params.practice_item_id)
         # A session serve of a dormant/resolved LO's item, or of one made from
@@ -485,6 +487,7 @@ def get_probe_contract(ctx: SidecarContext, params: ProbeContractInput) -> dict[
     # Mobile PR-6: committing a presentation is a serve, so an item the phone
     # cannot show never commits one from there.
     refuse_device_ineligible_item(ctx.request_origin, vault, item)
+    refuse_generated_probe_door(ctx.request_origin, repository, item, serve=True)
     episode = repository.open_probe_episode(item.learning_object_id)
     if episode is None or episode.status != "in_progress":
         return versioned({"active": False})

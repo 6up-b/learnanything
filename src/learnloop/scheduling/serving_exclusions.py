@@ -85,13 +85,22 @@ class ServingExclusions:
     revealed_recently_item_ids: frozenset[str] = frozenset()
     #: Items made from held-out material (empty with ``goals.held_out_selection`` off).
     held_out_item_ids: frozenset[str] = frozenset()
+    #: FG1 §4.2: generated probes already served or retired. The ledger, not the switch,
+    #: says so: burns persist after a rollback.
+    generated_probe_closed_ids: frozenset[str] = frozenset()
+    #: FG1 §4.2: generated probes reserved for their workflow, unserved. No selector
+    #: offers one; only that workflow's own door opens it.
+    generated_probe_reserved_ids: frozenset[str] = frozenset()
+    #: FG1 §4.2: every generated probe. A request (a "Check once", a learner pick) never
+    #: gets one, even unserved: it is never a practice item.
+    generated_probe_ids: frozenset[str] = frozenset()
 
     @property
     def item_ids(self) -> frozenset[str]:
         """What routine serving never offers."""
 
         return (self.reserved_exam_item_ids | self.rung_variant_hold_ids | self.staged_owned_item_ids
-                | self.held_out_item_ids)
+                | self.held_out_item_ids | self.generated_probe_closed_ids | self.generated_probe_reserved_ids)
 
     @property
     def out_of_timing_item_ids(self) -> frozenset[str]:
@@ -103,9 +112,17 @@ class ServingExclusions:
 def routine_serving_exclusions(vault: Any, repository: Repository) -> ServingExclusions:
     """The shared exclusion sets, each read once."""
 
+    from learnloop.followup_serve.identity import door_sets
+
+    closed, reserved = door_sets(repository)
+    from learnloop.followup_serve.identity import generated_probe_ids as all_generated_probe_ids
+
     return ServingExclusions(
         reserved_exam_item_ids=frozenset(reserved_item_ids(repository)),
         rung_variant_hold_ids=frozenset(repository.rung_variant_pending_source_ids()),
+        generated_probe_closed_ids=closed,
+        generated_probe_reserved_ids=reserved,
+        generated_probe_ids=all_generated_probe_ids(repository),
         staged_owned_item_ids=frozenset(controller_ownership.staged_owned_practice_item_ids(vault, repository)),
         held_out_item_ids=held_out_items(vault, repository) if held_out_selection_active(vault) else frozenset(),
     )
@@ -140,6 +157,11 @@ def routine_withhold_reason(vault: Any, item: Any, state: Any, exclusions: Servi
     # policy's to schedule, never the legacy queue's (design §A.2 rule 3).
     if item_id in exclusions.staged_owned_item_ids:
         return "staged_owned"
+    # FG1 §4.2: single use, by one durable identity, before any mode or attempt rule.
+    if item_id in exclusions.generated_probe_closed_ids:
+        return "generated_probe_closed"
+    if item_id in exclusions.generated_probe_reserved_ids:
+        return "generated_probe_reserved"
     # Ephemeral dialogue-turn instances (§8.1) exist only to carry their one
     # committed diagnostic attempt; they are never ordinary practice.
     if item.practice_mode == "diagnostic_microprobe":
@@ -172,6 +194,8 @@ ROUTINE_GATES: tuple[str, ...] = (
     "held_out_material",
     "rung_variant_hold",
     "staged_owned",
+    "generated_probe_closed",
+    "generated_probe_reserved",
     "diagnostic_microprobe",
     "diagnostic_probe_administered",
     "unservable_stimulus",
@@ -253,6 +277,9 @@ def admission_reason(
     reason = routine_withhold_reason(vault, item, state, exclusions)
     if reason is not None:
         return reason
+    if requested and item.id in exclusions.generated_probe_ids:
+        # FG1 §4.2: shared admission, so "Check once" and its standing assignments too.
+        return "generated_probe_reserved"
     if intent_gate is not None and (reason := intent_gate(item.id)) is not None:
         return reason
     if gates is None:
@@ -315,4 +342,7 @@ def out_of_timing_serving_exclusions(
         cold_check_reserved_item_ids=frozenset(cold_reserved),
         revealed_recently_item_ids=frozenset(revealed),
         held_out_item_ids=routine.held_out_item_ids,
+        generated_probe_closed_ids=routine.generated_probe_closed_ids,
+        generated_probe_reserved_ids=routine.generated_probe_reserved_ids,
+        generated_probe_ids=routine.generated_probe_ids,
     )
