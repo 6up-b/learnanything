@@ -15,7 +15,7 @@ import json
 import tempfile
 from contextlib import closing
 from copy import deepcopy
-from dataclasses import dataclass, replace
+from dataclasses import dataclass, field, replace
 from pathlib import Path
 from typing import Any, Mapping, Sequence
 
@@ -62,6 +62,11 @@ class ShadowRebuildResult:
     rebuild: OrchestratedRebuildResult
     live_database_sha256_before: str
     live_database_sha256_after: str
+    #: The schedule projections before and after (every row, unchanged ones included), for the
+    #: serving report a caller composes (``learnloop.daily_plan.schedule_effects``, router objective
+    #: RO1 §5.5). Not part of :meth:`as_dict`.
+    schedule_before: Mapping[tuple[Any, ...], Mapping[str, Any]] = field(default_factory=dict)
+    schedule_after: Mapping[tuple[Any, ...], Mapping[str, Any]] = field(default_factory=dict)
 
     @property
     def live_database_unchanged(self) -> bool:
@@ -289,7 +294,10 @@ def shadow_rebuild(
         rebuild=rebuild_result,
         live_database_sha256_before=before_hash,
         live_database_sha256_after=after_hash,
+        schedule_before=baseline_snapshot["schedule"],
+        schedule_after=candidate_snapshot["schedule"],
     )
+
 
 
 def _parse_override_value(raw_value: str) -> Any:

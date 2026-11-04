@@ -3279,7 +3279,16 @@ def rebuild_command(
         raise typer.Exit(code=1)
 
     if json_output:
-        typer.echo(_dump({"version": 1, "shadow_rebuild": result.as_dict()}))
+        # Router objective RO1 (spec §5.5): the schedule change's serving effects, the upgrade's report.
+        from learnloop.clock import SystemClock
+        from learnloop.daily_plan.schedule_effects import schedule_effects
+
+        payload = result.as_dict()
+        payload["schedule_effects"] = schedule_effects(
+            result.schedule_before, result.schedule_after, as_of=SystemClock().now(),
+            horizon_days=int(loaded.config.plan.load_horizon_days),
+        )
+        typer.echo(_dump({"version": 1, "shadow_rebuild": payload}))
         return
     summary = result.learner_state_diff["summary"]
     typer.echo(
