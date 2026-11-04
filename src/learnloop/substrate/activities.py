@@ -917,8 +917,13 @@ def log_interaction_event(
     attempt_duration_ms: int | None = None,
     payload: Mapping[str, Any] | None = None,
     clock: Clock | None = None,
+    occurred_at: str | None = None,
+    received_at: str | None = None,
 ) -> str:
     """The single writer for the Layer-5 interaction envelope (§3.8).
+
+    ``occurred_at``, ``received_at`` (RO0 row 5): when it happened and when the server had it, where the caller
+    knows them, so an offline or batched capture keeps the gap.
 
     F1: reader/reading kinds are auto-stamped ``authority_class='salience_only'``
     by construction here -- membership in ``READING_EVENT_KINDS`` is the single
@@ -942,6 +947,8 @@ def log_interaction_event(
         affect_tap_kind=affect_tap_kind,
         attempt_duration_ms=attempt_duration_ms,
         payload_json=canonical_json(dict(payload)) if payload is not None else None,
+        occurred_at=occurred_at,
+        received_at=received_at,
         clock=clock,
     )
 

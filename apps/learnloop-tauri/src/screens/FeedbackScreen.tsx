@@ -1516,7 +1516,7 @@ export function FeedbackScreen({
   onOpenLibraryFile?: (path: string) => void;
   onInspect: (id: string) => void;
   onPaletteEntities?: (ids: { inspectIds: string[]; practiceItemIds: string[] }) => void;
-  onAsk: (target: { context: "feedback"; attemptId: string; practiceItemId?: string }) => void;
+  onAsk: (target: { context: "feedback"; attemptId: string; practiceItemId?: string; answerVisibleNow?: boolean }) => void;
   onError: (message: string) => void;
   /** Daily-loop DL2: after a check on your own, the way back to where it was
    *  studied (rendered only when the check's provenance carries one). */
@@ -1597,6 +1597,8 @@ export function FeedbackScreen({
       ? followupRead
       : feedback?.followup ?? null;
   const followupRef = useRef<FollowupDto | null>(null);
+  const followupHeldRef = useRef(false);
+  followupHeldRef.current = followup?.held === true;
   followupRef.current = followup;
   const goOn = useCallback(async () => {
     if (planMode && onPlanStep) {
@@ -2301,14 +2303,16 @@ export function FeedbackScreen({
       else if (event.key === "o") { event.preventDefault(); onOpenNotes(); }
       else if (event.key === "?") {
         event.preventDefault();
-        onAsk({ context: "feedback", attemptId, practiceItemId: feedback?.practiceItemId });
+        // RO0 row 1: the screen says whether the answer is in view (covered, or held for a follow-up: not).
+        onAsk({ context: "feedback", attemptId, practiceItemId: feedback?.practiceItemId,
+                answerVisibleNow: !(answerCovered || followupHeldRef.current) });
       }
       else if (event.key === "u" && feedback?.followupSource) { event.preventDefault(); void handleRateFollowup(true); }
       else if (event.key === "x" && feedback?.followupSource) { event.preventDefault(); void handleRateFollowup(false); }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [advance, goBack, onOpenNotes, onAsk, attemptId, feedback, regrading, triggeringFollowup, ratingFollowup, startingRetry, simple, keysSuspended]);
+  }, [advance, goBack, onOpenNotes, onAsk, attemptId, feedback, regrading, triggeringFollowup, ratingFollowup, startingRetry, simple, keysSuspended, answerCovered]);
 
   // ── UX Phase 4: the plain surface, with details on demand (§7.5) ─────────
   function simpleScreen(

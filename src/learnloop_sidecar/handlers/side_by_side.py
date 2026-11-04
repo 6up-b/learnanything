@@ -29,6 +29,7 @@ from __future__ import annotations
 
 from typing import Any
 
+from learnloop.router_objective import exposure
 from learnloop.reader import reader_dialogue as RD
 from learnloop.source_retrieval import section_coverage as SC
 from learnloop_sidecar.context import SidecarContext
@@ -97,7 +98,8 @@ def reader_side_by_side_section(ctx: SidecarContext, params: SideBySideSectionIn
     # Every block shown is a delivered passage, recorded before it is returned.
     try:
         view["exposure_event_ids"] = record_span_exposures(
-            repository, resolved, [block["span_id"] for block in view["blocks"]], context="library")
+            repository, resolved, [block["span_id"] for block in view["blocks"]], context="library",
+            exposure_fields=exposure.fields(vault.config, repository, context="library"))
     except SpanViewError as exc:
         raise SidecarError(exc.code, str(exc)) from exc
     return versioned({"section": view})

@@ -953,6 +953,16 @@ export function PracticeScreen({
     return () => onAskAvailabilityChange(false);
   }, [interactionReady, isTeachBack, onAskAvailabilityChange, probeActive]);
 
+  // RO0 row 3: once the screen knows, Ask's state on this item, for the presentation the plan served it under. The
+  // server writes only a change from what it recorded at the serve. Off a plan, or not ready yet, it says nothing.
+  useEffect(() => {
+    if (!interactionReady) return;
+    void Promise.resolve(api.recordAskAvailability?.({
+      sessionId: session.sessionId, practiceItemId, available: !probeActive && !isTeachBack,
+      ...(probeActive ? { reason: "diagnostic_check" } : isTeachBack ? { reason: "teach_back" } : {}),
+    })).catch(() => undefined);
+  }, [interactionReady, isTeachBack, practiceItemId, probeActive, session.sessionId]);
+
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
       if (screenLeavesKey(event, { ownChords: true })) return;

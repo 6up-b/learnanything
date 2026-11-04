@@ -4552,14 +4552,20 @@ class Repository(
         event_id = str(event.get("id") or new_ulid())
         now = event.get("created_at") or utc_now_iso(clock)
         section_path = event.get("section_path") or []
+        # RO0 row 4 (router_objective.exposure): who initiated it, only where that was read.
+        extra = tuple(
+            column for column in ("initiator", "initiator_block_id", "initiator_session_id", "initiator_visit_id")
+            if column in event
+        )
         with self.connection() as connection:
             connection.execute(
-                """
+                f"""
                 INSERT INTO source_exposure_events(
                   id, context, extraction_id, span_id, revision_id, source_id,
                   entity_type, entity_id, page, locator, section_path_json, created_at
+                  {"".join(", " + column for column in extra)}
                 )
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?{", ?" * len(extra)})
                 """,
                 (
                     event_id,
@@ -4574,6 +4580,7 @@ class Repository(
                     event.get("locator"),
                     _json(list(section_path)),
                     now,
+                    *(event[column] for column in extra),
                 ),
             )
             connection.commit()

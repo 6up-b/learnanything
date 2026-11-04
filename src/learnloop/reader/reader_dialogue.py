@@ -1230,6 +1230,7 @@ def restore_source(
     cold_surface_id: str | None = None,
     cold_administration_id: str | None = None,
     clock: Clock | None = None,
+    exposure_fields: Mapping[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Restore a source span during reading. If a cold administration is open, the
     restore is a contamination event: it burns cold eligibility (never conceals)."""
@@ -1237,7 +1238,7 @@ def restore_source(
     span_key = tutor_qa.reader_span_key(extraction_id, span_id)
     try:
         view = build_span_view(repository, extraction_id, span_id, context="other",
-                               record=True, clock=clock)
+                               record=True, clock=clock, exposure_fields=exposure_fields)
     except SpanViewError as exc:
         raise ReaderDialogueError(str(exc)) from exc
 

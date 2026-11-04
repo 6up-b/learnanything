@@ -4,6 +4,7 @@ import { flushSync } from "react-dom";
 import { api } from "../api/client";
 import type { AddSourceItemDto, AiConnectionDto, AppSnapshot, AttemptProgress, CommandError, GuidedRedoDto, ProbeBlockEndDto, ReviewCountsDto, RuntimeHealth, SessionEndSummary, SessionSnapshot, SourceLibraryCard } from "../api/dto";
 import { AskOverlay, type AskTarget } from "../components/AskOverlay";
+import { setNextReaderVisitInitiator } from "../screens/reader/activity";
 import { DockedAsk } from "../components/DockedAsk";
 import { AddPopover, DropOverlay, useAddSource } from "../components/AddSource";
 import { ConnectAISheet } from "../components/ConnectAI";
@@ -1144,6 +1145,7 @@ export function App() {
       onError("The source for this reading block is no longer in the library.");
       return;
     }
+    setNextReaderVisitInitiator("plan");
     setReaderSource(target);
     setPlanReading({ reading, estMinutes });
     setTab("reader");

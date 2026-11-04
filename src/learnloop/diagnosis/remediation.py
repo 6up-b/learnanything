@@ -284,6 +284,7 @@ def record_prescription_delivery(
     episode: Mapping[str, Any],
     *,
     clock: Clock | None = None,
+    exposure_fields: Mapping[str, Any] | None = None,
 ) -> list[str]:
     """Record that this episode's prescribed passages were delivered for render.
 
@@ -327,6 +328,7 @@ def record_prescription_delivery(
                         "page": view.get("page"),
                         "locator": view.get("locator"),
                         "section_path": list(view.get("section_path") or []),
+                        **dict(exposure_fields or {}),
                     },
                     clock=clock,
                 )

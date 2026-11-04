@@ -20,7 +20,7 @@ from __future__ import annotations
 import base64
 import io
 import threading
-from collections.abc import Iterator
+from collections.abc import Iterator, Mapping
 from contextlib import contextmanager
 from pathlib import Path
 from typing import Any
@@ -86,8 +86,10 @@ def build_span_view(
     entity_id: str | None = None,
     record: bool = True,
     clock: Clock | None = None,
+    exposure_fields: Mapping[str, Any] | None = None,
 ) -> dict[str, Any]:
-    """Resolve a span to viewer geometry + text and record a source_exposure event."""
+    """Resolve a span to viewer geometry + text and record a source_exposure event.
+    ``exposure_fields``: RO0 row 4's columns (``router_objective.exposure.fields``)."""
 
     if context not in _VALID_CONTEXTS:
         context = "other"
@@ -147,6 +149,7 @@ def build_span_view(
                 "page": block.page,
                 "locator": locator,
                 "section_path": list(block.section_path),
+                **dict(exposure_fields or {}),
             },
             clock=clock,
         )
@@ -190,6 +193,7 @@ def record_span_exposures(
     entity_type: str | None = None,
     entity_id: str | None = None,
     clock: Clock | None = None,
+    exposure_fields: Mapping[str, Any] | None = None,
 ) -> list[str]:
     """Record a ``source_exposure`` event for each of these spans, in one
     transaction: the passages a surface DISPLAYED, not only the one it was
@@ -230,6 +234,7 @@ def record_span_exposures(
                     "page": block.page,
                     "locator": format_block_span(extraction_id, block.span_id),
                     "section_path": list(block.section_path),
+                    **dict(exposure_fields or {}),
                 },
                 clock=clock,
             ))

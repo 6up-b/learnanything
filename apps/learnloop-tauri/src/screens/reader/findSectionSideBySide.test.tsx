@@ -129,7 +129,7 @@ it("a peek and go there record CA5a's deferred events (salience only, ids only)"
   await flush();
   fireEvent.click(screen.getByRole("button", { name: "go there: Axler 5.A Invariant subspaces" }));
   flushReaderActivity();
-  const events = api.readerLogActivity.mock.calls.flatMap((call) => call[0].events);
+  const events = api.readerLogActivity.mock.calls.flatMap((call) => call[0].events).map(({ occurred_at: _at, ...event }: { occurred_at?: string }) => event);
   expect(events).toEqual([
     { kind: "reader_action_invoked", event: "corresponding_section_peeked", payload: {
       extraction_id: "ext_strang", section_id: SECTION.id, target_source_id: "src_lay", target_extraction_id: "ext_lay",

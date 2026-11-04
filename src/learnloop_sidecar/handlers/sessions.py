@@ -6,6 +6,7 @@ from contextlib import contextmanager
 from typing import Any
 
 from learnloop.db.stores.session_ownership import SessionOwnershipError
+from learnloop.router_objective import ask_availability
 from learnloop.scheduling.session_minutes import (
     MINUTE_PRESETS,
     minute_choices,
@@ -53,6 +54,25 @@ class SessionCheckpointInput(ParamsModel):
     focus_block_state: dict[str, Any] | None = None
     pending_grading_proposal: dict[str, Any] | None = None
     readiness: dict[str, Any] | None = None
+
+
+class AskAvailabilityInput(ParamsModel):
+    session_id: str | None = None
+    practice_item_id: str
+    available: bool
+    reason: str | None = None
+
+
+@method("record_ask_availability", AskAvailabilityInput)
+def record_ask_availability(ctx: SidecarContext, params: AskAvailabilityInput) -> dict[str, Any]:
+    """RO0 row 3 (spec_router_objective_v1 §4): the practice screen says Ask's availability changed on an item it
+    shows (a diagnostic check's contract loaded, say). An impression event, never an update of the presentation;
+    the same state again writes nothing. Fire and forget: it never fails the screen."""
+
+    vault, repository = ctx.require_vault()
+    return versioned({"recorded": ask_availability.record_change(
+        vault, repository, session_id=params.session_id, practice_item_id=params.practice_item_id,
+        available=params.available, reason=params.reason)})
 
 
 @method("start_session", SessionStartInput)

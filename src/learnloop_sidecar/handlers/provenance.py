@@ -4,6 +4,7 @@ from typing import Any
 
 from learnloop.content.sources.provenance import get_entity_provenance
 from learnloop.reader.span_view import SpanViewError, build_span_view
+from learnloop.router_objective import exposure
 from learnloop_sidecar.context import SidecarContext
 from learnloop_sidecar.dto import ParamsModel, versioned
 from learnloop_sidecar.errors import SidecarError
@@ -21,6 +22,10 @@ class SpanViewInput(ParamsModel):
     context: str = "provenance"
     entity_type: str | None = None
     entity_id: str | None = None
+    # RO0 row 4 (spec_router_objective_v1 §4): who sent the learner here, where the client knows.
+    initiator: str | None = None
+    block_id: str | None = None
+    visit_id: str | None = None
 
 
 @method("get_span_view", SpanViewInput)
@@ -31,7 +36,7 @@ def get_span_view_handler(ctx: SidecarContext, params: SpanViewInput) -> dict[st
     raster, so the viewer renders the honest text fallback (viewer_mode
     ``pdf_text``); HTML/text uses scroll-to-anchor (``text_anchor``)."""
 
-    _vault, repository = ctx.require_vault()
+    vault, repository = ctx.require_vault()
     try:
         view = build_span_view(
             repository,
@@ -41,6 +46,8 @@ def get_span_view_handler(ctx: SidecarContext, params: SpanViewInput) -> dict[st
             entity_type=params.entity_type,
             entity_id=params.entity_id,
             record=True,
+            exposure_fields=exposure.fields(vault.config, repository, context=params.context, initiator=params.initiator,
+                                            block_id=params.block_id, visit_id=params.visit_id),
         )
     except SpanViewError as exc:
         raise SidecarError(exc.code, str(exc)) from exc

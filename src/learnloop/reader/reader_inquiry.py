@@ -31,9 +31,11 @@ import re
 from typing import Any, Mapping, Sequence
 
 from learnloop.attempts.salience_firewall import salience_payload
-from learnloop.clock import Clock
+from learnloop.clock import Clock, parse_utc, utc_now_iso
+from learnloop.data_capture.gates import objective_receipts_on
 from learnloop.db.repositories import Repository
 from learnloop.reader import reader_dialogue as RD
+from learnloop.router_objective import exposure
 from learnloop.substrate.activities import log_interaction_event
 from learnloop.tutor import question_queue as QQ
 
@@ -166,7 +168,12 @@ ACTIVITY_FIELDS: frozenset[str] = frozenset({
     # Reader CA6: which pane leads (main or side) when follow along moves the
     # other; a side-by-side session's id and how many seconds it was open.
     "leader", "side_by_side_id", "seconds_open",
+    # RO0 rows 3 and 4 (spec_router_objective_v1 §4; dropped with [router_objective] receipts off): whether Ask was
+    # available for this visit, who sent the learner here, and the plan's block and the session it belongs to.
+    "ask_available", "initiator", "block_id", "session_id",
 })
+#: The RO0 fields above, a switch's to keep.
+OBJECTIVE_ACTIVITY_FIELDS: frozenset[str] = frozenset({"ask_available", "initiator", "block_id", "session_id"})
 WAIT_ACTIVITY_FIELDS: tuple[str, ...] = ("scrolled", "selected", "typed")
 MAX_FIELD_CHARS = 200
 MAX_EVENTS_PER_CALL = 200
@@ -372,8 +379,13 @@ def record_activity(
     events: Sequence[Mapping[str, Any]],
     *,
     clock: Clock | None = None,
+    config: Any = None,
 ) -> list[str]:
     """Record a batch of Reader activity events; all-or-nothing validation.
+
+    RO0 (``config``, with ``[router_objective] receipts`` on): a visit says who initiated it and whether Ask was
+    available (rows 3 and 4), and an event its client stamped keeps that time as ``occurred_at`` beside the
+    server's ``received_at`` (row 5; the client batches, so the gap is real). Off, none of it is written.
 
     Each entry is ``{kind, event?, payload}``: one of the existing reader kinds
     in ``CLIENT_ACTIVITY_KINDS``, or ``reader_action_invoked`` with an
@@ -385,11 +397,17 @@ def record_activity(
     if len(events) > MAX_EVENTS_PER_CALL:
         raise InquiryError(f"at most {MAX_EVENTS_PER_CALL} activity events per call")
     validated = [_validate(entry) for entry in events]
+    objective = objective_receipts_on(config)
     ids: list[str] = []
-    for kind, event, payload in validated:
+    for entry, (kind, event, payload) in zip(events, validated):
         body = dict(payload)
         if event is not None:
             body["event"] = event
+        if not objective:
+            for name in OBJECTIVE_ACTIVITY_FIELDS:
+                body.pop(name, None)
+        elif kind == "reader_view_opened":
+            body.update(exposure.visit_fields(config, repository, body))
         ids.append(log_interaction_event(
             repository,
             kind=kind,
@@ -398,8 +416,21 @@ def record_activity(
             subject_id=payload.get("extraction_id") or payload.get("visit_id"),
             payload=salience_payload(body),
             clock=clock,
+            **(_event_times(entry, clock) if objective else {}),
         ))
     return ids
+
+
+def _event_times(entry: Mapping[str, Any], clock: Clock | None) -> dict[str, str | None]:
+    """RO0 row 5: the client's stamp, if it is a time at all, and when the server had it."""
+
+    stamped = entry.get("occurred_at") or entry.get("occurredAt")
+    try:
+        when = parse_utc(stamped) if isinstance(stamped, str) else None
+    except ValueError:
+        when = None
+    return {"occurred_at": when.strftime("%Y-%m-%dT%H:%M:%SZ") if when is not None else None,
+            "received_at": utc_now_iso(clock)}
 
 
 __all__ = [

@@ -2223,6 +2223,10 @@ export interface AskTutorQuestionInput {
   sessionId?: string;
   secondsIntoAttempt?: number;
   attemptProgress?: AttemptProgress;
+  /** RO0 row 1: whether the answer is on the screen now; only the screen knows, so it is sent or unknown. */
+  answerVisibleNow?: boolean;
+  /** RO0 row 2: how the learner is working, where only the client knows. */
+  learnerMode?: string;
   /** Canonical sources S4, "Explain this with my work": passages the learner
    *  chose ("<extraction>:<span>") and their current draft. */
   pinnedSpanKeys?: string[];
@@ -4195,6 +4199,10 @@ export interface SpanViewInput {
   context?: string;
   entityType?: string | null;
   entityId?: string | null;
+  /** RO0 row 4: who sent the learner here, where the client knows. */
+  initiator?: string;
+  blockId?: string;
+  visitId?: string;
 }
 
 export interface SpanNeighborDto {
@@ -7381,6 +7389,8 @@ export interface ReaderInquiryQuestionActionInput {
 /** One funnel event for reader.log_activity (ids, kinds, counts and timings
  *  only; the sidecar drops anything else, learner text above all). */
 export interface ReaderActivityEvent {
+  /** RO0 row 5: when it happened; the server keeps it beside when it had the batch. */
+  occurred_at?: string;
   kind:
     | "reader_view_opened"
     | "reader_view_closed"

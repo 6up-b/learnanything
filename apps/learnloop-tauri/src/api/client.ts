@@ -1130,6 +1130,9 @@ export const api = {
     call<ConceptAnimationDto>("get_concept_animation_status", { animationId }),
   listConceptAnimations: (conceptId: string) =>
     call<{ animations: ConceptAnimationDto[] }>("list_concept_animations", { conceptId }),
+  /** RO0 row 3: Ask's availability changed on the item shown (an impression event; the same state writes nothing). */
+  recordAskAvailability: (input: { sessionId?: string | null; practiceItemId: string; available: boolean; reason?: string }) =>
+    call<{ version: number; recorded: boolean }>("record_ask_availability", { input }),
   askTutorQuestion: (input: AskTutorQuestionInput) =>
     call<TutorAnswerDto>("ask_tutor_question", { input }),
   getLearnerTextGap: (input: { sourceKind?: string; sourceId: string }) =>

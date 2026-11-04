@@ -15,6 +15,7 @@ import {
   newActivityId,
   noteLearnerActivity,
   setReaderActivityEnabled,
+  takeReaderVisitInitiator,
 } from "./activity";
 
 /** A gap this long without scrolling, selecting or typing counts as idle. */
@@ -71,7 +72,11 @@ export function useReaderVisit({ render, offline, inquiry, pdfView }: ReaderVisi
     visitRef.current = visit;
     logReaderActivity({
       kind: "reader_view_opened",
-      payload: { visit_id: visit.id, extraction_id: render.extractionId, source_id: render.sourceId, surface: pdfView ? "pdf" : "text" },
+      payload: {
+        visit_id: visit.id, extraction_id: render.extractionId, source_id: render.sourceId, surface: pdfView ? "pdf" : "text",
+        // RO0 rows 3 and 4: Ask is on the page whenever the visit is online, and who sent the learner here.
+        ask_available: true, initiator: takeReaderVisitInitiator(),
+      },
     });
     return () => {
       const at = Date.now();

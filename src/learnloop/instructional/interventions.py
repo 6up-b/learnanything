@@ -27,6 +27,7 @@ import json
 import math
 from typing import Any
 
+from learnloop.router_objective import exposure
 from learnloop.clock import Clock, FrozenClock, parse_utc, utc_now_iso
 from learnloop.db.connection import connect
 from learnloop.db.repositories import Repository
@@ -278,7 +279,7 @@ def record_tutor_citations(vault: LoadedVault, repository: Repository, event_id:
 
 def record_shown_spans(repository: Repository, keys: Sequence[str], *, context: str, entity_type: str,
                        entity_id: str, source_versions: Mapping[str, Any] | None = None,
-                       clock: Clock | None = None) -> list[str]:
+                       clock: Clock | None = None, exposure_fields: Mapping[str, Any] | None = None) -> list[str]:
     """One ``source_exposure_events`` row per span whose text became visible.
 
     Written whatever ``source_service.interventions`` says: the exposure rule
@@ -312,6 +313,7 @@ def record_shown_spans(repository: Repository, keys: Sequence[str], *, context: 
             "entity_type": entity_type, "entity_id": entity_id,
             "page": getattr(block, "page", None), "locator": format_block_span(extraction_id, span_id),
             "section_path": list(getattr(block, "section_path", None) or []),
+            **dict(exposure_fields or {}),
         }, clock=clock))
     return ids
 
@@ -345,10 +347,12 @@ def offer_shown(vault: LoadedVault, repository: Repository, tool_call_id: str, *
     run = ran[-1]
     keys = [key for key in run["result_keys"] if not span_keys or key in set(span_keys)]
     arguments = request["arguments"]
+    shown_context = "tutor_citation" if request["caller_kind"] == "tutor" else "library"
     exposure_ids = record_shown_spans(
-        repository, keys, context="tutor_citation" if request["caller_kind"] == "tutor" else "library",
+        repository, keys, context=shown_context,
         entity_type="source_tool_call", entity_id=tool_call_id, source_versions=run["source_versions"],
-        clock=clock)
+        clock=clock,
+        exposure_fields=exposure.fields(vault.config, repository, context=shown_context, session_id=session_id))
     intervention_id = record_intervention(
         vault, repository, kind=kinds[request["tool"]], clock=clock, caller_kind=request["caller_kind"],
         caller_ref=request["caller_ref"], intent=arguments.get("intent") or ("compare" if request["tool"]

@@ -51,6 +51,7 @@ import threading
 from pathlib import Path
 from typing import Any
 
+from learnloop.router_objective import exposure
 from learnloop.figures import service as FS
 from learnloop.source_retrieval import section_coverage as SC
 from learnloop.ids import new_ulid
@@ -491,7 +492,8 @@ def reader_correspondent_peek(ctx: SidecarContext, params: CorrespondentPeekInpu
     # Every block shown is a delivered passage, recorded before it is returned.
     try:
         view["exposure_event_ids"] = record_span_exposures(
-            repository, resolved, [block["span_id"] for block in view["blocks"]], context="library")
+            repository, resolved, [block["span_id"] for block in view["blocks"]], context="library",
+            exposure_fields=exposure.fields(vault.config, repository, context="library"))
     except SpanViewError as exc:
         raise SidecarError(exc.code, str(exc)) from exc
     return versioned({"peek": view})

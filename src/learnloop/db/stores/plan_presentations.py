@@ -18,6 +18,9 @@ PRESENTATION_COLUMNS: tuple[str, ...] = (
 )
 
 
+PRESENTATION_EXTRA_COLUMNS: tuple[str, ...] = ("ask_available",)
+
+
 def plan_presentations_present(connection: sqlite3.Connection) -> bool:
     """Whether the database has the table (a vault below migration 202 has not)."""
 
@@ -45,10 +48,12 @@ def insert_plan_presentation(connection: sqlite3.Connection, row: Mapping[str, A
     standing = presentation_for(connection, str(row["block_id"]), str(row["practice_item_id"]))
     if standing is not None:
         return str(standing["id"])
+    # RO0 row 3: the state at the serve, only where it was read (a vault below migration 242 has no column).
+    columns = PRESENTATION_COLUMNS + tuple(column for column in PRESENTATION_EXTRA_COLUMNS if column in row)
     connection.execute(
-        f"INSERT INTO plan_presentations ({','.join(PRESENTATION_COLUMNS)}) "
-        f"VALUES ({','.join('?' for _ in PRESENTATION_COLUMNS)})",
-        tuple(row.get(column) for column in PRESENTATION_COLUMNS),
+        f"INSERT INTO plan_presentations ({','.join(columns)}) "
+        f"VALUES ({','.join('?' for _ in columns)})",
+        tuple(row.get(column) for column in columns),
     )
     return str(row["id"])
 

@@ -106,6 +106,7 @@ from learnloop.daily_plan.types import (
 )
 from learnloop.daily_plan import measurement as objectives
 from learnloop.data_capture import prefilter
+from learnloop.router_objective import ask_availability
 from learnloop.data_capture.gates import receipts_on, serving_on
 from learnloop.db.stores import daily_plans as store
 from learnloop.ids import new_ulid
@@ -4556,6 +4557,7 @@ def _present(
                 "probe_presentation_id": None,
                 "session_id": env.session_id,
                 "served_at": served_at,
+                **ask_availability.serve_fields(env.vault, connection, practice_item_id),
             },
         )
     except Exception:  # noqa: BLE001 - the receipt never blocks serving (unless strict)

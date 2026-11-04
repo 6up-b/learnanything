@@ -36,6 +36,7 @@ from typing import Any, Callable, Literal
 
 from pydantic import Field
 
+from learnloop.router_objective import exposure
 from learnloop.source_retrieval import kept_comparisons as KC
 from learnloop.source_retrieval import library_ask as LA
 from learnloop.source_retrieval.policy import PolicyRefused
@@ -483,7 +484,8 @@ def reader_library_ask(ctx: SidecarContext, params: LibraryAskInput) -> dict[str
 
         def shown(keys: Any, ask_id: str) -> list[str]:
             return record_shown_spans(worker_repo, list(keys), context="library", entity_type="library_ask",
-                                      entity_id=ask_id)
+                                      entity_id=ask_id,
+                                      exposure_fields=exposure.fields(vault.config, worker_repo, context="library"))
 
         result = LA.ask_library(
             vault, worker_repo, params.query, find=find, caller=record, record_shown=shown,
@@ -645,7 +647,8 @@ def reader_library_compare(ctx: SidecarContext, params: LibraryCompareInput) -> 
 
         def shown(keys: Any, ask_id: str) -> list[str]:
             return record_shown_spans(worker_repo, list(keys), context="library", entity_type="library_ask",
-                                      entity_id=ask_id)
+                                      entity_id=ask_id,
+                                      exposure_fields=exposure.fields(vault.config, worker_repo, context="library"))
 
         try:
             table = LA.compare(vault, worker_repo, ask_id, pinned_keys=params.pinned_span_keys,
