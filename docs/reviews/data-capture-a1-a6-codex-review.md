@@ -255,3 +255,78 @@ Memory-capped scope, `-n 6`. Full suite not run (landing gate only).
   `test_daily_plan_replay`, `test_voi_forecasts`, `test_mvp015_upgrade`): **441 passed, 0 failed**.
 * `--durable-sqlite` on the 12 `test_data_capture_*` files: **190 passed, 0 failed**.
 * Frontend: `npm run typecheck` in `apps/learnloop-tauri`: exit 0.
+
+# Scoped verify (job 20261103-190644-2tE7S8): rulings R6 and R7
+
+The verify found F1 and F11 closed, with one Medium and one Low. Rulings R6 and R7 are recorded under "Landing onto main" in
+`data-capture-a1-a6.md`. The section above still describes step 0; these four changes supersede the parts they name: the
+sweep's window, the module's exemptions, and the `None` fallback.
+
+## Finding 1 [Medium] (R6): the sweep on the foreground path
+
+**Reproduced first:** 100 mapping calls on every sweep of 100 unmapped sections, with no receipt written.
+
+**The fix.** The sweep reads from the newest recorded source time less `SWEEP_OVERLAP` (AD's constant, moved with the collectors),
+and takes the write lock only with rows to write. A repeat sweep with nothing new makes 0 mapping calls, tested by counting,
+including empty results. Correctness rests on the live read, which still lists everything: a row past the window stays readable,
+tested. Mappings, empty results included, are kept per process against a revision of the vault's content and of the extraction
+runs, artifacts, aliases and coverage rows they read. A read failure is not kept, so a passing lock can't lose an exposure.
+
+**Foreground callers**, each on Today's build, a plan read or the deciding poll, through `prepare_queue_build` or the chooser:
+
+* `measurement.settle`'s sweep: windowed, as above.
+* `measurement.settle` judging an answer: `read_for_answer`, only when an open check has an answer. It lists activity since the
+  earlier of the sweep's window and the delay before the answer, since an older exposure can't make that answer warm.
+* `router_retrieval._matured` (similar decisions, version 3 with that feature on): stored receipts plus the sweep's window.
+
+Everything else that reads is off the foreground and reads everything: `data-capture report`, the scoreboard, `router log`,
+`router report` and a rebuild.
+
+**Measured** on fresh copies of the mvp-0.43 vaults, before (step 0's tip) and after. The whole read is what settling an answer and
+similar decisions used before; the foreground read is what they use now.
+
+| | `arxiv_v2` | `linear_algebra` | `probability` |
+|---|---|---|---|
+| First sweep ever, before / after (one time, writes the receipts) | 10 / 31 ms | 131 / 500 ms | 118 / 357 ms |
+| Repeat sweep, before | 7 ms, 1 mapping | 19 to 30 ms, 3 mappings | 5 ms, 0 |
+| Repeat sweep, after | 5 ms, 0 | 6 ms, 0 | 5 ms, 0 |
+| First sweep in a new process, after | 30 ms, 1 mapping | 76 ms, 3 mappings | 5 ms, 0 |
+| Whole read after a sweep, before | 24 ms, 1 mapping | 67 ms, 3 mappings | 2 ms, 0 |
+| Whole read after a sweep, after | 2 ms | 3 ms | 2 ms |
+| Foreground and answer read, after | 2 ms | 2 ms | 2 ms |
+
+The revision itself costs about 1 ms. The first-sweep times moved on the same code path, so I read that row as cold-start and machine
+noise, not a regression, but I did not establish that; it happens once per vault. A new process maps again the rows the window can't
+exclude: unmapped tutor exchanges, which that collector lists regardless of time, and with no receipts at all, everything once.
+Today's time against main below mvp-0.44 is in the landing record's smoke.
+
+## Finding 2 [Low]: one recorded LO hid a later one
+
+**Reproduced first** with Sol's case: Monday's practice on B, Wednesday 10:00's section mapped to A, a sweep, 10:15's coverage row
+naming B, 10:30's answer on B read `completed`. Now `not_delayed`, pending, no first delayed success, and the same after another sweep.
+
+**The fix** is the small one the brief named: `read` unions a section's coverage rows through one progress-and-coverage join.
+
+**What stays Low:** the join covers coverage rows on completed sections. A provenance link added to the vault after a section was
+recorded still reads differently with and without a sweep, and so does a question or passage view whose section gains a coverage row.
+Sol's fuller fix, remapping provenance by content revision, would make the freeze meaningless, so I left it (R6: later cases on this
+class are Low).
+
+## `reader_exposures` is required
+
+It is a required keyword on `derive_router_outcomes`, `rebuild_router_outcomes`, `trajectories` and `answer_completion`, and `None` at
+version 3 raises `ValueError`. The rebuild with no decisions passes `[]`. A test replaces the AST walk. `similar_decisions` with a
+vault and no repository at version 3 now fails closed into its existing "unavailable" path.
+
+## R7: the frozen-cycles list stays frozen
+
+Two dependency-light helpers, with no switch, write or clock:
+
+* `learnloop.reading_sources`: the list of Reader sources, moved from `adaptive_difficulty.reading`, which imports it back. The
+  firewall's three vocabulary constants moved with it and the firewall imports them back, since the list can't import `attempts`.
+* `learnloop.section_map`: the Reader's section-to-LO mapping, moved from `reader_guidance` and `reader_progression`, which keep their
+  names.
+
+The two exemptions are gone, so the frozen-cycles list equals main's. `lint-imports`: 42 kept. `section_map`'s import of the alias
+authority isn't graphed, because `learnloop.content` is a namespace package; at import time that module reads only the clock, the
+connection and `ingest`, so it adds no real cycle.
