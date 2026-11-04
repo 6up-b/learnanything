@@ -2223,6 +2223,17 @@ def _attempt_has_nontrivial_error(
     )
 
 
+def with_open_set_arm(refs: Sequence[Mapping[str, Any]]) -> list[dict[str, Any]]:
+    """A factor's refs with the ``H_OTHER`` arm a probe's hypothesis set requires, for a factor
+    that has concrete causes. ``build_causal_hypothesis_set`` refuses a factor without it."""
+
+    out = [dict(ref) for ref in refs]
+    has_arm = any(ref.get("open_set") or ref.get("hypothesis_id") == OPEN_SET_CAUSE_ID for ref in out)
+    if out and not has_arm:
+        out.append({"hypothesis_id": OPEN_SET_CAUSE_ID, "open_set": True})
+    return out
+
+
 def _open_repair_factor(
     repository: Repository,
     *,
@@ -2403,6 +2414,12 @@ def materialize_causal_episode(
                     ),
                 }
             )
+        from learnloop.followup_serve.gates import generate_and_serve_on
+
+        if generate_and_serve_on(vault.config):
+            # FG1: the arm has no statement, so the loop above never carries it. Below
+            # the tag, and with the switch off, a factor still loses it here, as it did.
+            refs = with_open_set_arm(refs)
         repository.set_unresolved_cause_hypothesis_refs(
             factor_id, refs, clock=clock
         )

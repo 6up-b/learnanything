@@ -131,6 +131,23 @@ def _template_and_card(vault: Any, repository: Repository, learning_object_id: s
     raise AdmissionFailed("no_family_binding")
 
 
+def _restore_open_set_arm(repository: Repository, factor: Mapping[str, Any]) -> None:
+    """A factor written before the tag lost its ``H_OTHER`` arm when its episode was materialized
+    a second time; every open factor on the owner's copies has. It gets the arm back here."""
+
+    from learnloop.diagnosis.causal_attribution import with_open_set_arm
+
+    causes = [value for value in factor.get("candidate_causes") or [] if isinstance(value, Mapping)]
+    refs = [
+        {"hypothesis_id": value["hypothesis_id"], "version": value.get("version"),
+         **({"open_set": True} if value.get("open_set") else {})}
+        for value in causes if value.get("hypothesis_id")
+    ]
+    restored = with_open_set_arm(refs)
+    if restored != refs:
+        repository.set_unresolved_cause_hypothesis_refs(str(factor["id"]), restored)
+
+
 def author_probe(
     vault: Any,
     repository: Repository,
@@ -149,6 +166,7 @@ def author_probe(
     factor = repository.unresolved_cause_factor(factor_id)
     if factor is None or factor.get("status") != "open":
         raise AdmissionFailed("factor_not_open")
+    _restore_open_set_arm(repository, factor)
     try:
         plan = build_causal_hypothesis_set(repository, factor_id, support_scores=support_scores(repository, factor))
     except ValueError as error:
