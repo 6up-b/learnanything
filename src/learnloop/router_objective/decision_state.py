@@ -250,7 +250,7 @@ def prepare(vault: Any, repository: Any, *, candidates: Iterable[Mapping[str, An
             stop: Mapping[str, Any] | None = None, voi: Iterable[Mapping[str, Any]] = (),
             pick: tuple[str | None, str | None] | None = None, extra_items: Iterable[str] = (), extra_los: Iterable[str] = (),
             ad_fields: AdFields | Mapping[str, Any] | None = None, versions: Mapping[str, Any] | None = None,
-            clock: Clock | None = None) -> Material | None:
+            omitted: Mapping[str, Any] | None = None, clock: Clock | None = None) -> Material | None:
     """Read one decision's state. None off, below the migration, or when it cannot be read: it never touches the decision.
 
     ``ad_fields``: the LOs' AD fields, or the reader of them (it runs before anything is written); None says the path
@@ -296,6 +296,7 @@ def prepare(vault: Any, repository: Any, *, candidates: Iterable[Mapping[str, An
             "active_minutes": {"session": _round(session_minutes), "day": _round(day_minutes), "basis": _ACTIVE_BASIS},
             "pending_reports": pending,
             **({"block_minutes": {str(ref): _round(value) for ref, value in block_minutes.items()}} if block_minutes else {}),
+            **({"omitted": dict(omitted)} if omitted else {}),
             **({"stop": dict(stop)} if stop else {}),
             **({"voi": verdicts} if verdicts else {}),
             **({"pick_voi": _pick_verdict(verdicts, pick)} if pick is not None else {}),

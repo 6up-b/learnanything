@@ -721,8 +721,6 @@ def _offer_prefilter(vault: Any, repository: Any, decision: Mapping[str, Any], t
 def _offer_state(vault: Any, repository: Any, decision: Mapping[str, Any], trace: Any) -> Any:
     """The offer's belief, with each item's authored minutes (an offer keeps no estimator of its own, and says so)."""
 
-    from learnloop.adaptive_difficulty.readiness import decision_state_fields
-
     from learnloop.data_capture.gates import objective_receipts_on
     from learnloop.router_objective import decision_state
     from learnloop.scheduling.fsrs import forgetting_curve
@@ -730,6 +728,14 @@ def _offer_state(vault: Any, repository: Any, decision: Mapping[str, Any], trace
     if not objective_receipts_on(vault.config):
         return None
     candidates = json.loads(decision.get("candidates_json") or "[]")
+    if decision.get("propensity_kind") == "not_served":
+        # The daily plan serves Today, so this list served no head and nothing was decided among its candidates: a
+        # pick from it is a plan decision with its own state. The session's numbers, not the belief in the whole list:
+        # that would cost Today a read of adaptive difficulty per LO and tens of kilobytes at every open (measured:
+        # docs/reviews/router-ro0-logging.md).
+        return decision_state.prepare(
+            vault, repository, candidates=[], session_id=decision.get("session_id") or getattr(trace, "session_id", None),
+            forgetting_curve=forgetting_curve, omitted={"candidates": len(candidates), "reason": "offer_not_served"})
     items, _los = decision_state.candidate_ids(vault, candidates)
     minutes: dict[str, dict[str, Any]] = {}
     for item_id in items:
@@ -737,9 +743,10 @@ def _offer_state(vault: Any, repository: Any, decision: Mapping[str, Any], trace
         expected = getattr(item, "expected_minutes", None)
         minutes[item_id] = ({"minutes": float(expected), "minutes_source": "expected_minutes"} if expected
                             else {"minutes_source": "missing"})
+    # No adaptive difficulty here: its read costs Today about 115 ms (measured, docs/reviews/router-ro0-logging.md), this
+    # path serves only with the plan switched off, and replay's ``as_of`` gives the numbers back.
     return decision_state.prepare(
         vault, repository, candidates=candidates, session_id=decision.get("session_id") or getattr(trace, "session_id", None),
         forgetting_curve=forgetting_curve,
         item_minutes=minutes, voi=[dict(row) for row in getattr(trace, "voi_decisions", ()) or ()],
-        ad_fields=lambda los: decision_state_fields(vault, repository, list(los)),
     )
