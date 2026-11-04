@@ -6,10 +6,12 @@ recovered, so this stage records it. It builds no planner, valuator or new polic
 
 * :mod:`~learnloop.data_capture.gates`: its two switches;
 * :mod:`~learnloop.data_capture.prefilter`: what was decided before the router saw candidates,
-  linked into each committed decision (A1).
+  linked into each committed decision (A1);
+* :mod:`~learnloop.data_capture.reading_exposures`: the one read of Reader exposures and the sweep
+  that freezes them.
 
-This package is a leaf (the stores and the version gates only): every serving package may read
-it. The rest lives where its reads do: the shared delayed-completion definition
+This package is a leaf (the stores, the version gates and the two read helpers below every package,
+:mod:`learnloop.reading_sources` and :mod:`learnloop.section_map`): every serving package may read it. The rest lives where its reads do: the shared delayed-completion definition
 (:mod:`learnloop.delayed_completion`, A4), the frozen objective and its measurement
 (:mod:`learnloop.daily_plan.measurement`, A2), the first-delayed-success proxy
 (:mod:`learnloop.router.first_delayed_success`, A3) and the read-only report

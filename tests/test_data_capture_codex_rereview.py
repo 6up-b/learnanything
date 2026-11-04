@@ -136,7 +136,7 @@ def test_f1_a_span_view_a_tutor_exchange_and_an_in_passage_question_are_exposure
     env, _decision_id, objective = _arranged_wait(tmp_path, toml=DECIDER_ONLY + AD_OFF)
     lo = objective["learning_object_id"]
     _map_sections(monkeypatch, lo)
-    monkeypatch.setattr("learnloop.reader.reader_progression.learning_objects_for_span",
+    monkeypatch.setattr("learnloop.section_map.learning_objects_for_span",
                         lambda _vault, _repo, **_kwargs: [lo])
     at = env.now_iso()
     with env.repository.atomic(), env.repository.connection() as connection:

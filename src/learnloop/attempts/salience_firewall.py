@@ -60,6 +60,8 @@ from __future__ import annotations
 
 from typing import Any, Mapping
 
+from learnloop.reading_sources import IN_PASSAGE_STYLES, TUTOR_ANSWER_MODES, UNKNOWN_ANSWER_MODE
+
 SALIENCE_ONLY = "salience_only"
 
 # Bounded visibility-segment cap per aggregation window (§8.2): clients emit
@@ -268,13 +270,6 @@ def salience_projection_v1(events: list[Mapping[str, Any]]) -> dict[str, Any]:
 
 # -- the confirmed exception: learning opportunities (spec_adaptive_difficulty_v1 A12, §5.11) ----
 
-#: A reader tutor question's answer modes, each a tutor exchange's subkind;
-#: ``unknown`` where none was stored (before migration 213, or outside the Reader).
-TUTOR_ANSWER_MODES: tuple[str, ...] = ("answer_directly", "help_me_reason", "ask_me_first")
-UNKNOWN_ANSWER_MODE = "unknown"
-#: The in-passage question styles that are learning opportunities (``reconstruct``
-#: questions are escalated to practice items, which AD reads as attempts).
-IN_PASSAGE_STYLES: tuple[str, ...] = ("recall", "next_step", "why_step", "assumptions")
 #: D22's verdict classes: the one typed value the carve-out admits.
 SELF_CHECK_SUBKINDS: tuple[str, ...] = ("self_check:matched", "self_check:missed")
 

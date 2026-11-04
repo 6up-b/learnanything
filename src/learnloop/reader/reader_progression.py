@@ -20,178 +20,18 @@ from typing import Any
 from learnloop.content.sources.span_aliases import SpanTranslator
 from learnloop.db.repositories import Repository
 from learnloop.reader.reader_guidance import _span_for_ref, extraction_sections
+from learnloop.section_map import (  # moved below every package that reads them; this name stays the Reader's
+    learning_objects_by_section,
+    learning_objects_for_section,
+    learning_objects_for_span,
+    section_id_for_span,
+)
 from learnloop.vault.models import LoadedVault, learning_object_facet_union
 from learnloop.vault.paths import VaultPaths
 
 
 _SOURCE_BUNDLE_RADIUS = 5
 _MAX_SOURCE_BUNDLES_PER_LO = 4
-
-
-def section_id_for_span(
-    repository: Repository, *, extraction_id: str, span_id: str
-) -> str | None:
-    """Resolve one reader span to its containing normalized section."""
-
-    ir = repository.load_document_ir(extraction_id)
-    if ir is None:
-        return None
-    _sections, _block_by_span, span_to_section = extraction_sections(ir)
-    section = span_to_section.get(span_id)
-    return str(section) if section is not None else None
-
-
-def learning_objects_for_span(
-    vault: LoadedVault,
-    repository: Repository,
-    *,
-    extraction_id: str,
-    span_id: str,
-) -> list[str]:
-    """Provenance-linked Learning Objects available as promotion targets."""
-
-    section_id = section_id_for_span(
-        repository, extraction_id=extraction_id, span_id=span_id
-    )
-    if section_id is None:
-        return []
-    return learning_objects_for_section(
-        vault,
-        repository,
-        extraction_id=extraction_id,
-        section_id=section_id,
-    )
-
-
-def learning_objects_for_section(
-    vault: LoadedVault,
-    repository: Repository,
-    *,
-    extraction_id: str,
-    section_id: str,
-) -> list[str]:
-    """Active Learning Objects whose provenance cites spans inside the section.
-
-    Reuses the guide plan's span resolution (`_span_for_ref`) so item passages,
-    quick-checks, and progression triggers agree on what belongs to a section.
-    Returns a sorted, de-duplicated id list; empty when the section has no
-    provenance-linked LOs (thin citation — see the source-finished sweep).
-    """
-
-    run = repository.get_extraction_run(extraction_id)
-    if run is None:
-        return []
-    revision = repository.get_source_revision(run["revision_id"])
-    source_id = str((revision or {}).get("source_id") or "")
-    ir = repository.load_document_ir(extraction_id)
-    if ir is None:
-        return []
-    section_rows, block_by_span, _span_to_section = extraction_sections(ir)
-    section = next((row for row in section_rows if row["id"] == section_id), None)
-    if section is None:
-        return []
-    section_spans = set(section["span_ids"])
-    blocks = [block_by_span[span_id] for span_id in section["span_ids"] if span_id in block_by_span]
-
-    from learnloop.reader.reader_guidance import _canonical_note_ids
-
-    artifact = repository.get_source_artifact(source_id) or {}
-    note_ids = _canonical_note_ids(vault, artifact)
-    # Refs made on an earlier reading of the book resolve through the one
-    # alias authority (re-read safety): the same place counts for which LOs a
-    # section holds, even when its text changed.
-    translator = SpanTranslator(repository, extraction_id)
-
-    matched: set[str] = set()
-    for learning_object in vault.learning_objects.values():
-        if learning_object.status != "active":
-            continue
-        refs = list(learning_object.provenance.source_refs)
-        for facet_id in learning_object_facet_union(learning_object):
-            facet = vault.evidence_facets.get(vault.canonical_facet_id(str(facet_id)))
-            if facet is not None:
-                refs.extend(facet.provenance.source_refs)
-        for ref in refs:
-            span_id = _span_for_ref(
-                ref,
-                source_id=source_id,
-                extraction_id=extraction_id,
-                note_ids=note_ids,
-                blocks=blocks,
-                translator=translator,
-                accept_moved=True,
-            )
-            if span_id is not None and span_id in section_spans:
-                matched.add(learning_object.id)
-                break
-    return sorted(matched)
-
-
-def learning_objects_by_section(
-    vault: LoadedVault,
-    repository: Repository,
-    *,
-    extraction_id: str,
-) -> dict[str, list[str]]:
-    """Every section of an extraction with its provenance-linked Learning Objects.
-
-    The same answer as :func:`learning_objects_for_section` for each section
-    (each section's refs resolve against that section's own blocks), with the
-    IR, the artifact and the alias translator loaded once. RW6a's "Since last
-    time" reads it for the LOs a source teaches. Sections with no linked LO
-    are left out.
-    """
-
-    run = repository.get_extraction_run(extraction_id)
-    if run is None:
-        return {}
-    revision = repository.get_source_revision(run["revision_id"])
-    source_id = str((revision or {}).get("source_id") or "")
-    ir = repository.load_document_ir(extraction_id)
-    if ir is None:
-        return {}
-    section_rows, block_by_span, _span_to_section = extraction_sections(ir)
-
-    from learnloop.reader.reader_guidance import _canonical_note_ids
-
-    artifact = repository.get_source_artifact(source_id) or {}
-    note_ids = _canonical_note_ids(vault, artifact)
-    translator = SpanTranslator(repository, extraction_id)
-
-    refs_by_lo: list[tuple[str, list[Any]]] = []
-    for learning_object in vault.learning_objects.values():
-        if learning_object.status != "active":
-            continue
-        refs = list(learning_object.provenance.source_refs)
-        for facet_id in learning_object_facet_union(learning_object):
-            facet = vault.evidence_facets.get(vault.canonical_facet_id(str(facet_id)))
-            if facet is not None:
-                refs.extend(facet.provenance.source_refs)
-        if refs:
-            refs_by_lo.append((learning_object.id, refs))
-
-    out: dict[str, list[str]] = {}
-    for section in section_rows:
-        section_spans = set(section["span_ids"])
-        blocks = [block_by_span[span_id] for span_id in section["span_ids"] if span_id in block_by_span]
-        matched: set[str] = set()
-        for learning_object_id, refs in refs_by_lo:
-            for ref in refs:
-                span_id = _span_for_ref(
-                    ref,
-                    source_id=source_id,
-                    extraction_id=extraction_id,
-                    note_ids=note_ids,
-                    blocks=blocks,
-                    translator=translator,
-                    accept_moved=True,
-                )
-                if span_id is not None and span_id in section_spans:
-                    matched.add(learning_object_id)
-                    break
-        if matched:
-            out[str(section["id"])] = sorted(matched)
-    return out
 
 
 def source_refs_for_span(

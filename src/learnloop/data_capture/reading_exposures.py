@@ -2,8 +2,8 @@
 
 A section completed the hour before an answer leaves that answer warm, whatever adaptive difficulty is set to. AD's
 reading receipts (``ad_reading_opportunities``) are written only under its ``forecast_receipts``, and its spec keeps
-them so (G-AD1-11), so this is data capture's own record of the same facts: **the same list of sources**, read by AD's
-collectors (:func:`learnloop.adaptive_difficulty.reading.listed_events`), written to ``reading_exposure_receipts``.
+them so (G-AD1-11), so this is data capture's own record of the same facts: **the same list of sources**, read by the
+collectors AD reads (:func:`learnloop.reading_sources.listed_events`), written to ``reading_exposure_receipts``.
 
 What differs from AD's receipt, because the question differs. AD's is a dose on a learned state; this one is a fact the
 outcome reads:
@@ -41,6 +41,8 @@ from typing import Any
 from learnloop.clock import Clock, SystemClock, parse_utc, utc_now_iso
 from learnloop.data_capture.gates import OUTCOME_VERSION_V3, receipts_on, serving_on
 from learnloop.db.stores import data_capture as store
+from learnloop.reading_sources import listed_events
+from learnloop import section_map
 
 logger = logging.getLogger(__name__)
 
@@ -57,9 +59,7 @@ def reading_learning_objects(vault: Any, repository: Any, target: Any) -> list[s
         return []
     found: list[str] = []
     try:
-        from learnloop.reader.reader_progression import learning_objects_for_section
-
-        found.extend(learning_objects_for_section(
+        found.extend(section_map.learning_objects_for_section(
             vault, repository, extraction_id=str(target.extraction_id), section_id=str(target.section_id)))
         with repository.connection() as connection:
             from learnloop.db.stores import section_coverage as coverage
@@ -89,12 +89,10 @@ class _Map:
         return self._sections[key]
 
     def los_for_span(self, extraction_id: str, span_id: str) -> list[str]:
-        from learnloop.reader import reader_progression
-
         key = (extraction_id, span_id)
         if key not in self._spans:
             try:
-                self._spans[key] = list(reader_progression.learning_objects_for_span(
+                self._spans[key] = list(section_map.learning_objects_for_span(
                     self.vault, self.repository, extraction_id=extraction_id, span_id=span_id))
             except Exception:  # noqa: BLE001 - an unreadable extraction maps to nothing
                 self._spans[key] = []
@@ -168,8 +166,6 @@ def _stamp(when: datetime) -> str:
 def _events(connection: Any, vault: Any, repository: Any, *, upper: str = NO_UPPER) -> list[Any]:
     """The listed activity not yet on record, the whole of it (see the module's note): what the sweep freezes and what
     :func:`read` adds are this one list."""
-
-    from learnloop.adaptive_difficulty.reading import listed_events
 
     return listed_events(connection, _Map(vault, repository), None, upper, view=_Rows())
 
