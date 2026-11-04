@@ -1067,3 +1067,54 @@ Verify job `20261104-053133-bwYwSu` (gpt-6.1-sol), over `30e1b53185..7fe97de9dd`
 **Reproduced.** A crash doesn't requeue a job; its lease lapses and the next lease counts up. `MAX_GENERATION_ATTEMPTS` only bounded requeuing after a failure, so a third lease called the author: 3 calls, wanted 2. It failed for a draft that matched then a crash, a transport failure then a crash, two crashes after a pin, and a need job.
 
 **Fixed.** The limit is checked before any authoring call. An exhausted workflow settles through `settle_practice_lane`, logged `generation_attempts_exhausted`: what the crashed runs prepared closes in the move's commit, feedback is released, the predecessor's chooser runs and Next goes on. The job isn't excluded from leasing, since that would strand Next. A job with no workflow (an entry or a need) ends as `failed` with the same code; no learner waits on it. Exits that cost nothing still take their own way out: a newer grade on a third lease settles as `newer_grade`. Every lease counts, including one that crashed before its call, so a job can end with fewer than two calls.
+
+## R12: Next and a probe nobody would serve
+
+The landing smoke found this, and it stopped the landing. `followup_next` told a ready workflow to continue whenever the plan feature was on, so the plan had to place the probe. A plan that had completed or been stopped never would, and neither would the queue screen. The question went unasked and the answer stayed held. The common case was the plan's last item: the screen fetches the next step while feedback shows (`dailyPlan.ts:111`), which completes the plan before generation finishes.
+
+**The fix (`39f6b09965`).** `serving.plan_will_place`: the plan serves the probe only if the attempt's `plan_presentation_id` is set and today's plan is open. Otherwise Next opens it. No new field and no frontend change: the server already records where the attempt came from, validated when the attempt is written, so the phone and any later screen get this too. A wait whose question is still being written no longer holds Next, since what it held is already released.
+
+**The matrix (`tests/test_followup_next_matrix.py`).** Through the real handlers, with the screen's fetch of the next step, 60 cells:
+
+- Surface and plan state: plan × {open, complete, stopped before generation, stopped after}; queue × {the same four, none}; no plan × none.
+- By workflow state: preparing, ready, waiting, a wait still being written, failed, settled.
+- "Plan × none" doesn't exist, since a miss from the plan needs a plan.
+- A plan can't complete after a ready probe without going through it, so "complete" closes before generation.
+
+Each cell asserts that the next thing served is the probe, or that the feedback is released and Next goes on. Before the fix, 26 cells and one separate test failed: every ready and preparing cell with a closed plan or from the queue, and every wait still being written. All pass now. Two more tests: a queue miss with a plan open opens the probe and the plan doesn't serve it again; a wait that outlasts its plan has its answer released and its probe labelled exposed (§6.0).
+
+**The measurement test (`dc5f4156b5`).** It now freezes the clock, so the two runs compare exactly and no tolerance is needed.
+
+**Linear_algebra's miss that settled `no_open_factor`.** No defect; it's the bounded-deferral exit. The factor opened normally and `causal_factor_deferral` closed it at once as `escalated_unrepaired`, `unengaged_recurrences`, k=3, because the sweep repeats one cause's wording on a topic and skips every probe. R9 then doesn't reopen a closed factor. Six misses on that topic: all six get a question if each probe is answered; only the first two if each is skipped. A real learner would hit this only by skipping repeatedly on causes the deferral treats as the same. Feedback is released and Next goes on.
+
+**The Decider's reachability probe.** It runs only if the route's provider is ready, which for the code-default `openrouter_decider` profile means `OPENROUTER_API_KEY` is present. There is no separate opt-in: an empty `ai.routing.router_decider` means that default profile, not off. Tested with every other route at `:9`:
+
+| Case | Reaches for `openrouter.ai` |
+|---|---|
+| No key, route unset | No |
+| Key present, route unset | Yes: the probe (no key and no learner text sent), then the paid decision request carrying the state card |
+| Key present, `LEARNLOOP_ROUTER_MODELS=off` | No |
+
+So a real vault with no route set but the key present does reach OpenRouter; the key's presence is the only consent. This predates FG1. It's reported to the coordinator and not changed here. On the smoke's guard, every such socket was refused, so nothing was delivered.
+
+**Slips and a smoke-config gap.**
+
+- About 70 refused attempts to `openrouter.ai` during the smoke: with a dummy key set, my `neutralize.py` left the Decider on its default URL. It now points at `127.0.0.1:9`. The guard refused every socket and nothing was delivered.
+- One comparison ran under zsh, which didn't split a `--set`, so `neutralize.py` failed on that copy. It was discarded and rerun. Smoke scripts run under bash from here on.
+
+**Reruns on the real copies, after this fix.** Routes down, the real-causes journey, and ask, Continue without it and wait on all three, with fake models unless a run says otherwise. Every run passes, with one expected exception: real causes with a plan fails only my driver's "the plan serves it" check. That attempt has no plan presentation, so under R12 Next correctly opens the probe, and it passes with no plan. Non-loopback attempts in the whole rerun: 0.
+
+**A shadow read after each journey.** 0/0/0 on the 11 runs whose journey called `rebuild_derived_state` itself. On the 12 that didn't (routes down), one mastery row and one schedule row differ: `logit_mean` by about 1e-8 and `due_at` by one second. Main at mvp-0.44 shows the same after one plain miss with no FG1 code in the path: the live write uses the clock's sub-second time and replay uses the stored whole second. So this predates FG1, and a rebuild clears it. Not changed here.
+
+**The two door checks.**
+
+- `find_practice` returned 5 results on linear_algebra and 2 on probability, with the probe absent from both. It returned 0 on arxiv_v2, so that copy proves nothing.
+- The exam-candidate check doesn't prove the exclusion on any copy. With the identity set emptied, the probe still isn't a candidate on linear_algebra (3 candidates) or probability (1), and arxiv_v2 has none. The pin is `test_followup_single_use.py`, where a generated item would otherwise be reserved.
+
+### Gate for this section
+
+Targeted only; references, the whole gate and timing wait for the coordinator.
+
+- 31 test files, capped scope, `-n 6`: **601 passed, 0 failed**.
+- `--durable-sqlite` on the 13 `test_followup_*` files: **299 passed**.
+- `lint-imports --no-cache`: **42 kept, 0 broken**.

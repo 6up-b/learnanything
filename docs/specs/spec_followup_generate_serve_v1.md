@@ -143,6 +143,8 @@ The diagnosis card's poll must not record a reveal for content it hasn't shown.
 
 ### 6.1 While waiting
 
+*Amended Nov 4, 2026 (R12):* a plan serves a workflow's probe only if the miss came from the plan, which the attempt's own `plan_presentation_id` records, and today's plan is still open. In every other case, the queue screen and a completed or stopped plan among them, Next opens the probe. A wait still being written doesn't hold Next, since what it held is already released.
+
 The feedback screen shows at once, with a line: *Preparing a question on this…*. Pressing Next waits with the same words and offers *Continue without it*. Taking that option is logged and retires the probe.
 
 The owner didn't object to this proposal; it stands unless changed.
