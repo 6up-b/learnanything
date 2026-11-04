@@ -121,18 +121,19 @@ def router_wait() -> str:
 
 
 def plan_will_place(vault: Any, repository: Repository, attempt_id: str, *, clock: Clock | None = None) -> bool:
-    """R12: a plan serves a workflow's probe only if the miss came from the plan and today's plan
-    is still open to place it. The attempt says which by its own record, its validated
-    ``plan_presentation_id``, so every surface gets this without telling the server anything.
-    Otherwise Next opens the probe: nothing else would, and the answer would stay held."""
+    """R12, R13: a plan serves a workflow's probe only if the miss came from the plan, which the
+    attempt's own validated ``plan_presentation_id`` records, and placement itself says this probe
+    has a live placement or gets one at the next step. Otherwise Next opens it: nothing else would,
+    and the answer would stay held."""
 
-    from learnloop.daily_plan.engine import PlanEnv, latest_today, plan_active
+    from learnloop.daily_plan.engine import FOLLOWUP_GONE, PlanEnv, followup_placement, latest_today, plan_active
 
     attempt = repository.fetch_practice_attempt(attempt_id) or {}
     if not attempt.get("plan_presentation_id") or not plan_active(vault):
         return False
+    row = wf.attempt_workflow(repository, attempt_id) or {}
     record = latest_today(PlanEnv(vault=vault, repository=repository, clock=clock))
-    return record is not None and record.is_open
+    return followup_placement(record, str(row.get("practice_item_id") or "")) != FOLLOWUP_GONE
 
 
 def next_action(

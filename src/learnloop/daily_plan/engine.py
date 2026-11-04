@@ -3828,6 +3828,25 @@ def _insert_followups(env: PlanEnv, record: PlanRecord, built: _Pool) -> tuple[P
     return _reload(env, record.id), []
 
 
+#: Where a workflow's probe stands with a plan: placed and still to come, placed at the next step, or neither.
+FOLLOWUP_LIVE = "live"
+FOLLOWUP_DUE = "due"
+FOLLOWUP_GONE = "gone"
+
+
+def followup_placement(record: PlanRecord | None, practice_item_id: str) -> str:
+    """R13: the one answer to "will this plan serve this probe". Placement acts on it and Next reads
+    it, so they can't disagree. A probe the plan displaced stays gone: the plan doesn't take back
+    what a smaller budget took out, and Next opens it instead."""
+
+    if record is None or not record.is_open:
+        return FOLLOWUP_GONE
+    planned = next((item for item in record.items() if item.practice_item_id == practice_item_id), None)
+    if planned is None:
+        return FOLLOWUP_DUE
+    return FOLLOWUP_LIVE if planned.displaced_at is None and not planned.resolved else FOLLOWUP_GONE
+
+
 def _place_followup_probes(env: PlanEnv, record: PlanRecord, built: _Pool) -> tuple[PlanRecord, list[PoolItem]]:
     """FG1: the plan's end of a workflow whose router decision is made and whose item exists.
 
@@ -3847,7 +3866,6 @@ def _place_followup_probes(env: PlanEnv, record: PlanRecord, built: _Pool) -> tu
     rows = [row for row in followup_workflow.session_rows(env.repository, env.session_id) if row.get("practice_item_id")]
     if not rows:
         return record, []
-    taken = {item.practice_item_id for item in record.items()}
     forced: list[PoolItem] = []
     gate = getattr(env.policy, "restraint", None)
     now = env.now_iso()
@@ -3855,7 +3873,7 @@ def _place_followup_probes(env: PlanEnv, record: PlanRecord, built: _Pool) -> tu
     current = record.current_block()
     for row in rows:
         item_id = str(row["practice_item_id"])
-        if item_id in taken:
+        if followup_placement(record, item_id) != FOLLOWUP_DUE:
             continue
         practice_item = env.vault.practice_items.get(item_id)
         if practice_item is None:
@@ -5252,6 +5270,10 @@ __all__ = [
     "decide",
     "get_or_create_today",
     "keep_going",
+    "FOLLOWUP_DUE",
+    "FOLLOWUP_GONE",
+    "FOLLOWUP_LIVE",
+    "followup_placement",
     "latest_today",
     "learner_pick",
     "PICK_KEYED",

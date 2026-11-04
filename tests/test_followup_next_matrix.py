@@ -37,6 +37,8 @@ PLAN_CELLS = [
     ("queue", "open", None), ("queue", "complete", "before"), ("queue", "stopped", "before"),
     ("queue", "stopped", "after"), ("queue", "none", None),
     ("no_plan", "none", None),
+    # The plan the miss came from was yesterday's: none today.
+    ("plan", "none", "yesterday"),
 ]
 CELLS = [(*cell, state) for cell in PLAN_CELLS for state in ARMS]
 
@@ -75,8 +77,38 @@ class _Desk(SimpleNamespace):
             pass
 
 
-def _desk(tmp_path, monkeypatch, *, config="", arm=None):
-    paths, _vault, _repository = live_shape_vault(tmp_path, config=config)
+def _movable_clock(monkeypatch):
+    """The system clock, moved by the test: a day can pass between a miss and its Next."""
+
+    offset = {"days": 0}
+    real = SystemClock.now
+    monkeypatch.setattr(SystemClock, "now", lambda self: real(self) + timedelta(days=offset["days"]))
+    return offset
+
+
+def _more_items(paths, count):
+    """A longer plan: copies of the live item on other surfaces, so one displaced leaves work to do."""
+
+    from learnloop.vault.yaml_io import read_yaml, write_yaml
+
+    from tests.followup_serve_helpers import _item_path
+
+    path = _item_path(paths, LIVE_ITEM)
+    source = read_yaml(path)
+    for index in range(count):
+        payload = {**source, "id": f"pi_more_{index}", "surface_family": f"more_{index}",
+                   "prompt": f"Write the SVD of matrix number {index} and say why it holds."}
+        write_yaml(path.with_name(f"pi_more_{index}.yaml"), payload)
+
+
+def _desk(tmp_path, monkeypatch, *, config="", arm=None, items=0):
+    paths, vault, repository = live_shape_vault(tmp_path, config=config)
+    if items:
+        from learnloop.substrate.state_sync import sync_vault_state
+        from learnloop.vault.loader import load_vault
+
+        _more_items(paths, items)
+        sync_vault_state(load_vault(paths.root), repository)
     ctx = SidecarContext()
     ctx.load(paths.root)
     ctx.post_attempt_worker.autostart = False
@@ -170,14 +202,17 @@ def _the_one_thing(desk, attempt_id, *, plan_open):
 
 @pytest.mark.parametrize("surface, plan, closes, state", CELLS)
 def test_the_matrix(tmp_path, monkeypatch, surface, plan, closes, state):
+    clock = _movable_clock(monkeypatch)
     desk = _desk(tmp_path, monkeypatch, config=PLAN_OFF if surface == "no_plan" else "", arm=ARMS[state])
-    if plan != "none":
+    if plan != "none" or closes == "yesterday":
         desk.call("get_daily_plan", {"sessionId": desk.session})
     attempt_id = _miss(desk, surface)
     repository = desk.repository
     assert wf.attempt_workflow(repository, attempt_id)["state"] == wf.PENDING
     if closes == "before":
         _close(desk, plan)
+    if closes == "yesterday":
+        clock["days"] = 1
     fake = AuthorFake(same_predictions=state == "failed")
     if state == "preparing":
         action = desk.call("followup_next", {"attemptId": attempt_id})
@@ -191,7 +226,8 @@ def test_the_matrix(tmp_path, monkeypatch, surface, plan, closes, state):
         assert desk.call("followup_next", {"attemptId": attempt_id})["action"] == "continue"
     else:
         desk.jobs(fake)
-    desk.step(serve=False)  # the screen's fetch while feedback shows
+    if closes != "yesterday":
+        desk.step(serve=False)  # the screen's fetch while feedback shows
     if closes == "after":
         _close(desk, plan)
     row = wf.attempt_workflow(repository, attempt_id)
@@ -225,7 +261,8 @@ def test_a_queue_miss_with_a_plan_open_opens_the_probe_and_the_plan_doesnt_serve
     assert probe in identity.closed_probe_ids(desk.repository)
 
 
-def test_a_wait_outlasting_its_plan_comes_first_in_a_later_plan_and_its_answer_is_labelled(tmp_path, monkeypatch):
+def test_a_wait_outlasting_its_plan_is_served_by_a_later_plan_with_its_answer_labelled(tmp_path, monkeypatch):
+    clock = _movable_clock(monkeypatch)
     desk = _desk(tmp_path, monkeypatch, arm=router.WAIT)
     desk.call("get_daily_plan", {"sessionId": desk.session})
     attempt_id = _miss(desk, "plan")
@@ -235,3 +272,98 @@ def test_a_wait_outlasting_its_plan_comes_first_in_a_later_plan_and_its_answer_i
     assert row["state"] == wf.WAITING and row["exposed_at"] and row["feedback_released_at"]
     assert wf.probe_answer_exposed(desk.repository, row["presentation_id"]) == "followup_feedback_released_before_probe"
     assert desk.call("followup_next", {"attemptId": attempt_id})["action"] == "continue"
+
+    clock["days"] = 1
+    desk.ctx.reload(maintenance=False)
+    desk.call("get_daily_plan", {"sessionId": desk.session})
+    seen = []
+    for _ in range(12):
+        step = desk.step(serve=True)
+        seen.append(step.get("item"))
+        if step.get("item") == row["practice_item_id"] or step.get("kind") != "item":
+            break
+        desk.call("next_plan_item", {"sessionId": desk.session, "skipPracticeItemId": step["item"]})
+    assert seen[-1] == row["practice_item_id"], seen
+    contract = desk.call("get_probe_contract", {"practiceItemId": row["practice_item_id"]})
+    assert contract["active"] is True and contract["presentationId"] == row["presentation_id"]
+    desk.call("submit_attempt", {
+        "sessionId": desk.session, "practiceItemId": row["practice_item_id"], "answerMd": "An answer.",
+        "attemptType": "diagnostic_probe", "latencySeconds": 40, "probePresentationId": contract["presentationId"],
+    })
+    # §6.0: the label held, so its answer couldn't close the factor.
+    assert wf.attempt_workflow(desk.repository, attempt_id)["state"] == wf.SETTLED
+    observation = desk.repository.causal_discriminating_observations(factor_id=row["factor_id"])[0]
+    assert not observation["admitted"]
+    assert desk.repository.unresolved_cause_factor(row["factor_id"])["status"] == "open"
+
+
+# -- F21 and R13: Next reads placement itself ------------------------------------------------------
+
+
+def _displaced_probe(tmp_path, monkeypatch):
+    """Codex's reproduction: the fetch places a ready probe, then the minutes are cut until it's displaced."""
+
+    desk = _desk(tmp_path, monkeypatch, arm=router.ASK_NOW, items=12)
+    desk.call("get_daily_plan", {"sessionId": desk.session})
+    attempt_id = _miss(desk, "plan")
+    desk.jobs()
+    desk.ctx.reload(maintenance=False)
+    row = wf.attempt_workflow(desk.repository, attempt_id)
+    assert desk.step(serve=False)["item"] == row["practice_item_id"]  # placed, not served
+    for minutes in (30, 25, 20, 15, 12, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1):
+        desk.call("set_plan_minutes", {"minutes": minutes, "sessionId": desk.session})
+        record = _today(desk)
+        planned = next(item for item in record.items() if item.practice_item_id == row["practice_item_id"])
+        if planned.displaced_at:
+            return desk, attempt_id, row, record
+    raise AssertionError("the probe was never displaced")
+
+
+def _today(desk):
+    from learnloop.daily_plan.engine import PlanEnv, latest_today
+
+    vault, repository = desk.ctx.require_vault()
+    return latest_today(PlanEnv(vault=vault, repository=repository))
+
+
+def test_f21_a_displaced_unserved_probe_makes_next_open_it(tmp_path, monkeypatch):
+    desk, attempt_id, row, record = _displaced_probe(tmp_path, monkeypatch)
+    assert record.is_open  # the plan went on without it, which is what left it unserved
+    assert desk.step(serve=False).get("item") != row["practice_item_id"]
+    action = desk.call("followup_next", {"attemptId": attempt_id})
+    assert action["action"] == "open" and action["practiceItemId"] == row["practice_item_id"]
+    _answer_the_probe(desk, row["practice_item_id"], attempt_id)
+
+
+def test_f21_displacement_then_the_plan_completing_still_serves_it(tmp_path, monkeypatch):
+    desk, attempt_id, row, _record = _displaced_probe(tmp_path, monkeypatch)
+    _finish_the_plan(desk)
+    assert not _today(desk).is_open
+    action = desk.call("followup_next", {"attemptId": attempt_id})
+    assert action["action"] == "open"
+    _answer_the_probe(desk, row["practice_item_id"], attempt_id)
+
+
+def test_r13_next_and_placement_read_one_predicate(tmp_path, monkeypatch):
+    from learnloop.daily_plan.engine import FOLLOWUP_DUE, FOLLOWUP_GONE, FOLLOWUP_LIVE, PlanEnv, followup_placement, latest_today
+
+    desk = _desk(tmp_path, monkeypatch, arm=router.ASK_NOW)
+    desk.call("get_daily_plan", {"sessionId": desk.session})
+    attempt_id = _miss(desk, "plan")
+    desk.jobs()
+    desk.ctx.reload(maintenance=False)
+    vault, repository = desk.ctx.require_vault()
+    row = wf.attempt_workflow(repository, attempt_id)
+
+    def now():
+        return followup_placement(latest_today(PlanEnv(vault=vault, repository=repository)), row["practice_item_id"])
+
+    assert now() == FOLLOWUP_DUE
+    desk.step(serve=False)
+    assert now() == FOLLOWUP_LIVE
+    for minutes in (30, 25, 20, 15, 12, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1):
+        desk.call("set_plan_minutes", {"minutes": minutes, "sessionId": desk.session})
+        if now() != FOLLOWUP_LIVE:
+            break
+    assert now() == FOLLOWUP_GONE
+    assert followup_placement(None, row["practice_item_id"]) == FOLLOWUP_GONE
