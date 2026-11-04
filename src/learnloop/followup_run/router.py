@@ -89,7 +89,9 @@ def hard_refusal(vault: Any, repository: Repository, row: Mapping[str, Any], *, 
     )
     if preference != "allow":
         return f"learner_{preference}"
-    if pending_machine_checks_for_factor(repository, factor_id=factor_id):
+    # The factor's checks and those on the whole learning object, which name no factor.
+    if pending_machine_checks_for_factor(repository, factor_id=factor_id,
+                                         learning_object_id=str(row["learning_object_id"])):
         return "pending_machine_checks"
     existing = repository.open_probe_episode(str(row["learning_object_id"]))
     if existing is not None and str(existing.origin or "") != causal_origin(factor_id):

@@ -1611,3 +1611,63 @@ def test_f7_verify_the_scan_catches_each_kind_of_writer(source):
 ])
 def test_f7_verify_the_scan_leaves_what_isnt_a_writer(source):
     assert _terminal_state_writers(source, relative="learnloop/elsewhere.py") == []
+
+
+# -- Final verify, F9: ruling R2, the blocking-check lookup gets the workflow's learning object -------
+
+
+def _blocking_check_on_the_object(repository, learning_object_id):
+    from learnloop.diagnosis.causal_orchestrator import MACHINE_CHECK_REPAIR_MAPPING
+
+    repository.enqueue_causal_machine_check(check_id="mc_blocks_object", kind=MACHINE_CHECK_REPAIR_MAPPING, payload={},
+                                            source="test", learning_object_id=learning_object_id, clock=CLOCK)
+
+
+def test_f9_verify_a_retry_is_refused_by_a_check_on_the_whole_learning_object(tmp_path):
+    """Codex's reproduction: the check names the object and no factor, and the retry reached authoring."""
+
+    vault, repository, _paths = rival_causes_vault(tmp_path)
+    _result, outcome = miss_with_rivals(vault, repository)
+    run_jobs(vault, repository, clients=author_clients(AuthorFake(error=RuntimeError("provider down"))))
+    first = wf.get(repository, outcome.workflow_id)
+    assert first["chosen_ref"] == router.ASK_NOW and first["factor_id"]
+    _blocking_check_on_the_object(repository, first["learning_object_id"])
+
+    fake = AuthorFake()
+    run_jobs(vault, repository, clients=author_clients(fake), clock=LATER)
+    assert fake.calls == 0
+    assert wf.get(repository, outcome.workflow_id)["state"] == wf.REFUSED
+    assert _last_reason(repository, outcome.workflow_id) == "pending_machine_checks"
+    assert not identity.generated_probe_ids(repository)
+
+
+def test_f9_verify_a_check_on_the_object_that_arrives_during_authoring_stops_the_offer(tmp_path):
+    vault, repository, _paths = rival_causes_vault(tmp_path)
+    _result, outcome = miss_with_rivals(vault, repository)
+
+    class CheckArrives(AuthorFake):
+        def run_followup_probe_authoring(self, context):
+            _blocking_check_on_the_object(repository, wf.get(repository, outcome.workflow_id)["learning_object_id"])
+            return super().run_followup_probe_authoring(context)
+
+    fake = CheckArrives()
+    run_jobs(vault, repository, clients=author_clients(fake))
+    assert fake.calls == 1
+    row = wf.get(repository, outcome.workflow_id)
+    assert row["state"] == wf.REFUSED and not row["practice_item_id"] and not row["presentation_id"]
+    assert _last_reason(repository, outcome.workflow_id) == "pending_machine_checks"
+    assert not identity.generated_probe_ids(repository) - identity.retired_probe_ids(repository)
+
+
+def test_f9_verify_a_check_on_another_object_or_of_a_non_blocking_kind_refuses_nothing(tmp_path):
+    from learnloop.diagnosis.causal_orchestrator import MACHINE_CHECK_INSTRUMENT_COMMISSIONING
+
+    vault, repository, _paths = rival_causes_vault(tmp_path)
+    _result, outcome = miss_with_rivals(vault, repository)
+    row = wf.get(repository, outcome.workflow_id)
+    _blocking_check_on_the_object(repository, "lo_some_other_topic")
+    repository.enqueue_causal_machine_check(check_id="mc_debt", kind=MACHINE_CHECK_INSTRUMENT_COMMISSIONING, payload={},
+                                            source="test", learning_object_id=row["learning_object_id"], clock=CLOCK)
+    fake = AuthorFake()
+    run_jobs(vault, repository, clients=author_clients(fake))
+    assert fake.calls == 1 and wf.get(repository, outcome.workflow_id)["state"] == wf.READY
