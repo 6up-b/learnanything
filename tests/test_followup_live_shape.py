@@ -10,8 +10,10 @@ from learnloop.db.stores import followup_serve as store
 from learnloop.followup_serve import workflow as wf
 
 from tests.followup_serve_helpers import (
+    LIVE_ITEM,
     OFF,
     TAG,
+    TASK_FEATURES,
     AuthorFake,
     BlindRivalClient,
     author_clients,
@@ -101,3 +103,46 @@ def test_h_other_a_factor_that_lost_its_arm_before_the_tag_gets_it_back_on_the_l
     run_jobs(vault, repository, clients=author_clients(fake))
     assert fake.calls == 1
     assert _has_arm(_stored_refs(repository, factor_id))
+
+
+def test_audit_an_item_with_task_features_passes_the_audit_and_reaches_ready(tmp_path):
+    paths, vault, repository = live_shape_vault(tmp_path)
+    assert vault.practice_items[LIVE_ITEM].task_features == TASK_FEATURES
+    _result, outcome = live_miss(vault, repository, BlindRivalClient())
+    fake = AuthorFake()
+    run_jobs(vault, repository, clients=author_clients(fake))
+    row = wf.get(repository, outcome.workflow_id)
+    assert "manipulation_audit_rejected" not in _reasons(repository, outcome.workflow_id)
+    assert fake.calls == 1 and row["state"] == wf.READY
+
+
+def test_audit_task_features_are_declared_as_the_systems_and_nothing_undeclared_slips_through(tmp_path):
+    import json
+
+    from learnloop.followup_run.authoring import AUTHOR_AXES
+
+    paths, vault, repository = live_shape_vault(tmp_path)
+    live_miss(vault, repository, BlindRivalClient())
+    run_jobs(vault, repository, clients=author_clients(AuthorFake()))
+    with repository.connection() as connection:
+        contract, diff, status = connection.execute(
+            "SELECT contract_json, structural_diff_json, status FROM probe_manipulation_audits ORDER BY rowid DESC"
+        ).fetchone()
+    contract, diff = json.loads(contract), json.loads(diff)
+    assert status == "passed" and diff["undeclared_differences"] == []
+    # Only what this item has: a feature it doesn't carry isn't declared to have changed.
+    assert set(TASK_FEATURES) <= set(contract["incidental_changes"])
+    assert not set(TASK_FEATURES) & AUTHOR_AXES
+    assert "unrelated_feature" not in contract["incidental_changes"]
+
+
+def test_audit_an_item_with_no_task_features_declares_none(tmp_path):
+    import json
+
+    paths, vault, repository = live_shape_vault(tmp_path, task_features=False)
+    live_miss(vault, repository, BlindRivalClient())
+    run_jobs(vault, repository, clients=author_clients(AuthorFake()))
+    with repository.connection() as connection:
+        contract = json.loads(connection.execute(
+            "SELECT contract_json FROM probe_manipulation_audits ORDER BY rowid DESC").fetchone()[0])
+    assert not set(TASK_FEATURES) & set(contract["incidental_changes"])

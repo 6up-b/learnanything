@@ -18,7 +18,7 @@ measurement. Bundles predict over the criterion features the deterministic senso
 
 from __future__ import annotations
 
-from collections.abc import Mapping
+from collections.abc import Iterable, Mapping
 from dataclasses import dataclass, field
 import json
 from typing import Any
@@ -106,13 +106,28 @@ def blind_generator(probe: AuthoredProbe) -> Any:
     return generate
 
 
-def manipulation_contract(probe: AuthoredProbe) -> dict[str, Any]:
+def _task_feature_axes(vault: Any, repository: Repository, factor_id: str, practice_item_id: str) -> set[str]:
+    """Each task feature of the missed item or the new one is an axis of the audit's diff, and
+    none is the author's to declare (``AUTHOR_AXES``). The system writes these: a new question
+    doesn't inherit the missed one's task features."""
+
+    factor = repository.unresolved_cause_factor(factor_id) or {}
+    attempt = repository.fetch_practice_attempt(str(factor.get("attempt_id") or "")) or {}
+    axes: set[str] = set()
+    for item_id in (str(attempt.get("practice_item_id") or ""), practice_item_id):
+        features = getattr(vault.practice_items.get(item_id), "task_features", None)
+        if isinstance(features, Mapping):
+            axes |= {str(axis) for axis in features}
+    return axes
+
+
+def manipulation_contract(probe: AuthoredProbe, *, system_axes: Iterable[str] = ()) -> dict[str, Any]:
     authored = probe.authored
     return {
         "intended_manipulations": [
             {"axis": entry.axis, "rationale": entry.rationale} for entry in authored.intended_manipulations
         ],
-        "incidental_changes": sorted({*authored.incidental_changes, *SYSTEM_AXES}),
+        "incidental_changes": sorted({*authored.incidental_changes, *SYSTEM_AXES, *system_axes}),
         "held_constant": sorted(set(authored.held_constant)),
     }
 
@@ -310,7 +325,10 @@ def commission_only(
         vault, repository, factor_id=factor_id, candidate_practice_item_id=practice_item_id,
         blind_generator=blind_generator(probe), model_revision=str(getattr(client, "model", None) or "followup_probe_author"),
         outcome_schema_version=OUTCOME_SCHEMA, require_adversarial=False, require_divergence=False,
-        manipulation_contract=manipulation_contract(probe), clock=clock,
+        manipulation_contract=manipulation_contract(
+            probe, system_axes=_task_feature_axes(vault, repository, factor_id, practice_item_id),
+        ),
+        clock=clock,
     )
     if result["outcome"] != "commissioned":
         raise AdmissionFailed(str(result["outcome"]))
@@ -346,7 +364,10 @@ def commission_and_pin(
         vault, repository, factor_id=factor_id, candidate_practice_item_id=practice_item_id,
         blind_generator=blind_generator(probe), model_revision=str(model or "followup_probe_author"),
         outcome_schema_version=OUTCOME_SCHEMA, require_adversarial=False, require_divergence=False,
-        manipulation_contract=manipulation_contract(probe), clock=clock,
+        manipulation_contract=manipulation_contract(
+            probe, system_axes=_task_feature_axes(vault, repository, factor_id, practice_item_id),
+        ),
+        clock=clock,
     )
     if result["outcome"] != "commissioned":
         raise AdmissionFailed(str(result["outcome"]), detail={"commissioning": result["outcome"]})
