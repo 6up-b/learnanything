@@ -948,3 +948,60 @@ Targeted only, per the brief; the full gate comes at landing.
 - `lint-imports --no-cache`, empty env: **42 kept, 0 broken**.
 - Not run yet: the reference catalogs. Moved source lines leave them stale until step 3 of the landing regenerates them.
 - No model call; every model-backed test uses fakes.
+
+## What the landing smoke found on real copies
+
+The FG1 tests ran a joint vault whose items have no task features. Real vaults are blind and their items do have them, so these reached the smoke rather than a test. New fixture: `live_shape_vault`, `BlindRivalClient`, `live_miss` in `tests/followup_serve_helpers.py`; tests in `tests/test_followup_live_shape.py`. Each fix was reproduced first, on the fixture as well as on a copy.
+
+| Fix | Commit | Reproduced | What changed |
+|---|---|---|---|
+| The `H_OTHER` arm | `8a6a50b24f` | `factor_not_probeable`, no question, on both real open factors and every fresh miss | A second `materialize_causal_episode` rewrote a factor's refs from the arms with a statement, and the open arm has none. At the tag the rewrite keeps it, and `author_probe` restores it on a row written earlier |
+| Task features | `c9bc2c4f23` | `manipulation_audit_rejected` after one authoring call, for 32 of 32, 96 of 99 and 46 of 77 items | The audit diffs each task feature as an axis, and the author may declare only `AUTHOR_AXES`. The contract now names those axes as incidental, read from the missed item and the new one |
+| The seven failures | `6b384c0278` | See below | |
+
+**The older offer path ("Take the quick check") fails the same way.** With divergent causes, `commission_probe_instrument` returns `factor_not_probeable` on a live factor. It is fixed at the source behind `generate_and_serve_on`, so below mvp-0.45 and with the switch off the row is as it was, and a test pins that. At the tag, commissioning gets past the arm. A row written before the tag keeps the old failure on that path until `rebuild-derived-state` rewrites it, which the owner runs after the upgrade; checked on both real open factors. The lane restores the arm anyway.
+
+**The seven failures of the first full run:**
+
+| Test | Cause | Change |
+|---|---|---|
+| `test_ad23_inversion::test_the_codes_vocabulary_covers_the_incumbents_reasons` | AD's closed pool vocabulary lacked the two `generated_probe_*` gates, so a refusal reached AD as `pool:other` | The two codes added |
+| `test_library_asks_migration` (2), `test_help_assists_schema` (2) | They imported `FOLLOWUP_ADDED_OBJECTS` and never used it | Added to their union: those objects are migration 241's own, by name |
+| `test_e0_isolation::test_the_import_linter_contract_names_every_production_package` | The experiments contract didn't cover the three new packages, a real gap | `followup_run`, `followup_serve`, `followup_serve_upgrade` added |
+| `test_followup_router::test_a_wait_keeps_its_room_and_next_continues_the_block` | No neighbour. Alone, 1 run in 60 fails: an unpinned draw leaves a one-item first block, so that advance is the boundary, where the fixture's made-up factor rightly retires the wait | The draw is pinned, and the test asserts the block has more than one item. The behaviour is unchanged |
+
+## The owner's ruling of Nov 4, replacing R3
+
+Commits `64883ad765`, `1aeac0b66f`, `34938523e9`. Tests: `tests/test_followup_reserved_only.py` (14 of the first 16 failed on the old rule). Spec §3.1 and §8 amended, with the date.
+
+- **What stops a probe now.** A cause, or a generated question, that reproduces a question still reserved or withheld for an exam or an assessment. `causes_match_reserved` runs before the router's card and the author's prompt, over a cause's statement and the words of its typed target. `admission.persist_item` runs over the generated stem, key, rubric and hints before anything is written, and before the structural gate, which would otherwise call an exact echo a duplicate. The mint and batch paths refuse the same way at the tag.
+- **What no longer does.** Past exam answers, finished-sitting work, and a missing, incomplete or stale record. `PastWork.exam_reason`, `nothing_exam_to_quote`, `CAUSE_UNRECORDED`, `causes_refusal`, `causes_from_exam_material` and `causes_not_accounted_for` are gone. The admission receipt keeps `causes_record`: per cause, its record's state and how many answers, exam answers, items, sources and questions it names. Counts, no words.
+- **The new reason codes.** `cause_matches_reserved_question`, `question_matches_reserved_question`.
+- **The list.** `withheld_items`' reasons `WITHHELD_EXAM` and `WITHHELD_RESERVED`, and held-out spans. No second list. A check waiting or a diagnostic probe isn't reserved, as before.
+- **Context.** `build_context` leaves out an item's stem, the source question and the objective's summary when they quote a reserved question. Keys and rubrics of reserved items never entered it.
+- **A sitting's own misses.** They can take the probe lane after `finish_exam`, inside the cap, with feedback not held, since the exam's report shows it. Nothing interrupts a sitting, because the pipeline runs at its end. Generated probes stay out of exam pools (`test_followup_single_use.py`).
+
+**The measure.** The repo's own gate, `practice_leakage.check_leakage`: contiguous six-word shingles and distinctive numbers. Two additions, neither a new constant. A whole reserved stem counts, because a stem under six words has no shingle to match. And what an ordinary item already shows is subtracted, because the learner sees it anyway: this removes 57 of 2057 reserved shingles on linear_algebra, mostly formulas like `(u+v)+w = u+(v+w)`. `DEFAULT_SHINGLE_N` is now a registered `keep`.
+
+- **It catches:** a reproduced phrase of six words or more, a whole stem, and a distinctive number. On linear_algebra's real questions, 15 of 15 stems and 15 of 15 keys match themselves.
+- **It misses:** a paraphrase or a restatement with the same meaning, and a phrase of a reserved question that an ordinary item also shows.
+- **It over-matches.** As a proxy for a new question, leave-one-out over linear_algebra's 84 ordinary items: 21 would match at order 6, all on topics with a reserved question, usually on a notation or subject phrase (`where f is r or c`). 6 at order 8, 2 at 10, 0 at 12. Real causes matching: 0 of 9. A false match on a question costs one paid authoring call and that miss's question. The order stays 6, the ingest gate's own value, and changing it is the owner's call.
+
+**`linear_algebra`, fresh misses after the ruling:** 14 of 14 reach a question, against 0 of 14 before, and the machine check stopped 0. Those 14 use a fake author and fake causes. On the real copy, a cause quoting a real reserved stem settles as `cause_matches_reserved_question` with no authoring call, and an author echoing one settles as `question_matches_reserved_question` with no identity written; both released feedback and Next went on.
+
+## Corrections to what was reported earlier
+
+- **"An attempt with 7 causes" was wrong.** That attempt has 7 versions of 1 cause: 7 rows, one `episode_key`. It is from July 23, before the split diagnosis, with no model and no agent run.
+- **"17 reserved items on linear_algebra" was wrong.** It counted other holds. There are 15 exam or held-out questions, plus 2 checks waiting and 1 diagnostic check.
+- **Slips.** A bare `sqlite3` read of `schema_migrations` on a smoke copy, before the wrapper. A `git stash list` inside a chained command while committing, in the worktree, with its output discarded: the brief forbids it even in that form. Neither changed anything.
+
+The references are stale until the gate's regeneration: code moved after `ec8343061b`.
+
+### Gate for this section
+
+Targeted only; the full gate hasn't resumed. The earlier full run was on `ec8343061b`, before these fixes.
+
+- 27 test files (all `test_followup_*`, table roles, coordinated migrations, architecture, the registry audit, the seven failures' files, the label audit, CLI help snapshot, process-launch list, causal attribution, commissioning, acceptance, probe mint, public-tip guards), capped scope, `-n 6`: **475 passed, 0 failed**.
+- `--durable-sqlite` on the `test_followup_*` files: **205 passed**.
+- `lint-imports --no-cache`: **42 kept, 0 broken**.
+- No model call; every model-backed test and smoke run uses fakes.
