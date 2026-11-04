@@ -579,13 +579,21 @@ class CardGatherer:
         if now is None:
             return {}
         since = (now - timedelta(days=7)).strftime("%Y-%m-%dT%H:%M:%SZ")
-        row = connection.execute(
+        sql = (
             "SELECT COUNT(*) AS attempts, COUNT(DISTINCT session_id) AS sessions, "
             "COUNT(DISTINCT substr(created_at, 1, 10)) AS active_days, COALESCE(SUM(hints_used), 0) AS hints, "
             "COALESCE(SUM(CASE WHEN primed THEN 1 ELSE 0 END), 0) AS assisted_redos "
-            "FROM practice_attempts WHERE created_at >= ? AND created_at < ?",
-            (since, now_iso),
-        ).fetchone()
+            "FROM practice_attempts WHERE created_at >= ? AND created_at < ?"
+        )
+        params: tuple[str, ...] = (since, now_iso)
+        known = self._attempt_time(connection)
+        if known != "created_at":
+            # RO1 §5.3 (codex review F1): the week's activity is still the work done in it
+            # (created_at), counting only what the router could know at the decision; the
+            # predecessor's SQL otherwise, byte for byte.
+            sql += f" AND {known} < ?"
+            params = (*params, now_iso)
+        row = connection.execute(sql, params).fetchone()
         signals = {
             "attempts": int(row["attempts"]), "sessions": int(row["sessions"]), "active_days": int(row["active_days"]),
             "hints_used": int(row["hints"]), "assisted_redos": int(row["assisted_redos"]),

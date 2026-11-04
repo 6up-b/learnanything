@@ -233,3 +233,70 @@ def test_the_router_cards_decision_time_reads_use_availability_at_the_tag(tmp_pa
     with repository.connection() as connection:
         later = gatherer._attempts(connection, ["lo_svd_definition"], "2026-05-20T00:00:00Z")
     assert [row["practice_item_id"] for row in later] == ["pi_exam_q3", "pi_exam_q2", "pi_exam_q1"]
+
+
+def _card_inputs(loaded, repository, now_iso: str):
+    from learnloop.daily_plan.router_card import CardGatherer
+    from learnloop.daily_plan.types import BlockCandidate, PlanState
+
+    state = PlanState(plan_id="p", kind="normal", minutes_budget=25.0, minutes_left=25.0,
+                      lane_minutes_left={"maintain": 10.0}, days_since_last_activity=0, streak_days=1,
+                      current_block_id=None)
+    feasible = [BlockCandidate(
+        candidate_id="maintain:x", lane="maintain", action="maintain", subtype=None,
+        learning_object_ids=("lo_svd_definition",), item_ids=("pi_exam_q1",), reading=None, est_minutes=4.0,
+        planner_value=1.0, reason="review", annotations={"reason_code": "review", "reversible": True},
+    )]
+    return CardGatherer(loaded, repository, session_id="s1").inputs(state, feasible, now_iso=now_iso)
+
+
+#: Inside the exam's week, before its import (codex review F1): the card's week of activity is by when
+#: the work happened, and at the tag it counts only what was known at the decision.
+WEEK_OF_THE_EXAM = "2026-05-05T09:00:00Z"
+
+
+@pytest.mark.parametrize("version, toml, sees_exam", [
+    (TAG, None, False),
+    (TAG, "[router_objective]\navailable_at_reads = false\n", True),
+    (PREDECESSOR, None, True),
+], ids=["tag", "off", "below"])
+def test_the_whole_card_reads_no_exam_before_its_import_at_the_tag(tmp_path, version, toml, sees_exam):
+    _root, loaded, repository = _seeded(tmp_path, version, toml)
+    before = _card_inputs(loaded, repository, WEEK_OF_THE_EXAM)
+    exam = before.learning_objects["lo_svd_definition"]
+    if sees_exam:
+        # The predecessor, and the switch off: the exam rows enter the week's activity and the evidence.
+        assert (before.interaction_7d["attempts"], before.interaction_7d["active_days"]) == (3, 1)
+        assert exam["evidence"]["attempts"] == 3 and before.decision["as_of_attempt_id"] is not None
+    else:
+        # The tag: nothing the router could not have known reaches the card.
+        assert (before.interaction_7d["attempts"], before.interaction_7d["sessions"],
+                before.interaction_7d["active_days"], before.interaction_7d["hints_used"],
+                before.interaction_7d["assisted_redos"]) == (0, 0, 0, 0, 0)
+        assert exam["evidence"] == {} and exam["last_attempt_at"] is None
+        assert before.decision["as_of_attempt_id"] is None and before.recent_work == []
+    # After the import every gate reads the exam as evidence, dated when it happened: its week is over,
+    # so the week's activity counts none of it, under every gate alike.
+    after = _card_inputs(loaded, repository, "2026-05-20T00:00:00Z")
+    assert after.learning_objects["lo_svd_definition"]["evidence"]["attempts"] == 3
+    assert after.learning_objects["lo_svd_definition"]["last_attempt_at"].startswith(EXAM_DATE)
+    assert after.interaction_7d["attempts"] == 0 and after.interaction_7d["active_days"] == 0
+
+
+def test_the_weeks_activity_counts_an_import_inside_its_week_once_it_is_known(tmp_path):
+    """The window stays by occurrence time: an exam imported within its week counts on the day it
+    happened, once the decision is after the import."""
+
+    from learnloop.daily_plan.router_card import CardGatherer
+
+    vault_root, loaded, repository = _exam_vault(tmp_path)
+    set_algorithm_version(loaded_paths(vault_root), TAG)
+    seed_exam_attempts(load_vault(vault_root), repository, outcomes=_outcomes(),
+                       clock=FrozenClock(datetime(2026, 5, 3, 12, 0, tzinfo=UTC)))
+    loaded = load_vault(vault_root)
+    gatherer = CardGatherer(loaded, repository)
+    with repository.connection() as connection:
+        between = gatherer._interaction(connection, "2026-05-02T12:00:00Z", [])
+        known = gatherer._interaction(connection, "2026-05-04T12:00:00Z", [])
+    assert between["attempts"] == 0
+    assert (known["attempts"], known["active_days"]) == (3, 1)
