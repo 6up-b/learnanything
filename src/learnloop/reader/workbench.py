@@ -422,10 +422,12 @@ def resumable_session(
     return None
 
 
-def _record_book_exposure(repository: Any, session: Mapping[str, Any], clock: Clock | None = None) -> list[str]:
+def _record_book_exposure(repository: Any, session: Mapping[str, Any], clock: Clock | None = None,
+                          *, exposure_fields: Mapping[str, Any] | None = None) -> list[str]:
     """The book shown beside the problem exposes its anchored spans (spec §5.4,
     G10): one ``source_exposure_events`` row per span, context ``reader``, as
-    opening the source records today. Nothing without a Reader anchor."""
+    opening the source records today. Nothing without a Reader anchor.
+    ``exposure_fields``: RO0 row 4's columns (``router_objective.exposure.fields``)."""
 
     extraction_id = session.get("extraction_id")
     spans = _spans(session)
@@ -458,6 +460,7 @@ def _record_book_exposure(repository: Any, session: Mapping[str, Any], clock: Cl
             "page": getattr(block, "page", None),
             "locator": format_block_span(extraction_id, span),
             "section_path": list(getattr(block, "section_path", None) or []),
+            **dict(exposure_fields or {}),
         }, clock=clock))
     return ids
 
@@ -562,6 +565,7 @@ def _resume_existing(
     carried_book: bool = False,
     serve: Mapping[str, str | None] | None = None,
     carried_earlier: bool = False,
+    exposure_fields: Mapping[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Resume an existing session on the surface asking for it.
 
@@ -617,7 +621,7 @@ def _resume_existing(
     _log(repository, row, "workbench_resumed", clock, via=entry,
          **({"moved_from": moved_from, "book_visible": bool(row["source_visible"])} if moved_from else {}))
     if becomes_visible:
-        _record_book_exposure(repository, row, clock)
+        _record_book_exposure(repository, row, clock, exposure_fields=exposure_fields)
     return row
 
 
@@ -643,6 +647,7 @@ def open_session(
     clock: Clock | None = None,
     carried_earlier: bool = False,
     draft_submission_ids: Iterable[str] = (),
+    exposure_fields: Mapping[str, Any] | None = None,
 ) -> tuple[dict[str, Any], bool]:
     """Open a session (or resume the open one for the same item or selection).
 
@@ -694,7 +699,7 @@ def open_session(
             row = _resume_existing(
                 repository, connection, existing, origin=origin, entry=entry, extraction_id=extraction_id,
                 span_ids=spans, source_visible=source_visible, carried=carried, now=now, clock=clock,
-                carried_book=carried_book, serve=serve, carried_earlier=carried_earlier,
+                carried_book=carried_book, serve=serve, carried_earlier=carried_earlier, exposure_fields=exposure_fields,
             )
             _handed(repository, connection, row, draft_submission_ids, clock)
             return row, True
@@ -729,7 +734,7 @@ def open_session(
         _log(repository, row, "workbench_opened", clock, book_visible=bool(row["source_visible"]),
              import_status=import_status)
         if row["source_visible"]:
-            _record_book_exposure(repository, row, clock)
+            _record_book_exposure(repository, row, clock, exposure_fields=exposure_fields)
         _handed(repository, connection, row, draft_submission_ids, clock)
     return row, False
 
@@ -748,6 +753,7 @@ def resume_session(
     clock: Clock | None = None,
     carried_earlier: bool = False,
     draft_submission_ids: Iterable[str] = (),
+    exposure_fields: Mapping[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Resume a named session on the surface asking ("resume your steps", the
     ``✎`` mark, the rail): an abandoned one is reopened, and a move to another
@@ -774,7 +780,7 @@ def resume_session(
         row = _resume_existing(
             repository, connection, session, origin=origin, entry=entry, extraction_id=extraction_id,
             span_ids=[str(span) for span in span_ids], source_visible=None, carried=carried, now=now, clock=clock,
-            carried_book=carried_book, serve=serve, carried_earlier=carried_earlier,
+            carried_book=carried_book, serve=serve, carried_earlier=carried_earlier, exposure_fields=exposure_fields,
         )
         _handed(repository, connection, row, draft_submission_ids, clock)
         return row
@@ -941,7 +947,8 @@ def save_step(
     return _step_payload(chain)
 
 
-def set_book(repository: Any, session_id: str, visible: bool, *, clock: Clock | None = None) -> dict[str, Any]:
+def set_book(repository: Any, session_id: str, visible: bool, *, clock: Clock | None = None,
+             exposure_fields: Mapping[str, Any] | None = None) -> dict[str, Any]:
     """Show or hide the book (``Ctrl+Shift+B``). Before the first step this is
     free; after it, a showing counts the book from then on (spec §5.4)."""
 
@@ -965,7 +972,7 @@ def set_book(repository: Any, session_id: str, visible: bool, *, clock: Clock | 
         _log(repository, session, "book_visibility_changed", clock, visible=bool(visible),
              counts=book_counted(session), after_first_step=has_work)
         if visible:
-            _record_book_exposure(repository, session, clock)
+            _record_book_exposure(repository, session, clock, exposure_fields=exposure_fields)
     return session
 
 

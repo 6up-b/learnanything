@@ -171,6 +171,7 @@ def staged_next_action(
     clock: Clock | None = None,
     requested_to_state: str | None = None,
     requested_reason: str | None = None,
+    ad_fields: Any = None,
 ) -> LiveNextAction:
     """Consult the staged policy LIVE for a P2 run's next action (design §C step 3).
 
@@ -254,7 +255,7 @@ def staged_next_action(
         )
     _log_staged_decision(
         vault, repository, result, snapshot=snapshot, signals=signals, canonical=canonical,
-        action=action, run_id=run_id, commitment_id=commitment_id, clock=clock,
+        action=action, run_id=run_id, commitment_id=commitment_id, clock=clock, ad_fields=ad_fields,
     )
     return action
 
@@ -271,6 +272,7 @@ def _log_staged_decision(
     run_id: str,
     commitment_id: str | None,
     clock: Clock | None,
+    ad_fields: Any = None,
 ) -> None:
     """Router R1: one ``router_decisions`` row per live staged P2 decision.
 
@@ -314,9 +316,11 @@ def _log_staged_decision(
         )
         # Data capture A1: this path keeps no scheduler build; its own row is what it considered.
         material = prefilter.decision_row_material(row, versions={})
-        # RO0 rows 9 and 13: this path reads no adaptive difficulty, and its row says so.
+        # RO0 rows 9 and 13, read before the decision's transaction opens (the numbers can't be replayed: Codex review F3).
+        # ``ad_fields``: adaptive difficulty's reader, handed in by the caller because this package stays below it.
         state = decision_state.prepare(vault, repository, candidates=json.loads(row["candidates_json"]),
-                                       session_id=row.get("session_id"), forgetting_curve=forgetting_curve, clock=clock)
+                                       session_id=row.get("session_id"), forgetting_curve=forgetting_curve, clock=clock,
+                                       ad_fields=ad_fields)
 
         def alongside(connection: Any) -> None:
             prefilter.record(connection, decision_id=str(row["id"]), decision_kind="staged_p2", material=material,
@@ -344,6 +348,7 @@ def advance_live(
     clock: Clock | None = None,
     requested_to_state: str | None = None,
     requested_reason: str | None = None,
+    ad_fields: Any = None,
     **extra: Any,
 ) -> tuple[GPR.AdvanceResult | None, LiveNextAction]:
     """The LIVE P2 next-action path: consult the staged policy, then advance the run to
@@ -359,7 +364,7 @@ def advance_live(
     action = staged_next_action(
         repository, run_id, vault=vault, session=session, live=live,
         receipt_key=f"live_next:{run_id}:{idempotency_key}", clock=clock,
-        requested_to_state=requested_to_state, requested_reason=requested_reason,
+        requested_to_state=requested_to_state, requested_reason=requested_reason, ad_fields=ad_fields,
     )
     if action.to_state is None:
         # Staged veto: no run transition is appended (the run defers, design §C). Persist a

@@ -30,6 +30,7 @@ from pydantic import Field
 
 from learnloop.attempts.stuck import stuck_attempt_type
 from learnloop.reader import workbench as WB
+from learnloop.router_objective import exposure
 from learnloop.tutor.tutor_qa import hint_equivalents_for_submission
 from learnloop_sidecar.context import SidecarContext, session_snapshot
 from learnloop_sidecar.dto import ParamsModel, to_camel
@@ -600,6 +601,7 @@ def workbench_open(ctx: SidecarContext, params: WorkbenchOpenInput) -> dict[str,
             extraction_id=params.extraction_id, span_ids=params.span_ids, carried=carried,
             carried_book=params.carried_book, serve=serve, carried_earlier=bool(earlier),
             draft_submission_ids=_handed_draft_keys(repository, params, named.get("practice_item_id")),
+            exposure_fields=exposure.fields(vault.config, repository, context="reader"),
         )
         _carry_earlier(repository, draft_session, earlier, row)
         _ensure_contract(vault, repository, row["id"])
@@ -650,6 +652,7 @@ def workbench_open(ctx: SidecarContext, params: WorkbenchOpenInput) -> dict[str,
         import_request=request, import_error=error, carried=carried,
         carried_book=params.carried_book, serve=serve, carried_earlier=bool(earlier),
         draft_submission_ids=_handed_draft_keys(repository, params, params.practice_item_id),
+        exposure_fields=exposure.fields(vault.config, repository, context="reader"),
     )
     _carry_earlier(repository, draft_session, earlier, row)
     _ensure_contract(vault, repository, row["id"])
@@ -858,7 +861,8 @@ def workbench_save_step(ctx: SidecarContext, params: WorkbenchSaveStepInput) -> 
 @method("workbench.set_book", WorkbenchSetBookInput)
 def workbench_set_book(ctx: SidecarContext, params: WorkbenchSetBookInput) -> dict[str, Any]:
     vault, repository = _require(ctx)
-    _run(WB.set_book, repository, params.session_id, params.visible)
+    _run(WB.set_book, repository, params.session_id, params.visible,
+         exposure_fields=exposure.fields(vault.config, repository, context="reader"))
     return _answer({"session": _view(vault, repository, params.session_id)})
 
 

@@ -256,7 +256,7 @@ def reader_ask(ctx: SidecarContext, params: ReaderAskInput) -> dict[str, Any]:
     if "tutor" in result:
         # RW1c: the answer's modes (absent while reader_tutor.retrieval_enabled is off).
         response["tutor"] = result["tutor"]
-        RTU.record_excerpt_exposure(repository, result)
+        RTU.record_excerpt_exposure(vault, repository, result)
     # No buttons at all during a cold administration (nothing is offered then).
     cold = restricted.cold
     offers = None if cold else RTU.offers(vault, repository, result, extraction_id=params.extraction_id)

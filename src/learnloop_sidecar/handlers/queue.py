@@ -721,6 +721,7 @@ def _offer_prefilter(vault: Any, repository: Any, decision: Mapping[str, Any], t
 def _offer_state(vault: Any, repository: Any, decision: Mapping[str, Any], trace: Any) -> Any:
     """The offer's belief, with each item's authored minutes (an offer keeps no estimator of its own, and says so)."""
 
+    from learnloop.adaptive_difficulty.readiness import decision_state_fields
     from learnloop.data_capture.gates import objective_receipts_on
     from learnloop.router_objective import decision_state
     from learnloop.scheduling.fsrs import forgetting_curve
@@ -743,10 +744,12 @@ def _offer_state(vault: Any, repository: Any, decision: Mapping[str, Any], trace
         expected = getattr(item, "expected_minutes", None)
         minutes[item_id] = ({"minutes": float(expected), "minutes_source": "expected_minutes"} if expected
                             else {"minutes_source": "missing"})
-    # No adaptive difficulty here: its read costs Today about 115 ms (measured, docs/reviews/router-ro0-logging.md), this
-    # path serves only with the plan switched off, and replay's ``as_of`` gives the numbers back.
+    # This offer served its head, so it is a decision and keeps the belief it was made on: replay can't give that back,
+    # since field's ``as_of`` keeps the latest grading epoch (Codex review F3). Only with the plan off does Today come here,
+    # so the read's cost falls on that configuration (measured: docs/reviews/router-ro0-codex-review.md).
     return decision_state.prepare(
         vault, repository, candidates=candidates, session_id=decision.get("session_id") or getattr(trace, "session_id", None),
         forgetting_curve=forgetting_curve,
+        ad_fields=lambda los: decision_state_fields(vault, repository, list(los)),
         item_minutes=minutes, voi=[dict(row) for row in getattr(trace, "voi_decisions", ()) or ()],
     )

@@ -272,6 +272,7 @@ def golden_path_advance(ctx: SidecarContext, params: AdvanceInput) -> dict[str, 
     bridge: dict[str, Any] | None = None
     try:
         if bridge_active(vault):
+            from learnloop.adaptive_difficulty.readiness import decision_state_fields
             from learnloop.router.why import deferral_sentence
             from learnloop.scheduling import controller_cutover as cut
 
@@ -284,6 +285,7 @@ def golden_path_advance(ctx: SidecarContext, params: AdvanceInput) -> dict[str, 
                 requested_reason=params.reason,
                 expected_head_event_id=params.expected_head_event_id,
                 successor_milestone=params.successor_milestone,
+                ad_fields=lambda los: decision_state_fields(vault, repository, list(los)),
             )
             bridge = action.as_dict()
             if result is None:

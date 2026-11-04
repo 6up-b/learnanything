@@ -79,13 +79,16 @@ def sweep(vault: Any, repository: Any, *, clock: Clock | None = None) -> int:
     if not objective_receipts_on(getattr(vault, "config", None)):
         return 0
     try:
+        at = utc_now_iso(clock)
         with repository.connection() as connection:
             if not store.table_present(connection, store.GOAL_EVENTS):
                 return 0
-            pending = changes(vault, store.latest_goal_events(connection), at=utc_now_iso(clock))
-        if not pending:
-            return 0
+            # A load that changes nothing never takes the write lock.
+            if not changes(vault, store.latest_goal_events(connection), at=at):
+                return 0
+        # Decided again under the lock: another loader that read the same rows may have written these events first.
         with repository.atomic(), repository.connection() as connection:
+            pending = changes(vault, store.latest_goal_events(connection), at=at)
             return sum(1 for row in pending if store.insert_goal_event(connection, row))
     except Exception:  # noqa: BLE001 - a receipt never blocks a load
         logger.warning("router objective: the goals' lifecycle was not swept", exc_info=True)

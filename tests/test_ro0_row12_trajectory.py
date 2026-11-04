@@ -51,6 +51,7 @@ def test_uptake_and_rejection_are_counted(tmp_path):
 
 def test_return_time_is_the_next_session_and_censored_until_there_is_one(tmp_path):
     env = mixture_env(tmp_path, fake_runtime(), session_id=None)
+    env.session_id = env.repository.create_session(clock=env.clock)
     build_plan(env, kind="normal", budget=25.0, remembered=25, minutes_source="chip")
     links = _links(env)
     assert links[0]["return_censored"] == "no_later_session" and links[0]["next_session_started_at"] is None

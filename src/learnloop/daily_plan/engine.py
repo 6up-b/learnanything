@@ -3020,8 +3020,8 @@ def _decision_state(env: PlanEnv, estimator: Any, *, candidates: Sequence[Mappin
         env.vault, env.repository, candidates=candidates, session_id=env.session_id, stop=stop, pick=pick,
         forgetting_curve=forgetting_curve,
         item_minutes=minutes,
-        block_minutes={str(entry["candidate_id"]): entry["est_minutes"] for entry in candidates
-                       if entry.get("candidate_id") and entry.get("est_minutes") is not None},
+        block_minutes={str(entry.get("candidate_id") or entry["practice_item_id"]): entry["est_minutes"] for entry in candidates
+                       if (entry.get("candidate_id") or entry.get("practice_item_id")) and entry.get("est_minutes") is not None},
         voi=[*voi, *(dict(row) for row in getattr(getattr(env, "last_trace", None), "voi_decisions", ()) or ())],
         ad_fields=(lambda los: ad(env, los)) if callable(ad) else ad,
         versions={"estimator": getattr(estimator, "version", None)},

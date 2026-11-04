@@ -435,18 +435,20 @@ def fallback_practice_request(vault: Any, question: str, event_id: str) -> dict[
             "version": FALLBACK_PRACTICE_VERSION}
 
 
-def record_excerpt_exposure(repository: Any, result: dict[str, Any]) -> list[str]:
+def record_excerpt_exposure(vault: Any, repository: Any, result: dict[str, Any]) -> list[str]:
     """The "From your books" excerpt's text is shown: one exposure row (best effort)."""
 
     excerpt = (result.get("tutor") or {}).get("excerpt")
     if not excerpt:
         return []
     from learnloop.instructional.interventions import record_shown_spans
+    from learnloop.router_objective import exposure
 
     try:
         return record_shown_spans(repository, [f"{excerpt['extraction_id']}:{excerpt['span_id']}"],
                                   context="tutor_citation", entity_type="question_event",
-                                  entity_id=str(result["event_id"]))
+                                  entity_id=str(result["event_id"]),
+                                  exposure_fields=exposure.fields(vault.config, repository, context="tutor_citation"))
     except Exception:  # noqa: BLE001 - telemetry never fails the answer
         return []
 

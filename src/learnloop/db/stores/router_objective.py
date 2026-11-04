@@ -65,6 +65,21 @@ def _append(connection: sqlite3.Connection, table: str, columns: tuple[str, ...]
     return cursor.rowcount > 0
 
 
+def set_question_state(connection: sqlite3.Connection, question_event_id: str, state: str) -> bool:
+    """Row 1's state on a question just inserted, or False (a warning): refused, the question stands without it."""
+
+    connection.execute("SAVEPOINT question_state_write")
+    try:
+        connection.execute("UPDATE question_events SET reveal_state_json = ? WHERE id = ?", (state, question_event_id))
+    except sqlite3.Error:
+        connection.execute("ROLLBACK TO question_state_write")
+        connection.execute("RELEASE question_state_write")
+        logger.warning("router objective: the disclosure state of question %s was refused", question_event_id, exc_info=True)
+        return False
+    connection.execute("RELEASE question_state_write")
+    return True
+
+
 def insert_session_receipt(connection: sqlite3.Connection, row: Mapping[str, Any]) -> bool:
     """One session receipt, or False: refused (a warning), or that session already has one of this kind."""
 
@@ -126,5 +141,6 @@ __all__ = [
     "insert_session_receipt",
     "latest_goal_events",
     "session_receipt",
+    "set_question_state",
     "table_present",
 ]

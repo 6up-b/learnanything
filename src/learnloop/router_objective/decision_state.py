@@ -44,7 +44,8 @@ AD_UNAVAILABLE = "unavailable"
 #: The fields of a value-of-information verdict kept here; its whole forecast is in A1's ``upstream`` part.
 _VOI_FIELDS: tuple[str, ...] = ("site", "learning_object_id", "decision", "reason", "subject_ref", "chosen_ref",
                                 "recommended_ref", "admitted", "forecast_version", "calibration_label")
-_ACTIVE_BASIS = "attempt_latency_plus_reader_active_seconds"
+_ACTIVE_BASIS = "attempt_latency_plus_reader_active_seconds_when_they_happened"
+_STAMP = "%Y-%m-%dT%H:%M:%SZ"
 
 AdFields = Callable[[Sequence[str]], Mapping[str, Any]]
 
@@ -83,6 +84,9 @@ def candidate_ids(vault: Any, candidates: Iterable[Mapping[str, Any]], *, extra_
                 items.setdefault(str(item))
         if entry.get("kind") == "item" and entry.get("ref"):
             items.setdefault(str(entry["ref"]))
+        # A forced request or check (the boundary's ``forced`` list): placed, and named by nothing else.
+        if entry.get("practice_item_id"):
+            items.setdefault(str(entry["practice_item_id"]))
         for lo in entry.get("learning_object_ids") or ():
             if lo:
                 los.setdefault(str(lo))
@@ -162,28 +166,65 @@ def _lo_rows(connection: Any, los: Sequence[str], ad: Mapping[str, Any]) -> dict
     return out
 
 
-def _active_minutes(connection: Any, session_id: str | None, day_start: str) -> tuple[float | None, float]:
-    """Session and day active minutes: attempts' latency and Reader visits' active seconds, two clocks apart from
-    elapsed time. A visit still open has reported nothing yet."""
+def _reader_visits(connection: Any, since: str) -> tuple[list[tuple[datetime, datetime, float]], float]:
+    """The Reader visits reported since ``since``, each as ``(start, end, active seconds)``, and the active seconds of
+    those that give no interval. A visit reports once, at its close: its end is when it closed (the client's stamp where
+    it has one), and every moment since it opened is either active or idle, so the two together say when it began."""
 
+    visits: list[tuple[datetime, datetime, float]] = []
+    unplaced = 0.0
+    for row in connection.execute(
+            "SELECT COALESCE(occurred_at, created_at), json_extract(payload_json, '$.active_seconds'), "
+            "json_extract(payload_json, '$.idle_seconds') FROM interaction_events "
+            "WHERE kind = 'reader_view_closed' AND created_at >= ?", (since,)):
+        active, idle = row[1], row[2]
+        if not isinstance(active, (int, float)) or active <= 0:
+            continue
+        if not isinstance(idle, (int, float)) or idle < 0:
+            unplaced += float(active)
+            continue
+        end = parse_utc(row[0])
+        visits.append((end - timedelta(seconds=float(active) + float(idle)), end, float(active)))
+    return visits, unplaced
+
+
+def _in_window(visit: tuple[datetime, datetime, float], low: datetime, high: datetime) -> float:
+    """A visit's active seconds inside ``[low, high]``. Where in the visit its idle gaps fell isn't kept, so a visit across
+    the boundary gives each side its share of the elapsed time."""
+
+    start, end, active = visit
+    elapsed = (end - start).total_seconds()
+    overlap = (min(end, high) - max(start, low)).total_seconds()
+    return active * overlap / elapsed if overlap > 0 and elapsed > 0 else 0.0
+
+
+def _active_minutes(connection: Any, session_id: str | None, day_start: datetime, now: datetime) -> tuple[float | None, float, dict[str, Any]]:
+    """Session and day active minutes: attempts' latency and Reader visits' active seconds, two clocks apart from elapsed
+    time. A visit's seconds count when they happened, not when its close was received, and a visit across a session's or a
+    day's boundary is split at it (the third value counts those, and the minutes of any visit with no interval, which are
+    in neither total). An attempt counts at its completion. A visit still open has reported nothing yet."""
+
+    session = (connection.execute("SELECT started_at, ended_at FROM sessions WHERE id = ?", (session_id,)).fetchone()
+               if session_id else None)
+    session_start = parse_utc(session[0]) if session is not None else None
+    since = min(day_start, session_start) if session_start is not None else day_start
+    visits, unplaced = _reader_visits(connection, since.strftime(_STAMP))
     day_attempts = connection.execute(
-        "SELECT COALESCE(SUM(latency_seconds), 0) FROM practice_attempts WHERE created_at >= ?", (day_start,)).fetchone()[0]
-    day_reading = connection.execute(
-        "SELECT COALESCE(SUM(json_extract(payload_json, '$.active_seconds')), 0) FROM interaction_events "
-        "WHERE kind = 'reader_view_closed' AND created_at >= ?", (day_start,)).fetchone()[0]
-    day = (float(day_attempts or 0) + float(day_reading or 0)) / 60.0
-    if not session_id:
-        return None, day
-    session = connection.execute("SELECT started_at FROM sessions WHERE id = ?", (session_id,)).fetchone()
-    if session is None:
-        return None, day
-    attempts = connection.execute(
-        "SELECT COALESCE(SUM(latency_seconds), 0) FROM practice_attempts WHERE created_at >= ? AND session_id = ?",
-        (session[0], session_id)).fetchone()[0]
-    reading = connection.execute(
-        "SELECT COALESCE(SUM(json_extract(payload_json, '$.active_seconds')), 0) FROM interaction_events "
-        "WHERE kind = 'reader_view_closed' AND created_at >= ?", (session[0],)).fetchone()[0]
-    return (float(attempts or 0) + float(reading or 0)) / 60.0, day
+        "SELECT COALESCE(SUM(latency_seconds), 0) FROM practice_attempts WHERE created_at >= ?",
+        (day_start.strftime(_STAMP),)).fetchone()[0]
+    day_shares = [_in_window(visit, day_start, now) for visit in visits]
+    day = (float(day_attempts or 0) + sum(day_shares)) / 60.0
+    split = {index for index, (visit, share) in enumerate(zip(visits, day_shares)) if 0.0 < share < visit[2]}
+    minutes: float | None = None
+    if session_start is not None:
+        session_end = parse_utc(session[1]) if session[1] else now
+        attempts = connection.execute(
+            "SELECT COALESCE(SUM(latency_seconds), 0) FROM practice_attempts WHERE created_at >= ? AND session_id = ?",
+            (session[0], session_id)).fetchone()[0]
+        session_shares = [_in_window(visit, session_start, session_end) for visit in visits]
+        minutes = (float(attempts or 0) + sum(session_shares)) / 60.0
+        split |= {index for index, (visit, share) in enumerate(zip(visits, session_shares)) if 0.0 < share < visit[2]}
+    return minutes, day, {"reader_split_visits": len(split), "reader_unattributed": _round(unplaced / 60.0)}
 
 
 def _pending_reports(connection: Any, now_iso: str) -> dict[str, int | None]:
@@ -279,7 +320,7 @@ def prepare(vault: Any, repository: Any, *, candidates: Iterable[Mapping[str, An
         with repository.connection() as connection:
             if not store.table_present(connection, store.DECISION_STATE):
                 return None
-            session_minutes, day_minutes = _active_minutes(connection, session_id, day_start.strftime("%Y-%m-%dT%H:%M:%SZ"))
+            session_minutes, day_minutes, reading = _active_minutes(connection, session_id, day_start, now)
             pending = _pending_reports(connection, now_iso)
             item_rows = _item_rows(connection, items, now, weights, forgetting_curve, item_minutes or {})
             lo_rows = _lo_rows(connection, los, ad)
@@ -294,7 +335,7 @@ def prepare(vault: Any, repository: Any, *, candidates: Iterable[Mapping[str, An
                 "algorithm": str(config.algorithms.algorithm_version), "config": _config_hash(config),
                 "code": code_revision(), "fsrs_weights": content_hash(canonical(list(weights))), **dict(versions or {}),
             },
-            "active_minutes": {"session": _round(session_minutes), "day": _round(day_minutes), "basis": _ACTIVE_BASIS},
+            "active_minutes": {"session": _round(session_minutes), "day": _round(day_minutes), "basis": _ACTIVE_BASIS, **reading},
             "pending_reports": pending,
             **({"block_minutes": {str(ref): _round(value) for ref, value in block_minutes.items()}} if block_minutes else {}),
             **({"omitted": dict(omitted)} if omitted else {}),

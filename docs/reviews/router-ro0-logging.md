@@ -83,16 +83,16 @@ Unmoved: `handlers/tutor_qa.py:277`, `reader_inquiry.py:144`, `:396`, `db/reposi
 | Decision to block | `attention_blocks.decision_ref` | yes |
 | Decision to presentation | `plan_presentations.router_decision_id` | yes |
 | Decision to offer | `router_decisions.scheduler_slate_id` | yes |
-| FG1's itemless decision to its item | `router_decision_bindings` | yes (not read by this query) |
-| Presentation to attempt (uptake) | `practice_attempts.plan_presentation_id` | yes |
+| FG1's itemless decision to its item, presentations and outcome | `router_decision_bindings` | yes |
+| Presentation to attempt (uptake) | `practice_attempts.plan_presentation_id`, `probe_presentation_id`, a bound item's attempt after the decision; one attempt counts once | yes |
 | Offer to attempt (uptake) | `practice_attempts.scheduler_slate_id` | yes |
-| Rejection | `attention_block_events` kinds `item_skipped`, `item_displaced` through the block | yes |
+| Rejection | `attention_block_events` kinds `item_skipped`, `item_displaced` through the block; a binding's `skipped` or `abandoned` outcome | yes |
 | Pick to its offer | `router_decisions.parent_decision_id` | yes |
 | Objective | `decision_objectives.decision_id` | yes |
 | Next decision | the ledger's order | yes |
-| Return | `sessions.started_at`, `ended_at` | yes |
+| Return | `sessions.started_at`, `ended_at`, after the session the action happened in (the decision's, its block's, presentation's or attempt's) | yes |
 
-No id is missing, so none is added. `next_decision_censored` and `return_censored` name what isn't known yet.
+No id is missing, so none is added. `next_decision_censored` and `return_censored` name what isn't known yet; `return_censored = session_unresolved` is a decision no link places in a session.
 
 ## Row 9 and 13 in the serve path
 
@@ -104,7 +104,7 @@ scratch directory. Medians in ms, three alternating runs each (12 Today opens, 3
 | `get_today_queue` | 240, 240, 246 | 257, 254, 254 | +12 ms, 5% |
 | `next_plan_item` | 1075, 1084, 1058 | 1179, 1078, 1094 | within run-to-run noise; 1179 was one noisy run (its p90 1581), the other two +0 to +2% |
 | `get_daily_plan` | 416, 435, 412 | 515, 427, 410 | within noise; 515 is the same noisy run |
-| `get_today_queue`, plan off | 250, 250 | 260, 259 | +10 ms, 4% |
+| `get_today_queue`, plan off | 281, 282 | 496, 496 | +215 ms, 76% (after Codex review F3; this run's machine load differs from the rows above) |
 | `get_today_queue`, switch off, earlier build | 243 (main that round) | 241 | none |
 
 **What changed because of this.** The first build wrote the whole belief on every offer, and Today went from 240 to 430 ms (+190 ms): about 4 ms per LO for AD's numbers, across
@@ -112,9 +112,8 @@ dozens of LOs. So:
 
 - With the plan on, the Today list serves no head (`propensity_kind = not_served`) and nothing is decided among its candidates. It keeps the session's numbers and `omitted` with the
   count. A pick from it is a plan decision with its own full state.
-- A served offer (plan off) keeps every candidate's FSRS numbers and no AD: even one LO cost 115 ms, for the snapshot. The row says `ad.status = not_read_on_this_path`, and replay's
-  `as_of` gives the numbers back.
-- `staged_p2` and `lesson_suggestion` read no AD either: the staged bridge's path was left as the plan-off one is, and the suggestion draws inside its transaction, where AD's guard shouldn't open. Each row says so.
+- A served offer (plan off), `staged_p2` and `lesson_suggestion` read AD before their transactions, because replay can't give the numbers back: `as_of` keeps the latest grading epoch (Codex review F3,
+  `docs/reviews/router-ro0-codex-review.md`). The first build here left them out, and plan-off Today cost +10 ms; with them it costs +215 ms, the table's plan-off row, and a served offer is 4,636 bytes.
 
 Plan decisions and interrupts read AD for all their LOs, before the write opens. `next_plan_item` barely moves because the router's card already reads the same snapshot.
 
@@ -137,7 +136,7 @@ goal's first row).
 | **Total** | **3,681** (8 active days, 29,446 bytes) |
 
 About 1.3 MB a year. The new tables' pages by `dbstat`: 16 KB, 49 KB, 12 KB. A plan decision's state is 702 bytes compressed (1,925 raw; 4.9 items, 1.6 LOs). Offers measured apart: a list that
-served no head is 432 bytes each (681 raw); a served offer, plan off only, is 4,458 bytes (51,237 raw; 309 items, 34 LOs).
+served no head is 432 bytes each (681 raw); a served offer, plan off only, is 4,636 bytes (55,177 raw; 309 items, 34 LOs).
 
 **Not RO0, flagged.** The same week grew the database by about 161 MB, on and off alike: `scheduler_slate_candidates` 117 MB, `decision_features` 26 MB, `scheduler_explanations` 6 MB. Each plan
 step's build writes a full slate on a 300-item vault with an open session. This is existing behavior at main, and I didn't touch it. See open questions.
@@ -194,5 +193,5 @@ scratch directory. No `fixtures-local/` copy was needed.
 ## Open questions
 
 1. `scheduler_slate_candidates` grows about 17 MB a day on a 300-item synthetic vault with an open session, at main too. Is that worth its own item? It's untouched here.
-2. A served Today offer (plan off) holds no AD and a list that served no head holds no belief. Both are measured choices for Today's speed, and §4 says so. RO4 could revisit them if it wants the numbers without a replay.
+2. A Today list that served no head holds no belief, a measured choice for Today's speed that §4 records: it decided nothing among its candidates. A served offer (plan off) now pays about 215 ms at each Today open for its AD numbers; only a vault with `plan.enabled = false` pays it.
 3. Should the phone send `end_reason` and `answerVisibleNow`? Both are accepted and the phone's paths are off limits this stage, so a phone session's end is the server's reading of the plan, and its questions read `unknown`.

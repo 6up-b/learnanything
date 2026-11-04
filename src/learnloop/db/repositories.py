@@ -4537,10 +4537,10 @@ class Repository(
             )
             if event.get("reveal_state_json") is not None:
                 # RO0 row 1, with the row: only a question RO0 read has it (and only a vault at migration 242 can).
-                connection.execute(
-                    "UPDATE question_events SET reveal_state_json = ? WHERE id = ?",
-                    (event["reveal_state_json"], event_id),
-                )
+                # Refused, the question stands without it: a receipt never blocks an answer.
+                from learnloop.db.stores.router_objective import set_question_state
+
+                set_question_state(connection, event_id, str(event["reveal_state_json"]))
             connection.commit()
         return event_id
 
