@@ -127,6 +127,8 @@ import type {
   FeedbackBundle,
   FollowupDto,
   FollowupNextDto,
+  HypothesisMark,
+  HypothesisMarksDto,
   DiagnosisCardDto,
   DiagnosisCardResponse,
   EscalationResponse,
@@ -765,6 +767,17 @@ export const api = {
     mutating([TAG.queue], call<{ continued: boolean }>("followup_continue_without", { input: { attemptId } })),
   followupShowAnyway: (attemptId: string) =>
     call<{ released: boolean }>("followup_show_anyway", { input: { attemptId } }),
+  // FG1c §7: the client's display event for a list of causes, and one optional mark. Neither is a
+  // queue write: Next never waits on them.
+  recordHypothesisExposure: (input: { attemptId: string; surface: string; hypothesisVersionIds: string[]; shownAt: string }) =>
+    call<{ recorded: boolean }>("record_hypothesis_exposure", { input }),
+  recordHypothesisMark: (input: {
+    attemptId: string;
+    mark: HypothesisMark | "none_of_these" | "cleared";
+    hypothesisVersionId?: string | null;
+    freeText?: string | null;
+    surface: string;
+  }) => call<{ recorded: boolean; marks: HypothesisMarksDto | null }>("record_hypothesis_mark", { input }),
   rateFollowup: (attemptId: string, useful: boolean) =>
     call<FeedbackBundle>("rate_followup", { input: { attemptId, useful } }),
   reportUnresolvedCause: (input: {

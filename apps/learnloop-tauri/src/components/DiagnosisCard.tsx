@@ -174,8 +174,11 @@ export function DiagnosisCard({
   onOpenAttempt,
   onError,
   state,
+  hideTaps = false,
 }: {
   attemptId: string;
+  /** FG1c §7: on the probe lane the marks replace this tap, so the learner isn't asked twice. */
+  hideTaps?: boolean;
   /** From the feedback bundle; absent means no diagnosis was queued. */
   initialStatus: DiagnosisStatusValue | null | undefined;
   /** Called once when the diagnosis lands, so the screen can reload the
@@ -336,26 +339,28 @@ export function DiagnosisCard({
           <span style={{ color: COLOR.text }}>{card.prerequisiteGap.title}</span>
         </div>
       ) : null}
-      <div style={{ marginTop: 10, display: "flex", gap: 14, flexWrap: "wrap" }} data-testid="diagnosis-taps">
-        {card.responses.map((option) => {
-          const chosen = card.recordedResponse === option.response;
-          const done = card.recordedResponse != null;
-          return (
-            <span
-              key={option.response}
-              data-testid={`diagnosis-tap-${option.response}`}
-              style={
-                done
-                  ? { color: chosen ? COLOR.text : COLOR.textFaint, fontWeight: chosen ? 600 : 400 }
-                  : { ...link, color: COLOR.textDim }
-              }
-              onClick={done ? undefined : () => void record(option.response)}
-            >
-              {option.label}
-            </span>
-          );
-        })}
-      </div>
+      {hideTaps ? null : (
+        <div style={{ marginTop: 10, display: "flex", gap: 14, flexWrap: "wrap" }} data-testid="diagnosis-taps">
+          {card.responses.map((option) => {
+            const chosen = card.recordedResponse === option.response;
+            const done = card.recordedResponse != null;
+            return (
+              <span
+                key={option.response}
+                data-testid={`diagnosis-tap-${option.response}`}
+                style={
+                  done
+                    ? { color: chosen ? COLOR.text : COLOR.textFaint, fontWeight: chosen ? 600 : 400 }
+                    : { ...link, color: COLOR.textDim }
+                }
+                onClick={done ? undefined : () => void record(option.response)}
+              >
+                {option.label}
+              </span>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }
