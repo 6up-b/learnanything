@@ -10,7 +10,7 @@ source_paths:
   - "src/learnloop/data_capture/prefilter.py"
   - "src/learnloop/data_capture/reading_exposures.py"
 source_commit: "aggregate; see module notes"
-source_commit_timestamp: "2026-11-03T19:34:35-05:00"
+source_commit_timestamp: "2026-11-04T09:01:45-05:00"
 generated: true
 generated_at: "2026-11-02"
 package: "learnloop.data_capture"
@@ -48,8 +48,8 @@ For system intent, use [[Architecture Overview]].
 | Module | Purpose | Status | Direct importers | Direct test files |
 |---|---|---:|---:|---:|
 | [[Reference/Modules/learnloop/data_capture/__init__|learnloop.data_capture]] | [[Reference/Modules/learnloop/data_capture/__init__#^module-purpose|purpose]] | `ACTIVE` | 0 | 0 |
-| [[Reference/Modules/learnloop/data_capture/gates|learnloop.data_capture.gates]] | [[Reference/Modules/learnloop/data_capture/gates#^module-purpose|purpose]] | `ACTIVE` | 12 | 2 |
-| [[Reference/Modules/learnloop/data_capture/prefilter|learnloop.data_capture.prefilter]] | [[Reference/Modules/learnloop/data_capture/prefilter#^module-purpose|purpose]] | `ACTIVE` | 4 | 3 |
+| [[Reference/Modules/learnloop/data_capture/gates|learnloop.data_capture.gates]] | [[Reference/Modules/learnloop/data_capture/gates#^module-purpose|purpose]] | `ACTIVE` | 19 | 3 |
+| [[Reference/Modules/learnloop/data_capture/prefilter|learnloop.data_capture.prefilter]] | [[Reference/Modules/learnloop/data_capture/prefilter#^module-purpose|purpose]] | `ACTIVE` | 5 | 3 |
 | [[Reference/Modules/learnloop/data_capture/reading_exposures|learnloop.data_capture.reading_exposures]] | [[Reference/Modules/learnloop/data_capture/reading_exposures#^module-purpose|purpose]] | `ACTIVE` | 6 | 5 |
 
 ## Cross-package dependencies
@@ -63,16 +63,19 @@ For system intent, use [[Architecture Overview]].
 ### Packages that import this package
 
 - [[Reference/Modules/learnloop/daily_plan/_package|learnloop.daily_plan]] — 7 static module edges
+- [[Reference/Modules/learnloop/router_objective/_package|learnloop.router_objective]] — 6 static module edges
 - [[Reference/Modules/learnloop/diagnosis/_package|learnloop.diagnosis]] — 2 static module edges
 - [[Reference/Modules/learnloop/ops/_package|learnloop.ops]] — 2 static module edges
 - [[Reference/Modules/learnloop_sidecar/handlers/_package|learnloop_sidecar.handlers]] — 2 static module edges
 - [[Reference/Modules/learnloop/adaptive_difficulty/_package|learnloop.adaptive_difficulty]] — 1 static module edge
 - [[Reference/Modules/learnloop/cli/_package|learnloop.cli]] — 1 static module edge
 - [[Reference/Modules/learnloop/followup_run/_package|learnloop.followup_run]] — 1 static module edge
+- [[Reference/Modules/learnloop/reader/_package|learnloop.reader]] — 1 static module edge
 - [[Reference/Modules/learnloop/router/_package|learnloop.router]] — 1 static module edge
 - [[Reference/Modules/learnloop/scheduling/_package|learnloop.scheduling]] — 1 static module edge
 - [[Reference/Modules/learnloop/substrate/_package|learnloop.substrate]] — 1 static module edge
 - [[Reference/Modules/learnloop/teacher/_package|learnloop.teacher]] — 1 static module edge
+- [[Reference/Modules/learnloop/tutor/_package|learnloop.tutor]] — 1 static module edge
 
 ### Dependency neighborhood
 
@@ -83,6 +86,7 @@ flowchart LR
     center["learnloop.data_capture"]
     n_learnloop_daily_plan["learnloop.daily_plan"]
     n_learnloop["learnloop"]
+    n_learnloop_router_objective["learnloop.router_objective"]
     n_learnloop_db_stores["learnloop.db.stores"]
     n_learnloop_diagnosis["learnloop.diagnosis"]
     n_learnloop_ops["learnloop.ops"]
@@ -90,9 +94,9 @@ flowchart LR
     n_learnloop_adaptive_difficulty["learnloop.adaptive_difficulty"]
     n_learnloop_cli["learnloop.cli"]
     n_learnloop_followup_run["learnloop.followup_run"]
-    n_learnloop_router["learnloop.router"]
     n_learnloop_daily_plan -->|7| center
     center -->|6| n_learnloop
+    n_learnloop_router_objective -->|6| center
     center -->|3| n_learnloop_db_stores
     n_learnloop_diagnosis -->|2| center
     n_learnloop_ops -->|2| center
@@ -100,7 +104,6 @@ flowchart LR
     n_learnloop_adaptive_difficulty -->|1| center
     n_learnloop_cli -->|1| center
     n_learnloop_followup_run -->|1| center
-    n_learnloop_router -->|1| center
 ```
 
 Interpretation: arrow direction is static import direction and the label is the number of distinct module-to-module edges. It shows coupling pressure, not runtime call frequency or ownership permission.

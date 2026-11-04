@@ -7,8 +7,8 @@ version: "1.0.0"
 source_path: "src/learnloop/remote/telemetry.py"
 source_paths:
   - "src/learnloop/remote/telemetry.py"
-source_commit: "e15d4faa44d6559e95386d25079ab881585559d8"
-source_commit_timestamp: "2026-11-01T17:34:22-05:00"
+source_commit: "52756865dbdcfd48e1fe2adbd6c7d87996a15d65"
+source_commit_timestamp: "2026-11-04T09:17:25-05:00"
 source_worktree_state: "clean"
 generated: true
 generated_at: "2026-11-02"
@@ -55,8 +55,8 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `e15d4faa44d6559e95386d25079ab881585559d8` |
-| Commit timestamp | `2026-11-01T17:34:22-05:00` |
+| Source commit | `52756865dbdcfd48e1fe2adbd6c7d87996a15d65` |
+| Commit timestamp | `2026-11-04T09:17:25-05:00` |
 
 ## Public API
 
@@ -64,7 +64,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `bounded_arguments(arguments: Any) -> dict[str, Any]` ([source](../../../../../../src/learnloop/remote/telemetry.py), line 80) — A tool call's arguments as the ledger keeps them (the topic, the query, the ids, the counts): each string at most :data:`ARGUMENT_CHARS`, each list at most :data:`ARGUMENT_ITEMS` items, at most :data:`ARGUMENT_KEYS` names; anything deeper is kept as bounded text.
 - `class CallOrigin` ([source](../../../../../../src/learnloop/remote/telemetry.py), line 94) — Where a call came from, read from the request (hints only: never authority).
   - `__post_init__(self) -> None` (line 101; internal)
-- `record_shown_passages(repository: Repository, keys: Sequence[str], *, call_id: str, source_versions: Mapping[str, Any] | None=None, clock: Clock | None=None) -> list[str]` ([source](../../../../../../src/learnloop/remote/telemetry.py), line 108) — Exposure first, always: one row per span a chat tool is about to show.
+- `record_shown_passages(repository: Repository, keys: Sequence[str], *, call_id: str, source_versions: Mapping[str, Any] | None=None, clock: Clock | None=None, exposure_fields: Mapping[str, Any] | None=None) -> list[str]` ([source](../../../../../../src/learnloop/remote/telemetry.py), line 108) — Exposure first, always: one row per span a chat tool is about to show.
 - `record_tool_call(repository: Repository, *, call_id: str, tool: str, origin: CallOrigin, arguments: Any, result: Any, status: str, summary: Mapping[str, Any] | None=None, error_code: str | None=None, duration_ms: int | None=None, learning_object_ids: Sequence[str]=(), exposure_event_ids: Sequence[str]=(), algorithm_version: str | None=None, adapter_version: str | None=None, started_at: str | None=None, clock: Clock | None=None) -> str` ([source](../../../../../../src/learnloop/remote/telemetry.py), line 120) — The call's ``interaction_events`` row (its id).
 - `chat_activity(repository: Repository, *, days: int=7, limit: int=20, clock: Clock | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/remote/telemetry.py), line 181) — What the chat frontend did in the last ``days`` days (read-only).
 
@@ -112,7 +112,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 > “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
 
 - [[Reference/Modules/learnloop/cli/mcp|learnloop.cli.mcp]] — imports `chat_activity`; statically calls `chat_activity`
-- [[Reference/Modules/learnloop/remote/sources|learnloop.remote.sources]] — imports `record_shown_passages`; statically calls `record_shown_passages`
+- [[Reference/Modules/learnloop/remote/sources|learnloop.remote.sources]] — imports `CHAT_EXPOSURE_CONTEXT`, `record_shown_passages`; statically calls `record_shown_passages`
 
 ## Dependencies
 

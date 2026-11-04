@@ -10,8 +10,8 @@ area: "TypeScript/screens/reader"
 source_path: "apps/learnloop-tauri/src/screens/reader/activity.ts"
 source_paths:
   - "apps/learnloop-tauri/src/screens/reader/activity.ts"
-source_commit: "84f52bee3bc94c6ecb2c09f8561be166c674c984"
-source_commit_timestamp: "2026-10-13T03:43:59-04:00"
+source_commit: "52756865dbdcfd48e1fe2adbd6c7d87996a15d65"
+source_commit_timestamp: "2026-11-04T09:17:25-05:00"
 source_worktree_state: "clean"
 activation_kind: "entry-reachable build graph"
 activation_evidence: "A static TypeScript import path reaches this file from the Vite entry src/main.tsx."
@@ -42,21 +42,21 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/screens/reader/activity.ts](../../../../../../../apps/learnloop-tauri/src/screens/reader/activity.ts) |
-| Source lines | 95 |
+| Source lines | 109 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/screens/reader/_area|TypeScript/screens/reader]] |
 | Refactor status | `ACTIVE` |
 | Activation kind | `entry-reachable build graph` |
 | Worktree state | `clean` |
-| Source commit | `84f52bee3bc94c6ecb2c09f8561be166c674c984` |
-| Commit timestamp | `2026-10-13T03:43:59-04:00` |
+| Source commit | `52756865dbdcfd48e1fe2adbd6c7d87996a15d65` |
+| Commit timestamp | `2026-11-04T09:17:25-05:00` |
 
 ## Activation and status evidence
 
 > [!success] ACTIVE
 > A static TypeScript import path reaches this file from the Vite entry src/main.tsx.
 >
-> Build/entry chain: [[Reference/Desktop/TypeScript/main|src/main.tsx]] → [[Reference/Desktop/TypeScript/app/App|src/app/App.tsx]] → [[Reference/Desktop/TypeScript/screens/ReaderScreen|src/screens/ReaderScreen.tsx]] → [[Reference/Desktop/TypeScript/screens/reader/activity|src/screens/reader/activity.ts]]
+> Build/entry chain: [[Reference/Desktop/TypeScript/main|src/main.tsx]] → [[Reference/Desktop/TypeScript/app/App|src/app/App.tsx]] → [[Reference/Desktop/TypeScript/screens/reader/activity|src/screens/reader/activity.ts]]
 
 ## Public API
 
@@ -65,11 +65,13 @@ The system-level behavior stays authoritative in the linked architecture, concep
 - `export function newActivityId(): string` — function, line 36
 - `export function flushReaderActivity(): void` — function, line 44
 - `export function logReaderActivity(event: ReaderActivityEvent): void` — function, line 59
-- `export function logReaderAction( event: NonNullable<ReaderActivityEvent["event"]>, payload: ReaderActivityEvent["payload"], ): void` — function, line 65
-- `export function noteLearnerActivity(kind: keyof typeof counters): void` — function, line 72
-- `export function learnerActivitySnapshot(): Readonly<typeof counters>` — function, line 76
-- `export function activitySince(before: Readonly<typeof counters>): Record<string, boolean>` — function, line 81
-- `export function resetReaderActivityForTests(): void` — function, line 90
+- `export function setNextReaderVisitInitiator(initiator: string): void` — function, line 69
+- `export function takeReaderVisitInitiator(): string` — function, line 73
+- `export function logReaderAction( event: NonNullable<ReaderActivityEvent["event"]>, payload: ReaderActivityEvent["payload"], ): void` — function, line 79
+- `export function noteLearnerActivity(kind: keyof typeof counters): void` — function, line 86
+- `export function learnerActivitySnapshot(): Readonly<typeof counters>` — function, line 90
+- `export function activitySince(before: Readonly<typeof counters>): Record<string, boolean>` — function, line 95
+- `export function resetReaderActivityForTests(): void` — function, line 104
 
 ## Internal implementation anchors
 
@@ -81,13 +83,16 @@ The system-level behavior stays authoritative in the linked architecture, concep
 - `const counters =` — const, line 21
 - `const batch = queue.splice(0, MAX_BATCH)` — const, line 48
 - `const send = (api as` — const, line 50
-- `const out: Record<string, boolean> =` — const, line 82
+- `let nextVisitInitiator: string | null = null` — let, line 67
+- `const initiator = nextVisitInitiator ?? "learner"` — const, line 74
+- `const out: Record<string, boolean> =` — const, line 96
 
 ## Who imports or calls it
 
 > [!note] Static-evidence boundary
 > “Calls” here means an import/module edge plus a source reference to the imported name. React render callbacks, props, Tauri string dispatch, macro expansion, browser/Cargo entry points, and data-driven routing can add runtime consumers that static text cannot prove.
 
+- [[Reference/Desktop/TypeScript/app/App|src/app/App.tsx]] — import-or-re-export: `setNextReaderVisitInitiator`; references `setNextReaderVisitInitiator`
 - [[Reference/Desktop/TypeScript/screens/ReaderScreen|src/screens/ReaderScreen.tsx]] — import-or-re-export: `activitySince`, `learnerActivitySnapshot`, `logReaderAction`, `logReaderActivity`, `newActivityId`; references `activitySince`, `learnerActivitySnapshot`, `logReaderAction`, `logReaderActivity`, `newActivityId`
 - [[Reference/Desktop/TypeScript/screens/reader/SideBySidePane|src/screens/reader/SideBySidePane.tsx]] — import-or-re-export: `newActivityId`; references `newActivityId`
 - [[Reference/Desktop/TypeScript/screens/reader/TutorOffers|src/screens/reader/TutorOffers.tsx]] — import-or-re-export: `logReaderAction`; references `logReaderAction`
@@ -98,7 +103,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 - [[Reference/Desktop/TypeScript/screens/reader/useCueImpressions|src/screens/reader/useCueImpressions.ts]] — import-or-re-export: `newActivityId`; references `newActivityId`
 - [[Reference/Desktop/TypeScript/screens/reader/useReaderCues|src/screens/reader/useReaderCues.ts]] — import-or-re-export: `logReaderAction`; references `logReaderAction`
 - [[Reference/Desktop/TypeScript/screens/reader/useReaderInquiry|src/screens/reader/useReaderInquiry.ts]] — import-or-re-export: `activitySince`, `learnerActivitySnapshot`, `logReaderAction`, `logReaderActivity`, `newActivityId`, `noteLearnerActivity`; references `activitySince`, `learnerActivitySnapshot`, `logReaderAction`, `logReaderActivity`, `newActivityId`, `noteLearnerActivity`
-- [[Reference/Desktop/TypeScript/screens/reader/useReaderVisit|src/screens/reader/useReaderVisit.ts]] — import-or-re-export: `flushReaderActivity`, `logReaderAction`, `logReaderActivity`, `newActivityId`, `noteLearnerActivity`, `setReaderActivityEnabled`; references `flushReaderActivity`, `logReaderAction`, `logReaderActivity`, `newActivityId`, `noteLearnerActivity`, `setReaderActivityEnabled`
+- [[Reference/Desktop/TypeScript/screens/reader/useReaderVisit|src/screens/reader/useReaderVisit.ts]] — import-or-re-export: `flushReaderActivity`, `logReaderAction`, `logReaderActivity`, `newActivityId`, `noteLearnerActivity`, `setReaderActivityEnabled`, `takeReaderVisitInitiator`; references `flushReaderActivity`, `logReaderAction`, `logReaderActivity`, `newActivityId`, `noteLearnerActivity`, `setReaderActivityEnabled`, `takeReaderVisitInitiator`
 - [[Reference/Desktop/TypeScript/screens/reader/useSideBySide|src/screens/reader/useSideBySide.ts]] — import-or-re-export: `logReaderAction`, `newActivityId`; references `logReaderAction`, `newActivityId`
 
 ## Dependencies

@@ -7,8 +7,8 @@ version: "1.0.0"
 source_path: "src/learnloop/db/stores/plan_presentations.py"
 source_paths:
   - "src/learnloop/db/stores/plan_presentations.py"
-source_commit: "9fd1c4c77b97a3246e0ea7b41d3412493d65f920"
-source_commit_timestamp: "2026-10-14T00:19:52-04:00"
+source_commit: "52756865dbdcfd48e1fe2adbd6c7d87996a15d65"
+source_commit_timestamp: "2026-11-04T09:17:25-05:00"
 source_worktree_state: "clean"
 generated: true
 generated_at: "2026-11-02"
@@ -51,27 +51,28 @@ The authoritative system-level explanation remains in [[State and Persistence]],
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/db/stores/plan_presentations.py](../../../../../../../src/learnloop/db/stores/plan_presentations.py) |
-| Source lines | 137 |
+| Source lines | 142 |
 | Owning package | [[Reference/Modules/learnloop/db/stores/_package|learnloop.db.stores]] |
 | Architecture layer | `infrastructure` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `9fd1c4c77b97a3246e0ea7b41d3412493d65f920` |
-| Commit timestamp | `2026-10-14T00:19:52-04:00` |
+| Source commit | `52756865dbdcfd48e1fe2adbd6c7d87996a15d65` |
+| Commit timestamp | `2026-11-04T09:17:25-05:00` |
 
 ## Public API
 
-- `plan_presentations_present(connection: sqlite3.Connection) -> bool` ([source](../../../../../../../src/learnloop/db/stores/plan_presentations.py), line 21) — Whether the database has the table (a vault below migration 202 has not).
-- `presentation_for(connection: sqlite3.Connection, block_id: str, practice_item_id: str) -> dict[str, Any] | None` ([source](../../../../../../../src/learnloop/db/stores/plan_presentations.py), line 29)
-- `insert_plan_presentation(connection: sqlite3.Connection, row: Mapping[str, Any]) -> str` ([source](../../../../../../../src/learnloop/db/stores/plan_presentations.py), line 37) — Append one presentation, or return the standing one for its block and item.
-- `presentation_by_id(connection: sqlite3.Connection, presentation_id: str) -> dict[str, Any] | None` ([source](../../../../../../../src/learnloop/db/stores/plan_presentations.py), line 56)
-- `bindable_presentation(connection: sqlite3.Connection, presentation_id: str | None, *, practice_item_id: str, attempt_id: str | None=None) -> tuple[str | None, str | None]` ([source](../../../../../../../src/learnloop/db/stores/plan_presentations.py), line 61) — ``(presentation id, None)`` when an attempt on ``practice_item_id`` may bind to it, else ``(None, why)``: unknown, another item's, or already answered by another attempt (``attempt_id``'s own row, a retried write, does not count).
-- `presentations_for_blocks(connection: sqlite3.Connection, block_ids: Iterable[str]) -> dict[str, list[dict[str, Any]]]` ([source](../../../../../../../src/learnloop/db/stores/plan_presentations.py), line 92) — Each block's presentations in serving order (``served_at``, then id).
-- `presentations_for_controller_decision(connection: sqlite3.Connection, controller_decision_id: str) -> list[dict[str, Any]]` ([source](../../../../../../../src/learnloop/db/stores/plan_presentations.py), line 112) — Presentations of every block whose router decision named the staged controller decision, in serving order (plan §5.3).
+- `plan_presentations_present(connection: sqlite3.Connection) -> bool` ([source](../../../../../../../src/learnloop/db/stores/plan_presentations.py), line 24) — Whether the database has the table (a vault below migration 202 has not).
+- `presentation_for(connection: sqlite3.Connection, block_id: str, practice_item_id: str) -> dict[str, Any] | None` ([source](../../../../../../../src/learnloop/db/stores/plan_presentations.py), line 32)
+- `insert_plan_presentation(connection: sqlite3.Connection, row: Mapping[str, Any]) -> str` ([source](../../../../../../../src/learnloop/db/stores/plan_presentations.py), line 40) — Append one presentation, or return the standing one for its block and item.
+- `presentation_by_id(connection: sqlite3.Connection, presentation_id: str) -> dict[str, Any] | None` ([source](../../../../../../../src/learnloop/db/stores/plan_presentations.py), line 61)
+- `bindable_presentation(connection: sqlite3.Connection, presentation_id: str | None, *, practice_item_id: str, attempt_id: str | None=None) -> tuple[str | None, str | None]` ([source](../../../../../../../src/learnloop/db/stores/plan_presentations.py), line 66) — ``(presentation id, None)`` when an attempt on ``practice_item_id`` may bind to it, else ``(None, why)``: unknown, another item's, or already answered by another attempt (``attempt_id``'s own row, a retried write, does not count).
+- `presentations_for_blocks(connection: sqlite3.Connection, block_ids: Iterable[str]) -> dict[str, list[dict[str, Any]]]` ([source](../../../../../../../src/learnloop/db/stores/plan_presentations.py), line 97) — Each block's presentations in serving order (``served_at``, then id).
+- `presentations_for_controller_decision(connection: sqlite3.Connection, controller_decision_id: str) -> list[dict[str, Any]]` ([source](../../../../../../../src/learnloop/db/stores/plan_presentations.py), line 117) — Presentations of every block whose router decision named the staged controller decision, in serving order (plan §5.3).
 
 ### Module constants
 
 - `PRESENTATION_COLUMNS` ([src/learnloop/db/stores/plan_presentations.py](../../../../../../../src/learnloop/db/stores/plan_presentations.py), line 15)
+- `PRESENTATION_EXTRA_COLUMNS` ([src/learnloop/db/stores/plan_presentations.py](../../../../../../../src/learnloop/db/stores/plan_presentations.py), line 21)
 
 ### Explicit exports
 
@@ -125,6 +126,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 ## Tests that define behavior
 
 - [tests/test_reader_rw4b_fix6.py](../../../../../../../tests/test_reader_rw4b_fix6.py) — direct import
+- [tests/test_ro0_row3_ask_availability.py](../../../../../../../tests/test_ro0_row3_ask_availability.py) — direct import
+  - `test_the_reopen_returns_the_first_row`
 
 ## Modification guidance
 

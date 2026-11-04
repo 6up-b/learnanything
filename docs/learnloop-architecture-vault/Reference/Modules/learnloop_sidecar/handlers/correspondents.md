@@ -7,8 +7,8 @@ version: "1.0.0"
 source_path: "src/learnloop_sidecar/handlers/correspondents.py"
 source_paths:
   - "src/learnloop_sidecar/handlers/correspondents.py"
-source_commit: "2344f59e1d61bcf8d365a1d714e32afa70c3788e"
-source_commit_timestamp: "2026-11-01T22:54:29-05:00"
+source_commit: "52756865dbdcfd48e1fe2adbd6c7d87996a15d65"
+source_commit_timestamp: "2026-11-04T09:17:25-05:00"
 source_worktree_state: "clean"
 generated: true
 generated_at: "2026-11-02"
@@ -53,45 +53,45 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop_sidecar/handlers/correspondents.py](../../../../../../src/learnloop_sidecar/handlers/correspondents.py) |
-| Source lines | 644 |
+| Source lines | 646 |
 | Owning package | [[Reference/Modules/learnloop_sidecar/handlers/_package|learnloop_sidecar.handlers]] |
 | Architecture layer | `adapter` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `2344f59e1d61bcf8d365a1d714e32afa70c3788e` |
-| Commit timestamp | `2026-11-01T22:54:29-05:00` |
+| Source commit | `52756865dbdcfd48e1fe2adbd6c7d87996a15d65` |
+| Commit timestamp | `2026-11-04T09:17:25-05:00` |
 
 ## Public API
 
-- `find_section_enabled(vault: Any) -> bool` ([source](../../../../../../src/learnloop_sidecar/handlers/correspondents.py), line 88) — Reader CA5a's switch (``reader.correspondence.enabled``), respecting ``curriculum.enabled`` (which gates the data) and the Reader itself.
-- `figures_follow_enabled(vault: Any) -> bool` ([source](../../../../../../src/learnloop_sidecar/handlers/correspondents.py), line 97) — RW5d P4a (figures follow the section): CA5's ``reader.correspondence.enabled`` (respecting ``curriculum.enabled`` and the Reader) with ``figures.enabled``.
-- `hidden_everywhere(vault: Any) -> bool` ([source](../../../../../../src/learnloop_sidecar/handlers/correspondents.py), line 104)
-- `hidden_sources(vault: Any) -> list[str]` ([source](../../../../../../src/learnloop_sidecar/handlers/correspondents.py), line 108)
-- `prompt_contract_fields(vault: Any) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/correspondents.py), line 112) — What the Reader's prompt contract adds for CA5a and CA5 (absent while off, so the Guide is exactly as before): the pressed *find this section in my other books* (CA5a, for a section with no judged coverage) and the one-line *also in your books* (CA5, for a section with judged co…
-- `class CorrespondentsInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/correspondents.py), line 164)
-- `reader_correspondents(ctx: SidecarContext, params: CorrespondentsInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/correspondents.py), line 174) — The other books' sections that treat this section's LOs (no model call, no write).
-- `class CoverInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/correspondents.py), line 361)
-- `curriculum_cover(ctx: SidecarContext, params: CoverInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/correspondents.py), line 367) — The learner's pressed check: judge where the other books treat this section's LOs (in the background).
-- `class CoverJobInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/correspondents.py), line 408)
-- `curriculum_cover_job(ctx: SidecarContext, params: CoverJobInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/correspondents.py), line 413) — A coverage job's state; the first read of a failed one relays its OpenRouter offer.
-- `class CoverageCorrectInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/correspondents.py), line 440)
-- `curriculum_coverage_correct(ctx: SidecarContext, params: CoverageCorrectInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/correspondents.py), line 451) — *Not about this* / *also about…*: kept across re-judgments; marks nothing as known.
-- `class CorrespondentPeekInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/correspondents.py), line 474)
-- `reader_correspondent_peek(ctx: SidecarContext, params: CorrespondentPeekInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/correspondents.py), line 481) — A hit's first blocks for the Guide's peek (Codex review F1, F2): no model call.
-- `class CorrespondentDismissInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/correspondents.py), line 500)
-- `reader_correspondent_dismiss(ctx: SidecarContext, params: CorrespondentDismissInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/correspondents.py), line 517) — *Not about this* on an unchecked hit, or its undo: one transaction (Codex review F3, F6).
-- `reader_correspondence_preferences(ctx: SidecarContext, _params: ParamsModel) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/correspondents.py), line 557) — The line's hide preferences (Settings); reports the switch, like the prompt contract.
-- `class SetCorrespondencePreferencesInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/correspondents.py), line 564)
-- `reader_set_correspondence_preferences(ctx: SidecarContext, params: SetCorrespondencePreferencesInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/correspondents.py), line 572) — *Hide for this book* / *hide everywhere* (or Settings bringing it back).
+- `find_section_enabled(vault: Any) -> bool` ([source](../../../../../../src/learnloop_sidecar/handlers/correspondents.py), line 89) — Reader CA5a's switch (``reader.correspondence.enabled``), respecting ``curriculum.enabled`` (which gates the data) and the Reader itself.
+- `figures_follow_enabled(vault: Any) -> bool` ([source](../../../../../../src/learnloop_sidecar/handlers/correspondents.py), line 98) — RW5d P4a (figures follow the section): CA5's ``reader.correspondence.enabled`` (respecting ``curriculum.enabled`` and the Reader) with ``figures.enabled``.
+- `hidden_everywhere(vault: Any) -> bool` ([source](../../../../../../src/learnloop_sidecar/handlers/correspondents.py), line 105)
+- `hidden_sources(vault: Any) -> list[str]` ([source](../../../../../../src/learnloop_sidecar/handlers/correspondents.py), line 109)
+- `prompt_contract_fields(vault: Any) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/correspondents.py), line 113) — What the Reader's prompt contract adds for CA5a and CA5 (absent while off, so the Guide is exactly as before): the pressed *find this section in my other books* (CA5a, for a section with no judged coverage) and the one-line *also in your books* (CA5, for a section with judged co…
+- `class CorrespondentsInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/correspondents.py), line 165)
+- `reader_correspondents(ctx: SidecarContext, params: CorrespondentsInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/correspondents.py), line 175) — The other books' sections that treat this section's LOs (no model call, no write).
+- `class CoverInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/correspondents.py), line 362)
+- `curriculum_cover(ctx: SidecarContext, params: CoverInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/correspondents.py), line 368) — The learner's pressed check: judge where the other books treat this section's LOs (in the background).
+- `class CoverJobInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/correspondents.py), line 409)
+- `curriculum_cover_job(ctx: SidecarContext, params: CoverJobInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/correspondents.py), line 414) — A coverage job's state; the first read of a failed one relays its OpenRouter offer.
+- `class CoverageCorrectInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/correspondents.py), line 441)
+- `curriculum_coverage_correct(ctx: SidecarContext, params: CoverageCorrectInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/correspondents.py), line 452) — *Not about this* / *also about…*: kept across re-judgments; marks nothing as known.
+- `class CorrespondentPeekInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/correspondents.py), line 475)
+- `reader_correspondent_peek(ctx: SidecarContext, params: CorrespondentPeekInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/correspondents.py), line 482) — A hit's first blocks for the Guide's peek (Codex review F1, F2): no model call.
+- `class CorrespondentDismissInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/correspondents.py), line 502)
+- `reader_correspondent_dismiss(ctx: SidecarContext, params: CorrespondentDismissInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/correspondents.py), line 519) — *Not about this* on an unchecked hit, or its undo: one transaction (Codex review F3, F6).
+- `reader_correspondence_preferences(ctx: SidecarContext, _params: ParamsModel) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/correspondents.py), line 559) — The line's hide preferences (Settings); reports the switch, like the prompt contract.
+- `class SetCorrespondencePreferencesInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/correspondents.py), line 566)
+- `reader_set_correspondence_preferences(ctx: SidecarContext, params: SetCorrespondencePreferencesInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/correspondents.py), line 574) — *Hide for this book* / *hide everywhere* (or Settings bringing it back).
 
 ### Module constants
 
-- `LOG` ([src/learnloop_sidecar/handlers/correspondents.py](../../../../../../src/learnloop_sidecar/handlers/correspondents.py), line 64)
-- `CORRESPONDENT_RPCS` ([src/learnloop_sidecar/handlers/correspondents.py](../../../../../../src/learnloop_sidecar/handlers/correspondents.py), line 67)
-- `FIND_SECTION_RPCS` ([src/learnloop_sidecar/handlers/correspondents.py](../../../../../../src/learnloop_sidecar/handlers/correspondents.py), line 76)
-- `ALSO_IN_BOOKS_RPCS` ([src/learnloop_sidecar/handlers/correspondents.py](../../../../../../src/learnloop_sidecar/handlers/correspondents.py), line 81)
-- `COVER_ORIGIN` ([src/learnloop_sidecar/handlers/correspondents.py](../../../../../../src/learnloop_sidecar/handlers/correspondents.py), line 85)
-- `_REGISTRY_LOCK` ([src/learnloop_sidecar/handlers/correspondents.py](../../../../../../src/learnloop_sidecar/handlers/correspondents.py), line 252)
+- `LOG` ([src/learnloop_sidecar/handlers/correspondents.py](../../../../../../src/learnloop_sidecar/handlers/correspondents.py), line 65)
+- `CORRESPONDENT_RPCS` ([src/learnloop_sidecar/handlers/correspondents.py](../../../../../../src/learnloop_sidecar/handlers/correspondents.py), line 68)
+- `FIND_SECTION_RPCS` ([src/learnloop_sidecar/handlers/correspondents.py](../../../../../../src/learnloop_sidecar/handlers/correspondents.py), line 77)
+- `ALSO_IN_BOOKS_RPCS` ([src/learnloop_sidecar/handlers/correspondents.py](../../../../../../src/learnloop_sidecar/handlers/correspondents.py), line 82)
+- `COVER_ORIGIN` ([src/learnloop_sidecar/handlers/correspondents.py](../../../../../../src/learnloop_sidecar/handlers/correspondents.py), line 86)
+- `_REGISTRY_LOCK` ([src/learnloop_sidecar/handlers/correspondents.py](../../../../../../src/learnloop_sidecar/handlers/correspondents.py), line 253)
 
 ### Explicit exports
 
@@ -106,18 +106,18 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 
 ## Internal implementation anchors
 
-- `_library_cache(ctx: SidecarContext) -> SC.LibraryCache` ([source](../../../../../../src/learnloop_sidecar/handlers/correspondents.py), line 126) — The open vault's library cache (one per database, as the jobs are).
-- `_require(ctx: SidecarContext, extraction_id: str) -> tuple[Any, Any, str]` ([source](../../../../../../src/learnloop_sidecar/handlers/correspondents.py), line 139)
-- `_sidecar_error(exc: SC.CoverageError) -> SidecarError` ([source](../../../../../../src/learnloop_sidecar/handlers/correspondents.py), line 157)
-- `_with_figures(ctx: SidecarContext, vault: Any, repository: Any, view: dict[str, Any]) -> None` ([source](../../../../../../src/learnloop_sidecar/handlers/correspondents.py), line 190) — RW5d P4a (spec §10.2): each judged correspondent section lists the kept figures anchored in it (``figures``, present only when there is one): a figure the learner built reading Strang §6.4 is offered from the section of another book that corresponds to it.
-- `class _Jobs` ([source](../../../../../../src/learnloop_sidecar/handlers/correspondents.py), line 239) — One vault's coverage jobs by id, and the LOs being judged now (one judgment per LO and vault in this sidecar).
-- `_jobs(ctx: SidecarContext) -> _Jobs` ([source](../../../../../../src/learnloop_sidecar/handlers/correspondents.py), line 255) — The open vault's jobs (Codex review F8): one registry per database, so after a vault switch neither a job's id, its section key nor its running LOs are seen from the other vault (a job of the vault left behind is fenced by its guard: it sends and records nothing more).
-- `_public(job: dict[str, Any]) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/correspondents.py), line 271)
-- `_job_for(ctx: SidecarContext, extraction_id: str, section_id: str) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop_sidecar/handlers/correspondents.py), line 276)
-- `_run(ctx: SidecarContext, vault: Any, repository: Any, job_id: str, learning_object_ids: list[str]) -> None` ([source](../../../../../../src/learnloop_sidecar/handlers/correspondents.py), line 284)
-- `_require_find_section(ctx: SidecarContext, extraction_id: str) -> tuple[Any, Any, str]` ([source](../../../../../../src/learnloop_sidecar/handlers/correspondents.py), line 466)
-- `_preferences(vault: Any, repository: Any) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/correspondents.py), line 538) — What the Reader and Settings show: the switch, and what the learner hid (books by name).
-- `_on_disk_preferences(config_path: Any) -> tuple[list[str], bool]` ([source](../../../../../../src/learnloop_sidecar/handlers/correspondents.py), line 622) — ``[reader.correspondence]``'s hide keys as the file holds them now (absent: the defaults).
+- `_library_cache(ctx: SidecarContext) -> SC.LibraryCache` ([source](../../../../../../src/learnloop_sidecar/handlers/correspondents.py), line 127) — The open vault's library cache (one per database, as the jobs are).
+- `_require(ctx: SidecarContext, extraction_id: str) -> tuple[Any, Any, str]` ([source](../../../../../../src/learnloop_sidecar/handlers/correspondents.py), line 140)
+- `_sidecar_error(exc: SC.CoverageError) -> SidecarError` ([source](../../../../../../src/learnloop_sidecar/handlers/correspondents.py), line 158)
+- `_with_figures(ctx: SidecarContext, vault: Any, repository: Any, view: dict[str, Any]) -> None` ([source](../../../../../../src/learnloop_sidecar/handlers/correspondents.py), line 191) — RW5d P4a (spec §10.2): each judged correspondent section lists the kept figures anchored in it (``figures``, present only when there is one): a figure the learner built reading Strang §6.4 is offered from the section of another book that corresponds to it.
+- `class _Jobs` ([source](../../../../../../src/learnloop_sidecar/handlers/correspondents.py), line 240) — One vault's coverage jobs by id, and the LOs being judged now (one judgment per LO and vault in this sidecar).
+- `_jobs(ctx: SidecarContext) -> _Jobs` ([source](../../../../../../src/learnloop_sidecar/handlers/correspondents.py), line 256) — The open vault's jobs (Codex review F8): one registry per database, so after a vault switch neither a job's id, its section key nor its running LOs are seen from the other vault (a job of the vault left behind is fenced by its guard: it sends and records nothing more).
+- `_public(job: dict[str, Any]) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/correspondents.py), line 272)
+- `_job_for(ctx: SidecarContext, extraction_id: str, section_id: str) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop_sidecar/handlers/correspondents.py), line 277)
+- `_run(ctx: SidecarContext, vault: Any, repository: Any, job_id: str, learning_object_ids: list[str]) -> None` ([source](../../../../../../src/learnloop_sidecar/handlers/correspondents.py), line 285)
+- `_require_find_section(ctx: SidecarContext, extraction_id: str) -> tuple[Any, Any, str]` ([source](../../../../../../src/learnloop_sidecar/handlers/correspondents.py), line 467)
+- `_preferences(vault: Any, repository: Any) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/correspondents.py), line 540) — What the Reader and Settings show: the switch, and what the learner hid (books by name).
+- `_on_disk_preferences(config_path: Any) -> tuple[list[str], bool]` ([source](../../../../../../src/learnloop_sidecar/handlers/correspondents.py), line 624) — ``[reader.correspondence]``'s hide keys as the file holds them now (absent: the defaults).
 
 ## Who imports or calls it
 
@@ -140,6 +140,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop/ops/settings_store|learnloop.ops.settings_store]] — imports `SettingsStoreError`, `apply_config_updates`; calls `SettingsStoreError`, `apply_config_updates`
 - [[Reference/Modules/learnloop/reader/reader_dialogue|learnloop.reader.reader_dialogue]] — imports `module`; calls `reader_enabled`
 - [[Reference/Modules/learnloop/reader/span_view|learnloop.reader.span_view]] — imports `SpanViewError`, `record_span_exposures`; calls `record_span_exposures`
+- [[Reference/Modules/learnloop/router_objective/exposure|learnloop.router_objective.exposure]] — imports `module`; calls `fields`
 - [[Reference/Modules/learnloop/source_retrieval/corpus|learnloop.source_retrieval.corpus]] — imports `library_scope`; calls `library_scope`
 - [[Reference/Modules/learnloop/source_retrieval/section_coverage|learnloop.source_retrieval.section_coverage]] — imports `module`; calls `Library`, `LibraryCache`, `admission_problem`, `correct`, `correspondents`, `dismiss`, `enabled`, `judge`, `peek`, `section_learning_objects`
 - [[Reference/Modules/learnloop/vault_lock|learnloop.vault_lock]] — imports `VaultLockError`, `vault_mutation_lock`; calls `vault_mutation_lock`

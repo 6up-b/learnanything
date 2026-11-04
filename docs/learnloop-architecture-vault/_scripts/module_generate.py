@@ -84,6 +84,7 @@ PACKAGE_DESCRIPTIONS = {
     "learnloop.content.facet_identity": "Facet identity at mint time and the dedupe command: embedding shortlists, a judge over each neighbourhood, live merges with exact undo.",
     "learnloop.followup_run": "FG1's composition, imported only by the sidecar: lanes, the frontier authoring operation, machine admission, the router's itemless decision, what the feedback screen and Next read, and the generation worker.",
     "learnloop.followup_serve": "FG1's leaf: the kill switch, the durable workflow's record, the generation queue's writes and the generated probe's single-use identity, read by the domain packages.",
+    "learnloop.router_objective": "The router objective's logging (spec_router_objective_v1 §4, RO0): additive receipts at every version behind [router_objective] receipts, read by nothing serving, scheduling or certification.",
     "learnloop.data_capture": "What later evaluation needs, recorded now: its switches, prefilter receipts, and the one read of Reader exposures with the sweep that freezes them.",
     "learnloop.daily_plan": "The finite daily plan: remembered minutes split across repair, maintain, new and push, chosen block by block, and the router card.",
     "learnloop.diagnosis.offline_review": "The offline review of blind grading and history-aware diagnosis, run on backup copies with synthetic learners; never changes a live vault.",

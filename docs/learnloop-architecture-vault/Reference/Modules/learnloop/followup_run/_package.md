@@ -14,7 +14,7 @@ source_paths:
   - "src/learnloop/followup_run/router.py"
   - "src/learnloop/followup_run/serving.py"
 source_commit: "aggregate; see module notes"
-source_commit_timestamp: "2026-11-04T07:26:00-05:00"
+source_commit_timestamp: "2026-11-04T09:25:40-05:00"
 generated: true
 generated_at: "2026-11-02"
 package: "learnloop.followup_run"
@@ -74,11 +74,14 @@ For system intent, use [[Architecture Overview]].
 - [[Reference/Modules/learnloop/content/authoring/_package|learnloop.content.authoring]] — 3 static module edges
 - [[Reference/Modules/learnloop/diagnosis/split/_package|learnloop.diagnosis.split]] — 2 static module edges
 - [[Reference/Modules/learnloop/vault/_package|learnloop.vault]] — 2 static module edges
+- [[Reference/Modules/learnloop/adaptive_difficulty/_package|learnloop.adaptive_difficulty]] — 1 static module edge
 - [[Reference/Modules/learnloop/attempts/_package|learnloop.attempts]] — 1 static module edge
 - [[Reference/Modules/learnloop/content/proposals/_package|learnloop.content.proposals]] — 1 static module edge
 - [[Reference/Modules/learnloop/data_capture/_package|learnloop.data_capture]] — 1 static module edge
 - [[Reference/Modules/learnloop/instructional/_package|learnloop.instructional]] — 1 static module edge
 - [[Reference/Modules/learnloop/router/_package|learnloop.router]] — 1 static module edge
+- [[Reference/Modules/learnloop/router_objective/_package|learnloop.router_objective]] — 1 static module edge
+- [[Reference/Modules/learnloop/scheduling/_package|learnloop.scheduling]] — 1 static module edge
 
 ### Packages that import this package
 

@@ -7,8 +7,8 @@ version: "1.0.0"
 source_path: "src/learnloop/substrate/activities.py"
 source_paths:
   - "src/learnloop/substrate/activities.py"
-source_commit: "b322ef2e9b5cebc241b612e4963a5aaf1a37f99a"
-source_commit_timestamp: "2026-08-20T18:04:29-04:00"
+source_commit: "52756865dbdcfd48e1fe2adbd6c7d87996a15d65"
+source_commit_timestamp: "2026-11-04T09:17:25-05:00"
 source_worktree_state: "clean"
 generated: true
 generated_at: "2026-11-02"
@@ -51,13 +51,13 @@ The authoritative system-level explanation remains in [[Learning System]], [[Sta
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/substrate/activities.py](../../../../../../src/learnloop/substrate/activities.py) |
-| Source lines | 1253 |
+| Source lines | 1260 |
 | Owning package | [[Reference/Modules/learnloop/substrate/_package|learnloop.substrate]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `b322ef2e9b5cebc241b612e4963a5aaf1a37f99a` |
-| Commit timestamp | `2026-08-20T18:04:29-04:00` |
+| Source commit | `52756865dbdcfd48e1fe2adbd6c7d87996a15d65` |
+| Commit timestamp | `2026-11-04T09:17:25-05:00` |
 
 ## Public API
 
@@ -96,34 +96,34 @@ The authoritative system-level explanation remains in [[Learning System]], [[Sta
 - `evidence_eligibility_for(*, purpose: str, feedback_condition: str | None) -> tuple[str, str]` ([source](../../../../../../src/learnloop/substrate/activities.py), line 764) — Purpose+feedback -> (evidence_eligibility, reason) for an observation (§3.6/§4.5).
 - `append_observation(repository: Repository, *, administration_id: str, surface_id: str, purpose: str, feedback_condition: str | None=None, attempt_id: str | None=None, response_ref: str | None=None, algorithm_version: str | None=None, clock: Clock | None=None) -> str` ([source](../../../../../../src/learnloop/substrate/activities.py), line 784) — Record one response/attempt observation with its purpose-specific evidence eligibility, and anchor a ``response_appended`` measurement event (§3.5, §4.1).
 - `retire_with_reason(repository: Repository, *, scope: str, reason: str, provenance: str, family_id: str | None=None, card_version_id: str | None=None, surface_id: str | None=None, replacement_proposal: Mapping[str, Any] | None=None, clock: Clock | None=None) -> str` ([source](../../../../../../src/learnloop/substrate/activities.py), line 825) — Retire a family/card/surface (§3.7).
-- `log_interaction_event(repository: Repository, *, kind: str, origin: str='learner', subject_type: str | None=None, subject_id: str | None=None, administration_id: str | None=None, surface_id: str | None=None, attempt_id: str | None=None, affect_tap_kind: str | None=None, attempt_duration_ms: int | None=None, payload: Mapping[str, Any] | None=None, clock: Clock | None=None) -> str` ([source](../../../../../../src/learnloop/substrate/activities.py), line 906) — The single writer for the Layer-5 interaction envelope (§3.8).
-- `log_attempt_duration(repository: Repository, *, administration_id: str | None, attempt_id: str | None, duration_ms: int, surface_id: str | None=None, origin: str='learner', clock: Clock | None=None) -> str` ([source](../../../../../../src/learnloop/substrate/activities.py), line 949) — Log an attempt duration (§3.8, review-burden accounting / stop-mode cost).
-- `log_affect_tap(repository: Repository, *, affect_tap_kind: str, subject_type: str | None=None, subject_id: str | None=None, administration_id: str | None=None, surface_id: str | None=None, attempt_id: str | None=None, origin: str='learner', payload: Mapping[str, Any] | None=None, clock: Clock | None=None) -> str` ([source](../../../../../../src/learnloop/substrate/activities.py), line 973) — Capture an affect tap (§4.6).
-- `class FamilyPurposeImmutable(Exception)` ([source](../../../../../../src/learnloop/substrate/activities.py), line 1028) — A family's authoring purpose cannot change in place; cross-purpose reuse must create a separately gated family (§1.1 invariant 2, §9.1).
-  - `__init__(self, family_id: str, existing: str, requested: str)` (line 1032; internal)
-- `class CrossPurposeIdentityReuse(Exception)` ([source](../../../../../../src/learnloop/substrate/activities.py), line 1042) — A cross-purpose link tried to reuse the same activity identity (§9.1).
-- `class InvalidAuthoring(Exception)` ([source](../../../../../../src/learnloop/substrate/activities.py), line 1046) — Authoring input violated a closed vocabulary or contract.
-- `author_family_version(repository: Repository, *, family_id: str, version: int, authoring_purpose: str, family_spec: Mapping[str, Any], pattern_version_id: str | None=None, progression_policy_version_id: str | None=None, commitment_id: str | None=None, commitment_target_version_id: str | None=None, goal_contract_version_id: str | None=None, depth_policy_version_id: str | None=None, depth_envelope_version_id: str | None=None, served_milestone_edges: Any | None=None, angle_inventory: Any | None=None, coverage_targets: Any | None=None, cross_purpose_links: Sequence[Mapping[str, Any]] | None=None, clock: Clock | None=None) -> str` ([source](../../../../../../src/learnloop/substrate/activities.py), line 1050) — Stage 1-3 of the §5.1 authoring transaction: resolve target + policy/pattern and create a DRAFT family version (idempotent on ``(family_id, version)``) plus its authoring side row.
-- `activate_family_version(repository: Repository, *, family_version_id: str) -> None` ([source](../../../../../../src/learnloop/substrate/activities.py), line 1115) — Activate a drafted family version (§5.1 stage 6).
-- `link_cross_purpose_families(repository: Repository, *, family_version_id: str, links: Sequence[Mapping[str, Any]], clock: Clock | None=None) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/substrate/activities.py), line 1150) — Attach typed cross-purpose family links (§3.6).
-- `pin_card_authoring(repository: Repository, *, card_version_id: str, family_version_id: str | None=None, pattern_version_id: str | None=None, task_feature_schema_version_id: str | None=None, task_features: Mapping[str, Any] | None=None, capability: str | None=None, outcome_schema_id: str | None=None, outcome_schema_version: int | None=None, surface_policy: str | None=None, surface_variation_bounds: Mapping[str, Any] | None=None, angle_identity: Mapping[str, Any] | None=None, generator_version: str | None=None, gate_policy_version: str | None=None, expected_burden: Mapping[str, Any] | None=None, calibration_metadata: Mapping[str, Any] | None=None, clock: Clock | None=None) -> None` ([source](../../../../../../src/learnloop/substrate/activities.py), line 1174) — Pin the P1 card-version authoring contract (§3.7) as a side row keyed by the P0 immutable card version id.
-- `resolve_progression_policy(repository: Repository, family_version_id: str) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/substrate/activities.py), line 1223) — Resolve the progression policy pinned on a family version (§3.6, §6).
-- `inspect_angle_coverage(repository: Repository, family_version_id: str) -> dict[str, Any]` ([source](../../../../../../src/learnloop/substrate/activities.py), line 1241) — Inspect a family version's declared angle inventory and coverage targets (§5.4, §6 CLI parity).
+- `log_interaction_event(repository: Repository, *, kind: str, origin: str='learner', subject_type: str | None=None, subject_id: str | None=None, administration_id: str | None=None, surface_id: str | None=None, attempt_id: str | None=None, affect_tap_kind: str | None=None, attempt_duration_ms: int | None=None, payload: Mapping[str, Any] | None=None, clock: Clock | None=None, occurred_at: str | None=None, received_at: str | None=None) -> str` ([source](../../../../../../src/learnloop/substrate/activities.py), line 906) — The single writer for the Layer-5 interaction envelope (§3.8).
+- `log_attempt_duration(repository: Repository, *, administration_id: str | None, attempt_id: str | None, duration_ms: int, surface_id: str | None=None, origin: str='learner', clock: Clock | None=None) -> str` ([source](../../../../../../src/learnloop/substrate/activities.py), line 956) — Log an attempt duration (§3.8, review-burden accounting / stop-mode cost).
+- `log_affect_tap(repository: Repository, *, affect_tap_kind: str, subject_type: str | None=None, subject_id: str | None=None, administration_id: str | None=None, surface_id: str | None=None, attempt_id: str | None=None, origin: str='learner', payload: Mapping[str, Any] | None=None, clock: Clock | None=None) -> str` ([source](../../../../../../src/learnloop/substrate/activities.py), line 980) — Capture an affect tap (§4.6).
+- `class FamilyPurposeImmutable(Exception)` ([source](../../../../../../src/learnloop/substrate/activities.py), line 1035) — A family's authoring purpose cannot change in place; cross-purpose reuse must create a separately gated family (§1.1 invariant 2, §9.1).
+  - `__init__(self, family_id: str, existing: str, requested: str)` (line 1039; internal)
+- `class CrossPurposeIdentityReuse(Exception)` ([source](../../../../../../src/learnloop/substrate/activities.py), line 1049) — A cross-purpose link tried to reuse the same activity identity (§9.1).
+- `class InvalidAuthoring(Exception)` ([source](../../../../../../src/learnloop/substrate/activities.py), line 1053) — Authoring input violated a closed vocabulary or contract.
+- `author_family_version(repository: Repository, *, family_id: str, version: int, authoring_purpose: str, family_spec: Mapping[str, Any], pattern_version_id: str | None=None, progression_policy_version_id: str | None=None, commitment_id: str | None=None, commitment_target_version_id: str | None=None, goal_contract_version_id: str | None=None, depth_policy_version_id: str | None=None, depth_envelope_version_id: str | None=None, served_milestone_edges: Any | None=None, angle_inventory: Any | None=None, coverage_targets: Any | None=None, cross_purpose_links: Sequence[Mapping[str, Any]] | None=None, clock: Clock | None=None) -> str` ([source](../../../../../../src/learnloop/substrate/activities.py), line 1057) — Stage 1-3 of the §5.1 authoring transaction: resolve target + policy/pattern and create a DRAFT family version (idempotent on ``(family_id, version)``) plus its authoring side row.
+- `activate_family_version(repository: Repository, *, family_version_id: str) -> None` ([source](../../../../../../src/learnloop/substrate/activities.py), line 1122) — Activate a drafted family version (§5.1 stage 6).
+- `link_cross_purpose_families(repository: Repository, *, family_version_id: str, links: Sequence[Mapping[str, Any]], clock: Clock | None=None) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/substrate/activities.py), line 1157) — Attach typed cross-purpose family links (§3.6).
+- `pin_card_authoring(repository: Repository, *, card_version_id: str, family_version_id: str | None=None, pattern_version_id: str | None=None, task_feature_schema_version_id: str | None=None, task_features: Mapping[str, Any] | None=None, capability: str | None=None, outcome_schema_id: str | None=None, outcome_schema_version: int | None=None, surface_policy: str | None=None, surface_variation_bounds: Mapping[str, Any] | None=None, angle_identity: Mapping[str, Any] | None=None, generator_version: str | None=None, gate_policy_version: str | None=None, expected_burden: Mapping[str, Any] | None=None, calibration_metadata: Mapping[str, Any] | None=None, clock: Clock | None=None) -> None` ([source](../../../../../../src/learnloop/substrate/activities.py), line 1181) — Pin the P1 card-version authoring contract (§3.7) as a side row keyed by the P0 immutable card version id.
+- `resolve_progression_policy(repository: Repository, family_version_id: str) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/substrate/activities.py), line 1230) — Resolve the progression policy pinned on a family version (§3.6, §6).
+- `inspect_angle_coverage(repository: Repository, family_version_id: str) -> dict[str, Any]` ([source](../../../../../../src/learnloop/substrate/activities.py), line 1248) — Inspect a family version's declared angle inventory and coverage targets (§5.4, §6 CLI parity).
 
 ### Module constants
 
 - `_CONSUMING_PURPOSES` ([src/learnloop/substrate/activities.py](../../../../../../src/learnloop/substrate/activities.py), line 42)
 - `_PURPOSE_TO_LEGACY_KIND` ([src/learnloop/substrate/activities.py](../../../../../../src/learnloop/substrate/activities.py), line 44)
 - `_PROVENANCE_TO_ORIGIN` ([src/learnloop/substrate/activities.py](../../../../../../src/learnloop/substrate/activities.py), line 52)
-- `_AUTHORING_PURPOSES` ([src/learnloop/substrate/activities.py](../../../../../../src/learnloop/substrate/activities.py), line 1015)
-- `_CROSS_PURPOSE_LINK_KINDS` ([src/learnloop/substrate/activities.py](../../../../../../src/learnloop/substrate/activities.py), line 1019)
-- `_P1_CAPABILITIES` ([src/learnloop/substrate/activities.py](../../../../../../src/learnloop/substrate/activities.py), line 1023)
+- `_AUTHORING_PURPOSES` ([src/learnloop/substrate/activities.py](../../../../../../src/learnloop/substrate/activities.py), line 1022)
+- `_CROSS_PURPOSE_LINK_KINDS` ([src/learnloop/substrate/activities.py](../../../../../../src/learnloop/substrate/activities.py), line 1026)
+- `_P1_CAPABILITIES` ([src/learnloop/substrate/activities.py](../../../../../../src/learnloop/substrate/activities.py), line 1030)
 
 ## Internal implementation anchors
 
 - `_loads(value: str | None, default: Any=None) -> Any` ([source](../../../../../../src/learnloop/substrate/activities.py), line 82)
 - `_algorithm_version(explicit: str | None) -> str` ([source](../../../../../../src/learnloop/substrate/activities.py), line 95)
-- `_validate_cross_purpose_links(repository: Repository, family_version_id: str, cross_purpose_links: Sequence[Mapping[str, Any]] | None) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/substrate/activities.py), line 1125)
+- `_validate_cross_purpose_links(repository: Repository, family_version_id: str, cross_purpose_links: Sequence[Mapping[str, Any]] | None) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/substrate/activities.py), line 1132)
 
 ## Who imports or calls it
 
@@ -322,6 +322,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_answer_quoting_reserved_surface_burns_it_without_caller_id`
   - `test_ask_warms_and_invalidates_a_revealed_reserve`
   - `test_restore_source_during_cold_burns_eligibility`
+- [tests/test_ro0_row5_event_times.py](../../../../../../tests/test_ro0_row5_event_times.py) — direct import
+  - `test_the_writer_passes_them_where_the_caller_knows_them`
 - [tests/test_router_card.py](../../../../../../tests/test_router_card.py) — direct import
 - [tests/test_router_g1_feasibility.py](../../../../../../tests/test_router_g1_feasibility.py) — direct import
   - `test_a_reserved_assessment_surface_is_refused_on_today`

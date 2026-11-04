@@ -3,13 +3,13 @@ title: "sessions"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "c351033cdfa816184211a76bd032919f54f5a1b6"
-source_commit_timestamp: "2026-11-04T07:28:45-05:00"
+source_commit: "0ed947a2c0b030671b4fbd264957e0ca13fa010f"
+source_commit_timestamp: "2026-11-04T11:05:42-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite sessions"
   - "table sessions"
-schema_head: 241
+schema_head: 242
 table_name: "sessions"
 table_role: "workflow"
 functionality_status: "active"
@@ -106,6 +106,10 @@ Indexes and uniqueness:
 - `src/learnloop/db/repositories.py`
 - `src/learnloop/db/stores/session_ownership.py`
 - `src/learnloop/router/outcomes.py`
+- `src/learnloop/router_objective/decision_state.py`
+- `src/learnloop/router_objective/report.py`
+- `src/learnloop/router_objective/sessions.py`
+- `src/learnloop/router_objective/trajectory.py`
 - `src/learnloop_sidecar/handlers/figures.py`
 
 ### Direct SQL writers
@@ -127,6 +131,7 @@ Indexes and uniqueness:
 - `src/learnloop/learner/session_learning_diff.py`
 - `src/learnloop/reader/workbench.py`
 - `src/learnloop/remote/views.py`
+- `src/learnloop/router_objective/exposure.py`
 - `src/learnloop/scheduling/reentry_adapter.py`
 - `src/learnloop/scheduling/reentry_summary.py`
 - `src/learnloop/scheduling/session_minutes.py`
@@ -134,7 +139,6 @@ Indexes and uniqueness:
 - `src/learnloop_sidecar/context.py`
 - `src/learnloop_sidecar/handlers/daily_plan.py`
 - `src/learnloop_sidecar/handlers/inspector.py`
-- `src/learnloop_sidecar/handlers/practice.py`
 
 > [!note] Static-reference boundary
 > These lists are evidence from exact table-name SQL and repository-method calls. Dynamic dispatch and higher-level tests may exercise the table without spelling its name.

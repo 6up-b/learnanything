@@ -7,8 +7,8 @@ version: "1.0.0"
 source_path: "src/learnloop/db/stores/data_capture.py"
 source_paths:
   - "src/learnloop/db/stores/data_capture.py"
-source_commit: "43bcc8fac4be9bfc864222dd8821769f1ee74d88"
-source_commit_timestamp: "2026-11-03T19:34:35-05:00"
+source_commit: "be63e3aa478ec034aa69874c8751395b507d09ed"
+source_commit_timestamp: "2026-11-04T09:28:50-05:00"
 source_worktree_state: "clean"
 generated: true
 generated_at: "2026-11-02"
@@ -51,32 +51,32 @@ The authoritative system-level explanation remains in [[State and Persistence]],
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/db/stores/data_capture.py](../../../../../../../src/learnloop/db/stores/data_capture.py) |
-| Source lines | 245 |
+| Source lines | 260 |
 | Owning package | [[Reference/Modules/learnloop/db/stores/_package|learnloop.db.stores]] |
 | Architecture layer | `infrastructure` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `43bcc8fac4be9bfc864222dd8821769f1ee74d88` |
-| Commit timestamp | `2026-11-03T19:34:35-05:00` |
+| Source commit | `be63e3aa478ec034aa69874c8751395b507d09ed` |
+| Commit timestamp | `2026-11-04T09:28:50-05:00` |
 
 ## Public API
 
-- `receipts_present(connection: sqlite3.Connection) -> bool` ([source](../../../../../../../src/learnloop/db/stores/data_capture.py), line 51)
-- `objectives_present(connection: sqlite3.Connection) -> bool` ([source](../../../../../../../src/learnloop/db/stores/data_capture.py), line 55)
-- `insert_prefilter_receipt(connection: sqlite3.Connection, row: Mapping[str, Any], parts: Mapping[str, tuple[str, str]]) -> bool` ([source](../../../../../../../src/learnloop/db/stores/data_capture.py), line 59) — One decision's receipt and any part not stored yet, or False (a warning) when refused.
-- `prefilter_receipt(connection: sqlite3.Connection, decision_id: str) -> dict[str, Any] | None` ([source](../../../../../../../src/learnloop/db/stores/data_capture.py), line 93)
-- `prefilter_part(connection: sqlite3.Connection, content_hash: str) -> Any` ([source](../../../../../../../src/learnloop/db/stores/data_capture.py), line 98)
-- `insert_objective(connection: sqlite3.Connection, row: Mapping[str, Any]) -> bool` ([source](../../../../../../../src/learnloop/db/stores/data_capture.py), line 105) — One decision's frozen objective, or False (a warning) when refused.
-- `insert_measurement_event(connection: sqlite3.Connection, *, decision_id: str, state: str, reason: str='', practice_item_id: str | None=None, attempt_id: str | None=None, detail: Mapping[str, Any] | None=None, at: str, episode: str='') -> bool` ([source](../../../../../../../src/learnloop/db/stores/data_capture.py), line 124) — A measurement's state, once per reason and episode: a repeat is a no-op (returns False).
-- `latest_episode(connection: sqlite3.Connection, decision_id: str, *, reason: str) -> str` ([source](../../../../../../../src/learnloop/db/stores/data_capture.py), line 148) — The episode the newest ``due`` or ``offered`` state of this check opened: a loss is counted once per it.
-- `reading_exposures_present(connection: sqlite3.Connection) -> bool` ([source](../../../../../../../src/learnloop/db/stores/data_capture.py), line 157)
-- `newest_reading_exposure(connection: sqlite3.Connection) -> str | None` ([source](../../../../../../../src/learnloop/db/stores/data_capture.py), line 161) — The newest source time on record: where the next sweep's window starts.
-- `reading_receipts(connection: sqlite3.Connection) -> set[tuple[str, str]]` ([source](../../../../../../../src/learnloop/db/stores/data_capture.py), line 167) — ``(LO, source time)`` of every stored reading receipt, data capture's own and AD's where its logging wrote any.
-- `sections_read_by_coverage(connection: sqlite3.Connection) -> list[tuple[str, str]]` ([source](../../../../../../../src/learnloop/db/stores/data_capture.py), line 178) — ``(LO, completed_at)`` of every completed section, for each LO its coverage rows name: what a section's LOs come to from coverage alone, read live so a row added after the section was recorded still counts.
-- `reading_exposure_recorded(connection: sqlite3.Connection, where: str, args: Iterable[Any]=()) -> bool` ([source](../../../../../../../src/learnloop/db/stores/data_capture.py), line 190)
-- `insert_reading_exposure(connection: sqlite3.Connection, *, kind: str, subkind: str, source_table: str, source_id: str, source_written_at: str, learning_object_id: str, mapping_version: str, swept_at: str) -> bool` ([source](../../../../../../../src/learnloop/db/stores/data_capture.py), line 194) — One reading exposure on one LO, once: a repeat is a no-op (returns False).
-- `objectives(connection: sqlite3.Connection) -> dict[str, dict[str, Any]]` ([source](../../../../../../../src/learnloop/db/stores/data_capture.py), line 206) — Every frozen objective by decision id, ``[]`` of absent tables tolerated.
-- `measurement_events(connection: sqlite3.Connection) -> dict[str, list[dict[str, Any]]]` ([source](../../../../../../../src/learnloop/db/stores/data_capture.py), line 214)
+- `receipts_present(connection: sqlite3.Connection) -> bool` ([source](../../../../../../../src/learnloop/db/stores/data_capture.py), line 55)
+- `objectives_present(connection: sqlite3.Connection) -> bool` ([source](../../../../../../../src/learnloop/db/stores/data_capture.py), line 59)
+- `insert_prefilter_receipt(connection: sqlite3.Connection, row: Mapping[str, Any], parts: Mapping[str, tuple[str, str]]) -> bool` ([source](../../../../../../../src/learnloop/db/stores/data_capture.py), line 63) — One decision's receipt and any part not stored yet, or False (a warning) when refused.
+- `prefilter_receipt(connection: sqlite3.Connection, decision_id: str) -> dict[str, Any] | None` ([source](../../../../../../../src/learnloop/db/stores/data_capture.py), line 97)
+- `prefilter_part(connection: sqlite3.Connection, content_hash: str) -> Any` ([source](../../../../../../../src/learnloop/db/stores/data_capture.py), line 102)
+- `insert_objective(connection: sqlite3.Connection, row: Mapping[str, Any]) -> bool` ([source](../../../../../../../src/learnloop/db/stores/data_capture.py), line 109) — One decision's frozen objective, or False (a warning) when refused.
+- `insert_measurement_event(connection: sqlite3.Connection, *, decision_id: str, state: str, reason: str='', practice_item_id: str | None=None, attempt_id: str | None=None, detail: Mapping[str, Any] | None=None, at: str, episode: str='', non_service_type: str | None=None, delay: str | None=None) -> bool` ([source](../../../../../../../src/learnloop/db/stores/data_capture.py), line 131) — A measurement's state, once per reason and episode: a repeat is a no-op (returns False).
+- `latest_episode(connection: sqlite3.Connection, decision_id: str, *, reason: str) -> str` ([source](../../../../../../../src/learnloop/db/stores/data_capture.py), line 163) — The episode the newest ``due`` or ``offered`` state of this check opened: a loss is counted once per it.
+- `reading_exposures_present(connection: sqlite3.Connection) -> bool` ([source](../../../../../../../src/learnloop/db/stores/data_capture.py), line 172)
+- `newest_reading_exposure(connection: sqlite3.Connection) -> str | None` ([source](../../../../../../../src/learnloop/db/stores/data_capture.py), line 176) — The newest source time on record: where the next sweep's window starts.
+- `reading_receipts(connection: sqlite3.Connection) -> set[tuple[str, str]]` ([source](../../../../../../../src/learnloop/db/stores/data_capture.py), line 182) — ``(LO, source time)`` of every stored reading receipt, data capture's own and AD's where its logging wrote any.
+- `sections_read_by_coverage(connection: sqlite3.Connection) -> list[tuple[str, str]]` ([source](../../../../../../../src/learnloop/db/stores/data_capture.py), line 193) — ``(LO, completed_at)`` of every completed section, for each LO its coverage rows name: what a section's LOs come to from coverage alone, read live so a row added after the section was recorded still counts.
+- `reading_exposure_recorded(connection: sqlite3.Connection, where: str, args: Iterable[Any]=()) -> bool` ([source](../../../../../../../src/learnloop/db/stores/data_capture.py), line 205)
+- `insert_reading_exposure(connection: sqlite3.Connection, *, kind: str, subkind: str, source_table: str, source_id: str, source_written_at: str, learning_object_id: str, mapping_version: str, swept_at: str) -> bool` ([source](../../../../../../../src/learnloop/db/stores/data_capture.py), line 209) — One reading exposure on one LO, once: a repeat is a no-op (returns False).
+- `objectives(connection: sqlite3.Connection) -> dict[str, dict[str, Any]]` ([source](../../../../../../../src/learnloop/db/stores/data_capture.py), line 221) — Every frozen objective by decision id, ``[]`` of absent tables tolerated.
+- `measurement_events(connection: sqlite3.Connection) -> dict[str, list[dict[str, Any]]]` ([source](../../../../../../../src/learnloop/db/stores/data_capture.py), line 229)
 
 ### Module constants
 
@@ -117,6 +117,7 @@ The authoritative system-level explanation remains in [[State and Persistence]],
 ## Internal implementation anchors
 
 - `_present(connection: sqlite3.Connection, tables: Iterable[str]) -> bool` ([source](../../../../../../../src/learnloop/db/stores/data_capture.py), line 42)
+- `_has_column(connection: sqlite3.Connection, table: str, column: str) -> bool` ([source](../../../../../../../src/learnloop/db/stores/data_capture.py), line 51)
 
 ## Who imports or calls it
 

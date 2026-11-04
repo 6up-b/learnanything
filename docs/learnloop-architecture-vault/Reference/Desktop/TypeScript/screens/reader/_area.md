@@ -6,8 +6,8 @@ refactor_status: "ACTIVE"
 version: "1.0.0"
 source_paths:
   - "apps/learnloop-tauri/src/screens/reader"
-source_commit: "ba61eaba73983313966810ab22f788d2ea6d946a"
-source_commit_timestamp: "2026-11-03T00:32:22-05:00"
+source_commit: "52756865dbdcfd48e1fe2adbd6c7d87996a15d65"
+source_commit_timestamp: "2026-11-04T09:17:25-05:00"
 generated: true
 generated_at: "2026-08-18"
 tags:
@@ -78,7 +78,7 @@ Reader request-state coordination extracted from the main reader screen.
 | [[Reference/Desktop/TypeScript/screens/reader/WrapUpOffer|WrapUpOffer.tsx]] | `ACTIVE` | Implements the `WrapUpOffer` routed desktop screen and coordinates its learner-facing workflow state. | 8 | 1 |
 | [[Reference/Desktop/TypeScript/screens/reader/WrapUpPanel|WrapUpPanel.tsx]] | `ACTIVE` | Implements the `WrapUpPanel` routed desktop screen and coordinates its learner-facing workflow state. | 8 | 2 |
 | [[Reference/Desktop/TypeScript/screens/reader/YouTubeWatchPanel|YouTubeWatchPanel.tsx]] | `ACTIVE` | Implements the `YouTubeWatchPanel` routed desktop screen and coordinates its learner-facing workflow state. | 6 | 1 |
-| [[Reference/Desktop/TypeScript/screens/reader/activity|activity.ts]] | `ACTIVE` | Provides `setReaderActivityEnabled`, `readerActivityEnabled`, `newActivityId`, `flushReaderActivity` and related exports within the desktop's TypeScript/screens/reader ownership area. | 2 | 12 |
+| [[Reference/Desktop/TypeScript/screens/reader/activity|activity.ts]] | `ACTIVE` | Provides `setReaderActivityEnabled`, `readerActivityEnabled`, `newActivityId`, `flushReaderActivity` and related exports within the desktop's TypeScript/screens/reader ownership area. | 2 | 13 |
 | [[Reference/Desktop/TypeScript/screens/reader/authoredQuestion|authoredQuestion.ts]] | `ACTIVE` | Provides `AuthoredQuestionStatus`, `authoredQuestionMessage` within the desktop's TypeScript/screens/reader ownership area. | 1 | 2 |
 | [[Reference/Desktop/TypeScript/screens/reader/bareAlt|bareAlt.ts]] | `ACTIVE` | Provides `useBareAltClear` within the desktop's TypeScript/screens/reader ownership area. | 1 | 1 |
 | [[Reference/Desktop/TypeScript/screens/reader/checkOffer|checkOffer.ts]] | `ACTIVE` | Provides `CheckSurface`, `ReadingPhase`, `SectionCheckOffer`, `PassageCheckOffer` and related exports within the desktop's TypeScript/screens/reader ownership area. | 0 | 2 |

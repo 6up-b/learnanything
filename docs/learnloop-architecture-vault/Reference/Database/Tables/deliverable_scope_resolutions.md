@@ -3,13 +3,13 @@ title: "deliverable_scope_resolutions"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "c351033cdfa816184211a76bd032919f54f5a1b6"
-source_commit_timestamp: "2026-11-04T07:28:45-05:00"
+source_commit: "0ed947a2c0b030671b4fbd264957e0ca13fa010f"
+source_commit_timestamp: "2026-11-04T11:05:42-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite deliverable_scope_resolutions"
   - "table deliverable_scope_resolutions"
-schema_head: 241
+schema_head: 242
 table_name: "deliverable_scope_resolutions"
 table_role: "workflow"
 functionality_status: "active"

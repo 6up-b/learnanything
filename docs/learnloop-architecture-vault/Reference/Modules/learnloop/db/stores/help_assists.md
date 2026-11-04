@@ -240,6 +240,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_a_failed_write_never_fails_the_reveal_or_the_submit`
   - `test_submit_never_attaches_another_sessions_or_items_rows`
   - `test_the_report_summarises_any_number_of_rows`
+- [tests/test_ro0_question_state.py](../../../../../../../tests/test_ro0_question_state.py) — direct import
 
 ## Modification guidance
 

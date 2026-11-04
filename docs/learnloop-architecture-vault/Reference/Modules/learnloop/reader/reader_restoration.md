@@ -7,8 +7,8 @@ version: "1.0.0"
 source_path: "src/learnloop/reader/reader_restoration.py"
 source_paths:
   - "src/learnloop/reader/reader_restoration.py"
-source_commit: "b322ef2e9b5cebc241b612e4963a5aaf1a37f99a"
-source_commit_timestamp: "2026-08-20T18:04:29-04:00"
+source_commit: "52756865dbdcfd48e1fe2adbd6c7d87996a15d65"
+source_commit_timestamp: "2026-11-04T09:17:25-05:00"
 source_worktree_state: "clean"
 generated: true
 generated_at: "2026-11-02"
@@ -49,19 +49,19 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/reader/reader_restoration.py](../../../../../../src/learnloop/reader/reader_restoration.py) |
-| Source lines | 177 |
+| Source lines | 178 |
 | Owning package | [[Reference/Modules/learnloop/reader/_package|learnloop.reader]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `b322ef2e9b5cebc241b612e4963a5aaf1a37f99a` |
-| Commit timestamp | `2026-08-20T18:04:29-04:00` |
+| Source commit | `52756865dbdcfd48e1fe2adbd6c7d87996a15d65` |
+| Commit timestamp | `2026-11-04T09:17:25-05:00` |
 
 ## Public API
 
 - `class ReaderRestorationError(ValueError)` ([source](../../../../../../src/learnloop/reader/reader_restoration.py), line 44) — Domain error for the reader-restoration service.
-- `restore(repository: Repository, *, source_id: str, extraction_id: str | None=None, run_id: str | None=None, idempotency_key: str | None=None, clock: Clock | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/reader/reader_restoration.py), line 53) — Restore source + annotations after a closed cold observation (§11).
-- `restore_before_response(repository: Repository, *, extraction_id: str, span_id: str, cold_surface_id: str | None=None, cold_administration_id: str | None=None, clock: Clock | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/reader/reader_restoration.py), line 150) — Opening restoration material BEFORE the cold response (§11, §15.6): appends a contamination/feedback exposure event and removes cold eligibility.
+- `restore(repository: Repository, *, source_id: str, extraction_id: str | None=None, run_id: str | None=None, idempotency_key: str | None=None, clock: Clock | None=None, exposure_fields: Mapping[str, Any] | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/reader/reader_restoration.py), line 53) — Restore source + annotations after a closed cold observation (§11).
+- `restore_before_response(repository: Repository, *, extraction_id: str, span_id: str, cold_surface_id: str | None=None, cold_administration_id: str | None=None, clock: Clock | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/reader/reader_restoration.py), line 151) — Opening restoration material BEFORE the cold response (§11, §15.6): appends a contamination/feedback exposure event and removes cold eligibility.
 
 ### Module constants
 

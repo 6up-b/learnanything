@@ -197,8 +197,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_figures_migration.py](../../../../../../tests/test_figures_migration.py) — direct import
   - `test_216_is_the_figures_migration`
 - [tests/test_followup_migration.py](../../../../../../tests/test_followup_migration.py) — direct import
-  - `test_241_is_the_head_and_its_tables_have_their_roles`
-  - `test_the_head_fixture_is_at_241_in_rollback_mode_with_empty_tables`
+  - `test_241_exists_and_its_tables_have_their_roles`
+  - `test_the_head_fixture_holds_241_in_rollback_mode_with_empty_tables`
 - [tests/test_forecast_receipts_landing.py](../../../../../../tests/test_forecast_receipts_landing.py) — direct import
   - `test_the_renumbered_migration_and_its_table_role`
 - [tests/test_goal_contracts.py](../../../../../../tests/test_goal_contracts.py) — direct import
@@ -337,6 +337,9 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_migration_154_adds_the_ledger_and_the_question_event_columns`
 - [tests/test_route_rules_in_grader.py](../../../../../../tests/test_route_rules_in_grader.py) — direct import
   - `test_migration_186_keeps_its_trigger_which_nothing_writes_now`
+- [tests/test_router_objective_migration.py](../../../../../../tests/test_router_objective_migration.py) — direct import
+  - `test_242_exists_and_its_tables_are_receipts`
+  - `test_the_head_fixture_holds_242_in_rollback_mode_with_empty_tables_and_null_columns`
 - [tests/test_rw2d_receipts_migration.py](../../../../../../tests/test_rw2d_receipts_migration.py) — direct import
   - `test_219_adds_the_receipt_table_and_the_subject_column_and_nothing_else`
   - `test_219_on_the_durability_lane`

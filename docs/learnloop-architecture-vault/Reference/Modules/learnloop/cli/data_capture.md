@@ -7,8 +7,8 @@ version: "1.0.0"
 source_path: "src/learnloop/cli/data_capture.py"
 source_paths:
   - "src/learnloop/cli/data_capture.py"
-source_commit: "1d242b25e2e9fd03cada602956254bdc2e51ed25"
-source_commit_timestamp: "2026-11-03T16:06:38-05:00"
+source_commit: "2918d13e0c847768373fc7db138103c5db7252a6"
+source_commit_timestamp: "2026-11-04T09:33:25-05:00"
 source_worktree_state: "clean"
 generated: true
 generated_at: "2026-11-02"
@@ -57,12 +57,12 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Architecture layer | `adapter` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `1d242b25e2e9fd03cada602956254bdc2e51ed25` |
-| Commit timestamp | `2026-11-03T16:06:38-05:00` |
+| Source commit | `2918d13e0c847768373fc7db138103c5db7252a6` |
+| Commit timestamp | `2026-11-04T09:33:25-05:00` |
 
 ## Public API
 
-- `data_capture_report(vault: Annotated[Path, typer.Option('--vault', help='Vault root (read-only).')], json_output: Annotated[bool, typer.Option('--json')]=False) -> None` ([source](../../../../../../src/learnloop/cli/data_capture.py), line 24) — Counts and coverage for each new record: prefilter receipts, frozen objectives and their measurement states by arm, outcomes by arm, the first-delayed-success proxy, the not_ready floor and the delayed picks (read-only; no model call; no effect is estimated).
+- `data_capture_report(vault: Annotated[Path, typer.Option('--vault', help='Vault root (read-only).')], json_output: Annotated[bool, typer.Option('--json')]=False) -> None` ([source](../../../../../../src/learnloop/cli/data_capture.py), line 24) — Counts and coverage for each new record: prefilter receipts, frozen objectives and their measurement states by arm, outcomes by arm, the first-delayed-success proxy, the not_ready floor and the delayed picks, and RO0's coverage per row with measured bytes per day (read-only; no…
 
 ## Internal implementation anchors
 

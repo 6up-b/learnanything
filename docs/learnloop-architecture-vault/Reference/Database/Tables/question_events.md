@@ -3,13 +3,13 @@ title: "question_events"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "c351033cdfa816184211a76bd032919f54f5a1b6"
-source_commit_timestamp: "2026-11-04T07:28:45-05:00"
+source_commit: "0ed947a2c0b030671b4fbd264957e0ca13fa010f"
+source_commit_timestamp: "2026-11-04T11:05:42-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite question_events"
   - "table question_events"
-schema_head: 241
+schema_head: 242
 table_name: "question_events"
 table_role: "raw_ledger"
 functionality_status: "active"
@@ -57,7 +57,7 @@ It belongs to the **tutor and remediation** navigation family. The family contex
 - **Role:** `raw_ledger` — Authoritative replay input or mixed authoritative state. The rebuild umbrella preserves it.
 - **Functionality status:** `active`.
 - **Introduced by:** `migrations/019_question_events.sql`.
-- **Schema touched by:** `019_question_events.sql`, `026_question_event_answer_status.sql`, `027_question_promotions.sql`, `030_probe_pilot_and_policy.sql`, `086_reader_dialogue.sql`, `102_question_resolution.sql`, `117_question_promotion_jobs_and_queue_revision.sql`, `151_cold_measurement_opportunities.sql`, `154_reveal_ledger.sql`, `182_learner_text_gaps.sql`, `205_write_provenance.sql`, `208_learner_text_source_kinds.sql`, `209_library_asks.sql`, `212_hint_feedback_source_kind.sql`, `213_adaptive_difficulty_receipts.sql`, `231_learner_note_source_kind.sql`.
+- **Schema touched by:** `019_question_events.sql`, `026_question_event_answer_status.sql`, `027_question_promotions.sql`, `030_probe_pilot_and_policy.sql`, `086_reader_dialogue.sql`, `102_question_resolution.sql`, `117_question_promotion_jobs_and_queue_revision.sql`, `151_cold_measurement_opportunities.sql`, `154_reveal_ledger.sql`, `182_learner_text_gaps.sql`, `205_write_provenance.sql`, `208_learner_text_source_kinds.sql`, `209_library_asks.sql`, `212_hint_feedback_source_kind.sql`, `213_adaptive_difficulty_receipts.sql`, `231_learner_note_source_kind.sql`, `242_router_objective_receipts.sql`.
 - **Rebuild owner:** none; this table is preserved by the rebuild umbrella.
 
 For the distinction between SQLite state and human-authored vault files, see [[State and Persistence]]. For whole-vault creation and opening behavior, see [[Vault Lifecycle]]. ^table-lifecycle
@@ -100,6 +100,7 @@ For the distinction between SQLite state and human-authored vault files, see [[S
 | `assessment_contract_version_id` | `TEXT` | no | — | — | Application-validated soft reference |
 | `answered_at` | `TEXT` | no | — | — | Timestamp (ISO-8601 UTC text) |
 | `answer_mode` | `TEXT` | no | — | — | Stored value |
+| `reveal_state_json` | `TEXT` | no | — | — | JSON-encoded structured payload |
 
 ## Relationships and access paths
 
@@ -141,6 +142,8 @@ Indexes and uniqueness:
 - `src/learnloop/reader/reader_report.py`
 - `src/learnloop/reader_learner_state.py`
 - `src/learnloop/router/outcomes.py`
+- `src/learnloop/router_objective/question_state.py`
+- `src/learnloop/router_objective/report.py`
 - `src/learnloop/teacher/actions.py`
 - `src/learnloop/teacher/brief.py`
 
@@ -247,7 +250,7 @@ CREATE TABLE "question_events" (
   )
 , resolution TEXT NOT NULL DEFAULT 'open'
   CHECK (resolution IN ('open', 'resolved', 'dismissed')), source_context_json TEXT, leak_overlap REAL, remediation_episode_id TEXT, assessment_contract_version_id TEXT, answered_at TEXT, answer_mode TEXT
-  CHECK (answer_mode IS NULL OR answer_mode IN ('answer_directly', 'help_me_reason', 'ask_me_first')));
+  CHECK (answer_mode IS NULL OR answer_mode IN ('answer_directly', 'help_me_reason', 'ask_me_first')), reveal_state_json TEXT);
 ```
 
 ## Related notes

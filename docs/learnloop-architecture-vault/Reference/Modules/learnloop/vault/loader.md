@@ -445,6 +445,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_ad3_subject_view.py](../../../../../../tests/test_ad3_subject_view.py) — direct import
   - `test_coupling_is_prediction_only`
   - `test_readiness_numbers_from_subject_view_with_untested_cells`
+  - `test_ro0_decision_state_fields_read_the_cards_numbers_with_the_state_they_came_from`
   - `test_shadow_report_names_what_a_new_version_reinterprets`
 - [tests/test_ad_denial_log.py](../../../../../../tests/test_ad_denial_log.py) — direct import
   - `test_a_successful_upgrade_archives_the_log_and_the_report_counts_from_zero`
@@ -2778,6 +2779,15 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_a_revealed_cold_item_cannot_burn_its_cold_measurement`
 - [tests/test_review_log.py](../../../../../../tests/test_review_log.py) — direct import
 - [tests/test_revision_refresh.py](../../../../../../tests/test_revision_refresh.py) — direct import
+- [tests/test_ro0_gate.py](../../../../../../tests/test_ro0_gate.py) — direct import
+  - `test_rebuild_leaves_the_receipts_alone`
+- [tests/test_ro0_question_state.py](../../../../../../tests/test_ro0_question_state.py) — direct import
+- [tests/test_ro0_report.py](../../../../../../tests/test_ro0_report.py) — direct import
+  - `test_each_row_reports_what_was_written_and_measured_bytes`
+- [tests/test_ro0_row11_goal_lifecycle.py](../../../../../../tests/test_ro0_row11_goal_lifecycle.py) — direct import
+  - `test_a_refused_row_rolls_back_alone`
+- [tests/test_ro0_row4_exposure_initiator.py](../../../../../../tests/test_ro0_row4_exposure_initiator.py) — direct import
+- [tests/test_ro0_row5_event_times.py](../../../../../../tests/test_ro0_row5_event_times.py) — direct import
 - [tests/test_route_rules_in_grader.py](../../../../../../tests/test_route_rules_in_grader.py) — direct import
   - `test_a_retired_proof_check_route_is_ignored_and_reported`
   - `test_f5_a_regrade_supersedes_an_mvp017_route_check_verdict`

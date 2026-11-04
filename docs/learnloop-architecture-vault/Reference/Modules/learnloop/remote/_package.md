@@ -13,7 +13,7 @@ source_paths:
   - "src/learnloop/remote/telemetry.py"
   - "src/learnloop/remote/views.py"
 source_commit: "aggregate; see module notes"
-source_commit_timestamp: "2026-11-01T17:34:22-05:00"
+source_commit_timestamp: "2026-11-04T09:17:25-05:00"
 generated: true
 generated_at: "2026-11-02"
 package: "learnloop.remote"
@@ -77,6 +77,7 @@ For system intent, use [[Architecture Overview]].
 - [[Reference/Modules/learnloop/db/stores/_package|learnloop.db.stores]] — 1 static module edge
 - [[Reference/Modules/learnloop/goals/_package|learnloop.goals]] — 1 static module edge
 - [[Reference/Modules/learnloop/ingest/_package|learnloop.ingest]] — 1 static module edge
+- [[Reference/Modules/learnloop/router_objective/_package|learnloop.router_objective]] — 1 static module edge
 
 ### Packages that import this package
 

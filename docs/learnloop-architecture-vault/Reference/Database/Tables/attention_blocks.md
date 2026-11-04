@@ -3,13 +3,13 @@ title: "attention_blocks"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "c351033cdfa816184211a76bd032919f54f5a1b6"
-source_commit_timestamp: "2026-11-04T07:28:45-05:00"
+source_commit: "0ed947a2c0b030671b4fbd264957e0ca13fa010f"
+source_commit_timestamp: "2026-11-04T11:05:42-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite attention_blocks"
   - "table attention_blocks"
-schema_head: 241
+schema_head: 242
 table_name: "attention_blocks"
 table_role: "workflow"
 functionality_status: "active"
@@ -105,6 +105,9 @@ None found by exact static reference scan.
 - `src/learnloop/daily_plan/estimates.py`
 - `src/learnloop/db/stores/daily_plans.py`
 - `src/learnloop/evsi_calibration/live_report.py`
+- `src/learnloop/router_objective/exposure.py`
+- `src/learnloop/router_objective/sessions.py`
+- `src/learnloop/router_objective/trajectory.py`
 
 ### Direct SQL writers
 

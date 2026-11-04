@@ -383,6 +383,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_the_passage_quick_check_is_a_model_backed_action_in_the_funnel`
 - [tests/test_reading_request_sweep.py](../../../../../../tests/test_reading_request_sweep.py) — direct import
 - [tests/test_recall_coverage_interventions.py](../../../../../../tests/test_recall_coverage_interventions.py) — direct import
+- [tests/test_ro0_report.py](../../../../../../tests/test_ro0_report.py) — direct import
+  - `test_each_row_reports_what_was_written_and_measured_bytes`
 - [tests/test_router_r2a_landing.py](../../../../../../tests/test_router_r2a_landing.py) — direct import
 - [tests/test_router_r2bc_landing.py](../../../../../../tests/test_router_r2bc_landing.py) — direct import
   - `test_router_embeddings_and_the_source_backfill_each_answer_to_their_own_guard`

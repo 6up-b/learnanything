@@ -7,8 +7,8 @@ version: "1.0.0"
 source_path: "src/learnloop/reader/reader_dialogue.py"
 source_paths:
   - "src/learnloop/reader/reader_dialogue.py"
-source_commit: "a2d2176b105ab0dc48837944ad2d6663280cc4d2"
-source_commit_timestamp: "2026-11-01T16:13:42-05:00"
+source_commit: "52756865dbdcfd48e1fe2adbd6c7d87996a15d65"
+source_commit_timestamp: "2026-11-04T09:17:25-05:00"
 source_worktree_state: "clean"
 generated: true
 generated_at: "2026-11-02"
@@ -49,13 +49,13 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/reader/reader_dialogue.py](../../../../../../src/learnloop/reader/reader_dialogue.py) |
-| Source lines | 1420 |
+| Source lines | 1421 |
 | Owning package | [[Reference/Modules/learnloop/reader/_package|learnloop.reader]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `a2d2176b105ab0dc48837944ad2d6663280cc4d2` |
-| Commit timestamp | `2026-11-01T16:13:42-05:00` |
+| Source commit | `52756865dbdcfd48e1fe2adbd6c7d87996a15d65` |
+| Commit timestamp | `2026-11-04T09:17:25-05:00` |
 
 ## Public API
 
@@ -75,12 +75,12 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 - `skip_reading_question(repository: Repository, *, administration_id: str, clock: Clock | None=None) -> str` ([source](../../../../../../src/learnloop/reader/reader_dialogue.py), line 1102) — A skip is an interaction-policy signal, NEVER low-ability evidence (§7.6).
 - `submit_reading_question(repository: Repository, *, administration_id: str, response_md: str | None=None, target_key: str | None=None, outcome_class: str='unknown', clock: Clock | None=None) -> str` ([source](../../../../../../src/learnloop/reader/reader_dialogue.py), line 1122) — Record an answer to an owner-placed reading question (source_visible instructional; primes/scaffolds, never cold evidence).
 - `choose_disposition(vault: LoadedVault, repository: Repository, *, disposition: str, subject_id: str, subject_type: str='reader_span', commitment_target: Mapping[str, Any] | None=None, goal_id: str | None=None, client_idempotency_key: str | None=None, clock: Clock | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/reader/reader_dialogue.py), line 1156) — Apply one of the four reading dispositions -- and nothing else (§7.6).
-- `restore_source(repository: Repository, *, extraction_id: str, span_id: str, cold_surface_id: str | None=None, cold_administration_id: str | None=None, clock: Clock | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/reader/reader_dialogue.py), line 1225) — Restore a source span during reading.
-- `routing_prior_projection_v1(repository: Repository, *, target_key: str, as_of: str | None=None, cold_observation_at: str | None=None, halflife_days: float | None=None, max_weight: float | None=None, clock: Clock | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/reader/reader_dialogue.py), line 1282) — Fold ``reader_answer_submitted`` events for ``target_key`` into a bounded, replay-derived routing prior (design A.1 / spec §7.6 evidence semantics).
-- `class StubReaderClient` ([source](../../../../../../src/learnloop/reader/reader_dialogue.py), line 1384) — A deterministic ``reader`` tutor client (U-034 stub).
-  - `__init__(self, *, answer_md: str='Grounded in the span in view.') -> None` (line 1392; internal)
-  - `supports(self, capability: str) -> bool` (line 1396; public)
-  - `complete(self, request: StructuredRequest[Any]) -> TutorAnswer` (line 1399; public)
+- `restore_source(repository: Repository, *, extraction_id: str, span_id: str, cold_surface_id: str | None=None, cold_administration_id: str | None=None, clock: Clock | None=None, exposure_fields: Mapping[str, Any] | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/reader/reader_dialogue.py), line 1225) — Restore a source span during reading.
+- `routing_prior_projection_v1(repository: Repository, *, target_key: str, as_of: str | None=None, cold_observation_at: str | None=None, halflife_days: float | None=None, max_weight: float | None=None, clock: Clock | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/reader/reader_dialogue.py), line 1283) — Fold ``reader_answer_submitted`` events for ``target_key`` into a bounded, replay-derived routing prior (design A.1 / spec §7.6 evidence semantics).
+- `class StubReaderClient` ([source](../../../../../../src/learnloop/reader/reader_dialogue.py), line 1385) — A deterministic ``reader`` tutor client (U-034 stub).
+  - `__init__(self, *, answer_md: str='Grounded in the span in view.') -> None` (line 1393; internal)
+  - `supports(self, capability: str) -> bool` (line 1397; public)
+  - `complete(self, request: StructuredRequest[Any]) -> TutorAnswer` (line 1400; public)
 
 ### Module constants
 
@@ -113,7 +113,7 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 - `_surface_statement_text(surface_row: Mapping[str, Any]) -> str` ([source](../../../../../../src/learnloop/reader/reader_dialogue.py), line 469)
 - `_detect_revealed_reserves(repository: Repository, *, answer_md: str, citations: Sequence[Mapping[str, Any]], caller_supplied: Sequence[str]) -> list[str]` ([source](../../../../../../src/learnloop/reader/reader_dialogue.py), line 508) — Server-side reveal detection (L3): map the answer's text + validated citations against every LIVE assessment reserve by surface_hash / fingerprint / verbatim overlap (>= ``READER_REVEAL_OVERLAP_THRESHOLD``).
 - `_record_cold_hint_equivalent(repository: Repository, *, cold_attempt_id: str, question_md: str, answer_md: str | None, span_key: str, clock: Clock | None, question_event_id: str | None=None, counts: bool=True, question_type: str | None=None) -> str | None` ([source](../../../../../../src/learnloop/reader/reader_dialogue.py), line 977) — Record the cold reader Ask as a hint-equivalent PRACTICE question_event tied to the cold attempt's (item, session), so the practice evidence path counts it (L6).
-- `_days_between(start_iso: str, end_iso: str) -> float` ([source](../../../../../../src/learnloop/reader/reader_dialogue.py), line 1374)
+- `_days_between(start_iso: str, end_iso: str) -> float` ([source](../../../../../../src/learnloop/reader/reader_dialogue.py), line 1375)
 
 ## Who imports or calls it
 

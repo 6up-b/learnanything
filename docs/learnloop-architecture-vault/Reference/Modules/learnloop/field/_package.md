@@ -24,7 +24,7 @@ source_paths:
   - "src/learnloop/field/types.py"
   - "src/learnloop/field/workbench_signals.py"
 source_commit: "aggregate; see module notes"
-source_commit_timestamp: "2026-10-27T13:20:19-04:00"
+source_commit_timestamp: "2026-11-04T09:01:45-05:00"
 generated: true
 generated_at: "2026-11-02"
 package: "learnloop.field"
@@ -73,7 +73,7 @@ For system intent, use [[Architecture Overview]].
 | [[Reference/Modules/learnloop/field/priors|learnloop.field.priors]] | [[Reference/Modules/learnloop/field/priors#^module-purpose|purpose]] | `ACTIVE` | 1 | 2 |
 | [[Reference/Modules/learnloop/field/probability_arms|learnloop.field.probability_arms]] | [[Reference/Modules/learnloop/field/probability_arms#^module-purpose|purpose]] | `ACTIVE` | 5 | 2 |
 | [[Reference/Modules/learnloop/field/probability_prep|learnloop.field.probability_prep]] | [[Reference/Modules/learnloop/field/probability_prep#^module-purpose|purpose]] | `ACTIVE` | 1 | 2 |
-| [[Reference/Modules/learnloop/field/probability_states|learnloop.field.probability_states]] | [[Reference/Modules/learnloop/field/probability_states#^module-purpose|purpose]] | `ACTIVE` | 2 | 1 |
+| [[Reference/Modules/learnloop/field/probability_states|learnloop.field.probability_states]] | [[Reference/Modules/learnloop/field/probability_states#^module-purpose|purpose]] | `ACTIVE` | 2 | 2 |
 | [[Reference/Modules/learnloop/field/signals|learnloop.field.signals]] | [[Reference/Modules/learnloop/field/signals#^module-purpose|purpose]] | `ACTIVE` | 6 | 12 |
 | [[Reference/Modules/learnloop/field/success_head|learnloop.field.success_head]] | [[Reference/Modules/learnloop/field/success_head#^module-purpose|purpose]] | `ACTIVE` | 3 | 2 |
 | [[Reference/Modules/learnloop/field/success_head_analysis|learnloop.field.success_head_analysis]] | [[Reference/Modules/learnloop/field/success_head_analysis#^module-purpose|purpose]] | `ACTIVE` | 1 | 1 |

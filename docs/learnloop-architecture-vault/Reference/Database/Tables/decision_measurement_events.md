@@ -3,13 +3,13 @@ title: "decision_measurement_events"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "c351033cdfa816184211a76bd032919f54f5a1b6"
-source_commit_timestamp: "2026-11-04T07:28:45-05:00"
+source_commit: "0ed947a2c0b030671b4fbd264957e0ca13fa010f"
+source_commit_timestamp: "2026-11-04T11:05:42-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite decision_measurement_events"
   - "table decision_measurement_events"
-schema_head: 241
+schema_head: 242
 table_name: "decision_measurement_events"
 table_role: "receipt"
 functionality_status: "active"
@@ -21,6 +21,8 @@ source_paths:
   - "migrations/240_data_capture.sql"
   - "src/learnloop/daily_plan/measurement.py"
   - "src/learnloop/db/stores/data_capture.py"
+  - "src/learnloop/router_objective/cold_timing.py"
+  - "src/learnloop/router_objective/report.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/receipt"
@@ -44,7 +46,7 @@ It belongs to the **operations** navigation family. The family context lives in 
 - **Role:** `receipt` — Historical audit/decision receipt. It is preserved and never rebuilt.
 - **Functionality status:** `active`.
 - **Introduced by:** `migrations/240_data_capture.sql`.
-- **Schema touched by:** `240_data_capture.sql`.
+- **Schema touched by:** `240_data_capture.sql`, `242_router_objective_receipts.sql`.
 - **Rebuild owner:** none; this table is preserved by the rebuild umbrella.
 
 For the distinction between SQLite state and human-authored vault files, see [[State and Persistence]]. For whole-vault creation and opening behavior, see [[Vault Lifecycle]]. ^table-lifecycle
@@ -62,6 +64,8 @@ For the distinction between SQLite state and human-authored vault files, see [[S
 | `detail_json` | `TEXT` | yes | `'{}'` | — | JSON-encoded structured payload |
 | `created_at` | `TEXT` | yes | — | — | Timestamp (ISO-8601 UTC text) |
 | `episode` | `TEXT` | yes | `''` | — | Stored value |
+| `non_service_type` | `TEXT` | no | — | — | Stored value |
+| `delay_json` | `TEXT` | no | — | — | JSON-encoded structured payload |
 
 ## Relationships and access paths
 
@@ -90,6 +94,7 @@ None found by exact static reference scan.
 
 - `src/learnloop/daily_plan/measurement.py`
 - `src/learnloop/db/stores/data_capture.py`
+- `src/learnloop/router_objective/report.py`
 
 ### Direct SQL writers
 
@@ -105,6 +110,9 @@ None found by exact static reference scan.
 ## Tests that define behavior
 
 - `tests/test_data_capture_migration.py`
+- `tests/test_ro0_row10_cold_timing.py`
+- `tests/test_router_objective_migration.py`
+- `tests/test_teacher_te1b_migration.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 
@@ -131,7 +139,10 @@ CREATE TABLE decision_measurement_events (
   detail_json TEXT NOT NULL DEFAULT '{}',
   created_at TEXT NOT NULL,
   -- What opened this availability episode: a due date, a presentation, the last of those for an unavailable state.
-  episode TEXT NOT NULL DEFAULT '',
+  episode TEXT NOT NULL DEFAULT '', non_service_type TEXT
+  CHECK (non_service_type IS NULL OR non_service_type IN (
+    'structurally_refused', 'policy_refused', 'operationally_unavailable', 'learner_declined', 'answered_unread'
+  )), delay_json TEXT,
   UNIQUE (decision_id, state, reason, episode)
 );
 ```

@@ -7,8 +7,8 @@ version: "1.0.0"
 source_path: "src/learnloop/reader/span_view.py"
 source_paths:
   - "src/learnloop/reader/span_view.py"
-source_commit: "295b77168a10cc055e277f2622fb10506fa114f9"
-source_commit_timestamp: "2026-10-27T18:21:15-04:00"
+source_commit: "52756865dbdcfd48e1fe2adbd6c7d87996a15d65"
+source_commit_timestamp: "2026-11-04T09:17:25-05:00"
 source_worktree_state: "clean"
 generated: true
 generated_at: "2026-11-02"
@@ -49,41 +49,41 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/reader/span_view.py](../../../../../../src/learnloop/reader/span_view.py) |
-| Source lines | 488 |
+| Source lines | 493 |
 | Owning package | [[Reference/Modules/learnloop/reader/_package|learnloop.reader]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `295b77168a10cc055e277f2622fb10506fa114f9` |
-| Commit timestamp | `2026-10-27T18:21:15-04:00` |
+| Source commit | `52756865dbdcfd48e1fe2adbd6c7d87996a15d65` |
+| Commit timestamp | `2026-11-04T09:17:25-05:00` |
 
 ## Public API
 
 - `class SpanViewError(ValueError)` ([source](../../../../../../src/learnloop/reader/span_view.py), line 58) — Typed failure for the get_span_view RPC.
   - `__init__(self, code: str, message: str) -> None` (line 61; internal)
-- `build_span_view(repo: Repository, extraction_id: str, span_id: str, *, context: str='other', entity_type: str | None=None, entity_id: str | None=None, record: bool=True, clock: Clock | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/reader/span_view.py), line 79) — Resolve a span to viewer geometry + text and record a source_exposure event.
-- `record_span_exposures(repo: Repository, extraction_id: str, span_ids: list[str], *, context: str='other', entity_type: str | None=None, entity_id: str | None=None, clock: Clock | None=None) -> list[str]` ([source](../../../../../../src/learnloop/reader/span_view.py), line 184) — Record a ``source_exposure`` event for each of these spans, in one transaction: the passages a surface DISPLAYED, not only the one it was asked for (Reader CA5a's peek shows a section's first blocks: Codex review F2).
-- `build_block_region(repo: Repository, extraction_id: str, span_id: str, *, bbox: list[float] | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/reader/span_view.py), line 415) — On-demand original-region crop for one block (spec §3.4).
+- `build_span_view(repo: Repository, extraction_id: str, span_id: str, *, context: str='other', entity_type: str | None=None, entity_id: str | None=None, record: bool=True, clock: Clock | None=None, exposure_fields: Mapping[str, Any] | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/reader/span_view.py), line 79) — Resolve a span to viewer geometry + text and record a source_exposure event.
+- `record_span_exposures(repo: Repository, extraction_id: str, span_ids: list[str], *, context: str='other', entity_type: str | None=None, entity_id: str | None=None, clock: Clock | None=None, exposure_fields: Mapping[str, Any] | None=None) -> list[str]` ([source](../../../../../../src/learnloop/reader/span_view.py), line 187) — Record a ``source_exposure`` event for each of these spans, in one transaction: the passages a surface DISPLAYED, not only the one it was asked for (Reader CA5a's peek shows a section's first blocks: Codex review F2).
+- `build_block_region(repo: Repository, extraction_id: str, span_id: str, *, bbox: list[float] | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/reader/span_view.py), line 420) — On-demand original-region crop for one block (spec §3.4).
 
 ### Module constants
 
 - `_NEIGHBOR_RADIUS` ([src/learnloop/reader/span_view.py](../../../../../../src/learnloop/reader/span_view.py), line 32)
 - `_NEIGHBOR_CHAR_CAP` ([src/learnloop/reader/span_view.py](../../../../../../src/learnloop/reader/span_view.py), line 34)
 - `_VALID_CONTEXTS` ([src/learnloop/reader/span_view.py](../../../../../../src/learnloop/reader/span_view.py), line 36)
-- `_PDFIUM_LOCK` ([src/learnloop/reader/span_view.py](../../../../../../src/learnloop/reader/span_view.py), line 265)
-- `_CROP_SCALE` ([src/learnloop/reader/span_view.py](../../../../../../src/learnloop/reader/span_view.py), line 312)
+- `_PDFIUM_LOCK` ([src/learnloop/reader/span_view.py](../../../../../../src/learnloop/reader/span_view.py), line 270)
+- `_CROP_SCALE` ([src/learnloop/reader/span_view.py](../../../../../../src/learnloop/reader/span_view.py), line 317)
 
 ## Internal implementation anchors
 
 - `_neighbor(block: Any) -> dict[str, Any]` ([source](../../../../../../src/learnloop/reader/span_view.py), line 66)
-- `_original_pdf_path(repo: Repository, revision: dict[str, Any] | None, fallback_uri: str | None) -> Path | None` ([source](../../../../../../src/learnloop/reader/span_view.py), line 239) — Locate a readable local copy of the revision's original PDF: the vault's content-addressed store first (survives file moves), else the ingest-time ``original_uri``/``canonical_uri`` when it still points at a local file.
-- `_pdf_page(path: Path, page: int) -> Iterator[Any]` ([source](../../../../../../src/learnloop/reader/span_view.py), line 269) — The PDF's zero-based ``page`` (None when out of range), opened and closed under the pdfium lock.
-- `_local_pdf_page_render(path: Path | None, page: int | None) -> tuple[str | None, list[float] | None]` ([source](../../../../../../src/learnloop/reader/span_view.py), line 290)
-- `_local_pdf_block_crop(path: Path | None, page: int | None, bbox: list[float] | None) -> tuple[str | None, list[float] | None]` ([source](../../../../../../src/learnloop/reader/span_view.py), line 315) — Render an on-demand crop of one block's PDF region (spec §3.4).
-- `_local_pdf_crops(path: Path | None, page: int | None, boxes: list[list[float]]) -> tuple[list[str | None], list[float] | None]` ([source](../../../../../../src/learnloop/reader/span_view.py), line 352) — Reader CA1: several crops of one PDF page, the page rendered once.
-- `_local_pdf_page_label(path: Path | None, page: int | None) -> str | None` ([source](../../../../../../src/learnloop/reader/span_view.py), line 392) — The page's printed label from the PDF's own page labels (``/PageLabels``), or None when the file has none (the caller then shows the page's position).
-- `_original_pdf_for(repo: Repository, extraction_id: str) -> Path | None` ([source](../../../../../../src/learnloop/reader/span_view.py), line 457)
-- `_block_subregion(repo: Repository, extraction_id: str, span_id: str, block: Any, bbox: list[float]) -> dict[str, Any]` ([source](../../../../../../src/learnloop/reader/span_view.py), line 466) — A learner-drawn box inside one block: the box clipped to the block's own box (a box outside it crops nothing).
+- `_original_pdf_path(repo: Repository, revision: dict[str, Any] | None, fallback_uri: str | None) -> Path | None` ([source](../../../../../../src/learnloop/reader/span_view.py), line 244) — Locate a readable local copy of the revision's original PDF: the vault's content-addressed store first (survives file moves), else the ingest-time ``original_uri``/``canonical_uri`` when it still points at a local file.
+- `_pdf_page(path: Path, page: int) -> Iterator[Any]` ([source](../../../../../../src/learnloop/reader/span_view.py), line 274) — The PDF's zero-based ``page`` (None when out of range), opened and closed under the pdfium lock.
+- `_local_pdf_page_render(path: Path | None, page: int | None) -> tuple[str | None, list[float] | None]` ([source](../../../../../../src/learnloop/reader/span_view.py), line 295)
+- `_local_pdf_block_crop(path: Path | None, page: int | None, bbox: list[float] | None) -> tuple[str | None, list[float] | None]` ([source](../../../../../../src/learnloop/reader/span_view.py), line 320) — Render an on-demand crop of one block's PDF region (spec §3.4).
+- `_local_pdf_crops(path: Path | None, page: int | None, boxes: list[list[float]]) -> tuple[list[str | None], list[float] | None]` ([source](../../../../../../src/learnloop/reader/span_view.py), line 357) — Reader CA1: several crops of one PDF page, the page rendered once.
+- `_local_pdf_page_label(path: Path | None, page: int | None) -> str | None` ([source](../../../../../../src/learnloop/reader/span_view.py), line 397) — The page's printed label from the PDF's own page labels (``/PageLabels``), or None when the file has none (the caller then shows the page's position).
+- `_original_pdf_for(repo: Repository, extraction_id: str) -> Path | None` ([source](../../../../../../src/learnloop/reader/span_view.py), line 462)
+- `_block_subregion(repo: Repository, extraction_id: str, span_id: str, block: Any, bbox: list[float]) -> dict[str, Any]` ([source](../../../../../../src/learnloop/reader/span_view.py), line 471) — A learner-drawn box inside one block: the box clipped to the block's own box (a box outside it crops nothing).
 
 ## Who imports or calls it
 

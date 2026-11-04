@@ -348,6 +348,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_replay_reproduces_method_grades_without_a_model`
 - [tests/test_retrieval_spaces_migration.py](../../../../../../tests/test_retrieval_spaces_migration.py) — direct import
   - `test_table_roles_and_the_one_replayer`
+- [tests/test_ro0_gate.py](../../../../../../tests/test_ro0_gate.py) — direct import
+  - `test_rebuild_leaves_the_receipts_alone`
 - [tests/test_route_rules_in_grader.py](../../../../../../tests/test_route_rules_in_grader.py) — direct import
   - `test_f1_live_an_incomplete_grade_with_nothing_located_is_held`
   - `test_f4_the_graders_route_verdict_reaches_the_judgment_ledger_and_regrades_supersede_it`

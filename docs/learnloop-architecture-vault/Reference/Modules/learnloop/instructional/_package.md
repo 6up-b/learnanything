@@ -24,7 +24,7 @@ source_paths:
   - "src/learnloop/instructional/valuation.py"
   - "src/learnloop/instructional/wiring.py"
 source_commit: "aggregate; see module notes"
-source_commit_timestamp: "2026-11-03T21:58:20-05:00"
+source_commit_timestamp: "2026-11-04T09:17:25-05:00"
 generated: true
 generated_at: "2026-11-02"
 package: "learnloop.instructional"
@@ -106,6 +106,7 @@ For system intent, use [[Architecture Overview]].
 - [[Reference/Modules/learnloop/learner/_package|learnloop.learner]] — 1 static module edge
 - [[Reference/Modules/learnloop/params/_package|learnloop.params]] — 1 static module edge
 - [[Reference/Modules/learnloop/placement/_package|learnloop.placement]] — 1 static module edge
+- [[Reference/Modules/learnloop/router_objective/_package|learnloop.router_objective]] — 1 static module edge
 - [[Reference/Modules/learnloop/tutor/_package|learnloop.tutor]] — 1 static module edge
 
 ### Packages that import this package

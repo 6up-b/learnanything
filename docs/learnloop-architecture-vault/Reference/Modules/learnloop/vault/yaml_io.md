@@ -427,6 +427,9 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_replay_preserves_targeted_error_attribution_facets`
 - [tests/test_required_method_items.py](../../../../../../tests/test_required_method_items.py) — direct import
 - [tests/test_reread_safety_landing.py](../../../../../../tests/test_reread_safety_landing.py) — direct import
+- [tests/test_ro0_report.py](../../../../../../tests/test_ro0_report.py) — direct import
+  - `test_each_row_reports_what_was_written_and_measured_bytes`
+- [tests/test_ro0_row11_goal_lifecycle.py](../../../../../../tests/test_ro0_row11_goal_lifecycle.py) — direct import
 - [tests/test_router_probe_ties.py](../../../../../../tests/test_router_probe_ties.py) — direct import
 - [tests/test_router_r1_composition.py](../../../../../../tests/test_router_r1_composition.py) — direct import
 - [tests/test_router_r2a_landing.py](../../../../../../tests/test_router_r2a_landing.py) — direct import
