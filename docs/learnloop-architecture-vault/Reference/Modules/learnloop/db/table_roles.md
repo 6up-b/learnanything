@@ -179,6 +179,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_212_classifies_nothing_new`
 - [tests/test_hint_telemetry.py](../../../../../../tests/test_hint_telemetry.py) — direct import
   - `test_rebuild_with_help_assists_populated_calls_no_model_and_never_reads_it`
+- [tests/test_hypothesis_marks.py](../../../../../../tests/test_hypothesis_marks.py) — direct import
+  - `test_a_rebuild_ignores_marks_and_keeps_them`
 - [tests/test_hypothesis_marks_migration.py](../../../../../../tests/test_hypothesis_marks_migration.py) — direct import
   - `test_242_is_the_head_and_its_tables_have_their_roles`
 - [tests/test_learner_gap_unlinked_migration.py](../../../../../../tests/test_learner_gap_unlinked_migration.py) — direct import

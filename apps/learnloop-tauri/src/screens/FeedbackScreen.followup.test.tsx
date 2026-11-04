@@ -291,6 +291,21 @@ it("the switch off, or nothing to mark, leaves no panel and no call", async () =
   expect(invoke.mock.calls.some(([command]) => String(command).includes("hypothesis"))).toBe(false);
 });
 
+it("a bundle with no list, as a rating's reply is, doesn't take the panel away", async () => {
+  withBundle({ ...BUNDLE, followup: OPEN, hypothesisMarks: MARKS, followupSource: { gateAttemptId: "att_0" }, followupRating: null });
+  const original = invoke.getMockImplementation();
+  invoke.mockImplementation(async (command: string, ...rest: unknown[]) => {
+    if (command === "rate_followup") return { ...BUNDLE, followup: OPEN, followupSource: { gateAttemptId: "att_0" }, followupRating: { useful: true, ratedAt: "t" } };
+    return original ? original(command, ...rest) : null;
+  });
+  show();
+  await screen.findByTestId("hypothesis-marks");
+  await act(async () => { fireEvent.keyDown(window, { key: "u" }); });
+  await waitFor(() => expect(invoke.mock.calls.some(([command]) => command === "rate_followup")).toBe(true));
+  await act(async () => { await Promise.resolve(); });
+  expect(screen.getByTestId("hypothesis-marks")).toBeTruthy();
+});
+
 const CARD = {
   version: 1, status: "done", attemptId: "att_1", cardEnabled: true, diagnosisId: "d1", summaryMd: "A summary.",
   repairSuggestions: [], madeBefore: [], prerequisiteGap: null, escalation: null, recordedResponse: null,

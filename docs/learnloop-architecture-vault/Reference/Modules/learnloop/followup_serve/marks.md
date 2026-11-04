@@ -7,9 +7,9 @@ version: "1.0.0"
 source_path: "src/learnloop/followup_serve/marks.py"
 source_paths:
   - "src/learnloop/followup_serve/marks.py"
-source_commit: "a1ba732a86f8c704cd6e6ee1071bf7a30ad3fb1a"
-source_commit_timestamp: "2026-11-04T08:47:30-05:00"
-source_worktree_state: "clean"
+source_commit: "workspace/uncommitted @ HEAD 28a1b3d9817a7e579bdd8eb3b17ab29acdf57458"
+source_commit_timestamp: "2026-11-04T09:10:39-05:00"
+source_worktree_state: "modified"
 generated: true
 generated_at: "2026-11-02"
 package: "learnloop.followup_serve"
@@ -50,22 +50,22 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/followup_serve/marks.py](../../../../../../src/learnloop/followup_serve/marks.py) |
-| Source lines | 122 |
+| Source lines | 123 |
 | Owning package | [[Reference/Modules/learnloop/followup_serve/_package|learnloop.followup_serve]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
-| Worktree state | `clean` |
-| Source commit | `a1ba732a86f8c704cd6e6ee1071bf7a30ad3fb1a` |
-| Commit timestamp | `2026-11-04T08:47:30-05:00` |
+| Worktree state | `modified` |
+| Source commit | `workspace/uncommitted @ HEAD 28a1b3d9817a7e579bdd8eb3b17ab29acdf57458` |
+| Commit timestamp | `2026-11-04T09:10:39-05:00` |
 
 ## Public API
 
-- `display_order(attempt_id: str, factor_id: str | None, keys: Sequence[str]) -> tuple[str, tuple[str, ...]]` ([source](../../../../../../src/learnloop/followup_serve/marks.py), line 39) — (the logged seed, the stable identities in display order).
-- `latest_marks(rows: Iterable[Mapping[str, Any]]) -> dict[str | None, Mapping[str, Any]]` ([source](../../../../../../src/learnloop/followup_serve/marks.py), line 51) — A change of mind appends and the latest counts: per hypothesis identity (None is the None of these line), the latest row in ``rows``, oldest first, unless it took the mark back.
-- `opinion_entries(rows: Iterable[Mapping[str, Any]]) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/followup_serve/marks.py), line 61) — What the diagnoser reads of one attempt's marks: the latest counts.
-- `opinion_block(rows: Iterable[Mapping[str, Any]]) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/followup_serve/marks.py), line 77) — The attributed block a context carries for one attempt, or None (it renders as before).
-- `attempt_opinion(repository: Any, attempt_id: str) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/followup_serve/marks.py), line 84) — The block for one attempt from the ledger; None below migration 242 or with no marks.
-- `probe_state(connection: Any, *, factor_id: str | None, workflow: Mapping[str, Any] | None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/followup_serve/marks.py), line 93) — Whether the attempt's probe has been answered, by which attempt, and its outcome if known.
+- `display_order(attempt_id: str, keys: Sequence[str]) -> tuple[str, tuple[str, ...]]` ([source](../../../../../../src/learnloop/followup_serve/marks.py), line 39) — (the logged seed, the stable identities in display order).
+- `latest_marks(rows: Iterable[Mapping[str, Any]]) -> dict[str | None, Mapping[str, Any]]` ([source](../../../../../../src/learnloop/followup_serve/marks.py), line 52) — A change of mind appends and the latest counts: per hypothesis identity (None is the None of these line), the latest row in ``rows``, oldest first, unless it took the mark back.
+- `opinion_entries(rows: Iterable[Mapping[str, Any]]) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/followup_serve/marks.py), line 62) — What the diagnoser reads of one attempt's marks: the latest counts.
+- `opinion_block(rows: Iterable[Mapping[str, Any]]) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/followup_serve/marks.py), line 78) — The attributed block a context carries for one attempt, or None (it renders as before).
+- `attempt_opinion(repository: Any, attempt_id: str) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/followup_serve/marks.py), line 85) — The block for one attempt from the ledger; None below migration 242 or with no marks.
+- `probe_state(connection: Any, *, factor_id: str | None, workflow: Mapping[str, Any] | None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/followup_serve/marks.py), line 94) — Whether the attempt's probe has been answered, by which attempt, and its outcome if known.
 
 ### Module constants
 

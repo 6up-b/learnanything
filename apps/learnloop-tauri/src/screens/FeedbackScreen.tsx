@@ -38,7 +38,7 @@ import { CompareMethods } from "./feedback/CompareMethods";
 import { screenLeavesKey } from "../app/keymap";
 import { useNextQueueItem } from "../app/autoAdvance";
 import { nextPlanKeyLabel, useNextPlanStep } from "../app/dailyPlan";
-import type { FollowupDto, FollowupNextDto, PlanStepDto } from "../api/dto";
+import type { FollowupDto, FollowupNextDto, HypothesisMarksDto, PlanStepDto } from "../api/dto";
 import { MarkdownMath } from "../render/MarkdownMath";
 import {
   CausalFeedbackPanel,
@@ -1757,11 +1757,15 @@ export function FeedbackScreen({
   // key, and cancelling or opening a contest starts a new identity.
   const contestKey = useRef<{ key: string; reason: string } | null>(null);
   const [causalNotRight, setCausalNotRight] = useState(false);
-  // FG1c §7: the marks panel's read rides on the bundle, only when there is a list to show. Each other
-  // place this attempt's causes are listed writes its exposure receipt from what is on screen.
-  const marksRead = feedback?.hypothesisMarks ?? null;
-  const ownList = marksRead !== null && marksRead.attemptId === feedback?.attemptId;
-  const tapReplaced = ownList && marksRead?.replacesCardTap === true;
+  // FG1c §7: the marks panel's read rides on the bundle, only when there is a list to show. A bundle
+  // from a rating or a regrade carries none, and that isn't a reason to lose the panel: what was on
+  // screen for this attempt stays. Each other place an attempt's causes are listed writes its exposure
+  // receipt from what is on screen; the key's presence says the switch is on and nothing is held.
+  const marksKept = useRef<{ attemptId: string; marks: HypothesisMarksDto } | null>(null);
+  if (feedback?.hypothesisMarks) marksKept.current = { attemptId, marks: feedback.hypothesisMarks };
+  const marksRead = marksKept.current?.attemptId === attemptId ? marksKept.current.marks : null;
+  const tapReplaced = marksRead !== null && marksRead.attemptId === feedback?.attemptId && marksRead.replacesCardTap;
+  const listsOn = marksRead !== null && feedback?.attemptId === attemptId;
   const causalHypotheses = feedback?.causalFeedback?.causalHypotheses ?? [];
   useHypothesisListExposure(
     attemptId,
@@ -1770,22 +1774,22 @@ export function FeedbackScreen({
       .filter((hypothesis) => Boolean(hypothesis.statement?.trim() || hypothesis.label))
       .slice(0, WHY_CAUSES_SHOWN)
       .map((hypothesis) => hypothesis.hypothesisId),
-    simple && ownList && whyOpen,
+    simple && listsOn && whyOpen,
   );
   useHypothesisListExposure(
     attemptId,
     "causal_feedback",
     causalHypotheses.map((hypothesis) => hypothesis.hypothesisId),
-    ownList && (!simple || detailsOpen),
+    listsOn && (!simple || detailsOpen),
   );
   useHypothesisListExposure(
     attemptId,
     "unresolved_cause_card",
-    (feedback?.unresolvedCauses ?? []).flatMap((factor) =>
+    Array.from(new Set((feedback?.unresolvedCauses ?? []).flatMap((factor) =>
       factor.candidateCauses
         .filter((cause) => cause.hypothesisId && cause.hypothesisId !== "H_OTHER" && !cause.openSet)
-        .map((cause) => cause.hypothesisId as string)),
-    ownList && (!simple || detailsOpen) && !feedback?.matchedMisconception,
+        .map((cause) => cause.hypothesisId as string)))),
+    listsOn && (!simple || detailsOpen) && !feedback?.matchedMisconception,
   );
   useEffect(() => {
     setDetailsOpen(false);

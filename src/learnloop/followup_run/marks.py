@@ -109,7 +109,7 @@ def markable_list(vault: Any, repository: Repository, attempt_id: str) -> Markab
     if not rows:
         return None
     by_key = {str(row["episode_key"]): row for row in reversed(rows)}
-    seed, order = M.display_order(attempt_id, factor_id, list(by_key))
+    seed, order = M.display_order(attempt_id, list(by_key))
     return MarkableList(
         attempt_id=attempt_id,
         learning_object_id=str(attempt.get("learning_object_id") or ""),

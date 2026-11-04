@@ -339,12 +339,12 @@ def test_a_mark_that_fits_nothing_is_refused(journey, params):
 
 
 def test_the_order_is_a_logged_seed_over_stable_identities():
-    seed, order = M.display_order("att", "factor", ["a", "b", "c"])
-    assert (seed, order) == M.display_order("att", "factor", ["c", "a", "b"])
+    seed, order = M.display_order("att", ["a", "b", "c"])
+    assert (seed, order) == M.display_order("att", ["c", "a", "b"])
     # A new cause moves nothing else; a later version of a cause is the same identity, so its place holds.
-    assert [key for key in M.display_order("att", "factor", ["a", "b", "c", "d"])[1] if key != "d"] == list(order)
+    assert [key for key in M.display_order("att", ["a", "b", "c", "d"])[1] if key != "d"] == list(order)
     # Over attempts, both orders appear for a pair: position isn't confounded with the diagnoser's order.
-    first = {M.display_order(f"att{index}", None, ["a", "b"])[1][0] for index in range(40)}
+    first = {M.display_order(f"att{index}", ["a", "b"])[1][0] for index in range(40)}
     assert first == {"a", "b"}
 
 
@@ -354,7 +354,7 @@ def test_the_list_keeps_its_order_on_every_read_and_a_new_version_keeps_its_plac
     assert _call(ctx, "get_feedback", {"attemptId": result.attempt_id})["hypothesisMarks"]["hypotheses"] == marks["hypotheses"]
     listed = panel.markable_list(vault, repository, result.attempt_id)
     keys = [row["key"] for row in listed.hypotheses]
-    assert list(M.display_order(result.attempt_id, listed.factor_id, keys)[1]) == keys
+    assert list(M.display_order(result.attempt_id, keys)[1]) == keys
     assert listed.order_seed == marks["orderSeed"]
     assert keys == [str(repository.causal_hypothesis(row["hypothesis_version_id"])["episode_key"]) for row in listed.hypotheses]
 

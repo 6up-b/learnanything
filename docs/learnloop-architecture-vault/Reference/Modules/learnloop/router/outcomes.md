@@ -7,9 +7,9 @@ version: "1.0.0"
 source_path: "src/learnloop/router/outcomes.py"
 source_paths:
   - "src/learnloop/router/outcomes.py"
-source_commit: "workspace/uncommitted @ HEAD 52b1842ebcee0e7f249495ca3d2fa1cfa49d7e80"
-source_commit_timestamp: "2026-11-04T08:56:43-05:00"
-source_worktree_state: "modified"
+source_commit: "9c3c613bdf639f94146be3c1f47dcef04060668a"
+source_commit_timestamp: "2026-11-04T09:06:52-05:00"
+source_worktree_state: "clean"
 generated: true
 generated_at: "2026-11-02"
 package: "learnloop.router"
@@ -54,9 +54,9 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Owning package | [[Reference/Modules/learnloop/router/_package|learnloop.router]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
-| Worktree state | `modified` |
-| Source commit | `workspace/uncommitted @ HEAD 52b1842ebcee0e7f249495ca3d2fa1cfa49d7e80` |
-| Commit timestamp | `2026-11-04T08:56:43-05:00` |
+| Worktree state | `clean` |
+| Source commit | `9c3c613bdf639f94146be3c1f47dcef04060668a` |
+| Commit timestamp | `2026-11-04T09:06:52-05:00` |
 
 ## Public API
 

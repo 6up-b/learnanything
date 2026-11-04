@@ -36,13 +36,14 @@ MARK_WORDS: Mapping[str, str] = {MY_GAP: "this is my gap", PARTLY: "partly", NOT
 ATTRIBUTION = "The learner's own read of this answer's possible causes: their opinion, unmeasured, and it may be wrong."
 
 
-def display_order(attempt_id: str, factor_id: str | None, keys: Sequence[str]) -> tuple[str, tuple[str, ...]]:
+def display_order(attempt_id: str, keys: Sequence[str]) -> tuple[str, tuple[str, ...]]:
     """(the logged seed, the stable identities in display order).
 
     Each identity sorts by its own hash under the seed, so the order is the same on every read of
-    this list, a later version of a cause keeps its place, and a new cause moves nothing else."""
+    this attempt's list, whichever factor holds it now, a later version of a cause keeps its place, and a
+    new cause moves nothing else."""
 
-    seed = hashlib.sha256(f"{ORDER_VERSION}\0{attempt_id}\0{factor_id or ''}".encode("utf-8")).hexdigest()[:32]
+    seed = hashlib.sha256(f"{ORDER_VERSION}\0{attempt_id}".encode("utf-8")).hexdigest()[:32]
     return seed, tuple(sorted(
         dict.fromkeys(keys), key=lambda key: (hashlib.sha256(f"{seed}\0{key}".encode("utf-8")).hexdigest(), key)
     ))

@@ -7,9 +7,9 @@ version: "1.0.0"
 source_path: "src/learnloop/ops/capture_report.py"
 source_paths:
   - "src/learnloop/ops/capture_report.py"
-source_commit: "workspace/uncommitted @ HEAD 52b1842ebcee0e7f249495ca3d2fa1cfa49d7e80"
-source_commit_timestamp: "2026-11-04T08:56:43-05:00"
-source_worktree_state: "modified"
+source_commit: "28a1b3d9817a7e579bdd8eb3b17ab29acdf57458"
+source_commit_timestamp: "2026-11-04T09:10:39-05:00"
+source_worktree_state: "clean"
 generated: true
 generated_at: "2026-11-02"
 package: "learnloop.ops"
@@ -50,13 +50,13 @@ The authoritative system-level explanation remains in [[State and Persistence]],
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/ops/capture_report.py](../../../../../../src/learnloop/ops/capture_report.py) |
-| Source lines | 527 |
+| Source lines | 536 |
 | Owning package | [[Reference/Modules/learnloop/ops/_package|learnloop.ops]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
-| Worktree state | `modified` |
-| Source commit | `workspace/uncommitted @ HEAD 52b1842ebcee0e7f249495ca3d2fa1cfa49d7e80` |
-| Commit timestamp | `2026-11-04T08:56:43-05:00` |
+| Worktree state | `clean` |
+| Source commit | `28a1b3d9817a7e579bdd8eb3b17ab29acdf57458` |
+| Commit timestamp | `2026-11-04T09:10:39-05:00` |
 
 ## Public API
 
@@ -65,9 +65,9 @@ The authoritative system-level explanation remains in [[State and Persistence]],
 - `outcome_section(connection: sqlite3.Connection, vault: Any, repository: Any) -> dict[str, Any]` ([source](../../../../../../src/learnloop/ops/capture_report.py), line 125) — A2, A4: the derived outcomes under the vault's outcome version, and A4's skip reasons.
 - `time_section(connection: sqlite3.Connection, vault: Any, repository: Any, *, as_of: str, success_correctness: float) -> dict[str, Any]` ([source](../../../../../../src/learnloop/ops/capture_report.py), line 177) — A3: the first-delayed-success proxy.
 - `floor_and_pick_section(connection: sqlite3.Connection) -> dict[str, Any]` ([source](../../../../../../src/learnloop/ops/capture_report.py), line 192) — A5, A6, A8: the not_ready floor's draws, the delayed picks' ties, the thin supports.
-- `hypothesis_marks_section(connection: sqlite3.Connection, vault: Any, repository: Any, *, success_correctness: float) -> dict[str, Any]` ([source](../../../../../../src/learnloop/ops/capture_report.py), line 409) — FG1c (spec §7) and row 6 of the router objective's logging: the exposure table's coverage, and how far the marks can be trusted, each labelled as conditional on being observed.
-- `build_report(connection: sqlite3.Connection, vault: Any, repository: Any, *, as_of: str, success_correctness: float) -> dict[str, Any]` ([source](../../../../../../src/learnloop/ops/capture_report.py), line 435)
-- `lines(report: Mapping[str, Any]) -> list[str]` ([source](../../../../../../src/learnloop/ops/capture_report.py), line 452) — The plain-text report.
+- `hypothesis_marks_section(connection: sqlite3.Connection, vault: Any, repository: Any, *, success_correctness: float) -> dict[str, Any]` ([source](../../../../../../src/learnloop/ops/capture_report.py), line 414) — FG1c (spec §7) and row 6 of the router objective's logging: the exposure table's coverage, and how far the marks can be trusted, each labelled as conditional on being observed.
+- `build_report(connection: sqlite3.Connection, vault: Any, repository: Any, *, as_of: str, success_correctness: float) -> dict[str, Any]` ([source](../../../../../../src/learnloop/ops/capture_report.py), line 440)
+- `lines(report: Mapping[str, Any]) -> list[str]` ([source](../../../../../../src/learnloop/ops/capture_report.py), line 459) — The plain-text report.
 
 ### Module constants
 
@@ -95,9 +95,9 @@ The authoritative system-level explanation remains in [[State and Persistence]],
 - `_exposure_coverage(connection: sqlite3.Connection, exposures: list[dict[str, Any]], links: list[dict[str, Any]]) -> dict[str, Any]` ([source](../../../../../../src/learnloop/ops/capture_report.py), line 234) — The coverage row: how many attempts with causes since the first display had a list displayed, and what it costs.
 - `_latest_marks(marks: list[dict[str, Any]]) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/ops/capture_report.py), line 257)
 - `_observations(connection: sqlite3.Connection) -> dict[str, dict[str, Any]]` ([source](../../../../../../src/learnloop/ops/capture_report.py), line 264) — Per factor, its newest answered observation, with what it measured and classified as stable identities.
-- `_probe_agreement(connection: sqlite3.Connection, latest: list[dict[str, Any]]) -> dict[str, Any]` ([source](../../../../../../src/learnloop/ops/capture_report.py), line 286) — Marks against what a probe's answer classified.
-- `_delayed_agreement(connection: sqlite3.Connection, vault: Any, repository: Any, latest: list[dict[str, Any]], success_correctness: float) -> dict[str, Any]` ([source](../../../../../../src/learnloop/ops/capture_report.py), line 334) — Marks against the next delayed answer on the topic under the shared definition.
-- `_position_rates(exposures: list[dict[str, Any]], latest: list[dict[str, Any]]) -> dict[str, Any]` ([source](../../../../../../src/learnloop/ops/capture_report.py), line 378) — Mark rates by the position each cause held on the marks panel: shown once per attempt and cause.
+- `_probe_agreement(connection: sqlite3.Connection, latest: list[dict[str, Any]]) -> dict[str, Any]` ([source](../../../../../../src/learnloop/ops/capture_report.py), line 285) — Marks against what a probe's answer classified.
+- `_delayed_agreement(connection: sqlite3.Connection, vault: Any, repository: Any, latest: list[dict[str, Any]], success_correctness: float) -> dict[str, Any]` ([source](../../../../../../src/learnloop/ops/capture_report.py), line 339) — Marks against the next delayed answer on the topic under the shared definition.
+- `_position_rates(exposures: list[dict[str, Any]], latest: list[dict[str, Any]]) -> dict[str, Any]` ([source](../../../../../../src/learnloop/ops/capture_report.py), line 383) — Mark rates by the position each cause held on the marks panel: shown once per attempt and cause.
 
 ## Who imports or calls it
 
