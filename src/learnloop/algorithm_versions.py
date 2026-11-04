@@ -736,6 +736,26 @@ DATA_CAPTURE_ALGORITHM_VERSION = "mvp-0.44"
 # as skipped).
 FOLLOWUP_SERVE_ALGORITHM_VERSION = "mvp-0.45"
 
+# mvp-0.46 (router objective RO1; owner decisions 2026-11-03 and 2026-11-04;
+# docs/specs/spec_router_objective_v1.md §5), on top of mvp-0.45 (the chain
+# stays linear). Three changes, each behind its own kill switch:
+# * the surprise interval factor is no longer applied to the FSRS interval
+#   (``scheduler.surprise.remove_interval_factor``): ``due_at`` follows
+#   ``interval_for_retention(S)``; the rating, S, D and surprise itself are
+#   unchanged, and ``attempt_surprise.fsrs_interval_factor`` records 1.0, what
+#   was applied (replay writes the same under the same gate);
+# * decision-time reads of attempts (the router card) use the availability
+#   time ``coalesce(received_at, created_at)`` (``router_objective.available_at_reads``);
+# * a learner's misconception pick (a ``learner_report:*`` resolution id) is
+#   not counted as validated evidence for the diagnoser
+#   (``router_objective.self_report_not_validated``); the factor's status and
+#   resolution ids are unchanged.
+# Off, or below the tag, each restores mvp-0.45 exactly. A change to the factor
+# switch reaches persisted due dates at the next whole-vault rebuild (the
+# upgrade runs one); the rebuild's receipt records the switch, and doctor warns
+# when the config and that record disagree.
+INTERVAL_FACTOR_ALGORITHM_VERSION = "mvp-0.46"
+
 # The linear successor chain on the mvp-0.8 projection namespace, oldest
 # first. Each successor means its predecessor's semantics PLUS its own, so
 # every gate below is "this tag or any later one". A successor merge appends
@@ -780,6 +800,7 @@ SUCCESSOR_CHAIN: tuple[str, ...] = (
     LESSON_SUGGESTIONS_ALGORITHM_VERSION,
     DATA_CAPTURE_ALGORITHM_VERSION,
     FOLLOWUP_SERVE_ALGORITHM_VERSION,
+    INTERVAL_FACTOR_ALGORITHM_VERSION,
 )
 
 
@@ -985,6 +1006,13 @@ DATA_CAPTURE_VERSIONS: frozenset[str] = successors_from(DATA_CAPTURE_ALGORITHM_V
 # generated probes are single use (behind ``followup.generate_and_serve``; FG1).
 # Every later successor keeps them; gates must use this set, never equality.
 FOLLOWUP_SERVE_VERSIONS: frozenset[str] = successors_from(FOLLOWUP_SERVE_ALGORITHM_VERSION)
+
+# Versions whose FSRS interval carries no surprise factor, whose decision-time
+# attempt reads use availability time and whose diagnoser does not count a
+# misconception pick as validated evidence (router objective RO1, each behind
+# its own switch). Every later successor keeps them; gates must use this set,
+# never equality.
+INTERVAL_FACTOR_VERSIONS: frozenset[str] = successors_from(INTERVAL_FACTOR_ALGORITHM_VERSION)
 
 # The newest successor: the last tag in the chain. ``learnloop upgrade`` with
 # no ``--to`` targets it, and new vaults start at it

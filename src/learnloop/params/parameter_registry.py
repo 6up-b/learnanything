@@ -1661,6 +1661,29 @@ _CONFIG_RULES: list[_ConfigRule] = [
         "kill switch for TE0's confidence events (the tap and the grader's hedge read with the outcome) in the "
         "router card, the history-aware diagnoser, the hint writer and the tutor; context only, no "
         "measurement, scheduling or serving authority; off, every context is its predecessor's."),
+    # Router objective RO1 (mvp-0.46; spec_router_objective_v1 §5.5): the successor's three kill
+    # switches. Booleans (classified so every new key has a rule); RO1 adds no weight, margin or
+    # threshold, it removes one (the surprise factor's alpha_interval, f_min and f_max stay for older
+    # versions and are inert at the tag with the switch on). Off restores mvp-0.45 exactly.
+    _ConfigRule(_exact(
+        "scheduler.surprise.remove_interval_factor",
+    ), "structural", "operational",
+        "kill switch for RO1's successor mvp-0.46: the surprise factor is not applied to the FSRS interval "
+        "(due_at follows interval_for_retention(S); rating, S, D and surprise unchanged, and the surprise row "
+        "records 1.0, what was applied, live and in replay); off, the predecessor's stretched interval. A flip "
+        "reaches persisted due dates at the next whole-vault rebuild, whose receipt records it."),
+    _ConfigRule(_exact(
+        "router_objective.available_at_reads",
+    ), "structural", "operational",
+        "kill switch for RO1's successor mvp-0.46: the router card's decision-time attempt reads filter by the "
+        "availability time coalesce(received_at, created_at); off, by created_at. Outcomes, FSRS and mastery "
+        "always read created_at."),
+    _ConfigRule(_exact(
+        "router_objective.self_report_not_validated",
+    ), "structural", "operational",
+        "kill switch for RO1's successor mvp-0.46: a learner's misconception pick (a learner_report:* "
+        "resolution id) is not counted as validated evidence in the diagnoser's history; the factor's status "
+        "and resolution ids are unchanged. Off, every resolution id counts, as the predecessor."),
     # Teacher TE1 (mvp-0.41; spec_teacher_v1 §18): the successor's kill switches
     # and curriculum C4's brief switch. Booleans and an enum (classified so every
     # new key has a rule); the lesson-check mass is learned (§12.1, its seeded

@@ -21,10 +21,18 @@ class AlgorithmsConfig(BaseModel):
 class SchedulerSurpriseConfig(BaseModel):
     theta_pos: float = 1.5
     theta_neg: float = 1.5
+    # The surprise interval factor exp(alpha_interval * residual), clamped to
+    # [f_min, f_max]. Router objective RO1 (mvp-0.46, spec_router_objective_v1
+    # §5): at or above the tag, with ``remove_interval_factor`` on, these three
+    # do nothing (the FSRS interval is interval_for_retention(S) alone). They
+    # stay so vaults below the tag, or with the switch off, keep replaying.
     alpha_interval: float = 0.3
     f_min: float = 0.5
     f_max: float = 1.5
     epsilon_error_surprise: float = 0.05
+    #: RO1's kill switch (mvp-0.46): the factor is not applied to the interval.
+    #: Off, or below the tag, the interval is multiplied by it as before.
+    remove_interval_factor: bool = True
 
 
 class SchedulerFollowupConfig(BaseModel):
@@ -4148,6 +4156,24 @@ class DataCaptureConfig(BaseModel):
     serving: bool = True
 
 
+class RouterObjectiveConfig(BaseModel):
+    """The router objective (docs/specs/spec_router_objective_v1.md). RO1's switches (mvp-0.46, §5.5):
+
+    * ``available_at_reads``: decision-time reads of attempts (the router card) use the availability time,
+      ``coalesce(received_at, created_at)``, so an exam imported today is not something an earlier decision
+      could have known; outcomes, FSRS and mastery keep ``created_at``;
+    * ``self_report_not_validated``: a learner's misconception pick (a ``learner_report:*`` resolution id) is
+      not counted as validated evidence in the diagnoser's history; the factor's status and resolution ids
+      are unchanged.
+
+    Off, or below the tag, each restores mvp-0.45 exactly. (The interval factor's switch lives with the
+    factor, ``[scheduler.surprise] remove_interval_factor``.)
+    """
+
+    available_at_reads: bool = True
+    self_report_not_validated: bool = True
+
+
 class FollowupServeConfig(BaseModel):
     """Follow-up generate and serve (FG1; ``docs/specs/spec_followup_generate_serve_v1.md``).
 
@@ -4616,6 +4642,7 @@ class LearnLoopConfig(BaseModel):
     placement: PlacementConfig = Field(default_factory=PlacementConfig)
     router: RouterConfig = Field(default_factory=RouterConfig)
     data_capture: DataCaptureConfig = Field(default_factory=DataCaptureConfig)
+    router_objective: RouterObjectiveConfig = Field(default_factory=RouterObjectiveConfig)
     followup: FollowupServeConfig = Field(default_factory=FollowupServeConfig)
     pf: PFConfig = Field(default_factory=PFConfig)
     plan: PlanConfig = Field(default_factory=PlanConfig)

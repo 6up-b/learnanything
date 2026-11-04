@@ -8,7 +8,10 @@ stored FSRS state are unchanged. The queue reads an **effective due**::
 
 with ``w20`` the decay weight in use. FSRS intervals are proportional to
 stability (``scheduling/fsrs.interval_for_retention``), so the ratio needs no
-stability and keeps the surprise factor already folded into ``due_at``.
+stability. It scales whatever interval ``due_at`` stores: below mvp-0.46 (or
+with ``scheduler.surprise.remove_interval_factor`` off) that interval carries
+the surprise factor, and from mvp-0.46 it is ``interval_for_retention(S)``
+alone (router objective RO1, spec_router_objective_v1 §5.1).
 
 **The anchor** is the review that produced ``due_at``: the ``created_at`` of
 the item's latest attempt that fed FSRS, i.e. one ``classify_attempt_activity``

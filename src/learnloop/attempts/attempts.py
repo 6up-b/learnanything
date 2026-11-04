@@ -4600,6 +4600,16 @@ def _compute_resolved_grade_application(
         # prediction error, so neither the follow-up gate nor the re-probe
         # trigger reads it as one, and it stretches no interval.
         surprise = replace(surprise, surprise_direction="none", fsrs_interval_factor=1.0)
+    from learnloop.router_objective_switches import interval_factor_removed
+
+    if interval_factor_removed(vault.config):
+        # Router objective RO1 (mvp-0.46, spec §5.1): FSRS already rewards an
+        # unlikely success through 1 - R, so the second correction from the
+        # label's b is not applied. Its own gate (not the review's): the row
+        # records what was applied, 1.0, live and in replay alike, and keeps the
+        # residual's inputs so the old value stays computable. Direction, the
+        # surprises and every other consumer are untouched.
+        surprise = replace(surprise, fsrs_interval_factor=1.0)
 
     previous_state = prior_state.practice_item_state
     fsrs_rating = fsrs_rating_for_attempt(item, grade.rubric_score, rubric.max_points, draft.hints_used)

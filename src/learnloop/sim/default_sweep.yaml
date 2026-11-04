@@ -34,9 +34,12 @@ sweeps:
   - param_path: scheduler.followup.gate_score_threshold
     values: [0.25, 0.75]
 
-  # Surprise-driven FSRS interval modulation (default alpha_interval 0.3).
-  - param_path: scheduler.surprise.alpha_interval
-    values: [0.0, 0.6]
+  # Surprise-driven FSRS interval modulation. From mvp-0.46 (router objective
+  # RO1) the factor is not applied by default, so alpha_interval (0.3), f_min
+  # and f_max are inert on a simulation at the latest version; the sweep
+  # restores the factor instead, which measures what removing it changed.
+  - param_path: scheduler.surprise.remove_interval_factor
+    values: [false]
 
   # Misconception auto-resolution (default 3 clean attempts).
   - param_path: misconceptions.auto_resolve_clean_attempts
