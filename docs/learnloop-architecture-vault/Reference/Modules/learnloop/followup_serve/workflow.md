@@ -264,6 +264,11 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_followup_live_shape.py](../../../../../../tests/test_followup_live_shape.py) — direct import
   - `test_audit_an_item_with_task_features_passes_the_audit_and_reaches_ready`
   - `test_h_other_a_live_diagnosis_leaves_a_factor_without_its_arm_and_the_lane_restores_it`
+- [tests/test_followup_next_matrix.py](../../../../../../tests/test_followup_next_matrix.py) — direct import
+  - `test_a_queue_miss_with_a_plan_open_opens_the_probe_and_the_plan_doesnt_serve_it_again`
+  - `test_a_wait_outlasting_its_plan_is_served_by_a_later_plan_with_its_answer_labelled`
+  - `test_r13_next_and_placement_read_one_predicate`
+  - `test_the_matrix`
 - [tests/test_followup_reserved_only.py](../../../../../../tests/test_followup_reserved_only.py) — direct import
   - `test_a_cause_quoting_a_reserved_question_takes_the_practice_lane`
   - `test_a_check_waiting_holds_nothing_here`

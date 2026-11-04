@@ -247,6 +247,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_followup_diagnostic_selection.py](../../../../../../tests/test_followup_diagnostic_selection.py) — direct import
 - [tests/test_followup_journey.py](../../../../../../tests/test_followup_journey.py) — direct import
   - `test_the_whole_journey_and_never_again`
+- [tests/test_followup_next_matrix.py](../../../../../../tests/test_followup_next_matrix.py) — direct import
 - [tests/test_followup_single_use.py](../../../../../../tests/test_followup_single_use.py) — direct import
   - `test_retired_while_unused_stays_retired_after_sync_and_rebuild`
   - `test_state_sync_shares_one_predicate`

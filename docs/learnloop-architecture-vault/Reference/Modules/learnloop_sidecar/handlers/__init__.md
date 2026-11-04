@@ -209,6 +209,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_figures_help.py](../../../../../../tests/test_figures_help.py) — direct import
 - [tests/test_followup_codex_review.py](../../../../../../tests/test_followup_codex_review.py) — direct import
 - [tests/test_followup_journey.py](../../../../../../tests/test_followup_journey.py) — direct import
+- [tests/test_followup_next_matrix.py](../../../../../../tests/test_followup_next_matrix.py) — direct import
 - [tests/test_followup_rival_factor.py](../../../../../../tests/test_followup_rival_factor.py) — direct import
 - [tests/test_followups_batch6_verify_fixes.py](../../../../../../tests/test_followups_batch6_verify_fixes.py) — direct import
   - `test_v2_an_offer_from_the_learners_own_question_carries_learner_activity`

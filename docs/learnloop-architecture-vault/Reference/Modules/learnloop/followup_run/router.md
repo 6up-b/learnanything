@@ -115,7 +115,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 > “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
 
 - [[Reference/Modules/learnloop/followup_run/jobs|learnloop.followup_run.jobs]] — imports `module`; statically calls `append_outcome`, `bind_item`, `decide_once`, `hard_refusal`, `record_outcome`
-- [[Reference/Modules/learnloop/followup_run/serving|learnloop.followup_run.serving]] — imports `module`; statically calls `append_outcome`, `bind_plan_presentation`
+- [[Reference/Modules/learnloop/followup_run/serving|learnloop.followup_run.serving]] — imports `WAIT`, `module`; statically calls `append_outcome`, `bind_plan_presentation`
 
 ## Dependencies
 
@@ -164,6 +164,11 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_followup_journey.py](../../../../../../tests/test_followup_journey.py) — direct import
   - `test_a_wait_releases_now_labels_the_probe_exposed_and_its_answer_cant_close_the_factor`
   - `test_no_intervention_generates_nothing_and_releases_what_was_held`
+- [tests/test_followup_next_matrix.py](../../../../../../tests/test_followup_next_matrix.py) — direct import
+  - `test_a_queue_miss_with_a_plan_open_opens_the_probe_and_the_plan_doesnt_serve_it_again`
+  - `test_a_wait_outlasting_its_plan_is_served_by_a_later_plan_with_its_answer_labelled`
+  - `test_r13_next_and_placement_read_one_predicate`
+  - `test_the_matrix`
 - [tests/test_followup_reserved_only.py](../../../../../../tests/test_followup_reserved_only.py) — direct import
   - `test_a_cause_quoting_a_reserved_question_takes_the_practice_lane`
 - [tests/test_followup_rival_factor.py](../../../../../../tests/test_followup_rival_factor.py) — direct import

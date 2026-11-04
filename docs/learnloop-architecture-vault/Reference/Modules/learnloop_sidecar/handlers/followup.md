@@ -7,8 +7,8 @@ version: "1.0.0"
 source_path: "src/learnloop_sidecar/handlers/followup.py"
 source_paths:
   - "src/learnloop_sidecar/handlers/followup.py"
-source_commit: "a01ecfbb27093bad0f8c7924a0558bfc49acbc22"
-source_commit_timestamp: "2026-11-04T01:43:14-05:00"
+source_commit: "39f6b099653030344716006c070d16ae7ddecff8"
+source_commit_timestamp: "2026-11-04T06:46:03-05:00"
 source_worktree_state: "clean"
 generated: true
 generated_at: "2026-11-02"
@@ -58,8 +58,8 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Architecture layer | `adapter` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `a01ecfbb27093bad0f8c7924a0558bfc49acbc22` |
-| Commit timestamp | `2026-11-04T01:43:14-05:00` |
+| Source commit | `39f6b099653030344716006c070d16ae7ddecff8` |
+| Commit timestamp | `2026-11-04T06:46:03-05:00` |
 
 ## Public API
 
@@ -84,8 +84,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 
 ### LearnLoop dependencies
 
-- [[Reference/Modules/learnloop/daily_plan/engine|learnloop.daily_plan.engine]] — imports `plan_active`; calls `plan_active`
-- [[Reference/Modules/learnloop/followup_run/serving|learnloop.followup_run.serving]] — imports `continue_without`, `next_action`, `show_anyway`, `view`; calls `continue_without`, `next_action`, `show_anyway`, `view`
+- [[Reference/Modules/learnloop/followup_run/serving|learnloop.followup_run.serving]] — imports `continue_without`, `next_action`, `plan_will_place`, `show_anyway`, `view`; calls `continue_without`, `next_action`, `plan_will_place`, `show_anyway`, `view`
 - [[Reference/Modules/learnloop/followup_serve/gates|learnloop.followup_serve.gates]] — imports `generate_and_serve_on`; calls `generate_and_serve_on`
 - [[Reference/Modules/learnloop/followup_serve/workflow|learnloop.followup_serve.workflow]] — imports `attempt_workflow`; calls `attempt_workflow`
 - [[Reference/Modules/learnloop_sidecar/context|learnloop_sidecar.context]] — imports `SidecarContext`

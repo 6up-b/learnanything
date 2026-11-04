@@ -290,6 +290,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_a_library_edit_that_rewords_an_evidenced_facet_records_a_version_with_undo`
   - `test_an_append_facet_restructure_applies_as_a_facet_version_with_undo`
 - [tests/test_facet_rewords.py](../../../../../../tests/test_facet_rewords.py) — direct import
+- [tests/test_followup_next_matrix.py](../../../../../../tests/test_followup_next_matrix.py) — direct import
 - [tests/test_followup_reserved_only.py](../../../../../../tests/test_followup_reserved_only.py) — direct import
   - `test_reserved_questions_and_what_quotes_them_stay_out_of_the_authors_context`
   - `test_wording_an_ordinary_item_already_shows_is_no_match`

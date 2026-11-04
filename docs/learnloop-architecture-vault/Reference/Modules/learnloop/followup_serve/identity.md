@@ -202,6 +202,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_no_intervention_generates_nothing_and_releases_what_was_held`
   - `test_the_whole_journey_and_never_again`
   - `test_with_no_plan_a_ready_probe_heads_todays_queue`
+- [tests/test_followup_next_matrix.py](../../../../../../tests/test_followup_next_matrix.py) — direct import
+  - `test_a_queue_miss_with_a_plan_open_opens_the_probe_and_the_plan_doesnt_serve_it_again`
 - [tests/test_followup_reserved_only.py](../../../../../../tests/test_followup_reserved_only.py) — direct import
   - `test_an_authored_question_echoing_a_reserved_one_is_refused_with_nothing_served`
   - `test_f20_what_a_crashed_run_pinned_closes_with_the_exhausted_job`

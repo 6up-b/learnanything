@@ -1457,6 +1457,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_f7_verify_the_settled_exit_adds_no_question_of_its_own`
   - `test_f9_a_refused_retry_doesnt_leave_what_the_crash_pinned`
 - [tests/test_followup_diagnostic_selection.py](../../../../../../tests/test_followup_diagnostic_selection.py) — direct import
+- [tests/test_followup_next_matrix.py](../../../../../../tests/test_followup_next_matrix.py) — direct import
 - [tests/test_followup_reserved_only.py](../../../../../../tests/test_followup_reserved_only.py) — direct import
   - `test_f20_what_a_crashed_run_pinned_closes_with_the_exhausted_job`
   - `test_reserved_questions_and_what_quotes_them_stay_out_of_the_authors_context`

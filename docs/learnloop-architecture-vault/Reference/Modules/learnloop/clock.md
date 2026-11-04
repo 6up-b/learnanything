@@ -1025,10 +1025,12 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_followup_diagnostic_selection.py](../../../../../tests/test_followup_diagnostic_selection.py) — direct import
 - [tests/test_followup_generate_e2e.py](../../../../../tests/test_followup_generate_e2e.py) — direct import
   - `test_a_transport_failure_retries_once_and_then_fails_with_next_working`
+- [tests/test_followup_next_matrix.py](../../../../../tests/test_followup_next_matrix.py) — direct import
 - [tests/test_followup_reserved_only.py](../../../../../tests/test_followup_reserved_only.py) — direct import
   - `test_r10_the_retry_is_the_workflows_one_so_no_third_call`
 - [tests/test_followup_rival_factor.py](../../../../../tests/test_followup_rival_factor.py) — direct import
   - `test_a_sweep_queues_no_mapping_this_factor_doesnt_need_and_a_retry_still_asks`
+  - `test_an_answered_probe_moves_the_same_measurement_with_or_without_a_mapped_repair`
 - [tests/test_followup_single_use.py](../../../../../tests/test_followup_single_use.py) — direct import
   - `test_an_exam_never_reserves_one`
 - [tests/test_followups.py](../../../../../tests/test_followups.py) — direct import

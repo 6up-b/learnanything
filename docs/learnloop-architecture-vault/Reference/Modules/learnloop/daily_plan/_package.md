@@ -35,7 +35,7 @@ source_paths:
   - "src/learnloop/daily_plan/types.py"
   - "src/learnloop/daily_plan/view.py"
 source_commit: "aggregate; see module notes"
-source_commit_timestamp: "2026-11-04T04:34:30-05:00"
+source_commit_timestamp: "2026-11-04T07:26:00-05:00"
 generated: true
 generated_at: "2026-11-02"
 package: "learnloop.daily_plan"
@@ -76,7 +76,7 @@ For system intent, use [[Architecture Overview]].
 | [[Reference/Modules/learnloop/daily_plan/ad_slot|learnloop.daily_plan.ad_slot]] | [[Reference/Modules/learnloop/daily_plan/ad_slot#^module-purpose|purpose]] | `ACTIVE` | 1 | 6 |
 | [[Reference/Modules/learnloop/daily_plan/admission|learnloop.daily_plan.admission]] | [[Reference/Modules/learnloop/daily_plan/admission#^module-purpose|purpose]] | `ACTIVE` | 3 | 2 |
 | [[Reference/Modules/learnloop/daily_plan/chooser|learnloop.daily_plan.chooser]] | [[Reference/Modules/learnloop/daily_plan/chooser#^module-purpose|purpose]] | `ACTIVE` | 4 | 4 |
-| [[Reference/Modules/learnloop/daily_plan/engine|learnloop.daily_plan.engine]] | [[Reference/Modules/learnloop/daily_plan/engine#^module-purpose|purpose]] | `ACTIVE` | 14 | 102 |
+| [[Reference/Modules/learnloop/daily_plan/engine|learnloop.daily_plan.engine]] | [[Reference/Modules/learnloop/daily_plan/engine#^module-purpose|purpose]] | `ACTIVE` | 14 | 103 |
 | [[Reference/Modules/learnloop/daily_plan/estimates|learnloop.daily_plan.estimates]] | [[Reference/Modules/learnloop/daily_plan/estimates#^module-purpose|purpose]] | `ACTIVE` | 6 | 4 |
 | [[Reference/Modules/learnloop/daily_plan/headline|learnloop.daily_plan.headline]] | [[Reference/Modules/learnloop/daily_plan/headline#^module-purpose|purpose]] | `ACTIVE` | 4 | 5 |
 | [[Reference/Modules/learnloop/daily_plan/intent_cost|learnloop.daily_plan.intent_cost]] | [[Reference/Modules/learnloop/daily_plan/intent_cost#^module-purpose|purpose]] | `ACTIVE` | 1 | 2 |
@@ -134,9 +134,9 @@ For system intent, use [[Architecture Overview]].
 
 ### Packages that import this package
 
-- [[Reference/Modules/learnloop_sidecar/handlers/_package|learnloop_sidecar.handlers]] — 16 static module edges
+- [[Reference/Modules/learnloop_sidecar/handlers/_package|learnloop_sidecar.handlers]] — 15 static module edges
+- [[Reference/Modules/learnloop/followup_run/_package|learnloop.followup_run]] — 6 static module edges
 - [[Reference/Modules/learnloop/cli/_package|learnloop.cli]] — 5 static module edges
-- [[Reference/Modules/learnloop/followup_run/_package|learnloop.followup_run]] — 5 static module edges
 - [[Reference/Modules/learnloop_sidecar/_package|learnloop_sidecar]] — 4 static module edges
 - [[Reference/Modules/learnloop/remote/_package|learnloop.remote]] — 3 static module edges
 - [[Reference/Modules/learnloop/figures/_package|learnloop.figures]] — 2 static module edges
@@ -158,10 +158,10 @@ flowchart LR
     n_learnloop_scheduling["learnloop.scheduling"]
     n_learnloop_data_capture["learnloop.data_capture"]
     n_learnloop_scheduling_intent["learnloop.scheduling.intent"]
-    n_learnloop_reader["learnloop.reader"]
+    n_learnloop_followup_run["learnloop.followup_run"]
     n_learnloop -->|1| center
     center -->|29| n_learnloop
-    n_learnloop_sidecar_handlers -->|16| center
+    n_learnloop_sidecar_handlers -->|15| center
     center -->|14| n_learnloop_router
     center -->|12| n_learnloop_adaptive_difficulty
     center -->|11| n_learnloop_ai
@@ -169,7 +169,7 @@ flowchart LR
     center -->|10| n_learnloop_scheduling
     center -->|7| n_learnloop_data_capture
     center -->|7| n_learnloop_scheduling_intent
-    center -->|6| n_learnloop_reader
+    n_learnloop_followup_run -->|6| center
 ```
 
 Interpretation: arrow direction is static import direction and the label is the number of distinct module-to-module edges. It shows coupling pressure, not runtime call frequency or ownership permission.

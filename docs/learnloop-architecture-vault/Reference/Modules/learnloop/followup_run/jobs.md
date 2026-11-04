@@ -177,6 +177,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_f6_startup_recovery_needs_no_click`
   - `test_f7_verify_every_exit_closes_what_an_interrupted_run_prepared`
   - `test_f8_a_crash_after_the_decision_keeps_it_through_the_lease_recovery`
+- [tests/test_followup_next_matrix.py](../../../../../../tests/test_followup_next_matrix.py) — direct import
 - [tests/test_followup_reserved_only.py](../../../../../../tests/test_followup_reserved_only.py) — direct import
   - `test_f20_a_crash_on_the_retry_after_a_match_makes_no_third_call`
   - `test_f20_a_need_job_has_the_same_limit`
