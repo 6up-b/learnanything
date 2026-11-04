@@ -128,6 +128,29 @@ def test_a_crash_is_inferred_at_recovery_and_marked_inferred(tmp_path):
     assert {row["session_id"] for row in _rows(repository, S.AVAILABILITY)} == {crashed, following}
 
 
+def test_a_session_another_device_replaced_ended_by_the_rule(tmp_path):
+    ctx = _sidecar(tmp_path)
+    vault, repository = ctx.require_vault()
+    phone = repository.start_session_exclusive({}, "phone", None)
+    S.record_availability(vault, repository, phone, device="phone")
+    fresh = _call(ctx, "start_session", {"replace": phone})["sessionId"]
+    assert fresh != phone
+    row = next(row for row in _rows(repository, S.END) if row["session_id"] == phone)
+    assert (row["end_reason"], row["end_basis"]) == (S.RULE, S.EXPLICIT)
+    assert next(row for row in _rows(repository, S.AVAILABILITY) if row["session_id"] == phone)["device"] == "phone"
+
+
+def test_availability_comes_before_the_sessions_first_serve(tmp_path):
+    ctx = _sidecar(tmp_path)
+    _vault, repository = ctx.require_vault()
+    session = _call(ctx, "start_session", {"availableMinutes": 25})["sessionId"]
+    [row] = _rows(repository, S.AVAILABILITY)
+    _call(ctx, "next_plan_item", {"sessionId": session, "serve": True})
+    with repository.connection() as connection:
+        served = connection.execute("SELECT MIN(served_at) FROM plan_presentations WHERE session_id = ?", (session,)).fetchone()[0]
+    assert served is None or row["created_at"] <= served
+
+
 def test_a_session_from_before_ro0_is_not_backfilled(tmp_path):
     ctx = _sidecar(tmp_path)
     vault, repository = ctx.require_vault()

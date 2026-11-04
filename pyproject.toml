@@ -570,6 +570,7 @@ source_modules = [
     "learnloop.section_map",
     "learnloop.data_capture",
     "learnloop.data_capture_upgrade",
+    "learnloop.router_objective",
     "learnloop.delayed_checks",
     "learnloop.delayed_completion",
     "learnloop.teacher",

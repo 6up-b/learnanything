@@ -178,7 +178,8 @@ def _active_minutes(connection: Any, session_id: str | None, day_start: str) -> 
     if session is None:
         return None, day
     attempts = connection.execute(
-        "SELECT COALESCE(SUM(latency_seconds), 0) FROM practice_attempts WHERE session_id = ?", (session_id,)).fetchone()[0]
+        "SELECT COALESCE(SUM(latency_seconds), 0) FROM practice_attempts WHERE created_at >= ? AND session_id = ?",
+        (session[0], session_id)).fetchone()[0]
     reading = connection.execute(
         "SELECT COALESCE(SUM(json_extract(payload_json, '$.active_seconds')), 0) FROM interaction_events "
         "WHERE kind = 'reader_view_closed' AND created_at >= ?", (session[0],)).fetchone()[0]

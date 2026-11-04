@@ -3007,13 +3007,19 @@ def _decision_state(env: PlanEnv, estimator: Any, *, candidates: Sequence[Mappin
                     ad: Any = _read_ad_fields) -> Any:
     """RO0 rows 9 and 13: this decision's state, or None. ``ad``: the reader, or what was read before a transaction opened."""
 
-    if not objective_receipts_on(env.vault.config):
+    config = env.vault.config
+    if not objective_receipts_on(config) or not getattr(config.router, "log_decisions", False):
+        return None  # No decision row, nothing to link it to.
+    try:
+        item_ids, _los = decision_state.candidate_ids(env.vault, candidates)
+        minutes = _item_minutes(env, estimator, item_ids)
+    except Exception:  # noqa: BLE001 - a receipt never blocks the plan
+        logging.getLogger(__name__).warning("router objective: a decision's minutes were not read", exc_info=True)
         return None
-    item_ids, _los = decision_state.candidate_ids(env.vault, candidates)
     return decision_state.prepare(
         env.vault, env.repository, candidates=candidates, session_id=env.session_id, stop=stop, pick=pick,
         forgetting_curve=forgetting_curve,
-        item_minutes=_item_minutes(env, estimator, item_ids),
+        item_minutes=minutes,
         block_minutes={str(entry["candidate_id"]): entry["est_minutes"] for entry in candidates
                        if entry.get("candidate_id") and entry.get("est_minutes") is not None},
         voi=[*voi, *(dict(row) for row in getattr(getattr(env, "last_trace", None), "voi_decisions", ()) or ())],

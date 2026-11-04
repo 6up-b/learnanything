@@ -280,6 +280,7 @@ fn main() {
                 get_next_probe_item,
                 save_practice_draft,
                 practice_record_hint_reveal,
+                record_ask_availability,
                 practice_request_hint,
                 practice_hint_job,
                 practice_cancel_hint,
