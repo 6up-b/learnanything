@@ -1024,6 +1024,9 @@ def generate_instances_for_episode(
         summary.family_authoring_needed = True
         return summary
 
+    from learnloop.followup_serve.gates import generate_and_serve_on
+
+    fg1 = generate_and_serve_on(vault.config)
     # Intra-batch dedup: the structural gate compares against the loaded vault,
     # which does not yet contain instances accepted earlier in this same run.
     batch_ids: set[str] = set()
@@ -1041,8 +1044,9 @@ def generate_instances_for_episode(
             resolved_template.id, resolved_template.version
         )
         family_status = family_record.status if family_record is not None else "provisional"
+        # FG1 §2, §4.3: generated probes skip manual review, whatever the family's status.
         review_status = (
-            "auto_admitted_provisional" if family_status == "trusted" else "pending_review"
+            "auto_admitted_provisional" if family_status == "trusted" or fg1 else "pending_review"
         )
         # LLM surfaces first (when available), parametric templates as the
         # top-up fallback; both flow through the same structural gate.
@@ -1054,10 +1058,12 @@ def generate_instances_for_episode(
             )
             for payload in llm_payloads or []:
                 candidates.append((payload, LLM_GENERATOR_ID, LLM_GENERATOR_VERSION))
-        for payload in parametric_instance_payloads(
-            vault, card, resolved_template, count=count, seed=seed, clock=clock
-        ):
-            candidates.append((payload, GENERATOR_ID, GENERATOR_VERSION))
+        if not fg1:
+            # FG1 §4.3: the model writes the family's question pattern; no parametric fallback.
+            for payload in parametric_instance_payloads(
+                vault, card, resolved_template, count=count, seed=seed, clock=clock
+            ):
+                candidates.append((payload, GENERATOR_ID, GENERATOR_VERSION))
 
         accepted = 0
         for payload, generator_id, generator_version in candidates:
@@ -1090,6 +1096,8 @@ def generate_instances_for_episode(
                 instance_metadata=instance_metadata,
                 clock=clock,
             )
+            if fg1:
+                _register_single_use(repository, payload, source="batch", episode_id=episode.id, clock=clock)
             repository.upsert_practice_item_state(
                 payload["id"],
                 active=review_status == "auto_admitted_provisional",
@@ -1127,6 +1135,16 @@ def generate_instances_for_episode(
             repository.resolve_probe_generation_need(need.id, clock=clock)
             summary.resolved_need_ids.append(need.id)
     return summary
+
+
+def _register_single_use(repository: Repository, payload: Mapping[str, Any], *, source: str,
+                         episode_id: str | None, clock: Clock | None) -> None:
+    """FG1 §4.2, §12: every generated probe carries the durable single-use identity."""
+
+    from learnloop.followup_serve.identity import item_revision, register
+
+    register(repository, practice_item_id=str(payload["id"]), revision=item_revision(payload), source=source,
+             probe_episode_id=episode_id, clock=clock)
 
 
 def mint_single_use_probe_surface(
@@ -1185,6 +1203,10 @@ def mint_single_use_probe_surface(
     if learning_object is None:
         return None
 
+    from learnloop.followup_serve.gates import generate_and_serve_on
+
+    fg1 = generate_and_serve_on(vault.config)
+    llm_asked = False
     attempted_ids, attempted_surfaces = administered_surface_exclusions(vault, repository)
     families = [
         template
@@ -1192,6 +1214,9 @@ def mint_single_use_probe_surface(
         if template.id != DIALOGUE_MICROPROBE_V1.id
     ]
     for template in families:
+        if fg1 and llm_asked:
+            # FG1 §8: one generation per deduplicated need; the bound is structural.
+            break
         resolved = ensure_instrument_card(
             vault, repository, episode.learning_object_id, template, clock=clock
         )
@@ -1203,20 +1228,22 @@ def mint_single_use_probe_surface(
         )
         family_status = family_record.status if family_record is not None else "provisional"
         review_status = (
-            "auto_admitted_provisional" if family_status == "trusted" else "pending_review"
+            "auto_admitted_provisional" if family_status == "trusted" or fg1 else "pending_review"
         )
         candidates: list[tuple[dict[str, Any], str, str]] = []
         if vault.config.probe.generation.llm_surfaces:
+            llm_asked = True
             llm_payloads = llm_instance_payloads(
                 vault, card, resolved_template, count=1, ai_client=ai_client, clock=clock,
                 repository=repository,
             )
             for payload in llm_payloads or []:
                 candidates.append((payload, LLM_GENERATOR_ID, LLM_GENERATOR_VERSION))
-        for payload in parametric_instance_payloads(
-            vault, card, resolved_template, count=2, seed=seed, clock=clock
-        ):
-            candidates.append((payload, GENERATOR_ID, GENERATOR_VERSION))
+        if not fg1:
+            for payload in parametric_instance_payloads(
+                vault, card, resolved_template, count=2, seed=seed, clock=clock
+            ):
+                candidates.append((payload, GENERATOR_ID, GENERATOR_VERSION))
 
         for payload, generator_id, generator_version in candidates:
             payload = {
@@ -1265,6 +1292,8 @@ def mint_single_use_probe_surface(
                 },
                 clock=clock,
             )
+            if fg1:
+                _register_single_use(repository, payload, source="mint", episode_id=episode.id, clock=clock)
             repository.upsert_practice_item_state(
                 payload["id"],
                 active=review_status == "auto_admitted_provisional",

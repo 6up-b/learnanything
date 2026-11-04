@@ -1959,6 +1959,13 @@ def _causal_origin(factor_id: str) -> str:
     return f"causal_factor:{factor_id}"
 
 
+def causal_origin_factor(origin: str) -> str | None:
+    """The factor a causal episode's origin names, or None (:func:`_causal_origin`)."""
+
+    prefix = _causal_origin("")
+    return origin[len(prefix):] or None if origin.startswith(prefix) else None
+
+
 def episode_conflict_reason(
     repository: Repository, episode: ProbeEpisodeRecord | None
 ) -> str | None:

@@ -30,12 +30,14 @@ def enqueue_need(repository: Repository, need_id: str, *, clock: Clock | None = 
         )
 
 
-def enqueue_factor(repository: Repository, factor_id: str, *, workflow_id: str | None, clock: Clock | None = None) -> str | None:
+def enqueue_factor(repository: Repository, factor_id: str, *, workflow_id: str | None, not_before: str | None = None,
+                   clock: Clock | None = None) -> str | None:
     """A failed probe lane's need stays open for background generation, deduplicated by factor (§6.2)."""
 
     with repository.atomic(), repository.connection() as connection:
         return store.enqueue_generation_job(
-            connection, kind="need", dedupe_key=f"factor:{factor_id}", workflow_id=workflow_id, at=utc_now_iso(clock),
+            connection, kind="need", dedupe_key=f"factor:{factor_id}", workflow_id=workflow_id, not_before=not_before,
+            at=utc_now_iso(clock),
         )
 
 

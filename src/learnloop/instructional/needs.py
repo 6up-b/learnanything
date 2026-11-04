@@ -54,7 +54,7 @@ from learnloop.source_retrieval.service_spend import service_spend
 from learnloop.vault.loader import load_vault
 from learnloop.vault.models import LoadedVault, PracticeItem
 
-PATHS = ("primed_retry", "cli")
+PATHS = ("primed_retry", "cli", "background")
 
 
 def source_first_active(vault: LoadedVault) -> bool:

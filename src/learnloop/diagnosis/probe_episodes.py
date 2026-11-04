@@ -20,6 +20,8 @@ import json
 import logging
 from typing import Any, Iterable, Mapping, Sequence
 
+from learnloop.followup_serve.gates import generate_and_serve_on
+from learnloop.followup_serve.queue import enqueue_entry
 from learnloop.clock import Clock, parse_utc, utc_now_iso
 from learnloop.db.repositories import (
     ProbeEpisodeRecord,
@@ -267,6 +269,10 @@ def enter_episode(
                 vault, repository, existing, trigger=trigger, origin=origin, goal_id=goal_id, clock=clock,
             )
     if existing is not None:
+        if existing.status == "pending_items" and generate_and_serve_on(vault.config):
+            # FG1 §4.3: deduplicated work for the worker, so an entry can't stall or burst.
+            enqueue_entry(repository, existing.id, clock=clock)
+            return existing
         if (
             existing.status == "pending_items"
             and vault.config.probe.generation.auto_generate_on_entry
@@ -360,7 +366,10 @@ def enter_episode(
         # A dormant/resolved LO has no eligible pool by lifecycle, not by a
         # missing surface: commission nothing for it (vault.lifecycle).
         _record_generation_need(vault, repository, episode, locked, clock=clock)
-        if vault.config.probe.generation.auto_generate_on_entry:
+        if generate_and_serve_on(vault.config):
+            # FG1 §4.3: every entry point enqueues; the worker chooses the contract.
+            enqueue_entry(repository, episode_id, clock=clock)
+        elif vault.config.probe.generation.auto_generate_on_entry:
             from learnloop.diagnosis.probe_instance_generation import generate_instances_for_episode
 
             generate_instances_for_episode(

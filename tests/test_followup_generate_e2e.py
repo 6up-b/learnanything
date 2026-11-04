@@ -135,3 +135,105 @@ def test_the_authoring_route_is_not_the_decider():
     from learnloop.ai.routing import ROUTE_FOR_OPERATION
 
     assert ROUTE_FOR_OPERATION["followup_probe_authoring"] == "followup_probe_author"
+
+
+# -- §4.3: entry and need work ------------------------------------------------------------
+
+
+def _entered(vault, repository, lo_id):
+    from learnloop.diagnosis.probe_episodes import enter_episode
+
+    existing = repository.open_probe_episode(lo_id)
+    if existing is not None:
+        repository.update_probe_episode_status(existing.id, status="abandoned", clock=CLOCK)
+    return enter_episode(vault, repository, lo_id, trigger="manual", clock=CLOCK, ai_client=None)
+
+
+def test_entry_enqueues_deduplicated_work_and_never_calls_a_model_inline(tmp_path):
+    from learnloop.db.stores import followup_serve as store
+    from learnloop.diagnosis.probe_episodes import enter_episode
+    from tests.test_causal_p2_acceptance import LO_ID
+
+    vault, repository, _paths = rival_causes_vault(tmp_path)
+    fake = AuthorFake()
+    episode = _entered(vault, repository, LO_ID)
+    assert fake.calls == 0
+    if episode.status == "pending_items":
+        with repository.connection() as connection:
+            job = store.generation_job(connection, f"entry:{episode.id}")
+        assert job is not None and job["state"] == "queued"
+        again = enter_episode(vault, repository, LO_ID, trigger="manual", clock=CLOCK)
+        assert again.id == episode.id
+        with repository.connection() as connection:
+            count = connection.execute("SELECT COUNT(*) FROM followup_generation_jobs").fetchone()[0]
+        assert count == 1
+
+
+def test_a_mint_under_fg1_is_model_written_single_use_and_needs_no_review(tmp_path):
+    from learnloop.followup_serve import queue
+    from tests.test_causal_p2_acceptance import LO_ID
+    from tests.test_probe_surface_mint import FakeSurfacesClient
+
+    vault, repository, _paths = rival_causes_vault(tmp_path)
+    episode = repository.open_probe_episode(LO_ID) or _entered(vault, repository, LO_ID)
+    repository.update_probe_episode_status(episode.id, status="pending_items", clock=CLOCK)
+    assert queue.enqueue_entry(repository, episode.id, clock=CLOCK)
+    client = FakeSurfacesClient()
+    from types import SimpleNamespace
+
+    jobs = run_jobs(vault, repository, clients=SimpleNamespace(author=client))
+    assert [job.state for job in jobs] == ["done"]
+    assert len(client.calls) == 1  # one generation per deduplicated need
+    generated = identity.generated_probe_ids(repository)
+    assert len(generated) == 1
+    item_id = next(iter(generated))
+    assert repository.practice_item_state(item_id).active  # no human review
+    assert "gen_" in item_id and "llm" in repr(repository.probe_item_family_links(item_id)[0].generator_id)
+
+
+def test_a_failed_lanes_need_is_deduplicated_and_cancelled_when_the_factor_closes(tmp_path):
+    from learnloop.followup_serve import queue
+
+    vault, repository, _paths = rival_causes_vault(tmp_path)
+    _result, outcome = miss_with_rivals(vault, repository)
+    run_jobs(vault, repository, clients=author_clients(AuthorFake(same_predictions=True)))
+    row = wf.get(repository, outcome.workflow_id)
+    assert row["state"] == wf.FAILED
+    # One queued need already exists for the factor, keyed on it.
+    assert queue.enqueue_factor(repository, row["factor_id"], workflow_id=row["id"], clock=CLOCK) is None
+
+
+def _need(repository):
+    return {"id": "need_1", "learning_object_id": "lo", "target_facets": [], "diagnostic_focus": {},
+            "candidate_requirements": {}}
+
+
+def test_a_recorded_need_fills_textbook_first_without_a_click(tmp_path, monkeypatch):
+    from types import SimpleNamespace
+
+    from learnloop.content.authoring import practice_generation
+    from learnloop.content.proposals import proposals
+    from learnloop.followup_serve import queue
+    from learnloop.instructional import needs
+
+    vault, repository, _paths = rival_causes_vault(tmp_path)
+    monkeypatch.setattr(repository, "pending_intervention_needs", lambda _lo=None: [_need(repository)])
+    monkeypatch.setattr(needs, "pending_causal_decision", lambda *_args, **_kw: None)
+    generated = []
+    monkeypatch.setattr(practice_generation, "generate_diagnostic_practice_proposal",
+                        lambda root, client, **kw: generated.append(kw) or SimpleNamespace(patch_id="p"))
+    accepted = []
+    monkeypatch.setattr(proposals, "accept_items", lambda root, patch: accepted.append(patch))
+
+    monkeypatch.setattr(needs, "fulfil_need_from_sources", lambda *_a, **_k: {"outcome": "fulfilled"})
+    assert queue.enqueue_need(repository, "need_1", clock=CLOCK)
+    assert queue.enqueue_need(repository, "need_1", clock=CLOCK) is None
+    run_jobs(vault, repository, clients=SimpleNamespace(authoring=object()))
+    assert generated == [] and accepted == []
+
+    monkeypatch.setattr(needs, "fulfil_need_from_sources", lambda *_a, **_k: {"outcome": "generate"})
+    assert queue.enqueue_need(repository, "need_2", clock=CLOCK)
+    monkeypatch.setattr(repository, "pending_intervention_needs",
+                        lambda _lo=None: [{**_need(repository), "id": "need_2"}])
+    run_jobs(vault, repository, clients=SimpleNamespace(authoring=object()))
+    assert generated == [{"learning_object_id": "lo", "max_needs": 1}] and accepted == ["p"]

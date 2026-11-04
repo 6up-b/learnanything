@@ -157,14 +157,15 @@ def workflow_events(connection: sqlite3.Connection, workflow_id: str) -> list[di
 
 def enqueue_generation_job(connection: sqlite3.Connection, *, kind: str, dedupe_key: str, at: str,
                            workflow_id: str | None = None, probe_episode_id: str | None = None,
-                           need_id: str | None = None) -> str | None:
+                           need_id: str | None = None, not_before: str | None = None) -> str | None:
     """One row per deduplicated key; returns the new id, None for a repeat."""
 
     job_id = new_ulid()
     cursor = connection.execute(
         "INSERT INTO followup_generation_jobs (id, kind, dedupe_key, workflow_id, probe_episode_id, need_id, state, "
-        "created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, 'queued', ?, ?) ON CONFLICT(dedupe_key) DO NOTHING",
-        (job_id, kind, dedupe_key, workflow_id, probe_episode_id, need_id, at, at),
+        "not_before, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, 'queued', ?, ?, ?) "
+        "ON CONFLICT(dedupe_key) DO NOTHING",
+        (job_id, kind, dedupe_key, workflow_id, probe_episode_id, need_id, not_before, at, at),
     )
     return job_id if cursor.rowcount > 0 else None
 

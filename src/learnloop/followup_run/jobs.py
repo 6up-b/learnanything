@@ -24,6 +24,9 @@ from learnloop.followup_serve.gates import generate_and_serve_on
 
 LOG = logging.getLogger(__name__)
 
+#: The model-call receipts of one generation job: calls and cost per probe are read from these.
+RECEIPT_OWNER = "followup_generation"
+
 #: A job's lease: a generation is one structured model call with its checks.
 LEASE_SECONDS = 900.0
 #: One generation per workflow or need, and at most this many physical runs of it:
@@ -32,6 +35,8 @@ MAX_GENERATION_ATTEMPTS = 2
 #: The pause before that retry: long enough for a transient provider failure to pass,
 #: short against the learner's wait.
 RETRY_BACKOFF_SECONDS = 20.0
+#: A failed lane's need is tried again later, not now: what just failed would fail again.
+NEED_RETRY_DELAY_SECONDS = 3_600.0
 
 
 class GenerationDeferred(RuntimeError):
@@ -120,14 +125,123 @@ def fail_workflow(vault: Any, repository: Repository, workflow_id: str, *, reaso
         return
     if wf.move(repository, workflow_id, to_state=wf.FAILED, reason=reason, release=wf.RELEASE_GENERATION_FAILED,
                clock=clock) and row.get("factor_id"):
-        queue.enqueue_factor(repository, str(row["factor_id"]), workflow_id=workflow_id, clock=clock)
+        queue.enqueue_factor(repository, str(row["factor_id"]), workflow_id=workflow_id,
+                             not_before=_iso_after(clock, NEED_RETRY_DELAY_SECONDS), clock=clock)
 
 
 def _run(vault: Any, repository: Repository, job: Mapping[str, Any], *, clients: Any, clock: Clock | None) -> None:
+    from learnloop.daily_plan.router_runtime import default_runtime
+
     kind = str(job["kind"])
-    if kind == "workflow":
-        _run_workflow(vault, repository, str(job["workflow_id"]), clients=clients, clock=clock)
-    # The other kinds join in their own stage.
+    # Every physical call of this job, retries and optional review included, is admitted
+    # and recorded through the existing envelope: subscription requests are recorded and
+    # never refused, a metered one needs the budget (spec §8).
+    runtime = getattr(clients, "runtime", None) or default_runtime()
+    with runtime.spend.metered(repository, vault.config, owner_kind=RECEIPT_OWNER, owner_id=str(job["id"])):
+        if kind == "workflow":
+            _run_workflow(vault, repository, str(job["workflow_id"]), clients=clients, clock=clock)
+        elif kind == "entry_episode":
+            _run_entry(vault, repository, str(job["probe_episode_id"]), clients=clients, clock=clock)
+        elif job.get("need_id"):
+            _run_need(vault, repository, str(job["need_id"]), clients=clients, clock=clock)
+        else:
+            _run_factor_need(vault, repository, str(job["dedupe_key"]).split(":", 1)[1], clients=clients, clock=clock)
+
+
+def _run_entry(vault: Any, repository: Repository, episode_id: str, *, clients: Any, clock: Clock | None) -> None:
+    """§4.3: the worker chooses the contract. With concrete rival causes it is §4.1;
+    otherwise the family's question pattern, written by the model. Single use either way."""
+
+    from learnloop.diagnosis.probe_instance_generation import mint_single_use_probe_surface
+    from learnloop.followup_run.lanes import concrete_rivals
+
+    episode = repository.probe_episode(episode_id)
+    if episode is None or episode.status != "pending_items":
+        return
+    factor_id = _causal_factor_of(episode)
+    factor = repository.unresolved_cause_factor(factor_id) if factor_id else None
+    if factor is not None and factor.get("status") == "open" and len(concrete_rivals(repository, factor)) >= 2:
+        _author_for_factor(vault, repository, factor_id=str(factor_id), learning_object_id=episode.learning_object_id,
+                           attempt_id=str(factor.get("attempt_id") or ""), episode_id=episode_id, clients=clients,
+                           clock=clock)
+        return
+    client = _author_client(vault, clients)
+    if client is None:
+        raise GenerationDeferred("author_route_not_ready")
+    if mint_single_use_probe_surface(repository, vault, episode_id, ai_client=client, clock=clock) is None:
+        raise GenerationDeferred("no_surface_passed")
+
+
+def _causal_factor_of(episode: Any) -> str | None:
+    from learnloop.diagnosis.causal_orchestrator import causal_origin_factor
+
+    return causal_origin_factor(str(episode.origin or ""))
+
+
+def _author_for_factor(vault: Any, repository: Repository, *, factor_id: str, learning_object_id: str, attempt_id: str,
+                       episode_id: str | None, clients: Any, clock: Clock | None) -> str | None:
+    """§4.1's contract with no workflow: an active candidate on the factor, unreserved."""
+
+    from learnloop.followup_run import admission
+
+    client = _author_client(vault, clients)
+    if client is None:
+        raise GenerationDeferred("author_route_not_ready")
+    row = {"id": None, "learning_object_id": learning_object_id, "source_attempt_id": attempt_id}
+    probe, template, card = admission.author_probe(
+        vault, repository, workflow=row, factor_id=factor_id, decision={"chosen": "background", "timing": "later"},
+        client=client,
+    )
+    item_id = admission.persist_item(vault, repository, probe, template=template, card=card, workflow_id=None,
+                                     episode_id=episode_id, source="entry", client=client, clock=clock)
+    admission.commission_only(reloaded(vault), repository, probe, factor_id=factor_id, practice_item_id=item_id,
+                              client=client, clock=clock)
+    return item_id
+
+
+def _run_factor_need(vault: Any, repository: Repository, factor_id: str, *, clients: Any, clock: Clock | None) -> None:
+    """§6.2: a failed probe lane's need, deduplicated by factor and cancelled if it closed."""
+
+    factor = repository.unresolved_cause_factor(factor_id)
+    if factor is None or factor.get("status") != "open":
+        return
+    attempt = repository.fetch_practice_attempt(str(factor.get("attempt_id") or "")) or {}
+    _author_for_factor(vault, repository, factor_id=factor_id,
+                       learning_object_id=str(attempt.get("learning_object_id") or ""),
+                       attempt_id=str(factor.get("attempt_id") or ""), episode_id=None, clients=clients, clock=clock)
+
+
+def _run_need(vault: Any, repository: Repository, need_id: str, *, clients: Any, clock: Clock | None) -> None:
+    """§4: a recorded need fills in the background, S2b's order kept: an existing item was
+    the chooser's, then a textbook exercise, then a generated practice item."""
+
+    from learnloop.ai.routing import ready_client_for_task
+    from learnloop.content.authoring.practice_generation import generate_diagnostic_practice_proposal
+    from learnloop.content.proposals.proposals import accept_items
+    from learnloop.instructional.needs import fulfil_need_from_sources, pending_causal_decision
+
+    need = next((row for row in repository.pending_intervention_needs(None) if str(row["id"]) == need_id), None)
+    if need is None:
+        return
+    outcome = fulfil_need_from_sources(
+        vault, repository, need, path="background",
+        pending_decision=pending_causal_decision(vault, repository, need), clock=clock,
+    )
+    if outcome.get("outcome") != "generate":
+        return
+    injected = getattr(clients, "authoring", None)
+    if injected is not None:
+        client = injected
+    else:
+        resolved = ready_client_for_task(vault.root, vault.config, "authoring")
+        client = resolved.client if resolved.ready else None
+    if client is None:
+        raise GenerationDeferred("authoring_route_not_ready")
+    result = generate_diagnostic_practice_proposal(
+        vault.root, client, learning_object_id=str(need["learning_object_id"]), max_needs=1,
+    )
+    # Practice items, not probes: filled without a click or a CLI command (§4).
+    accept_items(vault.root, result.patch_id)
 
 
 def _run_workflow(vault: Any, repository: Repository, workflow_id: str, *, clients: Any, clock: Clock | None) -> None:
@@ -248,6 +362,7 @@ def _retire(repository: Repository, item_id: str | None, *, reason: str, workflo
 
 
 __all__ = [
-    "GenerationDeferred", "JobOutcome", "LEASE_SECONDS", "MAX_GENERATION_ATTEMPTS", "RETRY_BACKOFF_SECONDS",
+    "GenerationDeferred", "JobOutcome", "LEASE_SECONDS", "MAX_GENERATION_ATTEMPTS", "NEED_RETRY_DELAY_SECONDS",
+    "RETRY_BACKOFF_SECONDS",
     "fail_workflow", "process_next_job", "reloaded",
 ]

@@ -270,6 +270,39 @@ def admit(repository: Repository, *, candidate_id: str, receipt: Mapping[str, An
                                clock=clock)
 
 
+def commission_only(
+    vault: Any,
+    repository: Repository,
+    probe: AuthoredProbe,
+    *,
+    factor_id: str,
+    practice_item_id: str,
+    client: Any = None,
+    clock: Clock | None = None,
+) -> str:
+    """An entry or a failed lane's later generation: an active candidate, pinned by no
+    one yet. The offer's *Take the quick check* or a later block serves it (§5.1)."""
+
+    from learnloop.diagnosis.causal_probe_commissioning import commission_probe_instrument
+
+    result = commission_probe_instrument(
+        vault, repository, factor_id=factor_id, candidate_practice_item_id=practice_item_id,
+        blind_generator=blind_generator(probe), model_revision=str(getattr(client, "model", None) or "followup_probe_author"),
+        outcome_schema_version=OUTCOME_SCHEMA, require_adversarial=False, require_divergence=False,
+        manipulation_contract=manipulation_contract(probe), clock=clock,
+    )
+    if result["outcome"] != "commissioned":
+        raise AdmissionFailed(str(result["outcome"]))
+    admit(
+        repository, candidate_id=str(result["candidate_id"]),
+        receipt={"instance_gate": "passed", "never_before_seen": "passed", "exam_material": "passed",
+                 "manipulation_audit_id": result.get("manipulation_audit_id"), "bundle_ids": result.get("bundle_ids"),
+                 "adversarial_review": "not_run"},
+        clock=clock,
+    )
+    return str(result["candidate_id"])
+
+
 def commission_and_pin(
     vault: Any,
     repository: Repository,
@@ -323,5 +356,5 @@ def commission_and_pin(
 
 __all__ = [
     "AdmissionFailed", "AdmittedProbe", "MACHINE_REVIEWER", "OfferRefused", "admit", "author_probe",
-    "blind_generator", "commission_and_pin", "manipulation_contract", "persist_item",
+    "blind_generator", "commission_and_pin", "commission_only", "manipulation_contract", "persist_item",
 ]
