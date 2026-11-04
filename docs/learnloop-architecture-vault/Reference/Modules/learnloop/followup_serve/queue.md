@@ -123,6 +123,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_a_failed_lanes_need_is_deduplicated_and_cancelled_when_the_factor_closes`
   - `test_a_mint_under_fg1_is_model_written_single_use_and_needs_no_review`
   - `test_a_recorded_need_fills_textbook_first_without_a_click`
+- [tests/test_followup_reserved_only.py](../../../../../../tests/test_followup_reserved_only.py) — direct import
+  - `test_f20_a_need_job_has_the_same_limit`
 
 ## Modification guidance
 

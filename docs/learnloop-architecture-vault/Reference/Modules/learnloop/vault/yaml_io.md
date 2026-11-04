@@ -142,6 +142,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/deliverable_fixtures.py](../../../../../../tests/deliverable_fixtures.py) — direct import
 - [tests/diagnosis_split_helpers.py](../../../../../../tests/diagnosis_split_helpers.py) — direct import
 - [tests/exam_scope_fixtures.py](../../../../../../tests/exam_scope_fixtures.py) — direct import
+- [tests/followup_serve_helpers.py](../../../../../../tests/followup_serve_helpers.py) — direct import
 - [tests/helpers.py](../../../../../../tests/helpers.py) — direct import
 - [tests/library_ask_fixtures.py](../../../../../../tests/library_ask_fixtures.py) — direct import
 - [tests/mcp_world.py](../../../../../../tests/mcp_world.py) — direct import
@@ -289,6 +290,9 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_a_library_edit_that_rewords_an_evidenced_facet_records_a_version_with_undo`
   - `test_an_append_facet_restructure_applies_as_a_facet_version_with_undo`
 - [tests/test_facet_rewords.py](../../../../../../tests/test_facet_rewords.py) — direct import
+- [tests/test_followup_reserved_only.py](../../../../../../tests/test_followup_reserved_only.py) — direct import
+  - `test_reserved_questions_and_what_quotes_them_stay_out_of_the_authors_context`
+  - `test_wording_an_ordinary_item_already_shows_is_no_match`
 - [tests/test_forecast_receipts.py](../../../../../../tests/test_forecast_receipts.py) — direct import
 - [tests/test_goal_certification_any_of.py](../../../../../../tests/test_goal_certification_any_of.py) — direct import
 - [tests/test_goal_frontier.py](../../../../../../tests/test_goal_frontier.py) — direct import

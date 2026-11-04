@@ -390,6 +390,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_with_no_plan_a_ready_probe_heads_todays_queue`
   - `test_with_the_switch_off_nothing_changes_in_the_feedback`
   - `test_with_the_switch_off_the_replies_match_the_predecessor`
+- [tests/test_followup_rival_factor.py](../../../../../tests/test_followup_rival_factor.py) — direct import
+  - `test_an_answered_probe_moves_the_same_measurement_with_or_without_a_mapped_repair`
 - [tests/test_followup_successor.py](../../../../../tests/test_followup_successor.py) — direct import
   - `test_the_openers_install_this_links_completion`
 - [tests/test_goal_scope_material.py](../../../../../tests/test_goal_scope_material.py) — direct import

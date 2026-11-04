@@ -7,8 +7,8 @@ version: "1.0.0"
 source_path: "src/learnloop/followup_run/admission.py"
 source_paths:
   - "src/learnloop/followup_run/admission.py"
-source_commit: "06461f09ccf65c6446b23516124ce9c3b699b9f9"
-source_commit_timestamp: "2026-11-04T02:59:38-05:00"
+source_commit: "fa2f73234bec22c4fde78a2a23b6e1a5b81400e5"
+source_commit_timestamp: "2026-11-04T05:19:00-05:00"
 source_worktree_state: "clean"
 generated: true
 generated_at: "2026-11-02"
@@ -50,34 +50,34 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/followup_run/admission.py](../../../../../../src/learnloop/followup_run/admission.py) |
-| Source lines | 363 |
+| Source lines | 427 |
 | Owning package | [[Reference/Modules/learnloop/followup_run/_package|learnloop.followup_run]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `06461f09ccf65c6446b23516124ce9c3b699b9f9` |
-| Commit timestamp | `2026-11-04T02:59:38-05:00` |
+| Source commit | `fa2f73234bec22c4fde78a2a23b6e1a5b81400e5` |
+| Commit timestamp | `2026-11-04T05:19:00-05:00` |
 
 ## Public API
 
-- `class AdmissionFailed(RuntimeError)` ([source](../../../../../../src/learnloop/followup_run/admission.py), line 44) — No question passed the checks (§6.2).
-  - `__init__(self, reason: str, *, detail: Mapping[str, Any] | None=None) -> None` (line 47; internal)
-- `class OfferRefused(RuntimeError)` ([source](../../../../../../src/learnloop/followup_run/admission.py), line 53) — A hard refusal arrived at the pin (an episode conflict): nothing is served.
-  - `__init__(self, reason: str) -> None` (line 56; internal)
-- `class AdmittedProbe` ([source](../../../../../../src/learnloop/followup_run/admission.py), line 62)
-- `blind_generator(probe: AuthoredProbe) -> Any` ([source](../../../../../../src/learnloop/followup_run/admission.py), line 72) — Bundles over the deterministic sensor's vocabulary, uniform across hypotheses.
-- `manipulation_contract(probe: AuthoredProbe) -> dict[str, Any]` ([source](../../../../../../src/learnloop/followup_run/admission.py), line 109)
-- `author_probe(vault: Any, repository: Repository, *, workflow: Mapping[str, Any], factor_id: str, decision: Mapping[str, Any], client: Any) -> tuple[AuthoredProbe, Any, Any]` ([source](../../../../../../src/learnloop/followup_run/admission.py), line 134) — The one authoring call for this workflow, and its output checks.
-- `persist_item(vault: Any, repository: Repository, probe: AuthoredProbe, *, template: Any, card: Any, workflow_id: str | None, episode_id: str | None=None, source: str='workflow', client: Any=None, clock: Clock | None=None) -> str` ([source](../../../../../../src/learnloop/followup_run/admission.py), line 177) — The mint's persistence and single-use handling, reused (§4.1).
-- `admit(repository: Repository, *, candidate_id: str, receipt: Mapping[str, Any], clock: Clock | None=None) -> None` ([source](../../../../../../src/learnloop/followup_run/admission.py), line 264) — The machine admission receipt: the ladder, walked by what actually checked it.
-- `commission_only(vault: Any, repository: Repository, probe: AuthoredProbe, *, factor_id: str, practice_item_id: str, client: Any=None, clock: Clock | None=None) -> str` ([source](../../../../../../src/learnloop/followup_run/admission.py), line 276) — An entry or a failed lane's later generation: an active candidate, pinned by no one yet.
-- `commission_and_pin(vault: Any, repository: Repository, probe: AuthoredProbe, *, workflow: Mapping[str, Any], factor_id: str, decision_id: str | None, practice_item_id: str, client: Any=None, clock: Clock | None=None) -> AdmittedProbe` ([source](../../../../../../src/learnloop/followup_run/admission.py), line 309) — Commissioning of the explicit item, machine admission, and the pinned offer.
+- `class AdmissionFailed(RuntimeError)` ([source](../../../../../../src/learnloop/followup_run/admission.py), line 51) — No question passed the checks (§6.2).
+  - `__init__(self, reason: str, *, detail: Mapping[str, Any] | None=None) -> None` (line 54; internal)
+- `class OfferRefused(RuntimeError)` ([source](../../../../../../src/learnloop/followup_run/admission.py), line 60) — A hard refusal arrived at the pin (an episode conflict): nothing is served.
+  - `__init__(self, reason: str) -> None` (line 63; internal)
+- `class AdmittedProbe` ([source](../../../../../../src/learnloop/followup_run/admission.py), line 69)
+- `blind_generator(probe: AuthoredProbe) -> Any` ([source](../../../../../../src/learnloop/followup_run/admission.py), line 79) — Bundles over the deterministic sensor's vocabulary, uniform across hypotheses.
+- `manipulation_contract(probe: AuthoredProbe, *, system_axes: Iterable[str]=()) -> dict[str, Any]` ([source](../../../../../../src/learnloop/followup_run/admission.py), line 131)
+- `author_probe(vault: Any, repository: Repository, *, workflow: Mapping[str, Any], factor_id: str, decision: Mapping[str, Any], client: Any, avoid_phrases: Sequence[str]=()) -> tuple[AuthoredProbe, Any, Any]` ([source](../../../../../../src/learnloop/followup_run/admission.py), line 173) — The one authoring call for this workflow, and its output checks.
+- `persist_item(vault: Any, repository: Repository, probe: AuthoredProbe, *, template: Any, card: Any, workflow_id: str | None, episode_id: str | None=None, source: str='workflow', client: Any=None, clock: Clock | None=None) -> str` ([source](../../../../../../src/learnloop/followup_run/admission.py), line 227) — The mint's persistence and single-use handling, reused (§4.1).
+- `admit(repository: Repository, *, candidate_id: str, receipt: Mapping[str, Any], clock: Clock | None=None) -> None` ([source](../../../../../../src/learnloop/followup_run/admission.py), line 320) — The machine admission receipt: the ladder, walked by what actually checked it.
+- `commission_only(vault: Any, repository: Repository, probe: AuthoredProbe, *, factor_id: str, practice_item_id: str, client: Any=None, clock: Clock | None=None) -> str` ([source](../../../../../../src/learnloop/followup_run/admission.py), line 332) — An entry or a failed lane's later generation: an active candidate, pinned by no one yet.
+- `commission_and_pin(vault: Any, repository: Repository, probe: AuthoredProbe, *, workflow: Mapping[str, Any], factor_id: str, decision_id: str | None, practice_item_id: str, client: Any=None, clock: Clock | None=None) -> AdmittedProbe` ([source](../../../../../../src/learnloop/followup_run/admission.py), line 369) — Commissioning of the explicit item, machine admission, and the pinned offer.
 
 ### Module constants
 
-- `MACHINE_REVIEWER` ([src/learnloop/followup_run/admission.py](../../../../../../src/learnloop/followup_run/admission.py), line 38)
-- `SYSTEM_AXES` ([src/learnloop/followup_run/admission.py](../../../../../../src/learnloop/followup_run/admission.py), line 40)
-- `OUTCOME_SCHEMA` ([src/learnloop/followup_run/admission.py](../../../../../../src/learnloop/followup_run/admission.py), line 41)
+- `MACHINE_REVIEWER` ([src/learnloop/followup_run/admission.py](../../../../../../src/learnloop/followup_run/admission.py), line 45)
+- `SYSTEM_AXES` ([src/learnloop/followup_run/admission.py](../../../../../../src/learnloop/followup_run/admission.py), line 47)
+- `OUTCOME_SCHEMA` ([src/learnloop/followup_run/admission.py](../../../../../../src/learnloop/followup_run/admission.py), line 48)
 
 ### Explicit exports
 
@@ -97,7 +97,10 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 
 ## Internal implementation anchors
 
-- `_template_and_card(vault: Any, repository: Repository, learning_object_id: str, clock: Clock | None) -> tuple[Any, Any]` ([source](../../../../../../src/learnloop/followup_run/admission.py), line 120)
+- `_task_feature_axes(vault: Any, repository: Repository, factor_id: str, practice_item_id: str) -> set[str]` ([source](../../../../../../src/learnloop/followup_run/admission.py), line 116) — Each task feature of the missed item or the new one is an axis of the audit's diff, and none is the author's to declare (``AUTHOR_AXES``).
+- `_template_and_card(vault: Any, repository: Repository, learning_object_id: str, clock: Clock | None) -> tuple[Any, Any]` ([source](../../../../../../src/learnloop/followup_run/admission.py), line 142)
+- `_restore_open_set_arm(repository: Repository, factor: Mapping[str, Any]) -> None` ([source](../../../../../../src/learnloop/followup_run/admission.py), line 156) — A factor written before the tag lost its ``H_OTHER`` arm when its episode was materialized a second time; every open factor on the owner's copies has.
+- `_reserved(vault: Any, repository: Repository) -> Any` ([source](../../../../../../src/learnloop/followup_run/admission.py), line 218)
 
 ## Who imports or calls it
 
@@ -111,15 +114,17 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 ### LearnLoop dependencies
 
 - [[Reference/Modules/learnloop/clock|learnloop.clock]] — imports `Clock`, `utc_now_iso`; calls `utc_now_iso`
+- [[Reference/Modules/learnloop/content/authoring/practice_leakage|learnloop.content.authoring.practice_leakage]] — imports `learner_visible_text`, `matching_phrases`, `reserved_payload_findings`; calls `learner_visible_text`, `matching_phrases`, `reserved_payload_findings`
 - [[Reference/Modules/learnloop/db/repositories|learnloop.db.repositories]] — imports `Repository`
 - [[Reference/Modules/learnloop/diagnosis/ai_contracts|learnloop.diagnosis.ai_contracts]] — imports `FOLLOWUP_PROBE_PROMPT_VERSION`
+- [[Reference/Modules/learnloop/diagnosis/causal_attribution|learnloop.diagnosis.causal_attribution]] — imports `with_open_set_arm`; calls `with_open_set_arm`
 - [[Reference/Modules/learnloop/diagnosis/causal_orchestrator|learnloop.diagnosis.causal_orchestrator]] — imports `accept_probe_offer`; calls `accept_probe_offer`
 - [[Reference/Modules/learnloop/diagnosis/causal_probe_coherence|learnloop.diagnosis.causal_probe_coherence]] — imports `build_causal_hypothesis_set`, `transition_probe_candidate`; calls `build_causal_hypothesis_set`, `transition_probe_candidate`
 - [[Reference/Modules/learnloop/diagnosis/causal_probe_commissioning|learnloop.diagnosis.causal_probe_commissioning]] — imports `commission_probe_instrument`, `support_scores`; calls `commission_probe_instrument`, `support_scores`
 - [[Reference/Modules/learnloop/diagnosis/probe_episodes|learnloop.diagnosis.probe_episodes]] — imports `administered_surface_exclusions`; calls `administered_surface_exclusions`
 - [[Reference/Modules/learnloop/diagnosis/probe_families|learnloop.diagnosis.probe_families]] — imports `DIALOGUE_MICROPROBE_V1`
 - [[Reference/Modules/learnloop/diagnosis/probe_instance_generation|learnloop.diagnosis.probe_instance_generation]] — imports `LLM_GENERATOR_ID`, `LLM_GENERATOR_VERSION`, `applicable_families`, `ensure_instrument_card`, `family_measurement_intent`, `generated_instance_payload`, `instance_gate_errors`; calls `applicable_families`, `ensure_instrument_card`, `family_measurement_intent`, `generated_instance_payload`, `instance_gate_errors`
-- [[Reference/Modules/learnloop/followup_run/authoring|learnloop.followup_run.authoring]] — imports `AuthoredProbe`, `AuthoringRejected`, `build_context`, `check_output`, `request_authored_probe`; calls `build_context`, `check_output`, `request_authored_probe`
+- [[Reference/Modules/learnloop/followup_run/authoring|learnloop.followup_run.authoring]] — imports `AuthoredProbe`, `AuthoringRejected`, `QUESTION_MATCHES_RESERVED`, `build_context`, `causes_coverage`, `check_output`, `request_authored_probe`, `reserved_view`; calls `build_context`, `causes_coverage`, `check_output`, `request_authored_probe`, `reserved_view`
 - [[Reference/Modules/learnloop/followup_serve/identity|learnloop.followup_serve.identity]] — imports `module`; calls `item_revision`, `register`
 - [[Reference/Modules/learnloop/vault/writer|learnloop.vault.writer]] — imports `upsert_practice_item`; calls `upsert_practice_item`
 
@@ -143,8 +148,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 - [tests/test_followup_codex_review.py](../../../../../../tests/test_followup_codex_review.py) — direct import
   - `test_f3_a_crash_after_the_pin_ends_the_pin_with_the_retired_item`
-  - `test_f5_rereview_the_author_builder_refuses_a_cause_the_record_doesnt_cover`
-  - `test_f5_the_author_builder_itself_refuses_them_for_entry_and_need_work`
+- [tests/test_followup_reserved_only.py](../../../../../../tests/test_followup_reserved_only.py) — direct import
+  - `test_f20_what_a_crashed_run_pinned_closes_with_the_exhausted_job`
 
 ## Modification guidance
 

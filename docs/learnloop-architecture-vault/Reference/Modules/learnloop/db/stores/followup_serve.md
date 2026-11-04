@@ -115,7 +115,7 @@ The authoritative system-level explanation remains in [[State and Persistence]],
 - [[Reference/Modules/learnloop/followup_run/router|learnloop.followup_run.router]] — imports `module`; statically calls `append_binding`, `update_workflow`
 - [[Reference/Modules/learnloop/followup_serve/identity|learnloop.followup_serve.identity]] — imports `module`; statically calls `administration_ended`, `burns_for_item`, `closed_generated_probe_ids`, `generated_probe`, `generated_probe_ids`, `insert_burn`, `insert_generated_probe`, `live_candidates_of_item`, `present`, `unclosed_probes_of_workflow`
 - [[Reference/Modules/learnloop/followup_serve/queue|learnloop.followup_serve.queue]] — imports `module`; statically calls `enqueue_generation_job`, `present`, `runnable_generation_jobs`
-- [[Reference/Modules/learnloop/followup_serve/workflow|learnloop.followup_serve.workflow]] — imports `module`; statically calls `append_binding`, `cancel_generation_jobs`, `episodes_pinned_by_workflow`, `insert_workflow`, `move_workflow`, `open_workflows`, `present`, `update_workflow`, `workflow`, `workflow_for_attempt`, `workflow_for_item`, `workflow_for_presentation`
+- [[Reference/Modules/learnloop/followup_serve/workflow|learnloop.followup_serve.workflow]] — imports `module`; statically calls `append_binding`, `cancel_generation_jobs`, `episodes_pinned_by_workflow`, `insert_event`, `insert_workflow`, `move_workflow`, `open_workflows`, `present`, `update_workflow`, `workflow`, `workflow_events`, `workflow_for_attempt`, `workflow_for_item`, `workflow_for_presentation`
 - [[Reference/Modules/learnloop/router/outcomes|learnloop.router.outcomes]] — imports `all_bindings`; statically calls `all_bindings`
 
 ## Dependencies
@@ -155,6 +155,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_f9_a_retry_rechecks_the_hard_refusals_and_keeps_the_draw`
 - [tests/test_followup_generate_e2e.py](../../../../../../../tests/test_followup_generate_e2e.py) — direct import
   - `test_entry_enqueues_deduplicated_work_and_never_calls_a_model_inline`
+- [tests/test_followup_live_shape.py](../../../../../../../tests/test_followup_live_shape.py) — direct import
+- [tests/test_followup_rival_factor.py](../../../../../../../tests/test_followup_rival_factor.py) — direct import
 - [tests/test_followup_router.py](../../../../../../../tests/test_followup_router.py) — direct import
   - `test_the_binding_is_appended_and_the_row_stays_as_it_was`
 - [tests/test_followup_workflow.py](../../../../../../../tests/test_followup_workflow.py) — direct import

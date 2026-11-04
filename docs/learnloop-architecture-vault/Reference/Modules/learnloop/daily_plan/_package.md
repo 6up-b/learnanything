@@ -35,7 +35,7 @@ source_paths:
   - "src/learnloop/daily_plan/types.py"
   - "src/learnloop/daily_plan/view.py"
 source_commit: "aggregate; see module notes"
-source_commit_timestamp: "2026-11-04T01:43:14-05:00"
+source_commit_timestamp: "2026-11-04T04:34:30-05:00"
 generated: true
 generated_at: "2026-11-02"
 package: "learnloop.daily_plan"

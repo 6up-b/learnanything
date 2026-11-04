@@ -175,7 +175,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_f4_skipping_one_the_plan_listed_abandons_it_unserved_too`
   - `test_f4_the_burn_binds_to_the_open_presentation_and_ends_with_it`
   - `test_f4_the_claim_has_no_wildcard_for_a_missing_presentation`
-  - `test_f5_a_cause_written_from_exam_work_reaches_neither_request`
   - `test_f7_a_prepared_probe_closes_with_the_switch`
   - `test_f7_a_standing_plan_doesnt_strand_next_on_a_switched_off_probe`
   - `test_f7_next_through_the_sidecar_after_the_switch`
@@ -203,6 +202,12 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_no_intervention_generates_nothing_and_releases_what_was_held`
   - `test_the_whole_journey_and_never_again`
   - `test_with_no_plan_a_ready_probe_heads_todays_queue`
+- [tests/test_followup_reserved_only.py](../../../../../../tests/test_followup_reserved_only.py) — direct import
+  - `test_an_authored_question_echoing_a_reserved_one_is_refused_with_nothing_served`
+  - `test_f20_what_a_crashed_run_pinned_closes_with_the_exhausted_job`
+  - `test_r10_a_second_match_takes_the_practice_lane`
+- [tests/test_followup_rival_factor.py](../../../../../../tests/test_followup_rival_factor.py) — direct import
+  - `test_each_shape_opens_a_factor_serves_a_question_and_its_answer_closes_it`
 - [tests/test_followup_router.py](../../../../../../tests/test_followup_router.py) — direct import
   - `test_a_closed_factor_retires_a_waiting_probe_at_the_boundary`
 - [tests/test_followup_single_use.py](../../../../../../tests/test_followup_single_use.py) — direct import

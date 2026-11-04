@@ -25,7 +25,7 @@ source_paths:
   - "src/learnloop/content/authoring/rung_variants.py"
   - "src/learnloop/content/authoring/source_exercise_import.py"
 source_commit: "aggregate; see module notes"
-source_commit_timestamp: "2026-11-01T14:48:10-05:00"
+source_commit_timestamp: "2026-11-04T05:19:00-05:00"
 generated: true
 generated_at: "2026-11-02"
 package: "learnloop.content.authoring"
@@ -79,7 +79,7 @@ For system intent, use [[Learning System]], [[AI Architecture]].
 | [[Reference/Modules/learnloop/content/authoring/pf_contracts|learnloop.content.authoring.pf_contracts]] | [[Reference/Modules/learnloop/content/authoring/pf_contracts#^module-purpose|purpose]] | `ACTIVE` | 4 | 9 |
 | [[Reference/Modules/learnloop/content/authoring/pf_sandbox|learnloop.content.authoring.pf_sandbox]] | [[Reference/Modules/learnloop/content/authoring/pf_sandbox#^module-purpose|purpose]] | `ACTIVE` | 8 | 43 |
 | [[Reference/Modules/learnloop/content/authoring/practice_generation|learnloop.content.authoring.practice_generation]] | [[Reference/Modules/learnloop/content/authoring/practice_generation#^module-purpose|purpose]] | `ACTIVE` | 8 | 15 |
-| [[Reference/Modules/learnloop/content/authoring/practice_leakage|learnloop.content.authoring.practice_leakage]] | [[Reference/Modules/learnloop/content/authoring/practice_leakage#^module-purpose|purpose]] | `ACTIVE` | 10 | 5 |
+| [[Reference/Modules/learnloop/content/authoring/practice_leakage|learnloop.content.authoring.practice_leakage]] | [[Reference/Modules/learnloop/content/authoring/practice_leakage#^module-purpose|purpose]] | `ACTIVE` | 13 | 6 |
 | [[Reference/Modules/learnloop/content/authoring/rung_variants|learnloop.content.authoring.rung_variants]] | [[Reference/Modules/learnloop/content/authoring/rung_variants#^module-purpose|purpose]] | `ACTIVE` | 2 | 5 |
 | [[Reference/Modules/learnloop/content/authoring/source_exercise_import|learnloop.content.authoring.source_exercise_import]] | [[Reference/Modules/learnloop/content/authoring/source_exercise_import#^module-purpose|purpose]] | `ACTIVE` | 7 | 23 |
 
@@ -89,15 +89,15 @@ For system intent, use [[Learning System]], [[AI Architecture]].
 
 - [[Reference/Modules/learnloop/vault/_package|learnloop.vault]] — 30 static module edges
 - [[Reference/Modules/learnloop/ai/_package|learnloop.ai]] — 19 static module edges
-- [[Reference/Modules/learnloop/_package|learnloop]] — 13 static module edges
+- [[Reference/Modules/learnloop/_package|learnloop]] — 14 static module edges
 - [[Reference/Modules/learnloop/db/_package|learnloop.db]] — 11 static module edges
 - [[Reference/Modules/learnloop/diagnosis/_package|learnloop.diagnosis]] — 9 static module edges
 - [[Reference/Modules/learnloop/learner/_package|learnloop.learner]] — 9 static module edges
 - [[Reference/Modules/learnloop/substrate/_package|learnloop.substrate]] — 9 static module edges
 - [[Reference/Modules/learnloop/content/proposals/_package|learnloop.content.proposals]] — 6 static module edges
 - [[Reference/Modules/learnloop/content/sources/_package|learnloop.content.sources]] — 6 static module edges
+- [[Reference/Modules/learnloop/db/stores/_package|learnloop.db.stores]] — 5 static module edges
 - [[Reference/Modules/learnloop/curriculum/_package|learnloop.curriculum]] — 4 static module edges
-- [[Reference/Modules/learnloop/db/stores/_package|learnloop.db.stores]] — 4 static module edges
 - [[Reference/Modules/learnloop/ingest/_package|learnloop.ingest]] — 4 static module edges
 - [[Reference/Modules/learnloop/adaptive_difficulty/_package|learnloop.adaptive_difficulty]] — 3 static module edges
 - [[Reference/Modules/learnloop/ops/_package|learnloop.ops]] — 3 static module edges
@@ -119,15 +119,15 @@ For system intent, use [[Learning System]], [[AI Architecture]].
 - [[Reference/Modules/learnloop/content/pipeline/_package|learnloop.content.pipeline]] — 7 static module edges
 - [[Reference/Modules/learnloop/figures/_package|learnloop.figures]] — 5 static module edges
 - [[Reference/Modules/learnloop/tutor/_package|learnloop.tutor]] — 4 static module edges
+- [[Reference/Modules/learnloop/followup_run/_package|learnloop.followup_run]] — 3 static module edges
 - [[Reference/Modules/learnloop/instructional/_package|learnloop.instructional]] — 3 static module edges
 - [[Reference/Modules/learnloop/reader/_package|learnloop.reader]] — 3 static module edges
 - [[Reference/Modules/learnloop/source_retrieval/_package|learnloop.source_retrieval]] — 3 static module edges
 - [[Reference/Modules/learnloop/content/proposals/_package|learnloop.content.proposals]] — 2 static module edges
 - [[Reference/Modules/learnloop/content/synthesis/_package|learnloop.content.synthesis]] — 2 static module edges
+- [[Reference/Modules/learnloop/diagnosis/_package|learnloop.diagnosis]] — 2 static module edges
 - [[Reference/Modules/learnloop/ops/contamination/_package|learnloop.ops.contamination]] — 2 static module edges
 - [[Reference/Modules/learnloop/attempts/_package|learnloop.attempts]] — 1 static module edge
-- [[Reference/Modules/learnloop/diagnosis/_package|learnloop.diagnosis]] — 1 static module edge
-- [[Reference/Modules/learnloop/followup_run/_package|learnloop.followup_run]] — 1 static module edge
 - [[Reference/Modules/learnloop/learner/_package|learnloop.learner]] — 1 static module edge
 - [[Reference/Modules/learnloop/scheduling/_package|learnloop.scheduling]] — 1 static module edge
 - [[Reference/Modules/learnloop/substrate/_package|learnloop.substrate]] — 1 static module edge
@@ -146,20 +146,20 @@ flowchart LR
     n_learnloop["learnloop"]
     n_learnloop_ops["learnloop.ops"]
     n_learnloop_db["learnloop.db"]
-    n_learnloop_sidecar_handlers["learnloop_sidecar.handlers"]
     n_learnloop_diagnosis["learnloop.diagnosis"]
+    n_learnloop_sidecar_handlers["learnloop_sidecar.handlers"]
     n_learnloop_learner["learnloop.learner"]
     n_learnloop_substrate["learnloop.substrate"]
     n_learnloop_content_proposals["learnloop.content.proposals"]
     center -->|30| n_learnloop_vault
     center -->|19| n_learnloop_ai
-    center -->|13| n_learnloop
+    center -->|14| n_learnloop
     n_learnloop_ops -->|10| center
     center -->|3| n_learnloop_ops
     center -->|11| n_learnloop_db
-    n_learnloop_sidecar_handlers -->|11| center
-    n_learnloop_diagnosis -->|1| center
+    n_learnloop_diagnosis -->|2| center
     center -->|9| n_learnloop_diagnosis
+    n_learnloop_sidecar_handlers -->|11| center
     n_learnloop_learner -->|1| center
     center -->|9| n_learnloop_learner
     n_learnloop_substrate -->|1| center

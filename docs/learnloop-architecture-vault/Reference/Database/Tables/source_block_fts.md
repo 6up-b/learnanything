@@ -3,8 +3,8 @@ title: "source_block_fts"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "30e1b53185db7e9aaf36257d3667cbd479214aea"
-source_commit_timestamp: "2026-11-04T03:25:34-05:00"
+source_commit: "7c99dcb92a49d0b4655a6032ebbc7597bbe61503"
+source_commit_timestamp: "2026-11-04T05:42:56-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite source_block_fts"
@@ -20,6 +20,7 @@ source_paths:
   - "src/learnloop/db/table_roles.py"
   - "migrations/177_source_block_fts.sql"
   - "src/learnloop/config/schema.py"
+  - "src/learnloop/content/authoring/practice_leakage.py"
   - "src/learnloop/content/authoring/source_exercise_import.py"
   - "src/learnloop/content/pipeline/add_source.py"
   - "src/learnloop/content/pipeline/quick_add.py"
@@ -102,6 +103,7 @@ None found by exact static reference scan.
 - `tests/test_e0_review_round4.py`
 - `tests/test_embedding_recipe_hash_pins.py`
 - `tests/test_exam_protection_landing.py`
+- `tests/test_followup_reserved_only.py`
 - `tests/test_passage_links.py`
 - `tests/test_reader_ca4_table_by_point.py`
 - `tests/test_reader_inquiry_status.py`

@@ -1450,12 +1450,17 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_f3_a_crash_after_the_pin_ends_the_pin_with_the_retired_item`
   - `test_f3_the_mint_and_the_batch_write_the_identity_before_the_file`
   - `test_f3_the_retry_retires_the_orphan_and_serves_its_own_question`
+  - `test_f6_a_crash_after_the_diagnosis_ended_is_recovered_by_next`
   - `test_f7_a_standing_plan_doesnt_strand_next_on_a_switched_off_probe`
   - `test_f7_rereview_a_startup_crash_doesnt_leave_a_standing_plan_holding_the_item`
   - `test_f7_verify_a_crash_in_the_exit_leaves_all_of_it_open_for_the_next_run`
   - `test_f7_verify_the_settled_exit_adds_no_question_of_its_own`
   - `test_f9_a_refused_retry_doesnt_leave_what_the_crash_pinned`
 - [tests/test_followup_diagnostic_selection.py](../../../../../../tests/test_followup_diagnostic_selection.py) — direct import
+- [tests/test_followup_reserved_only.py](../../../../../../tests/test_followup_reserved_only.py) — direct import
+  - `test_f20_what_a_crashed_run_pinned_closes_with_the_exhausted_job`
+  - `test_reserved_questions_and_what_quotes_them_stay_out_of_the_authors_context`
+  - `test_wording_an_ordinary_item_already_shows_is_no_match`
 - [tests/test_followup_single_use.py](../../../../../../tests/test_followup_single_use.py) — direct import
   - `test_an_exam_never_reserves_one`
 - [tests/test_followup_successor.py](../../../../../../tests/test_followup_successor.py) — direct import

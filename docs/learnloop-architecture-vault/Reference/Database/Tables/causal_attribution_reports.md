@@ -3,8 +3,8 @@ title: "causal_attribution_reports"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "30e1b53185db7e9aaf36257d3667cbd479214aea"
-source_commit_timestamp: "2026-11-04T03:25:34-05:00"
+source_commit: "7c99dcb92a49d0b4655a6032ebbc7597bbe61503"
+source_commit_timestamp: "2026-11-04T05:42:56-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite causal_attribution_reports"
@@ -109,6 +109,7 @@ Indexes and uniqueness:
 - `src/learnloop/diagnosis/probe_targeting.py`
 - `src/learnloop/diagnosis/split/card.py`
 - `src/learnloop/followup_run/lanes.py`
+- `src/learnloop/followup_serve/workflow.py`
 - `src/learnloop/hints/discriminating.py`
 - `src/learnloop/instructional/needs.py`
 - `src/learnloop/tutor/tutor_qa.py`
@@ -131,6 +132,9 @@ Indexes and uniqueness:
 - `tests/test_dialogue_causal_join.py`
 - `tests/test_durable_promotion_arms.py`
 - `tests/test_followup_codex_review.py`
+- `tests/test_followup_live_shape.py`
+- `tests/test_followup_reserved_only.py`
+- `tests/test_followup_rival_factor.py`
 - `tests/test_followup_router.py`
 - `tests/test_grading_support.py`
 - `tests/test_probe_block_end.py`

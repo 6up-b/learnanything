@@ -7,8 +7,8 @@ version: "1.0.0"
 source_path: "src/learnloop/learner_protection.py"
 source_paths:
   - "src/learnloop/learner_protection.py"
-source_commit: "06461f09ccf65c6446b23516124ce9c3b699b9f9"
-source_commit_timestamp: "2026-11-04T02:59:38-05:00"
+source_commit: "64883ad76550d8aa6da0a4befb1c497e8f2ceb88"
+source_commit_timestamp: "2026-11-04T04:45:14-05:00"
 source_worktree_state: "clean"
 generated: true
 generated_at: "2026-11-02"
@@ -50,54 +50,52 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/learner_protection.py](../../../../../src/learnloop/learner_protection.py) |
-| Source lines | 796 |
+| Source lines | 747 |
 | Owning package | [[Reference/Modules/learnloop/_package|learnloop]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `06461f09ccf65c6446b23516124ce9c3b699b9f9` |
-| Commit timestamp | `2026-11-04T02:59:38-05:00` |
+| Source commit | `64883ad76550d8aa6da0a4befb1c497e8f2ceb88` |
+| Commit timestamp | `2026-11-04T04:45:14-05:00` |
 
 ## Public API
 
-- `class Withheld` ([source](../../../../../src/learnloop/learner_protection.py), line 130) — Items whose question and answers never reach a model context, and why.
-  - `reason(self, item_id: str | None) -> str | None` (line 147; public)
-  - `item_ids(self) -> frozenset[str]` (line 157; public)
-- `protection_issues(vault: Any) -> list[str]` ([source](../../../../../src/learnloop/learner_protection.py), line 161) — Why the vault's protection metadata cannot be trusted, or ``[]``.
-- `withheld_items(vault: Any, repository: Any) -> Withheld` ([source](../../../../../src/learnloop/learner_protection.py), line 192) — Every item whose question and answers a model context never shows.
-- `attempt_protection(withheld: Withheld, attempt: Mapping[str, Any] | None) -> str | None` ([source](../../../../../src/learnloop/learner_protection.py), line 252) — Why an attempt's question and answer are withheld, or None.
-- `attempt_result(correctness: Any, held: bool) -> str` ([source](../../../../../src/learnloop/learner_protection.py), line 278) — An attempt's result class: a grade held for review (THE predicate, ``held_grades``) is ``held_for_review``, never a score.
-- `held_attempts(connection: Any, attempt_ids: Sequence[Any]) -> frozenset[str]` ([source](../../../../../src/learnloop/learner_protection.py), line 294) — The attempts among ``attempt_ids`` whose grade is held for review (THE predicate).
-- `frozen_method(value: Any) -> Any` ([source](../../../../../src/learnloop/learner_protection.py), line 306) — A contract's frozen ``required_method`` as ``json_extract`` returns it (a JSON text for an object), or None.
-- `class PinnedContract` ([source](../../../../../src/learnloop/learner_protection.py), line 319) — The assessment contract an answer was graded against: its statement and the required method it froze.
-  - `question(self, limit: int, clip: Callable[[str, int], str]) -> str | None` (line 328; public) — The question as graded, or None without a statement: the frozen statement, then the instruction of the method it froze, the statement shortened by ``clip`` so the instruction stays whole within ``limit`` (``vault.required_method.fit_presented_prompt``, the contract's pair ``answ…
-- `pinned_contracts(connection: Any, items: Mapping[str, Any]) -> dict[str, PinnedContract]` ([source](../../../../../src/learnloop/learner_protection.py), line 346) — ``{attempt id: its pinned contract}`` for the attempts (``{attempt id: practice item}``) graded against exactly one assessment contract of their own item: the only affirmative record of the question revision an answer was graded against (router R2a review F6; the rule is ``db.st…
-- `hypothesis_answers(connection: Any, hypothesis_ids: Iterable[Any]) -> dict[str, frozenset[str]]` ([source](../../../../../src/learnloop/learner_protection.py), line 378) — ``{hypothesis id: the answers its episode rests on}``: the attempt of every version of the hypothesis's episode.
-- `class PastWork` ([source](../../../../../src/learnloop/learner_protection.py), line 408) — One read's protection, cached: the withheld items, the attempts read, their pinned contracts.
-  - `__init__(self, connection: Any, vault: Any, repository: Any=None, *, withheld: Withheld | None=None, unknowns: list[str] | None=None) -> None` (line 417; internal)
-  - `_note(self, unknown: str) -> None` (line 429; internal)
-  - `withheld(self) -> Withheld` (line 434; public)
-  - `load(self, attempt_ids: Iterable[Any]) -> None` (line 442; public) — Read these attempts (item, type, probe, topic, answer) and their pins.
-  - `attempt(self, attempt_id: Any) -> dict[str, Any] | None` (line 466; public) — The attempt as read (``item``, ``type``, ``probe``, ``lo``, ``answer``), or None.
-  - `attempt_reason(self, attempt_id: Any) -> str | None` (line 472; public) — Why this attempt's question and answer, and everything written about it, are protected (:func:`attempt_protection`), or None.
-  - `pinned(self, attempt_id: Any) -> PinnedContract | None` (line 480; public) — The contract this answer was graded against, or None when the revision is not established (no contract, several, another item's).
-  - `held(self, attempt_ids: Sequence[Any]) -> frozenset[str]` (line 487; public) — The attempts whose grade is held for review (THE predicate).
-  - `evidence_reason(self, answers: Iterable[Any]=(), items: Iterable[Any]=()) -> str | None` (line 492; public) — The leakage rule for a text written from these answers and items: why any of them is protected (or protection is unreadable), or None.
-  - `exam_reason(self, answers: Iterable[Any]=(), items: Iterable[Any]=(), sources: Iterable[Mapping[str, Any]]=(), questions: Iterable[Any]=()) -> str | None` (line 512; public) — The leakage rule for a reader that may see everything but exam material (FG1's author: a new question, on a topic the learner just answered): why a text written from these may quote exam or reserved material, or why that can't be ruled out.
-  - `nothing_exam_to_quote(self) -> bool` (line 544; public) — The vault holds no exam or held-out material, no live reservation and no exam work, so no text in it can quote any, whatever its record says.
-  - `window_closed(self, item_id: Any) -> bool` (line 560; public) — Whether the item's attempt window is closed: its latest attempt is a correct submission whose grade is not held for review (the retrieval policy's rule for unlocking an item's own solution, ``instructional.policy.attempt_window_open``).
-  - `solution_reason(self, item_ids: Iterable[Any]) -> str | None` (line 580; public) — Why a text written with these items' rubrics or reference solutions may not leave LearnLoop, or None: an item's own protection first, then an attempt window still open (:meth:`window_closed`): showing it would hand the learner the solution of a question they can still answer col…
-  - `source_reason(self, refs: Iterable[Mapping[str, Any]]) -> str | None` (line 601; public) — Why a text written from these source refs may not leave LearnLoop: a ref that is (or may be) exam or held-out material (``exam_material.source_ref_protected``, conservative where it cannot place the text), or exam material that could not be read.
-  - `reading_reason(self, source_kind: Any, source_id: Any) -> str | None` (line 627; public) — Why a learner text written on a reading may not leave LearnLoop (followups-nov1c E: exam-material protection, not privacy): the passage it was written on (a Reader question's, an active-reading answer's, a figure prediction's) is or may be exam or held-out material (:meth:`sourc…
-  - `question(self, event_id: Any) -> dict[str, Any] | None` (line 648; public) — A learner question as recorded (``item``, ``attempt``, ``context``, ``contract``: the item contract it was asked about, Q10), or None.
-  - `question_reason(self, event_id: Any, contracts: Iterable[Any]) -> str | None` (line 669; public) — Why a text written from this learner question may not leave LearnLoop: the question is not on record; on an item, the item or the attempt it was asked during is protected, or the question records no contract of that item, or not the one the writer read it under (Q10).
-- `class TextRule(Protocol)` ([source](../../../../../src/learnloop/learner_protection.py), line 703) — How a reader's text leaves LearnLoop once the protection here has passed.
-  - `question(self, attempt_id: str, lo_id: Any) -> tuple[str | None, str | None]` (line 711; public) — The question an unprotected attempt was graded against.
-  - `answer(self, attempt_id: str, text: Any, limit: int) -> tuple[str | None, str | None]` (line 714; public) — The learner's own answer on an unprotected attempt.
-  - `statement(self, kind: str, record_id: Any, text: Any, limit: int, *, answers: Iterable[Any]=(), items: Iterable[Any]=(), los: Iterable[Any]=()) -> tuple[str | None, str | None]` (line 717; public) — A statement (a diagnosis's, a hypothesis's, a learner-text gap's words) whose answers and items are unprotected.
-- `class PastWorkText` ([source](../../../../../src/learnloop/learner_protection.py), line 724) — What one past attempt shows: ``withheld`` (why its question and answer are protected) or its question and answer as the text rule released them.
-- `past_work_text(past: PastWork, rule: TextRule, attempt_id: Any, lo_id: Any, answer: Any, answer_limit: int) -> PastWorkText` ([source](../../../../../src/learnloop/learner_protection.py), line 735) — One past attempt's question and answer: the protection, then the reader's text rule.
-- `statement_text(past: PastWork, rule: TextRule, kind: str, record_id: Any, text: Any, limit: int, *, answers: Iterable[Any]=(), items: Iterable[Any]=(), los: Iterable[Any]=()) -> tuple[str | None, str | None, str | None]` ([source](../../../../../src/learnloop/learner_protection.py), line 747) — A statement written from ``answers`` and ``items``: ``(text, note, withheld)``.
+- `class Withheld` ([source](../../../../../src/learnloop/learner_protection.py), line 128) — Items whose question and answers never reach a model context, and why.
+  - `reason(self, item_id: str | None) -> str | None` (line 145; public)
+  - `item_ids(self) -> frozenset[str]` (line 155; public)
+- `protection_issues(vault: Any) -> list[str]` ([source](../../../../../src/learnloop/learner_protection.py), line 159) — Why the vault's protection metadata cannot be trusted, or ``[]``.
+- `withheld_items(vault: Any, repository: Any) -> Withheld` ([source](../../../../../src/learnloop/learner_protection.py), line 190) — Every item whose question and answers a model context never shows.
+- `attempt_protection(withheld: Withheld, attempt: Mapping[str, Any] | None) -> str | None` ([source](../../../../../src/learnloop/learner_protection.py), line 250) — Why an attempt's question and answer are withheld, or None.
+- `attempt_result(correctness: Any, held: bool) -> str` ([source](../../../../../src/learnloop/learner_protection.py), line 276) — An attempt's result class: a grade held for review (THE predicate, ``held_grades``) is ``held_for_review``, never a score.
+- `held_attempts(connection: Any, attempt_ids: Sequence[Any]) -> frozenset[str]` ([source](../../../../../src/learnloop/learner_protection.py), line 292) — The attempts among ``attempt_ids`` whose grade is held for review (THE predicate).
+- `frozen_method(value: Any) -> Any` ([source](../../../../../src/learnloop/learner_protection.py), line 304) — A contract's frozen ``required_method`` as ``json_extract`` returns it (a JSON text for an object), or None.
+- `class PinnedContract` ([source](../../../../../src/learnloop/learner_protection.py), line 317) — The assessment contract an answer was graded against: its statement and the required method it froze.
+  - `question(self, limit: int, clip: Callable[[str, int], str]) -> str | None` (line 326; public) — The question as graded, or None without a statement: the frozen statement, then the instruction of the method it froze, the statement shortened by ``clip`` so the instruction stays whole within ``limit`` (``vault.required_method.fit_presented_prompt``, the contract's pair ``answ…
+- `pinned_contracts(connection: Any, items: Mapping[str, Any]) -> dict[str, PinnedContract]` ([source](../../../../../src/learnloop/learner_protection.py), line 344) — ``{attempt id: its pinned contract}`` for the attempts (``{attempt id: practice item}``) graded against exactly one assessment contract of their own item: the only affirmative record of the question revision an answer was graded against (router R2a review F6; the rule is ``db.st…
+- `hypothesis_answers(connection: Any, hypothesis_ids: Iterable[Any]) -> dict[str, frozenset[str]]` ([source](../../../../../src/learnloop/learner_protection.py), line 376) — ``{hypothesis id: the answers its episode rests on}``: the attempt of every version of the hypothesis's episode.
+- `class PastWork` ([source](../../../../../src/learnloop/learner_protection.py), line 406) — One read's protection, cached: the withheld items, the attempts read, their pinned contracts.
+  - `__init__(self, connection: Any, vault: Any, repository: Any=None, *, withheld: Withheld | None=None, unknowns: list[str] | None=None) -> None` (line 415; internal)
+  - `_note(self, unknown: str) -> None` (line 427; internal)
+  - `withheld(self) -> Withheld` (line 432; public)
+  - `load(self, attempt_ids: Iterable[Any]) -> None` (line 440; public) — Read these attempts (item, type, probe, topic, answer) and their pins.
+  - `attempt(self, attempt_id: Any) -> dict[str, Any] | None` (line 464; public) — The attempt as read (``item``, ``type``, ``probe``, ``lo``, ``answer``), or None.
+  - `attempt_reason(self, attempt_id: Any) -> str | None` (line 470; public) — Why this attempt's question and answer, and everything written about it, are protected (:func:`attempt_protection`), or None.
+  - `pinned(self, attempt_id: Any) -> PinnedContract | None` (line 478; public) — The contract this answer was graded against, or None when the revision is not established (no contract, several, another item's).
+  - `held(self, attempt_ids: Sequence[Any]) -> frozenset[str]` (line 485; public) — The attempts whose grade is held for review (THE predicate).
+  - `evidence_reason(self, answers: Iterable[Any]=(), items: Iterable[Any]=()) -> str | None` (line 490; public) — The leakage rule for a text written from these answers and items: why any of them is protected (or protection is unreadable), or None.
+  - `window_closed(self, item_id: Any) -> bool` (line 512; public) — Whether the item's attempt window is closed: its latest attempt is a correct submission whose grade is not held for review (the retrieval policy's rule for unlocking an item's own solution, ``instructional.policy.attempt_window_open``).
+  - `solution_reason(self, item_ids: Iterable[Any]) -> str | None` (line 532; public) — Why a text written with these items' rubrics or reference solutions may not leave LearnLoop, or None: an item's own protection first, then an attempt window still open (:meth:`window_closed`): showing it would hand the learner the solution of a question they can still answer col…
+  - `source_reason(self, refs: Iterable[Mapping[str, Any]]) -> str | None` (line 553; public) — Why a text written from these source refs may not leave LearnLoop: a ref that is (or may be) exam or held-out material (``exam_material.source_ref_protected``, conservative where it cannot place the text), or exam material that could not be read.
+  - `reading_reason(self, source_kind: Any, source_id: Any) -> str | None` (line 579; public) — Why a learner text written on a reading may not leave LearnLoop (followups-nov1c E: exam-material protection, not privacy): the passage it was written on (a Reader question's, an active-reading answer's, a figure prediction's) is or may be exam or held-out material (:meth:`sourc…
+  - `question(self, event_id: Any) -> dict[str, Any] | None` (line 600; public) — A learner question as recorded (``item``, ``attempt``, ``context``, ``contract``: the item contract it was asked about, Q10), or None.
+  - `question_reason(self, event_id: Any, contracts: Iterable[Any]) -> str | None` (line 621; public) — Why a text written from this learner question may not leave LearnLoop: the question is not on record; on an item, the item or the attempt it was asked during is protected, or the question records no contract of that item, or not the one the writer read it under (Q10).
+- `class TextRule(Protocol)` ([source](../../../../../src/learnloop/learner_protection.py), line 655) — How a reader's text leaves LearnLoop once the protection here has passed.
+  - `question(self, attempt_id: str, lo_id: Any) -> tuple[str | None, str | None]` (line 663; public) — The question an unprotected attempt was graded against.
+  - `answer(self, attempt_id: str, text: Any, limit: int) -> tuple[str | None, str | None]` (line 666; public) — The learner's own answer on an unprotected attempt.
+  - `statement(self, kind: str, record_id: Any, text: Any, limit: int, *, answers: Iterable[Any]=(), items: Iterable[Any]=(), los: Iterable[Any]=()) -> tuple[str | None, str | None]` (line 669; public) — A statement (a diagnosis's, a hypothesis's, a learner-text gap's words) whose answers and items are unprotected.
+- `class PastWorkText` ([source](../../../../../src/learnloop/learner_protection.py), line 676) — What one past attempt shows: ``withheld`` (why its question and answer are protected) or its question and answer as the text rule released them.
+- `past_work_text(past: PastWork, rule: TextRule, attempt_id: Any, lo_id: Any, answer: Any, answer_limit: int) -> PastWorkText` ([source](../../../../../src/learnloop/learner_protection.py), line 687) — One past attempt's question and answer: the protection, then the reader's text rule.
+- `statement_text(past: PastWork, rule: TextRule, kind: str, record_id: Any, text: Any, limit: int, *, answers: Iterable[Any]=(), items: Iterable[Any]=(), los: Iterable[Any]=()) -> tuple[str | None, str | None, str | None]` ([source](../../../../../src/learnloop/learner_protection.py), line 699) — A statement written from ``answers`` and ``items``: ``(text, note, withheld)``.
 
 ### Module constants
 
@@ -111,23 +109,21 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `WITHHELD_SOLUTION_OPEN` ([src/learnloop/learner_protection.py](../../../../../src/learnloop/learner_protection.py), line 85)
 - `QUESTION_UNRECORDED` ([src/learnloop/learner_protection.py](../../../../../src/learnloop/learner_protection.py), line 87)
 - `ANSWER_UNRECORDED` ([src/learnloop/learner_protection.py](../../../../../src/learnloop/learner_protection.py), line 89)
-- `CAUSE_UNRECORDED` ([src/learnloop/learner_protection.py](../../../../../src/learnloop/learner_protection.py), line 91)
-- `STEM_UNRECORDED` ([src/learnloop/learner_protection.py](../../../../../src/learnloop/learner_protection.py), line 93)
-- `PINS_UNREADABLE` ([src/learnloop/learner_protection.py](../../../../../src/learnloop/learner_protection.py), line 94)
-- `SNAPSHOT_UNSETTLED` ([src/learnloop/learner_protection.py](../../../../../src/learnloop/learner_protection.py), line 99)
-- `PROTECTION_UNKNOWN` ([src/learnloop/learner_protection.py](../../../../../src/learnloop/learner_protection.py), line 100)
-- `EXAM_ATTEMPT_TYPES` ([src/learnloop/learner_protection.py](../../../../../src/learnloop/learner_protection.py), line 102)
-- `PROBE_MODES` ([src/learnloop/learner_protection.py](../../../../../src/learnloop/learner_protection.py), line 103)
-- `COLD_TASK_KINDS` ([src/learnloop/learner_protection.py](../../../../../src/learnloop/learner_protection.py), line 104)
-- `WINDOW_CLOSING_CORRECTNESS` ([src/learnloop/learner_protection.py](../../../../../src/learnloop/learner_protection.py), line 108)
-- `_CHUNK` ([src/learnloop/learner_protection.py](../../../../../src/learnloop/learner_protection.py), line 109)
+- `STEM_UNRECORDED` ([src/learnloop/learner_protection.py](../../../../../src/learnloop/learner_protection.py), line 91)
+- `PINS_UNREADABLE` ([src/learnloop/learner_protection.py](../../../../../src/learnloop/learner_protection.py), line 92)
+- `SNAPSHOT_UNSETTLED` ([src/learnloop/learner_protection.py](../../../../../src/learnloop/learner_protection.py), line 97)
+- `PROTECTION_UNKNOWN` ([src/learnloop/learner_protection.py](../../../../../src/learnloop/learner_protection.py), line 98)
+- `EXAM_ATTEMPT_TYPES` ([src/learnloop/learner_protection.py](../../../../../src/learnloop/learner_protection.py), line 100)
+- `PROBE_MODES` ([src/learnloop/learner_protection.py](../../../../../src/learnloop/learner_protection.py), line 101)
+- `COLD_TASK_KINDS` ([src/learnloop/learner_protection.py](../../../../../src/learnloop/learner_protection.py), line 102)
+- `WINDOW_CLOSING_CORRECTNESS` ([src/learnloop/learner_protection.py](../../../../../src/learnloop/learner_protection.py), line 106)
+- `_CHUNK` ([src/learnloop/learner_protection.py](../../../../../src/learnloop/learner_protection.py), line 107)
 
 ### Explicit exports
 
 `__all__` declares:
 
 - `ANSWER_UNRECORDED`
-- `CAUSE_UNRECORDED`
 - `COLD_TASK_KINDS`
 - `EXAM_ATTEMPT_TYPES`
 - `PINS_UNREADABLE`
@@ -162,9 +158,9 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 
 ## Internal implementation anchors
 
-- `_table(connection: Any, name: str) -> bool` ([source](../../../../../src/learnloop/learner_protection.py), line 112)
-- `_marks(values: Sequence[Any]) -> str` ([source](../../../../../src/learnloop/learner_protection.py), line 118)
-- `_ids(values: Iterable[Any]) -> frozenset[str]` ([source](../../../../../src/learnloop/learner_protection.py), line 122)
+- `_table(connection: Any, name: str) -> bool` ([source](../../../../../src/learnloop/learner_protection.py), line 110)
+- `_marks(values: Sequence[Any]) -> str` ([source](../../../../../src/learnloop/learner_protection.py), line 116)
+- `_ids(values: Iterable[Any]) -> frozenset[str]` ([source](../../../../../src/learnloop/learner_protection.py), line 120)
 
 ## Who imports or calls it
 
@@ -172,6 +168,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 > “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
 
 - [[Reference/Modules/learnloop/confidence_events|learnloop.confidence_events]] — imports `attempt_result`, `module`; statically calls `attempt_protection`, `attempt_result`, `held_attempts`, `withheld_items`
+- [[Reference/Modules/learnloop/content/authoring/practice_leakage|learnloop.content.authoring.practice_leakage]] — imports `WITHHELD_EXAM`, `WITHHELD_RESERVED`
 - [[Reference/Modules/learnloop/daily_plan/lesson_suggestion|learnloop.daily_plan.lesson_suggestion]] — imports `withheld_items`; statically calls `withheld_items`
 - [[Reference/Modules/learnloop/daily_plan/measurement|learnloop.daily_plan.measurement]] — imports `withheld_items`; statically calls `withheld_items`
 - [[Reference/Modules/learnloop/daily_plan/router_card|learnloop.daily_plan.router_card]] — imports `PastWork`, `Withheld`, `attempt_result`, `module`, `past_work_text`, `statement_text`; statically calls `PastWork`, `attempt_result`, `hypothesis_answers`, `past_work_text`, `statement_text`, `withheld_items`
@@ -181,7 +178,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop/experiments/contextual_embeddings/bank|learnloop.experiments.contextual_embeddings.bank]] — imports `PastWork`, `module`; statically calls `PastWork`
 - [[Reference/Modules/learnloop/figures/learner_state|learnloop.figures.learner_state]] — imports `PastWork`, `WITHHELD_UNREADABLE`, `attempt_result`, `past_work_text`, `statement_text`; statically calls `PastWork`, `attempt_result`, `past_work_text`, `statement_text`
 - [[Reference/Modules/learnloop/figures/service|learnloop.figures.service]] — imports `module`; statically calls `withheld_items`
-- [[Reference/Modules/learnloop/followup_run/authoring|learnloop.followup_run.authoring]] — imports `CAUSE_UNRECORDED`, `PastWork`, `WITHHELD_EXAM`, `WITHHELD_RESERVED`, `hypothesis_answers`, `withheld_items`; statically calls `PastWork`, `hypothesis_answers`, `withheld_items`
+- [[Reference/Modules/learnloop/followup_run/authoring|learnloop.followup_run.authoring]] — imports `EXAM_ATTEMPT_TYPES`, `PastWork`, `WITHHELD_EXAM`, `WITHHELD_RESERVED`, `hypothesis_answers`, `withheld_items`; statically calls `PastWork`, `hypothesis_answers`, `withheld_items`
 - [[Reference/Modules/learnloop/learner_context|learnloop.learner_context]] — imports `ANSWER_UNRECORDED`, `PINS_UNREADABLE`, `PROTECTION_UNKNOWN`, `PastWork`, `QUESTION_UNRECORDED`, `SNAPSHOT_UNSETTLED`, `STEM_UNRECORDED`, `WITHHELD_COLD`, `WITHHELD_EXAM`, `WITHHELD_PROBE`, `WITHHELD_RESERVED`, `WITHHELD_SOLUTION_OPEN`, `WITHHELD_UNKNOWN_ITEM`, `WITHHELD_UNREADABLE`, `Withheld`, `attempt_result`, `hypothesis_answers`, `past_work_text`, `protection_issues`, `statement_text`, `withheld_items`; statically calls `PastWork`, `attempt_result`, `hypothesis_answers`, `past_work_text`, `statement_text`, `withheld_items`
 - [[Reference/Modules/learnloop/reader_learner_state|learnloop.reader_learner_state]] — imports `module`; statically calls `PastWork`, `attempt_result`, `withheld_items`
 - [[Reference/Modules/learnloop/source_retrieval/deliverable_path|learnloop.source_retrieval.deliverable_path]] — imports `withheld_items`; statically calls `withheld_items`
@@ -214,7 +211,7 @@ Use this module in context through:
 - [[Initialize a Vault]]
 - [[Start a Learning Cycle]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/confidence_events|learnloop.confidence_events]], [[Reference/Modules/learnloop/daily_plan/lesson_suggestion|learnloop.daily_plan.lesson_suggestion]], [[Reference/Modules/learnloop/daily_plan/measurement|learnloop.daily_plan.measurement]], [[Reference/Modules/learnloop/daily_plan/router_card|learnloop.daily_plan.router_card]], [[Reference/Modules/learnloop/daily_plan/router_teach_back|learnloop.daily_plan.router_teach_back]] and 14 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/confidence_events|learnloop.confidence_events]], [[Reference/Modules/learnloop/content/authoring/practice_leakage|learnloop.content.authoring.practice_leakage]], [[Reference/Modules/learnloop/daily_plan/lesson_suggestion|learnloop.daily_plan.lesson_suggestion]], [[Reference/Modules/learnloop/daily_plan/measurement|learnloop.daily_plan.measurement]], [[Reference/Modules/learnloop/daily_plan/router_card|learnloop.daily_plan.router_card]] and 15 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
@@ -236,15 +233,17 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_f4_unreadable_protection_prebuilds_nothing`
 - [tests/test_followup_codex_review.py](../../../../../tests/test_followup_codex_review.py) — direct import
   - `test_f5_a_check_waiting_on_the_item_doesnt_stop_the_probe_lane`
-  - `test_f5_exam_attempt_work_is_exam_material_whatever_its_item`
-  - `test_f5_rereview_a_cause_the_record_doesnt_cover_reaches_neither_request`
-  - `test_f5_rereview_a_question_no_longer_on_record_counts_as_unaccounted`
-  - `test_f5_rereview_every_recorded_input_is_checked`
-  - `test_f5_rereview_exam_work_anywhere_means_there_is_something_to_protect`
-  - `test_f5_what_the_writer_recorded_reading_counts`
 - [tests/test_followup_generate_e2e.py](../../../../../tests/test_followup_generate_e2e.py) — direct import
   - `test_protected_and_reserved_items_never_reach_the_prompt`
   - `test_protection_that_cannot_be_read_sends_no_prompt`
+- [tests/test_followup_reserved_only.py](../../../../../tests/test_followup_reserved_only.py) — direct import
+  - `test_a_check_waiting_holds_nothing_here`
+  - `test_a_short_reserved_stem_is_still_a_match_within_longer_words`
+  - `test_protection_that_cant_be_read_fails_closed`
+  - `test_r10_a_phrase_only_a_held_out_span_shows_still_matches`
+  - `test_r10_a_phrase_source_text_outside_held_out_spans_shows_is_no_match`
+  - `test_the_retired_codes_are_gone`
+  - `test_wording_an_ordinary_item_already_shows_is_no_match`
 - [tests/test_followups_batch6_review_fixes.py](../../../../../tests/test_followups_batch6_review_fixes.py) — direct import
   - `test_f1_unreadable_protection_requeues_nothing_and_the_worker_fails_closed`
 - [tests/test_learner_blindness_relax.py](../../../../../tests/test_learner_blindness_relax.py) — direct import

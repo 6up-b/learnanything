@@ -7,8 +7,8 @@ version: "1.0.0"
 source_path: "src/learnloop/followup_run/lanes.py"
 source_paths:
   - "src/learnloop/followup_run/lanes.py"
-source_commit: "7465040da518ecae8b84745591a2f06c89954d05"
-source_commit_timestamp: "2026-11-04T03:21:04-05:00"
+source_commit: "7d730fa39dad134c438040691be1b8e84453d5fe"
+source_commit_timestamp: "2026-11-04T05:14:36-05:00"
 source_worktree_state: "clean"
 generated: true
 generated_at: "2026-11-02"
@@ -50,20 +50,21 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/followup_run/lanes.py](../../../../../../src/learnloop/followup_run/lanes.py) |
-| Source lines | 98 |
+| Source lines | 112 |
 | Owning package | [[Reference/Modules/learnloop/followup_run/_package|learnloop.followup_run]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `7465040da518ecae8b84745591a2f06c89954d05` |
-| Commit timestamp | `2026-11-04T03:21:04-05:00` |
+| Source commit | `7d730fa39dad134c438040691be1b8e84453d5fe` |
+| Commit timestamp | `2026-11-04T05:14:36-05:00` |
 
 ## Public API
 
 - `class LaneChoice` ([source](../../../../../../src/learnloop/followup_run/lanes.py), line 21)
 - `concrete_rivals(repository: Repository, factor: dict[str, Any]) -> tuple[str, ...]` ([source](../../../../../../src/learnloop/followup_run/lanes.py), line 28) — The factor's concrete cause hypotheses that still exist, in its own order.
-- `select_lane(repository: Repository, workflow: dict[str, Any]) -> LaneChoice` ([source](../../../../../../src/learnloop/followup_run/lanes.py), line 45) — The probe lane needs an open factor with two rivals; anything else is practice.
-- `settle_practice_lane(vault: Any, repository: Repository, row: Mapping[str, Any], *, reason: str, release: str=WF.RELEASE_PRACTICE_LANE, clock: Clock | None=None) -> bool` ([source](../../../../../../src/learnloop/followup_run/lanes.py), line 59) — The practice lane, or the one fallback: the predecessor's chooser runs once.
+- `open_rival_factor(vault: Any, repository: Repository, workflow: Mapping[str, Any], *, clock: Clock | None=None) -> str | None` ([source](../../../../../../src/learnloop/followup_run/lanes.py), line 45) — R9, just before :func:`select_lane`: rival causes are all this lane needs, so a miss that has them and no factor gets one.
+- `select_lane(repository: Repository, workflow: dict[str, Any]) -> LaneChoice` ([source](../../../../../../src/learnloop/followup_run/lanes.py), line 59) — The probe lane needs an open factor with two rivals; anything else is practice.
+- `settle_practice_lane(vault: Any, repository: Repository, row: Mapping[str, Any], *, reason: str, release: str=WF.RELEASE_PRACTICE_LANE, clock: Clock | None=None) -> bool` ([source](../../../../../../src/learnloop/followup_run/lanes.py), line 73) — The practice lane, or the one fallback: the predecessor's chooser runs once.
 
 ### Explicit exports
 
@@ -71,6 +72,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 
 - `LaneChoice`
 - `concrete_rivals`
+- `open_rival_factor`
 - `select_lane`
 - `settle_practice_lane`
 
@@ -83,7 +85,7 @@ No private top-level function or class definition is declared in this file.
 > [!note] Static evidence boundary
 > “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
 
-- [[Reference/Modules/learnloop/followup_run/jobs|learnloop.followup_run.jobs]] — imports `concrete_rivals`, `select_lane`, `settle_practice_lane`; statically calls `concrete_rivals`, `select_lane`, `settle_practice_lane`
+- [[Reference/Modules/learnloop/followup_run/jobs|learnloop.followup_run.jobs]] — imports `concrete_rivals`, `open_rival_factor`, `select_lane`, `settle_practice_lane`; statically calls `concrete_rivals`, `open_rival_factor`, `select_lane`, `settle_practice_lane`
 - [[Reference/Modules/learnloop/followup_run/serving|learnloop.followup_run.serving]] — imports `module`; statically calls `settle_practice_lane`
 
 ## Dependencies
@@ -93,8 +95,9 @@ No private top-level function or class definition is declared in this file.
 - [[Reference/Modules/learnloop/attempts/attempts|learnloop.attempts.attempts]] — imports `AttemptResult`
 - [[Reference/Modules/learnloop/clock|learnloop.clock]] — imports `Clock`
 - [[Reference/Modules/learnloop/db/repositories|learnloop.db.repositories]] — imports `Repository`
-- [[Reference/Modules/learnloop/diagnosis/causal_attribution|learnloop.diagnosis.causal_attribution]] — imports `OPEN_SET_CAUSE_ID`
+- [[Reference/Modules/learnloop/diagnosis/causal_attribution|learnloop.diagnosis.causal_attribution]] — imports `OPEN_SET_CAUSE_ID`, `open_rival_causes_factor`; calls `open_rival_causes_factor`
 - [[Reference/Modules/learnloop/diagnosis/followups|learnloop.diagnosis.followups]] — imports `evaluate_attempt_intervention_followup`; calls `evaluate_attempt_intervention_followup`
+- [[Reference/Modules/learnloop/followup_serve/gates|learnloop.followup_serve.gates]] — imports `generate_and_serve_on`; calls `generate_and_serve_on`
 - [[Reference/Modules/learnloop/followup_serve/queue|learnloop.followup_serve.queue]] — imports `enqueue_need`; calls `enqueue_need`
 - [[Reference/Modules/learnloop/followup_serve/workflow|learnloop.followup_serve.workflow]] — imports `module`; calls `finish`
 
@@ -117,6 +120,10 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 ## Tests that define behavior
 
 - [tests/test_followup_codex_review.py](../../../../../../tests/test_followup_codex_review.py) — direct import
+- [tests/test_followup_rival_factor.py](../../../../../../tests/test_followup_rival_factor.py) — direct import
+  - `test_a_retry_opens_nothing_more_and_a_closed_factor_doesnt_come_back`
+  - `test_below_the_tag_and_with_the_switch_off_nothing_opens`
+  - `test_opening_the_factor_moves_no_measurement`
 - [tests/test_followup_workflow.py](../../../../../../tests/test_followup_workflow.py) — direct import
   - `test_a_settled_workflow_takes_nothing_more`
 

@@ -132,8 +132,8 @@ No test imports this module directly. These tests exercise a direct production c
 - [tests/test_diagnostic_augmentation.py](../../../../../../../tests/test_diagnostic_augmentation.py) — imports consumer [[Reference/Modules/learnloop/diagnosis/causal_attribution|learnloop.diagnosis.causal_attribution]]
 - [tests/test_dialogue_causal_join.py](../../../../../../../tests/test_dialogue_causal_join.py) — imports consumer [[Reference/Modules/learnloop/diagnosis/causal_attribution|learnloop.diagnosis.causal_attribution]]
 - [tests/test_durable_promotion_arms.py](../../../../../../../tests/test_durable_promotion_arms.py) — imports consumer [[Reference/Modules/learnloop/diagnosis/causal_attribution|learnloop.diagnosis.causal_attribution]]
-- [tests/test_minimal_repair_selection_a1.py](../../../../../../../tests/test_minimal_repair_selection_a1.py) — imports consumer [[Reference/Modules/learnloop/diagnosis/causal_attribution|learnloop.diagnosis.causal_attribution]]
-- [tests/test_missing_vocabulary_notes.py](../../../../../../../tests/test_missing_vocabulary_notes.py) — imports consumer [[Reference/Modules/learnloop/diagnosis/causal_attribution|learnloop.diagnosis.causal_attribution]]
+- [tests/test_followup_live_shape.py](../../../../../../../tests/test_followup_live_shape.py) — imports consumer [[Reference/Modules/learnloop/diagnosis/causal_attribution|learnloop.diagnosis.causal_attribution]]
+- [tests/test_followup_rival_factor.py](../../../../../../../tests/test_followup_rival_factor.py) — imports consumer [[Reference/Modules/learnloop/diagnosis/causal_attribution|learnloop.diagnosis.causal_attribution]]
 
 ## Modification guidance
 

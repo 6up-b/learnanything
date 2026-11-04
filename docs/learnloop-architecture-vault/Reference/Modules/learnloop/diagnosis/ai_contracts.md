@@ -7,8 +7,8 @@ version: "1.0.0"
 source_path: "src/learnloop/diagnosis/ai_contracts.py"
 source_paths:
   - "src/learnloop/diagnosis/ai_contracts.py"
-source_commit: "e444e25dd0f1c0a31ec57112a48aa81fe6cf5b12"
-source_commit_timestamp: "2026-11-03T21:55:42-05:00"
+source_commit: "fa2f73234bec22c4fde78a2a23b6e1a5b81400e5"
+source_commit_timestamp: "2026-11-04T05:19:00-05:00"
 source_worktree_state: "clean"
 generated: true
 generated_at: "2026-11-02"
@@ -50,13 +50,13 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/diagnosis/ai_contracts.py](../../../../../../src/learnloop/diagnosis/ai_contracts.py) |
-| Source lines | 392 |
+| Source lines | 396 |
 | Owning package | [[Reference/Modules/learnloop/diagnosis/_package|learnloop.diagnosis]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `e444e25dd0f1c0a31ec57112a48aa81fe6cf5b12` |
-| Commit timestamp | `2026-11-03T21:55:42-05:00` |
+| Source commit | `fa2f73234bec22c4fde78a2a23b6e1a5b81400e5` |
+| Commit timestamp | `2026-11-04T05:19:00-05:00` |
 
 ## Public API
 
@@ -80,11 +80,11 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 - `probe_dialogue_turn_prompt(context: ProbeDialogueTurnContext) -> str` ([source](../../../../../../src/learnloop/diagnosis/ai_contracts.py), line 292)
 - `probe_family_trials_prompt(context: ProbeFamilyTrialsContext) -> str` ([source](../../../../../../src/learnloop/diagnosis/ai_contracts.py), line 300)
 - `class FollowupProbeContext` ([source](../../../../../../src/learnloop/diagnosis/ai_contracts.py), line 312) — What the frontier author reads: the router's decision and the rival causes.
-- `class FollowupProbeCriterion(WireModel)` ([source](../../../../../../src/learnloop/diagnosis/ai_contracts.py), line 331)
-- `class FollowupProbePrediction(WireModel)` ([source](../../../../../../src/learnloop/diagnosis/ai_contracts.py), line 337)
-- `class FollowupProbeManipulation(WireModel)` ([source](../../../../../../src/learnloop/diagnosis/ai_contracts.py), line 342)
-- `class FollowupProbeAuthored(WireModel)` ([source](../../../../../../src/learnloop/diagnosis/ai_contracts.py), line 347)
-- `followup_probe_prompt(context: FollowupProbeContext) -> str` ([source](../../../../../../src/learnloop/diagnosis/ai_contracts.py), line 387)
+- `class FollowupProbeCriterion(WireModel)` ([source](../../../../../../src/learnloop/diagnosis/ai_contracts.py), line 333)
+- `class FollowupProbePrediction(WireModel)` ([source](../../../../../../src/learnloop/diagnosis/ai_contracts.py), line 339)
+- `class FollowupProbeManipulation(WireModel)` ([source](../../../../../../src/learnloop/diagnosis/ai_contracts.py), line 344)
+- `class FollowupProbeAuthored(WireModel)` ([source](../../../../../../src/learnloop/diagnosis/ai_contracts.py), line 349)
+- `followup_probe_prompt(context: FollowupProbeContext) -> str` ([source](../../../../../../src/learnloop/diagnosis/ai_contracts.py), line 391)
 
 ### Module constants
 
@@ -96,8 +96,8 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 - `PROBE_INSTANCE_PROMPT` ([src/learnloop/diagnosis/ai_contracts.py](../../../../../../src/learnloop/diagnosis/ai_contracts.py), line 123)
 - `PROBE_DIALOGUE_TURN_PROMPT` ([src/learnloop/diagnosis/ai_contracts.py](../../../../../../src/learnloop/diagnosis/ai_contracts.py), line 156)
 - `PROBE_FAMILY_TRIALS_PROMPT` ([src/learnloop/diagnosis/ai_contracts.py](../../../../../../src/learnloop/diagnosis/ai_contracts.py), line 186)
-- `FOLLOWUP_PROBE_PROMPT_VERSION` ([src/learnloop/diagnosis/ai_contracts.py](../../../../../../src/learnloop/diagnosis/ai_contracts.py), line 358)
-- `FOLLOWUP_PROBE_PROMPT` ([src/learnloop/diagnosis/ai_contracts.py](../../../../../../src/learnloop/diagnosis/ai_contracts.py), line 360)
+- `FOLLOWUP_PROBE_PROMPT_VERSION` ([src/learnloop/diagnosis/ai_contracts.py](../../../../../../src/learnloop/diagnosis/ai_contracts.py), line 360)
+- `FOLLOWUP_PROBE_PROMPT` ([src/learnloop/diagnosis/ai_contracts.py](../../../../../../src/learnloop/diagnosis/ai_contracts.py), line 362)
 
 ## Internal implementation anchors
 

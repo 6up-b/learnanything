@@ -11,7 +11,7 @@ source_paths:
   - "src/learnloop/followup_serve/queue.py"
   - "src/learnloop/followup_serve/workflow.py"
 source_commit: "aggregate; see module notes"
-source_commit_timestamp: "2026-11-04T03:21:04-05:00"
+source_commit_timestamp: "2026-11-04T05:19:00-05:00"
 generated: true
 generated_at: "2026-11-02"
 package: "learnloop.followup_serve"
@@ -49,10 +49,10 @@ For system intent, use [[Architecture Overview]].
 | Module | Purpose | Status | Direct importers | Direct test files |
 |---|---|---:|---:|---:|
 | [[Reference/Modules/learnloop/followup_serve/__init__|learnloop.followup_serve]] | [[Reference/Modules/learnloop/followup_serve/__init__#^module-purpose|purpose]] | `ACTIVE` | 0 | 0 |
-| [[Reference/Modules/learnloop/followup_serve/gates|learnloop.followup_serve.gates]] | [[Reference/Modules/learnloop/followup_serve/gates#^module-purpose|purpose]] | `ACTIVE` | 14 | 5 |
-| [[Reference/Modules/learnloop/followup_serve/identity|learnloop.followup_serve.identity]] | [[Reference/Modules/learnloop/followup_serve/identity#^module-purpose|purpose]] | `ACTIVE` | 15 | 7 |
-| [[Reference/Modules/learnloop/followup_serve/queue|learnloop.followup_serve.queue]] | [[Reference/Modules/learnloop/followup_serve/queue#^module-purpose|purpose]] | `ACTIVE` | 7 | 1 |
-| [[Reference/Modules/learnloop/followup_serve/workflow|learnloop.followup_serve.workflow]] | [[Reference/Modules/learnloop/followup_serve/workflow#^module-purpose|purpose]] | `ACTIVE` | 15 | 5 |
+| [[Reference/Modules/learnloop/followup_serve/gates|learnloop.followup_serve.gates]] | [[Reference/Modules/learnloop/followup_serve/gates#^module-purpose|purpose]] | `ACTIVE` | 17 | 5 |
+| [[Reference/Modules/learnloop/followup_serve/identity|learnloop.followup_serve.identity]] | [[Reference/Modules/learnloop/followup_serve/identity#^module-purpose|purpose]] | `ACTIVE` | 15 | 9 |
+| [[Reference/Modules/learnloop/followup_serve/queue|learnloop.followup_serve.queue]] | [[Reference/Modules/learnloop/followup_serve/queue#^module-purpose|purpose]] | `ACTIVE` | 7 | 2 |
+| [[Reference/Modules/learnloop/followup_serve/workflow|learnloop.followup_serve.workflow]] | [[Reference/Modules/learnloop/followup_serve/workflow#^module-purpose|purpose]] | `ACTIVE` | 15 | 8 |
 
 ## Cross-package dependencies
 
@@ -64,9 +64,9 @@ For system intent, use [[Architecture Overview]].
 
 ### Packages that import this package
 
+- [[Reference/Modules/learnloop/diagnosis/_package|learnloop.diagnosis]] — 11 static module edges
+- [[Reference/Modules/learnloop/followup_run/_package|learnloop.followup_run]] — 11 static module edges
 - [[Reference/Modules/learnloop_sidecar/handlers/_package|learnloop_sidecar.handlers]] — 11 static module edges
-- [[Reference/Modules/learnloop/followup_run/_package|learnloop.followup_run]] — 10 static module edges
-- [[Reference/Modules/learnloop/diagnosis/_package|learnloop.diagnosis]] — 9 static module edges
 - [[Reference/Modules/learnloop_sidecar/_package|learnloop_sidecar]] — 5 static module edges
 - [[Reference/Modules/learnloop/attempts/_package|learnloop.attempts]] — 3 static module edges
 - [[Reference/Modules/learnloop/daily_plan/_package|learnloop.daily_plan]] — 3 static module edges
@@ -83,9 +83,9 @@ This diagram compresses package-level static imports; edge labels are distinct m
 ```mermaid
 flowchart LR
     center["learnloop.followup_serve"]
-    n_learnloop_sidecar_handlers["learnloop_sidecar.handlers"]
-    n_learnloop_followup_run["learnloop.followup_run"]
     n_learnloop_diagnosis["learnloop.diagnosis"]
+    n_learnloop_followup_run["learnloop.followup_run"]
+    n_learnloop_sidecar_handlers["learnloop_sidecar.handlers"]
     n_learnloop_sidecar["learnloop_sidecar"]
     n_learnloop["learnloop"]
     n_learnloop_attempts["learnloop.attempts"]
@@ -93,9 +93,9 @@ flowchart LR
     n_learnloop_db["learnloop.db"]
     n_learnloop_db_stores["learnloop.db.stores"]
     n_learnloop_scheduling["learnloop.scheduling"]
+    n_learnloop_diagnosis -->|11| center
+    n_learnloop_followup_run -->|11| center
     n_learnloop_sidecar_handlers -->|11| center
-    n_learnloop_followup_run -->|10| center
-    n_learnloop_diagnosis -->|9| center
     n_learnloop_sidecar -->|5| center
     center -->|4| n_learnloop
     n_learnloop_attempts -->|3| center

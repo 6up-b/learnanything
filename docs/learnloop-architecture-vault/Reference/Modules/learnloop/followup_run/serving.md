@@ -158,6 +158,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_f7_rereview_continue_without_commits_its_preference_and_outcome_with_the_move`
   - `test_f7_verify_an_episode_another_presentation_still_holds_stays_open`
   - `test_f7_verify_every_exit_closes_what_an_interrupted_run_prepared`
+- [tests/test_followup_reserved_only.py](../../../../../../tests/test_followup_reserved_only.py) — direct import
 
 ## Modification guidance
 

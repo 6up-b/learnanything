@@ -3,8 +3,8 @@ title: "causal_hypotheses"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "30e1b53185db7e9aaf36257d3667cbd479214aea"
-source_commit_timestamp: "2026-11-04T03:25:34-05:00"
+source_commit: "7c99dcb92a49d0b4655a6032ebbc7597bbe61503"
+source_commit_timestamp: "2026-11-04T05:42:56-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite causal_hypotheses"
@@ -185,6 +185,7 @@ Database triggers:
 - `tests/test_diagnosis_input_provenance.py`
 - `tests/test_diagnosis_replay.py`
 - `tests/test_failure_triage_causal_gate.py`
+- `tests/test_followup_reserved_only.py`
 - `tests/test_hint_discriminating.py`
 - `tests/test_mcp_c1a_landing.py`
 - `tests/test_mcp_c1a_review.py`
@@ -193,7 +194,6 @@ Database triggers:
 - `tests/test_recurrence_benchmarks.py`
 - `tests/test_router_card.py`
 - `tests/test_stuck_prompt.py`
-- `tests/test_stuck_prompt_replay.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

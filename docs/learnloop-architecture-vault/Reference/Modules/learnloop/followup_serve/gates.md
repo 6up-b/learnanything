@@ -7,8 +7,8 @@ version: "1.0.0"
 source_path: "src/learnloop/followup_serve/gates.py"
 source_paths:
   - "src/learnloop/followup_serve/gates.py"
-source_commit: "bdfa849256ec629e430c08556b2e3275b7aade17"
-source_commit_timestamp: "2026-11-03T21:44:48-05:00"
+source_commit: "7d730fa39dad134c438040691be1b8e84453d5fe"
+source_commit_timestamp: "2026-11-04T05:14:36-05:00"
 source_worktree_state: "clean"
 generated: true
 generated_at: "2026-11-02"
@@ -50,23 +50,24 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/followup_serve/gates.py](../../../../../../src/learnloop/followup_serve/gates.py) |
-| Source lines | 38 |
+| Source lines | 41 |
 | Owning package | [[Reference/Modules/learnloop/followup_serve/_package|learnloop.followup_serve]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `bdfa849256ec629e430c08556b2e3275b7aade17` |
-| Commit timestamp | `2026-11-03T21:44:48-05:00` |
+| Source commit | `7d730fa39dad134c438040691be1b8e84453d5fe` |
+| Commit timestamp | `2026-11-04T05:14:36-05:00` |
 
 ## Public API
 
-- `generate_and_serve_on(config: Any) -> bool` ([source](../../../../../../src/learnloop/followup_serve/gates.py), line 21)
-- `effective_auto_generate_on_entry(config: Any) -> bool` ([source](../../../../../../src/learnloop/followup_serve/gates.py), line 30) — §4.3: true while FG1 is on, whatever the file says.
+- `generate_and_serve_on(config: Any) -> bool` ([source](../../../../../../src/learnloop/followup_serve/gates.py), line 24)
+- `effective_auto_generate_on_entry(config: Any) -> bool` ([source](../../../../../../src/learnloop/followup_serve/gates.py), line 33) — §4.3: true while FG1 is on, whatever the file says.
 
 ### Module constants
 
 - `SERVING_SURFACE` ([src/learnloop/followup_serve/gates.py](../../../../../../src/learnloop/followup_serve/gates.py), line 16)
 - `PHONE_SURFACE` ([src/learnloop/followup_serve/gates.py](../../../../../../src/learnloop/followup_serve/gates.py), line 18)
+- `RIVAL_CAUSES_FACTOR_VERSION` ([src/learnloop/followup_serve/gates.py](../../../../../../src/learnloop/followup_serve/gates.py), line 21)
 
 ## Internal implementation anchors
 
@@ -79,11 +80,14 @@ No private top-level function or class definition is declared in this file.
 
 - [[Reference/Modules/learnloop/attempts/post_attempt|learnloop.attempts.post_attempt]] — imports `SERVING_SURFACE`, `generate_and_serve_on`; statically calls `generate_and_serve_on`
 - [[Reference/Modules/learnloop/daily_plan/engine|learnloop.daily_plan.engine]] — imports `generate_and_serve_on`; statically calls `generate_and_serve_on`
+- [[Reference/Modules/learnloop/diagnosis/causal_attribution|learnloop.diagnosis.causal_attribution]] — imports `RIVAL_CAUSES_FACTOR_VERSION`, `generate_and_serve_on`; statically calls `generate_and_serve_on`
+- [[Reference/Modules/learnloop/diagnosis/causal_orchestrator|learnloop.diagnosis.causal_orchestrator]] — imports `RIVAL_CAUSES_FACTOR_VERSION`
 - [[Reference/Modules/learnloop/diagnosis/diagnostic_surface_supply|learnloop.diagnosis.diagnostic_surface_supply]] — imports `generate_and_serve_on`; statically calls `generate_and_serve_on`
 - [[Reference/Modules/learnloop/diagnosis/probe_episodes|learnloop.diagnosis.probe_episodes]] — imports `generate_and_serve_on`; statically calls `generate_and_serve_on`
 - [[Reference/Modules/learnloop/diagnosis/probe_instance_generation|learnloop.diagnosis.probe_instance_generation]] — imports `generate_and_serve_on`; statically calls `generate_and_serve_on`
 - [[Reference/Modules/learnloop/followup_run/jobs|learnloop.followup_run.jobs]] — imports `generate_and_serve_on`; statically calls `generate_and_serve_on`
-- [[Reference/Modules/learnloop/followup_serve/workflow|learnloop.followup_serve.workflow]] — imports `SERVING_SURFACE`, `generate_and_serve_on`; statically calls `generate_and_serve_on`
+- [[Reference/Modules/learnloop/followup_run/lanes|learnloop.followup_run.lanes]] — imports `generate_and_serve_on`; statically calls `generate_and_serve_on`
+- [[Reference/Modules/learnloop/followup_serve/workflow|learnloop.followup_serve.workflow]] — imports `RIVAL_CAUSES_FACTOR_VERSION`, `SERVING_SURFACE`, `generate_and_serve_on`; statically calls `generate_and_serve_on`
 - [[Reference/Modules/learnloop_sidecar/handlers/daily_plan|learnloop_sidecar.handlers.daily_plan]] — imports `generate_and_serve_on`; statically calls `generate_and_serve_on`
 - [[Reference/Modules/learnloop_sidecar/handlers/exams|learnloop_sidecar.handlers.exams]] — imports `SERVING_SURFACE`
 - [[Reference/Modules/learnloop_sidecar/handlers/feedback|learnloop_sidecar.handlers.feedback]] — imports `generate_and_serve_on`; statically calls `generate_and_serve_on`
@@ -110,7 +114,7 @@ Use this module in context through:
 - [[Initialize a Vault]]
 - [[Start a Learning Cycle]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/attempts/post_attempt|learnloop.attempts.post_attempt]], [[Reference/Modules/learnloop/daily_plan/engine|learnloop.daily_plan.engine]], [[Reference/Modules/learnloop/diagnosis/diagnostic_surface_supply|learnloop.diagnosis.diagnostic_surface_supply]], [[Reference/Modules/learnloop/diagnosis/probe_episodes|learnloop.diagnosis.probe_episodes]], [[Reference/Modules/learnloop/diagnosis/probe_instance_generation|learnloop.diagnosis.probe_instance_generation]] and 9 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/attempts/post_attempt|learnloop.attempts.post_attempt]], [[Reference/Modules/learnloop/daily_plan/engine|learnloop.daily_plan.engine]], [[Reference/Modules/learnloop/diagnosis/causal_attribution|learnloop.diagnosis.causal_attribution]], [[Reference/Modules/learnloop/diagnosis/causal_orchestrator|learnloop.diagnosis.causal_orchestrator]], [[Reference/Modules/learnloop/diagnosis/diagnostic_surface_supply|learnloop.diagnosis.diagnostic_surface_supply]] and 12 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 

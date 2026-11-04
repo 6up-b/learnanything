@@ -7,8 +7,8 @@ version: "1.0.0"
 source_path: "src/learnloop/db/stores/source_block_fts.py"
 source_paths:
   - "src/learnloop/db/stores/source_block_fts.py"
-source_commit: "03f3ac0bcdfb57e27bea27443ec0cc5e1e446a0d"
-source_commit_timestamp: "2026-10-20T17:54:52-04:00"
+source_commit: "fa2f73234bec22c4fde78a2a23b6e1a5b81400e5"
+source_commit_timestamp: "2026-11-04T05:19:00-05:00"
 source_worktree_state: "clean"
 generated: true
 generated_at: "2026-11-02"
@@ -51,13 +51,13 @@ The authoritative system-level explanation remains in [[State and Persistence]],
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/db/stores/source_block_fts.py](../../../../../../../src/learnloop/db/stores/source_block_fts.py) |
-| Source lines | 558 |
+| Source lines | 577 |
 | Owning package | [[Reference/Modules/learnloop/db/stores/_package|learnloop.db.stores]] |
 | Architecture layer | `infrastructure` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `03f3ac0bcdfb57e27bea27443ec0cc5e1e446a0d` |
-| Commit timestamp | `2026-10-20T17:54:52-04:00` |
+| Source commit | `fa2f73234bec22c4fde78a2a23b6e1a5b81400e5` |
+| Commit timestamp | `2026-11-04T05:19:00-05:00` |
 
 ## Public API
 
@@ -65,32 +65,33 @@ The authoritative system-level explanation remains in [[State and Persistence]],
 - `query_terms(text: str) -> list[str]` ([source](../../../../../../../src/learnloop/db/stores/source_block_fts.py), line 44) — Distinct lowercased word tokens of ``text`` in order, stopwords removed.
 - `match_expression(text: str, *, prefix_last: bool=False) -> str | None` ([source](../../../../../../../src/learnloop/db/stores/source_block_fts.py), line 58) — A safe FTS5 MATCH expression for free text, or ``None`` when it has no terms.
 - `search_blocks(connection: sqlite3.Connection, text: str, *, extraction_ids: Collection[str] | None=None, limit: int=200, prefix_last: bool=False) -> list[BlockMatch]` ([source](../../../../../../../src/learnloop/db/stores/source_block_fts.py), line 75) — BM25-ranked blocks for ``text``, best first, optionally within extractions.
-- `rebuild_source_block_fts(connection: sqlite3.Connection) -> dict[str, int]` ([source](../../../../../../../src/learnloop/db/stores/source_block_fts.py), line 110) — Replace the whole index from ``source_document_blocks`` (the replayer body).
-- `class BlockRow` ([source](../../../../../../../src/learnloop/db/stores/source_block_fts.py), line 130)
-- `section_header_titles(connection: sqlite3.Connection, extraction_id: str) -> dict[str, str]` ([source](../../../../../../../src/learnloop/db/stores/source_block_fts.py), line 151) — ``{extractor block id: header text}`` of one extraction's section headers.
-- `extraction_blocks(connection: sqlite3.Connection, extraction_id: str) -> list[BlockRow]` ([source](../../../../../../../src/learnloop/db/stores/source_block_fts.py), line 164) — Every block of one extraction in document order (page furniture included).
-- `blocks_by_key(connection: sqlite3.Connection, keys: Iterable[tuple[str, str]]) -> dict[tuple[str, str], BlockRow]` ([source](../../../../../../../src/learnloop/db/stores/source_block_fts.py), line 173) — The named blocks, keyed ``(extraction_id, span_id)``; missing keys are absent.
-- `extraction_fingerprint(connection: sqlite3.Connection, extraction_id: str) -> tuple[int, int]` ([source](../../../../../../../src/learnloop/db/stores/source_block_fts.py), line 194) — ``(block count, max rowid)``: changes whenever a run's blocks are replaced.
-- `extraction_fingerprints(connection: sqlite3.Connection, extraction_ids: Iterable[str]) -> dict[str, tuple[int, int]]` ([source](../../../../../../../src/learnloop/db/stores/source_block_fts.py), line 204) — :func:`extraction_fingerprint` of many extractions in one grouped query (an extraction without blocks is ``(0, 0)``).
-- `class AssessmentLink` ([source](../../../../../../../src/learnloop/db/stores/source_block_fts.py), line 222) — Where one provenance link points: its extraction, locator, source, revision.
-- `assessment_link_locators(connection: sqlite3.Connection) -> list[AssessmentLink]` ([source](../../../../../../../src/learnloop/db/stores/source_block_fts.py), line 237) — Every current assessment-lane provenance link (``exercise`` and ``assessment_alignment``), which never enters a teaching context (ING M8 §9.1).
-- `entity_link_locators(connection: sqlite3.Connection, entity_type: str, entity_id: str) -> list[AssessmentLink]` ([source](../../../../../../../src/learnloop/db/stores/source_block_fts.py), line 249) — Every provenance link of one entity, whatever its relation or status.
-- `teaching_link_locators(connection: sqlite3.Connection) -> list[AssessmentLink]` ([source](../../../../../../../src/learnloop/db/stores/source_block_fts.py), line 264) — Every current teaching-relation link of a learning object, facet or concept.
-- `revision_source_ids(connection: sqlite3.Connection, revision_ids: Iterable[str]) -> dict[str, str]` ([source](../../../../../../../src/learnloop/db/stores/source_block_fts.py), line 276) — ``{revision id: source id}`` for the given revisions.
-- `extraction_source_ids(connection: sqlite3.Connection, extraction_ids: Iterable[str]) -> dict[str, str]` ([source](../../../../../../../src/learnloop/db/stores/source_block_fts.py), line 290) — ``{extraction id: source id}`` through each run's revision.
-- `existing_spans(connection: sqlite3.Connection, keys: Iterable[tuple[str, str]]) -> set[tuple[str, str]]` ([source](../../../../../../../src/learnloop/db/stores/source_block_fts.py), line 306) — Which of ``keys`` (extraction, span) name a block that exists: keys only, never a block's text (RW4d fix round 5: a comparison's contributors are resolved before its protection is checked).
-- `spans_with_content_hashes(connection: sqlite3.Connection, extraction_id: str, content_hashes: Collection[str]) -> list[str]` ([source](../../../../../../../src/learnloop/db/stores/source_block_fts.py), line 326) — Span ids of one extraction's blocks whose text hashes to one of ``content_hashes``.
-- `block_content_hashes(connection: sqlite3.Connection, extraction_id: str, span_ids: Collection[str]) -> list[str]` ([source](../../../../../../../src/learnloop/db/stores/source_block_fts.py), line 342) — The content hashes of the named blocks of one extraction.
-- `source_extraction_ids(connection: sqlite3.Connection, *, source_id: str | None=None, revision_id: str | None=None) -> list[str]` ([source](../../../../../../../src/learnloop/db/stores/source_block_fts.py), line 358) — Every extraction run of a source (all its revisions), or of one revision.
-- `class UnitRow` ([source](../../../../../../../src/learnloop/db/stores/source_block_fts.py), line 377)
-- `extraction_units(connection: sqlite3.Connection, extraction_id: str) -> list[UnitRow]` ([source](../../../../../../../src/learnloop/db/stores/source_block_fts.py), line 386) — One extraction's units in outline order (no block or asset read).
-- `class HintRow` ([source](../../../../../../../src/learnloop/db/stores/source_block_fts.py), line 414) — One block's role-hint facts, in document order.
-  - `key(self) -> tuple[str, str]` (line 425; public)
-- `hinted_extraction_ids(connection: sqlite3.Connection, extraction_ids: Iterable[str], hints: Collection[str]) -> list[str]` ([source](../../../../../../../src/learnloop/db/stores/source_block_fts.py), line 429) — The given extractions that have at least one block hinted with ``hints``.
-- `extraction_hint_rows(connection: sqlite3.Connection, extraction_id: str) -> list[HintRow]` ([source](../../../../../../../src/learnloop/db/stores/source_block_fts.py), line 449) — One extraction's blocks in document order, with what role hinting reads.
-- `lead_regions(rows: Iterable[HintRow], mark: Callable[[HintRow], RegionMark]) -> set[tuple[str, str]]` ([source](../../../../../../../src/learnloop/db/stores/source_block_fts.py), line 466) — The blocks ``mark`` takes, plus each region's body.
-- `fts_drift(connection: sqlite3.Connection) -> dict[str, int]` ([source](../../../../../../../src/learnloop/db/stores/source_block_fts.py), line 490) — How far ``source_block_fts`` has drifted from ``source_document_blocks``.
-- `indexed_block_count(connection: sqlite3.Connection, extraction_ids: Iterable[str]) -> int` ([source](../../../../../../../src/learnloop/db/stores/source_block_fts.py), line 514)
+- `phrase_shown_outside(connection: sqlite3.Connection, phrase: str, covered: Callable[[str, str], bool]) -> bool` ([source](../../../../../../../src/learnloop/db/stores/source_block_fts.py), line 110) — Whether a block ``covered`` doesn't hold shows this contiguous phrase.
+- `rebuild_source_block_fts(connection: sqlite3.Connection) -> dict[str, int]` ([source](../../../../../../../src/learnloop/db/stores/source_block_fts.py), line 128) — Replace the whole index from ``source_document_blocks`` (the replayer body).
+- `class BlockRow` ([source](../../../../../../../src/learnloop/db/stores/source_block_fts.py), line 148)
+- `section_header_titles(connection: sqlite3.Connection, extraction_id: str) -> dict[str, str]` ([source](../../../../../../../src/learnloop/db/stores/source_block_fts.py), line 169) — ``{extractor block id: header text}`` of one extraction's section headers.
+- `extraction_blocks(connection: sqlite3.Connection, extraction_id: str) -> list[BlockRow]` ([source](../../../../../../../src/learnloop/db/stores/source_block_fts.py), line 182) — Every block of one extraction in document order (page furniture included).
+- `blocks_by_key(connection: sqlite3.Connection, keys: Iterable[tuple[str, str]]) -> dict[tuple[str, str], BlockRow]` ([source](../../../../../../../src/learnloop/db/stores/source_block_fts.py), line 191) — The named blocks, keyed ``(extraction_id, span_id)``; missing keys are absent.
+- `extraction_fingerprint(connection: sqlite3.Connection, extraction_id: str) -> tuple[int, int]` ([source](../../../../../../../src/learnloop/db/stores/source_block_fts.py), line 212) — ``(block count, max rowid)``: changes whenever a run's blocks are replaced.
+- `extraction_fingerprints(connection: sqlite3.Connection, extraction_ids: Iterable[str]) -> dict[str, tuple[int, int]]` ([source](../../../../../../../src/learnloop/db/stores/source_block_fts.py), line 222) — :func:`extraction_fingerprint` of many extractions in one grouped query (an extraction without blocks is ``(0, 0)``).
+- `class AssessmentLink` ([source](../../../../../../../src/learnloop/db/stores/source_block_fts.py), line 240) — Where one provenance link points: its extraction, locator, source, revision.
+- `assessment_link_locators(connection: sqlite3.Connection) -> list[AssessmentLink]` ([source](../../../../../../../src/learnloop/db/stores/source_block_fts.py), line 255) — Every current assessment-lane provenance link (``exercise`` and ``assessment_alignment``), which never enters a teaching context (ING M8 §9.1).
+- `entity_link_locators(connection: sqlite3.Connection, entity_type: str, entity_id: str) -> list[AssessmentLink]` ([source](../../../../../../../src/learnloop/db/stores/source_block_fts.py), line 267) — Every provenance link of one entity, whatever its relation or status.
+- `teaching_link_locators(connection: sqlite3.Connection) -> list[AssessmentLink]` ([source](../../../../../../../src/learnloop/db/stores/source_block_fts.py), line 282) — Every current teaching-relation link of a learning object, facet or concept.
+- `revision_source_ids(connection: sqlite3.Connection, revision_ids: Iterable[str]) -> dict[str, str]` ([source](../../../../../../../src/learnloop/db/stores/source_block_fts.py), line 294) — ``{revision id: source id}`` for the given revisions.
+- `extraction_source_ids(connection: sqlite3.Connection, extraction_ids: Iterable[str]) -> dict[str, str]` ([source](../../../../../../../src/learnloop/db/stores/source_block_fts.py), line 308) — ``{extraction id: source id}`` through each run's revision.
+- `existing_spans(connection: sqlite3.Connection, keys: Iterable[tuple[str, str]]) -> set[tuple[str, str]]` ([source](../../../../../../../src/learnloop/db/stores/source_block_fts.py), line 324) — Which of ``keys`` (extraction, span) name a block that exists: keys only, never a block's text (RW4d fix round 5: a comparison's contributors are resolved before its protection is checked).
+- `spans_with_content_hashes(connection: sqlite3.Connection, extraction_id: str, content_hashes: Collection[str]) -> list[str]` ([source](../../../../../../../src/learnloop/db/stores/source_block_fts.py), line 344) — Span ids of one extraction's blocks whose text hashes to one of ``content_hashes``.
+- `block_content_hashes(connection: sqlite3.Connection, extraction_id: str, span_ids: Collection[str]) -> list[str]` ([source](../../../../../../../src/learnloop/db/stores/source_block_fts.py), line 360) — The content hashes of the named blocks of one extraction.
+- `source_extraction_ids(connection: sqlite3.Connection, *, source_id: str | None=None, revision_id: str | None=None) -> list[str]` ([source](../../../../../../../src/learnloop/db/stores/source_block_fts.py), line 376) — Every extraction run of a source (all its revisions), or of one revision.
+- `class UnitRow` ([source](../../../../../../../src/learnloop/db/stores/source_block_fts.py), line 395)
+- `extraction_units(connection: sqlite3.Connection, extraction_id: str) -> list[UnitRow]` ([source](../../../../../../../src/learnloop/db/stores/source_block_fts.py), line 404) — One extraction's units in outline order (no block or asset read).
+- `class HintRow` ([source](../../../../../../../src/learnloop/db/stores/source_block_fts.py), line 432) — One block's role-hint facts, in document order.
+  - `key(self) -> tuple[str, str]` (line 443; public)
+- `hinted_extraction_ids(connection: sqlite3.Connection, extraction_ids: Iterable[str], hints: Collection[str]) -> list[str]` ([source](../../../../../../../src/learnloop/db/stores/source_block_fts.py), line 447) — The given extractions that have at least one block hinted with ``hints``.
+- `extraction_hint_rows(connection: sqlite3.Connection, extraction_id: str) -> list[HintRow]` ([source](../../../../../../../src/learnloop/db/stores/source_block_fts.py), line 467) — One extraction's blocks in document order, with what role hinting reads.
+- `lead_regions(rows: Iterable[HintRow], mark: Callable[[HintRow], RegionMark]) -> set[tuple[str, str]]` ([source](../../../../../../../src/learnloop/db/stores/source_block_fts.py), line 484) — The blocks ``mark`` takes, plus each region's body.
+- `fts_drift(connection: sqlite3.Connection) -> dict[str, int]` ([source](../../../../../../../src/learnloop/db/stores/source_block_fts.py), line 508) — How far ``source_block_fts`` has drifted from ``source_document_blocks``.
+- `indexed_block_count(connection: sqlite3.Connection, extraction_ids: Iterable[str]) -> int` ([source](../../../../../../../src/learnloop/db/stores/source_block_fts.py), line 532)
 
 ### Module constants
 
@@ -98,10 +99,10 @@ The authoritative system-level explanation remains in [[State and Persistence]],
 - `MAX_QUERY_TERMS` ([src/learnloop/db/stores/source_block_fts.py](../../../../../../../src/learnloop/db/stores/source_block_fts.py), line 24)
 - `_WORD` ([src/learnloop/db/stores/source_block_fts.py](../../../../../../../src/learnloop/db/stores/source_block_fts.py), line 26)
 - `_STOPWORDS` ([src/learnloop/db/stores/source_block_fts.py](../../../../../../../src/learnloop/db/stores/source_block_fts.py), line 28)
-- `_BLOCK_COLUMNS` ([src/learnloop/db/stores/source_block_fts.py](../../../../../../../src/learnloop/db/stores/source_block_fts.py), line 141)
-- `TEACHING_LINK_ENTITY_TYPES` ([src/learnloop/db/stores/source_block_fts.py](../../../../../../../src/learnloop/db/stores/source_block_fts.py), line 261)
-- `REGION_BODY_HINTS` ([src/learnloop/db/stores/source_block_fts.py](../../../../../../../src/learnloop/db/stores/source_block_fts.py), line 408)
-- `MAX_REGION_BLOCKS` ([src/learnloop/db/stores/source_block_fts.py](../../../../../../../src/learnloop/db/stores/source_block_fts.py), line 410)
+- `_BLOCK_COLUMNS` ([src/learnloop/db/stores/source_block_fts.py](../../../../../../../src/learnloop/db/stores/source_block_fts.py), line 159)
+- `TEACHING_LINK_ENTITY_TYPES` ([src/learnloop/db/stores/source_block_fts.py](../../../../../../../src/learnloop/db/stores/source_block_fts.py), line 279)
+- `REGION_BODY_HINTS` ([src/learnloop/db/stores/source_block_fts.py](../../../../../../../src/learnloop/db/stores/source_block_fts.py), line 426)
+- `MAX_REGION_BLOCKS` ([src/learnloop/db/stores/source_block_fts.py](../../../../../../../src/learnloop/db/stores/source_block_fts.py), line 428)
 
 ### Explicit exports
 
@@ -113,6 +114,7 @@ The authoritative system-level explanation remains in [[State and Persistence]],
 - `EXCLUDED_BLOCK_TYPES`
 - `HintRow`
 - `MAX_QUERY_TERMS`
+- `phrase_shown_outside`
 - `MAX_REGION_BLOCKS`
 - `REGION_BODY_HINTS`
 - `TEACHING_LINK_ENTITY_TYPES`
@@ -143,14 +145,15 @@ The authoritative system-level explanation remains in [[State and Persistence]],
 
 ## Internal implementation anchors
 
-- `_block(row) -> BlockRow` ([source](../../../../../../../src/learnloop/db/stores/source_block_fts.py), line 145)
-- `_link(row) -> AssessmentLink` ([source](../../../../../../../src/learnloop/db/stores/source_block_fts.py), line 231)
+- `_block(row) -> BlockRow` ([source](../../../../../../../src/learnloop/db/stores/source_block_fts.py), line 163)
+- `_link(row) -> AssessmentLink` ([source](../../../../../../../src/learnloop/db/stores/source_block_fts.py), line 249)
 
 ## Who imports or calls it
 
 > [!note] Static evidence boundary
 > “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
 
+- [[Reference/Modules/learnloop/content/authoring/practice_leakage|learnloop.content.authoring.practice_leakage]] — imports `phrase_shown_outside`; statically calls `phrase_shown_outside`
 - [[Reference/Modules/learnloop/content/authoring/source_exercise_import|learnloop.content.authoring.source_exercise_import]] — imports `MAX_REGION_BLOCKS`, `REGION_BODY_HINTS`, `blocks_by_key`, `extraction_hint_rows`, `section_header_titles`; statically calls `blocks_by_key`, `extraction_hint_rows`, `section_header_titles`
 - [[Reference/Modules/learnloop/content/pipeline/add_source|learnloop.content.pipeline.add_source]] — imports `extraction_units`; statically calls `extraction_units`
 - [[Reference/Modules/learnloop/content/pipeline/quick_add|learnloop.content.pipeline.quick_add]] — imports `search_blocks`; statically calls `search_blocks`
@@ -209,7 +212,7 @@ Use this module in context through:
 - [[Import Canonical Sources]]
 - [[Build a Study Map]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/content/authoring/source_exercise_import|learnloop.content.authoring.source_exercise_import]], [[Reference/Modules/learnloop/content/pipeline/add_source|learnloop.content.pipeline.add_source]], [[Reference/Modules/learnloop/content/pipeline/quick_add|learnloop.content.pipeline.quick_add]], [[Reference/Modules/learnloop/content/sources/exam_material|learnloop.content.sources.exam_material]], [[Reference/Modules/learnloop/content/sources/exercise_statements|learnloop.content.sources.exercise_statements]] and 34 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/content/authoring/practice_leakage|learnloop.content.authoring.practice_leakage]], [[Reference/Modules/learnloop/content/authoring/source_exercise_import|learnloop.content.authoring.source_exercise_import]], [[Reference/Modules/learnloop/content/pipeline/add_source|learnloop.content.pipeline.add_source]], [[Reference/Modules/learnloop/content/pipeline/quick_add|learnloop.content.pipeline.quick_add]], [[Reference/Modules/learnloop/content/sources/exam_material|learnloop.content.sources.exam_material]] and 35 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 

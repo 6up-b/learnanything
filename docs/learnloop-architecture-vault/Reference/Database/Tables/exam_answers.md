@@ -3,8 +3,8 @@ title: "exam_answers"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "30e1b53185db7e9aaf36257d3667cbd479214aea"
-source_commit_timestamp: "2026-11-04T03:25:34-05:00"
+source_commit: "7c99dcb92a49d0b4655a6032ebbc7597bbe61503"
+source_commit_timestamp: "2026-11-04T05:42:56-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite exam_answers"
@@ -20,6 +20,7 @@ source_paths:
   - "src/learnloop/db/table_roles.py"
   - "migrations/024_exam_session.sql"
   - "src/learnloop/db/repositories.py"
+  - "src/learnloop/followup_run/authoring.py"
   - "src/learnloop/goals/exam_calibration.py"
   - "src/learnloop/goals/exam_session.py"
   - "src/learnloop_sidecar/handlers/exams.py"
@@ -110,6 +111,7 @@ Indexes and uniqueness:
 ## Tests that define behavior
 
 - `tests/test_exam_session.py`
+- `tests/test_followup_reserved_only.py`
 - `tests/test_grade_resolution_pipeline.py`
 - `tests/test_held_grade_evidence.py`
 - `tests/test_post_attempt_pipeline.py`

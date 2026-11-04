@@ -3,8 +3,8 @@ title: "causal_machine_checks"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "30e1b53185db7e9aaf36257d3667cbd479214aea"
-source_commit_timestamp: "2026-11-04T03:25:34-05:00"
+source_commit: "7c99dcb92a49d0b4655a6032ebbc7597bbe61503"
+source_commit_timestamp: "2026-11-04T05:42:56-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite causal_machine_checks"
@@ -109,6 +109,7 @@ Indexes and uniqueness:
 
 - `tests/test_causal_orchestrator.py`
 - `tests/test_causal_probe_commissioning.py`
+- `tests/test_followup_rival_factor.py`
 - `tests/test_common_repair_delivery.py`
 - `tests/test_followup_codex_review.py`
 

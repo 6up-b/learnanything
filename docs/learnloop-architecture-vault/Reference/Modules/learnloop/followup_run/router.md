@@ -114,7 +114,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 > [!note] Static evidence boundary
 > “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
 
-- [[Reference/Modules/learnloop/followup_run/jobs|learnloop.followup_run.jobs]] — imports `module`; statically calls `bind_item`, `decide_once`, `hard_refusal`, `record_outcome`
+- [[Reference/Modules/learnloop/followup_run/jobs|learnloop.followup_run.jobs]] — imports `module`; statically calls `append_outcome`, `bind_item`, `decide_once`, `hard_refusal`, `record_outcome`
 - [[Reference/Modules/learnloop/followup_run/serving|learnloop.followup_run.serving]] — imports `module`; statically calls `append_outcome`, `bind_plan_presentation`
 
 ## Dependencies
@@ -153,8 +153,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 ## Tests that define behavior
 
 - [tests/test_followup_codex_review.py](../../../../../../tests/test_followup_codex_review.py) — direct import
-  - `test_f5_a_cause_written_from_exam_work_reaches_neither_request`
-  - `test_f5_rereview_a_cause_the_record_doesnt_cover_reaches_neither_request`
   - `test_f8_a_crash_after_the_decision_keeps_it_through_the_lease_recovery`
   - `test_f8_a_duplicate_receipt_resolves_to_the_decision_logged`
   - `test_f8_a_no_plan_decision_is_kept_too`
@@ -166,6 +164,10 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_followup_journey.py](../../../../../../tests/test_followup_journey.py) — direct import
   - `test_a_wait_releases_now_labels_the_probe_exposed_and_its_answer_cant_close_the_factor`
   - `test_no_intervention_generates_nothing_and_releases_what_was_held`
+- [tests/test_followup_reserved_only.py](../../../../../../tests/test_followup_reserved_only.py) — direct import
+  - `test_a_cause_quoting_a_reserved_question_takes_the_practice_lane`
+- [tests/test_followup_rival_factor.py](../../../../../../tests/test_followup_rival_factor.py) — direct import
+  - `test_no_intervention_declines_it_and_leaves_no_open_factor_behind`
 - [tests/test_followup_router.py](../../../../../../tests/test_followup_router.py) — direct import
   - `test_a_hard_refusal_needs_no_model_and_spends_nothing`
   - `test_data_captures_objective_is_frozen_for_every_arm`
