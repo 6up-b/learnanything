@@ -1118,3 +1118,18 @@ Targeted only; references, the whole gate and timing wait for the coordinator.
 - 31 test files, capped scope, `-n 6`: **601 passed, 0 failed**.
 - `--durable-sqlite` on the 13 `test_followup_*` files: **299 passed**.
 - `lint-imports --no-cache`: **42 kept, 0 broken**.
+
+## F21 and F22 (R13)
+
+Verify job `20261104-070839-7ybKzz` (gpt-6.1-sol) confirmed F20 fixed and found these two, both Medium, both in Next's class. Ruling R13 makes the rule structural, and there is no further Codex round.
+
+| Id | Title | Verdict | Commit | Test |
+|---|---|---|---|---|
+| F21 | An open plan can lose its probe while Next leaves the answer held | fixed | `8895424941` | `test_f21_*`, `test_r13_*` in `tests/test_followup_next_matrix.py` |
+| F22 | Desktop polling ignores the released wait's continue | fixed | `b4cfd75755` | `FeedbackScreen.followup.test.tsx`: `continue`, `open` and `wait` from a poll, in the queue and in plan mode |
+
+**F21.** The fetch while feedback shows places a ready probe, a minutes cut displaces it, and the plan stays open. Next said `continue`, placement would never take it back, and the answer stayed held. `engine.followup_placement` is now the one answer: live, due at the next step, or gone. Placement acts on it and `plan_will_place` reads it. **I chose open over reinserting:** the plan doesn't take back what a smaller budget took out, so the plan's behaviour is unchanged.
+
+**F22.** While Next waited, the poll threw away Next's reply and only moved on once the workflow left `pending`. `actOnNext` is now the one path for the first press and the poll. The old effect that advanced on a state change is gone, so a change now reaches the learner on the next poll, within 2 seconds.
+
+**Tests strengthened.** The matrix adds yesterday's plan with none today, and displacement with the plan open and completed. The later-plan test now really opens that plan, serves the waiting probe and checks its answer isn't admitted. The frozen-clock test also compares schedule and asserts the probe's answer does move measurement.
