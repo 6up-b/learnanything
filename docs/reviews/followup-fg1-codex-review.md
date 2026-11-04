@@ -1050,3 +1050,8 @@ Reproduced first (`test_r10_*`). A matched phrase is asked of `source_block_fts`
 ### Gate for this section
 
 Numbers below are for the tip's code; the full gate hasn't resumed, and the references are stale until it does.
+
+- 30 test files (all `test_followup_*`, table roles, coordinated migrations, architecture, the registry audit, the seven failures' files, the label audit, CLI help snapshot, process-launch list, causal attribution, orchestrator, factor deferral, commissioning, acceptance, probe mint, public-tip guards), capped scope, `-n 6`: **534 passed, 0 failed**.
+- `--durable-sqlite` on the `test_followup_*` files: **232 passed, 0 failed**.
+- `lint-imports --no-cache`: **42 kept, 0 broken**.
+- No model call; every model-backed test and smoke run uses fakes.
