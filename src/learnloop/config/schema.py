@@ -4156,9 +4156,15 @@ class FollowupServeConfig(BaseModel):
     from an equivalent starting state, the stored
     ``probe.generation.auto_generate_on_entry`` applies, burns persist and open
     workflows settle as skipped.
+
+    ``hypothesis_marks`` is FG1c's kill switch (spec §7), at every algorithm version: the learner's
+    marks on possible causes and the hypothesis-list exposure receipts. It moves nothing that
+    decides, so it mints no successor. Off: no marks UI, no exposure or mark rows, and every reply
+    and context is what it was, whatever rows an earlier run left.
     """
 
     generate_and_serve: bool = True
+    hypothesis_marks: bool = True
 
 
 class VoiStoppingConfig(BaseModel):

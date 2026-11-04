@@ -10,11 +10,28 @@ from typing import Any
 
 from learnloop_sidecar.context import SidecarContext
 from learnloop_sidecar.dto import ParamsModel, to_camel, versioned
+from learnloop_sidecar.errors import SidecarError
 from learnloop_sidecar.registry import method
 
 
 class FollowupInput(ParamsModel):
     attempt_id: str
+
+
+class HypothesisExposureInput(ParamsModel):
+    attempt_id: str
+    surface: str
+    #: Causal-hypothesis version ids, in the order on screen.
+    hypothesis_version_ids: list[str]
+    shown_at: str | None = None
+
+
+class HypothesisMarkInput(ParamsModel):
+    attempt_id: str
+    mark: str
+    hypothesis_version_id: str | None = None
+    free_text: str | None = None
+    surface: str = "marks_feedback"
 
 
 def _fresh_vault(ctx: SidecarContext, vault: Any, repository: Any, attempt_id: str) -> Any:
@@ -76,3 +93,32 @@ def followup_show_anyway(ctx: SidecarContext, params: FollowupInput) -> dict[str
 
     _vault, repository = ctx.require_vault()
     return versioned({"released": show_anyway(repository, params.attempt_id)})
+
+
+@method("record_hypothesis_exposure", HypothesisExposureInput)
+def record_hypothesis_exposure(ctx: SidecarContext, params: HypothesisExposureInput) -> dict[str, Any]:
+    """FG1c, spec_router_objective_v1 §4 row 6: the client's display event. A refused receipt rolls
+    back alone with a warning, so this never fails."""
+
+    from learnloop.followup_run.marks import record_exposure
+
+    vault, repository = ctx.require_vault()
+    exposure_id = record_exposure(vault, repository, attempt_id=params.attempt_id, surface=params.surface,
+                                  hypothesis_version_ids=params.hypothesis_version_ids, shown_at=params.shown_at)
+    return versioned({"recorded": exposure_id is not None})
+
+
+@method("record_hypothesis_mark", HypothesisMarkInput)
+def record_hypothesis_mark(ctx: SidecarContext, params: HypothesisMarkInput) -> dict[str, Any]:
+    """FG1c, spec §7: one optional mark, appended. Returns the panel's new read."""
+
+    from learnloop.followup_run.marks import MarkRefused, record_mark
+
+    vault, repository = ctx.require_vault()
+    try:
+        current = record_mark(vault, repository, attempt_id=params.attempt_id, mark=params.mark,
+                              hypothesis_version_id=params.hypothesis_version_id, free_text=params.free_text,
+                              surface=params.surface)
+    except MarkRefused as exc:
+        raise SidecarError("validation_error", str(exc)) from exc
+    return versioned({"recorded": current is not None, "marks": to_camel(current) if current is not None else None})

@@ -227,6 +227,24 @@ def _with_followup(ctx: SidecarContext, vault: Any, repository: Any, attempt_id:
     return {**(held_bundle(bundle) if holding else bundle), "followup": to_camel(current)}
 
 
+def _with_hypothesis_marks(ctx: SidecarContext, vault: Any, repository: Any, attempt_id: str, bundle: dict[str, Any]) -> dict[str, Any]:
+    """FG1c (spec §7): the marks panel's read rides on the desktop's bundle, only when there is a list
+    to show. Off, held or nothing to mark: no key, so the bundle stays as it was. A failed read
+    costs the panel, never the feedback."""
+
+    from learnloop.followup_run.marks import bundle_view
+    from learnloop.followup_serve.gates import hypothesis_marks_on
+
+    if ctx.request_origin is not None or not hypothesis_marks_on(vault.config):
+        return bundle
+    try:
+        marks = bundle_view(vault, repository, attempt_id)
+    except Exception:  # noqa: BLE001 - optional, and never in the way of the feedback
+        logging.getLogger(__name__).warning("the marks panel could not be read for %s", attempt_id, exc_info=True)
+        return bundle
+    return bundle if marks is None else {**bundle, "hypothesisMarks": to_camel(marks)}
+
+
 @method("get_feedback", FeedbackInput)
 def get_feedback(ctx: SidecarContext, params: FeedbackInput) -> dict[str, Any]:
     vault, repository = ctx.require_vault()
@@ -263,6 +281,7 @@ def get_feedback(ctx: SidecarContext, params: FeedbackInput) -> dict[str, Any]:
     if claim_line is not None:
         bundle["claimCheck"] = to_camel(claim_line)
     bundle = _with_followup(ctx, vault, repository, params.attempt_id, bundle, followup_holding)
+    bundle = _with_hypothesis_marks(ctx, vault, repository, params.attempt_id, bundle)
     log_event(
         "feedback_shown",
         session_id=session_id,

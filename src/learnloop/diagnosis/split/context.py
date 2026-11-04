@@ -52,6 +52,7 @@ from learnloop.diagnosis.split.settings import (
     DiagnosisSettings,
     HistoryMode,
 )
+from learnloop.followup_serve.marks import opinion_block as marks_opinion_block
 from learnloop.substrate.canonical_projection import surface_group_id
 from learnloop.vault.models import LoadedVault, PracticeItem, learning_object_facet_union
 from learnloop.vault.required_method import answered_prompt
@@ -113,6 +114,9 @@ class CurrentAttempt:
     #: limit on the taps so far); None without a tap or a hedge read, and the
     #: context then renders and hashes exactly as before.
     confidence: Mapping[str, Any] | None = None
+    #: FG1c (spec_followup_generate_serve_v1 §7): the learner's marks on this attempt's possible
+    #: causes, as attributed opinion (a re-diagnosis has them; a first diagnosis never does).
+    learner_marks: Mapping[str, Any] | None = None
     #: Reader RW5d P3: the figures this attempt used
     #: (``figure_trace.figure_trace_for_attempt``); None for every other
     #: attempt, whose context renders and hashes exactly as before.
@@ -154,6 +158,8 @@ class CurrentAttempt:
         if self.confidence:
             # TE0: the tap and the grader's hedge read, as an event.
             rendered["confidence"] = dict(self.confidence)
+        if self.learner_marks:
+            rendered["learner_marks"] = dict(self.learner_marks)
         if self.figure_trace:
             # RW5d P3: the figures this attempt used (help, never evidence),
             # under the prompt suffix +figures-v1.
@@ -226,6 +232,7 @@ def current_attempt_from(
     workbench_trace: Mapping[str, Any] | None = None,
     confidence: Mapping[str, Any] | None = None,
     figure_trace: Mapping[str, Any] | None = None,
+    learner_marks: Mapping[str, Any] | None = None,
 ) -> CurrentAttempt:
     """The attempt being diagnosed. ``contract`` (method-explicit-3 review
     F3) is the assessment contract its answer was graded under: a
@@ -264,6 +271,7 @@ def current_attempt_from(
         workbench_trace=dict(workbench_trace) if workbench_trace else None,
         confidence=dict(confidence) if confidence else None,
         figure_trace=dict(figure_trace) if figure_trace else None,
+        learner_marks=dict(learner_marks) if learner_marks else None,
     )
 
 
@@ -468,6 +476,11 @@ def _render_attempt(
         # TE0 (spec_teacher_v1 §15.2): the tap and the grader's hedge read as
         # an event with the outcome; absent otherwise (renders as before).
         row["confidence"] = attempt.confidence_event
+    block = marks_opinion_block(attempt.learner_marks)
+    if block:
+        # FG1c (spec_followup_generate_serve_v1 §7): the learner's own read of this answer's causes,
+        # attributed and unmeasured; absent otherwise (renders as before).
+        row["learner_marks"] = block
     if with_answer:
         row["item_prompt"] = attempt.item_prompt
         row["learner_answer_md"] = attempt.learner_answer_md

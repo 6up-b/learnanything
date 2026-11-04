@@ -27,7 +27,8 @@ def data_capture_report(
 ) -> None:
     """Counts and coverage for each new record: prefilter receipts, frozen objectives and their measurement
     states by arm, outcomes by arm, the first-delayed-success proxy, the not_ready floor and the delayed
-    picks (read-only; no model call; no effect is estimated)."""
+    picks, and the marks on possible causes with the coverage of their exposures (read-only; no model call;
+    no effect is estimated)."""
 
     from learnloop.diagnosis.causal_probe_coherence import resolve_causal_probe_parameters
     from learnloop.db.repositories import Repository

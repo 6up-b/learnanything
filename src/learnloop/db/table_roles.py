@@ -179,6 +179,11 @@ _TABLE_ROLE_ITEMS: tuple[tuple[str, TableRole], ...] = (
     ("generated_probe_burns", TableRole.RAW_LEDGER),
     ("generated_probe_items", TableRole.RAW_LEDGER),
     ("router_decision_bindings", TableRole.RECEIPT),
+    # FG1c (migration 242, spec §7; spec_router_objective_v1 §4 row 6): each display of a list of
+    # possible causes, the later receipt when its probe was answered, and the learner's raw marks.
+    ("hypothesis_exposure_probe_links", TableRole.RECEIPT),
+    ("hypothesis_list_exposures", TableRole.RECEIPT),
+    ("hypothesis_marks", TableRole.RAW_LEDGER),
     ("decision_objectives", TableRole.RECEIPT),
     ("reading_exposure_receipts", TableRole.RECEIPT),
     # Deliverable curriculum C0b (migration 228): the learner's scope inputs

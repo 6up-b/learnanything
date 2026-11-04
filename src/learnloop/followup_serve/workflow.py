@@ -27,6 +27,7 @@ from typing import Any
 from learnloop.clock import Clock, utc_now_iso
 from learnloop.db.repositories import Repository
 from learnloop.db.stores import followup_serve as store
+from learnloop.db.stores import hypothesis_marks as marks_store
 from learnloop.followup_serve.gates import RIVAL_CAUSES_FACTOR_VERSION, SERVING_SURFACE, generate_and_serve_on
 from learnloop.followup_serve.queue import enqueue_workflow
 
@@ -407,10 +408,15 @@ def retire_waiting(repository: Repository, row: Mapping[str, Any], *, reason: st
            from_states=(WAITING, READY), clock=clock)
 
 
-def probe_answered(repository: Repository, practice_item_id: str, *, attempt_id: str, clock: Clock | None = None) -> bool:
+def probe_answered(repository: Repository, practice_item_id: str, *, attempt_id: str, clock: Clock | None = None,
+                   link_exposures: bool = False) -> bool:
     """The probe's answer settles the workflow, and §6.0's hold ends, by the item whichever
     way it was answered: a contract that could not stand (no grading route at the serve) must
-    not strand what was held. Runs on the live path only."""
+    not strand what was held. Runs on the live path only.
+
+    ``link_exposures`` (FG1c, the caller reads ``followup.hypothesis_marks``): each earlier display
+    of the miss's list of causes gets its later linked receipt. The display's row never changes,
+    and a refused link rolls back alone, so it never blocks the answer."""
 
     if not practice_item_id:
         return False
@@ -429,6 +435,11 @@ def probe_answered(repository: Repository, practice_item_id: str, *, attempt_id:
             with repository.connection() as connection:
                 store.append_binding(connection, decision_id=str(row["decision_id"]), workflow_id=str(row["id"]),
                                      binding_kind="outcome", outcome="answered", at=_now(clock))
+        if link_exposures:
+            with repository.connection() as connection:
+                if marks_store.present(connection):
+                    marks_store.link_probe_answer(connection, attempt_id=str(row["source_attempt_id"]),
+                                                  probe_attempt_id=attempt_id, at=_now(clock))
     return True
 
 

@@ -1592,6 +1592,15 @@ _CONFIG_RULES: list[_ConfigRule] = [
         "kill switch for RW2d's successor: workbench stuck steps and help before the first step as field "
         "signals that keep an LO out of fast-track and teach it first; zero-mass rows that never reach the "
         "record; off, the predecessor's derivation, Phase 6 serving and plans."),
+    # FG1c (spec_followup_generate_serve_v1 §7): the learner's marks on possible causes. A boolean
+    # (classified so every new key has a rule). Marks are receipts and an attributed opinion, so
+    # there is no weight to learn until a later stage measures the sensor.
+    _ConfigRule(_exact(
+        "followup.hypothesis_marks",
+    ), "structural", "operational",
+        "kill switch for the learner's marks on possible causes and the hypothesis-list exposure receipts; "
+        "they reach the learner state card and the diagnoser's context as attributed opinion and move no "
+        "probability; off, no marks UI, no rows, and every reply and context as it was."),
     # Rebuild equivalence (mvp-0.34, docs/reviews/rebuild-equivalence-fix.md):
     # the kill switch of the successor whose replay reads the ledger bounded at
     # the replayed attempt. A boolean (classified so every new key has a rule);

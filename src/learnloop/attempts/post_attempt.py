@@ -189,11 +189,13 @@ def run_post_attempt_pipeline(
             # FG1: both handoffs commit with the completion, since a completed attempt is
             # never completed again and a crash after it would strand them. An answer to a
             # generated probe settles its workflow and releases what it held.
+            from learnloop.followup_serve.gates import hypothesis_marks_on
             from learnloop.followup_serve.queue import enqueue_workflow
             from learnloop.followup_serve.workflow import probe_answered
 
             probe_answered(repository, str(getattr(result, "practice_item_id", "") or ""),
-                           attempt_id=result.attempt_id, clock=clock)
+                           attempt_id=result.attempt_id, clock=clock,
+                           link_exposures=hypothesis_marks_on(vault.config))
             if workflow is not None and not blind:
                 # A joint vault has no live diagnosis job, and a shadow one never moves a
                 # workflow (spec §3.1): selection uses what normalization has already written.

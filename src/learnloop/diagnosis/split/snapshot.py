@@ -14,6 +14,7 @@ when the job finishes, whether it succeeds or fails.
 from __future__ import annotations
 
 import hashlib
+import json
 import re
 import shutil
 import tempfile
@@ -31,6 +32,7 @@ from learnloop.diagnosis.split.history import (
     RegistryRecord,
     RepairRecord,
 )
+from learnloop.followup_serve.marks import opinion_block as marks_opinion_block
 from learnloop.vault.models import LoadedVault, learning_object_facet_union
 
 SNAPSHOT_EXPORT_VERSION = "diagnosis-snapshot-v1"
@@ -98,6 +100,7 @@ def _bullets(rows: list[tuple[str, Any]]) -> str:
 
 
 def render_attempt(attempt: HistoryAttempt, title: str) -> str:
+    block = marks_opinion_block(attempt.learner_marks)
     score = (
         f"{attempt.score:g}/{attempt.max_points:g}"
         if attempt.score is not None and attempt.max_points
@@ -125,6 +128,8 @@ def render_attempt(attempt: HistoryAttempt, title: str) -> str:
                 ("grader_mode", attempt.grader_mode),
                 # TE0: the confidence event, only when the attempt has one.
                 *((("confidence", attempt.confidence_event),) if attempt.confidence_event else ()),
+                # FG1c: the learner's own read of its causes, only when the attempt has one.
+                *((("learner_marks", json.dumps(block, ensure_ascii=False, sort_keys=True)),) if block else ()),
             ]
         ),
         "",

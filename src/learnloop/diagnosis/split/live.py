@@ -175,6 +175,7 @@ def current_attempt_for(
     trace = None
     confidence = None
     figures = None
+    marks = None
     if repository is not None:
         from learnloop.db.stores.answered_contracts import answered_contracts
         from learnloop.diagnosis.split.workbench_trace import trace_for_attempt
@@ -192,6 +193,12 @@ def current_attempt_for(
         from learnloop.diagnosis.split.figure_trace import figure_trace_for_attempt
 
         figures = figure_trace_for_attempt(vault, repository, attempt)
+        # FG1c (spec_followup_generate_serve_v1 §7): a re-diagnosis reads the learner's own marks on
+        # this attempt's causes as attributed opinion; a first diagnosis has none, so it renders as before.
+        from learnloop.followup_serve.gates import hypothesis_marks_on
+        from learnloop.followup_serve.marks import attempt_opinion
+
+        marks = attempt_opinion(repository, str(attempt["id"])) if hypothesis_marks_on(vault.config) else None
     return current_attempt_from(
         vault,
         item,
@@ -203,6 +210,7 @@ def current_attempt_for(
         workbench_trace=trace,
         confidence=confidence,
         figure_trace=figures,
+        learner_marks=marks,
     )
 
 

@@ -30,6 +30,14 @@ def generate_and_serve_on(config: Any) -> bool:
     )
 
 
+def hypothesis_marks_on(config: Any) -> bool:
+    """FG1c's kill switch (``followup.hypothesis_marks``), at every algorithm version: a mark and an
+    exposure are receipts, and an attributed opinion moves nothing. Off: no marks UI, no rows, and
+    every context and reply is what it was."""
+
+    return bool(getattr(getattr(config, "followup", None), "hypothesis_marks", False))
+
+
 def effective_auto_generate_on_entry(config: Any) -> bool:
     """§4.3: true while FG1 is on, whatever the file says. The stored value stays
     untouched for rollback, and off it is what applies."""
