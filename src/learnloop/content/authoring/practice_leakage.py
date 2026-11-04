@@ -225,6 +225,53 @@ def screen_practice_payload(payload: dict[str, Any], inventory: HeldOutInventory
     return check_leakage(_payload_surfaces(payload), inventory)
 
 
+# --- questions still reserved (FG1, the owner's ruling of Nov 4, 2026) ------
+
+
+@dataclass(frozen=True)
+class ReservedQuestions:
+    """What a generated probe's words may not reproduce, as this module's gate reads it."""
+
+    inventory: HeldOutInventory
+    #: Each reserved stem, whole: one shorter than the shingle order has no shingle to match.
+    stems: frozenset[str]
+
+
+def reserved_questions(vault: LoadedVault, repository: Repository, withheld: Any) -> ReservedQuestions:
+    """Every question ``withheld`` (the one authority, ``learner_protection.withheld_items``) still
+    holds for an exam or an assessment, and every held-out span: stem, solution and rubric.
+    A check waiting or a diagnostic probe holds its item from the learner and isn't reserved."""
+
+    from learnloop.learner_protection import WITHHELD_EXAM, WITHHELD_RESERVED
+
+    texts: list[str] = []
+    stems: set[str] = set()
+    for item in vault.practice_items.values():
+        if withheld.reason(str(item.id)) in {WITHHELD_EXAM, WITHHELD_RESERVED}:
+            payload = item.model_dump(mode="json")
+            texts.append(_payload_surfaces(payload))
+            stems.add(" ".join(_normalize_tokens(str(payload.get("prompt") or ""))))
+    texts.extend(span.text for span in held_out_spans(vault, repository))
+    return ReservedQuestions(inventory=inventory_for_texts(texts), stems=frozenset(stems - {""}))
+
+
+def reserved_findings(text: str, reserved: ReservedQuestions) -> list[dict[str, str]]:
+    """What this text reproduces of a reserved question: ``check_leakage``'s contiguous wording
+    and distinctive numbers, and a whole stem. Comparison only; the text goes nowhere."""
+
+    findings = check_leakage(text, reserved.inventory)
+    shown = f" {' '.join(_normalize_tokens(text))} "
+    findings.extend({"kind": "stem", "value": stem} for stem in sorted(reserved.stems) if f" {stem} " in shown)
+    return findings
+
+
+def reserved_payload_findings(payload: dict[str, Any], reserved: ReservedQuestions) -> list[dict[str, str]]:
+    """The same, over everything a learner sees of a generated item: stem, key, rubric, hints."""
+
+    hints = [str(value) for value in payload.get("hints") or []]
+    return reserved_findings("\n".join([_payload_surfaces(payload), *hints]), reserved)
+
+
 # --- cross-source context ---------------------------------------------------
 
 

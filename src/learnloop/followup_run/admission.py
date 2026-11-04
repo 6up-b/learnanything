@@ -26,6 +26,8 @@ from typing import Any
 from learnloop.clock import Clock, utc_now_iso
 from learnloop.db.repositories import Repository
 from learnloop.followup_run.authoring import (
+    QUESTION_MATCHES_RESERVED,
+    causes_coverage,
     AuthoredProbe,
     AuthoringRejected,
     build_context,
@@ -33,6 +35,7 @@ from learnloop.followup_run.authoring import (
     request_authored_probe,
 )
 from learnloop.followup_serve import identity
+from learnloop.content.authoring.practice_leakage import reserved_payload_findings
 
 #: Who the machine admission receipt says moved the candidate.
 MACHINE_REVIEWER = identity.MACHINE_REVIEWER
@@ -207,6 +210,15 @@ def author_probe(
     return probe, template, card
 
 
+def _reserved(vault: Any, repository: Repository) -> Any:
+    from learnloop.followup_run.authoring import AuthoringRejected, reserved_view
+
+    try:
+        return reserved_view(vault, repository)
+    except AuthoringRejected as rejected:
+        raise AdmissionFailed(str(rejected)) from rejected
+
+
 def persist_item(
     vault: Any,
     repository: Repository,
@@ -256,6 +268,10 @@ def persist_item(
             ],
         },
     }
+    # First, since the structural gate would also call an exact echo a duplicate: a reserved
+    # question's echo is §8's to refuse, nothing has been written, and the miss takes the practice lane.
+    if reserved_payload_findings(payload, _reserved(vault, repository)):
+        raise AdmissionFailed(QUESTION_MATCHES_RESERVED)
     errors = instance_gate_errors(vault, payload, card, template)
     if errors:
         raise AdmissionFailed("instance_gate", detail={"errors": errors})
@@ -334,7 +350,8 @@ def commission_only(
         raise AdmissionFailed(str(result["outcome"]))
     admit(
         repository, candidate_id=str(result["candidate_id"]),
-        receipt={"instance_gate": "passed", "never_before_seen": "passed", "exam_material": "passed",
+        receipt={"instance_gate": "passed", "never_before_seen": "passed", "reserved_check": "passed",
+                 "causes_record": causes_coverage(vault, repository, tuple(probe.refs.values())),
                  "manipulation_audit_id": result.get("manipulation_audit_id"), "bundle_ids": result.get("bundle_ids"),
                  "adversarial_review": "not_run"},
         clock=clock,
@@ -375,7 +392,8 @@ def commission_and_pin(
     admit(
         repository, candidate_id=candidate_id,
         receipt={
-            "instance_gate": "passed", "never_before_seen": "passed", "exam_material": "passed",
+            "instance_gate": "passed", "never_before_seen": "passed", "reserved_check": "passed",
+            "causes_record": causes_coverage(vault, repository, tuple(probe.refs.values())),
             "manipulation_audit_id": result.get("manipulation_audit_id"),
             "bundle_ids": result.get("bundle_ids"), "discrimination": result.get("discrimination"),
             "adversarial_review": "not_run",

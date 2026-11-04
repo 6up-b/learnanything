@@ -136,6 +136,8 @@ class BlindRivalClient(ReviewFakeClient):
     second materialization runs. An answer on a generated probe fits the rival ``fact_1`` names."""
 
     divergent = False
+    #: Words a test wants in the first cause's statement.
+    quoting = ""
 
     def _grade_parts(self, context):
         parts = super()._grade_parts(context)
@@ -166,7 +168,7 @@ class BlindRivalClient(ReviewFakeClient):
                 {"statement": statement, "cause_scope": "learner_state", "prior_weight": weight, "target_ref": target,
                  "mechanism": mechanism, "discriminating_predictions": [f"if so, {statement}"]}
                 for statement, weight, mechanism in (
-                    ("The order of the steps is wrong.", 3.0, "incomplete_procedure_schema"),
+                    (f"The order of the steps is wrong.{self.quoting}", 3.0, "incomplete_procedure_schema"),
                     ("The two conditions are confused.", 2.0, "representation_instability"),
                 )
             ]

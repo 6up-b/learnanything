@@ -30,9 +30,11 @@ AUTHORING_PURPOSE = "followup_probe_authoring"
 AUTHOR_ROUTE = "followup_probe_author"
 #: The axes an author may declare; the rest are the system's to write.
 AUTHOR_AXES: frozenset[str] = frozenset({"surface_wording", "answer_contract", "rubric"})
-#: Why a miss's causes reach no request: they rest on exam material, or that can't be ruled out.
-CAUSES_FROM_EXAM = "causes_from_exam_material"
-CAUSES_UNACCOUNTED = "causes_not_accounted_for"
+#: Why a miss takes the practice lane on the owner's ruling of Nov 4, 2026: a cause, or the
+#: question written for it, reproduces a question still reserved.
+CAUSE_MATCHES_RESERVED = "cause_matches_reserved_question"
+QUESTION_MATCHES_RESERVED = "question_matches_reserved_question"
+RESERVED_MATCHES: frozenset[str] = frozenset({CAUSE_MATCHES_RESERVED, QUESTION_MATCHES_RESERVED})
 
 
 class AuthoringRejected(ValueError):
@@ -63,51 +65,70 @@ def admissible_item(withheld: Any, item: Any) -> bool:
     return withheld.reason(str(item.id)) is None
 
 
-def hypotheses_exam_reason(vault: Any, repository: Repository, hypothesis_ids: Sequence[str]) -> str | None:
-    """Why any of these causes' words may carry exam material, or None.
+def reserved_view(vault: Any, repository: Repository) -> Any:
+    """The questions still reserved or withheld, as ``protection_view`` says; raises when they
+    can't be read, so nothing is compared against half a list and no prompt is built."""
 
-    A statement can quote what it was written from, so the items' filter below doesn't cover
-    it. The shared leakage rule decides, by provenance, never by the words: the attempts of the
-    hypothesis's episode, and everything its writer recorded reading (``PastWork.exam_reason``).
-    The record must be complete and cover the statement as it stands; a cause without one
-    can't rule exam material out, unless the vault holds none to quote
-    (``PastWork.nothing_exam_to_quote``). Raises when protection can't be read, so no request
-    is built.
-    """
-
-    from learnloop.db.stores.write_provenance import Inputs, stored_record, text_sha256
-    from learnloop.learner_protection import CAUSE_UNRECORDED, PastWork, hypothesis_answers
+    from learnloop.content.authoring.practice_leakage import reserved_questions
 
     withheld = protection_view(vault, repository)
+    try:
+        return reserved_questions(vault, repository, withheld)
+    except Exception as error:  # noqa: BLE001 - fail closed, as an unreadable predicate does
+        raise AuthoringRejected("protection_unavailable") from error
+
+
+def _cause_words(hypothesis: Mapping[str, Any]) -> str:
+    """What the router's card and the author's prompt would show of a cause."""
+
+    target = hypothesis.get("target_ref")
+    quoted = [str(value) for value in target.values() if isinstance(value, str)] if isinstance(target, Mapping) else []
+    return "\n".join([str(hypothesis.get("statement") or ""), *quoted])
+
+
+def causes_match_reserved(vault: Any, repository: Repository, hypothesis_ids: Sequence[str]) -> bool:
+    """The owner's ruling of Nov 4, 2026: a cause stops its probe only by reproducing a question
+    still reserved, read by its words. What it was written from no longer decides, so past exam
+    answers can inform a cause and an old record doesn't block one (:func:`causes_coverage` says
+    what each record covered, on the receipt). Raises when protection can't be read."""
+
+    from learnloop.content.authoring.practice_leakage import reserved_findings
+
+    reserved = reserved_view(vault, repository)
+    return any(
+        reserved_findings(_cause_words(hypothesis), reserved)
+        for hypothesis_id in hypothesis_ids
+        if (hypothesis := repository.causal_hypothesis(str(hypothesis_id))) is not None
+    )
+
+
+def causes_coverage(vault: Any, repository: Repository, hypothesis_ids: Sequence[str]) -> list[dict[str, Any]]:
+    """For the admission receipt: what each cause's write-time record covers. Counts, no words."""
+
+    from learnloop.db.stores.write_provenance import Inputs, stored_record, text_sha256
+    from learnloop.learner_protection import EXAM_ATTEMPT_TYPES, PastWork, hypothesis_answers
+
+    out: list[dict[str, Any]] = []
     with repository.connection() as connection:
-        past = PastWork(connection, vault, repository, withheld=withheld)
+        past = PastWork(connection, vault, repository, withheld=protection_view(vault, repository))
         behind = hypothesis_answers(connection, hypothesis_ids)
         for hypothesis_id in hypothesis_ids:
-            hypothesis = repository.causal_hypothesis(str(hypothesis_id))
+            hypothesis = repository.causal_hypothesis(str(hypothesis_id)) or {}
             stored = stored_record(connection, "hypothesis", str(hypothesis_id))
-            covered = (hypothesis is not None and stored is not None and stored.record.complete
-                       and stored.text_sha256 == text_sha256(hypothesis.get("statement")))
-            if not covered and not past.nothing_exam_to_quote():
-                return CAUSE_UNRECORDED
+            if stored is None:
+                state = "missing"
+            elif stored.text_sha256 != text_sha256(hypothesis.get("statement")):
+                state = "stale"
+            else:
+                state = "complete" if stored.record.complete else "incomplete"
             inputs = stored.record.inputs if stored is not None else Inputs()
-            reason = past.exam_reason(
-                answers=[*behind.get(str(hypothesis_id), ()), *inputs.answers],
-                items=[*inputs.items, *inputs.solution_items],
-                sources=inputs.sources,
-                questions=inputs.questions,
-            )
-            if reason is not None:
-                return reason
-    return None
-
-
-def causes_refusal(reason: str) -> str:
-    """The workflow's word for :func:`hypotheses_exam_reason`'s answer: exam material itself,
-    or causes nothing rules it out for. They are counted apart, so the second can be seen."""
-
-    from learnloop.learner_protection import WITHHELD_EXAM, WITHHELD_RESERVED
-
-    return CAUSES_FROM_EXAM if reason in {WITHHELD_EXAM, WITHHELD_RESERVED} else CAUSES_UNACCOUNTED
+            answers = {*behind.get(str(hypothesis_id), ()), *(str(value) for value in inputs.answers)}
+            past.load(answers)
+            exam = sum(1 for answer in answers if (past.attempt(answer) or {}).get("type") in EXAM_ATTEMPT_TYPES)
+            out.append({"hypothesis_id": str(hypothesis_id), "record": state, "answers": len(answers),
+                        "exam_answers": exam, "items": len(inputs.items) + len(inputs.solution_items),
+                        "sources": len(inputs.sources), "questions": len(inputs.questions)})
+    return out
 
 
 def build_context(
@@ -123,22 +144,31 @@ def build_context(
 ) -> tuple[FollowupProbeContext, dict[str, str]]:
     """The prompt's context, and the reference -> hypothesis id map.
 
-    Only what ``protection_view`` admits reaches it, and a cause written from exam material
-    stops it here (:func:`hypotheses_exam_reason`). The hypotheses carry their statement,
-    scope and typed target: never a postdictive claim, and never the learner's answer.
+    Only what ``protection_view`` admits reaches it, a cause reproducing a reserved question
+    stops it here (:func:`causes_match_reserved`), and any other line that quotes one is left
+    out. The hypotheses carry their statement, scope and typed target: never a postdictive
+    claim, and never the learner's answer.
     """
 
+    from learnloop.content.authoring.practice_leakage import reserved_findings
+
     withheld = protection_view(vault, repository)
-    protected = hypotheses_exam_reason(vault, repository, [str(hypothesis["id"]) for hypothesis in hypotheses])
-    if protected is not None:
-        raise AuthoringRejected(causes_refusal(protected))
+    if causes_match_reserved(vault, repository, [str(hypothesis["id"]) for hypothesis in hypotheses]):
+        raise AuthoringRejected(CAUSE_MATCHES_RESERVED)
+    reserved = reserved_view(vault, repository)
     learning_object = vault.learning_objects[learning_object_id]
     existing = sorted(
         item.prompt.strip()
         for item in vault.practice_items.values()
         if item.learning_object_id == learning_object_id and item.prompt and admissible_item(withheld, item)
+        and not reserved_findings(item.prompt, reserved)
     )
     source = vault.practice_items.get(source_item_id) if source_item_id else None
+    if source is not None and reserved_findings(source.prompt or "", reserved):
+        source = None
+    summary = learning_object.summary
+    if summary and reserved_findings(str(summary), reserved):
+        summary = None
     refs: dict[str, str] = {}
     rows: list[dict[str, Any]] = []
     for index, hypothesis in enumerate(hypotheses):
@@ -154,7 +184,7 @@ def build_context(
         FollowupProbeContext(
             learning_object_title=learning_object.title,
             learning_object_concept=learning_object.concept,
-            learning_object_summary=learning_object.summary,
+            learning_object_summary=summary,
             target_facets=[str(value) for value in target_facets],
             hypotheses=rows,
             router_decision=dict(router_decision),
@@ -221,10 +251,17 @@ def check_output(
     declared = {entry.axis for entry in authored.intended_manipulations} | set(authored.incidental_changes)
     if not declared <= AUTHOR_AXES or set(authored.held_constant) & declared:
         raise AuthoringRejected("manipulation_contract_invalid")
+    # A reserved question's echo is admission's to refuse (``admission.persist_item``), over
+    # everything the learner would see, and it takes the practice lane. What's left here holds an
+    # item from the learner for another reason.
+    from learnloop.learner_protection import WITHHELD_EXAM, WITHHELD_RESERVED
+
     withheld = protection_view(vault, repository)
     shown = _normalized(prompt)
     for item in vault.practice_items.values():
         if admissible_item(withheld, item) or item.learning_object_id != learning_object_id:
+            continue
+        if withheld.reason(str(item.id)) in {WITHHELD_EXAM, WITHHELD_RESERVED}:
             continue
         if item.practice_mode == "diagnostic_probe":
             # Not exam material: the structural gate's duplicate rule covers it.
@@ -245,6 +282,7 @@ def resolve_author_client(vault: Any) -> Any | None:
 
 
 __all__ = [
-    "AUTHORING_PURPOSE", "AUTHOR_AXES", "AUTHOR_ROUTE", "AuthoredProbe", "AuthoringRejected", "CAUSES_FROM_EXAM",
-    "CAUSES_UNACCOUNTED", "admissible_item", "build_context", "causes_refusal", "check_output", "hypotheses_exam_reason", "protection_view", "request_authored_probe", "resolve_author_client",
+    "AUTHORING_PURPOSE", "AUTHOR_AXES", "AUTHOR_ROUTE", "AuthoredProbe", "AuthoringRejected", "CAUSE_MATCHES_RESERVED",
+    "QUESTION_MATCHES_RESERVED", "RESERVED_MATCHES", "admissible_item", "build_context", "causes_coverage",
+    "causes_match_reserved", "check_output", "reserved_view", "protection_view", "request_authored_probe", "resolve_author_client",
 ]

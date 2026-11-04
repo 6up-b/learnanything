@@ -913,6 +913,28 @@ def _grounding_tokens(text: str) -> set[str]:
     }
 
 
+def _reproduces_reserved(vault: LoadedVault, repository: Repository, payload: Mapping[str, Any]) -> bool:
+    """FG1 §8, the owner's ruling of Nov 4, 2026: a generated question reproducing one still
+    reserved isn't admitted, and protection that can't be read admits nothing. Off the tag, no change."""
+
+    from learnloop.followup_serve.gates import generate_and_serve_on
+
+    if not generate_and_serve_on(vault.config):
+        return False
+    from learnloop.content.authoring.practice_leakage import reserved_payload_findings, reserved_questions
+    from learnloop.learner_protection import withheld_items
+
+    withheld = withheld_items(vault, repository)
+    if not withheld.available:
+        return True
+    try:
+        reserved = reserved_questions(vault, repository, withheld)
+    except Exception:  # noqa: BLE001 - fail closed
+        LOG.warning("reserved questions not read; nothing generated is admitted", exc_info=True)
+        return True
+    return bool(reserved_payload_findings(dict(payload), reserved))
+
+
 def instance_gate_errors(
     vault: LoadedVault,
     payload: Mapping[str, Any],
@@ -1096,7 +1118,7 @@ def generate_instances_for_episode(
             if prompt_key in batch_prompts or payload["surface_family"] in batch_surfaces:
                 continue
             errors = instance_gate_errors(vault, payload, card, resolved_template)
-            if errors:
+            if errors or _reproduces_reserved(vault, repository, payload):
                 continue
             instance_metadata: dict[str, Any] = {
                 "review_status": review_status,
@@ -1287,6 +1309,8 @@ def mint_single_use_probe_surface(
             if payload["id"] in vault.practice_items:
                 continue
             if instance_gate_errors(vault, payload, card, resolved_template):
+                continue
+            if _reproduces_reserved(vault, repository, payload):
                 continue
             # Never-before-seen gate at mint: no shared identity with anything
             # the learner has been administered, by id or by surface group.

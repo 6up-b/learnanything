@@ -307,17 +307,17 @@ def _run_workflow(vault: Any, repository: Repository, workflow_id: str, *, clien
     if choice.lane != wf.LANE_PROBE:
         settle_practice_lane(vault, repository, row, reason=choice.reason, clock=clock)
         return
-    # §4.1, §8: a cause written from exam material sends its words to neither the router nor
-    # the author, so this miss takes the practice lane. Before anything is spent.
-    from learnloop.followup_run.authoring import AuthoringRejected, causes_refusal, hypotheses_exam_reason
+    # §4.1, §8: a cause reproducing a reserved question sends its words to neither the router
+    # nor the author, so this miss takes the practice lane. Before anything is spent.
+    from learnloop.followup_run import authoring
 
     try:
-        protected = hypotheses_exam_reason(vault, repository, choice.hypothesis_ids)
-    except AuthoringRejected as rejected:
+        matched = authoring.causes_match_reserved(vault, repository, choice.hypothesis_ids)
+    except authoring.AuthoringRejected as rejected:
         fail_workflow(vault, repository, workflow_id, reason=str(rejected), clock=clock)
         return
-    if protected is not None:
-        settle_practice_lane(vault, repository, row, reason=causes_refusal(protected), clock=clock)
+    if matched:
+        settle_practice_lane(vault, repository, row, reason=authoring.CAUSE_MATCHES_RESERVED, clock=clock)
         return
     wf.set_fields(repository, workflow_id, lane=wf.LANE_PROBE, factor_id=choice.factor_id, clock=clock)
     row = wf.get(repository, workflow_id) or row
@@ -389,6 +389,16 @@ def _run_probe_lane(vault: Any, repository: Repository, row: Mapping[str, Any], 
             router.record_outcome(repository, row, decision, outcome="refused", clock=clock)
         return
     except admission.AdmissionFailed as failed:
+        from learnloop.followup_run.authoring import RESERVED_MATCHES
+        from learnloop.followup_run.lanes import settle_practice_lane
+
+        if failed.reason in RESERVED_MATCHES:
+            # §8, the owner's ruling: the miss takes the practice lane, and nothing was served.
+            with repository.atomic():
+                _withdraw(repository, item_id, reason=failed.reason, workflow_id=workflow_id, clock=clock)
+                settle_practice_lane(vault, repository, row, reason=failed.reason, clock=clock)
+                router.record_outcome(repository, row, decision, outcome="refused", clock=clock)
+            return
         with repository.atomic():
             _withdraw(repository, item_id, reason=failed.reason, workflow_id=workflow_id, clock=clock)
             fail_workflow(vault, repository, workflow_id, reason=failed.reason, clock=clock)

@@ -457,95 +457,7 @@ def test_f4_a_burn_before_any_presentation_ends_when_one_has_ended(journey):
                                         clock=CLOCK).granted
 
 
-# -- F5: exam text through a hypothesis -------------------------------------------------------------
-
-
-def _exam_material(monkeypatch, item_id=SOURCE_ITEM):
-    real = learner_protection.withheld_items
-
-    def withheld(vault_arg, repository_arg):
-        seen = real(vault_arg, repository_arg)
-        return learner_protection.Withheld(
-            reasons={**seen.reasons, item_id: learner_protection.WITHHELD_EXAM}, available=True,
-            known_items=seen.known_items, unknowns=seen.unknowns, exam=seen.exam,
-        )
-
-    monkeypatch.setattr(learner_protection, "withheld_items", withheld)
-
-
-def test_f5_a_cause_written_from_exam_work_reaches_neither_request(tmp_path, monkeypatch):
-    vault, repository, _paths = rival_causes_vault(tmp_path)
-    _result, outcome = miss_with_rivals(vault, repository)
-    _exam_material(monkeypatch)
-    real_hypothesis = repository.causal_hypothesis
-
-    def quoting(hypothesis_id):
-        # What a diagnoser writes from an exam answer: the question's own matrix, in its words.
-        found = real_hypothesis(hypothesis_id)
-        return {**found, "statement": f"Believes {SENTINEL} is invertible"} if found else found
-
-    monkeypatch.setattr(repository, "causal_hypothesis", quoting)
-    fake = AuthorFake()
-    facts = []
-    real_facts = router._card_facts
-    monkeypatch.setattr(router, "_card_facts", lambda *args: facts.extend(real_facts(*args)) or facts)
-    outcomes = run_jobs(vault, repository, clients=author_clients(fake))
-    assert SENTINEL not in repr(fake.contexts) and SENTINEL not in repr(facts)
-    assert [job.state for job in outcomes] == ["done"]
-    assert fake.calls == 0
-    row = wf.get(repository, outcome.workflow_id)
-    # Not a failure: the practice lane, with what was held released and Next going on.
-    assert row["state"] == wf.SETTLED and row["lane"] == wf.LANE_PRACTICE and row["feedback_released_at"]
-    assert row["settled_reason"] is None or "exam" in str(row["settled_reason"])
-    assert identity.generated_probe_ids(repository) == frozenset()
-
-
-def test_f5_the_author_builder_itself_refuses_them_for_entry_and_need_work(tmp_path, monkeypatch):
-    from learnloop.followup_run import admission
-
-    vault, repository, _paths = rival_causes_vault(tmp_path)
-    _result, outcome = miss_with_rivals(vault, repository)
-    row = wf.get(repository, outcome.workflow_id)
-    factor = repository.unresolved_cause_factors_for_attempt(row["source_attempt_id"])[0]
-    _exam_material(monkeypatch)
-    fake = AuthorFake()
-    clients = author_clients(fake)
-    with pytest.raises(admission.AdmissionFailed) as caught:
-        admission.author_probe(vault, repository, workflow=row, factor_id=str(factor["id"]),
-                               decision={"chosen": "background", "timing": "later"}, client=clients.author)
-    assert caught.value.reason == "causes_from_exam_material"
-    assert fake.calls == 0
-
-
-def test_f5_exam_attempt_work_is_exam_material_whatever_its_item(tmp_path):
-    from learnloop.followup_run.authoring import hypotheses_exam_reason
-
-    vault, repository, _paths = rival_causes_vault(tmp_path)
-    _result, outcome = miss_with_rivals(vault, repository)
-    row = wf.get(repository, outcome.workflow_id)
-    factor = repository.unresolved_cause_factors_for_attempt(row["source_attempt_id"])[0]
-    ids = [str(value["hypothesis_id"]) for value in factor["candidate_causes"] if not value.get("open_set")]
-    assert hypotheses_exam_reason(vault, repository, ids) is None
-    with repository.connection() as connection:
-        connection.execute("UPDATE practice_attempts SET attempt_type = 'exam_attempt' WHERE id = ?",
-                           (row["source_attempt_id"],))
-        connection.commit()
-    assert hypotheses_exam_reason(vault, repository, ids) == learner_protection.WITHHELD_EXAM
-
-
-def test_f5_what_the_writer_recorded_reading_counts(tmp_path, monkeypatch):
-    from learnloop.db.stores import write_provenance
-    from learnloop.followup_run.authoring import hypotheses_exam_reason
-
-    vault, repository, _paths = rival_causes_vault(tmp_path)
-    _result, outcome = miss_with_rivals(vault, repository)
-    row = wf.get(repository, outcome.workflow_id)
-    factor = repository.unresolved_cause_factors_for_attempt(row["source_attempt_id"])[0]
-    ids = [str(value["hypothesis_id"]) for value in factor["candidate_causes"] if not value.get("open_set")]
-    _exam_material(monkeypatch, "pi_an_exam_question")
-    assert hypotheses_exam_reason(vault, repository, ids) is None
-    _record_for(repository, ids[0], write_provenance.WriteRecord(write_provenance.Inputs.of(items=["pi_an_exam_question"])))
-    assert hypotheses_exam_reason(vault, repository, ids) == learner_protection.WITHHELD_EXAM
+# -- F5: exam text through a hypothesis; the owner's ruling of Nov 4 replaced this rule (test_followup_reserved_only.py) -------------------------------------------------------------
 
 
 def test_f5_a_check_waiting_on_the_item_doesnt_stop_the_probe_lane(tmp_path, monkeypatch):
@@ -850,7 +762,7 @@ def test_f8_naming_the_decision_commits_with_it(tmp_path, monkeypatch):
     assert not wf.get(repository, outcome.workflow_id)["chosen_ref"]
 
 
-# -- Re-review F5: a cause's record must account for its words ----------------------------------------
+# -- Shared by the review's tests ----------------------------------------------------------------
 
 
 def _last_reason(repository, workflow_id):
@@ -863,162 +775,6 @@ def _last_reason(repository, workflow_id):
 def _rivals(repository, row):
     factor = repository.unresolved_cause_factors_for_attempt(row["source_attempt_id"])[0]
     return [str(value["hypothesis_id"]) for value in factor["candidate_causes"] if not value.get("open_set")]
-
-
-def _no_record(monkeypatch):
-    """A cause written before records existed: the ledger is append-only, so its read is what's faked."""
-
-    from learnloop.db.stores import write_provenance
-
-    real = write_provenance.stored_record
-    monkeypatch.setattr(write_provenance, "stored_record",
-                        lambda connection, kind, record_id: None if kind == "hypothesis" else real(connection, kind, record_id))
-
-
-def _record_for(repository, hypothesis_id, record, *, text=None):
-    from learnloop.db.stores import write_provenance
-
-    statement = repository.causal_hypothesis(hypothesis_id)["statement"]
-    with repository.connection() as connection:
-        write_provenance.record_text_write(
-            connection, kind="hypothesis", record_id=hypothesis_id, text=statement if text is None else text,
-            writer="test", record=record, clock=CLOCK,
-        )
-        connection.commit()
-
-
-def _exam_elsewhere(monkeypatch):
-    # The vault holds exam material; none of it is on this cause's own attempt or item.
-    _exam_material(monkeypatch, "pi_an_exam_question")
-
-
-def _unaccounted(kind, repository, ids, monkeypatch):
-    from learnloop.db.stores import write_provenance as wp
-
-    if kind == "missing":
-        _no_record(monkeypatch)
-    elif kind == "incomplete":
-        _record_for(repository, ids[0], wp.WriteRecord.incomplete("a read nobody recorded"))
-    else:  # stale: the latest record covers other words than the statement as stored
-        _record_for(repository, ids[0], wp.WriteRecord(wp.Inputs()), text="the words the writer recorded")
-
-
-@pytest.mark.parametrize("kind", ["missing", "incomplete", "stale"])
-def test_f5_rereview_a_cause_the_record_doesnt_cover_reaches_neither_request(tmp_path, monkeypatch, kind):
-    from learnloop.followup_run.authoring import CAUSES_UNACCOUNTED, hypotheses_exam_reason
-
-    vault, repository, _paths = rival_causes_vault(tmp_path)
-    _result, outcome = miss_with_rivals(vault, repository)
-    row = wf.get(repository, outcome.workflow_id)
-    ids = _rivals(repository, row)
-    _exam_elsewhere(monkeypatch)
-    assert hypotheses_exam_reason(vault, repository, ids) is None  # with its record, the cause is fine
-    _unaccounted(kind, repository, ids, monkeypatch)
-    assert hypotheses_exam_reason(vault, repository, ids) == learner_protection.CAUSE_UNRECORDED
-    fake = AuthorFake()
-    decided = []
-    monkeypatch.setattr(router, "decide", lambda *a, **k: decided.append(1))
-    assert [job.state for job in run_jobs(vault, repository, clients=author_clients(fake))] == ["done"]
-    assert fake.calls == 0 and decided == []
-    settled = wf.get(repository, outcome.workflow_id)
-    assert settled["state"] == wf.SETTLED and settled["lane"] == wf.LANE_PRACTICE and settled["feedback_released_at"]
-    assert _last_reason(repository, outcome.workflow_id) == CAUSES_UNACCOUNTED
-
-
-@pytest.mark.parametrize("kind", ["missing", "incomplete", "stale"])
-def test_f5_rereview_the_author_builder_refuses_a_cause_the_record_doesnt_cover(tmp_path, monkeypatch, kind):
-    from learnloop.followup_run import admission
-    from learnloop.followup_run.authoring import CAUSES_UNACCOUNTED
-
-    vault, repository, _paths = rival_causes_vault(tmp_path)
-    _result, outcome = miss_with_rivals(vault, repository)
-    row = wf.get(repository, outcome.workflow_id)
-    ids = _rivals(repository, row)
-    factor = repository.unresolved_cause_factors_for_attempt(row["source_attempt_id"])[0]
-    _exam_elsewhere(monkeypatch)
-    _unaccounted(kind, repository, ids, monkeypatch)
-    fake = AuthorFake()
-    with pytest.raises(admission.AdmissionFailed) as caught:
-        admission.author_probe(vault, repository, workflow=row, factor_id=str(factor["id"]),
-                               decision={"chosen": "background", "timing": "later"}, client=author_clients(fake).author)
-    assert caught.value.reason == CAUSES_UNACCOUNTED
-    assert fake.calls == 0
-
-
-@pytest.mark.parametrize("field", ["items", "solution_items", "sources", "questions", "answers"])
-def test_f5_rereview_every_recorded_input_is_checked(tmp_path, monkeypatch, field):
-    from learnloop.content.sources import exam_material as em
-    from learnloop.db.stores import write_provenance as wp
-    from learnloop.followup_run.authoring import hypotheses_exam_reason
-
-    vault, repository, _paths = rival_causes_vault(tmp_path)
-    _result, outcome = miss_with_rivals(vault, repository)
-    row = wf.get(repository, outcome.workflow_id)
-    ids = _rivals(repository, row)
-    exam_item = "pi_an_exam_question"
-    _exam_material(monkeypatch, exam_item)
-    if field == "sources":
-        monkeypatch.setattr(em, "source_ref_protected", lambda *_a, **_k: True)
-        inputs = wp.Inputs.of(sources=[{"source_id": "src_exam", "revision_id": "rev_exam"}])
-    elif field == "questions":
-        event = repository.insert_question_event(
-            {"practice_item_id": exam_item, "question_md": "Why is this invertible?",
-             "context": "practice"}, clock=CLOCK)
-        inputs = wp.Inputs.of(questions={event: None})
-    elif field == "answers":
-        with repository.connection() as connection:
-            connection.execute("UPDATE practice_attempts SET attempt_type = 'exam_evidence' WHERE id = ?",
-                               (row["source_attempt_id"],))
-            connection.commit()
-        inputs = wp.Inputs.of(answers={row["source_attempt_id"]: None})
-    else:
-        inputs = wp.Inputs.of(**{field: [exam_item]})
-    _record_for(repository, ids[0], wp.WriteRecord(inputs))
-    assert hypotheses_exam_reason(vault, repository, ids) == learner_protection.WITHHELD_EXAM
-
-
-def test_f5_rereview_a_question_no_longer_on_record_counts_as_unaccounted(tmp_path, monkeypatch):
-    from learnloop.db.stores import write_provenance as wp
-    from learnloop.followup_run.authoring import hypotheses_exam_reason
-
-    vault, repository, _paths = rival_causes_vault(tmp_path)
-    _result, outcome = miss_with_rivals(vault, repository)
-    ids = _rivals(repository, wf.get(repository, outcome.workflow_id))
-    _exam_elsewhere(monkeypatch)
-    _record_for(repository, ids[0], wp.WriteRecord(wp.Inputs.of(questions={"qe_gone": None})))
-    assert hypotheses_exam_reason(vault, repository, ids) == learner_protection.QUESTION_UNRECORDED
-
-
-def test_f5_rereview_a_vault_with_nothing_to_protect_keeps_its_probe_lane(tmp_path, monkeypatch):
-    """A record can't be needed to rule out exam material where there is none: old causes,
-    written before records existed, still get their question."""
-
-    from learnloop.followup_run.authoring import hypotheses_exam_reason
-
-    vault, repository, _paths = rival_causes_vault(tmp_path)
-    _result, outcome = miss_with_rivals(vault, repository)
-    row = wf.get(repository, outcome.workflow_id)
-    ids = _rivals(repository, row)
-    _no_record(monkeypatch)
-    assert hypotheses_exam_reason(vault, repository, ids) is None
-    fake = AuthorFake()
-    run_jobs(vault, repository, clients=author_clients(fake))
-    assert fake.calls == 1 and wf.get(repository, outcome.workflow_id)["state"] == wf.READY
-
-
-def test_f5_rereview_exam_work_anywhere_means_there_is_something_to_protect(tmp_path, monkeypatch):
-    from learnloop.followup_run.authoring import hypotheses_exam_reason
-
-    vault, repository, _paths = rival_causes_vault(tmp_path)
-    _result, outcome = miss_with_rivals(vault, repository)
-    ids = _rivals(repository, wf.get(repository, outcome.workflow_id))
-    _no_record(monkeypatch)
-    other = record_attempt(repository, SOURCE_ITEM, LO_ID, CLOCK.now())
-    with repository.connection() as connection:
-        connection.execute("UPDATE practice_attempts SET attempt_type = 'exam_attempt' WHERE id = ?", (other,))
-        connection.commit()
-    assert hypotheses_exam_reason(vault, repository, ids) == learner_protection.CAUSE_UNRECORDED
-
 
 # -- Re-review F7: a move and what it closes are one commit -------------------------------------------
 
@@ -1346,13 +1102,12 @@ def _exit_newer_grade(journey, monkeypatch):
     return wf.SKIPPED, "newer_grade"
 
 
-def _exit_causes_not_accounted_for(journey, monkeypatch):
-    from learnloop.followup_run.authoring import CAUSES_UNACCOUNTED
+def _exit_cause_matches_reserved(journey, monkeypatch):
+    from learnloop.followup_run import authoring
 
-    _no_record(monkeypatch)
-    _exam_elsewhere(monkeypatch)
+    monkeypatch.setattr(authoring, "causes_match_reserved", lambda *_a, **_k: True)
     run_jobs(load_vault(journey.paths.root), journey.repository, clients=author_clients(AuthorFake()), clock=LATER)
-    return wf.SETTLED, CAUSES_UNACCOUNTED
+    return wf.SETTLED, authoring.CAUSE_MATCHES_RESERVED
 
 
 def _exit_one_hypothesis(journey, monkeypatch):
@@ -1397,7 +1152,7 @@ def _exit_continue_without(journey, _monkeypatch):
 
 _EXITS = {
     "newer_grade": _exit_newer_grade,
-    "causes_not_accounted_for": _exit_causes_not_accounted_for,
+    "cause_matches_reserved": _exit_cause_matches_reserved,
     "one_hypothesis": _exit_one_hypothesis,
     "diagnosis_timeout": _exit_timeout,
     "refused": _exit_refused,
@@ -1409,7 +1164,7 @@ _EXITS = {
 
 @pytest.mark.parametrize("name", sorted(_EXITS))
 def test_f7_verify_every_exit_closes_what_an_interrupted_run_prepared(journey, monkeypatch, name):
-    """Codex's two reproductions (newer grade, causes not accounted for), and every other way out."""
+    """Codex's two reproductions (newer grade, the settled exit before the probe lane), and every other way out."""
 
     first = _crash_after_the_pin(journey, monkeypatch)
     repository = journey.repository
@@ -1426,7 +1181,7 @@ def test_f7_verify_every_exit_closes_what_an_interrupted_run_prepared(journey, m
                                clock=LATER).action == "continue"
 
 
-@pytest.mark.parametrize("name", ["newer_grade", "causes_not_accounted_for"])
+@pytest.mark.parametrize("name", ["newer_grade", "cause_matches_reserved"])
 @pytest.mark.parametrize("dies_in", ["end_probe_presentation", "update_causal_probe_candidate",
                                      "update_probe_episode_status"])
 def test_f7_verify_a_crash_in_the_exit_leaves_all_of_it_open_for_the_next_run(journey, monkeypatch, name, dies_in):
@@ -1454,9 +1209,10 @@ def test_f7_verify_a_crash_in_the_exit_leaves_all_of_it_open_for_the_next_run(jo
 def test_f7_verify_the_settled_exit_adds_no_question_of_its_own(journey, monkeypatch):
     first = _crash_after_the_pin(journey, monkeypatch)
     repository = journey.repository
+    from learnloop.followup_run import authoring
+
     fake = AuthorFake()
-    _no_record(monkeypatch)
-    _exam_elsewhere(monkeypatch)
+    monkeypatch.setattr(authoring, "causes_match_reserved", lambda *_a, **_k: True)
     run_jobs(load_vault(journey.paths.root), repository, clients=author_clients(fake), clock=LATER)
     assert fake.calls == 0
     assert identity.generated_probe_ids(repository) == {first.practice_item_id}
