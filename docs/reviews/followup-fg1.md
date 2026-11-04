@@ -384,3 +384,106 @@ tests/test_followup_migration.py
 - R15: "The Decider reaching OpenRouter on the key's presence alone predates FG1 and has gone to the owner. Not changed here."
 
 Verify job `20261104-032603-9wdSdZ` (gpt-6.1-sol) confirmed F7 and F9 fixed: VERDICT CLEAN. The gate, the smoke and what the owner runs follow here at landing.
+
+### Gate
+
+At `20fab245eb`, with main at `9780ca3baf`.
+
+| Lane | Result |
+|---|---|
+| `lint-imports --no-cache` | 42 kept, 0 broken |
+| Full `pytest -n 8` | 25900 passed, 0 failed, 90 skipped, 47 xfailed (47:36) |
+| Durability (`-m durability`) | 399 passed, 1 skipped |
+| Owner lane, on fresh backup-API copies of `owner-copies-mvp035` | 83 passed, the 2 known failures (`test_activity_backfill...duration`, `placement_fixture_copies[arxiv_v2]`), 4 skipped |
+| Desktop | typecheck exit 0; vitest 2731 passed; `frontend:build` exit 0; `cargo check` exit 0 |
+| Mobile | `npm ci`, typecheck and build exit 0 |
+| Generators | DB reference 385 table notes, errors `[]`; desktop 318 TS and 6 Rust notes; module catalog 1188 notes and 66 package maps; vault validation passes |
+| Early checks | Label audit `tests/test_measurement_state_labels.py`, `tests/test_cli_help_snapshot.py`, the process-launch list in `tests/test_codex_lockdown_round3.py`, frozen cycles in `lint-imports` |
+
+No process launch was added, so the allowlist needed no entry. Earlier records named `test_sidecar_measurement.py` as the label audit, which was wrong.
+
+### Smoke
+
+Fresh backup-API copies of `~/learnloop-backups/mvp043-20261103-copy`, every AI route at `127.0.0.1:9`, main and branch code from `git archive` with `migrations/`. All three copies are at migration 238.
+
+**Before upgrading.** The branch's primary load applies 239 to 241. Today, the plan, its steps and every row written are identical to main on all three, ids and times aside.
+
+**Upgrade.** `learnloop upgrade --to mvp-0.45` goes straight from mvp-0.43, with no notes. `rebuild-derived-state` then succeeds: 3 LOs and 3 attempts (`arxiv_v2`), 8 and 70 (`linear_algebra`), 1 and 3 (`probability`).
+
+**Switch off, against main at mvp-0.44.** `arxiv_v2` and `probability` are identical. `linear_algebra` differs by one floor draw, because the boundary key hashes the version string, so the seed differs with the same distribution. With the seed pinned on both sides, all three are identical.
+
+**The journeys.** Real items, a fake grader, diagnoser and author, plan arms forced where the journey names one. 47 of 47 pass, each on all three copies except real causes, which only probability has:
+
+| Journey | With a plan | No plan |
+|---|---|---|
+| Ask now: grade at once; answer and causes held; line; Preparing; probe next; answer it; feedback released with its link back; Next goes on | pass | pass |
+| Wait: the visible line, feedback released, Next continues, the probe at the boundary | pass | n/a |
+| `no_intervention` | pass | n/a |
+| Continue without it, ready and while preparing | pass | pass |
+| Plan stopped, plan completed, the queue with a plan open: Next opens the probe (R12) | pass | n/a |
+| Real causes on `probability`: the real Oct 25 attempt, its 3 real causes reaching the author | pass | pass |
+| Author route not ready | pass | pass |
+| Author at `:9` with a dummy key | pass | not run |
+| Every route at `:9`, a self-grade, no fake | pass | not run |
+
+The server's replies are what these cover. The matrix adds 60 cells on the fixture, and vitest covers how the screen acts on each reply.
+
+**Routes down.** The author at `:9` makes 2 job runs and at most 12 connects, then the failure line; feedback is released and Next goes on. Every route at `:9`: the miss settles on the practice lane, with feedback released and Next going on.
+
+**Doors,** on all 26 journeys that prepared a probe: open, practice item, contract, Today, the plan's next step, due queue, teacher, the reserved exam pool, `find_practice`, MCP, the phone, state sync and rebuild replay never served it. AD was checked on the 19 with a plan.
+
+- `find_practice` returned 5 results on `linear_algebra` and 2 on `probability`; 0 on `arxiv_v2`, which therefore proves nothing there.
+- The exam pool's exclusion does real work: with the identity set emptied, a ready probe becomes a candidate on all three copies (3 to 4, 1 to 2, 0 to 1).
+
+**Shadow.** After upgrade and rebuild, 0/0/0 on all three: facet, mastery and schedule unchanged at 4/34/32, 76/21/99 and 2/18/77. After the journeys: 0/0/0 on 26, the ones that rebuild. On the other 21, R14's difference only: one mastery row and one schedule row, at most 3e-8 in `logit_mean`, 9e-8 in `logit_variance`, 3e-8 in retrievability, 1e-7 in stability and 1 second in `due_at`. No other field moved.
+
+**The lanes.**
+
+| | `arxiv_v2` | `linear_algebra` | `probability` |
+|---|---|---|---|
+| Real history: misses, last 60 days | 3, 0 | 16, 0 | 3, 1 |
+| Probe lane | 0 | 0 | 1 (the last 60 days' one) |
+| Practice, no open factor | 3 | 6, plus 9 exam sittings | 2 |
+| Practice, one hypothesis | 0 | 1 (diagnostic block) | 0 |
+| Fresh misses reaching a question | 32 of 32 | 19 of 20 | 45 of 45 |
+| Stopped by the reserved-question check | 0 | 0 | 0 |
+| Topics with a legacy `pending_items` episode | 31 of 34 | 9 of 21 | 18 of 18 |
+
+What is fake in the fresh rows: the grader, the diagnoser, the author and the causes' words, and every diagnosis is built to name two rivals. So they show the path works, not how often a real diagnosis gets there. Real: the items, topics, reserved list, history and code. Linear_algebra's one miss is the deferral's exit after skipped probes (see the Codex review record). On the real history, 12 ordinary misses have 1 probe, and most never had a factor.
+
+**R4.** `probability` has 10 `pi_gen_` items, all inactive and never attempted, so none can be served. The other copies have none.
+
+**Time against main,** in a second process on a quiet machine, ms, medians of the second round (minimum in brackets):
+
+| | `linear_algebra` main, branch | `probability` main, branch | `arxiv_v2` main, branch |
+|---|---|---|---|
+| Today | 176 (163), 182 (165) | 151 (124), 150 (127) | 115 (113), 118 (117) |
+| Next (`next_plan_item`) | 276 (264), 285 (282) | 204 (201), 222 (219) | 220 (215), 238 (233) |
+| Submit on a miss, fake grader | 194 (188), 199 (188) | 196 (179), 181 (179) | 179 (178), 181 (177) |
+
+Next costs about 9 to 18 ms more, consistently. Today is within main's own spread, and so is the reply to a submit. Generation runs on its own worker, so no reply waits on it.
+
+**State per prepared probe,** from the fresh misses: 21 to 23 rows and 37 to 60 KB, of which write provenance is 20 to 42 KB, plus one item file. So 50 prepared probes are about 2 to 3 MB.
+
+**The rest.** New receipts from a real model: 0. The route-down journeys record failed attempts at `:9`. Non-loopback sockets in the final run: 0, and no Codex process. Earlier in the smoke, about 70 attempts to `openrouter.ai` were refused by the guard, with nothing delivered (the Codex review record has the cause).
+
+### What the owner runs
+
+Close the desktop app, the MCP server and the phone page first. Then, for each vault:
+
+```
+learnloop upgrade --to mvp-0.45 --vault ~/learnloop-vaults/<name>
+learnloop rebuild-derived-state --vault ~/learnloop-vaults/<name>
+```
+
+The rebuild restores the `H_OTHER` arm on real open factors, and the lane restores it anyway. Rebuild the desktop app, since `FeedbackScreen` changed, and restart the phone host. No dependency changed.
+
+### Open items
+
+- The desktop screens have not been seen in a real window.
+- Real latency, calls per probe and vault growth need a run on a copy.
+- How often a real diagnosis names two or more causes is unmeasured. It decides how often R9 spends a call on a weak case.
+- The router declines weak cases only with a plan and answering models. With no plan there is no draw.
+- At shingle order 6, 21 of 84 ordinary `linear_algebra` items would match a reserved question as a new question, even after both subtractions (R10). How often a real author recovers on the retry is unmeasured.
+- R14's difference is in the follow-up batch. R15 is with the owner.
+- FG1c next, then A7.
