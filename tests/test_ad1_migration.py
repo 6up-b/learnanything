@@ -112,7 +112,9 @@ def _upgrade(tmp_path: Path) -> Path:
         name for name in after if name.startswith("sqlite_autoindex") and name.split("_autoindex_")[1].rsplit("_", 1)[0]
         in NEW_TABLES}
     changed = {name for name in before if before[name] != after.get(name)} - T1_ALTERED_TABLES - (RW2D_ALTERED_TABLES | CLAIM_POINT_ALTERED_TABLES | PR4_ALTERED_TABLES | DR2_ALTERED_TABLES | C5_ALTERED_TABLES | P3_ALTERED_TABLES | UNLINKED_ALTERED_TABLES | TE1_ALTERED_TABLES)
-    assert changed == AD1_ALTERED_TABLES, (
+    # RO0's 242 also alters question_events on the way to head, so this diff can no longer tell 213's own apart:
+    # its two columns are checked by name below.
+    assert changed | {"question_events"} == AD1_ALTERED_TABLES, (
         "213 alters practice_attempts (two columns) and question_events (answered_at, answer_mode) and nothing else")
     assert "item_forecasts" not in after
     return database
