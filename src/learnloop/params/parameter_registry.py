@@ -244,6 +244,8 @@ MODULE_INVENTORY: dict[str, str] = {
     "figure_power": "src/learnloop/figures/power.py",
     "figure_foreground": "src/learnloop/figures/foreground.py",
     "concept_animation": "src/learnloop/content/authoring/concept_animation.py",
+    # FG1 §8: the leakage gate's shingle order now also decides whether a probe stops, and its span cap.
+    "practice_leakage": "src/learnloop/content/authoring/practice_leakage.py",
     # Local contextual retrieval P2 (spec §7.1, §9.3, §9.6): the query student's pins and
     # guardrails, the decision core's computation budgets, the data and schedule budgets. No
     # quality margin or ranking weight is a constant: adoption, the screen's choice and whether
@@ -305,6 +307,17 @@ def _reg_const(
         )
     )
 
+
+# The leakage gate (ING M8, and FG1 §8's reserved-question check). Both keep.
+_reg_const("practice_leakage:DEFAULT_SHINGLE_N", "constraint", kind="structural", owner="practice_leakage",
+           rationale="keep: a protection bound, not a learner-model weight. Six contiguous words is the ingest gate's "
+                     "existing order. A false match costs one question on one miss, a miss a leaked exam question, so "
+                     "it errs short. Leave-one-out on one real vault: 21 of 84 ordinary items would match at 6, 6 at 8, "
+                     "2 at 10, 0 at 12.")
+_reg_const("practice_leakage:_SPAN_TEXT_CAP", "constraint", kind="structural", owner="practice_leakage",
+           rationale="keep: a context budget for a cited span; the gate reads the inventory, not these snippets.")
+_reg_const("practice_leakage:_SEMANTIC_RELATION_PRIORITY", "version", kind="structural", owner="practice_leakage",
+           rationale="keep: an ordering of the source-link relations, an identity and not a weight.")
 
 # Local contextual retrieval P1 module constants (all keep: identities, guardrails, budgets).
 _reg_const("local_pins:MODEL_DIMENSIONS", "version", kind="structural", owner="local_pins",
