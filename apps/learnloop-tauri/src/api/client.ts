@@ -125,6 +125,8 @@ import type {
   CapabilityGridResult,
   FacetEvidenceTimelineDto,
   FeedbackBundle,
+  FollowupDto,
+  FollowupNextDto,
   DiagnosisCardDto,
   DiagnosisCardResponse,
   EscalationResponse,
@@ -754,6 +756,15 @@ export const api = {
   // queue (and feedback's auto-advance, which reads the same entry) is stale.
   triggerFollowup: (attemptId: string) =>
     mutating([TAG.queue], call<FeedbackBundle>("trigger_followup", { input: { attemptId } })),
+  // FG1 §6: the workflow's read, Next, and the two ways out of a hold.
+  followupStatus: (attemptId: string) =>
+    call<{ enabled: false } | ({ enabled: true } & FollowupDto)>("followup_status", { input: { attemptId } }),
+  followupNext: (attemptId: string) =>
+    mutating([TAG.queue], call<FollowupNextDto>("followup_next", { input: { attemptId } })),
+  followupContinueWithout: (attemptId: string) =>
+    mutating([TAG.queue], call<{ continued: boolean }>("followup_continue_without", { input: { attemptId } })),
+  followupShowAnyway: (attemptId: string) =>
+    call<{ released: boolean }>("followup_show_anyway", { input: { attemptId } }),
   rateFollowup: (attemptId: string, useful: boolean) =>
     call<FeedbackBundle>("rate_followup", { input: { attemptId, useful } }),
   reportUnresolvedCause: (input: {

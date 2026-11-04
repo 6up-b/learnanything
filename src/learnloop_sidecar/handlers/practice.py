@@ -552,7 +552,8 @@ def get_probe_contract(ctx: SidecarContext, params: ProbeContractInput) -> dict[
                 # display: ended, and the item is ordinary practice (round 7).
                 return versioned({"active": False, "reason": PROBE_ITEM_ANSWER_SHOWN})
             contract = episode_contract(vault, repository, item.learning_object_id) or {}
-            return versioned(_with_intent_check(vault, repository, item.id, {"active": True, "presentation_id": active.id, **contract}))
+            why = {"followup_why": "This question comes from your last answer."} if followup_row is not None else {}
+            return versioned(_with_intent_check(vault, repository, item.id, {"active": True, "presentation_id": active.id, **contract, **why}))
         if validation.reason == "item_mismatch":
             return versioned({"active": False, "reason": "different_probe_assignment"})
         return versioned({"active": False, "reason": validation.reason or "stale_presentation"})

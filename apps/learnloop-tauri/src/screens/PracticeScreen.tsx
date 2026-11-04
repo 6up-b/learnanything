@@ -1687,6 +1687,7 @@ export function PracticeScreen({
             <div className="hint-banner" style={{ display: "flex", flexDirection: "column", gap: 8 }}>
               <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
                 <Pill tone="cyan">Diagnostic check</Pill>
+                {probe?.followupWhy ? <span data-testid="followup-why" style={{ marginLeft: 8 }}>{probe.followupWhy}</span> : null}
                 {probe?.valueStopping ? (
                   <span style={{ fontFamily: FONT_MONO, fontSize: 12, color: COLOR.amber }}>
                     question {probe?.observationNumber ?? 1} · continues while the next question is worth your time

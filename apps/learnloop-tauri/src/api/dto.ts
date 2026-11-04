@@ -1371,6 +1371,8 @@ export interface ProbeBlockEndDto {
 export interface ProbeContractDto {
   version: number;
   active: boolean;
+  /** FG1 §6.3: why this generated question is here. */
+  followupWhy?: string | null;
   reason?: string;
   presentationId?: string;
   episodeId?: string;
@@ -1608,6 +1610,8 @@ export interface FeedbackBundle {
   /** Canonical-source sections that spawned this item (source-review panel). */
   sourceRefs: ResolvedSourceRefDto[];
   followupQueued: boolean;
+  /** FG1: the follow-up workflow's read; absent when no workflow owns this attempt. */
+  followup?: FollowupDto;
   // Non-null when this attempt is itself a follow-up (drives the rating strip).
   followupSource?: FollowupSourceDto | null;
   followupRating?: FollowupRatingDto | null;
@@ -8718,6 +8722,8 @@ export interface DailyPlanBodyDto {
 export interface DailyPlanDto {
   version: number;
   enabled: boolean;
+  /** FG1 §6.4: the router's decision on the block in hand, while `ui.show_router_decisions` is on. */
+  routerDecision?: RouterDecisionDto | null;
   /** Present when the plan is off: "plan_disabled" or "algorithm_version". */
   reason?: string;
   headlineEnabled?: boolean;
@@ -10561,4 +10567,39 @@ export interface LessonViewDto {
   shownNow?: unknown[];
   notices?: string[];
   vaultChanged?: boolean;
+}
+
+
+/** FG1 §6.4: the router's decision in one plain line. Display only. */
+export interface RouterDecisionDto {
+  decisionId: string;
+  line: string;
+  details: {
+    cardSummary: string | null;
+    models: Array<{ name: string; status?: string | null; answer?: unknown }>;
+    rationale: string | null;
+    fallback: string | null;
+  };
+}
+
+/** FG1 §6: what the workflow owning an attempt says to its feedback screen. */
+export interface FollowupDto {
+  workflowId: string;
+  state: "pending" | "ready" | "waiting" | "refused" | "failed" | "skipped" | "settled";
+  lane?: string | null;
+  held: boolean;
+  line: string | null;
+  chosenRef?: string | null;
+  canShowAnyway: boolean;
+  canContinueWithout: boolean;
+  shownAnyway: boolean;
+  routerDecision?: RouterDecisionDto | null;
+}
+
+export interface FollowupNextDto {
+  version: number;
+  action: "wait" | "open" | "continue";
+  line: string | null;
+  practiceItemId: string | null;
+  presentationId: string | null;
 }

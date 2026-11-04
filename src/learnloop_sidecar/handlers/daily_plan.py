@@ -191,7 +191,7 @@ def _view(env: PlanEnv, record: Any, step: dict[str, Any] | None, context: Any) 
         panel["items_cap"] = record.split.get("items_cap")
         panel["planned_items"] = record.item_count()
         panel["planned_minutes"] = round(record.minutes_planned(), 4)
-    return plan_view(
+    view = plan_view(
         env,
         record,
         context=context,
@@ -199,6 +199,24 @@ def _view(env: PlanEnv, record: Any, step: dict[str, Any] | None, context: Any) 
         reentry_panel=panel,
         streak=env.repository.session_day_streak(),
     )
+    return {**view, **_router_decision_line(env, record)}
+
+
+def _router_decision_line(env: PlanEnv, record: Any) -> dict[str, Any]:
+    """FG1 §6.4: the router's decision on the block in hand, for debugging and calibration.
+    Absent with the switch or ``ui.show_router_decisions`` off, so the reply stays as it was."""
+
+    from learnloop.followup_serve.gates import generate_and_serve_on
+
+    if not generate_and_serve_on(env.vault.config):
+        return {}
+    from learnloop.followup_run.decision_view import decision_view, show_router_decisions
+
+    if not show_router_decisions(env.vault):
+        return {}
+    current = record.current_block()
+    decision = decision_view(env.repository, current.decision_ref) if current is not None else None
+    return {"routerDecision": to_camel(decision)} if decision is not None else {}
 
 
 def _current_view(env: PlanEnv) -> dict[str, Any]:

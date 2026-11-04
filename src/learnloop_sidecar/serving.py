@@ -146,9 +146,13 @@ def refuse_generated_probe_door(ctx_origin: RequestOrigin | None, repository: An
         refusal = identity.GENERATED_PROBE_RESERVED
     else:
         row = followup_workflow.workflow_of_item(repository, item.id)
-        owned = row is not None and row["state"] == followup_workflow.READY
-        if row is not None and not owned and identity.door_refusal(repository, item.id, workflow_id=row["id"]) is None:
-            refusal = identity.GENERATED_PROBE_RESERVED
+        state = repository.practice_item_state(item.id)
+        if row is not None and row["state"] != followup_workflow.READY:
+            # Its workflow doesn't offer it now: waiting, skipped, or already answered.
+            burned = identity.door_refusal(repository, item.id, workflow_id=row["id"]) is not None
+            refusal = identity.GENERATED_PROBE_CLOSED if burned else identity.GENERATED_PROBE_RESERVED
+        elif state is not None and state.last_attempt_at is not None:
+            refusal = identity.GENERATED_PROBE_CLOSED
         else:
             claim = identity.claim_serve(
                 repository, item.id, surface=SERVING_SURFACE,

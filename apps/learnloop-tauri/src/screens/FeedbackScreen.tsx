@@ -38,7 +38,7 @@ import { CompareMethods } from "./feedback/CompareMethods";
 import { screenLeavesKey } from "../app/keymap";
 import { useNextQueueItem } from "../app/autoAdvance";
 import { nextPlanKeyLabel, useNextPlanStep } from "../app/dailyPlan";
-import type { PlanStepDto } from "../api/dto";
+import type { FollowupDto, FollowupNextDto, PlanStepDto } from "../api/dto";
 import { MarkdownMath } from "../render/MarkdownMath";
 import {
   CausalFeedbackPanel,
@@ -48,6 +48,7 @@ import {
 } from "../components/CausalAttribution";
 import { CommonRepairCard, GuidedRedoAffordance } from "../components/RepairAffordances";
 import { DiagnosisCard, useDiagnosisCard } from "../components/DiagnosisCard";
+import { FollowupPanel } from "./feedback/FollowupPanel";
 import { errorMessage } from "../errors";
 import {
   FIX_MIX_UP_LABEL,
@@ -1582,7 +1583,40 @@ export function FeedbackScreen({
   }, []);
   const resolveNext = nextItem.resolve;
   const resolvePlanStep = nextPlanStep.resolve;
+  // FG1 §6: the workflow that owns this attempt, read from the bundle and polled while it
+  // may still change. Next waits only while a question may come, and says so.
+  const [followupRead, setFollowup] = useState<FollowupDto | null>(null);
+  const [nextWaiting, setNextWaiting] = useState(false);
+  useEffect(() => {
+    setFollowup(feedback?.followup ?? null);
+    setNextWaiting(false);
+  }, [feedback?.attemptId]); // eslint-disable-line react-hooks/exhaustive-deps
+  // The bundle's own read on the first render, or the answer's exposure would see no hold.
+  const followup =
+    followupRead && followupRead.workflowId === feedback?.followup?.workflowId
+      ? followupRead
+      : feedback?.followup ?? null;
+  const followupRef = useRef<FollowupDto | null>(null);
+  followupRef.current = followup;
   const advance = useCallback(async () => {
+    const owner = followupRef.current;
+    if (owner && (owner.state === "pending" || owner.state === "ready")) {
+      let next: FollowupNextDto | null = null;
+      try {
+        next = await trackQueueWrite(api.followupNext(attemptId));
+      } catch {
+        next = null; // never strands: the plan or the queue goes on
+      }
+      if (next?.action === "wait") {
+        setNextWaiting(true);
+        return;
+      }
+      setNextWaiting(false);
+      if (next?.action === "open" && next.practiceItemId && onOpenNext) {
+        onOpenNext(next.practiceItemId, null);
+        return;
+      }
+    }
     if (planMode && onPlanStep) {
       if (advancingRef.current) return;
       advancingRef.current = true;
@@ -1623,7 +1657,58 @@ export function FeedbackScreen({
     setAdvancing(false);
     if (head) onOpenNext(head.practiceItemId, head.schedulerCandidateId ?? null);
     else onNext();
-  }, [autoAdvance, onOpenNext, onNext, resolveNext, planMode, onPlanStep, resolvePlanStep]);
+  }, [autoAdvance, onOpenNext, onNext, resolveNext, planMode, onPlanStep, resolvePlanStep, attemptId, trackQueueWrite]);
+  const followupOpen = followup !== null && (followup.state === "pending" || followup.held);
+  useEffect(() => {
+    if (!followupOpen && !nextWaiting) return undefined;
+    let stopped = false;
+    const timer = window.setInterval(() => {
+      // While Next waits, ask Next: it is what settles a diagnosis that timed out.
+      const asked = nextWaiting ? api.followupNext(attemptId).then(() => undefined, () => undefined) : Promise.resolve();
+      void asked
+        .then(() => api.followupStatus(attemptId))
+        .then((status) => {
+          if (stopped || !status.enabled) return;
+          const { enabled: _enabled, ...rest } = status;
+          setFollowup(rest as FollowupDto);
+        })
+        .catch(() => { /* the screen keeps its last read, and both exits stay */ });
+    }, 2000);
+    return () => { stopped = true; window.clearInterval(timer); };
+  }, [attemptId, followupOpen, nextWaiting]);
+  // What was held comes back through one fresh read, which charges it on the actual disclosure.
+  const wasHeld = useRef(false);
+  useEffect(() => {
+    if (followup?.held) wasHeld.current = true;
+    if (followup && !followup.held && wasHeld.current) {
+      wasHeld.current = false;
+      api.getFeedback(attemptId).then(setFeedback).catch(() => undefined);
+    }
+  }, [followup, attemptId]);
+  useEffect(() => {
+    if (nextWaiting && followup && followup.state !== "pending") {
+      setNextWaiting(false);
+      void advance();
+    }
+  }, [nextWaiting, followup, advance]);
+  const continueWithout = useCallback(async () => {
+    await trackQueueWrite(api.followupContinueWithout(attemptId)).catch(() => undefined);
+    setNextWaiting(false);
+    const status = await api.followupStatus(attemptId).catch(() => null);
+    if (status?.enabled) {
+      const { enabled: _enabled, ...rest } = status;
+      setFollowup(rest as FollowupDto);
+    }
+    void advance();
+  }, [attemptId, advance, trackQueueWrite]);
+  const showAnyway = useCallback(async () => {
+    await api.followupShowAnyway(attemptId).catch(() => undefined);
+    const status = await api.followupStatus(attemptId).catch(() => null);
+    if (status?.enabled) {
+      const { enabled: _enabled, ...rest } = status;
+      setFollowup(rest as FollowupDto);
+    }
+  }, [attemptId]);
   const goBack = useCallback(() => {
     advanceGeneration.current += 1;
     advancingRef.current = false;
@@ -2277,7 +2362,9 @@ export function FeedbackScreen({
       notRightRecorded: canSayNotRight ? card?.recordedResponse === "diagnosis_wrong" : causalNotRight,
     };
     const nextLabel =
-      origin === "reader"
+      nextWaiting
+        ? "preparing a question…"
+        : origin === "reader"
         ? "back to the book"
         : planMode
           ? nextPlanKeyLabel(advancing, nextPlanStep.step)
@@ -2303,6 +2390,10 @@ export function FeedbackScreen({
         <div className="screen-scroll" style={{ padding: "14px 24px 20px" }}>
           <IntentCheckFeedback check={f.intentCheck} onOpenStudied={onOpenStudied} />
           <ClaimCheckFeedback check={f.claimCheck} />
+          {followup ? (
+            <FollowupPanel followup={followup} nextWaiting={nextWaiting}
+              onContinueWithout={() => void continueWithout()} onShowAnyway={() => void showAnyway()} />
+          ) : null}
           {/* Reader CA1: the locator, the original page and the problem as printed. */}
           <PrintedAfterFeedback practiceItemId={item?.id ?? null} altText={item?.prompt ?? ""}
             onOpenInReader={onOpenStudied ? (page) => onOpenStudied(printedPageInReader(page)) : undefined} />
@@ -2345,7 +2436,8 @@ export function FeedbackScreen({
             detailsOpen={detailsOpen}
             onToggleDetails={() => setDetailsOpen((open) => !open)}
             recordAnswerDisplay={api.recordAnswerDisplay}
-            answerCovered={answerCovered}
+            // FG1 §6.0: held means off screen, with no display row.
+            answerCovered={answerCovered || followup?.held === true}
           />
           {/* Reader RW2c: "compare methods ▸" after a correct workbench Submit,
               only while workbench.compare_methods_enabled is on. */}
@@ -2527,7 +2619,7 @@ export function FeedbackScreen({
                     key={`${item.id}:${item.prompt}`}
                     practiceItemId={item.id}
                     prompt={item.prompt}
-                    expectedAnswer={typeof item.expectedAnswer === "string" ? item.expectedAnswer : null}
+                    expectedAnswer={followup?.held ? null : typeof item.expectedAnswer === "string" ? item.expectedAnswer : null}
                     onError={onError}
                     onChanged={() => {
                       api.getPracticeItem(item.id).then(setItem).catch((error) => {
@@ -2810,6 +2902,10 @@ export function FeedbackScreen({
   return (
     <div className="screen">
       <div className="screen-scroll" style={{ padding: "14px 24px 20px" }}>
+        {followup ? (
+          <FollowupPanel followup={followup} nextWaiting={nextWaiting}
+            onContinueWithout={() => void continueWithout()} onShowAnyway={() => void showAnyway()} />
+        ) : null}
 
         {/* breadcrumb */}
         <div style={{
@@ -2897,7 +2993,7 @@ export function FeedbackScreen({
               key={`${item.id}:${item.prompt}`}
               practiceItemId={item.id}
               prompt={item.prompt}
-              expectedAnswer={typeof item.expectedAnswer === "string" ? item.expectedAnswer : null}
+              expectedAnswer={followup?.held ? null : typeof item.expectedAnswer === "string" ? item.expectedAnswer : null}
               onError={onError}
               onChanged={() => {
                 api.getPracticeItem(item.id).then(setItem).catch((error) => {

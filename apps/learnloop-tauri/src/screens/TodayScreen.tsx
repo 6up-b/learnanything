@@ -1,3 +1,4 @@
+import { RouterDecisionLine } from "./feedback/FollowupPanel";
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import { api } from "../api/client";
 import { startSessionOrAsk } from "../app/sessionHandoff";
@@ -727,6 +728,9 @@ export function TodayScreen({
       <div style={{ display: "flex", flexDirection: "column", flex: 1, minHeight: 0 }}>
         <InboxStrip subjects={subjects} onAsk={onAsk} />
         {suggestionCard}
+        {planData.routerDecision ? (
+          <div style={{ padding: "0 24px" }}><RouterDecisionLine decision={planData.routerDecision} /></div>
+        ) : null}
         <DailyPlanView
           data={planData}
           headline={headlineQuery.data ?? null}
