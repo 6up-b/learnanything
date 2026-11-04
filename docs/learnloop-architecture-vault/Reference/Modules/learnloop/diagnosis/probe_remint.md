@@ -7,8 +7,8 @@ version: "1.0.0"
 source_path: "src/learnloop/diagnosis/probe_remint.py"
 source_paths:
   - "src/learnloop/diagnosis/probe_remint.py"
-source_commit: "b322ef2e9b5cebc241b612e4963a5aaf1a37f99a"
-source_commit_timestamp: "2026-08-20T18:04:29-04:00"
+source_commit: "b45e4414cdb7963772b12ecd3c8825b73e93266a"
+source_commit_timestamp: "2026-11-03T21:51:14-05:00"
 source_worktree_state: "clean"
 generated: true
 generated_at: "2026-11-02"
@@ -50,13 +50,13 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/diagnosis/probe_remint.py](../../../../../../src/learnloop/diagnosis/probe_remint.py) |
-| Source lines | 318 |
+| Source lines | 326 |
 | Owning package | [[Reference/Modules/learnloop/diagnosis/_package|learnloop.diagnosis]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `b322ef2e9b5cebc241b612e4963a5aaf1a37f99a` |
-| Commit timestamp | `2026-08-20T18:04:29-04:00` |
+| Source commit | `b45e4414cdb7963772b12ecd3c8825b73e93266a` |
+| Commit timestamp | `2026-11-03T21:51:14-05:00` |
 
 ## Public API
 
@@ -92,6 +92,7 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 
 - [[Reference/Modules/learnloop/clock|learnloop.clock]] — imports `Clock`, `utc_now_iso`; calls `utc_now_iso`
 - [[Reference/Modules/learnloop/db/repositories|learnloop.db.repositories]] — imports `Repository`
+- [[Reference/Modules/learnloop/followup_serve/identity|learnloop.followup_serve.identity]] — imports `is_generated_probe`; calls `is_generated_probe`
 - [[Reference/Modules/learnloop/ids|learnloop.ids]] — imports `new_ulid`; calls `new_ulid`
 - [[Reference/Modules/learnloop/substrate/canonical_projection|learnloop.substrate.canonical_projection]] — imports `surface_group_id`; calls `surface_group_id`
 - [[Reference/Modules/learnloop/vault/hashes|learnloop.vault.hashes]] — imports `practice_item_hash`; calls `practice_item_hash`
@@ -116,6 +117,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
+- [tests/test_followup_single_use.py](../../../../../../tests/test_followup_single_use.py) — direct import
+  - `test_remint_refuses_the_identity`
 - [tests/test_probe_remint.py](../../../../../../tests/test_probe_remint.py) — direct import
   - `test_remint_guards`
   - `test_remint_is_idempotent_and_points_at_the_existing_remint`

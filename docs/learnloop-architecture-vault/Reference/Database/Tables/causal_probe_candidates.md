@@ -3,13 +3,13 @@ title: "causal_probe_candidates"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "9995860ab7dd149c0862dd57a7f483c3ac4e7815"
-source_commit_timestamp: "2026-11-03T19:35:50-05:00"
+source_commit: "2cfe5cce75c95910c18c0105c36d952e15ab11cc"
+source_commit_timestamp: "2026-11-03T23:34:25-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite causal_probe_candidates"
   - "table causal_probe_candidates"
-schema_head: 240
+schema_head: 241
 table_name: "causal_probe_candidates"
 table_role: "workflow"
 functionality_status: "active"
@@ -122,6 +122,7 @@ Indexes and uniqueness:
 - `tests/test_causal_orchestrator.py`
 - `tests/test_causal_probe_commissioning.py`
 - `tests/test_causal_shadow_selection.py`
+- `tests/test_followup_generate_e2e.py`
 - `tests/test_voi_forecasts.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.

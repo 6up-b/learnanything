@@ -196,6 +196,7 @@ The authoritative system-level explanation remains in [[AI Architecture]], [[Arc
 - [[Reference/Modules/learnloop/figures/prefetch|learnloop.figures.prefetch]] — imports `render_structured_prompt`; statically calls `render_structured_prompt`
 - [[Reference/Modules/learnloop/figures/rich|learnloop.figures.rich]] — imports `render_structured_prompt`; statically calls `render_structured_prompt`
 - [[Reference/Modules/learnloop/figures/routes|learnloop.figures.routes]] — imports `IMAGE_INPUT`, `ISOLATED_TURN`, `render_structured_prompt`; statically calls `render_structured_prompt`
+- [[Reference/Modules/learnloop/followup_run/authoring|learnloop.followup_run.authoring]] — imports `execute_structured_operation`; statically calls `execute_structured_operation`
 - [[Reference/Modules/learnloop/hints/map_builder|learnloop.hints.map_builder]] — imports `render_structured_prompt`; statically calls `render_structured_prompt`
 - [[Reference/Modules/learnloop/hints/outcome|learnloop.hints.outcome]] — imports `render_structured_prompt`; statically calls `render_structured_prompt`
 - [[Reference/Modules/learnloop/hints/writer|learnloop.hints.writer]] — imports `render_structured_prompt`; statically calls `render_structured_prompt`
@@ -265,7 +266,7 @@ Use this module in context through:
 - [[Configure AI Providers]]
 - [[Process Model Output]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/adaptive_difficulty/feature_audit|learnloop.adaptive_difficulty.feature_audit]], [[Reference/Modules/learnloop/adaptive_difficulty/outside|learnloop.adaptive_difficulty.outside]], [[Reference/Modules/learnloop/adaptive_difficulty/relatedness|learnloop.adaptive_difficulty.relatedness]], [[Reference/Modules/learnloop/ai/client|learnloop.ai.client]], [[Reference/Modules/learnloop/ai/providers/chatgpt_plan|learnloop.ai.providers.chatgpt_plan]] and 107 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/adaptive_difficulty/feature_audit|learnloop.adaptive_difficulty.feature_audit]], [[Reference/Modules/learnloop/adaptive_difficulty/outside|learnloop.adaptive_difficulty.outside]], [[Reference/Modules/learnloop/adaptive_difficulty/relatedness|learnloop.adaptive_difficulty.relatedness]], [[Reference/Modules/learnloop/ai/client|learnloop.ai.client]], [[Reference/Modules/learnloop/ai/providers/chatgpt_plan|learnloop.ai.providers.chatgpt_plan]] and 108 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 

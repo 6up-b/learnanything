@@ -7,8 +7,8 @@ version: "1.0.0"
 source_path: "src/learnloop/instructional/needs.py"
 source_paths:
   - "src/learnloop/instructional/needs.py"
-source_commit: "8e8f41d2ac4eb8b5ec5c23bef529c67de7ce38a7"
-source_commit_timestamp: "2026-10-13T16:04:01-04:00"
+source_commit: "d981d1d121b9ace371dccfa101339e6e45c59c67"
+source_commit_timestamp: "2026-11-03T21:58:20-05:00"
 source_worktree_state: "clean"
 generated: true
 generated_at: "2026-11-02"
@@ -55,8 +55,8 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `8e8f41d2ac4eb8b5ec5c23bef529c67de7ce38a7` |
-| Commit timestamp | `2026-10-13T16:04:01-04:00` |
+| Source commit | `d981d1d121b9ace371dccfa101339e6e45c59c67` |
+| Commit timestamp | `2026-11-03T21:58:20-05:00` |
 
 ## Public API
 
@@ -91,6 +91,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 > “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
 
 - [[Reference/Modules/learnloop/cli/app|learnloop.cli.app]] — imports `fulfil_need_from_sources`, `pending_causal_decision`, `source_first_active`; statically calls `fulfil_need_from_sources`, `pending_causal_decision`, `source_first_active`
+- [[Reference/Modules/learnloop/followup_run/jobs|learnloop.followup_run.jobs]] — imports `fulfil_need_from_sources`, `pending_causal_decision`; statically calls `fulfil_need_from_sources`, `pending_causal_decision`
 - [[Reference/Modules/learnloop/instructional/reader_followups|learnloop.instructional.reader_followups]] — imports `module`; statically calls `pending_causal_decision`
 - [[Reference/Modules/learnloop_sidecar/handlers/feedback|learnloop_sidecar.handlers.feedback]] — imports `fulfil_need_from_sources`, `source_first_active`; statically calls `fulfil_need_from_sources`, `source_first_active`
 
@@ -130,7 +131,7 @@ Use this module in context through:
 - [[Initialize a Vault]]
 - [[Start a Learning Cycle]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/cli/app|learnloop.cli.app]], [[Reference/Modules/learnloop/instructional/reader_followups|learnloop.instructional.reader_followups]], [[Reference/Modules/learnloop_sidecar/handlers/feedback|learnloop_sidecar.handlers.feedback]].
+Static participation evidence comes from [[Reference/Modules/learnloop/cli/app|learnloop.cli.app]], [[Reference/Modules/learnloop/followup_run/jobs|learnloop.followup_run.jobs]], [[Reference/Modules/learnloop/instructional/reader_followups|learnloop.instructional.reader_followups]], [[Reference/Modules/learnloop_sidecar/handlers/feedback|learnloop_sidecar.handlers.feedback]].
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
@@ -138,6 +139,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 - [tests/test_exam_protection.py](../../../../../../tests/test_exam_protection.py) — direct import
   - `test_a_priced_causal_decision_carries_the_live_repair_class`
+- [tests/test_followup_generate_e2e.py](../../../../../../tests/test_followup_generate_e2e.py) — direct import
+  - `test_a_recorded_need_fills_textbook_first_without_a_click`
 - [tests/test_reader_followups_review.py](../../../../../../tests/test_reader_followups_review.py) — direct import
   - `test_f7_an_open_causal_factor_with_competing_repairs_is_a_decision_question`
 - [tests/test_source_first_needs.py](../../../../../../tests/test_source_first_needs.py) — direct import

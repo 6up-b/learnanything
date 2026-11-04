@@ -1346,6 +1346,16 @@ The authoritative system-level explanation remains in [[State and Persistence]],
 - [[Reference/Modules/learnloop/figures/rich|learnloop.figures.rich]] — imports `Repository`
 - [[Reference/Modules/learnloop/figures/routes|learnloop.figures.routes]] — imports `Repository`
 - [[Reference/Modules/learnloop/figures/service|learnloop.figures.service]] — imports `Repository`
+- [[Reference/Modules/learnloop/followup_run/admission|learnloop.followup_run.admission]] — imports `Repository`
+- [[Reference/Modules/learnloop/followup_run/authoring|learnloop.followup_run.authoring]] — imports `Repository`
+- [[Reference/Modules/learnloop/followup_run/decision_view|learnloop.followup_run.decision_view]] — imports `Repository`
+- [[Reference/Modules/learnloop/followup_run/jobs|learnloop.followup_run.jobs]] — imports `Repository`
+- [[Reference/Modules/learnloop/followup_run/lanes|learnloop.followup_run.lanes]] — imports `Repository`
+- [[Reference/Modules/learnloop/followup_run/router|learnloop.followup_run.router]] — imports `Repository`
+- [[Reference/Modules/learnloop/followup_run/serving|learnloop.followup_run.serving]] — imports `Repository`
+- [[Reference/Modules/learnloop/followup_serve/identity|learnloop.followup_serve.identity]] — imports `Repository`
+- [[Reference/Modules/learnloop/followup_serve/queue|learnloop.followup_serve.queue]] — imports `Repository`
+- [[Reference/Modules/learnloop/followup_serve/workflow|learnloop.followup_serve.workflow]] — imports `Repository`
 - [[Reference/Modules/learnloop/goals/certification_cold_probe|learnloop.goals.certification_cold_probe]] — imports `Repository`
 - [[Reference/Modules/learnloop/goals/exam_calibration|learnloop.goals.exam_calibration]] — imports `Repository`
 - [[Reference/Modules/learnloop/goals/exam_pool|learnloop.goals.exam_pool]] — imports `Repository`
@@ -1606,7 +1616,7 @@ Use this module in context through:
 - [[Inspect Persistent State]]
 - [[Doctor Migrations and Recovery]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/adaptive_difficulty/background|learnloop.adaptive_difficulty.background]], [[Reference/Modules/learnloop/adaptive_difficulty/relatedness_jobs|learnloop.adaptive_difficulty.relatedness_jobs]], [[Reference/Modules/learnloop/ai/runs|learnloop.ai.runs]], [[Reference/Modules/learnloop/attempts/attempt_trace|learnloop.attempts.attempt_trace]], [[Reference/Modules/learnloop/attempts/attempts|learnloop.attempts.attempts]] and 385 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/adaptive_difficulty/background|learnloop.adaptive_difficulty.background]], [[Reference/Modules/learnloop/adaptive_difficulty/relatedness_jobs|learnloop.adaptive_difficulty.relatedness_jobs]], [[Reference/Modules/learnloop/ai/runs|learnloop.ai.runs]], [[Reference/Modules/learnloop/attempts/attempt_trace|learnloop.attempts.attempt_trace]], [[Reference/Modules/learnloop/attempts/attempts|learnloop.attempts.attempts]] and 395 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
@@ -1620,6 +1630,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/diagnosis_split_helpers.py](../../../../../../tests/diagnosis_split_helpers.py) — direct import
 - [tests/e0_fakes.py](../../../../../../tests/e0_fakes.py) — direct import
 - [tests/exam_scope_fixtures.py](../../../../../../tests/exam_scope_fixtures.py) — direct import
+- [tests/followup_serve_helpers.py](../../../../../../tests/followup_serve_helpers.py) — direct import
 - [tests/helpers.py](../../../../../../tests/helpers.py) — direct import
 - [tests/hint_fakes.py](../../../../../../tests/hint_fakes.py) — direct import
 - [tests/intent_fakes.py](../../../../../../tests/intent_fakes.py) — direct import

@@ -7,8 +7,8 @@ version: "1.0.0"
 source_path: "src/learnloop/scheduling/serving_exclusions.py"
 source_paths:
   - "src/learnloop/scheduling/serving_exclusions.py"
-source_commit: "14bb2c615356cfabd9cf1c0e631e48b1ef153fd8"
-source_commit_timestamp: "2026-11-03T03:24:48-05:00"
+source_commit: "b45e4414cdb7963772b12ecd3c8825b73e93266a"
+source_commit_timestamp: "2026-11-03T21:51:14-05:00"
 source_worktree_state: "clean"
 generated: true
 generated_at: "2026-11-02"
@@ -50,41 +50,41 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/scheduling/serving_exclusions.py](../../../../../../src/learnloop/scheduling/serving_exclusions.py) |
-| Source lines | 318 |
+| Source lines | 348 |
 | Owning package | [[Reference/Modules/learnloop/scheduling/_package|learnloop.scheduling]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `14bb2c615356cfabd9cf1c0e631e48b1ef153fd8` |
-| Commit timestamp | `2026-11-03T03:24:48-05:00` |
+| Source commit | `b45e4414cdb7963772b12ecd3c8825b73e93266a` |
+| Commit timestamp | `2026-11-03T21:51:14-05:00` |
 
 ## Public API
 
 - `class ServingExclusions` ([source](../../../../../../src/learnloop/scheduling/serving_exclusions.py), line 79)
-  - `item_ids(self) -> frozenset[str]` (line 90; public) — What routine serving never offers.
-  - `out_of_timing_item_ids(self) -> frozenset[str]` (line 97; public) — What a selector outside the scheduler's timing never offers.
-- `routine_serving_exclusions(vault: Any, repository: Repository) -> ServingExclusions` ([source](../../../../../../src/learnloop/scheduling/serving_exclusions.py), line 103) — The shared exclusion sets, each read once.
-- `routine_withhold_reason(vault: Any, item: Any, state: Any, exclusions: ServingExclusions) -> str | None` ([source](../../../../../../src/learnloop/scheduling/serving_exclusions.py), line 114) — Why routine serving never offers ``item`` now, or None.
-- `class BuildGates(Protocol)` ([source](../../../../../../src/learnloop/scheduling/serving_exclusions.py), line 208) — The build's per-item gates after the routine one.
-  - `freshness_gate(self, item: Any, state: Any) -> str | None` (line 213; public) — A diagnostic_probe surface outside an in-progress, unblocked episode.
-  - `device_gate(self, item: Any, state: Any) -> str | None` (line 216; public) — An item this build's device cannot answer (mobile PR-6, a phone's build).
-  - `placement_gate(self, item: Any, state: Any) -> str | None` (line 219; public) — Placement's withholding of an unrequested item (assumed, maintained).
-  - `cold_start_gate(self, item: Any, state: Any) -> str | None` (line 222; public) — An unrequested item on a never-practised LO with nothing to start it.
-  - `probe_gate(self, item: Any, state: Any) -> str | None` (line 225; public) — A diagnostic_probe surface of an in-progress episode that is not a probe this build (surface seen, no binding, its value below its minutes, no information).
-- `admission_reason(vault: Any, item: Any, state: Any, exclusions: ServingExclusions, gates: BuildGates | None, *, requested: bool, intent_gate: Any=None) -> str | None` ([source](../../../../../../src/learnloop/scheduling/serving_exclusions.py), line 231) — Why the build does not serve ``item`` now, or None: THE per-item admission predicate (orchestrator ruling R1).
-- `out_of_timing_serving_exclusions(vault: Any, repository: Repository, *, cold_followup_kinds: Iterable[str], reveal_window: timedelta, clock: Clock | None=None, exclude_reveal_ids: Iterable[str] | None=None) -> ServingExclusions` ([source](../../../../../../src/learnloop/scheduling/serving_exclusions.py), line 279) — The routine sets plus the items reserved by open cold follow-up tasks of ``cold_followup_kinds`` and the items revealed within ``reveal_window`` (the cold retrieval delay), read once.
+  - `item_ids(self) -> frozenset[str]` (line 99; public) — What routine serving never offers.
+  - `out_of_timing_item_ids(self) -> frozenset[str]` (line 106; public) — What a selector outside the scheduler's timing never offers.
+- `routine_serving_exclusions(vault: Any, repository: Repository) -> ServingExclusions` ([source](../../../../../../src/learnloop/scheduling/serving_exclusions.py), line 112) — The shared exclusion sets, each read once.
+- `routine_withhold_reason(vault: Any, item: Any, state: Any, exclusions: ServingExclusions) -> str | None` ([source](../../../../../../src/learnloop/scheduling/serving_exclusions.py), line 131) — Why routine serving never offers ``item`` now, or None.
+- `class BuildGates(Protocol)` ([source](../../../../../../src/learnloop/scheduling/serving_exclusions.py), line 232) — The build's per-item gates after the routine one.
+  - `freshness_gate(self, item: Any, state: Any) -> str | None` (line 237; public) — A diagnostic_probe surface outside an in-progress, unblocked episode.
+  - `device_gate(self, item: Any, state: Any) -> str | None` (line 240; public) — An item this build's device cannot answer (mobile PR-6, a phone's build).
+  - `placement_gate(self, item: Any, state: Any) -> str | None` (line 243; public) — Placement's withholding of an unrequested item (assumed, maintained).
+  - `cold_start_gate(self, item: Any, state: Any) -> str | None` (line 246; public) — An unrequested item on a never-practised LO with nothing to start it.
+  - `probe_gate(self, item: Any, state: Any) -> str | None` (line 249; public) — A diagnostic_probe surface of an in-progress episode that is not a probe this build (surface seen, no binding, its value below its minutes, no information).
+- `admission_reason(vault: Any, item: Any, state: Any, exclusions: ServingExclusions, gates: BuildGates | None, *, requested: bool, intent_gate: Any=None) -> str | None` ([source](../../../../../../src/learnloop/scheduling/serving_exclusions.py), line 255) — Why the build does not serve ``item`` now, or None: THE per-item admission predicate (orchestrator ruling R1).
+- `out_of_timing_serving_exclusions(vault: Any, repository: Repository, *, cold_followup_kinds: Iterable[str], reveal_window: timedelta, clock: Clock | None=None, exclude_reveal_ids: Iterable[str] | None=None) -> ServingExclusions` ([source](../../../../../../src/learnloop/scheduling/serving_exclusions.py), line 306) — The routine sets plus the items reserved by open cold follow-up tasks of ``cold_followup_kinds`` and the items revealed within ``reveal_window`` (the cold retrieval delay), read once.
 
 ### Module constants
 
-- `ROUTINE_GATES` ([src/learnloop/scheduling/serving_exclusions.py](../../../../../../src/learnloop/scheduling/serving_exclusions.py), line 168)
-- `DEVICE_INELIGIBLE` ([src/learnloop/scheduling/serving_exclusions.py](../../../../../../src/learnloop/scheduling/serving_exclusions.py), line 184)
-- `BUILD_GATES` ([src/learnloop/scheduling/serving_exclusions.py](../../../../../../src/learnloop/scheduling/serving_exclusions.py), line 187)
-- `ADMISSION_GATES` ([src/learnloop/scheduling/serving_exclusions.py](../../../../../../src/learnloop/scheduling/serving_exclusions.py), line 202)
-- `PROBE_RESERVED_GATES` ([src/learnloop/scheduling/serving_exclusions.py](../../../../../../src/learnloop/scheduling/serving_exclusions.py), line 205)
+- `ROUTINE_GATES` ([src/learnloop/scheduling/serving_exclusions.py](../../../../../../src/learnloop/scheduling/serving_exclusions.py), line 190)
+- `DEVICE_INELIGIBLE` ([src/learnloop/scheduling/serving_exclusions.py](../../../../../../src/learnloop/scheduling/serving_exclusions.py), line 208)
+- `BUILD_GATES` ([src/learnloop/scheduling/serving_exclusions.py](../../../../../../src/learnloop/scheduling/serving_exclusions.py), line 211)
+- `ADMISSION_GATES` ([src/learnloop/scheduling/serving_exclusions.py](../../../../../../src/learnloop/scheduling/serving_exclusions.py), line 226)
+- `PROBE_RESERVED_GATES` ([src/learnloop/scheduling/serving_exclusions.py](../../../../../../src/learnloop/scheduling/serving_exclusions.py), line 229)
 
 ## Internal implementation anchors
 
-- `_iso(value: Any) -> str` ([source](../../../../../../src/learnloop/scheduling/serving_exclusions.py), line 275)
+- `_iso(value: Any) -> str` ([source](../../../../../../src/learnloop/scheduling/serving_exclusions.py), line 302)
 
 ## Who imports or calls it
 
@@ -105,6 +105,7 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 - [[Reference/Modules/learnloop/db/connection|learnloop.db.connection]] — imports `connect`; calls `connect`
 - [[Reference/Modules/learnloop/db/repositories|learnloop.db.repositories]] — imports `Repository`
 - [[Reference/Modules/learnloop/db/stores/practice_index|learnloop.db.stores.practice_index]] — imports `items_revealed_between`; calls `items_revealed_between`
+- [[Reference/Modules/learnloop/followup_serve/identity|learnloop.followup_serve.identity]] — imports `door_sets`, `generated_probe_ids`; calls `door_sets`, `generated_probe_ids`
 - [[Reference/Modules/learnloop/goals/exam_pool|learnloop.goals.exam_pool]] — imports `reserved_item_ids`; calls `reserved_item_ids`
 - [[Reference/Modules/learnloop/scheduling/controller_ownership|learnloop.scheduling.controller_ownership]] — imports `module`; calls `staged_owned_practice_item_ids`
 - [[Reference/Modules/learnloop/substrate/instrument_serving|learnloop.substrate.instrument_serving]] — imports `unservable_reason`; calls `unservable_reason`
@@ -137,6 +138,9 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_exam_protection_review.py](../../../../../../tests/test_exam_protection_review.py) — direct import
   - `test_an_item_marked_held_out_after_its_import_leaves_routine_practice`
   - `test_with_the_switch_off_routine_practice_serves_held_out_material_as_before`
+- [tests/test_followup_single_use.py](../../../../../../tests/test_followup_single_use.py) — direct import
+  - `test_a_request_never_gets_one_even_unserved`
+  - `test_the_gates_are_named`
 - [tests/test_intent_codex_rereview.py](../../../../../../tests/test_intent_codex_rereview.py) — direct import
   - `test_f11_a_held_out_cold_sibling_never_suppresses_the_servable_candidate`
 - [tests/test_intent_exclusion.py](../../../../../../tests/test_intent_exclusion.py) — direct import

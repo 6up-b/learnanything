@@ -182,6 +182,8 @@ The authoritative system-level explanation remains in [[State and Persistence]];
 - [[Reference/Modules/learnloop/experiments/contextual_embeddings/records|learnloop.experiments.contextual_embeddings.records]] — imports `init_vault`, `load_vault`; statically calls `init_vault`, `load_vault`
 - [[Reference/Modules/learnloop/experiments/contextual_embeddings/system_arms|learnloop.experiments.contextual_embeddings.system_arms]] — imports `load_vault`; statically calls `load_vault`
 - [[Reference/Modules/learnloop/figure_admission|learnloop.figure_admission]] — imports `load_vault`; statically calls `load_vault`
+- [[Reference/Modules/learnloop/followup_run/jobs|learnloop.followup_run.jobs]] — imports `load_vault`; statically calls `load_vault`
+- [[Reference/Modules/learnloop/followup_serve_upgrade|learnloop.followup_serve_upgrade]] — imports `load_vault`; statically calls `load_vault`
 - [[Reference/Modules/learnloop/goals/goal_lo|learnloop.goals.goal_lo]] — imports `load_vault`; statically calls `load_vault`
 - [[Reference/Modules/learnloop/help_fold_attach_upgrade|learnloop.help_fold_attach_upgrade]] — imports `load_vault`; statically calls `load_vault`
 - [[Reference/Modules/learnloop/instructional/harvest|learnloop.instructional.harvest]] — imports `load_vault`; statically calls `load_vault`
@@ -262,7 +264,7 @@ Use this module in context through:
 
 - [[Initialize a Vault]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/ad_successor_upgrade|learnloop.ad_successor_upgrade]], [[Reference/Modules/learnloop/adaptive_difficulty/generation|learnloop.adaptive_difficulty.generation]], [[Reference/Modules/learnloop/adaptive_difficulty/operation|learnloop.adaptive_difficulty.operation]], [[Reference/Modules/learnloop/attempt_content_state_upgrade|learnloop.attempt_content_state_upgrade]], [[Reference/Modules/learnloop/attempts/measurement_corrections|learnloop.attempts.measurement_corrections]] and 120 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/ad_successor_upgrade|learnloop.ad_successor_upgrade]], [[Reference/Modules/learnloop/adaptive_difficulty/generation|learnloop.adaptive_difficulty.generation]], [[Reference/Modules/learnloop/adaptive_difficulty/operation|learnloop.adaptive_difficulty.operation]], [[Reference/Modules/learnloop/attempt_content_state_upgrade|learnloop.attempt_content_state_upgrade]], [[Reference/Modules/learnloop/attempts/measurement_corrections|learnloop.attempts.measurement_corrections]] and 122 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
@@ -274,6 +276,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/deliverable_fixtures.py](../../../../../../tests/deliverable_fixtures.py) — direct import
 - [tests/diagnosis_split_helpers.py](../../../../../../tests/diagnosis_split_helpers.py) — direct import
 - [tests/e0_fakes.py](../../../../../../tests/e0_fakes.py) — direct import
+- [tests/followup_serve_helpers.py](../../../../../../tests/followup_serve_helpers.py) — direct import
 - [tests/helpers.py](../../../../../../tests/helpers.py) — direct import
 - [tests/hint_fakes.py](../../../../../../tests/hint_fakes.py) — direct import
 - [tests/intent_fakes.py](../../../../../../tests/intent_fakes.py) — direct import
@@ -1442,6 +1445,14 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_figures_switch_off.py](../../../../../../tests/test_figures_switch_off.py) — direct import
   - `test_figures_off_queues_and_reads_no_figure_text`
 - [tests/test_followup_diagnostic_selection.py](../../../../../../tests/test_followup_diagnostic_selection.py) — direct import
+- [tests/test_followup_single_use.py](../../../../../../tests/test_followup_single_use.py) — direct import
+  - `test_an_exam_never_reserves_one`
+- [tests/test_followup_successor.py](../../../../../../tests/test_followup_successor.py) — direct import
+  - `test_the_kill_switch_reads_off_a_vault_at_the_tag`
+  - `test_the_switch_governs_the_effective_setting`
+  - `test_the_upgrade_moves_a_predecessor_and_leaves_the_stored_setting`
+- [tests/test_followup_workflow.py](../../../../../../tests/test_followup_workflow.py) — direct import
+  - `test_the_switch_off_settles_open_workflows_as_skipped`
 - [tests/test_followups.py](../../../../../../tests/test_followups.py) — direct import
 - [tests/test_followups_batch5_c5_ledger.py](../../../../../../tests/test_followups_batch5_c5_ledger.py) — direct import
   - `test_a_notes_ledger_verdicts_have_the_shared_shape_and_the_report_reads_them`

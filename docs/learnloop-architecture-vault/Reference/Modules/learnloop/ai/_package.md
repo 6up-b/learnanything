@@ -30,7 +30,7 @@ source_paths:
   - "src/learnloop/ai/transport.py"
   - "src/learnloop/ai/usage.py"
 source_commit: "aggregate; see module notes"
-source_commit_timestamp: "2026-11-02T05:28:19-05:00"
+source_commit_timestamp: "2026-11-03T21:55:42-05:00"
 generated: true
 generated_at: "2026-11-02"
 package: "learnloop.ai"
@@ -82,14 +82,14 @@ For system intent, use [[AI Architecture]], [[Architecture Overview]].
 | [[Reference/Modules/learnloop/ai/output_budget|learnloop.ai.output_budget]] | [[Reference/Modules/learnloop/ai/output_budget#^module-purpose|purpose]] | `ACTIVE` | 25 | 5 |
 | [[Reference/Modules/learnloop/ai/plan_fallback|learnloop.ai.plan_fallback]] | [[Reference/Modules/learnloop/ai/plan_fallback#^module-purpose|purpose]] | `ACTIVE` | 34 | 18 |
 | [[Reference/Modules/learnloop/ai/review_spend|learnloop.ai.review_spend]] | [[Reference/Modules/learnloop/ai/review_spend#^module-purpose|purpose]] | `ACTIVE` | 5 | 2 |
-| [[Reference/Modules/learnloop/ai/routing|learnloop.ai.routing]] | [[Reference/Modules/learnloop/ai/routing#^module-purpose|purpose]] | `ACTIVE` | 58 | 34 |
+| [[Reference/Modules/learnloop/ai/routing|learnloop.ai.routing]] | [[Reference/Modules/learnloop/ai/routing#^module-purpose|purpose]] | `ACTIVE` | 60 | 35 |
 | [[Reference/Modules/learnloop/ai/runs|learnloop.ai.runs]] | [[Reference/Modules/learnloop/ai/runs#^module-purpose|purpose]] | `ACTIVE` | 10 | 1 |
 | [[Reference/Modules/learnloop/ai/runtime|learnloop.ai.runtime]] | [[Reference/Modules/learnloop/ai/runtime#^module-purpose|purpose]] | `ACTIVE` | 9 | 15 |
 | [[Reference/Modules/learnloop/ai/schemas|learnloop.ai.schemas]] | [[Reference/Modules/learnloop/ai/schemas#^module-purpose|purpose]] | `ACTIVE` | 72 | 13 |
 | [[Reference/Modules/learnloop/ai/spend|learnloop.ai.spend]] | [[Reference/Modules/learnloop/ai/spend#^module-purpose|purpose]] | `ACTIVE` | 120 | 83 |
 | [[Reference/Modules/learnloop/ai/strict_schema|learnloop.ai.strict_schema]] | [[Reference/Modules/learnloop/ai/strict_schema#^module-purpose|purpose]] | `ACTIVE` | 5 | 11 |
 | [[Reference/Modules/learnloop/ai/tool_requests|learnloop.ai.tool_requests]] | [[Reference/Modules/learnloop/ai/tool_requests#^module-purpose|purpose]] | `ACTIVE` | 1 | 0 |
-| [[Reference/Modules/learnloop/ai/transport|learnloop.ai.transport]] | [[Reference/Modules/learnloop/ai/transport#^module-purpose|purpose]] | `ACTIVE` | 112 | 68 |
+| [[Reference/Modules/learnloop/ai/transport|learnloop.ai.transport]] | [[Reference/Modules/learnloop/ai/transport#^module-purpose|purpose]] | `ACTIVE` | 113 | 68 |
 | [[Reference/Modules/learnloop/ai/usage|learnloop.ai.usage]] | [[Reference/Modules/learnloop/ai/usage#^module-purpose|purpose]] | `ACTIVE` | 13 | 7 |
 
 ## Child package maps
@@ -143,6 +143,7 @@ For system intent, use [[AI Architecture]], [[Architecture Overview]].
 - [[Reference/Modules/learnloop_sidecar/_package|learnloop_sidecar]] — 7 static module edges
 - [[Reference/Modules/learnloop/curriculum/_package|learnloop.curriculum]] — 5 static module edges
 - [[Reference/Modules/learnloop/matching/_package|learnloop.matching]] — 5 static module edges
+- [[Reference/Modules/learnloop/followup_run/_package|learnloop.followup_run]] — 3 static module edges
 - [[Reference/Modules/learnloop/ingest/extractors/_package|learnloop.ingest.extractors]] — 3 static module edges
 - [[Reference/Modules/learnloop/ai/chatgpt_plan/_package|learnloop.ai.chatgpt_plan]] — 2 static module edges
 - [[Reference/Modules/learnloop/experiments/contextual_embeddings/e1/_package|learnloop.experiments.contextual_embeddings.e1]] — 2 static module edges

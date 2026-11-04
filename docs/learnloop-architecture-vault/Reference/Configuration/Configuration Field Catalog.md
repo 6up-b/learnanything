@@ -3,17 +3,17 @@ title: "Configuration Field Catalog"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "9995860ab7dd149c0862dd57a7f483c3ac4e7815"
-source_commit_timestamp: "2026-11-03T19:35:50-05:00"
+source_commit: "2cfe5cce75c95910c18c0105c36d952e15ab11cc"
+source_commit_timestamp: "2026-11-03T23:34:25-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "Effective config index"
   - "learnloop.toml field MOC"
 config_schema_version: 2
 algorithm_version: "mvp-0.9"
-section_count: 79
-field_count: 1131
-field_status_counts: {"ACTIVE": 1105, "COMPAT": 7, "DORMANT": 15, "LEGACY": 4}
+section_count: 80
+field_count: 1134
+field_status_counts: {"ACTIVE": 1108, "COMPAT": 7, "DORMANT": 15, "LEGACY": 4}
 generated: true
 source_paths:
   - "src/learnloop/config/schema.py"
@@ -34,17 +34,17 @@ The section notes below enumerate every leaf in the effective configuration of a
 
 ## Runtime and refactor status
 
-Every one of the 1131 effective leaves has a semantic Function, a runtime/refactor Status, and concrete schema or consumer anchors. Status is about authority, not truthiness:
+Every one of the 1134 effective leaves has a semantic Function, a runtime/refactor Status, and concrete schema or consumer anchors. Status is about authority, not truthiness:
 
 | Status | Effective leaves | Meaning |
 |---|---:|---|
-| `ACTIVE` | 1105 | Canonical typed input to current behavior. |
+| `ACTIVE` | 1108 | Canonical typed input to current behavior. |
 | `DORMANT` | 15 | Implemented but shadow-only, default-inert, or behind a shipped-off activation gate. |
 | `COMPAT` | 7 | Effective compatibility seam retained while canonical behavior uses another field or route. |
 | `LEGACY` | 4 | Read only by a frozen historical replay path. |
 
 > [!warning] Compatibility aliases are not effective leaves
-> One-way aliases and discarded retired keys are listed under **Compatibility-only inputs** in the affected section notes. They are accepted inputs, but do not survive as additional leaves in the 1131-path effective model. See [[Legacy Configuration Compatibility]].
+> One-way aliases and discarded retired keys are listed under **Compatibility-only inputs** in the affected section notes. They are accepted inputs, but do not survive as additional leaves in the 1134-path effective model. See [[Legacy Configuration Compatibility]].
 
 ## Sections
 
@@ -70,7 +70,7 @@ Every one of the 1131 effective leaves has a semantic Function, a runtime/refact
 | [[Config - rung_variants|`rung_variants`]] | 8 | Runtime configuration |
 | [[Config - animation|`animation`]] | 16 | Runtime configuration |
 | [[Config - ingest|`ingest`]] | 52 | Runtime configuration |
-| [[Config - ai|`ai`]] | 294 | AI provider profile and task routing; see [[AI Architecture]] |
+| [[Config - ai|`ai`]] | 295 | AI provider profile and task routing; see [[AI Architecture]] |
 | [[Config - embedding|`embedding`]] | 24 | Runtime configuration |
 | [[Config - graph_nomination|`graph_nomination`]] | 7 | Runtime configuration |
 | [[Config - source_retrieval|`source_retrieval`]] | 19 | Runtime configuration |
@@ -83,6 +83,7 @@ Every one of the 1131 effective leaves has a semantic Function, a runtime/refact
 | [[Config - placement|`placement`]] | 8 | Runtime configuration |
 | [[Config - router|`router`]] | 24 | Runtime configuration |
 | [[Config - data_capture|`data_capture`]] | 2 | Runtime configuration |
+| [[Config - followup|`followup`]] | 1 | Runtime configuration |
 | [[Config - pf|`pf`]] | 14 | Runtime configuration |
 | [[Config - plan|`plan`]] | 22 | Runtime configuration |
 | [[Config - intent|`intent`]] | 7 | Runtime configuration |
@@ -124,7 +125,7 @@ Every one of the 1131 effective leaves has a semantic Function, a runtime/refact
 | [[Config - adaptive_difficulty|`adaptive_difficulty`]] | 27 | Runtime configuration |
 | [[Config - decider_routes|`decider_routes`]] | 10 | Runtime configuration |
 | [[Config - required_method|`required_method`]] | 1 | Runtime configuration |
-| [[Config - ui|`ui`]] | 2 | Runtime configuration |
+| [[Config - ui|`ui`]] | 3 | Runtime configuration |
 | [[Config - eligibility|`eligibility`]] | 1 | Runtime configuration |
 | [[Config - replay|`replay`]] | 1 | Runtime configuration |
 | [[Config - teacher|`teacher`]] | 14 | Runtime configuration |

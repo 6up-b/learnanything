@@ -78,7 +78,7 @@ For system intent, use [[Learning System]], [[AI Architecture]].
 | [[Reference/Modules/learnloop/content/authoring/persona_realism|learnloop.content.authoring.persona_realism]] | [[Reference/Modules/learnloop/content/authoring/persona_realism#^module-purpose|purpose]] | `ACTIVE` | 3 | 2 |
 | [[Reference/Modules/learnloop/content/authoring/pf_contracts|learnloop.content.authoring.pf_contracts]] | [[Reference/Modules/learnloop/content/authoring/pf_contracts#^module-purpose|purpose]] | `ACTIVE` | 4 | 9 |
 | [[Reference/Modules/learnloop/content/authoring/pf_sandbox|learnloop.content.authoring.pf_sandbox]] | [[Reference/Modules/learnloop/content/authoring/pf_sandbox#^module-purpose|purpose]] | `ACTIVE` | 8 | 43 |
-| [[Reference/Modules/learnloop/content/authoring/practice_generation|learnloop.content.authoring.practice_generation]] | [[Reference/Modules/learnloop/content/authoring/practice_generation#^module-purpose|purpose]] | `ACTIVE` | 7 | 14 |
+| [[Reference/Modules/learnloop/content/authoring/practice_generation|learnloop.content.authoring.practice_generation]] | [[Reference/Modules/learnloop/content/authoring/practice_generation#^module-purpose|purpose]] | `ACTIVE` | 8 | 15 |
 | [[Reference/Modules/learnloop/content/authoring/practice_leakage|learnloop.content.authoring.practice_leakage]] | [[Reference/Modules/learnloop/content/authoring/practice_leakage#^module-purpose|purpose]] | `ACTIVE` | 10 | 5 |
 | [[Reference/Modules/learnloop/content/authoring/rung_variants|learnloop.content.authoring.rung_variants]] | [[Reference/Modules/learnloop/content/authoring/rung_variants#^module-purpose|purpose]] | `ACTIVE` | 2 | 5 |
 | [[Reference/Modules/learnloop/content/authoring/source_exercise_import|learnloop.content.authoring.source_exercise_import]] | [[Reference/Modules/learnloop/content/authoring/source_exercise_import#^module-purpose|purpose]] | `ACTIVE` | 7 | 23 |
@@ -127,6 +127,7 @@ For system intent, use [[Learning System]], [[AI Architecture]].
 - [[Reference/Modules/learnloop/ops/contamination/_package|learnloop.ops.contamination]] — 2 static module edges
 - [[Reference/Modules/learnloop/attempts/_package|learnloop.attempts]] — 1 static module edge
 - [[Reference/Modules/learnloop/diagnosis/_package|learnloop.diagnosis]] — 1 static module edge
+- [[Reference/Modules/learnloop/followup_run/_package|learnloop.followup_run]] — 1 static module edge
 - [[Reference/Modules/learnloop/learner/_package|learnloop.learner]] — 1 static module edge
 - [[Reference/Modules/learnloop/scheduling/_package|learnloop.scheduling]] — 1 static module edge
 - [[Reference/Modules/learnloop/substrate/_package|learnloop.substrate]] — 1 static module edge

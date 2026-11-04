@@ -3,13 +3,13 @@ title: "probe_presentations"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "9995860ab7dd149c0862dd57a7f483c3ac4e7815"
-source_commit_timestamp: "2026-11-03T19:35:50-05:00"
+source_commit: "2cfe5cce75c95910c18c0105c36d952e15ab11cc"
+source_commit_timestamp: "2026-11-03T23:34:25-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite probe_presentations"
   - "table probe_presentations"
-schema_head: 240
+schema_head: 241
 table_name: "probe_presentations"
 table_role: "raw_ledger"
 functionality_status: "active"
@@ -147,6 +147,9 @@ Indexes and uniqueness:
 - `src/learnloop/diagnosis/probe_dialogue.py`
 - `src/learnloop/diagnosis/probe_episodes.py`
 - `src/learnloop/diagnosis/voi_stopping.py`
+- `src/learnloop/followup_run/jobs.py`
+- `src/learnloop/followup_run/serving.py`
+- `src/learnloop/followup_serve/workflow.py`
 - `src/learnloop/scheduling/scheduler.py`
 - `src/learnloop/substrate/compat/activity_backfill.py`
 - `src/learnloop_sidecar/handlers/as_printed.py`
@@ -170,6 +173,7 @@ Indexes and uniqueness:
 - `tests/test_causal_repair_sidecar_rpcs.py`
 - `tests/test_device_eligibility.py`
 - `tests/test_evsi_router_composition.py`
+- `tests/test_followup_journey.py`
 - `tests/test_held_grade_evidence.py`
 - `tests/test_probe_audit.py`
 - `tests/test_probe_dialogue.py`
@@ -179,7 +183,6 @@ Indexes and uniqueness:
 - `tests/test_ux_phase4_feedback.py`
 - `tests/test_voi_forecasts.py`
 - `tests/test_voi_merge_composition.py`
-- `tests/test_voi_stopping.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

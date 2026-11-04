@@ -103,7 +103,7 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 
 - [[Reference/Modules/learnloop/attempts/attempts|learnloop.attempts.attempts]] — imports `POST_ATTEMPT_REVEAL_KINDS`
 - [[Reference/Modules/learnloop/diagnosis/causal_attribution|learnloop.diagnosis.causal_attribution]] — imports `production_admissibility`; statically calls `production_admissibility`
-- [[Reference/Modules/learnloop/diagnosis/causal_orchestrator|learnloop.diagnosis.causal_orchestrator]] — imports `production_admissibility`; statically calls `production_admissibility`
+- [[Reference/Modules/learnloop/diagnosis/causal_orchestrator|learnloop.diagnosis.causal_orchestrator]] — imports `ProductionAdmissibility`, `production_admissibility`; statically calls `ProductionAdmissibility`, `production_admissibility`
 - [[Reference/Modules/learnloop/diagnosis/split/card|learnloop.diagnosis.split.card]] — imports `record_repair_display_reveals`; statically calls `record_repair_display_reveals`
 - [[Reference/Modules/learnloop/field/outcomes|learnloop.field.outcomes]] — imports `production_admissibility`; statically calls `production_admissibility`
 - [[Reference/Modules/learnloop/placement/state|learnloop.placement.state]] — imports `production_admissibility`; statically calls `production_admissibility`

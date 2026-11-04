@@ -7,8 +7,8 @@ version: "1.0.0"
 source_path: "src/learnloop/diagnosis/diagnostic_surface_supply.py"
 source_paths:
   - "src/learnloop/diagnosis/diagnostic_surface_supply.py"
-source_commit: "172113ce71fde1319a191392f85ec531f3f8c28b"
-source_commit_timestamp: "2026-10-23T17:40:35-04:00"
+source_commit: "e262b85b96108b93ffda0fb5bf84527952b7c3e2"
+source_commit_timestamp: "2026-11-03T22:37:18-05:00"
 source_worktree_state: "clean"
 generated: true
 generated_at: "2026-11-02"
@@ -50,13 +50,13 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/diagnosis/diagnostic_surface_supply.py](../../../../../../src/learnloop/diagnosis/diagnostic_surface_supply.py) |
-| Source lines | 486 |
+| Source lines | 494 |
 | Owning package | [[Reference/Modules/learnloop/diagnosis/_package|learnloop.diagnosis]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `172113ce71fde1319a191392f85ec531f3f8c28b` |
-| Commit timestamp | `2026-10-23T17:40:35-04:00` |
+| Source commit | `e262b85b96108b93ffda0fb5bf84527952b7c3e2` |
+| Commit timestamp | `2026-11-03T22:37:18-05:00` |
 
 ## Public API
 
@@ -78,7 +78,7 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 
 - `_facet_target_key(item: PracticeItem) -> str` ([source](../../../../../../src/learnloop/diagnosis/diagnostic_surface_supply.py), line 57)
 - `_misconception_ids(vault: LoadedVault, item: PracticeItem) -> list[str]` ([source](../../../../../../src/learnloop/diagnosis/diagnostic_surface_supply.py), line 62)
-- `_queue_episode_generation_need(vault: LoadedVault, repository: Repository, episode_id: str, *, clock: Clock | None=None) -> str | None` ([source](../../../../../../src/learnloop/diagnosis/diagnostic_surface_supply.py), line 455) — Ensure the starved episode has one pending generation need.
+- `_queue_episode_generation_need(vault: LoadedVault, repository: Repository, episode_id: str, *, clock: Clock | None=None) -> str | None` ([source](../../../../../../src/learnloop/diagnosis/diagnostic_surface_supply.py), line 463) — Ensure the starved episode has one pending generation need.
 
 ## Who imports or calls it
 
@@ -98,6 +98,8 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 - [[Reference/Modules/learnloop/db/repositories|learnloop.db.repositories]] — imports `Repository`
 - [[Reference/Modules/learnloop/diagnosis/probe_episodes|learnloop.diagnosis.probe_episodes]] — imports `_record_generation_need`, `administered_surface_exclusions`, `episode_hypothesis_set`; calls `_record_generation_need`, `administered_surface_exclusions`, `episode_hypothesis_set`
 - [[Reference/Modules/learnloop/diagnosis/probe_instance_generation|learnloop.diagnosis.probe_instance_generation]] — imports `mint_single_use_probe_surface`; calls `mint_single_use_probe_surface`
+- [[Reference/Modules/learnloop/followup_serve/gates|learnloop.followup_serve.gates]] — imports `generate_and_serve_on`; calls `generate_and_serve_on`
+- [[Reference/Modules/learnloop/followup_serve/queue|learnloop.followup_serve.queue]] — imports `enqueue_entry`; calls `enqueue_entry`
 - [[Reference/Modules/learnloop/placement/state|learnloop.placement.state]] — imports `ignored_opening_episode_ids`, `servable_open_episodes`; calls `ignored_opening_episode_ids`, `servable_open_episodes`
 - [[Reference/Modules/learnloop/substrate/canonical_projection|learnloop.substrate.canonical_projection]] — imports `surface_group_id`; calls `surface_group_id`
 - [[Reference/Modules/learnloop/substrate/instrument_serving|learnloop.substrate.instrument_serving]] — imports `unservable_reason`; calls `unservable_reason`

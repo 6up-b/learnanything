@@ -7,8 +7,8 @@ version: "1.0.0"
 source_path: "src/learnloop/daily_plan/router_chooser.py"
 source_paths:
   - "src/learnloop/daily_plan/router_chooser.py"
-source_commit: "9cd91ef176e1863c6397482cdd73c8bb714e5817"
-source_commit_timestamp: "2026-11-03T14:27:04-05:00"
+source_commit: "c11b6179c76d77eb4ef639d03f4fb112e12a75a7"
+source_commit_timestamp: "2026-11-03T22:03:31-05:00"
 source_worktree_state: "clean"
 generated: true
 generated_at: "2026-11-02"
@@ -50,13 +50,13 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/daily_plan/router_chooser.py](../../../../../../src/learnloop/daily_plan/router_chooser.py) |
-| Source lines | 814 |
+| Source lines | 977 |
 | Owning package | [[Reference/Modules/learnloop/daily_plan/_package|learnloop.daily_plan]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `9cd91ef176e1863c6397482cdd73c8bb714e5817` |
-| Commit timestamp | `2026-11-03T14:27:04-05:00` |
+| Source commit | `c11b6179c76d77eb4ef639d03f4fb112e12a75a7` |
+| Commit timestamp | `2026-11-03T22:03:31-05:00` |
 
 ## Public API
 
@@ -81,6 +81,11 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
   - `decide(self, record: Any, current: Any, item: Any, *, wait_feasible: bool=True) -> RestraintOutcome` (line 659; public) — The decision for one follow-up the rules would place now (raises :class:`DecisionPending` on a read whose models are still out).
   - `_state(self, record: Any, current: Any, item: Any) -> tuple[PlanState, list[BlockCandidate]]` (line 751; internal)
   - `_start(self, key: str, state: PlanState, candidates: list[BlockCandidate], item: Any, ready: tuple[str, ...]) -> Prefetch` (line 776; internal)
+- `class FollowupGate(RestraintGate)` ([source](../../../../../../src/learnloop/daily_plan/router_chooser.py), line 830) — FG1 §5: whether and when, before any item exists.
+  - `_support(self, *, wait_feasible: bool) -> list[str]` (line 839; internal)
+  - `_followup_state(self, record: Any, current: Any, workflow: Mapping[str, Any]) -> tuple[PlanState, list[BlockCandidate]]` (line 842; internal)
+  - `decide_followup(self, record: Any, current: Any, workflow: Mapping[str, Any], *, wait_feasible: bool, facts: Sequence[str]=()) -> RestraintOutcome` (line 868; public) — The draw; raises nothing: failed models give their weight to the staged rule.
+  - `_start_followup(self, key: str, state: PlanState, candidates: list[BlockCandidate], workflow: Mapping[str, Any], ready: tuple[str, ...], support: Sequence[str], facts: Sequence[str]) -> Prefetch` (line 935; internal)
 
 ### Module constants
 
@@ -89,13 +94,16 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `MODE` ([src/learnloop/daily_plan/router_chooser.py](../../../../../../src/learnloop/daily_plan/router_chooser.py), line 90)
 - `KEY_VERSION` ([src/learnloop/daily_plan/router_chooser.py](../../../../../../src/learnloop/daily_plan/router_chooser.py), line 91)
 - `INSERT_NOW` ([src/learnloop/daily_plan/router_chooser.py](../../../../../../src/learnloop/daily_plan/router_chooser.py), line 92)
+- `NO_INTERVENTION` ([src/learnloop/daily_plan/router_chooser.py](../../../../../../src/learnloop/daily_plan/router_chooser.py), line 807)
 
 ### Explicit exports
 
 `__all__` declares:
 
 - `CHOOSER_NAME`
+- `FollowupGate`
 - `INSERT_NOW`
+- `NO_INTERVENTION`
 - `MODE`
 - `RestraintGate`
 - `RestraintOutcome`
@@ -120,6 +128,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `_build_card(builder: CardBuilder | None, state: PlanState, feasible: Sequence[BlockCandidate]) -> _Card` ([source](../../../../../../src/learnloop/daily_plan/router_chooser.py), line 337)
 - `_card_fields(card: _Card) -> dict[str, Any]` ([source](../../../../../../src/learnloop/daily_plan/router_chooser.py), line 350)
 - `class _NoModels` ([source](../../../../../../src/learnloop/daily_plan/router_chooser.py), line 357) — A decision no model is asked about: the prefetch's shape with no job (data capture A5).
+- `_followup_job(entry: Prefetch, *, runtime: RouterRuntime, vault: Any, sqlite_path: Any) -> None` ([source](../../../../../../src/learnloop/daily_plan/router_chooser.py), line 810)
 
 ## Who imports or calls it
 
@@ -127,6 +136,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 > “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
 
 - [[Reference/Modules/learnloop/daily_plan/policy|learnloop.daily_plan.policy]] — imports `RestraintGate`, `RouterChooser`; statically calls `RestraintGate`, `RouterChooser`
+- [[Reference/Modules/learnloop/followup_run/router|learnloop.followup_run.router]] — imports `FollowupGate`; statically calls `FollowupGate`
 
 ## Dependencies
 
@@ -159,7 +169,7 @@ Use this module in context through:
 - [[Initialize a Vault]]
 - [[Start a Learning Cycle]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/daily_plan/policy|learnloop.daily_plan.policy]].
+Static participation evidence comes from [[Reference/Modules/learnloop/daily_plan/policy|learnloop.daily_plan.policy]], [[Reference/Modules/learnloop/followup_run/router|learnloop.followup_run.router]].
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
@@ -167,6 +177,15 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 - [tests/test_data_capture_a5_not_ready_floor.py](../../../../../../tests/test_data_capture_a5_not_ready_floor.py) — direct import
   - `test_the_restraint_keeps_the_floor_on_not_ready_too`
+- [tests/test_followup_router.py](../../../../../../tests/test_followup_router.py) — direct import
+  - `test_data_captures_objective_is_frozen_for_every_arm`
+  - `test_no_intervention_sits_in_the_mixture_with_its_floor`
+  - `test_outcome_joins_follow_the_binding`
+  - `test_the_binding_is_appended_and_the_row_stays_as_it_was`
+  - `test_the_decision_line_says_what_the_screen_should`
+  - `test_the_decision_row_is_itemless_and_names_the_workflow`
+  - `test_waiting_is_out_of_the_support_when_there_is_no_room`
+  - `test_with_no_binding_a_decision_has_no_action_to_follow`
 - [tests/test_mvp024_upgrade.py](../../../../../../tests/test_mvp024_upgrade.py) — direct import
   - `test_the_mixture_serves_only_at_the_successor_in_mixture_mode`
 

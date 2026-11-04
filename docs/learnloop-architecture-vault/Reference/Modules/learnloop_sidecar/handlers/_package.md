@@ -31,6 +31,7 @@ source_paths:
   - "src/learnloop_sidecar/handlers/feedback.py"
   - "src/learnloop_sidecar/handlers/figures.py"
   - "src/learnloop_sidecar/handlers/first_run.py"
+  - "src/learnloop_sidecar/handlers/followup.py"
   - "src/learnloop_sidecar/handlers/goals.py"
   - "src/learnloop_sidecar/handlers/golden_path.py"
   - "src/learnloop_sidecar/handlers/golden_path_assessment.py"
@@ -82,7 +83,7 @@ source_paths:
   - "src/learnloop_sidecar/handlers/workbench_help.py"
   - "src/learnloop_sidecar/handlers/workbench_rw2c.py"
 source_commit: "aggregate; see module notes"
-source_commit_timestamp: "2026-11-03T19:34:35-05:00"
+source_commit_timestamp: "2026-11-03T22:39:49-05:00"
 generated: true
 generated_at: "2026-11-02"
 package: "learnloop_sidecar.handlers"
@@ -122,7 +123,7 @@ For system intent, use [[Architecture Overview]].
 
 | Module | Purpose | Status | Direct importers | Direct test files |
 |---|---|---:|---:|---:|
-| [[Reference/Modules/learnloop_sidecar/handlers/__init__|learnloop_sidecar.handlers]] | [[Reference/Modules/learnloop_sidecar/handlers/__init__#^module-purpose|purpose]] | `ACTIVE` | 1 | 131 |
+| [[Reference/Modules/learnloop_sidecar/handlers/__init__|learnloop_sidecar.handlers]] | [[Reference/Modules/learnloop_sidecar/handlers/__init__#^module-purpose|purpose]] | `ACTIVE` | 1 | 132 |
 | [[Reference/Modules/learnloop_sidecar/handlers/adaptive_difficulty|learnloop_sidecar.handlers.adaptive_difficulty]] | [[Reference/Modules/learnloop_sidecar/handlers/adaptive_difficulty#^module-purpose|purpose]] | `ACTIVE` | 1 | 2 |
 | [[Reference/Modules/learnloop_sidecar/handlers/adjudication|learnloop_sidecar.handlers.adjudication]] | [[Reference/Modules/learnloop_sidecar/handlers/adjudication#^module-purpose|purpose]] | `ACTIVE` | 1 | 0 |
 | [[Reference/Modules/learnloop_sidecar/handlers/ai_providers|learnloop_sidecar.handlers.ai_providers]] | [[Reference/Modules/learnloop_sidecar/handlers/ai_providers#^module-purpose|purpose]] | `ACTIVE` | 12 | 15 |
@@ -148,6 +149,7 @@ For system intent, use [[Architecture Overview]].
 | [[Reference/Modules/learnloop_sidecar/handlers/feedback|learnloop_sidecar.handlers.feedback]] | [[Reference/Modules/learnloop_sidecar/handlers/feedback#^module-purpose|purpose]] | `ACTIVE` | 1 | 3 |
 | [[Reference/Modules/learnloop_sidecar/handlers/figures|learnloop_sidecar.handlers.figures]] | [[Reference/Modules/learnloop_sidecar/handlers/figures#^module-purpose|purpose]] | `ACTIVE` | 4 | 8 |
 | [[Reference/Modules/learnloop_sidecar/handlers/first_run|learnloop_sidecar.handlers.first_run]] | [[Reference/Modules/learnloop_sidecar/handlers/first_run#^module-purpose|purpose]] | `ACTIVE` | 1 | 4 |
+| [[Reference/Modules/learnloop_sidecar/handlers/followup|learnloop_sidecar.handlers.followup]] | [[Reference/Modules/learnloop_sidecar/handlers/followup#^module-purpose|purpose]] | `ACTIVE` | 1 | 0 |
 | [[Reference/Modules/learnloop_sidecar/handlers/goals|learnloop_sidecar.handlers.goals]] | [[Reference/Modules/learnloop_sidecar/handlers/goals#^module-purpose|purpose]] | `ACTIVE` | 4 | 0 |
 | [[Reference/Modules/learnloop_sidecar/handlers/golden_path|learnloop_sidecar.handlers.golden_path]] | [[Reference/Modules/learnloop_sidecar/handlers/golden_path#^module-purpose|purpose]] | `ACTIVE` | 1 | 0 |
 | [[Reference/Modules/learnloop_sidecar/handlers/golden_path_assessment|learnloop_sidecar.handlers.golden_path_assessment]] | [[Reference/Modules/learnloop_sidecar/handlers/golden_path_assessment#^module-purpose|purpose]] | `ACTIVE` | 1 | 0 |
@@ -203,7 +205,7 @@ For system intent, use [[Architecture Overview]].
 
 ### This package imports
 
-- [[Reference/Modules/learnloop_sidecar/_package|learnloop_sidecar]] — 324 static module edges
+- [[Reference/Modules/learnloop_sidecar/_package|learnloop_sidecar]] — 327 static module edges
 - [[Reference/Modules/learnloop/reader/_package|learnloop.reader]] — 48 static module edges
 - [[Reference/Modules/learnloop/_package|learnloop]] — 47 static module edges
 - [[Reference/Modules/learnloop/source_retrieval/_package|learnloop.source_retrieval]] — 41 static module edges
@@ -217,13 +219,14 @@ For system intent, use [[Architecture Overview]].
 - [[Reference/Modules/learnloop/db/stores/_package|learnloop.db.stores]] — 24 static module edges
 - [[Reference/Modules/learnloop/vault/_package|learnloop.vault]] — 19 static module edges
 - [[Reference/Modules/learnloop/goals/_package|learnloop.goals]] — 18 static module edges
-- [[Reference/Modules/learnloop/daily_plan/_package|learnloop.daily_plan]] — 15 static module edges
+- [[Reference/Modules/learnloop/daily_plan/_package|learnloop.daily_plan]] — 16 static module edges
 - [[Reference/Modules/learnloop/content/pipeline/_package|learnloop.content.pipeline]] — 14 static module edges
 - [[Reference/Modules/learnloop/curriculum/_package|learnloop.curriculum]] — 14 static module edges
 - [[Reference/Modules/learnloop/tutor/_package|learnloop.tutor]] — 14 static module edges
 - [[Reference/Modules/learnloop/scheduling/_package|learnloop.scheduling]] — 13 static module edges
 - [[Reference/Modules/learnloop/workbench/_package|learnloop.workbench]] — 13 static module edges
 - [[Reference/Modules/learnloop/content/authoring/_package|learnloop.content.authoring]] — 11 static module edges
+- [[Reference/Modules/learnloop/followup_serve/_package|learnloop.followup_serve]] — 11 static module edges
 - [[Reference/Modules/learnloop/hints/_package|learnloop.hints]] — 11 static module edges
 - [[Reference/Modules/learnloop/adaptive_difficulty/_package|learnloop.adaptive_difficulty]] — 10 static module edges
 - [[Reference/Modules/learnloop/figures/_package|learnloop.figures]] — 10 static module edges
@@ -234,6 +237,7 @@ For system intent, use [[Architecture Overview]].
 - [[Reference/Modules/learnloop/config/_package|learnloop.config]] — 7 static module edges
 - [[Reference/Modules/learnloop/content/proposals/_package|learnloop.content.proposals]] — 6 static module edges
 - [[Reference/Modules/learnloop/diagnosis/split/_package|learnloop.diagnosis.split]] — 6 static module edges
+- [[Reference/Modules/learnloop/followup_run/_package|learnloop.followup_run]] — 6 static module edges
 - [[Reference/Modules/learnloop/ingest/_package|learnloop.ingest]] — 6 static module edges
 - [[Reference/Modules/learnloop/placement/_package|learnloop.placement]] — 6 static module edges
 - [[Reference/Modules/learnloop/ai/chatgpt_plan/_package|learnloop.ai.chatgpt_plan]] — 5 static module edges
@@ -273,7 +277,7 @@ flowchart LR
     n_learnloop_diagnosis["learnloop.diagnosis"]
     n_learnloop_content_sources["learnloop.content.sources"]
     n_learnloop_sidecar -->|4| center
-    center -->|324| n_learnloop_sidecar
+    center -->|327| n_learnloop_sidecar
     center -->|48| n_learnloop_reader
     center -->|47| n_learnloop
     center -->|41| n_learnloop_source_retrieval

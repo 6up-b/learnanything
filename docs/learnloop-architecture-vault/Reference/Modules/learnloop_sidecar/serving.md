@@ -7,8 +7,8 @@ version: "1.0.0"
 source_path: "src/learnloop_sidecar/serving.py"
 source_paths:
   - "src/learnloop_sidecar/serving.py"
-source_commit: "01fa9698ae962d7b0977b90915e12e269c3b8db5"
-source_commit_timestamp: "2026-11-03T12:40:09-05:00"
+source_commit: "2cfe5cce75c95910c18c0105c36d952e15ab11cc"
+source_commit_timestamp: "2026-11-03T23:34:25-05:00"
 source_worktree_state: "clean"
 generated: true
 generated_at: "2026-11-02"
@@ -53,13 +53,13 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop_sidecar/serving.py](../../../../../src/learnloop_sidecar/serving.py) |
-| Source lines | 148 |
+| Source lines | 203 |
 | Owning package | [[Reference/Modules/learnloop_sidecar/_package|learnloop_sidecar]] |
 | Architecture layer | `adapter` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `01fa9698ae962d7b0977b90915e12e269c3b8db5` |
-| Commit timestamp | `2026-11-03T12:40:09-05:00` |
+| Source commit | `2cfe5cce75c95910c18c0105c36d952e15ab11cc` |
+| Commit timestamp | `2026-11-03T23:34:25-05:00` |
 
 ## Public API
 
@@ -68,8 +68,9 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `device_filter(origin: RequestOrigin | None, vault: Any, repository: Any=None, session_id: str | None=None) -> DeviceFilter | None` ([source](../../../../../src/learnloop_sidecar/serving.py), line 73) — What a queue build holds back for the request's device (§6.4, D6).
 - `refuse_device_ineligible_item(origin: RequestOrigin | None, vault: Any, item: Any) -> None` ([source](../../../../../src/learnloop_sidecar/serving.py), line 89) — A by-id door (§6.4): a stale list, a deep link or a restored session cannot bring the phone an item it cannot show.
 - `refuse_inactive_learning_object(vault: LoadedVault, learning_object_id: str | None) -> None` ([source](../../../../../src/learnloop_sidecar/serving.py), line 102)
-- `refuse_unservable_item(vault: LoadedVault, item: PracticeItem) -> None` ([source](../../../../../src/learnloop_sidecar/serving.py), line 124) — The item-level door: its LO's refusal, then the adoption kill switch.
-- `refuse_held_out_item(vault: LoadedVault, repository: Any, item: PracticeItem) -> None` ([source](../../../../../src/learnloop_sidecar/serving.py), line 138) — A session serve of an item made from held-out material is refused.
+- `refuse_generated_probe_door(ctx_origin: RequestOrigin | None, repository: Any, item: PracticeItem, *, serve: bool) -> None` ([source](../../../../../src/learnloop_sidecar/serving.py), line 124) — FG1 §4.2: every serve door for a generated probe, before its text leaves.
+- `refuse_unservable_item(vault: LoadedVault, item: PracticeItem) -> None` ([source](../../../../../src/learnloop_sidecar/serving.py), line 179) — The item-level door: its LO's refusal, then the adoption kill switch.
+- `refuse_held_out_item(vault: LoadedVault, repository: Any, item: PracticeItem) -> None` ([source](../../../../../src/learnloop_sidecar/serving.py), line 193) — A session serve of an item made from held-out material is refused.
 
 ### Module constants
 
@@ -87,8 +88,8 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 > “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
 
 - [[Reference/Modules/learnloop_sidecar/handlers/golden_path_assessment|learnloop_sidecar.handlers.golden_path_assessment]] — imports `refuse_unservable_item`; statically calls `refuse_unservable_item`
-- [[Reference/Modules/learnloop_sidecar/handlers/practice|learnloop_sidecar.handlers.practice]] — imports `device_filter`, `refuse_device_ineligible_item`, `refuse_held_out_item`, `refuse_inactive_learning_object`, `refuse_unservable_item`; statically calls `device_filter`, `refuse_device_ineligible_item`, `refuse_held_out_item`, `refuse_inactive_learning_object`, `refuse_unservable_item`
-- [[Reference/Modules/learnloop_sidecar/handlers/queue|learnloop_sidecar.handlers.queue]] — imports `device_filter`, `device_policy`, `refuse_device_ineligible_item`, `refuse_held_out_item`, `refuse_unservable_item`; statically calls `device_filter`, `device_policy`, `refuse_device_ineligible_item`, `refuse_held_out_item`, `refuse_unservable_item`
+- [[Reference/Modules/learnloop_sidecar/handlers/practice|learnloop_sidecar.handlers.practice]] — imports `device_filter`, `refuse_device_ineligible_item`, `refuse_generated_probe_door`, `refuse_held_out_item`, `refuse_inactive_learning_object`, `refuse_unservable_item`; statically calls `device_filter`, `refuse_device_ineligible_item`, `refuse_generated_probe_door`, `refuse_held_out_item`, `refuse_inactive_learning_object`, `refuse_unservable_item`
+- [[Reference/Modules/learnloop_sidecar/handlers/queue|learnloop_sidecar.handlers.queue]] — imports `device_filter`, `device_policy`, `refuse_device_ineligible_item`, `refuse_generated_probe_door`, `refuse_held_out_item`, `refuse_unservable_item`; statically calls `device_filter`, `device_policy`, `refuse_device_ineligible_item`, `refuse_generated_probe_door`, `refuse_held_out_item`, `refuse_unservable_item`
 - [[Reference/Modules/learnloop_sidecar/handlers/sessions|learnloop_sidecar.handlers.sessions]] — imports `origin_ineligibility`; statically calls `origin_ineligibility`
 - [[Reference/Modules/learnloop_sidecar/handlers/teach_back|learnloop_sidecar.handlers.teach_back]] — imports `refuse_held_out_item`, `refuse_unservable_item`; statically calls `refuse_held_out_item`, `refuse_unservable_item`
 
@@ -97,6 +98,9 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 ### LearnLoop dependencies
 
 - [[Reference/Modules/learnloop/content/sources/exam_material|learnloop.content.sources.exam_material]] — imports `HELD_OUT_ITEM_REFUSAL`, `held_out_item_ids`, `held_out_material`, `held_out_selection_active`; calls `held_out_item_ids`, `held_out_material`, `held_out_selection_active`
+- [[Reference/Modules/learnloop/followup_serve/gates|learnloop.followup_serve.gates]] — imports `SERVING_SURFACE`
+- [[Reference/Modules/learnloop/followup_serve/identity|learnloop.followup_serve.identity]] — imports `module`; calls `claim_serve`, `closed_probe_ids`, `door_refusal`, `is_generated_probe`
+- [[Reference/Modules/learnloop/followup_serve/workflow|learnloop.followup_serve.workflow]] — imports `module`; calls `retire_waiting`, `waiting_still_valid`, `workflow_of_item`
 - [[Reference/Modules/learnloop/scheduling/device_eligibility|learnloop.scheduling.device_eligibility]] — imports `DEVICE_POLICY`, `DEVICE_POLICY_OFF`, `DeviceFilter`, `ineligibility_reason`; calls `DeviceFilter`, `ineligibility_reason`
 - [[Reference/Modules/learnloop/vault/lifecycle|learnloop.vault.lifecycle]] — imports `LEARNER_TEXT_GAP_DISABLED`, `REFERENCE_ADOPTION_DISABLED`, `learning_object_serving_block`, `practice_item_serving_block`; calls `learning_object_serving_block`, `practice_item_serving_block`
 - [[Reference/Modules/learnloop/vault/models|learnloop.vault.models]] — imports `LoadedVault`, `PracticeItem`

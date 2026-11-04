@@ -3,8 +3,8 @@ title: "Config - storage"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "9995860ab7dd149c0862dd57a7f483c3ac4e7815"
-source_commit_timestamp: "2026-11-03T19:35:50-05:00"
+source_commit: "2cfe5cce75c95910c18c0105c36d952e15ab11cc"
+source_commit_timestamp: "2026-11-03T23:34:25-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "learnloop.toml storage"
@@ -29,9 +29,9 @@ source_paths:
   - "tests/daily_plan_fakes.py"
   - "tests/diagnosis_split_helpers.py"
   - "tests/e0_fakes.py"
+  - "tests/followup_serve_helpers.py"
   - "tests/helpers.py"
   - "tests/hint_fakes.py"
-  - "tests/intent_fakes.py"
 tags:
   - "learnloop/configuration/fields"
   - "learnloop/configuration/section/storage"
@@ -70,9 +70,9 @@ Every row cites the exact Pydantic field declaration (or typed dynamic-key conta
 - `tests/daily_plan_fakes.py`
 - `tests/diagnosis_split_helpers.py`
 - `tests/e0_fakes.py`
+- `tests/followup_serve_helpers.py`
 - `tests/helpers.py`
 - `tests/hint_fakes.py`
-- `tests/intent_fakes.py`
 
 ## Extension and modification guidance
 

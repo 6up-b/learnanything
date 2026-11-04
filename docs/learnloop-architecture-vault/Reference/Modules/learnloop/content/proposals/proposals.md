@@ -169,6 +169,7 @@ The authoritative system-level explanation remains in [[Learning System]], [[AI 
 - [[Reference/Modules/learnloop/content/pipeline/jobs|learnloop.content.pipeline.jobs]] — imports `accept_items`; statically calls `accept_items`
 - [[Reference/Modules/learnloop/content/pipeline/source_ingestion|learnloop.content.pipeline.source_ingestion]] — imports `auto_apply_rows`, `proposal_item_row`; statically calls `auto_apply_rows`, `proposal_item_row`
 - [[Reference/Modules/learnloop/curriculum/graph_edit_proposals|learnloop.curriculum.graph_edit_proposals]] — imports `auto_apply_rows`, `proposal_item_row`; statically calls `auto_apply_rows`, `proposal_item_row`
+- [[Reference/Modules/learnloop/followup_run/jobs|learnloop.followup_run.jobs]] — imports `accept_items`; statically calls `accept_items`
 - [[Reference/Modules/learnloop/tutor/promotions|learnloop.tutor.promotions]] — imports `generate_authoring_proposal`; statically calls `generate_authoring_proposal`
 - [[Reference/Modules/learnloop_sidecar/handlers/feedback|learnloop_sidecar.handlers.feedback]] — imports `accept_items`; statically calls `accept_items`
 - [[Reference/Modules/learnloop_sidecar/handlers/proposals|learnloop_sidecar.handlers.proposals]] — imports `accept_items`, `delete_proposal_item`, `edit_proposal_item`, `refresh_proposal_item_validation`, `reject_items`, `reset_items`; statically calls `accept_items`, `delete_proposal_item`, `edit_proposal_item`, `refresh_proposal_item_validation`, `reject_items`, `reset_items`
@@ -212,7 +213,7 @@ Use this module in context through:
 - [[Import Canonical Sources]]
 - [[Build a Study Map]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/attempts/attempts|learnloop.attempts.attempts]], [[Reference/Modules/learnloop/cli/runtime|learnloop.cli.runtime]], [[Reference/Modules/learnloop/content/authoring/practice_generation|learnloop.content.authoring.practice_generation]], [[Reference/Modules/learnloop/content/authoring/rung_variants|learnloop.content.authoring.rung_variants]], [[Reference/Modules/learnloop/content/pipeline/add_source|learnloop.content.pipeline.add_source]] and 7 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/attempts/attempts|learnloop.attempts.attempts]], [[Reference/Modules/learnloop/cli/runtime|learnloop.cli.runtime]], [[Reference/Modules/learnloop/content/authoring/practice_generation|learnloop.content.authoring.practice_generation]], [[Reference/Modules/learnloop/content/authoring/rung_variants|learnloop.content.authoring.rung_variants]], [[Reference/Modules/learnloop/content/pipeline/add_source|learnloop.content.pipeline.add_source]] and 8 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
@@ -259,6 +260,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_codex_mocked_end_to_end`
 - [tests/test_exercise_authoring.py](../../../../../../../tests/test_exercise_authoring.py) — direct import
   - `test_missing_weights_are_not_uniformly_backfilled_and_smears_are_flagged`
+- [tests/test_followup_generate_e2e.py](../../../../../../../tests/test_followup_generate_e2e.py) — direct import
+  - `test_a_recorded_need_fills_textbook_first_without_a_click`
 - [tests/test_ingest_runner.py](../../../../../../../tests/test_ingest_runner.py) — direct import
   - `test_goal_population_handler_generates_and_applies_practice`
 - [tests/test_method_phrasing_report.py](../../../../../../../tests/test_method_phrasing_report.py) — direct import

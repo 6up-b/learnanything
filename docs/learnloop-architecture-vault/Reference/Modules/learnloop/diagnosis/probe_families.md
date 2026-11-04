@@ -149,6 +149,7 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 - [[Reference/Modules/learnloop/diagnosis/voi_stopping|learnloop.diagnosis.voi_stopping]] — imports `instrument_conditionals`; statically calls `instrument_conditionals`
 - [[Reference/Modules/learnloop/evsi_calibration/multifamily|learnloop.evsi_calibration.multifamily]] — imports `CONTRAST_CONFUSABLE_DEFAULT_ROWS`, `DEFAULT_CONDITIONAL_PSEUDO_COUNT`, `ORDINAL_VOCABULARY`
 - [[Reference/Modules/learnloop/evsi_calibration/world|learnloop.evsi_calibration.world]] — imports `CONTRAST_CONFUSABLE_DEFAULT_ROWS`, `ORDINAL_VOCABULARY`
+- [[Reference/Modules/learnloop/followup_run/admission|learnloop.followup_run.admission]] — imports `DIALOGUE_MICROPROBE_V1`
 - [[Reference/Modules/learnloop/hints/discriminating|learnloop.hints.discriminating]] — imports `CompiledInstrument`, `instrument_expected_information_gain`; statically calls `CompiledInstrument`, `instrument_expected_information_gain`
 - [[Reference/Modules/learnloop/sim/diagnostic_validation|learnloop.sim.diagnostic_validation]] — imports `CompiledInstrument`, `DEFAULT_INSTRUCTIONAL_ACTIONS`, `builtin_family_templates`; statically calls `builtin_family_templates`
 
@@ -176,7 +177,7 @@ Use this module in context through:
 - [[Process Model Output]]
 - [[Start a Learning Cycle]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/attempts/grader_calibration|learnloop.attempts.grader_calibration]], [[Reference/Modules/learnloop/diagnosis/probe_audit|learnloop.diagnosis.probe_audit]], [[Reference/Modules/learnloop/diagnosis/probe_coverage|learnloop.diagnosis.probe_coverage]], [[Reference/Modules/learnloop/diagnosis/probe_dialogue|learnloop.diagnosis.probe_dialogue]], [[Reference/Modules/learnloop/diagnosis/probe_episodes|learnloop.diagnosis.probe_episodes]] and 11 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/attempts/grader_calibration|learnloop.attempts.grader_calibration]], [[Reference/Modules/learnloop/diagnosis/probe_audit|learnloop.diagnosis.probe_audit]], [[Reference/Modules/learnloop/diagnosis/probe_coverage|learnloop.diagnosis.probe_coverage]], [[Reference/Modules/learnloop/diagnosis/probe_dialogue|learnloop.diagnosis.probe_dialogue]], [[Reference/Modules/learnloop/diagnosis/probe_episodes|learnloop.diagnosis.probe_episodes]] and 12 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 

@@ -86,6 +86,7 @@ No non-exported declaration anchor was detected by the static extractor.
 - [[Reference/Desktop/TypeScript/screens/RepairScreen|src/screens/RepairScreen.tsx]] — import-or-re-export: `DetailsToggle`, `PrimaryAction`, `quietLine`; references `DetailsToggle`, `PrimaryAction`, `quietLine`
 - [[Reference/Desktop/TypeScript/screens/feedback/CompareMethods|src/screens/feedback/CompareMethods.tsx]] — import-or-re-export: `quietLine`, `quietLink`; references `quietLine`, `quietLink`
 - [[Reference/Desktop/TypeScript/screens/feedback/FeedbackSurface|src/screens/feedback/FeedbackSurface.tsx]] — import-or-re-export: `DetailsToggle`, `PrimaryAction`, `QuietAction`, `VoicePanel`, `quietLine`, `quietLink`; references `DetailsToggle`, `PrimaryAction`, `QuietAction`, `VoicePanel`, `quietLine`, `quietLink`
+- [[Reference/Desktop/TypeScript/screens/feedback/FollowupPanel|src/screens/feedback/FollowupPanel.tsx]] — import-or-re-export: `QuietAction`, `quietLine`, `quietLink`; references `QuietAction`, `quietLine`, `quietLink`
 - [[Reference/Desktop/TypeScript/screens/practice/HintPanel|src/screens/practice/HintPanel.tsx]] — import-or-re-export: `quietLine`, `quietLink`; references `quietLine`, `quietLink`
 - [[Reference/Desktop/TypeScript/screens/workbench/HelpLadder|src/screens/workbench/HelpLadder.tsx]] — import-or-re-export: `quietLink`; references `quietLink`
 - [[Reference/Desktop/TypeScript/screens/workbench/RouteExample|src/screens/workbench/RouteExample.tsx]] — import-or-re-export: `quietLine`, `quietLink`; references `quietLine`, `quietLink`

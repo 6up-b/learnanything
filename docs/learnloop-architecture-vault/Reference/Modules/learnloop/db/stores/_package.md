@@ -24,6 +24,7 @@ source_paths:
   - "src/learnloop/db/stores/field_signal_receipts.py"
   - "src/learnloop/db/stores/figure_prefetch.py"
   - "src/learnloop/db/stores/figures.py"
+  - "src/learnloop/db/stores/followup_serve.py"
   - "src/learnloop/db/stores/followup_value.py"
   - "src/learnloop/db/stores/forecast_receipts.py"
   - "src/learnloop/db/stores/held_out_signals.py"
@@ -57,7 +58,7 @@ source_paths:
   - "src/learnloop/db/stores/workbench.py"
   - "src/learnloop/db/stores/write_provenance.py"
 source_commit: "aggregate; see module notes"
-source_commit_timestamp: "2026-11-03T19:34:35-05:00"
+source_commit_timestamp: "2026-11-03T22:09:07-05:00"
 generated: true
 generated_at: "2026-11-02"
 package: "learnloop.db.stores"
@@ -114,6 +115,7 @@ For system intent, use [[State and Persistence]], [[Architecture Overview]].
 | [[Reference/Modules/learnloop/db/stores/field_signal_receipts|learnloop.db.stores.field_signal_receipts]] | [[Reference/Modules/learnloop/db/stores/field_signal_receipts#^module-purpose|purpose]] | `ACTIVE` | 1 | 1 |
 | [[Reference/Modules/learnloop/db/stores/figure_prefetch|learnloop.db.stores.figure_prefetch]] | [[Reference/Modules/learnloop/db/stores/figure_prefetch#^module-purpose|purpose]] | `ACTIVE` | 1 | 0 |
 | [[Reference/Modules/learnloop/db/stores/figures|learnloop.db.stores.figures]] | [[Reference/Modules/learnloop/db/stores/figures#^module-purpose|purpose]] | `ACTIVE` | 10 | 14 |
+| [[Reference/Modules/learnloop/db/stores/followup_serve|learnloop.db.stores.followup_serve]] | [[Reference/Modules/learnloop/db/stores/followup_serve#^module-purpose|purpose]] | `ACTIVE` | 6 | 3 |
 | [[Reference/Modules/learnloop/db/stores/followup_value|learnloop.db.stores.followup_value]] | [[Reference/Modules/learnloop/db/stores/followup_value#^module-purpose|purpose]] | `ACTIVE` | 1 | 0 |
 | [[Reference/Modules/learnloop/db/stores/forecast_receipts|learnloop.db.stores.forecast_receipts]] | [[Reference/Modules/learnloop/db/stores/forecast_receipts#^module-purpose|purpose]] | `ACTIVE` | 4 | 3 |
 | [[Reference/Modules/learnloop/db/stores/held_out_signals|learnloop.db.stores.held_out_signals]] | [[Reference/Modules/learnloop/db/stores/held_out_signals#^module-purpose|purpose]] | `ACTIVE` | 3 | 1 |
@@ -151,7 +153,7 @@ For system intent, use [[State and Persistence]], [[Architecture Overview]].
 
 ### This package imports
 
-- [[Reference/Modules/learnloop/_package|learnloop]] — 29 static module edges
+- [[Reference/Modules/learnloop/_package|learnloop]] — 30 static module edges
 - [[Reference/Modules/learnloop/db/_package|learnloop.db]] — 4 static module edges
 
 ### Packages that import this package
@@ -174,13 +176,13 @@ For system intent, use [[State and Persistence]], [[Architecture Overview]].
 - [[Reference/Modules/learnloop/field/_package|learnloop.field]] — 9 static module edges
 - [[Reference/Modules/learnloop/attempts/_package|learnloop.attempts]] — 8 static module edges
 - [[Reference/Modules/learnloop/teacher/_package|learnloop.teacher]] — 8 static module edges
+- [[Reference/Modules/learnloop/router/_package|learnloop.router]] — 7 static module edges
 - [[Reference/Modules/learnloop/substrate/_package|learnloop.substrate]] — 7 static module edges
 - [[Reference/Modules/learnloop/cli/_package|learnloop.cli]] — 6 static module edges
 - [[Reference/Modules/learnloop/content/pipeline/_package|learnloop.content.pipeline]] — 6 static module edges
 - [[Reference/Modules/learnloop/diagnosis/_package|learnloop.diagnosis]] — 6 static module edges
 - [[Reference/Modules/learnloop/diagnosis/offline_review/_package|learnloop.diagnosis.offline_review]] — 6 static module edges
 - [[Reference/Modules/learnloop/diagnosis/recurrence/_package|learnloop.diagnosis.recurrence]] — 6 static module edges
-- [[Reference/Modules/learnloop/router/_package|learnloop.router]] — 6 static module edges
 - [[Reference/Modules/learnloop/evsi_calibration/_package|learnloop.evsi_calibration]] — 5 static module edges
 - [[Reference/Modules/learnloop/scheduling/intent/_package|learnloop.scheduling.intent]] — 5 static module edges
 - [[Reference/Modules/learnloop/content/authoring/_package|learnloop.content.authoring]] — 4 static module edges
@@ -192,10 +194,12 @@ For system intent, use [[State and Persistence]], [[Architecture Overview]].
 - [[Reference/Modules/learnloop/content/sources/_package|learnloop.content.sources]] — 3 static module edges
 - [[Reference/Modules/learnloop/data_capture/_package|learnloop.data_capture]] — 3 static module edges
 - [[Reference/Modules/learnloop/experiments/contextual_embeddings/_package|learnloop.experiments.contextual_embeddings]] — 3 static module edges
+- [[Reference/Modules/learnloop/followup_serve/_package|learnloop.followup_serve]] — 3 static module edges
 - [[Reference/Modules/learnloop/matching/_package|learnloop.matching]] — 3 static module edges
 - [[Reference/Modules/learnloop/ops/contamination/_package|learnloop.ops.contamination]] — 3 static module edges
 - [[Reference/Modules/learnloop/scheduling/_package|learnloop.scheduling]] — 3 static module edges
 - [[Reference/Modules/learnloop/content/synthesis/_package|learnloop.content.synthesis]] — 2 static module edges
+- [[Reference/Modules/learnloop/followup_run/_package|learnloop.followup_run]] — 2 static module edges
 - [[Reference/Modules/learnloop/goals/_package|learnloop.goals]] — 2 static module edges
 - [[Reference/Modules/learnloop/curriculum/_package|learnloop.curriculum]] — 1 static module edge
 - [[Reference/Modules/learnloop/learner/_package|learnloop.learner]] — 1 static module edge
@@ -221,7 +225,7 @@ flowchart LR
     n_learnloop_diagnosis_split["learnloop.diagnosis.split"]
     n_learnloop_source_retrieval -->|54| center
     n_learnloop -->|9| center
-    center -->|29| n_learnloop
+    center -->|30| n_learnloop
     n_learnloop_adaptive_difficulty -->|24| center
     n_learnloop_sidecar_handlers -->|24| center
     n_learnloop_instructional -->|23| center

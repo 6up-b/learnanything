@@ -117,6 +117,7 @@ The authoritative system-level explanation remains in [[State and Persistence]];
 - [[Reference/Modules/learnloop/diagnosis/probe_instance_generation|learnloop.diagnosis.probe_instance_generation]] — imports `upsert_practice_item`; statically calls `upsert_practice_item`
 - [[Reference/Modules/learnloop/diagnosis/probe_remint|learnloop.diagnosis.probe_remint]] — imports `upsert_practice_item`; statically calls `upsert_practice_item`
 - [[Reference/Modules/learnloop/diagnosis/text_gaps/actions|learnloop.diagnosis.text_gaps.actions]] — imports `delete_concept_edge`, `upsert_concept`, `upsert_concept_edge`, `upsert_learning_object`; statically calls `delete_concept_edge`, `upsert_concept`, `upsert_concept_edge`, `upsert_learning_object`
+- [[Reference/Modules/learnloop/followup_run/admission|learnloop.followup_run.admission]] — imports `upsert_practice_item`; statically calls `upsert_practice_item`
 - [[Reference/Modules/learnloop/goals/goal_lo|learnloop.goals.goal_lo]] — imports `upsert_concept`, `upsert_learning_object`; statically calls `upsert_concept`, `upsert_learning_object`
 - [[Reference/Modules/learnloop/learner/recall_calibration|learnloop.learner.recall_calibration]] — imports `upsert_concept`, `upsert_learning_object`, `upsert_practice_item`; statically calls `upsert_concept`, `upsert_learning_object`, `upsert_practice_item`
 - [[Reference/Modules/learnloop/ops/pf_generation|learnloop.ops.pf_generation]] — imports `upsert_activity_family`; statically calls `upsert_activity_family`
@@ -153,7 +154,7 @@ Use this module in context through:
 
 - [[Initialize a Vault]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/attempts/measurement_corrections|learnloop.attempts.measurement_corrections]], [[Reference/Modules/learnloop/cli/source_set|learnloop.cli.source_set]], [[Reference/Modules/learnloop/content/authoring/exercise_authoring|learnloop.content.authoring.exercise_authoring]], [[Reference/Modules/learnloop/content/authoring/item_authoring|learnloop.content.authoring.item_authoring]], [[Reference/Modules/learnloop/content/pipeline/add_source|learnloop.content.pipeline.add_source]] and 17 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/attempts/measurement_corrections|learnloop.attempts.measurement_corrections]], [[Reference/Modules/learnloop/cli/source_set|learnloop.cli.source_set]], [[Reference/Modules/learnloop/content/authoring/exercise_authoring|learnloop.content.authoring.exercise_authoring]], [[Reference/Modules/learnloop/content/authoring/item_authoring|learnloop.content.authoring.item_authoring]], [[Reference/Modules/learnloop/content/pipeline/add_source|learnloop.content.pipeline.add_source]] and 18 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 

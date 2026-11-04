@@ -60,7 +60,7 @@ For system intent, use [[Learning System]], [[AI Architecture]].
 | [[Reference/Modules/learnloop/content/proposals/method_phrasing|learnloop.content.proposals.method_phrasing]] | [[Reference/Modules/learnloop/content/proposals/method_phrasing#^module-purpose|purpose]] | `ACTIVE` | 2 | 4 |
 | [[Reference/Modules/learnloop/content/proposals/method_statement_judge|learnloop.content.proposals.method_statement_judge]] | [[Reference/Modules/learnloop/content/proposals/method_statement_judge#^module-purpose|purpose]] | `ACTIVE` | 5 | 6 |
 | [[Reference/Modules/learnloop/content/proposals/patches|learnloop.content.proposals.patches]] | [[Reference/Modules/learnloop/content/proposals/patches#^module-purpose|purpose]] | `ACTIVE` | 11 | 25 |
-| [[Reference/Modules/learnloop/content/proposals/proposals|learnloop.content.proposals.proposals]] | [[Reference/Modules/learnloop/content/proposals/proposals#^module-purpose|purpose]] | `ACTIVE` | 12 | 28 |
+| [[Reference/Modules/learnloop/content/proposals/proposals|learnloop.content.proposals.proposals]] | [[Reference/Modules/learnloop/content/proposals/proposals#^module-purpose|purpose]] | `ACTIVE` | 13 | 29 |
 | [[Reference/Modules/learnloop/content/proposals/required_method_override|learnloop.content.proposals.required_method_override]] | [[Reference/Modules/learnloop/content/proposals/required_method_override#^module-purpose|purpose]] | `ACTIVE` | 3 | 4 |
 
 ## Cross-package dependencies
@@ -96,6 +96,7 @@ For system intent, use [[Learning System]], [[AI Architecture]].
 - [[Reference/Modules/learnloop/tutor/_package|learnloop.tutor]] — 2 static module edges
 - [[Reference/Modules/learnloop/attempts/_package|learnloop.attempts]] — 1 static module edge
 - [[Reference/Modules/learnloop/diagnosis/_package|learnloop.diagnosis]] — 1 static module edge
+- [[Reference/Modules/learnloop/followup_run/_package|learnloop.followup_run]] — 1 static module edge
 
 ### Dependency neighborhood
 

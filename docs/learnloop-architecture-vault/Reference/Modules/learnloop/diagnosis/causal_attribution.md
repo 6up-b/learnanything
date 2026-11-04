@@ -178,6 +178,7 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 - [[Reference/Modules/learnloop/diagnosis/split/card|learnloop.diagnosis.split.card]] — imports `record_unresolved_cause_self_report`; statically calls `record_unresolved_cause_self_report`
 - [[Reference/Modules/learnloop/diagnosis/split/validation|learnloop.diagnosis.split.validation]] — imports `validate_repair_candidate`; statically calls `validate_repair_candidate`
 - [[Reference/Modules/learnloop/evsi_calibration/live_report|learnloop.evsi_calibration.live_report]] — imports `SUPPORT_BASIS_AUTHORITY`
+- [[Reference/Modules/learnloop/followup_run/lanes|learnloop.followup_run.lanes]] — imports `OPEN_SET_CAUSE_ID`
 - [[Reference/Modules/learnloop/substrate/canonical_projection|learnloop.substrate.canonical_projection]] — imports `OPEN_SET_CAUSE_ID`
 - [[Reference/Modules/learnloop/tutor/durable_promotion|learnloop.tutor.durable_promotion]] — imports `OPEN_SET_CAUSE_ID`, `causal_episode_for_attempt`, `trace_consistent`; statically calls `causal_episode_for_attempt`, `trace_consistent`
 - [[Reference/Modules/learnloop/tutor/tutor_qa|learnloop.tutor.tutor_qa]] — imports `append_dialogue_candidate`; statically calls `append_dialogue_candidate`
@@ -214,7 +215,7 @@ Use this module in context through:
 - [[Process Model Output]]
 - [[Start a Learning Cycle]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/attempts/attempts|learnloop.attempts.attempts]], [[Reference/Modules/learnloop/attempts/grading|learnloop.attempts.grading]], [[Reference/Modules/learnloop/cli/app|learnloop.cli.app]], [[Reference/Modules/learnloop/diagnosis/causal_health|learnloop.diagnosis.causal_health]], [[Reference/Modules/learnloop/diagnosis/causal_orchestrator|learnloop.diagnosis.causal_orchestrator]] and 19 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/attempts/attempts|learnloop.attempts.attempts]], [[Reference/Modules/learnloop/attempts/grading|learnloop.attempts.grading]], [[Reference/Modules/learnloop/cli/app|learnloop.cli.app]], [[Reference/Modules/learnloop/diagnosis/causal_health|learnloop.diagnosis.causal_health]], [[Reference/Modules/learnloop/diagnosis/causal_orchestrator|learnloop.diagnosis.causal_orchestrator]] and 20 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 

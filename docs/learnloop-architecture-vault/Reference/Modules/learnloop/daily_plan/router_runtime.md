@@ -174,6 +174,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop/daily_plan/router_chooser|learnloop.daily_plan.router_chooser]] — imports `ANSWERED`, `ComponentResult`, `DECIDER`, `INVALID`, `LLM`, `NOT_READY`, `Prefetch`, `RECEIPT_OWNER`, `RouterRuntime`, `call_decider`, `call_llm`; statically calls `ComponentResult`
 - [[Reference/Modules/learnloop/daily_plan/router_retrieval|learnloop.daily_plan.router_retrieval]] — imports `EMBEDDING_TIMEOUT_SECONDS`, `SpendRefused`
 - [[Reference/Modules/learnloop/daily_plan/router_teach_back|learnloop.daily_plan.router_teach_back]] — imports `LLM`, `SUMMARY_RECEIPT_OWNER`, `SpendRefused`, `_supports_isolation`, `default_runtime`; statically calls `_supports_isolation`, `default_runtime`
+- [[Reference/Modules/learnloop/followup_run/jobs|learnloop.followup_run.jobs]] — imports `default_runtime`; statically calls `default_runtime`
 - [[Reference/Modules/learnloop_sidecar/context|learnloop_sidecar.context]] — imports `models_disabled`; statically calls `models_disabled`
 
 ## Dependencies
@@ -204,7 +205,7 @@ Use this module in context through:
 
 - [[Configure AI Providers]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/daily_plan/policy|learnloop.daily_plan.policy]], [[Reference/Modules/learnloop/daily_plan/router_chooser|learnloop.daily_plan.router_chooser]], [[Reference/Modules/learnloop/daily_plan/router_retrieval|learnloop.daily_plan.router_retrieval]], [[Reference/Modules/learnloop/daily_plan/router_teach_back|learnloop.daily_plan.router_teach_back]], [[Reference/Modules/learnloop_sidecar/context|learnloop_sidecar.context]].
+Static participation evidence comes from [[Reference/Modules/learnloop/daily_plan/policy|learnloop.daily_plan.policy]], [[Reference/Modules/learnloop/daily_plan/router_chooser|learnloop.daily_plan.router_chooser]], [[Reference/Modules/learnloop/daily_plan/router_retrieval|learnloop.daily_plan.router_retrieval]], [[Reference/Modules/learnloop/daily_plan/router_teach_back|learnloop.daily_plan.router_teach_back]], [[Reference/Modules/learnloop/followup_run/jobs|learnloop.followup_run.jobs]] and 1 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 

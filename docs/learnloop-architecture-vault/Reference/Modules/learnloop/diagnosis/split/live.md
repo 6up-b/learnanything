@@ -106,6 +106,7 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 
 - [[Reference/Modules/learnloop/cli/ai_compare|learnloop.cli.ai_compare]] — imports `current_attempt_for`, `joint_grade_record`, `live_history_store`, `needs_diagnosis`, `settings_from_config`; statically calls `current_attempt_for`, `joint_grade_record`, `live_history_store`, `needs_diagnosis`, `settings_from_config`
 - [[Reference/Modules/learnloop/cli/diagnose|learnloop.cli.diagnose]] — imports `needs_diagnosis`; statically calls `needs_diagnosis`
+- [[Reference/Modules/learnloop/diagnosis/followups|learnloop.diagnosis.followups]] — imports `joint_grade_record`, `needs_diagnosis`; statically calls `joint_grade_record`, `needs_diagnosis`
 - [[Reference/Modules/learnloop/diagnosis/offline_review/runner|learnloop.diagnosis.offline_review.runner]] — imports `confidence_for_offline_target`; statically calls `confidence_for_offline_target`
 - [[Reference/Modules/learnloop/diagnosis/recurrence/guard|learnloop.diagnosis.recurrence.guard]] — imports `settings_from_config`; statically calls `settings_from_config`
 - [[Reference/Modules/learnloop/diagnosis/recurrence/upgrade|learnloop.diagnosis.recurrence.upgrade]] — imports `settings_from_config`; statically calls `settings_from_config`
@@ -146,7 +147,7 @@ Use this module in context through:
 - [[Process Model Output]]
 - [[Start a Learning Cycle]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/cli/ai_compare|learnloop.cli.ai_compare]], [[Reference/Modules/learnloop/cli/diagnose|learnloop.cli.diagnose]], [[Reference/Modules/learnloop/diagnosis/offline_review/runner|learnloop.diagnosis.offline_review.runner]], [[Reference/Modules/learnloop/diagnosis/recurrence/guard|learnloop.diagnosis.recurrence.guard]], [[Reference/Modules/learnloop/diagnosis/recurrence/upgrade|learnloop.diagnosis.recurrence.upgrade]] and 2 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/cli/ai_compare|learnloop.cli.ai_compare]], [[Reference/Modules/learnloop/cli/diagnose|learnloop.cli.diagnose]], [[Reference/Modules/learnloop/diagnosis/followups|learnloop.diagnosis.followups]], [[Reference/Modules/learnloop/diagnosis/offline_review/runner|learnloop.diagnosis.offline_review.runner]], [[Reference/Modules/learnloop/diagnosis/recurrence/guard|learnloop.diagnosis.recurrence.guard]] and 3 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 

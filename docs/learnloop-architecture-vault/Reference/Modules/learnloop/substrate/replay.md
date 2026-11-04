@@ -7,8 +7,8 @@ version: "1.0.0"
 source_path: "src/learnloop/substrate/replay.py"
 source_paths:
   - "src/learnloop/substrate/replay.py"
-source_commit: "a1cf03b45c78e073558cc5568f0a245c2d6a57f0"
-source_commit_timestamp: "2026-10-27T12:58:49-04:00"
+source_commit: "b45e4414cdb7963772b12ecd3c8825b73e93266a"
+source_commit_timestamp: "2026-11-03T21:51:14-05:00"
 source_worktree_state: "clean"
 generated: true
 generated_at: "2026-11-02"
@@ -50,13 +50,13 @@ The authoritative system-level explanation remains in [[Learning System]], [[Sta
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/substrate/replay.py](../../../../../../src/learnloop/substrate/replay.py) |
-| Source lines | 523 |
+| Source lines | 533 |
 | Owning package | [[Reference/Modules/learnloop/substrate/_package|learnloop.substrate]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `a1cf03b45c78e073558cc5568f0a245c2d6a57f0` |
-| Commit timestamp | `2026-10-27T12:58:49-04:00` |
+| Source commit | `b45e4414cdb7963772b12ecd3c8825b73e93266a` |
+| Commit timestamp | `2026-11-03T21:51:14-05:00` |
 
 ## Public API
 
@@ -65,8 +65,8 @@ The authoritative system-level explanation remains in [[Learning System]], [[Sta
 - `class RebuildResult` ([source](../../../../../../src/learnloop/substrate/replay.py), line 29)
   - `as_dict(self) -> dict[str, object]` (line 36; public)
 - `replay_learning_object(vault: LoadedVault, repository: Repository, learning_object_id: str, *, error_attribution_overrides: dict[str, list[GradeAttribution]] | None=None, grader_identity_overrides: dict[str, tuple[str, str] | None] | None=None, project_canonical_state: bool=True) -> ReplayResult` ([source](../../../../../../src/learnloop/substrate/replay.py), line 268) — Rebuild attempt-derived state for one learning object from persisted grades.
-- `rebuild_derived_state(vault: LoadedVault, repository: Repository, *, learning_object_ids: list[str] | None=None, clock: Clock | None=None, record_receipt: bool=True, project_canonical_state: bool=True) -> RebuildResult` ([source](../../../../../../src/learnloop/substrate/replay.py), line 410) — Replay all requested learning objects that have persisted attempts.
-- `record_content_recalibration(vault: LoadedVault, repository: Repository, *, affected_learning_object_ids: list[str], clock: Clock | None=None) -> str | None` ([source](../../../../../../src/learnloop/substrate/replay.py), line 470) — Stamp the recalibration boundary AT the content change, not after it.
+- `rebuild_derived_state(vault: LoadedVault, repository: Repository, *, learning_object_ids: list[str] | None=None, clock: Clock | None=None, record_receipt: bool=True, project_canonical_state: bool=True) -> RebuildResult` ([source](../../../../../../src/learnloop/substrate/replay.py), line 420) — Replay all requested learning objects that have persisted attempts.
+- `record_content_recalibration(vault: LoadedVault, repository: Repository, *, affected_learning_object_ids: list[str], clock: Clock | None=None) -> str | None` ([source](../../../../../../src/learnloop/substrate/replay.py), line 480) — Stamp the recalibration boundary AT the content change, not after it.
 
 ## Internal implementation anchors
 
@@ -99,6 +99,7 @@ The authoritative system-level explanation remains in [[Learning System]], [[Sta
 - [[Reference/Modules/learnloop/clock|learnloop.clock]] — imports `Clock`, `FrozenClock`, `parse_utc`; calls `FrozenClock`, `parse_utc`
 - [[Reference/Modules/learnloop/db/repositories|learnloop.db.repositories]] — imports `Repository`
 - [[Reference/Modules/learnloop/diagnosis/misconceptions|learnloop.diagnosis.misconceptions]] — imports `update_misconception_posteriors_and_resolve`; calls `update_misconception_posteriors_and_resolve`
+- [[Reference/Modules/learnloop/followup_serve/identity|learnloop.followup_serve.identity]] — imports `closed_probe_ids`; calls `closed_probe_ids`
 - [[Reference/Modules/learnloop/learner/facet_diagnostics|learnloop.learner.facet_diagnostics]] — imports `coverage_denominator_version`; calls `coverage_denominator_version`
 - [[Reference/Modules/learnloop/learner/mastery|learnloop.learner.mastery]] — imports `module`; calls `after_what_they_replaced`, `claim_fixes_live`, `covering_claims`, `initial_mastery_state_for_learning_object`, `reanchor_mastery_from_claim`
 - [[Reference/Modules/learnloop/substrate/canonical_projection|learnloop.substrate.canonical_projection]] — imports `CANONICAL_PROJECTION_VERSION`, `project_canonical_facet_state`; calls `project_canonical_facet_state`
@@ -149,6 +150,11 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_rebuild_after_seeding_is_stable`
 - [tests/test_facet_diagnostics_v03.py](../../../../../../tests/test_facet_diagnostics_v03.py) — direct import
   - `test_facet_uncertainty_rebuilds_from_attempts_and_grading_evidence`
+- [tests/test_followup_journey.py](../../../../../../tests/test_followup_journey.py) — direct import
+  - `test_a_lost_response_counts_as_burned_and_rebuild_keeps_the_one_submission`
+  - `test_the_whole_journey_and_never_again`
+- [tests/test_followup_single_use.py](../../../../../../tests/test_followup_single_use.py) — direct import
+  - `test_retired_while_unused_stays_retired_after_sync_and_rebuild`
 - [tests/test_help_fold_attach_successor.py](../../../../../../tests/test_help_fold_attach_successor.py) — direct import
   - `test_a_rebuild_changes_no_attempt_and_a_shadow_rebuild_is_zero`
 - [tests/test_ingest_instrument_gates.py](../../../../../../tests/test_ingest_instrument_gates.py) — direct import

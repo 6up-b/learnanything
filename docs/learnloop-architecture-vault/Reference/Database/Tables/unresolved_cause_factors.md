@@ -3,13 +3,13 @@ title: "unresolved_cause_factors"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "9995860ab7dd149c0862dd57a7f483c3ac4e7815"
-source_commit_timestamp: "2026-11-03T19:35:50-05:00"
+source_commit: "2cfe5cce75c95910c18c0105c36d952e15ab11cc"
+source_commit_timestamp: "2026-11-03T23:34:25-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite unresolved_cause_factors"
   - "table unresolved_cause_factors"
-schema_head: 240
+schema_head: 241
 table_name: "unresolved_cause_factors"
 table_role: "workflow"
 functionality_status: "active"
@@ -131,12 +131,12 @@ Indexes and uniqueness:
 - `src/learnloop/diagnosis/misconceptions.py`
 - `src/learnloop/diagnosis/probe_targeting.py`
 - `src/learnloop/diagnosis/split/card.py`
+- `src/learnloop/followup_run/admission.py`
+- `src/learnloop/followup_run/jobs.py`
+- `src/learnloop/followup_run/lanes.py`
+- `src/learnloop/followup_serve/workflow.py`
 - `src/learnloop/hints/discriminating.py`
 - `src/learnloop/instructional/needs.py`
-- `src/learnloop/substrate/canonical_projection.py`
-- `src/learnloop/tutor/tutor_qa.py`
-- `src/learnloop_sidecar/handlers/feedback.py`
-- `src/learnloop_sidecar/handlers/knowledge_map.py`
 
 > [!note] Static-reference boundary
 > These lists are evidence from exact table-name SQL and repository-method calls. Dynamic dispatch and higher-level tests may exercise the table without spelling its name.
@@ -147,6 +147,7 @@ Indexes and uniqueness:
 - `tests/test_canonical_projection_fold_skip.py`
 - `tests/test_causal_factor_deferral.py`
 - `tests/test_diagnosis_replay.py`
+- `tests/test_followup_journey.py`
 - `tests/test_mcp_c1a_narrow.py`
 - `tests/test_mcp_c1a_review.py`
 - `tests/test_rebuild_equivalence.py`
@@ -162,7 +163,6 @@ Indexes and uniqueness:
 - `tests/test_causal_orchestrator.py`
 - `tests/test_causal_p2_acceptance.py`
 - `tests/test_causal_probe_commissioning.py`
-- `tests/test_causal_repair_mapping_p2.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

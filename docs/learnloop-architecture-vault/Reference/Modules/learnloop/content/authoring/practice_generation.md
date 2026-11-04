@@ -154,6 +154,7 @@ The authoritative system-level explanation remains in [[Learning System]], [[AI 
 - [[Reference/Modules/learnloop/cli/runtime|learnloop.cli.runtime]] — imports `DiagnosticPracticePlan`, `PracticeExpansionError`, `build_diagnostic_practice_plan`, `build_goal_practice_plan`, `build_practice_expansion_plan`, `generate_diagnostic_practice_proposal`, `generate_goal_practice_proposal`, `generate_post_probe_practice_proposal`
 - [[Reference/Modules/learnloop/content/authoring/rung_variants|learnloop.content.authoring.rung_variants]] — imports `PracticeExpansionError`, `PracticeExpansionPlan`, `_RungGate`, `build_practice_expansion_plan`; statically calls `PracticeExpansionPlan`, `_RungGate`, `build_practice_expansion_plan`
 - [[Reference/Modules/learnloop/content/pipeline/jobs|learnloop.content.pipeline.jobs]] — imports `PracticeExpansionError`, `build_goal_practice_plan`, `generate_goal_practice_proposal`, `generate_post_probe_practice_proposal`; statically calls `build_goal_practice_plan`, `generate_goal_practice_proposal`, `generate_post_probe_practice_proposal`
+- [[Reference/Modules/learnloop/followup_run/jobs|learnloop.followup_run.jobs]] — imports `generate_diagnostic_practice_proposal`; statically calls `generate_diagnostic_practice_proposal`
 - [[Reference/Modules/learnloop/reader/reader_progression|learnloop.reader.reader_progression]] — imports `PracticeExpansionError`, `build_practice_expansion_plan`; statically calls `build_practice_expansion_plan`
 - [[Reference/Modules/learnloop/tutor/promotions|learnloop.tutor.promotions]] — imports `PracticeExpansionError`, `ability_logit`, `generate_diagnostic_practice_proposal`, `success_band_difficulty`; statically calls `ability_logit`, `generate_diagnostic_practice_proposal`, `success_band_difficulty`
 - [[Reference/Modules/learnloop_sidecar/handlers/feedback|learnloop_sidecar.handlers.feedback]] — imports `PracticeExpansionError`, `generate_diagnostic_practice_proposal`, `generate_post_probe_practice_proposal`; statically calls `generate_diagnostic_practice_proposal`, `generate_post_probe_practice_proposal`
@@ -201,7 +202,7 @@ Use this module in context through:
 - [[Import Canonical Sources]]
 - [[Build a Study Map]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/cli/render|learnloop.cli.render]], [[Reference/Modules/learnloop/cli/runtime|learnloop.cli.runtime]], [[Reference/Modules/learnloop/content/authoring/rung_variants|learnloop.content.authoring.rung_variants]], [[Reference/Modules/learnloop/content/pipeline/jobs|learnloop.content.pipeline.jobs]], [[Reference/Modules/learnloop/reader/reader_progression|learnloop.reader.reader_progression]] and 2 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/cli/render|learnloop.cli.render]], [[Reference/Modules/learnloop/cli/runtime|learnloop.cli.runtime]], [[Reference/Modules/learnloop/content/authoring/rung_variants|learnloop.content.authoring.rung_variants]], [[Reference/Modules/learnloop/content/pipeline/jobs|learnloop.content.pipeline.jobs]], [[Reference/Modules/learnloop/followup_run/jobs|learnloop.followup_run.jobs]] and 3 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
@@ -233,6 +234,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_diagnostic_plan_carries_grader_repair_rationales`
   - `test_need_target_builder_freezes_structured_repair_focus`
   - `test_subthreshold_noisy_item_creates_single_facet_generation_need_and_logs_slate`
+- [tests/test_followup_generate_e2e.py](../../../../../../../tests/test_followup_generate_e2e.py) — direct import
+  - `test_a_recorded_need_fills_textbook_first_without_a_click`
 - [tests/test_goal_scope_material.py](../../../../../../../tests/test_goal_scope_material.py) — direct import
   - `test_goal_population_never_authors_for_an_unmeasurable_concept`
   - `test_goal_population_targets_only_the_measurable_concepts`

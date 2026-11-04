@@ -6,8 +6,8 @@ refactor_status: "ACTIVE"
 version: "1.0.0"
 source_paths:
   - "apps/learnloop-tauri/src/screens/feedback"
-source_commit: "8f3748c8efff33dd23b54316db44d6c1af5ceb87"
-source_commit_timestamp: "2026-10-25T16:16:44-04:00"
+source_commit: "d8aabd5dfcaa0d09ba16b8c66a2afd5f7416d82c"
+source_commit_timestamp: "2026-11-03T22:12:02-05:00"
 generated: true
 generated_at: "2026-08-18"
 tags:
@@ -38,6 +38,7 @@ No nested ownership area.
 |---|---|---|---:|---:|
 | [[Reference/Desktop/TypeScript/screens/feedback/CompareMethods|CompareMethods.tsx]] | `ACTIVE` | Implements the `CompareMethods` routed desktop screen and coordinates its learner-facing workflow state. | 7 | 1 |
 | [[Reference/Desktop/TypeScript/screens/feedback/FeedbackSurface|FeedbackSurface.tsx]] | `ACTIVE` | Implements the `FeedbackSurface` routed desktop screen and coordinates its learner-facing workflow state. | 8 | 2 |
+| [[Reference/Desktop/TypeScript/screens/feedback/FollowupPanel|FollowupPanel.tsx]] | `ACTIVE` | Implements the `FollowupPanel` routed desktop screen and coordinates its learner-facing workflow state. | 3 | 2 |
 | [[Reference/Desktop/TypeScript/screens/feedback/answerExposure|answerExposure.ts]] | `ACTIVE` | Provides `EXPOSURE`, `DisplayReceipt`, `RecordDisplay`, `ExposureStatus` and related exports within the desktop's TypeScript/screens/feedback ownership area. | 0 | 2 |
 
 ## Modification guidance

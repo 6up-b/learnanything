@@ -28,7 +28,7 @@ source_paths:
   - "src/learnloop/ops/vault_lock.py"
   - "src/learnloop/ops/vault_upgrade.py"
 source_commit: "aggregate; see module notes"
-source_commit_timestamp: "2026-11-03T19:47:28-05:00"
+source_commit_timestamp: "2026-11-03T20:39:20-05:00"
 generated: true
 generated_at: "2026-11-02"
 package: "learnloop.ops"
@@ -87,7 +87,7 @@ For system intent, use [[State and Persistence]], [[Configuration]].
 | [[Reference/Modules/learnloop/ops/settings_store|learnloop.ops.settings_store]] | [[Reference/Modules/learnloop/ops/settings_store#^module-purpose|purpose]] | `ACTIVE` | 9 | 10 |
 | [[Reference/Modules/learnloop/ops/startup|learnloop.ops.startup]] | [[Reference/Modules/learnloop/ops/startup#^module-purpose|purpose]] | `ACTIVE` | 3 | 3 |
 | [[Reference/Modules/learnloop/ops/vault_lock|learnloop.ops.vault_lock]] | [[Reference/Modules/learnloop/ops/vault_lock#^module-purpose|purpose]] | `ACTIVE` | 2 | 2 |
-| [[Reference/Modules/learnloop/ops/vault_upgrade|learnloop.ops.vault_upgrade]] | [[Reference/Modules/learnloop/ops/vault_upgrade#^module-purpose|purpose]] | `ACTIVE` | 33 | 20 |
+| [[Reference/Modules/learnloop/ops/vault_upgrade|learnloop.ops.vault_upgrade]] | [[Reference/Modules/learnloop/ops/vault_upgrade#^module-purpose|purpose]] | `ACTIVE` | 34 | 20 |
 
 ## Child package maps
 
@@ -125,7 +125,7 @@ For system intent, use [[State and Persistence]], [[Configuration]].
 
 ### Packages that import this package
 
-- [[Reference/Modules/learnloop/_package|learnloop]] — 31 static module edges
+- [[Reference/Modules/learnloop/_package|learnloop]] — 32 static module edges
 - [[Reference/Modules/learnloop/cli/_package|learnloop.cli]] — 17 static module edges
 - [[Reference/Modules/learnloop_sidecar/handlers/_package|learnloop_sidecar.handlers]] — 10 static module edges
 - [[Reference/Modules/learnloop/source_retrieval/_package|learnloop.source_retrieval]] — 8 static module edges
@@ -157,7 +157,7 @@ flowchart LR
     n_learnloop_substrate["learnloop.substrate"]
     n_learnloop_sidecar_handlers["learnloop_sidecar.handlers"]
     n_learnloop_source_retrieval["learnloop.source_retrieval"]
-    n_learnloop -->|31| center
+    n_learnloop -->|32| center
     center -->|18| n_learnloop
     center -->|41| n_learnloop_ai
     center -->|41| n_learnloop_vault

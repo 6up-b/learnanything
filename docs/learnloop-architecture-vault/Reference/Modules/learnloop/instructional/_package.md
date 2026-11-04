@@ -24,7 +24,7 @@ source_paths:
   - "src/learnloop/instructional/valuation.py"
   - "src/learnloop/instructional/wiring.py"
 source_commit: "aggregate; see module notes"
-source_commit_timestamp: "2026-11-01T18:59:57-05:00"
+source_commit_timestamp: "2026-11-03T21:58:20-05:00"
 generated: true
 generated_at: "2026-11-02"
 package: "learnloop.instructional"
@@ -67,7 +67,7 @@ For system intent, use [[Architecture Overview]].
 | [[Reference/Modules/learnloop/instructional/exposure|learnloop.instructional.exposure]] | [[Reference/Modules/learnloop/instructional/exposure#^module-purpose|purpose]] | `ACTIVE` | 4 | 7 |
 | [[Reference/Modules/learnloop/instructional/harvest|learnloop.instructional.harvest]] | [[Reference/Modules/learnloop/instructional/harvest#^module-purpose|purpose]] | `ACTIVE` | 1 | 4 |
 | [[Reference/Modules/learnloop/instructional/interventions|learnloop.instructional.interventions]] | [[Reference/Modules/learnloop/instructional/interventions#^module-purpose|purpose]] | `ACTIVE` | 10 | 5 |
-| [[Reference/Modules/learnloop/instructional/needs|learnloop.instructional.needs]] | [[Reference/Modules/learnloop/instructional/needs#^module-purpose|purpose]] | `ACTIVE` | 3 | 3 |
+| [[Reference/Modules/learnloop/instructional/needs|learnloop.instructional.needs]] | [[Reference/Modules/learnloop/instructional/needs#^module-purpose|purpose]] | `ACTIVE` | 4 | 4 |
 | [[Reference/Modules/learnloop/instructional/offers|learnloop.instructional.offers]] | [[Reference/Modules/learnloop/instructional/offers#^module-purpose|purpose]] | `ACTIVE` | 1 | 1 |
 | [[Reference/Modules/learnloop/instructional/policy|learnloop.instructional.policy]] | [[Reference/Modules/learnloop/instructional/policy#^module-purpose|purpose]] | `ACTIVE` | 14 | 17 |
 | [[Reference/Modules/learnloop/instructional/practice|learnloop.instructional.practice]] | [[Reference/Modules/learnloop/instructional/practice#^module-purpose|purpose]] | `ACTIVE` | 7 | 9 |
@@ -114,6 +114,7 @@ For system intent, use [[Architecture Overview]].
 - [[Reference/Modules/learnloop/cli/_package|learnloop.cli]] — 6 static module edges
 - [[Reference/Modules/learnloop/remote/_package|learnloop.remote]] — 3 static module edges
 - [[Reference/Modules/learnloop/workbench/_package|learnloop.workbench]] — 2 static module edges
+- [[Reference/Modules/learnloop/followup_run/_package|learnloop.followup_run]] — 1 static module edge
 - [[Reference/Modules/learnloop/teacher/_package|learnloop.teacher]] — 1 static module edge
 
 ### Dependency neighborhood

@@ -7,8 +7,8 @@ version: "1.0.0"
 source_path: "src/learnloop/ai/disclosures.py"
 source_paths:
   - "src/learnloop/ai/disclosures.py"
-source_commit: "8b967e3b7e1afd9d0eafa309cf6d9758bb647b57"
-source_commit_timestamp: "2026-11-02T05:28:19-05:00"
+source_commit: "e444e25dd0f1c0a31ec57112a48aa81fe6cf5b12"
+source_commit_timestamp: "2026-11-03T21:55:42-05:00"
 source_worktree_state: "clean"
 generated: true
 generated_at: "2026-11-02"
@@ -51,24 +51,24 @@ The authoritative system-level explanation remains in [[AI Architecture]], [[Arc
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/ai/disclosures.py](../../../../../../src/learnloop/ai/disclosures.py) |
-| Source lines | 352 |
+| Source lines | 359 |
 | Owning package | [[Reference/Modules/learnloop/ai/_package|learnloop.ai]] |
 | Architecture layer | `infrastructure` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `8b967e3b7e1afd9d0eafa309cf6d9758bb647b57` |
-| Commit timestamp | `2026-11-02T05:28:19-05:00` |
+| Source commit | `e444e25dd0f1c0a31ec57112a48aa81fe6cf5b12` |
+| Commit timestamp | `2026-11-03T21:55:42-05:00` |
 
 ## Public API
 
-- `recipient(config: LearnLoopConfig, provider_name: str) -> str` ([source](../../../../../../src/learnloop/ai/disclosures.py), line 282)
-- `judge_route_disclosures(config: LearnLoopConfig) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/ai/disclosures.py), line 307) — One entry per judgment route: who receives learner text, what and when.
-- `decider_destination(config: LearnLoopConfig, task: str) -> tuple[str, str] | None` ([source](../../../../../../src/learnloop/ai/disclosures.py), line 333) — ``(the key it needs, where it goes)`` for a Decider route, in the connection sheet's plain words.
+- `recipient(config: LearnLoopConfig, provider_name: str) -> str` ([source](../../../../../../src/learnloop/ai/disclosures.py), line 289)
+- `judge_route_disclosures(config: LearnLoopConfig) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/ai/disclosures.py), line 314) — One entry per judgment route: who receives learner text, what and when.
+- `decider_destination(config: LearnLoopConfig, task: str) -> tuple[str, str] | None` ([source](../../../../../../src/learnloop/ai/disclosures.py), line 340) — ``(the key it needs, where it goes)`` for a Decider route, in the connection sheet's plain words.
 
 ### Module constants
 
 - `JUDGE_ROUTES` ([src/learnloop/ai/disclosures.py](../../../../../../src/learnloop/ai/disclosures.py), line 18)
-- `_WHEN` ([src/learnloop/ai/disclosures.py](../../../../../../src/learnloop/ai/disclosures.py), line 48)
+- `_WHEN` ([src/learnloop/ai/disclosures.py](../../../../../../src/learnloop/ai/disclosures.py), line 49)
 
 ### Explicit exports
 
@@ -81,7 +81,7 @@ The authoritative system-level explanation remains in [[AI Architecture]], [[Arc
 
 ## Internal implementation anchors
 
-- `_host(url: str | None) -> str` ([source](../../../../../../src/learnloop/ai/disclosures.py), line 277)
+- `_host(url: str | None) -> str` ([source](../../../../../../src/learnloop/ai/disclosures.py), line 284)
 
 ## Who imports or calls it
 

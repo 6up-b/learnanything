@@ -7,8 +7,8 @@ version: "1.0.0"
 source_path: "src/learnloop/diagnosis/ai_contracts.py"
 source_paths:
   - "src/learnloop/diagnosis/ai_contracts.py"
-source_commit: "b322ef2e9b5cebc241b612e4963a5aaf1a37f99a"
-source_commit_timestamp: "2026-08-20T18:04:29-04:00"
+source_commit: "e444e25dd0f1c0a31ec57112a48aa81fe6cf5b12"
+source_commit_timestamp: "2026-11-03T21:55:42-05:00"
 source_worktree_state: "clean"
 generated: true
 generated_at: "2026-11-02"
@@ -50,13 +50,13 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/diagnosis/ai_contracts.py](../../../../../../src/learnloop/diagnosis/ai_contracts.py) |
-| Source lines | 305 |
+| Source lines | 392 |
 | Owning package | [[Reference/Modules/learnloop/diagnosis/_package|learnloop.diagnosis]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `b322ef2e9b5cebc241b612e4963a5aaf1a37f99a` |
-| Commit timestamp | `2026-08-20T18:04:29-04:00` |
+| Source commit | `e444e25dd0f1c0a31ec57112a48aa81fe6cf5b12` |
+| Commit timestamp | `2026-11-03T21:55:42-05:00` |
 
 ## Public API
 
@@ -79,6 +79,12 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 - `probe_instance_surfaces_prompt(context: ProbeInstanceContext) -> str` ([source](../../../../../../src/learnloop/diagnosis/ai_contracts.py), line 284)
 - `probe_dialogue_turn_prompt(context: ProbeDialogueTurnContext) -> str` ([source](../../../../../../src/learnloop/diagnosis/ai_contracts.py), line 292)
 - `probe_family_trials_prompt(context: ProbeFamilyTrialsContext) -> str` ([source](../../../../../../src/learnloop/diagnosis/ai_contracts.py), line 300)
+- `class FollowupProbeContext` ([source](../../../../../../src/learnloop/diagnosis/ai_contracts.py), line 312) — What the frontier author reads: the router's decision and the rival causes.
+- `class FollowupProbeCriterion(WireModel)` ([source](../../../../../../src/learnloop/diagnosis/ai_contracts.py), line 331)
+- `class FollowupProbePrediction(WireModel)` ([source](../../../../../../src/learnloop/diagnosis/ai_contracts.py), line 337)
+- `class FollowupProbeManipulation(WireModel)` ([source](../../../../../../src/learnloop/diagnosis/ai_contracts.py), line 342)
+- `class FollowupProbeAuthored(WireModel)` ([source](../../../../../../src/learnloop/diagnosis/ai_contracts.py), line 347)
+- `followup_probe_prompt(context: FollowupProbeContext) -> str` ([source](../../../../../../src/learnloop/diagnosis/ai_contracts.py), line 387)
 
 ### Module constants
 
@@ -90,6 +96,8 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 - `PROBE_INSTANCE_PROMPT` ([src/learnloop/diagnosis/ai_contracts.py](../../../../../../src/learnloop/diagnosis/ai_contracts.py), line 123)
 - `PROBE_DIALOGUE_TURN_PROMPT` ([src/learnloop/diagnosis/ai_contracts.py](../../../../../../src/learnloop/diagnosis/ai_contracts.py), line 156)
 - `PROBE_FAMILY_TRIALS_PROMPT` ([src/learnloop/diagnosis/ai_contracts.py](../../../../../../src/learnloop/diagnosis/ai_contracts.py), line 186)
+- `FOLLOWUP_PROBE_PROMPT_VERSION` ([src/learnloop/diagnosis/ai_contracts.py](../../../../../../src/learnloop/diagnosis/ai_contracts.py), line 358)
+- `FOLLOWUP_PROBE_PROMPT` ([src/learnloop/diagnosis/ai_contracts.py](../../../../../../src/learnloop/diagnosis/ai_contracts.py), line 360)
 
 ## Internal implementation anchors
 
@@ -104,6 +112,8 @@ No private top-level function or class definition is declared in this file.
 - [[Reference/Modules/learnloop/diagnosis/misconceptions|learnloop.diagnosis.misconceptions]] — imports `MisconceptionMatch`, `MisconceptionMatchContext`, `misconception_match_prompt`; statically calls `MisconceptionMatch`, `MisconceptionMatchContext`, `misconception_match_prompt`
 - [[Reference/Modules/learnloop/diagnosis/probe_dialogue|learnloop.diagnosis.probe_dialogue]] — imports `PROBE_DIALOGUE_TURN_PROMPT_VERSION`, `ProbeDialogueTurn`, `ProbeDialogueTurnContext`, `probe_dialogue_turn_prompt`; statically calls `ProbeDialogueTurnContext`, `probe_dialogue_turn_prompt`
 - [[Reference/Modules/learnloop/diagnosis/probe_instance_generation|learnloop.diagnosis.probe_instance_generation]] — imports `PROBE_INSTANCE_PROMPT_VERSION`, `ProbeFamilyTrials`, `ProbeFamilyTrialsContext`, `ProbeInstanceContext`, `ProbeInstanceSurfaces`, `probe_family_trials_prompt`, `probe_instance_surfaces_prompt`; statically calls `ProbeFamilyTrialsContext`, `ProbeInstanceContext`, `probe_family_trials_prompt`, `probe_instance_surfaces_prompt`
+- [[Reference/Modules/learnloop/followup_run/admission|learnloop.followup_run.admission]] — imports `FOLLOWUP_PROBE_PROMPT_VERSION`
+- [[Reference/Modules/learnloop/followup_run/authoring|learnloop.followup_run.authoring]] — imports `FollowupProbeAuthored`, `FollowupProbeContext`, `followup_probe_prompt`; statically calls `FollowupProbeContext`, `followup_probe_prompt`
 
 ## Dependencies
 
@@ -125,12 +135,13 @@ Use this module in context through:
 - [[Process Model Output]]
 - [[Start a Learning Cycle]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/diagnosis/diagnostic_gate|learnloop.diagnosis.diagnostic_gate]], [[Reference/Modules/learnloop/diagnosis/misconceptions|learnloop.diagnosis.misconceptions]], [[Reference/Modules/learnloop/diagnosis/probe_dialogue|learnloop.diagnosis.probe_dialogue]], [[Reference/Modules/learnloop/diagnosis/probe_instance_generation|learnloop.diagnosis.probe_instance_generation]].
+Static participation evidence comes from [[Reference/Modules/learnloop/diagnosis/diagnostic_gate|learnloop.diagnosis.diagnostic_gate]], [[Reference/Modules/learnloop/diagnosis/misconceptions|learnloop.diagnosis.misconceptions]], [[Reference/Modules/learnloop/diagnosis/probe_dialogue|learnloop.diagnosis.probe_dialogue]], [[Reference/Modules/learnloop/diagnosis/probe_instance_generation|learnloop.diagnosis.probe_instance_generation]], [[Reference/Modules/learnloop/followup_run/admission|learnloop.followup_run.admission]] and 1 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
 ## Tests that define behavior
 
+- [tests/followup_serve_helpers.py](../../../../../../tests/followup_serve_helpers.py) — direct import
 - [tests/structured_ai.py](../../../../../../tests/structured_ai.py) — direct import
 - [tests/test_codex_http_client.py](../../../../../../tests/test_codex_http_client.py) — direct import
   - `test_http_codex_client_misconception_match_bare_payload`
@@ -138,6 +149,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_codex_output_schema.py](../../../../../../tests/test_codex_output_schema.py) — direct import
   - `test_http_adapter_strips_the_usage_envelope_but_not_a_bad_field`
 - [tests/test_diagnostic_gate.py](../../../../../../tests/test_diagnostic_gate.py) — direct import
+- [tests/test_followup_generate_e2e.py](../../../../../../tests/test_followup_generate_e2e.py) — direct import
+  - `test_protected_and_reserved_items_never_reach_the_prompt`
 - [tests/test_openai_chat_client.py](../../../../../../tests/test_openai_chat_client.py) — direct import
 - [tests/test_probe_dialogue.py](../../../../../../tests/test_probe_dialogue.py) — direct import
 - [tests/test_probe_llm_instances.py](../../../../../../tests/test_probe_llm_instances.py) — direct import

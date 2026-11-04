@@ -3,13 +3,13 @@ title: "probe_item_family_links"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "9995860ab7dd149c0862dd57a7f483c3ac4e7815"
-source_commit_timestamp: "2026-11-03T19:35:50-05:00"
+source_commit: "2cfe5cce75c95910c18c0105c36d952e15ab11cc"
+source_commit_timestamp: "2026-11-03T23:34:25-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite probe_item_family_links"
   - "table probe_item_family_links"
-schema_head: 240
+schema_head: 241
 table_name: "probe_item_family_links"
 table_role: "raw_ledger"
 functionality_status: "active"
@@ -104,12 +104,14 @@ Indexes and uniqueness:
 - `src/learnloop/diagnosis/probe_episodes.py`
 - `src/learnloop/diagnosis/probe_instance_generation.py`
 - `src/learnloop/diagnosis/probe_lifecycle.py`
+- `src/learnloop/followup_run/admission.py`
 
 > [!note] Static-reference boundary
 > These lists are evidence from exact table-name SQL and repository-method calls. Dynamic dispatch and higher-level tests may exercise the table without spelling its name.
 
 ## Tests that define behavior
 
+- `tests/test_followup_generate_e2e.py`
 - `tests/test_probe_dialogue.py`
 - `tests/test_probe_instance_generation.py`
 - `tests/test_probe_lifecycle.py`

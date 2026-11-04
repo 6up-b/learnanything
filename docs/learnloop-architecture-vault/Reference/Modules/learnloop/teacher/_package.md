@@ -18,7 +18,7 @@ source_paths:
   - "src/learnloop/teacher/service.py"
   - "src/learnloop/teacher/visuals.py"
 source_commit: "aggregate; see module notes"
-source_commit_timestamp: "2026-11-03T12:35:46-05:00"
+source_commit_timestamp: "2026-11-03T21:51:14-05:00"
 generated: true
 generated_at: "2026-11-02"
 package: "learnloop.teacher"
@@ -57,7 +57,7 @@ For system intent, use [[Architecture Overview]].
 |---|---|---:|---:|---:|
 | [[Reference/Modules/learnloop/teacher/__init__|learnloop.teacher]] | [[Reference/Modules/learnloop/teacher/__init__#^module-purpose|purpose]] | `ACTIVE` | 0 | 1 |
 | [[Reference/Modules/learnloop/teacher/actions|learnloop.teacher.actions]] | [[Reference/Modules/learnloop/teacher/actions#^module-purpose|purpose]] | `ACTIVE` | 1 | 1 |
-| [[Reference/Modules/learnloop/teacher/brief|learnloop.teacher.brief]] | [[Reference/Modules/learnloop/teacher/brief#^module-purpose|purpose]] | `ACTIVE` | 6 | 5 |
+| [[Reference/Modules/learnloop/teacher/brief|learnloop.teacher.brief]] | [[Reference/Modules/learnloop/teacher/brief#^module-purpose|purpose]] | `ACTIVE` | 6 | 6 |
 | [[Reference/Modules/learnloop/teacher/checks|learnloop.teacher.checks]] | [[Reference/Modules/learnloop/teacher/checks#^module-purpose|purpose]] | `ACTIVE` | 1 | 1 |
 | [[Reference/Modules/learnloop/teacher/contracts|learnloop.teacher.contracts]] | [[Reference/Modules/learnloop/teacher/contracts#^module-purpose|purpose]] | `ACTIVE` | 6 | 2 |
 | [[Reference/Modules/learnloop/teacher/delayed|learnloop.teacher.delayed]] | [[Reference/Modules/learnloop/teacher/delayed#^module-purpose|purpose]] | `ACTIVE` | 2 | 2 |
@@ -85,6 +85,7 @@ For system intent, use [[Architecture Overview]].
 - [[Reference/Modules/learnloop/curriculum/_package|learnloop.curriculum]] — 1 static module edge
 - [[Reference/Modules/learnloop/data_capture/_package|learnloop.data_capture]] — 1 static module edge
 - [[Reference/Modules/learnloop/db/_package|learnloop.db]] — 1 static module edge
+- [[Reference/Modules/learnloop/followup_serve/_package|learnloop.followup_serve]] — 1 static module edge
 - [[Reference/Modules/learnloop/ingest/_package|learnloop.ingest]] — 1 static module edge
 - [[Reference/Modules/learnloop/instructional/_package|learnloop.instructional]] — 1 static module edge
 - [[Reference/Modules/learnloop/scheduling/_package|learnloop.scheduling]] — 1 static module edge

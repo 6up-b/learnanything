@@ -7,8 +7,8 @@ version: "1.0.0"
 source_path: "src/learnloop/router/plan_log.py"
 source_paths:
   - "src/learnloop/router/plan_log.py"
-source_commit: "bf66415664150f368d47c4b4dd506ef28a017a34"
-source_commit_timestamp: "2026-10-14T11:36:11-04:00"
+source_commit: "c11b6179c76d77eb4ef639d03f4fb112e12a75a7"
+source_commit_timestamp: "2026-11-03T22:03:31-05:00"
 source_worktree_state: "clean"
 generated: true
 generated_at: "2026-11-02"
@@ -50,13 +50,13 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/router/plan_log.py](../../../../../../src/learnloop/router/plan_log.py) |
-| Source lines | 638 |
+| Source lines | 758 |
 | Owning package | [[Reference/Modules/learnloop/router/_package|learnloop.router]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `bf66415664150f368d47c4b4dd506ef28a017a34` |
-| Commit timestamp | `2026-10-14T11:36:11-04:00` |
+| Source commit | `c11b6179c76d77eb4ef639d03f4fb112e12a75a7` |
+| Commit timestamp | `2026-11-03T22:03:31-05:00` |
 
 ## Public API
 
@@ -64,6 +64,8 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `log_plan_block_decision(connection: Any, decision: Any) -> str | None` ([source](../../../../../../src/learnloop/router/plan_log.py), line 465) — DL1's plan-decision logger: write the ``plan_block`` row, return its id.
 - `build_plan_interrupt_decision(decision: Mapping[str, Any]) -> dict[str, Any]` ([source](../../../../../../src/learnloop/router/plan_log.py), line 495) — The ``router_decisions`` row of one ``plan_interrupt`` decision (pure).
 - `log_plan_interrupt_decision(connection: Any, decision: Mapping[str, Any]) -> str | None` ([source](../../../../../../src/learnloop/router/plan_log.py), line 605) — Write one ``plan_interrupt`` row on the caller's transaction; returns its id.
+- `build_followup_decision(decision: Mapping[str, Any]) -> dict[str, Any]` ([source](../../../../../../src/learnloop/router/plan_log.py), line 634) — FG1's ``plan_interrupt`` row: it names the workflow, since no item exists yet.
+- `log_followup_decision(connection: Any, decision: Mapping[str, Any]) -> str | None` ([source](../../../../../../src/learnloop/router/plan_log.py), line 728) — Write one FG1 row on the caller's transaction, its card and payloads beside it.
 
 ### Module constants
 
@@ -79,6 +81,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `INTERRUPT_KIND` ([src/learnloop/router/plan_log.py](../../../../../../src/learnloop/router/plan_log.py), line 490)
 - `INSERT_REF` ([src/learnloop/router/plan_log.py](../../../../../../src/learnloop/router/plan_log.py), line 491)
 - `DECLINE_REF` ([src/learnloop/router/plan_log.py](../../../../../../src/learnloop/router/plan_log.py), line 492)
+- `NO_INTERVENTION_REF` ([src/learnloop/router/plan_log.py](../../../../../../src/learnloop/router/plan_log.py), line 631)
 
 ### Explicit exports
 
@@ -89,7 +92,10 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `INSERT_REF`
 - `INTERRUPT_KIND`
 - `MODEL_PAYLOAD_KINDS`
+- `NO_INTERVENTION_REF`
+- `build_followup_decision`
 - `build_plan_block_decision`
+- `log_followup_decision`
 - `build_plan_interrupt_decision`
 - `log_plan_block_decision`
 - `log_plan_interrupt_decision`
@@ -113,6 +119,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 
 - [[Reference/Modules/learnloop/daily_plan/engine|learnloop.daily_plan.engine]] — imports `INSERT_REF`, `log_plan_block_decision`, `log_plan_interrupt_decision`; statically calls `log_plan_interrupt_decision`
 - [[Reference/Modules/learnloop/daily_plan/router_chooser|learnloop.daily_plan.router_chooser]] — imports `module`
+- [[Reference/Modules/learnloop/followup_run/router|learnloop.followup_run.router]] — imports `log_followup_decision`; statically calls `log_followup_decision`
 
 ## Dependencies
 
@@ -135,7 +142,7 @@ Use this module in context through:
 - [[Initialize a Vault]]
 - [[Start a Learning Cycle]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/daily_plan/engine|learnloop.daily_plan.engine]], [[Reference/Modules/learnloop/daily_plan/router_chooser|learnloop.daily_plan.router_chooser]].
+Static participation evidence comes from [[Reference/Modules/learnloop/daily_plan/engine|learnloop.daily_plan.engine]], [[Reference/Modules/learnloop/daily_plan/router_chooser|learnloop.daily_plan.router_chooser]], [[Reference/Modules/learnloop/followup_run/router|learnloop.followup_run.router]].
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 

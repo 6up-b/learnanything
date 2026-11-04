@@ -124,6 +124,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 ## Tests that define behavior
 
 - [tests/test_device_eligibility.py](../../../../../tests/test_device_eligibility.py) — direct import
+- [tests/test_followup_journey.py](../../../../../tests/test_followup_journey.py) — direct import
+  - `test_a_reserved_probe_refuses_every_door_until_its_workflow_is_ready`
 - [tests/test_host_queue_revision.py](../../../../../tests/test_host_queue_revision.py) — direct import
   - `test_a_committed_refusal_bumps_and_any_other_refusal_does_not`
   - `test_bump_for_host_is_the_desktops_no_op`

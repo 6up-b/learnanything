@@ -1,0 +1,178 @@
+---
+title: "learnloop.followup_run.serving"
+type: "module-reference"
+status: "current"
+refactor_status: "ACTIVE"
+version: "1.0.0"
+source_path: "src/learnloop/followup_run/serving.py"
+source_paths:
+  - "src/learnloop/followup_run/serving.py"
+source_commit: "2cfe5cce75c95910c18c0105c36d952e15ab11cc"
+source_commit_timestamp: "2026-11-03T23:34:25-05:00"
+source_worktree_state: "clean"
+generated: true
+generated_at: "2026-11-02"
+package: "learnloop.followup_run"
+layer: "domain"
+concepts:
+  - "Architecture Overview"
+workflows:
+  - "Initialize a Vault"
+  - "Start a Learning Cycle"
+aliases:
+  - "learnloop.followup_run.serving module"
+  - "src/learnloop/followup_run/serving.py"
+tags:
+  - "docs/module"
+  - "architecture/reference"
+  - "refactor/active"
+  - "layer/domain"
+  - "package/learnloop-followup-run"
+---
+
+# `learnloop.followup_run.serving`
+
+> [!info] Generated source reference
+> Facts in this note are generated from the Python AST, repository tests, and Git. Purpose and change guidance are conservative inferences from those facts. Regenerate with `.venv/bin/python docs/learnloop-architecture-vault/_scripts/module_generate.py`; do not hand-edit generated sections.
+
+Up: [[Reference/Modules/learnloop/followup_run/_package|learnloop.followup_run]] · Root: [[Module Catalog]] · Jump to [[#Public API|API]], [[#Who imports or calls it|callers]], [[#Tests that define behavior|tests]], or [[#Modification guidance|change guidance]].
+
+## Why this module exists
+
+`learnloop.followup_run.serving` exists within [[Reference/Modules/learnloop/followup_run/_package|learnloop.followup_run]] to own the behavior summarized by its module contract: What the learner's screen and Next read from a workflow (spec §6).
+
+The authoritative system-level explanation remains in [[Architecture Overview]]; this note records where this source module participates rather than restating those concepts.
+
+^module-purpose
+
+## Source facts
+
+| Fact | Value |
+|---|---|
+| Source | [src/learnloop/followup_run/serving.py](../../../../../../src/learnloop/followup_run/serving.py) |
+| Source lines | 248 |
+| Owning package | [[Reference/Modules/learnloop/followup_run/_package|learnloop.followup_run]] |
+| Architecture layer | `domain` |
+| Refactor status | `ACTIVE` |
+| Worktree state | `clean` |
+| Source commit | `2cfe5cce75c95910c18c0105c36d952e15ab11cc` |
+| Commit timestamp | `2026-11-03T23:34:25-05:00` |
+
+## Public API
+
+- `class NextAction` ([source](../../../../../../src/learnloop/followup_run/serving.py), line 44)
+- `is_holding(row: Mapping[str, Any] | None) -> bool` ([source](../../../../../../src/learnloop/followup_run/serving.py), line 51)
+- `held_bundle(bundle: dict[str, Any]) -> dict[str, Any]` ([source](../../../../../../src/learnloop/followup_run/serving.py), line 55) — The bundle with what is held taken out, on the server, so nothing can show it.
+- `view(vault: Any, repository: Repository, attempt_id: str) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/followup_run/serving.py), line 76) — The screen's read of the attempt's workflow, or None (the bundle stays as it was).
+- `source_of_probe_attempt(repository: Repository, attempt_id: str) -> str | None` ([source](../../../../../../src/learnloop/followup_run/serving.py), line 105) — The miss whose held feedback this probe answer released, or None.
+- `next_action(vault: Any, repository: Repository, attempt_id: str, *, plan_serves: bool, clock: Clock | None=None) -> NextAction` ([source](../../../../../../src/learnloop/followup_run/serving.py), line 117) — §6.1: what Next does.
+- `continue_without(repository: Repository, attempt_id: str, *, clock: Clock | None=None) -> bool` ([source](../../../../../../src/learnloop/followup_run/serving.py), line 163) — §6.1: logged, it retires the probe, and §5.1 records today's *Teach me now* authorisation.
+- `show_anyway(repository: Repository, attempt_id: str, *, clock: Clock | None=None) -> bool` ([source](../../../../../../src/learnloop/followup_run/serving.py), line 201) — §6.0: releases what's held and marks the probe's answer not independent.
+- `bind_plan_step(repository: Repository, step: Mapping[str, Any] | None, *, clock: Clock | None=None) -> None` ([source](../../../../../../src/learnloop/followup_run/serving.py), line 213) — The plan served it: the decision's second presentation joins its binding.
+- `abandon(repository: Repository, practice_item_id: str, *, clock: Clock | None=None) -> bool` ([source](../../../../../../src/learnloop/followup_run/serving.py), line 225) — A served probe skipped: abandonment closes it, and what was held is released.
+
+### Module constants
+
+- `PREPARING` ([src/learnloop/followup_run/serving.py](../../../../../../src/learnloop/followup_run/serving.py), line 20)
+- `FAILED_LINE` ([src/learnloop/followup_run/serving.py](../../../../../../src/learnloop/followup_run/serving.py), line 21)
+- `NO_PLAN_LINE` ([src/learnloop/followup_run/serving.py](../../../../../../src/learnloop/followup_run/serving.py), line 22)
+- `READY_LINE` ([src/learnloop/followup_run/serving.py](../../../../../../src/learnloop/followup_run/serving.py), line 23)
+- `HELD_KEYS` ([src/learnloop/followup_run/serving.py](../../../../../../src/learnloop/followup_run/serving.py), line 28)
+
+### Explicit exports
+
+`__all__` declares:
+
+- `FAILED_LINE`
+- `HELD_KEYS`
+- `NO_PLAN_LINE`
+- `NextAction`
+- `PREPARING`
+- `abandon`
+- `bind_plan_step`
+- `continue_without`
+- `held_bundle`
+- `is_holding`
+- `next_action`
+- `show_anyway`
+- `source_of_probe_attempt`
+- `view`
+
+## Internal implementation anchors
+
+- `_line(vault: Any, row: Mapping[str, Any]) -> str | None` ([source](../../../../../../src/learnloop/followup_run/serving.py), line 61)
+- `_served(repository: Repository, row: Mapping[str, Any]) -> bool` ([source](../../../../../../src/learnloop/followup_run/serving.py), line 100)
+- `_diagnosis_timed_out(vault: Any, repository: Repository, row: Mapping[str, Any], now: str) -> bool` ([source](../../../../../../src/learnloop/followup_run/serving.py), line 147) — Only while the diagnosis itself is what's outstanding; generation has *Continue without it*.
+- `_close_unmeasured_episode(repository: Repository, row: Mapping[str, Any], *, clock: Clock | None) -> None` ([source](../../../../../../src/learnloop/followup_run/serving.py), line 191) — A closed probe's own episode, if it measured nothing, doesn't stay open on the topic.
+
+## Who imports or calls it
+
+> [!note] Static evidence boundary
+> “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
+
+- [[Reference/Modules/learnloop_sidecar/handlers/daily_plan|learnloop_sidecar.handlers.daily_plan]] — imports `abandon`, `bind_plan_step`; statically calls `abandon`, `bind_plan_step`
+- [[Reference/Modules/learnloop_sidecar/handlers/diagnosis_card|learnloop_sidecar.handlers.diagnosis_card]] — imports `is_holding`; statically calls `is_holding`
+- [[Reference/Modules/learnloop_sidecar/handlers/feedback|learnloop_sidecar.handlers.feedback]] — imports `held_bundle`, `is_holding`, `source_of_probe_attempt`, `view`; statically calls `held_bundle`, `is_holding`, `source_of_probe_attempt`, `view`
+- [[Reference/Modules/learnloop_sidecar/handlers/followup|learnloop_sidecar.handlers.followup]] — imports `continue_without`, `next_action`, `show_anyway`, `view`; statically calls `continue_without`, `next_action`, `show_anyway`, `view`
+- [[Reference/Modules/learnloop_sidecar/handlers/practice|learnloop_sidecar.handlers.practice]] — imports `abandon`; statically calls `abandon`
+
+## Dependencies
+
+### LearnLoop dependencies
+
+- [[Reference/Modules/learnloop/clock|learnloop.clock]] — imports `Clock`, `parse_utc`, `utc_now_iso`; calls `parse_utc`, `utc_now_iso`
+- [[Reference/Modules/learnloop/db/repositories|learnloop.db.repositories]] — imports `Repository`
+- [[Reference/Modules/learnloop/diagnosis/causal_orchestrator|learnloop.diagnosis.causal_orchestrator]] — imports `record_learner_preference`; calls `record_learner_preference`
+- [[Reference/Modules/learnloop/diagnosis/probe_episodes|learnloop.diagnosis.probe_episodes]] — imports `episode_has_observations`; calls `episode_has_observations`
+- [[Reference/Modules/learnloop/diagnosis/split/jobs|learnloop.diagnosis.split.jobs]] — imports `PENDING`, `diagnosis_status`; calls `diagnosis_status`
+- [[Reference/Modules/learnloop/followup_run/decision_view|learnloop.followup_run.decision_view]] — imports `module`; calls `decision_view`, `show_router_decisions`
+- [[Reference/Modules/learnloop/followup_run/lanes|learnloop.followup_run.lanes]] — imports `module`; calls `settle_practice_lane`
+- [[Reference/Modules/learnloop/followup_run/router|learnloop.followup_run.router]] — imports `module`; calls `append_outcome`, `bind_plan_presentation`
+- [[Reference/Modules/learnloop/followup_serve/identity|learnloop.followup_serve.identity]] — imports `module`; calls `closed_probe_ids`, `retire`
+- [[Reference/Modules/learnloop/followup_serve/workflow|learnloop.followup_serve.workflow]] — imports `module`; calls `attempt_workflow`, `move`, `retire_waiting`, `set_fields`, `waiting_still_valid`, `workflow_of_item`
+
+### Platform and third-party dependencies
+
+- Standard library: `__future__`, `collections`, `dataclasses`, `datetime`, `typing`
+- Third party: none imported directly
+
+## Larger workflow participation
+
+Use this module in context through:
+
+- [[Initialize a Vault]]
+- [[Start a Learning Cycle]]
+
+Static participation evidence comes from [[Reference/Modules/learnloop_sidecar/handlers/daily_plan|learnloop_sidecar.handlers.daily_plan]], [[Reference/Modules/learnloop_sidecar/handlers/diagnosis_card|learnloop_sidecar.handlers.diagnosis_card]], [[Reference/Modules/learnloop_sidecar/handlers/feedback|learnloop_sidecar.handlers.feedback]], [[Reference/Modules/learnloop_sidecar/handlers/followup|learnloop_sidecar.handlers.followup]], [[Reference/Modules/learnloop_sidecar/handlers/practice|learnloop_sidecar.handlers.practice]].
+
+The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
+
+## Tests that define behavior
+
+No test imports this module directly. These tests exercise a direct production consumer:
+
+- [tests/test_ad23_fix_review.py](../../../../../../tests/test_ad23_fix_review.py) — imports consumer [[Reference/Modules/learnloop_sidecar/handlers/daily_plan|learnloop_sidecar.handlers.daily_plan]]
+- [tests/test_followups_batch6_verify_fixes.py](../../../../../../tests/test_followups_batch6_verify_fixes.py) — imports consumer [[Reference/Modules/learnloop_sidecar/handlers/daily_plan|learnloop_sidecar.handlers.daily_plan]]
+- [tests/test_learner_pick_proposal.py](../../../../../../tests/test_learner_pick_proposal.py) — imports consumer [[Reference/Modules/learnloop_sidecar/handlers/daily_plan|learnloop_sidecar.handlers.daily_plan]]
+- [tests/test_library_exercises.py](../../../../../../tests/test_library_exercises.py) — imports consumer [[Reference/Modules/learnloop_sidecar/handlers/daily_plan|learnloop_sidecar.handlers.daily_plan]]
+- [tests/test_mobile_allowlist.py](../../../../../../tests/test_mobile_allowlist.py) — imports consumer [[Reference/Modules/learnloop_sidecar/handlers/daily_plan|learnloop_sidecar.handlers.daily_plan]]
+- [tests/test_reader_rw4b_admission_idempotency.py](../../../../../../tests/test_reader_rw4b_admission_idempotency.py) — imports consumer [[Reference/Modules/learnloop_sidecar/handlers/daily_plan|learnloop_sidecar.handlers.daily_plan]]
+- [tests/test_reader_rw4b_fix6.py](../../../../../../tests/test_reader_rw4b_fix6.py) — imports consumer [[Reference/Modules/learnloop_sidecar/handlers/daily_plan|learnloop_sidecar.handlers.daily_plan]]
+- [tests/test_teacher_te1b_suggestions.py](../../../../../../tests/test_teacher_te1b_suggestions.py) — imports consumer [[Reference/Modules/learnloop_sidecar/handlers/daily_plan|learnloop_sidecar.handlers.daily_plan]]
+- [tests/test_common_repair_delivery.py](../../../../../../tests/test_common_repair_delivery.py) — imports consumer [[Reference/Modules/learnloop_sidecar/handlers/feedback|learnloop_sidecar.handlers.feedback]]
+- [tests/test_reveal_ledger.py](../../../../../../tests/test_reveal_ledger.py) — imports consumer [[Reference/Modules/learnloop_sidecar/handlers/feedback|learnloop_sidecar.handlers.feedback]]
+- [tests/test_source_first_needs.py](../../../../../../tests/test_source_first_needs.py) — imports consumer [[Reference/Modules/learnloop_sidecar/handlers/feedback|learnloop_sidecar.handlers.feedback]]
+- [tests/mobile_host_helpers.py](../../../../../../tests/mobile_host_helpers.py) — imports consumer [[Reference/Modules/learnloop_sidecar/handlers/practice|learnloop_sidecar.handlers.practice]]
+
+## Modification guidance
+
+- Make changes here when the responsibility remains serving within learnloop.followup_run; otherwise move the behavior to its owning boundary.
+- Run the directly importing tests below, then the architecture/import-linter checks when imports or public ownership change.
+- Treat `__all__` as an intentional compatibility surface and update consumers and documentation when it changes.
+
+### Regeneration and review checklist
+
+1. Modify [src/learnloop/followup_run/serving.py](../../../../../../src/learnloop/followup_run/serving.py) and its owning tests.
+2. Regenerate [[Module Catalog]] so imports, symbols, source provenance, and test anchors remain current.
+3. Run `.venv/bin/python docs/learnloop-architecture-vault/_scripts/module_validate.py`.
+4. If ownership or workflow behavior changed, update the linked canonical concept or workflow note—not a duplicate explanation here.

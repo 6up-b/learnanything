@@ -10,8 +10,8 @@ area: "Rust"
 source_path: "apps/learnloop-tauri/src-tauri/src/main.rs"
 source_paths:
   - "apps/learnloop-tauri/src-tauri/src/main.rs"
-source_commit: "c397af76627dd82e2bae14dcf251e595cc6e23b2"
-source_commit_timestamp: "2026-11-03T12:14:06-05:00"
+source_commit: "e262b85b96108b93ffda0fb5bf84527952b7c3e2"
+source_commit_timestamp: "2026-11-03T22:37:18-05:00"
 source_worktree_state: "clean"
 activation_kind: "native-entry-reachable"
 activation_evidence: "A Rust mod/use edge reaches this crate module from src-tauri/src/main.rs."
@@ -42,14 +42,14 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src-tauri/src/main.rs](../../../../../apps/learnloop-tauri/src-tauri/src/main.rs) |
-| Source lines | 874 |
+| Source lines | 878 |
 | Language | `Rust` |
 | Area | [[Reference/Desktop/Rust/_area|Rust]] |
 | Refactor status | `ACTIVE` |
 | Activation kind | `native-entry-reachable` |
 | Worktree state | `clean` |
-| Source commit | `c397af76627dd82e2bae14dcf251e595cc6e23b2` |
-| Commit timestamp | `2026-11-03T12:14:06-05:00` |
+| Source commit | `e262b85b96108b93ffda0fb5bf84527952b7c3e2` |
+| Commit timestamp | `2026-11-03T22:37:18-05:00` |
 
 ## Activation and status evidence
 
@@ -75,13 +75,13 @@ No library export; `fn main` is the Cargo binary entry point.
 - `fn serve_media_file( path: &std::path::Path, range_header: Option<&str>, ) -> tauri::http::Response<Cow<'static, [u8]>>` — fn, line 134
 - `fn debug_zoom_enabled() -> bool` — fn, line 180
 - `fn main()` — fn, line 189
-- `fn llpdf_rejects_non_content_addressed_names()` — fn, line 768
-- `fn llpdf_404s_for_absent_store_file()` — fn, line 783
-- `fn llmedia_rejects_non_content_addressed_names()` — fn, line 789
-- `fn llmedia_404s_for_absent_animation()` — fn, line 806
-- `fn content_range(response: &tauri::http::Response<Cow<'static, [u8]>>) -> String` — fn, line 814
-- `fn llmedia_serves_bounded_ranges_from_a_real_file()` — fn, line 819
-- `fn slice_range_math()` — fn, line 858
+- `fn llpdf_rejects_non_content_addressed_names()` — fn, line 772
+- `fn llpdf_404s_for_absent_store_file()` — fn, line 787
+- `fn llmedia_rejects_non_content_addressed_names()` — fn, line 793
+- `fn llmedia_404s_for_absent_animation()` — fn, line 810
+- `fn content_range(response: &tauri::http::Response<Cow<'static, [u8]>>) -> String` — fn, line 818
+- `fn llmedia_serves_bounded_ranges_from_a_real_file()` — fn, line 823
+- `fn slice_range_math()` — fn, line 862
 
 ## Who imports or calls it
 

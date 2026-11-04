@@ -3,13 +3,13 @@ title: "probe_episodes"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "9995860ab7dd149c0862dd57a7f483c3ac4e7815"
-source_commit_timestamp: "2026-11-03T19:35:50-05:00"
+source_commit: "2cfe5cce75c95910c18c0105c36d952e15ab11cc"
+source_commit_timestamp: "2026-11-03T23:34:25-05:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite probe_episodes"
   - "table probe_episodes"
-schema_head: 240
+schema_head: 241
 table_name: "probe_episodes"
 table_role: "workflow"
 functionality_status: "active"
@@ -144,11 +144,11 @@ Indexes and uniqueness:
 - `src/learnloop/diagnosis/probe_dialogue.py`
 - `src/learnloop/diagnosis/probe_episodes.py`
 - `src/learnloop/diagnosis/probe_instance_generation.py`
+- `src/learnloop/followup_run/jobs.py`
+- `src/learnloop/followup_run/router.py`
+- `src/learnloop/followup_run/serving.py`
 - `src/learnloop/goals/goal_contracts.py`
 - `src/learnloop/instructional/needs.py`
-- `src/learnloop/instructional/reader_followups.py`
-- `src/learnloop/instructional/tools.py`
-- `src/learnloop/instructional/valuation.py`
 
 > [!note] Static-reference boundary
 > These lists are evidence from exact table-name SQL and repository-method calls. Dynamic dispatch and higher-level tests may exercise the table without spelling its name.
@@ -170,11 +170,11 @@ Indexes and uniqueness:
 - `tests/test_dual_authority_administration.py`
 - `tests/test_evsi_calibration_sim.py`
 - `tests/test_facet_outcome_view.py`
+- `tests/test_followup_generate_e2e.py`
+- `tests/test_followup_journey.py`
 - `tests/test_grade_resolution_pipeline.py`
 - `tests/test_held_grade_composition.py`
 - `tests/test_held_grade_evidence.py`
-- `tests/test_hint_discriminating.py`
-- `tests/test_independent_group_counting.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

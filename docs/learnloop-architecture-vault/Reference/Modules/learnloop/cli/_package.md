@@ -63,7 +63,7 @@ source_paths:
   - "src/learnloop/cli/surfaces.py"
   - "src/learnloop/cli/teacher.py"
 source_commit: "aggregate; see module notes"
-source_commit_timestamp: "2026-11-03T16:08:07-05:00"
+source_commit_timestamp: "2026-11-03T21:44:48-05:00"
 generated: true
 generated_at: "2026-11-02"
 package: "learnloop.cli"
@@ -152,7 +152,7 @@ For system intent, use [[Architecture Overview]].
 | [[Reference/Modules/learnloop/cli/registry|learnloop.cli.registry]] | [[Reference/Modules/learnloop/cli/registry#^module-purpose|purpose]] | `ACTIVE` | 1 | 0 |
 | [[Reference/Modules/learnloop/cli/render|learnloop.cli.render]] | [[Reference/Modules/learnloop/cli/render#^module-purpose|purpose]] | `ACTIVE` | 2 | 1 |
 | [[Reference/Modules/learnloop/cli/router|learnloop.cli.router]] | [[Reference/Modules/learnloop/cli/router#^module-purpose|purpose]] | `ACTIVE` | 1 | 0 |
-| [[Reference/Modules/learnloop/cli/runtime|learnloop.cli.runtime]] | [[Reference/Modules/learnloop/cli/runtime#^module-purpose|purpose]] | `ACTIVE` | 25 | 16 |
+| [[Reference/Modules/learnloop/cli/runtime|learnloop.cli.runtime]] | [[Reference/Modules/learnloop/cli/runtime#^module-purpose|purpose]] | `ACTIVE` | 25 | 17 |
 | [[Reference/Modules/learnloop/cli/sim|learnloop.cli.sim]] | [[Reference/Modules/learnloop/cli/sim#^module-purpose|purpose]] | `ACTIVE` | 1 | 0 |
 | [[Reference/Modules/learnloop/cli/source_set|learnloop.cli.source_set]] | [[Reference/Modules/learnloop/cli/source_set#^module-purpose|purpose]] | `ACTIVE` | 1 | 0 |
 | [[Reference/Modules/learnloop/cli/sources|learnloop.cli.sources]] | [[Reference/Modules/learnloop/cli/sources#^module-purpose|purpose]] | `ACTIVE` | 1 | 0 |
@@ -165,8 +165,8 @@ For system intent, use [[Architecture Overview]].
 ### This package imports
 
 - [[Reference/Modules/learnloop/vault/_package|learnloop.vault]] — 80 static module edges
+- [[Reference/Modules/learnloop/_package|learnloop]] — 55 static module edges
 - [[Reference/Modules/learnloop/ai/_package|learnloop.ai]] — 55 static module edges
-- [[Reference/Modules/learnloop/_package|learnloop]] — 54 static module edges
 - [[Reference/Modules/learnloop/db/_package|learnloop.db]] — 27 static module edges
 - [[Reference/Modules/learnloop/diagnosis/_package|learnloop.diagnosis]] — 25 static module edges
 - [[Reference/Modules/learnloop/source_retrieval/_package|learnloop.source_retrieval]] — 19 static module edges
@@ -240,7 +240,7 @@ flowchart LR
     n_learnloop_practice_index["learnloop.practice_index"]
     center -->|80| n_learnloop_vault
     n_learnloop -->|1| center
-    center -->|54| n_learnloop
+    center -->|55| n_learnloop
     center -->|55| n_learnloop_ai
     center -->|27| n_learnloop_db
     center -->|25| n_learnloop_diagnosis

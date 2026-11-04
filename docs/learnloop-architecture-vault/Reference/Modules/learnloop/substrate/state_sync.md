@@ -7,8 +7,8 @@ version: "1.0.0"
 source_path: "src/learnloop/substrate/state_sync.py"
 source_paths:
   - "src/learnloop/substrate/state_sync.py"
-source_commit: "c36ecd6c4875f79bab11435a5fe0fb5961c9d55f"
-source_commit_timestamp: "2026-10-25T20:13:31-04:00"
+source_commit: "b45e4414cdb7963772b12ecd3c8825b73e93266a"
+source_commit_timestamp: "2026-11-03T21:51:14-05:00"
 source_worktree_state: "clean"
 generated: true
 generated_at: "2026-11-02"
@@ -51,26 +51,26 @@ The authoritative system-level explanation remains in [[Learning System]], [[Sta
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/substrate/state_sync.py](../../../../../../src/learnloop/substrate/state_sync.py) |
-| Source lines | 279 |
+| Source lines | 292 |
 | Owning package | [[Reference/Modules/learnloop/substrate/_package|learnloop.substrate]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `c36ecd6c4875f79bab11435a5fe0fb5961c9d55f` |
-| Commit timestamp | `2026-10-25T20:13:31-04:00` |
+| Source commit | `b45e4414cdb7963772b12ecd3c8825b73e93266a` |
+| Commit timestamp | `2026-11-03T21:51:14-05:00` |
 
 ## Public API
 
 - `class StateSyncResult` ([source](../../../../../../src/learnloop/substrate/state_sync.py), line 14)
   - `as_dict(self) -> dict[str, int]` (line 20; public)
-- `practice_item_activatable(item_id: str, item, *, review_parked: set[str], measurement_superseded: set[str], state=None) -> bool` ([source](../../../../../../src/learnloop/substrate/state_sync.py), line 29) — The one lifecycle gate shared by full and incremental vault sync.
-- `reconcile_practice_item_state(repository: Repository, item_id: str, item, *, state: PracticeItemState | None, review_parked: set[str], measurement_superseded: set[str], content_hash: str | None=None, clock: Clock | None=None) -> tuple[str, bool]` ([source](../../../../../../src/learnloop/substrate/state_sync.py), line 59) — Bring one item's ``active`` flag and content hash in line with its YAML.
-- `sync_vault_state(vault: LoadedVault, repository: Repository, *, clock: Clock | None=None) -> StateSyncResult` ([source](../../../../../../src/learnloop/substrate/state_sync.py), line 131) — Reconcile YAML-owned entities with derived SQLite rows.
+- `practice_item_activatable(item_id: str, item, *, review_parked: set[str], measurement_superseded: set[str], state=None, generated_probe_closed: frozenset[str]=frozenset()) -> bool` ([source](../../../../../../src/learnloop/substrate/state_sync.py), line 29) — The one lifecycle gate shared by full and incremental vault sync.
+- `reconcile_practice_item_state(repository: Repository, item_id: str, item, *, state: PracticeItemState | None, review_parked: set[str], measurement_superseded: set[str], content_hash: str | None=None, generated_probe_closed: frozenset[str] | None=None, clock: Clock | None=None) -> tuple[str, bool]` ([source](../../../../../../src/learnloop/substrate/state_sync.py), line 64) — Bring one item's ``active`` flag and content hash in line with its YAML.
+- `sync_vault_state(vault: LoadedVault, repository: Repository, *, clock: Clock | None=None) -> StateSyncResult` ([source](../../../../../../src/learnloop/substrate/state_sync.py), line 144) — Reconcile YAML-owned entities with derived SQLite rows.
 
 ## Internal implementation anchors
 
-- `_enter_initial_probes(vault: LoadedVault, repository: Repository, *, clock: Clock | None) -> None` ([source](../../../../../../src/learnloop/substrate/state_sync.py), line 232) — Open initial diagnostic episodes (probe redesign §5/§10).
-- `_has_active_local_item(vault: LoadedVault, repository: Repository, learning_object_id: str) -> bool` ([source](../../../../../../src/learnloop/substrate/state_sync.py), line 271)
+- `_enter_initial_probes(vault: LoadedVault, repository: Repository, *, clock: Clock | None) -> None` ([source](../../../../../../src/learnloop/substrate/state_sync.py), line 245) — Open initial diagnostic episodes (probe redesign §5/§10).
+- `_has_active_local_item(vault: LoadedVault, repository: Repository, learning_object_id: str) -> bool` ([source](../../../../../../src/learnloop/substrate/state_sync.py), line 284)
 
 ## Who imports or calls it
 
@@ -107,6 +107,7 @@ The authoritative system-level explanation remains in [[Learning System]], [[Sta
 - [[Reference/Modules/learnloop/db/repositories|learnloop.db.repositories]] — imports `PracticeItemState`, `Repository`
 - [[Reference/Modules/learnloop/diagnosis/probe_episodes|learnloop.diagnosis.probe_episodes]] — imports `enter_episode`, `enter_stale_uncertainty_reprobes`; calls `enter_episode`, `enter_stale_uncertainty_reprobes`
 - [[Reference/Modules/learnloop/diagnosis/probe_instance_generation|learnloop.diagnosis.probe_instance_generation]] — imports `pending_review_instance_ids`; calls `pending_review_instance_ids`
+- [[Reference/Modules/learnloop/followup_serve/identity|learnloop.followup_serve.identity]] — imports `closed_probe_ids`; calls `closed_probe_ids`
 - [[Reference/Modules/learnloop/goals/goal_projection|learnloop.goals.goal_projection]] — imports `resolve_goal_scope`; calls `resolve_goal_scope`
 - [[Reference/Modules/learnloop/learner/mastery|learnloop.learner.mastery]] — imports `initial_mastery_state_for_learning_object`; calls `initial_mastery_state_for_learning_object`
 - [[Reference/Modules/learnloop/placement/state|learnloop.placement.state]] — imports `initial_probes_enabled`; calls `initial_probes_enabled`
@@ -133,6 +134,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
+- [tests/followup_serve_helpers.py](../../../../../../tests/followup_serve_helpers.py) — direct import
 - [tests/test_ad_guard.py](../../../../../../tests/test_ad_guard.py) — direct import
   - `test_incumbent_maintenance_and_vault_loads_never_run_inside_an_operation`
 - [tests/test_agent_run_tokens.py](../../../../../../tests/test_agent_run_tokens.py) — direct import
@@ -240,6 +242,11 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_facet_state_write_on_change.py](../../../../../../tests/test_facet_state_write_on_change.py) — direct import
 - [tests/test_field_workbench_signals.py](../../../../../../tests/test_field_workbench_signals.py) — direct import
 - [tests/test_followup_diagnostic_selection.py](../../../../../../tests/test_followup_diagnostic_selection.py) — direct import
+- [tests/test_followup_journey.py](../../../../../../tests/test_followup_journey.py) — direct import
+  - `test_the_whole_journey_and_never_again`
+- [tests/test_followup_single_use.py](../../../../../../tests/test_followup_single_use.py) — direct import
+  - `test_retired_while_unused_stays_retired_after_sync_and_rebuild`
+  - `test_state_sync_shares_one_predicate`
 - [tests/test_goal_certification_any_of.py](../../../../../../tests/test_goal_certification_any_of.py) — direct import
 - [tests/test_grade_resolution_pipeline.py](../../../../../../tests/test_grade_resolution_pipeline.py) — direct import
 - [tests/test_grader_channel_prior_knobs.py](../../../../../../tests/test_grader_channel_prior_knobs.py) — direct import

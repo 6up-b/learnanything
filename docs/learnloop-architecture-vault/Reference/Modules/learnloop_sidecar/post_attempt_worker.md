@@ -7,8 +7,8 @@ version: "1.0.0"
 source_path: "src/learnloop_sidecar/post_attempt_worker.py"
 source_paths:
   - "src/learnloop_sidecar/post_attempt_worker.py"
-source_commit: "cb5b8773979685c93c470bf76e9a5cf5840bb53c"
-source_commit_timestamp: "2026-11-02T15:58:22-05:00"
+source_commit: "29cbb06646fc5a5c347caefd9f20a22eaa5adecf"
+source_commit_timestamp: "2026-11-03T21:46:41-05:00"
 source_worktree_state: "clean"
 generated: true
 generated_at: "2026-11-02"
@@ -50,38 +50,39 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop_sidecar/post_attempt_worker.py](../../../../../src/learnloop_sidecar/post_attempt_worker.py) |
-| Source lines | 258 |
+| Source lines | 286 |
 | Owning package | [[Reference/Modules/learnloop_sidecar/_package|learnloop_sidecar]] |
 | Architecture layer | `adapter` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `cb5b8773979685c93c470bf76e9a5cf5840bb53c` |
-| Commit timestamp | `2026-11-02T15:58:22-05:00` |
+| Source commit | `29cbb06646fc5a5c347caefd9f20a22eaa5adecf` |
+| Commit timestamp | `2026-11-03T21:46:41-05:00` |
 
 ## Public API
 
-- `class PostAttemptWorker` ([source](../../../../../src/learnloop_sidecar/post_attempt_worker.py), line 48)
-  - `__init__(self, *, autostart: bool=True) -> None` (line 49; internal)
-  - `note_wait(self, session_id: str, seconds: float) -> None` (line 73; public)
-  - `take_wait(self, session_id: str) -> float` (line 77; public)
-  - `bind(self, supplier: VaultSupplier) -> None` (line 81; public) — ``supplier`` returns the CURRENT (vault, sqlite path) or None.
-  - `notify(self) -> None` (line 89; public) — A job may be runnable: wake both slots (start them on first use).
-  - `running(self) -> bool` (line 111; public)
-  - `shutdown(self, timeout: float=2.0) -> None` (line 115; public) — Stop the slots: each wakes and returns, and a job in flight stops before its next paid request.
-  - `_repository(self, sqlite_path: Any) -> Any` (line 132; internal)
-  - `run_pending(self, kind: str='diagnose', *, max_jobs: int=100, clock: Any=None) -> list[Any]` (line 138; public) — Synchronously run runnable jobs of ``kind`` (tests and drains).
-  - `_run_gaps(self, vault: Any, repository: Any, *, max_jobs: int, clock: Any) -> list[Any]` (line 182; internal)
-  - `_with_busy_retry(self, work: Callable[[], Any]) -> Any` (line 212; internal)
-  - `_loop(self, kind: str) -> None` (line 222; internal)
-  - `wait_for(self, pending: Callable[[], list[str]], timeout: float) -> tuple[list[str], float]` (line 236; public) — Wait until ``pending()`` is empty or ``timeout`` passes.
+- `class PostAttemptWorker` ([source](../../../../../src/learnloop_sidecar/post_attempt_worker.py), line 49)
+  - `__init__(self, *, autostart: bool=True) -> None` (line 50; internal)
+  - `note_wait(self, session_id: str, seconds: float) -> None` (line 76; public)
+  - `take_wait(self, session_id: str) -> float` (line 80; public)
+  - `bind(self, supplier: VaultSupplier) -> None` (line 84; public) — ``supplier`` returns the CURRENT (vault, sqlite path) or None.
+  - `notify(self) -> None` (line 92; public) — A job may be runnable: wake both slots (start them on first use).
+  - `running(self) -> bool` (line 114; public)
+  - `shutdown(self, timeout: float=2.0) -> None` (line 118; public) — Stop the slots: each wakes and returns, and a job in flight stops before its next paid request.
+  - `_repository(self, sqlite_path: Any) -> Any` (line 135; internal)
+  - `run_pending(self, kind: str='diagnose', *, max_jobs: int=100, clock: Any=None) -> list[Any]` (line 141; public) — Synchronously run runnable jobs of ``kind`` (tests and drains).
+  - `_run_gaps(self, vault: Any, repository: Any, *, max_jobs: int, clock: Any) -> list[Any]` (line 189; internal)
+  - `_run_followup(self, vault: Any, repository: Any, *, max_jobs: int, clock: Any) -> list[Any]` (line 219; internal) — FG1: the generation slot, apart from the strictly ordered diagnosis slot, so a later diagnosis is never delayed by a question being written (spec §5 item 1).
+  - `_with_busy_retry(self, work: Callable[[], Any]) -> Any` (line 240; internal)
+  - `_loop(self, kind: str) -> None` (line 250; internal)
+  - `wait_for(self, pending: Callable[[], list[str]], timeout: float) -> tuple[list[str], float]` (line 264; public) — Wait until ``pending()`` is empty or ``timeout`` passes.
 
 ### Module constants
 
-- `LOG` ([src/learnloop_sidecar/post_attempt_worker.py](../../../../../src/learnloop_sidecar/post_attempt_worker.py), line 28)
-- `IDLE_POLL_SECONDS` ([src/learnloop_sidecar/post_attempt_worker.py](../../../../../src/learnloop_sidecar/post_attempt_worker.py), line 32)
-- `BUSY_RETRIES` ([src/learnloop_sidecar/post_attempt_worker.py](../../../../../src/learnloop_sidecar/post_attempt_worker.py), line 35)
-- `BUSY_BACKOFF_SECONDS` ([src/learnloop_sidecar/post_attempt_worker.py](../../../../../src/learnloop_sidecar/post_attempt_worker.py), line 36)
-- `KINDS` ([src/learnloop_sidecar/post_attempt_worker.py](../../../../../src/learnloop_sidecar/post_attempt_worker.py), line 37)
+- `LOG` ([src/learnloop_sidecar/post_attempt_worker.py](../../../../../src/learnloop_sidecar/post_attempt_worker.py), line 29)
+- `IDLE_POLL_SECONDS` ([src/learnloop_sidecar/post_attempt_worker.py](../../../../../src/learnloop_sidecar/post_attempt_worker.py), line 33)
+- `BUSY_RETRIES` ([src/learnloop_sidecar/post_attempt_worker.py](../../../../../src/learnloop_sidecar/post_attempt_worker.py), line 36)
+- `BUSY_BACKOFF_SECONDS` ([src/learnloop_sidecar/post_attempt_worker.py](../../../../../src/learnloop_sidecar/post_attempt_worker.py), line 37)
+- `KINDS` ([src/learnloop_sidecar/post_attempt_worker.py](../../../../../src/learnloop_sidecar/post_attempt_worker.py), line 38)
 
 ### Explicit exports
 
@@ -91,7 +92,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 
 ## Internal implementation anchors
 
-- `_is_busy(exc: BaseException) -> bool` ([source](../../../../../src/learnloop_sidecar/post_attempt_worker.py), line 42)
+- `_is_busy(exc: BaseException) -> bool` ([source](../../../../../src/learnloop_sidecar/post_attempt_worker.py), line 43)
 
 ## Who imports or calls it
 
@@ -107,6 +108,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop/db/repositories|learnloop.db.repositories]] — imports `Repository`
 - [[Reference/Modules/learnloop/diagnosis/split/jobs|learnloop.diagnosis.split.jobs]] — imports `process_next_job`; calls `process_next_job`
 - [[Reference/Modules/learnloop/diagnosis/text_gaps/jobs|learnloop.diagnosis.text_gaps.jobs]] — imports `process_next_gap_job`; calls `process_next_gap_job`
+- [[Reference/Modules/learnloop/followup_run/jobs|learnloop.followup_run.jobs]] — imports `process_next_job`; calls `process_next_job`
 - [[Reference/Modules/learnloop/ids|learnloop.ids]] — imports `new_ulid`; calls `new_ulid`
 
 ### Platform and third-party dependencies

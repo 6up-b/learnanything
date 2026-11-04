@@ -91,6 +91,7 @@ No private top-level function or class definition is declared in this file.
 - [[Reference/Modules/learnloop/data_capture/prefilter|learnloop.data_capture.prefilter]] — imports `receipts_on`; statically calls `receipts_on`
 - [[Reference/Modules/learnloop/data_capture/reading_exposures|learnloop.data_capture.reading_exposures]] — imports `OUTCOME_VERSION_V3`, `receipts_on`, `serving_on`; statically calls `receipts_on`, `serving_on`
 - [[Reference/Modules/learnloop/diagnosis/voi_stopping|learnloop.diagnosis.voi_stopping]] — imports `serving_on`; statically calls `serving_on`
+- [[Reference/Modules/learnloop/followup_run/router|learnloop.followup_run.router]] — imports `serving_on`; statically calls `serving_on`
 - [[Reference/Modules/learnloop/ops/capture_report|learnloop.ops.capture_report]] — imports `receipts_on`, `serving_on`; statically calls `receipts_on`, `serving_on`
 - [[Reference/Modules/learnloop/router/outcomes|learnloop.router.outcomes]] — imports `OUTCOME_VERSION_V3`, `serving_on`; statically calls `serving_on`
 - [[Reference/Modules/learnloop/teacher/delayed|learnloop.teacher.delayed]] — imports `serving_on`; statically calls `serving_on`
@@ -114,7 +115,7 @@ Use this module in context through:
 - [[Initialize a Vault]]
 - [[Start a Learning Cycle]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/adaptive_difficulty/report|learnloop.adaptive_difficulty.report]], [[Reference/Modules/learnloop/daily_plan/engine|learnloop.daily_plan.engine]], [[Reference/Modules/learnloop/daily_plan/measurement|learnloop.daily_plan.measurement]], [[Reference/Modules/learnloop/daily_plan/router_chooser|learnloop.daily_plan.router_chooser]], [[Reference/Modules/learnloop/data_capture/prefilter|learnloop.data_capture.prefilter]] and 6 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/adaptive_difficulty/report|learnloop.adaptive_difficulty.report]], [[Reference/Modules/learnloop/daily_plan/engine|learnloop.daily_plan.engine]], [[Reference/Modules/learnloop/daily_plan/measurement|learnloop.daily_plan.measurement]], [[Reference/Modules/learnloop/daily_plan/router_chooser|learnloop.daily_plan.router_chooser]], [[Reference/Modules/learnloop/data_capture/prefilter|learnloop.data_capture.prefilter]] and 7 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 

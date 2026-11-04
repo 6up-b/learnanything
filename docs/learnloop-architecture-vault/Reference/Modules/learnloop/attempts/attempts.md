@@ -210,6 +210,7 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 - [[Reference/Modules/learnloop/daily_plan/staged_frame|learnloop.daily_plan.staged_frame]] — imports `COLD_FOLLOWUP_TASK_KINDS`
 - [[Reference/Modules/learnloop/diagnosis/quick_check|learnloop.diagnosis.quick_check]] — imports `COLD_FOLLOWUP_TASK_KINDS`
 - [[Reference/Modules/learnloop/field/outcomes|learnloop.field.outcomes]] — imports `fsrs_rating_for_attempt`; statically calls `fsrs_rating_for_attempt`
+- [[Reference/Modules/learnloop/followup_run/lanes|learnloop.followup_run.lanes]] — imports `AttemptResult`
 - [[Reference/Modules/learnloop/goals/exam_seeding|learnloop.goals.exam_seeding]] — imports `ApplyAttemptInput`, `AttemptDraft`, `ResolvedGrade`, `apply_attempt`, `calculate_rubric_score`; statically calls `ApplyAttemptInput`, `AttemptDraft`, `ResolvedGrade`, `apply_attempt`, `calculate_rubric_score`
 - [[Reference/Modules/learnloop/goals/exam_session|learnloop.goals.exam_session]] — imports `ApplyAttemptInput`, `AttemptDraft`, `GradeAttribution`, `ResolvedGrade`, `apply_attempt`; statically calls `ApplyAttemptInput`, `AttemptDraft`, `GradeAttribution`, `ResolvedGrade`, `apply_attempt`
 - [[Reference/Modules/learnloop/instructional/policy|learnloop.instructional.policy]] — imports `COLD_FOLLOWUP_TASK_KINDS`
@@ -307,7 +308,7 @@ Use this module in context through:
 - [[Process Model Output]]
 - [[Inspect Persistent State]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/attempts/observations|learnloop.attempts.observations]], [[Reference/Modules/learnloop/attempts/post_attempt|learnloop.attempts.post_attempt]], [[Reference/Modules/learnloop/attempts/regrade|learnloop.attempts.regrade]], [[Reference/Modules/learnloop/cli/ai_compare|learnloop.cli.ai_compare]], [[Reference/Modules/learnloop/cli/app|learnloop.cli.app]] and 30 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/attempts/observations|learnloop.attempts.observations]], [[Reference/Modules/learnloop/attempts/post_attempt|learnloop.attempts.post_attempt]], [[Reference/Modules/learnloop/attempts/regrade|learnloop.attempts.regrade]], [[Reference/Modules/learnloop/cli/ai_compare|learnloop.cli.ai_compare]], [[Reference/Modules/learnloop/cli/app|learnloop.cli.app]] and 31 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
@@ -473,6 +474,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_field_workbench_signals.py](../../../../../../tests/test_field_workbench_signals.py) — direct import
   - `test_review_f2_the_row_survives_the_submit_on_the_vault`
 - [tests/test_followup_diagnostic_selection.py](../../../../../../tests/test_followup_diagnostic_selection.py) — direct import
+- [tests/test_followup_journey.py](../../../../../../tests/test_followup_journey.py) — direct import
 - [tests/test_followups.py](../../../../../../tests/test_followups.py) — direct import
   - `test_negative_surprise_followup_stops_forcing_after_followup_attempt`
 - [tests/test_forecast_receipts.py](../../../../../../tests/test_forecast_receipts.py) — direct import

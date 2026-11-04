@@ -7,8 +7,8 @@ version: "1.0.0"
 source_path: "src/learnloop/diagnosis/causal_probe_commissioning.py"
 source_paths:
   - "src/learnloop/diagnosis/causal_probe_commissioning.py"
-source_commit: "b322ef2e9b5cebc241b612e4963a5aaf1a37f99a"
-source_commit_timestamp: "2026-08-20T18:04:29-04:00"
+source_commit: "e262b85b96108b93ffda0fb5bf84527952b7c3e2"
+source_commit_timestamp: "2026-11-03T22:37:18-05:00"
 source_worktree_state: "clean"
 generated: true
 generated_at: "2026-11-02"
@@ -50,13 +50,13 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/diagnosis/causal_probe_commissioning.py](../../../../../../src/learnloop/diagnosis/causal_probe_commissioning.py) |
-| Source lines | 777 |
+| Source lines | 794 |
 | Owning package | [[Reference/Modules/learnloop/diagnosis/_package|learnloop.diagnosis]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `b322ef2e9b5cebc241b612e4963a5aaf1a37f99a` |
-| Commit timestamp | `2026-08-20T18:04:29-04:00` |
+| Source commit | `e262b85b96108b93ffda0fb5bf84527952b7c3e2` |
+| Commit timestamp | `2026-11-03T22:37:18-05:00` |
 
 ## Public API
 
@@ -65,8 +65,9 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 - `probe_instrument_class(item: PracticeItem) -> str` ([source](../../../../../../src/learnloop/diagnosis/causal_probe_commissioning.py), line 284) — The instrument CLASS an item would serve as, for the multiplicity cap.
 - `candidate_probe_items(vault: LoadedVault, *, learning_object_id: str, exclude_item_ids: Sequence[str]=()) -> list[PracticeItem]` ([source](../../../../../../src/learnloop/diagnosis/causal_probe_commissioning.py), line 303) — Items that could serve as this factor's instrument, best first.
 - `measurement_contract_for_item(vault: LoadedVault, item: PracticeItem) -> dict[str, Any]` ([source](../../../../../../src/learnloop/diagnosis/causal_probe_commissioning.py), line 328) — The item's OWN measurement targets, never the parent's.
-- `commission_probe_instrument(vault: LoadedVault, repository: Repository, *, factor_id: str, candidate_practice_item_id: str | None=None, blind_generator: BlindGenerator | None=None, model_revision: str | None=None, outcome_schema_version: str='deterministic_criterion_features_v1', adversarial_review: Mapping[str, Any] | None=None, generation_agent_run_id: str | None=None, reviewer_agent_run_id: str | None=None, require_adversarial: bool=True, clock: Clock | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/diagnosis/causal_probe_commissioning.py), line 383) — Commission one discriminating instrument for ``factor_id``.
-- `sweep_probe_commissioning(vault: LoadedVault, repository: Repository, *, learning_object_id: str, limit: int=4, clock: Clock | None=None, **kwargs: Any) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/diagnosis/causal_probe_commissioning.py), line 745) — Commission instruments for this learning object's divergent factors.
+- `commission_probe_instrument(vault: LoadedVault, repository: Repository, *, factor_id: str, candidate_practice_item_id: str | None=None, blind_generator: BlindGenerator | None=None, model_revision: str | None=None, outcome_schema_version: str='deterministic_criterion_features_v1', adversarial_review: Mapping[str, Any] | None=None, generation_agent_run_id: str | None=None, reviewer_agent_run_id: str | None=None, require_adversarial: bool=True, require_divergence: bool=True, manipulation_contract: Mapping[str, Any] | None=None, clock: Clock | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/diagnosis/causal_probe_commissioning.py), line 383) — Commission one discriminating instrument for ``factor_id``.
+- `support_scores(repository: Repository, factor: Mapping[str, Any]) -> dict[str, float | None]` ([source](../../../../../../src/learnloop/diagnosis/causal_probe_commissioning.py), line 727) — The factor's receipt support scores, as commissioning reads them (the follow-up lane too).
+- `sweep_probe_commissioning(vault: LoadedVault, repository: Repository, *, learning_object_id: str, limit: int=4, clock: Clock | None=None, **kwargs: Any) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/diagnosis/causal_probe_commissioning.py), line 762) — Commission instruments for this learning object's divergent factors.
 
 ### Module constants
 
@@ -81,7 +82,7 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 - `_criterion_ids(payload: Mapping[str, Any]) -> list[str]` ([source](../../../../../../src/learnloop/diagnosis/causal_probe_commissioning.py), line 128)
 - `_is_diagnostic_item(item: PracticeItem) -> bool` ([source](../../../../../../src/learnloop/diagnosis/causal_probe_commissioning.py), line 277)
 - `_result(outcome: str, **extra: Any) -> dict[str, Any]` ([source](../../../../../../src/learnloop/diagnosis/causal_probe_commissioning.py), line 374)
-- `_support_scores(repository: Repository, factor: Mapping[str, Any]) -> dict[str, float | None]` ([source](../../../../../../src/learnloop/diagnosis/causal_probe_commissioning.py), line 716) — Support scores from the factor's diagnosis receipt, when it owns any.
+- `_support_scores(repository: Repository, factor: Mapping[str, Any]) -> dict[str, float | None]` ([source](../../../../../../src/learnloop/diagnosis/causal_probe_commissioning.py), line 733) — Support scores from the factor's diagnosis receipt, when it owns any.
 
 ## Who imports or calls it
 
@@ -89,6 +90,7 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 > “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
 
 - [[Reference/Modules/learnloop/cli/app|learnloop.cli.app]] — imports `COMMISSIONING_POLICY_VERSION`, `commission_probe_instrument`; statically calls `commission_probe_instrument`
+- [[Reference/Modules/learnloop/followup_run/admission|learnloop.followup_run.admission]] — imports `commission_probe_instrument`, `support_scores`; statically calls `commission_probe_instrument`, `support_scores`
 
 ## Dependencies
 
@@ -111,7 +113,7 @@ Use this module in context through:
 - [[Process Model Output]]
 - [[Start a Learning Cycle]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/cli/app|learnloop.cli.app]].
+Static participation evidence comes from [[Reference/Modules/learnloop/cli/app|learnloop.cli.app]], [[Reference/Modules/learnloop/followup_run/admission|learnloop.followup_run.admission]].
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 

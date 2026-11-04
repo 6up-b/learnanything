@@ -7,8 +7,8 @@ version: "1.0.0"
 source_path: "src/learnloop_sidecar/handlers/diagnosis_card.py"
 source_paths:
   - "src/learnloop_sidecar/handlers/diagnosis_card.py"
-source_commit: "bb4a324a42f3d8827aab53083e368ccd3d596a10"
-source_commit_timestamp: "2026-10-12T05:42:06-04:00"
+source_commit: "51766c96a7b6a1f182f4b018e6ec4bf330c49e1f"
+source_commit_timestamp: "2026-11-03T22:09:07-05:00"
 source_worktree_state: "clean"
 generated: true
 generated_at: "2026-11-02"
@@ -53,20 +53,20 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop_sidecar/handlers/diagnosis_card.py](../../../../../../src/learnloop_sidecar/handlers/diagnosis_card.py) |
-| Source lines | 76 |
+| Source lines | 83 |
 | Owning package | [[Reference/Modules/learnloop_sidecar/handlers/_package|learnloop_sidecar.handlers]] |
 | Architecture layer | `adapter` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `bb4a324a42f3d8827aab53083e368ccd3d596a10` |
-| Commit timestamp | `2026-10-12T05:42:06-04:00` |
+| Source commit | `51766c96a7b6a1f182f4b018e6ec4bf330c49e1f` |
+| Commit timestamp | `2026-11-03T22:09:07-05:00` |
 
 ## Public API
 
 - `class DiagnosisStatusInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/diagnosis_card.py), line 22)
 - `class DiagnosisFeedbackInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/diagnosis_card.py), line 26)
 - `diagnosis_status(ctx: SidecarContext, params: DiagnosisStatusInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/diagnosis_card.py), line 35)
-- `record_diagnosis_feedback(ctx: SidecarContext, params: DiagnosisFeedbackInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/diagnosis_card.py), line 60)
+- `record_diagnosis_feedback(ctx: SidecarContext, params: DiagnosisFeedbackInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/diagnosis_card.py), line 67)
 
 ## Internal implementation anchors
 
@@ -85,6 +85,8 @@ No private top-level function or class definition is declared in this file.
 
 - [[Reference/Modules/learnloop/diagnosis/split/card|learnloop.diagnosis.split.card]] — imports `CardError`, `debit_displayed_repairs`, `diagnosis_card`, `record_card_tap`; calls `debit_displayed_repairs`, `diagnosis_card`, `record_card_tap`
 - [[Reference/Modules/learnloop/diagnosis/split/jobs|learnloop.diagnosis.split.jobs]] — imports `DONE`
+- [[Reference/Modules/learnloop/followup_run/serving|learnloop.followup_run.serving]] — imports `is_holding`; calls `is_holding`
+- [[Reference/Modules/learnloop/followup_serve/workflow|learnloop.followup_serve.workflow]] — imports `attempt_workflow`; calls `attempt_workflow`
 - [[Reference/Modules/learnloop_sidecar/context|learnloop_sidecar.context]] — imports `SidecarContext`
 - [[Reference/Modules/learnloop_sidecar/dto|learnloop_sidecar.dto]] — imports `ParamsModel`, `versioned`; calls `versioned`
 - [[Reference/Modules/learnloop_sidecar/errors|learnloop_sidecar.errors]] — imports `SidecarError`; calls `SidecarError`

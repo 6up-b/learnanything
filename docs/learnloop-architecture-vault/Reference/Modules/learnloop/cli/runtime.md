@@ -7,8 +7,8 @@ version: "1.0.0"
 source_path: "src/learnloop/cli/runtime.py"
 source_paths:
   - "src/learnloop/cli/runtime.py"
-source_commit: "8edf1024fe826abfb585584550cf0c4480268657"
-source_commit_timestamp: "2026-11-03T11:44:05-05:00"
+source_commit: "bdfa849256ec629e430c08556b2e3275b7aade17"
+source_commit_timestamp: "2026-11-03T21:44:48-05:00"
 source_worktree_state: "clean"
 generated: true
 generated_at: "2026-11-02"
@@ -54,8 +54,8 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Architecture layer | `adapter` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `8edf1024fe826abfb585584550cf0c4480268657` |
-| Commit timestamp | `2026-11-03T11:44:05-05:00` |
+| Source commit | `bdfa849256ec629e430c08556b2e3275b7aade17` |
+| Commit timestamp | `2026-11-03T21:44:48-05:00` |
 
 ## Public API
 
@@ -160,10 +160,10 @@ No public top-level function or class definition is declared in this file.
 - [[Reference/Modules/learnloop/content/proposals/proposals|learnloop.content.proposals.proposals]] — imports `accept_items`, `authoring_context_stats`, `build_authoring_context`, `edit_proposal_item`, `generate_authoring_proposal`, `list_proposals`, `persist_authoring_proposal`, `reject_items`
 - [[Reference/Modules/learnloop/content/sources/source_refs|learnloop.content.sources.source_refs]] — imports `source_ref_display_dto`
 - [[Reference/Modules/learnloop/curriculum/concepts|learnloop.curriculum.concepts]] — imports `ConceptMergeError`, `merge_concepts`
-- [[Reference/Modules/learnloop/data_capture_upgrade|learnloop.data_capture_upgrade]] — imports `complete_interrupted_activation`; calls `complete_interrupted_activation`
 - [[Reference/Modules/learnloop/db/repositories|learnloop.db.repositories]] — imports `Repository`
 - [[Reference/Modules/learnloop/diagnosis/diagnostic_gate|learnloop.diagnosis.diagnostic_gate]] — imports `BACKFILL_SKIPPED_EXISTING`, `BACKFILL_SKIPPED_UNREGISTERED`, `backfill_discrimination_rows`
 - [[Reference/Modules/learnloop/diagnosis/probes|learnloop.diagnosis.probes]] — imports `rank_error_type_candidates`
+- [[Reference/Modules/learnloop/followup_serve_upgrade|learnloop.followup_serve_upgrade]] — imports `complete_interrupted_activation`; calls `complete_interrupted_activation`
 - [[Reference/Modules/learnloop/goals/exam_calibration|learnloop.goals.exam_calibration]] — imports `calibration_report`
 - [[Reference/Modules/learnloop/goals/exam_pool|learnloop.goals.exam_pool]] — imports `reserve_exam_pool`
 - [[Reference/Modules/learnloop/goals/exam_seeding|learnloop.goals.exam_seeding]] — imports `ExamSeedingError`, `exam_ingest_instructions`, `parse_exam_outcomes`, `seed_exam_attempts`
@@ -207,6 +207,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_cold_retry_reschedule.py](../../../../../../tests/test_cold_retry_reschedule.py) — direct import
 - [tests/test_curriculum_c1_plan_follows_path.py](../../../../../../tests/test_curriculum_c1_plan_follows_path.py) — direct import
 - [tests/test_data_capture_successor.py](../../../../../../tests/test_data_capture_successor.py) — direct import
+  - `test_the_openers_install_this_links_completion`
+- [tests/test_followup_successor.py](../../../../../../tests/test_followup_successor.py) — direct import
   - `test_the_openers_install_this_links_completion`
 - [tests/test_help_fold_attach_successor.py](../../../../../../tests/test_help_fold_attach_successor.py) — direct import
 - [tests/test_learner_report_superseded.py](../../../../../../tests/test_learner_report_superseded.py) — direct import

@@ -146,6 +146,8 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 - [[Reference/Modules/learnloop/diagnosis/probe_episodes|learnloop.diagnosis.probe_episodes]] — imports `lock_causal_hypothesis_set`; statically calls `lock_causal_hypothesis_set`
 - [[Reference/Modules/learnloop/diagnosis/remediation|learnloop.diagnosis.remediation]] — imports `record_causal_cold_outcome`; statically calls `record_causal_cold_outcome`
 - [[Reference/Modules/learnloop/diagnosis/scoreboard|learnloop.diagnosis.scoreboard]] — imports `resolve_causal_probe_parameters`; statically calls `resolve_causal_probe_parameters`
+- [[Reference/Modules/learnloop/followup_run/admission|learnloop.followup_run.admission]] — imports `build_causal_hypothesis_set`, `transition_probe_candidate`; statically calls `build_causal_hypothesis_set`, `transition_probe_candidate`
+- [[Reference/Modules/learnloop/followup_run/router|learnloop.followup_run.router]] — imports `decide_probe`, `repair_class_need_for_factor`; statically calls `decide_probe`, `repair_class_need_for_factor`
 - [[Reference/Modules/learnloop_sidecar/handlers/measurement|learnloop_sidecar.handlers.measurement]] — imports `candidate_has_current_blind_input_contract`, `transition_probe_candidate`; statically calls `candidate_has_current_blind_input_contract`, `transition_probe_candidate`
 
 ## Dependencies
@@ -175,7 +177,7 @@ Use this module in context through:
 - [[Process Model Output]]
 - [[Start a Learning Cycle]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/cli/app|learnloop.cli.app]], [[Reference/Modules/learnloop/cli/data_capture|learnloop.cli.data_capture]], [[Reference/Modules/learnloop/content/authoring/rung_variants|learnloop.content.authoring.rung_variants]], [[Reference/Modules/learnloop/diagnosis/causal_diagnostic_selector|learnloop.diagnosis.causal_diagnostic_selector]], [[Reference/Modules/learnloop/diagnosis/causal_health|learnloop.diagnosis.causal_health]] and 8 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/cli/app|learnloop.cli.app]], [[Reference/Modules/learnloop/cli/data_capture|learnloop.cli.data_capture]], [[Reference/Modules/learnloop/content/authoring/rung_variants|learnloop.content.authoring.rung_variants]], [[Reference/Modules/learnloop/diagnosis/causal_diagnostic_selector|learnloop.diagnosis.causal_diagnostic_selector]], [[Reference/Modules/learnloop/diagnosis/causal_health|learnloop.diagnosis.causal_health]] and 10 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 

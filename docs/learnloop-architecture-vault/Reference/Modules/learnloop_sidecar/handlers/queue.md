@@ -7,8 +7,8 @@ version: "1.0.0"
 source_path: "src/learnloop_sidecar/handlers/queue.py"
 source_paths:
   - "src/learnloop_sidecar/handlers/queue.py"
-source_commit: "43bcc8fac4be9bfc864222dd8821769f1ee74d88"
-source_commit_timestamp: "2026-11-03T19:34:35-05:00"
+source_commit: "e262b85b96108b93ffda0fb5bf84527952b7c3e2"
+source_commit_timestamp: "2026-11-03T22:37:18-05:00"
 source_worktree_state: "clean"
 generated: true
 generated_at: "2026-11-02"
@@ -50,46 +50,48 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop_sidecar/handlers/queue.py](../../../../../../src/learnloop_sidecar/handlers/queue.py) |
-| Source lines | 674 |
+| Source lines | 711 |
 | Owning package | [[Reference/Modules/learnloop_sidecar/handlers/_package|learnloop_sidecar.handlers]] |
 | Architecture layer | `adapter` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `43bcc8fac4be9bfc864222dd8821769f1ee74d88` |
-| Commit timestamp | `2026-11-03T19:34:35-05:00` |
+| Source commit | `e262b85b96108b93ffda0fb5bf84527952b7c3e2` |
+| Commit timestamp | `2026-11-03T22:37:18-05:00` |
 
 ## Public API
 
-- `class QueueInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/queue.py), line 65)
-- `class PracticeItemInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/queue.py), line 72)
-- `class QueueRevisionInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/queue.py), line 88)
-- `get_queue_revision(ctx: SidecarContext, params: QueueRevisionInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/queue.py), line 96) — Cheap durable high-water mark for asynchronous Today invalidation.
-- `prepare_queue_build(ctx: SidecarContext, vault: Any, repository: Any, session_id: str | None) -> None` ([source](../../../../../../src/learnloop_sidecar/handlers/queue.py), line 117) — What every Today queue build does first (``get_today_queue`` and the plan).
-- `get_today_queue(ctx: SidecarContext, params: QueueInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/queue.py), line 152)
-- `record_diagnosis_serve(ctx: SidecarContext, repository: Any, session_id: str) -> None` ([source](../../../../../../src/learnloop_sidecar/handlers/queue.py), line 269) — E7: one receipt per serve that follows a diagnosis-bearing answer.
-- `explain_practice_item_handler(ctx: SidecarContext, params: PracticeItemInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/queue.py), line 299)
-- `open_queue_item(ctx: SidecarContext, params: PracticeItemInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/queue.py), line 311) — Open one item by id, or refuse with the reason it cannot be rendered.
-- `revalidate_cold_check(vault, repository, practice_item_id: str)` ([source](../../../../../../src/learnloop_sidecar/handlers/queue.py), line 360) — A serve revalidates a cold check (UX Phase 4 rounds 5 and 6; the one eligibility decision, ``scheduler.cold_check_serve_decision``).
-- `eligibility_dto(decision) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop_sidecar/handlers/queue.py), line 382) — The served item's honest label, when its cold check could not be taken.
-- `offer_trace_for(vault: Any, session_id: str | None) -> OfferTrace | None` ([source](../../../../../../src/learnloop_sidecar/handlers/queue.py), line 423) — A trace to fill when this build's offer will be logged, else None.
-- `today_head_served(vault: Any) -> bool` ([source](../../../../../../src/learnloop_sidecar/handlers/queue.py), line 435) — Whether Today serves the queue's head (router R1's chosen candidate).
-- `publish_offer(ctx: SidecarContext, vault: Any, repository: Any, queue: list[ScheduledItem], *, trace: OfferTrace | None, surface: str, removed_ids: frozenset[str]=frozenset(), alongside: Callable[[], None] | None=None) -> tuple[list[ScheduledItem], list[dict[str, Any]]]` ([source](../../../../../../src/learnloop_sidecar/handlers/queue.py), line 548) — Filter, serialize and publish one Today offer; returns (items, dtos).
+- `class QueueInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/queue.py), line 68)
+- `class PracticeItemInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/queue.py), line 75)
+- `class QueueRevisionInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/queue.py), line 91)
+- `get_queue_revision(ctx: SidecarContext, params: QueueRevisionInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/queue.py), line 99) — Cheap durable high-water mark for asynchronous Today invalidation.
+- `prepare_queue_build(ctx: SidecarContext, vault: Any, repository: Any, session_id: str | None) -> None` ([source](../../../../../../src/learnloop_sidecar/handlers/queue.py), line 120) — What every Today queue build does first (``get_today_queue`` and the plan).
+- `get_today_queue(ctx: SidecarContext, params: QueueInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/queue.py), line 155)
+- `record_diagnosis_serve(ctx: SidecarContext, repository: Any, session_id: str) -> None` ([source](../../../../../../src/learnloop_sidecar/handlers/queue.py), line 305) — E7: one receipt per serve that follows a diagnosis-bearing answer.
+- `explain_practice_item_handler(ctx: SidecarContext, params: PracticeItemInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/queue.py), line 335)
+- `open_queue_item(ctx: SidecarContext, params: PracticeItemInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/queue.py), line 347) — Open one item by id, or refuse with the reason it cannot be rendered.
+- `revalidate_cold_check(vault, repository, practice_item_id: str)` ([source](../../../../../../src/learnloop_sidecar/handlers/queue.py), line 397) — A serve revalidates a cold check (UX Phase 4 rounds 5 and 6; the one eligibility decision, ``scheduler.cold_check_serve_decision``).
+- `eligibility_dto(decision) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop_sidecar/handlers/queue.py), line 419) — The served item's honest label, when its cold check could not be taken.
+- `offer_trace_for(vault: Any, session_id: str | None) -> OfferTrace | None` ([source](../../../../../../src/learnloop_sidecar/handlers/queue.py), line 460) — A trace to fill when this build's offer will be logged, else None.
+- `today_head_served(vault: Any) -> bool` ([source](../../../../../../src/learnloop_sidecar/handlers/queue.py), line 472) — Whether Today serves the queue's head (router R1's chosen candidate).
+- `publish_offer(ctx: SidecarContext, vault: Any, repository: Any, queue: list[ScheduledItem], *, trace: OfferTrace | None, surface: str, removed_ids: frozenset[str]=frozenset(), alongside: Callable[[], None] | None=None) -> tuple[list[ScheduledItem], list[dict[str, Any]]]` ([source](../../../../../../src/learnloop_sidecar/handlers/queue.py), line 585) — Filter, serialize and publish one Today offer; returns (items, dtos).
 
 ### Module constants
 
-- `_QUEUE_RELOAD_JOB_TYPES` ([src/learnloop_sidecar/handlers/queue.py](../../../../../../src/learnloop_sidecar/handlers/queue.py), line 83)
-- `_RELOAD_BATCH_WINDOW` ([src/learnloop_sidecar/handlers/queue.py](../../../../../../src/learnloop_sidecar/handlers/queue.py), line 85)
-- `_SECTION_SPECS` ([src/learnloop_sidecar/handlers/queue.py](../../../../../../src/learnloop_sidecar/handlers/queue.py), line 397)
+- `_QUEUE_RELOAD_JOB_TYPES` ([src/learnloop_sidecar/handlers/queue.py](../../../../../../src/learnloop_sidecar/handlers/queue.py), line 86)
+- `_RELOAD_BATCH_WINDOW` ([src/learnloop_sidecar/handlers/queue.py](../../../../../../src/learnloop_sidecar/handlers/queue.py), line 88)
+- `_SECTION_SPECS` ([src/learnloop_sidecar/handlers/queue.py](../../../../../../src/learnloop_sidecar/handlers/queue.py), line 434)
 
 ## Internal implementation anchors
 
-- `_wait_for_session_diagnoses(ctx: SidecarContext, vault: Any, repository: Any, session_id: str | None) -> None` ([source](../../../../../../src/learnloop_sidecar/handlers/queue.py), line 245) — Slice 1 §11: a bounded wait so a fast click still gets the diagnosis.
-- `_sections(items: list[dict[str, Any]]) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop_sidecar/handlers/queue.py), line 404)
-- `_served_head(dtos: list[dict[str, Any]]) -> str | None` ([source](../../../../../../src/learnloop_sidecar/handlers/queue.py), line 413)
-- `class _TeachBackReadiness` ([source](../../../../../../src/learnloop_sidecar/handlers/queue.py), line 450) — One teach-back readiness probe per published offer, run only if needed.
-- `class _OfferHeadRule` ([source](../../../../../../src/learnloop_sidecar/handlers/queue.py), line 470) — Which item an offer shows first, for any composed order of the build.
-- `_in_progress_draft(repository: Any, session_id: str | None) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop_sidecar/handlers/queue.py), line 530) — The session's saved, unsubmitted draft, if any (router R1's "continue").
-- `_offer_prefilter(vault: Any, decision: Mapping[str, Any], trace: Any, queue: Any) -> Callable[[Any], Any] | None` ([source](../../../../../../src/learnloop_sidecar/handlers/queue.py), line 650) — Data capture A1: the build's prefilter, ready to link in the transaction that commits the offer's decision (Codex review F8: apart from it, a crash between the two left the decision no receipt, and the build's trace is in memory only).
+- `_with_followup_head(ctx: SidecarContext, vault: Any, repository: Any, queue: list[ScheduledItem]) -> list[ScheduledItem]` ([source](../../../../../../src/learnloop_sidecar/handlers/queue.py), line 250) — FG1 §5.1: with no plan, a ready generated probe goes to the head of the queue, and the offer that lists it is the logged decision.
+- `_desktop_followups(repository: Any) -> int` ([source](../../../../../../src/learnloop_sidecar/handlers/queue.py), line 273) — FG1 §10: a pending generated probe is the desktop's; it joins the phone's "waiting" line.
+- `_wait_for_session_diagnoses(ctx: SidecarContext, vault: Any, repository: Any, session_id: str | None) -> None` ([source](../../../../../../src/learnloop_sidecar/handlers/queue.py), line 281) — Slice 1 §11: a bounded wait so a fast click still gets the diagnosis.
+- `_sections(items: list[dict[str, Any]]) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop_sidecar/handlers/queue.py), line 441)
+- `_served_head(dtos: list[dict[str, Any]]) -> str | None` ([source](../../../../../../src/learnloop_sidecar/handlers/queue.py), line 450)
+- `class _TeachBackReadiness` ([source](../../../../../../src/learnloop_sidecar/handlers/queue.py), line 487) — One teach-back readiness probe per published offer, run only if needed.
+- `class _OfferHeadRule` ([source](../../../../../../src/learnloop_sidecar/handlers/queue.py), line 507) — Which item an offer shows first, for any composed order of the build.
+- `_in_progress_draft(repository: Any, session_id: str | None) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop_sidecar/handlers/queue.py), line 567) — The session's saved, unsubmitted draft, if any (router R1's "continue").
+- `_offer_prefilter(vault: Any, decision: Mapping[str, Any], trace: Any, queue: Any) -> Callable[[Any], Any] | None` ([source](../../../../../../src/learnloop_sidecar/handlers/queue.py), line 687) — Data capture A1: the build's prefilter, ready to link in the transaction that commits the offer's decision (Codex review F8: apart from it, a crash between the two left the decision no receipt, and the build's trace is in memory only).
 
 ## Who imports or calls it
 
@@ -113,11 +115,13 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop/data_capture/prefilter|learnloop.data_capture.prefilter]] — imports `module`; calls `record`, `today_offer_material`
 - [[Reference/Modules/learnloop/diagnosis/split/jobs|learnloop.diagnosis.split.jobs]] — imports `session_diagnosis_availability`; calls `session_diagnosis_availability`
 - [[Reference/Modules/learnloop/diagnosis/voi_stopping|learnloop.diagnosis.voi_stopping]] — imports `FORECAST_VERSION`
+- [[Reference/Modules/learnloop/followup_serve/gates|learnloop.followup_serve.gates]] — imports `generate_and_serve_on`; calls `generate_and_serve_on`
+- [[Reference/Modules/learnloop/followup_serve/workflow|learnloop.followup_serve.workflow]] — imports `desktop_waiting_count`, `module`; calls `desktop_waiting_count`, `session_rows`
 - [[Reference/Modules/learnloop/intent/checks|learnloop.intent.checks]] — imports `settle_answered_checks`; calls `settle_answered_checks`
 - [[Reference/Modules/learnloop/projects/capture|learnloop.projects.capture]] — imports `auto_sweep`; calls `auto_sweep`
 - [[Reference/Modules/learnloop/router/decisions|learnloop.router.decisions]] — imports `build_today_offer_decision`, `logging_enabled`, `record_decision`; calls `build_today_offer_decision`, `logging_enabled`, `record_decision`
 - [[Reference/Modules/learnloop/scheduling/reentry_summary|learnloop.scheduling.reentry_summary]] — imports `reentry_session_cap`; calls `reentry_session_cap`
-- [[Reference/Modules/learnloop/scheduling/scheduler|learnloop.scheduling.scheduler]] — imports `OfferTrace`, `SELECTION_POLICY`, `ScheduledItem`, `SchedulerSession`, `build_due_queue`, `cold_check_serve_decision`, `deferred_cold_followups`, `explain_practice_item`; calls `OfferTrace`, `SchedulerSession`, `build_due_queue`, `cold_check_serve_decision`, `deferred_cold_followups`, `explain_practice_item`
+- [[Reference/Modules/learnloop/scheduling/scheduler|learnloop.scheduling.scheduler]] — imports `OfferTrace`, `SELECTION_POLICY`, `ScheduledItem`, `SchedulerSession`, `build_due_queue`, `cold_check_serve_decision`, `deferred_cold_followups`, `explain_practice_item`, `followup_head_item`; calls `OfferTrace`, `SchedulerSession`, `build_due_queue`, `cold_check_serve_decision`, `deferred_cold_followups`, `explain_practice_item`, `followup_head_item`
 - [[Reference/Modules/learnloop/serve_eligibility|learnloop.serve_eligibility]] — imports `module`; calls `decision_active`
 - [[Reference/Modules/learnloop/substrate/instrument_serving|learnloop.substrate.instrument_serving]] — imports `UNSERVABLE_ERROR_CODE`, `unservable_refusal`; calls `unservable_refusal`
 - [[Reference/Modules/learnloop_sidecar/context|learnloop_sidecar.context]] — imports `SidecarContext`
@@ -130,11 +134,11 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop_sidecar/logging|learnloop_sidecar.logging]] — imports `log_event`; calls `log_event`
 - [[Reference/Modules/learnloop_sidecar/registry|learnloop_sidecar.registry]] — imports `method`; calls `method`
 - [[Reference/Modules/learnloop_sidecar/request_origin|learnloop_sidecar.request_origin]] — imports `offer_surface`; calls `offer_surface`
-- [[Reference/Modules/learnloop_sidecar/serving|learnloop_sidecar.serving]] — imports `device_filter`, `device_policy`, `refuse_device_ineligible_item`, `refuse_held_out_item`, `refuse_unservable_item`; calls `device_filter`, `device_policy`, `refuse_device_ineligible_item`, `refuse_held_out_item`, `refuse_unservable_item`
+- [[Reference/Modules/learnloop_sidecar/serving|learnloop_sidecar.serving]] — imports `device_filter`, `device_policy`, `refuse_device_ineligible_item`, `refuse_generated_probe_door`, `refuse_held_out_item`, `refuse_unservable_item`; calls `device_filter`, `device_policy`, `refuse_device_ineligible_item`, `refuse_generated_probe_door`, `refuse_held_out_item`, `refuse_unservable_item`
 
 ### Platform and third-party dependencies
 
-- Standard library: `__future__`, `collections`, `contextlib`, `datetime`, `logging`, `typing`
+- Standard library: `__future__`, `collections`, `contextlib`, `dataclasses`, `datetime`, `logging`, `typing`
 - Third party: none imported directly
 
 ## Larger workflow participation

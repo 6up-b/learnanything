@@ -7,9 +7,9 @@ version: "1.0.0"
 source_path: "src/learnloop/daily_plan/measurement.py"
 source_paths:
   - "src/learnloop/daily_plan/measurement.py"
-source_commit: "workspace/uncommitted @ HEAD 19939c66a7ad278706b5dbade166b33e25eb5005"
-source_commit_timestamp: "2026-11-03T19:47:28-05:00"
-source_worktree_state: "modified"
+source_commit: "c11b6179c76d77eb4ef639d03f4fb112e12a75a7"
+source_commit_timestamp: "2026-11-03T22:03:31-05:00"
+source_worktree_state: "clean"
 generated: true
 generated_at: "2026-11-02"
 package: "learnloop.daily_plan"
@@ -50,26 +50,26 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/daily_plan/measurement.py](../../../../../../src/learnloop/daily_plan/measurement.py) |
-| Source lines | 604 |
+| Source lines | 606 |
 | Owning package | [[Reference/Modules/learnloop/daily_plan/_package|learnloop.daily_plan]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
-| Worktree state | `modified` |
-| Source commit | `workspace/uncommitted @ HEAD 19939c66a7ad278706b5dbade166b33e25eb5005` |
-| Commit timestamp | `2026-11-03T19:47:28-05:00` |
+| Worktree state | `clean` |
+| Source commit | `c11b6179c76d77eb4ef639d03f4fb112e12a75a7` |
+| Commit timestamp | `2026-11-03T22:03:31-05:00` |
 
 ## Public API
 
-- `class FrozenObjective` ([source](../../../../../../src/learnloop/daily_plan/measurement.py), line 115) — What a decision's arms are evaluated on, from pre-draw inputs only.
-  - `as_dict(self) -> dict[str, Any]` (line 126; public)
-  - `from_dict(cls, row: Mapping[str, Any]) -> 'FrozenObjective'` (line 130; public)
-- `freeze(vault: Any, repository: Any, *, staged_ref: str | None, candidates: Sequence[Any], support: Sequence[str], stop_ref: str) -> FrozenObjective` ([source](../../../../../../src/learnloop/daily_plan/measurement.py), line 137) — The block decision's objective, from the staged pick, the candidates and the support: nothing the draw decides.
-- `freeze_followup(learning_object_id: str, *, support: Sequence[str]) -> FrozenObjective` ([source](../../../../../../src/learnloop/daily_plan/measurement.py), line 175) — A follow-up's now-or-wait decision: its own LO, whichever arm is drawn.
-- `with_last_block(frozen: FrozenObjective, learning_object_id: str | None) -> FrozenObjective` ([source](../../../../../../src/learnloop/daily_plan/measurement.py), line 184) — A stop with no candidate to name its objective: what the plan last worked on (pre-draw too).
-- `applies(frozen: FrozenObjective | None, arm: str) -> bool` ([source](../../../../../../src/learnloop/daily_plan/measurement.py), line 193) — A decision has an objective when an arm of its support, or the drawn one, has no action.
-- `record(vault: Any, repository: Any, connection: Any, *, decision_id: str, decision_kind: str, frozen: FrozenObjective, arm: str, exclude: Iterable[str]=(), experiment_id: str | None=None, clock: Clock | None=None) -> None` ([source](../../../../../../src/learnloop/daily_plan/measurement.py), line 302) — Freeze ``frozen`` for a committed decision and arrange its measurement, on the decision's transaction.
-- `plan_slots(intent: Any, checks: Sequence[Any], maintain_load: float) -> tuple[list[dict[str, Any]], float]` ([source](../../../../../../src/learnloop/daily_plan/measurement.py), line 339) — The first block's measurement checks and the maintain-lane minutes they replace.
-- `settle(vault: Any, repository: Any, *, clock: Clock | None=None) -> int` ([source](../../../../../../src/learnloop/daily_plan/measurement.py), line 426) — Write the measurement states the ledgers now show.
+- `class FrozenObjective` ([source](../../../../../../src/learnloop/daily_plan/measurement.py), line 117) — What a decision's arms are evaluated on, from pre-draw inputs only.
+  - `as_dict(self) -> dict[str, Any]` (line 128; public)
+  - `from_dict(cls, row: Mapping[str, Any]) -> 'FrozenObjective'` (line 132; public)
+- `freeze(vault: Any, repository: Any, *, staged_ref: str | None, candidates: Sequence[Any], support: Sequence[str], stop_ref: str) -> FrozenObjective` ([source](../../../../../../src/learnloop/daily_plan/measurement.py), line 139) — The block decision's objective, from the staged pick, the candidates and the support: nothing the draw decides.
+- `freeze_followup(learning_object_id: str, *, support: Sequence[str]) -> FrozenObjective` ([source](../../../../../../src/learnloop/daily_plan/measurement.py), line 177) — A follow-up's now-or-wait decision: its own LO, whichever arm is drawn.
+- `with_last_block(frozen: FrozenObjective, learning_object_id: str | None) -> FrozenObjective` ([source](../../../../../../src/learnloop/daily_plan/measurement.py), line 186) — A stop with no candidate to name its objective: what the plan last worked on (pre-draw too).
+- `applies(frozen: FrozenObjective | None, arm: str) -> bool` ([source](../../../../../../src/learnloop/daily_plan/measurement.py), line 195) — A decision has an objective when an arm of its support, or the drawn one, has no action.
+- `record(vault: Any, repository: Any, connection: Any, *, decision_id: str, decision_kind: str, frozen: FrozenObjective, arm: str, exclude: Iterable[str]=(), experiment_id: str | None=None, clock: Clock | None=None) -> None` ([source](../../../../../../src/learnloop/daily_plan/measurement.py), line 304) — Freeze ``frozen`` for a committed decision and arrange its measurement, on the decision's transaction.
+- `plan_slots(intent: Any, checks: Sequence[Any], maintain_load: float) -> tuple[list[dict[str, Any]], float]` ([source](../../../../../../src/learnloop/daily_plan/measurement.py), line 341) — The first block's measurement checks and the maintain-lane minutes they replace.
+- `settle(vault: Any, repository: Any, *, clock: Clock | None=None) -> int` ([source](../../../../../../src/learnloop/daily_plan/measurement.py), line 428) — Write the measurement states the ledgers now show.
 
 ### Module constants
 
@@ -81,28 +81,29 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `ARM_STOP` ([src/learnloop/daily_plan/measurement.py](../../../../../../src/learnloop/daily_plan/measurement.py), line 77)
 - `ARM_PRACTICE` ([src/learnloop/daily_plan/measurement.py](../../../../../../src/learnloop/daily_plan/measurement.py), line 78)
 - `ARM_INSERT` ([src/learnloop/daily_plan/measurement.py](../../../../../../src/learnloop/daily_plan/measurement.py), line 79)
-- `ACTIONLESS_ARMS` ([src/learnloop/daily_plan/measurement.py](../../../../../../src/learnloop/daily_plan/measurement.py), line 81)
-- `ARRANGED` ([src/learnloop/daily_plan/measurement.py](../../../../../../src/learnloop/daily_plan/measurement.py), line 83)
-- `SHARED` ([src/learnloop/daily_plan/measurement.py](../../../../../../src/learnloop/daily_plan/measurement.py), line 84)
-- `NATURAL` ([src/learnloop/daily_plan/measurement.py](../../../../../../src/learnloop/daily_plan/measurement.py), line 85)
-- `UNAVAILABLE` ([src/learnloop/daily_plan/measurement.py](../../../../../../src/learnloop/daily_plan/measurement.py), line 86)
-- `SOURCE_READING` ([src/learnloop/daily_plan/measurement.py](../../../../../../src/learnloop/daily_plan/measurement.py), line 88)
-- `SOURCE_STAGED` ([src/learnloop/daily_plan/measurement.py](../../../../../../src/learnloop/daily_plan/measurement.py), line 89)
-- `SOURCE_SUPPORT` ([src/learnloop/daily_plan/measurement.py](../../../../../../src/learnloop/daily_plan/measurement.py), line 90)
-- `SOURCE_LAST_BLOCK` ([src/learnloop/daily_plan/measurement.py](../../../../../../src/learnloop/daily_plan/measurement.py), line 91)
-- `SOURCE_FOLLOWUP` ([src/learnloop/daily_plan/measurement.py](../../../../../../src/learnloop/daily_plan/measurement.py), line 92)
-- `SOURCE_NONE` ([src/learnloop/daily_plan/measurement.py](../../../../../../src/learnloop/daily_plan/measurement.py), line 93)
-- `NO_LEARNING_OBJECT` ([src/learnloop/daily_plan/measurement.py](../../../../../../src/learnloop/daily_plan/measurement.py), line 96)
-- `NO_QUESTION` ([src/learnloop/daily_plan/measurement.py](../../../../../../src/learnloop/daily_plan/measurement.py), line 97)
-- `CHECKS_OFF` ([src/learnloop/daily_plan/measurement.py](../../../../../../src/learnloop/daily_plan/measurement.py), line 98)
-- `ARRANGE_FAILED` ([src/learnloop/daily_plan/measurement.py](../../../../../../src/learnloop/daily_plan/measurement.py), line 99)
-- `COMMITMENT_CLOSED` ([src/learnloop/daily_plan/measurement.py](../../../../../../src/learnloop/daily_plan/measurement.py), line 100)
-- `CHECK_REPLACED` ([src/learnloop/daily_plan/measurement.py](../../../../../../src/learnloop/daily_plan/measurement.py), line 101)
-- `ANSWER_NOT_DELAYED` ([src/learnloop/daily_plan/measurement.py](../../../../../../src/learnloop/daily_plan/measurement.py), line 103)
-- `ANSWER_OTHER_OBJECTIVE` ([src/learnloop/daily_plan/measurement.py](../../../../../../src/learnloop/daily_plan/measurement.py), line 105)
-- `_UNREAD_ANSWERS` ([src/learnloop/daily_plan/measurement.py](../../../../../../src/learnloop/daily_plan/measurement.py), line 107)
-- `REPLACEMENT` ([src/learnloop/daily_plan/measurement.py](../../../../../../src/learnloop/daily_plan/measurement.py), line 109)
-- `SATISFIED_EPISODE` ([src/learnloop/daily_plan/measurement.py](../../../../../../src/learnloop/daily_plan/measurement.py), line 111)
+- `ARM_NO_INTERVENTION` ([src/learnloop/daily_plan/measurement.py](../../../../../../src/learnloop/daily_plan/measurement.py), line 81)
+- `ACTIONLESS_ARMS` ([src/learnloop/daily_plan/measurement.py](../../../../../../src/learnloop/daily_plan/measurement.py), line 83)
+- `ARRANGED` ([src/learnloop/daily_plan/measurement.py](../../../../../../src/learnloop/daily_plan/measurement.py), line 85)
+- `SHARED` ([src/learnloop/daily_plan/measurement.py](../../../../../../src/learnloop/daily_plan/measurement.py), line 86)
+- `NATURAL` ([src/learnloop/daily_plan/measurement.py](../../../../../../src/learnloop/daily_plan/measurement.py), line 87)
+- `UNAVAILABLE` ([src/learnloop/daily_plan/measurement.py](../../../../../../src/learnloop/daily_plan/measurement.py), line 88)
+- `SOURCE_READING` ([src/learnloop/daily_plan/measurement.py](../../../../../../src/learnloop/daily_plan/measurement.py), line 90)
+- `SOURCE_STAGED` ([src/learnloop/daily_plan/measurement.py](../../../../../../src/learnloop/daily_plan/measurement.py), line 91)
+- `SOURCE_SUPPORT` ([src/learnloop/daily_plan/measurement.py](../../../../../../src/learnloop/daily_plan/measurement.py), line 92)
+- `SOURCE_LAST_BLOCK` ([src/learnloop/daily_plan/measurement.py](../../../../../../src/learnloop/daily_plan/measurement.py), line 93)
+- `SOURCE_FOLLOWUP` ([src/learnloop/daily_plan/measurement.py](../../../../../../src/learnloop/daily_plan/measurement.py), line 94)
+- `SOURCE_NONE` ([src/learnloop/daily_plan/measurement.py](../../../../../../src/learnloop/daily_plan/measurement.py), line 95)
+- `NO_LEARNING_OBJECT` ([src/learnloop/daily_plan/measurement.py](../../../../../../src/learnloop/daily_plan/measurement.py), line 98)
+- `NO_QUESTION` ([src/learnloop/daily_plan/measurement.py](../../../../../../src/learnloop/daily_plan/measurement.py), line 99)
+- `CHECKS_OFF` ([src/learnloop/daily_plan/measurement.py](../../../../../../src/learnloop/daily_plan/measurement.py), line 100)
+- `ARRANGE_FAILED` ([src/learnloop/daily_plan/measurement.py](../../../../../../src/learnloop/daily_plan/measurement.py), line 101)
+- `COMMITMENT_CLOSED` ([src/learnloop/daily_plan/measurement.py](../../../../../../src/learnloop/daily_plan/measurement.py), line 102)
+- `CHECK_REPLACED` ([src/learnloop/daily_plan/measurement.py](../../../../../../src/learnloop/daily_plan/measurement.py), line 103)
+- `ANSWER_NOT_DELAYED` ([src/learnloop/daily_plan/measurement.py](../../../../../../src/learnloop/daily_plan/measurement.py), line 105)
+- `ANSWER_OTHER_OBJECTIVE` ([src/learnloop/daily_plan/measurement.py](../../../../../../src/learnloop/daily_plan/measurement.py), line 107)
+- `_UNREAD_ANSWERS` ([src/learnloop/daily_plan/measurement.py](../../../../../../src/learnloop/daily_plan/measurement.py), line 109)
+- `REPLACEMENT` ([src/learnloop/daily_plan/measurement.py](../../../../../../src/learnloop/daily_plan/measurement.py), line 111)
+- `SATISFIED_EPISODE` ([src/learnloop/daily_plan/measurement.py](../../../../../../src/learnloop/daily_plan/measurement.py), line 113)
 
 ### Explicit exports
 
@@ -135,22 +136,22 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 
 ## Internal implementation anchors
 
-- `_window_opens(now: datetime) -> datetime` ([source](../../../../../../src/learnloop/daily_plan/measurement.py), line 199) — When an answer can first be a delayed retrieval of a decision taken at ``now``: the outcome contract's delay.
-- `_due_iso(now: datetime, days: float) -> str` ([source](../../../../../../src/learnloop/daily_plan/measurement.py), line 205) — The check's date.
-- `_pending_checks(serving: Any, item_ids: set[str]) -> list[Any]` ([source](../../../../../../src/learnloop/daily_plan/measurement.py), line 215) — The pending checks on any item of the objective's LO.
-- `_measures_objective(check: Any, item_ids: set[str]) -> bool` ([source](../../../../../../src/learnloop/daily_plan/measurement.py), line 224) — Every answer that could satisfy this check is on the objective's LO, so it may be shared (landing review F11).
-- `class _Arrangement` ([source](../../../../../../src/learnloop/daily_plan/measurement.py), line 231)
-- `_arrange(vault: Any, repository: Any, frozen: FrozenObjective, *, decision_id: str, exclude: Iterable[str], clock: Clock | None) -> _Arrangement` ([source](../../../../../../src/learnloop/daily_plan/measurement.py), line 239) — The check that measures ``frozen``, on the decision's transaction (its savepoint).
-- `_new_check(vault: Any, repository: Any, lo: str, lo_items: Sequence[Any], *, exclude: Iterable[str], decision_id: str, idempotency_key: str, now: datetime, clock: Clock | None) -> _Arrangement` ([source](../../../../../../src/learnloop/daily_plan/measurement.py), line 267)
-- `_replacement_check(vault: Any, repository: Any, decision_id: str, learning_object_id: str | None, *, answered_item: Any, serving: Any, now: datetime, clock: Clock | None, fresh: dict[str, _Arrangement]) -> _Arrangement` ([source](../../../../../../src/learnloop/daily_plan/measurement.py), line 358) — The duty an unread answer left: one check on the objective that opens past the window from now.
-- `_answer_missed_window(connection: Any, attempt_id: str, decided_at: str | None, reader_exposures: Iterable[tuple[str, str]]) -> bool` ([source](../../../../../../src/learnloop/daily_plan/measurement.py), line 390) — Whether the decision's outcome cannot read this answer because it was warm or exposed (a held or unscorable answer is still an answer: its outcome says why it is not read).
-- `_replacement_detail(connection: Any, decision_id: str) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/daily_plan/measurement.py), line 404) — The early answer's event of this decision's measurement, if it had one.
-- `_unplanned_reasons(connection: Any, today: str) -> dict[str, list[str]]` ([source](../../../../../../src/learnloop/daily_plan/measurement.py), line 413) — Today's plans' reasons a due check was not planned, by commitment.
-- `_local_day(at: str) -> str | None` ([source](../../../../../../src/learnloop/daily_plan/measurement.py), line 536) — A UTC stamp's local day (the plan's, ``engine.local_date``).
-- `_lost(connection: Any, decision_id: str, prefix: str, reason: str, *, at: str) -> int` ([source](../../../../../../src/learnloop/daily_plan/measurement.py), line 543) — The check cannot be offered, in the episode its newest ``due`` or ``offered`` opened: the same reason again only counts after availability came back.
-- `_event(connection: Any, decision_id: str, state: str, *, at: str, reason: str='', practice_item_id: str | None=None, attempt_id: str | None=None, detail: Mapping[str, Any] | None=None, episode: str='') -> int` ([source](../../../../../../src/learnloop/daily_plan/measurement.py), line 551)
-- `_satisfied_by(connection: Any, commitment_id: str) -> str | None` ([source](../../../../../../src/learnloop/daily_plan/measurement.py), line 559)
-- `_offers(connection: Any, check: Any, row: Mapping[str, Any], *, since: str) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/daily_plan/measurement.py), line 567) — The check's presentations at or after it came due (its item, or any it decides), oldest first.
+- `_window_opens(now: datetime) -> datetime` ([source](../../../../../../src/learnloop/daily_plan/measurement.py), line 201) — When an answer can first be a delayed retrieval of a decision taken at ``now``: the outcome contract's delay.
+- `_due_iso(now: datetime, days: float) -> str` ([source](../../../../../../src/learnloop/daily_plan/measurement.py), line 207) — The check's date.
+- `_pending_checks(serving: Any, item_ids: set[str]) -> list[Any]` ([source](../../../../../../src/learnloop/daily_plan/measurement.py), line 217) — The pending checks on any item of the objective's LO.
+- `_measures_objective(check: Any, item_ids: set[str]) -> bool` ([source](../../../../../../src/learnloop/daily_plan/measurement.py), line 226) — Every answer that could satisfy this check is on the objective's LO, so it may be shared (landing review F11).
+- `class _Arrangement` ([source](../../../../../../src/learnloop/daily_plan/measurement.py), line 233)
+- `_arrange(vault: Any, repository: Any, frozen: FrozenObjective, *, decision_id: str, exclude: Iterable[str], clock: Clock | None) -> _Arrangement` ([source](../../../../../../src/learnloop/daily_plan/measurement.py), line 241) — The check that measures ``frozen``, on the decision's transaction (its savepoint).
+- `_new_check(vault: Any, repository: Any, lo: str, lo_items: Sequence[Any], *, exclude: Iterable[str], decision_id: str, idempotency_key: str, now: datetime, clock: Clock | None) -> _Arrangement` ([source](../../../../../../src/learnloop/daily_plan/measurement.py), line 269)
+- `_replacement_check(vault: Any, repository: Any, decision_id: str, learning_object_id: str | None, *, answered_item: Any, serving: Any, now: datetime, clock: Clock | None, fresh: dict[str, _Arrangement]) -> _Arrangement` ([source](../../../../../../src/learnloop/daily_plan/measurement.py), line 360) — The duty an unread answer left: one check on the objective that opens past the window from now.
+- `_answer_missed_window(connection: Any, attempt_id: str, decided_at: str | None, reader_exposures: Iterable[tuple[str, str]]) -> bool` ([source](../../../../../../src/learnloop/daily_plan/measurement.py), line 392) — Whether the decision's outcome cannot read this answer because it was warm or exposed (a held or unscorable answer is still an answer: its outcome says why it is not read).
+- `_replacement_detail(connection: Any, decision_id: str) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/daily_plan/measurement.py), line 406) — The early answer's event of this decision's measurement, if it had one.
+- `_unplanned_reasons(connection: Any, today: str) -> dict[str, list[str]]` ([source](../../../../../../src/learnloop/daily_plan/measurement.py), line 415) — Today's plans' reasons a due check was not planned, by commitment.
+- `_local_day(at: str) -> str | None` ([source](../../../../../../src/learnloop/daily_plan/measurement.py), line 538) — A UTC stamp's local day (the plan's, ``engine.local_date``).
+- `_lost(connection: Any, decision_id: str, prefix: str, reason: str, *, at: str) -> int` ([source](../../../../../../src/learnloop/daily_plan/measurement.py), line 545) — The check cannot be offered, in the episode its newest ``due`` or ``offered`` opened: the same reason again only counts after availability came back.
+- `_event(connection: Any, decision_id: str, state: str, *, at: str, reason: str='', practice_item_id: str | None=None, attempt_id: str | None=None, detail: Mapping[str, Any] | None=None, episode: str='') -> int` ([source](../../../../../../src/learnloop/daily_plan/measurement.py), line 553)
+- `_satisfied_by(connection: Any, commitment_id: str) -> str | None` ([source](../../../../../../src/learnloop/daily_plan/measurement.py), line 561)
+- `_offers(connection: Any, check: Any, row: Mapping[str, Any], *, since: str) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/daily_plan/measurement.py), line 569) — The check's presentations at or after it came due (its item, or any it decides), oldest first.
 
 ## Who imports or calls it
 
@@ -159,6 +160,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 
 - [[Reference/Modules/learnloop/daily_plan/engine|learnloop.daily_plan.engine]] — imports `module`; statically calls `applies`, `freeze`, `freeze_followup`, `plan_slots`, `record`, `with_last_block`
 - [[Reference/Modules/learnloop/daily_plan/router_chooser|learnloop.daily_plan.router_chooser]] — imports `module`; statically calls `freeze`
+- [[Reference/Modules/learnloop/followup_run/router|learnloop.followup_run.router]] — imports `module`; statically calls `freeze_followup`, `record`
 - [[Reference/Modules/learnloop_sidecar/handlers/queue|learnloop_sidecar.handlers.queue]] — imports `module`; statically calls `settle`
 
 ## Dependencies
@@ -189,7 +191,7 @@ Use this module in context through:
 - [[Initialize a Vault]]
 - [[Start a Learning Cycle]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/daily_plan/engine|learnloop.daily_plan.engine]], [[Reference/Modules/learnloop/daily_plan/router_chooser|learnloop.daily_plan.router_chooser]], [[Reference/Modules/learnloop_sidecar/handlers/queue|learnloop_sidecar.handlers.queue]].
+Static participation evidence comes from [[Reference/Modules/learnloop/daily_plan/engine|learnloop.daily_plan.engine]], [[Reference/Modules/learnloop/daily_plan/router_chooser|learnloop.daily_plan.router_chooser]], [[Reference/Modules/learnloop/followup_run/router|learnloop.followup_run.router]], [[Reference/Modules/learnloop_sidecar/handlers/queue|learnloop_sidecar.handlers.queue]].
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 

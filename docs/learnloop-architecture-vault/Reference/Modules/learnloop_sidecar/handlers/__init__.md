@@ -7,8 +7,8 @@ version: "1.0.0"
 source_path: "src/learnloop_sidecar/handlers/__init__.py"
 source_paths:
   - "src/learnloop_sidecar/handlers/__init__.py"
-source_commit: "cedf6a2c3aad3ce9b6c134bc57940b0c6e1d732c"
-source_commit_timestamp: "2026-11-01T19:02:30-05:00"
+source_commit: "51766c96a7b6a1f182f4b018e6ec4bf330c49e1f"
+source_commit_timestamp: "2026-11-03T22:09:07-05:00"
 source_worktree_state: "clean"
 generated: true
 generated_at: "2026-11-02"
@@ -49,13 +49,13 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop_sidecar/handlers/__init__.py](../../../../../../src/learnloop_sidecar/handlers/__init__.py) |
-| Source lines | 76 |
+| Source lines | 77 |
 | Owning package | [[Reference/Modules/learnloop_sidecar/handlers/_package|learnloop_sidecar.handlers]] |
 | Architecture layer | `adapter` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `cedf6a2c3aad3ce9b6c134bc57940b0c6e1d732c` |
-| Commit timestamp | `2026-11-01T19:02:30-05:00` |
+| Source commit | `51766c96a7b6a1f182f4b018e6ec4bf330c49e1f` |
+| Commit timestamp | `2026-11-03T22:09:07-05:00` |
 
 ## Public API
 
@@ -101,6 +101,7 @@ No private top-level function or class definition is declared in this file.
 - [[Reference/Modules/learnloop_sidecar/handlers/feedback|learnloop_sidecar.handlers.feedback]] — imports `module`
 - [[Reference/Modules/learnloop_sidecar/handlers/figures|learnloop_sidecar.handlers.figures]] — imports `module`
 - [[Reference/Modules/learnloop_sidecar/handlers/first_run|learnloop_sidecar.handlers.first_run]] — imports `module`
+- [[Reference/Modules/learnloop_sidecar/handlers/followup|learnloop_sidecar.handlers.followup]] — imports `module`
 - [[Reference/Modules/learnloop_sidecar/handlers/goals|learnloop_sidecar.handlers.goals]] — imports `module`
 - [[Reference/Modules/learnloop_sidecar/handlers/golden_path|learnloop_sidecar.handlers.golden_path]] — imports `module`
 - [[Reference/Modules/learnloop_sidecar/handlers/golden_path_assessment|learnloop_sidecar.handlers.golden_path_assessment]] — imports `module`
@@ -206,6 +207,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_facet_reword_paths.py](../../../../../../tests/test_facet_reword_paths.py) — direct import
 - [tests/test_facet_rewords.py](../../../../../../tests/test_facet_rewords.py) — direct import
 - [tests/test_figures_help.py](../../../../../../tests/test_figures_help.py) — direct import
+- [tests/test_followup_journey.py](../../../../../../tests/test_followup_journey.py) — direct import
 - [tests/test_followups_batch6_verify_fixes.py](../../../../../../tests/test_followups_batch6_verify_fixes.py) — direct import
   - `test_v2_an_offer_from_the_learners_own_question_carries_learner_activity`
 - [tests/test_followups_nov2_help_fold.py](../../../../../../tests/test_followups_nov2_help_fold.py) — direct import

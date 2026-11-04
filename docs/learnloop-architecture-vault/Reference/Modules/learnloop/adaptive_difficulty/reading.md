@@ -7,9 +7,9 @@ version: "1.0.0"
 source_path: "src/learnloop/adaptive_difficulty/reading.py"
 source_paths:
   - "src/learnloop/adaptive_difficulty/reading.py"
-source_commit: "workspace/uncommitted @ HEAD 19939c66a7ad278706b5dbade166b33e25eb5005"
-source_commit_timestamp: "2026-11-03T19:47:28-05:00"
-source_worktree_state: "modified"
+source_commit: "6fe77d2f1b3123431475f8d369fd0d422b040398"
+source_commit_timestamp: "2026-11-03T20:39:20-05:00"
+source_worktree_state: "clean"
 generated: true
 generated_at: "2026-11-02"
 package: "learnloop.adaptive_difficulty"
@@ -54,9 +54,9 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Owning package | [[Reference/Modules/learnloop/adaptive_difficulty/_package|learnloop.adaptive_difficulty]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
-| Worktree state | `modified` |
-| Source commit | `workspace/uncommitted @ HEAD 19939c66a7ad278706b5dbade166b33e25eb5005` |
-| Commit timestamp | `2026-11-03T19:47:28-05:00` |
+| Worktree state | `clean` |
+| Source commit | `6fe77d2f1b3123431475f8d369fd0d422b040398` |
+| Commit timestamp | `2026-11-03T20:39:20-05:00` |
 
 ## Public API
 

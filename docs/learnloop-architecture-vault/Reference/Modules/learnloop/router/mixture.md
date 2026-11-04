@@ -154,6 +154,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_the_draw_reproduces_from_its_logged_seed`
   - `test_the_floor_can_draw_another_option_than_the_rules`
   - `test_the_restraint_keeps_the_floor_on_not_ready_too`
+- [tests/test_followup_router.py](../../../../../../tests/test_followup_router.py) — direct import
+  - `test_no_intervention_sits_in_the_mixture_with_its_floor`
 - [tests/test_plan_determinism_landing.py](../../../../../../tests/test_plan_determinism_landing.py) — direct import
   - `test_staged_plans_at_mvp024_are_the_same_in_every_session_and_at_start`
   - `test_the_floor_binds_where_the_models_put_no_mass`

@@ -26,7 +26,7 @@ source_paths:
   - "src/learnloop/diagnosis/split/validation.py"
   - "src/learnloop/diagnosis/split/workbench_trace.py"
 source_commit: "aggregate; see module notes"
-source_commit_timestamp: "2026-11-01T21:09:47-05:00"
+source_commit_timestamp: "2026-11-03T21:44:48-05:00"
 generated: true
 generated_at: "2026-11-02"
 package: "learnloop.diagnosis.split"
@@ -71,9 +71,9 @@ For system intent, use [[Learning System]].
 | [[Reference/Modules/learnloop/diagnosis/split/embeddings|learnloop.diagnosis.split.embeddings]] | [[Reference/Modules/learnloop/diagnosis/split/embeddings#^module-purpose|purpose]] | `ACTIVE` | 8 | 3 |
 | [[Reference/Modules/learnloop/diagnosis/split/figure_trace|learnloop.diagnosis.split.figure_trace]] | [[Reference/Modules/learnloop/diagnosis/split/figure_trace#^module-purpose|purpose]] | `ACTIVE` | 3 | 2 |
 | [[Reference/Modules/learnloop/diagnosis/split/history|learnloop.diagnosis.split.history]] | [[Reference/Modules/learnloop/diagnosis/split/history#^module-purpose|purpose]] | `ACTIVE` | 10 | 12 |
-| [[Reference/Modules/learnloop/diagnosis/split/jobs|learnloop.diagnosis.split.jobs]] | [[Reference/Modules/learnloop/diagnosis/split/jobs#^module-purpose|purpose]] | `ACTIVE` | 16 | 22 |
+| [[Reference/Modules/learnloop/diagnosis/split/jobs|learnloop.diagnosis.split.jobs]] | [[Reference/Modules/learnloop/diagnosis/split/jobs#^module-purpose|purpose]] | `ACTIVE` | 18 | 22 |
 | [[Reference/Modules/learnloop/diagnosis/split/legacy_view|learnloop.diagnosis.split.legacy_view]] | [[Reference/Modules/learnloop/diagnosis/split/legacy_view#^module-purpose|purpose]] | `ACTIVE` | 3 | 0 |
-| [[Reference/Modules/learnloop/diagnosis/split/live|learnloop.diagnosis.split.live]] | [[Reference/Modules/learnloop/diagnosis/split/live#^module-purpose|purpose]] | `ACTIVE` | 7 | 14 |
+| [[Reference/Modules/learnloop/diagnosis/split/live|learnloop.diagnosis.split.live]] | [[Reference/Modules/learnloop/diagnosis/split/live#^module-purpose|purpose]] | `ACTIVE` | 8 | 14 |
 | [[Reference/Modules/learnloop/diagnosis/split/pfc_report|learnloop.diagnosis.split.pfc_report]] | [[Reference/Modules/learnloop/diagnosis/split/pfc_report#^module-purpose|purpose]] | `ACTIVE` | 1 | 1 |
 | [[Reference/Modules/learnloop/diagnosis/split/prior_analysis|learnloop.diagnosis.split.prior_analysis]] | [[Reference/Modules/learnloop/diagnosis/split/prior_analysis#^module-purpose|purpose]] | `ACTIVE` | 3 | 2 |
 | [[Reference/Modules/learnloop/diagnosis/split/provenance|learnloop.diagnosis.split.provenance]] | [[Reference/Modules/learnloop/diagnosis/split/provenance#^module-purpose|purpose]] | `ACTIVE` | 4 | 4 |
@@ -99,6 +99,7 @@ For system intent, use [[Learning System]].
 - [[Reference/Modules/learnloop/diagnosis/recurrence/_package|learnloop.diagnosis.recurrence]] — 5 static module edges
 - [[Reference/Modules/learnloop/substrate/_package|learnloop.substrate]] — 5 static module edges
 - [[Reference/Modules/learnloop/diagnosis/text_gaps/_package|learnloop.diagnosis.text_gaps]] — 2 static module edges
+- [[Reference/Modules/learnloop/followup_serve/_package|learnloop.followup_serve]] — 1 static module edge
 - [[Reference/Modules/learnloop/ops/_package|learnloop.ops]] — 1 static module edge
 
 ### Packages that import this package
@@ -108,8 +109,9 @@ For system intent, use [[Learning System]].
 - [[Reference/Modules/learnloop/diagnosis/recurrence/_package|learnloop.diagnosis.recurrence]] — 9 static module edges
 - [[Reference/Modules/learnloop_sidecar/handlers/_package|learnloop_sidecar.handlers]] — 6 static module edges
 - [[Reference/Modules/learnloop/diagnosis/text_gaps/_package|learnloop.diagnosis.text_gaps]] — 5 static module edges
+- [[Reference/Modules/learnloop/diagnosis/_package|learnloop.diagnosis]] — 3 static module edges
 - [[Reference/Modules/learnloop/_package|learnloop]] — 2 static module edges
-- [[Reference/Modules/learnloop/diagnosis/_package|learnloop.diagnosis]] — 2 static module edges
+- [[Reference/Modules/learnloop/followup_run/_package|learnloop.followup_run]] — 2 static module edges
 - [[Reference/Modules/learnloop/field/_package|learnloop.field]] — 1 static module edge
 - [[Reference/Modules/learnloop/tui/screens/_package|learnloop.tui.screens]] — 1 static module edge
 - [[Reference/Modules/learnloop_sidecar/_package|learnloop_sidecar]] — 1 static module edge
@@ -143,7 +145,7 @@ flowchart LR
     center -->|13| n_learnloop_db
     n_learnloop_cli -->|12| center
     center -->|12| n_learnloop_db_stores
-    n_learnloop_diagnosis -->|2| center
+    n_learnloop_diagnosis -->|3| center
     center -->|7| n_learnloop_diagnosis
 ```
 

@@ -260,6 +260,15 @@ No private top-level function or class definition is declared in this file.
 - [[Reference/Modules/learnloop/figures/routes|learnloop.figures.routes]] — imports `Clock`
 - [[Reference/Modules/learnloop/figures/service|learnloop.figures.service]] — imports `Clock`, `SystemClock`, `utc_now_iso`; statically calls `SystemClock`, `utc_now_iso`
 - [[Reference/Modules/learnloop/figures/source_check|learnloop.figures.source_check]] — imports `Clock`, `utc_now_iso`; statically calls `utc_now_iso`
+- [[Reference/Modules/learnloop/followup_run/admission|learnloop.followup_run.admission]] — imports `Clock`, `utc_now_iso`; statically calls `utc_now_iso`
+- [[Reference/Modules/learnloop/followup_run/jobs|learnloop.followup_run.jobs]] — imports `Clock`, `parse_utc`, `utc_now_iso`; statically calls `parse_utc`, `utc_now_iso`
+- [[Reference/Modules/learnloop/followup_run/lanes|learnloop.followup_run.lanes]] — imports `Clock`
+- [[Reference/Modules/learnloop/followup_run/router|learnloop.followup_run.router]] — imports `Clock`, `utc_now_iso`; statically calls `utc_now_iso`
+- [[Reference/Modules/learnloop/followup_run/serving|learnloop.followup_run.serving]] — imports `Clock`, `parse_utc`, `utc_now_iso`; statically calls `parse_utc`, `utc_now_iso`
+- [[Reference/Modules/learnloop/followup_serve/identity|learnloop.followup_serve.identity]] — imports `Clock`, `utc_now_iso`; statically calls `utc_now_iso`
+- [[Reference/Modules/learnloop/followup_serve/queue|learnloop.followup_serve.queue]] — imports `Clock`, `utc_now_iso`; statically calls `utc_now_iso`
+- [[Reference/Modules/learnloop/followup_serve/workflow|learnloop.followup_serve.workflow]] — imports `Clock`, `utc_now_iso`; statically calls `utc_now_iso`
+- [[Reference/Modules/learnloop/followup_serve_upgrade|learnloop.followup_serve_upgrade]] — imports `Clock`
 - [[Reference/Modules/learnloop/goals/certification_cold_probe|learnloop.goals.certification_cold_probe]] — imports `Clock`, `SystemClock`, `parse_utc`, `utc_now_iso`; statically calls `SystemClock`, `parse_utc`, `utc_now_iso`
 - [[Reference/Modules/learnloop/goals/exam_pool|learnloop.goals.exam_pool]] — imports `Clock`, `SystemClock`, `utc_now_iso`; statically calls `SystemClock`, `utc_now_iso`
 - [[Reference/Modules/learnloop/goals/exam_seeding|learnloop.goals.exam_seeding]] — imports `FrozenClock`; statically calls `FrozenClock`
@@ -503,7 +512,7 @@ Use this module in context through:
 - [[Initialize a Vault]]
 - [[Start a Learning Cycle]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/ad_successor_upgrade|learnloop.ad_successor_upgrade]], [[Reference/Modules/learnloop/adaptive_difficulty/backfill|learnloop.adaptive_difficulty.backfill]], [[Reference/Modules/learnloop/adaptive_difficulty/claims|learnloop.adaptive_difficulty.claims]], [[Reference/Modules/learnloop/adaptive_difficulty/dose|learnloop.adaptive_difficulty.dose]], [[Reference/Modules/learnloop/adaptive_difficulty/feature_audit|learnloop.adaptive_difficulty.feature_audit]] and 397 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/ad_successor_upgrade|learnloop.ad_successor_upgrade]], [[Reference/Modules/learnloop/adaptive_difficulty/backfill|learnloop.adaptive_difficulty.backfill]], [[Reference/Modules/learnloop/adaptive_difficulty/claims|learnloop.adaptive_difficulty.claims]], [[Reference/Modules/learnloop/adaptive_difficulty/dose|learnloop.adaptive_difficulty.dose]], [[Reference/Modules/learnloop/adaptive_difficulty/feature_audit|learnloop.adaptive_difficulty.feature_audit]] and 406 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
@@ -1012,6 +1021,10 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_f9_an_open_after_the_horizon_is_not_an_outcome`
   - `test_r5_a_planned_visual_is_prebuilt_and_the_lesson_step_reuses_it_with_no_author_call`
 - [tests/test_followup_diagnostic_selection.py](../../../../../tests/test_followup_diagnostic_selection.py) — direct import
+- [tests/test_followup_generate_e2e.py](../../../../../tests/test_followup_generate_e2e.py) — direct import
+  - `test_a_transport_failure_retries_once_and_then_fails_with_next_working`
+- [tests/test_followup_single_use.py](../../../../../tests/test_followup_single_use.py) — direct import
+  - `test_an_exam_never_reserves_one`
 - [tests/test_followups.py](../../../../../tests/test_followups.py) — direct import
   - `test_manual_override_forces_followup_when_gate_silent`
   - `test_negative_surprise_followup_stops_forcing_after_followup_attempt`

@@ -1,0 +1,156 @@
+---
+title: "learnloop.db.stores.followup_serve"
+type: "module-reference"
+status: "current"
+refactor_status: "ACTIVE"
+version: "1.0.0"
+source_path: "src/learnloop/db/stores/followup_serve.py"
+source_paths:
+  - "src/learnloop/db/stores/followup_serve.py"
+source_commit: "51766c96a7b6a1f182f4b018e6ec4bf330c49e1f"
+source_commit_timestamp: "2026-11-03T22:09:07-05:00"
+source_worktree_state: "clean"
+generated: true
+generated_at: "2026-11-02"
+package: "learnloop.db.stores"
+layer: "infrastructure"
+concepts:
+  - "State and Persistence"
+  - "Architecture Overview"
+workflows:
+  - "Inspect Persistent State"
+  - "Doctor Migrations and Recovery"
+aliases:
+  - "learnloop.db.stores.followup_serve module"
+  - "src/learnloop/db/stores/followup_serve.py"
+tags:
+  - "docs/module"
+  - "architecture/reference"
+  - "refactor/active"
+  - "layer/infrastructure"
+  - "package/learnloop-db-stores"
+---
+
+# `learnloop.db.stores.followup_serve`
+
+> [!info] Generated source reference
+> Facts in this note are generated from the Python AST, repository tests, and Git. Purpose and change guidance are conservative inferences from those facts. Regenerate with `.venv/bin/python docs/learnloop-architecture-vault/_scripts/module_generate.py`; do not hand-edit generated sections.
+
+Up: [[Reference/Modules/learnloop/db/stores/_package|learnloop.db.stores]] · Root: [[Module Catalog]] · Jump to [[#Public API|API]], [[#Who imports or calls it|callers]], [[#Tests that define behavior|tests]], or [[#Modification guidance|change guidance]].
+
+## Why this module exists
+
+`learnloop.db.stores.followup_serve` exists within [[Reference/Modules/learnloop/db/stores/_package|learnloop.db.stores]] to own the behavior summarized by its module contract: FG1's records (migration 241).
+
+The authoritative system-level explanation remains in [[State and Persistence]], [[Architecture Overview]]; this note records where this source module participates rather than restating those concepts.
+
+^module-purpose
+
+## Source facts
+
+| Fact | Value |
+|---|---|
+| Source | [src/learnloop/db/stores/followup_serve.py](../../../../../../../src/learnloop/db/stores/followup_serve.py) |
+| Source lines | 321 |
+| Owning package | [[Reference/Modules/learnloop/db/stores/_package|learnloop.db.stores]] |
+| Architecture layer | `infrastructure` |
+| Refactor status | `ACTIVE` |
+| Worktree state | `clean` |
+| Source commit | `51766c96a7b6a1f182f4b018e6ec4bf330c49e1f` |
+| Commit timestamp | `2026-11-03T22:09:07-05:00` |
+
+## Public API
+
+- `present(connection: sqlite3.Connection, table: str=WORKFLOW_TABLE) -> bool` ([source](../../../../../../../src/learnloop/db/stores/followup_serve.py), line 29)
+- `insert_workflow(connection: sqlite3.Connection, row: Mapping[str, Any]) -> bool` ([source](../../../../../../../src/learnloop/db/stores/followup_serve.py), line 45) — The workflow's row; a repeat of its attempt and revision is a no-op (retry and crash recovery reuse the identity).
+- `workflow(connection: sqlite3.Connection, workflow_id: str) -> dict[str, Any] | None` ([source](../../../../../../../src/learnloop/db/stores/followup_serve.py), line 64)
+- `workflow_for_attempt(connection: sqlite3.Connection, attempt_id: str) -> dict[str, Any] | None` ([source](../../../../../../../src/learnloop/db/stores/followup_serve.py), line 68) — The attempt's newest workflow (a regrade's revision is the newest).
+- `workflow_for_item(connection: sqlite3.Connection, practice_item_id: str) -> dict[str, Any] | None` ([source](../../../../../../../src/learnloop/db/stores/followup_serve.py), line 77)
+- `workflow_for_presentation(connection: sqlite3.Connection, presentation_id: str) -> dict[str, Any] | None` ([source](../../../../../../../src/learnloop/db/stores/followup_serve.py), line 84)
+- `open_workflows(connection: sqlite3.Connection, *, session_id: str | None=None, states: Iterable[str]=OPEN_STATES) -> list[dict[str, Any]]` ([source](../../../../../../../src/learnloop/db/stores/followup_serve.py), line 91)
+- `update_workflow(connection: sqlite3.Connection, workflow_id: str, *, at: str, **fields: Any) -> None` ([source](../../../../../../../src/learnloop/db/stores/followup_serve.py), line 104)
+- `move_workflow(connection: sqlite3.Connection, workflow_id: str, *, from_states: Iterable[str], to_state: str, reason: str, at: str, detail: Mapping[str, Any] | None=None, **fields: Any) -> bool` ([source](../../../../../../../src/learnloop/db/stores/followup_serve.py), line 117) — Move a workflow from one of ``from_states``: a compare-and-set, so a late generator or diagnosis cannot move a workflow a fallback or a skip has settled.
+- `insert_event(connection: sqlite3.Connection, workflow_id: str, from_state: str | None, to_state: str, reason: str, detail: Mapping[str, Any], at: str) -> None` ([source](../../../../../../../src/learnloop/db/stores/followup_serve.py), line 141)
+- `workflow_events(connection: sqlite3.Connection, workflow_id: str) -> list[dict[str, Any]]` ([source](../../../../../../../src/learnloop/db/stores/followup_serve.py), line 150)
+- `enqueue_generation_job(connection: sqlite3.Connection, *, kind: str, dedupe_key: str, at: str, workflow_id: str | None=None, probe_episode_id: str | None=None, need_id: str | None=None, not_before: str | None=None) -> str | None` ([source](../../../../../../../src/learnloop/db/stores/followup_serve.py), line 158) — One row per deduplicated key; returns the new id, None for a repeat.
+- `lease_next_generation_job(connection: sqlite3.Connection, *, owner: str, now: str, lease_expires_at: str) -> dict[str, Any] | None` ([source](../../../../../../../src/learnloop/db/stores/followup_serve.py), line 173) — Lease the oldest runnable job, or reclaim one whose lease lapsed.
+- `finish_generation_job(connection: sqlite3.Connection, job: Mapping[str, Any], *, state: str, at: str, error: str | None=None, not_before: str | None=None) -> bool` ([source](../../../../../../../src/learnloop/db/stores/followup_serve.py), line 195) — Settle or requeue a leased job, fenced on its lease epoch.
+- `cancel_generation_jobs(connection: sqlite3.Connection, *, workflow_id: str | None=None, probe_episode_id: str | None=None, reason: str, at: str) -> int` ([source](../../../../../../../src/learnloop/db/stores/followup_serve.py), line 207) — Queued work whose reason has gone (its hypotheses closed, a skip): never run.
+- `runnable_generation_jobs(connection: sqlite3.Connection) -> int` ([source](../../../../../../../src/learnloop/db/stores/followup_serve.py), line 228)
+- `generation_job(connection: sqlite3.Connection, dedupe_key: str) -> dict[str, Any] | None` ([source](../../../../../../../src/learnloop/db/stores/followup_serve.py), line 234)
+- `insert_generated_probe(connection: sqlite3.Connection, *, practice_item_id: str, item_revision: str, source: str, at: str, workflow_id: str | None=None, probe_episode_id: str | None=None) -> bool` ([source](../../../../../../../src/learnloop/db/stores/followup_serve.py), line 242)
+- `generated_probe(connection: sqlite3.Connection, practice_item_id: str) -> dict[str, Any] | None` ([source](../../../../../../../src/learnloop/db/stores/followup_serve.py), line 252)
+- `generated_probe_ids(connection: sqlite3.Connection) -> frozenset[str]` ([source](../../../../../../../src/learnloop/db/stores/followup_serve.py), line 257)
+- `insert_burn(connection: sqlite3.Connection, *, practice_item_id: str, kind: str, item_revision: str, reason: str, at: str, surface: str | None=None, presentation_id: str | None=None, workflow_id: str | None=None) -> bool` ([source](../../../../../../../src/learnloop/db/stores/followup_serve.py), line 261) — The atomic claim: the UNIQUE (item, kind) decides the one winner.
+- `burns_for_item(connection: sqlite3.Connection, practice_item_id: str) -> dict[str, dict[str, Any]]` ([source](../../../../../../../src/learnloop/db/stores/followup_serve.py), line 275)
+- `closed_generated_probe_ids(connection: sqlite3.Connection) -> frozenset[str]` ([source](../../../../../../../src/learnloop/db/stores/followup_serve.py), line 283) — Every generated probe with a burn or a retirement.
+- `append_binding(connection: sqlite3.Connection, *, decision_id: str, workflow_id: str, binding_kind: str, at: str, practice_item_id: str | None=None, probe_presentation_id: str | None=None, plan_presentation_id: str | None=None, outcome: str | None=None) -> bool` ([source](../../../../../../../src/learnloop/db/stores/followup_serve.py), line 293)
+- `bindings_for_decision(connection: sqlite3.Connection, decision_id: str) -> dict[str, dict[str, Any]]` ([source](../../../../../../../src/learnloop/db/stores/followup_serve.py), line 306)
+- `all_bindings(connection: sqlite3.Connection) -> dict[str, dict[str, dict[str, Any]]]` ([source](../../../../../../../src/learnloop/db/stores/followup_serve.py), line 313) — Every decision's bindings, keyed by decision id and then kind (the outcome join's one read).
+
+### Module constants
+
+- `WORKFLOW_TABLE` ([src/learnloop/db/stores/followup_serve.py](../../../../../../../src/learnloop/db/stores/followup_serve.py), line 17)
+- `TERMINAL_STATES` ([src/learnloop/db/stores/followup_serve.py](../../../../../../../src/learnloop/db/stores/followup_serve.py), line 19)
+- `OPEN_STATES` ([src/learnloop/db/stores/followup_serve.py](../../../../../../../src/learnloop/db/stores/followup_serve.py), line 20)
+- `WORKFLOW_FIELDS` ([src/learnloop/db/stores/followup_serve.py](../../../../../../../src/learnloop/db/stores/followup_serve.py), line 22)
+
+## Internal implementation anchors
+
+- `_row(row: Any) -> dict[str, Any] | None` ([source](../../../../../../../src/learnloop/db/stores/followup_serve.py), line 34)
+- `_rows(cursor: Iterable[Any]) -> list[dict[str, Any]]` ([source](../../../../../../../src/learnloop/db/stores/followup_serve.py), line 38)
+
+## Who imports or calls it
+
+> [!note] Static evidence boundary
+> “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
+
+- [[Reference/Modules/learnloop/followup_run/jobs|learnloop.followup_run.jobs]] — imports `module`; statically calls `finish_generation_job`, `lease_next_generation_job`
+- [[Reference/Modules/learnloop/followup_run/router|learnloop.followup_run.router]] — imports `module`; statically calls `append_binding`
+- [[Reference/Modules/learnloop/followup_serve/identity|learnloop.followup_serve.identity]] — imports `module`; statically calls `burns_for_item`, `closed_generated_probe_ids`, `generated_probe`, `generated_probe_ids`, `insert_burn`, `insert_generated_probe`, `present`
+- [[Reference/Modules/learnloop/followup_serve/queue|learnloop.followup_serve.queue]] — imports `module`; statically calls `enqueue_generation_job`, `present`, `runnable_generation_jobs`
+- [[Reference/Modules/learnloop/followup_serve/workflow|learnloop.followup_serve.workflow]] — imports `module`; statically calls `append_binding`, `cancel_generation_jobs`, `insert_workflow`, `move_workflow`, `open_workflows`, `present`, `update_workflow`, `workflow`, `workflow_for_attempt`, `workflow_for_item`, `workflow_for_presentation`
+- [[Reference/Modules/learnloop/router/outcomes|learnloop.router.outcomes]] — imports `all_bindings`; statically calls `all_bindings`
+
+## Dependencies
+
+### LearnLoop dependencies
+
+- [[Reference/Modules/learnloop/ids|learnloop.ids]] — imports `new_ulid`; calls `new_ulid`
+
+### Platform and third-party dependencies
+
+- Standard library: `__future__`, `collections`, `json`, `sqlite3`, `typing`
+- Third party: none imported directly
+
+## Larger workflow participation
+
+Use this module in context through:
+
+- [[Inspect Persistent State]]
+- [[Doctor Migrations and Recovery]]
+
+Static participation evidence comes from [[Reference/Modules/learnloop/followup_run/jobs|learnloop.followup_run.jobs]], [[Reference/Modules/learnloop/followup_run/router|learnloop.followup_run.router]], [[Reference/Modules/learnloop/followup_serve/identity|learnloop.followup_serve.identity]], [[Reference/Modules/learnloop/followup_serve/queue|learnloop.followup_serve.queue]], [[Reference/Modules/learnloop/followup_serve/workflow|learnloop.followup_serve.workflow]] and 1 more.
+
+The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
+
+## Tests that define behavior
+
+- [tests/test_followup_generate_e2e.py](../../../../../../../tests/test_followup_generate_e2e.py) — direct import
+  - `test_entry_enqueues_deduplicated_work_and_never_calls_a_model_inline`
+- [tests/test_followup_router.py](../../../../../../../tests/test_followup_router.py) — direct import
+  - `test_the_binding_is_appended_and_the_row_stays_as_it_was`
+- [tests/test_followup_workflow.py](../../../../../../../tests/test_followup_workflow.py) — direct import
+  - `test_a_settled_workflow_takes_nothing_more`
+
+## Modification guidance
+
+- Change persistence mechanics or the owning table-family API here. Schema changes must include a migration, an explicit table role, and rebuild/compatibility review.
+- Run the directly importing tests below, then the architecture/import-linter checks when imports or public ownership change.
+
+### Regeneration and review checklist
+
+1. Modify [src/learnloop/db/stores/followup_serve.py](../../../../../../../src/learnloop/db/stores/followup_serve.py) and its owning tests.
+2. Regenerate [[Module Catalog]] so imports, symbols, source provenance, and test anchors remain current.
+3. Run `.venv/bin/python docs/learnloop-architecture-vault/_scripts/module_validate.py`.
+4. If ownership or workflow behavior changed, update the linked canonical concept or workflow note—not a duplicate explanation here.

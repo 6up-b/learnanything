@@ -196,6 +196,9 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_224_is_the_figure_requests_migration_and_the_table_is_a_raw_ledger`
 - [tests/test_figures_migration.py](../../../../../../tests/test_figures_migration.py) — direct import
   - `test_216_is_the_figures_migration`
+- [tests/test_followup_migration.py](../../../../../../tests/test_followup_migration.py) — direct import
+  - `test_241_is_the_head_and_its_tables_have_their_roles`
+  - `test_the_head_fixture_is_at_241_in_rollback_mode_with_empty_tables`
 - [tests/test_forecast_receipts_landing.py](../../../../../../tests/test_forecast_receipts_landing.py) — direct import
   - `test_the_renumbered_migration_and_its_table_role`
 - [tests/test_goal_contracts.py](../../../../../../tests/test_goal_contracts.py) — direct import

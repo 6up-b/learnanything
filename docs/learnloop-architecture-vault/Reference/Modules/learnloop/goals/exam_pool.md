@@ -7,8 +7,8 @@ version: "1.0.0"
 source_path: "src/learnloop/goals/exam_pool.py"
 source_paths:
   - "src/learnloop/goals/exam_pool.py"
-source_commit: "3159eb4a25b171a2bf4cde14435456b9fe646616"
-source_commit_timestamp: "2026-10-13T18:47:31-04:00"
+source_commit: "b45e4414cdb7963772b12ecd3c8825b73e93266a"
+source_commit_timestamp: "2026-11-03T21:51:14-05:00"
 source_worktree_state: "clean"
 generated: true
 generated_at: "2026-11-02"
@@ -49,13 +49,13 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/goals/exam_pool.py](../../../../../../src/learnloop/goals/exam_pool.py) |
-| Source lines | 590 |
+| Source lines | 594 |
 | Owning package | [[Reference/Modules/learnloop/goals/_package|learnloop.goals]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `3159eb4a25b171a2bf4cde14435456b9fe646616` |
-| Commit timestamp | `2026-10-13T18:47:31-04:00` |
+| Source commit | `b45e4414cdb7963772b12ecd3c8825b73e93266a` |
+| Commit timestamp | `2026-11-03T21:51:14-05:00` |
 
 ## Public API
 
@@ -82,9 +82,9 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 - `_unverified_imports(vault: LoadedVault, repository: Repository) -> set[str]` ([source](../../../../../../src/learnloop/goals/exam_pool.py), line 307)
 - `_shown_items(vault: LoadedVault, repository: Repository) -> set[str]` ([source](../../../../../../src/learnloop/goals/exam_pool.py), line 321) — Items whose own material the learner has already been shown (exam protection, owner default 2026-10-13: such material never becomes an exam item): a reveal of the answer, the canonical exercise or its book solution read in a source, or the prompt rendered in a proposal, ever.
 - `_candidates(vault: LoadedVault, repository: Repository, scope: dict[str, set[str]], own_reserved_ids: set[str]) -> list[_Candidate]` ([source](../../../../../../src/learnloop/goals/exam_pool.py), line 392) — Reservable items: active, never attempted, never shown, not reserved elsewhere.
-- `_item_components(vault: LoadedVault, item: PracticeItem, covered: set[str]) -> frozenset[tuple[str, str]]` ([source](../../../../../../src/learnloop/goals/exam_pool.py), line 459) — The (facet, capability) blueprint components ``item`` can testify to.
-- `_practiced_surface_families(vault: LoadedVault, attempted: set[str]) -> set[str]` ([source](../../../../../../src/learnloop/goals/exam_pool.py), line 520) — Independent-evidence groups the learner has already been served.
-- `_select(candidates: list[_Candidate], item_count: int) -> list[_Candidate]` ([source](../../../../../../src/learnloop/goals/exam_pool.py), line 543) — Greedy blueprint-coverage selection with stratification + surface novelty.
+- `_item_components(vault: LoadedVault, item: PracticeItem, covered: set[str]) -> frozenset[tuple[str, str]]` ([source](../../../../../../src/learnloop/goals/exam_pool.py), line 463) — The (facet, capability) blueprint components ``item`` can testify to.
+- `_practiced_surface_families(vault: LoadedVault, attempted: set[str]) -> set[str]` ([source](../../../../../../src/learnloop/goals/exam_pool.py), line 524) — Independent-evidence groups the learner has already been served.
+- `_select(candidates: list[_Candidate], item_count: int) -> list[_Candidate]` ([source](../../../../../../src/learnloop/goals/exam_pool.py), line 547) — Greedy blueprint-coverage selection with stratification + surface novelty.
 
 ## Who imports or calls it
 
@@ -108,6 +108,7 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 - [[Reference/Modules/learnloop/db/connection|learnloop.db.connection]] — imports `connect`; calls `connect`
 - [[Reference/Modules/learnloop/db/repositories|learnloop.db.repositories]] — imports `Repository`
 - [[Reference/Modules/learnloop/db/stores/source_service|learnloop.db.stores.source_service]] — imports `unverified_import_ids`; calls `unverified_import_ids`
+- [[Reference/Modules/learnloop/followup_serve/identity|learnloop.followup_serve.identity]] — imports `generated_probe_ids`; calls `generated_probe_ids`
 - [[Reference/Modules/learnloop/goals/goal_contracts|learnloop.goals.goal_contracts]] — imports `resolve_head`; calls `resolve_head`
 - [[Reference/Modules/learnloop/goals/goal_projection|learnloop.goals.goal_projection]] — imports `resolve_goal_scope`; calls `resolve_goal_scope`
 - [[Reference/Modules/learnloop/ids|learnloop.ids]] — imports `new_ulid`; calls `new_ulid`
@@ -170,6 +171,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_availability_open_ended_goal_never_in_window_but_startable`
   - `test_exam_answers_certify_facet_evidence_on_canonical_vault`
   - `test_finish_releases_the_exam_pool`
+- [tests/test_followup_single_use.py](../../../../../../tests/test_followup_single_use.py) — direct import
+  - `test_an_exam_never_reserves_one`
 - [tests/test_goal_scope_material.py](../../../../../../tests/test_goal_scope_material.py) — direct import
   - `test_a_thin_pool_defers_instead_of_holding_everything_out`
   - `test_an_explicit_ask_is_never_deferred`

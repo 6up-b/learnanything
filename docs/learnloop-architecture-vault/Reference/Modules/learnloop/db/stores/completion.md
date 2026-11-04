@@ -111,10 +111,10 @@ No test imports this module directly. These tests exercise a direct production c
 - [tests/diagnosis_split_helpers.py](../../../../../../../tests/diagnosis_split_helpers.py) — imports consumer [[Reference/Modules/learnloop/db/repositories|learnloop.db.repositories]]
 - [tests/e0_fakes.py](../../../../../../../tests/e0_fakes.py) — imports consumer [[Reference/Modules/learnloop/db/repositories|learnloop.db.repositories]]
 - [tests/exam_scope_fixtures.py](../../../../../../../tests/exam_scope_fixtures.py) — imports consumer [[Reference/Modules/learnloop/db/repositories|learnloop.db.repositories]]
+- [tests/followup_serve_helpers.py](../../../../../../../tests/followup_serve_helpers.py) — imports consumer [[Reference/Modules/learnloop/db/repositories|learnloop.db.repositories]]
 - [tests/helpers.py](../../../../../../../tests/helpers.py) — imports consumer [[Reference/Modules/learnloop/db/repositories|learnloop.db.repositories]]
 - [tests/hint_fakes.py](../../../../../../../tests/hint_fakes.py) — imports consumer [[Reference/Modules/learnloop/db/repositories|learnloop.db.repositories]]
 - [tests/intent_fakes.py](../../../../../../../tests/intent_fakes.py) — imports consumer [[Reference/Modules/learnloop/db/repositories|learnloop.db.repositories]]
-- [tests/mcp_world.py](../../../../../../../tests/mcp_world.py) — imports consumer [[Reference/Modules/learnloop/db/repositories|learnloop.db.repositories]]
 
 ## Modification guidance
 

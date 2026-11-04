@@ -104,6 +104,7 @@ No private top-level function or class definition is declared in this file.
 - [[Reference/Modules/learnloop_sidecar/handlers/feedback|learnloop_sidecar.handlers.feedback]] — imports `method`; statically calls `method`
 - [[Reference/Modules/learnloop_sidecar/handlers/figures|learnloop_sidecar.handlers.figures]] — imports `method`; statically calls `method`
 - [[Reference/Modules/learnloop_sidecar/handlers/first_run|learnloop_sidecar.handlers.first_run]] — imports `method`; statically calls `method`
+- [[Reference/Modules/learnloop_sidecar/handlers/followup|learnloop_sidecar.handlers.followup]] — imports `method`; statically calls `method`
 - [[Reference/Modules/learnloop_sidecar/handlers/goals|learnloop_sidecar.handlers.goals]] — imports `method`; statically calls `method`
 - [[Reference/Modules/learnloop_sidecar/handlers/golden_path|learnloop_sidecar.handlers.golden_path]] — imports `method`; statically calls `method`
 - [[Reference/Modules/learnloop_sidecar/handlers/golden_path_assessment|learnloop_sidecar.handlers.golden_path_assessment]] — imports `method`; statically calls `method`
@@ -174,7 +175,7 @@ Use this module in context through:
 - [[Process Model Output]]
 - [[Inspect Persistent State]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop_sidecar/handlers/adaptive_difficulty|learnloop_sidecar.handlers.adaptive_difficulty]], [[Reference/Modules/learnloop_sidecar/handlers/adjudication|learnloop_sidecar.handlers.adjudication]], [[Reference/Modules/learnloop_sidecar/handlers/ai_providers|learnloop_sidecar.handlers.ai_providers]], [[Reference/Modules/learnloop_sidecar/handlers/animation|learnloop_sidecar.handlers.animation]], [[Reference/Modules/learnloop_sidecar/handlers/app|learnloop_sidecar.handlers.app]] and 68 more.
+Static participation evidence comes from [[Reference/Modules/learnloop_sidecar/handlers/adaptive_difficulty|learnloop_sidecar.handlers.adaptive_difficulty]], [[Reference/Modules/learnloop_sidecar/handlers/adjudication|learnloop_sidecar.handlers.adjudication]], [[Reference/Modules/learnloop_sidecar/handlers/ai_providers|learnloop_sidecar.handlers.ai_providers]], [[Reference/Modules/learnloop_sidecar/handlers/animation|learnloop_sidecar.handlers.animation]], [[Reference/Modules/learnloop_sidecar/handlers/app|learnloop_sidecar.handlers.app]] and 69 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
@@ -239,6 +240,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_facet_rewords.py](../../../../../tests/test_facet_rewords.py) — direct import
   - `test_the_facet_inspector_shows_the_version_history_and_undoes_a_reword`
 - [tests/test_figures_help.py](../../../../../tests/test_figures_help.py) — direct import
+- [tests/test_followup_journey.py](../../../../../tests/test_followup_journey.py) — direct import
 - [tests/test_goal_scope_material.py](../../../../../tests/test_goal_scope_material.py) — direct import
 - [tests/test_graph_editor_reads.py](../../../../../tests/test_graph_editor_reads.py) — direct import
 - [tests/test_help_assist_work_md_migration.py](../../../../../tests/test_help_assist_work_md_migration.py) — direct import
