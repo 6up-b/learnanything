@@ -181,8 +181,11 @@ def test_ask_now_is_what_next_opens(tmp_path):
 
 
 def test_a_wait_keeps_its_room_and_next_continues_the_block(tmp_path):
-    env, _record = _env(tmp_path, fake_runtime())
+    # A pinned draw: an unpinned one leaves a one-item first block about one run in sixty, and
+    # then this advance is the boundary, where the fixture's made-up factor rightly retires the wait.
+    env, first = _env(tmp_path, fake_runtime(seed=lambda _key, _decision_id: "pinned-wait"))
     assert ITEM in env.vault.practice_items
+    assert len(first.current_block().items) > 1
     _ready(env, state=wf.WAITING)
     env.clock.advance(1)
     record, step = advance(env, serve=False)

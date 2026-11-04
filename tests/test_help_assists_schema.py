@@ -165,7 +165,7 @@ def _upgrade(tmp_path: Path) -> Path:
     # Later migrations (adaptive hints H1's 211, approach_maps) follow 210 on the way to head.
     # ... and adaptive difficulty AD1's 213 (its receipts).
     assert {name for name in set(after) - set(before)
-            if "approach_maps" not in name and name not in AD1_ADDED_OBJECTS | AD23_ADDED_OBJECTS | RW3B_ADDED_OBJECTS | RW5A_ADDED_OBJECTS | RW7A_ADDED_OBJECTS | RW2D_ADDED_OBJECTS | P1_ADDED_OBJECTS | C0A_ADDED_OBJECTS | RW5D_ADDED_OBJECTS | PR4_ADDED_OBJECTS | RW6B_ADDED_OBJECTS | C0B_ADDED_OBJECTS | C2_ADDED_OBJECTS | P3_ADDED_OBJECTS | TE1_ADDED_OBJECTS | P5_ADDED_OBJECTS | RW5C_ADDED_OBJECTS | M2A_ADDED_OBJECTS | DATA_CAPTURE_ADDED_OBJECTS} == {
+            if "approach_maps" not in name and name not in AD1_ADDED_OBJECTS | AD23_ADDED_OBJECTS | RW3B_ADDED_OBJECTS | RW5A_ADDED_OBJECTS | RW7A_ADDED_OBJECTS | RW2D_ADDED_OBJECTS | P1_ADDED_OBJECTS | C0A_ADDED_OBJECTS | RW5D_ADDED_OBJECTS | PR4_ADDED_OBJECTS | RW6B_ADDED_OBJECTS | C0B_ADDED_OBJECTS | C2_ADDED_OBJECTS | P3_ADDED_OBJECTS | TE1_ADDED_OBJECTS | P5_ADDED_OBJECTS | RW5C_ADDED_OBJECTS | M2A_ADDED_OBJECTS | DATA_CAPTURE_ADDED_OBJECTS | FOLLOWUP_ADDED_OBJECTS} == {
         "help_assists", "idx_help_assists_session_item", "idx_help_assists_attempt", "idx_help_assists_submission",
         "idx_help_assists_workbench",
         "idx_help_assists_requested", "help_assists_no_delete", "help_assists_identity_fixed",

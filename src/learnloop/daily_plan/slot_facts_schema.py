@@ -38,7 +38,8 @@ POOL_CODES: frozenset[str] = frozenset({
     "placement_maintained_withheld", "cold_start_unattempted", "voi_value_below_minutes_cost",
     "diagnostic_reserved", "intent_paused", "intent_reference_only", "intent_stopped", "intent_satisfied",
     "intent_check_waiting", "intent_check_reserved", "intent_check_held", "intent_check_refused",
-    "probe_not_selected", "unknown_item", "device_ineligible", "other",
+    "probe_not_selected", "unknown_item", "device_ineligible", "generated_probe_closed", "generated_probe_reserved",
+    "other",
 })
 #: The routine exclusions AD's check 0 honours (``serving_exclusions.ServingExclusions``' sets).
 EXCLUSION_NAMES: tuple[str, ...] = (
