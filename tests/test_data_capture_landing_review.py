@@ -485,3 +485,32 @@ def _name_on_coverage(env, lo, *, extraction="x", section="sec"):
         connection.commit()
     finally:
         connection.close()
+
+
+# -- a recorded LO does not hide one coverage names later (final scoped verify, finding 2) -------------------------------
+
+
+def test_finding2_coverage_named_after_the_sweep_is_an_exposure_too(tmp_path, monkeypatch):
+    """Sol's case. Reproduced first: ``completed``, an observed cold outcome, and a first delayed success on B."""
+
+    env, decision_id, objective = _arranged_wait(tmp_path, toml=DECIDER_ONLY + AD_OFF)
+    b = objective["learning_object_id"]
+    a = next(lo for lo in env.vault.learning_objects if lo != b)
+    env.clock.advance(1)
+    _in_session(env, _other_item(env, objective), b, "monday", correctness=0.4)
+    env.clock.instant = env.clock.instant + timedelta(days=2)
+    monkeypatch.setattr(RE, "_section_los", lambda *_a: [a])
+    _complete_section(env)
+    env.clock.advance(5)
+    assert RE.sweep(env.vault, env.repository, clock=env.clock) == 1
+    env.clock.advance(10)
+    _name_on_coverage(env, b)
+    env.clock.advance(15)
+    _in_session(env, objective["practice_item_id"], b, "wednesday")
+    env.clock.advance(1)
+    assert _warm_completion(env, objective, decision_id).status == DC.NOT_DELAYED
+    assert _derive(env)[decision_id]["r_cold_status"] == "pending"
+    assert not _metric(env, b).reached
+    before = _derive(env)
+    RE.sweep(env.vault, env.repository, clock=env.clock)
+    assert _derive(env) == before

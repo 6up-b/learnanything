@@ -15,8 +15,8 @@ outcome reads:
 
 **One read** (landing ruling R1): :func:`read` is how ``router_outcomes_v3``, the time metric and the capture report see
 Reader exposures: the stored receipts plus the source activity not yet swept, through the same collectors, the same
-mapping and the same source time as the sweep. Correctness rests on this read, which lists every source row, so **the
-sweep only freezes**: no answer depends on whether Today has run.
+mapping and the same source time as the sweep, and a section's coverage rows live. Correctness rests on this read, which
+lists every source row, so **the sweep only freezes**: no answer depends on whether Today has run.
 
 **The sweep and the foreground** (ruling R6). :func:`sweep` runs where Today prepares, so it reads only from the newest
 recorded source time less AD's overlap (:data:`learnloop.reading_sources.SWEEP_OVERLAP`) and takes the write lock only when
@@ -243,6 +243,14 @@ def not_yet_swept(connection: Any, vault: Any, repository: Any, *, since: str | 
                    for lo in event.learning_object_ids})
 
 
+def _covered_sections(connection: Any) -> list[tuple[str, str]]:
+    """A section's coverage rows, read live: a section on record for one LO doesn't hide one a row names later (the
+    section's own rule, :func:`_section_los`, and its source time). One join, whatever the history's length."""
+
+    found = ((lo, source_stamp(completed_at)) for lo, completed_at in store.sections_read_by_coverage(connection))
+    return [(lo, stamp) for lo, stamp in found if stamp is not None]
+
+
 def read(connection: Any, vault: Any, repository: Any, *, since: str | None = None) -> list[tuple[str, str]]:
     """Every Reader exposure, ``(LO, source time)``: the stored receipts plus the source activity not yet swept.
 
@@ -250,7 +258,8 @@ def read(connection: Any, vault: Any, repository: Any, *, since: str | None = No
     given, and at any switch: reading an exposure changes nothing served. ``since`` lists only activity after it (the
     foreground's, see the module's note); the stored receipts are always all read."""
 
-    return sorted({*store.reading_receipts(connection), *not_yet_swept(connection, vault, repository, since=since)})
+    return sorted({*store.reading_receipts(connection), *_covered_sections(connection),
+                   *not_yet_swept(connection, vault, repository, since=since)})
 
 
 def read_for_answer(connection: Any, vault: Any, repository: Any, *, answered_at: str) -> list[tuple[str, str]]:

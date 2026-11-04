@@ -175,6 +175,18 @@ def reading_receipts(connection: sqlite3.Connection) -> set[tuple[str, str]]:
     return out
 
 
+def sections_read_by_coverage(connection: sqlite3.Connection) -> list[tuple[str, str]]:
+    """``(LO, completed_at)`` of every completed section, for each LO its coverage rows name: what a section's LOs come to
+    from coverage alone, read live so a row added after the section was recorded still counts."""
+
+    if not _present(connection, ("reader_section_progress", "section_coverage")):
+        return []
+    return [(str(row[0]), str(row[1])) for row in connection.execute(
+        "SELECT DISTINCT c.learning_object_id, p.completed_at FROM reader_section_progress p "
+        "JOIN section_coverage c ON c.extraction_id = p.extraction_id AND c.section_id = p.section_id "
+        "WHERE p.completed_at IS NOT NULL")]
+
+
 def reading_exposure_recorded(connection: sqlite3.Connection, where: str, args: Iterable[Any] = ()) -> bool:
     return connection.execute(f"SELECT 1 FROM {READING_EXPOSURES} WHERE {where} LIMIT 1", tuple(args)).fetchone() is not None
 
@@ -220,6 +232,7 @@ __all__ = [
     "newest_reading_exposure",
     "reading_exposure_recorded",
     "reading_receipts",
+    "sections_read_by_coverage",
     "reading_exposures_present",
     "insert_objective",
     "insert_prefilter_receipt",
