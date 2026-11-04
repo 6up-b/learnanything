@@ -33,6 +33,7 @@ from learnloop.diagnosis.ai_contracts import (
     probe_instance_surfaces_prompt,
 )
 from learnloop.clock import Clock, utc_now_iso
+from learnloop.content.authoring.practice_leakage import reserved_payload_findings, reserved_questions
 from learnloop.db.repositories import ProbeGenerationNeedRecord, Repository
 from learnloop.learner.facet_state_reader import is_canonical_state_vault
 from learnloop.diagnosis.probe_families import (
@@ -921,7 +922,6 @@ def _reproduces_reserved(vault: LoadedVault, repository: Repository, payload: Ma
 
     if not generate_and_serve_on(vault.config):
         return False
-    from learnloop.content.authoring.practice_leakage import reserved_payload_findings, reserved_questions
     from learnloop.learner_protection import withheld_items
 
     withheld = withheld_items(vault, repository)
