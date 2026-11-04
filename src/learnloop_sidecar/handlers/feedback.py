@@ -209,14 +209,21 @@ def _with_followup(ctx: SidecarContext, vault: Any, repository: Any, attempt_id:
     """FG1 §6: the workflow's read rides on the bundle; with no workflow it stays as it was.
     The phone's feedback doesn't hold what it can't follow with a probe (§10)."""
 
-    from learnloop.followup_run.serving import held_bundle, view
+    from learnloop.followup_run.serving import held_bundle, source_of_probe_attempt, view
     from learnloop.followup_serve.gates import generate_and_serve_on
 
     if ctx.request_origin is not None or not generate_and_serve_on(vault.config):
         return bundle
     current = view(vault, repository, attempt_id)
     if current is None:
-        return bundle
+        # §3 step 8: this answered a generated probe, so what the earlier miss held appears now.
+        source = source_of_probe_attempt(repository, attempt_id)
+        if source is None:
+            return bundle
+        attempt = repository.fetch_practice_attempt(source)
+        if attempt is not None:
+            _debit_released_feedback(vault, repository, attempt, repository.fetch_attempt_feedback_metadata(source) or {})
+        return {**bundle, "heldFeedbackAttemptId": source}
     return {**(held_bundle(bundle) if holding else bundle), "followup": to_camel(current)}
 
 

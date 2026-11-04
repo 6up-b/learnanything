@@ -233,3 +233,29 @@ def test_the_value_checks_are_on_the_record_and_decide_nothing(tmp_path):
     factor = repository.unresolved_cause_factors_for_attempt(wf.get(repository, outcome.workflow_id)["source_attempt_id"])[0]
     seen = router.observational(repository, factor["id"])
     assert seen["repair_class_divergence"] is True and seen["decide_probe"]
+
+
+def test_decide_runs_the_gate_against_the_standing_plan(tmp_path, monkeypatch):
+    env, record = _env(tmp_path, fake_runtime())
+    row = _workflow(env)
+    monkeypatch.setattr(router, "_plan_context", lambda *_a, **_k: (env, record, _gate(env)))
+    monkeypatch.setattr(router, "hard_refusal", lambda *_a, **_k: None)
+    choice = SimpleNamespace(factor_id="f", hypothesis_ids=())
+    decision = router.decide(env.vault, env.repository, row, choice=choice, clients=None, clock=env.clock)
+    assert decision.decided_by in {"mixture", "not_ready"}
+    assert decision.chosen_ref in {router.ASK_NOW, router.WAIT, router.NO_INTERVENTION}
+    assert decision.block_id == record.current_block().id and decision.decision_id
+    logged = router.record_decision(env.vault, env.repository, row, decision, clock=env.clock)
+    assert rows(env, "plan_interrupt")[-1]["id"] == logged.decision_id
+
+
+def test_the_decision_line_says_what_the_screen_should(tmp_path):
+    from learnloop.followup_run.decision_view import decision_view
+
+    env, record = _env(tmp_path, fake_runtime())
+    row = _workflow(env)
+    decision = router.record_decision(env.vault, env.repository, row, _decide(env, record, INSERT_NOW), clock=env.clock)
+    view = decision_view(env.repository, decision.decision_id)
+    assert view["line"].startswith("Router: ask now")
+    assert "floor" in view["line"] and "%" in view["line"]
+    assert view["decision_id"] == decision.decision_id

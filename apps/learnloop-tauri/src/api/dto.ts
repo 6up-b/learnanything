@@ -1612,6 +1612,8 @@ export interface FeedbackBundle {
   followupQueued: boolean;
   /** FG1: the follow-up workflow's read; absent when no workflow owns this attempt. */
   followup?: FollowupDto;
+  /** FG1 §3: this answered a generated probe; the earlier miss's held feedback is out now. */
+  heldFeedbackAttemptId?: string;
   // Non-null when this attempt is itself a follow-up (drives the rating strip).
   followupSource?: FollowupSourceDto | null;
   followupRating?: FollowupRatingDto | null;

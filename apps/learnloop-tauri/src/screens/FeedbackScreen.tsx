@@ -2396,6 +2396,13 @@ export function FeedbackScreen({
             <FollowupPanel followup={followup} nextWaiting={nextWaiting}
               onContinueWithout={() => void continueWithout()} onShowAnyway={() => void showAnyway()} />
           ) : null}
+          {f.heldFeedbackAttemptId ? (
+            <div data-testid="followup-released" style={{ marginBottom: 14 }}>
+              <QuietAction onClick={() => onInspect(f.heldFeedbackAttemptId as string)}>
+                See the earlier answer and the possible causes
+              </QuietAction>
+            </div>
+          ) : null}
           {/* Reader CA1: the locator, the original page and the problem as printed. */}
           <PrintedAfterFeedback practiceItemId={item?.id ?? null} altText={item?.prompt ?? ""}
             onOpenInReader={onOpenStudied ? (page) => onOpenStudied(printedPageInReader(page)) : undefined} />

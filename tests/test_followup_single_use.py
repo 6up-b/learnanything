@@ -6,7 +6,6 @@ import pytest
 
 from learnloop.diagnosis.probe_remint import ProbeRemintError, remint_probe_as_practice_item
 from learnloop.followup_serve import identity
-from learnloop.goals.exam_pool import reserve_exam_pool  # noqa: F401 - the door's module
 from learnloop.scheduling.scheduler import build_due_queue
 from learnloop.scheduling.serving_exclusions import (
     ROUTINE_GATES,
@@ -132,6 +131,17 @@ def test_the_teachers_probe_headers_leave_it_out(tmp_path):
 
 
 def test_an_exam_never_reserves_one(tmp_path):
-    import learnloop.goals.exam_pool as pool
+    from learnloop.clock import FrozenClock
+    from learnloop.followup_serve import identity as fg1_identity
+    from learnloop.goals.exam_pool import release_exam_pool, reserve_exam_pool
+    from tests.test_exam_pool import NOW
+    from tests.test_exam_protection_review import _reserved_pool
 
-    assert "generated_probe_ids" in open(pool.__file__, encoding="utf-8").read()
+    paths, repository = _reserved_pool(tmp_path)
+    vault = load_vault(paths.root)
+    goal = vault.goals[0]
+    assert "pi_pool_apply_mid" in repository.reserved_exam_pool_item_ids()
+    release_exam_pool(repository, goal.id, clock=FrozenClock(NOW))
+    fg1_identity.register(repository, practice_item_id="pi_pool_apply_mid", revision="r", source="manual", clock=CLOCK)
+    reserve_exam_pool(vault, repository, goal, item_count=3, clock=FrozenClock(NOW))
+    assert "pi_pool_apply_mid" not in repository.reserved_exam_pool_item_ids()

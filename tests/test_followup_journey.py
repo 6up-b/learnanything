@@ -235,3 +235,101 @@ def test_with_the_switch_off_nothing_changes_in_the_feedback(tmp_path):
     bundle = _call(ctx, "get_feedback", {"attemptId": result.attempt_id})
     assert "followup" not in bundle and bundle["feedbackMd"] == "Review the factorization."
     assert _call(ctx, "followup_status", {"attemptId": result.attempt_id}) == {"version": 1, "enabled": False}
+
+
+def test_the_probes_feedback_points_back_at_what_was_held(journey):
+    ctx, _vault, repository, result, outcome = journey
+    _generate(ctx, repository)
+    row = wf.get(repository, outcome.workflow_id)
+    _call(ctx, "followup_status", {"attemptId": result.attempt_id})
+    _call(ctx, "open_queue_item", {"practiceItemId": row["practice_item_id"]})
+    _call(ctx, "get_probe_contract", {"practiceItemId": row["practice_item_id"]})
+    probe = _answer(ctx, repository, row, points={"fact_0": 0, "fact_1": 2})
+    assert _call(ctx, "get_feedback", {"attemptId": probe.attempt_id})["heldFeedbackAttemptId"] == result.attempt_id
+
+
+def _forced(monkeypatch, chosen):
+    from learnloop.followup_run import router
+
+    monkeypatch.setattr(router, "decide", lambda *_a, **_k: router.FollowupDecision(chosen, chosen, "mixture"))
+
+
+def test_a_wait_releases_now_labels_the_probe_exposed_and_its_answer_cant_close_the_factor(journey, monkeypatch):
+    from learnloop.followup_run import router
+
+    ctx, _vault, repository, result, outcome = journey
+    _forced(monkeypatch, router.WAIT)
+    fake = AuthorFake()
+    _generate(ctx, repository, fake=fake)
+    row = wf.get(repository, outcome.workflow_id)
+    assert fake.calls == 1  # a wait generates at once, as preparation
+    assert row["state"] == wf.WAITING and row["exposed_at"] and row["release_reason"] == wf.RELEASE_WAIT
+    status = _call(ctx, "followup_status", {"attemptId": result.attempt_id})
+    assert status["line"].startswith("A question on ") and status["line"].endswith("is coming in your next block.")
+    assert _call(ctx, "followup_next", {"attemptId": result.attempt_id})["action"] == "continue"
+    # Not served until the boundary moves it.
+    _refused(ctx, "open_queue_item", {"practiceItemId": row["practice_item_id"]}, code=identity.GENERATED_PROBE_RESERVED)
+    assert wf.waiting_still_valid(repository, row)
+    assert wf.move(repository, outcome.workflow_id, to_state=wf.READY, reason="boundary", clock=CLOCK)
+    _call(ctx, "open_queue_item", {"practiceItemId": row["practice_item_id"]})
+    _call(ctx, "get_probe_contract", {"practiceItemId": row["practice_item_id"]})
+    _answer(ctx, repository, row, points={"fact_0": 0, "fact_1": 2})
+    observation = repository.causal_discriminating_observations(factor_id=row["factor_id"])[0]
+    assert not observation["admitted"] and repository.unresolved_cause_factor(row["factor_id"])["status"] == "open"
+
+
+def test_no_intervention_generates_nothing_and_releases_what_was_held(journey, monkeypatch):
+    from learnloop.followup_run import router
+
+    ctx, _vault, repository, result, outcome = journey
+    _forced(monkeypatch, router.NO_INTERVENTION)
+    fake = AuthorFake()
+    _generate(ctx, repository, fake=fake)
+    row = wf.get(repository, outcome.workflow_id)
+    assert fake.calls == 0 and row["state"] == wf.SETTLED and row["release_reason"] == wf.RELEASE_NO_INTERVENTION
+    bundle = _call(ctx, "get_feedback", {"attemptId": result.attempt_id})
+    assert bundle["feedbackMd"] == "Review the factorization."
+    assert _call(ctx, "followup_next", {"attemptId": result.attempt_id})["action"] == "continue"
+    assert identity.generated_probe_ids(repository) == frozenset()
+
+
+def test_with_no_plan_a_ready_probe_heads_todays_queue(journey):
+    from learnloop.db.repositories import Repository  # noqa: F401
+
+    ctx, vault, repository, result, outcome = journey
+    _generate(ctx, repository)
+    _call(ctx, "followup_status", {"attemptId": result.attempt_id})
+    vault, _ = ctx.require_vault()
+    from learnloop.daily_plan.engine import plan_active
+
+    row = wf.get(repository, outcome.workflow_id)
+    if plan_active(vault):
+        pytest.skip("this vault's plan serves it")
+    queue = _call(ctx, "get_today_queue", {"sessionId": None})
+    first = queue["sections"][0]["items"][0]
+    assert first["practiceItemId"] == row["practice_item_id"]
+    assert identity.closed_probe_ids(repository) == frozenset()  # listing never burns
+
+
+def _bundle_without_ids(bundle):
+    drop = {"attemptId", "generatedAt", "feedbackLastShownAt", "feedbackFirstShownAt", "nextDueAt"}
+    return {key: value for key, value in bundle.items() if key not in drop}
+
+
+def test_with_the_switch_off_the_replies_match_the_predecessor(tmp_path):
+    import json
+    import re
+
+    replies = {}
+    for name, kwargs in {"old": {"version": "mvp-0.44"}, "off": {"config": OFF}}.items():
+        _vault, _repository, paths = rival_causes_vault(tmp_path / name, **kwargs)
+        ctx = SidecarContext()
+        ctx.load(paths.root)
+        vault, repository = ctx.require_vault()
+        result, outcome = miss_with_rivals(vault, repository)
+        assert outcome.workflow_id is None
+        reply = json.dumps(_bundle_without_ids(_call(ctx, "get_feedback", {"attemptId": result.attempt_id})),
+                           sort_keys=True, default=str)
+        reply = re.sub(r"[0-9A-HJKMNP-TV-Z]{26}", "ULID", reply)
+        replies[name] = re.sub(r"\b(dr|cdo|chs|hs|pp|ge|rc)_[0-9a-f]{16,}", r"\1_ID", reply)
+    assert replies["old"] == replies["off"]

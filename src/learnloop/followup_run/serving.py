@@ -102,6 +102,18 @@ def _served(repository: Repository, row: Mapping[str, Any]) -> bool:
     return bool(item_id) and str(item_id) in identity.closed_probe_ids(repository)
 
 
+def source_of_probe_attempt(repository: Repository, attempt_id: str) -> str | None:
+    """The miss whose held feedback this probe answer released, or None."""
+
+    attempt = repository.fetch_practice_attempt(attempt_id)
+    if attempt is None:
+        return None
+    row = wf.workflow_of_item(repository, str(attempt.get("practice_item_id") or ""))
+    if row is None or not row.get("feedback_released_at"):
+        return None
+    return str(row["source_attempt_id"])
+
+
 def next_action(
     vault: Any, repository: Repository, attempt_id: str, *, plan_serves: bool, clock: Clock | None = None
 ) -> NextAction:
@@ -216,5 +228,5 @@ def abandon(repository: Repository, practice_item_id: str, *, clock: Clock | Non
 
 __all__ = [
     "FAILED_LINE", "HELD_KEYS", "NO_PLAN_LINE", "NextAction", "PREPARING", "abandon", "bind_plan_step",
-    "continue_without", "held_bundle", "is_holding", "next_action", "show_anyway", "view",
+    "continue_without", "held_bundle", "is_holding", "next_action", "show_anyway", "source_of_probe_attempt", "view",
 ]
